@@ -10,7 +10,7 @@ import {
 	attentionReviewReasoningMarker,
 	buildAttentionService,
 	MAX_RECOMPUTE_BATCH,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";

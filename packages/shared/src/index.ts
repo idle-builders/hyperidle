@@ -462,26 +462,6 @@ export {
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-// ── AK2: Strategy Port ──
-// ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
-// ── AK8: DecomposeBetRequest / DecompositionPlan / decomposeBet added ──
-// ── AR4b: AssistantFormationRequest / AssistantFormation / formAssistant added ──
-export type {
-	AgentScaffoldSpec,
-	AssistantFormation,
-	AssistantFormationRequest,
-	ContextAssemblyOutcome,
-	ContextAssemblyRequest,
-	DecomposeBetRequest,
-	DecompositionPlan,
-	IngestionHandle,
-	IngestionRequest,
-	ScaffoldRequest,
-	SelectAgentOutcome,
-	SelectAgentRequest,
-	SelectionCandidate,
-	Strategy,
-} from "./strategy-port.js";
 // ── Team primitive (L13, formerly Product) ──
 export type {
 	AgentHealthLevel,

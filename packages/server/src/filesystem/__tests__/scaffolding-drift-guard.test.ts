@@ -17,7 +17,10 @@
  */
 
 // ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
-import { EMITTED_ROOTS_AGENTS_MD, EMITTED_ROOTS_CONTEXT_ASSEMBLY } from "@hyperidle/fabric";
+import {
+	EMITTED_ROOTS_AGENTS_MD,
+	EMITTED_ROOTS_CONTEXT_ASSEMBLY,
+} from "@hyperidle/server/app-runtime";
 import { describe, expect, it } from "vitest";
 import { EMITTED_ROOTS_CLI_MCP_CONFIG } from "../../harness/cli-mcp-config.js";
 import {

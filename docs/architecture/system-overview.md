@@ -95,8 +95,8 @@ Agents run as host processes in a local working directory — there is no isolat
 | `shared` | Shared | Types, constants, TOON codec |
 | `db` | Core app | Schema (Drizzle ORM), migrations |
 | `server` | Core app + agent layer | Hono API routes, middleware, WebSocket, domain services, agent runtime services |
-| `fabric` | Legacy compatibility | Historical package retained for old tests/exports; not a production runtime dependency |
-| `strategy-minimal` | Legacy compatibility | Historical package retained for old tests/exports; not a production runtime dependency |
+| `fabric` | Legacy compatibility | Historical package retained for old tests/exports; product runtime must use `server/src/app-runtime` instead |
+| `strategy-minimal` | Legacy compatibility | Historical package retained for old tests/exports; product runtime must not use it as fallback |
 | `web` | Interface | React SPA (Vite) |
 | `desktop` | Interface | Electron main process, preload bridge |
 | `design-system` | Interface | React components + stories |

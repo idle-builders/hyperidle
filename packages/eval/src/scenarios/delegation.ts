@@ -9,7 +9,7 @@
 
 import { randomUUID } from "node:crypto";
 import { routines, sessions } from "@hyperidle/db";
-import { checkAndFireRoutine } from "@hyperidle/fabric";
+import { checkAndFireRoutine } from "@hyperidle/server/app-runtime";
 import { EventBus } from "@hyperidle/shared";
 import { eq, ne } from "drizzle-orm";
 import {

@@ -23,7 +23,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { filesystemInjections, filesystems, teamMembers, teams, users } from "@hyperidle/db";
-import { createGitRunner } from "@hyperidle/fabric";
+import { createGitRunner } from "@hyperidle/server/app-runtime";
 import type { Filesystem } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test } from "../../test-fixtures.js";

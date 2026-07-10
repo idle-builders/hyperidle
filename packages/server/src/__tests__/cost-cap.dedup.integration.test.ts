@@ -8,7 +8,7 @@ import {
 	getDedupCacheSize,
 	recordCostAndCheck,
 	releaseSessionDedup,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 /**

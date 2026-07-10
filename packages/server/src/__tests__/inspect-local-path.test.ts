@@ -5,7 +5,7 @@
  * Tests use createFakeGitRunner for injection (no real git).
  */
 
-import type { GitRunner } from "@hyperidle/fabric";
+import type { GitRunner } from "@hyperidle/server/app-runtime";
 import { describe, expect, it } from "vitest";
 import { inspectLocalPath } from "../services/inspect-local-path.js";
 

@@ -5,12 +5,12 @@ import { type HyperIdleDb, routineRuns, routines, sessions, users } from "@hyper
 import {
 	ConcurrencyLimitError,
 	type EventBus,
-	type IngestionHandle,
 	type ModelTier,
 	type SessionLifecycleCorrelation,
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
+import type { IngestionHandle } from "../app-runtime/contracts.js";
 import { releaseSessionDedup } from "../app-runtime/services/cost-cap.js";
 import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 

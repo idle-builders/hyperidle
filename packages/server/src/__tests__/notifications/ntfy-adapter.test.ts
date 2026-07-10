@@ -9,7 +9,11 @@
 
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createNtfyAdapter, type Notification, type Recipient } from "@hyperidle/fabric";
+import {
+	createNtfyAdapter,
+	type Notification,
+	type Recipient,
+} from "@hyperidle/server/app-runtime";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 interface CapturedRequest {

@@ -15,9 +15,6 @@
 		"**/__tests__/setup.ts",
 		"**/__tests__/_helpers.ts",
 		"packages/server/src/harness/__tests__/require-harness.ts",
-		"packages/server/src/harness/__tests__/provision-real-session.ts",
-		"packages/server/src/harness/__tests__/provision-real-decomposition.ts",
-		"packages/server/src/__tests__/AU1-fixtures.ts",
 		"packages/server/src/test-fixtures.ts",
 		"packages/web/e2e/fixtures.ts",
 		"packages/web/src/pages/**/__fixtures__/**",
@@ -27,7 +24,6 @@
 		"packages/server/src/harness/re-engage.ts",
 		"packages/server/src/tools/live-proof-lanes.ts",
 		"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts",
-		"packages/server/src/services/strategy-registry.ts",
 		"packages/server/src/services/knowledge/projections.ts"
 	],
 	"ignoreExportsUsedInFile": true,
@@ -35,7 +31,8 @@
 	"ignoreIssues": {
 		"packages/web/src/pages/review/ReviewRenderedInContext.tsx": ["exports"],
 		"packages/server/src/app-runtime/**": ["exports", "types"],
-		"packages/server/src/services/strategy-registry.ts": ["exports"]
+		"packages/server/src/services/proposed-call-workflow.ts": ["exports"],
+		"packages/server/src/services/session-lifecycle.ts": ["exports"]
 	},
 	"workspaces": {
 		".": {
@@ -56,7 +53,6 @@
 			"ignoreBinaries": ["drizzle-kit", "vitest"],
 			"ignoreDependencies": ["zod"]
 		},
-		"packages/fabric": {},
 		"packages/api-contract": {},
 		"packages/server": {
 			"entry": ["src/harness/harness-session-probe.ts!"],
@@ -104,7 +100,6 @@
 				"tippy.js"
 			]
 		},
-		"packages/strategy-minimal": {},
 		"packages/desktop": {
 			"entry": ["src/preload.ts!", "scripts/bundle.ts!", "scripts/check-native.ts!"],
 			"ignoreBinaries": ["electron", "electron-builder"],

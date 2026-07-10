@@ -16,7 +16,7 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { registerLifecyclePropagation } from "@hyperidle/fabric";
+import { registerLifecyclePropagation } from "@hyperidle/server/app-runtime";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { transitionBet } from "../services/bet-state-machine.js";

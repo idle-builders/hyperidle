@@ -29,7 +29,7 @@ import {
 	type BuiltinRoutineId,
 	provisionTeamRoutines,
 	runBuiltinRoutine,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";

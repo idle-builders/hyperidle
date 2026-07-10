@@ -10,7 +10,7 @@ interface Finding {
 const ROOT = process.cwd();
 const FINDINGS: Finding[] = [];
 
-const SOURCE_ROOTS = ["packages/server/src", "packages/fabric/src"] as const;
+const SOURCE_ROOTS = ["packages/server/src"] as const;
 const TEXT_EXTENSIONS = new Set([".ts", ".tsx"]);
 const SOURCE_EXCLUDES = [
 	"/__tests__/",
@@ -24,7 +24,6 @@ const SOURCE_EXCLUDES = [
 const ALLOWED_DIRECT_CONSUMER_IMPORTS = new Set(["packages/server/src/services/agent-run-boundary.ts"]);
 const ALLOWED_REGISTRY_DEFINITIONS = new Set([
 	"packages/server/src/app-runtime/services/provision-registry.ts",
-	"packages/fabric/src/services/provision-registry.ts",
 ]);
 
 function extension(path: string): string {

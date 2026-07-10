@@ -7,7 +7,7 @@ import {
 	knowledgeStrategyFabric,
 	users,
 } from "@hyperidle/db";
-import { setupFts } from "@hyperidle/fabric";
+import { setupFts } from "@hyperidle/server/app-runtime";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";

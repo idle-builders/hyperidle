@@ -4,10 +4,10 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
-	IngestionHandle,
 	UserRole,
 } from "@hyperidle/shared";
 import { assembleContext } from "../../app-runtime/context-assembly.js";
+import type { IngestionHandle } from "../../app-runtime/contracts.js";
 import { startWatcher } from "../../app-runtime/file-watcher.js";
 
 export interface AssembleAgentContextInput {

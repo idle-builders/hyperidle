@@ -16,7 +16,7 @@ import type {
 	Notification,
 	NotificationAdapter,
 	NotificationConfig,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp } from "../../app.js";

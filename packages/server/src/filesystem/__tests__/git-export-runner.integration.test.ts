@@ -11,7 +11,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createGitRunner } from "@hyperidle/fabric";
+import { createGitRunner } from "@hyperidle/server/app-runtime";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // Helper: create a minimal bare git repo with one commit for use as a remote.

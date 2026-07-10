@@ -1,5 +1,4 @@
 [
-	"packages/server/src/__tests__/session-provisioning.integration.test.ts",
 	"packages/server/src/harness/__tests__/AM2-builtin-gateway.integration.test.ts",
 	"packages/server/src/harness/__tests__/cli-adapter-real-binary.integration.test.ts"
 ]

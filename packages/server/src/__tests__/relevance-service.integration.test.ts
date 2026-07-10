@@ -11,7 +11,7 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
-import { createRelevanceService } from "@hyperidle/fabric";
+import { createRelevanceService } from "@hyperidle/server/app-runtime";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";
 

@@ -6,6 +6,8 @@ The point is not a new harness path. The point is one contract for every agent r
 
 **Reference.** `docs/architecture/runtime-simplification.md`; `plans/strategy-kernel-plugin-split/dependency-graph.md` (as-is); `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md` (target graph); `plans/strategy-kernel-plugin-split/as-is-vs-should-dependency-graph.md` (current gap comparison); `plans/strategy-kernel-plugin-split/component-inventory.md`; `docs/architecture/as-implemented-domain-architecture.md`; `.pipeline/work-packages/TRACK-AR.md` (real harness proof boundary); current domain callers in Work, Conversation, Knowledge, Users, Settings, and Routines.
 
+**Corrective closure rule.** AU is not complete until the source tree matches the should graph, not a softer transitional graph. Agent handoff must be event/request driven, plugins must be editable configuration only, and no app-runtime/Fabric-shaped compatibility shell may remain as an ownership boundary. Every AU review from AU9 onward must explicitly compare implementation against `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md` and fail the package when a forbidden edge remains, even if behavior still works.
+
 ---
 
 ### AU1 — Event-driven session requests between collaboration domains and the agent runtime
@@ -411,6 +413,173 @@ The point is not a new harness path. The point is one contract for every agent r
 
 ---
 
+### AU9 — Hard agent handoff boundary
+
+**Work package.** As a maintainer, I want agent work to start only through the agent-layer request boundary, so that core app domains never create, consume, or execute agent requests directly. When this ships, assistant turns, session routes, knowledge actions, routines, decomposition, tasks, and re-engagement all record intent or emit an event, and the agent layer resolves that into a durable run request and lifecycle. A direct route/service handoff into execution is a failing architecture state, not a compatibility seam.
+
+**Why this matters.** Direct handoff is the clearest red flag in the current implementation because it leaves core app code choosing how agent execution starts. That means the should graph has not actually landed: routes and domain services still know too much about run construction and execution. This package cuts that edge completely.
+
+**Type.** backend
+
+**What exists today.** AU1/AU4/AU6 describe the target request path, but current code can still create triggered agent session requests from core routes and services and immediately execute them. The resulting behavior works, but ownership is wrong: core app code crosses into agent-layer work instead of publishing intent and reacting to lifecycle.
+
+**What's genuinely missing.** There is no hard rule that domain code stops at event/request intent and never builds or consumes execution requests itself. There is also no proof that every LLM-capable entry point has the same handoff shape.
+
+**Depends on.**
+- **AU7** — Strategy/Fabric runtime retirement must be settled enough that this package can cut the remaining direct handoff paths instead of preserving them as migration glue.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Required — run /refine first to name the handoff contract and enumerate every current direct caller.
+- **Design:** Not required — backend boundary only.
+
+**Human concept review.** No — no new user-facing surface.
+
+**Acceptance criteria.**
+- Core app routes and domain services never directly create, consume, or execute agent run requests.
+- Every existing LLM-capable entry point hands off by recording domain intent or publishing a domain event that the agent layer consumes.
+- The agent layer is the only owner of request construction, trigger resolution outcome binding, execution admission, and lifecycle publication.
+- Assistant turns, session-start paths, knowledge actions, routines, decomposition, task acceptance, and re-engagement preserve current observable behavior after the handoff cut.
+- Failure, cancellation, and completion are observed by domains only through lifecycle state/events, not direct execution callbacks.
+- Review for this package must include a should-graph audit proving no core-to-agent direct handoff edge remains.
+
+**Validation scenarios.**
+- Given each existing LLM-capable entry point, when it requests agent work, then the first cross-boundary artifact is a domain event or recorded intent consumed by the agent layer.
+- Given a domain route or service attempts to create or execute an agent request directly, when validation runs, then the package fails.
+- Given an agent run fails, completes, or is cancelled, when the originating domain updates, then it uses lifecycle state/events rather than execution internals.
+
+**Plan calls.** Run /pipeline:refine first, then /pipeline:architecture. The architecture plan must inventory every direct handoff site, classify the replacement event/intent, and state how review will prove the should graph edge was removed.
+
+**Contracts / constraints.**
+- No direct agent request creation outside the agent layer.
+- No compatibility wrapper that still lets domains execute agent work.
+- No new harness path.
+- Preserve current user-visible behavior.
+- Review is against the should graph, not against the previous AU transitional state.
+
+**Out of scope.**
+- Plugin configuration ownership; AU10 owns it.
+- Removing the app-runtime transitional shell; AU11 owns it.
+- Adding new LLM-capable entry points.
+- Remote worker scheduling.
+
+**Effort.** L (~3d)
+
+---
+
+### AU10 — Plugin surface ownership correction
+
+**Work package.** As a maintainer, I want plugins and built-in defaults to be configuration sources only, so that they cannot discover runtime capabilities by importing execution registries or act as a hidden runtime layer. When this ships, plugin-provided agents, skills, routines, triggers, tools, MCP, and harness descriptors are resolved from editable configuration records with provenance, while runtime execution reads the active configuration through agent-layer contracts.
+
+**Why this matters.** The current plugin surface is not correct if plugin configuration imports tool/runtime registries or owns built-in capability resolution. That recreates Strategy/Fabric in a new place. Plugins should seed editable configuration; they should not know how execution is wired.
+
+**Type.** framework
+
+**What exists today.** AU2/AU5 define plugin defaults and configuration surface, but current implementation can still mix plugin configuration with built-in tool definitions and runtime-derived capability data. That makes plugin configuration depend upward on execution internals instead of being plain app configuration.
+
+**What's genuinely missing.** There is no clean ownership split where configuration describes desired capabilities and runtime registries/adapters consume that description without being imported by plugin/default resolution.
+
+**Depends on.**
+- **AU9** — plugin triggers and defaults must feed the hard agent handoff path, not direct execution paths.
+
+**Complexity.** M
+
+**Pre-build gates.**
+- **Refinement:** Required — run /refine first to lock plugin/default ownership and identify all runtime-derived config leaks.
+- **Design:** Not required — backend/framework correction only.
+
+**Human concept review.** No — no new user-facing surface beyond preserving AU5 behavior.
+
+**Acceptance criteria.**
+- Plugin/default configuration code does not import runtime tool registries, harness adapters, MCP bridge registries, provisioning services, or agent execution internals.
+- Built-in defaults are represented through the same editable configuration/provenance model as plugin defaults.
+- Runtime execution consumes active configuration through agent-layer contracts instead of plugin code pushing behavior into runtime registries.
+- User overrides, disabled plugin origins, and built-in defaults preserve AU2/AU5 observable behavior.
+- Capability validation is explicit and inspectable without making plugin configuration own runtime discovery.
+- Review for this package must include a should-graph audit proving plugins are configuration sources only.
+
+**Validation scenarios.**
+- Given plugin/default configuration loads, when active configuration is queried, then built-in and plugin defaults appear with provenance without importing runtime registries.
+- Given a user override exists, when plugin defaults change, then the override remains active and runtime consumes the active value.
+- Given plugin configuration attempts to call or import execution internals, when validation runs, then the package fails.
+
+**Plan calls.** Run /pipeline:refine first, then /pipeline:architecture. The plan must classify configuration records, runtime capability validation, and active configuration consumption against the should graph.
+
+**Contracts / constraints.**
+- Plugins seed configuration; they do not execute work.
+- Built-ins use the plugin/default configuration path.
+- Runtime registries/adapters consume active configuration; plugin config never imports them.
+- No marketplace, signing, sandboxing, or permissions tier.
+- Review is against the should graph, not against the previous AU transitional state.
+
+**Out of scope.**
+- Hard agent handoff; AU9 owns it.
+- Removing app-runtime transitional ownership; AU11 owns it.
+- New settings UI.
+- Third-party plugin distribution.
+
+**Effort.** M (~2d)
+
+---
+
+### AU11 — Runtime ownership hard cut
+
+**Work package.** As a maintainer, I want the transitional app-runtime/Fabric-shaped shell deleted as an ownership boundary, so that runtime responsibilities live only in their final should-graph homes: core app domains, agent layer, or editable configuration. When this ships, core routes and services do not import harness, MCP, provisioning, context, or tool execution internals; agent-layer modules do not own core CRUD; and no compatibility layer remains that groups former Fabric services under a new name.
+
+**Why this matters.** Leaving the transitional shell in place means AU7 was not a true refactor. It keeps the old architecture alive behind softer names and lets core/server code keep reaching into harness and MCP details. This package is intentionally destructive: classify, move, delete, and let tests prove behavior, instead of preserving old ownership for convenience.
+
+**Type.** framework
+
+**What exists today.** Strategy/Fabric source can be retired while a server-local runtime shell still carries task dispatch, routine scheduling, trigger resolution, and provisioning-adjacent behavior. Core routes can still receive harness/MCP/provisioning dependencies directly. That shape violates the should graph even if Fabric package names are gone.
+
+**What's genuinely missing.** There is no final ownership pass that removes the transitional boundary and forbids core/server surfaces from depending on agent execution implementation details.
+
+**Depends on.**
+- **AU9** — direct agent handoff must be cut before ownership can be final.
+- **AU10** — plugin/default ownership must be clean before former runtime services can be deleted or rehomed without recreating hidden configuration behavior.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Required — run /refine first to classify each transitional runtime responsibility as core app, agent layer, editable configuration, or deletion.
+- **Design:** Not required — framework/backend ownership cut.
+
+**Human concept review.** No — no new user-facing surface.
+
+**Acceptance criteria.**
+- No transitional app-runtime/Fabric-shaped ownership boundary remains in boot, service wiring, or runtime imports.
+- Core routes and core domain services do not import harness adapters, MCP bridge registries, provisioning internals, context assembly, tool execution, or agent lifecycle implementation details.
+- Agent-layer code does not own Work, Conversation, Knowledge, Users, Settings, Routine, or notification CRUD except through explicit core app contracts.
+- Former transitional services are either moved to their should-graph owner or deleted as dead behavior; none remain as pass-through wrappers.
+- Existing Work, Conversation, Knowledge, Settings, Routine, notification, session, tool, MCP, and harness behavior remains observable.
+- Review for this package must include a should-graph audit proving every moved/deleted responsibility lands in the target owner.
+
+**Validation scenarios.**
+- Given app boot, when dependencies are inspected, then no transitional runtime shell participates in wiring.
+- Given core route/domain code is scanned by validation, when it imports harness/MCP/provisioning/context/tool execution internals, then the package fails.
+- Given a former transitional service has no final owner, when implementation review runs, then it must be deleted or explicitly rejected by the package review.
+- Given task, routine, assistant, knowledge, and decomposition flows run, then existing observable behavior still works through final owners.
+
+**Plan calls.** Run /pipeline:refine first, then /pipeline:architecture. The plan must start from `plans/strategy-kernel-plugin-split/as-is-vs-should-dependency-graph.md`, produce a responsibility-by-responsibility owner table, and require review to compare code against `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md`.
+
+**Contracts / constraints.**
+- Delete hard: no pass-through ownership layer, no aliases, no compatibility shell.
+- Preserve observable product behavior unless refinement explicitly classifies behavior as dead.
+- Core app owns domain records/events; agent layer owns execution.
+- Plugins remain configuration sources only.
+- Review is against the should graph, not against the previous AU transitional state.
+
+**Out of scope.**
+- New runtime features.
+- New configuration UI.
+- Plugin marketplace or plugin security model.
+- Remote worker protocol.
+
+**Effort.** L (~4d)
+
+---
+
 ### AU8 — Should dependency graph guard
 
 **Work package.** As a maintainer, I want the should dependency graph to be mechanically enforced, so that AU cannot be called complete while forbidden Strategy/Fabric/runtime edges still exist or can silently return. When this ships, repository validation fails if runtime code reintroduces Strategy/Fabric dependencies, core app domains import agent execution internals, agent-layer modules take ownership of core domain CRUD, or plugins act as runtime executors instead of configuration sources. The graph comparison becomes a living contract rather than a one-time markdown audit. This gives future agents a fast, objective signal for whether the runtime simplification boundary still holds.
@@ -424,7 +593,7 @@ The point is not a new harness path. The point is one contract for every agent r
 **What's genuinely missing.** There is no automated proof that core app, agent layer, and plugin/default configuration obey the should graph. There is also no pipeline-facing closure check that says AU is incomplete when forbidden runtime edges remain. The missing outcome is a validation gate that catches drift and documents the expected graph in executable form.
 
 **Depends on.**
-- **AU7** — the guard must enforce the final graph after Strategy/Fabric runtime retirement; before AU7, the repository still intentionally contains transitional forbidden edges.
+- **AU11** — the guard must enforce the final graph after hard handoff, plugin ownership correction, and transitional runtime ownership deletion; before AU11, the repository still intentionally contains forbidden edges.
 
 **Complexity.** M
 
@@ -441,6 +610,7 @@ The point is not a new harness path. The point is one contract for every agent r
 - Repository validation fails when agent-layer code owns Work, Conversation, Knowledge, Users, or Settings CRUD instead of using core app contracts.
 - The validation output names the violated boundary clearly enough for a pipeline-builder to fix it without rerunning a manual audit.
 - The AU track has an explicit closure signal that points to the should graph and the guard, so future reviewers know AU is not done unless the guard passes.
+- The review artifact for AU8 explicitly compares the repository against the should dependency graph and marks AU incomplete if any forbidden edge remains.
 
 **Validation scenarios.**
 - Given a runtime module reintroduces a Strategy/Fabric runtime import, when validation runs, then it fails with a boundary-specific message.
@@ -456,6 +626,7 @@ The point is not a new harness path. The point is one contract for every agent r
 - The guard must not require network access.
 - The guard must explain failures in target-graph vocabulary.
 - No broad refactor beyond what is needed to make the graph enforceable.
+- Review is against the should graph, not against the previous AU transitional state.
 
 **Out of scope.**
 - Removing remaining Strategy/Fabric code; AU7 owns that.

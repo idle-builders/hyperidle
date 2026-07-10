@@ -19,7 +19,7 @@ import {
 	registerNotificationDispatcher,
 	type SendResult,
 	tryFloodReserve,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,

@@ -14,11 +14,15 @@ Plugins are preconfiguration bundles, not a third runtime layer. A plugin can co
 
 Triggers are the single rule for "event -> agent work." Any event that can cause an LLM call is triggerable. If no user or plugin trigger matches, the agent layer attaches the default eligible agent with no event-specific prompt. If a user or plugin trigger matches, it supplies the specific agent and prompt for that event.
 
-## What Exists Today
+## Current State After AU7
 
-The current code still has a Strategy port and a Fabric implementation. The server registers one active Strategy process-wide, then calls it for context assembly, learning ingestion, agent scaffolding, agent selection, bet decomposition, and assistant formation. Fabric also contains unrelated service-bundle behavior: schedulers, notification services, lifecycle propagation, knowledge scoring, git export, task dispatch, and context/writeback services.
+The production runtime no longer registers or selects an active Strategy, and it no longer imports the Fabric package or minimal Strategy package to boot product behavior. Former Fabric responsibilities now live under `packages/server/src/app-runtime/` or explicit core/agent services:
 
-The app already has many of the durable primitives this frame keeps: users include humans and agents, routines are editable records, knowledge is stored in canonical tables, MCP and tools run through the server runtime, harness adapters are registered centrally, and domain events are already emitted. The problem is not missing primitives; it is that LLM-callable behavior is split across Strategy calls, Fabric subscribers, direct provisioning paths, and hard-coded event handlers.
+- app-owned schedulers, notifications, lifecycle propagation, knowledge scoring, git export, task dispatch, context assembly, and writeback helpers are server app-runtime services;
+- agent-capable execution enters through trigger-backed `AgentSessionRequest` creation and the AU6 agent-run boundary;
+- legacy Strategy/Fabric type exports and package folders may remain for historical compatibility tests, but they are not runtime owners.
+
+The app has the durable primitives this frame keeps: users include humans and agents, routines are editable records, knowledge is stored in canonical tables, MCP and tools run through the server runtime, harness adapters are registered centrally, and domain events are emitted. Remaining drift should be handled as boundary enforcement work, not by reintroducing Strategy/Fabric runtime owners.
 
 ## Simplification Rule
 

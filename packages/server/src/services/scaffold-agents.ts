@@ -26,8 +26,9 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { users } from "@hyperidle/db";
-import type { AgentScaffoldSpec, PrimaryHarnessConfig } from "@hyperidle/shared";
+import type { PrimaryHarnessConfig } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import type { AgentScaffoldSpec } from "../app-runtime/contracts.js";
 
 export interface ScaffoldResult {
 	agentIds: string[];

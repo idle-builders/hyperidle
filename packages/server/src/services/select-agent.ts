@@ -23,13 +23,9 @@
  */
 
 import { type HyperIdleDb, teamMembers, users } from "@hyperidle/db";
-import {
-	type EventBus,
-	findRoleCatalogEntry,
-	type SelectionCandidate,
-	type UserRole,
-} from "@hyperidle/shared";
+import { type EventBus, findRoleCatalogEntry, type UserRole } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
+import type { SelectionCandidate } from "../app-runtime/contracts.js";
 import { resolveAgentSelection } from "./agent-defaults/resolvers.js";
 
 /**

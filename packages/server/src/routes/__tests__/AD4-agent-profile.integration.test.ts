@@ -9,7 +9,7 @@
  *      returns skills
  *
  * These tests FAIL until:
- * - packages/fabric/src/services/approval-rate.ts is created
+ * - packages/server/src/app-runtime/services/approval-rate.ts is created
  * - packages/server/src/routes/agent-profile.ts replaces skills query with
  *   computeApprovalRate call and removes `skills` from the response
  * - packages/shared/src/agent-profile.ts adds AgentReviewTrackRecord type

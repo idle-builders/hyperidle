@@ -289,9 +289,9 @@ export interface ArtifactCreatedEvent {
 }
 
 /**
- * @lore O1: PropagationLevel moved to @hyperidle/fabric. This inline literal
+ * @lore O1: PropagationLevel moved to @hyperidle/server/app-runtime. This inline literal
  * union avoids importing from fabric in shared (boundary rule: kernel never
- * imports from strategy). The canonical definition is in @hyperidle/fabric.
+ * imports from strategy). The canonical definition is in @hyperidle/server/app-runtime.
  *
  * @lore U1: "product" renamed to "team" in propagation levels. The propagation
  * hierarchy is: session -> task -> bet -> team -> portfolio.
