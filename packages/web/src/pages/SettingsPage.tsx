@@ -13,6 +13,7 @@
 
 import type { JSX } from "react";
 import { CredentialsTab } from "../components/CredentialsTab.js";
+import { SettingsAgentBehavior } from "../settings/SettingsAgentBehavior.js";
 import { SettingsAgents } from "../settings/SettingsAgents.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
 import { SettingsBackend } from "../settings/SettingsBackend.js";
@@ -80,6 +81,15 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Agents</SectionTitle>
 						<SettingsAgents />
+					</section>
+
+					<section
+						id="settings-section-agent-behavior"
+						data-testid="settings-section-agent-behavior"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Agent behavior</SectionTitle>
+						<SettingsAgentBehavior />
 					</section>
 
 					{/* AO1: Filesystems registry section — team-scoped file sources (code repos, doc sets).

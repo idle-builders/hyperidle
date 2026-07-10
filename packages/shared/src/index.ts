@@ -3,6 +3,27 @@ export { scopeKindToLabel } from "./scope-labels.js";
 
 // ── AK3: Bet decomposition types + constants ──
 
+export type {
+	AgentBehaviorConfigErrorResponse,
+	AgentBehaviorConfigKind,
+	AgentBehaviorConfigLink,
+	AgentBehaviorConfigListResponse,
+	AgentBehaviorConfigPatchRequest,
+	AgentBehaviorConfigPatchResponse,
+	AgentBehaviorConfigView,
+	AgentBehaviorEditableField,
+	AgentBehaviorFieldKind,
+	AgentBehaviorOriginState,
+	AgentBehaviorOriginType,
+	AgentBehaviorOriginView,
+	AgentBehaviorPromptSource,
+	AgentBehaviorTriggerSummary,
+	AgentBehaviorValueSource,
+} from "./agent-behavior-config.js";
+export {
+	AGENT_BEHAVIOR_CONFIG_KINDS,
+	isAgentBehaviorConfigKind,
+} from "./agent-behavior-config.js";
 // ── AB1: Agent profile wire types ──
 export type {
 	AgentActiveSession,

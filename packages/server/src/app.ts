@@ -41,6 +41,7 @@ import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { createSessionRoutes } from "./routes/sessions-routes.js";
 import { createSettingsRoutes } from "./routes/settings.js";
+import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
 import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
@@ -406,6 +407,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
+		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route("/threads", createThreadRoutes(options.db, eventBus, options.assistantTurnDeps));
 		api.route("/users", createUserRoutes(options.db, eventBus, options.adapterPool));

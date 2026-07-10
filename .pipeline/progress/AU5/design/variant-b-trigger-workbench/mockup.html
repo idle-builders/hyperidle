@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" data-theme="hearth-light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../../../../../packages/design-system/src/tokens.css">
+  <title>AU5 Variant B Trigger Workbench</title>
+  <style>
+    body { margin:0; font-family:var(--font-sans); background:var(--surface-page); color:var(--text-primary); }
+    .page { height:100vh; display:flex; flex-direction:column; }
+    header { padding:18px 24px; border-bottom:1px solid var(--border-subtle); background:var(--surface-elevated); }
+    h1 { margin:0; font-size:20px; font-weight:600; }
+    .sub { margin:3px 0 0; font-size:13px; color:var(--text-tertiary); }
+    .grid { flex:1; min-height:0; display:grid; grid-template-columns:220px 1fr 360px; gap:9px; padding:9px; }
+    .pane { background:var(--surface-elevated); border-radius:var(--r-default); box-shadow:var(--shadow-default); overflow:auto; }
+    .head { padding:18px; border-bottom:1px solid var(--border-subtle); }
+    .label { font-size:11px; text-transform:uppercase; letter-spacing:var(--tracking-caps-sm); color:var(--text-tertiary); font-weight:600; }
+    .event { padding:12px 18px; border-bottom:1px solid var(--border-subtle); font-size:13px; }
+    .event.active { background:var(--surface-container); border-left:3px solid var(--accent-primary); }
+    .row { display:grid; grid-template-columns: 1fr auto; gap:12px; padding:12px 18px; min-height:54px; border-bottom:1px solid var(--border-subtle); align-items:center; }
+    .row.selected { background:var(--surface-container); }
+    .title { font-size:13px; font-weight:500; }
+    .meta { margin-top:3px; font-size:12px; color:var(--text-tertiary); }
+    .chip { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:600; background:var(--accent-primary-dim); color:var(--accent-primary); }
+    .amber { background:color-mix(in oklab, var(--status-warning) 12%, transparent); color:var(--text-primary); }
+    .flow { padding:18px; display:grid; gap:12px; }
+    .step { border:1px solid var(--border-subtle); border-radius:var(--r-subtle); padding:12px; display:grid; gap:3px; }
+    .arrow { text-align:center; color:var(--text-tertiary); font-size:12px; }
+    select, textarea { width:100%; box-sizing:border-box; border:1px solid var(--border-default); border-radius:var(--r-subtle); padding:9px 12px; background:var(--surface-elevated); color:var(--text-primary); font:inherit; }
+    textarea { min-height:84px; resize:vertical; }
+    button { height:34px; border:1px solid var(--border-default); border-radius:var(--r-subtle); background:var(--surface-elevated); color:var(--text-primary); padding:0 12px; font:inherit; }
+    button.primary { background:var(--accent-primary); color:var(--text-on-accent); border-color:var(--accent-primary); }
+    @media (max-width: 900px) { .grid { grid-template-columns:1fr; } .detail { display:none; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>Agent behavior</h1>
+      <p class="sub">Events, triggers, agents, and prompts in one Settings surface.</p>
+    </header>
+    <section class="grid">
+      <aside class="pane">
+        <div class="head"><div class="label">Events</div></div>
+        <div class="event">Task accepted</div>
+        <div class="event">Assistant message</div>
+        <div class="event active">Routine fired</div>
+        <div class="event">Bet decomposition</div>
+        <div class="event">Knowledge action</div>
+        <div class="event">Proposed call granted</div>
+      </aside>
+      <section class="pane">
+        <div class="head"><div class="label">Routine fired rules</div></div>
+        <div class="row selected"><div><div class="title">Daily product scan</div><div class="meta">Product Manager · prompt from user override</div></div><span class="chip">Override</span></div>
+        <div class="row"><div><div class="title">Weekly health sweep</div><div class="meta">Ops · prompt from built-in default</div></div><span class="chip">Built-in</span></div>
+        <div class="row"><div><div class="title">Growth digest</div><div class="meta">Growth · plugin disabled, not matching</div></div><span class="chip amber">Disabled origin</span></div>
+        <div class="row"><div><div class="title">Fallback</div><div class="meta">Default eligible agent · no event prompt</div></div><span class="chip">Default</span></div>
+      </section>
+      <section class="pane detail">
+        <div class="head">
+          <div class="label">Rule detail</div>
+          <h1>Daily product scan</h1>
+          <p class="sub">This rule matches one routine-fired event.</p>
+        </div>
+        <div class="flow">
+          <div class="step"><span class="label">Event</span><span>routine_fired · rt-daily-product-scan</span></div>
+          <div class="arrow">↓</div>
+          <div class="step"><span class="label">Trigger</span><span>User override of Product OS plugin rule</span></div>
+          <div class="arrow">↓</div>
+          <div class="step"><span class="label">Agent</span><select><option>Product Manager</option><option>Ops</option></select></div>
+          <div class="arrow">↓</div>
+          <div class="step"><span class="label">Prompt source</span><textarea>Summarize customer signals and propose tasks.</textarea></div>
+          <div><button>View history</button> <button class="primary">Save rule</button></div>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>
+
