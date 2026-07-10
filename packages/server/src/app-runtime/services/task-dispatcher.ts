@@ -187,7 +187,7 @@ function resolveRequestConsumer(): (...args: any[]) => Promise<any> {
 	if (!fn) {
 		throw new Error(
 			"[task-dispatcher] agent session request consumer not registered. " +
-				"Call setAgentSessionRequestConsumerFn(consumeAgentSessionRequest) during server bootstrap " +
+				"Call setAgentSessionRequestConsumerFn(executeAgentRunRequest) during server bootstrap " +
 				"(or in tests before registerTaskDispatcher).",
 		);
 	}

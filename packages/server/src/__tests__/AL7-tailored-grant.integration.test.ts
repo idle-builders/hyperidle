@@ -51,14 +51,14 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
+import { executeAgentRunRequest } from "../services/agent-run-boundary.js";
 import { createAgentSessionRequest } from "../services/agent-session-requests.js";
-import { consumeAgentSessionRequest } from "../services/agent-session-runtime.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // Wire request runtime into the fabric registry to avoid circular import.
 setAgentSessionRequestCreateFn(createAgentSessionRequest);
-setAgentSessionRequestConsumerFn(consumeAgentSessionRequest);
+setAgentSessionRequestConsumerFn(executeAgentRunRequest);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Minimal capturing harness for dispatcher enqueue test

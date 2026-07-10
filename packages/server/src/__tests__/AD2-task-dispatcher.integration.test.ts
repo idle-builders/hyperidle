@@ -60,8 +60,8 @@ import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
+import { executeAgentRunRequest } from "../services/agent-run-boundary.js";
 import { createAgentSessionRequest } from "../services/agent-session-requests.js";
-import { consumeAgentSessionRequest } from "../services/agent-session-runtime.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { transitionTask } from "../services/task-state-machine.js";
 import { test } from "../test-fixtures.js";
@@ -77,7 +77,7 @@ import { test } from "../test-fixtures.js";
 // (provision-registry.ts) is the correct fix: this test file, which already
 // imports from both packages, registers the function once at module load time.
 // ---------------------------------------------------------------------------
-setAgentSessionRequestConsumerFn(consumeAgentSessionRequest);
+setAgentSessionRequestConsumerFn(executeAgentRunRequest);
 setAgentSessionRequestCreateFn(createAgentSessionRequest);
 
 // ---------------------------------------------------------------------------

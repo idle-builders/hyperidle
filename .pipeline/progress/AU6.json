@@ -1,0 +1,16 @@
+{
+  "id": "AU6",
+  "status": "done",
+  "currentStep": "shipped",
+  "startedAt": "2026-07-10T00:00:00+02:00",
+  "updatedAt": "2026-07-10T13:57:03+02:00",
+  "completedAt": "2026-07-10T13:57:03+02:00",
+  "review": {
+    "verdict": "DONE",
+    "critical": 0,
+    "warnings": 0,
+    "observations": 0
+  },
+  "branch": "feat/AU6-agent-execution-boundary",
+  "worktree": "/Users/tg/hyperidle/.worktrees/AU6"
+}

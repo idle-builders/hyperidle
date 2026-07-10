@@ -29,8 +29,8 @@ import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
+import { executeAgentRunRequest } from "./services/agent-run-boundary.js";
 import { createAgentSessionRequest } from "./services/agent-session-requests.js";
-import { consumeAgentSessionRequest } from "./services/agent-session-runtime.js";
 import type { AssistantTurnDeps } from "./services/assistant-turn.js";
 import { resolveOrphanedDecompositions } from "./services/bet-decomposition.js";
 import { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
@@ -296,7 +296,7 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		}
 		return createAgentSessionRequest(requestDb, input);
 	});
-	setAgentSessionRequestConsumerFn(consumeAgentSessionRequest);
+	setAgentSessionRequestConsumerFn(executeAgentRunRequest);
 
 	// AK3 §1: Boot-time orphan sweep — resolve any bet stuck on 'running' from a
 	// previous crash. Must run BEFORE the subscriber starts so a re-commit cannot
