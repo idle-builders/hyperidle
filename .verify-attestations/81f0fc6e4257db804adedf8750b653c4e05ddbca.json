@@ -1,6 +1,6 @@
 {
-	"sha": "285026e6e290b9482fb883e2ba8e8929f5dfca61",
-	"srcHash": "f21348b4fd8f16fcd76a45c7606255753ad9c0a715163232a97694ad5c74e5a5",
+	"sha": "81f0fc6e4257db804adedf8750b653c4e05ddbca",
+	"srcHash": "c52d07274d7fe92952499018d14316cdfb7328c8c0cbcde85a0ce4d5b15249c1",
 	"scope": "affected",
 	"status": "passed",
 	"dirty": false,
@@ -34,8 +34,12 @@
 		"opencode": {
 			"executed": 0,
 			"skipped": 0
+		},
+		"cursor-agent": {
+			"executed": 0,
+			"skipped": 0
 		}
 	},
-	"timestamp": "2026-07-10T11:31:50.222Z",
-	"hmac": "ec3ac94148c32e52c8648b058e0ce3e25f70526f9285374b949bd1ee365448aa"
+	"timestamp": "2026-07-10T13:11:13.512Z",
+	"hmac": "2251fd484b23b92a8e9d6b3c8f20a9256baedc2ed549c15ab176611cae69f1b7"
 }
