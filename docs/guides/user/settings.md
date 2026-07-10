@@ -6,12 +6,11 @@ Click the **Settings** button pinned at the bottom of the Sidebar. All sections 
 |---------|-------------------|
 | **Profile** | Your name and email |
 | **Org chart** | Reporting lines between humans (direct / function / team relationships) |
-| **Models** | AI model tier selection (reasoning, workhorse, fast) and API credentials |
 | **Agents** | Per-agent model, harness, and system prompt; add new agents |
+| **Agent behavior** | Configuration that controls agent work: triggers, agents, routines, skills, tools, and MCP |
 | **Filesystems** | Team-registered file sources — code repos and document sets |
 | **Agent backends** | Which AI execution environments (harnesses) are detected, authenticated, and enabled |
 | **Connections** | External services your agents can use — see [Connections](connections.md) |
-| **Assistant** | Your personal AI assistant's system prompt |
 | **Appearance** | Theme (light / dark / system) |
 | **Credentials** | Desktop app: saved credentials and API keys |
 | **Notifications** | Per-type notification toggles (on/off per type only — quiet hours, factory silence, digest, and channels have no settings UI yet) |
@@ -57,6 +56,16 @@ Each agent can run a different model. Click **Edit** on any agent:
 An amber warning chip appears next to an agent if its harness type is not currently registered on any available worker.
 
 There is no per-agent autonomy dial. How much an agent's work gets reviewed is derived from its verdict history — approval rate crossed with the risk tier of the action. See the [review primitive](../../human-interface-layer/review-primitive.md).
+
+## Agent Behavior
+
+**Settings → Agent behavior** shows the configuration that controls when agents act and what context they use.
+
+The section groups configuration across agents, triggers, routines, skills, tools, and MCP. Each row shows the active value, where it came from, and whether a user override is active. Built-in and plugin defaults remain visible when you override them, so you can tell what changed without reading plugin internals.
+
+Trigger rows are event-first. A trigger shows the event it applies to, the agent attached to that event, the prompt source, and whether the rule is a default, plugin-provided, user-owned, or user override. Disabled or removed plugin origins remain visible with an attention state, so you can see whether the default stopped applying or a user override still runs.
+
+Some edits happen directly in Agent behavior. Deep edits still link to the existing canonical sections: agent identity in **Agents**, backend setup in **Agent backends**, service/MCP credentials in **Connections**, and routine schedule detail in the routine editor.
 
 ## Filesystems
 

@@ -25,6 +25,7 @@ export type SettingsSectionId =
 	| "notifications"
 	| "appearance"
 	| "agents"
+	| "agent-behavior"
 	| "filesystems"
 	| "backend";
 
@@ -56,6 +57,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "profile", label: "Profile" },
 	{ id: "orgchart", label: "Org chart" },
 	{ id: "agents", label: "Agents" },
+	{ id: "agent-behavior", label: "Agent behavior" },
 	// AO1: Filesystems registry section — team-scoped file sources (code repos, doc sets).
 	{ id: "filesystems", label: "Filesystems" },
 	{ id: "appearance", label: "Appearance" },

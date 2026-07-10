@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en" data-theme="hearth-light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../../../../../packages/design-system/src/tokens.css">
+  <title>AU5 Variant A Command Center</title>
+  <style>
+    body { margin:0; font-family:var(--font-sans); background:var(--surface-page); color:var(--text-primary); }
+    .page { height:100vh; display:flex; flex-direction:column; }
+    header { padding:18px 24px; border-bottom:1px solid var(--border-subtle); background:var(--surface-elevated); }
+    h1 { margin:0; font-size:20px; font-weight:600; }
+    .sub { margin:3px 0 0; font-size:13px; color:var(--text-tertiary); }
+    .wrap { flex:1; display:grid; grid-template-columns: 280px 1fr; gap:9px; padding:9px; min-height:0; }
+    .pane { background:var(--surface-elevated); border-radius:var(--r-default); box-shadow:var(--shadow-default); overflow:auto; }
+    .pane-head { padding:18px; border-bottom:1px solid var(--border-subtle); }
+    .label { font-size:11px; font-weight:600; letter-spacing:var(--tracking-caps-sm); text-transform:uppercase; color:var(--text-tertiary); }
+    .row { display:grid; grid-template-columns: 1fr auto; gap:12px; padding:12px 18px; border-bottom:1px solid var(--border-subtle); min-height:44px; align-items:center; }
+    .row.selected { background:var(--surface-container); border-left:3px solid var(--accent-primary); }
+    .title { font-size:13px; font-weight:500; }
+    .meta { margin-top:3px; font-size:12px; color:var(--text-tertiary); }
+    .chip { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:600; background:var(--accent-primary-dim); color:var(--accent-primary); }
+    .warn { background:color-mix(in oklab, var(--status-warning) 12%, transparent); color:var(--text-primary); }
+    .detail { padding:18px; display:grid; gap:18px; }
+    .card { border:1.5px solid var(--border-subtle); border-radius:var(--r-subtle); padding:18px; display:grid; gap:12px; }
+    .kv { display:grid; grid-template-columns:130px 1fr; gap:12px; font-size:13px; }
+    .k { color:var(--text-tertiary); font-size:11px; text-transform:uppercase; letter-spacing:var(--tracking-caps-sm); }
+    .field { display:grid; gap:6px; }
+    input, select { height:36px; border:1px solid var(--border-default); border-radius:var(--r-subtle); padding:0 12px; background:var(--surface-elevated); color:var(--text-primary); font:inherit; }
+    button { height:34px; border:1px solid var(--border-default); border-radius:var(--r-subtle); background:var(--surface-elevated); color:var(--text-primary); padding:0 12px; font:inherit; }
+    button.primary { background:var(--accent-primary); color:var(--text-on-accent); border-color:var(--accent-primary); }
+    @media (max-width: 760px) { .wrap { grid-template-columns:1fr; } .detail-pane { display:none; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>Agent behavior</h1>
+      <p class="sub">Inspect and edit the configuration that controls agent work.</p>
+    </header>
+    <section class="wrap">
+      <aside class="pane">
+        <div class="pane-head"><div class="label">Configuration</div></div>
+        <div class="row selected"><div><div class="title">Triggers</div><div class="meta">8 rules · 2 overrides</div></div><span class="chip warn">1 needs attention</span></div>
+        <div class="row"><div><div class="title">Agents</div><div class="meta">6 active · assistant included</div></div><span class="chip">3 plugin</span></div>
+        <div class="row"><div><div class="title">Routines</div><div class="meta">5 schedules · 4 agent-bound</div></div><span class="chip">1 override</span></div>
+        <div class="row"><div><div class="title">Skills</div><div class="meta">14 available</div></div><span class="chip">Built-in</span></div>
+        <div class="row"><div><div class="title">Tools</div><div class="meta">9 tool definitions</div></div><span class="chip">Mixed</span></div>
+        <div class="row"><div><div class="title">MCP</div><div class="meta">3 servers · 1 disabled origin</div></div><span class="chip warn">Review</span></div>
+      </aside>
+      <section class="pane detail-pane">
+        <div class="pane-head">
+          <div class="label">Selected trigger</div>
+          <h1>Routine fired: Daily product scan</h1>
+          <p class="sub">User override active · origin remains Product OS plugin</p>
+        </div>
+        <div class="detail">
+          <div class="card">
+            <div class="kv"><div class="k">Event</div><div>routine_fired</div></div>
+            <div class="kv"><div class="k">Agent</div><div>Product Manager</div></div>
+            <div class="kv"><div class="k">Prompt source</div><div>User override</div></div>
+            <div class="kv"><div class="k">Origin</div><div>Product OS plugin · enabled</div></div>
+            <div class="kv"><div class="k">Active value</div><div>Summarize customer signals and propose tasks.</div></div>
+          </div>
+          <div class="card">
+            <div class="label">Edit active value</div>
+            <label class="field"><span class="k">Agent</span><select><option>Product Manager</option><option>Builder</option></select></label>
+            <label class="field"><span class="k">Prompt</span><input value="Summarize customer signals and propose tasks."></label>
+            <div><button>Reset override</button> <button class="primary">Save changes</button></div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>
+
