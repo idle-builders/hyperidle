@@ -1431,11 +1431,29 @@ stories:
     type: framework
     depends: [AU6]
     complexity: L
+  - id: AU9
+    title: "Hard agent handoff boundary"
+    track: AU
+    type: backend
+    depends: [AU7]
+    complexity: L
+  - id: AU10
+    title: "Plugin surface ownership correction"
+    track: AU
+    type: framework
+    depends: [AU9]
+    complexity: M
+  - id: AU11
+    title: "Runtime ownership hard cut"
+    track: AU
+    type: framework
+    depends: [AU9, AU10]
+    complexity: L
   - id: AU8
     title: "Should dependency graph guard"
     track: AU
     type: infra
-    depends: [AU7]
+    depends: [AU11]
     complexity: M
 
   # Track AV: First-Run Usability & Product Polish (v0.6.0 human-testing)
