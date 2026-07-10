@@ -17,7 +17,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { create as createKnowledgeItem } from "@hyperidle/fabric";
+import { create as createKnowledgeItem } from "@hyperidle/server/app-runtime";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect, test } from "../test-fixtures.js";
 import { queryPracticeTool } from "../tools/query-practice.js";

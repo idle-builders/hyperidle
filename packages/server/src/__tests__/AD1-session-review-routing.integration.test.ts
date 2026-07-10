@@ -26,7 +26,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { registerSessionReviewCreator } from "@hyperidle/fabric";
+import { registerSessionReviewCreator } from "@hyperidle/server/app-runtime";
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

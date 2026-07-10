@@ -7,7 +7,7 @@
  * as a real round-trip (mock-validation-trap).
  */
 
-import { createFakeGitRunner, type FakeGitRunner } from "@hyperidle/fabric";
+import { createFakeGitRunner, type FakeGitRunner } from "@hyperidle/server/app-runtime";
 import { describe, expect, it } from "vitest";
 
 describe("FakeGitRunner records filesystem git operation argv", () => {

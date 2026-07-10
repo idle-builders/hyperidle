@@ -197,7 +197,7 @@ describe("AK1: harness-vocab-guard checkContent — allowed terms (must NOT flag
 	});
 
 	test("does NOT flag 'Fabric' / 'fabric' (retained noun/package)", () => {
-		const result = checkContent("import { assembleContext } from '@hyperidle/fabric';");
+		const result = checkContent("import { assembleContext } from '@hyperidle/server/app-runtime';");
 		expect(result.clean).toBe(true);
 	});
 
@@ -214,7 +214,7 @@ describe("AK1: harness-vocab-guard checkContent — allowed terms (must NOT flag
 
 	test("returns clean=true for fully renamed content", () => {
 		const result = checkContent(`
-import { assembleContext, assemblePrompt } from '@hyperidle/fabric';
+import { assembleContext, assemblePrompt } from '@hyperidle/server/app-runtime';
 import type { SandboxAdapter, SandboxHandle } from './sandbox-adapter.js';
 import { SandboxReaper } from './services/sandbox-reaper.js';
 const systemPromptText = agent.systemPrompt ?? '';

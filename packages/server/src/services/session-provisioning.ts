@@ -22,7 +22,6 @@ import {
 	type Filesystem,
 	type FilesystemMounter,
 	type HarnessAdapter,
-	type IngestionHandle,
 	isInternalExtractionDrain,
 	isReturnAction,
 	MissingCredentialError,
@@ -39,6 +38,7 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, inArray as drizzleInArray, eq, sql } from "drizzle-orm";
+import type { IngestionHandle } from "../app-runtime/contracts.js";
 import {
 	assemblePrompt,
 	assembleRoutinePrompt,

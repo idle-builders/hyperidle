@@ -10,7 +10,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { registerSessionReviewCreator } from "@hyperidle/fabric";
+import { registerSessionReviewCreator } from "@hyperidle/server/app-runtime";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";

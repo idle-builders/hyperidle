@@ -39,7 +39,7 @@ import {
 	sanitizePathSegment,
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../app.js";

@@ -430,7 +430,7 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 	}) => {
 		await seedBase(db);
 		const ctx = makeContext(db, sandboxPath);
-		const { assembleContext } = await import("@hyperidle/fabric");
+		const { assembleContext } = await import("@hyperidle/server/app-runtime");
 
 		// Arrange: write a knowledge item via write_memory
 		const writeResult = await writeMemoryTool.handler(

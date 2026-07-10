@@ -1,5 +1,5 @@
 import { type HyperIdleDb, knowledgeItems, knowledgeStrategyFabric } from "@hyperidle/db";
-import { createPracticeMeeting, runPracticeMeetingTurn } from "@hyperidle/fabric";
+import { createPracticeMeeting, runPracticeMeetingTurn } from "@hyperidle/server/app-runtime";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";

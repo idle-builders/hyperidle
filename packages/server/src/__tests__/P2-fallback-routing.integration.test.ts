@@ -27,7 +27,7 @@ import {
 	orgEdges,
 	users,
 } from "@hyperidle/db";
-import { resolveReviewRecipients } from "@hyperidle/fabric";
+import { resolveReviewRecipients } from "@hyperidle/server/app-runtime";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
 

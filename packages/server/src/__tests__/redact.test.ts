@@ -1,4 +1,4 @@
-import { scrubErrorMessage } from "@hyperidle/fabric";
+import { scrubErrorMessage } from "@hyperidle/server/app-runtime";
 import { REDACTED_TAG } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 

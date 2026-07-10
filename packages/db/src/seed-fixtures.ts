@@ -26,5 +26,5 @@ export const COMMUNITY_DISPLAY_NAMES: Record<PracticeCommunity, string> = {
 
 // @lore AF17: BUILTIN_ROUTINE_SEEDS and BuiltinRoutineSeed were removed.
 // The global seeding loop was eliminated by the seed factory split — builtin routines
-// are now provisioned per-team via provisionTeamRoutines() in @hyperidle/fabric.
-// BUILTIN_SPECS in packages/fabric/src/services/builtin-routines.ts is the canonical source.
+// are now provisioned per-team via provisionTeamRoutines() in @hyperidle/server/app-runtime.
+// BUILTIN_SPECS in packages/server/app-runtime/src/services/builtin-routines.ts is the canonical source.

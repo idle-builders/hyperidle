@@ -124,7 +124,7 @@ for (const root of SOURCE_ROOTS) {
 		}
 		if (
 			file.includes("packages/server/src/app-runtime/") &&
-			/\b(Strategy types|strategy fields|strategy filter|strategy fabric|skip strategy|Fabric's implementation|Fabric-internal|Fabric-owned|fabric row|fabric table|fabric projects|fabric must|fabric does not|depends on fabric|packages\/fabric|kernel\/strategy|strategy\/fabric)\b/i.test(
+				/\b(Strategy types|strategy fields|strategy filter|strategy fabric|skip strategy|Fabric's implementation|Fabric-internal|Fabric-owned|fabric row|fabric table|fabric projects|fabric must|fabric does not|depends on fabric|packages\/fabric|kernel\/strategy|strategy\/fabric)\b/i.test(
 				text,
 			)
 		) {

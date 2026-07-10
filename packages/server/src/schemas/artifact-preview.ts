@@ -16,37 +16,28 @@
  *   Documented per the "no any without @lore" rule.
  */
 
-import { ARTIFACT_KINDS, getKindDefinition } from "@hyperidle/shared";
+import { ARTIFACT_KINDS, type ArtifactPreview, getKindDefinition } from "@hyperidle/shared";
 import z from "zod";
 
 // Build the schemas array at module load time.
-// All 6 registered kinds must have a definition — throw if any is missing.
-const kindSchemaEntries = ARTIFACT_KINDS.map((kind) => {
+// All registered kinds must have a definition — throw if any is missing.
+for (const kind of ARTIFACT_KINDS) {
 	const def = getKindDefinition(kind);
 	if (!def) {
 		throw new Error(`[AE6] Missing KindDefinition for registered kind: ${kind}`);
 	}
-	// Each kind's previewSchema is a ZodObject with a `kind` discriminant.
-	return def.previewSchema as z.ZodObject<{ kind: z.ZodLiteral<string> }>;
-});
+}
 
-// @lore AE6 F3: z.discriminatedUnion takes its options as a TUPLE (typed [A, B, ...]),
-// not a plain array — annotate the tuple so TS infers the union; each member carries
-// its own literal discriminator prop. We assert the array as the required tuple type:
-// 1. We know ARTIFACT_KINDS has exactly 6 members (verified by tests).
-// 2. All schemas are ZodObject instances with a `kind` literal discriminant.
-// 3. The type assertion is the narrowest possible form — no `any`, just tuple shape.
-// The alternative (z.union) loses discriminated-union optimization but is type-safe.
-// Given we have exactly 6 known schemas and need the discriminant for error messages,
-// we choose the assertion with this documentation.
-export const artifactPreviewSchema = z.discriminatedUnion(
-	"kind",
-	kindSchemaEntries as [
-		z.ZodObject<{ kind: z.ZodLiteral<string> }>,
-		z.ZodObject<{ kind: z.ZodLiteral<string> }>,
-		...z.ZodObject<{ kind: z.ZodLiteral<string> }>[],
-	],
-);
+// @lore AU7: Avoid z.discriminatedUnion here. Server imports this schema during
+// app-runtime boot, while kind definitions are supplied by shared package schemas;
+// eager discriminated-union construction can reject mixed Zod internals before any
+// request is handled. z.custom also breaks tool JSON-schema generation. A plain
+// union keeps per-kind validation while remaining representable as tool JSON schema.
+const previewSchemas = ARTIFACT_KINDS.map((kind) => getKindDefinition(kind)?.previewSchema).filter(
+	(schema): schema is z.ZodTypeAny => Boolean(schema),
+) as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]];
+
+export const artifactPreviewSchema = z.union(previewSchemas) as z.ZodType<ArtifactPreview>;
 
 /**
  * For unregistered kinds: accept any JSON object with a kind field.

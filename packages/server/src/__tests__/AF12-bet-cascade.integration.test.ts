@@ -30,7 +30,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { registerLifecyclePropagation } from "@hyperidle/fabric";
+import { registerLifecyclePropagation } from "@hyperidle/server/app-runtime";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { cascadeBetKill } from "../services/bet-kill-cascade.js";

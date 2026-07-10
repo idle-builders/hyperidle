@@ -27,7 +27,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/fabric";
+import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/server/app-runtime";
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";

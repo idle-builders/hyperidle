@@ -18,7 +18,7 @@ import type {
 	Recipient,
 	SafeNotificationConfig,
 	SendResult,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";

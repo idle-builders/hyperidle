@@ -20,8 +20,8 @@
  * 9. Custom thresholds from factory settings respected
  *
  * These tests FAIL until:
- * - packages/fabric/src/services/approval-rate.ts is created
- * - packages/fabric/src/services/policy-engine.ts is rewritten to use computeApprovalRate
+ * - packages/server/app-runtime/src/services/approval-rate.ts is created
+ * - packages/server/app-runtime/src/services/policy-engine.ts is rewritten to use computeApprovalRate
  */
 
 import {
@@ -34,7 +34,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { registerPolicyEngine } from "@hyperidle/fabric";
+import { registerPolicyEngine } from "@hyperidle/server/app-runtime";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";

@@ -16,7 +16,7 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/fabric";
+import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/server/app-runtime";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";

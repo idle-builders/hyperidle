@@ -8,13 +8,13 @@
  * These tests FAIL until Task 3 (extend recordCostAndCheck) implementation ships.
  *
  * @lore R5: This test lives in packages/server/src/__tests__ (not fabric) to
- * avoid modifying the protected packages/fabric/src/__tests__/cost-cap.test.ts.
+ * avoid modifying the protected packages/server/app-runtime/src/__tests__/cost-cap.test.ts.
  * The architecture plan lists this as a new test file separate from the
  * protected one.
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/fabric";
+import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/server/app-runtime";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
