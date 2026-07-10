@@ -33,9 +33,10 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { checkCostCap } from "../app-runtime/services/cost-cap.js";
-import { getAgentSessionRequestConsumerFn } from "../app-runtime/services/provision-registry.js";
+import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { resolveDecompositionPlan } from "./agent-defaults/resolvers.js";
+import { executeAgentRunRequest } from "./agent-run-boundary.js";
 import { enumerateTeamCandidates, selectOwner } from "./select-agent.js";
 import { transitionTask } from "./task-state-machine.js";
 import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
@@ -52,6 +53,11 @@ export interface BetDecompositionDeps {
 	 * consumer. Decomposition itself must not select adapters or start harnesses.
 	 */
 	readonly adapterPool?: unknown;
+	/**
+	 * AU6: test seam at the agent-layer boundary. Production defaults to
+	 * executeAgentRunRequest; callers must not inject harness/provision internals.
+	 */
+	readonly executeAgentRunRequest?: typeof executeAgentRunRequest;
 	/** Renamed from `workspace` per locked harness vocab (AK1). */
 	readonly sandbox: SandboxAdapter;
 	readonly sandboxBasePath: string;
@@ -445,8 +451,8 @@ export async function runBetDecomposition(
 	// AU1: the real PM turn is requested through the agent runtime boundary.
 	// A completed runtime is useful only if it writes at least one bet task.
 	if (plan.tasks.length === 0 && !deps.runDecompositionTurn) {
-		const consumeAgentSessionRequest = getAgentSessionRequestConsumerFn();
-		if (!(consumeAgentSessionRequest && deps.adapterPool)) {
+		const runAgentBoundary = deps.executeAgentRunRequest ?? executeAgentRunRequest;
+		if (!(deps.adapterPool || deps.executeAgentRunRequest)) {
 			await markTerminal(db, betId, "blocked", "failed");
 			return;
 		}
@@ -456,11 +462,11 @@ export async function runBetDecomposition(
 			.where(eq(tasks.betId, betId));
 		try {
 			const resolvedModel = deps.resolveModel ? await deps.resolveModel("workhorse") : undefined;
-			const result = await consumeAgentSessionRequest(
+			const result = await runAgentBoundary(
 				{
 					db,
 					eventBus,
-					adapterPool: deps.adapterPool,
+					adapterPool: deps.adapterPool as AdapterPool,
 					workspace: deps.sandbox,
 				},
 				request,

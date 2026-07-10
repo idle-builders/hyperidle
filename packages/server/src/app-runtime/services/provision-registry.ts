@@ -22,56 +22,17 @@
  * pure storage leaf that both sides can safely import.
  */
 
-// biome-ignore lint/suspicious/noExplicitAny: runtime injection across package boundary — no shared type without circular dep
-type ProvisionFn = (...args: any[]) => Promise<any>;
-// biome-ignore lint/suspicious/noExplicitAny: runtime injection across package boundary — no shared type without circular dep
-type SessionRequestConsumerFn = (...args: any[]) => Promise<any>;
 // biome-ignore lint/suspicious/noExplicitAny: validated request creator lives in server; app-runtime receives it at boot.
 type SessionRequestCreateFn = (...args: any[]) => Promise<any>;
 
-let provisionFnStore: ProvisionFn | null = null;
-let sessionRequestConsumerFnStore: SessionRequestConsumerFn | null = null;
 let sessionRequestCreateFnStore: SessionRequestCreateFn | null = null;
-
-/**
- * Register the provisionSession function. Called by the server layer during
- * bootstrap (server-factory.ts) and by tests that need dispatch to work.
- *
- * Idempotent: subsequent calls replace the previous registration.
- */
-export function setProvisionSessionFn(fn: ProvisionFn): void {
-	provisionFnStore = fn;
-}
-
-/**
- * Retrieve the registered provisionSession function, or null if not yet
- * registered (pre-bootstrap or test without registration).
- */
-export function getProvisionSessionFn(): ProvisionFn | null {
-	return provisionFnStore;
-}
 
 /**
  * Clear the registered function. Used in test teardown to reset module state
  * between registrations.
  */
 export function clearProvisionSessionFn(): void {
-	provisionFnStore = null;
-	sessionRequestConsumerFnStore = null;
 	sessionRequestCreateFnStore = null;
-}
-
-/**
- * AU1: Register the local runtime request consumer. Collaboration-domain
- * dispatchers enqueue an AgentSessionRequest, then invoke this runtime hook.
- * The older provisionSession hook remains for protected pre-AU1 tests.
- */
-export function setAgentSessionRequestConsumerFn(fn: SessionRequestConsumerFn): void {
-	sessionRequestConsumerFnStore = fn;
-}
-
-export function getAgentSessionRequestConsumerFn(): SessionRequestConsumerFn | null {
-	return sessionRequestConsumerFnStore;
 }
 
 /**

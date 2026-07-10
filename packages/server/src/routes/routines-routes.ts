@@ -29,7 +29,7 @@ import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import { consumeAgentSessionRequest } from "../services/agent-session-runtime.js";
+import { executeAgentRunRequest } from "../services/agent-run-boundary.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
@@ -586,7 +586,7 @@ export function createRoutineRoutes(
 			};
 
 			try {
-				const result = await consumeAgentSessionRequest(sessionDeps, request, {
+				const result = await executeAgentRunRequest(sessionDeps, request, {
 					sandboxBasePath,
 				});
 

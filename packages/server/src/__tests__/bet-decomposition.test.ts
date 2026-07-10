@@ -34,10 +34,7 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
-import {
-	clearProvisionSessionFn,
-	setAgentSessionRequestConsumerFn,
-} from "../app-runtime/services/provision-registry.js";
+import { clearProvisionSessionFn } from "../app-runtime/services/provision-registry.js";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
 import { runBetDecomposition } from "../services/bet-decomposition.js";
 import { test } from "../test-fixtures.js";
@@ -204,6 +201,13 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 			db,
 			eventBus,
 			adapterPool: mockAdapterPool,
+			executeAgentRunRequest: vi.fn().mockResolvedValue({
+				sessionId: "session-ac5",
+				outcome: "completed",
+				totalCostCents: 0,
+				taskId: null,
+				forceReturnCount: 0,
+			}),
 			sandbox: {
 				create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
 				destroy: vi.fn(),
@@ -235,35 +239,37 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 		const { teamId } = await seedTeamWithAgent(db, { agentId: "builder-runtime-writeback" });
 		await db.insert(bets).values(makeBet("bet-runtime-writeback", teamId, "active"));
 
-		setAgentSessionRequestConsumerFn(async (_deps: unknown, request: AgentSessionRequest) => {
-			const result = await createTaskTool.handler(
-				{ title: "Runtime proposed task" },
-				{
-					db,
-					eventBus,
-					agentId: request.agentId,
-					sessionId: "session-runtime-writeback",
-					taskId: "",
-					teamId: request.teamId ?? undefined,
-					requestContext: {
-						requestId: request.id,
-						sourceKind: request.sourceKind as AgentSessionSourceKind,
-						sourceId: request.sourceId,
-						sourceCorrelation: JSON.parse(request.sourceCorrelationJson),
+		const executeAgentRunRequest = vi.fn(
+			async (_deps: unknown, request: AgentSessionRequest, _options: unknown) => {
+				const result = await createTaskTool.handler(
+					{ title: "Runtime proposed task" },
+					{
+						db,
+						eventBus,
+						agentId: request.agentId,
+						sessionId: "session-runtime-writeback",
+						taskId: "",
+						teamId: request.teamId ?? undefined,
+						requestContext: {
+							requestId: request.id,
+							sourceKind: request.sourceKind as AgentSessionSourceKind,
+							sourceId: request.sourceId,
+							sourceCorrelation: JSON.parse(request.sourceCorrelationJson),
+						},
+						sandboxPath: "/tmp/ac5-test",
+						ingestion: { dispose: vi.fn() },
 					},
-					sandboxPath: "/tmp/ac5-test",
-					ingestion: { dispose: vi.fn() },
-				},
-			);
-			expect(result.success).toBe(true);
-			return {
-				sessionId: "session-runtime-writeback",
-				outcome: "completed",
-				totalCostCents: 0,
-				taskId: null,
-				forceReturnCount: 0,
-			};
-		});
+				);
+				expect(result.success).toBe(true);
+				return {
+					sessionId: "session-runtime-writeback",
+					outcome: "completed" as const,
+					totalCostCents: 0,
+					taskId: null,
+					forceReturnCount: 0,
+				};
+			},
+		);
 
 		const select = vi.fn();
 		const deps: BetDecompositionDeps = {
@@ -275,6 +281,7 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 					/* no-op */
 				},
 			},
+			executeAgentRunRequest,
 			sandbox: {
 				create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
 				destroy: vi.fn(),
@@ -311,19 +318,22 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 		const { teamId } = await seedTeamWithAgent(db, { agentId: "builder-runtime-empty" });
 		await db.insert(bets).values(makeBet("bet-runtime-empty", teamId, "active"));
 
-		setAgentSessionRequestConsumerFn(async () => ({
-			sessionId: "session-runtime-empty",
-			outcome: "completed",
-			totalCostCents: 0,
-			taskId: null,
-			forceReturnCount: 0,
-		}));
+		const executeAgentRunRequest = vi.fn(
+			async (_deps: unknown, _request: unknown, _options: unknown) => ({
+				sessionId: "session-runtime-empty",
+				outcome: "completed" as const,
+				totalCostCents: 0,
+				taskId: null,
+				forceReturnCount: 0,
+			}),
+		);
 
 		await runBetDecomposition(
 			{
 				db,
 				eventBus,
 				adapterPool: {},
+				executeAgentRunRequest,
 				sandbox: {
 					create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
 					destroy: vi.fn(),

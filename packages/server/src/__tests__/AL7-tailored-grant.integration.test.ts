@@ -30,13 +30,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import {
-	fabricStrategy,
-	registerTaskDispatcher,
-	setAgentSessionRequestConsumerFn,
-	setAgentSessionRequestCreateFn,
-	type TaskDispatcherDeps,
-} from "@hyperidle/fabric";
+import { fabricStrategy, registerTaskDispatcher, type TaskDispatcherDeps } from "@hyperidle/fabric";
 import type {
 	EventBus,
 	HarnessAdapter,
@@ -49,16 +43,16 @@ import type {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { setAgentSessionRequestCreateFn } from "../../../fabric/src/services/provision-registry.js";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
+import { executeAgentRunRequest } from "../services/agent-run-boundary.js";
 import { createAgentSessionRequest } from "../services/agent-session-requests.js";
-import { consumeAgentSessionRequest } from "../services/agent-session-runtime.js";
 import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-registry.js";
 import { test } from "../test-fixtures.js";
 
 // Wire request runtime into the fabric registry to avoid circular import.
 setAgentSessionRequestCreateFn(createAgentSessionRequest);
-setAgentSessionRequestConsumerFn(consumeAgentSessionRequest);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Minimal capturing harness for dispatcher enqueue test
@@ -430,6 +424,7 @@ describe("AC3 (enqueue): proposed_call_granted causes dispatcher to enqueue sess
 			adapterPool,
 			workspace: new LocalSandboxAdapter(),
 			sandboxBasePath,
+			executeAgentRunRequest,
 		};
 		dispose = registerTaskDispatcher(deps);
 

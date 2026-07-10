@@ -19,7 +19,7 @@ import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { consumeAgentSessionRequest } from "../services/agent-session-runtime.js";
+import { executeAgentRunRequest } from "../services/agent-run-boundary.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
 import { resolveAgentModel, resolveModelTier } from "../services/model-gateway.js";
 import { readServerConfig } from "../services/server-config.js";
@@ -332,7 +332,7 @@ export function createSessionRoutes(
 						},
 					});
 
-					const result = await consumeAgentSessionRequest(
+					const result = await executeAgentRunRequest(
 						{
 							db,
 							eventBus,

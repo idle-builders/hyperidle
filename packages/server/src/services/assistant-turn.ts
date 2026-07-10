@@ -54,7 +54,7 @@ import {
 } from "../tools/assistant-draft-registry.js";
 import type { ToolContext } from "../tools/tool-registry.js";
 import { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
-import { consumeAgentSessionRequest } from "./agent-session-runtime.js";
+import { executeAgentRunRequest } from "./agent-run-boundary.js";
 import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
@@ -535,7 +535,7 @@ async function runTurnInternal(
 	};
 
 	try {
-		const result = await consumeAgentSessionRequest(sessionDeps, request, {
+		const result = await executeAgentRunRequest(sessionDeps, request, {
 			sandboxBasePath,
 			resolvedModel,
 			resolvedFastModel,

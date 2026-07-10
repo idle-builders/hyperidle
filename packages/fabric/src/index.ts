@@ -255,12 +255,8 @@ export {
 // provision-registry (AD2) — injection point for provisionSession across the circular package boundary
 export {
 	clearProvisionSessionFn,
-	getAgentSessionRequestConsumerFn,
 	getAgentSessionRequestCreateFn,
-	getProvisionSessionFn,
-	setAgentSessionRequestConsumerFn,
 	setAgentSessionRequestCreateFn,
-	setProvisionSessionFn,
 } from "./services/provision-registry.js";
 // relevance-listener (AF9: access→relevance subscriber)
 export { registerRelevanceListener } from "./services/relevance-listener.js";

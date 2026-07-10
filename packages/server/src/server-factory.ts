@@ -14,11 +14,6 @@ import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { bootstrapAppRuntime } from "./app-runtime/bootstrap.js";
 import { createGitRunner } from "./app-runtime/services/git-export-runner.js";
-import {
-	setAgentSessionRequestConsumerFn,
-	setAgentSessionRequestCreateFn,
-	setProvisionSessionFn,
-} from "./app-runtime/services/provision-registry.js";
 import { RegistryFilesystemMounter } from "./filesystem/mounter-registry.js";
 import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
@@ -29,8 +24,6 @@ import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
-import { createAgentSessionRequest } from "./services/agent-session-requests.js";
-import { consumeAgentSessionRequest } from "./services/agent-session-runtime.js";
 import type { AssistantTurnDeps } from "./services/assistant-turn.js";
 import { resolveOrphanedDecompositions } from "./services/bet-decomposition.js";
 import { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
@@ -40,8 +33,6 @@ import { DbCredentialResolver } from "./services/credential-resolver.js";
 import { resolveModelTier } from "./services/model-gateway.js";
 import { projectProductionConfigurationDefaults } from "./services/plugin-configuration.js";
 import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
-import { provisionSession } from "./services/session-provisioning.js";
-import { createTriggeredAgentSessionRequest } from "./services/trigger-resolution.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 /**
@@ -286,17 +277,6 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		capturesDir,
 		db,
 	});
-
-	// AF7/AU3: register app-owned session request consumers for dispatcher paths.
-	setProvisionSessionFn(provisionSession);
-	setAgentSessionRequestCreateFn(async (requestDb, input) => {
-		if ("eventType" in input && "defaultAgentId" in input) {
-			const { request } = await createTriggeredAgentSessionRequest(requestDb, input);
-			return request;
-		}
-		return createAgentSessionRequest(requestDb, input);
-	});
-	setAgentSessionRequestConsumerFn(consumeAgentSessionRequest);
 
 	// AK3 §1: Boot-time orphan sweep — resolve any bet stuck on 'running' from a
 	// previous crash. Must run BEFORE the subscriber starts so a re-commit cannot
