@@ -22,9 +22,10 @@ This file compares the current runtime dependency graph against the target depen
 
 The AU7 runtime-retirement target is now reached for the workpackage: Strategy/Fabric are gone
 from production runtime and from live workspace source/test fixtures. The full target graph is
-not yet proven because AU8 still needs to enforce the complete dependency boundary, but AU8 is
-now a guard/boundary-hardening workpackage, not the place where Strategy/Fabric source deletion
-is deferred.
+not yet proven because AU9-AU11 still need to cut direct agent handoff, plugin/runtime ownership
+leaks, and the transitional app-runtime ownership shell before AU8 can enforce the complete
+dependency boundary. AU8 is now the final should-graph guard after those cuts, not the place where
+cleanup or ownership deletion is deferred.
 
 Important target pieces are already present:
 
@@ -50,12 +51,9 @@ Important target pieces are already present:
   port, Fabric bootstrap, minimal Strategy fallback, and the retired source paths returning.
 
 The remaining structural gap is no longer deletion of Strategy/Fabric source. The remaining AU
-work is enforcement: Core app, Agent layer, and plugin/default configuration are not yet fully
-mechanically enforced as separate dependency boundaries. AU6 and AU7 added targeted guards; AU8
-still needs the full should-graph guard.
-- Core app, Agent layer, and plugin/default configuration are not yet fully mechanically enforced
-  as separate dependency boundaries. AU6 and AU7 added targeted guards; AU8 still needs the full
-  should-graph guard. AU8 does not delete remaining legacy Strategy/Fabric source.
+work is ownership correction, then enforcement: AU9 cuts direct core-to-agent handoff, AU10 fixes
+plugin/default configuration ownership, AU11 deletes the transitional app-runtime/Fabric-shaped
+ownership shell, and AU8 adds the full should-graph guard after those cuts.
 
 ## Side-by-Side Shape
 
@@ -179,7 +177,7 @@ flowchart TD
 | Conversations | Server routes/services own records and assistant turn entry points. Assistant turn creates trigger-backed requests and executes them through the agent-run boundary. | Conversation domain records user intent and emits events; Agent layer owns the LLM run. |
 | Knowledge | Core routes/projections exist. Former Fabric knowledge/context behavior is reachable through server app-runtime/core/agent services. | Core Knowledge owns CRUD, search, scoring, projections, and visibility. |
 | Settings | Settings routes plus plugin configuration service exist. Surface completeness depends on the AU5 branch/merge state. | Settings edits user/team overrides; resolver merges overrides with plugin defaults. |
-| Domain events | Present. Several direct route/service entry points still create requests for current behavior, but request execution is behind the AU6 boundary. AU8/follow-up work must decide whether remaining direct request creation is acceptable or should become event-only. | Sole handoff from core domains into Agent layer triggers. |
+| Domain events | Present. Several direct route/service entry points still create requests for current behavior, but request execution is behind the AU6 boundary. AU9 now explicitly requires event/request-intent-only handoff and forbids direct core request creation/execution. | Sole handoff from core domains into Agent layer triggers. |
 
 ### Agent Layer
 
@@ -203,35 +201,42 @@ flowchart TD
 
 ## Gap Register
 
-These gaps should be registered as follow-up work if not already represented by later AU work packages.
+These gaps are now registered as AU9-AU11, with AU8 enforcing the final graph afterward.
 
 1. Finish defining and enforcing the Agent layer boundary beyond AU6 request consumption.
    - AU6 closed the production request-consumption gap: non-boundary imports of
      `agent-session-runtime`, registry consumer resolution, legacy `provisionSession` registry
      hooks, and local `consumeAgentSessionRequest` variables are guarded by lint.
-   - Remaining AU8/follow-up work: place trigger resolution, provisioning/orchestration, harness
-     registry, tools, MCP, context, and capture/writeback under one owned layer and prevent
-     core routes/domains from importing those execution adapters directly.
+   - AU11 work: place trigger resolution, provisioning/orchestration, harness registry, tools,
+     MCP, context, and capture/writeback under one owned layer and prevent core routes/domains
+     from importing those execution adapters directly.
 
 2. Decide and enforce the final event-only handoff rule.
    - AU6 ensures direct request execution goes through the agent-run boundary.
-   - Remaining gap: some current route/service flows still create requests directly for
-     behavior such as manual session/routine/decomposition paths. If the final should graph
-     requires domain events as the only request creation handoff, AU7/AU8 must encode that
-     explicitly; AU6 was responsible for execution ownership, and AU7 was responsible for
-     Strategy/Fabric runtime retirement.
+   - AU9 gap: some current route/service flows still create requests directly for behavior such
+     as manual session/routine/decomposition paths. AU9 now explicitly requires domain
+     events/recorded intent as the only core-to-agent handoff; AU6 was responsible for execution
+     ownership, and AU7 was responsible for Strategy/Fabric runtime retirement.
 
-3. Finish plugin bundle/default projection.
+3. Correct plugin bundle/default ownership.
    - Make built-in behavior seed typed defaults through plugin manifests/bundles.
    - Keep user/team overrides above defaults.
    - Add boundary checks so plugins cannot become runtime actors.
+   - AU10 owns this correction.
 
-4. Add mechanical dependency checks.
+4. Delete the transitional runtime ownership shell.
+   - Classify remaining app-runtime/Fabric-shaped services as core app, agent layer, editable
+     configuration, or dead behavior.
+   - Delete pass-through wrappers and compatibility aliases rather than preserving a third
+     ownership boundary.
+   - AU11 owns this hard cut.
+
+5. Add mechanical dependency checks.
    - AU7 already forbids runtime imports of `@hyperidle/fabric` and `@hyperidle/strategy-minimal`.
    - AU7 already forbids production runtime imports of `strategy-port` and Strategy registry.
-   - Forbid Core App imports from harness/tool/MCP execution internals.
+   - AU8 forbids Core App imports from harness/tool/MCP execution internals after AU9-AU11 land.
 
-5. Reconcile AU5 status into mainline.
+6. Reconcile AU5 status into mainline.
    - If AU5 is not merged into the baseline branch, merge or rebase the Settings Agent behavior surface before claiming the configuration surface is complete.
    - Keep the story/viewer entry current so the settings surface can be visually inspected.
 
@@ -245,7 +250,7 @@ These gaps should be registered as follow-up work if not already represented by 
 | Agent-capable behavior continues through AU6 request/runtime boundary | Complete | AU6 boundary remains the execution handoff; AU7 updated the AU6 guard to stop treating Fabric as production runtime. |
 | Durable rows with historical `strategy`/`fabric` names remain readable | Complete | AU7 does not rename historical schema/table vocabulary. This is intentional compatibility, not active runtime architecture. |
 | Docs describe Fabric and Strategy only as legacy compatibility | Complete | Runtime simplification and system overview docs were updated in AU7. |
-| Full as-should dependency tree mechanically enforced | Not an AU7 requirement | AU8 needs the full graph guard after AU7 deletion is complete. |
+| Full as-should dependency tree mechanically enforced | Not an AU7 requirement | AU9-AU11 must first remove the remaining handoff/plugin/runtime-ownership violations; AU8 then adds the full graph guard. |
 
 ## Requirement Resolution
 
@@ -267,13 +272,14 @@ production request consumption is behind `agent-run-boundary.ts`, and production
 longer needs Strategy/Fabric to boot or run. AU7 also removes the legacy Strategy/Fabric source
 packages and seam files from the live workspace graph.
 
-Remaining gaps are no longer AU7 blockers. They split into AU8 enforcement and later graph-policy
-decisions:
+Remaining gaps are no longer AU7 blockers. They are registered as concrete AU follow-up packages:
 
-- AU8: enforce the full should graph, including Strategy/Fabric bans, core-to-agent-layer import
-  bans, plugin-as-runtime bans, and agent-layer-owning-core-CRUD bans;
-- follow-up: decide whether the final graph requires all request creation to be domain-event-only, then
-  add the corresponding guard if so.
+- AU9: hard agent handoff boundary; no direct core route/service request creation or execution.
+- AU10: plugin surface ownership correction; plugins and built-ins seed editable configuration only.
+- AU11: runtime ownership hard cut; delete the transitional app-runtime/Fabric-shaped ownership shell.
+- AU8: enforce the full should graph after AU9-AU11, including Strategy/Fabric bans,
+  core-to-agent-layer import bans, plugin-as-runtime bans, and agent-layer-owning-core-CRUD bans.
 
 AU7 is complete under the corrected "completely clean repo" requirement for this workpackage.
-The target dependency tree is fully proved only after AU8 adds the broader mechanical graph guard.
+The target dependency tree is fully proved only after AU9-AU11 remove the remaining structural
+violations and AU8 adds the broader mechanical graph guard.
