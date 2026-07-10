@@ -592,10 +592,12 @@ describe(`${CURSOR_AGENT_LANE!.describeTag} cursor-agent CLI + provisionSession 
 			doneCondition: "Agent replies with 4.",
 		});
 
-		const { result } = await runThroughHarness(
-			CURSOR_AGENT_LANE!,
-			{ db, eventBus, tmpDir, ...(bridge ? { bridge } : {}) },
-		);
+		const { result } = await runThroughHarness(CURSOR_AGENT_LANE!, {
+			db,
+			eventBus,
+			tmpDir,
+			...(bridge ? { bridge } : {}),
+		});
 
 		expect(["completed", "not_returned"]).toContain(result.outcome);
 	}, 240_000);

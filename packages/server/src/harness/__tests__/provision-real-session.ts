@@ -39,7 +39,12 @@ import type {
 	ProvisionSessionResult,
 } from "../../services/session-provisioning.js";
 import { provisionSession } from "../../services/session-provisioning.js";
-import { AdapterPool, CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS, CURSOR_AGENT_CLI_CONFIG } from "../adapter-pool.js";
+import {
+	AdapterPool,
+	CLAUDE_CLI_CONFIG,
+	CLI_TOOL_CONFIGS,
+	CURSOR_AGENT_CLI_CONFIG,
+} from "../adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";

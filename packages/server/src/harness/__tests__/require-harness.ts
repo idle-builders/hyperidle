@@ -42,15 +42,15 @@ const SUPPORTED_HARNESSES_MIRROR = [
 	"opencode",
 	"cursor-agent",
 ] as const;
-type _SupportedHarness = (typeof SUPPORTED_HARNESSES_MIRROR)[number];
+type SupportedHarness = (typeof SUPPORTED_HARNESSES_MIRROR)[number];
 /** Public alias for the supported-harness key (the four agent harnesses, no `gh`). */
-export type SupportedHarnessName = _SupportedHarness;
+export type SupportedHarnessName = SupportedHarness;
 // Each supported name must be a valid HarnessName (→):
-type _AssertSupportedInHarness = _SupportedHarness extends HarnessName ? true : never;
+type AssertSupportedInHarness = SupportedHarness extends HarnessName ? true : never;
 // Each mirror member must be a SupportedHarness — both directions enforced (←):
-type _AssertHarnessCoversSupported = HarnessName extends _SupportedHarness | "gh" ? true : never;
+type AssertHarnessCoversSupported = HarnessName extends SupportedHarness | "gh" ? true : never;
 // Compile-time proof that both asserts hold (any `never` in the union = error):
-declare const _lockstepCheck: [_AssertSupportedInHarness, _AssertHarnessCoversSupported];
+declare const _lockstepCheck: [AssertSupportedInHarness, AssertHarnessCoversSupported];
 
 /** Binary name on PATH for each binary-backed harness. */
 const BINARY: Record<Exclude<HarnessName, "builtin">, string> = {

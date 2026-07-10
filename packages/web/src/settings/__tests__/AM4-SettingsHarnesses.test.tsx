@@ -257,7 +257,9 @@ describe("AM4 AC4 — SettingsHarnesses respects AM2 scope", () => {
 		expect(screen.queryByRole("switch")).toBeNull();
 		const cursorRow = screen.getByText("Cursor Agent").closest("li");
 		expect(cursorRow).not.toBeNull();
-		expect(within(cursorRow as HTMLLIElement).getByText("Authenticated and ready.")).toBeInTheDocument();
+		expect(
+			within(cursorRow as HTMLLIElement).getByText("Authenticated and ready."),
+		).toBeInTheDocument();
 
 		await user.click(screen.getByText("Cursor Agent"));
 		await waitFor(() => {

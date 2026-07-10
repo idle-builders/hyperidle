@@ -596,11 +596,9 @@ describe("cursor-agent CLI adapter (real binary, production CliHarnessAdapter pa
 			const result = await adapter.stopSession(handle);
 
 			expect(events.some((e) => e.type === "completion")).toBe(true);
-			expect(
-				events.some(
-					(e) => e.type === "completion" && e.text.includes("ADAPTER_OK"),
-				),
-			).toBe(true);
+			expect(events.some((e) => e.type === "completion" && e.text.includes("ADAPTER_OK"))).toBe(
+				true,
+			);
 			expect(result.outcome).toBe("completed");
 		} finally {
 			await rmSandboxWithRetry(sandboxPath);

@@ -493,7 +493,7 @@ async function runNonblockingLane(
 			? "keychain-auth-unused"
 			: harnessName === "cursor-agent"
 				? "cursor-auth-unused"
-			: (process.env.OPENROUTER_API_KEY ?? "");
+				: (process.env.OPENROUTER_API_KEY ?? "");
 
 	await seedLaneConfig(db, {
 		...httpConfig.laneConfig,

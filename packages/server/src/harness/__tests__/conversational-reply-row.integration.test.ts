@@ -51,7 +51,10 @@ describe("[harness:builtin] conversational reply row", () => {
 		clearActiveStrategy();
 	});
 
-	test("builtin conversational turn → persists non-empty ast-* reply row", async ({ db, eventBus }) => {
+	test("builtin conversational turn → persists non-empty ast-* reply row", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedConversationalTurnDomain(db, {
 			userId,
 			threadId,
@@ -98,7 +101,10 @@ describe("[harness:claude] conversational reply row", () => {
 		await bridge?.close();
 	});
 
-	test("claude conversational turn → persists non-empty ast-* reply row", async ({ db, eventBus }) => {
+	test("claude conversational turn → persists non-empty ast-* reply row", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedConversationalTurnDomain(db, {
 			userId,
 			threadId,
@@ -145,7 +151,10 @@ describe("[harness:codex] conversational reply row", () => {
 		await bridge?.close();
 	});
 
-	test("codex conversational turn → persists non-empty ast-* reply row", async ({ db, eventBus }) => {
+	test("codex conversational turn → persists non-empty ast-* reply row", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedConversationalTurnDomain(db, {
 			userId,
 			threadId,
@@ -192,7 +201,10 @@ describe("[harness:opencode] conversational reply row", () => {
 		await bridge?.close();
 	});
 
-	test("opencode conversational turn → persists non-empty ast-* reply row", async ({ db, eventBus }) => {
+	test("opencode conversational turn → persists non-empty ast-* reply row", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedConversationalTurnDomain(db, {
 			userId,
 			threadId,
