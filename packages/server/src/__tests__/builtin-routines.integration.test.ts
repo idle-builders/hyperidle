@@ -18,7 +18,7 @@ import {
 	registerBuiltinRoutineHandlers,
 	runBuiltinRoutine,
 	runCostSentinelCheck,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import type {
 	BetStateChangedEvent,
 	CostCapBreachedEvent,

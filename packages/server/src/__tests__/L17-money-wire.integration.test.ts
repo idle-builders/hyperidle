@@ -17,7 +17,7 @@ import {
 	clearDeduplicationCache,
 	recordCostAndCheck,
 	resetCosts,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";

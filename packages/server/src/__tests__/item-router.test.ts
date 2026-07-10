@@ -1,4 +1,4 @@
-import { routeItem } from "@hyperidle/fabric";
+import { routeItem } from "@hyperidle/server/app-runtime";
 import { describe, expect, it } from "vitest";
 
 describe("routeItem", () => {

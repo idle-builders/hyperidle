@@ -7,7 +7,7 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { registerLifecyclePropagation } from "@hyperidle/fabric";
+import { registerLifecyclePropagation } from "@hyperidle/server/app-runtime";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";

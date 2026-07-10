@@ -202,7 +202,7 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 
 		// Import provisionTeamRoutines — fails in red phase (module doesn't exist)
 		// biome-ignore lint/suspicious/noExplicitAny: Red phase dynamic import
-		const fabricMod = (await import("@hyperidle/fabric").catch(() => null)) as Record<
+		const fabricMod = (await import("@hyperidle/server/app-runtime").catch(() => null)) as Record<
 			string,
 			unknown
 		> | null;
@@ -279,7 +279,7 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 		db,
 	}) => {
 		// biome-ignore lint/suspicious/noExplicitAny: Red phase dynamic import
-		const fabricMod = (await import("@hyperidle/fabric").catch(() => null)) as Record<
+		const fabricMod = (await import("@hyperidle/server/app-runtime").catch(() => null)) as Record<
 			string,
 			unknown
 		> | null;

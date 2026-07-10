@@ -29,6 +29,10 @@ const EXCLUDES = [
 	".integration.test.ts",
 	".spec.ts",
 	".spec.tsx",
+] as const;
+const RETIRED_PATHS = [
+	"packages/fabric",
+	"packages/strategy-minimal",
 	"packages/shared/src/strategy-port.ts",
 	"packages/server/src/services/strategy-registry.ts",
 ] as const;
@@ -68,6 +72,12 @@ function isExcluded(file: string): boolean {
 
 function add(file: string, message: string): void {
 	FINDINGS.push({ file, message });
+}
+
+for (const path of RETIRED_PATHS) {
+	if (existsSync(join(ROOT, path))) {
+		add(path, "live Strategy/Fabric source path must be deleted or archived outside the workspace after AU7");
+	}
 }
 
 for (const root of RUNTIME_ROOTS) {

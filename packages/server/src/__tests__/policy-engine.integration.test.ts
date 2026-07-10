@@ -9,7 +9,7 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
-import { registerPolicyEngine } from "@hyperidle/fabric";
+import { registerPolicyEngine } from "@hyperidle/server/app-runtime";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";

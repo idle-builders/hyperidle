@@ -9,7 +9,7 @@
  */
 
 import { factorySettings, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
-import { type FsAdapter, type GitRunner, resetExportMutexes } from "@hyperidle/fabric";
+import { type FsAdapter, type GitRunner, resetExportMutexes } from "@hyperidle/server/app-runtime";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";

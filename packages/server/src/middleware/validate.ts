@@ -6,7 +6,7 @@ import type { z } from "zod";
 
 /**
  * @lore AF4 (build/verify): The AF1 typecheck gate (scripts/typecheck-gate.ts)
- * runs `tsc --noEmit -p` per package. server/web/fabric are project-`references`
+ * runs `tsc --noEmit -p` per package. server/web are project-`references`
  * consumers of shared+db and DO need the leaves' emitted `dist/*.d.ts` present:
  * with leaf `dist/` ABSENT, cross-package symbols (e.g. the vitest `dbTest`
  * fixture) resolve to `any` → a ~3400-error TS7031/TS2xxx phantom and server
@@ -14,7 +14,7 @@ import type { z } from "zod";
  * cascade. Proof: removing every leaf dist then `npm run check` → server 3428
  * FAIL; rebuild dist → server 0 PASS. `dist` is gitignored so a "clean" tree can
  * silently still have it — always `ls packages/shared/dist` before trusting a
- * gate count. To populate dist: `tsc -b packages/shared packages/db packages/fabric`
+ * gate count. To populate dist: `tsc -b packages/shared packages/db`
  * (ignore its TS6059 rootDir notices — it still emits), THEN delete the
  * generated `.d.ts/.js/.map` it scatters into the packages' `src` dirs (biome
  * lints src and would report ~714 phantom noBannedTypes errors from them).

@@ -25,7 +25,11 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { type BuiltinRoutineId, provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/fabric";
+import {
+	type BuiltinRoutineId,
+	provisionTeamRoutines,
+	runBuiltinRoutine,
+} from "@hyperidle/server/app-runtime";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";
 

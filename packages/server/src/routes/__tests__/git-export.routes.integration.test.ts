@@ -9,7 +9,7 @@
  */
 
 import { createTestDb } from "@hyperidle/db";
-import type { FsAdapter, GitRunner } from "@hyperidle/fabric";
+import type { FsAdapter, GitRunner } from "@hyperidle/server/app-runtime";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createGitExportRoutes } from "../../routes/git-export-routes.js";
 import { test } from "../../test-fixtures.js";

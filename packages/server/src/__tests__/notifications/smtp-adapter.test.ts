@@ -12,7 +12,11 @@
  * `NOTIFICATIONS_SKIP_SMTP=1` if a platform cannot bind loopback.
  */
 
-import { createSmtpAdapter, type Notification, type Recipient } from "@hyperidle/fabric";
+import {
+	createSmtpAdapter,
+	type Notification,
+	type Recipient,
+} from "@hyperidle/server/app-runtime";
 import { SMTPServer } from "smtp-server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 

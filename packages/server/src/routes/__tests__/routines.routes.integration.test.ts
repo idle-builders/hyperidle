@@ -18,7 +18,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { runBuiltinRoutine } from "@hyperidle/fabric";
+import { runBuiltinRoutine } from "@hyperidle/server/app-runtime";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";

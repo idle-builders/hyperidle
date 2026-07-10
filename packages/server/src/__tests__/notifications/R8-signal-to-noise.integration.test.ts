@@ -29,7 +29,7 @@ import {
 	type Recipient,
 	registerNotificationDispatcher,
 	type SendResult,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import type {
 	CostCapBreachedEvent,
 	CostCapWarningEvent,

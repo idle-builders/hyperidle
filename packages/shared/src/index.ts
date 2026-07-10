@@ -462,24 +462,6 @@ export {
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-// Legacy Strategy-port type exports are retained for historical tests and
-// compatibility only. Production runtime must not import or register Strategy.
-export type {
-	AgentScaffoldSpec,
-	AssistantFormation,
-	AssistantFormationRequest,
-	ContextAssemblyOutcome,
-	ContextAssemblyRequest,
-	DecomposeBetRequest,
-	DecompositionPlan,
-	IngestionHandle,
-	IngestionRequest,
-	ScaffoldRequest,
-	SelectAgentOutcome,
-	SelectAgentRequest,
-	SelectionCandidate,
-	Strategy,
-} from "./strategy-port.js";
 // ── Team primitive (L13, formerly Product) ──
 export type {
 	AgentHealthLevel,

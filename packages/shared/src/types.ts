@@ -68,7 +68,7 @@ export type KnowledgeFormat = "markdown" | "toon";
 /**
  * Kernel-level knowledge statuses: the three states the kernel cares about
  * (draft → active → archived). The full 7-state taxonomy lives in
- * @hyperidle/fabric as KnowledgeStatus.
+ * @hyperidle/server/app-runtime as KnowledgeStatus.
  *
  * @lore O1: moved as part of kernel/strategy separation. The kernel only needs
  * to know if knowledge is draft, active, or archived. The strategy layer
@@ -166,7 +166,7 @@ export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
  *
  * @lore Q2: scope_kind lives on the kernel knowledgeItems table so every
  * item knows where it belongs, regardless of which strategy fabric is active.
- * The fabric maps scope_kind → layer via scopeToLayer() in @hyperidle/fabric.
+ * The fabric maps scope_kind → layer via scopeToLayer() in @hyperidle/server/app-runtime.
  */
 export const SCOPE_KINDS = [
 	"factory",

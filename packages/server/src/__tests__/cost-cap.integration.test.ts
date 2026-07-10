@@ -14,7 +14,7 @@ import {
 	clearDeduplicationCache,
 	recordCostAndCheck,
 	resetCosts,
-} from "@hyperidle/fabric";
+} from "@hyperidle/server/app-runtime";
 import type { CostCapBreachedEvent, CostCapWarningEvent } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";

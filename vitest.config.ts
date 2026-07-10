@@ -20,13 +20,11 @@ export default defineConfig({
 			"packages/desktop",
 			"packages/eval",
 			"packages/server",
-			"packages/fabric",
 			"packages/shared",
 			"packages/web",
 			"packages/design-system",
 			"packages/eslint-plugin-design",
 			"packages/eslint-plugin-authz",
-			"packages/strategy-minimal",
 		],
 	},
 });

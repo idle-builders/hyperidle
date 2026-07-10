@@ -33,6 +33,12 @@ runs.
 - Production server boot succeeds without registering or selecting a Strategy.
 - Runtime package dependencies no longer include `@hyperidle/fabric` or
   `@hyperidle/strategy-minimal`.
+- Remaining Strategy/Fabric source packages and active runtime seam files are
+  deleted or archived outside the runtime/workspace source graph:
+  `packages/fabric`, `packages/strategy-minimal`,
+  `packages/shared/src/strategy-port.ts`, and
+  `packages/server/src/services/strategy-registry.ts` must not remain as live
+  source/runtime/test fixtures.
 - Former Fabric service behavior is reachable through
   `packages/server/src/app-runtime` and core/agent services.
 - Agent-capable behavior continues through the AU6 request/runtime boundary.
@@ -43,8 +49,9 @@ runs.
 ## Scope
 
 In scope: retire runtime imports, boot wiring, active Strategy registry usage,
-minimal Strategy fallback usage, package dependencies, and docs that still teach
-Strategy/Fabric as active runtime concepts.
+minimal Strategy fallback usage, package dependencies, legacy Strategy/Fabric
+source package deletion/archive, tests that still require legacy packages as
+fixtures, and docs that still teach Strategy/Fabric as active runtime concepts.
 
 Out of scope: data table renames, plugin marketplace, remote worker scheduling,
 new settings UI, new harnesses/tools/MCP servers, prompt quality, relevance
@@ -53,9 +60,10 @@ quality, and the AU8 mechanical dependency guard.
 ## Retirement Vocabulary
 
 Strategy/Fabric retirement means the old nouns stop participating in production
-runtime boot and execution. Historical package/test fixtures and durable
-Strategy/Fabric-era table names may remain only where they preserve old records
-or old tests; they must not be required by product runtime behavior.
+runtime boot and execution and no longer exist as live source packages or test
+fixtures. Durable Strategy/Fabric-era table names may remain only where needed
+to preserve old records; they must be read through current app concepts and must
+not require a Strategy/Fabric package, port, registry, bootstrap, or fallback.
 
 ## Guide Draft
 

@@ -1,4 +1,4 @@
-import { routeToFounder } from "@hyperidle/fabric";
+import { routeToFounder } from "@hyperidle/server/app-runtime";
 import { describe, expect, it } from "vitest";
 
 describe("routeToFounder", () => {

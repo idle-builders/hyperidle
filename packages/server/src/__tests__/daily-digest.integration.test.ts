@@ -7,7 +7,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { getDailyDigest } from "@hyperidle/fabric";
+import { getDailyDigest } from "@hyperidle/server/app-runtime";
 import { describe, expect, test } from "../test-fixtures.js";
 
 describe("Daily Digest (E7)", () => {

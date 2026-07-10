@@ -19,7 +19,6 @@ const SHARED_EXCLUDE = ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.w
 
 const HARNESS_INCLUDE = [
 	"packages/server/src/harness/__tests__/**/*.integration.test.ts",
-	"packages/server/src/__tests__/session-provisioning.integration.test.ts",
 	// @lore real-harness serial: *-real.integration.test.ts files in src/__tests__ and
 	// routes/__tests__ drive real CLI harnesses (codex/claude/opencode). They must run
 	// SERIALLY (harness project, fileParallelism:false) — concurrent codex sessions
@@ -28,12 +27,6 @@ const HARNESS_INCLUDE = [
 	// route-dispatch real tests alongside the existing real-session/cli-adapter harness tests.
 	"packages/server/src/__tests__/*-real.integration.test.ts",
 	"packages/server/src/routes/__tests__/*-real.integration.test.ts",
-	// converted to real-harness (4-lane matrix) — outside harness/__tests__/ dir
-	"packages/server/src/__tests__/minimal-strategy-session.integration.test.ts",
-	"packages/server/src/__tests__/bet-decomposition-real-agent.integration.test.ts",
-	// Builtin-only real harness path. It still requires OPENROUTER_API_KEY, so it
-	// belongs in the release-gated harness project, not affected service verify.
-	"packages/server/src/__tests__/AV1-assistant-ready.integration.test.ts",
 ];
 
 export default defineConfig({
