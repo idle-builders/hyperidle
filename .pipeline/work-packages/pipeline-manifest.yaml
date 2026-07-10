@@ -1419,6 +1419,24 @@ stories:
     type: frontend
     depends: [AU2, AU4]
     complexity: L
+  - id: AU6
+    title: "Agent execution boundary closure"
+    track: AU
+    type: backend
+    depends: [AU4]
+    complexity: L
+  - id: AU7
+    title: "Strategy and Fabric runtime retirement"
+    track: AU
+    type: framework
+    depends: [AU6]
+    complexity: L
+  - id: AU8
+    title: "Should dependency graph guard"
+    track: AU
+    type: infra
+    depends: [AU7]
+    complexity: M
 
   # Track AV: First-Run Usability & Product Polish (v0.6.0 human-testing)
   # Remediation of the larger v0.6.0 human-testing findings; each WP refined+built in its own session.

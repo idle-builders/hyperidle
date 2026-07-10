@@ -4,7 +4,7 @@ This track separates the core app from the agent layer and removes the Strategy/
 
 The point is not a new harness path. The point is one contract for every agent run: task-backed work, assistant turns, routine-triggered runs, knowledge actions, and decomposition work all become task-optional session requests consumed by the same runtime boundary. Every event that can cause an LLM call becomes triggerable. If no user or plugin trigger matches, the runtime attaches the default eligible agent with no event-specific prompt; a matching user/plugin trigger supplies the specific agent and prompt.
 
-**Reference.** `docs/architecture/runtime-simplification.md`; `plans/strategy-kernel-plugin-split/dependency-graph.md` (as-is); `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md` (target graph); `plans/strategy-kernel-plugin-split/component-inventory.md`; `docs/architecture/as-implemented-domain-architecture.md`; `.pipeline/work-packages/TRACK-AR.md` (real harness proof boundary); current domain callers in Work, Conversation, Knowledge, Users, Settings, and Routines.
+**Reference.** `docs/architecture/runtime-simplification.md`; `plans/strategy-kernel-plugin-split/dependency-graph.md` (as-is); `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md` (target graph); `plans/strategy-kernel-plugin-split/as-is-vs-should-dependency-graph.md` (current gap comparison); `plans/strategy-kernel-plugin-split/component-inventory.md`; `docs/architecture/as-implemented-domain-architecture.md`; `.pipeline/work-packages/TRACK-AR.md` (real harness proof boundary); current domain callers in Work, Conversation, Knowledge, Users, Settings, and Routines.
 
 ---
 
@@ -295,3 +295,172 @@ The point is not a new harness path. The point is one contract for every agent r
 - Eval/tuning UI.
 
 **Effort.** L (~4d)
+
+---
+
+### AU6 — Agent execution boundary closure
+
+**Work package.** As a maintainer, I want every LLM-capable path to enter through the agent-layer request boundary, so that core app domains never need to know how a harness, tool, MCP server, context provider, or provisioning path works. When this ships, task acceptance, assistant turns, routines, knowledge actions, decomposition, and re-engagement all produce the same kind of run request and receive lifecycle state back through the same observable channel. The user-visible behavior stays the same, but the runtime shape is simpler: core domains record intent and react to results, while the agent layer owns execution. This closes the remaining gap between the trigger spine that exists today and the should graph's Agent Layer boundary.
+
+**Why this matters.** The maintainer benefits because future agent behavior can be added once at the request/runtime boundary instead of being threaded through route-specific or Fabric-shaped call paths. Agents benefit because every run gets the same lifecycle, context, tool, MCP, capture, and writeback handling. The cost of not building this is continued partial migration: new trigger configuration exists, but old direct execution seams keep leaking through the app and make the should graph impossible to prove.
+
+**Type.** backend
+
+**What exists today.** `AgentSessionRequest` creation and consumption exist, and trigger-backed request creation is used by several surfaces. `provisionSession` remains the central execution service, server bootstrap still wires provisioning/runtime hooks, and Fabric-shaped app-runtime dispatchers and schedulers still create and consume agent runs. Assistant turns, bet decomposition, session routes, routine routes, task dispatch, and knowledge routes already have partial request-boundary behavior, but the boundary is not yet the single observable entry point for all LLM-capable work.
+
+**What's genuinely missing.** The system does not yet prove that all LLM-capable behavior crosses one agent-layer boundary. Some code still treats provisioning/runtime hooks as local service details instead of an owned layer. The missing outcome is a runtime where every agent run has one request identity, one lifecycle path, and no direct domain ownership of execution internals.
+
+**Depends on.**
+- **AU4** — the closure work needs the trigger-backed request path first; without it there is no common event-to-run contract to make universal.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Required — run /refine first (reshapes: agent execution boundary).
+- **Design:** Not required — backend/runtime boundary; skip /design.
+
+**Human concept review.** No — backend architecture boundary with no new user-facing surface.
+
+**Acceptance criteria.**
+- Every current LLM-capable user or domain action produces an agent-layer run request before execution begins.
+- Core app domain code can observe requested, running, completed, failed, and cancelled run state without importing harness, tool, MCP, context, or provisioning execution internals.
+- Agent-layer execution owns harness selection, run admission, context assembly, tool/MCP availability, capture, writeback, and lifecycle publication for every run.
+- Existing task, assistant, routine, knowledge-action, decomposition, and re-engagement behavior remains observable after the boundary closure.
+- A failed agent run is reported through the same lifecycle state regardless of which domain action requested it.
+- Runtime tests can prove the request-to-lifecycle path once, while domain tests prove request creation and lifecycle reaction without direct harness execution.
+
+**Validation scenarios.**
+- Given a task, assistant message, routine fire, knowledge action, and decomposition request, when each action requests agent work, then each has a durable run request before execution begins.
+- Given a domain consumer watches run lifecycle state, when the agent run completes or fails, then the domain can update its state without calling execution internals.
+- Given a harness/tool/MCP implementation changes, when core domain tests run, then they do not need to import or mock that execution implementation.
+- Given an agent run fails during execution, when lifecycle state is queried, then the originating domain can show the same failed state shape as every other run type.
+
+**Plan calls.** Run /pipeline:refine first to name the boundary and lock the lifecycle contract, then standard architecture pass. The plan should classify each current LLM-capable caller by observable request and lifecycle behavior, then close only the gaps that prevent the agent layer from being the single execution owner.
+
+**Contracts / constraints.**
+- No new harness execution path.
+- Core app domains own records and events, not execution internals.
+- Existing user-visible behavior must not regress.
+- Request and lifecycle correlation must remain durable enough for local or remote workers.
+- No Fabric or Strategy fallback is allowed for newly closed paths.
+
+**Out of scope.**
+- Removing the Fabric package or Strategy port entirely; AU7 owns runtime retirement.
+- Building new Settings UI.
+- Adding new harnesses, tools, MCP servers, or plugin distribution.
+- Remote worker scheduling.
+
+**Effort.** L (~4d)
+
+---
+
+### AU7 — Strategy and Fabric runtime retirement
+
+**Work package.** As a maintainer, I want HyperIdle to boot and run without Strategy or Fabric as runtime concepts, so that the architecture matches the should dependency graph instead of carrying the older Kernel/Strategy/Fabric split. When this ships, there is no active Strategy singleton, no Strategy port required to run the app, no Fabric bootstrap/runtime service layer, and no minimal Strategy package used as a product runtime. Existing Work, Conversation, Knowledge, Users, Settings, routines, notifications, sessions, tools, MCP, and harness behavior still works under core app plus agent layer ownership. Historical data remains readable through current app concepts.
+
+**Why this matters.** The maintainer benefits because the system can finally be explained and changed as two runtime boundaries plus configuration, not three overlapping frameworks. Product operators benefit indirectly because hidden Strategy/Fabric behavior stops competing with editable configuration and trigger rules. The cost of not building this is that AU remains only cosmetically complete: the should graph says Strategy/Fabric are gone, but contributors still have to learn and preserve them.
+
+**Type.** framework
+
+**What exists today.** The should graph says no Strategy port, active Strategy singleton, Fabric bootstrap, Fabric runtime package, or Fabric service layer should remain. The current code still has the shared Strategy port, active Strategy registry, Fabric Strategy adapter, Fabric bootstrap, minimal Strategy package, Fabric knowledge/context/services, and Fabric-shaped server app-runtime services. Several pieces of behavior have already moved toward trigger-backed requests and app-owned configuration, but runtime vocabulary and dependency edges still expose the old architecture.
+
+**What's genuinely missing.** There is no completed retirement of Strategy/Fabric from boot, package dependencies, runtime services, developer vocabulary, and user-visible labels. Former Fabric responsibilities have not all been conclusively rehomed as core app behavior, agent-layer behavior, plugin/default configuration, or dead code. The missing outcome is a running app where Strategy and Fabric are not required runtime nouns.
+
+**Depends on.**
+- **AU6** — Strategy/Fabric runtime retirement cannot safely complete until all LLM execution paths are owned by the agent-layer boundary.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Required — run /refine first (reshapes: Strategy/Fabric retirement boundary).
+- **Design:** Not required — framework/package boundary; skip /design.
+
+**Human concept review.** No — backend/framework retirement with preserved user behavior.
+
+**Acceptance criteria.**
+- The app boots without registering, selecting, or requiring an active Strategy.
+- Runtime code no longer depends on a Fabric bootstrap or Fabric service bundle to start core app, agent-layer, routine, notification, knowledge, or session behavior.
+- Runtime code no longer depends on a minimal Strategy implementation as a product fallback.
+- Former Fabric responsibilities are observable under one of the target owners: core app domain, agent layer, plugin/default configuration, or explicitly removed dead behavior.
+- Existing user-visible Work, Conversation, Knowledge, Users, Settings, Routine, notification, session, tool, MCP, and harness behavior remains available after retirement.
+- Existing durable records with Strategy/Fabric-era names remain readable through current app behavior with no data loss.
+- User-facing and developer-facing runtime documentation no longer requires Strategy or Fabric as active concepts.
+
+**Validation scenarios.**
+- Given a fresh app boot, when startup completes, then no active Strategy registration is required for core app and agent runs to work.
+- Given existing knowledge, routine, task, session, and notification data, when the app is opened after retirement, then those records remain visible through current app surfaces.
+- Given an agent run starts from a task, assistant message, or routine, when execution begins, then no Strategy or Fabric runtime object participates.
+- Given a contributor reads the runtime docs, when they follow the boot/runtime model, then they can understand the system as core app plus agent layer plus plugin/default configuration.
+
+**Plan calls.** Run /pipeline:refine first to lock the retirement vocabulary and classify remaining Strategy/Fabric responsibilities, then standard architecture pass. The plan should use `plans/strategy-kernel-plugin-split/as-is-vs-should-dependency-graph.md` as the gap inventory and `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md` as the acceptance target.
+
+**Contracts / constraints.**
+- Preserve existing user-visible behavior unless refinement identifies dead behavior explicitly.
+- No data loss for existing Strategy/Fabric-era durable records.
+- No new runtime layer may replace Fabric under a different name.
+- Plugins remain configuration sources, not execution owners.
+- Agent layer remains the only owner of LLM-capable execution.
+
+**Out of scope.**
+- New plugin marketplace, installation, signing, or sandboxing.
+- New configuration UI beyond preserving what AU5 introduced.
+- Improving relevance scoring, prompt quality, or decomposition quality.
+- Remote worker protocol.
+
+**Effort.** L (~5d)
+
+---
+
+### AU8 — Should dependency graph guard
+
+**Work package.** As a maintainer, I want the should dependency graph to be mechanically enforced, so that AU cannot be called complete while forbidden Strategy/Fabric/runtime edges still exist or can silently return. When this ships, repository validation fails if runtime code reintroduces Strategy/Fabric dependencies, core app domains import agent execution internals, agent-layer modules take ownership of core domain CRUD, or plugins act as runtime executors instead of configuration sources. The graph comparison becomes a living contract rather than a one-time markdown audit. This gives future agents a fast, objective signal for whether the runtime simplification boundary still holds.
+
+**Why this matters.** The maintainer benefits because architecture drift becomes visible immediately instead of rediscovered by another manual dependency audit. Pipeline builders benefit because they can verify boundary rules before claiming AU complete. The cost of not building this is repeating the current problem: specs say the should graph is reached, while source dependencies quietly say otherwise.
+
+**Type.** infra
+
+**What exists today.** The as-should graph defines target ownership rules, and the as-is-vs-should comparison records current gaps. General lint, typecheck, tests, and package scripts already exist, but there is no dedicated validation that encodes the AU dependency graph. Existing source still contains Strategy/Fabric runtime concepts, so the guard must land after retirement rather than blocking the current transitional state prematurely.
+
+**What's genuinely missing.** There is no automated proof that core app, agent layer, and plugin/default configuration obey the should graph. There is also no pipeline-facing closure check that says AU is incomplete when forbidden runtime edges remain. The missing outcome is a validation gate that catches drift and documents the expected graph in executable form.
+
+**Depends on.**
+- **AU7** — the guard must enforce the final graph after Strategy/Fabric runtime retirement; before AU7, the repository still intentionally contains transitional forbidden edges.
+
+**Complexity.** M
+
+**Pre-build gates.**
+- **Refinement:** Not required — goal is clear and reuses requirements already locked in `docs/architecture/runtime-simplification.md`.
+- **Design:** Not required — infra validation; skip /design.
+
+**Human concept review.** No — validation infrastructure only.
+
+**Acceptance criteria.**
+- Repository validation fails when runtime code imports or registers Strategy/Fabric runtime concepts after AU7.
+- Repository validation fails when core app domain code imports harness, tool, MCP, context, provisioning, or other agent execution internals directly.
+- Repository validation fails when plugin/default configuration code subscribes directly to domain events or invokes harness execution as a runtime actor.
+- Repository validation fails when agent-layer code owns Work, Conversation, Knowledge, Users, or Settings CRUD instead of using core app contracts.
+- The validation output names the violated boundary clearly enough for a pipeline-builder to fix it without rerunning a manual audit.
+- The AU track has an explicit closure signal that points to the should graph and the guard, so future reviewers know AU is not done unless the guard passes.
+
+**Validation scenarios.**
+- Given a runtime module reintroduces a Strategy/Fabric runtime import, when validation runs, then it fails with a boundary-specific message.
+- Given a core domain module imports a harness adapter directly, when validation runs, then it fails with the core-to-agent-layer boundary violation.
+- Given plugin/default configuration code attempts to execute agent work directly, when validation runs, then it fails with the plugin-as-runtime violation.
+- Given the repository matches the should graph, when validation runs, then the AU dependency guard passes with the normal verification suite.
+
+**Plan calls.** Standard architecture pass. The plan should translate the should graph's boundary rules into validation checks and decide how they attach to the existing verification suite without creating a custom process orchestrator.
+
+**Contracts / constraints.**
+- The guard must be deterministic and runnable in normal repository validation.
+- The guard checks architecture boundaries, not style preferences.
+- The guard must not require network access.
+- The guard must explain failures in target-graph vocabulary.
+- No broad refactor beyond what is needed to make the graph enforceable.
+
+**Out of scope.**
+- Removing remaining Strategy/Fabric code; AU7 owns that.
+- Adding new runtime behavior.
+- Plugin marketplace or security governance.
+- Visual/UI testing.
+
+**Effort.** M (~1d)
