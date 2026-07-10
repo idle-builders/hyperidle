@@ -29,7 +29,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 // ---------------------------------------------------------------------------
-// Exactly-10 settings files to scan (enumeration guard: length must === 10)
+// Exactly-11 settings files to scan (enumeration guard: length must === 11)
 // ---------------------------------------------------------------------------
 
 const SETTINGS_FILES: readonly string[] = [
@@ -40,6 +40,7 @@ const SETTINGS_FILES: readonly string[] = [
 	// @lore AV2: SettingsAssistant.tsx removed — assistant folded into SettingsAgents (ast-* id).
 	// SettingsHarnesses.tsx added as its successor in the AG7 scan surface.
 	"packages/web/src/settings/SettingsHarnesses.tsx",
+	"packages/web/src/settings/SettingsAgentBehavior.tsx",
 	"packages/web/src/settings/SettingsModels.tsx",
 	"packages/web/src/settings/SettingsWorker.tsx",
 	"packages/web/src/settings/SettingsOrgChart.tsx",
@@ -48,9 +49,9 @@ const SETTINGS_FILES: readonly string[] = [
 ];
 
 // Enumeration guard — mirrors the snapshot-net enumeration guard discipline.
-if (SETTINGS_FILES.length !== 10) {
+if (SETTINGS_FILES.length !== 11) {
 	process.stderr.write(
-		`[ag7-consistency] FATAL: expected 10 settings files, got ${SETTINGS_FILES.length}.\n` +
+		`[ag7-consistency] FATAL: expected 11 settings files, got ${SETTINGS_FILES.length}.\n` +
 			"A miscounted file list makes this guard vacuously green. Fix SETTINGS_FILES.\n",
 	);
 	process.exit(1);
