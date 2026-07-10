@@ -1471,3 +1471,11 @@ stories:
     type: frontend
     depends: []
     complexity: M
+
+  # Track AW: Harness Family Expansion
+  - id: AW1
+    title: "Cursor Agent CLI harness support"
+    track: AW
+    type: backend
+    depends: []
+    complexity: M

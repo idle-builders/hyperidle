@@ -48,7 +48,7 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
-import { CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS } from "../adapter-pool.js";
+import { CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS, CURSOR_AGENT_CLI_CONFIG } from "../adapter-pool.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { requireHarness } from "./require-harness.js";
 
@@ -102,6 +102,15 @@ async function opencodeAuthed(): Promise<boolean> {
 		if (!key) return false;
 		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
 		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
+	} catch {
+		return false;
+	}
+}
+
+async function cursorAgentAuthed(): Promise<boolean> {
+	try {
+		const { stdout } = await execFileAsync("cursor-agent", ["status"], { timeout: 10_000 });
+		return stdout.includes("Logged in");
 	} catch {
 		return false;
 	}
@@ -542,4 +551,57 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 			await rmSandboxWithRetry(sandboxPath);
 		}
 	}, 90_000);
+});
+
+// ── CURSOR-AGENT CLI adapter (production path, real binary) ──────────────────
+
+describe("cursor-agent CLI adapter (real binary, production CliHarnessAdapter path)", () => {
+	requireHarness("cursor-agent");
+	test("drives CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG) against real cursor-agent → parsed completion + outcome completed", async ({
+		skip,
+	}) => {
+		const authed = await cursorAgentAuthed();
+		if (!authed) {
+			skip();
+			return;
+		}
+
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-cursor-"));
+
+		try {
+			const config: SessionConfig = {
+				sessionId: `cli-adapter-cursor-${Math.random().toString(36).slice(2, 10)}`,
+				sandboxPath,
+				systemPromptPath: "",
+				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
+				modelTier: "workhorse" as const,
+				tools: [],
+				resolvedModel: {
+					provider: "openai-compatible" as const,
+					model: "auto",
+					apiKey: "",
+					baseUrl: "https://api.cursor.com",
+				},
+				mcpConnectionInfo: undefined,
+			};
+
+			const adapter = new CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG);
+			const handle = await adapter.startSession(config);
+
+			const events: HarnessEvent[] = [];
+			for await (const ev of adapter.streamEvents(handle)) {
+				events.push(ev);
+			}
+
+			const result = await adapter.stopSession(handle);
+
+			expect(events.some((e) => e.type === "completion")).toBe(true);
+			expect(events.some((e) => e.type === "completion" && e.text.includes("ADAPTER_OK"))).toBe(
+				true,
+			);
+			expect(result.outcome).toBe("completed");
+		} finally {
+			await rmSandboxWithRetry(sandboxPath);
+		}
+	}, 120_000);
 });

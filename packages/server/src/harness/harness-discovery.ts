@@ -551,17 +551,54 @@ export async function probeOpenCodeCli(d?: HarnessProbeDeps): Promise<HarnessDis
 	};
 }
 
-function probeCursorAgentCli(): HarnessDiscoveryInput {
-	// @lore D1 (POLISH-060): Cursor Agent is permanently inert — it does not expose
-	// a documented headless local CLI surface HyperIdle can drive. Always report
-	// "unavailable" with kind:"none" so the settings row is non-actionable: no auth
-	// CTA, no toggle, no "Log in to Cursor" button. Discovery remains in the list so
-	// users know Cursor is on the roadmap, but no false promise of auth support.
+async function probeCursorAgentCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
+	const versionResult = await runCommand(["cursor-agent", "--version"], d);
+	if (versionResult.exitCode !== 0) {
+		return {
+			state: "missing",
+			reason: "cursor-agent CLI is not installed or not on PATH.",
+		};
+	}
+
+	const version = versionResult.stdout.trim().split("\n")[0]?.trim() ?? "";
+
+	const authResult = await runCommand(["cursor-agent", "status"], d);
+	const authText = authResult.stdout.trim() || authResult.stderr.trim();
+	if (authText.includes("Logged in")) {
+		return {
+			state: "ready",
+			version,
+			authAction: {
+				kind: "native_cli_login",
+				label: "Log in to Cursor",
+				command: ["cursor-agent", "login"],
+			},
+			runtime: { fileEditing: true, toolUse: true },
+		};
+	}
+
+	if (authResult.exitCode !== 0 || authText.includes("Not logged in")) {
+		return {
+			state: "unauthenticated",
+			version,
+			reason: "cursor-agent CLI is installed but not authenticated. Run `cursor-agent login`.",
+			authAction: {
+				kind: "native_cli_login",
+				label: "Log in to Cursor",
+				command: ["cursor-agent", "login"],
+			},
+		};
+	}
+
 	return {
-		state: "unavailable",
-		reason:
-			"Cursor Agent is not yet supported. Cursor does not expose a headless CLI surface HyperIdle can drive.",
-		authAction: { kind: "none", label: "" },
+		state: "installed",
+		version,
+		reason: `cursor-agent auth state could not be parsed. Observed stdout: ${authText.slice(0, 120)}`,
+		authAction: {
+			kind: "native_cli_login",
+			label: "Log in to Cursor",
+			command: ["cursor-agent", "login"],
+		},
 	};
 }
 
@@ -1033,7 +1070,7 @@ export async function discoverLocalHarnesses(
 		probeCodexCli(d),
 		probeClaudeCodeCli(d),
 		probeOpenCodeCli(d),
-		probeCursorAgentCli(),
+		probeCursorAgentCli(d),
 		probeClaudeCodeMcpList(d),
 		probeCodexMcpList(d),
 		probeOpencodeMcpList(d),

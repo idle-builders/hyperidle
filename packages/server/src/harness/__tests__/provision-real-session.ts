@@ -39,7 +39,12 @@ import type {
 	ProvisionSessionResult,
 } from "../../services/session-provisioning.js";
 import { provisionSession } from "../../services/session-provisioning.js";
-import { AdapterPool, CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS } from "../adapter-pool.js";
+import {
+	AdapterPool,
+	CLAUDE_CLI_CONFIG,
+	CLI_TOOL_CONFIGS,
+	CURSOR_AGENT_CLI_CONFIG,
+} from "../adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
@@ -466,6 +471,8 @@ export function lockedHarnessAdapter(harness: SupportedHarnessName): {
 			if (!opencodeConfig) throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
 			return { adapter: new CliHarnessAdapter(opencodeConfig), resolvedModel };
 		}
+		case "cursor-agent":
+			return { adapter: new CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG), resolvedModel };
 	}
 }
 
@@ -610,6 +617,34 @@ export const SUPPORTED_HARNESS_LANES: readonly HarnessLane[] = [
 				params: {
 					taskId: `ar-opencode-task-${Date.now()}`,
 					agentId: `ar-opencode-agent-${Date.now()}`,
+					productId: "p1",
+					sandboxBasePath: ctx.tmpDir,
+					resolvedModel,
+				},
+				capturePaths: ["answer.txt"],
+			};
+		},
+	},
+	{
+		harnessName: "cursor-agent",
+		describeTag: "[harness:cursor-agent]",
+		prepFn: (ctx) => {
+			if (!ctx.bridge)
+				throw new Error("cursor-agent lane requires a live MCP bridge from startMcpBridgeServer()");
+			const { adapter, resolvedModel } = lockedHarnessAdapter("cursor-agent");
+			const pool = new AdapterPool();
+			pool.register("local-cursor-agent", adapter, {
+				name: "local-cursor-agent",
+				kind: "local",
+				type: "cursor-agent",
+				modelProviders: [],
+				maxConcurrent: 2,
+			});
+			return {
+				pool,
+				params: {
+					taskId: `ar-cursor-task-${Date.now()}`,
+					agentId: `ar-cursor-agent-${Date.now()}`,
 					productId: "p1",
 					sandboxBasePath: ctx.tmpDir,
 					resolvedModel,
@@ -1013,6 +1048,15 @@ export async function runConversationalTurnThroughHarness(
 				kind: "local",
 				type: "opencode",
 				modelProviders: ["openai-compatible"],
+				maxConcurrent: 2,
+			});
+			break;
+		case "cursor-agent":
+			pool.register("local-cursor-agent", adapter, {
+				name: "local-cursor-agent",
+				kind: "local",
+				type: "cursor-agent",
+				modelProviders: [],
 				maxConcurrent: 2,
 			});
 			break;

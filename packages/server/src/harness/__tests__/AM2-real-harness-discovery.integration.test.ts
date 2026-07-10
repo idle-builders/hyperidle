@@ -40,16 +40,17 @@ describe("AM2 real harness discovery", () => {
 		});
 	});
 
-	// cursor-agent is inert / not spawnable. D1 (POLISH-060) reworded the discovery
-	// reason to a user-facing "not yet supported" note (settings shows no auth CTA);
-	// the UNCONDITIONAL guarantee asserted here is that discovery still reports it
-	// unavailable — not an availability gate. (AR1: the prior skipIf(cursorInstalled)
-	// skip-when-PRESENT form is removed; cursor's absence-from-discovery is asserted directly.)
-	test("cursor-agent is unavailable (not yet supported — no drivable CLI surface)", async () => {
-		const result = await discoverLocalHarnesses();
+	describe("cursor-agent", () => {
+		requireHarness("cursor-agent");
+		test("cursor-agent discovery reports ready when binary is installed and logged in", async () => {
+			const result = await discoverLocalHarnesses();
 
-		expect(result["cursor-agent"].state).toBe("unavailable");
-		expect(result["cursor-agent"].reason).toMatch(/not yet supported/i);
+			expect(["ready", "unauthenticated", "installed"]).toContain(result["cursor-agent"].state);
+			if (result["cursor-agent"].state === "ready") {
+				expect(result["cursor-agent"].authAction?.kind).toBe("native_cli_login");
+				expect(result["cursor-agent"].version).toBeTruthy();
+			}
+		});
 	});
 
 	describe("builtin", () => {

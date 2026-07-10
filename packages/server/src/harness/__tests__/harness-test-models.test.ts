@@ -2,7 +2,7 @@
  * AR7 — Unit tests for the locked per-harness test-model matrix.
  *
  * Verifies:
- *   1. HARNESS_TEST_MODELS has exactly the 4 supported harness keys.
+ *   1. HARNESS_TEST_MODELS has exactly the 5 supported harness keys.
  *   2. Each harness maps to the founder-set locked model string.
  *   3. harnessTestResolvedModel reads the key from OPENROUTER_API_KEY for
  *      OpenRouter harnesses and returns the inherited-auth placeholder for
@@ -15,15 +15,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { CLI_TOOL_CONFIGS } from "../adapter-pool.js";
+import { CLI_TOOL_CONFIGS, CURSOR_AGENT_CLI_CONFIG } from "../adapter-pool.js";
 import { HARNESS_TEST_MODELS, harnessTestResolvedModel } from "./require-harness.js";
 
 // ── Matrix shape ──────────────────────────────────────────────────────────────
 
 describe("HARNESS_TEST_MODELS — locked matrix shape", () => {
-	test("has exactly the 4 supported harness keys", () => {
+	test("has exactly the 5 supported harness keys", () => {
 		const keys = Object.keys(HARNESS_TEST_MODELS).sort();
-		expect(keys).toEqual(["builtin", "claude", "codex", "opencode"]);
+		expect(keys).toEqual(["builtin", "claude", "codex", "cursor-agent", "opencode"]);
 	});
 
 	test("builtin → locked model deepseek/deepseek-v4-flash", () => {
@@ -56,6 +56,14 @@ describe("HARNESS_TEST_MODELS — locked matrix shape", () => {
 
 	test("codex apiKeyEnv is null (inherited keychain auth)", () => {
 		expect(HARNESS_TEST_MODELS.codex.apiKeyEnv).toBeNull();
+	});
+
+	test("cursor-agent → locked model auto (tiny baseline)", () => {
+		expect(HARNESS_TEST_MODELS["cursor-agent"].model).toBe("auto");
+	});
+
+	test("cursor-agent apiKeyEnv is null (inherited Cursor login auth)", () => {
+		expect(HARNESS_TEST_MODELS["cursor-agent"].apiKeyEnv).toBeNull();
 	});
 });
 
@@ -99,6 +107,12 @@ describe("harnessTestResolvedModel — resolves locked model for a harness", () 
 		expect(resolved.apiKey).toBe("test-openrouter-key-abc123");
 	});
 
+	test("cursor-agent resolves to auto + empty apiKey (Cursor login auth)", () => {
+		const resolved = harnessTestResolvedModel("cursor-agent");
+		expect(resolved.model).toBe("auto");
+		expect(resolved.apiKey).toBe("");
+	});
+
 	test("builtin with missing OPENROUTER_API_KEY → apiKey is empty string (not null)", () => {
 		vi.unstubAllEnvs();
 		vi.stubEnv("OPENROUTER_API_KEY", "");
@@ -132,6 +146,13 @@ describe("CLI_TOOL_CONFIGS.codex — model is argument-enforced", () => {
 
 	test("opencode args contain --model immediately followed by {{model}}", () => {
 		const args = CLI_TOOL_CONFIGS.opencode?.args ?? [];
+		const modelFlagIdx = args.indexOf("--model");
+		expect(modelFlagIdx).toBeGreaterThanOrEqual(0);
+		expect(args[modelFlagIdx + 1]).toBe("{{model}}");
+	});
+
+	test("cursor-agent args contain --model immediately followed by {{model}}", () => {
+		const args = CURSOR_AGENT_CLI_CONFIG.args ?? [];
 		const modelFlagIdx = args.indexOf("--model");
 		expect(modelFlagIdx).toBeGreaterThanOrEqual(0);
 		expect(args[modelFlagIdx + 1]).toBe("{{model}}");

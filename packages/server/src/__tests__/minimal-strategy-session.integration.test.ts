@@ -48,12 +48,13 @@ import { clearActiveStrategy, setActiveStrategy } from "../services/strategy-reg
 import { test } from "../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
-// Lane references (index-stable: builtin=0, claude=1, codex=2, opencode=3)
+// Lane references (index-stable: builtin=0, claude=1, codex=2, opencode=3, cursor-agent=4)
 // ---------------------------------------------------------------------------
 const BUILTIN_LANE = SUPPORTED_HARNESS_LANES[0]!;
 const CLAUDE_LANE = SUPPORTED_HARNESS_LANES[1]!;
 const CODEX_LANE = SUPPORTED_HARNESS_LANES[2]!;
 const OPENCODE_LANE = SUPPORTED_HARNESS_LANES[3]!;
+const CURSOR_AGENT_LANE = SUPPORTED_HARNESS_LANES[4]!;
 
 // ---------------------------------------------------------------------------
 // Seed helpers
@@ -200,4 +201,9 @@ describe(`${CODEX_LANE.describeTag} Minimal strategy — real agent session runs
 describe(`${OPENCODE_LANE.describeTag} Minimal strategy — real agent session runs to completion`, () => {
 	requireHarness("opencode");
 	makeLaneDescribe(OPENCODE_LANE);
+});
+
+describe(`${CURSOR_AGENT_LANE.describeTag} Minimal strategy — real agent session runs to completion`, () => {
+	requireHarness("cursor-agent");
+	makeLaneDescribe(CURSOR_AGENT_LANE);
 });

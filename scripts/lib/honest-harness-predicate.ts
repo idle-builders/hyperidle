@@ -26,15 +26,20 @@
  * The agent-harness matrix every harness-facing integration test MUST cover.
  * Single source of truth shared by: the coverage check in honest-harness-guard.ts,
  * the SUPPORTED_HARNESS_LANES table in provision-real-session.ts, and (mirrored —
- * see require-harness.ts) requireHarness. `gh` is a TOOL not an agent harness;
- * `cursor-agent` is inert/not-spawnable — neither is in the matrix.
+ * see require-harness.ts) requireHarness. `gh` is a TOOL not an agent harness.
  *
  * @lore supported-harnesses-source: Defined in the predicate lib (the shared path that both the guard
  * AND the attestation floor already import without a package-graph cycle).
  * `packages/` must not import `scripts/` — require-harness.ts mirrors this as a
  * compile-time-checked literal (bidirectional type assert).
  */
-export const SUPPORTED_HARNESSES = ["builtin", "claude", "codex", "opencode"] as const;
+export const SUPPORTED_HARNESSES = [
+	"builtin",
+	"claude",
+	"codex",
+	"opencode",
+	"cursor-agent",
+] as const;
 export type SupportedHarness = (typeof SUPPORTED_HARNESSES)[number];
 
 /**

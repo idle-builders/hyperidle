@@ -388,7 +388,7 @@ export async function runEvalSession(
 		sessionId: result.sessionId,
 		outcome,
 		totalCostCents: result.totalCostCents,
-		taskId: result.taskId,
+		taskId: result.taskId ?? params.taskId,
 		durationMs,
 		// AL6 v2: Return verdict and force count for eval judges.
 		returnVerdict: result.returnVerdict,

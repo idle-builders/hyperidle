@@ -317,7 +317,7 @@ function deriveMcpServerName(
 export async function applyProvisioningPlan(args: {
 	readonly plan: ProvisioningPlan;
 	readonly sandboxPath: string;
-	readonly cliMcpDialect?: "codex-toml" | "opencode-json";
+	readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
 	readonly claudeNative: boolean;
 }): Promise<{ readonly mcpTokenEnv: Record<string, string> }> {
 	const { plan, sandboxPath, cliMcpDialect, claudeNative } = args;

@@ -18,7 +18,7 @@
  *  - packages/web/src/settings/SettingsHarnesses.tsx is created
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsHarnesses } from "../SettingsHarnesses.js";
@@ -115,11 +115,12 @@ const MOCK_DESCRIPTORS = [
 		name: "Cursor Agent",
 		kind: "local",
 		accessMode: "provider-subscription-cli",
-		authAction: { kind: "none", label: "Configured in Cursor app" },
-		discovery: {
-			state: "unavailable",
-			reason: "No documented headless CLI surface.",
+		authAction: {
+			kind: "native_cli_login",
+			label: "Log in to Cursor",
+			command: ["cursor-agent", "login"],
 		},
+		discovery: { state: "ready", version: "2026.07.09" },
 		models: [],
 		runtime: ALL_CAPS_FALSE,
 		modelProviders: [],
@@ -232,24 +233,38 @@ describe("AM4 AC4 — SettingsHarnesses respects AM2 scope", () => {
 		expect(screen.queryByText(/^goose$/i)).toBeNull();
 	});
 
-	it("cursor-agent renders as unavailable with NO toggle", async () => {
+	it("cursor-agent renders as ready and actionable", async () => {
+		const descriptors = MOCK_DESCRIPTORS.map((descriptor) =>
+			descriptor.type === "cursor-agent"
+				? {
+						...descriptor,
+						runtime: {
+							...descriptor.runtime,
+							toolUse: true,
+						},
+					}
+				: descriptor,
+		);
+		mockFetch(descriptors);
+		const user = userEvent.setup();
 		render(<SettingsHarnesses />);
 
 		await waitFor(() => {
 			expect(screen.getByText("Cursor Agent")).toBeInTheDocument();
 		});
 
-		// Cursor is unavailable → no toggle
-		// We find all switches and verify cursor doesn't have one near it
-		// (The component should not render a role="switch" for cursor-agent)
-		const allSwitches = screen.queryAllByRole("switch");
-		// All switches present must be for non-cursor backends
-		// Assert count: builtin=no, claude-code=yes, codex=yes(unauth), opencode=yes(installed) = 3
-		// The exact count depends on implementation, but we can verify the unavailable one has none.
-		// We use aria-label checks on switches:
-		const cursorLabel = /cursor agent/i;
-		const cursorSwitch = allSwitches.find((s) => s.getAttribute("aria-label")?.match(cursorLabel));
-		expect(cursorSwitch).toBeUndefined();
+		// AV2 split-view: no row toggle; actionable means detail pane opens with login command.
+		expect(screen.queryByRole("switch")).toBeNull();
+		const cursorRow = screen.getByText("Cursor Agent").closest("li");
+		expect(cursorRow).not.toBeNull();
+		expect(
+			within(cursorRow as HTMLLIElement).getByText("Authenticated and ready."),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByText("Cursor Agent"));
+		await waitFor(() => {
+			expect(screen.getByText("cursor-agent login")).toBeInTheDocument();
+		});
 	});
 });
 

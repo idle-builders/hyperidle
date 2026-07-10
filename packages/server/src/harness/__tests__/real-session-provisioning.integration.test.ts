@@ -189,6 +189,7 @@ const BUILTIN_LANE = SUPPORTED_HARNESS_LANES[0]; // harnessName: "builtin"
 const CLAUDE_LANE = SUPPORTED_HARNESS_LANES[1]; // harnessName: "claude"
 const CODEX_LANE = SUPPORTED_HARNESS_LANES[2]; // harnessName: "codex"
 const OPENCODE_LANE = SUPPORTED_HARNESS_LANES[3]; // harnessName: "opencode"
+const CURSOR_AGENT_LANE = SUPPORTED_HARNESS_LANES[4]; // harnessName: "cursor-agent"
 
 // ─── Lane 1: builtin + cheap OpenRouter model ─────────────────────────────────
 
@@ -548,5 +549,56 @@ describe(`${OPENCODE_LANE!.describeTag} opencode CLI + provisionSession `, () =>
 					"non-crash outcome is the load-bearing proof. File-write is best-effort for opencode.\n",
 			);
 		}
+	}, 240_000);
+});
+
+// ─── Lane 5: real cursor-agent CLI ────────────────────────────────────────────
+
+describe(`${CURSOR_AGENT_LANE!.describeTag} cursor-agent CLI + provisionSession `, () => {
+	requireHarness("cursor-agent");
+
+	let tmpDir: string;
+	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | null = null;
+
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ar2-lane5-"));
+		clearDeduplicationCache();
+		setActiveStrategy(fabricStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
+
+	test("provisions a real cursor-agent session; honest non-crash outcome", async ({
+		db,
+		eventBus,
+	}) => {
+		const agentId = "ar2-cursor-agent";
+		const taskId = "ar2-cursor-task";
+
+		await seedDomain(db, {
+			taskId,
+			agentId,
+			taskDescription: "Reply with exactly: 4",
+			doneCondition: "Agent replies with 4.",
+		});
+
+		const { result } = await runThroughHarness(CURSOR_AGENT_LANE!, {
+			db,
+			eventBus,
+			tmpDir,
+			...(bridge ? { bridge } : {}),
+		});
+
+		expect(["completed", "not_returned"]).toContain(result.outcome);
 	}, 240_000);
 });

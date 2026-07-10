@@ -181,7 +181,8 @@ const BUILTIN_LANE = SUPPORTED_HARNESS_LANES.find((l) => l.harnessName === "buil
 const CLAUDE_LANE = SUPPORTED_HARNESS_LANES.find((l) => l.harnessName === "claude");
 const CODEX_LANE = SUPPORTED_HARNESS_LANES.find((l) => l.harnessName === "codex");
 const OPENCODE_LANE = SUPPORTED_HARNESS_LANES.find((l) => l.harnessName === "opencode");
-if (!(BUILTIN_LANE && CLAUDE_LANE && CODEX_LANE && OPENCODE_LANE)) {
+const CURSOR_AGENT_LANE = SUPPORTED_HARNESS_LANES.find((l) => l.harnessName === "cursor-agent");
+if (!(BUILTIN_LANE && CLAUDE_LANE && CODEX_LANE && OPENCODE_LANE && CURSOR_AGENT_LANE)) {
 	throw new Error("SUPPORTED_HARNESS_LANES is missing one or more expected lanes");
 }
 
@@ -611,5 +612,79 @@ describe(`${OPENCODE_LANE.describeTag} agent tool calls execute exactly once`, (
 				`methods=${JSON.stringify(bridgeCounts.methods)} ` +
 				`outcome=${result.outcome} metrics=${JSON.stringify(result.metrics ?? {})}\n`,
 		);
+	}, 240_000);
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Lane 5: cursor-agent CLI
+// ────────────────────────────────────────────────────────────────────────────
+
+describe(`${CURSOR_AGENT_LANE.describeTag} agent tool calls execute exactly once`, () => {
+	requireHarness("cursor-agent");
+
+	let tmpDir: string;
+	let bridge: {
+		mcpBridgeRegistry: McpBridgeRegistry;
+		mcpBaseUrl: string;
+		observedMethods: string[];
+		close: () => Promise<void>;
+	} | null = null;
+
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ste-cursor-agent-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
+
+	test("a tool the agent invokes is executed exactly once (no duplicate execution)", async ({
+		db,
+		eventBus,
+	}) => {
+		if (!bridge) throw new Error("bridge not set up");
+
+		const agentId = `ste-cursor-agent-${Date.now()}`;
+		const taskId = `ste-cursor-task-${Date.now()}`;
+
+		await seedDomain(db, { taskId, agentId });
+
+		const methodStart = bridge.observedMethods.length;
+
+		const { result } = await runThroughHarness(
+			{
+				...CURSOR_AGENT_LANE,
+				prepFn: (ctx) => {
+					const base = CURSOR_AGENT_LANE.prepFn(ctx);
+					return { ...base, params: { ...base.params, taskId, agentId } };
+				},
+			},
+			{ db, eventBus, tmpDir, bridge },
+		);
+		const methods = bridge.observedMethods.slice(methodStart);
+		const bridgeCounts = {
+			toolsCalled: methods.filter((method) => method === "tools/call").length,
+			methods,
+		};
+
+		expect(["completed", "not_returned"]).toContain(result.outcome);
+		expect(
+			bridgeCounts.toolsCalled,
+			`cursor-agent: no tools/call requests observed on MCP bridge — methods seen: ${JSON.stringify(bridgeCounts.methods)}`,
+		).toBeGreaterThanOrEqual(1);
+		expect(
+			bridgeCounts.toolsCalled,
+			`cursor-agent: ${bridgeCounts.toolsCalled} tools/call requests observed (expected 1 — double execution?)`,
+		).toBeLessThanOrEqual(1);
 	}, 240_000);
 });

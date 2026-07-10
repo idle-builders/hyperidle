@@ -1,29 +1,21 @@
 /**
- * Four-harness conversational reply-row test.
+ * Five-harness conversational reply-row test.
  *
  * This is the load-bearing test for conversational assistant replies. It proves:
  *
  *   A conversational turn through provisionSession (conversational mode)
  *   persists a non-empty assistant reply row on the DB, equal to the
- *   model's real completion text, on ALL FOUR harnesses.
+ *   model's real completion text, on ALL supported harnesses.
  *
  * Lanes:
- *   Lane 1 [harness:builtin]  — builtin adapter + OpenRouter deepseek-flash
- *   Lane 2 [harness:claude]   — real `claude` binary + haiku
- *   Lane 3 [harness:codex]    — real `codex` binary + gpt-5.4-mini
- *   Lane 4 [harness:opencode] — real `opencode` binary + glm-4.7-flash
+ *   Lane 1 [harness:builtin]       — builtin adapter + OpenRouter deepseek-flash
+ *   Lane 2 [harness:claude]        — real `claude` binary + haiku
+ *   Lane 3 [harness:codex]         — real `codex` binary + gpt-5.4-mini
+ *   Lane 4 [harness:opencode]      — real `opencode` binary + glm-4.7-flash
+ *   Lane 5 [harness:cursor-agent]  — real `cursor-agent` binary + auto
  *
- * All four lanes use HARNESS_TEST_MODELS (locked tiny-baseline) and
+ * All lanes use HARNESS_TEST_MODELS (locked tiny-baseline) and
  * requireHarness hard-fail (never skipIf).
- *
- * @lore conversational-reply-row: The test seeds a minimal conversational context: a human user,
- * an ast-* assistant agent row (harnessType per lane), an assistant thread,
- * and one trigger message ("Reply with PONG and nothing else"). After calling
- * runConversationalTurnThroughHarness (defined below), we assert the persisted
- * DB reply row is non-empty, non-notice, and contains the model's real answer.
- *
- * @lore conversational-reply-row: Conversational turns are task-free after AU1.
- * This test asserts the reply row, not a task row.
  */
 
 import * as os from "node:os";
@@ -40,17 +32,9 @@ import {
 } from "./provision-real-session.js";
 import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 
-// ──────────────────────────────────────────────────────────────────────────────
-// All four harnesses required — hard-fail, never skip.
-// ──────────────────────────────────────────────────────────────────────────────
-
-requireHarness("builtin", "claude", "codex", "opencode");
+requireHarness("builtin", "claude", "codex", "opencode", "cursor-agent");
 
 const NOW = new Date().toISOString();
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Lane 1 — [harness:builtin]
-// ──────────────────────────────────────────────────────────────────────────────
 
 describe("[harness:builtin] conversational reply row", () => {
 	const userId = `conversation-builtin-user-${Date.now()}`;
@@ -67,7 +51,7 @@ describe("[harness:builtin] conversational reply row", () => {
 		clearActiveStrategy();
 	});
 
-	test("builtin conversational turn → persists non-empty ast-* reply row (real model, conversationalReply channel)", async ({
+	test("builtin conversational turn → persists non-empty ast-* reply row", async ({
 		db,
 		eventBus,
 	}) => {
@@ -99,10 +83,6 @@ describe("[harness:builtin] conversational reply row", () => {
 	}, 240_000);
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Lane 2 — [harness:claude]
-// ──────────────────────────────────────────────────────────────────────────────
-
 describe("[harness:claude] conversational reply row", () => {
 	const userId = `conversation-claude-user-${Date.now()}`;
 	const threadId = `conversation-claude-thread-${Date.now()}`;
@@ -121,7 +101,7 @@ describe("[harness:claude] conversational reply row", () => {
 		await bridge?.close();
 	});
 
-	test("claude conversational turn → persists non-empty ast-* reply row (real claude binary, conversationalReply channel)", async ({
+	test("claude conversational turn → persists non-empty ast-* reply row", async ({
 		db,
 		eventBus,
 	}) => {
@@ -153,10 +133,6 @@ describe("[harness:claude] conversational reply row", () => {
 	}, 240_000);
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Lane 3 — [harness:codex]
-// ──────────────────────────────────────────────────────────────────────────────
-
 describe("[harness:codex] conversational reply row", () => {
 	const userId = `conversation-codex-user-${Date.now()}`;
 	const threadId = `conversation-codex-thread-${Date.now()}`;
@@ -175,7 +151,7 @@ describe("[harness:codex] conversational reply row", () => {
 		await bridge?.close();
 	});
 
-	test("codex conversational turn → persists non-empty ast-* reply row (real codex binary, conversationalReply channel)", async ({
+	test("codex conversational turn → persists non-empty ast-* reply row", async ({
 		db,
 		eventBus,
 	}) => {
@@ -207,10 +183,6 @@ describe("[harness:codex] conversational reply row", () => {
 	}, 240_000);
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Lane 4 — [harness:opencode]
-// ──────────────────────────────────────────────────────────────────────────────
-
 describe("[harness:opencode] conversational reply row", () => {
 	const userId = `conversation-opencode-user-${Date.now()}`;
 	const threadId = `conversation-opencode-thread-${Date.now()}`;
@@ -229,7 +201,7 @@ describe("[harness:opencode] conversational reply row", () => {
 		await bridge?.close();
 	});
 
-	test("opencode conversational turn → persists non-empty ast-* reply row (real opencode binary, conversationalReply channel)", async ({
+	test("opencode conversational turn → persists non-empty ast-* reply row", async ({
 		db,
 		eventBus,
 	}) => {
@@ -239,10 +211,6 @@ describe("[harness:opencode] conversational reply row", () => {
 			triggerMessageId,
 			harnessType: "opencode",
 			modelId: HARNESS_TEST_MODELS.opencode.model,
-			// @lore conversational-reply-row: opencode's modelProvider in the DB row is "openai-compatible"
-			// (per HARNESS_TEST_MODELS). runConversationalTurnThroughHarness bypasses
-			// resolveAgentModel by passing deps.resolvedModel directly (the locked
-			// harnessTestResolvedModel), so this value is not used for model resolution.
 			modelProvider: HARNESS_TEST_MODELS.opencode.provider,
 			now: NOW,
 		});
@@ -250,6 +218,56 @@ describe("[harness:opencode] conversational reply row", () => {
 		await runConversationalTurnThroughHarness(
 			{ db, eventBus, tmpDir, bridge },
 			{ userId, threadId, triggerMessageId, harnessName: "opencode" },
+		);
+
+		const assistantId = `ast-${userId}`;
+		const msgs = await db.select().from(messagesTable).where(eq(messagesTable.threadId, threadId));
+		const astReply = msgs.find((m) => m.senderId === assistantId && m.type === "plain");
+
+		expect(astReply).toBeDefined();
+		const payload = JSON.parse(astReply!.payload) as Record<string, unknown>;
+		expect(payload.notice).toBeUndefined();
+		const text = payload.text as string | undefined;
+		expect(typeof text).toBe("string");
+		expect((text ?? "").length).toBeGreaterThan(0);
+	}, 240_000);
+});
+
+describe("[harness:cursor-agent] conversational reply row", () => {
+	const userId = `conversation-cursor-user-${Date.now()}`;
+	const threadId = `conversation-cursor-thread-${Date.now()}`;
+	const triggerMessageId = `conversation-cursor-msg-${Date.now()}`;
+	let tmpDir: string;
+	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | undefined;
+
+	beforeEach(async () => {
+		tmpDir = os.tmpdir();
+		bridge = await startMcpBridgeServer();
+		setActiveStrategy(minimalStrategy);
+	});
+
+	afterEach(async () => {
+		clearActiveStrategy();
+		await bridge?.close();
+	});
+
+	test("cursor-agent conversational turn → persists non-empty ast-* reply row", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedConversationalTurnDomain(db, {
+			userId,
+			threadId,
+			triggerMessageId,
+			harnessType: "cursor-agent",
+			modelId: HARNESS_TEST_MODELS["cursor-agent"].model,
+			modelProvider: HARNESS_TEST_MODELS["cursor-agent"].provider,
+			now: NOW,
+		});
+
+		await runConversationalTurnThroughHarness(
+			{ db, eventBus, tmpDir, bridge },
+			{ userId, threadId, triggerMessageId, harnessName: "cursor-agent" },
 		);
 
 		const assistantId = `ast-${userId}`;

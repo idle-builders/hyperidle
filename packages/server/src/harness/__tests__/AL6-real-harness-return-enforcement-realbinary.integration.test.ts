@@ -1145,6 +1145,33 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 90_000);
 	});
 
+	// ── CURSOR-AGENT CLI (soft-continue channel) ────────────────────────────
+
+	describe("[harness:cursor-agent] cursor-agent CLI (soft-continue channel)", () => {
+		requireHarness("cursor-agent");
+
+		test("LIVE: provision soft-continue channel without throw", async () => {
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-cursor-agent-"));
+
+			try {
+				const bridgeToken = `cursor-agent-test-token-${Math.random().toString(36).slice(2)}`;
+				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
+
+				await expect(
+					provisionReturnHook({
+						sandboxPath,
+						channel: "soft-continue",
+						bridgeToken,
+						mcpUrl,
+						forceBudget: 2,
+					}),
+				).resolves.not.toThrow();
+			} finally {
+				fs.rmSync(sandboxPath, { recursive: true, force: true });
+			}
+		});
+	});
+
 	// ── BUILTIN (OpenRouter in-process, builtin-loop channel) ────────────────
 	//
 	// The builtin harness uses the in-process BuiltinHarnessAdapter driven by

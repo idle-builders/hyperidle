@@ -37,7 +37,7 @@ import * as path from "node:path";
 
 export interface WriteCliMcpConfigParams {
 	/** Which binary's config dialect to produce. */
-	readonly dialect: "codex-toml" | "opencode-json";
+	readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
 	/** Absolute path of the per-session sandbox directory. */
 	readonly sandboxPath: string;
 	/** Full MCP URL: ${mcpBaseUrl}/api/mcp/${token} */
@@ -87,6 +87,9 @@ export function writeCliMcpConfig(params: WriteCliMcpConfigParams): WriteCliMcpC
 
 		case "opencode-json":
 			return writeOpencodeJson({ sandboxPath, mcpUrl, token });
+
+		case "cursor-json":
+			return writeCursorJson({ sandboxPath, mcpUrl, token });
 	}
 }
 
@@ -161,4 +164,34 @@ function writeOpencodeJson(params: {
 	// Token is inline. OPENCODE_CONFIG forces this per-session config to load even
 	// when OpenCode does not consider the sandbox a project root.
 	return { tokenEnv: { OPENCODE_CONFIG: opencodeJsonPath } };
+}
+
+// ── cursor-json dialect ───────────────────────────────────────────────────────
+
+function writeCursorJson(params: {
+	sandboxPath: string;
+	mcpUrl: string;
+	token: string;
+}): WriteCliMcpConfigResult {
+	const { sandboxPath, mcpUrl, token } = params;
+
+	const cursorDir = path.join(sandboxPath, ".cursor");
+	fs.mkdirSync(cursorDir, { recursive: true });
+	const mcpJsonPath = path.join(cursorDir, "mcp.json");
+
+	// @lore AW1 cursor-json: cursor-agent reads MCP servers from .cursor/mcp.json
+	// in the workspace (same shape as Cursor IDE). Token is inline in headers.
+	const config = {
+		mcpServers: {
+			hyperidle: {
+				url: mcpUrl,
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			},
+		},
+	};
+
+	fs.writeFileSync(mcpJsonPath, JSON.stringify(config, null, 2), "utf-8");
+	return {};
 }

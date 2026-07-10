@@ -277,6 +277,21 @@ function makeOpencodePool(): AdapterPool {
 	return pool;
 }
 
+/**
+ * Build an AdapterPool for the cursor-agent CLI lane.
+ * modelProviders: ["openai-compatible"] — matches the openai-compatible gateway entry.
+ */
+function makeCursorAgentPool(): AdapterPool {
+	const pool = new AdapterPool();
+	pool.register("local-cursor-agent", lockedHarnessAdapter("cursor-agent").adapter, {
+		name: "local-cursor-agent",
+		kind: "local",
+		modelProviders: ["openai-compatible"],
+		maxConcurrent: 2,
+	});
+	return pool;
+}
+
 // ─── Lane definitions ─────────────────────────────────────────────────────────
 
 /**
@@ -428,6 +443,28 @@ const HTTP_LANE_CONFIGS: Record<string, HttpLaneConfig> = {
 		},
 		xdgDataHomeKey: "XDG_DATA_HOME",
 	},
+	"cursor-agent": {
+		laneConfig: {
+			harnessName: "cursor-agent",
+			modelGateway: {
+				provider: "openai-compatible",
+				model: harnessTestResolvedModel("cursor-agent").model,
+				baseUrl: harnessTestResolvedModel("cursor-agent").baseUrl,
+			},
+			credential: {
+				name: "openai_compatible_api_key",
+				value: "cursor-auth-unused",
+			},
+		},
+		makePool: makeCursorAgentPool,
+		needsBridge: true,
+		taskDescription:
+			"Do only these two steps. First, create a file named answer.txt in the current working " +
+			"directory containing exactly the single character 4. Second, call submit_review exactly " +
+			"once with title='done' and reasoning=['answer.txt written'].",
+		doneCondition: "Agent creates answer.txt with the number 4 and calls submit_review.",
+		needsGitRepo: true,
+	},
 };
 
 // ─── Harness matrix ───────────────────────────────────────────────────────────
@@ -454,7 +491,9 @@ async function runNonblockingLane(
 	const currentCredentialValue =
 		httpConfig.laneConfig.credential.name === "anthropic_api_key"
 			? "keychain-auth-unused"
-			: (process.env.OPENROUTER_API_KEY ?? "");
+			: harnessName === "cursor-agent"
+				? "cursor-auth-unused"
+				: (process.env.OPENROUTER_API_KEY ?? "");
 
 	await seedLaneConfig(db, {
 		...httpConfig.laneConfig,
@@ -699,6 +738,65 @@ describe("[harness:opencode] session creation is non-blocking", () => {
 		eventBus,
 	}) => {
 		await runNonblockingLane("opencode", db, eventBus, tmpDir, bridge);
+	}, 270_000);
+});
+
+describe("[harness:cursor-agent] session creation is non-blocking", () => {
+	requireHarness("cursor-agent");
+	let tmpDir: string;
+	let xdgDataHomeBefore: string | undefined;
+	// biome-ignore lint/suspicious/noExplicitAny: server type — only close() is used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nonblock-cursor-agent-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		const cfg = HTTP_LANE_CONFIGS["cursor-agent"]!;
+		if (cfg.provisionSandbox) cfg.provisionSandbox(tmpDir);
+		if (cfg.needsGitRepo) {
+			execFileSync("git", ["init"], { cwd: tmpDir, stdio: "ignore" });
+			execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
+				cwd: tmpDir,
+				stdio: "ignore",
+				env: {
+					...process.env,
+					GIT_AUTHOR_NAME: "test",
+					GIT_AUTHOR_EMAIL: "test@test.com",
+					GIT_COMMITTER_NAME: "test",
+					GIT_COMMITTER_EMAIL: "test@test.com",
+				},
+			});
+		}
+		if (cfg.xdgDataHomeKey) {
+			xdgDataHomeBefore = process.env[cfg.xdgDataHomeKey];
+			process.env[cfg.xdgDataHomeKey] = path.join(tmpDir, ".opencode-data");
+		}
+		if (cfg.needsBridge) bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
+		const cfg = HTTP_LANE_CONFIGS["cursor-agent"]!;
+		if (cfg.xdgDataHomeKey) {
+			if (xdgDataHomeBefore !== undefined) {
+				process.env[cfg.xdgDataHomeKey] = xdgDataHomeBefore;
+			} else {
+				delete process.env[cfg.xdgDataHomeKey];
+			}
+		}
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+	test("returns 202 with an active session row, which reaches a terminal state after the real run", async ({
+		db,
+		eventBus,
+	}) => {
+		await runNonblockingLane("cursor-agent", db, eventBus, tmpDir, bridge);
 	}, 270_000);
 });
 
