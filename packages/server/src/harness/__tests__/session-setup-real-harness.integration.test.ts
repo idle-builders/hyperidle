@@ -305,6 +305,21 @@ function expectHarnessSpecificSessionSetup(
 		return;
 	}
 
+	if (lane.harnessName === "cursor-agent") {
+		const cursorMcp = JSON.parse(textFile(snapshot, ".cursor/mcp.json")) as {
+			readonly mcpServers: {
+				readonly hyperidle?: {
+					readonly url: string;
+					readonly headers?: { readonly Authorization?: string };
+				};
+			};
+		};
+		expect(cursorMcp.mcpServers.hyperidle?.url).toContain("/api/mcp/");
+		expect(cursorMcp.mcpServers.hyperidle?.headers?.Authorization).toMatch(/^Bearer [a-f0-9]+$/);
+		expect(snapshot.files.has(".opencode/plugins/return-signal.ts")).toBe(false);
+		return;
+	}
+
 	const opencode = JSON.parse(textFile(snapshot, "opencode.json")) as {
 		readonly mcp: {
 			readonly hyperidle?: {
@@ -445,5 +460,34 @@ describe(`${laneFor("opencode").describeTag} session setup before opencode start
 	}) => {
 		if (!bridge) throw new Error("bridge not set up");
 		await runAndAssert(laneFor("opencode"), { db, eventBus, tmpDir, bridge });
+	}, 60_000);
+});
+
+describe(`${laneFor("cursor-agent").describeTag} session setup before cursor-agent start`, () => {
+	requireHarness("cursor-agent");
+
+	let tmpDir: string;
+	let bridge: Bridge | null = null;
+
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "session-setup-cursor-agent-"));
+		clearDeduplicationCache();
+		setActiveStrategy(fabricStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) await bridge.close();
+		bridge = null;
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	test("prepares cursor-agent MCP config before start; abort prevents CLI spawn", async ({
+		db,
+		eventBus,
+	}) => {
+		if (!bridge) throw new Error("bridge not set up");
+		await runAndAssert(laneFor("cursor-agent"), { db, eventBus, tmpDir, bridge });
 	}, 60_000);
 });

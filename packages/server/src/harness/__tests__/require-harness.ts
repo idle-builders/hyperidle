@@ -22,7 +22,7 @@
 
 import { execFileSync } from "node:child_process";
 
-export type HarnessName = "claude" | "codex" | "opencode" | "gh" | "builtin";
+export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent" | "gh" | "builtin";
 
 /**
  * AR2 §0 — bidirectional lockstep with scripts/lib/honest-harness-predicate.ts
@@ -35,7 +35,13 @@ export type HarnessName = "claude" | "codex" | "opencode" | "gh" | "builtin";
  * `gh` is intentionally a HarnessName but NOT in the mirror — it is a tool, not an agent harness.
  */
 // biome-ignore format: keep the mirror and asserts on adjacent lines for lockstep visibility
-const SUPPORTED_HARNESSES_MIRROR = ["builtin", "claude", "codex", "opencode"] as const;
+const SUPPORTED_HARNESSES_MIRROR = [
+	"builtin",
+	"claude",
+	"codex",
+	"opencode",
+	"cursor-agent",
+] as const;
 type _SupportedHarness = (typeof SUPPORTED_HARNESSES_MIRROR)[number];
 /** Public alias for the supported-harness key (the four agent harnesses, no `gh`). */
 export type SupportedHarnessName = _SupportedHarness;
@@ -51,6 +57,7 @@ const BINARY: Record<Exclude<HarnessName, "builtin">, string> = {
 	claude: "claude",
 	codex: "codex",
 	opencode: "opencode",
+	"cursor-agent": "cursor-agent",
 	gh: "gh",
 };
 
@@ -79,7 +86,7 @@ export function requireHarness(...names: HarnessName[]): void {
 	throw new Error(
 		`requireHarness: ${missing.join(", ")} not installed/configured — harness ` +
 			`integration test cannot complete. Install the binary ` +
-			`(claude/codex/opencode/gh) or set OPENROUTER_API_KEY for builtin; or demote ` +
+			`(claude/codex/opencode/cursor-agent/gh) or set OPENROUTER_API_KEY for builtin; or demote ` +
 			`to a *.test.ts unit. (AR1: never skipIf to green.)`,
 	);
 }
@@ -190,6 +197,13 @@ export const HARNESS_TEST_MODELS = {
 		model: "openrouter/z-ai/glm-4.7-flash",
 		baseUrl: "https://openrouter.ai/api",
 		apiKeyEnv: "OPENROUTER_API_KEY",
+	},
+	"cursor-agent": {
+		provider: "openai-compatible",
+		// TINY-BASELINE: `auto` is Cursor's default/cheapest routing tier.
+		model: "auto",
+		baseUrl: "https://api.cursor.com",
+		apiKeyEnv: null,
 	},
 	// `satisfies Record<…>` proves all four supported harnesses are present with
 	// the exact key set — adding/removing a harness without updating this map is a

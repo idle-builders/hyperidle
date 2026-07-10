@@ -264,7 +264,7 @@ export interface HarnessCapabilities {
 	 * "codex-toml"    — appends [mcp_servers.hyperidle] to .codex-home/config.toml.
 	 * "opencode-json" — writes opencode.json to sandbox cwd.
 	 */
-	readonly cliMcpDialect?: "codex-toml" | "opencode-json";
+	readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
 }
 
 export interface HarnessAdapter {

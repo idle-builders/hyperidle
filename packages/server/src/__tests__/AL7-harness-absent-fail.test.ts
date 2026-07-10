@@ -67,9 +67,9 @@ describe("AC14b: live-proof lane states are declared per the DONE matrix", () =>
 		expect(["green-now", "absent-fail"]).toContain(state);
 	});
 
-	it("cursor-agent lane state is skipped (unavailable per harness-capability-descriptors)", () => {
+	it("cursor-agent lane state is green-now or absent-fail when binary present/absent", () => {
 		const state = getLiveProofLaneState("cursor-agent");
-		expect(state).toBe("skipped");
+		expect(["green-now", "absent-fail"]).toContain(state);
 	});
 });
 
@@ -79,10 +79,8 @@ describe("AC14b: probeLiveProofHarnessAvailability — builtin always resolves",
 		await expect(probeLiveProofHarnessAvailability("builtin")).resolves.toBeUndefined();
 	});
 
-	it("probing cursor-agent throws (unavailable)", async () => {
-		// cursor-agent is permanently unavailable per KNOWN_HARNESS_FAMILIES.
-		// The probe must reject, not silently skip.
-		await expect(probeLiveProofHarnessAvailability("cursor-agent")).rejects.toThrow();
+	it("probing cursor-agent resolves when binary is on PATH", async () => {
+		await expect(probeLiveProofHarnessAvailability("cursor-agent")).resolves.toBeUndefined();
 	});
 
 	it("probing a non-existent harness throws (absence-is-failure, never skip)", async () => {

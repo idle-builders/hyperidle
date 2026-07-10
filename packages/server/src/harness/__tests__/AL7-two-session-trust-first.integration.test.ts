@@ -1367,6 +1367,46 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 		}, 30_000);
 	});
 
+	// ── CURSOR-AGENT CLI (real binary, MCP-routed wiring proof) ───────────────
+
+	describe("[harness:cursor-agent] cursor-agent CLI (real binary, MCP-routed two-session loop)", () => {
+		requireHarness("cursor-agent");
+
+		test("MCP bridge wiring: commit_file exposed via MCP schema + real server reachable", async () => {
+			const sandboxPath = fs.mkdtempSync(path.join(sandboxBasePath, "cursor-agent-wiring-"));
+			const testSessionId = `al7-cursor-agent-wiring-${Math.random().toString(36).slice(2, 10)}`;
+			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
+
+			try {
+				const mcpUrl = buildMcpUrl(testServer.url, testServer.token);
+				const initResponse = await fetch(mcpUrl, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
+						Accept: "application/json, text/event-stream",
+					},
+					body: JSON.stringify({
+						jsonrpc: "2.0",
+						id: 1,
+						method: "initialize",
+						params: {
+							protocolVersion: "2025-03-26",
+							capabilities: {},
+							clientInfo: { name: "al7-cursor-agent-test", version: "1.0" },
+						},
+					}),
+				});
+
+				expect(initResponse.status).toBe(200);
+				expect(testServer.capturingRouter.registry.definitions).toHaveLength(1);
+				expect(testServer.capturingRouter.registry.definitions[0]?.name).toBe("commit_file");
+			} finally {
+				await testServer.close();
+			}
+		}, 30_000);
+	});
+
 	// ── BUILTIN (in-process, bridge wiring proof) ─────────────────────────────
 
 	describe("[harness:builtin] builtin in-process (MCP bridge wiring, real server reachable)", () => {

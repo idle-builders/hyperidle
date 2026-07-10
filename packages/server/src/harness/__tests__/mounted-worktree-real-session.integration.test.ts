@@ -855,3 +855,132 @@ describe("[harness:opencode] opencode writes FILE.txt in mounted worktree", () =
 		expect(worktreeList).not.toContain("mounto");
 	});
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lane 5 [harness:cursor-agent] — auto writes FILE.txt in mounted worktree
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("[harness:cursor-agent] cursor-agent writes FILE.txt in mounted worktree", () => {
+	requireHarness("cursor-agent");
+
+	let tmpDir: string;
+	let bridge: Awaited<ReturnType<typeof startMcpBridgeServer>> | null = null;
+
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mounted-cursor-agent-"));
+		clearDeduplicationCache();
+		setActiveStrategy(fabricStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		try {
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		} catch {
+			// Non-fatal.
+		}
+	});
+
+	test("real cursor-agent auto writes FILE.txt in mounted worktree → captureBack bundles it", {
+		timeout: 300_000,
+	}, async ({ db, eventBus }) => {
+		if (!bridge) throw new Error("bridge not set up");
+
+		const token = randomUUID();
+		const repoPath = createFixtureGitRepo(tmpDir);
+
+		// biome-ignore lint/suspicious/noConsole: test diagnostic
+		console.info(`[mounted-cursor-agent] token: ${token}`);
+
+		const { agentId, taskId, teamId, filesystemId } = await seedDomain(db, {
+			repoPath,
+			harnessType: "cursor-agent",
+			idPrefix: "mountca",
+			agentSystemPrompt:
+				"You are a test agent for mounted worktree verification. Complete the task precisely as instructed.",
+			taskTitle:
+				`Create a file named FILE.txt in the current directory containing EXACTLY this token and nothing else: ${token}. ` +
+				"Then call submit_review exactly once with title='done' and reasoning=['FILE.txt written'].",
+		});
+
+		const { mounter, sandboxBasePath } = buildMounterDeps(tmpDir, db);
+
+		const { adapter: cursorAdapter, resolvedModel } = lockedHarnessAdapter("cursor-agent");
+		const pool = new AdapterPool();
+		pool.register("local-cursor-agent", cursorAdapter, {
+			name: "local-cursor-agent",
+			kind: "local",
+			type: "cursor-agent",
+			modelProviders: ["openai-compatible"],
+			maxConcurrent: 2,
+		});
+
+		const deps: ProvisionSessionDeps = {
+			db,
+			eventBus,
+			adapterPool: pool,
+			workspace: new LocalSandboxAdapter(),
+			mounter,
+			mcpBridgeRegistry: bridge.mcpBridgeRegistry,
+			mcpBaseUrl: bridge.mcpBaseUrl,
+		};
+
+		const params: ProvisionSessionParams = {
+			taskId,
+			agentId,
+			productId: teamId,
+			sandboxBasePath,
+			resolvedModel,
+		};
+
+		// biome-ignore lint/suspicious/noConsole: test diagnostic
+		console.info(`[mounted-cursor-agent] Starting session (model=${resolvedModel.model})…`);
+		const startTs = Date.now();
+		const result = await provisionSession(deps, params);
+		const durationSec = ((Date.now() - startTs) / 1000).toFixed(1);
+		// biome-ignore lint/suspicious/noConsole: test diagnostic
+		console.info(
+			`[mounted-cursor-agent] outcome=${result.outcome} duration=${durationSec}s cost=${result.totalCostCents}c`,
+		);
+
+		expect(["completed", "not_returned", "crashed"]).toContain(result.outcome);
+
+		if (result.outcome === "crashed") {
+			const worktreeList = execFileSync("git", ["worktree", "list"], { cwd: repoPath }).toString();
+			expect(worktreeList).not.toContain("mountca");
+			return;
+		}
+
+		const captureRows = await db
+			.select()
+			.from(filesystemCaptures)
+			.where(eq(filesystemCaptures.sessionId, result.sessionId));
+
+		expect(captureRows.length).toBeGreaterThan(0);
+		expect(captureRows).toHaveLength(1);
+		const captureRow = captureRows[0]!;
+		expect(captureRow.filesystemId).toBe(filesystemId);
+		expect(captureRow.writeback).toBe("git");
+		expect(captureRow.capturePath).not.toBe("none");
+
+		const bundlePath = captureRow.capturePath;
+		expect(
+			fs.existsSync(bundlePath),
+			`[mounted-cursor-agent] bundle file missing at ${bundlePath}`,
+		).toBe(true);
+
+		const capturedContent = verifyBundleContainsToken(bundlePath, tmpDir, "verify-cursor-agent");
+		// biome-ignore lint/suspicious/noConsole: test diagnostic
+		console.info(`[mounted-cursor-agent] FILE.txt content: "${capturedContent}"`);
+		expect(capturedContent).not.toBeNull();
+		expect(capturedContent).toBe(token);
+
+		const worktreeList = execFileSync("git", ["worktree", "list"], { cwd: repoPath }).toString();
+		expect(worktreeList).not.toContain("mountca");
+	});
+});

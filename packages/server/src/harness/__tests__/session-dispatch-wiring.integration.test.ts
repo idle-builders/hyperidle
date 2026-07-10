@@ -341,7 +341,9 @@ async function runDispatchMatrixLane(
 				? "claude-code"
 				: lane.harnessName === "codex"
 					? "codex"
-					: "opencode";
+					: lane.harnessName === "opencode"
+						? "opencode"
+						: "cursor-agent";
 
 	const { taskId } = await seedDispatchDomain(db, {
 		prefix: `dispatch-${lane.harnessName}`,
@@ -382,6 +384,15 @@ async function runDispatchMatrixLane(
 			name: "local-codex",
 			kind: "local",
 			type: "codex",
+			modelProviders: ["openai-compatible"],
+			maxConcurrent: 2,
+		});
+	} else if (lane.harnessName === "cursor-agent") {
+		pool = new AdapterPool();
+		pool.register("local-cursor-agent", lockedHarnessAdapter("cursor-agent").adapter, {
+			name: "local-cursor-agent",
+			kind: "local",
+			type: "cursor-agent",
 			modelProviders: ["openai-compatible"],
 			maxConcurrent: 2,
 		});
@@ -571,5 +582,38 @@ describe("[harness:opencode] dispatcher auto-provisions a session for an accepte
 		db,
 	}) => {
 		await runDispatchMatrixLane(laneFor("opencode"), db, sandboxBasePath, bridge);
+	}, 120_000);
+});
+
+describe("[harness:cursor-agent] dispatcher auto-provisions a session for an accepted task", () => {
+	requireHarness("cursor-agent");
+	let sandboxBasePath: string;
+	let dbDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: bridge type — close() is the only method used here
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+	beforeEach(async () => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		dbDir = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-cursor-agent-db-"));
+		vi.stubEnv("DATABASE_URL", path.join(dbDir, "pg"));
+		clearProvisionSessionFn();
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "dispatch-cursor-agent-"));
+		bridge = await startMcpBridgeServer();
+	});
+	afterEach(async () => {
+		clearActiveStrategy();
+		vi.unstubAllEnvs();
+		clearProvisionSessionFn();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		fs.rmSync(sandboxBasePath, { recursive: true, force: true });
+		fs.rmSync(dbDir, { recursive: true, force: true });
+	});
+	test("task transition to accepted triggers the dispatcher; a real session row appears in the database", async ({
+		db,
+	}) => {
+		await runDispatchMatrixLane(laneFor("cursor-agent"), db, sandboxBasePath, bridge);
 	}, 120_000);
 });

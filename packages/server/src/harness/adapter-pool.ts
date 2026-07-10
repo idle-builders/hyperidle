@@ -552,6 +552,35 @@ export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 };
 
 /**
+ * CLI adapter config for the `cursor-agent` binary (cursor-agent harness type).
+ *
+ * @lore AW1: cursor-agent exposes headless `--print --output-format stream-json`
+ * with the same event shapes as claude (assistant/result/system). Auth is inherited
+ * via Cursor login — no API key in envMap. `--trust` + `--approve-mcps` allow
+ * headless workspace + MCP without interactive prompts.
+ */
+export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
+	binary: "cursor-agent",
+	args: [
+		"-p",
+		"{{prompt}}",
+		"--print",
+		"--output-format",
+		"stream-json",
+		"--model",
+		"{{model}}",
+		"--trust",
+		"--approve-mcps",
+	],
+	envMap: {},
+	eventFormat: "ndjson",
+	envAllowlist: ["PATH", "HOME", "LANG", "USER", "LOGNAME"],
+	returnEnforcementChannel: "none",
+	eventDialect: "claude-stream-json",
+	mcpConfig: { dialect: "cursor-json" },
+};
+
+/**
  * Register CLI adapters for any well-known tools that are available on PATH.
  * Silently skips tools whose binary is not found — no error thrown.
  *
@@ -625,6 +654,17 @@ export async function createLocalAdapterPool(): Promise<AdapterPool> {
 			// (which returns []). Setting ["anthropic"] allows anthropic-provider sessions
 			// to select this adapter via the modelProviders filter.
 			modelProviders: ["anthropic"],
+			maxConcurrent,
+		});
+	}
+
+	// 1b. cursor-agent adapter (CliHarnessAdapter, registered only if binary is on PATH)
+	if (await CliHarnessAdapter.checkAvailability(CURSOR_AGENT_CLI_CONFIG.binary)) {
+		pool.register("local-cursor-agent", new CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG), {
+			name: "Cursor Agent",
+			kind: "local",
+			type: "cursor-agent",
+			modelProviders: [],
 			maxConcurrent,
 		});
 	}

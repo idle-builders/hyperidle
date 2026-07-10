@@ -6,7 +6,7 @@
  * - claude-code:  green-now (real `claude` CLI binary installed at /opt/homebrew/bin/claude)
  * - codex:        green-now (real `codex` binary; absent → absent-fail) [AL7 delta: was wiring-needed]
  * - opencode:     green-now (real `opencode` binary; absent → absent-fail) [AL7 delta: was wiring-needed]
- * - cursor-agent: skipped (unavailable per harness-capability-descriptors)
+ * - cursor-agent:  green-now (real `cursor-agent` binary; absent → absent-fail)
  *
  * AC14b: absence-is-failure. A green-now harness whose real CLI binary is absent
  * in the run environment makes `probeLiveProofHarnessAvailability` REJECT — it does
@@ -37,7 +37,7 @@ export type LiveProofLaneState = "green-now" | "wiring-needed" | "skipped" | "ab
  *
  * - `green-now` — harness is wired and the real binary/SDK is expected in the env.
  * - `wiring-needed` — native mechanism is feasible but adapter wiring not yet landed.
- * - `skipped` — harness is permanently unavailable (cursor-agent).
+ * - `skipped` — harness is permanently unavailable (none currently).
  * - `absent-fail` — the harness was declared green-now but its real binary/SDK was
  *   not found in the current environment (set dynamically for claude-code when absent).
  *
@@ -66,8 +66,10 @@ export function getLiveProofLaneState(harness: LiveProofHarness | string): LiveP
 			const opencodeAvailable = isOpencodeAvailable();
 			return opencodeAvailable ? "green-now" : "absent-fail";
 		}
-		case "cursor-agent":
-			return "skipped";
+		case "cursor-agent": {
+			const cursorAvailable = isCursorAgentAvailable();
+			return cursorAvailable ? "green-now" : "absent-fail";
+		}
 		default:
 			return "absent-fail";
 	}
@@ -124,10 +126,14 @@ export async function probeLiveProofHarnessAvailability(
 			return;
 
 		case "cursor-agent":
-			throw new Error(
-				"cursor-agent is permanently unavailable (skipped per KNOWN_HARNESS_FAMILIES). " +
-					"A skipped harness cannot be probed.",
-			);
+			if (!isCursorAgentAvailable()) {
+				throw new Error(
+					"cursor-agent binary is absent: `cursor-agent` is not in PATH. " +
+						"Install Cursor Agent CLI and authenticate. " +
+						"A green-now harness whose real binary is absent makes the lane FAIL (AC14b).",
+				);
+			}
+			return;
 
 		default:
 			throw new Error(
@@ -191,6 +197,15 @@ function isCodexAvailable(): boolean {
 function isOpencodeAvailable(): boolean {
 	try {
 		execFileSync("which", ["opencode"], { stdio: "ignore" });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function isCursorAgentAvailable(): boolean {
+	try {
+		execFileSync("which", ["cursor-agent"], { stdio: "ignore" });
 		return true;
 	} catch {
 		return false;

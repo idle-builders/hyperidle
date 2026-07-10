@@ -627,9 +627,9 @@ describe("AL7 CRITICAL-2 — genuine builtin live-session two-session loop", () 
 			expect(["green-now", "absent-fail"]).toContain(state);
 		});
 
-		test("cursor-agent: skipped (unavailable)", async () => {
+		test("cursor-agent: green-now (real cursor-agent CLI binary installed on this machine)", async () => {
 			const { getLiveProofLaneState } = await import("../tools/live-proof-lanes.js");
-			expect(getLiveProofLaneState("cursor-agent")).toBe("skipped");
+			expect(getLiveProofLaneState("cursor-agent")).toBe("green-now");
 		});
 	});
 });

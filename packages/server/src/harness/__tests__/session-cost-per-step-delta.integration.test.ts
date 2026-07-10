@@ -395,6 +395,41 @@ describe(`[harness:opencode] per-step cost delta accumulates correctly in provis
 	}, 240_000);
 });
 
+// ── Lane 5: [harness:cursor-agent] ─────────────────────────────────────────────
+
+describe(`[harness:cursor-agent] per-step cost delta accumulates correctly in provisionSession`, () => {
+	requireHarness("cursor-agent");
+
+	let tmpDir: string;
+	// biome-ignore lint/suspicious/noExplicitAny: server type — close() is the only method used
+	let bridge: { mcpBridgeRegistry: any; mcpBaseUrl: string; close: () => Promise<void> } | null =
+		null;
+
+	beforeEach(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cost-delta-cursor-agent-"));
+		clearDeduplicationCache();
+		setActiveStrategy(minimalStrategy);
+		bridge = await startMcpBridgeServer();
+	});
+
+	afterEach(async () => {
+		clearActiveStrategy();
+		if (bridge) {
+			await bridge.close();
+			bridge = null;
+		}
+		if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	test("costActual in DB equals result.totalCostCents after a real session", async ({
+		db,
+		eventBus,
+	}) => {
+		if (!bridge) throw new Error("bridge not set up");
+		await runCostDeltaLane(laneFor("cursor-agent"), { db, eventBus, tmpDir, bridge });
+	}, 240_000);
+});
+
 // ────────────────────────────────────────────────────────────────────────────
 // Magnitude + sanity-break proof (builtin only, NO [harness:X] tag)
 //

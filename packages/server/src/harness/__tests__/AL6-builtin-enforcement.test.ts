@@ -61,6 +61,7 @@ const callLlmMock = vi.mocked(callLlm);
 
 import { AdapterPool } from "../adapter-pool.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
+import { requireHarness } from "./require-harness.js";
 
 // ── DB seed (shared pattern) ────────────────────────────────────────────────
 
@@ -295,13 +296,12 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 	//   AL6-real-harness-return-enforcement.real-harness.test.ts
 	// Run on demand: npm run test:real-harness
 
-	// ── CURSOR-AGENT (honestly inert — not spawnable today) ────────────────
-	//
-	// Per architecture.md §0.5: cursor-agent is discovery-only, not spawnable.
-	// This test asserts the honest inert state — NOT silently claiming coverage.
+	// ── CURSOR-AGENT (soft-continue channel) ────────────────────────────────
 
-	describe("cursor-agent (soft-continue channel, honestly inert)", () => {
-		test("cursor-agent channel is declared as soft-continue and asserted inert (not spawnable)", async () => {
+	describe("[harness:cursor-agent] cursor-agent (soft-continue channel)", () => {
+		requireHarness("cursor-agent");
+
+		test("cursor-agent channel provisions soft-continue without throwing", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-cursor-"));
 
 			try {
@@ -318,10 +318,6 @@ describe("AL6 v4-final — real-harness return-enforcement integration", () => {
 						forceBudget: 2,
 					}),
 				).resolves.not.toThrow();
-
-				// The channel is inert today: no active enforcement is claimed.
-				// cursor-agent has no spawnable headless surface; the drain-gate
-				// floor is the enforcement backstop.
 			} finally {
 				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}

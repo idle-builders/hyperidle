@@ -182,7 +182,10 @@ export interface CliAdapterConfig {
 	 * (cli-mcp-config.ts). CLI_TOOL_CONFIGS declares the dialect; session-provisioning
 	 * calls writeCliMcpConfig. No per-backend branching in the router/registry.
 	 */
-	readonly mcpConfig?: { readonly dialect: "codex-toml" } | { readonly dialect: "opencode-json" };
+	readonly mcpConfig?:
+		| { readonly dialect: "codex-toml" }
+		| { readonly dialect: "opencode-json" }
+		| { readonly dialect: "cursor-json" };
 	/**
 	 * Stderr lines matching any of these patterns are silently dropped (not yielded as
 	 * error events). Use for known-benign, binary-specific informational stderr output
@@ -341,6 +344,7 @@ function deriveCliChannel(binary: string): ReturnEnforcementChannel {
 	if (binary === "codex") return "settings-codex";
 	if (binary === "opencode") return "process-reengage";
 	if (binary === "claude") return "settings-claude";
+	if (binary === "cursor-agent") return "none";
 	return "none";
 }
 
