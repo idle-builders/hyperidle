@@ -23,8 +23,8 @@
  */
 
 import { type HyperIdleDb, sessions, userSkills, users } from "@hyperidle/db";
-import type { SelectAgentOutcome, SelectAgentRequest } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
+import type { SelectAgentOutcome, SelectAgentRequest } from "../contracts.js";
 
 // ---------------------------------------------------------------------------
 // WIP helpers (relocated from routine-scheduler.ts for the routine_delegate branch)
@@ -100,7 +100,7 @@ async function findDelegateVerbatim(
  * "no agent" (the Kernel takes the no-agent path).
  */
 export async function selectAgentByAppDefaults(
-	req: SelectAgentRequest<HyperIdleDb>,
+	req: SelectAgentRequest,
 ): Promise<SelectAgentOutcome> {
 	switch (req.surface) {
 		case "bet_decomposer": {

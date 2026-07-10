@@ -345,7 +345,6 @@
 	"packages/shared/src/__tests__/AH3-plain-payload-notice.test.ts",
 	"packages/shared/src/__tests__/AI4-notification-short-label.test.ts",
 	"packages/shared/src/__tests__/AI4-status-labels.test.ts",
-	"packages/shared/src/__tests__/AK6-scaffold-types.test.ts",
 	"packages/shared/src/__tests__/AL7-proposed-call-types.test.ts",
 	"packages/shared/src/__tests__/AM1-part.test.ts",
 	"packages/shared/src/__tests__/AM1-source-agnostic.test.ts",

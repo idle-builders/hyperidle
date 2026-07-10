@@ -1,0 +1,12 @@
+{
+  "id": "AU7",
+  "status": "verified",
+  "currentStep": "phase-5-ship",
+  "startedAt": "2026-07-10T14:01:11Z",
+  "updatedAt": "2026-07-10T14:58:46Z",
+  "verification": {
+    "check": "pass",
+    "lint": "pass",
+    "test": "pass"
+  }
+}

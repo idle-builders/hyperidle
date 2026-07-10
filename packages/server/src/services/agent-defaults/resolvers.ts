@@ -1,4 +1,3 @@
-import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	AgentScaffoldSpec,
 	AssistantFormation,
@@ -8,14 +7,14 @@ import type {
 	ScaffoldRequest,
 	SelectAgentOutcome,
 	SelectAgentRequest,
-} from "@hyperidle/shared";
+} from "../../app-runtime/contracts.js";
 import { composeRoster } from "../../app-runtime/roster.js";
 import { selectAgentByAppDefaults } from "../../app-runtime/services/agent-selection.js";
 
-export type ResolveAgentScaffoldSpecsInput = ScaffoldRequest<HyperIdleDb>;
-export type ResolveAgentSelectionInput = SelectAgentRequest<HyperIdleDb>;
-export type ResolveAssistantFormationInput = AssistantFormationRequest<HyperIdleDb>;
-export type ResolveDecompositionPlanInput = DecomposeBetRequest<HyperIdleDb>;
+export type ResolveAgentScaffoldSpecsInput = ScaffoldRequest;
+export type ResolveAgentSelectionInput = SelectAgentRequest;
+export type ResolveAssistantFormationInput = AssistantFormationRequest;
+export type ResolveDecompositionPlanInput = DecomposeBetRequest;
 
 export async function resolveAgentScaffoldSpecs(
 	input: ResolveAgentScaffoldSpecsInput,

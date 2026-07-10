@@ -20,6 +20,7 @@
 			"@hyperidle/shared": ["./packages/shared/src"],
 			"@hyperidle/db": ["./packages/db/src"],
 			"@hyperidle/server": ["./packages/server/src"],
+			"@hyperidle/server/app-runtime": ["./packages/server/src/app-runtime/index.ts"],
 			"@hyperidle/web": ["./packages/web/src"],
 			"@hyperidle/fabric": ["./packages/fabric/src"],
 			"@hyperidle/design-system": ["./packages/design-system/src"],

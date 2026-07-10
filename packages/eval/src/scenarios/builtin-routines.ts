@@ -12,7 +12,7 @@
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { items, knowledgeStrategyFabric } from "@hyperidle/db";
-import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/fabric";
+import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/server/app-runtime";
 
 // @lore AL6: clearBuiltinCostSentinelCache was removed from @hyperidle/fabric (AD8c).
 // The sentinel cache is now cleared internally; eval scenarios no longer need to call it.
@@ -397,7 +397,7 @@ const brPostBetRetroDedup: EvalScenario = {
 		await seedBuiltinRoutines(ctx.db);
 
 		// Seed first retro to trigger dedup on second call
-		const { runBuiltinRoutine: run } = await import("@hyperidle/fabric");
+		const { runBuiltinRoutine: run } = await import("@hyperidle/server/app-runtime");
 		const eventBus = new EventBus();
 		await run(ctx.db, eventBus, EVAL_BID.postBetRetro, { betId });
 

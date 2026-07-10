@@ -32,6 +32,7 @@ import {
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import type { DecompositionPlan } from "../app-runtime/contracts.js";
 import { checkCostCap } from "../app-runtime/services/cost-cap.js";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
@@ -305,7 +306,7 @@ async function markTerminal(
  * @lore AK8: []-from-resolver (plan.tasks) means "enter runtime"
  * (turn-source branch 2 or 3). []-from-turn (taskList after branch 3) means
  * blocked/empty. Same [] value, opposite meaning depending on origin. See
- * DecompositionPlan in strategy-port.ts.
+ * DecompositionPlan in app-runtime contracts.
  *
  * @lore AK8: The inline decomposerAgentId validation (step 6) replaces the
  * selectOwner(bet_decomposer) call removed from the AK7 path. selectOwner's
@@ -367,7 +368,7 @@ export async function runBetDecomposition(
 
 	// --- 3. Resolve the decomposition plan from app-owned defaults ---
 	const candidates = await enumerateTeamCandidates(db, bet.teamId);
-	let plan: import("@hyperidle/shared").DecompositionPlan;
+	let plan: DecompositionPlan;
 	try {
 		plan = await resolveDecompositionPlan({
 			db,

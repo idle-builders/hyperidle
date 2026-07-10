@@ -4,13 +4,13 @@ import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
 	EventBus,
-	IngestionHandle,
 	Reversibility,
 	SessionWorkflow,
 	UserRole,
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
+import type { IngestionHandle } from "../app-runtime/contracts.js";
 import { addAgentTool } from "./add-agent.js";
 import type { AssistantToolShape } from "./assistant-tool-result.js";
 import { commitFileTool } from "./commit-file.js";

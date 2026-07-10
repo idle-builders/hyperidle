@@ -462,10 +462,8 @@ export {
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-// ── AK2: Strategy Port ──
-// ── AK6: ScaffoldRequest / AgentScaffoldSpec / scaffoldAgents added ──
-// ── AK8: DecomposeBetRequest / DecompositionPlan / decomposeBet added ──
-// ── AR4b: AssistantFormationRequest / AssistantFormation / formAssistant added ──
+// Legacy Strategy-port type exports are retained for historical tests and
+// compatibility only. Production runtime must not import or register Strategy.
 export type {
 	AgentScaffoldSpec,
 	AssistantFormation,

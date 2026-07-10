@@ -23,9 +23,9 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { factorySettings } from "@hyperidle/db";
-import type { AgentScaffoldSpec, ScaffoldRequest } from "@hyperidle/shared";
 import { AGENT_ROLE_CATALOG, defaultRoster } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import type { AgentScaffoldSpec, ScaffoldRequest } from "./contracts.js";
 
 /**
  * The app-owned assistant persona.
@@ -61,7 +61,7 @@ async function readTemplate(db: HyperIdleDb, role: string): Promise<string | nul
  */
 export async function composeRoster(
 	db: HyperIdleDb,
-	req: ScaffoldRequest<HyperIdleDb>,
+	req: ScaffoldRequest,
 ): Promise<readonly AgentScaffoldSpec[]> {
 	switch (req.trigger) {
 		case "team_scaffold": {

@@ -8,7 +8,6 @@
 	"references": [
 		{ "path": "../db" },
 		{ "path": "../server" },
-		{ "path": "../shared" },
-		{ "path": "../fabric" }
+		{ "path": "../shared" }
 	]
 }
