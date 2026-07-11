@@ -21,20 +21,25 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import {
-	clearCostSentinelCache,
-	flushQueue,
-	type Notification,
-	type NotificationAdapter,
-	type Recipient,
-	recordFactoryCost,
-	registerNotificationListener,
-	type SendResult,
-	startNotificationDrain,
-} from "@hyperidle/server/app-runtime";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { eq, isNotNull } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
+import { loadNotificationConfig } from "../../notifications/config.js";
+import { flushQueue, recoverStuckLeases } from "../../notifications/dispatcher.js";
+import { startNotificationDrain } from "../../notifications/drain.js";
+import {
+	defaultMutePreferenceReader,
+	defaultMutePreferenceWriter,
+} from "../../notifications/mute.js";
+import { registerNotificationListener } from "../../notifications/notification-listener.js";
+import type {
+	Notification,
+	NotificationAdapter,
+	Recipient,
+	SendResult,
+} from "../../notifications/types.js";
+import { recordFactoryCost } from "../../services/cost-cap.js";
+import { clearCostSentinelCache, runCostSentinelCheck } from "../../services/cost-sentinel.js";
 import { expect, test } from "../../test-fixtures.js";
 
 // --- helpers ---
@@ -114,18 +119,11 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 		await enableNotifications(db);
 		await insertPendingRow(db, "drain-row-1", "blocking");
 
-		// Start drain with a short interval; call it directly via the returned disposer
-		// The drain function is imported from fabric — call it once
-		const { default: loadedFlushQueue } = await import("@hyperidle/server/app-runtime").then(
-			() => ({
-				default: flushQueue,
-			}),
-		);
-		// Call flushQueue directly (the drain loop wraps this)
-		const { loadNotificationConfig } = await import("@hyperidle/server/app-runtime");
+		// Start drain with a short interval; call it directly via the returned disposer.
+		// Call flushQueue directly (the drain loop wraps this).
 		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("No notification config");
-		await loadedFlushQueue(db, () => adapter, cfg, new Date());
+		await flushQueue(db, () => adapter, cfg, new Date());
 
 		const rows = await db
 			.select()
@@ -186,7 +184,6 @@ describe("AF8 AC2 — notification event produces typed, source-linked row", () 
 		});
 
 		// Register listener
-		const { defaultMutePreferenceReader } = await import("@hyperidle/server/app-runtime");
 		const mute = defaultMutePreferenceReader(db);
 		const dispose = registerNotificationListener(db, eventBus, { mute });
 
@@ -236,7 +233,6 @@ describe("AF8 AC3 — auto_unblock event is filtered out (ambient, not a notific
 		db,
 		eventBus,
 	}) => {
-		const { defaultMutePreferenceReader } = await import("@hyperidle/server/app-runtime");
 		const mute = defaultMutePreferenceReader(db);
 		const dispose = registerNotificationListener(db, eventBus, { mute });
 
@@ -296,7 +292,6 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 
 		await insertPendingRow(db, "quiet-block-1", "blocking");
 
-		const { loadNotificationConfig } = await import("@hyperidle/server/app-runtime");
 		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("No config");
 
@@ -360,8 +355,6 @@ describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 			createdAt: stuckClaimedAt,
 		});
 
-		const { recoverStuckLeases } = await import("@hyperidle/server/app-runtime");
-
 		// Call recoverStuckLeases directly — the drain calls this at its top
 		const recovered = await recoverStuckLeases(db, new Date());
 		expect(recovered).toBeGreaterThan(0);
@@ -418,7 +411,6 @@ describe("AF8 AC6 — cost sentinel reacts to real written value", () => {
 				set: { value: "100", updatedAt: nowIso },
 			});
 
-		const { runCostSentinelCheck } = await import("@hyperidle/server/app-runtime");
 		const result = await runCostSentinelCheck(db, eventBus);
 		expect(result.emitted).toContain("cost_cap_breached");
 	});
@@ -455,9 +447,6 @@ describe("AF8 AC9 — muting a type suppresses notification enqueue", () => {
 		});
 
 		// Set mute for review_request
-		const { defaultMutePreferenceWriter, defaultMutePreferenceReader } = await import(
-			"@hyperidle/server/app-runtime"
-		);
 		const writer = defaultMutePreferenceWriter(db);
 		await writer.setMuted("review_request", true);
 
@@ -509,7 +498,6 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 		// Insert a cost_breach pending row
 		await insertPendingRow(db, "cost-breach-factory-silence", "cost_breach");
 
-		const { loadNotificationConfig } = await import("@hyperidle/server/app-runtime");
 		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("No config");
 
@@ -553,7 +541,6 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 
 		await insertPendingRow(db, "cost-breach-quiet-hours", "cost_breach");
 
-		const { loadNotificationConfig } = await import("@hyperidle/server/app-runtime");
 		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("No config");
 

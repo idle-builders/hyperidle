@@ -30,11 +30,11 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { registerLifecyclePropagation } from "@hyperidle/server/app-runtime";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { cascadeBetKill } from "../services/bet-kill-cascade.js";
 import { transitionBet } from "../services/bet-state-machine.js";
+import { registerLifecyclePropagation } from "../services/lifecycle-propagation.js";
 import { test } from "../test-fixtures.js";
 
 async function seed(db: HyperIdleDb): Promise<void> {

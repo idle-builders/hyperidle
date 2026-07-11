@@ -27,8 +27,8 @@ import {
 	orgEdges,
 	users,
 } from "@hyperidle/db";
-import { resolveReviewRecipients } from "@hyperidle/server/app-runtime";
 import { describe, expect } from "vitest";
+import { resolveReviewRecipients } from "../services/org-routing.js";
 import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

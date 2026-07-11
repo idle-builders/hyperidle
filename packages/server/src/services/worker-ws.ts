@@ -6,6 +6,16 @@
  * The server registers a RemoteHarnessAdapter in AdapterPool and sends
  * ServerRegisteredMessage as acknowledgment.
  * On close, the adapter is unregistered.
+ *
+ * @lore AU11 AC-2: relocated from `routes/worker-ws.ts` to agent-owned
+ * `services/` — this file's entire job is harness adapter execution
+ * (`AdapterPool.register/unregister/pause/resume`, dispatching to
+ * `RemoteHarnessAdapter`), the "still-direct execution" case the AU11 plan
+ * calls out by name ("remote harness in worker-ws"). Pure file move — logic
+ * byte-identical; only the one `server-factory.ts` import site was
+ * repointed. `registerWorkerWsRoute` still takes a Hono `app` + mutates it
+ * (route registration) — composition wiring for the Hono app stays at the
+ * call site in server-factory.ts, unchanged.
  */
 
 import type { Hono } from "hono";

@@ -1,5 +1,5 @@
-import { routeToFounder } from "@hyperidle/server/app-runtime";
 import { describe, expect, it } from "vitest";
+import { routeToFounder } from "../services/founder-router.js";
 
 describe("routeToFounder", () => {
 	it("routes 'growth' to ceo", () => {

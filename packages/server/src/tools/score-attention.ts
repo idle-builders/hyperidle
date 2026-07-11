@@ -1,7 +1,7 @@
 import { items, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { buildAttentionService } from "../app-runtime/services/attention-service.js";
+import { buildAttentionService } from "../knowledge/attention-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

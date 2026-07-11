@@ -9,9 +9,10 @@
  */
 
 import { createTestDb } from "@hyperidle/db";
-import type { FsAdapter, GitRunner } from "@hyperidle/server/app-runtime";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createGitExportRoutes } from "../../routes/git-export-routes.js";
+import type { FsAdapter } from "../../services/git-export.js";
+import type { GitRunner } from "../../services/git-export-runner.js";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-git-export";

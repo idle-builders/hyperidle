@@ -15,7 +15,7 @@ import {
 	sanitizePathSegment,
 	writeLastCommit,
 	writeLastPush,
-} from "./git-export-config.js";
+} from "../config/git-export-config.js";
 import type { GitRunner } from "./git-export-runner.js";
 
 /**

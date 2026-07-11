@@ -47,7 +47,7 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
-import type { PropagationLevel } from "../types.js";
+import type { PropagationLevel } from "../knowledge/types.js";
 
 /**
  * Shape of a single entry in the revision log JSON array.

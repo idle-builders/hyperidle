@@ -22,12 +22,12 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
+import { and, eq } from "drizzle-orm";
 import {
 	registerLifecyclePropagation,
 	retryFailedPropagations,
-} from "@hyperidle/server/app-runtime";
-import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+} from "../services/lifecycle-propagation.js";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────

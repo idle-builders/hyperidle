@@ -5,6 +5,19 @@ import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 /**
+ * @lore AU11 AC-2: relocated from `routes/mcp-route.ts` to agent-owned
+ * `services/`. The plan's route-cleanup section initially characterized this
+ * file as an allowed "descriptor read" (like harnesses.ts/connections.ts) —
+ * but its actual body directly executes MCP bridge requests
+ * (`bridgeRegistry.handleRequest`) and hook-adjudication state mutation
+ * (`enforcementRegistry.incrementForce`), not a read-only capability list.
+ * Since this file's entire purpose IS harness/MCP execution surface, the
+ * correct AC-2 fix is relocation (same pattern as `worker-ws.ts`), not a
+ * descriptor-read carve-out. Pure file move — logic byte-identical; only
+ * the one `server-factory.ts` import site was repointed.
+ */
+
+/**
  * Create the Hono sub-router for MCP bridge requests.
  *
  * Routes (all mounted on /api):

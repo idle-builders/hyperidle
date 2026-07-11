@@ -8,8 +8,8 @@
  */
 
 import { Hono } from "hono";
-import { getDispatchQueueSnapshot } from "../app-runtime/services/task-dispatcher.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import { getDispatchQueueSnapshot } from "../services/task-dispatcher.js";
 
 /**
  * Create a Hono router that exposes GET / → DispatchQueueSnapshot.

@@ -9,9 +9,10 @@ import {
 } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { recordAgentWorkIntent } from "../../services/agent-work-intents.js";
+import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
-import { extractBuiltinKind, isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
+import { recordAgentWorkIntent } from "./agent-work-intents.js";
+import { runBuiltinRoutine } from "./builtin-routine-handlers.js";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 
 const schedulerLog = createLogger({ pkg: "server.routine-scheduler" });

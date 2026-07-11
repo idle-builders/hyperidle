@@ -8,17 +8,17 @@ import {
 } from "@hyperidle/db";
 import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { and, eq, inArray, like } from "drizzle-orm";
-import { buildAttentionContext, scoreAttentionBatch } from "../attention-scoring.js";
-import type { KnowledgeItemWithProjection } from "../knowledge-repository.js";
+import {
+	attentionReviewReasoningMarker,
+	createReviewItemForKnowledge,
+} from "../services/review-item-factory.js";
+import { buildAttentionContext, scoreAttentionBatch } from "./attention-scoring.js";
+import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import {
 	ATTENTION_THRESHOLD,
 	type AttentionWeights,
 	loadAttentionWeights,
-} from "../scoring-config.js";
-import {
-	attentionReviewReasoningMarker,
-	createReviewItemForKnowledge,
-} from "./review-item-factory.js";
+} from "./scoring-config.js";
 
 /**
  * Hard cap on `recomputeScope` batch size.

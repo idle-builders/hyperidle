@@ -8,19 +8,6 @@ import {
 	threads,
 } from "@hyperidle/db";
 import {
-	dispatchDigest,
-	enqueueNotification,
-	flushQueue,
-	loadNotificationConfig,
-	type Notification,
-	type NotificationAdapter,
-	type Recipient,
-	recoverStuckLeases,
-	registerNotificationDispatcher,
-	type SendResult,
-	tryFloodReserve,
-} from "@hyperidle/server/app-runtime";
-import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
 	EventBus,
@@ -28,6 +15,21 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadNotificationConfig } from "../../notifications/config.js";
+import {
+	dispatchDigest,
+	enqueueNotification,
+	flushQueue,
+	recoverStuckLeases,
+	registerNotificationDispatcher,
+	tryFloodReserve,
+} from "../../notifications/dispatcher.js";
+import type {
+	Notification,
+	NotificationAdapter,
+	Recipient,
+	SendResult,
+} from "../../notifications/types.js";
 
 interface AdapterCall {
 	recipient: Recipient;

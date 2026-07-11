@@ -25,6 +25,7 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import { assembleContext } from "../services/context-assembly.js";
 import { test } from "../test-fixtures.js";
 import { promoteKnowledgeTool } from "../tools/promote-knowledge.js";
 import type { ToolContext } from "../tools/tool-registry.js";
@@ -430,7 +431,6 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 	}) => {
 		await seedBase(db);
 		const ctx = makeContext(db, sandboxPath);
-		const { assembleContext } = await import("@hyperidle/server/app-runtime");
 
 		// Arrange: write a knowledge item via write_memory
 		const writeResult = await writeMemoryTool.handler(

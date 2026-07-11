@@ -1,3 +1,4 @@
+import { selectAgentByAppDefaults } from "../agent-selection.js";
 import type {
 	AgentScaffoldSpec,
 	AssistantFormation,
@@ -7,9 +8,8 @@ import type {
 	ScaffoldRequest,
 	SelectAgentOutcome,
 	SelectAgentRequest,
-} from "../../app-runtime/contracts.js";
-import { composeRoster } from "../../app-runtime/roster.js";
-import { selectAgentByAppDefaults } from "../../app-runtime/services/agent-selection.js";
+} from "../contracts.js";
+import { composeRoster } from "../roster.js";
 
 export type ResolveAgentScaffoldSpecsInput = ScaffoldRequest;
 export type ResolveAgentSelectionInput = SelectAgentRequest;

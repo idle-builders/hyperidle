@@ -10,16 +10,16 @@ import {
 	notificationQueue,
 	threads,
 } from "@hyperidle/db";
-import {
-	type Notification,
-	type NotificationAdapter,
-	type Recipient,
-	registerNotificationDispatcher,
-	type SendResult,
-} from "@hyperidle/server/app-runtime";
 import type { CostCapBreachedEvent, RoutineFiredEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
+import { registerNotificationDispatcher } from "../../notifications/dispatcher.js";
+import type {
+	Notification,
+	NotificationAdapter,
+	Recipient,
+	SendResult,
+} from "../../notifications/types.js";
 import { expect, test } from "../../test-fixtures.js";
 
 interface AdapterCall {

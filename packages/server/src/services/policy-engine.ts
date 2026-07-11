@@ -10,8 +10,8 @@
 import { factorySettings, type HyperIdleDb, items, messages, threads } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
 import { and, desc, eq } from "drizzle-orm";
+import { isSilenced as sharedIsSilenced } from "../notifications/silence-policy.js";
 import { computeApprovalRate } from "./approval-rate.js";
-import { isSilenced as sharedIsSilenced } from "./silence-policy.js";
 
 interface PolicyEngineOptions {
 	/** Inject current time for testability. Defaults to () => new Date(). */

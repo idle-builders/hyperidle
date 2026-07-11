@@ -1,6 +1,6 @@
 import { factorySettings, teamMembers, teams, users } from "@hyperidle/db";
-import { isInSilenceWindow, isSilenced } from "@hyperidle/server/app-runtime";
 import { describe, expect } from "vitest";
+import { isInSilenceWindow, isSilenced } from "../notifications/silence-policy.js";
 import { test } from "../test-fixtures.js";
 
 describe("isInSilenceWindow", () => {

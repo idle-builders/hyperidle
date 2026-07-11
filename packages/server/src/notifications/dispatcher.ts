@@ -41,10 +41,10 @@ import {
 	type RoutineFiredEvent,
 } from "@hyperidle/shared";
 import { and, asc, eq, lt, sql } from "drizzle-orm";
-import { isFactorySilenced, isInSilenceWindow, readSilenceWindow } from "../silence-policy.js";
 import { loadNotificationConfig, type NotificationConfig, pickRecipient } from "./config.js";
 import { type DigestResult, runDailyDigest } from "./digest.js";
 import { scrubErrorMessage } from "./redact.js";
+import { isFactorySilenced, isInSilenceWindow, readSilenceWindow } from "./silence-policy.js";
 import type {
 	Classification,
 	Notification,

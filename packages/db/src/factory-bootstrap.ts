@@ -11,11 +11,12 @@ import { COMMUNITY_DISPLAY_NAMES, FACILITATOR_TOOLS } from "./seed-fixtures.js";
  * Strip YAML frontmatter from markdown content.
  *
  * @lore X3: This function is intentionally duplicated from
- * packages/server/app-runtime/src/context-assembly-prompt.ts. The reason: @hyperidle/db must NOT
- * import from @hyperidle/server/app-runtime (wrong dependency direction — db is a leaf package
- * that fabric depends on, not vice versa). Extracting to @hyperidle/shared would
- * add a utility function to a types-only package. At 1 line of regex, duplication
- * is the correct choice.
+ * packages/server/src/services/context-assembly-prompt.ts (AU11: former
+ * app-runtime/context-assembly-prompt.ts, now agent-owned). The reason:
+ * @hyperidle/db must NOT import from @hyperidle/server (wrong dependency
+ * direction — db is a leaf package that server depends on, not vice versa).
+ * Extracting to @hyperidle/shared would add a utility function to a
+ * types-only package. At 1 line of regex, duplication is the correct choice.
  */
 function stripFrontmatter(content: string): string {
 	return content.replace(/^---\n[\s\S]*?\n---\n*/, "");

@@ -24,7 +24,7 @@
 
 import { type HyperIdleDb, sessions, userSkills, users } from "@hyperidle/db";
 import { and, eq, sql } from "drizzle-orm";
-import type { SelectAgentOutcome, SelectAgentRequest } from "../contracts.js";
+import type { SelectAgentOutcome, SelectAgentRequest } from "./contracts.js";
 
 // ---------------------------------------------------------------------------
 // WIP helpers (relocated from routine-scheduler.ts for the routine_delegate branch)

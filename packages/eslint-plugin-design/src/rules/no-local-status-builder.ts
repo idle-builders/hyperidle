@@ -11,13 +11,13 @@
  *      /.*(STATE|STATUS|VERDICT|TYPE)_LABEL(S)?$/ (e.g. TASK_STATE_LABEL, TYPE_LABELS)
  *
  * Does NOT flag:
- *   - Files outside `packages/web/src` (shared/server/app-runtime/design-system are legitimate homes)
+ *   - Files outside `packages/web/src` (shared/server/design-system are legitimate homes)
  *   - Non-status helpers (e.g. panelClass, statusText)
  *   - Consuming a label from a registry (import + variable read is fine)
  *
  * @lore AI4 Decision 7: Static codebase property → lint rule, not a test.
  * The heuristic is scoped to packages/web/src so the legitimate registry
- * homes (@hyperidle/shared, @hyperidle/server/app-runtime) never trigger.
+ * homes (@hyperidle/shared, @hyperidle/server) never trigger.
  */
 
 import type { Rule } from "eslint";

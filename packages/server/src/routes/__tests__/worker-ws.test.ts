@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
-import { registerWorkerWsRoute } from "../../routes/worker-ws.js";
+import { registerWorkerWsRoute } from "../../services/worker-ws.js";
 
 // ── Mock WebSocket context ─────────────────────────────────────────────────
 
@@ -146,7 +146,7 @@ describe("registerWorkerWsRoute — token auth", () => {
 
 describe("registerWorkerWsRoute — worker lifecycle", () => {
 	it("registers adapter in pool after WorkerRegisterMessage", async () => {
-		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
 
 		const pool = makePool();
 		const ws = new MockWsContext();
@@ -174,7 +174,7 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 	});
 
 	it("unregisters adapter when connection closes", async () => {
-		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
 
 		const pool = makePool();
 		const ws = new MockWsContext();
@@ -199,7 +199,7 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 	});
 
 	it("two workers connect — both appear in pool", async () => {
-		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
 
 		const pool = makePool();
 
@@ -241,7 +241,7 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 
 describe("WorkerConnectionManager — post-registration message routing", () => {
 	it("routes event messages to the adapter after registration", async () => {
-		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
 
 		const pool = makePool();
 		const ws = new MockWsContext();
@@ -316,7 +316,7 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 	});
 
 	it("drops malformed messages and does not throw (S2-F05 Zod validation)", async () => {
-		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
 
 		const pool = makePool();
 		const ws = new MockWsContext();
@@ -335,7 +335,7 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 	});
 
 	it("clears adapter reference on close", async () => {
-		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
 
 		const pool = makePool();
 		const ws = new MockWsContext();

@@ -3,11 +3,11 @@ import * as path from "node:path";
 import { type HyperIdleDb, type KnowledgeItem, tasks } from "@hyperidle/db";
 import type { UserRole } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { list } from "./knowledge-repository.js";
-import { rankAndBudget } from "./relevance-scoring.js";
-import { communityForRole } from "./role-community-map.js";
-import type { ScoringContext } from "./scoring-config.js";
-import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
+import { list } from "../knowledge/knowledge-repository.js";
+import { rankAndBudget } from "../knowledge/relevance-scoring.js";
+import { communityForRole } from "../knowledge/role-community-map.js";
+import type { ScoringContext } from "../knowledge/scoring-config.js";
+import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "../knowledge/scoring-config.js";
 import { buildSessionContext } from "./session-context.js";
 
 /**

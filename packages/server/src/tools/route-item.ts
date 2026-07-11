@@ -1,7 +1,7 @@
 import { items } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { routeItem } from "../app-runtime/services/item-router.js";
+import { routeItem } from "../services/item-router.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

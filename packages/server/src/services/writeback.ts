@@ -3,9 +3,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, knowledgeConflicts, sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
+import { VersionConflictError } from "../knowledge/errors.js";
+import * as repo from "../knowledge/knowledge-repository.js";
 import type { Manifest, ManifestEntry } from "./context-assembly.js";
-import { VersionConflictError } from "./errors.js";
-import * as repo from "./knowledge-repository.js";
 
 export interface WritebackConfig {
 	db: HyperIdleDb;

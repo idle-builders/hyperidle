@@ -1,8 +1,8 @@
 import { agentSessionRequests, type HyperIdleDb, notificationQueue, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { enqueueNotification, flushQueue } from "../app-runtime/index.js";
-import { defaultNotificationAdapterFactory } from "../app-runtime/services/notifications/adapter-factory.js";
+import { defaultNotificationAdapterFactory } from "../notifications/adapter-factory.js";
+import { enqueueNotification, flushQueue } from "../notifications/dispatcher.js";
 import {
 	getKnowledgeProjection,
 	upsertKnowledgeProjection,

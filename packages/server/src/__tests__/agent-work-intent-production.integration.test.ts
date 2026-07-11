@@ -19,11 +19,11 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { checkAndFireRoutine } from "@hyperidle/server/app-runtime";
 import { eq, sql } from "drizzle-orm";
 import { insertProposedBetTasks } from "../services/bet-decomposition.js";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
+import { checkAndFireRoutine } from "../services/routine-scheduler.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const authHeaders = {

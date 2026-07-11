@@ -17,8 +17,8 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
-import { computeRelevanceScore, DEFAULT_RELEVANCE_CONFIG } from "../relevance-engine.js";
-import { loadRelevanceConfig } from "../scoring-config.js";
+import { computeRelevanceScore, DEFAULT_RELEVANCE_CONFIG } from "./relevance-engine.js";
+import { loadRelevanceConfig } from "./scoring-config.js";
 
 /** The raw signals computed for a single knowledge item. */
 export interface SignalSet {

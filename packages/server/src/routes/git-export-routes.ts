@@ -4,11 +4,6 @@ import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";
 import z from "zod";
 import {
-	createNodeFsAdapter,
-	type FsAdapter,
-	runGitExport,
-} from "../app-runtime/services/git-export.js";
-import {
 	type GitExportConfig,
 	getLastExportMeta,
 	readGitExportConfig,
@@ -19,10 +14,11 @@ import {
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
 	updateGitExportConfig,
-} from "../app-runtime/services/git-export-config.js";
-import { createGitRunner, type GitRunner } from "../app-runtime/services/git-export-runner.js";
+} from "../config/git-export-config.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
+import { createNodeFsAdapter, type FsAdapter, runGitExport } from "../services/git-export.js";
+import { createGitRunner, type GitRunner } from "../services/git-export-runner.js";
 
 const patchConfigSchema = z
 	.object({
