@@ -56,15 +56,19 @@ describe("app runtime domain observability", () => {
 			expect(createRes.status).toBe(201);
 			const created = (await createRes.json()) as { id: string };
 
-			await db.insert(knowledgeAppProjection).values({
-				id: crypto.randomUUID(),
-				knowledgeItemId: created.id,
-				layer: "L4",
-				kind: "decision",
-				relevanceScore: "0.91",
-				attentionScore: "0.73",
-				confidence: "0.88",
-			});
+			// @lore B.5 fix: upsertProjectionLayer (called by POST /api/knowledge) already
+			// inserts the fabric row, so a second insert would violate the unique constraint
+			// on knowledge_item_id. Use update to set the test-specific signals instead.
+			await db
+				.update(knowledgeAppProjection)
+				.set({
+					layer: "L4",
+					kind: "decision",
+					relevanceScore: "0.91",
+					attentionScore: "0.73",
+					confidence: "0.88",
+				})
+				.where(eq(knowledgeAppProjection.knowledgeItemId, created.id));
 			const [projection] = await db
 				.select()
 				.from(knowledgeAppProjection)
