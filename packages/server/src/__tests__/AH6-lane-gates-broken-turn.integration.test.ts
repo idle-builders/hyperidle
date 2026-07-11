@@ -37,7 +37,7 @@ const PER_AGENT_MODEL_ID = "deepseek/deepseek-v4-flash";
 // ---------------------------------------------------------------------------
 
 async function seedFounderAndThread(
-	db: Parameters<typeof import("../services/assistant-turn.js").runAssistantTurn>[0]["db"],
+	db: import("../services/agent-work-assistant.js").AssistantTurnDeps["db"],
 	{
 		founderId,
 		threadId,

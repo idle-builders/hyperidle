@@ -8,7 +8,7 @@
  */
 
 import {
-	agentSessionRequests,
+	agentWorkIntents,
 	bets,
 	type HyperIdleDb,
 	routineRuns,
@@ -189,7 +189,7 @@ describe("routines routes", () => {
 	});
 
 	describe("POST /api/routines/:id/trigger", () => {
-		test("returns 200 with created task-free session request on manual trigger", async ({
+		test("returns 200 after atomically recording a routine run and neutral intent", async ({
 			db,
 			app,
 		}) => {
@@ -199,19 +199,22 @@ describe("routines routes", () => {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { routineId: string; requestId: string; fired: boolean };
+			const body = (await res.json()) as { routineId: string; runId: string; fired: boolean };
 			expect(body).toMatchObject({ routineId, fired: true });
 
-			const [request] = await db
+			const [intent] = await db
 				.select()
-				.from(agentSessionRequests)
-				.where(eq(agentSessionRequests.id, body.requestId));
-			expect(request).toMatchObject({
-				sourceKind: "routine",
-				taskId: null,
-				agentId: "agent-1",
-				promptMode: "routine",
+				.from(agentWorkIntents)
+				.where(eq(agentWorkIntents.sourceId, body.runId));
+			expect(intent).toMatchObject({
+				kind: "routine_run",
+				sourceKind: "routine_run",
+				requestedBy: "agent-1",
+				idempotencyKey: `routine:${body.runId}`,
+				status: "pending",
 			});
+			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.id, body.runId));
+			expect(run).toMatchObject({ routineId, outcome: "running" });
 		});
 
 		test("returns 404 for non-existent routine", async ({ app }) => {

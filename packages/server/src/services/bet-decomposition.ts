@@ -23,7 +23,15 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { bets, type HyperIdleDb, tasks, teamMembers, type User, users } from "@hyperidle/db";
+import {
+	bets,
+	type HyperIdleDb,
+	taskDispatchAttempts,
+	tasks,
+	teamMembers,
+	type User,
+	users,
+} from "@hyperidle/db";
 import {
 	DECOMPOSITION_TURN_TIMEOUT_MS,
 	type DecompositionBlockerReason,
@@ -34,19 +42,17 @@ import {
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { DecompositionPlan } from "../app-runtime/contracts.js";
 import { checkCostCap } from "../app-runtime/services/cost-cap.js";
-import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { resolveDecompositionPlan } from "./agent-defaults/resolvers.js";
-import { executeAgentRunRequest } from "./agent-run-boundary.js";
+import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import { enumerateTeamCandidates, selectOwner } from "./select-agent.js";
-import { transitionTask } from "./task-state-machine.js";
-import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
 
 export interface BetDecompositionDeps {
+	readonly [legacyInput: string]: unknown;
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	/**
@@ -54,11 +60,10 @@ export interface BetDecompositionDeps {
 	 * consumer. Decomposition itself must not select adapters or start harnesses.
 	 */
 	readonly adapterPool?: unknown;
+	readonly assistantTurn?: unknown;
 	/**
-	 * AU6: test seam at the agent-layer boundary. Production defaults to
-	 * executeAgentRunRequest; callers must not inject harness/provision internals.
+	 * AU6: agent execution is owned exclusively by the intent worker.
 	 */
-	readonly executeAgentRunRequest?: typeof executeAgentRunRequest;
 	/** Renamed from `workspace` per locked harness vocab (AK1). */
 	readonly sandbox: SandboxAdapter;
 	readonly sandboxBasePath: string;
@@ -193,22 +198,52 @@ export async function insertProposedBetTasks(
 		const taskId = crypto.randomUUID();
 		const now = new Date().toISOString();
 
-		// Insert as 'proposed' first (required: transitionTask starts from 'proposed').
-		await db.insert(tasks).values({
-			id: taskId,
-			betId: bet.id,
-			teamId: bet.teamId,
-			ownerAgentId,
-			title: input.title.slice(0, 512),
-			description: input.description ? input.description.slice(0, 65536) : null,
-			doneCondition: input.doneCondition ? input.doneCondition.slice(0, 512) : null,
-			state: "proposed",
-			createdAt: now,
-			updatedAt: now,
+		try {
+			await db.transaction(async (tx) => {
+				await tx.insert(tasks).values({
+					id: taskId,
+					betId: bet.id,
+					teamId: bet.teamId,
+					ownerAgentId,
+					title: input.title.slice(0, 512),
+					description: input.description ? input.description.slice(0, 65536) : null,
+					doneCondition: input.doneCondition ? input.doneCondition.slice(0, 512) : null,
+					state: "accepted",
+					createdAt: now,
+					updatedAt: now,
+				});
+				if (!ownerAgentId) return;
+				const attemptId = crypto.randomUUID();
+				await tx.insert(taskDispatchAttempts).values({
+					id: attemptId,
+					taskId,
+					occasion: "accepted",
+					agentId: ownerAgentId,
+					ordinal: 1,
+					status: "requested",
+					createdAt: now,
+					updatedAt: now,
+				});
+				await recordAgentWorkIntent(tx, {
+					kind: "task_run",
+					sourceKind: "task_dispatch_attempt",
+					sourceId: attemptId,
+					requestedBy: ownerAgentId,
+					idempotencyKey: `task-dispatch:${attemptId}`,
+				});
+			});
+		} catch (error) {
+			const cause = error instanceof Error ? error.cause : undefined;
+			throw cause instanceof Error ? cause : error;
+		}
+		eventBus.emit({
+			type: "task_state_changed",
+			streamId: taskId,
+			taskId,
+			fromState: "proposed",
+			toState: "accepted",
+			timestamp: Date.now(),
 		});
-
-		// Transition proposed → accepted (emits task_state_changed(accepted) → dispatcher).
-		await transitionTask(db, eventBus, taskId, "accepted");
 		created++;
 	}
 
@@ -321,31 +356,10 @@ export async function runBetDecomposition(
 	const { db, eventBus, sandboxBasePath } = deps;
 	const timeoutMs = deps.turnTimeoutMs ?? DECOMPOSITION_TURN_TIMEOUT_MS;
 
-	// --- 0. CAS guard: atomically claim this decomposition ---
-	// Attempt to set decompositionStatus NULL → 'running'.
-	// If the CAS affects 0 rows, someone else already claimed it (or it has a
-	// terminal status) — skip. This is the idempotency gate for AC7.
-	//
-	// @lore AK3: The CAS lives here (not in the subscriber) so that calling
-	// runBetDecomposition directly (e.g. tests, retry paths) carries the same
-	// idempotency guarantee as going through the subscriber.
-	const casClaimed = await db
-		.update(bets)
-		.set({ decompositionStatus: "running" })
-		.where(and(eq(bets.id, betId), isNull(bets.decompositionStatus)))
-		.returning({ id: bets.id });
-
-	if (casClaimed.length === 0) {
-		// CAS lost: status was already non-null (another call won, or terminal).
-		return;
-	}
-
-	// CAS won — load the bet to get teamId and description.
+	// Resolve the authoritative target before claiming. The later transaction couples
+	// the NULL→running CAS with its durable intent, so no crash can strand a running bet.
 	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
-	if (!bet) {
-		// Bet deleted between CAS and now — nothing to do.
-		return;
-	}
+	if (!bet || bet.decompositionStatus !== null) return;
 
 	// --- 1. Find eligible team agents ---
 	const eligible = await findEligibleTeamAgents(db, bet.teamId);
@@ -353,18 +367,6 @@ export async function runBetDecomposition(
 		await markTerminal(db, betId, "blocked", "no_eligible_agent");
 		return;
 	}
-
-	// --- 2. Emit work_decompose_requested (AC1 observable occasion) ---
-	// Post-CAS, post-eligible-check: only the CAS winner emits.
-	// Audit-only (no subscriber mutates state off this event). Sibling of
-	// work_selection_requested — same emit-then-call ordering (§3b precedent).
-	eventBus.emit({
-		type: "work_decompose_requested",
-		streamId: bet.teamId,
-		teamId: bet.teamId,
-		betId,
-		at: new Date().toISOString(),
-	});
 
 	// --- 3. Resolve the decomposition plan from app-owned defaults ---
 	const candidates = await enumerateTeamCandidates(db, bet.teamId);
@@ -412,36 +414,46 @@ export async function runBetDecomposition(
 		return;
 	}
 
-	const { request } = await createTriggeredAgentSessionRequest(db, {
-		eventType: "work.decompose_requested",
+	let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
+	await db.transaction(async (tx) => {
+		const claimed = await tx
+			.update(bets)
+			.set({ decompositionStatus: "running" })
+			.where(and(eq(bets.id, betId), isNull(bets.decompositionStatus)))
+			.returning({ id: bets.id });
+		if (claimed.length === 0) return;
+		intent = await recordAgentWorkIntent(tx, {
+			kind: "bet_decomposition",
+			sourceKind: "bet",
+			sourceId: betId,
+			requestedBy: pm.id,
+			idempotencyKey: `decomposition:${betId}:start`,
+		});
+	});
+	if (!intent) return;
+	eventBus.emit({
+		type: "work_decompose_requested",
+		streamId: bet.teamId,
+		teamId: bet.teamId,
+		betId,
+		at: new Date().toISOString(),
+	});
+	eventBus.emit({
+		type: "agent_work_intent_recorded",
+		streamId: `bet:${betId}:decomposition`,
+		intentId: intent.id,
+		intentKind: "bet_decomposition",
 		sourceKind: "decomposition",
 		sourceId: betId,
-		streamId: `bet:${betId}:decomposition`,
-		defaultAgentId: pm.id,
-		teamId: bet.teamId,
-		idempotencyKey: `decomposition:${betId}:start`,
-		payload: {
-			betId,
-			betDescription: bet.description,
-			betDoneCondition: bet.doneCondition ?? null,
-		},
-		sourceCorrelation: {
-			betId,
-			teamId: bet.teamId,
-			decomposerAgentId: pm.id,
-		},
-		buildSourceCorrelation: (resolution) => ({
-			betId,
-			teamId: bet.teamId,
-			decomposerAgentId: resolution.chosenAgentId ?? pm.id,
-		}),
+		idempotencyKey: intent.idempotencyKey,
+		timestamp: Date.now(),
 	});
 
 	// --- 6. Cost pre-flight ---
 	// @lore AK3: checkCostCap is called before the turn to prevent runaway cost.
 	// Cost is enforced before entering the agent runtime.
 	const capResult = await checkCostCap(db, eventBus, {
-		agentId: request.agentId,
+		agentId: pm.id,
 		teamId: bet.teamId,
 	});
 	if (!capResult.allowed) {
@@ -452,46 +464,6 @@ export async function runBetDecomposition(
 	// AU1: the real PM turn is requested through the agent runtime boundary.
 	// A completed runtime is useful only if it writes at least one bet task.
 	if (plan.tasks.length === 0 && !deps.runDecompositionTurn) {
-		const runAgentBoundary = deps.executeAgentRunRequest ?? executeAgentRunRequest;
-		if (!(deps.adapterPool || deps.executeAgentRunRequest)) {
-			await markTerminal(db, betId, "blocked", "failed");
-			return;
-		}
-		const taskRowsBeforeRuntime = await db
-			.select({ id: tasks.id })
-			.from(tasks)
-			.where(eq(tasks.betId, betId));
-		try {
-			const resolvedModel = deps.resolveModel ? await deps.resolveModel("workhorse") : undefined;
-			const result = await runAgentBoundary(
-				{
-					db,
-					eventBus,
-					adapterPool: deps.adapterPool as AdapterPool,
-					workspace: deps.sandbox,
-				},
-				request,
-				{
-					sandboxBasePath,
-					...(resolvedModel ? { resolvedModel } : {}),
-				},
-			);
-			if (result.outcome !== "completed") {
-				await markTerminal(db, betId, "blocked", "failed");
-				return;
-			}
-			const taskRowsAfterRuntime = await db
-				.select({ id: tasks.id })
-				.from(tasks)
-				.where(eq(tasks.betId, betId));
-			if (taskRowsAfterRuntime.length > taskRowsBeforeRuntime.length) {
-				await markTerminal(db, betId, "done", null);
-			} else {
-				await markTerminal(db, betId, "blocked", "empty");
-			}
-		} catch {
-			await markTerminal(db, betId, "blocked", "failed");
-		}
 		return;
 	}
 
@@ -537,7 +509,7 @@ export async function runBetDecomposition(
 			// "which agent decomposes" reflect the chosen owner.
 			try {
 				taskList = await withTimeout(
-					deps.runDecompositionTurn({ betId, pmAgentId: request.agentId }),
+					deps.runDecompositionTurn({ betId, pmAgentId: pm.id }),
 					timeoutMs,
 				);
 			} catch {

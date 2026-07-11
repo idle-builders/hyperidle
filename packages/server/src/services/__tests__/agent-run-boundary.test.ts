@@ -17,7 +17,7 @@ import {
 	claimAgentSessionRequestById,
 	createAgentSessionRequest,
 	markRequestRunning,
-	markRequestTerminal,
+	terminalizeAgentSessionRequest,
 } from "../agent-session-requests.js";
 import { runSession } from "../session-provisioning.js";
 
@@ -212,14 +212,17 @@ describe("agent run boundary", () => {
 				}
 				if (status === "running")
 					await markRequestRunning(handle.db, request.id, "session-running");
-				if (status === "completed") await markRequestTerminal(handle.db, request.id, "completed");
-				if (status === "failed") {
-					await markRequestTerminal(handle.db, request.id, "failed", {
-						code: "HarnessError",
-						message: "boom",
+				if (status === "completed" || status === "failed" || status === "cancelled") {
+					const sessionId = `session-${status}`;
+					await markRequestRunning(handle.db, request.id, sessionId);
+					await terminalizeAgentSessionRequest(handle.db, {
+						requestId: request.id,
+						precondition: "running",
+						sessionId,
+						state: status,
+						...(status === "failed" ? { failureCode: "HarnessError", errorMessage: "boom" } : {}),
 					});
 				}
-				if (status === "cancelled") await markRequestTerminal(handle.db, request.id, "cancelled");
 				return { status, id: request.id };
 			}),
 		);
@@ -292,9 +295,15 @@ describe("agent run boundary", () => {
 			"proposed_call",
 		] as const) {
 			const request = await createAgentSessionRequest(handle.db, sourceInput(sourceKind, "failed"));
-			await markRequestTerminal(handle.db, request.id, "failed", {
-				code: "AgentRunFailed",
-				message: `${sourceKind} failed`,
+			const sessionId = `session-${sourceKind}-failed`;
+			await markRequestRunning(handle.db, request.id, sessionId);
+			await terminalizeAgentSessionRequest(handle.db, {
+				requestId: request.id,
+				precondition: "running",
+				sessionId,
+				state: "failed",
+				failureCode: "AgentRunFailed",
+				errorMessage: `${sourceKind} failed`,
 			});
 			await expect(boundary.getAgentRunLifecycle(handle.db, request.id)).resolves.toMatchObject({
 				sourceKind,

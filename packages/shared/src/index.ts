@@ -137,6 +137,9 @@ export {
 export { EventBus } from "./event-bus.js";
 export type {
 	AgentAddedEvent,
+	AgentRunLifecycleChangedEvent,
+	AgentWorkIntentEvent,
+	AgentWorkIntentKind,
 	ArtifactCreatedEvent,
 	BetRevisedEvent,
 	BetStateChangedEvent,

@@ -20,7 +20,7 @@
  * CLIENT from lastMessage.createdAt + ASSISTANT_TURN_TIMEOUT_MS — no DB column needed.
  */
 
-import { type HyperIdleDb, messages, users } from "@hyperidle/db";
+import { type AgentSessionRequest, type HyperIdleDb, messages, users } from "@hyperidle/db";
 import {
 	type ConversationMessage,
 	createLogger,
@@ -55,7 +55,6 @@ import {
 import type { ToolContext } from "../tools/tool-registry.js";
 import { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
 import { executeAgentRunRequest } from "./agent-run-boundary.js";
-import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 
@@ -89,8 +88,6 @@ export interface AssistantTurnDeps {
 	readonly eventBus: EventBus;
 	readonly adapterPool: AdapterPool;
 	readonly credentialResolver?: import("../services/credential-resolver.js").CredentialResolver;
-	/** Test-injectable: when present, called INSTEAD of the real turn logic. */
-	readonly runTurn?: (params: AssistantTurnParams) => Promise<void>;
 	/** Override the turn timeout (ms). Defaults to ASSISTANT_TURN_TIMEOUT_MS. Used in tests. */
 	readonly turnTimeoutMs?: number;
 	/**
@@ -125,20 +122,8 @@ export interface AssistantTurnDeps {
 	readonly resolvedModel?: import("@hyperidle/shared").ResolvedModel;
 }
 
-export interface AssistantTurnParams {
-	/** Human user ID. The assistant agent is derived as `ast-${userId}`. */
-	readonly userId: string;
-	/** The assistant thread to reply in. */
-	readonly threadId: string;
-	/** The human message that triggered this turn (for context). */
-	readonly triggerMessageId: string;
-}
-
 /** Error class → notice kind mapping */
 type NoticeKind = "missing_key" | "missing_harness" | "provider_error";
-
-/** In-flight turn guard: prevents concurrent stacked turns within one process lifetime. */
-const inFlightTurns = new Set<string>();
 
 /**
  * Map an error to a notice kind and user-facing copy.
@@ -271,49 +256,36 @@ export async function persistTurnFailure(
 }
 
 /**
- * Run one assistant conversational turn.
+ * Consumes the exact durable request created by the intent handoff.
+ *
+ * @lore AU9 R1: this is the ONLY production entrypoint into an assistant turn.
+ * `createTriggeredAgentSessionRequest` has exactly one production call site —
+ * the intent drain (`drainAgentWorkIntents`) — so this function never resolves
+ * or creates a request itself; it only executes the one already checkpointed.
+ * The former `runAssistantTurn` lazy-create/dispatch entrypoint (which
+ * direct-created a second request, bypassing the drain) is deleted.
  *
  * Resolves without throwing — all errors are mapped to persisted notices.
  * Never returns silently (every branch emits thread_message_appended).
- *
- * @lore AH3 §1.5: Called fire-and-forget from threads.ts POST messages handler.
- * `void runAssistantTurn(deps, params).catch(e => persistTurnFailure(..., e))`
- * The .catch covers the case where runAssistantTurn itself throws before persisting.
  */
-export async function runAssistantTurn(
+export async function executeAssistantRequest(
 	deps: AssistantTurnDeps,
-	params: AssistantTurnParams,
+	request: AgentSessionRequest,
 ): Promise<void> {
-	const { db, eventBus, adapterPool } = deps;
-	const { userId, threadId } = params;
-
-	// Re-entrancy guard: skip if a turn is already in-flight for this thread
-	const inFlightKey = `${userId}:${threadId}`;
-	if (inFlightTurns.has(inFlightKey)) {
-		logger.warn("[assistant-turn] skipped: turn already in-flight", { userId, threadId });
-		return;
-	}
-
-	// Test-injectable override: skip the real LLM path
-	if (deps.runTurn) {
-		await deps.runTurn(params);
-		return;
-	}
-
-	inFlightTurns.add(inFlightKey);
-	try {
-		await runTurnInternal(
-			db,
-			eventBus,
-			adapterPool,
-			userId,
-			threadId,
-			params.triggerMessageId,
-			deps,
-		);
-	} finally {
-		inFlightTurns.delete(inFlightKey);
-	}
+	const correlation = JSON.parse(request.sourceCorrelationJson) as {
+		userId: string;
+		threadId: string;
+		messageId: string;
+	};
+	await runTurnInternal(
+		deps.db,
+		deps.eventBus,
+		deps.adapterPool,
+		correlation.userId,
+		correlation.threadId,
+		deps,
+		request,
+	);
 }
 
 async function runTurnInternal(
@@ -322,8 +294,8 @@ async function runTurnInternal(
 	adapterPool: AdapterPool,
 	userId: string,
 	threadId: string,
-	triggerMessageId: string,
 	deps: AssistantTurnDeps,
+	existingRequest: AgentSessionRequest,
 ): Promise<void> {
 	const assistantAgentId = `ast-${userId}`;
 
@@ -504,26 +476,10 @@ async function runTurnInternal(
 
 	const sandboxBasePath = deps.sandboxBasePath ?? (await import("node:os")).default.tmpdir();
 
-	const { request, resolution: triggerResolution } = await createTriggeredAgentSessionRequest(db, {
-		eventType: "assistant.message",
-		sourceKind: "assistant",
-		sourceId: triggerMessageId,
-		streamId: `thread:${threadId}`,
-		defaultAgentId: assistantAgentId,
-		userId,
-		idempotencyKey: `assistant:${triggerMessageId}`,
-		payload: {
-			threadId,
-			triggerMessageId,
-			systemPromptOverride: formation.persona,
-		},
-		sourceCorrelation: {
-			threadId,
-			messageId: triggerMessageId,
-			userId,
-			assistantAgentId,
-		},
-	});
+	// @lore AU9 R1: no direct-create fallback here — createTriggeredAgentSessionRequest
+	// has exactly one production call site (the intent drain); this function only
+	// consumes the request the drain already resolved, created, and checkpointed.
+	const request = existingRequest;
 
 	const sessionDeps: ProvisionSessionDeps = {
 		db,
@@ -548,7 +504,7 @@ async function runTurnInternal(
 				// @lore AR4b: systemPromptOverride carries the per-turn persona decision
 				// to prompt assembly, which uses it in composeAssistantPrompt(effectivePersona).
 				// The agent row is NOT mutated; this is a turn-time assembled-prompt override only.
-				systemPromptOverride: triggerResolution.prompt ?? formation.persona,
+				systemPromptOverride: formation.persona,
 			},
 		});
 

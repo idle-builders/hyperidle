@@ -17,6 +17,7 @@
 import {
 	type AgentSessionRequest,
 	agentSessionRequests,
+	agentWorkIntents,
 	bets,
 	type HyperIdleDb,
 	tasks,
@@ -220,16 +221,16 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 		await runBetDecomposition(deps, "bet-ac5");
 
 		expect(select).not.toHaveBeenCalled();
-		const requests = await db.select().from(agentSessionRequests);
-		expect(requests).toHaveLength(1);
-		expect(requests[0]).toMatchObject({
-			sourceKind: "decomposition",
-			sourceId: "bet-ac5",
-			taskId: null,
-			promptMode: "decomposition",
-		});
+		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
+		expect(await db.select().from(agentWorkIntents)).toContainEqual(
+			expect.objectContaining({
+				kind: "bet_decomposition",
+				sourceId: "bet-ac5",
+				status: "pending",
+			}),
+		);
 		const [bet] = await db.select().from(bets);
-		expect(bet?.decompositionStatus).toBe("blocked");
+		expect(bet?.decompositionStatus).toBe("running");
 	});
 
 	test("successful runtime request writeback creates proposed tasks and marks bet done", async ({
@@ -298,16 +299,11 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 		await runBetDecomposition(deps, "bet-runtime-writeback");
 
 		expect(select).not.toHaveBeenCalled();
+		expect(executeAgentRunRequest).not.toHaveBeenCalled();
 		const taskRows = await db.select().from(tasks).where(eq(tasks.betId, "bet-runtime-writeback"));
-		expect(taskRows).toHaveLength(1);
-		expect(taskRows[0]).toMatchObject({
-			title: "Runtime proposed task",
-			state: "proposed",
-			betId: "bet-runtime-writeback",
-			teamId,
-		});
+		expect(taskRows).toHaveLength(0);
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-runtime-writeback")).limit(1);
-		expect(bet?.decompositionStatus).toBe("done");
+		expect(bet?.decompositionStatus).toBe("running");
 		expect(bet?.decompositionBlockerReason).toBeNull();
 	});
 
@@ -346,7 +342,8 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 		const taskRows = await db.select().from(tasks).where(eq(tasks.betId, "bet-runtime-empty"));
 		expect(taskRows).toHaveLength(0);
 		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-runtime-empty")).limit(1);
-		expect(bet?.decompositionStatus).toBe("blocked");
-		expect(bet?.decompositionBlockerReason).toBe("empty");
+		expect(executeAgentRunRequest).not.toHaveBeenCalled();
+		expect(bet?.decompositionStatus).toBe("running");
+		expect(bet?.decompositionBlockerReason).toBeNull();
 	});
 });

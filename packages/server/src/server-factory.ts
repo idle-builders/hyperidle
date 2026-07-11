@@ -24,7 +24,11 @@ import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { createMcpRoute } from "./routes/mcp-route.js";
 import { registerWorkerWsRoute } from "./routes/worker-ws.js";
 import { registerWsRoute } from "./routes/ws.js";
-import type { AssistantTurnDeps } from "./services/assistant-turn.js";
+import {
+	bootAgentLayer,
+	markRunningAgentSessionRequestsForShutdown,
+} from "./services/agent-layer-boot.js";
+import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
 import { resolveOrphanedDecompositions } from "./services/bet-decomposition.js";
 import { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
 import { getServerSecret } from "./services/credential-encryption.js";
@@ -221,6 +225,8 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		db = dbHandle.db;
 	}
 	const eventBus = new EventBus();
+	// AU9: reconciliation is awaited; runtime readiness means no recoverable intent
+	// was left stranded by a previous process death.
 
 	// AH1 §3: DbCredentialResolver is the sole production resolver.
 	// @lore AH1 §3: EnvCredentialResolver is retained ONLY for packages/eval (CI-secret
@@ -298,6 +304,23 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
 	const mcpBridgeRegistry = createMcpBridgeRegistry();
 	const mcpBaseUrl = `http://localhost:${port}`;
+	const disposeAgentLayer = await bootAgentLayer({
+		db,
+		eventBus,
+		runtime: {
+			db,
+			eventBus,
+			adapterPool,
+			workspace: workspaceAdapter,
+			mcpBridgeRegistry,
+			mcpBaseUrl,
+			serviceConnectionResolver: credentialResolver,
+			mounter,
+		},
+		sandboxBasePath,
+		resolveModel: makeResolveModel(db, credentialResolver),
+		assistantTurn: deps?.assistantTurnDeps ?? { db, eventBus, adapterPool, credentialResolver },
+	});
 
 	// AH6 B3 (R-1): Build assistantTurnDeps from the already-constructed adapterPool
 	// + credentialResolver so the message→turn trigger fires in production.
@@ -424,6 +447,12 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		// runtime. Order: domain handlers -> WS route -> HTTP server -> DB.
 		// AK3: unsubscribe the bet decomposition subscriber.
 		disposeBetDecomp();
+		disposeAgentLayer();
+		// @lore AU9: best-effort — store the durable "shutdown" cause on every
+		// still-running correlated request BEFORE the process tears down, so a
+		// later boot's recovery sweep disposes it via the reason (failed/
+		// RUNTIME_LOST) instead of a generic guess. Never blocks teardown.
+		void markRunningAgentSessionRequestsForShutdown(db).catch(() => {});
 		disposeApp(app);
 		if (wsDispose) {
 			wsDispose();

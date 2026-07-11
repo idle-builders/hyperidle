@@ -16,6 +16,7 @@
 
 import { type HyperIdleDb, operationOutcomes, proposedCalls, tailoredGrants } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
+import { recordAgentWorkIntent } from "./agent-work-intents.js";
 
 function nowIso(): string {
 	return new Date().toISOString();
@@ -144,22 +145,31 @@ export async function composeTailoredGrant(
 ): Promise<void> {
 	const approvedArgsSer =
 		typeof opts.approvedArgs === "string" ? opts.approvedArgs : JSON.stringify(opts.approvedArgs);
-	await db.insert(tailoredGrants).values({
-		proposedCallId: opts.proposedCallId,
-		taskScope: opts.taskScope,
-		agentScope: opts.agentScope,
-		approvedToolId: opts.approvedToolId,
-		approvedArgs: approvedArgsSer,
-		argPinned: opts.argPinned ?? false,
-		identityHash: opts.identityHash ?? null,
-		consumed: false,
-		retryCount: 0,
-		mintedAt: nowIso(),
-	});
+	await db.transaction(async (tx) => {
+		await tx.insert(tailoredGrants).values({
+			proposedCallId: opts.proposedCallId,
+			taskScope: opts.taskScope,
+			agentScope: opts.agentScope,
+			approvedToolId: opts.approvedToolId,
+			approvedArgs: approvedArgsSer,
+			argPinned: opts.argPinned ?? false,
+			identityHash: opts.identityHash ?? null,
+			consumed: false,
+			retryCount: 0,
+			mintedAt: nowIso(),
+		});
 
-	// Transition Proposed Call: captured → granted
-	await db
-		.update(proposedCalls)
-		.set({ status: "granted" })
-		.where(and(eq(proposedCalls.id, opts.proposedCallId), eq(proposedCalls.status, "captured")));
+		// Transition Proposed Call: captured → granted
+		await tx
+			.update(proposedCalls)
+			.set({ status: "granted" })
+			.where(and(eq(proposedCalls.id, opts.proposedCallId), eq(proposedCalls.status, "captured")));
+		await recordAgentWorkIntent(tx, {
+			kind: "reengagement",
+			sourceKind: "proposed_call",
+			sourceId: opts.proposedCallId,
+			requestedBy: opts.agentScope,
+			idempotencyKey: `grant:${opts.proposedCallId}`,
+		});
+	});
 }

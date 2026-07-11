@@ -2,17 +2,14 @@ import * as crypto from "node:crypto";
 import {
 	factorySettings,
 	type HyperIdleDb,
-	items,
 	type Routine,
 	routineRuns,
 	routines,
 	sessions,
-	threads,
 } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { executeAgentRunRequest } from "../../services/agent-run-boundary.js";
-import { createTriggeredAgentSessionRequest } from "../../services/trigger-resolution.js";
+import { recordAgentWorkIntent } from "../../services/agent-work-intents.js";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 import { extractBuiltinKind, isBuiltinRoutineId, runBuiltinRoutine } from "./builtin-routines.js";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
@@ -233,6 +230,8 @@ async function isFactoryCostCapReached(db: HyperIdleDb): Promise<boolean> {
 
 // --- Review item creation ---
 
+/* AU9: review projection moves to terminal lifecycle consumers. */
+/*
 async function createReviewItem(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -273,6 +272,7 @@ async function createReviewItem(
 		timestamp: Date.now(),
 	});
 }
+*/
 
 // --- Compute next_run_at ---
 
@@ -414,71 +414,33 @@ export async function checkAndFireRoutine(
 	}
 
 	const runId = crypto.randomUUID();
-	await db.insert(routineRuns).values({
-		id: runId,
-		routineId: routine.id,
-		startedAt: now.toISOString(),
-		outcome: "running",
-	});
-
-	const { request } = await createTriggeredAgentSessionRequest(db, {
-		eventType: "routine.fire",
-		sourceKind: "routine",
-		sourceId: routine.id,
-		streamId: `routine:${routine.id}`,
-		taskId: null,
-		defaultAgentId: targetAgentId,
-		teamId: routine.teamId,
-		idempotencyKey: `routine:${runId}`,
-		payload: { routineId: routine.id, routineRunId: runId },
-		sourceCorrelation: {
+	let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
+	await db.transaction(async (tx) => {
+		await tx.insert(routineRuns).values({
+			id: runId,
 			routineId: routine.id,
-			routineRunId: runId,
-			teamId: routine.teamId,
-		},
+			startedAt: now.toISOString(),
+			outcome: "running",
+		});
+		intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
+			kind: "routine_run",
+			sourceKind: "routine_run",
+			sourceId: runId,
+			requestedBy: targetAgentId,
+			idempotencyKey: `routine:${runId}`,
+		});
 	});
-
-	let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
-	if (runtimeDeps.resolveModel) {
-		resolvedModel = await runtimeDeps.resolveModel("workhorse");
-	}
-
-	let sessionId: string;
-	try {
-		const result = await executeAgentRunRequest(
-			{
-				db,
-				eventBus,
-				adapterPool: runtimeDeps.adapterPool,
-				workspace: runtimeDeps.workspace,
-				mcpBridgeRegistry: runtimeDeps.mcpBridgeRegistry,
-				mcpBaseUrl: runtimeDeps.mcpBaseUrl,
-				...(runtimeDeps.mounter ? { mounter: runtimeDeps.mounter } : {}),
-				...(runtimeDeps.onBeforeTeardown ? { onBeforeTeardown: runtimeDeps.onBeforeTeardown } : {}),
-			},
-			request,
-			{
-				sandboxBasePath: runtimeDeps.sandboxBasePath,
-				...(resolvedModel ? { resolvedModel } : {}),
-			},
-		);
-		sessionId = result.sessionId;
-	} catch (err) {
-		await db
-			.update(routineRuns)
-			.set({
-				outcome: "error",
-				endedAt: new Date().toISOString(),
-				errorMessage: err instanceof Error ? err.message : String(err),
-			})
-			.where(eq(routineRuns.id, runId));
-		throw err;
-	}
-
-	// Handle human_review
-	if (routine.humanReview) {
-		await createReviewItem(db, eventBus, routine, sessionId);
-	}
+	if (!intent) throw new Error("Routine work intent was not persisted");
+	eventBus.emit({
+		type: "agent_work_intent_recorded",
+		streamId: `routine:${routine.id}`,
+		intentId: intent.id,
+		intentKind: "routine_run",
+		sourceKind: "routine",
+		sourceId: runId,
+		idempotencyKey: intent.idempotencyKey,
+		timestamp: Date.now(),
+	});
 
 	// Update timestamps
 	const lastRunAt = now.toISOString();
@@ -498,13 +460,13 @@ export async function checkAndFireRoutine(
 	// routineId (e.g. `includes("daily_digest")`).
 	eventBus.emit({
 		type: "routine_fired",
-		streamId: sessionId,
+		streamId: `routine:${routine.id}`,
 		routineId: routine.id,
 		agentId: targetAgentId,
 		timestamp: Date.now(),
 	});
 
-	return { fired: true, sessionId, delegatedTo };
+	return { fired: true, delegatedTo };
 }
 
 // --- Event triggers ---

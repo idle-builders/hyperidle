@@ -79,7 +79,11 @@ describe("session request schema", () => {
 				assistantAgentId: "agent-1",
 			}),
 			idempotencyKey: "assistant:msg-1",
-			status: "running",
+			status: "claimed",
+			claimedBy: "test-worker",
+			claimedAt: now,
+			claimExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+			claimToken: "test-claim",
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -96,6 +100,15 @@ describe("session request schema", () => {
 			startedAt: now,
 			state: "active",
 		});
+		await db
+			.update(agentSessionRequests)
+			.set({
+				status: "running",
+				sessionId: "session-1",
+				claimToken: null,
+				claimExpiresAt: null,
+			})
+			.where(eq(agentSessionRequests.id, "req-1"));
 
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
 		expect(row?.taskId).toBeNull();

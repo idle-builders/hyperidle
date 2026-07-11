@@ -37,7 +37,7 @@ import {
 	type TierTokenCount,
 	type UserRole,
 } from "@hyperidle/shared";
-import { and, inArray as drizzleInArray, eq, sql } from "drizzle-orm";
+import { and, inArray as drizzleInArray, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { IngestionHandle } from "../app-runtime/contracts.js";
 import {
 	assemblePrompt,
@@ -70,7 +70,12 @@ import {
 import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { readServerConfig } from "./server-config.js";
-import { crashSession, endSession, type SessionContext } from "./session-lifecycle.js";
+import {
+	crashSession,
+	endSession,
+	requestAgentTermination,
+	type SessionContext,
+} from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
@@ -770,10 +775,25 @@ export async function admitSession(
 	const harness = selectedAdapter.adapter;
 	const adapterId = selectedAdapter.id;
 
+	// @lore AU9: request-mediated admission (runClaimedRequest) already reserved/
+	// adopted this exact request's session via reserveOrAdoptSession BEFORE this
+	// concurrency check runs. Counting it here would make every request-mediated
+	// admission count its OWN just-reserved session against its own limit — an
+	// off-by-one that permanently self-blocks any agent at the default
+	// maxConcurrentSessions=1. Exclude the request's own correlated session.
+	const activeCountWhere = params.requestContext
+		? and(
+				eq(sessions.agentId, params.agentId),
+				eq(sessions.state, "active"),
+				// NULL requestId rows must still count — `ne` alone would exclude them
+				// under SQL three-valued logic, silently under-counting concurrency.
+				or(isNull(sessions.requestId), ne(sessions.requestId, params.requestContext.requestId)),
+			)
+		: and(eq(sessions.agentId, params.agentId), eq(sessions.state, "active"));
 	const [activeCount] = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(sessions)
-		.where(and(eq(sessions.agentId, params.agentId), eq(sessions.state, "active")))
+		.where(activeCountWhere)
 		.limit(1);
 	if ((activeCount?.count ?? 0) >= agent.maxConcurrentSessions) {
 		adapterPool.release(adapterId);
@@ -833,9 +853,16 @@ export async function admitSession(
 		sandboxPath = sandboxHandle.path;
 
 		// ── Phase 5: insert session row.
-		sessionId = randomUUID();
+		const [reservedSession] = params.requestContext
+			? await db
+					.select()
+					.from(sessions)
+					.where(eq(sessions.requestId, params.requestContext.requestId))
+					.limit(1)
+			: [undefined];
+		sessionId = reservedSession?.id ?? randomUUID();
 		const startedAt = new Date().toISOString();
-		await db.insert(sessions).values({
+		const sessionValues = {
 			id: sessionId,
 			taskId: params.taskId,
 			...(params.requestContext
@@ -853,7 +880,15 @@ export async function admitSession(
 			sandboxSnapshot: sandboxPath,
 			// AA2: populate routineId when this is a routine session.
 			...(params.routineId ? { routineId: params.routineId } : {}),
-		});
+		};
+		if (reservedSession) {
+			await db
+				.update(sessions)
+				.set({ ...sessionValues, id: undefined })
+				.where(eq(sessions.id, reservedSession.id));
+		} else {
+			await db.insert(sessions).values(sessionValues);
+		}
 
 		// ── Phase 4.5: mount injected filesystems (AO2).
 		// Runs AFTER sandbox spawn (sandboxPath known) and BEFORE context assembly
@@ -1764,6 +1799,18 @@ export async function runSession(
 	// Pass "budget_exhausted" directly to endSession so updateRoutineRunOnSessionEnd
 	// writes the correct outcome in a single write (avoids write-then-overwrite window).
 	if (budgetExhausted) {
+		// @lore AU9: store the durable "cost_cap" termination cause BEFORE tearing
+		// down — the later unconditional transitionAgentRunLifecycle("completed")
+		// call this run's caller makes will re-read this reason and disposition it
+		// to failed/BUDGET_EXHAUSTED instead, per the "teardown never infers cause
+		// from an in-memory outcome" contract. Only requests admitted through the
+		// request-mediated path carry requestContext.
+		if (sessionContext.requestContext) {
+			await requestAgentTermination(db, {
+				requestId: sessionContext.requestContext.requestId,
+				reason: "cost_cap",
+			});
+		}
 		// ── Hook B: capture-back before budget_exhausted teardown (AO2 §9).
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);

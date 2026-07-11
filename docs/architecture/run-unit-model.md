@@ -14,6 +14,8 @@ session  → agent reads/writes the working dir; inherited tools available via r
 destroy  → rm -rf working dir
 ```
 
+Before `spawn`, core work crosses the runtime boundary as a durable agent-work intent. The agent-layer worker resolves that intent into an idempotent session request. This makes request creation recoverable without changing the host execution path described below.
+
 Inherited tools (e.g. `gh`, `git`) work with no per-session login — the harness reads the real `$HOME`, so `~/.config/gh`, `~/.ssh`, and other user config are accessible.
 
 ## Two independent axes

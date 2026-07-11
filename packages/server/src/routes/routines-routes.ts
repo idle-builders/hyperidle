@@ -1,5 +1,6 @@
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import {
+	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
 	type CurrencyCode,
 	type EventBus,
@@ -29,11 +30,9 @@ import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import { executeAgentRunRequest } from "../services/agent-run-boundary.js";
 import { deriveInitials } from "../services/agent-utils.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
-import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
-import { createTriggeredAgentSessionRequest } from "../services/trigger-resolution.js";
 
 /**
  * AA2: Optional dependency injection for routine trigger provisioning.
@@ -102,7 +101,7 @@ function stateToActive(state: string): boolean {
 export function createRoutineRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	provisionDeps?: RoutineProvisionDeps,
+	_provisionDeps?: RoutineProvisionDeps,
 ): Hono {
 	const router = new Hono();
 
@@ -546,81 +545,32 @@ export function createRoutineRoutes(
 		}
 
 		const runId = crypto.randomUUID();
-		await db.insert(routineRuns).values({
-			id: runId,
-			routineId,
-			startedAt: now,
-			outcome: "running",
+		let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
+		await db.transaction(async (tx) => {
+			await tx
+				.insert(routineRuns)
+				.values({ id: runId, routineId, startedAt: now, outcome: "running" });
+			await tx.update(routines).set({ lastRunAt: now }).where(eq(routines.id, routineId));
+			intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
+				kind: "routine_run",
+				sourceKind: "routine_run",
+				sourceId: runId,
+				requestedBy: routine.ownerAgentId,
+				idempotencyKey: `routine:${runId}`,
+			});
 		});
-		await db.update(routines).set({ lastRunAt: now }).where(eq(routines.id, routineId));
-
-		const { request } = await createTriggeredAgentSessionRequest(db, {
-			eventType: "routine.fire",
+		if (!intent) throw new Error("Routine intent was not persisted");
+		eventBus.emit({
+			type: "agent_work_intent_recorded",
+			streamId: `routine:${routineId}`,
+			intentId: intent.id,
+			intentKind: "routine_run",
 			sourceKind: "routine",
 			sourceId: routineId,
-			streamId: `routine:${routineId}`,
-			taskId: null,
-			defaultAgentId: routine.ownerAgentId,
-			teamId: routine.teamId,
-			idempotencyKey: `routine:${runId}`,
-			payload: { routineId, runId },
-			sourceCorrelation: {
-				routineId,
-				routineRunId: runId,
-				teamId: routine.teamId,
-			},
-		});
-
-		// AA2: Full provisionSession path when adapters are present.
-		// Reuses the 11-phase provisioning orchestrator with routine context.
-		if (provisionDeps?.adapterPool && provisionDeps.workspaceAdapter) {
-			const sandboxBasePath = provisionDeps.sandboxBasePath ?? "/tmp/hyperidle-workspaces";
-
-			const sessionDeps: ProvisionSessionDeps = {
-				db,
-				eventBus,
-				adapterPool: provisionDeps.adapterPool,
-				workspace: provisionDeps.workspaceAdapter,
-				// AO2: pass through the mounter if present.
-				...(provisionDeps.mounter ? { mounter: provisionDeps.mounter } : {}),
-			};
-
-			try {
-				const result = await executeAgentRunRequest(sessionDeps, request, {
-					sandboxBasePath,
-				});
-
-				// @lore AA2: provisionSession generates its own sessionId internally.
-				// We inserted the routine_run row (with sessionId=null) before calling
-				// provisionSession so the intent is recorded even if provisioning fails.
-				// Now that provisioning succeeded we back-populate sessionId so the
-				// session-lifecycle hook (endSession/crashSession) can find this run row
-				// via `WHERE sessionId = <session-id>` and update its outcome.
-				await db
-					.update(routineRuns)
-					.set({ sessionId: result.sessionId })
-					.where(eq(routineRuns.id, runId));
-
-				return c.json(
-					{ routineId, fired: true, sessionId: result.sessionId, outcome: result.outcome },
-					200,
-				);
-			} catch (err) {
-				// Provision failed — update the run row to error outcome.
-				const endedAt = new Date().toISOString();
-				await db
-					.update(routineRuns)
-					.set({
-						outcome: "error",
-						endedAt,
-						errorMessage: err instanceof Error ? err.message : String(err),
-					})
-					.where(eq(routineRuns.id, runId));
-				throw err;
-			}
-		}
-
-		return c.json({ routineId, fired: true, requestId: request.id }, 200);
+			idempotencyKey: intent.idempotencyKey,
+			timestamp: Date.now(),
+		} satisfies AgentWorkIntentEvent);
+		return c.json({ routineId, fired: true, runId }, 200);
 	});
 
 	return router;

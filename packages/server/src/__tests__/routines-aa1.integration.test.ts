@@ -597,7 +597,7 @@ describe("AA1: Routine Visibility API", () => {
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.fired).toBe(true);
-			expect(typeof body.requestId).toBe("string");
+			expect(typeof body.runId).toBe("string");
 
 			// Verify routine_run was created
 			const runs = await db

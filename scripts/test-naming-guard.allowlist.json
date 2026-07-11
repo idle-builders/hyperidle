@@ -199,6 +199,7 @@
 	"packages/server/src/harness/__tests__/X5-builtin-harness-adapter.test.ts",
 	"packages/server/src/harness/__tests__/X5-cli-harness-adapter.test.ts",
 	"packages/server/src/harness/__tests__/X5-session-config-mcp.test.ts",
+	"packages/server/src/harness/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
 	"packages/server/src/harness/__tests__/adapter-pool-s4.test.ts",
 	"packages/server/src/harness/__tests__/aq1-adapter-pool-host-only.test.ts",
 	"packages/server/src/harness/__tests__/ar1-require-harness.test.ts",

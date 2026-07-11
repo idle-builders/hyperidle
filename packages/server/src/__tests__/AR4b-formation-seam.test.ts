@@ -6,11 +6,18 @@
  *
  * This is a unit test (*.test.ts) — it mocks runSession to capture the
  * conversational parameters (systemPromptOverride + draftRegistry) handed to it
- * by runAssistantTurn after the formation seam consultation.
+ * by executeAssistantRequest after the formation seam consultation.
  *
- * The key observable: runAssistantTurn calls resolveAssistantFormation()
+ * The key observable: executeAssistantRequest calls resolveAssistantFormation()
  * BEFORE calling the runtime. The captured systemPromptOverride must reflect
  * the current resolver response, proving the formation seam is consulted at turn time.
+ *
+ * @lore AU9 R1: createTriggeredAgentSessionRequest has exactly one PRODUCTION call
+ * site (the intent drain) — the assistant's own direct-create fallback was deleted.
+ * This test therefore builds the request the same way the drain does (via
+ * createTriggeredAgentSessionRequest) before invoking executeAssistantRequest, the
+ * split "consume the exact durable request" entrypoint. Using the constructor here
+ * is fixture setup in a non-protected unit test, not a second production caller.
  *
  * @lore AR4b: We observe via the runSession call-site capture rather than
  * by reading the DB or the AGENTS.md file on disk, because:
@@ -20,13 +27,20 @@
  *      running a real harness (unit test scope).
  */
 
-import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import {
+	type AgentSessionRequest,
+	type HyperIdleDb,
+	messages,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import { runAssistantTurn } from "../services/assistant-turn.js";
+import { executeAssistantRequest } from "../services/agent-work-assistant.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
+import { createTriggeredAgentSessionRequest } from "../services/trigger-resolution.js";
 import { test } from "../test-fixtures.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -186,6 +200,44 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 	});
 }
 
+/**
+ * Builds the durable request the same way the production intent drain does
+ * (via createTriggeredAgentSessionRequest), so executeAssistantRequest is always
+ * consuming an already-created row — mirroring the real production sequence.
+ */
+async function createAssistantRequest(
+	db: HyperIdleDb,
+	params: { userId: string; threadId: string; triggerMessageId: string },
+): Promise<AgentSessionRequest> {
+	const assistantAgentId = `ast-${params.userId}`;
+	const { request } = await createTriggeredAgentSessionRequest(db, {
+		eventType: "assistant.message",
+		sourceKind: "assistant",
+		sourceId: params.triggerMessageId,
+		streamId: `thread:${params.threadId}`,
+		defaultAgentId: assistantAgentId,
+		userId: params.userId,
+		idempotencyKey: `assistant:${params.triggerMessageId}`,
+		payload: { threadId: params.threadId, triggerMessageId: params.triggerMessageId },
+		sourceCorrelation: {
+			threadId: params.threadId,
+			messageId: params.triggerMessageId,
+			userId: params.userId,
+			assistantAgentId,
+		},
+	});
+	return request;
+}
+
+/** Test-only replacement for the deleted direct-create `runAssistantTurn` entrypoint. */
+async function runTurn(
+	deps: Parameters<typeof executeAssistantRequest>[0],
+	params: { userId: string; threadId: string; triggerMessageId: string },
+): Promise<void> {
+	const request = await createAssistantRequest(deps.db, params);
+	await executeAssistantRequest(deps, request);
+}
+
 function makeAdapterPool(): AdapterPool {
 	const pool = new AdapterPool();
 	pool.register("builtin-ar4b", new BuiltinHarnessAdapter(), {
@@ -212,7 +264,7 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 		await seedFixtures(db);
 
 		const eventBus = new EventBus();
-		await runAssistantTurn(
+		await runTurn(
 			{
 				db,
 				eventBus,
@@ -237,7 +289,7 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 		await seedFixtures(db);
 
 		const eventBus = new EventBus();
-		await runAssistantTurn(
+		await runTurn(
 			{
 				db,
 				eventBus,
@@ -259,7 +311,7 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 
 		// Turn 1: default app formation.
 		setFormationPersona(null);
-		await runAssistantTurn(
+		await runTurn(
 			{ db, eventBus, adapterPool: pool, credentialResolver },
 			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
 		);
@@ -279,7 +331,7 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 
 		// Turn 2: resolver returns a persona override.
 		setFormationPersona(ALPHA_PERSONA);
-		await runAssistantTurn(
+		await runTurn(
 			{ db, eventBus, adapterPool: pool, credentialResolver },
 			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: secondTriggerMessageId },
 		);
@@ -296,7 +348,7 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 		setFormationPersona(ALPHA_PERSONA);
 
 		const eventBus = new EventBus();
-		await runAssistantTurn(
+		await runTurn(
 			{ db, eventBus, adapterPool: makeAdapterPool(), credentialResolver },
 			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
 		);

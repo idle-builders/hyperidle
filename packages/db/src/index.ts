@@ -25,14 +25,20 @@ export {
 } from "./profiles.js";
 export * as schema from "./schema.js";
 export {
+	type AgentLifecycleInboxRow,
 	type AgentSessionRequest,
+	type AgentWorkIntent,
 	type ArtifactRow,
+	agentLifecycleInbox,
 	agentSessionRequests,
+	agentWorkIntents,
 	artifacts,
 	type Bet,
 	bets,
 	type ConfigurationOverrideRow,
 	configurationOverrides,
+	type ExplicitSessionStart,
+	explicitSessionStarts,
 	type FactorySetting,
 	type FilesystemCaptureRow,
 	type FilesystemInjectionRow,
@@ -63,6 +69,7 @@ export {
 	loginSessions,
 	type Message,
 	messages,
+	type NewAgentLifecycleInboxRow,
 	type NewAgentSessionRequest,
 	type NewArtifactRow,
 	type NewBet,
@@ -97,6 +104,7 @@ export {
 	type NewSession,
 	type NewTailoredGrant,
 	type NewTask,
+	type NewTaskDispatchAttempt,
 	type NewTaskPlanningSignalRow,
 	type NewTaskStrategyFabricRow,
 	// @lore U1: NewTeam (formerly NewProduct) is the domain entity insert type.
@@ -135,6 +143,7 @@ export {
 	sessions,
 	type TailoredGrant,
 	type Task,
+	type TaskDispatchAttempt,
 	type TaskPlanningSignalRow,
 	type TaskStrategyFabricRow,
 	// @lore U1: Team (formerly Product) is the domain entity select type.
@@ -144,6 +153,7 @@ export {
 	type Thread,
 	type TriggerResolutionHistoryRow,
 	tailoredGrants,
+	taskDispatchAttempts,
 	taskPlanningSignals,
 	taskStrategyFabric,
 	tasks,

@@ -7,6 +7,8 @@
  */
 
 export type { AuthMeResponse } from "./auth.js";
+export type { CreateSessionAcceptedResponse, PendingSessionStart } from "./session.js";
+export { isPendingSessionStart } from "./session.js";
 export type {
 	AutonomyLevel,
 	SettingsAgent,

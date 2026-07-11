@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
 	type AgentSessionRequest,
+	agentLifecycleInbox,
 	agentSessionRequests,
 	type HyperIdleDb,
 	triggerResolutionHistory,
@@ -10,7 +11,7 @@ import {
 	type AgentSessionRequestStatus,
 	agentSessionRequestInputSchema,
 } from "@hyperidle/shared";
-import { and, asc, eq, lt, or } from "drizzle-orm";
+import { and, asc, eq, lt, or, sql } from "drizzle-orm";
 
 export interface ClaimRequestOptions {
 	readonly now: Date;
@@ -97,7 +98,6 @@ export async function claimNextAgentSessionRequest(
 	options: ClaimRequestOptions,
 ): Promise<AgentSessionRequest | null> {
 	const now = options.now.toISOString();
-	const expires = new Date(options.now.getTime() + options.leaseMs).toISOString();
 	const candidates = await db
 		.select()
 		.from(agentSessionRequests)
@@ -115,29 +115,7 @@ export async function claimNextAgentSessionRequest(
 	const candidate = candidates[0];
 	if (!candidate) return null;
 
-	const updated = await db
-		.update(agentSessionRequests)
-		.set({
-			status: "claimed",
-			claimedBy: workerId,
-			claimedAt: now,
-			claimExpiresAt: expires,
-			updatedAt: now,
-		})
-		.where(
-			and(
-				eq(agentSessionRequests.id, candidate.id),
-				or(
-					eq(agentSessionRequests.status, "pending"),
-					and(
-						eq(agentSessionRequests.status, "claimed"),
-						lt(agentSessionRequests.claimExpiresAt, now),
-					),
-				),
-			),
-		)
-		.returning();
-	return updated[0] ? rowToRequest(updated[0]) : null;
+	return claimAgentSessionRequestById(db, candidate.id, workerId, options);
 }
 
 export async function claimAgentSessionRequestById(
@@ -148,6 +126,13 @@ export async function claimAgentSessionRequestById(
 ): Promise<AgentSessionRequest | null> {
 	const now = options.now.toISOString();
 	const expires = new Date(options.now.getTime() + options.leaseMs).toISOString();
+	const token = randomUUID();
+	const [observed] = await db
+		.select()
+		.from(agentSessionRequests)
+		.where(eq(agentSessionRequests.id, requestId))
+		.limit(1);
+	if (!observed) return null;
 	const updated = await db
 		.update(agentSessionRequests)
 		.set({
@@ -155,44 +140,89 @@ export async function claimAgentSessionRequestById(
 			claimedBy: workerId,
 			claimedAt: now,
 			claimExpiresAt: expires,
+			claimToken: token,
 			updatedAt: now,
 		})
 		.where(
 			and(
 				eq(agentSessionRequests.id, requestId),
-				or(
-					eq(agentSessionRequests.status, "pending"),
-					and(
-						eq(agentSessionRequests.status, "claimed"),
-						lt(agentSessionRequests.claimExpiresAt, now),
-					),
-				),
+				observed.status === "pending"
+					? and(
+							eq(agentSessionRequests.status, "pending"),
+							eq(agentSessionRequests.updatedAt, observed.updatedAt),
+						)
+					: and(
+							eq(agentSessionRequests.status, "claimed"),
+							eq(agentSessionRequests.claimToken, observed.claimToken ?? ""),
+							eq(agentSessionRequests.claimExpiresAt, observed.claimExpiresAt ?? ""),
+							lt(agentSessionRequests.claimExpiresAt, now),
+						),
 			),
 		)
 		.returning();
 	return updated[0] ? rowToRequest(updated[0]) : null;
 }
 
+export async function renewAgentSessionRequestLease(
+	db: HyperIdleDb,
+	input: { requestId: string; claimToken: string; now: Date; leaseMs: number },
+): Promise<boolean> {
+	const expires = new Date(input.now.getTime() + input.leaseMs).toISOString();
+	const renewed = await db
+		.update(agentSessionRequests)
+		.set({
+			claimExpiresAt: expires,
+			updatedAt: input.now.toISOString(),
+		})
+		.where(
+			and(
+				eq(agentSessionRequests.id, input.requestId),
+				eq(agentSessionRequests.status, "claimed"),
+				eq(agentSessionRequests.claimToken, input.claimToken),
+			),
+		)
+		.returning({ id: agentSessionRequests.id });
+	return renewed.length === 1;
+}
+
 export async function markRequestRunning(
 	db: HyperIdleDb,
 	requestId: string,
 	sessionId: string,
+	claimToken?: string,
 ): Promise<void> {
-	await db
+	const predicate = claimToken
+		? and(
+				eq(agentSessionRequests.id, requestId),
+				eq(agentSessionRequests.status, "claimed"),
+				eq(agentSessionRequests.claimToken, claimToken),
+			)
+		: eq(agentSessionRequests.id, requestId);
+	const updated = await db
 		.update(agentSessionRequests)
 		.set({
 			status: "running",
 			sessionId,
+			claimedBy: null,
+			claimedAt: null,
+			claimToken: null,
+			claimExpiresAt: null,
 			updatedAt: nowIso(),
 		})
-		.where(eq(agentSessionRequests.id, requestId));
+		.where(predicate)
+		.returning({ id: agentSessionRequests.id });
+	if (updated.length !== 1) throw new Error(`Lost request custody before admission: ${requestId}`);
 	await db
 		.update(triggerResolutionHistory)
 		.set({ sessionId })
 		.where(eq(triggerResolutionHistory.requestId, requestId));
 }
 
-export async function releaseRequestClaim(db: HyperIdleDb, requestId: string): Promise<void> {
+export async function releaseRequestClaim(
+	db: HyperIdleDb,
+	requestId: string,
+	claimToken?: string,
+): Promise<void> {
 	await db
 		.update(agentSessionRequests)
 		.set({
@@ -202,22 +232,104 @@ export async function releaseRequestClaim(db: HyperIdleDb, requestId: string): P
 			claimExpiresAt: null,
 			updatedAt: nowIso(),
 		})
-		.where(eq(agentSessionRequests.id, requestId));
+		.where(
+			claimToken
+				? and(
+						eq(agentSessionRequests.id, requestId),
+						eq(agentSessionRequests.claimToken, claimToken),
+					)
+				: eq(agentSessionRequests.id, requestId),
+		);
 }
 
-export async function markRequestTerminal(
-	db: HyperIdleDb,
-	requestId: string,
-	status: Extract<AgentSessionRequestStatus, "completed" | "failed" | "cancelled">,
-	error?: { code?: string; message?: string },
-): Promise<void> {
-	await db
+/**
+ * @lore AU9 R1: the single terminal writer. Every terminal transition — natural
+ * completion/failure, detached-runtime failure, PATCH/handoff/shutdown/cost-cap
+ * disposition, and running-recovery (post-admission), plus boot-admission-failure
+ * and the pre-markRequestRunning synchronous exception (pre-admission) — routes
+ * through this one function. A `running`-only CAS would silently no-op (zero rows,
+ * no inbox row, lost failure) for the two pre-admission callers, which is exactly
+ * the recurring silent-no-op bug this single writer exists to kill — hence the
+ * discriminated `precondition` input covers both branches in one place.
+ */
+export type TerminalizeAgentSessionRequestInput =
+	| {
+			readonly requestId: string;
+			readonly precondition: "running";
+			readonly sessionId: string;
+			readonly state: Extract<AgentSessionRequestStatus, "completed" | "failed" | "cancelled">;
+			readonly failureCode?: string;
+			/** Internal diagnostic only — never crosses the public API boundary. */
+			readonly errorMessage?: string;
+			/** Natural completion only: reject if a termination reason is already stored. */
+			readonly requireNoTerminationReason?: boolean;
+	  }
+	| {
+			readonly requestId: string;
+			readonly precondition: "claimed";
+			readonly claimToken: string;
+			readonly state: "failed";
+			readonly failureCode?: string;
+			/** Internal diagnostic only — never crosses the public API boundary. */
+			readonly errorMessage?: string;
+	  };
+
+/** Transaction-scoped write; callers already holding a `tx` compose through this. */
+export async function terminalizeAgentSessionRequestInTx(
+	tx: HyperIdleDb,
+	input: TerminalizeAgentSessionRequestInput,
+): Promise<AgentSessionRequest | null> {
+	const now = nowIso();
+	const baseSet = {
+		status: input.state,
+		errorCode: input.failureCode ?? null,
+		errorMessage: input.errorMessage ?? null,
+		claimToken: null,
+		claimExpiresAt: null,
+		claimedBy: null,
+		claimedAt: null,
+		updatedAt: now,
+	};
+	const predicate =
+		input.precondition === "running"
+			? and(
+					eq(agentSessionRequests.id, input.requestId),
+					eq(agentSessionRequests.status, "running"),
+					eq(agentSessionRequests.sessionId, input.sessionId),
+					input.requireNoTerminationReason
+						? sql`${agentSessionRequests.terminationReason} is null`
+						: sql`true`,
+				)
+			: and(
+					eq(agentSessionRequests.id, input.requestId),
+					eq(agentSessionRequests.status, "claimed"),
+					eq(agentSessionRequests.claimToken, input.claimToken),
+				);
+	const [winner] = await tx
 		.update(agentSessionRequests)
-		.set({
-			status,
-			errorCode: error?.code ?? null,
-			errorMessage: error?.message ?? null,
-			updatedAt: nowIso(),
+		.set(input.precondition === "running" ? { ...baseSet, sessionId: input.sessionId } : baseSet)
+		.where(predicate)
+		.returning();
+	if (!winner) return null;
+	await tx
+		.insert(agentLifecycleInbox)
+		.values({
+			requestId: winner.id,
+			sourceKind: winner.sourceKind,
+			sourceId: winner.sourceId,
+			state: input.state,
+			sessionId: input.precondition === "running" ? input.sessionId : null,
+			failureCode: input.failureCode ?? null,
+			occurredAt: now,
 		})
-		.where(eq(agentSessionRequests.id, requestId));
+		.onConflictDoNothing();
+	return winner;
+}
+
+/** Public entrypoint: opens its own transaction around {@link terminalizeAgentSessionRequestInTx}. */
+export async function terminalizeAgentSessionRequest(
+	db: HyperIdleDb,
+	input: TerminalizeAgentSessionRequestInput,
+): Promise<AgentSessionRequest | null> {
+	return db.transaction((tx) => terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, input));
 }

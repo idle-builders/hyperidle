@@ -493,6 +493,9 @@ export function registerObservabilityDispatcher(
 			// AL7 trust-first: proposed call executed/granted — audit-only, not an observability event.
 			case "proposed_call_executed":
 			case "proposed_call_granted":
+			// AU9 durable handoff/lifecycle facts are consumed by domain projections.
+			case "agent_work_intent_recorded":
+			case "agent_run_lifecycle_changed":
 			// AL6: return-gate escape surface — surfaced via bus, not an observability metric.
 			case "session_not_returned":
 				return false;

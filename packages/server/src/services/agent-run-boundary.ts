@@ -5,8 +5,12 @@ import { and, asc, eq } from "drizzle-orm";
 import {
 	type ConsumeAgentSessionRequestOptions,
 	consumeAgentSessionRequest,
+	recoverRunningAgentSessionRequests,
 } from "./agent-session-runtime.js";
 import type { ProvisionSessionDeps, ProvisionSessionResult } from "./session-provisioning.js";
+
+/** @lore AU6 boundary: the composition root reaches recovery only through this file. */
+export { recoverRunningAgentSessionRequests };
 
 export type AgentRunLifecycleState = "requested" | "running" | "completed" | "failed" | "cancelled";
 

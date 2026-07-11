@@ -1,17 +1,20 @@
-import { type HyperIdleDb, sessions, tasks, users } from "@hyperidle/db";
 import {
+	agentWorkIntents,
+	explicitSessionStarts,
+	type HyperIdleDb,
+	sessions,
+	tasks,
+} from "@hyperidle/db";
+import {
+	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
-	ConcurrencyLimitError,
-	CostCapExceededError,
 	type EventBus,
-	MissingCredentialError,
-	NoEligibleHarnessError,
 	type SessionEndedEvent,
 	type SessionOutcome,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import z from "zod";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
@@ -19,13 +22,14 @@ import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { executeAgentRunRequest } from "../services/agent-run-boundary.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import type { CredentialResolver } from "../services/credential-resolver.js";
-import { resolveAgentModel, resolveModelTier } from "../services/model-gateway.js";
-import { readServerConfig } from "../services/server-config.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
+import {
+	requestAgentTermination,
+	transitionAgentRunLifecycle,
+} from "../services/session-lifecycle.js";
 import { sessionRunRegistry } from "../services/session-run-registry.js";
-import { createTriggeredAgentSessionRequest } from "../services/trigger-resolution.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -36,6 +40,65 @@ const createSessionSchema = z.object({
 	taskId: z.string(),
 	modelTier: z.enum(["reasoning", "workhorse", "fast"]),
 });
+
+export const EXPLICIT_SESSION_ADMISSION_WAIT_MS = 2_000;
+const IDEMPOTENCY_KEY_PATTERN = /^[\x21-\x7e]{1,200}$/;
+
+function pendingStart(start: typeof explicitSessionStarts.$inferSelect) {
+	return {
+		status: "requested" as const,
+		startId: start.id,
+		taskId: start.taskId,
+		requestedAgentId: start.requestedAgentId,
+		requestedModelTier: start.requestedModelTier,
+		idempotencyKey: start.idempotencyKey,
+		pollUrl: `/api/sessions/starts/${start.id}` as const,
+	};
+}
+
+async function projectExplicitStart(
+	db: HyperIdleDb,
+	start: typeof explicitSessionStarts.$inferSelect,
+) {
+	if (start.status === "admitted" && start.sessionId) {
+		const [session] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, start.sessionId))
+			.limit(1);
+		if (session) return { status: 202 as const, body: session };
+	}
+	if (start.status === "failed") {
+		const code = start.failureCode ?? "INTERNAL_ERROR";
+		const status =
+			code === "COST_CAP_EXCEEDED" || code === "NO_ELIGIBLE_HARNESS"
+				? 422
+				: code === "CONCURRENCY_LIMIT"
+					? 429
+					: 500;
+		return {
+			status,
+			body: { error: code === "INTERNAL_ERROR" ? "Session provisioning failed" : code, code },
+		};
+	}
+	return { status: 202 as const, body: pendingStart(start) };
+}
+
+function sendStartProjection(
+	c: Context<HyperIdleEnv>,
+	projection: Awaited<ReturnType<typeof projectExplicitStart>>,
+) {
+	switch (projection.status) {
+		case 422:
+			return c.json(projection.body, 422);
+		case 429:
+			return c.json(projection.body, 429);
+		case 500:
+			return c.json(projection.body, 500);
+		default:
+			return c.json(projection.body, 202);
+	}
+}
 
 const updateSessionSchema = z.object({
 	// @lore AC1 W-1: `state` is now optional. Previously it was REQUIRED, which
@@ -138,6 +201,23 @@ async function applyStateChangePatch(
 	// `GET /api/sessions/:id` for terminal convergence. We do NOT block on teardown
 	// here because that would couple the route to the harness's full stream drain.
 	if (sessionRunRegistry.has(sessionId)) {
+		if (!existing.requestId) {
+			return {
+				status: 409,
+				body: { error: "Active session has no agent request", code: API_ERROR_CODES.CONFLICT },
+			};
+		}
+		const termination = await requestAgentTermination(db, {
+			requestId: existing.requestId,
+			reason: state === "done" ? "user_done" : "user_crashed",
+			...(actor ? { requestedBy: actor } : {}),
+		});
+		if (termination === "conflict" || termination === "terminal") {
+			return {
+				status: 409,
+				body: { error: "Session termination already settled", code: API_ERROR_CODES.CONFLICT },
+			};
+		}
 		await sessionRunRegistry.abort(sessionId);
 		return {
 			status: 202,
@@ -148,6 +228,30 @@ async function applyStateChangePatch(
 					"Abort requested; the runtime is tearing the session down. Poll GET /api/sessions/:id for the terminal state.",
 			},
 		};
+	}
+
+	// Fallback: no running loop. Before the session CAS, persist/confirm the
+	// termination cause and terminalize the correlated request (if any) through
+	// the durable single terminal writer — the request/inbox side of the AC5
+	// contract does not depend on a live runtime existing to drive it.
+	if (existing.requestId) {
+		const reason: "user_done" | "user_crashed" = state === "done" ? "user_done" : "user_crashed";
+		const termination = await requestAgentTermination(db, {
+			requestId: existing.requestId,
+			reason,
+			...(actor ? { requestedBy: actor } : {}),
+		});
+		if (termination === "conflict" || termination === "terminal") {
+			return {
+				status: 409,
+				body: { error: "Session termination already settled", code: API_ERROR_CODES.CONFLICT },
+			};
+		}
+		await transitionAgentRunLifecycle(db, eventBus, {
+			requestId: existing.requestId,
+			state: reason === "user_done" ? "cancelled" : "failed",
+			sessionId,
+		});
 	}
 
 	// Fallback: no running loop. CAS-guarded direct write (active → terminal only).
@@ -242,150 +346,131 @@ export function createSessionRoutes(
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;
 
-			// ── Full request-mediated runtime path (adapters present) ─────────────
-			if (deps?.adapterPool && deps.workspaceAdapter) {
-				// AH2: Load agent first so resolveAgentModel can pick per-agent model
-				// over the tier fallback. Agent lookup happens before DB writes.
-				const [agent] = await db
-					.select({ modelId: users.modelId, modelProvider: users.modelProvider })
-					.from(users)
-					.where(eq(users.id, body.agentId))
-					.limit(1);
-
-				// X4 A-IMP-1 / AH2: credential pre-flight via gateway — must fail BEFORE any DB write.
-				// AH2: switched from resolveModelTier to resolveAgentModel so per-agent model
-				// wins over the tier config when the agent has modelId/modelProvider set.
-				//
-				// @lore X4: In local mode (no credentialResolver), the adapter reads from process.env.
-				// The pre-flight here is a best-effort check — it catches shared-mode missing credentials
-				// early. Local mode may proceed with null from the resolver if the key is in env.
-				let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
-				let resolvedFastModel: import("@hyperidle/shared").ResolvedModel | undefined;
-				if (deps.credentialResolver) {
-					try {
-						const serverCfg = await readServerConfig(db);
-						// AH2: resolveAgentModel uses per-agent model when set, falls back to tier.
-						resolvedModel = await resolveAgentModel(
-							{ modelId: agent?.modelId ?? null, modelProvider: agent?.modelProvider ?? null },
-							body.modelTier,
-							serverCfg.modelGateway,
-							deps.credentialResolver,
-						);
-						// Resolve the fast tier for use by the builtin harness summarizer.
-						// Failure is non-fatal — the harness falls back to the primary tier.
-						//
-						// @lore X6: Fast tier is resolved alongside primary so the builtin harness
-						// can use a cheaper/faster model for context-window summarization passes,
-						// avoiding the full primary-tier cost for what is effectively a compression
-						// operation. If the fast tier credential is missing, summarization silently
-						// falls back to resolvedModel.
-						try {
-							resolvedFastModel = await resolveModelTier(
-								"fast",
-								serverCfg.modelGateway,
-								deps.credentialResolver,
-							);
-						} catch {
-							// Non-fatal: fast tier unavailable — builtin harness will use primary tier
-						}
-					} catch (err) {
-						if (err instanceof MissingCredentialError) {
-							return c.json(
-								{
-									error: err.message,
-									code: "MISSING_CREDENTIAL",
-								},
-								500,
-							);
-						}
-						throw err;
-					}
-				}
-
-				// Look up task to get productId.
+			// ── Durable explicit-start path (agent layer present) ─────────────────
+			if (deps?.adapterPool || c.req.header("Idempotency-Key") !== undefined) {
 				const [task] = await db.select().from(tasks).where(eq(tasks.id, body.taskId)).limit(1);
 				if (!task) {
 					return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 				}
-
-				const sandboxBasePath = deps.sandboxBasePath ?? "/tmp/hyperidle-workspaces";
-
-				try {
-					// AF7 §2 (Z8-047): admit the session synchronously (phases 1-7) and
-					// DETACH the long-running harness run (phases 8-11) so the HTTP caller
-					// is not blocked for the full agent run. Returns as soon as the active
-					// session row is committed. All admission failures (cost 422 /
-					// concurrency 429 / missing credential 500) throw from admit BEFORE the
-					// row insert, so they still map to HTTP status here, not the tail.
-					const { request } = await createTriggeredAgentSessionRequest(db, {
-						eventType: "task.accepted",
-						sourceKind: "task",
-						sourceId: body.taskId,
-						streamId: `task:${body.taskId}`,
-						taskId: body.taskId,
-						defaultAgentId: body.agentId,
-						teamId: task.teamId,
-						idempotencyKey: `session-route:${crypto.randomUUID()}`,
-						sourceCorrelation: {
-							taskId: body.taskId,
-							teamId: task.teamId,
-						},
-					});
-
-					const result = await executeAgentRunRequest(
-						{
-							db,
-							eventBus,
-							adapterPool: deps.adapterPool,
-							workspace: deps.workspaceAdapter,
-							mcpBridgeRegistry: deps.mcpBridgeRegistry,
-							mcpBaseUrl: deps.mcpBaseUrl,
-							// AN2: thread the already-constructed resolver (encapsulates serverSecret).
-							serviceConnectionResolver: deps.serviceConnectionResolver,
-							// AO2: pass through the mounter if present.
-							...(deps.mounter ? { mounter: deps.mounter } : {}),
-						},
-						request,
-						{
-							sandboxBasePath,
-							modelTier: body.modelTier,
-							resolvedModel,
-							resolvedFastModel,
-							detachAfterAdmission: true,
-							enforceResolvedModelGuard: true,
-						},
+				const suppliedKey = c.req.header("Idempotency-Key");
+				if (suppliedKey !== undefined && !IDEMPOTENCY_KEY_PATTERN.test(suppliedKey))
+					return c.json(
+						{ error: "Invalid Idempotency-Key", code: API_ERROR_CODES.VALIDATION_ERROR },
+						400,
 					);
-
-					const [sessionRow] = await db
-						.select()
-						.from(sessions)
-						.where(eq(sessions.id, result.sessionId))
-						.limit(1);
-					// AF7 §2: 202 Accepted — the session is admitted (active) but the work
-					// is not done. The body is the freshly-inserted ACTIVE row (no outcome).
-					return c.json(sessionRow, 202);
-				} catch (err) {
-					if (err instanceof CostCapExceededError) {
-						return c.json({ error: err.message, code: "COST_CAP_EXCEEDED" }, 422);
-					}
-					if (err instanceof ConcurrencyLimitError) {
-						return c.json({ error: err.message, code: "CONCURRENCY_LIMIT" }, 429);
-					}
-					// AF7 §2 (WARNING-2): the synchronous resolvedModel-presence guard in
-					// admitSession throws MissingCredentialError (local mode, builtin,
-					// resolvedModel absent) BEFORE the row insert — map it to 500 here so the
-					// failure surfaces on the POST path, not as a later crashed session.
-					if (err instanceof MissingCredentialError) {
-						return c.json({ error: err.message, code: "MISSING_CREDENTIAL" }, 500);
-					}
-					// AH2: NoEligibleHarnessError means agent's harnessType has no matching
-					// adapter in the pool (or none that supports its provider). Surfaces as
-					// 422 so the caller knows this is a configuration issue, not a server fault.
-					if (err instanceof NoEligibleHarnessError) {
-						return c.json({ error: err.message, code: "NO_ELIGIBLE_HARNESS" }, 422);
-					}
-					return c.json({ error: "Session provisioning failed", code: "INTERNAL_ERROR" }, 500);
+				const idempotencyKey = suppliedKey ?? `session-start:${crypto.randomUUID()}`;
+				const requestedBy = c.get("userId");
+				let [start] = await db
+					.select()
+					.from(explicitSessionStarts)
+					.where(
+						and(
+							eq(explicitSessionStarts.requestedBy, requestedBy),
+							eq(explicitSessionStarts.idempotencyKey, idempotencyKey),
+						),
+					)
+					.limit(1);
+				if (
+					start &&
+					(start.taskId !== body.taskId ||
+						start.requestedAgentId !== body.agentId ||
+						start.requestedModelTier !== body.modelTier)
+				)
+					return c.json(
+						{
+							error: "Idempotency key reused with different request",
+							code: "IDEMPOTENCY_KEY_REUSED",
+						},
+						409,
+					);
+				let intent: typeof agentWorkIntents.$inferSelect | undefined;
+				if (!start) {
+					const startId = crypto.randomUUID();
+					await db.transaction(async (tx) => {
+						[start] = await tx
+							.insert(explicitSessionStarts)
+							.values({
+								id: startId,
+								taskId: body.taskId,
+								requestedAgentId: body.agentId,
+								requestedModelTier: body.modelTier,
+								requestedBy,
+								idempotencyKey,
+								status: "requested",
+								createdAt: new Date().toISOString(),
+								updatedAt: new Date().toISOString(),
+							})
+							.returning();
+						intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
+							kind: "session_start",
+							sourceKind: "explicit_session_start",
+							sourceId: startId,
+							requestedBy,
+							idempotencyKey: `explicit-session-start:${startId}`,
+						});
+					});
 				}
+				if (!(start && intent)) {
+					if (!start) throw new Error("Explicit session start was not persisted");
+					[intent] = await db
+						.select()
+						.from(agentWorkIntents)
+						.where(
+							and(
+								eq(agentWorkIntents.kind, "session_start"),
+								eq(agentWorkIntents.sourceId, start.id),
+							),
+						)
+						.limit(1);
+				}
+				c.header("Idempotency-Key", idempotencyKey);
+				c.header("Location", `/api/sessions/starts/${start.id}`);
+				if (start.status !== "requested") {
+					const projection = await projectExplicitStart(db, start);
+					return sendStartProjection(c, projection);
+				}
+				const committedStart = start;
+				const projectionPromise = new Promise<Awaited<ReturnType<typeof projectExplicitStart>>>(
+					(resolve) => {
+						let settled = false;
+						const finish = (value: Awaited<ReturnType<typeof projectExplicitStart>>) => {
+							if (!settled) {
+								settled = true;
+								unsubscribe();
+								clearTimeout(timer);
+								resolve(value);
+							}
+						};
+						const check = async () => {
+							const [fresh] = await db
+								.select()
+								.from(explicitSessionStarts)
+								.where(eq(explicitSessionStarts.id, committedStart.id))
+								.limit(1);
+							if (fresh && fresh.status !== "requested")
+								finish(await projectExplicitStart(db, fresh));
+						};
+						const unsubscribe = eventBus.on("*", () => void check());
+						const timer = setTimeout(
+							() => void projectExplicitStart(db, committedStart).then(finish),
+							EXPLICIT_SESSION_ADMISSION_WAIT_MS,
+						);
+						void check();
+					},
+				);
+				if (intent)
+					eventBus.emit({
+						type: "agent_work_intent_recorded",
+						streamId: `explicit-session-start:${start.id}`,
+						intentId: intent.id,
+						intentKind: "session_start",
+						sourceKind: "explicit_session_start",
+						sourceId: start.id,
+						idempotencyKey: intent.idempotencyKey,
+						timestamp: Date.now(),
+					} satisfies AgentWorkIntentEvent);
+				const projection = await projectionPromise;
+				return sendStartProjection(c, projection);
 			}
 
 			// ── Legacy bare-insert path (no adapters) ─────────────────────────────
@@ -414,6 +499,24 @@ export function createSessionRoutes(
 			return c.json(created, 201);
 		},
 	);
+
+	router.get("/starts/:startId", requireBoundary({ kind: "public-data" }), async (c) => {
+		const [start] = await db
+			.select()
+			.from(explicitSessionStarts)
+			.where(
+				and(
+					eq(explicitSessionStarts.id, c.req.param("startId")),
+					eq(explicitSessionStarts.requestedBy, c.get("userId")),
+				),
+			)
+			.limit(1);
+		if (!start)
+			return c.json({ error: "Session start not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		c.header("Idempotency-Key", start.idempotencyKey);
+		c.header("Location", `/api/sessions/starts/${start.id}`);
+		return sendStartProjection(c, await projectExplicitStart(db, start));
+	});
 
 	// GET /:id/activity — Session activity stream (Q1 §3.2)
 	// Returns session metadata + recent activity entries from the in-memory buffer.

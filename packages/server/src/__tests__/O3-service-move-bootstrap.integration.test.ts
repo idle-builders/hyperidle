@@ -32,13 +32,15 @@ describe("O3 AC-5: bootstrapAppRuntime", () => {
 	// Note: AF8 builder lore said 9→10 but AF6's scheduler disposer was already in place, so actual: 9→11.
 	// @lore AF9: registerRelevanceListener added. Count 11 → 12.
 	// @lore AF16 T17: startRetentionReaper added (in-process 6h TTL sweep). Count 12 → 13.
-	test("returns exactly 13 disposers (one per disposer-registered service)", async ({
+	// @lore AU9: startAgentLifecycleProjectionDrain added (durable core-owned lifecycle
+	// inbox drain, boot-wired in bootstrap.ts). Count 13 → 14.
+	test("returns exactly 14 disposers (one per disposer-registered service)", async ({
 		db,
 		eventBus,
 	}) => {
 		const disposers = bootstrapAppRuntime({ db, eventBus });
 
-		expect(disposers).toHaveLength(13);
+		expect(disposers).toHaveLength(14);
 
 		for (const d of disposers) {
 			d();
