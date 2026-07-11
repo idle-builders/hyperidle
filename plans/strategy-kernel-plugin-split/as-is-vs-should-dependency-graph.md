@@ -130,7 +130,7 @@ the complete should-graph guard once (a)-(b) land (AU8).
 | Agent runs | **(AU9)** All seven work families enter through one durable-intent → drain → single-request → custody → lifecycle-inbox pipeline. `agent-work-intent-worker.ts` is the sole intent resolver/request-creator; `agent-session-runtime.ts` is the sole request custody writer (claim, admission, terminal transition, boot recovery each a single CAS-guarded function). Provisioning (`session-provisioning.ts`) remains the internal orchestrator the agent layer calls once custody is held. | All LLM runs enter via trigger resolver -> session request queue -> agent run orchestrator. |
 | Configuration | Plugin configuration resolver exists with defaults, overrides, and resolved views. **(AU10, pending merge)** Built-in tool defaults now project from a pure-data `builtin-tool-catalog.ts`; the config surface no longer imports the runtime tool registry, and a lint guard enforces it. | Plugins seed typed config defaults. User/team overrides win. Config resolver produces the effective runtime view. |
 | Knowledge | Knowledge routes and projections exist in server; former Fabric knowledge/context behavior has been rehomed into server app-runtime/core/agent services. Knowledge actions now also persist a durable intent row alongside their domain write (AU9). | Knowledge CRUD, scoring, search, and projections are core app Knowledge. Agent context/writeback are Agent layer providers backed by core Knowledge. |
-| Boundary enforcement | AU6 guard enforces request-consumption ownership. AU7 guard enforces Strategy/Fabric runtime retirement. **(AU9)** `au9-direct-handoff-guard.ts` forbids core-side construction/consumption of requests. **(AU10, pending merge)** `au10-plugin-config-ownership-guard.ts` forbids the plugin/default config surface from importing runtime tool registries/harness adapters/MCP bridges/provisioning services. No global should-graph guard yet covering the full harness/tool/MCP/context ownership surface or Agent-layer-owns-core-CRUD bans (AU8). | Mechanical lint/type/package boundaries prevent forbidden imports and ownership leaks. |
+| Boundary enforcement | AU6 guard enforces request-consumption ownership. AU7 guard enforces Strategy/Fabric runtime retirement. **(AU9)** `au9-direct-handoff-guard.ts` forbids core-side construction/consumption of requests; two of the target's eight boundary checks ("every LLM-capable event has a trigger surface or default-attach path", "every agent run has a recorded trigger resolution including fallback runs") are already structurally guaranteed by AU9's `agent_work_intents_kind_source_compat_ck` DB constraint + exhaustive `eventTypeFor` switch + mandatory `triggerResolutionHistory` insert on every request — not merely pending AU8. **(AU10, pending merge)** `au10-plugin-config-ownership-guard.ts` forbids the plugin/default config surface from importing runtime tool registries/harness adapters/MCP bridges/provisioning services. Three of the remaining boundary checks (Core-app-imports-harness-directly, Core-app-imports-plugin-internals, Agent-layer-owns-core-CRUD) have no guard yet and genuinely await AU8. | Mechanical lint/type/package boundaries prevent forbidden imports and ownership leaks. |
 
 ## As-Is Graph
 
@@ -281,6 +281,7 @@ flowchart TD
 | Overrides | Plugin configuration service supports user/team overrides and resolved config. AU10 preserved this byte-for-byte (`defaultVersionHash` unchanged; VS2 override-survives-reseed regression stayed green). | Same concept, but enforced as the only editable runtime configuration path. |
 | Runtime behavior | Production runtime no longer registers Strategy or imports Fabric/minimal Strategy; legacy packages/files are deleted from the live source graph. | Effective config feeds Agent layer trigger/orchestration decisions directly. |
 | Plugin isolation | **(AU10, pending merge)** Partially enforced: `au10-plugin-config-ownership-guard.ts` statically forbids the plugin/default config surface from importing runtime tool registries, harness adapters, MCP bridge registries, or provisioning services (0 findings on the real tree). Scoped to that one surface, not the full should-graph — AU8 still owns forbidding Agent-layer-owns-core-CRUD and the complete cross-cutting boundary. | Plugins cannot subscribe to the event bus, invoke harnesses, or mutate core records directly. |
+| Prompt catalog | **Should-graph audit finding (2026-07-11, pre-existing, not created by AU9/AU10):** the target's 8th configuration catalog (Prompt Catalog) has no real equivalent. `packages/server/src/services/configuration.ts` `CONFIGURATION_KINDS` defines exactly 7 kinds (agent, skill, routine, trigger, tool, mcp_server, harness_descriptor) — no `prompt` kind. Prompt templates/overrides are not editable configuration; they live folded into trigger/agent prompt-mode bindings (`PROMPT_MODE_BY_SOURCE`, `trigger-resolution.ts:23`). This is the AU2/AU5-era shape, unchanged by AU9/AU10, but was never named in this document before this audit. | Prompt Catalog is a first-class configuration catalog alongside the other 7 (Agent, Skill, Routine, Trigger, Tool, MCP, Harness). |
 
 ## Gap Register
 
@@ -335,6 +336,30 @@ These gaps should be registered as follow-up work if not already represented by 
    - Still open: forbid Core App imports from harness/tool/MCP execution internals generally
      (beyond the two edges above); forbid Agent-layer-owning-core-CRUD. This is AU8's full
      should-graph guard, and AU8 depends on AU11 (not yet started) in the manifest.
+   - Correction from this cycle's should-graph audit: two of the target's eight boundary checks
+     ("every LLM-capable event has a trigger surface or documented default attach path", "every
+     agent run has a recorded trigger resolution, including fallback runs") are already
+     structurally guaranteed by AU9's construction (the `agent_work_intents_kind_source_compat_ck`
+     DB constraint, the exhaustive `eventTypeFor` switch, and the mandatory
+     `triggerResolutionHistory` insert on every request via the sole `createTriggeredAgentSessionRequest`
+     caller) — not merely awaiting AU8 as the prior revision of this gap implied. Only three of the
+     eight checks (Core-app-imports-harness-directly, Core-app-imports-plugin-internals,
+     Agent-layer-owns-core-CRUD) are genuinely unguarded and await AU8.
+
+7. **New gap surfaced by this cycle's should-graph audit — the target's Prompt Catalog has no real
+   equivalent.**
+   - The as-should graph's Configuration And Plugin Graph lists 8 catalogs (Agent, Skill, Routine,
+     Trigger, Tool, MCP, Harness, Prompt). Source (`packages/server/src/services/configuration.ts`
+     `CONFIGURATION_KINDS`) has only 7 — no `prompt` kind. Prompt templates/overrides are not
+     editable configuration; they're folded into trigger/agent prompt-mode bindings
+     (`PROMPT_MODE_BY_SOURCE`, `trigger-resolution.ts:23`).
+   - Not newly created by AU9/AU10 (this is the AU2/AU5-era shape, unchanged) — but it was never
+     named in this document before this audit. A real, if minor, should-graph deviation now on
+     record.
+   - Whether this should become a real 8th editable catalog (giving users an editable
+     prompt-override surface) or the target doc should be revised to drop it is a product
+     decision, not an engineering gap. Not assigned to a specific AU package here — flagging for
+     whoever next scopes AU10/AU11/AU8 follow-up work to decide.
 
 5. Reconcile AU5 status into mainline. **Resolved — no longer a gap.**
    - AU5 (Settings agent behavior configuration surface) is merged into `origin/main` as of
@@ -455,6 +480,17 @@ that same layer untouched and confirmed `agent-defaults/resolvers.ts` as AU11's 
 - **Confirmed, not new:** the app-runtime dispatcher/scheduler layer (gap 6) and the
   `agent-defaults/resolvers.ts` app-runtime import remain exactly where AU9 left them — AU10 was a
   narrow, adjacent fix and deliberately did not touch either.
+
+**Independent should-graph audit (2026-07-11):** a fresh, source-grounded pass walked every
+section of `as-should-dependency-graph.md` (Target Rules, both layer graphs, the config/plugin
+graph, the trigger-flow graph, Removed Components, Boundary Checks) against real code in both the
+merged-main and AU10-branch worktrees, re-deriving every claim rather than trusting this
+document's prior wording. Result: the document holds up. Every AU9/AU10 MET claim independently
+re-verified true against source (including the load-bearing ones: `builtin-tool-catalog.ts` zero
+runtime imports, `plugin-configuration.ts:26` importing the catalog not the registry, all five
+au-guards wired into `lint`). Two additive corrections were folded in above (Prompt Catalog gap;
+boundary checks 7/8 already AU9-guaranteed, not AU8-pending) — neither implies new work, and no
+new AU work package is warranted.
 
 No new work package is needed. The next actions in dependency order are: merge PR #426 (AU10),
 then start AU11 (now the only unblocked, not-yet-started AU work), then AU8 once AU11 lands.
