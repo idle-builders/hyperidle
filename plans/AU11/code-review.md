@@ -129,3 +129,89 @@ config not loading `.env` is a standing infra friction for this lane.
 5. Re-run `npm run verify` + `npx tsx scripts/au11-runtime-ownership-guard.ts` → green.
 
 Once F1 is resolved, AU11 is ready for Phase 5 (retro) + ship.
+
+---
+
+# AU11 — Code Review ROUND 2 (Reviewer, Phase 4)
+
+**Verdict: DONE.** 0 CRITICAL, 0 WARNING, 0 blocking NOTE. Round-1 blocker F1 resolved.
+All claims independently verified against real source + real command output at HEAD `8c7eca17`
+(fix commit `1c4cee82`), base `origin/main` `6dd27dfd`. Not trusted from the builder self-report.
+
+## Independent verification performed (round 2)
+- `npm run check` → **PASS, 0 errors, all 10 packages.**
+- `npm run lint` → **PASS.** Biome baseline warnings only (487 warn / 146 info, non-blocking, exit 0);
+  all guards green: honest-harness, test-naming, ag7, au3, au6, au7, au9, au10, **au11**.
+- `npx knip` (full, incl exports/types) → **exit 0**, only 55 baseline config hints; **zero** Unused
+  files / exports / types sections. `npm run knip:production` → clean. Dead code genuinely gone, not re-masked.
+- `npx tsx scripts/au11-runtime-ownership-guard.ts` → **PASS (0 findings)**; `--fixtures` → **PASS**.
+- Committed attestation freshness: recomputed `sourceHash()` with the script's exact JS logic →
+  `df7208…d3c0c4` for both current HEAD and commit `1c4cee82` = the attestation's `srcHash`. **MATCH** —
+  attestation is genuinely against the current source tree (`8c7eca17` only adds the attestation JSON,
+  which `sourceHash` excludes), `status:passed dirty:false scope:affected`. Full verify (check+lint+knip+
+  test:all+build) is validly covered at this exact source state. (`check-attestation.ts` HMAC path is
+  CI-secret-gated and not runnable locally — srcHash identity is the sanctioned local proof.)
+- Harness lane not re-run for round 2: the round-2 diff is pure deletion of unreferenced code +
+  comment/test-cleanup — it touches no harness-facing path (mcp-route / worker-ws / adapters unchanged).
+  Round-1's 3-binary live proof of the relocations still holds.
+
+## The 7 fix claims — each independently verified
+1. **5 dead files deleted — TRUE.** `git show --stat 1c4cee82` + filesystem confirm
+   `conflict-resolution.ts`(-278), `layers.ts`(-9), `polling-watcher.ts`(-122), `founder-router.ts`(-20),
+   `provision-registry.ts`(-48) gone. `rg` for import statements → **NO IMPORTS**. The 3 residual textual
+   hits (`org-routing.ts:28`, `task-dispatcher.ts:18`, `P2-fallback…:14-15`) are all `@lore`/doc comments.
+2. **Orphan test deleted + test trim clean — TRUE.** `founder-router.test.ts`(-41) deleted.
+   `bet-decomposition.test.ts` trim removed only the `afterEach(() => clearProvisionSessionFn())` block +
+   its import — a **no-op cleanup** (nothing in the test ever registered a fn into that registry). The real
+   assertion (`records a decomposition request and does not select/start a harness in domain code`) is
+   preserved. **No coverage lost.**
+3. **knip.json byte-identical to origin/main except the `app-runtime/**` glob — TRUE.**
+   `git diff origin/main -- knip.json` = a single removed `ignoreIssues` line
+   (`"packages/server/src/app-runtime/**": ["exports","types"]`). Zero new `ignore`/`ignoreIssues` entries.
+4. **Guard allowlist 16→14 — TRUE.** `AU11_AGENT_FILES` now enumerates exactly 14 entries;
+   `provision-registry.ts` + `polling-watcher.ts` removed (confirmed absent by grep).
+5. **17+1 dead exports deleted; live types correctly kept — TRUE.**
+   - Deleted `types.ts` names have **0 non-types.ts server callers** (verified per-name). The 3 names that
+     still show refs resolve elsewhere, not to the deleted local decls: `KNOWLEDGE_LAYERS`/`scopeToLayer`
+     import from `@hyperidle/shared`; `PropagationStatus` in `lifecycle-propagation.ts` is a **separate
+     local narrow type decl**, not the deleted export.
+   - "Superseded `@hyperidle/shared` duplicates" spot-check: `RiskTier`, `AutonomyLevel`, `KnowledgeScope`,
+     `PropagationStatus`, `KNOWLEDGE_LAYERS`, `KnowledgeSortOption` **all exist in
+     `packages/shared/src/knowledge.ts`** and are what callers import now. Confirmed.
+   - Kept types (`KnowledgeLayer`/`KnowledgeStatus`/`KNOWLEDGE_STATUSES`/`KnowledgeKind`/`PropagationLevel`)
+     **all have real local callers** (e.g. `knowledge-repository.ts:25` `import type … from "./types.js"`,
+     `practice-meeting.ts`, `lifecycle-propagation.ts`). Correctly kept.
+   - `events.ts` unmask is **runtime-safe**: only the never-wired `setKnowledgeEventBus` injection seam +
+     deprecated `knowledgeEvents` Proxy removed (the old `@lore` claiming `app.ts` wires the setter was
+     stale — no reference exists anywhere, and `check` would have failed if `app.ts` used it). Emission
+     path (`getKnowledgeEvents()` over the default `KnowledgeEventEmitter`) intact; knowledge-event
+     integration tests pass under the attested full run. Remaining `knowledgeEvents` hits are local test vars.
+6. **Stale `@lore` updated — TRUE.** Spot-checked `bet-decomposition.ts` (dropped `→ provision-registry →`
+   from the pipeline path desc), `session-run-registry.ts` (dropped `(like provision-registry.ts)`),
+   `org-routing.ts` / `P2-fallback…` (founder-router now described as dead/0-callers). All accurate.
+7. **Green-state claims — CONFIRMED** (check/lint/knip/guard re-run live above; full test:all/build via the
+   fresh, srcHash-matched attestation `status:passed dirty:false sha=1c4cee82`).
+
+## Round-1 NOTE findings — current status
+- **N1 (guard allowlist references soon-dead files) → RESOLVED.** Both dropped in fix #4.
+- **N2 (test filenames still say "app-runtime") → UNCHANGED, still cosmetic/optional.** Not made worse;
+  `app-runtime-domain-observability.integration.test.ts` remains a good behavioral net. Non-blocking.
+- **N3 (arch-plan agent-bucket label "~13" vs enumerated count) → UNCHANGED, cosmetic.** Bucket is now 14
+  files post-deletion; label still approximate. Non-blocking.
+
+## AC table (round 2)
+
+| # | AC | Verdict | Evidence |
+|---|----|---------|----------|
+| 1 | No app-runtime/Fabric ownership boundary in boot/wiring/imports | **PASS** | Unchanged from R1; guard AC-1 green + fixtures; no barrel/boot-shell/`./app-runtime` export/dir. |
+| 2 | Core routes/domain don't import execution internals | **PASS** | Guard AC-2 green (0 findings) + `--fixtures` green. |
+| 3 | Agent-layer code doesn't own core CRUD except via contracts | **PASS** | Guard boundary respected; domain integration green (attested). |
+| 4 | Former services moved to owner OR deleted; none as pass-through | **PASS (was FAIL)** | 5 provably-dead files **deleted** (not masked); knip.json clean vs origin/main; `npx knip` zero dead files/exports; +18 dead exports removed; zero new knip ignores. F1 fully resolved. |
+| 5 | Existing behavior observable | **PASS** | Import-path-only test edits; knowledge-event emission intact; test:all green (attested); harness relocations proven R1. |
+| 6 | Review includes should-graph audit | **PASS** | Owner table re-derived; guard re-run; residual routine-scheduler→agent-selection edge = accepted AU8 item. |
+
+## Verdict
+**DONE.** F1 (the sole round-1 blocker) is resolved by genuine deletion, not re-masking; the deletion is
+correctly scoped (each removed name proven 0-caller or a `@hyperidle/shared` duplicate; each kept name has
+a real local caller); no live behavior removed; all gates green; attestation fresh against HEAD.
+**AU11 is cleared for Phase 5 (retro) + ship.**
