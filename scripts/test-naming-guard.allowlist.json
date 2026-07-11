@@ -95,7 +95,6 @@
 	"packages/server/src/__tests__/AL6-return-status-route.test.ts",
 	"packages/server/src/__tests__/AL7-classifier.test.ts",
 	"packages/server/src/__tests__/AL7-commit-file-sandbox.test.ts",
-	"packages/server/src/__tests__/AL7-harness-absent-fail.test.ts",
 	"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts",
 	"packages/server/src/__tests__/AL7-proposed-call-capture.integration.test.ts",
 	"packages/server/src/__tests__/AL7-reviews-loader-redo.integration.test.ts",
