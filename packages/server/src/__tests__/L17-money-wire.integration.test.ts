@@ -12,15 +12,15 @@
 
 // @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
+import { describe, expect, vi } from "vitest";
 import {
 	checkCostCap,
 	clearDeduplicationCache,
 	recordCostAndCheck,
 	resetCosts,
-} from "@hyperidle/server/app-runtime";
-import { EventBus } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
+} from "../services/cost-cap.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-l17-money";

@@ -22,20 +22,22 @@ import {
 	notificationQueue,
 	threads,
 } from "@hyperidle/db";
-import {
-	type AlertPreferences,
-	type Notification,
-	type NotificationAdapter,
-	type Recipient,
-	registerNotificationDispatcher,
-	type SendResult,
-} from "@hyperidle/server/app-runtime";
 import type {
 	CostCapBreachedEvent,
 	CostCapWarningEvent,
 	ItemCreatedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/shared";
+import {
+	type AlertPreferences,
+	registerNotificationDispatcher,
+} from "../../notifications/dispatcher.js";
+import type {
+	Notification,
+	NotificationAdapter,
+	Recipient,
+	SendResult,
+} from "../../notifications/types.js";
 import { readServerConfig, updateServerConfig } from "../../services/server-config.js";
 import { afterEach, describe, expect, test, vi } from "../../test-fixtures.js";
 

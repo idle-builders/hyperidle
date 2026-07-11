@@ -13,8 +13,8 @@ import {
 } from "@hyperidle/db";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { and, eq, inArray, ne } from "drizzle-orm";
-import { releaseSessionDedup } from "../app-runtime/services/cost-cap.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
+import { releaseSessionDedup } from "./cost-cap.js";
 import { requestAgentTermination, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
 import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";

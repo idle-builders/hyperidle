@@ -26,10 +26,10 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { registerSessionReviewCreator } from "@hyperidle/server/app-runtime";
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { registerSessionReviewCreator } from "../services/session-review-creator.js";
 
 const NOW = new Date().toISOString();
 

@@ -77,7 +77,7 @@ import {
 } from "../../harness/return-enforcement-registry.js";
 import { createMcpBridge } from "../../mcp/mcp-bridge.js";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
-import { createMcpRoute } from "../../routes/mcp-route.js";
+import { createMcpRoute } from "../../services/mcp-route.js";
 import { commitFileTool } from "../../tools/commit-file.js";
 import type { RegisteredTool, ToolContext, ToolRegistry } from "../../tools/tool-registry.js";
 import { toClaudeToolSpec, toRegistered } from "../../tools/tool-registry.js";

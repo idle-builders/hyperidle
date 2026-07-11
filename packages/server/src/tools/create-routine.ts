@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { routines, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { nextCronMatch, parseCron } from "../app-runtime/services/routine-scheduler.js";
+import { nextCronMatch, parseCron } from "../services/routine-scheduler.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

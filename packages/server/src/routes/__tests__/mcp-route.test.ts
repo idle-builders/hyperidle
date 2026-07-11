@@ -12,7 +12,7 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import type { McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
-import { createMcpRoute } from "../mcp-route.js";
+import { createMcpRoute } from "../../services/mcp-route.js";
 
 function makeMockRegistry(response: Response): McpBridgeRegistry {
 	return {

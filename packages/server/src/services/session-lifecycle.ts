@@ -18,10 +18,10 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
-import type { IngestionHandle } from "../app-runtime/contracts.js";
-import { releaseSessionDedup } from "../app-runtime/services/cost-cap.js";
 import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 import { terminalizeAgentSessionRequestInTx } from "./agent-session-requests.js";
+import type { IngestionHandle } from "./contracts.js";
+import { releaseSessionDedup } from "./cost-cap.js";
 
 export const TERMINATION_REASONS = [
 	"user_done",

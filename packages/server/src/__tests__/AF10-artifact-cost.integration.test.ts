@@ -20,9 +20,9 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { clearDeduplicationCache } from "@hyperidle/server/app-runtime";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { clearDeduplicationCache } from "../services/cost-cap.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-af10-artifact";

@@ -9,7 +9,7 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { create as createKnowledgeItem } from "../app-runtime/knowledge-repository.js";
+import { create as createKnowledgeItem } from "../knowledge/knowledge-repository.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

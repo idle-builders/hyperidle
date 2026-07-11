@@ -33,9 +33,9 @@ import type {
 } from "@hyperidle/shared";
 import { desc, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
-import { computeApprovalRate } from "../app-runtime/services/approval-rate.js";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { computeApprovalRate } from "../services/approval-rate.js";
 
 // ---------------------------------------------------------------------------
 // Health signal computation (exported for unit tests — see A5 finding)

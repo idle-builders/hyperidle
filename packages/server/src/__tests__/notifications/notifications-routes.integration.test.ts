@@ -12,16 +12,16 @@
  */
 
 import { factorySettings, notificationQueue } from "@hyperidle/db";
+import type { ApiErrorResponse } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, vi } from "vitest";
+import { createApp, disposeApp } from "../../app.js";
+import type { SafeNotificationConfig } from "../../notifications/config.js";
 import type {
 	Notification,
 	NotificationAdapter,
 	Recipient,
-	SafeNotificationConfig,
 	SendResult,
-} from "@hyperidle/server/app-runtime";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, vi } from "vitest";
-import { createApp, disposeApp } from "../../app.js";
+} from "../../notifications/types.js";
 import { expect, test } from "../../test-fixtures.js";
 
 const API_KEY = "test-key-H2-routes";

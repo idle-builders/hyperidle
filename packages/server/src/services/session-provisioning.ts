@@ -38,18 +38,6 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, inArray as drizzleInArray, eq, isNull, ne, or, sql } from "drizzle-orm";
-import type { IngestionHandle } from "../app-runtime/contracts.js";
-import {
-	assemblePrompt,
-	assembleRoutinePrompt,
-	buildRoutineSessionContextData,
-	buildSessionContextData,
-	checkCostCap,
-	composeAssistantPrompt,
-	recordCostAndCheck,
-	type ToolSummary,
-	writeSandboxAgentsMd,
-} from "../app-runtime/index.js";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import { writeCliMcpConfig } from "../harness/cli-mcp-config.js";
@@ -68,8 +56,18 @@ import {
 	toolsForRole,
 } from "../tools/tool-registry.js";
 import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
+import {
+	assemblePrompt,
+	assembleRoutinePrompt,
+	composeAssistantPrompt,
+	type ToolSummary,
+	writeSandboxAgentsMd,
+} from "./context-assembly-prompt.js";
+import type { IngestionHandle } from "./contracts.js";
+import { checkCostCap, recordCostAndCheck } from "./cost-cap.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { readServerConfig } from "./server-config.js";
+import { buildRoutineSessionContextData, buildSessionContextData } from "./session-context.js";
 import {
 	crashSession,
 	endSession,

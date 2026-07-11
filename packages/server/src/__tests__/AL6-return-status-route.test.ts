@@ -33,7 +33,7 @@ import { createEnforcementRegistry } from "../harness/return-enforcement-registr
 import type { McpBridgeInstance } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { createMcpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import { createMcpRoute } from "../routes/mcp-route.js";
+import { createMcpRoute } from "../services/mcp-route.js";
 
 // ── Bridge stub ───────────────────────────────────────────────────────────────
 // The /return-status route only reads bridge.sessionId; the rest of

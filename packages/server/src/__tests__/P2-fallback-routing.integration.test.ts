@@ -12,7 +12,8 @@
  * It queries org_edges for matching context (direct/function/team mechanism),
  * unions the fromUserId values, then falls back to ALL human users when
  * no edges match. This replaces the strategy-layer founder-router.ts
- * for actual review routing (but founder-router.ts is NOT removed in P2).
+ * for actual review routing; founder-router.ts (dead, 0 real callers) was
+ * deleted in AU11.
  *
  * Resolution algorithm (from architecture critique WARNING #3):
  *  1. Query WHERE mechanism="direct" AND target=context.userId
@@ -27,8 +28,8 @@ import {
 	orgEdges,
 	users,
 } from "@hyperidle/db";
-import { resolveReviewRecipients } from "@hyperidle/server/app-runtime";
 import { describe, expect } from "vitest";
+import { resolveReviewRecipients } from "../services/org-routing.js";
 import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

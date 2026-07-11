@@ -6,9 +6,9 @@ import type {
 	AgentSessionSourceKind,
 	UserRole,
 } from "@hyperidle/shared";
-import { assembleContext } from "../../app-runtime/context-assembly.js";
-import type { IngestionHandle } from "../../app-runtime/contracts.js";
-import { startWatcher } from "../../app-runtime/file-watcher.js";
+import { assembleContext } from "../context-assembly.js";
+import type { IngestionHandle } from "../contracts.js";
+import { startWatcher } from "../file-watcher.js";
 
 export interface AssembleAgentContextInput {
 	readonly db: HyperIdleDb;

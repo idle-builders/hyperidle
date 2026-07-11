@@ -11,7 +11,7 @@
  */
 
 import { stat } from "node:fs/promises";
-import { createGitRunner, type GitRunner } from "../app-runtime/services/git-export-runner.js";
+import { createGitRunner, type GitRunner } from "./git-export-runner.js";
 
 export interface LocalPathInfo {
 	readonly exists: boolean;

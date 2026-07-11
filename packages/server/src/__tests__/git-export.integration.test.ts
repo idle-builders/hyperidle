@@ -21,28 +21,30 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
+import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, vi } from "vitest";
+import { createApp, disposeApp } from "../app.js";
 import {
-	buildCommitMessage,
-	computeExportPlan,
-	type ExportPlanEntry,
-	type FsAdapter,
 	type GitExportConfig,
-	type GitRunner,
 	loadGitExportConfig,
 	redactRemoteUrl,
-	registerGitExportHandler,
-	resetExportMutexes,
-	runGitExport,
 	sanitizeAuthorEmail,
 	sanitizeAuthorName,
 	sanitizeBranch,
 	sanitizePathSegment,
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
-} from "@hyperidle/server/app-runtime";
-import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, vi } from "vitest";
-import { createApp, disposeApp } from "../app.js";
+} from "../config/git-export-config.js";
+import {
+	buildCommitMessage,
+	computeExportPlan,
+	type ExportPlanEntry,
+	type FsAdapter,
+	registerGitExportHandler,
+	resetExportMutexes,
+	runGitExport,
+} from "../services/git-export.js";
+import type { GitRunner } from "../services/git-export-runner.js";
 import { expect, test } from "../test-fixtures.js";
 
 type GitCall =

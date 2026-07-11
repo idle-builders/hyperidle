@@ -7,9 +7,9 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { registerLifecyclePropagation } from "@hyperidle/server/app-runtime";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
+import { registerLifecyclePropagation } from "../services/lifecycle-propagation.js";
 import { test } from "../test-fixtures.js";
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";

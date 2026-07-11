@@ -3,8 +3,8 @@
  *
  * On commit (bet_state_changed toState=active), decomposes the bet's goal
  * into an accepted task breakdown owned by eligible team agents. Produces
- * tasks that the existing task-dispatcher → provision-registry → session-provisioning
- * path picks up automatically (no second provisioning route).
+ * tasks that the existing task-dispatcher → session-provisioning path picks
+ * up automatically (no second provisioning route).
  *
  * Architecture decisions (see plans/AK3/architecture.md):
  * - CRITICAL-1: PM context enters through the agent session request path.
@@ -40,11 +40,10 @@ import {
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import type { DecompositionPlan } from "../app-runtime/contracts.js";
-import { checkCostCap } from "../app-runtime/services/cost-cap.js";
-import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { resolveDecompositionPlan } from "./agent-defaults/resolvers.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
+import type { DecompositionPlan } from "./contracts.js";
+import { checkCostCap } from "./cost-cap.js";
 import { enumerateTeamCandidates, selectOwner } from "./select-agent.js";
 
 // -----------------------------------------------------------------------------
@@ -63,9 +62,14 @@ export interface BetDecompositionDeps {
 	readonly assistantTurn?: unknown;
 	/**
 	 * AU6: agent execution is owned exclusively by the intent worker.
+	 *
+	 * @lore AU11 AC-2: a required `sandbox: SandboxAdapter` field (renamed from
+	 * `workspace` per AK1) used to sit here — declared but never read anywhere
+	 * in this file (only `sandboxBasePath`, a plain string, was used). Dead
+	 * threading left over from a pre-AU6 design where decomposition itself
+	 * touched the sandbox directly; AU6 moved execution exclusively behind the
+	 * intent worker. Removed per the AU11 route/service-cleanup classification.
 	 */
-	/** Renamed from `workspace` per locked harness vocab (AK1). */
-	readonly sandbox: SandboxAdapter;
 	readonly sandboxBasePath: string;
 	readonly resolveModel?: (
 		tier: string,
@@ -341,7 +345,8 @@ async function markTerminal(
  * @lore AK8: []-from-resolver (plan.tasks) means "enter runtime"
  * (turn-source branch 2 or 3). []-from-turn (taskList after branch 3) means
  * blocked/empty. Same [] value, opposite meaning depending on origin. See
- * DecompositionPlan in app-runtime contracts.
+ * DecompositionPlan in services/contracts.ts (AU11: agent-owned, formerly
+ * app-runtime/contracts.ts).
  *
  * @lore AK8: The inline decomposerAgentId validation (step 6) replaces the
  * selectOwner(bet_decomposer) call removed from the AK7 path. selectOwner's

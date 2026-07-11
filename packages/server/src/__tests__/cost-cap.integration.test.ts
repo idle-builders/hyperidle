@@ -9,14 +9,14 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { CostCapBreachedEvent, CostCapWarningEvent } from "@hyperidle/shared";
+import { and, eq, sql } from "drizzle-orm";
 import {
 	checkCostCap,
 	clearDeduplicationCache,
 	recordCostAndCheck,
 	resetCosts,
-} from "@hyperidle/server/app-runtime";
-import type { CostCapBreachedEvent, CostCapWarningEvent } from "@hyperidle/shared";
-import { and, eq, sql } from "drizzle-orm";
+} from "../services/cost-cap.js";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
