@@ -6,10 +6,10 @@ import {
 	routines,
 	sessions,
 } from "@hyperidle/db";
-import {
-	type AgentSessionSourceKind,
-	type EventBus,
-	type SessionLifecycleCorrelation,
+import type {
+	AgentSessionSourceKind,
+	EventBus,
+	SessionLifecycleCorrelation,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { IngestionHandle } from "../app-runtime/contracts.js";
