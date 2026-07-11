@@ -3,8 +3,8 @@
  *
  * On commit (bet_state_changed toState=active), decomposes the bet's goal
  * into an accepted task breakdown owned by eligible team agents. Produces
- * tasks that the existing task-dispatcher → provision-registry → session-provisioning
- * path picks up automatically (no second provisioning route).
+ * tasks that the existing task-dispatcher → session-provisioning path picks
+ * up automatically (no second provisioning route).
  *
  * Architecture decisions (see plans/AK3/architecture.md):
  * - CRITICAL-1: PM context enters through the agent session request path.

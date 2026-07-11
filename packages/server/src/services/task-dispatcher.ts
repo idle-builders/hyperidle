@@ -14,12 +14,10 @@
  * stays decoupled from concrete server harness types.
  *
  * @lore AD2/AU1: the runtime request creator/consumer are resolved via the
- * provision-registry.ts leaf module (a dependency-free singleton). The dynamic
- * import() approach was tried first but fails in Vite SSR tests with a TDZ error
- * due to module initialization order. The registry pattern breaks the
- * cycle: both server and the test file can import the leaf module and register
- * the functions before any dispatch runs. See provision-registry.ts for the full
- * explanation.
+ * TaskDispatcherDeps injection above, not a shared singleton. An earlier
+ * revision routed this through a provision-registry.ts leaf module (worked
+ * around a Vite SSR TDZ error on a dynamic import() cycle); that module had
+ * zero real callers left once the DI shape landed, so it was deleted in AU11.
  *
  * @lore AD2: getDispatchQueueSnapshot() is module-level (not instance-scoped)
  * because production runs a single dispatcher. Tests that re-register the

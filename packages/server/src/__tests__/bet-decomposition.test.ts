@@ -34,10 +34,9 @@ import {
 	type ResolvedModel,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, describe, expect, vi } from "vitest";
+import { describe, expect, vi } from "vitest";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
 import { runBetDecomposition } from "../services/bet-decomposition.js";
-import { clearProvisionSessionFn } from "../services/provision-registry.js";
 import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../tools/create-task.js";
 
@@ -172,10 +171,6 @@ describe("Bet decomposition — DecompositionTaskInput type", () => {
 // ---------------------------------------------------------------------------
 
 describe("bet decomposition enters the agent runtime through requests", () => {
-	afterEach(() => {
-		clearProvisionSessionFn();
-	});
-
 	test("records a decomposition request and does not select/start a harness in domain code", async ({
 		db,
 		eventBus,

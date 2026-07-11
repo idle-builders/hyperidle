@@ -17,7 +17,7 @@
  * agent-owned code legitimately imports harness/mcp/tool-registry itself).
  *
  * The agent-owned allowlist = AU9's `agentFiles` set (au9-direct-handoff-
- * guard.ts) UNION this WP's 16 agent-owned files UNION the builtin-routines
+ * guard.ts) UNION this WP's 14 agent-owned files UNION the builtin-routines
  * handler-split file UNION the two AC-2 "still-direct execution" relocations
  * (worker-ws.ts, mcp-route.ts — see their own @lore comments for why).
  *
@@ -54,14 +54,13 @@ const AU9_AGENT_FILES = [
 	"packages/server/src/services/agent-work-assistant.ts",
 ];
 
-/** AU11's 16 agent-owned files (joined AU9's set in server/src/services/). */
+/** AU11's 14 agent-owned files (joined AU9's set in server/src/services/). */
 const AU11_AGENT_FILES = [
 	"packages/server/src/services/context-assembly.ts",
 	"packages/server/src/services/context-assembly-prompt.ts",
 	"packages/server/src/services/session-context.ts",
 	"packages/server/src/services/writeback.ts",
 	"packages/server/src/services/file-watcher.ts",
-	"packages/server/src/services/polling-watcher.ts",
 	"packages/server/src/services/roster.ts",
 	"packages/server/src/services/contracts.ts",
 	"packages/server/src/services/agent-selection.ts",
@@ -71,7 +70,6 @@ const AU11_AGENT_FILES = [
 	"packages/server/src/services/cost-sentinel.ts",
 	"packages/server/src/services/routine-session-reaper.ts",
 	"packages/server/src/services/sandbox-reaper.ts",
-	"packages/server/src/services/provision-registry.ts",
 ];
 
 /**

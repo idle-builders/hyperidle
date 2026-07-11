@@ -35,14 +35,6 @@ export const CONTEXT_WINDOW_TOKENS = 200_000;
 export const KNOWLEDGE_ALLOCATION_RATIO = 0.2;
 export const DEFAULT_KNOWLEDGE_BUDGET = CONTEXT_WINDOW_TOKENS * KNOWLEDGE_ALLOCATION_RATIO; // 40_000
 
-/** Budget allocation by category. */
-export const BUDGET_ALLOCATION = {
-	task: 0.4,
-	session: 0.3,
-	general: 0.2,
-	factory: 0.1,
-} as const;
-
 const WEIGHT_KEYS: ReadonlyArray<keyof ScoringWeights> = [
 	"tagMatch",
 	"roleMatch",
@@ -75,11 +67,6 @@ export async function loadScoringWeights(db: HyperIdleDb): Promise<ScoringWeight
 	}
 
 	return weights;
-}
-
-/** Get the default weights (no DB access). */
-export function getDefaultWeights(): ScoringWeights {
-	return { ...DEFAULT_WEIGHTS };
 }
 
 // --- Attention scoring weights (G2) ---
@@ -181,11 +168,6 @@ export async function loadAttentionWeights(db: HyperIdleDb): Promise<AttentionWe
 		recency: weights.recency,
 		usage: weights.usage,
 	};
-}
-
-/** Get the default attention weights (no DB access). */
-export function getDefaultAttentionWeights(): AttentionWeights {
-	return { ...DEFAULT_ATTENTION_WEIGHTS };
 }
 
 // --- Relevance config (L22) ---

@@ -198,16 +198,6 @@ export async function create(
 	return mergeWithProjection(created, projectionRow);
 }
 
-export async function getById(
-	db: HyperIdleDb,
-	id: string,
-): Promise<KnowledgeItemWithProjection | null> {
-	const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
-	if (!item) return null;
-	const projectionRow = await getProjectionRow(db, id);
-	return mergeWithProjection(item, projectionRow);
-}
-
 /**
  * Allow-list of caller-mutable fields for the kernel table.
  * @lore O2: projection fields (layer, scopeId, kind, attentionScore, confidence, meta)
