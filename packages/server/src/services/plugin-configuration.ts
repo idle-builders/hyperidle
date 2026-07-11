@@ -23,7 +23,7 @@ import {
 } from "@hyperidle/shared";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { ALL_TOOL_DEFINITIONS } from "../tools/tool-registry.js";
+import { BUILTIN_TOOL_CATALOG } from "../config/builtin-tool-catalog.js";
 
 export interface PluginConfigurationSource {
 	readonly id: string;
@@ -474,7 +474,7 @@ export async function backfillLegacyConfigurationDefaults(
 		});
 	}
 
-	for (const tool of ALL_TOOL_DEFINITIONS) {
+	for (const tool of BUILTIN_TOOL_CATALOG) {
 		seeds.push({
 			kind: "tool",
 			key: `tool.${tool.name}`,
