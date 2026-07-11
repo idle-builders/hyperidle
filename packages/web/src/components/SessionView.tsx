@@ -601,7 +601,7 @@ function SessionComposer({
 			className="rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-shadow duration-[var(--motion-fast)] focus-within:shadow-[var(--shadow-default)]"
 		>
 			<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
-				{/* eslint-disable-next-line design/no-op-button -- Insert opens an attachment picker; AM3 scope covers the shell only, action is a future affordance */}
+				{/* eslint-disable-next-line design/no-op-button -- Insert opens an attachment picker; AM3 scope covers the shell only, action is a future affordance -- tracked in #429 */}
 				<button
 					type="button"
 					aria-label="Insert"
