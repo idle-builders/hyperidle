@@ -10,10 +10,10 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { registerSessionReviewCreator } from "@hyperidle/server/app-runtime";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
+import { registerSessionReviewCreator } from "../services/session-review-creator.js";
 import { test } from "../test-fixtures.js";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {

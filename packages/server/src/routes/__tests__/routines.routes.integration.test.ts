@@ -18,9 +18,9 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { runBuiltinRoutine } from "@hyperidle/server/app-runtime";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { runBuiltinRoutine } from "../../services/builtin-routine-handlers.js";
 import { test } from "../../test-fixtures.js";
 
 /** Seed a built-in routine (knowledge-decay) owned by agent-1. */

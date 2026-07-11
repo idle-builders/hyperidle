@@ -1,8 +1,8 @@
 /**
  * AF7 §4/§5 — SessionRunRegistry.
  *
- * A process-singleton leaf module (like provision-registry.ts) that tracks the
- * live runtime entry for each actively-running session so two collaborators can
+ * A process-singleton leaf module that tracks the live runtime entry for each
+ * actively-running session so two collaborators can
  * cooperatively abort it WITHOUT importing each other:
  *   - the provisioning runtime (`runSession`) registers itself at harness-start
  *     and deregisters at teardown;

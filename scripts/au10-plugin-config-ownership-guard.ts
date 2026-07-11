@@ -35,9 +35,15 @@ const FORBIDDEN_MODULE_BASENAMES = new Set([
 	"agent-run-boundary",
 	"agent-session-requests",
 	"connection-provisioning",
+	// AU11: context-assembly/context-assembly-prompt moved from
+	// app-runtime/ (caught by the now-removed "app-runtime/services/" path
+	// prefix below) to the agent-owned services/ home, indistinguishable by
+	// directory from core services — named explicitly to preserve coverage.
+	"context-assembly",
+	"context-assembly-prompt",
 ]);
 
-const FORBIDDEN_PATH_PREFIXES = ["harness/", "mcp/", "app-runtime/services/"];
+const FORBIDDEN_PATH_PREFIXES = ["harness/", "mcp/"];
 
 interface Finding {
 	readonly file: string;

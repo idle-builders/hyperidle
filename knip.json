@@ -25,8 +25,9 @@
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
 	"ignoreIssues": {
-		"packages/server/src/app-runtime/**": ["exports", "types"],
-		"packages/server/src/services/proposed-call-workflow.ts": ["exports"]
+		"packages/web/src/pages/review/ReviewRenderedInContext.tsx": ["exports"],
+		"packages/server/src/services/proposed-call-workflow.ts": ["exports"],
+		"packages/server/src/services/session-lifecycle.ts": ["exports"]
 	},
 	"workspaces": {
 		".": {

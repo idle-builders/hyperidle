@@ -66,17 +66,17 @@ Agents run as host processes in a local working directory — there is no isolat
 | Component | Default Technology | Scale Alternative |
 |-----------|--------------------|-------------------|
 | Primitive Store | PGlite (embedded Postgres, `@electric-sql/pglite`) via Drizzle `pgTable` | Real Postgres (`bootstrap-pg.ts`, `pg-ssl.ts`) |
-| Knowledge full-text search | Postgres tsvector + GIN on `knowledge_items` (`packages/server/src/app-runtime/fts.ts`) | Same |
+| Knowledge full-text search | Postgres tsvector + GIN on `knowledge_items` (`packages/server/src/knowledge/fts.ts`) | Same |
 | Knowledge exports (human-readable) | Git repo (markdown exports) | Same |
 | Session context | TOON format (`packages/shared/src/toon-codec.ts`) | Same |
 | API Layer | Hono on `@hono/node-server` | Same + load balancer |
 | Event Bus | In-process EventBus (TypeScript) | _Future candidate:_ Redis pub/sub or NATS (cloud profile only) |
-| Scheduler | `setInterval` services in `packages/server/src/app-runtime/services/` | _Future candidate:_ external queue (cloud profile only) |
+| Scheduler | `setInterval` services in `packages/server/src/services/` | _Future candidate:_ external queue (cloud profile only) |
 | Harnesses | builtin (OpenRouter) + CLI adapters (claude/codex/opencode) + remote worker, pooled via `harness/adapter-pool.ts` | — |
 | Sandbox (default) | `LocalSandboxAdapter` (host working dir); `DisabledSandboxAdapter` | Opt-in isolation planned (AQ2) |
 | Human Interface | React + TypeScript (Electron renderer) | Same |
 | Desktop shell | Electron (macOS, arm64, DMG) | — |
-| Notifications | ntfy.sh / SMTP adapters (`packages/server/src/app-runtime/services/notifications/`) | APNs, Firebase |
+| Notifications | ntfy.sh / SMTP adapters (`packages/server/src/notifications/`) | APNs, Firebase |
 | Observability | `console` \| `noop` channels (`packages/server/src/services/observability/`) — OpenTelemetry explicitly future | — |
 | Auth | Auto-generated API key (`X-API-Key` header) | OAuth / passkeys |
 | Credentials | Electron safeStorage (desktop) / AES-256-GCM server-side — see [Credential Model](./credential-model.md) | — |
@@ -95,7 +95,7 @@ Agents run as host processes in a local working directory — there is no isolat
 | `shared` | Shared | Types, constants, TOON codec |
 | `db` | Core app | Schema (Drizzle ORM), migrations |
 | `server` | Core app + agent layer | Hono API routes, middleware, WebSocket, domain services, agent runtime services |
-| `fabric` | Legacy compatibility | Historical package retained for old tests/exports; product runtime must use `server/src/app-runtime` instead |
+| `fabric` | Legacy compatibility | Historical package retained for old tests/exports; product runtime uses Core (`server/src/knowledge`, `server/src/notifications`, core `server/src/services`) and agent-owned `server/src/services` instead |
 | `strategy-minimal` | Legacy compatibility | Historical package retained for old tests/exports; product runtime must not use it as fallback |
 | `web` | Interface | React SPA (Vite) |
 | `desktop` | Interface | Electron main process, preload bridge |
@@ -149,7 +149,7 @@ User creates a bet
 
 User creates knowledge
   → POST /api/knowledge (scope_kind + scope_id + markdown body)
-  → app-runtime assigns the item to the correct knowledge layer
+  → Core knowledge services assign the item to the correct knowledge layer
 ```
 
 WebSocket subscribe authorization is owned by the [Authorization Model](./authorization-model.md); full end-to-end flows live in [Data Flow Examples](./data-flow-examples.md).

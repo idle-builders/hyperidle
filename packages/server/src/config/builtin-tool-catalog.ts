@@ -20,7 +20,7 @@ export interface ToolCatalogEntry {
  * plugin/default configuration projection (`plugin-configuration.ts`) reads
  * this catalog instead of importing the runtime tool execution registry
  * (`tools/tool-registry.ts`, which imports every tool handler + `ToolContext`
- * + `app-runtime/contracts`). `tool-registry.ts` depends on this catalog too
+ * + the agent-owned `services/contracts.ts`). `tool-registry.ts` depends on this catalog too
  * (via the anti-drift consistency test) — both config and execution now
  * depend *down* onto this one pure-data source, instead of config depending
  * upward on execution.

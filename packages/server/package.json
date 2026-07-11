@@ -6,7 +6,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./server-factory": "./src/server-factory.ts",
-		"./app-runtime": "./src/app-runtime/index.ts",
+		"./routines": "./src/routines.ts",
 		"./test-utils": "./src/test-utils.ts",
 		"./tools": "./src/tools/index.ts",
 		"./schemas": "./src/schemas/index.ts",

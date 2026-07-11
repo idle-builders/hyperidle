@@ -22,6 +22,7 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
+import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-AF17";
@@ -200,24 +201,6 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 		// @lore AF17: The idempotency guard on POST /api/teams means only one team can be created via that
 		// route per DB. The second team is created via direct DB insertion + provisionTeamRoutines call.
 
-		// Import provisionTeamRoutines — fails in red phase (module doesn't exist)
-		// biome-ignore lint/suspicious/noExplicitAny: Red phase dynamic import
-		const fabricMod = (await import("@hyperidle/server/app-runtime").catch(() => null)) as Record<
-			string,
-			unknown
-		> | null;
-		const provisionTeamRoutines = fabricMod?.provisionTeamRoutines as
-			| ((
-					db: HyperIdleDb,
-					opts: { teamId: string; ownerByRole: Record<string, string>; leadAgentId: string },
-			  ) => Promise<void>)
-			| undefined;
-
-		if (!provisionTeamRoutines) {
-			// If not yet implemented, this test expectation is: fail (red phase)
-			throw new Error("provisionTeamRoutines not implemented yet (AF17 red phase)");
-		}
-
 		// Insert a second team directly
 		const team2Id = "team-af17-test-2";
 		const teamMembers2Id = "team-af17-tm-2";
@@ -278,22 +261,6 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 	test("provisionTeamRoutines falls back to leadAgentId when ownerByRole has no product_manager", async ({
 		db,
 	}) => {
-		// biome-ignore lint/suspicious/noExplicitAny: Red phase dynamic import
-		const fabricMod = (await import("@hyperidle/server/app-runtime").catch(() => null)) as Record<
-			string,
-			unknown
-		> | null;
-		const provisionTeamRoutines = fabricMod?.provisionTeamRoutines as
-			| ((
-					db: HyperIdleDb,
-					opts: { teamId: string; ownerByRole: Record<string, string>; leadAgentId: string },
-			  ) => Promise<void>)
-			| undefined;
-
-		if (!provisionTeamRoutines) {
-			throw new Error("provisionTeamRoutines not implemented yet (AF17 red phase)");
-		}
-
 		const teamId = "team-af17-fallback";
 		const tmId = "team-af17-fallback-tm";
 		const leadId = "agent-af17-fallback-lead";

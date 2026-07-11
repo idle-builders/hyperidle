@@ -25,8 +25,8 @@
 import { type HyperIdleDb, teamMembers, users } from "@hyperidle/db";
 import { type EventBus, findRoleCatalogEntry, type UserRole } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
-import type { SelectionCandidate } from "../app-runtime/contracts.js";
 import { resolveAgentSelection } from "./agent-defaults/resolvers.js";
+import type { SelectionCandidate } from "./contracts.js";
 
 /**
  * AK7: Enumerate eligible team candidates for bet_* selection surfaces.

@@ -1,5 +1,5 @@
-import { routeItem } from "@hyperidle/server/app-runtime";
 import { describe, expect, it } from "vitest";
+import { routeItem } from "../services/item-router.js";
 
 describe("routeItem", () => {
 	it("routes medium risk to conversations", () => {

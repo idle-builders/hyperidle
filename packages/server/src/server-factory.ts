@@ -9,35 +9,203 @@ import {
 	type HyperIdleDb,
 	resolveProfile,
 } from "@hyperidle/db";
-import { EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
+import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
-import { bootstrapAppRuntime } from "./app-runtime/bootstrap.js";
-import { createGitRunner } from "./app-runtime/services/git-export-runner.js";
 import { RegistryFilesystemMounter } from "./filesystem/mounter-registry.js";
 import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
 import { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";
 import { enforcementRegistry } from "./harness/return-enforcement-registry.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
+import { setupFts } from "./knowledge/fts.js";
+import { registerRelevanceListener } from "./knowledge/relevance-listener.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
-import { createMcpRoute } from "./routes/mcp-route.js";
-import { registerWorkerWsRoute } from "./routes/worker-ws.js";
+import { defaultNotificationAdapterFactory } from "./notifications/adapter-factory.js";
+import {
+	type AlertPreferences,
+	registerNotificationDispatcher,
+} from "./notifications/dispatcher.js";
+import { startNotificationDrain } from "./notifications/drain.js";
+import { defaultMutePreferenceReader } from "./notifications/mute.js";
+import { registerNotificationListener } from "./notifications/notification-listener.js";
 import { registerWsRoute } from "./routes/ws.js";
 import {
 	bootAgentLayer,
 	markRunningAgentSessionRequestsForShutdown,
 } from "./services/agent-layer-boot.js";
+import { startAgentLifecycleProjectionDrain } from "./services/agent-lifecycle-projectors.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
 import { resolveOrphanedDecompositions } from "./services/bet-decomposition.js";
 import { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
+import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handlers.js";
+import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
+// @lore AD8c: cost sentinel extracted from routine row to application code.
+import { startCostSentinel } from "./services/cost-sentinel.js";
 import { getServerSecret } from "./services/credential-encryption.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import { DbCredentialResolver } from "./services/credential-resolver.js";
+import { registerGitExportHandler } from "./services/git-export.js";
+import { createGitRunner } from "./services/git-export-runner.js";
+import { registerLifecyclePropagation } from "./services/lifecycle-propagation.js";
+import { createMcpRoute } from "./services/mcp-route.js";
 import { resolveModelTier } from "./services/model-gateway.js";
 import { projectProductionConfigurationDefaults } from "./services/plugin-configuration.js";
+import { registerPolicyEngine } from "./services/policy-engine.js";
+import { startRetentionReaper } from "./services/retention-reaper.js";
+import { startRoutineScheduler } from "./services/routine-scheduler.js";
+import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
+import { startSandboxReaper } from "./services/sandbox-reaper.js";
 import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
+import { registerSessionReviewCreator } from "./services/session-review-creator.js";
+import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
+import { registerWorkerWsRoute } from "./services/worker-ws.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
+
+const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
+
+/** Production default poll cadence for the routine scheduler. */
+const DEFAULT_ROUTINE_POLL_INTERVAL_MS = 30_000;
+/** Default staleness bound for the routine-session reaper (1h). */
+const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
+
+/**
+ * AU11: registers CORE-owned application services against the event bus —
+ * knowledge (relevance listener, FTS), notifications, policy engine,
+ * review routing, lifecycle propagation, retention, git-export, and the
+ * routine scheduler (cron/due-eval + `recordAgentWorkIntent`).
+ *
+ * Split from the former `app-runtime` shell's `bootstrapAppRuntime` —
+ * together with `registerAgentLayerServices` this replicates the exact
+ * same disposer set; only the grouping changed, not registration order
+ * within each group (behavior-preserving, AU11 import-path-only invariant).
+ *
+ * @lore AU11: routine-scheduler.ts stays Core (cron/due-eval is a core
+ * domain concern) but its fire-time `isAgentAtWipLimit`/
+ * `selectAgentByAppDefaults` call reaches into the agent-owned
+ * `agent-selection.ts` module unchanged — a residual core→agent edge
+ * recorded as an AU8 boundary item, not an AU11 defect (see AU11 plan
+ * "routine-scheduler decision").
+ */
+export function registerCoreDomainServices(ctx: {
+	readonly db: HyperIdleDb;
+	readonly eventBus: EventBus;
+	readonly readAlertPreferences?: () => Promise<AlertPreferences>;
+	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
+	readonly routinePollIntervalMs?: number;
+	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
+	readonly canProvision?: boolean;
+	/** AF6 §4: routine-session reaper staleness bound (ms). Default 1h. */
+	readonly reaperStaleAfterMs?: number;
+	/** AF6 §4: in-process periodic reaper cadence (ms). 0 = every poll (tests). */
+	readonly reaperCadenceMs?: number;
+	/**
+	 * AD2: provisioning deps threaded into the routine scheduler's fire-time
+	 * session creation. Omitted from the type here to avoid a core-module
+	 * dependency on server harness types — passed through as-is.
+	 */
+	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
+}): Array<() => void> {
+	const { db, eventBus } = ctx;
+	const disposers: Array<() => void> = [];
+	disposers.push(startAgentLifecycleProjectionDrain(db));
+
+	// AF9 Task 3b: fire-and-forget FTS setup at every boot so the fts_vector
+	// column exists even when production createServer skips the drizzle migrator.
+	setupFts(db).catch((err) => {
+		serviceBootstrapLog.error("FTS setup failed at boot", { err });
+	});
+
+	disposers.push(registerRelevanceListener(db, eventBus));
+	disposers.push(registerSessionReviewCreator(db, eventBus));
+	disposers.push(registerPolicyEngine(db, eventBus));
+	disposers.push(registerLifecyclePropagation(db, eventBus));
+	disposers.push(
+		registerGitExportHandler(db, eventBus, {
+			runnerFactory: (repoPath) => createGitRunner(repoPath),
+		}),
+	);
+	disposers.push(
+		registerNotificationDispatcher(db, eventBus, {
+			adapterFactory: defaultNotificationAdapterFactory,
+			readAlertPreferences: ctx.readAlertPreferences,
+		}),
+	);
+
+	// AF8: notification listener (event→typed row) + drain loop (automatic delivery).
+	const muteReader = defaultMutePreferenceReader(db);
+	disposers.push(registerNotificationListener(db, eventBus, { mute: muteReader }));
+	disposers.push(startNotificationDrain(db, defaultNotificationAdapterFactory, {}));
+
+	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
+	disposers.push(startRetentionReaper(db));
+
+	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
+	// AF6 §1 (Option A): start the routine scheduler async, push a deferred
+	// disposer that drains the start promise then stops. Built-in routines
+	// auto-fire (no session); generic routines are gated by canProvision.
+	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
+	const schedulerPromise = startRoutineScheduler(db, eventBus, {
+		pollIntervalMs,
+		canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
+		...(ctx.dispatcherDeps ? { runtimeDeps: ctx.dispatcherDeps } : {}),
+		// Non-optional periodic reaper sweep: catches in-process hangs.
+		reap: () => reapStaleRoutineSessions(db, eventBus, { staleAfterMs: reaperStaleAfterMs }),
+		reaperCadenceMs: ctx.reaperCadenceMs,
+	});
+	schedulerPromise.catch((err) => {
+		serviceBootstrapLog.error("routine scheduler failed to start", { err });
+	});
+	disposers.push(() => {
+		void schedulerPromise.then((s) => s.stop()).catch(() => {});
+	});
+
+	return disposers;
+}
+
+/**
+ * AU11: registers AGENT-owned services — builtin routine handlers, cost-cap
+ * dedup release, cost sentinel, the task dispatcher, and the sandbox/
+ * routine-session reapers. Split from the former `bootstrapAppRuntime`
+ * shell alongside `registerCoreDomainServices` (see that function's
+ * doc-comment for the behavior-preservation invariant).
+ */
+export function registerAgentLayerServices(ctx: {
+	readonly db: HyperIdleDb;
+	readonly eventBus: EventBus;
+	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
+	readonly reaperStaleAfterMs?: number;
+}): Array<() => void> {
+	const { db, eventBus } = ctx;
+	const disposers: Array<() => void> = [];
+
+	disposers.push(registerBuiltinRoutineHandlers(db, eventBus));
+	disposers.push(registerCostCapDedupReleaser(eventBus));
+	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
+	disposers.push(startCostSentinel(db, eventBus));
+
+	// AD2: Register task dispatcher when provisioning deps are provided.
+	if (ctx.dispatcherDeps) {
+		disposers.push(
+			registerTaskDispatcher({
+				db,
+				eventBus,
+				...ctx.dispatcherDeps,
+			}),
+		);
+		// AF7 §6: TTL workspace reaper.
+		disposers.push(startSandboxReaper(db, { sandboxBasePath: ctx.dispatcherDeps.sandboxBasePath }));
+	}
+
+	// AF6 §4: boot one-shot reaper — clear zombie routine sessions left by a
+	// previous process. Fire-and-forget; never blocks boot.
+	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
+	reapStaleRoutineSessions(db, eventBus, { staleAfterMs: reaperStaleAfterMs }).catch((err) => {
+		serviceBootstrapLog.error("boot routine-session reaper failed", { err });
+	});
+
+	return disposers;
+}
 
 /**
  * AF7 §1: build the dispatcher's `resolveModel(tier)`. The HTTP path resolves
@@ -296,7 +464,6 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		db,
 		eventBus,
 		adapterPool,
-		sandbox: workspaceAdapter,
 		sandboxBasePath,
 		resolveModel: makeResolveModel(db, credentialResolver),
 	});
@@ -343,38 +510,42 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		db,
 		eventBus,
 		assistantTurnDeps,
-		serviceBootstrap: (ctx) =>
-			bootstrapAppRuntime({
-				...ctx,
-				// AF6/AU1: production boots the routine scheduler at the default
-				// 30s cadence. Runtime deps are present, so generic routine fires
-				// enter through AgentSessionRequest instead of stub sessions.
-				readAlertPreferences: async () => {
-					const cfg = await readServerConfig(db);
-					return {
-						blockerAlerts: cfg.notifications.blockerAlerts,
-						costAlerts: cfg.notifications.costAlerts,
-						reviewAlerts: cfg.notifications.reviewAlerts,
-						quietHoursEnabled: cfg.notifications.quietHoursEnabled,
-						quietHoursStart: cfg.notifications.quietHoursStart,
-						quietHoursEnd: cfg.notifications.quietHoursEnd,
-					};
-				},
-				// AF7 §1: feed the task dispatcher's injection seam. App runtime bootstrap
-				// forwards this to registerTaskDispatcher; without it the dispatcher
-				// never registers and a ready task never gets a session (Z8-004).
-				// The TaskDispatcherDeps fields already exist — no fabric type change.
-				dispatcherDeps: {
-					adapterPool,
-					workspace: workspaceAdapter,
-					sandboxBasePath,
-					resolveModel: makeResolveModel(db, credentialResolver),
-					mcpBridgeRegistry,
-					mcpBaseUrl,
-					// AO2: pass the production mounter so routine-dispatched sessions mount.
-					mounter,
-				},
-			}),
+		serviceBootstrap: (ctx) => {
+			// AF6/AU1: production boots the routine scheduler at the default
+			// 30s cadence. Runtime deps are present, so generic routine fires
+			// enter through AgentSessionRequest instead of stub sessions.
+			const readAlertPreferences = async () => {
+				const cfg = await readServerConfig(db);
+				return {
+					blockerAlerts: cfg.notifications.blockerAlerts,
+					costAlerts: cfg.notifications.costAlerts,
+					reviewAlerts: cfg.notifications.reviewAlerts,
+					quietHoursEnabled: cfg.notifications.quietHoursEnabled,
+					quietHoursStart: cfg.notifications.quietHoursStart,
+					quietHoursEnd: cfg.notifications.quietHoursEnd,
+				};
+			};
+			// AF7 §1: feed the task dispatcher's injection seam. Without it the
+			// dispatcher never registers and a ready task never gets a session
+			// (Z8-004). The TaskDispatcherDeps fields already exist.
+			const dispatcherDeps = {
+				adapterPool,
+				workspace: workspaceAdapter,
+				sandboxBasePath,
+				resolveModel: makeResolveModel(db, credentialResolver),
+				mcpBridgeRegistry,
+				mcpBaseUrl,
+				// AO2: pass the production mounter so routine-dispatched sessions mount.
+				mounter,
+			};
+			// AU11: two owners register independently — core domain services
+			// (knowledge/notifications/policy/routine-scheduler) then agent-owned
+			// services (builtin-routine handlers/cost-cap/dispatcher/reapers).
+			return [
+				...registerCoreDomainServices({ ...ctx, readAlertPreferences, dispatcherDeps }),
+				...registerAgentLayerServices({ ...ctx, dispatcherDeps }),
+			];
+		},
 		adapterPool,
 		workspaceAdapter,
 		sandboxBasePath,

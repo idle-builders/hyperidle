@@ -34,9 +34,9 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { registerPolicyEngine } from "@hyperidle/server/app-runtime";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
+import { registerPolicyEngine } from "../services/policy-engine.js";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

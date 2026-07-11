@@ -39,7 +39,7 @@ import {
 	createEnforcementRegistry,
 	type EnforcementRegistry,
 } from "../../harness/return-enforcement-registry.js";
-import { createMcpRoute } from "../../routes/mcp-route.js";
+import { createMcpRoute } from "../../services/mcp-route.js";
 import { commitFileTool } from "../../tools/commit-file.js";
 import type { RegisteredTool, ToolRegistry } from "../../tools/tool-registry.js";
 import { toClaudeToolSpec, toRegistered } from "../../tools/tool-registry.js";

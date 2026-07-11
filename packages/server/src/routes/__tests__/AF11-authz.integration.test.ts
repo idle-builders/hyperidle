@@ -347,7 +347,7 @@ describe("AC3: Worker token cannot access credentials or admin routes", () => {
 
 describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => {
 	test("register with already-active id is rejected when incumbent is live", async ({}) => {
-		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
 		const { AdapterPool } = await import("../../harness/adapter-pool.js");
 
 		const pool = new AdapterPool();
@@ -395,7 +395,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 	});
 
 	test("register with dead-incumbent id is accepted (reconnect)", async ({}) => {
-		const { WorkerConnectionManager } = await import("../../routes/worker-ws.js");
+		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
 		const { AdapterPool } = await import("../../harness/adapter-pool.js");
 
 		const pool = new AdapterPool();

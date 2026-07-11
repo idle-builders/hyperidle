@@ -14,42 +14,19 @@ import {
 import { and, avg, desc, eq, gt, gte, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import {
-	extractBuiltinKind,
-	isBuiltinRoutineId,
-	type PostBetRetroArgs,
-	runBuiltinRoutine,
-} from "../app-runtime/services/builtin-routines.js";
+import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import { validateBody } from "../middleware/validate.js";
+import { deriveInitials } from "../services/agent-utils.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
+import { type PostBetRetroArgs, runBuiltinRoutine } from "../services/builtin-routine-handlers.js";
 import {
 	getRoutineMonthlySpend,
 	nextCronMatch,
 	parseCron,
 	shouldCoalesce,
-} from "../app-runtime/services/routine-scheduler.js";
-import type { AdapterPool } from "../harness/adapter-pool.js";
-import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { validateBody } from "../middleware/validate.js";
-import { deriveInitials } from "../services/agent-utils.js";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
+} from "../services/routine-scheduler.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
-
-/**
- * AA2: Optional dependency injection for routine trigger provisioning.
- * When adapterPool and workspaceAdapter are both present, POST /:id/trigger
- * routes through provisionSession instead of a bare DB insert.
- *
- * @lore AA2: Mirrors the SessionRouteDeps pattern from sessions-routes.ts.
- * Kernel-only deployments (no adapters) fall back to the raw DB insert path
- * for backward compat.
- */
-export interface RoutineProvisionDeps {
-	readonly adapterPool?: AdapterPool;
-	readonly workspaceAdapter?: SandboxAdapter;
-	readonly sandboxBasePath?: string;
-	/** AO2: Optional filesystem mounter for mount + captureBack hooks. */
-	readonly mounter?: import("@hyperidle/shared").FilesystemMounter;
-}
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
 
@@ -94,15 +71,15 @@ function stateToActive(state: string): boolean {
 /**
  * Create Hono routes for routine endpoints (E6).
  *
- * @param provisionDeps - Optional adapter deps for full provisionSession path.
- *   When present, POST /:id/trigger runs the full 11-phase provisioning orchestrator.
- *   When absent, falls back to a bare DB insert (kernel-only / test mode).
+ * @lore AU11 AC-2: this factory used to accept an optional `RoutineProvisionDeps`
+ * (AdapterPool/SandboxAdapter-typed) parameter documented as gating a
+ * "full 11-phase provisioning" path on POST /:id/trigger. It was never
+ * consumed (`_provisionDeps` was unread) and no production call site
+ * populated it — dead threading left over from a pre-AU9 design. Removed
+ * per the AU11 route-cleanup classification; POST /:id/trigger always uses
+ * `runBuiltinRoutine` / `recordAgentWorkIntent` (the real, current path).
  */
-export function createRoutineRoutes(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	_provisionDeps?: RoutineProvisionDeps,
-): Hono {
+export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
 
 	// POST / — Create routine (AA2 AC-1)

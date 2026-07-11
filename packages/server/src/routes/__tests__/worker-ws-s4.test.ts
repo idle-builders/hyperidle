@@ -13,7 +13,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
-import { WorkerConnectionManager } from "../../routes/worker-ws.js";
+import { WorkerConnectionManager } from "../../services/worker-ws.js";
 
 // ── Mock WebSocket ────────────────────────────────────────────────────────────
 

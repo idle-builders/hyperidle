@@ -22,8 +22,8 @@ import {
 } from "@hyperidle/db";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
-import { startAgentLifecycleProjectionDrain } from "../app-runtime/services/agent-lifecycle-projectors.js";
 import { bootAgentLayer } from "../services/agent-layer-boot.js";
+import { startAgentLifecycleProjectionDrain } from "../services/agent-lifecycle-projectors.js";
 import { sessionRunRegistry } from "../services/session-run-registry.js";
 import { describe, expect, test } from "../test-fixtures.js";
 

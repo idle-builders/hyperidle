@@ -8,7 +8,7 @@ import {
 	getDedupCacheSize,
 	recordCostAndCheck,
 	releaseSessionDedup,
-} from "@hyperidle/server/app-runtime";
+} from "../services/cost-cap.js";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 /**

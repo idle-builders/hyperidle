@@ -5,7 +5,7 @@ import {
 	getDedupCacheSize,
 	recordCostAndCheck,
 	registerCostCapDedupReleaser,
-} from "../app-runtime/services/cost-cap.js";
+} from "../services/cost-cap.js";
 import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 import { expect, test } from "../test-fixtures.js";

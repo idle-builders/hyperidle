@@ -2,10 +2,6 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
-import { registerAssistantDispatcher } from "./app-runtime/services/assistant-dispatcher.js";
-import { defaultNotificationAdapterFactory } from "./app-runtime/services/notifications/adapter-factory.js";
-import type { NotificationConfig } from "./app-runtime/services/notifications/config.js";
-import type { NotificationAdapter } from "./app-runtime/services/notifications/types.js";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
 import type { AdapterPool } from "./harness/adapter-pool.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
@@ -16,6 +12,9 @@ import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
+import { defaultNotificationAdapterFactory } from "./notifications/adapter-factory.js";
+import type { NotificationConfig } from "./notifications/config.js";
+import type { NotificationAdapter } from "./notifications/types.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -50,6 +49,7 @@ import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
+import { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
 import { getServerSecret } from "./services/credential-encryption.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import { checkAndUnblockDependents } from "./services/dependency-watcher.js";
@@ -412,15 +412,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/threads", createThreadRoutes(options.db, eventBus));
 		api.route("/users", createUserRoutes(options.db, eventBus, options.adapterPool));
 		api.route("/org", createOrgRoutes(options.db));
-		api.route(
-			"/routines",
-			createRoutineRoutes(options.db, eventBus, {
-				adapterPool: options.adapterPool,
-				workspaceAdapter: options.workspaceAdapter,
-				sandboxBasePath: options.sandboxBasePath,
-				mounter: options.mounter,
-			}),
-		);
+		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
 		// Q1 §6.1: session activity buffer — subscribe to tool_call_recorded events
@@ -432,18 +424,11 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		activityBuffer.start();
 		api.route(
 			"/sessions",
-			createSessionRoutes(options.db, eventBus, activityBuffer, {
-				adapterPool: options.adapterPool,
-				workspaceAdapter: options.workspaceAdapter,
-				sandboxBasePath: options.sandboxBasePath,
-				credentialResolver: options.credentialResolver,
-				mcpBridgeRegistry: options.mcpBridgeRegistry,
-				mcpBaseUrl: options.mcpBaseUrl,
-				// AN2: thread the already-constructed scResolver (encapsulates serverSecret).
-				// This is the same resolver used by filesystem routes — constructed once at :416.
-				serviceConnectionResolver: scResolver,
-				mounter: options.mounter,
-			}),
+			// AU11 AC-2: the route only ever read the adapter-pool PRESENCE as a
+			// boolean gate (see routes/sessions-routes.ts's removal note) — the
+			// composition root now computes that boolean directly instead of
+			// threading the whole harness-typed deps object into the route.
+			createSessionRoutes(options.db, eventBus, activityBuffer, Boolean(options.adapterPool)),
 		);
 		api.route("/status", createStatusRoutes(options.db));
 

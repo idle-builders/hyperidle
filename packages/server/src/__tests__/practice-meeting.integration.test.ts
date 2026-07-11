@@ -1,7 +1,7 @@
 import { type HyperIdleDb, knowledgeItems, knowledgeStrategyFabric } from "@hyperidle/db";
-import { createPracticeMeeting, runPracticeMeetingTurn } from "@hyperidle/server/app-runtime";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import { createPracticeMeeting, runPracticeMeetingTurn } from "../services/practice-meeting.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";

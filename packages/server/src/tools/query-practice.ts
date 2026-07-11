@@ -1,6 +1,6 @@
 import { KNOWLEDGE_LAYERS } from "@hyperidle/shared";
 import z from "zod";
-import { search as searchKnowledge } from "../app-runtime/knowledge-repository.js";
+import { search as searchKnowledge } from "../knowledge/knowledge-repository.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

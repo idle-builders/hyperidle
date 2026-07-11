@@ -10,7 +10,7 @@
 
 import { randomUUID } from "node:crypto";
 import { items, routines, sessions } from "@hyperidle/db";
-import { checkAndFireRoutine } from "@hyperidle/server/app-runtime";
+import { checkAndFireRoutine } from "@hyperidle/server/routines";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { seedFactorySettings, seedMinimalWorld, seedRoutine } from "../seeding.js";

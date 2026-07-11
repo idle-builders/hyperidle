@@ -29,7 +29,7 @@ for (const kind of ARTIFACT_KINDS) {
 }
 
 // @lore AU7: Avoid z.discriminatedUnion here. Server imports this schema during
-// app-runtime boot, while kind definitions are supplied by shared package schemas;
+// server boot, while kind definitions are supplied by shared package schemas;
 // eager discriminated-union construction can reject mixed Zod internals before any
 // request is handled. z.custom also breaks tool JSON-schema generation. A plain
 // union keeps per-kind validation while remaining representable as tool JSON schema.

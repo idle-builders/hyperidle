@@ -23,7 +23,9 @@ const SOURCE_EXCLUDES = [
 
 const ALLOWED_DIRECT_CONSUMER_IMPORTS = new Set(["packages/server/src/services/agent-run-boundary.ts"]);
 const ALLOWED_REGISTRY_DEFINITIONS = new Set([
-	"packages/server/src/app-runtime/services/provision-registry.ts",
+	// AU11: provision-registry.ts moved from app-runtime/services/ to the
+	// agent-owned services/ home (import-path-only move, no behavior change).
+	"packages/server/src/services/provision-registry.ts",
 ]);
 
 function extension(path: string): string {

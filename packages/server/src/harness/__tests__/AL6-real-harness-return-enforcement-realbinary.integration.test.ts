@@ -76,7 +76,7 @@ import {
 } from "../../harness/return-enforcement-registry.js";
 import type { McpBridgeInstance } from "../../mcp/mcp-bridge.js";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
-import { createMcpRoute } from "../../routes/mcp-route.js";
+import { createMcpRoute } from "../../services/mcp-route.js";
 import { harnessTestResolvedModel, requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);

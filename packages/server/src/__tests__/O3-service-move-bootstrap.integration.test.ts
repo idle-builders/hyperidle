@@ -1,19 +1,34 @@
 import { describe } from "vitest";
 import type { AppOptions } from "../app.js";
 import { createApp } from "../app.js";
-import { bootstrapAppRuntime } from "../app-runtime/bootstrap.js";
+import { registerAgentLayerServices, registerCoreDomainServices } from "../server-factory.js";
 import { expect, test } from "../test-fixtures.js";
 
-describe("O3 AC-5: bootstrapAppRuntime", () => {
-	test("is exported from app-runtime", () => {
-		expect(typeof bootstrapAppRuntime).toBe("function");
+/**
+ * AU11: former app-runtime `bootstrapAppRuntime` split into two owner-scoped
+ * registration functions (server-factory.ts) — `registerCoreDomainServices`
+ * (knowledge/notifications/policy/routine-scheduler) and
+ * `registerAgentLayerServices` (builtin-routine handlers/cost-cap/
+ * dispatcher/reapers). Composing them replicates the exact same disposer
+ * set bootstrapAppRuntime returned; only the grouping is new.
+ */
+function fullServiceBootstrap(
+	ctx: Parameters<typeof registerCoreDomainServices>[0],
+): Array<() => void> {
+	return [...registerCoreDomainServices(ctx), ...registerAgentLayerServices(ctx)];
+}
+
+describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () => {
+	test("both are exported as functions", () => {
+		expect(typeof registerCoreDomainServices).toBe("function");
+		expect(typeof registerAgentLayerServices).toBe("function");
 	});
 
 	test("returns an array of disposer functions when called with db and eventBus", async ({
 		db,
 		eventBus,
 	}) => {
-		const disposers = bootstrapAppRuntime({ db, eventBus });
+		const disposers = fullServiceBootstrap({ db, eventBus });
 
 		expect(Array.isArray(disposers)).toBe(true);
 		expect(disposers.length).toBeGreaterThan(0);
@@ -34,11 +49,14 @@ describe("O3 AC-5: bootstrapAppRuntime", () => {
 	// @lore AF16 T17: startRetentionReaper added (in-process 6h TTL sweep). Count 12 → 13.
 	// @lore AU9: startAgentLifecycleProjectionDrain added (durable core-owned lifecycle
 	// inbox drain, boot-wired in bootstrap.ts). Count 13 → 14.
+	// @lore AU11: bootstrap.ts split into registerCoreDomainServices (11 disposers)
+	// + registerAgentLayerServices (3 unconditional disposers, dispatcherDeps
+	// absent here) — same 14 total, grouping changed only.
 	test("returns exactly 14 disposers (one per disposer-registered service)", async ({
 		db,
 		eventBus,
 	}) => {
-		const disposers = bootstrapAppRuntime({ db, eventBus });
+		const disposers = fullServiceBootstrap({ db, eventBus });
 
 		expect(disposers).toHaveLength(14);
 
@@ -86,18 +104,21 @@ describe("O3 AC-8: kernel-only boot (no serviceBootstrap)", () => {
 	}, 120_000);
 });
 
-describe("O3 AC-9: full boot with bootstrapAppRuntime", () => {
-	test("createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime }) boots without throwing", async ({
+describe("O3 AC-9: full boot with registerCoreDomainServices + registerAgentLayerServices", () => {
+	test("createApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap }) boots without throwing", async ({
 		db,
 		eventBus,
 	}) => {
-		const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
+		const app = await createApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
 
 		void app?.request("/api/health");
 	}, 120_000);
 
-	test("GET /api/health returns 200 with full app-runtime bootstrap", async ({ db, eventBus }) => {
-		const app = await createApp({ db, eventBus, serviceBootstrap: bootstrapAppRuntime });
+	test("GET /api/health returns 200 with full app boot (core + agent-layer services)", async ({
+		db,
+		eventBus,
+	}) => {
+		const app = await createApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
 	}, 120_000);

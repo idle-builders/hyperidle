@@ -9,7 +9,7 @@
 
 import { randomUUID } from "node:crypto";
 import { items, routines, userSkills } from "@hyperidle/db";
-import { checkAndFireRoutine } from "@hyperidle/server/app-runtime";
+import { checkAndFireRoutine } from "@hyperidle/server/routines";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { seedMinimalWorld, seedRoutine, seedUserSkill } from "../seeding.js";

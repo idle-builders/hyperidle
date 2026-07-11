@@ -8,13 +8,10 @@
  *  - Returns { ok: true, channel: "console" } on success.
  */
 
-import {
-	createConsoleAdapter,
-	type Notification,
-	type Recipient,
-} from "@hyperidle/server/app-runtime";
 import type { Logger } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
+import { createConsoleAdapter } from "../../notifications/console-adapter.js";
+import type { Notification, Recipient } from "../../notifications/types.js";
 
 interface LogCall {
 	level: "debug" | "info" | "warn" | "error";

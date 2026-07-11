@@ -5,6 +5,8 @@ import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/sh
 import { desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import { validateBody } from "../middleware/validate.js";
 import {
 	loadNotificationConfig,
 	type NotificationConfigPatch,
@@ -18,23 +20,10 @@ import {
 	sanitizeSmtpHost,
 	sanitizeTopic,
 	updateNotificationConfig,
-} from "../app-runtime/services/notifications/config.js";
-import {
-	type AdapterFactory,
-	dispatchDigest,
-	flushQueue,
-} from "../app-runtime/services/notifications/dispatcher.js";
-import {
-	defaultMutePreferenceWriter,
-	getMutedTypeKeys,
-} from "../app-runtime/services/notifications/mute.js";
-import type {
-	Notification,
-	NotificationChannel,
-	SendResult,
-} from "../app-runtime/services/notifications/types.js";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { validateBody } from "../middleware/validate.js";
+} from "../notifications/config.js";
+import { type AdapterFactory, dispatchDigest, flushQueue } from "../notifications/dispatcher.js";
+import { defaultMutePreferenceWriter, getMutedTypeKeys } from "../notifications/mute.js";
+import type { Notification, NotificationChannel, SendResult } from "../notifications/types.js";
 
 const channelEnum = z.enum(["console", "ntfy", "smtp"]);
 const queueStatusEnum = z.enum(["pending", "sent", "failed", "dropped", "sending"]);
