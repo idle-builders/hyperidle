@@ -35,9 +35,9 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
-import { clearProvisionSessionFn } from "../app-runtime/services/provision-registry.js";
 import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
 import { runBetDecomposition } from "../services/bet-decomposition.js";
+import { clearProvisionSessionFn } from "../services/provision-registry.js";
 import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../tools/create-task.js";
 
@@ -209,10 +209,6 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 				taskId: null,
 				forceReturnCount: 0,
 			}),
-			sandbox: {
-				create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
-				destroy: vi.fn(),
-			} as unknown as BetDecompositionDeps["sandbox"],
 			sandboxBasePath: "/tmp/ac5-test",
 			resolveModel: mockResolveModel,
 			// No runDecompositionTurn override — exercises the real PM path (runRealPmTurn).
@@ -283,10 +279,6 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 				},
 			},
 			executeAgentRunRequest,
-			sandbox: {
-				create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
-				destroy: vi.fn(),
-			} as unknown as BetDecompositionDeps["sandbox"],
 			sandboxBasePath: "/tmp/ac5-test",
 			resolveModel: vi.fn().mockResolvedValue({
 				provider: "openrouter",
@@ -330,10 +322,6 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 				eventBus,
 				adapterPool: {},
 				executeAgentRunRequest,
-				sandbox: {
-					create: vi.fn().mockResolvedValue({ sandboxPath: "/tmp/ac5-test" }),
-					destroy: vi.fn(),
-				} as unknown as BetDecompositionDeps["sandbox"],
 				sandboxBasePath: "/tmp/ac5-test",
 			},
 			"bet-runtime-empty",

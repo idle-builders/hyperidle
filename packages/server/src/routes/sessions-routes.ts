@@ -16,14 +16,10 @@ import {
 import { and, eq } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import z from "zod";
-import type { AdapterPool } from "../harness/adapter-pool.js";
-import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
-import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
-import type { CredentialResolver } from "../services/credential-resolver.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
 import {
 	requestAgentTermination,
@@ -121,32 +117,17 @@ const updateSessionSchema = z.object({
 });
 
 /**
- * Optional dependency injection for session route runtime execution (R1/AU1).
- * When `adapterPool` and `workspaceAdapter` are both present, POST /sessions
- * creates and consumes an AgentSessionRequest instead of a bare DB insert.
- *
- * @lore R1: The adapters are injected via this interface rather than being
- * constructed inside the route handler so tests can supply scripted mocks
- * without touching process.env or module internals.
- * @lore S2: renamed harnessAdapter → adapterPool (S2 migration).
+ * AU11 AC-2: `SessionRouteDeps` (AdapterPool/SandboxAdapter/McpBridgeRegistry-
+ * typed) previously threaded a large runtime-execution deps object into this
+ * route file, but only one field (`adapterPool`) was ever read — as a bare
+ * presence gate (`deps?.adapterPool`), never as a value execution dependency.
+ * Every other field (`workspaceAdapter`, `credentialResolver`,
+ * `mcpBridgeRegistry`, `mcpBaseUrl`, `serviceConnectionResolver`, `mounter`)
+ * was dead threading. Reclassified per the AU11 route-cleanup rule: the
+ * composition root now computes the boolean directly, so this file carries
+ * no harness/MCP/provisioning type dependency at all — same runtime
+ * behavior (true iff the composition root wired an adapter pool).
  */
-export interface SessionRouteDeps {
-	readonly adapterPool?: AdapterPool;
-	readonly workspaceAdapter?: SandboxAdapter;
-	readonly sandboxBasePath?: string;
-	readonly credentialResolver?: CredentialResolver;
-	/** X2: MCP bridge registry. When present, a per-session bridge is created. */
-	readonly mcpBridgeRegistry?: McpBridgeRegistry;
-	/** X2: Base URL for MCP bridge (e.g., "http://localhost:3001"). */
-	readonly mcpBaseUrl?: string;
-	/**
-	 * AN2: Already-constructed ServiceConnectionResolver.
-	 * When present, held connections are provisioned into each session sandbox.
-	 */
-	readonly serviceConnectionResolver?: import("../services/session-provisioning.js").ProvisionSessionDeps["serviceConnectionResolver"];
-	/** AO2: Optional filesystem mounter for mount + captureBack hooks. */
-	readonly mounter?: import("@hyperidle/shared").FilesystemMounter;
-}
 
 /** Input for a state-changing PATCH (§4 abort-or-guarded-write). */
 interface StateChangePatchInput {
@@ -296,13 +277,17 @@ async function applyStateChangePatch(
  *
  * @param activityBuffer - Optional in-memory ring buffer for session activity
  *   (Q1 §3.2). When wired, GET /:id/activity returns entries from the buffer.
- * @param deps - Optional adapter deps for request-mediated runtime path (R1/AU1).
+ * @param durableStartEnabled - AU11 AC-2: true when the composition root has
+ *   an adapter pool wired. When true, POST /sessions creates and consumes an
+ *   AgentSessionRequest instead of a bare DB insert (see `SessionRouteDeps`
+ *   removal note above — this replaces the former `deps.adapterPool`
+ *   presence check with a plain boolean, no harness type dependency).
  */
 export function createSessionRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	activityBuffer?: SessionActivityBuffer,
-	deps?: SessionRouteDeps,
+	durableStartEnabled?: boolean,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -333,12 +318,12 @@ export function createSessionRoutes(
 		return c.json(result);
 	});
 
-	// @lore R1/AU1: When `deps.adapterPool` and `deps.workspaceAdapter` are both
-	// present, the route creates a task-backed AgentSessionRequest and consumes it
-	// through the runtime (credential pre-flight → sandbox → context assembly →
-	// harness → teardown). When adapters are absent it
-	// falls back to the legacy bare DB insert returning 201 — this preserves
-	// backward compat for tests and deployments that haven't wired the harness.
+	// @lore R1/AU1: When the composition root has wired an adapter pool
+	// (durableStartEnabled), the route creates a task-backed AgentSessionRequest
+	// and consumes it through the runtime (credential pre-flight → sandbox →
+	// context assembly → harness → teardown). When absent it falls back to the
+	// legacy bare DB insert returning 201 — this preserves backward compat for
+	// tests and deployments that haven't wired the harness.
 	router.post(
 		"/",
 		requireBoundary({ kind: "public-data" }),
@@ -347,7 +332,7 @@ export function createSessionRoutes(
 			const body = c.req.valid("json" as never) as z.infer<typeof createSessionSchema>;
 
 			// ── Durable explicit-start path (agent layer present) ─────────────────
-			if (deps?.adapterPool || c.req.header("Idempotency-Key") !== undefined) {
+			if (durableStartEnabled || c.req.header("Idempotency-Key") !== undefined) {
 				const [task] = await db.select().from(tasks).where(eq(tasks.id, body.taskId)).limit(1);
 				if (!task) {
 					return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
