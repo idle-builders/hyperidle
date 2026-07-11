@@ -24,15 +24,23 @@
 		"packages/server/src/harness/re-engage.ts",
 		"packages/server/src/tools/live-proof-lanes.ts",
 		"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts",
-		"packages/server/src/services/knowledge/projections.ts"
+		"packages/server/src/services/knowledge/projections.ts",
+		"packages/server/src/knowledge/conflict-resolution.ts",
+		"packages/server/src/knowledge/layers.ts",
+		"packages/server/src/services/polling-watcher.ts",
+		"packages/server/src/services/founder-router.ts",
+		"packages/server/src/services/provision-registry.ts"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
 	"ignoreIssues": {
 		"packages/web/src/pages/review/ReviewRenderedInContext.tsx": ["exports"],
-		"packages/server/src/app-runtime/**": ["exports", "types"],
 		"packages/server/src/services/proposed-call-workflow.ts": ["exports"],
-		"packages/server/src/services/session-lifecycle.ts": ["exports"]
+		"packages/server/src/services/session-lifecycle.ts": ["exports"],
+		"packages/server/src/knowledge/events.ts": ["exports"],
+		"packages/server/src/knowledge/knowledge-repository.ts": ["exports"],
+		"packages/server/src/knowledge/scoring-config.ts": ["exports"],
+		"packages/server/src/knowledge/types.ts": ["exports", "types"]
 	},
 	"workspaces": {
 		".": {

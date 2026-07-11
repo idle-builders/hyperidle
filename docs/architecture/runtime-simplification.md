@@ -24,15 +24,19 @@ The agent layer reconciles pending and expired leased intents at boot, then poll
 
 Terminal request state is persisted before `agent_run_lifecycle_changed` is published. Domain projections observe completion, failure, and cancellation through this event or the lifecycle read model, never through an execution callback.
 
-## Current State After AU7
+## Current State After AU11
 
-The production runtime no longer registers or selects an active Strategy, and it no longer imports the Fabric package or minimal Strategy package to boot product behavior. Former Fabric responsibilities now live under `packages/server/src/app-runtime/` or explicit core/agent services:
+The production runtime no longer registers or selects an active Strategy, and it no longer imports the Fabric package or minimal Strategy package to boot product behavior. AU7 first relocated the former Fabric service bundle wholesale into `packages/server/src/app-runtime/` — a transitional third runtime owner between core app and agent layer. AU11 dissolved that shell: every responsibility now lands in its should-graph home. There is no `app-runtime/` directory, barrel, boot shell, or package export — only the two owners this frame describes, plus editable config:
 
-- app-owned schedulers, notifications, lifecycle propagation, knowledge scoring, git export, task dispatch, context assembly, and writeback helpers are server app-runtime services;
-- agent-capable execution enters through trigger-backed `AgentSessionRequest` creation and the AU6 agent-run boundary;
-- legacy Strategy/Fabric type exports and package folders may remain for historical compatibility tests, but they are not runtime owners.
+- **Core app** (`packages/server/src/knowledge/`, `packages/server/src/notifications/`, and core-owned files in `packages/server/src/services/`) — knowledge storage and scoring, notifications, policy engine, review routing, lifecycle propagation, retention, git export, and the routine scheduler (cron/due-eval + `agent_work_intents` recording).
+- **Agent layer** (agent-owned files in `packages/server/src/services/`, sharing the directory with core services and distinguished by ownership, not a path segment) — context assembly, session-context, writeback, file/polling watchers, roster, contracts, agent selection, task/assistant dispatchers, cost cap/sentinel, sandbox and routine-session reapers, provision registry, and the builtin-routine execution handlers.
+- **Editable config** (`packages/server/src/config/`) — the builtin-routine default records (stable IDs, cron, owner roles) and git-export defaults. Their *handlers* (provisioning, dispatch) are agent-owned, per the config-vs-execution split this frame draws for plugins.
 
-The app has the durable primitives this frame keeps: users include humans and agents, routines are editable records, knowledge is stored in canonical tables, MCP and tools run through the server runtime, harness adapters are registered centrally, and domain events are emitted. Remaining drift should be handled as boundary enforcement work, not by reintroducing Strategy/Fabric runtime owners.
+The routine scheduler is the one documented residual edge: it stays Core (cron/due-eval is a core domain concern) but its fire-time agent-selection call (`isAgentAtWipLimit` / `selectAgentByAppDefaults`) still reaches directly into the agent-owned `agent-selection.ts` module, unchanged from AU7. This is tracked as an AU8 should-graph-guard boundary item, not reopened by AU11 — folding it into the intent-worker's drain-time resolver would move fire-time selection to drain-time, a real behavior change AU11's import-path-only invariant forbids.
+
+A single narrow exception to "no app-runtime-shaped grouping": `packages/server/src/routines.ts` is a curated public package export (`@hyperidle/server/routines`) re-exporting exactly three functions (`checkAndFireRoutine`, `provisionTeamRoutines`, `runBuiltinRoutine`) for `packages/eval`, the one legitimate cross-package consumer that cannot deep-import `src/...`. It is not a grouping barrel — the `au11-runtime-ownership-guard.ts` lint check enforces its export list stays exactly these three.
+
+The app has the durable primitives this frame keeps: users include humans and agents, routines are editable records, knowledge is stored in canonical tables, MCP and tools run through the server runtime, harness adapters are registered centrally, and domain events are emitted. Remaining drift should be handled as boundary enforcement work (AU8's should-graph guard), not by reintroducing a third runtime owner.
 
 ## Simplification Rule
 

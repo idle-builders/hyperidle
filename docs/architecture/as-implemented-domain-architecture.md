@@ -124,7 +124,7 @@ flowchart LR
 Contract anchors:
 
 - `HarnessAdapter` = startSession/streamEvents/stopSession/getCapabilities — `packages/shared/src/harness/harness-adapter.ts:270`. `startSession(config: SessionConfig)`; SessionConfig carries sessionId, sandboxPath, assembledPrompt, modelTier, resolvedModel, MCP bridge info, thread messages, return hook, session workflow.
-- Agent layer provider = assembleContext/beginLearningIngestion/resolve defaults/selectAgent/decomposeBet/formAssistant. Current production ownership lives in server app-runtime and agent services; legacy compatibility packages remain for historical tests/exports while AU3/AU4 retire the old package boundary.
+- Agent layer provider = assembleContext/beginLearningIngestion/resolve defaults/selectAgent/decomposeBet/formAssistant. Current production ownership lives in agent-owned `packages/server/src/services/` files (context assembly, learning ingestion, agent defaults, selection, decomposition, assistant formation) — no separate app-runtime package boundary since AU11.
 - Tool invocation = `registry.invoke(name, rawArgs)` — `packages/server/src/tools/tool-registry.ts:584`; per-session context is bound when `buildToolRegistry` constructs the registry, not passed per call.
 - Session events verified in `packages/shared/src/events.ts` (session_started :34, session_ended :51, session_not_returned :72, tool_call_recorded :207).
 
@@ -227,7 +227,7 @@ flowchart TB
   Repository -- "knowledge_created/updated/accessed/archived" --> Events["EventBus"]
 ```
 
-Knowledge runtime internals (layer taxonomy, assembly, sync, scoring) are owned by [knowledge-architecture](../knowledge-architecture/index.md). Component-level summary: app-runtime projects the canonical store into a human-facing API and per-session agent workspaces — `assembleAgentContext` writes prompt/context artifacts with a version manifest (`packages/server/src/services/agent-context/assemble-context.ts`); app-runtime writeback uses optimistic concurrency (`version` column, `knowledge_conflicts` table); relevance and attention scoring filter what each session loads (`packages/server/src/app-runtime/services/relevance-service.ts`, `packages/server/src/app-runtime/services/attention-service.ts`).
+Knowledge runtime internals (layer taxonomy, assembly, sync, scoring) are owned by [knowledge-architecture](../knowledge-architecture/index.md). Component-level summary: agent-owned context assembly projects the canonical store into a human-facing API and per-session agent workspaces — `assembleAgentContext` writes prompt/context artifacts with a version manifest (`packages/server/src/services/agent-context/assemble-context.ts`); agent-owned writeback (`packages/server/src/services/writeback.ts`) uses optimistic concurrency (`version` column, `knowledge_conflicts` table); Core-owned relevance and attention scoring filter what each session loads (`packages/server/src/knowledge/relevance-service.ts`, `packages/server/src/knowledge/attention-service.ts`).
 
 ## L2 - Agent Session Domain
 
@@ -283,26 +283,31 @@ flowchart TB
 
 Harness event types match `packages/shared/src/harness/harness-events.ts:6-57` exactly (token_usage, tool_call, completion, error, cost_update, pre_compaction). The pool does least-loaded selection with load tracking (`packages/server/src/harness/adapter-pool.ts:187-235`). Event-normalization mechanism, capability descriptor shape, discovery/session probes, and the MCP bridge are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
 
-## L2 - App Runtime And Agent Services
+## L2 - Knowledge (Core) And Agent Services
+
+AU11 dissolved the transitional `app-runtime/` shell (see [runtime-simplification](./runtime-simplification.md)) — context assembly and learning ingestion are agent-owned services; knowledge repository, relevance, and attention scoring are Core (`packages/server/src/knowledge/`).
 
 ```mermaid
 flowchart TB
-  AppRuntime["Server app-runtime"]
   AgentServices["Agent services"]
+  CoreKnowledge["Core: packages/server/src/knowledge/"]
 
-  AppRuntime --> ContextAssembly["Context assembly"]
-  AppRuntime --> LearningIngestion["Learning ingestion"]
-  AppRuntime --> AgentDefaults["Agent defaults"]
+  AgentServices --> ContextAssembly["Context assembly"]
+  AgentServices --> LearningIngestion["Learning ingestion"]
+  AgentServices --> AgentDefaults["Agent defaults"]
   AgentServices --> AgentSelection["Agent selection"]
   AgentServices --> BetDecompose["Bet decomposition request"]
   AgentServices --> AssistantForm["Assistant formation"]
 
-  ContextAssembly --> KnowledgeRepo["Knowledge repository"]
+  ContextAssembly --> KnowledgeRepo["Knowledge repository (Core)"]
   ContextAssembly --> PromptFiles["Prompt/context files"]
   LearningIngestion --> FileWatcher["File watcher"]
   FileWatcher --> Writeback["Writeback"]
-  KnowledgeRepo --> Relevance["Relevance scoring"]
-  KnowledgeRepo --> Attention["Attention scoring"]
+  KnowledgeRepo --> Relevance["Relevance scoring (Core)"]
+  KnowledgeRepo --> Attention["Attention scoring (Core)"]
+  CoreKnowledge -.owns.-> KnowledgeRepo
+  CoreKnowledge -.owns.-> Relevance
+  CoreKnowledge -.owns.-> Attention
 ```
 
 ## L2 - Integration Domain
@@ -399,21 +404,21 @@ Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified 
 
 ### Item router
 
-Pure function `routeItem` at `packages/server/src/app-runtime/services/item-router.ts` returning a target view; `routeToFounder` at `founder-router.ts` picks the recipient by agent role. Item shape and routing rules are owned by [items and routing](../human-interface-layer/items-and-routing.md). Notification policy is not the router's output — it lives in the notification services (`silence-policy.ts`, `notifications/dispatcher.ts`).
+Pure function `routeItem` at `packages/server/src/services/item-router.ts` (Core) returning a target view; `routeToFounder` at `packages/server/src/services/founder-router.ts` (Core) picks the recipient by agent role. Item shape and routing rules are owned by [items and routing](../human-interface-layer/items-and-routing.md). Notification policy is not the router's output — it lives in the notification services (`silence-policy.ts`, `notifications/dispatcher.ts`).
 
 ### Schedulers
 
-In-process `setInterval` services, no external workflow engine. Routine scheduler (`packages/server/src/app-runtime/services/routine-scheduler.ts`) fires cron/event/heartbeat triggers, honors silent routines; task dispatcher (`packages/server/src/app-runtime/services/task-dispatcher.ts`) starts sessions; dependency watcher (`packages/server/src/services/dependency-watcher.ts`) emits `dependency_met`. The scheduler never calls models — it reads the store and emits events.
+In-process `setInterval` services, no external workflow engine. Routine scheduler (`packages/server/src/services/routine-scheduler.ts`, Core) fires cron/event/heartbeat triggers, honors silent routines; task dispatcher (`packages/server/src/services/task-dispatcher.ts`, agent-owned) starts sessions; dependency watcher (`packages/server/src/services/dependency-watcher.ts`) emits `dependency_met`. The scheduler never calls models — it reads the store and emits events.
 
 Model tier selection: explicit param → agent `modelTierPreference` → `"workhorse"` (`session-provisioning.ts:663-673`); tier→model resolution via the model gateway. Vocabulary and catalog: [model routing and cost](../agent-layer/model-routing-and-cost.md).
 
 ### Cost sentinel
 
-Application code, not a routine row — extracted in AD8c and registered by the server app-runtime bootstrap precisely so it cannot be disabled from data (`packages/server/src/app-runtime/services/cost-sentinel.ts`). 15-minute tick, level-based dedupe via factory_settings key `cost_sentinel_last_level`; emits `cost_cap_warning` / `cost_cap_breached`. Cap grammar and hierarchy: [WIP and cost limits](../process-layer/wip-and-cost-limits.md).
+Application code, not a routine row — extracted in AD8c and registered (agent-owned) via `registerAgentLayerServices` in `server-factory.ts` precisely so it cannot be disabled from data (`packages/server/src/services/cost-sentinel.ts`). 15-minute tick, level-based dedupe via factory_settings key `cost_sentinel_last_level`; emits `cost_cap_warning` / `cost_cap_breached`. Cap grammar and hierarchy: [WIP and cost limits](../process-layer/wip-and-cost-limits.md).
 
 ### Knowledge Services
 
-See the L2 Knowledge Domain paragraph above; full design in [knowledge-architecture](../knowledge-architecture/index.md). App-runtime exports context assembly, writeback, promotion, attention scoring, and conflict resolution from `packages/server/src/app-runtime/` and `packages/server/src/services/agent-context/`. Search is escaped case-insensitive LIKE SQL (`routes/search.ts`) — no FTS5, no pgvector.
+See the L2 Knowledge Domain paragraph above; full design in [knowledge-architecture](../knowledge-architecture/index.md). Context assembly and writeback are agent-owned (`packages/server/src/services/`, `packages/server/src/services/agent-context/`); promotion, attention scoring, and conflict resolution are Core-owned (`packages/server/src/knowledge/`). Search is escaped case-insensitive LIKE SQL (`routes/search.ts`) — no FTS5, no pgvector.
 
 ### API layer
 
@@ -431,7 +436,7 @@ Per-session working directory under `HYPERIDLE_WORKSPACES_DIR` (`server-factory.
 
 ### Notifications
 
-`packages/server/src/app-runtime/services/notifications/`: ntfy, SMTP, and console adapters behind `adapter-factory.ts`; the dispatcher owns policy, mute, drain, redaction, and runs the daily digest on its own timer (`dispatcher.ts` -> `runDailyDigest`) — not via a routine. Primitive semantics and cadence discipline: [notification primitive](../human-interface-layer/notification-primitive.md).
+`packages/server/src/notifications/` (Core): ntfy, SMTP, and console adapters behind `adapter-factory.ts`; the dispatcher owns policy, mute, drain, redaction, and runs the daily digest on its own timer (`dispatcher.ts` -> `runDailyDigest`) — not via a routine. Primitive semantics and cadence discipline: [notification primitive](../human-interface-layer/notification-primitive.md).
 
 ### Observability
 

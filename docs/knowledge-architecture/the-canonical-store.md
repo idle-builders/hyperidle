@@ -46,7 +46,7 @@ App-runtime assigns a layer to items that participate in the maturity flow — l
 
 There is no `session` scope kind — L0 is the ephemeral per-session pack, never a `knowledge_items` row. Layer assignment is projection work; the creation flow never sets it.
 
-Items without a layer are invisible to context assembly — the agent context provider assembles only L4/L2/L3 items into agent sessions (`packages/server/src/app-runtime/context-assembly.ts`). Promoting a layer-less item means changing its scope to a layer-mapped scope kind.
+Items without a layer are invisible to context assembly — the agent context provider assembles only L4/L2/L3 items into agent sessions (`packages/server/src/services/context-assembly.ts`). Promoting a layer-less item means changing its scope to a layer-mapped scope kind.
 
 ## The axis rule
 
@@ -64,4 +64,4 @@ The process primitives (bets, tasks, sessions, teams, routines) stay in their ow
 
 ## Git is an export, never the source of truth
 
-The human-readable markdown files in the Git repo are **exports from the database**, produced by the git-export service — only `active`/`validated` items ship; drafts (`captured`, `provisional`, `needs_human`) and `archived` tombstones stay out (`packages/server/src/app-runtime/services/git-export.ts`). Git is the backup and audit trail; the database is canonical. Export structure and triggers are owned by [facilitators](facilitators.md).
+The human-readable markdown files in the Git repo are **exports from the database**, produced by the git-export service — only `active`/`validated` items ship; drafts (`captured`, `provisional`, `needs_human`) and `archived` tombstones stay out (`packages/server/src/services/git-export.ts`). Git is the backup and audit trail; the database is canonical. Export structure and triggers are owned by [facilitators](facilitators.md).
