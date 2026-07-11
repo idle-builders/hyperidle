@@ -370,7 +370,7 @@ The Assistant turn is the last agent surface where the Kernel used to hard-code 
 formAssistant(req: AssistantFormationRequest<TDb>): Promise<AssistantFormation>;
 ```
 
-- **Turn-time consultation, not creation-time.** The Kernel calls `getActiveStrategy().formAssistant({ db, userId, threadId })` once per assistant turn, before `provisionSession` (`assistant-turn.ts:558`). Switching the active Strategy changes the assistant's form for the *next* turn — no DB row update.
+- **Turn-time consultation, not creation-time.** The agent-layer assistant adapter resolves formation after claiming the durable assistant intent and before provisioning (`agent-work-assistant.ts`). No formation value is persisted to the user row.
 - **`AssistantFormation` = `{ persona: string | null, assistantDraftSurface: "standard" }`.** `persona: null` means "use the agent row's `systemPrompt` as-is"; a non-null value overrides it for this turn's assembled prompt only (carried via `systemPromptOverride` to `provisionSession` — never persisted to the users row).
 - **`assistantDraftSurface` is a server-interpretable marker, not a `ToolRegistry`** — `@hyperidle/shared` stays db-agnostic (a `ToolRegistry` is a server type; carrying it would invert the dependency direction). The Kernel maps `"standard"` to `buildAssistantDraftRegistry` — the canonical 2-tool surface (`create_bet` + `edit_bet`).
 - **Boundary rule (founder-locked):** the formation answer MUST NOT set `harnessType` or `modelId` — those are Kernel/Settings. Formation carries only persona + tool surface (the WHO), never the HOW.

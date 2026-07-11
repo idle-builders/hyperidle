@@ -1,8 +1,16 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, routineRuns, routines, sessions, users } from "@hyperidle/db";
 import {
+	agentSessionRequests,
+	type HyperIdleDb,
+	routineRuns,
+	routines,
+	sessions,
+	users,
+} from "@hyperidle/db";
+import {
+	type AgentSessionSourceKind,
 	ConcurrencyLimitError,
 	type EventBus,
 	type ModelTier,
@@ -13,6 +21,172 @@ import { and, eq, sql } from "drizzle-orm";
 import type { IngestionHandle } from "../app-runtime/contracts.js";
 import { releaseSessionDedup } from "../app-runtime/services/cost-cap.js";
 import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
+import { terminalizeAgentSessionRequestInTx } from "./agent-session-requests.js";
+
+export const TERMINATION_REASONS = [
+	"user_done",
+	"user_crashed",
+	"handoff",
+	"cost_cap",
+	"shutdown",
+] as const;
+export type AgentTerminationReason = (typeof TERMINATION_REASONS)[number];
+
+export const TERMINATION_PRECEDENCE = {
+	terminal: "wins",
+	handoff: "atomic_completed",
+	repeated_cause: "idempotent",
+	competing_cause: "conflict",
+	natural_completion_with_reason: "rejected",
+} as const;
+
+export const TERMINATION_DISPOSITIONS = {
+	user_done: { state: "cancelled", failureCode: null },
+	user_crashed: { state: "failed", failureCode: null },
+	handoff: { state: "completed", failureCode: null },
+	cost_cap: { state: "failed", failureCode: "BUDGET_EXHAUSTED" },
+	shutdown: { state: "failed", failureCode: "RUNTIME_LOST" },
+} as const;
+
+export async function requestAgentTermination(
+	db: HyperIdleDb,
+	input: { requestId: string; reason: AgentTerminationReason; requestedBy?: string },
+): Promise<"accepted" | "idempotent" | "conflict" | "terminal"> {
+	const [request] = await db
+		.select()
+		.from(agentSessionRequests)
+		.where(eq(agentSessionRequests.id, input.requestId))
+		.limit(1);
+	if (!request) throw new Error(`Unknown agent request ${input.requestId}`);
+	if (["completed", "failed", "cancelled"].includes(request.status)) return "terminal";
+	if (request.terminationReason === input.reason) return "idempotent";
+	if (request.terminationReason) return "conflict";
+	const now = new Date().toISOString();
+	const updated = await db
+		.update(agentSessionRequests)
+		.set({
+			terminationReason: input.reason,
+			terminationRequestedAt: now,
+			terminationRequestedBy: input.requestedBy ?? null,
+			updatedAt: now,
+		})
+		.where(
+			and(
+				eq(agentSessionRequests.id, input.requestId),
+				eq(agentSessionRequests.status, "running"),
+				sql`${agentSessionRequests.terminationReason} is null`,
+			),
+		)
+		.returning({ id: agentSessionRequests.id });
+	return updated.length === 1 ? "accepted" : "conflict";
+}
+
+/** @lore AU9: recovery reads the durable reason; abort signals never define outcome. */
+export async function recoverRequestedTerminations(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+): Promise<number> {
+	const requests = await db
+		.select()
+		.from(agentSessionRequests)
+		.where(
+			and(
+				eq(agentSessionRequests.status, "running"),
+				sql`${agentSessionRequests.terminationReason} is not null`,
+			),
+		);
+	let recovered = 0;
+	for (const request of requests) {
+		const reason = request.terminationReason as AgentTerminationReason;
+		const disposition = TERMINATION_DISPOSITIONS[reason];
+		await transitionAgentRunLifecycle(db, eventBus, {
+			requestId: request.id,
+			state: disposition.state,
+			sessionId: request.sessionId ?? undefined,
+			failureCode: disposition.failureCode ?? undefined,
+		});
+		recovered += 1;
+	}
+	return recovered;
+}
+
+/**
+ * @lore AU9 R1: this is the sole orchestration entrypoint agent-runtime call sites use
+ * for a terminal transition (natural completion/failure, detached-runtime failure,
+ * PATCH/handoff/shutdown/cost-cap disposition, running-recovery). It composes the
+ * single low-level writer (`terminalizeAgentSessionRequestInTx`) inside one
+ * transaction that FIRST re-reads the durable termination reason: teardown never
+ * infers cause from an in-memory abort — if a reason is already stored, that
+ * disposition wins over the caller's natural-completion guess (precedence:
+ * "once a reason exists, teardown disposition wins"). `sessionId` selects the
+ * post-admission precondition; `claimToken` (used when `sessionId` is absent)
+ * selects the pre-admission precondition for a failure caught before
+ * `markRequestRunning` ever ran.
+ */
+export async function transitionAgentRunLifecycle(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	input: {
+		readonly requestId: string;
+		readonly state: "completed" | "failed" | "cancelled";
+		readonly sessionId?: string;
+		readonly claimToken?: string;
+		readonly failureCode?: string;
+		readonly errorMessage?: string;
+	},
+): Promise<void> {
+	const row = await db.transaction(async (tx) => {
+		const [current] = await tx
+			.select({ terminationReason: agentSessionRequests.terminationReason })
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.id, input.requestId))
+			.limit(1);
+		if (!current) return null;
+		const reason = current.terminationReason as AgentTerminationReason | null;
+		const disposition = reason ? TERMINATION_DISPOSITIONS[reason] : null;
+		const effectiveState = disposition?.state ?? input.state;
+		const effectiveFailureCode = disposition
+			? (disposition.failureCode ?? undefined)
+			: input.failureCode;
+		if (input.sessionId) {
+			return terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, {
+				requestId: input.requestId,
+				precondition: "running",
+				sessionId: input.sessionId,
+				state: effectiveState,
+				failureCode: effectiveFailureCode,
+				errorMessage: input.errorMessage,
+				requireNoTerminationReason: !reason && effectiveState === "completed",
+			});
+		}
+		if (!input.claimToken) {
+			throw new Error(
+				`transitionAgentRunLifecycle requires sessionId or claimToken for ${input.requestId}`,
+			);
+		}
+		return terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, {
+			requestId: input.requestId,
+			precondition: "claimed",
+			claimToken: input.claimToken,
+			state: "failed",
+			failureCode: effectiveFailureCode,
+			errorMessage: input.errorMessage,
+		});
+	});
+	if (!row) throw new Error(`Unknown agent request ${input.requestId}`);
+	// @lore AU9: persistence precedes publication so domain projections can always
+	// reload the terminal truth; execution callbacks never cross into core domains.
+	eventBus.emit({
+		type: "agent_run_lifecycle_changed",
+		streamId: row.streamId,
+		requestId: row.id,
+		sourceKind: row.sourceKind as AgentSessionSourceKind,
+		sourceId: row.sourceId,
+		state: row.status as "completed" | "failed" | "cancelled",
+		sessionId: row.sessionId ?? undefined,
+		timestamp: Date.now(),
+	});
+}
 
 export interface CreateSessionParams {
 	taskId: string;

@@ -49,7 +49,7 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
-import type { AssistantTurnDeps } from "./services/assistant-turn.js";
+import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
 import { getServerSecret } from "./services/credential-encryption.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import { checkAndUnblockDependents } from "./services/dependency-watcher.js";
@@ -409,7 +409,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
-		api.route("/threads", createThreadRoutes(options.db, eventBus, options.assistantTurnDeps));
+		api.route("/threads", createThreadRoutes(options.db, eventBus));
 		api.route("/users", createUserRoutes(options.db, eventBus, options.adapterPool));
 		api.route("/org", createOrgRoutes(options.db));
 		api.route(

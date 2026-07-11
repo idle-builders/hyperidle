@@ -1,6 +1,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import { setupFts } from "./fts.js";
+import { startAgentLifecycleProjectionDrain } from "./services/agent-lifecycle-projectors.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routines.js";
 import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
@@ -83,6 +84,7 @@ export function bootstrapAppRuntime(ctx: {
 }): Array<() => void> {
 	const { db, eventBus } = ctx;
 	const disposers: Array<() => void> = [];
+	disposers.push(startAgentLifecycleProjectionDrain(db));
 
 	// AF9 Task 3b: fire-and-forget FTS setup at every boot so the fts_vector
 	// column exists even when production createServer skips the drizzle migrator.

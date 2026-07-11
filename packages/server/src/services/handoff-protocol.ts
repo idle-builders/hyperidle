@@ -1,9 +1,11 @@
 import * as crypto from "node:crypto";
 import {
+	agentSessionRequests,
 	type HyperIdleDb,
 	items,
 	messages,
 	sessions,
+	taskDispatchAttempts,
 	tasks,
 	teamMembers,
 	threads,
@@ -12,7 +14,8 @@ import {
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { releaseSessionDedup } from "../app-runtime/services/cost-cap.js";
-import type { SessionContext } from "./session-lifecycle.js";
+import { recordAgentWorkIntent } from "./agent-work-intents.js";
+import { requestAgentTermination, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
 import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { InvalidTransitionError, VALID_TRANSITIONS } from "./task-state-machine.js";
@@ -98,6 +101,17 @@ export async function handoff(
 	if (!(params.toHuman || params.toAgent || params.toRole)) {
 		throw new Error("One of toAgent, toRole, or toHuman must be specified");
 	}
+	const [correlatedRequest] = await db
+		.select({ id: agentSessionRequests.id })
+		.from(agentSessionRequests)
+		.where(eq(agentSessionRequests.sessionId, sessionContext.sessionId))
+		.limit(1);
+	if (correlatedRequest)
+		await requestAgentTermination(db, {
+			requestId: correlatedRequest.id,
+			reason: "handoff",
+			requestedBy: sessionContext.agentId,
+		});
 
 	// Events captured inside the tx and emitted AFTER commit. Order:
 	//   1. task_state_changed (toHuman only, via the inlined transition)
@@ -308,6 +322,32 @@ export async function handoff(
 				updatedAt: now,
 			})
 			.where(eq(tasks.id, task.id));
+
+		if (txResult.targetAgentId) {
+			const existing = await tx
+				.select({ id: taskDispatchAttempts.id })
+				.from(taskDispatchAttempts)
+				.where(eq(taskDispatchAttempts.taskId, task.id));
+			const attemptId = crypto.randomUUID();
+			await tx.insert(taskDispatchAttempts).values({
+				id: attemptId,
+				taskId: task.id,
+				occasion: "owner_handoff",
+				agentId: txResult.targetAgentId,
+				predecessorSessionId: sessionContext.sessionId,
+				ordinal: existing.length + 1,
+				status: "requested",
+				createdAt: now,
+				updatedAt: now,
+			});
+			await recordAgentWorkIntent(tx as HyperIdleDb, {
+				kind: "task_run",
+				sourceKind: "task_dispatch_attempt",
+				sourceId: attemptId,
+				requestedBy: txResult.targetAgentId,
+				idempotencyKey: `task-dispatch:${attemptId}`,
+			});
+		}
 
 		return txResult;
 	});

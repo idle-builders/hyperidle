@@ -2,6 +2,37 @@ import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./se
 import type { HostKind, MessageType } from "./thread.js";
 import type { BetStatus, TaskState } from "./types.js";
 
+export type AgentWorkIntentKind =
+	| "assistant_turn"
+	| "session_start"
+	| "knowledge_action"
+	| "routine_run"
+	| "bet_decomposition"
+	| "task_run"
+	| "reengagement";
+
+export interface AgentWorkIntentEvent {
+	readonly type: "agent_work_intent_recorded";
+	readonly streamId: string;
+	readonly intentId: string;
+	readonly intentKind: AgentWorkIntentKind;
+	readonly sourceKind: AgentSessionSourceKind | "explicit_session_start";
+	readonly sourceId: string;
+	readonly idempotencyKey: string;
+	readonly timestamp: number;
+}
+
+export interface AgentRunLifecycleChangedEvent {
+	readonly type: "agent_run_lifecycle_changed";
+	readonly streamId: string;
+	readonly requestId: string;
+	readonly sourceKind: AgentSessionSourceKind;
+	readonly sourceId: string;
+	readonly state: "completed" | "failed" | "cancelled";
+	readonly sessionId?: string;
+	readonly timestamp: number;
+}
+
 // --- Event type discriminants ---
 
 export interface TaskStateChangedEvent {
@@ -461,6 +492,8 @@ export interface ProposedCallGrantedEvent {
  * without a default case.
  */
 export type KernelEvent =
+	| AgentWorkIntentEvent
+	| AgentRunLifecycleChangedEvent
 	| TaskStateChangedEvent
 	| BetStateChangedEvent
 	| BetRevisedEvent

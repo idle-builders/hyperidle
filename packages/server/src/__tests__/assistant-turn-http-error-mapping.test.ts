@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from "vitest";
 import { HttpError } from "../harness/llm-client.js";
-import { mapErrorToNotice } from "../services/assistant-turn.js";
+import { mapErrorToNotice } from "../services/agent-work-assistant.js";
 
 describe("mapErrorToNotice — HttpError mapping", () => {
 	it("HttpError 401 returns auth notice with key guidance, not temporary-error copy", () => {

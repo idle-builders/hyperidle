@@ -1,6 +1,8 @@
-import { type HyperIdleDb, tasks } from "@hyperidle/db";
+import { randomUUID } from "node:crypto";
+import { type HyperIdleDb, taskDispatchAttempts, tasks } from "@hyperidle/db";
 import type { EventBus, TaskState } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
+import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 
 /** Map of each state to its valid target states. `killed` is always valid. */
@@ -57,6 +59,7 @@ export async function transitionTask(
 	eventBus: EventBus,
 	taskId: string,
 	toState: TaskState,
+	dispatchOccasion?: "accepted" | "retry",
 ): Promise<void> {
 	const transitioned = await db.transaction(
 		async (tx): Promise<{ fromState: TaskState } | null> => {
@@ -97,6 +100,31 @@ export async function transitionTask(
 			// of `fromState`. Throwing rolls back the tx (no partial state/audit write).
 			if (updated.length === 0) {
 				throw new InvalidTransitionError(taskId, fromState, toState);
+			}
+
+			if (toState === "accepted" && task.ownerAgentId) {
+				const existing = await tx
+					.select({ id: taskDispatchAttempts.id })
+					.from(taskDispatchAttempts)
+					.where(eq(taskDispatchAttempts.taskId, task.id));
+				const attemptId = randomUUID();
+				await tx.insert(taskDispatchAttempts).values({
+					id: attemptId,
+					taskId: task.id,
+					occasion: dispatchOccasion ?? (fromState === "hold" ? "retry" : "accepted"),
+					agentId: task.ownerAgentId,
+					ordinal: existing.length + 1,
+					status: "requested",
+					createdAt: entry.timestamp,
+					updatedAt: entry.timestamp,
+				});
+				await recordAgentWorkIntent(tx as HyperIdleDb, {
+					kind: "task_run",
+					sourceKind: "task_dispatch_attempt",
+					sourceId: attemptId,
+					requestedBy: task.ownerAgentId,
+					idempotencyKey: `task-dispatch:${attemptId}`,
+				});
 			}
 
 			return { fromState };

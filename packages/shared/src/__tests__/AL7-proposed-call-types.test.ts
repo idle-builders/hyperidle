@@ -182,6 +182,10 @@ describe("T4: exhaustive KernelEvent switch handles proposed_call_granted (AC13)
 		// AL7 renames operation_executed → proposed_call_executed and adds proposed_call_granted.
 		function handleEvent(event: KernelEvent): string {
 			switch (event.type) {
+				case "agent_work_intent_recorded":
+					return "agent_work_intent_recorded";
+				case "agent_run_lifecycle_changed":
+					return "agent_run_lifecycle_changed";
 				case "task_state_changed":
 					return "task_state_changed";
 				case "bet_state_changed":

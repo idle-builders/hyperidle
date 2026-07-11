@@ -302,7 +302,7 @@ export const sessions = pgTable(
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),
-		index("sessions_request_id_idx").on(table.requestId),
+		uniqueIndex("sessions_request_id_uq").on(table.requestId),
 		index("sessions_source_idx").on(table.sourceKind, table.sourceId),
 		index("sessions_agent_id_idx").on(table.agentId),
 		index("sessions_state_idx").on(table.state),
@@ -331,7 +331,11 @@ export const agentSessionRequests = pgTable(
 		claimedBy: text("claimed_by"),
 		claimedAt: text("claimed_at"),
 		claimExpiresAt: text("claim_expires_at"),
+		claimToken: text("claim_token"),
 		sessionId: text("session_id"),
+		terminationReason: text("termination_reason"),
+		terminationRequestedAt: text("termination_requested_at"),
+		terminationRequestedBy: text("termination_requested_by"),
 		errorCode: text("error_code"),
 		errorMessage: text("error_message"),
 		createdAt: text("created_at").notNull(),
@@ -346,6 +350,223 @@ export const agentSessionRequests = pgTable(
 		index("agent_session_requests_status_created_idx").on(table.status, table.createdAt),
 		index("agent_session_requests_source_idx").on(table.sourceKind, table.sourceId),
 		index("agent_session_requests_claim_expires_idx").on(table.claimExpiresAt),
+		/**
+		 * @lore AU9 durable-rows: running requires a session; claimed requires the
+		 * token+expiry pair; closed (terminal) statuses forbid a live claim. Pending
+		 * is permissive of session/claim absence (covered by the `running`/`claimed`
+		 * branches being false — falls through to the closed-status branch is wrong,
+		 * so pending is named explicitly).
+		 */
+		check(
+			"agent_session_requests_correlation_ck",
+			sql`
+				(${table.status} = 'running' and ${table.sessionId} is not null)
+				or (${table.status} = 'claimed' and ${table.claimToken} is not null and ${table.claimExpiresAt} is not null)
+				or (${table.status} = 'pending')
+				or (${table.status} in ('completed', 'failed', 'cancelled') and ${table.claimToken} is null and ${table.claimExpiresAt} is null)
+			`,
+		),
+		check(
+			"agent_session_requests_termination_reason_ck",
+			sql`${table.terminationReason} is null or ${table.terminationReason} in ('user_done', 'user_crashed', 'handoff', 'cost_cap', 'shutdown')`,
+		),
+	],
+);
+
+/**
+ * Durable neutral handoff between core domain writes and the agent runtime.
+ * @lore AU9: EventBus delivery is only a latency hint. This row is mandatory because
+ * process death between a domain commit and an in-memory emit must not lose work.
+ */
+export const agentWorkIntents = pgTable(
+	"agent_work_intents",
+	{
+		id: text("id").primaryKey(),
+		kind: text("kind").notNull(),
+		sourceKind: text("source_kind").notNull(),
+		sourceId: text("source_id").notNull(),
+		requestedBy: text("requested_by"),
+		idempotencyKey: text("idempotency_key").notNull(),
+		status: text("status").notNull().default("pending"),
+		claimToken: text("claim_token"),
+		claimExpiresAt: text("claim_expires_at"),
+		requestId: text("request_id").references(() => agentSessionRequests.id, {
+			onDelete: "restrict",
+		}),
+		attempts: integer("attempts").notNull().default(0),
+		lastError: text("last_error"),
+		lastErrorCode: text("last_error_code"),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("agent_work_intents_identity_uq").on(
+			table.kind,
+			table.sourceKind,
+			table.sourceId,
+			table.idempotencyKey,
+		),
+		uniqueIndex("agent_work_intents_request_id_uq")
+			.on(table.requestId)
+			.where(sql`${table.requestId} is not null`),
+		index("agent_work_intents_status_created_idx").on(table.status, table.createdAt),
+		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
+		check(
+			"agent_work_intents_kind_ck",
+			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','bet_decomposition','task_run','reengagement')`,
+		),
+		check(
+			"agent_work_intents_source_kind_ck",
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','bet','task_dispatch_attempt','proposed_call')`,
+		),
+		check(
+			"agent_work_intents_status_ck",
+			sql`${table.status} in ('pending','claimed','handed_off','failed')`,
+		),
+		/** @lore AU9 durable-rows: kind/source compatibility is a closed pairing map (§Family atomic enqueue). */
+		check(
+			"agent_work_intents_kind_source_compat_ck",
+			sql`
+				(${table.kind} = 'assistant_turn' and ${table.sourceKind} = 'thread_message')
+				or (${table.kind} = 'session_start' and ${table.sourceKind} = 'explicit_session_start')
+				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
+				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
+				or (${table.kind} = 'bet_decomposition' and ${table.sourceKind} = 'bet')
+				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
+				or (${table.kind} = 'reengagement' and ${table.sourceKind} = 'proposed_call')
+			`,
+		),
+		/**
+		 * @lore AU9 durable-rows: one closed per-status correlation check — pending
+		 * forbids claim/correlation fields; claimed requires token+expiry and forbids
+		 * request correlation; handed_off requires request_id; failed requires a
+		 * stable last_error_code.
+		 */
+		check(
+			"agent_work_intents_correlation_ck",
+			sql`
+				(${table.status} = 'pending' and ${table.claimToken} is null and ${table.claimExpiresAt} is null and ${table.requestId} is null)
+				or (${table.status} = 'claimed' and ${table.claimToken} is not null and ${table.claimExpiresAt} is not null and ${table.requestId} is null)
+				or (${table.status} = 'handed_off' and ${table.requestId} is not null)
+				or (${table.status} = 'failed' and ${table.lastErrorCode} is not null)
+			`,
+		),
+	],
+);
+
+export const explicitSessionStarts = pgTable(
+	"explicit_session_starts",
+	{
+		id: text("id").primaryKey(),
+		taskId: text("task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "restrict" }),
+		requestedAgentId: text("requested_agent_id").notNull(),
+		requestedModelTier: text("requested_model_tier").notNull(),
+		requestedBy: text("requested_by")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
+		idempotencyKey: text("idempotency_key").notNull(),
+		status: text("status").notNull().default("requested"),
+		requestId: text("request_id").references(() => agentSessionRequests.id),
+		sessionId: text("session_id").references(() => sessions.id),
+		failureCode: text("failure_code"),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("explicit_session_starts_requester_key_uq").on(
+			table.requestedBy,
+			table.idempotencyKey,
+		),
+		index("explicit_session_starts_status_idx").on(table.status, table.createdAt),
+		check(
+			"explicit_session_starts_model_tier_ck",
+			sql`${table.requestedModelTier} in ('reasoning','workhorse','fast')`,
+		),
+		check(
+			"explicit_session_starts_status_ck",
+			sql`${table.status} in ('requested','admitted','completed','failed','cancelled')`,
+		),
+		check(
+			"explicit_session_starts_correlation_ck",
+			sql`(${table.status} = 'requested' and ${table.requestId} is null and ${table.sessionId} is null and ${table.failureCode} is null) or (${table.status} in ('admitted','completed') and ${table.requestId} is not null and ${table.sessionId} is not null) or (${table.status} = 'failed' and ${table.failureCode} is not null) or (${table.status} = 'cancelled' and ${table.requestId} is not null)`,
+		),
+	],
+);
+
+/** @lore AU9: A task ID cannot identify retries or ownership handoffs; each dispatch
+ * occasion is durable so replay can reuse it without suppressing later attempts. */
+export const taskDispatchAttempts = pgTable(
+	"task_dispatch_attempts",
+	{
+		id: text("id").primaryKey(),
+		taskId: text("task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "restrict" }),
+		occasion: text("occasion").notNull(),
+		agentId: text("agent_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
+		predecessorSessionId: text("predecessor_session_id").references(() => sessions.id, {
+			onDelete: "restrict",
+		}),
+		ordinal: integer("ordinal").notNull(),
+		status: text("status").notNull().default("requested"),
+		requestId: text("request_id").references(() => agentSessionRequests.id, {
+			onDelete: "restrict",
+		}),
+		sessionId: text("session_id").references(() => sessions.id, { onDelete: "restrict" }),
+		createdAt: text("created_at").notNull(),
+		updatedAt: text("updated_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("task_dispatch_attempts_task_ordinal_uq").on(table.taskId, table.ordinal),
+		index("task_dispatch_attempts_status_idx").on(table.status, table.createdAt),
+		check(
+			"task_dispatch_attempts_occasion_ck",
+			sql`${table.occasion} in ('accepted','retry','owner_handoff')`,
+		),
+		check(
+			"task_dispatch_attempts_status_ck",
+			sql`${table.status} in ('requested','running','completed','failed','cancelled')`,
+		),
+	],
+);
+
+/** Neutral durable lifecycle fact. Core projectors acknowledge it via projectedAt. */
+export const agentLifecycleInbox = pgTable(
+	"agent_lifecycle_inbox",
+	{
+		requestId: text("request_id")
+			.primaryKey()
+			.references(() => agentSessionRequests.id, { onDelete: "restrict" }),
+		sourceKind: text("source_kind").notNull(),
+		sourceId: text("source_id").notNull(),
+		state: text("state").notNull(),
+		sessionId: text("session_id"),
+		failureCode: text("failure_code"),
+		occurredAt: text("occurred_at").notNull(),
+		projectedAt: text("projected_at"),
+		claimToken: text("claim_token"),
+		claimExpiresAt: text("claim_expires_at"),
+		attempts: integer("attempts").notNull().default(0),
+		lastError: text("last_error"),
+	},
+	(table) => [
+		index("agent_lifecycle_inbox_projection_idx").on(table.projectedAt, table.occurredAt),
+		check(
+			"agent_lifecycle_inbox_state_ck",
+			sql`${table.state} in ('completed','failed','cancelled')`,
+		),
+		check(
+			"agent_lifecycle_inbox_source_kind_ck",
+			sql`${table.sourceKind} in ('assistant','task','knowledge','routine','decomposition','proposed_call','explicit_session_start')`,
+		),
+		check(
+			"agent_lifecycle_inbox_claim_ck",
+			sql`(${table.claimToken} is null and ${table.claimExpiresAt} is null) or (${table.claimToken} is not null and ${table.claimExpiresAt} is not null)`,
+		),
 	],
 );
 
@@ -1383,6 +1604,9 @@ export type NewSession = typeof sessions.$inferInsert;
 
 export type AgentSessionRequest = typeof agentSessionRequests.$inferSelect;
 export type NewAgentSessionRequest = typeof agentSessionRequests.$inferInsert;
+export type AgentWorkIntent = typeof agentWorkIntents.$inferSelect;
+export type NewAgentWorkIntent = typeof agentWorkIntents.$inferInsert;
+export type ExplicitSessionStart = typeof explicitSessionStarts.$inferSelect;
 
 export type TriggerResolutionHistoryRow = typeof triggerResolutionHistory.$inferSelect;
 export type NewTriggerResolutionHistoryRow = typeof triggerResolutionHistory.$inferInsert;
@@ -1523,3 +1747,8 @@ export const serviceConnections = pgTable(
 
 export type ServiceConnectionRow = typeof serviceConnections.$inferSelect;
 export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
+
+export type TaskDispatchAttempt = typeof taskDispatchAttempts.$inferSelect;
+export type NewTaskDispatchAttempt = typeof taskDispatchAttempts.$inferInsert;
+export type AgentLifecycleInboxRow = typeof agentLifecycleInbox.$inferSelect;
+export type NewAgentLifecycleInboxRow = typeof agentLifecycleInbox.$inferInsert;

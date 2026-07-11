@@ -373,16 +373,16 @@ flowchart TB
   Provision --> AdapterPool["AdapterPool"]
   AdapterPool --> HarnessAdapter["HarnessAdapter"]
 
-  BetActive["Bet becomes active"] --> Decomposition["Bet decomposition"]
-  Decomposition --> DirectAdapterRun["Direct adapter.startSession\nPM decomposition run"]
-  DirectAdapterRun --> HarnessAdapter
+  BetActive["Bet becomes active"] --> DecompositionIntent["Durable decomposition intent"]
+  DecompositionIntent --> AgentRequest["Agent-layer session request"]
+  AgentRequest --> HarnessAdapter
 
   HarnessAdapter --> Builtin["Builtin harness"]
   HarnessAdapter --> CLI["CLI harness"]
   HarnessAdapter --> Remote["Remote harness"]
 ```
 
-Two agent-run entry paths exist: `provisionSession` (tasks, routines, assistant turns — `session-provisioning.ts`, `assistant-turn.ts:55`) and `runBetDecomposition` branch 3, which calls `adapter.startSession` directly for the PM decomposition run (`bet-decomposition.ts:634`).
+All agent-run entry families persist a durable work intent. The agent layer reloads domain truth, resolves a trigger, creates an idempotent session request, and executes through `session-provisioning.ts`. Assistant preparation lives in `agent-work-assistant.ts`; decomposition no longer calls an adapter from its domain service.
 
 ## Component Inventory
 

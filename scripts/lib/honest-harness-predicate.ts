@@ -77,6 +77,7 @@ export const EXPLICIT_HARNESS_INTEGRATION: readonly string[] = [
  */
 export const BUILTIN_ONLY_INTEGRATION: readonly string[] = [
 	"__tests__/AV1-assistant-ready.integration.test.ts",
+	"harness/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
 ];
 
 /** Harness-dir integration suffix: `…/harness/__tests__/<anything>.integration.test.ts`. */

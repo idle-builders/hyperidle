@@ -193,10 +193,9 @@ describe("Routine Endpoints (E6)", () => {
 
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.fired).toBe(true);
-			expect(typeof body.requestId).toBe("string");
+			expect(typeof body.runId).toBe("string");
 
-			// AU1: without full runtime deps, manual trigger records a request but
-			// does not fabricate a direct session.
+			// Durable handoff records a run+intent; request creation belongs to the worker.
 			const allSessions = await db.select().from(sessions);
 			expect(allSessions).toHaveLength(0);
 

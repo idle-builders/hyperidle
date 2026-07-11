@@ -12,6 +12,7 @@
  */
 
 import {
+	agentWorkIntents,
 	artifacts,
 	bets,
 	type Message as DbMessage,
@@ -55,8 +56,6 @@ import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import type { AssistantTurnDeps } from "../services/assistant-turn.js";
-import { persistTurnFailure, runAssistantTurn } from "../services/assistant-turn.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
 import { createAssistantThreadRoute } from "./assistant.js";
@@ -611,19 +610,7 @@ function err(
 	return { body: { error, code }, status };
 }
 
-/**
- * AH3: Optional assistant turn deps. When present, a human plain message
- * on the assistant thread fires runAssistantTurn (fire-and-forget).
- * When absent (pure-unit tests, chrome tests), the trigger is a no-op.
- *
- * @lore AH3 §1.5: AH5's real-model lane MUST pass these deps into its
- * server boot or the live path silently no-ops. Required step in AH5.
- */
-export function createThreadRoutes(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	assistantTurnDeps?: AssistantTurnDeps,
-): Hono<HyperIdleEnv> {
+export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// --- GET /api/threads/assistant ----------------------------------------
@@ -1261,6 +1248,10 @@ export function createThreadRoutes(
 
 			const wasResolved = threadRow.resolvedAt !== null;
 			const willReopen = wasResolved && (input.type === "review" || input.type === "questionnaire");
+			const recordsAssistantIntent =
+				input.type === "plain" &&
+				!senderId.startsWith("ast-") &&
+				isAssistantThread(threadRow.hostKind, threadRow.hostId, participants);
 
 			// L1 step9 (Adv-W4): first-verdict-wins via WHERE resolvedAt IS NULL.
 			// @lore PGlite: transaction callback is async. .changes is SQLite-only —
@@ -1282,6 +1273,19 @@ export function createThreadRoutes(
 						blockId: appendBlockId,
 						createdAt: now,
 					});
+					if (recordsAssistantIntent) {
+						await tx.insert(agentWorkIntents).values({
+							id: crypto.randomUUID(),
+							kind: "assistant_turn",
+							sourceKind: "thread_message",
+							sourceId: messageId,
+							requestedBy: senderId,
+							idempotencyKey: `assistant:${messageId}`,
+							status: "pending",
+							createdAt: now,
+							updatedAt: now,
+						});
+					}
 
 					// AE5: Atomically add new participants from @mentions.
 					// Concept hard rule #2: participant addition is atomic with message write.
@@ -1344,27 +1348,11 @@ export function createThreadRoutes(
 			};
 			eventBus.emit(appendedEvent);
 
-			// AH3 §1.5: Fire assistant turn for human plain messages on the assistant thread.
-			// Guard: only trigger when sender is human (not ast-*), message is plain,
-			// and the thread is the assistant thread. Fire-and-forget — POST returns 201
-			// immediately; reply arrives via WS.
-			//
-			// @lore AH3 §1.5: assistantTurnDeps is optional — when absent (chrome tests,
-			// kernel-only mode), the trigger is a no-op. AH5 supplies real deps in its
-			// server boot. Re-entrancy is guarded inside runAssistantTurn (in-memory set).
-			if (
-				assistantTurnDeps &&
-				input.type === "plain" &&
-				!senderId.startsWith("ast-") &&
-				isAssistantThread(threadRow.hostKind, threadRow.hostId, participants)
-			) {
-				const hostUserId = threadRow.hostId;
-				void runAssistantTurn(assistantTurnDeps, {
-					userId: hostUserId,
-					threadId,
-					triggerMessageId: messageId,
-				}).catch((e: unknown) => persistTurnFailure(db, eventBus, hostUserId, threadId, e));
-			}
+			// @lore AU9: the assistant turn is no longer fired from this route — a
+			// human plain message on the assistant thread instead atomically records
+			// an agent_work_intents row above (recordsAssistantIntent), and the agent
+			// layer's intent drain resolves/creates/executes the request. This route
+			// has no assistant-execution dependency at all.
 
 			if (input.type === "verdict" && resolvesMessageRow) {
 				const resolvedEvent: ThreadResolvedEvent = {

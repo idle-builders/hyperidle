@@ -37,6 +37,7 @@ import {
 } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
+	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
 	type EventBus,
 	type KnowledgeAccessedEvent,
@@ -55,8 +56,8 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { escapeLikePattern } from "../services/like-escape.js";
-import { createTriggeredAgentSessionRequest } from "../services/trigger-resolution.js";
 
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation
@@ -1137,21 +1138,31 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const now = new Date().toISOString();
 			// O2: no attentionScore write (column stripped). Flag is recorded in the edit log.
 			// Status set to "draft" so flagged items re-enter the review queue.
-			await db
-				.update(knowledgeItems)
-				.set({ status: "draft", updatedAt: now })
-				.where(eq(knowledgeItems.id, id));
-
-			// Edit log — include flag reason
-			await db.insert(knowledgeEditLog).values({
-				id: crypto.randomUUID(),
-				itemId: id,
-				editor: item.updatedBy,
-				field: "status",
-				oldValue: item.status,
-				newValue: `flagged (reason: ${body.reason})`,
-				editType: "flag",
-				createdAt: now,
+			const editId = crypto.randomUUID();
+			let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
+			await db.transaction(async (tx) => {
+				await tx
+					.update(knowledgeItems)
+					.set({ status: "draft", updatedAt: now })
+					.where(eq(knowledgeItems.id, id));
+				await tx.insert(knowledgeEditLog).values({
+					id: editId,
+					itemId: id,
+					editor: item.updatedBy,
+					field: "status",
+					oldValue: item.status,
+					newValue: `flagged (reason: ${body.reason})`,
+					editType: "flag",
+					createdAt: now,
+				});
+				if (body.agentId)
+					intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
+						kind: "knowledge_action",
+						sourceKind: "knowledge_action",
+						sourceId: `knowledge:${id}`,
+						requestedBy: body.agentId,
+						idempotencyKey: `knowledge:${id}:review:${editId}`,
+					});
 			});
 
 			const [updated] = await db
@@ -1170,22 +1181,17 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			};
 			eventBus.emit(flaggedEvent);
 
-			if (body.agentId) {
-				await createTriggeredAgentSessionRequest(db, {
-					eventType: "knowledge.action",
+			if (body.agentId && intent) {
+				eventBus.emit({
+					type: "agent_work_intent_recorded",
+					streamId: `knowledge:${id}`,
+					intentId: intent.id,
+					intentKind: "knowledge_action",
 					sourceKind: "knowledge",
 					sourceId: `knowledge:${id}`,
-					streamId: `knowledge:${id}`,
-					defaultAgentId: body.agentId,
-					idempotencyKey: `knowledge:${id}:review:${updated?.version ?? item.version + 1}`,
-					payload: { reason: body.reason },
-					sourceCorrelation: {
-						knowledgeItemId: id,
-						action: "review",
-						...(item.scopeKind === "team" && item.scopeId ? { teamId: item.scopeId } : {}),
-						...(item.scopeId ? { scopeId: item.scopeId } : {}),
-					},
-				});
+					idempotencyKey: intent.idempotencyKey,
+					timestamp: Date.now(),
+				} satisfies AgentWorkIntentEvent);
 			}
 
 			return c.json(updated);
