@@ -9,10 +9,6 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { defaultNotificationAdapterFactory } from "../notifications/adapter-factory.js";
 import { enqueueNotification, flushQueue } from "../notifications/dispatcher.js";
-import {
-	getKnowledgeProjection,
-	upsertKnowledgeProjection,
-} from "../services/knowledge/projections.js";
 import { test as fixtureTest } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au3-domain";

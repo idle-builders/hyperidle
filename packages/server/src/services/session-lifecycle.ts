@@ -12,7 +12,6 @@ import type {
 	SessionLifecycleCorrelation,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
-import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 import { terminalizeAgentSessionRequestInTx } from "./agent-session-requests.js";
 import type { IngestionHandle } from "./contracts.js";
 import { releaseSessionDedup } from "./cost-cap.js";

@@ -1,0 +1,45 @@
+{
+	"sha": "b56c166c82f9c51895f8a3240e77f5fe20833806",
+	"srcHash": "5d91be95185316bce00ed2abd0aca65c0181d57daa341bbee1469dfc51114fd8",
+	"scope": "affected",
+	"status": "passed",
+	"dirty": true,
+	"tools": [
+		"test",
+		"test:integration",
+		"test:e2e"
+	],
+	"allTools": [
+		"test",
+		"test:integration",
+		"test:e2e"
+	],
+	"partial": false,
+	"smartSkipped": [],
+	"agenticExecuted": 0,
+	"agenticSkipped": 0,
+	"agenticExecutedByHarness": {
+		"builtin": {
+			"executed": 0,
+			"skipped": 0
+		},
+		"claude": {
+			"executed": 0,
+			"skipped": 0
+		},
+		"codex": {
+			"executed": 0,
+			"skipped": 0
+		},
+		"opencode": {
+			"executed": 0,
+			"skipped": 0
+		},
+		"cursor-agent": {
+			"executed": 0,
+			"skipped": 0
+		}
+	},
+	"timestamp": "2026-07-11T21:35:58.267Z",
+	"hmac": "8880808353b9e16b37d59f7a9201fabe385758ee002e0f801c8856773f6ed449"
+}
