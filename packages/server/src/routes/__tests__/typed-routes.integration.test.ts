@@ -193,4 +193,3 @@ describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", ()
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 });
-
