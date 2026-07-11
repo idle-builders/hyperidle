@@ -6,7 +6,6 @@
 		".opencode/**",
 		"docs/product/.vitepress/**",
 		"packages/eslint-plugin-design/test-fixtures/**",
-		"packages/design-system/scripts/feedback-overlay.js",
 		"plans/**",
 		"packages/web/src/**/*.stories.tsx",
 		"**/vitest-setup.ts",
@@ -19,17 +18,13 @@
 		"packages/web/e2e/fixtures.ts",
 		"packages/web/src/pages/**/__fixtures__/**",
 		"packages/web/src/preview/**",
-		"packages/server/src/middleware/response-validator.ts",
 		"packages/server/src/services/service-connection-resolver.ts",
 		"packages/server/src/harness/re-engage.ts",
-		"packages/server/src/tools/live-proof-lanes.ts",
-		"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts",
-		"packages/server/src/services/knowledge/projections.ts"
+		"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
 	"ignoreIssues": {
-		"packages/web/src/pages/review/ReviewRenderedInContext.tsx": ["exports"],
 		"packages/server/src/app-runtime/**": ["exports", "types"],
 		"packages/server/src/services/proposed-call-workflow.ts": ["exports"],
 		"packages/server/src/services/session-lifecycle.ts": ["exports"]
@@ -39,7 +34,7 @@
 			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!"],
 			"project": ["scripts/**/*.ts"],
 			"ignoreBinaries": ["vitepress"],
-			"ignoreDependencies": ["@typescript-eslint/utils", "vitepress"]
+			"ignoreDependencies": ["vitepress"]
 		},
 		"packages/shared": {},
 		"packages/db": {
@@ -80,25 +75,7 @@
 				]
 			},
 			"ignoreBinaries": ["vite", "playwright"],
-			"ignoreDependencies": [
-				"@electric-sql/pglite",
-				"drizzle-orm",
-				"@tiptap/react",
-				"@tiptap/pm",
-				"@tiptap/starter-kit",
-				"@tiptap/extension-code-block-lowlight",
-				"@tiptap/extension-table",
-				"@tiptap/extension-table-row",
-				"@tiptap/extension-table-cell",
-				"@tiptap/extension-table-header",
-				"@tiptap/extension-image",
-				"@tiptap/extension-placeholder",
-				"@tiptap/extension-link",
-				"@tiptap/suggestion",
-				"tiptap-markdown",
-				"lowlight",
-				"tippy.js"
-			]
+			"ignoreDependencies": ["@electric-sql/pglite", "drizzle-orm"]
 		},
 		"packages/desktop": {
 			"entry": ["src/preload.ts!", "scripts/bundle.ts!", "scripts/check-native.ts!"],
