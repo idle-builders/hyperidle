@@ -7,13 +7,13 @@ import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidl
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { findOrCreateDirectThread } from "../services/direct-thread.js";
+import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import * as work from "../work-service.js";
@@ -176,7 +176,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 export function createUserRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	adapterPool?: AdapterPool | null,
+	adapterPool?: HarnessCapabilityReader | null,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 

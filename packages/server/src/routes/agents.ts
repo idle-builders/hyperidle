@@ -35,9 +35,12 @@ import {
 import { and, count, eq, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import {
+	type HarnessCapabilityReader,
+	harnessRegistrationMeta,
+} from "../services/harness-capability-read-model.js";
 import { handleAgentProfile } from "./agent-profile.js";
 
 // ---------------------------------------------------------------------------
@@ -114,7 +117,7 @@ export function validateAgentConfig(
 	effectiveHarnessType: string | null,
 	effectiveProvider: string | null,
 	modelId: string | null | undefined,
-	pool: AdapterPool | null,
+	pool: HarnessCapabilityReader | null,
 ): { error: string; code: string } | null {
 	// 1. UNSUPPORTED_PROVIDER — openai-compatible is not valid for per-agent model
 	if (effectiveProvider === "openai-compatible") {
@@ -127,7 +130,7 @@ export function validateAgentConfig(
 
 	// 2. UNKNOWN_HARNESS — harnessType must match a registered adapter type
 	if (effectiveHarnessType && pool) {
-		const meta = pool.getRegistrationMetaByType(effectiveHarnessType);
+		const meta = harnessRegistrationMeta(pool, effectiveHarnessType);
 		if (!meta) {
 			return {
 				error: `Harness type '${effectiveHarnessType}' is not registered. Check Settings → Agents.`,
@@ -157,7 +160,7 @@ export function validateAgentConfig(
 	// getCapabilities() returns [] (CLI is provider-agnostic at runtime). Reading
 	// capabilities caused "Supported: ." (empty list) errors for valid claude-code combos.
 	if (effectiveHarnessType && effectiveProvider && pool) {
-		const meta = pool.getRegistrationMetaByType(effectiveHarnessType);
+		const meta = harnessRegistrationMeta(pool, effectiveHarnessType);
 		if (
 			meta &&
 			meta.modelProviders.length > 0 &&
@@ -184,7 +187,10 @@ export function validateAgentConfig(
  * still works (health signals default to harnessAvailable=true). The pool is
  * only available in production and integration tests that pass one.
  */
-export function createAgentRoutes(db: HyperIdleDb, adapterPool?: AdapterPool): Hono<HyperIdleEnv> {
+export function createAgentRoutes(
+	db: HyperIdleDb,
+	adapterPool?: HarnessCapabilityReader,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// ── GET /:id/profile — agent profile (AB1) ──
