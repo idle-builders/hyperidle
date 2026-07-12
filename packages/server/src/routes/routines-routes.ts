@@ -1,4 +1,4 @@
-import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import {
 	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
@@ -11,7 +11,7 @@ import {
 	type RoutineRunOutcome,
 	type RoutineRunSummary,
 } from "@hyperidle/shared";
-import { and, avg, desc, eq, gt, gte, isNull, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
@@ -165,14 +165,14 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				nextRunAt,
 			});
 
-			const [created] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+			const created = await routineService.getRoutineById(db, routineId);
 			return c.json(created, 201);
 		},
 	);
 
 	// GET / — List all non-deleted routines (AA2: filter soft-deleted)
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allRoutines = await db.select().from(routines).where(isNull(routines.deletedAt));
+		const allRoutines = await routineService.listRoutines(db);
 		return c.json(allRoutines);
 	});
 
@@ -180,7 +180,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
-		const [existing] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+		const existing = await routineService.getRoutineById(db, routineId);
 		if (!existing || existing.deletedAt) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -199,7 +199,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
-		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+		const routine = await routineService.getRoutineById(db, routineId);
 		if (!routine || routine.deletedAt) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -218,12 +218,10 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 		// Fetch up to 20 runs (newest first). allRuns[0] is the latest run — no
 		// separate latestRun query needed.
-		const allRuns = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.routineId, routineId))
-			.orderBy(desc(routineRuns.startedAt))
-			.limit(20);
+		const allRuns = await routineService.listRoutineRunsByRoutine(db, routineId, {
+			limit: 20,
+			order: "desc",
+		});
 
 		// AA3: Compute budget stats using aggregate queries over ALL runs (not just the 20 in allRuns).
 		// Critique Suggestion 2: use a separate AVG query, not allRuns.filter().
@@ -233,19 +231,14 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		).toISOString();
 
 		// AVG cost per run (from all runs with cost > 0)
-		const [avgRow] = await db
-			.select({ avg: avg(routineRuns.costMinor) })
-			.from(routineRuns)
-			.where(and(eq(routineRuns.routineId, routineId), gt(routineRuns.costMinor, 0)));
-		const avgCostMinor = avgRow?.avg != null ? Math.round(Number(avgRow.avg)) : null;
+		const avgCostMinor = await routineService.avgRoutineRunCost(db, routineId);
 
 		// SUM cost this month
-		const [monthCostRow] = await db
-			.select({ total: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
-			.from(routineRuns)
-			.where(and(eq(routineRuns.routineId, routineId), gte(routineRuns.startedAt, firstOfMonth3)))
-			.limit(1);
-		const costThisMonthMinor = monthCostRow?.total ?? 0;
+		const costThisMonthMinor = await routineService.sumRoutineRunCostSince(
+			db,
+			routineId,
+			firstOfMonth3,
+		);
 
 		// Last completed run cost for per-run utilization (from the 20 most recent runs)
 		const lastCompletedRun = allRuns.find(
@@ -387,11 +380,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			// at every call site — out of scope for the G4 fix-pack.
 			const body = c.req.valid("json" as never) as z.infer<typeof updateRoutineSchema>;
 
-			const [existing] = await db
-				.select()
-				.from(routines)
-				.where(eq(routines.id, routineId))
-				.limit(1);
+			const existing = await routineService.getRoutineById(db, routineId);
 			// AA2: treat soft-deleted routines as not found for PATCH
 			if (!existing || existing.deletedAt) {
 				return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
@@ -421,7 +410,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				await routineService.updateRoutineById(db, routineId, updates);
 			}
 
-			const [updated] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+			const updated = await routineService.getRoutineById(db, routineId);
 			return c.json(updated);
 		},
 	);
@@ -430,14 +419,14 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.post("/:id/retire", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
-		const [existing] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+		const existing = await routineService.getRoutineById(db, routineId);
 		if (!existing) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		await routineService.updateRoutineById(db, routineId, { active: false });
 
-		const [updated] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+		const updated = await routineService.getRoutineById(db, routineId);
 		return c.json(updated);
 	});
 
@@ -445,7 +434,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.post("/:id/trigger", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
-		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+		const routine = await routineService.getRoutineById(db, routineId);
 		if (!routine) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
