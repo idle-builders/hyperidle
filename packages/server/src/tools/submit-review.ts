@@ -1,8 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { messages, threads } from "@hyperidle/db";
 import { ARTIFACT_VIEW_SHAPES, type ReviewPayload } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
 import z from "zod";
+import {
+	getFirstThreadByHost,
+	insertMessage,
+	insertThread,
+	updateThread,
+} from "../services/conversation-store.js";
 import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
@@ -54,11 +58,7 @@ async function handler(args: SubmitReviewInput, ctx: ToolContext): Promise<ToolR
 
 	// 2. Find or create the bet's host thread.
 	const now = new Date().toISOString();
-	const [existingThread] = await ctx.db
-		.select()
-		.from(threads)
-		.where(and(eq(threads.hostKind, "bet"), eq(threads.hostId, betId)))
-		.limit(1);
+	const existingThread = await getFirstThreadByHost(ctx.db, "bet", betId);
 
 	let threadId: string;
 	if (existingThread) {
@@ -67,15 +67,15 @@ async function handler(args: SubmitReviewInput, ctx: ToolContext): Promise<ToolR
 		const parts = JSON.parse(existingThread.participants) as string[];
 		if (!parts.includes(ctx.agentId)) {
 			parts.push(ctx.agentId);
-			await ctx.db
-				.update(threads)
-				.set({ participants: JSON.stringify(parts), lastActiveAt: now })
-				.where(eq(threads.id, threadId));
+			await updateThread(ctx.db, threadId, {
+				participants: JSON.stringify(parts),
+				lastActiveAt: now,
+			});
 		}
 	} else {
 		// Create the bet host thread with the agent as initiator + participant.
 		threadId = randomUUID();
-		await ctx.db.insert(threads).values({
+		await insertThread(ctx.db, {
 			id: threadId,
 			hostKind: "bet",
 			hostId: betId,
@@ -96,7 +96,7 @@ async function handler(args: SubmitReviewInput, ctx: ToolContext): Promise<ToolR
 			reasoning: input.reasoning,
 			artifactRef: input.artifactRef,
 		};
-		await ctx.db.insert(messages).values({
+		await insertMessage(ctx.db, {
 			id: messageId,
 			senderId: ctx.agentId,
 			threadId,
@@ -108,7 +108,7 @@ async function handler(args: SubmitReviewInput, ctx: ToolContext): Promise<ToolR
 	} else {
 		// Fallback: plain message with review summary prefix.
 		const text = `Review requested: ${input.title}\n\n${input.reasoning.join("\n")}`;
-		await ctx.db.insert(messages).values({
+		await insertMessage(ctx.db, {
 			id: messageId,
 			senderId: ctx.agentId,
 			threadId,
@@ -120,7 +120,7 @@ async function handler(args: SubmitReviewInput, ctx: ToolContext): Promise<ToolR
 	}
 
 	// 4. Update thread lastActiveAt.
-	await ctx.db.update(threads).set({ lastActiveAt: now }).where(eq(threads.id, threadId));
+	await updateThread(ctx.db, threadId, { lastActiveAt: now });
 
 	return ok({ messageId, threadId, betId });
 }

@@ -10,7 +10,6 @@ import {
 	filesystems,
 	type HyperIdleDb,
 	teamMembers,
-	users,
 } from "@hyperidle/db";
 import type {
 	EventBus,
@@ -33,6 +32,7 @@ import {
 } from "../services/filesystem-reachability.js";
 import { inspectLocalPath } from "../services/inspect-local-path.js";
 import type { ServiceConnectionResolver } from "../services/service-connection-resolver.js";
+import { getUserById } from "../services/user-store.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
@@ -328,12 +328,7 @@ export function createFilesystemRoutes(
 			}
 
 			// Check agent exists
-			const agentRows = await db
-				.select({ id: users.id, teamId: users.teamId })
-				.from(users)
-				.where(eq(users.id, body.agentUserId))
-				.limit(1);
-			const agent = agentRows[0];
+			const agent = await getUserById(db, body.agentUserId);
 			if (agent == null) {
 				return c.json({ error: "Agent user not found", code: "NOT_FOUND" }, 404);
 			}

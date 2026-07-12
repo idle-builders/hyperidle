@@ -15,8 +15,12 @@
  * `AND m.legacy_item_id IS NULL` enforces this.
  */
 
-import { type HyperIdleDb, items, messages, threads } from "@hyperidle/db";
-import { and, eq, gte, isNull } from "drizzle-orm";
+import type { HyperIdleDb } from "@hyperidle/db";
+import * as work from "../work-service.js";
+import {
+	listInitiatedVerdictMessages,
+	listVerdictMessagesByItemIds,
+} from "./conversation-store.js";
 
 export interface ApprovalRateResult {
 	approvalRate: number;
@@ -51,42 +55,19 @@ export async function computeApprovalRate(
 ): Promise<ApprovalRateResult> {
 	const windowStart = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
-	// Path 1: verdict messages attributed via legacyItemId -> items.sourceAgentId
-	const path1Rows = await db
-		.select({
-			id: messages.id,
-			payload: messages.payload,
-			threadId: messages.threadId,
-			createdAt: messages.createdAt,
-		})
-		.from(messages)
-		.innerJoin(items, eq(messages.legacyItemId, items.id))
-		.where(
-			and(
-				eq(messages.type, "verdict"),
-				eq(items.sourceAgentId, agentId),
-				gte(messages.createdAt, windowStart),
-			),
-		);
+	// Path 1: verdict messages attributed via legacyItemId -> items.sourceAgentId.
+	// Decomposed (AU12 + founder ruling 2026-07-12): the Work-owned `items` read
+	// routes through work-service (Work owns `items`), then conversation-store
+	// reads the matching verdict messages (Conversation owns `messages`) — no
+	// cross-owner table read, no join.
+	const agentItemIds = await work.listItemIdsBySourceAgent(db, agentId);
+	const path1Rows =
+		agentItemIds.length > 0
+			? await listVerdictMessagesByItemIds(db, agentItemIds, windowStart)
+			: [];
 
 	// Path 2: verdict messages attributed via threads.initiatorId (no legacyItemId to avoid double-count)
-	const path2Rows = await db
-		.select({
-			id: messages.id,
-			payload: messages.payload,
-			threadId: messages.threadId,
-			createdAt: messages.createdAt,
-		})
-		.from(messages)
-		.innerJoin(threads, eq(messages.threadId, threads.id))
-		.where(
-			and(
-				eq(messages.type, "verdict"),
-				eq(threads.initiatorId, agentId),
-				gte(messages.createdAt, windowStart),
-				isNull(messages.legacyItemId),
-			),
-		);
+	const path2Rows = await listInitiatedVerdictMessages(db, agentId, windowStart);
 
 	// Deduplicate by message id (union of both paths)
 	const seenIds = new Set<string>();

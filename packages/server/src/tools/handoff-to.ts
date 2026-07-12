@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
 import z from "zod";
 import { type HandoffMetadata, type HandoffParams, handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
+import { getUserById } from "../services/user-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -37,7 +36,7 @@ async function handler(args: HandoffToInput, ctx: ToolContext): Promise<ToolResu
 	// Pre-validate target agent so we can return a structured NOT_FOUND
 	// instead of letting the service throw.
 	if (input.toAgent) {
-		const [target] = await ctx.db.select().from(users).where(eq(users.id, input.toAgent)).limit(1);
+		const target = await getUserById(ctx.db, input.toAgent);
 		if (!target) {
 			return err("NOT_FOUND", `Target agent not found: ${input.toAgent}`);
 		}

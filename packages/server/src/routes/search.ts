@@ -20,14 +20,7 @@
  *   JS-verified for exact membership (prevents false positives from substring).
  * - Knowledge: scope_kind != 'user' OR updated_by = userId.
  */
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	messages,
-	teams,
-	threads,
-} from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, teams } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
 import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
@@ -35,6 +28,11 @@ import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import {
+	getMessagesByThreadIds,
+	listThreadMetaByIds,
+	searchConversations,
+} from "../services/conversation-store.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import * as work from "../work-service.js";
 
@@ -126,27 +124,12 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// PostgreSQL. The participant probe uses plain LIKE (JSON structure is ASCII).
 		// AF16 T7: over-fetch is ordered desc(lastActiveAt), asc(threads.id) so the
 		// JS cap picks the same top rows regardless of DB page order (deterministic).
-		const matchingThreadRows = await db
-			.select({
-				id: threads.id,
-				hostKind: threads.hostKind,
-				lastActiveAt: threads.lastActiveAt,
-				participants: threads.participants,
-			})
-			.from(threads)
-			.innerJoin(messages, eq(messages.threadId, threads.id))
-			.where(
-				and(
-					// Participant probe (LIKE on JSON text)
-					sql`${threads.participants} LIKE ${participantPattern} ESCAPE '\\'`,
-					// At least one message payload matches (case-insensitive)
-					sql`${messages.payload} ILIKE ${pattern} ESCAPE '\\'`,
-					// Only non-deleted messages
-					sql`${messages.deletedAt} IS NULL`,
-				),
-			)
-			.orderBy(desc(threads.lastActiveAt), threads.id)
-			.limit(MAX_PER_CATEGORY * 10); // over-fetch so we can JS-filter then cap
+		const matchingThreadRows = await searchConversations(
+			db,
+			participantPattern,
+			pattern,
+			MAX_PER_CATEGORY * 10, // over-fetch so we can JS-filter then cap
+		);
 
 		// JS-verify exact participant membership and deduplicate threads
 		const seenThreadIds = new Set<string>();
@@ -183,28 +166,17 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 			// Batch 1: thread rows for hostKind and lastActiveAt
 			const threadRowMap = new Map<string, { hostKind: string; lastActiveAt: string }>();
 			// AF16 T7: id ASC tiebreaker for deterministic order on tied lastActiveAt
-			const threadRowsBatch = await db
-				.select({ id: threads.id, hostKind: threads.hostKind, lastActiveAt: threads.lastActiveAt })
-				.from(threads)
-				.where(inArray(threads.id, verifiedThreadIds))
-				.orderBy(desc(threads.lastActiveAt), threads.id);
+			const threadRowsBatch = await listThreadMetaByIds(db, verifiedThreadIds);
 			for (const row of threadRowsBatch) {
 				threadRowMap.set(row.id, { hostKind: row.hostKind, lastActiveAt: row.lastActiveAt });
 			}
 
 			// Batch 2: all non-deleted messages for these threads, ordered by createdAt ASC.
 			// First occurrence per thread = title source; last occurrence = snippet source.
-			const allMsgs = await db
-				.select({
-					threadId: messages.threadId,
-					payload: messages.payload,
-					createdAt: messages.createdAt,
-				})
-				.from(messages)
-				.where(
-					and(inArray(messages.threadId, verifiedThreadIds), sql`${messages.deletedAt} IS NULL`),
-				)
-				.orderBy(messages.createdAt);
+			const allMsgs = await getMessagesByThreadIds(db, verifiedThreadIds, {
+				includeDeleted: false,
+				order: "createdAt",
+			});
 
 			// Group messages per thread: first = title, last = snippet
 			const firstMsgMap = new Map<string, string>();

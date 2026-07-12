@@ -7,12 +7,18 @@
  * factory settings with safe defaults so no migration is required.
  */
 
-import { factorySettings, type HyperIdleDb, messages, threads } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
-import { and, desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { isSilenced as sharedIsSilenced } from "../notifications/silence-policy.js";
 import * as work from "../work-service.js";
 import { computeApprovalRate } from "./approval-rate.js";
+import {
+	insertMessage,
+	listMessagesByThread,
+	updateMessage,
+	updateThread,
+} from "./conversation-store.js";
 
 interface PolicyEngineOptions {
 	/** Inject current time for testability. Defaults to () => new Date(). */
@@ -156,12 +162,12 @@ async function executeAction(
 			// L1 step5 (W5): push the type filter into SQL and limit to the
 			// most recent review-typed message — the previous query loaded
 			// every message in the thread to JS just to find one.
-			const [reviewMessage] = await db
-				.select()
-				.from(messages)
-				.where(and(eq(messages.threadId, item.threadId), eq(messages.type, "review")))
-				.orderBy(desc(messages.createdAt))
-				.limit(1);
+			const [reviewMessage] = await listMessagesByThread(db, item.threadId, {
+				type: "review",
+				order: "createdAt",
+				dir: "desc",
+				limit: 1,
+			});
 
 			const messageId = crypto.randomUUID();
 			const respondedAt = new Date().toISOString();
@@ -169,7 +175,7 @@ async function executeAction(
 				decision: "approve",
 				resolvesMessageId: reviewMessage?.id ?? itemId,
 			};
-			await db.insert(messages).values({
+			await insertMessage(db, {
 				id: messageId,
 				senderId: "policy_engine",
 				threadId: item.threadId,
@@ -180,15 +186,9 @@ async function executeAction(
 				createdAt: respondedAt,
 			});
 			if (reviewMessage) {
-				await db
-					.update(messages)
-					.set({ resolvedAt: respondedAt })
-					.where(eq(messages.id, reviewMessage.id));
+				await updateMessage(db, reviewMessage.id, { resolvedAt: respondedAt });
 			}
-			await db
-				.update(threads)
-				.set({ resolvedAt: respondedAt })
-				.where(eq(threads.id, item.threadId));
+			await updateThread(db, item.threadId, { resolvedAt: respondedAt });
 			break;
 		}
 		case "queue": {

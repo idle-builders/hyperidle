@@ -22,11 +22,12 @@
  * invariant if team-scoped cost attribution is added.
  */
 
-import { type HyperIdleDb, teamMembers, users } from "@hyperidle/db";
+import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import { type EventBus, findRoleCatalogEntry, type UserRole } from "@hyperidle/shared";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { resolveAgentSelection } from "./agent-defaults/resolvers.js";
 import type { SelectionCandidate } from "./contracts.js";
+import { getUserById, listActiveAiUsersByTeams } from "./user-store.js";
 
 /**
  * AK7: Enumerate eligible team candidates for bet_* selection surfaces.
@@ -62,13 +63,7 @@ export async function enumerateTeamCandidates(
 
 	// 2. Fetch active AI users in those membership groups, ordered by users.id.
 	//    orderBy(users.id) is load-bearing for deterministic round-robin spread.
-	const rows = await db
-		.select({ id: users.id, role: users.role })
-		.from(users)
-		.where(
-			and(eq(users.kind, "ai"), eq(users.status, "active"), inArray(users.teamId, memberGroupIds)),
-		)
-		.orderBy(users.id);
+	const rows = await listActiveAiUsersByTeams(db, memberGroupIds);
 
 	// 3. Filter to category='team' via the role catalog; project to SelectionCandidate.
 	//    role-only — no systemPrompt, no skills, no WIP (bet_* is WIP-blind, concept §3a).
@@ -145,7 +140,7 @@ export async function selectOwner(
 		return null;
 	}
 
-	const [row] = await db.select().from(users).where(eq(users.id, agentId)).limit(1);
+	const row = await getUserById(db, agentId);
 
 	if (!row || row.kind !== "ai" || row.status !== "active") {
 		return null;

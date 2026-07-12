@@ -25,13 +25,10 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	messages,
 	type NewPropagationLogRow,
 	notificationQueue,
 	propagationLog,
 	sessions,
-	threads,
-	users,
 } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
@@ -47,6 +44,8 @@ import {
 import { and, eq, ne } from "drizzle-orm";
 import type { PropagationLevel } from "../knowledge/types.js";
 import * as work from "../work-service.js";
+import { insertMessage, insertThread } from "./conversation-store.js";
+import { getFirstUserByKind } from "./user-store.js";
 
 /**
  * Shape of a single entry in the revision log JSON array.
@@ -539,14 +538,14 @@ async function createShipConfirmationThread(
 
 	// P2: Read founder from users table (kind = 'human') instead of factorySettings.
 	// @lore P2: fallback to "u-founder" for unseeded DBs — same sentinel as auth middleware.
-	const [humanUser] = await db.select().from(users).where(eq(users.kind, "human")).limit(1);
+	const humanUser = await getFirstUserByKind(db, "human");
 	const founderId = humanUser?.id ?? "u-founder";
 
 	const doneCount = allBetTasks.filter((t) => t.state === "done").length;
 	const killedCount = allBetTasks.filter((t) => t.state === "killed").length;
 	const totalCount = allBetTasks.length;
 
-	await db.insert(threads).values({
+	await insertThread(db, {
 		id: threadId,
 		hostKind: "bet",
 		hostId: betId,
@@ -557,7 +556,7 @@ async function createShipConfirmationThread(
 	});
 
 	const messageId = crypto.randomUUID();
-	await db.insert(messages).values({
+	await insertMessage(db, {
 		id: messageId,
 		senderId: SYSTEM_PROPAGATION_AGENT_ID,
 		threadId,

@@ -17,9 +17,10 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { teamMembers, users } from "@hyperidle/db";
+import { teamMembers } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { getUserById } from "../services/user-store.js";
 import * as work from "../work-service.js";
 import { createBetTool } from "./create-bet.js";
 import { editBetTool } from "./edit-bet.js";
@@ -50,11 +51,7 @@ export async function resolveDraftTeamId(
 	db: HyperIdleDb,
 	userId: string,
 ): Promise<string | undefined> {
-	const [userRow] = await db
-		.select({ teamId: users.teamId })
-		.from(users)
-		.where(eq(users.id, userId))
-		.limit(1);
+	const userRow = await getUserById(db, userId);
 	if (!userRow?.teamId) {
 		return undefined;
 	}

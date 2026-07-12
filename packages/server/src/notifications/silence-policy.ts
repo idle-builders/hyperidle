@@ -12,8 +12,9 @@
 
 // @lore U1: `teams` is now the domain entity. `teamMembers` is the agent membership group.
 // `users.teamId` references `teamMembers.id`; silence keys use `teamMembers.teamId` (domains.id).
-import { factorySettings, type HyperIdleDb, teamMembers, users } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
+import { getUserById } from "../services/user-store.js";
 
 interface SilenceItem {
 	readonly sourceAgentId: string | null;
@@ -40,7 +41,7 @@ export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date):
 	// 2. Per-product (per-team) silence
 	// @lore U1: agent.teamId → teamMembers.id → teamMembers.teamId (= teams.id, domain entity).
 	if (item.sourceAgentId) {
-		const [agent] = await db.select().from(users).where(eq(users.id, item.sourceAgentId)).limit(1);
+		const agent = await getUserById(db, item.sourceAgentId);
 		if (agent?.teamId) {
 			const [memberGroup] = await db
 				.select()
@@ -105,7 +106,7 @@ export async function isFactorySilenced(db: HyperIdleDb, item: SilenceItem): Pro
 
 	// 2. Per-product (per-team) silence
 	if (item.sourceAgentId) {
-		const [agent] = await db.select().from(users).where(eq(users.id, item.sourceAgentId)).limit(1);
+		const agent = await getUserById(db, item.sourceAgentId);
 		if (agent?.teamId) {
 			const [memberGroup] = await db
 				.select()

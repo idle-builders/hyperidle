@@ -1,14 +1,9 @@
-import {
-	artifacts,
-	type HyperIdleDb,
-	messages,
-	operationOutcomes,
-	proposedCalls,
-} from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, operationOutcomes, proposedCalls } from "@hyperidle/db";
 import { relativeLong } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import { getMessageById } from "../services/conversation-store.js";
 
 /**
  * AL7 trust-first — Reviews route: GET /api/reviews/:reviewMessageId
@@ -93,11 +88,7 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 		}
 
 		// Load the review message to confirm it exists.
-		const [reviewMsg] = await db
-			.select()
-			.from(messages)
-			.where(eq(messages.id, reviewMessageId))
-			.limit(1);
+		const reviewMsg = await getMessageById(db, reviewMessageId);
 
 		if (!reviewMsg) {
 			return c.json({ error: "review_not_found" }, 404);

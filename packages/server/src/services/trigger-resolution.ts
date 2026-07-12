@@ -5,7 +5,6 @@ import {
 	type HyperIdleDb,
 	teamMembers,
 	triggerResolutionHistory,
-	users,
 } from "@hyperidle/db";
 import {
 	type AgentSessionPromptMode,
@@ -21,6 +20,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { createAgentSessionRequest } from "./agent-session-requests.js";
 import { listResolvedConfiguration } from "./plugin-configuration.js";
+import { getUserByIdScopedToTeam } from "./user-store.js";
 
 const PROMPT_MODE_BY_SOURCE: Record<AgentSessionSourceKind, AgentSessionPromptMode> = {
 	task: "task",
@@ -134,15 +134,7 @@ async function isEligibleAgent(
 		: [];
 	if (teamId && !membership[0]) return false;
 	const membershipId = membership[0]?.id;
-	const [agent] = await db
-		.select({ id: users.id, kind: users.kind, status: users.status })
-		.from(users)
-		.where(
-			membershipId
-				? and(eq(users.id, agentId), eq(users.teamId, membershipId))
-				: eq(users.id, agentId),
-		)
-		.limit(1);
+	const agent = await getUserByIdScopedToTeam(db, agentId, membershipId);
 	if (!agent || agent.kind !== "ai" || !isRunnableAgentStatus(agent.status)) return false;
 	return true;
 }

@@ -20,7 +20,7 @@
  * CLIENT from lastMessage.createdAt + ASSISTANT_TURN_TIMEOUT_MS — no DB column needed.
  */
 
-import { type AgentSessionRequest, type HyperIdleDb, messages, users } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
 	type ConversationMessage,
 	createLogger,
@@ -31,7 +31,6 @@ import {
 	ProviderTimeoutError,
 	type ThreadMessageAppendedEvent,
 } from "@hyperidle/shared";
-import { asc, eq } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 // AH6 WARNING-2: CassetteMissError must be explicitly mapped to provider_error so it
 // doesn't trip the "unmapped error class" logger.error on every cassette miss in tests.
@@ -55,6 +54,8 @@ import {
 import type { ToolContext } from "../tools/tool-registry.js";
 import { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
 import { executeAgentRunRequest } from "./agent-run-boundary.js";
+import { insertMessage, listMessagesByThread } from "./conversation-store.js";
+import { getOrCreateUser } from "./user-store.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 
@@ -233,7 +234,7 @@ export async function persistTurnFailure(
 	const notice: PlainPayload["notice"] = code ? { kind, code } : { kind };
 	const payload: PlainPayload = { text, notice };
 
-	await db.insert(messages).values({
+	await insertMessage(db, {
 		id: messageId,
 		senderId: assistantAgentId,
 		threadId,
@@ -300,38 +301,26 @@ async function runTurnInternal(
 	const assistantAgentId = `ast-${userId}`;
 
 	// --- Step 1: Load or lazy-create the assistant agent ---
-	let [agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
-
-	if (!agentRow) {
-		const now = new Date().toISOString();
-		await db.insert(users).values({
-			id: assistantAgentId,
-			kind: "ai",
-			name: "Assistant",
-			role: "assistant",
-			agentCategory: "individual",
-			status: "active",
-			harnessType: "builtin",
-			modelId: "claude-sonnet-4-6",
-			modelProvider: "anthropic",
-			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-			systemPrompt: BUILTIN_SYSTEM_PROMPT,
-			maxConcurrentSessions: 1,
-			createdAt: now,
-		});
-		[agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
-	}
-
-	if (!agentRow) {
-		await persistTurnFailure(
-			db,
-			eventBus,
-			userId,
-			threadId,
-			new Error("Failed to load assistant agent"),
-		);
-		return;
-	}
+	// @lore AU12: get-or-create is owned by user-store. It selects, inserts the
+	// assistant persona once when absent, and returns the row — so the assistant
+	// user is created exactly once (Validation Scenario 2). The persona /
+	// BUILTIN_SYSTEM_PROMPT stays composed here (caller owns the agent-layer
+	// constant; pulling it into a core store would be a boundary smell).
+	const agentRow = await getOrCreateUser(db, assistantAgentId, {
+		id: assistantAgentId,
+		kind: "ai",
+		name: "Assistant",
+		role: "assistant",
+		agentCategory: "individual",
+		status: "active",
+		harnessType: "builtin",
+		modelId: "claude-sonnet-4-6",
+		modelProvider: "anthropic",
+		// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
+		systemPrompt: BUILTIN_SYSTEM_PROMPT,
+		maxConcurrentSessions: 1,
+		createdAt: new Date().toISOString(),
+	});
 
 	// --- Step 2: Resolve model + credential ---
 	// @lore AH3 H1: resolveAgentModel MUST be called. The builtin adapter throws
@@ -530,7 +519,7 @@ async function runTurnInternal(
 						}
 					: {}),
 			};
-			await db.insert(messages).values({
+			await insertMessage(db, {
 				id: messageId,
 				senderId: assistantAgentId,
 				threadId,
@@ -590,15 +579,8 @@ async function loadRawTranscript(
 	threadId: string,
 ): Promise<Array<{ senderId: string; payload: string; type: string }>> {
 	try {
-		return await db
-			.select({
-				senderId: messages.senderId,
-				payload: messages.payload,
-				type: messages.type,
-			})
-			.from(messages)
-			.where(eq(messages.threadId, threadId))
-			.orderBy(asc(messages.createdAt));
+		const rows = await listMessagesByThread(db, threadId, { order: "createdAt", dir: "asc" });
+		return rows.map((m) => ({ senderId: m.senderId, payload: m.payload, type: m.type }));
 	} catch (err) {
 		logger.error("[assistant-turn] loadRawTranscript failed — proceeding with empty history", {
 			threadId,

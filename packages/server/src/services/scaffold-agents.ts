@@ -25,10 +25,9 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { users } from "@hyperidle/db";
 import type { PrimaryHarnessConfig } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import type { AgentScaffoldSpec } from "./contracts.js";
+import { getUserById, insertUser } from "./user-store.js";
 
 export interface ScaffoldResult {
 	agentIds: string[];
@@ -51,11 +50,7 @@ async function resolveAgentId(db: HyperIdleDb, idHint: string | undefined): Prom
 	// Deny-set: system: prefix is the Kernel/system namespace — never assignable via hint.
 	if (idHint.startsWith("system:")) return crypto.randomUUID();
 	// Check for collision
-	const [existing] = await db
-		.select({ id: users.id })
-		.from(users)
-		.where(eq(users.id, idHint))
-		.limit(1);
+	const existing = await getUserById(db, idHint);
 	if (existing) return crypto.randomUUID();
 	return idHint;
 }
@@ -100,7 +95,7 @@ export async function persistScaffoldedAgents(
 		const agentId = await resolveAgentId(db, spec.idHint);
 		agentIds.push(agentId);
 
-		await db.insert(users).values({
+		await insertUser(db, {
 			id: agentId,
 			kind: "ai",
 			name: spec.name,

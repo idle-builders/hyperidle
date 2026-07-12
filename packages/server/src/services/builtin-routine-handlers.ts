@@ -11,7 +11,6 @@ import {
 	knowledgeAppProjection,
 	knowledgeItems,
 	type Routine,
-	threads,
 } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
@@ -25,6 +24,7 @@ import { buildAttentionService } from "../knowledge/attention-service.js";
 import { runAutoPromotionSweep, runStaleSweep } from "../knowledge/promotion-pipeline.js";
 import * as routineService from "../routine-service.js";
 import * as work from "../work-service.js";
+import { getThreadIdsByHost, insertThread } from "./conversation-store.js";
 import { createPracticeMeeting } from "./practice-meeting.js";
 // @lore AF6: cron helpers used only at runtime inside provisionTeamRoutines. The
 // scheduler↔builtin-routine-handlers import cycle is init-safe because neither module
@@ -322,7 +322,12 @@ async function runPostBetRetro(
 	// host_kind='bet' + host_id=betId. Dedupe via the host pair + the body
 	// marker; the marker probe alone is selective enough at HyperIdle's scale.
 	const marker = postBetRetroBetIdMarker(args.betId);
-	const existing = await work.findPostBetRetroItem(db, args.betId, marker);
+	// Decomposed per founder ruling (2026-07-12) — zero cross-owned-table
+	// exceptions: Conversation owns `threads`, so resolve the bet's thread ids
+	// via conversation-store, then let Work own the `items` read through
+	// `findRetroItemByThreadIds` (no `items ⋈ threads` join in work-service).
+	const betThreadIds = await getThreadIdsByHost(db, "bet", args.betId);
+	const existing = await work.findRetroItemByThreadIds(db, betThreadIds, marker);
 	if (existing) {
 		return { fired: false, reason: "already-retroed" };
 	}
@@ -349,7 +354,7 @@ async function runPostBetRetro(
 	const isoNow = new Date().toISOString();
 
 	await db.transaction(async (tx) => {
-		await tx.insert(threads).values({
+		await insertThread(tx as HyperIdleDb, {
 			id: threadId,
 			hostKind: "bet",
 			hostId: args.betId,
@@ -431,7 +436,7 @@ async function runPortfolioRetro(
 	const isoNow = new Date(nowMs).toISOString();
 
 	await db.transaction(async (tx) => {
-		await tx.insert(threads).values({
+		await insertThread(tx as HyperIdleDb, {
 			id: threadId,
 			hostKind: "factory",
 			hostId: "portfolio",

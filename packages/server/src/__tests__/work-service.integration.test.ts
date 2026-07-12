@@ -17,8 +17,9 @@
  *   - list/filter AND-composition (listTasks), exact aggregate predicates
  *     (countBetsByTeamAndStatus), empty-ids short-circuit (listTasksByIds/
  *     listBetsByIds), the owned-primary + foreign-join functions
- *     (listBetTasksWithLatestSessionOutcome imports sessions,
- *     findPostBetRetroItem imports threads).
+ *     (listBetTasksWithLatestSessionOutcome imports sessions;
+ *     findRetroItemByThreadIds is items-only — the former threads join was
+ *     decomposed per founder ruling 2026-07-12, zero cross-owned-table joins).
  *   - R5 tx-visibility: a read fn called with `tx` inside an open transaction
  *     must see an uncommitted row written earlier in the same `tx`.
  */
@@ -836,8 +837,8 @@ describe("work-service", () => {
 		});
 	});
 
-	describe("findPostBetRetroItem", () => {
-		test("finds the post-bet-retro item via items⋈threads on hostKind/hostId + body marker", async ({
+	describe("findRetroItemByThreadIds", () => {
+		test("finds the post-bet-retro item by thread ids + body marker (items-only, no threads join)", async ({
 			db,
 		}) => {
 			await seedTeamAndAgent(db);
@@ -859,11 +860,15 @@ describe("work-service", () => {
 				createdAt: now,
 			});
 
-			const row = await work.findPostBetRetroItem(db, "bet-1", "betId=bet-1");
+			const row = await work.findRetroItemByThreadIds(db, ["thread-retro"], "betId=bet-1");
 			expect(row?.id).toBe("item-retro");
 
-			const miss = await work.findPostBetRetroItem(db, "bet-missing", "betId=bet-missing");
+			const miss = await work.findRetroItemByThreadIds(db, ["thread-retro"], "betId=bet-missing");
 			expect(miss).toBeUndefined();
+
+			// Empty thread-id set short-circuits to undefined (no bet threads yet).
+			const emptyMiss = await work.findRetroItemByThreadIds(db, [], "betId=bet-1");
+			expect(emptyMiss).toBeUndefined();
 		});
 	});
 });

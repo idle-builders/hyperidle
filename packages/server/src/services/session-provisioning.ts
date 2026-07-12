@@ -1,13 +1,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {
-	filesystemInjections,
-	filesystems,
-	type HyperIdleDb,
-	sessions,
-	users,
-} from "@hyperidle/db";
+import { filesystemInjections, filesystems, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
@@ -76,6 +70,7 @@ import {
 import { sessionRunRegistry } from "./session-run-registry.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { transitionTask } from "./task-state-machine.js";
+import { getUserById } from "./user-store.js";
 
 // @lore X3: validateSystemPromptPath and SYSTEM_PROMPT_DIR_RELATIVE removed.
 // The path traversal attack surface is eliminated by X3 — system prompts are now
@@ -686,7 +681,7 @@ export async function admitSession(
 	const { db, eventBus, adapterPool, workspace } = deps;
 
 	// ── Phase 1: load agent
-	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
+	const agent = await getUserById(db, params.agentId);
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}

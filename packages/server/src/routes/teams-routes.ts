@@ -18,16 +18,7 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
-import {
-	type HyperIdleDb,
-	messages,
-	notificationQueue,
-	sessions,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, notificationQueue, sessions, teamMembers, teams } from "@hyperidle/db";
 import type {
 	AgentOperationalStatus,
 	BetCardSummary,
@@ -48,7 +39,7 @@ import {
 	deriveTitle,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
@@ -57,12 +48,22 @@ import * as routineService from "../routine-service.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
+import { getThreadById, insertMessage, insertThread } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { upsertOrgEdge } from "../services/org-edges.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import { resolveTeamAgentHarness } from "../services/team-default-harness.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
+import {
+	getFirstUserByKind,
+	getUserById,
+	getUsersByIds,
+	insertUser,
+	listUsersByTeam,
+	listUsersByTeamAndKind,
+	updateUser,
+} from "../services/user-store.js";
 import * as work from "../work-service.js";
 import {
 	computeHealthSignals,
@@ -163,26 +164,14 @@ async function resolveFounderId(
 	bodyUserId: string | undefined,
 ): Promise<string | null> {
 	if (ctxUserId) {
-		const [u] = await db
-			.select({ id: users.id })
-			.from(users)
-			.where(eq(users.id, ctxUserId))
-			.limit(1);
+		const u = await getUserById(db, ctxUserId);
 		if (u) return u.id;
 	}
 	if (bodyUserId) {
-		const [u] = await db
-			.select({ id: users.id })
-			.from(users)
-			.where(eq(users.id, bodyUserId))
-			.limit(1);
+		const u = await getUserById(db, bodyUserId);
 		if (u) return u.id;
 	}
-	const [human] = await db
-		.select({ id: users.id })
-		.from(users)
-		.where(eq(users.kind, "human"))
-		.limit(1);
+	const human = await getFirstUserByKind(db, "human");
 	return human?.id ?? null;
 }
 
@@ -246,10 +235,7 @@ export function createTeamRoutes(
 				// AB2: agent summary — count AI agents and compute health warning.
 				// Re-use computeHealthSignals for accurate health checks (reviewer S4).
 				const teamAgentRows = memberGroup
-					? await db
-							.select({ id: users.id, harnessType: users.harnessType })
-							.from(users)
-							.where(and(eq(users.teamId, memberGroup.id), eq(users.kind, "ai")))
+					? await listUsersByTeamAndKind(db, memberGroup.id, "ai")
 					: [];
 
 				const agentCount = teamAgentRows.length;
@@ -460,10 +446,7 @@ export function createTeamRoutes(
 		// @lore AF17: routines.team_id must be teams.id (teamId), NOT team_members.id (teamMembersId).
 		// ownerByRole is built from the created roster rows in the DB.
 		{
-			const createdAgents = await db
-				.select({ id: users.id, role: users.role })
-				.from(users)
-				.where(eq(users.teamId, teamMembersId));
+			const createdAgents = await listUsersByTeam(db, teamMembersId);
 			const ownerByRole: Partial<Record<string, string>> = {};
 			for (const agent of createdAgents) {
 				if (agent.role && !ownerByRole[agent.role]) {
@@ -509,11 +492,7 @@ export function createTeamRoutes(
 				// @lore AE2: The assistant agent is normally created at user registration.
 				// During onboarding, team creation may happen before the assistant agent
 				// is created — we upsert a stub here so the FK on messages.senderId succeeds.
-				const [existingAssistant] = await db
-					.select({ id: users.id })
-					.from(users)
-					.where(eq(users.id, assistantId))
-					.limit(1);
+				const existingAssistant = await getUserById(db, assistantId);
 
 				// AV1: Resolve the harness the assistant should carry.
 				// @lore AV1: The assistant stub may already exist (created by user registration
@@ -529,14 +508,10 @@ export function createTeamRoutes(
 
 				if (!existingAssistant) {
 					// Lookup user name to personalise the assistant name.
-					const [userRow] = await db
-						.select({ name: users.name })
-						.from(users)
-						.where(eq(users.id, userId))
-						.limit(1);
+					const userRow = await getUserById(db, userId);
 					const assistantName = userRow ? `${userRow.name}'s Assistant` : "Assistant";
 
-					await db.insert(users).values({
+					await insertUser(db, {
 						id: assistantId,
 						kind: "ai",
 						name: assistantName,
@@ -550,25 +525,18 @@ export function createTeamRoutes(
 				} else if (stubHarness !== undefined) {
 					// Assistant already exists (created at user registration with no harness).
 					// Update it with the team's harness so the overlay opens ready.
-					await db
-						.update(users)
-						.set({
-							harnessType: stubHarness.harnessType,
-							modelId: stubHarness.modelId,
-							modelProvider: stubHarness.modelProvider,
-						})
-						.where(eq(users.id, assistantId));
+					await updateUser(db, assistantId, {
+						harnessType: stubHarness.harnessType,
+						modelId: stubHarness.modelId,
+						modelProvider: stubHarness.modelProvider,
+					});
 				}
 
 				// Create the thread if it doesn't exist.
-				const [existingThread] = await db
-					.select({ id: threads.id })
-					.from(threads)
-					.where(eq(threads.id, threadId))
-					.limit(1);
+				const existingThread = await getThreadById(db, threadId);
 
 				if (!existingThread) {
-					await db.insert(threads).values({
+					await insertThread(db, {
 						id: threadId,
 						hostKind: "user",
 						hostId: userId,
@@ -582,10 +550,7 @@ export function createTeamRoutes(
 
 				// Build agent names list for welcome message text.
 				// Use the persisted roster from DB (app-decided set).
-				const agentRows = await db
-					.select({ role: users.role })
-					.from(users)
-					.where(eq(users.teamId, teamMembersId));
+				const agentRows = await listUsersByTeam(db, teamMembersId);
 				const agentLabels = agentRows
 					.map(({ role }) => {
 						const entry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
@@ -595,7 +560,7 @@ export function createTeamRoutes(
 
 				const welcomeText = `Welcome! Your team is ready with ${agentIds.length} agent${agentIds.length !== 1 ? "s" : ""}: ${agentLabels}. I'm here to help you steer them.`;
 
-				await db.insert(messages).values({
+				await insertMessage(db, {
 					id: `msg-welcome-${crypto.randomUUID()}`,
 					senderId: assistantId,
 					threadId,
@@ -747,7 +712,7 @@ export function createTeamRoutes(
 		try {
 			const memberGroup = await loadTeamMembers(db, teamId);
 			// 3. Load roster
-			const agentRows = await db.select().from(users).where(eq(users.teamId, memberGroup.id));
+			const agentRows = await listUsersByTeam(db, memberGroup.id);
 
 			const roster: RosterMember[] = agentRows.map((agent) => ({
 				agentId: agent.id,
@@ -916,18 +881,7 @@ export function createTeamRoutes(
 			const ownerIds = [
 				...new Set(routineRows.map((r) => r.ownerAgentId).filter(Boolean)),
 			] as string[];
-			const ownerRows =
-				ownerIds.length > 0
-					? await db
-							.select()
-							.from(users)
-							.where(
-								sql`${users.id} IN (${sql.join(
-									ownerIds.map((id) => sql`${id}`),
-									sql`, `,
-								)})`,
-							)
-					: [];
+			const ownerRows = ownerIds.length > 0 ? await getUsersByIds(db, ownerIds) : [];
 			const ownerMap = new Map(ownerRows.map((u) => [u.id, u]));
 
 			// Fetch latest routine_run for each routine to get lastRunOutcome

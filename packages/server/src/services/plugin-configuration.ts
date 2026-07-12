@@ -9,7 +9,6 @@ import {
 	plugins,
 	serviceConnections,
 	userSkills,
-	users,
 } from "@hyperidle/db";
 import {
 	BUILTIN_PLUGIN_ID,
@@ -24,6 +23,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { BUILTIN_TOOL_CATALOG } from "../config/builtin-tool-catalog.js";
 import * as routineService from "../routine-service.js";
+import { listUsersByKind } from "./user-store.js";
 
 export interface PluginConfigurationSource {
 	readonly id: string;
@@ -372,7 +372,7 @@ export async function backfillLegacyConfigurationDefaults(
 ): Promise<void> {
 	const seeds: PluginConfigurationSeed[] = [];
 
-	const agentRows = await db.select().from(users).where(eq(users.kind, "ai"));
+	const agentRows = await listUsersByKind(db, "ai");
 	for (const agent of agentRows) {
 		seeds.push({
 			kind: "agent",

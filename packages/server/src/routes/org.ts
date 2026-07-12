@@ -16,7 +16,7 @@
 
 // @lore U1: `teams` renamed to `teamMembers` (membership group); `products` renamed to `teams` (domain entity).
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
-import { type HyperIdleDb, orgEdges, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, orgEdges, teamMembers, teams } from "@hyperidle/db";
 import { ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
 import { eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
@@ -24,6 +24,7 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { upsertOrgEdge } from "../services/org-edges.js";
+import { getUserById, listUserDirectory } from "../services/user-store.js";
 
 const putOrgEdgeSchema = z.object({
 	fromUserId: z.string().min(1),
@@ -43,14 +44,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	// id = teamMembers.id (what PUT /edges validates for mechanism:"team").
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const edges = await db.select().from(orgEdges);
-		const allUsers = await db
-			.select({
-				id: users.id,
-				kind: users.kind,
-				name: users.name,
-				role: users.role,
-			})
-			.from(users);
+		const allUsers = await listUserDirectory(db);
 
 		// AF15: Include non-dissolved teamMembers rows joined to teams.name.
 		// @lore AF15: teamMembers.id is the correct target for mechanism:"team" edges
@@ -87,7 +81,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const { fromUserId, mechanism, target } = parsed.data;
 
 		// Check if fromUserId exists in users table
-		const [fromUser] = await db.select().from(users).where(eq(users.id, fromUserId)).limit(1);
+		const fromUser = await getUserById(db, fromUserId);
 		if (!fromUser) {
 			return c.json(
 				{ error: `fromUserId not found: ${fromUserId}`, code: "VALIDATION_ERROR" },
@@ -100,7 +94,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		// "function" targets a UserRole string, "team" targets a teamId. Each has a
 		// distinct existence check so stale/garbage targets are rejected at write time.
 		if (mechanism === "direct") {
-			const [targetUser] = await db.select().from(users).where(eq(users.id, target)).limit(1);
+			const targetUser = await getUserById(db, target);
 			if (!targetUser) {
 				return c.json(
 					{ error: `target userId not found: ${target}`, code: "VALIDATION_ERROR" },

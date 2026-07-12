@@ -45,11 +45,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { serviceConnections, users } from "@hyperidle/db";
+import { serviceConnections } from "@hyperidle/db";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/shared";
 import { resolveUrlForSSRF } from "@hyperidle/shared/net";
 import { and, eq, inArray } from "drizzle-orm";
 import type { ServiceConnectionResolver } from "./service-connection-resolver.js";
+import { getFirstUserByKind } from "./user-store.js";
 
 // ── Service → CLI env var map ─────────────────────────────────────────────────
 //
@@ -100,7 +101,7 @@ export interface ProvisioningPlan {
  * future per-agent-owner lookup when the multi-tenant model lands.
  */
 export async function resolveOwningHumanUserId(db: HyperIdleDb): Promise<string> {
-	const [humanUser] = await db.select().from(users).where(eq(users.kind, "human")).limit(1);
+	const humanUser = await getFirstUserByKind(db, "human");
 	return humanUser?.id ?? "u-founder";
 }
 

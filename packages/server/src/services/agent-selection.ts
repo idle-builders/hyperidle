@@ -22,9 +22,10 @@
  * to candidates[0]. The golden test (§7) catches a collapsed impl with [A,B,A] vs [A,A,A].
  */
 
-import { type HyperIdleDb, sessions, userSkills, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
 import { and, eq, sql } from "drizzle-orm";
 import type { SelectAgentOutcome, SelectAgentRequest } from "./contracts.js";
+import { getUserById } from "./user-store.js";
 
 // ---------------------------------------------------------------------------
 // WIP helpers (relocated from routine-scheduler.ts for the routine_delegate branch)
@@ -48,7 +49,7 @@ async function getActiveSessionCount(db: HyperIdleDb, agentId: string): Promise<
  * branch without a circular import.
  */
 export async function isAgentAtWipLimit(db: HyperIdleDb, agentId: string): Promise<boolean> {
-	const [agent] = await db.select().from(users).where(eq(users.id, agentId)).limit(1);
+	const agent = await getUserById(db, agentId);
 	if (!agent) return true;
 	const activeCount = await getActiveSessionCount(db, agentId);
 	return activeCount >= agent.maxConcurrentSessions;

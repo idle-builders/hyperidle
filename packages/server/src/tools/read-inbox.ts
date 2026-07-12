@@ -1,6 +1,5 @@
-import { messages, threads } from "@hyperidle/db";
-import { desc, eq, ne } from "drizzle-orm";
 import z from "zod";
+import { listInboxBySenderExclusion } from "../services/conversation-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -22,25 +21,19 @@ async function handler(args: ReadInboxInput, ctx: ToolContext): Promise<ToolResu
 	// We pull more rows than `limit` to allow JSON participant filtering in
 	// JS, then cap to `limit`. For the L1a scope the working set is small;
 	// a future story may project a participants table.
-	const rows = await ctx.db
-		.select()
-		.from(messages)
-		.innerJoin(threads, eq(messages.threadId, threads.id))
-		.where(ne(messages.senderId, ctx.agentId))
-		.orderBy(desc(messages.createdAt))
-		.limit(limit * 4);
+	const rows = await listInboxBySenderExclusion(ctx.db, ctx.agentId, limit * 4);
 
 	const filtered = rows
 		.filter((row) => {
 			try {
-				const parts = JSON.parse(row.threads.participants) as string[];
+				const parts = JSON.parse(row.participants) as string[];
 				return parts.includes(ctx.agentId);
 			} catch {
 				return false;
 			}
 		})
 		.slice(0, limit)
-		.map((row) => row.messages);
+		.map((row) => row.message);
 
 	return ok({ messages: filtered });
 }

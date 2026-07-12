@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { teamMembers, teams, users } from "@hyperidle/db";
+import { teamMembers, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
+import { listUsersByTeam } from "../services/user-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -91,10 +92,7 @@ async function handler(
 	const { agentIds, leadAgentId } = await persistScaffoldedAgents(ctx.db, teamMembersId, specs);
 
 	// Build roster summary from the inserted rows.
-	const createdAgents = await ctx.db
-		.select({ id: users.id, role: users.role, name: users.name })
-		.from(users)
-		.where(eq(users.teamId, teamMembersId));
+	const createdAgents = await listUsersByTeam(ctx.db, teamMembersId);
 	const roster = createdAgents.map((a) => ({
 		role: a.role ?? "",
 		name: a.name,

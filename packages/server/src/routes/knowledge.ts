@@ -28,7 +28,6 @@ import {
 	// @lore U1: `teamMembers` is the agent membership group (formerly `teams`).
 	teamMembers,
 	teams,
-	users,
 } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
@@ -69,6 +68,7 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
+import { getUserById } from "../services/user-store.js";
 import * as work from "../work-service.js";
 
 // O2: status simplified to draft | active | archived
@@ -123,11 +123,7 @@ export async function resolveScopeName(
 	if (!scopeId) return scopeKindToLabel(scopeKind);
 
 	if (scopeKind === "user") {
-		const [row] = await db
-			.select({ name: users.name })
-			.from(users)
-			.where(eq(users.id, scopeId))
-			.limit(1);
+		const row = await getUserById(db, scopeId);
 		return row?.name ?? scopeKindToLabel("user");
 	}
 
@@ -808,11 +804,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			}
 
 			if (body.agentId) {
-				const [agent] = await db
-					.select({ id: users.id })
-					.from(users)
-					.where(eq(users.id, body.agentId))
-					.limit(1);
+				const agent = await getUserById(db, body.agentId);
 				if (!agent) {
 					const response: ApiErrorResponse = {
 						error: "Agent not found",

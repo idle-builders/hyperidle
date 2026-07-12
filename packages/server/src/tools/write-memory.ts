@@ -1,4 +1,3 @@
-import { users } from "@hyperidle/db";
 import {
 	KNOWLEDGE_LAYERS,
 	KNOWLEDGE_STATUSES,
@@ -7,9 +6,9 @@ import {
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import z from "zod";
 import { create as createKnowledgeItem } from "../knowledge/knowledge-repository.js";
+import { getUserById } from "../services/user-store.js";
 import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
@@ -75,7 +74,7 @@ async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolRe
 
 	// I6: restrict non-facilitator agents to L0-L2 only
 	if (!NON_FACILITATOR_MAX_LAYER.has(layer)) {
-		const [agent] = await ctx.db.select().from(users).where(eq(users.id, ctx.agentId)).limit(1);
+		const agent = await getUserById(ctx.db, ctx.agentId);
 		const role = agent?.role ?? "";
 		if (!FACILITATOR_ROLES.has(role)) {
 			return err("FORBIDDEN", `insufficient role for ${layer}`);

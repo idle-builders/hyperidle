@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { threads, users } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import z from "zod";
+import { getThreadById, insertThread, updateThread } from "../services/conversation-store.js";
 import { routeItem } from "../services/item-router.js";
 import { resolveReviewRecipients } from "../services/org-routing.js";
+import { getUserById } from "../services/user-store.js";
 import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
@@ -79,7 +79,7 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 
 	let threadId = input.threadId;
 	if (threadId) {
-		const [existing] = await ctx.db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
+		const existing = await getThreadById(ctx.db, threadId);
 		if (!existing) {
 			return err("NOT_FOUND", `Thread not found: ${threadId}`);
 		}
@@ -87,7 +87,7 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 		threadId = randomUUID();
 		// L1a: synthesize a host_kind for thread auto-creation. Use 'task' as
 		// a generic carrier (the item will route to a task in most flows).
-		await ctx.db.insert(threads).values({
+		await insertThread(ctx.db, {
 			id: threadId,
 			hostKind: "task",
 			hostId: ctx.taskId,
@@ -104,11 +104,7 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 	// Uses ctx.teamId directly (F3: available in ToolContext since R7).
 	// Agent role is looked up from the users table for function-mechanism routing.
 	if (isReviewItem(input)) {
-		const [agentRow] = await ctx.db
-			.select({ role: users.role })
-			.from(users)
-			.where(eq(users.id, ctx.agentId))
-			.limit(1);
+		const agentRow = await getUserById(ctx.db, ctx.agentId);
 
 		const humanIds = await resolveReviewRecipients(ctx.db, {
 			userId: ctx.agentId,
@@ -117,21 +113,14 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 		});
 
 		if (humanIds.length > 0) {
-			const [threadRow] = await ctx.db
-				.select({ participants: threads.participants })
-				.from(threads)
-				.where(eq(threads.id, threadId))
-				.limit(1);
+			const threadRow = await getThreadById(ctx.db, threadId);
 
 			const currentParticipants: string[] = threadRow
 				? (JSON.parse(threadRow.participants) as string[])
 				: [ctx.agentId];
 
 			const merged = mergeParticipants(currentParticipants, humanIds);
-			await ctx.db
-				.update(threads)
-				.set({ participants: JSON.stringify(merged) })
-				.where(eq(threads.id, threadId));
+			await updateThread(ctx.db, threadId, { participants: JSON.stringify(merged) });
 		}
 	}
 

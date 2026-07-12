@@ -1,4 +1,4 @@
-import { factorySettings, type HyperIdleDb, sessions, users } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -8,6 +8,7 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 import { REDACTED } from "../notifications/config.js";
 import { getDailyDigest } from "../notifications/daily-digest.js";
+import { listAllUsers } from "../services/user-store.js";
 
 const updateSettingSchema = z.object({
 	key: z.string().min(1),
@@ -80,7 +81,7 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
-		const allAgents = await db.select().from(users);
+		const allAgents = await listAllUsers(db);
 
 		const agentStates: Record<string, number> = {};
 		for (const agent of allAgents) {

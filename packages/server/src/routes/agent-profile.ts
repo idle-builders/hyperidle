@@ -19,7 +19,7 @@
  * columns. Honest over fabricated.
  */
 
-import { factorySettings, sessions, teamMembers, teams, users } from "@hyperidle/db";
+import { factorySettings, sessions, teamMembers, teams } from "@hyperidle/db";
 import type {
 	AgentActiveSession,
 	AgentHarnessCapabilities,
@@ -40,6 +40,7 @@ import {
 	harnessCapabilitiesForType,
 	registeredHarnessCount,
 } from "../services/harness-capability-read-model.js";
+import { getUserById } from "../services/user-store.js";
 import * as work from "../work-service.js";
 
 // ---------------------------------------------------------------------------
@@ -216,7 +217,7 @@ export async function handleAgentProfile(
 	}
 
 	// 1. Fetch the agent (kind='ai', not system)
-	const [agent] = await db.select().from(users).where(eq(users.id, agentId)).limit(1);
+	const agent = await getUserById(db, agentId);
 
 	if (!agent || agent.kind !== "ai") {
 		return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);

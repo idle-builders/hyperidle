@@ -26,16 +26,16 @@
  * reads: distinct predicates get distinct named functions; get-by-id
  * collapses uniformly since every caller wants the same full row.
  *
- * @lore AU13 addendum §A2/A9 FOREIGN-IMPORT CEILING: exactly two read
- * functions in this file may import a foreign (non-owned) table —
- * `listBetTasksWithLatestSessionOutcome` (imports `sessions`) and
- * `findPostBetRetroItem` (imports `threads`). A third foreign-table read
- * function is out of bounds without re-opening the ceiling decision
- * (reviewer sign-off) — see `searchBetsByText` below for how a
- * bets-primary + teams-join site was resolved WITHOUT a third import
- * (split into an owned-primary query + a caller-side teams lookup, since
- * `teams` is not one of the five owned tables and is legal to query
- * directly from any file).
+ * @lore Founder ruling (2026-07-12): zero exceptions for cross-owned-table
+ * access — a cross-service join is decomposed, never allowlisted. The former
+ * `findPostBetRetroItem` `items ⋈ threads` join (AU13 addendum §A2
+ * "FOREIGN-IMPORT CEILING") was decomposed into `findRetroItemByThreadIds`
+ * (items-only) plus a caller-side `getThreadIdsByHost` lookup in
+ * conversation-store, since Conversation owns `threads`. The one remaining
+ * foreign read here (`listBetTasksWithLatestSessionOutcome` imports
+ * `sessions`) predates and is unaffected by this ruling. See `searchBetsByText`
+ * below for the same decompose-don't-join discipline (owned-primary query +
+ * caller-side `teams` lookup).
  *
  * Event emission stays at call sites (out of scope — see plan §3).
  */
@@ -47,7 +47,6 @@ import {
 	type NewTask,
 	sessions,
 	tasks,
-	threads,
 } from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
@@ -524,23 +523,45 @@ export async function findItemByReasoningMarker(
 }
 
 /**
- * `builtin-routine-handlers.ts:340-352` (`runPostBetRetro` dedupe probe) —
- * `items ⋈ threads` on `hostKind='bet' AND hostId=betId AND body LIKE marker`.
- * Owned-primary (`.from(items)`) with a foreign join — the second of the two
- * sanctioned foreign imports (addendum §A2 FOREIGN-IMPORT CEILING).
+ * `builtin-routine-handlers.ts` (`runPostBetRetro` dedupe probe) — does a retro
+ * item already exist for any of the bet's threads, matching the body marker?
+ * Items-only (`.from(items)`, no `threads` join): the caller resolves the bet's
+ * thread ids via conversation-store (Conversation owns `threads`) and passes
+ * them in. Decomposed from a former `items ⋈ threads` join to avoid a
+ * cross-owned-table read, per founder ruling (2026-07-12): zero exceptions for
+ * cross-service table access.
  */
-export async function findPostBetRetroItem(
+export async function findRetroItemByThreadIds(
 	exec: WriteExecutor,
-	betId: string,
+	threadIds: string[],
 	marker: string,
 ): Promise<{ id: string } | undefined> {
+	if (threadIds.length === 0) {
+		return undefined;
+	}
 	const [row] = await exec
 		.select({ id: items.id })
 		.from(items)
-		.innerJoin(threads, eq(items.threadId, threads.id))
-		.where(
-			and(eq(threads.hostKind, "bet"), eq(threads.hostId, betId), like(items.body, `%${marker}%`)),
-		)
+		.where(and(inArray(items.threadId, threadIds), like(items.body, `%${marker}%`)))
 		.limit(1);
 	return row;
+}
+
+/**
+ * `approval-rate.ts` (Path 1 attribution) — the ids of items authored by
+ * `sourceAgentId`. Items-only owned read; approval-rate then resolves the
+ * matching verdict messages via conversation-store, so neither the Work-owned
+ * `items` nor the Conversation-owned `messages` is read from the other's
+ * service (no cross-owner join, per founder ruling 2026-07-12: cross-owned-table
+ * reads route through the owner).
+ */
+export async function listItemIdsBySourceAgent(
+	exec: WriteExecutor,
+	sourceAgentId: string,
+): Promise<string[]> {
+	const rows = await exec
+		.select({ id: items.id })
+		.from(items)
+		.where(eq(items.sourceAgentId, sourceAgentId));
+	return rows.map((r) => r.id);
 }

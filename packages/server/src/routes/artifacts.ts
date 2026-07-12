@@ -3,7 +3,7 @@
 // Source: plans/AE6/architecture.md §3.
 
 import * as crypto from "node:crypto";
-import { artifacts, type HyperIdleDb, tasks, users } from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	type Artifact,
@@ -21,6 +21,7 @@ import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
 import { artifactPreviewSchema, fallbackPreviewSchema } from "../schemas/artifact-preview.js";
 import { recordCostAndCheck } from "../services/cost-cap.js";
+import { getUserById } from "../services/user-store.js";
 import * as work from "../work-service.js";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;
@@ -328,11 +329,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				eventBus !== undefined
 			) {
 				// Resolve teamMembers.id from users.teamId (§5.2 — NOT tasks.teamId which is teams.id)
-				const [agentRow] = await db
-					.select({ teamId: users.teamId })
-					.from(users)
-					.where(eq(users.id, resolvedAgentId))
-					.limit(1);
+				const agentRow = await getUserById(db, resolvedAgentId);
 
 				if (agentRow) {
 					const resolvedSessionId = body.sessionId ?? `artifact:${id}`;
