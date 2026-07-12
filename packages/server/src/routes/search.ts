@@ -21,7 +21,6 @@
  * - Knowledge: scope_kind != 'user' OR updated_by = userId.
  */
 import {
-	bets,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
@@ -37,6 +36,7 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { escapeLikePattern } from "../services/like-escape.js";
+import * as work from "../work-service.js";
 
 /** Max results per category */
 const MAX_PER_CATEGORY = 5;
@@ -246,36 +246,37 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// ordering when multiple rows share the same createdAt timestamp.
 		// AF16 T8 (Z8-033): match-rank CASE biases exact/prefix matches above mid-string
 		// substring matches. Order: matchRank ASC, createdAt DESC, id ASC.
-		const matchRankExpr = sql<number>`CASE
-			WHEN ${bets.description} ILIKE ${`${escapeLikePattern(query)}%`} ESCAPE '\\' THEN 0
-			WHEN ${bets.description} ILIKE ${`% ${escapeLikePattern(query)}%`} ESCAPE '\\' THEN 1
-			ELSE 2
-		END`;
-
-		const betRows = await db
-			.select({
-				id: bets.id,
-				description: bets.description,
-				status: bets.status,
-				appetite: bets.appetite,
-				teamName: teams.name,
-			})
-			.from(bets)
-			.innerJoin(teams, eq(bets.teamId, teams.id))
-			.where(
-				or(
-					sql`${bets.description} ILIKE ${pattern} ESCAPE '\\'`,
-					sql`${bets.hypothesis} ILIKE ${pattern} ESCAPE '\\'`,
-					sql`${bets.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
-				),
-			)
-			.orderBy(matchRankExpr, desc(bets.createdAt), bets.id)
-			.limit(MAX_PER_CATEGORY);
+		//
+		// @lore AU13 addendum §A2/§A9: this was a `.from(bets).innerJoin(teams, …)`
+		// query — routing it through work-service would require a THIRD
+		// foreign-table import past the two-function ceiling. Resolved by keeping
+		// `searchBetsByText` bets-only (owns the matchRank + LIKE predicate, no
+		// foreign columns) and doing the team-name lookup here directly — `teams`
+		// is not one of the five owned tables, so any file may query it. Same
+		// result set/order/values; only JOIN-vs-app-level-map mechanics differ.
+		const betRows = await work.searchBetsByText(db, {
+			pattern,
+			query: escapeLikePattern(query),
+			limit: MAX_PER_CATEGORY,
+		});
+		const betTeamRows =
+			betRows.length > 0
+				? await db
+						.select({ id: teams.id, name: teams.name })
+						.from(teams)
+						.where(
+							inArray(
+								teams.id,
+								betRows.map((b) => b.teamId),
+							),
+						)
+				: [];
+		const teamNameMap = new Map(betTeamRows.map((t) => [t.id, t.name]));
 
 		const workResults = betRows.map((row) => ({
 			id: row.id,
 			title: deriveTitle(row.description, row.id),
-			team: row.teamName,
+			team: teamNameMap.get(row.teamId) ?? row.teamId,
 			status: row.status,
 			appetite: row.appetite ?? "—",
 		}));
