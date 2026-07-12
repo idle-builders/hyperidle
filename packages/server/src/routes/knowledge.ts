@@ -26,9 +26,6 @@ import {
 	filesystems,
 	type HyperIdleDb,
 	knowledgeAccessLog,
-	knowledgeAppProjection,
-	knowledgeEditLog,
-	knowledgeItems,
 	tasks,
 	// @lore U1: `teamMembers` is the agent membership group (formerly `teams`).
 	teamMembers,
@@ -50,19 +47,30 @@ import {
 	scopeKindToLabel,
 	scopeToLayer,
 } from "@hyperidle/shared";
-import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { ItemDeletedError, VersionConflictError } from "../knowledge/errors.js";
 import {
+	archiveItem,
+	changeScope,
+	countAccessesSince,
+	countTriageVisible,
 	create as createKnowledgeItem,
+	findById,
+	findDetailById,
+	findRelatedByTopic,
+	flagItem,
+	listVisibleWithSignals,
+	mergeItems,
+	searchByText,
+	splitItem,
 	update as updateKnowledgeItem,
 } from "../knowledge/knowledge-repository.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
-import { escapeLikePattern } from "../services/like-escape.js";
 
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation
@@ -284,46 +292,6 @@ const changeScopeSchema = z.object({
 });
 
 /**
- * Write or upsert a knowledgeAppProjection row for the given knowledge item.
- * If a projection row already exists, updates the layer column.
- * If no projection row exists and layer is non-null, creates one.
- *
- * @lore Q2: Inline app projection assignment is a pragmatic boundary compromise. The
- * caller sees the projection row immediately without waiting for an event handler.
- * If layer is null (bet/team/user scope), we still create the projection row but
- * leave layer null — this is consistent with the O2 seed pattern.
- */
-async function upsertProjectionLayer(
-	db: HyperIdleDb,
-	knowledgeItemId: string,
-	scopeKind: string,
-): Promise<void> {
-	const layer = scopeToLayer(
-		// Safe cast: scopeKind validated via z.enum(SCOPE_KINDS) before this call.
-		scopeKind as (typeof SCOPE_KINDS)[number],
-	);
-
-	const [existing] = await db
-		.select()
-		.from(knowledgeAppProjection)
-		.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId))
-		.limit(1);
-
-	if (existing) {
-		await db
-			.update(knowledgeAppProjection)
-			.set({ layer })
-			.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId));
-	} else {
-		await db.insert(knowledgeAppProjection).values({
-			id: crypto.randomUUID(),
-			knowledgeItemId,
-			layer,
-		});
-	}
-}
-
-/**
  * Create Hono routes for knowledge endpoints.
  * Q2: upgraded to Hono<HyperIdleEnv> to read userId from auth middleware.
  */
@@ -348,21 +316,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		}
 		const query = parsed.data;
 
-		// I2 V4: escape LIKE wildcards (%, _, \) so the user's literal
-		// query characters do not turn into SQL pattern operators.
-		const pattern = `%${escapeLikePattern(query)}%`;
-		const results = await db
-			.select()
-			.from(knowledgeItems)
-			.where(
-				and(
-					or(
-						sql`${knowledgeItems.title} LIKE ${pattern} ESCAPE '\\'`,
-						sql`${knowledgeItems.body} LIKE ${pattern} ESCAPE '\\'`,
-						sql`${knowledgeItems.topic} LIKE ${pattern} ESCAPE '\\'`,
-					),
-				),
-			);
+		// @lore AU14 round 2: LIKE-substring search (title/body/topic, wildcard-escaped)
+		// now lives in the repository's searchByText — NOT the same as the repo's FTS
+		// search() (title+body only, whole-word). See knowledge-repository.ts.
+		const results = await searchByText(db, query);
 
 		return c.json({ results });
 	});
@@ -380,51 +337,13 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.get("userId");
 
-		const rawItems = await db
-			.select({
-				item: knowledgeItems,
-				relevanceScore: knowledgeAppProjection.relevanceScore,
-				attentionScore: knowledgeAppProjection.attentionScore,
-			})
-			.from(knowledgeItems)
-			.leftJoin(
-				knowledgeAppProjection,
-				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-			)
-			.where(or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, userId)));
+		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
+		// access-signal aggregation all moved into the repository's
+		// listVisibleWithSignals — see knowledge-repository.ts §6.
+		const rows = await listVisibleWithSignals(db, userId);
 
-		// L22: compute access signals per item from the access log.
-		// 30-day window relative to now.
-		// @lore O2: Batch all access-log rows in a single query before mapping to avoid
-		// N+1 queries (one per item). Group by itemId in application code.
-		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-		const allAccessRows = await db
-			.select()
-			.from(knowledgeAccessLog)
-			.where(sql`${knowledgeAccessLog.accessedAt} >= ${thirtyDaysAgo}`);
-
-		// Group access rows by itemId for O(1) lookup in the map below.
-		const accessByItem = new Map<string, typeof allAccessRows>();
-		for (const row of allAccessRows) {
-			const existing = accessByItem.get(row.itemId) ?? [];
-			existing.push(row);
-			accessByItem.set(row.itemId, existing);
-		}
-
-		const items = rawItems.map(({ item, relevanceScore, attentionScore }) => {
-			const accessRows = accessByItem.get(item.id) ?? [];
-
-			const accessCount30d = accessRows.length > 0 ? accessRows.length : null;
-			const lastActivityAt =
-				accessRows.length > 0
-					? accessRows.reduce(
-							(latest, r) => (r.accessedAt > latest ? r.accessedAt : latest),
-							accessRows[0]?.accessedAt ?? "",
-						)
-					: null;
-
-			return {
+		const items = rows.map(
+			({ item, relevanceScore, attentionScore, accessCount30d, lastActivityAt }) => ({
 				...item,
 				signals: {
 					lastActivityAt,
@@ -434,8 +353,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					// Y4: attentionScore stored as text in DB, parse to number in API response
 					attentionScore: attentionScore ? Number.parseFloat(attentionScore) : null,
 				},
-			};
-		});
+			}),
+		);
 
 		return c.json({ items });
 	});
@@ -447,16 +366,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// OR updatedBy = userId. This ensures private items from other users don't inflate the count.
 	router.get("/triage-count", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.get("userId");
-		const [result] = await db
-			.select({ count: sql<number>`count(*)` })
-			.from(knowledgeItems)
-			.where(
-				and(
-					inArray(knowledgeItems.status, ["draft", "needs_human"]),
-					or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, userId)),
-				),
-			);
-		return c.json({ count: Number(result?.count ?? 0) });
+		const count = await countTriageVisible(db, userId);
+		return c.json({ count });
 	});
 
 	// GET /:id — single item, emit knowledge_accessed event
@@ -469,22 +380,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const userId = c.get("userId");
 
-		const [row] = await db
-			.select({
-				item: knowledgeItems,
-				kind: knowledgeAppProjection.kind,
-				layer: knowledgeAppProjection.layer,
-				confidence: knowledgeAppProjection.confidence,
-				relevanceScore: knowledgeAppProjection.relevanceScore,
-				attentionScore: knowledgeAppProjection.attentionScore,
-			})
-			.from(knowledgeItems)
-			.leftJoin(
-				knowledgeAppProjection,
-				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-			)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
+		// @lore AU14 round 2: kernel row + projection LEFT JOIN moved into the
+		// repository's findDetailById. Q2 stays a route-side 404 decision (§5).
+		const row = await findDetailById(db, id);
 
 		if (!row) {
 			const response: ApiErrorResponse = {
@@ -509,35 +407,19 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// current page-load is not counted. accessCount reflects historical accesses only.
 		// @lore AF13: Order matters: count → insert. Swapping would produce N+1 counts.
 		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-		const [accessCountRow] = await db
-			.select({ count: sql<number>`count(*)` })
-			.from(knowledgeAccessLog)
-			.where(
-				and(
-					eq(knowledgeAccessLog.itemId, item.id),
-					sql`${knowledgeAccessLog.accessedAt} >= ${thirtyDaysAgo}`,
-				),
-			);
-		const accessCount = Number(accessCountRow?.count ?? 0);
+		const accessCount = await countAccessesSince(db, item.id, thirtyDaysAgo);
 
 		// AF13 §5 WARNING 2: relatedItems — same-topic items visible to this user, capped at 10.
 		// null-topic → [] (no topic match means no related items).
 		// User-scope filter: exclude other users' private (user-scoped) items.
 		let relatedItems: Array<{ id: string; title: string }> = [];
 		if (item.topic !== null) {
-			const relatedRows = await db
-				.select({ id: knowledgeItems.id, title: knowledgeItems.title })
-				.from(knowledgeItems)
-				.where(
-					and(
-						eq(knowledgeItems.topic, item.topic),
-						ne(knowledgeItems.id, item.id),
-						// User-scope filter: same as GET / — include if not user-scoped OR author is requester
-						or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, userId)),
-					),
-				)
-				.limit(10);
-			relatedItems = relatedRows;
+			relatedItems = await findRelatedByTopic(db, {
+				topic: item.topic,
+				excludeId: item.id,
+				viewerUserId: userId,
+				limit: 10,
+			});
 		}
 
 		// L22: append access-log row (best-effort — never break the read)
@@ -632,11 +514,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			// Response shape preserved: re-select the raw kernel row (not the repo's
 			// KnowledgeItemWithProjection, which carries extra projection fields) so the
 			// 201 body stays byte-identical to pre-AU14.
-			const [row] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, created.id))
-				.limit(1);
+			const row = await findById(db, created.id);
 
 			// O2: emit knowledge_created event
 			const createdEvent: KnowledgeCreatedEvent = {
@@ -661,11 +539,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof changeScopeSchema>;
 
-			const [existing] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
+			const existing = await findById(db, id);
 
 			if (!existing) {
 				const response: ApiErrorResponse = {
@@ -694,56 +568,15 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 400);
 			}
 
-			const now = new Date().toISOString();
-			const resolvedScopeId = body.scopeId ?? null;
-
-			// Log scope_kind change to knowledgeEditLog (with reason in newValue)
-			if (existing.scopeKind !== body.scopeKind) {
-				await db.insert(knowledgeEditLog).values({
-					id: crypto.randomUUID(),
-					itemId: id,
-					editor: body.updatedBy,
-					field: "scope_kind",
-					oldValue: existing.scopeKind,
-					newValue: `${body.scopeKind} (reason: ${body.reason})`,
-					editType: "scope_change",
-					createdAt: now,
-				});
-			}
-
-			// Log scope_id change to knowledgeEditLog if it changed
-			if (existing.scopeId !== resolvedScopeId) {
-				await db.insert(knowledgeEditLog).values({
-					id: crypto.randomUUID(),
-					itemId: id,
-					editor: body.updatedBy,
-					field: "scope_id",
-					oldValue: existing.scopeId ?? null,
-					newValue: resolvedScopeId ?? null,
-					editType: "scope_change",
-					createdAt: now,
-				});
-			}
-
-			await db
-				.update(knowledgeItems)
-				.set({
-					scopeKind: body.scopeKind,
-					scopeId: resolvedScopeId,
-					version: existing.version + 1,
-					updatedBy: body.updatedBy,
-					updatedAt: now,
-				})
-				.where(eq(knowledgeItems.id, id));
-
-			// Q2: update app projection layer for new scope
-			await upsertProjectionLayer(db, id, body.scopeKind);
-
-			const [updated] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
+			// @lore AU14 round 2: exact write sequence (conditional scope_kind/scope_id
+			// edit-log rows, version+1, projection-layer upsert) moved into the
+			// repository's changeScope — see knowledge-repository.ts §7c.
+			const updated = await changeScope(db, existing, {
+				scopeKind: body.scopeKind,
+				scopeId: body.scopeId ?? null,
+				reason: body.reason,
+				updatedBy: body.updatedBy,
+			});
 
 			// Emit knowledge_updated event for scope change
 			const updatedEvent: KnowledgeUpdatedEvent = {
@@ -772,11 +605,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
 
-			const [existing] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
+			const existing = await findById(db, id);
 
 			if (!existing) {
 				const response: ApiErrorResponse = {
@@ -829,11 +658,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				throw error;
 			}
 
-			const [updated] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
+			const updated = await findById(db, id);
 
 			// O2: emit knowledge_updated event
 			const updatedEvent: KnowledgeUpdatedEvent = {
@@ -858,11 +683,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const targetId = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
 
-			const [target] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, targetId))
-				.limit(1);
+			const target = await findById(db, targetId);
 
 			if (!target) {
 				const response: ApiErrorResponse = {
@@ -872,11 +693,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 404);
 			}
 
-			const [source] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, body.sourceId))
-				.limit(1);
+			const source = await findById(db, body.sourceId);
 
 			if (!source) {
 				const response: ApiErrorResponse = {
@@ -886,58 +703,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 404);
 			}
 
-			const now = new Date().toISOString();
-			const mergedBody = `${target.body}\n\n---\n\n${source.body}`;
-
-			// Update target with merged body
-			await db
-				.update(knowledgeItems)
-				.set({
-					body: mergedBody,
-					version: target.version + 1,
-					updatedBy: body.updatedBy,
-					updatedAt: now,
-				})
-				.where(eq(knowledgeItems.id, targetId));
-
-			// Archive source
-			await db
-				.update(knowledgeItems)
-				.set({
-					status: "archived",
-					updatedBy: body.updatedBy,
-					updatedAt: now,
-				})
-				.where(eq(knowledgeItems.id, body.sourceId));
-
-			// Edit log for merge
-			await db.insert(knowledgeEditLog).values({
-				id: crypto.randomUUID(),
-				itemId: targetId,
-				editor: body.updatedBy,
-				field: "body",
-				oldValue: target.body,
-				newValue: mergedBody,
-				editType: "merge",
-				createdAt: now,
-			});
-
-			await db.insert(knowledgeEditLog).values({
-				id: crypto.randomUUID(),
-				itemId: body.sourceId,
-				editor: body.updatedBy,
-				field: "status",
-				oldValue: source.status,
-				newValue: "archived",
-				editType: "merge",
-				createdAt: now,
-			});
-
-			const [merged] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, targetId))
-				.limit(1);
+			// @lore AU14 round 2: exact write sequence (target body-append + version+1,
+			// source archive, two `editType:"merge"` edit-log rows) moved into the
+			// repository's mergeItems — see knowledge-repository.ts §7c.
+			const merged = await mergeItems(db, { target, source, updatedBy: body.updatedBy });
 
 			// O2: emit knowledge_updated event for merge
 			const mergedEvent: KnowledgeUpdatedEvent = {
@@ -962,11 +731,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
 
-			const [original] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
+			const original = await findById(db, id);
 
 			if (!original) {
 				const response: ApiErrorResponse = {
@@ -976,58 +741,14 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 404);
 			}
 
-			const now = new Date().toISOString();
-			const createdItems: unknown[] = [];
-
-			for (const newItem of body.newItems) {
-				const newId = crypto.randomUUID();
-				await db.insert(knowledgeItems).values({
-					id: newId,
-					scopeKind: original.scopeKind,
-					scopeId: original.scopeId,
-					topic: newItem.topic ?? original.topic,
-					title: newItem.title,
-					body: newItem.body,
-					format: original.format,
-					// O2 reviewer finding: split handler must set status: "draft"
-					status: "draft",
-					version: 1,
-					updatedBy: body.updatedBy,
-					createdAt: now,
-					updatedAt: now,
-				});
-
-				// Q2: assign app projection layer for split items (inherits parent scope)
-				await upsertProjectionLayer(db, newId, original.scopeKind);
-
-				const [created] = await db
-					.select()
-					.from(knowledgeItems)
-					.where(eq(knowledgeItems.id, newId))
-					.limit(1);
-				createdItems.push(created);
-			}
-
-			// Archive original
-			await db
-				.update(knowledgeItems)
-				.set({
-					status: "archived",
-					updatedBy: body.updatedBy,
-					updatedAt: now,
-				})
-				.where(eq(knowledgeItems.id, id));
-
-			// Edit log
-			await db.insert(knowledgeEditLog).values({
-				id: crypto.randomUUID(),
-				itemId: id,
-				editor: body.updatedBy,
-				field: "status",
-				oldValue: original.status,
-				newValue: "archived",
-				editType: "split",
-				createdAt: now,
+			// @lore AU14 round 2: exact write sequence (N new draft/v1 rows inheriting
+			// scope + layer-only projection + NO create edit-log, original archived +
+			// one `editType:"split"` row) moved into the repository's splitItem —
+			// see knowledge-repository.ts §7c.
+			const createdItems = await splitItem(db, {
+				original,
+				newItems: body.newItems,
+				updatedBy: body.updatedBy,
 			});
 
 			// O2: emit knowledge_updated event for split
@@ -1048,7 +769,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	router.post("/:id/archive", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
-		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
+		const item = await findById(db, id);
 
 		if (!item) {
 			const response: ApiErrorResponse = {
@@ -1058,32 +779,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 404);
 		}
 
-		const now = new Date().toISOString();
-		await db
-			.update(knowledgeItems)
-			.set({
-				status: "archived",
-				updatedAt: now,
-			})
-			.where(eq(knowledgeItems.id, id));
-
-		// Edit log
-		await db.insert(knowledgeEditLog).values({
-			id: crypto.randomUUID(),
-			itemId: id,
-			editor: item.updatedBy,
-			field: "status",
-			oldValue: item.status,
-			newValue: "archived",
-			editType: "archive",
-			createdAt: now,
-		});
-
-		const [updated] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, id))
-			.limit(1);
+		// @lore AU14 round 2: exact write sequence (status→archived, NO version bump,
+		// NO updatedBy rewrite, one `editType:"archive"` edit-log row) moved into the
+		// repository's archiveItem — see knowledge-repository.ts §7c.
+		const updated = await archiveItem(db, item);
 
 		// O2: emit knowledge_archived event (distinct from knowledge_updated)
 		const archivedEvent: KnowledgeArchivedEvent = {
@@ -1107,11 +806,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof flagSchema>;
 
-			const [item] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
+			const item = await findById(db, id);
 
 			if (!item) {
 				const response: ApiErrorResponse = {
@@ -1136,26 +831,16 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				}
 			}
 
-			const now = new Date().toISOString();
 			// O2: no attentionScore write (column stripped). Flag is recorded in the edit log.
 			// Status set to "draft" so flagged items re-enter the review queue.
+			// @lore AU14 round 2 §7d: flagItem accepts the caller's tx handle and opens no
+			// transaction of its own — the route keeps the single cross-domain transaction
+			// wrapping the knowledgeItems + edit-log write (flagItem) and the agent-layer
+			// recordAgentWorkIntent write (wrong domain for the knowledge repository).
 			const editId = crypto.randomUUID();
 			let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
 			await db.transaction(async (tx) => {
-				await tx
-					.update(knowledgeItems)
-					.set({ status: "draft", updatedAt: now })
-					.where(eq(knowledgeItems.id, id));
-				await tx.insert(knowledgeEditLog).values({
-					id: editId,
-					itemId: id,
-					editor: item.updatedBy,
-					field: "status",
-					oldValue: item.status,
-					newValue: `flagged (reason: ${body.reason})`,
-					editType: "flag",
-					createdAt: now,
-				});
+				await flagItem(tx as HyperIdleDb, item, { reason: body.reason, editId });
 				if (body.agentId)
 					intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
 						kind: "knowledge_action",
@@ -1166,11 +851,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					});
 			});
 
-			const [updated] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
+			const updated = await findById(db, id);
 
 			// O2: emit knowledge_updated with action "flagged"
 			const flaggedEvent: KnowledgeUpdatedEvent = {

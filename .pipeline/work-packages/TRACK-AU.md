@@ -745,51 +745,93 @@ The point is not a new harness path. The point is one contract for every agent r
 
 ### AU14 — Knowledge write-path unification
 
-**Work package.** As a maintainer closing out Track AU, I want Knowledge to have exactly one write path for creating and updating knowledge items, so that a knowledge item created through the API and a knowledge item created by an agent tool go through the same code, validate the same way, and emit the same event. When this ships, `routes/knowledge.ts` no longer has its own independent insert/update logic — it calls the same repository functions that agent-layer code and tools already call.
+**REOPENED (2026-07-12), CORRECTED AGAIN same day — writes-only was not sufficient; this WP is not
+done.** The original round (PR #434, merged `f22990a7`) unified `routes/knowledge.ts`'s `POST /` and
+`PATCH /:id` onto the repository and is staying merged — do not revert or redo that half. A founder
+ruling on the sibling AU12/AU13 work packages (`feedback_service_ownership_includes_reads.md`)
+corrected a mis-interpretation this WP made independently and identically: **"the owning service is
+the only code permitted to import the table object" is a hard requirement covering reads too, not
+just writes — even when a WP's acceptance criteria text only spells out write call sites.** The first
+reopening pass (below, drafted against that ruling) scoped this round to reads only — the 4 GET
+handlers plus the two POST/PATCH post-write re-selects — because those were the call sites the
+founder's AU12/AU13 example concretely named. **That was still too narrow.** The founder's directive
+is unconditional: **"all reads and write MUST go through the knowledge service. no exclusion."**
+Read literally, that also closes the write-side carve-out round 1 itself made explicit ("Out of
+scope for this WP: `PATCH /:id/scope`, `POST /:id/merge`, `POST /:id/split`, `POST /:id/archive`,
+`POST /:id/flag`... keep as-is") — those five handlers still do their own `db.update`/
+`db.insert(knowledgeItems)` today, unconverted by round 1 and untouched by the reads-only draft of
+this reopening. **This round now covers every remaining direct `knowledgeItems` table access in
+`routes/knowledge.ts`, read or write, with zero named exceptions** — the 4 GET handlers, the two
+post-write re-selects, AND the five specialized write handlers' own reads and writes
+(scope-change, merge, split, archive, flag). After this round, grep for `knowledgeItems` (any
+`db.select`/`db.insert`/`db.update` call, not just `.from`) in `routes/knowledge.ts` outside a call
+into `knowledge-repository.ts` must return zero matches — full stop.
 
-**Why this matters.** The maintainer benefits because Knowledge is the one domain that already has half the right shape — a real repository — but the HTTP route never uses it, so there are two independently-evolving implementations of "create a knowledge item" that can (and already do) drift: different insert sequences, different event mechanisms. The cost of not building this is that a future change to one path (say, adding a validation rule) silently doesn't apply to the other, and nobody notices until a real bug ships through whichever path wasn't touched.
+**Work package.** As a maintainer closing out Track AU, I want Knowledge to have exactly one path —
+covering both reads and writes — for every access to a knowledge item, so that no code anywhere in
+the server can see or change `knowledge_items` except through `knowledge-repository.ts`. Writes are
+already unified (AU14 round 1). This round closes reads: every one of `routes/knowledge.ts`'s GET
+handlers, and the write handlers' own post-write re-select, must call the repository instead of
+selecting from the table directly.
+
+**Why this matters.** A write-only guard only catches half the coupling problem the Knowledge
+repository exists to kill — every other domain module, and any future one, can still read the row
+shape directly around the repository's abstraction, meaning a future repository-level change (a
+computed field, a soft-delete filter, a redaction rule) silently doesn't apply to whichever read
+call site wasn't converted. The whole point of "one owning module per table" is that it is
+literally the only code path to that table, full stop — not "the only path for a subset of
+operations."
 
 **Type.** backend.
 
-**What exists today.** `packages/server/src/knowledge/knowledge-repository.ts` has `create`/`update`/`list`/`search`, already called by `services/context-assembly.ts`, `services/writeback.ts`, and three agent tools (`tools/write-memory.ts`, `tools/promote-knowledge.ts`, `tools/query-practice.ts`). Separately, `routes/knowledge.ts`'s POST/PATCH handlers do their own raw `db.insert(knowledgeItems)`/update with their own user-scope filtering logic (the Q2 rule: an item is visible if `scopeKind != "user"` or `updatedBy == userId`) and emit `KnowledgeCreatedEvent` on the request-scoped `EventBus`. The repository's `create()`/`update()` do a different insert sequence (they also write a `knowledgeEditLog` row) and emit on a separate module-level singleton, `getKnowledgeEvents()`. Confirmed by direct code reading — these are two real, independently-implemented write paths against the same `knowledge_items` table.
+**What exists today (post round-1 merge, `f22990a7`).** `packages/server/src/knowledge/knowledge-repository.ts` has `create`/`update`/`list`/`search`, already called by `services/context-assembly.ts`, `services/writeback.ts`, and three agent tools (`tools/write-memory.ts`, `tools/promote-knowledge.ts`, `tools/query-practice.ts`). `routes/knowledge.ts`'s `POST /` and `PATCH /:id` now call the repository's `create`/`update` (round 1, done) — but the repository's already-exported `list()`/`search()` functions are not called by any GET handler. Every GET handler still does its own raw `db.select().from(knowledgeItems)` with its own Q2 filtering, its own AF13-computed fields (`accessCount30d`, `lastActivityAt`, `relatedItems`), and its own triage-count aggregation — none of which routes through `list()`/`search()`. The two POST/PATCH handlers' post-write re-select (kept as a raw read in round 1, deliberately, to preserve the exact response shape) is the same gap in miniature.
 
-**What's genuinely missing.** `routes/knowledge.ts` needs to call the repository's `create`/`update` instead of its own insert/update, with the Q2 scope-filtering logic preserved (folded into the repository call or kept as route-level logic wrapping it), and the two event mechanisms (`KnowledgeCreatedEvent`/`EventBus` vs. `getKnowledgeEvents()`) collapsed into one.
+**What's genuinely missing.** `routes/knowledge.ts`'s GET handlers (`/search`, `/`, `/triage-count`, `/:id`, and the related-items computation inside `/:id`) need to call the repository's `list`/`search` (extended if they don't yet support everything a given GET handler needs — e.g. triage-count aggregation, related-items lookup, the AF13 computed-signal fields) instead of a raw `db.select()`. The `POST /`/`PATCH /:id` post-write re-select should also go through a repository read function rather than a raw select. Q2 read-filtering must be preserved exactly, using the same non-HTTP-caller-safe pattern round 1 established for writes (resolved value passed in, not a `userId` the repository inspects itself).
 
 **Depends on.**
-- None. Independent of AU12/AU13 — touches only the Knowledge domain, not Conversation/Users/Work/Routine.
+- None. Independent of AU12/AU13 — touches only the Knowledge domain, not Conversation/Users/Work/Routine. Not blocked by round 1 having already merged; this is additive to that code, not a revert.
 
-**Complexity.** M
+**Complexity.** L (was M for round 1's writes-only scope). Covers four GET handlers with real
+computed-field logic (access signals, related items, triage aggregation) AND five specialized
+write handlers (scope-change, merge, split, archive, flag) whose own reads/writes were never
+converted by round 1.
 
 **Pre-build gates.**
-- **Refinement:** Not required — goal is clear; this is convergence onto an already-existing implementation, not new design.
+- **Refinement:** Not required — goal is clear; this is convergence onto an already-existing implementation, not new design. Same rationale as round 1, now applied to the full remaining surface.
 - **Design:** Not required — backend refactor, no UI surface.
 
 **Human concept review.** No.
 
 **Acceptance criteria.**
-- `routes/knowledge.ts`'s create and update handlers call the knowledge repository's `create`/`update` functions rather than performing their own inserts/updates.
-- The Q2 user-scope visibility rule (an item is visible if not user-scoped, or if the requesting user is its owner) continues to hold exactly as before, for both reads and writes.
-- Exactly one event is emitted per knowledge item creation/update, observable by every current consumer of either the old `KnowledgeCreatedEvent`/`EventBus` path or the old `getKnowledgeEvents()` path.
-- The knowledge edit log continues to record an entry for every create/update, regardless of whether the request originated from the HTTP route or an agent tool.
+- `routes/knowledge.ts`'s `GET /search`, `GET /`, `GET /triage-count`, and `GET /:id` handlers call the knowledge repository's `list`/`search` functions (extended, or new narrowly-scoped functions) rather than performing their own `db.select()` reads.
+- `POST /` and `PATCH /:id`'s post-write response re-select also goes through a repository read function rather than a raw `db.select()`.
+- `PATCH /:id/scope`, `POST /:id/merge`, `POST /:id/split`, `POST /:id/archive`, and `POST /:id/flag` — every read AND write these five handlers perform directly against `knowledgeItems` — is routed through the repository (existing `create`/`update`, or new narrowly-scoped repository functions for merge/split's multi-row operations). Round 1's explicit carve-out of these five handlers is superseded; there is no remaining exception.
+- The Q2 user-scope visibility rule (an item is visible if not user-scoped, or if the requesting user is its owner) continues to hold exactly as before, for every read AND write call site, including all newly-converted ones.
+- Every currently-observable behavior — AF13's computed `accessCount30d`/`lastActivityAt`/`relatedItems` fields, the triage-count aggregation, the `knowledge_accessed` event emission on `GET /:id`, merge/split's multi-row semantics, archive/flag's status transitions, scope-change's projection-layer update — is preserved exactly.
+- `routes/knowledge.ts` has zero remaining direct `knowledgeItems` table access of any kind (`db.select`, `db.insert`, `db.update`) outside a call into `knowledge-repository.ts` — grep-verifiable, zero-allowlist, no named exceptions.
+- (Carried from round 1, already satisfied, must not regress): create/update call the repository; Q2 write-side holds; exactly one event per write; edit log records every create/update regardless of origin.
 
 **Validation scenarios.**
-- Given a knowledge item is created via the HTTP API, when it is created, then it produces the same edit-log row and the same event shape that an agent-tool-created item produces today via the repository.
-- Given a user-scoped knowledge item exists, when a different user requests the list, then it is excluded exactly as it is today (Q2 preserved).
-- Given the existing knowledge route integration tests and the existing repository/tool tests, when re-run after this work package, then all pass with no behavior change to any consumer.
+- Given the existing knowledge route integration tests (list/search/triage-count/get-by-id, scope-change, merge, split, archive, flag, including their Q2 exclusion assertions and their AF13 computed-field assertions), when re-run after this round, then all pass with no behavior change to any consumer.
+- Given a user-scoped knowledge item exists, when a different user requests the list, search, or triage-count, then it is excluded exactly as it is today (Q2 preserved on every read path, not just `GET /`).
+- Given a knowledge item is read via `GET /:id`, when it is read, then it still emits `knowledge_accessed` and still returns the same computed fields as before this round.
+- Given two items are merged, or one item is split, when the operation completes, then the resulting rows and edit-log entries are identical to today's raw-write behavior.
+- Given a repo-wide grep for any `knowledgeItems` table access (`db.select`/`db.insert`/`db.update` targeting it) outside `knowledge-repository.ts`, when run after this round, then it returns zero matches in `routes/knowledge.ts`.
 
-**Plan calls.** Standard architecture pass. The plan should pick one event mechanism as canonical (the repository's `getKnowledgeEvents()` is the one every non-route consumer already relies on — moving the route onto it, rather than the reverse, is very likely the lower-risk direction) and specify how the route's Q2 filtering logic is preserved without duplicating it inside the repository, which is also called by non-HTTP callers that have no request-scoped user context.
+**Plan calls.** The repository's `list()`/`search()`/`create()`/`update()` were designed for their existing non-HTTP callers (`context-assembly.ts`, `writeback.ts`, tools) and do not yet support everything the route's GET handlers or the merge/split/archive/flag/scope-change handlers need. The plan must decide, per handler, whether to extend an existing repository function or add a new narrowly-scoped one — but in every case the route must stop touching `knowledgeItems` directly, and the repository must stay callable by its existing non-HTTP callers with no behavior change to them. Follow round 1's precedent for the Q2 pattern (resolved values passed in, repository never inspects `userId`) for both reads and the write handlers that need it. Merge/split are the highest-risk conversions (multi-row, non-CRUD-shaped operations) — the plan should treat them as their own design problem, not assume `create`/`update` cover them as-is.
 
 **Contracts / constraints.**
-- No behavior change visible to any existing consumer of either event mechanism.
-- The repository remains the single owner of `knowledge_items` writes; `routes/knowledge.ts` becomes a caller, not a second implementation.
+- No behavior change visible to any existing consumer of any read or write endpoint.
+- The repository remains the single owner of all `knowledge_items` reads AND writes, with zero exceptions; `routes/knowledge.ts` becomes purely a caller of it, never a second implementation of any operation on that table.
 - No schema changes.
+- Round 1's write-path unification (PR #434, `POST /` and `PATCH /:id`) stays intact — this round is additive, not a redo, and extends the same pattern to the remaining five write handlers plus all reads.
 
 **Out of scope.**
-- Any other domain's write-path (see AU12/AU13).
+- Any other domain's read/write path (see AU12/AU13 — which have the identical read gap and need their own equivalent follow-up, not covered here).
 - Changing what Q2 visibility means, only preserving it through the merge.
 - The descriptor read-model (AU16) or package split (AU17) — unrelated.
 
-**Effort.** M (~1d)
+**Effort.** L (~2d) — was M (~1d) for round 1's writes-only scope.
 
 ---
 
