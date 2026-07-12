@@ -408,6 +408,18 @@ These gaps should be registered as follow-up work if not already represented by 
      not catch a *newly introduced* agent-layer CRUD write. This is AU8's full should-graph guard,
      and AU8 depends on AU11 (implementation-complete, pending merge) in the manifest — once AU11
      merges, AU8 is unblocked and is the only remaining AU work.
+   - **Update (2026-07-12):** the "Agent-layer-owns-core-CRUD" gap is no longer entirely without a
+     static guard — it's now **partially closed, domain by domain**. AU12 (`au12-conversation-users-ownership-guard.ts`)
+     and AU13 (`au13-work-routine-ownership-guard.ts`) each mechanically forbid non-owning code from
+     writing Conversation/Users and Work/Routine tables (both implementation-complete, PRs open,
+     pending merge — see "Service-Scoped Architecture" §7/§8 below for exact status). Knowledge still
+     has its second write path unguarded (AU14), and Settings/Notification have no owning module or
+     guard at all yet, confirmed by two independent audits and not yet a registered work package (see
+     "Service-Scoped Architecture" §9, item 1). AU8's job is now to generalize and consolidate what
+     AU12/AU13 already built per-domain into one should-graph guard, not to invent per-domain
+     enforcement from nothing — a materially smaller remaining task than when this gap was last
+     revised, but still blocked on AU14–AU17 landing first per the dependency order in "Service-Scoped
+     Architecture" §3.
    - A related, smaller AU8 task: today the should-graph boundary is enforced by **four separate
      scripts** (`au7-runtime-retirement-guard.ts`, `au9-direct-handoff-guard.ts`,
      `au10-plugin-config-ownership-guard.ts`, `au11-runtime-ownership-guard.ts`) with overlapping
@@ -557,6 +569,14 @@ could face the same temptation if consolidating them surfaces more previously-hi
 
 ## Bottom Line
 
+**Superseded by "Service-Scoped Architecture" §7–§9 below (2026-07-12).** Everything in this
+section was accurate as of the AU7→AU11 cycle, before AU8's own review found the two-layer split
+too coarse to guard mechanically and split its remaining scope into AU12–AU17 (see "Service-Scoped
+Architecture" above). Left as-is for historical accuracy — AU7/AU9/AU10/AU11's own completion
+checks below are still correct and still the ancestor state everything since builds on. For current
+status, read "Service-Scoped Architecture" §9's closing "Where this leaves AU8" paragraph instead of
+this section's "next actions" line.
+
 **On track — AU8 is now the only remaining work package in Track AU.** The dependency-ordered
 chain the manifest encodes (AU7 → AU9 → {AU10, AU11} → AU8) is proceeding in the correct order with
 no work skipped or reordered: AU7, AU9, and AU10 are merged, and AU11 is implementation-complete
@@ -630,10 +650,12 @@ architecture-critique reviewer, once by the code reviewer) and its file `knowled
 deleted; the shared `EventBus` (the mechanism with real subscribers — `ws-broadcaster.ts`,
 `git-export.ts`, `observability/dispatcher.ts`, `relevance-listener.ts`) is the sole surviving event
 mechanism. Knowledge is now the first of the six AU12–AU16 domains to close its as-is/should gap
-completely — see the AU14 Completion Check below. Snapshot of the rest of the wave at this same
-commit: AU12 (Conversation + Users) PR #435 is open, CI green, mergeable, not yet merged; AU13
-(Work + Routine) PR #436 is open, CI still running at last check, not yet merged; AU15 and AU16 have
-not started (no branch/PR yet); AU17 and AU8 are correctly still blocked on all five landing.
+completely — see the AU14 Completion Check below. Snapshot of the rest of the wave, updated as of
+AU13's own CI finishing green: AU12 (Conversation + Users) PR #435 is open, CI green, mergeable, not
+yet merged; AU13 (Work + Routine) PR #436 is also open, CI green (`npm run verify` + `release-guard`
+both passed), mergeable, not yet merged; AU15 and AU16 have not started (no branch/PR yet); AU17 and
+AU8 are correctly still blocked on all five landing. See §7–§9 below for AU12/AU13's own completion
+checks and the gaps their builds surfaced.
 
 ### 1. Package boundary — as-is vs should
 
@@ -692,10 +714,10 @@ into a build-enforced fact instead of a diagram.
 
 | Crossing | As-is | Should | Why |
 |---|---|---|---|
-| Core service ↔ its own table | Mixed: Knowledge/Settings/Notification mostly do this correctly; Conversation/Work/Users/Routine do not — both core routes AND agent-owned files write these tables directly | Direct DB access, but *only* from the owning service's own files | The one place raw table access is correct — because nothing else is allowed to do it |
-| Core service ↔ another core service | No shared functions exist for Conversation/Work/Users/Routine; each caller does its own insert | Function call to the other service's exported function | Same process, needs the answer now |
+| Core service ↔ its own table | **Fixed for Conversation/Users/Work/Routine** (AU12 PR #435, AU13 PR #436 — both implementation-complete, CI green, awaiting merge): each domain now has exactly one owning module, lint-guarded. Knowledge still has a second write path (`routes/knowledge.ts` bypasses `knowledge-repository.ts` — AU14). Settings/Notification confirmed still raw by two independent audits (AU12's and AU13's first-task audits, see §9) — no WP registered yet | Direct DB access, but *only* from the owning service's own files | The one place raw table access is correct — because nothing else is allowed to do it |
+| Core service ↔ another core service | No shared functions exist for Knowledge↔Work/Routine/Conversation/Users cross-calls yet (each domain's new service is self-contained, not yet calling siblings) | Function call to the other service's exported function | Same process, needs the answer now |
 | Core service → Agent Layer, "do work" | Durable intent row (`agent_work_intents`) for every family **except** routines, which call `agent-selection.ts` directly at fire-time | Durable intent row, no exceptions | A queue's value is crash-safety + latency-decoupling, which holds even fully in-process — a second channel undermines that guarantee for exactly the family using it |
-| Agent Layer → Core service, "record this fact" | Broken almost everywhere still audited: `agent-work-assistant.ts`, `assistant-dispatcher.ts`, `builtin-routine-handlers.ts` all write Conversation/Work/Routine tables directly (AU12/AU13, in flight). **Knowledge is fully correct as of AU14** — every writer (the HTTP route and every agent-layer/tool caller) now goes through the one repository, with no remaining second path | Function call into the owning Core service | Never a raw write — the domain keeps owning its own invariants regardless of who's asking |
+| Agent Layer → Core service, "record this fact" | **Knowledge fully correct, merged (AU14, #434):** every writer (the HTTP route and every agent-layer/tool caller) now goes through the one repository, no remaining second path. **Fixed for Conversation/Users/Work/Routine, pending merge (AU12 #435, AU13 #436):** `agent-work-assistant.ts`, `assistant-dispatcher.ts`, `builtin-routine-handlers.ts` now call `conversation-store.ts`/`user-store.ts`/`work-service.ts`/`routine-service.ts` instead of writing tables directly | Function call into the owning Core service | Never a raw write — the domain keeps owning its own invariants regardless of who's asking |
 | Agent Layer internal services, to each other | Mostly already function calls, in-process | Function call | One pipeline |
 | Orchestrator → harness process | Files (sandbox in/out) + `HarnessAdapter` interface (local spawn or `RemoteHarnessAdapter` over WS) | Unchanged — already correct | One interface, swappable implementation, caller oblivious to which |
 | Running agent → tools/MCP/Knowledge search | MCP over HTTP — the harness's own MCP config is a real server URL (`cli-mcp-config.ts`), works identically local or remote | Unchanged — already correct | The agent is foreign code; MCP is its one audited door |
@@ -708,18 +730,18 @@ into a build-enforced fact instead of a diagram.
 
 ```mermaid
 flowchart LR
-  AU11["AU11 — merged\n(app-runtime dissolved)"]
-  AU11 --> AU12["AU12 — PR #435 open, CI green\nConversation + Users\nown their writes"]
-  AU11 --> AU13["AU13 — PR #436 open, CI running\nWork + Routine\nown their writes"]
-  AU13 --> AU15["AU15 — not started\nRoutine agent-selection\nthrough the intent queue"]
-  AU14["AU14 — PR #434 open, CI green\nKnowledge write-path\nunification — DONE (independent)"]
-  AU16["AU16 — not started\nDescriptor read-model\n(independent)"]
-  AU12 --> AU17["AU17\nCore App / Agent Layer\nas real packages"]
+  AU11["AU11 — merged\n(#428)"]
+  AU11 --> AU12["AU12 — impl. complete\nConversation + Users\nPR #435, CI green,\nawaiting merge"]
+  AU11 --> AU13["AU13 — impl. complete\nWork + Routine\nPR #436, CI green,\nawaiting merge"]
+  AU13 --> AU15["AU15\nRoutine agent-selection\nthrough the intent queue\n(not started)"]
+  AU14["AU14 — merged\n(#434)\nKnowledge write-path\nunification"]
+  AU16["AU16\nDescriptor read-model\n(independent,\nnot started)"]
+  AU12 --> AU17["AU17\nCore App / Agent Layer\nas real packages\n(not started)"]
   AU13 --> AU17
   AU14 --> AU17
   AU15 --> AU17
   AU16 --> AU17
-  AU17 --> AU8["AU8\nshould-graph guard,\ngeneralized"]
+  AU17 --> AU8["AU8\nshould-graph guard,\ngeneralized\n(not started)"]
 ```
 
 AU12/AU13/AU14/AU16 have no dependency on each other and can build in parallel — they touch
@@ -733,6 +755,16 @@ cross-writes just relocates the mess into two packages instead of fixing it — 
 unblock AU17 early, since AU17's own precondition is *all five* landing, not any one. AU8 depends
 only on AU17 directly — the rest are transitive through it, matching this manifest's existing
 convention (e.g. AU11 lists `depends: [AU9, AU10]`, not the full chain back through AU7).
+
+**Confirmed in practice (2026-07-12):** AU12 and AU13 were in fact built in parallel by independent
+sessions, both branching from the same `origin/main` commit (`003ea774`) and both touching
+`services/builtin-routine-handlers.ts` — the one file the parallelism claim above depends on
+staying disjoint. Diffed directly: AU12 migrated only the file's two `tx.insert(threads)` sites (to
+`insertThread` from `conversation-store.ts`); AU13 migrated only the `routines`/`routineRuns`
+inserts/updates and the co-located `items` insert (to `routine-service.ts`/`work-service.ts`),
+explicitly leaving `threads` untouched pending AU12. The edits sit in different hunks of the same
+file — no line-level conflict, order-independent merge. This validates the "disjoint files" claim
+down to the sub-file level, not just the file level, for this one shared file.
 
 ### 4. Internal modules per service — as-is vs should
 
@@ -766,15 +798,24 @@ task rather than assumed clean):
 | `notification-listener.ts` | Domain-event reaction |
 | `config.ts`, `types.ts` | Config/types |
 
-**Core App — Conversation, Work, Users, Routine** (no dedicated folder exists today — this is the
-literal absence AU12/AU13 build):
+**Core App — Conversation, Work, Users, Routine** (no dedicated folder existed before AU12/AU13 —
+both are now implementation-complete, PRs open and CI green, awaiting merge; neither yet lives in
+the SHOULD folder shape below, since that's AU17's job, not AU12/AU13's):
 
-| Domain | As-is | Should |
-|---|---|---|
-| Conversation (`threads`, `messages`) | Scattered across `routes/threads.ts`, `routes/assistant.ts`, `routes/coach.ts`, plus direct writes from `services/agent-work-assistant.ts`, `services/assistant-dispatcher.ts` | A `conversation/` module owning both tables; every listed caller becomes a caller of it (AU12) |
-| Users/Agents (`users`) | Scattered across `routes/users.ts`, `routes/agents.ts`, `routes/teams-routes.ts`, plus `services/agent-work-assistant.ts`'s lazy-create | A `users/` module (AU12) |
-| Work (`bets`, `tasks`, `items`) | Scattered across core routes, plus `services/builtin-routine-handlers.ts`'s `items` insert | A `work/` module (AU13) |
-| Routine (`routines`, `routine_runs`) | Scattered across core routes, plus `services/builtin-routine-handlers.ts`'s direct inserts | A `routine/` module (AU13) |
+| Domain | As-is (pre-AU12/13) | Now (AU12/AU13, PR #435/#436, pending merge) | Should (AU17) |
+|---|---|---|---|
+| Conversation (`threads`, `messages`) | Scattered across `routes/threads.ts`, `routes/assistant.ts`, `routes/coach.ts`, plus direct writes from `services/agent-work-assistant.ts`, `services/assistant-dispatcher.ts` | `services/conversation-store.ts` is the sole writer — 58 real call sites migrated across 21 files (the WP spec's own estimate was ~8, badly undercounted); `au12-conversation-users-ownership-guard.ts` lint-enforces it | A `conversation/` folder inside `@hyperidle/core-app` |
+| Users/Agents (`users`) | Scattered across `routes/users.ts`, `routes/agents.ts`, `routes/teams-routes.ts`, plus `services/agent-work-assistant.ts`'s lazy-create | `services/user-store.ts`, same guard, same 58/21 migration (Conversation+Users share one guard/count) | A `users/` folder |
+| Work (`bets`, `tasks`, `items`) | Scattered across core routes, plus `services/builtin-routine-handlers.ts`'s `items` insert | `work-service.ts` — 69 real call sites migrated across 26 files (the WP spec named only ~2 areas); `au13-work-routine-ownership-guard.ts` lint-enforces it | A `work/` folder |
+| Routine (`routines`, `routine_runs`) | Scattered across core routes, plus `services/builtin-routine-handlers.ts`'s direct inserts | `routine-service.ts`, same guard, same 69/26 migration | A `routine/` folder |
+
+**New residual gap surfaced by landing both (see §7/§9 below):** AU12 placed its two modules under
+`packages/server/src/services/` (`conversation-store.ts`, `user-store.ts`); AU13 placed its two at
+the package root (`work-service.ts`, `routine-service.ts`, sibling to the existing `routines.ts`
+barrel — a deliberate round-2 fix to avoid shadowing that barrel). Neither matches the SHOULD
+folder-per-domain shape in §1 above, and the two now disagree with each other on where a "core
+domain service" file lives. Both are legitimate stepping stones — AU17 needs to pick one location
+convention and move both, not average them, when it does the real package split.
 
 **Core App — Configuration** (already one real module, contrary to this document's earlier,
 un-verified four-box model of "Plugin Loader / Settings Service / Configuration Store / Configuration
@@ -796,9 +837,15 @@ this service narrating its own state transitions): `agent-work-handoff.ts`,
 `agent-work-intent-worker.ts`, `agent-session-requests.ts`, `agent-run-boundary.ts`,
 `agent-session-runtime.ts`, `session-provisioning.ts`, `agent-layer-boot.ts`,
 `agent-work-assistant.ts`, `assistant-dispatcher.ts`, `task-dispatcher.ts`,
-`routine-session-reaper.ts`, `sandbox-reaper.ts`, `contracts.ts`. As-is/should gap:
-`agent-work-assistant.ts` and `assistant-dispatcher.ts` write Conversation/Users tables directly
-(AU12); `task-dispatcher.ts` and the routine reapers should call Work/Routine once AU13 lands.
+`routine-session-reaper.ts`, `sandbox-reaper.ts`, `contracts.ts`. As-is/should gap, **now fixed
+pending merge**: `agent-work-assistant.ts` and `assistant-dispatcher.ts` now call
+`conversation-store.ts`/`user-store.ts` instead of writing tables directly (AU12).
+`task-dispatcher.ts` turned out to have no raw writes of its own — it already delegated to
+`bet-state-machine.ts`/`task-state-machine.ts`, which AU13 migrated — so no gap existed there once
+verified directly. `routine-session-reaper.ts` was migrated for its `routineRuns` write (AU13); its
+one remaining raw write (`db.update(sessions)...`) is a `sessions`-table write, a domain neither
+AU12 nor AU13 claims — out of scope for both, flagged as an open item in §9 below, not a defect in
+either WP.
 
 **Agent Layer — Sandbox Bridge** (merges the old "Context Assembly" and "Capture & Writeback" — same
 files⇄domain-data translation, run in each direction): `context-assembly.ts`,
@@ -859,3 +906,113 @@ cannot support a zero-allowlist guard: it has no vocabulary for "a Routine handl
 Conversation table," since both are "core." AU12–AU17 (`.pipeline/work-packages/TRACK-AU.md`) are
 what turn this section from a diagram into source. AU8 is the last work package in the track either
 way — this section is what it will actually check once they land.
+
+### 7. AU12 Completion Check
+
+| AU12 requirement | Status | Notes |
+| --- | --- | --- |
+| Conversation (`threads`/`messages`) and Users/Agents (`users`) each have exactly one owning module that writes their tables | Complete (pending merge) | `services/conversation-store.ts` and `services/user-store.ts`; every prior direct-write caller (`routes/threads.ts`, `routes/assistant.ts`, `routes/coach.ts`, `routes/users.ts`, `routes/agents.ts`, `routes/teams-routes.ts`, `services/agent-work-assistant.ts`, `services/assistant-dispatcher.ts`, plus 13 more files found only by the real audit) now calls it. |
+| No product behavior changes | Complete (pending merge) | Behavior-preservation refactor; full `npm run verify` green on the PR #435 branch per its own ship report. |
+| A bypass write fails lint/typecheck, not just convention | Complete (pending merge) | `au12-conversation-users-ownership-guard.ts` (new AST guard, resolves both bare-identifier and namespace-member-access bypass forms) wired into `npm run lint`, 0 findings on the real tree. |
+| Zero remaining direct-table-write call sites outside the two owning modules | Complete (pending merge), with 4 named exceptions | 4 deliberate AC-4 exceptions live outside `packages/server/src` and are explicitly not migrated: `packages/db/factory-bootstrap.ts`, `packages/db/demo-fixture.ts` (lower-layer, can't import upward), `packages/eval/seeding.ts` (harness-fixture seeding), `web/scripts/ah6-test-server.ts` (dev script). AU8's allowlist needs these named, not silently absorbed — recorded here so it doesn't have to re-derive them. |
+| Full as-should dependency tree mechanically enforced | Not an AU12 requirement | AU12 scoped to the Conversation/Users write-ownership edge only; AU8 needs the full graph guard after AU12–AU17 all land. |
+
+**Scale correction:** the WP spec's own call-site framing implied roughly the file list named in
+its "What exists today" section (~8 sites); the real audit found **58 sites across 21 files** — a
+~7x undercount. This is the same shape of miss AU13 independently hit (see §8 below), not a
+one-off — worth flagging as a pattern for §9.
+
+### 8. AU13 Completion Check
+
+| AU13 requirement | Status | Notes |
+| --- | --- | --- |
+| Work (`bets`/`tasks`/`items`) and Routine (`routines`/`routine_runs`) each have exactly one owning module that writes their tables | Complete (pending merge) | `work-service.ts` and `routine-service.ts` (flat at `packages/server/src/` root); every prior direct-write caller across 26 files now calls it. |
+| No product behavior changes | Complete (pending merge) | Behavior-preservation refactor; ~44 enumerated frozen protected tests re-ran unchanged; reviewer independently re-ran a 135-test representative subset (not just trusted the builder's report) and confirmed green. |
+| The `threads` insert inside `builtin-routine-handlers.ts` is routed through AU12's Conversation service, not left/duplicated as a second raw path | **Deferred, by design, resolved by AU12 landing separately** | AU12 was unbuilt when AU13's planner made this call; AU13 left both `tx.insert(threads)` sites in `builtin-routine-handlers.ts` untouched (confirmed: still raw on the AU13 branch) and migrated only the co-located `items` insert. AU12's own branch, built independently and concurrently, migrated exactly those two `threads` sites to `insertThread()`. Diffed directly (§3 above): the two branches' edits to this file don't overlap. The AC is satisfied once either PR merges and the other rebases — not yet true on `origin/main` today, since neither has merged. |
+| A bypass write fails lint/typecheck, not just convention | Complete (pending merge) | `au13-work-routine-ownership-guard.ts` (cloned from the au11/au12 guard pattern), 0 findings on the real tree, `--fixtures` self-test verified by the reviewer (not just claimed by the builder). |
+| Zero remaining direct-table-write call sites outside the two owning modules | Complete (pending merge) | 69/69 real sites migrated; one plan-cited site (`routine-scheduler.ts:256`) turned out to be dead/commented-out code with nothing live to migrate — verified directly by the reviewer, not just accepted from the builder's claim. |
+| Full as-should dependency tree mechanically enforced | Not an AU13 requirement | AU13 scoped to the Work/Routine write-ownership edge only; AU8 needs the full graph guard after AU12–AU17 all land. |
+
+**Scale correction:** the WP spec's own framing named ~2 areas (`builtin-routine-handlers.ts` +
+"core routes"); the real audit found **69 sites across 26 files**. Combined with AU12's 58/21, both
+work packages this cycle undercounted their own scope by roughly the same multiple — see §9.
+
+### 9. New gaps and observations surfaced by landing AU12 + AU13 (2026-07-12)
+
+Everything below is new since the §"Bottom Line" assessment further down this document (written
+before AU12–AU17 existed as registered work packages). None of it changes the dependency order —
+AU8 still depends transitively on AU12–AU17 exactly as §3 draws it — but each item is either a new
+gap to register or a lesson the AU14/AU15/AU16/AU17 planners should read before starting.
+
+1. **Settings and Notification are a confirmed, real gap — not yet a registered work package.**
+   Both AU12 and AU13's independent first-task audits (their WP specs each required checking this)
+   found the identical raw-write pattern: `factorySettings` (Settings domain, generic key-value
+   store shared by cost/git-export/observability/notification config) written raw from **10–11
+   sites across 7–8 files** (AU12's count: 11/8; AU13's count: 10, both citing the same file:line
+   set — `cost-cap.ts`, `cost-sentinel.ts`, `notifications/config.ts`, `notifications/mute.ts`,
+   `services/observability/config.ts`, `config/git-export-config.ts`, `routes/status.ts`), and
+   `notificationQueue` (Notification domain) written raw from **~15 sites across 5 files**
+   (`notifications/dispatcher.ts`, `notifications/digest.ts`, `routes/notifications-routes.ts`,
+   `services/retention-reaper.ts`, `services/lifecycle-propagation.ts`). Two independent audits
+   converging on the same sites is stronger evidence than either alone. Both correctly declined to
+   absorb this into their own scope (explicit WP out-of-scope lists) and both recommended the same
+   next step: register a "Settings and Notification own their own writes" work package before AU8
+   closes, or AU8 will have to allowlist ~25 real violations, which the track's own zero-allowlist
+   ruling forbids. **This is not yet registered in `pipeline-manifest.yaml` — it should be, ahead of
+   AU8.**
+2. **The should-graph audit's call-site estimates are unreliable — plan for undercounts, not
+   point estimates.** AU12's spec named ~8 sites, found 58 (7x). AU13's spec named ~2 areas, found
+   69 across 26 files. Both undercounts came from the same root cause: the original should-graph
+   audit session (which registered AU12–AU17) reasoned from a handful of illustrative call sites
+   named in each WP's "What exists today" section, not an exhaustive `rg`/AST sweep — exactly what
+   each WP's own "Plan calls" then correctly required as a first task. AU14/AU15/AU16's planners
+   should treat their WP specs' named call sites as a lower bound and budget the architecture phase
+   for a full audit, not a confirmation pass.
+3. **A single "table owner" can hide more than one real mechanic — plan for that during
+   architecture, not during build.** AU13's round-1 architecture-critique caught the planner
+   merging call sites with genuinely different predicates/return semantics into one function
+   (`transitionBet` covering both a `.returning()`-throwing CAS and a silent no-op guard); even
+   after that fix, the builder still found two more sites mid-build needing new functions
+   (`resolveOrphanedBetDecompositions`, a bulk sweep with no id predicate; `claimBetDecomposition`,
+   a NULL-guarded claim) that neither the plan's audit nor the round-1 critique caught. Three
+   separate passes (initial audit, critique, build) each found a *different* mechanic the prior pass
+   missed on the same table. AU14 (Knowledge) and AU16 (harness/worker read-model) should expect the
+   same shape of surprise and treat "one function per table" as a starting hypothesis to verify
+   file-by-file, not a design decision to lock at the architecture phase.
+4. **Independent re-verification by the reviewer caught real things twice this cycle, not
+   zero.** AU13's Phase 2 round-1 critique found the mechanics-merge bug above by tracing actual
+   code at cited file:lines rather than trusting the plan's prose — a builder following the
+   original plan would have silently dropped a select-first race-check in
+   `session-lifecycle.ts`/`routine-session-reaper.ts`. AU13's Phase 4 review independently re-ran a
+   135-test representative subset instead of trusting the builder's "verify passed" report. Neither
+   would have been caught by re-reading the artifacts alone. Reinforces the existing project lesson
+   that a passing `npm run verify` is not proof the right thing happened — worth keeping as a hard
+   requirement for AU14–AU17's reviews, not something to relax because the pattern (owning-module
+   migration) is now familiar.
+5. **A residual location/naming inconsistency between AU12 and AU13, for AU17 to resolve, not
+   silently inherit.** See §4 above — AU12 landed its two modules under `services/`, AU13 landed its
+   two at the package root. AU17's architecture pass needs to pick one convention when it does the
+   real package split, not average the two or treat either as already-settled precedent.
+6. **`sessions`-table writes in `routine-session-reaper.ts` are outside both AU12 and AU13's
+   contracts.** Confirmed directly (§4 above): one raw `db.update(sessions)...` remains in a file
+   AU13 otherwise migrated. Neither AU12 (Conversation/Users) nor AU13 (Work/Routine) claims the
+   `sessions` table — this isn't a defect in either WP, but it's an undocumented ownership gap the
+   should-graph doesn't currently name a service for. Worth a one-line addition to a future revision
+   of this document (or an AU16/AU17 architecture-pass note) rather than leaving it silently
+   unowned.
+7. **A generated-artifact coupling worth naming for future table-owner migrations:**
+   `plans/mock-data-purge/{inventory.json,inventory.md,queue.md}` line-number-track production code
+   by literal position; AU13's edit to `lifecycle-propagation.ts` (collapsing a multi-line
+   `.update().set().where()` into one service call) shifted two tracked line references by exactly
+   one line, and `mock-inventory:check` in `npm run verify` correctly failed without regenerating
+   it. Not a should-graph gap, but an operational note: any AU14–AU17 WP that collapses multi-line
+   write statements into single service calls should expect (and regenerate) this drift as a normal
+   part of a green `npm run verify`, not treat it as unrelated noise to discard.
+
+**Where this leaves AU8:** still on track, still the last work package in the track, still blocked
+transitively on AU14/AU15/AU16/AU17 (none started) rather than directly on AU12/AU13 (both
+implementation-complete). The one new, concrete pre-AU8 risk is item 1 above — if Settings/
+Notification's confirmed raw-write pattern isn't registered and closed before AU8 starts, AU8 either
+has to allowlist ~25 real violations (forbidden by the track's own zero-allowlist ruling) or block
+on a newly-discovered prerequisite mid-flight, the same failure mode AU8's original review already
+corrected once this cycle by registering AU12–AU17 in the first place.
