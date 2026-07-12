@@ -6,7 +6,9 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 	type Routine,
+	routineRuns,
 	routines,
+	sessions,
 	teamMembers,
 	teams,
 	users,
@@ -783,5 +785,57 @@ describe("G4: Built-in Routines", () => {
 				unsub();
 			}
 		});
+	});
+});
+
+/**
+ * The drain-time agent-selection move only touches the generic-routine path
+ * (`checkAndFireRoutine`'s deleted WIP/delegate block). `runBuiltinRoutine`
+ * never called `isAgentAtWipLimit`/`selectAgentByAppDefaults` before or after
+ * that move — this proves it structurally, by putting the owner at their WIP
+ * limit and confirming the builtin still fires and writes a terminal
+ * `routineRuns` row regardless (all 5 kinds share this same `runBuiltinRoutine`
+ * entry point — there is no per-kind WIP gate to regress).
+ */
+describe("built-ins are structurally unaffected by the drain-time selection move", () => {
+	test("owner at WIP limit does not block a built-in fire (no fire-time selection to trip)", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedOwners(db);
+		await seedBuiltinRoutines(db);
+
+		// Put the knowledge-decay owner at their WIP limit (maxConcurrentSessions=1).
+		await db.insert(sessions).values({
+			id: "au15-builtin-owner-session",
+			agentId: "seed-agent-pf-facilitation",
+			modelTier: "fast",
+			startedAt: NOW_ISO,
+			state: "active",
+		});
+
+		const longAgo = new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString();
+		await db.insert(knowledgeItems).values({
+			id: "au15-ki-old",
+			title: "Old pattern",
+			body: "old",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "agent:test",
+			createdAt: longAgo,
+			updatedAt: longAgo,
+		});
+
+		const result = await runBuiltinRoutine(db, eventBus, BID.knowledgeDecay);
+		expect(result.fired).toBe(true);
+
+		const runs = await db
+			.select()
+			.from(routineRuns)
+			.where(eq(routineRuns.routineId, BID.knowledgeDecay));
+		expect(runs).toHaveLength(1);
+		expect(runs[0]?.outcome).toBe("success");
+		expect(runs[0]?.endedAt).toBeTruthy();
 	});
 });

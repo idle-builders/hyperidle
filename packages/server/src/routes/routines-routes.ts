@@ -21,12 +21,7 @@ import * as routineService from "../routine-service.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { type PostBetRetroArgs, runBuiltinRoutine } from "../services/builtin-routine-handlers.js";
-import {
-	getRoutineMonthlySpend,
-	nextCronMatch,
-	parseCron,
-	shouldCoalesce,
-} from "../services/routine-scheduler.js";
+import { getRoutineMonthlySpend, nextCronMatch, parseCron } from "../services/routine-scheduler.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import { getUserById } from "../services/user-store.js";
 
@@ -490,9 +485,13 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			}
 		}
 
-		// AA2: Coalescing — skip if a session for this routine is already active
-		const coalesced = await shouldCoalesce(db, routineId);
-		if (coalesced) {
+		// AU15 §4a (W2): unified run-row coalescing — the SAME signal
+		// (`routineService.findRunningRoutineRun`) the poll path's
+		// `checkAndFireRoutine` uses, so a poll-created fired-but-unprovisioned
+		// run also blocks a concurrent manual trigger (closing the double-run
+		// window the old session-keyed `shouldCoalesce` signal missed).
+		const runningRun = await routineService.findRunningRoutineRun(db, routineId);
+		if (runningRun) {
 			// Record a skipped run
 			const runId = crypto.randomUUID();
 			await routineService.insertRoutineRun(db, {
@@ -500,7 +499,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				routineId,
 				startedAt: now,
 				outcome: "skipped",
-				errorMessage: "Coalesced: previous session still active",
+				errorMessage: "Coalesced: previous run still in progress",
 			});
 			return c.json({ routineId, fired: false, reason: "coalesced" }, 200);
 		}
