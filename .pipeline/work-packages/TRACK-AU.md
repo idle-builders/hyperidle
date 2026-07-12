@@ -950,6 +950,7 @@ converted by round 1.
 - **AU14** — Knowledge's write path must be unified first, for the same reason.
 - **AU15** — the routine-scheduler edge touches files this work package will be relocating; landing it first avoids moving files mid-change.
 - **AU16** — the descriptor-read allowlist must be replaced by a real read function first, so the new `core-app` package genuinely has zero harness/mcp imports to carry forward.
+- **AU18** — Settings/Notification must own their own tables first, same reasoning as AU12/AU13/AU14: splitting Core App into a real package while `factorySettings`/`notificationQueue` still have no single owner just relocates the cross-writing into the new package instead of fixing it.
 
 **Complexity.** L
 
@@ -985,3 +986,70 @@ converted by round 1.
 - AU8 itself — depends on this landing first.
 
 **Effort.** L (~3-5d)
+
+---
+
+### AU18 — Notification owns its own reads/writes; `factorySettings` is retired
+
+**Work package.** As a maintainer closing out Track AU, I want Notification to have exactly one owning module for `notificationQueue`, and I want the legacy `factorySettings` catch-all table to disappear entirely — every real setting it currently holds finishes moving onto the already-built `server_config` table, and every value that was never really a setting (a computed running total, a cached classification) becomes private state owned by the one function that actually computes it. When this ships, notification delivery/digest/mute go through one owning module the same way Conversation/Users/Work/Routine/Knowledge already do, every real user-facing config value lives in the one structured config table the codebase already adopted for this purpose, and `factorySettings` has zero remaining callers and is dropped.
+
+**Why this matters.** This is the last confirmed Core App write/read-ownership gap in Track AU, found independently by AU12's and AU13's own first-task audits, both of which correctly declined to fold it in and flagged it back as its own work package. But the deeper reason this matters isn't just "give it an owning module like the others" — direct code reading found that `factorySettings` is not one domain's table at all: it's a generic key-value bucket that a prior work package (`server-config.ts`, tagged `P3`) already started replacing with a proper structured `server_config` table ("Replaces `factorySettings` for new structured config" — its own comment), and that migration simply never finished. Five callers (`notifications/config.ts`, `notifications/mute.ts`, `observability/config.ts`, `git-export-config.ts`, `routes/status.ts`'s generic `/settings` endpoint) still write real, human-settable configuration into the old table instead of the new one. Two callers (`cost-cap.ts`'s `cost_actual` running total, `cost-sentinel.ts`'s cached alert-level read) aren't settings at all — they're computed state that happens to share the same generic table by historical accident. Leaving this half-migrated state in place means `factorySettings` keeps looking like a real domain AU8's guard has to account for, when it's actually a finished migration's leftover debris. AU17's package split has the same problem one level up: splitting Core App into a real package while this ambiguity remains just relocates it.
+
+**Type.** backend.
+
+**What exists today.** `notificationQueue` is read and written raw from `notifications/dispatcher.ts`, `notifications/digest.ts`, `routes/notifications-routes.ts`, `services/retention-reaper.ts`, and `services/lifecycle-propagation.ts` — no owning module exists. `factorySettings` (`key`/`value`/`updatedAt`) is read/written raw from eight files; direct code reading classified every one:
+- **Real, human-settable configuration** (a route lets a user change it) that never migrated off the legacy table: `notifications/config.ts` (SMTP/ntfy delivery settings, via `routes/notifications-routes.ts`'s `PATCH`), `notifications/mute.ts` (per-type mute, via the Settings UI), `observability/config.ts` (telemetry export config, via `routes/observability-routes.ts`'s `PATCH`), `git-export-config.ts` (git-export destination config, via `routes/git-export-routes.ts`'s `PATCH`), and `routes/status.ts`'s generic `PATCH`/`GET /settings` catch-all endpoint (arbitrary key/value, with reserved-prefix blocking that already tells callers to prefer the domain-specific routes above).
+- **Computed/internal state, not a setting**: `services/cost-cap.ts`'s `recordFactoryCost()` writes `cost_actual` as a running total (`SUM(users.costActual)`) recomputed after every cost event — no route sets it, it's system-computed. `services/cost-sentinel.ts` only reads that same key to classify an alert level, also system-computed, and separately caches its own classification back into `factorySettings`.
+- `services/server-config.ts`/`server_config` (single-row, Zod-validated, deep-merge-able) already exists and already holds a comparable notification-preferences sub-schema (`reviewAlerts`/`costAlerts`/`blockerAlerts`/quiet-hours/`mutedTeams`), model-gateway config, and a disabled-harness list — this is the pattern the five real-setting callers should have used from the start.
+- Notification's delivery model itself (drain loop, adapters, digest batching, quiet-hours/silence policy, the in-app popover) is already built and working (Track AF/AF8) — this work package does not touch what notifications do, only who owns the row.
+
+**What's genuinely missing.** A Notification module owning every read and write against `notificationQueue`. For `factorySettings`: (1) the five real-setting callers migrated onto `server_config`'s existing structured-config pattern (extending its schema as needed — deep-merge already supports adding new top-level sections), and (2) `cost-cap.ts` becoming the sole reader/writer of its own `cost_actual` state, with `cost-sentinel.ts` calling an exported function instead of touching any table. Once both are done, `factorySettings` has no remaining callers and the table itself is dropped — a real schema removal, but only as the last step once nothing references it.
+
+**Depends on.**
+- **AU11** — `services/cost-cap.ts` and `services/cost-sentinel.ts` are agent-owned files AU11 relocated and finalized; their location needed to be stable before refactoring their internals, the same reasoning AU12/AU13 depended on AU11 for.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Not required — goal is clear and reuses requirements already locked in `docs/architecture/runtime-simplification.md` and `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md` (the Core App Graph already names a Notification Service as a target Core App component; note that graph's "Settings Service" is a *different*, already-built thing — the plugin-default/user-override catalog, AU2/AU5 — not this work package's concern, and this work package must not reuse that name).
+- **Design:** Not required — backend refactor, no new or changed UI surface, no user-visible behavior change.
+
+**Human concept review.** No — pure internal refactor; nothing user-facing moves.
+
+**Acceptance criteria.**
+- Every current caller that reads or writes a `notificationQueue` row does so through one owning Notification module, never a direct `select`/`insert`/`update`/`delete` against the table itself.
+- Every real setting currently stored in `factorySettings` (notification delivery config, notification mute, observability config, git-export config, and whatever `routes/status.ts`'s generic endpoint currently persists) is readable and writable through `server_config`'s existing structured pattern instead, with identical values and identical route responses.
+- `cost-cap.ts` is the sole reader and writer of its own cost-accumulation state; `cost-sentinel.ts` obtains the value by calling an exported function, never by touching a table directly.
+- `factorySettings` has zero remaining callers anywhere in `packages/server` and is dropped as a table.
+- All existing observable behavior (cost-cap enforcement, cost-sentinel alerting, git-export config resolution, notification delivery/digest/mute/quiet-hours, the status route, notification read/seen state) is unchanged from before this work package.
+- A newly-written call site that tries to access `notificationQueue` directly, or tries to reintroduce a `factorySettings`-shaped raw table for cross-domain config, fails a lint-time guard, not merely convention — zero allowlisted exceptions, matching AU12/AU13/AU14's corrected standard.
+- If any query needs both `notificationQueue` and a table owned by another domain, it is decomposed into one call per owning service — never a documented cross-owned-table exception, per the founder's zero-exceptions ruling (see AU12/AU13's precedent: the `items ⋈ threads` join in `work-service.ts` was removed, not allowlisted).
+
+**Validation scenarios.**
+- Given a policy engine or dependency watcher raises a `notification` event, when it is enqueued and later delivered or digested, then every step goes through the owning Notification module and the notification is delivered identically to before.
+- Given a user changes notification delivery settings, mute state, observability config, or git-export config via their existing routes, when the change is saved and re-read, then it round-trips through `server_config` with the same values as before the migration.
+- Given a bet's cost accumulates, when `cost-cap.ts` records it and `cost-sentinel.ts` later checks the alert level, then both still produce the same enforcement/alerting behavior as before, through function calls instead of raw table access.
+- Given the full existing test suite for cost-cap, cost-sentinel, notifications (delivery/digest/mute/routes), git-export config, observability config, and the status route, when it is re-run after this work package, then it passes unchanged (behavior-preservation, not new behavior).
+- Given the migration is complete, when the repository is searched for any reference to `factorySettings`, then none remain outside the migration's own historical test fixtures (if any are kept) and the table no longer exists in the schema.
+
+**Plan calls.** Standard architecture pass, behavior-preservation first. Two independent halves that can likely be sequenced or parallelized within the WP: (1) Notification's `notificationQueue` ownership — enumerate every read/write call site (not just writes) before designing the owning module's function signatures. (2) `factorySettings` retirement — enumerate every real call site (reads and writes) per file, confirm each of the five real-setting callers' exact keys/shapes against `server-config.ts`'s existing `ServerConfigSchema`, extend that schema (new top-level sections, deep-merge already handles partial updates), migrate each caller, then confirm `cost-cap.ts`/`cost-sentinel.ts`'s computed-state fix, then drop the table in a final migration once `git grep factorySettings` returns nothing outside tests/migrations history. Expect the real site count to be larger than this spec's own estimate once reads are included — AU12 and AU13 both undercounted their own scope by roughly 3-7x on their first audit; budget accordingly. Do not invent a new generic "settings service" abstraction — the correct home for real settings already exists (`server_config`); this work package finishes an existing migration, it doesn't start a new pattern.
+
+**Contracts / constraints.**
+- No product behavior may change — this is ownership consolidation plus completing an already-adopted migration, not a feature.
+- The Notification module's functions (and its own tests) are the only code permitted to reference the `notificationQueue` table object, for both reads and writes.
+- `server_config`'s existing schema/module pattern (Zod-validated, deep-merge, single row) is the target home for every real setting currently on `factorySettings` — do not design a parallel or competing config mechanism.
+- `factorySettings` itself is dropped once empty of callers — a genuine schema change, but only as this work package's last step, not its first.
+- Zero exceptions for cross-owned-table access: any query needing a second domain's table must decompose into one call per owning service.
+- Agent-layer callers keep calling in-process (same process, function call) — no queue, no API introduced at this boundary.
+- Do not use the name "Settings Service" for anything built here — that name is reserved for the should-graph's plugin-default/user-override catalog (AU2/AU5), a separate, already-correct system this work package does not touch.
+
+**Out of scope.**
+- Conversation, Users, Work, Routine, Knowledge domains — already done (AU12/AU13/AU14).
+- Notification's own feature completeness (delivery model, popover, digest cadence) — already built (Track AF/AF8); this work package changes who owns the row, not what notifications do.
+- The plugin-default/user-override configuration system (AU2/AU5, the should-graph's real "Settings Service") — a separate, already-correct system, untouched.
+- Wiring the should-graph's Settings Service into any of the real Settings UI pages, none of which currently use it — a real gap, but a different one, not this work package's job.
+- The routine-scheduler fire-time bypass (AU15) or the descriptor-read allowlist (AU16) — unrelated edges.
+- The package split (AU17) — comes after this and depends on it.
+- AU8 itself — depends on this landing first (transitively, via AU17).
+
+**Effort.** L (~3-4d)
