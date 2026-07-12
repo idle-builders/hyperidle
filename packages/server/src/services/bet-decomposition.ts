@@ -27,7 +27,6 @@ import {
 	bets,
 	type HyperIdleDb,
 	taskDispatchAttempts,
-	tasks,
 	teamMembers,
 	type User,
 	users,
@@ -39,7 +38,8 @@ import {
 	type EventBus,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import * as work from "../work-service.js";
 import { resolveDecompositionPlan } from "./agent-defaults/resolvers.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import type { DecompositionPlan } from "./contracts.js";
@@ -204,7 +204,7 @@ export async function insertProposedBetTasks(
 
 		try {
 			await db.transaction(async (tx) => {
-				await tx.insert(tasks).values({
+				await work.createTask(tx, {
 					id: taskId,
 					betId: bet.id,
 					teamId: bet.teamId,
@@ -272,16 +272,7 @@ export async function insertProposedBetTasks(
  * with an implicit "try committing again" CTA.
  */
 export async function resolveOrphanedDecompositions(db: HyperIdleDb): Promise<number> {
-	const result = await db
-		.update(bets)
-		.set({
-			decompositionStatus: "blocked",
-			decompositionBlockerReason: "failed",
-		})
-		.where(eq(bets.decompositionStatus, "running"))
-		.returning({ id: bets.id });
-
-	return result.length;
+	return work.resolveOrphanedBetDecompositions(db);
 }
 
 // -----------------------------------------------------------------------------
@@ -297,13 +288,10 @@ async function markTerminal(
 	status: "done" | "blocked",
 	reason: DecompositionBlockerReason | null,
 ): Promise<void> {
-	await db
-		.update(bets)
-		.set({
-			decompositionStatus: status,
-			decompositionBlockerReason: reason,
-		})
-		.where(eq(bets.id, betId));
+	await work.updateBetById(db, betId, {
+		decompositionStatus: status,
+		decompositionBlockerReason: reason,
+	});
 }
 
 /**
@@ -421,12 +409,8 @@ export async function runBetDecomposition(
 
 	let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
 	await db.transaction(async (tx) => {
-		const claimed = await tx
-			.update(bets)
-			.set({ decompositionStatus: "running" })
-			.where(and(eq(bets.id, betId), isNull(bets.decompositionStatus)))
-			.returning({ id: bets.id });
-		if (claimed.length === 0) return;
+		const { claimed } = await work.claimBetDecomposition(tx, betId);
+		if (!claimed) return;
 		intent = await recordAgentWorkIntent(tx, {
 			kind: "bet_decomposition",
 			sourceKind: "bet",

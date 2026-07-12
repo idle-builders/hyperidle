@@ -10,6 +10,7 @@ import {
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
+import * as routineService from "../routine-service.js";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import { runBuiltinRoutine } from "./builtin-routine-handlers.js";
@@ -351,7 +352,7 @@ export async function checkAndFireRoutine(
 	// Check factory cost cap
 	if (await isFactoryCostCapReached(db)) {
 		const nextRunAt = computeNextRunAt(routine, now);
-		await db.update(routines).set({ nextRunAt }).where(eq(routines.id, routine.id));
+		await routineService.updateRoutineById(db, routine.id, { nextRunAt });
 		return { fired: false, reason: "factory cost cap reached" };
 	}
 
@@ -361,14 +362,14 @@ export async function checkAndFireRoutine(
 		if (monthlySpend >= routine.costCapMonthlyMinor) {
 			// Insert a skipped run record with the monthly_budget_exhausted outcome
 			const runId = crypto.randomUUID();
-			await db.insert(routineRuns).values({
+			await routineService.insertRoutineRun(db, {
 				id: runId,
 				routineId: routine.id,
 				startedAt: now.toISOString(),
 				outcome: "monthly_budget_exhausted",
 			});
 			const nextRunAt = computeNextRunAt(routine, now);
-			await db.update(routines).set({ nextRunAt }).where(eq(routines.id, routine.id));
+			await routineService.updateRoutineById(db, routine.id, { nextRunAt });
 			return { fired: false, reason: "monthly cost cap reached" };
 		}
 	}
@@ -400,12 +401,12 @@ export async function checkAndFireRoutine(
 				delegatedTo = delegate;
 			} else {
 				const nextRunAt = computeNextRunAt(routine, now);
-				await db.update(routines).set({ nextRunAt }).where(eq(routines.id, routine.id));
+				await routineService.updateRoutineById(db, routine.id, { nextRunAt });
 				return { fired: false, reason: "owner at WIP limit, no delegate available" };
 			}
 		} else {
 			const nextRunAt = computeNextRunAt(routine, now);
-			await db.update(routines).set({ nextRunAt }).where(eq(routines.id, routine.id));
+			await routineService.updateRoutineById(db, routine.id, { nextRunAt });
 			return { fired: false, reason: "owner at WIP limit, delegation not allowed" };
 		}
 	}
@@ -417,7 +418,7 @@ export async function checkAndFireRoutine(
 	const runId = crypto.randomUUID();
 	let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
 	await db.transaction(async (tx) => {
-		await tx.insert(routineRuns).values({
+		await routineService.insertRoutineRun(tx, {
 			id: runId,
 			routineId: routine.id,
 			startedAt: now.toISOString(),
@@ -447,13 +448,10 @@ export async function checkAndFireRoutine(
 	const lastRunAt = now.toISOString();
 	const nextRunAt = computeNextRunAt(routine, now);
 
-	await db
-		.update(routines)
-		.set({
-			lastRunAt,
-			nextRunAt: nextRunAt || null,
-		})
-		.where(eq(routines.id, routine.id));
+	await routineService.updateRoutineById(db, routine.id, {
+		lastRunAt,
+		nextRunAt: nextRunAt || null,
+	});
 
 	// @lore H2 daily digest relies on `routine_fired` to trigger the
 	// notification dispatcher. Emit here — the event is a commitment the
@@ -544,7 +542,7 @@ export async function backfillMissingNextRunAt(db: HyperIdleDb): Promise<number>
 	for (const routine of candidates) {
 		const nextRunAt = computeNextRunAt(routine, now);
 		if (!nextRunAt) continue;
-		await db.update(routines).set({ nextRunAt }).where(eq(routines.id, routine.id));
+		await routineService.updateRoutineById(db, routine.id, { nextRunAt });
 		count += 1;
 	}
 	return count;
@@ -601,7 +599,7 @@ export async function startRoutineScheduler(
 					// next poll re-select this still-due routine and double-fire. Advancing
 					// first makes the row no longer due before the next poll observes it.
 					const nextRunAt = computeNextRunAt(routine, new Date());
-					await db.update(routines).set({ nextRunAt }).where(eq(routines.id, routine.id));
+					await routineService.updateRoutineById(db, routine.id, { nextRunAt });
 					void runBuiltinRoutine(db, eventBus, routine.id).catch(() => {
 						/* runBuiltinRoutine writes its own terminal run row (§3a) */
 					});

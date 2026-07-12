@@ -3,6 +3,7 @@ import { bets, tasks } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -63,7 +64,7 @@ async function handler(args: CreateTaskInput, ctx: ToolContext): Promise<ToolRes
 	// @lore U1: tasks no longer has a productId column. teamId references teams.id (domain entity).
 	const taskId = randomUUID();
 	const now = new Date().toISOString();
-	await ctx.db.insert(tasks).values({
+	await work.createTask(ctx.db, {
 		id: taskId,
 		betId: parent.betId,
 		teamId: parent.teamId,

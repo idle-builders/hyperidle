@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { routines, teams, users } from "@hyperidle/db";
+import { teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import * as routine from "../routine-service.js";
 import { nextCronMatch, parseCron } from "../services/routine-scheduler.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
@@ -86,7 +87,7 @@ async function handler(
 	// Compute nextRunAt from the already-parsed cron expression (parsedCron set above)
 	const nextRunAt = nextCronMatch(parsedCron, new Date()).toISOString();
 
-	await ctx.db.insert(routines).values({
+	await routine.insertRoutine(ctx.db, {
 		id: routineId,
 		name: input.name,
 		description: input.description ?? null,

@@ -13,7 +13,6 @@ import {
 	knowledgeAppProjection,
 	knowledgeItems,
 	type Routine,
-	routineRuns,
 	routines,
 	threads,
 } from "@hyperidle/db";
@@ -27,6 +26,8 @@ import { and, eq, gte, inArray, like } from "drizzle-orm";
 import { BUILTIN_SPECS, extractBuiltinKind } from "../config/builtin-routines.js";
 import { buildAttentionService } from "../knowledge/attention-service.js";
 import { runAutoPromotionSweep, runStaleSweep } from "../knowledge/promotion-pipeline.js";
+import * as routineService from "../routine-service.js";
+import * as work from "../work-service.js";
 import { createPracticeMeeting } from "./practice-meeting.js";
 // @lore AF6: cron helpers used only at runtime inside provisionTeamRoutines. The
 // scheduler↔builtin-routine-handlers import cycle is init-safe because neither module
@@ -83,9 +84,9 @@ export async function provisionTeamRoutines(
 		// Resolve owner: role → roster agent; fall back to lead.
 		const ownerAgentId = ownerByRole[spec.ownerRole] ?? leadAgentId;
 
-		await db
-			.insert(routines)
-			.values({
+		await routineService.insertRoutine(
+			db,
+			{
 				id: routineId,
 				name: spec.name,
 				teamId,
@@ -100,8 +101,9 @@ export async function provisionTeamRoutines(
 				silent: spec.silent,
 				active: true,
 				nextRunAt,
-			})
-			.onConflictDoNothing();
+			},
+			{ onConflictDoNothing: true },
+		);
 	}
 }
 
@@ -188,7 +190,7 @@ export async function runBuiltinRoutine(
 	// Terminal on insert (no "running" intermediate) — built-in execution is
 	// synchronous and cannot leave a zombie. `skipped` rows are still recorded so
 	// runs[] stays honest about scheduler activity (observability, Hard rule 1).
-	await db.insert(routineRuns).values({
+	await routineService.insertRoutineRun(db, {
 		id: crypto.randomUUID(),
 		routineId,
 		startedAt: startedAt.toISOString(),
@@ -198,10 +200,7 @@ export async function runBuiltinRoutine(
 	});
 
 	if (result.fired) {
-		await db
-			.update(routines)
-			.set({ lastRunAt: endedAt.toISOString() })
-			.where(eq(routines.id, routineId));
+		await routineService.updateRoutineById(db, routineId, { lastRunAt: endedAt.toISOString() });
 	}
 
 	return result;
@@ -388,7 +387,7 @@ async function runPostBetRetro(
 			createdAt: isoNow,
 		});
 
-		await tx.insert(items).values({
+		await work.createItem(tx, {
 			id: itemId,
 			sourceAgentId: routine.ownerAgentId,
 			layer: "meta",
@@ -470,7 +469,7 @@ async function runPortfolioRetro(
 			createdAt: isoNow,
 		});
 
-		await tx.insert(items).values({
+		await work.createItem(tx, {
 			id: itemId,
 			sourceAgentId: routine.ownerAgentId,
 			layer: "meta",

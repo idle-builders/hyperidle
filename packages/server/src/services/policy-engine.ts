@@ -11,6 +11,7 @@ import { factorySettings, type HyperIdleDb, items, messages, threads } from "@hy
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
 import { and, desc, eq } from "drizzle-orm";
 import { isSilenced as sharedIsSilenced } from "../notifications/silence-policy.js";
+import * as work from "../work-service.js";
 import { computeApprovalRate } from "./approval-rate.js";
 
 interface PolicyEngineOptions {
@@ -199,10 +200,7 @@ async function executeAction(
 			const parsed: unknown = existing?.auditTrail ? JSON.parse(existing.auditTrail) : [];
 			const trail: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
 			trail.push({ action: "policy_queued", timestamp: new Date().toISOString() });
-			await db
-				.update(items)
-				.set({ auditTrail: JSON.stringify(trail) })
-				.where(eq(items.id, itemId));
+			await work.updateItemById(db, itemId, { auditTrail: JSON.stringify(trail) });
 			break;
 		}
 		case "push": {

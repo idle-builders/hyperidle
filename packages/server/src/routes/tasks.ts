@@ -11,6 +11,7 @@ import { enumValues } from "../schemas/common.schema.js";
 import { handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 import { transitionTask } from "../services/task-state-machine.js";
+import * as work from "../work-service.js";
 
 /**
  * Zod schemas for request validation.
@@ -72,7 +73,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			}
 
 			const taskId = crypto.randomUUID();
-			await db.insert(tasks).values({
+			await work.createTask(db, {
 				id: taskId,
 				betId: body.betId,
 				teamId: bet.teamId,
@@ -196,7 +197,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				updates.auditTrail = JSON.stringify(auditTrail);
 			}
 
-			await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
+			await work.updateTaskById(db, taskId, updates);
 
 			const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 			return c.json(updated);

@@ -1,6 +1,7 @@
 import { tasks } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -43,10 +44,7 @@ async function handler(args: LogTaskInput, ctx: ToolContext): Promise<ToolResult
 	const combined =
 		task.notes && task.notes.length > 0 ? `${task.notes}${NOTE_SEPARATOR}${entry}` : entry;
 
-	await ctx.db
-		.update(tasks)
-		.set({ notes: combined, updatedAt: now })
-		.where(eq(tasks.id, ctx.taskId));
+	await work.updateTaskById(ctx.db, ctx.taskId, { notes: combined, updatedAt: now });
 
 	return ok({ taskId: ctx.taskId });
 }

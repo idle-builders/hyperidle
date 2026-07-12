@@ -3,17 +3,10 @@ import * as crypto from "node:crypto";
 // Cost tracking uses `teamMembers` (the agent-membership group) which has costActual/costCap.
 // params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
 // @lore R5: `bets` and `tasks` added for bet cost accumulation via taskId lookup.
-import {
-	bets,
-	factorySettings,
-	type HyperIdleDb,
-	items,
-	tasks,
-	teamMembers,
-	users,
-} from "@hyperidle/db";
+import { bets, factorySettings, type HyperIdleDb, tasks, teamMembers, users } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
+import * as work from "../work-service.js";
 
 export interface CostCapResult {
 	allowed: boolean;
@@ -266,13 +259,10 @@ export async function recordCostAndCheck(
 				.where(eq(tasks.id, params.taskId))
 				.limit(1);
 			if (task?.betId) {
-				await db
-					.update(bets)
-					.set({
-						costActualMinor: sql`coalesce(${bets.costActualMinor}, 0) + ${effectiveCostMinor}`,
-						costActualCurrency: params.currency ?? "USD",
-					})
-					.where(eq(bets.id, task.betId));
+				await work.updateBetById(db, task.betId, {
+					costActualMinor: sql`coalesce(${bets.costActualMinor}, 0) + ${effectiveCostMinor}`,
+					costActualCurrency: params.currency ?? "USD",
+				});
 			}
 		}
 	}
@@ -469,7 +459,7 @@ async function createReviewItem(
 	const itemId = crypto.randomUUID();
 	const now = new Date().toISOString();
 
-	await db.insert(items).values({
+	await work.createItem(db, {
 		id: itemId,
 		sourceAgentId: params.entityId !== "factory" ? params.entityId : null,
 		kind: "cost_cap_breach",

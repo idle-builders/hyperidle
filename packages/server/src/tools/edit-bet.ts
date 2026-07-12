@@ -8,6 +8,7 @@
 import { bets } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import * as work from "../work-service.js";
 import type { AssistantToolResult, AssistantToolShape } from "./assistant-tool-result.js";
 import type { ToolContext } from "./tool-registry.js";
 
@@ -57,7 +58,7 @@ async function handler(
 		return { status: "error", message: "No fields to update." };
 	}
 
-	await ctx.db.update(bets).set(updates).where(eq(bets.id, input.betId));
+	await work.updateBetById(ctx.db, input.betId, updates);
 
 	return { status: "ok", value: { betId: input.betId } };
 }

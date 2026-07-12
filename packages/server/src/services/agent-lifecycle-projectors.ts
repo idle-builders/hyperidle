@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import {
 	agentLifecycleInbox,
-	bets,
 	explicitSessionStarts,
 	type HyperIdleDb,
-	routineRuns,
 	taskDispatchAttempts,
 } from "@hyperidle/db";
 import { and, eq, isNull, lt, or } from "drizzle-orm";
+import * as routine from "../routine-service.js";
+import * as work from "../work-service.js";
 
 export const AGENT_LIFECYCLE_SOURCE_KINDS = [
 	"assistant",
@@ -64,28 +64,22 @@ const projectTask: Projector = async (db, fact) => {
 };
 
 const projectRoutine: Projector = async (db, fact) => {
-	await db
-		.update(routineRuns)
-		.set({
-			outcome: fact.state === "completed" ? "success" : "error",
-			endedAt: new Date().toISOString(),
-			sessionId: fact.sessionId ?? null,
-			errorMessage:
-				fact.state === "completed"
-					? null
-					: (fact.failureCode ?? (fact.state === "cancelled" ? "cancelled" : "failed")),
-		})
-		.where(and(eq(routineRuns.id, fact.sourceId), eq(routineRuns.outcome, "running")));
+	await routine.updateRoutineRunIfRunning(db, fact.sourceId, {
+		outcome: fact.state === "completed" ? "success" : "error",
+		endedAt: new Date().toISOString(),
+		sessionId: fact.sessionId ?? null,
+		errorMessage:
+			fact.state === "completed"
+				? null
+				: (fact.failureCode ?? (fact.state === "cancelled" ? "cancelled" : "failed")),
+	});
 };
 
 const projectDecomposition: Projector = async (db, fact) => {
-	await db
-		.update(bets)
-		.set({
-			decompositionStatus: fact.state === "completed" ? "done" : "blocked",
-			decompositionBlockerReason: fact.state === "completed" ? null : "failed",
-		})
-		.where(and(eq(bets.id, fact.sourceId), eq(bets.decompositionStatus, "running")));
+	await work.updateBetDecompositionStatusIfRunning(db, fact.sourceId, {
+		decompositionStatus: fact.state === "completed" ? "done" : "blocked",
+		decompositionBlockerReason: fact.state === "completed" ? null : "failed",
+	});
 };
 
 const projectExplicitStart: Projector = async (db, fact) => {

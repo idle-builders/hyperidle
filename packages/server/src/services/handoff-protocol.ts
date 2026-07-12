@@ -2,7 +2,6 @@ import * as crypto from "node:crypto";
 import {
 	agentSessionRequests,
 	type HyperIdleDb,
-	items,
 	messages,
 	sessions,
 	taskDispatchAttempts,
@@ -13,6 +12,7 @@ import {
 } from "@hyperidle/db";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { and, eq, inArray, ne } from "drizzle-orm";
+import * as work from "../work-service.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import { releaseSessionDedup } from "./cost-cap.js";
 import { requestAgentTermination, type SessionContext } from "./session-lifecycle.js";
@@ -145,14 +145,11 @@ export async function handoff(
 				? (JSON.parse(task.auditTrail) as TaskAuditEntry[])
 				: [];
 			existingStateAudit.push({ from: fromState, to: "blocked", timestamp: now });
-			await tx
-				.update(tasks)
-				.set({
-					state: "blocked",
-					auditTrail: JSON.stringify(existingStateAudit),
-					updatedAt: now,
-				})
-				.where(eq(tasks.id, task.id));
+			await work.updateTaskById(tx, task.id, {
+				state: "blocked",
+				auditTrail: JSON.stringify(existingStateAudit),
+				updatedAt: now,
+			});
 			taskStateChangedEvent = {
 				type: "task_state_changed",
 				streamId: task.id,
@@ -174,7 +171,7 @@ export async function handoff(
 				createdAt: now,
 			});
 			const reviewItemId = crypto.randomUUID();
-			await tx.insert(items).values({
+			await work.createItem(tx, {
 				id: reviewItemId,
 				sourceAgentId: sessionContext.agentId,
 				kind: "review",
@@ -193,10 +190,7 @@ export async function handoff(
 			};
 			txResult = { status: "success" };
 		} else if (params.toAgent) {
-			await tx
-				.update(tasks)
-				.set({ ownerAgentId: params.toAgent, updatedAt: now })
-				.where(eq(tasks.id, task.id));
+			await work.updateTaskById(tx, task.id, { ownerAgentId: params.toAgent, updatedAt: now });
 			txResult = { status: "success", targetAgentId: params.toAgent };
 		} else if (params.toRole) {
 			// @lore U1: users.teamId references teamMembers.id (membership group),
@@ -224,10 +218,10 @@ export async function handoff(
 					: [undefined];
 
 			if (availableAgent) {
-				await tx
-					.update(tasks)
-					.set({ ownerAgentId: availableAgent.id, updatedAt: now })
-					.where(eq(tasks.id, task.id));
+				await work.updateTaskById(tx, task.id, {
+					ownerAgentId: availableAgent.id,
+					updatedAt: now,
+				});
 				txResult = { status: "success", targetAgentId: availableAgent.id };
 			} else {
 				const escalationThreadId = crypto.randomUUID();
@@ -242,7 +236,7 @@ export async function handoff(
 				});
 
 				const escalationItemId = crypto.randomUUID();
-				await tx.insert(items).values({
+				await work.createItem(tx, {
 					id: escalationItemId,
 					sourceAgentId: sessionContext.agentId,
 					kind: "escalation",
@@ -315,13 +309,10 @@ export async function handoff(
 			reason: metadata.reason,
 			timestamp: now,
 		};
-		await tx
-			.update(tasks)
-			.set({
-				auditTrail: JSON.stringify([...existingAudit, handoffEntry]),
-				updatedAt: now,
-			})
-			.where(eq(tasks.id, task.id));
+		await work.updateTaskById(tx, task.id, {
+			auditTrail: JSON.stringify([...existingAudit, handoffEntry]),
+			updatedAt: now,
+		});
 
 		if (txResult.targetAgentId) {
 			const existing = await tx

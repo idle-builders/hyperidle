@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { type HyperIdleDb, items, threads } from "@hyperidle/db";
+import { type HyperIdleDb, threads } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent } from "@hyperidle/shared";
+import * as work from "../work-service.js";
 
 /** Stable marker recorded in `items.reasoning` for attention-engine reviews. */
 export const ATTENTION_REVIEW_SOURCE = "attention_engine";
@@ -80,7 +81,7 @@ export async function createReviewItemForKnowledge(
 	// kernel table. The riskTier remains on items; attentionScore is persisted
 	// on knowledgeAppProjection instead. Embed attentionScore in reasoningBlob
 	// for traceability rather than as a first-class column.
-	await db.insert(items).values({
+	await work.createItem(db, {
 		id: itemId,
 		sourceAgentId: null,
 		layer: input.layer,

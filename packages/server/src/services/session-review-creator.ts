@@ -1,6 +1,5 @@
 import {
 	type HyperIdleDb,
-	items,
 	sessions,
 	taskPlanningSignals,
 	tasks,
@@ -9,6 +8,7 @@ import {
 } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import * as work from "../work-service.js";
 import { resolveReviewRecipients } from "./org-routing.js";
 
 /**
@@ -60,7 +60,7 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 				});
 
 				// Update task with new threadId
-				await db.update(tasks).set({ threadId }).where(eq(tasks.id, task.id));
+				await work.updateTaskById(db, task.id, { threadId });
 			}
 
 			// @lore AD1: Wire review routing to humans on session-end review creation.
@@ -102,7 +102,7 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 			const now = new Date().toISOString();
 			const outcome = session.outcome ?? "completed";
 
-			await db.insert(items).values({
+			await work.createItem(db, {
 				id: itemId,
 				kind: "review",
 				title: `Session completed: ${outcome}`,

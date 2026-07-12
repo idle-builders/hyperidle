@@ -1,6 +1,7 @@
 import { type HyperIdleDb, routineRuns, sessions } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import { and, eq, lt, sql } from "drizzle-orm";
+import * as routine from "../routine-service.js";
 
 const reaperLog = createLogger({ pkg: "server.routine-reaper" });
 
@@ -62,14 +63,11 @@ export async function reapStaleRoutineSessions(
 			.limit(1);
 
 		if (run) {
-			await db
-				.update(routineRuns)
-				.set({
-					outcome: "timeout",
-					endedAt,
-					errorMessage: "Routine session reaped: stale active session finalized to timeout",
-				})
-				.where(eq(routineRuns.id, run.id));
+			await routine.updateRoutineRunById(db, run.id, {
+				outcome: "timeout",
+				endedAt,
+				errorMessage: "Routine session reaped: stale active session finalized to timeout",
+			});
 		}
 
 		reaped += 1;
