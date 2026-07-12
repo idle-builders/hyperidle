@@ -610,252 +610,188 @@ track).
 
 ---
 
-## Service-Scoped Architecture (AU12–AU17): As-Is vs Should (2026-07-12)
+## Service-Scoped Architecture (AU12–AU17): As-Is vs Should (2026-07-12, final-state)
 
 AU8's own review found the should-graph's two-layer split (Core App / Agent Layer) is real but too
 coarse to build a zero-allowlist guard against: it names *no* real services, so a Routine handler
 writing into `messages` is invisible to a check that only knows "core" from "agent." This section
-goes one level down — real services, per layer, with their internal modules, and the exact
-mechanism each crossing should use. It registers AU12–AU17 (`.pipeline/work-packages/TRACK-AU.md`)
-and gives AU8 something concrete to check once they land. Grounded in direct code reading this
-session (a forked audit + manual verification), not re-derived from the AU2-era component inventory.
+goes one level down — real services, per layer, with their internal modules, and the exact mechanism
+each crossing should use. It registers AU12–AU17 (`.pipeline/work-packages/TRACK-AU.md`) and gives
+AU8 something concrete to check once they land.
 
-**Update (2026-07-12): AU14 ("Knowledge write-path unification") is implementation-complete, code
-reviewed DONE first round, and shipped.** PR #434 — `npm run verify` and `release-guard` both green
-in CI, PR open and mergeable, awaiting human merge (this repo's convention: agents never merge).
-`routes/knowledge.ts`'s `POST /` and `PATCH /:id` now call `knowledge-repository.ts`'s `create`/
-`update` instead of doing their own raw inserts; the dead `getKnowledgeEvents()` singleton (zero
-`.on()` subscribers anywhere in the repo, independently grep-confirmed twice — once by the
-architecture-critique reviewer, once by the code reviewer) and its file `knowledge/events.ts` are
-deleted; the shared `EventBus` (the mechanism with real subscribers — `ws-broadcaster.ts`,
-`git-export.ts`, `observability/dispatcher.ts`, `relevance-listener.ts`) is the sole surviving event
-mechanism. Knowledge is now the first of the six AU12–AU16 domains to close its as-is/should gap
-completely — see the AU14 Completion Check below. Snapshot of the rest of the wave at this same
-commit: AU12 (Conversation + Users) PR #435 is open, CI green, mergeable, not yet merged; AU13
-(Work + Routine) PR #436 is open, CI still running at last check, not yet merged; AU15 and AU16 have
-not started (no branch/PR yet); AU17 and AU8 are correctly still blocked on all five landing.
+> **Consolidation note.** This section supersedes two earlier mid-cycle doc updates — PR #438
+> ("AU12/AU13 shipped status") and PR #439 ("AU14 merged, AU12/AU13 open, flag Settings/Notification
+> gap"), both now **closed**. Both were snapshots of an in-flight, partially-complete state (before
+> AU13 was reopened for reads, before AU14 round 2, before AU16, before AU12's final read+write
+> completion). Everything below is re-verified directly against merged code on this branch
+> (`git log` ancestry through `e1b87c50`, guard `--check` runs, live function reads), not carried
+> forward from those stale drafts.
 
-### 1. Package boundary — as-is vs should
+### 0. Merged status — the AU12/AU13/AU14/AU16 wave is landed (full read+write ownership)
 
-```mermaid
-flowchart TB
-  subgraph ASIS["AS-IS — one package, one directory, boundary = a hand-typed file list"]
-    direction TB
-    S1["@hyperidle/server"]
-    S1 --> R1["routes/ — 38 files"]
-    S1 --> SV1["services/ — 81 files, core AND agent-owned mixed together"]
-    S1 --> K1["knowledge/ — 15 files (has real internal shape)"]
-    S1 --> N1["notifications/ — 14 files (has real internal shape)"]
-    S1 --> C1["config/ — 3 files"]
-    S1 --> H1["harness/ — 19 files"]
-    S1 --> M1["mcp/ — 2 files"]
-    S1 --> T1["tools/ — 29 files"]
-  end
-```
+All four service-ownership work packages have merged to main. Each now owns **both reads and writes**
+of its tables — the earlier "write-only" framing was superseded by a founder correction (see §5).
 
-```mermaid
-flowchart TB
-  subgraph SHOULD["SHOULD — two packages, boundary = a build fact"]
-    direction TB
-    CORE["@hyperidle/core-app"]
-    CORE --> CV["conversation/"]
-    CORE --> WK["work/"]
-    CORE --> US["users/"]
-    CORE --> KN["knowledge/"]
-    CORE --> CF["configuration/ (settings + plugin defaults + overrides, one module)"]
-    CORE --> RT["routine/"]
-    CORE --> NT["notification/"]
+| WP | Domain | Merged as | Owning module(s) | State |
+|---|---|---|---|---|
+| **AU12** | Conversation + Users | **#435** (`e1b87c50`) — final commit includes reads; the write-only #435 head was rebased/extended to reads before merge | `services/conversation-store.ts` (~29 fns), `services/user-store.ts` (~20 fns) | **Merged, full read+write** |
+| **AU13** | Work + Routine | **#436** (`ac691bda`, writes) + **#442** (`1566babb`, reopened for reads) | `work-service.ts` (~28 fns), `routine-service.ts` (~17 fns) | **Merged, full read+write** |
+| **AU14** | Knowledge | **#434** (`f22990a7`, round 1 writes) + **#441** (`29c07ec3`, round 2 full read+write) | `knowledge/knowledge-repository.ts` (~16 fns, +7 reads in round 2) | **Merged, full read+write** |
+| **AU16** | Harness/worker capability read-model | **#440** (`ff4de24e`) | `services/harness-capability-read-model.ts` (6 typed forwarders) | **Merged** |
 
-    AGENT["@hyperidle/agent-layer"]
-    AGENT --> TR["trigger-resolver/"]
-    AGENT --> OR["orchestrator/ (+ lifecycle publishing)"]
-    AGENT --> SB["sandbox-bridge/ (context in + capture out)"]
-    AGENT --> HR["harness-registry/"]
-    AGENT --> TS["tool-surface/ (tools + MCP, one door)"]
-    AGENT --> CL["cost-limits/"]
+Upstream: **AU11** (#428, `7d4791a2`) and **AU9/AU10** (#425/#426) are merged; this branch is cut from
+`e1b87c50`, which is AU12's merge on top of all of the above.
 
-    DESK["packages/desktop — Desktop Shell (unchanged, already correct)"]
-    HI["Human Interface — web/desktop UI (unchanged, already correct)"]
-  end
-```
+**AU12 — Conversation + Users.** `conversation-store.ts` owns `threads`+`messages`, `user-store.ts`
+owns `users`; both are the sole read *and* write path within `packages/server/src`. Roughly 6 write
+functions + 23 read functions in conversation-store (`insertThread`/`updateThread`/`insertMessage`/
+`updateMessage`/`resolveMessageIfUnresolved`/`findOrCreateDirectThread` plus `getThreadById`,
+`listThreadsByHost`, `searchConversations`, … reads), and ~5 write + ~15 read in user-store.
+`services/direct-thread.ts` was deleted (its `findOrCreateDirectThread` relocated into
+conversation-store). Every write takes the executor as its first arg so tx atomicity is preserved.
 
-Today's four guard scripts (`au7-runtime-retirement-guard.ts`, `au9-direct-handoff-guard.ts`,
-`au10-plugin-config-ownership-guard.ts`, `au11-runtime-ownership-guard.ts`) exist specifically
-because there is no folder-level distinction inside `services/` — `AU9_AGENT_FILES` and
-`AU11_AGENT_FILES` are hand-maintained arrays of file paths standing in for a package boundary that
-doesn't exist yet. `packages/server/package.json`'s `exports` map already deep-exports ~15
-individual internal files directly to other packages — confirmed by reading it — so even today's
-nominal "public API" is not a deliberate small surface. AU17 is what turns the SHOULD diagram above
-into a build-enforced fact instead of a diagram.
+**AU13 — Work + Routine.** `work-service.ts` owns `bets`/`tasks`/`items` (~11 writes incl.
+`createBet`/`transitionBetStatus`/CAS transitions/`claimBetDecomposition`, ~17 reads),
+`routine-service.ts` owns `routines`/`routine_runs`. Every core route, agent tool, and agent-layer
+service now routes through the owning function for both reads and writes.
 
-### 2. How services communicate — as-is vs should
+**AU14 — Knowledge.** `routes/knowledge.ts` no longer performs *any* direct `knowledgeItems` access
+of any kind (read or write) — round 2 moved all 4 GET handlers' raw selects plus the POST/PATCH
+re-selects into 7 new repository read functions (`findById`, `searchByText`, `listVisibleWithSignals`,
+`countTriageVisible`, `findDetailById`, `countAccessesSince`, `findRelatedByTopic`). Round 1's dead
+`getKnowledgeEvents()` singleton and its file `knowledge/events.ts` were deleted; the shared
+`EventBus` is the one surviving event mechanism.
 
-| Crossing | As-is | Should | Why |
-|---|---|---|---|
-| Core service ↔ its own table | Mixed: Knowledge/Settings/Notification mostly do this correctly; Conversation/Work/Users/Routine do not — both core routes AND agent-owned files write these tables directly | Direct DB access, but *only* from the owning service's own files | The one place raw table access is correct — because nothing else is allowed to do it |
-| Core service ↔ another core service | No shared functions exist for Conversation/Work/Users/Routine; each caller does its own insert | Function call to the other service's exported function | Same process, needs the answer now |
-| Core service → Agent Layer, "do work" | Durable intent row (`agent_work_intents`) for every family **except** routines, which call `agent-selection.ts` directly at fire-time | Durable intent row, no exceptions | A queue's value is crash-safety + latency-decoupling, which holds even fully in-process — a second channel undermines that guarantee for exactly the family using it |
-| Agent Layer → Core service, "record this fact" | Broken almost everywhere still audited: `agent-work-assistant.ts`, `assistant-dispatcher.ts`, `builtin-routine-handlers.ts` all write Conversation/Work/Routine tables directly (AU12/AU13, in flight). **Knowledge is fully correct as of AU14** — every writer (the HTTP route and every agent-layer/tool caller) now goes through the one repository, with no remaining second path | Function call into the owning Core service | Never a raw write — the domain keeps owning its own invariants regardless of who's asking |
-| Agent Layer internal services, to each other | Mostly already function calls, in-process | Function call | One pipeline |
-| Orchestrator → harness process | Files (sandbox in/out) + `HarnessAdapter` interface (local spawn or `RemoteHarnessAdapter` over WS) | Unchanged — already correct | One interface, swappable implementation, caller oblivious to which |
-| Running agent → tools/MCP/Knowledge search | MCP over HTTP — the harness's own MCP config is a real server URL (`cli-mcp-config.ts`), works identically local or remote | Unchanged — already correct | The agent is foreign code; MCP is its one audited door |
-| Harness/worker capability state → Core (display) | 8 route files `import type` adapter/registry internals directly — a hand-verified allowlist, not a structural rule | A real read-only capability function Core calls; zero harness/mcp imports in Core at all | A read shouldn't need a per-file manual carve-out to stay safe |
-| Plugin defaults / user overrides → Configuration | Already correct: `plugin-configuration.ts` is one module, `loadPluginConfigurationDefaults`/`setConfigurationOverride` are real functions, not raw writes | Unchanged — already correct | Confirmed by reading the code, not assumed |
-| Desktop Shell's local files (`config.json`, `secrets.json`, `credentials.json`, `window-state.json`) | Already correct: each has exactly one owning function in `packages/desktop`, confirmed no other module touches them | Unchanged — already correct, just not previously named as such | Local-file storage is that owner's mechanism, not an exemption from ownership |
-| Human Interface ↔ Core API | Real API always | Unchanged — already correct | Genuinely separate deployable, no shared memory, ever |
+**AU16 — Harness/worker capability read-model.** `harness-capability-read-model.ts` exposes six typed
+forwarders backed by a `Pick`-narrowed `HarnessCapabilityReader` over `AdapterPool`. The 8 routes
+that previously reached into `AdapterPool` directly (agent-profile, agents, assistant, connections,
+harnesses, teams-routes, users, workers) now call the read-model. The former hand-verified
+`DESCRIPTOR_READ_ALLOWLIST` in `au11-runtime-ownership-guard.ts` was **deleted**: the boundary is now
+structural — a route holding `HarnessCapabilityReader` categorically cannot reach an execution call —
+instead of a per-file carve-out.
 
-### 3. Dependency tree, scoped by service
+### 1. Guards — four scoped ownership checks, all green, and their scope asymmetry
+
+| Guard | Owned tables | Scan scope | Exempt/owner set | `--check` |
+|---|---|---|---|---|
+| `au12-conversation-users-ownership-guard.ts` | `threads`, `messages`, `users` | all of `packages/server/src` | `EXEMPT_FILES` = the 2 owning modules only | **PASS** |
+| `au13-work-routine-ownership-guard.ts` | `bets`, `tasks`, `items`, `routines`, `routine_runs` | all of `packages/server/src` | `OWNING_MODULE_ALLOWLIST` = the 2 services only | **PASS** |
+| `au14-knowledge-ownership-guard.ts` | `knowledgeItems` | **only `routes/knowledge.ts`** (`GUARDED_FILE`) | structural (single-file guard) | **PASS** |
+| `au11-runtime-ownership-guard.ts` | (execution-import ban + shell) | `packages/server/src` | AU16 deleted its `DESCRIPTOR_READ_ALLOWLIST` | (unchanged from AU11) |
+
+All three new ownership guards run clean with **zero findings** — verified live this session, not
+assumed. One honest asymmetry worth naming: **AU12 and AU13 guards scan the whole
+`packages/server/src` tree** (any file other than the owner writing/reading the owned tables is a
+finding), whereas **AU14's guard is narrower — it only guards the single file `routes/knowledge.ts`**
+against `knowledgeItems`. So "the repository is the sole read+write path" is *guard-enforced* for the
+HTTP route specifically; the other repository callers (`write-memory.ts`, `writeback.ts`,
+`context-assembly.ts`) already went through the repository (per the round-2 reopen commit, the route
+was the *last* remaining bypass), but that repo-wide property is not mechanically enforced the way
+AU12/AU13's is. This is a real difference in guard strength, not a claim of equivalence.
+
+### 2. The founder's zero-exceptions ACL ruling (2026-07-12)
+
+The founder ruled: **no "foreign-import ceiling" exceptions for cross-owned-table access are
+permitted.** A query that needs two owned tables must **decompose into one call per owning service**,
+never be allowlisted. This is recorded as a `@lore` in `work-service.ts`.
+
+**Concrete precedent (resolved):** the `findPostBetRetroItem` `items ⋈ threads` join (AU13 addendum
+§A2 "FOREIGN-IMPORT CEILING") was **removed** — decomposed into `findRetroItemByThreadIds`
+(items-only, in work-service) plus a caller-side `getThreadIdsByHost` lookup in conversation-store,
+since Conversation owns `threads`. `searchBetsByText` follows the same discipline (owned-primary
+`bets` query + caller-side `teams` lookup rather than a join).
+
+**Is the principle now uniformly true across all four guards?** From direct code + guard reading:
+**yes, for cross-*owned*-table access.** Because the AU12 and AU13 guards scan the whole tree and flag
+reads too, a residual cross-owned join in any non-owner file — or in an owner file joining *another
+owner's* table — would fail `--check`; both pass. The two `@lore`-labeled "foreign-import ceiling"
+reads that survive inside work-service — `listBetTasksWithLatestSessionOutcome` (correlated `sessions`
+subquery) and `searchBetsByText`'s `teams` lookup — touch **unowned** tables (`sessions`, `teams`
+have no AU12/13/14 owner guard), so they are **not** exceptions to the cross-owned-table ruling; the
+`sessions` read explicitly predates and is unaffected by it. **Residual gap to name honestly:** the
+ruling is enforced structurally only over the *currently owned* tables. `sessions`/`teams` reads
+being permitted is not a violation of the ruling as stated, but it does mean the "one call per owning
+service" discipline is only as complete as the set of tables that have owners — which today excludes
+Settings/Notification (§4), sessions, and teams.
+
+### 3. AU12's four out-of-`packages/server` exceptions (still the only named ones)
+
+The AU12 guard only scans `packages/server/src`; four files **outside** that tree write owned tables
+directly and are the named §5a exceptions (all non-production bootstrap/fixture/seed/dev code):
+
+- `packages/db/src/factory-bootstrap.ts`
+- `packages/db/src/demo-fixture.ts`
+- `packages/eval/src/seeding.ts`
+- `packages/web/scripts/ah6-test-server.ts`
+
+These remain the only named out-of-server exceptions. **AU13, AU14, and AU16 surfaced no *new*
+comparable ones:** the AU13-owned tables (`bets`/`tasks`/`items`/`routines`/`routine_runs`) are also
+written from the *same* four locations (bootstrap/fixture/seed/dev-server), not from additional
+places; AU14 and AU16 touch no out-of-server writers at all. Because every one of these ownership
+guards is scoped to `packages/server/src`, these four stay **non-blocking for AU8** *provided AU8's
+own guard keeps that same `packages/server/src` scope*. (Test files under `__tests__` also write these
+tables directly; they are test fixtures, not production, and out of every guard's production scope.)
+
+### 4. The still-unregistered Settings/Notification write-ownership gap — the one real AU8 blocker
+
+`factorySettings` and `notificationQueue` are still written with **raw Drizzle `insert`/`update`/
+`delete` across many production files** with **no owning service** — e.g. `config/git-export-config.ts`,
+`routes/notifications-routes.ts`, `routes/status.ts`, `notifications/{mute,digest,config,dispatcher}.ts`,
+`services/{cost-cap,cost-sentinel,lifecycle-propagation,retention-reaper}.ts`,
+`services/observability/config.ts`. This is exactly the raw-write pattern AU12/AU13 removed for their
+domains, and the AU12/AU13 "audit Settings/Notification first" task flagged it but scoped it *out*.
+
+**No work package covers it.** Confirmed against `.pipeline/work-packages/TRACK-AU.md` and
+`pipeline-manifest.yaml`: there is **no AU18** or equivalent Settings/Notification ownership entry.
+AU8's plan (§AU8) itself anticipates this — its `TABLE_OWNER` map would need a Settings/Notification
+owner, or those tables stay un-owned and its zero-allowlist goal can't be met for them. **This remains
+the one real, unregistered gap before AU8 can build a genuinely complete table-ownership guard.**
+(Caveat: whether it *blocks* AU8 depends on AU8's final scope decision — if AU8 deliberately declares
+`factorySettings`/`notificationQueue` out of its `TABLE_OWNER` map, it could ship without them; but as
+the track's intent reads today, closing this is the honest precondition.)
+
+### 5. Dependency tree and status (final-state)
 
 ```mermaid
 flowchart LR
-  AU11["AU11 — merged\n(app-runtime dissolved)"]
-  AU11 --> AU12["AU12 — PR #435 open, CI green\nConversation + Users\nown their writes"]
-  AU11 --> AU13["AU13 — PR #436 open, CI running\nWork + Routine\nown their writes"]
-  AU13 --> AU15["AU15 — not started\nRoutine agent-selection\nthrough the intent queue"]
-  AU14["AU14 — PR #434 open, CI green\nKnowledge write-path\nunification — DONE (independent)"]
-  AU16["AU16 — not started\nDescriptor read-model\n(independent)"]
-  AU12 --> AU17["AU17\nCore App / Agent Layer\nas real packages"]
+  AU11["AU11 — merged #428\n(app-runtime dissolved)"]
+  AU11 --> AU12["AU12 — merged #435\nConversation + Users\nown reads + writes"]
+  AU11 --> AU13["AU13 — merged #436 + #442\nWork + Routine\nown reads + writes"]
+  AU13 --> AU15["AU15 — NOT STARTED\nRoutine agent-selection\nthrough the intent queue"]
+  AU14["AU14 — merged #434 + #441\nKnowledge full read+write\npath unified (independent)"]
+  AU16["AU16 — merged #440\nHarness/worker capability\nread-model (independent)"]
+  AU12 --> AU17["AU17 — NOT STARTED\nCore App / Agent Layer\nas real packages"]
   AU13 --> AU17
   AU14 --> AU17
   AU15 --> AU17
   AU16 --> AU17
-  AU17 --> AU8["AU8\nshould-graph guard,\ngeneralized"]
+  AU17 --> AU8["AU8 — NOT STARTED\nshould-graph guard,\ngeneralized"]
 ```
 
-AU12/AU13/AU14/AU16 have no dependency on each other and can build in parallel — they touch
-disjoint files. AU14 confirms this held in practice: its whole pipeline run (architecture through
-ship) touched only `packages/server/src/knowledge/` and `packages/server/src/routes/knowledge.ts`,
-zero overlap with AU12's Conversation/Users files or AU13's Work/Routine files, and all three ran
-concurrently without a rebase conflict. AU15 depends on AU13 only because both touch
-`routine-scheduler.ts` and `builtin-routine-handlers.ts`; sequencing avoids two work packages editing
-the same files at once. AU17 depends on all five because splitting packages around code that still
-cross-writes just relocates the mess into two packages instead of fixing it — AU14 being done doesn't
-unblock AU17 early, since AU17's own precondition is *all five* landing, not any one. AU8 depends
-only on AU17 directly — the rest are transitive through it, matching this manifest's existing
-convention (e.g. AU11 lists `depends: [AU9, AU10]`, not the full chain back through AU7).
+| WP | Status | Depends | Notes |
+|---|---|---|---|
+| AU12 | **Merged** (#435) | AU11 | Full read+write |
+| AU13 | **Merged** (#436 + #442) | AU11 | Full read+write |
+| AU14 | **Merged** (#434 + #441) | — | Full read+write; single-file guard (§1) |
+| AU16 | **Merged** (#440) | — | Deleted `DESCRIPTOR_READ_ALLOWLIST` |
+| **AU15** | **Not started** | AU13 (now unblocked) | Routine agent-selection → intent queue; no branch/PR exists |
+| **AU17** | **Not started** | AU12, AU13, AU14, AU15, AU16 | Still blocked on AU15; no branch/PR exists |
+| **AU8** | **Not started** | AU17 | Should-graph guard; no branch/PR exists |
+| (gap) | **Unregistered** | — | Settings/Notification write-ownership (§4) — no AU18 |
 
-### 4. Internal modules per service — as-is vs should
-
-The should-graph's Core App / Agent Layer components are themselves collections of real files, not
-single units. What follows is every file behind each service today, and what should own it.
-
-**Core App — Knowledge** (already had real internal shape; the gap was the second write path, not
-missing structure — **closed by AU14**, PR #434, CI green, open awaiting merge):
-
-| File | Role | As-is / should |
-|---|---|---|
-| `knowledge-repository.ts` | `create`/`update`/`list`/`search` — the actual CRUD | **Now the only write path (AU14).** `routes/knowledge.ts`'s `POST /`/`PATCH /:id` call `repo.create`/`repo.update` instead of their own inserts; the repository's dead `getKnowledgeEvents()` emit calls were removed so the route's `EventBus` emit is the one surviving event per write |
-| `attention-classifier.ts`, `attention-scoring.ts`, `attention-service.ts` | Relevance/attention scoring | Internal collaborators, call the repository — already correct shape |
-| `promotion-pipeline.ts` | Promotion sweeps | Same |
-| `relevance-engine.ts`, `relevance-listener.ts`, `relevance-service.ts`, `relevance-scoring.ts` | Relevance computation + event reaction | Same |
-| `role-community-map.ts`, `scoring-config.ts`, `token-budget.ts` | Scoring support data/config | Same |
-| `fts.ts` | Full-text search | Same |
-| `errors.ts`, `types.ts` | Shared types/errors for the domain | Same |
-| ~~`events.ts`~~ | Dead module-level `getKnowledgeEvents()` event singleton, zero subscribers | **Deleted (AU14)** — its emit calls were a second, unobserved event mechanism; the shared `EventBus` (route-side) is the one surviving mechanism |
-
-**Core App — Notification** (also already has real internal shape; not yet audited for a
-route-vs-module dual-path the way Knowledge was, flagged as an open check for AU12/AU13's audit
-task rather than assumed clean):
-
-| File | Role |
-|---|---|
-| `dispatcher.ts`, `drain.ts` | Queue drain / delivery |
-| `adapter-factory.ts`, `console-adapter.ts`, `ntfy-adapter.ts`, `smtp-adapter.ts` | Delivery adapters |
-| `daily-digest.ts`, `digest.ts` | Digest batching |
-| `mute.ts`, `silence-policy.ts`, `redact.ts` | Delivery policy |
-| `notification-listener.ts` | Domain-event reaction |
-| `config.ts`, `types.ts` | Config/types |
-
-**Core App — Conversation, Work, Users, Routine** (no dedicated folder exists today — this is the
-literal absence AU12/AU13 build):
-
-| Domain | As-is | Should |
-|---|---|---|
-| Conversation (`threads`, `messages`) | Scattered across `routes/threads.ts`, `routes/assistant.ts`, `routes/coach.ts`, plus direct writes from `services/agent-work-assistant.ts`, `services/assistant-dispatcher.ts` | A `conversation/` module owning both tables; every listed caller becomes a caller of it (AU12) |
-| Users/Agents (`users`) | Scattered across `routes/users.ts`, `routes/agents.ts`, `routes/teams-routes.ts`, plus `services/agent-work-assistant.ts`'s lazy-create | A `users/` module (AU12) |
-| Work (`bets`, `tasks`, `items`) | Scattered across core routes, plus `services/builtin-routine-handlers.ts`'s `items` insert | A `work/` module (AU13) |
-| Routine (`routines`, `routine_runs`) | Scattered across core routes, plus `services/builtin-routine-handlers.ts`'s direct inserts | A `routine/` module (AU13) |
-
-**Core App — Configuration** (already one real module, contrary to this document's earlier,
-un-verified four-box model of "Plugin Loader / Settings Service / Configuration Store / Configuration
-Resolver" — confirmed by reading `plugin-configuration.ts` directly):
-
-| Function | Role |
-|---|---|
-| `loadPluginConfigurationDefaults`, `loadBuiltInConfigurationDefaults` | Plugin/built-in default seeding |
-| `setConfigurationOverride`, `clearConfigurationOverride` | User override writes |
-| `setPluginConfigurationState` | Plugin enable/disable/remove |
-| `listResolvedConfiguration`, `getResolvedConfiguration` | The merged read Agent Layer's Trigger Resolver calls |
-
-**Agent Layer — Trigger Resolver**: `trigger-resolution.ts`, `agent-selection.ts`, `roster.ts`.
-As-is/should gap: `agent-selection.ts` is also called directly by `routine-scheduler.ts` (Core),
-the one bypass this maps onto AU15.
-
-**Agent Layer — Orchestrator** (absorbs the old "Lifecycle Publisher" — it isn't separate data, it's
-this service narrating its own state transitions): `agent-work-handoff.ts`,
-`agent-work-intent-worker.ts`, `agent-session-requests.ts`, `agent-run-boundary.ts`,
-`agent-session-runtime.ts`, `session-provisioning.ts`, `agent-layer-boot.ts`,
-`agent-work-assistant.ts`, `assistant-dispatcher.ts`, `task-dispatcher.ts`,
-`routine-session-reaper.ts`, `sandbox-reaper.ts`, `contracts.ts`. As-is/should gap:
-`agent-work-assistant.ts` and `assistant-dispatcher.ts` write Conversation/Users tables directly
-(AU12); `task-dispatcher.ts` and the routine reapers should call Work/Routine once AU13 lands.
-
-**Agent Layer — Sandbox Bridge** (merges the old "Context Assembly" and "Capture & Writeback" — same
-files⇄domain-data translation, run in each direction): `context-assembly.ts`,
-`context-assembly-prompt.ts`, `session-context.ts`, `writeback.ts`, `file-watcher.ts`. **Correction
-from AU14's own audit:** this row previously read "both directions currently reach Knowledge's
-table/repository inconsistently" — that was imprecise. `context-assembly.ts` (read direction) and
-`writeback.ts` (write direction) already called `knowledge-repository.ts` correctly pre-AU14; they
-were never part of the gap. The actual second write path was `routes/knowledge.ts` (a Core route,
-not this service) doing its own raw insert instead of calling the repository — now closed by AU14.
-Sandbox Bridge's Knowledge-facing calls were already should-shaped; no change was needed here.
-
-**Agent Layer — Harness Registry**: `adapter-pool.ts`, `builtin-harness-adapter.ts`,
-`cli-harness-adapter.ts`, `cli-mcp-config.ts`, `context-window.ts`, `disabled-sandbox-adapter.ts`,
-`harness-capability-descriptors.ts`, `harness-discovery.ts`, `harness-session-probe.ts`,
-`llm-client.ts`, `llm-types.ts`, `local-sandbox-adapter.ts`, `remote-harness-adapter.ts`,
-`sandbox-adapter.ts`, `services/worker-ws.ts` (the WS control channel — relocated here by AU11,
-zero DB imports, confirmed). As-is/should gap: this is the read surface 8 core routes bypass via
-the descriptor-read allowlist instead of calling (AU16).
-
-**Agent Layer — Tool Surface** (merges the old "Tool Registry" and "MCP Gateway" — two transports,
-one concern): `tools/tool-registry.ts` + all `tools/*.ts` tool implementations, `mcp/mcp-bridge.ts`,
-`mcp/mcp-bridge-registry.ts`, `services/mcp-route.ts` (relocated by AU11 — its body directly
-executes MCP requests, not a descriptor read, confirmed), `harness/provision-return-hook.ts`,
-`harness/re-engage.ts`, `harness/return-enforcement-registry.ts`, `harness/return-gate.ts`,
-`tools/return-status-tool.ts`. Already clean — no gap found.
-
-**Agent Layer — Cost & Limits**: `services/cost-cap.ts`, `services/cost-sentinel.ts`,
-`harness/llm-cost-estimate.ts`. Already clean — no gap found.
-
-**Open question carried from this session, not resolved here:** Harness Registry and Tool Surface
-are both "capability registries" and could arguably merge into one — kept separate above because a
-harness is selected once per session while tools/MCP are invoked repeatedly within one, a real
-lifecycle difference. Worth a second opinion during AU17's architecture pass, not assumed settled.
-
-### 5. AU14 Completion Check
-
-| AU14 requirement | Status | Notes |
-|---|---|---|
-| `routes/knowledge.ts` create/update handlers call the repository's `create`/`update` rather than their own inserts/updates | Complete, PR open | `POST /` and `PATCH /:id` now call `repo.create`/`repo.update`; raw `db.insert(knowledgeItems)` and the manual per-field edit-log loop are gone. Independently re-verified against the live diff by the Phase-4 reviewer, not just the builder's report. |
-| Q2 user-scope visibility rule holds exactly as before, reads and writes | Complete, PR open | Read filters in the untouched GET handlers; write-side `resolvedScopeId` resolution and the `requiresScopeId` 400 guard stay route-side; the repository stays scope-agnostic so its non-HTTP callers (`write-memory.ts`, `writeback.ts`, `context-assembly.ts`) keep working unchanged. |
-| Exactly one event per create/update, observable by every current consumer of either mechanism | Complete, PR open | Both the architecture-critique reviewer and the code reviewer independently grepped for `.on()` subscribers on the module-level `getKnowledgeEvents()` singleton and found zero, confirming it was dead; it and its file (`knowledge/events.ts`) were deleted, and the route's existing `EventBus` emit — the mechanism with real subscribers — is unchanged and fires exactly once per write. |
-| Knowledge edit log records an entry for every create/update, regardless of origin | Complete, PR open | The repository already wrote this row unconditionally for every caller; the actual gap was that the API route's create wrote none. A new test proves the API path now produces an `editType:"create"` row, closing that gap. A pre-existing, unrelated test (`agent-work-intent-production.integration.test.ts`) asserted the edit-log table was empty after a rollback — true only because the old route wrote nothing; it was corrected in the same PR to assert zero *new* rows, preserving its actual intent (rollback atomicity) without weakening it. |
-| Review includes a should-graph audit proving Knowledge has one write path | Complete, PR open | This section (Core App — Knowledge, above) is that audit: `knowledge-repository.ts` is now the only writer, confirmed by re-reading the live diff, not by trusting either agent's self-report. |
-| Full as-should dependency tree mechanically enforced | Not an AU14 requirement | AU14 closed one domain's write-path duplication; a mechanical guard forbidding a *future* second write path from reappearing is AU8's should-graph-guard scope, same pattern as AU9–AU11's targeted guards preceding AU8's unified one. |
-
-One thing this completion check does **not** cover, worth naming rather than leaving implicit: AU14
-had no dependency on AU12/AU13/AU15/AU16 and none of them depend on it either (see the dependency
-tree in §3) — its being done first doesn't accelerate or block any sibling. AU17 still needs all
-five landed before it can start.
+AU15 is the sole remaining sibling that unblocks AU17; AU12/AU13/AU14/AU16 all landed. AU17 still
+needs *all five* (incl. AU15) before it can start, and AU8 depends only on AU17. No `AU15`, `AU17`, or
+`AU8` branch or PR exists yet — confirmed against `git branch -a` and `gh pr list`.
 
 ### 6. What this section is, and isn't
 
-This is a should-graph refinement, not a new should-graph — the two-layer contract in §"Layer
-Interaction Graph" above (Core App owns records/events, Agent Layer owns execution, Plugins are
-configuration-only) is unchanged. What's new is naming the real services inside each layer and the
-specific mechanism each crossing should use, because AU8's own audit found the two-layer split alone
-cannot support a zero-allowlist guard: it has no vocabulary for "a Routine handler wrote into a
-Conversation table," since both are "core." AU12–AU17 (`.pipeline/work-packages/TRACK-AU.md`) are
-what turn this section from a diagram into source. AU8 is the last work package in the track either
-way — this section is what it will actually check once they land.
+This is a should-graph *refinement*, not a new should-graph — the two-layer contract in
+§"Layer Interaction Graph" above (Core App owns records/events, Agent Layer owns execution, Plugins
+are configuration-only) is unchanged. What's new — and now **largely realized in merged code** rather
+than merely diagrammed — is naming the real services inside each layer (conversation-store,
+user-store, work-service, routine-service, knowledge-repository, harness-capability-read-model) and
+the exact mechanism each crossing uses. AU8's own audit found the two-layer split alone cannot support
+a zero-allowlist guard because it has no vocabulary for "a Routine handler wrote into a Conversation
+table." With AU12/AU13/AU14/AU16 landed and their guards green, that vocabulary now exists as
+enforced code for six domains; the remaining work before AU8 is AU15, AU17, and closing the
+Settings/Notification ownership gap (§4).
