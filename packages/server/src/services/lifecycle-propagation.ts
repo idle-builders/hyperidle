@@ -29,7 +29,6 @@ import {
 	notificationQueue,
 	propagationLog,
 	sessions,
-	users,
 } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
@@ -46,6 +45,7 @@ import { and, eq, ne } from "drizzle-orm";
 import type { PropagationLevel } from "../knowledge/types.js";
 import * as work from "../work-service.js";
 import { insertMessage, insertThread } from "./conversation-store.js";
+import { getFirstUserByKind } from "./user-store.js";
 
 /**
  * Shape of a single entry in the revision log JSON array.
@@ -538,7 +538,7 @@ async function createShipConfirmationThread(
 
 	// P2: Read founder from users table (kind = 'human') instead of factorySettings.
 	// @lore P2: fallback to "u-founder" for unseeded DBs — same sentinel as auth middleware.
-	const [humanUser] = await db.select().from(users).where(eq(users.kind, "human")).limit(1);
+	const humanUser = await getFirstUserByKind(db, "human");
 	const founderId = humanUser?.id ?? "u-founder";
 
 	const doneCount = allBetTasks.filter((t) => t.state === "done").length;

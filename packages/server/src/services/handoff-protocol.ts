@@ -5,10 +5,9 @@ import {
 	sessions,
 	taskDispatchAttempts,
 	teamMembers,
-	users,
 } from "@hyperidle/db";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import * as work from "../work-service.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import { insertMessage, insertThread } from "./conversation-store.js";
@@ -17,6 +16,7 @@ import { requestAgentTermination, type SessionContext } from "./session-lifecycl
 import { sessionRunRegistry } from "./session-run-registry.js";
 import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import { InvalidTransitionError, VALID_TRANSITIONS } from "./task-state-machine.js";
+import { findActiveTeammateByRole, getUserById } from "./user-store.js";
 
 export interface HandoffMetadata {
 	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case
@@ -86,11 +86,7 @@ export async function handoff(
 	// predictable "not found" (keeps error semantics identical to the
 	// pre-transactional implementation).
 	if (params.toAgent) {
-		const [targetAgent] = await db
-			.select()
-			.from(users)
-			.where(eq(users.id, params.toAgent))
-			.limit(1);
+		const targetAgent = await getUserById(db, params.toAgent);
 		if (!targetAgent) {
 			throw new Error(`Agent not found: ${params.toAgent}`);
 		}
@@ -199,21 +195,15 @@ export async function handoff(
 				.from(teamMembers)
 				.where(eq(teamMembers.teamId, task.teamId));
 			const memberGroupIds = memberGroups.map((m) => m.id);
-			const [availableAgent] =
+			const availableAgent =
 				memberGroupIds.length > 0
-					? await tx
-							.select()
-							.from(users)
-							.where(
-								and(
-									eq(users.role, params.toRole),
-									inArray(users.teamId, memberGroupIds),
-									eq(users.status, "active"),
-									ne(users.id, sessionContext.agentId),
-								),
-							)
-							.limit(1)
-					: [undefined];
+					? await findActiveTeammateByRole(
+							tx as HyperIdleDb,
+							params.toRole,
+							memberGroupIds,
+							sessionContext.agentId,
+						)
+					: undefined;
 
 			if (availableAgent) {
 				await work.updateTaskById(tx, task.id, {

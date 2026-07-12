@@ -1,5 +1,6 @@
-import { type HyperIdleDb, orgEdges, users } from "@hyperidle/db";
+import { type HyperIdleDb, orgEdges } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
+import { listUsersByKind } from "./user-store.js";
 
 /**
  * Context for routing: identifies the AI user/role/team being reviewed.
@@ -75,6 +76,6 @@ export async function resolveReviewRecipients(
 	}
 
 	// Fallback: return all human user IDs
-	const humanUsers = await db.select({ id: users.id }).from(users).where(eq(users.kind, "human"));
+	const humanUsers = await listUsersByKind(db, "human");
 	return humanUsers.map((u) => u.id);
 }

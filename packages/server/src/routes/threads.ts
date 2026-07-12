@@ -18,11 +18,8 @@ import {
 	type Thread as DbThread,
 	type HyperIdleDb,
 	knowledgeItems,
-	messages,
 	proposedCalls,
 	sessions,
-	threads,
-	users,
 } from "@hyperidle/db";
 import type {
 	AgentOperationalStatus,
@@ -47,7 +44,7 @@ import {
 	headCollapsePredicate,
 	resolveMentions,
 } from "@hyperidle/shared";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
 import { z as zod } from "zod";
@@ -55,13 +52,23 @@ import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import {
+	getMessageByClientKey,
+	getMessageById,
+	getThreadByDirectKey,
+	getThreadById,
 	insertMessage,
 	insertThread,
+	listMessagesByThread,
+	listThreadsByHost,
+	listThreadsByHostKind,
+	listThreadsByParticipant,
+	listUnresolvedReviewThreadIds,
 	resolveMessageIfUnresolved,
 	updateThread,
 } from "../services/conversation-store.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
+import { getUserById, getUsersByIds, listUsersByTeams } from "../services/user-store.js";
 import * as work from "../work-service.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
@@ -111,7 +118,7 @@ async function readInitialSenderId(
 	if (explicit) return explicit;
 	if (messageType === "review" || messageType === "questionnaire") {
 		for (const p of participants) {
-			const [ag] = await db.select().from(users).where(eq(users.id, p)).limit(1);
+			const ag = await getUserById(db, p);
 			// @lore P2: "founder" is intentionally NOT in USER_ROLES (the role column is
 			// unconstrained text). This check selects the first non-founder participant as
 			// the sender for review/questionnaire messages. If you rename or remove the
@@ -149,7 +156,7 @@ async function buildThreadIdentities(
 	>
 > {
 	if (senderIds.length === 0) return {};
-	const rows = await db.select().from(users).where(inArray(users.id, senderIds));
+	const rows = await getUsersByIds(db, senderIds);
 	const result: Record<
 		string,
 		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: AgentOperationalStatus }
@@ -201,10 +208,7 @@ async function buildMentionLookup(
 	if (participantIds.length === 0) return new Map();
 
 	// Find the teamIds for all participants.
-	const participantRows = await db
-		.select({ id: users.id, teamId: users.teamId })
-		.from(users)
-		.where(inArray(users.id, [...participantIds]));
+	const participantRows = await getUsersByIds(db, [...participantIds]);
 
 	const teamIds = [
 		...new Set(participantRows.map((r) => r.teamId).filter((id): id is string => id !== null)),
@@ -212,10 +216,7 @@ async function buildMentionLookup(
 
 	if (teamIds.length === 0) {
 		// No team-scoped users — still resolve from direct participants.
-		const allRows = await db
-			.select({ id: users.id, name: users.name })
-			.from(users)
-			.where(inArray(users.id, [...participantIds]));
+		const allRows = await getUsersByIds(db, [...participantIds]);
 		const map = new Map<string, { identityId: string; displayName: string }>();
 		// Sort by id for deterministic first-match when names conflict.
 		const sorted = allRows.slice().sort((a, b) => a.id.localeCompare(b.id));
@@ -229,10 +230,7 @@ async function buildMentionLookup(
 	}
 
 	// Query all users in the same team(s).
-	const teamUserRows = await db
-		.select({ id: users.id, name: users.name })
-		.from(users)
-		.where(inArray(users.teamId, teamIds));
+	const teamUserRows = await listUsersByTeams(db, teamIds);
 
 	const map = new Map<string, { identityId: string; displayName: string }>();
 	// Sort by id for deterministic first-match when names conflict.
@@ -428,10 +426,7 @@ async function resolveThreadTitles(
 					.where(inArray(knowledgeItems.id, kiIds))
 			: Promise.resolve([] as Array<{ id: string; title: string }>),
 		allParticipantIds.size > 0
-			? db
-					.select({ id: users.id, name: users.name })
-					.from(users)
-					.where(inArray(users.id, [...allParticipantIds]))
+			? getUsersByIds(db, [...allParticipantIds])
 			: Promise.resolve([] as Array<{ id: string; name: string }>),
 	]);
 
@@ -643,30 +638,15 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 
 		let rows: DbThread[];
 		if (q.host_kind && q.host_id) {
-			rows = await db
-				.select()
-				.from(threads)
-				.where(and(eq(threads.hostKind, q.host_kind), eq(threads.hostId, q.host_id)))
-				.orderBy(desc(threads.lastActiveAt), desc(threads.id))
-				.limit(q.limit);
+			rows = await listThreadsByHost(db, q.host_kind, q.host_id, q.limit);
 		} else if (q.host_kind) {
-			rows = await db
-				.select()
-				.from(threads)
-				.where(eq(threads.hostKind, q.host_kind))
-				.orderBy(desc(threads.lastActiveAt), desc(threads.id))
-				.limit(q.limit);
+			rows = await listThreadsByHostKind(db, q.host_kind, q.limit);
 		} else {
 			// L1 step5 (W6): participant_id scope — pre-filter in SQL with LIKE probe,
 			// then re-verify membership in JS.
 			const participantId = q.participant_id ?? "";
 			const probe = `%${escapeLikePattern(JSON.stringify(participantId))}%`;
-			const rawRows = await db
-				.select()
-				.from(threads)
-				.where(sql`${threads.participants} LIKE ${probe} ESCAPE '\\'`)
-				.orderBy(desc(threads.lastActiveAt), desc(threads.id))
-				.limit(q.limit);
+			const rawRows = await listThreadsByParticipant(db, probe, q.limit);
 			rows = rawRows.filter((row) => {
 				try {
 					const parts = threadParticipantsSchema.parse(JSON.parse(row.participants));
@@ -681,18 +661,9 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		const threadIds = rows.map((r) => r.id);
 		const unresolvedThreadIds = new Set<string>();
 		if (threadIds.length > 0) {
-			const unresolvedRows = await db
-				.select({ threadId: messages.threadId })
-				.from(messages)
-				.where(
-					and(
-						inArray(messages.threadId, threadIds),
-						inArray(messages.type, ["review", "questionnaire"]),
-						sql`${messages.resolvedAt} IS NULL`,
-					),
-				);
-			for (const r of unresolvedRows) {
-				unresolvedThreadIds.add(r.threadId);
+			const unresolvedRows = await listUnresolvedReviewThreadIds(db, threadIds);
+			for (const threadId of unresolvedRows) {
+				unresolvedThreadIds.add(threadId);
 			}
 		}
 
@@ -727,7 +698,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		}
 		const blockIdFilter = rawBlockId ?? null;
 
-		const [row] = await db.select().from(threads).where(eq(threads.id, id)).limit(1);
+		const row = await getThreadById(db, id);
 		if (!row) {
 			const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 			return c.json(e.body, e.status);
@@ -754,16 +725,13 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			if (deny) return deny;
 		}
 
-		// Build message query — optionally filter by block_id column.
-		const msgConditions = blockIdFilter
-			? and(eq(messages.threadId, id), eq(messages.blockId, blockIdFilter))
-			: eq(messages.threadId, id);
-
-		const messageRows = await db
-			.select()
-			.from(messages)
-			.where(msgConditions)
-			.orderBy(desc(messages.createdAt), desc(messages.id));
+		// Message query — optionally filter by block_id column (owned by the store).
+		const messageRows = await listMessagesByThread(db, id, {
+			blockId: blockIdFilter ?? undefined,
+			order: "createdAt",
+			dir: "desc",
+			tiebreakId: true,
+		});
 		const msgsDesc = messageRows.map(rowToMessage);
 		// headCollapsePredicate operates on ASC-sorted messages (concept §4.5.5).
 		const msgsAsc = [...msgsDesc].reverse();
@@ -829,11 +797,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 
 		if (dmDirectKey) {
 			// Happy path: existing thread lookup (read-before-insert — the DB index backstops the race).
-			const [existing] = await db
-				.select()
-				.from(threads)
-				.where(eq(threads.directKey, dmDirectKey))
-				.limit(1);
+			const existing = await getThreadByDirectKey(db, dmDirectKey);
 
 			if (existing) {
 				// Option B: append the initial message to the existing thread + bump lastActiveAt.
@@ -908,11 +872,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				};
 				eventBus.emit(appendedEvent);
 
-				const [reusedThread] = await db
-					.select()
-					.from(threads)
-					.where(eq(threads.id, existing.id))
-					.limit(1);
+				const reusedThread = await getThreadById(db, existing.id);
 				if (!reusedThread) {
 					const e = err("internal_error", "Reused thread missing", 500);
 					return c.json(e.body, e.status);
@@ -1002,11 +962,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				cause instanceof Error &&
 				constraintMsgInChain(cause).toLowerCase().includes("threads_direct_key_uq")
 			) {
-				const [winner] = await db
-					.select()
-					.from(threads)
-					.where(eq(threads.directKey, dmDirectKey))
-					.limit(1);
+				const winner = await getThreadByDirectKey(db, dmDirectKey);
 				if (winner) {
 					const nowRace = new Date().toISOString();
 					const raceMsgId = crypto.randomUUID();
@@ -1041,11 +997,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 						timestamp: Date.now(),
 					};
 					eventBus.emit(appendedRaceEvent);
-					const [reloadedWinner] = await db
-						.select()
-						.from(threads)
-						.where(eq(threads.id, winner.id))
-						.limit(1);
+					const reloadedWinner = await getThreadById(db, winner.id);
 					if (!reloadedWinner) {
 						const e = err("internal_error", "Race winner thread missing", 500);
 						return c.json(e.body, e.status);
@@ -1080,8 +1032,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		};
 		eventBus.emit(appendedEvent);
 
-		const [threadRow] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
-		const [msgRow] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
+		const threadRow = await getThreadById(db, threadId);
+		const msgRow = await getMessageById(db, messageId);
 		if (!(threadRow && msgRow)) {
 			const e = err("internal_error", "Created thread missing", 500);
 			return c.json(e.body, e.status);
@@ -1125,7 +1077,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			// into any thread by spoofing the senderId header.
 			const senderId = c.get("userId");
 
-			const [threadRow] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
+			const threadRow = await getThreadById(db, threadId);
 			if (!threadRow) {
 				const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 				return c.json(e.body, e.status);
@@ -1150,17 +1102,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			if (writedenial) return writedenial;
 
 			// Idempotency check before transaction.
-			const [existing] = await db
-				.select()
-				.from(messages)
-				.where(
-					and(
-						eq(messages.threadId, threadId),
-						eq(messages.senderId, senderId),
-						eq(messages.clientKey, input.clientKey),
-					),
-				)
-				.limit(1);
+			const existing = await getMessageByClientKey(db, threadId, senderId, input.clientKey);
 			if (existing) {
 				// L1 step9 (Adv-C3): divergent payload on replay => 409.
 				const sameType = existing.type === input.type;
@@ -1185,17 +1127,12 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			// Verdict authorization (plan §6.1 REVISED for adversary C4).
 			let resolvesMessageRow: DbMessage | undefined;
 			if (input.type === "verdict") {
-				const [found] = await db
-					.select()
-					.from(messages)
-					.where(eq(messages.id, input.payload.resolvesMessageId))
-					.limit(1);
-				resolvesMessageRow = found;
+				resolvesMessageRow = await getMessageById(db, input.payload.resolvesMessageId);
 				if (!resolvesMessageRow || resolvesMessageRow.threadId !== threadId) {
 					const e = err("validation_error", "resolvesMessageId not found in thread", 400);
 					return c.json(e.body, e.status);
 				}
-				const [senderAgent] = await db.select().from(users).where(eq(users.id, senderId)).limit(1);
+				const senderAgent = await getUserById(db, senderId);
 				// @lore P2: "founder" role is NOT in USER_ROLES (unconstrained text).
 				const isFounder = senderAgent?.role === "founder";
 				const selfVerdict = resolvesMessageRow.senderId === senderId;
@@ -1355,12 +1292,8 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				eventBus.emit(reopenedEvent);
 			}
 
-			const [updatedThread] = await db
-				.select()
-				.from(threads)
-				.where(eq(threads.id, threadId))
-				.limit(1);
-			const [created] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
+			const updatedThread = await getThreadById(db, threadId);
+			const created = await getMessageById(db, messageId);
 			if (!(updatedThread && created)) {
 				const e = err("internal_error", "Created message missing", 500);
 				return c.json(e.body, e.status);
@@ -1408,15 +1341,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 			// Authz: load thread to validate the caller has write access.
 			// @lore AL7 Task 8: authorizeWrite guards the verdict action — only
 			// thread participants (team members on the host) can approve/reject.
-			const [threadRow] = await db
-				.select({
-					hostKind: threads.hostKind,
-					hostId: threads.hostId,
-					participants: threads.participants,
-				})
-				.from(threads)
-				.where(eq(threads.id, threadId))
-				.limit(1);
+			const threadRow = await getThreadById(db, threadId);
 			if (!threadRow) {
 				return c.json({ error: "Thread not found", code: "not_found" }, 404);
 			}

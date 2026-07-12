@@ -19,14 +19,14 @@
  * @lore U1: `products` table reference -> `teams`. `mutedProducts` -> `mutedTeams`.
  */
 
-import { type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { readServerConfig, updateServerConfig } from "../services/server-config.js";
+import { getFirstUserByKind, listUsersByKind } from "../services/user-store.js";
 
 /**
  * @lore M3 review W2: Zod validation for the PATCH body so we reject malformed
@@ -118,7 +118,7 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 	};
 }> {
 	// P2: Read founder profile from users table (kind = 'human')
-	const [humanUser] = await db.select().from(users).where(eq(users.kind, "human")).limit(1);
+	const humanUser = await getFirstUserByKind(db, "human");
 
 	// P3: Read notification settings from server_config (defaults if not configured)
 	const serverCfg = await readServerConfig(db);
@@ -126,7 +126,7 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 	// Teams — active derived from phase !== "archived"
 	const teamRows = await db.select().from(teams);
 	// AI Users — paused derived from status === "paused" (kind = 'ai' for the agents panel)
-	const aiUserRows = await db.select().from(users).where(eq(users.kind, "ai"));
+	const aiUserRows = await listUsersByKind(db, "ai");
 
 	return {
 		profile: {

@@ -1,9 +1,10 @@
-import { type HyperIdleDb, sessions, taskPlanningSignals, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, taskPlanningSignals } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import * as work from "../work-service.js";
-import { insertThread, updateThread } from "./conversation-store.js";
+import { getThreadById, insertThread, updateThread } from "./conversation-store.js";
 import { resolveReviewRecipients } from "./org-routing.js";
+import { getUserById } from "./user-store.js";
 
 /**
  * Subscribes to session_ended events and creates review items
@@ -61,11 +62,7 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 			// Resolve human recipients via org_edges using the agent's userId, role,
 			// and the task's teamId. Falls back to ALL human users when no edges match.
 			// Merges into existing thread participants (sorted + deduplicated).
-			const [agentRow] = await db
-				.select({ role: users.role })
-				.from(users)
-				.where(eq(users.id, session.agentId))
-				.limit(1);
+			const agentRow = await getUserById(db, session.agentId);
 
 			const humanIds = await resolveReviewRecipients(db, {
 				userId: session.agentId,
@@ -74,11 +71,7 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 			});
 
 			if (humanIds.length > 0) {
-				const [threadRow] = await db
-					.select({ participants: threads.participants })
-					.from(threads)
-					.where(eq(threads.id, threadId))
-					.limit(1);
+				const threadRow = await getThreadById(db, threadId);
 
 				const currentParticipants: string[] = threadRow
 					? (JSON.parse(threadRow.participants) as string[])

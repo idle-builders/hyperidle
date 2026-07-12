@@ -15,7 +15,7 @@
  * hostId=userId + participants includes the assistant agent.
  */
 
-import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	API_ERROR_CODES,
 	type EventBus,
@@ -26,7 +26,6 @@ import {
 	type RedactedPayload,
 	type Thread,
 } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 // AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.
@@ -36,10 +35,14 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
-import { insertThread } from "../services/conversation-store.js";
+import {
+	getFirstThreadByHost,
+	insertThread,
+	listMessagesByThread,
+} from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { updateUser } from "../services/user-store.js";
+import { getUserById, updateUser } from "../services/user-store.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
@@ -152,11 +155,11 @@ async function buildIdentities(
 	userId: string,
 	assistantAgentId: string,
 ): Promise<Record<string, { name: string; role?: string; isAgent?: boolean }>> {
-	const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+	const userRow = await getUserById(db, userId);
 	const userName = userRow?.name ?? "You";
 	const userRole = userRow?.role;
 
-	const [agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
+	const agentRow = await getUserById(db, assistantAgentId);
 	const agentName = agentRow?.name ?? "Assistant";
 	const agentRole = agentRow?.role ?? "assistant";
 
@@ -199,17 +202,10 @@ export function createAssistantThreadRoute(
 		const assistantAgentId = assistantAgentIdForUser(userId);
 
 		// AC-6 Reviewer C1: Query by hostKind="user" + hostId, NOT by pinned.
-		const [existing] = await db
-			.select()
-			.from(threads)
-			.where(and(eq(threads.hostKind, "user"), eq(threads.hostId, userId)))
-			.limit(1);
+		const existing = await getFirstThreadByHost(db, "user", userId);
 
 		if (existing) {
-			const messageRows = await db
-				.select()
-				.from(messages)
-				.where(eq(messages.threadId, existing.id));
+			const messageRows = await listMessagesByThread(db, existing.id);
 
 			return c.json({
 				thread: rowToThread(existing),
@@ -293,7 +289,7 @@ export function createAssistantSoulRoutes(
 		}
 
 		// Verify the target user exists
-		const [userRow] = await db.select().from(users).where(eq(users.id, targetUserId)).limit(1);
+		const userRow = await getUserById(db, targetUserId);
 		if (!userRow) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -302,7 +298,7 @@ export function createAssistantSoulRoutes(
 		// @lore AD8b: The assistant agent is normally created at user registration.
 		// This lazy-create path handles legacy users and direct-DB seeded test users.
 		const assistantAgentId = assistantAgentIdForUser(targetUserId);
-		let [agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
+		let agentRow = await getUserById(db, assistantAgentId);
 
 		if (!agentRow) {
 			// @lore AU3: Lazy-create routes through app defaults (identical to POST /api/users).
@@ -322,7 +318,7 @@ export function createAssistantSoulRoutes(
 				ownerUserName: userRow.name,
 			});
 			await persistScaffoldedAgents(db, null, specs);
-			[agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
+			agentRow = await getUserById(db, assistantAgentId);
 		}
 
 		if (!agentRow) {
@@ -412,14 +408,14 @@ export function createAssistantSoulRoutes(
 		}
 
 		// Verify the target user exists
-		const [userRow] = await db.select().from(users).where(eq(users.id, targetUserId)).limit(1);
+		const userRow = await getUserById(db, targetUserId);
 		if (!userRow) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		// Find or create assistant agent (lazy creation for legacy/test users)
 		const assistantAgentId = assistantAgentIdForUser(targetUserId);
-		let [agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
+		let agentRow = await getUserById(db, assistantAgentId);
 
 		if (!agentRow) {
 			// @lore AU3: Lazy-create (PATCH path) routes through app defaults (same as GET path).
@@ -438,7 +434,7 @@ export function createAssistantSoulRoutes(
 				ownerUserName: userRow.name,
 			});
 			await persistScaffoldedAgents(db, null, specs);
-			[agentRow] = await db.select().from(users).where(eq(users.id, assistantAgentId)).limit(1);
+			agentRow = await getUserById(db, assistantAgentId);
 		}
 
 		if (!agentRow) {
@@ -474,11 +470,7 @@ export function createAssistantSoulRoutes(
 		await updateUser(db, assistantAgentId, updateSet);
 
 		// Re-read the updated row to return accurate values
-		const [updatedRow] = await db
-			.select()
-			.from(users)
-			.where(eq(users.id, assistantAgentId))
-			.limit(1);
+		const updatedRow = await getUserById(db, assistantAgentId);
 
 		return c.json({
 			id: agentRow.id,

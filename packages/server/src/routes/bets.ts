@@ -3,11 +3,9 @@ import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
-	messages,
 	tasks,
 	teamMembers,
 	teams,
-	threads,
 } from "@hyperidle/db";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import {
@@ -25,6 +23,7 @@ import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
 import { cascadeBetKill } from "../services/bet-kill-cascade.js";
 import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
+import { getArtifactThreadSummaries } from "../services/conversation-store.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 import * as work from "../work-service.js";
 
@@ -1173,40 +1172,42 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				return c.json({ summaries: [], totalCount: 0, truncated: false });
 			}
 
-			// 2. For each artifact linked to those tasks, compute:
-			//    - thread id (if any) via LEFT JOIN threads WHERE host_kind='artifact'
-			//    - messageCount, lastMessageAt, lastMessageSnippet via correlated subquery on messages
-			//    - hasUnresolvedReview: whether any review-type message in the thread has resolvedAt IS NULL
-			const rows = await db
+			// 2. Load the artifacts (Work-owned) for those tasks, then fetch their
+			//    conversation summaries from conversation-store (threads+messages only,
+			//    keyed by artifactId) and merge per-artifact in JS — AU12 decomposition
+			//    keeps neither side crossing the ownership boundary.
+			const artifactRows = await db
 				.select({
 					artifactId: artifacts.id,
 					artifactKind: artifacts.kind,
 					artifactPreviewJson: artifacts.previewJson,
 					taskTitle: tasks.title,
-					threadId: threads.id,
-					messageCount:
-						sql<number>`COALESCE((SELECT COUNT(*) FROM ${messages} WHERE ${messages.threadId} = ${threads.id}), 0)`.as(
-							"message_count",
-						),
-					lastMessageAt: sql<
-						string | null
-					>`(SELECT ${messages.createdAt} FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.deletedAt} IS NULL ORDER BY ${messages.createdAt} DESC LIMIT 1)`.as(
-						"last_message_at",
-					),
-					lastMessagePayload: sql<
-						string | null
-					>`(SELECT ${messages.payload} FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.type} = 'plain' AND ${messages.deletedAt} IS NULL ORDER BY ${messages.createdAt} DESC LIMIT 1)`.as(
-						"last_message_payload",
-					),
-					hasUnresolvedReview:
-						sql<number>`COALESCE((SELECT 1 FROM ${messages} WHERE ${messages.threadId} = ${threads.id} AND ${messages.type} = 'review' AND ${messages.resolvedAt} IS NULL LIMIT 1), 0)`.as(
-							"has_unresolved_review",
-						),
 				})
 				.from(artifacts)
 				.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
-				.leftJoin(threads, and(eq(threads.hostKind, "artifact"), eq(threads.hostId, artifacts.id)))
 				.where(inArray(artifacts.producingTaskId, taskIds));
+			const summaryByArtifact = new Map(
+				(
+					await getArtifactThreadSummaries(
+						db,
+						artifactRows.map((a) => a.artifactId),
+					)
+				).map((s) => [s.artifactId, s]),
+			);
+			const rows = artifactRows.map((a) => {
+				const s = summaryByArtifact.get(a.artifactId);
+				return {
+					artifactId: a.artifactId,
+					artifactKind: a.artifactKind,
+					artifactPreviewJson: a.artifactPreviewJson,
+					taskTitle: a.taskTitle,
+					threadId: s?.threadId ?? null,
+					messageCount: s?.messageCount ?? 0,
+					lastMessageAt: s?.lastMessageAt ?? null,
+					lastMessagePayload: s?.lastMessagePayload ?? null,
+					hasUnresolvedReview: s?.hasUnresolvedReview ?? 0,
+				};
+			});
 
 			// 3. Filter to only artifacts with at least one message.
 			const withMessages = rows.filter((r) => r.threadId !== null && (r.messageCount ?? 0) >= 1);

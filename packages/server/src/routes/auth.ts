@@ -38,16 +38,16 @@
  * source changes from X-Identity header to c.get("userId") in shared mode.
  */
 
-import { type HyperIdleDb, users } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, INVITE_ROLES } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { UpgradeTokenStore } from "../auth/upgrade-token-store.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createInvite } from "../services/invite-code.js";
 import { revokeLoginSession } from "../services/login-session.js";
+import { getUserById } from "../services/user-store.js";
 
 export function createAuthRoutes(
 	db: HyperIdleDb | null,
@@ -71,7 +71,7 @@ export function createAuthRoutes(
 			});
 		}
 
-		const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+		const userRow = await getUserById(db, userId);
 
 		return c.json({
 			id: userId,

@@ -1,10 +1,10 @@
-import { type HyperIdleDb, messages, sessions, threads, userSkills, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
 // persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -14,14 +14,22 @@ import { validateBody } from "../middleware/validate.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import {
 	findOrCreateDirectThread,
+	getMessageById,
 	insertMessage,
 	insertThread,
+	listInboxByParticipantProbe,
 } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
+import {
+	getFirstUserByKind,
+	getUserById,
+	insertUser,
+	listAllUsers,
+	updateUser,
+} from "../services/user-store.js";
 import * as work from "../work-service.js";
-import { insertUser, updateUser } from "../services/user-store.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
 
 const updateSkillSchema = z.object({
@@ -98,7 +106,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 		}
 
 		// Check if a human user already exists
-		const [existingHuman] = await db.select().from(users).where(eq(users.kind, "human")).limit(1);
+		const existingHuman = await getFirstUserByKind(db, "human");
 
 		if (existingHuman) {
 			// Human user exists: require auth. Check the API key.
@@ -164,7 +172,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 			at: now,
 		});
 
-		const [created] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+		const created = await getUserById(db, id);
 		return c.json({ user: created }, 201);
 	});
 
@@ -187,7 +195,7 @@ export function createUserRoutes(
 
 	// GET / — List all users with active session counts
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allUsers = await db.select().from(users);
+		const allUsers = await listAllUsers(db);
 		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
 		const result = allUsers.map((user) => ({
@@ -201,7 +209,7 @@ export function createUserRoutes(
 	// GET /:id — User detail with skills
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.req.param("id");
-		const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+		const user = await getUserById(db, userId);
 
 		if (!user) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
@@ -227,7 +235,7 @@ export function createUserRoutes(
 			);
 		}
 
-		const [target] = await db.select().from(users).where(eq(users.id, targetId)).limit(1);
+		const target = await getUserById(db, targetId);
 		if (!target) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -259,7 +267,7 @@ export function createUserRoutes(
 			await updateUser(db, targetId, updates);
 		}
 
-		const [updated] = await db.select().from(users).where(eq(users.id, targetId)).limit(1);
+		const updated = await getUserById(db, targetId);
 		return c.json(updated, 200);
 	});
 
@@ -352,7 +360,7 @@ export function createUserRoutes(
 			);
 		}
 
-		const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+		const user = await getUserById(db, userId);
 		if (!user) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -361,25 +369,18 @@ export function createUserRoutes(
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
 		const probe = `%${escapeLikePattern(JSON.stringify(userId))}%`;
-		const inboxRows = await db
-			.select()
-			.from(messages)
-			.innerJoin(threads, eq(messages.threadId, threads.id))
-			.where(sql`${threads.participants} LIKE ${probe} ESCAPE '\\'`)
-			.orderBy(desc(messages.createdAt))
-			.limit(limit)
-			.offset(offset);
+		const inboxRows = await listInboxByParticipantProbe(db, probe, limit, offset);
 
 		const matched = inboxRows.filter((row) => {
 			try {
-				const parts = JSON.parse(row.threads.participants);
+				const parts = JSON.parse(row.participants);
 				return Array.isArray(parts) && parts.includes(userId);
 			} catch {
 				return false;
 			}
 		});
 
-		return c.json({ messages: matched.map((row) => row.messages), total: matched.length });
+		return c.json({ messages: matched.map((row) => row.message), total: matched.length });
 	});
 
 	// POST /:id/inbox — Send message to user
@@ -396,12 +397,12 @@ export function createUserRoutes(
 			// Previous code accepted the header, enabling impersonation (WARNING-1).
 			const senderId = c.get("userId");
 
-			const [user] = await db.select().from(users).where(eq(users.id, recipientId)).limit(1);
+			const user = await getUserById(db, recipientId);
 			if (!user) {
 				return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
 
-			const [senderUser] = await db.select().from(users).where(eq(users.id, senderId)).limit(1);
+			const senderUser = await getUserById(db, senderId);
 			if (!senderUser) {
 				return c.json({ error: "Sender identity not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
@@ -422,7 +423,7 @@ export function createUserRoutes(
 				createdAt: now,
 			});
 
-			const [created] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
+			const created = await getMessageById(db, messageId);
 			return c.json(created, 201);
 		},
 	);

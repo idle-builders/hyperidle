@@ -3,11 +3,17 @@ import * as crypto from "node:crypto";
 // Cost tracking uses `teamMembers` (the agent-membership group) which has costActual/costCap.
 // params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
 // @lore R5: `bets` and `tasks` added for bet cost accumulation via taskId lookup.
-import { bets, factorySettings, type HyperIdleDb, teamMembers, users } from "@hyperidle/db";
+import { bets, factorySettings, type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import * as work from "../work-service.js";
-import { resetAllUserCost, updateUser } from "./user-store.js";
+import {
+	getUserById,
+	incrementUserCost,
+	resetAllUserCost,
+	sumAllUserCost,
+	updateUser,
+} from "./user-store.js";
 
 export interface CostCapResult {
 	allowed: boolean;
@@ -119,11 +125,7 @@ function tryRecordDedupKey(
  * authoritative running total for an agent's spend within the current cycle.
  */
 async function getAgentSpend(db: HyperIdleDb, agentId: string): Promise<number> {
-	const [row] = await db
-		.select({ costActual: users.costActual })
-		.from(users)
-		.where(eq(users.id, agentId))
-		.limit(1);
+	const row = await getUserById(db, agentId);
 	return row?.costActual ?? 0;
 }
 
@@ -162,7 +164,7 @@ export async function checkCostCap(
 	params: CheckCostCapParams,
 ): Promise<CostCapResult> {
 	// 1. Check agent cap
-	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
+	const agent = await getUserById(db, params.agentId);
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
@@ -236,9 +238,7 @@ export async function recordCostAndCheck(
 
 	if (effectiveCostMinor > 0) {
 		// Accumulate on agent
-		await updateUser(db, params.agentId, {
-			costActual: sql`coalesce(${users.costActual}, 0) + ${effectiveCostMinor}`,
-		});
+		await incrementUserCost(db, params.agentId, effectiveCostMinor);
 
 		// Accumulate on team if provided
 		// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
@@ -263,7 +263,7 @@ export async function recordCostAndCheck(
 		}
 	}
 
-	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
+	const agent = await getUserById(db, params.agentId);
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
@@ -355,10 +355,7 @@ export async function recordCostAndCheck(
  * The SUM here is now accurate. The over-alerting bias noted above is gone.
  */
 export async function recordFactoryCost(db: HyperIdleDb): Promise<void> {
-	const [sumRow] = await db
-		.select({ total: sql<number>`coalesce(sum(${users.costActual}), 0)` })
-		.from(users);
-	const total = sumRow?.total ?? 0;
+	const total = await sumAllUserCost(db);
 	const isoNow = new Date().toISOString();
 	await db
 		.insert(factorySettings)

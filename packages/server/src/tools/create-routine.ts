@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { teams, users } from "@hyperidle/db";
+import { teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import * as routine from "../routine-service.js";
 import { nextCronMatch, parseCron } from "../services/routine-scheduler.js";
+import { getUserById } from "../services/user-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -52,11 +53,7 @@ async function handler(
 	}
 
 	// Verify agent exists
-	const [agent] = await ctx.db
-		.select()
-		.from(users)
-		.where(eq(users.id, input.ownerAgentId))
-		.limit(1);
+	const agent = await getUserById(ctx.db, input.ownerAgentId);
 	if (!agent) {
 		return err("NOT_FOUND", `Agent not found: ${input.ownerAgentId}`);
 	}

@@ -1,4 +1,4 @@
-import { type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams } from "@hyperidle/db";
 import {
 	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
@@ -28,6 +28,7 @@ import {
 	shouldCoalesce,
 } from "../services/routine-scheduler.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
+import { getUserById } from "../services/user-store.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
 
@@ -98,7 +99,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			}
 
 			// Verify ownerAgentId exists
-			const [agent] = await db.select().from(users).where(eq(users.id, body.ownerAgentId)).limit(1);
+			const agent = await getUserById(db, body.ownerAgentId);
 			if (!agent) {
 				return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
@@ -205,11 +206,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		}
 
 		// Resolve agent name
-		const [ownerUser] = await db
-			.select()
-			.from(users)
-			.where(eq(users.id, routine.ownerAgentId))
-			.limit(1);
+		const ownerUser = await getUserById(db, routine.ownerAgentId);
 		const agentName = ownerUser?.name ?? routine.ownerAgentId;
 
 		// Resolve team name

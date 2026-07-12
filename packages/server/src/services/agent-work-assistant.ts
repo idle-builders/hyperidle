@@ -20,7 +20,7 @@
  * CLIENT from lastMessage.createdAt + ASSISTANT_TURN_TIMEOUT_MS — no DB column needed.
  */
 
-import { type AgentSessionRequest, type HyperIdleDb, messages } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
 	type ConversationMessage,
 	createLogger,
@@ -31,7 +31,6 @@ import {
 	ProviderTimeoutError,
 	type ThreadMessageAppendedEvent,
 } from "@hyperidle/shared";
-import { asc, eq } from "drizzle-orm";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 // AH6 WARNING-2: CassetteMissError must be explicitly mapped to provider_error so it
 // doesn't trip the "unmapped error class" logger.error on every cassette miss in tests.
@@ -55,7 +54,7 @@ import {
 import type { ToolContext } from "../tools/tool-registry.js";
 import { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
 import { executeAgentRunRequest } from "./agent-run-boundary.js";
-import { insertMessage } from "./conversation-store.js";
+import { insertMessage, listMessagesByThread } from "./conversation-store.js";
 import { getOrCreateUser } from "./user-store.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
@@ -580,15 +579,8 @@ async function loadRawTranscript(
 	threadId: string,
 ): Promise<Array<{ senderId: string; payload: string; type: string }>> {
 	try {
-		return await db
-			.select({
-				senderId: messages.senderId,
-				payload: messages.payload,
-				type: messages.type,
-			})
-			.from(messages)
-			.where(eq(messages.threadId, threadId))
-			.orderBy(asc(messages.createdAt));
+		const rows = await listMessagesByThread(db, threadId, { order: "createdAt", dir: "asc" });
+		return rows.map((m) => ({ senderId: m.senderId, payload: m.payload, type: m.type }));
 	} catch (err) {
 		logger.error("[assistant-turn] loadRawTranscript failed — proceeding with empty history", {
 			threadId,

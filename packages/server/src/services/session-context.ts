@@ -4,12 +4,13 @@
  * `SessionContextData.bet.pitch` renamed to `description`.
  * `SessionContextData.product` renamed to `team`.
  */
-import { type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams } from "@hyperidle/db";
 import type { UserRole } from "@hyperidle/shared";
 import { encodeTyped } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import * as routineService from "../routine-service.js";
 import * as work from "../work-service.js";
+import { getUserById } from "./user-store.js";
 
 export interface SessionContextConfig {
 	sessionId: string;
@@ -65,7 +66,7 @@ export async function buildSessionContextData(
 		throw new Error(`Bet ${task.betId} not found`);
 	}
 
-	const [agent] = await db.select().from(users).where(eq(users.id, config.agentId)).limit(1);
+	const agent = await getUserById(db, config.agentId);
 	if (!agent) {
 		throw new Error(`Agent ${config.agentId} not found`);
 	}
@@ -166,7 +167,7 @@ export async function buildRoutineSessionContextData(
 		throw new Error(`Routine ${config.routineId} not found`);
 	}
 
-	const [agent] = await db.select().from(users).where(eq(users.id, config.agentId)).limit(1);
+	const agent = await getUserById(db, config.agentId);
 	if (!agent) {
 		throw new Error(`Agent ${config.agentId} not found`);
 	}

@@ -20,10 +20,9 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { threads, users } from "@hyperidle/db";
 import type { EventBus, ThreadMessageAppendedEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
-import { updateThread } from "./conversation-store.js";
+import { getThreadById, updateThread } from "./conversation-store.js";
+import { getUserById } from "./user-store.js";
 
 // ---------------------------------------------------------------------------
 // Filter types and pure functions (exported for unit testing)
@@ -87,22 +86,14 @@ export function registerAssistantDispatcher(eventBus: EventBus, db: HyperIdleDb)
 			void (async () => {
 				try {
 					// Look up the thread to get hostKind/hostId
-					const [threadRow] = await db
-						.select()
-						.from(threads)
-						.where(eq(threads.id, event.threadId))
-						.limit(1);
+					const threadRow = await getThreadById(db, event.threadId);
 
 					if (!threadRow) {
 						return; // Thread not found — skip
 					}
 
 					// Look up the sender to determine their kind (human vs ai)
-					const [senderRow] = await db
-						.select()
-						.from(users)
-						.where(eq(users.id, event.senderId))
-						.limit(1);
+					const senderRow = await getUserById(db, event.senderId);
 
 					if (!senderRow) {
 						return; // Unknown sender — skip

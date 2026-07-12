@@ -1,29 +1,25 @@
 #!/usr/bin/env tsx
 /**
- * AU12 write-ownership guard: `threads`, `messages`, and `users` rows may be
- * written (`insert`/`update`/`delete`) only by the two owning modules —
+ * AU12 full-access ownership guard: `threads`, `messages`, and `users` may be
+ * read OR written only by the two owning modules —
  * `services/conversation-store.ts` (threads + messages) and
  * `services/user-store.ts` (users). Every other production file under
- * `packages/server/src` must route its writes through those stores.
+ * `packages/server/src` must route ALL access (select/insert/update/delete,
+ * joins, column refs, and `sql\`\`` interpolations) through those stores.
  *
- * This is a NEW guard SHAPE — a *write-expression* guard, distinct from the
- * au9/au10/au11 *import/module-reachability* guards (whose CLI scaffolding it
- * reuses). It does not ban importing the table objects (reads —
- * `db.select().from(threads)` — stay legal and are pervasive). It matches the
- * write EXPRESSION: an `insert`/`update`/`delete` call whose first argument
- * resolves to one of the three table objects imported from `@hyperidle/db`.
- *
- * Two reference forms both resolve to the same table objects and are both
- * flagged:
+ * This is a *reference* guard: it flags ANY reference to an owned table object
+ * imported from `@hyperidle/db`, in either form —
  *   1. bare identifier from a named import — `import { threads } from
- *      "@hyperidle/db"` → `db.insert(threads)`.
+ *      "@hyperidle/db"` → `db.select().from(threads)`, `eq(threads.id, …)`,
+ *      `.innerJoin(threads, …)`, `` sql`${threads.participants} LIKE …` ``.
  *   2. namespace member access — `import * as schema from "@hyperidle/db"` →
- *      `db.insert(schema.threads)` (the namespace-access bypass).
- * Resolving to the import (not string-matching the name) avoids false
- * positives on a local var coincidentally named `threads`.
+ *      `schema.threads` (the namespace-access bypass).
+ * Resolving to the *value* import (not string-matching the name) keeps a local
+ * `const threads = …` and a `import type { Thread }` legal — only the actual
+ * `@hyperidle/db` table object is owned.
  *
  * A green `--check` (zero findings) is the AC-4 proof within the guard's
- * enforceable scope (`packages/server/src` production code). Writes outside
+ * enforceable scope (`packages/server/src` production code). Access outside
  * that scope (packages/db bootstrap/fixture, eval seeding, web dev script)
  * are the named §5a exceptions and are not scanned here.
  */
@@ -35,7 +31,6 @@ import ts from "typescript";
 const SRC = "packages/server/src";
 const DB_MODULE = "@hyperidle/db";
 const OWNED_TABLES = new Set(["threads", "messages", "users"]);
-const WRITE_METHODS = new Set(["insert", "update", "delete"]);
 
 /** The two owning modules — the only files allowed to write these tables. */
 const EXEMPT_FILES = new Set([
@@ -104,16 +99,38 @@ function collectReferences(ast: ts.SourceFile): {
 	return { tableIdents, namespaceBindings };
 }
 
-/** True when `arg` resolves to an owned table object (bare or namespace form). */
-function argIsOwnedTable(
-	arg: ts.Expression,
-	tableIdents: Set<string>,
-	namespaceBindings: Set<string>,
-): boolean {
-	if (ts.isIdentifier(arg)) return tableIdents.has(arg.text);
-	if (ts.isPropertyAccessExpression(arg) && ts.isIdentifier(arg.expression)) {
-		return namespaceBindings.has(arg.expression.text) && OWNED_TABLES.has(arg.name.text);
-	}
+const FINDING_REASON =
+	"direct reference to an owned table (threads/messages/users) — route through conversation-store/user-store (AU12)";
+
+/** True when `node` is the local binding inside an import declaration (not a use-site). */
+function isImportBinding(node: ts.Identifier): boolean {
+	const p = node.parent;
+	return (
+		ts.isImportSpecifier(p) ||
+		ts.isImportClause(p) ||
+		ts.isNamespaceImport(p) ||
+		ts.isNamedImports(p)
+	);
+}
+
+/**
+ * True when `node` sits in a NAME position that does not reference the imported
+ * value: a member access (`obj.node`), an object-literal key (`{ node: … }`), a
+ * type/interface property or method signature (`{ node: T }`), an enum member,
+ * a binding property name, or a qualified type name (`ns.node`). A shorthand
+ * property (`{ node }`) IS a value reference, so it is NOT skipped.
+ */
+function isMemberOrKeyPosition(node: ts.Identifier): boolean {
+	const p = node.parent;
+	if (ts.isPropertyAccessExpression(p) && p.name === node) return true;
+	if (ts.isPropertyAssignment(p) && p.name === node) return true;
+	if (ts.isPropertySignature(p) && p.name === node) return true;
+	if (ts.isMethodSignature(p) && p.name === node) return true;
+	if (ts.isMethodDeclaration(p) && p.name === node) return true;
+	if (ts.isPropertyDeclaration(p) && p.name === node) return true;
+	if (ts.isEnumMember(p) && p.name === node) return true;
+	if (ts.isBindingElement(p) && p.propertyName === node) return true;
+	if (ts.isQualifiedName(p) && p.right === node) return true;
 	return false;
 }
 
@@ -128,21 +145,33 @@ export function inspect(root: string): Finding[] {
 		const { tableIdents, namespaceBindings } = collectReferences(ast);
 		if (tableIdents.size === 0 && namespaceBindings.size === 0) continue;
 
+		const reportedLines = new Set<number>();
+		const report = (node: ts.Node): void => {
+			const { line } = ast.getLineAndCharacterOfPosition(node.getStart(ast));
+			if (reportedLines.has(line)) return;
+			reportedLines.add(line);
+			findings.push({ file: rel, line: line + 1, reason: FINDING_REASON });
+		};
+
 		const visit = (node: ts.Node): void => {
+			// namespace-member bypass: `schema.threads`
 			if (
-				ts.isCallExpression(node) &&
-				ts.isPropertyAccessExpression(node.expression) &&
-				WRITE_METHODS.has(node.expression.name.text) &&
-				node.arguments.length > 0 &&
-				argIsOwnedTable(node.arguments[0] as ts.Expression, tableIdents, namespaceBindings)
+				ts.isPropertyAccessExpression(node) &&
+				ts.isIdentifier(node.expression) &&
+				namespaceBindings.has(node.expression.text) &&
+				OWNED_TABLES.has(node.name.text)
 			) {
-				const method = node.expression.name.text;
-				const { line } = ast.getLineAndCharacterOfPosition(node.getStart(ast));
-				findings.push({
-					file: rel,
-					line: line + 1,
-					reason: `direct .${method}() on an owned table (threads/messages/users) — route through conversation-store/user-store (AU12 AC-1)`,
-				});
+				report(node);
+				return;
+			}
+			// bare identifier bound to an owned-table value import
+			if (
+				ts.isIdentifier(node) &&
+				tableIdents.has(node.text) &&
+				!isImportBinding(node) &&
+				!isMemberOrKeyPosition(node)
+			) {
+				report(node);
 			}
 			ts.forEachChild(node, visit);
 		};
@@ -156,7 +185,7 @@ export function inspect(root: string): Finding[] {
 function fixtureCheck(): void {
 	const root = mkdtempSync(join(tmpdir(), "au12-guard-"));
 	const sources: Record<string, string> = {
-		// (a) db.insert(threads) in a route → finding.
+		// (a) db.insert(threads) in a route → finding (write subsumed by the reference guard).
 		"packages/server/src/routes/bad-route.ts":
 			'import { threads } from "@hyperidle/db"; export const f = (db: any) => db.insert(threads).values({});',
 		// (b) tx.update(users) in a service → finding.
@@ -165,20 +194,35 @@ function fixtureCheck(): void {
 		// (c) ctx.db.insert(messages) in a tool → finding.
 		"packages/server/src/tools/bad-tool.ts":
 			'import { messages } from "@hyperidle/db"; export const h = (ctx: any) => ctx.db.insert(messages).values({});',
-		// (d) same write inside conversation-store.ts / user-store.ts → NO finding (exempt owners).
+		// (d) any access inside conversation-store.ts / user-store.ts → NO finding (exempt owners).
 		"packages/server/src/services/conversation-store.ts":
-			'import { threads } from "@hyperidle/db"; export const owner = (db: any) => db.insert(threads).values({});',
+			'import { threads } from "@hyperidle/db"; export const owner = (db: any) => db.select().from(threads);',
 		"packages/server/src/services/user-store.ts":
-			'import { users } from "@hyperidle/db"; export const owner2 = (db: any) => db.update(users).set({}).where(true);',
-		// (e) db.select().from(threads) (read) → NO finding.
+			'import { users } from "@hyperidle/db"; export const owner2 = (db: any) => db.select().from(users);',
+		// (e→h) db.select().from(threads) (READ) → NOW a finding (the write-only guard's NO-finding is inverted).
 		"packages/server/src/routes/read-route.ts":
 			'import { threads } from "@hyperidle/db"; export const r = (db: any) => db.select().from(threads);',
 		// (f) local const threads not imported from @hyperidle/db → NO finding.
 		"packages/server/src/routes/local-shadow.ts":
-			'const threads = { x: 1 }; export const s = (db: any) => db.insert(threads);',
-		// (g) namespace-access bypass → finding.
+			'const threads = { x: 1 }; export const s = () => threads.x;',
+		// (g) namespace-access bypass (read) → finding.
 		"packages/server/src/routes/namespace-bypass.ts":
-			'import * as schema from "@hyperidle/db"; export const n = (db: any) => db.insert(schema.threads).values({});',
+			'import * as schema from "@hyperidle/db"; export const n = (db: any) => db.select().from(schema.threads);',
+		// (i) column reference in a where → finding.
+		"packages/server/src/routes/col-ref.ts":
+			'import { users } from "@hyperidle/db"; import { eq } from "drizzle-orm"; export const i = (db: any, x: string) => db.select().from(sessions).where(eq(users.id, x));',
+		// (j) join on an owned table → finding.
+		"packages/server/src/routes/join-ref.ts":
+			'import { messages } from "@hyperidle/db"; export const j = (db: any) => db.select().from(sessions).innerJoin(messages, true);',
+		// (l) TYPE-ONLY import used as an annotation → NO finding (type export, not the table object).
+		"packages/server/src/routes/type-only.ts":
+			'import type { User } from "@hyperidle/db"; export const l = (u: User) => u;',
+		// (m) SHADOW NAME: no @hyperidle/db value import, local const users → NO finding.
+		"packages/server/src/routes/shadow-name.ts":
+			'const users = [1, 2, 3]; export const m = () => users.length;',
+		// (n) RAW-SQL: owned column spliced into a tagged template → finding.
+		"packages/server/src/routes/raw-sql.ts":
+			'import { threads } from "@hyperidle/db"; import { sql } from "drizzle-orm"; export const nn = (p: string) => sql`${threads.participants} LIKE ${p}`;',
 	};
 	try {
 		for (const [path, source] of Object.entries(sources)) {
@@ -191,7 +235,11 @@ function fixtureCheck(): void {
 			"packages/server/src/routes/bad-route.ts",
 			"packages/server/src/services/bad-service.ts",
 			"packages/server/src/tools/bad-tool.ts",
+			"packages/server/src/routes/read-route.ts",
 			"packages/server/src/routes/namespace-bypass.ts",
+			"packages/server/src/routes/col-ref.ts",
+			"packages/server/src/routes/join-ref.ts",
+			"packages/server/src/routes/raw-sql.ts",
 		];
 		for (const f of mustFlag) {
 			if (!found.has(f)) throw new Error(`fixture guard MISSED a violation: ${f}`);
@@ -199,8 +247,9 @@ function fixtureCheck(): void {
 		const mustPass = [
 			"packages/server/src/services/conversation-store.ts",
 			"packages/server/src/services/user-store.ts",
-			"packages/server/src/routes/read-route.ts",
 			"packages/server/src/routes/local-shadow.ts",
+			"packages/server/src/routes/type-only.ts",
+			"packages/server/src/routes/shadow-name.ts",
 		];
 		for (const f of mustPass) {
 			if (found.has(f)) throw new Error(`fixture guard FALSE-POSITIVE on clean code: ${f}`);

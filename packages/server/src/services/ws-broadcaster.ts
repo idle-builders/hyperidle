@@ -1,7 +1,9 @@
-import { type HyperIdleDb, sessions, teamMembers, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, teamMembers } from "@hyperidle/db";
 import type { AgentSessionSourceCorrelation, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import * as work from "../work-service.js";
+import { getThreadById } from "./conversation-store.js";
+import { getUserById } from "./user-store.js";
 
 /**
  * Manages WebSocket topic subscriptions and event broadcasting.
@@ -221,7 +223,7 @@ export class WsBroadcaster {
 export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorizer {
 	const GLOBAL_TOPICS = new Set(["conversations", "work"]);
 	async function senderInThread(senderId: string, threadId: string): Promise<boolean> {
-		const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
+		const row = await getThreadById(db, threadId);
 		if (!row) return false;
 		try {
 			const parts = JSON.parse(row.participants);
@@ -231,16 +233,12 @@ export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorize
 		}
 	}
 	async function senderInTeam(senderId: string, teamId: string): Promise<boolean> {
-		const [sender] = await db
-			.select({ teamMemberId: users.teamId })
-			.from(users)
-			.where(eq(users.id, senderId))
-			.limit(1);
-		if (!sender?.teamMemberId) return false;
+		const sender = await getUserById(db, senderId);
+		if (!sender?.teamId) return false;
 		const [membership] = await db
 			.select({ teamId: teamMembers.teamId })
 			.from(teamMembers)
-			.where(eq(teamMembers.id, sender.teamMemberId))
+			.where(eq(teamMembers.id, sender.teamId))
 			.limit(1);
 		return membership?.teamId === teamId;
 	}

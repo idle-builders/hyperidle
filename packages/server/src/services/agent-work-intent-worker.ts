@@ -4,18 +4,18 @@ import {
 	explicitSessionStarts,
 	type HyperIdleDb,
 	knowledgeItems,
-	messages,
 	proposedCalls,
 	tailoredGrants,
 	taskDispatchAttempts,
 	teamMembers,
-	users,
 } from "@hyperidle/db";
 import type { AgentSessionRequestInput, TriggerEventType } from "@hyperidle/shared";
 import { and, asc, eq, lt, or } from "drizzle-orm";
 import * as routineService from "../routine-service.js";
 import * as work from "../work-service.js";
+import { getMessageById } from "./conversation-store.js";
 import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
+import { getUserById, listUsersByTeam } from "./user-store.js";
 
 export { executeAgentRunRequest as consumeAgentSessionRequest } from "./agent-run-boundary.js";
 export { recordAgentWorkIntent } from "./agent-work-intents.js";
@@ -63,11 +63,7 @@ function eventTypeFor(intent: Intent): TriggerEventType {
 }
 
 async function requireRunnableActor(db: HyperIdleDb, actorId: string): Promise<void> {
-	const [actor] = await db
-		.select({ kind: users.kind, status: users.status })
-		.from(users)
-		.where(eq(users.id, actorId))
-		.limit(1);
+	const actor = await getUserById(db, actorId);
 	if (actor?.kind !== "ai" || !["active", "idle"].includes(actor.status)) {
 		throw new InvalidAgentWorkSourceError(`Intent actor ${actorId} is not runnable`);
 	}
@@ -99,11 +95,7 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 
 	switch (intent.kind) {
 		case "assistant_turn": {
-			const [message] = await db
-				.select()
-				.from(messages)
-				.where(eq(messages.id, intent.sourceId))
-				.limit(1);
+			const message = await getMessageById(db, intent.sourceId);
 			if (!message || message.deletedAt || message.redactedAt)
 				throw new InvalidAgentWorkSourceError("Assistant source message is unavailable");
 			const targetAgentId = resolveAssistantAgentIdForSender(message.senderId);
@@ -235,9 +227,7 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 						(memberId): memberId is string => typeof memberId === "string",
 					)
 				: [];
-			const persistedMemberIds = membership
-				? await db.select({ id: users.id }).from(users).where(eq(users.teamId, membership.id))
-				: [];
+			const persistedMemberIds = membership ? await listUsersByTeam(db, membership.id) : [];
 			const candidates = await Promise.all(
 				[
 					...new Set([
@@ -246,12 +236,7 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 						...persistedMemberIds.map((member) => member.id),
 					]),
 				].map(async (id) => {
-					const [candidate] = await db
-						.select({ id: users.id, role: users.role, kind: users.kind, status: users.status })
-						.from(users)
-						.where(eq(users.id, id))
-						.limit(1);
-					return candidate;
+					return getUserById(db, id);
 				}),
 			);
 			const runnableCandidates = candidates.filter(

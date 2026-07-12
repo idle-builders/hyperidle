@@ -28,7 +28,6 @@ import {
 	taskDispatchAttempts,
 	teamMembers,
 	type User,
-	users,
 } from "@hyperidle/db";
 import {
 	DECOMPOSITION_TURN_TIMEOUT_MS,
@@ -37,13 +36,14 @@ import {
 	type EventBus,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import * as work from "../work-service.js";
 import { resolveDecompositionPlan } from "./agent-defaults/resolvers.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import type { DecompositionPlan } from "./contracts.js";
 import { checkCostCap } from "./cost-cap.js";
 import { enumerateTeamCandidates, selectOwner } from "./select-agent.js";
+import { getUserById, listActiveAiUsersByTeams } from "./user-store.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -128,12 +128,7 @@ export async function findEligibleTeamAgents(db: HyperIdleDb, betTeamId: string)
 	const memberGroupIds = memberGroups.map((m) => m.id);
 
 	// 2. Fetch active AI users in those membership groups.
-	const candidates = await db
-		.select()
-		.from(users)
-		.where(
-			and(eq(users.kind, "ai"), eq(users.status, "active"), inArray(users.teamId, memberGroupIds)),
-		);
+	const candidates = await listActiveAiUsersByTeams(db, memberGroupIds);
 
 	// 3. Filter to category='team' via the role catalog.
 	//    Unknown roles (not in catalog) are excluded — conservative default.
@@ -400,7 +395,7 @@ export async function runBetDecomposition(
 	}
 
 	// Load the full decomposer user row (needed for harnessType/modelProvider/role in real turn).
-	const [pm] = await db.select().from(users).where(eq(users.id, plan.decomposerAgentId)).limit(1);
+	const pm = await getUserById(db, plan.decomposerAgentId);
 	if (!pm) {
 		await markTerminal(db, betId, "blocked", "no_eligible_agent");
 		return;

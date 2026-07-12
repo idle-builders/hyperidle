@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { threads } from "@hyperidle/db";
 import { ARTIFACT_VIEW_SHAPES, type ReviewPayload } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import z from "zod";
-import { insertMessage, insertThread, updateThread } from "../services/conversation-store.js";
+import {
+	getFirstThreadByHost,
+	insertMessage,
+	insertThread,
+	updateThread,
+} from "../services/conversation-store.js";
 import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
@@ -55,11 +59,7 @@ async function handler(args: SubmitReviewInput, ctx: ToolContext): Promise<ToolR
 
 	// 2. Find or create the bet's host thread.
 	const now = new Date().toISOString();
-	const [existingThread] = await ctx.db
-		.select()
-		.from(threads)
-		.where(and(eq(threads.hostKind, "bet"), eq(threads.hostId, betId)))
-		.limit(1);
+	const existingThread = await getFirstThreadByHost(ctx.db, "bet", betId);
 
 	let threadId: string;
 	if (existingThread) {

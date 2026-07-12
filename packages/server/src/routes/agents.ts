@@ -21,7 +21,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { factorySettings, type HyperIdleDb, sessions, teamMembers, users } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, sessions, teamMembers } from "@hyperidle/db";
 import {
 	AGENT_CATEGORIES,
 	catalogEntry,
@@ -32,7 +32,7 @@ import {
 	isCatalogModel,
 	MODEL_TIERS,
 } from "@hyperidle/shared";
-import { and, count, eq, ne } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -41,7 +41,7 @@ import {
 	type HarnessCapabilityReader,
 	harnessRegistrationMeta,
 } from "../services/harness-capability-read-model.js";
-import { insertUser, updateUser } from "../services/user-store.js";
+import { getUserById, insertUser, listAgentProfiles, updateUser } from "../services/user-store.js";
 import { handleAgentProfile } from "./agent-profile.js";
 
 // ---------------------------------------------------------------------------
@@ -226,10 +226,7 @@ export function createAgentRoutes(
 	// ── GET / — list AI agents (excludes system role and retired) ──
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		// Query all non-system, non-retired AI agents
-		const agentRows = await db
-			.select()
-			.from(users)
-			.where(and(eq(users.kind, "ai"), ne(users.role, "system"), ne(users.status, "retired")));
+		const agentRows = await listAgentProfiles(db);
 
 		// Count active sessions per agent
 		const activeCounts = await db
@@ -353,7 +350,7 @@ export function createAgentRoutes(
 	router.patch("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
-		const [existing] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+		const existing = await getUserById(db, id);
 		if (!existing) {
 			return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);
 		}
@@ -421,7 +418,7 @@ export function createAgentRoutes(
 				await updateUser(db, id, updateSet);
 			}
 
-			const [updated] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+			const updated = await getUserById(db, id);
 			if (!updated) {
 				return c.json({ error: "Agent not found after update", code: "NOT_FOUND" }, 404);
 			}
@@ -494,7 +491,7 @@ export function createAgentRoutes(
 			await updateUser(db, id, updateSet);
 		}
 
-		const [updated] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+		const updated = await getUserById(db, id);
 		if (!updated) {
 			return c.json({ error: "Agent not found after update", code: "NOT_FOUND" }, 404);
 		}
@@ -525,7 +522,7 @@ export function createAgentRoutes(
 	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
-		const [existing] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+		const existing = await getUserById(db, id);
 		if (!existing) {
 			return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);
 		}

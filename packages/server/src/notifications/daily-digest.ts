@@ -1,5 +1,6 @@
-import { type HyperIdleDb, type Item, messages } from "@hyperidle/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { type HyperIdleDb, type Item } from "@hyperidle/db";
+import { and, eq, gte, inArray, like } from "drizzle-orm";
+import { listVerdictItemIds } from "../services/conversation-store.js";
 import * as work from "../work-service.js";
 
 interface DailyDigestResult {
@@ -40,13 +41,7 @@ export async function getDailyDigest(db: HyperIdleDb, now?: Date): Promise<Daily
 	// candidate set by joining on `legacy_item_id`. Scoped to candidate
 	// ids only, not full table.
 	const candidateIds = queuedItems.map((i) => i.id);
-	const respondedRows = await db
-		.select({ legacyItemId: messages.legacyItemId })
-		.from(messages)
-		.where(and(eq(messages.type, "verdict"), inArray(messages.legacyItemId, candidateIds)));
-	const respondedItemIds = new Set(
-		respondedRows.map((r) => r.legacyItemId).filter((id): id is string => id !== null),
-	);
+	const respondedItemIds = new Set(await listVerdictItemIds(db, candidateIds));
 
 	// Filter out items that already have a verdict-typed message.
 	const pendingItems = queuedItems.filter((item) => !respondedItemIds.has(item.id));

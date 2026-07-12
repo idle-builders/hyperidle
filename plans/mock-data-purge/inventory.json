@@ -10,7 +10,16 @@
   },
   {
     "path": "packages/server/src/middleware/auth.ts",
-    "line": 204,
+    "line": 200,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/server/src/middleware/auth.ts",
+    "line": 227,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -20,15 +29,6 @@
   {
     "path": "packages/server/src/middleware/auth.ts",
     "line": 231,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/middleware/auth.ts",
-    "line": 235,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -46,7 +46,7 @@
   },
   {
     "path": "packages/server/src/services/connection-provisioning.ts",
-    "line": 96,
+    "line": 97,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -55,7 +55,7 @@
   },
   {
     "path": "packages/server/src/services/connection-provisioning.ts",
-    "line": 104,
+    "line": 105,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -64,7 +64,7 @@
   },
   {
     "path": "packages/server/src/services/lifecycle-propagation.ts",
-    "line": 541,
+    "line": 540,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -73,7 +73,7 @@
   },
   {
     "path": "packages/server/src/services/lifecycle-propagation.ts",
-    "line": 543,
+    "line": 542,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",

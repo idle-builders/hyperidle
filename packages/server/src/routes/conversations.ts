@@ -1,13 +1,18 @@
-import { type HyperIdleDb, type Item, threads } from "@hyperidle/db";
+import { type HyperIdleDb, type Item } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus, HostKind, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
-import { desc, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { authorizeRead } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import {
+	countThreads,
+	getThreadById,
+	listThreadsByRecency,
+} from "../services/conversation-store.js";
 import * as work from "../work-service.js";
 
 // @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path
@@ -59,15 +64,8 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			// O2: attention_score column stripped from items — fall through to recency sort
 			// @lore O2: attention_score was a strategy concern. Sorting by it from the kernel
 			// route is no longer supported. Callers should use recency or switch to strategy layer.
-			const [countRow] = await db.select({ count: sql<number>`COUNT(*)` }).from(threads).limit(1);
-			const total = countRow?.count ?? 0;
-
-			const allThreads = await db
-				.select()
-				.from(threads)
-				.orderBy(desc(threads.createdAt))
-				.limit(limit)
-				.offset(offset);
+			const total = await countThreads(db);
+			const allThreads = await listThreadsByRecency(db, limit, offset);
 
 			return c.json({
 				threads: allThreads,
@@ -76,15 +74,8 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		}
 
 		// Default: sort by recency (createdAt DESC)
-		const [countRow] = await db.select({ count: sql<number>`COUNT(*)` }).from(threads).limit(1);
-		const total = countRow?.count ?? 0;
-
-		const allThreads = await db
-			.select()
-			.from(threads)
-			.orderBy(desc(threads.createdAt))
-			.limit(limit)
-			.offset(offset);
+		const total = await countThreads(db);
+		const allThreads = await listThreadsByRecency(db, limit, offset);
 
 		return c.json({
 			threads: allThreads,
@@ -96,7 +87,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	// GET /:threadId — thread with items and responses
 	router.get("/:threadId", requireBoundary({ kind: "enforced" }), async (c) => {
 		const threadId = c.req.param("threadId");
-		const [thread] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
+		const thread = await getThreadById(db, threadId);
 
 		if (!thread) {
 			const response: ApiErrorResponse = {
@@ -152,11 +143,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			const now = new Date().toISOString();
 
 			// Verify thread exists
-			const [thread] = await db
-				.select()
-				.from(threads)
-				.where(eq(threads.id, body.threadId))
-				.limit(1);
+			const thread = await getThreadById(db, body.threadId);
 			if (!thread) {
 				const response: ApiErrorResponse = {
 					error: "Thread not found",
