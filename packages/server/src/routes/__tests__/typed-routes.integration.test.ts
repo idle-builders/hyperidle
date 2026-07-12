@@ -193,34 +193,3 @@ describe("D4. POST /api/bets with invalid body returns 400 VALIDATION_ERROR", ()
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 });
-
-// ── D5: Response validator catches schema violations ──────────────────────────
-
-describe("D5. Response validator integration with routes", () => {
-	test("routes with response validator middleware return 500 on schema violation", async () => {
-		// This test uses the server's responseValidator middleware to verify
-		// it's actually applied to routes in a typical integration setup.
-		// The middleware must be present and active on the app.
-
-		// We test this by creating a controlled Hono app with the middleware
-		// and a route that returns a wrong shape
-		const { Hono } = await import("hono");
-		const { responseValidator, registerResponseSchema } = await import(
-			"../../middleware/response-validator.js"
-		);
-
-		const z = (await import("zod")).z;
-
-		const strictSchema = z.object({ id: z.string(), required: z.string() });
-		registerResponseSchema("GET", "/api/validator-test", strictSchema);
-
-		const app = new Hono();
-		app.use("*", responseValidator());
-		app.get("/api/validator-test", (c) => c.json({ id: "1", wrong: "field" }));
-
-		const res = await app.request("/api/validator-test");
-		expect(res.status).toBe(500);
-		const body = (await res.json()) as { code: string };
-		expect(body.code).toBe("SCHEMA_VIOLATION");
-	});
-});

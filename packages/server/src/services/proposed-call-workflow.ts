@@ -89,40 +89,6 @@ export async function handleUnconsumedGrantOnSessionEnd(
 }
 
 /**
- * AC6 — atomic CAS consume of a tailored grant.
- *
- * Returns the claimed grant row if this call claimed it (consumed was false → true),
- * or `null` if the grant was already consumed by another concurrent claimant.
- * This is the single-statement CAS that enforces at-most-once execution.
- *
- * @lore AL7 AC6: the WHERE `consumed=false` clause in the UPDATE is the atomic guard.
- * Two concurrent calls race; exactly one will see a non-empty RETURNING; the other
- * gets zero rows and returns null. No double-execute possible.
- */
-export async function consumeTailoredGrant(
-	db: HyperIdleDb,
-	opts: {
-		taskScope: string;
-		agentScope: string;
-		approvedToolId: string;
-	},
-): Promise<{ proposedCallId: string } | null> {
-	const rows = await db
-		.update(tailoredGrants)
-		.set({ consumed: true, consumedAt: nowIso() })
-		.where(
-			and(
-				eq(tailoredGrants.taskScope, opts.taskScope),
-				eq(tailoredGrants.agentScope, opts.agentScope),
-				eq(tailoredGrants.approvedToolId, opts.approvedToolId),
-				eq(tailoredGrants.consumed, false),
-			),
-		)
-		.returning({ proposedCallId: tailoredGrants.proposedCallId });
-	return rows[0] ?? null;
-}
-
-/**
  * Task 8 helper — compose a tailored grant on approve verdict.
  * Called inside the verdict transaction when `decision === "approve"` and
  * the review message backs a `captured` Proposed Call.

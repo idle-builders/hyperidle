@@ -1,12 +1,14 @@
-import { agentSessionRequests, type HyperIdleDb, notificationQueue, users } from "@hyperidle/db";
+import {
+	agentSessionRequests,
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	notificationQueue,
+	users,
+} from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { defaultNotificationAdapterFactory } from "../notifications/adapter-factory.js";
 import { enqueueNotification, flushQueue } from "../notifications/dispatcher.js";
-import {
-	getKnowledgeProjection,
-	upsertKnowledgeProjection,
-} from "../services/knowledge/projections.js";
 import { test as fixtureTest } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au3-domain";
@@ -54,14 +56,24 @@ describe("app runtime domain observability", () => {
 			expect(createRes.status).toBe(201);
 			const created = (await createRes.json()) as { id: string };
 
-			await upsertKnowledgeProjection(db, created.id, {
-				layer: "L4",
-				kind: "decision",
-				relevanceScore: "0.91",
-				attentionScore: "0.73",
-				confidence: "0.88",
-			});
-			const projection = await getKnowledgeProjection(db, created.id);
+			// @lore B.5 fix: upsertProjectionLayer (called by POST /api/knowledge) already
+			// inserts the fabric row, so a second insert would violate the unique constraint
+			// on knowledge_item_id. Use update to set the test-specific signals instead.
+			await db
+				.update(knowledgeAppProjection)
+				.set({
+					layer: "L4",
+					kind: "decision",
+					relevanceScore: "0.91",
+					attentionScore: "0.73",
+					confidence: "0.88",
+				})
+				.where(eq(knowledgeAppProjection.knowledgeItemId, created.id));
+			const [projection] = await db
+				.select()
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, created.id))
+				.limit(1);
 			expect(projection).toMatchObject({
 				knowledgeItemId: created.id,
 				layer: "L4",

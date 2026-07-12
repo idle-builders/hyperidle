@@ -1,24 +1,17 @@
-import * as crypto from "node:crypto";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import {
 	agentSessionRequests,
 	type HyperIdleDb,
 	routineRuns,
 	routines,
 	sessions,
-	users,
 } from "@hyperidle/db";
-import {
-	type AgentSessionSourceKind,
-	ConcurrencyLimitError,
-	type EventBus,
-	type ModelTier,
-	type SessionLifecycleCorrelation,
-	type UserRole,
+import type {
+	AgentSessionSourceKind,
+	EventBus,
+	SessionLifecycleCorrelation,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
-import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 import { terminalizeAgentSessionRequestInTx } from "./agent-session-requests.js";
 import type { IngestionHandle } from "./contracts.js";
 import { releaseSessionDedup } from "./cost-cap.js";
@@ -31,14 +24,6 @@ export const TERMINATION_REASONS = [
 	"shutdown",
 ] as const;
 export type AgentTerminationReason = (typeof TERMINATION_REASONS)[number];
-
-export const TERMINATION_PRECEDENCE = {
-	terminal: "wins",
-	handoff: "atomic_completed",
-	repeated_cause: "idempotent",
-	competing_cause: "conflict",
-	natural_completion_with_reason: "rejected",
-} as const;
 
 export const TERMINATION_DISPOSITIONS = {
 	user_done: { state: "cancelled", failureCode: null },
@@ -188,16 +173,6 @@ export async function transitionAgentRunLifecycle(
 	});
 }
 
-export interface CreateSessionParams {
-	taskId: string;
-	agentId: string;
-	agentRole: UserRole;
-	/** @lore U1: formerly `productId` — now references `teams.id`. */
-	productId: string;
-	modelTier: ModelTier;
-	sandboxBasePath: string;
-}
-
 export interface SessionContext {
 	sessionId: string;
 	agentId: string;
@@ -302,107 +277,6 @@ async function updateRoutineRunOnSessionEnd(
 			...(summary ? { lastRunSummary: summary } : {}),
 		})
 		.where(eq(routines.id, routineId));
-}
-
-/**
- * Create a new agent session: check concurrency, set up workspace,
- * assemble context, start ingestion, emit event.
- *
- * @lore AU3: This legacy provisioning helper now uses app-owned agent context
- * services for context assembly and writeback.
- *
- * createSession has no production caller (sessions-routes.ts uses the unrelated
- * createSessionRoutes). It is exercised only by integration tests
- * (session-lifecycle.integration.test.ts, routines-aa2.integration.test.ts,
- * AA3-routine-cost.integration.test.ts). It is migrated — not deleted — because
- * the integration tests still exercise it as a Kernel-isolation path and it is
- * subject to the AU3 ESLint static guard.
- */
-export async function createSession(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	params: CreateSessionParams,
-): Promise<SessionContext> {
-	// 1. Check concurrency limit
-	const [agent] = await db.select().from(users).where(eq(users.id, params.agentId)).limit(1);
-
-	if (!agent) {
-		throw new Error(`Agent not found: ${params.agentId}`);
-	}
-
-	const [activeCount] = await db
-		.select({ count: sql<number>`count(*)` })
-		.from(sessions)
-		.where(and(eq(sessions.agentId, params.agentId), eq(sessions.state, "active")))
-		.limit(1);
-
-	if ((activeCount?.count ?? 0) >= agent.maxConcurrentSessions) {
-		throw new ConcurrencyLimitError(params.agentId, agent.maxConcurrentSessions);
-	}
-
-	// 2. Generate session ID and sandbox path
-	const sessionId = crypto.randomUUID();
-	const traceId = crypto.randomUUID();
-	const sandboxPath = path.join(params.sandboxBasePath, sessionId);
-	fs.mkdirSync(sandboxPath, { recursive: true });
-
-	// 3. Insert session row
-	// @lore O2: cost, costMinor, costCurrency, traceId columns stripped from
-	// sessions table. traceId is kept in-memory on SessionContext only.
-	const now = new Date().toISOString();
-	await db.insert(sessions).values({
-		id: sessionId,
-		taskId: params.taskId,
-		agentId: params.agentId,
-		modelTier: params.modelTier,
-		startedAt: now,
-		state: "active",
-		sandboxSnapshot: sandboxPath,
-	});
-
-	// 4. Assemble context into sandbox through the app-owned agent context service.
-	await assembleAgentContext({
-		db,
-		sandboxPath,
-		sessionId,
-		taskId: params.taskId,
-		agentId: params.agentId,
-		agentRole: params.agentRole,
-		teamId: params.productId,
-		isRoutine: false,
-		sourceKind: null,
-		sourceId: null,
-		sourceCorrelation: null,
-	});
-
-	// 5. Begin writeback ingestion through the app-owned agent context service.
-	const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-	const ingestion = beginAgentWriteback({
-		db,
-		sandboxPath,
-		sessionId,
-		manifestPath,
-	});
-
-	// 6. Emit session_started event
-	eventBus.emit({
-		type: "session_started",
-		streamId: sessionId,
-		sessionId,
-		agentId: params.agentId,
-		taskId: params.taskId,
-		timestamp: Date.now(),
-	});
-
-	// 7. Return SessionContext
-	return {
-		sessionId,
-		agentId: params.agentId,
-		taskId: params.taskId,
-		sandboxPath,
-		ingestion,
-		traceId,
-	};
 }
 
 /**

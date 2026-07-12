@@ -40,7 +40,7 @@ interface FlaggedClaim {
 	readonly reason: string;
 }
 
-interface RenderedEmail {
+export interface RenderedEmail {
 	readonly tool: "mailchimp";
 	readonly campaignName: string;
 	readonly sender: string;
@@ -58,7 +58,7 @@ interface RenderedEmail {
 	readonly flaggedClaims: readonly FlaggedClaim[];
 }
 
-const FIXTURE: RenderedEmail = {
+export const FIXTURE: RenderedEmail = {
 	tool: "mailchimp",
 	campaignName: "Solo plan launch — $19/mo",
 	sender: "HyperIdle",
@@ -148,7 +148,7 @@ function ViewportToggle({
 // Neutral, email-safe styling — the one place not using Hearth chrome tokens,
 // because this IS the asset as the recipient sees it (must read as an email).
 
-function EmailRender({
+export function EmailRender({
 	data,
 	viewport,
 }: {
@@ -584,100 +584,6 @@ export function ReviewRenderedInContext({ artifact }: ReviewCanvasProps): JSX.El
 				href={artifact.sourceHref}
 			/>
 			<ReviewRenderedInContextView data={data} artifactId={artifact.id} blocks={blocks} />
-		</div>
-	);
-}
-
-// ── Basic variant: just the email body ────────────────────────────────────────
-// Founder direction (human-design-review round 1): "some things will be ... just
-// the body of an email." The LOW-fidelity sibling of ReviewRenderedInContext —
-// minimal chrome: source header + the rendered email body + a verdict pill pair.
-// NO inbox row, NO desktop/mobile toggle, NO flags panel. Reuses the same
-// EmailRender + FIXTURE so the body is byte-identical to the rich canvas's L2.
-
-export interface ReviewEmailBodyProps {
-	readonly data?: RenderedEmail;
-	readonly onApprove?: () => void;
-	readonly onRequestChanges?: () => void;
-}
-
-/**
- * Email-body review canvas — the basic proof. Just the styled email as the
- * recipient sees it, under a source header, with a verdict pill pair. Nothing
- * else: no inbox row, no viewport toggle, no flags. Look at the body, call it.
- */
-export function ReviewEmailBody({
-	data = FIXTURE,
-	onApprove,
-	onRequestChanges,
-}: ReviewEmailBodyProps): JSX.Element {
-	return (
-		<div
-			className="flex flex-col gap-[18px] p-[18px] text-left"
-			style={{
-				maxWidth: 760,
-				background: "var(--surface-page)",
-				color: "var(--text-primary)",
-				fontFamily: "var(--font-sans)",
-			}}
-		>
-			{/* source attribution — what produced this, jump back to it */}
-			<div
-				style={{
-					background: "var(--surface-container)",
-					border: "1px solid var(--border-subtle)",
-					borderRadius: "var(--r-default)",
-					overflow: "hidden",
-				}}
-			>
-				<CanvasSourceHeader tool="mailchimp" app="Mailchimp" record="Launch email · Solo plan" />
-			</div>
-
-			{/* the artifact: just the body */}
-			<div
-				className="p-[24px]"
-				style={{
-					background: "var(--surface-container)",
-					border: "1px solid var(--border-subtle)",
-					borderRadius: "var(--r-default)",
-				}}
-			>
-				<EmailRender data={data} viewport="desktop" />
-			</div>
-
-			{/* verdict gate — basic pill pair */}
-			<div
-				className="flex items-center gap-[9px] pt-[12px]"
-				style={{ borderTop: "1px solid var(--border-subtle)" }}
-			>
-				<button
-					type="button"
-					onClick={() => onApprove?.()}
-					className="px-[18px] py-[10px] text-[13px] font-[600] transition-[opacity]"
-					style={{
-						background: "var(--accent-primary)",
-						color: "var(--surface-page)",
-						borderRadius: "var(--r-pill)",
-						transitionDuration: "var(--motion-fast)",
-					}}
-				>
-					Approve send
-				</button>
-				<button
-					type="button"
-					onClick={() => onRequestChanges?.()}
-					className="px-[18px] py-[10px] text-[13px] font-[600] transition-[opacity]"
-					style={{
-						background: "var(--surface-elevated)",
-						color: "var(--text-primary)",
-						border: "1px solid var(--border-default)",
-						borderRadius: "var(--r-pill)",
-						transitionDuration: "var(--motion-fast)",
-					}}
-				>
-					Request changes
-				</button>
-			</div>
 		</div>
 	);
 }
