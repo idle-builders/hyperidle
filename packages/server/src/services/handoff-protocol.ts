@@ -297,7 +297,9 @@ export async function handoff(
 
 		// 4. Log the handoff in tasks.auditTrail. Re-read via `tx` so we
 		// observe the state-transition entry appended above (toHuman path).
-		const [freshTask] = await tx.select().from(tasks).where(eq(tasks.id, task.id)).limit(1);
+		// @lore AU13 addendum §A6: MUST stay `tx` (not pooled `db`) — re-reads the
+		// task inside the handoff transaction after a prior in-tx update.
+		const freshTask = await work.getTaskById(tx, task.id);
 		const existingAudit: TaskAuditEntry[] = freshTask?.auditTrail
 			? (JSON.parse(freshTask.auditTrail) as TaskAuditEntry[])
 			: [];
