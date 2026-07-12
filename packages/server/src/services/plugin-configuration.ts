@@ -7,7 +7,6 @@ import {
 	type PluginRow,
 	pluginConfigurationDefaults,
 	plugins,
-	routines,
 	serviceConnections,
 	userSkills,
 	users,
@@ -24,6 +23,7 @@ import {
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { BUILTIN_TOOL_CATALOG } from "../config/builtin-tool-catalog.js";
+import * as routineService from "../routine-service.js";
 
 export interface PluginConfigurationSource {
 	readonly id: string;
@@ -404,7 +404,7 @@ export async function backfillLegacyConfigurationDefaults(
 		}
 	}
 
-	const routineRows = await db.select().from(routines);
+	const routineRows = await routineService.listRoutines(db, { includeDeleted: true });
 	for (const routine of routineRows) {
 		seeds.push({
 			kind: "routine",

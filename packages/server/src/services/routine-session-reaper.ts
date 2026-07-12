@@ -1,4 +1,4 @@
-import { type HyperIdleDb, routineRuns, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import { and, eq, lt, sql } from "drizzle-orm";
 import * as routine from "../routine-service.js";
@@ -56,11 +56,7 @@ export async function reapStaleRoutineSessions(
 		await db.update(sessions).set({ state: "crashed", endedAt }).where(eq(sessions.id, session.id));
 
 		// Finalize the still-"running" routine_run for this routine to timeout.
-		const [run] = await db
-			.select({ id: routineRuns.id })
-			.from(routineRuns)
-			.where(and(eq(routineRuns.routineId, session.routineId), eq(routineRuns.outcome, "running")))
-			.limit(1);
+		const run = await routine.findRunningRoutineRun(db, session.routineId);
 
 		if (run) {
 			await routine.updateRoutineRunById(db, run.id, {
