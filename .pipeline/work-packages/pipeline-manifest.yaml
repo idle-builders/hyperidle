@@ -1480,7 +1480,7 @@ stories:
     depends: []
     complexity: M
   - id: AU18
-    title: "Settings and Notification own their own reads and writes"
+    title: "Notification owns its own reads/writes; factorySettings is retired"
     track: AU
     type: backend
     depends: [AU11]
