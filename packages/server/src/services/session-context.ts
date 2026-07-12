@@ -4,10 +4,12 @@
  * `SessionContextData.bet.pitch` renamed to `description`.
  * `SessionContextData.product` renamed to `team`.
  */
-import { bets, type HyperIdleDb, routines, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import type { UserRole } from "@hyperidle/shared";
 import { encodeTyped } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import * as routineService from "../routine-service.js";
+import * as work from "../work-service.js";
 
 export interface SessionContextConfig {
 	sessionId: string;
@@ -53,12 +55,12 @@ export async function buildSessionContextData(
 	db: HyperIdleDb,
 	config: SessionContextConfig,
 ): Promise<SessionContextData> {
-	const [task] = await db.select().from(tasks).where(eq(tasks.id, config.taskId)).limit(1);
+	const task = await work.getTaskById(db, config.taskId);
 	if (!task) {
 		throw new Error(`Task ${config.taskId} not found`);
 	}
 
-	const [bet] = await db.select().from(bets).where(eq(bets.id, task.betId)).limit(1);
+	const bet = await work.getBetById(db, task.betId);
 	if (!bet) {
 		throw new Error(`Bet ${task.betId} not found`);
 	}
@@ -159,11 +161,7 @@ export async function buildRoutineSessionContextData(
 	db: HyperIdleDb,
 	config: RoutineSessionContextConfig,
 ): Promise<RoutineSessionContextData> {
-	const [routine] = await db
-		.select()
-		.from(routines)
-		.where(eq(routines.id, config.routineId))
-		.limit(1);
+	const routine = await routineService.getRoutineById(db, config.routineId);
 	if (!routine) {
 		throw new Error(`Routine ${config.routineId} not found`);
 	}
