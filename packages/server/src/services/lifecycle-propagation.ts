@@ -25,13 +25,11 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	bets,
 	messages,
 	type NewPropagationLogRow,
 	notificationQueue,
 	propagationLog,
 	sessions,
-	tasks,
 	threads,
 	users,
 } from "@hyperidle/db";
@@ -192,7 +190,7 @@ async function transitionBetToCompletedAsync(
 	eventBus: EventBus,
 	betId: string,
 ): Promise<void> {
-	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	const bet = await work.getBetById(db, betId);
 	if (!bet) throw new Error(`Bet '${betId}' not found`);
 
 	const fromState = bet.status as BetStatus;
@@ -341,7 +339,7 @@ async function propagateSessionToTask(
 	}
 
 	// Check task exists and is in_progress
-	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+	const task = await work.getTaskById(db, taskId);
 	if (!task) {
 		await log({
 			status: "skipped",
@@ -453,13 +451,13 @@ async function propagateTaskToBet(
 	};
 
 	// Look up the task to get its betId
-	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+	const task = await work.getTaskById(db, taskId);
 	if (!task) return;
 
 	const betId = task.betId;
 
 	// Look up the bet — only propagate if bet is in an active state
-	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	const bet = await work.getBetById(db, betId);
 	if (!bet) return;
 
 	// @lore U1: statuses simplified: "shipped" → "completed", "review" dropped.
@@ -476,7 +474,7 @@ async function propagateTaskToBet(
 	}
 
 	// Query all tasks on this bet
-	const allBetTasks = await db.select().from(tasks).where(eq(tasks.betId, betId));
+	const allBetTasks = await work.listTasks(db, { betId });
 
 	if (allBetTasks.length === 0) return;
 
@@ -598,7 +596,7 @@ async function logBetToTeamPropagation(
 	newStatus: string,
 ): Promise<void> {
 	// Look up the bet to find its teamId
-	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	const bet = await work.getBetById(db, betId);
 	// @lore U1: `teamId` replaces `productId`.
 	const teamId = bet?.teamId ?? betId; // fallback to betId if bet not found (shouldn't happen)
 
