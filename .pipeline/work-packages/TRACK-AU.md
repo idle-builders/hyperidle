@@ -745,22 +745,27 @@ The point is not a new harness path. The point is one contract for every agent r
 
 ### AU14 — Knowledge write-path unification
 
-**REOPENED (2026-07-12) — writes-only was not sufficient; this WP is not done.** The original round
-(PR #434, merged `f22990a7`) unified `routes/knowledge.ts`'s `POST /` and `PATCH /:id` onto the
-repository and is staying merged — do not revert or redo that half. But a founder ruling on the
-sibling AU12/AU13 work packages (`feedback_service_ownership_includes_reads.md`) corrected a
-mis-interpretation this WP made independently and identically: **"the owning service is the only
-code permitted to import the table object" is a hard requirement covering reads too, not just
-writes — even when a WP's acceptance criteria text only spells out write call sites.** AU14's own
-architecture plan explicitly scoped reads out ("Read-side visibility... lives entirely in the GET
-handlers and is not touched by this WP") — a considered, explicitly-flagged decision, not a hidden
-one, but the same wrong interpretation the founder rejected on AU12/AU13. Confirmed by direct
-reading of `origin/main` post-merge: `routes/knowledge.ts` still has **4 GET endpoints** (`GET
-/search`, `GET /`, `GET /triage-count`, `GET /:id`) doing raw `db.select().from(knowledgeItems)`
-instead of calling the repository's `list()`/`search()`, plus the `POST /` and `PATCH /:id`
-handlers' own post-write re-select is also a raw read bypassing the repository. This reopened round
-closes that remaining gap. Everything below (ACs, validation scenarios, contracts) reflects the
-corrected, full scope — reads and writes, no exclusion.
+**REOPENED (2026-07-12), CORRECTED AGAIN same day — writes-only was not sufficient; this WP is not
+done.** The original round (PR #434, merged `f22990a7`) unified `routes/knowledge.ts`'s `POST /` and
+`PATCH /:id` onto the repository and is staying merged — do not revert or redo that half. A founder
+ruling on the sibling AU12/AU13 work packages (`feedback_service_ownership_includes_reads.md`)
+corrected a mis-interpretation this WP made independently and identically: **"the owning service is
+the only code permitted to import the table object" is a hard requirement covering reads too, not
+just writes — even when a WP's acceptance criteria text only spells out write call sites.** The first
+reopening pass (below, drafted against that ruling) scoped this round to reads only — the 4 GET
+handlers plus the two POST/PATCH post-write re-selects — because those were the call sites the
+founder's AU12/AU13 example concretely named. **That was still too narrow.** The founder's directive
+is unconditional: **"all reads and write MUST go through the knowledge service. no exclusion."**
+Read literally, that also closes the write-side carve-out round 1 itself made explicit ("Out of
+scope for this WP: `PATCH /:id/scope`, `POST /:id/merge`, `POST /:id/split`, `POST /:id/archive`,
+`POST /:id/flag`... keep as-is") — those five handlers still do their own `db.update`/
+`db.insert(knowledgeItems)` today, unconverted by round 1 and untouched by the reads-only draft of
+this reopening. **This round now covers every remaining direct `knowledgeItems` table access in
+`routes/knowledge.ts`, read or write, with zero named exceptions** — the 4 GET handlers, the two
+post-write re-selects, AND the five specialized write handlers' own reads and writes
+(scope-change, merge, split, archive, flag). After this round, grep for `knowledgeItems` (any
+`db.select`/`db.insert`/`db.update` call, not just `.from`) in `routes/knowledge.ts` outside a call
+into `knowledge-repository.ts` must return zero matches — full stop.
 
 **Work package.** As a maintainer closing out Track AU, I want Knowledge to have exactly one path —
 covering both reads and writes — for every access to a knowledge item, so that no code anywhere in
@@ -786,35 +791,40 @@ operations."
 **Depends on.**
 - None. Independent of AU12/AU13 — touches only the Knowledge domain, not Conversation/Users/Work/Routine. Not blocked by round 1 having already merged; this is additive to that code, not a revert.
 
-**Complexity.** L (was M for round 1's writes-only scope; four GET handlers with real computed-field logic — access signals, related items, triage aggregation — is materially more surface than two write handlers).
+**Complexity.** L (was M for round 1's writes-only scope). Covers four GET handlers with real
+computed-field logic (access signals, related items, triage aggregation) AND five specialized
+write handlers (scope-change, merge, split, archive, flag) whose own reads/writes were never
+converted by round 1.
 
 **Pre-build gates.**
-- **Refinement:** Not required — goal is clear; this is convergence onto an already-existing implementation, not new design. Same rationale as round 1, now applied to reads.
+- **Refinement:** Not required — goal is clear; this is convergence onto an already-existing implementation, not new design. Same rationale as round 1, now applied to the full remaining surface.
 - **Design:** Not required — backend refactor, no UI surface.
 
 **Human concept review.** No.
 
 **Acceptance criteria.**
-- `routes/knowledge.ts`'s `GET /search`, `GET /`, `GET /triage-count`, and `GET /:id` handlers call the knowledge repository's `list`/`search` functions (extended as needed) rather than performing their own `db.select()` reads.
+- `routes/knowledge.ts`'s `GET /search`, `GET /`, `GET /triage-count`, and `GET /:id` handlers call the knowledge repository's `list`/`search` functions (extended, or new narrowly-scoped functions) rather than performing their own `db.select()` reads.
 - `POST /` and `PATCH /:id`'s post-write response re-select also goes through a repository read function rather than a raw `db.select()`.
-- The Q2 user-scope visibility rule (an item is visible if not user-scoped, or if the requesting user is its owner) continues to hold exactly as before, for every read call site, including the newly-converted ones.
-- Every currently-observable read behavior — AF13's computed `accessCount30d`/`lastActivityAt`/`relatedItems` fields, the triage-count aggregation, the `knowledge_accessed` event emission on `GET /:id` — is preserved exactly.
-- `routes/knowledge.ts` has zero remaining `db.select().from(knowledgeItems)` (or equivalent raw-read) call sites after this round — grep-verifiable, zero-allowlist.
+- `PATCH /:id/scope`, `POST /:id/merge`, `POST /:id/split`, `POST /:id/archive`, and `POST /:id/flag` — every read AND write these five handlers perform directly against `knowledgeItems` — is routed through the repository (existing `create`/`update`, or new narrowly-scoped repository functions for merge/split's multi-row operations). Round 1's explicit carve-out of these five handlers is superseded; there is no remaining exception.
+- The Q2 user-scope visibility rule (an item is visible if not user-scoped, or if the requesting user is its owner) continues to hold exactly as before, for every read AND write call site, including all newly-converted ones.
+- Every currently-observable behavior — AF13's computed `accessCount30d`/`lastActivityAt`/`relatedItems` fields, the triage-count aggregation, the `knowledge_accessed` event emission on `GET /:id`, merge/split's multi-row semantics, archive/flag's status transitions, scope-change's projection-layer update — is preserved exactly.
+- `routes/knowledge.ts` has zero remaining direct `knowledgeItems` table access of any kind (`db.select`, `db.insert`, `db.update`) outside a call into `knowledge-repository.ts` — grep-verifiable, zero-allowlist, no named exceptions.
 - (Carried from round 1, already satisfied, must not regress): create/update call the repository; Q2 write-side holds; exactly one event per write; edit log records every create/update regardless of origin.
 
 **Validation scenarios.**
-- Given the existing knowledge route integration tests (list/search/triage-count/get-by-id, including their Q2 exclusion assertions and their AF13 computed-field assertions), when re-run after this round, then all pass with no behavior change to any consumer.
+- Given the existing knowledge route integration tests (list/search/triage-count/get-by-id, scope-change, merge, split, archive, flag, including their Q2 exclusion assertions and their AF13 computed-field assertions), when re-run after this round, then all pass with no behavior change to any consumer.
 - Given a user-scoped knowledge item exists, when a different user requests the list, search, or triage-count, then it is excluded exactly as it is today (Q2 preserved on every read path, not just `GET /`).
 - Given a knowledge item is read via `GET /:id`, when it is read, then it still emits `knowledge_accessed` and still returns the same computed fields as before this round.
-- Given a repo-wide grep for `.from(knowledgeItems)` (or `db.select` targeting the table) outside `knowledge-repository.ts`, when run after this round, then it returns zero matches in `routes/knowledge.ts`.
+- Given two items are merged, or one item is split, when the operation completes, then the resulting rows and edit-log entries are identical to today's raw-write behavior.
+- Given a repo-wide grep for any `knowledgeItems` table access (`db.select`/`db.insert`/`db.update` targeting it) outside `knowledge-repository.ts`, when run after this round, then it returns zero matches in `routes/knowledge.ts`.
 
-**Plan calls.** The repository's `list()`/`search()` were designed for their existing non-HTTP callers (`context-assembly.ts`, tools) and may not yet support everything the route's GET handlers need (triage-count aggregation, related-items lookup, the AF13 computed-signal joins against `knowledgeAccessLog`). The plan must decide, per GET handler, whether to extend `list()`/`search()` with the needed filters/joins or add new narrowly-scoped repository read functions — but in every case the route must stop doing its own `db.select()`, and the repository must stay callable by its existing non-HTTP callers with no behavior change to them. Follow round 1's precedent for the read-side Q2 pattern: resolved values passed in, the repository never inspects `userId` itself, so tools/services with no request context keep working.
+**Plan calls.** The repository's `list()`/`search()`/`create()`/`update()` were designed for their existing non-HTTP callers (`context-assembly.ts`, `writeback.ts`, tools) and do not yet support everything the route's GET handlers or the merge/split/archive/flag/scope-change handlers need. The plan must decide, per handler, whether to extend an existing repository function or add a new narrowly-scoped one — but in every case the route must stop touching `knowledgeItems` directly, and the repository must stay callable by its existing non-HTTP callers with no behavior change to them. Follow round 1's precedent for the Q2 pattern (resolved values passed in, repository never inspects `userId`) for both reads and the write handlers that need it. Merge/split are the highest-risk conversions (multi-row, non-CRUD-shaped operations) — the plan should treat them as their own design problem, not assume `create`/`update` cover them as-is.
 
 **Contracts / constraints.**
-- No behavior change visible to any existing consumer of any read endpoint.
-- The repository remains the single owner of all `knowledge_items` reads AND writes; `routes/knowledge.ts` becomes a caller for both, not a second implementation of either.
+- No behavior change visible to any existing consumer of any read or write endpoint.
+- The repository remains the single owner of all `knowledge_items` reads AND writes, with zero exceptions; `routes/knowledge.ts` becomes purely a caller of it, never a second implementation of any operation on that table.
 - No schema changes.
-- Round 1's write-path unification (PR #434) stays intact — this round is additive, not a redo.
+- Round 1's write-path unification (PR #434, `POST /` and `PATCH /:id`) stays intact — this round is additive, not a redo, and extends the same pattern to the remaining five write handlers plus all reads.
 
 **Out of scope.**
 - Any other domain's read/write path (see AU12/AU13 — which have the identical read gap and need their own equivalent follow-up, not covered here).
