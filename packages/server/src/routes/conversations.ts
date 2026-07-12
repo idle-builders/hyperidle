@@ -8,6 +8,7 @@ import { authorizeRead } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import * as work from "../work-service.js";
 
 // @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path
 // dual-wrote `verdict`-typed messages without founder authz, idempotency, or
@@ -169,7 +170,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			}
 
 			// O2: agents routing logic removed; sourceAgentId stored for audit purposes only
-			await db.insert(items).values({
+			await work.createItem(db, {
 				id,
 				sourceAgentId: body.sourceAgentId ?? null,
 				layer: body.layer ?? null,

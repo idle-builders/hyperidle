@@ -55,6 +55,7 @@ import {
 	type ToolContext,
 	toolsForRole,
 } from "../tools/tool-registry.js";
+import * as work from "../work-service.js";
 import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 import {
 	assemblePrompt,
@@ -119,14 +120,11 @@ async function revertTaskToAccepted(
 		reason,
 	};
 
-	await db
-		.update(tasks)
-		.set({
-			state: toState,
-			auditTrail: JSON.stringify([...existingAudit, entry]),
-			updatedAt: new Date().toISOString(),
-		})
-		.where(eq(tasks.id, taskId));
+	await work.updateTaskById(db, taskId, {
+		state: toState,
+		auditTrail: JSON.stringify([...existingAudit, entry]),
+		updatedAt: new Date().toISOString(),
+	});
 
 	eventBus.emit({
 		type: "task_state_changed",
@@ -228,10 +226,9 @@ async function accumulateSessionTokensOnBet(
 		};
 	}
 
-	await db
-		.update(bets)
-		.set({ tokensActualJson: JSON.stringify({ byTier: merged }) })
-		.where(eq(bets.id, task.betId));
+	await work.updateBetById(db, task.betId, {
+		tokensActualJson: JSON.stringify({ byTier: merged }),
+	});
 }
 
 /**

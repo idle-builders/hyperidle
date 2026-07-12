@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { items, threads, users } from "@hyperidle/db";
+import { threads, users } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { routeItem } from "../services/item-router.js";
 import { resolveReviewRecipients } from "../services/org-routing.js";
+import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -135,7 +136,7 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 	}
 
 	const itemId = randomUUID();
-	await ctx.db.insert(items).values({
+	await work.createItem(ctx.db, {
 		id: itemId,
 		sourceAgentId: ctx.agentId,
 		layer: input.layer ?? null,

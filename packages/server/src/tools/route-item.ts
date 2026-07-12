@@ -2,6 +2,7 @@ import { items } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { routeItem } from "../services/item-router.js";
+import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -54,7 +55,7 @@ async function handler(
 	if (input.kind !== undefined) updates.kind = input.kind;
 	if (input.verb !== undefined) updates.verb = input.verb;
 	if (Object.keys(updates).length > 0) {
-		await ctx.db.update(items).set(updates).where(eq(items.id, input.itemId));
+		await work.updateItemById(ctx.db, input.itemId, updates);
 	}
 
 	return ok<RouteItemData>({

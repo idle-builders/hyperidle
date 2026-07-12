@@ -11,9 +11,10 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { bets, teams } from "@hyperidle/db";
+import { teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import * as work from "../work-service.js";
 import type { AssistantToolResult, AssistantToolShape } from "./assistant-tool-result.js";
 import type { ToolContext } from "./tool-registry.js";
 
@@ -45,7 +46,7 @@ async function handler(
 	const betId = randomUUID();
 	const now = new Date().toISOString();
 
-	await ctx.db.insert(bets).values({
+	await work.createBet(ctx.db, {
 		id: betId,
 		teamId: input.teamId,
 		description: input.description,

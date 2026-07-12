@@ -17,6 +17,7 @@ import z from "zod";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
+import * as routineService from "../routine-service.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { type PostBetRetroArgs, runBuiltinRoutine } from "../services/builtin-routine-handlers.js";
@@ -147,7 +148,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				// Should not reach here — already validated above
 			}
 
-			await db.insert(routines).values({
+			await routineService.insertRoutine(db, {
 				id: routineId,
 				name: body.name,
 				description: body.description ?? null,
@@ -185,14 +186,11 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		}
 
 		const now = new Date().toISOString();
-		await db
-			.update(routines)
-			.set({
-				deletedAt: now,
-				state: "paused",
-				active: false,
-			})
-			.where(eq(routines.id, routineId));
+		await routineService.updateRoutineById(db, routineId, {
+			deletedAt: now,
+			state: "paused",
+			active: false,
+		});
 
 		return c.json({ deleted: true, deletedAt: now });
 	});
@@ -399,7 +397,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
 
-			const updates: Record<string, unknown> = {};
+			const updates: routineService.RoutinePatch = {};
 			if (body.active !== undefined) updates.active = body.active;
 			if (body.triggerConfig !== undefined) updates.triggerConfig = body.triggerConfig;
 			if (body.autonomyLevel !== undefined) updates.autonomyLevel = body.autonomyLevel;
@@ -420,7 +418,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				updates.costCapMonthlyMinor = body.costCapMonthlyMinor ?? null;
 
 			if (Object.keys(updates).length > 0) {
-				await db.update(routines).set(updates).where(eq(routines.id, routineId));
+				await routineService.updateRoutineById(db, routineId, updates);
 			}
 
 			const [updated] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
@@ -437,7 +435,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		await db.update(routines).set({ active: false }).where(eq(routines.id, routineId));
+		await routineService.updateRoutineById(db, routineId, { active: false });
 
 		const [updated] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		return c.json(updated);
@@ -496,7 +494,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			const monthlySpend = await getRoutineMonthlySpend(db, routineId);
 			if (monthlySpend >= routine.costCapMonthlyMinor) {
 				const runId = crypto.randomUUID();
-				await db.insert(routineRuns).values({
+				await routineService.insertRoutineRun(db, {
 					id: runId,
 					routineId,
 					startedAt: now,
@@ -511,7 +509,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		if (coalesced) {
 			// Record a skipped run
 			const runId = crypto.randomUUID();
-			await db.insert(routineRuns).values({
+			await routineService.insertRoutineRun(db, {
 				id: runId,
 				routineId,
 				startedAt: now,
@@ -524,10 +522,13 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const runId = crypto.randomUUID();
 		let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
 		await db.transaction(async (tx) => {
-			await tx
-				.insert(routineRuns)
-				.values({ id: runId, routineId, startedAt: now, outcome: "running" });
-			await tx.update(routines).set({ lastRunAt: now }).where(eq(routines.id, routineId));
+			await routineService.insertRoutineRun(tx, {
+				id: runId,
+				routineId,
+				startedAt: now,
+				outcome: "running",
+			});
+			await routineService.updateRoutineById(tx, routineId, { lastRunAt: now });
 			intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
 				kind: "routine_run",
 				sourceKind: "routine_run",

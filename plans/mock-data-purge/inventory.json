@@ -64,7 +64,7 @@
   },
   {
     "path": "packages/server/src/services/lifecycle-propagation.ts",
-    "line": 540,
+    "line": 541,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -73,7 +73,7 @@
   },
   {
     "path": "packages/server/src/services/lifecycle-propagation.ts",
-    "line": 542,
+    "line": 543,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",

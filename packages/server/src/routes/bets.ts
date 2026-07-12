@@ -28,6 +28,7 @@ import { enumValues } from "../schemas/common.schema.js";
 import { cascadeBetKill } from "../services/bet-kill-cascade.js";
 import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
+import * as work from "../work-service.js";
 
 const SUMMARY_CAP = 10;
 
@@ -219,10 +220,10 @@ async function patchAtRisk(
 		reason,
 		actor,
 	});
-	await db
-		.update(bets)
-		.set({ atRisk: value ? 1 : 0, revisionLog: JSON.stringify(revisionLog) })
-		.where(eq(bets.id, betId));
+	await work.updateBetById(db, betId, {
+		atRisk: value ? 1 : 0,
+		revisionLog: JSON.stringify(revisionLog),
+	});
 	const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!updated) {
 		return {
@@ -277,10 +278,10 @@ async function patchDescription(
 		reason,
 		actor,
 	});
-	await db
-		.update(bets)
-		.set({ description: value, revisionLog: JSON.stringify(revisionLog) })
-		.where(eq(bets.id, betId));
+	await work.updateBetById(db, betId, {
+		description: value,
+		revisionLog: JSON.stringify(revisionLog),
+	});
 	const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!updated) {
 		return {
@@ -337,14 +338,11 @@ async function patchCostAppetite(
 		reason,
 		actor,
 	});
-	await db
-		.update(bets)
-		.set({
-			costAppetiteMinor: value?.minor ?? null,
-			costAppetiteCurrency: value?.currency ?? null,
-			revisionLog: JSON.stringify(revisionLog),
-		})
-		.where(eq(bets.id, betId));
+	await work.updateBetById(db, betId, {
+		costAppetiteMinor: value?.minor ?? null,
+		costAppetiteCurrency: value?.currency ?? null,
+		revisionLog: JSON.stringify(revisionLog),
+	});
 	const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 	if (!updated) {
 		return {
@@ -648,7 +646,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				});
 			}
 
-			await db.insert(bets).values({
+			await work.createBet(db, {
 				id,
 				teamId: body.teamId,
 				description: body.description,
@@ -906,16 +904,13 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				});
 			}
 
-			await db
-				.update(bets)
-				.set({
-					outcomeVerdict: body.verdict,
-					outcomeSummary: body.summary ?? null,
-					outcomeRecordedAt: now,
-					outcomeRecordedBy: actor ?? null,
-					revisionLog: JSON.stringify(revisionLog),
-				})
-				.where(eq(bets.id, betId));
+			await work.updateBetById(db, betId, {
+				outcomeVerdict: body.verdict,
+				outcomeSummary: body.summary ?? null,
+				outcomeRecordedAt: now,
+				outcomeRecordedBy: actor ?? null,
+				revisionLog: JSON.stringify(revisionLog),
+			});
 
 			const [updated] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
 			if (!updated) {
@@ -1091,16 +1086,13 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// the transaction (read-only queries) so the transaction only covers the writes.
 			await db.transaction(async (tx) => {
 				// Write outcome fields on bet
-				await tx
-					.update(bets)
-					.set({
-						outcomeVerdict: body.verdict,
-						outcomeSummary: body.summary,
-						outcomeRecordedAt: now,
-						outcomeRecordedBy: actor ?? null,
-						revisionLog: JSON.stringify(revisionLog),
-					})
-					.where(eq(bets.id, betId));
+				await work.updateBetById(tx, betId, {
+					outcomeVerdict: body.verdict,
+					outcomeSummary: body.summary,
+					outcomeRecordedAt: now,
+					outcomeRecordedBy: actor ?? null,
+					revisionLog: JSON.stringify(revisionLog),
+				});
 
 				if (existingKi) {
 					// Upsert: update existing knowledge item — version incremented, body updated

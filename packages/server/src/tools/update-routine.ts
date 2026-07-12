@@ -1,6 +1,7 @@
 import { routines } from "@hyperidle/db";
 import { and, eq, isNull } from "drizzle-orm";
 import z from "zod";
+import * as routine from "../routine-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -62,7 +63,7 @@ async function handler(
 	}
 
 	// Build the updates object — only include fields that are present in input
-	const updates: Record<string, unknown> = {};
+	const updates: routine.RoutinePatch = {};
 	const { updates: u } = input;
 
 	if (u.name !== undefined) updates.name = u.name;
@@ -84,10 +85,7 @@ async function handler(
 	}
 
 	if (Object.keys(updates).length > 0) {
-		await ctx.db
-			.update(routines)
-			.set(updates as Parameters<ReturnType<typeof ctx.db.update>["set"]>[0])
-			.where(eq(routines.id, input.routineId));
+		await routine.updateRoutineById(ctx.db, input.routineId, updates);
 	}
 
 	// Re-read to get the canonical final state

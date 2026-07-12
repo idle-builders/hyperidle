@@ -48,6 +48,7 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
 import type { PropagationLevel } from "../knowledge/types.js";
+import * as work from "../work-service.js";
 
 /**
  * Shape of a single entry in the revision log JSON array.
@@ -128,17 +129,17 @@ async function transitionTask(
 				timestamp: new Date().toISOString(),
 			});
 
-			const updated = await tx
-				.update(tasks)
-				.set({
+			const { applied } = await work.transitionTaskState(tx, {
+				taskId,
+				fromState,
+				patch: {
 					state: toState,
 					auditTrail: JSON.stringify(existingAudit),
 					updatedAt: new Date().toISOString(),
-				})
-				.where(and(eq(tasks.id, taskId), eq(tasks.state, fromState)))
-				.returning({ id: tasks.id });
+				},
+			});
 
-			if (updated.length === 0) {
+			if (!applied) {
 				const err = new Error(`Invalid transition for task ${taskId}: ${fromState} -> ${toState}`);
 				err.name = "InvalidTransitionError";
 				throw err;
@@ -214,13 +215,13 @@ async function transitionBetToCompletedAsync(
 	const updatedLog = JSON.stringify([...existingLog, entry]);
 
 	// CAS update — only if still in fromState
-	const updateRows = await db
-		.update(bets)
-		.set({ status: "completed", revisionLog: updatedLog } as Record<string, string>)
-		.where(and(eq(bets.id, betId), eq(bets.status, fromState)))
-		.returning({ id: bets.id });
+	const { applied } = await work.transitionBetStatus(db, {
+		betId,
+		fromStatus: fromState,
+		patch: { status: "completed", revisionLog: updatedLog },
+	});
 
-	if (updateRows.length === 0) {
+	if (!applied) {
 		throw new SharedInvalidTransitionError(fromState, "completed");
 	}
 

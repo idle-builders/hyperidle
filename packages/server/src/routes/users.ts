@@ -1,12 +1,4 @@
-import {
-	type HyperIdleDb,
-	items,
-	messages,
-	sessions,
-	threads,
-	userSkills,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, messages, sessions, threads, userSkills, users } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
@@ -24,6 +16,7 @@ import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.
 import { findOrCreateDirectThread } from "../services/direct-thread.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
+import * as work from "../work-service.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
 
 const updateSkillSchema = z.object({
@@ -314,7 +307,7 @@ export function createUserRoutes(
 				});
 
 				const itemId = crypto.randomUUID();
-				await db.insert(items).values({
+				await work.createItem(db, {
 					id: itemId,
 					sourceAgentId: userId,
 					layer: "meta",

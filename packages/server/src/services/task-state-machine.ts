@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, taskDispatchAttempts, tasks } from "@hyperidle/db";
 import type { EventBus, TaskState } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import * as work from "../work-service.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 
@@ -86,19 +87,19 @@ export async function transitionTask(
 			};
 			existingAudit.push(entry);
 
-			const updated = await tx
-				.update(tasks)
-				.set({
+			const { applied } = await work.transitionTaskState(tx, {
+				taskId,
+				fromState,
+				patch: {
 					state: toState,
 					auditTrail: JSON.stringify(existingAudit),
 					updatedAt: new Date().toISOString(),
-				})
-				.where(and(eq(tasks.id, taskId), eq(tasks.state, fromState)))
-				.returning({ id: tasks.id });
+				},
+			});
 
 			// Lost the race: another concurrent transition already moved the task out
 			// of `fromState`. Throwing rolls back the tx (no partial state/audit write).
-			if (updated.length === 0) {
+			if (!applied) {
 				throw new InvalidTransitionError(taskId, fromState, toState);
 			}
 

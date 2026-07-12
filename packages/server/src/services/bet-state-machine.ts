@@ -5,7 +5,8 @@ import {
 	type EventBus,
 	InvalidTransitionError,
 } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import * as work from "../work-service.js";
 
 /**
  * Shape of a single entry in the revision log JSON array.
@@ -133,7 +134,7 @@ export async function transitionBet(
 		options?.actor,
 	);
 
-	const updates: Record<string, unknown> = {
+	const updates: work.BetPatch = {
 		status: toState,
 		revisionLog: updatedLog,
 	};
@@ -177,16 +178,16 @@ export async function transitionBet(
 			}
 		}
 
-		const updateResult = await tx
-			.update(bets)
-			.set(updates as Record<string, string>)
-			.where(and(eq(bets.id, betId), eq(bets.status, fromState)))
-			.returning({ id: bets.id });
+		const { applied } = await work.transitionBetStatus(tx, {
+			betId,
+			fromStatus: fromState,
+			patch: updates,
+		});
 
 		// Lost the race: another concurrent transitionBet already moved the
 		// bet out of `fromState`. Roll back (throwing exits the tx callback
 		// and rolls the transaction) and surface as an invalid transition.
-		if (updateResult.length === 0) {
+		if (!applied) {
 			throw new InvalidTransitionError(fromState, toState);
 		}
 
@@ -290,10 +291,14 @@ export async function updateBetField(
 	const revisionLog = parseRevisionLog(bet.revisionLog);
 	const updatedLog = addRevisionEntry(revisionLog, field, oldValue, newValue, reason, actor);
 
-	await db
-		.update(bets)
-		.set({ [columnKey]: newValue, revisionLog: updatedLog } as Record<string, string>)
-		.where(eq(bets.id, betId));
+	// @lore AU13: columnKey is a dynamic `keyof typeof bet` resolved from a caller-supplied
+	// field name (validated against MUTABLE_FIELDS above); the value is always a plain string
+	// for these three text columns. Same cast shape as the pre-AU13
+	// `.set({ [columnKey]: newValue, ... } as Record<string, string>)`.
+	await work.updateBetById(db, betId, {
+		[columnKey]: newValue,
+		revisionLog: updatedLog,
+	} as work.BetPatch);
 
 	// If done_condition changed, emit item_created for human review
 	if (field === "done_condition") {

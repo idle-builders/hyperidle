@@ -12,6 +12,7 @@ import type {
 	SessionLifecycleCorrelation,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
+import * as routine from "../routine-service.js";
 import { terminalizeAgentSessionRequestInTx } from "./agent-session-requests.js";
 import type { IngestionHandle } from "./contracts.js";
 import { releaseSessionDedup } from "./cost-cap.js";
@@ -244,19 +245,16 @@ async function updateRoutineRunOnSessionEnd(
 		return;
 	}
 
-	await db
-		.update(routineRuns)
-		.set({
-			outcome,
-			// Set sessionId here so the historical record is complete even though
-			// it was NULL when the row was first inserted.
-			sessionId,
-			endedAt,
-			costMinor: costInCents > 0 ? costInCents : null,
-			costCurrency: costInCents > 0 ? "USD" : null,
-			...(summary ? { summary } : {}),
-		})
-		.where(eq(routineRuns.id, run.id));
+	await routine.updateRoutineRunById(db, run.id, {
+		outcome,
+		// Set sessionId here so the historical record is complete even though
+		// it was NULL when the row was first inserted.
+		sessionId,
+		endedAt,
+		costMinor: costInCents > 0 ? costInCents : null,
+		costCurrency: costInCents > 0 ? "USD" : null,
+		...(summary ? { summary } : {}),
+	});
 
 	// AF10 AC2: increment routines.costActualMinor (cumulative, += per run).
 	// costInCents is the per-run session total — a true delta w.r.t. the running
@@ -264,19 +262,16 @@ async function updateRoutineRunOnSessionEnd(
 	// concurrent routine runs (same pattern as recordCostAndCheck cost-cap.ts:247).
 	// @lore AF10: currency literal "USD" matches routineRuns.costCurrency write above.
 	// Single-currency factory assumption — see architecture.md §2 tech-debt note.
-	await db
-		.update(routines)
-		.set({
-			lastRunAt: endedAt,
-			...(costInCents > 0
-				? {
-						costActualMinor: sql`coalesce(${routines.costActualMinor}, 0) + ${costInCents}`,
-						costActualCurrency: "USD",
-					}
-				: {}),
-			...(summary ? { lastRunSummary: summary } : {}),
-		})
-		.where(eq(routines.id, routineId));
+	await routine.updateRoutineById(db, routineId, {
+		lastRunAt: endedAt,
+		...(costInCents > 0
+			? {
+					costActualMinor: sql`coalesce(${routines.costActualMinor}, 0) + ${costInCents}`,
+					costActualCurrency: "USD",
+				}
+			: {}),
+		...(summary ? { lastRunSummary: summary } : {}),
+	});
 }
 
 /**
