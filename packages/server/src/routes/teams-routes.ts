@@ -20,7 +20,6 @@
 
 import {
 	type HyperIdleDb,
-	messages,
 	notificationQueue,
 	sessions,
 	teamMembers,
@@ -57,12 +56,14 @@ import * as routineService from "../routine-service.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
+import { insertMessage, insertThread } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { upsertOrgEdge } from "../services/org-edges.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import { resolveTeamAgentHarness } from "../services/team-default-harness.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
+import { insertUser, updateUser } from "../services/user-store.js";
 import * as work from "../work-service.js";
 import {
 	computeHealthSignals,
@@ -536,7 +537,7 @@ export function createTeamRoutes(
 						.limit(1);
 					const assistantName = userRow ? `${userRow.name}'s Assistant` : "Assistant";
 
-					await db.insert(users).values({
+					await insertUser(db, {
 						id: assistantId,
 						kind: "ai",
 						name: assistantName,
@@ -550,14 +551,11 @@ export function createTeamRoutes(
 				} else if (stubHarness !== undefined) {
 					// Assistant already exists (created at user registration with no harness).
 					// Update it with the team's harness so the overlay opens ready.
-					await db
-						.update(users)
-						.set({
-							harnessType: stubHarness.harnessType,
-							modelId: stubHarness.modelId,
-							modelProvider: stubHarness.modelProvider,
-						})
-						.where(eq(users.id, assistantId));
+					await updateUser(db, assistantId, {
+						harnessType: stubHarness.harnessType,
+						modelId: stubHarness.modelId,
+						modelProvider: stubHarness.modelProvider,
+					});
 				}
 
 				// Create the thread if it doesn't exist.
@@ -568,7 +566,7 @@ export function createTeamRoutes(
 					.limit(1);
 
 				if (!existingThread) {
-					await db.insert(threads).values({
+					await insertThread(db, {
 						id: threadId,
 						hostKind: "user",
 						hostId: userId,
@@ -595,7 +593,7 @@ export function createTeamRoutes(
 
 				const welcomeText = `Welcome! Your team is ready with ${agentIds.length} agent${agentIds.length !== 1 ? "s" : ""}: ${agentLabels}. I'm here to help you steer them.`;
 
-				await db.insert(messages).values({
+				await insertMessage(db, {
 					id: `msg-welcome-${crypto.randomUUID()}`,
 					senderId: assistantId,
 					threadId,

@@ -12,11 +12,12 @@
 
 import { randomBytes } from "node:crypto";
 import type { HyperIdleDb, InviteCode, User } from "@hyperidle/db";
-import { inviteCodes, users } from "@hyperidle/db";
+import { inviteCodes } from "@hyperidle/db";
 import type { InviteRole } from "@hyperidle/shared";
 import { INVITE_CODE_TTL_MS } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { createLoginSession } from "./login-session.js";
+import { getOrCreateUser } from "./user-store.js";
 
 // ─── Code generation ──────────────────────────────────────────────────────────
 
@@ -109,23 +110,17 @@ export async function claimInvite(
 		const now = new Date().toISOString();
 		const userId = `u_${randomBytes(12).toString("hex")}`;
 
-		// Step 5: create user
-		const [user] = await tx
-			.insert(users)
-			.values({
-				id: userId,
-				kind: "human",
-				name,
-				email: email ?? null,
-				role: invite.role,
-				status: "active",
-				createdAt: now,
-			})
-			.returning();
-
-		if (!user) {
-			throw new Error("claimInvite: user insert returned no rows");
-		}
+		// Step 5: create user (routed through the owning store; fresh id, so
+		// get-or-create resolves to the just-inserted row and returns it).
+		const user = await getOrCreateUser(tx as HyperIdleDb, userId, {
+			id: userId,
+			kind: "human",
+			name,
+			email: email ?? null,
+			role: invite.role,
+			status: "active",
+			createdAt: now,
+		});
 
 		// Step 6: mark invite as claimed
 		await tx.update(inviteCodes).set({ claimedBy: userId }).where(eq(inviteCodes.id, invite.id));

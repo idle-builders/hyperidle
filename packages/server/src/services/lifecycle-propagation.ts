@@ -25,12 +25,10 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	messages,
 	type NewPropagationLogRow,
 	notificationQueue,
 	propagationLog,
 	sessions,
-	threads,
 	users,
 } from "@hyperidle/db";
 import {
@@ -47,6 +45,7 @@ import {
 import { and, eq, ne } from "drizzle-orm";
 import type { PropagationLevel } from "../knowledge/types.js";
 import * as work from "../work-service.js";
+import { insertMessage, insertThread } from "./conversation-store.js";
 
 /**
  * Shape of a single entry in the revision log JSON array.
@@ -546,7 +545,7 @@ async function createShipConfirmationThread(
 	const killedCount = allBetTasks.filter((t) => t.state === "killed").length;
 	const totalCount = allBetTasks.length;
 
-	await db.insert(threads).values({
+	await insertThread(db, {
 		id: threadId,
 		hostKind: "bet",
 		hostId: betId,
@@ -557,7 +556,7 @@ async function createShipConfirmationThread(
 	});
 
 	const messageId = crypto.randomUUID();
-	await db.insert(messages).values({
+	await insertMessage(db, {
 		id: messageId,
 		senderId: SYSTEM_PROPAGATION_AGENT_ID,
 		threadId,

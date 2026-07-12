@@ -3,6 +3,7 @@ import { threads, users } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { insertThread, updateThread } from "../services/conversation-store.js";
 import { routeItem } from "../services/item-router.js";
 import { resolveReviewRecipients } from "../services/org-routing.js";
 import * as work from "../work-service.js";
@@ -87,7 +88,7 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 		threadId = randomUUID();
 		// L1a: synthesize a host_kind for thread auto-creation. Use 'task' as
 		// a generic carrier (the item will route to a task in most flows).
-		await ctx.db.insert(threads).values({
+		await insertThread(ctx.db, {
 			id: threadId,
 			hostKind: "task",
 			hostId: ctx.taskId,
@@ -128,10 +129,7 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 				: [ctx.agentId];
 
 			const merged = mergeParticipants(currentParticipants, humanIds);
-			await ctx.db
-				.update(threads)
-				.set({ participants: JSON.stringify(merged) })
-				.where(eq(threads.id, threadId));
+			await updateThread(ctx.db, threadId, { participants: JSON.stringify(merged) });
 		}
 	}
 

@@ -2,17 +2,16 @@ import * as crypto from "node:crypto";
 import {
 	agentSessionRequests,
 	type HyperIdleDb,
-	messages,
 	sessions,
 	taskDispatchAttempts,
 	teamMembers,
-	threads,
 	users,
 } from "@hyperidle/db";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import * as work from "../work-service.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
+import { insertMessage, insertThread } from "./conversation-store.js";
 import { releaseSessionDedup } from "./cost-cap.js";
 import { requestAgentTermination, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
@@ -160,7 +159,7 @@ export async function handoff(
 
 			// Review thread + item
 			const reviewThreadId = crypto.randomUUID();
-			await tx.insert(threads).values({
+			await insertThread(tx as HyperIdleDb, {
 				id: reviewThreadId,
 				hostKind: "task",
 				hostId: task.id,
@@ -224,7 +223,7 @@ export async function handoff(
 				txResult = { status: "success", targetAgentId: availableAgent.id };
 			} else {
 				const escalationThreadId = crypto.randomUUID();
-				await tx.insert(threads).values({
+				await insertThread(tx as HyperIdleDb, {
 					id: escalationThreadId,
 					hostKind: "task",
 					hostId: task.id,
@@ -283,7 +282,7 @@ export async function handoff(
 				handoffPayload.error = metadata.error;
 			}
 			const messageId = crypto.randomUUID();
-			await tx.insert(messages).values({
+			await insertMessage(tx as HyperIdleDb, {
 				id: messageId,
 				senderId: sessionContext.agentId,
 				threadId: task.threadId,

@@ -41,6 +41,7 @@ import {
 	type HarnessCapabilityReader,
 	harnessRegistrationMeta,
 } from "../services/harness-capability-read-model.js";
+import { insertUser, updateUser } from "../services/user-store.js";
 import { handleAgentProfile } from "./agent-profile.js";
 
 // ---------------------------------------------------------------------------
@@ -312,7 +313,7 @@ export function createAgentRoutes(
 		const id = randomUUID();
 		const now = new Date().toISOString();
 
-		await db.insert(users).values({
+		await insertUser(db, {
 			id,
 			kind: "ai",
 			name: data.name,
@@ -417,7 +418,7 @@ export function createAgentRoutes(
 
 			const updateSet = buildPatchUpdateSet(data);
 			if (Object.keys(updateSet).length > 0) {
-				await db.update(users).set(updateSet).where(eq(users.id, id));
+				await updateUser(db, id, updateSet);
 			}
 
 			const [updated] = await db.select().from(users).where(eq(users.id, id)).limit(1);
@@ -490,7 +491,7 @@ export function createAgentRoutes(
 		if (Object.keys(updateSet).length === 0) {
 			// Nothing to update — return current state
 		} else {
-			await db.update(users).set(updateSet).where(eq(users.id, id));
+			await updateUser(db, id, updateSet);
 		}
 
 		const [updated] = await db.select().from(users).where(eq(users.id, id)).limit(1);
@@ -535,7 +536,7 @@ export function createAgentRoutes(
 			return c.json({ error: "Agent is already retired", code: "CONFLICT" }, 409);
 		}
 
-		await db.update(users).set({ status: "retired" }).where(eq(users.id, id));
+		await updateUser(db, id, { status: "retired" });
 
 		return c.json({ id, status: "retired" });
 	});

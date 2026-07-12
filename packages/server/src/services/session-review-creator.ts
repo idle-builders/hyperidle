@@ -2,6 +2,7 @@ import { type HyperIdleDb, sessions, taskPlanningSignals, threads, users } from 
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import * as work from "../work-service.js";
+import { insertThread, updateThread } from "./conversation-store.js";
 import { resolveReviewRecipients } from "./org-routing.js";
 
 /**
@@ -42,7 +43,7 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 				const now = new Date().toISOString();
 				// L1a: thread now carries host_kind/host_id; for session-review the
 				// host is the task that ended.
-				await db.insert(threads).values({
+				await insertThread(db, {
 					id: threadId,
 					hostKind: "task",
 					hostId: task.id,
@@ -84,10 +85,7 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 					: [session.agentId];
 
 				const merged = [...new Set([...currentParticipants, ...humanIds])].sort();
-				await db
-					.update(threads)
-					.set({ participants: JSON.stringify(merged) })
-					.where(eq(threads.id, threadId));
+				await updateThread(db, threadId, { participants: JSON.stringify(merged) });
 			}
 
 			// Create review item

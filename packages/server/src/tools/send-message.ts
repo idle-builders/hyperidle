@@ -1,8 +1,8 @@
 import * as crypto from "node:crypto";
-import { messages, users } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { findOrCreateDirectThread } from "../services/direct-thread.js";
+import { findOrCreateDirectThread, insertMessage } from "../services/conversation-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -28,13 +28,13 @@ async function handler(args: SendMessageInput, ctx: ToolContext): Promise<ToolRe
 
 	const now = new Date().toISOString();
 
-	// L1 step5 (W14): direct-thread reuse lives in `services/direct-thread.ts`
+	// L1 step5 (W14): direct-thread reuse lives in `conversation-store.ts`
 	// to avoid drift with the agent-inbox route.
 	const threadId = await findOrCreateDirectThread(ctx.db, ctx.agentId, to, now);
 
 	const messageId = crypto.randomUUID();
 	const text = subject ? `${subject}\n\n${body}` : body;
-	await ctx.db.insert(messages).values({
+	await insertMessage(ctx.db, {
 		id: messageId,
 		senderId: ctx.agentId,
 		threadId,

@@ -25,6 +25,7 @@ import { buildAttentionService } from "../knowledge/attention-service.js";
 import { runAutoPromotionSweep, runStaleSweep } from "../knowledge/promotion-pipeline.js";
 import * as routineService from "../routine-service.js";
 import * as work from "../work-service.js";
+import { insertThread } from "./conversation-store.js";
 import { createPracticeMeeting } from "./practice-meeting.js";
 // @lore AF6: cron helpers used only at runtime inside provisionTeamRoutines. The
 // scheduler↔builtin-routine-handlers import cycle is init-safe because neither module
@@ -349,7 +350,7 @@ async function runPostBetRetro(
 	const isoNow = new Date().toISOString();
 
 	await db.transaction(async (tx) => {
-		await tx.insert(threads).values({
+		await insertThread(tx as HyperIdleDb, {
 			id: threadId,
 			hostKind: "bet",
 			hostId: args.betId,
@@ -431,7 +432,7 @@ async function runPortfolioRetro(
 	const isoNow = new Date(nowMs).toISOString();
 
 	await db.transaction(async (tx) => {
-		await tx.insert(threads).values({
+		await insertThread(tx as HyperIdleDb, {
 			id: threadId,
 			hostKind: "factory",
 			hostId: "portfolio",

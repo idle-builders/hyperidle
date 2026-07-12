@@ -54,6 +54,12 @@ import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import {
+	insertMessage,
+	insertThread,
+	resolveMessageIfUnresolved,
+	updateThread,
+} from "../services/conversation-store.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
 import * as work from "../work-service.js";
@@ -867,7 +873,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 
 				try {
 					await db.transaction(async (tx) => {
-						await tx.insert(messages).values({
+						await insertMessage(tx as HyperIdleDb, {
 							id: reuseMessageId,
 							senderId,
 							threadId: existing.id,
@@ -877,10 +883,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 							blockId: reuseBlockId,
 							createdAt: nowReuse,
 						});
-						await tx
-							.update(threads)
-							.set({ lastActiveAt: nowReuse })
-							.where(eq(threads.id, existing.id));
+						await updateThread(tx as HyperIdleDb, existing.id, { lastActiveAt: nowReuse });
 					});
 				} catch (cause) {
 					return c.json(
@@ -951,7 +954,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 		try {
 			// @lore PGlite: db.transaction() callback is async (returns Promise<void>).
 			await db.transaction(async (tx) => {
-				await tx.insert(threads).values({
+				await insertThread(tx as HyperIdleDb, {
 					id: threadId,
 					hostKind: input.hostKind,
 					hostId: input.hostId,
@@ -970,7 +973,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					input.initialMessage.type === "plain"
 						? (input.initialMessage.payload.blockId ?? null)
 						: null;
-				await tx.insert(messages).values({
+				await insertMessage(tx as HyperIdleDb, {
 					id: messageId,
 					senderId,
 					threadId,
@@ -1013,7 +1016,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 							: null;
 					try {
 						await db.transaction(async (tx) => {
-							await tx.insert(messages).values({
+							await insertMessage(tx as HyperIdleDb, {
 								id: raceMsgId,
 								senderId,
 								threadId: winner.id,
@@ -1023,10 +1026,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 								blockId: raceBlockId,
 								createdAt: nowRace,
 							});
-							await tx
-								.update(threads)
-								.set({ lastActiveAt: nowRace })
-								.where(eq(threads.id, winner.id));
+							await updateThread(tx as HyperIdleDb, winner.id, { lastActiveAt: nowRace });
 						});
 					} catch {
 						// Best-effort — if append fails, still return the winner thread (idempotent)
@@ -1243,7 +1243,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 				await db.transaction(async (tx) => {
 					// T5: dual-write blockId to the structured column (safe narrowing — no `as` cast).
 					const appendBlockId = input.type === "plain" ? (input.payload.blockId ?? null) : null;
-					await tx.insert(messages).values({
+					await insertMessage(tx as HyperIdleDb, {
 						id: messageId,
 						senderId,
 						threadId,
@@ -1277,34 +1277,28 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 							participantSet.add(id);
 						}
 						const updatedParticipants = [...participantSet].sort();
-						await tx
-							.update(threads)
-							.set({ participants: JSON.stringify(updatedParticipants) })
-							.where(eq(threads.id, threadId));
+						await updateThread(tx as HyperIdleDb, threadId, {
+							participants: JSON.stringify(updatedParticipants),
+						});
 					}
 
 					if (input.type === "verdict" && resolvesMessageRow) {
-						const updated = await tx
-							.update(messages)
-							.set({ resolvedAt: now })
-							.where(
-								and(eq(messages.id, resolvesMessageRow.id), sql`${messages.resolvedAt} IS NULL`),
-							)
-							.returning({ id: messages.id });
+						const updated = await resolveMessageIfUnresolved(
+							tx as HyperIdleDb,
+							resolvesMessageRow.id,
+							now,
+						);
 						if (updated.length === 0) {
 							throw new VerdictRaceConflict();
 						}
-						await tx
-							.update(threads)
-							.set({ resolvedAt: now, lastActiveAt: now })
-							.where(eq(threads.id, threadId));
+						await updateThread(tx as HyperIdleDb, threadId, { resolvedAt: now, lastActiveAt: now });
 					} else if (willReopen) {
-						await tx
-							.update(threads)
-							.set({ resolvedAt: null, lastActiveAt: now })
-							.where(eq(threads.id, threadId));
+						await updateThread(tx as HyperIdleDb, threadId, {
+							resolvedAt: null,
+							lastActiveAt: now,
+						});
 					} else {
-						await tx.update(threads).set({ lastActiveAt: now }).where(eq(threads.id, threadId));
+						await updateThread(tx as HyperIdleDb, threadId, { lastActiveAt: now });
 					}
 				});
 			} catch (cause) {

@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { type HyperIdleDb, threads } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import * as work from "../work-service.js";
+import { insertThread } from "./conversation-store.js";
 
 /** Stable marker recorded in `items.reasoning` for attention-engine reviews. */
 export const ATTENTION_REVIEW_SOURCE = "attention_engine";
@@ -58,7 +59,7 @@ export async function createReviewItemForKnowledge(
 
 	// L1a: thread now carries host_kind/host_id; for knowledge-review the
 	// host is the knowledge item being reviewed.
-	await db.insert(threads).values({
+	await insertThread(db, {
 		id: threadId,
 		hostKind: "knowledge_item",
 		hostId: input.knowledgeItemId,

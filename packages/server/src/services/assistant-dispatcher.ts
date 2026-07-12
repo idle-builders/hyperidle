@@ -23,6 +23,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { threads, users } from "@hyperidle/db";
 import type { EventBus, ThreadMessageAppendedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import { updateThread } from "./conversation-store.js";
 
 // ---------------------------------------------------------------------------
 // Filter types and pure functions (exported for unit testing)
@@ -116,7 +117,7 @@ export function registerAssistantDispatcher(eventBus: EventBus, db: HyperIdleDb)
 					// AC-6: When the AI assistant posts their first response to an assistant
 					// thread, pin the thread. Idempotent — skip if already pinned.
 					if (senderRow.kind === "ai" && isAssistantThread(threadLike) && !threadLike.pinned) {
-						await db.update(threads).set({ pinned: true }).where(eq(threads.id, event.threadId));
+						await updateThread(db, event.threadId, { pinned: true });
 
 						logger.info("assistant thread pinned after first response", {
 							threadId: event.threadId,

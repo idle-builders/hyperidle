@@ -12,11 +12,16 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
-import { findOrCreateDirectThread } from "../services/direct-thread.js";
+import {
+	findOrCreateDirectThread,
+	insertMessage,
+	insertThread,
+} from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import * as work from "../work-service.js";
+import { insertUser, updateUser } from "../services/user-store.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
 
 const updateSkillSchema = z.object({
@@ -120,7 +125,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
-		await db.insert(users).values({
+		await insertUser(db, {
 			id,
 			kind: "human",
 			name,
@@ -251,7 +256,7 @@ export function createUserRoutes(
 		if (parsed.data.email !== undefined) updates.email = parsed.data.email;
 
 		if (Object.keys(updates).length > 0) {
-			await db.update(users).set(updates).where(eq(users.id, targetId));
+			await updateUser(db, targetId, updates);
 		}
 
 		const [updated] = await db.select().from(users).where(eq(users.id, targetId)).limit(1);
@@ -296,7 +301,7 @@ export function createUserRoutes(
 				const threadId = crypto.randomUUID();
 				const now = new Date().toISOString();
 
-				await db.insert(threads).values({
+				await insertThread(db, {
 					id: threadId,
 					hostKind: "agent",
 					hostId: userId,
@@ -407,7 +412,7 @@ export function createUserRoutes(
 
 			const messageId = crypto.randomUUID();
 			const text = body.subject ? `${body.subject}\n\n${body.body}` : body.body;
-			await db.insert(messages).values({
+			await insertMessage(db, {
 				id: messageId,
 				senderId,
 				threadId,

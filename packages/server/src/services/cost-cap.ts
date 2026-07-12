@@ -7,6 +7,7 @@ import { bets, factorySettings, type HyperIdleDb, teamMembers, users } from "@hy
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import * as work from "../work-service.js";
+import { resetAllUserCost, updateUser } from "./user-store.js";
 
 export interface CostCapResult {
 	allowed: boolean;
@@ -235,10 +236,9 @@ export async function recordCostAndCheck(
 
 	if (effectiveCostMinor > 0) {
 		// Accumulate on agent
-		await db
-			.update(users)
-			.set({ costActual: sql`coalesce(${users.costActual}, 0) + ${effectiveCostMinor}` })
-			.where(eq(users.id, params.agentId));
+		await updateUser(db, params.agentId, {
+			costActual: sql`coalesce(${users.costActual}, 0) + ${effectiveCostMinor}`,
+		});
 
 		// Accumulate on team if provided
 		// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
@@ -510,7 +510,7 @@ export async function resetCosts(
 	switch (normalizedParams.level) {
 		case "agent": {
 			if (!normalizedParams.id) throw new Error("Agent ID required for agent reset");
-			await db.update(users).set({ costActual: 0 }).where(eq(users.id, normalizedParams.id));
+			await updateUser(db, normalizedParams.id, { costActual: 0 });
 			break;
 		}
 		case "team": {
@@ -524,7 +524,7 @@ export async function resetCosts(
 		}
 		case "factory": {
 			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
-			await db.update(users).set({ costActual: 0 }).where(sql`true`);
+			await resetAllUserCost(db);
 			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
 			await db.update(teamMembers).set({ costActual: 0 }).where(sql`true`);
 			break;

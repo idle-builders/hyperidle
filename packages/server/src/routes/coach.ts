@@ -31,6 +31,7 @@ import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { insertThread } from "../services/conversation-store.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
 // @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths
@@ -186,7 +187,7 @@ export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<Hy
 		const now = new Date().toISOString();
 		const participantsList = [userId, COC_AGENT_ID].sort();
 
-		await db.insert(threads).values({
+		await insertThread(db, {
 			id: threadId,
 			hostKind: "user",
 			hostId: userId,

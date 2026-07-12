@@ -36,8 +36,10 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
+import { insertThread } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
+import { updateUser } from "../services/user-store.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
@@ -222,7 +224,7 @@ export function createAssistantThreadRoute(
 		const now = new Date().toISOString();
 		const participantsList = [userId, assistantAgentId].sort();
 
-		await db.insert(threads).values({
+		await insertThread(db, {
 			id: threadId,
 			hostKind: "user",
 			hostId: userId,
@@ -469,7 +471,7 @@ export function createAssistantSoulRoutes(
 			updateSet.modelProvider = modelProvider;
 		}
 
-		await db.update(users).set(updateSet).where(eq(users.id, assistantAgentId));
+		await updateUser(db, assistantAgentId, updateSet);
 
 		// Re-read the updated row to return accurate values
 		const [updatedRow] = await db

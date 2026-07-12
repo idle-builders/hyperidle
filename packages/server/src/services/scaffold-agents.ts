@@ -29,6 +29,7 @@ import { users } from "@hyperidle/db";
 import type { PrimaryHarnessConfig } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { AgentScaffoldSpec } from "./contracts.js";
+import { insertUser } from "./user-store.js";
 
 export interface ScaffoldResult {
 	agentIds: string[];
@@ -100,7 +101,7 @@ export async function persistScaffoldedAgents(
 		const agentId = await resolveAgentId(db, spec.idHint);
 		agentIds.push(agentId);
 
-		await db.insert(users).values({
+		await insertUser(db, {
 			id: agentId,
 			kind: "ai",
 			name: spec.name,
