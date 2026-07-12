@@ -11,14 +11,16 @@
 import {
 	type HyperIdleDb,
 	type KnowledgeItem,
+	knowledgeAccessLog,
 	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
 
-import type { KernelKnowledgeStatus } from "@hyperidle/shared";
+import { type KernelKnowledgeStatus, type SCOPE_KINDS, scopeToLayer } from "@hyperidle/shared";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { escapeLikePattern } from "../services/like-escape.js";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { type FtsSearchOptions, ftsSearch } from "./fts.js";
 import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js";
@@ -494,4 +496,512 @@ export async function search(
 	}
 
 	return items;
+}
+
+// ---------------------------------------------------------------------------
+// AU14 round 2 — additional read surface for routes/knowledge.ts's GET
+// handlers + the write handlers' own kernel-row pre-checks/re-selects.
+// See plans/AU14/architecture-round2.md §6. Deliberately new functions
+// (not extensions of list()/search() above) so the existing non-HTTP
+// callers of list()/search() (context-assembly.ts, query-practice.ts) see
+// zero behavior change (§13).
+// ---------------------------------------------------------------------------
+
+export interface KnowledgeListRow {
+	item: KnowledgeItem;
+	relevanceScore: string | null;
+	attentionScore: string | null;
+	accessCount30d: number | null;
+	lastActivityAt: string | null;
+}
+
+export interface KnowledgeDetailRow {
+	item: KnowledgeItem;
+	kind: string | null;
+	layer: string | null;
+	confidence: string | null;
+	relevanceScore: string | null;
+	attentionScore: string | null;
+}
+
+/** Fetch a single kernel knowledge item row by id, or null if not found. */
+export async function findById(db: HyperIdleDb, id: string): Promise<KnowledgeItem | null> {
+	const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
+	return row ?? null;
+}
+
+/**
+ * LIKE-substring search across title/body/topic, exactly as `GET /search`
+ * performed inline pre-AU14-round2. NOT the same as `search()` above, which
+ * uses FTS `tsvector` (whole-word, title+body only, no topic). Repointing
+ * `GET /search` to `search()` would silently drop topic matches and turn
+ * substring matching into word matching — a forbidden behavior change that
+ * would also change `tools/query-practice.ts`'s FTS-ranked results.
+ */
+export function searchByText(db: HyperIdleDb, query: string): Promise<KnowledgeItem[]> {
+	const pattern = `%${escapeLikePattern(query)}%`;
+	return db
+		.select()
+		.from(knowledgeItems)
+		.where(
+			and(
+				or(
+					sql`${knowledgeItems.title} LIKE ${pattern} ESCAPE '\\'`,
+					sql`${knowledgeItems.body} LIKE ${pattern} ESCAPE '\\'`,
+					sql`${knowledgeItems.topic} LIKE ${pattern} ESCAPE '\\'`,
+				),
+			),
+		);
+}
+
+/**
+ * `GET /` read: all items visible to `viewerUserId` (Q2), LEFT JOINed with
+ * the app projection for relevanceScore/attentionScore, plus L22 access
+ * signals (30-day accessCount + lastActivityAt) computed from a single
+ * batched `knowledgeAccessLog` query (avoids N+1).
+ */
+export async function listVisibleWithSignals(
+	db: HyperIdleDb,
+	viewerUserId: string,
+): Promise<KnowledgeListRow[]> {
+	const rawItems = await db
+		.select({
+			item: knowledgeItems,
+			relevanceScore: knowledgeAppProjection.relevanceScore,
+			attentionScore: knowledgeAppProjection.attentionScore,
+		})
+		.from(knowledgeItems)
+		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
+		.where(or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, viewerUserId)));
+
+	const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+	const allAccessRows = await db
+		.select()
+		.from(knowledgeAccessLog)
+		.where(sql`${knowledgeAccessLog.accessedAt} >= ${thirtyDaysAgo}`);
+
+	const accessByItem = new Map<string, typeof allAccessRows>();
+	for (const row of allAccessRows) {
+		const existing = accessByItem.get(row.itemId) ?? [];
+		existing.push(row);
+		accessByItem.set(row.itemId, existing);
+	}
+
+	return rawItems.map(({ item, relevanceScore, attentionScore }) => {
+		const accessRows = accessByItem.get(item.id) ?? [];
+		const accessCount30d = accessRows.length > 0 ? accessRows.length : null;
+		const lastActivityAt =
+			accessRows.length > 0
+				? accessRows.reduce(
+						(latest, r) => (r.accessedAt > latest ? r.accessedAt : latest),
+						accessRows[0]?.accessedAt ?? "",
+					)
+				: null;
+		return { item, relevanceScore, attentionScore, accessCount30d, lastActivityAt };
+	});
+}
+
+/** `GET /triage-count`: count of draft + needs_human items visible to `viewerUserId` (Q2). */
+export async function countTriageVisible(db: HyperIdleDb, viewerUserId: string): Promise<number> {
+	const [result] = await db
+		.select({ count: sql<number>`count(*)` })
+		.from(knowledgeItems)
+		.where(
+			and(
+				inArray(knowledgeItems.status, ["draft", "needs_human"]),
+				or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, viewerUserId)),
+			),
+		);
+	return Number(result?.count ?? 0);
+}
+
+/**
+ * `GET /:id` detail read: kernel row LEFT JOINed with the app projection.
+ * Q2 is NOT applied here — it's a 404 *decision*, not a query filter, and
+ * stays route-side (§5).
+ */
+export async function findDetailById(
+	db: HyperIdleDb,
+	id: string,
+): Promise<KnowledgeDetailRow | null> {
+	const [row] = await db
+		.select({
+			item: knowledgeItems,
+			kind: knowledgeAppProjection.kind,
+			layer: knowledgeAppProjection.layer,
+			confidence: knowledgeAppProjection.confidence,
+			relevanceScore: knowledgeAppProjection.relevanceScore,
+			attentionScore: knowledgeAppProjection.attentionScore,
+		})
+		.from(knowledgeItems)
+		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
+		.where(eq(knowledgeItems.id, id))
+		.limit(1);
+	return row ?? null;
+}
+
+/**
+ * `GET /:id` AF13 accessCount: count of `knowledgeAccessLog` rows for
+ * `itemId` since `sinceIso`. Caller (the route) must run this strictly
+ * before the access-log INSERT so the current page-load is excluded.
+ */
+export async function countAccessesSince(
+	db: HyperIdleDb,
+	itemId: string,
+	sinceIso: string,
+): Promise<number> {
+	const [row] = await db
+		.select({ count: sql<number>`count(*)` })
+		.from(knowledgeAccessLog)
+		.where(
+			and(
+				eq(knowledgeAccessLog.itemId, itemId),
+				sql`${knowledgeAccessLog.accessedAt} >= ${sinceIso}`,
+			),
+		);
+	return Number(row?.count ?? 0);
+}
+
+/** `GET /:id` AF13 relatedItems: same-topic items visible to `opts.viewerUserId` (Q2), capped. */
+export function findRelatedByTopic(
+	db: HyperIdleDb,
+	opts: { topic: string; excludeId: string; viewerUserId: string; limit: number },
+): Promise<Array<{ id: string; title: string }>> {
+	return db
+		.select({ id: knowledgeItems.id, title: knowledgeItems.title })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.topic, opts.topic),
+				ne(knowledgeItems.id, opts.excludeId),
+				or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, opts.viewerUserId)),
+			),
+		)
+		.limit(opts.limit);
+}
+
+// ---------------------------------------------------------------------------
+// AU14 round 2 — the five specialized write handlers' own reads AND writes,
+// moved verbatim from routes/knowledge.ts. See plans/AU14/architecture-round2.md
+// §7. None of these delegates to create()/update() — each replicates its
+// handler's EXACT write sequence (edit-log rows, projection updates, and
+// deliberate omissions like "no version bump" / "no create edit-log row")
+// because delegating would change observable behavior the WP forbids (§7a).
+// ---------------------------------------------------------------------------
+
+/**
+ * Write or upsert a knowledgeAppProjection row for the given knowledge item.
+ * If a projection row already exists, updates the layer column. If no
+ * projection row exists, creates one (layer may be null for bet/team/user/
+ * filesystem scopes).
+ *
+ * @lore AU14 round 2: moved verbatim from routes/knowledge.ts's identically-named
+ * helper (deleted there once its callers — scope, split, and round-1 POST — all
+ * moved into the repository). Behavior byte-identical to the pre-round-2 route
+ * copy — see plans/AU14/architecture-round2.md §7b.
+ */
+async function upsertProjectionLayer(
+	db: HyperIdleDb,
+	knowledgeItemId: string,
+	scopeKind: string,
+): Promise<void> {
+	const layer = scopeToLayer(
+		// Safe cast: scopeKind is always a validated SCOPE_KINDS member by the time
+		// it reaches here (route-side zod validation for scope/create/split callers).
+		scopeKind as (typeof SCOPE_KINDS)[number],
+	);
+
+	const [existing] = await db
+		.select()
+		.from(knowledgeAppProjection)
+		.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId))
+		.limit(1);
+
+	if (existing) {
+		await db
+			.update(knowledgeAppProjection)
+			.set({ layer })
+			.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId));
+	} else {
+		await db.insert(knowledgeAppProjection).values({
+			id: generateId(),
+			knowledgeItemId,
+			layer,
+		});
+	}
+}
+
+/**
+ * `PATCH /:id/scope` — replicates the pre-round-2 route's exact write
+ * sequence (§7c): conditional scope_kind/scope_id edit-log rows (editType
+ * "scope_change", exact `"${scopeKind} (reason: ${reason})"` newValue format
+ * on the scope_kind row), version+1, projection-layer upsert. The route
+ * keeps the 404 (via findById) and the 409 version pre-check — this function
+ * does no version recheck of its own (faithful: the pre-round-2 handler had none).
+ */
+export async function changeScope(
+	db: HyperIdleDb,
+	existing: KnowledgeItem,
+	input: { scopeKind: string; scopeId: string | null; reason: string; updatedBy: string },
+): Promise<KnowledgeItem> {
+	const timestamp = now();
+	const resolvedScopeId = input.scopeId;
+
+	if (existing.scopeKind !== input.scopeKind) {
+		await db.insert(knowledgeEditLog).values({
+			id: generateId(),
+			itemId: existing.id,
+			editor: input.updatedBy,
+			field: "scope_kind",
+			oldValue: existing.scopeKind,
+			newValue: `${input.scopeKind} (reason: ${input.reason})`,
+			editType: "scope_change",
+			createdAt: timestamp,
+		});
+	}
+
+	if (existing.scopeId !== resolvedScopeId) {
+		await db.insert(knowledgeEditLog).values({
+			id: generateId(),
+			itemId: existing.id,
+			editor: input.updatedBy,
+			field: "scope_id",
+			oldValue: existing.scopeId ?? null,
+			newValue: resolvedScopeId ?? null,
+			editType: "scope_change",
+			createdAt: timestamp,
+		});
+	}
+
+	await db
+		.update(knowledgeItems)
+		.set({
+			scopeKind: input.scopeKind,
+			scopeId: resolvedScopeId,
+			version: existing.version + 1,
+			updatedBy: input.updatedBy,
+			updatedAt: timestamp,
+		})
+		.where(eq(knowledgeItems.id, existing.id));
+
+	await upsertProjectionLayer(db, existing.id, input.scopeKind);
+
+	const [updated] = await db
+		.select()
+		.from(knowledgeItems)
+		.where(eq(knowledgeItems.id, existing.id))
+		.limit(1);
+	if (!updated) {
+		throw new Error(`Failed to read back knowledge item ${existing.id} after scope change`);
+	}
+	return updated;
+}
+
+/**
+ * `POST /:id/merge` — replicates the pre-round-2 route's exact write
+ * sequence (§7c): target body-append + version+1 + updatedBy; source
+ * status→archived + updatedBy; two `editType:"merge"` edit-log rows
+ * (target's on field "body", source's on field "status"). Non-transactional,
+ * as today.
+ */
+export async function mergeItems(
+	db: HyperIdleDb,
+	input: { target: KnowledgeItem; source: KnowledgeItem; updatedBy: string },
+): Promise<KnowledgeItem> {
+	const timestamp = now();
+	const mergedBody = `${input.target.body}\n\n---\n\n${input.source.body}`;
+
+	await db
+		.update(knowledgeItems)
+		.set({
+			body: mergedBody,
+			version: input.target.version + 1,
+			updatedBy: input.updatedBy,
+			updatedAt: timestamp,
+		})
+		.where(eq(knowledgeItems.id, input.target.id));
+
+	await db
+		.update(knowledgeItems)
+		.set({ status: "archived", updatedBy: input.updatedBy, updatedAt: timestamp })
+		.where(eq(knowledgeItems.id, input.source.id));
+
+	await db.insert(knowledgeEditLog).values({
+		id: generateId(),
+		itemId: input.target.id,
+		editor: input.updatedBy,
+		field: "body",
+		oldValue: input.target.body,
+		newValue: mergedBody,
+		editType: "merge",
+		createdAt: timestamp,
+	});
+
+	await db.insert(knowledgeEditLog).values({
+		id: generateId(),
+		itemId: input.source.id,
+		editor: input.updatedBy,
+		field: "status",
+		oldValue: input.source.status,
+		newValue: "archived",
+		editType: "merge",
+		createdAt: timestamp,
+	});
+
+	const [merged] = await db
+		.select()
+		.from(knowledgeItems)
+		.where(eq(knowledgeItems.id, input.target.id))
+		.limit(1);
+	if (!merged) {
+		throw new Error(`Failed to read back knowledge item ${input.target.id} after merge`);
+	}
+	return merged;
+}
+
+/**
+ * `POST /:id/split` — replicates the pre-round-2 route's exact write
+ * sequence (§7c): N new kernel rows (status "draft", version 1, inheriting
+ * the original's scope/format) + a layer-only projection row per new item
+ * (via upsertProjectionLayer — scopeId/kind stay null), then archives the
+ * original with a single `editType:"split"` edit-log row. Non-transactional,
+ * as today.
+ *
+ * @lore AU14 round 2: deliberately does NOT call create() for the new items.
+ * create() would add an unwanted `editType:"create"` edit-log row per new
+ * item and populate projection.scopeId/kind — both forbidden behavior
+ * changes for split (§7c). This is the single highest-risk divergence in
+ * the whole round; net-new test 3 locks it (zero create rows, layer-only
+ * projection with scopeId===null).
+ */
+export async function splitItem(
+	db: HyperIdleDb,
+	input: {
+		original: KnowledgeItem;
+		newItems: Array<{ title: string; body: string; topic?: string }>;
+		updatedBy: string;
+	},
+): Promise<KnowledgeItem[]> {
+	const timestamp = now();
+	const created: KnowledgeItem[] = [];
+
+	for (const newItem of input.newItems) {
+		const newId = generateId();
+		await db.insert(knowledgeItems).values({
+			id: newId,
+			scopeKind: input.original.scopeKind,
+			scopeId: input.original.scopeId,
+			topic: newItem.topic ?? input.original.topic,
+			title: newItem.title,
+			body: newItem.body,
+			format: input.original.format,
+			status: "draft",
+			version: 1,
+			updatedBy: input.updatedBy,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+		});
+
+		await upsertProjectionLayer(db, newId, input.original.scopeKind);
+
+		const [row] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, newId))
+			.limit(1);
+		if (!row) {
+			throw new Error(`Failed to read back split item ${newId}`);
+		}
+		created.push(row);
+	}
+
+	await db
+		.update(knowledgeItems)
+		.set({ status: "archived", updatedBy: input.updatedBy, updatedAt: timestamp })
+		.where(eq(knowledgeItems.id, input.original.id));
+
+	await db.insert(knowledgeEditLog).values({
+		id: generateId(),
+		itemId: input.original.id,
+		editor: input.updatedBy,
+		field: "status",
+		oldValue: input.original.status,
+		newValue: "archived",
+		editType: "split",
+		createdAt: timestamp,
+	});
+
+	return created;
+}
+
+/**
+ * `POST /:id/archive` — replicates the pre-round-2 route's exact write
+ * sequence (§7c): status→archived + updatedAt ONLY — deliberately NO version
+ * bump, NO updatedBy rewrite (unlike update(), which unconditionally bumps
+ * version on every call — §7a) — plus one `editType:"archive"` edit-log row.
+ */
+export async function archiveItem(db: HyperIdleDb, item: KnowledgeItem): Promise<KnowledgeItem> {
+	const timestamp = now();
+	await db
+		.update(knowledgeItems)
+		.set({ status: "archived", updatedAt: timestamp })
+		.where(eq(knowledgeItems.id, item.id));
+
+	await db.insert(knowledgeEditLog).values({
+		id: generateId(),
+		itemId: item.id,
+		editor: item.updatedBy,
+		field: "status",
+		oldValue: item.status,
+		newValue: "archived",
+		editType: "archive",
+		createdAt: timestamp,
+	});
+
+	const [row] = await db
+		.select()
+		.from(knowledgeItems)
+		.where(eq(knowledgeItems.id, item.id))
+		.limit(1);
+	if (!row) {
+		throw new Error(`Failed to read back knowledge item ${item.id} after archive`);
+	}
+	return row;
+}
+
+/**
+ * `POST /:id/flag` — replicates the pre-round-2 route's exact write
+ * sequence (§7c/§7d): status→draft + updatedAt ONLY — deliberately NO
+ * version bump, NO updatedBy rewrite (same reasoning as archiveItem) —
+ * plus one `editType:"flag"` edit-log row with the exact
+ * `"flagged (reason: ${reason})"` newValue format.
+ *
+ * @lore AU14 round 2: accepts the CALLER's db/transaction handle and opens
+ * NO transaction of its own. The route wraps this call, the knowledgeEditLog
+ * insert, and (when agentId is present) recordAgentWorkIntent (an agent-layer
+ * write — wrong domain for this repository) in ONE `db.transaction` — the
+ * pre-existing cross-domain atomic composition (§7d). Returns void; the route
+ * re-fetches via findById after the transaction commits.
+ */
+export async function flagItem(
+	db: HyperIdleDb,
+	item: KnowledgeItem,
+	input: { reason: string; editId: string },
+): Promise<void> {
+	const timestamp = now();
+	await db
+		.update(knowledgeItems)
+		.set({ status: "draft", updatedAt: timestamp })
+		.where(eq(knowledgeItems.id, item.id));
+
+	await db.insert(knowledgeEditLog).values({
+		id: input.editId,
+		itemId: item.id,
+		editor: item.updatedBy,
+		field: "status",
+		oldValue: item.status,
+		newValue: `flagged (reason: ${input.reason})`,
+		editType: "flag",
+		createdAt: timestamp,
+	});
 }

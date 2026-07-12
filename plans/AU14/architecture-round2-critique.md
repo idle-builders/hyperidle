@@ -63,3 +63,38 @@ This is the same class of "we thought it was covered but it wasn't" narrowing th
 
 ## Disposition
 BLOCKED. C1 must be fixed (add the three exact-behavior lock tests; retract the false "fully pinned" claim). W1/W2 should be fixed in the same revision. On those, the plan's core architecture — 5 bespoke replication functions, `findById` for all kernel reads, route-owned events/404/409/scope-resolution, file-scoped 4-method guard — is sound and the zero-exclusion directive is genuinely met by the design.
+
+---
+
+## Round 2 verification (independent re-critique, 2026-07-12)
+
+**Reviewer:** fresh evaluator, re-verifying closure of C1/W1/W2 against real code — not trusting the planner's self-report.
+**Plan under review:** revised `architecture-round2.md` (§7a, §9, §11 tests 4–6, §14).
+**Verdict: APPROVED.** All three findings genuinely closed; no new scope-narrowing or false claim introduced.
+
+### C1 — CLOSED (verified)
+The false "fully pinned" claim is retracted (§11 "Retraction" paragraph) and replaced by three concrete lock tests. Each asserts exact DB state via `{ db }` fixture / repo import, and each would actually fail a real regression:
+- **Test 4 (`archiveItem`)** — asserts post-call `version === pre-call item.version` (NOT bumped), `updatedBy` unchanged, `status==="archived"`, exactly one `editType:"archive"` edit-log row (`field:"status"`, `oldValue`=prior status, `editor===item.updatedBy`). Verified against the real archive handler (route 1047–1080): `.set({status:"archived", updatedAt})` only — no version bump, no updatedBy. Routing archive through any version-bumping helper fails test 4. Catches the exact §7a regression.
+- **Test 5a (`flagItem`)** — `status==="draft"`, `version`/`updatedBy` unchanged, exactly one `editType:"flag"` row with `newValue === "flagged (reason: ${reason})"` (exact string) and `id===editId`. Verified against real flag handler (route 1146–1167). Catches wrong edit-log format + version-bump.
+- **Test 5b (atomic positive + no-agentId complement)** — reads back the flag row, derives `editId`, asserts both the flag edit-log row AND an `agentWorkIntents` row with `idempotencyKey==="knowledge:${id}:review:${editId}"`, `requestedBy===agentId`; complement without `agentId` → flag row present, zero intent rows. Matches route behavior (intent recorded only when `body.agentId`).
+- **Test 5c (rollback) — justification verified against real code, holds.** The plan's reason for aborting the outer tx rather than forcing `recordAgentWorkIntent` to throw is factually correct:
+  1. `recordAgentWorkIntent` (`services/agent-work-intents.ts:37`) selects-first, then `insert(...).onConflictDoNothing().returning()`, returning the existing row on collision — it does **not** throw on a duplicate key. ✓
+  2. `editId = crypto.randomUUID()` and `idempotencyKey = knowledge:${id}:review:${editId}` are generated fresh per request (route 1140) — a key collision cannot be pre-seeded. ✓
+  3. The `agentId`→`users` existence check runs **before** `db.transaction` (route 1125–1135) — a bad `agentId` cannot FK-fail mid-tx. ✓
+  So there is genuinely no honest, deterministic lever to make the cross-domain write throw mid-tx without a behavior-driving stub (forbidden by CLAUDE.md). 5c proves the identical invariant (flagItem writes only through the caller `tx`, opens no inner tx → outer abort rolls it back) stub-free. 5b + 5c together pin §7d. Sound.
+- **Test 6 (`changeScope`)** — asserts `editType==="scope_change"` (grep-confirmed unpinned everywhere today) and exact `newValue` format (`scope_kind` row === `"${scopeKind} (reason: ${reason})"`, `scope_id` row === `resolvedScopeId`). Closes C1.3.
+
+### W1 — CLOSED (verified)
+§9 widens the matcher from `.from`/`.insert`/`.update`/`.delete` to **also** `.leftJoin`/`.innerJoin`/`.rightJoin`/`.fullJoin` with first-arg identifier `knowledgeItems`, closing the `.from(other).innerJoin(knowledgeItems,…)` evasion. The `--fixtures` self-test genuinely exercises a join positive case (`.from(knowledgeAppProjection).innerJoin(knowledgeItems,…)` → finding) **and** a join negative case (`.from(knowledgeAppProjection).leftJoin(knowledgeStrategyFabric,…)`, `knowledgeItems` absent → allowed), proving the join matcher fires only on `knowledgeItems`. Clone base `scripts/au13-work-routine-ownership-guard.ts` confirmed to have the AST-scan + `--fixtures` shape the plan extends. (Minor, non-blocking: an `alias(knowledgeItems,…)` first-arg would be a `CallExpression`, not the bare identifier, and would slip the matcher — not present today, not in scope; note only.)
+
+### W2 — CLOSED (verified)
+Re-read `knowledge-repository.ts` `update()` myself: the `.set({...kernelChanges, version: newVersion, updatedAt})` writes `version = existing.version + 1` **unconditionally** on every call, independent of `kernelChanges`; `updatedBy` reaches the row only via `kernelChanges`, which `buildDiff` populates **only** when the caller passes `updatedBy` (`if (!(field in changes) || changes[field] === undefined) continue`). The revised §7a wording now states exactly this ("unconditionally bumps version… does NOT unconditionally rewrite updatedBy") — accurate. The delegation-impossibility conclusion rests on the true invariant.
+
+### Nothing new broke
+Spot-checked the revision for fresh scope-narrowing / false claims:
+- Test 3's new assertion "each new split item's projection row has `scopeId===null` (layer-only)" — verified against the real `upsertProjectionLayer` (route 296–323): inserts only `{id, knowledgeItemId, layer}`, leaving `scopeId`/`kind` null. Accurate.
+- §14 correctly frames the critique fixes as purely additive (test coverage + guard widening + wording), scope unchanged — no closure regression.
+- No handler carve-out re-introduced; the zero-exclusion design from round 1's "What is solid" section is intact.
+
+### Disposition
+**APPROVED — ready for build.** C1, W1, W2 all genuinely closed (evidence above). Builder DoD stands: keep every existing suite green, add tests 1–6 red-before-green, flip the guard red→green. Remaining NOTES (N1–N3, plus the `alias()` matcher edge) are non-blocking.
