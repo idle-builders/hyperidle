@@ -17,10 +17,10 @@
  * post-hand-off provision failure (`projectRoutine`).
  */
 import {
-	type HyperIdleDb,
 	agentLifecycleInbox,
 	agentSessionRequests,
 	agentWorkIntents,
+	type HyperIdleDb,
 	routineRuns,
 	routines,
 	sessions,
@@ -56,7 +56,9 @@ async function seedRoutineWorld(
 	const tmId = `${id}-tm`;
 	const ownerAgentId = `${id}-owner`;
 
-	await db.insert(teams).values({ id: teamId, name: "AU15 sched team", phase: "build", createdAt: NOW });
+	await db
+		.insert(teams)
+		.values({ id: teamId, name: "AU15 sched team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
 		.values({ id: tmId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
@@ -83,7 +85,7 @@ async function seedRoutineWorld(
 	return { routineId: id, ownerAgentId };
 }
 
-describe("AU15 R2: fire-time no longer evaluates owner-WIP", () => {
+describe("fire-time no longer evaluates owner-WIP", () => {
 	test("owner at WIP still fires (records a run + intent) — selection moved to drain", async ({
 		db,
 		eventBus,
@@ -112,7 +114,7 @@ describe("AU15 R2: fire-time no longer evaluates owner-WIP", () => {
 	});
 });
 
-describe("AU15 R3 (AC-3b, W2): unified run-row coalescing across both fire paths", () => {
+describe("unified run-row coalescing across both fire paths", () => {
 	test("poll path: a second checkAndFireRoutine coalesces against an in-flight run", async ({
 		db,
 		eventBus,
@@ -169,7 +171,7 @@ describe("AU15 R3 (AC-3b, W2): unified run-row coalescing across both fire paths
 	});
 });
 
-describe("AU15 R4 (AC-3c/AC-3d, W3): terminal-failure finalization of session-less running runs", () => {
+describe("terminal-failure finalization of session-less running runs", () => {
 	test("AC-3d: pre-hand-off intent failure (routine deactivated) finalizes the run, self-healing coalescing", async ({
 		db,
 		eventBus,

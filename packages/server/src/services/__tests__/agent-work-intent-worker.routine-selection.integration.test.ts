@@ -9,9 +9,9 @@
  * target agent — never the fire-time selection (which no longer exists).
  */
 import {
-	type HyperIdleDb,
 	agentSessionRequests,
 	agentWorkIntents,
+	type HyperIdleDb,
 	routines,
 	sessions,
 	teamMembers,
@@ -21,9 +21,9 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import * as routineService from "../../routine-service.js";
+import { describe, expect, test } from "../../test-fixtures.js";
 import { drainAgentWorkIntents } from "../agent-work-intent-worker.js";
 import { recordAgentWorkIntent } from "../agent-work-intents.js";
-import { describe, expect, test } from "../../test-fixtures.js";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 
@@ -121,7 +121,7 @@ async function putAgentAtWip(db: HyperIdleDb, agentId: string, sessionId: string
 	});
 }
 
-describe("AU15: drain-time routine agent-selection (resolveAuthoritativeInput routine_run)", () => {
+describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_run)", () => {
 	test("owner not at WIP: drain hands off to the owner", async ({ db }) => {
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db);
 		const runId = await recordRunningIntent(db, routineId, ownerAgentId);
@@ -196,7 +196,9 @@ describe("AU15: drain-time routine agent-selection (resolveAuthoritativeInput ro
 		expect(request?.agentId).toBe(ownerAgentId);
 	});
 
-	test("recordAgentWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({ db }) => {
+	test("recordAgentWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({
+		db,
+	}) => {
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db);
 		const runId = "au15-routine-idem-run";
 		await routineService.insertRoutineRun(db, {
@@ -220,7 +222,10 @@ describe("AU15: drain-time routine agent-selection (resolveAuthoritativeInput ro
 			idempotencyKey: `routine:${runId}`,
 		});
 		expect(second.id).toBe(first.id);
-		const rows = await db.select().from(agentWorkIntents).where(eq(agentWorkIntents.sourceId, runId));
+		const rows = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.sourceId, runId));
 		expect(rows).toHaveLength(1);
 	});
 });

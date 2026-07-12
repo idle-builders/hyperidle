@@ -80,12 +80,13 @@ const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
  * same disposer set; only the grouping changed, not registration order
  * within each group (behavior-preserving, AU11 import-path-only invariant).
  *
- * @lore AU11: routine-scheduler.ts stays Core (cron/due-eval is a core
- * domain concern) but its fire-time `isAgentAtWipLimit`/
- * `selectAgentByAppDefaults` call reaches into the agent-owned
- * `agent-selection.ts` module unchanged — a residual core→agent edge
- * recorded as an AU8 boundary item, not an AU11 defect (see AU11 plan
- * "routine-scheduler decision").
+ * @lore AU15: routine-scheduler.ts stays Core (cron/due-eval is a core
+ * domain concern); the residual Core→Agent edge AU11 recorded here (its
+ * fire-time `isAgentAtWipLimit`/`selectAgentByAppDefaults` call into the
+ * agent-owned `agent-selection.ts`) is CLOSED — owner-WIP evaluation and
+ * delegate resolution moved to drain-time in
+ * `agent-work-intent-worker.ts`'s `resolveAuthoritativeInput` (`routine_run`
+ * branch). routine-scheduler.ts no longer imports agent-selection.ts at all.
  */
 export function registerCoreDomainServices(ctx: {
 	readonly db: HyperIdleDb;

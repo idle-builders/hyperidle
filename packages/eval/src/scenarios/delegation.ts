@@ -1,17 +1,37 @@
 /**
  * X8: Delegation scenarios (interaction 24).
  *
- * Tests the checkAndFireRoutine() delegation logic:
- * - Successful delegation: owner at WIP limit, delegate found
- * - No delegate available: owner at WIP limit, only candidate also at WIP limit
- * - Delegation not allowed: owner at WIP limit, delegationAllowed=false
+ * AU15: routine agent-selection (owner-WIP evaluation + delegate resolution)
+ * moved from fire-time `checkAndFireRoutine` (Core) to drain-time
+ * `resolveAuthoritativeInput` (Agent Layer, `agent-work-intent-worker.ts`).
+ * `checkAndFireRoutine` no longer evaluates WIP/delegation at all — it
+ * always fires (records a run + intent) once the coalescing/cost-cap guards
+ * clear, regardless of owner WIP. The actual delegate/owner selection is
+ * proven by the real service-integration suite
+ * (`agent-work-intent-worker.routine-selection.integration.test.ts`), not
+ * this eval — `packages/server/src/routines.ts`'s curated cross-package seam
+ * exports exactly `{checkAndFireRoutine, provisionTeamRoutines,
+ * runBuiltinRoutine}` (au11-guard zero-allowlist), so `drainAgentWorkIntents`
+ * is not reachable from here. These scenarios instead honestly assert what
+ * IS observable at this fire-time-only layer: the routine fires and records
+ * a durable `routine_run` intent every time (never a fire-time WIP skip),
+ * and the intent's `requestedBy` is only ever the owner-hint (never a
+ * fire-time-resolved delegate) — proving the fire-time selection channel is
+ * genuinely closed.
+ *
+ * Old semantics (pre-AU15, no longer true): owner-at-WIP-no-delegate /
+ * delegation-not-allowed used to SKIP the occurrence at fire-time. AU15
+ * intentionally changes this to DEFER (architecture §9, "skip→defer
+ * semantic change") — the routine still fires and records a run; a
+ * genuinely-blocked owner/delegate pair defers via drain-time WIP retry
+ * (session-provisioning.ts's ConcurrencyLimitError), not a fire-time skip.
  */
 
 import { randomUUID } from "node:crypto";
-import { routines, sessions } from "@hyperidle/db";
+import { agentWorkIntents, routineRuns, routines } from "@hyperidle/db";
 import { checkAndFireRoutine } from "@hyperidle/server/routines";
 import { EventBus } from "@hyperidle/shared";
-import { eq, ne } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
 	seedActiveSession,
 	seedAgent,
@@ -30,6 +50,12 @@ import type {
 	TriggerResult,
 } from "../types.js";
 
+/** AU15: dummy runtimeDeps — checkAndFireRoutine only checks truthiness to
+ * pass the "agent session request runtime unavailable" guard; it never
+ * dereferences adapterPool/workspace at fire-time (session provisioning
+ * happens later, at drain + hand-off). */
+const RUNTIME_DEPS = { adapterPool: {}, workspace: {}, sandboxBasePath: "/tmp/eval-delegation" };
+
 function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
 	return {
 		sessionId: randomUUID(),
@@ -40,17 +66,35 @@ function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
 	};
 }
 
+async function recordedIntentRequestedBy(
+	ctx: JudgeContext,
+	routineId: string,
+): Promise<string | undefined> {
+	const [run] = await ctx.db
+		.select({ id: routineRuns.id })
+		.from(routineRuns)
+		.where(and(eq(routineRuns.routineId, routineId), eq(routineRuns.outcome, "running")))
+		.limit(1);
+	if (!run) return undefined;
+	const [intent] = await ctx.db
+		.select({ requestedBy: agentWorkIntents.requestedBy })
+		.from(agentWorkIntents)
+		.where(eq(agentWorkIntents.sourceId, run.id))
+		.limit(1);
+	return intent?.requestedBy ?? undefined;
+}
+
 // ---------------------------------------------------------------------------
 // del-successful-delegation
 // ---------------------------------------------------------------------------
 
 let delSuccessRoutineId = "";
 let delSuccessOwnerAgentId = "";
-let delSuccessDelegateAgentId = "";
 
 const delSuccessfulDelegation: EvalScenario = {
 	id: "del-successful-delegation",
-	description: "Delegation: owner at WIP limit, session created with delegate's agentId",
+	description:
+		"AU15: owner at WIP limit still fires at fire-time (records a run + intent); delegate resolution moved to drain-time (not observable from this eval — see the real integration suite).",
 	feature: "delegation",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -75,7 +119,6 @@ const delSuccessfulDelegation: EvalScenario = {
 			teamMembersId: world.teamMembersId,
 			systemPrompt: "You are a delegate system agent.",
 		});
-		delSuccessDelegateAgentId = delegateId;
 
 		// Both owner and delegate have the same skill
 		await seedUserSkill(ctx.db, {
@@ -124,14 +167,14 @@ const delSuccessfulDelegation: EvalScenario = {
 			.where(eq(routines.id, delSuccessRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await checkAndFireRoutine(ctx.db, eventBus, routine);
+		const result = await checkAndFireRoutine(ctx.db, eventBus, routine, RUNTIME_DEPS);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
 		dimensions: [
 			{
-				id: "routine_fired",
-				label: "Delegation Routine Fired",
+				id: "routine_fired_despite_owner_wip",
+				label: "Routine Fires Despite Owner WIP (AU15: fire-time no longer gates on WIP)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [routine] = await ctx.db
 						.select({ lastRunAt: routines.lastRunAt })
@@ -146,39 +189,19 @@ const delSuccessfulDelegation: EvalScenario = {
 				},
 			},
 			{
-				id: "delegate_used",
-				label: "Delegate Agent Used",
+				id: "intent_recorded_owner_hint",
+				label: "Intent Recorded With Owner Hint (delegate resolution deferred to drain)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// Session should be created for the delegate, not the owner
-					const [delegateSession] = await ctx.db
-						.select({ agentId: sessions.agentId })
-						.from(sessions)
-						.where(ne(sessions.agentId, delSuccessOwnerAgentId))
-						.limit(1);
-					const delegated = delegateSession !== undefined;
-					return {
-						score: delegated ? 1.0 : 0.0,
-						note: delegated
-							? `Delegated to agent: ${delegateSession.agentId}`
-							: "No session for a different agent (delegation did not occur)",
-					};
-				},
-			},
-			{
-				id: "session_agent_correct",
-				label: "Session Belongs to Delegate Agent",
-				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [newSession] = await ctx.db
-						.select({ agentId: sessions.agentId })
-						.from(sessions)
-						.where(eq(sessions.agentId, delSuccessDelegateAgentId))
-						.limit(1);
-					const correct = newSession !== undefined;
+					const requestedBy = await recordedIntentRequestedBy(ctx, delSuccessRoutineId);
+					// The fire-time hint is always the owner now — the drain resolver
+					// (agent-work-intent-worker.ts) is the only place that ever picks
+					// the delegate. This proves the fire-time selection channel is closed.
+					const correct = requestedBy === delSuccessOwnerAgentId;
 					return {
 						score: correct ? 1.0 : 0.0,
 						note: correct
-							? `Session agentId=${delSuccessDelegateAgentId} (delegate)`
-							: "No session for the specific delegate agent",
+							? undefined
+							: `Expected fire-time requestedBy hint to be the owner (${delSuccessOwnerAgentId}), got ${requestedBy}`,
 					};
 				},
 			},
@@ -187,14 +210,15 @@ const delSuccessfulDelegation: EvalScenario = {
 };
 
 // ---------------------------------------------------------------------------
-// del-no-delegate-available
+// del-owner-wip-no-delegate-defers
 // ---------------------------------------------------------------------------
 
 let delNoDelegateRoutineId = "";
 
 const delNoDelegateAvailable: EvalScenario = {
-	id: "del-no-delegate-available",
-	description: "No delegate: owner at WIP limit, only candidate also at WIP limit",
+	id: "del-owner-wip-no-delegate-defers",
+	description:
+		"AU15 skip→defer semantic change: owner at WIP limit with no delegate available no longer skips the occurrence at fire-time — it fires and records a run; the actual defer (via provision-time ConcurrencyLimitError retry) happens beyond fire-time.",
 	feature: "delegation",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -257,49 +281,40 @@ const delNoDelegateAvailable: EvalScenario = {
 			.where(eq(routines.id, delNoDelegateRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await checkAndFireRoutine(ctx.db, eventBus, routine);
+		const result = await checkAndFireRoutine(ctx.db, eventBus, routine, RUNTIME_DEPS);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
 		dimensions: [
 			{
-				id: "routine_not_fired",
-				label: "Routine Not Fired (No Delegate Available)",
+				id: "routine_fires_and_defers_not_skips",
+				label: "Routine Fires And Defers (No Delegate Available) — AU15 skip→defer",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [routine] = await ctx.db
 						.select({ lastRunAt: routines.lastRunAt })
 						.from(routines)
 						.where(eq(routines.id, delNoDelegateRoutineId))
 						.limit(1);
-					const notFired = routine?.lastRunAt === null || routine?.lastRunAt === undefined;
+					const fired = routine?.lastRunAt !== null && routine?.lastRunAt !== undefined;
 					return {
-						score: notFired ? 1.0 : 0.0,
-						note: notFired
-							? "Routine deferred (correct — no delegate available)"
-							: "Routine fired despite no available delegate",
+						score: fired ? 1.0 : 0.0,
+						note: fired ? undefined : "Routine did not fire (expected fire-and-defer, not skip)",
 					};
 				},
 			},
 			{
-				id: "deferred_reason",
-				label: "Deferred with Correct Reason",
+				id: "single_running_run_no_pileup",
+				label: "Exactly One Running Run Recorded (coalescing prevents pileup)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const eventBus = new EventBus();
-					const [routine] = await ctx.db
-						.select()
-						.from(routines)
-						.where(eq(routines.id, delNoDelegateRoutineId))
-						.limit(1);
-					if (!routine) return { score: 0.0, note: "Routine not found" };
-					const result = await checkAndFireRoutine(ctx.db, eventBus, routine);
-					if (result.fired) {
-						return { score: 0.0, note: "Routine fired when it should have been deferred" };
-					}
-					const correct =
-						(result as { reason: string }).reason === "owner at WIP limit, no delegate available";
+					const runs = await ctx.db
+						.select({ outcome: routineRuns.outcome })
+						.from(routineRuns)
+						.where(eq(routineRuns.routineId, delNoDelegateRoutineId));
+					const running = runs.filter((r) => r.outcome === "running");
+					const correct = running.length === 1;
 					return {
 						score: correct ? 1.0 : 0.0,
-						note: correct ? undefined : `Reason: "${(result as { reason: string }).reason}"`,
+						note: correct ? undefined : `Expected 1 running run, found ${running.length}`,
 					};
 				},
 			},
@@ -308,14 +323,15 @@ const delNoDelegateAvailable: EvalScenario = {
 };
 
 // ---------------------------------------------------------------------------
-// del-delegation-not-allowed
+// del-delegation-not-allowed-defers
 // ---------------------------------------------------------------------------
 
 let delNotAllowedRoutineId = "";
 
 const delDelegationNotAllowed: EvalScenario = {
-	id: "del-delegation-not-allowed",
-	description: "Delegation disabled: owner at WIP limit but delegationAllowed=false",
+	id: "del-delegation-not-allowed-defers",
+	description:
+		"AU15 skip→defer semantic change: owner at WIP limit with delegationAllowed=false no longer skips the occurrence at fire-time — it fires and records a run (fire-time no longer evaluates delegation at all).",
 	feature: "delegation",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -359,49 +375,26 @@ const delDelegationNotAllowed: EvalScenario = {
 			.where(eq(routines.id, delNotAllowedRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await checkAndFireRoutine(ctx.db, eventBus, routine);
+		const result = await checkAndFireRoutine(ctx.db, eventBus, routine, RUNTIME_DEPS);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
 		dimensions: [
 			{
-				id: "routine_not_fired",
-				label: "Routine Not Fired (Delegation Not Allowed)",
+				id: "routine_fires_regardless_of_delegation_flag",
+				label: "Routine Fires Regardless of delegationAllowed (fire-time no longer reads it)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [routine] = await ctx.db
 						.select({ lastRunAt: routines.lastRunAt })
 						.from(routines)
 						.where(eq(routines.id, delNotAllowedRoutineId))
 						.limit(1);
-					const notFired = routine?.lastRunAt === null || routine?.lastRunAt === undefined;
+					const fired = routine?.lastRunAt !== null && routine?.lastRunAt !== undefined;
 					return {
-						score: notFired ? 1.0 : 0.0,
-						note: notFired
-							? "Routine deferred (correct — delegation not allowed)"
-							: "Routine fired despite delegationAllowed=false",
-					};
-				},
-			},
-			{
-				id: "deferred_reason",
-				label: "Deferred with Correct Reason (Delegation Not Allowed)",
-				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const eventBus = new EventBus();
-					const [routine] = await ctx.db
-						.select()
-						.from(routines)
-						.where(eq(routines.id, delNotAllowedRoutineId))
-						.limit(1);
-					if (!routine) return { score: 0.0, note: "Routine not found" };
-					const result = await checkAndFireRoutine(ctx.db, eventBus, routine);
-					if (result.fired) {
-						return { score: 0.0, note: "Routine fired" };
-					}
-					const correct =
-						(result as { reason: string }).reason === "owner at WIP limit, delegation not allowed";
-					return {
-						score: correct ? 1.0 : 0.0,
-						note: correct ? undefined : `Reason: "${(result as { reason: string }).reason}"`,
+						score: fired ? 1.0 : 0.0,
+						note: fired
+							? undefined
+							: "Routine did not fire (expected fire — delegationAllowed is drain-time only now)",
 					};
 				},
 			},

@@ -17,9 +17,11 @@ export interface ReapStaleRoutineSessionsOpts {
  * endSession/crashSession (process restart mid-run, in-process adapter hang).
  *
  * A `running` routine_run + `active` routine session that is never finalized
- * makes `shouldCoalesce` true forever → the routine bricks itself. This reaper
- * marks each stale session `crashed` and its `running` routine_run `timeout`,
- * self-healing coalescing so the next scheduled fire is eligible.
+ * makes `routineService.findRunningRoutineRun` true forever (AU15: the
+ * unified run-row coalescing signal both fire paths now share) → the routine
+ * bricks itself. This reaper marks each stale session `crashed` and its
+ * `running` routine_run `timeout`, self-healing coalescing so the next
+ * scheduled fire is eligible.
  *
  * Direct DB finalize (not via session-lifecycle): after a restart there is no
  * live SessionContext / harness to tear down — the process that owned it is gone.

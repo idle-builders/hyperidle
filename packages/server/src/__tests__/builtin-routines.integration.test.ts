@@ -789,15 +789,15 @@ describe("G4: Built-in Routines", () => {
 });
 
 /**
- * AU15 R6/AC-2(a): the drain-time agent-selection move only touches the
- * generic-routine path (`checkAndFireRoutine`'s deleted WIP/delegate block).
- * `runBuiltinRoutine` never called `isAgentAtWipLimit`/`selectAgentByAppDefaults`
- * before or after AU15 — this proves it structurally, by putting the owner at
- * their WIP limit and confirming the builtin still fires and writes a terminal
+ * The drain-time agent-selection move only touches the generic-routine path
+ * (`checkAndFireRoutine`'s deleted WIP/delegate block). `runBuiltinRoutine`
+ * never called `isAgentAtWipLimit`/`selectAgentByAppDefaults` before or after
+ * that move — this proves it structurally, by putting the owner at their WIP
+ * limit and confirming the builtin still fires and writes a terminal
  * `routineRuns` row regardless (all 5 kinds share this same `runBuiltinRoutine`
  * entry point — there is no per-kind WIP gate to regress).
  */
-describe("AU15 AC-2(a): built-ins are structurally unaffected by the drain-time selection move", () => {
+describe("built-ins are structurally unaffected by the drain-time selection move", () => {
 	test("owner at WIP limit does not block a built-in fire (no fire-time selection to trip)", async ({
 		db,
 		eventBus,
