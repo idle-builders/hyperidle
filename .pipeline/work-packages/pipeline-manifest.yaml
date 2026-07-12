@@ -1449,11 +1449,47 @@ stories:
     type: framework
     depends: [AU9, AU10]
     complexity: L
+  - id: AU12
+    title: "Conversation and Users own their own writes"
+    track: AU
+    type: backend
+    depends: [AU11]
+    complexity: L
+  - id: AU13
+    title: "Work and Routine own their own writes"
+    track: AU
+    type: backend
+    depends: [AU11]
+    complexity: L
+  - id: AU14
+    title: "Knowledge write-path unification"
+    track: AU
+    type: backend
+    depends: []
+    complexity: M
+  - id: AU15
+    title: "Routine agent-selection goes through the intent queue"
+    track: AU
+    type: backend
+    depends: [AU13]
+    complexity: L
+  - id: AU16
+    title: "Harness/worker capability read-model"
+    track: AU
+    type: backend
+    depends: []
+    complexity: M
+  - id: AU17
+    title: "Core App and Agent Layer as real packages"
+    track: AU
+    type: framework
+    depends: [AU12, AU13, AU14, AU15, AU16]
+    complexity: L
   - id: AU8
     title: "Should dependency graph guard"
     track: AU
     type: infra
-    depends: [AU11]
+    depends: [AU17]
     complexity: M
 
   # Track AV: First-Run Usability & Product Polish (v0.6.0 human-testing)

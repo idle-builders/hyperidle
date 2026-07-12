@@ -593,7 +593,7 @@ The point is not a new harness path. The point is one contract for every agent r
 **What's genuinely missing.** There is no automated proof that core app, agent layer, and plugin/default configuration obey the should graph. There is also no pipeline-facing closure check that says AU is incomplete when forbidden runtime edges remain. The missing outcome is a validation gate that catches drift and documents the expected graph in executable form.
 
 **Depends on.**
-- **AU11** — the guard must enforce the final graph after hard handoff, plugin ownership correction, and transitional runtime ownership deletion; before AU11, the repository still intentionally contains forbidden edges.
+- **AU17** — the guard must enforce the should-graph with zero tolerated allowlist exceptions for genuine violations (founder ruling, this track's own review cycle); AU12–AU16 close every violation that would otherwise need one (Conversation/Users/Work/Routine/Knowledge cross-writing, the routine-scheduler fire-time bypass, the descriptor-read allowlist), and AU17 gives the guard a real package boundary to check instead of a hand-typed file allowlist. AU8 stays blocked until AU17 is `done`.
 
 **Complexity.** M
 
@@ -618,7 +618,7 @@ The point is not a new harness path. The point is one contract for every agent r
 - Given plugin/default configuration code attempts to execute agent work directly, when validation runs, then it fails with the plugin-as-runtime violation.
 - Given the repository matches the should graph, when validation runs, then the AU dependency guard passes with the normal verification suite.
 
-**Plan calls.** Standard architecture pass. The plan should translate the should graph's boundary rules into validation checks and decide how they attach to the existing verification suite without creating a custom process orchestrator.
+**Plan calls.** Standard architecture pass. Consolidate the four existing overlapping guard scripts (`au7-runtime-retirement-guard.ts`, `au9-direct-handoff-guard.ts`, `au10-plugin-config-ownership-guard.ts`, `au11-runtime-ownership-guard.ts`) into one, reframed around a `TABLE_OWNER` map (one entry per table naming which service owns it) rather than a per-file core-vs-agent allowlist — this catches cross-domain-within-core violations the current file-based split structurally cannot see (e.g. a Routine handler writing into `messages` would be invisible to a core-vs-agent split, since both sides are "core," but is exactly what a table-ownership map catches). Add a parallel `ROUTE_OWNER` map for the same idea one level up at the HTTP-route grain, since the MCP/worker endpoints are physically mounted on the same server as Core API's own domain routes — physical colocation is not the same as logical permission, and a future route that blurs that line needs the same mechanical catch. By the time this work package runs, AU12–AU17 should have removed every genuine violation that would otherwise have needed an allowlist entry; the two real, deliberate (not violation) exceptions expected to remain are the `routines.ts` 3-function curated cross-package export for `packages/eval`, and — pending confirmation from AU12/AU13's Settings/Notification audit task — possibly Settings/Notification rows in `TABLE_OWNER` if that audit found the same raw-write pattern there.
 
 **Contracts / constraints.**
 - The guard must be deterministic and runnable in normal repository validation.
@@ -627,6 +627,7 @@ The point is not a new harness path. The point is one contract for every agent r
 - The guard must explain failures in target-graph vocabulary.
 - No broad refactor beyond what is needed to make the graph enforceable.
 - Review is against the should graph, not against the previous AU transitional state.
+- No allowlist entries for genuine violations — only the two named, deliberate exceptions above (or others explicitly surfaced and justified during this work package's own architecture pass) may be allowlisted; anything else found must be sent back as a new prerequisite work package, not absorbed into an exception.
 
 **Out of scope.**
 - Removing remaining Strategy/Fabric code; AU7 owns that.
@@ -635,3 +636,310 @@ The point is not a new harness path. The point is one contract for every agent r
 - Visual/UI testing.
 
 **Effort.** M (~1d)
+
+---
+
+### AU12 — Conversation and Users own their own writes
+
+**Work package.** As a maintainer closing out Track AU, I want the Conversation domain (threads, messages) and the Users/Agents domain (human and agent identity records) to each have exactly one owning module that writes their tables, so that core routes and agent-layer code both call that module instead of writing the same rows two different ways. When this ships, a thread can be created, a message appended, a user record created or updated — through one function per operation, called from wherever that operation is needed, with no other code path touching those tables directly. Nothing about what the product does changes; what changes is that there is finally one place that owns the shape and correctness of a message or a user record.
+
+**Why this matters.** The maintainer benefits because this is the single largest reason AU8's should-graph guard cannot be built without allowlisting real violations away: today, agent-owned code and core routes independently write the same Conversation/Users tables with no shared function, so there is no single place enforcing what a valid message or user record even is. The cost of not building this is that any future guard checking "does agent-layer code own core CRUD" has nothing to check against — the violation is structural, not a one-off bug, and it will keep recurring at every new call site until there is a real owning module to route through.
+
+**Type.** backend.
+
+**What exists today.** `services/agent-work-assistant.ts` (agent-owned) does `db.insert(messages)` at two separate call sites and `db.insert(users)` to lazy-create the assistant user the first time it's needed. `services/assistant-dispatcher.ts` (agent-owned) does `db.update(threads)` to pin a thread after a reply. Independently, core routes — `routes/assistant.ts`, `routes/coach.ts`, `routes/teams-routes.ts`, `routes/users.ts`, `routes/threads.ts`, `routes/agents.ts` — each do their own raw inserts/updates against the same `threads`/`messages`/`users` tables. No function on either side is shared; there is no Conversation service and no Users/Agents service anywhere in the codebase. This is confirmed by direct code reading (a forked audit agent traced every call site), not inferred.
+
+**What's genuinely missing.** A Conversation service (owns `threads`/`messages`: create a thread, append a message, pin/unpin, whatever the current call sites collectively need) and a Users/Agents service (owns `users`: create, get-or-create, update identity/config fields) that both core routes and agent-layer code call — replacing every raw `db.insert`/`db.update` against these tables outside the owning service's own file.
+
+**Depends on.**
+- **AU11** — the agent-owned files this touches (`agent-work-assistant.ts`, `assistant-dispatcher.ts`) were relocated and finalized by AU11; their location needed to be stable before refactoring their internals.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Not required — goal is clear and reuses requirements already locked in `docs/architecture/runtime-simplification.md` and `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md` (Core App Graph already specifies a Conversation Service and a User/Agent Service as the target shape).
+- **Design:** Not required — backend refactor, no new or changed UI surface, no user-visible behavior change.
+
+**Human concept review.** No — pure internal refactor; nothing user-facing moves.
+
+**Acceptance criteria.**
+- Every current caller that creates or modifies a thread, a message, or a user record does so by calling one owning function for that table, from wherever the call originates (core route or agent-layer code) — never a direct insert/update against the table itself.
+- All existing observable Conversation and Users/Agents behavior (assistant replies appear, threads pin correctly, the assistant user is created exactly once, team member/user CRUD via routes) is unchanged from before this work package.
+- A newly-written call site that tried to bypass the owning function and write the table directly would fail typecheck or a lint/guard check, not merely convention.
+- Repository validation (or a review-time audit) can enumerate zero remaining direct-table-write call sites against `threads`/`messages`/`users` outside the two owning modules.
+
+**Validation scenarios.**
+- Given an assistant turn produces a reply, when the reply is recorded, then it goes through the Conversation service's message-append function and the same message appears via the existing API exactly as before.
+- Given the assistant user does not yet exist for a team, when an assistant turn needs it, then the Users/Agents service's get-or-create function is what creates it, not a raw insert in `agent-work-assistant.ts`.
+- Given a routine or task-dispatch path pins a thread after a reply, when that happens, then it calls the Conversation service's pin function.
+- Given the full existing test suite for threads/messages/users routes and agent-work-assistant/assistant-dispatcher behavior, when it is re-run after this work package, then it passes unchanged (behavior-preservation, not new behavior).
+
+**Plan calls.** Standard architecture pass, but treat this as a behavior-preservation refactor first: enumerate every current call site against `threads`/`messages`/`users` (core and agent-owned) before designing the two services' function signatures, so the new functions are shaped by what real callers need rather than an idealized API. As a first task, audit the Settings and Notification domains for the same raw-write pattern (not yet checked at this depth) — if found, flag scope growth back to the maintainer rather than silently absorbing it into this work package.
+
+**Contracts / constraints.**
+- No product behavior may change — this is ownership consolidation, not a feature.
+- The owning service's functions are the only code (besides the service's own tests) permitted to import the Drizzle table objects for `threads`/`messages`/`users`.
+- No new tables, no schema changes.
+- Agent-layer callers keep calling in-process (same process, function call) — no queue, no API introduced at this boundary.
+
+**Out of scope.**
+- Knowledge, Work, Routine, Settings, Notification domains — separate work packages.
+- Any UI change.
+- The routine-scheduler fire-time bypass (AU15) or the descriptor-read allowlist (AU16) — unrelated edges.
+- The package split (AU17) — comes after this and depends on it.
+
+**Effort.** L (~3-4d)
+
+---
+
+### AU13 — Work and Routine own their own writes
+
+**Work package.** As a maintainer closing out Track AU, I want the Work domain (bets, tasks, work items) and the Routine domain (routines, routine runs) to each have exactly one owning module that writes their tables, so that core routes and agent-layer routine execution both call that module instead of writing the same rows two different ways. When this ships, creating a work item, recording a routine run, or updating a routine's schedule all happen through one function per operation, called from wherever it's needed. Same shape of change as AU12, for the other two domains that share a call path through routine execution.
+
+**Why this matters.** The maintainer benefits for the same reason as AU12: this is a second, confirmed instance of the same structural violation, not a variant that can be skipped. Built-in routine execution is one of the most frequently firing agent-layer code paths (practice meetings, portfolio retros, knowledge decay/promotion all run through it) — leaving it writing Work and Routine tables directly means the single highest-traffic agent-owned code path is also the least accountable one.
+
+**Type.** backend.
+
+**What exists today.** `services/builtin-routine-handlers.ts` (agent-owned) does `tx.insert(threads)` and `tx.insert(items)` — `items` is a Work-domain table — as part of running built-in routines, and separately does `insert(routines)`, `insert(routineRuns)`, `update(routines)` directly. No Work service and no Routine service exist; core routes that touch bets/tasks/items and routines/routine_runs do their own independent writes, same pattern as AU12's finding for Conversation/Users. Confirmed by direct code reading.
+
+**What's genuinely missing.** A Work service (owns `bets`/`tasks`/`items`) and a Routine service (owns `routines`/`routine_runs`) that both core routes and `builtin-routine-handlers.ts` call, replacing every raw `insert`/`update` against these tables outside the owning service's own file. (The `threads` insert inside `builtin-routine-handlers.ts` should route through AU12's Conversation service, since it's the same table — flag the overlap to whichever of AU12/AU13 lands second so the call site isn't refactored twice.)
+
+**Depends on.**
+- **AU11** — `builtin-routine-handlers.ts` is one of the 14 agent-owned files AU11 relocated and finalized; its location needed to be stable first.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Not required — goal is clear and reuses requirements already locked in `docs/architecture/runtime-simplification.md` and the as-should-dependency-graph.md.
+- **Design:** Not required — backend refactor, no UI surface.
+
+**Human concept review.** No — pure internal refactor.
+
+**Acceptance criteria.**
+- Every current caller that creates or modifies a bet, task, work item, routine, or routine run does so by calling one owning function for that table, never a direct insert/update.
+- All existing observable Work and Routine behavior (built-in routines still fire and produce the same effects, task/bet CRUD via routes unchanged) is unchanged from before this work package.
+- The `threads` insert inside `builtin-routine-handlers.ts` is routed through AU12's Conversation service rather than left as, or duplicated into, a second raw write path.
+- Repository validation (or a review-time audit) can enumerate zero remaining direct-table-write call sites against `bets`/`tasks`/`items`/`routines`/`routine_runs` outside the two owning modules.
+
+**Validation scenarios.**
+- Given a built-in routine (e.g. `knowledge-decay`, `portfolio-retro`) fires, when it creates a work item or records its run, then it does so through the Work/Routine service functions and produces the same observable rows as before.
+- Given a task is accepted or a bet's state changes via a core route, when that write happens, then it goes through the Work service.
+- Given the full existing test suite for tasks/bets/routines and `builtin-routine-handlers.ts` behavior, when it is re-run after this work package, then it passes unchanged.
+
+**Plan calls.** Standard architecture pass, behavior-preservation first: enumerate every current call site against `bets`/`tasks`/`items`/`routines`/`routine_runs` before designing the two services. Coordinate with AU12 on the shared `threads` write inside `builtin-routine-handlers.ts` so it isn't independently refactored by both work packages. As a first task, if AU12 has not already done so, audit Settings and Notification for the same pattern.
+
+**Contracts / constraints.**
+- No product behavior may change.
+- The owning service's functions are the only code permitted to import the Drizzle table objects for `bets`/`tasks`/`items`/`routines`/`routine_runs`.
+- No new tables, no schema changes.
+- No change to routine scheduling/timing in this work package — that is AU15's job, not this one's; this work package only changes *who writes the tables*, not *when agent selection happens*.
+
+**Out of scope.**
+- Conversation, Users, Knowledge, Settings, Notification domains — separate work packages.
+- The routine-scheduler fire-time bypass (AU15) — depends on this landing first, but is its own decision and its own work package.
+- The package split (AU17).
+
+**Effort.** L (~3-4d)
+
+---
+
+### AU14 — Knowledge write-path unification
+
+**Work package.** As a maintainer closing out Track AU, I want Knowledge to have exactly one write path for creating and updating knowledge items, so that a knowledge item created through the API and a knowledge item created by an agent tool go through the same code, validate the same way, and emit the same event. When this ships, `routes/knowledge.ts` no longer has its own independent insert/update logic — it calls the same repository functions that agent-layer code and tools already call.
+
+**Why this matters.** The maintainer benefits because Knowledge is the one domain that already has half the right shape — a real repository — but the HTTP route never uses it, so there are two independently-evolving implementations of "create a knowledge item" that can (and already do) drift: different insert sequences, different event mechanisms. The cost of not building this is that a future change to one path (say, adding a validation rule) silently doesn't apply to the other, and nobody notices until a real bug ships through whichever path wasn't touched.
+
+**Type.** backend.
+
+**What exists today.** `packages/server/src/knowledge/knowledge-repository.ts` has `create`/`update`/`list`/`search`, already called by `services/context-assembly.ts`, `services/writeback.ts`, and three agent tools (`tools/write-memory.ts`, `tools/promote-knowledge.ts`, `tools/query-practice.ts`). Separately, `routes/knowledge.ts`'s POST/PATCH handlers do their own raw `db.insert(knowledgeItems)`/update with their own user-scope filtering logic (the Q2 rule: an item is visible if `scopeKind != "user"` or `updatedBy == userId`) and emit `KnowledgeCreatedEvent` on the request-scoped `EventBus`. The repository's `create()`/`update()` do a different insert sequence (they also write a `knowledgeEditLog` row) and emit on a separate module-level singleton, `getKnowledgeEvents()`. Confirmed by direct code reading — these are two real, independently-implemented write paths against the same `knowledge_items` table.
+
+**What's genuinely missing.** `routes/knowledge.ts` needs to call the repository's `create`/`update` instead of its own insert/update, with the Q2 scope-filtering logic preserved (folded into the repository call or kept as route-level logic wrapping it), and the two event mechanisms (`KnowledgeCreatedEvent`/`EventBus` vs. `getKnowledgeEvents()`) collapsed into one.
+
+**Depends on.**
+- None. Independent of AU12/AU13 — touches only the Knowledge domain, not Conversation/Users/Work/Routine.
+
+**Complexity.** M
+
+**Pre-build gates.**
+- **Refinement:** Not required — goal is clear; this is convergence onto an already-existing implementation, not new design.
+- **Design:** Not required — backend refactor, no UI surface.
+
+**Human concept review.** No.
+
+**Acceptance criteria.**
+- `routes/knowledge.ts`'s create and update handlers call the knowledge repository's `create`/`update` functions rather than performing their own inserts/updates.
+- The Q2 user-scope visibility rule (an item is visible if not user-scoped, or if the requesting user is its owner) continues to hold exactly as before, for both reads and writes.
+- Exactly one event is emitted per knowledge item creation/update, observable by every current consumer of either the old `KnowledgeCreatedEvent`/`EventBus` path or the old `getKnowledgeEvents()` path.
+- The knowledge edit log continues to record an entry for every create/update, regardless of whether the request originated from the HTTP route or an agent tool.
+
+**Validation scenarios.**
+- Given a knowledge item is created via the HTTP API, when it is created, then it produces the same edit-log row and the same event shape that an agent-tool-created item produces today via the repository.
+- Given a user-scoped knowledge item exists, when a different user requests the list, then it is excluded exactly as it is today (Q2 preserved).
+- Given the existing knowledge route integration tests and the existing repository/tool tests, when re-run after this work package, then all pass with no behavior change to any consumer.
+
+**Plan calls.** Standard architecture pass. The plan should pick one event mechanism as canonical (the repository's `getKnowledgeEvents()` is the one every non-route consumer already relies on — moving the route onto it, rather than the reverse, is very likely the lower-risk direction) and specify how the route's Q2 filtering logic is preserved without duplicating it inside the repository, which is also called by non-HTTP callers that have no request-scoped user context.
+
+**Contracts / constraints.**
+- No behavior change visible to any existing consumer of either event mechanism.
+- The repository remains the single owner of `knowledge_items` writes; `routes/knowledge.ts` becomes a caller, not a second implementation.
+- No schema changes.
+
+**Out of scope.**
+- Any other domain's write-path (see AU12/AU13).
+- Changing what Q2 visibility means, only preserving it through the merge.
+- The descriptor read-model (AU16) or package split (AU17) — unrelated.
+
+**Effort.** M (~1d)
+
+---
+
+### AU15 — Routine agent-selection goes through the intent queue
+
+**Work package.** As a maintainer closing out Track AU, I want routine-triggered agent selection to go through the same durable intent-queue path every other trigger family (task acceptance, knowledge actions, assistant messages) already uses, so that there is exactly one channel between Core App and the Agent Layer — never a second, undocumented one. When this ships, `routine-scheduler.ts` no longer calls agent-owned selection code directly at fire-time; a routine firing produces a durable intent the agent layer's normal drain path picks up, the same way every other family already works.
+
+**Why this matters.** The maintainer benefits because a durable queue's real value — surviving a process crash between "the fact was recorded" and "the agent layer acted on it," and not blocking the caller for however long that takes — holds regardless of whether Core App and the Agent Layer happen to run in the same process, which they always do today. A second channel that bypasses the queue "because it's simple" undermines that guarantee for exactly the trigger family using it, and is also the one thing left that AU8's should-graph guard cannot mechanically allow without adding a special-cased exception — which the maintainer has ruled out. AU11's own review already looked at fixing this the obvious way and rejected it because it silently changes *when* agent selection happens (fire-time vs. drain-time); this work package exists to make that decision on purpose, with the timing implications re-verified, rather than leave it as an unexamined shortcut.
+
+**Type.** backend.
+
+**What exists today.** `services/routine-scheduler.ts` (core, evaluates cron due-checks) imports `agent-selection.ts` (`isAgentAtWipLimit`, `selectAgentByAppDefaults`) and calls it directly and synchronously when a routine becomes due, deciding the owner/eligible agent at that exact moment. Every other trigger family — task acceptance, knowledge actions, assistant messages, bet decomposition — instead writes a durable `agent_work_intents` row in the same transaction as its own domain write, and the agent layer's drain loop resolves the trigger and selects the agent later, asynchronously. Confirmed present as of the AU11 branch's own review, which named it explicitly as a deliberate, undocumented-as-permanent residual edge.
+
+**What's genuinely missing.** A decision, made on purpose, about whether routine-triggered agent selection should move to drain-time (matching every other family) or be formalized as an intentional, permanent, first-class second mode — and, in either case, the implementation and re-verification that routine behavior (WIP-limit enforcement, owner-role resolution) still holds correctly under whichever timing is chosen. Given the "exactly one channel" principle, the expected direction is closing the bypass (moving to drain-time), not formalizing the exception, but the architecture pass must make and justify this call explicitly rather than default to it without checking for a real correctness reason routines might need fire-time information that drain-time can't reconstruct.
+
+**Depends on.**
+- **AU13** — this work package touches `routine-scheduler.ts` and interacts with `builtin-routine-handlers.ts`, both of which AU13 is also modifying (giving Routine a real owning service); sequencing after AU13 avoids two work packages independently changing the same files.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Not required — the user-facing goal (routines keep firing correctly) is already clear; the open question is a technical timing decision, which belongs in `/architecture`, not `/refine`.
+- **Design:** Not required — backend/infra, no UI surface.
+
+**Human concept review.** No.
+
+**Acceptance criteria.**
+- Routine-triggered agent selection no longer calls `agent-selection.ts` directly and synchronously from `routine-scheduler.ts` at fire-time; it is resolved through the same intent-queue/drain path every other trigger family uses, OR — only if the architecture pass concludes fire-time selection is genuinely required and documents why — it is formalized as a named, first-class second resolution mode with an explicit rationale, not a silent bypass.
+- WIP-limit enforcement (`isAgentAtWipLimit`) and owner-role resolution (`selectAgentByAppDefaults`) produce the same effective outcome for existing routines under the new timing as they did under the old, for every built-in routine (`practice-meeting`, `post-bet-retro`, `portfolio-retro`, `knowledge-decay`, `knowledge-promotion`).
+- If timing moved from fire-time to drain-time, the work package's validation explicitly checks for and rules out (or documents and accepts) any race between a routine becoming due and the drain processing its intent.
+- AU8's should-graph guard (once built) requires no special-cased allowlist entry for this edge.
+
+**Validation scenarios.**
+- Given a routine becomes due while its eligible agent is at its WIP limit, when the routine fires, then the same "don't dispatch" outcome occurs under the new path as under the old.
+- Given a routine with a specific owner-role resolution rule becomes due, when it fires, then the same agent is selected as before.
+- Given the full existing routine-firing test suite, when re-run after this work package, then it passes with no unexplained behavior change; any explained, intentional change is called out in the architecture plan and confirmed acceptable.
+
+**Plan calls.** This work package needs a real architecture decision, not just a mechanical move: start from AU11's own review notes on why the obvious drain-time fix was rejected, and either resolve that concern for real (e.g. by confirming the due-check evaluation itself doesn't need fire-time-only data) or find a different way to close the channel that doesn't reintroduce the same problem. Do not default to "formalize the exception" without first genuinely checking whether the fire-time requirement is real.
+
+**Contracts / constraints.**
+- No second channel between Core App and the Agent Layer may remain undocumented; whatever this work package lands on must be either the standard queue path or an explicitly named, justified exception — never a silent bypass.
+- Built-in routine behavior (which agent runs, when, and whether WIP limits are respected) must not silently change; any behavior change must be intentional and documented.
+
+**Out of scope.**
+- Changing what the built-in routines themselves do — only how agent selection is triggered.
+- The Work/Routine service boundary itself (AU13's job, must land first).
+- The package split (AU17) or AU8 itself.
+
+**Effort.** L (~2-3d)
+
+---
+
+### AU16 — Harness/worker capability read-model
+
+**Work package.** As a maintainer closing out Track AU, I want core routes that display which harnesses and workers are available to read that information through a real, agent-layer-owned read function, so that no core route needs to import anything from the harness/MCP internals — not even for a read-only display. When this ships, the 8 route files that currently import adapter/registry types directly instead call one small exported read function, and the descriptor-read allowlist in `au11-runtime-ownership-guard.ts` is no longer needed.
+
+**Why this matters.** The maintainer benefits because today's allowlist is a hand-verified, per-file carve-out — each of the 8 files was checked, once, to confirm it only performs read-only capability queries, with no structural guarantee that a *future* addition to one of those files stays read-only. A real read API removes the need for that manual verification permanently: a route calling a read function categorically cannot reach an execution call, because the function it's calling doesn't expose one.
+
+**Type.** backend.
+
+**What exists today.** `au11-runtime-ownership-guard.ts`'s `DESCRIPTOR_READ_ALLOWLIST` names 8 route files (`agent-profile.ts`, `agents.ts`, `assistant.ts`, `connections.ts`, `harnesses.ts`, `teams-routes.ts`, `users.ts`, `workers.ts`) permitted to `import type` `AdapterPool`/`SandboxAdapter`/`McpBridgeRegistry` for genuine read-only queries (`.size`, `.getCapabilitiesByType()`, `.listCapabilityDescriptors()`, `.refreshDiscoveries()`, `.getRegistrationMetaByType()`, `.list()`) — verified file-by-file at AU11 build time to contain zero execution calls.
+
+**What's genuinely missing.** A small, real, agent-layer-owned function (or narrow set of functions) that exposes exactly the read-only capability/registration data these 8 files need, callable without importing anything from `harness/` or `mcp/`. Once it exists, all 8 files are repointed to it and the allowlist is deleted, not just left in place unused.
+
+**Depends on.**
+- None. Independent of AU12–AU15 — touches only route files and a new small read surface in the harness/adapter area, not Conversation/Users/Work/Routine/Knowledge.
+
+**Complexity.** M
+
+**Pre-build gates.**
+- **Refinement:** Not required — the gap and its 8 call sites are already fully enumerated; no design decision to sharpen.
+- **Design:** Not required — backend/infra, no UI surface (the 8 routes' existing UI-facing behavior is unchanged, only what they import changes).
+
+**Human concept review.** No.
+
+**Acceptance criteria.**
+- None of the 8 currently-allowlisted route files import anything from `harness/` or `mcp/` paths, directly or via type-only import, after this work package.
+- Each of the 8 files instead calls one exported, read-only function that returns exactly the capability/registration data it currently reads (available harnesses, worker connection status, capability descriptors).
+- `DESCRIPTOR_READ_ALLOWLIST` is deleted from `au11-runtime-ownership-guard.ts` (or the guard consolidation in AU8, whichever lands the change) with zero remaining findings.
+- The observable behavior of all 8 routes (what a client sees when querying harness/worker/connection availability) is unchanged.
+
+**Validation scenarios.**
+- Given a client queries available harnesses via `routes/harnesses.ts`, when the route runs, then it returns the same data as before, sourced from the new read function instead of a direct adapter-type import.
+- Given a worker connects or disconnects, when `routes/workers.ts` is queried, then it reflects the same connection status as before via the new function.
+- Given the guard runs after this work package (or AU8's consolidated version), when it scans the 8 previously-allowlisted files, then it reports zero findings without needing an allowlist entry for them.
+
+**Plan calls.** Standard architecture pass. Design the read function(s) from the actual union of what the 8 files currently query (enumerate each file's specific calls first), not from an idealized capability API — this is a narrow extraction, not a new subsystem.
+
+**Contracts / constraints.**
+- No new execution capability is exposed — read-only, full stop.
+- No behavior change visible to any client of the 8 routes.
+
+**Out of scope.**
+- Any other Agent Layer internals (Tool Surface, Sandbox Bridge, etc.) — this work package touches only the harness/worker capability read path.
+- The package split (AU17) or AU8 itself.
+
+**Effort.** M (~1d)
+
+---
+
+### AU17 — Core App and Agent Layer as real packages
+
+**Work package.** As a maintainer closing out Track AU, I want Core App and Agent Layer to be real, separate workspace packages instead of a hand-typed allowlist of file paths inside a directory both share, so that the boundary between them is a build-time fact — an unauthorized import fails typecheck — rather than something only a guard script re-derives on every run. When this ships, `packages/server`'s ~80 services/routes files are split into `@hyperidle/core-app` and `@hyperidle/agent-layer`, each with a small, deliberate `exports` map, wired together by a thin bootstrap package so the deployable server is unchanged.
+
+**Why this matters.** The maintainer benefits because today's guard scripts need a hand-maintained array of agent-owned file paths (`AU9_AGENT_FILES`, `AU11_AGENT_FILES`, and their extras) precisely because there is no folder, let alone package, distinguishing core from agent-owned code — everything lives together in one flat `services/` directory of 81 files. A real package boundary means a new file's ownership is decided once, by which package it's created in, not re-derived by a script every time the guard runs; and it means the boundary is enforced by `tsc`/the build itself, not only by a lint pass someone has to remember to run.
+
+**Type.** framework.
+
+**What exists today.** `packages/server` is a single npm workspace package containing `routes/`, `services/`, `harness/`, `knowledge/`, `notifications/`, `config/`, `tools/`, `mcp/` — Core App and Agent Layer code both live inside `services/` (81 files), distinguished only by the guard scripts' hand-typed allowlists. `packages/server/package.json`'s `exports` map already deep-exports roughly 15 individual internal files (`./harness/adapter-pool`, `./services/session-provisioning`, etc.) directly to other packages — confirmed by reading the file — meaning even today's "public API" is a pile of internal-path exports, not a deliberate small surface. Confirmed via topology research this session: Core App and Agent Layer's orchestration half are colocated in every deployment shape observed (embedded on laptop, colocated in the shared-backend cluster pod); only harness execution ever actually crosses a process/machine boundary (a joined remote worker), and that boundary already has zero database coupling (`worker-ws.ts`/`remote-harness-adapter.ts` import nothing from `@hyperidle/db`).
+
+**What's genuinely missing.** Two real workspace packages (naming: `@hyperidle/core-app` and `@hyperidle/agent-layer`, or equivalent) each owning their own files with TypeScript project references between them, a small deliberate `exports` map replacing today's ~15-file sprawl, and a thin bootstrap layer (could remain inside a slimmed `packages/server`) that wires both into the one deployable Hono app/process — with no change to how the app actually runs or deploys in any topology.
+
+**Depends on.**
+- **AU12** — Conversation/Users services must exist and own their tables before splitting packages around them; splitting first would just relocate the current cross-writing into two packages instead of fixing it.
+- **AU13** — same reasoning, for Work/Routine.
+- **AU14** — Knowledge's write path must be unified first, for the same reason.
+- **AU15** — the routine-scheduler edge touches files this work package will be relocating; landing it first avoids moving files mid-change.
+- **AU16** — the descriptor-read allowlist must be replaced by a real read function first, so the new `core-app` package genuinely has zero harness/mcp imports to carry forward.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Not required — the target shape is already specified by this track's should-graph docs and this session's topology research; no open conceptual question remains.
+- **Design:** Not required — framework/build-tooling change, no UI surface.
+
+**Human concept review.** No.
+
+**Acceptance criteria.**
+- `@hyperidle/core-app` and `@hyperidle/agent-layer` exist as separate workspace packages; no directory-convention-only distinction remains.
+- Neither package can import a file from the other except through its declared `exports` map — verified by an import that isn't in the map failing to resolve at typecheck, not merely by convention.
+- The deployable server (web/desktop-facing behavior, all existing routes, all existing agent-run behavior) is unchanged in every currently-supported topology (laptop-solo, shared-backend, remote worker).
+- `packages/server`'s `exports` map (or its successor packages' maps) no longer deep-exports individual internal files as its primary shape — the surface is small and deliberate.
+- Any dead code `knip` can newly see as a result of removing the old barrel/re-export structure is deleted, not suppressed with a new ignore-list entry.
+
+**Validation scenarios.**
+- Given the full existing test suite (unit, component, integration, e2e), when run after the split, then all pass with no behavior change attributable to the package restructuring itself.
+- Given a hypothetical file in `core-app` tries to import an unexported internal file from `agent-layer`, when typecheck runs, then it fails.
+- Given the app boots in laptop-solo mode and in a simulated shared-backend mode, when either boots, then behavior is identical to pre-split.
+- Given `knip` runs after the split, when it reports newly-dead code surfaced by removing the old structure, then that code is deleted in this work package, not ignored.
+
+**Plan calls.** This is a large, mostly-mechanical migration — plan the file-by-file ownership assignment (which of the ~80 files goes to which package) as an explicit table before moving anything, the same way AU11 did for the app-runtime dissolution. Expect, per AU11's own experience, that this move surfaces previously-hidden dead code; the plan should budget time for deleting it rather than treating it as scope creep.
+
+**Contracts / constraints.**
+- No change to deployment/build output shape — the same process boots and serves in every topology as before.
+- No behavior change of any kind; this work package is pure structural migration.
+- Plugin/Config code may remain a subfolder of `core-app` rather than its own package — the boundary that matters is the rule, not necessarily a third package.
+
+**Out of scope.**
+- Any behavior change to any domain — all of that is AU12–AU16's job, must be done first.
+- Splitting Agent Layer's own internal pieces (Trigger Resolver, Sandbox Bridge, Tool Surface, etc.) into further sub-packages — one boundary at a time.
+- AU8 itself — depends on this landing first.
+
+**Effort.** L (~3-5d)
