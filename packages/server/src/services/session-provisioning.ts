@@ -1,16 +1,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {
-	bets,
-	filesystemInjections,
-	filesystems,
-	type HyperIdleDb,
-	routines,
-	sessions,
-	tasks,
-	users,
-} from "@hyperidle/db";
+import { filesystemInjections, filesystems, type HyperIdleDb, sessions, users } from "@hyperidle/db";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
@@ -48,6 +39,7 @@ import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
+import * as routineService from "../routine-service.js";
 import { returnStatusTool } from "../tools/return-status-tool.js";
 import {
 	buildToolRegistry,
@@ -105,7 +97,7 @@ async function revertTaskToAccepted(
 	taskId: string,
 	reason: string,
 ): Promise<void> {
-	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+	const task = await work.getTaskById(db, taskId);
 	if (!task) return;
 	const fromState = task.state as TaskState;
 	const toState: TaskState = "accepted";
@@ -154,7 +146,7 @@ async function assembleTaskFreePrompt(
 			typeof params.requestContext.sourceCorrelation.betId === "string"
 				? params.requestContext.sourceCorrelation.betId
 				: params.requestContext?.sourceId;
-		const [bet] = betId ? await db.select().from(bets).where(eq(bets.id, betId)).limit(1) : [];
+		const bet = betId ? await work.getBetById(db, betId) : undefined;
 		return [
 			systemPromptText,
 			"## Bet decomposition",
@@ -195,18 +187,10 @@ async function accumulateSessionTokensOnBet(
 ): Promise<void> {
 	if (Object.keys(accumulatedTokens).length === 0) return;
 
-	const [task] = await db
-		.select({ betId: tasks.betId })
-		.from(tasks)
-		.where(eq(tasks.id, taskId))
-		.limit(1);
+	const task = await work.getTaskById(db, taskId);
 	if (!task?.betId) return;
 
-	const [bet] = await db
-		.select({ tokensActualJson: bets.tokensActualJson })
-		.from(bets)
-		.where(eq(bets.id, task.betId))
-		.limit(1);
+	const bet = await work.getBetById(db, task.betId);
 
 	const existing: Record<string, { prompt: number; completion: number }> = bet?.tokensActualJson
 		? ((
@@ -822,11 +806,7 @@ export async function admitSession(
 	// start from accepted, so the SELECT adds negligible overhead. The safety
 	// barrier is the hasActiveSession check in the dispatcher, not this guard.
 	if (params.taskId) {
-		const [taskForTransition] = await db
-			.select({ state: tasks.state })
-			.from(tasks)
-			.where(eq(tasks.id, params.taskId))
-			.limit(1);
+		const taskForTransition = await work.getTaskById(db, params.taskId);
 		if (taskForTransition && taskForTransition.state !== "in_progress") {
 			await transitionTask(db, eventBus, params.taskId, "in_progress");
 		}
@@ -984,11 +964,7 @@ export async function admitSession(
 	// Non-routine sessions always get null (no cap to check).
 	let routinePerRunCap: number | null = null;
 	if (params.routineId) {
-		const [routineRow] = await db
-			.select({ costCapPerRunMinor: routines.costCapPerRunMinor })
-			.from(routines)
-			.where(eq(routines.id, params.routineId))
-			.limit(1);
+		const routineRow = await routineService.getRoutineById(db, params.routineId);
 		routinePerRunCap = routineRow?.costCapPerRunMinor ?? null;
 	}
 
