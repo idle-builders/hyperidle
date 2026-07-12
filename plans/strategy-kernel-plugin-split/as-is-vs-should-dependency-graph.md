@@ -607,3 +607,215 @@ enforcement mechanism anywhere in the repo today, matching this document's Gap R
 No new work package is needed. The next actions in dependency order are: merge PR #428 (AU11), then
 start AU8 (now the only unblocked, not-yet-started AU work, and the last work package in the
 track).
+
+---
+
+## Service-Scoped Architecture (AU12–AU17): As-Is vs Should (2026-07-12)
+
+AU8's own review found the should-graph's two-layer split (Core App / Agent Layer) is real but too
+coarse to build a zero-allowlist guard against: it names *no* real services, so a Routine handler
+writing into `messages` is invisible to a check that only knows "core" from "agent." This section
+goes one level down — real services, per layer, with their internal modules, and the exact
+mechanism each crossing should use. It registers AU12–AU17 (`.pipeline/work-packages/TRACK-AU.md`)
+and gives AU8 something concrete to check once they land. Grounded in direct code reading this
+session (a forked audit + manual verification), not re-derived from the AU2-era component inventory.
+
+### 1. Package boundary — as-is vs should
+
+```mermaid
+flowchart TB
+  subgraph ASIS["AS-IS — one package, one directory, boundary = a hand-typed file list"]
+    direction TB
+    S1["@hyperidle/server"]
+    S1 --> R1["routes/ — 38 files"]
+    S1 --> SV1["services/ — 81 files, core AND agent-owned mixed together"]
+    S1 --> K1["knowledge/ — 15 files (has real internal shape)"]
+    S1 --> N1["notifications/ — 14 files (has real internal shape)"]
+    S1 --> C1["config/ — 3 files"]
+    S1 --> H1["harness/ — 19 files"]
+    S1 --> M1["mcp/ — 2 files"]
+    S1 --> T1["tools/ — 29 files"]
+  end
+```
+
+```mermaid
+flowchart TB
+  subgraph SHOULD["SHOULD — two packages, boundary = a build fact"]
+    direction TB
+    CORE["@hyperidle/core-app"]
+    CORE --> CV["conversation/"]
+    CORE --> WK["work/"]
+    CORE --> US["users/"]
+    CORE --> KN["knowledge/"]
+    CORE --> CF["configuration/ (settings + plugin defaults + overrides, one module)"]
+    CORE --> RT["routine/"]
+    CORE --> NT["notification/"]
+
+    AGENT["@hyperidle/agent-layer"]
+    AGENT --> TR["trigger-resolver/"]
+    AGENT --> OR["orchestrator/ (+ lifecycle publishing)"]
+    AGENT --> SB["sandbox-bridge/ (context in + capture out)"]
+    AGENT --> HR["harness-registry/"]
+    AGENT --> TS["tool-surface/ (tools + MCP, one door)"]
+    AGENT --> CL["cost-limits/"]
+
+    DESK["packages/desktop — Desktop Shell (unchanged, already correct)"]
+    HI["Human Interface — web/desktop UI (unchanged, already correct)"]
+  end
+```
+
+Today's four guard scripts (`au7-runtime-retirement-guard.ts`, `au9-direct-handoff-guard.ts`,
+`au10-plugin-config-ownership-guard.ts`, `au11-runtime-ownership-guard.ts`) exist specifically
+because there is no folder-level distinction inside `services/` — `AU9_AGENT_FILES` and
+`AU11_AGENT_FILES` are hand-maintained arrays of file paths standing in for a package boundary that
+doesn't exist yet. `packages/server/package.json`'s `exports` map already deep-exports ~15
+individual internal files directly to other packages — confirmed by reading it — so even today's
+nominal "public API" is not a deliberate small surface. AU17 is what turns the SHOULD diagram above
+into a build-enforced fact instead of a diagram.
+
+### 2. How services communicate — as-is vs should
+
+| Crossing | As-is | Should | Why |
+|---|---|---|---|
+| Core service ↔ its own table | Mixed: Knowledge/Settings/Notification mostly do this correctly; Conversation/Work/Users/Routine do not — both core routes AND agent-owned files write these tables directly | Direct DB access, but *only* from the owning service's own files | The one place raw table access is correct — because nothing else is allowed to do it |
+| Core service ↔ another core service | No shared functions exist for Conversation/Work/Users/Routine; each caller does its own insert | Function call to the other service's exported function | Same process, needs the answer now |
+| Core service → Agent Layer, "do work" | Durable intent row (`agent_work_intents`) for every family **except** routines, which call `agent-selection.ts` directly at fire-time | Durable intent row, no exceptions | A queue's value is crash-safety + latency-decoupling, which holds even fully in-process — a second channel undermines that guarantee for exactly the family using it |
+| Agent Layer → Core service, "record this fact" | Broken almost everywhere audited: `agent-work-assistant.ts`, `assistant-dispatcher.ts`, `builtin-routine-handlers.ts` all write Conversation/Work/Routine tables directly; Knowledge is reached via its repository (better, but the HTTP route bypasses that same repository) | Function call into the owning Core service | Never a raw write — the domain keeps owning its own invariants regardless of who's asking |
+| Agent Layer internal services, to each other | Mostly already function calls, in-process | Function call | One pipeline |
+| Orchestrator → harness process | Files (sandbox in/out) + `HarnessAdapter` interface (local spawn or `RemoteHarnessAdapter` over WS) | Unchanged — already correct | One interface, swappable implementation, caller oblivious to which |
+| Running agent → tools/MCP/Knowledge search | MCP over HTTP — the harness's own MCP config is a real server URL (`cli-mcp-config.ts`), works identically local or remote | Unchanged — already correct | The agent is foreign code; MCP is its one audited door |
+| Harness/worker capability state → Core (display) | 8 route files `import type` adapter/registry internals directly — a hand-verified allowlist, not a structural rule | A real read-only capability function Core calls; zero harness/mcp imports in Core at all | A read shouldn't need a per-file manual carve-out to stay safe |
+| Plugin defaults / user overrides → Configuration | Already correct: `plugin-configuration.ts` is one module, `loadPluginConfigurationDefaults`/`setConfigurationOverride` are real functions, not raw writes | Unchanged — already correct | Confirmed by reading the code, not assumed |
+| Desktop Shell's local files (`config.json`, `secrets.json`, `credentials.json`, `window-state.json`) | Already correct: each has exactly one owning function in `packages/desktop`, confirmed no other module touches them | Unchanged — already correct, just not previously named as such | Local-file storage is that owner's mechanism, not an exemption from ownership |
+| Human Interface ↔ Core API | Real API always | Unchanged — already correct | Genuinely separate deployable, no shared memory, ever |
+
+### 3. Dependency tree, scoped by service
+
+```mermaid
+flowchart LR
+  AU11["AU11 — merged\n(app-runtime dissolved)"]
+  AU11 --> AU12["AU12\nConversation + Users\nown their writes"]
+  AU11 --> AU13["AU13\nWork + Routine\nown their writes"]
+  AU13 --> AU15["AU15\nRoutine agent-selection\nthrough the intent queue"]
+  AU14["AU14\nKnowledge write-path\nunification (independent)"]
+  AU16["AU16\nDescriptor read-model\n(independent)"]
+  AU12 --> AU17["AU17\nCore App / Agent Layer\nas real packages"]
+  AU13 --> AU17
+  AU14 --> AU17
+  AU15 --> AU17
+  AU16 --> AU17
+  AU17 --> AU8["AU8\nshould-graph guard,\ngeneralized"]
+```
+
+AU12/AU13/AU14/AU16 have no dependency on each other and can build in parallel — they touch
+disjoint files. AU15 depends on AU13 only because both touch `routine-scheduler.ts` and
+`builtin-routine-handlers.ts`; sequencing avoids two work packages editing the same files at once.
+AU17 depends on all five because splitting packages around code that still cross-writes just
+relocates the mess into two packages instead of fixing it. AU8 depends only on AU17 directly — the
+rest are transitive through it, matching this manifest's existing convention (e.g. AU11 lists
+`depends: [AU9, AU10]`, not the full chain back through AU7).
+
+### 4. Internal modules per service — as-is vs should
+
+The should-graph's Core App / Agent Layer components are themselves collections of real files, not
+single units. What follows is every file behind each service today, and what should own it.
+
+**Core App — Knowledge** (already has real internal shape; the gap is the second write path, not
+missing structure):
+
+| File | Role | As-is / should |
+|---|---|---|
+| `knowledge-repository.ts` | `create`/`update`/`list`/`search` — the actual CRUD | Should be the *only* write path; `routes/knowledge.ts` still bypasses it (AU14) |
+| `attention-classifier.ts`, `attention-scoring.ts`, `attention-service.ts` | Relevance/attention scoring | Internal collaborators, call the repository — already correct shape |
+| `promotion-pipeline.ts` | Promotion sweeps | Same |
+| `relevance-engine.ts`, `relevance-listener.ts`, `relevance-service.ts`, `relevance-scoring.ts` | Relevance computation + event reaction | Same |
+| `role-community-map.ts`, `scoring-config.ts`, `token-budget.ts` | Scoring support data/config | Same |
+| `fts.ts` | Full-text search | Same |
+| `errors.ts`, `events.ts`, `types.ts` | Shared types/errors/events for the domain | Same |
+
+**Core App — Notification** (also already has real internal shape; not yet audited for a
+route-vs-module dual-path the way Knowledge was, flagged as an open check for AU12/AU13's audit
+task rather than assumed clean):
+
+| File | Role |
+|---|---|
+| `dispatcher.ts`, `drain.ts` | Queue drain / delivery |
+| `adapter-factory.ts`, `console-adapter.ts`, `ntfy-adapter.ts`, `smtp-adapter.ts` | Delivery adapters |
+| `daily-digest.ts`, `digest.ts` | Digest batching |
+| `mute.ts`, `silence-policy.ts`, `redact.ts` | Delivery policy |
+| `notification-listener.ts` | Domain-event reaction |
+| `config.ts`, `types.ts` | Config/types |
+
+**Core App — Conversation, Work, Users, Routine** (no dedicated folder exists today — this is the
+literal absence AU12/AU13 build):
+
+| Domain | As-is | Should |
+|---|---|---|
+| Conversation (`threads`, `messages`) | Scattered across `routes/threads.ts`, `routes/assistant.ts`, `routes/coach.ts`, plus direct writes from `services/agent-work-assistant.ts`, `services/assistant-dispatcher.ts` | A `conversation/` module owning both tables; every listed caller becomes a caller of it (AU12) |
+| Users/Agents (`users`) | Scattered across `routes/users.ts`, `routes/agents.ts`, `routes/teams-routes.ts`, plus `services/agent-work-assistant.ts`'s lazy-create | A `users/` module (AU12) |
+| Work (`bets`, `tasks`, `items`) | Scattered across core routes, plus `services/builtin-routine-handlers.ts`'s `items` insert | A `work/` module (AU13) |
+| Routine (`routines`, `routine_runs`) | Scattered across core routes, plus `services/builtin-routine-handlers.ts`'s direct inserts | A `routine/` module (AU13) |
+
+**Core App — Configuration** (already one real module, contrary to this document's earlier,
+un-verified four-box model of "Plugin Loader / Settings Service / Configuration Store / Configuration
+Resolver" — confirmed by reading `plugin-configuration.ts` directly):
+
+| Function | Role |
+|---|---|
+| `loadPluginConfigurationDefaults`, `loadBuiltInConfigurationDefaults` | Plugin/built-in default seeding |
+| `setConfigurationOverride`, `clearConfigurationOverride` | User override writes |
+| `setPluginConfigurationState` | Plugin enable/disable/remove |
+| `listResolvedConfiguration`, `getResolvedConfiguration` | The merged read Agent Layer's Trigger Resolver calls |
+
+**Agent Layer — Trigger Resolver**: `trigger-resolution.ts`, `agent-selection.ts`, `roster.ts`.
+As-is/should gap: `agent-selection.ts` is also called directly by `routine-scheduler.ts` (Core),
+the one bypass this maps onto AU15.
+
+**Agent Layer — Orchestrator** (absorbs the old "Lifecycle Publisher" — it isn't separate data, it's
+this service narrating its own state transitions): `agent-work-handoff.ts`,
+`agent-work-intent-worker.ts`, `agent-session-requests.ts`, `agent-run-boundary.ts`,
+`agent-session-runtime.ts`, `session-provisioning.ts`, `agent-layer-boot.ts`,
+`agent-work-assistant.ts`, `assistant-dispatcher.ts`, `task-dispatcher.ts`,
+`routine-session-reaper.ts`, `sandbox-reaper.ts`, `contracts.ts`. As-is/should gap:
+`agent-work-assistant.ts` and `assistant-dispatcher.ts` write Conversation/Users tables directly
+(AU12); `task-dispatcher.ts` and the routine reapers should call Work/Routine once AU13 lands.
+
+**Agent Layer — Sandbox Bridge** (merges the old "Context Assembly" and "Capture & Writeback" — same
+files⇄domain-data translation, run in each direction): `context-assembly.ts`,
+`context-assembly-prompt.ts`, `session-context.ts`, `writeback.ts`, `file-watcher.ts`. As-is/should
+gap: both directions currently reach Knowledge's table/repository inconsistently rather than
+through one settled contract (AU14 gives it one to call).
+
+**Agent Layer — Harness Registry**: `adapter-pool.ts`, `builtin-harness-adapter.ts`,
+`cli-harness-adapter.ts`, `cli-mcp-config.ts`, `context-window.ts`, `disabled-sandbox-adapter.ts`,
+`harness-capability-descriptors.ts`, `harness-discovery.ts`, `harness-session-probe.ts`,
+`llm-client.ts`, `llm-types.ts`, `local-sandbox-adapter.ts`, `remote-harness-adapter.ts`,
+`sandbox-adapter.ts`, `services/worker-ws.ts` (the WS control channel — relocated here by AU11,
+zero DB imports, confirmed). As-is/should gap: this is the read surface 8 core routes bypass via
+the descriptor-read allowlist instead of calling (AU16).
+
+**Agent Layer — Tool Surface** (merges the old "Tool Registry" and "MCP Gateway" — two transports,
+one concern): `tools/tool-registry.ts` + all `tools/*.ts` tool implementations, `mcp/mcp-bridge.ts`,
+`mcp/mcp-bridge-registry.ts`, `services/mcp-route.ts` (relocated by AU11 — its body directly
+executes MCP requests, not a descriptor read, confirmed), `harness/provision-return-hook.ts`,
+`harness/re-engage.ts`, `harness/return-enforcement-registry.ts`, `harness/return-gate.ts`,
+`tools/return-status-tool.ts`. Already clean — no gap found.
+
+**Agent Layer — Cost & Limits**: `services/cost-cap.ts`, `services/cost-sentinel.ts`,
+`harness/llm-cost-estimate.ts`. Already clean — no gap found.
+
+**Open question carried from this session, not resolved here:** Harness Registry and Tool Surface
+are both "capability registries" and could arguably merge into one — kept separate above because a
+harness is selected once per session while tools/MCP are invoked repeatedly within one, a real
+lifecycle difference. Worth a second opinion during AU17's architecture pass, not assumed settled.
+
+### 5. What this section is, and isn't
+
+This is a should-graph refinement, not a new should-graph — the two-layer contract in §"Layer
+Interaction Graph" above (Core App owns records/events, Agent Layer owns execution, Plugins are
+configuration-only) is unchanged. What's new is naming the real services inside each layer and the
+specific mechanism each crossing should use, because AU8's own audit found the two-layer split alone
+cannot support a zero-allowlist guard: it has no vocabulary for "a Routine handler wrote into a
+Conversation table," since both are "core." AU12–AU17 (`.pipeline/work-packages/TRACK-AU.md`) are
+what turn this section from a diagram into source. AU8 is the last work package in the track either
+way — this section is what it will actually check once they land.
