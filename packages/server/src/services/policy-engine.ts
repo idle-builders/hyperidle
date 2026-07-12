@@ -7,7 +7,7 @@
  * factory settings with safe defaults so no migration is required.
  */
 
-import { factorySettings, type HyperIdleDb, items, messages, threads } from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, messages, threads } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
 import { and, desc, eq } from "drizzle-orm";
 import { isSilenced as sharedIsSilenced } from "../notifications/silence-policy.js";
@@ -54,7 +54,7 @@ async function evaluateItem(
 	nowFn: () => Date,
 ): Promise<void> {
 	// 1. Load the item
-	const [item] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
+	const item = await work.getItemById(db, itemId);
 	if (!item) return;
 
 	// 2. Load the source agent's trust signal (approval rate from verdict history)
@@ -151,7 +151,7 @@ async function executeAction(
 			// dropped `responses` table. The item carries a `threadId`; the
 			// verdict targets the most recent review-typed message in that
 			// thread (or the legacy item id when no review message exists).
-			const [item] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
+			const item = await work.getItemById(db, itemId);
 			if (!item) break;
 			// L1 step5 (W5): push the type filter into SQL and limit to the
 			// most recent review-typed message — the previous query loaded
@@ -194,7 +194,7 @@ async function executeAction(
 		case "queue": {
 			// @lore I6: append to auditTrail instead of overwriting to preserve
 			// prior entries (e.g. from re-evaluation after an unqueue).
-			const [existing] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
+			const existing = await work.getItemById(db, itemId);
 			// @lore I6: old data may have a plain object instead of an array.
 			// Guard with Array.isArray to avoid crashing on legacy audit trails.
 			const parsed: unknown = existing?.auditTrail ? JSON.parse(existing.auditTrail) : [];

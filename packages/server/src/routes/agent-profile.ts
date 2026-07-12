@@ -19,7 +19,7 @@
  * columns. Honest over fabricated.
  */
 
-import { factorySettings, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { factorySettings, sessions, teamMembers, teams, users } from "@hyperidle/db";
 import type {
 	AgentActiveSession,
 	AgentHarnessCapabilities,
@@ -31,7 +31,7 @@ import type {
 	AgentSessionSummary,
 	HarnessCapabilities,
 } from "@hyperidle/shared";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { Context } from "hono";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { computeApprovalRate } from "../services/approval-rate.js";
@@ -40,6 +40,7 @@ import {
 	harnessCapabilitiesForType,
 	registeredHarnessCount,
 } from "../services/harness-capability-read-model.js";
+import * as work from "../work-service.js";
 
 // ---------------------------------------------------------------------------
 // Health signal computation (exported for unit tests — see A5 finding)
@@ -256,11 +257,7 @@ export async function handleAgentProfile(
 	const activeSessionRow = allSessions.find((s) => s.state === "active") ?? null;
 	let activeSession: AgentActiveSession | null = null;
 	if (activeSessionRow?.taskId) {
-		const [activeTaskRow] = await db
-			.select({ betId: tasks.betId })
-			.from(tasks)
-			.where(eq(tasks.id, activeSessionRow.taskId))
-			.limit(1);
+		const activeTaskRow = await work.getTaskById(db, activeSessionRow.taskId);
 		activeSession = {
 			sessionId: activeSessionRow.id,
 			taskId: activeSessionRow.taskId,
@@ -279,10 +276,7 @@ export async function handleAgentProfile(
 			s.taskId ? [{ ...s, taskId: s.taskId }] : [],
 		);
 		const taskIds = taskBackedSessionRows.map((s) => s.taskId);
-		const taskTitleRows = await db
-			.select({ id: tasks.id, title: tasks.title })
-			.from(tasks)
-			.where(inArray(tasks.id, taskIds));
+		const taskTitleRows = await work.listTasksByIds(db, taskIds);
 		const taskTitleMap = new Map(taskTitleRows.map((t) => [t.id, t.title]));
 		recentSessions = taskBackedSessionRows.map((s) => ({
 			sessionId: s.id,

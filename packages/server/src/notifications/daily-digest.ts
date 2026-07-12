@@ -1,5 +1,6 @@
-import { type HyperIdleDb, type Item, items, messages } from "@hyperidle/db";
-import { and, eq, gte, inArray, like } from "drizzle-orm";
+import { type HyperIdleDb, type Item, messages } from "@hyperidle/db";
+import { and, eq, inArray } from "drizzle-orm";
+import * as work from "../work-service.js";
 
 interface DailyDigestResult {
 	items: Item[];
@@ -29,10 +30,7 @@ export async function getDailyDigest(db: HyperIdleDb, now?: Date): Promise<Daily
 	const cutoff = twentyFourHoursAgo.toISOString();
 
 	// Get all queued items from the last 24h
-	const queuedItems = await db
-		.select()
-		.from(items)
-		.where(and(like(items.auditTrail, "%policy_queued%"), gte(items.createdAt, cutoff)));
+	const queuedItems = await work.listQueuedItemsSince(db, cutoff);
 
 	if (queuedItems.length === 0) {
 		return { items: [], generatedAt: currentTime.toISOString() };

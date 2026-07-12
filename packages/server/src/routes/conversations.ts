@@ -1,4 +1,4 @@
-import { type HyperIdleDb, type Item, items, threads } from "@hyperidle/db";
+import { type HyperIdleDb, type Item, threads } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus, HostKind, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { desc, eq, sql } from "drizzle-orm";
@@ -124,11 +124,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		}
 
 		// Get items sorted by createdAt ASC
-		const threadItems = await db
-			.select()
-			.from(items)
-			.where(eq(items.threadId, threadId))
-			.orderBy(items.createdAt);
+		const threadItems = await work.listItemsByThread(db, threadId);
 
 		// L1 step5 (S-C2): the verdict-projection that re-shaped `verdict`
 		// messages into the legacy `responses` row format was removed alongside
@@ -188,7 +184,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 				createdAt: now,
 			});
 
-			const [created] = await db.select().from(items).where(eq(items.id, id)).limit(1);
+			const created = await work.getItemById(db, id);
 
 			// Emit item_created event
 			const event: ItemCreatedEvent = {

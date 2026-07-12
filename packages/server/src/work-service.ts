@@ -351,6 +351,14 @@ export interface ListTasksOpts {
 	readonly betId?: string;
 	readonly state?: string;
 	readonly ownerAgentId?: string;
+	/** `routes/artifacts.ts` axis="product" — teamId filter, AND-composed like the others. */
+	readonly teamId?: string;
+	/**
+	 * `routes/artifacts.ts` axis="bet"/"product" — Sec-MED-4 fan-out cap
+	 * (`MAX_TASK_ID_FANOUT + 1`). Optional, SQL-level `.limit()` — omitted for
+	 * every other call site (unbounded, matching current behavior).
+	 */
+	readonly limit?: number;
 }
 
 /**
@@ -365,13 +373,13 @@ export async function listTasks(exec: WriteExecutor, opts?: ListTasksOpts): Prom
 	if (opts?.betId !== undefined) conditions.push(eq(tasks.betId, opts.betId));
 	if (opts?.state !== undefined) conditions.push(eq(tasks.state, opts.state));
 	if (opts?.ownerAgentId !== undefined) conditions.push(eq(tasks.ownerAgentId, opts.ownerAgentId));
-	if (conditions.length > 0) {
-		return exec
-			.select()
-			.from(tasks)
-			.where(and(...conditions));
-	}
-	return exec.select().from(tasks);
+	if (opts?.teamId !== undefined) conditions.push(eq(tasks.teamId, opts.teamId));
+	const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+	const query =
+		whereClause === undefined
+			? exec.select().from(tasks)
+			: exec.select().from(tasks).where(whereClause);
+	return opts?.limit !== undefined ? query.limit(opts.limit) : query;
 }
 
 /**

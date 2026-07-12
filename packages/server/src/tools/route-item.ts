@@ -1,5 +1,3 @@
-import { items } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
 import z from "zod";
 import { routeItem } from "../services/item-router.js";
 import * as work from "../work-service.js";
@@ -34,7 +32,7 @@ async function handler(
 	input: RouteItemInput,
 	ctx: ToolContext,
 ): Promise<ToolResult<RouteItemData>> {
-	const [row] = await ctx.db.select().from(items).where(eq(items.id, input.itemId)).limit(1);
+	const row = await work.getItemById(ctx.db, input.itemId);
 	if (!row) {
 		return err("NOT_FOUND", `Item not found: ${input.itemId}`);
 	}
