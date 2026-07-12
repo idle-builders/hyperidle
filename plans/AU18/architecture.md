@@ -1,7 +1,22 @@
 # AU18 — Architecture: Notification owns `notificationQueue`; `factorySettings` retired
 
-**Type:** backend · **Complexity:** L (see §10 — verified surface is XL-leaning; scope decision flagged) · **Depends on:** AU11 (shipped)
+**Type:** backend · **Complexity:** L→XL (see §10 — verified surface is XL; +`packages/eval` now in scope) · **Depends on:** AU11 (shipped)
 **Pre-build gates:** Refinement — not required. Design — not required (no UI).
+
+---
+
+## 0. Revision banner (round 2)
+
+Independent architecture critique (score 6/10, round 1) found 4 CRITICALs. All re-verified against code by this planner (not taken on trust) and addressed here. Everything the critique did **not** flag is retained verbatim.
+
+| # | CRITICAL | What changed |
+|---|----------|--------------|
+| 1 | `packages/eval` blind spot — `seedFactorySettings` (`eval/seeding.ts:267`) is a **real generic `factorySettings` writer** importing the table via the db barrel (`eval/seeding.ts:18`); 8 call sites; `packages/eval` is a tsconfig project ref so the barrel drop breaks its compile. AC-4's server+db-only grep goes **false-green** while eval is red. | §1a: eval brought fully into the surface (new eval table + corrected headline). §7: eval files + `zod-schemas.ts` + db barrel added. §8: AC-4 grep widened to **whole repo**. §9: eval fixture rewrite listed. |
+| 2 | The `cost_actual` live-compute swap (§4) **breaks graded eval scenarios** — `builtin-routines.ts`/`routine-sessions.ts` seed `cost_actual` directly (8500/10500/5000/1001) with **zero** user cost; `sumAllUserCost` = ~0 there, collapsing warning/breach/blocked → ok/allowed. Prod is fine (`cost-cap.ts:358` already writes `cost_actual = sumAllUserCost` every event). | §4: premise corrected; **locked decision** to rewrite the named eval scenarios to accumulate real user cost + seed `server_config.cost.capMinor`. §9 names the exact scenario files. |
+| 3 | AC-6b (a *new* `factorySettings`-shaped raw table must fail a **lint-time guard**, not merely convention) is **unmet by table-deletion alone** — a brand-new `pgTable("x",{key,value})` compiles clean. Re-verified: AU8's spec is a `TABLE_OWNER`/`ROUTE_OWNER` map over **known** tables — an unmapped new KV table is invisible to it, so AU8 does **not** own AC-6b's shape half → **option (b) descoping is unsupported**. | §6: **option (a)** chosen — ship a minimal shape-guard in AU18 (new §6.5), zero-allowlist (no existing table is generic `{key,value}`-shaped, verified). |
+| 4 | Path-traversal sink: `routes/agents.ts GET /templates/:role` moving from a DB key lookup to `docs/system-prompts/${role}.md` with `:role` unsanitized. | §3: template row now names the mitigation — role allowlisted against `factory-roster.ts` / `^[a-z][a-z-]*$` + resolved-path containment check. §10 Q2: CWD contract **locked** (not deferred), interacts with this fix. |
+
+Folded WARNINGs: §5 corrected (merge is **manual per-section**, not automatic); §7 adds `zod-schemas.ts:72` + db-barrel re-exports; §6 migration data-preservation note; §10 Q2 locked; §2.2 kitchen-sink nudge acknowledged.
 
 ---
 
@@ -14,9 +29,9 @@ Closes the last confirmed Core-App read/write-ownership gap in Track AU. Two ind
 
 ### 1a. Spec-vs-reality delta (READ THIS FIRST)
 
-The spec's narrative names **8 `factorySettings` files** and **5 real-setting callers**. Direct code reading (every match verified, not grep-counted) finds the true surface is roughly **2× the files and ~13 key-namespaces**, and — critically — **several namespaces have NO production writer at all** (only bootstrap-seed or defaults). This is exactly the 3-7× first-pass undercount the spec warned about (AU12/AU13 precedent).
+The spec's narrative names **8 `factorySettings` files** and **5 real-setting callers**. Direct code reading (every match verified, not grep-counted) finds the true surface is roughly **2× the files and ~13 key-namespaces**, and — critically — **several namespaces have NO production writer at all** (only bootstrap-seed or defaults). This is exactly the 3-7× first-pass undercount the spec warned about (AU12/AU13 precedent). **Round 2 adds a third package — `packages/eval` — that the round-1 sweep missed entirely.**
 
-**Verified real table-access files (14 in `packages/server`, +2 in `packages/db`):**
+**Verified real table-access files (14 in `packages/server`, +2 in `packages/db`, +5 in `packages/eval`):**
 
 | # | File | factorySettings access | In spec's list? |
 |---|------|------------------------|-----------------|
@@ -37,13 +52,26 @@ The spec's narrative names **8 `factorySettings` files** and **5 real-setting ca
 | 15 | `packages/db/src/factory-bootstrap.ts` | **W (seeder)** — seeds `cost_cap`,`cost_cycle`,`system_template:<role>` | ❌ **MISSED (db layer!)** |
 | 16 | `packages/db/src/demo-fixture.ts` | R, `n:<role>` template keys (demo only) | ❌ **MISSED** |
 
-**Incidental matches excluded (comment/doc/@lore only, NO table access):** `services/server-config.ts`, `tools/add-agent.ts`, `services/lifecycle-propagation.ts` (line 539 comment; it DOES touch `notificationQueue` though — see §1b), `routes/auth.ts`, `middleware/auth.ts`, `routes/settings.ts`, `routes/model-gateway.ts`. Grep returned 21 files; **7 are pure comment matches**.
+**Round-2 addition — `packages/eval` (5 files, all real, all compile-linked to the dropped table):**
+
+| # | File | factorySettings access | Notes |
+|---|------|------------------------|-------|
+| E1 | `packages/eval/src/seeding.ts` | Imports `factorySettings` from db barrel (`:18`); **exports the generic KV writer `seedFactorySettings(db, Record<string,string>)`** (`:267`, `.insert(factorySettings).onConflictDoUpdate`); calls it in `seedMinimalWorld` (`:339`, phantom `factory_cost_cap_minor`/`factory_cost_cap_currency`). | **Barrel-linked** → drop breaks `check`. The `seedFactorySettings` helper must be **deleted** (its table is gone), and its callers rewritten. |
+| E2 | `packages/eval/src/scenarios/builtin-routines.ts` | Calls `seedFactorySettings` 3× (`:103/:173/:222`) seeding `cost_cap`+`cost_actual` (8500/10500/5000). | **Graded** cost-sentinel warning/breach/ok — see §4 CRITICAL #2. |
+| E3 | `packages/eval/src/scenarios/routine-sessions.ts` | Calls `seedFactorySettings` 1× (`:336`) seeding `cost_cap:1000`/`cost_actual:1001`. | **Graded** cost-cap-blocked — see §4. |
+| E4 | `packages/eval/src/scenarios/session.ts` | Calls `seedFactorySettings` 3× (`:75/:178/:271`) seeding `factory_cost_cap_minor`/`factory_cost_cap_currency`. | **Phantom keys** — no prod reader (cost path reads `cost_cap`, not `factory_cost_cap_minor`). These seeds are dead → delete, not migrate (SUGGESTION confirmed). |
+| E5 | *(caller set, not a file)* — the 8 `seedFactorySettings` call sites above | — | All rewired away from the helper; helper deleted. |
+
+**Why this was invisible to round 1:** the round-1 AC-4 verification (`git grep factorySettings packages/server/src packages/db/src`) is scoped to two packages. `packages/eval` references the table only through the db barrel re-export and its own helper, so it never appeared — yet it **is** a tsconfig project reference (`{ "path": "packages/eval" }` in the root `tsconfig`), so `npm run check` compiles it and the barrel drop turns it red. AC-4 is now **whole-repo** (§8).
+
+**Incidental matches excluded (comment/doc/@lore only, NO table access):** `services/server-config.ts`, `tools/add-agent.ts`, `services/lifecycle-propagation.ts` (line 539 comment; it DOES touch `notificationQueue` though — see §1b), `routes/auth.ts`, `middleware/auth.ts`, `routes/settings.ts`, `routes/model-gateway.ts`. Grep returned 21 files in server; **7 are pure comment matches**.
 
 **No-production-writer namespaces (writers found only in `factory-bootstrap` seed or nowhere; changes the migration):**
-- `scoring.weight.*`, `attention.weight.*`, `relevance.*`, `trust_*`, auto-resolve keys → **no writer exists** (loaders always fall back to hardcoded defaults in prod). Only reachable write path is the generic `/settings` PATCH (itself being retired).
-- `cost_cap` → written **only** by `factory-bootstrap` seed (value `20000`); `cost_cycle` → seeded but **zero readers** (dead).
+- `scoring.weight.*`, `attention.weight.*`, `relevance.*`, `trust_*`, auto-resolve keys → **no writer exists** (loaders always fall back to hardcoded defaults in prod). Only reachable write path is the generic `/settings` PATCH (itself being retired). *(Re-verified: no eval writer either — critique confirmed.)*
+- `cost_cap` → written **only** by `factory-bootstrap` seed (value `20000`) in prod; and by eval scenarios (graded). `cost_cycle` → seeded but **zero readers** (dead).
 - `system_template:<role>` → written **only** by `factory-bootstrap` seed from `docs/system-prompts/*.md`.
 - `factory_start_time` → **no writer found anywhere** in prod; `status.ts` read always falls back to `SERVER_START_TIME`.
+- `factory_cost_cap_minor` / `factory_cost_cap_currency` → **eval-seeded only, no prod reader** (confirmed dead — legacy). Builder deletes the seed, does not chase a phantom setting.
 
 ### 1b. `notificationQueue` surface (6 files, all real, all single-table)
 
@@ -93,6 +121,8 @@ updateManyByIds(db, ids, patch): Promise<void>                        // digest 
 deleteReaped(db, cutoff, statuses): Promise<string[]>                 // delete returning ids
 ```
 
+> **Kitchen-sink nudge (critique MD, non-blocking):** the 7 read variants (`listByStatus`/`listPending`/`listPendingDigest`/`listUnread`/`listStuckLeases`/`listByIdsWithStatus`) partly collapse to one parameterized `listWhere(db, filter, order)`. AU14's precedent is deliberately granular, so this stays granular **unless** the builder finds the collapse trivially clean during extraction — do not over-invest here. Not a blocker.
+
 `enqueueNotification` (the existing public write entry with flood-cap logic) **stays in `dispatcher.ts`** but rewires its raw `insert`/`select`/`update` calls to `insertNotification` / `queueCountByStatus` / `updateStatus`. Callers of `enqueueNotification` (dispatcher, notification-listener, teams-routes, lifecycle-propagation) are unchanged at the call boundary.
 
 ### 2.3 Guard (AC-6a, AC-7)
@@ -107,21 +137,22 @@ The generic KV bucket is **not one domain**. Each namespace gets the *right* hom
 
 | Namespace | Current keys | Target home | Behavior-preservation note |
 |-----------|--------------|-------------|----------------------------|
-| Notification delivery (non-secret) | `notifications.*` minus 2 secrets | **`server_config.notifications.delivery`** (new sub-section; extend `NotificationsSchema`) | Same values; `config.ts` `read/updateNotificationConfig` re-backed by `readServerConfig`/`updateServerConfig`. Route response shapes (`SafeNotificationConfig`, redaction) unchanged. |
+| Notification delivery (non-secret) | `notifications.*` minus 2 secrets | **`server_config.notifications.delivery`** (new sub-section; extend `NotificationsSchema`) | Same values; `config.ts` `read/updateNotificationConfig` re-backed by `readServerConfig`/`updateServerConfig`. Route response shapes (`SafeNotificationConfig`, redaction) unchanged. **Merge caveat: nested — needs deep-merge wiring, see §5.** |
 | Notification secrets | `notifications.smtp_password`, `notifications.ntfy_auth_token` | **`server_credentials`** (AH1 precedent — secrets never in the config blob) | Redaction (`REDACTED`, `*Set` flags) preserved; `config.ts` reads secrets from `server_credentials` by name. |
 | Notification mute | `notifications.mute_<typeKey>` | **`server_config.notifications.mutedTypes: string[]`** (new field alongside existing `mutedTeams`) | `defaultMutePreference{Reader,Writer}` + `getMutedTypeKeys` re-backed. |
-| Silence policy | `silence_mode`, `silence_product_<teamId>`, `silence_window_{start,end}` | **`server_config.notifications.silence`** `{ mode:boolean, silencedTeamIds:string[], window:{start,end}|null }` | No prod writer → defaults (off/empty/null) preserve behavior. `silence-policy.ts` reads via `readServerConfig`; `teamMembers` lookup stays a separate call (already decomposed → AC-7 ok). |
+| Silence policy | `silence_mode`, `silence_product_<teamId>`, `silence_window_{start,end}` | **`server_config.notifications.silence`** `{ mode:boolean, silencedTeamIds:string[], window:{start,end}|null }` | No prod writer → defaults (off/empty/null) preserve behavior. `silence-policy.ts` reads via `readServerConfig`; `teamMembers` lookup stays a separate call (already decomposed → AC-7 ok). Refresh the stale `@lore` in `dispatcher.ts` (lines ~694-702, comment-only) that describes the old `factory_settings silence_window` read (SUGGESTION). |
 | Observability | `observability.*` (5) | **`server_config.observability`** (new section) | `read/updateObservabilityConfig` re-backed; default-on `enabled` preserved. |
 | Git export | `git_export.*` config (enabled/repoPath/remoteUrl/branch/author*/debounce/allowFileRemote/repoRoot) | **`server_config.gitExport`** (new section) | All sanitizers unchanged (they operate on values, not storage). |
 | Git export computed stamps | `git_export.last_commit_at/sha`, `last_push_at` | **`server_config.gitExport.lastExport`** (owned by `git-export-config.ts`) | `writeLastCommit`/`writeLastPush`/`getLastExportMeta` re-backed. |
-| Cost cap (real setting) | `cost_cap` (seed `20000`) | **`server_config.cost.capMinor`** (schema default `20000`) | `cost-sentinel.ts` + `routine-scheduler.ts` read via `readServerConfig`. Bootstrap seeds `server_config` (or relies on schema default). |
+| Cost cap (real setting) | `cost_cap` (seed `20000`) | **`server_config.cost.capMinor`** (schema default `20000`) | `cost-sentinel.ts` + `routine-scheduler.ts` read via `readServerConfig`. Bootstrap seeds `server_config` (or relies on schema default). **Eval scenarios seed this via `server_config.cost.capMinor`, not the old key — see §4.** |
 | Cost cycle | `cost_cycle` | **DROP entirely** — zero readers | Dead seed; delete the bootstrap write. |
-| Knowledge scoring | `scoring.weight.*` / `attention.weight.*` / `relevance.weight.*` / `relevance.<shape>` | **Delete the DB read; return existing hardcoded `DEFAULT_*`** | No prod writer → prod always returns defaults today. Behavior identical. (Alt: a `server_config.knowledgeScoring` section if settability must survive — see §10 open question.) |
-| Trust config | `trust_window_days`, `trust_queue_threshold`, auto-resolve threshold/min-verdicts | **Delete the DB read; return existing defaults** | Same rationale — no prod writer. (Alt: `server_config.trust` section.) |
-| Agent prompt templates | `system_template:<role>` (7 markdown blobs) | **Read from `docs/system-prompts/*.md` directly** (the same source `factory-bootstrap` seeds from) | `roster.ts` + `agents.ts` GET /templates/:role read the file via a shared helper; bootstrap stops seeding template rows. NOT server_config (large markdown ≠ config). See §10. |
+| Knowledge scoring | `scoring.weight.*` / `attention.weight.*` / `relevance.weight.*` / `relevance.<shape>` | **Delete the DB read; return existing hardcoded `DEFAULT_*`** | No prod/eval writer → prod always returns defaults today. Behavior identical. (Alt: a `server_config.knowledgeScoring` section if settability must survive — see §10 open question.) |
+| Trust config | `trust_window_days`, `trust_queue_threshold`, auto-resolve threshold/min-verdicts | **Delete the DB read; return existing defaults** | Same rationale — no writer. (Alt: `server_config.trust` section.) |
+| Agent prompt templates | `system_template:<role>` (7 markdown blobs) | **Read from `docs/system-prompts/*.md` directly** (the same source `factory-bootstrap` seeds from) via a shared `readSystemPromptTemplate(role)` helper | `roster.ts` + `agents.ts` GET /templates/:role read the file via the shared helper; bootstrap stops seeding template rows. NOT server_config (large markdown ≠ config). **Traversal fix (CRITICAL #4): see the dedicated row below.** CWD contract locked in §10 Q2. |
+| ↳ `agents.ts` GET /templates/:role **input validation** | route param `:role` (untrusted) → filesystem path | **Reject before the fs read** | Today's DB-key lookup is traversal-safe; a raw `docs/system-prompts/${role}.md` read is a new sink (`../../../etc/passwd`-style role escapes the docs dir). **Mitigation (named, mandatory):** the shared `readSystemPromptTemplate(role)` helper (1) rejects any `role` not matching `^[a-z][a-z-]*$` → 400/NOT_FOUND before touching the fs, **and** (2) after `path.resolve`, asserts the result is still inside the `docs/system-prompts` root (`resolved.startsWith(root + sep)`) — defense-in-depth. The canonical role set (facilitator communities + `UserRole`) lives in `packages/shared/src/factory-roster.ts` (`templateRole` field) / `UserRole`; the regex is the cheap floor, the containment check is the backstop. Per ETHOS this is an **earned** boundary (untrusted route input → fs sink), not preemptive paranoia. |
 | Factory start time | `factory_start_time` | **DROP the read; use `SERVER_START_TIME` always** | No writer → already always falls back today. |
 | Generic `/settings` | arbitrary key/value | **Retire the write path** (see §3.1) | Every legitimate key now has a domain home; `/settings` GET becomes a read-only surface or is removed. |
-| Computed cost total | `cost_actual` | **Owned by `cost-cap.ts` as a live-computed function** (§4) | Live `sumAllUserCost` == stored value (recomputed every event today). |
+| Computed cost total | `cost_actual` | **Owned by `cost-cap.ts` as a live-computed function** (§4) | Live `sumAllUserCost` == stored value in **prod** (recomputed every event today). **Eval was seeding it directly — §4 rewrites those scenarios.** |
 | Cost sentinel dedup state | `cost_sentinel_last_level` | **`server_config.internal.costSentinelLastLevel`**, sole reader/writer `cost-sentinel.ts` | Persistence across restarts preserved without a new table. |
 
 ### 3.1 Generic `/settings` endpoint (`routes/status.ts`)
@@ -130,7 +161,9 @@ The catch-all `PATCH /settings` is **fundamentally incompatible** with a Zod-str
 
 ---
 
-## 4. Computed-state fix — cost-cap / cost-sentinel (AC-3)
+## 4. Computed-state fix — cost-cap / cost-sentinel (AC-3)  ·  **eval-break resolution locked (CRITICAL #2)**
+
+**Prod path (behavior preserved — verified):** `cost-cap.ts:358 recordFactoryCost` already writes `cost_actual = sumAllUserCost(db)` at the tail of `recordCostAndCheck` after every cost event. So a live `getFactoryCostActual = sumAllUserCost` returns **exactly** the value the table held in prod — equal-or-fresher, never staler. AC-5 preserved for prod.
 
 - `cost-cap.ts`: replace `recordFactoryCost` (which wrote `factory_settings.cost_actual`) with an exported reader:
   ```ts
@@ -140,16 +173,36 @@ The catch-all `PATCH /settings` is **fundamentally incompatible** with a Zod-str
 - `cost-sentinel.ts`: obtain the total via `getFactoryCostActual(db)` (function call, never a table). Read `cost_cap` via `readServerConfig(db).cost.capMinor`. Persist its own dedup level via `server_config.internal.costSentinelLastLevel` (read/write through `server-config.ts`), so it touches **no** `factorySettings`.
 - `routine-scheduler.ts`: `isFactoryCostCapReached` reads `cost.capMinor` via `readServerConfig` and the total via `getFactoryCostActual(db)`.
 
-> Behavior note: live `sumAllUserCost` equals the previously-stored `cost_actual` (recomputed after every cost event today) — equal-or-fresher, never staler. AC-5 preserved. (`cost-cap.ts` reading `users.costActual` is pre-existing and out of AU18's scope — flag only, do not re-audit Users here.)
+### 4.1 Eval-break — the round-1 premise was false, resolution LOCKED
+
+**The break (verified):** `cost-sentinel.ts:108` reads `cost_actual` **directly from `factorySettings`**. The graded eval scenarios seed that key **directly, with zero accumulated user cost**:
+
+| Scenario file | Scenario | Seeds (old) | Graded outcome |
+|---|---|---|---|
+| `scenarios/builtin-routines.ts` | `br-cost-sentinel-warning` (`:103`) | `cost_cap:10000`, `cost_actual:8500` (85%) | warning emitted |
+| `scenarios/builtin-routines.ts` | `br-cost-sentinel-breach` (`:173`) | `cost_cap:10000`, `cost_actual:10500` (105%) | breach emitted |
+| `scenarios/builtin-routines.ts` | `br-cost-sentinel-ok` (`:222`) | `cost_cap:10000`, `cost_actual:5000` (50%) | no event |
+| `scenarios/routine-sessions.ts` | `rs-cost-cap-blocked` (`:336`) | `cost_cap:1000`, `cost_actual:1001` (over) | routine not fired |
+
+Once cost-sentinel reads `getFactoryCostActual = sumAllUserCost` (which sums `users.costActual`, `user-store.ts:207`) instead of the seeded row, **`sumAllUserCost` is ~0** in these scenarios (they seed no user cost), so warning/breach/blocked all collapse to ok/allowed — an **AC-5 violation for the eval suite** and a red compile if `seedFactorySettings` is left dangling on the dropped table.
+
+**LOCKED architectural decision (not deferred to build):** rewrite the four graded scenarios to **accumulate real user cost** so live compute reproduces the same graded values, and seed the cap via the new typed home:
+1. Seed a user (or bump the seeded agent's `users.costActual`) to the target minor value — `8500` / `10500` / `5000` / `1001` — so `sumAllUserCost(db)` returns exactly that. (Simplest: set `users.costActual` on the world's agent/founder row directly in the seed; the graded value must equal the SUM.)
+2. Seed the cap via `server_config.cost.capMinor` (`updateServerConfig(db, { cost: { capMinor: 10000 } })`) instead of the old `cost_cap` KV key.
+3. Delete the `seedFactorySettings` helper (its table is gone) and all 8 call sites: the 4 graded seeds above → rewritten per (1)+(2); the phantom `session.ts` (`:75/:178/:271`) + `seedMinimalWorld` (`:339`) `factory_cost_cap_minor`/`factory_cost_cap_currency` seeds → **deleted** (no prod reader, confirmed dead).
+
+> Builder must run the eval scenarios (or their fixture-level component tests) and confirm the graded dimensions still score identically after the rewrite — this is the AC-5 proof for the eval suite. (`cost-cap.ts` reading `users.costActual` is pre-existing and out of AU18's scope — flag only, do not re-audit Users here.)
 
 ---
 
 ## 5. `server_config` schema extension (`services/server-config.ts` + `ServerConfigSchema`)
 
-Extend `ServerConfigSchema` (deep-merge already supports partial updates — AC-2 mechanism) with new **optional** top-level sections, each with a `.parse({})`-constructed default appended to `DEFAULTS` and merged in `applyDefaults`/`updateServerConfig` (follow the existing `notifications` sub-schema pattern exactly — Zod v4 nested-default caveat documented in the file's @lore):
+**Correction (critique WARNING §5):** `server_config`'s merge is **manual per-section**, not automatic. Verified: `updateServerConfig` (server-config.ts:222) hand-writes each branch — a shallow spread for `notifications`, a per-tier `mergeTier(...)` for `modelGateway`, a full-replace for `harnessDisabled`; `applyDefaults` (`:168`) and `DEFAULTS` (`:157`) likewise enumerate each section explicitly. **There is no generic deep-merge.** Every one of the ~7 new sections needs its own explicit wiring in **three** places: `DEFAULTS`, `applyDefaults` (parse-with-sub-schema, per the Zod-v4 nested-default @lore), and `updateServerConfig` (merge branch). Budget this handwork.
 
-- extend `NotificationsSchema` → add `delivery` (the 17 non-secret notification fields), `mutedTypes: string[]`, `silence: {...}`.
-- add `observability`, `gitExport` (incl. `lastExport`), `cost: { capMinor, }`, `internal: { costSentinelLastLevel }`.
+Extend `ServerConfigSchema` with new **optional** top-level sections, each with a `.parse({})`-constructed default (follow the existing `notifications` sub-schema pattern exactly):
+
+- extend `NotificationsSchema` → add `delivery` (the 17 non-secret notification fields), `mutedTypes: string[]`, `silence: {...}`. **⚠ Merge hazard:** today's notifications branch is a **shallow** spread `{ ...current.notifications, ...patch.notifications }` (server-config.ts:229-232). Adding nested sub-objects (`delivery`, `silence`) means a partial patch would clobber the untouched nested object — the builder must deepen the notifications merge branch (spread each nested sub-section) so a `delivery`-only patch preserves `silence`, and vice-versa.
+- add `observability`, `gitExport` (incl. `lastExport`), `cost: { capMinor }`, `internal: { costSentinelLastLevel }` — each with its own `DEFAULTS` entry, `applyDefaults` parse, and `updateServerConfig` merge branch.
 - (conditional) `knowledgeScoring`, `trust` — only if §10 open question resolves to "keep settable".
 
 Every re-backed domain module keeps its **existing public function names and return types** (e.g. `readNotificationConfig`, `updateObservabilityConfig`, `readGitExportConfig`) so routes and tests are untouched at the call boundary — only the storage backend changes underneath.
@@ -158,12 +211,29 @@ Every re-backed domain module keeps its **existing public function names and ret
 
 ## 6. Table drop (AC-4) — sequenced LAST
 
-Only after `git grep factorySettings packages/server/src packages/db/src` returns nothing outside migration history/test fixtures:
+**Migration data-preservation note (critique WARNING §6):** the `DROP TABLE` is **destructive and irreversible**. Ordering invariant: **all real keys must be copied into `server_config`/`server_credentials` BEFORE the drop** — i.e. every domain module is re-backed and its data path validated first; only then does migration 0049 run. Any KV rows **not** migrated (the dead/phantom keys: `cost_cycle`, `factory_start_time`, `factory_cost_cap_*`, no-writer scoring/trust keys, `system_template:*` now sourced from docs) are **intentionally lost** — this is expected and correct (they are debris or re-sourced), not a data-loss regression. State this in the migration file header.
 
-1. `packages/db/src/schema.ts` — delete the `factorySettings` `pgTable` export + `FactorySetting`/`NewFactorySetting` types (lines ~869-872, ~1635-1636). **Deleting the export is itself the AC-6b enforcement**: any new code referencing `factorySettings` fails `npm run check` (import error). No separate lint guard is needed for the factorySettings half — table non-existence is stronger than a lint rule. (Policing a *new* `factorySettings-shaped` table is AU8's generic-guard job, explicitly out of AU18 scope.)
-2. New migration `packages/db/drizzle/0049_AU18_drop_factory_settings.sql` — `DROP TABLE factory_settings;` (raw SQL in a migration file is the sanctioned exception to the no-raw-SQL rule). Regenerate via `npm run db:generate` then rename per the `00NN_AU18_*` convention; add the `_journal.json` entry (idx 49). Current max = 0048.
-3. `factory-bootstrap.ts` — remove the `cost_cap`/`cost_cycle`/`system_template` `factorySettings` inserts; seed `server_config.cost` if a non-default seed is still wanted (schema default `20000` makes the seed optional). Template backfill onto `users.systemPrompt` reads from docs files, not the removed rows.
-4. `demo-fixture.ts` — drop `n:<role>` template reads (demo-only).
+Only after `git grep factorySettings` returns nothing **across the whole repo** (§8 AC-4) outside migration history/test fixtures:
+
+1. `packages/db/src/schema.ts` — delete the `factorySettings` `pgTable` export (line ~869) + `FactorySetting`/`NewFactorySetting` types (lines ~1635-1636). Deleting the export makes any *old-symbol* reference a `check` failure (import error) — stronger than a lint rule **for the old table**. (See §6.5 for the *new-shape* half of AC-6b, which table-deletion does NOT cover.)
+2. `packages/db/src/zod-schemas.ts` — delete `selectFactorySettingSchema = createSelectSchema(factorySettings)` (line 72) and the `factorySettings` import (line 21). **(critique WARNING — round-1 miss.)**
+3. `packages/db/src/index.ts` (barrel) — remove the re-exports `FactorySetting` (line 42), `factorySettings` (line 46), `NewFactorySetting` (line 77). **(critique WARNING — round-1 miss; this is the exact re-export `packages/eval` imports.)**
+4. New migration `packages/db/drizzle/0049_AU18_drop_factory_settings.sql` — `DROP TABLE factory_settings;` (raw SQL in a migration file is the sanctioned exception to the no-raw-SQL rule). Regenerate via `npm run db:generate` then rename per the `00NN_AU18_*` convention; add the `_journal.json` entry (idx 49). Current max = 0048. Header note per the data-preservation paragraph above.
+5. `factory-bootstrap.ts` — remove the `cost_cap`/`cost_cycle`/`system_template` `factorySettings` inserts; seed `server_config.cost` if a non-default seed is still wanted (schema default `20000` makes the seed optional). Template backfill onto `users.systemPrompt` reads from docs files, not the removed rows.
+6. `demo-fixture.ts` — drop `n:<role>` template reads (demo-only).
+7. `packages/eval/src/seeding.ts` — delete the `seedFactorySettings` helper + the `factorySettings` barrel import; rewrite its callers per §4.1.
+
+### 6.5 AC-6b shape-guard — **option (a), shipped in AU18 (CRITICAL #3)**
+
+**Why not option (b) (descope to AU8):** re-verified AU8's spec text in `TRACK-AU.md` (§AU8 + plan-calls line 621). AU8 consolidates the guard scripts around a **`TABLE_OWNER` map — "one entry per table naming which service owns it"** — plus a parallel `ROUTE_OWNER` map. That mechanism checks cross-domain **access to known, mapped tables**; a brand-new `pgTable("x", { key, value })` added tomorrow has **no `TABLE_OWNER` entry**, so it is **invisible** to AU8's guard and compiles + passes clean. AU8's ACs are all about Strategy/Fabric edges, core→agent internals, and agent→core CRUD — **none** covers "a new generic KV bucket was introduced." **AU8 does not own AC-6b's shape half.** Descoping is therefore unsupported by the spec; per the founder's zero-exceptions / "not merely convention" standard (and the AU12/13/14 memory), **AU18 ships the guard.**
+
+**The guard:** `scripts/au18-kv-shape-guard.ts` — an AST/schema scan of `packages/db/src/schema.ts` (and any other `pgTable(...)` definitions repo-wide) that **fails** if any `pgTable` is shaped like a **generic string key-value bucket** — i.e. its column set is essentially `{ key: text (PK), value: text/json, updatedAt? }` with **no domain columns**. This is precisely the `factory_settings` shape (`key text PK, value text, updated_at text` — verified schema.ts:869-873).
+
+- **Allowlist: empty (zero exceptions).** Verified no existing table needs one: `server_config` is a **singleton typed** row (`id`/`config`/`updatedAt`, `config` a Zod-validated blob — not a raw `{key,value}` pair, and the PK is a fixed `"default"` not a free key); `server_credentials` is a typed credential table (`name`/`encryptedValue`/`validationState`/`lastValidatedAt`/`updatedAt`); `operation_outcomes`, `hint_progress`, etc. all carry domain columns. **None matches the generic-KV shape**, so the guard's allowlist is empty — matching the zero-exceptions rule exactly.
+- **Detection heuristic (to avoid false positives on typed singletons):** flag a table only when it has exactly a free-text primary key named `key`/`k`/`name`-generic AND a single opaque `value` column AND no other domain column (an `updatedAt`/timestamp is ignored). `server_config`'s `config` column is a *validated blob under a fixed-`"default"` PK*, which is explicitly **not** the free-`key` generic shape → not flagged. Document the heuristic + the "why server_config is exempt by shape, not by allowlist" reasoning in the script header.
+- Ships with `--fixtures` self-test: **positive** (real schema passes — no generic KV table remains after the drop); **negative** (a synthetic `pgTable("x", { key: text().primaryKey(), value: text() })` fixture fails). Wire into `package.json` `lint` chain alongside the notification guard.
+
+This closes **both** halves of AC-6b: old-symbol reintroduction → `check` failure (table gone); new-shape reintroduction → `au18-kv-shape-guard` failure. Neither is "merely convention."
 
 ---
 
@@ -172,14 +242,14 @@ Only after `git grep factorySettings packages/server/src packages/db/src` return
 | File | Change |
 |------|--------|
 | `notifications/notification-queue.ts` | **NEW** — repository owning all `notificationQueue` I/O. |
-| `notifications/dispatcher.ts` | Rewire raw table ops → repository calls; keep orchestration. |
+| `notifications/dispatcher.ts` | Rewire raw table ops → repository calls; keep orchestration. Refresh stale `@lore` (silence_window). |
 | `notifications/digest.ts` | `runDailyDigest` → repository calls. |
 | `notifications/notification-listener.ts` | unchanged (calls `enqueueNotification`) — verify. |
 | `routes/notifications-routes.ts` | read/seen/read-mark → repository calls. |
 | `routes/teams-routes.ts` | dedup check → `findPendingByEventSubject`. |
 | `services/retention-reaper.ts` | delete → `deleteReaped`. |
 | `services/lifecycle-propagation.ts` | insert → `insertNotification` (or `enqueueNotification`). |
-| `services/server-config.ts` | Extend `ServerConfigSchema` + defaults + merge for all new sections. |
+| `services/server-config.ts` | Extend `ServerConfigSchema` + `DEFAULTS` + `applyDefaults` + `updateServerConfig` **per-section** for all new sections (manual, incl. deepened notifications merge). |
 | `notifications/config.ts` | Re-back read/update onto `server_config` + secrets→`server_credentials`. |
 | `notifications/mute.ts` | Re-back onto `server_config.notifications.mutedTypes`. |
 | `notifications/silence-policy.ts` | Re-back onto `server_config.notifications.silence`. |
@@ -191,15 +261,23 @@ Only after `git grep factorySettings packages/server/src packages/db/src` return
 | `knowledge/scoring-config.ts` | Drop `factorySettings` reads; return defaults (or `server_config.knowledgeScoring`). |
 | `services/policy-engine.ts` | Drop trust `factorySettings` reads; return defaults (or `server_config.trust`). |
 | `routes/agent-profile.ts` | Drop `trust_window_days` read; default (or `server_config`). |
-| `services/roster.ts` | Read template from `docs/system-prompts/*.md` via shared helper. |
-| `routes/agents.ts` | GET /templates/:role reads docs file, not table. |
+| `services/roster.ts` | Read template from `docs/system-prompts/*.md` via shared `readSystemPromptTemplate` helper. |
+| `routes/agents.ts` | GET /templates/:role reads docs file via shared helper **with role validation** (§3 traversal fix), not table. |
+| *(shared helper)* `readSystemPromptTemplate(role)` | **NEW** (in `packages/db` next to bootstrap, or a shared server util) — role-validated, CWD-resolved docs read; used by bootstrap + roster + agents route. |
 | `routes/status.ts` | Retire generic `/settings` write; drop `factory_start_time` read → `SERVER_START_TIME`. |
-| `packages/db/src/schema.ts` | Delete `factorySettings` table + types. |
-| `packages/db/src/factory-bootstrap.ts` | Remove `factorySettings` seeds; template backfill from docs. |
+| `packages/db/src/schema.ts` | Delete `factorySettings` table + `FactorySetting`/`NewFactorySetting` types. |
+| `packages/db/src/zod-schemas.ts` | **Delete `selectFactorySettingSchema` (line 72) + import (line 21).** *(round-1 miss)* |
+| `packages/db/src/index.ts` | **Remove `FactorySetting`/`factorySettings`/`NewFactorySetting` barrel re-exports (lines 42/46/77).** *(round-1 miss)* |
+| `packages/db/src/factory-bootstrap.ts` | Remove `factorySettings` seeds; template backfill from docs; use shared helper. |
 | `packages/db/src/demo-fixture.ts` | Drop `n:<role>` reads. |
-| `packages/db/drizzle/0049_AU18_drop_factory_settings.sql` | **NEW** — `DROP TABLE factory_settings`. |
-| `scripts/au18-notification-ownership-guard.ts` | **NEW** — repo-wide zero-allowlist guard + `--fixtures`. |
-| `package.json` | Add guard to `lint` chain. |
+| `packages/db/drizzle/0049_AU18_drop_factory_settings.sql` | **NEW** — `DROP TABLE factory_settings` + data-preservation header note. |
+| **`packages/eval/src/seeding.ts`** | **Delete `seedFactorySettings` helper + `factorySettings` barrel import; rewrite `seedMinimalWorld`'s phantom cost seed away.** *(round-2 — CRITICAL #1)* |
+| **`packages/eval/src/scenarios/builtin-routines.ts`** | **Rewrite 3 graded cost-sentinel seeds to accumulate real user cost + `server_config.cost.capMinor` (§4.1).** *(round-2 — CRITICAL #2)* |
+| **`packages/eval/src/scenarios/routine-sessions.ts`** | **Rewrite `rs-cost-cap-blocked` seed (§4.1).** *(round-2)* |
+| **`packages/eval/src/scenarios/session.ts`** | **Delete the 3 phantom `factory_cost_cap_*` seeds (dead, no reader).** *(round-2)* |
+| `scripts/au18-notification-ownership-guard.ts` | **NEW** — repo-wide zero-allowlist notification-queue guard + `--fixtures`. |
+| **`scripts/au18-kv-shape-guard.ts`** | **NEW** — AC-6b shape-guard (generic-KV `pgTable` detector), empty allowlist + `--fixtures`. *(round-2 — CRITICAL #3)* |
+| `package.json` | Add both guards to `lint` chain. |
 
 ---
 
@@ -209,10 +287,10 @@ Only after `git grep factorySettings packages/server/src packages/db/src` return
 |----|--------------------|
 | 1 — one owning module for `notificationQueue` | `au18-notification-ownership-guard.ts --check` green (fails on any non-repository reference); existing notification tests green. |
 | 2 — real settings round-trip through `server_config`, identical values + route responses | Existing route/integration tests for notifications/observability/git-export config pass **unchanged** (same request → same response). New unit tests on the re-backed `read/update*Config` asserting `server_config` round-trip. |
-| 3 — `cost-cap` sole owner of cost-actual; `cost-sentinel` calls a function | `au18` guard + `check` (no `factorySettings` symbol); cost-cap/cost-sentinel integration tests green; new unit test on `getFactoryCostActual`. |
-| 4 — `factorySettings` zero callers + dropped | `git grep factorySettings packages/server/src packages/db/src` → empty (excl. migration history); `npm run check` (symbol gone); migration 0049 present; `npm run db:migrate` clean. |
-| 5 — all observable behavior unchanged | Full existing suites for cost-cap, cost-sentinel, notifications (delivery/digest/mute/routes/silence), git-export, observability, status, policy-engine, scoring, roster/agents templates pass unchanged. |
-| 6 — new direct `notificationQueue` access fails lint (zero allowlist); reintroducing a `factorySettings`-shaped raw table blocked | Guard `--fixtures` negative case fails as expected; factorySettings half enforced by **table deletion** (`check` fails on any reference) — justified in §6. |
+| 3 — `cost-cap` sole owner of cost-actual; `cost-sentinel` calls a function | `au18` guard + `check` (no `factorySettings` symbol); cost-cap/cost-sentinel integration tests green; new unit test on `getFactoryCostActual`; **rewritten eval cost scenarios score identically (§4.1)**. |
+| 4 — `factorySettings` zero callers + dropped | **`git grep factorySettings` across the WHOLE repo** → empty (excl. migration history / renamed `seedFactorySettings` is deleted); `npm run check` green (symbol gone — **incl. `packages/eval` compile**); migration 0049 present; `npm run db:migrate` clean. **(round-2: grep widened from server+db-only, which was the false-green.)** |
+| 5 — all observable behavior unchanged | Full existing suites for cost-cap, cost-sentinel, notifications (delivery/digest/mute/routes/silence), git-export, observability, status, policy-engine, scoring, roster/agents templates pass unchanged; **eval graded dimensions unchanged after §4.1 rewrite**. |
+| 6 — new direct `notificationQueue` access fails lint; **reintroducing a `factorySettings`-shaped raw table fails lint** | **6a:** notification guard `--fixtures` negative case fails. **6b:** old-symbol reintroduction → `check` failure (table gone) **AND** new generic-KV `pgTable` → `au18-kv-shape-guard --fixtures` negative case fails (§6.5). **Both halves closed in AU18 — not deferred.** |
 | 7 — cross-owned-table queries decomposed, no allowlisted exception | §1b confirms all `notificationQueue` queries single-table; guard's join-method matcher fails any future `notificationQueue`-in-join. |
 
 **Validation scenarios** (from spec) map to the integration suites in AC-5 + the enqueue→deliver path (notification-listener/dispatcher integration) + the config round-trip route tests.
@@ -221,26 +299,35 @@ Only after `git grep factorySettings packages/server/src packages/db/src` return
 
 ## 9. Test plan
 
-**Keep green unchanged (behavior-preservation is the whole WP):** all `__tests__` for notifications (dispatcher/digest/mute/silence-policy/delivery/routes), observability config, git-export config, cost-cap, cost-sentinel, policy-engine, scoring-config, roster, agents templates, status route. Tests currently seeding `factorySettings` rows directly (e.g. `silence-policy.integration.test.ts`, `policy-engine.integration.test.ts`, `AF8-notification-delivery.integration.test.ts`) **must be rewritten to seed via `server_config`/domain-update functions** — they seed the *old* storage; without rewrite they break on the drop. This is expected test-fixture churn, not a behavior change (memory: "tests must not drive behavior" — rewrite fixtures to the new storage, assert identical observable outcomes).
+**Keep green unchanged (behavior-preservation is the whole WP):** all `__tests__` for notifications (dispatcher/digest/mute/silence-policy/delivery/routes), observability config, git-export config, cost-cap, cost-sentinel, policy-engine, scoring-config, roster, agents templates, status route.
+
+**Fixture rewrites (seed the OLD storage → break on the drop; rewrite to new storage, assert identical observable outcomes — memory: "tests must not drive behavior"):**
+- **`packages/server`**: tests seeding `factorySettings` rows directly — e.g. `silence-policy.integration.test.ts`, `policy-engine.integration.test.ts`, `AF8-notification-delivery.integration.test.ts` — rewrite to seed via `server_config`/domain-update functions.
+- **`packages/eval`** *(round-2 — CRITICAL #1/#2)*: rewrite the graded cost scenarios per §4.1 — `scenarios/builtin-routines.ts` (`br-cost-sentinel-warning`/`breach`/`ok`), `scenarios/routine-sessions.ts` (`rs-cost-cap-blocked`); delete the phantom seeds in `scenarios/session.ts` + `seeding.ts seedMinimalWorld`; delete the `seedFactorySettings` helper. This is required for `check` (barrel drop) **and** AC-5 (graded outcomes must survive).
 
 **New tests:**
 - `notification-queue.test.ts` — each repository function's read projection/ordering + write effect (component-level with real PGlite fixture where the table is involved).
-- Guard `--fixtures` self-test (positive repo file / negative synthetic access).
+- Notification guard `--fixtures` self-test (positive repo file / negative synthetic access).
+- **KV shape-guard `--fixtures` self-test** (positive: post-drop schema clean; negative: synthetic generic-KV `pgTable` flagged) *(round-2)*.
 - Re-backed config round-trip units (notifications/observability/git-export/mute/silence read→update→read against `server_config`).
 - `getFactoryCostActual` unit.
+- `readSystemPromptTemplate` unit — **incl. traversal-rejection cases** (`../etc/passwd`, `..%2f`, uppercase, empty → rejected; valid role → content) *(round-2 — CRITICAL #4)*.
 
 ---
 
 ## 10. Risks / sequencing / open questions
 
-**Scope risk (flag for reviewer/founder — do NOT silently absorb):** verified surface is ~2× the spec's estimate and touches **knowledge-scoring, trust/policy, and agent-prompt-template** subsystems the spec never mentioned. This is L-labelled but is **XL in practice**. It is still one coherent unit (retire one table), and AC-4 mandates the drop *in this WP*, so the plan covers the full retirement. Recommended internal structure: **two sequential sub-phases in one PR** —
-  - **Phase B-first is safer than A-first:** do `factorySettings` retirement (Half B) as sub-phase 1, `notificationQueue` ownership (Half A) as sub-phase 2 — they're independent, but Half B is where the surprise scope lives, so land it (and its guard-free table-drop verification) before adding the Half-A guard. Alternatively parallelize; they share no files except `package.json` (lint chain) and the two are non-conflicting.
-  - The table `DROP` is the **hard last step** of Half B; nothing merges until `git grep factorySettings` is empty.
+**Scope risk (flag for reviewer/founder — do NOT silently absorb):** verified surface is ~2× the spec's estimate across **three** packages (server + db + **eval**) and touches knowledge-scoring, trust/policy, and agent-prompt-template subsystems the spec never mentioned. This is L-labelled but is **XL in practice**. It is still one coherent unit (retire one table), and AC-4 mandates the drop *in this WP*, so the plan covers the full retirement. Recommended internal structure: **two sequential sub-phases in one PR** —
+  - **Phase B-first is safer than A-first:** do `factorySettings` retirement (Half B) as sub-phase 1, `notificationQueue` ownership (Half A) as sub-phase 2 — they're independent, but Half B is where the surprise scope lives (now incl. the eval rewrite + shape-guard), so land it before adding the Half-A guard. Alternatively parallelize; they share no files except `package.json` (lint chain).
+  - The table `DROP` is the **hard last step** of Half B; nothing merges until `git grep factorySettings` (whole repo) is empty and `npm run check` (incl. eval) is green.
+
+**Locked decisions (round 2):**
+
+- **Q2 — Agent prompt template CWD contract (was deferred, now LOCKED):** read templates from `docs/system-prompts/*.md` via the shared `readSystemPromptTemplate(role)` helper resolving `path.resolve(process.cwd(), "docs", "system-prompts", ` + "`${role}.md`" + `)`. **Verified the contract holds:** `factory-bootstrap.ts:187` already resolves `path.resolve(process.cwd(), "docs")` and reads the same files **in-process at server startup** to seed personas — the route runs in the same process with the same cwd, so it introduces **no new deployment dependency** beyond what bootstrap already requires (if `docs/` were absent, bootstrap would already fail first). Missing-file → 404 at the route / skip at bootstrap. This **replaces** the round-1 "or keep templates on `users.systemPrompt`" fork — the docs-read data model is locked, which is why the traversal fix (§3 template-input row) lands on the helper, not on a per-caller basis. If a future packaged build strips `docs/`, that is a pre-existing bootstrap break to fix there, not an AU18 regression.
 
 **Open questions (builder resolves against code; none block planning):**
-1. **Knowledge-scoring + trust weights:** no prod writer exists → simplest is defaults-only (delete the read). If the founder wants these to remain runtime-settable, add `server_config.knowledgeScoring` / `server_config.trust` sections instead. **Recommendation: defaults-only** (boring tech; no dead config surface). Behavioral edge: a value set via the retired generic `/settings` would no longer apply — acceptable since that path is debris.
-2. **Agent prompt templates:** read from `docs/system-prompts/*.md` (recommended, matches bootstrap's own source) vs. a dedicated `system_prompt_templates` table. Recommendation: docs-file read — avoids inventing a table and avoids ~7 markdown blobs in a config blob. Confirm the process CWD contract (`factory-bootstrap` already resolves `process.cwd()/docs`) holds for the server route path; if not, keep templates on the already-backfilled `users.systemPrompt` column instead.
-3. **`GET /settings` consumers:** grep `packages/web` for `/status/settings` before removing the raw-rows response; repoint to a `server_config` projection if a client depends on it.
-4. **Notification secrets → `server_credentials`:** adds a credential-store round-trip to `config.ts`. Confirm `server_credentials` naming convention (`notifications_smtp_password`, `notifications_ntfy_auth_token`) and that encryption (`credential-encryption.ts`) is available at that call site.
+1. **Knowledge-scoring + trust weights:** no prod/eval writer exists → simplest is defaults-only (delete the read). If the founder wants these runtime-settable, add `server_config.knowledgeScoring` / `server_config.trust` sections instead. **Recommendation: defaults-only** (boring tech; no dead config surface). Behavioral edge: a value set via the retired generic `/settings` would no longer apply — acceptable since that path is debris.
+2. **`GET /settings` consumers:** grep `packages/web` for `/status/settings` before removing the raw-rows response; repoint to a `server_config` projection if a client depends on it.
+3. **Notification secrets → `server_credentials`:** adds a credential-store round-trip to `config.ts`. Confirm `server_credentials` naming convention (`notifications_smtp_password`, `notifications_ntfy_auth_token`) and that encryption (`credential-encryption.ts`) is available at that call site.
 
-**Sequencing summary:** extend `server_config` schema → re-back each domain module + delete no-writer reads → computed-state fix → retire generic `/settings` → confirm `git grep` empty → drop table + migration → build Notification repository + rewire 6 files → add guard + wire lint. `npm run check && npm run lint && npm run test` green throughout; full `verify` before ship.
+**Sequencing summary:** extend `server_config` schema (per-section defaults+merge) → re-back each domain module + delete no-writer reads → computed-state fix + eval-scenario rewrite (§4.1) → retire generic `/settings` → confirm whole-repo `git grep` empty + `check` green (incl. eval) → drop table + migration + barrel/zod-schema removals → build Notification repository + rewire 6 files → add both guards + wire lint. `npm run check && npm run lint && npm run test` green throughout; full `verify` before ship.
