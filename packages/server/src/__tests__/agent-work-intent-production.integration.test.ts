@@ -451,6 +451,14 @@ describe("atomic production handoffs", () => {
 			}),
 		});
 		const item = (await created.json()) as { id: string; status: string };
+		// @lore AU14: POST /api/knowledge now routes through the shared repository's
+		// create(), which unconditionally writes a `create` knowledgeEditLog row (AC-4
+		// convergence — see plans/AU14/architecture.md §7/§9 D1). Capture the baseline
+		// count here (1 durable row from the create above) so the assertion below
+		// proves the FAILED flag transaction added no new row, rather than asserting
+		// the whole table is empty (which was only ever true because the pre-AU14
+		// route's create wrote no edit-log row at all).
+		const editLogCountBeforeFlag = (await db.select().from(knowledgeEditLog)).length;
 		await rejectIntentWrites(db);
 
 		const response = await app.request(`/api/knowledge/${item.id}/flag`, {
@@ -465,7 +473,7 @@ describe("atomic production handoffs", () => {
 			.from(knowledgeItems)
 			.where(eq(knowledgeItems.id, item.id));
 		expect(persisted?.status).toBe(item.status);
-		expect(await db.select().from(knowledgeEditLog)).toHaveLength(0);
+		expect(await db.select().from(knowledgeEditLog)).toHaveLength(editLogCountBeforeFlag);
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});
 

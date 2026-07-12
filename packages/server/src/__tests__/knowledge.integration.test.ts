@@ -7,7 +7,8 @@
  * - etc.
  * Tests updated to match O2 API shape.
  */
-import { knowledgeEditLog } from "@hyperidle/db";
+import { knowledgeAppProjection, knowledgeEditLog } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
@@ -497,6 +498,47 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(knowledgeEvent).toBeDefined();
 			expect(knowledgeEvent?.action).toBe("updated");
 			expect(knowledgeEvent?.itemId).toBe(id);
+		});
+	});
+
+	// AU14: route create/update now call the repository's create()/update() instead of
+	// performing their own raw inserts. Net-new test 1 (plan §9) — the API create path
+	// must produce the same edit-log row an agent-tool-created item produces today.
+	describe("AU14: POST /api/knowledge writes a create edit-log row via the repository", () => {
+		test("API-created item has a knowledgeEditLog row with editType 'create'", async ({
+			db,
+			app,
+		}) => {
+			const item = await createItem(app, "L0");
+			const id = item.id as string;
+
+			const logs = await db.select().from(knowledgeEditLog).where(eq(knowledgeEditLog.itemId, id));
+
+			const createLog = logs.find((l: { editType: string }) => l.editType === "create");
+			expect(createLog).toBeDefined();
+			expect(createLog?.field).toBe("*");
+		});
+	});
+
+	// AU14: net-new test 2 (plan §9 D3) — routing POST / through repo.create structurally
+	// forces projection.scopeId to be populated (was NULL via upsertProjectionLayer before
+	// this WP). This locks the deliberate, reviewer-approved D3 convergence.
+	describe("AU14: route-created scoped item now carries projection.scopeId (D3 lock)", () => {
+		test("team-scoped item created via API has projection.scopeId populated", async ({
+			db,
+			app,
+		}) => {
+			const teamId = "team-au14-test";
+			const item = await createItem(app, "L0", { scopeKind: "team", scopeId: teamId });
+			const id = item.id as string;
+
+			const [projectionRow] = await db
+				.select()
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, id));
+
+			expect(projectionRow).toBeDefined();
+			expect(projectionRow?.scopeId).toBe(teamId);
 		});
 	});
 });

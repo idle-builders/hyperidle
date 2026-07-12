@@ -53,6 +53,11 @@ import {
 import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { ItemDeletedError, VersionConflictError } from "../knowledge/errors.js";
+import {
+	create as createKnowledgeItem,
+	update as updateKnowledgeItem,
+} from "../knowledge/knowledge-repository.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
@@ -603,11 +608,16 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const resolvedScopeId =
 				body.scopeKind === "user" ? (body.scopeId ?? userId) : (body.scopeId ?? null);
 
-			const id = crypto.randomUUID();
-			const now = new Date().toISOString();
-
-			await db.insert(knowledgeItems).values({
-				id,
+			// @lore AU14: routes through the shared repository instead of a raw insert +
+			// upsertProjectionLayer. kind is omitted so projection.kind stays null exactly
+			// as before; resolvedScopeId is passed so the kernel scopeId (read by Q2/GET
+			// filters) is preserved — this also populates projection.scopeId, which was
+			// null pre-AU14. That is a deliberate, tested convergence (plan §9 D3), not a
+			// regression: route-created scoped items now participate in scope-filtered
+			// context assembly / promotion / practice-meeting / attention like tool-created
+			// items already do. See plans/AU14/architecture.md §5, §9.
+			const created = await createKnowledgeItem(db, {
+				layer: scopeToLayer(body.scopeKind),
 				scopeKind: body.scopeKind,
 				scopeId: resolvedScopeId,
 				topic: body.topic ?? null,
@@ -616,31 +626,28 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				format: body.format,
 				// O2: default status is "draft" (was "captured" in old implementation)
 				status: body.status ?? "draft",
-				version: 1,
 				updatedBy: body.updatedBy,
-				createdAt: now,
-				updatedAt: now,
 			});
 
-			// Q2: assign app projection layer inline on creation.
-			await upsertProjectionLayer(db, id, body.scopeKind);
-
-			const [created] = await db
+			// Response shape preserved: re-select the raw kernel row (not the repo's
+			// KnowledgeItemWithProjection, which carries extra projection fields) so the
+			// 201 body stays byte-identical to pre-AU14.
+			const [row] = await db
 				.select()
 				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, id))
+				.where(eq(knowledgeItems.id, created.id))
 				.limit(1);
 
 			// O2: emit knowledge_created event
 			const createdEvent: KnowledgeCreatedEvent = {
 				type: "knowledge_created",
-				streamId: `knowledge:${id}`,
-				itemId: id,
+				streamId: `knowledge:${created.id}`,
+				itemId: created.id,
 				timestamp: Date.now(),
 			};
 			eventBus.emit(createdEvent);
 
-			return c.json(created, 201);
+			return c.json(row, 201);
 		},
 	);
 
@@ -753,7 +760,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	);
 
 	// PATCH /:id — update (optimistic locking)
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: knowledge PATCH handler validates version and diff fields in one route
+	// @lore AU14: routes through the shared repository's versioned update() instead of
+	// a manual per-field edit-log loop + raw db.update. Pre-checks (404/409) stay so the
+	// common-path response body is unchanged; the try/catch below is belt-and-suspenders
+	// for a TOCTOU race between the pre-check and the repo's own transactional recheck.
 	router.patch(
 		"/:id",
 		requireBoundary({ kind: "public-data" }),
@@ -786,47 +796,38 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 409);
 			}
 
-			const now = new Date().toISOString();
-
-			// Track changes for edit log (O2: removed kind, confidence, meta fields)
-			const updatableFields = ["title", "body", "topic", "format", "status"] as const;
-			type UpdatableField = (typeof updatableFields)[number];
-
-			for (const field of updatableFields) {
-				const newValue = body[field as keyof typeof body];
-				if (newValue !== undefined) {
-					const oldValue = existing[field as UpdatableField];
-					const oldStr = oldValue != null ? String(oldValue) : null;
-					const newStr = String(newValue);
-					if (oldStr !== newStr) {
-						await db.insert(knowledgeEditLog).values({
-							id: crypto.randomUUID(),
-							itemId: id,
-							editor: body.updatedBy,
-							field,
-							oldValue: oldStr,
-							newValue: newStr,
-							editType: "update",
-							createdAt: now,
-						});
-					}
+			try {
+				await updateKnowledgeItem(
+					db,
+					id,
+					{
+						title: body.title,
+						body: body.body,
+						topic: body.topic,
+						format: body.format,
+						status: body.status,
+						updatedBy: body.updatedBy,
+					},
+					body.version,
+				);
+			} catch (error) {
+				if (error instanceof VersionConflictError) {
+					const response: ApiErrorResponse = {
+						error: `Version conflict: expected ${body.version}, current is ${error.currentVersion}`,
+						code: API_ERROR_CODES.CONFLICT,
+						details: { currentVersion: error.currentVersion },
+					};
+					return c.json(response, 409);
 				}
+				if (error instanceof ItemDeletedError) {
+					const response: ApiErrorResponse = {
+						error: "Knowledge item not found",
+						code: API_ERROR_CODES.NOT_FOUND,
+					};
+					return c.json(response, 404);
+				}
+				throw error;
 			}
-
-			// Build update object
-			const updates: Record<string, unknown> = {
-				version: existing.version + 1,
-				updatedBy: body.updatedBy,
-				updatedAt: now,
-			};
-
-			if (body.title !== undefined) updates.title = body.title;
-			if (body.body !== undefined) updates.body = body.body;
-			if (body.topic !== undefined) updates.topic = body.topic;
-			if (body.format !== undefined) updates.format = body.format;
-			if (body.status !== undefined) updates.status = body.status;
-
-			await db.update(knowledgeItems).set(updates).where(eq(knowledgeItems.id, id));
 
 			const [updated] = await db
 				.select()
