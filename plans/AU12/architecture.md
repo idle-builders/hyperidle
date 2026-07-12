@@ -1,7 +1,51 @@
-# AU12 — Conversation and Users own their own writes — Architecture
+# AU12 — Conversation and Users own their own writes AND reads — Architecture
 
-**Branch:** `framework/AU12-conversation-users-ownership` · **Type:** backend refactor (behavior-preserving) · **Complexity:** L
+**Branch:** `framework/AU12-conversation-users-ownership` · **Type:** backend refactor (behavior-preserving) · **Complexity:** L→XL (read pass ~doubles surface)
 **Depends on:** AU11 (shipped, PR #428). Refine + Design skipped (pure internal refactor, no UI, no behavior change).
+
+---
+
+## 0. REWORK BANNER — founder correction (2026-07-12)
+
+**This is a REWORK pass on the open PR #435, not a new work package.** The original AU12 shipped a
+**write-only** ownership boundary: `conversation-store.ts` / `user-store.ts` owned the
+`insert`/`update`/`delete` of `threads`/`messages`/`users`, but **reads stayed direct** (~40+
+`select().from(...)` sites left in place, explicitly scoped out in the original §7c, and that
+write-only reading was REVIEWED + APPROVED, round 2). PR #435 is open and **not merged**.
+
+**The founder has ruled that interpretation wrong.** The requirement is **reads AND writes**:
+`conversation-store.ts` and `user-store.ts` must be the **only** code path to the
+`threads`/`messages`/`users` tables — full stop, not just for mutations. This rework:
+
+1. **Rebases the branch onto current `origin/main`** (AU13 #436 + AU14 #434/#437 have merged since the
+   branch was cut — see §7a; rebase notes below).
+2. **Adds read functions** to both stores, shaped by what the real call sites need (§3d/§3e).
+3. **Migrates every remaining direct read call site** in `packages/server/src` (§5b).
+4. **Extends the guard** from write-scoped to **full-access-scoped** — any reference to an owned table
+   object outside the two owning files is a finding (§4).
+5. Keeps the four out-of-`packages/server` exceptions as exceptions for reads too (§5a).
+
+Everything in §1–§6 from the original write-migration plan that is still correct is retained; §7c now
+records the correction and the new (reads+writes) interpretation. The **write** migration already
+landed in PR #435 and survives the rebase — the delta this rework adds is the **read** migration plus
+the guard extension.
+
+### Rebase result (completed by this planner)
+
+`git rebase origin/main` was **NOT clean** — the write-migration commit `0eda7dc6` collides with
+AU13's and AU14's ownership refactors (both merged to main) because all three migrations touch the
+same shared service files. Conflicts were **import-block-only** (each file's body 3-way-merged cleanly
+— main's `work-service`/`routine-service` write routing and AU12's `conversation-store`/`user-store`
+write routing are orthogonal edits in different hunks). Resolution rule applied: **union of both
+sides' service imports, minus any raw table symbol either side migrated away** (if either side removed
+`items`/`threads`/`messages` from a file's `@hyperidle/db` import because it routed that write through a
+store, the merged body no longer references it, so it was dropped). Files resolved: `package.json`
+(union of the au12 + au13 guard invocations in `lint`), `routes/users.ts`, `services/{builtin-routine-handlers,
+cost-cap, handoff-protocol, lifecycle-propagation, review-item-factory, session-review-creator}.ts`,
+plus `plans/mock-data-purge/inventory.{json,md}` (unrelated to AU12 → took main's version). The two
+stale **attestation** commits (`dc7c6d72`, `dfead246`) were **dropped** during rebase (rename/rename
+conflicts; attestations are regenerated at ship and the code has changed anyway). `npm ci` re-run
+(package-lock moved). Branch is now current on `origin/main`; the builder re-runs the full gate.
 
 ---
 
@@ -9,22 +53,28 @@
 
 Today ~59 write call sites across 22 files in `packages/server/src` independently `insert`/`update`
 `threads`, `messages`, and `users` — core routes and agent-owned code writing the same rows with no
-shared function, so nothing enforces the shape of a message/thread/user row. AU8's should-graph guard
-cannot be built until there is one owning module per domain to check against. AU12 creates two owning
-modules and routes every write through them, changing nothing the product does.
+shared function, so nothing enforces the shape of a message/thread/user row. **In addition (rework
+scope), ~148 direct READ operations** (`.from(threads|messages|users)` + joins) across ~50 files read
+those same tables with no shared function. AU8's should-graph guard cannot be built until there is one
+owning module per domain to check against. AU12 creates two owning modules and routes every write
+**and every read** through them, changing nothing the product does.
 
 **This plan supersedes the WP narrative's call-site count.** The WP text names ~8 files; the real
-audit (direct grep of every `.insert/.update/.delete` against these three tables) finds **22 files /
-~59 write sites** in `packages/server/src`. The AC ("zero remaining direct-table-write call sites …
-outside the two owning modules") is unambiguous within the guard's enforceable scope — all 59 are in
-scope. Full enumeration in §5. Production writes to these tables that live **outside** `packages/server/src`
-(bootstrap/seed/fixture code) are triaged as named exceptions in §5a.
+audit finds **22 files / ~59 write sites** (§5) **and ~50 files / ~148 read sites** (§5b) in
+`packages/server/src`. The AC ("the owning service's functions are the only code … permitted to
+import the Drizzle table objects") is now read **as written** — reads AND writes (see the §0 banner and
+§7c). Production access to these tables that lives **outside** `packages/server/src`
+(bootstrap/seed/fixture code) is triaged as named exceptions in §5a — reads there are equally out of
+scope.
 
 ## 2. Constraints (from the WP)
 
-- **No product behavior may change.** Ownership consolidation only.
-- The two owning files (plus their own tests) are the only code permitted to `insert/update/delete`
-  these tables. **Interpretation (flagged, §7c): the guard is WRITE-scoped, not import-scoped.**
+- **No product behavior may change.** Ownership consolidation only. **This is the load-bearing risk of
+  the read pass** — 148 read sites, many with narrowed column projections, ordering, pagination, joins,
+  and in-transaction reads that must be preserved exactly (§8b).
+- The two owning files (plus their own tests) are the only code permitted to **read or write** these
+  tables. **Interpretation (CORRECTED, §7c): the guard is FULL-ACCESS-scoped — any reference to an owned
+  table object outside the owners is a finding.**
 - No new tables, no schema changes.
 - Agent-layer callers keep calling in-process (plain function call, same process — no queue/API).
 - Only the two named services are new production code besides their own tests.
@@ -44,8 +94,10 @@ already used across `services/` (e.g. `agent-session-requests.ts`).
 Several call sites write inside a `db.transaction(async (tx) => …)` (threads.ts, handoff-protocol.ts,
 builtin-routine-handlers.ts) — the write MUST stay inside the caller's transaction to preserve
 atomicity (e.g. threads.ts appends a message + updates the thread + inserts an `agentWorkIntents` row
-atomically, with verdict-race logic). Therefore **every write function takes the executor as its first
-argument**, so the caller passes either `db` or its live `tx`.
+atomically, with verdict-race logic). Therefore **every store function (read and write) takes the
+executor as its first argument**, so the caller passes either `db` or its live `tx`. **This is exactly
+what makes the read migration safe for the 4 in-transaction reads (§8b): passing `tx as HyperIdleDb`
+into a read function keeps the read inside the caller's transaction snapshot.**
 
 **Executor type = plain `HyperIdleDb` (no union, no derived generics).** This mirrors the existing,
 documented repo convention. `packages/server/src/services/practice-meeting.ts:448-454` types its
@@ -56,368 +108,353 @@ transaction param as plain `HyperIdleDb` with an explicit `@lore`:
 > drizzle's internal transaction type."*
 
 `agent-session-requests.ts:279` (`terminalizeAgentSessionRequestInTx(tx: HyperIdleDb, …)`) does the
-same. The earlier draft's
-`type DbExecutor = HyperIdleDb | Parameters<Parameters<HyperIdleDb["transaction"]>[0]>[0]` is
-**rejected**: it does not typecheck (`TS2344` on the `Parameters<…>` derivation) and it reaches for the
-exact "depend on drizzle's internal transaction type" approach the lore warns against. No new
-`DbExecutor` export is added to `@hyperidle/db`.
+same. No new `DbExecutor` export is added to `@hyperidle/db`.
 
 **Verified call-site mechanics.** How existing callers pass a `tx` into a `HyperIdleDb`-typed param
 today: `agent-session-requests.ts:331` does
-`db.transaction((tx) => terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, input))`, and
-`session-lifecycle.ts` / `task-state-machine.ts` / `routine-scheduler.ts` / `handoff-protocol.ts` /
-`routes/{sessions,routines,knowledge}-routes.ts` all pass `tx as HyperIdleDb` into these functions.
-The drizzle transaction handle is **not** silently assignable to `HyperIdleDb` — the established
-convention pairs the `HyperIdleDb` param with an explicit `tx as HyperIdleDb` cast at every
-transaction-composition call site (already used repo-wide, so the cast is an accepted, precedented
-pattern here, not new debt). **Therefore every `tx` row in the §5 migration table passes
-`insertThread(tx as HyperIdleDb, v)` / `updateThread(tx as HyperIdleDb, …)` etc.** `db` and `ctx.db`
-rows pass their value directly (already `HyperIdleDb`), no cast.
+`db.transaction((tx) => terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, input))`. The drizzle
+transaction handle is **not** silently assignable to `HyperIdleDb` — the established convention pairs
+the `HyperIdleDb` param with an explicit `tx as HyperIdleDb` cast at every transaction-composition call
+site. **Therefore every `tx`-scoped read/write in §5/§5b passes `getThreadById(tx as HyperIdleDb, id)` /
+`insertThread(tx as HyperIdleDb, v)` etc.** `db` and `ctx.db` rows pass their value directly, no cast.
 
-Every store function signature below takes `exec: HyperIdleDb`. Carry the same `@lore` rationale
-(structural compatibility, avoids drizzle internal type) onto `conversation-store.ts` /
-`user-store.ts`, citing `practice-meeting.ts` as precedent.
+Every store function signature below takes `exec: HyperIdleDb`. The `@lore` rationale (structural
+compatibility, avoids drizzle internal type) already lives on both store files.
 
-### 3b. `packages/server/src/services/conversation-store.ts` — owns `threads` + `messages`
+### 3b. `packages/server/src/services/conversation-store.ts` — owns `threads` + `messages` (WRITES — already built)
 
-The service owns **the row write only** — no event emission, no transaction orchestration, no
+The service owns **the row write** — no event emission, no transaction orchestration, no
 participant/verdict business logic. Callers keep their existing `eventBus.emit(...)`, `db.transaction`
-wrappers, participant math, and `agentWorkIntents`/`items` inserts exactly as-is. This is the minimal,
-lowest-risk consolidation that satisfies "one place owns the shape of a row" (the insert values ARE the
-shape). Owning assistant-visible *events* is explicitly a later step, not AU12 (flagged §7d).
+wrappers, participant math, and `agentWorkIntents`/`items` inserts exactly as-is.
 
-Import `threads, messages, type NewThread, type NewMessage` and `type HyperIdleDb` from `@hyperidle/db`.
+Existing (shipped) write surface — unchanged by this rework:
 
 ```ts
 // --- threads ---
 export function insertThread(exec: HyperIdleDb, values: NewThread): Promise<void>;
 export function updateThread(exec: HyperIdleDb, id: string, patch: Partial<NewThread>): Promise<void>;
-//   ^ generic typed patch covers every current update: { pinned }, { lastActiveAt },
-//     { resolvedAt, lastActiveAt }, { resolvedAt: null, lastActiveAt }, { participants }.
 
 // --- messages ---
 export function insertMessage(exec: HyperIdleDb, values: NewMessage): Promise<void>;
 export function updateMessage(exec: HyperIdleDb, id: string, patch: Partial<NewMessage>): Promise<void>;
+export function resolveMessageIfUnresolved(exec, id, resolvedAt): Promise<{ id: string }[]>; // verdict race
 
-// --- verdict race (threads.ts:1307): first-verdict-wins needs the WHERE + .returning() length ---
-export function resolveMessageIfUnresolved(
-  exec: HyperIdleDb, id: string, resolvedAt: string,
-): Promise<{ id: string }[]>;
-//   sets resolvedAt WHERE id = ? AND resolvedAt IS NULL, .returning({ id }). Caller checks .length.
-
-// --- DM thread find-or-create: FOLD IN direct-thread.ts (see §5 note) ---
-export function findOrCreateDirectThread(
-  exec: HyperIdleDb, senderId: string, recipientId: string, now: string,
-): Promise<string>; // returns threadId; relocated verbatim from services/direct-thread.ts
+// --- DM thread find-or-create (relocated from direct-thread.ts) ---
+export function findOrCreateDirectThread(exec, senderId, recipientId, now, recipientKind?): Promise<string>;
 ```
 
-`updateThread`/`updateMessage` are deliberately thin typed passthroughs. Their value is a single
-import surface + single guard surface + a typed `Partial<NewThread|NewMessage>` patch (no arbitrary
-column strings). Do NOT invent semantic wrappers (`pinThread`, `touchThread`) — the patches vary per
-call site and extra names add surface without owning more shape. `insertThread`/`insertMessage` carry
-the real shape ownership (`NewThread`/`NewMessage` typed values).
+### 3c. `packages/server/src/services/user-store.ts` — owns `users` (WRITES — already built)
 
-### 3c. `packages/server/src/services/user-store.ts` — owns `users`
-
-Import `users, type NewUser, type User` and `type HyperIdleDb` from `@hyperidle/db`.
+Existing (shipped) write surface — unchanged by this rework:
 
 ```ts
 export function insertUser(exec: HyperIdleDb, values: NewUser): Promise<void>;
-export function updateUser(exec: HyperIdleDb, id: string, patch: Partial<NewUser>): Promise<void>;
-//   covers: identity { name, email }, harness config { harnessType, modelId, modelProvider },
-//   status { status: "retired" }, cost metering { costActual } (see §7b), assistant config patch.
-
-// get-or-create — Validation Scenario 2 names this explicitly.
-export function getOrCreateUser(exec: HyperIdleDb, id: string, create: NewUser): Promise<User>;
-//   select by id; if absent insert `create`; re-select and return the row.
-//   Caller supplies the full NewUser (keeps assistant persona / BUILTIN_SYSTEM_PROMPT in the
-//   caller — pulling that agent-layer constant into a core service would be a boundary smell).
-
-// bulk cost reset — cost-cap.ts:541 does .set({ costActual: 0 }).where(sql`true`) (all rows);
-// a bulk update with no id doesn't fit updateUser(id, patch). See §7b.
+export function updateUser(exec: HyperIdleDb, id: string, patch: UserPatch): Promise<void>; // UserPatch admits SQL (cost coalesce)
+export function getOrCreateUser(exec: HyperIdleDb, id: string, create: NewUser): Promise<User>; // read+write
 export function resetAllUserCost(exec: HyperIdleDb): Promise<void>;
 ```
 
-## 4. Guard mechanism (AC-3: bypass must fail a check, not convention)
+### 3d. `conversation-store.ts` — READ functions (NEW, rework)
 
-New standalone AST guard `scripts/au12-conversation-users-ownership-guard.ts`. It reuses the **CLI
-scaffolding** of the `au9/au10/au11` guards (TS compiler AST walk, `--fixtures` self-test, `--check`
-mode, wired into `npm run lint`) — but its **detection logic is a genuinely new shape**, not a copy of
-theirs (framing correction below).
+Shaped by the real read call sites (§5b), not an idealized query API. `Thread`/`Message` are the
+existing `@hyperidle/db` row types. **Every getter returns full rows** (`Thread`/`Message`); callers
+re-narrow if they need a projection (see §8b for the API-leakage caveat).
 
-**AU12 is a NEW write-ownership guard pattern — au9/au10/au11 do NOT already implement it.** au9–au11
-are *import/module-reachability* guards (an agent-owned file may not import certain modules; they carry
-agent-owned-file allowlists). AU12 is a *write-expression* guard: it resolves the first argument of an
-`insert/update/delete` call back to a `threads`/`messages`/`users` table object and flags it. Only the
-CLI plumbing is shared; the analysis is a different kind. Downstream framing correction:
-**AU8's repo-wide `TABLE_OWNER` map (TRACK-AU line 621) is precisely AU12's write-ownership shape, so
-AU8 — and AU17's later guard consolidation — converge *toward* AU12's convention, not AU12 toward
-theirs.** Do not describe AU12 as "following au9–au11's shape"; it establishes the shape those later
-guards adopt.
+```ts
+// --- threads: single-row + id-batch lookups (29 read sites, 15 by-id) ---
+export function getThreadById(exec: HyperIdleDb, id: string): Promise<Thread | undefined>;
+export function getThreadsByIds(exec: HyperIdleDb, ids: string[]): Promise<Thread[]>;      // inArray(threads.id)
+export function getThreadByDirectKey(exec: HyperIdleDb, directKey: string): Promise<Thread | undefined>; // 2 sites
 
-**Why an AST write-guard, not ESLint `no-restricted-imports`:** the import ban would break the ~40+
-legitimate READ sites (`db.select().from(threads)` etc.) — the constraint is about *writes*, and the
-AC says "direct-table-**write** call sites." The guard matches the write *expression*, leaving reads
-free.
+// --- threads: host-scoped + list (thread-list route, agent inbox) ---
+export function listThreadsByHost(exec: HyperIdleDb, hostKind: string, hostId: string): Promise<Thread[]>;
+export function listThreads(exec: HyperIdleDb, filter: ThreadListFilter): Promise<Thread[]>;
+//   ThreadListFilter carries the real route knobs: { pinned?, hostKind?, hostId?, order: "lastActiveAt"|"createdAt",
+//   dir: "asc"|"desc", limit?, offset? }. routes/threads.ts (25 reads, the densest file) decomposes into
+//   listThreads + a small number of BESPOKE functions for its filter/ordering/pagination variants — one
+//   store function per real shape, NO bypass (§8b ordering caveat is load-bearing here).
 
-**Rule.** Walk every production `.ts` under `packages/server/src` (exclude `__tests__/`, `*.test.ts`,
-`*.integration.test.ts`, `*.spec.ts`). For each file, parse its imports and build the set of
+// --- messages: single-row + thread-scoped list (19 read sites) ---
+export function getMessageById(exec: HyperIdleDb, id: string): Promise<Message | undefined>;              // 6 sites
+export function listMessagesByThread(exec: HyperIdleDb, threadId: string, opts?: MessageListOpts): Promise<Message[]>;
+//   opts = { type?, order?: "createdAt", dir?, limit?, offset? }. 7 by-threadId sites, MUST preserve the
+//   existing orderBy(messages.createdAt) exactly — a dropped/flipped order reorders a conversation.
+export function getMessageByLegacyItemId(exec: HyperIdleDb, legacyItemId: string): Promise<Message | undefined>; // 2 sites
+export function getMessagesByThreadIds(exec: HyperIdleDb, threadIds: string[]): Promise<Message[]>;       // inArray
+
+// --- joins that stay INSIDE conversation-store (both tables are conv-owned): messages ⋈ threads (4 sites) ---
+//   approval-rate.ts:81, tools/read-inbox.ts:28, routes/search.ts:137, routes/users.ts:367.
+//   Each projects a slightly different column set → one purpose-built function per real join shape,
+//   returning the exact projected shape the caller needs (do NOT collapse to full-row here — these feed
+//   filtered/aggregated logic and, for read-inbox/users, API responses). e.g.
+export function listInboxMessagesForRecipient(exec, recipientId, ...): Promise<InboxRow[]>;
+```
+
+### 3e. `user-store.ts` — READ functions (NEW, rework)
+
+Dominant pattern is by-id lookup (64 of 94 `users` reads). `User` is the existing row type.
+
+```ts
+export function getUserById(exec: HyperIdleDb, id: string): Promise<User | undefined>;           // ~64 sites
+export function getUsersByIds(exec: HyperIdleDb, ids: string[]): Promise<User[]>;                // inArray(users.id), 4 sites
+export function listUsersByTeam(exec: HyperIdleDb, teamId: string): Promise<User[]>;             // 7 + inArray(teamId)
+export function listUsersByKind(exec: HyperIdleDb, kind: string): Promise<User[]>;               // 14 kind filters
+export function listUsersByTeamAndKind(exec: HyperIdleDb, teamId: string, kind: string): Promise<User[]>; // team+kind combos
+export function listUsersByStatus(exec: HyperIdleDb, status: string): Promise<User[]>;           // status filters (few)
+// aggregate reads (count/sql) that a full-row getter CANNOT replace — dedicated functions returning the scalar:
+export function countUsersByTeam(exec: HyperIdleDb, teamId: string): Promise<number>;            // only where a users count() read exists
+```
+
+**Function-set discipline.** Where several call sites share a select shape, they collapse to one
+function above. Where a read is genuinely bespoke (a one-off filter/join/aggregate used at a single
+site) the builder still adds a dedicated store function for it — **no bypass is permitted under the
+hard requirement, even for a single caller.** The lists above are the consolidations the audit already
+justifies; the builder adds the residual bespoke functions as it walks §5b and names each in the store
+with a one-line `@lore` pointing at its sole caller.
+
+## 4. Guard mechanism — EXTENDED to full-access (AC-3)
+
+`scripts/au12-conversation-users-ownership-guard.ts` (already built as a write-expression guard) is
+**extended from write-scoped to full-access-scoped.** It already builds, per file, the set of
 **table-object references** that resolve to a value import of `threads`/`messages`/`users` from
-`@hyperidle/db`. Two reference forms both resolve to the same table objects:
+`@hyperidle/db` — both the **bare-identifier** form (`import { threads }` → `threads`) and the
+**namespace-member** form (`import * as schema from "@hyperidle/db"` → `schema.threads`). The AST
+plumbing (`collectReferences`, `argIsOwnedTable`, the `--fixtures` self-test, `--check`, the
+`EXEMPT_FILES` owner set) is reused verbatim.
 
-1. **Bare identifier** from a named import — `import { threads } from "@hyperidle/db"` → local id
-   `threads`.
-2. **Namespace member access** from a namespace import —
-   `import * as schema from "@hyperidle/db"` (or `import * as dbSchema from "@hyperidle/db"`) →
-   `schema.threads` / `dbSchema.messages`. The guard resolves the namespace binding to the
-   `@hyperidle/db` module, then checks the accessed member name against `{threads, messages, users}`.
+**Extension.** Today the guard flags only a `CallExpression` whose callee is `insert`/`update`/`delete`
+and whose first argument is an owned-table reference. **The full-access guard flags ANY reference to an
+owned table object** — i.e. any `Identifier` node in `tableIdents`, and any
+`PropertyAccessExpression` `ns.threads` where `ns ∈ namespaceBindings` and the member ∈
+`{threads, messages, users}` — anywhere in a non-exempt production file. This subsumes the write guard
+(an `insert(threads)` argument is such a reference) and additionally catches `select().from(threads)`,
+`.leftJoin(threads, …)`, `.innerJoin(users, …)`, and every `eq(users.id, …)` / `threads.id` column
+reference in a `where`/`orderBy`. Implementation: replace the `isCallExpression && WRITE_METHODS`
+gate with a walk that, for each file with a non-empty reference set, visits every node and reports each
+owned-table `Identifier` / namespace-member access (dedupe by line). Finding message becomes generic:
+`"direct reference to an owned table (threads/messages/users) — route through conversation-store/user-store (AU12)"`.
 
-Flag any `CallExpression` whose callee is a `PropertyAccessExpression` named `insert`/`update`/`delete`
-**and** whose first argument is **either** an `Identifier` in set (1) **or** a `PropertyAccessExpression`
-matching set (2). Receiver-agnostic (matches `db.`, `tx.`, `ctx.db.`). Resolving the reference to the
-import (not string-matching the name) avoids false positives on a local var coincidentally named
-`threads`, and closes the `db.insert(schema.threads)` namespace-access bypass.
+**False-positive guardrails to preserve.**
+- Resolve to the **import**, not the string name (a local `const threads = …` is not flagged — keep
+  fixture (f)).
+- **Type-only references stay legal.** Callers use the row *types* `Thread`/`Message`/`User` and
+  `NewThread`/`NewUser`, which are **separate type exports**, not the table objects — the guard already
+  only binds `tableIdents` from *value* imports of the table names, so `type Thread` is untouched.
+  Verify no call site does `typeof users` / `users.$inferSelect` (audit: none found).
+- Skip references **inside an `ImportDeclaration`** node itself (the owner-file re-export edge does not
+  apply here; non-owner files must not import the table at all under the new rule, so the import line is
+  itself a legitimate finding — but report it once, at the reference, not doubled).
 
-**Exempt** exactly the two owning files:
-`packages/server/src/services/conversation-store.ts`, `packages/server/src/services/user-store.ts`.
+**`--fixtures` self-test — ADD read cases** to the existing set: (h) `db.select().from(threads)` in a
+route → **now a finding** (was explicitly NO-finding in the write-only guard; fixture (e) flips); (i)
+`eq(users.id, x)` column reference in a `where` → finding; (j) `.innerJoin(messages, …)` → finding;
+(k) same reads inside `conversation-store.ts`/`user-store.ts` → NO finding (exempt owners); (l)
+`import type { User } from "@hyperidle/db"` used as a type annotation → NO finding. Keep (g) namespace
+bypass and (f) local-shadow. **Note: fixture (e) in the shipped guard asserts reads are NOT flagged —
+this rework INVERTS that assertion; update it, don't add a contradictory case.**
 
-`--fixtures` self-test must assert: (a) `db.insert(threads)` in a route → finding; (b) `tx.update(users)`
-in a service → finding; (c) `ctx.db.insert(messages)` in a tool → finding; (d) same write inside
-`conversation-store.ts`/`user-store.ts` → NO finding; (e) `db.select().from(threads)` (read) → NO
-finding; (f) a local `const threads = […]; db.insert(threads)` not imported from `@hyperidle/db` → NO
-finding; **(g) namespace-access `import * as schema from "@hyperidle/db"; db.insert(schema.threads)` →
-finding** (the bypass case).
+Wire is unchanged (already in `package.json` `lint` after the au11 guard, before the au13 guard). A
+green `--check` (zero findings) is the AC proof within `packages/server/src` production scope.
 
-Wire into `package.json` `lint` script, appended after the au11 guard:
-`&& npx tsx scripts/au12-conversation-users-ownership-guard.ts --check`.
+## 5. Write call-site migration table (AC-1) — ALREADY LANDED IN PR #435
 
-A green lint with zero findings **is** the proof of AC-4 **within the guard's enforceable scope**
-(`packages/server/src` production code). Writes outside that scope are the named §5a exceptions.
+The full write-migration table (16 thread inserts · 12 thread updates · 14 message inserts · 2 message
+updates · 6 user inserts · 9 user updates ≈ **59 write sites / 22 files**) is **already applied and
+survives the rebase.** It is retained verbatim below for completeness and for AU8's later
+`TABLE_OWNER` map; the rework does not re-touch these writes.
 
-## 5. Call-site migration table (AC-1)
-
-Executor column: `db` = pass `db`; `tx` = pass **`tx as HyperIdleDb`** (per §3a — the accepted
-transaction-composition cast); `ctx.db` = pass `ctx.db`. Old code → new call. Events / transaction
-wrappers / participant logic / `agentWorkIntents`+`items` inserts stay in the caller unchanged.
+Executor column: `db` = pass `db`; `tx` = pass **`tx as HyperIdleDb`**; `ctx.db` = pass `ctx.db`.
 
 ### threads (insert)
-| File:line | Old | New | Exec |
-|---|---|---|---|
-| routes/coach.ts:189 | `db.insert(threads).values(v)` | `insertThread(db, v)` | db |
-| routes/users.ts:306 | `db.insert(threads).values(v)` | `insertThread(db, v)` | db |
-| routes/assistant.ts:225 | `db.insert(threads).values(v)` | `insertThread(db, v)` | db |
-| routes/teams-routes.ts:592 | `db.insert(threads).values(v)` | `insertThread(db, v)` | db |
-| routes/threads.ts:973 | `tx.insert(threads).values(v)` | `insertThread(tx as HyperIdleDb, v)` | tx |
-| services/review-item-factory.ts:60 | `db.insert(threads).values(v)` | `insertThread(db, v)` | db |
-| services/session-review-creator.ts:52 | `db.insert(threads).values(v)` | `insertThread(db, v)` | db |
-| services/lifecycle-propagation.ts:548 | `db.insert(threads).values(v)` | `insertThread(db, v)` | db |
-| services/routine-scheduler.ts:245 | `db.insert(threads).values(v)` | `insertThread(db, v)` | db |
-| services/handoff-protocol.ts:167 | `tx.insert(threads).values(v)` | `insertThread(tx as HyperIdleDb, v)` | tx |
-| services/handoff-protocol.ts:234 | `tx.insert(threads).values(v)` | `insertThread(tx as HyperIdleDb, v)` | tx |
-| services/builtin-routine-handlers.ts:381 | `tx.insert(threads).values(v)` | `insertThread(tx as HyperIdleDb, v)` | tx | ⚠ AU13 overlap (§7a) |
-| services/builtin-routine-handlers.ts:463 | `tx.insert(threads).values(v)` | `insertThread(tx as HyperIdleDb, v)` | tx | ⚠ AU13 overlap (§7a) |
-| services/direct-thread.ts:41 | `db.insert(threads).values(v)` | **relocate whole `findOrCreateDirectThread` into conversation-store** (§ note) | — |
-| tools/submit-review.ts:77 | `ctx.db.insert(threads).values(v)` | `insertThread(ctx.db, v)` | ctx.db |
-| tools/create-item.ts:89 | `ctx.db.insert(threads).values(v)` | `insertThread(ctx.db, v)` | ctx.db |
-
-### threads (update)
-| File:line | Old (set) | New | Exec |
-|---|---|---|---|
-| routes/threads.ts:900 | `.set({ lastActiveAt })` | `updateThread(tx as HyperIdleDb, winner.id, { lastActiveAt })` | tx |
-| routes/threads.ts:1046 | `.set({ lastActiveAt })` | `updateThread(tx as HyperIdleDb, winner.id, { lastActiveAt })` | tx |
-| routes/threads.ts:1300 | `.set({ participants })` | `updateThread(tx as HyperIdleDb, threadId, { participants })` | tx |
-| routes/threads.ts:1317 | `.set({ resolvedAt, lastActiveAt })` | `updateThread(tx as HyperIdleDb, threadId, { resolvedAt, lastActiveAt })` | tx |
-| routes/threads.ts:1322 | `.set({ resolvedAt: null, lastActiveAt })` | `updateThread(tx as HyperIdleDb, threadId, { resolvedAt: null, lastActiveAt })` | tx |
-| routes/threads.ts:1326 | `.set({ lastActiveAt })` | `updateThread(tx as HyperIdleDb, threadId, { lastActiveAt })` | tx |
-| services/policy-engine.ts:188 | `.update(threads).set(...)` | `updateThread(db, id, patch)` | db |
-| services/session-review-creator.ts:95 | `.update(threads).set(...)` | `updateThread(db, id, patch)` | db |
-| services/assistant-dispatcher.ts:119 | `.set({ pinned: true })` | `updateThread(db, event.threadId, { pinned: true })` | db |
-| tools/submit-review.ts:70 | `.update(threads).set(...)` | `updateThread(ctx.db, id, patch)` | ctx.db |
-| tools/submit-review.ts:122 | `.set({ lastActiveAt })` | `updateThread(ctx.db, threadId, { lastActiveAt })` | ctx.db |
-| tools/create-item.ts:131 | `.update(threads).set(...)` | `updateThread(ctx.db, id, patch)` | ctx.db |
-
-### messages (insert)
 | File:line | New | Exec |
 |---|---|---|
-| routes/users.ts:417 | `insertMessage(db, v)` | db |
-| routes/teams-routes.ts:619 | `insertMessage(db, v)` | db |
-| routes/threads.ts:889 | `insertMessage(tx as HyperIdleDb, v)` | tx |
-| routes/threads.ts:992 | `insertMessage(tx as HyperIdleDb, v)` | tx |
-| routes/threads.ts:1035 | `insertMessage(tx as HyperIdleDb, v)` | tx |
-| routes/threads.ts:1265 | `insertMessage(tx as HyperIdleDb, v)` | tx |
-| services/policy-engine.ts:171 | `insertMessage(db, v)` | db |
-| services/agent-work-assistant.ts:236 | `insertMessage(db, v)` | db |
-| services/agent-work-assistant.ts:533 | `insertMessage(db, v)` | db |
-| services/handoff-protocol.ts:293 | `insertMessage(tx as HyperIdleDb, v)` | tx |
-| services/lifecycle-propagation.ts:559 | `insertMessage(db, v)` | db |
-| tools/send-message.ts:37 | `insertMessage(ctx.db, v)` | ctx.db |
-| tools/submit-review.ts:98 | `insertMessage(ctx.db, v)` | ctx.db |
-| tools/submit-review.ts:110 | `insertMessage(ctx.db, v)` | ctx.db |
+| routes/coach.ts:189 | `insertThread(db, v)` | db |
+| routes/users.ts | `insertThread(db, v)` | db |
+| routes/assistant.ts | `insertThread(db, v)` | db |
+| routes/teams-routes.ts | `insertThread(db, v)` | db |
+| routes/threads.ts | `insertThread(tx as HyperIdleDb, v)` | tx |
+| services/review-item-factory.ts | `insertThread(db, v)` | db |
+| services/session-review-creator.ts | `insertThread(db, v)` | db |
+| services/lifecycle-propagation.ts | `insertThread(db, v)` | db |
+| services/routine-scheduler.ts | `insertThread(db, v)` | db |
+| services/handoff-protocol.ts (×2) | `insertThread(tx as HyperIdleDb, v)` | tx |
+| services/builtin-routine-handlers.ts (×2) | `insertThread(tx as HyperIdleDb, v)` | tx |
+| services/direct-thread.ts | folded into conversation-store (`findOrCreateDirectThread`) | — |
+| tools/submit-review.ts, tools/create-item.ts | `insertThread(ctx.db, v)` | ctx.db |
 
-### messages (update)
-| File:line | New | Exec |
+### threads (update) · messages (insert/update) · users (insert/update)
+Retained as originally specified — `updateThread` / `insertMessage` / `updateMessage` /
+`resolveMessageIfUnresolved` / `insertUser` / `updateUser` / `getOrCreateUser` / `resetAllUserCost`,
+across `routes/{threads,users,assistant,teams-routes,agents}`, `services/{policy-engine,
+agent-work-assistant,handoff-protocol,lifecycle-propagation,cost-cap,assistant-dispatcher,
+session-review-creator}`, `tools/{send-message,submit-review,create-item}`, `scaffold-agents`,
+`invite-code`. (Full per-line table preserved in git history of this file pre-rework; unchanged by the
+rework — the writes are done.)
+
+## 5b. Read call-site migration (AC-1, rework — THE NEW WORK)
+
+Audit of remaining direct reads in `packages/server/src` production code (excludes tests):
+**~148 read operations = 142 `.from(threads|messages|users)` SELECT roots + 6 joins**, across ~50
+files. Per table: **users 94 · threads 29 · messages 19.** Dominant shapes drive §3d/§3e; the long
+tail gets bespoke store functions. Densest files (must be migrated with the most care):
+
+| File | reads | notes |
 |---|---|---|
-| routes/threads.ts:1307 | `resolveMessageIfUnresolved(tx as HyperIdleDb, resolvesMessageRow.id, now)` → check `.length === 0` → `throw new VerdictRaceConflict()` | tx |
-| services/policy-engine.ts:183 | `updateMessage(db, id, patch)` | db |
+| routes/threads.ts | 25 | thread-list route: pagination, ordering, pinned filter, participant/message joins — needs `listThreads` + several bespoke functions; **ordering/limit must be preserved exactly (§8b)** |
+| routes/users.ts | 11 | user CRUD + a message⋈thread inbox join (line 367) |
+| routes/teams-routes.ts | 11 | user rosters by team/kind |
+| routes/assistant.ts | 11 | assistant user + thread lookups |
+| routes/conversations.ts | 6 | thread + message reads |
+| routes/agents.ts | 5 | agent (user-kind) reads |
+| services/{cost-cap, agent-work-intent-worker} | 4 each | user cost + agent-work reads (cost-cap reads are in-transaction with its writes — §8b) |
+| + ~44 more files | 1–3 each | mostly `getUserById` / `getThreadById` / `listMessagesByThread` |
 
-### users (insert)
-| File:line | New | Exec |
+**6 join sites** (`.from(root).innerJoin(owned, …)`):
+- `messages ⋈ threads` (both conversation-owned): `approval-rate.ts:81`, `tools/read-inbox.ts:28`,
+  `routes/search.ts:137`, `routes/users.ts:367` → clean purpose-built functions **inside**
+  conversation-store (§3d).
+- **`items ⋈ threads`** (`builtin-routine-handlers.ts:346`) and **`artifacts ⋈ threads`**
+  (`bets.ts:1238`) → cross-owner joins. Under the hard rule the `threads` reference must not live
+  outside conversation-store, so these relocate into conversation-store as **purpose-built read
+  functions that read a non-owned table in the join** (`items` / `artifacts`). This is acceptable:
+  AU12's guard forbids OTHER files from touching `threads`/`messages`/`users`, and it does NOT forbid
+  conversation-store from reading `items`/`artifacts` (AU13's item guard is write-scoped — reads of
+  `items` are unrestricted). Flag as the one genuine cross-boundary coupling the rework introduces
+  (§8b). Name each with `@lore` explaining the reverse-join ownership.
+
+**Migration order (read pass).** After §3d/§3e functions + tests exist and the guard is extended (but
+run `--check` LAST): migrate the by-id / single-shape reads first (mechanical: `getUserById`,
+`getThreadById`, `listMessagesByThread` cover the bulk), then the projection/aggregate/join sites
+(§8b), then routes/threads.ts (densest) last. Run the affected route/service integration tests after
+each file. Guard `--check` green = zero remaining direct reads/writes in scope.
+
+## 5a. Out-of-server production ACCESS — named exceptions (reads + writes)
+
+The guard's enforceable scope is `packages/server/src`. Production **reads and writes** to these tables
+also exist outside that scope; each stays a named exception (unchanged from the write pass — reads
+there are equally out of scope, do not touch them):
+
+| Site | Access | Disposition |
 |---|---|---|
-| routes/users.ts:130 | `insertUser(db, v)` | db |
-| routes/teams-routes.ts:560 | `insertUser(db, v)` | db |
-| routes/agents.ts:309 | `insertUser(db, v)` | db |
-| services/agent-work-assistant.ts:307 | replaced by `getOrCreateUser` (see below) | db |
-| services/scaffold-agents.ts:103 | `insertUser(db, v)` | db |
-| services/invite-code.ts:114 | `insertUser(db, v)` | db |
+| `packages/db/src/factory-bootstrap.ts` | users | **BOUNDARY EXCEPTION.** `packages/db` sits below `packages/server` — cannot import the stores upward. AU8 allowlists. |
+| `packages/db/src/demo-fixture.ts` | users | **EXCEPTION.** Same lower layer; demo seeding under its own guard. |
+| `packages/eval/src/seeding.ts` | users/threads/messages | **EXCEPTION (deliberate).** Benchmark fixture seeding — same category as test fixtures. Not on any production request/agent path. AU8 allowlists `eval/**`. |
+| `packages/web/scripts/ah6-test-server.ts` | users | **EXCEPTION.** Dev/test harness script. |
 
-**agent-work-assistant.ts:303–323** (select-or-insert of `ast-${userId}`): replace the
-select-then-`insert(users)` with `const agentRow = await getOrCreateUser(db, assistantAgentId, { …assistant NewUser… });`
-(Validation Scenario 2). The assistant `NewUser` (persona, harness, model) stays composed in the caller.
+## 6. Ordered task list (rework)
 
-### users (update)
-| File:line | Old (set) | New | Exec |
-|---|---|---|---|
-| routes/users.ts:261 | `.set(updates)` | `updateUser(db, targetId, updates)` | db |
-| routes/assistant.ts:472 | `.set(updateSet)` | `updateUser(db, assistantAgentId, updateSet)` | db |
-| routes/teams-routes.ts:575 | `.set({ harnessType, modelId, modelProvider })` | `updateUser(db, assistantId, {…})` | db |
-| routes/agents.ts:414 | `.set(updateSet)` | `updateUser(db, id, updateSet)` | db |
-| routes/agents.ts:487 | `.set(updateSet)` | `updateUser(db, id, updateSet)` | db |
-| routes/agents.ts:532 | `.set({ status: "retired" })` | `updateUser(db, id, { status: "retired" })` | db |
-| services/cost-cap.ts:246 | `.set(...)` (costActual) | `updateUser(db, id, patch)` | db | ⚠ §7b |
-| services/cost-cap.ts:527 | `.set({ costActual: 0 })` | `updateUser(db, normalizedParams.id, { costActual: 0 })` | db | ⚠ §7b |
-| services/cost-cap.ts:541 | `.set({ costActual: 0 }).where(sql\`true\`)` | `resetAllUserCost(db)` (bulk reset — see §3c) | db | ⚠ §7b |
+1. **(DONE by planner) Rebase** onto `origin/main`; resolve import-block conflicts (§0); `npm ci`.
+2. **Add read functions** to `conversation-store.ts` (§3d) + `user-store.ts` (§3e). `npm run check`
+   green (no callers migrated yet). Carry the `exec: HyperIdleDb` convention.
+3. **Red→green read tests** (`*.integration.test.ts`, `{ db }` fixture): `getThreadById`/`getUserById`
+   return the seeded row and `undefined` when absent; `listMessagesByThread` returns messages in
+   `createdAt` order (order-sensitive assertion); `listUsersByTeam`/`listUsersByKind` filter correctly;
+   `getUsersByIds` preserves the `inArray` set; a read passed a `tx` (`tx as HyperIdleDb`) sees
+   uncommitted writes from the same transaction (in-tx read proof, §8b); each join function returns the
+   exact projected shape its caller needs.
+4. **Migrate the bulk single-shape reads** (getUserById / getThreadById / listMessagesByThread across
+   the ~44 light files). Run affected integration tests per file.
+5. **Migrate projection / aggregate / join / in-transaction reads** (§8b) — audit each of the 38
+   `select({…})` projection sites for API-response leakage; migrate the 6 joins (2 cross-owner) and 3
+   aggregates. Preserve every column set, order, limit, and transaction scope.
+6. **Migrate routes/threads.ts last** (25 reads — densest; pagination/ordering/pinned).
+7. **Extend the guard** to full-access (§4), invert fixture (e)→(h), add (i)–(l). Run `--fixtures`
+   then `--check` → PASS.
+8. **Full gate:** `npm run check` + `npm run lint` + `npm run test` + `npm run test:integration:service`
+   green. The pre-existing thread/message/user/roster/agent route + agent-work + cost-cap tests passing
+   **unchanged** is the behavior-preservation proof.
 
-> **direct-thread.ts fold-in.** `findOrCreateDirectThread` is already a shared DM-thread helper
-> (imported by tools/send-message.ts, routes/users.ts:413, etc.). Relocate the whole function into
-> `conversation-store.ts` (it owns a `threads` write) and update its ~handful of importers to the new
-> path. Delete `services/direct-thread.ts`. Verify with `rg` that every importer is updated (knip
-> will catch a stale file; check will catch a stale import).
-
-**Totals:** 16 thread inserts · 12 thread updates · 14 message inserts · 2 message updates · 6 user
-inserts · 9 user updates ≈ **59 write sites / 22 files** in `packages/server/src`. Test files that
-reference these tables are **not** production call sites (guard excludes them); they keep writing
-directly via fixtures.
-
-## 5a. Out-of-server production writes — named exceptions (AC-4 scope honesty)
-
-The guard's enforceable scope is `packages/server/src` production code. Production writes to
-`threads`/`messages`/`users` also exist **outside** that scope. AU12 triages each explicitly (same
-rigor as the §8a Settings/Notification carve-out) so AU8's later repo-wide `TABLE_OWNER` guard
-(TRACK-AU line 621) has a pre-triaged allowlist and never trips on an untriaged write (TRACK-AU line
-630 forbids AU8 from absorbing untriaged exceptions — they must arrive as named prerequisites, which
-this section supplies).
-
-| Site | Writes | Disposition |
-|---|---|---|
-| `packages/db/src/factory-bootstrap.ts` (86, 105, 126, 148, 235, 264) | 6 `users` insert/update | **NAMED BOUNDARY EXCEPTION.** `packages/db` sits *below* `packages/server` — it structurally **cannot** import `user-store` (would be an upward dependency / cycle). Genuine production bootstrap (called from `setup-cli`, `seed`, `bootstrap-pg`). Cannot be migrated; AU8 must allowlist these 6. |
-| `packages/db/src/demo-fixture.ts` (66, 81, 97, 184) | 4 `users` insert/update | **NAMED EXCEPTION.** Same `packages/db` layer (cannot import upward); demo-data seeding, already gated by its own `demo-fixture-guard`. AU8 allowlists. |
-| `packages/eval/src/seeding.ts` (92, 126, 383, 410, 529, 543, 559) | 7 writes (users/threads/messages) | **NAMED EXCEPTION (deliberate, not blocked).** `packages/eval` *does* depend on `@hyperidle/server` so it *could* import the stores. **Decision: carve out, do not migrate.** This is benchmark-harness fixture seeding that builds arbitrary graph shapes for evals — the same category as test fixtures, which write directly by design. It is not on any production request/agent path; routing it through the stores adds coupling to server internals for zero product benefit and widens AU12's blast radius. AU8 allowlists `eval/**` seeding. (Optional future cleanup, not AU12.) |
-| `packages/web/scripts/ah6-test-server.ts` (126, 216) | 2 `users` insert | **NAMED EXCEPTION.** Dev/test harness script, not shipped production request handling. AU8 allowlists. |
-
-**AC-4 restated precisely:** *zero remaining direct `threads`/`messages`/`users` write call sites in
-`packages/server/src` production code outside the two owning modules* — proven by a green
-`au12-…-guard.ts --check`. Every production write **outside** that scope is one of the four named
-exceptions above, each justified (lower-layer boundary for `packages/db`; harness/fixture seeding for
-`eval` and the web dev script), none silently dropped.
-
-## 6. Ordered task list
-
-1. **Author `conversation-store.ts` + `user-store.ts`** with the §3 signatures (executor param typed
-   `exec: HyperIdleDb`; `@lore` citing `practice-meeting.ts:448-454` for the structural-compat
-   rationale). No new `@hyperidle/db` export needed — `HyperIdleDb` already exports. `npm run check`
-   green. (No callers yet.)
-2. **Relocate `findOrCreateDirectThread`** into conversation-store; delete `direct-thread.ts` after
-   importers move (step 4).
-3. **Red→green service tests** (`*.integration.test.ts`, `{ db }` fixture): prove `insertThread`,
-   `insertMessage`, `insertUser` write the expected row; `getOrCreateUser` creates once then returns
-   the existing row on second call; `resolveMessageIfUnresolved` returns `[]` on a second call (race);
-   `resetAllUserCost` zeroes every row; a write function called with a `tx` (passed
-   `tx as HyperIdleDb`) participates in and rolls back with the caller's transaction.
-   These are the runtime-behavior ACs for the new functions.
-4. **Migrate the simple `db`/`ctx.db` call sites** (all non-`tx` rows in §5): coach, users, assistant,
-   teams-routes, agents, invite-code, scaffold-agents, review-item-factory, session-review-creator,
-   lifecycle-propagation, routine-scheduler, policy-engine, cost-cap, agent-work-assistant,
-   assistant-dispatcher, tools (send-message, submit-review, create-item), and the direct-thread
-   importers. Run the affected route/service integration tests after each file — behavior-identical, so
-   they pass unchanged.
-5. **Migrate the `tx`-composed call sites last** (most delicate): threads.ts (12 sites — keep the
-   `db.transaction`, verdict-race `VerdictRaceConflict`, participant math, and `agentWorkIntents`
-   insert exactly; only the `threads`/`messages` writes move, each passing `tx as HyperIdleDb`),
-   handoff-protocol.ts (3), builtin-routine-handlers.ts (2 — see §7a). Run
-   `threads.routes.integration.test.ts`, `AF14-threads`, `threads.identity/mention/blockId`, and the
-   handoff/routine tests after each.
-6. **Add the guard** `scripts/au12-conversation-users-ownership-guard.ts` + `--fixtures` (incl. the
-   namespace-access case (g)); wire into `package.json` `lint`. Run
-   `npx tsx scripts/au12-…-guard.ts --fixtures` then `--check` → PASS (zero findings = AC-4 proof
-   within scope).
-7. **Full gate:** `npm run check` + `npm run lint` + `npm run test` + `npm run test:integration:service`
-   all green. The pre-existing thread/message/user route + agent-work-assistant + assistant-dispatcher
-   tests passing **unchanged** is the behavior-preservation proof (Validation Scenario 4).
-
-No half-broken state: services exist before any caller migrates (step 1 before 4/5); each call-site
-swap is behavior-identical and independently compiles; the guard lands last, after every write is
-already routed.
+No half-broken state: read functions exist before any caller migrates (step 2 before 4–6); each read
+swap is behavior-identical and independently compiles; the guard extension lands LAST, after every
+read is already routed (running `--check` earlier would flag the not-yet-migrated reads — that is
+expected, not a regression).
 
 ## 7. Acceptance criteria → verification
 
 | AC | Verification |
 |---|---|
-| AC-1 every writer calls one owning function | Migration table §5 fully applied; guard `--check` finds zero remaining direct writes in `packages/server/src`; §5a names every out-of-scope write |
-| AC-2 all observable behavior unchanged | Existing threads/users/coach/teams/agents route + agent-work-assistant + assistant-dispatcher integration tests pass **unchanged** (`npm run test` + `test:integration:service`) |
-| AC-3 a bypass fails a check | `au12-…-guard.ts --fixtures` asserts a new direct `insert/update/delete` on these tables — bare-identifier **and** namespace-access forms — is flagged; guard wired into `npm run lint` |
-| AC-4 zero remaining direct writes | `npm run lint` green (guard PASS) proves zero in `packages/server/src`; §5a accounts for every production write outside that scope as a named, justified exception |
+| AC-1 every writer AND reader calls one owning function | Write table §5 (landed) + read migration §5b fully applied; guard `--check` finds zero remaining direct references in `packages/server/src`; §5a names every out-of-scope access |
+| AC-2 all observable behavior unchanged | Existing threads/users/conversations/teams/agents route + agent-work + cost-cap + roster integration tests pass **unchanged** (`npm run test` + `test:integration:service`). §8b risk sites each covered by a passing pre-existing test or a new order/projection assertion |
+| AC-3 a bypass fails a check | `au12-…-guard.ts --fixtures` asserts a direct `select().from`/`join`/column reference on these tables — bare-identifier **and** namespace forms — is flagged; type-only refs are NOT; guard wired into `npm run lint` |
+| AC-4 zero remaining direct access | `npm run lint` green (guard PASS) proves zero reads+writes in `packages/server/src`; §5a accounts for every access outside that scope as a named exception |
 
 ## 8. Flagged findings (do NOT silently absorb)
 
-**§7a — AU13 `threads` overlap (boundary lock).** `builtin-routine-handlers.ts:381` and `:463` do
-`tx.insert(threads)` **co-located with `tx.insert(items)`** (Work domain) in one transaction. **AU12
-owns and migrates BOTH `threads` inserts** → `insertThread(tx as HyperIdleDb, …)`. **AU13
-(Work/Routine) must NOT re-touch these two `threads` sites** — it migrates only the sibling
-`tx.insert(items)` (and the `insert(routines)`/`insert(routineRuns)`/`update(routines)` sites) to its
-Work/Routine store, leaving the `threads` inserts already routed through conversation-store. The
-shared-executor design makes this clean: both stores' `insert*` take the same `tx` (as `HyperIdleDb`),
-so one transaction spans two owners with no double-refactor. Record this in the AU13 WP notes at ship
-time.
+**§7a — AU13 + AU14 have MERGED (was: overlap warning; now historical).** AU13 (`items`/routines
+writes, PR #436) and AU14 (knowledge write path, PR #434/#437) are on `origin/main`. The former
+`builtin-routine-handlers.ts:381/463` `threads`⋈`items` co-located-transaction overlap resolved
+cleanly at rebase: AU12 owns the `threads` inserts (via `insertThread(tx as HyperIdleDb, …)`), AU13
+owns the sibling `items` write (via `work.createItem`), both sharing the same `tx` — the orthogonal
+migrations 3-way-merged with only import-block conflicts (§0). No double-refactor. The shared-executor
+design (§3a) is what made the two-owner transaction clean. `handoff-protocol.ts` / `review-item-factory.ts`
+likewise now carry BOTH main's `work.*` write routing and AU12's `conversation-store` routing.
 
-**§7b — `users.costActual` is metering, not identity/config (interpretation).** `cost-cap.ts` (agent-
-owned) updates `users.costActual` (246, 527, 541). Literally a `users` write, so in scope by AC-4 —
-routed via `updateUser` / new `resetAllUserCost`. But `costActual` is cost metering, not the "identity/
-config fields" the WP scopes the Users service to. Kept in scope (it IS a `users` write the guard would
-flag) but noted: if the maintainer wants cost metering owned elsewhere, that's a separate decision — do
-not expand AU12 to move the metering logic, only route the raw write.
+**§7b — `users.costActual` is metering, not identity/config.** `cost-cap.ts` updates AND reads
+`users.costActual` (agent-owned). In scope by AC-4 — reads route via `getUserById` / the aggregate
+readers, writes via `updateUser` / `resetAllUserCost`. Note only: do not expand AU12 to move the
+metering *logic*, only route the raw access. **Its reads sit inside the same transaction as its writes
+— preserve the tx scope (§8b).**
 
-**§7c — Guard is WRITE-scoped, reads stay direct (interpretation).** The constraint prose says "the
-only code permitted to import the table objects." Taken literally that breaks ~40+ read sites
-(`select().from(threads)`). AC-4 says "direct-table-**write** call sites," so the guard bans
-`insert/update/delete` expressions only; reads remain direct. Forcing every read through the store is a
-much larger, behavior-risking rewrite — out of scope for AU12/L/no-behavior-change. Reviewer: confirm
-this interpretation.
+**§7c — CORRECTED: guard is FULL-ACCESS-scoped, reads AND writes (was: write-scoped, reads direct).**
+The original plan interpreted the constraint narrowly (write-only) on two grounds: AC-4's literal
+wording said "direct-table-**write** call sites," and a full read-ban touches ~40+ (actually ~148)
+existing read sites in what was scoped as a small no-behavior-change refactor. That interpretation was
+reviewed + APPROVED (architecture-critique round 2) and shipped in PR #435. **The founder has ruled it
+wrong.** The Contracts/constraints line — *"the owning service's functions are the only code … permitted
+to import the Drizzle table objects for threads/messages/users"* — is now read **as written**:
+`conversation-store.ts` / `user-store.ts` are the ONLY code path to these tables, reads included. The
+guard is extended to full-access (§4); every read is migrated (§3d/§3e/§5b). This section supersedes
+the original write-only §7c. **Reviewer: this is the founder-mandated interpretation, not a proposal —
+evaluate execution completeness (are all ~148 reads routed? does the guard catch column-refs and joins?
+is behavior preserved at the 38 projection + 6 join + 4 in-tx sites?), not whether write-only would
+have sufficed.**
 
-**§7d — Event ownership deferred.** conversation-store owns the row write only; callers keep emitting
-`thread_message_appended`/`item_created`/etc. The dep-graph's "Conversation Service owns assistant-
-visible events" is a larger follow-up, not AU12 (folding emission in risks changing which events fire).
+**§7d — Event ownership still deferred.** conversation-store owns row read+write only; callers keep
+emitting events. Unchanged by the rework.
 
-**§8a — SCOPE GROWTH: Settings and Notification have the identical raw-write pattern — do NOT fold into
-AU12.** First-task audit result (per the WP's instruction to check these two domains):
-- **Settings:** `serverConfig` written raw in `services/server-config.ts` (259, 263, 354);
-  `factorySettings` (the generic key-value settings table) written raw in **~11 sites across 8 files** —
-  `cost-cap.ts:378`, `cost-sentinel.ts:70/75`, `notifications/config.ts:247/263`, `notifications/mute.ts:62`,
-  `services/observability/config.ts:129`, `config/git-export-config.ts:115/145`, `routes/status.ts:142`.
-- **Notification:** `notificationQueue` written raw in **~15 sites across 5 files** —
-  `notifications/dispatcher.ts` (~9), `notifications/digest.ts` (4), `routes/notifications-routes.ts`
-  (407, 430), `services/retention-reaper.ts:148`, `services/lifecycle-propagation.ts:663`.
+**§8a — SCOPE GROWTH: Settings and Notification have the identical raw-access pattern — do NOT fold
+into AU12.** `serverConfig`/`factorySettings` (~14 write sites + reads across 8 files) and
+`notificationQueue` (~15 write sites + reads across 5 files) are the same structural violation and each
+warrants its own owning-service WP. **Not in AU12.** The full read-ownership rework must NOT opportunistically
+absorb these — same discipline as the write pass.
 
-Both are genuine instances of the same structural violation and each warrants its own owning-service WP
-(the dep-graph already names a **Settings Service** and a **Notification Service**). **They are NOT in
-AU12** (WP Out-of-scope explicitly lists Settings/Notification as separate WPs). Extra caution for
-Settings: `factorySettings` is a **generic key-value store shared by many domains** (cost, git-export,
-observability, notifications) — "who owns factorySettings" is thornier than Conversation/Users and needs
-its own refinement, not a rushed fold-in. **Recommendation:** register two follow-up WPs (Settings-owns-
-its-writes, Notification-owns-its-writes) rather than absorbing ~26 more sites into AU12.
+**§8b — BEHAVIOR-PRESERVATION RISK (the load-bearing risk of the read pass — 148 sites, honestly
+assessed).** The write pass was mechanical (values in → row written). Reads are riskier. Genuine risks,
+flagged rather than assumed safe:
+
+1. **Column projection → over-fetch / API leakage (HIGHEST risk, 38 sites).** 38 call sites do
+   `select({ id: users.id, name: users.name }).from(users)` — narrowed column sets, not full rows. The
+   §3e getters return the **full** `User`/`Thread`/`Message` row. Two sub-risks:
+   - *API leakage:* where a projected select result flows **directly into an HTTP/tool response**
+     (routes/users, routes/teams-routes, routes/agents, tools/read-inbox), swapping to a full-row getter
+     would leak columns the projection deliberately excluded (`email`, `systemPrompt`, `costActual`,
+     harness secrets). **The builder MUST audit each of the 38 for "does this result serialize to an
+     external surface?" and, where yes, re-project in the caller after the full-row fetch OR add a
+     projected store function returning the exact column set.** Do not blanket-swap to full-row getters.
+   - *Perf:* full-row over-fetch on a hot list path (routes/threads.ts list) — acceptable for
+     correctness but note for the list route (small row counts, not a real concern here).
+2. **Ordering / limit / pagination (routes/threads.ts, listMessagesByThread — order-sensitive).** A
+   consolidated `listMessagesByThread` that drops the existing `orderBy(messages.createdAt)` would
+   silently reorder a conversation; the thread-list route's `orderBy(threads.lastActiveAt desc).limit()`
+   pagination must be reproduced exactly. **Preserve order/limit/offset in every list function; assert
+   order in the read tests (step 3).**
+3. **In-transaction reads (4 sites, e.g. cost-cap read-modify-write).** A read that currently runs
+   inside `db.transaction` for consistency (read current cost → compute → write) MUST keep running in
+   the same tx. The `exec`-first-arg design preserves this **iff** the caller passes `tx as HyperIdleDb`
+   into the read function (not `db`). **Risk if the builder passes `db` instead of `tx`:** the read would
+   escape the transaction snapshot and could read stale/committed-elsewhere data mid-transaction. Test:
+   read-in-tx sees the same tx's uncommitted write (step 3). Do not hoist reads out of their tx.
+4. **Cross-owner joins (2 sites, §5b).** `items⋈threads`, `artifacts⋈threads` relocate into
+   conversation-store, which then reads a non-owned table (`items`/`artifacts`) inside the join. This is
+   the one new cross-boundary coupling; behavior is preserved (same join, same predicate) but it inverts
+   the natural ownership (a Conversation function reading Work/Artifact rows). Flagged as accepted under
+   the hard rule; `@lore` each.
+5. **`getMessageByLegacyItemId` / `directKey` bespoke lookups.** Low volume but genuinely bespoke — one
+   store function each, no bypass.
 
 ## 9. Out of scope
 
-Knowledge / Work / Routine domains (other WPs); Settings/Notification (§8a); the AU13 `items`/routines
-writes (§7a); reads (§7c); event ownership (§7d); the package split (AU17); the routine-scheduler
-fire-time selection edge (AU15); migration of the §5a out-of-server writes (bootstrap/eval/dev-script —
-named exceptions, allowlisted by AU8). No schema changes, no UI.
+Knowledge / Work / Routine domains (AU13/AU14 — merged); Settings/Notification (§8a); event ownership
+(§7d); the package split (AU17); the routine-scheduler fire-time edge (AU15); migration of the §5a
+out-of-server access (bootstrap/eval/dev-script — named exceptions, allowlisted by AU8). No schema
+changes, no UI. Do not move cost-metering *logic* (§7b) — only route its raw access.
