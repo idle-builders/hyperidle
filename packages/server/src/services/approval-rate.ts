@@ -15,8 +15,8 @@
  * `AND m.legacy_item_id IS NULL` enforces this.
  */
 
-import { type HyperIdleDb, items } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import type { HyperIdleDb } from "@hyperidle/db";
+import * as work from "../work-service.js";
 import {
 	listInitiatedVerdictMessages,
 	listVerdictMessagesByItemIds,
@@ -56,14 +56,11 @@ export async function computeApprovalRate(
 	const windowStart = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
 	// Path 1: verdict messages attributed via legacyItemId -> items.sourceAgentId.
-	// Decomposed (AU12): resolve the agent's item ids from the Work-owned `items`
-	// table here, then let conversation-store read the matching verdict messages —
-	// keeps the owned `messages` read inside its store, no cross-owner join.
-	const agentItemRows = await db
-		.select({ id: items.id })
-		.from(items)
-		.where(eq(items.sourceAgentId, agentId));
-	const agentItemIds = agentItemRows.map((r) => r.id);
+	// Decomposed (AU12 + founder ruling 2026-07-12): the Work-owned `items` read
+	// routes through work-service (Work owns `items`), then conversation-store
+	// reads the matching verdict messages (Conversation owns `messages`) — no
+	// cross-owner table read, no join.
+	const agentItemIds = await work.listItemIdsBySourceAgent(db, agentId);
 	const path1Rows =
 		agentItemIds.length > 0
 			? await listVerdictMessagesByItemIds(db, agentItemIds, windowStart)

@@ -546,3 +546,22 @@ export async function findRetroItemByThreadIds(
 		.limit(1);
 	return row;
 }
+
+/**
+ * `approval-rate.ts` (Path 1 attribution) — the ids of items authored by
+ * `sourceAgentId`. Items-only owned read; approval-rate then resolves the
+ * matching verdict messages via conversation-store, so neither the Work-owned
+ * `items` nor the Conversation-owned `messages` is read from the other's
+ * service (no cross-owner join, per founder ruling 2026-07-12: cross-owned-table
+ * reads route through the owner).
+ */
+export async function listItemIdsBySourceAgent(
+	exec: WriteExecutor,
+	sourceAgentId: string,
+): Promise<string[]> {
+	const rows = await exec
+		.select({ id: items.id })
+		.from(items)
+		.where(eq(items.sourceAgentId, sourceAgentId));
+	return rows.map((r) => r.id);
+}

@@ -1,5 +1,4 @@
-import { type HyperIdleDb, type Item } from "@hyperidle/db";
-import { and, eq, gte, inArray, like } from "drizzle-orm";
+import type { HyperIdleDb, Item } from "@hyperidle/db";
 import { listVerdictItemIds } from "../services/conversation-store.js";
 import * as work from "../work-service.js";
 

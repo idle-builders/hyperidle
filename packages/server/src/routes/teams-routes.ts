@@ -18,13 +18,7 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
-import {
-	type HyperIdleDb,
-	notificationQueue,
-	sessions,
-	teamMembers,
-	teams,
-} from "@hyperidle/db";
+import { type HyperIdleDb, notificationQueue, sessions, teamMembers, teams } from "@hyperidle/db";
 import type {
 	AgentOperationalStatus,
 	BetCardSummary,
@@ -45,7 +39,7 @@ import {
 	deriveTitle,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";

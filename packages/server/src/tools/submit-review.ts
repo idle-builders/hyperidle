@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { ARTIFACT_VIEW_SHAPES, type ReviewPayload } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import z from "zod";
 import {
 	getFirstThreadByHost,

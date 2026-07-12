@@ -20,15 +20,10 @@
  *   JS-verified for exact membership (prevents false positives from substring).
  * - Knowledge: scope_kind != 'user' OR updated_by = userId.
  */
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	teams,
-} from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, teams } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
-import { and, desc, eq, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";

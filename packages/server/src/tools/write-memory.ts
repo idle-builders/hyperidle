@@ -6,7 +6,6 @@ import {
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import z from "zod";
 import { create as createKnowledgeItem } from "../knowledge/knowledge-repository.js";
 import { getUserById } from "../services/user-store.js";

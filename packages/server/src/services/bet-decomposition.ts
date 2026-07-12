@@ -23,12 +23,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import {
-	type HyperIdleDb,
-	taskDispatchAttempts,
-	teamMembers,
-	type User,
-} from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts, teamMembers, type User } from "@hyperidle/db";
 import {
 	DECOMPOSITION_TURN_TIMEOUT_MS,
 	type DecompositionBlockerReason,

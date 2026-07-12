@@ -14,7 +14,7 @@ import {
 	deriveTitle,
 	InvalidTransitionError,
 } from "@hyperidle/shared";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
