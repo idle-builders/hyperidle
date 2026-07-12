@@ -23,14 +23,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import {
-	bets,
-	type HyperIdleDb,
-	taskDispatchAttempts,
-	teamMembers,
-	type User,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts, teamMembers, type User, users } from "@hyperidle/db";
 import {
 	DECOMPOSITION_TURN_TIMEOUT_MS,
 	type DecompositionBlockerReason,
@@ -351,7 +344,7 @@ export async function runBetDecomposition(
 
 	// Resolve the authoritative target before claiming. The later transaction couples
 	// the NULL→running CAS with its durable intent, so no crash can strand a running bet.
-	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	const bet = await work.getBetById(db, betId);
 	if (!bet || bet.decompositionStatus !== null) return;
 
 	// --- 1. Find eligible team agents ---
