@@ -33,10 +33,10 @@ import z from "zod";
 // The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
 // now call app scaffolding + persistScaffoldedAgents, identical
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
-import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
+import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
@@ -269,7 +269,7 @@ export function createAssistantThreadRoute(
  */
 export function createAssistantSoulRoutes(
 	db: HyperIdleDb,
-	adapterPool: AdapterPool | null,
+	adapterPool: HarnessCapabilityReader | null,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 

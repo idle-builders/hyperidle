@@ -26,11 +26,14 @@ import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/shared/net";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import { encryptCredentialValue, requireServerSecret } from "../services/credential-encryption.js";
+import {
+	type HarnessCapabilityReader,
+	harnessCapabilityDescriptors,
+} from "../services/harness-capability-read-model.js";
 import { projectInheritedConnections } from "../services/service-connection-projection.js";
 
 // ---------------------------------------------------------------------------
@@ -166,7 +169,7 @@ function deriveServiceFromUrl(serverUrl: string): string {
  */
 export function createConnectionRoutes(
 	db: HyperIdleDb,
-	adapterPool?: AdapterPool,
+	adapterPool?: HarnessCapabilityReader,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -195,7 +198,7 @@ export function createConnectionRoutes(
 		const storedViews = rows.map(rowToView);
 
 		// Inherited projections from cached harness descriptors (no spawn per request)
-		const descriptors = adapterPool?.listCapabilityDescriptors() ?? [];
+		const descriptors = harnessCapabilityDescriptors(adapterPool);
 		const inheritedViews = projectInheritedConnections(descriptors);
 
 		// Inherited first (the first-class signal), then held

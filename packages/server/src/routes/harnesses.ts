@@ -36,9 +36,13 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { Hono } from "hono";
-import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
+import {
+	type HarnessCapabilityReader,
+	harnessCapabilityDescriptors,
+	refreshHarnessDiscoveries,
+} from "../services/harness-capability-read-model.js";
 import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 
 /**
@@ -67,7 +71,7 @@ function stampDisabled(
  *
  * AM4 CHANGE 3 (Seam 3): signature now includes db for readServerConfig access.
  */
-export function createHarnessRoutes(pool: AdapterPool, db: HyperIdleDb): Hono {
+export function createHarnessRoutes(pool: HarnessCapabilityReader, db: HyperIdleDb): Hono {
 	const router = new Hono();
 
 	// AM4: Dedicated rate limiter for POST /redetect — created per router instance so
@@ -79,7 +83,7 @@ export function createHarnessRoutes(pool: AdapterPool, db: HyperIdleDb): Hono {
 	// GET / — list all known harness descriptors with discovery.disabled stamped
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const { harnessDisabled } = await readServerConfig(db);
-		const raw: HarnessCapabilityDescriptor[] = pool.listCapabilityDescriptors();
+		const raw: HarnessCapabilityDescriptor[] = harnessCapabilityDescriptors(pool);
 		const entries = stampDisabled(raw, harnessDisabled);
 		return c.json(entries);
 	});
@@ -93,9 +97,9 @@ export function createHarnessRoutes(pool: AdapterPool, db: HyperIdleDb): Hono {
 		requireBoundary({ kind: "public-data" }),
 		redetectRateLimiter,
 		async (c) => {
-			await pool.refreshDiscoveries();
+			await refreshHarnessDiscoveries(pool);
 			const { harnessDisabled } = await readServerConfig(db);
-			const raw: HarnessCapabilityDescriptor[] = pool.listCapabilityDescriptors();
+			const raw: HarnessCapabilityDescriptor[] = harnessCapabilityDescriptors(pool);
 			const entries = stampDisabled(raw, harnessDisabled);
 			return c.json(entries);
 		},
@@ -107,7 +111,7 @@ export function createHarnessRoutes(pool: AdapterPool, db: HyperIdleDb): Hono {
 		const harnessType = c.req.param("type");
 
 		// Validate :type against the known descriptor list (400 on unknown)
-		const allDescriptors = pool.listCapabilityDescriptors();
+		const allDescriptors = harnessCapabilityDescriptors(pool);
 		const isKnown = allDescriptors.some((d) => d.type === harnessType);
 		if (!isKnown) {
 			return c.json({ error: "Unknown harness type", code: "UNKNOWN_HARNESS_TYPE" }, 400);
@@ -154,7 +158,7 @@ export function createHarnessRoutes(pool: AdapterPool, db: HyperIdleDb): Hono {
 		await updateServerConfig(db, { harnessDisabled: nextDisabled });
 
 		// Return fresh descriptor list with discovery.disabled re-stamped
-		const raw: HarnessCapabilityDescriptor[] = pool.listCapabilityDescriptors();
+		const raw: HarnessCapabilityDescriptor[] = harnessCapabilityDescriptors(pool);
 		const entries = stampDisabled(raw, nextDisabled);
 		return c.json(entries);
 	});

@@ -54,13 +54,13 @@ import {
 } from "@hyperidle/shared";
 import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { enqueueNotification } from "../notifications/dispatcher.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
+import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { upsertOrgEdge } from "../services/org-edges.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
@@ -192,7 +192,7 @@ export function createTeamRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	/** AB2: adapter pool for resolving harness availability per agent. */
-	adapterPool?: AdapterPool,
+	adapterPool?: HarnessCapabilityReader,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 

@@ -33,9 +33,13 @@ import type {
 } from "@hyperidle/shared";
 import { desc, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
-import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { computeApprovalRate } from "../services/approval-rate.js";
+import {
+	type HarnessCapabilityReader,
+	harnessCapabilitiesForType,
+	registeredHarnessCount,
+} from "../services/harness-capability-read-model.js";
 
 // ---------------------------------------------------------------------------
 // Health signal computation (exported for unit tests — see A5 finding)
@@ -203,7 +207,7 @@ export function deriveHealthDetail(
 export async function handleAgentProfile(
 	c: Context<HyperIdleEnv>,
 	db: import("@hyperidle/db").HyperIdleDb,
-	adapterPool: AdapterPool | undefined,
+	adapterPool: HarnessCapabilityReader | undefined,
 ): Promise<Response> {
 	const agentId = c.req.param("id");
 	if (!agentId) {
@@ -311,7 +315,7 @@ export async function handleAgentProfile(
 	});
 
 	// 8. Harness capabilities
-	const rawCaps = adapterPool?.getCapabilitiesByType(agent.harnessType ?? null) ?? null;
+	const rawCaps = harnessCapabilitiesForType(adapterPool, agent.harnessType ?? null);
 	const harnessCapabilities = mapCapabilities(rawCaps);
 
 	// 9. Review track record (replaces skills)
@@ -394,15 +398,15 @@ async function getFactorySettingInt(
  */
 export function resolveHarnessAvailable(
 	harnessType: string | null | undefined,
-	adapterPool: AdapterPool | undefined,
+	adapterPool: HarnessCapabilityReader | undefined,
 ): boolean {
 	if (!adapterPool) return true;
 	if (!harnessType) {
 		// No preference — any adapter will do
-		return adapterPool.size > 0;
+		return registeredHarnessCount(adapterPool) > 0;
 	}
 	// Specific type required — check if it's registered
-	return adapterPool.getCapabilitiesByType(harnessType) !== null;
+	return harnessCapabilitiesForType(adapterPool, harnessType) !== null;
 }
 
 /**

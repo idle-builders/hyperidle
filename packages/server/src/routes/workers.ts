@@ -6,9 +6,12 @@
  */
 
 import { Hono } from "hono";
-import type { AdapterPool } from "../harness/adapter-pool.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
+import {
+	type HarnessCapabilityReader,
+	workerConnections,
+} from "../services/harness-capability-read-model.js";
 
 /**
  * Create a Hono router that exposes GET / → AdapterInfo[].
@@ -17,7 +20,7 @@ import { constantTimeStringEqual } from "../middleware/timing-safe.js";
  * Auth is handled inside the route (X-API-Key header check) so this
  * router can be tested independently without wiring full app middleware.
  */
-export function createWorkersRoutes(pool: AdapterPool): Hono {
+export function createWorkersRoutes(pool: HarnessCapabilityReader): Hono {
 	const router = new Hono();
 
 	router.get("/", requireBoundary({ kind: "public-data" }), (c) => {
@@ -28,7 +31,7 @@ export function createWorkersRoutes(pool: AdapterPool): Hono {
 			return c.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401);
 		}
 
-		return c.json(pool.list());
+		return c.json(workerConnections(pool));
 	});
 
 	return router;

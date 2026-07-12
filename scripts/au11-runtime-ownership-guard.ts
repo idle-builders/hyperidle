@@ -22,11 +22,16 @@
  * (worker-ws.ts, mcp-route.ts — see their own @lore comments for why).
  *
  * Type-only imports of the agent-owned `contracts.ts` are implicitly
- * allowed (not itself a forbidden module/path). A small DESCRIPTOR_READ
- * allowlist of route files may `import type` AdapterPool/SandboxAdapter for
- * genuine read-only capability/registration-metadata queries (verified,
- * file by file, to contain zero adapter-execution calls) — value imports
- * from harness/mcp are never allowed, even on the allowlist.
+ * allowed (not itself a forbidden module/path).
+ *
+ * @lore AU16: the former hand-verified DESCRIPTOR_READ_ALLOWLIST (8 route
+ * files permitted to `import type` AdapterPool/SandboxAdapter for read-only
+ * capability queries) is retired. Those routes now read harness/worker
+ * capability data through the agent-owned
+ * `services/harness-capability-read-model.ts` boundary module — a normal
+ * core→agent-owned edge, sanctioned the same way as any other AGENT_OWNED_ALLOWLIST
+ * sink. No core route may import `harness/`/`mcp/` directly anymore, type-only
+ * or otherwise.
  */
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -83,29 +88,18 @@ const AU11_EXTRA_AGENT_FILES = [
 	"packages/server/src/services/mcp-route.ts",
 ];
 
+/**
+ * AU16: the harness/worker capability read-model — the agent-owned boundary
+ * module the former 8-file DESCRIPTOR_READ_ALLOWLIST routes now read through
+ * instead of importing `harness/` directly.
+ */
+const AU16_AGENT_FILES = ["packages/server/src/services/harness-capability-read-model.ts"];
+
 const AGENT_OWNED_ALLOWLIST = new Set([
 	...AU9_AGENT_FILES,
 	...AU11_AGENT_FILES,
 	...AU11_EXTRA_AGENT_FILES,
-]);
-
-/**
- * Route files verified (file-by-file, at AU11 build time) to contain zero
- * adapter-execution calls — only read-only capability/registration-metadata
- * queries (`.size`, `.getCapabilitiesByType`, `.listCapabilityDescriptors`,
- * `.refreshDiscoveries`, `.getRegistrationMetaByType`, `.list()`). May
- * `import type` (never value-import) AdapterPool/SandboxAdapter/
- * McpBridgeRegistry for that purpose.
- */
-const DESCRIPTOR_READ_ALLOWLIST = new Set([
-	"packages/server/src/routes/agent-profile.ts",
-	"packages/server/src/routes/agents.ts",
-	"packages/server/src/routes/assistant.ts",
-	"packages/server/src/routes/connections.ts",
-	"packages/server/src/routes/harnesses.ts",
-	"packages/server/src/routes/teams-routes.ts",
-	"packages/server/src/routes/users.ts",
-	"packages/server/src/routes/workers.ts",
+	...AU16_AGENT_FILES,
 ]);
 
 /** Agent lifecycle internals, provisioning internals, tool execution, context assembly. */
@@ -211,26 +205,21 @@ function moduleBase(specifier: string): string {
 
 export function inspect(root: string): Finding[] {
 	/**
-	 * `containingFileRel` is the file that literally HOLDS the import
-	 * statement (the current node in the reachability walk) — NOT the
-	 * original core file the walk started from. Descriptor-read allowance is
-	 * a property of the specific import site (verified file-by-file to be a
-	 * read-only capability query), so it must be evaluated against whichever
-	 * file contains the edge, e.g. `routes/assistant.ts`'s own verified-safe
-	 * type-only AdapterPool import stays safe even when reached transitively
-	 * through `routes/threads.ts` (which is not itself on the allowlist).
+	 * No allowlist branch here anymore (AU16) — a `harness/`/`mcp/` edge is
+	 * forbidden from ANY scanned core file, type-only or not. The only
+	 * sanctioned way for a core file to reach harness/mcp is transitively,
+	 * through an AGENT_OWNED_ALLOWLIST sink (checked by the caller before
+	 * `forbiddenEdge` is even consulted — see `reaches()`).
 	 */
-	function forbiddenEdge(edge: ImportEdge, containingFileRel: string): boolean {
+	function forbiddenEdge(edge: ImportEdge): boolean {
 		if (FORBIDDEN_MODULE_BASENAMES.has(moduleBase(edge.specifier))) return true;
-		const matchesHarnessOrMcp =
+		return (
 			FORBIDDEN_PATH_PREFIXES.some((prefix) => edge.specifier.includes(prefix)) ||
 			(edge.resolvedFile !== undefined &&
 				FORBIDDEN_PATH_PREFIXES.some((prefix) =>
 					relative(root, edge.resolvedFile as string).split("\\").join("/").includes(prefix),
-				));
-		if (!matchesHarnessOrMcp) return false;
-		if (edge.isTypeOnly && DESCRIPTOR_READ_ALLOWLIST.has(containingFileRel)) return false;
-		return true;
+				))
+		);
 	}
 
 	const findings: Finding[] = [];
@@ -330,7 +319,6 @@ export function inspect(root: string): Finding[] {
 	function reaches(abs: string, visited: Set<string>): boolean {
 		if (visited.has(abs)) return false;
 		visited.add(abs);
-		const absRel = relative(root, abs).split("\\").join("/");
 		for (const edge of importsOf(abs)) {
 			const edgeRel = edge.resolvedFile ? relative(root, edge.resolvedFile).split("\\").join("/") : undefined;
 			// Agent-owned sink: importing it is the AC-3-sanctioned core→agent
@@ -338,7 +326,7 @@ export function inspect(root: string): Finding[] {
 			// agent-owned file legitimately imports harness/mcp/tool-registry
 			// itself; that must never leak back onto the calling core file.
 			if (edgeRel && AGENT_OWNED_ALLOWLIST.has(edgeRel)) continue;
-			if (forbiddenEdge(edge, absRel)) return true;
+			if (forbiddenEdge(edge)) return true;
 			// A type-only edge is erased at compile time — it carries zero
 			// runtime import-graph presence, so its own imports are never
 			// "reached" by the original file. Recursing into it would wrongly
@@ -372,12 +360,22 @@ function fixtureCheck(): void {
 	const root = mkdtempSync(join(tmpdir(), "au11-guard-"));
 	const sources: Record<string, string> = {
 		// (a) direct forbidden path-prefix import (harness) in a non-allowlisted core route → finding.
+		// AU16: agent-profile.ts (formerly the DESCRIPTOR_READ_ALLOWLIST example) now
+		// proves the OPPOSITE — a route importing harness/ directly, type-only or not,
+		// is a finding post-allowlist-deletion. bad-route.ts keeps the same assertion.
 		"packages/server/src/routes/bad-route.ts":
 			'import type { AdapterPool } from "../harness/adapter-pool.js"; export function f(pool: AdapterPool) { return pool; }',
 		"packages/server/src/harness/adapter-pool.ts": "export interface AdapterPool { size: number; }",
-		// (b) same import, but on the descriptor-read allowlist → no finding.
 		"packages/server/src/routes/agent-profile.ts":
 			'import type { AdapterPool } from "../harness/adapter-pool.js"; export function g(pool: AdapterPool) { return pool.size; }',
+		// (b) AU16: the sanctioned pattern — a route reads harness data through the
+		// agent-owned read-model sink instead of importing harness/ itself. The
+		// read-model file legitimately imports harness/ internally (agent-owned sink);
+		// that must not leak back onto the calling route.
+		"packages/server/src/services/harness-capability-read-model.ts":
+			'import type { AdapterPool } from "../harness/adapter-pool.js"; export function readSize(pool: AdapterPool) { return pool.size; }',
+		"packages/server/src/routes/good-read-model-route.ts":
+			'import { readSize } from "../services/harness-capability-read-model.js"; export function h(pool: { size: number }) { return readSize(pool as never); }',
 		// (c) direct forbidden module-basename value import → finding. tool-registry
 		// is NOT agent-owned-allowlisted (real tools/tool-registry.ts stays core-
 		// adjacent but forbidden as a core-route/domain dependency — AC-2 tool
@@ -414,6 +412,9 @@ function fixtureCheck(): void {
 		const findings = inspect(root).map((f) => f.file);
 		for (const expected of [
 			"packages/server/src/routes/bad-route.ts",
+			// AU16: post-allowlist-deletion, a route's own type-only harness/ import
+			// is a finding — even the file that used to be the allowlist example.
+			"packages/server/src/routes/agent-profile.ts",
 			"packages/server/src/services/bad-service.ts",
 			"packages/server/src/routes/transitive-bad.ts",
 			"packages/server/src/app-runtime/index.ts",
@@ -422,9 +423,11 @@ function fixtureCheck(): void {
 		])
 			if (!findings.includes(expected)) throw new Error(`fixture guard missed ${expected}`);
 		for (const allowed of [
-			"packages/server/src/routes/agent-profile.ts",
 			"packages/server/src/services/context-assembly.ts",
 			"packages/server/src/services/good-core-caller.ts",
+			// AU16: route→read-model (agent-owned sink) is the sanctioned pattern —
+			// must NOT be flagged even though the read-model imports harness/ itself.
+			"packages/server/src/routes/good-read-model-route.ts",
 		])
 			if (findings.includes(allowed)) throw new Error(`fixture guard rejected allowed ${allowed}`);
 		process.stdout.write("au11-runtime-ownership-guard fixtures: PASS\n");
