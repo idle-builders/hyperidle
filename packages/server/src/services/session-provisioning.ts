@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { filesystemInjections, filesystems, type HyperIdleDb, sessions, users } from "@hyperidle/db";
+import {
+	filesystemInjections,
+	filesystems,
+	type HyperIdleDb,
+	sessions,
+	users,
+} from "@hyperidle/db";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,

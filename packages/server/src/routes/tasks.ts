@@ -1,4 +1,4 @@
-import { type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, type tasks } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
