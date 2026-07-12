@@ -1,17 +1,17 @@
 import { randomUUID } from "node:crypto";
 import {
 	type HyperIdleDb,
-	items,
 	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeItems,
 } from "@hyperidle/db";
 import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/shared";
-import { and, eq, inArray, like } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
 	attentionReviewReasoningMarker,
 	createReviewItemForKnowledge,
 } from "../services/review-item-factory.js";
+import * as work from "../work-service.js";
 import { buildAttentionContext, scoreAttentionBatch } from "./attention-scoring.js";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import {
@@ -227,11 +227,9 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 				let reviewItemCreated = false;
 				if (crossed) {
 					const marker = attentionReviewReasoningMarker(item.id);
-					const [existing] = await tx
-						.select({ id: items.id })
-						.from(items)
-						.where(like(items.reasoning, `%${marker}%`))
-						.limit(1);
+					// @lore AU13 addendum §A6: MUST stay `tx` (not pooled `db`) — the
+					// idempotency probe runs inside the per-item critical-section tx.
+					const existing = await work.findItemByReasoningMarker(tx, marker);
 					if (!existing) {
 						const hasConflict = await hasOpenConflict(tx, item.id);
 						const riskTier = hasConflict ? "medium" : "low";
