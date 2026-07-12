@@ -16,26 +16,48 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 
-import type { KernelKnowledgeStatus, KnowledgeFormat } from "@hyperidle/shared";
+import type { KernelKnowledgeStatus } from "@hyperidle/shared";
 
 import { and, eq } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
-import { getKnowledgeEvents, KnowledgeEventType } from "./events.js";
 import { type FtsSearchOptions, ftsSearch } from "./fts.js";
 import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js";
 
 export interface CreateKnowledgeItemInput {
-	layer: KnowledgeLayer;
+	/**
+	 * @lore AU14: widened to accept `null` alongside the existing symmetric `kind`
+	 * widening. The HTTP route passes `scopeToLayer(scopeKind)` (returns `null` for
+	 * team/bet/user/filesystem scopes — see @hyperidle/shared SCOPE_TO_LAYER), which
+	 * is exactly what the pre-AU14 route's `upsertProjectionLayer` wrote into the
+	 * (nullable) `knowledgeAppProjection.layer` column for those scopes. Existing
+	 * callers (`write-memory.ts`, `writeback.ts`) always pass a concrete layer, so
+	 * this is behavior-neutral for them.
+	 */
+	layer: KnowledgeLayer | null;
 	/** @lore R7: scopeKind written to the kernel table so items are queryable by
 	 * scope without a JOIN against the extension table. Defaults to "factory"
 	 * when not provided (preserves existing behavior for callers that don't set scope). */
 	scopeKind?: string | null;
 	scopeId?: string | null;
-	kind: KnowledgeKind;
+	/**
+	 * @lore AU14: made optional so callers with no `kind` concept (the HTTP route)
+	 * can omit it and keep `projection.kind` null, matching pre-AU14 route behavior.
+	 * `write-memory.ts`/`writeback.ts` always pass `kind` — `?? null` never fires for them.
+	 */
+	kind?: KnowledgeKind | null;
 	topic?: string | null;
 	title: string;
 	body: string;
-	format: KnowledgeFormat;
+	/**
+	 * @lore AU14: widened from `KnowledgeFormat` to `string`. The kernel
+	 * `knowledgeItems.format` DB column is unconstrained text (no check
+	 * constraint) — `KnowledgeFormat` ("markdown" | "toon") is an app-runtime
+	 * convention that validated callers (write-memory.ts's `z.enum`, writeback.ts's
+	 * literal) already respect, not a DB-level guarantee. The HTTP route's schema
+	 * has never validated `format` beyond `z.string()`; narrowing it now to route
+	 * through the repository would be a new validation behavior change AU14 forbids.
+	 */
+	format: string;
 	/**
 	 * @lore R7: widened to `KnowledgeStatus | KernelKnowledgeStatus` so
 	 * agent-created items (write_memory) can be created with status="draft"
@@ -56,8 +78,12 @@ export interface UpdateKnowledgeItemInput {
 	topic?: string | null;
 	title?: string;
 	body?: string;
-	format?: KnowledgeFormat;
-	status?: KnowledgeStatus;
+	/** @lore AU14: same `string` widening as CreateKnowledgeItemInput.format — see there. */
+	format?: string;
+	/** @lore AU14: same `KnowledgeStatus | KernelKnowledgeStatus` widening as
+	 * CreateKnowledgeItemInput.status (R7) — the PATCH route accepts kernel
+	 * statuses (e.g. "draft") that are outside the app-runtime KnowledgeStatus enum. */
+	status?: KnowledgeStatus | KernelKnowledgeStatus;
 	updatedBy?: string;
 	attentionScore?: number | null;
 	confidence?: number | null;
@@ -161,7 +187,7 @@ export async function create(
 		knowledgeItemId: id,
 		layer: input.layer,
 		scopeId: input.scopeId ?? null,
-		kind: input.kind,
+		kind: input.kind ?? null,
 		attentionScore: input.attentionScore != null ? String(input.attentionScore) : null,
 		confidence: input.confidence != null ? String(input.confidence) : null,
 		meta: input.meta ?? null,
@@ -179,13 +205,11 @@ export async function create(
 		createdAt: timestamp,
 	});
 
-	// Emit event
-	getKnowledgeEvents().emit(KnowledgeEventType.UPDATED, {
-		type: KnowledgeEventType.UPDATED,
-		itemId: id,
-		version: 1,
-	});
-
+	// @lore AU14: no domain event emitted here (deliberately). The route owns the
+	// EventBus emit (live subscribers: ws-broadcaster, git-export, observability
+	// dispatcher); non-HTTP callers (tools/writeback) never emitted on the bus
+	// before this WP and continue not to — emitting here would be a NEW event for
+	// them, a behavior change the WP forbids. See plans/AU14/architecture.md §4.
 	const [created] = await db
 		.select()
 		.from(knowledgeItems)
@@ -379,13 +403,7 @@ export async function update(
 		},
 	);
 
-	// Emit event AFTER the transaction commits
-	getKnowledgeEvents().emit(KnowledgeEventType.UPDATED, {
-		type: KnowledgeEventType.UPDATED,
-		itemId: id,
-		version: result.newVersion,
-	});
-
+	// @lore AU14: no domain event emitted here (deliberately) — see create() above.
 	return result.updated;
 }
 
