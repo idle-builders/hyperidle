@@ -1479,11 +1479,17 @@ stories:
     type: backend
     depends: []
     complexity: M
+  - id: AU18
+    title: "Settings and Notification own their own reads and writes"
+    track: AU
+    type: backend
+    depends: [AU11]
+    complexity: L
   - id: AU17
     title: "Core App and Agent Layer as real packages"
     track: AU
     type: framework
-    depends: [AU12, AU13, AU14, AU15, AU16]
+    depends: [AU12, AU13, AU14, AU15, AU16, AU18]
     complexity: L
   - id: AU8
     title: "Should dependency graph guard"

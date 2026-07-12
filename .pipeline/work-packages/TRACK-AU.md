@@ -950,6 +950,7 @@ converted by round 1.
 - **AU14** — Knowledge's write path must be unified first, for the same reason.
 - **AU15** — the routine-scheduler edge touches files this work package will be relocating; landing it first avoids moving files mid-change.
 - **AU16** — the descriptor-read allowlist must be replaced by a real read function first, so the new `core-app` package genuinely has zero harness/mcp imports to carry forward.
+- **AU18** — Settings/Notification must own their own tables first, same reasoning as AU12/AU13/AU14: splitting Core App into a real package while `factorySettings`/`notificationQueue` still have no single owner just relocates the cross-writing into the new package instead of fixing it.
 
 **Complexity.** L
 
@@ -985,3 +986,60 @@ converted by round 1.
 - AU8 itself — depends on this landing first.
 
 **Effort.** L (~3-5d)
+
+---
+
+### AU18 — Settings and Notification own their own reads and writes
+
+**Work package.** As a maintainer closing out Track AU, I want the Settings domain (`factorySettings`) and the Notification domain (`notificationQueue`) to each have exactly one owning module that reads and writes their tables, so that cost accounting, git-export config, observability config, notification delivery/digest/mute, and the status route all call that module instead of each independently reading and writing the same rows. When this ships, reading or writing a setting key or a notification row happens through one function per operation, called from wherever that operation is needed, with no other code path touching those tables directly. Nothing about what the product does changes — notifications still deliver, cost caps still trip, git-export config still resolves — what changes is that there is finally one place that owns the shape and correctness of a setting or a notification row.
+
+**Why this matters.** This is the last of the confirmed Core App write/read-ownership gaps in Track AU, found independently twice: AU12's and AU13's own first-task audits (required by their specs) both looked at Settings and Notification for the same raw-write pattern their own domains had, and both found it — `factorySettings` written raw from 10 production sites across 8 files, `notificationQueue` from 17 production sites across 5 files, no owning service for either. Both work packages explicitly declined to fold this in (correctly — it's a different domain) and flagged it back as scope-growth needing its own work package. Without this WP, AU8's should-graph guard cannot run with zero tolerated allowlist exceptions as the track requires: `factorySettings`/`notificationQueue` sit inside `packages/server`, squarely in AU8's checked scope, so they're genuine violations, not the kind of out-of-package exception AU12 was allowed to name and set aside. AU17's package split has the same problem one level up — splitting Core App into a real package while two of its tables still have no single owner just relocates the mess into the new package.
+
+**Type.** backend.
+
+**What exists today.** No Settings service and no Notification service exist anywhere in the codebase. `factorySettings` (a generic key-value table: `key`/`value`/`updatedAt`) is read and written raw from `services/cost-cap.ts`, `services/cost-sentinel.ts`, `notifications/config.ts`, `notifications/mute.ts`, `services/observability/config.ts`, `config/git-export-config.ts`, `routes/status.ts`, and `services/server-config.ts`. `notificationQueue` is read and written raw from `notifications/dispatcher.ts`, `notifications/digest.ts`, `routes/notifications-routes.ts`, `services/retention-reaper.ts`, and `services/lifecycle-propagation.ts`. Notification's delivery model itself (drain loop, adapters, digest batching, quiet-hours/silence policy, the in-app popover) is already built and working (Track AF, AF8) — this work package does not touch what notifications do, only who is allowed to read and write the row. Confirmed by direct code reading against current `main`, not inferred from the WP-spec-era estimates.
+
+**What's genuinely missing.** A Settings service (owns `factorySettings`: get/set/delete a key, list keys by prefix — shaped by what the 8 real callers collectively need, not an idealized config API) and a Notification service (owns `notificationQueue`: enqueue, list-pending, mark-delivered/seen, update retry state, delete/expire — shaped by what the 5 real callers collectively need) that every current caller uses instead of a raw `db.select`/`insert`/`update`/`delete` against these tables. Both services must own reads as well as writes from the start — Track AU's founder ruling (2026-07-12, applied retroactively to AU12/AU13/AU14 after their first pass shipped write-only) is that an owning module's exclusivity covers every access path to its table, not just mutations, and that ruling is now the standard this work package is held to on its first pass, not a later correction.
+
+**Depends on.**
+- **AU11** — two of the real callers (`services/cost-cap.ts`, `services/cost-sentinel.ts`) are agent-owned files AU11 relocated and finalized; their location needed to be stable before refactoring their internals, the same reasoning AU12/AU13 depended on AU11 for.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Not required — goal is clear and reuses requirements already locked in `docs/architecture/runtime-simplification.md` and `plans/strategy-kernel-plugin-split/as-is-vs-should-dependency-graph.md` (the Core App Graph already names a Settings Service and a Notification Service as target Core App components).
+- **Design:** Not required — backend refactor, no new or changed UI surface, no user-visible behavior change.
+
+**Human concept review.** No — pure internal refactor; nothing user-facing moves.
+
+**Acceptance criteria.**
+- Every current caller that reads or writes a `factorySettings` row does so by calling the Settings service's function for that operation, never a direct `select`/`insert`/`update`/`delete` against the table itself.
+- Every current caller that reads or writes a `notificationQueue` row does so by calling the Notification service's function for that operation, never a direct `select`/`insert`/`update`/`delete` against the table itself.
+- All existing observable Settings and Notification behavior (cost-cap enforcement, cost-sentinel alerting, git-export config resolution, notification delivery/digest/mute/quiet-hours, the status route, notification read/seen state) is unchanged from before this work package.
+- A newly-written call site that tries to bypass either owning service and access its table directly fails a lint-time guard, not merely convention — the guard covers reads and writes with zero allowlisted exceptions, matching AU12/AU13/AU14's corrected standard.
+- If any query needs both an owned table (`factorySettings` or `notificationQueue`) and a table owned by another domain, it is decomposed into one call per owning service — never a documented cross-owned-table exception, per the founder's zero-exceptions ruling (see AU12/AU13's precedent: the `items ⋈ threads` join in `work-service.ts` was removed, not allowlisted).
+- Repository validation (or a review-time audit) can enumerate zero remaining direct-table-access call sites against `factorySettings`/`notificationQueue` outside the two owning modules.
+
+**Validation scenarios.**
+- Given a bet's cost accumulates past its cap, when `cost-cap.ts` checks and updates the cap state, then it does so through the Settings service and the same enforcement behavior occurs as before.
+- Given a policy engine or dependency watcher raises a `notification` event, when it is enqueued and later delivered or digested, then every step goes through the Notification service and the notification is delivered identically to before.
+- Given the git-export config or observability config is read or updated via its route, when that happens, then it goes through the Settings service.
+- Given the full existing test suite for cost-cap, cost-sentinel, notifications (delivery/digest/mute/routes), git-export config, observability config, and the status route, when it is re-run after this work package, then it passes unchanged (behavior-preservation, not new behavior).
+
+**Plan calls.** Standard architecture pass, behavior-preservation first: enumerate every current read and write call site against `factorySettings` and `notificationQueue` (not just writes) before designing the two services' function signatures, so the new functions are shaped by what real callers need. Expect the real site count to be larger than this spec's own estimate once reads are included — AU12 and AU13 both undercounted their own scope by roughly 3-7x on their first audit; budget accordingly rather than re-deriving the same lesson. If any call site joins `factorySettings` or `notificationQueue` against a table owned by another domain, decompose it into per-service calls at plan time, following AU12's resolved precedent for the `items ⋈ threads` join — do not propose a "foreign-import ceiling" exception, that pattern is retired track-wide.
+
+**Contracts / constraints.**
+- No product behavior may change — this is ownership consolidation, not a feature.
+- The owning service's functions (and its own tests) are the only code permitted to reference the Drizzle table objects for `factorySettings`/`notificationQueue`, for both reads and writes.
+- No new tables, no schema changes.
+- Zero exceptions for cross-owned-table access: any query needing a second domain's table must decompose into one call per owning service.
+- Agent-layer callers keep calling in-process (same process, function call) — no queue, no API introduced at this boundary.
+
+**Out of scope.**
+- Conversation, Users, Work, Routine, Knowledge domains — already done (AU12/AU13/AU14).
+- Notification's own feature completeness (delivery model, popover, digest cadence) — already built (Track AF/AF8); this work package changes who accesses the row, not what notifications do.
+- The routine-scheduler fire-time bypass (AU15) or the descriptor-read allowlist (AU16) — unrelated edges.
+- The package split (AU17) — comes after this and depends on it.
+- AU8 itself — depends on this landing first (transitively, via AU17).
+
+**Effort.** L (~3-4d)
