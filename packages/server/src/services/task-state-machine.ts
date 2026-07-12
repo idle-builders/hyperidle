@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type HyperIdleDb, taskDispatchAttempts, tasks } from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
 import type { EventBus, TaskState } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import * as work from "../work-service.js";
@@ -65,7 +65,9 @@ export async function transitionTask(
 	const transitioned = await db.transaction(
 		async (tx): Promise<{ fromState: TaskState } | null> => {
 			// Re-read INSIDE the tx so the audit read and the CAS write serialize together.
-			const [task] = await tx.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			// @lore AU13 addendum §A6: MUST stay `tx` (not pooled `db`) — reads the
+			// pre-transition state inside the CAS tx.
+			const task = await work.getTaskById(tx, taskId);
 			if (!task) {
 				throw new Error(`Task not found: ${taskId}`);
 			}
