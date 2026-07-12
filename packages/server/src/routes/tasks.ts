@@ -1,7 +1,7 @@
-import { bets, type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -67,7 +67,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			const now = new Date().toISOString();
 
 			// Validate bet exists
-			const [bet] = await db.select().from(bets).where(eq(bets.id, body.betId)).limit(1);
+			const bet = await work.getBetById(db, body.betId);
 			if (!bet) {
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
@@ -87,7 +87,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				updatedAt: now,
 			});
 
-			const [created] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			const created = await work.getTaskById(db, taskId);
 			return c.json(created, 201);
 		},
 	);
@@ -98,18 +98,11 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		const state = c.req.query("state");
 		const owner = c.req.query("owner");
 
-		const conditions = [];
-		if (betId) conditions.push(eq(tasks.betId, betId));
-		if (state) conditions.push(eq(tasks.state, state));
-		if (owner) conditions.push(eq(tasks.ownerAgentId, owner));
-
-		const result =
-			conditions.length > 0
-				? await db
-						.select()
-						.from(tasks)
-						.where(and(...conditions))
-				: await db.select().from(tasks);
+		const result = await work.listTasks(db, {
+			...(betId ? { betId } : {}),
+			...(state ? { state } : {}),
+			...(owner ? { ownerAgentId: owner } : {}),
+		});
 
 		return c.json(result);
 	});
@@ -122,11 +115,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	// so `cost`/`harnessUrl`/`tokens` are null here. AF7 owns dispatch — no writes.
 	router.get("/:id/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
 		const taskId = c.req.param("id");
-		const [task] = await db
-			.select({ id: tasks.id })
-			.from(tasks)
-			.where(eq(tasks.id, taskId))
-			.limit(1);
+		const task = await work.getTaskById(db, taskId);
 		if (!task) {
 			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -163,7 +152,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			const taskId = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof updateTaskSchema>;
 
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			const task = await work.getTaskById(db, taskId);
 			if (!task) {
 				return c.json({ error: "Task not found", code: "NOT_FOUND" }, 404);
 			}
@@ -199,7 +188,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 
 			await work.updateTaskById(db, taskId, updates);
 
-			const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			const updated = await work.getTaskById(db, taskId);
 			return c.json(updated);
 		},
 	);
@@ -215,7 +204,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 
 			await transitionTask(db, eventBus, taskId, body.state);
 
-			const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			const updated = await work.getTaskById(db, taskId);
 			return c.json(updated);
 		},
 	);
@@ -229,7 +218,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			const taskId = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
 
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+			const task = await work.getTaskById(db, taskId);
 			if (!task) {
 				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
