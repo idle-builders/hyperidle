@@ -5,7 +5,6 @@ import {
 	messages,
 	sessions,
 	taskDispatchAttempts,
-	tasks,
 	teamMembers,
 	threads,
 	users,
@@ -79,7 +78,7 @@ export async function handoff(
 	if (!sessionContext.taskId) {
 		throw new Error("Handoff requires a task-backed session");
 	}
-	const [task] = await db.select().from(tasks).where(eq(tasks.id, sessionContext.taskId)).limit(1);
+	const task = await work.getTaskById(db, sessionContext.taskId);
 	if (!task) {
 		throw new Error(`Task not found: ${sessionContext.taskId}`);
 	}

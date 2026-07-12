@@ -1,13 +1,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, type KnowledgeItem, tasks } from "@hyperidle/db";
+import type { HyperIdleDb, KnowledgeItem } from "@hyperidle/db";
 import type { UserRole } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { list } from "../knowledge/knowledge-repository.js";
 import { rankAndBudget } from "../knowledge/relevance-scoring.js";
 import { communityForRole } from "../knowledge/role-community-map.js";
 import type { ScoringContext } from "../knowledge/scoring-config.js";
 import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "../knowledge/scoring-config.js";
+import * as work from "../work-service.js";
 import { buildSessionContext } from "./session-context.js";
 
 /**
@@ -227,7 +227,7 @@ export async function assembleContext(
 
 	// Build a minimal scoring context from assembly config.
 	// Task description is fetched from the DB if available.
-	const [task] = await db.select().from(tasks).where(eq(tasks.id, config.taskId)).limit(1);
+	const task = await work.getTaskById(db, config.taskId);
 	const scoringContext: ScoringContext = {
 		taskDescription: task?.description ?? task?.title ?? "",
 		taskTags: [],

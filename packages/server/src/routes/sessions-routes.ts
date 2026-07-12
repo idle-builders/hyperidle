@@ -1,10 +1,4 @@
-import {
-	agentWorkIntents,
-	explicitSessionStarts,
-	type HyperIdleDb,
-	sessions,
-	tasks,
-} from "@hyperidle/db";
+import { agentWorkIntents, explicitSessionStarts, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
@@ -26,6 +20,7 @@ import {
 	transitionAgentRunLifecycle,
 } from "../services/session-lifecycle.js";
 import { sessionRunRegistry } from "../services/session-run-registry.js";
+import * as work from "../work-service.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -333,7 +328,7 @@ export function createSessionRoutes(
 
 			// ── Durable explicit-start path (agent layer present) ─────────────────
 			if (durableStartEnabled || c.req.header("Idempotency-Key") !== undefined) {
-				const [task] = await db.select().from(tasks).where(eq(tasks.id, body.taskId)).limit(1);
+				const task = await work.getTaskById(db, body.taskId);
 				if (!task) {
 					return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 				}

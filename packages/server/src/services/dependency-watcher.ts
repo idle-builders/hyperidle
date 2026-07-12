@@ -1,6 +1,6 @@
-import { type HyperIdleDb, tasks } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
-import { and, eq, sql } from "drizzle-orm";
+import * as work from "../work-service.js";
 import { escapeLikePattern } from "./like-escape.js";
 import { transitionTask } from "./task-state-machine.js";
 
@@ -33,10 +33,7 @@ export async function checkAndUnblockDependents(
 	// so substrings of unrelated IDs ("dep-1" vs "dep-12") don't match.
 	const escapedId = escapeLikePattern(completedTaskId);
 	const pattern = `%"${escapedId}"%`;
-	const candidates = await db
-		.select()
-		.from(tasks)
-		.where(and(eq(tasks.state, "hold"), sql`${tasks.dependencies} LIKE ${pattern} ESCAPE '\\'`));
+	const candidates = await work.listHoldTasksWithDependencyPattern(db, pattern);
 
 	for (const task of candidates) {
 		if (!task.dependencies) continue;
@@ -72,7 +69,7 @@ export async function checkAndUnblockDependents(
 		// Check if ALL dependencies are done.
 		let allDone = true;
 		for (const depId of deps) {
-			const [dep] = await db.select().from(tasks).where(eq(tasks.id, depId)).limit(1);
+			const dep = await work.getTaskById(db, depId);
 			if (dep?.state !== "done") {
 				allDone = false;
 				break;

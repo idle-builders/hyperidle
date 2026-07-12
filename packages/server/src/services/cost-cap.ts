@@ -3,7 +3,7 @@ import * as crypto from "node:crypto";
 // Cost tracking uses `teamMembers` (the agent-membership group) which has costActual/costCap.
 // params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
 // @lore R5: `bets` and `tasks` added for bet cost accumulation via taskId lookup.
-import { bets, factorySettings, type HyperIdleDb, tasks, teamMembers, users } from "@hyperidle/db";
+import { bets, factorySettings, type HyperIdleDb, teamMembers, users } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import * as work from "../work-service.js";
@@ -253,11 +253,7 @@ export async function recordCostAndCheck(
 		// Uses the same atomic SQL pattern as agent/team accumulation to prevent
 		// lost updates under concurrent sessions on the same bet.
 		if (params.taskId) {
-			const [task] = await db
-				.select({ betId: tasks.betId })
-				.from(tasks)
-				.where(eq(tasks.id, params.taskId))
-				.limit(1);
+			const task = await work.getTaskById(db, params.taskId);
 			if (task?.betId) {
 				await work.updateBetById(db, task.betId, {
 					costActualMinor: sql`coalesce(${bets.costActualMinor}, 0) + ${effectiveCostMinor}`,
