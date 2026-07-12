@@ -1,5 +1,3 @@
-import { tasks } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
 import z from "zod";
 import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
@@ -33,7 +31,7 @@ async function handler(args: LogTaskInput, ctx: ToolContext): Promise<ToolResult
 	}
 	const { note } = parsed.data;
 
-	const [task] = await ctx.db.select().from(tasks).where(eq(tasks.id, ctx.taskId)).limit(1);
+	const task = await work.getTaskById(ctx.db, ctx.taskId);
 	if (!task) {
 		return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);
 	}

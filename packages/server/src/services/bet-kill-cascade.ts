@@ -1,6 +1,7 @@
-import { type HyperIdleDb, propagationLog, sessions, tasks } from "@hyperidle/db";
+import { type HyperIdleDb, propagationLog, sessions } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import * as work from "../work-service.js";
 import { transitionTask } from "./task-state-machine.js";
 
 /** Task states that are terminal — never re-killed by the cascade. */
@@ -43,10 +44,13 @@ export async function cascadeBetKill(
 	const sessionsStopped: string[] = [];
 
 	// 1. Non-terminal tasks on the bet.
-	const nonTerminalTasks = await db
-		.select({ id: tasks.id, state: tasks.state })
-		.from(tasks)
-		.where(and(eq(tasks.betId, betId), notInArray(tasks.state, TERMINAL_TASK_STATES)));
+	// @lore AU13 CONFUSION: `notInArray(state, TERMINAL_TASK_STATES)` doesn't fit
+	// `listTasks`'s AND-composed `eq`-only opts shape — filter client-side over
+	// the full per-bet task list instead of adding a new SQL-level function for
+	// one caller (same result set, plan §5.3's "distinct mechanic" bar not met).
+	const nonTerminalTasks = (await work.listTasks(db, { betId })).filter(
+		(t) => !TERMINAL_TASK_STATES.includes(t.state),
+	);
 
 	for (const task of nonTerminalTasks) {
 		// 2. Active sessions on this task.

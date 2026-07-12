@@ -7,13 +7,10 @@
  */
 import * as crypto from "node:crypto";
 import {
-	bets,
 	type HyperIdleDb,
-	items,
 	knowledgeAppProjection,
 	knowledgeItems,
 	type Routine,
-	routines,
 	threads,
 } from "@hyperidle/db";
 import {
@@ -22,7 +19,7 @@ import {
 	type EventBus,
 	type ItemCreatedEvent,
 } from "@hyperidle/shared";
-import { and, eq, gte, inArray, like } from "drizzle-orm";
+import { and, eq, gte, inArray } from "drizzle-orm";
 import { BUILTIN_SPECS, extractBuiltinKind } from "../config/builtin-routines.js";
 import { buildAttentionService } from "../knowledge/attention-service.js";
 import { runAutoPromotionSweep, runStaleSweep } from "../knowledge/promotion-pipeline.js";
@@ -133,7 +130,7 @@ export async function runBuiltinRoutine(
 	routineId: string,
 	args?: PostBetRetroArgs,
 ): Promise<RunBuiltinResult> {
-	const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+	const routine = await routineService.getRoutineById(db, routineId);
 	if (!routine) {
 		return { fired: false, reason: `routine ${routineId} not found` };
 	}
@@ -236,32 +233,18 @@ export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventB
 			const betId = event.betId;
 
 			// Look up the bet's teamId
-			const [betRow] = await db
-				.select({ teamId: bets.teamId })
-				.from(bets)
-				.where(eq(bets.id, betId))
-				.limit(1);
+			const betRow = await work.getBetById(db, betId);
 			const betTeamId = betRow?.teamId;
 
 			// Try per-team id first
-			let routineRow: typeof routines.$inferSelect | undefined;
+			let routineRow: Routine | undefined;
 			if (betTeamId) {
 				const perTeamId = `builtin:post-bet-retro:${betTeamId}`;
-				const [perTeamRow] = await db
-					.select()
-					.from(routines)
-					.where(eq(routines.id, perTeamId))
-					.limit(1);
-				routineRow = perTeamRow;
+				routineRow = await routineService.getRoutineById(db, perTeamId);
 			}
 			// Fall back to legacy global id (backward compat)
 			if (!routineRow) {
-				const [globalRow] = await db
-					.select()
-					.from(routines)
-					.where(eq(routines.id, "builtin:post-bet-retro"))
-					.limit(1);
-				routineRow = globalRow;
+				routineRow = await routineService.getRoutineById(db, "builtin:post-bet-retro");
 			}
 			if (!(routineRow && routineRow.active)) return;
 
@@ -330,7 +313,7 @@ async function runPostBetRetro(
 	routine: Routine,
 	args: PostBetRetroArgs,
 ): Promise<RunBuiltinResult> {
-	const [bet] = await db.select().from(bets).where(eq(bets.id, args.betId)).limit(1);
+	const bet = await work.getBetById(db, args.betId);
 	if (!bet) {
 		return { fired: false, reason: `bet ${args.betId} not found` };
 	}
@@ -339,18 +322,7 @@ async function runPostBetRetro(
 	// host_kind='bet' + host_id=betId. Dedupe via the host pair + the body
 	// marker; the marker probe alone is selective enough at HyperIdle's scale.
 	const marker = postBetRetroBetIdMarker(args.betId);
-	const [existing] = await db
-		.select({ id: items.id })
-		.from(items)
-		.innerJoin(threads, eq(items.threadId, threads.id))
-		.where(
-			and(
-				eq(threads.hostKind, "bet"),
-				eq(threads.hostId, args.betId),
-				like(items.body, `%${marker}%`),
-			),
-		)
-		.limit(1);
+	const existing = await work.findPostBetRetroItem(db, args.betId, marker);
 	if (existing) {
 		return { fired: false, reason: "already-retroed" };
 	}

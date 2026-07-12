@@ -5,7 +5,6 @@ import {
 	messages,
 	sessions,
 	taskDispatchAttempts,
-	tasks,
 	teamMembers,
 	threads,
 	users,
@@ -79,7 +78,7 @@ export async function handoff(
 	if (!sessionContext.taskId) {
 		throw new Error("Handoff requires a task-backed session");
 	}
-	const [task] = await db.select().from(tasks).where(eq(tasks.id, sessionContext.taskId)).limit(1);
+	const task = await work.getTaskById(db, sessionContext.taskId);
 	if (!task) {
 		throw new Error(`Task not found: ${sessionContext.taskId}`);
 	}
@@ -297,7 +296,9 @@ export async function handoff(
 
 		// 4. Log the handoff in tasks.auditTrail. Re-read via `tx` so we
 		// observe the state-transition entry appended above (toHuman path).
-		const [freshTask] = await tx.select().from(tasks).where(eq(tasks.id, task.id)).limit(1);
+		// @lore AU13 addendum §A6: MUST stay `tx` (not pooled `db`) — re-reads the
+		// task inside the handoff transaction after a prior in-tx update.
+		const freshTask = await work.getTaskById(tx, task.id);
 		const existingAudit: TaskAuditEntry[] = freshTask?.auditTrail
 			? (JSON.parse(freshTask.auditTrail) as TaskAuditEntry[])
 			: [];

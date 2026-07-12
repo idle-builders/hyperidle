@@ -1,11 +1,5 @@
 import * as fs from "node:fs";
-import {
-	agentSessionRequests,
-	type HyperIdleDb,
-	routineRuns,
-	routines,
-	sessions,
-} from "@hyperidle/db";
+import { agentSessionRequests, type HyperIdleDb, routines, sessions } from "@hyperidle/db";
 import type {
 	AgentSessionSourceKind,
 	EventBus,
@@ -234,11 +228,10 @@ async function updateRoutineRunOnSessionEnd(
 	// Find the routine_run row that is still "running" for this routine.
 	// NOTE: Do NOT filter by sessionId — it may be NULL on the row when this
 	// hook fires (see @lore above).
-	const [run] = await db
-		.select({ id: routineRuns.id })
-		.from(routineRuns)
-		.where(and(eq(routineRuns.routineId, routineId), eq(routineRuns.outcome, "running")))
-		.limit(1);
+	// @lore AU13 addendum §A6: this call site currently passes the pooled `db`
+	// (not a `tx`) — findRunningRoutineRun accepts whatever executor the caller
+	// passes; do not hard-code tx here.
+	const run = await routine.findRunningRoutineRun(db, routineId);
 
 	if (!run) {
 		// No matching running run — pre-AA2 session or already finalized. No-op.

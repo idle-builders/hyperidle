@@ -18,11 +18,11 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { artifacts, tasks } from "@hyperidle/db";
+import { artifacts } from "@hyperidle/db";
 import { ARTIFACT_KINDS, type ArtifactCreatedEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import z from "zod";
 import { artifactPreviewSchema } from "../schemas/artifact-preview.js";
+import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -70,11 +70,7 @@ async function handler(args: CreateArtifactInput, ctx: ToolContext): Promise<Too
 	}
 
 	// Verify the producing task exists (ctx.taskId is authoritative).
-	const [taskRow] = await ctx.db
-		.select({ title: tasks.title })
-		.from(tasks)
-		.where(eq(tasks.id, ctx.taskId))
-		.limit(1);
+	const taskRow = await work.getTaskById(ctx.db, ctx.taskId);
 
 	if (!taskRow) {
 		return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);

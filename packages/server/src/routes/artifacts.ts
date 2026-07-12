@@ -21,6 +21,7 @@ import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
 import { artifactPreviewSchema, fallbackPreviewSchema } from "../schemas/artifact-preview.js";
 import { recordCostAndCheck } from "../services/cost-cap.js";
+import * as work from "../work-service.js";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;
@@ -181,11 +182,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				return c.json({ error: "betId required", code: "INVALID_QUERY" }, 400);
 			}
 			// L3 review fix Sec-MED-4: cap intermediate id materialisation.
-			const rows = await db
-				.select({ id: tasks.id })
-				.from(tasks)
-				.where(eq(tasks.betId, betId))
-				.limit(MAX_TASK_ID_FANOUT + 1);
+			const rows = await work.listTasks(db, { betId, limit: MAX_TASK_ID_FANOUT + 1 });
 			if (rows.length > MAX_TASK_ID_FANOUT) {
 				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
 			}
@@ -196,11 +193,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			if (!teamId) {
 				return c.json({ error: "teamId required", code: "INVALID_QUERY" }, 400);
 			}
-			const rows = await db
-				.select({ id: tasks.id })
-				.from(tasks)
-				.where(eq(tasks.teamId, teamId))
-				.limit(MAX_TASK_ID_FANOUT + 1);
+			const rows = await work.listTasks(db, { teamId, limit: MAX_TASK_ID_FANOUT + 1 });
 			if (rows.length > MAX_TASK_ID_FANOUT) {
 				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
 			}
@@ -302,11 +295,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				return c.json({ error: "kind/preview discriminant mismatch", code: "KIND_MISMATCH" }, 400);
 			}
 
-			const [taskRow] = await db
-				.select({ title: tasks.title, ownerAgentId: tasks.ownerAgentId })
-				.from(tasks)
-				.where(eq(tasks.id, body.producingTaskId))
-				.limit(1);
+			const taskRow = await work.getTaskById(db, body.producingTaskId);
 			if (!taskRow) {
 				return c.json({ error: "producing_task_id not found", code: "INVALID_TASK" }, 400);
 			}

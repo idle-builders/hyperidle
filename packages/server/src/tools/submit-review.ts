@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { messages, tasks, threads } from "@hyperidle/db";
+import { messages, threads } from "@hyperidle/db";
 import { ARTIFACT_VIEW_SHAPES, type ReviewPayload } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
+import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -45,7 +46,7 @@ async function handler(args: SubmitReviewInput, ctx: ToolContext): Promise<ToolR
 	const input = parsed.data;
 
 	// 1. Look up parent task to derive betId.
-	const [parentTask] = await ctx.db.select().from(tasks).where(eq(tasks.id, ctx.taskId)).limit(1);
+	const parentTask = await work.getTaskById(ctx.db, ctx.taskId);
 	if (!parentTask) {
 		return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 	}

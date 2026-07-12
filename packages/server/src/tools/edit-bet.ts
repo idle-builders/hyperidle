@@ -5,8 +5,6 @@
  * Updates the description of an existing bet.
  */
 
-import { bets } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
 import z from "zod";
 import * as work from "../work-service.js";
 import type { AssistantToolResult, AssistantToolShape } from "./assistant-tool-result.js";
@@ -31,7 +29,7 @@ async function handler(
 	}
 	const input = parsed.data;
 
-	const [existing] = await ctx.db.select().from(bets).where(eq(bets.id, input.betId)).limit(1);
+	const existing = await work.getBetById(ctx.db, input.betId);
 	if (!existing) {
 		return { status: "error", message: `Bet not found: ${input.betId}` };
 	}

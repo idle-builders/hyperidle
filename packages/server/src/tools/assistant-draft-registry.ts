@@ -17,9 +17,10 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { bets, teamMembers, users } from "@hyperidle/db";
+import { teamMembers, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import * as work from "../work-service.js";
 import { createBetTool } from "./create-bet.js";
 import { editBetTool } from "./edit-bet.js";
 import {
@@ -117,11 +118,7 @@ export async function resolveCurrentDraftBetId(
 				if (!betId) continue;
 
 				// Liveness check: validate bet is still status='draft'
-				const [bet] = await db
-					.select({ status: bets.status })
-					.from(bets)
-					.where(eq(bets.id, betId))
-					.limit(1);
+				const bet = await work.getBetById(db, betId);
 
 				if (bet?.status === "draft") {
 					return betId;

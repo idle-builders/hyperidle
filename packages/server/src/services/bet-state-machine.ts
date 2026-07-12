@@ -1,4 +1,4 @@
-import { bets, type HyperIdleDb, teamMembers } from "@hyperidle/db";
+import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import {
 	type BetStatus,
 	CapacityExceededError,
@@ -97,7 +97,7 @@ export async function transitionBet(
 	toState: BetStatus,
 	options?: TransitionOptions,
 ): Promise<void> {
-	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	const bet = await work.getBetById(db, betId);
 	if (!bet) {
 		throw new Error(`Bet '${betId}' not found`);
 	}
@@ -267,7 +267,7 @@ export async function updateBetField(
 		throw new Error(`Field '${field}' is not mutable on an active bet`);
 	}
 
-	const [bet] = await db.select().from(bets).where(eq(bets.id, betId)).limit(1);
+	const bet = await work.getBetById(db, betId);
 	if (!bet) {
 		throw new Error(`Bet '${betId}' not found`);
 	}

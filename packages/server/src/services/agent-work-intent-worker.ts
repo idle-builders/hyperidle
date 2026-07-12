@@ -1,22 +1,20 @@
 import { randomUUID } from "node:crypto";
 import {
 	agentWorkIntents,
-	bets,
 	explicitSessionStarts,
 	type HyperIdleDb,
 	knowledgeItems,
 	messages,
 	proposedCalls,
-	routineRuns,
-	routines,
 	tailoredGrants,
 	taskDispatchAttempts,
-	tasks,
 	teamMembers,
 	users,
 } from "@hyperidle/db";
 import type { AgentSessionRequestInput, TriggerEventType } from "@hyperidle/shared";
 import { and, asc, eq, lt, or } from "drizzle-orm";
+import * as routineService from "../routine-service.js";
+import * as work from "../work-service.js";
 import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
 
 export { executeAgentRunRequest as consumeAgentSessionRequest } from "./agent-run-boundary.js";
@@ -134,7 +132,7 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 			if (!start || start.status !== "requested")
 				throw new InvalidAgentWorkSourceError("Explicit session start is unavailable");
 			await requireRunnableActor(db, start.requestedAgentId);
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, start.taskId)).limit(1);
+			const task = await work.getTaskById(db, start.taskId);
 			if (!task) throw new InvalidAgentWorkSourceError("Explicit session task is unavailable");
 			return {
 				...common,
@@ -155,7 +153,7 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 				.limit(1);
 			if (!attempt || attempt.status !== "requested")
 				throw new InvalidAgentWorkSourceError("Task dispatch attempt is unavailable");
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, attempt.taskId)).limit(1);
+			const task = await work.getTaskById(db, attempt.taskId);
 			if (!(task && ["ready", "accepted", "in_progress"].includes(task.state)))
 				throw new InvalidAgentWorkSourceError("Task is not eligible for agent work");
 			if (task.ownerAgentId && task.ownerAgentId !== attempt.agentId)
@@ -196,18 +194,10 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 			};
 		}
 		case "routine_run": {
-			const [run] = await db
-				.select()
-				.from(routineRuns)
-				.where(eq(routineRuns.id, intent.sourceId))
-				.limit(1);
+			const run = await routineService.getRoutineRunById(db, intent.sourceId);
 			if (!run || run.outcome !== "running")
 				throw new InvalidAgentWorkSourceError("Routine run is unavailable");
-			const [routine] = await db
-				.select()
-				.from(routines)
-				.where(eq(routines.id, run.routineId))
-				.limit(1);
+			const routine = await routineService.getRoutineById(db, run.routineId);
 			if (!routine || routine.deletedAt || !routine.active || routine.state !== "active")
 				throw new InvalidAgentWorkSourceError("Routine is not eligible to run");
 			await requireRunnableActor(db, routine.ownerAgentId);
@@ -228,7 +218,7 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 			};
 		}
 		case "bet_decomposition": {
-			const [bet] = await db.select().from(bets).where(eq(bets.id, intent.sourceId)).limit(1);
+			const bet = await work.getBetById(db, intent.sourceId);
 			if (bet?.status !== "active" || bet.decompositionStatus !== "running")
 				throw new InvalidAgentWorkSourceError("Bet decomposition is no longer eligible");
 			const [membership] = await db
@@ -298,11 +288,7 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 			if (row?.call.status !== "granted")
 				throw new InvalidAgentWorkSourceError("Proposed call grant is not eligible");
 			await requireRunnableActor(db, row.grant.agentScope);
-			const [task] = await db
-				.select()
-				.from(tasks)
-				.where(eq(tasks.id, row.grant.taskScope))
-				.limit(1);
+			const task = await work.getTaskById(db, row.grant.taskScope);
 			if (!task) throw new InvalidAgentWorkSourceError("Proposed call task is unavailable");
 			return {
 				...common,

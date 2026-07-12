@@ -1,6 +1,7 @@
-import { type HyperIdleDb, sessions, tasks, teamMembers, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, teamMembers, threads, users } from "@hyperidle/db";
 import type { AgentSessionSourceCorrelation, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import * as work from "../work-service.js";
 
 /**
  * Manages WebSocket topic subscriptions and event broadcasting.
@@ -287,11 +288,7 @@ export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorize
 				if (!sessionRow.taskId) return canSubscribeToTaskFreeSession(senderId, sessionRow);
 
 				// Resolve the task host to verify it exists and confirm host-scope
-				const [taskRow] = await db
-					.select()
-					.from(tasks)
-					.where(eq(tasks.id, sessionRow.taskId))
-					.limit(1);
+				const taskRow = await work.getTaskById(db, sessionRow.taskId);
 				// Task must exist; host-scope = any authenticated principal → true
 				return taskRow !== undefined;
 			}

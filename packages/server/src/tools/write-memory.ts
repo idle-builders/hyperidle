@@ -1,4 +1,4 @@
-import { tasks, users } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import {
 	KNOWLEDGE_LAYERS,
 	KNOWLEDGE_STATUSES,
@@ -10,6 +10,7 @@ import {
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { create as createKnowledgeItem } from "../knowledge/knowledge-repository.js";
+import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -93,13 +94,7 @@ async function handler(args: WriteMemoryInput, ctx: ToolContext): Promise<ToolRe
 	// assembleContext() filters L2 items by scopeId == productId, so the scopeId
 	// must match the team's id for items to appear in the next session's workspace.
 	const teamId =
-		ctx.teamId ??
-		(await ctx.db
-			.select({ teamId: tasks.teamId })
-			.from(tasks)
-			.where(eq(tasks.id, ctx.taskId))
-			.limit(1)
-			.then((rows) => rows[0]?.teamId ?? null));
+		ctx.teamId ?? (await work.getTaskById(ctx.db, ctx.taskId).then((row) => row?.teamId ?? null));
 	const defaultScopeKind: ScopeKind = teamId ? "product" : "factory";
 	const scopeKind = requestedScopeKind ?? defaultScopeKind;
 	const scopeId =

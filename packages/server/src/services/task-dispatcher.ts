@@ -25,7 +25,7 @@
  * This is an accepted v1 limitation — see architecture-critique Finding 3.
  */
 
-import { type HyperIdleDb, sessions, tasks } from "@hyperidle/db";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
@@ -33,7 +33,8 @@ import {
 	type SessionEndedEvent,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import * as work from "../work-service.js";
 
 // ---------------------------------------------------------------------------
 // Simple inline logger (observability adapter not yet available here)
@@ -364,15 +365,13 @@ async function startupSweep(db: HyperIdleDb, generation: number): Promise<void> 
 	const activeTaskIds = new Set(activeSessions.map((s) => s.taskId));
 
 	// Find dispatchable tasks (accepted state only)
-	const dispatchableTasks = await db
-		.select({
-			id: tasks.id,
-			ownerAgentId: tasks.ownerAgentId,
-			teamId: tasks.teamId,
-			state: tasks.state,
-		})
-		.from(tasks)
-		.where(and(isNotNull(tasks.ownerAgentId), eq(tasks.state, "accepted")));
+	// @lore AU13 CONFUSION: `isNotNull(ownerAgentId)` doesn't fit listTasks's
+	// AND-composed eq-only opts shape — filter client-side over the
+	// state-filtered list instead of adding a new SQL-level function for one
+	// caller (same result set).
+	const dispatchableTasks = (await work.listTasks(db, { state: "accepted" })).filter(
+		(t) => t.ownerAgentId !== null,
+	);
 
 	// Second generation check after second await
 	if (generation !== currentGeneration) return;
@@ -434,14 +433,7 @@ export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
 		if (event.toState !== "accepted") return;
 
 		void (async () => {
-			const [task] = await db
-				.select({
-					ownerAgentId: tasks.ownerAgentId,
-					teamId: tasks.teamId,
-				})
-				.from(tasks)
-				.where(eq(tasks.id, event.taskId))
-				.limit(1);
+			const task = await work.getTaskById(db, event.taskId);
 
 			if (!task?.ownerAgentId) return; // No agent assigned — skip
 
@@ -465,15 +457,7 @@ export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
 			// commits ownerAgentId=agentB to the DB before the harness stream ends, so
 			// by the time session_ended fires, ownerAgentId is already agentB. Safe.
 			if (event.taskId) {
-				const [task] = await db
-					.select({
-						ownerAgentId: tasks.ownerAgentId,
-						teamId: tasks.teamId,
-						state: tasks.state,
-					})
-					.from(tasks)
-					.where(eq(tasks.id, event.taskId))
-					.limit(1);
+				const task = await work.getTaskById(db, event.taskId);
 
 				if (
 					task?.state === "in_progress" &&

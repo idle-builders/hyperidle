@@ -1,5 +1,3 @@
-import { routines } from "@hyperidle/db";
-import { and, eq, isNull } from "drizzle-orm";
 import z from "zod";
 import * as routine from "../routine-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
@@ -51,14 +49,15 @@ async function handler(
 		return err("INVALID_INPUT", parsed.error.message);
 	}
 	const input = parsed.data;
-	// Verify routine exists and is not soft-deleted
-	const [existing] = await ctx.db
-		.select()
-		.from(routines)
-		.where(and(eq(routines.id, input.routineId), isNull(routines.deletedAt)))
-		.limit(1);
+	// Verify routine exists and is not soft-deleted.
+	// @lore AU13 CONFUSION: the real predicate was SQL-level
+	// `isNull(routines.deletedAt)`. Preserved as an app-level check on the
+	// full row instead — identical observable behavior (soft-deleted →
+	// NOT_FOUND either way), matching the precedent already used by
+	// routines-routes.ts's PATCH handler (`if (!existing || existing.deletedAt)`).
+	const existing = await routine.getRoutineById(ctx.db, input.routineId);
 
-	if (!existing) {
+	if (!existing || existing.deletedAt) {
 		return err("NOT_FOUND", `Routine not found: ${input.routineId}`);
 	}
 
@@ -89,11 +88,7 @@ async function handler(
 	}
 
 	// Re-read to get the canonical final state
-	const [updated] = await ctx.db
-		.select()
-		.from(routines)
-		.where(eq(routines.id, input.routineId))
-		.limit(1);
+	const updated = await routine.getRoutineById(ctx.db, input.routineId);
 
 	// updated must exist — we just verified it above and the id is a PK
 	const name = updated?.name ?? existing.name;

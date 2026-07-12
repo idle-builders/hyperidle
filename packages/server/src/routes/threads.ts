@@ -14,7 +14,6 @@
 import {
 	agentWorkIntents,
 	artifacts,
-	bets,
 	type Message as DbMessage,
 	type Thread as DbThread,
 	type HyperIdleDb,
@@ -22,7 +21,6 @@ import {
 	messages,
 	proposedCalls,
 	sessions,
-	tasks,
 	threads,
 	users,
 } from "@hyperidle/db";
@@ -58,6 +56,7 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { escapeLikePattern } from "../services/like-escape.js";
 import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
+import * as work from "../work-service.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
@@ -305,19 +304,11 @@ async function resolveHostTitle(
 ): Promise<string | null> {
 	switch (hostKind) {
 		case "bet": {
-			const [row] = await db
-				.select({ description: bets.description })
-				.from(bets)
-				.where(eq(bets.id, hostId))
-				.limit(1);
+			const row = await work.getBetById(db, hostId);
 			return row ? deriveTitle(row.description, hostId) : null;
 		}
 		case "task": {
-			const [row] = await db
-				.select({ title: tasks.title })
-				.from(tasks)
-				.where(eq(tasks.id, hostId))
-				.limit(1);
+			const row = await work.getTaskById(db, hostId);
 			return row?.title ?? null;
 		}
 		case "knowledge_item": {
@@ -422,18 +413,8 @@ async function resolveThreadTitles(
 
 	// ── batched queries ───────────────────────────────────────────────────────
 	const [betRows, taskRows, kiRows, userRows] = await Promise.all([
-		betIds.length > 0
-			? db
-					.select({ id: bets.id, description: bets.description })
-					.from(bets)
-					.where(inArray(bets.id, betIds))
-			: Promise.resolve([] as Array<{ id: string; description: string }>),
-		taskIds.length > 0
-			? db
-					.select({ id: tasks.id, title: tasks.title })
-					.from(tasks)
-					.where(inArray(tasks.id, taskIds))
-			: Promise.resolve([] as Array<{ id: string; title: string }>),
+		work.listBetsByIds(db, betIds),
+		work.listTasksByIds(db, taskIds),
 		kiIds.length > 0
 			? db
 					.select({ id: knowledgeItems.id, title: knowledgeItems.title })
@@ -1483,11 +1464,7 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					return c.json({ error: "Artifact not found", code: "not_found" }, 404);
 				}
 
-				const [task] = await db
-					.select({ ownerAgentId: tasks.ownerAgentId })
-					.from(tasks)
-					.where(eq(tasks.id, taskId))
-					.limit(1);
+				const task = await work.getTaskById(db, taskId);
 				const agentId = task?.ownerAgentId;
 				if (!agentId) {
 					return c.json({ error: "Task not found", code: "not_found" }, 404);

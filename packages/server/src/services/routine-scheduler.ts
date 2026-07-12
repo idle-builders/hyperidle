@@ -1,14 +1,7 @@
 import * as crypto from "node:crypto";
-import {
-	factorySettings,
-	type HyperIdleDb,
-	type Routine,
-	routineRuns,
-	routines,
-	sessions,
-} from "@hyperidle/db";
+import { factorySettings, type HyperIdleDb, type Routine, sessions } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
-import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
 import * as routineService from "../routine-service.js";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
@@ -329,14 +322,7 @@ export async function shouldCoalesce(db: HyperIdleDb, routineId: string): Promis
 export async function getRoutineMonthlySpend(db: HyperIdleDb, routineId: string): Promise<number> {
 	const now = new Date();
 	const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-
-	const [row] = await db
-		.select({ total: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
-		.from(routineRuns)
-		.where(and(eq(routineRuns.routineId, routineId), gte(routineRuns.startedAt, firstOfMonth)))
-		.limit(1);
-
-	return row?.total ?? 0;
+	return routineService.sumRoutineRunCostSince(db, routineId, firstOfMonth);
 }
 
 // --- Core: check and fire a routine ---
@@ -475,10 +461,7 @@ export async function registerEventTriggers(
 	eventBus: EventBus,
 	runtimeDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">,
 ): Promise<() => void> {
-	const eventRoutines = await db
-		.select()
-		.from(routines)
-		.where(and(eq(routines.triggerType, "event"), eq(routines.active, true)));
+	const eventRoutines = await routineService.listActiveRoutines(db, { triggerType: "event" });
 
 	const unsubscribers: Array<() => void> = [];
 
@@ -490,11 +473,7 @@ export async function registerEventTriggers(
 		const unsub = eventBus.on(eventType, () => {
 			// Re-read the routine to get current state
 			void (async () => {
-				const [current] = await db
-					.select()
-					.from(routines)
-					.where(eq(routines.id, routine.id))
-					.limit(1);
+				const current = await routineService.getRoutineById(db, routine.id);
 				if (current?.active) {
 					// @lore I6: .catch() prevents unhandled promise rejection from crashing
 					// the event-bus handler chain. Errors are logged, not propagated.
@@ -527,16 +506,7 @@ export async function registerEventTriggers(
  */
 export async function backfillMissingNextRunAt(db: HyperIdleDb): Promise<number> {
 	const now = new Date();
-	const candidates = await db
-		.select()
-		.from(routines)
-		.where(
-			and(
-				eq(routines.active, true),
-				inArray(routines.triggerType, ["calendar", "heartbeat", "continuous"]),
-				isNull(routines.nextRunAt),
-			),
-		);
+	const candidates = await routineService.listScheduledRoutinesMissingNextRunAt(db);
 
 	let count = 0;
 	for (const routine of candidates) {
@@ -577,7 +547,7 @@ export async function startRoutineScheduler(
 				});
 			}
 
-			const allRoutines = await db.select().from(routines).where(eq(routines.active, true));
+			const allRoutines = await routineService.listActiveRoutines(db);
 			const dueRoutines = allRoutines.filter((r) => {
 				if (r.triggerType === "event") return false;
 				if (!r.nextRunAt) return false;

@@ -1,11 +1,4 @@
-import {
-	type HyperIdleDb,
-	sessions,
-	taskPlanningSignals,
-	tasks,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, sessions, taskPlanningSignals, threads, users } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import * as work from "../work-service.js";
@@ -29,7 +22,7 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 			if (!session?.taskId) return;
 
 			// Look up task
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, session.taskId)).limit(1);
+			const task = await work.getTaskById(db, session.taskId);
 			if (!task) return;
 
 			// @lore O2: riskTier moved from tasks to taskPlanningSignals extension table.

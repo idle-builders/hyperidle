@@ -22,11 +22,9 @@
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 import {
-	bets,
 	filesystems,
 	type HyperIdleDb,
 	knowledgeAccessLog,
-	tasks,
 	// @lore U1: `teamMembers` is the agent membership group (formerly `teams`).
 	teamMembers,
 	teams,
@@ -71,6 +69,7 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
+import * as work from "../work-service.js";
 
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation
@@ -161,11 +160,7 @@ export async function resolveScopeName(
 	}
 
 	if (scopeKind === "bet") {
-		const [row] = await db
-			.select({ description: bets.description })
-			.from(bets)
-			.where(eq(bets.id, scopeId))
-			.limit(1);
+		const row = await work.getBetById(db, scopeId);
 		if (!row) return scopeKindToLabel("bet");
 		const desc = row.description?.trim() ?? "";
 		if (!desc) return scopeKindToLabel("bet");
@@ -174,11 +169,7 @@ export async function resolveScopeName(
 	}
 
 	if (scopeKind === "task") {
-		const [row] = await db
-			.select({ title: tasks.title })
-			.from(tasks)
-			.where(eq(tasks.id, scopeId))
-			.limit(1);
+		const row = await work.getTaskById(db, scopeId);
 		return row?.title ?? scopeKindToLabel("task");
 	}
 

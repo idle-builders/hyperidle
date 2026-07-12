@@ -1,7 +1,8 @@
-import { items, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
+import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { buildAttentionService } from "../knowledge/attention-service.js";
+import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -134,7 +135,7 @@ async function handler(
 	// @lore O2: items.attentionScore stripped from the kernel items table.
 	// The items table no longer tracks attention scores. Score writes are now
 	// best-effort: return ok but skip the DB write.
-	const [row] = await ctx.db.select().from(items).where(eq(items.id, id)).limit(1);
+	const row = await work.getItemById(ctx.db, id);
 	if (!row) {
 		return err("NOT_FOUND", `Item not found: ${id}`);
 	}

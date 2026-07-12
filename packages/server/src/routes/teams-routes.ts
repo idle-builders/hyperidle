@@ -19,14 +19,10 @@
  */
 
 import {
-	bets,
 	type HyperIdleDb,
 	messages,
 	notificationQueue,
-	routineRuns,
-	routines,
 	sessions,
-	tasks,
 	teamMembers,
 	teams,
 	threads,
@@ -52,11 +48,12 @@ import {
 	deriveTitle,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
-import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { enqueueNotification } from "../notifications/dispatcher.js";
+import * as routineService from "../routine-service.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
@@ -66,6 +63,7 @@ import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import { resolveTeamAgentHarness } from "../services/team-default-harness.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
+import * as work from "../work-service.js";
 import {
 	computeHealthSignals,
 	deriveHealthDetail,
@@ -210,35 +208,20 @@ export function createTeamRoutes(
 					.limit(1);
 
 				// Count active and completed bets
-				const [activeBetCountRow] = await db
-					.select({ count: count() })
-					.from(bets)
-					.where(and(eq(bets.teamId, team.id), eq(bets.status, "active")));
-				const activeBetCount = activeBetCountRow?.count ?? 0;
-
-				const [completedCountRow] = await db
-					.select({ count: count() })
-					.from(bets)
-					.where(and(eq(bets.teamId, team.id), eq(bets.status, "completed")));
-				const completedCount = completedCountRow?.count ?? 0;
+				const activeBetCount = await work.countBetsByTeamAndStatus(db, team.id, "active");
+				const completedCount = await work.countBetsByTeamAndStatus(db, team.id, "completed");
 
 				// Ship rate = completed / (completed + active), expressed as percentage
 				const total = completedCount + activeBetCount;
 				const shipRate = total === 0 ? "—" : `${Math.round((completedCount / total) * 100)}%`;
 
 				// Progress: sum done/total tasks across active bets
-				const activeBetRows = await db
-					.select({ id: bets.id })
-					.from(bets)
-					.where(and(eq(bets.teamId, team.id), eq(bets.status, "active")));
+				const activeBetRows = await work.listBetsByTeamAndStatus(db, team.id, "active");
 
 				let progressDone = 0;
 				let progressTotal = 0;
 				for (const bet of activeBetRows) {
-					const taskRows = await db
-						.select({ state: tasks.state })
-						.from(tasks)
-						.where(eq(tasks.betId, bet.id));
+					const taskRows = await work.listTasks(db, { betId: bet.id });
 					progressTotal += taskRows.length;
 					progressDone += taskRows.filter((t) => t.state === "done").length;
 				}
@@ -258,11 +241,7 @@ export function createTeamRoutes(
 					: ("healthy" as const);
 
 				// AA1: routine count for this team (AA2: exclude soft-deleted)
-				const [routineCountRow] = await db
-					.select({ count: count() })
-					.from(routines)
-					.where(and(eq(routines.teamId, team.id), isNull(routines.deletedAt)));
-				const routineCount = routineCountRow?.count ?? 0;
+				const routineCount = await routineService.countRoutinesByTeam(db, team.id);
 
 				// AB2: agent summary — count AI agents and compute health warning.
 				// Re-use computeHealthSignals for accurate health checks (reviewer S4).
@@ -833,11 +812,7 @@ export function createTeamRoutes(
 					let activeTaskId: string | null = null;
 					let activeBetId: string | null = null;
 					if (activeSession?.taskId) {
-						const [taskRow] = await db
-							.select({ title: tasks.title, betId: tasks.betId })
-							.from(tasks)
-							.where(eq(tasks.id, activeSession.taskId))
-							.limit(1);
+						const taskRow = await work.getTaskById(db, activeSession.taskId);
 						activeTaskTitle = taskRow?.title ?? null;
 						activeTaskId = activeSession.taskId;
 						activeBetId = taskRow?.betId ?? null;
@@ -880,19 +855,13 @@ export function createTeamRoutes(
 			}
 
 			// 4. Load active bets
-			const activeBetRows = await db
-				.select()
-				.from(bets)
-				.where(and(eq(bets.teamId, teamId), eq(bets.status, "active")));
+			const activeBetRows = await work.listBetsByTeamAndStatus(db, teamId, "active");
 
 			// 5. Per active bet, count tasks done/total
 			let hasBlockedTask = false;
 			const activeBets: BetCardSummary[] = await Promise.all(
 				activeBetRows.map(async (bet) => {
-					const taskRows = await db
-						.select({ state: tasks.state })
-						.from(tasks)
-						.where(eq(tasks.betId, bet.id));
+					const taskRows = await work.listTasks(db, { betId: bet.id });
 
 					const progressTotal = taskRows.length;
 					const progressDone = taskRows.filter((t) => t.state === "done").length;
@@ -926,11 +895,7 @@ export function createTeamRoutes(
 			);
 
 			// AA1: Load routines for this team (AA2: exclude soft-deleted)
-			const routineRows = await db
-				.select()
-				.from(routines)
-				.where(and(eq(routines.teamId, teamId), isNull(routines.deletedAt)))
-				.orderBy(routines.id);
+			const routineRows = await routineService.listRoutinesByTeam(db, teamId);
 
 			// AA3: Sum of routine runs this calendar month for routine cost breakdown
 			// Guard: skip the query when there are no routines (empty IN clause is a SQL error in some dialects)
@@ -940,20 +905,11 @@ export function createTeamRoutes(
 				const firstOfMonth3 = new Date(
 					Date.UTC(now3.getUTCFullYear(), now3.getUTCMonth(), 1),
 				).toISOString();
-				const [routineCostRow] = await db
-					.select({ total: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
-					.from(routineRuns)
-					.where(
-						and(
-							inArray(
-								routineRuns.routineId,
-								routineRows.map((r) => r.id),
-							),
-							gte(routineRuns.startedAt, firstOfMonth3),
-						),
-					)
-					.limit(1);
-				routineCostThisMonthMinor = routineCostRow?.total ?? 0;
+				routineCostThisMonthMinor = await routineService.sumRoutineRunCostForRoutinesSince(
+					db,
+					routineRows.map((r) => r.id),
+					firstOfMonth3,
+				);
 			}
 
 			// Build agent name map for routine owners
@@ -977,12 +933,10 @@ export function createTeamRoutes(
 			// Fetch latest routine_run for each routine to get lastRunOutcome
 			const teamRoutines: RoutineCardSummary[] = await Promise.all(
 				routineRows.map(async (r) => {
-					const [latestRun] = await db
-						.select()
-						.from(routineRuns)
-						.where(eq(routineRuns.routineId, r.id))
-						.orderBy(desc(routineRuns.startedAt))
-						.limit(1);
+					const [latestRun] = await routineService.listRoutineRunsByRoutine(db, r.id, {
+						limit: 1,
+						order: "desc",
+					});
 
 					const owner = ownerMap.get(r.ownerAgentId);
 					const agentName = owner?.name ?? r.ownerAgentId;

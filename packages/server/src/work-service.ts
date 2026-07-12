@@ -1,8 +1,10 @@
 /**
- * AU13: Work service — the only module permitted to write `bets`, `tasks`,
- * `items`. Every call site enumerated in `.pipeline/plans/AU13.md` §4a-§4c
- * routes through one of these functions instead of a direct
- * `insert`/`update`/`delete` against the table objects.
+ * AU13: Work service — the only module permitted to read or write `bets`,
+ * `tasks`, `items`. Every write call site enumerated in
+ * `.pipeline/plans/AU13.md` §4a-§4c, and every read call site enumerated in
+ * the read-ownership addendum §A3, routes through one of these functions
+ * instead of a direct `insert`/`update`/`delete`/`select` against the table
+ * objects.
  *
  * Mirrors `knowledge/knowledge-repository.ts`'s style (`create`/`update`
  * functions, executor-first param), widened to accept `WriteExecutor` so
@@ -10,7 +12,9 @@
  * `db.transaction(async (tx) => …)` (handoff-protocol, bet-state-machine,
  * task-state-machine, lifecycle-propagation, bet-decomposition,
  * builtin-routine-handlers) can join this service's write into their
- * existing transaction unchanged.
+ * existing transaction unchanged. Reads reuse the same `WriteExecutor` type
+ * (addendum §A3) so tx-scoped reads keep seeing uncommitted in-transaction
+ * state.
  *
  * @lore AU13 §5.3 (design-it-twice synthesis): a single generic
  * `update*ById(exec, id, patch)` cannot express the guarded-transition /
@@ -18,14 +22,40 @@
  * `args` (Shape B, rejected). Each genuinely different mechanic — plain
  * by-id set, guarded CAS transition with `.returning()`, in-update silent
  * guard, bulk sweep — gets its own named function whose predicate +
- * returning-shape is fixed and internal.
+ * returning-shape is fixed and internal. The same discipline applies to
+ * reads: distinct predicates get distinct named functions; get-by-id
+ * collapses uniformly since every caller wants the same full row.
+ *
+ * @lore AU13 addendum §A2/A9 FOREIGN-IMPORT CEILING: exactly two read
+ * functions in this file may import a foreign (non-owned) table —
+ * `listBetTasksWithLatestSessionOutcome` (imports `sessions`) and
+ * `findPostBetRetroItem` (imports `threads`). A third foreign-table read
+ * function is out of bounds without re-opening the ceiling decision
+ * (reviewer sign-off) — see `searchBetsByText` below for how a
+ * bets-primary + teams-join site was resolved WITHOUT a third import
+ * (split into an owned-primary query + a caller-side teams lookup, since
+ * `teams` is not one of the five owned tables and is legal to query
+ * directly from any file).
  *
  * Event emission stays at call sites (out of scope — see plan §3).
  */
-import { bets, items, type NewBet, type NewItem, type NewTask, tasks } from "@hyperidle/db";
+import {
+	bets,
+	items,
+	type NewBet,
+	type NewItem,
+	type NewTask,
+	sessions,
+	tasks,
+	threads,
+} from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import type { WriteExecutor } from "./write-executor.js";
+
+export type Bet = typeof bets.$inferSelect;
+export type Task = typeof tasks.$inferSelect;
+export type Item = typeof items.$inferSelect;
 
 /** `NewBet` widened so a patch field may carry a raw `SQL` fragment (cost-cap.ts's atomic `coalesce(...)` accumulation). */
 export type BetPatch = { [K in keyof NewBet]?: NewBet[K] | SQL };
@@ -196,4 +226,321 @@ export async function updateItemById(
 	patch: ItemPatch,
 ): Promise<void> {
 	await exec.update(items).set(patch).where(eq(items.id, id));
+}
+
+// ---------------------------------------------------------------------------
+// reads — bets
+// ---------------------------------------------------------------------------
+
+/** Full-row get-by-id. Collapses ~31 sites (plan addendum §A3). */
+export async function getBetById(exec: WriteExecutor, id: string): Promise<Bet | undefined> {
+	const [row] = await exec.select().from(bets).where(eq(bets.id, id)).limit(1);
+	return row;
+}
+
+/**
+ * `routes/bets.ts:370,396` — unfiltered list; optional limit/offset for the
+ * paginated `GET /bets` route (`bets.ts:396`'s canvas route passes no opts —
+ * every row). Both `limit` and `offset` are always supplied together at the
+ * one call site that uses them, so a paired branch (rather than a fully
+ * dynamic builder) mirrors the real shapes exactly.
+ */
+export async function listBets(
+	exec: WriteExecutor,
+	opts?: { limit?: number; offset?: number },
+): Promise<Bet[]> {
+	if (opts?.limit !== undefined && opts?.offset !== undefined) {
+		return exec.select().from(bets).limit(opts.limit).offset(opts.offset);
+	}
+	return exec.select().from(bets);
+}
+
+/**
+ * `teams-routes.ts:230-233,885` — bets scoped to a team + status, exact
+ * predicate `and(eq(bets.teamId, teamId), eq(bets.status, status))`.
+ */
+export async function listBetsByTeamAndStatus(
+	exec: WriteExecutor,
+	teamId: string,
+	status: string,
+): Promise<Bet[]> {
+	return exec
+		.select()
+		.from(bets)
+		.where(and(eq(bets.teamId, teamId), eq(bets.status, status)));
+}
+
+/**
+ * `teams-routes.ts:215,221` — exact predicate
+ * `and(eq(bets.teamId, teamId), eq(bets.status, status))`, count only.
+ */
+export async function countBetsByTeamAndStatus(
+	exec: WriteExecutor,
+	teamId: string,
+	status: string,
+): Promise<number> {
+	const [row] = await exec
+		.select({ count: sql<number>`count(*)` })
+		.from(bets)
+		.where(and(eq(bets.teamId, teamId), eq(bets.status, status)));
+	return Number(row?.count ?? 0);
+}
+
+/**
+ * `routes/threads.ts:428` (`resolveThreadTitles` batched title resolver) —
+ * `where(inArray(bets.id, ids))`. Mirrors `listTasksByIds`'s empty-ids
+ * short-circuit (an empty `inArray` errors in some dialects).
+ */
+export async function listBetsByIds(exec: WriteExecutor, ids: readonly string[]): Promise<Bet[]> {
+	if (ids.length === 0) return [];
+	return exec
+		.select()
+		.from(bets)
+		.where(inArray(bets.id, Array.from(ids)));
+}
+
+/**
+ * `routes/search.ts` global search — bets-primary text search across
+ * description/hypothesis/doneCondition, ranked by prefix/substring match on
+ * `description`, ordered `matchRank ASC, createdAt DESC, id ASC`.
+ *
+ * @lore AU13 CONFUSION: the real site also `.innerJoin(teams, …)` for the
+ * team name. Routing the join in would require a THIRD foreign-table import
+ * (past the two-function ceiling — addendum §A2/§A9). Resolved instead by
+ * keeping this function bets-only (no foreign import) and having the caller
+ * (`routes/search.ts`) do a SEPARATE direct `teams` lookup for the returned
+ * bet ids — `teams` is not one of the five owned tables, so any file may
+ * query it directly without going through a service. Same result set, same
+ * order, same values — only the SQL mechanics (JOIN vs. app-level map)
+ * differ, which is unobservable to the caller.
+ */
+export async function searchBetsByText(
+	exec: WriteExecutor,
+	opts: { readonly pattern: string; readonly query: string; readonly limit: number },
+): Promise<Bet[]> {
+	const matchRankExpr = sql<number>`CASE
+		WHEN ${bets.description} ILIKE ${`${opts.query}%`} ESCAPE '\\' THEN 0
+		WHEN ${bets.description} ILIKE ${`% ${opts.query}%`} ESCAPE '\\' THEN 1
+		ELSE 2
+	END`;
+	return exec
+		.select()
+		.from(bets)
+		.where(
+			or(
+				sql`${bets.description} ILIKE ${opts.pattern} ESCAPE '\\'`,
+				sql`${bets.hypothesis} ILIKE ${opts.pattern} ESCAPE '\\'`,
+				sql`${bets.doneCondition} ILIKE ${opts.pattern} ESCAPE '\\'`,
+			),
+		)
+		.orderBy(matchRankExpr, desc(bets.createdAt), bets.id)
+		.limit(opts.limit);
+}
+
+// ---------------------------------------------------------------------------
+// reads — tasks
+// ---------------------------------------------------------------------------
+
+/** Full-row get-by-id. Collapses ~22 sites (plan addendum §A3). */
+export async function getTaskById(exec: WriteExecutor, id: string): Promise<Task | undefined> {
+	const [row] = await exec.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+	return row;
+}
+
+export interface ListTasksOpts {
+	readonly betId?: string;
+	readonly state?: string;
+	readonly ownerAgentId?: string;
+	/** `routes/artifacts.ts` axis="product" — teamId filter, AND-composed like the others. */
+	readonly teamId?: string;
+	/**
+	 * `routes/artifacts.ts` axis="bet"/"product" — Sec-MED-4 fan-out cap
+	 * (`MAX_TASK_ID_FANOUT + 1`). Optional, SQL-level `.limit()` — omitted for
+	 * every other call site (unbounded, matching current behavior).
+	 */
+	readonly limit?: number;
+}
+
+/**
+ * `routes/tasks.ts:96-112` (+ every `.from(tasks).where(eq(betId,…))` loop
+ * site) — AND-composed over only the provided keys, exactly reproducing
+ * `routes/tasks.ts`'s `conditions.push(...)` then `and(...conditions)`.
+ * Omitted keys add no predicate; `opts` undefined/`{}` → unfiltered
+ * `.from(tasks)`. No OR path exists today — do not add one.
+ */
+export async function listTasks(exec: WriteExecutor, opts?: ListTasksOpts): Promise<Task[]> {
+	const conditions = [];
+	if (opts?.betId !== undefined) conditions.push(eq(tasks.betId, opts.betId));
+	if (opts?.state !== undefined) conditions.push(eq(tasks.state, opts.state));
+	if (opts?.ownerAgentId !== undefined) conditions.push(eq(tasks.ownerAgentId, opts.ownerAgentId));
+	if (opts?.teamId !== undefined) conditions.push(eq(tasks.teamId, opts.teamId));
+	const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+	const query =
+		whereClause === undefined
+			? exec.select().from(tasks)
+			: exec.select().from(tasks).where(whereClause);
+	return opts?.limit !== undefined ? query.limit(opts.limit) : query;
+}
+
+/**
+ * `dependency-watcher.ts:36-39` — hold-state tasks whose `dependencies` JSON
+ * text column contains the caller-escaped, JSON-quoted dependency id.
+ * Distinct mechanic (LIKE pre-filter, not an `eq` predicate) — doesn't fit
+ * `listTasks`'s AND-composed opts, so it gets its own named function per
+ * plan §5.3's synthesis rule. `likePattern` is pre-escaped by the caller
+ * (`escapeLikePattern`) — this function does not escape it again.
+ */
+export async function listHoldTasksWithDependencyPattern(
+	exec: WriteExecutor,
+	likePattern: string,
+): Promise<Task[]> {
+	return exec
+		.select()
+		.from(tasks)
+		.where(
+			and(eq(tasks.state, "hold"), sql`${tasks.dependencies} LIKE ${likePattern} ESCAPE '\\'`),
+		);
+}
+
+/**
+ * `agent-profile.ts:280` / `threads.ts:434` — `where(inArray(tasks.id, ids))`.
+ * Empty `ids` → return `[]` WITHOUT querying (matches the callers'
+ * length-guard; an empty `inArray` errors in some dialects — same guard as
+ * `listBetsByIds`).
+ */
+export async function listTasksByIds(exec: WriteExecutor, ids: readonly string[]): Promise<Task[]> {
+	if (ids.length === 0) return [];
+	return exec
+		.select()
+		.from(tasks)
+		.where(inArray(tasks.id, Array.from(ids)));
+}
+
+/**
+ * `routes/bets.ts:461-496` — the bet-detail route's per-task correlated
+ * `sessions` subquery for `latestSessionOutcome`. Owned-primary (`.from(tasks)`)
+ * with a foreign subquery — one of the two sanctioned foreign imports
+ * (addendum §A2 FOREIGN-IMPORT CEILING).
+ */
+export interface BetTaskWithLatestSessionOutcome {
+	readonly id: string;
+	readonly betId: string;
+	readonly teamId: string;
+	readonly ownerAgentId: string | null;
+	readonly title: string;
+	readonly description: string | null;
+	readonly doneCondition: string | null;
+	readonly state: string;
+	readonly dependencies: string | null;
+	readonly artifacts: string | null;
+	readonly costCap: number | null;
+	readonly costActual: number | null;
+	readonly threadId: string | null;
+	readonly notes: string | null;
+	readonly auditTrail: string | null;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+	readonly latestSessionOutcome: string | null;
+	readonly outcomeVerdict: string | null;
+	readonly outcomeRecordedAt: string | null;
+}
+
+export async function listBetTasksWithLatestSessionOutcome(
+	exec: WriteExecutor,
+	betId: string,
+): Promise<BetTaskWithLatestSessionOutcome[]> {
+	const outerTaskId = sql`${sql.identifier("tasks")}.${sql.identifier("id")}`;
+	return exec
+		.select({
+			id: tasks.id,
+			betId: tasks.betId,
+			teamId: tasks.teamId,
+			ownerAgentId: tasks.ownerAgentId,
+			title: tasks.title,
+			description: tasks.description,
+			doneCondition: tasks.doneCondition,
+			state: tasks.state,
+			dependencies: tasks.dependencies,
+			artifacts: tasks.artifacts,
+			costCap: tasks.costCap,
+			costActual: tasks.costActual,
+			threadId: tasks.threadId,
+			notes: tasks.notes,
+			auditTrail: tasks.auditTrail,
+			createdAt: tasks.createdAt,
+			updatedAt: tasks.updatedAt,
+			latestSessionOutcome: sql<
+				string | null
+			>`(SELECT ${sessions.outcome} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+				"latest_session_outcome",
+			),
+			outcomeVerdict: tasks.outcomeVerdict,
+			outcomeRecordedAt: tasks.outcomeRecordedAt,
+		})
+		.from(tasks)
+		.where(eq(tasks.betId, betId));
+}
+
+// ---------------------------------------------------------------------------
+// reads — items
+// ---------------------------------------------------------------------------
+
+/** Full-row get-by-id. `policy-engine.ts:57,154,197`; `conversations.ts:191`; `route-item.ts:37`; `score-attention.ts:137`. */
+export async function getItemById(exec: WriteExecutor, id: string): Promise<Item | undefined> {
+	const [row] = await exec.select().from(items).where(eq(items.id, id)).limit(1);
+	return row;
+}
+
+/** `conversations.ts:127-131` — items for a thread, ordered `createdAt` ascending. */
+export async function listItemsByThread(exec: WriteExecutor, threadId: string): Promise<Item[]> {
+	return exec.select().from(items).where(eq(items.threadId, threadId)).orderBy(items.createdAt);
+}
+
+/**
+ * `daily-digest.ts:32-35` — items whose `auditTrail` mentions
+ * `policy_queued` and were created on/after `cutoff`.
+ */
+export async function listQueuedItemsSince(exec: WriteExecutor, cutoff: string): Promise<Item[]> {
+	return exec
+		.select()
+		.from(items)
+		.where(and(like(items.auditTrail, "%policy_queued%"), sql`${items.createdAt} >= ${cutoff}`));
+}
+
+/**
+ * `attention-service.ts:230-234` (tx-scoped) — existence probe for the
+ * idempotency marker embedded in `items.reasoning`.
+ */
+export async function findItemByReasoningMarker(
+	exec: WriteExecutor,
+	marker: string,
+): Promise<{ id: string } | undefined> {
+	const [row] = await exec
+		.select({ id: items.id })
+		.from(items)
+		.where(like(items.reasoning, `%${marker}%`))
+		.limit(1);
+	return row;
+}
+
+/**
+ * `builtin-routine-handlers.ts:340-352` (`runPostBetRetro` dedupe probe) —
+ * `items ⋈ threads` on `hostKind='bet' AND hostId=betId AND body LIKE marker`.
+ * Owned-primary (`.from(items)`) with a foreign join — the second of the two
+ * sanctioned foreign imports (addendum §A2 FOREIGN-IMPORT CEILING).
+ */
+export async function findPostBetRetroItem(
+	exec: WriteExecutor,
+	betId: string,
+	marker: string,
+): Promise<{ id: string } | undefined> {
+	const [row] = await exec
+		.select({ id: items.id })
+		.from(items)
+		.innerJoin(threads, eq(items.threadId, threads.id))
+		.where(
+			and(eq(threads.hostKind, "bet"), eq(threads.hostId, betId), like(items.body, `%${marker}%`)),
+		)
+		.limit(1);
+	return row;
 }

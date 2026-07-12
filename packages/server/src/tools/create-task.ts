@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { bets, tasks } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import z from "zod";
 import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
@@ -37,7 +35,7 @@ async function handler(args: CreateTaskInput, ctx: ToolContext): Promise<ToolRes
 
 	let parent: { betId: string; teamId: string };
 	if (ctx.taskId) {
-		const [parentTask] = await ctx.db.select().from(tasks).where(eq(tasks.id, ctx.taskId)).limit(1);
+		const parentTask = await work.getTaskById(ctx.db, ctx.taskId);
 		if (!parentTask) {
 			return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 		}
@@ -47,11 +45,7 @@ async function handler(args: CreateTaskInput, ctx: ToolContext): Promise<ToolRes
 			readonly betId: string;
 			readonly teamId: string;
 		};
-		const [bet] = await ctx.db
-			.select({ id: bets.id })
-			.from(bets)
-			.where(eq(bets.id, betId))
-			.limit(1);
+		const bet = await work.getBetById(ctx.db, betId);
 		if (!bet) {
 			return err("NOT_FOUND", `Bet not found: ${betId}`);
 		}
