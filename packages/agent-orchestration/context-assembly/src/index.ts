@@ -5,7 +5,7 @@
  * Service (Mechanism C): domain reads arrive as injected ports wired by the
  * agent-orchestration Layer.
  */
-export { assemble } from "./assemble.js";
+
 export type {
 	AssembledContext,
 	AssemblyScope,
@@ -16,3 +16,4 @@ export type {
 	UsersReader,
 	WorkReader,
 } from "./assemble.js";
+export { assemble } from "./assemble.js";

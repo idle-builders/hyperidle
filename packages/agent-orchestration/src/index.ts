@@ -17,8 +17,8 @@
 import {
 	type AssembledContext,
 	type AssemblyScope,
-	type ContextAssemblyPorts,
 	assemble,
+	type ContextAssemblyPorts,
 } from "@hyperidle/context-assembly";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { list as knowledgeList } from "@hyperidle/knowledge";

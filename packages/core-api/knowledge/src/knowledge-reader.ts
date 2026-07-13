@@ -9,11 +9,7 @@
  * function owns the table so that dependency stays a downward DI port, not a
  * Service-to-Service import.
  */
-import {
-	type HyperIdleDb,
-	type KnowledgeItem,
-	knowledgeItems,
-} from "@hyperidle/db";
+import { type HyperIdleDb, type KnowledgeItem, knowledgeItems } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 
 /** Structural scope selector — kept structural so the consuming port need not
@@ -24,10 +20,7 @@ export interface KnowledgeScope {
 }
 
 /** List canonical knowledge items in a scope, newest first. */
-export async function list(
-	db: HyperIdleDb,
-	scope: KnowledgeScope,
-): Promise<KnowledgeItem[]> {
+export async function list(db: HyperIdleDb, scope: KnowledgeScope): Promise<KnowledgeItem[]> {
 	const conditions = [eq(knowledgeItems.scopeKind, scope.scopeKind)];
 	if (scope.scopeId != null) {
 		conditions.push(eq(knowledgeItems.scopeId, scope.scopeId));

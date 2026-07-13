@@ -61,13 +61,12 @@ export async function assemble(
 	scope: AssemblyScope,
 	authorId: string,
 ): Promise<AssembledContext> {
-	const [knowledge, openBets, authorDisplayName, activeRoutines, mountedPaths] =
-		await Promise.all([
-			ports.knowledge.list(scope),
-			ports.work.openBets(scope),
-			ports.users.displayName(authorId),
-			ports.routine.activeRoutines(scope),
-			ports.filesystems.mountedPaths(scope),
-		]);
+	const [knowledge, openBets, authorDisplayName, activeRoutines, mountedPaths] = await Promise.all([
+		ports.knowledge.list(scope),
+		ports.work.openBets(scope),
+		ports.users.displayName(authorId),
+		ports.routine.activeRoutines(scope),
+		ports.filesystems.mountedPaths(scope),
+	]);
 	return { knowledge, openBets, authorDisplayName, activeRoutines, mountedPaths };
 }

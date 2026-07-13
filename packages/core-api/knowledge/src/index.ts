@@ -6,5 +6,6 @@
  * defeat Table ACL (Mechanism A). Consumers get typed functions; the table stays
  * private to this Service.
  */
-export { list } from "./knowledge-reader.js";
+
 export type { KnowledgeScope } from "./knowledge-reader.js";
+export { list } from "./knowledge-reader.js";

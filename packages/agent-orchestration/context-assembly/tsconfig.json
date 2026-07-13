@@ -2,8 +2,5 @@
 	"extends": "../../../tsconfig.base.json",
 	"compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "src" },
 	"include": ["src"],
-	"references": [
-		{ "path": "../../db" },
-		{ "path": "../../shared" }
-	]
+	"references": [{ "path": "../../db" }, { "path": "../../shared" }]
 }

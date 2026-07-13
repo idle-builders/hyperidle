@@ -1,9 +1,6 @@
 import type { KnowledgeItem } from "@hyperidle/db";
 import { describe, expect, it } from "vitest";
-import {
-	type ContextAssemblyPorts,
-	assemble,
-} from "./assemble.js";
+import { assemble, type ContextAssemblyPorts } from "./assemble.js";
 
 function fakeItem(id: string, title: string): KnowledgeItem {
 	return {

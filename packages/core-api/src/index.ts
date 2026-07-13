@@ -10,5 +10,6 @@
  * and lower Layers reach core-api through one boundary, never by deep-importing
  * a Service's internals.
  */
-export { list as listKnowledge } from "@hyperidle/knowledge";
+
 export type { KnowledgeScope } from "@hyperidle/knowledge";
+export { list as listKnowledge } from "@hyperidle/knowledge";

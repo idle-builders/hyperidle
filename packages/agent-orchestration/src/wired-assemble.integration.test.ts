@@ -24,7 +24,8 @@ test("wiredAssemble reads knowledge through the real Layer-wired edge", async ({
 	const bundle = await wiredAssemble(db, { scopeKind: "team", scopeId: "t9" }, "u1");
 
 	// Real knowledge edge populated:
-	expect(bundle.knowledge.map((k) => k.id)).toEqual(["ki-wired-1"]);
+	expect(bundle.knowledge).toHaveLength(1);
+	expect(bundle.knowledge[0]?.id).toBe("ki-wired-1");
 	// Transitional-stub ports return empty (never on a production path in Inc 0):
 	expect(bundle.openBets).toEqual([]);
 	expect(bundle.authorDisplayName).toBeNull();

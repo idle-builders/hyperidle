@@ -6,6 +6,7 @@
  * verified db-free cross-boundary type home, §7.3), re-exported here so consumers
  * reference it without importing another Service.
  */
-export { harnessCapabilities } from "./harness-capabilities.js";
-export type { HarnessDescriptor } from "./harness-capabilities.js";
+
 export type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+export type { HarnessDescriptor } from "./harness-capabilities.js";
+export { harnessCapabilities } from "./harness-capabilities.js";
