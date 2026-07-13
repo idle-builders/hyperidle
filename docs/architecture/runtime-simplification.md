@@ -49,12 +49,41 @@ into four:
   nothing from `@hyperidle/db`. `agent-execution` receives an assembled context bundle and returns
   raw run output over the existing worker channel; it never queries a table itself.)
 
-**Services** — the only code permitted to read or write a given SQL table (or table family), one
-Service per table, ACL-enforced. The owning modules AU12–AU18 already built map directly onto this
-tier: `knowledge`, `work`, `routine`, `conversation`, `users`, `settings`, `notifications`. A Layer
-calls a Service through its exported interface; it never queries a table its Service doesn't own.
-Only `core-api` and `agent-orchestration` ever hold a Service reference — `core-ui` and
-`agent-execution` hold none.
+**Services (Domains)** — a bounded unit of functionality with a clear interface. **Every Layer
+decomposes into Services, not just `core-api`** (founder correction, 2026-07-13: the first draft of
+this frame limited "Service" to the seven SQL-table owners and implied it was a `core-api`-only
+concept — too narrow. The naming itself is open: "Service" and "Domain" are both live candidates;
+`/refine` should settle it). A Service that owns a SQL table is additionally ACL-enforced — the sole
+code path permitted to read or write that table — but owning a table is not what makes something a
+Service; having a clear interface is. This list is pulled from the as-should graph
+(`plans/strategy-kernel-plugin-split/as-should-dependency-graph.md`'s "As-Should Graph" +
+"Detailed Comparison" tables) and AU12–AU18's real owning modules — **treat it as a floor, not a
+ceiling**; `/architecture` will find more when it does the real file-by-file pass, the same way
+AU17's own audit found 7x more files than its spec estimated:
+
+- **`core-api` Services (SQL-owning, Table-ACL-enforced):** `work` (bets/tasks/items),
+  `conversation` (threads/messages), `knowledge` (knowledgeItems), `users`, `settings`
+  (server_config), `notifications` (notificationQueue), `routine` (routines/routine_runs).
+- **`agent-orchestration` Services (not SQL-owning — call into `core-api`'s Services, e.g.
+  `knowledge`, when they need one):** `trigger-resolution`, `session-requests` (the request queue),
+  `run-orchestration` (admission/custody — `agent-run-boundary.ts`/`agent-session-runtime.ts`),
+  `lifecycle-projection`, `agent-selection`/roster, `context-assembly`, `capture-writeback`, `cost`
+  (cost-cap/cost-sentinel), `dispatch` (task/assistant dispatchers, routine-scheduler,
+  builtin-routine-handlers), `session-lifecycle`/provisioning.
+- **`agent-execution` Services (not SQL-owning, zero DB access):** `harness-registry`,
+  `tool-provider`, `mcp-provider`.
+- **`core-ui` Services — open question, not yet decided.** Whether `packages/web` should be
+  organized into the same Service/Domain names (a `work/` UI folder alongside the `work` Service, a
+  `knowledge/` UI folder alongside `knowledge`, etc.) instead of its current
+  page/component-type structure is a real idea raised in review, but it's a bigger, separate
+  question — `packages/web` is large and was never in AU17's scope at all. `/refine` must decide
+  whether this WP takes a position on `core-ui`'s internal structure or explicitly defers it.
+
+A Layer calls a Service through its exported interface; it never queries a table a Service doesn't
+own. Only Services that own a table hold a Service reference to it — `agent-orchestration`'s own
+Services call `core-api`'s `knowledge` Service when they need it (e.g. `context-assembly` reading
+Knowledge to build a run's context bundle) rather than touching the table themselves.
+`agent-execution`'s Services hold no Service reference of any kind, consistent with zero DB access.
 
 **Enforcement mechanism (AU19's job, not yet built):**
 
