@@ -6,24 +6,8 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./server-factory": "./src/server-factory.ts",
-		"./routines": "./src/routines.ts",
-		"./test-utils": "./src/test-utils.ts",
-		"./tools": "./src/tools/index.ts",
 		"./schemas": "./src/schemas/index.ts",
-		"./harness": "./src/harness/cli-harness-adapter.ts",
-		"./session": "./src/session.ts",
-		"./services/session-provisioning": "./src/services/session-provisioning.ts",
-		"./services/model-gateway": "./src/services/model-gateway.ts",
-		"./services/credential-resolver": "./src/services/credential-resolver.ts",
-		"./harness/adapter-pool": "./src/harness/adapter-pool.ts",
-		"./harness/builtin-harness-adapter": "./src/harness/builtin-harness-adapter.ts",
-		"./harness/local-sandbox-adapter": "./src/harness/local-sandbox-adapter.ts",
-		"./harness/sandbox-adapter": "./src/harness/sandbox-adapter.ts",
-		"./services/credential-encryption": "./src/services/credential-encryption.ts",
-		"./services/server-config": "./src/services/server-config.ts",
-		"./harness/llm-client": "./src/harness/llm-client.ts",
-		"./harness/cli-harness-adapter": "./src/harness/cli-harness-adapter.ts",
-		"./harness/llm-types": "./src/harness/llm-types.ts"
+		"./test-utils": "./src/test-utils.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
@@ -33,18 +17,18 @@
 	"dependencies": {
 		"@hono/node-server": "^2.0.6",
 		"@hono/zod-validator": "^0.8.0",
+		"@hyperidle/agent-layer": "*",
+		"@hyperidle/core-app": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/shared": "*",
 		"@modelcontextprotocol/sdk": "^1.29.0",
 		"drizzle-orm": "^0.45.2",
 		"hono": "^4.12.27",
-		"nodemailer": "^9.0.1",
 		"ws": "^8.20.0",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@electric-sql/pglite": "^0.5.1",
-		"@types/nodemailer": "^8.0.1",
 		"@types/smtp-server": "^3.5.13",
 		"@types/ws": "^8.18.1",
 		"smtp-server": "^3.19.1"

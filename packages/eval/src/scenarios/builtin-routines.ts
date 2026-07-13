@@ -17,7 +17,7 @@
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { items, knowledgeStrategyFabric } from "@hyperidle/db";
-import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/server/routines";
+import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/agent-layer/routines";
 
 // @lore AL6: clearBuiltinCostSentinelCache was removed from @hyperidle/server/app-runtime (AD8c).
 // The sentinel cache is now cleared internally; eval scenarios no longer need to call it.
@@ -26,7 +26,7 @@ function clearBuiltinCostSentinelCache(): void {
 	// intentional no-op: removed from fabric, sentinel cleared internally
 }
 
-import { updateServerConfig } from "@hyperidle/server/services/server-config";
+import { updateServerConfig } from "@hyperidle/core-app";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull, like } from "drizzle-orm";
 import { judgeReviewItemCreated, judgeRoutineFired, judgeStaleItemsMarked } from "../judges.js";

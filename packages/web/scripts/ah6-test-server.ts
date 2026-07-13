@@ -43,11 +43,8 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema, serverCredentials, teamMembers, teams, users } from "@hyperidle/db";
+import { encryptCredentialValue, getServerSecret } from "@hyperidle/core-app";
 import { createServer } from "@hyperidle/server/server-factory";
-import {
-	encryptCredentialValue,
-	getServerSecret,
-} from "@hyperidle/server/services/credential-encryption";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 

@@ -250,15 +250,18 @@ function buildLeafDeclarations(root: string): void {
   // callbacks, producing 5 spurious TS7006/TS18046 errors. Building design-system
   // declarations (which depend on shared) before the measurement loop fixes this.
   //
-  // @lore AU17: core-app added after db/shared, before agent-layer is measured —
-  // same failure mode. agent-layer consumes core-app's Drizzle-`$inferSelect`-typed
-  // return values (User[], Message[], Routine[], ...) through the curated barrel
-  // (packages/core-app/src/index.ts); without a pre-built core-app dist, tsc
-  // resolves those cross-package return types to `any` when elaborating
-  // core-app's source live, producing spurious TS7006 "implicitly any" errors on
-  // .map/.filter callbacks in agent-layer (agent-work-intent-worker.ts,
-  // routine-scheduler.ts, context-assembly.ts, etc.) — not a real type error.
-  for (const leaf of ["shared", "db", "design-system", "core-app"]) {
+  // @lore AU17: core-app (then agent-layer, which depends on it) added after
+  // db/shared, before server is measured — same failure mode one layer up.
+  // agent-layer consumes core-app's Drizzle-`$inferSelect`-typed return values
+  // (User[], Message[], Routine[], ...) through the curated barrel
+  // (packages/core-app/src/index.ts); server in turn consumes agent-layer's own
+  // barrel the same way. Without a pre-built dist for each, tsc resolves those
+  // cross-package return types to `any` when elaborating the dependency's source
+  // live, producing spurious TS7006 "implicitly any" errors on .map/.filter
+  // callbacks in the consumer (agent-work-intent-worker.ts, routine-scheduler.ts,
+  // context-assembly.ts in agent-layer; server-factory.ts, mcp-bridge.test.ts,
+  // routes/harnesses.ts in server) — not a real type error.
+  for (const leaf of ["shared", "db", "design-system", "core-app", "agent-layer"]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
     } catch {

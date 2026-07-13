@@ -12,8 +12,8 @@
 
 import { randomUUID } from "node:crypto";
 import { items, routines, sessions } from "@hyperidle/db";
-import { checkAndFireRoutine } from "@hyperidle/server/routines";
-import { updateServerConfig } from "@hyperidle/server/services/server-config";
+import { checkAndFireRoutine } from "@hyperidle/agent-layer/routines";
+import { updateServerConfig } from "@hyperidle/core-app";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { seedMinimalWorld, seedRoutine } from "../seeding.js";

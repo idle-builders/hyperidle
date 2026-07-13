@@ -29,7 +29,7 @@
 
 import { randomUUID } from "node:crypto";
 import { agentWorkIntents, routineRuns, routines } from "@hyperidle/db";
-import { checkAndFireRoutine } from "@hyperidle/server/routines";
+import { checkAndFireRoutine } from "@hyperidle/agent-layer/routines";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import {

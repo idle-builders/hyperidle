@@ -14,6 +14,7 @@
 		"test:e2e:ah6": "playwright test --config playwright.ah6.config.ts"
 	},
 	"dependencies": {
+		"@hyperidle/core-app": "*",
 		"@hyperidle/design-system": "*",
 		"@hyperidle/server": "*",
 		"@hyperidle/shared": "*",

@@ -6,6 +6,8 @@
 	},
 	"include": ["src"],
 	"references": [
+		{ "path": "../agent-layer" },
+		{ "path": "../core-app" },
 		{ "path": "../db" },
 		{ "path": "../server" },
 		{ "path": "../shared" }
