@@ -8,12 +8,18 @@
  * inside `services/notifications/`) because it is shared across both
  * consumers — nesting under one consumer's folder would make the other's
  * dependency direction look like a reach-across-subfolder.
+ *
+ * @lore AU18: re-backed onto `server_config.notifications.silence` (was
+ * `factorySettings.silence_*` KV keys). No production writer ever existed
+ * for this namespace — defaults (mode=false, empty list, no window)
+ * preserve today's always-unsilenced behavior exactly.
  */
 
 // @lore U1: `teams` is now the domain entity. `teamMembers` is the agent membership group.
 // `users.teamId` references `teamMembers.id`; silence keys use `teamMembers.teamId` (domains.id).
-import { factorySettings, type HyperIdleDb, teamMembers } from "@hyperidle/db";
+import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
+import { readServerConfig } from "../services/server-config.js";
 import { getUserById } from "../services/user-store.js";
 
 interface SilenceItem {
@@ -23,20 +29,19 @@ interface SilenceItem {
 /**
  * True when the item should be held in the silence queue rather than pushed.
  *
- * Inputs consulted (in priority order):
- *  1. `factory_settings.silence_mode` — factory-wide kill switch
- *  2. `factory_settings.silence_product_<productId>` — per-product silence
- *  3. `factory_settings.silence_window_start` + `silence_window_end` —
- *     UTC time window, supports overnight windows (e.g. 22:00 → 07:00)
+ * Inputs consulted (in priority order), all read from
+ * `server_config.notifications.silence`:
+ *  1. `mode` — factory-wide kill switch
+ *  2. `silencedTeamIds` — per-team silence
+ *  3. `windowStart` + `windowEnd` — UTC time window, supports overnight
+ *     windows (e.g. 22:00 → 07:00)
  */
 export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date): Promise<boolean> {
+	const { notifications } = await readServerConfig(db);
+	const { silence } = notifications;
+
 	// 1. Factory-wide silence
-	const [silenceMode] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "silence_mode"))
-		.limit(1);
-	if (silenceMode?.value === "true") return true;
+	if (silence.mode) return true;
 
 	// 2. Per-product (per-team) silence
 	// @lore U1: agent.teamId → teamMembers.id → teamMembers.teamId (= teams.id, domain entity).
@@ -48,31 +53,13 @@ export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date):
 				.from(teamMembers)
 				.where(eq(teamMembers.id, agent.teamId))
 				.limit(1);
-			if (memberGroup) {
-				const [productSilence] = await db
-					.select()
-					.from(factorySettings)
-					.where(eq(factorySettings.key, `silence_product_${memberGroup.teamId}`))
-					.limit(1);
-				if (productSilence?.value === "true") return true;
-			}
+			if (memberGroup && silence.silencedTeamIds.includes(memberGroup.teamId)) return true;
 		}
 	}
 
 	// 3. Silence window
-	const [windowStart] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "silence_window_start"))
-		.limit(1);
-	const [windowEnd] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "silence_window_end"))
-		.limit(1);
-
-	if (windowStart && windowEnd) {
-		if (isInSilenceWindow(windowStart.value, windowEnd.value, now)) return true;
+	if (silence.windowStart !== null && silence.windowEnd !== null) {
+		if (isInSilenceWindow(silence.windowStart, silence.windowEnd, now)) return true;
 	}
 
 	return false;
@@ -81,8 +68,8 @@ export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date):
 /**
  * AF8: FACTORY SILENCE only (no quiet-hours window check).
  *
- * Returns true when silence_mode=true OR per-product silence applies.
- * Does NOT check the silence_window_start/end.
+ * Returns true when silence mode=true OR per-product silence applies.
+ * Does NOT check the silence window.
  *
  * Used by the drain's cost-breach split: a hard cost_breach bypasses factory
  * silence but RESPECTS quiet hours (concept hard rule #8). Checking them
@@ -96,13 +83,11 @@ export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date):
  * isSilenced() is kept as the OR-of-both for the blocking-row path (back-compat).
  */
 export async function isFactorySilenced(db: HyperIdleDb, item: SilenceItem): Promise<boolean> {
+	const { notifications } = await readServerConfig(db);
+	const { silence } = notifications;
+
 	// 1. Factory-wide silence
-	const [silenceMode] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "silence_mode"))
-		.limit(1);
-	if (silenceMode?.value === "true") return true;
+	if (silence.mode) return true;
 
 	// 2. Per-product (per-team) silence
 	if (item.sourceAgentId) {
@@ -113,14 +98,7 @@ export async function isFactorySilenced(db: HyperIdleDb, item: SilenceItem): Pro
 				.from(teamMembers)
 				.where(eq(teamMembers.id, agent.teamId))
 				.limit(1);
-			if (memberGroup) {
-				const [productSilence] = await db
-					.select()
-					.from(factorySettings)
-					.where(eq(factorySettings.key, `silence_product_${memberGroup.teamId}`))
-					.limit(1);
-				if (productSilence?.value === "true") return true;
-			}
+			if (memberGroup && silence.silencedTeamIds.includes(memberGroup.teamId)) return true;
 		}
 	}
 
@@ -128,24 +106,16 @@ export async function isFactorySilenced(db: HyperIdleDb, item: SilenceItem): Pro
 }
 
 /**
- * AF8: Read the quiet-hours window endpoints from factory_settings.
+ * AF8: Read the quiet-hours window endpoints from `server_config`.
  * Returns null if not configured.
  */
 export async function readSilenceWindow(
 	db: HyperIdleDb,
 ): Promise<{ start: string; end: string } | null> {
-	const [windowStart] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "silence_window_start"))
-		.limit(1);
-	const [windowEnd] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "silence_window_end"))
-		.limit(1);
-	if (windowStart && windowEnd) {
-		return { start: windowStart.value, end: windowEnd.value };
+	const { notifications } = await readServerConfig(db);
+	const { windowStart, windowEnd } = notifications.silence;
+	if (windowStart !== null && windowEnd !== null) {
+		return { start: windowStart, end: windowEnd };
 	}
 	return null;
 }

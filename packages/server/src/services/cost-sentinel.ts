@@ -1,12 +1,12 @@
 import * as crypto from "node:crypto";
-import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { CostCapBreachedEvent, CostCapWarningEvent, EventBus } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { getFactoryCostActual } from "./cost-cap.js";
+import { readServerConfig, updateServerConfig } from "./server-config.js";
 
 /**
- * Cost sentinel level states. Stored in `factory_settings` under
- * `cost_sentinel_last_level` and checked on every tick to dedupe
- * warning/breach emissions.
+ * Cost sentinel level states. Persisted as `server_config.internal.costSentinelLastLevel`
+ * and checked on every tick to dedupe warning/breach emissions.
  *
  * @lore G4 cost sentinel level-based dedupe: we track the current cost
  * level as persistent state (ok | warning | breach) and only emit when
@@ -16,12 +16,18 @@ import { eq } from "drizzle-orm";
  * "we already warned about this spend". Level transitions map cleanly
  * to what operators care about: a single event per change of state. The
  * cache-clear helper remains in-memory only (clears the module-level
- * test sentinel flag); real state lives in `factory_settings`.
+ * test sentinel flag); real state lives in `server_config`.
  *
  * @lore AD8c: extracted from builtin-routines.ts. Cost sentinel is now
  * application code registered in bootstrapAppRuntime, not a routine row.
  * This prevents operators from disabling cost monitoring by flipping the
  * `active` flag on a routine row.
+ *
+ * @lore AU18: re-backed off `factorySettings` — sole reader/writer of both
+ * the cap (`server_config.cost.capMinor`, via `readServerConfig`) and the
+ * total (`getFactoryCostActual`, a live function call — never a table read).
+ * The dedup level itself moved to `server_config.internal.costSentinelLastLevel`,
+ * sole reader/writer here.
  */
 export type CostSentinelLevel = "ok" | "warning" | "breach";
 
@@ -31,8 +37,6 @@ export const COST_SENTINEL_INTERVAL_MS = 900_000; // 15 minutes
 // actual timing). setInterval requires milliseconds.
 
 export const COST_WARNING_RATIO = 0.8;
-
-const COST_SENTINEL_STATE_KEY = "cost_sentinel_last_level";
 
 /**
  * In-memory flag used by tests to force a reset of the persisted level
@@ -48,33 +52,12 @@ export function clearCostSentinelCache(): void {
 
 async function readStoredLevel(db: HyperIdleDb): Promise<CostSentinelLevel | null> {
 	if (testResetRequested) return null;
-	const [row] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, COST_SENTINEL_STATE_KEY))
-		.limit(1);
-	const value = row?.value;
-	if (value === "ok" || value === "warning" || value === "breach") return value;
-	return null;
+	const { internal } = await readServerConfig(db);
+	return internal.costSentinelLastLevel;
 }
 
 async function writeStoredLevel(db: HyperIdleDb, level: CostSentinelLevel): Promise<void> {
-	const isoNow = new Date().toISOString();
-	const [existing] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, COST_SENTINEL_STATE_KEY))
-		.limit(1);
-	if (existing) {
-		await db
-			.update(factorySettings)
-			.set({ value: level, updatedAt: isoNow })
-			.where(eq(factorySettings.key, COST_SENTINEL_STATE_KEY));
-	} else {
-		await db
-			.insert(factorySettings)
-			.values({ key: COST_SENTINEL_STATE_KEY, value: level, updatedAt: isoNow });
-	}
+	await updateServerConfig(db, { internal: { costSentinelLastLevel: level } });
 	// After any real write, the test-reset flag is consumed.
 	testResetRequested = false;
 }
@@ -86,33 +69,21 @@ function classifyLevel(ratio: number): CostSentinelLevel {
 }
 
 /**
- * Single tick of the cost sentinel check. Reads cap/actual from
- * `factory_settings`, classifies the spend ratio, and emits
- * `cost_cap_warning` or `cost_cap_breached` only on level transitions.
+ * Single tick of the cost sentinel check. Reads cap from
+ * `server_config.cost.capMinor` and the live total via `getFactoryCostActual`,
+ * classifies the spend ratio, and emits `cost_cap_warning` or
+ * `cost_cap_breached` only on level transitions.
  *
- * Returns `{ fired: true, emitted: [] }` when no cap is configured
- * (graceful no-op).
+ * Returns `{ fired: true, emitted: [] }` when the cap is non-positive
+ * (graceful no-op — defensive; the schema default is 20000, always positive).
  */
 export async function runCostSentinelCheck(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 ): Promise<{ fired: true; emitted: readonly string[] }> {
-	const [capRow] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "cost_cap"))
-		.limit(1);
-	const [actualRow] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "cost_actual"))
-		.limit(1);
-
-	if (!capRow) {
-		return { fired: true, emitted: [] };
-	}
-	const cap = Number.parseInt(capRow.value, 10);
-	const actual = Number.parseInt(actualRow?.value ?? "0", 10);
+	const { cost } = await readServerConfig(db);
+	const cap = cost.capMinor;
+	const actual = await getFactoryCostActual(db);
 	if (!Number.isFinite(cap) || cap <= 0) {
 		return { fired: true, emitted: [] };
 	}

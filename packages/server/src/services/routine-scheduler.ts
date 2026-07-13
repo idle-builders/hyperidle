@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import { factorySettings, type HyperIdleDb, type Routine, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, type Routine, sessions } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
@@ -7,6 +7,8 @@ import * as routineService from "../routine-service.js";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import { runBuiltinRoutine } from "./builtin-routine-handlers.js";
+import { getFactoryCostActual } from "./cost-cap.js";
+import { readServerConfig } from "./server-config.js";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 
 const schedulerLog = createLogger({ pkg: "server.routine-scheduler" });
@@ -197,22 +199,10 @@ export function nextCronMatch(cron: CronFields, from: Date): Date {
 // --- Cost cap check ---
 
 async function isFactoryCostCapReached(db: HyperIdleDb): Promise<boolean> {
-	const [capRow] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "cost_cap"))
-		.limit(1);
-	const [actualRow] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, "cost_actual"))
-		.limit(1);
-
-	if (!capRow) return false;
-
-	const cap = Number.parseInt(capRow.value, 10);
-	const actual = Number.parseInt(actualRow?.value ?? "0", 10);
-
+	const { cost } = await readServerConfig(db);
+	const cap = cost.capMinor;
+	if (!Number.isFinite(cap) || cap <= 0) return false;
+	const actual = await getFactoryCostActual(db);
 	return actual >= cap;
 }
 

@@ -1,5 +1,4 @@
-import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { RelevanceConfig } from "./relevance-engine.js";
 
 // Re-export so callers can import RelevanceConfig from scoring-config
@@ -35,38 +34,19 @@ export const CONTEXT_WINDOW_TOKENS = 200_000;
 export const KNOWLEDGE_ALLOCATION_RATIO = 0.2;
 export const DEFAULT_KNOWLEDGE_BUDGET = CONTEXT_WINDOW_TOKENS * KNOWLEDGE_ALLOCATION_RATIO; // 40_000
 
-const WEIGHT_KEYS: ReadonlyArray<keyof ScoringWeights> = [
-	"tagMatch",
-	"roleMatch",
-	"recency",
-	"confidence",
-	"layerProximity",
-	"attentionScore",
-];
-
-const SETTING_PREFIX = "scoring.weight.";
-
-/** Load scoring weights from factory_settings table, falling back to defaults. */
-export async function loadScoringWeights(db: HyperIdleDb): Promise<ScoringWeights> {
-	const weights: ScoringWeights = { ...DEFAULT_WEIGHTS };
-
-	for (const key of WEIGHT_KEYS) {
-		const settingKey = `${SETTING_PREFIX}${key}`;
-		const [row] = await db
-			.select()
-			.from(factorySettings)
-			.where(eq(factorySettings.key, settingKey))
-			.limit(1);
-
-		if (row) {
-			const parsed = Number.parseFloat(row.value);
-			if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
-				weights[key] = parsed;
-			}
-		}
-	}
-
-	return weights;
+/**
+ * Scoring weights. Always the hardcoded defaults.
+ *
+ * @lore AU18: previously read `factory_settings.scoring.weight.*` overrides.
+ * No production or eval writer ever existed for this namespace — the only
+ * write path was the generic PATCH /api/status/settings catch-all, itself
+ * retired this WP. Dropping the DB read is behavior-identical in practice
+ * (prod always resolved to these defaults) and removes a dead config surface.
+ * `db` is kept as a parameter for call-site compatibility even though it is
+ * now unused — every caller passes a live db handle already.
+ */
+export async function loadScoringWeights(_db: HyperIdleDb): Promise<ScoringWeights> {
+	return { ...DEFAULT_WEIGHTS };
 }
 
 // --- Attention scoring weights (G2) ---
@@ -107,67 +87,21 @@ const DEFAULT_ATTENTION_WEIGHTS: AttentionWeights = {
 	usage: 0.05,
 };
 
-const ATTENTION_WEIGHT_KEYS: ReadonlyArray<keyof AttentionWeights> = [
-	"novelty",
-	"impact",
-	"conflict",
-	"repetition",
-	"confidence",
-	"tasteSensitivity",
-	"recency",
-	"usage",
-];
-
-const ATTENTION_SETTING_PREFIX = "attention.weight.";
-
 /** Threshold at which a recompute crossing upward creates a review item. */
 export const ATTENTION_THRESHOLD = 0.7;
 
-/** Absolute bounds for a single attention weight (defense in depth). */
-const ATTENTION_WEIGHT_MIN = 0;
-const ATTENTION_WEIGHT_MAX = 1;
-
 /**
- * Load attention weights from factory_settings, falling back to defaults.
+ * Attention weights. Always the hardcoded defaults.
  *
- * @lore G2 security: `attention.weight.*` factory_settings keys MUST be
- * human-write-only. The settings write endpoint is expected to reject agent
- * writes to any key under the `attention.weight.` prefix. This loader is
- * defense-in-depth: values outside `[0, 1]` fall back to the default so a
- * bad write (e.g. all zeros) can never silently neutralize the engine.
+ * @lore AU18: previously read `factory_settings.attention.weight.*`
+ * overrides with a `[0,1]` defense-in-depth clamp. No production or eval
+ * writer ever existed — the only write path was the generic
+ * PATCH /api/status/settings catch-all, itself retired this WP. Dropping the
+ * DB read is behavior-identical in practice and removes a dead config
+ * surface (the defense-in-depth clamp is moot with no writer at all).
  */
-export async function loadAttentionWeights(db: HyperIdleDb): Promise<AttentionWeights> {
-	const weights: Record<keyof AttentionWeights, number> = { ...DEFAULT_ATTENTION_WEIGHTS };
-
-	for (const key of ATTENTION_WEIGHT_KEYS) {
-		const settingKey = `${ATTENTION_SETTING_PREFIX}${key}`;
-		const [row] = await db
-			.select()
-			.from(factorySettings)
-			.where(eq(factorySettings.key, settingKey))
-			.limit(1);
-		if (row) {
-			const parsed = Number.parseFloat(row.value);
-			if (
-				Number.isFinite(parsed) &&
-				parsed >= ATTENTION_WEIGHT_MIN &&
-				parsed <= ATTENTION_WEIGHT_MAX
-			) {
-				weights[key] = parsed;
-			}
-		}
-	}
-
-	return {
-		novelty: weights.novelty,
-		impact: weights.impact,
-		conflict: weights.conflict,
-		repetition: weights.repetition,
-		confidence: weights.confidence,
-		tasteSensitivity: weights.tasteSensitivity,
-		recency: weights.recency,
-		usage: weights.usage,
-	};
+export async function loadAttentionWeights(_db: HyperIdleDb): Promise<AttentionWeights> {
+	return { ...DEFAULT_ATTENTION_WEIGHTS };
 }
 
 // --- Relevance config (L22) ---
@@ -180,69 +114,17 @@ const DEFAULT_RELEVANCE_SHAPE = {
 	citationSaturation: 5,
 } as const;
 
-const RELEVANCE_WEIGHT_KEYS = [
-	"relevance.weight.recency",
-	"relevance.weight.frequency",
-	"relevance.weight.citation",
-] as const;
-const RELEVANCE_SHAPE_KEYS = [
-	"relevance.recencyHalflifeDays",
-	"relevance.frequencySaturation",
-	"relevance.frequencyWindowDays",
-	"relevance.citationSaturation",
-] as const;
-
 /**
- * Load relevance config from factory_settings, falling back to defaults.
+ * Relevance config. Always the hardcoded defaults.
  *
- * @lore L22: relevance.weight.* values must be in [0,1]; shape constants must
- * be positive finite numbers. Invalid values fall back to defaults (defense in
- * depth so a bad write can never silently break the relevance engine).
+ * @lore AU18: previously read `factory_settings.relevance.weight.*` /
+ * `relevance.<shape>` overrides. No production or eval writer ever existed —
+ * dropping the DB read is behavior-identical in practice and removes a dead
+ * config surface. See {@link loadScoringWeights} for the same rationale.
  */
-export async function loadRelevanceConfig(db: HyperIdleDb): Promise<RelevanceConfig> {
-	const weights = { ...DEFAULT_RELEVANCE_WEIGHTS } as {
-		recency: number;
-		frequency: number;
-		citation: number;
+export async function loadRelevanceConfig(_db: HyperIdleDb): Promise<RelevanceConfig> {
+	return {
+		weights: { ...DEFAULT_RELEVANCE_WEIGHTS },
+		shape: { ...DEFAULT_RELEVANCE_SHAPE },
 	};
-	const shape = { ...DEFAULT_RELEVANCE_SHAPE } as {
-		recencyHalflifeDays: number;
-		frequencySaturation: number;
-		frequencyWindowDays: number;
-		citationSaturation: number;
-	};
-
-	// Load weight overrides
-	for (const settingKey of RELEVANCE_WEIGHT_KEYS) {
-		const [row] = await db
-			.select()
-			.from(factorySettings)
-			.where(eq(factorySettings.key, settingKey))
-			.limit(1);
-		if (row) {
-			const parsed = Number.parseFloat(row.value);
-			if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
-				const weightKey = settingKey.replace("relevance.weight.", "") as keyof typeof weights;
-				weights[weightKey] = parsed;
-			}
-		}
-	}
-
-	// Load shape overrides
-	for (const settingKey of RELEVANCE_SHAPE_KEYS) {
-		const [row] = await db
-			.select()
-			.from(factorySettings)
-			.where(eq(factorySettings.key, settingKey))
-			.limit(1);
-		if (row) {
-			const parsed = Number.parseFloat(row.value);
-			if (Number.isFinite(parsed) && parsed > 0) {
-				const shapeKey = settingKey.replace("relevance.", "") as keyof typeof shape;
-				shape[shapeKey] = parsed;
-			}
-		}
-	}
-
-	return { weights, shape };
 }

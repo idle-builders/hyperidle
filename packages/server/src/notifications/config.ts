@@ -1,33 +1,27 @@
 import * as dns from "node:dns";
 import * as net from "node:net";
 import { promisify } from "node:util";
-import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
 import type { SanitizeResult } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import {
+	decryptCredentialValue,
+	encryptCredentialValue,
+	getServerSecret,
+} from "../services/credential-encryption.js";
+import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 import type { NotificationChannel, Recipient } from "./types.js";
 
-const PREFIX = "notifications.";
-
-const KEYS = {
-	enabled: `${PREFIX}enabled`,
-	primaryChannel: `${PREFIX}primary_channel`,
-	digestChannel: `${PREFIX}digest_channel`,
-	recipientEmail: `${PREFIX}recipient_email`,
-	recipientNtfyTopic: `${PREFIX}recipient_ntfy_topic`,
-	ntfyBaseUrl: `${PREFIX}ntfy_base_url`,
-	ntfyAuthToken: `${PREFIX}ntfy_auth_token`,
-	smtpHost: `${PREFIX}smtp_host`,
-	smtpPort: `${PREFIX}smtp_port`,
-	smtpSecure: `${PREFIX}smtp_secure`,
-	smtpUsername: `${PREFIX}smtp_username`,
-	smtpPassword: `${PREFIX}smtp_password`,
-	smtpFrom: `${PREFIX}smtp_from`,
-	floodMaxPerMinute: `${PREFIX}flood_max_per_minute`,
-	floodCoalesceWindowMs: `${PREFIX}flood_coalesce_window_ms`,
-	testMaxPerHour: `${PREFIX}test_max_per_hour`,
-	smtpIgnoreTls: `${PREFIX}smtp_ignore_tls`,
-	digestCron: `${PREFIX}digest_cron`,
-} as const;
+/**
+ * @lore AU18: notification secrets (SMTP password, ntfy auth token) live in
+ * `server_credentials` — AH1 precedent: secrets never go in the `server_config`
+ * JSON blob. These names are NOT part of the `CredentialName` catalog (that
+ * catalog drives the Settings > Connections LLM-provider credential UI; a
+ * different concern) — they're raw `server_credentials.name` values written
+ * directly by this module, the same encryption primitives, a different caller.
+ */
+const SMTP_PASSWORD_CREDENTIAL_NAME = "notifications_smtp_password";
+const NTFY_AUTH_TOKEN_CREDENTIAL_NAME = "notifications_ntfy_auth_token";
 
 export const REDACTED = "***" as const;
 
@@ -77,106 +71,121 @@ export type SafeNotificationConfig = Omit<NotificationConfig, "ntfy" | "smtp"> &
 	};
 };
 
-const DEFAULTS = {
-	primaryChannel: "console" as NotificationChannel,
-	digestChannel: "console" as NotificationChannel,
-	ntfyBaseUrl: "https://ntfy.sh",
-	smtpPort: 587,
-	floodMaxPerMinute: 6,
-	floodCoalesceWindowMs: 60_000,
-	testMaxPerHour: 5,
-	digestCron: "0 8 * * *",
-} as const;
-
-const CHANNELS: ReadonlySet<NotificationChannel> = new Set(["console", "ntfy", "smtp"]);
-
-function isChannel(value: string | undefined): value is NotificationChannel {
-	return value !== undefined && CHANNELS.has(value as NotificationChannel);
+async function readSecret(db: HyperIdleDb, name: string): Promise<string | null> {
+	const secret = getServerSecret();
+	if (!secret) return null;
+	const [row] = await db
+		.select()
+		.from(serverCredentials)
+		.where(eq(serverCredentials.name, name))
+		.limit(1);
+	if (!row) return null;
+	return decryptCredentialValue(row.encryptedValue, secret);
 }
 
-function parsePositiveInt(raw: string | undefined, fallback: number): number {
-	if (raw === undefined) return fallback;
-	const n = Number(raw);
-	if (!Number.isFinite(n) || n < 0) return fallback;
-	return Math.floor(n);
-}
-
-async function readAllSettings(db: HyperIdleDb): Promise<Map<string, string>> {
-	const rows = await db.select().from(factorySettings);
-	const map = new Map<string, string>();
-	for (const row of rows) {
-		if (row.key.startsWith(PREFIX)) map.set(row.key, row.value);
+/**
+ * Write (or clear) a notification secret in `server_credentials`.
+ * No-ops when no server secret is configured — there is no way to store an
+ * encrypted value without one; the caller's other (non-secret) fields still
+ * persist normally through `server_config`.
+ */
+async function writeSecret(
+	db: HyperIdleDb,
+	name: string,
+	value: string | null,
+	now: string,
+): Promise<void> {
+	if (value === null || value.length === 0) {
+		await db.delete(serverCredentials).where(eq(serverCredentials.name, name));
+		return;
 	}
-	return map;
+	const secret = getServerSecret();
+	if (!secret) return;
+	const encryptedValue = encryptCredentialValue(value, secret);
+	await db
+		.insert(serverCredentials)
+		.values({
+			name,
+			encryptedValue,
+			validationState: "present_untested",
+			lastValidatedAt: null,
+			updatedAt: now,
+		})
+		.onConflictDoUpdate({
+			target: serverCredentials.name,
+			set: { encryptedValue, updatedAt: now },
+		});
 }
 
-function buildConfig(kv: Map<string, string>): NotificationConfig {
-	const enabled = kv.get(KEYS.enabled) === "true";
-	const primary = kv.get(KEYS.primaryChannel);
-	const digest = kv.get(KEYS.digestChannel);
-	const primaryChannel = isChannel(primary) ? primary : DEFAULTS.primaryChannel;
-	const digestChannel = isChannel(digest) ? digest : primaryChannel;
-
-	const email = kv.get(KEYS.recipientEmail);
-	const ntfyTopic = kv.get(KEYS.recipientNtfyTopic);
-	const ntfyBaseUrl = kv.get(KEYS.ntfyBaseUrl) ?? DEFAULTS.ntfyBaseUrl;
-	const ntfyAuthToken = kv.get(KEYS.ntfyAuthToken);
-
-	const smtpHost = kv.get(KEYS.smtpHost);
-	const smtpPort = parsePositiveInt(kv.get(KEYS.smtpPort), DEFAULTS.smtpPort);
-	const smtpSecure = kv.get(KEYS.smtpSecure) === "true";
-	const smtpUsername = kv.get(KEYS.smtpUsername);
-	const smtpPassword = kv.get(KEYS.smtpPassword);
-	const smtpFrom = kv.get(KEYS.smtpFrom);
-
-	const floodMaxPerMinute = parsePositiveInt(
-		kv.get(KEYS.floodMaxPerMinute),
-		DEFAULTS.floodMaxPerMinute,
-	);
-	const floodCoalesceWindowMs = parsePositiveInt(
-		kv.get(KEYS.floodCoalesceWindowMs),
-		DEFAULTS.floodCoalesceWindowMs,
-	);
-	const testMaxPerHour = parsePositiveInt(kv.get(KEYS.testMaxPerHour), DEFAULTS.testMaxPerHour);
-	const smtpIgnoreTls = kv.get(KEYS.smtpIgnoreTls) === "true";
-	const digestCron = kv.get(KEYS.digestCron) ?? DEFAULTS.digestCron;
+function buildConfig(
+	delivery: {
+		enabled: boolean;
+		primaryChannel: NotificationChannel;
+		digestChannel: NotificationChannel | null;
+		recipientEmail: string | null;
+		recipientNtfyTopic: string | null;
+		ntfyBaseUrl: string;
+		smtpHost: string | null;
+		smtpPort: number;
+		smtpSecure: boolean;
+		smtpUsername: string | null;
+		smtpFrom: string | null;
+		floodMaxPerMinute: number;
+		floodCoalesceWindowMs: number;
+		testMaxPerHour: number;
+		smtpIgnoreTls: boolean;
+		digestCron: string;
+	},
+	ntfyAuthToken: string | null,
+	smtpPassword: string | null,
+): NotificationConfig {
+	// @lore AU18: preserves the KV-era fallback semantics — an unset
+	// digestChannel dynamically follows whatever primaryChannel currently is,
+	// not a fixed "console" default.
+	const digestChannel = delivery.digestChannel ?? delivery.primaryChannel;
 
 	return {
-		enabled,
-		primaryChannel,
+		enabled: delivery.enabled,
+		primaryChannel: delivery.primaryChannel,
 		digestChannel,
 		recipient: {
-			email: email && email.length > 0 ? email : null,
-			ntfyTopic: ntfyTopic && ntfyTopic.length > 0 ? ntfyTopic : null,
+			email: delivery.recipientEmail,
+			ntfyTopic: delivery.recipientNtfyTopic,
 		},
 		ntfy: {
-			baseUrl: ntfyBaseUrl,
-			authToken: ntfyAuthToken && ntfyAuthToken.length > 0 ? ntfyAuthToken : null,
+			baseUrl: delivery.ntfyBaseUrl,
+			authToken: ntfyAuthToken,
 		},
 		smtp: {
-			host: smtpHost && smtpHost.length > 0 ? smtpHost : null,
-			port: smtpPort,
-			secure: smtpSecure,
-			username: smtpUsername && smtpUsername.length > 0 ? smtpUsername : null,
-			password: smtpPassword && smtpPassword.length > 0 ? smtpPassword : null,
-			from: smtpFrom && smtpFrom.length > 0 ? smtpFrom : null,
+			host: delivery.smtpHost,
+			port: delivery.smtpPort,
+			secure: delivery.smtpSecure,
+			username: delivery.smtpUsername,
+			password: smtpPassword,
+			from: delivery.smtpFrom,
 		},
 		flood: {
-			maxPerMinute: floodMaxPerMinute,
-			coalesceWindowMs: floodCoalesceWindowMs,
+			maxPerMinute: delivery.floodMaxPerMinute,
+			coalesceWindowMs: delivery.floodCoalesceWindowMs,
 		},
-		testMaxPerHour,
-		smtpIgnoreTls,
-		digestCron,
+		testMaxPerHour: delivery.testMaxPerHour,
+		smtpIgnoreTls: delivery.smtpIgnoreTls,
+		digestCron: delivery.digestCron,
 	};
 }
 
 /**
- * Read the typed config from `factory_settings`. Always returns a shape
- * (even when disabled) so GET /config can surface the current values.
+ * Read the typed config from `server_config.notifications.delivery` (+
+ * secrets from `server_credentials`). Always returns a shape (even when
+ * disabled) so GET /config can surface the current values.
  */
 export async function readNotificationConfig(db: HyperIdleDb): Promise<NotificationConfig> {
-	return buildConfig(await readAllSettings(db));
+	const { notifications } = await readServerConfig(db);
+	const [ntfyAuthToken, smtpPassword] = await Promise.all([
+		readSecret(db, NTFY_AUTH_TOKEN_CREDENTIAL_NAME),
+		readSecret(db, SMTP_PASSWORD_CREDENTIAL_NAME),
+	]);
+	return buildConfig(notifications.delivery, ntfyAuthToken, smtpPassword);
 }
 
 /**
@@ -184,7 +193,7 @@ export async function readNotificationConfig(db: HyperIdleDb): Promise<Notificat
  * short-circuit their event handler.
  */
 export async function loadNotificationConfig(db: HyperIdleDb): Promise<NotificationConfig | null> {
-	const cfg = buildConfig(await readAllSettings(db));
+	const cfg = await readNotificationConfig(db);
 	if (!cfg.enabled) return null;
 	return cfg;
 }
@@ -242,66 +251,77 @@ export interface NotificationConfigPatch {
 	digestCron?: string;
 }
 
-async function upsert(db: HyperIdleDb, key: string, value: string, now: string): Promise<void> {
-	await db
-		.insert(factorySettings)
-		.values({ key, value, updatedAt: now })
-		.onConflictDoUpdate({
-			target: factorySettings.key,
-			set: { value, updatedAt: now },
-		});
-}
-
-async function clearOrSet(
-	db: HyperIdleDb,
-	key: string,
-	value: string | null | undefined,
-	now: string,
-): Promise<void> {
-	if (value === undefined) return;
-	if (value === null || value.length === 0) {
-		await db.delete(factorySettings).where(eq(factorySettings.key, key));
-		return;
-	}
-	await upsert(db, key, value, now);
+/**
+ * @lore AU18: the KV era treated an explicit empty string the same as
+ * `null` (clears/unsets the field). Preserve that at the server_config
+ * boundary — an empty string patch value normalizes to `null` before storage.
+ */
+function normalizeEmptyToNull(value: string | null | undefined): string | null | undefined {
+	if (value === undefined) return undefined;
+	if (value === null || value.length === 0) return null;
+	return value;
 }
 
 /**
- * Apply a partial patch to the KV store. `null` on string fields clears
- * the row (treated as unset). Unknown fields are ignored.
+ * Apply a partial patch. `null`/`""` on string fields clears the field
+ * (treated as unset). Unknown fields are ignored. Secrets (`ntfyAuthToken`,
+ * `smtpPassword`) are written to `server_credentials`, never the config blob.
  */
 export async function updateNotificationConfig(
 	db: HyperIdleDb,
 	patch: NotificationConfigPatch,
 ): Promise<NotificationConfig> {
 	const now = new Date().toISOString();
-	if (patch.enabled !== undefined)
-		await upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
-	if (patch.primaryChannel !== undefined)
-		await upsert(db, KEYS.primaryChannel, patch.primaryChannel, now);
-	if (patch.digestChannel !== undefined)
-		await upsert(db, KEYS.digestChannel, patch.digestChannel, now);
-	if (patch.ntfyBaseUrl !== undefined) await upsert(db, KEYS.ntfyBaseUrl, patch.ntfyBaseUrl, now);
-	if (patch.smtpPort !== undefined) await upsert(db, KEYS.smtpPort, String(patch.smtpPort), now);
-	if (patch.smtpSecure !== undefined)
-		await upsert(db, KEYS.smtpSecure, patch.smtpSecure ? "true" : "false", now);
-	if (patch.floodMaxPerMinute !== undefined)
-		await upsert(db, KEYS.floodMaxPerMinute, String(patch.floodMaxPerMinute), now);
-	if (patch.floodCoalesceWindowMs !== undefined)
-		await upsert(db, KEYS.floodCoalesceWindowMs, String(patch.floodCoalesceWindowMs), now);
-	if (patch.testMaxPerHour !== undefined)
-		await upsert(db, KEYS.testMaxPerHour, String(patch.testMaxPerHour), now);
-	if (patch.smtpIgnoreTls !== undefined)
-		await upsert(db, KEYS.smtpIgnoreTls, patch.smtpIgnoreTls ? "true" : "false", now);
-	if (patch.digestCron !== undefined) await upsert(db, KEYS.digestCron, patch.digestCron, now);
 
-	await clearOrSet(db, KEYS.recipientEmail, patch.recipientEmail, now);
-	await clearOrSet(db, KEYS.recipientNtfyTopic, patch.recipientNtfyTopic, now);
-	await clearOrSet(db, KEYS.ntfyAuthToken, patch.ntfyAuthToken, now);
-	await clearOrSet(db, KEYS.smtpHost, patch.smtpHost, now);
-	await clearOrSet(db, KEYS.smtpUsername, patch.smtpUsername, now);
-	await clearOrSet(db, KEYS.smtpPassword, patch.smtpPassword, now);
-	await clearOrSet(db, KEYS.smtpFrom, patch.smtpFrom, now);
+	await updateServerConfig(db, {
+		notifications: {
+			delivery: {
+				...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+				...(patch.primaryChannel !== undefined ? { primaryChannel: patch.primaryChannel } : {}),
+				...(patch.digestChannel !== undefined ? { digestChannel: patch.digestChannel } : {}),
+				...(patch.recipientEmail !== undefined
+					? { recipientEmail: normalizeEmptyToNull(patch.recipientEmail) }
+					: {}),
+				...(patch.recipientNtfyTopic !== undefined
+					? { recipientNtfyTopic: normalizeEmptyToNull(patch.recipientNtfyTopic) }
+					: {}),
+				...(patch.ntfyBaseUrl !== undefined ? { ntfyBaseUrl: patch.ntfyBaseUrl } : {}),
+				...(patch.smtpHost !== undefined ? { smtpHost: normalizeEmptyToNull(patch.smtpHost) } : {}),
+				...(patch.smtpPort !== undefined ? { smtpPort: patch.smtpPort } : {}),
+				...(patch.smtpSecure !== undefined ? { smtpSecure: patch.smtpSecure } : {}),
+				...(patch.smtpUsername !== undefined
+					? { smtpUsername: normalizeEmptyToNull(patch.smtpUsername) }
+					: {}),
+				...(patch.smtpFrom !== undefined ? { smtpFrom: normalizeEmptyToNull(patch.smtpFrom) } : {}),
+				...(patch.floodMaxPerMinute !== undefined
+					? { floodMaxPerMinute: patch.floodMaxPerMinute }
+					: {}),
+				...(patch.floodCoalesceWindowMs !== undefined
+					? { floodCoalesceWindowMs: patch.floodCoalesceWindowMs }
+					: {}),
+				...(patch.testMaxPerHour !== undefined ? { testMaxPerHour: patch.testMaxPerHour } : {}),
+				...(patch.smtpIgnoreTls !== undefined ? { smtpIgnoreTls: patch.smtpIgnoreTls } : {}),
+				...(patch.digestCron !== undefined ? { digestCron: patch.digestCron } : {}),
+			},
+		},
+	});
+
+	if (patch.ntfyAuthToken !== undefined) {
+		await writeSecret(
+			db,
+			NTFY_AUTH_TOKEN_CREDENTIAL_NAME,
+			normalizeEmptyToNull(patch.ntfyAuthToken) ?? null,
+			now,
+		);
+	}
+	if (patch.smtpPassword !== undefined) {
+		await writeSecret(
+			db,
+			SMTP_PASSWORD_CREDENTIAL_NAME,
+			normalizeEmptyToNull(patch.smtpPassword) ?? null,
+			now,
+		);
+	}
 
 	return readNotificationConfig(db);
 }

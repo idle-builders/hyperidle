@@ -3,13 +3,17 @@
  * manually-assigned per-skill autonomy levels.
  *
  * @lore AD4: Removed `getAutonomyLevel` (userSkills-based) and replaced with
- * `getAgentTrustSignal` (verdict-history-based). Thresholds are read from
- * factory settings with safe defaults so no migration is required.
+ * `getAgentTrustSignal` (verdict-history-based). Thresholds used to be read
+ * from factory settings with safe defaults; see AU18 note below.
+ *
+ * @lore AU18: trust threshold settability via `factory_settings` is retired
+ * (plan §3/§10 — no production or eval writer ever existed; the only path
+ * was the generic PATCH /api/status/settings catch-all, itself retired this
+ * WP). The thresholds below are now always the hardcoded defaults.
  */
 
-import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { isSilenced as sharedIsSilenced } from "../notifications/silence-policy.js";
 import * as work from "../work-service.js";
 import { computeApprovalRate } from "./approval-rate.js";
@@ -73,15 +77,22 @@ async function evaluateItem(
 	await executeAction(db, eventBus, itemId, action);
 }
 
+/** @lore AU18: was settable via `factory_settings.trust_window_days` — now the fixed default. */
+const TRUST_WINDOW_DAYS = 30;
+/** @lore AU18: was settable via `factory_settings.trust_auto_resolve_threshold` — now fixed. */
+const TRUST_AUTO_RESOLVE_THRESHOLD = 0.9;
+/** @lore AU18: was settable via `factory_settings.trust_auto_resolve_min_verdicts` — now fixed. */
+const TRUST_AUTO_RESOLVE_MIN_VERDICTS = 10;
+/** @lore AU18: was settable via `factory_settings.trust_queue_threshold` — now fixed. */
+const TRUST_QUEUE_THRESHOLD = 0.7;
+
 async function getAgentTrustSignal(
 	db: HyperIdleDb,
 	sourceAgentId: string | null,
 ): Promise<TrustSignal> {
 	if (!sourceAgentId) return { approvalRate: 0, totalVerdicts: 0 };
 
-	// Read window from factory settings (default 30 days)
-	const windowDays = await getFactorySettingInt(db, "trust_window_days", 30);
-	const result = await computeApprovalRate(db, sourceAgentId, windowDays);
+	const result = await computeApprovalRate(db, sourceAgentId, TRUST_WINDOW_DAYS);
 
 	return {
 		approvalRate: result.approvalRate,
@@ -114,18 +125,10 @@ async function determineAction(
 	}
 
 	// d. Trust-based rules (replaces autonomy level rules)
-	// Read thresholds from factory settings with defaults
-	const autoResolveThreshold = await getFactorySettingFloat(
-		db,
-		"trust_auto_resolve_threshold",
-		0.9,
-	);
-	const autoResolveMinVerdicts = await getFactorySettingInt(
-		db,
-		"trust_auto_resolve_min_verdicts",
-		10,
-	);
-	const queueThreshold = await getFactorySettingFloat(db, "trust_queue_threshold", 0.7);
+	// @lore AU18: thresholds were settable via factory_settings; now fixed defaults.
+	const autoResolveThreshold = TRUST_AUTO_RESOLVE_THRESHOLD;
+	const autoResolveMinVerdicts = TRUST_AUTO_RESOLVE_MIN_VERDICTS;
+	const queueThreshold = TRUST_QUEUE_THRESHOLD;
 
 	// @lore AD4: Cold-start protection applies to both auto_resolve and queue.
 	// Insufficient verdicts → always push regardless of rate, so new agents
@@ -219,40 +222,4 @@ async function executeAction(
 			break;
 		}
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Factory settings helpers (internal)
-// ---------------------------------------------------------------------------
-
-async function getFactorySettingFloat(
-	db: HyperIdleDb,
-	key: string,
-	defaultValue: number,
-): Promise<number> {
-	const [row] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, key))
-		.limit(1);
-
-	if (!row) return defaultValue;
-	const parsed = Number.parseFloat(row.value);
-	return Number.isFinite(parsed) ? parsed : defaultValue;
-}
-
-async function getFactorySettingInt(
-	db: HyperIdleDb,
-	key: string,
-	defaultValue: number,
-): Promise<number> {
-	const [row] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, key))
-		.limit(1);
-
-	if (!row) return defaultValue;
-	const parsed = Number.parseInt(row.value, 10);
-	return Number.isFinite(parsed) ? parsed : defaultValue;
 }

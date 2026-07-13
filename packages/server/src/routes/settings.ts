@@ -12,9 +12,10 @@
  * agent.status === "paused".
  *
  * @lore P3: Notification prefs migrated from factorySettings to server_config.
- * The factorySettings table is not dropped — it still serves observability config,
- * git-export, and other consumers. The settings route now reads/writes notifications
- * via readServerConfig/updateServerConfig.
+ * The settings route reads/writes notifications via readServerConfig/updateServerConfig.
+ * @lore AU18: factorySettings itself is now fully retired and dropped — every
+ * former consumer (observability, git-export, notifications, etc.) is re-backed
+ * onto server_config too.
  *
  * @lore U1: `products` table reference -> `teams`. `mutedProducts` -> `mutedTeams`.
  */

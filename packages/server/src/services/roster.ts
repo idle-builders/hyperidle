@@ -2,18 +2,22 @@
  * AK6 — app runtime: roster composition for scaffoldAgents.
  *
  * `composeRoster` maps the three server-side creation triggers to
- * `AgentScaffoldSpec[]`. App runtime reads `systemPrompt` from the
- * `factorySettings.system_template:<role>` rows that applyFactoryBootstrap
- * seeds, so creation surfaces do not hard-code personas.
+ * `AgentScaffoldSpec[]`. App runtime reads `systemPrompt` via the shared
+ * `readSystemPromptTemplateForRole` resolver (docs-backed, AU18), so
+ * creation surfaces do not hard-code personas.
  *
  * factory_bootstrap is NOT a trigger here (it runs at the leaf/desktop layer
  * with no registry — see Phase 3a, FactoryRosterSpec injection seam).
  *
  * @lore AK6: app-runtime `scaffoldAgents` is the preservation-critical path.
  * It must reproduce today's agents + personas UNCHANGED (AC4 golden). The
- * pre-AK6 route read `defaultRoster(functions)` → per role, read
- * `factorySettings.system_template:<role>`. This implementation faithfully
- * reproduces that selection.
+ * pre-AK6 route read `defaultRoster(functions)` → per role, read the system
+ * prompt template. This implementation faithfully reproduces that selection.
+ *
+ * @lore AU18: `readTemplate` previously read `factorySettings.system_template:<role>`
+ * (a bootstrap-time cache of the docs files). That table is retired — reads
+ * now go straight to `readSystemPromptTemplateForRole`, the same shared
+ * resolver `factory-bootstrap.ts` and `routes/agents.ts` use.
  *
  * @lore AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT moved here from
  * packages/server/src/routes/users.ts and assistant.ts. The persona content
@@ -22,9 +26,8 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { factorySettings } from "@hyperidle/db";
+import { readSystemPromptTemplateForRole } from "@hyperidle/db";
 import { AGENT_ROLE_CATALOG, defaultRoster } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import type { AgentScaffoldSpec, ScaffoldRequest } from "./contracts.js";
 
 /**
@@ -40,17 +43,18 @@ export const APP_ASSISTANT_SYSTEM_PROMPT =
 	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
 
 /**
- * Read `factorySettings.system_template:<role>` for a given role.
+ * Read the docs-backed system prompt template for a given role.
  * Returns null if not found (graceful degradation — agents with no template
  * get systemPrompt: null, which is valid).
+ *
+ * @lore AU18: previously read the `factorySettings.system_template:<role>`
+ * cache row; now resolves directly via the shared, synchronous
+ * `readSystemPromptTemplateForRole` (system-prompt-templates.ts in
+ * @hyperidle/db). Kept `async` for call-site compatibility (existing callers
+ * `await` it).
  */
-async function readTemplate(db: HyperIdleDb, role: string): Promise<string | null> {
-	const [row] = await db
-		.select({ value: factorySettings.value })
-		.from(factorySettings)
-		.where(eq(factorySettings.key, `system_template:${role}`))
-		.limit(1);
-	return row?.value ?? null;
+async function readTemplate(role: string): Promise<string | null> {
+	return readSystemPromptTemplateForRole(role);
 }
 
 /**
@@ -60,7 +64,7 @@ async function readTemplate(db: HyperIdleDb, role: string): Promise<string | nul
  * FactoryRosterSpec injection seam — handled separately).
  */
 export async function composeRoster(
-	db: HyperIdleDb,
+	_db: HyperIdleDb,
 	req: ScaffoldRequest,
 ): Promise<readonly AgentScaffoldSpec[]> {
 	switch (req.trigger) {
@@ -73,7 +77,7 @@ export async function composeRoster(
 				const label = catalogEntry?.label ?? role;
 				const hasTemplate = catalogEntry?.hasTemplate ?? false;
 				const agentCategory = catalogEntry?.category ?? "team";
-				const systemPrompt = hasTemplate ? await readTemplate(db, role) : null;
+				const systemPrompt = hasTemplate ? await readTemplate(role) : null;
 
 				specs.push({
 					role,
@@ -90,7 +94,7 @@ export async function composeRoster(
 			}
 			const catalogEntry = AGENT_ROLE_CATALOG.find((e) => e.role === req.role);
 			const agentCategory = catalogEntry?.category ?? "team";
-			const systemPrompt = catalogEntry?.hasTemplate ? await readTemplate(db, req.role) : null;
+			const systemPrompt = catalogEntry?.hasTemplate ? await readTemplate(req.role) : null;
 			// Pass caller-supplied name through; synthesize only when null.
 			const name = req.name ?? `${req.teamName ?? "Agent"} ${req.role}`;
 			return [

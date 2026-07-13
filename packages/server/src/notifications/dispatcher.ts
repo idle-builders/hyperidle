@@ -691,15 +691,17 @@ export function registerNotificationDispatcher(
 		//
 		// @lore AF8: The previous logic (inherited from R8) checked quietHoursEnabled
 		// from AlertPreferences and bypassed quiet hours for hard cost breaches, making
-		// it safe but coarser (no factory_settings window check). The AF8 split aligns
+		// it safe but coarser (no factory-level window check). The AF8 split aligns
 		// the direct-send path with the drain's logic: cost_breach respects quiet hours
-		// from factory_settings (not just AlertPreferences quietHoursEnabled).
-		// AlertPreferences quietHoursEnabled check is kept as an additional gate because
-		// it may be set independently (e.g. by users who have not set a factory window).
+		// from `server_config.notifications.silence` (not just AlertPreferences
+		// quietHoursEnabled). AlertPreferences quietHoursEnabled check is kept as an
+		// additional gate because it may be set independently (e.g. by users who have
+		// not set a factory window).
 		//
 		// Decision precedence:
 		//   1. AlertPreferences quiet hours (R8 gate)
-		//   2. factory_settings silence_window (AF8 gate — read once from DB)
+		//   2. server_config.notifications.silence window (AF8 gate — read once from DB;
+		//      AU18: re-backed off the retired factory_settings.silence_window_* KV keys)
 		// Either gate triggers deferral for non-breach rows.
 		// cost_breach defers on quiet hours from either source; bypasses factory silence.
 

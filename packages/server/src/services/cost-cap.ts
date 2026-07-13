@@ -3,7 +3,7 @@ import * as crypto from "node:crypto";
 // Cost tracking uses `teamMembers` (the agent-membership group) which has costActual/costCap.
 // params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
 // @lore R5: `bets` and `tasks` added for bet cost accumulation via taskId lookup.
-import { bets, factorySettings, type HyperIdleDb, teamMembers } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import * as work from "../work-service.js";
@@ -330,40 +330,30 @@ export async function recordCostAndCheck(
 			teamId: params.teamId,
 		});
 	}
-
-	// AF8: Write canonical factory cost so the cost sentinel reads a real value.
-	// @lore AF8 / AF10 CONTRACT: This call must be preserved by AF10 when it
-	// rewrites recordCostAndCheck. See recordFactoryCost @lore for details.
-	await recordFactoryCost(db);
 }
 
 /**
- * AF8: Write the canonical factory cost to `factory_settings.cost_actual`.
+ * AU18: `cost-cap.ts` is the sole owner of factory-cost accumulation.
  *
  * Factory cost = SUM(users.costActual) — the authoritative per-agent running
- * totals accumulated by recordCostAndCheck. Both consumers (cost-sentinel.ts and
- * routine-scheduler.ts) read `factory_settings.cost_actual`; this function
- * keeps that value current after every cost recording event.
+ * totals accumulated by recordCostAndCheck. Both consumers (cost-sentinel.ts
+ * and routine-scheduler.ts) call this function instead of reading
+ * `factory_settings.cost_actual` (retired): the value is derived LIVE, never
+ * cached, so it is always exactly current — no separate write step needed.
  *
- * @lore AF8 / AF10 CONTRACT: Call this at the tail of recordCostAndCheck.
- * If AF10 lands first and rewrites recordCostAndCheck, AF10 MUST preserve this
- * trailing call — it fixes Z8-008 (cost sentinel reads a never-written field).
+ * @lore AU18: replaces `recordFactoryCost`, which wrote the same SUM into
+ * `factory_settings.cost_actual` after every cost event (AF8/AF10 contract).
+ * Since `recordCostAndCheck` already recomputed and wrote this value on every
+ * call, a live read produces the exact same value the table used to hold —
+ * equal-or-fresher, never staler. No caller needs the write step anymore.
  *
  * @lore AF8 INFLATION RESOLVED (AF10): The quadratic delta-accumulation bug in
  * session-provisioning.ts (Z8-002) has been fixed. The caller now passes per-event
  * deltas (not running totals), so users.costActual is correct (10+5+5=20, not 45).
- * The SUM here is now accurate. The over-alerting bias noted above is gone.
+ * The SUM here is accurate.
  */
-export async function recordFactoryCost(db: HyperIdleDb): Promise<void> {
-	const total = await sumAllUserCost(db);
-	const isoNow = new Date().toISOString();
-	await db
-		.insert(factorySettings)
-		.values({ key: "cost_actual", value: String(total), updatedAt: isoNow })
-		.onConflictDoUpdate({
-			target: factorySettings.key,
-			set: { value: String(total), updatedAt: isoNow },
-		});
+export async function getFactoryCostActual(db: HyperIdleDb): Promise<number> {
+	return sumAllUserCost(db);
 }
 
 interface CheckAndEmitParams {
