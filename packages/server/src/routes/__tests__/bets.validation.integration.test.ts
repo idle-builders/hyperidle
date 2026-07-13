@@ -9,10 +9,18 @@
  */
 
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
 import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
 import { transitionBet } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
+
+// AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
+// to the real migrated `org` Service.
+const teamCapacity = {
+	getByTeamId: getTeamMembersByTeamId,
+	setActiveBets: setTeamMembersActiveBets,
+};
 
 const TEST_API_KEY = "test-key-bets-validation";
 
@@ -37,7 +45,7 @@ async function seedBet(db: HyperIdleDb, eventBus: EventBus): Promise<void> {
 	});
 
 	// @lore U1: Move into active (formerly in_progress) so updateBetField doesn't reject on state.
-	await transitionBet(db, eventBus, "bet1", "active");
+	await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
 }
 
 describe("I2 V2 — PATCH /api/bets/:id field enum", () => {

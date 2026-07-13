@@ -1,10 +1,14 @@
 import { type HyperIdleDb, sessions, taskPlanningSignals } from "@hyperidle/db";
+import { resolveReviewRecipients } from "@hyperidle/org";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { getThreadById, insertThread, updateThread } from "./conversation-store.js";
-import { resolveReviewRecipients } from "./org-routing.js";
-import { getUserById } from "./user-store.js";
+import { getUserById, listUsersByKind } from "./user-store.js";
+
+// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
+// the real `user-store.ts` function reference unchanged (no behavior change).
+const orgUsers = { listUsersByKind };
 
 /**
  * Subscribes to session_ended events and creates review items
@@ -64,11 +68,15 @@ export function registerSessionReviewCreator(db: HyperIdleDb, eventBus: EventBus
 			// Merges into existing thread participants (sorted + deduplicated).
 			const agentRow = await getUserById(db, session.agentId);
 
-			const humanIds = await resolveReviewRecipients(db, {
-				userId: session.agentId,
-				agentRole: agentRow?.role ?? undefined,
-				teamId: task.teamId,
-			});
+			const humanIds = await resolveReviewRecipients(
+				db,
+				{
+					userId: session.agentId,
+					agentRole: agentRow?.role ?? undefined,
+					teamId: task.teamId,
+				},
+				orgUsers,
+			);
 
 			if (humanIds.length > 0) {
 				const threadRow = await getThreadById(db, threadId);

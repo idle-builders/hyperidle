@@ -14,6 +14,10 @@
  * BEFORE calling this (see org.ts PUT /edges which does mechanism-specific checks).
  * Team creation passes a server-generated teamMembersId that was just inserted,
  * so no re-validation is needed at that call site.
+ *
+ * @lore AU19 Increment 1c: moved unchanged from `packages/server/src/services/
+ * org-edges.ts` — no cross-Service imports here (pure `orgEdges` table access),
+ * so this file needed zero DI conversion, only its package home changed.
  */
 
 import { type HyperIdleDb, orgEdges } from "@hyperidle/db";

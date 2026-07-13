@@ -1,6 +1,6 @@
 import { type HyperIdleDb, orgEdges } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
-import { listUsersByKind } from "./user-store.js";
+import type { OrgUserDirectory } from "./ports.js";
 
 /**
  * Context for routing: identifies the AI user/role/team being reviewed.
@@ -30,10 +30,18 @@ export interface ReviewRoutingContext {
  * itself (dead, 0 real callers) was deleted in AU11. When no org edges
  * exist (or none match), falls back to ALL human users — ensuring every
  * review always reaches someone.
+ *
+ * @lore AU19 Increment 1c: `users` is an injected `OrgUserDirectory` port
+ * (Mechanism C) — this used to import `listUsersByKind` directly from the
+ * sibling `user-store.ts` (an ordinary downward core-api→core-api edge, NOT
+ * §10.3 against-grain; `users` just hasn't migrated to its own package yet).
+ * Callers (`tools/create-item.ts`, `session-review-creator.ts`) pass the real
+ * `packages/server` function reference unchanged — no behavior change.
  */
 export async function resolveReviewRecipients(
 	db: HyperIdleDb,
 	context: ReviewRoutingContext,
+	users: Pick<OrgUserDirectory, "listUsersByKind">,
 ): Promise<string[]> {
 	const matchedFromUserIds = new Set<string>();
 
@@ -76,6 +84,6 @@ export async function resolveReviewRecipients(
 	}
 
 	// Fallback: return all human user IDs
-	const humanUsers = await listUsersByKind(db, "human");
+	const humanUsers = await users.listUsersByKind(db, "human");
 	return humanUsers.map((u) => u.id);
 }

@@ -6,6 +6,7 @@
 		{ "path": "../db" },
 		{ "path": "../shared" },
 		{ "path": "knowledge" },
-		{ "path": "work" }
+		{ "path": "work" },
+		{ "path": "org" }
 	]
 }

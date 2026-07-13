@@ -10,10 +10,18 @@
  */
 
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
 import { type RevisionLogEntry, transitionBet, updateBetField } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
+
+// AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
+// to the real migrated `org` Service.
+const teamCapacity = {
+	getByTeamId: getTeamMembersByTeamId,
+	setActiveBets: setTeamMembersActiveBets,
+};
 
 function makeProduct() {
 	return { id: "prod-1", name: "Test", phase: "build", createdAt: new Date().toISOString() };
@@ -52,7 +60,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("draft"));
 
-			await transitionBet(db, eventBus, "bet-1", "active", { actor: "u-founder" });
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active", { actor: "u-founder" });
 
 			const log = await getLog(db, "bet-1");
 			expect(log).toHaveLength(1);
@@ -67,7 +75,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("draft"));
 
-			await transitionBet(db, eventBus, "bet-1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
 
 			const log = await getLog(db, "bet-1");
 			expect(log).toHaveLength(1);
@@ -80,7 +88,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("draft"));
 
-			await transitionBet(db, eventBus, "bet-1", "killed", {
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", {
 				reason: "Not viable",
 				actor: "u-founder",
 			});
@@ -96,7 +104,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 			await db.insert(teams).values(makeProduct());
 			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("active"));
-			await transitionBet(db, eventBus, "bet-1", "completed", {
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "completed", {
 				actor: "u-founder",
 			});
 
@@ -111,7 +119,7 @@ describe("L14 — RevisionLogEntry actor field (T1)", () => {
 			await db.insert(teamMembers).values(makeTeamMembers());
 			await db.insert(bets).values(makeBet("draft"));
 
-			await transitionBet(db, eventBus, "bet-1", "active", {
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active", {
 				actor: "u-founder",
 			});
 

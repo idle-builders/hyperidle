@@ -16,6 +16,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { persistScaffoldedAgents } from "@hyperidle/org";
 import {
 	API_ERROR_CODES,
 	type EventBus,
@@ -41,10 +42,13 @@ import {
 	listMessagesByThread,
 } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
-import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { getUserById, updateUser } from "../services/user-store.js";
+import { getUserById, insertUser, updateUser } from "../services/user-store.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
+
+// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
+// the real `user-store.ts` function references unchanged (no behavior change).
+const orgUsers = { getUserById, insertUser };
 
 // @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths
 // (thread scoping, participant checks) MUST derive identity from c.get("userId")
@@ -317,7 +321,7 @@ export function createAssistantSoulRoutes(
 				ownerUserId: targetUserId,
 				ownerUserName: userRow.name,
 			});
-			await persistScaffoldedAgents(db, null, specs);
+			await persistScaffoldedAgents(db, orgUsers, null, specs);
 			agentRow = await getUserById(db, assistantAgentId);
 		}
 
@@ -433,7 +437,7 @@ export function createAssistantSoulRoutes(
 				ownerUserId: targetUserId,
 				ownerUserName: userRow.name,
 			});
-			await persistScaffoldedAgents(db, null, specs);
+			await persistScaffoldedAgents(db, orgUsers, null, specs);
 			agentRow = await getUserById(db, assistantAgentId);
 		}
 

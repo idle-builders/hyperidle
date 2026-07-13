@@ -1,4 +1,5 @@
 import { escapeLikePattern, type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
+import { persistScaffoldedAgents } from "@hyperidle/org";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
 
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
@@ -22,7 +23,6 @@ import {
 	listInboxByParticipantProbe,
 } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
-import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import {
 	getFirstUserByKind,
 	getUserById,
@@ -31,6 +31,10 @@ import {
 	updateUser,
 } from "../services/user-store.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
+
+// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
+// the real `user-store.ts` function references unchanged (no behavior change).
+const orgUsers = { getUserById, insertUser };
 
 const updateSkillSchema = z.object({
 	autonomyLevel: z.number().int().min(1).max(4),
@@ -160,7 +164,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 			ownerUserName: name,
 		});
 
-		const { agentIds } = await persistScaffoldedAgents(db, null, specs);
+		const { agentIds } = await persistScaffoldedAgents(db, orgUsers, null, specs);
 		const assistantAgentId = agentIds[0] ?? `ast-${id}`;
 
 		// AK6 T8: emit user_created event AFTER human user + assistant are both persisted.

@@ -1,12 +1,5 @@
 /**
- * P2 RED — resolveReviewRecipients fallback behavior.
- *
- * These tests FAIL until:
- *  - packages/server/src/services/org-routing.ts is created
- *  - resolveReviewRecipients(db, context) is exported from that file
- *  - With no org edges: returns all human user IDs
- *  - With matching org edges: returns matched human user IDs from fromUserId
- *  - With non-matching edges: falls back to all human user IDs
+ * P2 — resolveReviewRecipients fallback behavior.
  *
  * @lore P2: resolveReviewRecipients is the kernel-level routing function.
  * It queries org_edges for matching context (direct/function/team mechanism),
@@ -21,26 +14,39 @@
  *  3. Query WHERE mechanism="team" AND target=context.teamId
  *  4. Union the fromUserId values (deduplicated)
  *  5. If result set is empty, return all human user IDs
+ *
+ * @lore AU19 Increment 1c: moved from `packages/server/src/__tests__/
+ * P2-fallback-routing.integration.test.ts` — only needs `{ db }` (no `{ app }`),
+ * so it moves into the owning package's own `src/__tests__/`, switches its
+ * fixture import to `@hyperidle/db/test-fixtures`, and supplies a local
+ * `listUsersByKind` stand-in (a plain drizzle query against `users` — the
+ * exact query `@hyperidle/org`'s real `OrgUserDirectory` port wires to in
+ * production) instead of importing `packages/server`'s `user-store.ts`
+ * across the package boundary.
  */
 
-import {
-	// P2: import new symbols — compile error until implementation done
-	orgEdges,
-	users,
-} from "@hyperidle/db";
-import { describe, expect } from "vitest";
-import { resolveReviewRecipients } from "../services/org-routing.js";
-import { test } from "../test-fixtures.js";
+import { type HyperIdleDb, orgEdges, users } from "@hyperidle/db";
+import { expect, test } from "@hyperidle/db/test-fixtures";
+import { eq } from "drizzle-orm";
+import { describe } from "vitest";
+import { resolveReviewRecipients } from "../org-routing.js";
 
 const NOW = new Date().toISOString();
 
-describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
+/** Test stand-in for `@hyperidle/org`'s `OrgUserDirectory.listUsersByKind` port. */
+const orgUsers = {
+	async listUsersByKind(db: HyperIdleDb, kind: string) {
+		return db.select().from(users).where(eq(users.kind, kind));
+	},
+};
+
+describe("resolveReviewRecipients — fallback routing", () => {
 	// -------------------------------------------------------------------------
-	// AC8: no org edges → all human users receive reviews
+	// no org edges → all human users receive reviews
 	// -------------------------------------------------------------------------
-	describe("AC8: no org edges → returns all human user IDs", () => {
+	describe("no org edges → returns all human user IDs", () => {
 		test("returns empty array when no users exist and no org edges exist", async ({ db }) => {
-			const result = await resolveReviewRecipients(db, {});
+			const result = await resolveReviewRecipients(db, {}, orgUsers);
 			expect(Array.isArray(result)).toBe(true);
 			expect(result).toHaveLength(0);
 		});
@@ -76,7 +82,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 				createdAt: NOW,
 			});
 
-			const result = await resolveReviewRecipients(db, {});
+			const result = await resolveReviewRecipients(db, {}, orgUsers);
 			// Should return all human users, not AI users
 			expect(result).toHaveLength(2);
 			expect(result).toContain("u-h1");
@@ -88,7 +94,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 	// -------------------------------------------------------------------------
 	// AC8: org edges exist and match → returns matched human user IDs
 	// -------------------------------------------------------------------------
-	describe("AC8: matching org edges → returns matched human users only", () => {
+	describe("matching org edges → returns matched human users only", () => {
 		test("returns matched fromUserId when a direct edge matches context.userId", async ({ db }) => {
 			await db.insert(users).values([
 				{
@@ -126,7 +132,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 				createdAt: NOW,
 			});
 
-			const result = await resolveReviewRecipients(db, { userId: "u-target-ai" });
+			const result = await resolveReviewRecipients(db, { userId: "u-target-ai" }, orgUsers);
 			// Only u-reviewer has a direct edge to u-target-ai
 			expect(result).toContain("u-reviewer");
 			expect(result).not.toContain("u-other-human");
@@ -163,7 +169,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 				createdAt: NOW,
 			});
 
-			const result = await resolveReviewRecipients(db, { agentRole: "builder" });
+			const result = await resolveReviewRecipients(db, { agentRole: "builder" }, orgUsers);
 			expect(result).toContain("u-func-reviewer");
 			expect(result).not.toContain("u-other");
 		});
@@ -197,7 +203,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 				createdAt: NOW,
 			});
 
-			const result = await resolveReviewRecipients(db, { teamId: "team-alpha" });
+			const result = await resolveReviewRecipients(db, { teamId: "team-alpha" }, orgUsers);
 			expect(result).toContain("u-team-reviewer");
 			expect(result).not.toContain("u-unrelated");
 		});
@@ -232,10 +238,14 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 				},
 			]);
 
-			const result = await resolveReviewRecipients(db, {
-				userId: "u-ai-x",
-				agentRole: "builder",
-			});
+			const result = await resolveReviewRecipients(
+				db,
+				{
+					userId: "u-ai-x",
+					agentRole: "builder",
+				},
+				orgUsers,
+			);
 			// u-multi-match should appear only ONCE even though two edges matched
 			const occurrences = result.filter((id) => id === "u-multi-match").length;
 			expect(occurrences).toBe(1);
@@ -245,7 +255,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 	// -------------------------------------------------------------------------
 	// AC8: non-matching org edges → falls back to all human users
 	// -------------------------------------------------------------------------
-	describe("AC8: non-matching edges → falls back to all human users", () => {
+	describe("non-matching edges → falls back to all human users", () => {
 		test("returns all human users when edges exist but none match the context", async ({ db }) => {
 			await db.insert(users).values([
 				{
@@ -276,7 +286,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			});
 
 			// Query for a completely different userId — no edge matches
-			const result = await resolveReviewRecipients(db, { userId: "u-unrelated-ai" });
+			const result = await resolveReviewRecipients(db, { userId: "u-unrelated-ai" }, orgUsers);
 			// Falls back to ALL human users
 			expect(result).toContain("u-fallback-h1");
 			expect(result).toContain("u-fallback-h2");
@@ -311,7 +321,7 @@ describe("P2 — resolveReviewRecipients fallback routing (AC8)", () => {
 			});
 
 			// Empty context cannot match any edge — falls back to all humans
-			const result = await resolveReviewRecipients(db, {});
+			const result = await resolveReviewRecipients(db, {}, orgUsers);
 			expect(result).toContain("u-empty-ctx-h1");
 			expect(result).toContain("u-empty-ctx-h2");
 		});

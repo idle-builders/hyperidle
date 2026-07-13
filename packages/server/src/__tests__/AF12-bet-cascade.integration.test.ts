@@ -30,6 +30,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { cascadeBetKill, transitionBet } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
@@ -40,6 +41,12 @@ import { test } from "../test-fixtures.js";
 
 /** AU19 Increment 1b: `cascadeBetKill` forwards this to `transitionTask`. */
 const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
+// AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
+// to the real migrated `org` Service.
+const teamCapacity = {
+	getByTeamId: getTeamMembersByTeamId,
+	setActiveBets: setTeamMembersActiveBets,
+};
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -96,7 +103,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 describe("AF12 AC3 — bet kill cascade (state truth)", () => {
 	test("non-terminal task on the bet is killed", async ({ db, eventBus }) => {
 		await seed(db);
-		await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Not viable" });
+		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
 
 		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
 
@@ -109,7 +116,7 @@ describe("AF12 AC3 — bet kill cascade (state truth)", () => {
 		eventBus,
 	}) => {
 		await seed(db);
-		await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Not viable" });
+		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
 
 		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
 
@@ -124,7 +131,7 @@ describe("AF12 AC3 — bet kill cascade (state truth)", () => {
 		eventBus,
 	}) => {
 		await seed(db);
-		await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Not viable" });
+		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
 
 		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
 
@@ -134,7 +141,7 @@ describe("AF12 AC3 — bet kill cascade (state truth)", () => {
 
 	test("returns the ids of cascaded tasks and sessions", async ({ db, eventBus }) => {
 		await seed(db);
-		await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Not viable" });
+		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
 
 		const result = await cascadeBetKill(db, eventBus, "bet-1", testDeps);
 
@@ -150,7 +157,7 @@ describe("AF12 AC6 — cascade propagation_log labels", () => {
 		eventBus,
 	}) => {
 		await seed(db);
-		await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Not viable" });
+		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
 		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
 
 		const rows = await db
@@ -171,7 +178,7 @@ describe("AF12 AC6 — cascade propagation_log labels", () => {
 		eventBus,
 	}) => {
 		await seed(db);
-		await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Not viable" });
+		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
 		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
 
 		const rows = await db
@@ -195,7 +202,7 @@ describe("AF12 AC6 — cascade propagation_log labels", () => {
 		eventBus,
 	}) => {
 		await seed(db);
-		await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Not viable" });
+		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
 
 		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
 		// Second cascade: the bet/tasks/sessions are all terminal — must be a clean no-op.

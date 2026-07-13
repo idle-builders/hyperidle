@@ -1,11 +1,11 @@
-import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type BetStatus,
 	CapacityExceededError,
 	type EventBus,
 	InvalidTransitionError,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import type { TeamCapacityReader } from "./ports.js";
 import * as work from "./work-service.js";
 
 /**
@@ -89,10 +89,18 @@ function addRevisionEntry(
  * @lore U1: `teamMembers` table (formerly `teams`) is used for capacity checks.
  * The bet's `teamId` now references the `teams` table (domain entity).
  * We look up the team_members row via teamId (1:1 invariant).
+ *
+ * @lore AU19 Increment 1c: `teamCapacity` is an injected `org` Service port
+ * (Mechanism C) — this used to import the `teamMembers` table directly (an
+ * interim `table-ownership-guard.ts` exemption while `org` hadn't migrated
+ * yet). An ordinary same-layer core-api→core-api edge, NOT §10.3
+ * against-grain — wired to `@hyperidle/org`'s real
+ * `getTeamMembersByTeamId`/`setTeamMembersActiveBets` unchanged.
  */
 export async function transitionBet(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	teamCapacity: TeamCapacityReader,
 	betId: string,
 	toState: BetStatus,
 	options?: TransitionOptions,
@@ -114,11 +122,7 @@ export async function transitionBet(
 	}
 
 	// @lore U1: Look up teamMembers via bet.teamId (1:1 invariant: one teamMembers per team).
-	const [memberGroup] = await db
-		.select()
-		.from(teamMembers)
-		.where(eq(teamMembers.teamId, bet.teamId))
-		.limit(1);
+	const memberGroup = await teamCapacity.getByTeamId(db, bet.teamId);
 	if (!memberGroup) {
 		throw new Error(`TeamMembers for team '${bet.teamId}' not found`);
 	}
@@ -163,11 +167,7 @@ export async function transitionBet(
 	const transitioned = await db.transaction(async (tx): Promise<boolean> => {
 		// Capacity check: re-read the teamMembers inside the tx so two concurrent
 		// commits cannot both observe `activeBets < capacity` against a stale snapshot.
-		const [freshMemberGroup] = await tx
-			.select()
-			.from(teamMembers)
-			.where(eq(teamMembers.teamId, bet.teamId))
-			.limit(1);
+		const freshMemberGroup = await teamCapacity.getByTeamId(tx, bet.teamId);
 		if (!freshMemberGroup) {
 			throw new Error(`TeamMembers for team '${bet.teamId}' not found`);
 		}
@@ -192,17 +192,15 @@ export async function transitionBet(
 		}
 
 		if (toState === "active") {
-			await tx
-				.update(teamMembers)
-				.set({ activeBets: freshMemberGroup.activeBets + 1 })
-				.where(eq(teamMembers.id, freshMemberGroup.id));
+			await teamCapacity.setActiveBets(tx, freshMemberGroup.id, freshMemberGroup.activeBets + 1);
 		}
 
 		if (toState === "completed") {
-			await tx
-				.update(teamMembers)
-				.set({ activeBets: Math.max(0, freshMemberGroup.activeBets - 1) })
-				.where(eq(teamMembers.id, freshMemberGroup.id));
+			await teamCapacity.setActiveBets(
+				tx,
+				freshMemberGroup.id,
+				Math.max(0, freshMemberGroup.activeBets - 1),
+			);
 		}
 
 		if (
@@ -211,10 +209,11 @@ export async function transitionBet(
 			fromState !== "completed" &&
 			fromState !== "killed"
 		) {
-			await tx
-				.update(teamMembers)
-				.set({ activeBets: Math.max(0, freshMemberGroup.activeBets - 1) })
-				.where(eq(teamMembers.id, freshMemberGroup.id));
+			await teamCapacity.setActiveBets(
+				tx,
+				freshMemberGroup.id,
+				Math.max(0, freshMemberGroup.activeBets - 1),
+			);
 		}
 
 		return true;

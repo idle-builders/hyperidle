@@ -1,10 +1,15 @@
 import { teamMembers, teams } from "@hyperidle/db";
+import { persistScaffoldedAgents } from "@hyperidle/org";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
-import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
+import { getUserById, insertUser } from "../services/user-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
+
+// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
+// the real `user-store.ts` function references unchanged (no behavior change).
+const orgUsers = { getUserById, insertUser };
 
 /**
  * `add_agent` — Add a new AI agent to an existing team with the specified role.
@@ -82,7 +87,7 @@ async function handler(
 			? specs.map((s) => ({ ...s, systemPrompt: input.systemPrompt ?? null }))
 			: specs;
 
-	const { agentIds } = await persistScaffoldedAgents(ctx.db, memberGroup.id, finalSpecs);
+	const { agentIds } = await persistScaffoldedAgents(ctx.db, orgUsers, memberGroup.id, finalSpecs);
 	const agentId = agentIds[0];
 	if (!agentId) {
 		return err("INTERNAL_ERROR", "App defaults returned no specs for agent_added trigger");

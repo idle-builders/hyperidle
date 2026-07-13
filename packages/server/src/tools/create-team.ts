@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { teamMembers, teams } from "@hyperidle/db";
+import { persistScaffoldedAgents } from "@hyperidle/org";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
-import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { listUsersByTeam } from "../services/user-store.js";
+import { getUserById, insertUser, listUsersByTeam } from "../services/user-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
+
+// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
+// the real `user-store.ts` function references unchanged (no behavior change).
+const orgUsers = { getUserById, insertUser };
 
 /**
  * `create_team` — Create a new team with the specified functions and auto-generate
@@ -89,7 +93,12 @@ async function handler(
 	});
 
 	// AK6: persistScaffoldedAgents is the single writer, assigning ids and mechanism fields.
-	const { agentIds, leadAgentId } = await persistScaffoldedAgents(ctx.db, teamMembersId, specs);
+	const { agentIds, leadAgentId } = await persistScaffoldedAgents(
+		ctx.db,
+		orgUsers,
+		teamMembersId,
+		specs,
+	);
 
 	// Build roster summary from the inserted rows.
 	const createdAgents = await listUsersByTeam(ctx.db, teamMembersId);

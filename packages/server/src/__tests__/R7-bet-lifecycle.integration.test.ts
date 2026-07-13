@@ -16,11 +16,19 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
 import { transitionBet } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { registerLifecyclePropagation } from "../services/lifecycle-propagation.js";
 import { test } from "../test-fixtures.js";
+
+// AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
+// to the real migrated `org` Service.
+const teamCapacity = {
+	getByTeamId: getTeamMembersByTeamId,
+	setActiveBets: setTeamMembersActiveBets,
+};
 
 const TEST_API_KEY = "test-key-r7-bets";
 const SYSTEM_PROPAGATION_ID = "system:propagation";
@@ -125,7 +133,7 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		});
 
 		// Transition to completed (U1: "shipped" → "completed")
-		await transitionBet(db, eventBus, betId, "completed");
+		await transitionBet(db, eventBus, teamCapacity, betId, "completed");
 
 		const [row] = await db.select({ status: bets.status }).from(bets).where(eq(bets.id, betId));
 		// @lore U1: shipped → completed

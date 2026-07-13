@@ -1,8 +1,16 @@
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
 import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/shared";
 import { type RevisionLogEntry, transitionBet, updateBetField } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../test-fixtures.js";
+
+// AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
+// to the real migrated `org` Service.
+const teamCapacity = {
+	getByTeamId: getTeamMembersByTeamId,
+	setActiveBets: setTeamMembersActiveBets,
+};
 
 // @lore U1: teams = domain entity (products); teamMembers = membership group.
 // bets.teamId references teams.id, NOT teamMembers.id.
@@ -73,7 +81,7 @@ describe("bet-state-machine", () => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
-			await transitionBet(db, eventBus, "bet-1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
 
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("active");
@@ -91,7 +99,7 @@ describe("bet-state-machine", () => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
-			await transitionBet(db, eventBus, "bet-1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
 
 			const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
 			expect(member?.activeBets).toBe(1);
@@ -102,7 +110,7 @@ describe("bet-state-machine", () => {
 			await db.update(teamMembers).set({ activeBets: 3 }).where(eq(teamMembers.id, "team-1"));
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
-			await expect(transitionBet(db, eventBus, "bet-1", "active")).rejects.toThrow(
+			await expect(transitionBet(db, eventBus, teamCapacity, "bet-1", "active")).rejects.toThrow(
 				CapacityExceededError,
 			);
 
@@ -115,7 +123,7 @@ describe("bet-state-machine", () => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "active" }));
 
-			await transitionBet(db, eventBus, "bet-1", "completed");
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "completed");
 
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("completed");
@@ -132,7 +140,7 @@ describe("bet-state-machine", () => {
 			const completedHandler = vi.fn();
 			eventBus.on("bet_state_changed", completedHandler);
 
-			await transitionBet(db, eventBus, "bet-1", "completed");
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "completed");
 
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("completed");
@@ -162,7 +170,7 @@ describe("bet-state-machine", () => {
 			const stateHandler = vi.fn();
 			eventBus.on("bet_state_changed", stateHandler);
 
-			await transitionBet(db, eventBus, "bet-1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
 
 			expect(stateHandler).toHaveBeenCalledTimes(1);
 			expect(stateHandler).toHaveBeenCalledWith(
@@ -179,7 +187,7 @@ describe("bet-state-machine", () => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
-			await expect(transitionBet(db, eventBus, "bet-1", "completed")).rejects.toThrow(
+			await expect(transitionBet(db, eventBus, teamCapacity, "bet-1", "completed")).rejects.toThrow(
 				InvalidTransitionError,
 			);
 		});
@@ -188,7 +196,7 @@ describe("bet-state-machine", () => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
-			await expect(transitionBet(db, eventBus, "bet-1", "killed")).rejects.toThrow(
+			await expect(transitionBet(db, eventBus, teamCapacity, "bet-1", "killed")).rejects.toThrow(
 				"Killing a bet requires a reason",
 			);
 		});
@@ -197,7 +205,9 @@ describe("bet-state-machine", () => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
-			await transitionBet(db, eventBus, "bet-1", "killed", { reason: "No longer viable" });
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", {
+				reason: "No longer viable",
+			});
 
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("killed");
@@ -214,7 +224,7 @@ describe("bet-state-machine", () => {
 			await db.update(teamMembers).set({ activeBets: 1 }).where(eq(teamMembers.id, "team-1"));
 			await db.insert(bets).values(makeBet({ status: "active" }));
 
-			await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Cancelled" });
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Cancelled" });
 
 			const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
 			expect(member?.activeBets).toBe(0);
@@ -228,7 +238,7 @@ describe("bet-state-machine", () => {
 			await db.update(teamMembers).set({ activeBets: 1 }).where(eq(teamMembers.id, "team-1"));
 			await db.insert(bets).values(makeBet({ status: "active" }));
 
-			await transitionBet(db, eventBus, "bet-1", "killed", { reason: "Cancelled" });
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Cancelled" });
 
 			const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
 			expect(member?.activeBets).toBe(0);
@@ -243,7 +253,7 @@ describe("bet-state-machine", () => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "active" }));
 
-			await expect(transitionBet(db, eventBus, "bet-1", "draft")).rejects.toThrow(
+			await expect(transitionBet(db, eventBus, teamCapacity, "bet-1", "draft")).rejects.toThrow(
 				InvalidTransitionError,
 			);
 		});
@@ -261,7 +271,7 @@ describe("bet-state-machine", () => {
 
 				const txSpy = vi.spyOn(db, "transaction");
 
-				await transitionBet(db, eventBus, "bet-1", "active");
+				await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
 
 				expect(txSpy).toHaveBeenCalledTimes(1);
 				txSpy.mockRestore();
@@ -275,8 +285,8 @@ describe("bet-state-machine", () => {
 				await db.insert(bets).values(makeBet({ id: "bet-a", status: "draft" }));
 				await db.insert(bets).values(makeBet({ id: "bet-b", status: "draft" }));
 
-				await transitionBet(db, eventBus, "bet-a", "active");
-				await transitionBet(db, eventBus, "bet-b", "active");
+				await transitionBet(db, eventBus, teamCapacity, "bet-a", "active");
+				await transitionBet(db, eventBus, teamCapacity, "bet-b", "active");
 
 				const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
 				expect(member?.activeBets).toBe(2);
@@ -309,13 +319,13 @@ describe("bet-state-machine", () => {
 				expect(memberBefore?.activeBets).toBe(0);
 
 				// Commit first bet to consume one slot (capacity=3, activeBets will become 1)
-				await transitionBet(db, eventBus, "bet-1", "active");
+				await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
 				const [memberMid] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
 				expect(memberMid?.activeBets).toBe(1);
 
 				// Now attempt an invalid transition (active → draft — not a valid transition)
 				// This should throw and leave activeBets unchanged
-				await expect(transitionBet(db, eventBus, "bet-1", "draft")).rejects.toThrow();
+				await expect(transitionBet(db, eventBus, teamCapacity, "bet-1", "draft")).rejects.toThrow();
 
 				// Post-condition: teamMembers.activeBets is unchanged (still 1, not leaked)
 				const [memberAfter] = await db
@@ -426,7 +436,7 @@ describe("bet-state-machine", () => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
-			await transitionBet(db, eventBus, "bet-1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
 
 			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(1);
@@ -448,8 +458,8 @@ describe("bet-state-machine", () => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
-			await transitionBet(db, eventBus, "bet-1", "active");
-			await transitionBet(db, eventBus, "bet-1", "completed");
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "completed");
 
 			const log = await getRevisionLog(db, "bet-1");
 			expect(log).toHaveLength(2);
@@ -476,14 +486,14 @@ describe("bet-state-machine", () => {
 			);
 
 			// First transition wins — commits and emits bet_state_changed.
-			await transitionBet(db, eventBus, "bet-1", "completed");
+			await transitionBet(db, eventBus, teamCapacity, "bet-1", "completed");
 
 			// Second transition observes the same `fromState` ("active")
 			// because the pre-transaction read happens against the same row,
 			// but the compare-and-set UPDATE pins `WHERE status = active`
 			// and now the row is `completed`. changes === 0, the tx rolls
 			// back, and InvalidTransitionError bubbles.
-			await expect(transitionBet(db, eventBus, "bet-1", "completed")).rejects.toThrow(
+			await expect(transitionBet(db, eventBus, teamCapacity, "bet-1", "completed")).rejects.toThrow(
 				InvalidTransitionError,
 			);
 

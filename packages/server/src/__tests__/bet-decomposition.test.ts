@@ -25,6 +25,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
 import {
 	type AgentSessionSourceKind,
 	DECOMPOSITION_TURN_TIMEOUT_MS,
@@ -49,12 +50,16 @@ import { createTaskTool } from "../tools/create-task.js";
  * AU19 Increment 1b: `BetDecompositionDeps` now requires the four injected
  * `work` outbound ports (Mechanism C). Mirrors `server-factory.ts`'s
  * production wiring exactly.
+ *
+ * @lore AU19 Increment 1c: `teamCapacity` (fifth port, → `org`) added — closes
+ * W2's `teamMembers` ownership gap.
  */
 const productionPorts = {
 	agentSelection: { enumerateTeamCandidates, selectOwner, resolveDecompositionPlan },
 	users: { getUserById, listActiveAiUsersByTeams },
 	costCap: { checkCostCap },
 	workIntents: { record: recordAgentWorkIntent },
+	teamCapacity: { getByTeamId: getTeamMembersByTeamId, setActiveBets: setTeamMembersActiveBets },
 } as const;
 
 // ---------------------------------------------------------------------------

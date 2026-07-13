@@ -7,6 +7,12 @@ import {
 	teamMembers,
 	teams,
 } from "@hyperidle/db";
+import {
+	ApiError,
+	getTeamMembersByTeamId,
+	loadTeamMembers,
+	setTeamMembersActiveBets,
+} from "@hyperidle/org";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import {
 	BET_OUTCOME_VERDICTS,
@@ -25,9 +31,15 @@ import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { getArtifactThreadSummaries } from "../services/conversation-store.js";
-import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 
 const SUMMARY_CAP = 10;
+
+// AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
+// to the real migrated `org` Service — closes W2's `teamMembers` ownership gap.
+const teamCapacity = {
+	getByTeamId: getTeamMembersByTeamId,
+	setActiveBets: setTeamMembersActiveBets,
+};
 
 /**
  * Zod schema for a WireMoney object in request bodies.
@@ -740,7 +752,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// Global error handler maps InvalidTransitionError to 409 (CONFLICT) for task transitions.
 		// Bet lifecycle spec explicitly requires 400 with code VALIDATION_ERROR.
 		try {
-			await transitionBet(db, eventBus, betId, "active", {
+			await transitionBet(db, eventBus, teamCapacity, betId, "active", {
 				reason: reason ?? "Bet activated",
 				actor: c.get("userId"),
 			});
@@ -770,7 +782,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		const betId = c.req.param("id");
 		// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.
 		try {
-			await transitionBet(db, eventBus, betId, "completed");
+			await transitionBet(db, eventBus, teamCapacity, betId, "completed");
 		} catch (err) {
 			if (err instanceof InvalidTransitionError) {
 				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
@@ -798,7 +810,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			const body = c.req.valid("json" as never) as z.infer<typeof killBetSchema>;
 			// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.
 			try {
-				await transitionBet(db, eventBus, betId, "killed", {
+				await transitionBet(db, eventBus, teamCapacity, betId, "killed", {
 					reason: body.reason,
 					actor: c.get("userId"),
 				});

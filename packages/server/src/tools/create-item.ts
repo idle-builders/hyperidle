@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
+import { resolveReviewRecipients } from "@hyperidle/org";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
 import { routeItem } from "@hyperidle/work";
 import z from "zod";
 import { getThreadById, insertThread, updateThread } from "../services/conversation-store.js";
-import { resolveReviewRecipients } from "../services/org-routing.js";
-import { getUserById } from "../services/user-store.js";
+import { getUserById, listUsersByKind } from "../services/user-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
+
+// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
+// the real `user-store.ts` function reference unchanged (no behavior change).
+const orgUsers = { listUsersByKind };
 
 const RISK_TIERS = ["low", "medium", "high"] as const;
 
@@ -106,11 +110,15 @@ async function handler(args: CreateItemInput, ctx: ToolContext): Promise<ToolRes
 	if (isReviewItem(input)) {
 		const agentRow = await getUserById(ctx.db, ctx.agentId);
 
-		const humanIds = await resolveReviewRecipients(ctx.db, {
-			userId: ctx.agentId,
-			agentRole: agentRow?.role ?? undefined,
-			teamId: ctx.teamId,
-		});
+		const humanIds = await resolveReviewRecipients(
+			ctx.db,
+			{
+				userId: ctx.agentId,
+				agentRole: agentRow?.role ?? undefined,
+				teamId: ctx.teamId,
+			},
+			orgUsers,
+		);
 
 		if (humanIds.length > 0) {
 			const threadRow = await getThreadById(ctx.db, threadId);

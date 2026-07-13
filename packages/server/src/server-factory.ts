@@ -10,6 +10,7 @@ import {
 	resolveProfile,
 } from "@hyperidle/db";
 import { registerRelevanceListener, setupFts } from "@hyperidle/knowledge";
+import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { registerBetDecomposition, resolveOrphanedDecompositions } from "@hyperidle/work";
 import { WebSocketServer } from "ws";
@@ -477,6 +478,9 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		users: { getUserById, listActiveAiUsersByTeams },
 		costCap: { checkCostCap },
 		workIntents: { record: recordAgentWorkIntent },
+		// AU19 Increment 1c: `org` is a REAL migrated package — wired to its real
+		// exported functions (W2 closure).
+		teamCapacity: { getByTeamId: getTeamMembersByTeamId, setActiveBets: setTeamMembersActiveBets },
 	});
 
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.

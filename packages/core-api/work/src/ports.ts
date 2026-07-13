@@ -1,10 +1,10 @@
 /**
  * `work` Service (core-api) — outbound composition-boundary (Mechanism C) DI
- * ports, per architecture §10.2's census: `work`'s four real outbound edges
- * (`session-requests`, `agent-selection`, `cost`, `users`) become injected
- * ports here, wired by the caller in `packages/server` (the not-yet-split
- * `agent-orchestration`/Application composition root) until those Services
- * migrate.
+ * ports, per architecture §10.2's census: `work`'s five real outbound edges
+ * (`session-requests`, `agent-selection`, `cost`, `users`, `org`) become
+ * injected ports here, wired by the caller in `packages/server` (the
+ * not-yet-split `agent-orchestration`/Application composition root) until
+ * those Services migrate.
  *
  * Structural ports, same idiom as `@hyperidle/knowledge`'s
  * `AttentionServiceDeps` (`ReasoningMarkerFinder`/`KnowledgeReviewWriter`,
@@ -13,7 +13,7 @@
  * function reference unchanged — zero behavior change.
  *
  * @lore AU19 Increment 1b — §10.3 "against-grain" classification: three of
- * these four edges (`AgentWorkIntentRecorder` → session-requests,
+ * these five edges (`AgentWorkIntentRecorder` → session-requests,
  * `AgentSelectionDefaults` → agent-selection, `CostCapChecker` → cost) are
  * `core-api → agent-orchestration`, which runs AGAINST the downward
  * dependency grain (orchestration is meant to depend on core-api, not the
@@ -28,9 +28,19 @@
  * (`UserStoreReader` → `users`) is an ordinary same-layer core-api→core-api
  * edge (`users` just hasn't migrated yet) — no Inc-3 event-bus rewrite is
  * needed for it, only a straight DI-target swap once `users` exists.
+ *
+ * @lore AU19 Increment 1c — `TeamCapacityReader` (→ `org`, now a REAL migrated
+ * package, not an interim stub) closes W2: `bet-state-machine.ts`/
+ * `bet-decomposition.ts` used to import the `teamMembers` table directly
+ * (an interim `table-ownership-guard.ts` `UNOWNED_SHARED_TABLES` exemption,
+ * now removed — `org` is the real `TABLE_OWNER`). This is also an ordinary
+ * same-layer core-api→core-api edge, NOT against-grain — wired directly to
+ * `@hyperidle/org`'s real exported functions (`getTeamMembersByTeamId`/
+ * `setTeamMembersActiveBets`), no interim indirection needed since `org`
+ * migrated in the same Increment this port was introduced.
  */
 
-import type { WriteExecutor } from "@hyperidle/db";
+import type { TeamMember, WriteExecutor } from "@hyperidle/db";
 import type { EventBus, UserRole } from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
@@ -154,4 +164,21 @@ export interface UserStoreReader {
 		db: WriteExecutor,
 		teamMembersIds: string[],
 	): Promise<readonly WorkUserRow[]>;
+}
+
+// ---------------------------------------------------------------------------
+// org — TeamCapacityReader (ordinary downward core-api edge, NOT against-grain)
+// ---------------------------------------------------------------------------
+
+/**
+ * Port for `org`'s team-capacity read/write surface `work` calls directly
+ * today (`team-lookup.ts`'s `getTeamMembersByTeamId`/`setTeamMembersActiveBets`).
+ * Types off `@hyperidle/db`'s `TeamMember` row directly (`work` keeps
+ * `@hyperidle/db` — architecture §7.3 W4, core-api Services may type ports
+ * off `@hyperidle/db` row types directly) — no narrower `Work*` row type is
+ * needed since `org` already owns the canonical row shape.
+ */
+export interface TeamCapacityReader {
+	getByTeamId(db: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
+	setActiveBets(db: WriteExecutor, teamMembersId: string, activeBets: number): Promise<void>;
 }

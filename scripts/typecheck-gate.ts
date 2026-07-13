@@ -305,7 +305,17 @@ function buildLeafDeclarations(root: string): void {
   // @lore AU19 Increment 1b: `core-api/work` added — same TS6305 cascade hits
   // `server` again (43+ consumer files across routes/tools/services now import
   // `@hyperidle/work`) without a pre-built dist.
-  for (const leaf of ["shared", "db", "design-system", "core-api/knowledge", "core-api/work"]) {
+  //
+  // @lore AU19 Increment 1c: `core-api/org` added — same TS6305 cascade;
+  // routes/tools/services now import `@hyperidle/org`.
+  for (const leaf of [
+    "shared",
+    "db",
+    "design-system",
+    "core-api/knowledge",
+    "core-api/work",
+    "core-api/org",
+  ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
     } catch {

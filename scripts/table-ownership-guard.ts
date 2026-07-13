@@ -52,6 +52,13 @@ const TABLE_OWNER: Record<string, string> = {
 	bets: "packages/core-api/work",
 	tasks: "packages/core-api/work",
 	items: "packages/core-api/work",
+	// AU19 Increment 1c: `org` migrated — closes the W2 `teamMembers` exemption
+	// (removed from UNOWNED_SHARED_TABLES below). `orgEdges` is `org`'s other
+	// owned table (never accessed from a foreign nested package today, but
+	// mapped now so any future access is completeness-checked, not silently
+	// exempt).
+	teamMembers: "packages/core-api/org",
+	orgEdges: "packages/core-api/org",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 
@@ -59,11 +66,11 @@ const TABLE_OWNER: Record<string, string> = {
  * Tables genuinely accessed today from many present-and-future Services with
  * no single owner assigned anywhere in architecture §4's roster (unlike
  * `bets`/`tasks`/`items`, none of §4's per-Service "Owns" columns name
- * `teamMembers`/`sessions`/`propagationLog`/`taskDispatchAttempts`). This
- * mirrors the recurring "not one of the owned tables → any file may query it
- * directly" idiom already established in the codebase — NOT an
- * architecture.md §6 citation (§6 there is the file-disposition table, not
- * this idiom): `scripts/au18-notification-ownership-guard.ts` (~line 156,
+ * `sessions`/`propagationLog`/`taskDispatchAttempts`). This mirrors the
+ * recurring "not one of the owned tables → any file may query it directly"
+ * idiom already established in the codebase — NOT an architecture.md §6
+ * citation (§6 there is the file-disposition table, not this idiom):
+ * `scripts/au18-notification-ownership-guard.ts` (~line 156,
  * `legalPropagationWrite` treats `propagationLog` as "legal — unrelated
  * table"), `scripts/au13-work-routine-ownership-guard.ts` ("`threads` is not
  * one of the five owned tables"), and the same phrase verbatim in
@@ -74,18 +81,23 @@ const TABLE_OWNER: Record<string, string> = {
  * enforced for this short, explicit, reviewed list, rather than forcing a
  * false single-owner assignment onto a real cross-cutting table.
  *
- * @lore AU19 Increment 1b: surfaced migrating `work` — `bet-decomposition.ts`/
- * `bet-state-machine.ts` read/write `teamMembers` directly (capacity
- * tracking); `bet-kill-cascade.ts` reads/writes `sessions` + `propagationLog`
- * (cascade); `task-state-machine.ts`/`bet-decomposition.ts` write
- * `taskDispatchAttempts`. Grepping the wider codebase (pre-AU19, still true
- * today) shows 10+ files across `policy`/`session-lifecycle`/`dispatch`/
- * `org`/`session-requests`/`lifecycle-projection`-destined modules touching
- * each of these four directly — none is `work`-exclusive, so assigning any of
- * them a `TABLE_OWNER` row pointing at `packages/core-api/work` would be a
- * false-ownership claim the zero-exceptions ACL principle forbids just as
- * much as a silent allowlist would. Revisit per-table as each real owner
- * migrates (§4's `⛁*` "confirm at migration" callouts apply here too).
+ * @lore AU19 Increment 1b: surfaced migrating `work` — `bet-kill-cascade.ts`
+ * reads/writes `sessions` + `propagationLog` (cascade); `task-state-machine.ts`/
+ * `bet-decomposition.ts` write `taskDispatchAttempts`. Grepping the wider
+ * codebase (pre-AU19, still true today) shows 10+ files across `policy`/
+ * `session-lifecycle`/`dispatch`/`session-requests`/`lifecycle-projection`-
+ * destined modules touching each of these directly — none is `work`-exclusive,
+ * so assigning any of them a `TABLE_OWNER` row pointing at `packages/core-api/
+ * work` would be a false-ownership claim the zero-exceptions ACL principle
+ * forbids just as much as a silent allowlist would. Revisit per-table as each
+ * real owner migrates (§4's `⛁*` "confirm at migration" callouts apply here too).
+ *
+ * @lore AU19 Increment 1c (W2 closure): `teamMembers` REMOVED from this Set —
+ * `org` migrated this Increment and is now its real `TABLE_OWNER`. `work`'s
+ * two accessors (`bet-state-machine.ts`'s capacity read/write,
+ * `bet-decomposition.ts`'s membership-group read) were converted to `work`'s
+ * `TeamCapacityReader` DI port (Mechanism C), wired to `@hyperidle/org`'s real
+ * exported functions — closing the exemption this Set existed to grant it.
  *
  * @lore AU19 Increment 1b checkpoint-review follow-up: this Set and
  * `TABLE_OWNER` must stay disjoint — `consider()` below checks
@@ -95,12 +107,7 @@ const TABLE_OWNER: Record<string, string> = {
  * wrongly short-circuit as exempt). `assertDisjointOwnership` below enforces
  * this at load time.
  */
-const UNOWNED_SHARED_TABLES = new Set([
-	"teamMembers",
-	"sessions",
-	"propagationLog",
-	"taskDispatchAttempts",
-]);
+const UNOWNED_SHARED_TABLES = new Set(["sessions", "propagationLog", "taskDispatchAttempts"]);
 
 /**
  * Startup invariant: `UNOWNED_SHARED_TABLES` and `TABLE_OWNER` must never

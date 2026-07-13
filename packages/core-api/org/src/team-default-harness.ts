@@ -8,6 +8,10 @@
  * @lore AV1: Three-step fallback: explicit → team default → undefined (defers to
  * persistScaffoldedAgents for builtin). The resolver returns undefined when both
  * explicit + team default are unset so the scaffold writer's baked-in fallback applies.
+ *
+ * @lore AU19 Increment 1c: moved unchanged from `packages/server/src/services/
+ * team-default-harness.ts` — pure function, zero cross-Service imports, only
+ * its package home changed.
  */
 
 import type { PrimaryHarnessConfig } from "@hyperidle/shared";

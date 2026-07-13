@@ -20,6 +20,13 @@
  * `agent-defaults/resolvers.ts`, `cost-cap.ts`, `user-store.ts`) and are wired
  * at each real call site (`server-factory.ts`, `routes/tasks.ts`,
  * `routes/bets.ts`, `session-provisioning.ts`, `dependency-watcher.ts`).
+ *
+ * @lore AU19 Increment 1c: a fifth outbound edge, `org` (`TeamCapacityReader`),
+ * closes W2's `teamMembers` ownership gap — `org` is a REAL migrated package
+ * this increment (not an interim stub), so the concrete implementation is
+ * `@hyperidle/org`'s `getTeamMembersByTeamId`/`setTeamMembersActiveBets`, wired
+ * at the same call sites (`server-factory.ts`, `routes/bets.ts`) plus every
+ * test that constructs a `transitionBet`/`BetDecompositionDeps` call.
  */
 
 // -- bet decomposition (AK3) --
@@ -45,6 +52,7 @@ export type {
 	CostCapChecker,
 	ResolveDecompositionPlanInput,
 	SelectOwnerOccasion,
+	TeamCapacityReader,
 	UserStoreReader,
 	WorkAgentWorkIntentInput,
 	WorkAgentWorkIntentKind,

@@ -17,13 +17,13 @@
 // @lore U1: `teams` renamed to `teamMembers` (membership group); `products` renamed to `teams` (domain entity).
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
 import { type HyperIdleDb, orgEdges, teamMembers, teams } from "@hyperidle/db";
+import { upsertOrgEdge } from "@hyperidle/org";
 import { ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
 import { eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { upsertOrgEdge } from "../services/org-edges.js";
 import { getUserById, listUserDirectory } from "../services/user-store.js";
 
 const putOrgEdgeSchema = z.object({

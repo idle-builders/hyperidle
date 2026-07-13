@@ -14,11 +14,19 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
 import type { EventBus } from "@hyperidle/shared";
 import type { RevisionLogEntry } from "@hyperidle/work";
 import { transitionBet } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
+
+// AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
+// to the real migrated `org` Service.
+const teamCapacity = {
+	getByTeamId: getTeamMembersByTeamId,
+	setActiveBets: setTeamMembersActiveBets,
+};
 
 const TEST_API_KEY = "test-key-L14";
 
@@ -153,7 +161,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 		}) => {
 			await seedBase(db, eventBus);
 			// @lore U1: Walk to "active" (draft → active via /commit) so cost_appetite update is allowed
-			await transitionBet(db, eventBus, "bet1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -172,7 +180,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			eventBus,
 		}) => {
 			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, "bet1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -187,7 +195,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 
 		test("accepts cost_appetite null (uncapped)", async ({ db, app, eventBus }) => {
 			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, "bet1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -202,7 +210,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 
 		test("rejects cost_appetite with invalid currency with 400", async ({ db, app, eventBus }) => {
 			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, "bet1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -217,7 +225,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 
 		test("rejects cost_appetite with negative minor with 400", async ({ db, app, eventBus }) => {
 			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, "bet1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -236,7 +244,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			eventBus,
 		}) => {
 			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, "bet1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -251,7 +259,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	describe("AC-4 — cost_appetite update from active state", () => {
 		test("allows cost_appetite update when bet is active", async ({ db, app, eventBus }) => {
 			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, "bet1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
 
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
@@ -273,7 +281,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			await seedBase(db, eventBus);
 			// @lore U1: "blocked" is no longer a separate status — it maps to "active".
 			// This test verifies the active status allows cost_appetite PATCH.
-			await transitionBet(db, eventBus, "bet1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
 
 			const res = await app.request("/api/bets/bet1", {
 				method: "PATCH",
@@ -297,7 +305,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			eventBus,
 		}) => {
 			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, "bet1", "active");
+			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
 
 			await app.request("/api/bets/bet1/kill", {
 				method: "POST",

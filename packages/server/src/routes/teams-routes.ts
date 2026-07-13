@@ -19,6 +19,13 @@
  */
 
 import { type HyperIdleDb, sessions, teamMembers, teams } from "@hyperidle/db";
+import {
+	ApiError,
+	loadTeamMembers,
+	persistScaffoldedAgents,
+	resolveTeamAgentHarness,
+	upsertOrgEdge,
+} from "@hyperidle/org";
 import type {
 	AgentOperationalStatus,
 	BetCardSummary,
@@ -52,11 +59,7 @@ import { deriveInitials } from "../services/agent-utils.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
 import { getThreadById, insertMessage, insertThread } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
-import { upsertOrgEdge } from "../services/org-edges.js";
-import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
-import { resolveTeamAgentHarness } from "../services/team-default-harness.js";
-import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
 import {
 	getFirstUserByKind,
 	getUserById,
@@ -72,6 +75,10 @@ import {
 	deriveHealthLevel,
 	resolveHarnessAvailable,
 } from "./agent-profile.js";
+
+// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
+// the real `user-store.ts` function references unchanged (no behavior change).
+const orgUsers = { getUserById, insertUser };
 
 /**
  * Derive team status from team_members and active bet states.
@@ -404,6 +411,7 @@ export function createTeamRoutes(
 		// POLISH-060 B3: Thread primaryHarness from the request so onboarding-chosen harness propagates.
 		const { agentIds, leadAgentId } = await persistScaffoldedAgents(
 			db,
+			orgUsers,
 			teamMembersId,
 			specs,
 			primaryHarness,
@@ -629,7 +637,13 @@ export function createTeamRoutes(
 		// resolveTeamAgentHarness(undefined, team) returns the team default or undefined
 		// (→ persistScaffoldedAgents applies builtin fallback at :112-114).
 		const addAgentHarness = resolveTeamAgentHarness(undefined, team);
-		const { agentIds } = await persistScaffoldedAgents(db, memberGroup.id, specs, addAgentHarness);
+		const { agentIds } = await persistScaffoldedAgents(
+			db,
+			orgUsers,
+			memberGroup.id,
+			specs,
+			addAgentHarness,
+		);
 		const agentId = agentIds[0] ?? crypto.randomUUID();
 		const now = new Date().toISOString();
 

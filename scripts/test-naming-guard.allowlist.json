@@ -111,7 +111,6 @@
 	"packages/server/src/__tests__/O2-schema-migration.integration.test.ts",
 	"packages/server/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
 	"packages/server/src/__tests__/P2-auth-resolution.integration.test.ts",
-	"packages/server/src/__tests__/P2-fallback-routing.integration.test.ts",
 	"packages/server/src/__tests__/P2-org-routes.integration.test.ts",
 	"packages/server/src/__tests__/P2-user-routes.integration.test.ts",
 	"packages/server/src/__tests__/P3-credentials.integration.test.ts",

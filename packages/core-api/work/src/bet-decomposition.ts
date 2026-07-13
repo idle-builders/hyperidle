@@ -23,7 +23,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { type HyperIdleDb, taskDispatchAttempts, teamMembers } from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
 import {
 	DECOMPOSITION_TURN_TIMEOUT_MS,
 	type DecompositionBlockerReason,
@@ -31,11 +31,11 @@ import {
 	type EventBus,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import type {
 	AgentSelectionDefaults,
 	AgentWorkIntentRecorder,
 	CostCapChecker,
+	TeamCapacityReader,
 	UserStoreReader,
 	WorkDecompositionPlan,
 	WorkUserRow,
@@ -60,6 +60,12 @@ export interface BetDecompositionDeps {
 	 * Inc-3 event-bus rewrite needed, only a DI-target swap once `users` migrates).
 	 */
 	readonly users: UserStoreReader;
+	/**
+	 * Injected `org` Service port (Mechanism C — ordinary downward edge, `org`
+	 * is a real migrated package as of Increment 1c; no Inc-3 event-bus rewrite
+	 * needed — this closes W2's `teamMembers` ownership gap).
+	 */
+	readonly teamCapacity: TeamCapacityReader;
 	/**
 	 * Injected `cost` Service port (Mechanism C — §10.3 against-grain, interim
 	 * DI port; Increment 3 rewires to an EventBus subscription).
@@ -133,23 +139,26 @@ export interface BetDecompositionDeps {
  * @lore AK3: users.teamId references teamMembers.id (membership group), NOT teams.id
  * (domain entity). The join goes: teams.id → teamMembers.teamId → teamMembers.id → users.teamId.
  * This mirrors the handoff-protocol.ts eligibility join (L184-202).
+ *
+ * @lore AU19 Increment 1c: `teamCapacity` is an injected `org` Service port
+ * (Mechanism C) — this used to import the `teamMembers` table directly (an
+ * interim `table-ownership-guard.ts` exemption while `org` hadn't migrated
+ * yet). `teamCapacity.getByTeamId` returns the single membership-group row
+ * (1:1 invariant, enforced app-wide by `org`'s `loadTeamMembers`), replacing
+ * the prior multi-row `memberGroups` query.
  */
 export async function findEligibleTeamAgents(
 	db: HyperIdleDb,
 	betTeamId: string,
+	teamCapacity: TeamCapacityReader,
 	users: UserStoreReader,
 ): Promise<readonly WorkUserRow[]> {
-	// 1. Resolve membership group IDs for this team (1:1 invariant in practice).
-	const memberGroups = await db
-		.select({ id: teamMembers.id })
-		.from(teamMembers)
-		.where(eq(teamMembers.teamId, betTeamId));
-	if (memberGroups.length === 0) return [];
+	// 1. Resolve the membership group for this team (1:1 invariant in practice).
+	const memberGroup = await teamCapacity.getByTeamId(db, betTeamId);
+	if (!memberGroup) return [];
 
-	const memberGroupIds = memberGroups.map((m) => m.id);
-
-	// 2. Fetch active AI users in those membership groups.
-	const candidates = await users.listActiveAiUsersByTeams(db, memberGroupIds);
+	// 2. Fetch active AI users in that membership group.
+	const candidates = await users.listActiveAiUsersByTeams(db, [memberGroup.id]);
 
 	// 3. Filter to category='team' via the role catalog.
 	//    Unknown roles (not in catalog) are excluded — conservative default.
@@ -375,7 +384,7 @@ export async function runBetDecomposition(
 	if (!bet || bet.decompositionStatus !== null) return;
 
 	// --- 1. Find eligible team agents ---
-	const eligible = await findEligibleTeamAgents(db, bet.teamId, deps.users);
+	const eligible = await findEligibleTeamAgents(db, bet.teamId, deps.teamCapacity, deps.users);
 	if (eligible.length === 0) {
 		await markTerminal(db, betId, "blocked", "no_eligible_agent");
 		return;

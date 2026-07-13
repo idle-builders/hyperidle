@@ -14,9 +14,17 @@
  */
 
 import { bets, teamMembers, teams } from "@hyperidle/db";
+import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
 import { transitionBet } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../test-fixtures.js";
+
+// AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
+// to the real migrated `org` Service.
+const teamCapacity = {
+	getByTeamId: getTeamMembersByTeamId,
+	setActiveBets: setTeamMembersActiveBets,
+};
 
 const TEST_API_KEY = "test-key-bets-q3";
 
@@ -668,7 +676,7 @@ describe("Bet Endpoints (Q3)", () => {
 
 			await app.request(`/api/bets/${betId}/commit`, { method: "POST", headers: authHeaders() });
 			// active -> completed via transitionBet
-			await transitionBet(db, eventBus, betId, "completed");
+			await transitionBet(db, eventBus, teamCapacity, betId, "completed");
 
 			const res = await app.request(`/api/bets/${betId}`, {
 				method: "PATCH",

@@ -5,11 +5,18 @@
  *      created:false on the second call, and only one row exists in the DB.
  *
  * Uses the DB fixture (PGlite in-process, TRUNCATE between tests).
+ *
+ * @lore AU19 Increment 1c: moved from `packages/server/src/services/__tests__/
+ * org-edges.integration.test.ts` — this test only needs `{ db }` (no `{ app }`),
+ * so it moves into the owning package's own `src/__tests__/` and switches its
+ * fixture import from `packages/server`'s `{ db, app, eventBus }` fixture to
+ * `@hyperidle/db/test-fixtures`'s `{ db }`-only fixture, same precedent as
+ * `@hyperidle/knowledge`'s `knowledge-reader.integration.test.ts`.
  */
 
 import { orgEdges, teamMembers, teams, users } from "@hyperidle/db";
-import { describe, expect } from "vitest";
-import { test } from "../../test-fixtures.js";
+import { expect, test } from "@hyperidle/db/test-fixtures";
+import { describe } from "vitest";
 import { upsertOrgEdge } from "../org-edges.js";
 
 const NOW = new Date().toISOString();
