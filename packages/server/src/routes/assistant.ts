@@ -34,15 +34,15 @@ import z from "zod";
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
+import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-layer";
 import {
 	getFirstThreadByHost,
 	insertThread,
 	listMessagesByThread,
-} from "../services/conversation-store.js";
-import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
-import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { getUserById, updateUser } from "../services/user-store.js";
+} from "@hyperidle/core-app";
+import type { HarnessCapabilityReader } from "@hyperidle/agent-layer";
+import { persistScaffoldedAgents } from "@hyperidle/agent-layer";
+import { getUserById, updateUser } from "@hyperidle/core-app";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 

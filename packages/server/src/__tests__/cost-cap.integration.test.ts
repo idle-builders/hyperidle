@@ -16,7 +16,7 @@ import {
 	clearDeduplicationCache,
 	recordCostAndCheck,
 	resetCosts,
-} from "../services/cost-cap.js";
+} from "@hyperidle/agent-layer";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

@@ -11,7 +11,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { Filesystem } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createGitRunner } from "../../services/git-export-runner.js";
+import { createGitRunner } from "@hyperidle/core-app";
 import { GitCloneAdapter } from "../git-clone-adapter.js";
 import type { AdapterDeps } from "../mounter-registry.js";
 

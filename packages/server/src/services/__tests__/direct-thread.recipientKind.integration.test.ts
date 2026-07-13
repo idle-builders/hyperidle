@@ -9,7 +9,7 @@
 import { type HyperIdleDb, threads, users } from "@hyperidle/db";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { findOrCreateDirectThread } from "../conversation-store.js";
+import { findOrCreateDirectThread } from "@hyperidle/core-app";
 
 const NOW = new Date().toISOString();
 

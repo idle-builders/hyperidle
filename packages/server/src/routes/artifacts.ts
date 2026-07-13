@@ -19,10 +19,10 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import { artifactPreviewSchema, fallbackPreviewSchema } from "../schemas/artifact-preview.js";
-import { recordCostAndCheck } from "../services/cost-cap.js";
-import { getUserById } from "../services/user-store.js";
-import * as work from "../work-service.js";
+import { artifactPreviewSchema, fallbackPreviewSchema } from "@hyperidle/core-app";
+import { recordCostAndCheck } from "@hyperidle/agent-layer";
+import { getUserById } from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;

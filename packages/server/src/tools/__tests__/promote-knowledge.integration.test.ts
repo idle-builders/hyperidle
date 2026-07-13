@@ -7,9 +7,9 @@ import {
 import { and, eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { promoteKnowledgeTool } from "../promote-knowledge.js";
-import { buildToolRegistry } from "../tool-registry.js";
-import { makeContext, NOW, seedBase } from "./_helpers.js";
+import { promoteKnowledgeTool } from "@hyperidle/agent-layer";
+import { buildToolRegistry } from "@hyperidle/agent-layer";
+import { makeContext, NOW, seedBase } from "@hyperidle/agent-layer";
 
 async function seedKnowledgeItem(
 	db: HyperIdleDb,

@@ -9,8 +9,8 @@ import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
 // Import will fail until the file is created — that's expected in red phase.
-import { createBetTool } from "../create-bet.js";
-import { makeContext, NOW } from "./_helpers.js";
+import { createBetTool } from "@hyperidle/agent-layer";
+import { makeContext, NOW } from "@hyperidle/agent-layer";
 
 async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId: string }> {
 	const teamId = `team-${Date.now()}`;

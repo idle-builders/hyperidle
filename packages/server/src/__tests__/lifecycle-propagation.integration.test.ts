@@ -23,11 +23,11 @@ import {
 } from "@hyperidle/db";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import { listAll } from "../notifications/notification-queue.js";
+import { listAll } from "@hyperidle/core-app";
 import {
 	registerLifecyclePropagation,
 	retryFailedPropagations,
-} from "../services/lifecycle-propagation.js";
+} from "@hyperidle/core-app";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────

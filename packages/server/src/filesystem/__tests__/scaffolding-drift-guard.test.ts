@@ -17,16 +17,16 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { EMITTED_ROOTS_CLI_MCP_CONFIG } from "../../harness/cli-mcp-config.js";
+import { EMITTED_ROOTS_CLI_MCP_CONFIG } from "@hyperidle/agent-layer";
 import {
 	EMITTED_ROOTS_CLAUDE_SETTINGS,
 	EMITTED_ROOTS_CODEX_HOME,
 	EMITTED_ROOTS_OPENCODE_PLUGIN,
-} from "../../harness/provision-return-hook.js";
-import { EMITTED_ROOTS_CONTEXT_ASSEMBLY } from "../../services/context-assembly.js";
+} from "@hyperidle/agent-layer";
+import { EMITTED_ROOTS_CONTEXT_ASSEMBLY } from "@hyperidle/agent-layer";
 // ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
-import { EMITTED_ROOTS_AGENTS_MD } from "../../services/context-assembly-prompt.js";
-import { EMITTED_ROOTS_MCP_JSON } from "../../services/session-provisioning.js";
+import { EMITTED_ROOTS_AGENTS_MD } from "@hyperidle/agent-layer";
+import { EMITTED_ROOTS_MCP_JSON } from "@hyperidle/agent-layer";
 
 // ── Import the constant under test ───────────────────────────────────────────
 import { SANDBOX_SCAFFOLDING_PATHS } from "../scaffolding-paths.js";

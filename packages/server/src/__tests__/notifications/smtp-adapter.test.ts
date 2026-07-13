@@ -14,8 +14,8 @@
 
 import { SMTPServer } from "smtp-server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createSmtpAdapter } from "../../notifications/smtp-adapter.js";
-import type { Notification, Recipient } from "../../notifications/types.js";
+import { createSmtpAdapter } from "@hyperidle/core-app";
+import type { Notification, Recipient } from "@hyperidle/core-app";
 
 interface CapturedMessage {
 	envelope: { from: string; to: string[] };

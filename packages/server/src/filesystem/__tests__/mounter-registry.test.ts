@@ -8,7 +8,7 @@
 
 import type { Filesystem } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createFakeGitRunner } from "../../services/git-export-runner.js";
+import { createFakeGitRunner } from "@hyperidle/core-app";
 import {
 	type AdapterDeps,
 	MalformedFilesystemError,

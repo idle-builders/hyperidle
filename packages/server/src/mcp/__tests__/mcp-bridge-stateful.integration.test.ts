@@ -38,14 +38,14 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
 	createEnforcementRegistry,
 	type EnforcementRegistry,
-} from "../../harness/return-enforcement-registry.js";
+} from "@hyperidle/agent-layer";
 import { createMcpRoute } from "../../services/mcp-route.js";
-import { commitFileTool } from "../../tools/commit-file.js";
-import type { RegisteredTool, ToolRegistry } from "../../tools/tool-registry.js";
-import { toClaudeToolSpec, toRegistered } from "../../tools/tool-registry.js";
-import { err } from "../../tools/tool-result.js";
-import { createMcpBridge, type McpBridgeInstance } from "../mcp-bridge.js";
-import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../mcp-bridge-registry.js";
+import { commitFileTool } from "@hyperidle/agent-layer";
+import type { RegisteredTool, ToolRegistry } from "@hyperidle/agent-layer";
+import { toClaudeToolSpec, toRegistered } from "@hyperidle/agent-layer";
+import { err } from "@hyperidle/agent-layer";
+import { createMcpBridge, type McpBridgeInstance } from "@hyperidle/agent-layer";
+import { createMcpBridgeRegistry, type McpBridgeRegistry } from "@hyperidle/agent-layer";
 
 // ── Minimal one-tool registry for the proof vehicle ──────────────────────────
 // Avoids a full buildToolRegistry (which needs a DB). commit_file is a pure

@@ -35,10 +35,10 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
-import { runBetDecomposition } from "../services/bet-decomposition.js";
+import type { BetDecompositionDeps } from "@hyperidle/agent-layer";
+import { runBetDecomposition } from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
-import { createTaskTool } from "../tools/create-task.js";
+import { createTaskTool } from "@hyperidle/agent-layer";
 
 // ---------------------------------------------------------------------------
 // Shared seed helpers (used by AC5)

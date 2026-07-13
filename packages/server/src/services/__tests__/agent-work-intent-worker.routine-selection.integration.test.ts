@@ -20,10 +20,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import * as routineService from "../../routine-service.js";
+import { routineService } from "@hyperidle/core-app";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { drainAgentWorkIntents } from "../agent-work-intent-worker.js";
-import { recordAgentWorkIntent } from "../agent-work-intents.js";
+import { drainAgentWorkIntents } from "@hyperidle/agent-layer";
+import { recordAgentWorkIntent } from "@hyperidle/core-app";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 

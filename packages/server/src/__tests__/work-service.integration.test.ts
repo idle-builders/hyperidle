@@ -37,7 +37,7 @@ import {
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
-import * as work from "../work-service.js";
+import { work } from "@hyperidle/core-app";
 
 async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({

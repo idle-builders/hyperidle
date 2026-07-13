@@ -18,12 +18,12 @@ import {
 	updateGitExportConfig,
 	writeLastCommit,
 	writeLastPush,
-} from "../config/git-export-config.js";
+} from "@hyperidle/core-app";
 import { authMiddleware } from "../middleware/auth.js";
 import { errorHandler } from "../middleware/error-handler.js";
 import { createGitExportRoutes } from "../routes/git-export-routes.js";
-import { type FsAdapter, resetExportMutexes } from "../services/git-export.js";
-import type { GitRunner } from "../services/git-export-runner.js";
+import { type FsAdapter, resetExportMutexes } from "@hyperidle/core-app";
+import type { GitRunner } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-git-export";

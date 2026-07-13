@@ -4,7 +4,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { buildToolRegistry, type ToolContext, toClaudeToolSpec } from "../tool-registry.js";
+import { buildToolRegistry, type ToolContext, toClaudeToolSpec } from "@hyperidle/agent-layer";
 
 const EXPECTED_TOOL_NAMES = [
 	"create_item",

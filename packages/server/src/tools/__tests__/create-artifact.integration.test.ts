@@ -23,8 +23,8 @@ import type { ArtifactPreview, EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 // Will fail until create-artifact.ts exists
-import { createArtifactTool } from "../create-artifact.js";
-import type { ToolContext } from "../tool-registry.js";
+import { createArtifactTool } from "@hyperidle/agent-layer";
+import type { ToolContext } from "@hyperidle/agent-layer";
 
 const TEST_API_KEY = "test-key-r6-integration";
 const NOW = "2026-05-30T00:00:00.000Z";

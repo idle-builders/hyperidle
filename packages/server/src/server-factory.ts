@@ -13,54 +13,54 @@ import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyp
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { RegistryFilesystemMounter } from "./filesystem/mounter-registry.js";
-import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
-import { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
-import { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";
-import { enforcementRegistry } from "./harness/return-enforcement-registry.js";
-import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
-import { setupFts } from "./knowledge/fts.js";
-import { registerRelevanceListener } from "./knowledge/relevance-listener.js";
-import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
-import { defaultNotificationAdapterFactory } from "./notifications/adapter-factory.js";
+import { type AdapterPool, createLocalAdapterPool } from "@hyperidle/agent-layer";
+import { DisabledSandboxAdapter } from "@hyperidle/agent-layer";
+import { LocalSandboxAdapter } from "@hyperidle/agent-layer";
+import { enforcementRegistry } from "@hyperidle/agent-layer";
+import type { SandboxAdapter } from "@hyperidle/agent-layer";
+import { setupFts } from "@hyperidle/core-app";
+import { registerRelevanceListener } from "@hyperidle/core-app";
+import { createMcpBridgeRegistry } from "@hyperidle/agent-layer";
+import { defaultNotificationAdapterFactory } from "@hyperidle/core-app";
 import {
 	type AlertPreferences,
 	registerNotificationDispatcher,
-} from "./notifications/dispatcher.js";
-import { startNotificationDrain } from "./notifications/drain.js";
-import { defaultMutePreferenceReader } from "./notifications/mute.js";
-import { registerNotificationListener } from "./notifications/notification-listener.js";
+} from "@hyperidle/core-app";
+import { startNotificationDrain } from "@hyperidle/core-app";
+import { defaultMutePreferenceReader } from "@hyperidle/core-app";
+import { registerNotificationListener } from "@hyperidle/core-app";
 import { registerWsRoute } from "./routes/ws.js";
 import {
 	bootAgentLayer,
 	markRunningAgentSessionRequestsForShutdown,
-} from "./services/agent-layer-boot.js";
-import { startAgentLifecycleProjectionDrain } from "./services/agent-lifecycle-projectors.js";
-import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
-import { resolveOrphanedDecompositions } from "./services/bet-decomposition.js";
-import { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
-import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handlers.js";
-import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
+} from "@hyperidle/agent-layer";
+import { startAgentLifecycleProjectionDrain } from "@hyperidle/core-app";
+import type { AssistantTurnDeps } from "@hyperidle/agent-layer";
+import { resolveOrphanedDecompositions } from "@hyperidle/agent-layer";
+import { registerBetDecomposition } from "@hyperidle/agent-layer";
+import { registerBuiltinRoutineHandlers } from "@hyperidle/agent-layer";
+import { registerCostCapDedupReleaser } from "@hyperidle/agent-layer";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
-import { startCostSentinel } from "./services/cost-sentinel.js";
-import { getServerSecret } from "./services/credential-encryption.js";
-import type { CredentialResolver } from "./services/credential-resolver.js";
-import { DbCredentialResolver } from "./services/credential-resolver.js";
-import { registerGitExportHandler } from "./services/git-export.js";
-import { createGitRunner } from "./services/git-export-runner.js";
-import { registerLifecyclePropagation } from "./services/lifecycle-propagation.js";
+import { startCostSentinel } from "@hyperidle/agent-layer";
+import { getServerSecret } from "@hyperidle/core-app";
+import type { CredentialResolver } from "@hyperidle/core-app";
+import { DbCredentialResolver } from "@hyperidle/core-app";
+import { registerGitExportHandler } from "@hyperidle/core-app";
+import { createGitRunner } from "@hyperidle/core-app";
+import { registerLifecyclePropagation } from "@hyperidle/core-app";
 import { createMcpRoute } from "./services/mcp-route.js";
-import { resolveModelTier } from "./services/model-gateway.js";
-import { projectProductionConfigurationDefaults } from "./services/plugin-configuration.js";
-import { registerPolicyEngine } from "./services/policy-engine.js";
-import { startRetentionReaper } from "./services/retention-reaper.js";
-import { startRoutineScheduler } from "./services/routine-scheduler.js";
-import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
-import { startSandboxReaper } from "./services/sandbox-reaper.js";
-import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
-import { registerSessionReviewCreator } from "./services/session-review-creator.js";
-import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
+import { resolveModelTier } from "@hyperidle/core-app";
+import { projectProductionConfigurationDefaults } from "@hyperidle/core-app";
+import { registerPolicyEngine } from "@hyperidle/core-app";
+import { startRetentionReaper } from "@hyperidle/core-app";
+import { startRoutineScheduler } from "@hyperidle/agent-layer";
+import { reapStaleRoutineSessions } from "@hyperidle/agent-layer";
+import { startSandboxReaper } from "@hyperidle/agent-layer";
+import { migrateCredentialsToStore, readServerConfig } from "@hyperidle/core-app";
+import { registerSessionReviewCreator } from "@hyperidle/core-app";
+import { registerTaskDispatcher, type TaskDispatcherDeps } from "@hyperidle/agent-layer";
 import { registerWorkerWsRoute } from "./services/worker-ws.js";
-import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
+import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/core-app";
 
 const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
 

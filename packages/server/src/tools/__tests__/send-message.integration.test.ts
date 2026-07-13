@@ -5,8 +5,8 @@ import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { sendMessageTool } from "../send-message.js";
-import type { ToolContext } from "../tool-registry.js";
+import { sendMessageTool } from "@hyperidle/agent-layer";
+import type { ToolContext } from "@hyperidle/agent-layer";
 
 async function seedFactory(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();

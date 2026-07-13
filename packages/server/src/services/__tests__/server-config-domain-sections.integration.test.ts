@@ -10,7 +10,7 @@
 
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { readServerConfig, updateServerConfig } from "../server-config.js";
+import { readServerConfig, updateServerConfig } from "@hyperidle/core-app";
 
 describe("server_config — observability section", () => {
 	test("readServerConfig returns observability defaults when empty", async ({ db }) => {

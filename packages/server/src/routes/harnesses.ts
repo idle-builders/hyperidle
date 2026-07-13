@@ -42,8 +42,8 @@ import {
 	type HarnessCapabilityReader,
 	harnessCapabilityDescriptors,
 	refreshHarnessDiscoveries,
-} from "../services/harness-capability-read-model.js";
-import { readServerConfig, updateServerConfig } from "../services/server-config.js";
+} from "@hyperidle/agent-layer";
+import { readServerConfig, updateServerConfig } from "@hyperidle/core-app";
 
 /**
  * Helper: stamp discovery.disabled per descriptor based on harnessDisabled config.

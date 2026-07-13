@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { AdapterPool } from "../../harness/adapter-pool.js";
+import { AdapterPool } from "@hyperidle/agent-layer";
 import { WorkerConnectionManager } from "../../services/worker-ws.js";
 
 // ── Mock WebSocket ────────────────────────────────────────────────────────────

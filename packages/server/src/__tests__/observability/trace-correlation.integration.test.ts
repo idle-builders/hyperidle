@@ -16,8 +16,8 @@ import {
 	createDbTraceIdResolver,
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
-} from "../../services/observability/dispatcher.js";
-import type { ObservabilityAdapter } from "../../services/observability/types.js";
+} from "@hyperidle/core-app";
+import type { ObservabilityAdapter } from "@hyperidle/core-app";
 import { describe, expect, test } from "../../test-fixtures.js";
 
 function captureAdapter(): ObservabilityAdapter & { events: ObservabilityEvent[] } {

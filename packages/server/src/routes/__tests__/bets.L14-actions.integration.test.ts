@@ -16,8 +16,8 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import type { RevisionLogEntry } from "../../services/bet-state-machine.js";
-import { transitionBet } from "../../services/bet-state-machine.js";
+import type { RevisionLogEntry } from "@hyperidle/core-app";
+import { transitionBet } from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-L14";

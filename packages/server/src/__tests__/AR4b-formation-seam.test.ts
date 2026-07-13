@@ -36,11 +36,11 @@ import {
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import { executeAssistantRequest } from "../services/agent-work-assistant.js";
-import type { CredentialResolver } from "../services/credential-resolver.js";
-import { createTriggeredAgentSessionRequest } from "../services/trigger-resolution.js";
+import { AdapterPool } from "@hyperidle/agent-layer";
+import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
+import { executeAssistantRequest } from "@hyperidle/agent-layer";
+import type { CredentialResolver } from "@hyperidle/core-app";
+import { createTriggeredAgentSessionRequest } from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -75,14 +75,14 @@ const capturedConversational: CapturedConversational[] = [];
  * formation seam consulted the app resolver at turn time. The mock never runs
  * a real harness — this is a unit test of the call-site wiring, not the turn itself.
  */
-vi.mock("../services/session-provisioning.js", async (importOriginal) => {
-	const original = await importOriginal<typeof import("../services/session-provisioning.js")>();
+vi.mock("../../../agent-layer/src/services/session-provisioning.js", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/agent-layer")>();
 	return {
 		...original,
 		admitSession: vi.fn(
 			async (
 				_deps: unknown,
-				params: import("../services/session-provisioning.js").ProvisionSessionParams,
+				params: import("@hyperidle/agent-layer").ProvisionSessionParams,
 			) => {
 				return {
 					sessionId: "stub-session-ar4b",
@@ -101,7 +101,7 @@ vi.mock("../services/session-provisioning.js", async (importOriginal) => {
 		runSession: vi.fn(
 			async (
 				_deps: unknown,
-				params: import("../services/session-provisioning.js").ProvisionSessionParams,
+				params: import("@hyperidle/agent-layer").ProvisionSessionParams,
 			) => {
 				if (params.conversational) {
 					capturedConversational.push({
@@ -111,7 +111,7 @@ vi.mock("../services/session-provisioning.js", async (importOriginal) => {
 						),
 					});
 				}
-				const stubResult: import("../services/session-provisioning.js").ProvisionSessionResult = {
+				const stubResult: import("@hyperidle/agent-layer").ProvisionSessionResult = {
 					sessionId: "stub-session-ar4b",
 					outcome: "completed",
 					totalCostCents: 0,
@@ -125,8 +125,8 @@ vi.mock("../services/session-provisioning.js", async (importOriginal) => {
 	};
 });
 
-vi.mock("../services/agent-defaults/resolvers.js", async (importOriginal) => {
-	const original = await importOriginal<typeof import("../services/agent-defaults/resolvers.js")>();
+vi.mock("../../../agent-layer/src/services/agent-defaults/resolvers.js", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/agent-layer")>();
 	return {
 		...original,
 		resolveAssistantFormation: vi.fn(async (input: { userId: string; threadId: string }) => {

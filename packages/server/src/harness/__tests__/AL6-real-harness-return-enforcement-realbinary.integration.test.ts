@@ -69,15 +69,15 @@ import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { provisionReturnHook } from "../../harness/provision-return-hook.js";
+import { provisionReturnHook } from "@hyperidle/agent-layer";
 import {
 	createEnforcementRegistry,
 	type EnforcementRegistry,
-} from "../../harness/return-enforcement-registry.js";
-import type { McpBridgeInstance } from "../../mcp/mcp-bridge.js";
-import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
+} from "@hyperidle/agent-layer";
+import type { McpBridgeInstance } from "@hyperidle/agent-layer";
+import { createMcpBridgeRegistry, type McpBridgeRegistry } from "@hyperidle/agent-layer";
 import { createMcpRoute } from "../../services/mcp-route.js";
-import { harnessTestResolvedModel, requireHarness } from "./require-harness.js";
+import { harnessTestResolvedModel, requireHarness } from "@hyperidle/agent-layer";
 
 const execFileAsync = promisify(execFile);
 
@@ -591,7 +591,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 120_000);
 
 		test("claude adapter config carries prompt and return-enforcement channel", async () => {
-			const { CLAUDE_CLI_CONFIG } = await import("../../harness/adapter-pool.js");
+			const { CLAUDE_CLI_CONFIG } = await import("@hyperidle/agent-layer");
 			const args = CLAUDE_CLI_CONFIG.args;
 
 			expect(args).toContain("{{prompt}}");
@@ -783,7 +783,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 120_000);
 
 		test("WARN-F2: forcing message prompt-carrier is provided to codex spawn args (not hardcoded 'proceed')", async () => {
-			const { CLI_TOOL_CONFIGS } = await import("../../harness/adapter-pool.js");
+			const { CLI_TOOL_CONFIGS } = await import("@hyperidle/agent-layer");
 
 			const codexConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).codex as
 				| Record<string, unknown>
@@ -1024,7 +1024,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 120_000);
 
 		test("WARN-F3: process-reengage carries forcing message into re-invocation (not silent re-run)", async () => {
-			const { CLI_TOOL_CONFIGS } = await import("../../harness/adapter-pool.js");
+			const { CLI_TOOL_CONFIGS } = await import("@hyperidle/agent-layer");
 
 			const opencodeConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).opencode as
 				| Record<string, unknown>
@@ -1266,7 +1266,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		});
 
 		test("registered builtin harness capabilities declare builtin-loop return enforcement", async () => {
-			const { createLocalAdapterPool } = await import("../../harness/adapter-pool.js");
+			const { createLocalAdapterPool } = await import("@hyperidle/agent-layer");
 			const pool = await createLocalAdapterPool();
 			const caps = pool.getCapabilitiesByType("builtin");
 

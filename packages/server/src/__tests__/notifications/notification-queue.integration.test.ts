@@ -8,7 +8,7 @@ import type { NewNotificationQueueRow } from "@hyperidle/db";
 import {
 	claimForSend,
 	deleteReaped,
-	findById,
+	findNotificationById,
 	findPendingByEventSubject,
 	insertNotification,
 	listAll,
@@ -24,7 +24,7 @@ import {
 	requeueLease,
 	updateManyByIds,
 	updateStatus,
-} from "../../notifications/notification-queue.js";
+} from "@hyperidle/core-app";
 import { describe, expect, test } from "../../test-fixtures.js";
 
 function row(
@@ -45,11 +45,11 @@ function row(
 	};
 }
 
-describe("insertNotification + findById + listAll", () => {
-	test("inserts a full row, readable back by findById and by listAll", async ({ db }) => {
+describe("insertNotification + findNotificationById + listAll", () => {
+	test("inserts a full row, readable back by findNotificationById and by listAll", async ({ db }) => {
 		await insertNotification(db, row({ id: "n-1", title: "Hello" }));
 
-		const found = await findById(db, "n-1");
+		const found = await findNotificationById(db, "n-1");
 		expect(found?.title).toBe("Hello");
 		expect(found?.status).toBe("pending");
 
@@ -58,8 +58,8 @@ describe("insertNotification + findById + listAll", () => {
 		expect(all[0]?.id).toBe("n-1");
 	});
 
-	test("findById returns undefined for a missing id", async ({ db }) => {
-		const found = await findById(db, "does-not-exist");
+	test("findNotificationById returns undefined for a missing id", async ({ db }) => {
+		const found = await findNotificationById(db, "does-not-exist");
 		expect(found).toBeUndefined();
 	});
 });
@@ -223,7 +223,7 @@ describe("claimForSend", () => {
 		const claimed = await claimForSend(db, "claim-1", now);
 		expect(claimed?.id).toBe("claim-1");
 
-		const found = await findById(db, "claim-1");
+		const found = await findNotificationById(db, "claim-1");
 		expect(found?.status).toBe("sending");
 		expect(found?.claimedAt).toBe(now.toISOString());
 	});
@@ -244,7 +244,7 @@ describe("updateStatus", () => {
 			attempts: 2,
 			claimedAt: null,
 		});
-		const found = await findById(db, "u-1");
+		const found = await findNotificationById(db, "u-1");
 		expect(found?.status).toBe("failed");
 		expect(found?.lastError).toBe("boom");
 		expect(found?.attempts).toBe(2);
@@ -259,7 +259,7 @@ describe("requeueLease", () => {
 			row({ id: "rq-1", status: "sending", claimedAt: "2026-07-01T00:00:00.000Z" }),
 		);
 		await requeueLease(db, "rq-1");
-		const found = await findById(db, "rq-1");
+		const found = await findNotificationById(db, "rq-1");
 		expect(found?.status).toBe("pending");
 		expect(found?.claimedAt).toBeNull();
 	});
@@ -273,8 +273,8 @@ describe("markSeenAll", () => {
 
 		await markSeenAll(db, now);
 
-		const r1 = await findById(db, "s-1");
-		const r2 = await findById(db, "s-2");
+		const r1 = await findNotificationById(db, "s-1");
+		const r2 = await findNotificationById(db, "s-2");
 		expect(r1?.seenAt).toBe(now.toISOString());
 		// Already-seen row's original timestamp is untouched.
 		expect(r2?.seenAt).toBe("2026-06-01T00:00:00.000Z");
@@ -289,8 +289,8 @@ describe("markRead", () => {
 
 		await markRead(db, "r-1", now);
 
-		const r1 = await findById(db, "r-1");
-		const r2 = await findById(db, "r-2");
+		const r1 = await findNotificationById(db, "r-1");
+		const r2 = await findNotificationById(db, "r-2");
 		expect(r1?.readAt).toBe(now.toISOString());
 		expect(r2?.readAt).toBeNull();
 	});
@@ -309,10 +309,10 @@ describe("updateManyByIds", () => {
 			"pending",
 		);
 
-		expect((await findById(db, "m-1"))?.status).toBe("sending");
-		expect((await findById(db, "m-2"))?.status).toBe("sending");
+		expect((await findNotificationById(db, "m-1"))?.status).toBe("sending");
+		expect((await findNotificationById(db, "m-2"))?.status).toBe("sending");
 		// m-3 was not pending, so the CAS-style filter must skip it.
-		expect((await findById(db, "m-3"))?.status).toBe("sent");
+		expect((await findNotificationById(db, "m-3"))?.status).toBe("sent");
 	});
 
 	test("without onlyIfStatus: unconditionally updates the given ids", async ({ db }) => {
@@ -321,8 +321,8 @@ describe("updateManyByIds", () => {
 
 		await updateManyByIds(db, ["m-4", "m-5"], { status: "pending", claimedAt: null });
 
-		expect((await findById(db, "m-4"))?.status).toBe("pending");
-		expect((await findById(db, "m-5"))?.status).toBe("pending");
+		expect((await findNotificationById(db, "m-4"))?.status).toBe("pending");
+		expect((await findNotificationById(db, "m-5"))?.status).toBe("pending");
 	});
 });
 
@@ -350,10 +350,10 @@ describe("deleteReaped", () => {
 		]);
 
 		expect(deleted).toEqual(["old-sent"]);
-		expect(await findById(db, "old-sent")).toBeUndefined();
+		expect(await findNotificationById(db, "old-sent")).toBeUndefined();
 		// Not terminal status → survives even though old.
-		expect(await findById(db, "old-pending")).toBeDefined();
+		expect(await findNotificationById(db, "old-pending")).toBeDefined();
 		// Terminal status but not old enough → survives.
-		expect(await findById(db, "new-sent")).toBeDefined();
+		expect(await findNotificationById(db, "new-sent")).toBeDefined();
 	});
 });

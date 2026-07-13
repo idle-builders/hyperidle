@@ -11,7 +11,7 @@ import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import {
 	type HarnessCapabilityReader,
 	workerConnections,
-} from "../services/harness-capability-read-model.js";
+} from "@hyperidle/agent-layer";
 
 /**
  * Create a Hono router that exposes GET / → AdapterInfo[].

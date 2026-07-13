@@ -15,7 +15,7 @@ import type {
 	FlushOutcome,
 	ObservabilityDispatcher,
 	ObservabilityDispatcherStatus,
-} from "../../services/observability/types.js";
+} from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-observability";

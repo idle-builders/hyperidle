@@ -45,8 +45,8 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import {
 	type HarnessCapabilityReader,
 	harnessRegistrationMeta,
-} from "../services/harness-capability-read-model.js";
-import { getUserById, insertUser, listAgentProfiles, updateUser } from "../services/user-store.js";
+} from "@hyperidle/agent-layer";
+import { getUserById, insertUser, listAgentProfiles, updateUser } from "@hyperidle/core-app";
 import { handleAgentProfile } from "./agent-profile.js";
 
 // ---------------------------------------------------------------------------

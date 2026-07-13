@@ -2,9 +2,9 @@ import { type HyperIdleDb, items, knowledgeItems, knowledgeStrategyFabric } from
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { scoreAttentionTool } from "../score-attention.js";
-import { buildToolRegistry } from "../tool-registry.js";
-import { makeContext, NOW, seedBase } from "./_helpers.js";
+import { scoreAttentionTool } from "@hyperidle/agent-layer";
+import { buildToolRegistry } from "@hyperidle/agent-layer";
+import { makeContext, NOW, seedBase } from "@hyperidle/agent-layer";
 
 async function seedKnowledgeItemWithScore(
 	db: HyperIdleDb,

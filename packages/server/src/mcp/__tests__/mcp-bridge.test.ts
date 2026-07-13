@@ -22,14 +22,14 @@ import {
 	buildToolRegistry,
 	type ToolContext,
 	type ToolRegistry,
-} from "../../tools/tool-registry.js";
-import type { ToolResult } from "../../tools/tool-result.js";
+} from "@hyperidle/agent-layer";
+import type { ToolResult } from "@hyperidle/agent-layer";
 import {
 	type CreateMcpBridgeOptions,
 	createMcpBridge,
 	type McpBridgeInstance,
 	toolResultToCallToolResult,
-} from "../mcp-bridge.js";
+} from "@hyperidle/agent-layer";
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -16,7 +16,7 @@ import {
 	type RevisionLogEntry,
 	transitionBet,
 	updateBetField,
-} from "../services/bet-state-machine.js";
+} from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 function makeProduct() {

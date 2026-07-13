@@ -36,7 +36,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../../harness/adapter-pool.js";
+import { AdapterPool } from "@hyperidle/agent-layer";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 

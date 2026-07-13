@@ -33,15 +33,15 @@ import { createObservabilityRoutes } from "../../routes/observability-routes.js"
 import {
 	type ObservabilityConfig,
 	updateObservabilityConfig,
-} from "../../services/observability/config.js";
+} from "@hyperidle/core-app";
 import {
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
-} from "../../services/observability/dispatcher.js";
+} from "@hyperidle/core-app";
 import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
-} from "../../services/observability/types.js";
+} from "@hyperidle/core-app";
 import { describe, expect, test } from "../../test-fixtures.js";
 
 function captureAdapter(

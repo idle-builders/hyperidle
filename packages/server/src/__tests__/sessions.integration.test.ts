@@ -8,7 +8,7 @@ import {
 	clearDeduplicationCache,
 	getDedupCacheSize,
 	recordCostAndCheck,
-} from "../services/cost-cap.js";
+} from "@hyperidle/agent-layer";
 import { expect, test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-sessions";

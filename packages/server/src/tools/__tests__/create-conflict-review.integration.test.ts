@@ -2,8 +2,8 @@ import { type HyperIdleDb, knowledgeConflicts, knowledgeItems } from "@hyperidle
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { createConflictReviewTool } from "../create-conflict-review.js";
-import { makeContext, NOW, seedBase } from "./_helpers.js";
+import { createConflictReviewTool } from "@hyperidle/agent-layer";
+import { makeContext, NOW, seedBase } from "@hyperidle/agent-layer";
 
 async function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): Promise<void> {
 	await db.insert(knowledgeItems).values({

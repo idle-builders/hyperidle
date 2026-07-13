@@ -10,10 +10,10 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { setupFts } from "../../knowledge/fts.js";
+import { setupFts } from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
-import type { ToolContext } from "../tool-registry.js";
-import { writeMemoryTool } from "../write-memory.js";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { writeMemoryTool } from "@hyperidle/agent-layer";
 
 const NOW = new Date().toISOString();
 

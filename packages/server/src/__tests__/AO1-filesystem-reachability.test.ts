@@ -31,7 +31,7 @@ import {
 	probeLocalPath,
 	repoToUrl,
 	resolveFilesystemState,
-} from "../services/filesystem-reachability.js";
+} from "@hyperidle/core-app";
 
 // ─── Lane A: Hermetic temp-repo setup ────────────────────────────────────────
 

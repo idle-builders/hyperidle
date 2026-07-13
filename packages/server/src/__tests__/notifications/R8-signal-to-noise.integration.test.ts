@@ -25,19 +25,19 @@ import type {
 import {
 	type NotificationConfigPatch,
 	updateNotificationConfig,
-} from "../../notifications/config.js";
+} from "@hyperidle/core-app";
 import {
 	type AlertPreferences,
 	registerNotificationDispatcher,
-} from "../../notifications/dispatcher.js";
-import { listAll } from "../../notifications/notification-queue.js";
+} from "@hyperidle/core-app";
+import { listAll } from "@hyperidle/core-app";
 import type {
 	Notification,
 	NotificationAdapter,
 	Recipient,
 	SendResult,
-} from "../../notifications/types.js";
-import { readServerConfig, updateServerConfig } from "../../services/server-config.js";
+} from "@hyperidle/core-app";
+import { readServerConfig, updateServerConfig } from "@hyperidle/core-app";
 import { afterEach, describe, expect, test, vi } from "../../test-fixtures.js";
 
 // ---------------------------------------------------------------------------

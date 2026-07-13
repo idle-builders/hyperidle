@@ -34,8 +34,8 @@ import {
 	getFirstPinnedThreadByHost,
 	insertThread,
 	listMessagesByThread,
-} from "../services/conversation-store.js";
-import { getUserById } from "../services/user-store.js";
+} from "@hyperidle/core-app";
+import { getUserById } from "@hyperidle/core-app";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
 // @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths

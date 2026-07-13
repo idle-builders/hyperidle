@@ -25,13 +25,13 @@
 import * as crypto from "node:crypto";
 import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
 import { describe, expect, it } from "vitest";
-import { encryptCredentialValue } from "../services/credential-encryption.js";
+import { encryptCredentialValue } from "@hyperidle/core-app";
 import {
 	probeGitRemote,
 	resolveFilesystemState,
 	ServiceConnectionResolverAdapter,
-} from "../services/filesystem-reachability.js";
-import { ServiceConnectionResolver } from "../services/service-connection-resolver.js";
+} from "@hyperidle/core-app";
+import { ServiceConnectionResolver } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 // ─── Skip guard ───────────────────────────────────────────────────────────────

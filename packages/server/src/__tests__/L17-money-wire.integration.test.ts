@@ -20,7 +20,7 @@ import {
 	clearDeduplicationCache,
 	recordCostAndCheck,
 	resetCosts,
-} from "../services/cost-cap.js";
+} from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-l17-money";

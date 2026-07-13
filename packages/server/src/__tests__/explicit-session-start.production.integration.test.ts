@@ -11,20 +11,20 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import type { AdapterPool } from "../harness/adapter-pool.js";
-import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
-import { drainAgentSessionRequests } from "../services/agent-layer-boot.js";
-import { drainAgentWorkIntents } from "../services/agent-work-intent-worker.js";
+import type { AdapterPool } from "@hyperidle/agent-layer";
+import type { SandboxAdapter } from "@hyperidle/agent-layer";
+import { drainAgentSessionRequests } from "@hyperidle/agent-layer";
+import { drainAgentWorkIntents } from "@hyperidle/agent-layer";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
-vi.mock("../services/session-provisioning.js", async (importOriginal) => {
-	const original = await importOriginal<typeof import("../services/session-provisioning.js")>();
+vi.mock("../../../agent-layer/src/services/session-provisioning.js", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/agent-layer")>();
 	return {
 		...original,
 		admitSession: vi.fn(
 			async (
-				deps: import("../services/session-provisioning.js").ProvisionSessionDeps,
-				params: import("../services/session-provisioning.js").ProvisionSessionParams,
+				deps: import("@hyperidle/agent-layer").ProvisionSessionDeps,
+				params: import("@hyperidle/agent-layer").ProvisionSessionParams,
 			) => {
 				if (params.taskId === "au9-fail-task") {
 					const { MissingCredentialError } = await import("@hyperidle/shared");
@@ -148,7 +148,7 @@ describe("explicit session production contract", () => {
 		["NoEligibleHarnessError", "NO_ELIGIBLE_HARNESS", 422],
 		["Error", "INTERNAL_ERROR", 500],
 	] as const)("persists and projects stable %s admission failure", async (errorName, code, status) => {
-		const boot = (await import("../services/agent-layer-boot.js")) as Record<string, unknown>;
+		const boot = (await import("@hyperidle/agent-layer")) as Record<string, unknown>;
 		const classify = boot.classifyAdmissionFailure;
 		expect(classify).toBeTypeOf("function");
 		expect(

@@ -18,16 +18,16 @@ import {
 	sanitizeSmtpHost,
 	sanitizeTopic,
 	updateNotificationConfig,
-} from "../notifications/config.js";
-import { type AdapterFactory, dispatchDigest, flushQueue } from "../notifications/dispatcher.js";
-import { defaultMutePreferenceWriter, getMutedTypeKeys } from "../notifications/mute.js";
+} from "@hyperidle/core-app";
+import { type AdapterFactory, dispatchDigest, flushQueue } from "@hyperidle/core-app";
+import { defaultMutePreferenceWriter, getMutedTypeKeys } from "@hyperidle/core-app";
 import {
 	listByStatus,
 	listUnread,
 	markRead,
 	markSeenAll,
-} from "../notifications/notification-queue.js";
-import type { Notification, NotificationChannel, SendResult } from "../notifications/types.js";
+} from "@hyperidle/core-app";
+import type { Notification, NotificationChannel, SendResult } from "@hyperidle/core-app";
 
 const channelEnum = z.enum(["console", "ntfy", "smtp"]);
 const queueStatusEnum = z.enum(["pending", "sent", "failed", "dropped", "sending"]);

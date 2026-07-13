@@ -23,11 +23,11 @@
 
 import { MissingCredentialError } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import type { CredentialResolver } from "../../services/credential-resolver.js";
+import type { CredentialResolver } from "@hyperidle/core-app";
 import {
 	BUILT_IN_GATEWAY_CONFIG as DEFAULT_GATEWAY_CONFIG,
 	resolveModelTier,
-} from "../../services/model-gateway.js";
+} from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
 
 // ---------------------------------------------------------------------------

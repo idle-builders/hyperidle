@@ -16,24 +16,24 @@
 import { type HyperIdleDb, items as itemsTable, threads, users } from "@hyperidle/db";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { loadNotificationConfig, updateNotificationConfig } from "../../notifications/config.js";
-import { flushQueue, recoverStuckLeases } from "../../notifications/dispatcher.js";
-import { startNotificationDrain } from "../../notifications/drain.js";
+import { loadNotificationConfig, updateNotificationConfig } from "@hyperidle/core-app";
+import { flushQueue, recoverStuckLeases } from "@hyperidle/core-app";
+import { startNotificationDrain } from "@hyperidle/core-app";
 import {
 	defaultMutePreferenceReader,
 	defaultMutePreferenceWriter,
-} from "../../notifications/mute.js";
-import { registerNotificationListener } from "../../notifications/notification-listener.js";
-import { insertNotification, listAll } from "../../notifications/notification-queue.js";
+} from "@hyperidle/core-app";
+import { registerNotificationListener } from "@hyperidle/core-app";
+import { insertNotification, listAll } from "@hyperidle/core-app";
 import type {
 	Notification,
 	NotificationAdapter,
 	Recipient,
 	SendResult,
-} from "../../notifications/types.js";
-import { getFactoryCostActual } from "../../services/cost-cap.js";
-import { clearCostSentinelCache, runCostSentinelCheck } from "../../services/cost-sentinel.js";
-import { updateServerConfig } from "../../services/server-config.js";
+} from "@hyperidle/core-app";
+import { getFactoryCostActual } from "@hyperidle/agent-layer";
+import { clearCostSentinelCache, runCostSentinelCheck } from "@hyperidle/agent-layer";
+import { updateServerConfig } from "@hyperidle/core-app";
 import { expect, test } from "../../test-fixtures.js";
 
 // --- helpers ---

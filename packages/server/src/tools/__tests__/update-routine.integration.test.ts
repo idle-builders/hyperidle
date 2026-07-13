@@ -9,8 +9,8 @@ import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
 // Import will fail until the file is created — that's expected in red phase.
-import { updateRoutineTool } from "../update-routine.js";
-import { makeContext, NOW } from "./_helpers.js";
+import { updateRoutineTool } from "@hyperidle/agent-layer";
+import { makeContext, NOW } from "@hyperidle/agent-layer";
 
 async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 	routineId: string;

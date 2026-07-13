@@ -12,7 +12,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createGitRunner } from "../../services/git-export-runner.js";
+import { createGitRunner } from "@hyperidle/core-app";
 
 // Helper: create a minimal bare git repo with one commit for use as a remote.
 async function createBareRepo(dir: string): Promise<string> {

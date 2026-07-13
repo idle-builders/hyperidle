@@ -29,10 +29,10 @@ import {
 	NoopAuthResolver,
 	resolveFilesystemState,
 	ServiceConnectionResolverAdapter,
-} from "../services/filesystem-reachability.js";
-import { inspectLocalPath } from "../services/inspect-local-path.js";
-import type { ServiceConnectionResolver } from "../services/service-connection-resolver.js";
-import { getUserById } from "../services/user-store.js";
+} from "@hyperidle/core-app";
+import { inspectLocalPath } from "@hyperidle/core-app";
+import type { ServiceConnectionResolver } from "@hyperidle/core-app";
+import { getUserById } from "@hyperidle/core-app";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 

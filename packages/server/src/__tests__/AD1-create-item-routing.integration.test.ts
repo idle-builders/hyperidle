@@ -30,8 +30,8 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createItemTool } from "../tools/create-item.js";
-import type { ToolContext } from "../tools/tool-registry.js";
+import { createItemTool } from "@hyperidle/agent-layer";
+import type { ToolContext } from "@hyperidle/agent-layer";
 
 const NOW = new Date().toISOString();
 const TEST_TEAM_ID = "team-ad1";

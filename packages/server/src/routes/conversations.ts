@@ -11,8 +11,8 @@ import {
 	countThreads,
 	getThreadById,
 	listThreadsByRecency,
-} from "../services/conversation-store.js";
-import * as work from "../work-service.js";
+} from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 
 // @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path
 // dual-wrote `verdict`-typed messages without founder authz, idempotency, or

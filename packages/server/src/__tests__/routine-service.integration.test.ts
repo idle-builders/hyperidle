@@ -25,7 +25,7 @@
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import * as routine from "../routine-service.js";
+import { routine } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {

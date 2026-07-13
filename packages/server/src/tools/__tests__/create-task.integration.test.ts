@@ -15,8 +15,8 @@ import type { TaskStateChangedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { createTaskTool } from "../create-task.js";
-import type { ToolContext } from "../tool-registry.js";
+import { createTaskTool } from "@hyperidle/agent-layer";
+import type { ToolContext } from "@hyperidle/agent-layer";
 
 const NOW = new Date().toISOString();
 

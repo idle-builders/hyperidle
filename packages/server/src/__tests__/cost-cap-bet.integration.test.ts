@@ -15,7 +15,7 @@
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { clearDeduplicationCache, recordCostAndCheck } from "../services/cost-cap.js";
+import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/agent-layer";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

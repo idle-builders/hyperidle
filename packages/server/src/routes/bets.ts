@@ -20,12 +20,12 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { enumValues } from "../schemas/common.schema.js";
-import { cascadeBetKill } from "../services/bet-kill-cascade.js";
-import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
-import { getArtifactThreadSummaries } from "../services/conversation-store.js";
-import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
-import * as work from "../work-service.js";
+import { enumValues } from "@hyperidle/core-app";
+import { cascadeBetKill } from "@hyperidle/core-app";
+import { transitionBet, updateBetField } from "@hyperidle/core-app";
+import { getArtifactThreadSummaries } from "@hyperidle/core-app";
+import { ApiError, loadTeamMembers } from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 
 const SUMMARY_CAP = 10;
 

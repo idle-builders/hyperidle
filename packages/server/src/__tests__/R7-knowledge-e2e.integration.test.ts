@@ -25,11 +25,11 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { assembleContext } from "../services/context-assembly.js";
+import { assembleContext } from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
-import { promoteKnowledgeTool } from "../tools/promote-knowledge.js";
-import type { ToolContext } from "../tools/tool-registry.js";
-import { writeMemoryTool } from "../tools/write-memory.js";
+import { promoteKnowledgeTool } from "@hyperidle/agent-layer";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { writeMemoryTool } from "@hyperidle/agent-layer";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 

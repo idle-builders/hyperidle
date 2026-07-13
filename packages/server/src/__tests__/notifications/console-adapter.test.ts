@@ -10,8 +10,8 @@
 
 import type { Logger } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createConsoleAdapter } from "../../notifications/console-adapter.js";
-import type { Notification, Recipient } from "../../notifications/types.js";
+import { createConsoleAdapter } from "@hyperidle/core-app";
+import type { Notification, Recipient } from "@hyperidle/core-app";
 
 interface LogCall {
 	level: "debug" | "info" | "warn" | "error";

@@ -11,25 +11,25 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
-import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
+import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-layer";
 import {
 	findOrCreateDirectThread,
 	getMessageById,
 	insertMessage,
 	insertThread,
 	listInboxByParticipantProbe,
-} from "../services/conversation-store.js";
-import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
-import { escapeLikePattern } from "../services/like-escape.js";
-import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
+} from "@hyperidle/core-app";
+import type { HarnessCapabilityReader } from "@hyperidle/agent-layer";
+import { escapeLikePattern } from "@hyperidle/core-app";
+import { persistScaffoldedAgents } from "@hyperidle/agent-layer";
 import {
 	getFirstUserByKind,
 	getUserById,
 	insertUser,
 	listAllUsers,
 	updateUser,
-} from "../services/user-store.js";
-import * as work from "../work-service.js";
+} from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 import { createAssistantSoulRoutes } from "./assistant.js";
 
 const updateSkillSchema = z.object({

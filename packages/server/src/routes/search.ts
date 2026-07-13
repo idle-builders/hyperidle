@@ -32,9 +32,9 @@ import {
 	getMessagesByThreadIds,
 	listThreadMetaByIds,
 	searchConversations,
-} from "../services/conversation-store.js";
-import { escapeLikePattern } from "../services/like-escape.js";
-import * as work from "../work-service.js";
+} from "@hyperidle/core-app";
+import { escapeLikePattern } from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 
 /** Max results per category */
 const MAX_PER_CATEGORY = 5;

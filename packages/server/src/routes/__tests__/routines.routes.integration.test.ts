@@ -20,7 +20,7 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { runBuiltinRoutine } from "../../services/builtin-routine-handlers.js";
+import { runBuiltinRoutine } from "@hyperidle/agent-layer";
 import { test } from "../../test-fixtures.js";
 
 /** Seed a built-in routine (knowledge-decay) owned by agent-1. */

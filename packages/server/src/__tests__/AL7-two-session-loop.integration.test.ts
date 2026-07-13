@@ -36,8 +36,8 @@ import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
-import type { ToolContext } from "../tools/tool-registry.js";
-import { type BuildToolRegistryOptions, buildToolRegistry } from "../tools/tool-registry.js";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { type BuildToolRegistryOptions, buildToolRegistry } from "@hyperidle/agent-layer";
 
 const NOW = new Date().toISOString();
 
@@ -337,7 +337,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 		db,
 	}) => {
 		const { handleUnconsumedGrantOnSessionEnd } = await import(
-			"../services/proposed-call-workflow.js"
+			"@hyperidle/core-app"
 		);
 
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
@@ -398,7 +398,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 		db,
 	}) => {
 		const { handleUnconsumedGrantOnSessionEnd } = await import(
-			"../services/proposed-call-workflow.js"
+			"@hyperidle/core-app"
 		);
 
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);

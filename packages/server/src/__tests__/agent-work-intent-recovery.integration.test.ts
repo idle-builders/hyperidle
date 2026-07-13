@@ -16,7 +16,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { drainAgentWorkIntents } from "../services/agent-work-intent-worker.js";
+import { drainAgentWorkIntents } from "@hyperidle/agent-layer";
 import { describe, expect, test } from "../test-fixtures.js";
 
 async function seedExplicitStartIntent(

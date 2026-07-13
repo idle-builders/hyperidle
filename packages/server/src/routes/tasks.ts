@@ -7,11 +7,11 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { enumValues } from "../schemas/common.schema.js";
-import { handoff } from "../services/handoff-protocol.js";
-import type { SessionContext } from "../services/session-lifecycle.js";
-import { transitionTask } from "../services/task-state-machine.js";
-import * as work from "../work-service.js";
+import { enumValues } from "@hyperidle/core-app";
+import { handoff } from "@hyperidle/agent-layer";
+import type { SessionContext } from "@hyperidle/agent-layer";
+import { transitionTask } from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 
 /**
  * Zod schemas for request validation.

@@ -25,8 +25,8 @@
 import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { encryptCredentialValue } from "../credential-encryption.js";
-import { ServiceConnectionResolver } from "../service-connection-resolver.js";
+import { encryptCredentialValue } from "@hyperidle/core-app";
+import { ServiceConnectionResolver } from "@hyperidle/core-app";
 
 const SERVER_SECRET = "integration-test-server-secret-an1";
 const NOW = new Date().toISOString();

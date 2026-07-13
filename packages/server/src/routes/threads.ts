@@ -65,11 +65,11 @@ import {
 	listUnresolvedReviewThreadIds,
 	resolveMessageIfUnresolved,
 	updateThread,
-} from "../services/conversation-store.js";
-import { escapeLikePattern } from "../services/like-escape.js";
-import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
-import { getUserById, getUsersByIds, listUsersByTeams } from "../services/user-store.js";
-import * as work from "../work-service.js";
+} from "@hyperidle/core-app";
+import { escapeLikePattern } from "@hyperidle/core-app";
+import { composeTailoredGrant } from "@hyperidle/core-app";
+import { getUserById, getUsersByIds, listUsersByTeams } from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {

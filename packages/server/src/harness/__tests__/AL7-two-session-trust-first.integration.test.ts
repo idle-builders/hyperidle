@@ -74,16 +74,16 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
 	createEnforcementRegistry,
 	type EnforcementRegistry,
-} from "../../harness/return-enforcement-registry.js";
-import { createMcpBridge } from "../../mcp/mcp-bridge.js";
-import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
+} from "@hyperidle/agent-layer";
+import { createMcpBridge } from "@hyperidle/agent-layer";
+import { createMcpBridgeRegistry, type McpBridgeRegistry } from "@hyperidle/agent-layer";
 import { createMcpRoute } from "../../services/mcp-route.js";
-import { commitFileTool } from "../../tools/commit-file.js";
-import type { RegisteredTool, ToolContext, ToolRegistry } from "../../tools/tool-registry.js";
-import { toClaudeToolSpec, toRegistered } from "../../tools/tool-registry.js";
-import type { ToolResult } from "../../tools/tool-result.js";
-import { err } from "../../tools/tool-result.js";
-import { harnessTestResolvedModel, requireHarness } from "./require-harness.js";
+import { commitFileTool } from "@hyperidle/agent-layer";
+import type { RegisteredTool, ToolContext, ToolRegistry } from "@hyperidle/agent-layer";
+import { toClaudeToolSpec, toRegistered } from "@hyperidle/agent-layer";
+import type { ToolResult } from "@hyperidle/agent-layer";
+import { err } from "@hyperidle/agent-layer";
+import { harnessTestResolvedModel, requireHarness } from "@hyperidle/agent-layer";
 
 // ── In-memory capturing router ────────────────────────────────────────────────
 //
@@ -806,7 +806,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 				// writeCliMcpConfig (T4/T6): appends the [mcp_servers.hyperidle] block
 				// to .codex-home/config.toml (codex-toml dialect).
-				const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+				const { writeCliMcpConfig } = await import("@hyperidle/agent-layer");
 				const codexHomeDir = path.join(s1SandboxPath, ".codex-home");
 				fs.mkdirSync(codexHomeDir, { recursive: true });
 
@@ -912,7 +912,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
 
 			try {
-				const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+				const { writeCliMcpConfig } = await import("@hyperidle/agent-layer");
 
 				// ── Session 1 ──────────────────────────────────────────────────────
 				const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
@@ -1122,7 +1122,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 				// @lore AL7 T3 opencode: writeCliMcpConfig writes opencode.json to sandboxPath.
 				// Currently RED: writeCliMcpConfig does not exist yet (T4).
-				const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+				const { writeCliMcpConfig } = await import("@hyperidle/agent-layer");
 				writeCliMcpConfig({
 					dialect: "opencode-json",
 					sandboxPath: s1SandboxPath,
@@ -1198,7 +1198,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
 
 			try {
-				const { writeCliMcpConfig } = await import("../../harness/cli-mcp-config.js");
+				const { writeCliMcpConfig } = await import("@hyperidle/agent-layer");
 
 				// ── Session 1 ──────────────────────────────────────────────────────
 				const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);

@@ -6,8 +6,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { GitRunner } from "../services/git-export-runner.js";
-import { inspectLocalPath } from "../services/inspect-local-path.js";
+import type { GitRunner } from "@hyperidle/core-app";
+import { inspectLocalPath } from "@hyperidle/core-app";
 
 function makeFakeRunner(isInsideWorkTree: boolean, branch: string | null): GitRunner {
 	return {

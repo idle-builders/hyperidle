@@ -7,15 +7,15 @@ import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
 import type { CostCapBreachedEvent, RoutineFiredEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
-import { updateNotificationConfig } from "../../notifications/config.js";
-import { registerNotificationDispatcher } from "../../notifications/dispatcher.js";
-import { insertNotification, listAll } from "../../notifications/notification-queue.js";
+import { updateNotificationConfig } from "@hyperidle/core-app";
+import { registerNotificationDispatcher } from "@hyperidle/core-app";
+import { insertNotification, listAll } from "@hyperidle/core-app";
 import type {
 	Notification,
 	NotificationAdapter,
 	Recipient,
 	SendResult,
-} from "../../notifications/types.js";
+} from "@hyperidle/core-app";
 import { expect, test } from "../../test-fixtures.js";
 
 interface AdapterCall {

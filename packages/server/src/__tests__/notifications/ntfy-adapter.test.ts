@@ -10,8 +10,8 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createNtfyAdapter } from "../../notifications/ntfy-adapter.js";
-import type { Notification, Recipient } from "../../notifications/types.js";
+import { createNtfyAdapter } from "@hyperidle/core-app";
+import type { Notification, Recipient } from "@hyperidle/core-app";
 
 interface CapturedRequest {
 	method: string;

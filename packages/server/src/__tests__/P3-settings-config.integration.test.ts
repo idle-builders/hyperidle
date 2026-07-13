@@ -175,7 +175,7 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 			});
 
 			// Import and directly read server_config to verify DB persistence
-			const { readServerConfig } = await import("../services/server-config.js");
+			const { readServerConfig } = await import("@hyperidle/core-app");
 			const config = await readServerConfig(db);
 			expect(config.notifications.reviewAlerts).toBe(false);
 			vi.unstubAllEnvs();

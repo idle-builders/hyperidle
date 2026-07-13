@@ -30,11 +30,11 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
-import * as routineService from "../../routine-service.js";
+import { routineService } from "@hyperidle/core-app";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { startAgentLifecycleProjectionDrain } from "../agent-lifecycle-projectors.js";
-import { drainAgentWorkIntents } from "../agent-work-intent-worker.js";
-import { checkAndFireRoutine } from "../routine-scheduler.js";
+import { startAgentLifecycleProjectionDrain } from "@hyperidle/core-app";
+import { drainAgentWorkIntents } from "@hyperidle/agent-layer";
+import { checkAndFireRoutine } from "@hyperidle/agent-layer";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 const TEST_API_KEY = "test-key-au15-routine-scheduler";

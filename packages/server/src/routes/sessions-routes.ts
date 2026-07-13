@@ -13,14 +13,14 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
-import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
+import { recordAgentWorkIntent } from "@hyperidle/core-app";
+import type { SessionActivityBuffer } from "@hyperidle/core-app";
 import {
 	requestAgentTermination,
 	transitionAgentRunLifecycle,
-} from "../services/session-lifecycle.js";
-import { sessionRunRegistry } from "../services/session-run-registry.js";
-import * as work from "../work-service.js";
+} from "@hyperidle/agent-layer";
+import { sessionRunRegistry } from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part

@@ -16,7 +16,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { buildToolRegistry, type ToolContext } from "../tool-registry.js";
+import { buildToolRegistry, type ToolContext } from "@hyperidle/agent-layer";
 
 function makeContext(db: HyperIdleDb): ToolContext {
 	return {

@@ -17,7 +17,7 @@
 import { serverConfig, serverCredentials } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { decryptCredentialValue } from "../../services/credential-encryption.js";
+import { decryptCredentialValue } from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ah1-store";

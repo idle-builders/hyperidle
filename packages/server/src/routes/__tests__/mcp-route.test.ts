@@ -11,7 +11,7 @@
 
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import type { McpBridgeRegistry } from "../../mcp/mcp-bridge-registry.js";
+import type { McpBridgeRegistry } from "@hyperidle/agent-layer";
 import { createMcpRoute } from "../../services/mcp-route.js";
 
 function makeMockRegistry(response: Response): McpBridgeRegistry {

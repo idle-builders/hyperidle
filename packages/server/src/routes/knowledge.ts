@@ -47,7 +47,7 @@ import {
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import { ItemDeletedError, VersionConflictError } from "../knowledge/errors.js";
+import { ItemDeletedError, VersionConflictError } from "@hyperidle/core-app";
 import {
 	archiveItem,
 	changeScope,
@@ -63,13 +63,13 @@ import {
 	searchByText,
 	splitItem,
 	update as updateKnowledgeItem,
-} from "../knowledge/knowledge-repository.js";
+} from "@hyperidle/core-app";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
-import { getUserById } from "../services/user-store.js";
-import * as work from "../work-service.js";
+import { recordAgentWorkIntent } from "@hyperidle/core-app";
+import { getUserById } from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation

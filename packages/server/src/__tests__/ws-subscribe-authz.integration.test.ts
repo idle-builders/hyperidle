@@ -16,7 +16,7 @@ import {
 	createDbSubscribeAuthorizer,
 	WsBroadcaster,
 	type WsClient,
-} from "../services/ws-broadcaster.js";
+} from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 function createMockClient(): WsClient & { messages: string[] } {

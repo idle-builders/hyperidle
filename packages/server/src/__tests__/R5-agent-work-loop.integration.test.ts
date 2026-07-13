@@ -30,12 +30,12 @@ import {
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { clearDeduplicationCache, recordCostAndCheck } from "../services/cost-cap.js";
+import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
-import { createTaskTool } from "../tools/create-task.js";
-import { readInboxTool } from "../tools/read-inbox.js";
-import { submitReviewTool } from "../tools/submit-review.js";
-import type { ToolContext } from "../tools/tool-registry.js";
+import { createTaskTool } from "@hyperidle/agent-layer";
+import { readInboxTool } from "@hyperidle/agent-layer";
+import { submitReviewTool } from "@hyperidle/agent-layer";
+import type { ToolContext } from "@hyperidle/agent-layer";
 
 const TEST_API_KEY = "test-key-r5-agent-loop";
 const NOW = new Date().toISOString();

@@ -11,8 +11,8 @@ import {
 	readObservabilityConfig,
 	redactObservabilityConfig,
 	updateObservabilityConfig,
-} from "../services/observability/config.js";
-import type { ObservabilityDispatcher } from "../services/observability/types.js";
+} from "@hyperidle/core-app";
+import type { ObservabilityDispatcher } from "@hyperidle/core-app";
 
 /**
  * Per-request body cap for POST routes. Observability POSTs carry

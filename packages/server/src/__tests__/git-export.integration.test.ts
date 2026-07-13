@@ -36,7 +36,7 @@ import {
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
 	updateGitExportConfig,
-} from "../config/git-export-config.js";
+} from "@hyperidle/core-app";
 import {
 	buildCommitMessage,
 	computeExportPlan,
@@ -45,8 +45,8 @@ import {
 	registerGitExportHandler,
 	resetExportMutexes,
 	runGitExport,
-} from "../services/git-export.js";
-import type { GitRunner } from "../services/git-export-runner.js";
+} from "@hyperidle/core-app";
+import type { GitRunner } from "@hyperidle/core-app";
 import { expect, test } from "../test-fixtures.js";
 
 type GitCall =

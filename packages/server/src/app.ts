@@ -3,18 +3,18 @@ import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
-import type { AdapterPool } from "./harness/adapter-pool.js";
-import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
-import type { McpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
+import type { AdapterPool } from "@hyperidle/agent-layer";
+import type { SandboxAdapter } from "@hyperidle/agent-layer";
+import type { McpBridgeRegistry } from "@hyperidle/agent-layer";
 import { failClosedAssertion } from "./middleware/access-boundary-middleware.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
-import { defaultNotificationAdapterFactory } from "./notifications/adapter-factory.js";
-import type { NotificationConfig } from "./notifications/config.js";
-import type { NotificationAdapter } from "./notifications/types.js";
+import { defaultNotificationAdapterFactory } from "@hyperidle/core-app";
+import type { NotificationConfig } from "@hyperidle/core-app";
+import type { NotificationAdapter } from "@hyperidle/core-app";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -48,27 +48,27 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
-import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
-import { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
-import { getServerSecret } from "./services/credential-encryption.js";
-import type { CredentialResolver } from "./services/credential-resolver.js";
-import { checkAndUnblockDependents } from "./services/dependency-watcher.js";
+import type { AssistantTurnDeps } from "@hyperidle/agent-layer";
+import { registerAssistantDispatcher } from "@hyperidle/agent-layer";
+import { getServerSecret } from "@hyperidle/core-app";
+import type { CredentialResolver } from "@hyperidle/core-app";
+import { checkAndUnblockDependents } from "@hyperidle/core-app";
 import {
 	type ObservabilityConfig,
 	readObservabilityConfig,
-} from "./services/observability/config.js";
-import { createConsoleObservabilityAdapter } from "./services/observability/console-adapter.js";
+} from "@hyperidle/core-app";
+import { createConsoleObservabilityAdapter } from "@hyperidle/core-app";
 import {
 	createDbTraceIdResolver,
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
-} from "./services/observability/dispatcher.js";
+} from "@hyperidle/core-app";
 import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
-} from "./services/observability/types.js";
-import { ServiceConnectionResolver } from "./services/service-connection-resolver.js";
-import { SessionActivityBuffer } from "./services/session-activity-buffer.js";
+} from "@hyperidle/core-app";
+import { ServiceConnectionResolver } from "@hyperidle/core-app";
+import { SessionActivityBuffer } from "@hyperidle/core-app";
 
 interface AppOptions {
 	db?: HyperIdleDb;

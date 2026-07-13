@@ -20,7 +20,7 @@ import {
 	classifyReversibility,
 	composeWorkflowAllowDeny,
 	identityHash,
-} from "../tools/tool-registry.js";
+} from "@hyperidle/agent-layer";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // T1 — classifyReversibility: fail-closed (no signal → irreversible)

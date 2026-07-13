@@ -25,7 +25,7 @@ import {
 	listMessagesByThread,
 	listThreadsByHost,
 	searchConversations,
-} from "../services/conversation-store.js";
+} from "@hyperidle/core-app";
 import {
 	getUserById,
 	getUsersByIds,
@@ -35,7 +35,7 @@ import {
 	listAgentProfiles,
 	listUsersByKind,
 	sumAllUserCost,
-} from "../services/user-store.js";
+} from "@hyperidle/core-app";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW = "2026-01-01T00:00:00.000Z";

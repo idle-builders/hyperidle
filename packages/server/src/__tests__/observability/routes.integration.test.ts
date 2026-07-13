@@ -10,12 +10,12 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { Logger } from "@hyperidle/shared";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
-import { updateObservabilityConfig } from "../../services/observability/config.js";
-import { createObservabilityDispatcher } from "../../services/observability/dispatcher.js";
+import { updateObservabilityConfig } from "@hyperidle/core-app";
+import { createObservabilityDispatcher } from "@hyperidle/core-app";
 import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
-} from "../../services/observability/types.js";
+} from "@hyperidle/core-app";
 import { describe, expect, test } from "../../test-fixtures.js";
 
 function quietAdapter(): ObservabilityAdapter {

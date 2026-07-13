@@ -20,10 +20,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import { eq, sql } from "drizzle-orm";
-import { insertProposedBetTasks } from "../services/bet-decomposition.js";
-import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
-import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
-import { checkAndFireRoutine } from "../services/routine-scheduler.js";
+import { insertProposedBetTasks } from "@hyperidle/agent-layer";
+import { checkAndUnblockDependents } from "@hyperidle/core-app";
+import { composeTailoredGrant } from "@hyperidle/core-app";
+import { checkAndFireRoutine } from "@hyperidle/agent-layer";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const authHeaders = {
@@ -216,7 +216,7 @@ describe("atomic production handoffs", () => {
 	});
 
 	test("production module offers one drain with no domain callback", async () => {
-		const worker = (await import("../services/agent-work-intent-worker.js")) as Record<
+		const worker = (await import("@hyperidle/agent-layer")) as Record<
 			string,
 			unknown
 		>;
@@ -287,7 +287,7 @@ describe("atomic production handoffs", () => {
 		});
 		expect(response.status).toBe(202);
 		let callbacks = 0;
-		const { drainAgentWorkIntents } = await import("../services/agent-work-intent-worker.js");
+		const { drainAgentWorkIntents } = await import("@hyperidle/agent-layer");
 		await drainAgentWorkIntents(db, {
 			now: () => new Date(Date.now() + 1_000),
 			...({

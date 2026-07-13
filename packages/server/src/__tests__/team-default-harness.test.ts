@@ -8,7 +8,7 @@
 
 import type { PrimaryHarnessConfig } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { resolveTeamAgentHarness } from "../services/team-default-harness.js";
+import { resolveTeamAgentHarness } from "@hyperidle/core-app";
 
 const TEAM_WITH_DEFAULT = {
 	defaultHarnessType: "claude-code",

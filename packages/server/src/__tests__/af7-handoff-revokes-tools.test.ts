@@ -32,14 +32,14 @@
 
 import type { SessionConfig } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
-import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import type { LlmResponse } from "../harness/llm-types.js";
+import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
+import type { LlmResponse } from "@hyperidle/agent-layer";
 
-vi.mock("../harness/llm-client.js", () => ({
+vi.mock("../../../agent-layer/src/harness/llm-client.js", () => ({
 	callLlm: vi.fn(),
 }));
 
-const { callLlm } = await import("../harness/llm-client.js");
+const { callLlm } = await import("@hyperidle/agent-layer");
 const callLlmMock = vi.mocked(callLlm);
 
 const RESOLVED_MODEL = {

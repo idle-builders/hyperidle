@@ -22,11 +22,11 @@ import {
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
 	summarizeToolArgs,
-} from "../../services/observability/dispatcher.js";
+} from "@hyperidle/core-app";
 import type {
 	ObservabilityAdapter,
 	ObservabilityChannel,
-} from "../../services/observability/types.js";
+} from "@hyperidle/core-app";
 import { afterEach, describe, expect, test } from "../../test-fixtures.js";
 
 function fakeAdapter(
@@ -52,7 +52,7 @@ function fakeAdapter(
 }
 
 function makeInMemResolver(): ReturnType<
-	typeof import("../../services/observability/dispatcher.js").createDbTraceIdResolver
+	typeof import("@hyperidle/core-app").createDbTraceIdResolver
 > {
 	const map = new Map<string, string>();
 	return {

@@ -18,8 +18,8 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { transitionBet } from "../services/bet-state-machine.js";
-import { registerLifecyclePropagation } from "../services/lifecycle-propagation.js";
+import { transitionBet } from "@hyperidle/core-app";
+import { registerLifecyclePropagation } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-r7-bets";

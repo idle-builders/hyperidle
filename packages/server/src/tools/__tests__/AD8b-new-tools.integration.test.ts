@@ -14,9 +14,9 @@ import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { createBetTool } from "../create-bet.js";
-import { editBetTool } from "../edit-bet.js";
-import type { ToolContext } from "../tool-registry.js";
+import { createBetTool } from "@hyperidle/agent-layer";
+import { editBetTool } from "@hyperidle/agent-layer";
+import type { ToolContext } from "@hyperidle/agent-layer";
 
 const NOW = "2026-06-09T00:00:00.000Z";
 

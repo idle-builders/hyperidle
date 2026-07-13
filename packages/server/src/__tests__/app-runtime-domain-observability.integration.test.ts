@@ -6,9 +6,9 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { defaultNotificationAdapterFactory } from "../notifications/adapter-factory.js";
-import { enqueueNotification, flushQueue } from "../notifications/dispatcher.js";
-import { listAll } from "../notifications/notification-queue.js";
+import { defaultNotificationAdapterFactory } from "@hyperidle/core-app";
+import { enqueueNotification, flushQueue } from "@hyperidle/core-app";
+import { listAll } from "@hyperidle/core-app";
 import { test as fixtureTest } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au3-domain";

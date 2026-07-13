@@ -25,12 +25,12 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
-import { AdapterPool } from "../../harness/adapter-pool.js";
-import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
+import { AdapterPool } from "@hyperidle/agent-layer";
+import { LocalSandboxAdapter } from "@hyperidle/agent-layer";
 import { test as fixtureTest } from "../../test-fixtures.js";
-import { executeAgentRunRequest } from "../agent-run-boundary.js";
-import { createAgentSessionRequest } from "../agent-session-requests.js";
-import type { ProvisionSessionDeps } from "../session-provisioning.js";
+import { executeAgentRunRequest } from "@hyperidle/agent-layer";
+import { createAgentSessionRequest } from "@hyperidle/agent-layer";
+import type { ProvisionSessionDeps } from "@hyperidle/agent-layer";
 
 class RecordingHarnessAdapter implements HarnessAdapter {
 	readonly configs: SessionConfig[] = [];

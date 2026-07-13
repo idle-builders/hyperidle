@@ -29,7 +29,7 @@ import {
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerSessionReviewCreator } from "../services/session-review-creator.js";
+import { registerSessionReviewCreator } from "@hyperidle/core-app";
 
 const NOW = new Date().toISOString();
 

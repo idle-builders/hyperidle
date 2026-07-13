@@ -6,7 +6,7 @@ import {
 	loadPluginConfigurationDefaults,
 	setConfigurationOverride,
 	setPluginConfigurationState,
-} from "../../services/plugin-configuration.js";
+} from "@hyperidle/core-app";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au5-agent-behavior";

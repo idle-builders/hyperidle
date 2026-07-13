@@ -26,8 +26,8 @@ import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { readServerConfig, updateServerConfig } from "../services/server-config.js";
-import { getFirstUserByKind, listUsersByKind } from "../services/user-store.js";
+import { readServerConfig, updateServerConfig } from "@hyperidle/core-app";
+import { getFirstUserByKind, listUsersByKind } from "@hyperidle/core-app";
 
 /**
  * @lore M3 review W2: Zod validation for the PATCH body so we reject malformed

@@ -22,8 +22,8 @@ import {
 	decryptCredentialValue,
 	encryptCredentialValue,
 	requireServerSecret,
-} from "../services/credential-encryption.js";
-import { readServerConfig } from "../services/server-config.js";
+} from "@hyperidle/core-app";
+import { readServerConfig } from "@hyperidle/core-app";
 
 /** Validation timeout: 10 seconds for all external service calls. */
 const VALIDATE_TIMEOUT_MS = 10_000;

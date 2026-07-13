@@ -2,8 +2,8 @@ import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { getDailyDigest } from "../notifications/daily-digest.js";
-import { listAllUsers } from "../services/user-store.js";
+import { getDailyDigest } from "@hyperidle/core-app";
+import { listAllUsers } from "@hyperidle/core-app";
 
 const SERVER_START_TIME = new Date().toISOString();
 

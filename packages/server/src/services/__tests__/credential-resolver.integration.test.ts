@@ -13,8 +13,8 @@
 
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { encryptCredentialValue } from "../credential-encryption.js";
-import { DbCredentialResolver, EnvCredentialResolver } from "../credential-resolver.js";
+import { encryptCredentialValue } from "@hyperidle/core-app";
+import { DbCredentialResolver, EnvCredentialResolver } from "@hyperidle/core-app";
 
 describe("P3 AC-15 — CredentialResolver interface", () => {
 	describe("EnvCredentialResolver", () => {

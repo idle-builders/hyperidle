@@ -45,9 +45,9 @@ import { Hono } from "hono";
 import type { UpgradeTokenStore } from "../auth/upgrade-token-store.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { createInvite } from "../services/invite-code.js";
-import { revokeLoginSession } from "../services/login-session.js";
-import { getUserById } from "../services/user-store.js";
+import { createInvite } from "@hyperidle/core-app";
+import { revokeLoginSession } from "@hyperidle/core-app";
+import { getUserById } from "@hyperidle/core-app";
 
 export function createAuthRoutes(
 	db: HyperIdleDb | null,

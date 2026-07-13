@@ -43,19 +43,19 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { enqueueNotification } from "../notifications/dispatcher.js";
-import { findPendingByEventSubject } from "../notifications/notification-queue.js";
-import * as routineService from "../routine-service.js";
-import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
-import { deriveInitials } from "../services/agent-utils.js";
-import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
-import { getThreadById, insertMessage, insertThread } from "../services/conversation-store.js";
-import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
-import { upsertOrgEdge } from "../services/org-edges.js";
-import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { humanizeSchedule } from "../services/schedule-label.js";
-import { resolveTeamAgentHarness } from "../services/team-default-harness.js";
-import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
+import { enqueueNotification } from "@hyperidle/core-app";
+import { findPendingByEventSubject } from "@hyperidle/core-app";
+import { routineService } from "@hyperidle/core-app";
+import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-layer";
+import { deriveInitials } from "@hyperidle/core-app";
+import { provisionTeamRoutines } from "@hyperidle/agent-layer";
+import { getThreadById, insertMessage, insertThread } from "@hyperidle/core-app";
+import type { HarnessCapabilityReader } from "@hyperidle/agent-layer";
+import { upsertOrgEdge } from "@hyperidle/core-app";
+import { persistScaffoldedAgents } from "@hyperidle/agent-layer";
+import { humanizeSchedule } from "@hyperidle/core-app";
+import { resolveTeamAgentHarness } from "@hyperidle/core-app";
+import { ApiError, loadTeamMembers } from "@hyperidle/core-app";
 import {
 	getFirstUserByKind,
 	getUserById,
@@ -64,8 +64,8 @@ import {
 	listUsersByTeam,
 	listUsersByTeamAndKind,
 	updateUser,
-} from "../services/user-store.js";
-import * as work from "../work-service.js";
+} from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 import {
 	computeHealthSignals,
 	deriveHealthDetail,

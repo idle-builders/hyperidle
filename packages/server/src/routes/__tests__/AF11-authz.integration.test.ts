@@ -348,7 +348,7 @@ describe("AC3: Worker token cannot access credentials or admin routes", () => {
 describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => {
 	test("register with already-active id is rejected when incumbent is live", async ({}) => {
 		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
-		const { AdapterPool } = await import("../../harness/adapter-pool.js");
+		const { AdapterPool } = await import("@hyperidle/agent-layer");
 
 		const pool = new AdapterPool();
 		const ws1Sent: string[] = [];
@@ -396,7 +396,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 
 	test("register with dead-incumbent id is accepted (reconnect)", async ({}) => {
 		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
-		const { AdapterPool } = await import("../../harness/adapter-pool.js");
+		const { AdapterPool } = await import("@hyperidle/agent-layer");
 
 		const pool = new AdapterPool();
 		// Closed socket (readyState=3: CLOSED)
@@ -532,7 +532,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		await db.insert(serverConfig).values({ id: "default", config: rawBlob, updatedAt: now });
 
 		// Run the AH1 migration — relocates blob apiKey to server_credentials.
-		const { migrateCredentialsToStore } = await import("../../services/server-config.js");
+		const { migrateCredentialsToStore } = await import("@hyperidle/core-app");
 		await migrateCredentialsToStore(db);
 
 		// After migration: blob has no apiKey field.
@@ -564,7 +564,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		expect(encryptedValue).not.toBe(plaintextApiKey);
 
 		// It must decrypt back to the original plaintext.
-		const { decryptCredentialValue } = await import("../../services/credential-encryption.js");
+		const { decryptCredentialValue } = await import("@hyperidle/core-app");
 		const decrypted = decryptCredentialValue(encryptedValue, TEST_SERVER_SECRET);
 		expect(decrypted).toBe(plaintextApiKey);
 

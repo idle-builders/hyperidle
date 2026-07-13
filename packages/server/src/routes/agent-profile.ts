@@ -34,14 +34,14 @@ import type {
 import { desc, eq } from "drizzle-orm";
 import type { Context } from "hono";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { computeApprovalRate } from "../services/approval-rate.js";
+import { computeApprovalRate } from "@hyperidle/core-app";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
 	registeredHarnessCount,
-} from "../services/harness-capability-read-model.js";
-import { getUserById } from "../services/user-store.js";
-import * as work from "../work-service.js";
+} from "@hyperidle/agent-layer";
+import { getUserById } from "@hyperidle/core-app";
+import { work } from "@hyperidle/core-app";
 
 // ---------------------------------------------------------------------------
 // Health signal computation (exported for unit tests — see A5 finding)

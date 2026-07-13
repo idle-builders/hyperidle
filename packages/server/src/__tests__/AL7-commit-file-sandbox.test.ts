@@ -11,8 +11,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { commitFileTool } from "../tools/commit-file.js";
-import type { ToolContext } from "../tools/tool-registry.js";
+import { commitFileTool } from "@hyperidle/agent-layer";
+import type { ToolContext } from "@hyperidle/agent-layer";
 
 // Minimal stub of ToolContext — commit_file only uses sandboxPath
 function makeCtx(sandboxPath: string): ToolContext {

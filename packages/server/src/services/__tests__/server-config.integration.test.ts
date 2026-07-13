@@ -13,7 +13,7 @@
 
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { readServerConfig, updateServerConfig } from "../server-config.js";
+import { readServerConfig, updateServerConfig } from "@hyperidle/core-app";
 
 describe("P3 AC-10 — Server config read/write", () => {
 	describe("readServerConfig", () => {

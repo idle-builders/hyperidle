@@ -9,7 +9,7 @@
 
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { getDispatchQueueSnapshot } from "../services/task-dispatcher.js";
+import { getDispatchQueueSnapshot } from "@hyperidle/agent-layer";
 
 /**
  * Create a Hono router that exposes GET / → DispatchQueueSnapshot.

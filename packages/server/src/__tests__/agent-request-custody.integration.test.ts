@@ -20,19 +20,19 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, vi } from "vitest";
-import type { AdapterPool } from "../harness/adapter-pool.js";
-import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
-import { drainAgentSessionRequests } from "../services/agent-layer-boot.js";
+import type { AdapterPool } from "@hyperidle/agent-layer";
+import type { SandboxAdapter } from "@hyperidle/agent-layer";
+import { drainAgentSessionRequests } from "@hyperidle/agent-layer";
 import { expect, test } from "../test-fixtures.js";
 
-vi.mock("../services/session-provisioning.js", async (importOriginal) => {
-	const original = await importOriginal<typeof import("../services/session-provisioning.js")>();
+vi.mock("../../../agent-layer/src/services/session-provisioning.js", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/agent-layer")>();
 	return {
 		...original,
 		admitSession: vi.fn(
 			async (
-				deps: import("../services/session-provisioning.js").ProvisionSessionDeps,
-				params: import("../services/session-provisioning.js").ProvisionSessionParams,
+				deps: import("@hyperidle/agent-layer").ProvisionSessionDeps,
+				params: import("@hyperidle/agent-layer").ProvisionSessionParams,
 			) => {
 				// Reflects whichever session row the REAL reserve-or-adopt path already
 				// created/adopted for this request — never fabricates a second one.

@@ -38,8 +38,8 @@ import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
-import type { ToolContext } from "../tools/tool-registry.js";
-import { buildToolRegistry } from "../tools/tool-registry.js";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { buildToolRegistry } from "@hyperidle/agent-layer";
 
 const NOW = new Date().toISOString();
 

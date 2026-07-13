@@ -3,11 +3,11 @@ import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
-import { setupFts } from "../../knowledge/fts.js";
-import { create as createKnowledgeItem } from "../../knowledge/knowledge-repository.js";
+import { setupFts } from "@hyperidle/core-app";
+import { create as createKnowledgeItem } from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
-import { queryPracticeTool } from "../query-practice.js";
-import type { ToolContext } from "../tool-registry.js";
+import { queryPracticeTool } from "@hyperidle/agent-layer";
+import type { ToolContext } from "@hyperidle/agent-layer";
 
 function makeContext(db: HyperIdleDb): ToolContext {
 	return {

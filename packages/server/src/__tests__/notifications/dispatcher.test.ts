@@ -16,7 +16,7 @@ import {
 	loadNotificationConfig,
 	type NotificationConfigPatch,
 	updateNotificationConfig,
-} from "../../notifications/config.js";
+} from "@hyperidle/core-app";
 import {
 	dispatchDigest,
 	enqueueNotification,
@@ -24,15 +24,15 @@ import {
 	recoverStuckLeases,
 	registerNotificationDispatcher,
 	tryFloodReserve,
-} from "../../notifications/dispatcher.js";
-import { findById, insertNotification, listAll } from "../../notifications/notification-queue.js";
+} from "@hyperidle/core-app";
+import { findNotificationById, insertNotification, listAll } from "@hyperidle/core-app";
 import type {
 	Notification,
 	NotificationAdapter,
 	Recipient,
 	SendResult,
-} from "../../notifications/types.js";
-import { updateServerConfig } from "../../services/server-config.js";
+} from "@hyperidle/core-app";
+import { updateServerConfig } from "@hyperidle/core-app";
 
 interface AdapterCall {
 	recipient: Recipient;
@@ -592,7 +592,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 		expect(result.deferred).toBe(1); // blocking kept
 		expect(adapter.calls).toHaveLength(1);
 		expect(adapter!.calls[0]!.notification.severity).toBe("digest");
-		const block = await findById(db, "block-sil");
+		const block = await findNotificationById(db, "block-sil");
 		expect(block?.status).toBe("pending");
 	});
 
@@ -704,7 +704,7 @@ describe("At-least-once delivery (claim lease)", () => {
 			async send(recipient, notification): Promise<SendResult> {
 				this.calls.push({ recipient, notification });
 				// Peek at the row state mid-send — should be `sending`.
-				const midSendRow = await findById(db, "aq-1");
+				const midSendRow = await findNotificationById(db, "aq-1");
 				observedStatus = midSendRow?.status ?? null;
 				return { ok: true, channel: "console", sentAt: new Date().toISOString() };
 			},
@@ -714,7 +714,7 @@ describe("At-least-once delivery (claim lease)", () => {
 		const result = await flushQueue(db, () => adapter, cfg, new Date());
 		expect(result.flushed).toBe(1);
 		expect(observedStatus).toBe("sending");
-		const row = await findById(db, "aq-1");
+		const row = await findNotificationById(db, "aq-1");
 		expect(row?.status).toBe("sent");
 		expect(row?.claimedAt).toBeNull();
 	});
@@ -739,7 +739,7 @@ describe("At-least-once delivery (claim lease)", () => {
 
 		const recovered = await recoverStuckLeases(db, now);
 		expect(recovered).toBe(1);
-		const row = await findById(db, "stuck-1");
+		const row = await findNotificationById(db, "stuck-1");
 		expect(row?.status).toBe("pending");
 		expect(row?.claimedAt).toBeNull();
 	});
@@ -764,7 +764,7 @@ describe("At-least-once delivery (claim lease)", () => {
 
 		const recovered = await recoverStuckLeases(db, now);
 		expect(recovered).toBe(0);
-		const row = await findById(db, "fresh-1");
+		const row = await findNotificationById(db, "fresh-1");
 		expect(row?.status).toBe("sending");
 	});
 
@@ -794,7 +794,7 @@ describe("At-least-once delivery (claim lease)", () => {
 		// The row was requeued by recoverStuckLeases and then flushed.
 		expect(result.flushed).toBe(1);
 		expect(adapter.calls).toHaveLength(1);
-		const row = await findById(db, "crash-1");
+		const row = await findNotificationById(db, "crash-1");
 		expect(row?.status).toBe("sent");
 	});
 });

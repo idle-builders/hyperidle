@@ -27,8 +27,8 @@ import {
 	flagItem,
 	mergeItems,
 	splitItem,
-} from "../knowledge-repository.js";
-import type { KnowledgeStatus } from "../types.js";
+} from "@hyperidle/core-app";
+import type { KnowledgeStatus } from "@hyperidle/core-app";
 
 async function seedItem(
 	db: HyperIdleDb,

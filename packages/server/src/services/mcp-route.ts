@@ -1,7 +1,7 @@
 import { AL6_MAX_FORCE_RETURNS, shouldForceReturn } from "@hyperidle/shared";
 import { Hono } from "hono";
-import type { EnforcementRegistry } from "../harness/return-enforcement-registry.js";
-import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
+import type { EnforcementRegistry } from "@hyperidle/agent-layer";
+import type { McpBridgeRegistry } from "@hyperidle/agent-layer";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 /**

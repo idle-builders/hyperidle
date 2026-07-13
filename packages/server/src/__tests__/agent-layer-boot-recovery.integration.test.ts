@@ -21,21 +21,21 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import type { AdapterPool } from "../harness/adapter-pool.js";
-import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
-import { bootAgentLayer } from "../services/agent-layer-boot.js";
+import type { AdapterPool } from "@hyperidle/agent-layer";
+import type { SandboxAdapter } from "@hyperidle/agent-layer";
+import { bootAgentLayer } from "@hyperidle/agent-layer";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const admitSessionCalls: string[] = [];
 
-vi.mock("../services/session-provisioning.js", async (importOriginal) => {
-	const original = await importOriginal<typeof import("../services/session-provisioning.js")>();
+vi.mock("../../../agent-layer/src/services/session-provisioning.js", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/agent-layer")>();
 	return {
 		...original,
 		admitSession: vi.fn(
 			async (
-				deps: import("../services/session-provisioning.js").ProvisionSessionDeps,
-				params: import("../services/session-provisioning.js").ProvisionSessionParams,
+				deps: import("@hyperidle/agent-layer").ProvisionSessionDeps,
+				params: import("@hyperidle/agent-layer").ProvisionSessionParams,
 			) => {
 				const requestId = params.requestContext?.requestId ?? "unknown";
 				admitSessionCalls.push(requestId);

@@ -5,9 +5,9 @@ import {
 	getDedupCacheSize,
 	recordCostAndCheck,
 	registerCostCapDedupReleaser,
-} from "../services/cost-cap.js";
-import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
-import type { SessionContext } from "../services/session-lifecycle.js";
+} from "@hyperidle/agent-layer";
+import { type HandoffMetadata, handoff } from "@hyperidle/agent-layer";
+import type { SessionContext } from "@hyperidle/agent-layer";
 import { expect, test } from "../test-fixtures.js";
 
 /**

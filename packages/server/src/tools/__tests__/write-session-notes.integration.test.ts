@@ -15,8 +15,8 @@ import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import type { ToolContext } from "../tool-registry.js";
-import { writeSessionNotesTool } from "../write-session-notes.js";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { writeSessionNotesTool } from "@hyperidle/agent-layer";
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();

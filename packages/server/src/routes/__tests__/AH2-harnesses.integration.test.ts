@@ -15,10 +15,10 @@
 
 import { users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool, CLAUDE_CLI_CONFIG } from "../../harness/adapter-pool.js";
-import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
-import { CliHarnessAdapter } from "../../harness/cli-harness-adapter.js";
-import { createLoginSession } from "../../services/login-session.js";
+import { AdapterPool, CLAUDE_CLI_CONFIG } from "@hyperidle/agent-layer";
+import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
+import { CliHarnessAdapter } from "@hyperidle/agent-layer";
+import { createLoginSession } from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 

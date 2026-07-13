@@ -2,9 +2,9 @@ import { type HyperIdleDb, items } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { routeItemTool } from "../route-item.js";
-import { buildToolRegistry } from "../tool-registry.js";
-import { makeContext, NOW, seedBase } from "./_helpers.js";
+import { routeItemTool } from "@hyperidle/agent-layer";
+import { buildToolRegistry } from "@hyperidle/agent-layer";
+import { makeContext, NOW, seedBase } from "@hyperidle/agent-layer";
 
 async function seedItem(
 	db: HyperIdleDb,

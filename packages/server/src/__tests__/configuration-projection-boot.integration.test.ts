@@ -4,14 +4,14 @@ import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { serviceConnections, teamMembers, teams, userSkills, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import { DisabledSandboxAdapter } from "../harness/disabled-sandbox-adapter.js";
+import { AdapterPool } from "@hyperidle/agent-layer";
+import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
+import { DisabledSandboxAdapter } from "@hyperidle/agent-layer";
 import { createServer, type ServerHandle } from "../server-factory.js";
 import {
 	getResolvedConfiguration,
 	listResolvedConfiguration,
-} from "../services/plugin-configuration.js";
+} from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const NOW = "2026-07-08T12:00:00.000Z";

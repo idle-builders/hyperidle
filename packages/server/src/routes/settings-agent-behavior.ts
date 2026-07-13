@@ -13,7 +13,7 @@ import {
 	AgentBehaviorConfigError,
 	listAgentBehaviorConfiguration,
 	patchAgentBehaviorConfiguration,
-} from "../services/agent-behavior-config.js";
+} from "@hyperidle/core-app";
 
 export function createAgentBehaviorSettingsRoutes(db: HyperIdleDb): Hono {
 	const router = new Hono();

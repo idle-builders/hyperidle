@@ -22,7 +22,7 @@ import {
 	hashToken,
 	revokeLoginSession,
 	validateBearerToken,
-} from "../services/login-session.js";
+} from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

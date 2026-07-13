@@ -29,7 +29,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect } from "vitest";
-import { resolveReviewRecipients } from "../services/org-routing.js";
+import { resolveReviewRecipients } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

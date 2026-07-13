@@ -12,8 +12,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { HttpError } from "../harness/llm-client.js";
-import { mapErrorToNotice } from "../services/agent-work-assistant.js";
+import { HttpError } from "@hyperidle/agent-layer";
+import { mapErrorToNotice } from "@hyperidle/agent-layer";
 
 describe("mapErrorToNotice — HttpError mapping", () => {
 	it("HttpError 401 returns auth notice with key guidance, not temporary-error copy", () => {

@@ -12,5 +12,5 @@
  */
 
 export type { AppType } from "../app.js";
-export * from "./bet.schema.js";
-export * from "./common.schema.js";
+export * from "@hyperidle/core-app";
+export * from "@hyperidle/core-app";

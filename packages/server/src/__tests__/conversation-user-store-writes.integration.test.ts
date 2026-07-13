@@ -16,13 +16,13 @@ import {
 	insertThread,
 	resolveMessageIfUnresolved,
 	updateThread,
-} from "../services/conversation-store.js";
+} from "@hyperidle/core-app";
 import {
 	getOrCreateUser,
 	insertUser,
 	resetAllUserCost,
 	updateUser,
-} from "../services/user-store.js";
+} from "@hyperidle/core-app";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

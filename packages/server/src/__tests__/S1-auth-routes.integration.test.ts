@@ -16,8 +16,8 @@
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp } from "../app.js";
-import { createInvite } from "../services/invite-code.js";
-import { createLoginSession } from "../services/login-session.js";
+import { createInvite } from "@hyperidle/core-app";
+import { createLoginSession } from "@hyperidle/core-app";
 import { expect, test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-s1-routes";
