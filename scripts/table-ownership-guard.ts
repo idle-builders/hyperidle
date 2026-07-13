@@ -60,11 +60,19 @@ const TABLE_OWNER: Record<string, string> = {
  * no single owner assigned anywhere in architecture §4's roster (unlike
  * `bets`/`tasks`/`items`, none of §4's per-Service "Owns" columns name
  * `teamMembers`/`sessions`/`propagationLog`/`taskDispatchAttempts`). This
- * mirrors the architecture's own precedent for `teams` (§6: "not one of the
- * five owned tables, so any file may query it directly without going through
- * a service") — completeness is intentionally NOT enforced for this
- * short, explicit, reviewed list, rather than forcing a false single-owner
- * assignment onto a real cross-cutting table.
+ * mirrors the recurring "not one of the owned tables → any file may query it
+ * directly" idiom already established in the codebase — NOT an
+ * architecture.md §6 citation (§6 there is the file-disposition table, not
+ * this idiom): `scripts/au18-notification-ownership-guard.ts` (~line 156,
+ * `legalPropagationWrite` treats `propagationLog` as "legal — unrelated
+ * table"), `scripts/au13-work-routine-ownership-guard.ts` ("`threads` is not
+ * one of the five owned tables"), and the same phrase verbatim in
+ * `packages/server/src/routes/search.ts` (`teams` is "not one of the five
+ * owned tables, so any file may query it") and
+ * `packages/core-api/work/src/work-service.ts` (`searchBetsByText`'s
+ * `@lore`, same `teams` reasoning). Completeness is intentionally NOT
+ * enforced for this short, explicit, reviewed list, rather than forcing a
+ * false single-owner assignment onto a real cross-cutting table.
  *
  * @lore AU19 Increment 1b: surfaced migrating `work` — `bet-decomposition.ts`/
  * `bet-state-machine.ts` read/write `teamMembers` directly (capacity
@@ -78,6 +86,14 @@ const TABLE_OWNER: Record<string, string> = {
  * false-ownership claim the zero-exceptions ACL principle forbids just as
  * much as a silent allowlist would. Revisit per-table as each real owner
  * migrates (§4's `⛁*` "confirm at migration" callouts apply here too).
+ *
+ * @lore AU19 Increment 1b checkpoint-review follow-up: this Set and
+ * `TABLE_OWNER` must stay disjoint — `consider()` below checks
+ * `UNOWNED_SHARED_TABLES` BEFORE the `TABLE_OWNER` lookup, so a future edit
+ * that accidentally added an already-owned table here would silently
+ * disable that table's ACL enforcement (a foreign `.from(ownedTable)` would
+ * wrongly short-circuit as exempt). `assertDisjointOwnership` below enforces
+ * this at load time.
  */
 const UNOWNED_SHARED_TABLES = new Set([
 	"teamMembers",
@@ -85,6 +101,26 @@ const UNOWNED_SHARED_TABLES = new Set([
 	"propagationLog",
 	"taskDispatchAttempts",
 ]);
+
+/**
+ * Startup invariant: `UNOWNED_SHARED_TABLES` and `TABLE_OWNER` must never
+ * overlap. Throws (rather than silently passing) so an accidental overlap
+ * fails loudly at load time — including under `--fixtures`, before any file
+ * scan runs.
+ */
+export function assertDisjointOwnership(
+	owner: Record<string, string>,
+	unowned: ReadonlySet<string>,
+): void {
+	const overlap = Object.keys(owner).filter((name) => unowned.has(name));
+	if (overlap.length > 0) {
+		throw new Error(
+			`table-ownership-guard: UNOWNED_SHARED_TABLES and TABLE_OWNER overlap on ${JSON.stringify(overlap)} — a table cannot be both exempt and owned (this would silently disable ACL enforcement for it)`,
+		);
+	}
+}
+
+assertDisjointOwnership(TABLE_OWNER, UNOWNED_SHARED_TABLES);
 
 const DIRECT_ACCESS_METHODS = new Set(["from", "insert", "update", "delete"]);
 const JOIN_METHODS = new Set(["leftJoin", "innerJoin", "rightJoin", "fullJoin"]);
@@ -479,6 +515,32 @@ function fixtureCheck(): void {
 	} finally {
 		rmSync(namespaceRoot, { recursive: true, force: true });
 	}
+
+	// (5) Checkpoint-review follow-up — disjointness invariant. A table that
+	// appears in BOTH `UNOWNED_SHARED_TABLES` and `TABLE_OWNER` (e.g. a future
+	// edit mistakenly adding an already-owned table like "bets" to the exempt
+	// set) must make `assertDisjointOwnership` throw with a clear message, not
+	// silently pass — proving the guard is self-defending against the exact
+	// mistake this fix closes.
+	let threwOnOverlap = false;
+	try {
+		assertDisjointOwnership({ bets: "packages/core-api/work" }, new Set(["bets"]));
+	} catch (err) {
+		threwOnOverlap = true;
+		if (!(err instanceof Error) || !err.message.includes("overlap")) {
+			throw new Error(
+				`table-ownership-guard: disjointness error message missing detail, got: ${String(err)}`,
+			);
+		}
+	}
+	if (!threwOnOverlap) {
+		throw new Error(
+			'table-ownership-guard: assertDisjointOwnership did not throw on a deliberately-overlapping fixture ("bets" in both TABLE_OWNER and UNOWNED_SHARED_TABLES) — disjointness is not enforced',
+		);
+	}
+	// The real maps must themselves stay disjoint — re-assert here so a
+	// regression fails the fixture run loudly, not just at module load.
+	assertDisjointOwnership(TABLE_OWNER, UNOWNED_SHARED_TABLES);
 
 	process.stdout.write("table-ownership-guard fixtures: PASS\n");
 }
