@@ -37,6 +37,7 @@ import {
 	isCatalogModel,
 	MODEL_TIERS,
 } from "@hyperidle/shared";
+import { getUserById, insertUser, listAgentProfiles, updateUser } from "@hyperidle/users";
 import { and, count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -46,7 +47,6 @@ import {
 	type HarnessCapabilityReader,
 	harnessRegistrationMeta,
 } from "../services/harness-capability-read-model.js";
-import { getUserById, insertUser, listAgentProfiles, updateUser } from "../services/user-store.js";
 import { handleAgentProfile } from "./agent-profile.js";
 
 // ---------------------------------------------------------------------------

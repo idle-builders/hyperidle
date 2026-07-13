@@ -19,12 +19,12 @@
 import { type HyperIdleDb, orgEdges, teamMembers, teams } from "@hyperidle/db";
 import { upsertOrgEdge } from "@hyperidle/org";
 import { ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
+import { getUserById, listUserDirectory } from "@hyperidle/users";
 import { eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { getUserById, listUserDirectory } from "../services/user-store.js";
 
 const putOrgEdgeSchema = z.object({
 	fromUserId: z.string().min(1),

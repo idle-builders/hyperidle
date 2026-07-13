@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { teams } from "@hyperidle/db";
+import { getUserById } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import * as routine from "../routine-service.js";
 import { nextCronMatch, parseCron } from "../services/routine-scheduler.js";
-import { getUserById } from "../services/user-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

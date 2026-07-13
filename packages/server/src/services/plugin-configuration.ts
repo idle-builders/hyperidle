@@ -19,11 +19,11 @@ import {
 	type ResolvedConfigurationItem,
 	TriggerRuleValueSchema,
 } from "@hyperidle/shared";
+import { listUsersByKind } from "@hyperidle/users";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { BUILTIN_TOOL_CATALOG } from "../config/builtin-tool-catalog.js";
 import * as routineService from "../routine-service.js";
-import { listUsersByKind } from "./user-store.js";
 
 export interface PluginConfigurationSource {
 	readonly id: string;

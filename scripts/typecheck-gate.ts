@@ -308,6 +308,9 @@ function buildLeafDeclarations(root: string): void {
   //
   // @lore AU19 Increment 1c: `core-api/org` added — same TS6305 cascade;
   // routes/tools/services now import `@hyperidle/org`.
+  //
+  // @lore AU19 Increment 1d: `core-api/users` added — same TS6305 cascade;
+  // ~30 routes/tools/services now import `@hyperidle/users`.
   for (const leaf of [
     "shared",
     "db",
@@ -315,6 +318,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/knowledge",
     "core-api/work",
     "core-api/org",
+    "core-api/users",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

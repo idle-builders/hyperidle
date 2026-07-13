@@ -1,9 +1,9 @@
 import { type HyperIdleDb, sessions, teamMembers } from "@hyperidle/db";
 import type { AgentSessionSourceCorrelation, EventBus } from "@hyperidle/shared";
+import { getUserById } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { getThreadById } from "./conversation-store.js";
-import { getUserById } from "./user-store.js";
 
 /**
  * Manages WebSocket topic subscriptions and event broadcasting.

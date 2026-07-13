@@ -176,7 +176,6 @@
 	"packages/server/src/__tests__/tasks.integration.test.ts",
 	"packages/server/src/__tests__/users.integration.test.ts",
 	"packages/server/src/__tests__/ws-subscribe-authz.integration.test.ts",
-	"packages/server/src/auth/__tests__/upgrade-token-store.test.ts",
 	"packages/server/src/harness/__tests__/AH2-cost-context.test.ts",
 	"packages/server/src/harness/__tests__/AL6-cli-reengage-adapter.test.ts",
 	"packages/server/src/harness/__tests__/AL6-provision-return-hook.test.ts",

@@ -6,6 +6,13 @@ import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidl
 // The Kernel no longer hard-codes any assistant persona constant.
 // persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
 
+import {
+	getFirstUserByKind,
+	getUserById,
+	insertUser,
+	listAllUsers,
+	updateUser,
+} from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -23,13 +30,6 @@ import {
 	listInboxByParticipantProbe,
 } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
-import {
-	getFirstUserByKind,
-	getUserById,
-	insertUser,
-	listAllUsers,
-	updateUser,
-} from "../services/user-store.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
 
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to

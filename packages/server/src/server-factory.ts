@@ -12,6 +12,7 @@ import {
 import { registerRelevanceListener, setupFts } from "@hyperidle/knowledge";
 import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
+import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
 import { registerBetDecomposition, resolveOrphanedDecompositions } from "@hyperidle/work";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
@@ -61,7 +62,6 @@ import { enumerateTeamCandidates, selectOwner } from "./services/select-agent.js
 import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
-import { getUserById, listActiveAiUsersByTeams } from "./services/user-store.js";
 import { registerWorkerWsRoute } from "./services/worker-ws.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 

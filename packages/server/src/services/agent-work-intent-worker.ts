@@ -10,13 +10,13 @@ import {
 	teamMembers,
 } from "@hyperidle/db";
 import type { AgentSessionRequestInput, TriggerEventType } from "@hyperidle/shared";
+import { getUserById, listUsersByTeam } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, asc, eq, lt, or } from "drizzle-orm";
 import * as routineService from "../routine-service.js";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 import { getMessageById } from "./conversation-store.js";
 import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
-import { getUserById, listUsersByTeam } from "./user-store.js";
 
 export { executeAgentRunRequest as consumeAgentSessionRequest } from "./agent-run-boundary.js";
 export { recordAgentWorkIntent } from "./agent-work-intents.js";

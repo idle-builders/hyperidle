@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createUpgradeTokenStore } from "../upgrade-token-store.js";
 
-describe("I2 review HIGH-1 — upgrade-token store cap", () => {
+describe("upgrade-token store enforces a hard live-token cap", () => {
 	beforeEach(() => {
 		vi.unstubAllEnvs();
 	});

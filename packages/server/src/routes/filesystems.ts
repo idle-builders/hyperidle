@@ -18,6 +18,7 @@ import type {
 	FilesystemInjection,
 } from "@hyperidle/shared";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
+import { getUserById } from "@hyperidle/users";
 import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -32,7 +33,6 @@ import {
 } from "../services/filesystem-reachability.js";
 import { inspectLocalPath } from "../services/inspect-local-path.js";
 import type { ServiceConnectionResolver } from "../services/service-connection-resolver.js";
-import { getUserById } from "../services/user-store.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 

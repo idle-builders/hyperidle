@@ -37,11 +37,11 @@ import {
 	type TaskState,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
+import { getFirstUserByKind } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq, ne } from "drizzle-orm";
 import { insertNotification } from "../notifications/notification-queue.js";
 import { insertMessage, insertThread } from "./conversation-store.js";
-import { getFirstUserByKind } from "./user-store.js";
 
 /**
  * Shape of a single entry in the revision log JSON array.

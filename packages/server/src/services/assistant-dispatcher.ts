@@ -21,8 +21,8 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ThreadMessageAppendedEvent } from "@hyperidle/shared";
+import { getUserById } from "@hyperidle/users";
 import { getThreadById, updateThread } from "./conversation-store.js";
-import { getUserById } from "./user-store.js";
 
 // ---------------------------------------------------------------------------
 // Filter types and pure functions (exported for unit testing)

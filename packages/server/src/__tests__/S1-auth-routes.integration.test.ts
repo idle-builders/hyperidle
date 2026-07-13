@@ -14,10 +14,9 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import { createInvite, createLoginSession } from "@hyperidle/users";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp } from "../app.js";
-import { createInvite } from "../services/invite-code.js";
-import { createLoginSession } from "../services/login-session.js";
 import { expect, test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-s1-routes";
@@ -323,7 +322,7 @@ describe("S1 — POST /api/auth/ws-token (shared mode uses userId from context)"
 	test("mints a ws-token for Bearer auth in shared mode", async ({ db, eventBus }) => {
 		await seedAdminUser(db, "u-admin-r1");
 		const { token } = await createLoginSession(db, "u-admin-r1");
-		const { createUpgradeTokenStore } = await import("../auth/upgrade-token-store.js");
+		const { createUpgradeTokenStore } = await import("@hyperidle/users");
 		const store = createUpgradeTokenStore();
 		// registerWebSocket is required to mount the ws-token route (app.ts design)
 		const app = await createApp({

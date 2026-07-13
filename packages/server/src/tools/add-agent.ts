@@ -1,9 +1,9 @@
 import { teamMembers, teams } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
+import { getUserById, insertUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
-import { getUserById, insertUser } from "../services/user-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

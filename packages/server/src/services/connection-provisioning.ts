@@ -48,9 +48,9 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { serviceConnections } from "@hyperidle/db";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/shared";
 import { resolveUrlForSSRF } from "@hyperidle/shared/net";
+import { getFirstUserByKind } from "@hyperidle/users";
 import { and, eq, inArray } from "drizzle-orm";
 import type { ServiceConnectionResolver } from "./service-connection-resolver.js";
-import { getFirstUserByKind } from "./user-store.js";
 
 // ── Service → CLI env var map ─────────────────────────────────────────────────
 //

@@ -1,8 +1,8 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
+import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
 import { Hono } from "hono";
-import { createUpgradeTokenStore, type UpgradeTokenStore } from "./auth/upgrade-token-store.js";
 import type { AdapterPool } from "./harness/adapter-pool.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
 import type { McpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";

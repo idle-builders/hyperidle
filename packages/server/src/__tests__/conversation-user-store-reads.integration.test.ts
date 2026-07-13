@@ -13,6 +13,16 @@
  */
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	getUserById,
+	getUsersByIds,
+	incrementUserCost,
+	insertUser,
+	listActiveAiUsersByTeams,
+	listAgentProfiles,
+	listUsersByKind,
+	sumAllUserCost,
+} from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import {
 	getArtifactThreadSummaries,
@@ -26,16 +36,6 @@ import {
 	listThreadsByHost,
 	searchConversations,
 } from "../services/conversation-store.js";
-import {
-	getUserById,
-	getUsersByIds,
-	incrementUserCost,
-	insertUser,
-	listActiveAiUsersByTeams,
-	listAgentProfiles,
-	listUsersByKind,
-	sumAllUserCost,
-} from "../services/user-store.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW = "2026-01-01T00:00:00.000Z";

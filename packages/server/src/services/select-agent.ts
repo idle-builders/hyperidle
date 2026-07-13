@@ -24,10 +24,10 @@
 
 import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import { type EventBus, findRoleCatalogEntry, type UserRole } from "@hyperidle/shared";
+import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { resolveAgentSelection } from "./agent-defaults/resolvers.js";
 import type { SelectionCandidate } from "./contracts.js";
-import { getUserById, listActiveAiUsersByTeams } from "./user-store.js";
 
 /**
  * AK7: Enumerate eligible team candidates for bet_* selection surfaces.

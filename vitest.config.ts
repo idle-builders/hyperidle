@@ -29,6 +29,7 @@ export default defineConfig({
 			"packages/core-api/knowledge",
 			"packages/core-api/work",
 			"packages/core-api/org",
+			"packages/core-api/users",
 			"packages/agent-orchestration",
 			"packages/agent-orchestration/context-assembly",
 			"packages/agent-execution",

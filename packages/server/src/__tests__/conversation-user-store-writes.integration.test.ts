@@ -9,6 +9,7 @@
  */
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import { getOrCreateUser, insertUser, resetAllUserCost, updateUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import {
 	findOrCreateDirectThread,
@@ -17,12 +18,6 @@ import {
 	resolveMessageIfUnresolved,
 	updateThread,
 } from "../services/conversation-store.js";
-import {
-	getOrCreateUser,
-	insertUser,
-	resetAllUserCost,
-	updateUser,
-} from "../services/user-store.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

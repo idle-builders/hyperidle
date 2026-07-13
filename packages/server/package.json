@@ -37,6 +37,7 @@
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/org": "*",
 		"@hyperidle/shared": "*",
+		"@hyperidle/users": "*",
 		"@hyperidle/work": "*",
 		"@modelcontextprotocol/sdk": "^1.29.0",
 		"drizzle-orm": "^0.45.2",

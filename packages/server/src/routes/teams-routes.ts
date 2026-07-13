@@ -46,6 +46,15 @@ import {
 	deriveTitle,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
+import {
+	getFirstUserByKind,
+	getUserById,
+	getUsersByIds,
+	insertUser,
+	listUsersByTeam,
+	listUsersByTeamAndKind,
+	updateUser,
+} from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
@@ -60,15 +69,6 @@ import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
 import { getThreadById, insertMessage, insertThread } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
-import {
-	getFirstUserByKind,
-	getUserById,
-	getUsersByIds,
-	insertUser,
-	listUsersByTeam,
-	listUsersByTeamAndKind,
-	updateUser,
-} from "../services/user-store.js";
 import {
 	computeHealthSignals,
 	deriveHealthDetail,

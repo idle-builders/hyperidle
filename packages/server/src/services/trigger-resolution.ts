@@ -17,10 +17,10 @@ import {
 	type TriggerRuleValue,
 	TriggerRuleValueSchema,
 } from "@hyperidle/shared";
+import { getUserByIdScopedToTeam } from "@hyperidle/users";
 import { and, eq } from "drizzle-orm";
 import { createAgentSessionRequest } from "./agent-session-requests.js";
 import { listResolvedConfiguration } from "./plugin-configuration.js";
-import { getUserByIdScopedToTeam } from "./user-store.js";
 
 const PROMPT_MODE_BY_SOURCE: Record<AgentSessionSourceKind, AgentSessionPromptMode> = {
 	task: "task",

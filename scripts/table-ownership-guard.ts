@@ -59,6 +59,13 @@ const TABLE_OWNER: Record<string, string> = {
 	// exempt).
 	teamMembers: "packages/core-api/org",
 	orgEdges: "packages/core-api/org",
+	// AU19 Increment 1d: `users` migrated. `loginSessions`/`inviteCodes` are
+	// `users`' other two owned tables (login-session.ts/invite-code.ts moved
+	// alongside user-store.ts unchanged) — mapped now so any future foreign
+	// access is completeness-checked, not silently exempt.
+	users: "packages/core-api/users",
+	loginSessions: "packages/core-api/users",
+	inviteCodes: "packages/core-api/users",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

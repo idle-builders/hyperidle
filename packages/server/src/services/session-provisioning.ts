@@ -28,6 +28,7 @@ import {
 	type TierTokenCount,
 	type UserRole,
 } from "@hyperidle/shared";
+import { getUserById } from "@hyperidle/users";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
 import { transitionTask } from "@hyperidle/work";
@@ -71,7 +72,6 @@ import {
 	type SessionContext,
 } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
-import { getUserById } from "./user-store.js";
 
 // @lore X3: validateSystemPromptPath and SYSTEM_PROMPT_DIR_RELATIVE removed.
 // The path traversal attack surface is eliminated by X3 — system prompts are now

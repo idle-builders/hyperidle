@@ -27,6 +27,7 @@ import {
 	type RedactedPayload,
 	type Thread,
 } from "@hyperidle/shared";
+import { getUserById, insertUser, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 // AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.
@@ -42,7 +43,6 @@ import {
 	listMessagesByThread,
 } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
-import { getUserById, insertUser, updateUser } from "../services/user-store.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 

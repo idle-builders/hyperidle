@@ -11,6 +11,7 @@ import {
 	type RoutineRunOutcome,
 	type RoutineRunSummary,
 } from "@hyperidle/shared";
+import { getUserById } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -23,7 +24,6 @@ import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { type PostBetRetroArgs, runBuiltinRoutine } from "../services/builtin-routine-handlers.js";
 import { getRoutineMonthlySpend, nextCronMatch, parseCron } from "../services/routine-scheduler.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
-import { getUserById } from "../services/user-store.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
 

@@ -15,11 +15,10 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import { createInvite, createLoginSession, revokeLoginSession } from "@hyperidle/users";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createApp, disposeApp } from "../app.js";
-import { createInvite } from "../services/invite-code.js";
-import { createLoginSession, revokeLoginSession } from "../services/login-session.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-s1-e2e";

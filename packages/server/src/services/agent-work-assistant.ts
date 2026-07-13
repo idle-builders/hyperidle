@@ -31,6 +31,7 @@ import {
 	ProviderTimeoutError,
 	type ThreadMessageAppendedEvent,
 } from "@hyperidle/shared";
+import { getOrCreateUser } from "@hyperidle/users";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 // AH6 WARNING-2: CassetteMissError must be explicitly mapped to provider_error so it
 // doesn't trip the "unmapped error class" logger.error on every cassette miss in tests.
@@ -55,7 +56,6 @@ import type { ToolContext } from "../tools/tool-registry.js";
 import { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
 import { executeAgentRunRequest } from "./agent-run-boundary.js";
 import { insertMessage, listMessagesByThread } from "./conversation-store.js";
-import { getOrCreateUser } from "./user-store.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 

@@ -25,9 +25,9 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import { createLoginSession } from "@hyperidle/users";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createApp } from "../app.js";
-import { createLoginSession } from "../services/login-session.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-an1-connections";

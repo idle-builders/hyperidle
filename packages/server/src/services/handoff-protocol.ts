@@ -7,6 +7,7 @@ import {
 	teamMembers,
 } from "@hyperidle/db";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
+import { findActiveTeammateByRole, getUserById } from "@hyperidle/users";
 import type { HandoffAuditEntry, TaskAuditEntry } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
 import { InvalidTransitionError, VALID_TRANSITIONS } from "@hyperidle/work";
@@ -16,7 +17,6 @@ import { insertMessage, insertThread } from "./conversation-store.js";
 import { releaseSessionDedup } from "./cost-cap.js";
 import { requestAgentTermination, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
-import { findActiveTeammateByRole, getUserById } from "./user-store.js";
 
 export interface HandoffMetadata {
 	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case

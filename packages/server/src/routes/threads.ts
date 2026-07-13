@@ -45,6 +45,7 @@ import {
 	headCollapsePredicate,
 	resolveMentions,
 } from "@hyperidle/shared";
+import { getUserById, getUsersByIds, listUsersByTeams } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
@@ -69,7 +70,6 @@ import {
 	updateThread,
 } from "../services/conversation-store.js";
 import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
-import { getUserById, getUsersByIds, listUsersByTeams } from "../services/user-store.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {

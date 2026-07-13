@@ -12,10 +12,10 @@
 
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
+import { listAllUsers, searchUsersByName } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { listAllUsers, searchUsersByName } from "../services/user-store.js";
 
 export interface RecipientRow {
 	id: string;

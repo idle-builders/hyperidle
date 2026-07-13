@@ -38,6 +38,15 @@
  * `@hyperidle/org`'s real exported functions (`getTeamMembersByTeamId`/
  * `setTeamMembersActiveBets`), no interim indirection needed since `org`
  * migrated in the same Increment this port was introduced.
+ *
+ * @lore AU19 Increment 1d — `UserStoreReader` (→ `users`, now a REAL migrated
+ * package): the straight DI-target swap anticipated above landed. Every real
+ * call site (`server-factory.ts`, `__tests__/bet-decomposition.test.ts`)
+ * now wires it to `@hyperidle/users`' real exported `getUserById`/
+ * `listActiveAiUsersByTeams` instead of `packages/server`'s (now-deleted)
+ * `user-store.ts` copy. Still an ordinary same-layer core-api→core-api edge,
+ * no EventBus rewrite needed (only the three §10.3 against-grain ports above
+ * get that treatment in Increment 3).
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
@@ -157,7 +166,16 @@ export interface WorkUserRow {
 	readonly role: string;
 }
 
-/** Port for `users`' read surface `work` calls directly today (`user-store.ts`). */
+/**
+ * Port for `users`' read surface `work` calls directly today.
+ *
+ * @lore AU19 Increment 1d: `users` migrated for real. Wired at every real
+ * call site (`server-factory.ts`, `__tests__/bet-decomposition.test.ts`'s
+ * production-mirroring `productionPorts`) to `@hyperidle/users`' real
+ * exported `getUserById`/`listActiveAiUsersByTeams` — no more
+ * forward-reference to `packages/server`'s (now-deleted) `user-store.ts`
+ * copy; the DI port abstraction itself is unchanged (zero behavior change).
+ */
 export interface UserStoreReader {
 	getUserById(db: WriteExecutor, id: string): Promise<WorkUserRow | undefined>;
 	listActiveAiUsersByTeams(

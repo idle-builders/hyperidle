@@ -34,6 +34,7 @@ import {
 	type DecompositionTaskInput,
 	type ResolvedModel,
 } from "@hyperidle/shared";
+import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
 import type { BetDecompositionDeps } from "@hyperidle/work";
 import { runBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -42,7 +43,6 @@ import { resolveDecompositionPlan } from "../services/agent-defaults/resolvers.j
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { checkCostCap } from "../services/cost-cap.js";
 import { enumerateTeamCandidates, selectOwner } from "../services/select-agent.js";
-import { getUserById, listActiveAiUsersByTeams } from "../services/user-store.js";
 import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../tools/create-task.js";
 
