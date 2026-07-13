@@ -13,6 +13,7 @@ import type { AgentSessionRequestInput, TriggerEventType } from "@hyperidle/shar
 import { and, asc, eq, lt, or } from "drizzle-orm";
 import * as routineService from "../routine-service.js";
 import * as work from "../work-service.js";
+import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 import { getMessageById } from "./conversation-store.js";
 import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
 import { getUserById, listUsersByTeam } from "./user-store.js";
@@ -192,11 +193,37 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 			const routine = await routineService.getRoutineById(db, run.routineId);
 			if (!routine || routine.deletedAt || !routine.active || routine.state !== "active")
 				throw new InvalidAgentWorkSourceError("Routine is not eligible to run");
-			await requireRunnableActor(db, routine.ownerAgentId);
+			// AU15 §4b: owner-WIP evaluation + delegate resolution moved here from
+			// the (now-removed) fire-time `checkAndFireRoutine` block — drain-time
+			// is closest to execution, matching the family-standard shape
+			// (`bet_decomposition` also selects at drain). `isAgentAtWipLimit` +
+			// `selectAgentByAppDefaults` are imported from the agent-owned
+			// `agent-selection.ts` — agent→agent, same layer, no boundary crossing.
+			let selectedAgentId = routine.ownerAgentId;
+			if (await isAgentAtWipLimit(db, routine.ownerAgentId)) {
+				if (routine.delegationAllowed && routine.skillId) {
+					const { agentId } = await selectAgentByAppDefaults({
+						db,
+						surface: "routine_delegate",
+						teamId: null,
+						workKey: routine.id,
+						candidates: [],
+						roleHint: null,
+						spreadIndex: null,
+						excludeAgentId: routine.ownerAgentId,
+						skillId: routine.skillId,
+					});
+					// No delegate found → keep the owner. Provision-time WIP
+					// (session-provisioning.ts's ConcurrencyLimitError) defers and
+					// retries the request rather than erroring terminally (§2d).
+					if (agentId) selectedAgentId = agentId;
+				}
+			}
+			await requireRunnableActor(db, selectedAgentId);
 			const runId = run.id;
 			return {
 				...common,
-				defaultAgentId: routine.ownerAgentId,
+				defaultAgentId: selectedAgentId,
 				sourceKind: "routine" as const,
 				// @lore AU9: sourceId is the routine RUN id, not the routine id — the
 				// terminal fact this produces correlates through `routine-lifecycle`'s
@@ -410,6 +437,24 @@ async function failOrRelease(
 		.where(
 			and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, intent.claimToken)),
 		);
+
+	// AU15 §4c (W3): a routine_run intent that goes terminal `failed` here is a
+	// PRE-hand-off failure — no request/session ever existed, so no lifecycle
+	// fact fires and `projectRoutine` never runs. Without this, the run stays
+	// `running` forever with no session for the AF6 reaper to key on, and the
+	// unified fire-time coalescing guard (AU15 §4a) bricks the routine
+	// permanently. `updateRoutineRunIfRunning` is a `WHERE outcome='running'`
+	// no-op if the run is already terminal, so this is race-safe against a
+	// concurrent `projectRoutine` finalize (post-hand-off intents are
+	// `handed_off` and never re-enter `failOrRelease`, so this never touches
+	// the legitimate retryable-defer path).
+	if (terminal && intent.kind === "routine_run") {
+		await routineService.updateRoutineRunIfRunning(db, intent.sourceId, {
+			outcome: "error",
+			endedAt: now.toISOString(),
+			errorMessage: lastErrorCode,
+		});
+	}
 }
 
 export async function drainAgentWorkIntents(

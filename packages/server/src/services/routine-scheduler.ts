@@ -1,10 +1,9 @@
 import * as crypto from "node:crypto";
 import { type HyperIdleDb, type Routine, sessions } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
 import * as routineService from "../routine-service.js";
-import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import { runBuiltinRoutine } from "./builtin-routine-handlers.js";
 import { getFactoryCostActual } from "./cost-cap.js";
@@ -19,7 +18,6 @@ export interface FireResult {
 	fired: boolean;
 	reason?: string;
 	sessionId?: string;
-	delegatedTo?: string;
 }
 
 /**
@@ -206,13 +204,6 @@ async function isFactoryCostCapReached(db: HyperIdleDb): Promise<boolean> {
 	return actual >= cap;
 }
 
-// --- WIP check + Delegation ---
-// @lore AK7 §8: isAgentAtWipLimit and the findDelegate body have moved to
-// packages/server/src/app-runtime/services/agent-selection.ts (selectAgentByAppDefaults's routine_delegate
-// branch). isAgentAtWipLimit is imported from there so the owner-WIP check below
-// continues to work byte-identically. findDelegate is replaced by selectAgentByAppDefaults
-// at the call site (architecture §5.3 / concept §3a carve-out).
-
 // --- Review item creation ---
 
 /* AU9: review projection moves to terminal lifecycle consumers. */
@@ -278,27 +269,6 @@ export function computeNextRunAt(routine: Routine, now: Date): string {
 	return "";
 }
 
-// --- Coalescing (AA2) ---
-
-/**
- * Returns true if there is an active session for the given routineId.
- * Used to coalesce (skip) a routine trigger when a previous run is still in progress.
- *
- * @lore AA2: Coalescing prevents double-firing when the scheduler beat arrives
- * before the previous session has completed. Both checkAndFireRoutine and the
- * manual trigger endpoint (POST /api/routines/:id/trigger) call this helper.
- * Only sessions with state='active' count — completed, crashed, or timed-out
- * sessions do not block new runs.
- */
-export async function shouldCoalesce(db: HyperIdleDb, routineId: string): Promise<boolean> {
-	const [activeSession] = await db
-		.select({ id: sessions.id })
-		.from(sessions)
-		.where(and(eq(sessions.routineId, routineId), eq(sessions.state, "active")))
-		.limit(1);
-	return activeSession !== undefined;
-}
-
 // --- AA3: Monthly cost cap helpers ---
 
 /**
@@ -350,46 +320,29 @@ export async function checkAndFireRoutine(
 		}
 	}
 
-	// Determine target agent
-	let targetAgentId = routine.ownerAgentId;
-	let delegatedTo: string | undefined;
-
-	if (await isAgentAtWipLimit(db, targetAgentId)) {
-		if (routine.delegationAllowed && routine.skillId) {
-			// AK7 §8: selectAgentByAppDefaults's routine_delegate branch runs findDelegate's
-			// exact userSkills-scoped query verbatim (concept §3a carve-out):
-			// system-wide-by-skill, userSkills insertion order, WIP fallback.
-			// No teamId — routine delegation has no team scope (call site has no teamId).
-			// candidates: [] — routine_delegate ignores candidates (its own query).
-			const { agentId: delegate } = await selectAgentByAppDefaults({
-				db,
-				surface: "routine_delegate",
-				teamId: null,
-				workKey: routine.id,
-				candidates: [],
-				roleHint: null,
-				spreadIndex: null,
-				excludeAgentId: targetAgentId,
-				skillId: routine.skillId,
-			});
-			if (delegate) {
-				targetAgentId = delegate;
-				delegatedTo = delegate;
-			} else {
-				const nextRunAt = computeNextRunAt(routine, now);
-				await routineService.updateRoutineById(db, routine.id, { nextRunAt });
-				return { fired: false, reason: "owner at WIP limit, no delegate available" };
-			}
-		} else {
-			const nextRunAt = computeNextRunAt(routine, now);
-			await routineService.updateRoutineById(db, routine.id, { nextRunAt });
-			return { fired: false, reason: "owner at WIP limit, delegation not allowed" };
-		}
+	// AU15 §4a (W2): unified run-row coalescing — the SAME signal
+	// (`routineService.findRunningRoutineRun`) also gates the manual-trigger
+	// route (`routines-routes.ts`), closing the fired-but-unprovisioned
+	// double-run window a session-keyed signal would miss (a routine_run
+	// stays "running" from fire until the terminal lifecycle fact finalizes
+	// it — see agent-work-intent-worker.ts's failOrRelease + projectRoutine).
+	if (await routineService.findRunningRoutineRun(db, routine.id)) {
+		const nextRunAt = computeNextRunAt(routine, now);
+		await routineService.updateRoutineById(db, routine.id, { nextRunAt });
+		return { fired: false, reason: "previous run still in progress" };
 	}
 
 	if (!runtimeDeps) {
 		return { fired: false, reason: "agent session request runtime unavailable" };
 	}
+
+	// AU15 §3/§4b: owner-WIP evaluation + delegate resolution moved to
+	// drain-time (`agent-work-intent-worker.ts`'s `resolveAuthoritativeInput`
+	// `routine_run` branch). `targetAgentId` here is only a correlation hint
+	// (the `routine_fired` event's `agentId` + the intent's `requestedBy`) —
+	// the drain resolver re-evaluates WIP/delegation at the point closest to
+	// execution and is authoritative for who actually runs.
+	const targetAgentId = routine.ownerAgentId;
 
 	const runId = crypto.randomUUID();
 	let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
@@ -441,7 +394,7 @@ export async function checkAndFireRoutine(
 		timestamp: Date.now(),
 	});
 
-	return { fired: true, delegatedTo };
+	return { fired: true };
 }
 
 // --- Event triggers ---
