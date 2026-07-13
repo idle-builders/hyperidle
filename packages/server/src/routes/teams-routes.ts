@@ -18,7 +18,7 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
-import { type HyperIdleDb, notificationQueue, sessions, teamMembers, teams } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, teamMembers, teams } from "@hyperidle/db";
 import type {
 	AgentOperationalStatus,
 	BetCardSummary,
@@ -39,11 +39,12 @@ import {
 	deriveTitle,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { enqueueNotification } from "../notifications/dispatcher.js";
+import { findPendingByEventSubject } from "../notifications/notification-queue.js";
 import * as routineService from "../routine-service.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { deriveInitials } from "../services/agent-utils.js";
@@ -125,17 +126,7 @@ async function maybeNotifyAgentError(
 	teamName: string,
 ): Promise<void> {
 	// Check for existing pending notification for this agent
-	const [existing] = await db
-		.select({ id: notificationQueue.id })
-		.from(notificationQueue)
-		.where(
-			and(
-				eq(notificationQueue.eventType, "agent.health.degraded"),
-				eq(notificationQueue.subjectId, member.agentId),
-				eq(notificationQueue.status, "pending"),
-			),
-		)
-		.limit(1);
+	const existing = await findPendingByEventSubject(db, "agent.health.degraded", member.agentId);
 
 	if (existing) return; // already pending — throttled
 

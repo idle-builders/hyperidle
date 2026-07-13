@@ -15,7 +15,7 @@
  *   - Settings PATCH accepts quietHoursEnabled toggle
  */
 
-import { type HyperIdleDb, items as itemsTable, notificationQueue, threads } from "@hyperidle/db";
+import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
 import type {
 	CostCapBreachedEvent,
 	CostCapWarningEvent,
@@ -30,6 +30,7 @@ import {
 	type AlertPreferences,
 	registerNotificationDispatcher,
 } from "../../notifications/dispatcher.js";
+import { listAll } from "../../notifications/notification-queue.js";
 import type {
 	Notification,
 	NotificationAdapter,
@@ -278,7 +279,7 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 
@@ -306,10 +307,10 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 
 		// Handler is subscribed — digest row appears, no push
 		await vi.waitFor(async () => {
-			const rows = await db.select().from(notificationQueue);
+			const rows = await listAll(db);
 			expect(rows).toHaveLength(1);
 		});
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows[0]!.severity).toBe("digest");
 		expect(adapter.calls).toHaveLength(0);
 	});
@@ -343,7 +344,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 
@@ -363,7 +364,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 
@@ -388,7 +389,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 });
@@ -429,7 +430,7 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 
@@ -488,7 +489,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 
 		// With costAlerts=false, even a critical warning should be dropped
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 
@@ -515,7 +516,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 
 		// soft breach = digest severity; dropped when costAlerts=false
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 
@@ -616,7 +617,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 
@@ -796,10 +797,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 		expect(adapter!.calls[0]!.notification.severity).toBe("blocking");
 
 		// No silence queue rows created
-		const silenceRows = await db
-			.select()
-			.from(notificationQueue)
-			.then((rows) => rows.filter((r) => r.reason === "silence"));
+		const silenceRows = (await listAll(db)).filter((r) => r.reason === "silence");
 		expect(silenceRows).toHaveLength(0);
 	});
 
@@ -836,14 +834,14 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 		eventBus.emit(event);
 
 		await vi.waitFor(async () => {
-			const rows = await db.select().from(notificationQueue);
+			const rows = await listAll(db);
 			expect(rows).toHaveLength(1);
 		});
 
 		// Adapter must NOT have been called
 		expect(adapter.calls).toHaveLength(0);
 
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows[0]!.reason).toBe("silence");
 		expect(rows[0]!.severity).toBe("blocking");
 	});
@@ -924,7 +922,7 @@ describe("R8 Preferences wiring — server_config drives dispatcher", () => {
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 

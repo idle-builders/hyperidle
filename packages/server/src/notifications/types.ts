@@ -64,6 +64,3 @@ export type QueueReason =
 	| "flood_coalesce"
 	| "retry"
 	| "agent_health_transition";
-
-/** Queue row status lifecycle. */
-export type QueueStatus = "pending" | "sent" | "failed" | "dropped";

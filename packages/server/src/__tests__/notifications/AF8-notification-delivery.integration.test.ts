@@ -13,15 +13,8 @@
  *   AC12 — cost_breach bypasses factory silence; defers during quiet hours
  */
 
-import {
-	type HyperIdleDb,
-	items as itemsTable,
-	notificationQueue,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, items as itemsTable, threads, users } from "@hyperidle/db";
 import type { NotificationEvent } from "@hyperidle/shared";
-import { eq, isNotNull } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { loadNotificationConfig, updateNotificationConfig } from "../../notifications/config.js";
 import { flushQueue, recoverStuckLeases } from "../../notifications/dispatcher.js";
@@ -31,6 +24,7 @@ import {
 	defaultMutePreferenceWriter,
 } from "../../notifications/mute.js";
 import { registerNotificationListener } from "../../notifications/notification-listener.js";
+import { insertNotification, listAll } from "../../notifications/notification-queue.js";
 import type {
 	Notification,
 	NotificationAdapter,
@@ -91,7 +85,7 @@ async function insertPendingRow(
 	severity: "blocking" | "cost_breach" | "digest",
 ): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(notificationQueue).values({
+	await insertNotification(db, {
 		id,
 		eventType: "test_event",
 		subjectId: null,
@@ -129,10 +123,7 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 		if (!cfg) throw new Error("No notification config");
 		await flushQueue(db, () => adapter, cfg, new Date());
 
-		const rows = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.id, "drain-row-1"));
+		const rows = (await listAll(db)).filter((r) => r.id === "drain-row-1");
 		// Row should be sent (or in-flight via adapter)
 		// After flush: status = sent OR the adapter was called
 		expect(adapter.calls.length + rows.filter((r) => r.status === "sent").length).toBeGreaterThan(
@@ -204,13 +195,13 @@ describe("AF8 AC2 — notification event produces typed, source-linked row", () 
 
 		// Wait for listener to process
 		await vi.waitFor(async () => {
-			const rows = await db.select().from(notificationQueue);
+			const rows = await listAll(db);
 			expect(rows.length).toBeGreaterThan(0);
 		});
 
 		dispose();
 
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows.length).toBeGreaterThan(0);
 		const row = rows[0]!;
 
@@ -255,7 +246,7 @@ describe("AF8 AC3 — auto_unblock event is filtered out (ambient, not a notific
 		await new Promise<void>((resolve) => setTimeout(resolve, 100));
 		dispose();
 
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		// Filter must work on kind ONLY — no message text matching
 		expect(rows).toHaveLength(0);
 	});
@@ -290,10 +281,7 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 		expect(result.deferred).toBeGreaterThan(0);
 
 		// Row should still be pending
-		const rows = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.status, "pending"));
+		const rows = (await listAll(db)).filter((r) => r.status === "pending");
 		expect(rows.some((r) => r.id === "quiet-block-1")).toBe(true);
 
 		// Clear quiet hours (set window to past times that don't cover now)
@@ -317,7 +305,7 @@ describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 
 		// Insert a row that appears stuck in 'sending' for 6 minutes
 		const stuckClaimedAt = new Date(Date.now() - 6 * 60 * 1000 - 1000).toISOString();
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: "stuck-lease-1",
 			eventType: "test_event",
 			subjectId: null,
@@ -337,7 +325,7 @@ describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 		expect(recovered).toBeGreaterThan(0);
 
 		// Row should be back to pending
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		const row = rows.find((r) => r.id === "stuck-lease-1");
 		expect(row).toBeDefined();
 		expect(row!.status).toBe("pending");
@@ -429,7 +417,7 @@ describe("AF8 AC9 — muting a type suppresses notification enqueue", () => {
 		await new Promise<void>((resolve) => setTimeout(resolve, 100));
 		dispose();
 
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 });
@@ -520,7 +508,7 @@ describe("AF8 AC10 — popover API routes", () => {
 	test("POST /notifications/seen marks all unseen rows as seen", async ({ db, app }) => {
 		// Insert an unseen notification row
 		const nowIso = new Date().toISOString();
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: "notif-seen-1",
 			eventType: "test",
 			subjectId: null,
@@ -544,11 +532,7 @@ describe("AF8 AC10 — popover API routes", () => {
 		const body = (await res.json()) as { ok: boolean };
 		expect(body.ok).toBe(true);
 		// Verify the row was actually marked seen
-		const [seen] = await db
-			.select({ seenAt: notificationQueue.seenAt })
-			.from(notificationQueue)
-			.where(isNotNull(notificationQueue.seenAt))
-			.limit(1);
+		const seen = (await listAll(db)).find((r) => r.seenAt !== null);
 		expect(seen?.seenAt).toBeTruthy();
 	});
 
@@ -557,7 +541,7 @@ describe("AF8 AC10 — popover API routes", () => {
 		// (00000000-0000-0000-0000-000000000001 fails zod v4 strict UUID pattern)
 		const notifId = "a1b2c3d4-e5f6-4789-abcd-ef0123456789";
 		const nowIso = new Date().toISOString();
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: notifId,
 			eventType: "test",
 			subjectId: null,

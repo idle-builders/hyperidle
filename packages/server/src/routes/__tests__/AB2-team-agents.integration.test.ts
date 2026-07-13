@@ -13,18 +13,9 @@
  * - maybeNotifyAgentError writes to notification_queue (throttled)
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	notificationQueue,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import { and, eq } from "drizzle-orm";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { listAll } from "../../notifications/notification-queue.js";
 import { deriveHealthDetail, deriveHealthLevel } from "../../routes/agent-profile.js";
 import { test } from "../../test-fixtures.js";
 
@@ -348,15 +339,9 @@ describe("AB2 AC-6: Agent error state triggers notification (throttled)", () => 
 		await app.request("/api/teams/ab2-team", { headers: authHeaders() });
 
 		// maybeNotifyAgentError uses subjectId=agentId and eventType="agent.health.degraded"
-		const notifications = await db
-			.select()
-			.from(notificationQueue)
-			.where(
-				and(
-					eq(notificationQueue.subjectId, "ab2-agent-idle"),
-					eq(notificationQueue.eventType, "agent.health.degraded"),
-				),
-			);
+		const notifications = (await listAll(db)).filter(
+			(r) => r.subjectId === "ab2-agent-idle" && r.eventType === "agent.health.degraded",
+		);
 
 		expect(notifications.length).toBeGreaterThan(0);
 	});

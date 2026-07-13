@@ -2,7 +2,6 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items as itemsTable,
-	notificationQueue,
 	type TestDbHandle,
 	threads,
 } from "@hyperidle/db";
@@ -12,7 +11,6 @@ import {
 	EventBus,
 	type ItemCreatedEvent,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	loadNotificationConfig,
@@ -27,6 +25,7 @@ import {
 	registerNotificationDispatcher,
 	tryFloodReserve,
 } from "../../notifications/dispatcher.js";
+import { findById, insertNotification, listAll } from "../../notifications/notification-queue.js";
 import type {
 	Notification,
 	NotificationAdapter,
@@ -204,12 +203,12 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		};
 		bus.emit(event);
 		await vi.waitFor(async () => {
-			const rows = await db.select().from(notificationQueue);
+			const rows = await listAll(db);
 			expect(rows).toHaveLength(1);
 		});
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows[0]!.severity).toBe("digest");
 		expect(rows[0]!.reason).toBe("digest");
 	});
@@ -229,7 +228,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows).toHaveLength(0);
 	});
 
@@ -244,12 +243,12 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 
 		await emitItemCreated(bus, "it-sil");
 		await vi.waitFor(async () => {
-			const rows = await db.select().from(notificationQueue);
+			const rows = await listAll(db);
 			expect(rows).toHaveLength(1);
 		});
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows[0]!.reason).toBe("silence");
 		expect(rows[0]!.subjectId).toBe("it-sil");
 		expect(rows[0]!.severity).toBe("blocking");
@@ -267,7 +266,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		await emitItemCreated(bus, "it-a");
 		await emitItemCreated(bus, "it-b");
 		await vi.waitFor(async () => {
-			const rows = await db.select().from(notificationQueue);
+			const rows = await listAll(db);
 			expect(rows).toHaveLength(2);
 		});
 		expect(adapter.calls).toHaveLength(0);
@@ -282,7 +281,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		expect(result.failed).toBe(0);
 		expect(result.deferred).toBe(0);
 		expect(adapter.calls).toHaveLength(2);
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows.every((r) => r.status === "sent")).toBe(true);
 	});
 
@@ -298,7 +297,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		expect(await db.select().from(notificationQueue)).toHaveLength(0);
+		expect(await listAll(db)).toHaveLength(0);
 	});
 
 	it("flood policy coalesces the 4th push in a window into queue with reason=flood_coalesce", async () => {
@@ -319,10 +318,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 
 		await vi.waitFor(() => expect(adapter.calls).toHaveLength(3));
 
-		const coalesced = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.reason, "flood_coalesce"));
+		const coalesced = (await listAll(db)).filter((r) => r.reason === "flood_coalesce");
 		expect(coalesced).toHaveLength(1);
 		expect(coalesced[0]!.severity).toBe("blocking");
 	});
@@ -385,7 +381,7 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 	): Promise<void> {
 		const baseIso = "2026-04-18T00:00:00.000Z";
 		for (const row of spec) {
-			await db.insert(notificationQueue).values({
+			await insertNotification(db, {
 				id: row.id,
 				eventType: "item_created",
 				subjectId: null,
@@ -424,16 +420,11 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 			3,
 		);
 
-		const pending = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.status, "pending"));
+		const allRows = await listAll(db);
+		const pending = allRows.filter((r) => r.status === "pending");
 		expect(pending).toHaveLength(3);
 		// Oldest digest row was dropped.
-		const dropped = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.status, "dropped"));
+		const dropped = allRows.filter((r) => r.status === "dropped");
 		expect(dropped).toHaveLength(1);
 		expect(dropped[0]!.id).toBe("digest-1");
 		// The new blocking row is present.
@@ -463,7 +454,7 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 			3,
 		);
 
-		const allRows = await db.select().from(notificationQueue);
+		const allRows = await listAll(db);
 		// The digest enqueue was dropped; no new row was inserted, no
 		// blocking row was evicted.
 		expect(allRows).toHaveLength(3);
@@ -491,16 +482,11 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 			2,
 		);
 
-		const pending = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.status, "pending"));
+		const allRows2 = await listAll(db);
+		const pending = allRows2.filter((r) => r.status === "pending");
 		expect(pending).toHaveLength(2);
 		// The oldest (block-1) was dropped.
-		const dropped = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.status, "dropped"));
+		const dropped = allRows2.filter((r) => r.status === "dropped");
 		expect(dropped.map((r) => r.id)).toEqual(["block-1"]);
 	});
 });
@@ -518,7 +504,7 @@ describe("H2 Daily digest (AC6)", () => {
 		await enableNotifications(db);
 		const now = "2026-04-18T08:00:00.000Z";
 		for (const id of ["q-a", "q-b", "q-c"]) {
-			await db.insert(notificationQueue).values({
+			await insertNotification(db, {
 				id,
 				eventType: "item_created",
 				subjectId: id,
@@ -544,7 +530,7 @@ describe("H2 Daily digest (AC6)", () => {
 		expect(batched.body).toContain("Title q-b");
 		expect(batched.body).toContain("Title q-c");
 
-		const rows = await db.select().from(notificationQueue);
+		const rows = await listAll(db);
 		expect(rows.every((r) => r.status === "sent")).toBe(true);
 	});
 
@@ -570,7 +556,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 	it("keeps blocking rows queued when silence_mode is active; digest flushes", async () => {
 		await enableNotifications(db, { silenceMode: true });
 		const baseIso = "2026-04-18T00:00:00.000Z";
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: "block-sil",
 			eventType: "item_created",
 			subjectId: null,
@@ -584,7 +570,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 			createdAt: baseIso,
 		});
 
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: "digest-sil",
 			eventType: "item_created",
 			subjectId: null,
@@ -606,16 +592,13 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 		expect(result.deferred).toBe(1); // blocking kept
 		expect(adapter.calls).toHaveLength(1);
 		expect(adapter!.calls[0]!.notification.severity).toBe("digest");
-		const [block] = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.id, "block-sil"));
+		const block = await findById(db, "block-sil");
 		expect(block?.status).toBe("pending");
 	});
 
 	it("cost_breach severity pages through even during silence", async () => {
 		await enableNotifications(db, { silenceMode: true });
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: "cost-1",
 			eventType: "cost_cap_breached",
 			subjectId: null,
@@ -656,7 +639,7 @@ describe("flushQueue channel routing (adversary review #18)", () => {
 			primaryChannel: "console",
 			recipientNtfyTopic: "alerts",
 		});
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: "q-ntfy",
 			eventType: "item_created",
 			subjectId: null,
@@ -700,7 +683,7 @@ describe("At-least-once delivery (claim lease)", () => {
 
 	it("claims row as 'sending' before adapter; marks 'sent' after success", async () => {
 		await enableNotifications(db);
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: "aq-1",
 			eventType: "item_created",
 			subjectId: null,
@@ -721,11 +704,8 @@ describe("At-least-once delivery (claim lease)", () => {
 			async send(recipient, notification): Promise<SendResult> {
 				this.calls.push({ recipient, notification });
 				// Peek at the row state mid-send — should be `sending`.
-				const [row] = await db
-					.select()
-					.from(notificationQueue)
-					.where(eq(notificationQueue.id, "aq-1"));
-				observedStatus = row?.status ?? null;
+				const midSendRow = await findById(db, "aq-1");
+				observedStatus = midSendRow?.status ?? null;
 				return { ok: true, channel: "console", sentAt: new Date().toISOString() };
 			},
 		};
@@ -734,7 +714,7 @@ describe("At-least-once delivery (claim lease)", () => {
 		const result = await flushQueue(db, () => adapter, cfg, new Date());
 		expect(result.flushed).toBe(1);
 		expect(observedStatus).toBe("sending");
-		const [row] = await db.select().from(notificationQueue).where(eq(notificationQueue.id, "aq-1"));
+		const row = await findById(db, "aq-1");
 		expect(row?.status).toBe("sent");
 		expect(row?.claimedAt).toBeNull();
 	});
@@ -742,7 +722,7 @@ describe("At-least-once delivery (claim lease)", () => {
 	it("recoverStuckLeases requeues rows whose 'sending' lease expired", async () => {
 		const now = new Date("2026-04-18T01:00:00.000Z");
 		const oldClaim = new Date("2026-04-18T00:00:00.000Z").toISOString(); // 1h ago
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: "stuck-1",
 			eventType: "item_created",
 			subjectId: null,
@@ -759,10 +739,7 @@ describe("At-least-once delivery (claim lease)", () => {
 
 		const recovered = await recoverStuckLeases(db, now);
 		expect(recovered).toBe(1);
-		const [row] = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.id, "stuck-1"));
+		const row = await findById(db, "stuck-1");
 		expect(row?.status).toBe("pending");
 		expect(row?.claimedAt).toBeNull();
 	});
@@ -770,7 +747,7 @@ describe("At-least-once delivery (claim lease)", () => {
 	it("does not requeue rows whose 'sending' lease is still fresh", async () => {
 		const now = new Date("2026-04-18T00:01:00.000Z");
 		const freshClaim = new Date("2026-04-18T00:00:30.000Z").toISOString(); // 30s ago
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: "fresh-1",
 			eventType: "item_created",
 			subjectId: null,
@@ -787,17 +764,14 @@ describe("At-least-once delivery (claim lease)", () => {
 
 		const recovered = await recoverStuckLeases(db, now);
 		expect(recovered).toBe(0);
-		const [row] = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.id, "fresh-1"));
+		const row = await findById(db, "fresh-1");
 		expect(row?.status).toBe("sending");
 	});
 
 	it("simulates crash-after-adapter-success-before-DB-update → next flush re-sends", async () => {
 		await enableNotifications(db);
 		const oldClaim = new Date("2026-04-18T00:00:00.000Z").toISOString();
-		await db.insert(notificationQueue).values({
+		await insertNotification(db, {
 			id: "crash-1",
 			eventType: "item_created",
 			subjectId: null,
@@ -820,10 +794,7 @@ describe("At-least-once delivery (claim lease)", () => {
 		// The row was requeued by recoverStuckLeases and then flushed.
 		expect(result.flushed).toBe(1);
 		expect(adapter.calls).toHaveLength(1);
-		const [row] = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.id, "crash-1"));
+		const row = await findById(db, "crash-1");
 		expect(row?.status).toBe("sent");
 	});
 });

@@ -13,7 +13,6 @@ import {
 	bets,
 	type HyperIdleDb,
 	messages,
-	notificationQueue,
 	propagationLog,
 	sessions,
 	tasks,
@@ -24,6 +23,7 @@ import {
 } from "@hyperidle/db";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
+import { listAll } from "../notifications/notification-queue.js";
 import {
 	registerLifecyclePropagation,
 	retryFailedPropagations,
@@ -955,10 +955,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(row?.status).not.toBe("failed");
 
 		// No exhaustion notification — the row succeeded, it was not exhausted.
-		const notifs = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.eventType, "propagation_exhausted"));
+		const notifs = (await listAll(db)).filter((r) => r.eventType === "propagation_exhausted");
 		expect(notifs).toHaveLength(0);
 	});
 
@@ -998,10 +995,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(failedLogs[0]!.attempts).toBe(3);
 
 		// Assert: a notification queue entry was created
-		const notifs = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.eventType, "propagation_exhausted"));
+		const notifs = (await listAll(db)).filter((r) => r.eventType === "propagation_exhausted");
 		expect(notifs).toHaveLength(1);
 		expect(notifs[0]!.severity).toBe("warning");
 	});

@@ -3,12 +3,13 @@
  * event-bus events.
  */
 
-import { type HyperIdleDb, items as itemsTable, notificationQueue, threads } from "@hyperidle/db";
+import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
 import type { CostCapBreachedEvent, RoutineFiredEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
 import { updateNotificationConfig } from "../../notifications/config.js";
 import { registerNotificationDispatcher } from "../../notifications/dispatcher.js";
+import { insertNotification, listAll } from "../../notifications/notification-queue.js";
 import type {
 	Notification,
 	NotificationAdapter,
@@ -159,7 +160,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 		try {
 			await enable(db);
 			const now = "2026-04-18T00:00:00.000Z";
-			await db.insert(notificationQueue).values({
+			await insertNotification(db, {
 				id: "q-1",
 				eventType: "item_created",
 				subjectId: "foo",
@@ -182,7 +183,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 			};
 			eventBus.emit(event);
 			await vi.waitFor(async () => {
-				const rows = await db.select().from(notificationQueue);
+				const rows = await listAll(db);
 				expect(rows[0]!.status).toBe("sent");
 			});
 

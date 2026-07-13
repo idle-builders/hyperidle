@@ -24,12 +24,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	type NewPropagationLogRow,
-	notificationQueue,
-	propagationLog,
-	sessions,
-} from "@hyperidle/db";
+import { type NewPropagationLogRow, propagationLog, sessions } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
 	type BetStatus,
@@ -43,6 +38,7 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
 import type { PropagationLevel } from "../knowledge/types.js";
+import { insertNotification } from "../notifications/notification-queue.js";
 import * as work from "../work-service.js";
 import { insertMessage, insertThread } from "./conversation-store.js";
 import { getFirstUserByKind } from "./user-store.js";
@@ -660,7 +656,7 @@ export async function retryFailedPropagations(db: HyperIdleDb, eventBus: EventBu
 
 			// Create notification queue entry
 			const now = new Date().toISOString();
-			await db.insert(notificationQueue).values({
+			await insertNotification(db, {
 				id: crypto.randomUUID(),
 				eventType: "propagation_exhausted",
 				subjectId: row.id,
