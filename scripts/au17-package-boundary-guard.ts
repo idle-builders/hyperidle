@@ -8,7 +8,7 @@
  * now *stronger* and enforced by `tsc` itself (core-app cannot import
  * agent-layer at all; see the AC-2 fixture below).
  *
- * Three checks:
+ * Four checks:
  *  (a) au9/au11 are actually gone — a `.ts` allowlist guard reappearing would
  *      mean someone re-introduced the very allowlist pattern this WP replaced.
  *  (b) no `app-runtime/` path segment, no `bootstrapAppRuntime` symbol, no
@@ -19,10 +19,19 @@
  *      export for `@hyperidle/eval` — re-exports EXACTLY
  *      {checkAndFireRoutine, provisionTeamRoutines, runBuiltinRoutine},
  *      never regrowing into a general barrel (carried over from au11 AC-1).
+ *  (d) DAG direction: no `packages/core-app/src` production file imports
+ *      `@hyperidle/agent-layer` (bare specifier OR any subpath) — the AC-2
+ *      `tsc`-fails proof below only catches an UNEXPORTED deep import; a
+ *      core-app file importing agent-layer's legitimate public barrel would
+ *      resolve fine at typecheck (it's a real export) while still being the
+ *      exact core→agent back-edge the three-tier DAG (§3) forbids. This is
+ *      the permanent form of the migration-time `au17-ownership.mjs`
+ *      core→agent = ∅ check (§4), embedded here per that section's own
+ *      "kept in the branch or embedded in the guard" option.
  *
- * `--fixtures` self-tests (a)+(b)+(c) with synthetic inputs (au11-style). The
- * AC-2 "unexported deep import fails typecheck" proof (§9) is a SEPARATE,
- * slower proof — `--ac2-fixture` — because it shells out to `tsc`.
+ * `--fixtures` self-tests (a)+(b)+(c)+(d) with synthetic inputs (au11-style).
+ * The AC-2 "unexported deep import fails typecheck" proof (§9) is a
+ * SEPARATE, slower proof — `--ac2-fixture` — because it shells out to `tsc`.
  */
 import { execFileSync } from "node:child_process";
 import {
@@ -144,10 +153,38 @@ export function inspect(root: string): Finding[] {
 		}
 	}
 
+	// (d) core-app must never import @hyperidle/agent-layer (bare or deep) —
+	// the permanent DAG-direction check.
+	const coreAppFiles = walk(join(root, "packages/core-app/src")).filter((abs) =>
+		productionFile(relative(root, abs)),
+	);
+	for (const abs of coreAppFiles) {
+		const rel = relative(root, abs).split("\\").join("/");
+		const text = readFileSync(abs, "utf8");
+		const ast = ts.createSourceFile(abs, text, ts.ScriptTarget.Latest, true);
+		const visit = (node: ts.Node): void => {
+			if (
+				(ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+				node.moduleSpecifier &&
+				ts.isStringLiteral(node.moduleSpecifier) &&
+				(node.moduleSpecifier.text === "@hyperidle/agent-layer" ||
+					node.moduleSpecifier.text.startsWith("@hyperidle/agent-layer/"))
+			) {
+				findings.push({
+					file: rel,
+					reason:
+						"core-app must never import @hyperidle/agent-layer — the DAG (§3) is one-directional (agent-layer -> core-app), not the reverse",
+				});
+			}
+			ts.forEachChild(node, visit);
+		};
+		visit(ast);
+	}
+
 	return findings;
 }
 
-// --- fixtures self-test (a + b + c) ---
+// --- fixtures self-test (a + b + c + d) ---
 
 function fixtureCheck(): void {
 	const root = mkdtempSync(join(tmpdir(), "au17-boundary-guard-"));
@@ -185,6 +222,19 @@ function fixtureCheck(): void {
 			].join("\n"),
 		);
 
+		// (d) positive: a core-app file importing @hyperidle/agent-layer → finding.
+		mkdirSync(join(root, "packages/core-app/src/services"), { recursive: true });
+		writeFileSync(
+			join(root, "packages/core-app/src/services/bad-dag-edge.ts"),
+			'import { bootAgentLayer } from "@hyperidle/agent-layer";\nexport const x = bootAgentLayer;\n',
+		);
+		// (d) negative: a core-app file that legitimately imports another core-app
+		// sibling relatively must NOT be flagged.
+		writeFileSync(
+			join(root, "packages/core-app/src/services/good-core-sibling.ts"),
+			'import { x } from "./bad-dag-edge.js";\nexport const y = x;\n',
+		);
+
 		const findings = inspect(root).map((f) => f.file);
 		for (const expected of [
 			"scripts/au9-direct-handoff-guard.ts",
@@ -192,11 +242,15 @@ function fixtureCheck(): void {
 			"packages/server/src/server-factory.ts",
 			"packages/server/package.json",
 			ROUTINES_TS,
+			"packages/core-app/src/services/bad-dag-edge.ts",
 		]) {
 			if (!findings.includes(expected)) throw new Error(`fixture guard missed ${expected}`);
 		}
+		if (findings.includes("packages/core-app/src/services/good-core-sibling.ts")) {
+			throw new Error("fixture guard false-positived on a clean core-app-internal import");
+		}
 
-		// (d) negative: a clean routines.ts (exactly the 3 exports) → no finding.
+		// (e) negative: a clean routines.ts (exactly the 3 exports) → no finding.
 		writeFileSync(
 			join(root, ROUTINES_TS),
 			[
