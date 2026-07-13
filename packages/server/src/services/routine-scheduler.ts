@@ -1,7 +1,6 @@
 import * as crypto from "node:crypto";
-import { type HyperIdleDb, type Routine, sessions } from "@hyperidle/db";
+import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
 import * as routineService from "../routine-service.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
