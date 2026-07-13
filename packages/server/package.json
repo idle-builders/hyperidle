@@ -35,6 +35,7 @@
 		"@hono/zod-validator": "^0.8.0",
 		"@hyperidle/db": "*",
 		"@hyperidle/knowledge": "*",
+		"@hyperidle/org": "*",
 		"@hyperidle/shared": "*",
 		"@hyperidle/work": "*",
 		"@modelcontextprotocol/sdk": "^1.29.0",
