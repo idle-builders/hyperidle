@@ -5,20 +5,27 @@
  *
  * Two tiers (architecture §7.1):
  *  1. Barrel discipline — a nested Service barrel (`packages/<layer>/<service>/
- *     src/index.ts`) MUST NOT re-export a raw `pgTable` object. That would let a
- *     consumer obtain the table transitively through the Service and defeat the ACL.
+ *     src/index.ts`) MUST NOT re-export a raw `pgTable` object, whether by name
+ *     (`export { knowledgeItems }`) or via a wildcard (`export * from "@hyperidle/db"`
+ *     / `export * as ns from "@hyperidle/db"`, which re-exports every table
+ *     transitively). That would let a consumer obtain the table transitively
+ *     through the Service and defeat the ACL.
  *  2. Ownership ACL — for every table in `TABLE_OWNER`, any Drizzle access
  *     (`.from/.insert/.update/.delete/.leftJoin/.innerJoin/.rightJoin/.fullJoin`
- *     of the bare table identifier) OR any value import of that table symbol, in a
- *     nested-package production file NOT under the owner path → FAIL. Plus a
- *     completeness rule: a known `pgTable` accessed by a nested package with no
- *     `TABLE_OWNER` row → FAIL (forces the map to stay complete as Services migrate).
+ *     of the bare table identifier) OR any value import of that table symbol —
+ *     including via a namespace import (`import * as db from "@hyperidle/db"` then
+ *     `db.knowledgeItems`) — in a nested-package production file NOT under the
+ *     owner path → FAIL. Plus a completeness rule: a known `pgTable` accessed by a
+ *     nested package with no `TABLE_OWNER` row → FAIL (forces the map to stay
+ *     complete as Services migrate).
  *
  * @lore AU19 Increment 0 scope: the ACL/completeness tiers scan the NEW nested
  * Service packages (`packages/<layer>/<service>/`) only — `packages/server` stays
  * guarded by the legacy `au*` scripts until Increment 5, when every owner package
  * exists and this guard replaces them repo-wide in one edit. Barrel discipline +
- * `--fixtures` prove all three failure modes now. Test files are exempt from the
+ * `--fixtures` prove all failure modes now, including the W2 checkpoint-review
+ * gaps (fe48f126): `export * from "@hyperidle/db"` and namespace-import
+ * (`import * as db`) evasions of both tiers. Test files are exempt from the
  * ACL (they legitimately seed tables). The full `@hyperidle/db` barrel exports every
  * table to everyone, so this guard — not barrel discipline alone — is load-bearing.
  */
@@ -132,6 +139,37 @@ function checkBarrel(root: string, serviceRoot: string, tables: Set<string>): Fi
 				}
 			}
 		}
+		// export * from "@hyperidle/db" — wildcard re-export of the WHOLE raw db
+		// module. Re-exports every table transitively; W2 checkpoint-review gap —
+		// no per-name detection possible so flag the barrel itself.
+		if (
+			ts.isExportDeclaration(node) &&
+			!node.exportClause &&
+			node.moduleSpecifier &&
+			ts.isStringLiteral(node.moduleSpecifier) &&
+			node.moduleSpecifier.text === "@hyperidle/db"
+		) {
+			findings.push({
+				file: rel,
+				reason:
+					'barrel re-exports export * from "@hyperidle/db" — re-exports every raw table transitively; export typed functions only (Table ACL, Mechanism A)',
+			});
+		}
+		// export * as ns from "@hyperidle/db" — same wildcard hazard under a
+		// namespace binding.
+		if (
+			ts.isExportDeclaration(node) &&
+			node.exportClause &&
+			ts.isNamespaceExport(node.exportClause) &&
+			node.moduleSpecifier &&
+			ts.isStringLiteral(node.moduleSpecifier) &&
+			node.moduleSpecifier.text === "@hyperidle/db"
+		) {
+			findings.push({
+				file: rel,
+				reason: `barrel re-exports export * as ${node.exportClause.name.text} from "@hyperidle/db" — re-exports every raw table transitively; export typed functions only (Table ACL, Mechanism A)`,
+			});
+		}
 		// export const knowledgeItems = ...
 		if (
 			ts.isVariableStatement(node) &&
@@ -157,6 +195,25 @@ function checkAccess(
 	const text = readFileSync(abs, "utf8");
 	const ast = ts.createSourceFile(abs, text, ts.ScriptTarget.Latest, true);
 	const findings: Finding[] = [];
+
+	// W2 checkpoint-review gap: `import * as db from "@hyperidle/db"` evades the
+	// named-import check below. Collect namespace-import local names (imports are
+	// module-top-level statements, so a single pass over ast.statements suffices)
+	// so any `db.<table>` property access can be attributed regardless of order.
+	const dbNamespaces = new Set<string>();
+	for (const stmt of ast.statements) {
+		if (
+			ts.isImportDeclaration(stmt) &&
+			ts.isStringLiteral(stmt.moduleSpecifier) &&
+			stmt.moduleSpecifier.text === "@hyperidle/db" &&
+			stmt.importClause &&
+			!stmt.importClause.isTypeOnly &&
+			stmt.importClause.namedBindings &&
+			ts.isNamespaceImport(stmt.importClause.namedBindings)
+		) {
+			dbNamespaces.add(stmt.importClause.namedBindings.name.text);
+		}
+	}
 
 	const consider = (name: string, kind: string): void => {
 		if (!tables.has(name)) return; // not a table object
@@ -201,6 +258,16 @@ function checkAccess(
 			for (const el of node.importClause.namedBindings.elements) {
 				if (!el.isTypeOnly) consider(el.name.text, "value import");
 			}
+		}
+		// Namespace-import property access: `import * as db from "@hyperidle/db"`
+		// then `db.knowledgeItems` — as a bare reference or as a `.from(db.x)` arg
+		// (the property-access node is visited as a child of the call expression).
+		if (
+			ts.isPropertyAccessExpression(node) &&
+			ts.isIdentifier(node.expression) &&
+			dbNamespaces.has(node.expression.text)
+		) {
+			consider(node.name.text, "namespace property access");
 		}
 		ts.forEachChild(node, visit);
 	};
@@ -303,6 +370,60 @@ function fixtureCheck(): void {
 		}
 	} finally {
 		rmSync(barrelRoot, { recursive: true, force: true });
+	}
+
+	// (3) W2 gap A — `export * from "@hyperidle/db"` wildcard barrel re-export.
+	const wildcardRoot = mkdtempSync(join(tmpdir(), "au19-table-guard-wildcard-"));
+	try {
+		writeFixture(wildcardRoot, "packages/db/src/schema.ts", FIXTURE_SCHEMA);
+		writeFixture(
+			wildcardRoot,
+			"packages/core-api/knowledge/package.json",
+			'{ "name": "@hyperidle/knowledge" }',
+		);
+		writeFixture(
+			wildcardRoot,
+			"packages/core-api/knowledge/src/index.ts",
+			'export * from "@hyperidle/db";',
+		);
+		const findings = inspect(wildcardRoot);
+		if (!findings.some((f) => f.reason.includes('export * from "@hyperidle/db"'))) {
+			throw new Error(
+				`table-ownership-guard: export * from "@hyperidle/db" was not caught, got ${JSON.stringify(findings)}`,
+			);
+		}
+	} finally {
+		rmSync(wildcardRoot, { recursive: true, force: true });
+	}
+
+	// (4) W2 gap B — namespace import (`import * as db from "@hyperidle/db"`)
+	// evading Tier 2's bare-identifier `.from(table)` matcher.
+	const namespaceRoot = mkdtempSync(join(tmpdir(), "au19-table-guard-namespace-"));
+	try {
+		writeFixture(namespaceRoot, "packages/db/src/schema.ts", FIXTURE_SCHEMA);
+		writeFixture(
+			namespaceRoot,
+			"packages/core-api/knowledge/package.json",
+			'{ "name": "@hyperidle/knowledge" }',
+		);
+		writeFixture(
+			namespaceRoot,
+			"packages/agent-orchestration/context-assembly/package.json",
+			'{ "name": "@hyperidle/context-assembly" }',
+		);
+		writeFixture(
+			namespaceRoot,
+			"packages/agent-orchestration/context-assembly/src/leak.ts",
+			'import * as db from "@hyperidle/db"; export const q = (h: any) => h.select().from(db.knowledgeItems);',
+		);
+		const findings = inspect(namespaceRoot);
+		if (!findings.some((f) => f.reason.includes("namespace property access"))) {
+			throw new Error(
+				`table-ownership-guard: namespace-import access to db.knowledgeItems was not caught, got ${JSON.stringify(findings)}`,
+			);
+		}
+	} finally {
+		rmSync(namespaceRoot, { recursive: true, force: true });
 	}
 
 	process.stdout.write("table-ownership-guard fixtures: PASS\n");
