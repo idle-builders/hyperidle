@@ -85,15 +85,55 @@ Services call `core-api`'s `knowledge` Service when they need it (e.g. `context-
 Knowledge to build a run's context bundle) rather than touching the table themselves.
 `agent-execution`'s Services hold no Service reference of any kind, consistent with zero DB access.
 
+**Package granularity — one npm workspace package per Service (2026-07-13, founder-settled).**
+Resolved in favor of a real package per Service, nested under its owning Layer's directory
+(`packages/<layer>/<service>/`, e.g. `packages/core-api/knowledge/`,
+`packages/agent-orchestration/context-assembly/`), not a shared folder inside 4 monolithic Layer
+packages. Both options were weighed:
+
+- **Folder-per-Service inside 4 Layer packages** (the original draft of this frame) keeps Table ACL
+  as a pure guard concern and Layer/execution boundary as the only `tsc`-enforced edge. Cheaper —
+  4 packages instead of ~20-25 — but repeats the exact failure mode this session hit twice building
+  AU17: a hand-maintained scan-root/ownership-list guard silently goes blind when files move and
+  nobody re-roots it (7 guards missed round 1, 2 more round 2, 2 more found only by the builder). A
+  guard is a promise someone kept the map current; a package boundary is a fact `tsc` checks on
+  every build, unconditionally, with no map to go stale.
+- **Package-per-Service** (chosen) additionally *strengthens* Table ACL rather than leaving it purely
+  to a guard: if a Service's `index.ts` barrel never exports its raw Drizzle table object — only
+  typed functions (`getBetById`, `createBet`, ...), the exact discipline AU12/13's owning modules
+  already follow — then no other package can ever obtain a reference to that table, full stop,
+  because packages can only import what's exported. The remaining guard shrinks to one check per
+  Service ("does this package's own barrel export a table object — yes/no"), not a tree-wide scan
+  with a scan-root to keep in sync.
+
+**Two-level package hierarchy:**
+- **4 Layer packages** (`@hyperidle/core-ui`, `@hyperidle/core-api`, `@hyperidle/agent-orchestration`,
+  `@hyperidle/agent-execution`) are thin composition barrels: they depend on their own Layer's Service
+  packages (nothing more) and re-export each Service's public surface. Applications import from these,
+  matching the Composition tier already defined above. A Layer package's own `dependencies` list is
+  the single place Mechanism 2 below checks "does this Layer reach anything from a Layer above it."
+- **~20-25 Service packages**, nested one directory under their Layer (`packages/<layer>/<service>/`),
+  hold the real implementation: `src/index.ts` (public barrel, functions only, never a raw table
+  object for SQL-owning Services), `src/*.ts` implementation, `src/__tests__/*.test.ts`, and any
+  private `src/lib/`/internal helpers a Service needs — resolving the "a domain also has tests and
+  utils, it can't be one file" concern directly: a package is a bounded unit, not a single file: it
+  holds as many files as the Service needs, all private by default unless the barrel exports them.
+- `package.json`'s root `workspaces` glob needs `"packages/*/*"` added alongside the existing
+  `"packages/*"` to pick up the nested Service packages (standard npm workspaces feature, no tooling
+  change beyond the glob).
+
 **Enforcement mechanism (AU19's job, not yet built):**
 
-1. **Table ACL** — one declarative `TABLE_OWNER` map (table → owning Service), checked by a single
-   general guard — replacing the 9 separate hand-typed per-domain guard scripts AU12–AU18 each
-   wrote independently.
-2. **Layer/execution boundary** — Applications compose Layers via real package/directory boundaries,
-   build-time enforced (the `tsc`-module-resolution technique AU17 already proved works); only
-   `agent-execution` may import an LLM-CLI/harness/MCP/tool-execution symbol — every other Layer and
-   every Service is structurally forbidden from that surface.
+1. **Table ACL** — now two tiers instead of one guard: (a) *structural* — a SQL-owning Service's
+   barrel never exports its raw table object, so no other package can reach it, checked per-package
+   at build/lint time on that one file, no scan-root to go stale; (b) *residual guard* — one small,
+   general, declarative check (does any package's barrel export a raw Drizzle table type) replacing
+   the 9 separate hand-typed per-domain scan scripts AU12–AU18 each wrote independently.
+2. **Layer/execution boundary** — Applications compose Layer packages, and Layer packages compose
+   Service packages, both real `tsc`-module-resolution-enforced package boundaries (the technique
+   AU17 already proved works, now applied one level deeper); only `agent-execution`'s Service packages
+   may import an LLM-CLI/harness/MCP/tool-execution symbol — every other package is structurally
+   forbidden from that surface, because it isn't a dependency of any Service package that imports it.
 
 **AU8 and AU17 are retired, both superseded by AU19** (`.pipeline/work-packages/TRACK-AU.md`). AU8's
 goal — one general ownership guard instead of many hand-typed ones — is subsumed into AU19's Table
