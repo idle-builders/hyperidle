@@ -16,7 +16,6 @@
 		"@hyperidle/agent-layer": "*",
 		"@hyperidle/core-app": "*",
 		"@hyperidle/db": "*",
-		"@hyperidle/server": "*",
 		"@hyperidle/shared": "*",
 		"drizzle-orm": "^0.45.2"
 	},

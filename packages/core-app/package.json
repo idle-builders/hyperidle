@@ -18,8 +18,6 @@
 	},
 	"devDependencies": {
 		"@electric-sql/pglite": "^0.5.1",
-		"@types/nodemailer": "^8.0.1",
-		"@types/smtp-server": "^3.5.13",
-		"smtp-server": "^3.19.1"
+		"@types/nodemailer": "^8.0.1"
 	}
 }

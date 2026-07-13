@@ -672,8 +672,8 @@ export async function admitSession(
 	params: ProvisionSessionParams,
 	/**
 	 * AF7 §2: enforce the synchronous resolvedModel-presence guard for builtin
-	 * adapters. Set ONLY on the HTTP POST path (startSessionProvision) so a missing
-	 * resolved model maps to a 500 + no row. The dispatcher path leaves it false: a
+	 * adapters. Set ONLY on the synchronous admission path (agent-session-runtime.ts)
+	 * so a missing resolved model maps to a 500 + no row. The dispatcher path leaves it false: a
 	 * missing credential there is unrecoverable-PER-TASK (the dispatcher drops the
 	 * task), not an HTTP error — and dispatcher fixtures legitimately run
 	 * builtin-typed stub adapters that do not require a resolved model.
@@ -1009,10 +1009,10 @@ export async function runSession(
 	admitted: AdmittedSession,
 	/**
 	 * AF7 §2: fired exactly once right after `harness.startSession` resolves
-	 * (success OR failure). `startSessionProvision` awaits this so the HTTP POST
-	 * returns AFTER the harness has started (the test-observable "startSession was
-	 * called") but BEFORE the long event-stream drain (P10) completes. The
-	 * dispatcher/await callers omit it.
+	 * (success OR failure) — lets a synchronous-admission caller resume AFTER the
+	 * harness has started (the test-observable "startSession was called") but
+	 * BEFORE the long event-stream drain (P10) completes. The dispatcher/await
+	 * callers omit it.
 	 */
 	onHarnessStarted?: () => void,
 ): Promise<ProvisionSessionResult> {
@@ -1907,74 +1907,6 @@ export async function runSession(
 			? { conversationalToolCalls: conversationalToolCallsCapture }
 			: {}),
 	};
-}
-
-/**
- * AF7 §2 — Admit a session synchronously and DETACH its run.
- *
- * `POST /api/sessions` calls this: it awaits `admitSession` (phases 1-7, all
- * admission errors throw pre-insert) and then fires the long-running `runSession`
- * (phases 8-11) WITHOUT awaiting it, so the HTTP caller is not blocked for the
- * full agent run. Resolves with `{ sessionId, taskId }` as soon as the session
- * row is committed and `session_started` emitted.
- *
- * @lore AF7 §2: admission errors (CostCapExceeded/ConcurrencyLimit/
- * MissingCredential) propagate from `admitSession` to the caller and map to HTTP
- * status — they are NOT swallowed by the detached tail. The detached tail's
- * `.catch → crashSession` only handles genuine RUNTIME failures (harness errors
- * mid-stream), which legitimately become state=crashed, not HTTP errors. The
- * `.catch` is defensive: `runSession` already funnels its own exits through
- * end/crashSession, so a throw escaping it is unexpected.
- */
-export async function startSessionProvision(
-	deps: ProvisionSessionDeps,
-	params: ProvisionSessionParams,
-): Promise<{ sessionId: string; taskId: string }> {
-	// AF7 §2: HTTP path — enforce the resolvedModel guard so a missing credential
-	// (local mode, builtin, resolvedModel absent) maps to a 500 + no row.
-	const admitted = await admitSession(deps, params, true);
-
-	// AF7 §2: await the harness-started signal so the POST returns AFTER
-	// harness.startSession (the observable "session is running") but BEFORE the
-	// long event-stream drain. The detached run continues independently.
-	let signalStarted!: () => void;
-	const started = new Promise<void>((resolve) => {
-		signalStarted = resolve;
-	});
-
-	// Detach the run — do NOT await its completion. A throw escaping runSession is
-	// unexpected (it tears itself down internally); crashSession is the last-resort
-	// funnel. We still resolve `started` on a pre-start throw so the caller never
-	// hangs.
-	void runSession(deps, params, admitted, signalStarted)
-		.catch(async (err) => {
-			try {
-				await crashSession(deps.db, deps.eventBus, admitted.sessionContext, 0, 0);
-			} catch (teardownErr) {
-				// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-				console.error(
-					`[session-provisioning] detached runSession crash teardown failed for ${admitted.sessionId}:`,
-					teardownErr,
-				);
-			}
-			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.error(
-				`[session-provisioning] detached runSession threw for ${admitted.sessionId}:`,
-				err,
-			);
-		})
-		.finally(() => {
-			// Defensive: if runSession settled without ever firing onHarnessStarted
-			// (e.g. an early throw before harness start), unblock the caller.
-			signalStarted();
-		});
-
-	await started;
-
-	if (!admitted.sessionContext.taskId) {
-		throw new Error("startSessionProvision requires a task-backed session");
-	}
-	return { sessionId: admitted.sessionId, taskId: admitted.sessionContext.taskId };
 }
 
 /**

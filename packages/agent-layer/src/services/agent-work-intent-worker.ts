@@ -28,14 +28,6 @@ const DEFAULT_LEASE_MS = 30_000;
 const DEFAULT_MAX_ATTEMPTS = 5;
 const MAX_BACKOFF_MS = 60_000;
 
-export const AGENT_WORK_INTENT_FAILURE_CODES = [
-	"INVALID_WORK_SOURCE",
-	"TARGET_AGENT_MISSING",
-	"TARGET_AGENT_INELIGIBLE",
-	"TRIGGER_RESOLUTION_FAILED",
-	"MAX_ATTEMPTS_EXCEEDED",
-] as const;
-
 export interface AgentWorkIntentWorkerOptions {
 	readonly now?: () => Date;
 	readonly leaseMs?: number;
@@ -383,31 +375,6 @@ export async function claimAgentWorkIntent(
 	return claimed ?? null;
 }
 
-export async function renewAgentWorkIntentLease(
-	db: HyperIdleDb,
-	input: {
-		readonly id: string;
-		readonly claimToken: string;
-		readonly now: Date;
-		readonly leaseMs: number;
-	},
-): Promise<boolean> {
-	const rows = await db
-		.update(agentWorkIntents)
-		.set({ claimExpiresAt: new Date(input.now.getTime() + input.leaseMs).toISOString() })
-		.where(
-			and(
-				eq(agentWorkIntents.id, input.id),
-				eq(agentWorkIntents.status, "claimed"),
-				eq(agentWorkIntents.claimToken, input.claimToken),
-			),
-		)
-		.returning({ id: agentWorkIntents.id });
-	return rows.length === 1;
-}
-
-export const reconcileAgentWorkIntents = drainAgentWorkIntents;
-
 async function failOrRelease(
 	db: HyperIdleDb,
 	intent: Intent,
@@ -421,7 +388,7 @@ async function failOrRelease(
 		intent.attempts >= (options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
 	const delay = Math.min(1_000 * 2 ** Math.max(0, intent.attempts - 1), MAX_BACKOFF_MS);
 	// @lore AU9 durable-rows: status='failed' requires a stable last_error_code —
-	// the closed AGENT_WORK_INTENT_FAILURE_CODES union, never the raw error class.
+	// a closed union of failure codes, never the raw error class.
 	const lastErrorCode = terminal
 		? error instanceof InvalidAgentWorkSourceError
 			? "INVALID_WORK_SOURCE"
