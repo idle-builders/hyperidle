@@ -627,20 +627,48 @@ AU8 something concrete to check once they land.
 > (`git log` ancestry through `e1b87c50`, guard `--check` runs, live function reads), not carried
 > forward from those stale drafts.
 
-### 0. Merged status — the AU12/AU13/AU14/AU16 wave is landed (full read+write ownership)
+> **Update (2026-07-13).** AU15 and AU18 have since merged (`#445`, `#446`), closing the
+> Settings/Notification gap §4 originally flagged as unregistered. AU17 (Core App / Agent Layer as
+> real packages) is implementation-complete and CI-green (**PR #447**), open for human merge — all
+> six of its dependencies (AU12, AU13, AU14, AU15, AU16, AU18) are merged into `origin/main`. Once
+> AU17 merges, **AU8 is the only remaining work package in Track AU.** §0, §4, and §5 below are
+> updated in place to reflect this; the rest of this section's AU12–AU16 analysis is unchanged and
+> still verified against merged code.
 
-All four service-ownership work packages have merged to main. Each now owns **both reads and writes**
-of its tables — the earlier "write-only" framing was superseded by a founder correction (see §5).
+### 0. Merged status — AU12/AU13/AU14/AU15/AU16/AU18 landed, AU17 CI-green pending merge
+
+Six of the seven service-ownership work packages have merged to main; the seventh (AU17) is
+CI-green and open for merge. Each domain package owns **both reads and writes** of its tables — the
+earlier "write-only" framing was superseded by a founder correction (see §5).
 
 | WP | Domain | Merged as | Owning module(s) | State |
 |---|---|---|---|---|
 | **AU12** | Conversation + Users | **#435** (`e1b87c50`) — final commit includes reads; the write-only #435 head was rebased/extended to reads before merge | `services/conversation-store.ts` (~29 fns), `services/user-store.ts` (~20 fns) | **Merged, full read+write** |
 | **AU13** | Work + Routine | **#436** (`ac691bda`, writes) + **#442** (`1566babb`, reopened for reads) | `work-service.ts` (~28 fns), `routine-service.ts` (~17 fns) | **Merged, full read+write** |
 | **AU14** | Knowledge | **#434** (`f22990a7`, round 1 writes) + **#441** (`29c07ec3`, round 2 full read+write) | `knowledge/knowledge-repository.ts` (~16 fns, +7 reads in round 2) | **Merged, full read+write** |
+| **AU15** | Routine agent-selection → intent queue | **#445** (`8bdab9df`) | routine-scheduler fire-time edge now goes through the durable intent queue like every other event family | **Merged** |
 | **AU16** | Harness/worker capability read-model | **#440** (`ff4de24e`) | `services/harness-capability-read-model.ts` (6 typed forwarders) | **Merged** |
+| **AU18** | Notification + Settings (`factorySettings` retirement) | **#446** (`2a1761fb`) | one Notification module owns `notificationQueue` reads+writes; `factorySettings` dropped, real settings moved onto `server_config` | **Merged, full read+write; closes §4's gap** |
+| **AU17** | Core App / Agent Layer as real packages | **PR #447**, CI green, 15 commits — depends on all six rows above | `@hyperidle/core-app` (86 files), `@hyperidle/agent-layer` (84 files), slimmed `packages/server` composition root (68 files); new `au17-package-boundary-guard.ts` replaces au9/au11 file allowlists | **Implementation-complete, CI-green, awaiting human merge** |
 
 Upstream: **AU11** (#428, `7d4791a2`) and **AU9/AU10** (#425/#426) are merged; this branch is cut from
-`e1b87c50`, which is AU12's merge on top of all of the above.
+`origin/main` at `2a1761fb`, which is AU18's merge — the tip of the whole AU12–AU18 wave.
+
+**AU17 — Core App and Agent Layer as real packages.** Splits `packages/server`'s ~238 production
+files into three tiers rather than the two the WP title implies: `@hyperidle/core-app` (Work,
+Conversation, Knowledge, Notifications, config, Routine records, credentials — imports only db/shared),
+`@hyperidle/agent-layer` (harness/mcp/tools/execution, provisioning, dispatch, context assembly, cost,
+session lifecycle — imports core-app), and a slimmed `packages/server` composition root (all routes +
+middleware/auth/filesystem + wiring — imports both). The three-tier split avoids a core↔agent import
+cycle that a strict two-package split would force at the HTTP-route layer, since routes read from both
+Core domains and Agent-run read-models. A cross-package import to an unexported file fails `tsc`
+module resolution (verified via a negative-case fixture, not asserted structurally). Nine surviving
+ownership/vocab/harness lint guards (au3, au6, au7, au10, au12, au13, au14, au18-notification,
+honest-harness-guard) were re-rooted to the new package source roots with live sanity-break proofs
+(inject a raw owned-table write in the wrong package → guard goes RED → revert); au9/au11's file
+allowlists were retired in favor of the new package-boundary guard. Pure structural migration — zero
+behavior change, confirmed via the full existing test suite passing unchanged plus a live two-topology
+boot proof (laptop-solo + simulated shared-backend).
 
 **AU12 — Conversation + Users.** `conversation-store.ts` owns `threads`+`messages`, `user-store.ts`
 owns `users`; both are the sole read *and* write path within `packages/server/src`. Roughly 6 write
@@ -677,7 +705,9 @@ instead of a per-file carve-out.
 | `au12-conversation-users-ownership-guard.ts` | `threads`, `messages`, `users` | all of `packages/server/src` | `EXEMPT_FILES` = the 2 owning modules only | **PASS** |
 | `au13-work-routine-ownership-guard.ts` | `bets`, `tasks`, `items`, `routines`, `routine_runs` | all of `packages/server/src` | `OWNING_MODULE_ALLOWLIST` = the 2 services only | **PASS** |
 | `au14-knowledge-ownership-guard.ts` | `knowledgeItems` | **only `routes/knowledge.ts`** (`GUARDED_FILE`) | structural (single-file guard) | **PASS** |
-| `au11-runtime-ownership-guard.ts` | (execution-import ban + shell) | `packages/server/src` | AU16 deleted its `DESCRIPTOR_READ_ALLOWLIST` | (unchanged from AU11) |
+| `au11-runtime-ownership-guard.ts` | (execution-import ban + shell) | `packages/server/src` | AU16 deleted its `DESCRIPTOR_READ_ALLOWLIST` | (unchanged from AU11; **retired by AU17**, superseded below) |
+| `au18-notification-ownership-guard.ts` | `notificationQueue` | all of `packages/server/src` (pre-AU17); re-rooted to `core-app`/`agent-layer` by AU17 | one owning Notification module | **PASS** |
+| `au17-package-boundary-guard.ts` (new, PR #447) | cross-package imports between `core-app`/`agent-layer`/`server` | all three new package trees | replaces au9's and au11's hand-typed file allowlists with a real AST-level DAG-direction check (any core-app file importing `@hyperidle/agent-layer`, bare or subpath, is flagged) plus an `--ac2-fixture` negative-case `tsc` proof | **PASS** (pending merge with rest of PR #447) |
 
 All three new ownership guards run clean with **zero findings** — verified live this session, not
 assumed. One honest asymmetry worth naming: **AU12 and AU13 guards scan the whole
@@ -732,23 +762,27 @@ guards is scoped to `packages/server/src`, these four stay **non-blocking for AU
 own guard keeps that same `packages/server/src` scope*. (Test files under `__tests__` also write these
 tables directly; they are test fixtures, not production, and out of every guard's production scope.)
 
-### 4. The still-unregistered Settings/Notification write-ownership gap — the one real AU8 blocker
+### 4. Settings/Notification write-ownership gap — CLOSED by AU18 (2026-07-13)
 
-`factorySettings` and `notificationQueue` are still written with **raw Drizzle `insert`/`update`/
-`delete` across many production files** with **no owning service** — e.g. `config/git-export-config.ts`,
-`routes/notifications-routes.ts`, `routes/status.ts`, `notifications/{mute,digest,config,dispatcher}.ts`,
+**Originally:** `factorySettings` and `notificationQueue` were written with raw Drizzle
+`insert`/`update`/`delete` across many production files with no owning service — e.g.
+`config/git-export-config.ts`, `routes/notifications-routes.ts`, `routes/status.ts`,
+`notifications/{mute,digest,config,dispatcher}.ts`,
 `services/{cost-cap,cost-sentinel,lifecycle-propagation,retention-reaper}.ts`,
-`services/observability/config.ts`. This is exactly the raw-write pattern AU12/AU13 removed for their
-domains, and the AU12/AU13 "audit Settings/Notification first" task flagged it but scoped it *out*.
+`services/observability/config.ts`. This was exactly the raw-write pattern AU12/AU13 removed for
+their domains, and the AU12/AU13 "audit Settings/Notification first" task flagged it but scoped it
+*out*, leaving no work package registered to close it.
 
-**No work package covers it.** Confirmed against `.pipeline/work-packages/TRACK-AU.md` and
-`pipeline-manifest.yaml`: there is **no AU18** or equivalent Settings/Notification ownership entry.
-AU8's plan (§AU8) itself anticipates this — its `TABLE_OWNER` map would need a Settings/Notification
-owner, or those tables stay un-owned and its zero-allowlist goal can't be met for them. **This remains
-the one real, unregistered gap before AU8 can build a genuinely complete table-ownership guard.**
-(Caveat: whether it *blocks* AU8 depends on AU8's final scope decision — if AU8 deliberately declares
-`factorySettings`/`notificationQueue` out of its `TABLE_OWNER` map, it could ship without them; but as
-the track's intent reads today, closing this is the honest precondition.)
+**Now closed.** AU18 was registered (PR #444) and shipped (**PR #446**, `2a1761fb`, CI green): one
+Notification module owns every `notificationQueue` read and write; every real setting formerly on
+`factorySettings` (notification delivery config, mute state, observability config, git-export
+config, the generic `routes/status.ts` endpoint) moved onto the existing `server_config` structured
+pattern; `cost-cap.ts` is the sole reader/writer of its own cost-accumulation state, with
+`cost-sentinel.ts` calling an exported function instead of touching a table; `factorySettings` has
+zero remaining callers and is dropped as a table. A zero-allowlist `au18-notification-ownership-guard.ts`
+enforces this going forward (see §1). AU8's `TABLE_OWNER` map can now include Settings/Notification
+without an allowlist exception — the last real precondition for a genuinely complete, zero-exception
+table-ownership guard is satisfied.
 
 ### 5. Dependency tree and status (final-state)
 
@@ -757,14 +791,16 @@ flowchart LR
   AU11["AU11 — merged #428\n(app-runtime dissolved)"]
   AU11 --> AU12["AU12 — merged #435\nConversation + Users\nown reads + writes"]
   AU11 --> AU13["AU13 — merged #436 + #442\nWork + Routine\nown reads + writes"]
-  AU13 --> AU15["AU15 — NOT STARTED\nRoutine agent-selection\nthrough the intent queue"]
+  AU13 --> AU15["AU15 — merged #445\nRoutine agent-selection\nthrough the intent queue"]
   AU14["AU14 — merged #434 + #441\nKnowledge full read+write\npath unified (independent)"]
   AU16["AU16 — merged #440\nHarness/worker capability\nread-model (independent)"]
-  AU12 --> AU17["AU17 — NOT STARTED\nCore App / Agent Layer\nas real packages"]
+  AU18["AU18 — merged #446\nNotification + Settings\nown reads + writes\n(factorySettings retired)"]
+  AU12 --> AU17["AU17 — CI-green, PR #447\nCore App / Agent Layer\nas real packages"]
   AU13 --> AU17
   AU14 --> AU17
   AU15 --> AU17
   AU16 --> AU17
+  AU18 --> AU17
   AU17 --> AU8["AU8 — NOT STARTED\nshould-graph guard,\ngeneralized"]
 ```
 
@@ -774,24 +810,27 @@ flowchart LR
 | AU13 | **Merged** (#436 + #442) | AU11 | Full read+write |
 | AU14 | **Merged** (#434 + #441) | — | Full read+write; single-file guard (§1) |
 | AU16 | **Merged** (#440) | — | Deleted `DESCRIPTOR_READ_ALLOWLIST` |
-| **AU15** | **Not started** | AU13 (now unblocked) | Routine agent-selection → intent queue; no branch/PR exists |
-| **AU17** | **Not started** | AU12, AU13, AU14, AU15, AU16 | Still blocked on AU15; no branch/PR exists |
-| **AU8** | **Not started** | AU17 | Should-graph guard; no branch/PR exists |
-| (gap) | **Unregistered** | — | Settings/Notification write-ownership (§4) — no AU18 |
+| AU15 | **Merged** (#445) | AU13 | Routine agent-selection now goes through the durable intent queue |
+| AU18 | **Merged** (#446) | AU11 | Notification + Settings ownership; `factorySettings` dropped; closes §4's gap |
+| **AU17** | **Implementation-complete, CI-green** | AU12, AU13, AU14, AU15, AU16, AU18 (all merged) | **PR #447** open for human merge; no rebase needed, based on current `origin/main` tip |
+| **AU8** | **Not started** | AU17 | Should-graph guard; unblocked once AU17 merges; no branch/PR exists yet |
 
-AU15 is the sole remaining sibling that unblocks AU17; AU12/AU13/AU14/AU16 all landed. AU17 still
-needs *all five* (incl. AU15) before it can start, and AU8 depends only on AU17. No `AU15`, `AU17`, or
-`AU8` branch or PR exists yet — confirmed against `git branch -a` and `gh pr list`.
+All six of AU17's dependencies are merged; AU17 itself is CI-green and awaiting merge (PR #447), not
+"not started" as an earlier snapshot of this doc had it. AU8 depends only on AU17 and remains the
+sole not-started work package in the track — confirmed against `git branch -a` and `gh pr list`.
 
 ### 6. What this section is, and isn't
 
 This is a should-graph *refinement*, not a new should-graph — the two-layer contract in
 §"Layer Interaction Graph" above (Core App owns records/events, Agent Layer owns execution, Plugins
-are configuration-only) is unchanged. What's new — and now **largely realized in merged code** rather
-than merely diagrammed — is naming the real services inside each layer (conversation-store,
-user-store, work-service, routine-service, knowledge-repository, harness-capability-read-model) and
-the exact mechanism each crossing uses. AU8's own audit found the two-layer split alone cannot support
-a zero-allowlist guard because it has no vocabulary for "a Routine handler wrote into a Conversation
-table." With AU12/AU13/AU14/AU16 landed and their guards green, that vocabulary now exists as
-enforced code for six domains; the remaining work before AU8 is AU15, AU17, and closing the
-Settings/Notification ownership gap (§4).
+are configuration-only) is unchanged. What's new — and now **realized in merged code, plus a real
+package boundary,** rather than merely diagrammed — is naming the real services inside each layer
+(conversation-store, user-store, work-service, routine-service, knowledge-repository,
+harness-capability-read-model, the Notification module) and the exact mechanism each crossing uses.
+AU8's own audit found the two-layer split alone cannot support a zero-allowlist guard because it has
+no vocabulary for "a Routine handler wrote into a Conversation table." With AU12/AU13/AU14/AU15/
+AU16/AU18 all merged and their guards green, and AU17 CI-green pending merge, that vocabulary now
+exists as enforced code for seven domains, and AU17 upgrades the enforcement mechanism itself from a
+hand-typed file allowlist to a build-time package boundary. **The only remaining work before AU8 is
+merging PR #447 (AU17)** — the Settings/Notification gap (§4) and the AU15 routine-scheduler edge
+that previously blocked AU17 are both closed.
