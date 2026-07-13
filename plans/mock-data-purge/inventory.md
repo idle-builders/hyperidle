@@ -8,15 +8,15 @@ Total offenders: **14**
 
 | path | line | symbol | kind | shape |
 |---|---|---|---|---|
-| `packages/server/src/middleware/auth.ts` | 168 | `u-founder` | literal-id | string |
-| `packages/server/src/middleware/auth.ts` | 200 | `u-founder` | literal-id | string |
-| `packages/server/src/middleware/auth.ts` | 227 | `u-founder` | literal-id | string |
-| `packages/server/src/middleware/auth.ts` | 231 | `u-founder` | literal-id | string |
-| `packages/server/src/routes/auth.ts` | 62 | `u-founder` | literal-id | string |
-| `packages/server/src/services/connection-provisioning.ts` | 97 | `u-founder` | literal-id | string |
-| `packages/server/src/services/connection-provisioning.ts` | 105 | `u-founder` | literal-id | string |
-| `packages/server/src/services/lifecycle-propagation.ts` | 536 | `u-founder` | literal-id | string |
-| `packages/server/src/services/lifecycle-propagation.ts` | 538 | `u-founder` | literal-id | string |
+| `packages/core-app/src/services/connection-provisioning.ts` | 97 | `u-founder` | literal-id | string |
+| `packages/core-app/src/services/connection-provisioning.ts` | 105 | `u-founder` | literal-id | string |
+| `packages/core-app/src/services/lifecycle-propagation.ts` | 536 | `u-founder` | literal-id | string |
+| `packages/core-app/src/services/lifecycle-propagation.ts` | 538 | `u-founder` | literal-id | string |
+| `packages/server/src/middleware/auth.ts` | 167 | `u-founder` | literal-id | string |
+| `packages/server/src/middleware/auth.ts` | 199 | `u-founder` | literal-id | string |
+| `packages/server/src/middleware/auth.ts` | 226 | `u-founder` | literal-id | string |
+| `packages/server/src/middleware/auth.ts` | 230 | `u-founder` | literal-id | string |
+| `packages/server/src/routes/auth.ts` | 60 | `u-founder` | literal-id | string |
 
 ## borderline (5)
 

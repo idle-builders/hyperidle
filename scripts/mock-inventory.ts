@@ -304,12 +304,14 @@ function walkTs(dir: string): string[] {
  * Returns the sorted list of InventoryRow objects.
  */
 export async function runInventory(options: RunInventoryOptions): Promise<InventoryRow[]> {
-	const { webSrc, serverSrc } = options;
+	const { webSrc, serverSrc, coreAppSrc, agentLayerSrc } = options;
 
 	// Collect all files to scan
 	const allFilePaths: string[] = [];
 	if (webSrc) allFilePaths.push(...walkTs(webSrc));
 	if (serverSrc) allFilePaths.push(...walkTs(serverSrc));
+	if (coreAppSrc) allFilePaths.push(...walkTs(coreAppSrc));
+	if (agentLayerSrc) allFilePaths.push(...walkTs(agentLayerSrc));
 
 	// Read all file contents (needed for importer count)
 	const allFiles = allFilePaths.map((p) => {
@@ -507,16 +509,22 @@ if (isEntrypoint) {
 	const repoRoot = join(scriptPath, "..", "..");
 	const webSrc = join(repoRoot, "packages/web/src");
 	const serverSrc = join(repoRoot, "packages/server/src");
+	const coreAppSrc = join(repoRoot, "packages/core-app/src");
+	const agentLayerSrc = join(repoRoot, "packages/agent-layer/src");
 	const outDir = join(repoRoot, "plans/mock-data-purge");
 	const inventoryPath = join(outDir, "inventory.json");
 
 	const webSrcExists = existsSync(webSrc);
 	const serverSrcExists = existsSync(serverSrc);
+	const coreAppSrcExists = existsSync(coreAppSrc);
+	const agentLayerSrcExists = existsSync(agentLayerSrc);
 
 	if (isCheck) {
 		const result = await runInventoryCheck({
 			webSrc: webSrcExists ? webSrc : null,
 			serverSrc: serverSrcExists ? serverSrc : null,
+			coreAppSrc: coreAppSrcExists ? coreAppSrc : null,
+			agentLayerSrc: agentLayerSrcExists ? agentLayerSrc : null,
 			inventoryPath,
 			repoRoot,
 		});
@@ -555,6 +563,8 @@ if (isEntrypoint) {
 	const rowsAbs = await runInventory({
 		webSrc: webSrcExists ? webSrc : null,
 		serverSrc: serverSrcExists ? serverSrc : null,
+		coreAppSrc: coreAppSrcExists ? coreAppSrc : null,
+		agentLayerSrc: agentLayerSrcExists ? agentLayerSrc : null,
 	});
 	const rows = rowsAbs.map((r) => ({ ...r, path: relative(repoRoot, r.path) }));
 

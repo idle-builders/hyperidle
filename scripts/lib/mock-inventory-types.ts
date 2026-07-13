@@ -23,6 +23,14 @@ export interface InventoryCheckResult {
 export interface RunInventoryOptions {
 	webSrc: string | null;
 	serverSrc: string | null;
+	/**
+	 * AU17: services/ split off packages/server/src into two new workspace
+	 * packages — scan them too so a file that moved (e.g.
+	 * connection-provisioning.ts, lifecycle-propagation.ts) doesn't silently
+	 * drop out of the inventory.
+	 */
+	coreAppSrc?: string | null;
+	agentLayerSrc?: string | null;
 }
 
 export interface RunInventoryCheckOptions extends RunInventoryOptions {
