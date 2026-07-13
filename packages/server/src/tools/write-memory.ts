@@ -1,3 +1,4 @@
+import { create as createKnowledgeItem } from "@hyperidle/knowledge";
 import {
 	KNOWLEDGE_LAYERS,
 	KNOWLEDGE_STATUSES,
@@ -7,7 +8,6 @@ import {
 	type ScopeKind,
 } from "@hyperidle/shared";
 import z from "zod";
-import { create as createKnowledgeItem } from "../knowledge/knowledge-repository.js";
 import { getUserById } from "../services/user-store.js";
 import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";

@@ -20,7 +20,13 @@
  *   JS-verified for exact membership (prevents false positives from substring).
  * - Knowledge: scope_kind != 'user' OR updated_by = userId.
  */
-import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, teams } from "@hyperidle/db";
+import {
+	escapeLikePattern,
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeItems,
+	teams,
+} from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
 import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
@@ -33,7 +39,6 @@ import {
 	listThreadMetaByIds,
 	searchConversations,
 } from "../services/conversation-store.js";
-import { escapeLikePattern } from "../services/like-escape.js";
 import * as work from "../work-service.js";
 
 /** Max results per category */

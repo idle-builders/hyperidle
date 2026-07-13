@@ -66,7 +66,18 @@ function tsconfig(execution: boolean): string {
   return `${JSON.stringify(
     {
       extends: "../../../tsconfig.base.json",
-      compilerOptions: { composite: true, outDir: "dist", rootDir: "src" },
+      compilerOptions: {
+        composite: true,
+        outDir: "dist",
+        rootDir: "src",
+        // @lore AU19 Increment 1a: nested Service packages that use Node builtins
+        // (e.g. `node:crypto`'s randomUUID) need `types: ["node"]` explicitly —
+        // top-level packages (db/shared/desktop/…) already declare this, but the
+        // Inc-0 scaffold template omitted it since neither Inc-0 Service used a
+        // node: import. `knowledge` (Inc 1a) is the first to hit this; fixed here
+        // so every future scaffolded Service gets it for free.
+        types: ["node"],
+      },
       include: ["src"],
       references,
     },

@@ -5,15 +5,30 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
+import { buildAttentionService, MAX_RECOMPUTE_BATCH } from "@hyperidle/knowledge";
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { buildAttentionService, MAX_RECOMPUTE_BATCH } from "../knowledge/attention-service.js";
-import { attentionReviewReasoningMarker } from "../services/review-item-factory.js";
+import {
+	attentionReviewReasoningMarker,
+	createReviewItemForKnowledge,
+} from "../services/review-item-factory.js";
 import { test } from "../test-fixtures.js";
+import * as work from "../work-service.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();
+
+/**
+ * @lore AU19 Increment 1a: `buildAttentionService` now takes `work`/`review`
+ * as injected DI ports (Mechanism C — `knowledge` never imports another
+ * Service). This test constructs the real `work-service.ts` /
+ * `review-item-factory.ts` functions and passes them through, exercising the
+ * exact same production wiring `score-attention.ts`/`builtin-routine-handlers.ts`
+ * use — no behavior change from the pre-migration direct-import version.
+ */
+const workPort = { findItemByReasoningMarker: work.findItemByReasoningMarker };
+const reviewPort = { createReviewItemForKnowledge, attentionReviewReasoningMarker };
 
 interface SeedKiOverrides {
 	readonly id: string;
@@ -95,7 +110,13 @@ describe("attention-service", () => {
 	}) => {
 		// @lore O2: attentionScore moved from kernel knowledgeItems to extension table
 		await seedKi(db, { id: "ki-1", attentionScore: 0.1, version: 3, confidence: 0.5 });
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		await service.recomputeOne("ki-1");
 		// Kernel version must NOT be bumped
 		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1"));
@@ -128,7 +149,13 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		const result = await service.recomputeOne("ki-crosses");
 
 		expect(result.current).toBeGreaterThanOrEqual(0.7);
@@ -159,7 +186,13 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		const result = await service.recomputeOne("ki-stable-high");
 		expect(result.crossedThreshold).toBe(false);
 		expect(received.length).toBe(0);
@@ -180,7 +213,13 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		const result = await service.recomputeOne("ki-low");
 		expect(result.current).toBeLessThan(0.7);
 		expect(result.crossedThreshold).toBe(false);
@@ -206,7 +245,13 @@ describe("attention-service", () => {
 			ids.push(id);
 		}
 
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		const start = performance.now();
 		const results = await service.recomputeMany(ids);
 		const duration = performance.now() - start;
@@ -256,7 +301,13 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		await service.recomputeMany(["c1", "c2", "c3", "ok1", "ok2"]);
 
 		expect(received.length).toBe(3);
@@ -275,7 +326,13 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		await service.recomputeMany(["k-0", "k-1", "k-2"]);
 
 		expect(received.length).toBe(3);
@@ -311,7 +368,13 @@ describe("attention-service", () => {
 			attentionScore: 0.1,
 		});
 
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		const result = await service.recomputeScope({ layer: "L3", scopeId: "build" });
 
 		expect(result.ok).toBe(true);
@@ -370,7 +433,13 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		const first = await service.recomputeOne("ki-dup");
 		expect(first.reviewItemCreated).toBe(true);
 
@@ -414,7 +483,13 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		// Kick off two recomputes "simultaneously". SQLite under better-sqlite3
 		// is synchronous, so transactions serialize deterministically — but the
 		// CALL path is async so this models the two-caller scenario.
@@ -432,7 +507,13 @@ describe("attention-service", () => {
 
 	test("recomputeScope rejects an empty filter with FILTER_REQUIRED", async ({ db, eventBus }) => {
 		await seedKi(db, { id: "any", confidence: 0.5, attentionScore: 0.1 });
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		const result = await service.recomputeScope({});
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
@@ -448,7 +529,13 @@ describe("attention-service", () => {
 		for (let i = 0; i < BATCH_OVER; i++) {
 			await seedKi(db, { id: `k-big-${i}`, layer: "L9", confidence: 0.5, attentionScore: 0.1 });
 		}
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 		const result = await service.recomputeScope({ layer: "L9" });
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
@@ -477,7 +564,13 @@ describe("attention-service", () => {
 			confidence: 0.5,
 			attentionScore: 0.1,
 		});
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 
 		const byKind = await service.recomputeScope({ kind: "brief" });
 		expect(byKind.ok).toBe(true);
@@ -523,7 +616,13 @@ describe("attention-service", () => {
 		eventBus.on("item_created", (e) => {
 			received.push(e);
 		});
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
+		const service = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => NOW_MS,
+		});
 
 		const below = await service.recomputeOne("edge-just-below");
 		const at = await service.recomputeOne("edge-at");
@@ -558,7 +657,13 @@ describe("attention-service", () => {
 			attentionScore: 0.1,
 		});
 		const fixedNow = NOW_MS;
-		const svcA = buildAttentionService({ db, eventBus, now: () => fixedNow });
+		const svcA = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => fixedNow,
+		});
 		const a = await svcA.recomputeOne("det-1");
 
 		// Reset the stored attention and re-run with the same fixed now — the
@@ -569,7 +674,13 @@ describe("attention-service", () => {
 			.set({ attentionScore: "0.1" })
 			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "det-1"));
 
-		const svcB = buildAttentionService({ db, eventBus, now: () => fixedNow });
+		const svcB = buildAttentionService({
+			db,
+			eventBus,
+			work: workPort,
+			review: reviewPort,
+			now: () => fixedNow,
+		});
 		const b = await svcB.recomputeOne("det-1");
 		expect(b.current).toBe(a.current);
 	});

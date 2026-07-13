@@ -18,9 +18,8 @@
  * must be a SQL expression to stay race-free.
  */
 
-import { type HyperIdleDb, type NewUser, type User, users } from "@hyperidle/db";
+import { escapeLikePattern, type HyperIdleDb, type NewUser, type User, users } from "@hyperidle/db";
 import { and, eq, inArray, ne, type SQL, sql } from "drizzle-orm";
-import { escapeLikePattern } from "./like-escape.js";
 
 /** Per-column patch that also admits SQL expressions (e.g. cost coalesce). */
 type UserPatch = Partial<{ [K in keyof NewUser]: NewUser[K] | SQL }>;

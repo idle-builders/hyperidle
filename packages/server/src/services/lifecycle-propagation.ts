@@ -25,6 +25,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type NewPropagationLogRow, propagationLog, sessions } from "@hyperidle/db";
+import type { PropagationLevel } from "@hyperidle/knowledge";
 import {
 	type BetStateChangedEvent,
 	type BetStatus,
@@ -37,7 +38,6 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
-import type { PropagationLevel } from "../knowledge/types.js";
 import { insertNotification } from "../notifications/notification-queue.js";
 import * as work from "../work-service.js";
 import { insertMessage, insertThread } from "./conversation-store.js";

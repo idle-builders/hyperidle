@@ -12,6 +12,7 @@ import {
 	knowledgeItems,
 	type Routine,
 } from "@hyperidle/db";
+import { buildAttentionService, runAutoPromotionSweep, runStaleSweep } from "@hyperidle/knowledge";
 import {
 	type BetStateChangedEvent,
 	createLogger,
@@ -20,12 +21,14 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, gte, inArray } from "drizzle-orm";
 import { BUILTIN_SPECS, extractBuiltinKind } from "../config/builtin-routines.js";
-import { buildAttentionService } from "../knowledge/attention-service.js";
-import { runAutoPromotionSweep, runStaleSweep } from "../knowledge/promotion-pipeline.js";
 import * as routineService from "../routine-service.js";
 import * as work from "../work-service.js";
 import { getThreadIdsByHost, insertThread } from "./conversation-store.js";
 import { createPracticeMeeting } from "./practice-meeting.js";
+import {
+	attentionReviewReasoningMarker,
+	createReviewItemForKnowledge,
+} from "./review-item-factory.js";
 // @lore AF6: cron helpers used only at runtime inside provisionTeamRoutines. The
 // scheduler↔builtin-routine-handlers import cycle is init-safe because neither module
 // calls the other at top level (only runBuiltinRoutine / parseCron at call time).
@@ -514,7 +517,12 @@ async function runKnowledgePromotion(
 		];
 
 		if (candidateIds.length > 0) {
-			const attentionResult = await buildAttentionService({ db, eventBus }).recomputeScope({
+			const attentionResult = await buildAttentionService({
+				db,
+				eventBus,
+				work: { findItemByReasoningMarker: work.findItemByReasoningMarker },
+				review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+			}).recomputeScope({
 				ids: candidateIds,
 			});
 			if (!attentionResult.ok) {

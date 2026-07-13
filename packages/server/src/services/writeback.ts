@@ -2,9 +2,8 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, knowledgeConflicts, sessions } from "@hyperidle/db";
+import * as repo from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
-import { VersionConflictError } from "../knowledge/errors.js";
-import * as repo from "../knowledge/knowledge-repository.js";
 import type { Manifest, ManifestEntry } from "./context-assembly.js";
 
 export interface WritebackConfig {
@@ -222,7 +221,7 @@ async function handleModify(
 		}
 		return "updated";
 	} catch (err) {
-		if (err instanceof VersionConflictError) {
+		if (err instanceof repo.VersionConflictError) {
 			// Create conflict record
 			const conflictId = crypto.randomUUID();
 			await config.db.insert(knowledgeConflicts).values({

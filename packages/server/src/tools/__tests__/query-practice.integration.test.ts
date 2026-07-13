@@ -1,10 +1,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { create as createKnowledgeItem, setupFts } from "@hyperidle/knowledge";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
-import { setupFts } from "../../knowledge/fts.js";
-import { create as createKnowledgeItem } from "../../knowledge/knowledge-repository.js";
 import { test } from "../../test-fixtures.js";
 import { queryPracticeTool } from "../query-practice.js";
 import type { ToolContext } from "../tool-registry.js";

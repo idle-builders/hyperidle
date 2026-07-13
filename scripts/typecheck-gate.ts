@@ -291,7 +291,17 @@ function buildLeafDeclarations(root: string): void {
   // can't find SenderGroupedMessage / TagKindMeta and infers `any`/`unknown` for
   // callbacks, producing 5 spurious TS7006/TS18046 errors. Building design-system
   // declarations (which depend on shared) before the measurement loop fixes this.
-  for (const leaf of ["shared", "db", "design-system"]) {
+  //
+  // @lore AU19 Increment 1a: `core-api/knowledge` added — the exact same TS6305
+  // "output file has not been built" cascade hits `server` (its first real Service
+  // package dependency, replacing the old in-package `knowledge/` dir) without a
+  // pre-built dist: 12 spurious TS7031/TS7006/TS18046 errors across
+  // routes/knowledge.ts, server-factory.ts, context-assembly.ts, writeback.ts,
+  // query-practice.ts — confirmed by building `core-api/knowledge` in isolation
+  // and re-measuring `server`, which then drops to 0. Every future Increment that
+  // migrates a Service consumed by `server` (or another non-Layer package) will
+  // need the same addition here.
+  for (const leaf of ["shared", "db", "design-system", "core-api/knowledge"]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
     } catch {

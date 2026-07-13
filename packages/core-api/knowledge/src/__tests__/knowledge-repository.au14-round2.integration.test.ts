@@ -17,9 +17,9 @@ import {
 	knowledgeItems,
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KernelKnowledgeStatus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../../test-fixtures.js";
 import {
 	archiveItem,
 	changeScope,

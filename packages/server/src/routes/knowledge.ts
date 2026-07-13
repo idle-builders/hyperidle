@@ -29,6 +29,24 @@ import {
 	teamMembers,
 	teams,
 } from "@hyperidle/db";
+import {
+	archiveItem,
+	changeScope,
+	countAccessesSince,
+	countTriageVisible,
+	create as createKnowledgeItem,
+	findById,
+	findDetailById,
+	findRelatedByTopic,
+	flagItem,
+	ItemDeletedError,
+	listVisibleWithSignals,
+	mergeItems,
+	searchByText,
+	splitItem,
+	update as updateKnowledgeItem,
+	VersionConflictError,
+} from "@hyperidle/knowledge";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
 	type AgentWorkIntentEvent,
@@ -47,23 +65,6 @@ import {
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import { ItemDeletedError, VersionConflictError } from "../knowledge/errors.js";
-import {
-	archiveItem,
-	changeScope,
-	countAccessesSince,
-	countTriageVisible,
-	create as createKnowledgeItem,
-	findById,
-	findDetailById,
-	findRelatedByTopic,
-	flagItem,
-	listVisibleWithSignals,
-	mergeItems,
-	searchByText,
-	splitItem,
-	update as updateKnowledgeItem,
-} from "../knowledge/knowledge-repository.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";

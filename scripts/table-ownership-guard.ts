@@ -45,6 +45,10 @@ import ts from "typescript";
 /** The single source of truth for table ownership. One row per owned table. */
 const TABLE_OWNER: Record<string, string> = {
 	knowledgeItems: "packages/core-api/knowledge",
+	knowledgeEditLog: "packages/core-api/knowledge",
+	knowledgeAccessLog: "packages/core-api/knowledge",
+	knowledgeConflicts: "packages/core-api/knowledge",
+	knowledgeStrategyFabric: "packages/core-api/knowledge",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

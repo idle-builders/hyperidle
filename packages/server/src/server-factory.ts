@@ -9,6 +9,7 @@ import {
 	type HyperIdleDb,
 	resolveProfile,
 } from "@hyperidle/db";
+import { registerRelevanceListener, setupFts } from "@hyperidle/knowledge";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
@@ -18,8 +19,6 @@ import { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
 import { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";
 import { enforcementRegistry } from "./harness/return-enforcement-registry.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
-import { setupFts } from "./knowledge/fts.js";
-import { registerRelevanceListener } from "./knowledge/relevance-listener.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { defaultNotificationAdapterFactory } from "./notifications/adapter-factory.js";
 import {

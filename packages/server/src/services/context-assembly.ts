@@ -1,12 +1,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb, KnowledgeItem } from "@hyperidle/db";
+import {
+	communityForRole,
+	DEFAULT_KNOWLEDGE_BUDGET,
+	list,
+	loadScoringWeights,
+	rankAndBudget,
+	type ScoringContext,
+} from "@hyperidle/knowledge";
 import type { UserRole } from "@hyperidle/shared";
-import { list } from "../knowledge/knowledge-repository.js";
-import { rankAndBudget } from "../knowledge/relevance-scoring.js";
-import { communityForRole } from "../knowledge/role-community-map.js";
-import type { ScoringContext } from "../knowledge/scoring-config.js";
-import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "../knowledge/scoring-config.js";
 import * as work from "../work-service.js";
 import { buildSessionContext } from "./session-context.js";
 

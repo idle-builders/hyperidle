@@ -1,7 +1,11 @@
 import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
+import { buildAttentionService } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { buildAttentionService } from "../knowledge/attention-service.js";
+import {
+	attentionReviewReasoningMarker,
+	createReviewItemForKnowledge,
+} from "../services/review-item-factory.js";
 import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
@@ -81,7 +85,12 @@ async function handler(
 		if (!existing) {
 			return err("NOT_FOUND", `Knowledge item not found: ${id}`);
 		}
-		const service = buildAttentionService({ db: ctx.db, eventBus: ctx.eventBus });
+		const service = buildAttentionService({
+			db: ctx.db,
+			eventBus: ctx.eventBus,
+			work: { findItemByReasoningMarker: work.findItemByReasoningMarker },
+			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+		});
 		const result = await service.recomputeOne(id);
 		return ok<ScoreAttentionData>({
 			target,

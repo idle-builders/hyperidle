@@ -1,13 +1,21 @@
 /**
- * Knowledge Service — read side. The SOLE `knowledgeItems` table path for this
- * Service (Table ACL, Mechanism A): every read routes through this function and
- * the barrel exports the function, never the raw `knowledgeItems` object.
+ * Knowledge Service — scope-based read used by `context-assembly`'s
+ * `KnowledgeReader` port. Reads the kernel `knowledgeItems` table only via
+ * this function; the barrel exports it, never the raw `knowledgeItems`
+ * object (Table ACL, Mechanism A).
  *
- * @lore AU19 Increment 0: this is the real cross-Service edge the minimal slice
- * proves — `context-assembly` (agent-orchestration) consumes `list` as its
- * injected `KnowledgeReader` port, wired by the agent-orchestration Layer. The
- * function owns the table so that dependency stays a downward DI port, not a
- * Service-to-Service import.
+ * @lore AU19 Increment 0/1a: this is the real cross-Service edge the minimal
+ * slice proved — `context-assembly` (agent-orchestration) consumes
+ * `listByScope` as its injected `KnowledgeReader` port, wired by the
+ * agent-orchestration Layer. Named `listByScope` (not `list`) to avoid
+ * colliding with `knowledge-repository.ts`'s `list(db, filters: ListFilters)`
+ * — the real production listing function used by `routes/knowledge.ts` /
+ * `context-assembly.ts`, which filters on kernel `topic` + projection
+ * `layer`/`scopeId`/`kind` and has no `scopeKind` filter. `listByScope` is a
+ * distinct, narrower query (kernel `scopeKind`+`scopeId` only) — reconciling
+ * the two under one name would either change `list()`'s production filter
+ * semantics or silently drop `listByScope`'s scopeKind filter. Kept as two
+ * named functions instead (§7.3 Increment 1a builder note).
  */
 import { type HyperIdleDb, type KnowledgeItem, knowledgeItems } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
@@ -20,7 +28,10 @@ export interface KnowledgeScope {
 }
 
 /** List canonical knowledge items in a scope, newest first. */
-export async function list(db: HyperIdleDb, scope: KnowledgeScope): Promise<KnowledgeItem[]> {
+export async function listByScope(
+	db: HyperIdleDb,
+	scope: KnowledgeScope,
+): Promise<KnowledgeItem[]> {
 	const conditions = [eq(knowledgeItems.scopeKind, scope.scopeKind)];
 	if (scope.scopeId != null) {
 		conditions.push(eq(knowledgeItems.scopeId, scope.scopeId));

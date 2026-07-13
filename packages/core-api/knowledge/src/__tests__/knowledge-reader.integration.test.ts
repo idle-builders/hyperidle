@@ -1,6 +1,6 @@
 import { knowledgeItems } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { list } from "./knowledge-reader.js";
+import { listByScope } from "../knowledge-reader.js";
 
 function seedRow(id: string, scopeKind: string, scopeId: string, title: string) {
 	return {
@@ -17,7 +17,7 @@ function seedRow(id: string, scopeKind: string, scopeId: string, title: string) 
 	};
 }
 
-test("list() returns knowledge items in the requested scope only", async ({ db }) => {
+test("listByScope() returns knowledge items in the requested scope only", async ({ db }) => {
 	await db
 		.insert(knowledgeItems)
 		.values([
@@ -26,9 +26,9 @@ test("list() returns knowledge items in the requested scope only", async ({ db }
 			seedRow("ki-3", "factory", "", "Factory default"),
 		]);
 
-	const teamT1 = await list(db, { scopeKind: "team", scopeId: "t1" });
+	const teamT1 = await listByScope(db, { scopeKind: "team", scopeId: "t1" });
 	expect(teamT1.map((k) => k.id)).toEqual(["ki-1"]);
 
-	const allTeamKind = await list(db, { scopeKind: "team" });
+	const allTeamKind = await listByScope(db, { scopeKind: "team" });
 	expect(allTeamKind.map((k) => k.id).sort()).toEqual(["ki-1", "ki-2"]);
 });

@@ -7,10 +7,10 @@ import {
 	knowledgeStrategyFabric,
 	users,
 } from "@hyperidle/db";
+import { setupFts } from "@hyperidle/knowledge";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { setupFts } from "../../knowledge/fts.js";
 import { test } from "../../test-fixtures.js";
 import type { ToolContext } from "../tool-registry.js";
 import { writeMemoryTool } from "../write-memory.js";

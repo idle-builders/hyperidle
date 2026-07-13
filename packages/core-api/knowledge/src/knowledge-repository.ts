@@ -9,6 +9,7 @@
  *   extension table via KnowledgeItemWithProjection.
  */
 import {
+	escapeLikePattern,
 	type HyperIdleDb,
 	type KnowledgeItem,
 	knowledgeAccessLog,
@@ -20,7 +21,6 @@ import {
 import { type KernelKnowledgeStatus, type SCOPE_KINDS, scopeToLayer } from "@hyperidle/shared";
 
 import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
-import { escapeLikePattern } from "../services/like-escape.js";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { type FtsSearchOptions, ftsSearch } from "./fts.js";
 import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js";

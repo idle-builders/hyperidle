@@ -1,4 +1,4 @@
-import { type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
+import { escapeLikePattern, type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
@@ -20,7 +20,6 @@ import {
 	listInboxByParticipantProbe,
 } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
-import { escapeLikePattern } from "../services/like-escape.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
 import {
 	getFirstUserByKind,

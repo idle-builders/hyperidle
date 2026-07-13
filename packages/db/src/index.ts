@@ -13,6 +13,7 @@ export {
 } from "./connection.js";
 export { seedDemoWorld } from "./demo-fixture.js";
 export { applyFactoryBootstrap } from "./factory-bootstrap.js";
+export { escapeLikePattern } from "./like-escape.js";
 export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
 export {
 	type DbDriver,

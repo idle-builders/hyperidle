@@ -21,7 +21,7 @@ import {
 	type ContextAssemblyPorts,
 } from "@hyperidle/context-assembly";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { list as knowledgeList } from "@hyperidle/knowledge";
+import { listByScope as knowledgeList } from "@hyperidle/knowledge";
 
 // TRANSITIONAL STUB — replaced when work/users/routine/filesystems migrate, Inc 1-3.
 const stubWork: ContextAssemblyPorts["work"] = {

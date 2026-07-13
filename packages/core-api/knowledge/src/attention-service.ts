@@ -7,11 +7,6 @@ import {
 } from "@hyperidle/db";
 import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
-import {
-	attentionReviewReasoningMarker,
-	createReviewItemForKnowledge,
-} from "../services/review-item-factory.js";
-import * as work from "../work-service.js";
 import { buildAttentionContext, scoreAttentionBatch } from "./attention-scoring.js";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import {
@@ -19,6 +14,65 @@ import {
 	type AttentionWeights,
 	loadAttentionWeights,
 } from "./scoring-config.js";
+
+/**
+ * Executor type accepted by the injected `findItemByReasoningMarker` port —
+ * either the top-level `HyperIdleDb` or a `tx` handle inside an open
+ * `db.transaction(async (tx) => …)` callback. Structurally identical to
+ * `work-service.ts`'s `WriteExecutor` (kept local so `knowledge` has no
+ * import of the `work` Service — Mechanism C).
+ *
+ * @lore AU19 Increment 1a: `attention-service.ts` calls into `work`
+ * (`findItemByReasoningMarker`) and `review`'s `review-item-factory.ts`
+ * (`createReviewItemForKnowledge` / `attentionReviewReasoningMarker`) — both
+ * still live in `packages/server` (not yet migrated Services). Per Mechanism
+ * C, `knowledge` never imports another Service; these become injected DI
+ * ports on `AttentionServiceDeps`, wired by the caller (`score-attention.ts` /
+ * `builtin-routine-handlers.ts` in `packages/server`, which — being in the
+ * same package as `work-service.ts`/`review-item-factory.ts` — supplies the
+ * real concrete functions unchanged). No behavior change: this is the
+ * sanctioned "function gains a DI parameter" signature change (architecture
+ * §2/§7.3), not a rewrite of attention scoring/threshold logic.
+ */
+export type AttentionWriteExecutor =
+	| HyperIdleDb
+	| Parameters<Parameters<HyperIdleDb["transaction"]>[0]>[0];
+
+/** Port for the `work` Service's idempotency-marker lookup (Mechanism C). */
+export interface ReasoningMarkerFinder {
+	findItemByReasoningMarker(
+		exec: AttentionWriteExecutor,
+		marker: string,
+	): Promise<{ id: string } | undefined>;
+}
+
+/** Input shape mirroring `review`'s `CreateReviewItemForKnowledgeInput` (structural port). */
+export interface CreateReviewItemForKnowledgeInput {
+	readonly knowledgeItemId: string;
+	readonly layer: string | null;
+	readonly title: string;
+	readonly body: string;
+	readonly riskTier: "low" | "medium" | "high";
+	readonly attentionScore: number;
+	readonly reasoning: Readonly<Record<string, unknown>>;
+	readonly nowMs: number;
+}
+
+/** Result shape mirroring `review`'s `CreateReviewItemForKnowledgeResult` (structural port). */
+export interface CreateReviewItemForKnowledgeResult {
+	readonly itemId: string;
+	readonly threadId: string;
+}
+
+/** Port for the `review` Service's knowledge-review item creation (Mechanism C). */
+export interface KnowledgeReviewWriter {
+	createReviewItemForKnowledge(
+		db: AttentionWriteExecutor,
+		eventBus: EventBus,
+		input: CreateReviewItemForKnowledgeInput,
+	): Promise<CreateReviewItemForKnowledgeResult>;
+	attentionReviewReasoningMarker(knowledgeItemId: string): string;
+}
 
 /**
  * Hard cap on `recomputeScope` batch size.
@@ -83,6 +137,10 @@ export interface AttentionService {
 export interface AttentionServiceDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
+	/** Injected `work` Service port (Mechanism C — see `ReasoningMarkerFinder`). */
+	readonly work: ReasoningMarkerFinder;
+	/** Injected `review` Service port (Mechanism C — see `KnowledgeReviewWriter`). */
+	readonly review: KnowledgeReviewWriter;
 	/** Test seam: alternate weights loader. */
 	readonly loadWeights?: (db: HyperIdleDb) => AttentionWeights;
 	/** Test seam: Date.now() injection for determinism tests. */
@@ -111,7 +169,7 @@ export interface AttentionServiceDeps {
  * can't both observe `prior < 0.7` and both emit `item_created`.
  */
 export function buildAttentionService(deps: AttentionServiceDeps): AttentionService {
-	const { db, eventBus } = deps;
+	const { db, eventBus, work, review } = deps;
 	const loadWeights = deps.loadWeights ?? loadAttentionWeights;
 	const now = deps.now ?? ((): number => Date.now());
 
@@ -226,7 +284,7 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 
 				let reviewItemCreated = false;
 				if (crossed) {
-					const marker = attentionReviewReasoningMarker(item.id);
+					const marker = review.attentionReviewReasoningMarker(item.id);
 					// @lore AU13 addendum §A6: MUST stay `tx` (not pooled `db`) — the
 					// idempotency probe runs inside the per-item critical-section tx.
 					const existing = await work.findItemByReasoningMarker(tx, marker);
@@ -235,7 +293,7 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 						const riskTier = hasConflict ? "medium" : "low";
 						const bodySummary = item.body.length > 500 ? `${item.body.slice(0, 500)}…` : item.body;
 
-						await createReviewItemForKnowledge(tx, eventBus, {
+						await review.createReviewItemForKnowledge(tx, eventBus, {
 							knowledgeItemId: item.id,
 							// @lore O2: layer comes from the projection item (may be null)
 							layer: item.layer ?? null,

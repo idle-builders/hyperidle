@@ -16,6 +16,7 @@ import {
 	artifacts,
 	type Message as DbMessage,
 	type Thread as DbThread,
+	escapeLikePattern,
 	type HyperIdleDb,
 	knowledgeItems,
 	proposedCalls,
@@ -66,7 +67,6 @@ import {
 	resolveMessageIfUnresolved,
 	updateThread,
 } from "../services/conversation-store.js";
-import { escapeLikePattern } from "../services/like-escape.js";
 import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
 import { getUserById, getUsersByIds, listUsersByTeams } from "../services/user-store.js";
 import * as work from "../work-service.js";

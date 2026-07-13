@@ -5,9 +5,9 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
+import type { KnowledgeKind } from "@hyperidle/knowledge";
 import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { and, eq, isNull } from "drizzle-orm";
-import type { KnowledgeKind } from "../knowledge/types.js";
 
 /**
  * Practice meeting (TRACK-G §G3 AC6): a 3-turn workflow that produces

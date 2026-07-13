@@ -1,7 +1,6 @@
-import type { HyperIdleDb } from "@hyperidle/db";
+import { escapeLikePattern, type HyperIdleDb } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import * as work from "../work-service.js";
-import { escapeLikePattern } from "./like-escape.js";
 import { transitionTask } from "./task-state-machine.js";
 
 const logger = createLogger({ pkg: "server.dependency-watcher" });
