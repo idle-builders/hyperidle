@@ -15,9 +15,9 @@ export { BuiltinHarnessAdapter } from "./harness/builtin-harness-adapter.js";
 export { CliHarnessAdapter } from "./harness/cli-harness-adapter.js";
 export { EMITTED_ROOTS_CLI_MCP_CONFIG, writeCliMcpConfig } from "./harness/cli-mcp-config.js";
 export { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
-export { HarnessDiscoveryInput } from "./harness/harness-discovery.js";
+export type { HarnessDiscoveryInput } from "./harness/harness-discovery.js";
 export { callLlm, HttpError } from "./harness/llm-client.js";
-export { LlmResponse } from "./harness/llm-types.js";
+export type { LlmResponse } from "./harness/llm-types.js";
 export { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";
 export {
 	EMITTED_ROOTS_CLAUDE_SETTINGS,
@@ -26,19 +26,16 @@ export {
 	provisionReturnHook,
 } from "./harness/provision-return-hook.js";
 export { RemoteHarnessAdapter } from "./harness/remote-harness-adapter.js";
+export type { EnforcementRegistry } from "./harness/return-enforcement-registry.js";
 export {
 	createEnforcementRegistry,
-	EnforcementRegistry,
 	enforcementRegistry,
 } from "./harness/return-enforcement-registry.js";
-export { SandboxAdapter, SandboxHandle } from "./harness/sandbox-adapter.js";
-export {
-	CreateMcpBridgeOptions,
-	createMcpBridge,
-	McpBridgeInstance,
-	toolResultToCallToolResult,
-} from "./mcp/mcp-bridge.js";
-export { createMcpBridgeRegistry, McpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
+export type { SandboxAdapter, SandboxHandle } from "./harness/sandbox-adapter.js";
+export type { CreateMcpBridgeOptions, McpBridgeInstance } from "./mcp/mcp-bridge.js";
+export { createMcpBridge, toolResultToCallToolResult } from "./mcp/mcp-bridge.js";
+export type { McpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
+export { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 export { resolveAgentScaffoldSpecs } from "./services/agent-defaults/resolvers.js";
 export {
 	bootAgentLayer,
@@ -48,25 +45,22 @@ export {
 } from "./services/agent-layer-boot.js";
 export { executeAgentRunRequest } from "./services/agent-run-boundary.js";
 export { createAgentSessionRequest } from "./services/agent-session-requests.js";
-export {
-	AssistantTurnDeps,
-	executeAssistantRequest,
-	mapErrorToNotice,
-} from "./services/agent-work-assistant.js";
+export type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
+export { executeAssistantRequest, mapErrorToNotice } from "./services/agent-work-assistant.js";
 export {
 	consumeAgentSessionRequest,
 	drainAgentWorkIntents,
 } from "./services/agent-work-intent-worker.js";
 export { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
+export type { BetDecompositionDeps } from "./services/bet-decomposition.js";
 export {
-	BetDecompositionDeps,
 	insertProposedBetTasks,
 	resolveOrphanedDecompositions,
 	runBetDecomposition,
 } from "./services/bet-decomposition.js";
 export { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
+export type { PostBetRetroArgs } from "./services/builtin-routine-handlers.js";
 export {
-	PostBetRetroArgs,
 	provisionTeamRoutines,
 	registerBuiltinRoutineHandlers,
 	runBuiltinRoutine,
@@ -88,9 +82,10 @@ export {
 	runCostSentinelCheck,
 	startCostSentinel,
 } from "./services/cost-sentinel.js";
-export { HandoffMetadata, handoff } from "./services/handoff-protocol.js";
+export type { HandoffMetadata } from "./services/handoff-protocol.js";
+export { handoff } from "./services/handoff-protocol.js";
+export type { HarnessCapabilityReader } from "./services/harness-capability-read-model.js";
 export {
-	HarnessCapabilityReader,
 	harnessCapabilitiesForType,
 	harnessCapabilityDescriptors,
 	harnessRegistrationMeta,
@@ -108,23 +103,19 @@ export {
 export { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 export { startSandboxReaper } from "./services/sandbox-reaper.js";
 export { persistScaffoldedAgents } from "./services/scaffold-agents.js";
+export type { SessionContext } from "./services/session-lifecycle.js";
 export {
 	requestAgentTermination,
-	SessionContext,
 	transitionAgentRunLifecycle,
 } from "./services/session-lifecycle.js";
-export {
-	EMITTED_ROOTS_MCP_JSON,
+export type {
 	ProvisionSessionDeps,
 	ProvisionSessionParams,
 	ProvisionSessionResult,
-	provisionSession,
 } from "./services/session-provisioning.js";
-export {
-	getDispatchQueueSnapshot,
-	registerTaskDispatcher,
-	TaskDispatcherDeps,
-} from "./services/task-dispatcher.js";
+export { EMITTED_ROOTS_MCP_JSON, provisionSession } from "./services/session-provisioning.js";
+export type { TaskDispatcherDeps } from "./services/task-dispatcher.js";
+export { getDispatchQueueSnapshot, registerTaskDispatcher } from "./services/task-dispatcher.js";
 export { createTriggeredAgentSessionRequest } from "./services/trigger-resolution.js";
 export { makeContext, NOW, seedBase } from "./tools/__tests__/_helpers.js";
 export { commitFileTool } from "./tools/commit-file.js";
@@ -144,20 +135,23 @@ export { routeItemTool } from "./tools/route-item.js";
 export { scoreAttentionTool } from "./tools/score-attention.js";
 export { sendMessageTool } from "./tools/send-message.js";
 export { submitReviewTool } from "./tools/submit-review.js";
+export type {
+	BuildToolRegistryOptions,
+	RegisteredTool,
+	ToolContext,
+	ToolRegistry,
+} from "./tools/tool-registry.js";
 export {
 	ALL_TOOL_DEFINITIONS,
-	BuildToolRegistryOptions,
 	buildToolRegistry,
 	classifyReversibility,
 	composeWorkflowAllowDeny,
 	identityHash,
-	RegisteredTool,
-	ToolContext,
-	ToolRegistry,
 	toClaudeToolSpec,
 	toRegistered,
 } from "./tools/tool-registry.js";
-export { err, ToolResult } from "./tools/tool-result.js";
+export type { ToolResult } from "./tools/tool-result.js";
+export { err } from "./tools/tool-result.js";
 export { updateRoutineTool } from "./tools/update-routine.js";
 export { writeMemoryTool } from "./tools/write-memory.js";
 export { writeSessionNotesTool } from "./tools/write-session-notes.js";

@@ -4,17 +4,16 @@
 // imports fail to resolve). Derived mechanically from actual importers by
 // scripts/au17-migrate.ts; keep additions/removals in sync with real usage.
 
+export type { BuiltinRoutineId } from "./config/builtin-routines.js";
 export {
 	BUILTIN_ROUTINE_IDS,
 	BUILTIN_SPECS,
-	BuiltinRoutineId,
 	extractBuiltinKind,
 	isBuiltinRoutineId,
 } from "./config/builtin-routines.js";
 export { BUILTIN_TOOL_CATALOG } from "./config/builtin-tool-catalog.js";
+export type { GitExportConfig, GitExportConfigPatch } from "./config/git-export-config.js";
 export {
-	GitExportConfig,
-	GitExportConfigPatch,
 	getLastExportMeta,
 	loadGitExportConfig,
 	readGitExportConfig,
@@ -56,22 +55,21 @@ export { registerRelevanceListener } from "./knowledge/relevance-listener.js";
 export { rankAndBudget } from "./knowledge/relevance-scoring.js";
 export { createRelevanceService } from "./knowledge/relevance-service.js";
 export { communityForRole } from "./knowledge/role-community-map.js";
-export {
-	DEFAULT_KNOWLEDGE_BUDGET,
-	loadScoringWeights,
-	ScoringContext,
-} from "./knowledge/scoring-config.js";
+export type { ScoringContext } from "./knowledge/scoring-config.js";
+export { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./knowledge/scoring-config.js";
 export { countTokens } from "./knowledge/token-budget.js";
-export { KnowledgeStatus } from "./knowledge/types.js";
+export type { KnowledgeStatus } from "./knowledge/types.js";
 export { defaultNotificationAdapterFactory } from "./notifications/adapter-factory.js";
-export {
-	loadNotificationConfig,
+export type {
 	NotificationConfig,
 	NotificationConfigPatch,
+	SafeNotificationConfig,
+} from "./notifications/config.js";
+export {
+	loadNotificationConfig,
 	pickRecipient,
 	readNotificationConfig,
 	redactNotificationConfig,
-	SafeNotificationConfig,
 	sanitizeCron,
 	sanitizeEmail,
 	sanitizeNtfyUrl,
@@ -82,9 +80,8 @@ export {
 } from "./notifications/config.js";
 export { createConsoleAdapter } from "./notifications/console-adapter.js";
 export { getDailyDigest } from "./notifications/daily-digest.js";
+export type { AdapterFactory, AlertPreferences } from "./notifications/dispatcher.js";
 export {
-	AdapterFactory,
-	AlertPreferences,
 	dispatchDigest,
 	enqueueNotification,
 	flushQueue,
@@ -123,7 +120,7 @@ export { createNtfyAdapter } from "./notifications/ntfy-adapter.js";
 export { scrubErrorMessage } from "./notifications/redact.js";
 export { isInSilenceWindow, isSilenced } from "./notifications/silence-policy.js";
 export { createSmtpAdapter } from "./notifications/smtp-adapter.js";
-export {
+export type {
 	Notification,
 	NotificationAdapter,
 	NotificationChannel,
@@ -150,7 +147,8 @@ export {
 } from "./services/agent-work-intents.js";
 export { computeApprovalRate } from "./services/approval-rate.js";
 export { cascadeBetKill } from "./services/bet-kill-cascade.js";
-export { RevisionLogEntry, transitionBet, updateBetField } from "./services/bet-state-machine.js";
+export type { RevisionLogEntry } from "./services/bet-state-machine.js";
+export { transitionBet, updateBetField } from "./services/bet-state-machine.js";
 export {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
@@ -189,11 +187,8 @@ export {
 	getServerSecret,
 	requireServerSecret,
 } from "./services/credential-encryption.js";
-export {
-	CredentialResolver,
-	DbCredentialResolver,
-	EnvCredentialResolver,
-} from "./services/credential-resolver.js";
+export type { CredentialResolver } from "./services/credential-resolver.js";
+export { DbCredentialResolver, EnvCredentialResolver } from "./services/credential-resolver.js";
 export { checkAndUnblockDependents } from "./services/dependency-watcher.js";
 export {
 	NoopAuthResolver,
@@ -203,23 +198,17 @@ export {
 	resolveFilesystemState,
 	ServiceConnectionResolverAdapter,
 } from "./services/filesystem-reachability.js";
+export type { ExportPlanEntry, FsAdapter } from "./services/git-export.js";
 export {
 	buildCommitMessage,
 	computeExportPlan,
 	createNodeFsAdapter,
-	ExportPlanEntry,
-	FsAdapter,
 	registerGitExportHandler,
 	resetExportMutexes,
 	runGitExport,
 } from "./services/git-export.js";
-export {
-	createFakeGitRunner,
-	createGitRunner,
-	FakeGitRunner,
-	GitConfigInjection,
-	GitRunner,
-} from "./services/git-export-runner.js";
+export type { FakeGitRunner, GitConfigInjection, GitRunner } from "./services/git-export-runner.js";
+export { createFakeGitRunner, createGitRunner } from "./services/git-export-runner.js";
 export { inspectLocalPath } from "./services/inspect-local-path.js";
 export { claimInvite, createInvite, generateInviteCode } from "./services/invite-code.js";
 export { routeItem } from "./services/item-router.js";
@@ -241,9 +230,11 @@ export {
 	resolveAgentModel,
 	resolveModelTier,
 } from "./services/model-gateway.js";
-export {
+export type {
 	ObservabilityConfig,
 	ObservabilityConfigPatch,
+} from "./services/observability/config.js";
+export {
 	readObservabilityConfig,
 	redactObservabilityConfig,
 	updateObservabilityConfig,
@@ -255,7 +246,7 @@ export {
 	registerObservabilityDispatcher,
 	summarizeToolArgs,
 } from "./services/observability/dispatcher.js";
-export {
+export type {
 	FlushOutcome,
 	ObservabilityAdapter,
 	ObservabilityChannel,
@@ -292,7 +283,7 @@ export { ServiceConnectionResolver } from "./services/service-connection-resolve
 export { SessionActivityBuffer } from "./services/session-activity-buffer.js";
 export { registerSessionReviewCreator } from "./services/session-review-creator.js";
 export { sessionRunRegistry } from "./services/session-run-registry.js";
-export {
+export type {
 	HandoffAuditEntry,
 	StateTransitionAuditEntry,
 	TaskAuditEntry,
@@ -326,5 +317,6 @@ export {
 	sumAllUserCost,
 	updateUser,
 } from "./services/user-store.js";
-export { createDbSubscribeAuthorizer, WsBroadcaster, WsClient } from "./services/ws-broadcaster.js";
+export type { WsClient } from "./services/ws-broadcaster.js";
+export { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 export * as work from "./work-service.js";
