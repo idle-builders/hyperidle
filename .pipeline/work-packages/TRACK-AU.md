@@ -580,7 +580,12 @@ The point is not a new harness path. The point is one contract for every agent r
 
 ---
 
-### AU8 — Should dependency graph guard
+### AU8 — Should dependency graph guard (WONT BUILD; superseded by AU19)
+
+> **2026-07-13: retired.** AU19 ("Applications, Layers, and Services") subsumes this work package's
+> goal — one general table-ownership guard instead of nine separate hand-typed ones — into its Table
+> ACL mechanism. Do not build AU8 standalone; see `docs/architecture/runtime-simplification.md`
+> §"Applications, Layers, and Services" and `AU19` below. Spec kept for historical reference.
 
 **Work package.** As a maintainer, I want the should dependency graph to be mechanically enforced, so that AU cannot be called complete while forbidden Strategy/Fabric/runtime edges still exist or can silently return. When this ships, repository validation fails if runtime code reintroduces Strategy/Fabric dependencies, core app domains import agent execution internals, agent-layer modules take ownership of core domain CRUD, or plugins act as runtime executors instead of configuration sources. The graph comparison becomes a living contract rather than a one-time markdown audit. This gives future agents a fast, objective signal for whether the runtime simplification boundary still holds.
 
@@ -934,7 +939,18 @@ converted by round 1.
 
 ---
 
-### AU17 — Core App and Agent Layer as real packages
+### AU17 — Core App and Agent Layer as real packages (WONT BUILD; superseded by AU19)
+
+> **2026-07-13: retired, founder-rejected.** PR #447 implemented this spec — two workspace packages
+> plus a slimmed composition root — CI-green, but closed unmerged on founder review: the package
+> *boundary* was correct in principle, but each new package's internals were a flat, undifferentiated
+> `services/` dump (43 files in core-app, 31 in agent-layer) carried over unchanged from the old
+> monolith, not a real domain structure. AU19 replaces this spec with an Applications / Layers /
+> Services structure that gives every file a real domain home, not just a package. Do not build AU17
+> standalone; see `docs/architecture/runtime-simplification.md` §"Applications, Layers, and Services"
+> and `AU19` below. Spec kept for historical reference — AU19's plan should reuse AU17's real,
+> verified findings (the acyclic file classification, the external-consumer migration table, the
+> `au17-package-boundary-guard.ts` typecheck-boundary technique) rather than re-deriving them.
 
 **Work package.** As a maintainer closing out Track AU, I want Core App and Agent Layer to be real, separate workspace packages instead of a hand-typed allowlist of file paths inside a directory both share, so that the boundary between them is a build-time fact — an unauthorized import fails typecheck — rather than something only a guard script re-derives on every run. When this ships, `packages/server`'s ~80 services/routes files are split into `@hyperidle/core-app` and `@hyperidle/agent-layer`, each with a small, deliberate `exports` map, wired together by a thin bootstrap package so the deployable server is unchanged.
 
@@ -1055,3 +1071,61 @@ converted by round 1.
 - AU8 itself — depends on this landing first (transitively, via AU17).
 
 **Effort.** L (~3-4d)
+
+---
+
+### AU19 — Applications, Layers, and Services structure (supersedes AU8 + AU17)
+
+**Work package.** As a maintainer closing out Track AU, I want the codebase organized into three real, mechanically-enforced tiers — Applications (deployment units: `desktop`, `remote-server`, `ui`, `remote-worker`), Layers (`core-ui`, `core-api`, `agent-orchestration`, `agent-execution` — communication-pattern boundaries that compose into each Application), and Services (one owning module per SQL table or table family, ACL-enforced) — so that a file's home mechanically declares its permissions instead of a convention someone has to remember. When this ships, an Application contains only bootstrap/wiring code; a Layer can only depend on the Layers/Services below it, enforced at build time; every Service is the sole code path to its assigned table(s), enforced by one general ACL mechanism; and only `agent-execution` can reach an LLM CLI, harness adapter, or MCP server, enforced structurally. This replaces AU17's rejected two-package split (real boundary, but flat undifferentiated internals) and folds in AU8's original goal (one general ownership guard instead of nine hand-typed ones).
+
+**Why this matters.** The maintainer gets what AU17 promised but didn't deliver: opening `packages/<X>/src/` tells you what a file is allowed to do, not just which of two buckets it landed in. Concretely this also unblocks running Applications in genuinely different topologies (a `remote-worker` that composes only `agent-execution`, a thin `ui` that composes only `core-ui`) — today's flat structure makes that combinatorics illegible even though the underlying runtime already supports it (harness execution already crosses a process boundary with zero DB coupling — confirmed by AU17's own topology research). Not building this leaves the codebase's single largest legibility debt unaddressed and leaves AU8's original problem (nine separate hand-typed guard scripts, no general mechanism) unsolved.
+
+**Type.** framework.
+
+**What exists today.** `packages/server` is a single npm workspace package containing ~238 production files: `routes/` (38, HTTP surface), `harness/`+`mcp/`+`tools/` (50, pre-existing subfolders, agent-execution-shaped), `knowledge/`+`notifications/` (30, pre-existing subfolders, already domain-shaped Services), and a flat `services/` directory (~74 files) mixing every other domain Service (`work-service.ts`, `conversation-store.ts`, `user-store.ts`, `routine-service.ts`, `server-config.ts`) with every other agent-orchestration/execution-support file (`agent-run-boundary.ts`, `trigger-resolution.ts`, `context-assembly.ts`, `cost-cap.ts`, ...) with no grouping beyond "not knowledge, not notifications." Nine domain-ownership WPs (AU12–AU18) already built the real Service-layer owning modules for Conversation, Users, Work, Routine, Knowledge, Notifications, Settings-adjacent config — each enforced today by its own separately hand-written AST guard script (`au12-conversation-users-ownership-guard.ts` etc.), not a general mechanism. AU17 (PR #447, closed unmerged, founder-rejected) proved the package-boundary technique works — `tsc` module resolution genuinely fails on an unexported cross-package import, verified via a negative-case fixture — and produced a real, verified acyclic file classification (84 files agent-execution-shaped, 86 files domain-Service-shaped, 68 files composition-root-shaped) and a real external-consumer migration table (`packages/eval`, `packages/web/scripts/*`), but organized the two new packages' internals as flat dumps rather than by Layer/Service, which is the reason it was rejected. No "Application" concept exists in code today — desktop/remote-server/ui/remote-worker are informal deployment-mode distinctions (env vars, `HYPERIDLE_PROFILE`), not structural boundaries.
+
+**What's genuinely missing.** (1) The Application/Layer/Service taxonomy realized as actual package/directory structure, not documentation — see `docs/architecture/runtime-simplification.md` §"Applications, Layers, and Services" for the full definition. (2) A single general, declarative `TABLE_OWNER`-map-driven ACL mechanism replacing the nine hand-typed per-domain guards. (3) A structural (not convention-based) restriction so only `agent-execution` can import an LLM-CLI/harness/MCP/tool-execution symbol. (4) Migration of the ~238 existing files into this structure, built on top of AU17's already-verified classification and migration table rather than re-deriving them from scratch.
+
+**Depends on.**
+- **AU12, AU13, AU14, AU15, AU16, AU18** — every Service-layer owning module this WP relocates and ACL-wraps must exist first; same blocking reasoning AU17 used. All six are merged.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Required — this work package introduces three new load-bearing structural primitives (`Application`, `Layer`, `Service` as enforced package/ACL concepts, distinct from the prior informal "core app / agent layer" framing) that the rest of the codebase's structure will depend on. Run `/refine` to sharpen the exact Layer boundaries (especially the `agent-orchestration` / `agent-execution` split, which has no precedent in the current codebase) and confirm the Application list is exhaustive before `/architecture` designs the package layout.
+- **Design:** Not required — backend/infra structural migration, no UI surface. (`core-ui` as a Layer name does not mean this WP redesigns UI — it only relocates existing `packages/web` code under the new Layer boundary if `/architecture` determines that's in scope; no visual/UX change either way.)
+
+**Human concept review.** No — pure internal/structural restructuring; no user-facing behavior changes in any topology.
+
+**Acceptance criteria.**
+- The codebase is organized into Application units (at minimum `desktop`, `remote-server`, `ui`, `remote-worker`) that each compose one or more Layers to boot a running process; an Application's own code is bootstrap/wiring only, with no business logic.
+- The four Layers (`core-ui`, `core-api`, `agent-orchestration`, `agent-execution`) exist as real structural boundaries — a Layer importing a Layer/Service it is not permitted to depend on fails at build/typecheck time, verified by a negative-case fixture, not merely by convention.
+- Every Service (knowledge, work, conversation, users, settings, notifications, routine, and any others `/architecture` identifies) is the sole code path permitted to read or write its assigned table(s) — enforced by one general, declarative ACL mechanism (a `TABLE_OWNER` map + one mechanical checker), replacing the nine separate hand-written guard scripts AU12–AU18 each produced.
+- Only the `agent-execution` Layer may import or reach LLM CLI invocation, harness adapters, MCP bridge execution, or tool execution — every other Layer and every Service is structurally forbidden from that surface, verified by a negative-case fixture.
+- The enforcement scaffolding (Application/Layer boundaries + the Table ACL mechanism + the execution-only LLM/CLI restriction) is built and proven — including at least one deliberate sanity-break per mechanism (an unauthorized import or unauthorized table access is injected and confirmed caught, then reverted) — BEFORE the bulk file migration begins.
+- The existing ~238 files (reusing AU17's verified classification as a starting point, not re-deriving it) are migrated into the new structure; the deployable server, desktop app, web UI, and remote worker are behaviorally unchanged in every currently-supported topology (laptop-solo, shared-backend, remote worker).
+- `agent_work_intents` gets a `TABLE_OWNER` entry and its three known non-owner accessors (`routes/threads.ts` insert, `routes/sessions-routes.ts` read, `services/agent-layer-boot.ts` read — debt flagged by AU15, never closed) are migrated onto the owning module as part of this WP, not deferred again.
+- AU8 and AU17 are marked superseded in `.pipeline/pipeline-manifest.yaml` and this track file (already done as part of registering this WP); no dangling "not started, blocked" entry for either remains schedulable.
+
+**Validation scenarios.**
+- Given a Service file is queried for direct SQL access from outside its owning module, when the Table ACL guard runs, then it fails — demonstrated live via a sanity-break (inject an unauthorized access, confirm RED, revert).
+- Given a `core-ui` or `core-api` Layer file attempts to import a harness adapter, LLM CLI invocation, or tool-execution symbol, when the build/typecheck runs, then it fails.
+- Given the app boots in every currently-supported topology (laptop-solo desktop, remote-server + web ui, remote worker attached), when each boots, then behavior is identical to pre-migration and the full existing test suite passes unchanged.
+- Given the repository's manifest and track file are reviewed, when AU8 and AU17 are checked, then both are explicitly marked superseded with no orphaned schedulable entry.
+
+**Plan calls.** This is a large, mostly-mechanical migration with a hard ordering constraint: **build and prove the enforcement scaffolding first, on a minimal slice, before moving the bulk of the 238 files** — do not repeat AU17's mistake of treating internal organization as an afterthought to the package boundary. `/architecture` should explicitly reuse AU17's already-verified artifacts (the acyclic file classification, the external-consumer migration table, the `au17-package-boundary-guard.ts` `tsc`-negative-case technique) as a starting input rather than re-deriving them, but must re-classify every file against the new four-Layer/N-Service taxonomy (not the old two-package one) since `agent-orchestration` vs `agent-execution` is a real split AU17 never drew. Expect the real Service/Layer boundary for ambiguous files (the ~20-30 files with no single clear domain, e.g. `ws-broadcaster.ts`, `org-edges.ts`, `credential-encryption.ts`) to need its own explicit disposition table, the same rigor AU11/AU17 used for their owner tables — do not default ambiguous files into a new flat "shared" bucket without naming why each one is there.
+
+**Contracts / constraints.**
+- No behavior change to any deployment topology's observable behavior — pure structural + enforcement migration, same discipline AU17 used.
+- The Table ACL mechanism must be general and declarative (one map + one checker) — this WP's explicit job is to replace the nine-hand-typed-guards pattern, not add a tenth instance of it.
+- Zero allowlist exceptions for cross-owned-table access, per the founder's standing zero-exceptions ruling (AU12/AU13/AU18 precedent) — a query needing two Services' tables decomposes into one call per owning Service.
+- Only the `agent-execution` Layer may hold LLM CLI/harness/tool-execution imports — no exceptions elsewhere, including in `agent-orchestration`.
+- AU8 and AU17 must be explicitly marked superseded (not silently deleted) in the manifest and track file — done at registration time, verify it stays intact through this WP's own commits.
+
+**Out of scope.**
+- Redesigning any Service's internal business logic — this WP relocates and ACL-wraps existing owning modules (`conversation-store.ts`, `work-service.ts`, etc.); it does not rewrite their logic or change their function signatures beyond what relocation requires.
+- New UI/UX work — `core-ui` as a Layer name is a structural boundary, not a redesign.
+- The Prompt Catalog gap or other should-graph gaps already tracked separately in `docs/architecture/runtime-simplification.md`'s gap register.
+- Splitting `agent-execution`'s own internals further (sandbox bridge, tool surface, etc.) into sub-services — one boundary at a time, same principle AU17 used.
+
+**Effort.** L (~6-8d) — larger than AU17's original 3-5d estimate: adds the Application tier, the agent-orchestration/agent-execution split (new, no AU17 precedent), the general Table ACL mechanism (AU8's absorbed scope), and the `agent_work_intents` debt cleanup.

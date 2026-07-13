@@ -2,7 +2,59 @@
 
 This is the strategic frame for Track AU. It replaces the older Kernel/Strategy/Fabric framing with two runtime boundaries and one configuration surface.
 
-## Boundary
+## Applications, Layers, and Services (2026-07-13 — AU19 frame)
+
+**Supersedes the rest of this document for structural/package purposes.** The *behavioral* contract
+below (which responsibilities belong to core app vs. agent layer) is unchanged — this section adds
+the physical structure that enforces it, replacing AU17's founder-rejected two-package design (which
+got the package boundary right but left each new package's internals as a flat, undifferentiated
+`services/` dump instead of a real domain structure).
+
+**Applications** — deployment units. Each Application bootstraps and composes one or more Layers
+into a running process. An Application contains only wiring/bootstrap code, never business logic.
+
+- `desktop` — Electron shell; composes `core-ui` + `core-api` + `agent-orchestration` +
+  `agent-execution`, all embedded, for laptop-solo mode.
+- `remote-server` — headless host process; composes `core-api` + `agent-orchestration` (and
+  `agent-execution` unless a remote worker is attached) for shared-backend mode.
+- `ui` — the web frontend; composes `core-ui` only, talking to a remote `core-api` over HTTP/WS.
+- `remote-worker` — composes `agent-execution` only; receives dispatched work from a remote
+  `agent-orchestration` layer over the existing worker-ws/remote-harness-adapter channel (already
+  built, zero DB coupling — confirmed by AU17's own topology research).
+
+**Layers** — communication-pattern boundaries. A Layer may depend only on Layers/Services below it
+in the stack; never sideways, never up. This refines the old two-tier "core app / agent layer" split
+into four:
+
+- `core-ui` — presentation (React components, pages, stories).
+- `core-api` — HTTP surface + core domain orchestration; calls Services, never a table directly.
+- `agent-orchestration` — trigger resolution, session request queue, run admission/custody,
+  lifecycle projection. Decides *that* and *when* an agent run happens; never touches an LLM CLI,
+  harness adapter, or MCP server directly.
+- `agent-execution` — harness adapters, MCP, tool execution, context assembly, capture/writeback.
+  **The only Layer permitted to invoke an LLM CLI, harness adapter, or MCP server.**
+
+**Services** — the only code permitted to read or write a given SQL table (or table family), one
+Service per table, ACL-enforced. The owning modules AU12–AU18 already built map directly onto this
+tier: `knowledge`, `work`, `routine`, `conversation`, `users`, `settings`, `notifications`. A Layer
+calls a Service through its exported interface; it never queries a table its Service doesn't own.
+
+**Enforcement mechanism (AU19's job, not yet built):**
+
+1. **Table ACL** — one declarative `TABLE_OWNER` map (table → owning Service), checked by a single
+   general guard — replacing the 9 separate hand-typed per-domain guard scripts AU12–AU18 each
+   wrote independently.
+2. **Layer/execution boundary** — Applications compose Layers via real package/directory boundaries,
+   build-time enforced (the `tsc`-module-resolution technique AU17 already proved works); only
+   `agent-execution` may import an LLM-CLI/harness/MCP/tool-execution symbol — every other Layer and
+   every Service is structurally forbidden from that surface.
+
+**AU8 and AU17 are retired, both superseded by AU19** (`.pipeline/work-packages/TRACK-AU.md`). AU8's
+goal — one general ownership guard instead of many hand-typed ones — is subsumed into AU19's Table
+ACL mechanism above. AU17's package-boundary technique is reused, but the internal shape it produced
+(flat `services/`) is discarded in favor of the Layer/Service structure this section defines.
+
+## Boundary (superseded above for structural purposes; behavioral contract still accurate)
 
 HyperIdle has a core app and an agent layer.
 

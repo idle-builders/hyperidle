@@ -1486,17 +1486,23 @@ stories:
     depends: [AU11]
     complexity: L
   - id: AU17
-    title: "Core App and Agent Layer as real packages"
+    title: "Core App and Agent Layer as real packages (WONT BUILD; superseded by AU19)"
     track: AU
     type: framework
     depends: [AU12, AU13, AU14, AU15, AU16, AU18]
     complexity: L
   - id: AU8
-    title: "Should dependency graph guard"
+    title: "Should dependency graph guard (WONT BUILD; superseded by AU19)"
     track: AU
     type: infra
     depends: [AU17]
     complexity: M
+  - id: AU19
+    title: "Applications, Layers, and Services structure (supersedes AU8 + AU17)"
+    track: AU
+    type: framework
+    depends: [AU12, AU13, AU14, AU15, AU16, AU18]
+    complexity: L
 
   # Track AV: First-Run Usability & Product Polish (v0.6.0 human-testing)
   # Remediation of the larger v0.6.0 human-testing findings; each WP refined+built in its own session.
