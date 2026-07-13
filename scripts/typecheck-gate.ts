@@ -68,23 +68,60 @@ const REFERENCE_NOISE_CODES: ReadonlySet<string> = new Set([
 const DEBT_FILE = "typecheck-debt.json";
 const MAX_ERROR_LINES = 10;
 
-// Matches: packages/<name>/path/to/file.ts(line,col): error TS1234: message
-// or:      packages/<name>/path/to/file.ts:line:col - error TS1234: message
-const ERROR_LINE_RE = /^(packages\/([^/]+)\/[^:]+)[:(].*\berror (TS\d+)\b/;
+// Matches: packages/<path...>/file.ts(line,col): error TS1234: message
+// or:      packages/<path...>/file.ts:line:col - error TS1234: message
+// Group 1 = full repo-relative path; group 2 = TS error code. The owning
+// package is resolved by longest-prefix match (AU19: nested Layer/Service
+// packages share a top-level segment, so a bare first-segment match would
+// mis-attribute a Service's error to its Layer).
+const ERROR_LINE_RE = /^(packages\/[^:]+)[:(].*\berror (TS\d+)\b/;
 
 // -- Discovery --
 
+// @lore AU19: package discovery recurses ONE level so the nested Layer/Service
+// packages (`packages/<layer>/<service>/tsconfig.json`) are typechecked. Without
+// this, the nested Service packages are never `tsc`-checked and Mechanisms B/C
+// (execution + composition boundaries) go silently unenforced by `npm run check`
+// — the single biggest silent-failure risk the AU19 architecture flags (§9.2).
 function discoverPackages(root: string): string[] {
   const packagesDir = resolve(root, "packages");
-  const entries = readdirSync(packagesDir, { withFileTypes: true });
-  return entries
-    .filter(
-      (e) =>
-        e.isDirectory() &&
-        existsSync(resolve(packagesDir, e.name, "tsconfig.json")),
-    )
-    .map((e) => e.name)
-    .sort();
+  const found: string[] = [];
+  const topLevel = readdirSync(packagesDir, { withFileTypes: true }).filter(
+    (e) => e.isDirectory(),
+  );
+  for (const top of topLevel) {
+    if (existsSync(resolve(packagesDir, top.name, "tsconfig.json"))) {
+      found.push(top.name);
+    }
+    // Recurse one level: packages/<layer>/<service>/tsconfig.json
+    const nested = readdirSync(resolve(packagesDir, top.name), {
+      withFileTypes: true,
+    }).filter((e) => e.isDirectory());
+    for (const sub of nested) {
+      if (
+        existsSync(resolve(packagesDir, top.name, sub.name, "tsconfig.json"))
+      ) {
+        found.push(`${top.name}/${sub.name}`);
+      }
+    }
+  }
+  return found.sort();
+}
+
+/**
+ * Resolve which discovered package owns an error path via longest-prefix match.
+ * `packages/core-api/knowledge/src/x.ts` must attribute to `core-api/knowledge`,
+ * not `core-api`, so a Service error never counts against its Layer.
+ */
+function ownerOf(path: string, allPackages: readonly string[]): string | null {
+  let owner: string | null = null;
+  for (const pkg of allPackages) {
+    const prefix = `packages/${pkg}/`;
+    if (path.startsWith(prefix) && (owner === null || pkg.length > owner.length)) {
+      owner = pkg;
+    }
+  }
+  return owner;
 }
 
 // -- Debt file reading --
@@ -118,7 +155,11 @@ function readDebtFile(root: string): { excepted: Set<string>; raw: DebtFile } {
 
 // -- Per-package tsc runner --
 
-function runPackage(root: string, pkg: string): PackageResult {
+function runPackage(
+  root: string,
+  pkg: string,
+  allPackages: readonly string[],
+): PackageResult {
   const tsconfig = `packages/${pkg}/tsconfig.json`;
   let rawOutput = "";
   let exitCode = 0;
@@ -150,8 +191,9 @@ function runPackage(root: string, pkg: string): PackageResult {
     const m = ERROR_LINE_RE.exec(line);
     if (!m) continue;
     rawParsedCount++;
-    const linePkg = m[2]; // package directory name from path
-    const tsCode = m[3]; // e.g. "TS2322"
+    const linePath = m[1] ?? ""; // full repo-relative path
+    const tsCode = m[2] ?? ""; // e.g. "TS2322"
+    const linePkg = ownerOf(linePath, allPackages); // longest-prefix owner
     if (linePkg === pkg && !REFERENCE_NOISE_CODES.has(tsCode)) {
       ownErrorLines.push(line);
     }
@@ -302,7 +344,7 @@ function main(): void {
   const results: PackageResult[] = [];
   for (const pkg of allPackages) {
     process.stderr.write(`  tsc ${pkg}...`);
-    const result = runPackage(root, pkg);
+    const result = runPackage(root, pkg, allPackages);
     result.excepted = excepted.has(pkg);
     results.push(result);
 

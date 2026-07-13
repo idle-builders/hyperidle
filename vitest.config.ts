@@ -25,6 +25,12 @@ export default defineConfig({
 			"packages/design-system",
 			"packages/eslint-plugin-design",
 			"packages/eslint-plugin-authz",
+			"packages/core-api",
+			"packages/core-api/knowledge",
+			"packages/agent-orchestration",
+			"packages/agent-orchestration/context-assembly",
+			"packages/agent-execution",
+			"packages/agent-execution/harness-registry",
 		],
 	},
 });
