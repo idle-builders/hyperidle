@@ -1120,6 +1120,8 @@ converted by round 1.
 - The Table ACL mechanism must be general and declarative (one map + one checker) — this WP's explicit job is to replace the nine-hand-typed-guards pattern, not add a tenth instance of it.
 - Zero allowlist exceptions for cross-owned-table access, per the founder's standing zero-exceptions ruling (AU12/AU13/AU18 precedent) — a query needing two Services' tables decomposes into one call per owning Service.
 - Only the `agent-execution` Layer may hold LLM CLI/harness/tool-execution imports — no exceptions elsewhere, including in `agent-orchestration`.
+- **`agent-execution` holds zero Service/table references of any kind, including `knowledge`** (founder correction, 2026-07-13) — it receives an assembled context bundle and returns raw run output over the existing worker channel; context assembly and capture/writeback against Knowledge belong to `agent-orchestration`, which stays colocated with `core-api` and the database in every Application that composes it. This is what makes a `remote-worker` deployable with zero DB credentials, consistent with AU17's own finding that `worker-ws.ts`/`remote-harness-adapter.ts` already import nothing from `@hyperidle/db`.
+- `remote-server` never composes `agent-execution`, unconditionally (founder correction, 2026-07-13) — not even in a single-host shared-backend deployment. Execution always runs as a separate `remote-worker` process, colocated on the same host or not.
 - AU8 and AU17 must be explicitly marked superseded (not silently deleted) in the manifest and track file — done at registration time, verify it stays intact through this WP's own commits.
 
 **Out of scope.**

@@ -14,9 +14,14 @@ got the package boundary right but left each new package's internals as a flat, 
 into a running process. An Application contains only wiring/bootstrap code, never business logic.
 
 - `desktop` — Electron shell; composes `core-ui` + `core-api` + `agent-orchestration` +
-  `agent-execution`, all embedded, for laptop-solo mode.
-- `remote-server` — headless host process; composes `core-api` + `agent-orchestration` (and
-  `agent-execution` unless a remote worker is attached) for shared-backend mode.
+  `agent-execution`, all embedded in one process, for laptop-solo mode. The only Application that
+  composes `agent-execution` in-process — every other topology runs it as a separate `remote-worker`.
+- `remote-server` — headless host process; composes `core-api` + `agent-orchestration` **only**.
+  **Never composes `agent-execution`, unconditionally** — even a single-host shared-backend
+  deployment runs execution as a separate `remote-worker` process (colocated or not), not embedded
+  in `remote-server` itself. (Founder correction, 2026-07-13: the original draft of this frame had
+  `agent-execution` as conditional on `remote-server` — wrong; the split is structural, not
+  topology-dependent.)
 - `ui` — the web frontend; composes `core-ui` only, talking to a remote `core-api` over HTTP/WS.
 - `remote-worker` — composes `agent-execution` only; receives dispatched work from a remote
   `agent-orchestration` layer over the existing worker-ws/remote-harness-adapter channel (already
@@ -29,15 +34,27 @@ into four:
 - `core-ui` — presentation (React components, pages, stories).
 - `core-api` — HTTP surface + core domain orchestration; calls Services, never a table directly.
 - `agent-orchestration` — trigger resolution, session request queue, run admission/custody,
-  lifecycle projection. Decides *that* and *when* an agent run happens; never touches an LLM CLI,
-  harness adapter, or MCP server directly.
-- `agent-execution` — harness adapters, MCP, tool execution, context assembly, capture/writeback.
-  **The only Layer permitted to invoke an LLM CLI, harness adapter, or MCP server.**
+  lifecycle projection, **context assembly and capture/writeback against Knowledge**. Decides *that*
+  and *when* an agent run happens, and prepares/consumes everything a run needs *before/after*
+  handing off to execution; never touches an LLM CLI, harness adapter, or MCP server directly.
+  Always colocated with `core-api` in the same process (every Application that composes one composes
+  both), so its Service calls stay in-process.
+- `agent-execution` — harness adapters, MCP, tool execution. **The only Layer permitted to invoke an
+  LLM CLI, harness adapter, or MCP server — and the only Layer with zero Service/table access of any
+  kind, including `knowledge`.** (Founder correction, 2026-07-13: the original draft gave
+  `agent-execution` a `knowledge` edge for context providers/capture-writeback — wrong; that work
+  belongs to `agent-orchestration`, which runs colocated with the database. `agent-execution` runs on
+  a `remote-worker`, which may be a genuinely separate machine with no DB credentials at all —
+  consistent with AU17's own finding that `worker-ws.ts`/`remote-harness-adapter.ts` already import
+  nothing from `@hyperidle/db`. `agent-execution` receives an assembled context bundle and returns
+  raw run output over the existing worker channel; it never queries a table itself.)
 
 **Services** — the only code permitted to read or write a given SQL table (or table family), one
 Service per table, ACL-enforced. The owning modules AU12–AU18 already built map directly onto this
 tier: `knowledge`, `work`, `routine`, `conversation`, `users`, `settings`, `notifications`. A Layer
 calls a Service through its exported interface; it never queries a table its Service doesn't own.
+Only `core-api` and `agent-orchestration` ever hold a Service reference — `core-ui` and
+`agent-execution` hold none.
 
 **Enforcement mechanism (AU19's job, not yet built):**
 
