@@ -8,10 +8,10 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
+import { updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { registerPolicyEngine } from "../services/policy-engine.js";
-import { updateServerConfig } from "../services/server-config.js";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 // L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project as

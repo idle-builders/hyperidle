@@ -85,6 +85,9 @@ export {
 	normalisedPayload,
 	slug,
 } from "./blocks/index.js";
+// ── AU19 Increment 1f: built-in tool catalog (moved from packages/server/src/config) ──
+export type { ToolCatalogEntry } from "./builtin-tool-catalog.js";
+export { BUILTIN_TOOL_CATALOG } from "./builtin-tool-catalog.js";
 export type {
 	ConfigurationKind,
 	ConfigurationOrigin,
@@ -352,6 +355,7 @@ export type {
 	ResolvedModel,
 } from "./model-gateway.js";
 export {
+	BUILT_IN_GATEWAY_CONFIG,
 	catalogEntry,
 	DEFAULT_AGENT_HARNESS,
 	DEFAULT_AGENT_MODEL_ID,

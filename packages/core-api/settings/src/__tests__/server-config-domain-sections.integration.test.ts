@@ -6,10 +6,13 @@
  * mutedTypes, silence) read/write/merge correctly, including the deepened
  * notifications merge branch (a delivery-only patch must not clobber an
  * already-set silence section, and vice versa — plan §5's merge-hazard fix).
+ *
+ * @lore AU19 Increment 1f: moved from `packages/server/src/services/
+ * __tests__/` — only needs `{ db }`, switched to `@hyperidle/db/test-fixtures`.
  */
 
+import { test } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
-import { test } from "../../test-fixtures.js";
 import { readServerConfig, updateServerConfig } from "../server-config.js";
 
 describe("server_config — observability section", () => {

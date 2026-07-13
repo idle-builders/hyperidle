@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { filesystemInjections, filesystems, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { readServerConfig } from "@hyperidle/settings";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
@@ -63,7 +64,6 @@ import {
 import type { IngestionHandle } from "./contracts.js";
 import { checkCostCap, recordCostAndCheck } from "./cost-cap.js";
 import { summarizeToolArgs } from "./observability/dispatcher.js";
-import { readServerConfig } from "./server-config.js";
 import { buildRoutineSessionContextData, buildSessionContextData } from "./session-context.js";
 import {
 	crashSession,

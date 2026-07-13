@@ -1,8 +1,8 @@
 import * as crypto from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { CostCapBreachedEvent, CostCapWarningEvent, EventBus } from "@hyperidle/shared";
 import { getFactoryCostActual } from "./cost-cap.js";
-import { readServerConfig, updateServerConfig } from "./server-config.js";
 
 /**
  * Cost sentinel level states. Persisted as `server_config.internal.costSentinelLastLevel`

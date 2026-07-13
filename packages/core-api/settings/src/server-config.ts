@@ -7,17 +7,12 @@
  * Corrupt JSON in the DB falls back to defaults — the app always boots.
  */
 
-import { type HyperIdleDb, serverConfig, serverCredentials } from "@hyperidle/db";
+import { type HyperIdleDb, serverConfig } from "@hyperidle/db";
 import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/shared";
-import { MODEL_PROVIDERS } from "@hyperidle/shared";
+import { BUILT_IN_GATEWAY_CONFIG, MODEL_PROVIDERS } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import {
-	decryptCredentialValue,
-	encryptCredentialValue,
-	getServerSecret,
-} from "./credential-encryption.js";
-import { BUILT_IN_GATEWAY_CONFIG } from "./model-gateway.js";
+import type { SettingsCredentialCipher, SettingsCredentialStore } from "./ports.js";
 
 /**
  * AU18 §3/§5: notification delivery config (SMTP/ntfy), migrated off the
@@ -482,9 +477,24 @@ export { ModelGatewayConfigSchema, ModelTierConfigSchema, NotificationsSchema, S
  * only lived in safeStorage/env (main.ts boot env-injection). The env resolver
  * is no longer wired in production (server-factory.ts §3), so this one-time seed
  * is the migration path. Guarded: only when slot absent + secret non-null + non-empty.
+ *
+ * @lore AU19 Increment 1f: `cipher` is an injected `SettingsCredentialCipher`
+ * port (Mechanism C) — this used to import `getServerSecret`/
+ * `encryptCredentialValue`/`decryptCredentialValue` directly from the sibling
+ * `credential-encryption.ts` (an ordinary downward core-api→core-api edge,
+ * NOT §10.3 against-grain; `connections` just hasn't migrated to its own
+ * package yet). `credentialStore` is an injected `SettingsCredentialStore`
+ * port (table-ownership-guard completeness finding — this used to
+ * raw-query the foreign `serverCredentials` table directly; see `ports.ts`'s
+ * top-level `@lore`). The caller (`server-factory.ts`) passes the real
+ * `packages/server` function/query references unchanged — no behavior change.
  */
-export async function migrateCredentialsToStore(db: HyperIdleDb): Promise<void> {
-	const secret = getServerSecret();
+export async function migrateCredentialsToStore(
+	db: HyperIdleDb,
+	cipher: SettingsCredentialCipher,
+	credentialStore: SettingsCredentialStore,
+): Promise<void> {
+	const secret = cipher.getServerSecret();
 	if (!secret) {
 		// No root secret — cannot encrypt, skip migration. Boot warning already logged.
 		return;
@@ -521,7 +531,7 @@ export async function migrateCredentialsToStore(db: HyperIdleDb): Promise<void> 
 						const rawKey = tier.apiKey;
 						if (typeof rawKey === "string" && rawKey !== "") {
 							// Decrypt-or-take-as-is: if it's our ciphertext, decrypt; else it's legacy plaintext.
-							const decrypted = decryptCredentialValue(rawKey, secret);
+							const decrypted = cipher.decryptCredentialValue(rawKey, secret);
 							const plaintext = decrypted !== null ? decrypted : rawKey;
 							if (plaintext !== "" && legacyApiKey === null) {
 								legacyApiKey = plaintext;
@@ -543,14 +553,10 @@ export async function migrateCredentialsToStore(db: HyperIdleDb): Promise<void> 
 
 			// If we found a legacy openai-compatible key, seed server_credentials (absent-only).
 			if (legacyApiKey !== null) {
-				const [existing] = await db
-					.select()
-					.from(serverCredentials)
-					.where(eq(serverCredentials.name, "openai_compatible_api_key"))
-					.limit(1);
+				const existing = await credentialStore.findByName(db, "openai_compatible_api_key");
 				if (!existing) {
-					const encryptedValue = encryptCredentialValue(legacyApiKey, secret);
-					await db.insert(serverCredentials).values({
+					const encryptedValue = cipher.encryptCredentialValue(legacyApiKey, secret);
+					await credentialStore.insert(db, {
 						name: "openai_compatible_api_key",
 						encryptedValue,
 						validationState: "present_untested",
@@ -565,14 +571,10 @@ export async function migrateCredentialsToStore(db: HyperIdleDb): Promise<void> 
 	// Step 2: Seed anthropic_api_key from env (desktop safeStorage one-time bridge).
 	const envAnthropicKey = process.env.ANTHROPIC_API_KEY;
 	if (envAnthropicKey && envAnthropicKey !== "") {
-		const [existing] = await db
-			.select()
-			.from(serverCredentials)
-			.where(eq(serverCredentials.name, "anthropic_api_key"))
-			.limit(1);
+		const existing = await credentialStore.findByName(db, "anthropic_api_key");
 		if (!existing) {
-			const encryptedValue = encryptCredentialValue(envAnthropicKey, secret);
-			await db.insert(serverCredentials).values({
+			const encryptedValue = cipher.encryptCredentialValue(envAnthropicKey, secret);
+			await credentialStore.insert(db, {
 				name: "anthropic_api_key",
 				encryptedValue,
 				validationState: "present_untested",

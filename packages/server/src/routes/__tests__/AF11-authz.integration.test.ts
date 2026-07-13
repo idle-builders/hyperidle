@@ -532,8 +532,42 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		await db.insert(serverConfig).values({ id: "default", config: rawBlob, updatedAt: now });
 
 		// Run the AH1 migration — relocates blob apiKey to server_credentials.
-		const { migrateCredentialsToStore } = await import("../../services/server-config.js");
-		await migrateCredentialsToStore(db);
+		const { migrateCredentialsToStore } = await import("@hyperidle/settings");
+		const {
+			decryptCredentialValue: decryptCipher,
+			encryptCredentialValue: encryptCipher,
+			getServerSecret,
+		} = await import("../../services/credential-encryption.js");
+		const cipher = {
+			getServerSecret,
+			encryptCredentialValue: encryptCipher,
+			decryptCredentialValue: decryptCipher,
+		};
+		const { serverCredentials } = await import("@hyperidle/db");
+		const { eq } = await import("drizzle-orm");
+		const credentialStore = {
+			async findByName(execDb: typeof db, name: string) {
+				const [row] = await execDb
+					.select()
+					.from(serverCredentials)
+					.where(eq(serverCredentials.name, name))
+					.limit(1);
+				return row;
+			},
+			async insert(
+				execDb: typeof db,
+				values: {
+					name: string;
+					encryptedValue: string;
+					validationState: string;
+					lastValidatedAt: string | null;
+					updatedAt: string;
+				},
+			) {
+				await execDb.insert(serverCredentials).values(values);
+			},
+		};
+		await migrateCredentialsToStore(db, cipher, credentialStore);
 
 		// After migration: blob has no apiKey field.
 		const rows = await db.select().from(serverConfig);
@@ -551,8 +585,6 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		}
 
 		// The key was relocated to server_credentials as openai_compatible_api_key.
-		const { serverCredentials } = await import("@hyperidle/db");
-		const { eq } = await import("drizzle-orm");
 		const credRows = await db
 			.select()
 			.from(serverCredentials)
@@ -569,7 +601,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		expect(decrypted).toBe(plaintextApiKey);
 
 		// Run migration again — idempotent (does not overwrite the existing credential row).
-		await migrateCredentialsToStore(db);
+		await migrateCredentialsToStore(db, cipher, credentialStore);
 		const credRows2 = await db
 			.select()
 			.from(serverCredentials)

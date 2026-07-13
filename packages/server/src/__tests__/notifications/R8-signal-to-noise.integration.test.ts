@@ -16,6 +16,7 @@
  */
 
 import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type {
 	CostCapBreachedEvent,
 	CostCapWarningEvent,
@@ -37,7 +38,6 @@ import type {
 	Recipient,
 	SendResult,
 } from "../../notifications/types.js";
-import { readServerConfig, updateServerConfig } from "../../services/server-config.js";
 import { afterEach, describe, expect, test, vi } from "../../test-fixtures.js";
 
 // ---------------------------------------------------------------------------

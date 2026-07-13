@@ -13,7 +13,7 @@
 import { randomUUID } from "node:crypto";
 import { items, routines, sessions } from "@hyperidle/db";
 import { checkAndFireRoutine } from "@hyperidle/server/routines";
-import { updateServerConfig } from "@hyperidle/server/services/server-config";
+import { updateServerConfig } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { seedMinimalWorld, seedRoutine } from "../seeding.js";

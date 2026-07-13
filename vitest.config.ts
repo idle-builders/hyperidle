@@ -31,6 +31,7 @@ export default defineConfig({
 			"packages/core-api/org",
 			"packages/core-api/users",
 			"packages/core-api/conversation",
+			"packages/core-api/settings",
 			"packages/agent-orchestration",
 			"packages/agent-orchestration/context-assembly",
 			"packages/agent-execution",

@@ -5,6 +5,7 @@ import {
 	type TestDbHandle,
 	threads,
 } from "@hyperidle/db";
+import { updateServerConfig } from "@hyperidle/settings";
 import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
@@ -32,7 +33,6 @@ import type {
 	Recipient,
 	SendResult,
 } from "../../notifications/types.js";
-import { updateServerConfig } from "../../services/server-config.js";
 
 interface AdapterCall {
 	recipient: Recipient;

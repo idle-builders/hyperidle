@@ -10,10 +10,13 @@
  *
  * FAILS until:
  *  - harnessDisabled field added to ServerConfigSchema + applyDefaults + DEFAULTS + ServerConfig + ServerConfigPatch
+ *
+ * @lore AU19 Increment 1f: moved from `packages/server/src/services/
+ * __tests__/` — only needs `{ db }`, switched to `@hyperidle/db/test-fixtures`.
  */
 
+import { test } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
-import { test } from "../../test-fixtures.js";
 import { readServerConfig, updateServerConfig } from "../server-config.js";
 
 /**
@@ -25,7 +28,7 @@ type AM4ServerConfigPatch = Parameters<typeof updateServerConfig>[1] & {
 	readonly harnessDisabled?: readonly string[];
 };
 
-describe("AM4 Task 1 — server_config.harnessDisabled key", () => {
+describe("server_config.harnessDisabled key", () => {
 	describe("readServerConfig defaults", () => {
 		test("harnessDisabled is [] on an empty config table", async ({ db }) => {
 			const config = await readServerConfig(db);

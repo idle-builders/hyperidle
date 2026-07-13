@@ -9,13 +9,19 @@
  *  - Default notification settings have correct shape
  *  - updateServerConfig deep-merges nested objects
  *  - updateServerConfig returns the new config
+ *
+ * @lore AU19 Increment 1f: moved from `packages/server/src/services/
+ * __tests__/server-config.integration.test.ts` — only needs `{ db }` (no
+ * `{ app }`), so it moves into the owning package's own `src/__tests__/` and
+ * switches its fixture import to `@hyperidle/db/test-fixtures`, same
+ * precedent as `@hyperidle/org`'s `org-edges.integration.test.ts`.
  */
 
+import { test } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
-import { test } from "../../test-fixtures.js";
 import { readServerConfig, updateServerConfig } from "../server-config.js";
 
-describe("P3 AC-10 — Server config read/write", () => {
+describe("server config read/write", () => {
 	describe("readServerConfig", () => {
 		test("returns defaults when table is empty", async ({ db }) => {
 			const config = await readServerConfig(db);

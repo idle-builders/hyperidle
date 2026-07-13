@@ -1,7 +1,7 @@
 import { createTestDb, type TestDbHandle } from "@hyperidle/db";
+import { loadBuiltInConfigurationDefaults } from "@hyperidle/settings";
+import { BUILTIN_TOOL_CATALOG } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { BUILTIN_TOOL_CATALOG } from "../../config/builtin-tool-catalog.js";
-import { loadBuiltInConfigurationDefaults } from "../../services/plugin-configuration.js";
 import { ALL_TOOL_DEFINITIONS } from "../tool-registry.js";
 
 const NOW = "2026-07-11T09:00:00.000Z";

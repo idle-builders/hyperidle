@@ -26,7 +26,7 @@ function clearBuiltinCostSentinelCache(): void {
 	// intentional no-op: removed from fabric, sentinel cleared internally
 }
 
-import { updateServerConfig } from "@hyperidle/server/services/server-config";
+import { updateServerConfig } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull, like } from "drizzle-orm";
 import { judgeReviewItemCreated, judgeRoutineFired, judgeStaleItemsMarked } from "../judges.js";

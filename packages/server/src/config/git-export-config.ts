@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { readServerConfig, updateServerConfig } from "../services/server-config.js";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 
 /** Typed shape loaded from `server_config.gitExport`. */
 export interface GitExportConfig {

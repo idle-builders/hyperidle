@@ -7,11 +7,11 @@ import {
 	type PluginRow,
 	pluginConfigurationDefaults,
 	plugins,
-	serviceConnections,
 	userSkills,
 } from "@hyperidle/db";
 import {
 	BUILTIN_PLUGIN_ID,
+	BUILTIN_TOOL_CATALOG,
 	CONFIGURATION_KINDS,
 	type ConfigurationKind,
 	type ConfigurationOrigin,
@@ -19,11 +19,9 @@ import {
 	type ResolvedConfigurationItem,
 	TriggerRuleValueSchema,
 } from "@hyperidle/shared";
-import { listUsersByKind } from "@hyperidle/users";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { BUILTIN_TOOL_CATALOG } from "../config/builtin-tool-catalog.js";
-import * as routineService from "../routine-service.js";
+import type { RoutineReader, ServiceConnectionsReader, SettingsUserDirectory } from "./ports.js";
 
 export interface PluginConfigurationSource {
 	readonly id: string;
@@ -68,6 +66,23 @@ export interface PluginStateOptions {
 
 export interface BackfillLegacyConfigurationOptions {
 	readonly now?: string;
+}
+
+/**
+ * @lore AU19 Increment 1f: injected `users`/`routines`/`serviceConnections`
+ * ports (Mechanism C) — `backfillLegacyConfigurationDefaults` used to import
+ * `listUsersByKind` directly from `@hyperidle/users`, `routineService.listRoutines`
+ * from the sibling (not-yet-migrated) `routine-service.ts`, and raw-query the
+ * foreign `serviceConnections` table directly — all ordinary downward
+ * core-api→core-api edges, NOT §10.3 against-grain (see `ports.ts`'s
+ * top-level `@lore` for the `serviceConnections` completeness finding). The
+ * caller (`server-factory.ts`) passes the real function references unchanged — no
+ * behavior change.
+ */
+export interface BackfillLegacyConfigurationDeps {
+	readonly users: Pick<SettingsUserDirectory, "listUsersByKind">;
+	readonly routines: Pick<RoutineReader, "listRoutines">;
+	readonly serviceConnections: Pick<ServiceConnectionsReader, "listByAuthSource">;
 }
 
 export const BUILTIN_PLUGIN_SOURCE: PluginConfigurationSource = {
@@ -368,11 +383,12 @@ export async function getResolvedConfiguration(
 
 export async function backfillLegacyConfigurationDefaults(
 	db: HyperIdleDb,
+	deps: BackfillLegacyConfigurationDeps,
 	options: BackfillLegacyConfigurationOptions = {},
 ): Promise<void> {
 	const seeds: PluginConfigurationSeed[] = [];
 
-	const agentRows = await listUsersByKind(db, "ai");
+	const agentRows = await deps.users.listUsersByKind(db, "ai");
 	for (const agent of agentRows) {
 		seeds.push({
 			kind: "agent",
@@ -404,7 +420,7 @@ export async function backfillLegacyConfigurationDefaults(
 		}
 	}
 
-	const routineRows = await routineService.listRoutines(db, { includeDeleted: true });
+	const routineRows = await deps.routines.listRoutines(db, { includeDeleted: true });
 	for (const routine of routineRows) {
 		seeds.push({
 			kind: "routine",
@@ -454,10 +470,7 @@ export async function backfillLegacyConfigurationDefaults(
 		});
 	}
 
-	const mcpRows = await db
-		.select()
-		.from(serviceConnections)
-		.where(eq(serviceConnections.authSource, "mcp"));
+	const mcpRows = await deps.serviceConnections.listByAuthSource(db, "mcp");
 	for (const connection of mcpRows) {
 		seeds.push({
 			kind: "mcp_server",
@@ -505,9 +518,10 @@ export async function backfillLegacyConfigurationDefaults(
 
 export async function projectProductionConfigurationDefaults(
 	db: HyperIdleDb,
+	deps: BackfillLegacyConfigurationDeps,
 	options: BackfillLegacyConfigurationOptions = {},
 ): Promise<void> {
-	await backfillLegacyConfigurationDefaults(db, options);
+	await backfillLegacyConfigurationDefaults(db, deps, options);
 }
 
 async function upsertPlugin(

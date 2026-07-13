@@ -19,8 +19,8 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationTypeKey } from "@hyperidle/shared";
-import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 
 /** Read interface used by the drain loop and notification listener. */
 export interface MutePreferenceReader {

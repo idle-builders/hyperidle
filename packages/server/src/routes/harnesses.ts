@@ -34,6 +34,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -43,7 +44,6 @@ import {
 	harnessCapabilityDescriptors,
 	refreshHarnessDiscoveries,
 } from "../services/harness-capability-read-model.js";
-import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 
 /**
  * Helper: stamp discovery.disabled per descriptor based on harnessDisabled config.

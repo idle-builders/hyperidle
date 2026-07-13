@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { readServerConfig, updateServerConfig } from "../server-config.js";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ObservabilityChannel } from "./types.js";
 
 export interface ObservabilityConfig {

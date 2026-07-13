@@ -8,12 +8,20 @@ import {
 	type DbHandle,
 	type HyperIdleDb,
 	resolveProfile,
+	serverCredentials,
+	serviceConnections,
 } from "@hyperidle/db";
 import { registerRelevanceListener, setupFts } from "@hyperidle/knowledge";
 import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
+import {
+	migrateCredentialsToStore,
+	projectProductionConfigurationDefaults,
+	readServerConfig,
+} from "@hyperidle/settings";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
-import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
+import { getUserById, listActiveAiUsersByTeams, listUsersByKind } from "@hyperidle/users";
 import { registerBetDecomposition, resolveOrphanedDecompositions } from "@hyperidle/work";
+import { eq } from "drizzle-orm";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { RegistryFilesystemMounter } from "./filesystem/mounter-registry.js";
@@ -32,6 +40,7 @@ import { startNotificationDrain } from "./notifications/drain.js";
 import { defaultMutePreferenceReader } from "./notifications/mute.js";
 import { registerNotificationListener } from "./notifications/notification-listener.js";
 import { registerWsRoute } from "./routes/ws.js";
+import { listRoutines } from "./routine-service.js";
 import { resolveDecompositionPlan } from "./services/agent-defaults/resolvers.js";
 import {
 	bootAgentLayer,
@@ -44,7 +53,11 @@ import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handl
 import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 import { startCostSentinel } from "./services/cost-sentinel.js";
-import { getServerSecret } from "./services/credential-encryption.js";
+import {
+	decryptCredentialValue,
+	encryptCredentialValue,
+	getServerSecret,
+} from "./services/credential-encryption.js";
 import type { CredentialResolver } from "./services/credential-resolver.js";
 import { DbCredentialResolver } from "./services/credential-resolver.js";
 import { registerGitExportHandler } from "./services/git-export.js";
@@ -52,14 +65,12 @@ import { createGitRunner } from "./services/git-export-runner.js";
 import { registerLifecyclePropagation } from "./services/lifecycle-propagation.js";
 import { createMcpRoute } from "./services/mcp-route.js";
 import { resolveModelTier } from "./services/model-gateway.js";
-import { projectProductionConfigurationDefaults } from "./services/plugin-configuration.js";
 import { registerPolicyEngine } from "./services/policy-engine.js";
 import { startRetentionReaper } from "./services/retention-reaper.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import { startSandboxReaper } from "./services/sandbox-reaper.js";
 import { enumerateTeamCandidates, selectOwner } from "./services/select-agent.js";
-import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
 import { registerWorkerWsRoute } from "./services/worker-ws.js";
@@ -423,12 +434,54 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// Relocates legacy server_config blob apiKeys → server_credentials.
 	// Seeds anthropic_api_key from env if the DB slot is absent.
 	// No-op when already migrated. Non-fatal: migration skips if no root secret.
-	await migrateCredentialsToStore(db);
+	// @lore AU19 Increment 1f: `settings`' `SettingsCredentialCipher`/
+	// `SettingsCredentialStore` ports (Mechanism C) wired here — the cipher to
+	// the real `credential-encryption.ts` function references, the store to a
+	// raw `serverCredentials` query (both ordinary downward core-api→core-api
+	// edges; `connections` hasn't migrated to its own package yet — see
+	// `@hyperidle/settings`' `ports.ts` top-level `@lore` for the
+	// completeness finding this closes), zero behavior change.
+	await migrateCredentialsToStore(
+		db,
+		{ getServerSecret, encryptCredentialValue, decryptCredentialValue },
+		{
+			async findByName(execDb, name) {
+				const [row] = await execDb
+					.select()
+					.from(serverCredentials)
+					.where(eq(serverCredentials.name, name))
+					.limit(1);
+				return row;
+			},
+			async insert(execDb, values) {
+				await execDb.insert(serverCredentials).values(values);
+			},
+		},
+	);
 	// AU2: Project existing first-party behavior into the editable configuration
 	// model on production boot. This keeps registered tools, builtin harness
 	// metadata, and legacy rows queryable through the new resolver without moving
 	// runtime ownership away from existing services.
-	await projectProductionConfigurationDefaults(db);
+	// @lore AU19 Increment 1f: `settings`' `RoutineReader`/`SettingsUserDirectory`/
+	// `ServiceConnectionsReader` ports (Mechanism C) wired here — `users` to
+	// the real `@hyperidle/users` exports (already migrated), `routine` to
+	// `routine-service.ts`'s real function reference (interim — `routine`
+	// hasn't migrated yet), `serviceConnections` to a raw table query (interim
+	// — `connections` hasn't migrated yet; closes a table-ownership-guard
+	// completeness finding, see `@hyperidle/settings`' `ports.ts`). All
+	// ordinary downward core-api→core-api edges, zero behavior change.
+	await projectProductionConfigurationDefaults(db, {
+		users: { listUsersByKind },
+		routines: { listRoutines },
+		serviceConnections: {
+			listByAuthSource(execDb, authSource) {
+				return execDb
+					.select()
+					.from(serviceConnections)
+					.where(eq(serviceConnections.authSource, authSource));
+			},
+		},
+	});
 	// AF7 §1: test-only overrides for the adapter pool + workspace adapter + base
 	// path so the dispatcher wire can run against a stub pool (no real LLM).
 	const adapterPool = deps?.adapterPool ?? (await createLocalAdapterPool());

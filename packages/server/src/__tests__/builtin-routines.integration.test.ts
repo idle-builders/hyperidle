@@ -12,6 +12,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { updateServerConfig } from "@hyperidle/settings";
 import type {
 	BetStateChangedEvent,
 	CostCapBreachedEvent,
@@ -26,7 +27,6 @@ import {
 	runBuiltinRoutine,
 } from "../services/builtin-routine-handlers.js";
 import { clearCostSentinelCache, runCostSentinelCheck } from "../services/cost-sentinel.js";
-import { updateServerConfig } from "../services/server-config.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";

@@ -9,12 +9,9 @@ import {
 	triggerResolutionHistory,
 	users,
 } from "@hyperidle/db";
+import { loadPluginConfigurationDefaults, setConfigurationOverride } from "@hyperidle/settings";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import {
-	loadPluginConfigurationDefaults,
-	setConfigurationOverride,
-} from "../plugin-configuration.js";
 import { createTriggeredAgentSessionRequest } from "../trigger-resolution.js";
 
 const NOW = "2026-07-09T10:00:00.000Z";

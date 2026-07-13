@@ -22,6 +22,7 @@
 
 import { insertMessage, listMessagesByThread } from "@hyperidle/conversation";
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
+import { readServerConfig } from "@hyperidle/settings";
 import {
 	type ConversationMessage,
 	createLogger,
@@ -46,7 +47,6 @@ import {
 	resolveAgentModel,
 	resolveModelTier,
 } from "../services/model-gateway.js";
-import { readServerConfig } from "../services/server-config.js";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
 import {
 	buildAssistantDraftRegistry,

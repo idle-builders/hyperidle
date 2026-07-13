@@ -33,10 +33,10 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { registerPolicyEngine } from "../services/policy-engine.js";
-import { updateServerConfig } from "../services/server-config.js";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

@@ -14,6 +14,7 @@
  */
 
 import { type HyperIdleDb, items as itemsTable, threads, users } from "@hyperidle/db";
+import { updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { loadNotificationConfig, updateNotificationConfig } from "../../notifications/config.js";
@@ -33,7 +34,6 @@ import type {
 } from "../../notifications/types.js";
 import { getFactoryCostActual } from "../../services/cost-cap.js";
 import { clearCostSentinelCache, runCostSentinelCheck } from "../../services/cost-sentinel.js";
-import { updateServerConfig } from "../../services/server-config.js";
 import { expect, test } from "../../test-fixtures.js";
 
 // --- helpers ---

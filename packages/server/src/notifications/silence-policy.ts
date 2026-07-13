@@ -18,9 +18,9 @@
 // @lore U1: `teams` is now the domain entity. `teamMembers` is the agent membership group.
 // `users.teamId` references `teamMembers.id`; silence keys use `teamMembers.teamId` (domains.id).
 import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
+import { readServerConfig } from "@hyperidle/settings";
 import { getUserById } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
-import { readServerConfig } from "../services/server-config.js";
 
 interface SilenceItem {
 	readonly sourceAgentId: string | null;

@@ -6,6 +6,7 @@ import {
 	teamMembers,
 	triggerResolutionHistory,
 } from "@hyperidle/db";
+import { listResolvedConfiguration } from "@hyperidle/settings";
 import {
 	type AgentSessionPromptMode,
 	type AgentSessionRequestInput,
@@ -20,7 +21,6 @@ import {
 import { getUserByIdScopedToTeam } from "@hyperidle/users";
 import { and, eq } from "drizzle-orm";
 import { createAgentSessionRequest } from "./agent-session-requests.js";
-import { listResolvedConfiguration } from "./plugin-configuration.js";
 
 const PROMPT_MODE_BY_SOURCE: Record<AgentSessionSourceKind, AgentSessionPromptMode> = {
 	task: "task",

@@ -20,8 +20,17 @@ import type {
 	ModelTier,
 	ResolvedModel,
 } from "@hyperidle/shared";
-import { MissingCredentialError } from "@hyperidle/shared";
+import { BUILT_IN_GATEWAY_CONFIG, MissingCredentialError } from "@hyperidle/shared";
 import type { CredentialResolver } from "./credential-resolver.js";
+
+/**
+ * @lore AU19 Increment 1f: `BUILT_IN_GATEWAY_CONFIG` moved to
+ * `@hyperidle/shared` (pure static data — see the constant's own `@lore` at
+ * its new home for the full rationale) and re-exported here so this file's
+ * existing consumers (`agent-work-assistant.ts`, this file's own tests) are
+ * unchanged — zero behavior change.
+ */
+export { BUILT_IN_GATEWAY_CONFIG };
 
 /**
  * AH2: Error thrown when a per-agent model uses an unsupported provider.
@@ -36,28 +45,6 @@ export class UnsupportedAgentProviderError extends Error {
 		this.name = "UnsupportedAgentProviderError";
 	}
 }
-
-/**
- * X4: Built-in gateway configuration — matches the old MODEL_TIER_MAP values exactly.
- * Zero behavior change when no gateway config is stored in serverConfig.
- *
- * @lore X4 A-TEST-2: This constant is intentionally kept in sync with the
- * deleted model-tier-map.ts. The test in X4-model-gateway.test.ts asserts
- * exact model IDs to catch drift. If you change a model ID here, update the
- * test comment explaining why.
- *
- * @lore X4 naming: Named BUILT_IN_GATEWAY_CONFIG (not DEFAULT_GATEWAY_CONFIG)
- * because the ESLint mock-data-policy flags DEFAULT_* symbols in the /services/
- * path fragment as potentially mock data. This is not mock data — it is the
- * genuine production fallback. Callers may import and re-alias if desired.
- *
- * @lore AH2: Re-keyed to current catalog IDs. See MODEL_CATALOG in @hyperidle/shared.
- */
-export const BUILT_IN_GATEWAY_CONFIG: ModelGatewayConfig = {
-	reasoning: { provider: "anthropic", model: "claude-opus-4-8" },
-	workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" },
-	fast: { provider: "anthropic", model: "claude-haiku-4-5" },
-} as const;
 
 /**
  * AH2: Shared provider resolution logic — extracts the provider-specific

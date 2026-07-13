@@ -21,12 +21,12 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { MODEL_PROVIDERS, type ModelGatewayConfig, type ModelTierConfig } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 
 // ---------------------------------------------------------------------------
 // Validation schemas

@@ -10,6 +10,7 @@
  */
 
 import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
+import { readServerConfig } from "@hyperidle/settings";
 import type { CredentialName, CredentialState } from "@hyperidle/shared";
 import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -23,7 +24,6 @@ import {
 	encryptCredentialValue,
 	requireServerSecret,
 } from "../services/credential-encryption.js";
-import { readServerConfig } from "../services/server-config.js";
 
 /** Validation timeout: 10 seconds for all external service calls. */
 const VALIDATE_TIMEOUT_MS = 10_000;

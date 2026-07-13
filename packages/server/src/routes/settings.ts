@@ -21,13 +21,13 @@
  */
 
 import { type HyperIdleDb, teams } from "@hyperidle/db";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
 import { getFirstUserByKind, listUsersByKind } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 
 /**
  * @lore M3 review W2: Zod validation for the PATCH body so we reject malformed

@@ -2,6 +2,7 @@ import * as dns from "node:dns";
 import * as net from "node:net";
 import { promisify } from "node:util";
 import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { SanitizeResult } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import {
@@ -9,7 +10,6 @@ import {
 	encryptCredentialValue,
 	getServerSecret,
 } from "../services/credential-encryption.js";
-import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 import type { NotificationChannel, Recipient } from "./types.js";
 
 /**

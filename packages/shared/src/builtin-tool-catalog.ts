@@ -1,4 +1,5 @@
-import type { Reversibility, UserRole } from "@hyperidle/shared";
+import type { Reversibility } from "./proposed-call.js";
+import type { UserRole } from "./types.js";
 
 /**
  * A single built-in tool's configuration-relevant metadata: the fields the
@@ -6,6 +7,14 @@ import type { Reversibility, UserRole } from "@hyperidle/shared";
  * default (name, description, roles, reversibility). Deliberately does NOT
  * carry `inputSchema` or `handler` — those are execution concerns owned by
  * `tools/tool-registry.ts`, not configuration.
+ *
+ * @lore AU19 Increment 1f: moved here from `packages/server/src/config/
+ * builtin-tool-catalog.ts` per architecture §5 — pure config data read by both
+ * `settings` (core-api) and `tool-provider` (execution); keeping it in
+ * execution would make `settings → execution` an against-grain edge (§10.2).
+ * Zero behavior change — only the import path for `Reversibility`/`UserRole`
+ * changed (relative, since this file now lives inside `@hyperidle/shared`
+ * itself rather than importing its own package).
  */
 export interface ToolCatalogEntry {
 	readonly name: string;

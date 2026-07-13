@@ -1,19 +1,24 @@
 import {
 	configurationOverrides,
 	createTestDb,
+	type HyperIdleDb,
 	pluginConfigurationDefaults,
+	type Routine,
 	routines,
+	type ServiceConnectionRow,
 	serviceConnections,
 	type TestDbHandle,
 	teamMembers,
 	teams,
+	type User,
 	userSkills,
 	users,
 } from "@hyperidle/db";
 import { CONFIGURATION_KINDS, type ConfigurationKind } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
+	type BackfillLegacyConfigurationDeps,
 	BUILTIN_PLUGIN_SOURCE,
 	backfillLegacyConfigurationDefaults,
 	clearConfigurationOverride,
@@ -27,6 +32,40 @@ import {
 } from "../plugin-configuration.js";
 
 const NOW = "2026-07-08T10:00:00.000Z";
+
+/**
+ * @lore AU19 Increment 1f: test stand-ins for `settings`' `RoutineReader`/
+ * `SettingsUserDirectory`/`ServiceConnectionsReader` ports (Mechanism C) — a
+ * plain drizzle query against `routines`/`users`/`serviceConnections`, the
+ * exact query the real ports wire to in production (`@hyperidle/users`'
+ * `listUsersByKind` / `routine-service.ts`'s `listRoutines` / a raw
+ * `serviceConnections` query — `connections` hasn't migrated yet), same
+ * precedent as `@hyperidle/org`'s `org-routing.integration.test.ts` stand-in.
+ */
+const settingsDeps: BackfillLegacyConfigurationDeps = {
+	users: {
+		async listUsersByKind(db: HyperIdleDb, kind: string): Promise<User[]> {
+			return db.select().from(users).where(eq(users.kind, kind));
+		},
+	},
+	routines: {
+		async listRoutines(db: HyperIdleDb, opts?: { includeDeleted?: boolean }): Promise<Routine[]> {
+			if (opts?.includeDeleted) {
+				return db.select().from(routines);
+			}
+			return db.select().from(routines).where(isNull(routines.deletedAt));
+		},
+	},
+	serviceConnections: {
+		async listByAuthSource(db: HyperIdleDb, authSource: string): Promise<ServiceConnectionRow[]> {
+			return db
+				.select()
+				.from(serviceConnections)
+				.where(eq(serviceConnections.authSource, authSource));
+		},
+	},
+};
+
 const PLUGIN_SOURCE = {
 	id: "plugin.alpha",
 	name: "Alpha Plugin",
@@ -222,7 +261,7 @@ describe("plugin configuration service", () => {
 	test("legacy users, routines, skills, tools, MCP, and harness data are visible after backfill", async () => {
 		await seedLegacyData(handle);
 
-		await backfillLegacyConfigurationDefaults(handle.db, { now: NOW });
+		await backfillLegacyConfigurationDefaults(handle.db, settingsDeps, { now: NOW });
 
 		const entries = await listResolvedConfiguration(handle.db);
 		expect(entries).toContainEqual(

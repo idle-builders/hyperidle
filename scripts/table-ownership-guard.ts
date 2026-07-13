@@ -73,6 +73,15 @@ const TABLE_OWNER: Record<string, string> = {
 	// new-owner addition — no exemption to close.
 	threads: "packages/core-api/conversation",
 	messages: "packages/core-api/conversation",
+	// AU19 Increment 1f: `settings` migrated — `serverConfig` (server-config.ts),
+	// `plugins`/`pluginConfigurationDefaults`/`configurationOverrides`
+	// (plugin-configuration.ts) are its four owned tables (moved unchanged).
+	// Never in `UNOWNED_SHARED_TABLES` — a clean new-owner addition, no
+	// exemption to close.
+	serverConfig: "packages/core-api/settings",
+	plugins: "packages/core-api/settings",
+	pluginConfigurationDefaults: "packages/core-api/settings",
+	configurationOverrides: "packages/core-api/settings",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 
@@ -120,8 +129,23 @@ const TABLE_OWNER: Record<string, string> = {
  * disable that table's ACL enforcement (a foreign `.from(ownedTable)` would
  * wrongly short-circuit as exempt). `assertDisjointOwnership` below enforces
  * this at load time.
+ *
+ * @lore AU19 Increment 1f: `userSkills` ADDED — surfaced migrating `settings`
+ * (`plugin-configuration.ts`'s legacy-backfill reads it for per-agent
+ * skill/autonomy seeds). No `⛁`/table column anywhere in architecture §4
+ * names `userSkills` for any Service, and it is accessed today from
+ * `settings` plus three still-monolithic `packages/server` files destined for
+ * three DIFFERENT future Services (`routes/users.ts`, `services/agent-selection.ts`,
+ * `services/policy-engine.ts`) — the same "no single owner, genuinely
+ * cross-cutting" shape as `sessions`/`propagationLog`/`taskDispatchAttempts`,
+ * not a candidate for a false single-owner `TABLE_OWNER` claim.
  */
-const UNOWNED_SHARED_TABLES = new Set(["sessions", "propagationLog", "taskDispatchAttempts"]);
+const UNOWNED_SHARED_TABLES = new Set([
+	"sessions",
+	"propagationLog",
+	"taskDispatchAttempts",
+	"userSkills",
+]);
 
 /**
  * Startup invariant: `UNOWNED_SHARED_TABLES` and `TABLE_OWNER` must never
