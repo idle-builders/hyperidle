@@ -1,3 +1,4 @@
+import { countThreads, getThreadById, listThreadsByRecency } from "@hyperidle/conversation";
 import type { HyperIdleDb, Item } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus, HostKind, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
@@ -8,11 +9,6 @@ import { authorizeRead } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import {
-	countThreads,
-	getThreadById,
-	listThreadsByRecency,
-} from "../services/conversation-store.js";
 
 // @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path
 // dual-wrote `verdict`-typed messages without founder authz, idempotency, or

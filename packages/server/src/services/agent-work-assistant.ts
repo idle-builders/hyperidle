@@ -20,6 +20,7 @@
  * CLIENT from lastMessage.createdAt + ASSISTANT_TURN_TIMEOUT_MS — no DB column needed.
  */
 
+import { insertMessage, listMessagesByThread } from "@hyperidle/conversation";
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
 	type ConversationMessage,
@@ -55,7 +56,6 @@ import {
 import type { ToolContext } from "../tools/tool-registry.js";
 import { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
 import { executeAgentRunRequest } from "./agent-run-boundary.js";
-import { insertMessage, listMessagesByThread } from "./conversation-store.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 

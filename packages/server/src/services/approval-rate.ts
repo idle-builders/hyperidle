@@ -15,12 +15,12 @@
  * `AND m.legacy_item_id IS NULL` enforces this.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
-import * as work from "@hyperidle/work";
 import {
 	listInitiatedVerdictMessages,
 	listVerdictMessagesByItemIds,
-} from "./conversation-store.js";
+} from "@hyperidle/conversation";
+import type { HyperIdleDb } from "@hyperidle/db";
+import * as work from "@hyperidle/work";
 
 export interface ApprovalRateResult {
 	approvalRate: number;

@@ -20,6 +20,12 @@
  *   JS-verified for exact membership (prevents false positives from substring).
  * - Knowledge: scope_kind != 'user' OR updated_by = userId.
  */
+
+import {
+	getMessagesByThreadIds,
+	listThreadMetaByIds,
+	searchConversations,
+} from "@hyperidle/conversation";
 import {
 	escapeLikePattern,
 	type HyperIdleDb,
@@ -35,11 +41,6 @@ import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import {
-	getMessagesByThreadIds,
-	listThreadMetaByIds,
-	searchConversations,
-} from "../services/conversation-store.js";
 
 /** Max results per category */
 const MAX_PER_CATEGORY = 5;

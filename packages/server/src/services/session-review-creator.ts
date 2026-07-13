@@ -1,10 +1,10 @@
+import { getThreadById, insertThread, updateThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions, taskPlanningSignals } from "@hyperidle/db";
 import { resolveReviewRecipients } from "@hyperidle/org";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { getUserById, listUsersByKind } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { getThreadById, insertThread, updateThread } from "./conversation-store.js";
 
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
 // the real `user-store.ts` function reference unchanged (no behavior change).

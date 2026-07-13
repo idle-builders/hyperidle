@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { ARTIFACT_VIEW_SHAPES, type ReviewPayload } from "@hyperidle/shared";
-import * as work from "@hyperidle/work";
-import z from "zod";
 import {
 	getFirstThreadByHost,
 	insertMessage,
 	insertThread,
 	updateThread,
-} from "../services/conversation-store.js";
+} from "@hyperidle/conversation";
+import { ARTIFACT_VIEW_SHAPES, type ReviewPayload } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
+import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

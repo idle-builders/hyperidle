@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
-import { insertThread } from "./conversation-store.js";
 
 /** Stable marker recorded in `items.reasoning` for attention-engine reviews. */
 export const ATTENTION_REVIEW_SOURCE = "attention_engine";

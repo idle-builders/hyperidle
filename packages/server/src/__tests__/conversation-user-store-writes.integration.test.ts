@@ -8,16 +8,16 @@
  * the caller's transaction.
  */
 
-import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
-import { getOrCreateUser, insertUser, resetAllUserCost, updateUser } from "@hyperidle/users";
-import { eq } from "drizzle-orm";
 import {
 	findOrCreateDirectThread,
 	insertMessage,
 	insertThread,
 	resolveMessageIfUnresolved,
 	updateThread,
-} from "../services/conversation-store.js";
+} from "@hyperidle/conversation";
+import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import { getOrCreateUser, insertUser, resetAllUserCost, updateUser } from "@hyperidle/users";
+import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

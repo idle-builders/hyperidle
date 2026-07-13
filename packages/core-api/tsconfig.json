@@ -24,6 +24,9 @@
 		},
 		{
 			"path": "users"
+		},
+		{
+			"path": "conversation"
 		}
 	]
 }

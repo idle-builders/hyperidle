@@ -7,6 +7,13 @@ import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidl
 // persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
 
 import {
+	findOrCreateDirectThread,
+	getMessageById,
+	insertMessage,
+	insertThread,
+	listInboxByParticipantProbe,
+} from "@hyperidle/conversation";
+import {
 	getFirstUserByKind,
 	getUserById,
 	insertUser,
@@ -22,13 +29,6 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
-import {
-	findOrCreateDirectThread,
-	getMessageById,
-	insertMessage,
-	insertThread,
-	listInboxByParticipantProbe,
-} from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
 

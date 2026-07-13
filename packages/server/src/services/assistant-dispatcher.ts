@@ -19,10 +19,10 @@
  * to prevent echo loops.
  */
 
+import { getThreadById, updateThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ThreadMessageAppendedEvent } from "@hyperidle/shared";
 import { getUserById } from "@hyperidle/users";
-import { getThreadById, updateThread } from "./conversation-store.js";
 
 // ---------------------------------------------------------------------------
 // Filter types and pure functions (exported for unit testing)

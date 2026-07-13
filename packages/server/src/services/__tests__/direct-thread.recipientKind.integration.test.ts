@@ -6,10 +6,10 @@
  * on the created thread. Default to "agent" for backward compatibility.
  */
 
+import { findOrCreateDirectThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, threads, users } from "@hyperidle/db";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { findOrCreateDirectThread } from "../conversation-store.js";
 
 const NOW = new Date().toISOString();
 

@@ -1,9 +1,9 @@
+import { getMessageById } from "@hyperidle/conversation";
 import { artifacts, type HyperIdleDb, operationOutcomes, proposedCalls } from "@hyperidle/db";
 import { relativeLong } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { getMessageById } from "../services/conversation-store.js";
 
 /**
  * AL7 trust-first — Reviews route: GET /api/reviews/:reviewMessageId

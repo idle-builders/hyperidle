@@ -1,5 +1,5 @@
+import { listInboxBySenderExclusion } from "@hyperidle/conversation";
 import z from "zod";
-import { listInboxBySenderExclusion } from "../services/conversation-store.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

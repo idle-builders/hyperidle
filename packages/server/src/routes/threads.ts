@@ -12,6 +12,21 @@
  */
 
 import {
+	getMessageByClientKey,
+	getMessageById,
+	getThreadByDirectKey,
+	getThreadById,
+	insertMessage,
+	insertThread,
+	listMessagesByThread,
+	listThreadsByHost,
+	listThreadsByHostKind,
+	listThreadsByParticipant,
+	listUnresolvedReviewThreadIds,
+	resolveMessageIfUnresolved,
+	updateThread,
+} from "@hyperidle/conversation";
+import {
 	agentWorkIntents,
 	artifacts,
 	type Message as DbMessage,
@@ -54,21 +69,6 @@ import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import {
-	getMessageByClientKey,
-	getMessageById,
-	getThreadByDirectKey,
-	getThreadById,
-	insertMessage,
-	insertThread,
-	listMessagesByThread,
-	listThreadsByHost,
-	listThreadsByHostKind,
-	listThreadsByParticipant,
-	listUnresolvedReviewThreadIds,
-	resolveMessageIfUnresolved,
-	updateThread,
-} from "../services/conversation-store.js";
 import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";

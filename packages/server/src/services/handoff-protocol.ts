@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import { insertMessage, insertThread } from "@hyperidle/conversation";
 import {
 	agentSessionRequests,
 	type HyperIdleDb,
@@ -13,7 +14,6 @@ import * as work from "@hyperidle/work";
 import { InvalidTransitionError, VALID_TRANSITIONS } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
-import { insertMessage, insertThread } from "./conversation-store.js";
 import { releaseSessionDedup } from "./cost-cap.js";
 import { requestAgentTermination, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";

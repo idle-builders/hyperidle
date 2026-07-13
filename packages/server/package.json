@@ -33,6 +33,7 @@
 	"dependencies": {
 		"@hono/node-server": "^2.0.6",
 		"@hono/zod-validator": "^0.8.0",
+		"@hyperidle/conversation": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/org": "*",

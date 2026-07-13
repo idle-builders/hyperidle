@@ -66,6 +66,13 @@ const TABLE_OWNER: Record<string, string> = {
 	users: "packages/core-api/users",
 	loginSessions: "packages/core-api/users",
 	inviteCodes: "packages/core-api/users",
+	// AU19 Increment 1e: `conversation` migrated — `threads`+`messages` are its
+	// two owned tables (`conversation-store.ts` moved unchanged). Neither table
+	// was ever in `UNOWNED_SHARED_TABLES` (that Set is unrelated, exactly
+	// `{sessions, propagationLog, taskDispatchAttempts}`), so this is a clean
+	// new-owner addition — no exemption to close.
+	threads: "packages/core-api/conversation",
+	messages: "packages/core-api/conversation",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

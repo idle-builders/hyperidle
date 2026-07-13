@@ -12,17 +12,17 @@
  * WP). The thresholds below are now always the hardcoded defaults.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
-import * as work from "@hyperidle/work";
-import { isSilenced as sharedIsSilenced } from "../notifications/silence-policy.js";
-import { computeApprovalRate } from "./approval-rate.js";
 import {
 	insertMessage,
 	listMessagesByThread,
 	updateMessage,
 	updateThread,
-} from "./conversation-store.js";
+} from "@hyperidle/conversation";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
+import { isSilenced as sharedIsSilenced } from "../notifications/silence-policy.js";
+import { computeApprovalRate } from "./approval-rate.js";
 
 interface PolicyEngineOptions {
 	/** Inject current time for testability. Defaults to () => new Date(). */

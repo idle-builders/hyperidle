@@ -12,6 +12,18 @@
  * cost aggregate + atomic increment, and the bets.ts decomposition.
  */
 
+import {
+	getArtifactThreadSummaries,
+	getFirstThreadByHost,
+	getMessageById,
+	getThreadById,
+	getThreadIdsByHost,
+	insertMessage,
+	insertThread,
+	listMessagesByThread,
+	listThreadsByHost,
+	searchConversations,
+} from "@hyperidle/conversation";
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import {
 	getUserById,
@@ -24,18 +36,6 @@ import {
 	sumAllUserCost,
 } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
-import {
-	getArtifactThreadSummaries,
-	getFirstThreadByHost,
-	getMessageById,
-	getThreadById,
-	getThreadIdsByHost,
-	insertMessage,
-	insertThread,
-	listMessagesByThread,
-	listThreadsByHost,
-	searchConversations,
-} from "../services/conversation-store.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW = "2026-01-01T00:00:00.000Z";

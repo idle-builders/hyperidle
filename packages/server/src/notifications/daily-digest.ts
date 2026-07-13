@@ -1,6 +1,6 @@
+import { listVerdictItemIds } from "@hyperidle/conversation";
 import type { HyperIdleDb, Item } from "@hyperidle/db";
 import * as work from "@hyperidle/work";
-import { listVerdictItemIds } from "../services/conversation-store.js";
 
 interface DailyDigestResult {
 	items: Item[];

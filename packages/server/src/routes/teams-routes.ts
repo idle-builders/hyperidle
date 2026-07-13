@@ -18,6 +18,7 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
+import { getThreadById, insertMessage, insertThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions, teamMembers, teams } from "@hyperidle/db";
 import {
 	ApiError,
@@ -66,7 +67,6 @@ import * as routineService from "../routine-service.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
-import { getThreadById, insertMessage, insertThread } from "../services/conversation-store.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import {

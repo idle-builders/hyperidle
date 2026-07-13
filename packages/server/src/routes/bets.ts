@@ -1,3 +1,4 @@
+import { getArtifactThreadSummaries } from "@hyperidle/conversation";
 import {
 	artifacts,
 	type HyperIdleDb,
@@ -30,7 +31,6 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
-import { getArtifactThreadSummaries } from "../services/conversation-store.js";
 
 const SUMMARY_CAP = 10;
 

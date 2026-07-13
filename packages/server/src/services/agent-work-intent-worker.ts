@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { getMessageById } from "@hyperidle/conversation";
 import {
 	agentWorkIntents,
 	explicitSessionStarts,
@@ -15,7 +16,6 @@ import * as work from "@hyperidle/work";
 import { and, asc, eq, lt, or } from "drizzle-orm";
 import * as routineService from "../routine-service.js";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
-import { getMessageById } from "./conversation-store.js";
 import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
 
 export { executeAgentRunRequest as consumeAgentSessionRequest } from "./agent-run-boundary.js";
