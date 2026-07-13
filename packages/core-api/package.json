@@ -11,8 +11,6 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/db": "*",
-		"@hyperidle/shared": "*",
 		"@hyperidle/knowledge": "*"
 	}
 }
