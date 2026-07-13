@@ -42,6 +42,7 @@ export { createMcpBridgeRegistry, McpBridgeRegistry } from "./mcp/mcp-bridge-reg
 export { resolveAgentScaffoldSpecs } from "./services/agent-defaults/resolvers.js";
 export {
 	bootAgentLayer,
+	classifyAdmissionFailure,
 	drainAgentSessionRequests,
 	markRunningAgentSessionRequestsForShutdown,
 } from "./services/agent-layer-boot.js";
@@ -52,7 +53,10 @@ export {
 	executeAssistantRequest,
 	mapErrorToNotice,
 } from "./services/agent-work-assistant.js";
-export { drainAgentWorkIntents } from "./services/agent-work-intent-worker.js";
+export {
+	consumeAgentSessionRequest,
+	drainAgentWorkIntents,
+} from "./services/agent-work-intent-worker.js";
 export { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
 export {
 	BetDecompositionDeps,

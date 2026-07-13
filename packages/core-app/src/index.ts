@@ -143,6 +143,8 @@ export {
 export { startAgentLifecycleProjectionDrain } from "./services/agent-lifecycle-projectors.js";
 export { deriveInitials } from "./services/agent-utils.js";
 export {
+	AGENT_WORK_RETENTION_BATCH_SIZE,
+	AGENT_WORK_RETENTION_DAYS,
 	reapTerminalAgentWorkIntents,
 	recordAgentWorkIntent,
 } from "./services/agent-work-intents.js";
