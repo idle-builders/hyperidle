@@ -19,6 +19,8 @@ const SHARED_EXCLUDE = ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.w
 
 const HARNESS_INCLUDE = [
 	"packages/server/src/harness/__tests__/**/*.integration.test.ts",
+	// AU17: harness/ moved to agent-layer — its integration tests moved with it.
+	"packages/agent-layer/src/harness/__tests__/**/*.integration.test.ts",
 	// @lore real-harness serial: *-real.integration.test.ts files in src/__tests__ and
 	// routes/__tests__ drive real CLI harnesses (codex/claude/opencode). They must run
 	// SERIALLY (harness project, fileParallelism:false) — concurrent codex sessions

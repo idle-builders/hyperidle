@@ -1,0 +1,25 @@
+{
+	"name": "@hyperidle/agent-layer",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./routines": "./src/routines.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@hyperidle/core-app": "*",
+		"@hyperidle/db": "*",
+		"@hyperidle/shared": "*",
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"drizzle-orm": "^0.45.2",
+		"hono": "^4.12.27",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@electric-sql/pglite": "^0.5.1"
+	}
+}

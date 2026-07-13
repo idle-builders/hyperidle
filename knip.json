@@ -18,16 +18,16 @@
 		"packages/web/e2e/fixtures.ts",
 		"packages/web/src/pages/**/__fixtures__/**",
 		"packages/web/src/preview/**",
-		"packages/server/src/services/service-connection-resolver.ts",
-		"packages/server/src/harness/re-engage.ts",
+		"packages/core-app/src/services/service-connection-resolver.ts",
+		"packages/agent-layer/src/harness/re-engage.ts",
 		"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
 	"ignoreIssues": {
 		"packages/web/src/pages/review/ReviewRenderedInContext.tsx": ["exports"],
-		"packages/server/src/services/proposed-call-workflow.ts": ["exports"],
-		"packages/server/src/services/session-lifecycle.ts": ["exports"]
+		"packages/core-app/src/services/proposed-call-workflow.ts": ["exports"],
+		"packages/agent-layer/src/services/session-lifecycle.ts": ["exports"]
 	},
 	"workspaces": {
 		".": {
@@ -49,9 +49,13 @@
 			"ignoreDependencies": ["zod"]
 		},
 		"packages/api-contract": {},
-		"packages/server": {
+		"packages/core-app": {},
+		"packages/agent-layer": {
 			"entry": ["src/harness/harness-session-probe.ts!"],
 			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor", "gh"],
+			"ignoreDependencies": ["@electric-sql/pglite"]
+		},
+		"packages/server": {
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"packages/design-system": {

@@ -15,7 +15,9 @@ export default defineConfig({
 		],
 		reporters: ["dot"],
 		projects: [
+			"packages/agent-layer",
 			"packages/api-contract",
+			"packages/core-app",
 			"packages/db",
 			"packages/desktop",
 			"packages/eval",
