@@ -39,11 +39,9 @@ export {
 	configurationOverrides,
 	type ExplicitSessionStart,
 	explicitSessionStarts,
-	type FactorySetting,
 	type FilesystemCaptureRow,
 	type FilesystemInjectionRow,
 	type FilesystemRow,
-	factorySettings,
 	filesystemCaptures,
 	filesystemInjections,
 	filesystems,
@@ -74,7 +72,6 @@ export {
 	type NewArtifactRow,
 	type NewBet,
 	type NewConfigurationOverrideRow,
-	type NewFactorySetting,
 	type NewFilesystem,
 	type NewFilesystemCaptureRow,
 	type NewFilesystemInjection,
@@ -170,4 +167,9 @@ export {
 } from "./schema.js";
 export { seed } from "./seed.js";
 export { type RunSetupContext, type RunSetupIo, runSetup } from "./setup-cli.js";
+export {
+	readSystemPromptTemplate,
+	readSystemPromptTemplateForRole,
+	SYSTEM_PROMPT_TEMPLATE_FILES,
+} from "./system-prompt-templates.js";
 export { closeAllInstances, createTestDb, type TestDbHandle, warmPool } from "./test-utils.js";

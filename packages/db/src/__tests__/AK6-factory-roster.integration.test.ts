@@ -195,16 +195,20 @@ describe("AK6 T9: applyFactoryBootstrap with minimalFactoryRoster — empty agen
 		expect(rows).toHaveLength(1);
 	});
 
-	test("minimal roster: factorySettings infra rows still present (cost_cap, cost_cycle)", async ({
+	// @lore AU18: factory_settings (and its cost_cap/cost_cycle KV rows) is
+	// retired. cost_cap now lives as server_config.cost.capMinor with a
+	// server-owned schema default (20000, applied by @hyperidle/server's
+	// readServerConfig — packages/db must not depend on packages/server).
+	// Bootstrap no longer writes ANY row into server_config: the default
+	// applies purely at read time in the owning package. This test proves
+	// that seed was intentionally removed, not silently dropped.
+	test("minimal roster: bootstrap writes no server_config row (cost_cap default now lives server-side)", async ({
 		db,
 	}) => {
 		await applyFactoryBootstrap(db, minimalFactoryRoster);
 
-		const rows = await queryRows<{ key: string }>(
-			db,
-			"SELECT key FROM factory_settings WHERE key IN ('cost_cap','cost_cycle') ORDER BY key",
-		);
-		expect(rows.map((r) => r.key)).toEqual(["cost_cap", "cost_cycle"]);
+		const rows = await queryRows<{ id: string }>(db, "SELECT id FROM server_config");
+		expect(rows).toHaveLength(0);
 	});
 
 	test("minimal roster: knowledge principle (seed-ki-1) still present", async ({ db }) => {

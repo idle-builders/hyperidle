@@ -17,7 +17,8 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
-import { bets, factorySettings, routines, tasks, teamMembers, teams, users } from "./schema.js";
+import { bets, routines, tasks, teamMembers, teams, users } from "./schema.js";
+import { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
 
 /**
  * Seed a demo world for onboarding / development mode.
@@ -165,24 +166,22 @@ export async function seedDemoWorld(
 		})
 		.onConflictDoNothing();
 
-	// ── Backfill systemPrompt on demo agents from factory_settings role templates ──
-	// @lore AF17: applyFactoryBootstrap() populates system_template:<role> rows and
-	// backfills factory agents. Demo agents are created AFTER bootstrap, so they miss
-	// the backfill. We query factory_settings here and apply templates to demo agents.
-	// This mirrors what the old monolithic seed.ts did for all agents in one pass.
-	// @lore AK1: key prefix renamed from old variant to "system_template:" in AK1 harness-vocab rename.
+	// ── Backfill systemPrompt on demo agents from docs-backed role templates ──
+	// @lore AF17: applyFactoryBootstrap() backfills factory agents' systemPrompt.
+	// Demo agents are created AFTER bootstrap, so they miss that backfill. We read
+	// the same docs-backed templates here and apply them to demo agents. This
+	// mirrors what the old monolithic seed.ts did for all agents in one pass.
+	// @lore AU18: previously read cached rows from `factorySettings.system_template:<role>`
+	// (written by bootstrap); that table is retired. Read directly via the shared
+	// `readSystemPromptTemplateForRole` (system-prompt-templates.ts) — the same
+	// map/reader bootstrap, roster.ts, and agents.ts now all use.
 	const DEMO_AGENT_ROLES = ["builder", "product_manager"] as const;
-	const templateKeys = DEMO_AGENT_ROLES.map((r) => `system_template:${r}`);
-	const templates = await db
-		.select({ key: factorySettings.key, value: factorySettings.value })
-		.from(factorySettings)
-		.where(inArray(factorySettings.key, templateKeys));
-
-	for (const { key, value } of templates) {
-		const role = key.replace("system_template:", "");
+	for (const role of DEMO_AGENT_ROLES) {
+		const content = readSystemPromptTemplateForRole(role);
+		if (content === null) continue;
 		await db
 			.update(users)
-			.set({ systemPrompt: value })
+			.set({ systemPrompt: content })
 			.where(and(inArray(users.id, ["demo-agent-builder", "demo-agent-pm"]), eq(users.role, role)));
 	}
 
