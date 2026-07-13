@@ -1,8 +1,8 @@
 import { type HyperIdleDb, propagationLog, sessions } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import * as work from "../work-service.js";
-import { transitionTask } from "./task-state-machine.js";
+import { type TaskStateMachineDeps, transitionTask } from "./task-state-machine.js";
+import * as work from "./work-service.js";
 
 /** Task states that are terminal — never re-killed by the cascade. */
 const TERMINAL_TASK_STATES: string[] = ["done", "killed"];
@@ -39,6 +39,7 @@ export async function cascadeBetKill(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	betId: string,
+	deps: TaskStateMachineDeps,
 ): Promise<{ tasksKilled: string[]; sessionsStopped: string[] }> {
 	const tasksKilled: string[] = [];
 	const sessionsStopped: string[] = [];
@@ -84,7 +85,7 @@ export async function cascadeBetKill(
 		// 4. Kill the task via the CAS-guarded transitionTask (emits task_state_changed;
 		// the upward engine sees a terminal bet and logs `skipped` — harmless).
 		const fromState = task.state;
-		await transitionTask(db, eventBus, task.id, "killed");
+		await transitionTask(db, eventBus, task.id, "killed", deps);
 		tasksKilled.push(task.id);
 		await writeCascadeRow(db, {
 			sourceLevel: "bet",

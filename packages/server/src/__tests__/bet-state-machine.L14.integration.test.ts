@@ -10,13 +10,9 @@
  */
 
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { type RevisionLogEntry, transitionBet, updateBetField } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import {
-	type RevisionLogEntry,
-	transitionBet,
-	updateBetField,
-} from "../services/bet-state-machine.js";
 import { test } from "../test-fixtures.js";
 
 function makeProduct() {

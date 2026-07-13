@@ -1,7 +1,7 @@
 import { type HyperIdleDb, sessions, taskPlanningSignals } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import * as work from "../work-service.js";
 import { getThreadById, insertThread, updateThread } from "./conversation-store.js";
 import { resolveReviewRecipients } from "./org-routing.js";
 import { getUserById } from "./user-store.js";

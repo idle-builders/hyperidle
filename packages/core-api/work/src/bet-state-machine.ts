@@ -6,7 +6,7 @@ import {
 	InvalidTransitionError,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import * as work from "../work-service.js";
+import * as work from "./work-service.js";
 
 /**
  * Shape of a single entry in the revision log JSON array.

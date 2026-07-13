@@ -34,10 +34,10 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
-import * as work from "../work-service.js";
 
 async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({

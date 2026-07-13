@@ -28,6 +28,9 @@ import {
 	type TierTokenCount,
 	type UserRole,
 } from "@hyperidle/shared";
+import type { StateTransitionAuditEntry, TaskAuditEntry } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { transitionTask } from "@hyperidle/work";
 import { and, inArray as drizzleInArray, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
@@ -47,8 +50,8 @@ import {
 	type ToolContext,
 	toolsForRole,
 } from "../tools/tool-registry.js";
-import * as work from "../work-service.js";
 import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
+import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import {
 	assemblePrompt,
 	assembleRoutinePrompt,
@@ -68,8 +71,6 @@ import {
 	type SessionContext,
 } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
-import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
-import { transitionTask } from "./task-state-machine.js";
 import { getUserById } from "./user-store.js";
 
 // @lore X3: validateSystemPromptPath and SYSTEM_PROMPT_DIR_RELATIVE removed.
@@ -809,7 +810,9 @@ export async function admitSession(
 	if (params.taskId) {
 		const taskForTransition = await work.getTaskById(db, params.taskId);
 		if (taskForTransition && taskForTransition.state !== "in_progress") {
-			await transitionTask(db, eventBus, params.taskId, "in_progress");
+			await transitionTask(db, eventBus, params.taskId, "in_progress", {
+				workIntents: { record: recordAgentWorkIntent },
+			});
 		}
 	}
 

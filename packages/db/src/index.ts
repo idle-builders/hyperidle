@@ -174,3 +174,4 @@ export {
 	SYSTEM_PROMPT_TEMPLATE_FILES,
 } from "./system-prompt-templates.js";
 export { closeAllInstances, createTestDb, type TestDbHandle, warmPool } from "./test-utils.js";
+export type { WriteExecutor } from "./write-executor.js";

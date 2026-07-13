@@ -17,6 +17,13 @@
  * surface used by these services, so `WriteExecutor` is a plain union — no
  * runtime discrimination needed.
  */
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "./connection.js";
 
+/**
+ * @lore AU19 Increment 1b: moved from `packages/server/src/write-executor.ts` —
+ * a generic zero-domain DB-tx helper shared by `work` (migrating this
+ * increment) and `routine-service.ts` (not yet migrated); per architecture §6
+ * disposition ("if generic DB tx helper → `@hyperidle/db`"), mirrors the
+ * `like-escape.ts` precedent set migrating `knowledge` (Increment 1a).
+ */
 export type WriteExecutor = HyperIdleDb | Parameters<Parameters<HyperIdleDb["transaction"]>[0]>[0];

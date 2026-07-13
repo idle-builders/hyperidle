@@ -33,8 +33,8 @@ import {
 	type SessionEndedEvent,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
-import * as work from "../work-service.js";
 
 // ---------------------------------------------------------------------------
 // Simple inline logger (observability adapter not yet available here)

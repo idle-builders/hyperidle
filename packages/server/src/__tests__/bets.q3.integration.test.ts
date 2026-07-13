@@ -14,8 +14,8 @@
  */
 
 import { bets, teamMembers, teams } from "@hyperidle/db";
+import { transitionBet } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { transitionBet } from "../services/bet-state-machine.js";
 import { describe, expect, test, vi } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-bets-q3";

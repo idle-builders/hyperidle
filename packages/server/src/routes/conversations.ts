@@ -1,6 +1,7 @@
 import type { HyperIdleDb, Item } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus, HostKind, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { authorizeRead } from "../auth/authorize.js";
@@ -12,7 +13,6 @@ import {
 	getThreadById,
 	listThreadsByRecency,
 } from "../services/conversation-store.js";
-import * as work from "../work-service.js";
 
 // @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path
 // dual-wrote `verdict`-typed messages without founder authz, idempotency, or

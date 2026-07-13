@@ -62,6 +62,7 @@ import {
 	scopeKindToLabel,
 	scopeToLayer,
 } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -70,7 +71,6 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { getUserById } from "../services/user-store.js";
-import * as work from "../work-service.js";
 
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation

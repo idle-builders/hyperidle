@@ -1,12 +1,12 @@
 import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { buildAttentionService } from "@hyperidle/knowledge";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import {
 	attentionReviewReasoningMarker,
 	createReviewItemForKnowledge,
 } from "../services/review-item-factory.js";
-import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

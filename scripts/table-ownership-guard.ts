@@ -49,8 +49,42 @@ const TABLE_OWNER: Record<string, string> = {
 	knowledgeAccessLog: "packages/core-api/knowledge",
 	knowledgeConflicts: "packages/core-api/knowledge",
 	knowledgeStrategyFabric: "packages/core-api/knowledge",
+	bets: "packages/core-api/work",
+	tasks: "packages/core-api/work",
+	items: "packages/core-api/work",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
+
+/**
+ * Tables genuinely accessed today from many present-and-future Services with
+ * no single owner assigned anywhere in architecture §4's roster (unlike
+ * `bets`/`tasks`/`items`, none of §4's per-Service "Owns" columns name
+ * `teamMembers`/`sessions`/`propagationLog`/`taskDispatchAttempts`). This
+ * mirrors the architecture's own precedent for `teams` (§6: "not one of the
+ * five owned tables, so any file may query it directly without going through
+ * a service") — completeness is intentionally NOT enforced for this
+ * short, explicit, reviewed list, rather than forcing a false single-owner
+ * assignment onto a real cross-cutting table.
+ *
+ * @lore AU19 Increment 1b: surfaced migrating `work` — `bet-decomposition.ts`/
+ * `bet-state-machine.ts` read/write `teamMembers` directly (capacity
+ * tracking); `bet-kill-cascade.ts` reads/writes `sessions` + `propagationLog`
+ * (cascade); `task-state-machine.ts`/`bet-decomposition.ts` write
+ * `taskDispatchAttempts`. Grepping the wider codebase (pre-AU19, still true
+ * today) shows 10+ files across `policy`/`session-lifecycle`/`dispatch`/
+ * `org`/`session-requests`/`lifecycle-projection`-destined modules touching
+ * each of these four directly — none is `work`-exclusive, so assigning any of
+ * them a `TABLE_OWNER` row pointing at `packages/core-api/work` would be a
+ * false-ownership claim the zero-exceptions ACL principle forbids just as
+ * much as a silent allowlist would. Revisit per-table as each real owner
+ * migrates (§4's `⛁*` "confirm at migration" callouts apply here too).
+ */
+const UNOWNED_SHARED_TABLES = new Set([
+	"teamMembers",
+	"sessions",
+	"propagationLog",
+	"taskDispatchAttempts",
+]);
 
 const DIRECT_ACCESS_METHODS = new Set(["from", "insert", "update", "delete"]);
 const JOIN_METHODS = new Set(["leftJoin", "innerJoin", "rightJoin", "fullJoin"]);
@@ -221,6 +255,7 @@ function checkAccess(
 
 	const consider = (name: string, kind: string): void => {
 		if (!tables.has(name)) return; // not a table object
+		if (UNOWNED_SHARED_TABLES.has(name)) return; // genuinely cross-cutting, no single owner (see comment above)
 		const owner = TABLE_OWNER[name];
 		if (owner === undefined) {
 			findings.push({
@@ -302,7 +337,13 @@ function writeFixture(root: string, rel: string, source: string): void {
 /** Minimal schema so knownTables() sees the tables the fixtures reference. */
 const FIXTURE_SCHEMA =
 	'export const knowledgeItems = pgTable("knowledge_items", {});\n' +
-	'export const bets = pgTable("bets", {});\n';
+	'export const bets = pgTable("bets", {});\n' +
+	// `orders` is deliberately absent from the real TABLE_OWNER map AND from
+	// UNOWNED_SHARED_TABLES — the completeness fixture below needs a table
+	// that is genuinely unmapped (unlike `bets`, which now has a real
+	// TABLE_OWNER row per AU19 Increment 1b, so it no longer proves this).
+	'export const orders = pgTable("orders", {});\n' +
+	'export const sessions = pgTable("sessions", {});\n';
 
 function fixtureCheck(): void {
 	// (1) Owner-legal + one foreign access + completeness, in one realistic tree.
@@ -337,14 +378,23 @@ function fixtureCheck(): void {
 			"packages/agent-orchestration/context-assembly/src/leak.ts",
 			'import { knowledgeItems } from "@hyperidle/db"; export const q = (db: any) => db.select().from(knowledgeItems);',
 		);
-		// Nested file touches an UNMAPPED known table (bets) → 1 completeness finding.
+		// Nested file touches an UNMAPPED known table (orders) → 1 completeness finding.
 		writeFixture(
 			root,
-			"packages/agent-orchestration/context-assembly/src/bets.ts",
-			'import { bets } from "@hyperidle/db"; export const q = (db: any) => db.insert(bets);',
+			"packages/agent-orchestration/context-assembly/src/orders.ts",
+			'import { orders } from "@hyperidle/db"; export const q = (db: any) => db.insert(orders);',
+		);
+		// A table in UNOWNED_SHARED_TABLES (sessions) is exempt from BOTH the ACL
+		// and the completeness check, even accessed from a foreign nested package
+		// (AU19 Increment 1b finding — see UNOWNED_SHARED_TABLES's comment).
+		writeFixture(
+			root,
+			"packages/agent-orchestration/context-assembly/src/sessions-ok.ts",
+			'import { sessions } from "@hyperidle/db"; export const q = (db: any) => db.select().from(sessions);',
 		);
 		const findings = inspect(root);
-		// leak.ts: 1 (foreign .from) + 1 (value import) = 2; bets.ts: 1 + 1 = 2 → 4 total.
+		// leak.ts: 1 (foreign .from) + 1 (value import) = 2; orders.ts: 1 + 1 = 2 → 4 total.
+		// sessions-ok.ts contributes 0 (UNOWNED_SHARED_TABLES exemption).
 		if (findings.length !== 4) {
 			throw new Error(
 				`table-ownership-guard: expected 4 findings (foreign access + import + 2 completeness), got ${findings.length}: ${JSON.stringify(findings)}`,

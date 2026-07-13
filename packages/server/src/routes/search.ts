@@ -29,6 +29,7 @@ import {
 } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -39,7 +40,6 @@ import {
 	listThreadMetaByIds,
 	searchConversations,
 } from "../services/conversation-store.js";
-import * as work from "../work-service.js";
 
 /** Max results per category */
 const MAX_PER_CATEGORY = 5;

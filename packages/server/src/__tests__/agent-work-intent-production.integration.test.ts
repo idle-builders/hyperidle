@@ -19,12 +19,24 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { AgentSelectionDefaults, AgentWorkIntentRecorder } from "@hyperidle/work";
+import { insertProposedBetTasks } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
-import { insertProposedBetTasks } from "../services/bet-decomposition.js";
+import { resolveDecompositionPlan } from "../services/agent-defaults/resolvers.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
 import { checkAndFireRoutine } from "../services/routine-scheduler.js";
+import { enumerateTeamCandidates, selectOwner } from "../services/select-agent.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
+
+/** AU19 Increment 1b: `insertProposedBetTasks` now takes injected `agent-selection`/`session-requests` ports. */
+const agentSelection: AgentSelectionDefaults = {
+	enumerateTeamCandidates,
+	selectOwner,
+	resolveDecompositionPlan,
+};
+const workIntents: AgentWorkIntentRecorder = { record: recordAgentWorkIntent };
 
 const authHeaders = {
 	"Content-Type": "application/json",
@@ -384,7 +396,7 @@ describe("atomic production handoffs", () => {
 		await seedExplicitSessionAuthority(db);
 
 		const result = await insertProposedBetTasks(
-			{ db, eventBus },
+			{ db, eventBus, agentSelection, workIntents },
 			{ id: "au9-production-bet", teamId: "au9-production-team" },
 			[],
 			[{ title: "First slice" }, { title: "Second slice" }],
@@ -632,7 +644,7 @@ describe("atomic production handoffs", () => {
 		await rejectIntentWrites(db);
 		await expect(
 			insertProposedBetTasks(
-				{ db, eventBus },
+				{ db, eventBus, agentSelection, workIntents },
 				{ id: "au9-production-bet", teamId: "au9-production-team" },
 				[],
 				[{ title: "Must be atomic" }],

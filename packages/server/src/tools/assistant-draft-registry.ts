@@ -18,10 +18,10 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { teamMembers } from "@hyperidle/db";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { getUserById } from "../services/user-store.js";
-import * as work from "../work-service.js";
 import { createBetTool } from "./create-bet.js";
 import { editBetTool } from "./edit-bet.js";
 import {

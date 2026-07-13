@@ -7,9 +7,9 @@ import {
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
 } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import z from "zod";
 import { getUserById } from "../services/user-store.js";
-import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

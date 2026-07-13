@@ -1,6 +1,6 @@
+import * as work from "@hyperidle/work";
+import { routeItem } from "@hyperidle/work";
 import z from "zod";
-import { routeItem } from "../services/item-router.js";
-import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

@@ -37,9 +37,9 @@ import {
 	type TaskState,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { and, eq, ne } from "drizzle-orm";
 import { insertNotification } from "../notifications/notification-queue.js";
-import * as work from "../work-service.js";
 import { insertMessage, insertThread } from "./conversation-store.js";
 import { getFirstUserByKind } from "./user-store.js";
 

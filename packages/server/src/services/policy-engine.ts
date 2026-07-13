@@ -14,8 +14,8 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { isSilenced as sharedIsSilenced } from "../notifications/silence-policy.js";
-import * as work from "../work-service.js";
 import { computeApprovalRate } from "./approval-rate.js";
 import {
 	insertMessage,

@@ -1,7 +1,7 @@
 import { type HyperIdleDb, sessions, teamMembers } from "@hyperidle/db";
 import type { AgentSessionSourceCorrelation, EventBus } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import * as work from "../work-service.js";
 import { getThreadById } from "./conversation-store.js";
 import { getUserById } from "./user-store.js";
 

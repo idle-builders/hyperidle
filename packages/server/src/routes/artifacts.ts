@@ -13,6 +13,7 @@ import {
 	isRegisteredKind,
 	OLD_KIND_MAP,
 } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -22,7 +23,6 @@ import { validateBody } from "../middleware/validate.js";
 import { artifactPreviewSchema, fallbackPreviewSchema } from "../schemas/artifact-preview.js";
 import { recordCostAndCheck } from "../services/cost-cap.js";
 import { getUserById } from "../services/user-store.js";
-import * as work from "../work-service.js";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;

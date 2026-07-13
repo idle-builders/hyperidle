@@ -10,8 +10,8 @@
 
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
+import { transitionBet } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { transitionBet } from "../../services/bet-state-machine.js";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-bets-validation";

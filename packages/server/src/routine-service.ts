@@ -20,10 +20,15 @@
  * caller instead (see `work-service.ts`'s `searchBetsByText` for the
  * pattern), not import a table here.
  */
-import { type NewRoutine, type NewRoutineRun, routineRuns, routines } from "@hyperidle/db";
+import {
+	type NewRoutine,
+	type NewRoutineRun,
+	routineRuns,
+	routines,
+	type WriteExecutor,
+} from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
 import { and, asc, avg, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
-import type { WriteExecutor } from "./write-executor.js";
 
 export type Routine = typeof routines.$inferSelect;
 export type RoutineRun = typeof routineRuns.$inferSelect;

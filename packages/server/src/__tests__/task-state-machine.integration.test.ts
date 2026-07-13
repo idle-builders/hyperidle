@@ -1,11 +1,19 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
+import type {
+	StateTransitionAuditEntry,
+	TaskAuditEntry,
+	TaskStateMachineDeps,
+} from "@hyperidle/work";
+import { InvalidTransitionError, transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
-import type { StateTransitionAuditEntry, TaskAuditEntry } from "../services/task-audit.js";
-import { InvalidTransitionError, transitionTask } from "../services/task-state-machine.js";
 import { test } from "../test-fixtures.js";
+
+/** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
+const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -48,7 +56,7 @@ describe("Task State Machine", () => {
 		test("transitions proposed -> accepted", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "proposed");
-			await transitionTask(db, eventBus, "task-1", "accepted");
+			await transitionTask(db, eventBus, "task-1", "accepted", testDeps);
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("accepted");
 		});
@@ -56,7 +64,7 @@ describe("Task State Machine", () => {
 		test("transitions accepted -> in_progress", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "accepted");
-			await transitionTask(db, eventBus, "task-1", "in_progress");
+			await transitionTask(db, eventBus, "task-1", "in_progress", testDeps);
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("in_progress");
 		});
@@ -64,7 +72,7 @@ describe("Task State Machine", () => {
 		test("transitions in_progress -> review", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "in_progress");
-			await transitionTask(db, eventBus, "task-1", "review");
+			await transitionTask(db, eventBus, "task-1", "review", testDeps);
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("review");
 		});
@@ -72,7 +80,7 @@ describe("Task State Machine", () => {
 		test("transitions review -> done", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "review");
-			await transitionTask(db, eventBus, "task-1", "done");
+			await transitionTask(db, eventBus, "task-1", "done", testDeps);
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("done");
 		});
@@ -80,7 +88,7 @@ describe("Task State Machine", () => {
 		test("transitions accepted -> hold", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "accepted");
-			await transitionTask(db, eventBus, "task-1", "hold");
+			await transitionTask(db, eventBus, "task-1", "hold", testDeps);
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("hold");
 		});
@@ -88,7 +96,7 @@ describe("Task State Machine", () => {
 		test("transitions in_progress -> blocked", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "in_progress");
-			await transitionTask(db, eventBus, "task-1", "blocked");
+			await transitionTask(db, eventBus, "task-1", "blocked", testDeps);
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("blocked");
 		});
@@ -96,7 +104,7 @@ describe("Task State Machine", () => {
 		test("transitions blocked -> in_progress", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "blocked");
-			await transitionTask(db, eventBus, "task-1", "in_progress");
+			await transitionTask(db, eventBus, "task-1", "in_progress", testDeps);
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("in_progress");
 		});
@@ -104,7 +112,7 @@ describe("Task State Machine", () => {
 		test("transitions review -> in_progress (rework)", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "review");
-			await transitionTask(db, eventBus, "task-1", "in_progress");
+			await transitionTask(db, eventBus, "task-1", "in_progress", testDeps);
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			expect(task?.state).toBe("in_progress");
 		});
@@ -114,7 +122,7 @@ describe("Task State Machine", () => {
 		test("throws InvalidTransitionError for proposed -> done", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "proposed");
-			await expect(transitionTask(db, eventBus, "task-1", "done")).rejects.toThrow(
+			await expect(transitionTask(db, eventBus, "task-1", "done", testDeps)).rejects.toThrow(
 				InvalidTransitionError,
 			);
 		});
@@ -122,7 +130,7 @@ describe("Task State Machine", () => {
 		test("throws InvalidTransitionError for done -> proposed", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "done");
-			await expect(transitionTask(db, eventBus, "task-1", "proposed")).rejects.toThrow(
+			await expect(transitionTask(db, eventBus, "task-1", "proposed", testDeps)).rejects.toThrow(
 				InvalidTransitionError,
 			);
 		});
@@ -130,14 +138,16 @@ describe("Task State Machine", () => {
 		test("throws InvalidTransitionError for proposed -> in_progress", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "proposed");
-			await expect(transitionTask(db, eventBus, "task-1", "in_progress")).rejects.toThrow(
+			await expect(transitionTask(db, eventBus, "task-1", "in_progress", testDeps)).rejects.toThrow(
 				InvalidTransitionError,
 			);
 		});
 
 		test("throws when task does not exist", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
-			await expect(transitionTask(db, eventBus, "nonexistent", "accepted")).rejects.toThrow();
+			await expect(
+				transitionTask(db, eventBus, "nonexistent", "accepted", testDeps),
+			).rejects.toThrow();
 		});
 	});
 
@@ -156,7 +166,7 @@ describe("Task State Machine", () => {
 			test(`transitions ${state} -> killed`, async ({ db, eventBus }) => {
 				await seedPrerequisites(db);
 				await insertTask(db, `task-${state}`, state);
-				await transitionTask(db, eventBus, `task-${state}`, "killed");
+				await transitionTask(db, eventBus, `task-${state}`, "killed", testDeps);
 				const [task] = await db
 					.select()
 					.from(tasks)
@@ -177,37 +187,37 @@ describe("Task State Machine", () => {
 
 			// proposed -> accepted
 			await insertTask(db, "t-accepted", "proposed");
-			await transitionTask(db, eventBus, "t-accepted", "accepted");
+			await transitionTask(db, eventBus, "t-accepted", "accepted", testDeps);
 			achievedStates.add("accepted");
 
 			// accepted -> hold
 			await insertTask(db, "t-hold", "accepted");
-			await transitionTask(db, eventBus, "t-hold", "hold");
+			await transitionTask(db, eventBus, "t-hold", "hold", testDeps);
 			achievedStates.add("hold");
 
 			// accepted -> in_progress
 			await insertTask(db, "t-in-progress", "accepted");
-			await transitionTask(db, eventBus, "t-in-progress", "in_progress");
+			await transitionTask(db, eventBus, "t-in-progress", "in_progress", testDeps);
 			achievedStates.add("in_progress");
 
 			// in_progress -> blocked
 			await insertTask(db, "t-blocked", "in_progress");
-			await transitionTask(db, eventBus, "t-blocked", "blocked");
+			await transitionTask(db, eventBus, "t-blocked", "blocked", testDeps);
 			achievedStates.add("blocked");
 
 			// in_progress -> review
 			await insertTask(db, "t-review", "in_progress");
-			await transitionTask(db, eventBus, "t-review", "review");
+			await transitionTask(db, eventBus, "t-review", "review", testDeps);
 			achievedStates.add("review");
 
 			// review -> done
 			await insertTask(db, "t-done", "review");
-			await transitionTask(db, eventBus, "t-done", "done");
+			await transitionTask(db, eventBus, "t-done", "done", testDeps);
 			achievedStates.add("done");
 
 			// proposed -> killed
 			await insertTask(db, "t-killed", "proposed");
-			await transitionTask(db, eventBus, "t-killed", "killed");
+			await transitionTask(db, eventBus, "t-killed", "killed", testDeps);
 			achievedStates.add("killed");
 
 			expect(achievedStates.size).toBe(8);
@@ -226,8 +236,8 @@ describe("Task State Machine", () => {
 		test("logs every transition in the audit trail", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "proposed");
-			await transitionTask(db, eventBus, "task-1", "accepted");
-			await transitionTask(db, eventBus, "task-1", "in_progress");
+			await transitionTask(db, eventBus, "task-1", "accepted", testDeps);
+			await transitionTask(db, eventBus, "task-1", "in_progress", testDeps);
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as TaskAuditEntry[];
@@ -257,7 +267,7 @@ describe("Task State Machine", () => {
 				updatedAt: now,
 			});
 
-			await transitionTask(db, eventBus, "task-existing", "accepted");
+			await transitionTask(db, eventBus, "task-existing", "accepted", testDeps);
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-existing"));
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as TaskAuditEntry[];
@@ -278,7 +288,7 @@ describe("Task State Machine", () => {
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
-			await transitionTask(db, eventBus, "task-1", "accepted");
+			await transitionTask(db, eventBus, "task-1", "accepted", testDeps);
 
 			expect(events).toHaveLength(1);
 			expect(events[0]!.taskId).toBe("task-1");
@@ -293,7 +303,7 @@ describe("Task State Machine", () => {
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
-			await expect(transitionTask(db, eventBus, "task-1", "done")).rejects.toThrow(
+			await expect(transitionTask(db, eventBus, "task-1", "done", testDeps)).rejects.toThrow(
 				InvalidTransitionError,
 			);
 			expect(events).toHaveLength(0);
@@ -310,8 +320,8 @@ describe("Task State Machine", () => {
 			await insertTask(db, "task-b", "hold", ["task-a"]);
 
 			// Complete task A through valid path
-			await transitionTask(db, eventBus, "task-a", "review");
-			await transitionTask(db, eventBus, "task-a", "done");
+			await transitionTask(db, eventBus, "task-a", "review", testDeps);
+			await transitionTask(db, eventBus, "task-a", "done", testDeps);
 			await checkAndUnblockDependents(db, eventBus, "task-a");
 
 			const [taskB] = await db.select().from(tasks).where(eq(tasks.id, "task-b"));
@@ -328,16 +338,16 @@ describe("Task State Machine", () => {
 			await insertTask(db, "task-c", "hold", ["task-a", "task-b"]);
 
 			// Complete A
-			await transitionTask(db, eventBus, "task-a", "review");
-			await transitionTask(db, eventBus, "task-a", "done");
+			await transitionTask(db, eventBus, "task-a", "review", testDeps);
+			await transitionTask(db, eventBus, "task-a", "done", testDeps);
 			await checkAndUnblockDependents(db, eventBus, "task-a");
 
 			let [taskC] = await db.select().from(tasks).where(eq(tasks.id, "task-c"));
 			expect(taskC?.state).toBe("hold");
 
 			// Complete B
-			await transitionTask(db, eventBus, "task-b", "review");
-			await transitionTask(db, eventBus, "task-b", "done");
+			await transitionTask(db, eventBus, "task-b", "review", testDeps);
+			await transitionTask(db, eventBus, "task-b", "done", testDeps);
 			await checkAndUnblockDependents(db, eventBus, "task-b");
 
 			[taskC] = await db.select().from(tasks).where(eq(tasks.id, "task-c"));
@@ -352,7 +362,7 @@ describe("Task State Machine", () => {
 			const notifications: NotificationEvent[] = [];
 			eventBus.on("notification", (e) => notifications.push(e));
 
-			await transitionTask(db, eventBus, "task-a", "done");
+			await transitionTask(db, eventBus, "task-a", "done", testDeps);
 			await checkAndUnblockDependents(db, eventBus, "task-a");
 
 			expect(notifications).toHaveLength(1);

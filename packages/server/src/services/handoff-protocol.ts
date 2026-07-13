@@ -7,15 +7,15 @@ import {
 	teamMembers,
 } from "@hyperidle/db";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
+import type { HandoffAuditEntry, TaskAuditEntry } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { InvalidTransitionError, VALID_TRANSITIONS } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import * as work from "../work-service.js";
 import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import { insertMessage, insertThread } from "./conversation-store.js";
 import { releaseSessionDedup } from "./cost-cap.js";
 import { requestAgentTermination, type SessionContext } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
-import type { HandoffAuditEntry, TaskAuditEntry } from "./task-audit.js";
-import { InvalidTransitionError, VALID_TRANSITIONS } from "./task-state-machine.js";
 import { findActiveTeammateByRole, getUserById } from "./user-store.js";
 
 export interface HandoffMetadata {

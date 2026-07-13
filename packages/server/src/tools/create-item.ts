@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { ItemCreatedEvent } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
+import { routeItem } from "@hyperidle/work";
 import z from "zod";
 import { getThreadById, insertThread, updateThread } from "../services/conversation-store.js";
-import { routeItem } from "../services/item-router.js";
 import { resolveReviewRecipients } from "../services/org-routing.js";
 import { getUserById } from "../services/user-store.js";
-import * as work from "../work-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

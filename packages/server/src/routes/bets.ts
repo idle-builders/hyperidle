@@ -14,6 +14,8 @@ import {
 	deriveTitle,
 	InvalidTransitionError,
 } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
+import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
 import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -21,11 +23,9 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
-import { cascadeBetKill } from "../services/bet-kill-cascade.js";
-import { transitionBet, updateBetField } from "../services/bet-state-machine.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { getArtifactThreadSummaries } from "../services/conversation-store.js";
 import { ApiError, loadTeamMembers } from "../services/team-lookup.js";
-import * as work from "../work-service.js";
 
 const SUMMARY_CAP = 10;
 
@@ -811,7 +811,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// @lore AF12: cascade the kill downward AFTER the bet is `killed` so the
 			// task-kill's upward propagation sees a terminal bet and skips (no spurious
 			// review thread). Synchronous so the UI's immediate refresh shows true state.
-			await cascadeBetKill(db, eventBus, betId);
+			await cascadeBetKill(db, eventBus, betId, {
+				workIntents: { record: recordAgentWorkIntent },
+			});
 			const updated = await work.getBetById(db, betId);
 			if (!updated) {
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);

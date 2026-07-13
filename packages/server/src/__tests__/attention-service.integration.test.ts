@@ -7,6 +7,7 @@ import {
 } from "@hyperidle/db";
 import { buildAttentionService, MAX_RECOMPUTE_BATCH } from "@hyperidle/knowledge";
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import {
@@ -14,7 +15,6 @@ import {
 	createReviewItemForKnowledge,
 } from "../services/review-item-factory.js";
 import { test } from "../test-fixtures.js";
-import * as work from "../work-service.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();

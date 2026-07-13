@@ -19,10 +19,10 @@ import {
 	type EventBus,
 	type ItemCreatedEvent,
 } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { and, eq, gte, inArray } from "drizzle-orm";
 import { BUILTIN_SPECS, extractBuiltinKind } from "../config/builtin-routines.js";
 import * as routineService from "../routine-service.js";
-import * as work from "../work-service.js";
 import { getThreadIdsByHost, insertThread } from "./conversation-store.js";
 import { createPracticeMeeting } from "./practice-meeting.js";
 import {

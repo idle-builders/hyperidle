@@ -10,7 +10,7 @@ import {
 	type ScoringContext,
 } from "@hyperidle/knowledge";
 import type { UserRole } from "@hyperidle/shared";
-import * as work from "../work-service.js";
+import * as work from "@hyperidle/work";
 import { buildSessionContext } from "./session-context.js";
 
 /**

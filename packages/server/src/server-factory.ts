@@ -11,6 +11,7 @@ import {
 } from "@hyperidle/db";
 import { registerRelevanceListener, setupFts } from "@hyperidle/knowledge";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
+import { registerBetDecomposition, resolveOrphanedDecompositions } from "@hyperidle/work";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { RegistryFilesystemMounter } from "./filesystem/mounter-registry.js";
@@ -29,16 +30,16 @@ import { startNotificationDrain } from "./notifications/drain.js";
 import { defaultMutePreferenceReader } from "./notifications/mute.js";
 import { registerNotificationListener } from "./notifications/notification-listener.js";
 import { registerWsRoute } from "./routes/ws.js";
+import { resolveDecompositionPlan } from "./services/agent-defaults/resolvers.js";
 import {
 	bootAgentLayer,
 	markRunningAgentSessionRequestsForShutdown,
 } from "./services/agent-layer-boot.js";
 import { startAgentLifecycleProjectionDrain } from "./services/agent-lifecycle-projectors.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
-import { resolveOrphanedDecompositions } from "./services/bet-decomposition.js";
-import { registerBetDecomposition } from "./services/bet-decomposition-subscriber.js";
+import { recordAgentWorkIntent } from "./services/agent-work-intents.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handlers.js";
-import { registerCostCapDedupReleaser } from "./services/cost-cap.js";
+import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 import { startCostSentinel } from "./services/cost-sentinel.js";
 import { getServerSecret } from "./services/credential-encryption.js";
@@ -55,9 +56,11 @@ import { startRetentionReaper } from "./services/retention-reaper.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import { startSandboxReaper } from "./services/sandbox-reaper.js";
+import { enumerateTeamCandidates, selectOwner } from "./services/select-agent.js";
 import { migrateCredentialsToStore, readServerConfig } from "./services/server-config.js";
 import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
+import { getUserById, listActiveAiUsersByTeams } from "./services/user-store.js";
 import { registerWorkerWsRoute } from "./services/worker-ws.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
@@ -466,6 +469,14 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		adapterPool,
 		sandboxBasePath,
 		resolveModel: makeResolveModel(db, credentialResolver),
+		// AU19 Increment 1b: `work`'s four outbound DI ports (Mechanism C) — the
+		// concrete implementations still live in packages/server (agent-selection/
+		// session-requests/cost/users have not migrated yet). See
+		// packages/core-api/work/src/ports.ts for the port contracts.
+		agentSelection: { enumerateTeamCandidates, selectOwner, resolveDecompositionPlan },
+		users: { getUserById, listActiveAiUsersByTeams },
+		costCap: { checkCostCap },
+		workIntents: { record: recordAgentWorkIntent },
 	});
 
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.

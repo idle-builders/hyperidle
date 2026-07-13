@@ -47,10 +47,10 @@ import {
 	type NewTask,
 	sessions,
 	tasks,
+	type WriteExecutor,
 } from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
-import type { WriteExecutor } from "./write-executor.js";
 
 export type Bet = typeof bets.$inferSelect;
 export type Task = typeof tasks.$inferSelect;

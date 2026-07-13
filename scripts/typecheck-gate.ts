@@ -301,7 +301,11 @@ function buildLeafDeclarations(root: string): void {
   // and re-measuring `server`, which then drops to 0. Every future Increment that
   // migrates a Service consumed by `server` (or another non-Layer package) will
   // need the same addition here.
-  for (const leaf of ["shared", "db", "design-system", "core-api/knowledge"]) {
+  //
+  // @lore AU19 Increment 1b: `core-api/work` added — same TS6305 cascade hits
+  // `server` again (43+ consumer files across routes/tools/services now import
+  // `@hyperidle/work`) without a pre-built dist.
+  for (const leaf of ["shared", "db", "design-system", "core-api/knowledge", "core-api/work"]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
     } catch {

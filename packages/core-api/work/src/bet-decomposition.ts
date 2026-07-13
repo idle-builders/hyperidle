@@ -23,7 +23,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { type HyperIdleDb, taskDispatchAttempts, teamMembers, type User } from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts, teamMembers } from "@hyperidle/db";
 import {
 	DECOMPOSITION_TURN_TIMEOUT_MS,
 	type DecompositionBlockerReason,
@@ -32,13 +32,15 @@ import {
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import * as work from "../work-service.js";
-import { resolveDecompositionPlan } from "./agent-defaults/resolvers.js";
-import { recordAgentWorkIntent } from "./agent-work-intents.js";
-import type { DecompositionPlan } from "./contracts.js";
-import { checkCostCap } from "./cost-cap.js";
-import { enumerateTeamCandidates, selectOwner } from "./select-agent.js";
-import { getUserById, listActiveAiUsersByTeams } from "./user-store.js";
+import type {
+	AgentSelectionDefaults,
+	AgentWorkIntentRecorder,
+	CostCapChecker,
+	UserStoreReader,
+	WorkDecompositionPlan,
+	WorkUserRow,
+} from "./ports.js";
+import * as work from "./work-service.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -48,6 +50,26 @@ export interface BetDecompositionDeps {
 	readonly [legacyInput: string]: unknown;
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
+	/**
+	 * Injected `agent-selection` Service port (Mechanism C — §10.3 against-grain,
+	 * interim DI port; Increment 3 rewires to an EventBus subscription).
+	 */
+	readonly agentSelection: AgentSelectionDefaults;
+	/**
+	 * Injected `users` Service port (Mechanism C — ordinary downward edge, no
+	 * Inc-3 event-bus rewrite needed, only a DI-target swap once `users` migrates).
+	 */
+	readonly users: UserStoreReader;
+	/**
+	 * Injected `cost` Service port (Mechanism C — §10.3 against-grain, interim
+	 * DI port; Increment 3 rewires to an EventBus subscription).
+	 */
+	readonly costCap: CostCapChecker;
+	/**
+	 * Injected `session-requests` Service port (Mechanism C — §10.3 against-grain,
+	 * interim DI port; Increment 3 rewires to an EventBus subscription).
+	 */
+	readonly workIntents: AgentWorkIntentRecorder;
 	/**
 	 * AU1: Kept as an opaque composition-root dependency for the registered runtime
 	 * consumer. Decomposition itself must not select adapters or start harnesses.
@@ -112,7 +134,11 @@ export interface BetDecompositionDeps {
  * (domain entity). The join goes: teams.id → teamMembers.teamId → teamMembers.id → users.teamId.
  * This mirrors the handoff-protocol.ts eligibility join (L184-202).
  */
-export async function findEligibleTeamAgents(db: HyperIdleDb, betTeamId: string): Promise<User[]> {
+export async function findEligibleTeamAgents(
+	db: HyperIdleDb,
+	betTeamId: string,
+	users: UserStoreReader,
+): Promise<readonly WorkUserRow[]> {
 	// 1. Resolve membership group IDs for this team (1:1 invariant in practice).
 	const memberGroups = await db
 		.select({ id: teamMembers.id })
@@ -123,7 +149,7 @@ export async function findEligibleTeamAgents(db: HyperIdleDb, betTeamId: string)
 	const memberGroupIds = memberGroups.map((m) => m.id);
 
 	// 2. Fetch active AI users in those membership groups.
-	const candidates = await listActiveAiUsersByTeams(db, memberGroupIds);
+	const candidates = await users.listActiveAiUsersByTeams(db, memberGroupIds);
 
 	// 3. Filter to category='team' via the role catalog.
 	//    Unknown roles (not in catalog) are excluded — conservative default.
@@ -161,12 +187,17 @@ export async function findEligibleTeamAgents(db: HyperIdleDb, betTeamId: string)
  * resolver reproduces `candidates[i % len]`. The role short-circuit is preserved.
  */
 export async function insertProposedBetTasks(
-	deps: { db: HyperIdleDb; eventBus: EventBus },
+	deps: {
+		db: HyperIdleDb;
+		eventBus: EventBus;
+		agentSelection: AgentSelectionDefaults;
+		workIntents: AgentWorkIntentRecorder;
+	},
 	bet: { id: string; teamId: string },
-	_eligible: User[],
+	_eligible: readonly WorkUserRow[],
 	taskInputs: DecompositionTaskInput[],
 ): Promise<{ created: number }> {
-	const { db, eventBus } = deps;
+	const { db, eventBus, agentSelection, workIntents } = deps;
 	let created = 0;
 
 	for (let i = 0; i < taskInputs.length; i++) {
@@ -177,7 +208,7 @@ export async function insertProposedBetTasks(
 		// candidates (orderBy users.id), emits work_selection_requested, and validates the result.
 		// spreadIndex:i preserves the AK3 round-robin spread on the mismatch branch
 		// (concept §6.3 — without it all null-role tasks collapse to candidates[0]).
-		const ownerAgentId = await selectOwner(
+		const ownerAgentId = await agentSelection.selectOwner(
 			{ db, eventBus },
 			{
 				surface: "bet_task",
@@ -217,7 +248,7 @@ export async function insertProposedBetTasks(
 					createdAt: now,
 					updatedAt: now,
 				});
-				await recordAgentWorkIntent(tx, {
+				await workIntents.record(tx, {
 					kind: "task_run",
 					sourceKind: "task_dispatch_attempt",
 					sourceId: attemptId,
@@ -344,17 +375,17 @@ export async function runBetDecomposition(
 	if (!bet || bet.decompositionStatus !== null) return;
 
 	// --- 1. Find eligible team agents ---
-	const eligible = await findEligibleTeamAgents(db, bet.teamId);
+	const eligible = await findEligibleTeamAgents(db, bet.teamId, deps.users);
 	if (eligible.length === 0) {
 		await markTerminal(db, betId, "blocked", "no_eligible_agent");
 		return;
 	}
 
 	// --- 3. Resolve the decomposition plan from app-owned defaults ---
-	const candidates = await enumerateTeamCandidates(db, bet.teamId);
-	let plan: DecompositionPlan;
+	const candidates = await deps.agentSelection.enumerateTeamCandidates(db, bet.teamId);
+	let plan: WorkDecompositionPlan;
 	try {
-		plan = await resolveDecompositionPlan({
+		plan = await deps.agentSelection.resolveDecompositionPlan({
 			db,
 			teamId: bet.teamId,
 			betId,
@@ -390,17 +421,17 @@ export async function runBetDecomposition(
 	}
 
 	// Load the full decomposer user row (needed for harnessType/modelProvider/role in real turn).
-	const pm = await getUserById(db, plan.decomposerAgentId);
+	const pm = await deps.users.getUserById(db, plan.decomposerAgentId);
 	if (!pm) {
 		await markTerminal(db, betId, "blocked", "no_eligible_agent");
 		return;
 	}
 
-	let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
+	let intent: Awaited<ReturnType<AgentWorkIntentRecorder["record"]>> | undefined;
 	await db.transaction(async (tx) => {
 		const { claimed } = await work.claimBetDecomposition(tx, betId);
 		if (!claimed) return;
-		intent = await recordAgentWorkIntent(tx, {
+		intent = await deps.workIntents.record(tx, {
 			kind: "bet_decomposition",
 			sourceKind: "bet",
 			sourceId: betId,
@@ -430,7 +461,7 @@ export async function runBetDecomposition(
 	// --- 6. Cost pre-flight ---
 	// @lore AK3: checkCostCap is called before the turn to prevent runaway cost.
 	// Cost is enforced before entering the agent runtime.
-	const capResult = await checkCostCap(db, eventBus, {
+	const capResult = await deps.costCap.checkCostCap(db, eventBus, {
 		agentId: pm.id,
 		teamId: bet.teamId,
 	});
@@ -509,7 +540,7 @@ export async function runBetDecomposition(
 
 		// --- 10. Insert tasks → accepted → dispatch ---
 		await insertProposedBetTasks(
-			{ db, eventBus },
+			{ db, eventBus, agentSelection: deps.agentSelection, workIntents: deps.workIntents },
 			{ id: bet.id, teamId: bet.teamId },
 			eligible,
 			taskList,

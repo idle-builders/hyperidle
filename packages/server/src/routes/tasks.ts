@@ -1,6 +1,8 @@
 import { type HyperIdleDb, sessions, type tasks } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
+import { transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -8,10 +10,9 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { handoff } from "../services/handoff-protocol.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
-import { transitionTask } from "../services/task-state-machine.js";
-import * as work from "../work-service.js";
 
 /**
  * Zod schemas for request validation.
@@ -202,7 +203,9 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			const taskId = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
 
-			await transitionTask(db, eventBus, taskId, body.state);
+			await transitionTask(db, eventBus, taskId, body.state, {
+				workIntents: { record: recordAgentWorkIntent },
+			});
 
 			const updated = await work.getTaskById(db, taskId);
 			return c.json(updated);

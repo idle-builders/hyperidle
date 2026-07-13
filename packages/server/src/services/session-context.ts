@@ -7,9 +7,9 @@
 import { type HyperIdleDb, teams } from "@hyperidle/db";
 import type { UserRole } from "@hyperidle/shared";
 import { encodeTyped } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import * as routineService from "../routine-service.js";
-import * as work from "../work-service.js";
 import { getUserById } from "./user-store.js";
 
 export interface SessionContextConfig {

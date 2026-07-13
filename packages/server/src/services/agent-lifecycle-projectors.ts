@@ -5,9 +5,9 @@ import {
 	type HyperIdleDb,
 	taskDispatchAttempts,
 } from "@hyperidle/db";
+import * as work from "@hyperidle/work";
 import { and, eq, isNull, lt, or } from "drizzle-orm";
 import * as routine from "../routine-service.js";
-import * as work from "../work-service.js";
 
 export const AGENT_LIFECYCLE_SOURCE_KINDS = [
 	"assistant",

@@ -1,7 +1,8 @@
 import { escapeLikePattern, type HyperIdleDb } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
-import * as work from "../work-service.js";
-import { transitionTask } from "./task-state-machine.js";
+import * as work from "@hyperidle/work";
+import { transitionTask } from "@hyperidle/work";
+import { recordAgentWorkIntent } from "./agent-work-intents.js";
 
 const logger = createLogger({ pkg: "server.dependency-watcher" });
 
@@ -78,7 +79,14 @@ export async function checkAndUnblockDependents(
 		if (!allDone) continue;
 
 		// Auto-transition hold -> accepted
-		await transitionTask(db, eventBus, task.id, "accepted", "accepted");
+		await transitionTask(
+			db,
+			eventBus,
+			task.id,
+			"accepted",
+			{ workIntents: { record: recordAgentWorkIntent } },
+			"accepted",
+		);
 
 		// Emit ambient event — NOT a notification (concept hard rule #6: auto-unblock is ambient)
 		// AF8: kind="auto_unblock" → the notification listener filters this out entirely

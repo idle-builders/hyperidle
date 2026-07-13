@@ -12,9 +12,9 @@
 
 import { randomUUID } from "node:crypto";
 import { teams } from "@hyperidle/db";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import * as work from "../work-service.js";
 import type { AssistantToolResult, AssistantToolShape } from "./assistant-tool-result.js";
 import type { ToolContext } from "./tool-registry.js";
 

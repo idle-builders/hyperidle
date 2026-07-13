@@ -15,10 +15,15 @@
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/shared";
+import type { TaskStateMachineDeps } from "@hyperidle/work";
+import { InvalidTransitionError, transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { InvalidTransitionError, transitionTask } from "../services/task-state-machine.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { test } from "../test-fixtures.js";
+
+/** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
+const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
 
 async function seed(db: HyperIdleDb, taskState = "accepted"): Promise<void> {
 	const now = new Date().toISOString();
@@ -54,8 +59,8 @@ describe("AF12 AC5 — task transition CAS", () => {
 
 		// accepted → in_progress and accepted → hold both valid from `accepted`.
 		const results = await Promise.allSettled([
-			transitionTask(db, eventBus, "task-1", "in_progress"),
-			transitionTask(db, eventBus, "task-1", "hold"),
+			transitionTask(db, eventBus, "task-1", "in_progress", testDeps),
+			transitionTask(db, eventBus, "task-1", "hold", testDeps),
 		]);
 
 		const fulfilled = results.filter((r) => r.status === "fulfilled");
@@ -80,8 +85,8 @@ describe("AF12 AC5 — task transition CAS", () => {
 		eventBus.on("task_state_changed", (e) => emitted.push(e));
 
 		await Promise.allSettled([
-			transitionTask(db, eventBus, "task-1", "in_progress"),
-			transitionTask(db, eventBus, "task-1", "hold"),
+			transitionTask(db, eventBus, "task-1", "in_progress", testDeps),
+			transitionTask(db, eventBus, "task-1", "hold", testDeps),
 		]);
 
 		expect(emitted).toHaveLength(1);
@@ -94,8 +99,8 @@ describe("AF12 AC5 — task transition CAS", () => {
 		await seed(db, "accepted");
 
 		const results = await Promise.allSettled([
-			transitionTask(db, eventBus, "task-1", "in_progress"),
-			transitionTask(db, eventBus, "task-1", "hold"),
+			transitionTask(db, eventBus, "task-1", "in_progress", testDeps),
+			transitionTask(db, eventBus, "task-1", "hold", testDeps),
 		]);
 		const committed = results.filter((r) => r.status === "fulfilled").length;
 

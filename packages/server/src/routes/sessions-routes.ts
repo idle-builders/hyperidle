@@ -7,6 +7,7 @@ import {
 	type SessionOutcome,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import z from "zod";
@@ -20,7 +21,6 @@ import {
 	transitionAgentRunLifecycle,
 } from "../services/session-lifecycle.js";
 import { sessionRunRegistry } from "../services/session-run-registry.js";
-import * as work from "../work-service.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part

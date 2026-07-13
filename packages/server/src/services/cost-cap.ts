@@ -5,8 +5,8 @@ import * as crypto from "node:crypto";
 // @lore R5: `bets` and `tasks` added for bet cost accumulation via taskId lookup.
 import { bets, type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
-import * as work from "../work-service.js";
 import {
 	getUserById,
 	incrementUserCost,

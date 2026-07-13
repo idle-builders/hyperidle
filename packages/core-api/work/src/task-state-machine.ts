@@ -2,9 +2,20 @@ import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
 import type { EventBus, TaskState } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import * as work from "../work-service.js";
-import { recordAgentWorkIntent } from "./agent-work-intents.js";
+import type { AgentWorkIntentRecorder } from "./ports.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
+import * as work from "./work-service.js";
+
+/**
+ * Injected-port deps for `transitionTask`/`cascadeBetKill` (Mechanism C).
+ *
+ * @lore AU19 Increment 1b: `workIntents` is the same §10.3 against-grain
+ * `session-requests` port as `bet-decomposition.ts`'s — interim DI wiring,
+ * rewired to an EventBus subscription in Increment 3.
+ */
+export interface TaskStateMachineDeps {
+	readonly workIntents: AgentWorkIntentRecorder;
+}
 
 /** Map of each state to its valid target states. `killed` is always valid. */
 export const VALID_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
@@ -60,6 +71,7 @@ export async function transitionTask(
 	eventBus: EventBus,
 	taskId: string,
 	toState: TaskState,
+	deps: TaskStateMachineDeps,
 	dispatchOccasion?: "accepted" | "retry",
 ): Promise<void> {
 	const transitioned = await db.transaction(
@@ -121,7 +133,7 @@ export async function transitionTask(
 					createdAt: entry.timestamp,
 					updatedAt: entry.timestamp,
 				});
-				await recordAgentWorkIntent(tx as HyperIdleDb, {
+				await deps.workIntents.record(tx, {
 					kind: "task_run",
 					sourceKind: "task_dispatch_attempt",
 					sourceId: attemptId,

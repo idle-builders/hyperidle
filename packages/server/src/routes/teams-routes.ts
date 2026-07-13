@@ -39,6 +39,7 @@ import {
 	deriveTitle,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
+import * as work from "@hyperidle/work";
 import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -65,7 +66,6 @@ import {
 	listUsersByTeamAndKind,
 	updateUser,
 } from "../services/user-store.js";
-import * as work from "../work-service.js";
 import {
 	computeHealthSignals,
 	deriveHealthDetail,

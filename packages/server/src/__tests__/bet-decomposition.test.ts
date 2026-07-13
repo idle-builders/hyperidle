@@ -33,12 +33,29 @@ import {
 	type DecompositionTaskInput,
 	type ResolvedModel,
 } from "@hyperidle/shared";
+import type { BetDecompositionDeps } from "@hyperidle/work";
+import { runBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import type { BetDecompositionDeps } from "../services/bet-decomposition.js";
-import { runBetDecomposition } from "../services/bet-decomposition.js";
+import { resolveDecompositionPlan } from "../services/agent-defaults/resolvers.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
+import { checkCostCap } from "../services/cost-cap.js";
+import { enumerateTeamCandidates, selectOwner } from "../services/select-agent.js";
+import { getUserById, listActiveAiUsersByTeams } from "../services/user-store.js";
 import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../tools/create-task.js";
+
+/**
+ * AU19 Increment 1b: `BetDecompositionDeps` now requires the four injected
+ * `work` outbound ports (Mechanism C). Mirrors `server-factory.ts`'s
+ * production wiring exactly.
+ */
+const productionPorts = {
+	agentSelection: { enumerateTeamCandidates, selectOwner, resolveDecompositionPlan },
+	users: { getUserById, listActiveAiUsersByTeams },
+	costCap: { checkCostCap },
+	workIntents: { record: recordAgentWorkIntent },
+} as const;
 
 // ---------------------------------------------------------------------------
 // Shared seed helpers (used by AC5)
@@ -196,6 +213,7 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 		const deps: BetDecompositionDeps = {
 			db,
 			eventBus,
+			...productionPorts,
 			adapterPool: mockAdapterPool,
 			executeAgentRunRequest: vi.fn().mockResolvedValue({
 				sessionId: "session-ac5",
@@ -267,6 +285,7 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 		const deps: BetDecompositionDeps = {
 			db,
 			eventBus,
+			...productionPorts,
 			adapterPool: {
 				select,
 				release(_id: string): void {
@@ -315,6 +334,7 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 			{
 				db,
 				eventBus,
+				...productionPorts,
 				adapterPool: {},
 				executeAgentRunRequest,
 				sandboxBasePath: "/tmp/ac5-test",
