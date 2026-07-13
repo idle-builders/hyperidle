@@ -20,6 +20,7 @@
  * so the test never races the async handler.
  */
 
+import { cascadeBetKill, registerLifecyclePropagation, transitionBet } from "@hyperidle/core-app";
 import {
 	bets,
 	type HyperIdleDb,
@@ -32,9 +33,6 @@ import {
 } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { cascadeBetKill } from "@hyperidle/core-app";
-import { transitionBet } from "@hyperidle/core-app";
-import { registerLifecyclePropagation } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 async function seed(db: HyperIdleDb): Promise<void> {

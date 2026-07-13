@@ -5,6 +5,7 @@
  * or `reclaimAgentWorkIntent` directly.
  */
 
+import { drainAgentWorkIntents } from "@hyperidle/agent-layer";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -16,7 +17,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { drainAgentWorkIntents } from "@hyperidle/agent-layer";
 import { describe, expect, test } from "../test-fixtures.js";
 
 async function seedExplicitStartIntent(

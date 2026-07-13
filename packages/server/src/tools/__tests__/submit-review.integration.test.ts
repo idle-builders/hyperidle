@@ -10,6 +10,8 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { submitReviewTool } from "@hyperidle/agent-layer";
 import {
 	bets,
 	type HyperIdleDb,
@@ -24,8 +26,6 @@ import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { submitReviewTool } from "@hyperidle/agent-layer";
-import type { ToolContext } from "@hyperidle/agent-layer";
 
 const NOW = new Date().toISOString();
 

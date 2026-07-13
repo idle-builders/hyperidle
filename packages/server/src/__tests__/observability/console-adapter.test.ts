@@ -2,9 +2,9 @@
  * H3 AC1 — Console observability adapter emits structured JSON logs.
  */
 
+import { createConsoleObservabilityAdapter } from "@hyperidle/core-app";
 import type { Logger, ObservabilityEvent } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createConsoleObservabilityAdapter } from "@hyperidle/core-app";
 
 interface LogCall {
 	level: "debug" | "info" | "warn" | "error";

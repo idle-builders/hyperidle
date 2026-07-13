@@ -5,13 +5,10 @@
  * Returns AdapterInfo[] — one entry per registered adapter.
  */
 
+import { type HarnessCapabilityReader, workerConnections } from "@hyperidle/agent-layer";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
-import {
-	type HarnessCapabilityReader,
-	workerConnections,
-} from "@hyperidle/agent-layer";
 
 /**
  * Create a Hono router that exposes GET / → AdapterInfo[].

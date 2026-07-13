@@ -1,7 +1,6 @@
-import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "@hyperidle/agent-layer";
-import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
 import type { HarnessDiscoveryInput } from "@hyperidle/agent-layer";
+import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 

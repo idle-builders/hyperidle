@@ -10,9 +10,9 @@
  * returns a Promise<TestDbHandle> and all service functions are async.
  */
 
+import { claimInvite, createInvite, generateInviteCode } from "@hyperidle/core-app";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { describe, expect } from "vitest";
-import { claimInvite, createInvite, generateInviteCode } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

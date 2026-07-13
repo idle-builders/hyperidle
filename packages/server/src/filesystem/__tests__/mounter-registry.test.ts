@@ -6,9 +6,9 @@
  * AC1: selectMountAdapter is the only dispatcher; session-provisioning never branches on source.
  */
 
+import { createFakeGitRunner } from "@hyperidle/core-app";
 import type { Filesystem } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createFakeGitRunner } from "@hyperidle/core-app";
 import {
 	type AdapterDeps,
 	MalformedFilesystemError,

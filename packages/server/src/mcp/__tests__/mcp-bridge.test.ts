@@ -16,20 +16,18 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { EventBus } from "@hyperidle/shared";
-import { describe, expect, test } from "../../test-fixtures.js";
-import {
-	buildToolRegistry,
-	type ToolContext,
-	type ToolRegistry,
-} from "@hyperidle/agent-layer";
 import type { ToolResult } from "@hyperidle/agent-layer";
 import {
+	buildToolRegistry,
 	type CreateMcpBridgeOptions,
 	createMcpBridge,
 	type McpBridgeInstance,
+	type ToolContext,
+	type ToolRegistry,
 	toolResultToCallToolResult,
 } from "@hyperidle/agent-layer";
+import { EventBus } from "@hyperidle/shared";
+import { describe, expect, test } from "../../test-fixtures.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

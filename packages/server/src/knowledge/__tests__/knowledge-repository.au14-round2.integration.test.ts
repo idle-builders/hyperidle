@@ -11,6 +11,16 @@
  * phase: written before the corresponding repo functions exist, so they
  * fail to import/compile against pre-round-2 code.
  */
+
+import type { KnowledgeStatus } from "@hyperidle/core-app";
+import {
+	archiveItem,
+	changeScope,
+	create as createKnowledgeItem,
+	flagItem,
+	mergeItems,
+	splitItem,
+} from "@hyperidle/core-app";
 import {
 	type HyperIdleDb,
 	knowledgeEditLog,
@@ -20,15 +30,6 @@ import {
 import type { KernelKnowledgeStatus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../test-fixtures.js";
-import {
-	archiveItem,
-	changeScope,
-	create as createKnowledgeItem,
-	flagItem,
-	mergeItems,
-	splitItem,
-} from "@hyperidle/core-app";
-import type { KnowledgeStatus } from "@hyperidle/core-app";
 
 async function seedItem(
 	db: HyperIdleDb,

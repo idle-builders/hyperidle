@@ -1,7 +1,6 @@
+import type { EnforcementRegistry, McpBridgeRegistry } from "@hyperidle/agent-layer";
 import { AL6_MAX_FORCE_RETURNS, shouldForceReturn } from "@hyperidle/shared";
 import { Hono } from "hono";
-import type { EnforcementRegistry } from "@hyperidle/agent-layer";
-import type { McpBridgeRegistry } from "@hyperidle/agent-layer";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 /**

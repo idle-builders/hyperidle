@@ -1,9 +1,26 @@
 import { type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
+
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
 // persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
 
+import type { HarnessCapabilityReader } from "@hyperidle/agent-layer";
+import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/agent-layer";
+import {
+	escapeLikePattern,
+	findOrCreateDirectThread,
+	getFirstUserByKind,
+	getMessageById,
+	getUserById,
+	insertMessage,
+	insertThread,
+	insertUser,
+	listAllUsers,
+	listInboxByParticipantProbe,
+	updateUser,
+	work,
+} from "@hyperidle/core-app";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -11,25 +28,6 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
-import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-layer";
-import {
-	findOrCreateDirectThread,
-	getMessageById,
-	insertMessage,
-	insertThread,
-	listInboxByParticipantProbe,
-} from "@hyperidle/core-app";
-import type { HarnessCapabilityReader } from "@hyperidle/agent-layer";
-import { escapeLikePattern } from "@hyperidle/core-app";
-import { persistScaffoldedAgents } from "@hyperidle/agent-layer";
-import {
-	getFirstUserByKind,
-	getUserById,
-	insertUser,
-	listAllUsers,
-	updateUser,
-} from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 import { createAssistantSoulRoutes } from "./assistant.js";
 
 const updateSkillSchema = z.object({

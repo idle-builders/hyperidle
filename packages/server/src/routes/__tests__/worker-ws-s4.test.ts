@@ -11,8 +11,8 @@
  *  - Pause message before registration with adapter null → no-op
  */
 
-import { describe, expect, it, vi } from "vitest";
 import { AdapterPool } from "@hyperidle/agent-layer";
+import { describe, expect, it, vi } from "vitest";
 import { WorkerConnectionManager } from "../../services/worker-ws.js";
 
 // ── Mock WebSocket ────────────────────────────────────────────────────────────

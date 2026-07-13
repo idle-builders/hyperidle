@@ -11,9 +11,8 @@
  *   other   → keep provider_error (genuinely transient)
  */
 
+import { HttpError, mapErrorToNotice } from "@hyperidle/agent-layer";
 import { describe, expect, it } from "vitest";
-import { HttpError } from "@hyperidle/agent-layer";
-import { mapErrorToNotice } from "@hyperidle/agent-layer";
 
 describe("mapErrorToNotice — HttpError mapping", () => {
 	it("HttpError 401 returns auth notice with key guidance, not temporary-error copy", () => {

@@ -8,22 +8,23 @@
  *   GET    /api/git-export/status  -> { enabled, repoPath, branch, lastCommitAt, lastCommitSha, lastPushAt }
  */
 
+import type { GitRunner } from "@hyperidle/core-app";
+import {
+	type FsAdapter,
+	type GitExportConfigPatch,
+	resetExportMutexes,
+	updateGitExportConfig,
+	writeLastCommit,
+	writeLastPush,
+} from "@hyperidle/core-app";
 import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import {
-	type GitExportConfigPatch,
-	updateGitExportConfig,
-	writeLastCommit,
-	writeLastPush,
-} from "@hyperidle/core-app";
 import { authMiddleware } from "../middleware/auth.js";
 import { errorHandler } from "../middleware/error-handler.js";
 import { createGitExportRoutes } from "../routes/git-export-routes.js";
-import { type FsAdapter, resetExportMutexes } from "@hyperidle/core-app";
-import type { GitRunner } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-git-export";

@@ -3,6 +3,14 @@
 // Source of truth: plans/AO1/architecture.md §3 + §v2 (Reachability rework v2).
 
 import * as crypto from "node:crypto";
+import type { ServiceConnectionResolver } from "@hyperidle/core-app";
+import {
+	getUserById,
+	inspectLocalPath,
+	NoopAuthResolver,
+	resolveFilesystemState,
+	ServiceConnectionResolverAdapter,
+} from "@hyperidle/core-app";
 import {
 	type FilesystemInjectionRow,
 	type FilesystemRow,
@@ -25,14 +33,6 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import {
-	NoopAuthResolver,
-	resolveFilesystemState,
-	ServiceConnectionResolverAdapter,
-} from "@hyperidle/core-app";
-import { inspectLocalPath } from "@hyperidle/core-app";
-import type { ServiceConnectionResolver } from "@hyperidle/core-app";
-import { getUserById } from "@hyperidle/core-app";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 

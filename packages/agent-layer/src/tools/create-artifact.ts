@@ -18,11 +18,10 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { artifactPreviewSchema, work } from "@hyperidle/core-app";
 import { artifacts } from "@hyperidle/db";
 import { ARTIFACT_KINDS, type ArtifactCreatedEvent } from "@hyperidle/shared";
 import z from "zod";
-import { artifactPreviewSchema } from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

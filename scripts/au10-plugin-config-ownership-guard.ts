@@ -23,9 +23,9 @@ import { dirname, join, relative, resolve } from "node:path";
 import ts from "typescript";
 
 const CONFIG_SOURCE_FILES = [
-	"packages/server/src/services/plugin-configuration.ts",
-	"packages/server/src/config/builtin-tool-catalog.ts",
-	"packages/server/src/services/agent-behavior-config.ts",
+	"packages/core-app/src/services/plugin-configuration.ts",
+	"packages/core-app/src/config/builtin-tool-catalog.ts",
+	"packages/core-app/src/services/agent-behavior-config.ts",
 ] as const;
 
 const FORBIDDEN_MODULE_BASENAMES = new Set([
@@ -126,20 +126,20 @@ function fixtureCheck(): void {
 	const root = mkdtempSync(join(tmpdir(), "au10-guard-"));
 	const sources: Record<string, string> = {
 		// (a) direct forbidden import — expect a finding.
-		"packages/server/src/services/plugin-configuration.ts":
-			'import { ALL_TOOL_DEFINITIONS } from "../tools/tool-registry.js"; export const seeds = ALL_TOOL_DEFINITIONS;',
+		"packages/core-app/src/services/plugin-configuration.ts":
+			'import { ALL_TOOL_DEFINITIONS } from "../../../agent-layer/src/tools/tool-registry.js"; export const seeds = ALL_TOOL_DEFINITIONS;',
 		// (b) clean local import — expect no finding.
-		"packages/server/src/config/builtin-tool-catalog.ts":
+		"packages/core-app/src/config/builtin-tool-catalog.ts":
 			'import { CLEAN_LABEL } from "./clean-data.js"; export const BUILTIN_TOOL_CATALOG = [CLEAN_LABEL];',
-		"packages/server/src/config/clean-data.ts": 'export const CLEAN_LABEL = "ok";',
+		"packages/core-app/src/config/clean-data.ts": 'export const CLEAN_LABEL = "ok";',
 		// (c) transitive forbidden import via a wrapper — expect a finding.
-		"packages/server/src/services/agent-behavior-config.ts":
+		"packages/core-app/src/services/agent-behavior-config.ts":
 			'import { readWrapped } from "./config-wrapper.js"; export const wrapped = readWrapped();',
-		"packages/server/src/services/config-wrapper.ts":
-			'import { provisionSession } from "./session-provisioning.js"; export const readWrapped = () => provisionSession();',
-		"packages/server/src/services/session-provisioning.ts": "export const provisionSession = () => 1;",
+		"packages/core-app/src/services/config-wrapper.ts":
+			'import { provisionSession } from "../../../agent-layer/src/services/session-provisioning.js"; export const readWrapped = () => provisionSession();',
+		"packages/agent-layer/src/services/session-provisioning.ts": "export const provisionSession = () => 1;",
 		// unrelated runtime file (untouched — the tool registry the leak fixture references).
-		"packages/server/src/tools/tool-registry.ts": "export const ALL_TOOL_DEFINITIONS = [];",
+		"packages/agent-layer/src/tools/tool-registry.ts": "export const ALL_TOOL_DEFINITIONS = [];",
 	};
 	try {
 		for (const [path, source] of Object.entries(sources)) {
@@ -149,11 +149,11 @@ function fixtureCheck(): void {
 		}
 		const findings = inspect(root).map((finding) => finding.file);
 		for (const expected of [
-			"packages/server/src/services/plugin-configuration.ts",
-			"packages/server/src/services/agent-behavior-config.ts",
+			"packages/core-app/src/services/plugin-configuration.ts",
+			"packages/core-app/src/services/agent-behavior-config.ts",
 		])
 			if (!findings.includes(expected)) throw new Error(`fixture guard missed ${expected}`);
-		for (const allowed of ["packages/server/src/config/builtin-tool-catalog.ts"])
+		for (const allowed of ["packages/core-app/src/config/builtin-tool-catalog.ts"])
 			if (findings.includes(allowed)) throw new Error(`fixture guard rejected allowed ${allowed}`);
 		process.stdout.write("au10-plugin-config-ownership-guard fixtures: PASS\n");
 	} finally {

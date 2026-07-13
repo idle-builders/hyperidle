@@ -7,7 +7,7 @@
  * against synthetic inputs.
  *
  * AU15 also adds two rules FILE-SCOPED to
- * `packages/server/src/services/routine-scheduler.ts` only (`file ===` that
+ * `packages/agent-layer/src/services/routine-scheduler.ts` only (`file ===` that
  * exact path — NOT repo-wide): (1) no import from `agent-selection` there;
  * (2) no raw `.from/.insert/.update/.delete(agentWorkIntents)` there. A
  * repo-wide version of either rule would false-positive on legitimately
@@ -24,7 +24,11 @@ interface Finding {
 	readonly message: string;
 }
 
-const SOURCE_ROOTS = ["packages/server/src"] as const;
+const SOURCE_ROOTS = [
+	"packages/core-app/src",
+	"packages/agent-layer/src",
+	"packages/server/src",
+] as const;
 const TEXT_EXTENSIONS = new Set([".ts", ".tsx"]);
 const SOURCE_EXCLUDES = [
 	"/__tests__/",
@@ -35,15 +39,16 @@ const SOURCE_EXCLUDES = [
 	".spec.tsx",
 ] as const;
 
-const ALLOWED_DIRECT_CONSUMER_IMPORTS = new Set(["packages/server/src/services/agent-run-boundary.ts"]);
+const ALLOWED_DIRECT_CONSUMER_IMPORTS = new Set(["packages/agent-layer/src/services/agent-run-boundary.ts"]);
 const ALLOWED_REGISTRY_DEFINITIONS = new Set([
 	// AU11: provision-registry.ts moved from app-runtime/services/ to the
 	// agent-owned services/ home (import-path-only move, no behavior change).
-	"packages/server/src/services/provision-registry.ts",
+	// AU17: agent-layer-tier services/ moved again, to packages/agent-layer/src/services/.
+	"packages/agent-layer/src/services/provision-registry.ts",
 ]);
 
 /** AU15 W4: the one file the two new file-scoped rules apply to. */
-const ROUTINE_SCHEDULER_FILE = "packages/server/src/services/routine-scheduler.ts";
+const ROUTINE_SCHEDULER_FILE = "packages/agent-layer/src/services/routine-scheduler.ts";
 
 function extension(path: string): string {
 	const dot = path.lastIndexOf(".");
@@ -154,9 +159,9 @@ function fixtureCheck(): void {
 			'import { isAgentAtWipLimit } from "./agent-selection.js"; export async function f() { return isAgentAtWipLimit; }',
 		// (b) negative: a DIFFERENT (legitimately agent-owned) file importing
 		// agent-selection must NOT be flagged — proves file-scoping.
-		"packages/server/src/services/agent-work-intent-worker.ts":
+		"packages/agent-layer/src/services/agent-work-intent-worker.ts":
 			'import { isAgentAtWipLimit } from "./agent-selection.js"; export async function g() { return isAgentAtWipLimit; }',
-		"packages/server/src/services/agent-defaults/resolvers.ts":
+		"packages/agent-layer/src/services/agent-defaults/resolvers.ts":
 			'import { selectAgentByAppDefaults } from "../agent-selection.js"; export async function h() { return selectAgentByAppDefaults; }',
 	};
 	try {
@@ -172,8 +177,8 @@ function fixtureCheck(): void {
 			throw new Error("fixture guard missed the agent-selection import in routine-scheduler.ts");
 		}
 		for (const allowed of [
-			"packages/server/src/services/agent-work-intent-worker.ts",
-			"packages/server/src/services/agent-defaults/resolvers.ts",
+			"packages/agent-layer/src/services/agent-work-intent-worker.ts",
+			"packages/agent-layer/src/services/agent-defaults/resolvers.ts",
 		]) {
 			if (flaggedFiles.includes(allowed)) {
 				throw new Error(`fixture guard incorrectly flagged file-scoped-exempt file ${allowed}`);

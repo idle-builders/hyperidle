@@ -21,6 +21,8 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { type HarnessCapabilityReader, harnessRegistrationMeta } from "@hyperidle/agent-layer";
+import { getUserById, insertUser, listAgentProfiles, updateUser } from "@hyperidle/core-app";
 import {
 	type HyperIdleDb,
 	readSystemPromptTemplateForRole,
@@ -42,11 +44,6 @@ import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import {
-	type HarnessCapabilityReader,
-	harnessRegistrationMeta,
-} from "@hyperidle/agent-layer";
-import { getUserById, insertUser, listAgentProfiles, updateUser } from "@hyperidle/core-app";
 import { handleAgentProfile } from "./agent-profile.js";
 
 // ---------------------------------------------------------------------------

@@ -33,10 +33,10 @@
  * for B's.
  */
 
+import type { LlmResponse } from "@hyperidle/agent-layer";
+import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
 import type { SessionConfig } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
-import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
-import type { LlmResponse } from "@hyperidle/agent-layer";
 
 vi.mock("../../../agent-layer/src/harness/llm-client.js", () => ({
 	callLlm: vi.fn(),

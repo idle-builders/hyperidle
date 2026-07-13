@@ -16,6 +16,8 @@
  *   inputs (one with an open conflict, one without) — not a constant.
  */
 
+import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/agent-layer";
+import type { BuiltinRoutineId } from "@hyperidle/core-app";
 import {
 	type HyperIdleDb,
 	knowledgeConflicts,
@@ -26,8 +28,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import type { BuiltinRoutineId } from "@hyperidle/core-app";
-import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/agent-layer";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-06-11T00:00:00.000Z";

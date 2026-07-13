@@ -12,6 +12,8 @@ const FINDINGS: Finding[] = [];
 
 const SOURCE_ROOTS = [
 	"packages/server/src",
+	"packages/core-app/src",
+	"packages/agent-layer/src",
 	"packages/shared/src",
 	"packages/api-contract/src",
 	"packages/web/src",
@@ -20,6 +22,8 @@ const SOURCE_ROOTS = [
 
 const MANIFESTS = [
 	"packages/server/package.json",
+	"packages/core-app/package.json",
+	"packages/agent-layer/package.json",
 	"packages/web/package.json",
 	"packages/design-system/package.json",
 ] as const;
@@ -35,6 +39,7 @@ const SOURCE_EXCLUDES = [
 	".spec.tsx",
 	".stories.tsx",
 	"packages/server/src/services/strategy-registry.ts",
+	"packages/core-app/src/services/strategy-registry.ts",
 	"packages/shared/src/strategy-port.ts",
 ] as const;
 
@@ -87,7 +92,10 @@ for (const manifest of MANIFESTS) {
 			add(manifest, `production dependency on ${dep} is banned by AU3`);
 		}
 	}
-	if (manifest === "packages/server/package.json" && raw.exports?.["./services/strategy-registry"]) {
+	if (
+		(manifest === "packages/server/package.json" || manifest === "packages/core-app/package.json") &&
+		raw.exports?.["./services/strategy-registry"]
+	) {
 		add(manifest, "exporting strategy-registry is banned by AU3");
 	}
 }

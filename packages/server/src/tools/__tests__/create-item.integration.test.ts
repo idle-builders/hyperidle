@@ -1,12 +1,12 @@
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { createItemTool } from "@hyperidle/agent-layer";
 import { type HyperIdleDb, items, teamMembers, teams, threads, users } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { createItemTool } from "@hyperidle/agent-layer";
-import type { ToolContext } from "@hyperidle/agent-layer";
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();

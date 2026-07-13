@@ -15,6 +15,16 @@
  *   - Settings PATCH accepts quietHoursEnabled toggle
  */
 
+import type { Notification, NotificationAdapter, Recipient, SendResult } from "@hyperidle/core-app";
+import {
+	type AlertPreferences,
+	listAll,
+	type NotificationConfigPatch,
+	readServerConfig,
+	registerNotificationDispatcher,
+	updateNotificationConfig,
+	updateServerConfig,
+} from "@hyperidle/core-app";
 import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
 import type {
 	CostCapBreachedEvent,
@@ -22,22 +32,6 @@ import type {
 	ItemCreatedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import {
-	type NotificationConfigPatch,
-	updateNotificationConfig,
-} from "@hyperidle/core-app";
-import {
-	type AlertPreferences,
-	registerNotificationDispatcher,
-} from "@hyperidle/core-app";
-import { listAll } from "@hyperidle/core-app";
-import type {
-	Notification,
-	NotificationAdapter,
-	Recipient,
-	SendResult,
-} from "@hyperidle/core-app";
-import { readServerConfig, updateServerConfig } from "@hyperidle/core-app";
 import { afterEach, describe, expect, test, vi } from "../../test-fixtures.js";
 
 // ---------------------------------------------------------------------------

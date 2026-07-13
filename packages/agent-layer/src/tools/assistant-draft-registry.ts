@@ -16,12 +16,11 @@
  * authority boundary, verified statically by AC3b.
  */
 
+import { getUserById, work } from "@hyperidle/core-app";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { teamMembers } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { getUserById } from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 import { createBetTool } from "./create-bet.js";
 import { editBetTool } from "./edit-bet.js";
 import {

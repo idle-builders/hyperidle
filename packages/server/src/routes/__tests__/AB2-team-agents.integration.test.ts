@@ -13,9 +13,9 @@
  * - maybeNotifyAgentError writes to notification_queue (throttled)
  */
 
+import { listAll } from "@hyperidle/core-app";
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { listAll } from "@hyperidle/core-app";
 import { deriveHealthDetail, deriveHealthLevel } from "../../routes/agent-profile.js";
 import { test } from "../../test-fixtures.js";
 

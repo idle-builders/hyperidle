@@ -4,7 +4,7 @@
  * lock against the raw queries it replaces in dispatcher.ts/digest.ts/
  * routes/notifications-routes.ts/services/retention-reaper.ts.
  */
-import type { NewNotificationQueueRow } from "@hyperidle/db";
+
 import {
 	claimForSend,
 	deleteReaped,
@@ -25,6 +25,7 @@ import {
 	updateManyByIds,
 	updateStatus,
 } from "@hyperidle/core-app";
+import type { NewNotificationQueueRow } from "@hyperidle/db";
 import { describe, expect, test } from "../../test-fixtures.js";
 
 function row(
@@ -46,7 +47,9 @@ function row(
 }
 
 describe("insertNotification + findNotificationById + listAll", () => {
-	test("inserts a full row, readable back by findNotificationById and by listAll", async ({ db }) => {
+	test("inserts a full row, readable back by findNotificationById and by listAll", async ({
+		db,
+	}) => {
 		await insertNotification(db, row({ id: "n-1", title: "Hello" }));
 
 		const found = await findNotificationById(db, "n-1");

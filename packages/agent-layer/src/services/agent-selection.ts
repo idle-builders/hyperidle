@@ -22,10 +22,10 @@
  * to candidates[0]. The golden test (§7) catches a collapsed impl with [A,B,A] vs [A,A,A].
  */
 
+import { getUserById } from "@hyperidle/core-app";
 import { type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
 import { and, eq, sql } from "drizzle-orm";
 import type { SelectAgentOutcome, SelectAgentRequest } from "./contracts.js";
-import { getUserById } from "@hyperidle/core-app";
 
 // ---------------------------------------------------------------------------
 // WIP helpers (relocated from routine-scheduler.ts for the routine_delegate branch)

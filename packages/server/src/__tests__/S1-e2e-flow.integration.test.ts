@@ -14,12 +14,11 @@
  * service calls are async.
  */
 
+import { createInvite, createLoginSession, revokeLoginSession } from "@hyperidle/core-app";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createApp, disposeApp } from "../app.js";
-import { createInvite } from "@hyperidle/core-app";
-import { createLoginSession, revokeLoginSession } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-s1-e2e";

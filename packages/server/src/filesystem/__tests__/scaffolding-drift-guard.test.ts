@@ -16,17 +16,17 @@
  * the original drift-guard spec.
  */
 
-import { describe, expect, it } from "vitest";
-import { EMITTED_ROOTS_CLI_MCP_CONFIG } from "@hyperidle/agent-layer";
+// ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
 import {
+	EMITTED_ROOTS_AGENTS_MD,
 	EMITTED_ROOTS_CLAUDE_SETTINGS,
+	EMITTED_ROOTS_CLI_MCP_CONFIG,
 	EMITTED_ROOTS_CODEX_HOME,
+	EMITTED_ROOTS_CONTEXT_ASSEMBLY,
+	EMITTED_ROOTS_MCP_JSON,
 	EMITTED_ROOTS_OPENCODE_PLUGIN,
 } from "@hyperidle/agent-layer";
-import { EMITTED_ROOTS_CONTEXT_ASSEMBLY } from "@hyperidle/agent-layer";
-// ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
-import { EMITTED_ROOTS_AGENTS_MD } from "@hyperidle/agent-layer";
-import { EMITTED_ROOTS_MCP_JSON } from "@hyperidle/agent-layer";
+import { describe, expect, it } from "vitest";
 
 // ── Import the constant under test ───────────────────────────────────────────
 import { SANDBOX_SCAFFOLDING_PATHS } from "../scaffolding-paths.js";

@@ -7,6 +7,8 @@
  * assertion stands in for driving the real transition.
  */
 
+import { bootAgentLayer } from "@hyperidle/agent-layer";
+import { sessionRunRegistry, startAgentLifecycleProjectionDrain } from "@hyperidle/core-app";
 import {
 	agentLifecycleInbox,
 	agentSessionRequests,
@@ -22,9 +24,6 @@ import {
 } from "@hyperidle/db";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
-import { bootAgentLayer } from "@hyperidle/agent-layer";
-import { startAgentLifecycleProjectionDrain } from "@hyperidle/core-app";
-import { sessionRunRegistry } from "@hyperidle/core-app";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au9-lifecycle";

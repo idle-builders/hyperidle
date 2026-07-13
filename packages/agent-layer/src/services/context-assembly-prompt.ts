@@ -22,9 +22,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { communityForRole, countTokens } from "@hyperidle/core-app";
 import { createLogger } from "@hyperidle/shared";
-import { communityForRole } from "@hyperidle/core-app";
-import { countTokens } from "@hyperidle/core-app";
 import type { RoutineSessionContextData, SessionContextData } from "./session-context.js";
 
 const logger = createLogger({ pkg: "server.agent-context-prompt" });

@@ -1,4 +1,12 @@
 import {
+	clearCostSentinelCache,
+	provisionTeamRoutines,
+	registerBuiltinRoutineHandlers,
+	runBuiltinRoutine,
+	runCostSentinelCheck,
+} from "@hyperidle/agent-layer";
+import { BUILTIN_ROUTINE_IDS, updateServerConfig } from "@hyperidle/core-app";
+import {
 	bets,
 	type HyperIdleDb,
 	items,
@@ -19,14 +27,6 @@ import type {
 	DomainEvent,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { BUILTIN_ROUTINE_IDS } from "@hyperidle/core-app";
-import {
-	provisionTeamRoutines,
-	registerBuiltinRoutineHandlers,
-	runBuiltinRoutine,
-} from "@hyperidle/agent-layer";
-import { clearCostSentinelCache, runCostSentinelCheck } from "@hyperidle/agent-layer";
-import { updateServerConfig } from "@hyperidle/core-app";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";

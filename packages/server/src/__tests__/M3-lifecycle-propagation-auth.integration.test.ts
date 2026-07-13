@@ -6,10 +6,10 @@
  * and uses that id as the founder participant in propagation threads.
  */
 
+import { registerLifecyclePropagation } from "@hyperidle/core-app";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
-import { registerLifecyclePropagation } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";

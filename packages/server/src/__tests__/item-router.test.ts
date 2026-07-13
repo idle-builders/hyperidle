@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { routeItem } from "@hyperidle/core-app";
+import { describe, expect, it } from "vitest";
 
 describe("routeItem", () => {
 	it("routes medium risk to conversations", () => {

@@ -22,6 +22,7 @@
  * - packages/server/src/app.ts passes adapterPool to agent routes
  */
 
+import { AdapterPool } from "@hyperidle/agent-layer";
 import {
 	bets,
 	type HyperIdleDb,
@@ -36,7 +37,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "@hyperidle/agent-layer";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 

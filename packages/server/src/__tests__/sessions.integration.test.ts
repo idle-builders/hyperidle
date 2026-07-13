@@ -1,14 +1,14 @@
+import {
+	clearDeduplicationCache,
+	getDedupCacheSize,
+	recordCostAndCheck,
+} from "@hyperidle/agent-layer";
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../app.js";
 import { registerAgentLayerServices, registerCoreDomainServices } from "../server-factory.js";
-import {
-	clearDeduplicationCache,
-	getDedupCacheSize,
-	recordCostAndCheck,
-} from "@hyperidle/agent-layer";
 import { expect, test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-sessions";

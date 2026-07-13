@@ -1,4 +1,12 @@
 import * as crypto from "node:crypto";
+import {
+	getUserById,
+	incrementUserCost,
+	resetAllUserCost,
+	sumAllUserCost,
+	updateUser,
+	work,
+} from "@hyperidle/core-app";
 // @lore U1: `teams` is the domain entity (no costActual/costCap columns).
 // Cost tracking uses `teamMembers` (the agent-membership group) which has costActual/costCap.
 // params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
@@ -6,14 +14,6 @@ import * as crypto from "node:crypto";
 import { bets, type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
-import { work } from "@hyperidle/core-app";
-import {
-	getUserById,
-	incrementUserCost,
-	resetAllUserCost,
-	sumAllUserCost,
-	updateUser,
-} from "@hyperidle/core-app";
 
 export interface CostCapResult {
 	allowed: boolean;

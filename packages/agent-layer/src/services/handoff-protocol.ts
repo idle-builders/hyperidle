@@ -1,4 +1,16 @@
 import * as crypto from "node:crypto";
+import type { HandoffAuditEntry, TaskAuditEntry } from "@hyperidle/core-app";
+import {
+	findActiveTeammateByRole,
+	getUserById,
+	InvalidTransitionError,
+	insertMessage,
+	insertThread,
+	recordAgentWorkIntent,
+	sessionRunRegistry,
+	VALID_TRANSITIONS,
+	work,
+} from "@hyperidle/core-app";
 import {
 	agentSessionRequests,
 	type HyperIdleDb,
@@ -8,15 +20,8 @@ import {
 } from "@hyperidle/db";
 import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { work } from "@hyperidle/core-app";
-import { recordAgentWorkIntent } from "@hyperidle/core-app";
-import { insertMessage, insertThread } from "@hyperidle/core-app";
 import { releaseSessionDedup } from "./cost-cap.js";
 import { requestAgentTermination, type SessionContext } from "./session-lifecycle.js";
-import { sessionRunRegistry } from "@hyperidle/core-app";
-import type { HandoffAuditEntry, TaskAuditEntry } from "@hyperidle/core-app";
-import { InvalidTransitionError, VALID_TRANSITIONS } from "@hyperidle/core-app";
-import { findActiveTeammateByRole, getUserById } from "@hyperidle/core-app";
 
 export interface HandoffMetadata {
 	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case

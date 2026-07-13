@@ -7,8 +7,8 @@
  * as a real round-trip (mock-validation-trap).
  */
 
-import { describe, expect, it } from "vitest";
 import { createFakeGitRunner, type FakeGitRunner } from "@hyperidle/core-app";
+import { describe, expect, it } from "vitest";
 
 describe("FakeGitRunner records filesystem git operation argv", () => {
 	it("clone records args and resolves", async () => {

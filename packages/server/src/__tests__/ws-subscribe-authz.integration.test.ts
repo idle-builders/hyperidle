@@ -9,14 +9,10 @@
  *    topic. Subsequent broadcasts must skip the would-be subscriber.
  */
 
+import { createDbSubscribeAuthorizer, WsBroadcaster, type WsClient } from "@hyperidle/core-app";
 import { sessions, threads as threadsTable, users } from "@hyperidle/db";
 import type { ThreadMessageAppendedEvent } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
-import {
-	createDbSubscribeAuthorizer,
-	WsBroadcaster,
-	type WsClient,
-} from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 function createMockClient(): WsClient & { messages: string[] } {

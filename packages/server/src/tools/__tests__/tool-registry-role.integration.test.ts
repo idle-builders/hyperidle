@@ -15,11 +15,11 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import { buildToolRegistry, type ToolContext } from "@hyperidle/agent-layer";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { buildToolRegistry, type ToolContext } from "@hyperidle/agent-layer";
 
 const FACILITATOR_ONLY = [
 	"promote_knowledge",

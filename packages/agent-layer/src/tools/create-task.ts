@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { work } from "@hyperidle/core-app";
 import type { TaskStateChangedEvent } from "@hyperidle/shared";
 import z from "zod";
-import { work } from "@hyperidle/core-app";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

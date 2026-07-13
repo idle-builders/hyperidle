@@ -1,7 +1,6 @@
 import * as crypto from "node:crypto";
+import { findOrCreateDirectThread, getUserById, insertMessage } from "@hyperidle/core-app";
 import z from "zod";
-import { findOrCreateDirectThread, insertMessage } from "@hyperidle/core-app";
-import { getUserById } from "@hyperidle/core-app";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

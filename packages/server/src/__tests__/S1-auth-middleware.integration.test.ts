@@ -13,12 +13,12 @@
  * returns a Promise<TestDbHandle>. The service calls are async too.
  */
 
+import { createLoginSession, revokeLoginSession } from "@hyperidle/core-app";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createAuthMiddleware } from "../middleware/auth.js";
-import { createLoginSession, revokeLoginSession } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-s1-auth-mw";

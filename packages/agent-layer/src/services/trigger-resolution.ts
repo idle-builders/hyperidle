@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { getUserByIdScopedToTeam, listResolvedConfiguration } from "@hyperidle/core-app";
 import {
 	type AgentSessionRequest,
 	agentSessionRequests,
@@ -19,8 +20,6 @@ import {
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { createAgentSessionRequest } from "./agent-session-requests.js";
-import { listResolvedConfiguration } from "@hyperidle/core-app";
-import { getUserByIdScopedToTeam } from "@hyperidle/core-app";
 
 const PROMPT_MODE_BY_SOURCE: Record<AgentSessionSourceKind, AgentSessionPromptMode> = {
 	task: "task",

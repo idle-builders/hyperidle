@@ -32,6 +32,7 @@ logs/
 test-output.toon
 .verify-attestation.json
 .verify.pid
+.tmp-au17-ac2-fixture/
 # plans/ is tracked — pipeline artifacts persist across worktrees and are retired
 # at the /write-docs step once their essence lives in docs/ + code. (Was: plans/*)
 packages/*/plans/

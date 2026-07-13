@@ -1,17 +1,12 @@
 import type { AddressInfo } from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
+import { AdapterPool, BuiltinHarnessAdapter, DisabledSandboxAdapter } from "@hyperidle/agent-layer";
+import { getResolvedConfiguration, listResolvedConfiguration } from "@hyperidle/core-app";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { serviceConnections, teamMembers, teams, userSkills, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "@hyperidle/agent-layer";
-import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
-import { DisabledSandboxAdapter } from "@hyperidle/agent-layer";
 import { createServer, type ServerHandle } from "../server-factory.js";
-import {
-	getResolvedConfiguration,
-	listResolvedConfiguration,
-} from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const NOW = "2026-07-08T12:00:00.000Z";

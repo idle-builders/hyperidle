@@ -10,13 +10,13 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { createTaskTool } from "@hyperidle/agent-layer";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { createTaskTool } from "@hyperidle/agent-layer";
-import type { ToolContext } from "@hyperidle/agent-layer";
 
 const NOW = new Date().toISOString();
 

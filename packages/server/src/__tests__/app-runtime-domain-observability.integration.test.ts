@@ -1,4 +1,10 @@
 import {
+	defaultNotificationAdapterFactory,
+	enqueueNotification,
+	flushQueue,
+	listAll,
+} from "@hyperidle/core-app";
+import {
 	agentSessionRequests,
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -6,9 +12,6 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { defaultNotificationAdapterFactory } from "@hyperidle/core-app";
-import { enqueueNotification, flushQueue } from "@hyperidle/core-app";
-import { listAll } from "@hyperidle/core-app";
 import { test as fixtureTest } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au3-domain";

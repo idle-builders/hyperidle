@@ -1,11 +1,7 @@
+import { type RevisionLogEntry, transitionBet, updateBetField } from "@hyperidle/core-app";
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import {
-	type RevisionLogEntry,
-	transitionBet,
-	updateBetField,
-} from "@hyperidle/core-app";
 import { describe, expect, test, vi } from "../test-fixtures.js";
 
 // @lore U1: teams = domain entity (products); teamMembers = membership group.

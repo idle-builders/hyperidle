@@ -19,6 +19,12 @@
  * columns. Honest over fabricated.
  */
 
+import {
+	type HarnessCapabilityReader,
+	harnessCapabilitiesForType,
+	registeredHarnessCount,
+} from "@hyperidle/agent-layer";
+import { computeApprovalRate, getUserById, work } from "@hyperidle/core-app";
 import { sessions, teamMembers, teams } from "@hyperidle/db";
 import type {
 	AgentActiveSession,
@@ -34,14 +40,6 @@ import type {
 import { desc, eq } from "drizzle-orm";
 import type { Context } from "hono";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { computeApprovalRate } from "@hyperidle/core-app";
-import {
-	type HarnessCapabilityReader,
-	harnessCapabilitiesForType,
-	registeredHarnessCount,
-} from "@hyperidle/agent-layer";
-import { getUserById } from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 
 // ---------------------------------------------------------------------------
 // Health signal computation (exported for unit tests — see A5 finding)

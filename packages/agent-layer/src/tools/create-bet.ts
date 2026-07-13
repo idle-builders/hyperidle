@@ -11,10 +11,10 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { work } from "@hyperidle/core-app";
 import { teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { work } from "@hyperidle/core-app";
 import type { AssistantToolResult, AssistantToolShape } from "./assistant-tool-result.js";
 import type { ToolContext } from "./tool-registry.js";
 

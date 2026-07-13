@@ -2,6 +2,54 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
+import type { AssistantTurnDeps, SandboxAdapter } from "@hyperidle/agent-layer";
+// @lore AD8c: cost sentinel extracted from routine row to application code.
+import {
+	type AdapterPool,
+	bootAgentLayer,
+	createLocalAdapterPool,
+	createMcpBridgeRegistry,
+	DisabledSandboxAdapter,
+	enforcementRegistry,
+	LocalSandboxAdapter,
+	markRunningAgentSessionRequestsForShutdown,
+	reapStaleRoutineSessions,
+	registerBetDecomposition,
+	registerBuiltinRoutineHandlers,
+	registerCostCapDedupReleaser,
+	registerTaskDispatcher,
+	resolveOrphanedDecompositions,
+	startCostSentinel,
+	startRoutineScheduler,
+	startSandboxReaper,
+	type TaskDispatcherDeps,
+} from "@hyperidle/agent-layer";
+import type { CredentialResolver } from "@hyperidle/core-app";
+import {
+	type AlertPreferences,
+	createDbSubscribeAuthorizer,
+	createGitRunner,
+	DbCredentialResolver,
+	defaultMutePreferenceReader,
+	defaultNotificationAdapterFactory,
+	getServerSecret,
+	migrateCredentialsToStore,
+	projectProductionConfigurationDefaults,
+	readServerConfig,
+	registerGitExportHandler,
+	registerLifecyclePropagation,
+	registerNotificationDispatcher,
+	registerNotificationListener,
+	registerPolicyEngine,
+	registerRelevanceListener,
+	registerSessionReviewCreator,
+	resolveModelTier,
+	setupFts,
+	startAgentLifecycleProjectionDrain,
+	startNotificationDrain,
+	startRetentionReaper,
+	WsBroadcaster,
+} from "@hyperidle/core-app";
 import {
 	createPgliteDb,
 	createPostgresDb,
@@ -13,54 +61,9 @@ import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyp
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { RegistryFilesystemMounter } from "./filesystem/mounter-registry.js";
-import { type AdapterPool, createLocalAdapterPool } from "@hyperidle/agent-layer";
-import { DisabledSandboxAdapter } from "@hyperidle/agent-layer";
-import { LocalSandboxAdapter } from "@hyperidle/agent-layer";
-import { enforcementRegistry } from "@hyperidle/agent-layer";
-import type { SandboxAdapter } from "@hyperidle/agent-layer";
-import { setupFts } from "@hyperidle/core-app";
-import { registerRelevanceListener } from "@hyperidle/core-app";
-import { createMcpBridgeRegistry } from "@hyperidle/agent-layer";
-import { defaultNotificationAdapterFactory } from "@hyperidle/core-app";
-import {
-	type AlertPreferences,
-	registerNotificationDispatcher,
-} from "@hyperidle/core-app";
-import { startNotificationDrain } from "@hyperidle/core-app";
-import { defaultMutePreferenceReader } from "@hyperidle/core-app";
-import { registerNotificationListener } from "@hyperidle/core-app";
 import { registerWsRoute } from "./routes/ws.js";
-import {
-	bootAgentLayer,
-	markRunningAgentSessionRequestsForShutdown,
-} from "@hyperidle/agent-layer";
-import { startAgentLifecycleProjectionDrain } from "@hyperidle/core-app";
-import type { AssistantTurnDeps } from "@hyperidle/agent-layer";
-import { resolveOrphanedDecompositions } from "@hyperidle/agent-layer";
-import { registerBetDecomposition } from "@hyperidle/agent-layer";
-import { registerBuiltinRoutineHandlers } from "@hyperidle/agent-layer";
-import { registerCostCapDedupReleaser } from "@hyperidle/agent-layer";
-// @lore AD8c: cost sentinel extracted from routine row to application code.
-import { startCostSentinel } from "@hyperidle/agent-layer";
-import { getServerSecret } from "@hyperidle/core-app";
-import type { CredentialResolver } from "@hyperidle/core-app";
-import { DbCredentialResolver } from "@hyperidle/core-app";
-import { registerGitExportHandler } from "@hyperidle/core-app";
-import { createGitRunner } from "@hyperidle/core-app";
-import { registerLifecyclePropagation } from "@hyperidle/core-app";
 import { createMcpRoute } from "./services/mcp-route.js";
-import { resolveModelTier } from "@hyperidle/core-app";
-import { projectProductionConfigurationDefaults } from "@hyperidle/core-app";
-import { registerPolicyEngine } from "@hyperidle/core-app";
-import { startRetentionReaper } from "@hyperidle/core-app";
-import { startRoutineScheduler } from "@hyperidle/agent-layer";
-import { reapStaleRoutineSessions } from "@hyperidle/agent-layer";
-import { startSandboxReaper } from "@hyperidle/agent-layer";
-import { migrateCredentialsToStore, readServerConfig } from "@hyperidle/core-app";
-import { registerSessionReviewCreator } from "@hyperidle/core-app";
-import { registerTaskDispatcher, type TaskDispatcherDeps } from "@hyperidle/agent-layer";
 import { registerWorkerWsRoute } from "./services/worker-ws.js";
-import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/core-app";
 
 const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
 

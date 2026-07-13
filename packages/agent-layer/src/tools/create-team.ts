@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { listUsersByTeam } from "@hyperidle/core-app";
 import { teamMembers, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
 import { persistScaffoldedAgents } from "../services/scaffold-agents.js";
-import { listUsersByTeam } from "@hyperidle/core-app";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

@@ -31,21 +31,24 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
+import type { RegisteredTool, ToolRegistry } from "@hyperidle/agent-layer";
+import {
+	commitFileTool,
+	createEnforcementRegistry,
+	createMcpBridge,
+	createMcpBridgeRegistry,
+	type EnforcementRegistry,
+	err,
+	type McpBridgeInstance,
+	type McpBridgeRegistry,
+	toClaudeToolSpec,
+	toRegistered,
+} from "@hyperidle/agent-layer";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import {
-	createEnforcementRegistry,
-	type EnforcementRegistry,
-} from "@hyperidle/agent-layer";
 import { createMcpRoute } from "../../services/mcp-route.js";
-import { commitFileTool } from "@hyperidle/agent-layer";
-import type { RegisteredTool, ToolRegistry } from "@hyperidle/agent-layer";
-import { toClaudeToolSpec, toRegistered } from "@hyperidle/agent-layer";
-import { err } from "@hyperidle/agent-layer";
-import { createMcpBridge, type McpBridgeInstance } from "@hyperidle/agent-layer";
-import { createMcpBridgeRegistry, type McpBridgeRegistry } from "@hyperidle/agent-layer";
 
 // ── Minimal one-tool registry for the proof vehicle ──────────────────────────
 // Avoids a full buildToolRegistry (which needs a DB). commit_file is a pure

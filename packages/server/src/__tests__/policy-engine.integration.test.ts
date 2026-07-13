@@ -1,3 +1,4 @@
+import { registerPolicyEngine, updateServerConfig } from "@hyperidle/core-app";
 import {
 	type HyperIdleDb,
 	items,
@@ -10,8 +11,6 @@ import {
 } from "@hyperidle/db";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { registerPolicyEngine } from "@hyperidle/core-app";
-import { updateServerConfig } from "@hyperidle/core-app";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 // L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project as

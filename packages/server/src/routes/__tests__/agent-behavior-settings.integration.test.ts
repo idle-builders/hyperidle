@@ -1,12 +1,12 @@
-import { Hono } from "hono";
-import { failClosedAssertion } from "../../middleware/access-boundary-middleware.js";
-import { authMiddleware } from "../../middleware/auth.js";
 import {
 	loadBuiltInConfigurationDefaults,
 	loadPluginConfigurationDefaults,
 	setConfigurationOverride,
 	setPluginConfigurationState,
 } from "@hyperidle/core-app";
+import { Hono } from "hono";
+import { failClosedAssertion } from "../../middleware/access-boundary-middleware.js";
+import { authMiddleware } from "../../middleware/auth.js";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au5-agent-behavior";

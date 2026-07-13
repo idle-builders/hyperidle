@@ -11,10 +11,10 @@
  *   - WsBroadcaster subscribes to artifact_created and broadcasts to "work" (Task 4)
  */
 
+import { WsBroadcaster, type WsClient } from "@hyperidle/core-app";
 import type { ArtifactCreatedEvent, KernelEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { WsBroadcaster, type WsClient } from "@hyperidle/core-app";
 
 // --- Mock WS client -----------------------------------------------------------
 

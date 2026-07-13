@@ -1,10 +1,4 @@
-import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApiErrorResponse, Logger } from "@hyperidle/shared";
-import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
-import { Hono, type MiddlewareHandler } from "hono";
-import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { validateBody } from "../middleware/validate.js";
+import type { ObservabilityDispatcher } from "@hyperidle/core-app";
 import {
 	type ObservabilityConfig,
 	type ObservabilityConfigPatch,
@@ -12,7 +6,13 @@ import {
 	redactObservabilityConfig,
 	updateObservabilityConfig,
 } from "@hyperidle/core-app";
-import type { ObservabilityDispatcher } from "@hyperidle/core-app";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { ApiErrorResponse, Logger } from "@hyperidle/shared";
+import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
+import { Hono, type MiddlewareHandler } from "hono";
+import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import { validateBody } from "../middleware/validate.js";
 
 /**
  * Per-request body cap for POST routes. Observability POSTs carry

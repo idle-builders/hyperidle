@@ -55,8 +55,8 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
-import { describe, expect, test } from "vitest";
 import { applyProvisioningPlan } from "@hyperidle/core-app";
+import { describe, expect, test } from "vitest";
 import { requireHarness } from "./require-harness.js";
 
 // ── Clean env for headless binary spawning ────────────────────────────────────

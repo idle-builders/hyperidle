@@ -7,8 +7,8 @@
  * coalesce-over-all-users semantics (not a single row).
  */
 
-import { users } from "@hyperidle/db";
 import { getFactoryCostActual } from "@hyperidle/agent-layer";
+import { users } from "@hyperidle/db";
 import { describe, expect, test } from "../test-fixtures.js";
 
 describe("getFactoryCostActual — live SUM(users.costActual)", () => {

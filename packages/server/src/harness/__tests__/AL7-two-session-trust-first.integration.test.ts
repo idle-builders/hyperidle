@@ -68,22 +68,24 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
+import type { RegisteredTool, ToolContext, ToolRegistry, ToolResult } from "@hyperidle/agent-layer";
+import {
+	commitFileTool,
+	createEnforcementRegistry,
+	createMcpBridge,
+	createMcpBridgeRegistry,
+	type EnforcementRegistry,
+	err,
+	harnessTestResolvedModel,
+	type McpBridgeRegistry,
+	requireHarness,
+	toClaudeToolSpec,
+	toRegistered,
+} from "@hyperidle/agent-layer";
 import { normalizeHarnessEvent } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import {
-	createEnforcementRegistry,
-	type EnforcementRegistry,
-} from "@hyperidle/agent-layer";
-import { createMcpBridge } from "@hyperidle/agent-layer";
-import { createMcpBridgeRegistry, type McpBridgeRegistry } from "@hyperidle/agent-layer";
 import { createMcpRoute } from "../../services/mcp-route.js";
-import { commitFileTool } from "@hyperidle/agent-layer";
-import type { RegisteredTool, ToolContext, ToolRegistry } from "@hyperidle/agent-layer";
-import { toClaudeToolSpec, toRegistered } from "@hyperidle/agent-layer";
-import type { ToolResult } from "@hyperidle/agent-layer";
-import { err } from "@hyperidle/agent-layer";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/agent-layer";
 
 // ── In-memory capturing router ────────────────────────────────────────────────
 //

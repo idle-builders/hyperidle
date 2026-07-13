@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
 import {
+	getMessageById,
+	getUserById,
+	listUsersByTeam,
+	routineService,
+	work,
+} from "@hyperidle/core-app";
+import {
 	agentWorkIntents,
 	explicitSessionStarts,
 	type HyperIdleDb,
@@ -11,15 +18,11 @@ import {
 } from "@hyperidle/db";
 import type { AgentSessionRequestInput, TriggerEventType } from "@hyperidle/shared";
 import { and, asc, eq, lt, or } from "drizzle-orm";
-import { routineService } from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
-import { getMessageById } from "@hyperidle/core-app";
 import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
-import { getUserById, listUsersByTeam } from "@hyperidle/core-app";
 
-export { executeAgentRunRequest as consumeAgentSessionRequest } from "./agent-run-boundary.js";
 export { recordAgentWorkIntent } from "@hyperidle/core-app";
+export { executeAgentRunRequest as consumeAgentSessionRequest } from "./agent-run-boundary.js";
 
 const DEFAULT_LEASE_MS = 30_000;
 const DEFAULT_MAX_ATTEMPTS = 5;

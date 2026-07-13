@@ -8,10 +8,10 @@
  * handler maps to 500.
  */
 
+import { transitionBet } from "@hyperidle/core-app";
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { transitionBet } from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-bets-validation";

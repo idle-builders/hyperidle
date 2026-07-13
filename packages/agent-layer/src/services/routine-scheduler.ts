@@ -1,12 +1,15 @@
 import * as crypto from "node:crypto";
+import {
+	extractBuiltinKind,
+	isBuiltinRoutineId,
+	readServerConfig,
+	recordAgentWorkIntent,
+	routineService,
+} from "@hyperidle/core-app";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
-import { extractBuiltinKind, isBuiltinRoutineId } from "@hyperidle/core-app";
-import { routineService } from "@hyperidle/core-app";
-import { recordAgentWorkIntent } from "@hyperidle/core-app";
 import { runBuiltinRoutine } from "./builtin-routine-handlers.js";
 import { getFactoryCostActual } from "./cost-cap.js";
-import { readServerConfig } from "@hyperidle/core-app";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 
 const schedulerLog = createLogger({ pkg: "server.routine-scheduler" });

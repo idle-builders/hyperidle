@@ -13,6 +13,8 @@
  *   receives a `nextRunAt` from `seedBuiltinRoutines`.
  */
 
+import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/agent-layer";
+import { BUILTIN_ROUTINE_IDS, type BuiltinRoutineId } from "@hyperidle/core-app";
 import {
 	type HyperIdleDb,
 	knowledgeEditLog,
@@ -26,8 +28,6 @@ import {
 } from "@hyperidle/db";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { BUILTIN_ROUTINE_IDS, type BuiltinRoutineId } from "@hyperidle/core-app";
-import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/agent-layer";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-06-11T00:00:00.000Z";

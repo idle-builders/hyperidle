@@ -11,8 +11,8 @@
  * select() already uses meta.modelProviders and that is the authoritative source.
  */
 
-import { describe, expect, it } from "vitest";
 import { AdapterPool } from "@hyperidle/agent-layer";
+import { describe, expect, it } from "vitest";
 import { validateAgentConfig } from "../routes/agents.js";
 
 // ---------------------------------------------------------------------------

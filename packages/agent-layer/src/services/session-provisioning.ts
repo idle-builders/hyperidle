@@ -1,6 +1,16 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { StateTransitionAuditEntry, TaskAuditEntry } from "@hyperidle/core-app";
+import {
+	getUserById,
+	readServerConfig,
+	routineService,
+	sessionRunRegistry,
+	summarizeToolArgs,
+	transitionTask,
+	work,
+} from "@hyperidle/core-app";
 import { filesystemInjections, filesystems, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	type AgentSessionSourceCorrelation,
@@ -39,7 +49,6 @@ import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import { routineService } from "@hyperidle/core-app";
 import { returnStatusTool } from "../tools/return-status-tool.js";
 import {
 	buildToolRegistry,
@@ -47,7 +56,6 @@ import {
 	type ToolContext,
 	toolsForRole,
 } from "../tools/tool-registry.js";
-import { work } from "@hyperidle/core-app";
 import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 import {
 	assemblePrompt,
@@ -58,8 +66,6 @@ import {
 } from "./context-assembly-prompt.js";
 import type { IngestionHandle } from "./contracts.js";
 import { checkCostCap, recordCostAndCheck } from "./cost-cap.js";
-import { summarizeToolArgs } from "@hyperidle/core-app";
-import { readServerConfig } from "@hyperidle/core-app";
 import { buildRoutineSessionContextData, buildSessionContextData } from "./session-context.js";
 import {
 	crashSession,
@@ -67,10 +73,6 @@ import {
 	requestAgentTermination,
 	type SessionContext,
 } from "./session-lifecycle.js";
-import { sessionRunRegistry } from "@hyperidle/core-app";
-import type { StateTransitionAuditEntry, TaskAuditEntry } from "@hyperidle/core-app";
-import { transitionTask } from "@hyperidle/core-app";
-import { getUserById } from "@hyperidle/core-app";
 
 // @lore X3: validateSystemPromptPath and SYSTEM_PROMPT_DIR_RELATIVE removed.
 // The path traversal attack surface is eliminated by X3 — system prompts are now

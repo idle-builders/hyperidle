@@ -3,6 +3,13 @@
 // Source: plans/AE6/architecture.md §3.
 
 import * as crypto from "node:crypto";
+import { recordCostAndCheck } from "@hyperidle/agent-layer";
+import {
+	artifactPreviewSchema,
+	fallbackPreviewSchema,
+	getUserById,
+	work,
+} from "@hyperidle/core-app";
 import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
@@ -19,10 +26,6 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import { artifactPreviewSchema, fallbackPreviewSchema } from "@hyperidle/core-app";
-import { recordCostAndCheck } from "@hyperidle/agent-layer";
-import { getUserById } from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;

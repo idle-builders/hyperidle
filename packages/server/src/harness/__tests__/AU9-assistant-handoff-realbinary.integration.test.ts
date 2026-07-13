@@ -1,12 +1,15 @@
+import {
+	AdapterPool,
+	BuiltinHarnessAdapter,
+	harnessTestResolvedModel,
+	LocalSandboxAdapter,
+	requireHarness,
+} from "@hyperidle/agent-layer";
 import { agentSessionRequests, messages, sessions, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { createServer } from "../../server-factory.js";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { AdapterPool } from "@hyperidle/agent-layer";
-import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
-import { LocalSandboxAdapter } from "@hyperidle/agent-layer";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/agent-layer";
 
 describe("[harness:builtin] assistant durable handoff", () => {
 	requireHarness("builtin");

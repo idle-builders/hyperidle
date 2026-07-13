@@ -5,6 +5,8 @@
  * 1. packages/db schema has knowledge_access_log + relevance columns (T1)
  * 2. packages/server/src/services/relevance-service.ts is created (T6)
  */
+
+import { createRelevanceService } from "@hyperidle/core-app";
 import {
 	type HyperIdleDb,
 	knowledgeEditLog,
@@ -12,7 +14,6 @@ import {
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { createRelevanceService } from "@hyperidle/core-app";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-05-06T12:00:00.000Z";

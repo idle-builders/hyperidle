@@ -23,13 +23,13 @@
  *  5. If result set is empty, return all human user IDs
  */
 
+import { resolveReviewRecipients } from "@hyperidle/core-app";
 import {
 	// P2: import new symbols — compile error until implementation done
 	orgEdges,
 	users,
 } from "@hyperidle/db";
 import { describe, expect } from "vitest";
-import { resolveReviewRecipients } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

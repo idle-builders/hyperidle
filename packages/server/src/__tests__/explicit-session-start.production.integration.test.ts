@@ -1,3 +1,5 @@
+import type { AdapterPool, SandboxAdapter } from "@hyperidle/agent-layer";
+import { drainAgentSessionRequests, drainAgentWorkIntents } from "@hyperidle/agent-layer";
 import {
 	agentWorkIntents,
 	bets,
@@ -11,10 +13,6 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import type { AdapterPool } from "@hyperidle/agent-layer";
-import type { SandboxAdapter } from "@hyperidle/agent-layer";
-import { drainAgentSessionRequests } from "@hyperidle/agent-layer";
-import { drainAgentWorkIntents } from "@hyperidle/agent-layer";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 vi.mock("../../../agent-layer/src/services/session-provisioning.js", async (importOriginal) => {

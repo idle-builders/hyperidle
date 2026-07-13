@@ -1,6 +1,13 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ProvisionSessionDeps } from "@hyperidle/agent-layer";
+import {
+	AdapterPool,
+	createAgentSessionRequest,
+	executeAgentRunRequest,
+	LocalSandboxAdapter,
+} from "@hyperidle/agent-layer";
 import {
 	agentSessionRequests,
 	bets,
@@ -25,12 +32,7 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
-import { AdapterPool } from "@hyperidle/agent-layer";
-import { LocalSandboxAdapter } from "@hyperidle/agent-layer";
 import { test as fixtureTest } from "../../test-fixtures.js";
-import { executeAgentRunRequest } from "@hyperidle/agent-layer";
-import { createAgentSessionRequest } from "@hyperidle/agent-layer";
-import type { ProvisionSessionDeps } from "@hyperidle/agent-layer";
 
 class RecordingHarnessAdapter implements HarnessAdapter {
 	readonly configs: SessionConfig[] = [];

@@ -8,6 +8,9 @@
  * `routine_run` intent and asserts the handed-off `AgentSessionRequest`'s
  * target agent — never the fire-time selection (which no longer exists).
  */
+
+import { drainAgentWorkIntents } from "@hyperidle/agent-layer";
+import { recordAgentWorkIntent, routineService } from "@hyperidle/core-app";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -20,10 +23,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { routineService } from "@hyperidle/core-app";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { drainAgentWorkIntents } from "@hyperidle/agent-layer";
-import { recordAgentWorkIntent } from "@hyperidle/core-app";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 

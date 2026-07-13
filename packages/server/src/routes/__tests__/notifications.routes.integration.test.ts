@@ -10,13 +10,16 @@
  * POST  /api/notifications/digest    — dispatch digest
  */
 
+import type {
+	AdapterFactory,
+	Notification,
+	NotificationAdapter,
+	NotificationConfig,
+} from "@hyperidle/core-app";
 import { createTestDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp } from "../../app.js";
-import type { NotificationConfig } from "@hyperidle/core-app";
-import type { AdapterFactory } from "@hyperidle/core-app";
-import type { Notification, NotificationAdapter } from "@hyperidle/core-app";
 import { expect, test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-notifications";

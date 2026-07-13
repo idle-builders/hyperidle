@@ -28,14 +28,14 @@ import { tmpdir } from "node:os";
 import { dirname, extname, join, relative } from "node:path";
 import ts from "typescript";
 
-const SRC = "packages/server/src";
+const SRC_ROOTS = ["packages/core-app/src", "packages/agent-layer/src", "packages/server/src"] as const;
 const DB_MODULE = "@hyperidle/db";
 const OWNED_TABLES = new Set(["threads", "messages", "users"]);
 
 /** The two owning modules — the only files allowed to write these tables. */
 const EXEMPT_FILES = new Set([
-	"packages/server/src/services/conversation-store.ts",
-	"packages/server/src/services/user-store.ts",
+	"packages/core-app/src/services/conversation-store.ts",
+	"packages/core-app/src/services/user-store.ts",
 ]);
 
 interface Finding {
@@ -136,7 +136,8 @@ function isMemberOrKeyPosition(node: ts.Identifier): boolean {
 
 export function inspect(root: string): Finding[] {
 	const findings: Finding[] = [];
-	for (const abs of walk(join(root, SRC))) {
+	for (const srcRoot of SRC_ROOTS) {
+	for (const abs of walk(join(root, srcRoot))) {
 		const rel = relative(root, abs).split("\\").join("/");
 		if (!productionFile(rel)) continue;
 		if (EXEMPT_FILES.has(rel)) continue;
@@ -177,6 +178,7 @@ export function inspect(root: string): Finding[] {
 		};
 		visit(ast);
 	}
+	}
 	return findings;
 }
 
@@ -189,15 +191,15 @@ function fixtureCheck(): void {
 		"packages/server/src/routes/bad-route.ts":
 			'import { threads } from "@hyperidle/db"; export const f = (db: any) => db.insert(threads).values({});',
 		// (b) tx.update(users) in a service → finding.
-		"packages/server/src/services/bad-service.ts":
+		"packages/core-app/src/services/bad-service.ts":
 			'import { users } from "@hyperidle/db"; export const g = (tx: any) => tx.update(users).set({}).where(true);',
 		// (c) ctx.db.insert(messages) in a tool → finding.
-		"packages/server/src/tools/bad-tool.ts":
+		"packages/agent-layer/src/tools/bad-tool.ts":
 			'import { messages } from "@hyperidle/db"; export const h = (ctx: any) => ctx.db.insert(messages).values({});',
 		// (d) any access inside conversation-store.ts / user-store.ts → NO finding (exempt owners).
-		"packages/server/src/services/conversation-store.ts":
+		"packages/core-app/src/services/conversation-store.ts":
 			'import { threads } from "@hyperidle/db"; export const owner = (db: any) => db.select().from(threads);',
-		"packages/server/src/services/user-store.ts":
+		"packages/core-app/src/services/user-store.ts":
 			'import { users } from "@hyperidle/db"; export const owner2 = (db: any) => db.select().from(users);',
 		// (e→h) db.select().from(threads) (READ) → NOW a finding (the write-only guard's NO-finding is inverted).
 		"packages/server/src/routes/read-route.ts":
@@ -233,8 +235,8 @@ function fixtureCheck(): void {
 		const found = new Set(inspect(root).map((f) => f.file));
 		const mustFlag = [
 			"packages/server/src/routes/bad-route.ts",
-			"packages/server/src/services/bad-service.ts",
-			"packages/server/src/tools/bad-tool.ts",
+			"packages/core-app/src/services/bad-service.ts",
+			"packages/agent-layer/src/tools/bad-tool.ts",
 			"packages/server/src/routes/read-route.ts",
 			"packages/server/src/routes/namespace-bypass.ts",
 			"packages/server/src/routes/col-ref.ts",
@@ -245,8 +247,8 @@ function fixtureCheck(): void {
 			if (!found.has(f)) throw new Error(`fixture guard MISSED a violation: ${f}`);
 		}
 		const mustPass = [
-			"packages/server/src/services/conversation-store.ts",
-			"packages/server/src/services/user-store.ts",
+			"packages/core-app/src/services/conversation-store.ts",
+			"packages/core-app/src/services/user-store.ts",
 			"packages/server/src/routes/local-shadow.ts",
 			"packages/server/src/routes/type-only.ts",
 			"packages/server/src/routes/shadow-name.ts",

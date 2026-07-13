@@ -22,10 +22,11 @@
  *     open transaction must see an uncommitted row written earlier in the
  *     same `tx`.
  */
+
+import { routine } from "@hyperidle/core-app";
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { routine } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {

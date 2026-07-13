@@ -13,15 +13,15 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
 	BuiltinHarnessAdapter,
 	CliHarnessAdapter,
-	LocalSandboxAdapter,
 	callLlm,
+	LocalSandboxAdapter,
 	provisionSession,
 } from "@hyperidle/agent-layer";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	EventBus,
 	HarnessAdapter,

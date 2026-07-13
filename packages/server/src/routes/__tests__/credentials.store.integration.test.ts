@@ -14,10 +14,10 @@
  * server_config blob). After AH1 implementation, ModelTierConfig has no apiKey field.
  */
 
+import { decryptCredentialValue } from "@hyperidle/core-app";
 import { serverConfig, serverCredentials } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { decryptCredentialValue } from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ah1-store";

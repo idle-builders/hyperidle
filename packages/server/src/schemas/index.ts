@@ -11,6 +11,6 @@
  * '@hyperidle/server/schemas'`.
  */
 
+export * from "@hyperidle/core-app";
+export * from "@hyperidle/core-app";
 export type { AppType } from "../app.js";
-export * from "@hyperidle/core-app";
-export * from "@hyperidle/core-app";

@@ -19,10 +19,9 @@
  * to prevent echo loops.
  */
 
+import { getThreadById, getUserById, updateThread } from "@hyperidle/core-app";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ThreadMessageAppendedEvent } from "@hyperidle/shared";
-import { getThreadById, updateThread } from "@hyperidle/core-app";
-import { getUserById } from "@hyperidle/core-app";
 
 // ---------------------------------------------------------------------------
 // Filter types and pure functions (exported for unit testing)

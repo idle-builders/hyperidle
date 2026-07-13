@@ -9,6 +9,7 @@
  * These fail (red phase) until `routes/workers.ts` is created and wired.
  */
 
+import { AdapterPool } from "@hyperidle/agent-layer";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -18,7 +19,6 @@ import type {
 	SessionResult,
 } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { AdapterPool } from "@hyperidle/agent-layer";
 import { createWorkersRoutes } from "../../routes/workers.js";
 
 const TEST_API_KEY = "test-workers-key";

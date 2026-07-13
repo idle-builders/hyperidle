@@ -7,6 +7,7 @@
  * POST  /api/routines/:id/trigger — manually trigger routine
  */
 
+import { runBuiltinRoutine } from "@hyperidle/agent-layer";
 import {
 	agentWorkIntents,
 	bets,
@@ -20,7 +21,6 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { runBuiltinRoutine } from "@hyperidle/agent-layer";
 import { test } from "../../test-fixtures.js";
 
 /** Seed a built-in routine (knowledge-decay) owned by agent-1. */

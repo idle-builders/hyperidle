@@ -13,12 +13,15 @@
  *  - GET /api/harnesses is mounted in app.ts
  */
 
+import {
+	AdapterPool,
+	BuiltinHarnessAdapter,
+	CLAUDE_CLI_CONFIG,
+	CliHarnessAdapter,
+} from "@hyperidle/agent-layer";
+import { createLoginSession } from "@hyperidle/core-app";
 import { users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool, CLAUDE_CLI_CONFIG } from "@hyperidle/agent-layer";
-import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
-import { CliHarnessAdapter } from "@hyperidle/agent-layer";
-import { createLoginSession } from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 

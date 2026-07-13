@@ -16,6 +16,9 @@
  * coalescing self-heals — pre-hand-off intent failure (`failOrRelease`) and
  * post-hand-off provision failure (`projectRoutine`).
  */
+
+import { checkAndFireRoutine, drainAgentWorkIntents } from "@hyperidle/agent-layer";
+import { routineService, startAgentLifecycleProjectionDrain } from "@hyperidle/core-app";
 import {
 	agentLifecycleInbox,
 	agentSessionRequests,
@@ -30,11 +33,7 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
-import { routineService } from "@hyperidle/core-app";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { startAgentLifecycleProjectionDrain } from "@hyperidle/core-app";
-import { drainAgentWorkIntents } from "@hyperidle/agent-layer";
-import { checkAndFireRoutine } from "@hyperidle/agent-layer";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 const TEST_API_KEY = "test-key-au15-routine-scheduler";

@@ -7,9 +7,9 @@
  * Use this to observe which tasks are waiting for agent capacity.
  */
 
+import { getDispatchQueueSnapshot } from "@hyperidle/agent-layer";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { getDispatchQueueSnapshot } from "@hyperidle/agent-layer";
 
 /**
  * Create a Hono router that exposes GET / → DispatchQueueSnapshot.

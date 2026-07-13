@@ -630,6 +630,10 @@ const MODEL_IMPORT_DEBT_PATH = path.join(SCRIPT_DIR, "model-import-debt.allowlis
 
 const SCAN_DIRS = [
 	"packages/server/src/harness/__tests__",
+	// AU17: harness/ moved to agent-layer — its integration tests moved with
+	// it (minus the handful that still need the composition-root app/server
+	// factory, which stayed in packages/server/src/harness/__tests__ above).
+	"packages/agent-layer/src/harness/__tests__",
 	"packages/server/src/__tests__",
 	// AR4: AH3/AK4 real files live here — add to SCAN_DIRS so the guard lints them.
 	// NOTE: SCAN_DIRS is guard-lint-only; attestation floor selects via isHarnessIntegrationPath

@@ -14,21 +14,20 @@
  *   AC5 — Configurable: repo path, remote URL, branch
  */
 
+import type { GitRunner } from "@hyperidle/core-app";
 import {
-	createTestDb,
-	type HyperIdleDb,
-	knowledgeItems,
-	knowledgeStrategyFabric,
-} from "@hyperidle/db";
-import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, vi } from "vitest";
-import { createApp, disposeApp } from "../app.js";
-import {
+	buildCommitMessage,
+	computeExportPlan,
+	type ExportPlanEntry,
+	type FsAdapter,
 	type GitExportConfig,
 	type GitExportConfigPatch,
 	getLastExportMeta,
 	loadGitExportConfig,
 	redactRemoteUrl,
+	registerGitExportHandler,
+	resetExportMutexes,
+	runGitExport,
 	sanitizeAuthorEmail,
 	sanitizeAuthorName,
 	sanitizeBranch,
@@ -38,15 +37,14 @@ import {
 	updateGitExportConfig,
 } from "@hyperidle/core-app";
 import {
-	buildCommitMessage,
-	computeExportPlan,
-	type ExportPlanEntry,
-	type FsAdapter,
-	registerGitExportHandler,
-	resetExportMutexes,
-	runGitExport,
-} from "@hyperidle/core-app";
-import type { GitRunner } from "@hyperidle/core-app";
+	createTestDb,
+	type HyperIdleDb,
+	knowledgeItems,
+	knowledgeStrategyFabric,
+} from "@hyperidle/db";
+import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, vi } from "vitest";
+import { createApp, disposeApp } from "../app.js";
 import { expect, test } from "../test-fixtures.js";
 
 type GitCall =

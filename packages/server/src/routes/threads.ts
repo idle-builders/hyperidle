@@ -12,6 +12,27 @@
  */
 
 import {
+	composeTailoredGrant,
+	escapeLikePattern,
+	getMessageByClientKey,
+	getMessageById,
+	getThreadByDirectKey,
+	getThreadById,
+	getUserById,
+	getUsersByIds,
+	insertMessage,
+	insertThread,
+	listMessagesByThread,
+	listThreadsByHost,
+	listThreadsByHostKind,
+	listThreadsByParticipant,
+	listUnresolvedReviewThreadIds,
+	listUsersByTeams,
+	resolveMessageIfUnresolved,
+	updateThread,
+	work,
+} from "@hyperidle/core-app";
+import {
 	agentWorkIntents,
 	artifacts,
 	type Message as DbMessage,
@@ -51,25 +72,6 @@ import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import {
-	getMessageByClientKey,
-	getMessageById,
-	getThreadByDirectKey,
-	getThreadById,
-	insertMessage,
-	insertThread,
-	listMessagesByThread,
-	listThreadsByHost,
-	listThreadsByHostKind,
-	listThreadsByParticipant,
-	listUnresolvedReviewThreadIds,
-	resolveMessageIfUnresolved,
-	updateThread,
-} from "@hyperidle/core-app";
-import { escapeLikePattern } from "@hyperidle/core-app";
-import { composeTailoredGrant } from "@hyperidle/core-app";
-import { getUserById, getUsersByIds, listUsersByTeams } from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {

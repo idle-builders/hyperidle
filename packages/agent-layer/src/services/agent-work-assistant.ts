@@ -20,6 +20,15 @@
  * CLIENT from lastMessage.createdAt + ASSISTANT_TURN_TIMEOUT_MS — no DB column needed.
  */
 
+import {
+	BUILT_IN_GATEWAY_CONFIG,
+	getOrCreateUser,
+	insertMessage,
+	listMessagesByThread,
+	readServerConfig,
+	resolveAgentModel,
+	resolveModelTier,
+} from "@hyperidle/core-app";
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
 	type ConversationMessage,
@@ -39,12 +48,6 @@ import { CassetteMissError } from "../harness/llm-cassette.js";
 import { HttpError } from "../harness/llm-client.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import {
-	BUILT_IN_GATEWAY_CONFIG,
-	resolveAgentModel,
-	resolveModelTier,
-} from "@hyperidle/core-app";
-import { readServerConfig } from "@hyperidle/core-app";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
 import {
 	buildAssistantDraftRegistry,
@@ -54,8 +57,6 @@ import {
 import type { ToolContext } from "../tools/tool-registry.js";
 import { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
 import { executeAgentRunRequest } from "./agent-run-boundary.js";
-import { insertMessage, listMessagesByThread } from "@hyperidle/core-app";
-import { getOrCreateUser } from "@hyperidle/core-app";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 

@@ -8,14 +8,14 @@
  * POST  /api/observability/flush     — flush dispatcher
  */
 
-import { createTestDb } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import type {
 	FlushOutcome,
 	ObservabilityDispatcher,
 	ObservabilityDispatcherStatus,
 } from "@hyperidle/core-app";
+import { createTestDb } from "@hyperidle/db";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-observability";

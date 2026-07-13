@@ -14,6 +14,8 @@ const RUNTIME_ROOTS = [
 	"package.json",
 	"tsconfig.json",
 	"packages/server",
+	"packages/core-app",
+	"packages/agent-layer",
 	"packages/shared",
 	"packages/desktop",
 	"packages/eval",
@@ -35,6 +37,7 @@ const RETIRED_PATHS = [
 	"packages/strategy-minimal",
 	"packages/shared/src/strategy-port.ts",
 	"packages/server/src/services/strategy-registry.ts",
+	"packages/core-app/src/services/strategy-registry.ts",
 ] as const;
 
 function extension(path: string): string {

@@ -28,6 +28,13 @@
  */
 
 import {
+	AdapterPool,
+	BuiltinHarnessAdapter,
+	createTriggeredAgentSessionRequest,
+	executeAssistantRequest,
+} from "@hyperidle/agent-layer";
+import type { CredentialResolver } from "@hyperidle/core-app";
+import {
 	type AgentSessionRequest,
 	type HyperIdleDb,
 	messages,
@@ -36,11 +43,6 @@ import {
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "@hyperidle/agent-layer";
-import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
-import { executeAssistantRequest } from "@hyperidle/agent-layer";
-import type { CredentialResolver } from "@hyperidle/core-app";
-import { createTriggeredAgentSessionRequest } from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -80,10 +82,7 @@ vi.mock("../../../agent-layer/src/services/session-provisioning.js", async (impo
 	return {
 		...original,
 		admitSession: vi.fn(
-			async (
-				_deps: unknown,
-				params: import("@hyperidle/agent-layer").ProvisionSessionParams,
-			) => {
+			async (_deps: unknown, params: import("@hyperidle/agent-layer").ProvisionSessionParams) => {
 				return {
 					sessionId: "stub-session-ar4b",
 					sessionContext: {
@@ -99,10 +98,7 @@ vi.mock("../../../agent-layer/src/services/session-provisioning.js", async (impo
 			},
 		),
 		runSession: vi.fn(
-			async (
-				_deps: unknown,
-				params: import("@hyperidle/agent-layer").ProvisionSessionParams,
-			) => {
+			async (_deps: unknown, params: import("@hyperidle/agent-layer").ProvisionSessionParams) => {
 				if (params.conversational) {
 					capturedConversational.push({
 						systemPromptOverride: params.conversational.systemPromptOverride,

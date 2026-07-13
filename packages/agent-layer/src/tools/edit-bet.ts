@@ -5,8 +5,8 @@
  * Updates the description of an existing bet.
  */
 
-import z from "zod";
 import { work } from "@hyperidle/core-app";
+import z from "zod";
 import type { AssistantToolResult, AssistantToolShape } from "./assistant-tool-result.js";
 import type { ToolContext } from "./tool-registry.js";
 

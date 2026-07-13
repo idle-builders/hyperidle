@@ -18,11 +18,11 @@
  * call site in server-factory.ts, unchanged.
  */
 
+import type { AdapterPool } from "@hyperidle/agent-layer";
+import { RemoteHarnessAdapter } from "@hyperidle/agent-layer";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";
 import { z } from "zod";
-import type { AdapterPool } from "@hyperidle/agent-layer";
-import { RemoteHarnessAdapter } from "@hyperidle/agent-layer";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 
 // ── Zod schemas for worker protocol messages ──────────────────────────────────

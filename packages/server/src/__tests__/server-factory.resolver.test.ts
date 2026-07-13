@@ -27,14 +27,16 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import { AdapterPool, DisabledSandboxAdapter } from "@hyperidle/agent-layer";
+import {
+	DbCredentialResolver,
+	EnvCredentialResolver,
+	encryptCredentialValue,
+} from "@hyperidle/core-app";
 import { serverCredentials } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "@hyperidle/agent-layer";
-import { DisabledSandboxAdapter } from "@hyperidle/agent-layer";
 import { createServer } from "../server-factory.js";
-import { encryptCredentialValue } from "@hyperidle/core-app";
-import { DbCredentialResolver, EnvCredentialResolver } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ah1-resolver-invariant";

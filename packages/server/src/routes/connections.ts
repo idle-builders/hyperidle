@@ -20,6 +20,12 @@
  * sandbox injection (AN2), not to routes.
  */
 
+import { type HarnessCapabilityReader, harnessCapabilityDescriptors } from "@hyperidle/agent-layer";
+import {
+	encryptCredentialValue,
+	projectInheritedConnections,
+	requireServerSecret,
+} from "@hyperidle/core-app";
 import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/shared";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/shared/net";
@@ -29,12 +35,6 @@ import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
-import { encryptCredentialValue, requireServerSecret } from "@hyperidle/core-app";
-import {
-	type HarnessCapabilityReader,
-	harnessCapabilityDescriptors,
-} from "@hyperidle/agent-layer";
-import { projectInheritedConnections } from "@hyperidle/core-app";
 
 // ---------------------------------------------------------------------------
 // Input validation

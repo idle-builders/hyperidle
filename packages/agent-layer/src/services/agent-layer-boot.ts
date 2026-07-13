@@ -1,3 +1,4 @@
+import { reapTerminalAgentWorkIntents } from "@hyperidle/core-app";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -13,7 +14,6 @@ import {
 import { claimNextAgentSessionRequest, releaseRequestClaim } from "./agent-session-requests.js";
 import { type AssistantTurnDeps, executeAssistantRequest } from "./agent-work-assistant.js";
 import { drainAgentWorkIntents } from "./agent-work-intent-worker.js";
-import { reapTerminalAgentWorkIntents } from "@hyperidle/core-app";
 import { recoverRequestedTerminations, requestAgentTermination } from "./session-lifecycle.js";
 import type { ProvisionSessionDeps } from "./session-provisioning.js";
 

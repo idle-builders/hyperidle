@@ -11,18 +11,17 @@
  *  - POST /digest: runs digest through adapter
  */
 
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, vi } from "vitest";
-import { createApp, disposeApp } from "../../app.js";
-import type { SafeNotificationConfig } from "@hyperidle/core-app";
-import { updateNotificationConfig } from "@hyperidle/core-app";
-import { insertNotification, listAll } from "@hyperidle/core-app";
 import type {
 	Notification,
 	NotificationAdapter,
 	Recipient,
+	SafeNotificationConfig,
 	SendResult,
 } from "@hyperidle/core-app";
+import { insertNotification, listAll, updateNotificationConfig } from "@hyperidle/core-app";
+import type { ApiErrorResponse } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, vi } from "vitest";
+import { createApp, disposeApp } from "../../app.js";
 import { expect, test } from "../../test-fixtures.js";
 
 const API_KEY = "test-key-H2-routes";

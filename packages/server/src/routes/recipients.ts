@@ -10,12 +10,12 @@
  * hasActiveSession is derived by joining against sessions with state=active.
  */
 
+import { listAllUsers, searchUsersByName } from "@hyperidle/core-app";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { listAllUsers, searchUsersByName } from "@hyperidle/core-app";
 
 export interface RecipientRow {
 	id: string;

@@ -18,6 +18,34 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
+import type { HarnessCapabilityReader } from "@hyperidle/agent-layer";
+import {
+	persistScaffoldedAgents,
+	provisionTeamRoutines,
+	resolveAgentScaffoldSpecs,
+} from "@hyperidle/agent-layer";
+import {
+	ApiError,
+	deriveInitials,
+	enqueueNotification,
+	findPendingByEventSubject,
+	getFirstUserByKind,
+	getThreadById,
+	getUserById,
+	getUsersByIds,
+	humanizeSchedule,
+	insertMessage,
+	insertThread,
+	insertUser,
+	listUsersByTeam,
+	listUsersByTeamAndKind,
+	loadTeamMembers,
+	resolveTeamAgentHarness,
+	routineService,
+	updateUser,
+	upsertOrgEdge,
+	work,
+} from "@hyperidle/core-app";
 import { type HyperIdleDb, sessions, teamMembers, teams } from "@hyperidle/db";
 import type {
 	AgentOperationalStatus,
@@ -43,29 +71,6 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { enqueueNotification } from "@hyperidle/core-app";
-import { findPendingByEventSubject } from "@hyperidle/core-app";
-import { routineService } from "@hyperidle/core-app";
-import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-layer";
-import { deriveInitials } from "@hyperidle/core-app";
-import { provisionTeamRoutines } from "@hyperidle/agent-layer";
-import { getThreadById, insertMessage, insertThread } from "@hyperidle/core-app";
-import type { HarnessCapabilityReader } from "@hyperidle/agent-layer";
-import { upsertOrgEdge } from "@hyperidle/core-app";
-import { persistScaffoldedAgents } from "@hyperidle/agent-layer";
-import { humanizeSchedule } from "@hyperidle/core-app";
-import { resolveTeamAgentHarness } from "@hyperidle/core-app";
-import { ApiError, loadTeamMembers } from "@hyperidle/core-app";
-import {
-	getFirstUserByKind,
-	getUserById,
-	getUsersByIds,
-	insertUser,
-	listUsersByTeam,
-	listUsersByTeamAndKind,
-	updateUser,
-} from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 import {
 	computeHealthSignals,
 	deriveHealthDetail,

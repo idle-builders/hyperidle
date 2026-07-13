@@ -22,12 +22,12 @@
  * invariant if team-scoped cost attribution is added.
  */
 
+import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/core-app";
 import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import { type EventBus, findRoleCatalogEntry, type UserRole } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { resolveAgentSelection } from "./agent-defaults/resolvers.js";
 import type { SelectionCandidate } from "./contracts.js";
-import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/core-app";
 
 /**
  * AK7: Enumerate eligible team candidates for bet_* selection surfaces.

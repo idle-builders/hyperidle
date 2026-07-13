@@ -15,9 +15,9 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/agent-layer/routines";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { items, knowledgeStrategyFabric } from "@hyperidle/db";
-import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/agent-layer/routines";
 
 // @lore AL6: clearBuiltinCostSentinelCache was removed from @hyperidle/server/app-runtime (AD8c).
 // The sentinel cache is now cleared internally; eval scenarios no longer need to call it.

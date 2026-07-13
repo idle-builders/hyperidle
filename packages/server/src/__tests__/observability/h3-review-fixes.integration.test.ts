@@ -20,6 +20,13 @@
  *     Stripe, PEM (security M-2).
  */
 
+import type { ObservabilityAdapter, ObservabilityDispatcher } from "@hyperidle/core-app";
+import {
+	createObservabilityDispatcher,
+	type ObservabilityConfig,
+	registerObservabilityDispatcher,
+	updateObservabilityConfig,
+} from "@hyperidle/core-app";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	EventBus,
@@ -30,18 +37,6 @@ import {
 	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
-import {
-	type ObservabilityConfig,
-	updateObservabilityConfig,
-} from "@hyperidle/core-app";
-import {
-	createObservabilityDispatcher,
-	registerObservabilityDispatcher,
-} from "@hyperidle/core-app";
-import type {
-	ObservabilityAdapter,
-	ObservabilityDispatcher,
-} from "@hyperidle/core-app";
 import { describe, expect, test } from "../../test-fixtures.js";
 
 function captureAdapter(

@@ -34,7 +34,7 @@ import { tmpdir } from "node:os";
 import { dirname, extname, join, relative } from "node:path";
 import ts from "typescript";
 
-const SRC = "packages/server/src";
+const SRC_ROOTS = ["packages/core-app/src", "packages/agent-layer/src", "packages/server/src"] as const;
 
 /** The five tables this guard protects, and which service owns each. */
 const TABLE_OWNER: Record<string, "Work" | "Routine"> = {
@@ -51,8 +51,8 @@ const READ_METHOD = "from";
 
 /** Only these two files may contain a direct write/read call against the five tables. */
 const OWNING_MODULE_ALLOWLIST = new Set([
-	"packages/server/src/work-service.ts",
-	"packages/server/src/routine-service.ts",
+	"packages/core-app/src/work-service.ts",
+	"packages/core-app/src/routine-service.ts",
 ]);
 
 interface Finding {
@@ -123,7 +123,9 @@ function findViolations(abs: string, rel: string): Finding[] {
 
 export function inspect(root: string): Finding[] {
 	const findings: Finding[] = [];
-	const allProdFiles = walk(join(root, SRC)).filter((abs) => productionFile(relative(root, abs)));
+	const allProdFiles = SRC_ROOTS.flatMap((srcRoot) => walk(join(root, srcRoot))).filter((abs) =>
+		productionFile(relative(root, abs)),
+	);
 
 	for (const abs of new Set(allProdFiles)) {
 		const rel = relative(root, abs).split("\\").join("/");
@@ -148,21 +150,21 @@ function fixtureCheck(): void {
 		"packages/server/src/routes/bad-read.ts":
 			'import { bets } from "@hyperidle/db"; export async function g(db: unknown) { await (db as { select: () => { from: (t: unknown) => unknown } }).select().from(bets); }',
 		// (c) the owning module itself may write freely.
-		"packages/server/src/work-service.ts":
+		"packages/core-app/src/work-service.ts":
 			'import { bets } from "@hyperidle/db"; export async function createBet(db: unknown) { await (db as { insert: (t: unknown) => { values: (v: unknown) => Promise<void> } }).insert(bets).values({}); await (db as { select: () => { from: (t: unknown) => unknown } }).select().from(bets); }',
 		// (d) a write to an unrelated table (not one of the five) never trips the guard.
-		"packages/server/src/services/unrelated.ts":
+		"packages/core-app/src/services/unrelated.ts":
 			'import { threads } from "@hyperidle/db"; export async function h(tx: unknown) { await (tx as { insert: (t: unknown) => { values: (v: unknown) => Promise<void> } }).insert(threads).values({}); }',
 		// (e) routine-service.ts may write routines/routineRuns freely.
-		"packages/server/src/routine-service.ts":
+		"packages/core-app/src/routine-service.ts":
 			'import { routines } from "@hyperidle/db"; export async function insertRoutine(db: unknown) { await (db as { insert: (t: unknown) => { values: (v: unknown) => Promise<void> } }).insert(routines).values({}); await (db as { select: () => { from: (t: unknown) => unknown } }).select().from(routines); }',
 		// (f) a direct write to routines from a non-owning file → finding.
-		"packages/server/src/services/bad-scheduler.ts":
+		"packages/agent-layer/src/services/bad-scheduler.ts":
 			'import { routines } from "@hyperidle/db"; export async function j(db: unknown) { await (db as { update: (t: unknown) => { set: (v: unknown) => { where: (w: unknown) => Promise<void> } } }).update(routines).set({}).where(true); }',
 		// (g) addendum §A2: a foreign-primary query that only JOINS into a guarded
 		// table (`.from(messages).innerJoin(bets, …)`) is join-participation, not
 		// owned — must NOT be flagged, mirroring approval-rate.ts/artifacts.ts.
-		"packages/server/src/services/ok-join.ts":
+		"packages/core-app/src/services/ok-join.ts":
 			'import { bets, messages } from "@hyperidle/db"; export async function k(db: unknown) { await (db as { select: () => { from: (t: unknown) => { innerJoin: (t2: unknown, c: unknown) => unknown } } }).select().from(messages).innerJoin(bets, true); }',
 	};
 	try {
@@ -175,14 +177,14 @@ function fixtureCheck(): void {
 		for (const expected of [
 			"packages/server/src/routes/bad-route.ts",
 			"packages/server/src/routes/bad-read.ts",
-			"packages/server/src/services/bad-scheduler.ts",
+			"packages/agent-layer/src/services/bad-scheduler.ts",
 		])
 			if (!findings.includes(expected)) throw new Error(`fixture guard missed ${expected}`);
 		for (const allowed of [
-			"packages/server/src/work-service.ts",
-			"packages/server/src/services/unrelated.ts",
-			"packages/server/src/routine-service.ts",
-			"packages/server/src/services/ok-join.ts",
+			"packages/core-app/src/work-service.ts",
+			"packages/core-app/src/services/unrelated.ts",
+			"packages/core-app/src/routine-service.ts",
+			"packages/core-app/src/services/ok-join.ts",
 		])
 			if (findings.includes(allowed)) throw new Error(`fixture guard rejected allowed ${allowed}`);
 		process.stdout.write("au13-work-routine-ownership-guard fixtures: PASS\n");

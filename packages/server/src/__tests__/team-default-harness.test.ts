@@ -6,9 +6,9 @@
  * undefined when both unset so builtin fallback in persistScaffoldedAgents applies).
  */
 
+import { resolveTeamAgentHarness } from "@hyperidle/core-app";
 import type { PrimaryHarnessConfig } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { resolveTeamAgentHarness } from "@hyperidle/core-app";
 
 const TEAM_WITH_DEFAULT = {
 	defaultHarnessType: "claude-code",

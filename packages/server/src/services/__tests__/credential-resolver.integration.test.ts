@@ -11,10 +11,13 @@
  *  - DbCredentialResolver decrypts with the correct server secret
  */
 
+import {
+	DbCredentialResolver,
+	EnvCredentialResolver,
+	encryptCredentialValue,
+} from "@hyperidle/core-app";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { encryptCredentialValue } from "@hyperidle/core-app";
-import { DbCredentialResolver, EnvCredentialResolver } from "@hyperidle/core-app";
 
 describe("P3 AC-15 — CredentialResolver interface", () => {
 	describe("EnvCredentialResolver", () => {

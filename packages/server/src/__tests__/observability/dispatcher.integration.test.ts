@@ -9,6 +9,12 @@
  *  - Subscribe-once + clean unsubscribe on dispose.
  */
 
+import type { ObservabilityAdapter, ObservabilityChannel } from "@hyperidle/core-app";
+import {
+	createObservabilityDispatcher,
+	registerObservabilityDispatcher,
+	summarizeToolArgs,
+} from "@hyperidle/core-app";
 import {
 	type BetStateChangedEvent,
 	type CostCapBreachedEvent,
@@ -18,15 +24,6 @@ import {
 	type SessionStartedEvent,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import {
-	createObservabilityDispatcher,
-	registerObservabilityDispatcher,
-	summarizeToolArgs,
-} from "@hyperidle/core-app";
-import type {
-	ObservabilityAdapter,
-	ObservabilityChannel,
-} from "@hyperidle/core-app";
 import { afterEach, describe, expect, test } from "../../test-fixtures.js";
 
 function fakeAdapter(

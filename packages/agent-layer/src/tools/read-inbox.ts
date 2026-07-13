@@ -1,5 +1,5 @@
-import z from "zod";
 import { listInboxBySenderExclusion } from "@hyperidle/core-app";
+import z from "zod";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

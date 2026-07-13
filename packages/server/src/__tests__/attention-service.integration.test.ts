@@ -1,4 +1,9 @@
 import {
+	attentionReviewReasoningMarker,
+	buildAttentionService,
+	MAX_RECOMPUTE_BATCH,
+} from "@hyperidle/core-app";
+import {
 	type HyperIdleDb,
 	items,
 	knowledgeConflicts,
@@ -8,8 +13,6 @@ import {
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { buildAttentionService, MAX_RECOMPUTE_BATCH } from "@hyperidle/core-app";
-import { attentionReviewReasoningMarker } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";

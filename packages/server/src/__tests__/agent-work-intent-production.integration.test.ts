@@ -1,3 +1,5 @@
+import { checkAndFireRoutine, insertProposedBetTasks } from "@hyperidle/agent-layer";
+import { checkAndUnblockDependents, composeTailoredGrant } from "@hyperidle/core-app";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -20,10 +22,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import { eq, sql } from "drizzle-orm";
-import { insertProposedBetTasks } from "@hyperidle/agent-layer";
-import { checkAndUnblockDependents } from "@hyperidle/core-app";
-import { composeTailoredGrant } from "@hyperidle/core-app";
-import { checkAndFireRoutine } from "@hyperidle/agent-layer";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const authHeaders = {
@@ -216,10 +214,7 @@ describe("atomic production handoffs", () => {
 	});
 
 	test("production module offers one drain with no domain callback", async () => {
-		const worker = (await import("@hyperidle/agent-layer")) as Record<
-			string,
-			unknown
-		>;
+		const worker = (await import("@hyperidle/agent-layer")) as Record<string, unknown>;
 		expect(worker.consumeAgentSessionRequest).toBeTypeOf("function");
 		expect(worker.drainAgentWorkIntents).toBeTypeOf("function");
 		// @lore AU9 R1: handOffIntent was a zero-production-caller duplicate of the

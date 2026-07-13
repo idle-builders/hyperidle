@@ -10,17 +10,17 @@
  * These tests will FAIL until Tasks 2-4 implementation ships.
  */
 
-// @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
 import {
 	checkCostCap,
 	clearDeduplicationCache,
 	recordCostAndCheck,
 	resetCosts,
 } from "@hyperidle/agent-layer";
+// @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { EventBus } from "@hyperidle/shared";
+import { eq } from "drizzle-orm";
+import { describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-l17-money";

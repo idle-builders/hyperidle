@@ -156,7 +156,7 @@ function fixtureCheck(): void {
 	try {
 		writeFixture(
 			scopingRoot,
-			"packages/server/src/knowledge/knowledge-repository.ts",
+			"packages/core-app/src/knowledge/knowledge-repository.ts",
 			'import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db"; export async function findById(db: unknown) { const d = db as { select: () => { from: (t: unknown) => { innerJoin: (t2: unknown, c: unknown) => unknown } } }; return d.select().from(knowledgeAppProjection).innerJoin(knowledgeItems, true); }',
 		);
 		// No GUARDED_FILE written in this root at all.

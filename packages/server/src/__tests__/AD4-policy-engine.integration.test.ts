@@ -24,6 +24,7 @@
  * - packages/server/app-runtime/src/services/policy-engine.ts is rewritten to use computeApprovalRate
  */
 
+import { registerPolicyEngine, updateServerConfig } from "@hyperidle/core-app";
 import {
 	type HyperIdleDb,
 	items,
@@ -35,8 +36,6 @@ import {
 } from "@hyperidle/db";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import { registerPolicyEngine } from "@hyperidle/core-app";
-import { updateServerConfig } from "@hyperidle/core-app";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

@@ -8,6 +8,8 @@
  * custody/claim/terminal/recovery helper directly to assert its return value.
  */
 
+import type { AdapterPool, SandboxAdapter } from "@hyperidle/agent-layer";
+import { drainAgentSessionRequests } from "@hyperidle/agent-layer";
 import {
 	agentLifecycleInbox,
 	agentSessionRequests,
@@ -20,9 +22,6 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, vi } from "vitest";
-import type { AdapterPool } from "@hyperidle/agent-layer";
-import type { SandboxAdapter } from "@hyperidle/agent-layer";
-import { drainAgentSessionRequests } from "@hyperidle/agent-layer";
 import { expect, test } from "../test-fixtures.js";
 
 vi.mock("../../../agent-layer/src/services/session-provisioning.js", async (importOriginal) => {

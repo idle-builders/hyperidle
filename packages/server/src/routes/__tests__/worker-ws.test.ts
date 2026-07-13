@@ -11,8 +11,8 @@
  * - validates incoming messages with Zod and drops malformed data (S2-F05)
  */
 
-import { describe, expect, it } from "vitest";
 import { AdapterPool } from "@hyperidle/agent-layer";
+import { describe, expect, it } from "vitest";
 import { registerWorkerWsRoute } from "../../services/worker-ws.js";
 
 // ── Mock WebSocket context ─────────────────────────────────────────────────

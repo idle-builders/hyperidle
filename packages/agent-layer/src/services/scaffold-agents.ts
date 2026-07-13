@@ -24,10 +24,10 @@
  * (FactoryRosterSpec), not a Kernel decision.
  */
 
+import { getUserById, insertUser } from "@hyperidle/core-app";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { PrimaryHarnessConfig } from "@hyperidle/shared";
 import type { AgentScaffoldSpec } from "./contracts.js";
-import { getUserById, insertUser } from "@hyperidle/core-app";
 
 export interface ScaffoldResult {
 	agentIds: string[];

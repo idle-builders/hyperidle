@@ -13,27 +13,28 @@
  *   AC12 — cost_breach bypasses factory silence; defers during quiet hours
  */
 
-import { type HyperIdleDb, items as itemsTable, threads, users } from "@hyperidle/db";
-import type { NotificationEvent } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, vi } from "vitest";
-import { loadNotificationConfig, updateNotificationConfig } from "@hyperidle/core-app";
-import { flushQueue, recoverStuckLeases } from "@hyperidle/core-app";
-import { startNotificationDrain } from "@hyperidle/core-app";
+import {
+	clearCostSentinelCache,
+	getFactoryCostActual,
+	runCostSentinelCheck,
+} from "@hyperidle/agent-layer";
+import type { Notification, NotificationAdapter, Recipient, SendResult } from "@hyperidle/core-app";
 import {
 	defaultMutePreferenceReader,
 	defaultMutePreferenceWriter,
+	flushQueue,
+	insertNotification,
+	listAll,
+	loadNotificationConfig,
+	recoverStuckLeases,
+	registerNotificationListener,
+	startNotificationDrain,
+	updateNotificationConfig,
+	updateServerConfig,
 } from "@hyperidle/core-app";
-import { registerNotificationListener } from "@hyperidle/core-app";
-import { insertNotification, listAll } from "@hyperidle/core-app";
-import type {
-	Notification,
-	NotificationAdapter,
-	Recipient,
-	SendResult,
-} from "@hyperidle/core-app";
-import { getFactoryCostActual } from "@hyperidle/agent-layer";
-import { clearCostSentinelCache, runCostSentinelCheck } from "@hyperidle/agent-layer";
-import { updateServerConfig } from "@hyperidle/core-app";
+import { type HyperIdleDb, items as itemsTable, threads, users } from "@hyperidle/db";
+import type { NotificationEvent } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../../test-fixtures.js";
 
 // --- helpers ---

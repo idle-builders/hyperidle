@@ -25,14 +25,15 @@
  * into the bridge registry — no need for a real McpServer or transport.
  */
 
+import type {
+	EnforcementRegistry,
+	McpBridgeInstance,
+	McpBridgeRegistry,
+} from "@hyperidle/agent-layer";
+import { createEnforcementRegistry, createMcpBridgeRegistry } from "@hyperidle/agent-layer";
 import { AL6_FORCE_RETURN_MESSAGE, AL6_MAX_FORCE_RETURNS } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it as test } from "vitest";
-import type { EnforcementRegistry } from "@hyperidle/agent-layer";
-import { createEnforcementRegistry } from "@hyperidle/agent-layer";
-import type { McpBridgeInstance } from "@hyperidle/agent-layer";
-import type { McpBridgeRegistry } from "@hyperidle/agent-layer";
-import { createMcpBridgeRegistry } from "@hyperidle/agent-layer";
 import { createMcpRoute } from "../services/mcp-route.js";
 
 // ── Bridge stub ───────────────────────────────────────────────────────────────

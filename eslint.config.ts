@@ -45,9 +45,16 @@ export default [
 		},
 	},
 
-	// Drizzle ORM safety (db + server packages)
+	// Drizzle ORM safety (db + server/core-app/agent-layer packages — AU17: the
+	// former shared packages/server/src/services/ tree split into two new
+	// workspace packages that now do DB queries directly).
 	{
-		files: ["packages/db/src/**/*.ts", "packages/server/src/**/*.ts"],
+		files: [
+			"packages/db/src/**/*.ts",
+			"packages/server/src/**/*.ts",
+			"packages/core-app/src/**/*.ts",
+			"packages/agent-layer/src/**/*.ts",
+		],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -235,11 +242,22 @@ export default [
 	// Warn-level so the baseline does not break during the migration window;
 	// will promote to error once the remaining offenders are cleared.
 	{
-		files: ["packages/server/src/**/*.ts", "packages/web/src/**/*.{ts,tsx}"],
+		files: [
+			"packages/server/src/**/*.ts",
+			"packages/core-app/src/**/*.ts",
+			"packages/agent-layer/src/**/*.ts",
+			"packages/web/src/**/*.{ts,tsx}",
+		],
 		ignores: [
 			"packages/server/src/**/__tests__/**",
 			"packages/server/src/**/*.test.ts",
 			"packages/server/src/**/*.spec.ts",
+			"packages/core-app/src/**/__tests__/**",
+			"packages/core-app/src/**/*.test.ts",
+			"packages/core-app/src/**/*.spec.ts",
+			"packages/agent-layer/src/**/__tests__/**",
+			"packages/agent-layer/src/**/*.test.ts",
+			"packages/agent-layer/src/**/*.spec.ts",
 			"packages/web/src/**/__tests__/**",
 			"packages/web/src/**/*.test.{ts,tsx}",
 			"packages/web/src/**/*.spec.{ts,tsx}",
@@ -298,7 +316,12 @@ export default [
 	// error for __fixtures__/ imports. This rule layers on top with broader
 	// coverage (also catches fixtures/ without double-underscore) at warn.
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}", "packages/server/src/**/*.ts"],
+		files: [
+			"packages/web/src/**/*.{ts,tsx}",
+			"packages/server/src/**/*.ts",
+			"packages/core-app/src/**/*.ts",
+			"packages/agent-layer/src/**/*.ts",
+		],
 		ignores: [
 			"packages/web/src/**/*.stories.tsx",
 			"packages/web/src/**/__tests__/**",
@@ -312,6 +335,14 @@ export default [
 			"packages/server/src/**/__fixtures__/**",
 			"packages/server/src/**/e2e/**",
 			"packages/server/src/**/seed*.ts",
+			"packages/core-app/src/**/__tests__/**",
+			"packages/core-app/src/**/*.test.ts",
+			"packages/core-app/src/**/*.spec.ts",
+			"packages/core-app/src/**/__fixtures__/**",
+			"packages/agent-layer/src/**/__tests__/**",
+			"packages/agent-layer/src/**/*.test.ts",
+			"packages/agent-layer/src/**/*.spec.ts",
+			"packages/agent-layer/src/**/__fixtures__/**",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -580,13 +611,23 @@ export default [
 	// AK2 bans ONLY the two port-crossing symbols (assembleContext + startWatcher)
 	// and the minimal Strategy package.
 	{
-		files: ["packages/server/src/**/*.ts"],
+		files: [
+			"packages/server/src/**/*.ts",
+			"packages/core-app/src/**/*.ts",
+			"packages/agent-layer/src/**/*.ts",
+		],
 		ignores: [
 			"packages/server/src/server-factory.ts", // composition root — may import a concrete Strategy
 			"packages/server/src/test-fixtures.ts", // test infrastructure — registers minimalStrategy as fixture default
 			"packages/server/src/**/__tests__/**",
 			"packages/server/src/**/*.test.ts",
 			"packages/server/src/**/*.spec.ts",
+			"packages/core-app/src/**/__tests__/**",
+			"packages/core-app/src/**/*.test.ts",
+			"packages/core-app/src/**/*.spec.ts",
+			"packages/agent-layer/src/**/__tests__/**",
+			"packages/agent-layer/src/**/*.test.ts",
+			"packages/agent-layer/src/**/*.spec.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -640,14 +681,16 @@ export default [
 	// (b) catches "I added a BUILTIN_ASSISTANT_SYSTEM_PROMPT const locally and used it".
 	// Neither can substitute for the other.
 	{
-		files: ["packages/server/src/routes/**/*.ts", "packages/server/src/tools/**/*.ts"],
+		// AU17: tools/ moved to @hyperidle/agent-layer; routes/ stayed in the
+		// composition root.
+		files: ["packages/server/src/routes/**/*.ts", "packages/agent-layer/src/tools/**/*.ts"],
 		ignores: [
 			"packages/server/src/routes/**/__tests__/**",
 			"packages/server/src/routes/**/*.test.ts",
 			"packages/server/src/routes/**/*.spec.ts",
-			"packages/server/src/tools/**/__tests__/**",
-			"packages/server/src/tools/**/*.test.ts",
-			"packages/server/src/tools/**/*.spec.ts",
+			"packages/agent-layer/src/tools/**/__tests__/**",
+			"packages/agent-layer/src/tools/**/*.test.ts",
+			"packages/agent-layer/src/tools/**/*.spec.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -861,12 +904,15 @@ export default [
 	//   select-agent.ts is a selection helper; it must not read persona content.
 	//   Scoped to: packages/server/src/services/select-agent.ts only.
 	{
-		files: ["packages/server/src/services/**/*.ts"],
+		// AU17: services/ split between @hyperidle/core-app and @hyperidle/agent-layer;
+		// select-agent.ts (the one permitted caller) moved to agent-layer.
+		files: ["packages/core-app/src/services/**/*.ts", "packages/agent-layer/src/services/**/*.ts"],
 		ignores: [
 			// select-agent.ts is the ONLY place selection logic is permitted
-			"packages/server/src/services/select-agent.ts",
+			"packages/agent-layer/src/services/select-agent.ts",
 			// Test files are exempt
-			"packages/server/src/services/**/__tests__/**",
+			"packages/core-app/src/services/**/__tests__/**",
+			"packages/agent-layer/src/services/**/__tests__/**",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -887,7 +933,7 @@ export default [
 		},
 	},
 	{
-		files: ["packages/server/src/services/select-agent.ts"],
+		files: ["packages/agent-layer/src/services/select-agent.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -986,7 +1032,9 @@ export default [
 	// AgentSessionRequest, but runtime start belongs to agent-session-runtime /
 	// session-provisioning. Keep adapter selection and harness starts out of this file.
 	{
-		files: ["packages/server/src/services/bet-decomposition.ts"],
+		// AU17: bet-decomposition.ts moved to @hyperidle/agent-layer (its relative
+		// sibling harness/adapter-pool.js path is unchanged — same subpath preserved).
+		files: ["packages/agent-layer/src/services/bet-decomposition.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -1110,18 +1158,28 @@ export default [
 	// and the extraction drain (bet-decomposition) are classified by their markers
 	// so the rule never requires eslint-disable on them.
 	{
+		// AU17: services/ split between core-app/agent-layer; harness/ moved
+		// wholesale to agent-layer.
 		files: [
 			"packages/server/src/services/**/*.ts",
-			"packages/server/src/harness/**/*.ts",
+			"packages/core-app/src/services/**/*.ts",
+			"packages/agent-layer/src/services/**/*.ts",
+			"packages/agent-layer/src/harness/**/*.ts",
 			"packages/desktop/src/**/*.ts",
 		],
 		ignores: [
 			"packages/server/src/services/**/__tests__/**",
 			"packages/server/src/services/**/*.test.ts",
 			"packages/server/src/services/**/*.integration.test.ts",
-			"packages/server/src/harness/**/__tests__/**",
-			"packages/server/src/harness/**/*.test.ts",
-			"packages/server/src/harness/**/*.integration.test.ts",
+			"packages/core-app/src/services/**/__tests__/**",
+			"packages/core-app/src/services/**/*.test.ts",
+			"packages/core-app/src/services/**/*.integration.test.ts",
+			"packages/agent-layer/src/services/**/__tests__/**",
+			"packages/agent-layer/src/services/**/*.test.ts",
+			"packages/agent-layer/src/services/**/*.integration.test.ts",
+			"packages/agent-layer/src/harness/**/__tests__/**",
+			"packages/agent-layer/src/harness/**/*.test.ts",
+			"packages/agent-layer/src/harness/**/*.integration.test.ts",
 			"packages/desktop/src/**/__tests__/**",
 			"packages/desktop/src/**/*.test.ts",
 		],
@@ -1138,6 +1196,8 @@ export default [
 	{
 		files: [
 			"packages/server/src/**/*.ts",
+			"packages/core-app/src/**/*.ts",
+			"packages/agent-layer/src/**/*.ts",
 			"packages/shared/src/**/*.ts",
 			"packages/api-contract/src/**/*.ts",
 			"packages/web/src/**/*.{ts,tsx}",
@@ -1150,6 +1210,7 @@ export default [
 			"packages/**/*.spec.{ts,tsx}",
 			"packages/**/*.stories.tsx",
 			"packages/server/src/services/strategy-registry.ts",
+			"packages/core-app/src/services/strategy-registry.ts",
 			"packages/shared/src/strategy-port.ts",
 		],
 		languageOptions: {

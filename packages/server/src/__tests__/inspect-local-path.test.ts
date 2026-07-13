@@ -5,9 +5,9 @@
  * Tests use createFakeGitRunner for injection (no real git).
  */
 
-import { describe, expect, it } from "vitest";
 import type { GitRunner } from "@hyperidle/core-app";
 import { inspectLocalPath } from "@hyperidle/core-app";
+import { describe, expect, it } from "vitest";
 
 function makeFakeRunner(isInsideWorkTree: boolean, branch: string | null): GitRunner {
 	return {

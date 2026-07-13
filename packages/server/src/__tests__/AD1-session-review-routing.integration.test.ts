@@ -11,6 +11,7 @@
  *     by their team's agents appear in the list (humans are participants).
  */
 
+import { registerSessionReviewCreator } from "@hyperidle/core-app";
 import {
 	bets,
 	createTestDb,
@@ -29,7 +30,6 @@ import {
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerSessionReviewCreator } from "@hyperidle/core-app";
 
 const NOW = new Date().toISOString();
 

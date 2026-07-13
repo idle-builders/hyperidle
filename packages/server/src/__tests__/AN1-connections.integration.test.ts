@@ -24,10 +24,10 @@
  *   - routes are mounted at /api/connections in server-factory.ts
  */
 
+import { createLoginSession } from "@hyperidle/core-app";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createApp } from "../app.js";
-import { createLoginSession } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-an1-connections";

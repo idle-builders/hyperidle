@@ -20,6 +20,14 @@
  *   JS-verified for exact membership (prevents false positives from substring).
  * - Knowledge: scope_kind != 'user' OR updated_by = userId.
  */
+
+import {
+	escapeLikePattern,
+	getMessagesByThreadIds,
+	listThreadMetaByIds,
+	searchConversations,
+	work,
+} from "@hyperidle/core-app";
 import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, teams } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
@@ -28,13 +36,6 @@ import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import {
-	getMessagesByThreadIds,
-	listThreadMetaByIds,
-	searchConversations,
-} from "@hyperidle/core-app";
-import { escapeLikePattern } from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 
 /** Max results per category */
 const MAX_PER_CATEGORY = 5;

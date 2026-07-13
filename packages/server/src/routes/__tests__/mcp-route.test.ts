@@ -9,9 +9,9 @@
  * and packages/server/src/mcp/__tests__/mcp-bridge-stateful.integration.test.ts (T0b).
  */
 
+import type { McpBridgeRegistry } from "@hyperidle/agent-layer";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import type { McpBridgeRegistry } from "@hyperidle/agent-layer";
 import { createMcpRoute } from "../../services/mcp-route.js";
 
 function makeMockRegistry(response: Response): McpBridgeRegistry {

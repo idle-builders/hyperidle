@@ -1,7 +1,7 @@
+import { routine } from "@hyperidle/core-app";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import { and, eq, lt, sql } from "drizzle-orm";
-import { routine } from "@hyperidle/core-app";
 
 const reaperLog = createLogger({ pkg: "server.routine-reaper" });
 

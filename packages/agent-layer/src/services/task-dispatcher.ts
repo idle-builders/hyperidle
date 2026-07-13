@@ -25,6 +25,7 @@
  * This is an accepted v1 limitation — see architecture-critique Finding 3.
  */
 
+import { work } from "@hyperidle/core-app";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	ConcurrencyLimitError,
@@ -34,7 +35,6 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import { work } from "@hyperidle/core-app";
 
 // ---------------------------------------------------------------------------
 // Simple inline logger (observability adapter not yet available here)

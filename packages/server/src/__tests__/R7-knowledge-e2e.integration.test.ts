@@ -12,6 +12,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { assembleContext, promoteKnowledgeTool, writeMemoryTool } from "@hyperidle/agent-layer";
 import {
 	bets,
 	type HyperIdleDb,
@@ -25,11 +27,7 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { assembleContext } from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
-import { promoteKnowledgeTool } from "@hyperidle/agent-layer";
-import type { ToolContext } from "@hyperidle/agent-layer";
-import { writeMemoryTool } from "@hyperidle/agent-layer";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 

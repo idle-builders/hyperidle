@@ -1,7 +1,7 @@
+import { checkAndUnblockDependents } from "@hyperidle/core-app";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { checkAndUnblockDependents } from "@hyperidle/core-app";
 import { describe, expect, test } from "../test-fixtures.js";
 
 /**

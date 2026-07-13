@@ -1,7 +1,6 @@
+import { isInSilenceWindow, isSilenced, updateServerConfig } from "@hyperidle/core-app";
 import { teamMembers, teams, users } from "@hyperidle/db";
 import { describe, expect } from "vitest";
-import { isInSilenceWindow, isSilenced } from "@hyperidle/core-app";
-import { updateServerConfig } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 describe("isInSilenceWindow", () => {

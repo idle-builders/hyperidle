@@ -19,9 +19,9 @@
  */
 
 import { randomUUID } from "node:crypto";
+import type { GitRunner } from "@hyperidle/core-app";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { CaptureResult, Filesystem, FilesystemMounter, MountResult } from "@hyperidle/shared";
-import type { GitRunner } from "@hyperidle/core-app";
 import { writeFilesystemCapture } from "./capture-store.js";
 import { CloudNotBuiltAdapter } from "./cloud-not-built-adapter.js";
 import { GitCloneAdapter } from "./git-clone-adapter.js";

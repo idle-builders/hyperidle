@@ -6,10 +6,11 @@
  * The server's main index.ts is a startup script (not a barrel), so
  * deep imports from external packages must use subpath exports.
  */
-export { AdapterPool } from "@hyperidle/agent-layer";
-export { LocalSandboxAdapter } from "@hyperidle/agent-layer";
+
 export type { SandboxAdapter, SandboxHandle } from "@hyperidle/agent-layer";
 export {
+	AdapterPool,
+	LocalSandboxAdapter,
 	type ProvisionSessionDeps,
 	type ProvisionSessionParams,
 	type ProvisionSessionResult,

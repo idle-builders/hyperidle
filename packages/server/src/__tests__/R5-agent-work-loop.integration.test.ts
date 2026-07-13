@@ -17,6 +17,14 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import {
+	clearDeduplicationCache,
+	createTaskTool,
+	readInboxTool,
+	recordCostAndCheck,
+	submitReviewTool,
+} from "@hyperidle/agent-layer";
 import {
 	bets,
 	type HyperIdleDb,
@@ -30,12 +38,7 @@ import {
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { clearDeduplicationCache, recordCostAndCheck } from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
-import { createTaskTool } from "@hyperidle/agent-layer";
-import { readInboxTool } from "@hyperidle/agent-layer";
-import { submitReviewTool } from "@hyperidle/agent-layer";
-import type { ToolContext } from "@hyperidle/agent-layer";
 
 const TEST_API_KEY = "test-key-r5-agent-loop";
 const NOW = new Date().toISOString();

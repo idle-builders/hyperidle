@@ -21,13 +21,13 @@
  * packages/server/src/routes/model-gateway.ts are created and wired.
  */
 
-import { MissingCredentialError } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import type { CredentialResolver } from "@hyperidle/core-app";
 import {
 	BUILT_IN_GATEWAY_CONFIG as DEFAULT_GATEWAY_CONFIG,
 	resolveModelTier,
 } from "@hyperidle/core-app";
+import { MissingCredentialError } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 // ---------------------------------------------------------------------------

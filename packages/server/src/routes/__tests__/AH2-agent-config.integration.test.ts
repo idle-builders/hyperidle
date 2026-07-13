@@ -13,11 +13,14 @@
  *  - schema + migration 0032 adds model_id/model_provider columns
  */
 
+import {
+	AdapterPool,
+	BuiltinHarnessAdapter,
+	CLAUDE_CLI_CONFIG,
+	CliHarnessAdapter,
+} from "@hyperidle/agent-layer";
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool, CLAUDE_CLI_CONFIG } from "@hyperidle/agent-layer";
-import { BuiltinHarnessAdapter } from "@hyperidle/agent-layer";
-import { CliHarnessAdapter } from "@hyperidle/agent-layer";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 

@@ -16,8 +16,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { MountResult } from "@hyperidle/shared";
 import type { GitConfigInjection } from "@hyperidle/core-app";
+import type { MountResult } from "@hyperidle/shared";
 import type {
 	AdapterCaptureResult,
 	CaptureContext,

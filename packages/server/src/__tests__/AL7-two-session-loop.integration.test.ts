@@ -18,6 +18,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { type BuildToolRegistryOptions, buildToolRegistry } from "@hyperidle/agent-layer";
 import {
 	artifacts,
 	bets,
@@ -36,8 +38,6 @@ import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
-import type { ToolContext } from "@hyperidle/agent-layer";
-import { type BuildToolRegistryOptions, buildToolRegistry } from "@hyperidle/agent-layer";
 
 const NOW = new Date().toISOString();
 
@@ -336,9 +336,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 	test("session 2 ends without consuming the grant → re-provision once (retryCount→1)", async ({
 		db,
 	}) => {
-		const { handleUnconsumedGrantOnSessionEnd } = await import(
-			"@hyperidle/core-app"
-		);
+		const { handleUnconsumedGrantOnSessionEnd } = await import("@hyperidle/core-app");
 
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const pcId = `pc-liveness-${crypto.randomUUID()}`;
@@ -397,9 +395,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 	test("second session-ended with retryCount>=1 → PC held + failed Outcome (not a silent hang)", async ({
 		db,
 	}) => {
-		const { handleUnconsumedGrantOnSessionEnd } = await import(
-			"@hyperidle/core-app"
-		);
+		const { handleUnconsumedGrantOnSessionEnd } = await import("@hyperidle/core-app");
 
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const pcId = `pc-liveness2-${crypto.randomUUID()}`;

@@ -7,15 +7,11 @@
  * POST /api/observability/flush    -> triggers drain
  */
 
+import type { ObservabilityAdapter, ObservabilityDispatcher } from "@hyperidle/core-app";
+import { createObservabilityDispatcher, updateObservabilityConfig } from "@hyperidle/core-app";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { Logger } from "@hyperidle/shared";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
-import { updateObservabilityConfig } from "@hyperidle/core-app";
-import { createObservabilityDispatcher } from "@hyperidle/core-app";
-import type {
-	ObservabilityAdapter,
-	ObservabilityDispatcher,
-} from "@hyperidle/core-app";
 import { describe, expect, test } from "../../test-fixtures.js";
 
 function quietAdapter(): ObservabilityAdapter {

@@ -14,6 +14,8 @@
  *   - packages/server/src/services/bet-decomposition-subscriber.ts exports registerBetDecomposition
  */
 
+import type { BetDecompositionDeps } from "@hyperidle/agent-layer";
+import { createTaskTool, runBetDecomposition } from "@hyperidle/agent-layer";
 import {
 	type AgentSessionRequest,
 	agentSessionRequests,
@@ -35,10 +37,7 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import type { BetDecompositionDeps } from "@hyperidle/agent-layer";
-import { runBetDecomposition } from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
-import { createTaskTool } from "@hyperidle/agent-layer";
 
 // ---------------------------------------------------------------------------
 // Shared seed helpers (used by AC5)

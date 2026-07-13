@@ -13,11 +13,11 @@
  * unguarded UPDATE lets both racers "succeed" and double-emits.
  */
 
+import { InvalidTransitionError, transitionTask } from "@hyperidle/core-app";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { InvalidTransitionError, transitionTask } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 async function seed(db: HyperIdleDb, taskState = "accepted"): Promise<void> {

@@ -7,10 +7,10 @@
  * Uses the DB fixture (PGlite in-process, TRUNCATE between tests).
  */
 
+import { upsertOrgEdge } from "@hyperidle/core-app";
 import { orgEdges, teamMembers, teams, users } from "@hyperidle/db";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { upsertOrgEdge } from "@hyperidle/core-app";
 
 const NOW = new Date().toISOString();
 

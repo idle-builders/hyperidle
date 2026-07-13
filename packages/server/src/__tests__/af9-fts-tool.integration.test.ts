@@ -16,12 +16,12 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { queryPracticeTool } from "@hyperidle/agent-layer";
+import { create as createKnowledgeItem } from "@hyperidle/core-app";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { create as createKnowledgeItem } from "@hyperidle/core-app";
 import { describe, expect, test } from "../test-fixtures.js";
-import { queryPracticeTool } from "@hyperidle/agent-layer";
-import type { ToolContext } from "@hyperidle/agent-layer";
 
 function makeContext(db: HyperIdleDb): ToolContext {
 	return {

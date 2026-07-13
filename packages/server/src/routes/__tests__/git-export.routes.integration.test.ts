@@ -8,11 +8,10 @@
  * GET   /api/git-export/status    — status
  */
 
+import type { FsAdapter, GitRunner } from "@hyperidle/core-app";
 import { createTestDb } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createGitExportRoutes } from "../../routes/git-export-routes.js";
-import type { FsAdapter } from "@hyperidle/core-app";
-import type { GitRunner } from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-git-export";

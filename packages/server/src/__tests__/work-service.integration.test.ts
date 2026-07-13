@@ -23,6 +23,8 @@
  *   - R5 tx-visibility: a read fn called with `tx` inside an open transaction
  *     must see an uncommitted row written earlier in the same `tx`.
  */
+
+import { work } from "@hyperidle/core-app";
 import {
 	bets,
 	type HyperIdleDb,
@@ -37,7 +39,6 @@ import {
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
-import { work } from "@hyperidle/core-app";
 
 async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({

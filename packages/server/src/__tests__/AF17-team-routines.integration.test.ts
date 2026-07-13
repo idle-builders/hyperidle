@@ -12,10 +12,10 @@
  * and create_team skill tool.
  */
 
+import { provisionTeamRoutines } from "@hyperidle/agent-layer";
 import { routines, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { provisionTeamRoutines } from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-AF17";

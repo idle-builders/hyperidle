@@ -12,10 +12,10 @@
  * `NOTIFICATIONS_SKIP_SMTP=1` if a platform cannot bind loopback.
  */
 
+import type { Notification, Recipient } from "@hyperidle/core-app";
+import { createSmtpAdapter } from "@hyperidle/core-app";
 import { SMTPServer } from "smtp-server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createSmtpAdapter } from "@hyperidle/core-app";
-import type { Notification, Recipient } from "@hyperidle/core-app";
 
 interface CapturedMessage {
 	envelope: { from: string; to: string[] };

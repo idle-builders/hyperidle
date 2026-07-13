@@ -4,13 +4,12 @@
  * RED phase: these tests will fail until update-routine.ts is implemented.
  */
 
+// Import will fail until the file is created — that's expected in red phase.
+import { makeContext, NOW, updateRoutineTool } from "@hyperidle/agent-layer";
 import { bets, routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-// Import will fail until the file is created — that's expected in red phase.
-import { updateRoutineTool } from "@hyperidle/agent-layer";
-import { makeContext, NOW } from "@hyperidle/agent-layer";
 
 async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 	routineId: string;

@@ -23,8 +23,6 @@ import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
 	NoopAuthResolver,
 	probeGitRemote,
@@ -32,6 +30,8 @@ import {
 	repoToUrl,
 	resolveFilesystemState,
 } from "@hyperidle/core-app";
+import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // ─── Lane A: Hermetic temp-repo setup ────────────────────────────────────────
 

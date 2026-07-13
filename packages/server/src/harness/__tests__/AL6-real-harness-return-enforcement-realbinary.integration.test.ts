@@ -67,17 +67,19 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 
 import { serve } from "@hono/node-server";
-import { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { provisionReturnHook } from "@hyperidle/agent-layer";
+import type { McpBridgeInstance } from "@hyperidle/agent-layer";
 import {
 	createEnforcementRegistry,
+	createMcpBridgeRegistry,
 	type EnforcementRegistry,
+	harnessTestResolvedModel,
+	type McpBridgeRegistry,
+	provisionReturnHook,
+	requireHarness,
 } from "@hyperidle/agent-layer";
-import type { McpBridgeInstance } from "@hyperidle/agent-layer";
-import { createMcpBridgeRegistry, type McpBridgeRegistry } from "@hyperidle/agent-layer";
+import { Hono } from "hono";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createMcpRoute } from "../../services/mcp-route.js";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/agent-layer";
 
 const execFileAsync = promisify(execFile);
 

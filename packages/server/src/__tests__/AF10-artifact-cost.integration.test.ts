@@ -19,10 +19,10 @@
  * Protected: existing artifacts-route tests are NOT touched.
  */
 
+import { clearDeduplicationCache } from "@hyperidle/agent-layer";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { clearDeduplicationCache } from "@hyperidle/agent-layer";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-af10-artifact";

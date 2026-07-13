@@ -27,13 +27,13 @@ import { tmpdir } from "node:os";
 import { basename, dirname, extname, join, relative } from "node:path";
 import ts from "typescript";
 
-const SRC = "packages/server/src";
+const SRC_ROOTS = ["packages/core-app/src", "packages/agent-layer/src", "packages/server/src"] as const;
 
 /** The one table this guard protects. */
 const GUARDED_TABLE = "notificationQueue";
 
 /** The one file permitted to reference GUARDED_TABLE. */
-const OWNING_FILE = "packages/server/src/notifications/notification-queue.ts";
+const OWNING_FILE = "packages/core-app/src/notifications/notification-queue.ts";
 
 /** The owning module's own test file(s) — e.g. `notification-queue.integration.test.ts`. */
 const OWNING_TEST_FILE_PATTERN = /^notification-queue\..*\.test\.ts$/;
@@ -103,7 +103,7 @@ function findViolations(abs: string, rel: string): Finding[] {
 
 export function inspect(root: string): Finding[] {
 	const findings: Finding[] = [];
-	const allFiles = walk(join(root, SRC));
+	const allFiles = SRC_ROOTS.flatMap((srcRoot) => walk(join(root, srcRoot)));
 
 	for (const abs of new Set(allFiles)) {
 		const rel = relative(root, abs).split("\\").join("/");

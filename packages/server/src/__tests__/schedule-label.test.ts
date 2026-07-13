@@ -5,8 +5,8 @@
  * into human-readable schedule strings.
  */
 
-import { describe, expect, it } from "vitest";
 import { humanizeSchedule } from "@hyperidle/core-app";
+import { describe, expect, it } from "vitest";
 
 describe("humanizeSchedule (AA1)", () => {
 	// calendar + cron expression — weekday

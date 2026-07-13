@@ -1,3 +1,4 @@
+import { getDailyDigest } from "@hyperidle/core-app";
 import {
 	type HyperIdleDb,
 	items,
@@ -7,7 +8,6 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { getDailyDigest } from "@hyperidle/core-app";
 import { describe, expect, test } from "../test-fixtures.js";
 
 describe("Daily Digest (E7)", () => {

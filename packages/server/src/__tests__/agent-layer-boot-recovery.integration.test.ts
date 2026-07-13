@@ -8,6 +8,8 @@
  * (`session-provisioning.js`'s `admitSession`/`runSession`).
  */
 
+import type { AdapterPool, SandboxAdapter } from "@hyperidle/agent-layer";
+import { bootAgentLayer } from "@hyperidle/agent-layer";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -21,9 +23,6 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import type { AdapterPool } from "@hyperidle/agent-layer";
-import type { SandboxAdapter } from "@hyperidle/agent-layer";
-import { bootAgentLayer } from "@hyperidle/agent-layer";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const admitSessionCalls: string[] = [];

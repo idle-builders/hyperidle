@@ -1,3 +1,4 @@
+import { loadPluginConfigurationDefaults, setConfigurationOverride } from "@hyperidle/core-app";
 import {
 	agentSessionRequests,
 	bets,
@@ -11,10 +12,6 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import {
-	loadPluginConfigurationDefaults,
-	setConfigurationOverride,
-} from "@hyperidle/core-app";
 import { createTriggeredAgentSessionRequest } from "../trigger-resolution.js";
 
 const NOW = "2026-07-09T10:00:00.000Z";

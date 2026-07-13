@@ -13,6 +13,7 @@
  * Thread events. These tests fail until the green phase wires them up.
  */
 
+import { WsBroadcaster, type WsClient } from "@hyperidle/core-app";
 import {
 	EventBus,
 	type ThreadArchivedEvent,
@@ -22,7 +23,6 @@ import {
 	type ThreadResolvedEvent,
 } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { WsBroadcaster, type WsClient } from "@hyperidle/core-app";
 
 function createMockClient(): WsClient & { messages: string[] } {
 	const messages: string[] = [];

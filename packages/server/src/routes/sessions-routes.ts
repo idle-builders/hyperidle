@@ -1,3 +1,6 @@
+import { requestAgentTermination, transitionAgentRunLifecycle } from "@hyperidle/agent-layer";
+import type { SessionActivityBuffer } from "@hyperidle/core-app";
+import { recordAgentWorkIntent, sessionRunRegistry, work } from "@hyperidle/core-app";
 import { agentWorkIntents, explicitSessionStarts, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	type AgentWorkIntentEvent,
@@ -13,14 +16,6 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { recordAgentWorkIntent } from "@hyperidle/core-app";
-import type { SessionActivityBuffer } from "@hyperidle/core-app";
-import {
-	requestAgentTermination,
-	transitionAgentRunLifecycle,
-} from "@hyperidle/agent-layer";
-import { sessionRunRegistry } from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part

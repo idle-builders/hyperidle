@@ -1,5 +1,8 @@
 import * as os from "node:os";
 import * as path from "node:path";
+import type { ToolContext } from "@hyperidle/agent-layer";
+import { writeMemoryTool } from "@hyperidle/agent-layer";
+import { setupFts } from "@hyperidle/core-app";
 import {
 	type HyperIdleDb,
 	knowledgeEditLog,
@@ -10,10 +13,7 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { setupFts } from "@hyperidle/core-app";
 import { test } from "../../test-fixtures.js";
-import type { ToolContext } from "@hyperidle/agent-layer";
-import { writeMemoryTool } from "@hyperidle/agent-layer";
 
 const NOW = new Date().toISOString();
 

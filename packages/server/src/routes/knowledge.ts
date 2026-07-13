@@ -21,6 +21,28 @@
  * The assignment is done inline (not via event) so the projection row is immediately
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
+
+import {
+	archiveItem,
+	changeScope,
+	countAccessesSince,
+	countTriageVisible,
+	create as createKnowledgeItem,
+	findById,
+	findDetailById,
+	findRelatedByTopic,
+	flagItem,
+	getUserById,
+	ItemDeletedError,
+	listVisibleWithSignals,
+	mergeItems,
+	recordAgentWorkIntent,
+	searchByText,
+	splitItem,
+	update as updateKnowledgeItem,
+	VersionConflictError,
+	work,
+} from "@hyperidle/core-app";
 import {
 	filesystems,
 	type HyperIdleDb,
@@ -47,29 +69,9 @@ import {
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import { ItemDeletedError, VersionConflictError } from "@hyperidle/core-app";
-import {
-	archiveItem,
-	changeScope,
-	countAccessesSince,
-	countTriageVisible,
-	create as createKnowledgeItem,
-	findById,
-	findDetailById,
-	findRelatedByTopic,
-	flagItem,
-	listVisibleWithSignals,
-	mergeItems,
-	searchByText,
-	splitItem,
-	update as updateKnowledgeItem,
-} from "@hyperidle/core-app";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { recordAgentWorkIntent } from "@hyperidle/core-app";
-import { getUserById } from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
 
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation

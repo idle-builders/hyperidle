@@ -9,14 +9,10 @@
  * bets.teamId references teams.id = "prod-1", NOT teamMembers.id = "team-1".
  */
 
+import { type RevisionLogEntry, transitionBet, updateBetField } from "@hyperidle/core-app";
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import {
-	type RevisionLogEntry,
-	transitionBet,
-	updateBetField,
-} from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 function makeProduct() {

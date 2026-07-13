@@ -10,6 +10,11 @@
  */
 
 import {
+	listAll,
+	registerLifecyclePropagation,
+	retryFailedPropagations,
+} from "@hyperidle/core-app";
+import {
 	bets,
 	type HyperIdleDb,
 	messages,
@@ -23,11 +28,6 @@ import {
 } from "@hyperidle/db";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import { listAll } from "@hyperidle/core-app";
-import {
-	registerLifecyclePropagation,
-	retryFailedPropagations,
-} from "@hyperidle/core-app";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────

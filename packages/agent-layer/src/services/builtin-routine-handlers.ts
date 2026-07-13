@@ -7,6 +7,18 @@
  */
 import * as crypto from "node:crypto";
 import {
+	BUILTIN_SPECS,
+	buildAttentionService,
+	createPracticeMeeting,
+	extractBuiltinKind,
+	getThreadIdsByHost,
+	insertThread,
+	routineService,
+	runAutoPromotionSweep,
+	runStaleSweep,
+	work,
+} from "@hyperidle/core-app";
+import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
@@ -19,13 +31,6 @@ import {
 	type ItemCreatedEvent,
 } from "@hyperidle/shared";
 import { and, eq, gte, inArray } from "drizzle-orm";
-import { BUILTIN_SPECS, extractBuiltinKind } from "@hyperidle/core-app";
-import { buildAttentionService } from "@hyperidle/core-app";
-import { runAutoPromotionSweep, runStaleSweep } from "@hyperidle/core-app";
-import { routineService } from "@hyperidle/core-app";
-import { work } from "@hyperidle/core-app";
-import { getThreadIdsByHost, insertThread } from "@hyperidle/core-app";
-import { createPracticeMeeting } from "@hyperidle/core-app";
 // @lore AF6: cron helpers used only at runtime inside provisionTeamRoutines. The
 // scheduler↔builtin-routine-handlers import cycle is init-safe because neither module
 // calls the other at top level (only runBuiltinRoutine / parseCron at call time).

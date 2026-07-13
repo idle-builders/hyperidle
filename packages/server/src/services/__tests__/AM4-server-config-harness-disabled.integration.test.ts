@@ -12,9 +12,9 @@
  *  - harnessDisabled field added to ServerConfigSchema + applyDefaults + DEFAULTS + ServerConfig + ServerConfigPatch
  */
 
+import { readServerConfig, updateServerConfig } from "@hyperidle/core-app";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { readServerConfig, updateServerConfig } from "@hyperidle/core-app";
 
 /**
  * AM4 adds `harnessDisabled?: string[]` to ServerConfigPatch (Task 1).

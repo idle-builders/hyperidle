@@ -1,3 +1,5 @@
+import type { SessionContext } from "@hyperidle/agent-layer";
+import { type HandoffMetadata, handoff } from "@hyperidle/agent-layer";
 import {
 	bets,
 	type HyperIdleDb,
@@ -12,8 +14,6 @@ import {
 } from "@hyperidle/db";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { eq } from "drizzle-orm";
-import { type HandoffMetadata, handoff } from "@hyperidle/agent-layer";
-import type { SessionContext } from "@hyperidle/agent-layer";
 import { describe, expect, test, vi } from "../test-fixtures.js";
 
 // --- Test helpers ---

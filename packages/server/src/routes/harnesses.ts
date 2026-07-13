@@ -33,17 +33,17 @@
  * POST /:type/disabled is a single DB write — global 300/min is acceptable (no amplification).
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
-import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { createRateLimiter } from "../middleware/rate-limit.js";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilityDescriptors,
 	refreshHarnessDiscoveries,
 } from "@hyperidle/agent-layer";
 import { readServerConfig, updateServerConfig } from "@hyperidle/core-app";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import { Hono } from "hono";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import { createRateLimiter } from "../middleware/rate-limit.js";
 
 /**
  * Helper: stamp discovery.disabled per descriptor based on harnessDisabled config.

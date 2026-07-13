@@ -15,11 +15,15 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolRegistry,
+	createMcpBridge,
+	createMcpBridgeRegistry,
+	type McpBridgeInstance,
+	type ToolContext,
+} from "@hyperidle/agent-layer";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
-import { buildToolRegistry, type ToolContext } from "@hyperidle/agent-layer";
-import { createMcpBridge, type McpBridgeInstance } from "@hyperidle/agent-layer";
-import { createMcpBridgeRegistry } from "@hyperidle/agent-layer";
 
 // ---------------------------------------------------------------------------
 // Helpers

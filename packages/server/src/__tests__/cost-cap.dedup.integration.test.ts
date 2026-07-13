@@ -1,4 +1,3 @@
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 // @lore These exports do not yet exist on cost-cap.ts as of I3 red phase.
 // The plan §3.7 specifies adding `releaseSessionDedup(sessionId)` and a
 // test-only `getDedupCacheSize()` accessor (or a similar inspection hook).
@@ -9,6 +8,7 @@ import {
 	recordCostAndCheck,
 	releaseSessionDedup,
 } from "@hyperidle/agent-layer";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 /**

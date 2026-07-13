@@ -13,8 +13,6 @@
  * before the comparison runs (no DB round-trip involved in expiry check).
  */
 
-import { type HyperIdleDb, users } from "@hyperidle/db";
-import { afterEach, describe, expect, vi } from "vitest";
 import {
 	createLoginSession,
 	findLoginSessionByTokenHash,
@@ -23,6 +21,8 @@ import {
 	revokeLoginSession,
 	validateBearerToken,
 } from "@hyperidle/core-app";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

@@ -9,6 +9,12 @@
  * credentials live in safeStorage on the desktop.
  */
 
+import {
+	decryptCredentialValue,
+	encryptCredentialValue,
+	readServerConfig,
+	requireServerSecret,
+} from "@hyperidle/core-app";
 import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
 import type { CredentialName, CredentialState } from "@hyperidle/shared";
 import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/shared";
@@ -18,12 +24,6 @@ import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
-import {
-	decryptCredentialValue,
-	encryptCredentialValue,
-	requireServerSecret,
-} from "@hyperidle/core-app";
-import { readServerConfig } from "@hyperidle/core-app";
 
 /** Validation timeout: 10 seconds for all external service calls. */
 const VALIDATE_TIMEOUT_MS = 10_000;

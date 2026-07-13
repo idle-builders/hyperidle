@@ -14,6 +14,7 @@
  * resolve names.
  */
 
+import { getUserById, listUserDirectory, upsertOrgEdge } from "@hyperidle/core-app";
 // @lore U1: `teams` renamed to `teamMembers` (membership group); `products` renamed to `teams` (domain entity).
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
 import { type HyperIdleDb, orgEdges, teamMembers, teams } from "@hyperidle/db";
@@ -23,8 +24,6 @@ import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { upsertOrgEdge } from "@hyperidle/core-app";
-import { getUserById, listUserDirectory } from "@hyperidle/core-app";
 
 const putOrgEdgeSchema = z.object({
 	fromUserId: z.string().min(1),

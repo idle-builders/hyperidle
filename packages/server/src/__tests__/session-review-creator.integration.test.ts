@@ -1,3 +1,4 @@
+import { registerSessionReviewCreator } from "@hyperidle/core-app";
 import {
 	bets,
 	type HyperIdleDb,
@@ -13,7 +14,6 @@ import {
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
-import { registerSessionReviewCreator } from "@hyperidle/core-app";
 import { test } from "../test-fixtures.js";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {

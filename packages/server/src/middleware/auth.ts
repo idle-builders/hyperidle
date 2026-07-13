@@ -1,9 +1,8 @@
+import { getFirstUserByKind, validateBearerToken } from "@hyperidle/core-app";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
 import type { Context, MiddlewareHandler } from "hono";
-import { validateBearerToken } from "@hyperidle/core-app";
-import { getFirstUserByKind } from "@hyperidle/core-app";
 import { constantTimeStringEqual } from "./timing-safe.js";
 
 /**

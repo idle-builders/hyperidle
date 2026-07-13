@@ -23,6 +23,12 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import {
+	getUserById,
+	listActiveAiUsersByTeams,
+	recordAgentWorkIntent,
+	work,
+} from "@hyperidle/core-app";
 import { type HyperIdleDb, taskDispatchAttempts, teamMembers, type User } from "@hyperidle/db";
 import {
 	DECOMPOSITION_TURN_TIMEOUT_MS,
@@ -32,13 +38,10 @@ import {
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { work } from "@hyperidle/core-app";
 import { resolveDecompositionPlan } from "./agent-defaults/resolvers.js";
-import { recordAgentWorkIntent } from "@hyperidle/core-app";
 import type { DecompositionPlan } from "./contracts.js";
 import { checkCostCap } from "./cost-cap.js";
 import { enumerateTeamCandidates, selectOwner } from "./select-agent.js";
-import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/core-app";
 
 // -----------------------------------------------------------------------------
 // Types

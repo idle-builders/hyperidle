@@ -12,10 +12,10 @@
  * so the ring-buffer's drop-oldest path is actually hit.
  */
 
+import type { ObservabilityAdapter } from "@hyperidle/core-app";
+import { createObservabilityDispatcher } from "@hyperidle/core-app";
 import type { ObservabilityEvent } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createObservabilityDispatcher } from "@hyperidle/core-app";
-import type { ObservabilityAdapter } from "@hyperidle/core-app";
 
 function quietAdapter(): ObservabilityAdapter {
 	return {
