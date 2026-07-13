@@ -16,11 +16,19 @@
  * @lore AU18: re-backed onto `server_config.notifications.mutedTypes` (was
  * `factorySettings.notifications.mute_<typeKey>` rows). `mutedTypes` is a flat
  * string array of muted type keys — a set represented as a sorted-unique list.
+ *
+ * @lore AU19 Increment 1g: `readServerConfig`/`updateServerConfig` used to
+ * import directly from `@hyperidle/settings` — `composition-boundary-guard`
+ * bans ANY `@hyperidle/*` import (other than `db`/`shared`) from this
+ * package's `src/**`, so both are now injected via `NotificationsMuteDeps`'
+ * `serverConfig` port (Mechanism C). The caller (`packages/server`,
+ * unguarded) wires the real `@hyperidle/settings` functions directly, zero
+ * behavior change.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationTypeKey } from "@hyperidle/shared";
+import type { NotificationsMuteDeps } from "./ports.js";
 
 /** Read interface used by the drain loop and notification listener. */
 export interface MutePreferenceReader {
@@ -36,10 +44,13 @@ export interface MutePreferenceWriter {
  * Default factory-level reader: reads `server_config.notifications.mutedTypes`.
  * Absent = not muted (fail-open).
  */
-export function defaultMutePreferenceReader(db: HyperIdleDb): MutePreferenceReader {
+export function defaultMutePreferenceReader(
+	db: HyperIdleDb,
+	deps: NotificationsMuteDeps,
+): MutePreferenceReader {
 	return {
 		async isTypeMuted(typeKey: NotificationTypeKey): Promise<boolean> {
-			const { notifications } = await readServerConfig(db);
+			const { notifications } = await deps.serverConfig.read(db);
 			return notifications.mutedTypes.includes(typeKey);
 		},
 	};
@@ -48,20 +59,26 @@ export function defaultMutePreferenceReader(db: HyperIdleDb): MutePreferenceRead
 /**
  * Default factory-level writer: writes `server_config.notifications.mutedTypes`.
  */
-export function defaultMutePreferenceWriter(db: HyperIdleDb): MutePreferenceWriter {
+export function defaultMutePreferenceWriter(
+	db: HyperIdleDb,
+	deps: NotificationsMuteDeps,
+): MutePreferenceWriter {
 	return {
 		async setMuted(typeKey: NotificationTypeKey, muted: boolean): Promise<void> {
-			const { notifications } = await readServerConfig(db);
+			const { notifications } = await deps.serverConfig.read(db);
 			const current = new Set(notifications.mutedTypes);
 			if (muted) current.add(typeKey);
 			else current.delete(typeKey);
-			await updateServerConfig(db, { notifications: { mutedTypes: [...current] } });
+			await deps.serverConfig.update(db, { notifications: { mutedTypes: [...current] } });
 		},
 	};
 }
 
 /** Helper: read all muted type keys (for GET /notifications/mute). */
-export async function getMutedTypeKeys(db: HyperIdleDb): Promise<NotificationTypeKey[]> {
-	const { notifications } = await readServerConfig(db);
+export async function getMutedTypeKeys(
+	db: HyperIdleDb,
+	deps: NotificationsMuteDeps,
+): Promise<NotificationTypeKey[]> {
+	const { notifications } = await deps.serverConfig.read(db);
 	return notifications.mutedTypes as NotificationTypeKey[];
 }

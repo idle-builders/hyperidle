@@ -19,10 +19,29 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
+import {
+	type NotificationsSilenceDeps,
+	isSilenced as sharedIsSilenced,
+} from "@hyperidle/notifications";
+import { getTeamMembersById } from "@hyperidle/org";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
+import { getUserById } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { isSilenced as sharedIsSilenced } from "../notifications/silence-policy.js";
 import { computeApprovalRate } from "./approval-rate.js";
+
+/**
+ * @lore AU19 Increment 1g: `isSilenced` (`@hyperidle/notifications`) now
+ * requires an injected `NotificationsSilenceDeps` (Mechanism C) — this is the
+ * sole real consumer outside the notifications Service itself, wiring the
+ * real `@hyperidle/settings`/`@hyperidle/users`/`@hyperidle/org` function
+ * references directly (all real, migrated packages), zero behavior change.
+ */
+const silencePolicyDeps: NotificationsSilenceDeps = {
+	serverConfig: { read: readServerConfig, update: updateServerConfig },
+	users: { getUserById },
+	teams: { getTeamMembersById },
+};
 
 interface PolicyEngineOptions {
 	/** Inject current time for testability. Defaults to () => new Date(). */
@@ -121,7 +140,11 @@ async function determineAction(
 
 	// c. Check silence modes (only for non-blocking items)
 	if (!isBlocking) {
-		if (await sharedIsSilenced(db, { sourceAgentId: item.sourceAgentId }, nowFn())) return "queue";
+		if (
+			await sharedIsSilenced(db, { sourceAgentId: item.sourceAgentId }, nowFn(), silencePolicyDeps)
+		) {
+			return "queue";
+		}
 	}
 
 	// d. Trust-based rules (replaces autonomy level rules)

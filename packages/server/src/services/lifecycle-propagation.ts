@@ -27,6 +27,7 @@ import { insertMessage, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type NewPropagationLogRow, propagationLog, sessions } from "@hyperidle/db";
 import type { PropagationLevel } from "@hyperidle/knowledge";
+import { insertNotification } from "@hyperidle/notifications";
 import {
 	type BetStateChangedEvent,
 	type BetStatus,
@@ -41,7 +42,6 @@ import {
 import { getFirstUserByKind } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq, ne } from "drizzle-orm";
-import { insertNotification } from "../notifications/notification-queue.js";
 
 /**
  * Shape of a single entry in the revision log JSON array.

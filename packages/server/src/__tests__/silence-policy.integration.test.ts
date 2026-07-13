@@ -1,8 +1,20 @@
 import { teamMembers, teams, users } from "@hyperidle/db";
-import { updateServerConfig } from "@hyperidle/settings";
+import {
+	isInSilenceWindow,
+	isSilenced,
+	type NotificationsSilenceDeps,
+} from "@hyperidle/notifications";
+import { getTeamMembersById } from "@hyperidle/org";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import { getUserById } from "@hyperidle/users";
 import { describe, expect } from "vitest";
-import { isInSilenceWindow, isSilenced } from "../notifications/silence-policy.js";
 import { test } from "../test-fixtures.js";
+
+const silencePolicyDeps: NotificationsSilenceDeps = {
+	serverConfig: { read: readServerConfig, update: updateServerConfig },
+	users: { getUserById },
+	teams: { getTeamMembersById },
+};
 
 describe("isInSilenceWindow", () => {
 	test("returns true when now is exactly at window start", async ({}) => {
@@ -108,12 +120,12 @@ describe("isSilenced", () => {
 		});
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 
-		const result = await isSilenced(db, { sourceAgentId: null }, new Date());
+		const result = await isSilenced(db, { sourceAgentId: null }, new Date(), silencePolicyDeps);
 		expect(result).toBe(true);
 	});
 
 	test("returns false when silence_mode is not set", async ({ db }) => {
-		const result = await isSilenced(db, { sourceAgentId: null }, new Date());
+		const result = await isSilenced(db, { sourceAgentId: null }, new Date(), silencePolicyDeps);
 		expect(result).toBe(false);
 	});
 
@@ -142,7 +154,12 @@ describe("isSilenced", () => {
 		});
 		await updateServerConfig(db, { notifications: { silence: { silencedTeamIds: ["prod-1"] } } });
 
-		const result = await isSilenced(db, { sourceAgentId: "agent-1" }, new Date());
+		const result = await isSilenced(
+			db,
+			{ sourceAgentId: "agent-1" },
+			new Date(),
+			silencePolicyDeps,
+		);
 		expect(result).toBe(true);
 	});
 
@@ -152,7 +169,7 @@ describe("isSilenced", () => {
 			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
 		});
 
-		const result = await isSilenced(db, { sourceAgentId: null }, now);
+		const result = await isSilenced(db, { sourceAgentId: null }, now, silencePolicyDeps);
 		expect(result).toBe(true);
 	});
 
@@ -162,7 +179,7 @@ describe("isSilenced", () => {
 			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
 		});
 
-		const result = await isSilenced(db, { sourceAgentId: null }, now);
+		const result = await isSilenced(db, { sourceAgentId: null }, now, silencePolicyDeps);
 		expect(result).toBe(false);
 	});
 });

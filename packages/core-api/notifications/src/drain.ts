@@ -24,11 +24,20 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { loadNotificationConfig } from "./config.js";
 import type { AdapterFactory } from "./dispatcher.js";
 import { flushQueue } from "./dispatcher.js";
+import type { NotificationsConfigDeps, NotificationsSilenceDeps } from "./ports.js";
 
 export const NOTIFICATION_DRAIN_INTERVAL_MS = 60_000; // 1 minute
 
 export interface DrainDeps {
 	now?: () => Date;
+	/**
+	 * @lore AU19 Increment 1g: `loadNotificationConfig`/`flushQueue` both need
+	 * injected ports (Mechanism C) now that `notifications` is a nested
+	 * Service package — `packages/server` wires the real functions, zero
+	 * behavior change.
+	 */
+	notificationsConfig: NotificationsConfigDeps;
+	silencePolicy: NotificationsSilenceDeps;
 }
 
 /**
@@ -45,9 +54,9 @@ export function startNotificationDrain(
 
 	const handle = setInterval(() => {
 		void (async () => {
-			const cfg = await loadNotificationConfig(db);
+			const cfg = await loadNotificationConfig(db, deps.notificationsConfig);
 			if (!cfg) return;
-			await flushQueue(db, factory, cfg, nowFn());
+			await flushQueue(db, factory, cfg, nowFn(), deps.silencePolicy);
 		})();
 	}, NOTIFICATION_DRAIN_INTERVAL_MS);
 

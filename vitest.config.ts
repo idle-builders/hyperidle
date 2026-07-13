@@ -32,6 +32,7 @@ export default defineConfig({
 			"packages/core-api/users",
 			"packages/core-api/conversation",
 			"packages/core-api/settings",
+			"packages/core-api/notifications",
 			"packages/agent-orchestration",
 			"packages/agent-orchestration/context-assembly",
 			"packages/agent-execution",

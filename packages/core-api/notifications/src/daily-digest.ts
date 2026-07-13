@@ -1,6 +1,5 @@
-import { listVerdictItemIds } from "@hyperidle/conversation";
 import type { HyperIdleDb, Item } from "@hyperidle/db";
-import * as work from "@hyperidle/work";
+import type { NotificationsDigestDeps } from "./ports.js";
 
 interface DailyDigestResult {
 	items: Item[];
@@ -23,14 +22,27 @@ interface DailyDigestResult {
  * backfilled rows and the review-message id (recorded on items by the new
  * item creation path) for fresh rows. Until item-creation is fully ported
  * to the thread primitive, the digest joins on `legacy_item_id`.
+ *
+ * @lore AU19 Increment 1g: `work.listQueuedItemsSince`(`@hyperidle/work`) and
+ * `listVerdictItemIds`(`@hyperidle/conversation`) used to be plain direct
+ * imports (both real, already-migrated packages) — legal only while this
+ * file lived in `packages/server`, unscanned. `composition-boundary-guard`
+ * bans ANY `@hyperidle/*` import (other than `db`/`shared`) from this
+ * package's `src/**`, so both are now injected via `NotificationsDigestDeps`
+ * (Mechanism C) — the caller (`packages/server`, unguarded) wires the real
+ * functions directly, zero behavior change.
  */
-export async function getDailyDigest(db: HyperIdleDb, now?: Date): Promise<DailyDigestResult> {
+export async function getDailyDigest(
+	db: HyperIdleDb,
+	now: Date | undefined,
+	deps: NotificationsDigestDeps,
+): Promise<DailyDigestResult> {
 	const currentTime = now ?? new Date();
 	const twentyFourHoursAgo = new Date(currentTime.getTime() - 24 * 60 * 60 * 1000);
 	const cutoff = twentyFourHoursAgo.toISOString();
 
 	// Get all queued items from the last 24h
-	const queuedItems = await work.listQueuedItemsSince(db, cutoff);
+	const queuedItems = await deps.work.listQueuedItemsSince(db, cutoff);
 
 	if (queuedItems.length === 0) {
 		return { items: [], generatedAt: currentTime.toISOString() };
@@ -40,7 +52,7 @@ export async function getDailyDigest(db: HyperIdleDb, now?: Date): Promise<Daily
 	// candidate set by joining on `legacy_item_id`. Scoped to candidate
 	// ids only, not full table.
 	const candidateIds = queuedItems.map((i) => i.id);
-	const respondedItemIds = new Set(await listVerdictItemIds(db, candidateIds));
+	const respondedItemIds = new Set(await deps.verdicts.listVerdictItemIds(db, candidateIds));
 
 	// Filter out items that already have a verdict-typed message.
 	const pendingItems = queuedItems.filter((item) => !respondedItemIds.has(item.id));

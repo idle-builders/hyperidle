@@ -1,15 +1,9 @@
 import * as dns from "node:dns";
 import * as net from "node:net";
 import { promisify } from "node:util";
-import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { SanitizeResult } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
-import {
-	decryptCredentialValue,
-	encryptCredentialValue,
-	getServerSecret,
-} from "../services/credential-encryption.js";
+import type { NotificationsConfigDeps } from "./ports.js";
 import type { NotificationChannel, Recipient } from "./types.js";
 
 /**
@@ -71,16 +65,16 @@ export type SafeNotificationConfig = Omit<NotificationConfig, "ntfy" | "smtp"> &
 	};
 };
 
-async function readSecret(db: HyperIdleDb, name: string): Promise<string | null> {
-	const secret = getServerSecret();
+async function readSecret(
+	db: HyperIdleDb,
+	name: string,
+	deps: NotificationsConfigDeps,
+): Promise<string | null> {
+	const secret = deps.credentialCipher.getServerSecret();
 	if (!secret) return null;
-	const [row] = await db
-		.select()
-		.from(serverCredentials)
-		.where(eq(serverCredentials.name, name))
-		.limit(1);
+	const row = await deps.credentialStore.findByName(db, name);
 	if (!row) return null;
-	return decryptCredentialValue(row.encryptedValue, secret);
+	return deps.credentialCipher.decryptCredentialValue(row.encryptedValue, secret);
 }
 
 /**
@@ -94,27 +88,22 @@ async function writeSecret(
 	name: string,
 	value: string | null,
 	now: string,
+	deps: NotificationsConfigDeps,
 ): Promise<void> {
 	if (value === null || value.length === 0) {
-		await db.delete(serverCredentials).where(eq(serverCredentials.name, name));
+		await deps.credentialStore.deleteByName(db, name);
 		return;
 	}
-	const secret = getServerSecret();
+	const secret = deps.credentialCipher.getServerSecret();
 	if (!secret) return;
-	const encryptedValue = encryptCredentialValue(value, secret);
-	await db
-		.insert(serverCredentials)
-		.values({
-			name,
-			encryptedValue,
-			validationState: "present_untested",
-			lastValidatedAt: null,
-			updatedAt: now,
-		})
-		.onConflictDoUpdate({
-			target: serverCredentials.name,
-			set: { encryptedValue, updatedAt: now },
-		});
+	const encryptedValue = deps.credentialCipher.encryptCredentialValue(value, secret);
+	await deps.credentialStore.upsert(db, {
+		name,
+		encryptedValue,
+		validationState: "present_untested",
+		lastValidatedAt: null,
+		updatedAt: now,
+	});
 }
 
 function buildConfig(
@@ -179,11 +168,14 @@ function buildConfig(
  * secrets from `server_credentials`). Always returns a shape (even when
  * disabled) so GET /config can surface the current values.
  */
-export async function readNotificationConfig(db: HyperIdleDb): Promise<NotificationConfig> {
-	const { notifications } = await readServerConfig(db);
+export async function readNotificationConfig(
+	db: HyperIdleDb,
+	deps: NotificationsConfigDeps,
+): Promise<NotificationConfig> {
+	const { notifications } = await deps.serverConfig.read(db);
 	const [ntfyAuthToken, smtpPassword] = await Promise.all([
-		readSecret(db, NTFY_AUTH_TOKEN_CREDENTIAL_NAME),
-		readSecret(db, SMTP_PASSWORD_CREDENTIAL_NAME),
+		readSecret(db, NTFY_AUTH_TOKEN_CREDENTIAL_NAME, deps),
+		readSecret(db, SMTP_PASSWORD_CREDENTIAL_NAME, deps),
 	]);
 	return buildConfig(notifications.delivery, ntfyAuthToken, smtpPassword);
 }
@@ -192,8 +184,11 @@ export async function readNotificationConfig(db: HyperIdleDb): Promise<Notificat
  * Return `null` when notifications are disabled. Dispatchers use this to
  * short-circuit their event handler.
  */
-export async function loadNotificationConfig(db: HyperIdleDb): Promise<NotificationConfig | null> {
-	const cfg = await readNotificationConfig(db);
+export async function loadNotificationConfig(
+	db: HyperIdleDb,
+	deps: NotificationsConfigDeps,
+): Promise<NotificationConfig | null> {
+	const cfg = await readNotificationConfig(db, deps);
 	if (!cfg.enabled) return null;
 	return cfg;
 }
@@ -270,10 +265,11 @@ function normalizeEmptyToNull(value: string | null | undefined): string | null |
 export async function updateNotificationConfig(
 	db: HyperIdleDb,
 	patch: NotificationConfigPatch,
+	deps: NotificationsConfigDeps,
 ): Promise<NotificationConfig> {
 	const now = new Date().toISOString();
 
-	await updateServerConfig(db, {
+	await deps.serverConfig.update(db, {
 		notifications: {
 			delivery: {
 				...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
@@ -312,6 +308,7 @@ export async function updateNotificationConfig(
 			NTFY_AUTH_TOKEN_CREDENTIAL_NAME,
 			normalizeEmptyToNull(patch.ntfyAuthToken) ?? null,
 			now,
+			deps,
 		);
 	}
 	if (patch.smtpPassword !== undefined) {
@@ -320,10 +317,11 @@ export async function updateNotificationConfig(
 			SMTP_PASSWORD_CREDENTIAL_NAME,
 			normalizeEmptyToNull(patch.smtpPassword) ?? null,
 			now,
+			deps,
 		);
 	}
 
-	return readNotificationConfig(db);
+	return readNotificationConfig(db, deps);
 }
 
 /**

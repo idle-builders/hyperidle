@@ -51,6 +51,7 @@ export { resolveTeamAgentHarness } from "./team-default-harness.js";
 // -- team lookup (L13 — 1:1 Team=TeamMembers invariant) --
 export {
 	ApiError,
+	getTeamMembersById,
 	getTeamMembersByTeamId,
 	loadTeamMembers,
 	setTeamMembersActiveBets,

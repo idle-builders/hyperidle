@@ -10,8 +10,8 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createNtfyAdapter } from "../../notifications/ntfy-adapter.js";
-import type { Notification, Recipient } from "../../notifications/types.js";
+import { createNtfyAdapter } from "../ntfy-adapter.js";
+import type { Notification, Recipient } from "../types.js";
 
 interface CapturedRequest {
 	method: string;
@@ -51,7 +51,7 @@ function startFixture(): Promise<{ server: Server; port: number; captured: Captu
 	});
 }
 
-describe("H2 Ntfy adapter (AC2)", () => {
+describe("ntfy adapter", () => {
 	let fixture: Awaited<ReturnType<typeof startFixture>>;
 
 	beforeEach(async () => {

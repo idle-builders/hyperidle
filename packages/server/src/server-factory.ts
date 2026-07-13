@@ -12,15 +12,39 @@ import {
 	serviceConnections,
 } from "@hyperidle/db";
 import { registerRelevanceListener, setupFts } from "@hyperidle/knowledge";
-import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
+import {
+	type AlertPreferences,
+	defaultMutePreferenceReader,
+	defaultNotificationAdapterFactory,
+	type NotificationsConfigDeps,
+	type NotificationsCredentialCipher,
+	type NotificationsCredentialStore,
+	type NotificationsMuteDeps,
+	type NotificationsSilenceDeps,
+	type NotificationsWorkReader,
+	registerNotificationDispatcher,
+	registerNotificationListener,
+	startNotificationDrain,
+} from "@hyperidle/notifications";
+import {
+	getTeamMembersById,
+	getTeamMembersByTeamId,
+	setTeamMembersActiveBets,
+} from "@hyperidle/org";
 import {
 	migrateCredentialsToStore,
 	projectProductionConfigurationDefaults,
 	readServerConfig,
+	updateServerConfig,
 } from "@hyperidle/settings";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { getUserById, listActiveAiUsersByTeams, listUsersByKind } from "@hyperidle/users";
-import { registerBetDecomposition, resolveOrphanedDecompositions } from "@hyperidle/work";
+import {
+	getItemById,
+	listQueuedItemsSince,
+	registerBetDecomposition,
+	resolveOrphanedDecompositions,
+} from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
@@ -31,14 +55,6 @@ import { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";
 import { enforcementRegistry } from "./harness/return-enforcement-registry.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
-import { defaultNotificationAdapterFactory } from "./notifications/adapter-factory.js";
-import {
-	type AlertPreferences,
-	registerNotificationDispatcher,
-} from "./notifications/dispatcher.js";
-import { startNotificationDrain } from "./notifications/drain.js";
-import { defaultMutePreferenceReader } from "./notifications/mute.js";
-import { registerNotificationListener } from "./notifications/notification-listener.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { listRoutines } from "./routine-service.js";
 import { resolveDecompositionPlan } from "./services/agent-defaults/resolvers.js";
@@ -82,6 +98,68 @@ const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
 const DEFAULT_ROUTINE_POLL_INTERVAL_MS = 30_000;
 /** Default staleness bound for the routine-session reaper (1h). */
 const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
+
+/**
+ * @lore AU19 Increment 1g: `notifications`' DI ports (Mechanism C), wired
+ * here at the `packages/server` composition point — all four targets
+ * (`settings`, `users`, `org`, `work`) are real, already-migrated packages;
+ * `connections` hasn't migrated yet, so `notificationsCredentialCipher`/
+ * `notificationsCredentialStore` wire to `packages/server`'s existing
+ * `credential-encryption.ts` function references / a raw `serverCredentials`
+ * query (interim, same precedent as `settings`' `SettingsCredentialCipher`/
+ * `SettingsCredentialStore`). Zero behavior change.
+ */
+const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
+
+const notificationsCredentialCipher: NotificationsCredentialCipher = {
+	getServerSecret,
+	encryptCredentialValue,
+	decryptCredentialValue,
+};
+
+const notificationsCredentialStore: NotificationsCredentialStore = {
+	async findByName(execDb, name) {
+		const [row] = await execDb
+			.select()
+			.from(serverCredentials)
+			.where(eq(serverCredentials.name, name))
+			.limit(1);
+		return row;
+	},
+	async upsert(execDb, values) {
+		await execDb
+			.insert(serverCredentials)
+			.values(values)
+			.onConflictDoUpdate({
+				target: serverCredentials.name,
+				set: { encryptedValue: values.encryptedValue, updatedAt: values.updatedAt },
+			});
+	},
+	async deleteByName(execDb, name) {
+		await execDb.delete(serverCredentials).where(eq(serverCredentials.name, name));
+	},
+};
+
+const notificationsConfigDeps: NotificationsConfigDeps = {
+	serverConfig: notificationsServerConfigPort,
+	credentialCipher: notificationsCredentialCipher,
+	credentialStore: notificationsCredentialStore,
+};
+
+const notificationsMuteDeps: NotificationsMuteDeps = {
+	serverConfig: notificationsServerConfigPort,
+};
+
+const notificationsSilenceDeps: NotificationsSilenceDeps = {
+	serverConfig: notificationsServerConfigPort,
+	users: { getUserById },
+	teams: { getTeamMembersById },
+};
+
+const notificationsWorkReader: NotificationsWorkReader = {
+	listQueuedItemsSince,
+	getItemById,
+};
 
 /**
  * AU11: registers CORE-owned application services against the event bus —
@@ -144,13 +222,23 @@ export function registerCoreDomainServices(ctx: {
 		registerNotificationDispatcher(db, eventBus, {
 			adapterFactory: defaultNotificationAdapterFactory,
 			readAlertPreferences: ctx.readAlertPreferences,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		}),
 	);
 
 	// AF8: notification listener (event→typed row) + drain loop (automatic delivery).
-	const muteReader = defaultMutePreferenceReader(db);
-	disposers.push(registerNotificationListener(db, eventBus, { mute: muteReader }));
-	disposers.push(startNotificationDrain(db, defaultNotificationAdapterFactory, {}));
+	const muteReader = defaultMutePreferenceReader(db, notificationsMuteDeps);
+	disposers.push(
+		registerNotificationListener(db, eventBus, { mute: muteReader, work: notificationsWorkReader }),
+	);
+	disposers.push(
+		startNotificationDrain(db, defaultNotificationAdapterFactory, {
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+		}),
+	);
 
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
 	disposers.push(startRetentionReaper(db));

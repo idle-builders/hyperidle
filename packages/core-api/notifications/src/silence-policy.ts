@@ -13,14 +13,24 @@
  * `factorySettings.silence_*` KV keys). No production writer ever existed
  * for this namespace — defaults (mode=false, empty list, no window)
  * preserve today's always-unsilenced behavior exactly.
+ *
+ * @lore AU19 Increment 1g: `readServerConfig`(`@hyperidle/settings`),
+ * `getUserById`(`@hyperidle/users`), and the raw `teamMembers` table
+ * (`org`-owned since Increment 1c) all used to be touched directly —
+ * `composition-boundary-guard`/`table-ownership-guard` ban that once this
+ * file lives in `packages/core-api/notifications/`. Converted to the
+ * injected `NotificationsSilenceDeps` (Mechanism C) — `deps.serverConfig`,
+ * `deps.users`, `deps.teams` — wired by the caller (`packages/server`,
+ * unguarded) to the real functions, zero behavior change. `deps.teams`
+ * resolves `agent.teamId -> teamMembers.id -> teamMembers.teamId` via `org`'s
+ * new `getTeamMembersById` export (@lore U1: `teams` is now the domain
+ * entity; `teamMembers` is the agent membership group).
  */
 
 // @lore U1: `teams` is now the domain entity. `teamMembers` is the agent membership group.
 // `users.teamId` references `teamMembers.id`; silence keys use `teamMembers.teamId` (domains.id).
-import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
-import { readServerConfig } from "@hyperidle/settings";
-import { getUserById } from "@hyperidle/users";
-import { eq } from "drizzle-orm";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { NotificationsSilenceDeps } from "./ports.js";
 
 interface SilenceItem {
 	readonly sourceAgentId: string | null;
@@ -36,8 +46,13 @@ interface SilenceItem {
  *  3. `windowStart` + `windowEnd` — UTC time window, supports overnight
  *     windows (e.g. 22:00 → 07:00)
  */
-export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date): Promise<boolean> {
-	const { notifications } = await readServerConfig(db);
+export async function isSilenced(
+	db: HyperIdleDb,
+	item: SilenceItem,
+	now: Date,
+	deps: NotificationsSilenceDeps,
+): Promise<boolean> {
+	const { notifications } = await deps.serverConfig.read(db);
 	const { silence } = notifications;
 
 	// 1. Factory-wide silence
@@ -46,13 +61,9 @@ export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date):
 	// 2. Per-product (per-team) silence
 	// @lore U1: agent.teamId → teamMembers.id → teamMembers.teamId (= teams.id, domain entity).
 	if (item.sourceAgentId) {
-		const agent = await getUserById(db, item.sourceAgentId);
+		const agent = await deps.users.getUserById(db, item.sourceAgentId);
 		if (agent?.teamId) {
-			const [memberGroup] = await db
-				.select()
-				.from(teamMembers)
-				.where(eq(teamMembers.id, agent.teamId))
-				.limit(1);
+			const memberGroup = await deps.teams.getTeamMembersById(db, agent.teamId);
 			if (memberGroup && silence.silencedTeamIds.includes(memberGroup.teamId)) return true;
 		}
 	}
@@ -82,8 +93,12 @@ export async function isSilenced(db: HyperIdleDb, item: SilenceItem, now: Date):
  * predicates. cost_breach: bypass isFactorySilenced, respect isInSilenceWindow.
  * isSilenced() is kept as the OR-of-both for the blocking-row path (back-compat).
  */
-export async function isFactorySilenced(db: HyperIdleDb, item: SilenceItem): Promise<boolean> {
-	const { notifications } = await readServerConfig(db);
+export async function isFactorySilenced(
+	db: HyperIdleDb,
+	item: SilenceItem,
+	deps: NotificationsSilenceDeps,
+): Promise<boolean> {
+	const { notifications } = await deps.serverConfig.read(db);
 	const { silence } = notifications;
 
 	// 1. Factory-wide silence
@@ -91,13 +106,9 @@ export async function isFactorySilenced(db: HyperIdleDb, item: SilenceItem): Pro
 
 	// 2. Per-product (per-team) silence
 	if (item.sourceAgentId) {
-		const agent = await getUserById(db, item.sourceAgentId);
+		const agent = await deps.users.getUserById(db, item.sourceAgentId);
 		if (agent?.teamId) {
-			const [memberGroup] = await db
-				.select()
-				.from(teamMembers)
-				.where(eq(teamMembers.id, agent.teamId))
-				.limit(1);
+			const memberGroup = await deps.teams.getTeamMembersById(db, agent.teamId);
 			if (memberGroup && silence.silencedTeamIds.includes(memberGroup.teamId)) return true;
 		}
 	}
@@ -111,8 +122,9 @@ export async function isFactorySilenced(db: HyperIdleDb, item: SilenceItem): Pro
  */
 export async function readSilenceWindow(
 	db: HyperIdleDb,
+	deps: Pick<NotificationsSilenceDeps, "serverConfig">,
 ): Promise<{ start: string; end: string } | null> {
-	const { notifications } = await readServerConfig(db);
+	const { notifications } = await deps.serverConfig.read(db);
 	const { windowStart, windowEnd } = notifications.silence;
 	if (windowStart !== null && windowEnd !== null) {
 		return { start: windowStart, end: windowEnd };

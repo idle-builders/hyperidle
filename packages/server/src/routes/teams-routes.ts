@@ -20,6 +20,7 @@
 
 import { getThreadById, insertMessage, insertThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions, teamMembers, teams } from "@hyperidle/db";
+import { enqueueNotification, findPendingByEventSubject } from "@hyperidle/notifications";
 import {
 	ApiError,
 	loadTeamMembers,
@@ -61,8 +62,6 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { enqueueNotification } from "../notifications/dispatcher.js";
-import { findPendingByEventSubject } from "../notifications/notification-queue.js";
 import * as routineService from "../routine-service.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { deriveInitials } from "../services/agent-utils.js";

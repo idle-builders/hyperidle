@@ -14,27 +14,33 @@
  */
 
 import { type HyperIdleDb, items as itemsTable, threads, users } from "@hyperidle/db";
-import { updateServerConfig } from "@hyperidle/settings";
-import type { NotificationEvent } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, vi } from "vitest";
-import { loadNotificationConfig, updateNotificationConfig } from "../../notifications/config.js";
-import { flushQueue, recoverStuckLeases } from "../../notifications/dispatcher.js";
-import { startNotificationDrain } from "../../notifications/drain.js";
 import {
 	defaultMutePreferenceReader,
 	defaultMutePreferenceWriter,
-} from "../../notifications/mute.js";
-import { registerNotificationListener } from "../../notifications/notification-listener.js";
-import { insertNotification, listAll } from "../../notifications/notification-queue.js";
-import type {
-	Notification,
-	NotificationAdapter,
-	Recipient,
-	SendResult,
-} from "../../notifications/types.js";
+	flushQueue,
+	insertNotification,
+	listAll,
+	loadNotificationConfig,
+	type Notification,
+	type NotificationAdapter,
+	type Recipient,
+	recoverStuckLeases,
+	registerNotificationListener,
+	type SendResult,
+	startNotificationDrain,
+	updateNotificationConfig,
+} from "@hyperidle/notifications";
+import { updateServerConfig } from "@hyperidle/settings";
+import type { NotificationEvent } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, vi } from "vitest";
 import { getFactoryCostActual } from "../../services/cost-cap.js";
 import { clearCostSentinelCache, runCostSentinelCheck } from "../../services/cost-sentinel.js";
 import { expect, test } from "../../test-fixtures.js";
+import {
+	notificationsConfigDeps,
+	notificationsSilenceDeps,
+	notificationsWorkReader,
+} from "../notifications-test-deps.js";
 
 // --- helpers ---
 
@@ -58,13 +64,17 @@ function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
 // @lore AU18: seeds via updateNotificationConfig (server_config-backed) instead
 // of raw factorySettings KV rows — same observable outcome, new storage.
 async function enableNotifications(db: HyperIdleDb): Promise<void> {
-	await updateNotificationConfig(db, {
-		enabled: true,
-		primaryChannel: "console",
-		digestChannel: "console",
-		floodMaxPerMinute: 100,
-		floodCoalesceWindowMs: 60_000,
-	});
+	await updateNotificationConfig(
+		db,
+		{
+			enabled: true,
+			primaryChannel: "console",
+			digestChannel: "console",
+			floodMaxPerMinute: 100,
+			floodCoalesceWindowMs: 60_000,
+		},
+		notificationsConfigDeps,
+	);
 }
 
 // @lore AU18: silence config seeds via updateServerConfig (server_config.notifications.silence)
@@ -119,9 +129,9 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 
 		// Start drain with a short interval; call it directly via the returned disposer.
 		// Call flushQueue directly (the drain loop wraps this).
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
 		if (!cfg) throw new Error("No notification config");
-		await flushQueue(db, () => adapter, cfg, new Date());
+		await flushQueue(db, () => adapter, cfg, new Date(), notificationsSilenceDeps);
 
 		const rows = (await listAll(db)).filter((r) => r.id === "drain-row-1");
 		// Row should be sent (or in-flight via adapter)
@@ -134,7 +144,10 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 	test("startNotificationDrain returns a disposer that stops the interval", async ({ db }) => {
 		const adapter = createFakeAdapter();
 		// startNotificationDrain must be importable from fabric
-		const dispose = startNotificationDrain(db, () => adapter, {});
+		const dispose = startNotificationDrain(db, () => adapter, {
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+		});
 		expect(typeof dispose).toBe("function");
 		dispose(); // should not throw
 	});
@@ -179,8 +192,11 @@ describe("AF8 AC2 — notification event produces typed, source-linked row", () 
 		});
 
 		// Register listener
-		const mute = defaultMutePreferenceReader(db);
-		const dispose = registerNotificationListener(db, eventBus, { mute });
+		const mute = defaultMutePreferenceReader(db, notificationsConfigDeps);
+		const dispose = registerNotificationListener(db, eventBus, {
+			mute,
+			work: notificationsWorkReader,
+		});
 
 		// Emit policy-engine push notification (kind="attention")
 		const event: NotificationEvent = {
@@ -228,8 +244,11 @@ describe("AF8 AC3 — auto_unblock event is filtered out (ambient, not a notific
 		db,
 		eventBus,
 	}) => {
-		const mute = defaultMutePreferenceReader(db);
-		const dispose = registerNotificationListener(db, eventBus, { mute });
+		const mute = defaultMutePreferenceReader(db, notificationsConfigDeps);
+		const dispose = registerNotificationListener(db, eventBus, {
+			mute,
+			work: notificationsWorkReader,
+		});
 
 		// Emit auto-unblock notification (dep-watcher kind)
 		const event: NotificationEvent = {
@@ -273,11 +292,11 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 
 		await insertPendingRow(db, "quiet-block-1", "blocking");
 
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
 		if (!cfg) throw new Error("No config");
 
 		// Run drain with "now" inside quiet hours
-		const result = await flushQueue(db, () => adapter, cfg, new Date());
+		const result = await flushQueue(db, () => adapter, cfg, new Date(), notificationsSilenceDeps);
 		expect(result.deferred).toBeGreaterThan(0);
 
 		// Row should still be pending
@@ -291,7 +310,7 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 
 		// Run drain with a time clearly outside quiet hours (noon UTC)
 		const noonUTC = new Date("2026-06-11T12:00:00.000Z");
-		const result2 = await flushQueue(db, () => adapter, cfg, noonUTC);
+		const result2 = await flushQueue(db, () => adapter, cfg, noonUTC, notificationsSilenceDeps);
 		// Should have delivered (flushed) or at least not deferred
 		expect(result2.deferred).toBe(0);
 	});
@@ -398,11 +417,14 @@ describe("AF8 AC9 — muting a type suppresses notification enqueue", () => {
 		});
 
 		// Set mute for review_request
-		const writer = defaultMutePreferenceWriter(db);
+		const writer = defaultMutePreferenceWriter(db, notificationsConfigDeps);
 		await writer.setMuted("review_request", true);
 
-		const mute = defaultMutePreferenceReader(db);
-		const dispose = registerNotificationListener(db, eventBus, { mute });
+		const mute = defaultMutePreferenceReader(db, notificationsConfigDeps);
+		const dispose = registerNotificationListener(db, eventBus, {
+			mute,
+			work: notificationsWorkReader,
+		});
 
 		const event: NotificationEvent = {
 			type: "notification",
@@ -442,11 +464,17 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 		// Insert a cost_breach pending row
 		await insertPendingRow(db, "cost-breach-factory-silence", "cost_breach");
 
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
 		if (!cfg) throw new Error("No config");
 
 		// Drain at a time outside quiet hours
-		const result = await flushQueue(db, () => adapter, cfg, new Date("2026-06-11T12:00:00.000Z"));
+		const result = await flushQueue(
+			db,
+			() => adapter,
+			cfg,
+			new Date("2026-06-11T12:00:00.000Z"),
+			notificationsSilenceDeps,
+		);
 
 		// cost_breach should BYPASS factory silence → flushed
 		expect(result.flushed + adapter.calls.length).toBeGreaterThan(0);
@@ -465,12 +493,12 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 
 		await insertPendingRow(db, "cost-breach-quiet-hours", "cost_breach");
 
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
 		if (!cfg) throw new Error("No config");
 
 		// Drain during quiet hours (12:00 UTC)
 		const noonUTC = new Date("2026-06-11T12:00:00.000Z");
-		const result = await flushQueue(db, () => adapter, cfg, noonUTC);
+		const result = await flushQueue(db, () => adapter, cfg, noonUTC, notificationsSilenceDeps);
 
 		// cost_breach RESPECTS quiet hours → deferred
 		expect(result.deferred).toBeGreaterThan(0);
@@ -480,7 +508,7 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 		await setSilenceWindow(db, "22:00", "22:01");
 
 		const afternoon = new Date("2026-06-11T14:00:00.000Z");
-		const result2 = await flushQueue(db, () => adapter, cfg, afternoon);
+		const result2 = await flushQueue(db, () => adapter, cfg, afternoon, notificationsSilenceDeps);
 		expect(result2.deferred).toBe(0);
 	});
 });

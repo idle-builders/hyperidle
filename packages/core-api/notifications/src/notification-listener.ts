@@ -23,21 +23,27 @@
  * listener populates the in-app notification store (typeKey/urgency/sourceLink).
  */
 
-import { type HyperIdleDb, items as itemsTable } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	EventBus,
 	NotificationEvent,
 	NotificationTypeKey,
 	NotificationUrgency,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { enqueueNotification } from "./dispatcher.js";
 import type { MutePreferenceReader } from "./mute.js";
+import type { NotificationsWorkReader } from "./ports.js";
 import type { NotificationSeverity } from "./types.js";
 
 export interface NotificationListenerDeps {
 	mute: MutePreferenceReader;
 	now?: () => Date;
+	/**
+	 * @lore AU19 Increment 1g: `work` DI port (Mechanism C) — this listener
+	 * used to raw-query the foreign `items` table (`work`-owned) directly;
+	 * now injected (`getItemById`), wired to `@hyperidle/work`'s real export.
+	 */
+	work: NotificationsWorkReader;
 }
 
 /**
@@ -102,7 +108,7 @@ export function registerNotificationListener(
 			const targetId = event.targetId;
 
 			// Look up the item to determine type, urgency, and source link
-			const [item] = await db.select().from(itemsTable).where(eq(itemsTable.id, targetId)).limit(1);
+			const item = await deps.work.getItemById(db, targetId);
 
 			if (!item) return;
 

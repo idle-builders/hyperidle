@@ -1,3 +1,4 @@
+import { listVerdictItemIds } from "@hyperidle/conversation";
 import {
 	type HyperIdleDb,
 	items,
@@ -7,8 +8,14 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { getDailyDigest } from "../notifications/daily-digest.js";
+import { getDailyDigest, type NotificationsDigestDeps } from "@hyperidle/notifications";
+import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
 import { describe, expect, test } from "../test-fixtures.js";
+
+const digestDeps: NotificationsDigestDeps = {
+	work: { listQueuedItemsSince, getItemById },
+	verdicts: { listVerdictItemIds },
+};
 
 describe("Daily Digest (E7)", () => {
 	const now = new Date("2026-04-16T12:00:00Z");
@@ -63,7 +70,7 @@ describe("Daily Digest (E7)", () => {
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 		await createQueuedItem(db, "item-recent", sixHoursAgo);
 
-		const digest = await getDailyDigest(db, now);
+		const digest = await getDailyDigest(db, now, digestDeps);
 		expect(digest.items).toHaveLength(1);
 		expect(digest!.items[0]!.id).toBe("item-recent");
 		expect(digest.generatedAt).toBeTruthy();
@@ -79,7 +86,7 @@ describe("Daily Digest (E7)", () => {
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 		await createQueuedItem(db, "item-recent", sixHoursAgo);
 
-		const digest = await getDailyDigest(db, now);
+		const digest = await getDailyDigest(db, now, digestDeps);
 		expect(digest.items).toHaveLength(1);
 		expect(digest!.items[0]!.id).toBe("item-recent");
 	});
@@ -113,14 +120,14 @@ describe("Daily Digest (E7)", () => {
 			createdAt: now.toISOString(),
 		});
 
-		const digest = await getDailyDigest(db, now);
+		const digest = await getDailyDigest(db, now, digestDeps);
 		expect(digest.items).toHaveLength(1);
 		expect(digest!.items[0]!.id).toBe("item-pending");
 	});
 
 	test("returns empty array when no queued items", async ({ db }) => {
 		await seedBase(db);
-		const digest = await getDailyDigest(db, now);
+		const digest = await getDailyDigest(db, now, digestDeps);
 		expect(digest.items).toHaveLength(0);
 		expect(digest.generatedAt).toBeTruthy();
 	});

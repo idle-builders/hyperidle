@@ -4,12 +4,25 @@ import {
 	knowledgeAppProjection,
 	users,
 } from "@hyperidle/db";
+import {
+	defaultNotificationAdapterFactory,
+	enqueueNotification,
+	flushQueue,
+	listAll,
+	type NotificationsSilenceDeps,
+} from "@hyperidle/notifications";
+import { getTeamMembersById } from "@hyperidle/org";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import { getUserById } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { defaultNotificationAdapterFactory } from "../notifications/adapter-factory.js";
-import { enqueueNotification, flushQueue } from "../notifications/dispatcher.js";
-import { listAll } from "../notifications/notification-queue.js";
 import { test as fixtureTest } from "../test-fixtures.js";
+
+const silencePolicyDeps: NotificationsSilenceDeps = {
+	serverConfig: { read: readServerConfig, update: updateServerConfig },
+	users: { getUserById },
+	teams: { getTeamMembersById },
+};
 
 const TEST_API_KEY = "test-key-au3-domain";
 
@@ -124,6 +137,7 @@ describe("app runtime domain observability", () => {
 					digestCron: "0 8 * * *",
 				},
 				new Date(),
+				silencePolicyDeps,
 			);
 			const queueRes = await app.request("/api/notifications/queue?status=sent", {
 				method: "GET",

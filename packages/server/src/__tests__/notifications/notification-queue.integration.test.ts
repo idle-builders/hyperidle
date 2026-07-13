@@ -24,7 +24,7 @@ import {
 	requeueLease,
 	updateManyByIds,
 	updateStatus,
-} from "../../notifications/notification-queue.js";
+} from "@hyperidle/notifications";
 import { describe, expect, test } from "../../test-fixtures.js";
 
 function row(

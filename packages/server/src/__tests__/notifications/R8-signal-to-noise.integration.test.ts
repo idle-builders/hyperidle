@@ -16,6 +16,17 @@
  */
 
 import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
+import {
+	type AlertPreferences,
+	listAll,
+	type Notification,
+	type NotificationAdapter,
+	type NotificationConfigPatch,
+	type Recipient,
+	registerNotificationDispatcher,
+	type SendResult,
+	updateNotificationConfig,
+} from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type {
 	CostCapBreachedEvent,
@@ -23,22 +34,12 @@ import type {
 	ItemCreatedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import {
-	type NotificationConfigPatch,
-	updateNotificationConfig,
-} from "../../notifications/config.js";
-import {
-	type AlertPreferences,
-	registerNotificationDispatcher,
-} from "../../notifications/dispatcher.js";
-import { listAll } from "../../notifications/notification-queue.js";
-import type {
-	Notification,
-	NotificationAdapter,
-	Recipient,
-	SendResult,
-} from "../../notifications/types.js";
 import { afterEach, describe, expect, test, vi } from "../../test-fixtures.js";
+import {
+	notificationsConfigDeps,
+	notificationsSilenceDeps,
+	notificationsWorkReader,
+} from "../notifications-test-deps.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -69,14 +70,18 @@ async function enableNotifications(
 	db: HyperIdleDb,
 	overrides: NotificationConfigPatch = {},
 ): Promise<void> {
-	await updateNotificationConfig(db, {
-		enabled: true,
-		primaryChannel: "console",
-		digestChannel: "console",
-		floodMaxPerMinute: 100,
-		floodCoalesceWindowMs: 60_000,
-		...overrides,
-	});
+	await updateNotificationConfig(
+		db,
+		{
+			enabled: true,
+			primaryChannel: "console",
+			digestChannel: "console",
+			floodMaxPerMinute: 100,
+			floodCoalesceWindowMs: 60_000,
+			...overrides,
+		},
+		notificationsConfigDeps,
+	);
 }
 
 async function seedThread(db: HyperIdleDb, id = "thread-r8"): Promise<string> {
@@ -151,6 +156,9 @@ function registerWithPrefs(
 ): () => void {
 	return registerNotificationDispatcher(db, bus, {
 		adapterFactory: () => adapter,
+		notificationsConfig: notificationsConfigDeps,
+		silencePolicy: notificationsSilenceDeps,
+		work: notificationsWorkReader,
 		readAlertPreferences: async (): Promise<AlertPreferences> => {
 			const cfg = await readServerConfig(db);
 			return {
@@ -194,7 +202,12 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		await enableNotifications(db);
 		const threadId = await seedThread(db, "thread-ac1-item");
 		await createItem(db, { id: "ac1-blocking", blocking: true, riskTier: "medium", threadId });
-		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
+		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
+		});
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
@@ -217,7 +230,12 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
+		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
+		});
 
 		const event: CostCapBreachedEvent = {
 			type: "cost_cap_breached",
@@ -242,7 +260,12 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
+		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
+		});
 
 		const event: CostCapWarningEvent = {
 			type: "cost_cap_warning",
@@ -269,7 +292,12 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		// AC2: task_state_changed is explicitly not subscribed by the dispatcher.
 		// Emitting it should produce no notifications and no queue rows.
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
+		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
+		});
 
 		emitTaskStateChanged(eventBus, "proposed", "in_progress");
 		emitTaskStateChanged(eventBus, "in_progress", "done");
@@ -291,7 +319,12 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		// cost_cap_warning with level=warning produces a digest row, not a push.
 		// This verifies the subscription exists but the classification is digest.
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, eventBus, { adapterFactory: () => adapter });
+		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
+		});
 
 		const event: CostCapWarningEvent = {
 			type: "cost_cap_warning",
@@ -335,6 +368,9 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		await enableNotifications(db);
 		unsubscribe = registerNotificationDispatcher(db, eventBus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 
 		emitTaskStateChanged(eventBus, "proposed", "in_progress");
@@ -356,6 +392,9 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		await enableNotifications(db);
 		unsubscribe = registerNotificationDispatcher(db, eventBus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 
 		emitTaskStateChanged(eventBus, "in_progress", "done");
@@ -379,6 +418,9 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		});
 		unsubscribe = registerNotificationDispatcher(db, eventBus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 
 		// Emit multiple transitions

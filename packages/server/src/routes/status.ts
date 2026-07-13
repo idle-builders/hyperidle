@@ -1,9 +1,23 @@
+import { listVerdictItemIds } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import { getDailyDigest, type NotificationsDigestDeps } from "@hyperidle/notifications";
 import { listAllUsers } from "@hyperidle/users";
+import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { getDailyDigest } from "../notifications/daily-digest.js";
+
+/**
+ * @lore AU19 Increment 1g: `getDailyDigest` (`@hyperidle/notifications`) now
+ * requires an injected `NotificationsDigestDeps` (Mechanism C) — this route
+ * is the sole real consumer that constructs it, wiring the real
+ * `@hyperidle/work`/`@hyperidle/conversation` function references directly
+ * (both real, migrated packages), zero behavior change.
+ */
+const digestDeps: NotificationsDigestDeps = {
+	work: { listQueuedItemsSince, getItemById },
+	verdicts: { listVerdictItemIds },
+};
 
 const SERVER_START_TIME = new Date().toISOString();
 
@@ -58,7 +72,7 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 
 	// GET /digest — Daily digest of queued items from past 24h
 	router.get("/digest", requireBoundary({ kind: "public-data" }), async (c) => {
-		const digest = await getDailyDigest(db);
+		const digest = await getDailyDigest(db, undefined, digestDeps);
 		return c.json(digest);
 	});
 

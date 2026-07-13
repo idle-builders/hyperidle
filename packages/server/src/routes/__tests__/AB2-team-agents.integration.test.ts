@@ -14,8 +14,8 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { listAll } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { listAll } from "../../notifications/notification-queue.js";
 import { deriveHealthDetail, deriveHealthLevel } from "../../routes/agent-profile.js";
 import { test } from "../../test-fixtures.js";
 

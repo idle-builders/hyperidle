@@ -11,19 +11,25 @@
  *  - POST /digest: runs digest through adapter
  */
 
+import {
+	insertNotification,
+	listAll,
+	type Notification,
+	type NotificationAdapter,
+	type Recipient,
+	type SafeNotificationConfig,
+	type SendResult,
+	updateNotificationConfig,
+} from "@hyperidle/notifications";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
-import type { SafeNotificationConfig } from "../../notifications/config.js";
-import { updateNotificationConfig } from "../../notifications/config.js";
-import { insertNotification, listAll } from "../../notifications/notification-queue.js";
-import type {
-	Notification,
-	NotificationAdapter,
-	Recipient,
-	SendResult,
-} from "../../notifications/types.js";
 import { expect, test } from "../../test-fixtures.js";
+import {
+	notificationsConfigDeps,
+	notificationsSilenceDeps,
+	notificationsWorkReader,
+} from "../notifications-test-deps.js";
 
 const API_KEY = "test-key-H2-routes";
 
@@ -80,14 +86,18 @@ describe("H2 /api/notifications routes", () => {
 		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			// Seed a password + auth token; verify they come back as "***".
-			await updateNotificationConfig(db, {
-				enabled: true,
-				primaryChannel: "smtp",
-				smtpHost: "smtp.example.com",
-				smtpPassword: "super-secret",
-				ntfyAuthToken: "tk_abc",
-				smtpFrom: "ops@example.com",
-			});
+			await updateNotificationConfig(
+				db,
+				{
+					enabled: true,
+					primaryChannel: "smtp",
+					smtpHost: "smtp.example.com",
+					smtpPassword: "super-secret",
+					ntfyAuthToken: "tk_abc",
+					smtpFrom: "ops@example.com",
+				},
+				notificationsConfigDeps,
+			);
 
 			const res = await app.request("/api/notifications/config", { headers: headers() });
 			expect(res.status).toBe(200);
@@ -409,6 +419,9 @@ describe("H2 /api/notifications routes", () => {
 		const router = createNotificationRoutes(db, {
 			adapterFactory: () => adapter,
 			logger: captureLogger,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 		const hono = new (await import("hono")).Hono();
 		hono.route("/api/notifications", router);

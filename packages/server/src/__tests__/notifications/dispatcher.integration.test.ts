@@ -4,19 +4,25 @@
  */
 
 import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
+import {
+	insertNotification,
+	listAll,
+	type Notification,
+	type NotificationAdapter,
+	type Recipient,
+	registerNotificationDispatcher,
+	type SendResult,
+	updateNotificationConfig,
+} from "@hyperidle/notifications";
 import type { CostCapBreachedEvent, RoutineFiredEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
-import { updateNotificationConfig } from "../../notifications/config.js";
-import { registerNotificationDispatcher } from "../../notifications/dispatcher.js";
-import { insertNotification, listAll } from "../../notifications/notification-queue.js";
-import type {
-	Notification,
-	NotificationAdapter,
-	Recipient,
-	SendResult,
-} from "../../notifications/types.js";
 import { expect, test } from "../../test-fixtures.js";
+import {
+	notificationsConfigDeps,
+	notificationsSilenceDeps,
+	notificationsWorkReader,
+} from "../notifications-test-deps.js";
 
 interface AdapterCall {
 	recipient: Recipient;
@@ -38,13 +44,17 @@ function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
 // @lore AU18: seeds via updateNotificationConfig (server_config-backed) instead
 // of raw factorySettings KV rows — same observable outcome, new storage.
 async function enable(db: HyperIdleDb): Promise<void> {
-	await updateNotificationConfig(db, {
-		enabled: true,
-		primaryChannel: "console",
-		digestChannel: "console",
-		floodMaxPerMinute: 100,
-		floodCoalesceWindowMs: 60_000,
-	});
+	await updateNotificationConfig(
+		db,
+		{
+			enabled: true,
+			primaryChannel: "console",
+			digestChannel: "console",
+			floodMaxPerMinute: 100,
+			floodCoalesceWindowMs: 60_000,
+		},
+		notificationsConfigDeps,
+	);
 }
 
 describe("H2 Dispatcher integration via createApp", () => {
@@ -66,6 +76,9 @@ describe("H2 Dispatcher integration via createApp", () => {
 			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
 				registerNotificationDispatcher(testDb, testBus, {
 					adapterFactory: () => adapter,
+					notificationsConfig: notificationsConfigDeps,
+					silencePolicy: notificationsSilenceDeps,
+					work: notificationsWorkReader,
 				}),
 			],
 		});
@@ -119,6 +132,9 @@ describe("H2 Dispatcher integration via createApp", () => {
 			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
 				registerNotificationDispatcher(testDb, testBus, {
 					adapterFactory: () => adapter,
+					notificationsConfig: notificationsConfigDeps,
+					silencePolicy: notificationsSilenceDeps,
+					work: notificationsWorkReader,
 				}),
 			],
 		});
@@ -154,6 +170,9 @@ describe("H2 Dispatcher integration via createApp", () => {
 			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
 				registerNotificationDispatcher(testDb, testBus, {
 					adapterFactory: () => adapter,
+					notificationsConfig: notificationsConfigDeps,
+					silencePolicy: notificationsSilenceDeps,
+					work: notificationsWorkReader,
 				}),
 			],
 		});

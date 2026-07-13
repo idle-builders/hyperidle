@@ -21,9 +21,9 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { listAll } from "@hyperidle/notifications";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import { listAll } from "../notifications/notification-queue.js";
 import {
 	registerLifecyclePropagation,
 	retryFailedPropagations,

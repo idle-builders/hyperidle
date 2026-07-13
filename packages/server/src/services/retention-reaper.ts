@@ -36,8 +36,8 @@ import {
 	loginSessions,
 	propagationLog,
 } from "@hyperidle/db";
+import { deleteReaped } from "@hyperidle/notifications";
 import { and, inArray, isNotNull, lt, or } from "drizzle-orm";
-import { deleteReaped } from "../notifications/notification-queue.js";
 
 export const RETENTION_REAPER_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 export const TERMINAL_LOG_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days

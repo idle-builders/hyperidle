@@ -30,7 +30,7 @@
  */
 
 import * as crypto from "node:crypto";
-import { type HyperIdleDb, type Item, items as itemsTable } from "@hyperidle/db";
+import type { HyperIdleDb, Item } from "@hyperidle/db";
 import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
@@ -40,7 +40,6 @@ import {
 	type Logger,
 	type RoutineFiredEvent,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { loadNotificationConfig, type NotificationConfig, pickRecipient } from "./config.js";
 import { type DigestResult, runDailyDigest } from "./digest.js";
 import {
@@ -53,6 +52,11 @@ import {
 	requeueLease,
 	updateStatus,
 } from "./notification-queue.js";
+import type {
+	NotificationsConfigDeps,
+	NotificationsSilenceDeps,
+	NotificationsWorkReader,
+} from "./ports.js";
 import { scrubErrorMessage } from "./redact.js";
 import { isFactorySilenced, isInSilenceWindow, readSilenceWindow } from "./silence-policy.js";
 import type {
@@ -146,6 +150,22 @@ export interface DispatcherDeps {
 	 * implementation in bootstrapAppRuntime via readServerConfig(db).
 	 */
 	readAlertPreferences?: () => Promise<AlertPreferences>;
+	/**
+	 * @lore AU19 Increment 1g: `settings`/`users`/`org` DI ports (Mechanism C) —
+	 * `loadNotificationConfig`/`isFactorySilenced`/`readSilenceWindow` used to
+	 * import `@hyperidle/settings`/`@hyperidle/users`/the raw `teamMembers`
+	 * table directly; now injected. `packages/server` wires the real
+	 * functions, zero behavior change.
+	 */
+	notificationsConfig: NotificationsConfigDeps;
+	silencePolicy: NotificationsSilenceDeps;
+	/**
+	 * @lore AU19 Increment 1g: `work` DI port (Mechanism C) — the
+	 * `item_created` handler used to raw-query the foreign `items` table
+	 * (`work`-owned) directly; now injected (`getItemById`), wired to
+	 * `@hyperidle/work`'s real export.
+	 */
+	work: NotificationsWorkReader;
 }
 
 interface FloodState {
@@ -375,6 +395,7 @@ export async function flushQueue(
 	factory: AdapterFactory,
 	cfg: NotificationConfig,
 	now: Date,
+	silencePolicy: NotificationsSilenceDeps,
 ): Promise<{ flushed: number; failed: number; deferred: number }> {
 	await recoverStuckLeases(db, now);
 	const rows = await listPending(db);
@@ -383,8 +404,8 @@ export async function flushQueue(
 	let deferred = 0;
 
 	// Read the two predicates once per tick (not per row) — they are config-level.
-	const factorySilenced = await isFactorySilenced(db, { sourceAgentId: null });
-	const silenceWindow = await readSilenceWindow(db);
+	const factorySilenced = await isFactorySilenced(db, { sourceAgentId: null }, silencePolicy);
+	const silenceWindow = await readSilenceWindow(db, silencePolicy);
 	const inQuietHours = silenceWindow
 		? isInSilenceWindow(silenceWindow.start, silenceWindow.end, now)
 		: false;
@@ -634,7 +655,7 @@ export function registerNotificationDispatcher(
 		prefMeta: { isHardCostBreach?: boolean; isCostEvent?: boolean; itemKind?: string },
 	): Promise<void> {
 		if (state.disposed) return;
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, deps.notificationsConfig);
 		if (!cfg) return;
 		if (classification.kind === "drop") return;
 		if (notification === null) return;
@@ -666,8 +687,8 @@ export function registerNotificationDispatcher(
 		// Either gate triggers deferral for non-breach rows.
 		// cost_breach defers on quiet hours from either source; bypasses factory silence.
 
-		const factSilenced = await isFactorySilenced(db, { sourceAgentId });
-		const silenceWin = await readSilenceWindow(db);
+		const factSilenced = await isFactorySilenced(db, { sourceAgentId }, deps.silencePolicy);
+		const silenceWin = await readSilenceWindow(db, deps.silencePolicy);
 		const inQuietHoursFactory = silenceWin
 			? isInSilenceWindow(silenceWin.start, silenceWin.end, now)
 			: false;
@@ -746,11 +767,7 @@ export function registerNotificationDispatcher(
 	const unsubItemCreated = bus.on("item_created", (event: ItemCreatedEvent): void => {
 		if (state.disposed) return;
 		void (async () => {
-			const [item] = await db
-				.select()
-				.from(itemsTable)
-				.where(eq(itemsTable.id, event.itemId))
-				.limit(1);
+			const item = await deps.work.getItemById(db, event.itemId);
 			if (!item) return;
 			const classification = classifyItem(item);
 			const notification =
@@ -797,7 +814,7 @@ export function registerNotificationDispatcher(
 		// from the concrete id format.
 		if (!event.routineId.includes("daily_digest")) return;
 		void (async () => {
-			const cfg = await loadNotificationConfig(db);
+			const cfg = await loadNotificationConfig(db, deps.notificationsConfig);
 			if (!cfg) return;
 			const adapter = getCachedAdapter(state, deps.adapterFactory, cfg);
 			queueMicrotask(() => {
@@ -841,7 +858,7 @@ export async function dispatchDigest(
 	const logger = deps.logger ?? createLogger({ pkg: "notifications.dispatcher" });
 	const nowFn = deps.now ?? ((): Date => new Date());
 	const now = nowOverride ?? nowFn();
-	const cfg = await loadNotificationConfig(db);
+	const cfg = await loadNotificationConfig(db, deps.notificationsConfig);
 	if (!cfg) {
 		return { status: "noop", notificationsIncluded: 0 };
 	}

@@ -10,8 +10,8 @@
 
 import type { Logger } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createConsoleAdapter } from "../../notifications/console-adapter.js";
-import type { Notification, Recipient } from "../../notifications/types.js";
+import { createConsoleAdapter } from "../console-adapter.js";
+import type { Notification, Recipient } from "../types.js";
 
 interface LogCall {
 	level: "debug" | "info" | "warn" | "error";
@@ -30,7 +30,7 @@ function createCapturingLogger(): { logger: Logger; calls: LogCall[] } {
 	return { logger, calls };
 }
 
-describe("H2 Console adapter (AC1)", () => {
+describe("console adapter", () => {
 	it("logs a blocking notification through the injected logger", async () => {
 		const { logger, calls } = createCapturingLogger();
 		const adapter = createConsoleAdapter({

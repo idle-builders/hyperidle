@@ -1,16 +1,25 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApiErrorResponse, Logger, NotificationTypeKey } from "@hyperidle/shared";
-import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/shared";
-import { Hono } from "hono";
-import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { validateBody } from "../middleware/validate.js";
 import {
+	type AdapterFactory,
+	defaultMutePreferenceWriter,
+	dispatchDigest,
+	flushQueue,
+	getMutedTypeKeys,
+	listByStatus,
+	listUnread,
 	loadNotificationConfig,
+	markRead,
+	markSeenAll,
+	type Notification,
+	type NotificationChannel,
 	type NotificationConfigPatch,
+	type NotificationsConfigDeps,
+	type NotificationsSilenceDeps,
+	type NotificationsWorkReader,
 	pickRecipient,
 	readNotificationConfig,
 	redactNotificationConfig,
+	type SendResult,
 	sanitizeCron,
 	sanitizeEmail,
 	sanitizeNtfyUrl,
@@ -18,16 +27,13 @@ import {
 	sanitizeSmtpHost,
 	sanitizeTopic,
 	updateNotificationConfig,
-} from "../notifications/config.js";
-import { type AdapterFactory, dispatchDigest, flushQueue } from "../notifications/dispatcher.js";
-import { defaultMutePreferenceWriter, getMutedTypeKeys } from "../notifications/mute.js";
-import {
-	listByStatus,
-	listUnread,
-	markRead,
-	markSeenAll,
-} from "../notifications/notification-queue.js";
-import type { Notification, NotificationChannel, SendResult } from "../notifications/types.js";
+} from "@hyperidle/notifications";
+import type { ApiErrorResponse, Logger, NotificationTypeKey } from "@hyperidle/shared";
+import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/shared";
+import { Hono } from "hono";
+import z from "zod";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import { validateBody } from "../middleware/validate.js";
 
 const channelEnum = z.enum(["console", "ntfy", "smtp"]);
 const queueStatusEnum = z.enum(["pending", "sent", "failed", "dropped", "sending"]);
@@ -107,6 +113,19 @@ export interface CreateNotificationRoutesOptions {
 	 * assert the `config_changed` event shape without grepping stdout.
 	 */
 	logger?: Logger;
+	/**
+	 * @lore AU19 Increment 1g: DI ports (Mechanism C) — `readNotificationConfig`/
+	 * `updateNotificationConfig`/`loadNotificationConfig`/`getMutedTypeKeys`/
+	 * `defaultMutePreferenceWriter` all need `notificationsConfig`;
+	 * `flushQueue` needs `silencePolicy`; `dispatchDigest` needs the full
+	 * `DispatcherDeps` shape (`notificationsConfig` + `silencePolicy` + `work`,
+	 * even though it only reads `notificationsConfig` at runtime). The caller
+	 * (`app.ts`, unguarded) wires the real functions directly, zero behavior
+	 * change.
+	 */
+	notificationsConfig: NotificationsConfigDeps;
+	silencePolicy: NotificationsSilenceDeps;
+	work: NotificationsWorkReader;
 }
 
 /**
@@ -209,7 +228,7 @@ export function createNotificationRoutes(
 	);
 
 	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) => {
-		const cfg = await readNotificationConfig(db);
+		const cfg = await readNotificationConfig(db, opts.notificationsConfig);
 		return c.json(redactNotificationConfig(cfg));
 	});
 
@@ -228,7 +247,7 @@ export function createNotificationRoutes(
 				return c.json(response, 400);
 			}
 			const diff = auditDiff(body);
-			const updated = await updateNotificationConfig(db, body);
+			const updated = await updateNotificationConfig(db, body, opts.notificationsConfig);
 			// @lore Emit an admin-action audit record on every PATCH so any
 			// rewrite of `recipientEmail`, `ntfyBaseUrl`, or SMTP creds is
 			// attributable. Secret fields are replaced with "***" before
@@ -249,7 +268,7 @@ export function createNotificationRoutes(
 		validateBody(testBodySchema),
 		async (c) => {
 			const body = c.req.valid("json");
-			const cfg = await readNotificationConfig(db);
+			const cfg = await readNotificationConfig(db, opts.notificationsConfig);
 			const capacity = Math.max(0, cfg.testMaxPerHour);
 			const took = takeTestToken(testBucket, capacity, nowFn().getTime());
 			if (!took) {
@@ -334,11 +353,11 @@ export function createNotificationRoutes(
 		requireBoundary({ kind: "public-data" }),
 		validateBody(flushBodySchema),
 		async (c) => {
-			const cfg = await loadNotificationConfig(db);
+			const cfg = await loadNotificationConfig(db, opts.notificationsConfig);
 			if (!cfg) {
 				return c.json({ flushed: 0, failed: 0, reason: "disabled" });
 			}
-			const result = await flushQueue(db, factory, cfg, nowFn());
+			const result = await flushQueue(db, factory, cfg, nowFn(), opts.silencePolicy);
 			return c.json(result);
 		},
 	);
@@ -348,7 +367,13 @@ export function createNotificationRoutes(
 		requireBoundary({ kind: "public-data" }),
 		validateBody(digestBodySchema),
 		async (c) => {
-			const result = await dispatchDigest(db, { adapterFactory: factory, now: nowFn });
+			const result = await dispatchDigest(db, {
+				adapterFactory: factory,
+				now: nowFn,
+				notificationsConfig: opts.notificationsConfig,
+				silencePolicy: opts.silencePolicy,
+				work: opts.work,
+			});
 			return c.json(result);
 		},
 	);
@@ -427,7 +452,7 @@ export function createNotificationRoutes(
 	 * Used by Settings to render initial toggle states.
 	 */
 	router.get("/mute", requireBoundary({ kind: "public-data" }), async (c) => {
-		const muted = await getMutedTypeKeys(db);
+		const muted = await getMutedTypeKeys(db, opts.notificationsConfig);
 		return c.json({ muted });
 	});
 
@@ -454,7 +479,7 @@ export function createNotificationRoutes(
 				return c.json(response, 400);
 			}
 			const body = c.req.valid("json");
-			const writer = defaultMutePreferenceWriter(db);
+			const writer = defaultMutePreferenceWriter(db, opts.notificationsConfig);
 			await writer.setMuted(key as NotificationTypeKey, body.muted);
 			return c.json({ ok: true });
 		},

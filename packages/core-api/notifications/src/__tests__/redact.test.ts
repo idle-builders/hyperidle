@@ -1,6 +1,6 @@
 import { REDACTED_TAG } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { scrubErrorMessage } from "../notifications/redact.js";
+import { scrubErrorMessage } from "../redact.js";
 
 describe("scrubErrorMessage", () => {
 	it("scrubs SMTP password from error message", () => {

@@ -78,6 +78,28 @@ export async function getTeamMembersByTeamId(
 }
 
 /**
+ * Read the single team_members row by its OWN `id` (not `teamId`), or
+ * `undefined` if none exists.
+ *
+ * @lore AU19 Increment 1g: this is the concrete implementation `notifications`'
+ * `NotificationsTeamReader` port (Mechanism C) wires to. `silence-policy.ts`
+ * used to import the `teamMembers` table directly to resolve
+ * `agent.teamId -> teamMembers.id -> teamMembers.teamId` for per-team silence
+ * — a table-ownership-guard completeness finding (`teamMembers` is `org`-owned
+ * since Increment 1c, but no accessor keyed on the row's own `id` existed yet;
+ * `getTeamMembersByTeamId` queries the OTHER column, `teamMembers.teamId`).
+ * Added here rather than reusing `getTeamMembersByTeamId` because the two
+ * queries are genuinely different WHERE clauses, not a naming accident.
+ */
+export async function getTeamMembersById(
+	db: HyperIdleDb,
+	id: string,
+): Promise<TeamMember | undefined> {
+	const [row] = await db.select().from(teamMembers).where(eq(teamMembers.id, id)).limit(1);
+	return row;
+}
+
+/**
  * Set `team_members.active_bets` to an absolute value.
  *
  * @lore AU19 Increment 1c: the concrete write-side counterpart to

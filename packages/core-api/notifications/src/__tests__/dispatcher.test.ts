@@ -2,22 +2,27 @@ import {
 	createTestDb,
 	type HyperIdleDb,
 	items as itemsTable,
+	serverCredentials,
 	type TestDbHandle,
 	threads,
 } from "@hyperidle/db";
-import { updateServerConfig } from "@hyperidle/settings";
+import { getTeamMembersById } from "@hyperidle/org";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
 	EventBus,
 	type ItemCreatedEvent,
 } from "@hyperidle/shared";
+import { getUserById } from "@hyperidle/users";
+import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	loadNotificationConfig,
 	type NotificationConfigPatch,
 	updateNotificationConfig,
-} from "../../notifications/config.js";
+} from "../config.js";
 import {
 	dispatchDigest,
 	enqueueNotification,
@@ -25,14 +30,70 @@ import {
 	recoverStuckLeases,
 	registerNotificationDispatcher,
 	tryFloodReserve,
-} from "../../notifications/dispatcher.js";
-import { findById, insertNotification, listAll } from "../../notifications/notification-queue.js";
+} from "../dispatcher.js";
+import { findById, insertNotification, listAll } from "../notification-queue.js";
 import type {
-	Notification,
-	NotificationAdapter,
-	Recipient,
-	SendResult,
-} from "../../notifications/types.js";
+	NotificationsConfigDeps,
+	NotificationsCredentialCipher,
+	NotificationsCredentialStore,
+	NotificationsSilenceDeps,
+	NotificationsWorkReader,
+} from "../ports.js";
+import type { Notification, NotificationAdapter, Recipient, SendResult } from "../types.js";
+
+// @lore AU19 Increment 1g: real cross-package wiring for the unit-test call
+// sites that call the moved production functions directly — this test file
+// (`.test.ts`) is exempt from `composition-boundary-guard`'s Service-import
+// ban (test files legitimately construct cross-Service DI for test-local
+// wiring; see `scripts/composition-boundary-guard.ts`'s `collectSourceFiles`),
+// so these are real functions, not stubs.
+const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
+
+const notificationsCredentialCipher: NotificationsCredentialCipher = {
+	getServerSecret: () => null,
+	encryptCredentialValue: (v) => v,
+	decryptCredentialValue: (v) => v,
+};
+
+const notificationsCredentialStore: NotificationsCredentialStore = {
+	async findByName(db: HyperIdleDb, name: string) {
+		const [row] = await db
+			.select()
+			.from(serverCredentials)
+			.where(eq(serverCredentials.name, name))
+			.limit(1);
+		return row;
+	},
+	async upsert(db: HyperIdleDb, values) {
+		await db
+			.insert(serverCredentials)
+			.values(values)
+			.onConflictDoUpdate({
+				target: serverCredentials.name,
+				set: { encryptedValue: values.encryptedValue, updatedAt: values.updatedAt },
+			});
+	},
+	async deleteByName(db: HyperIdleDb, name: string) {
+		await db.delete(serverCredentials).where(eq(serverCredentials.name, name));
+	},
+};
+
+const notificationsConfigDeps: NotificationsConfigDeps = {
+	serverConfig: notificationsServerConfigPort,
+	credentialCipher: notificationsCredentialCipher,
+	credentialStore: notificationsCredentialStore,
+};
+
+const notificationsSilenceDeps: NotificationsSilenceDeps = {
+	serverConfig: notificationsServerConfigPort,
+	users: { getUserById },
+	teams: { getTeamMembersById },
+};
+
+const notificationsWorkReader: NotificationsWorkReader = {
+	listQueuedItemsSince,
+	getItemById,
+};
 
 interface AdapterCall {
 	recipient: Recipient;
@@ -66,14 +127,18 @@ async function enableNotifications(
 	overrides: NotificationConfigPatch & { silenceMode?: boolean } = {},
 ): Promise<void> {
 	const { silenceMode, ...deliveryOverrides } = overrides;
-	await updateNotificationConfig(db, {
-		enabled: true,
-		primaryChannel: "console",
-		digestChannel: "console",
-		floodMaxPerMinute: 100,
-		floodCoalesceWindowMs: 60_000,
-		...deliveryOverrides,
-	});
+	await updateNotificationConfig(
+		db,
+		{
+			enabled: true,
+			primaryChannel: "console",
+			digestChannel: "console",
+			floodMaxPerMinute: 100,
+			floodCoalesceWindowMs: 60_000,
+			...deliveryOverrides,
+		},
+		notificationsConfigDeps,
+	);
 	if (silenceMode !== undefined) {
 		await updateServerConfig(db, { notifications: { silence: { mode: silenceMode } } });
 	}
@@ -128,7 +193,7 @@ async function emitItemCreated(bus: EventBus, itemId: string): Promise<void> {
 	bus.emit(event);
 }
 
-describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
+describe("dispatcher silence and policy routing", () => {
 	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let bus: EventBus;
@@ -151,6 +216,9 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 
 		await emitItemCreated(bus, "it-blocking");
@@ -165,6 +233,9 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 
 		const event: CostCapBreachedEvent = {
@@ -189,6 +260,9 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 
 		const event: CostCapWarningEvent = {
@@ -220,6 +294,9 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 
 		await emitItemCreated(bus, "it-low");
@@ -232,13 +309,16 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	it("AC4: silence mode queues blocking items without pushing", async () => {
+	it("silence mode queues blocking items without pushing", async () => {
 		await enableNotifications(db, { silenceMode: true });
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "it-sil", blocking: true, riskTier: "medium", threadId });
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 
 		await emitItemCreated(bus, "it-sil");
@@ -254,7 +334,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		expect(rows[0]!.severity).toBe("blocking");
 	});
 
-	it("AC4: flushQueue drains pending rows → adapter receives one send per row", async () => {
+	it("flushQueue drains pending rows — adapter receives one send per row", async () => {
 		await enableNotifications(db, { silenceMode: true });
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "it-a", blocking: true, threadId });
@@ -262,6 +342,9 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 		await emitItemCreated(bus, "it-a");
 		await emitItemCreated(bus, "it-b");
@@ -274,9 +357,9 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		// Lift silence via updateServerConfig (server_config-backed).
 		await updateServerConfig(db, { notifications: { silence: { mode: false } } });
 
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
 		if (!cfg) throw new Error("config unexpectedly disabled");
-		const result = await flushQueue(db, () => adapter, cfg, new Date());
+		const result = await flushQueue(db, () => adapter, cfg, new Date(), notificationsSilenceDeps);
 		expect(result.flushed).toBe(2);
 		expect(result.failed).toBe(0);
 		expect(result.deferred).toBe(0);
@@ -290,6 +373,9 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "it-x", blocking: true, threadId });
@@ -313,6 +399,9 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		const adapter = createFakeAdapter();
 		unsubscribe = registerNotificationDispatcher(db, bus, {
 			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
 		});
 		for (let i = 0; i < 4; i += 1) await emitItemCreated(bus, `flood-${i}`);
 
@@ -491,7 +580,7 @@ describe("enqueueNotification queue cap (QUEUE_CAP eviction)", () => {
 	});
 });
 
-describe("H2 Daily digest (AC6)", () => {
+describe("daily digest dispatch", () => {
 	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 
@@ -520,7 +609,12 @@ describe("H2 Daily digest (AC6)", () => {
 		}
 
 		const adapter = createFakeAdapter();
-		const result = await dispatchDigest(db, { adapterFactory: () => adapter });
+		const result = await dispatchDigest(db, {
+			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
+		});
 		expect(result.status).toBe("sent");
 		expect(result.notificationsIncluded).toBe(3);
 		expect(adapter.calls).toHaveLength(1);
@@ -537,7 +631,12 @@ describe("H2 Daily digest (AC6)", () => {
 	it("dispatchDigest with zero pending rows → noop, no adapter calls", async () => {
 		await enableNotifications(db);
 		const adapter = createFakeAdapter();
-		const result = await dispatchDigest(db, { adapterFactory: () => adapter });
+		const result = await dispatchDigest(db, {
+			adapterFactory: () => adapter,
+			notificationsConfig: notificationsConfigDeps,
+			silencePolicy: notificationsSilenceDeps,
+			work: notificationsWorkReader,
+		});
 		expect(result.status).toBe("noop");
 		expect(result.notificationsIncluded).toBe(0);
 		expect(adapter.calls).toHaveLength(0);
@@ -585,9 +684,9 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 		});
 
 		const adapter = createFakeAdapter();
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
 		if (!cfg) throw new Error("cfg unexpectedly null");
-		const result = await flushQueue(db, () => adapter, cfg, new Date());
+		const result = await flushQueue(db, () => adapter, cfg, new Date(), notificationsSilenceDeps);
 		expect(result.flushed).toBe(1); // digest only
 		expect(result.deferred).toBe(1); // blocking kept
 		expect(adapter.calls).toHaveLength(1);
@@ -613,9 +712,9 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 		});
 
 		const adapter = createFakeAdapter();
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
 		if (!cfg) throw new Error("cfg unexpectedly null");
-		const result = await flushQueue(db, () => adapter, cfg, new Date());
+		const result = await flushQueue(db, () => adapter, cfg, new Date(), notificationsSilenceDeps);
 		expect(result.flushed).toBe(1);
 		expect(adapter.calls).toHaveLength(1);
 		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
@@ -654,7 +753,7 @@ describe("flushQueue channel routing (adversary review #18)", () => {
 		});
 
 		const builtChannels: string[] = [];
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
 		if (!cfg) throw new Error("cfg unexpectedly null");
 		const result = await flushQueue(
 			db,
@@ -664,6 +763,7 @@ describe("flushQueue channel routing (adversary review #18)", () => {
 			},
 			cfg,
 			new Date(),
+			notificationsSilenceDeps,
 		);
 		expect(result.flushed).toBe(1);
 		// The factory was called with primaryChannel === "ntfy" because
@@ -709,9 +809,9 @@ describe("At-least-once delivery (claim lease)", () => {
 				return { ok: true, channel: "console", sentAt: new Date().toISOString() };
 			},
 		};
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
 		if (!cfg) throw new Error("cfg unexpectedly null");
-		const result = await flushQueue(db, () => adapter, cfg, new Date());
+		const result = await flushQueue(db, () => adapter, cfg, new Date(), notificationsSilenceDeps);
 		expect(result.flushed).toBe(1);
 		expect(observedStatus).toBe("sending");
 		const row = await findById(db, "aq-1");
@@ -787,10 +887,10 @@ describe("At-least-once delivery (claim lease)", () => {
 		});
 
 		const adapter = createFakeAdapter();
-		const cfg = await loadNotificationConfig(db);
+		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
 		if (!cfg) throw new Error("cfg unexpectedly null");
 		const now = new Date("2026-04-18T01:00:00.000Z");
-		const result = await flushQueue(db, () => adapter, cfg, now);
+		const result = await flushQueue(db, () => adapter, cfg, now, notificationsSilenceDeps);
 		// The row was requeued by recoverStuckLeases and then flushed.
 		expect(result.flushed).toBe(1);
 		expect(adapter.calls).toHaveLength(1);

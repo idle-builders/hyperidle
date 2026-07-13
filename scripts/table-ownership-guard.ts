@@ -82,6 +82,12 @@ const TABLE_OWNER: Record<string, string> = {
 	plugins: "packages/core-api/settings",
 	pluginConfigurationDefaults: "packages/core-api/settings",
 	configurationOverrides: "packages/core-api/settings",
+	// AU19 Increment 1g: `notifications` migrated — `notificationQueue` is its
+	// one owned table (`notification-queue.ts` moved unchanged, the sole
+	// module touching the table per its own `@lore` header). Never in
+	// `UNOWNED_SHARED_TABLES` — a clean new-owner addition, no exemption to
+	// close.
+	notificationQueue: "packages/core-api/notifications",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

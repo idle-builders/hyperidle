@@ -14,8 +14,8 @@
 
 import { SMTPServer } from "smtp-server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createSmtpAdapter } from "../../notifications/smtp-adapter.js";
-import type { Notification, Recipient } from "../../notifications/types.js";
+import { createSmtpAdapter } from "../smtp-adapter.js";
+import type { Notification, Recipient } from "../types.js";
 
 interface CapturedMessage {
 	envelope: { from: string; to: string[] };
@@ -71,7 +71,7 @@ async function startSmtpFixture(): Promise<Fixture> {
 	});
 }
 
-describe("H2 SMTP adapter (AC3)", () => {
+describe("smtp adapter", () => {
 	let fixture: Fixture;
 
 	beforeEach(async () => {
