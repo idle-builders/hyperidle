@@ -1,6 +1,7 @@
-import { factorySettings, teamMembers, teams, users } from "@hyperidle/db";
+import { teamMembers, teams, users } from "@hyperidle/db";
 import { describe, expect } from "vitest";
 import { isInSilenceWindow, isSilenced } from "../notifications/silence-policy.js";
+import { updateServerConfig } from "../services/server-config.js";
 import { test } from "../test-fixtures.js";
 
 describe("isInSilenceWindow", () => {
@@ -105,9 +106,7 @@ describe("isSilenced", () => {
 			teamId: "team-1",
 			createdAt: new Date().toISOString(),
 		});
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_mode", value: "true", updatedAt: new Date().toISOString() });
+		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 
 		const result = await isSilenced(db, { sourceAgentId: null }, new Date());
 		expect(result).toBe(true);
@@ -141,11 +140,7 @@ describe("isSilenced", () => {
 			teamId: "team-1",
 			createdAt: new Date().toISOString(),
 		});
-		await db.insert(factorySettings).values({
-			key: "silence_product_prod-1",
-			value: "true",
-			updatedAt: new Date().toISOString(),
-		});
+		await updateServerConfig(db, { notifications: { silence: { silencedTeamIds: ["prod-1"] } } });
 
 		const result = await isSilenced(db, { sourceAgentId: "agent-1" }, new Date());
 		expect(result).toBe(true);
@@ -153,13 +148,9 @@ describe("isSilenced", () => {
 
 	test("returns true when current time falls in silence window", async ({ db }) => {
 		const now = new Date("2026-01-15T23:00:00Z");
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_start", value: "22:00", updatedAt: new Date().toISOString() });
-
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_end", value: "07:00", updatedAt: new Date().toISOString() });
+		await updateServerConfig(db, {
+			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
+		});
 
 		const result = await isSilenced(db, { sourceAgentId: null }, now);
 		expect(result).toBe(true);
@@ -167,13 +158,9 @@ describe("isSilenced", () => {
 
 	test("returns false when current time is outside silence window", async ({ db }) => {
 		const now = new Date("2026-01-15T12:00:00Z");
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_start", value: "22:00", updatedAt: new Date().toISOString() });
-
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_end", value: "07:00", updatedAt: new Date().toISOString() });
+		await updateServerConfig(db, {
+			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
+		});
 
 		const result = await isSilenced(db, { sourceAgentId: null }, now);
 		expect(result).toBe(false);

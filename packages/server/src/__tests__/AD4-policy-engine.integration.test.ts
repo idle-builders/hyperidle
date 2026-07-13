@@ -25,7 +25,6 @@
  */
 
 import {
-	factorySettings,
 	type HyperIdleDb,
 	items,
 	messages,
@@ -37,6 +36,7 @@ import {
 import type { NotificationEvent } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { registerPolicyEngine } from "../services/policy-engine.js";
+import { updateServerConfig } from "../services/server-config.js";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
@@ -381,7 +381,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 		eventBus,
 	}) => {
 		await seedBase(db);
-		await db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: NOW });
+		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 
 		// Even high-trust agent — silenced non-blocking items are queued
 		await seedVerdicts(db, 10, "approve");
@@ -402,64 +402,14 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	});
 
 	// =========================================================================
-	// TC9: Custom thresholds from factory settings respected
+	// TC9: Custom thresholds from factory settings — RETIRED (AU18)
 	// =========================================================================
-
-	test("TC9a: custom auto-resolve threshold (0.80) — 8/10 approve should auto-resolve", async ({
-		db,
-		eventBus,
-	}) => {
-		// Override default threshold 0.90 → 0.80
-		await seedBase(db);
-		await db.insert(factorySettings).values([
-			{ key: "trust_auto_resolve_threshold", value: "0.80", updatedAt: NOW },
-			{ key: "trust_auto_resolve_min_verdicts", value: "10", updatedAt: NOW },
-		]);
-
-		// 8 approvals + 2 rejections = 80% — meets the custom threshold
-		await seedVerdicts(db, 8, "approve");
-		await seedVerdicts(db, 2, "reject");
-
-		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem(db, eventBus, { riskTier: "low" });
-		emitItemCreated(eventBus, itemId);
-
-		await vi.waitFor(async () => {
-			const verdicts = await getPolicyEngineVerdicts(db, itemId);
-			expect(verdicts).toHaveLength(1);
-		});
-
-		const verdicts = await getPolicyEngineVerdicts(db, itemId);
-		expect(verdicts[0]?.decision).toBe("approve");
-		expect(verdicts[0]?.approverId).toBe("policy_engine");
-	});
-
-	test("TC9b: custom queue threshold (0.60) — 6/10 approve should queue not push", async ({
-		db,
-		eventBus,
-	}) => {
-		// Override queue threshold to 0.60 (lower than default 0.70)
-		await seedBase(db);
-		await db
-			.insert(factorySettings)
-			.values({ key: "trust_queue_threshold", value: "0.60", updatedAt: NOW });
-
-		// 6 approvals + 4 rejections = 60% — meets custom queue threshold (>= 0.60), below auto-resolve
-		await seedVerdicts(db, 6, "approve");
-		await seedVerdicts(db, 4, "reject");
-
-		const notifications: NotificationEvent[] = [];
-		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
-		const itemId = await createItem(db, eventBus, { riskTier: "low" });
-		emitItemCreated(eventBus, itemId);
-
-		await vi.waitFor(async () => {
-			const [currentItem] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
-			expect(currentItem?.auditTrail).toContain("policy_queued");
-		});
-
-		await new Promise((r) => setTimeout(r, 100));
-		expect(notifications).toHaveLength(0);
-	});
+	// @lore AU18: trust threshold settability via `factory_settings` is
+	// retired (plan §3/§10 — no production or eval writer ever existed; the
+	// only path was the generic PATCH /api/status/settings catch-all, also
+	// retired this WP). `getFactorySettingFloat`/`getFactorySettingInt` in
+	// policy-engine.ts now always return their hardcoded defaults, so TC9a/b's
+	// "custom threshold" premise no longer applies — dropped per the plan's
+	// explicit "defaults-only, boring tech" decision for this namespace.
+	// Default-threshold policy behavior remains covered by TC1-TC8 above.
 });

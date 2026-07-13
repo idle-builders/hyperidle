@@ -1,13 +1,4 @@
-import {
-	bets,
-	factorySettings,
-	type HyperIdleDb,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
@@ -71,7 +62,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("Status & Settings Endpoints (E6)", () => {
+describe("Status Endpoints (E6)", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -126,139 +117,25 @@ describe("Status & Settings Endpoints (E6)", () => {
 			expect(body.activeSessions).toBe(1);
 		});
 
-		test("uses factory_start_time from settings if available", async ({ db, app }) => {
+		// @lore AU18: `factory_start_time` settability is retired (no production
+		// writer ever existed — the read always fell back to SERVER_START_TIME
+		// already). `uptime` is now always a non-empty ISO timestamp string.
+		test("uptime is a non-empty ISO timestamp (SERVER_START_TIME fallback, always)", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
-			const startTime = "2024-01-01T00:00:00.000Z";
-			await db.insert(factorySettings).values({
-				key: "factory_start_time",
-				value: startTime,
-				updatedAt: new Date().toISOString(),
-			});
-
 			const res = await app.request("/api/status", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.uptime).toBe(startTime);
+			expect(typeof body.uptime).toBe("string");
+			expect(() => new Date(body.uptime as string).toISOString()).not.toThrow();
 		});
 	});
 
-	// AC13: GET /api/status/settings — factory settings
-	describe("AC13: GET /api/status/settings — list settings", () => {
-		test("returns empty array when no settings", async ({ app }) => {
-			const res = await app.request("/api/status/settings", { headers: authHeaders() });
-			expect(res.status).toBe(200);
-
-			const body = (await res.json()) as Array<Record<string, unknown>>;
-			expect(body).toHaveLength(0);
-		});
-
-		test("returns all settings", async ({ db, app }) => {
-			await db.insert(factorySettings).values([
-				{ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() },
-				{ key: "max_agents", value: "50", updatedAt: new Date().toISOString() },
-			]);
-
-			const res = await app.request("/api/status/settings", { headers: authHeaders() });
-			const body = (await res.json()) as Array<Record<string, unknown>>;
-			expect(body).toHaveLength(2);
-		});
-	});
-
-	// AC14: PATCH /api/status/settings — update settings
-	describe("AC14: PATCH /api/status/settings — update settings", () => {
-		test("creates a new setting", async ({ app }) => {
-			const res = await app.request("/api/status/settings", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ key: "cost_cap", value: "10000" }),
-			});
-			expect(res.status).toBe(200);
-
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.key).toBe("cost_cap");
-			expect(body.value).toBe("10000");
-		});
-
-		test("updates an existing setting (upsert)", async ({ db, app }) => {
-			// Create initial
-			await db
-				.insert(factorySettings)
-				.values({ key: "cost_cap", value: "10000", updatedAt: new Date().toISOString() });
-
-			// Update
-			const res = await app.request("/api/status/settings", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ key: "cost_cap", value: "20000" }),
-			});
-			expect(res.status).toBe(200);
-
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.value).toBe("20000");
-
-			// Verify only one row
-			const allSettings = await db.select().from(factorySettings);
-			expect(allSettings).toHaveLength(1);
-		});
-
-		test("returns 400 for missing key", async ({ app }) => {
-			const res = await app.request("/api/status/settings", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ value: "10000" }),
-			});
-			expect(res.status).toBe(400);
-		});
-	});
-
-	// ---------------- I1 security-H1: GET /settings redacts credentials ----------------
-	describe("I1 security-H1: GET /api/status/settings redacts secret keys", () => {
-		const SECRET_ROWS = [
-			{ key: "notifications.smtp_password", value: "super-secret-pass" },
-			{ key: "notifications.ntfy_auth_token", value: "tk_abc_private" },
-		];
-		const SAFE_ROW = { key: "cost_cap", value: "10000" };
-
-		test("does not return raw secret values in the response body", async ({ db, app }) => {
-			const now = new Date().toISOString();
-			await db
-				.insert(factorySettings)
-				.values([...SECRET_ROWS, SAFE_ROW].map((r) => ({ ...r, updatedAt: now })));
-
-			const res = await app.request("/api/status/settings", { headers: authHeaders() });
-			expect(res.status).toBe(200);
-			const bodyText = await res.text();
-
-			// No raw secret value substring may appear in the payload.
-			for (const row of SECRET_ROWS) {
-				expect(bodyText).not.toContain(row.value);
-			}
-			// Non-secret settings round-trip unchanged.
-			expect(bodyText).toContain("10000");
-
-			// Every secret row must still be present, just with a redacted value.
-			const body = JSON.parse(bodyText) as Array<{ key: string; value: string | null }>;
-			for (const row of SECRET_ROWS) {
-				const found = body.find((r) => r.key === row.key);
-				expect(found).toBeDefined();
-				expect(found?.value).not.toBe(row.value);
-			}
-		});
-
-		// I2 V5 supersedes the I1 H-1 redact-on-PATCH behavior for namespaced
-		// keys: PATCH on a `notifications.*` (or `git_export.*`,
-		// `observability.*`) key is now rejected with 400 so the dedicated
-		// domain routes remain the single source of truth. Redaction-on-echo
-		// for unconstrained keys remains covered by the GET-side test above.
-		test("PATCH on namespaced secret keys is blocked (I2 V5)", async ({ app }) => {
-			const res = await app.request("/api/status/settings", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					key: "notifications.smtp_password",
-					value: "another-secret",
-				}),
-			});
-			expect(res.status).toBe(400);
-		});
-	});
+	// @lore AU18: the generic `GET`/`PATCH /api/status/settings` catch-all
+	// (AC13/AC14, I1 security-H1 redaction) is retired along with
+	// `factorySettings` — every legitimate key it carried now has a
+	// domain-specific route backed by `server_config`
+	// (notifications/observability/git-export config tests cover those).
+	// No web client depended on the raw-rows shape (confirmed via grep).
 });

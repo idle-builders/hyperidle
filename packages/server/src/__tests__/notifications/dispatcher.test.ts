@@ -1,6 +1,5 @@
 import {
 	createTestDb,
-	factorySettings,
 	type HyperIdleDb,
 	items as itemsTable,
 	notificationQueue,
@@ -15,7 +14,11 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadNotificationConfig } from "../../notifications/config.js";
+import {
+	loadNotificationConfig,
+	type NotificationConfigPatch,
+	updateNotificationConfig,
+} from "../../notifications/config.js";
 import {
 	dispatchDigest,
 	enqueueNotification,
@@ -30,6 +33,7 @@ import type {
 	Recipient,
 	SendResult,
 } from "../../notifications/types.js";
+import { updateServerConfig } from "../../services/server-config.js";
 
 interface AdapterCall {
 	recipient: Recipient;
@@ -53,27 +57,26 @@ function createFakeAdapter(
 	};
 }
 
+// @lore AU18: seeds via updateNotificationConfig (server_config-backed) instead
+// of raw factorySettings KV rows — same observable outcome, new storage.
+// `silenceMode` is a separate top-level option (not part of
+// NotificationConfigPatch) because factory-wide silence lives at
+// `server_config.notifications.silence.mode`, a distinct sub-section.
 async function enableNotifications(
 	db: HyperIdleDb,
-	overrides: Record<string, string> = {},
+	overrides: NotificationConfigPatch & { silenceMode?: boolean } = {},
 ): Promise<void> {
-	const now = "2026-04-18T00:00:00.000Z";
-	const pairs: Record<string, string> = {
-		"notifications.enabled": "true",
-		"notifications.primary_channel": "console",
-		"notifications.digest_channel": "console",
-		"notifications.flood_max_per_minute": "100",
-		"notifications.flood_coalesce_window_ms": "60000",
-		...overrides,
-	};
-	for (const [key, value] of Object.entries(pairs)) {
-		await db
-			.insert(factorySettings)
-			.values({ key, value, updatedAt: now })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value, updatedAt: now },
-			});
+	const { silenceMode, ...deliveryOverrides } = overrides;
+	await updateNotificationConfig(db, {
+		enabled: true,
+		primaryChannel: "console",
+		digestChannel: "console",
+		floodMaxPerMinute: 100,
+		floodCoalesceWindowMs: 60_000,
+		...deliveryOverrides,
+	});
+	if (silenceMode !== undefined) {
+		await updateServerConfig(db, { notifications: { silence: { mode: silenceMode } } });
 	}
 }
 
@@ -231,7 +234,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 	});
 
 	it("AC4: silence mode queues blocking items without pushing", async () => {
-		await enableNotifications(db, { silence_mode: "true" });
+		await enableNotifications(db, { silenceMode: true });
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "it-sil", blocking: true, riskTier: "medium", threadId });
 		const adapter = createFakeAdapter();
@@ -253,7 +256,7 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 	});
 
 	it("AC4: flushQueue drains pending rows → adapter receives one send per row", async () => {
-		await enableNotifications(db, { silence_mode: "true" });
+		await enableNotifications(db, { silenceMode: true });
 		const threadId = await seedThread(db);
 		await createItem(db, { id: "it-a", blocking: true, threadId });
 		await createItem(db, { id: "it-b", blocking: true, threadId });
@@ -269,19 +272,8 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 		});
 		expect(adapter.calls).toHaveLength(0);
 
-		// Lift silence with a proper upsert — the onConflictDoUpdate clause
-		// handles both insert and overwrite cases.
-		await db
-			.insert(factorySettings)
-			.values({
-				key: "silence_mode",
-				value: "false",
-				updatedAt: "2026-04-18T00:00:00.000Z",
-			})
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "false", updatedAt: "2026-04-18T00:00:00.000Z" },
-			});
+		// Lift silence via updateServerConfig (server_config-backed).
+		await updateServerConfig(db, { notifications: { silence: { mode: false } } });
 
 		const cfg = await loadNotificationConfig(db);
 		if (!cfg) throw new Error("config unexpectedly disabled");
@@ -312,8 +304,8 @@ describe("H2 Dispatcher (AC4 silence + AC5 policy)", () => {
 	it("flood policy coalesces the 4th push in a window into queue with reason=flood_coalesce", async () => {
 		// Tight flood window to exercise the true path.
 		await enableNotifications(db, {
-			"notifications.flood_max_per_minute": "3",
-			"notifications.flood_coalesce_window_ms": "60000",
+			floodMaxPerMinute: 3,
+			floodCoalesceWindowMs: 60_000,
 		});
 		const threadId = await seedThread(db);
 		for (let i = 0; i < 4; i += 1) {
@@ -576,7 +568,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 	});
 
 	it("keeps blocking rows queued when silence_mode is active; digest flushes", async () => {
-		await enableNotifications(db, { silence_mode: "true" });
+		await enableNotifications(db, { silenceMode: true });
 		const baseIso = "2026-04-18T00:00:00.000Z";
 		await db.insert(notificationQueue).values({
 			id: "block-sil",
@@ -622,7 +614,7 @@ describe("flushQueue silence gating (adversary review #2)", () => {
 	});
 
 	it("cost_breach severity pages through even during silence", async () => {
-		await enableNotifications(db, { silence_mode: "true" });
+		await enableNotifications(db, { silenceMode: true });
 		await db.insert(notificationQueue).values({
 			id: "cost-1",
 			eventType: "cost_cap_breached",
@@ -661,8 +653,8 @@ describe("flushQueue channel routing (adversary review #18)", () => {
 		// channel is 'ntfy' — flushQueue must build a ntfy adapter via
 		// the factory, not send on console.
 		await enableNotifications(db, {
-			"notifications.primary_channel": "console",
-			"notifications.recipient_ntfy_topic": "alerts",
+			primaryChannel: "console",
+			recipientNtfyTopic: "alerts",
 		});
 		await db.insert(notificationQueue).values({
 			id: "q-ntfy",

@@ -12,14 +12,7 @@
  * and create_team skill tool.
  */
 
-import {
-	factorySettings,
-	type HyperIdleDb,
-	routines,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { routines, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
@@ -32,16 +25,9 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-/** Seed factory system templates so team creation can resolve them. */
-async function seedFactoryTemplates(db: HyperIdleDb): Promise<void> {
-	const roles = ["product_manager", "builder", "qa_engineer", "facilitator", "designer"];
-	for (const role of roles) {
-		await db
-			.insert(factorySettings)
-			.values({ key: `system_template:${role}`, value: `You are a ${role} agent.`, updatedAt: NOW })
-			.onConflictDoNothing();
-	}
-}
+// @lore AU18: system prompt templates now read directly from docs/system-prompts/
+// via the shared resolver (system-prompt-templates.ts) — no seeding needed;
+// team creation resolves the real docs content.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AC3a: POST /api/teams provisions 5 built-in routines
@@ -50,7 +36,6 @@ async function seedFactoryTemplates(db: HyperIdleDb): Promise<void> {
 describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 	test("creates exactly 5 builtin routines for the new team", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedFactoryTemplates(db);
 
 		const res = await app.request("/api/teams", {
 			method: "POST",
@@ -76,7 +61,6 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 
 	test("each routine id contains the team id (per-team id scheme)", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedFactoryTemplates(db);
 
 		const res = await app.request("/api/teams", {
 			method: "POST",
@@ -104,7 +88,6 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		app,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedFactoryTemplates(db);
 
 		const res = await app.request("/api/teams", {
 			method: "POST",
@@ -138,7 +121,6 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		app,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedFactoryTemplates(db);
 
 		const res = await app.request("/api/teams", {
 			method: "POST",
@@ -183,7 +165,6 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 describe("AF17 AC3: per-team id scheme prevents collision across two teams", () => {
 	test("two teams each get 5 built-in routines (10 total, no collision)", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedFactoryTemplates(db);
 
 		// Create first team
 		const res1 = await app.request("/api/teams", {

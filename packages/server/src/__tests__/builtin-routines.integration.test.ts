@@ -1,6 +1,5 @@
 import {
 	bets,
-	factorySettings,
 	type HyperIdleDb,
 	items,
 	knowledgeItems,
@@ -25,6 +24,7 @@ import {
 	runBuiltinRoutine,
 } from "../services/builtin-routine-handlers.js";
 import { clearCostSentinelCache, runCostSentinelCheck } from "../services/cost-sentinel.js";
+import { updateServerConfig } from "../services/server-config.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";
@@ -210,23 +210,25 @@ describe("G4: Built-in Routines", () => {
 	// from runBuiltinRoutine("builtin:cost-sentinel") to runCostSentinelCheck.
 	// ------------------------------------------------------------------
 	describe("AC1: Cost Sentinel (app code, not a routine)", () => {
+		// @lore AU18: `cost_actual` is no longer a settable KV row — cost-sentinel
+		// now reads `getFactoryCostActual(db)` (= sumAllUserCost, a live SUM over
+		// users.costActual). Seed exactly one costed user row so the sum resolves
+		// to `actual` (onConflictDoUpdate — safe to call more than once per test,
+		// e.g. the level-transition tests below that call this twice).
 		async function setFactoryCost(db: HyperIdleDb, cap: number, actual: number): Promise<void> {
+			await updateServerConfig(db, { cost: { capMinor: cap } });
 			await db
-				.insert(factorySettings)
-				.values({ key: "cost_cap", value: String(cap), updatedAt: NOW_ISO })
-				.onConflictDoNothing();
-			await db
-				.insert(factorySettings)
-				.values({ key: "cost_actual", value: String(actual), updatedAt: NOW_ISO })
-				.onConflictDoNothing();
-			await db
-				.update(factorySettings)
-				.set({ value: String(cap) })
-				.where(eq(factorySettings.key, "cost_cap"));
-			await db
-				.update(factorySettings)
-				.set({ value: String(actual) })
-				.where(eq(factorySettings.key, "cost_actual"));
+				.insert(users)
+				.values({
+					id: "cost-sentinel-test-agent",
+					kind: "ai",
+					name: "Cost Sentinel Test Agent",
+					role: "builder",
+					status: "active",
+					costActual: actual,
+					createdAt: NOW_ISO,
+				})
+				.onConflictDoUpdate({ target: users.id, set: { costActual: actual } });
 		}
 
 		test("emits no events when spend is below 80% of cap", async ({ db, eventBus }) => {

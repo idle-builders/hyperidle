@@ -1,5 +1,4 @@
 import {
-	factorySettings,
 	type HyperIdleDb,
 	items,
 	knowledgeConflicts,
@@ -342,38 +341,14 @@ describe("attention-service", () => {
 		expect(fabricC?.attentionScore).toBe("0.1");
 	});
 
-	test("respects weights loaded from factory_settings", async ({ db, eventBus }) => {
-		// Zero out all signal weights except conflict — score should be 1 only when
-		// an item has a conflict, 0 otherwise.
-		const zeroKeys = [
-			"novelty",
-			"impact",
-			"repetition",
-			"confidence",
-			"tasteSensitivity",
-			"recency",
-			"usage",
-		];
-		for (const k of zeroKeys) {
-			await db
-				.insert(factorySettings)
-				.values({ key: `attention.weight.${k}`, value: "0", updatedAt: NOW });
-		}
-		await db
-			.insert(factorySettings)
-			.values({ key: "attention.weight.conflict", value: "1", updatedAt: NOW });
-
-		await seedKi(db, { id: "with-conflict", confidence: 0.5, attentionScore: 0.1 });
-		await seedKi(db, { id: "no-conflict", confidence: 0.5, attentionScore: 0.1 });
-		await seedConflict(db, "c-x", "with-conflict");
-
-		const service = buildAttentionService({ db, eventBus, now: () => NOW_MS });
-		const results = await service.recomputeMany(["with-conflict", "no-conflict"]);
-		const withConflict = results.find((r) => r.knowledgeItemId === "with-conflict");
-		const withoutConflict = results.find((r) => r.knowledgeItemId === "no-conflict");
-		expect(withConflict?.current).toBeCloseTo(1, 5);
-		expect(withoutConflict?.current).toBeCloseTo(0, 5);
-	});
+	// @lore AU18: `attention.weight.*` settability via `factory_settings` is
+	// retired (plan §3/§10 — no production or eval writer ever existed; the
+	// only path was the generic PATCH /api/status/settings catch-all, also
+	// retired this WP). `loadAttentionWeights` now always returns the
+	// hardcoded `DEFAULT_ATTENTION_WEIGHTS`, so this test's "zero out all but
+	// conflict" premise no longer applies — dropped, not replaced, per the
+	// plan's explicit "defaults-only, boring tech" decision. Default-weight
+	// scoring behavior remains covered by the surrounding tests in this file.
 
 	// --- Idempotency & concurrency (review findings #1, #3) ---
 

@@ -15,19 +15,17 @@
  *   - Settings PATCH accepts quietHoursEnabled toggle
  */
 
-import {
-	factorySettings,
-	type HyperIdleDb,
-	items as itemsTable,
-	notificationQueue,
-	threads,
-} from "@hyperidle/db";
+import { type HyperIdleDb, items as itemsTable, notificationQueue, threads } from "@hyperidle/db";
 import type {
 	CostCapBreachedEvent,
 	CostCapWarningEvent,
 	ItemCreatedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/shared";
+import {
+	type NotificationConfigPatch,
+	updateNotificationConfig,
+} from "../../notifications/config.js";
 import {
 	type AlertPreferences,
 	registerNotificationDispatcher,
@@ -64,28 +62,20 @@ function createFakeAdapter(
 	};
 }
 
+// @lore AU18: seeds via updateNotificationConfig (server_config-backed) instead
+// of raw factorySettings KV rows — same observable outcome, new storage.
 async function enableNotifications(
 	db: HyperIdleDb,
-	overrides: Record<string, string> = {},
+	overrides: NotificationConfigPatch = {},
 ): Promise<void> {
-	const now = "2026-05-30T00:00:00.000Z";
-	const pairs: Record<string, string> = {
-		"notifications.enabled": "true",
-		"notifications.primary_channel": "console",
-		"notifications.digest_channel": "console",
-		"notifications.flood_max_per_minute": "100",
-		"notifications.flood_coalesce_window_ms": "60000",
+	await updateNotificationConfig(db, {
+		enabled: true,
+		primaryChannel: "console",
+		digestChannel: "console",
+		floodMaxPerMinute: 100,
+		floodCoalesceWindowMs: 60_000,
 		...overrides,
-	};
-	for (const [key, value] of Object.entries(pairs)) {
-		await db
-			.insert(factorySettings)
-			.values({ key, value, updatedAt: now })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value, updatedAt: now },
-			});
-	}
+	});
 }
 
 async function seedThread(db: HyperIdleDb, id = "thread-r8"): Promise<string> {
@@ -384,7 +374,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		const adapter = createFakeAdapter();
 		// Extra insurance: flood limit=1 to prove any push would be caught
 		await enableNotifications(db, {
-			"notifications.flood_max_per_minute": "1",
+			floodMaxPerMinute: 1,
 		});
 		unsubscribe = registerNotificationDispatcher(db, eventBus, {
 			adapterFactory: () => adapter,

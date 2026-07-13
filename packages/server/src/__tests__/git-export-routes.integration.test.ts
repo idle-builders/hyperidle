@@ -8,11 +8,17 @@
  *   GET    /api/git-export/status  -> { enabled, repoPath, branch, lastCommitAt, lastCommitSha, lastPushAt }
  */
 
-import { factorySettings, type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import {
+	type GitExportConfigPatch,
+	updateGitExportConfig,
+	writeLastCommit,
+	writeLastPush,
+} from "../config/git-export-config.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { errorHandler } from "../middleware/error-handler.js";
 import { createGitExportRoutes } from "../routes/git-export-routes.js";
@@ -31,30 +37,20 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
-async function setConfigKV(db: HyperIdleDb, pairs: Record<string, string>): Promise<void> {
-	const now = "2026-04-18T00:00:00.000Z";
-	for (const [key, value] of Object.entries(pairs)) {
-		await db
-			.insert(factorySettings)
-			.values({ key, value, updatedAt: now })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value, updatedAt: now },
-			});
-	}
+// @lore AU18: seeds via updateGitExportConfig (server_config-backed) instead
+// of raw factorySettings KV rows — same observable outcome, new storage.
+async function setConfigKV(db: HyperIdleDb, patch: GitExportConfigPatch): Promise<void> {
+	await updateGitExportConfig(db, patch);
 }
 
-async function enableExport(
-	db: HyperIdleDb,
-	overrides: Record<string, string> = {},
-): Promise<void> {
+async function enableExport(db: HyperIdleDb, overrides: GitExportConfigPatch = {}): Promise<void> {
 	await setConfigKV(db, {
-		"git_export.enabled": "true",
-		"git_export.repo_path": REPO,
-		"git_export.branch": "main",
-		"git_export.author_name": "HyperIdle Export",
-		"git_export.author_email": "export@hyperidle.local",
-		"git_export.debounce_ms": "0",
+		enabled: true,
+		repoPath: REPO,
+		branch: "main",
+		authorName: "HyperIdle Export",
+		authorEmail: "export@hyperidle.local",
+		debounceMs: 0,
 		...overrides,
 	});
 }
@@ -206,8 +202,8 @@ describe("Git Export HTTP routes", () => {
 
 		test("returns the current config as JSON when authed", async ({ db }) => {
 			await enableExport(db, {
-				"git_export.remote_url": "git@example.com:owner/repo.git",
-				"git_export.branch": "docs",
+				remoteUrl: "git@example.com:owner/repo.git",
+				branch: "docs",
 			});
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", { headers: authHeaders() });
@@ -231,7 +227,7 @@ describe("Git Export HTTP routes", () => {
 			// Somebody seeded `factory_settings` with a credential-bearing URL
 			// via migrations / CLI / bypass. GET /config MUST NOT echo it.
 			await enableExport(db, {
-				"git_export.remote_url": "https://user:ghp_secrettoken@github.com/owner/repo.git",
+				remoteUrl: "https://user:ghp_secrettoken@github.com/owner/repo.git",
 			});
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", { headers: authHeaders() });
@@ -384,8 +380,8 @@ describe("Git Export HTTP routes", () => {
 
 		test("returns a GitExportResult shape when disabled", async ({ db }) => {
 			await setConfigKV(db, {
-				"git_export.enabled": "false",
-				"git_export.repo_path": REPO,
+				enabled: false,
+				repoPath: REPO,
 			});
 			const runner = createStubRunner();
 			const app = buildApp(db, { createRunner: () => runner, fs: createMemFs() });
@@ -414,8 +410,8 @@ describe("Git Export HTTP routes", () => {
 
 		test("supports { force: true } to override disabled", async ({ db }) => {
 			await setConfigKV(db, {
-				"git_export.enabled": "false",
-				"git_export.repo_path": REPO,
+				enabled: false,
+				repoPath: REPO,
 			});
 			await db.insert(knowledgeItems).values({
 				id: "ki-force",
@@ -538,11 +534,13 @@ describe("Git Export HTTP routes", () => {
 		test("returns { enabled, repoPath, branch, remoteUrl, lastCommitAt, lastCommitSha, lastPushAt }", async ({
 			db,
 		}) => {
-			await enableExport(db, {
-				"git_export.last_commit_at": "2026-04-18T09:15:00.000Z",
-				"git_export.last_commit_sha": "deadbeefcafef00d1234567890abcdef12345678",
-				"git_export.last_push_at": "2026-04-18T09:15:05.000Z",
-			});
+			await enableExport(db);
+			await writeLastCommit(
+				db,
+				"deadbeefcafef00d1234567890abcdef12345678",
+				new Date("2026-04-18T09:15:00.000Z"),
+			);
+			await writeLastPush(db, new Date("2026-04-18T09:15:05.000Z"));
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/status", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -581,7 +579,7 @@ describe("Git Export HTTP routes", () => {
 
 		test("redacts embedded credentials from remoteUrl", async ({ db }) => {
 			await enableExport(db, {
-				"git_export.remote_url": "https://user:ghp_secret@github.com/owner/repo.git",
+				remoteUrl: "https://user:ghp_secret@github.com/owner/repo.git",
 			});
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/status", { headers: authHeaders() });

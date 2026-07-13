@@ -14,7 +14,6 @@
  */
 
 import {
-	factorySettings,
 	type HyperIdleDb,
 	items as itemsTable,
 	notificationQueue,
@@ -24,7 +23,7 @@ import {
 import type { NotificationEvent } from "@hyperidle/shared";
 import { eq, isNotNull } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { loadNotificationConfig } from "../../notifications/config.js";
+import { loadNotificationConfig, updateNotificationConfig } from "../../notifications/config.js";
 import { flushQueue, recoverStuckLeases } from "../../notifications/dispatcher.js";
 import { startNotificationDrain } from "../../notifications/drain.js";
 import {
@@ -38,8 +37,9 @@ import type {
 	Recipient,
 	SendResult,
 } from "../../notifications/types.js";
-import { recordFactoryCost } from "../../services/cost-cap.js";
+import { getFactoryCostActual } from "../../services/cost-cap.js";
 import { clearCostSentinelCache, runCostSentinelCheck } from "../../services/cost-sentinel.js";
+import { updateServerConfig } from "../../services/server-config.js";
 import { expect, test } from "../../test-fixtures.js";
 
 // --- helpers ---
@@ -61,24 +61,28 @@ function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
 	};
 }
 
+// @lore AU18: seeds via updateNotificationConfig (server_config-backed) instead
+// of raw factorySettings KV rows — same observable outcome, new storage.
 async function enableNotifications(db: HyperIdleDb): Promise<void> {
-	const now = "2026-06-11T00:00:00.000Z";
-	const pairs: Record<string, string> = {
-		"notifications.enabled": "true",
-		"notifications.primary_channel": "console",
-		"notifications.digest_channel": "console",
-		"notifications.flood_max_per_minute": "100",
-		"notifications.flood_coalesce_window_ms": "60000",
-	};
-	for (const [key, value] of Object.entries(pairs)) {
-		await db
-			.insert(factorySettings)
-			.values({ key, value, updatedAt: now })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value, updatedAt: now },
-			});
-	}
+	await updateNotificationConfig(db, {
+		enabled: true,
+		primaryChannel: "console",
+		digestChannel: "console",
+		floodMaxPerMinute: 100,
+		floodCoalesceWindowMs: 60_000,
+	});
+}
+
+// @lore AU18: silence config seeds via updateServerConfig (server_config.notifications.silence)
+// instead of raw factorySettings.silence_* KV rows — same observable outcome, new storage.
+async function setSilenceWindow(db: HyperIdleDb, start: string, end: string): Promise<void> {
+	await updateServerConfig(db, {
+		notifications: { silence: { windowStart: start, windowEnd: end } },
+	});
+}
+
+async function setSilenceMode(db: HyperIdleDb, mode: boolean): Promise<void> {
+	await updateServerConfig(db, { notifications: { silence: { mode } } });
 }
 
 async function insertPendingRow(
@@ -274,21 +278,7 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 		await enableNotifications(db);
 
 		// Set quiet-hours window covering "now" (00:00–23:59 = always)
-		const nowIso = new Date().toISOString();
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_start", value: "00:00", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "00:00", updatedAt: nowIso },
-			});
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_end", value: "23:59", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "23:59", updatedAt: nowIso },
-			});
+		await setSilenceWindow(db, "00:00", "23:59");
 
 		await insertPendingRow(db, "quiet-block-1", "blocking");
 
@@ -309,20 +299,7 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 		// Clear quiet hours (set window to past times that don't cover now)
 		// Use start=22:00, end=22:01 — won't cover 00:00 UTC test time in most TZs
 		// Actually, set silence_mode=false and remove the window
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_start", value: "22:00", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "22:00", updatedAt: nowIso },
-			});
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_end", value: "22:01", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "22:01", updatedAt: nowIso },
-			});
+		await setSilenceWindow(db, "22:00", "22:01");
 
 		// Run drain with a time clearly outside quiet hours (noon UTC)
 		const noonUTC = new Date("2026-06-11T12:00:00.000Z");
@@ -371,7 +348,7 @@ describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 // --- AC6: cost sentinel fires off a real written value ---
 
 describe("AF8 AC6 — cost sentinel reacts to real written value", () => {
-	test("recordFactoryCost writes factory cost_actual; runCostSentinelCheck emits breach", async ({
+	test("getFactoryCostActual reads a real live-summed value; runCostSentinelCheck emits breach", async ({
 		db,
 		eventBus,
 	}) => {
@@ -389,27 +366,13 @@ describe("AF8 AC6 — cost sentinel reacts to real written value", () => {
 			createdAt: new Date().toISOString(),
 		});
 
-		// Write factory cost via recordFactoryCost
-		await recordFactoryCost(db);
-
-		// Verify cost_actual was written
-		const factRows = await db
-			.select()
-			.from(factorySettings)
-			.where(eq(factorySettings.key, "cost_actual"));
-		expect(factRows.length).toBe(1);
-		const actual = Number.parseInt(factRows[0]!.value, 10);
+		// @lore AU18: cost_actual is no longer a written row — it's derived live
+		// from SUM(users.costActual) via getFactoryCostActual.
+		const actual = await getFactoryCostActual(db);
 		expect(actual).toBeGreaterThan(0);
 
 		// Set a cap that will be breached
-		const nowIso = new Date().toISOString();
-		await db
-			.insert(factorySettings)
-			.values({ key: "cost_cap", value: "100", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "100", updatedAt: nowIso },
-			});
+		await updateServerConfig(db, { cost: { capMinor: 100 } });
 
 		const result = await runCostSentinelCheck(db, eventBus);
 		expect(result.emitted).toContain("cost_cap_breached");
@@ -486,14 +449,7 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 		await enableNotifications(db);
 
 		// Set factory silence (kill switch)
-		const nowIso = new Date().toISOString();
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_mode", value: "true", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "true", updatedAt: nowIso },
-			});
+		await setSilenceMode(db, true);
 
 		// Insert a cost_breach pending row
 		await insertPendingRow(db, "cost-breach-factory-silence", "cost_breach");
@@ -514,30 +470,10 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 		await enableNotifications(db);
 
 		// Clear factory silence
-		const nowIso = new Date().toISOString();
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_mode", value: "false", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "false", updatedAt: nowIso },
-			});
+		await setSilenceMode(db, false);
 
 		// Set quiet hours window covering 12:00 UTC (the "now" we'll pass)
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_start", value: "11:00", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "11:00", updatedAt: nowIso },
-			});
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_end", value: "13:00", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "13:00", updatedAt: nowIso },
-			});
+		await setSilenceWindow(db, "11:00", "13:00");
 
 		await insertPendingRow(db, "cost-breach-quiet-hours", "cost_breach");
 
@@ -553,20 +489,7 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 		expect(result.flushed).toBe(0);
 
 		// After quiet hours (14:00 UTC), drain delivers
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_start", value: "22:00", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "22:00", updatedAt: nowIso },
-			});
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_window_end", value: "22:01", updatedAt: nowIso })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value: "22:01", updatedAt: nowIso },
-			});
+		await setSilenceWindow(db, "22:00", "22:01");
 
 		const afternoon = new Date("2026-06-11T14:00:00.000Z");
 		const result2 = await flushQueue(db, () => adapter, cfg, afternoon);
@@ -630,10 +553,10 @@ describe("AF8 AC10 — popover API routes", () => {
 	});
 
 	test("POST /notifications/:id/read marks a row as read", async ({ db, app }) => {
-		const nowIso = new Date().toISOString();
 		// Valid UUID v4 — zod v4 z.string().uuid() requires version nibble [1-8] per RFC
 		// (00000000-0000-0000-0000-000000000001 fails zod v4 strict UUID pattern)
 		const notifId = "a1b2c3d4-e5f6-4789-abcd-ef0123456789";
+		const nowIso = new Date().toISOString();
 		await db.insert(notificationQueue).values({
 			id: notifId,
 			eventType: "test",

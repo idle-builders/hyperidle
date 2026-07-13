@@ -16,7 +16,6 @@
 
 import {
 	createTestDb,
-	factorySettings,
 	type HyperIdleDb,
 	knowledgeItems,
 	knowledgeStrategyFabric,
@@ -26,6 +25,8 @@ import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../app.js";
 import {
 	type GitExportConfig,
+	type GitExportConfigPatch,
+	getLastExportMeta,
 	loadGitExportConfig,
 	redactRemoteUrl,
 	sanitizeAuthorEmail,
@@ -34,6 +35,7 @@ import {
 	sanitizePathSegment,
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
+	updateGitExportConfig,
 } from "../config/git-export-config.js";
 import {
 	buildCommitMessage,
@@ -225,29 +227,20 @@ const NOW_ISO = "2026-04-18T12:00:00.000Z";
  */
 const REPO = "/tmp/h1-unit-repo";
 
-async function setConfigKV(db: HyperIdleDb, pairs: Record<string, string>): Promise<void> {
-	for (const [key, value] of Object.entries(pairs)) {
-		await db
-			.insert(factorySettings)
-			.values({ key, value, updatedAt: NOW_ISO })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value, updatedAt: NOW_ISO },
-			});
-	}
+// @lore AU18: seeds via updateGitExportConfig (server_config-backed) instead
+// of raw factorySettings KV rows — same observable outcome, new storage.
+async function setConfigKV(db: HyperIdleDb, patch: GitExportConfigPatch): Promise<void> {
+	await updateGitExportConfig(db, patch);
 }
 
-async function enableExport(
-	db: HyperIdleDb,
-	overrides: Record<string, string> = {},
-): Promise<void> {
+async function enableExport(db: HyperIdleDb, overrides: GitExportConfigPatch = {}): Promise<void> {
 	await setConfigKV(db, {
-		"git_export.enabled": "true",
-		"git_export.repo_path": REPO,
-		"git_export.branch": "main",
-		"git_export.author_name": "HyperIdle Export",
-		"git_export.author_email": "export@hyperidle.local",
-		"git_export.debounce_ms": "2000",
+		enabled: true,
+		repoPath: REPO,
+		branch: "main",
+		authorName: "HyperIdle Export",
+		authorEmail: "export@hyperidle.local",
+		debounceMs: 2000,
 		...overrides,
 	});
 }
@@ -297,9 +290,14 @@ async function seedKnowledge(
 	}
 }
 
-async function getSetting(db: HyperIdleDb, key: string): Promise<string | undefined> {
-	const rows = await db.select().from(factorySettings);
-	return rows.find((r: { key: string; value: string }) => r.key === key)?.value;
+async function getLastCommitSha(db: HyperIdleDb): Promise<string | undefined> {
+	return (await getLastExportMeta(db)).lastCommitSha ?? undefined;
+}
+async function getLastCommitAt(db: HyperIdleDb): Promise<string | undefined> {
+	return (await getLastExportMeta(db)).lastCommitAt ?? undefined;
+}
+async function getLastPushAt(db: HyperIdleDb): Promise<string | undefined> {
+	return (await getLastExportMeta(db)).lastPushAt ?? undefined;
 }
 
 beforeEach(async () => {
@@ -308,7 +306,7 @@ beforeEach(async () => {
 
 describe("loadGitExportConfig", () => {
 	test("returns null when disabled", async ({ db }) => {
-		await setConfigKV(db, { "git_export.enabled": "false", "git_export.repo_path": "/tmp/x" });
+		await setConfigKV(db, { enabled: false, repoPath: "/tmp/x" });
 		expect(await loadGitExportConfig(db)).toBeNull();
 	});
 
@@ -318,16 +316,16 @@ describe("loadGitExportConfig", () => {
 
 	test("returns null when stored repoPath is under a denied system prefix", async ({ db }) => {
 		await setConfigKV(db, {
-			"git_export.enabled": "true",
-			"git_export.repo_path": "/etc/ha",
+			enabled: true,
+			repoPath: "/etc/ha",
 		});
 		expect(await loadGitExportConfig(db)).toBeNull();
 	});
 
 	test("defaults branch to main when not set", async ({ db }) => {
 		await setConfigKV(db, {
-			"git_export.enabled": "true",
-			"git_export.repo_path": "/tmp/repo",
+			enabled: true,
+			repoPath: "/tmp/repo",
 		});
 		const cfg = await loadGitExportConfig(db);
 		expect(cfg).not.toBeNull();
@@ -336,12 +334,12 @@ describe("loadGitExportConfig", () => {
 
 	test("returns a fully-typed shape (GitExportConfig)", async ({ db }) => {
 		await enableExport(db, {
-			"git_export.repo_path": "/tmp/custom-repo",
-			"git_export.remote_url": "git@example.com:owner/repo.git",
-			"git_export.branch": "docs",
-			"git_export.author_name": "Bot",
-			"git_export.author_email": "bot@example.com",
-			"git_export.debounce_ms": "5000",
+			repoPath: "/tmp/custom-repo",
+			remoteUrl: "git@example.com:owner/repo.git",
+			branch: "docs",
+			authorName: "Bot",
+			authorEmail: "bot@example.com",
+			debounceMs: 5000,
 		});
 		const cfg = (await loadGitExportConfig(db)) as GitExportConfig;
 
@@ -356,9 +354,9 @@ describe("loadGitExportConfig", () => {
 
 	test("drops a stored remoteUrl that fails the scheme/credential allow-list", async ({ db }) => {
 		await enableExport(db, {
-			"git_export.repo_path": "/tmp/safe-repo",
+			repoPath: "/tmp/safe-repo",
 			// userinfo-bearing URL is not allowed in or out
-			"git_export.remote_url": "https://user:token@github.com/owner/repo.git",
+			remoteUrl: "https://user:token@github.com/owner/repo.git",
 		});
 		const cfg = await loadGitExportConfig(db);
 		expect(cfg).not.toBeNull();
@@ -709,7 +707,7 @@ describe("computeExportPlan", () => {
 
 describe("runGitExport", () => {
 	test("returns {status:'disabled'} when config is disabled", async ({ db }) => {
-		await setConfigKV(db, { "git_export.enabled": "false" });
+		await setConfigKV(db, { enabled: false });
 		const runner = new FakeGitRunner(REPO);
 		const fs = createMemFs();
 		const result = await runGitExport(db, { runner, fs });
@@ -771,7 +769,7 @@ describe("runGitExport", () => {
 	});
 
 	test("pushes to remote when remoteUrl is set and returns {status:'pushed'}", async ({ db }) => {
-		await enableExport(db, { "git_export.remote_url": "git@example.com:owner/repo.git" });
+		await enableExport(db, { remoteUrl: "git@example.com:owner/repo.git" });
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "x" }]);
 		const runner = new FakeGitRunner(REPO);
 		const fs = createMemFs();
@@ -784,7 +782,7 @@ describe("runGitExport", () => {
 	test("returns {status:'error', phase:'push'} when push fails; records commit but not push", async ({
 		db,
 	}) => {
-		await enableExport(db, { "git_export.remote_url": "git@example.com:owner/repo.git" });
+		await enableExport(db, { remoteUrl: "git@example.com:owner/repo.git" });
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "y" }]);
 		const runner = new FakeGitRunner(REPO, {
 			pushError: new Error("boom"),
@@ -798,12 +796,10 @@ describe("runGitExport", () => {
 		expect(result.phase).toBe("push");
 
 		// Local commit landed — sha recorded.
-		expect(await getSetting(db, "git_export.last_commit_sha")).toBe(
-			"1234567890abcdef1234567890abcdef12345678",
-		);
-		expect(await getSetting(db, "git_export.last_commit_at")).toBeDefined();
+		expect(await getLastCommitSha(db)).toBe("1234567890abcdef1234567890abcdef12345678");
+		expect(await getLastCommitAt(db)).toBeDefined();
 		// Push did NOT happen — `last_push_at` must NOT be set.
-		expect(await getSetting(db, "git_export.last_push_at")).toBeUndefined();
+		expect(await getLastPushAt(db)).toBeUndefined();
 	});
 
 	test("first-run: initializes repo when cwd is not a worktree", async ({ db }) => {
@@ -877,20 +873,20 @@ describe("runGitExport", () => {
 		const handleB = await createTestDb();
 		const dbB = handleB.db;
 		await setConfigKV(dbA, {
-			"git_export.enabled": "true",
-			"git_export.repo_path": "/tmp/h1-parallel-a",
-			"git_export.branch": "main",
-			"git_export.author_name": "A",
-			"git_export.author_email": "a@example.com",
-			"git_export.debounce_ms": "0",
+			enabled: true,
+			repoPath: "/tmp/h1-parallel-a",
+			branch: "main",
+			authorName: "A",
+			authorEmail: "a@example.com",
+			debounceMs: 0,
 		});
 		await setConfigKV(dbB, {
-			"git_export.enabled": "true",
-			"git_export.repo_path": "/tmp/h1-parallel-b",
-			"git_export.branch": "main",
-			"git_export.author_name": "B",
-			"git_export.author_email": "b@example.com",
-			"git_export.debounce_ms": "0",
+			enabled: true,
+			repoPath: "/tmp/h1-parallel-b",
+			branch: "main",
+			authorName: "B",
+			authorEmail: "b@example.com",
+			debounceMs: 0,
 		});
 		await seedKnowledge(dbA, [{ layer: "L4", kind: "PRINCIPLES", body: "A" }]);
 		await seedKnowledge(dbB, [{ layer: "L4", kind: "PRINCIPLES", body: "B" }]);
@@ -922,8 +918,8 @@ describe("runGitExport", () => {
 
 	test("honors custom branch (AC5)", async ({ db }) => {
 		await enableExport(db, {
-			"git_export.branch": "docs",
-			"git_export.remote_url": "git@example.com:owner/repo.git",
+			branch: "docs",
+			remoteUrl: "git@example.com:owner/repo.git",
 		});
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "b" }]);
 		const runner = new FakeGitRunner(REPO);
@@ -936,7 +932,7 @@ describe("runGitExport", () => {
 	});
 
 	test("honors custom repoPath (AC5)", async ({ db }) => {
-		await enableExport(db, { "git_export.repo_path": "/tmp/h1-custom-location" });
+		await enableExport(db, { repoPath: "/tmp/h1-custom-location" });
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "c" }]);
 		const runner = new FakeGitRunner("/tmp/h1-custom-location");
 		const fs = createMemFs();
@@ -948,7 +944,7 @@ describe("runGitExport", () => {
 	test("writes last_commit_at + last_commit_sha + last_push_at on pushed success", async ({
 		db,
 	}) => {
-		await enableExport(db, { "git_export.remote_url": "git@example.com:owner/repo.git" });
+		await enableExport(db, { remoteUrl: "git@example.com:owner/repo.git" });
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "d" }]);
 		const runner = new FakeGitRunner(REPO, {
 			headSha: "deadbeefcafef00d1234567890abcdef12345678",
@@ -957,9 +953,9 @@ describe("runGitExport", () => {
 		const fixedNow = new Date("2026-04-18T09:15:00Z");
 		await runGitExport(db, { runner, fs, now: () => fixedNow });
 
-		const commitAt = await getSetting(db, "git_export.last_commit_at");
-		const sha = await getSetting(db, "git_export.last_commit_sha");
-		const pushAt = await getSetting(db, "git_export.last_push_at");
+		const commitAt = await getLastCommitAt(db);
+		const sha = await getLastCommitSha(db);
+		const pushAt = await getLastPushAt(db);
 		expect(commitAt).toBe(fixedNow.toISOString());
 		expect(sha).toBe("deadbeefcafef00d1234567890abcdef12345678");
 		expect(pushAt).toBe(fixedNow.toISOString());
@@ -974,11 +970,9 @@ describe("runGitExport", () => {
 		const fs = createMemFs();
 		await runGitExport(db, { runner, fs, now: () => new Date("2026-04-18T10:00:00Z") });
 
-		expect(await getSetting(db, "git_export.last_commit_sha")).toBe(
-			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		);
-		expect(await getSetting(db, "git_export.last_commit_at")).toBe("2026-04-18T10:00:00.000Z");
-		expect(await getSetting(db, "git_export.last_push_at")).toBeUndefined();
+		expect(await getLastCommitSha(db)).toBe("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+		expect(await getLastCommitAt(db)).toBe("2026-04-18T10:00:00.000Z");
+		expect(await getLastPushAt(db)).toBeUndefined();
 	});
 
 	test("deletes tracked files that are no longer in the plan (AC4: tree mirrors DB)", async ({
@@ -1169,7 +1163,7 @@ describe("registerGitExportHandler", () => {
 
 		emitKnowledgeUpdated(eventBus, "ki-toggle");
 		// Operator disables mid-debounce.
-		await setConfigKV(db, { "git_export.enabled": "false" });
+		await setConfigKV(db, { enabled: false });
 		await vi.advanceTimersByTimeAsync(100);
 		expect(runner.calls.filter((c) => c.cmd === "commit")).toHaveLength(0);
 	});
@@ -1196,7 +1190,7 @@ describe("createApp -> git-export wiring (AC1 production path)", () => {
 		db,
 		eventBus,
 	}) => {
-		await enableExport(db, { "git_export.debounce_ms": "10" });
+		await enableExport(db, { debounceMs: 10 });
 		await seedKnowledge(db, [
 			{ id: "ki-e2e", layer: "L4", kind: "PRINCIPLES", body: "from e2e", topic: null },
 		]);

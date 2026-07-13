@@ -1,5 +1,4 @@
 import {
-	factorySettings,
 	type HyperIdleDb,
 	items,
 	messages,
@@ -12,6 +11,7 @@ import {
 import type { NotificationEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { registerPolicyEngine } from "../services/policy-engine.js";
+import { updateServerConfig } from "../services/server-config.js";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 // L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project as
@@ -320,7 +320,7 @@ describe("Policy Engine (E7)", () => {
 	test("AC5: silence mode active + non-blocking -> queue all items", async ({ db, eventBus }) => {
 		await seedBase(db);
 		await seedAgentSkill(db, 2); // Would normally push
-		await db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now });
+		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
@@ -340,7 +340,7 @@ describe("Policy Engine (E7)", () => {
 	test("AC5: silence mode active + blocking -> push (not queued)", async ({ db, eventBus }) => {
 		await seedBase(db);
 		await seedAgentSkill(db, 2);
-		await db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now });
+		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);
@@ -380,9 +380,7 @@ describe("Policy Engine (E7)", () => {
 	test("AC10: per-product silence -> items from that product queued", async ({ db, eventBus }) => {
 		await seedBase(db);
 		await seedAgentSkill(db, 2); // Would normally push
-		await db
-			.insert(factorySettings)
-			.values({ key: "silence_product_prod-1", value: "true", updatedAt: now });
+		await updateServerConfig(db, { notifications: { silence: { silencedTeamIds: ["prod-1"] } } });
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
@@ -404,10 +402,9 @@ describe("Policy Engine (E7)", () => {
 		await seedBase(db);
 		await seedAgentSkill(db, 2); // Would normally push
 		// Set silence window to cover 00:00–23:59 (always active)
-		await db.insert(factorySettings).values([
-			{ key: "silence_window_start", value: "00:00", updatedAt: now },
-			{ key: "silence_window_end", value: "23:59", updatedAt: now },
-		]);
+		await updateServerConfig(db, {
+			notifications: { silence: { windowStart: "00:00", windowEnd: "23:59" } },
+		});
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
@@ -435,10 +432,9 @@ describe("Policy Engine (E7)", () => {
 		await seedBase(db);
 		await seedAgentSkill(db, 2); // L2 should push
 		// Set window 22:00–07:00 (overnight)
-		await db.insert(factorySettings).values([
-			{ key: "silence_window_start", value: "22:00", updatedAt: now },
-			{ key: "silence_window_end", value: "07:00", updatedAt: now },
-		]);
+		await updateServerConfig(db, {
+			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
+		});
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
@@ -460,10 +456,9 @@ describe("Policy Engine (E7)", () => {
 	}) => {
 		await seedBase(db);
 		await seedAgentSkill(db, 2);
-		await db.insert(factorySettings).values([
-			{ key: "silence_window_start", value: "22:00", updatedAt: now },
-			{ key: "silence_window_end", value: "07:00", updatedAt: now },
-		]);
+		await updateServerConfig(db, {
+			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
+		});
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
@@ -486,7 +481,7 @@ describe("Policy Engine (E7)", () => {
 	test("high risk items always push even in silence mode", async ({ db, eventBus }) => {
 		await seedBase(db);
 		await seedAgentSkill(db, 4);
-		await db.insert(factorySettings).values({ key: "silence_mode", value: "true", updatedAt: now });
+		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicyEngine(db, eventBus);

@@ -3,16 +3,11 @@
  * event-bus events.
  */
 
-import {
-	factorySettings,
-	type HyperIdleDb,
-	items as itemsTable,
-	notificationQueue,
-	threads,
-} from "@hyperidle/db";
+import { type HyperIdleDb, items as itemsTable, notificationQueue, threads } from "@hyperidle/db";
 import type { CostCapBreachedEvent, RoutineFiredEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
+import { updateNotificationConfig } from "../../notifications/config.js";
 import { registerNotificationDispatcher } from "../../notifications/dispatcher.js";
 import type {
 	Notification,
@@ -39,24 +34,16 @@ function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
 	};
 }
 
+// @lore AU18: seeds via updateNotificationConfig (server_config-backed) instead
+// of raw factorySettings KV rows — same observable outcome, new storage.
 async function enable(db: HyperIdleDb): Promise<void> {
-	const now = "2026-04-18T00:00:00.000Z";
-	const pairs: Record<string, string> = {
-		"notifications.enabled": "true",
-		"notifications.primary_channel": "console",
-		"notifications.digest_channel": "console",
-		"notifications.flood_max_per_minute": "100",
-		"notifications.flood_coalesce_window_ms": "60000",
-	};
-	for (const [key, value] of Object.entries(pairs)) {
-		await db
-			.insert(factorySettings)
-			.values({ key, value, updatedAt: now })
-			.onConflictDoUpdate({
-				target: factorySettings.key,
-				set: { value, updatedAt: now },
-			});
-	}
+	await updateNotificationConfig(db, {
+		enabled: true,
+		primaryChannel: "console",
+		digestChannel: "console",
+		floodMaxPerMinute: 100,
+		floodCoalesceWindowMs: 60_000,
+	});
 }
 
 describe("H2 Dispatcher integration via createApp", () => {
