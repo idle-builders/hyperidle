@@ -134,6 +134,42 @@ packages. Both options were weighed:
    AU17 already proved works, now applied one level deeper); only `agent-execution`'s Service packages
    may import an LLM-CLI/harness/MCP/tool-execution symbol — every other package is structurally
    forbidden from that surface, because it isn't a dependency of any Service package that imports it.
+3. **Composition boundary — Services never import Services (2026-07-13, founder-added).** A Service
+   package's `dependencies` may only ever be `@hyperidle/db` and `@hyperidle/shared` (plus a narrow
+   shared "ports/contracts" package of TypeScript interfaces, if `/architecture` decides one is
+   needed) — **never another Service package, and never a Layer package.** This closes the gap the
+   other two mechanisms leave open: Mechanism 2 only names one forbidden *capability*
+   (LLM-CLI/harness/MCP access); nothing before this stopped, say, `work` importing `conversation`
+   directly, or `core-ui` importing `agent-execution`'s `harness-registry` for a non-execution reason.
+   Composition — one Service's output feeding another Service's input — is never a Service's own job.
+   It recurses the same rule `Applications` already had ("contains only bootstrap/wiring code, never
+   business logic") one level down at each tier:
+   - A **Service** does no composition. If `context-assembly` (an `agent-orchestration` Service) needs
+     Knowledge, it takes a `KnowledgeReader` as a parameter — it does not import `@hyperidle/knowledge`
+     itself.
+   - A **Layer package** composes its own Services, and — if it needs a Service that belongs to a
+     Layer below it — composes across that boundary too. `agent-orchestration`'s Layer package is the
+     one that imports both `context-assembly` and `core-api`'s `knowledge`, and wires the concrete
+     `knowledge` reader into `context-assembly`'s parameter. This is not a new pattern invented for
+     AU19: it's the same shape the AU12/13 "decompose the cross-owned join" precedent already used —
+     `findRetroItemByThreadIds` (owned by `work`) plus a caller-side `getThreadIdsByHost` (owned by
+     `conversation`) were combined by the *route handler* (`core-api` Layer code), not by one Service
+     importing the other. This mechanism makes that pattern mandatory everywhere, not something a
+     reviewer has to notice case by case.
+   - An **Application** composes Layers, same as already defined above — including choosing *which*
+     concrete implementation of a cross-process boundary to wire in (e.g. `desktop` wires
+     `agent-orchestration` directly to an in-process `agent-execution`; `remote-server` wires it to a
+     `remote-worker` WebSocket client instead — the same `worker-ws.ts`/`remote-harness-adapter.ts`
+     pattern that already exists today, now formalized as "only an Application may choose this," never
+     a Layer or a Service).
+   - **Enforcement**: the same `tsc`-negative-case technique as Mechanisms 1 and 2, scoped to a third
+     edge class — a Service package listing another Service package (or a Layer package) in its own
+     `dependencies` fails to resolve, structurally, no new guard type needed.
+   - **Real cost, stated plainly**: every place in the current codebase where one Service-shaped module
+     directly calls another's exported function (not just the ACL-relevant table joins — ordinary
+     composition too) needs to become a dependency-injected parameter instead. Expect this to surface
+     a meaningful amount of previously-invisible coupling once `/architecture` enumerates it — that's
+     the point, not a side effect to minimize.
 
 **AU8 and AU17 are retired, both superseded by AU19** (`.pipeline/work-packages/TRACK-AU.md`). AU8's
 goal — one general ownership guard instead of many hand-typed ones — is subsumed into AU19's Table
