@@ -23,8 +23,8 @@
  */
 
 import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
+import { test } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
 import { encryptCredentialValue } from "../credential-encryption.js";
 import { ServiceConnectionResolver } from "../service-connection-resolver.js";
 
@@ -34,7 +34,7 @@ const NOW = new Date().toISOString();
 const USER_A_ID = "u-an1-resolver-a";
 const USER_B_ID = "u-an1-resolver-b";
 
-describe("AN1 — ServiceConnectionResolver (real DB integration)", () => {
+describe("ServiceConnectionResolver (real DB integration)", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", SERVER_SECRET);
 	});

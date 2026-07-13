@@ -42,6 +42,30 @@ import ts from "typescript";
 
 const ALLOWED_HYPERIDLE = new Set(["@hyperidle/db", "@hyperidle/shared"]);
 
+/**
+ * A module specifier is allowed if it IS an allowed leaf package, or is a
+ * subpath EXPORT of one (e.g. `@hyperidle/shared/net`) — `@hyperidle/shared`
+ * deliberately splits some utilities (SSRF checking) into a subpath export
+ * so pulling in the whole package isn't required; a nested Service importing
+ * that subpath is not a cross-Service edge, just a different entry point of
+ * the same allowed leaf.
+ *
+ * @lore AU19 Increment 1h: surfaced by `connections`' real `connection-provisioning.ts`
+ * importing `resolveUrlForSSRF` from `@hyperidle/shared/net` (the only place
+ * that function is exported — `@hyperidle/shared`'s main barrel does not
+ * re-export it). The guard's original exact-Set-membership check rejected
+ * this as if it were a cross-Service edge; fixed to prefix-match subpaths of
+ * an allowed leaf package, same shape as `execution-boundary-guard`'s own
+ * leaf-package allowance.
+ */
+function isAllowedHyperidleSpec(spec: string): boolean {
+	if (ALLOWED_HYPERIDLE.has(spec)) return true;
+	for (const leaf of ALLOWED_HYPERIDLE) {
+		if (spec.startsWith(`${leaf}/`)) return true;
+	}
+	return false;
+}
+
 export interface Finding {
 	readonly file: string;
 	readonly reason: string;
@@ -139,7 +163,7 @@ function checkSourceFile(root: string, abs: string): Finding[] {
 		) {
 			spec = node.arguments[0].text;
 		}
-		if (spec !== undefined && spec.startsWith("@hyperidle/") && !ALLOWED_HYPERIDLE.has(spec)) {
+		if (spec !== undefined && spec.startsWith("@hyperidle/") && !isAllowedHyperidleSpec(spec)) {
 			findings.push({
 				file: rel,
 				reason: `Service source imports "${spec}" — a Service may only import @hyperidle/db + @hyperidle/shared; cross-Service wiring is the Layer's job (Mechanism C)`,
@@ -227,6 +251,44 @@ function fixtureCheck(): void {
 		}
 	} finally {
 		rmSync(undeclaredRoot, { recursive: true, force: true });
+	}
+
+	// AU19 Increment 1h regression fixture — subpath imports of an ALLOWED leaf
+	// package (e.g. `@hyperidle/shared/net`) must NOT be flagged, but a subpath
+	// import of a disallowed cross-Service package (e.g. `@hyperidle/knowledge/x`)
+	// still must be. Surfaced by `connections`' real `connection-provisioning.ts`
+	// importing `resolveUrlForSSRF` from `@hyperidle/shared/net` (the only export
+	// path for that function) — the guard's original exact-Set-membership check
+	// wrongly rejected it as a cross-Service edge.
+	const subpathRoot = mkdtempSync(join(tmpdir(), "au19-comp-guard-subpath-"));
+	try {
+		writeFixture(
+			subpathRoot,
+			"packages/core-api/connections/package.json",
+			'{ "name": "@hyperidle/connections", "dependencies": { "@hyperidle/db": "*", "@hyperidle/shared": "*" } }',
+		);
+		writeFixture(
+			subpathRoot,
+			"packages/core-api/connections/src/allowed.ts",
+			'import { resolveUrlForSSRF } from "@hyperidle/shared/net"; export const f = resolveUrlForSSRF;',
+		);
+		writeFixture(
+			subpathRoot,
+			"packages/core-api/connections/src/leak.ts",
+			'import { list } from "@hyperidle/knowledge/deep"; export const leak = list;',
+		);
+		const findings = inspect(subpathRoot);
+		if (
+			findings.length !== 1 ||
+			findings[0]?.file !== "packages/core-api/connections/src/leak.ts" ||
+			!findings[0]?.reason.includes("@hyperidle/knowledge/deep")
+		) {
+			throw new Error(
+				`composition-boundary-guard: expected exactly the leak.ts→knowledge/deep finding (allowed.ts's @hyperidle/shared/net import must NOT be flagged), got ${JSON.stringify(findings)}`,
+			);
+		}
+	} finally {
+		rmSync(subpathRoot, { recursive: true, force: true });
 	}
 
 	process.stdout.write("composition-boundary-guard fixtures: PASS\n");

@@ -88,7 +88,7 @@ export interface AssistantTurnDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly adapterPool: AdapterPool;
-	readonly credentialResolver?: import("../services/credential-resolver.js").CredentialResolver;
+	readonly credentialResolver?: import("@hyperidle/connections").CredentialResolver;
 	/** Override the turn timeout (ms). Defaults to ASSISTANT_TURN_TIMEOUT_MS. Used in tests. */
 	readonly turnTimeoutMs?: number;
 	/**

@@ -30,13 +30,17 @@
  * @lore AU19 Increment 1g — `connections` (`credential-encryption.ts`'s
  * `getServerSecret`/`encryptCredentialValue`/`decryptCredentialValue`, plus a
  * raw `serverCredentials` read/write the §10.2 function-level census missed —
- * same completeness-check discovery shape as `settings`' Inc-1f finding) is
- * INTERIM: `connections` hasn't migrated yet, so every real call site wires
- * `NotificationsCredentialCipher`/`NotificationsCredentialStore` to
- * `packages/server`'s existing `credential-encryption.ts` function references
- * / raw `serverCredentials` query, unchanged behavior, until `connections`
- * migrates (Increment 1 continues) — same precedent as `settings`'
- * `SettingsCredentialCipher`/`SettingsCredentialStore`.
+ * same completeness-check discovery shape as `settings`' Inc-1f finding) was
+ * INTERIM at the time: `connections` had not migrated yet.
+ *
+ * @lore AU19 Increment 1h — CLOSED: `connections` migrated this Increment, so
+ * every real call site now wires `NotificationsCredentialCipher` directly to
+ * `@hyperidle/connections`' real `getServerSecret`/`encryptCredentialValue`/
+ * `decryptCredentialValue` exports, and `NotificationsCredentialStore` to its
+ * real `findCredentialByName`/`upsertCredential`/`deleteCredentialByName`
+ * exports (`credential-store.ts`, added this Increment specifically to give
+ * the store port a real target) — no more interim indirection, same closure
+ * shape as `settings`' `SettingsCredentialCipher`/`SettingsCredentialStore`.
  *
  * @lore AU19 Increment 1g — `teamMembers` (owned by `org` since Increment 1c)
  * is a SIXTH real edge the §10.2 function-level census missed entirely,
@@ -168,15 +172,14 @@ export interface NotificationsVerdictReader {
 }
 
 // ---------------------------------------------------------------------------
-// connections — NotificationsCredentialCipher (interim, ordinary downward core-api edge)
+// connections — NotificationsCredentialCipher (CLOSED Increment 1h, real target)
 // ---------------------------------------------------------------------------
 
 /**
- * Port for `connections`' credential-cipher surface `config.ts` calls
- * directly today (`credential-encryption.ts`'s `getServerSecret`/
- * `encryptCredentialValue`/`decryptCredentialValue`) — used to read/write the
- * notification-secret rows (`notifications_smtp_password`,
- * `notifications_ntfy_auth_token`).
+ * Port for `connections`' credential-cipher surface `config.ts` calls (real,
+ * `@hyperidle/connections`'s `getServerSecret`/`encryptCredentialValue`/
+ * `decryptCredentialValue`) — used to read/write the notification-secret rows
+ * (`notifications_smtp_password`, `notifications_ntfy_auth_token`).
  */
 export interface NotificationsCredentialCipher {
 	getServerSecret(): string | null;
@@ -185,14 +188,15 @@ export interface NotificationsCredentialCipher {
 }
 
 // ---------------------------------------------------------------------------
-// connections — NotificationsCredentialStore (interim, ordinary downward core-api edge)
+// connections — NotificationsCredentialStore (CLOSED Increment 1h, real target)
 // ---------------------------------------------------------------------------
 
 /**
  * Port for `connections`' `serverCredentials` read/write surface `config.ts`
- * calls directly today (the raw `db.select`/`db.insert`/`db.delete` against
- * `serverCredentials` inline in `readSecret`/`writeSecret`, table-ownership-
- * guard completeness finding — see this file's top-level `@lore`).
+ * calls (real, `@hyperidle/connections`'s `findCredentialByName`/
+ * `upsertCredential`/`deleteCredentialByName`) — used by `readSecret`/
+ * `writeSecret` (originally a table-ownership-guard completeness finding —
+ * see this file's top-level `@lore`).
  */
 export interface NotificationsCredentialStore {
 	findByName(db: HyperIdleDb, name: string): Promise<ServerCredential | undefined>;

@@ -1,4 +1,14 @@
-import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
+import {
+	type CredentialResolver,
+	decryptCredentialValue,
+	deleteCredentialByName,
+	encryptCredentialValue,
+	findCredentialByName,
+	getServerSecret,
+	ServiceConnectionResolver,
+	upsertCredential,
+} from "@hyperidle/connections";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	defaultNotificationAdapterFactory,
 	type NotificationAdapter,
@@ -15,7 +25,6 @@ import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { createUpgradeTokenStore, getUserById, type UpgradeTokenStore } from "@hyperidle/users";
 import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AdapterPool } from "./harness/adapter-pool.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
@@ -61,12 +70,6 @@ import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
 import { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
-import {
-	decryptCredentialValue,
-	encryptCredentialValue,
-	getServerSecret,
-} from "./services/credential-encryption.js";
-import type { CredentialResolver } from "./services/credential-resolver.js";
 import { checkAndUnblockDependents } from "./services/dependency-watcher.js";
 import {
 	type ObservabilityConfig,
@@ -82,7 +85,6 @@ import type {
 	ObservabilityAdapter,
 	ObservabilityDispatcher,
 } from "./services/observability/types.js";
-import { ServiceConnectionResolver } from "./services/service-connection-resolver.js";
 import { SessionActivityBuffer } from "./services/session-activity-buffer.js";
 
 interface AppOptions {
@@ -225,15 +227,13 @@ const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
 const appLogger = createLogger({ pkg: "server.app" });
 
 /**
- * @lore AU19 Increment 1g: `notifications`' DI ports (Mechanism C), wired
+ * @lore AU19 Increment 1g/1h: `notifications`' DI ports (Mechanism C), wired
  * here at the `packages/server` composition point — same construction as
  * `server-factory.ts`'s (both need the same real functions; `app.ts` also
- * needs to build the `/api/notifications` route table). All four targets
- * (`settings`, `users`, `org`, `work`) are real, already-migrated packages;
- * `connections` hasn't migrated yet, so the credential cipher/store wire to
- * `packages/server`'s existing `credential-encryption.ts` function
- * references / a raw `serverCredentials` query (interim). Zero behavior
- * change.
+ * needs to build the `/api/notifications` route table). All five targets
+ * (`settings`, `users`, `org`, `work`, `connections`) are now real,
+ * already-migrated packages; the credential cipher/store closed in
+ * Increment 1h and wire directly to `@hyperidle/connections`' real exports.
  */
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
@@ -244,26 +244,9 @@ const notificationsCredentialCipher: NotificationsCredentialCipher = {
 };
 
 const notificationsCredentialStore: NotificationsCredentialStore = {
-	async findByName(execDb, name) {
-		const [row] = await execDb
-			.select()
-			.from(serverCredentials)
-			.where(eq(serverCredentials.name, name))
-			.limit(1);
-		return row;
-	},
-	async upsert(execDb, values) {
-		await execDb
-			.insert(serverCredentials)
-			.values(values)
-			.onConflictDoUpdate({
-				target: serverCredentials.name,
-				set: { encryptedValue: values.encryptedValue, updatedAt: values.updatedAt },
-			});
-	},
-	async deleteByName(execDb, name) {
-		await execDb.delete(serverCredentials).where(eq(serverCredentials.name, name));
-	},
+	findByName: findCredentialByName,
+	upsert: upsertCredential,
+	deleteByName: deleteCredentialByName,
 };
 
 const notificationsConfigDeps: NotificationsConfigDeps = {

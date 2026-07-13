@@ -43,7 +43,7 @@ function makeDescriptor(
 	};
 }
 
-describe("AN1 — projectInheritedConnections", () => {
+describe("projectInheritedConnections", () => {
 	// AC1 (inherited): basic projection
 	describe("projection from descriptor with inherited tools", () => {
 		it("returns a ServiceConnectionView for each inherited tool", () => {

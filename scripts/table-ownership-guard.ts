@@ -88,6 +88,18 @@ const TABLE_OWNER: Record<string, string> = {
 	// `UNOWNED_SHARED_TABLES` — a clean new-owner addition, no exemption to
 	// close.
 	notificationQueue: "packages/core-api/notifications",
+	// AU19 Increment 1h: `connections` migrated — `serverCredentials` +
+	// `serviceConnections` are its two owned tables (`credential-resolver.ts`/
+	// `connection-provisioning.ts`/`service-connection-resolver.ts` moved
+	// unchanged). Neither table was ever in `UNOWNED_SHARED_TABLES` — a clean
+	// new-owner addition, no exemption to close. `packages/server`'s own
+	// direct accesses (routes/connections.ts, routes/credentials.ts,
+	// server-factory.ts/app.ts's still-interim notifications credential ports)
+	// are unaffected — this guard's ACL/completeness tiers scan only the new
+	// nested Service packages, not `packages/server` (see this file's
+	// top-level `@lore`).
+	serverCredentials: "packages/core-api/connections",
+	serviceConnections: "packages/core-api/connections",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

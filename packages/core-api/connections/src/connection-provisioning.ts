@@ -48,8 +48,8 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { serviceConnections } from "@hyperidle/db";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/shared";
 import { resolveUrlForSSRF } from "@hyperidle/shared/net";
-import { getFirstUserByKind } from "@hyperidle/users";
 import { and, eq, inArray } from "drizzle-orm";
+import type { ConnectionsUserReader } from "./ports.js";
 import type { ServiceConnectionResolver } from "./service-connection-resolver.js";
 
 // ── Service → CLI env var map ─────────────────────────────────────────────────
@@ -99,9 +99,17 @@ export interface ProvisioningPlan {
  * @lore AN2 ownership: The single-founder contract (authorization-model.md:32)
  * means there is exactly one human user. This seam is the change point for a
  * future per-agent-owner lookup when the multi-tenant model lands.
+ *
+ * @lore AU19 Increment 1h: `deps.users` (Mechanism C — see `ports.ts`) replaces
+ * the former direct `@hyperidle/users` import; the real call site
+ * (`session-provisioning.ts`) wires it to `@hyperidle/users`' real
+ * `getFirstUserByKind` export, zero behavior change.
  */
-export async function resolveOwningHumanUserId(db: HyperIdleDb): Promise<string> {
-	const humanUser = await getFirstUserByKind(db, "human");
+export async function resolveOwningHumanUserId(
+	db: HyperIdleDb,
+	deps: { readonly users: ConnectionsUserReader },
+): Promise<string> {
+	const humanUser = await deps.users.getFirstUserByKind(db, "human");
 	return humanUser?.id ?? "u-founder";
 }
 

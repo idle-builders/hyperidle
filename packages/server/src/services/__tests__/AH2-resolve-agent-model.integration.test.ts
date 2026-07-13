@@ -10,9 +10,9 @@
  *  - packages/server/src/services/model-gateway.ts refactors resolveProvider()
  */
 
+import type { CredentialResolver } from "@hyperidle/connections";
 import { MissingCredentialError } from "@hyperidle/shared";
 import { describe, expect, vi } from "vitest";
-import type { CredentialResolver } from "../../services/credential-resolver.js";
 import { BUILT_IN_GATEWAY_CONFIG, resolveAgentModel } from "../../services/model-gateway.js";
 import { test } from "../../test-fixtures.js";
 

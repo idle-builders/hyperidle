@@ -14,6 +14,11 @@
  * the same interim pattern `server-factory.ts` uses).
  */
 
+import {
+	decryptCredentialValue,
+	encryptCredentialValue,
+	getServerSecret,
+} from "@hyperidle/connections";
 import { listVerdictItemIds } from "@hyperidle/conversation";
 import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
 import type {
@@ -29,11 +34,6 @@ import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { getUserById } from "@hyperidle/users";
 import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import {
-	decryptCredentialValue,
-	encryptCredentialValue,
-	getServerSecret,
-} from "../services/credential-encryption.js";
 
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 

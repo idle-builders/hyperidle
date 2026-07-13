@@ -27,14 +27,17 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	DbCredentialResolver,
+	EnvCredentialResolver,
+	encryptCredentialValue,
+} from "@hyperidle/connections";
 import { serverCredentials } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { DisabledSandboxAdapter } from "../harness/disabled-sandbox-adapter.js";
 import { createServer } from "../server-factory.js";
-import { encryptCredentialValue } from "../services/credential-encryption.js";
-import { DbCredentialResolver, EnvCredentialResolver } from "../services/credential-resolver.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ah1-resolver-invariant";

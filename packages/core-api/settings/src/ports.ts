@@ -14,14 +14,27 @@
  * (same idiom as `@hyperidle/work`'s `UserStoreReader` / `@hyperidle/org`'s
  * `OrgUserDirectory`).
  *
- * @lore AU19 Increment 1f — `RoutineReader` (→ `routine`) and
- * `SettingsCredentialCipher` (→ `connections`) are INTERIM ports: neither
- * Service has migrated yet, so every real call site wires them to
- * `packages/server`'s existing `routine-service.ts` / `credential-encryption.ts`
- * function references unchanged (zero behavior change) until those Services
- * migrate (Increment 1 continues) and the wiring swaps to the real packages
- * — same precedent as `work`'s `AgentSelectionDefaults`/`CostCapChecker`
- * before `agent-selection`/`cost` existed.
+ * @lore AU19 Increment 1f — `RoutineReader` (→ `routine`) is an INTERIM port:
+ * `routine` has not migrated yet, so every real call site wires it to
+ * `packages/server`'s existing `routine-service.ts` function reference
+ * unchanged (zero behavior change) until `routine` migrates (Increment 1
+ * continues) and the wiring swaps to the real package — same precedent as
+ * `work`'s `AgentSelectionDefaults`/`CostCapChecker` before
+ * `agent-selection`/`cost` existed.
+ *
+ * @lore AU19 Increment 1h — `connections` migrated: `SettingsCredentialCipher`
+ * AND `SettingsCredentialStore` (both previously INTERIM) are CLOSED. Every
+ * real call site now wires the cipher directly to `@hyperidle/connections`'
+ * real `getServerSecret`/`encryptCredentialValue`/`decryptCredentialValue`
+ * exports, and the store to its real `findCredentialByName`/`insertCredential`
+ * exports (`credential-store.ts`, added this Increment specifically to give
+ * the store port a real target) — no more interim indirection, same closure
+ * shape as `users`' Inc-1d closure of `work`'s `UserStoreReader`/`org`'s
+ * `OrgUserDirectory`. `ServiceConnectionsReader` (below) deliberately stays
+ * INTERIM — this Increment's explicit scope named only the credential-
+ * cipher/store pair for `settings`+`notifications`, not the
+ * `serviceConnections`-table reader; its raw-table wiring in
+ * `packages/server` is legal (unguarded) and carried forward.
  *
  * @lore AU19 Increment 1f — `SettingsUserDirectory` (→ `users`, already a REAL
  * migrated package) is wired directly to `@hyperidle/users`' real exported
@@ -57,12 +70,12 @@
  * function: `serviceConnections` (read, for MCP-server config seeds) and
  * `serverCredentials` (read + insert, for the AH1 one-shot credential
  * migration) — both real `connections`-owned tables per architecture §4
- * (`connections | server_credentials, service_connections`) — become the
- * `ServiceConnectionsReader`/`SettingsCredentialStore` ports below (same
- * INTERIM treatment as `RoutineReader`/`SettingsCredentialCipher`: wired to
- * `packages/server`'s raw-table access unchanged until `connections`
- * migrates). Per ground-rule #10, this is the census census staying
- * "a floor, refinable during migration" — not scope creep.
+ * (`connections | server_credentials, service_connections`) — became the
+ * `ServiceConnectionsReader`/`SettingsCredentialStore` ports below (originally
+ * the same INTERIM treatment `RoutineReader` still has; `SettingsCredentialStore`
+ * CLOSED in Increment 1h, see this file's top-level `@lore` — only
+ * `ServiceConnectionsReader` remains interim). Per ground-rule #10, this is
+ * the census staying "a floor, refinable during migration" — not scope creep.
  *
  * `userSkills` (read, for per-agent skill/autonomy seeds) is DIFFERENT: it
  * has NO single owner named anywhere in architecture §4's roster, and is
@@ -104,12 +117,12 @@ export interface SettingsUserDirectory {
 }
 
 // ---------------------------------------------------------------------------
-// connections — SettingsCredentialCipher (interim, ordinary downward core-api edge)
+// connections — SettingsCredentialCipher (CLOSED Increment 1h, real target)
 // ---------------------------------------------------------------------------
 
 /**
- * Port for `connections`' credential-cipher surface `settings` calls directly
- * today (`credential-encryption.ts`'s `getServerSecret`/`encryptCredentialValue`/
+ * Port for `connections`' credential-cipher surface `settings` calls (real,
+ * `@hyperidle/connections`' `getServerSecret`/`encryptCredentialValue`/
  * `decryptCredentialValue`) — used by `migrateCredentialsToStore`'s one-shot
  * boot migration.
  */
@@ -134,14 +147,15 @@ export interface ServiceConnectionsReader {
 }
 
 // ---------------------------------------------------------------------------
-// connections — SettingsCredentialStore (interim, ordinary downward core-api edge)
+// connections — SettingsCredentialStore (CLOSED Increment 1h, real target)
 // ---------------------------------------------------------------------------
 
 /**
  * Port for `connections`' `serverCredentials` read/write surface `settings`
- * calls directly today (the raw `db.select`/`db.insert` against
- * `serverCredentials` inline in `migrateCredentialsToStore`, table-ownership-
- * guard completeness finding — see this file's top-level `@lore`).
+ * calls (real, `@hyperidle/connections`'s `findCredentialByName`/
+ * `insertCredential`) — used by `migrateCredentialsToStore`'s one-shot boot
+ * migration (originally a table-ownership-guard completeness finding — see
+ * this file's top-level `@lore`).
  */
 export interface SettingsCredentialStore {
 	findByName(db: HyperIdleDb, name: string): Promise<ServerCredential | undefined>;

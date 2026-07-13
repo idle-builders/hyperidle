@@ -27,6 +27,7 @@
  *      running a real harness (unit test scope).
  */
 
+import type { CredentialResolver } from "@hyperidle/connections";
 import {
 	type AgentSessionRequest,
 	type HyperIdleDb,
@@ -39,7 +40,6 @@ import { beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import { executeAssistantRequest } from "../services/agent-work-assistant.js";
-import type { CredentialResolver } from "../services/credential-resolver.js";
 import { createTriggeredAgentSessionRequest } from "../services/trigger-resolution.js";
 import { test } from "../test-fixtures.js";
 

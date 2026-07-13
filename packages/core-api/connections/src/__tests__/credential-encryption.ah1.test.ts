@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // We use a dynamic import pattern to avoid a compile-time hard error that blocks
 // other tests from running.
 
-describe("AH1 AC3 — requireServerSecret() unit", () => {
+describe("requireServerSecret() unit", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "");
 		vi.stubEnv("HYPERIDLE_API_KEY", "");

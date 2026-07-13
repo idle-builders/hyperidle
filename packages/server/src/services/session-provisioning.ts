@@ -29,7 +29,7 @@ import {
 	type TierTokenCount,
 	type UserRole,
 } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { getFirstUserByKind, getUserById } from "@hyperidle/users";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
 import { transitionTask } from "@hyperidle/work";
@@ -379,7 +379,7 @@ export interface ProvisionSessionDeps {
 	 * is the ONLY secret-bearing path.
 	 */
 	readonly serviceConnectionResolver?: Pick<
-		import("./service-connection-resolver.js").ServiceConnectionResolver,
+		import("@hyperidle/connections").ServiceConnectionResolver,
 		"resolve"
 	>;
 	/**
@@ -1360,8 +1360,13 @@ export async function runSession(
 	if (serviceConnectionResolver) {
 		try {
 			const { buildProvisioningPlan, applyProvisioningPlan, resolveOwningHumanUserId } =
-				await import("./connection-provisioning.js");
-			const ownerId = await resolveOwningHumanUserId(db);
+				await import("@hyperidle/connections");
+			// AU19 Increment 1h: `resolveOwningHumanUserId` now takes a `deps.users`
+			// (Mechanism C) DI port instead of importing `@hyperidle/users` itself
+			// (illegal inside a nested Service package) — wired here, the real
+			// production composition point, to `@hyperidle/users`' real
+			// `getFirstUserByKind` export (already imported above).
+			const ownerId = await resolveOwningHumanUserId(db, { users: { getFirstUserByKind } });
 			const plan = await buildProvisioningPlan({
 				db,
 				resolver: serviceConnectionResolver,

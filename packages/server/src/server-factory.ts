@@ -3,12 +3,22 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import {
+	type CredentialResolver,
+	DbCredentialResolver,
+	decryptCredentialValue,
+	deleteCredentialByName,
+	encryptCredentialValue,
+	findCredentialByName,
+	getServerSecret,
+	insertCredential,
+	upsertCredential,
+} from "@hyperidle/connections";
+import {
 	createPgliteDb,
 	createPostgresDb,
 	type DbHandle,
 	type HyperIdleDb,
 	resolveProfile,
-	serverCredentials,
 	serviceConnections,
 } from "@hyperidle/db";
 import { registerRelevanceListener, setupFts } from "@hyperidle/knowledge";
@@ -69,13 +79,6 @@ import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handl
 import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 import { startCostSentinel } from "./services/cost-sentinel.js";
-import {
-	decryptCredentialValue,
-	encryptCredentialValue,
-	getServerSecret,
-} from "./services/credential-encryption.js";
-import type { CredentialResolver } from "./services/credential-resolver.js";
-import { DbCredentialResolver } from "./services/credential-resolver.js";
 import { registerGitExportHandler } from "./services/git-export.js";
 import { createGitRunner } from "./services/git-export-runner.js";
 import { registerLifecyclePropagation } from "./services/lifecycle-propagation.js";
@@ -100,14 +103,13 @@ const DEFAULT_ROUTINE_POLL_INTERVAL_MS = 30_000;
 const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
 
 /**
- * @lore AU19 Increment 1g: `notifications`' DI ports (Mechanism C), wired
- * here at the `packages/server` composition point — all four targets
- * (`settings`, `users`, `org`, `work`) are real, already-migrated packages;
- * `connections` hasn't migrated yet, so `notificationsCredentialCipher`/
- * `notificationsCredentialStore` wire to `packages/server`'s existing
- * `credential-encryption.ts` function references / a raw `serverCredentials`
- * query (interim, same precedent as `settings`' `SettingsCredentialCipher`/
- * `SettingsCredentialStore`). Zero behavior change.
+ * @lore AU19 Increment 1g/1h: `notifications`' DI ports (Mechanism C), wired
+ * here at the `packages/server` composition point — all five targets
+ * (`settings`, `users`, `org`, `work`, `connections`) are now real,
+ * already-migrated packages. `connections` closed in Increment 1h:
+ * `notificationsCredentialCipher`/`notificationsCredentialStore` wire
+ * directly to `@hyperidle/connections`' real exports (no more interim
+ * raw-table indirection).
  */
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
@@ -118,26 +120,9 @@ const notificationsCredentialCipher: NotificationsCredentialCipher = {
 };
 
 const notificationsCredentialStore: NotificationsCredentialStore = {
-	async findByName(execDb, name) {
-		const [row] = await execDb
-			.select()
-			.from(serverCredentials)
-			.where(eq(serverCredentials.name, name))
-			.limit(1);
-		return row;
-	},
-	async upsert(execDb, values) {
-		await execDb
-			.insert(serverCredentials)
-			.values(values)
-			.onConflictDoUpdate({
-				target: serverCredentials.name,
-				set: { encryptedValue: values.encryptedValue, updatedAt: values.updatedAt },
-			});
-	},
-	async deleteByName(execDb, name) {
-		await execDb.delete(serverCredentials).where(eq(serverCredentials.name, name));
-	},
+	findByName: findCredentialByName,
+	upsert: upsertCredential,
+	deleteByName: deleteCredentialByName,
 };
 
 const notificationsConfigDeps: NotificationsConfigDeps = {
@@ -522,29 +507,15 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// Relocates legacy server_config blob apiKeys → server_credentials.
 	// Seeds anthropic_api_key from env if the DB slot is absent.
 	// No-op when already migrated. Non-fatal: migration skips if no root secret.
-	// @lore AU19 Increment 1f: `settings`' `SettingsCredentialCipher`/
-	// `SettingsCredentialStore` ports (Mechanism C) wired here — the cipher to
-	// the real `credential-encryption.ts` function references, the store to a
-	// raw `serverCredentials` query (both ordinary downward core-api→core-api
-	// edges; `connections` hasn't migrated to its own package yet — see
-	// `@hyperidle/settings`' `ports.ts` top-level `@lore` for the
-	// completeness finding this closes), zero behavior change.
+	// @lore AU19 Increment 1h: `settings`' `SettingsCredentialCipher`/
+	// `SettingsCredentialStore` ports (Mechanism C) wired here — both to
+	// `@hyperidle/connections`' real exports now that `connections` has
+	// migrated (closes the Inc-1f interim wiring; see `@hyperidle/settings`'
+	// `ports.ts` top-level `@lore`), zero behavior change.
 	await migrateCredentialsToStore(
 		db,
 		{ getServerSecret, encryptCredentialValue, decryptCredentialValue },
-		{
-			async findByName(execDb, name) {
-				const [row] = await execDb
-					.select()
-					.from(serverCredentials)
-					.where(eq(serverCredentials.name, name))
-					.limit(1);
-				return row;
-			},
-			async insert(execDb, values) {
-				await execDb.insert(serverCredentials).values(values);
-			},
-		},
+		{ findByName: findCredentialByName, insert: insertCredential },
 	);
 	// AU2: Project existing first-party behavior into the editable configuration
 	// model on production boot. This keeps registered tools, builtin harness
@@ -554,10 +525,11 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// `ServiceConnectionsReader` ports (Mechanism C) wired here — `users` to
 	// the real `@hyperidle/users` exports (already migrated), `routine` to
 	// `routine-service.ts`'s real function reference (interim — `routine`
-	// hasn't migrated yet), `serviceConnections` to a raw table query (interim
-	// — `connections` hasn't migrated yet; closes a table-ownership-guard
-	// completeness finding, see `@hyperidle/settings`' `ports.ts`). All
-	// ordinary downward core-api→core-api edges, zero behavior change.
+	// hasn't migrated yet). `serviceConnections` stays a raw table query —
+	// `connections` migrated in Increment 1h, but that Increment's explicit
+	// scope closed only the credential-cipher/store pair, not this reader
+	// (see `@hyperidle/settings`' `ports.ts`); carried forward. All ordinary
+	// downward core-api→core-api edges, zero behavior change.
 	await projectProductionConfigurationDefaults(db, {
 		users: { listUsersByKind },
 		routines: { listRoutines },

@@ -14,6 +14,7 @@
  *  4. Return { provider, model, apiKey, baseUrl }
  */
 
+import type { CredentialResolver } from "@hyperidle/connections";
 import type {
 	ModelGatewayConfig,
 	ModelProvider,
@@ -21,7 +22,6 @@ import type {
 	ResolvedModel,
 } from "@hyperidle/shared";
 import { BUILT_IN_GATEWAY_CONFIG, MissingCredentialError } from "@hyperidle/shared";
-import type { CredentialResolver } from "./credential-resolver.js";
 
 /**
  * @lore AU19 Increment 1f: `BUILT_IN_GATEWAY_CONFIG` moved to

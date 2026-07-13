@@ -24,6 +24,7 @@ import {
 	resolveOwningHumanUserId,
 	SERVICE_CLI_ENV,
 } from "../connection-provisioning.js";
+import type { ConnectionsUserReader } from "../ports.js";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -39,27 +40,27 @@ afterEach(() => {
 // ── T1: resolveOwningHumanUserId ──────────────────────────────────────────────
 
 describe("resolveOwningHumanUserId", () => {
-	test("returns the id of the first kind=human row", async () => {
-		const mockDb = {
-			select: () => mockDb,
-			from: () => mockDb,
-			where: () => mockDb,
-			limit: () => [{ id: "u-human-1" }],
-		} as unknown as Parameters<typeof resolveOwningHumanUserId>[0];
+	// AU19 Increment 1h: resolveOwningHumanUserId now takes a `deps.users`
+	// (Mechanism C) DI port instead of querying the `users` table directly —
+	// the test mocks the port, not a raw db chain.
+	const mockDb = {} as Parameters<typeof resolveOwningHumanUserId>[0];
 
-		const result = await resolveOwningHumanUserId(mockDb);
+	test("returns the id of the first kind=human row", async () => {
+		const result = await resolveOwningHumanUserId(mockDb, {
+			users: {
+				getFirstUserByKind: async () =>
+					({ id: "u-human-1" }) as unknown as Awaited<
+						ReturnType<ConnectionsUserReader["getFirstUserByKind"]>
+					>,
+			},
+		});
 		expect(result).toBe("u-human-1");
 	});
 
 	test("falls back to u-founder when no human row exists", async () => {
-		const mockDb = {
-			select: () => mockDb,
-			from: () => mockDb,
-			where: () => mockDb,
-			limit: () => [],
-		} as unknown as Parameters<typeof resolveOwningHumanUserId>[0];
-
-		const result = await resolveOwningHumanUserId(mockDb);
+		const result = await resolveOwningHumanUserId(mockDb, {
+			users: { getFirstUserByKind: async () => undefined },
+		});
 		expect(result).toBe("u-founder");
 	});
 });
@@ -428,7 +429,7 @@ describe("applyProvisioningPlan (claude-native)", () => {
 		expect(result.mcpTokenEnv).toEqual({});
 	});
 
-	test("merges AN2 entries with existing .mcp.json (inbound hyperidle entry preserved)", async () => {
+	test("merges provisioned entries with existing .mcp.json (inbound hyperidle entry preserved)", async () => {
 		// Pre-write an existing .mcp.json (simulates inbound bridge write)
 		const existing = {
 			mcpServers: {

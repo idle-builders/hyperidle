@@ -3,6 +3,7 @@
 // Source of truth: plans/AO1/architecture.md §3 + §v2 (Reachability rework v2).
 
 import * as crypto from "node:crypto";
+import type { ServiceConnectionResolver } from "@hyperidle/connections";
 import {
 	type FilesystemInjectionRow,
 	type FilesystemRow,
@@ -32,7 +33,6 @@ import {
 	ServiceConnectionResolverAdapter,
 } from "../services/filesystem-reachability.js";
 import { inspectLocalPath } from "../services/inspect-local-path.js";
-import type { ServiceConnectionResolver } from "../services/service-connection-resolver.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 

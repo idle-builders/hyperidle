@@ -44,7 +44,7 @@ import { enforcementRegistry } from "./return-enforcement-registry.js";
  * export exposes CredentialResolver (previously re-exported from claude-agent-sdk-adapter.ts).
  * Desktop uses: import type { CredentialResolver } from "@hyperidle/server/harness"
  */
-export type { CredentialResolver } from "../services/credential-resolver.js";
+export type { CredentialResolver } from "@hyperidle/connections";
 
 /**
  * @lore claude-cli-adapter: Claude return enforcement is the `settings-claude`

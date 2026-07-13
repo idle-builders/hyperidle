@@ -20,6 +20,11 @@
  * sandbox injection (AN2), not to routes.
  */
 
+import {
+	encryptCredentialValue,
+	projectInheritedConnections,
+	requireServerSecret,
+} from "@hyperidle/connections";
 import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/shared";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/shared/net";
@@ -29,12 +34,10 @@ import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
-import { encryptCredentialValue, requireServerSecret } from "../services/credential-encryption.js";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilityDescriptors,
 } from "../services/harness-capability-read-model.js";
-import { projectInheritedConnections } from "../services/service-connection-projection.js";
 
 // ---------------------------------------------------------------------------
 // Input validation
@@ -393,7 +396,7 @@ export function createConnectionRoutes(
 					if (!serverSecret) {
 						health = "needs-attention";
 					} else {
-						const { decryptCredentialValue } = await import("../services/credential-encryption.js");
+						const { decryptCredentialValue } = await import("@hyperidle/connections");
 						const plaintext = decryptCredentialValue(row.encryptedToken, serverSecret);
 						health = plaintext ? "working" : "needs-attention";
 					}

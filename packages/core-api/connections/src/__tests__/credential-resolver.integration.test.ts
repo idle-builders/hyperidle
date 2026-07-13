@@ -11,12 +11,12 @@
  *  - DbCredentialResolver decrypts with the correct server secret
  */
 
+import { test } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
 import { encryptCredentialValue } from "../credential-encryption.js";
 import { DbCredentialResolver, EnvCredentialResolver } from "../credential-resolver.js";
 
-describe("P3 AC-15 — CredentialResolver interface", () => {
+describe("CredentialResolver interface", () => {
 	describe("EnvCredentialResolver", () => {
 		beforeEach(() => {
 			vi.unstubAllEnvs();

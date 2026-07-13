@@ -322,6 +322,12 @@ function buildLeafDeclarations(root: string): void {
   // @lore AU19 Increment 1g: `core-api/notifications` added — same TS6305
   // cascade; routes/services (retention-reaper, lifecycle-propagation,
   // policy-engine)/app.ts/server-factory.ts now import `@hyperidle/notifications`.
+  //
+  // @lore AU19 Increment 1h: `core-api/connections` added — same TS6305
+  // cascade; routes/connections.ts, routes/credentials.ts, routes/filesystems.ts,
+  // harness/cli-harness-adapter.ts, services/model-gateway.ts,
+  // services/filesystem-reachability.ts, services/session-provisioning.ts,
+  // app.ts/server-factory.ts now import `@hyperidle/connections`.
   for (const leaf of [
     "shared",
     "db",
@@ -333,6 +339,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/conversation",
     "core-api/settings",
     "core-api/notifications",
+    "core-api/connections",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

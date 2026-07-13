@@ -537,7 +537,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 			decryptCredentialValue: decryptCipher,
 			encryptCredentialValue: encryptCipher,
 			getServerSecret,
-		} = await import("../../services/credential-encryption.js");
+		} = await import("@hyperidle/connections");
 		const cipher = {
 			getServerSecret,
 			encryptCredentialValue: encryptCipher,
@@ -596,7 +596,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		expect(encryptedValue).not.toBe(plaintextApiKey);
 
 		// It must decrypt back to the original plaintext.
-		const { decryptCredentialValue } = await import("../../services/credential-encryption.js");
+		const { decryptCredentialValue } = await import("@hyperidle/connections");
 		const decrypted = decryptCredentialValue(encryptedValue, TEST_SERVER_SECRET);
 		expect(decrypted).toBe(plaintextApiKey);
 

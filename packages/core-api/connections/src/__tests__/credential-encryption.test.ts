@@ -18,7 +18,7 @@ import {
 	encryptCredentialValue,
 } from "../credential-encryption.js";
 
-describe("P3 AC-8 — Credential encryption", () => {
+describe("credential encryption", () => {
 	const SECRET = "test-server-secret-12345";
 
 	describe("deriveKey", () => {

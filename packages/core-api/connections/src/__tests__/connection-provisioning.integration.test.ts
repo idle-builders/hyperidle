@@ -21,6 +21,11 @@ import { serviceConnections, users } from "@hyperidle/db";
 // The session-provisioning.ts Phase 8b-connections merge is tested by the C2 unit
 // test below (see "C2 — envInjections merged into mcpTokenEnv" describe block).
 import { test } from "@hyperidle/db/test-fixtures";
+// AU19 Increment 1h: test files under a Service's `src/__tests__` are exempt from
+// composition-boundary-guard (it only scans `src/**` production files) — this
+// mirrors `@hyperidle/notifications`' `dispatcher.test.ts` precedent of wiring a
+// REAL sibling Service function directly for test-only DI construction.
+import { getFirstUserByKind } from "@hyperidle/users";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
 	applyProvisioningPlan,
@@ -29,12 +34,16 @@ import {
 	resolveOwningHumanUserId,
 } from "../connection-provisioning.js";
 import { encryptCredentialValue } from "../credential-encryption.js";
+import type { ConnectionsUserReader } from "../ports.js";
 import { ServiceConnectionResolver } from "../service-connection-resolver.js";
 
 const SERVER_SECRET = "an2-integration-test-secret-xyz";
 const NOW = new Date().toISOString();
 const USER_HUMAN_ID = "u-an2-human";
 const USER_OTHER_ID = "u-an2-other-human";
+const connectionsUserReaderDeps: { readonly users: ConnectionsUserReader } = {
+	users: { getFirstUserByKind },
+};
 
 let sandboxPath: string;
 beforeEach(() => {
@@ -108,12 +117,12 @@ async function seedConnection(
 describe("resolveOwningHumanUserId (real DB)", () => {
 	test("returns the id of the kind=human user", async ({ db }) => {
 		await seedHumanUser(db);
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		expect(userId).toBe(USER_HUMAN_ID);
 	});
 
 	test("falls back to u-founder when no human user exists", async ({ db }) => {
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		expect(userId).toBe("u-founder");
 	});
 });
@@ -157,7 +166,7 @@ describe("listActiveHeld (real DB)", () => {
 
 // ── AC1 — held connection provisioned into sandbox config ─────────────────────
 
-describe("AC1 — provisions held token connection into sandbox", () => {
+describe("provisions held token connection into sandbox", () => {
 	test("claude-native: .mcp.json written with held MCP-bearer entry", async ({ db }) => {
 		await seedHumanUser(db);
 		await seedConnection(db, {
@@ -170,7 +179,7 @@ describe("AC1 — provisions held token connection into sandbox", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 		const result = await applyProvisioningPlan({
 			plan,
@@ -202,7 +211,7 @@ describe("AC1 — provisions held token connection into sandbox", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 		const result = await applyProvisioningPlan({
 			plan,
@@ -230,7 +239,7 @@ describe("AC1 — provisions held token connection into sandbox", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 
 		expect(plan.envInjections.GH_TOKEN).toBe("ghs_github_pat_123");
@@ -241,7 +250,7 @@ describe("AC1 — provisions held token connection into sandbox", () => {
 
 // ── AC4 — respawn idempotent ───────────────────────────────────────────────────
 
-describe("AC4 — respawn idempotent (destroy sandbox, re-provision, same entries)", () => {
+describe("respawn idempotent (destroy sandbox, re-provision, same entries)", () => {
 	test("codex-toml: same entries in fresh sandbox B after destroying sandbox A", async ({ db }) => {
 		await seedHumanUser(db);
 		await seedConnection(db, {
@@ -254,7 +263,7 @@ describe("AC4 — respawn idempotent (destroy sandbox, re-provision, same entrie
 		});
 
 		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 
 		// First provisioning
 		const plan1 = await buildProvisioningPlan({ db, resolver, userId });
@@ -287,7 +296,7 @@ describe("AC4 — respawn idempotent (destroy sandbox, re-provision, same entrie
 
 // ── AC5 — two services, no new code ───────────────────────────────────────────
 
-describe("AC5 — two services, both provisioned from one generic path", () => {
+describe("two services, both provisioned from one generic path", () => {
 	test("stripe + figma → two server entries, no per-service code", async ({ db }) => {
 		await seedHumanUser(db);
 		await seedConnection(db, {
@@ -307,7 +316,7 @@ describe("AC5 — two services, both provisioned from one generic path", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 
 		await applyProvisioningPlan({
@@ -328,7 +337,7 @@ describe("AC5 — two services, both provisioned from one generic path", () => {
 
 // ── AC6 — disconnect removes entry ────────────────────────────────────────────
 
-describe("AC6 — disconnect removes entry on next spawn", () => {
+describe("disconnect removes entry on next spawn", () => {
 	test("present then deleted → entry absent in fresh sandbox after delete", async ({ db }) => {
 		await seedHumanUser(db);
 		await seedConnection(db, {
@@ -340,7 +349,7 @@ describe("AC6 — disconnect removes entry on next spawn", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 
 		// First spawn — entry present
 		const sandbox1 = fs.mkdtempSync(path.join(os.tmpdir(), "an2-ac6-1-"));
@@ -385,7 +394,7 @@ describe("AC6 — disconnect removes entry on next spawn", () => {
 
 // ── AC7 — cross-user isolation ────────────────────────────────────────────────
 
-describe("AC7 — cross-user isolation", () => {
+describe("cross-user isolation", () => {
 	test("user A's connections do not appear when provisioning for user B", async ({ db }) => {
 		await seedHumanUser(db);
 		await seedOtherHumanUser(db);
@@ -421,7 +430,7 @@ describe("AC7 — cross-user isolation", () => {
 
 // ── HR3 — secret never in $HOME ───────────────────────────────────────────────
 
-describe("HR3 — secret never written into $HOME", () => {
+describe("secret never written into $HOME", () => {
 	test("all provisioned files are under sandboxPath, not $HOME", async ({ db }) => {
 		await seedHumanUser(db);
 		await seedConnection(db, {
@@ -434,7 +443,7 @@ describe("HR3 — secret never written into $HOME", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 		await applyProvisioningPlan({
 			plan,
@@ -462,7 +471,7 @@ describe("HR3 — secret never written into $HOME", () => {
 // The session-provisioning.ts merge itself is not exercised here (no real spawn);
 // this test proves the data exists in the plan for the merge to consume.
 
-describe("C2 — envInjections in plan and mcpTokenEnv for CLI-key path", () => {
+describe("envInjections in plan and mcpTokenEnv for CLI-key path", () => {
 	test("github CLI-key token appears in plan.envInjections and applyProvisioningPlan mcpTokenEnv", async ({
 		db,
 	}) => {
@@ -477,7 +486,7 @@ describe("C2 — envInjections in plan and mcpTokenEnv for CLI-key path", () => 
 		});
 
 		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 
 		// C2a: buildProvisioningPlan must populate envInjections for CLI-key tokens.
@@ -517,7 +526,7 @@ describe("C2 — envInjections in plan and mcpTokenEnv for CLI-key path", () => 
 		});
 
 		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
-		const userId = await resolveOwningHumanUserId(db);
+		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 
 		// MCP-bearer: envInjections carries the per-server token var AND mcpTokenEnv returns it.
