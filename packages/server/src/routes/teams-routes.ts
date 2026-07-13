@@ -28,6 +28,7 @@ import {
 	resolveTeamAgentHarness,
 	upsertOrgEdge,
 } from "@hyperidle/org";
+import * as routineService from "@hyperidle/routine";
 import type {
 	AgentOperationalStatus,
 	BetCardSummary,
@@ -62,7 +63,6 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import * as routineService from "../routine-service.js";
 import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";

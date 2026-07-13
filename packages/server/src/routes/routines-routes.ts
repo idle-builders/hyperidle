@@ -1,4 +1,5 @@
 import { type HyperIdleDb, teams } from "@hyperidle/db";
+import * as routineService from "@hyperidle/routine";
 import {
 	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
@@ -18,7 +19,6 @@ import z from "zod";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import * as routineService from "../routine-service.js";
 import { deriveInitials } from "../services/agent-utils.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { type PostBetRetroArgs, runBuiltinRoutine } from "../services/builtin-routine-handlers.js";

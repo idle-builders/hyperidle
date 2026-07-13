@@ -100,6 +100,13 @@ const TABLE_OWNER: Record<string, string> = {
 	// top-level `@lore`).
 	serverCredentials: "packages/core-api/connections",
 	serviceConnections: "packages/core-api/connections",
+	// AU19 Increment 1i: `routine` migrated — `routines`/`routineRuns` are its
+	// two owned tables (`routine-service.ts` moved unchanged, the sole module
+	// touching either table per its own top-level `@lore`). Neither table was
+	// ever in `UNOWNED_SHARED_TABLES` — a clean new-owner addition, no
+	// exemption to close.
+	routines: "packages/core-api/routine",
+	routineRuns: "packages/core-api/routine",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

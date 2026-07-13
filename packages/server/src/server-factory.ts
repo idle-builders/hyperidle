@@ -41,6 +41,7 @@ import {
 	getTeamMembersByTeamId,
 	setTeamMembersActiveBets,
 } from "@hyperidle/org";
+import { listRoutines } from "@hyperidle/routine";
 import {
 	migrateCredentialsToStore,
 	projectProductionConfigurationDefaults,
@@ -66,7 +67,6 @@ import { enforcementRegistry } from "./harness/return-enforcement-registry.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { registerWsRoute } from "./routes/ws.js";
-import { listRoutines } from "./routine-service.js";
 import { resolveDecompositionPlan } from "./services/agent-defaults/resolvers.js";
 import {
 	bootAgentLayer,
@@ -521,15 +521,16 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// model on production boot. This keeps registered tools, builtin harness
 	// metadata, and legacy rows queryable through the new resolver without moving
 	// runtime ownership away from existing services.
-	// @lore AU19 Increment 1f: `settings`' `RoutineReader`/`SettingsUserDirectory`/
+	// @lore AU19 Increment 1f/1i: `settings`' `RoutineReader`/`SettingsUserDirectory`/
 	// `ServiceConnectionsReader` ports (Mechanism C) wired here — `users` to
 	// the real `@hyperidle/users` exports (already migrated), `routine` to
-	// `routine-service.ts`'s real function reference (interim — `routine`
-	// hasn't migrated yet). `serviceConnections` stays a raw table query —
-	// `connections` migrated in Increment 1h, but that Increment's explicit
-	// scope closed only the credential-cipher/store pair, not this reader
-	// (see `@hyperidle/settings`' `ports.ts`); carried forward. All ordinary
-	// downward core-api→core-api edges, zero behavior change.
+	// `@hyperidle/routine`'s real `listRoutines` export (closed Increment 1i —
+	// no more interim `routine-service.ts` indirection). `serviceConnections`
+	// stays a raw table query — `connections` migrated in Increment 1h, but
+	// that Increment's explicit scope closed only the credential-cipher/store
+	// pair, not this reader (see `@hyperidle/settings`' `ports.ts`); carried
+	// forward. All ordinary downward core-api→core-api edges, zero behavior
+	// change.
 	await projectProductionConfigurationDefaults(db, {
 		users: { listUsersByKind },
 		routines: { listRoutines },

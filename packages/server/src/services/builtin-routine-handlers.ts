@@ -14,6 +14,7 @@ import {
 	type Routine,
 } from "@hyperidle/db";
 import { buildAttentionService, runAutoPromotionSweep, runStaleSweep } from "@hyperidle/knowledge";
+import * as routineService from "@hyperidle/routine";
 import {
 	type BetStateChangedEvent,
 	createLogger,
@@ -23,7 +24,6 @@ import {
 import * as work from "@hyperidle/work";
 import { and, eq, gte, inArray } from "drizzle-orm";
 import { BUILTIN_SPECS, extractBuiltinKind } from "../config/builtin-routines.js";
-import * as routineService from "../routine-service.js";
 import { createPracticeMeeting } from "./practice-meeting.js";
 import {
 	attentionReviewReasoningMarker,

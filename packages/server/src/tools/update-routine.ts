@@ -1,5 +1,5 @@
+import * as routine from "@hyperidle/routine";
 import z from "zod";
-import * as routine from "../routine-service.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

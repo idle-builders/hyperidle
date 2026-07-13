@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { filesystemInjections, filesystems, type HyperIdleDb, sessions } from "@hyperidle/db";
+import * as routineService from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
 import {
 	type AgentSessionSourceCorrelation,
@@ -44,7 +45,6 @@ import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import type { SandboxAdapter, SandboxHandle } from "../harness/sandbox-adapter.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import * as routineService from "../routine-service.js";
 import { returnStatusTool } from "../tools/return-status-tool.js";
 import {
 	buildToolRegistry,

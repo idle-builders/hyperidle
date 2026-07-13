@@ -328,6 +328,15 @@ function buildLeafDeclarations(root: string): void {
   // harness/cli-harness-adapter.ts, services/model-gateway.ts,
   // services/filesystem-reachability.ts, services/session-provisioning.ts,
   // app.ts/server-factory.ts now import `@hyperidle/connections`.
+  //
+  // @lore AU19 Increment 1i: `core-api/routine` added — same TS6305 cascade;
+  // routes/routines-routes.ts, routes/teams-routes.ts, tools/create-routine.ts,
+  // tools/update-routine.ts, services/agent-lifecycle-projectors.ts,
+  // services/agent-work-intent-worker.ts, services/builtin-routine-handlers.ts,
+  // services/routine-scheduler.ts, services/routine-session-reaper.ts,
+  // services/session-context.ts, services/session-lifecycle.ts,
+  // services/session-provisioning.ts, server-factory.ts now import
+  // `@hyperidle/routine`.
   for (const leaf of [
     "shared",
     "db",
@@ -340,6 +349,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/settings",
     "core-api/notifications",
     "core-api/connections",
+    "core-api/routine",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

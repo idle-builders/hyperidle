@@ -37,6 +37,7 @@
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/notifications": "*",
 		"@hyperidle/org": "*",
+		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/shared": "*",
 		"@hyperidle/users": "*",

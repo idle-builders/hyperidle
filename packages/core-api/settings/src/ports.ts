@@ -14,13 +14,13 @@
  * (same idiom as `@hyperidle/work`'s `UserStoreReader` / `@hyperidle/org`'s
  * `OrgUserDirectory`).
  *
- * @lore AU19 Increment 1f — `RoutineReader` (→ `routine`) is an INTERIM port:
- * `routine` has not migrated yet, so every real call site wires it to
- * `packages/server`'s existing `routine-service.ts` function reference
- * unchanged (zero behavior change) until `routine` migrates (Increment 1
- * continues) and the wiring swaps to the real package — same precedent as
- * `work`'s `AgentSelectionDefaults`/`CostCapChecker` before
- * `agent-selection`/`cost` existed.
+ * @lore AU19 Increment 1i — `RoutineReader` (→ `routine`) is CLOSED: `routine`
+ * migrated this Increment. Every real call site now wires it directly to
+ * `@hyperidle/routine`'s real `listRoutines` export (`server-factory.ts`) — no
+ * more interim indirection through `packages/server`'s (now-deleted)
+ * `routine-service.ts`, same closure shape as `users`' Inc-1d closure of
+ * `work`'s `UserStoreReader`/`org`'s `OrgUserDirectory` and `connections`'
+ * Inc-1h closure of `SettingsCredentialCipher`/`SettingsCredentialStore`.
  *
  * @lore AU19 Increment 1h — `connections` migrated: `SettingsCredentialCipher`
  * AND `SettingsCredentialStore` (both previously INTERIM) are CLOSED. Every
@@ -99,10 +99,10 @@ import type {
 } from "@hyperidle/db";
 
 // ---------------------------------------------------------------------------
-// routine — RoutineReader (interim, ordinary downward core-api edge)
+// routine — RoutineReader (CLOSED Increment 1i, real target)
 // ---------------------------------------------------------------------------
 
-/** Port for `routine`'s read surface `settings` calls directly today (`listRoutines`). */
+/** Port for `routine`'s read surface `settings` calls directly today (`@hyperidle/routine`'s `listRoutines`). */
 export interface RoutineReader {
 	listRoutines(db: HyperIdleDb, opts?: { includeDeleted?: boolean }): Promise<Routine[]>;
 }

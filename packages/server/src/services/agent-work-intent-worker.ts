@@ -10,11 +10,11 @@ import {
 	taskDispatchAttempts,
 	teamMembers,
 } from "@hyperidle/db";
+import * as routineService from "@hyperidle/routine";
 import type { AgentSessionRequestInput, TriggerEventType } from "@hyperidle/shared";
 import { getUserById, listUsersByTeam } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, asc, eq, lt, or } from "drizzle-orm";
-import * as routineService from "../routine-service.js";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
 

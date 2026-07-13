@@ -1,12 +1,12 @@
 import * as fs from "node:fs";
 import { agentSessionRequests, type HyperIdleDb, routines, sessions } from "@hyperidle/db";
+import * as routine from "@hyperidle/routine";
 import type {
 	AgentSessionSourceKind,
 	EventBus,
 	SessionLifecycleCorrelation,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
-import * as routine from "../routine-service.js";
 import { terminalizeAgentSessionRequestInTx } from "./agent-session-requests.js";
 import type { IngestionHandle } from "./contracts.js";
 import { releaseSessionDedup } from "./cost-cap.js";

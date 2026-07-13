@@ -78,6 +78,13 @@ export interface BackfillLegacyConfigurationOptions {
  * top-level `@lore` for the `serviceConnections` completeness finding). The
  * caller (`server-factory.ts`) passes the real function references unchanged — no
  * behavior change.
+ *
+ * @lore AU19 Increment 1i: `routine` migrated — `RoutineReader` closes (see
+ * `ports.ts`'s top-level `@lore`); `server-factory.ts` now passes
+ * `@hyperidle/routine`'s real `listRoutines` export instead of the
+ * (now-deleted) sibling `routine-service.ts` reference. No signature change
+ * here — `BackfillLegacyConfigurationDeps.routines` still types against the
+ * `RoutineReader` port.
  */
 export interface BackfillLegacyConfigurationDeps {
 	readonly users: Pick<SettingsUserDirectory, "listUsersByKind">;

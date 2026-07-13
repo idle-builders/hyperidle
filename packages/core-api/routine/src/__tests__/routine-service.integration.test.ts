@@ -21,12 +21,19 @@
  *   - R5 tx-visibility: findRunningRoutineRun called with `tx` inside an
  *     open transaction must see an uncommitted row written earlier in the
  *     same `tx`.
+ *
+ * @lore AU19 Increment 1i: moved from `packages/server/src/__tests__/
+ * routine-service.integration.test.ts` — only needs `{ db }` (no `{ app }`/
+ * `{ eventBus }`), so it moves into the owning package's own
+ * `src/__tests__/`, switching its fixture import to `@hyperidle/db/test-fixtures`
+ * (same precedent as `org`'s `org-edges.integration.test.ts`/
+ * `org-routing.integration.test.ts`, Increment 1c).
  */
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
+import { expect, test } from "@hyperidle/db/test-fixtures";
 import { eq, sql } from "drizzle-orm";
-import { describe, expect } from "vitest";
+import { describe } from "vitest";
 import * as routine from "../routine-service.js";
-import { test } from "../test-fixtures.js";
 
 async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({

@@ -28,9 +28,9 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import * as routineService from "@hyperidle/routine";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
-import * as routineService from "../../routine-service.js";
 import { describe, expect, test } from "../../test-fixtures.js";
 import { startAgentLifecycleProjectionDrain } from "../agent-lifecycle-projectors.js";
 import { drainAgentWorkIntents } from "../agent-work-intent-worker.js";

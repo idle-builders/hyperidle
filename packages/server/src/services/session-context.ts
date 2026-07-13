@@ -5,12 +5,12 @@
  * `SessionContextData.product` renamed to `team`.
  */
 import { type HyperIdleDb, teams } from "@hyperidle/db";
+import * as routineService from "@hyperidle/routine";
 import type { UserRole } from "@hyperidle/shared";
 import { encodeTyped } from "@hyperidle/shared";
 import { getUserById } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import * as routineService from "../routine-service.js";
 
 export interface SessionContextConfig {
 	sessionId: string;

@@ -19,8 +19,8 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
+import * as routineService from "@hyperidle/routine";
 import { eq } from "drizzle-orm";
-import * as routineService from "../../routine-service.js";
 import { describe, expect, test } from "../../test-fixtures.js";
 import { drainAgentWorkIntents } from "../agent-work-intent-worker.js";
 import { recordAgentWorkIntent } from "../agent-work-intents.js";
