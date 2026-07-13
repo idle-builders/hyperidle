@@ -68,7 +68,7 @@ export type KnowledgeFormat = "markdown" | "toon";
 /**
  * Kernel-level knowledge statuses: the three states the kernel cares about
  * (draft → active → archived). The full 7-state taxonomy lives in
- * @hyperidle/server (packages/server/src/knowledge/types.ts) as KnowledgeStatus.
+ * @hyperidle/core-app (packages/core-app/src/knowledge/types.ts) as KnowledgeStatus.
  *
  * @lore O1: moved as part of kernel/strategy separation. The kernel only needs
  * to know if knowledge is draft, active, or archived. The strategy layer

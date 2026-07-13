@@ -320,9 +320,9 @@ export interface ArtifactCreatedEvent {
 }
 
 /**
- * @lore O1: PropagationLevel moved to @hyperidle/server (packages/server/src/knowledge/types.ts). This inline literal
+ * @lore O1: PropagationLevel moved to @hyperidle/core-app (packages/core-app/src/knowledge/types.ts). This inline literal
  * union avoids importing from fabric in shared (boundary rule: kernel never
- * imports from strategy). The canonical definition is in packages/server/src/knowledge/types.ts.
+ * imports from strategy). The canonical definition is in packages/core-app/src/knowledge/types.ts.
  *
  * @lore U1: "product" renamed to "team" in propagation levels. The propagation
  * hierarchy is: session -> task -> bet -> team -> portfolio.
