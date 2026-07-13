@@ -344,6 +344,13 @@
 			"when": 1785607200000,
 			"tag": "0048_AU9_remediation2_custody",
 			"breakpoints": true
+		},
+		{
+			"idx": 49,
+			"version": "7",
+			"when": 1785610800000,
+			"tag": "0049_AU18_drop_factory_settings",
+			"breakpoints": true
 		}
 	]
 }

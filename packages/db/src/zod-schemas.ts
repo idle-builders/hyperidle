@@ -18,7 +18,6 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import {
 	artifacts,
 	bets,
-	factorySettings,
 	items,
 	knowledgeAccessLog,
 	knowledgeConflicts,
@@ -69,7 +68,6 @@ export const selectThreadSchema = createSelectSchema(threads);
 export const selectMessageSchema = createSelectSchema(messages);
 export const selectItemSchema = createSelectSchema(items);
 export const selectUserSkillSchema = createSelectSchema(userSkills);
-export const selectFactorySettingSchema = createSelectSchema(factorySettings);
 export const selectKnowledgeItemSchema = createSelectSchema(knowledgeItems);
 export const selectKnowledgeEditLogSchema = createSelectSchema(knowledgeEditLog);
 export const selectKnowledgeAccessLogSchema = createSelectSchema(knowledgeAccessLog);
