@@ -157,4 +157,3 @@ export async function reapTerminalAgentWorkIntents(
 	});
 }
 
-export { drainAgentWorkIntents } from "./agent-work-intent-worker.js";
