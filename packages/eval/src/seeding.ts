@@ -15,7 +15,6 @@ import { randomUUID } from "node:crypto";
 import {
 	artifacts,
 	bets,
-	factorySettings,
 	type HyperIdleDb,
 	items,
 	knowledgeConflicts,
@@ -118,6 +117,14 @@ export async function seedAgent(
 		costCapCurrency?: string;
 		/** AB0: Agent category. Defaults to "team" for backward compat. */
 		agentCategory?: AgentCategory;
+		/**
+		 * AU18 §4.1: seeds `users.costActual` directly (maps to the running-total
+		 * column `getFactoryCostActual`/`sumAllUserCost` reads). Used by cost-sentinel
+		 * eval scenarios that need a specific live-summed factory cost total —
+		 * `factorySettings.cost_actual` is retired; this is the real column it
+		 * used to be derived from.
+		 */
+		costActualMinor?: number;
 	},
 ): Promise<{ agentId: string }> {
 	const agentId = opts.agentId ?? randomUUID();
@@ -131,6 +138,7 @@ export async function seedAgent(
 		status: "active",
 		teamId: opts.teamMembersId,
 		systemPrompt: opts.systemPrompt ?? null,
+		costActual: opts.costActualMinor ?? null,
 		harnessType: opts.harnessType ?? "builtin",
 		modelTierPreference: opts.modelTierPreference ?? null,
 		costCapMinor: opts.costCapMinor ?? null,
@@ -263,20 +271,6 @@ export async function seedKnowledge(
 	return { knowledgeItemId: itemId };
 }
 
-/** Seed factory settings (e.g. cost cap). */
-export async function seedFactorySettings(
-	db: HyperIdleDb,
-	settings: Record<string, string>,
-): Promise<void> {
-	const now = new Date().toISOString();
-	for (const [key, value] of Object.entries(settings)) {
-		await db
-			.insert(factorySettings)
-			.values({ key, value, updatedAt: now })
-			.onConflictDoUpdate({ target: factorySettings.key, set: { value, updatedAt: now } });
-	}
-}
-
 /**
  * Composite: seed a complete minimal world (team, founder, agent, bet, task,
  * factory settings, one knowledge item). Returns all IDs needed to trigger
@@ -294,6 +288,13 @@ export async function seedMinimalWorld(
 		taskDescription?: string;
 		betDescription?: string;
 		betDoneCondition?: string;
+		/**
+		 * AU18 §4.1: forwarded to `seedAgent`'s `costActualMinor` — lets a
+		 * scenario seed the agent's live cost total (the exact value
+		 * `getFactoryCostActual`/`sumAllUserCost` will return) in the same
+		 * call, instead of a separate `db.update(users)` after the fact.
+		 */
+		agentCostActualMinor?: number;
 	},
 ): Promise<
 	ScenarioSeedResult & {
@@ -316,6 +317,7 @@ export async function seedMinimalWorld(
 		agentCategory,
 		systemPrompt: opts?.agentSystemPrompt ?? buildDefaultSystemPrompt(agentRole),
 		harnessType: "builtin",
+		costActualMinor: opts?.agentCostActualMinor,
 	});
 
 	const { betId } = await seedBet(db, {
@@ -335,11 +337,11 @@ export async function seedMinimalWorld(
 		state: "accepted",
 	});
 
-	// Seed factory settings: cost cap high enough not to block eval
-	await seedFactorySettings(db, {
-		factory_cost_cap_minor: "100000",
-		factory_cost_cap_currency: "USD",
-	});
+	// @lore AU18: previously seeded `factory_cost_cap_minor`/`factory_cost_cap_currency`
+	// into factorySettings here — confirmed dead (no prod reader ever read those
+	// keys; the real cost-cap path reads `cost_cap`/now `server_config.cost.capMinor`).
+	// Deleted, not migrated. Scenarios that need a real cap now seed
+	// `server_config.cost.capMinor` directly (see builtin-routines.ts / routine-sessions.ts).
 
 	// Seed one factory-level knowledge item so the agent has context
 	await seedKnowledge(db, {

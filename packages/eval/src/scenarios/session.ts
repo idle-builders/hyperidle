@@ -9,14 +9,7 @@ import { sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { judgeCostTracked, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
-import {
-	seedAgent,
-	seedBet,
-	seedFactorySettings,
-	seedFounder,
-	seedTask,
-	seedTeam,
-} from "../seeding.js";
+import { seedAgent, seedBet, seedFounder, seedTask, seedTeam } from "../seeding.js";
 import type {
 	DimensionScore,
 	EvalScenario,
@@ -70,10 +63,6 @@ Write substantive session notes covering: what you analyzed, key findings, and n
 Use write_session_notes to document your analysis.`,
 			doneCondition: "Pipeline analysis documented with actionable findings.",
 			state: "accepted",
-		});
-
-		await seedFactorySettings(ctx.db, {
-			factory_cost_cap_minor: "100000",
 		});
 
 		return {
@@ -175,10 +164,6 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			state: "accepted",
 		});
 
-		await seedFactorySettings(ctx.db, {
-			factory_cost_cap_minor: "100000",
-		});
-
 		return {
 			teamId,
 			agentId,
@@ -266,10 +251,6 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 			description: "Write session notes documenting the component API you've designed.",
 			doneCondition: "API documented.",
 			state: "accepted",
-		});
-
-		await seedFactorySettings(ctx.db, {
-			factory_cost_cap_minor: "100000",
 		});
 
 		return {
