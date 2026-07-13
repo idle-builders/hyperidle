@@ -2,7 +2,181 @@
 
 This is the strategic frame for Track AU. It replaces the older Kernel/Strategy/Fabric framing with two runtime boundaries and one configuration surface.
 
-## Boundary
+## Applications, Layers, and Services (2026-07-13 — AU19 frame)
+
+**Supersedes the rest of this document for structural/package purposes.** The *behavioral* contract
+below (which responsibilities belong to core app vs. agent layer) is unchanged — this section adds
+the physical structure that enforces it, replacing AU17's founder-rejected two-package design (which
+got the package boundary right but left each new package's internals as a flat, undifferentiated
+`services/` dump instead of a real domain structure).
+
+**Applications** — deployment units. Each Application bootstraps and composes one or more Layers
+into a running process. An Application contains only wiring/bootstrap code, never business logic.
+
+- `desktop` — Electron shell; composes `core-ui` + `core-api` + `agent-orchestration` +
+  `agent-execution`, all embedded in one process, for laptop-solo mode. The only Application that
+  composes `agent-execution` in-process — every other topology runs it as a separate `remote-worker`.
+- `remote-server` — headless host process; composes `core-api` + `agent-orchestration` **only**.
+  **Never composes `agent-execution`, unconditionally** — even a single-host shared-backend
+  deployment runs execution as a separate `remote-worker` process (colocated or not), not embedded
+  in `remote-server` itself. (Founder correction, 2026-07-13: the original draft of this frame had
+  `agent-execution` as conditional on `remote-server` — wrong; the split is structural, not
+  topology-dependent.)
+- `ui` — the web frontend; composes `core-ui` only, talking to a remote `core-api` over HTTP/WS.
+- `remote-worker` — composes `agent-execution` only; receives dispatched work from a remote
+  `agent-orchestration` layer over the existing worker-ws/remote-harness-adapter channel (already
+  built, zero DB coupling — confirmed by AU17's own topology research).
+
+**Layers** — communication-pattern boundaries. A Layer may depend only on Layers/Services below it
+in the stack; never sideways, never up. This refines the old two-tier "core app / agent layer" split
+into four:
+
+- `core-ui` — presentation (React components, pages, stories).
+- `core-api` — HTTP surface + core domain orchestration; calls Services, never a table directly.
+- `agent-orchestration` — trigger resolution, session request queue, run admission/custody,
+  lifecycle projection, **context assembly and capture/writeback against Knowledge**. Decides *that*
+  and *when* an agent run happens, and prepares/consumes everything a run needs *before/after*
+  handing off to execution; never touches an LLM CLI, harness adapter, or MCP server directly.
+  Always colocated with `core-api` in the same process (every Application that composes one composes
+  both), so its Service calls stay in-process.
+- `agent-execution` — harness adapters, MCP, tool execution. **The only Layer permitted to invoke an
+  LLM CLI, harness adapter, or MCP server — and the only Layer with zero Service/table access of any
+  kind, including `knowledge`.** (Founder correction, 2026-07-13: the original draft gave
+  `agent-execution` a `knowledge` edge for context providers/capture-writeback — wrong; that work
+  belongs to `agent-orchestration`, which runs colocated with the database. `agent-execution` runs on
+  a `remote-worker`, which may be a genuinely separate machine with no DB credentials at all —
+  consistent with AU17's own finding that `worker-ws.ts`/`remote-harness-adapter.ts` already import
+  nothing from `@hyperidle/db`. `agent-execution` receives an assembled context bundle and returns
+  raw run output over the existing worker channel; it never queries a table itself.)
+
+**Services (Domains)** — a bounded unit of functionality with a clear interface. **Every Layer
+decomposes into Services, not just `core-api`** (founder correction, 2026-07-13: the first draft of
+this frame limited "Service" to the seven SQL-table owners and implied it was a `core-api`-only
+concept — too narrow. The naming itself is open: "Service" and "Domain" are both live candidates;
+`/refine` should settle it). A Service that owns a SQL table is additionally ACL-enforced — the sole
+code path permitted to read or write that table — but owning a table is not what makes something a
+Service; having a clear interface is. This list is pulled from the as-should graph
+(`plans/strategy-kernel-plugin-split/as-should-dependency-graph.md`'s "As-Should Graph" +
+"Detailed Comparison" tables) and AU12–AU18's real owning modules — **treat it as a floor, not a
+ceiling**; `/architecture` will find more when it does the real file-by-file pass, the same way
+AU17's own audit found 7x more files than its spec estimated:
+
+- **`core-api` Services (SQL-owning, Table-ACL-enforced):** `work` (bets/tasks/items),
+  `conversation` (threads/messages), `knowledge` (knowledgeItems), `users`, `settings`
+  (server_config), `notifications` (notificationQueue), `routine` (routines/routine_runs).
+- **`agent-orchestration` Services (not SQL-owning — call into `core-api`'s Services, e.g.
+  `knowledge`, when they need one):** `trigger-resolution`, `session-requests` (the request queue),
+  `run-orchestration` (admission/custody — `agent-run-boundary.ts`/`agent-session-runtime.ts`),
+  `lifecycle-projection`, `agent-selection`/roster, `context-assembly`, `capture-writeback`, `cost`
+  (cost-cap/cost-sentinel), `dispatch` (task/assistant dispatchers, routine-scheduler,
+  builtin-routine-handlers), `session-lifecycle`/provisioning.
+- **`agent-execution` Services (not SQL-owning, zero DB access):** `harness-registry`,
+  `tool-provider`, `mcp-provider`.
+- **`core-ui` Services — open question, not yet decided.** Whether `packages/web` should be
+  organized into the same Service/Domain names (a `work/` UI folder alongside the `work` Service, a
+  `knowledge/` UI folder alongside `knowledge`, etc.) instead of its current
+  page/component-type structure is a real idea raised in review, but it's a bigger, separate
+  question — `packages/web` is large and was never in AU17's scope at all. `/refine` must decide
+  whether this WP takes a position on `core-ui`'s internal structure or explicitly defers it.
+
+A Layer calls a Service through its exported interface; it never queries a table a Service doesn't
+own. Only Services that own a table hold a Service reference to it — `agent-orchestration`'s own
+Services call `core-api`'s `knowledge` Service when they need it (e.g. `context-assembly` reading
+Knowledge to build a run's context bundle) rather than touching the table themselves.
+`agent-execution`'s Services hold no Service reference of any kind, consistent with zero DB access.
+
+**Package granularity — one npm workspace package per Service (2026-07-13, founder-settled).**
+Resolved in favor of a real package per Service, nested under its owning Layer's directory
+(`packages/<layer>/<service>/`, e.g. `packages/core-api/knowledge/`,
+`packages/agent-orchestration/context-assembly/`), not a shared folder inside 4 monolithic Layer
+packages. Both options were weighed:
+
+- **Folder-per-Service inside 4 Layer packages** (the original draft of this frame) keeps Table ACL
+  as a pure guard concern and Layer/execution boundary as the only `tsc`-enforced edge. Cheaper —
+  4 packages instead of ~20-25 — but repeats the exact failure mode this session hit twice building
+  AU17: a hand-maintained scan-root/ownership-list guard silently goes blind when files move and
+  nobody re-roots it (7 guards missed round 1, 2 more round 2, 2 more found only by the builder). A
+  guard is a promise someone kept the map current; a package boundary is a fact `tsc` checks on
+  every build, unconditionally, with no map to go stale.
+- **Package-per-Service** (chosen) additionally *strengthens* Table ACL rather than leaving it purely
+  to a guard: if a Service's `index.ts` barrel never exports its raw Drizzle table object — only
+  typed functions (`getBetById`, `createBet`, ...), the exact discipline AU12/13's owning modules
+  already follow — then no other package can ever obtain a reference to that table, full stop,
+  because packages can only import what's exported. The remaining guard shrinks to one check per
+  Service ("does this package's own barrel export a table object — yes/no"), not a tree-wide scan
+  with a scan-root to keep in sync.
+
+**Two-level package hierarchy:**
+- **4 Layer packages** (`@hyperidle/core-ui`, `@hyperidle/core-api`, `@hyperidle/agent-orchestration`,
+  `@hyperidle/agent-execution`) are thin composition barrels: they depend on their own Layer's Service
+  packages (nothing more) and re-export each Service's public surface. Applications import from these,
+  matching the Composition tier already defined above. A Layer package's own `dependencies` list is
+  the single place Mechanism 2 below checks "does this Layer reach anything from a Layer above it."
+- **~20-25 Service packages**, nested one directory under their Layer (`packages/<layer>/<service>/`),
+  hold the real implementation: `src/index.ts` (public barrel, functions only, never a raw table
+  object for SQL-owning Services), `src/*.ts` implementation, `src/__tests__/*.test.ts`, and any
+  private `src/lib/`/internal helpers a Service needs — resolving the "a domain also has tests and
+  utils, it can't be one file" concern directly: a package is a bounded unit, not a single file: it
+  holds as many files as the Service needs, all private by default unless the barrel exports them.
+- `package.json`'s root `workspaces` glob needs `"packages/*/*"` added alongside the existing
+  `"packages/*"` to pick up the nested Service packages (standard npm workspaces feature, no tooling
+  change beyond the glob).
+
+**Enforcement mechanism (AU19's job, not yet built):**
+
+1. **Table ACL** — now two tiers instead of one guard: (a) *structural* — a SQL-owning Service's
+   barrel never exports its raw table object, so no other package can reach it, checked per-package
+   at build/lint time on that one file, no scan-root to go stale; (b) *residual guard* — one small,
+   general, declarative check (does any package's barrel export a raw Drizzle table type) replacing
+   the 9 separate hand-typed per-domain scan scripts AU12–AU18 each wrote independently.
+2. **Layer/execution boundary** — Applications compose Layer packages, and Layer packages compose
+   Service packages, both real `tsc`-module-resolution-enforced package boundaries (the technique
+   AU17 already proved works, now applied one level deeper); only `agent-execution`'s Service packages
+   may import an LLM-CLI/harness/MCP/tool-execution symbol — every other package is structurally
+   forbidden from that surface, because it isn't a dependency of any Service package that imports it.
+3. **Composition boundary — Services never import Services (2026-07-13, founder-added).** A Service
+   package's `dependencies` may only ever be `@hyperidle/db` and `@hyperidle/shared` (plus a narrow
+   shared "ports/contracts" package of TypeScript interfaces, if `/architecture` decides one is
+   needed) — **never another Service package, and never a Layer package.** This closes the gap the
+   other two mechanisms leave open: Mechanism 2 only names one forbidden *capability*
+   (LLM-CLI/harness/MCP access); nothing before this stopped, say, `work` importing `conversation`
+   directly, or `core-ui` importing `agent-execution`'s `harness-registry` for a non-execution reason.
+   Composition — one Service's output feeding another Service's input — is never a Service's own job.
+   It recurses the same rule `Applications` already had ("contains only bootstrap/wiring code, never
+   business logic") one level down at each tier:
+   - A **Service** does no composition. If `context-assembly` (an `agent-orchestration` Service) needs
+     Knowledge, it takes a `KnowledgeReader` as a parameter — it does not import `@hyperidle/knowledge`
+     itself.
+   - A **Layer package** composes its own Services, and — if it needs a Service that belongs to a
+     Layer below it — composes across that boundary too. `agent-orchestration`'s Layer package is the
+     one that imports both `context-assembly` and `core-api`'s `knowledge`, and wires the concrete
+     `knowledge` reader into `context-assembly`'s parameter. This is not a new pattern invented for
+     AU19: it's the same shape the AU12/13 "decompose the cross-owned join" precedent already used —
+     `findRetroItemByThreadIds` (owned by `work`) plus a caller-side `getThreadIdsByHost` (owned by
+     `conversation`) were combined by the *route handler* (`core-api` Layer code), not by one Service
+     importing the other. This mechanism makes that pattern mandatory everywhere, not something a
+     reviewer has to notice case by case.
+   - An **Application** composes Layers, same as already defined above — including choosing *which*
+     concrete implementation of a cross-process boundary to wire in (e.g. `desktop` wires
+     `agent-orchestration` directly to an in-process `agent-execution`; `remote-server` wires it to a
+     `remote-worker` WebSocket client instead — the same `worker-ws.ts`/`remote-harness-adapter.ts`
+     pattern that already exists today, now formalized as "only an Application may choose this," never
+     a Layer or a Service).
+   - **Enforcement**: the same `tsc`-negative-case technique as Mechanisms 1 and 2, scoped to a third
+     edge class — a Service package listing another Service package (or a Layer package) in its own
+     `dependencies` fails to resolve, structurally, no new guard type needed.
+   - **Real cost, stated plainly**: every place in the current codebase where one Service-shaped module
+     directly calls another's exported function (not just the ACL-relevant table joins — ordinary
+     composition too) needs to become a dependency-injected parameter instead. Expect this to surface
+     a meaningful amount of previously-invisible coupling once `/architecture` enumerates it — that's
+     the point, not a side effect to minimize.
+
+**AU8 and AU17 are retired, both superseded by AU19** (`.pipeline/work-packages/TRACK-AU.md`). AU8's
+goal — one general ownership guard instead of many hand-typed ones — is subsumed into AU19's Table
+ACL mechanism above. AU17's package-boundary technique is reused, but the internal shape it produced
+(flat `services/`) is discarded in favor of the Layer/Service structure this section defines.
+
+## Boundary (superseded above for structural purposes; behavioral contract still accurate)
 
 HyperIdle has a core app and an agent layer.
 

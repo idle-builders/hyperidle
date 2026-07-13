@@ -1,0 +1,873 @@
+<title>AU19 — Applications · Layers · Services</title>
+<style>
+  :root {
+    --paper: #f7f5ee;
+    --paper-raised: #fffefa;
+    --ink: #17233f;
+    --ink-dim: #4c5875;
+    --ink-faint: #8791a8;
+    --rule: #d3d1c4;
+    --rule-strong: #b9b6a5;
+    --blue: #2952cc;
+    --blue-soft: #e4e9fb;
+    --amber: #8f6300;
+    --amber-soft: #f3e6c4;
+    --pine: #2a6b4f;
+    --pine-soft: #dcece3;
+    --danger: #a4342a;
+    --danger-soft: #f6e2df;
+    --shadow: 0 1px 0 rgba(23, 35, 63, 0.06);
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0d2049;
+      --paper-raised: #123063;
+      --ink: #eaf0ff;
+      --ink-dim: #b7c6ef;
+      --ink-faint: #7e93c9;
+      --rule: #2c4b8c;
+      --rule-strong: #3d5fa3;
+      --blue: #86b6ff;
+      --blue-soft: #1c3a78;
+      --amber: #e8b84d;
+      --amber-soft: #3a3013;
+      --pine: #7fd1ab;
+      --pine-soft: #123527;
+      --danger: #e88579;
+      --danger-soft: #3c1b17;
+      --shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0d2049;
+    --paper-raised: #123063;
+    --ink: #eaf0ff;
+    --ink-dim: #b7c6ef;
+    --ink-faint: #7e93c9;
+    --rule: #2c4b8c;
+    --rule-strong: #3d5fa3;
+    --blue: #86b6ff;
+    --blue-soft: #1c3a78;
+    --amber: #e8b84d;
+    --amber-soft: #3a3013;
+    --pine: #7fd1ab;
+    --pine-soft: #123527;
+    --danger: #e88579;
+    --danger-soft: #3c1b17;
+    --shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  }
+
+  :root[data-theme="light"] {
+    --paper: #f7f5ee;
+    --paper-raised: #fffefa;
+    --ink: #17233f;
+    --ink-dim: #4c5875;
+    --ink-faint: #8791a8;
+    --rule: #d3d1c4;
+    --rule-strong: #b9b6a5;
+    --blue: #2952cc;
+    --blue-soft: #e4e9fb;
+    --amber: #8f6300;
+    --amber-soft: #f3e6c4;
+    --pine: #2a6b4f;
+    --pine-soft: #dcece3;
+    --danger: #a4342a;
+    --danger-soft: #f6e2df;
+    --shadow: 0 1px 0 rgba(23, 35, 63, 0.06);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    background-image:
+      linear-gradient(var(--rule) 1px, transparent 1px),
+      linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: -1px -1px;
+    background-attachment: local;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--blue-soft); color: var(--ink); }
+
+  a { color: var(--blue); }
+
+  .sheet {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 40px 24px 96px;
+  }
+
+  h1, h2, h3 { text-wrap: balance; font-family: var(--font-mono); font-weight: 600; margin: 0; }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  p { max-width: 62ch; color: var(--ink-dim); }
+
+  /* ---------- Title block ---------- */
+  .titleblock {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule-strong);
+    box-shadow: var(--shadow);
+  }
+  .titleblock-top {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .titleblock h1 {
+    font-size: 26px;
+    letter-spacing: 0.01em;
+  }
+  .titleblock .sub {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink-dim);
+    margin-top: 6px;
+  }
+  .titleblock-status {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  .status-pill {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 9px;
+    border: 1px solid var(--blue);
+    color: var(--blue);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .titleblock-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .titleblock-grid div {
+    padding: 10px 24px;
+    border-right: 1px solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .titleblock-grid div:last-child { border-right: none; }
+  .titleblock-grid .k { color: var(--ink-faint); letter-spacing: 0.08em; text-transform: uppercase; display:block; margin-bottom:3px; }
+  .titleblock-grid .v { color: var(--ink); font-size: 12.5px; }
+
+  /* ---------- Sections ---------- */
+  section { margin-top: 56px; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    border-bottom: 1px solid var(--rule-strong);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+  }
+  .section-num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--blue);
+    border: 1px solid var(--blue);
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    flex: none;
+  }
+  .section-head h2 { font-size: 15px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .section-note { color: var(--ink-faint); font-size: 13px; margin-top: -8px; margin-bottom: 22px; }
+
+  .callout {
+    border-left: 3px solid var(--amber);
+    background: var(--amber-soft);
+    padding: 12px 16px;
+    font-size: 13.5px;
+    color: var(--ink);
+    margin: 16px 0 28px;
+  }
+  .callout strong { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 4px; color: var(--amber); }
+
+  /* ---------- Diagram ---------- */
+  .diagram {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule-strong);
+    padding: 28px 20px 20px;
+  }
+  .tier-label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 10px;
+  }
+  .tier { margin-bottom: 30px; position: relative; }
+  .tier:last-child { margin-bottom: 0; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .node {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    padding: 9px 12px;
+    border: 1.5px solid var(--rule-strong);
+    background: var(--paper);
+    color: var(--ink-dim);
+    cursor: pointer;
+    user-select: none;
+    transition: border-color .12s ease, color .12s ease, background .12s ease, box-shadow .12s ease;
+    flex: 1 1 auto;
+    min-width: 140px;
+    text-align: center;
+  }
+  .node:hover { border-color: var(--ink-faint); }
+  .node.app { }
+  .node.dim { opacity: 0.32; }
+
+  .node.app.active { border-color: var(--amber); color: var(--amber); background: var(--amber-soft); box-shadow: 0 0 0 1px var(--amber) inset; }
+  .node.layer.active { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); box-shadow: 0 0 0 1px var(--blue) inset; }
+  .node.service.active { border-color: var(--pine); color: var(--pine); background: var(--pine-soft); box-shadow: 0 0 0 1px var(--pine) inset; }
+
+  .connector-track {
+    height: 22px;
+    position: relative;
+    margin: 2px 0;
+  }
+  .connector-track svg { width: 100%; height: 100%; overflow: visible; }
+  .connector-track path { stroke: var(--rule); stroke-width: 1; fill: none; transition: stroke .12s ease, stroke-width .12s ease; }
+  .connector-track path.active { stroke: var(--blue); stroke-width: 1.6; }
+
+  .diagram-hint {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-align: center;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--rule);
+  }
+
+  .svc-tier { margin-top: 26px; }
+  .svc-cols {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  @media (max-width: 760px) { .svc-cols { grid-template-columns: 1fr 1fr; } }
+  .svc-col {
+    border: 1px solid var(--rule-strong);
+    background: var(--paper);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 60px;
+    transition: opacity .12s ease;
+  }
+  .svc-col.dim { opacity: 0.3; }
+  .svc-col-head {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 2px;
+  }
+  .svc-node {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    padding: 6px 8px;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper-raised);
+    color: var(--ink-dim);
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: border-color .12s ease, color .12s ease, background .12s ease;
+  }
+  .svc-node:hover { border-color: var(--ink-faint); }
+  .svc-node.active { border-color: var(--pine); color: var(--pine); background: var(--pine-soft); }
+  .svc-node .acl { font-size: 11px; color: var(--pine); }
+  .svc-col-open {
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    border: 1px dashed var(--rule-strong);
+    padding: 8px;
+    line-height: 1.5;
+  }
+
+  .node-detail {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px dashed var(--rule-strong);
+    font-size: 13px;
+    min-height: 20px;
+    color: var(--ink-dim);
+  }
+  .node-detail .nd-title { font-family: var(--font-mono); font-size: 12px; color: var(--ink); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .node-detail .nd-title .tag { font-size: 9.5px; padding: 1px 6px; border: 1px solid currentColor; margin-left: 8px; letter-spacing: 0.06em; vertical-align: 1px; }
+
+  /* ---------- Schedule table ---------- */
+  .schedule-wrap { overflow-x: auto; border: 1px solid var(--rule-strong); background: var(--paper-raised); }
+  table.schedule { border-collapse: collapse; width: 100%; font-size: 12.5px; font-family: var(--font-mono); min-width: 620px; }
+  table.schedule th, table.schedule td {
+    border: 1px solid var(--rule);
+    padding: 9px 12px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  table.schedule th { background: var(--paper); color: var(--ink-faint); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 10.5px; }
+  table.schedule td:first-child, table.schedule th:first-child { text-align: left; color: var(--ink); }
+  table.schedule td.yes { color: var(--blue); }
+  table.schedule td.yes.cond { color: var(--ink-faint); }
+  table.schedule tbody tr:hover { background: var(--blue-soft); }
+
+  /* ---------- Trees ---------- */
+  .tree-toggle { display: inline-flex; border: 1px solid var(--rule-strong); font-family: var(--font-mono); font-size: 11.5px; margin-bottom: 16px; }
+  .tree-toggle button {
+    padding: 7px 16px;
+    background: var(--paper-raised);
+    color: var(--ink-dim);
+    border: none;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+    border-right: 1px solid var(--rule-strong);
+  }
+  .tree-toggle button:last-child { border-right: none; }
+  .tree-toggle button.on { background: var(--ink); color: var(--paper); }
+  .tree-toggle button.on.warn { background: var(--danger); }
+
+  .trees { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .trees { grid-template-columns: 1fr; } }
+
+  .tree-box { border: 1px solid var(--rule-strong); background: var(--paper-raised); }
+  .tree-box .th { padding: 10px 14px; border-bottom: 1px solid var(--rule-strong); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+  .tree-box pre {
+    margin: 0;
+    padding: 14px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: var(--ink-dim);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .tree-box pre .dir { color: var(--ink); font-weight: 600; }
+  .tree-box pre .flag { color: var(--danger); }
+  .tree-box pre .ok { color: var(--pine); }
+  .tree-box pre .dim { color: var(--ink-faint); }
+
+  /* ---------- Revision log ---------- */
+  .revlog { border: 1px solid var(--rule-strong); background: var(--paper-raised); }
+  .revlog table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .revlog th, .revlog td { padding: 10px 14px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+  .revlog th { font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); background: var(--paper); }
+  .revlog tr:last-child td { border-bottom: none; }
+  .revlog td.id { font-family: var(--font-mono); color: var(--ink); white-space: nowrap; }
+  .tagline { display: inline-block; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 7px; border: 1px solid; margin-right: 6px; }
+  .tagline.retired { color: var(--danger); border-color: var(--danger); }
+  .tagline.new { color: var(--blue); border-color: var(--blue); }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule-strong);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+
+<div class="sheet">
+
+  <div class="titleblock">
+    <div class="titleblock-top">
+      <div>
+        <div class="eyebrow">Track AU — Runtime Simplification</div>
+        <h1>Applications · Layers · Services</h1>
+        <div class="sub">Structural frame proposed for AU19 — supersedes AU8 &amp; AU17</div>
+      </div>
+      <div class="titleblock-status">
+        DWG&nbsp;AU19&#8209;001<br>
+        <span class="status-pill">Proposed — awaiting confirm</span>
+      </div>
+    </div>
+    <div class="titleblock-grid">
+      <div><span class="k">Rev</span><span class="v">2026&#8209;07&#8209;13</span></div>
+      <div><span class="k">Ref</span><span class="v">PR&nbsp;#449</span></div>
+      <div><span class="k">Supersedes</span><span class="v">AU8, AU17 (PR&nbsp;#447)</span></div>
+      <div><span class="k">Depends on</span><span class="v">AU12–16, AU18</span></div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Third enforcement mechanism added — Services may never import each other</strong>
+    Five corrections folded in: <code>remote&#8209;server</code> never composes
+    <code>agent&#8209;execution</code>; <code>agent&#8209;execution</code> holds zero Service access
+    (context assembly / capture&#8209;writeback moved to <code>agent&#8209;orchestration</code>);
+    Services span every Layer, list is a <strong>floor not a ceiling</strong>; each Service is its
+    own npm workspace package, not a folder in 4 monolithic Layer packages; and — the newest —
+    <strong>a Service package may never depend on another Service package or a Layer package.</strong>
+    Composition (one Service's output feeding another's input) is never a Service's own job — it's a
+    Layer's job composing its own Services, and an Application's job composing Layers. This is
+    Mechanism&nbsp;C in §3, with a worked example. It closes a real gap the first two mechanisms left
+    open (Mechanism B only named <em>one</em> forbidden capability, LLM/harness/MCP access — nothing
+    stopped, say, <code>work</code> importing <code>conversation</code> directly) and is the
+    concrete tool for surfacing every place a Service currently reaches into a neighbor uninvited —
+    exactly the "weird features" this structure is meant to expose. Two things are still open:
+    whether <code>core&#8209;ui</code> mirrors these same names internally, and whether "Service" or
+    "Domain" is the right word.
+  </div>
+
+  <section>
+    <div class="section-head"><span class="section-num">1</span><h2>Composition — click to trace</h2></div>
+    <p class="section-note">Click an Application to trace which Layers it composes and which Services those Layers own. Click a Layer or Service directly to see its own definition.</p>
+
+    <div class="diagram">
+      <div class="tier">
+        <div class="tier-label">Applications — deployment units, bootstrap only</div>
+        <div class="row" id="row-apps"></div>
+      </div>
+
+      <div class="connector-track" id="track-1"><svg id="svg-1"></svg></div>
+
+      <div class="tier">
+        <div class="tier-label">Layers — communication-pattern boundaries</div>
+        <div class="row" id="row-layers"></div>
+      </div>
+
+      <div class="svc-tier">
+        <div class="tier-label">Services (Domains) — 📦 each its own npm workspace package, nested under its Layer. <span style="color:var(--pine)">⛁</span> = also SQL&#8209;table owner, ACL&#8209;enforced by never exporting the raw table.</div>
+        <div class="svc-cols" id="svc-cols"></div>
+      </div>
+
+      <div class="node-detail" id="detail">
+        <div class="nd-title">Nothing selected</div>
+        Click any node above — the detail for whatever you select appears here.
+      </div>
+      <div class="diagram-hint">core&#8209;ui → core&#8209;api → agent&#8209;orchestration → agent&#8209;execution — a Layer package may only depend on its own Service packages. Where one Service's data feeds another (e.g. <code>context&#8209;assembly</code> ← <code>knowledge</code>, marked "wired by Layer" below) the <em>owning Layer package</em> does the wiring — the Service packages themselves never import each other. See §3, Mechanism C.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">2</span><h2>Composition schedule</h2></div>
+    <p class="section-note">Same relationship as the diagram above, as a fixed reference. <span style="color:var(--blue)">●</span> composed directly.</p>
+    <div class="schedule-wrap">
+      <table class="schedule">
+        <thead>
+          <tr><th>Application</th><th>core&#8209;ui</th><th>core&#8209;api</th><th>agent&#8209;orchestration</th><th>agent&#8209;execution</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>desktop</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td></tr>
+          <tr><td>remote&#8209;server</td><td>—</td><td class="yes">●</td><td class="yes">●</td><td>—</td></tr>
+          <tr><td>ui</td><td class="yes">●</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>remote&#8209;worker</td><td>—</td><td>—</td><td>—</td><td class="yes">●</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note" style="margin-top:12px; margin-bottom:0;"><code style="font-family:var(--font-mono)">remote&#8209;server</code> never composes <code style="font-family:var(--font-mono); color:var(--blue)">agent&#8209;execution</code>, unconditionally — not even in a single&#8209;host deployment. Execution always runs as a separate <code style="font-family:var(--font-mono)">remote&#8209;worker</code> process, colocated on the same host or not.</p>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">3</span><h2>Enforcement — three mechanisms, general not per-domain</h2></div>
+    <p class="section-note">AU17 proved the technique (an unexported cross-package import genuinely fails <code>tsc</code> module resolution). AU19 applies it at the right grain, adds the ACL half AU8 was for, and closes a third gap neither of the first two covers: nothing stopped one Service from just importing another.</p>
+    <div class="trees" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="tree-box">
+        <div class="th">Mechanism A — Table ACL</div>
+        <pre style="white-space: normal; font-family: var(--font-sans); font-size: 13px; line-height: 1.6; color: var(--ink-dim);">A SQL&#8209;owning Service's barrel never exports its raw table object — no other package can obtain a reference to it. One small general guard checks every barrel, replacing the <strong style="color:var(--ink)">9 separate</strong> hand-typed per-domain guards AU12–AU18 each wrote.</pre>
+      </div>
+      <div class="tree-box">
+        <div class="th">Mechanism B — Execution boundary</div>
+        <pre style="white-space: normal; font-family: var(--font-sans); font-size: 13px; line-height: 1.6; color: var(--ink-dim);">Only <code style="font-family:var(--font-mono); color:var(--blue)">agent&#8209;execution</code>'s Service packages may import an LLM CLI, harness adapter, MCP bridge, or tool&#8209;execution symbol. Every other package is structurally forbidden — nothing depends on them.</pre>
+      </div>
+      <div class="tree-box" style="border-color: var(--amber);">
+        <div class="th" style="color: var(--amber); border-color: var(--amber);">Mechanism C — Composition boundary <span style="font-size:9px; border:1px solid var(--amber); padding:1px 5px; margin-left:4px;">new</span></div>
+        <pre style="white-space: normal; font-family: var(--font-sans); font-size: 13px; line-height: 1.6; color: var(--ink-dim);">A Service package's <code style="font-family:var(--font-mono)">dependencies</code> are only <code style="font-family:var(--font-mono)">db</code>/<code style="font-family:var(--font-mono)">shared</code> — <strong style="color:var(--amber)">never another Service, never a Layer</strong>. Wiring is a Layer's job composing its own Services, and an Application's job composing Layers. A Service does none of its own wiring.</pre>
+      </div>
+    </div>
+
+    <div class="tree-box" style="margin-top: 16px;">
+      <div class="th">Worked example — why this matters</div>
+      <div style="padding: 16px; font-size: 13px; line-height: 1.7; color: var(--ink-dim);">
+        <code style="font-family:var(--font-mono); color:var(--danger)">context&#8209;assembly</code> (an <code style="font-family:var(--font-mono)">agent&#8209;orchestration</code> Service) needs Knowledge to build a run's context bundle.
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:10px;">
+          <div style="border:1px solid var(--danger); padding:10px;">
+            <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--danger); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">✗ Forbidden</div>
+            <code style="font-family:var(--font-mono); font-size:12px;">// context-assembly/src/index.ts<br>import { getItems } from '@hyperidle/knowledge'</code>
+            <div style="margin-top:6px; font-size:12px;">A Service reaching into a neighbor on its own. This is exactly how a "weird feature" appears — nothing named it as wrong.</div>
+          </div>
+          <div style="border:1px solid var(--pine); padding:10px;">
+            <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--pine); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">✓ Required shape</div>
+            <code style="font-family:var(--font-mono); font-size:12px;">// context-assembly/src/index.ts<br>export function assemble(reader: KnowledgeReader, ...)<br><br>// agent-orchestration/src/index.ts (the Layer)<br>import { assemble } from '@hyperidle/context-assembly'<br>import { getItems } from '@hyperidle/knowledge'<br>assemble({ getItems }, ...)</code>
+            <div style="margin-top:6px; font-size:12px;">The Layer package composes both Services. <code style="font-family:var(--font-mono)">context&#8209;assembly</code> never imports <code style="font-family:var(--font-mono)">knowledge</code> — it takes it as a parameter.</div>
+          </div>
+        </div>
+        <div style="margin-top:12px; font-size:12.5px; color:var(--ink-faint);">Not a new pattern: this is the same shape the AU12/13 join&#8209;decomposition precedent already used — <code style="font-family:var(--font-mono)">findRetroItemByThreadIds</code> (work) + <code style="font-family:var(--font-mono)">getThreadIdsByHost</code> (conversation) were combined by the <em>route handler</em> (core&#8209;api Layer code), not by one Service importing the other. Mechanism C just makes that mandatory everywhere.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">4</span><h2>Internal shape — why AU17 was rejected</h2></div>
+    <p class="section-note">AU17's package boundary was real, but each package's internals stayed a flat dump. This is the gap AU19 exists to close — toggle between what PR&nbsp;#447 actually produced and the illustrative target grouping.</p>
+
+    <div class="tree-toggle">
+      <button id="btn-asis" class="on warn">As&#8209;is (rejected)</button>
+      <button id="btn-should">As&#8209;should (proposed)</button>
+    </div>
+
+    <div class="trees">
+      <div class="tree-box">
+        <div class="th">packages/core&#8209;app/src/</div>
+        <pre id="tree-core"></pre>
+      </div>
+      <div class="tree-box">
+        <div class="th">packages/agent&#8209;layer/src/</div>
+        <pre id="tree-agent"></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">5</span><h2>Revision log</h2></div>
+    <div class="revlog">
+      <table>
+        <thead><tr><th style="width:70px">ID</th><th>Change</th><th style="width:140px">Status</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="id">AU17</td>
+            <td>Split <code>packages/server</code> into two packages + composition root. PR&nbsp;#447 was CI&#8209;green but closed unmerged — internals left flat.</td>
+            <td><span class="tagline retired">Retired</span></td>
+          </tr>
+          <tr>
+            <td class="id">AU8</td>
+            <td>Should&#8209;graph guard — nine hand&#8209;typed per&#8209;domain scripts, never unified.</td>
+            <td><span class="tagline retired">Retired</span></td>
+          </tr>
+          <tr>
+            <td class="id">AU19</td>
+            <td>Applications / Layers / Services structure. Registered, PR&nbsp;#449. Depends on AU12&#8211;16 &amp; AU18 (all merged). Refinement required before <code>/architecture</code>.</td>
+            <td><span class="tagline new">Proposed</span></td>
+          </tr>
+          <tr>
+            <td class="id">Rev&nbsp;1</td>
+            <td><code>remote&#8209;server</code> corrected to never compose <code>agent&#8209;execution</code> — unconditional, was conditional.</td>
+            <td><span class="tagline new">Applied</span></td>
+          </tr>
+          <tr>
+            <td class="id">Rev&nbsp;2</td>
+            <td><code>agent&#8209;execution</code> corrected to zero Service access — was given a <code>knowledge</code> edge. Context assembly / capture&#8209;writeback moved to <code>agent&#8209;orchestration</code>.</td>
+            <td><span class="tagline new">Applied</span></td>
+          </tr>
+          <tr>
+            <td class="id">Rev&nbsp;3</td>
+            <td>Services corrected to span every Layer (not just <code>core&#8209;api</code>); list expanded from 7 to ~20, sourced from the as&#8209;should graph, flagged as a floor. <code>core&#8209;ui</code> alignment and the Service/Domain naming both left open for <code>/refine</code>.</td>
+            <td><span class="tagline new">Applied</span></td>
+          </tr>
+          <tr>
+            <td class="id">Rev&nbsp;4</td>
+            <td>Package granularity settled: one npm workspace package per Service, nested under its Layer — not a folder inside 4 monolithic Layer packages. Weighed against the alternative; chosen because it reinforces Table ACL structurally and avoids the scan&#8209;root guard staleness this session hit twice on AU17.</td>
+            <td><span class="tagline new">Applied</span></td>
+          </tr>
+          <tr>
+            <td class="id">Rev&nbsp;5</td>
+            <td>Third mechanism added — composition boundary. Service packages may never depend on another Service or Layer package; wiring is a Layer's job (its own Services) or an Application's job (its Layers), never a Service's own. Existing Service&#8209;calls&#8209;Service edges become dependency&#8209;injected parameters, wired by the owning Layer.</td>
+            <td><span class="tagline new">Applied</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <span>docs/architecture/runtime-simplification.md · §Applications, Layers, and Services</span>
+    <span>.pipeline/work-packages/TRACK-AU.md · §AU19</span>
+  </footer>
+
+</div>
+
+<script>
+  const DATA = {
+    apps: [
+      { id: 'desktop', label: 'desktop', desc: 'Electron shell. Composes core-ui + core-api + agent-orchestration + agent-execution, all embedded in one process, for laptop-solo mode. The only Application that composes agent-execution in-process — every other topology runs it as a separate remote-worker.', layers: ['core-ui', 'core-api', 'agent-orchestration', 'agent-execution'] },
+      { id: 'remote-server', label: 'remote-server', desc: 'Headless host process. Composes core-api + agent-orchestration only. Never composes agent-execution — unconditionally, not even in a single-host deployment. Execution always runs as a separate remote-worker process, colocated or not.', layers: ['core-api', 'agent-orchestration'] },
+      { id: 'ui', label: 'ui', desc: 'The web frontend. Composes core-ui only, talking to a remote core-api over HTTP/WS.', layers: ['core-ui'] },
+      { id: 'remote-worker', label: 'remote-worker', desc: 'Composes agent-execution only. Receives dispatched work from a remote agent-orchestration layer over the existing worker-ws / remote-harness-adapter channel — already built, zero DB coupling. Holds no Service reference of any kind.', layers: ['agent-execution'] },
+    ],
+    layers: [
+      { id: 'core-ui', label: 'core-ui', desc: 'Presentation — React components, pages, stories. Internal Service/Domain alignment is an open question — see the note in its column.', open: true },
+      { id: 'core-api', label: 'core-api', desc: 'HTTP surface + core domain orchestration. Calls a Service through its exported interface, never a table directly. Every Service here is SQL-owning and Table-ACL-enforced.' },
+      { id: 'agent-orchestration', label: 'agent-orchestration', desc: 'Trigger resolution, session request queue, run admission/custody, lifecycle projection, context assembly and capture/writeback against Knowledge. Decides that and when an agent run happens, and prepares/consumes everything a run needs. Always colocated with core-api, so its Service calls stay in-process. Never touches an LLM CLI directly.' },
+      { id: 'agent-execution', label: 'agent-execution', desc: 'Harness adapters, MCP, tool execution. The only Layer permitted to invoke an LLM CLI, harness adapter, or MCP server — and the only Layer with zero Service access of any kind. Receives an assembled context bundle, returns raw run output, over the existing worker channel.' },
+    ],
+    services: [
+      { id: 'knowledge', label: 'knowledge', layer: 'core-api', sql: true, desc: 'Owns knowledgeItems. Called by core-api directly and by agent-orchestration’s context-assembly / capture-writeback — the one Service both sides of the app/agent boundary legitimately reach into.' },
+      { id: 'work', label: 'work', layer: 'core-api', sql: true, desc: 'Owns bets/tasks/items. work-service.ts.' },
+      { id: 'conversation', label: 'conversation', layer: 'core-api', sql: true, desc: 'Owns threads/messages. conversation-store.ts.' },
+      { id: 'users', label: 'users', layer: 'core-api', sql: true, desc: 'Owns users. user-store.ts.' },
+      { id: 'settings', label: 'settings', layer: 'core-api', sql: true, desc: 'Owns server_config. server-config.ts, plugin-configuration.ts.' },
+      { id: 'notifications', label: 'notifications', layer: 'core-api', sql: true, desc: 'Owns notificationQueue. Notification module, AU18.' },
+      { id: 'routine', label: 'routine', layer: 'core-api', sql: true, desc: 'Owns routines/routine_runs. routine-service.ts.' },
+      { id: 'trigger-resolution', label: 'trigger-resolution', layer: 'agent-orchestration', sql: false, desc: 'Event → agent-work decision. No table ownership — reads resolved config, decides whether/how a run fires.' },
+      { id: 'session-requests', label: 'session-requests', layer: 'agent-orchestration', sql: false, desc: 'The agent session request queue — create/claim/consume.' },
+      { id: 'run-orchestration', label: 'run-orchestration', layer: 'agent-orchestration', sql: false, desc: 'Admission/custody — agent-run-boundary.ts / agent-session-runtime.ts.' },
+      { id: 'lifecycle-projection', label: 'lifecycle-projection', layer: 'agent-orchestration', sql: false, desc: 'Drains agent_lifecycle_inbox, runs per-family projectors back onto core-api’s Services.' },
+      { id: 'agent-selection', label: 'agent-selection', layer: 'agent-orchestration', sql: false, desc: 'Chooses which agent runs. agent-selection.ts, roster.ts.' },
+      { id: 'context-assembly', label: 'context-assembly', layer: 'agent-orchestration', sql: false, desc: 'Builds the context bundle handed to agent-execution before a run starts. Reads Knowledge — this is the edge that used to be miswired onto agent-execution.', calls: ['knowledge'] },
+      { id: 'capture-writeback', label: 'capture-writeback', layer: 'agent-orchestration', sql: false, desc: 'Receives raw output back from agent-execution, writes it into Knowledge / domain events.', calls: ['knowledge'] },
+      { id: 'cost', label: 'cost', layer: 'agent-orchestration', sql: false, desc: 'cost-cap.ts, cost-sentinel.ts.' },
+      { id: 'dispatch', label: 'dispatch', layer: 'agent-orchestration', sql: false, desc: 'task-dispatcher.ts, assistant-dispatcher.ts, routine-scheduler.ts, builtin-routine-handlers.ts.' },
+      { id: 'session-lifecycle', label: 'session-lifecycle', layer: 'agent-orchestration', sql: false, desc: 'session-provisioning.ts, routine-session-reaper.ts, sandbox-reaper.ts.' },
+      { id: 'harness-registry', label: 'harness-registry', layer: 'agent-execution', sql: false, desc: 'Harness adapters — builtin, CLI (claude/codex/opencode), remote, local-sandbox.' },
+      { id: 'tool-provider', label: 'tool-provider', layer: 'agent-execution', sql: false, desc: 'tools/ — 28 tool implementations.' },
+      { id: 'mcp-provider', label: 'mcp-provider', layer: 'agent-execution', sql: false, desc: 'mcp/ — MCP bridge registry.' },
+    ],
+  };
+
+  const rowApps = document.getElementById('row-apps');
+  const rowLayers = document.getElementById('row-layers');
+  const svcCols = document.getElementById('svc-cols');
+  const detail = document.getElementById('detail');
+
+  function makeNode(item, cls) {
+    const el = document.createElement('div');
+    el.className = 'node ' + cls;
+    el.textContent = item.label;
+    el.dataset.id = item.id;
+    return el;
+  }
+
+  DATA.apps.forEach(a => rowApps.appendChild(makeNode(a, 'app')));
+  DATA.layers.forEach(l => rowLayers.appendChild(makeNode(l, 'layer')));
+
+  DATA.layers.forEach(layer => {
+    const col = document.createElement('div');
+    col.className = 'svc-col';
+    col.dataset.layer = layer.id;
+    const head = document.createElement('div');
+    head.className = 'svc-col-head';
+    head.textContent = layer.label;
+    col.appendChild(head);
+    const own = DATA.services.filter(s => s.layer === layer.id);
+    if (layer.open && own.length === 0) {
+      const openBox = document.createElement('div');
+      openBox.className = 'svc-col-open';
+      openBox.textContent = 'Open question — should this mirror the same Service names? Not decided. See /refine.';
+      col.appendChild(openBox);
+    }
+    own.forEach(s => {
+      const node = document.createElement('div');
+      node.className = 'svc-node';
+      node.dataset.id = s.id;
+      node.innerHTML = '<span>📦 ' + s.label + '</span>' + (s.sql ? '<span class="acl">⛁</span>' : '');
+      col.appendChild(node);
+    });
+    svcCols.appendChild(col);
+  });
+
+  function allTopNodes() { return [...rowApps.children, ...rowLayers.children]; }
+  function allSvcNodes() { return [...svcCols.querySelectorAll('.svc-node')]; }
+  function allSvcCols() { return [...svcCols.children]; }
+
+  function clearActive() {
+    allTopNodes().forEach(n => { n.classList.remove('active'); n.classList.remove('dim'); });
+    allSvcNodes().forEach(n => { n.classList.remove('active'); n.classList.remove('called'); });
+    allSvcCols().forEach(c => c.classList.remove('dim'));
+  }
+
+  function showDetail(kind, item) {
+    const tagColor = kind === 'Application' ? 'var(--amber)' : kind === 'Layer' ? 'var(--blue)' : 'var(--pine)';
+    let extra = '';
+    if (kind === 'Service' && item.calls && item.calls.length) {
+      extra = '<div style="margin-top:6px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint);">needs data from → ' + item.calls.join(', ') + ' — wired by the agent&#8209;orchestration Layer package, never imported directly (Mechanism C)</div>';
+    }
+    detail.innerHTML = '<div class="nd-title" style="color:' + tagColor + '">' + item.label +
+      '<span class="tag">' + kind + '</span></div>' + item.desc + extra;
+  }
+
+  function selectApp(app) {
+    clearActive();
+    allTopNodes().forEach(n => n.classList.add('dim'));
+    const appEl = [...rowApps.children].find(n => n.dataset.id === app.id);
+    appEl.classList.remove('dim'); appEl.classList.add('active');
+
+    app.layers.forEach(lid => {
+      const lEl = [...rowLayers.children].find(n => n.dataset.id === lid);
+      lEl.classList.remove('dim'); lEl.classList.add('active');
+    });
+    allSvcCols().forEach(c => { if (!app.layers.includes(c.dataset.layer)) c.classList.add('dim'); });
+    drawConnectors(app.layers);
+    showDetail('Application', app);
+  }
+
+  function selectLayer(layer) {
+    clearActive();
+    allTopNodes().forEach(n => n.classList.add('dim'));
+    const lEl = [...rowLayers.children].find(n => n.dataset.id === layer.id);
+    lEl.classList.remove('dim'); lEl.classList.add('active');
+
+    const usingApps = DATA.apps.filter(a => a.layers.includes(layer.id));
+    usingApps.forEach(a => {
+      const aEl = [...rowApps.children].find(n => n.dataset.id === a.id);
+      aEl.classList.remove('dim'); aEl.classList.add('active');
+    });
+    allSvcCols().forEach(c => { if (c.dataset.layer !== layer.id) c.classList.add('dim'); });
+    drawConnectors(usingApps.map(a => a.id).length ? [layer.id] : []);
+    showDetail('Layer', layer);
+  }
+
+  function selectService(service) {
+    clearActive();
+    allTopNodes().forEach(n => n.classList.add('dim'));
+    const layer = DATA.layers.find(l => l.id === service.layer);
+    const lEl = [...rowLayers.children].find(n => n.dataset.id === layer.id);
+    lEl.classList.remove('dim'); lEl.classList.add('active');
+    const usingApps = DATA.apps.filter(a => a.layers.includes(layer.id));
+    usingApps.forEach(a => {
+      const aEl = [...rowApps.children].find(n => n.dataset.id === a.id);
+      aEl.classList.remove('dim'); aEl.classList.add('active');
+    });
+    allSvcCols().forEach(c => { if (c.dataset.layer !== layer.id) c.classList.add('dim'); });
+    const sEl = allSvcNodes().find(n => n.dataset.id === service.id);
+    if (sEl) sEl.classList.add('active');
+    (service.calls || []).forEach(cid => {
+      const cEl = allSvcNodes().find(n => n.dataset.id === cid);
+      if (cEl) { cEl.classList.add('called'); cEl.closest('.svc-col').classList.remove('dim'); }
+    });
+    drawConnectors(usingApps.map(a => a.id).length ? [layer.id] : []);
+    showDetail('Service', service);
+  }
+
+  function clearConnectors() { document.getElementById('svg-1').innerHTML = ''; }
+
+  function drawConnectors(activeLayerIds) {
+    clearConnectors();
+    const svg1 = document.getElementById('svg-1');
+    const track1 = document.getElementById('track-1');
+    const w1 = track1.clientWidth, h1 = track1.clientHeight;
+    svg1.setAttribute('viewBox', '0 0 ' + w1 + ' ' + h1);
+    DATA.layers.forEach(l => {
+      const on = activeLayerIds.includes(l.id);
+      const lEl = [...rowLayers.children].find(n => n.dataset.id === l.id);
+      const x = lEl.offsetLeft + lEl.offsetWidth / 2;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M ' + x + ' 0 L ' + x + ' ' + h1);
+      if (on) path.classList.add('active');
+      svg1.appendChild(path);
+    });
+  }
+
+  rowApps.addEventListener('click', e => {
+    const id = e.target.closest('[data-id]')?.dataset.id; if (!id) return;
+    selectApp(DATA.apps.find(a => a.id === id));
+  });
+  rowLayers.addEventListener('click', e => {
+    const id = e.target.closest('[data-id]')?.dataset.id; if (!id) return;
+    selectLayer(DATA.layers.find(l => l.id === id));
+  });
+  svcCols.addEventListener('click', e => {
+    const id = e.target.closest('.svc-node')?.dataset.id; if (!id) return;
+    selectService(DATA.services.find(s => s.id === id));
+  });
+
+  // ---- As-is / As-should trees ----
+  const TREES = {
+    asis: {
+      core: `<span class="dim">config/            3 files</span>
+<span class="dim">knowledge/        15 files</span>  <span class="ok">✓ already organized</span>
+<span class="dim">notifications/    15 files</span>  <span class="ok">✓ already organized</span>
+<span class="dim">schemas/           3 files</span>
+<span class="flag">services/         43 files  ⚠ FLAT</span>
+  work-service.ts
+  conversation-store.ts
+  user-store.ts
+  server-config.ts
+  <span class="dim">...39 more, no grouping</span>`,
+      agent: `<span class="dim">harness/          20 files</span>  <span class="ok">✓ already organized</span>
+<span class="dim">mcp/               2 files</span>  <span class="ok">✓ already organized</span>
+<span class="dim">tools/            28 files</span>  <span class="ok">✓ already organized</span>
+<span class="flag">services/         31 files  ⚠ FLAT</span>
+  agent-run-boundary.ts
+  agent-session-runtime.ts
+  trigger-resolution.ts
+  context-assembly.ts
+  cost-cap.ts, cost-sentinel.ts
+  <span class="dim">...26 more, no grouping</span>`,
+    },
+    should: {
+      core: `<span class="dir">work/</span>          work-service.ts, bet-*.ts, task-*.ts
+<span class="dir">conversation/</span>  conversation-store.ts
+<span class="dir">users/</span>         user-store.ts, login-session.ts
+<span class="dir">knowledge/</span>     <span class="dim">(unchanged)</span>
+<span class="dir">notifications/</span> <span class="dim">(unchanged)</span>
+<span class="dir">settings/</span>      server-config.ts, plugin-configuration.ts
+<span class="dir">routine/</span>       routine-service.ts
+<span class="dir">shared/</span>        <span class="dim">needs its own audit — not a default bucket</span>`,
+      agent: `<span class="dir">harness/</span>       <span class="dim">(unchanged)</span>
+<span class="dir">mcp/</span>           <span class="dim">(unchanged)</span>
+<span class="dir">tools/</span>         <span class="dim">(unchanged)</span>
+<span class="dir">execution/</span>     agent-run-boundary.ts, agent-session-runtime.ts,
+              trigger-resolution.ts, agent-selection.ts
+<span class="dir">dispatch/</span>      task-dispatcher.ts, routine-scheduler.ts
+<span class="dir">context/</span>       context-assembly.ts, session-context.ts
+<span class="dir">lifecycle/</span>     session-lifecycle.ts, session-provisioning.ts
+<span class="dir">cost/</span>          cost-cap.ts, cost-sentinel.ts`,
+    },
+  };
+
+  const treeCore = document.getElementById('tree-core');
+  const treeAgent = document.getElementById('tree-agent');
+  const btnAsis = document.getElementById('btn-asis');
+  const btnShould = document.getElementById('btn-should');
+
+  function setTreeMode(mode) {
+    treeCore.innerHTML = TREES[mode].core;
+    treeAgent.innerHTML = TREES[mode].agent;
+    btnAsis.classList.toggle('on', mode === 'asis');
+    btnAsis.classList.toggle('warn', mode === 'asis');
+    btnShould.classList.toggle('on', mode === 'should');
+  }
+  btnAsis.addEventListener('click', () => setTreeMode('asis'));
+  btnShould.addEventListener('click', () => setTreeMode('should'));
+  setTreeMode('asis');
+
+  // default state
+  selectApp(DATA.apps[0]);
+  window.addEventListener('resize', () => {
+    const activeApp = document.querySelector('.node.app.active');
+    if (activeApp) selectApp(DATA.apps.find(a => a.id === activeApp.dataset.id));
+  });
+</script>
