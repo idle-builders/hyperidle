@@ -5,8 +5,13 @@
  * They do NOT use runEvalSession — routines bypass the session lifecycle.
  * Trigger functions return synthetic TriggerResult with sessionId=uuid, cost=0.
  *
- * @lore X8 W2: Cost sentinel uses "cost_cap" and "cost_actual" keys (not "factory_cost_cap_minor").
  * @lore X8 W3: Builtin routine rows must be seeded before calling runBuiltinRoutine().
+ * @lore AU18 §4.1: Cost sentinel reads the cap via `server_config.cost.capMinor`
+ * and the live total via `getFactoryCostActual` (= SUM(users.costActual)) —
+ * the old `factorySettings.cost_cap`/`cost_actual` KV keys are retired. The
+ * graded scenarios below seed `users.costActual` on the world's single costed
+ * agent (via `seedMinimalWorld`'s `agentCostActualMinor`) instead of writing
+ * a KV row directly, so live compute reproduces the same graded ratio.
  */
 
 import { randomUUID } from "node:crypto";
@@ -21,10 +26,11 @@ function clearBuiltinCostSentinelCache(): void {
 	// intentional no-op: removed from fabric, sentinel cleared internally
 }
 
+import { updateServerConfig } from "@hyperidle/server/services/server-config";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull, like } from "drizzle-orm";
 import { judgeReviewItemCreated, judgeRoutineFired, judgeStaleItemsMarked } from "../judges.js";
-import { seedBet, seedBuiltinAgents, seedFactorySettings, seedMinimalWorld } from "../seeding.js";
+import { seedBet, seedBuiltinAgents, seedMinimalWorld } from "../seeding.js";
 
 // @lore AF17: per-team routine ids — eval scenarios use "prod-1" as the test team id.
 // seedBuiltinRoutines (local helper) provisions with this teamId.
@@ -98,12 +104,14 @@ const brCostSentinelWarning: EvalScenario = {
 	feature: "builtin_routines",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		costSentinelWarningSeedResult = await seedMinimalWorld(ctx.db);
-		// W2: use "cost_cap" and "cost_actual" keys (what builtin-routines.ts reads)
-		await seedFactorySettings(ctx.db, {
-			cost_cap: "10000",
-			cost_actual: "8500", // 85% → warning
+		// @lore AU18 §4.1: cost-sentinel now reads cap via server_config.cost.capMinor
+		// and the live total via getFactoryCostActual (= sumAllUserCost). Seed the
+		// world's single costed agent's users.costActual to the target value so the
+		// live sum reproduces the same graded ratio the old direct cost_actual seed did.
+		costSentinelWarningSeedResult = await seedMinimalWorld(ctx.db, {
+			agentCostActualMinor: 8500, // 85% of 10000 → warning
 		});
+		await updateServerConfig(ctx.db, { cost: { capMinor: 10000 } });
 		// Seed builtin agent stubs before routines (FK: routines.ownerAgentId → users.id)
 		await seedBuiltinAgents(ctx.db);
 		// Seed the routine row itself (W3)
@@ -169,11 +177,10 @@ const brCostSentinelBreach: EvalScenario = {
 	feature: "builtin_routines",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db);
-		await seedFactorySettings(ctx.db, {
-			cost_cap: "10000",
-			cost_actual: "10500", // 105% → breach
+		const world = await seedMinimalWorld(ctx.db, {
+			agentCostActualMinor: 10500, // 105% of 10000 → breach
 		});
+		await updateServerConfig(ctx.db, { cost: { capMinor: 10000 } });
 		await seedBuiltinAgents(ctx.db);
 		await seedBuiltinRoutines(ctx.db);
 		clearBuiltinCostSentinelCache();
@@ -218,11 +225,10 @@ const brCostSentinelOk: EvalScenario = {
 	feature: "builtin_routines",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db);
-		await seedFactorySettings(ctx.db, {
-			cost_cap: "10000",
-			cost_actual: "5000", // 50% → ok
+		const world = await seedMinimalWorld(ctx.db, {
+			agentCostActualMinor: 5000, // 50% of 10000 → ok
 		});
+		await updateServerConfig(ctx.db, { cost: { capMinor: 10000 } });
 		await seedBuiltinAgents(ctx.db);
 		await seedBuiltinRoutines(ctx.db);
 		clearBuiltinCostSentinelCache();

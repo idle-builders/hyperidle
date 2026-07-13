@@ -15,6 +15,7 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 import { applyFactoryBootstrap } from "../factory-bootstrap.js";
+import { readSystemPromptTemplateForRole } from "../system-prompt-templates.js";
 
 async function queryRows<T extends Record<string, unknown>>(
 	db: HyperIdleDb,
@@ -66,36 +67,38 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 		}
 	});
 
-	test("system_template:product_manager key exists in factory_settings", async ({ db }) => {
+	// @lore AU18: previously asserted a `factory_settings.system_template:<role>`
+	// cache row; that table is retired. Templates now resolve directly via the
+	// shared `readSystemPromptTemplateForRole` docs-backed resolver — bootstrap
+	// no longer needs to have run first (the resolver reads docs directly), but
+	// we still call it here to prove it doesn't error/interfere.
+	test("product_manager system prompt template resolves (docs-backed)", async ({ db }) => {
 		await applyFactoryBootstrap(db);
 
-		const rows = await queryRows<{ key: string; value: string }>(
-			db,
-			"SELECT key, value FROM factory_settings WHERE key = 'system_template:product_manager'",
-		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.value.length).toBeGreaterThan(50);
+		const content = readSystemPromptTemplateForRole("product_manager");
+		expect(content).toBeTruthy();
+		expect((content ?? "").length).toBeGreaterThan(50);
 	});
 
-	test("system_template:facilitator key exists in factory_settings", async ({ db }) => {
+	test("facilitator system prompt template resolves (docs-backed)", async ({ db }) => {
 		await applyFactoryBootstrap(db);
 
-		const rows = await queryRows<{ key: string; value: string }>(
-			db,
-			"SELECT key, value FROM factory_settings WHERE key = 'system_template:facilitator'",
-		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.value.length).toBeGreaterThan(50);
+		const content = readSystemPromptTemplateForRole("facilitator");
+		expect(content).toBeTruthy();
+		expect((content ?? "").length).toBeGreaterThan(50);
 	});
 
-	test("cost_cap and cost_cycle factory_settings keys exist", async ({ db }) => {
+	// @lore AU18: `cost_cap`/`cost_cycle` factory_settings seeds are retired.
+	// cost_cap now lives as server_config.cost.capMinor with a schema default
+	// (20000) — bootstrap relies on the default rather than seeding it
+	// explicitly. cost_cycle had zero readers and was dropped entirely.
+	test("bootstrap writes no server_config row (cost_cap default now lives server-side)", async ({
+		db,
+	}) => {
 		await applyFactoryBootstrap(db);
 
-		const rows = await queryRows<{ key: string }>(
-			db,
-			"SELECT key FROM factory_settings WHERE key IN ('cost_cap','cost_cycle') ORDER BY key",
-		);
-		expect(rows.map((r) => r.key)).toEqual(["cost_cap", "cost_cycle"]);
+		const rows = await queryRows<{ id: string }>(db, "SELECT id FROM server_config");
+		expect(rows).toHaveLength(0);
 	});
 
 	test("factory principle knowledge item (seed-ki-1) exists with scope_kind=factory", async ({
@@ -188,43 +191,25 @@ describe("AF17 AC2: applyFactoryBootstrap is idempotent", () => {
 		expect(count2).toBe(count1);
 	});
 
-	test("running bootstrap twice produces the same factory_settings count", async ({ db }) => {
+	// @lore AU18: `factory_settings` count no longer applies (table retired).
+	// server_config is the successor — bootstrap still writes zero rows to it
+	// (see AC1's "bootstrap writes no server_config row" test), so idempotency
+	// there is trivial. This test now asserts idempotency on the docs-backed
+	// template resolver instead (calling bootstrap twice must not change what
+	// it resolves).
+	test("running bootstrap twice produces identical resolved templates", async ({ db }) => {
 		await applyFactoryBootstrap(db);
-		const rows1 = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM factory_settings",
-		);
-		const count1 = Number(rows1[0]?.count);
+		const first = readSystemPromptTemplateForRole("product_manager");
 
 		await applyFactoryBootstrap(db);
-		const rows2 = await queryRows<{ count: string }>(
-			db,
-			"SELECT COUNT(*) AS count FROM factory_settings",
-		);
-		const count2 = Number(rows2[0]?.count);
+		const second = readSystemPromptTemplateForRole("product_manager");
 
-		expect(count2).toBe(count1);
+		expect(second).toEqual(first);
 	});
 
 	test("running bootstrap twice does not throw", async ({ db }) => {
 		await applyFactoryBootstrap(db);
 		await expect(applyFactoryBootstrap(db)).resolves.not.toThrow();
-	});
-
-	test("system_template values are identical after second run", async ({ db }) => {
-		await applyFactoryBootstrap(db);
-		const rows1 = await queryRows<{ key: string; value: string }>(
-			db,
-			"SELECT key, value FROM factory_settings WHERE key LIKE 'system_template:%' ORDER BY key",
-		);
-
-		await applyFactoryBootstrap(db);
-		const rows2 = await queryRows<{ key: string; value: string }>(
-			db,
-			"SELECT key, value FROM factory_settings WHERE key LIKE 'system_template:%' ORDER BY key",
-		);
-
-		expect(rows2).toEqual(rows1);
 	});
 
 	test("system:propagation row is identical after second run", async ({ db }) => {

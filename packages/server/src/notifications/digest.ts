@@ -1,6 +1,6 @@
-import { type HyperIdleDb, notificationQueue } from "@hyperidle/db";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { type NotificationConfig, pickRecipient } from "./config.js";
+import { listByIdsWithStatus, listPending, updateManyByIds } from "./notification-queue.js";
 import { scrubErrorMessage } from "./redact.js";
 import type { Notification, NotificationAdapter } from "./types.js";
 
@@ -44,11 +44,7 @@ export async function runDailyDigest(
 	cfg: NotificationConfig,
 	now: Date,
 ): Promise<DigestResult> {
-	const pending = await db
-		.select()
-		.from(notificationQueue)
-		.where(eq(notificationQueue.status, "pending"))
-		.orderBy(asc(notificationQueue.createdAt));
+	const pending = await listPending(db);
 	if (pending.length === 0) {
 		return { status: "noop", notificationsIncluded: 0 };
 	}
@@ -67,15 +63,9 @@ export async function runDailyDigest(
 	// will see them as already-claimed and skip.
 	const ids = pending.map((r) => r.id);
 	const claimedAt = now.toISOString();
-	await db
-		.update(notificationQueue)
-		.set({ status: "sending", claimedAt })
-		.where(and(inArray(notificationQueue.id, ids), eq(notificationQueue.status, "pending")));
+	await updateManyByIds(db, ids, { status: "sending", claimedAt }, "pending");
 
-	const rows = await db
-		.select()
-		.from(notificationQueue)
-		.where(and(inArray(notificationQueue.id, ids), eq(notificationQueue.status, "sending")));
+	const rows = await listByIdsWithStatus(db, ids, "sending");
 
 	if (rows.length === 0) {
 		return { status: "noop", notificationsIncluded: 0 };
@@ -95,10 +85,7 @@ export async function runDailyDigest(
 	} catch (err) {
 		// Adapter threw — revert claimed rows back to pending so the
 		// next digest (or flush) can retry.
-		await db
-			.update(notificationQueue)
-			.set({ status: "pending", claimedAt: null })
-			.where(inArray(notificationQueue.id, ids));
+		await updateManyByIds(db, ids, { status: "pending", claimedAt: null });
 		return {
 			status: "error",
 			notificationsIncluded: 0,
@@ -118,10 +105,7 @@ export async function runDailyDigest(
 		});
 		// Adapter returned failure — revert claimed rows so the next
 		// run retries.
-		await db
-			.update(notificationQueue)
-			.set({ status: "pending", claimedAt: null, lastError: scrubbed })
-			.where(inArray(notificationQueue.id, ids));
+		await updateManyByIds(db, ids, { status: "pending", claimedAt: null, lastError: scrubbed });
 		return {
 			status: "error",
 			notificationsIncluded: 0,
@@ -130,13 +114,6 @@ export async function runDailyDigest(
 	}
 
 	// Cross-row transition: every claimed row now sent.
-	await db
-		.update(notificationQueue)
-		.set({
-			status: "sent",
-			sentAt: claimedAt,
-			claimedAt: null,
-		})
-		.where(inArray(notificationQueue.id, ids));
+	await updateManyByIds(db, ids, { status: "sent", sentAt: claimedAt, claimedAt: null });
 	return { status: "sent", notificationsIncluded: count };
 }

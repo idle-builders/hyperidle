@@ -5,7 +5,7 @@
  * POST   /api/agents              — create new agent (founder-only)
  * PATCH  /api/agents/:id         — update agent config (founder-only)
  * DELETE /api/agents/:id         — soft-delete to "retired" (founder-only)
- * GET    /api/agents/templates/:role — fetch system prompt template from factorySettings
+ * GET    /api/agents/templates/:role — fetch system prompt template (docs-backed, AU18)
  *
  * @lore X3: Separate from /api/users because the self-edit guard on PATCH /api/users/:id
  * returns 403 when the authenticated user tries to edit another user. Agent management
@@ -21,7 +21,12 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { factorySettings, type HyperIdleDb, sessions, teamMembers } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	readSystemPromptTemplateForRole,
+	sessions,
+	teamMembers,
+} from "@hyperidle/db";
 import {
 	AGENT_CATEGORIES,
 	catalogEntry,
@@ -206,21 +211,24 @@ export function createAgentRoutes(
 	// @lore X3: Hono matches routes in registration order. If /:id was registered
 	// first, "templates" would be captured as the id param. Register the static
 	// path prefix first.
+	//
+	// @lore AU18 (round 3 CRITICAL fix): previously a DB-key lookup against
+	// `factorySettings.system_template:<role>` (traversal-safe by construction —
+	// a table key lookup, not a filesystem path). Now resolves via
+	// `readSystemPromptTemplateForRole`, which maps `role` through the
+	// canonical `SYSTEM_PROMPT_TEMPLATE_FILES` map BEFORE any filesystem
+	// access — an untrusted `role` that isn't an exact map key returns `null`
+	// (404) without ever touching `fs`, so traversal stays closed by
+	// construction. See system-prompt-templates.ts for the full rationale.
 	router.get("/templates/:role", requireBoundary({ kind: "public-data" }), async (c) => {
 		const role = c.req.param("role");
-		const key = `system_template:${role}`;
+		const content = readSystemPromptTemplateForRole(role);
 
-		const [row] = await db
-			.select({ value: factorySettings.value })
-			.from(factorySettings)
-			.where(eq(factorySettings.key, key))
-			.limit(1);
-
-		if (!row) {
+		if (content === null) {
 			return c.json({ error: "No template for role", code: "NOT_FOUND" }, 404);
 		}
 
-		return c.json({ role, content: row.value });
+		return c.json({ role, content });
 	});
 
 	// ── GET / — list AI agents (excludes system role and retired) ──

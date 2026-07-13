@@ -2,8 +2,8 @@
  * AF8 — Notification mute preferences (read/write interface + factory-level defaults).
  *
  * @lore AF8 CONTRACT FLAG (AF15): AF8 ships a factory-level default implementation
- * that reads/writes factory_settings rows keyed `notifications.mute_<typeKey>`.
- * AF15 reworks this into per-user persistence. The seam is `MutePreferenceReader`
+ * that reads/writes mute preferences keyed by `typeKey`. AF15 reworks this into
+ * per-user persistence. The seam is `MutePreferenceReader`
  * and `MutePreferenceWriter` — AF15 provides per-user implementations that have
  * the same interface. Until AF15 lands, mute is global-per-factory which is
  * acceptable for the single-founder near-term (concept-notes §4).
@@ -12,11 +12,15 @@
  * swaps the implementation. The drain and listener call `isTypeMuted(typeKey)`
  * and will not change when AF15 extends the signature to
  * `isTypeMuted(typeKey, userId)` — just swap the implementation in bootstrapAppRuntime.
+ *
+ * @lore AU18: re-backed onto `server_config.notifications.mutedTypes` (was
+ * `factorySettings.notifications.mute_<typeKey>` rows). `mutedTypes` is a flat
+ * string array of muted type keys — a set represented as a sorted-unique list.
  */
 
-import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { NotificationTypeKey } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { readServerConfig, updateServerConfig } from "../services/server-config.js";
 
 /** Read interface used by the drain loop and notification listener. */
 export interface MutePreferenceReader {
@@ -28,57 +32,36 @@ export interface MutePreferenceWriter {
 	setMuted(typeKey: NotificationTypeKey, muted: boolean): Promise<void>;
 }
 
-function muteKey(typeKey: NotificationTypeKey): string {
-	return `notifications.mute_${typeKey}`;
-}
-
 /**
- * Default factory-level reader: reads `factory_settings.notifications.mute_<key>`.
+ * Default factory-level reader: reads `server_config.notifications.mutedTypes`.
  * Absent = not muted (fail-open).
  */
 export function defaultMutePreferenceReader(db: HyperIdleDb): MutePreferenceReader {
 	return {
 		async isTypeMuted(typeKey: NotificationTypeKey): Promise<boolean> {
-			const [row] = await db
-				.select()
-				.from(factorySettings)
-				.where(eq(factorySettings.key, muteKey(typeKey)))
-				.limit(1);
-			return row?.value === "true";
+			const { notifications } = await readServerConfig(db);
+			return notifications.mutedTypes.includes(typeKey);
 		},
 	};
 }
 
 /**
- * Default factory-level writer: writes `factory_settings.notifications.mute_<key>`.
+ * Default factory-level writer: writes `server_config.notifications.mutedTypes`.
  */
 export function defaultMutePreferenceWriter(db: HyperIdleDb): MutePreferenceWriter {
 	return {
 		async setMuted(typeKey: NotificationTypeKey, muted: boolean): Promise<void> {
-			const key = muteKey(typeKey);
-			const value = muted ? "true" : "false";
-			const now = new Date().toISOString();
-			await db
-				.insert(factorySettings)
-				.values({ key, value, updatedAt: now })
-				.onConflictDoUpdate({
-					target: factorySettings.key,
-					set: { value, updatedAt: now },
-				});
+			const { notifications } = await readServerConfig(db);
+			const current = new Set(notifications.mutedTypes);
+			if (muted) current.add(typeKey);
+			else current.delete(typeKey);
+			await updateServerConfig(db, { notifications: { mutedTypes: [...current] } });
 		},
 	};
 }
 
 /** Helper: read all muted type keys (for GET /notifications/mute). */
 export async function getMutedTypeKeys(db: HyperIdleDb): Promise<NotificationTypeKey[]> {
-	const prefix = "notifications.mute_";
-	const rows = await db.select().from(factorySettings);
-	const muted: NotificationTypeKey[] = [];
-	for (const row of rows) {
-		if (row.key.startsWith(prefix) && row.value === "true") {
-			const typeKey = row.key.slice(prefix.length) as NotificationTypeKey;
-			muted.push(typeKey);
-		}
-	}
-	return muted;
+	const { notifications } = await readServerConfig(db);
+	return notifications.mutedTypes as NotificationTypeKey[];
 }

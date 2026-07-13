@@ -732,38 +732,11 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.status).toBe("ok");
 		});
 
-		test("GET /api/status/settings returns settings list", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/status/settings", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as Array<{ key: string; value: string | null }>;
-			expect(Array.isArray(body)).toBe(true);
-		});
-
-		test("PATCH /api/status/settings updates a setting", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/status/settings", {
-				method: "PATCH",
-				headers: auth(),
-				body: JSON.stringify({ key: "test_key", value: "test_value" }),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { key: string; value: string };
-			expect(body.key).toBe("test_key");
-			expect(body.value).toBe("test_value");
-		});
-
-		test("PATCH /api/status/settings blocks reserved namespace keys", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/status/settings", {
-				method: "PATCH",
-				headers: auth(),
-				body: JSON.stringify({ key: "notifications.smtp_password", value: "secret" }),
-			});
-			expect(res.status).toBe(400);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("VALIDATION_ERROR");
-		});
+		// @lore AU18: the generic `GET`/`PATCH /api/status/settings` catch-all is
+		// retired along with `factorySettings` — every legitimate key it carried
+		// now has a domain-specific route backed by `server_config`
+		// (notifications/observability/git-export config have their own route
+		// tests). No web client depended on the raw-rows shape (confirmed via grep).
 
 		test("GET /api/status/digest returns digest data", async ({ db, app }) => {
 			await seedBase(db);

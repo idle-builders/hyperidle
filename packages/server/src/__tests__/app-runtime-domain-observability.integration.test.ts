@@ -2,13 +2,13 @@ import {
 	agentSessionRequests,
 	type HyperIdleDb,
 	knowledgeAppProjection,
-	notificationQueue,
 	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { defaultNotificationAdapterFactory } from "../notifications/adapter-factory.js";
 import { enqueueNotification, flushQueue } from "../notifications/dispatcher.js";
+import { listAll } from "../notifications/notification-queue.js";
 import { test as fixtureTest } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au3-domain";
@@ -98,7 +98,7 @@ describe("app runtime domain observability", () => {
 				channel: null,
 				now: new Date(),
 			});
-			const queued = await db.select().from(notificationQueue);
+			const queued = await listAll(db);
 			expect(queued).toHaveLength(1);
 
 			await flushQueue(
@@ -149,10 +149,7 @@ describe("app runtime domain observability", () => {
 			expect(typeof gitStatus.enabled).toBe("boolean");
 			expect(typeof gitStatus.branch).toBe("string");
 
-			const [sent] = await db
-				.select()
-				.from(notificationQueue)
-				.where(eq(notificationQueue.eventType, "au3.domain"));
+			const sent = (await listAll(db)).find((r) => r.eventType === "au3.domain");
 			expect(sent?.status).toBe("sent");
 		},
 	);

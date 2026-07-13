@@ -19,7 +19,7 @@
  * columns. Honest over fabricated.
  */
 
-import { factorySettings, sessions, teamMembers, teams } from "@hyperidle/db";
+import { sessions, teamMembers, teams } from "@hyperidle/db";
 import type {
 	AgentActiveSession,
 	AgentHarnessCapabilities,
@@ -315,7 +315,9 @@ export async function handleAgentProfile(
 
 	// 9. Review track record (replaces skills)
 	// @lore AD4: Skills removed. Trust is now computed from verdict message history.
-	const windowDays = await getFactorySettingInt(db, "trust_window_days", 30);
+	// @lore AU18: `trust_window_days` settability via factory_settings is retired
+	// (plan §3/§10 — no production/eval writer ever existed). Fixed default.
+	const windowDays = TRUST_WINDOW_DAYS;
 	const trackRecordResult = await computeApprovalRate(db, agentId, windowDays, 10);
 
 	const reviewTrackRecord: AgentReviewTrackRecord = {
@@ -357,26 +359,8 @@ export async function handleAgentProfile(
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Read an integer factory setting with a default fallback.
- * @lore AD4: Shared pattern with policy-engine's getFactorySettingInt.
- * Kept local to avoid cross-package coupling for a trivial helper.
- */
-async function getFactorySettingInt(
-	db: import("@hyperidle/db").HyperIdleDb,
-	key: string,
-	defaultValue: number,
-): Promise<number> {
-	const [row] = await db
-		.select()
-		.from(factorySettings)
-		.where(eq(factorySettings.key, key))
-		.limit(1);
-
-	if (!row) return defaultValue;
-	const parsed = Number.parseInt(row.value, 10);
-	return Number.isFinite(parsed) ? parsed : defaultValue;
-}
+/** @lore AU18: was settable via `factory_settings.trust_window_days` — now the fixed default. */
+const TRUST_WINDOW_DAYS = 30;
 
 /**
  * Determine if the agent's required harness type is available in the pool.

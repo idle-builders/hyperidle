@@ -30,7 +30,7 @@
  */
 
 import * as crypto from "node:crypto";
-import { type HyperIdleDb, type Item, items as itemsTable, notificationQueue } from "@hyperidle/db";
+import { type HyperIdleDb, type Item, items as itemsTable } from "@hyperidle/db";
 import {
 	type CostCapBreachedEvent,
 	type CostCapWarningEvent,
@@ -40,9 +40,19 @@ import {
 	type Logger,
 	type RoutineFiredEvent,
 } from "@hyperidle/shared";
-import { and, asc, eq, lt, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { loadNotificationConfig, type NotificationConfig, pickRecipient } from "./config.js";
 import { type DigestResult, runDailyDigest } from "./digest.js";
+import {
+	claimForSend,
+	insertNotification,
+	listPending,
+	listPendingDigest,
+	listStuckLeases,
+	queueCountByStatus,
+	requeueLease,
+	updateStatus,
+} from "./notification-queue.js";
 import { scrubErrorMessage } from "./redact.js";
 import { isFactorySilenced, isInSilenceWindow, readSilenceWindow } from "./silence-policy.js";
 import type {
@@ -52,7 +62,6 @@ import type {
 	NotificationChannel,
 	NotificationSeverity,
 	QueueReason,
-	QueueStatus,
 	Recipient,
 	SendResult,
 } from "./types.js";
@@ -213,15 +222,6 @@ function buildCostWarningNotification(
 	};
 }
 
-async function queueCount(db: HyperIdleDb, status: QueueStatus): Promise<number> {
-	const [row] = await db
-		.select({ count: sql<number>`count(*)` })
-		.from(notificationQueue)
-		.where(eq(notificationQueue.status, status))
-		.limit(1);
-	return row?.count ?? 0;
-}
-
 export async function enqueueNotification(
 	db: HyperIdleDb,
 	params: {
@@ -245,36 +245,20 @@ export async function enqueueNotification(
 	// we cannot evict a digest row, we still must not exceed the cap —
 	// drop the incoming non-digest row and surface a last-error entry
 	// through the adapter retry path instead.
-	while ((await queueCount(db, "pending")) >= cap) {
+	while ((await queueCountByStatus(db, "pending")) >= cap) {
 		if (params.severity === "digest") return;
-		const [oldestDigest] = await db
-			.select()
-			.from(notificationQueue)
-			.where(and(eq(notificationQueue.status, "pending"), eq(notificationQueue.severity, "digest")))
-			.orderBy(asc(notificationQueue.createdAt))
-			.limit(1);
+		const [oldestDigest] = await listPendingDigest(db);
 		if (!oldestDigest) {
 			// No digest row to evict. Drop the oldest pending row of any
 			// severity rather than exceed the cap.
-			const [oldest] = await db
-				.select()
-				.from(notificationQueue)
-				.where(eq(notificationQueue.status, "pending"))
-				.orderBy(asc(notificationQueue.createdAt))
-				.limit(1);
+			const [oldest] = await listPending(db);
 			if (!oldest) break; // queue empty somehow — insert safely
-			await db
-				.update(notificationQueue)
-				.set({ status: "dropped" })
-				.where(eq(notificationQueue.id, oldest.id));
+			await updateStatus(db, oldest.id, { status: "dropped" });
 			continue;
 		}
-		await db
-			.update(notificationQueue)
-			.set({ status: "dropped" })
-			.where(eq(notificationQueue.id, oldestDigest.id));
+		await updateStatus(db, oldestDigest.id, { status: "dropped" });
 	}
-	await db.insert(notificationQueue).values({
+	await insertNotification(db, {
 		id: crypto.randomUUID(),
 		eventType: params.eventType,
 		subjectId: params.subjectId,
@@ -323,15 +307,9 @@ async function sendWithAdapter(
  */
 export async function recoverStuckLeases(db: HyperIdleDb, now: Date): Promise<number> {
 	const cutoff = new Date(now.getTime() - LEASE_TIMEOUT_MS).toISOString();
-	const stuck = await db
-		.select()
-		.from(notificationQueue)
-		.where(and(eq(notificationQueue.status, "sending"), lt(notificationQueue.claimedAt, cutoff)));
+	const stuck = await listStuckLeases(db, cutoff);
 	for (const row of stuck) {
-		await db
-			.update(notificationQueue)
-			.set({ status: "pending", claimedAt: null })
-			.where(eq(notificationQueue.id, row.id));
+		await requeueLease(db, row.id);
 	}
 	return stuck.length;
 }
@@ -343,12 +321,8 @@ export async function recoverStuckLeases(db: HyperIdleDb, now: Date): Promise<nu
  * row.
  */
 async function claimRow(db: HyperIdleDb, rowId: string, now: Date): Promise<boolean> {
-	const res = await db
-		.update(notificationQueue)
-		.set({ status: "sending", claimedAt: now.toISOString() })
-		.where(and(eq(notificationQueue.id, rowId), eq(notificationQueue.status, "pending")))
-		.returning({ id: notificationQueue.id });
-	return res.length > 0;
+	const claimed = await claimForSend(db, rowId, now);
+	return claimed !== undefined;
 }
 
 /**
@@ -403,11 +377,7 @@ export async function flushQueue(
 	now: Date,
 ): Promise<{ flushed: number; failed: number; deferred: number }> {
 	await recoverStuckLeases(db, now);
-	const rows = await db
-		.select()
-		.from(notificationQueue)
-		.where(eq(notificationQueue.status, "pending"))
-		.orderBy(asc(notificationQueue.createdAt));
+	const rows = await listPending(db);
 	let flushed = 0;
 	let failed = 0;
 	let deferred = 0;
@@ -445,15 +415,12 @@ export async function flushQueue(
 		const { adapter, channel } = adapterForRow(factory, cfg, row.channel, severity);
 		const recipient = pickRecipient(cfg, channel, severity === "digest" ? "digest" : "push");
 		if (!recipient) {
-			await db
-				.update(notificationQueue)
-				.set({
-					status: "failed",
-					lastError: `no recipient configured for channel '${channel}'`,
-					attempts: row.attempts + 1,
-					claimedAt: null,
-				})
-				.where(eq(notificationQueue.id, row.id));
+			await updateStatus(db, row.id, {
+				status: "failed",
+				lastError: `no recipient configured for channel '${channel}'`,
+				attempts: row.attempts + 1,
+				claimedAt: null,
+			});
 			failed += 1;
 			continue;
 		}
@@ -465,30 +432,24 @@ export async function flushQueue(
 		};
 		const result = await sendWithAdapter(adapter, recipient, notification, cfg);
 		if (result.ok) {
-			await db
-				.update(notificationQueue)
-				.set({
-					status: "sent",
-					sentAt: now.toISOString(),
-					attempts: row.attempts + 1,
-					claimedAt: null,
-				})
-				.where(eq(notificationQueue.id, row.id));
+			await updateStatus(db, row.id, {
+				status: "sent",
+				sentAt: now.toISOString(),
+				attempts: row.attempts + 1,
+				claimedAt: null,
+			});
 			flushed += 1;
 		} else {
-			await db
-				.update(notificationQueue)
-				.set({
-					status: "failed",
-					lastError: scrubErrorMessage(result.error, {
-						smtpUsername: cfg.smtp.username,
-						smtpPassword: cfg.smtp.password,
-						ntfyAuthToken: cfg.ntfy.authToken,
-					}),
-					attempts: row.attempts + 1,
-					claimedAt: null,
-				})
-				.where(eq(notificationQueue.id, row.id));
+			await updateStatus(db, row.id, {
+				status: "failed",
+				lastError: scrubErrorMessage(result.error, {
+					smtpUsername: cfg.smtp.username,
+					smtpPassword: cfg.smtp.password,
+					ntfyAuthToken: cfg.ntfy.authToken,
+				}),
+				attempts: row.attempts + 1,
+				claimedAt: null,
+			});
 			failed += 1;
 		}
 	}
@@ -624,7 +585,7 @@ export function registerNotificationDispatcher(
 				channel,
 				eventType,
 			});
-			await db.insert(notificationQueue).values({
+			await insertNotification(db, {
 				id: crypto.randomUUID(),
 				eventType,
 				subjectId,
@@ -691,15 +652,17 @@ export function registerNotificationDispatcher(
 		//
 		// @lore AF8: The previous logic (inherited from R8) checked quietHoursEnabled
 		// from AlertPreferences and bypassed quiet hours for hard cost breaches, making
-		// it safe but coarser (no factory_settings window check). The AF8 split aligns
+		// it safe but coarser (no factory-level window check). The AF8 split aligns
 		// the direct-send path with the drain's logic: cost_breach respects quiet hours
-		// from factory_settings (not just AlertPreferences quietHoursEnabled).
-		// AlertPreferences quietHoursEnabled check is kept as an additional gate because
-		// it may be set independently (e.g. by users who have not set a factory window).
+		// from `server_config.notifications.silence` (not just AlertPreferences
+		// quietHoursEnabled). AlertPreferences quietHoursEnabled check is kept as an
+		// additional gate because it may be set independently (e.g. by users who have
+		// not set a factory window).
 		//
 		// Decision precedence:
 		//   1. AlertPreferences quiet hours (R8 gate)
-		//   2. factory_settings silence_window (AF8 gate — read once from DB)
+		//   2. server_config.notifications.silence window (AF8 gate — read once from DB;
+		//      AU18: re-backed off the retired factory_settings.silence_window_* KV keys)
 		// Either gate triggers deferral for non-breach rows.
 		// cost_breach defers on quiet hours from either source; bypasses factory silence.
 

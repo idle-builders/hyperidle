@@ -25,7 +25,6 @@ import {
 	insertUserSchema,
 	selectArtifactSchema,
 	selectBetSchema,
-	selectFactorySettingSchema,
 	selectItemSchema,
 	selectKnowledgeAccessLogSchema,
 	selectKnowledgeConflictSchema,
@@ -149,11 +148,6 @@ describe("A. drizzle-zod base schemas", () => {
 		it("selectUserSkillSchema is a valid Zod schema", () => {
 			expect(selectUserSkillSchema).toBeDefined();
 			expect(typeof selectUserSkillSchema.parse).toBe("function");
-		});
-
-		it("selectFactorySettingSchema is a valid Zod schema", () => {
-			expect(selectFactorySettingSchema).toBeDefined();
-			expect(typeof selectFactorySettingSchema.parse).toBe("function");
 		});
 
 		it("selectKnowledgeItemSchema is a valid Zod schema", () => {

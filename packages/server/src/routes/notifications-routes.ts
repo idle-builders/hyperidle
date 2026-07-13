@@ -1,8 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { notificationQueue } from "@hyperidle/db";
 import type { ApiErrorResponse, Logger, NotificationTypeKey } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/shared";
-import { desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -23,6 +21,12 @@ import {
 } from "../notifications/config.js";
 import { type AdapterFactory, dispatchDigest, flushQueue } from "../notifications/dispatcher.js";
 import { defaultMutePreferenceWriter, getMutedTypeKeys } from "../notifications/mute.js";
+import {
+	listByStatus,
+	listUnread,
+	markRead,
+	markSeenAll,
+} from "../notifications/notification-queue.js";
 import type { Notification, NotificationChannel, SendResult } from "../notifications/types.js";
 
 const channelEnum = z.enum(["console", "ntfy", "smtp"]);
@@ -305,12 +309,7 @@ export function createNotificationRoutes(
 			};
 			return c.json(response, 400);
 		}
-		const rows = await db
-			.select()
-			.from(notificationQueue)
-			.where(eq(notificationQueue.status, parsed.data))
-			.orderBy(desc(notificationQueue.createdAt))
-			.limit(limit);
+		const rows = await listByStatus(db, parsed.data, limit);
 		return c.json({
 			status: parsed.data,
 			count: rows.length,
@@ -363,12 +362,7 @@ export function createNotificationRoutes(
 	 * Drives the popover row list and unread dot count.
 	 */
 	router.get("/inbox", requireBoundary({ kind: "principal-self" }), async (c) => {
-		const rows = await db
-			.select()
-			.from(notificationQueue)
-			.where(isNull(notificationQueue.readAt))
-			.orderBy(desc(notificationQueue.createdAt))
-			.limit(50);
+		const rows = await listUnread(db, 50);
 
 		// Sort: immediate urgency first, then ambient; within each group, newest first
 		const sorted = [...rows].sort((a, b) => {
@@ -403,8 +397,7 @@ export function createNotificationRoutes(
 	 * round-trip per unseen row (50+ rows = 50+ DB calls on every popover open).
 	 */
 	router.post("/seen", requireBoundary({ kind: "principal-self" }), async (c) => {
-		const now = nowFn().toISOString();
-		await db.update(notificationQueue).set({ seenAt: now }).where(isNull(notificationQueue.seenAt));
+		await markSeenAll(db, nowFn());
 		return c.json({ ok: true });
 	});
 
@@ -425,11 +418,7 @@ export function createNotificationRoutes(
 			};
 			return c.json(response, 400);
 		}
-		const now = nowFn().toISOString();
-		await db
-			.update(notificationQueue)
-			.set({ readAt: now })
-			.where(eq(notificationQueue.id, parsed.data));
+		await markRead(db, parsed.data, nowFn());
 		return c.json({ ok: true });
 	});
 

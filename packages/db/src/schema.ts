@@ -864,14 +864,6 @@ export const orgEdges = pgTable(
 	],
 );
 
-// --- Factory settings ---
-
-export const factorySettings = pgTable("factory_settings", {
-	key: text("key").primaryKey(),
-	value: text("value").notNull(),
-	updatedAt: text("updated_at").notNull(),
-});
-
 // --- Knowledge ---
 
 /**
@@ -1631,9 +1623,6 @@ export type NewUserSkill = typeof userSkills.$inferInsert;
 
 export type OrgEdge = typeof orgEdges.$inferSelect;
 export type NewOrgEdge = typeof orgEdges.$inferInsert;
-
-export type FactorySetting = typeof factorySettings.$inferSelect;
-export type NewFactorySetting = typeof factorySettings.$inferInsert;
 
 export type KnowledgeItem = typeof knowledgeItems.$inferSelect;
 export type NewKnowledgeItem = typeof knowledgeItems.$inferInsert;

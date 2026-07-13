@@ -7,10 +7,10 @@
  * POST /api/observability/flush    -> triggers drain
  */
 
-import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { Logger } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
+import { updateObservabilityConfig } from "../../services/observability/config.js";
 import { createObservabilityDispatcher } from "../../services/observability/dispatcher.js";
 import type {
 	ObservabilityAdapter,
@@ -26,14 +26,13 @@ function quietAdapter(): ObservabilityAdapter {
 	};
 }
 
-async function seedKeys(db: HyperIdleDb, keys: Record<string, string>): Promise<void> {
-	const now = new Date().toISOString();
-	for (const [k, v] of Object.entries(keys)) {
-		await db
-			.insert(factorySettings)
-			.values({ key: k, value: v, updatedAt: now })
-			.onConflictDoUpdate({ target: factorySettings.key, set: { value: v, updatedAt: now } });
-	}
+// @lore AU18: seeds via updateObservabilityConfig (server_config-backed) instead
+// of raw factorySettings KV rows — same observable outcome, new storage.
+async function seedKeys(
+	db: HyperIdleDb,
+	patch: { enabled?: boolean; adapter?: "console" | "noop" },
+): Promise<void> {
+	await updateObservabilityConfig(db, patch);
 }
 
 function captureLogger(): { logger: Logger; calls: Array<{ msg: string; extra: unknown }> } {
@@ -70,10 +69,7 @@ function appWithRoutes(
 
 describe("H3 observability routes — GET /config", () => {
 	test("returns expected config shape", async ({ db }) => {
-		await seedKeys(db, {
-			"observability.enabled": "true",
-			"observability.adapter": "console",
-		});
+		await seedKeys(db, { enabled: true, adapter: "console" });
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config");
 		expect(res.status).toBe(200);
@@ -140,7 +136,7 @@ describe("H3 observability routes — PATCH /config", () => {
 	});
 
 	test("accepts enabled=false without other fields (disable path)", async ({ db }) => {
-		await seedKeys(db, { "observability.enabled": "true" });
+		await seedKeys(db, { enabled: true });
 		const { request } = appWithRoutes(db, null);
 		const res = await request("/config", {
 			method: "PATCH",
@@ -148,11 +144,8 @@ describe("H3 observability routes — PATCH /config", () => {
 			body: JSON.stringify({ enabled: false }),
 		});
 		expect(res.status).toBe(200);
-		const [row] = await db
-			.select()
-			.from(factorySettings)
-			.where(eq(factorySettings.key, "observability.enabled"));
-		expect(row?.value).toBe("false");
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.enabled).toBe(false);
 	});
 });
 
@@ -161,7 +154,7 @@ describe("H3 observability routes — /status + /flush", () => {
 	test("status reports enabled=false when no dispatcher and explicitly disabled in config", async ({
 		db,
 	}) => {
-		await seedKeys(db, { "observability.enabled": "false" });
+		await seedKeys(db, { enabled: false });
 		const { request } = appWithRoutes(db, null);
 		const body = (await (await request("/status")).json()) as Record<string, unknown>;
 		expect(body.enabled).toBe(false);
@@ -171,10 +164,7 @@ describe("H3 observability routes — /status + /flush", () => {
 	test("status reports enabled=true + adapter=noop when config is {adapter:noop, enabled:true}", async ({
 		db,
 	}) => {
-		await seedKeys(db, {
-			"observability.enabled": "true",
-			"observability.adapter": "noop",
-		});
+		await seedKeys(db, { enabled: true, adapter: "noop" });
 		// noop adapter => no dispatcher wired; /status must still reflect
 		// the persisted config instead of silently reporting "disabled".
 		const { request } = appWithRoutes(db, null);

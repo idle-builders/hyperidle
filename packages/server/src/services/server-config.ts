@@ -20,6 +20,97 @@ import {
 import { BUILT_IN_GATEWAY_CONFIG } from "./model-gateway.js";
 
 /**
+ * AU18 §3/§5: notification delivery config (SMTP/ntfy), migrated off the
+ * retired `factorySettings.notifications.*` KV keys. Flat by design (no
+ * nested sub-objects) — mirrors the original flat KV-prefix shape and keeps
+ * this sub-schema outside the Zod v4 nested-default gotcha entirely; the
+ * public `NotificationConfig` type (notifications/config.ts) reshapes this
+ * flat storage into its nested wire shape at the domain-module boundary.
+ * Secrets (smtp password / ntfy auth token) are NOT here — AH1 precedent:
+ * secrets live in `server_credentials`, never the config blob.
+ */
+const NotificationsDeliverySchema = z.object({
+	enabled: z.boolean().default(false),
+	primaryChannel: z.enum(["console", "ntfy", "smtp"]).default("console"),
+	/**
+	 * @lore AU18: nullable (not defaulted to a concrete channel) so the
+	 * original KV-era fallback semantics ("digestChannel falls back to
+	 * whatever primaryChannel currently is, not a fixed value") is preserved
+	 * — notifications/config.ts's buildConfig computes
+	 * `delivery.digestChannel ?? primaryChannel` at read time.
+	 */
+	digestChannel: z.enum(["console", "ntfy", "smtp"]).nullable().default(null),
+	recipientEmail: z.string().nullable().default(null),
+	recipientNtfyTopic: z.string().nullable().default(null),
+	ntfyBaseUrl: z.string().default("https://ntfy.sh"),
+	smtpHost: z.string().nullable().default(null),
+	smtpPort: z.number().default(587),
+	smtpSecure: z.boolean().default(false),
+	smtpUsername: z.string().nullable().default(null),
+	smtpFrom: z.string().nullable().default(null),
+	floodMaxPerMinute: z.number().default(6),
+	floodCoalesceWindowMs: z.number().default(60_000),
+	testMaxPerHour: z.number().default(5),
+	smtpIgnoreTls: z.boolean().default(false),
+	digestCron: z.string().default("0 8 * * *"),
+});
+
+/**
+ * AU18 §3/§5: silence-policy config (silence-policy.ts), migrated off the
+ * retired `factorySettings.silence_*` KV keys. `windowStart`/`windowEnd` are
+ * flattened (not a nested `window` object) for the same nested-default
+ * reason as {@link NotificationsDeliverySchema} — no prod writer exists for
+ * this namespace today, so defaults (off/empty/null) preserve behavior.
+ */
+const NotificationsSilenceSchema = z.object({
+	mode: z.boolean().default(false),
+	silencedTeamIds: z.array(z.string()).default([]),
+	windowStart: z.string().nullable().default(null),
+	windowEnd: z.string().nullable().default(null),
+});
+
+/** AU18 §3/§5: observability config (services/observability/config.ts), migrated off factorySettings. */
+const ObservabilitySchema = z.object({
+	// @lore AF16 T14: default-on so tracing is "configured rather than silently off".
+	enabled: z.boolean().default(true),
+	adapter: z.enum(["console", "noop"]).default("console"),
+	batchSize: z.number().default(100),
+	flushIntervalMs: z.number().default(2000),
+	bufferCap: z.number().default(10_000),
+});
+
+/**
+ * AU18 §3/§5: git-export config (config/git-export-config.ts), migrated off
+ * factorySettings. `repoRoot` is now a real string array (was a colon-joined
+ * string in the KV era). The commit/push stamps are flattened fields owned
+ * solely by git-export-config.ts (writeLastCommit/writeLastPush).
+ */
+const GitExportSchema = z.object({
+	enabled: z.boolean().default(false),
+	repoPath: z.string().default(""),
+	remoteUrl: z.string().nullable().default(null),
+	branch: z.string().default("main"),
+	authorName: z.string().default("HyperIdle Export"),
+	authorEmail: z.string().default("export@hyperidle.local"),
+	debounceMs: z.number().default(2000),
+	allowFileRemote: z.boolean().default(false),
+	repoRoot: z.array(z.string()).default([]),
+	lastCommitAt: z.string().nullable().default(null),
+	lastCommitSha: z.string().nullable().default(null),
+	lastPushAt: z.string().nullable().default(null),
+});
+
+/** AU18 §3/§4: cost-cap config — capMinor replaces the retired `factorySettings.cost_cap` key. */
+const CostSchema = z.object({
+	capMinor: z.number().default(20_000),
+});
+
+/** AU18 §3/§4: cost-sentinel's own dedup state — replaces `factorySettings.cost_sentinel_last_level`. */
+const InternalSchema = z.object({
+	costSentinelLastLevel: z.enum(["ok", "warning", "breach"]).nullable().default(null),
+});
+
+/**
  * @lore P3: The notifications sub-schema is defined separately so we can
  * call NotificationsSchema.parse({}) to build DEFAULTS. In Zod v4, calling
  * ServerConfigSchema.parse({}) does NOT recursively apply nested .default()
@@ -50,6 +141,17 @@ const NotificationsSchema = z.object({
 	// @lore U1: renamed from mutedProducts. Old stored JSON with mutedProducts key
 	// gracefully degrades to empty array via .default([]).
 	mutedTeams: z.array(z.string()).default([]),
+	/** AU18: per-notification-type mute keys (notifications/mute.ts), migrated off factorySettings. */
+	mutedTypes: z.array(z.string()).default([]),
+	/**
+	 * AU18: notification delivery config (SMTP/ntfy), migrated off factorySettings.
+	 * Kept as a nested-but-optional sub-schema (Zod v4 nested-default @lore applies —
+	 * see applyDefaults/DEFAULTS below, which parse it explicitly rather than
+	 * relying on an outer .default({})).
+	 */
+	delivery: NotificationsDeliverySchema.optional(),
+	/** AU18: silence-policy config (silence-policy.ts), migrated off factorySettings. */
+	silence: NotificationsSilenceSchema.optional(),
 });
 
 /**
@@ -91,16 +193,35 @@ const ServerConfigSchema = z.object({
 	 * "builtin" is always exempt even if listed here — guarded in select() and the route.
 	 */
 	harnessDisabled: z.array(z.string()).default([]),
+	/** AU18: observability config (migrated from factorySettings). */
+	observability: ObservabilitySchema.optional(),
+	/** AU18: git-export config (migrated from factorySettings). */
+	gitExport: GitExportSchema.optional(),
+	/** AU18: cost-cap config (migrated from factorySettings). */
+	cost: CostSchema.optional(),
+	/** AU18: internal computed/dedup state (cost-sentinel's own — migrated from factorySettings). */
+	internal: InternalSchema.optional(),
 });
 
 type RawServerConfig = z.infer<typeof ServerConfigSchema>;
 
 export type ServerConfig = {
-	notifications: z.infer<typeof NotificationsSchema>;
+	notifications: z.infer<typeof NotificationsSchema> & {
+		delivery: z.infer<typeof NotificationsDeliverySchema>;
+		silence: z.infer<typeof NotificationsSilenceSchema>;
+	};
 	/** X4: Fully-typed model gateway config (always present, defaults applied). */
 	modelGateway: ModelGatewayConfig;
 	/** AM4: List of harness types the user has disabled. Defaults to []. */
 	harnessDisabled: string[];
+	/** AU18: fully-typed observability config (always present, defaults applied). */
+	observability: z.infer<typeof ObservabilitySchema>;
+	/** AU18: fully-typed git-export config (always present, defaults applied). */
+	gitExport: z.infer<typeof GitExportSchema>;
+	/** AU18: fully-typed cost-cap config (always present, defaults applied). */
+	cost: z.infer<typeof CostSchema>;
+	/** AU18: fully-typed internal computed state (always present, defaults applied). */
+	internal: z.infer<typeof InternalSchema>;
 };
 
 /** Deep partial type for use in updateServerConfig patches. */
@@ -113,6 +234,11 @@ type DeepPartialNotifications = {
 	quietHoursEnd?: string;
 	// @lore U1: renamed from mutedProducts.
 	mutedTeams?: string[];
+	/** AU18: per-type mute keys. */
+	mutedTypes?: string[];
+	/** AU18: deep-partial — a delivery-only patch preserves silence, and vice versa. */
+	delivery?: Partial<z.infer<typeof NotificationsDeliverySchema>>;
+	silence?: Partial<z.infer<typeof NotificationsSilenceSchema>>;
 };
 
 type DeepPartialModelTier = {
@@ -142,9 +268,32 @@ type ServerConfigPatch = {
 	 * Use updateServerConfig to add/remove a type atomically (read-modify-write).
 	 */
 	harnessDisabled?: string[];
+	/** AU18: shallow partial — every field is independently patchable. */
+	observability?: Partial<z.infer<typeof ObservabilitySchema>>;
+	gitExport?: Partial<z.infer<typeof GitExportSchema>>;
+	cost?: Partial<z.infer<typeof CostSchema>>;
+	internal?: Partial<z.infer<typeof InternalSchema>>;
 };
 
 export type { ServerConfigPatch };
+
+/**
+ * Apply NotificationsSchema defaults, INCLUDING its own nested `delivery`/
+ * `silence` sub-schemas. Same Zod v4 nested-default gotcha as the top-level
+ * ServerConfigSchema: `delivery`/`silence` are `.optional()` (not
+ * `.default()`) on NotificationsSchema, so NotificationsSchema.parse({})
+ * alone leaves them `undefined` — they must be explicitly re-parsed.
+ */
+function applyNotificationsDefaults(
+	raw: RawServerConfig["notifications"],
+): ServerConfig["notifications"] {
+	const parsed = NotificationsSchema.parse(raw ?? {});
+	return {
+		...parsed,
+		delivery: NotificationsDeliverySchema.parse(parsed.delivery ?? {}),
+		silence: NotificationsSilenceSchema.parse(parsed.silence ?? {}),
+	};
+}
 
 /**
  * Fully-populated defaults with all nested defaults applied.
@@ -155,9 +304,13 @@ export type { ServerConfigPatch };
  * all the boolean/string defaults correctly.
  */
 const DEFAULTS: ServerConfig = {
-	notifications: NotificationsSchema.parse({}),
+	notifications: applyNotificationsDefaults(undefined),
 	modelGateway: BUILT_IN_GATEWAY_CONFIG,
 	harnessDisabled: [],
+	observability: ObservabilitySchema.parse({}),
+	gitExport: GitExportSchema.parse({}),
+	cost: CostSchema.parse({}),
+	internal: InternalSchema.parse({}),
 };
 
 /**
@@ -167,12 +320,16 @@ const DEFAULTS: ServerConfig = {
  */
 function applyDefaults(raw: RawServerConfig): ServerConfig {
 	return {
-		notifications: NotificationsSchema.parse(raw.notifications ?? {}),
+		notifications: applyNotificationsDefaults(raw.notifications),
 		modelGateway: raw.modelGateway
 			? (ModelGatewayConfigSchema.parse(raw.modelGateway) as ModelGatewayConfig)
 			: BUILT_IN_GATEWAY_CONFIG,
 		// AM4: default to empty array when absent (legacy rows have no harnessDisabled key)
 		harnessDisabled: Array.isArray(raw.harnessDisabled) ? raw.harnessDisabled : [],
+		observability: ObservabilitySchema.parse(raw.observability ?? {}),
+		gitExport: GitExportSchema.parse(raw.gitExport ?? {}),
+		cost: CostSchema.parse(raw.cost ?? {}),
+		internal: InternalSchema.parse(raw.internal ?? {}),
 	};
 }
 
@@ -228,7 +385,23 @@ export async function updateServerConfig(
 		...current,
 		notifications:
 			patch.notifications !== undefined
-				? { ...current.notifications, ...patch.notifications }
+				? {
+						...current.notifications,
+						...patch.notifications,
+						// AU18 §5 merge-hazard fix: `delivery`/`silence` are nested sub-objects — a
+						// shallow `...patch.notifications` spread would let a delivery-only patch
+						// silently replace the whole `silence` object (and vice versa) if the
+						// patch shape ever carried both keys. Merge each nested section
+						// independently so a partial patch to one never touches the other.
+						delivery:
+							patch.notifications.delivery !== undefined
+								? { ...current.notifications.delivery, ...patch.notifications.delivery }
+								: current.notifications.delivery,
+						silence:
+							patch.notifications.silence !== undefined
+								? { ...current.notifications.silence, ...patch.notifications.silence }
+								: current.notifications.silence,
+					}
 				: current.notifications,
 		// AF15: Per-tier merge — preserves adjacent tiers' stored apiKey when patch omits them.
 		modelGateway: patch.modelGateway
@@ -241,6 +414,18 @@ export async function updateServerConfig(
 		// AM4: Full-replacement — the patch supplies the complete new list of disabled types.
 		harnessDisabled:
 			patch.harnessDisabled !== undefined ? patch.harnessDisabled : current.harnessDisabled,
+		// AU18: shallow merges — each new top-level section is flat (no nested sub-objects).
+		observability:
+			patch.observability !== undefined
+				? { ...current.observability, ...patch.observability }
+				: current.observability,
+		gitExport:
+			patch.gitExport !== undefined
+				? { ...current.gitExport, ...patch.gitExport }
+				: current.gitExport,
+		cost: patch.cost !== undefined ? { ...current.cost, ...patch.cost } : current.cost,
+		internal:
+			patch.internal !== undefined ? { ...current.internal, ...patch.internal } : current.internal,
 	};
 
 	// AH1 §2: no apiKey in tiers — no encryption step needed here. Keys go to server_credentials.

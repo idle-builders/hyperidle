@@ -6,6 +6,7 @@ import type { HyperIdleDb } from "../connection.js";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { applyFactoryBootstrap } from "../factory-bootstrap.js";
 import { seed } from "../seed.js";
+import { readSystemPromptTemplateForRole } from "../system-prompt-templates.js";
 
 // @lore AD8a: chief_of_staff system prompt file deleted (docs/system-prompts/chief-of-staff.md removed).
 // @lore AD8b: chief_of_staff role renamed to assistant.
@@ -39,8 +40,17 @@ describe("A2: Seed script", () => {
 		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
 		// @lore P2: agents → users table
 		// @lore AF17: seed() now calls applyFactoryBootstrap + seedDemoWorld.
-		// factory_bootstrap inserts users/knowledge_items/factory_settings; demo_fixture inserts teams/team_members.
-		const majorTables = ["users", "teams", "team_members", "knowledge_items", "factory_settings"];
+		// factory_bootstrap inserts users/knowledge_items/knowledge_strategy_fabric;
+		// demo_fixture inserts teams/team_members.
+		// @lore AU18: `factory_settings` dropped from this list — factory-bootstrap no
+		// longer writes to it (cost_cap/cost_cycle/system_template rows retired).
+		const majorTables = [
+			"users",
+			"teams",
+			"team_members",
+			"knowledge_items",
+			"knowledge_strategy_fabric",
+		];
 
 		for (const table of majorTables) {
 			const rows = await queryRows<{ count: string }>(db, `SELECT COUNT(*) AS count FROM ${table}`);
@@ -185,26 +195,21 @@ describe("A2: Seed script", () => {
 		}
 	});
 
-	// --- AD8c AC2: system_template:facilitator key exists (renamed from practice_facilitator) ---
-	test("factory_settings has system_template:facilitator key and NOT system_template:practice_facilitator (AD8c AC2)", async ({
+	// --- AD8c AC2: facilitator template resolves (renamed from practice_facilitator) ---
+	// @lore AU18: previously asserted a `factory_settings.system_template:facilitator`
+	// cache row; that table is retired. Templates now resolve directly via the
+	// shared `readSystemPromptTemplateForRole` docs-backed resolver.
+	test("facilitator template resolves and practice_facilitator does not (AD8c AC2)", async ({
 		db,
 	}) => {
 		await seed(db);
 
-		const facilitatorRows = await queryRows<{ key: string; value: string }>(
-			db,
-			"SELECT key, value FROM factory_settings WHERE key = 'system_template:facilitator'",
-		);
-		expect(facilitatorRows).toHaveLength(1);
-		expect(facilitatorRows[0]?.value).toBeTruthy();
-		expect(facilitatorRows[0]?.value.length).toBeGreaterThan(50);
+		const content = readSystemPromptTemplateForRole("facilitator");
+		expect(content).toBeTruthy();
+		expect((content ?? "").length).toBeGreaterThan(50);
 
-		// @lore AD8c: old key must not exist
-		const oldRows = await queryRows<{ key: string }>(
-			db,
-			"SELECT key FROM factory_settings WHERE key = 'system_template:practice_facilitator'",
-		);
-		expect(oldRows).toHaveLength(0);
+		// @lore AD8c: old role name must not resolve
+		expect(readSystemPromptTemplateForRole("practice_facilitator")).toBeNull();
 	});
 });
 

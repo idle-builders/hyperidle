@@ -1,20 +1,28 @@
 /**
- * X3 — Agent Configuration: DB migration + seed tests (RED phase)
+ * X3 — Agent Configuration: DB migration + seed tests
  *
  * AC-1: Users table gains systemPrompt, harnessType, modelTierPreference columns
- * AC-2: System prompt templates seeded from docs/system-prompts/ files into factorySettings
+ * AC-2: System prompt templates readable from docs/system-prompts/ via the
+ *       shared role→filename resolver
  * AC-3: Existing agents backfilled with systemPrompt from role template
  *
- * These tests FAIL until:
- *  - Migration 0021_X3_agent_config.sql adds the three new columns
- *  - seed.ts is updated to insert system_template:* factorySettings rows
- *  - seed.ts backfills systemPrompt on seed agent rows
+ * @lore AU18: AC-2 previously asserted templates were cached into
+ * `factory_settings.system_template:<role>` rows by seed(). That table is
+ * retired — templates are now read directly via `readSystemPromptTemplateForRole`
+ * (system-prompt-templates.ts), the same resolver `roster.ts`/`agents.ts` use
+ * at request time. AC-2/AC-3 below assert the same observable outcome
+ * (template content resolves; agents get backfilled with it) through the new
+ * storage.
  */
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 import { seed } from "../seed.js";
+import {
+	readSystemPromptTemplateForRole,
+	SYSTEM_PROMPT_TEMPLATE_FILES,
+} from "../system-prompt-templates.js";
 
 async function queryRows<T extends Record<string, unknown>>(
 	db: HyperIdleDb,
@@ -138,122 +146,63 @@ describe("X3 AC-1: users table gains systemPrompt, harnessType, modelTierPrefere
 });
 
 // ---------------------------------------------------------------------------
-// AC-2: System prompt templates seeded into factorySettings
+// AC-2: System prompt templates readable from docs/system-prompts/
 // ---------------------------------------------------------------------------
 
-describe("X3 AC-2: system prompt templates seeded from docs/system-prompts/ into factorySettings", () => {
-	test("factory_settings has system_template:product_manager key with non-empty content", async ({
-		db,
-	}) => {
-		await seed(db);
-
-		const rows = await queryRows<{ key: string; value: string }>(
-			db,
-			`SELECT key, value FROM factory_settings WHERE key = 'system_template:product_manager'`,
-		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.value).toBeTruthy();
-		expect(rows[0]?.value.length).toBeGreaterThan(50);
-		// Content should not have YAML frontmatter
-		expect(rows[0]?.value).not.toMatch(/^---/);
+describe("X3 AC-2: system prompt templates readable from docs/system-prompts/ via the shared resolver", () => {
+	test("product_manager template resolves with non-empty content, no frontmatter", () => {
+		const content = readSystemPromptTemplateForRole("product_manager");
+		expect(content).toBeTruthy();
+		expect((content ?? "").length).toBeGreaterThan(50);
+		expect(content).not.toMatch(/^---/);
 	});
 
 	// @lore AD8c: key renamed from system_template:practice_facilitator to system_template:facilitator
-	test("factory_settings has system_template:facilitator key with non-empty content (AD8c)", async ({
-		db,
-	}) => {
-		await seed(db);
-
-		const rows = await queryRows<{ key: string; value: string }>(
-			db,
-			`SELECT key, value FROM factory_settings WHERE key = 'system_template:facilitator'`,
-		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.value).toBeTruthy();
-		expect(rows[0]?.value.length).toBeGreaterThan(50);
-		// Content should not have YAML frontmatter
-		expect(rows[0]?.value).not.toMatch(/^---/);
+	test("facilitator template resolves with non-empty content, no frontmatter (AD8c)", () => {
+		const content = readSystemPromptTemplateForRole("facilitator");
+		expect(content).toBeTruthy();
+		expect((content ?? "").length).toBeGreaterThan(50);
+		expect(content).not.toMatch(/^---/);
 	});
 
-	// @lore AD8c: old key must not exist after rename
-	test("factory_settings does NOT have system_template:practice_facilitator (AD8c renamed)", async ({
-		db,
-	}) => {
-		await seed(db);
-		const rows = await queryRows<{ key: string }>(
-			db,
-			`SELECT key FROM factory_settings WHERE key = 'system_template:practice_facilitator'`,
-		);
-		expect(rows).toHaveLength(0);
+	// @lore AD8c: old role name must not resolve after rename
+	test("practice_facilitator does NOT resolve (AD8c renamed)", () => {
+		expect(readSystemPromptTemplateForRole("practice_facilitator")).toBeNull();
 	});
 
-	// @lore AD8a: system_template:chief_of_staff deleted — docs/system-prompts/chief-of-staff.md removed.
-	// AD8b adds assistant.md and re-inserts the entry with the new role name.
-	// @lore AD8a: chief_of_staff system prompt deleted; key no longer inserted by seed.
-	test("does NOT have system_template:chief_of_staff key (AD8a: system prompt deleted)", async ({
-		db,
-	}) => {
-		// @lore AD8a: role string renamed in AD8b
-		// @lore AD8a: role string renamed in AD8b
-		await seed(db);
-
-		const rows = await queryRows<{ key: string; value: string }>(
-			db,
-			`SELECT key, value FROM factory_settings WHERE key = 'system_template:chief_of_staff'`, // @lore AD8a: key deleted; AD8b creates system_template:assistant
-		);
-		expect(rows).toHaveLength(0);
+	// @lore AD8a: chief_of_staff system prompt deleted — docs/system-prompts/chief-of-staff.md removed.
+	// AD8b adds assistant.md but the map deliberately excludes "assistant" (bootstrap never
+	// seeded it, so the route stays 404 — see system-prompt-templates.ts).
+	test("chief_of_staff does NOT resolve (AD8a: system prompt deleted)", () => {
+		expect(readSystemPromptTemplateForRole("chief_of_staff")).toBeNull();
 	});
 
-	test("product_manager template content contains recognizable persona content", async ({ db }) => {
-		await seed(db);
-
-		const rows = await queryRows<{ value: string }>(
-			db,
-			`SELECT value FROM factory_settings WHERE key = 'system_template:product_manager'`,
-		);
-		// The content from docs/system-prompts/product-manager.md should be substantive
-		const content = rows[0]?.value ?? "";
-		// The system prompt should contain markdown headings or identity content
+	test("product_manager template content contains recognizable persona content", () => {
+		const content = readSystemPromptTemplateForRole("product_manager") ?? "";
 		expect(content).toMatch(/#|You are|Product Manager|PM/i);
 	});
 
-	test("seed is idempotent — running twice does not duplicate templates", async ({ db }) => {
-		await seed(db);
-		await seed(db); // second run
-
-		const rows = await queryRows<{ count: string }>(
-			db,
-			`SELECT COUNT(*) AS count FROM factory_settings WHERE key LIKE 'system_template:%'`,
+	test("the canonical map exposes exactly 7 roles (facilitator, product_manager, builder, growth, designer, qa_engineer, ops)", () => {
+		expect(Object.keys(SYSTEM_PROMPT_TEMPLATE_FILES).sort()).toEqual(
+			[
+				"builder",
+				"designer",
+				"facilitator",
+				"growth",
+				"ops",
+				"product_manager",
+				"qa_engineer",
+			].sort(),
 		);
-		// AB0: 8 templates. @lore AD8a: chief_of_staff system prompt deleted → now 7 templates.
-		// @lore AD8c: practice_facilitator renamed to facilitator — still 7 templates.
-		// facilitator, product_manager, builder, growth, designer, qa_engineer, ops.
-		expect(Number(rows[0]?.count)).toBeGreaterThanOrEqual(7);
 	});
 
 	// AB0: builder and growth now have templates (docs/system-prompts/builder.md, docs/system-prompts/growth.md added)
-	test("system_template:builder entry exists (AB0 added docs/system-prompts/builder.md)", async ({
-		db,
-	}) => {
-		await seed(db);
-
-		const rows = await queryRows<{ key: string }>(
-			db,
-			`SELECT key FROM factory_settings WHERE key = 'system_template:builder'`,
-		);
-		expect(rows).toHaveLength(1);
+	test("builder template resolves (AB0 added docs/system-prompts/builder.md)", () => {
+		expect(readSystemPromptTemplateForRole("builder")).not.toBeNull();
 	});
 
-	test("system_template:growth entry exists (AB0 added docs/system-prompts/growth.md)", async ({
-		db,
-	}) => {
-		await seed(db);
-
-		const rows = await queryRows<{ key: string }>(
-			db,
-			`SELECT key FROM factory_settings WHERE key = 'system_template:growth'`,
-		);
-		expect(rows).toHaveLength(1);
+	test("growth template resolves (AB0 added docs/system-prompts/growth.md)", () => {
+		expect(readSystemPromptTemplateForRole("growth")).not.toBeNull();
 	});
 });
 
@@ -269,13 +218,10 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 			db,
 			`SELECT system_prompt AS "systemPrompt" FROM users WHERE id = 'demo-agent-pm'`,
 		);
-		const templateRows = await queryRows<{ value: string }>(
-			db,
-			`SELECT value FROM factory_settings WHERE key = 'system_template:product_manager'`,
-		);
+		const template = readSystemPromptTemplateForRole("product_manager");
 
 		expect(agentRows[0]?.systemPrompt).toBeTruthy();
-		expect(agentRows[0]?.systemPrompt).toBe(templateRows[0]?.value);
+		expect(agentRows[0]?.systemPrompt).toBe(template);
 	});
 
 	// @lore AD8a: seed-agent-cos system prompt file deleted. systemPrompt is null until AD8b adds assistant.md.
@@ -300,15 +246,12 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 			db,
 			`SELECT id, system_prompt AS "systemPrompt" FROM users WHERE role = 'facilitator'`,
 		);
-		const templateRows = await queryRows<{ value: string }>(
-			db,
-			`SELECT value FROM factory_settings WHERE key = 'system_template:facilitator'`,
-		);
+		const template = readSystemPromptTemplateForRole("facilitator");
 
 		expect(agentRows.length).toBeGreaterThanOrEqual(1);
 		for (const agent of agentRows) {
 			expect(agent.systemPrompt, `${agent.id} should have systemPrompt set`).toBeTruthy();
-			expect(agent.systemPrompt).toBe(templateRows[0]?.value);
+			expect(agent.systemPrompt).toBe(template);
 		}
 	});
 
@@ -321,13 +264,10 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 			db,
 			`SELECT system_prompt AS "systemPrompt" FROM users WHERE id = 'demo-agent-builder'`,
 		);
-		const templateRows = await queryRows<{ value: string }>(
-			db,
-			`SELECT value FROM factory_settings WHERE key = 'system_template:builder'`,
-		);
+		const template = readSystemPromptTemplateForRole("builder");
 
 		expect(agentRows[0]?.systemPrompt).toBeTruthy();
-		expect(agentRows[0]?.systemPrompt).toBe(templateRows[0]?.value);
+		expect(agentRows[0]?.systemPrompt).toBe(template);
 	});
 
 	test("system:propagation has null systemPrompt (system role, no template)", async ({ db }) => {

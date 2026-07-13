@@ -39,7 +39,6 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"users",
 					"user_skills",
 					"bets",
-					"factory_settings",
 					"hint_progress",
 					"invite_codes",
 					"items",
@@ -60,6 +59,8 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			expect(tableNames).not.toContain("responses");
 			// @lore U1: `products` renamed to `teams`
 			expect(tableNames).not.toContain("products");
+			// @lore AU18: factory_settings dropped — must not reappear.
+			expect(tableNames).not.toContain("factory_settings");
 			expect(tableNames.length).toBeGreaterThanOrEqual(19);
 		} finally {
 			await close();

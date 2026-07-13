@@ -33,7 +33,9 @@ describe("A2: Migration", () => {
 				"users",
 				"user_skills",
 				"bets",
-				"factory_settings",
+				// @lore AU18: `factory_settings` retired — `server_config` is its
+				// typed singleton-row successor.
+				"server_config",
 				"items",
 				"knowledge_edit_log",
 				"knowledge_items",
@@ -49,6 +51,8 @@ describe("A2: Migration", () => {
 		expect(tableNames).not.toContain("responses");
 		// @lore U1: `products` table renamed to `teams`
 		expect(tableNames).not.toContain("products");
+		// @lore AU18: factory_settings dropped — must not reappear.
+		expect(tableNames).not.toContain("factory_settings");
 		expect(tableNames.length).toBeGreaterThanOrEqual(15);
 	});
 

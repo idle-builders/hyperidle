@@ -2,12 +2,12 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import {
 	bets,
-	factorySettings,
 	items,
 	knowledgeEditLog,
 	knowledgeItems,
 	messages,
 	routines,
+	serverConfig,
 	sessions,
 	tasks,
 	// @lore U1: `teams` is the domain entity (formerly `products`).
@@ -40,7 +40,9 @@ describe("A2: Database Schema", () => {
 					"users",
 					"user_skills",
 					"bets",
-					"factory_settings",
+					// @lore AU18: `factory_settings` retired — `server_config` is its
+					// typed singleton-row successor.
+					"server_config",
 					"items",
 					"knowledge_edit_log",
 					"knowledge_items",
@@ -56,6 +58,8 @@ describe("A2: Database Schema", () => {
 			expect(tableNames).not.toContain("responses");
 			// @lore U1: `products` table was renamed to `teams`
 			expect(tableNames).not.toContain("products");
+			// @lore AU18: factory_settings dropped — must not reappear.
+			expect(tableNames).not.toContain("factory_settings");
 			expect(tableNames.length).toBeGreaterThanOrEqual(15);
 		});
 	});
@@ -521,16 +525,15 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		test("inserts and reads factory_settings", async ({ db }) => {
+		// @lore AU18: factory_settings (generic KV bucket) is retired. server_config
+		// is its typed singleton-row successor — still exercises a real insert+read.
+		test("inserts and reads server_config", async ({ db }) => {
 			const now = new Date().toISOString();
-			await db.insert(factorySettings).values({ key: "cost_cap", value: "1000", updatedAt: now });
+			await db.insert(serverConfig).values({ id: "default", config: "{}", updatedAt: now });
 
-			const result = await db
-				.select()
-				.from(factorySettings)
-				.where(eq(factorySettings.key, "cost_cap"));
+			const result = await db.select().from(serverConfig).where(eq(serverConfig.id, "default"));
 
-			expect(result[0]).toMatchObject({ key: "cost_cap", value: "1000" });
+			expect(result[0]).toMatchObject({ id: "default", config: "{}" });
 		});
 	});
 

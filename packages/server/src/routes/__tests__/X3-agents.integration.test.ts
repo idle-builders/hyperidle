@@ -15,7 +15,7 @@
  *  - packages/db/src/seed.ts inserts system_template:* factorySettings rows
  */
 
-import { factorySettings, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -87,12 +87,9 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 
-	// Seed a product_manager template in factorySettings (needed for AC-8)
-	await db.insert(factorySettings).values({
-		key: "system_template:product_manager",
-		value: "# You are the Product Manager\n\nYour job is to clarify requirements for {{product}}.",
-		updatedAt: NOW,
-	});
+	// @lore AU18: no factorySettings seed needed — AC-8's product_manager
+	// template now resolves from the real docs/system-prompts/product-manager.md
+	// file on disk via the shared resolver.
 }
 
 // ---------------------------------------------------------------------------
@@ -526,24 +523,48 @@ describe("X3 AC-8: GET /api/agents/templates/:role returns template content", ()
 		expect((body.content as string).length).toBeGreaterThan(0);
 	});
 
-	test("template content matches the seeded factorySettings value", async ({ db, app }) => {
+	// @lore AU18: template content now comes from the real
+	// docs/system-prompts/product-manager.md file on disk (no seeded fixture).
+	test("template content matches the real docs/system-prompts/product-manager.md file", async ({
+		db,
+		app,
+	}) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents/templates/product_manager", {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
 
-		// Should contain the content we seeded in seedPrereqs
-		expect(body.content).toContain("Product Manager");
+		expect(body.content).toMatch(/Product Manager|PM|#/i);
 	});
 
-	test("returns 404 for builder role (no template file exists)", async ({ db, app }) => {
+	// @lore AU18: `builder` now HAS a real template file
+	// (docs/system-prompts/builder.md, added by AB0) and is one of the 7
+	// canonical roles in SYSTEM_PROMPT_TEMPLATE_FILES — it resolves 200, not
+	// 404. `assistant` is the role that stays 404 by design: it has a
+	// docs/system-prompts/assistant.md file but is intentionally excluded
+	// from the canonical map because bootstrap never seeded it historically
+	// (@lore AD8a) — preserving today's 404 exactly (round 3 CRITICAL fix).
+	test("returns 200 for builder role (has a real template file, AB0)", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents/templates/builder", {
 			headers: authHeaders(),
 		});
-		expect(res.status).toBe(404);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(typeof body.content).toBe("string");
+		expect((body.content as string).length).toBeGreaterThan(0);
+	});
 
+	test("returns 404 for assistant role (excluded from the canonical map by design)", async ({
+		db,
+		app,
+	}) => {
+		await seedPrereqs(db);
+		const res = await app.request("/api/agents/templates/assistant", {
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(404);
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.code).toBe("NOT_FOUND");
 	});

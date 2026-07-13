@@ -20,7 +20,7 @@
  *     Stripe, PEM (security M-2).
  */
 
-import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	EventBus,
 	type KnowledgeUpdatedEvent,
@@ -78,7 +78,6 @@ function makeInMemResolver(): {
 // Keep a reference so the unused-db import doesn't fail lint when the
 // underlying setup routine stops using it.
 void (null as unknown as HyperIdleDb);
-void factorySettings;
 
 describe("H3 review fixes — (1) tool_call round-trip", () => {
 	test("emits ObservabilityEvent(tool_call) when bus carries tool_call_recorded", async () => {
@@ -322,12 +321,7 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 	// transition is observable. Previously "false by default" was the starting state.
 	test("invalidates /status config cache after PATCH", async ({ db }) => {
 		// Explicitly disable to establish a known starting state (default is now ON).
-		const { factorySettings: fs } = await import("@hyperidle/db");
-		const now = new Date().toISOString();
-		await db
-			.insert(fs)
-			.values({ key: "observability.enabled", value: "false", updatedAt: now })
-			.onConflictDoUpdate({ target: fs.key, set: { value: "false", updatedAt: now } });
+		await updateObservabilityConfig(db, { enabled: false });
 
 		const router = createObservabilityRoutes(db, {
 			getDispatcher: (): ObservabilityDispatcher | null => null,

@@ -11,11 +11,12 @@
  *  - POST /digest: runs digest through adapter
  */
 
-import { factorySettings, notificationQueue } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
 import type { SafeNotificationConfig } from "../../notifications/config.js";
+import { updateNotificationConfig } from "../../notifications/config.js";
+import { insertNotification, listAll } from "../../notifications/notification-queue.js";
 import type {
 	Notification,
 	NotificationAdapter,
@@ -79,24 +80,14 @@ describe("H2 /api/notifications routes", () => {
 		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			// Seed a password + auth token; verify they come back as "***".
-			const now = "2026-04-18T00:00:00.000Z";
-			const seed: Record<string, string> = {
-				"notifications.enabled": "true",
-				"notifications.primary_channel": "smtp",
-				"notifications.smtp_host": "smtp.example.com",
-				"notifications.smtp_password": "super-secret",
-				"notifications.ntfy_auth_token": "tk_abc",
-				"notifications.smtp_from": "ops@example.com",
-			};
-			for (const [key, value] of Object.entries(seed)) {
-				await db
-					.insert(factorySettings)
-					.values({ key, value, updatedAt: now })
-					.onConflictDoUpdate({
-						target: factorySettings.key,
-						set: { value, updatedAt: now },
-					});
-			}
+			await updateNotificationConfig(db, {
+				enabled: true,
+				primaryChannel: "smtp",
+				smtpHost: "smtp.example.com",
+				smtpPassword: "super-secret",
+				ntfyAuthToken: "tk_abc",
+				smtpFrom: "ops@example.com",
+			});
 
 			const res = await app.request("/api/notifications/config", { headers: headers() });
 			expect(res.status).toBe(200);
@@ -197,7 +188,7 @@ describe("H2 /api/notifications routes", () => {
 			const result = (await res.json()) as SendResult;
 			expect(result.ok).toBe(true);
 			expect(adapter.calls).toHaveLength(1);
-			const queueRows = await db.select().from(notificationQueue);
+			const queueRows = await listAll(db);
 			expect(queueRows).toHaveLength(0);
 		} finally {
 			disposeApp(app);
@@ -209,7 +200,7 @@ describe("H2 /api/notifications routes", () => {
 		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const now = "2026-04-18T00:00:00.000Z";
-			await db.insert(notificationQueue).values({
+			await insertNotification(db, {
 				id: "q-1",
 				eventType: "item_created",
 				subjectId: "x",
@@ -455,7 +446,7 @@ describe("H2 /api/notifications routes", () => {
 				body: JSON.stringify({ enabled: true, primaryChannel: "console" }),
 			});
 			const now = "2026-04-18T00:00:00.000Z";
-			await db.insert(notificationQueue).values({
+			await insertNotification(db, {
 				id: "q-d-1",
 				eventType: "item_created",
 				subjectId: "x",
@@ -479,7 +470,7 @@ describe("H2 /api/notifications routes", () => {
 			expect(result.status).toBe("sent");
 			expect(result.notificationsIncluded).toBe(1);
 			expect(adapter.calls).toHaveLength(1);
-			const rows = await db.select().from(notificationQueue);
+			const rows = await listAll(db);
 			expect(rows[0]!.status).toBe("sent");
 		} finally {
 			disposeApp(app);

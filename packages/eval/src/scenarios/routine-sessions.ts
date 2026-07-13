@@ -5,15 +5,18 @@
  * All scenarios call checkAndFireRoutine() directly (no runEvalSession).
  *
  * @lore X8 CRITICAL-1: triggerConfig MUST include taskId pointing to a real tasks row.
- * @lore X8 W2: cost cap check uses "cost_cap" and "cost_actual" factory settings keys.
+ * @lore AU18 §4.1: cost cap check reads `server_config.cost.capMinor` (cap) and
+ * `getFactoryCostActual` (= SUM(users.costActual), live total) — the old
+ * `factorySettings.cost_cap`/`cost_actual` KV keys are retired.
  */
 
 import { randomUUID } from "node:crypto";
 import { items, routines, sessions } from "@hyperidle/db";
 import { checkAndFireRoutine } from "@hyperidle/server/routines";
+import { updateServerConfig } from "@hyperidle/server/services/server-config";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull } from "drizzle-orm";
-import { seedFactorySettings, seedMinimalWorld, seedRoutine } from "../seeding.js";
+import { seedMinimalWorld, seedRoutine } from "../seeding.js";
 import type {
 	DimensionScore,
 	EvalScenario,
@@ -330,13 +333,13 @@ const rsCostCapBlocked: EvalScenario = {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "assistant",
 			taskTitle: "Cost-blocked routine task",
+			agentCostActualMinor: 1001, // over the 1000 cap → blocked
 		});
 
-		// W2: cost cap check uses "cost_cap" and "cost_actual" keys
-		await seedFactorySettings(ctx.db, {
-			cost_cap: "1000",
-			cost_actual: "1001", // over cap → blocked
-		});
+		// @lore AU18 §4.1: cap now lives at server_config.cost.capMinor (not the
+		// retired factorySettings.cost_cap key); the live total is the seeded
+		// agent's users.costActual above.
+		await updateServerConfig(ctx.db, { cost: { capMinor: 1000 } });
 
 		const { routineId } = await seedRoutine(ctx.db, {
 			teamId: world.teamId,

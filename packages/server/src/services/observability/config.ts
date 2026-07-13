@@ -1,15 +1,6 @@
-import { factorySettings, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { readServerConfig, updateServerConfig } from "../server-config.js";
 import type { ObservabilityChannel } from "./types.js";
-
-const PREFIX = "observability.";
-
-export const KEYS = {
-	enabled: `${PREFIX}enabled`,
-	adapter: `${PREFIX}adapter`,
-	batchSize: `${PREFIX}batch_size`,
-	flushIntervalMs: `${PREFIX}flush_interval_ms`,
-	bufferCap: `${PREFIX}buffer_cap`,
-} as const;
 
 export interface ObservabilityConfig {
 	readonly enabled: boolean;
@@ -28,81 +19,19 @@ export interface ObservabilityConfig {
  */
 export type SafeObservabilityConfig = ObservabilityConfig;
 
-const DEFAULTS = {
-	adapter: "console" as ObservabilityChannel,
-	batchSize: 100,
-	flushIntervalMs: 2000,
-	bufferCap: 10_000,
-} as const;
-
-const ADAPTERS: ReadonlySet<ObservabilityChannel> = new Set(["console", "noop"]);
-
-function isAdapter(value: string | undefined): value is ObservabilityChannel {
-	return value !== undefined && ADAPTERS.has(value as ObservabilityChannel);
-}
-
-function clampInt(raw: string | undefined, fallback: number, min: number, max: number): number {
-	if (raw === undefined) return fallback;
-	const n = Number(raw);
-	if (!Number.isFinite(n)) return fallback;
-	const floored = Math.floor(n);
-	if (floored < min) return min;
-	if (floored > max) return max;
-	return floored;
-}
-
-async function readAllSettings(db: HyperIdleDb): Promise<Map<string, string>> {
-	const rows = await db.select().from(factorySettings);
-	const map = new Map<string, string>();
-	for (const row of rows) {
-		if (row.key.startsWith(PREFIX)) map.set(row.key, row.value);
-	}
-	return map;
-}
-
-/**
- * AF16 T14 (Z8-100): exported for unit testing and direct construction.
- * Default flipped: enabled defaults TRUE when unset (`kv.get(KEYS.enabled) !== "false"`).
- * `noop` is the explicit opt-out, not the silent default.
- *
- * @lore AF16 T14: old default was `enabled = kv.get(...) === "true"` → false when unset.
- * Tracing was silently off on fresh DBs. Flip to default-on with console adapter so
- * observability is "configured rather than silently off" without operator action.
- */
-export function buildObservabilityConfig(kv: Map<string, string>): ObservabilityConfig {
-	// true when unset (default-on); false only when explicitly set to "false"
-	const enabled = kv.get(KEYS.enabled) !== "false";
-	const adapterRaw = kv.get(KEYS.adapter);
-	// @lore P1 (W-3): Existing databases that have observability.adapter set to
-	// a previously-supported value (e.g. the purged adapter) in factory_settings
-	// will return false from isAdapter() after the purge. This is correct and
-	// safe: buildConfig falls back to DEFAULTS.adapter ("console"). No migration
-	// of old rows is needed — they become orphaned and are never read.
-	const adapter = isAdapter(adapterRaw) ? adapterRaw : DEFAULTS.adapter;
-	const batchSize = clampInt(kv.get(KEYS.batchSize), DEFAULTS.batchSize, 1, 1000);
-	const flushIntervalMs = clampInt(
-		kv.get(KEYS.flushIntervalMs),
-		DEFAULTS.flushIntervalMs,
-		100,
-		60_000,
-	);
-	const bufferCap = clampInt(kv.get(KEYS.bufferCap), DEFAULTS.bufferCap, 100, 100_000);
-	return {
-		enabled,
-		adapter,
-		batchSize,
-		flushIntervalMs,
-		bufferCap,
-	};
-}
-
 /**
  * Always returns a config (even when disabled) so GET /config can
  * surface values. Callers that want a null short-circuit when
  * observability is disabled inline the `cfg.enabled` check.
+ *
+ * @lore AU18: re-backed onto `server_config.observability` (was
+ * `factorySettings.observability.*` KV keys). `enabled` keeps its
+ * default-on-unless-explicitly-false semantics (AF16 T14) — the Zod schema
+ * default is `true`, so an absent row already resolves to enabled.
  */
 export async function readObservabilityConfig(db: HyperIdleDb): Promise<ObservabilityConfig> {
-	return buildObservabilityConfig(await readAllSettings(db));
+	const { observability } = await readServerConfig(db);
+	return observability;
 }
 
 /**
@@ -124,27 +53,10 @@ export interface ObservabilityConfigPatch {
 	bufferCap?: number;
 }
 
-async function upsert(db: HyperIdleDb, key: string, value: string, now: string): Promise<void> {
-	await db
-		.insert(factorySettings)
-		.values({ key, value, updatedAt: now })
-		.onConflictDoUpdate({
-			target: factorySettings.key,
-			set: { value, updatedAt: now },
-		});
-}
-
 export async function updateObservabilityConfig(
 	db: HyperIdleDb,
 	patch: ObservabilityConfigPatch,
 ): Promise<ObservabilityConfig> {
-	const now = new Date().toISOString();
-	if (patch.enabled !== undefined)
-		await upsert(db, KEYS.enabled, patch.enabled ? "true" : "false", now);
-	if (patch.adapter !== undefined) await upsert(db, KEYS.adapter, patch.adapter, now);
-	if (patch.batchSize !== undefined) await upsert(db, KEYS.batchSize, String(patch.batchSize), now);
-	if (patch.flushIntervalMs !== undefined)
-		await upsert(db, KEYS.flushIntervalMs, String(patch.flushIntervalMs), now);
-	if (patch.bufferCap !== undefined) await upsert(db, KEYS.bufferCap, String(patch.bufferCap), now);
+	await updateServerConfig(db, { observability: patch });
 	return readObservabilityConfig(db);
 }

@@ -34,10 +34,10 @@ import {
 	inviteCodes,
 	knowledgeAccessLog,
 	loginSessions,
-	notificationQueue,
 	propagationLog,
 } from "@hyperidle/db";
 import { and, inArray, isNotNull, lt, or } from "drizzle-orm";
+import { deleteReaped } from "../notifications/notification-queue.js";
 
 export const RETENTION_REAPER_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 export const TERMINAL_LOG_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -144,15 +144,7 @@ export async function reapRetentionOnce(
 	//    Prune: status IN ('sent','failed','dropped') AND createdAt < cutoff
 	{
 		const cutoff = new Date(nowMs - terminalLogTtlMs).toISOString();
-		const deleted = await db
-			.delete(notificationQueue)
-			.where(
-				and(
-					lt(notificationQueue.createdAt, cutoff),
-					inArray(notificationQueue.status, ["sent", "failed", "dropped"]),
-				),
-			)
-			.returning({ id: notificationQueue.id });
+		const deleted = await deleteReaped(db, cutoff, ["sent", "failed", "dropped"]);
 		results.push({ table: "notification_queue", deleted: deleted.length });
 	}
 

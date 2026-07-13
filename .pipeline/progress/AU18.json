@@ -1,0 +1,10 @@
+{
+  "id": "AU18",
+  "status": "done",
+  "currentStep": "shipped",
+  "startedAt": "2026-07-13T00:00:00Z",
+  "completedAt": "2026-07-13T00:00:00Z",
+  "worktree": ".worktrees/AU18",
+  "branch": "backend/AU18-notification-settings-ownership",
+  "notes": "Full pipeline complete: architecture 8/10 (3 critique rounds), build both halves green (full verify + attestation), code review VERDICT DONE (0 CRITICAL, 1 non-blocking docs WARNING), retro recorded (10 observations, .pipeline/retro-log/AU18.jsonl). Dispatching ship."
+}

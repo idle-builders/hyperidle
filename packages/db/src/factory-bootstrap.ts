@@ -1,42 +1,14 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import type { FactoryRosterSpec } from "@hyperidle/shared";
 import { defaultFactoryRoster } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
-import { factorySettings, knowledgeItems, knowledgeStrategyFabric, users } from "./schema.js";
+import { knowledgeItems, knowledgeStrategyFabric, users } from "./schema.js";
 import { COMMUNITY_DISPLAY_NAMES, FACILITATOR_TOOLS } from "./seed-fixtures.js";
-
-/**
- * Strip YAML frontmatter from markdown content.
- *
- * @lore X3: This function is intentionally duplicated from
- * packages/server/src/services/context-assembly-prompt.ts (AU11: former
- * app-runtime/context-assembly-prompt.ts, now agent-owned). The reason:
- * @hyperidle/db must NOT import from @hyperidle/server (wrong dependency
- * direction — db is a leaf package that server depends on, not vice versa).
- * Extracting to @hyperidle/shared would add a utility function to a
- * types-only package. At 1 line of regex, duplication is the correct choice.
- */
-function stripFrontmatter(content: string): string {
-	return content.replace(/^---\n[\s\S]*?\n---\n*/, "");
-}
-
-/**
- * Read a system prompt template from docs/system-prompts/ and strip frontmatter.
- * Returns null if the file does not exist (graceful degradation).
- * @lore AK1: Directory renamed from the old agent-persona directory to "system-prompts/" in
- * AK1 harness-vocabulary rename rollout.
- */
-function readSystemPromptTemplate(docsRoot: string, filename: string): string | null {
-	const filePath = path.join(docsRoot, "system-prompts", filename);
-	try {
-		const content = fs.readFileSync(filePath, "utf8");
-		return stripFrontmatter(content);
-	} catch {
-		return null;
-	}
-}
+import {
+	readSystemPromptTemplate,
+	SYSTEM_PROMPT_TEMPLATE_FILES,
+} from "./system-prompt-templates.js";
 
 /**
  * Apply the factory bootstrap layer — team-agnostic, idempotent baseline rows
@@ -46,8 +18,16 @@ function readSystemPromptTemplate(docsRoot: string, filename: string): string | 
  *   - `system:propagation` system user (DB infra — always written unconditionally)
  *   - `seed-agent-cos` system-assistant singleton (iff roster.systemAssistant non-null)
  *   - one facilitator agent per roster.facilitators entry (roster-driven)
- *   - `factory_settings`: cost_cap, cost_cycle, system_template:<role> entries (DB infra)
  *   - `knowledge_items` + `knowledge_strategy_fabric`: the factory principle seed-ki-1 (DB infra)
+ *
+ * @lore AU18: system prompt templates are no longer cached as
+ * `factory_settings.system_template:<role>` rows — that table is retired.
+ * Templates are read directly from `docs/system-prompts/*.md` via the
+ * shared `SYSTEM_PROMPT_TEMPLATE_FILES` map + `readSystemPromptTemplate`
+ * (system-prompt-templates.ts) for the roster-driven backfill below. The
+ * `cost_cap`/`cost_cycle` KV seeds are also gone: `cost_cap` moved to
+ * `server_config.cost.capMinor` (schema default 20000 makes an explicit
+ * seed unnecessary here); `cost_cycle` had zero readers and was dropped.
  *
  * Does NOT insert teams, team_members, routines, bets, tasks, or any human users.
  * These are created at onboarding or by the demo fixture.
@@ -169,58 +149,26 @@ export async function applyFactoryBootstrap(
 			.onConflictDoNothing();
 	}
 
-	// ── factory_settings: cost_cap, cost_cycle — DB infra ──
-	await db
-		.insert(factorySettings)
-		.values({ key: "cost_cap", value: "20000", updatedAt: now })
-		.onConflictDoNothing();
-	await db
-		.insert(factorySettings)
-		.values({ key: "cost_cycle", value: "daily", updatedAt: now })
-		.onConflictDoNothing();
-
-	// ── System prompt templates from docs/system-prompts/ — DB infra ──
-	// @lore X3: We read files at bootstrap time. If a file is missing, the template
+	// ── System prompt templates from docs/system-prompts/ — read directly, no cache table ──
+	// @lore X3 / AU18: We read files at bootstrap time. If a file is missing, the template
 	// is silently skipped (graceful degradation). Process CWD during seeding is the
 	// monorepo root where docs/ lives.
 	// @lore AK1: Directory renamed from old variant to docs/system-prompts/ in AK1 harness-vocab rename.
+	// @lore AU18: previously cached each role's content into a `factorySettings.system_template:<role>`
+	// row before this backfill; that table is retired. The map + reader are now the single
+	// shared source (system-prompt-templates.ts), consumed here AND by roster.ts/agents.ts at
+	// request time — one role→filename source, not a bootstrap-only cache.
 	const docsRoot = path.resolve(process.cwd(), "docs");
-	const systemPromptTemplates: Array<{ role: string; filename: string }> = [
-		{ role: "product_manager", filename: "product-manager.md" },
-		// @lore AD8c: role renamed from practice_facilitator; prompt file renamed to facilitator.md
-		{ role: "facilitator", filename: "facilitator.md" },
-		{ role: "builder", filename: "builder.md" },
-		{ role: "growth", filename: "growth.md" },
-		{ role: "designer", filename: "designer.md" },
-		{ role: "qa_engineer", filename: "qa-engineer.md" },
-		{ role: "ops", filename: "ops.md" },
-	];
-
 	const templateValues: Record<string, string> = {};
-
-	for (const { role, filename } of systemPromptTemplates) {
+	for (const [role, filename] of Object.entries(SYSTEM_PROMPT_TEMPLATE_FILES)) {
 		const content = readSystemPromptTemplate(docsRoot, filename);
 		if (content !== null) {
 			templateValues[role] = content;
-			await db
-				.insert(factorySettings)
-				.values({
-					key: `system_template:${role}`,
-					value: content,
-					updatedAt: now,
-				})
-				.onConflictDoUpdate({
-					target: factorySettings.key,
-					set: { value: content, updatedAt: now },
-				});
 		}
 	}
 
 	// ── Backfill systemPrompt on roster-driven factory agents from role-based templates ──
 	// Scoped to the roster's own agent ids (system:propagation is infra — not roster-driven).
-	// @lore AK6 T9: seed-before-read ordering invariant — system_template rows MUST be
-	// written BEFORE this backfill reads them. Sequential statement order preserves this.
-	// T9 tests assert a roster-driven facilitator's persisted systemPrompt is non-empty.
 	const rosterAgentIds: string[] = [];
 	if (roster.systemAssistant !== null) {
 		rosterAgentIds.push(roster.systemAssistant.idHint);
