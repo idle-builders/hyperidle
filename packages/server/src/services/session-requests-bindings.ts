@@ -4,12 +4,11 @@
  * `terminalizeAgentSessionRequest(InTx)`/`markRequestRunning` need injected
  * `routine`/`work`/`agent-selection`/`conversation`/`users`/`org`/`review`/
  * `trigger-resolution` ports (Mechanism C — `session-requests` never imports
- * another Service) plus one remaining INTERIM forward-reference
- * (`agent-selection`, not yet migrated). `agent_lifecycle_inbox` was the
- * SECOND interim forward-reference (owned by `lifecycle-projection`) —
- * resolved at Increment 3d: `lifecycleInboxWriter`/`lifecycleInboxReaper`
- * below now call `@hyperidle/lifecycle-projection`'s real exports instead of
- * raw table ops. This module builds
+ * another Service). `agent_lifecycle_inbox` was an interim forward-reference
+ * (owned by `lifecycle-projection`) — resolved at Increment 3d:
+ * `lifecycleInboxWriter`/`lifecycleInboxReaper` below now call
+ * `@hyperidle/lifecycle-projection`'s real exports instead of raw table ops.
+ * This module builds
  * each bound singleton ONCE, at the composition root, so every real call
  * site (`agent-layer-boot.ts`, `session-lifecycle.ts`, `agent-session-runtime.ts`,
  * `routes/threads.ts`, `routes/sessions-routes.ts`, `routes/tasks.ts`,
@@ -19,6 +18,15 @@
  * factory-curry idiom as `policy-bindings.ts`'s `handoff`/`computeApprovalRate`
  * (Increment 2a).
  *
+ * @lore AU19 Increment 3e: `agentSelection` — the LAST interim forward-
+ * reference this module carried — is resolved: `@hyperidle/session-requests`'s
+ * `SessionRequestsAgentSelector` port (`isAgentAtWipLimit`/
+ * `selectAgentByAppDefaults`) now wires to `@hyperidle/agent-selection`'s real
+ * `createAgentSelectionOps(...)`-bound exports instead of the deleted
+ * `./agent-selection.js` flat module. Same resolution shape as
+ * `lifecycle-projection`'s own Increment 3d closure above.
+ *
+
  * The AC-9 (§11) cross-Layer `agentWorkIntentRecorder`/`agentWorkIntentReader`
  * singletons at the bottom are the concrete `@hyperidle/shared`-typed ports
  * `createApp`/`createServer` inject into `routes/threads.ts`/
@@ -29,6 +37,7 @@
  * `packages/server` composition-root import, not a route→Service import).
  */
 
+import { createAgentSelectionOps } from "@hyperidle/agent-selection";
 import { getMessageById } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { findById as findKnowledgeItemById } from "@hyperidle/knowledge";
@@ -69,9 +78,13 @@ import {
 	recordSessionForResolutionHistory,
 	type TriggerResolutionDeps,
 } from "@hyperidle/trigger-resolution";
-import { getUserById, getUserByIdScopedToTeam, listUsersByTeam } from "@hyperidle/users";
+import {
+	getUserById,
+	getUserByIdScopedToTeam,
+	listActiveAiUsersByTeams,
+	listUsersByTeam,
+} from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 
 // ---------------------------------------------------------------------------
 // trigger-resolution's OWN deps — `sessionRequests` now wired to
@@ -88,6 +101,18 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 	users: { getUserByIdScopedToTeam },
 	teams: { getTeamMembersByTeamId },
 };
+
+// ---------------------------------------------------------------------------
+// agent-selection — resolved to `@hyperidle/agent-selection`'s real exports
+// (Increment 3e; was the last remaining INTERIM forward-reference since
+// Increment 3b, see this file's top `@lore`). Bound once, at the composition
+// root, to `agent-selection`'s own `users`/`org` ports (Mechanism C).
+// ---------------------------------------------------------------------------
+
+const agentSelectionOps = createAgentSelectionOps({
+	users: { getUserById, listActiveAiUsersByTeams },
+	teams: { getTeamMembersByTeamId },
+});
 
 // ---------------------------------------------------------------------------
 // agent_lifecycle_inbox — resolved to `@hyperidle/lifecycle-projection`'s
@@ -125,7 +150,10 @@ const agentWorkIntentWorkerDeps: AgentWorkIntentWorkerDeps = {
 		updateRoutineRunIfRunning: routineService.updateRoutineRunIfRunning,
 	},
 	work: { getTaskById: work.getTaskById, getBetById: work.getBetById },
-	agentSelection: { isAgentAtWipLimit, selectAgentByAppDefaults },
+	agentSelection: {
+		isAgentAtWipLimit: agentSelectionOps.isAgentAtWipLimit,
+		selectAgentByAppDefaults: agentSelectionOps.selectAgentByAppDefaults,
+	},
 	conversation: { getMessageById },
 	users: { getUserById, listUsersByTeam },
 	teams: { getTeamMembersByTeamId },

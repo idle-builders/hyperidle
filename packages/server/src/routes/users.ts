@@ -1,3 +1,4 @@
+import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-selection";
 import { escapeLikePattern, type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
@@ -28,7 +29,6 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
-import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
 

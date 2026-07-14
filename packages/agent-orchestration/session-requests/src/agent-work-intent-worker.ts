@@ -15,10 +15,11 @@ import type { AgentWorkIntentWorkerDeps, SessionRequestsTriggerInput } from "./p
  * (behavior-preserving move). Every raw cross-Service call became an
  * injected DI port (Mechanism C, `ports.ts`): `routine`/`work`/`conversation`/
  * `users`/`org` (census correction)/`review` (census correction)/`knowledge`
- * (census correction)/`trigger-resolution` are ordinary same-layer/downward
- * edges; `agent-selection` is wired INTERIM (not yet migrated). See
- * `ports.ts`'s top `@lore` for the full breakdown, including the census
- * corrections this migration surfaced (`org`, `review`, `knowledge`).
+ * (census correction)/`trigger-resolution`/`agent-selection` are ordinary
+ * same-layer/downward edges (`agent-selection`'s interim forward-reference
+ * resolved at Increment 3e — see `ports.ts`'s top `@lore`). See `ports.ts`'s
+ * top `@lore` for the full breakdown, including the census corrections this
+ * migration surfaced (`org`, `review`, `knowledge`).
  *
  * `knowledgeItems` (raw table, former direct `@hyperidle/db` access in the
  * `knowledge_action` branch) is now the `SessionRequestsKnowledgeReader` port,
@@ -216,9 +217,9 @@ export async function resolveAuthoritativeInput(
 			// the (now-removed) fire-time `checkAndFireRoutine` block — drain-time
 			// is closest to execution, matching the family-standard shape
 			// (`bet_decomposition` also selects at drain). `isAgentAtWipLimit` +
-			// `selectAgentByAppDefaults` are called through the INTERIM
-			// `agent-selection` port — agent-selection migrates later in this
-			// same Increment 3.
+			// `selectAgentByAppDefaults` are called through the `agent-selection`
+			// port, resolved to `@hyperidle/agent-selection`'s real exports at
+			// Increment 3e.
 			let selectedAgentId = routine.ownerAgentId;
 			if (await deps.agentSelection.isAgentAtWipLimit(db, routine.ownerAgentId)) {
 				if (routine.delegationAllowed && routine.skillId) {

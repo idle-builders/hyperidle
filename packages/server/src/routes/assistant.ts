@@ -15,6 +15,7 @@
  * hostId=userId + participants includes the assistant agent.
  */
 
+import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-selection";
 import { getFirstThreadByHost, insertThread, listMessagesByThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
@@ -37,7 +38,6 @@ import z from "zod";
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";

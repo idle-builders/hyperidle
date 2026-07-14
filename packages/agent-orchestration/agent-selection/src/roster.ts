@@ -23,6 +23,12 @@
  * packages/server/src/routes/users.ts and assistant.ts. The persona content
  * is now app-owned runtime data. The creation surfaces
  * no longer hard-code it.
+ *
+ * @lore AU19 Increment 3e: moved verbatim from `packages/server/src/services/roster.ts`
+ * into `@hyperidle/agent-selection`. `readSystemPromptTemplateForRole` is a
+ * direct `@hyperidle/db` export (not another Service) and `AGENT_ROLE_CATALOG`/
+ * `defaultRoster` are `@hyperidle/shared` exports — both allowed leaves under
+ * Mechanism C, so this file needed no DI port and no behavior change.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";

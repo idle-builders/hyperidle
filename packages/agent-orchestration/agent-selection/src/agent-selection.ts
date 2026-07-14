@@ -20,12 +20,20 @@
  * @lore AK7 §6.3 (round-robin spread regression trap): spreadIndex is the loop
  * index `i` (not a per-branch counter). Without it, all null-role tasks collapse
  * to candidates[0]. The golden test (§7) catches a collapsed impl with [A,B,A] vs [A,A,A].
+ *
+ * @lore AU19 Increment 3e: `isAgentAtWipLimit`/`selectAgentByAppDefaults` now
+ * take an explicit `AgentSelectionDeps` first parameter (Mechanism C — this
+ * Service never imports `@hyperidle/users` directly). `sessions`/`userSkills`
+ * stay direct `@hyperidle/db` table access — both are `UNOWNED_SHARED_TABLES`
+ * (see `table-ownership-guard.ts`'s own comment: `userSkills` is genuinely
+ * cross-cutting until `routes/users.ts` and `services/policy-engine.ts` also
+ * migrate).
  */
 
 import { type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
-import { getUserById } from "@hyperidle/users";
 import { and, eq, sql } from "drizzle-orm";
 import type { SelectAgentOutcome, SelectAgentRequest } from "./contracts.js";
+import type { AgentSelectionDeps } from "./ports.js";
 
 // ---------------------------------------------------------------------------
 // WIP helpers (relocated from routine-scheduler.ts for the routine_delegate branch)
@@ -48,8 +56,12 @@ async function getActiveSessionCount(db: HyperIdleDb, agentId: string): Promise<
  * routine-scheduler.ts — relocated here so selectAgentByAppDefaults owns the routine_delegate
  * branch without a circular import.
  */
-export async function isAgentAtWipLimit(db: HyperIdleDb, agentId: string): Promise<boolean> {
-	const agent = await getUserById(db, agentId);
+export async function isAgentAtWipLimit(
+	deps: AgentSelectionDeps,
+	db: HyperIdleDb,
+	agentId: string,
+): Promise<boolean> {
+	const agent = await deps.users.getUserById(db, agentId);
 	if (!agent) return true;
 	const activeCount = await getActiveSessionCount(db, agentId);
 	return activeCount >= agent.maxConcurrentSessions;
@@ -71,6 +83,7 @@ export async function isAgentAtWipLimit(db: HyperIdleDb, agentId: string): Promi
  * are preserved exactly. routine_delegate ignores `candidates` entirely.
  */
 async function findDelegateVerbatim(
+	deps: AgentSelectionDeps,
 	db: HyperIdleDb,
 	skillId: string,
 	excludeAgentId: string,
@@ -83,7 +96,7 @@ async function findDelegateVerbatim(
 
 	for (const candidate of candidates) {
 		if (candidate.agentId === excludeAgentId) continue;
-		if (!(await isAgentAtWipLimit(db, candidate.agentId))) {
+		if (!(await isAgentAtWipLimit(deps, db, candidate.agentId))) {
 			return candidate.agentId;
 		}
 	}
@@ -101,6 +114,7 @@ async function findDelegateVerbatim(
  * "no agent" (the Kernel takes the no-agent path).
  */
 export async function selectAgentByAppDefaults(
+	deps: AgentSelectionDeps,
 	req: SelectAgentRequest,
 ): Promise<SelectAgentOutcome> {
 	switch (req.surface) {
@@ -137,7 +151,7 @@ export async function selectAgentByAppDefaults(
 			if (!(req.skillId && req.excludeAgentId)) {
 				return { agentId: null };
 			}
-			const agentId = await findDelegateVerbatim(req.db, req.skillId, req.excludeAgentId);
+			const agentId = await findDelegateVerbatim(deps, req.db, req.skillId, req.excludeAgentId);
 			return { agentId };
 		}
 	}

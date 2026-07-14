@@ -21,6 +21,9 @@
 		},
 		{
 			"path": "lifecycle-projection"
+		},
+		{
+			"path": "agent-selection"
 		}
 	]
 }

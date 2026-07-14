@@ -79,11 +79,11 @@
  *
  * `userSkills` (read, for per-agent skill/autonomy seeds) is DIFFERENT: it
  * has NO single owner named anywhere in architecture §4's roster, and is
- * accessed today from settings' `plugin-configuration.ts` plus three
- * still-monolithic `packages/server` files destined for three DIFFERENT
- * future Services (`routes/users.ts`, `services/agent-selection.ts`,
- * `services/policy-engine.ts`) — the exact "no single owner, genuinely
- * cross-cutting" shape `UNOWNED_SHARED_TABLES` exists for (matching
+ * accessed today from settings' `plugin-configuration.ts`, the now-real
+ * `@hyperidle/agent-selection` package (Increment 3e), and two remaining
+ * still-monolithic `packages/server` files destined for future Services
+ * (`routes/users.ts`, `services/policy-engine.ts`) — the exact "no single
+ * owner, genuinely cross-cutting" shape `UNOWNED_SHARED_TABLES` exists for (matching
  * `sessions`/`propagationLog`/`taskDispatchAttempts`'s precedent), not a
  * candidate for a false single-owner `TABLE_OWNER` claim. Added to
  * `UNOWNED_SHARED_TABLES` in `scripts/table-ownership-guard.ts` instead of a

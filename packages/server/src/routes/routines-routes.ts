@@ -1,3 +1,4 @@
+import { deriveInitials } from "@hyperidle/agent-selection";
 import { type HyperIdleDb, teams } from "@hyperidle/db";
 import * as routineService from "@hyperidle/routine";
 import {
@@ -19,7 +20,6 @@ import z from "zod";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import { deriveInitials } from "../services/agent-utils.js";
 import { type PostBetRetroArgs, runBuiltinRoutine } from "../services/builtin-routine-handlers.js";
 import { getRoutineMonthlySpend, nextCronMatch, parseCron } from "../services/routine-scheduler.js";
 import { humanizeSchedule } from "../services/schedule-label.js";

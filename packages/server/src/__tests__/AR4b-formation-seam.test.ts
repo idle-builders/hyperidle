@@ -145,8 +145,8 @@ vi.mock("../services/session-provisioning.js", async (importOriginal) => {
 	};
 });
 
-vi.mock("../services/agent-defaults/resolvers.js", async (importOriginal) => {
-	const original = await importOriginal<typeof import("../services/agent-defaults/resolvers.js")>();
+vi.mock("@hyperidle/agent-selection", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/agent-selection")>();
 	return {
 		...original,
 		resolveAssistantFormation: vi.fn(async (input: { userId: string; threadId: string }) => {

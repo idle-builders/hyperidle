@@ -398,6 +398,11 @@ function buildLeafDeclarations(root: string): void {
   // added — same TS6305 cascade; server-factory.ts, session-requests-
   // bindings.ts, and the new lifecycle-projection-bindings.ts now import
   // `@hyperidle/lifecycle-projection`.
+  //
+  // @lore AU19 Increment 3e: `agent-orchestration/agent-selection` added —
+  // same TS6305 cascade; server-factory.ts, session-requests-bindings.ts,
+  // and many `packages/server` route/tool call sites now import
+  // `@hyperidle/agent-selection`.
   for (const leaf of [
     "shared",
     "db",
@@ -423,6 +428,7 @@ function buildLeafDeclarations(root: string): void {
     "agent-orchestration/session-requests",
     "agent-orchestration/run-orchestration",
     "agent-orchestration/lifecycle-projection",
+    "agent-orchestration/agent-selection",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

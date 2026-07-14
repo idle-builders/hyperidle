@@ -20,22 +20,31 @@
  * the resolver returns. team-membership is the resolver's concern, not an
  * Execution-side veto (concept §3 case 2). Out-of-scope now but noted for future
  * invariant if team-scoped cost attribution is added.
+ *
+ * @lore AU19 Increment 3e: `teamMembers` (org's `TABLE_OWNER`) and `@hyperidle/users`
+ * were previously read directly — both moved to injected `AgentSelectionDeps`
+ * ports (Mechanism C; this Service never imports another Service). The
+ * `teamMembers` multi-row scan-then-wrap became a single `getTeamMembersByTeamId`
+ * read, relying on the same 1:1 Team=TeamMembers invariant `trigger-resolution`'s
+ * and `session-requests`' own census corrections already established — see
+ * `ports.ts`'s top `@lore` for the exact equivalence argument. Zero observable
+ * behavior change: a team has at most one `team_members` row in practice.
  */
 
-import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { type EventBus, findRoleCatalogEntry, type UserRole } from "@hyperidle/shared";
-import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
-import { eq } from "drizzle-orm";
 import { resolveAgentSelection } from "./agent-defaults/resolvers.js";
 import type { SelectionCandidate } from "./contracts.js";
+import type { AgentSelectionDeps } from "./ports.js";
 
 /**
  * AK7: Enumerate eligible team candidates for bet_* selection surfaces.
  *
- * Wraps findEligibleTeamAgents and projects each user row into SelectionCandidate
- * (role ONLY — no systemPrompt, no skills, no WIP; bet_* selection is WIP-blind
- * per concept §3a). MUST use orderBy(users.id) so the spreadIndex round-robin
- * maps deterministically across stateless per-task calls.
+ * Wraps the `org` membership-group read and projects each user row into
+ * SelectionCandidate (role ONLY — no systemPrompt, no skills, no WIP; bet_*
+ * selection is WIP-blind per concept §3a). MUST use orderBy(users.id) so the
+ * spreadIndex round-robin maps deterministically across stateless per-task calls
+ * (delegated to `@hyperidle/users`' `listActiveAiUsersByTeams`, unchanged).
  *
  * Eligibility criteria (identical to bet-decomposition.ts:91-114):
  *   - kind = 'ai'
@@ -49,21 +58,18 @@ import type { SelectionCandidate } from "./contracts.js";
  * asserts [A,B,A] on spread — a collapsed impl yields [A,A,A] and fails.
  */
 export async function enumerateTeamCandidates(
+	deps: AgentSelectionDeps,
 	db: HyperIdleDb,
 	teamId: string,
 ): Promise<SelectionCandidate[]> {
-	// 1. Resolve membership group ids for this team (1:1 invariant in practice).
-	const memberGroups = await db
-		.select({ id: teamMembers.id })
-		.from(teamMembers)
-		.where(eq(teamMembers.teamId, teamId));
-	if (memberGroups.length === 0) return [];
+	// 1. Resolve the membership group for this team (1:1 invariant in practice —
+	//    see this file's top @lore).
+	const membership = await deps.teams.getTeamMembersByTeamId(db, teamId);
+	if (!membership) return [];
 
-	const memberGroupIds = memberGroups.map((m) => m.id);
-
-	// 2. Fetch active AI users in those membership groups, ordered by users.id.
+	// 2. Fetch active AI users in that membership group, ordered by users.id.
 	//    orderBy(users.id) is load-bearing for deterministic round-robin spread.
-	const rows = await listActiveAiUsersByTeams(db, memberGroupIds);
+	const rows = await deps.users.listActiveAiUsersByTeams(db, [membership.id]);
 
 	// 3. Filter to category='team' via the role catalog; project to SelectionCandidate.
 	//    role-only — no systemPrompt, no skills, no WIP (bet_* is WIP-blind, concept §3a).
@@ -87,7 +93,7 @@ export async function enumerateTeamCandidates(
  * once AK7 test fixtures are updated. See AK8 plan §Key design decisions.
  */
 export async function selectOwner(
-	deps: { db: HyperIdleDb; eventBus: EventBus },
+	deps: { db: HyperIdleDb; eventBus: EventBus } & AgentSelectionDeps,
 	occasion: {
 		surface: "bet_task" | "bet_decomposer";
 		teamId: string;
@@ -99,7 +105,7 @@ export async function selectOwner(
 	const { db, eventBus } = deps;
 
 	// Step 1: Enumerate eligible team candidates (mechanism, not knowledge).
-	const candidates = await enumerateTeamCandidates(db, occasion.teamId);
+	const candidates = await enumerateTeamCandidates(deps, db, occasion.teamId);
 
 	// Step 2: Emit work_selection_requested BEFORE resolving (emit-then-call ordering).
 	// The event is the observable occasion (audit-only in AK7); the resolver call is the reply.
@@ -117,7 +123,7 @@ export async function selectOwner(
 	});
 
 	// Step 3: Resolve the agent decision.
-	const { agentId } = await resolveAgentSelection({
+	const { agentId } = await resolveAgentSelection(deps, {
 		db,
 		surface: occasion.surface,
 		teamId: occasion.teamId,
@@ -140,7 +146,7 @@ export async function selectOwner(
 		return null;
 	}
 
-	const row = await getUserById(db, agentId);
+	const row = await deps.users.getUserById(db, agentId);
 
 	if (!row || row.kind !== "ai" || row.status !== "active") {
 		return null;

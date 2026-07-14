@@ -271,11 +271,13 @@ const TABLE_OWNER: Record<string, string> = {
  * (`plugin-configuration.ts`'s legacy-backfill reads it for per-agent
  * skill/autonomy seeds). No `⛁`/table column anywhere in architecture §4
  * names `userSkills` for any Service, and it is accessed today from
- * `settings` plus three still-monolithic `packages/server` files destined for
- * three DIFFERENT future Services (`routes/users.ts`, `services/agent-selection.ts`,
- * `services/policy-engine.ts`) — the same "no single owner, genuinely
- * cross-cutting" shape as `sessions`/`propagationLog`/`taskDispatchAttempts`,
- * not a candidate for a false single-owner `TABLE_OWNER` claim.
+ * `settings`, the now-real `@hyperidle/agent-selection` package (Increment
+ * 3e — `agent-selection.ts`'s `findDelegateVerbatim`), and two remaining
+ * still-monolithic `packages/server` files destined for future Services
+ * (`routes/users.ts`, `services/policy-engine.ts`) — the same "no single
+ * owner, genuinely cross-cutting" shape as `sessions`/`propagationLog`/
+ * `taskDispatchAttempts`, not a candidate for a false single-owner
+ * `TABLE_OWNER` claim.
  */
 const UNOWNED_SHARED_TABLES = new Set([
 	"sessions",

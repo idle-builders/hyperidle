@@ -14,6 +14,7 @@
  *   - packages/server/src/services/bet-decomposition-subscriber.ts exports registerBetDecomposition
  */
 
+import { createAgentSelectionOps, resolveDecompositionPlan } from "@hyperidle/agent-selection";
 import {
 	type AgentSessionRequest,
 	agentSessionRequests,
@@ -39,12 +40,15 @@ import type { BetDecompositionDeps } from "@hyperidle/work";
 import { runBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { resolveDecompositionPlan } from "../services/agent-defaults/resolvers.js";
 import { checkCostCap } from "../services/cost-cap.js";
-import { enumerateTeamCandidates, selectOwner } from "../services/select-agent.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../tools/create-task.js";
+
+const agentSelectionOps = createAgentSelectionOps({
+	users: { getUserById, listActiveAiUsersByTeams },
+	teams: { getTeamMembersByTeamId },
+});
 
 /**
  * AU19 Increment 1b: `BetDecompositionDeps` now requires the four injected
@@ -55,7 +59,11 @@ import { createTaskTool } from "../tools/create-task.js";
  * W2's `teamMembers` ownership gap.
  */
 const productionPorts = {
-	agentSelection: { enumerateTeamCandidates, selectOwner, resolveDecompositionPlan },
+	agentSelection: {
+		enumerateTeamCandidates: agentSelectionOps.enumerateTeamCandidates,
+		selectOwner: agentSelectionOps.selectOwner,
+		resolveDecompositionPlan,
+	},
 	users: { getUserById, listActiveAiUsersByTeams },
 	costCap: { checkCostCap },
 	workIntents: { record: recordAgentWorkIntent },

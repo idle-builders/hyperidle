@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
+import { createAgentSelectionOps, resolveDecompositionPlan } from "@hyperidle/agent-selection";
 import {
 	type CredentialResolver,
 	DbCredentialResolver,
@@ -112,7 +113,6 @@ import { enforcementRegistry } from "./harness/return-enforcement-registry.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { registerWsRoute } from "./routes/ws.js";
-import { resolveDecompositionPlan } from "./services/agent-defaults/resolvers.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handlers.js";
 import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.js";
@@ -128,7 +128,6 @@ import {
 	registerWorkerWsRoute,
 } from "./services/run-orchestration-bindings.js";
 import { startSandboxReaper } from "./services/sandbox-reaper.js";
-import { enumerateTeamCandidates, selectOwner } from "./services/select-agent.js";
 import type { ProvisionSessionDeps } from "./services/session-provisioning.js";
 import { recordAgentWorkIntent } from "./services/session-requests-bindings.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
@@ -239,6 +238,20 @@ const retentionReaperDeps: RetentionReaperDeps = {
 	knowledge: { reapKnowledgeAccessLog },
 	notifications: { deleteReaped },
 };
+
+/**
+ * @lore AU19 Increment 3e: `@hyperidle/agent-selection`'s bound-ops factory,
+ * wired here at the `packages/server` composition point — `users`/`org` are
+ * both real, already-migrated packages. `work`'s (still-interim, §10.3
+ * against-grain) `AgentSelectionDefaults` port below now points at these
+ * real bound exports instead of the deleted `services/select-agent.ts` /
+ * `services/agent-defaults/resolvers.ts` flat modules — mechanical wiring
+ * swap, zero behavior change.
+ */
+const agentSelectionOps = createAgentSelectionOps({
+	users: { getUserById, listActiveAiUsersByTeams },
+	teams: { getTeamMembersByTeamId },
+});
 
 /**
  * AU11: registers CORE-owned application services against the event bus —
@@ -689,10 +702,15 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		sandboxBasePath,
 		resolveModel: makeResolveModel(db, credentialResolver),
 		// AU19 Increment 1b: `work`'s four outbound DI ports (Mechanism C) — the
-		// concrete implementations still live in packages/server (agent-selection/
-		// session-requests/cost/users have not migrated yet). See
+		// concrete implementations still live in packages/server
+		// (session-requests/cost have not migrated yet; `agent-selection` is now
+		// a real package as of Increment 3e, see `agentSelectionOps` above). See
 		// packages/core-api/work/src/ports.ts for the port contracts.
-		agentSelection: { enumerateTeamCandidates, selectOwner, resolveDecompositionPlan },
+		agentSelection: {
+			enumerateTeamCandidates: agentSelectionOps.enumerateTeamCandidates,
+			selectOwner: agentSelectionOps.selectOwner,
+			resolveDecompositionPlan,
+		},
 		users: { getUserById, listActiveAiUsersByTeams },
 		costCap: { checkCostCap },
 		workIntents: { record: recordAgentWorkIntent },

@@ -13,11 +13,16 @@
  * same or below every one of these targets). Each becomes an injected DI
  * port wired by `packages/server` (the composition root — routes/services
  * haven't physically moved into `@hyperidle/core-api`/`@hyperidle/agent-orchestration`
- * Layer packages yet, Increment 5). `agent-selection` has NOT migrated yet
- * (later in this same Increment 3) — its port is wired INTERIM to
- * `packages/server`'s still-flat `services/agent-selection.ts`, same shape as
- * `trigger-resolution`'s own interim `sessionRequests` port before this
- * increment (`@hyperidle/trigger-resolution`'s `ports.ts` top `@lore`).
+ * Layer packages yet, Increment 5).
+ *
+ * **RESOLVED at Increment 3e:** `agent-selection` is now a real package
+ * (`@hyperidle/agent-selection`). `packages/server`'s
+ * `session-requests-bindings.ts` wires `SessionRequestsAgentSelector` to
+ * `@hyperidle/agent-selection`'s real `createAgentSelectionOps(...)`-bound
+ * exports instead of the deleted `services/agent-selection.ts` flat module —
+ * same resolution shape as `agent_lifecycle_inbox` below (Increment 3d). The
+ * port interface here is unchanged (only the concrete wiring moved) — no
+ * signature change needed.
  *
  * Two more ports forward-reference `lifecycle-projection`: the
  * `agent_lifecycle_inbox` table is architecture §4's roster-assigned
@@ -138,16 +143,16 @@ export interface SessionRequestsWorkReader {
 
 // ---------------------------------------------------------------------------
 // agent-selection — SessionRequestsAgentSelector (ordinary downward edge,
-// INTERIM target — agent-selection migrates later in Increment 3)
+// RESOLVED at Increment 3e — see this file's top `@lore`)
 // ---------------------------------------------------------------------------
 
-/** Structural mirror of `agent-selection.ts`'s (pre-migration) `SelectionCandidate`. */
+/** Structural mirror of `@hyperidle/agent-selection`'s `SelectionCandidate`. */
 export interface SessionRequestsSelectionCandidate {
 	readonly agentId: string;
 	readonly role: UserRole;
 }
 
-/** Structural mirror of `agent-selection.ts`'s (pre-migration) `SelectAgentRequest`. */
+/** Structural mirror of `@hyperidle/agent-selection`'s `SelectAgentRequest`. */
 export interface SessionRequestsAgentSelectionRequest {
 	readonly db: WriteExecutor;
 	readonly surface: "bet_task" | "bet_decomposer" | "routine_delegate";
@@ -160,7 +165,7 @@ export interface SessionRequestsAgentSelectionRequest {
 	readonly skillId: string | null;
 }
 
-/** Structural mirror of `agent-selection.ts`'s (pre-migration) `SelectAgentOutcome`. */
+/** Structural mirror of `@hyperidle/agent-selection`'s `SelectAgentOutcome`. */
 export interface SessionRequestsAgentSelectionOutcome {
 	readonly agentId: string | null;
 }

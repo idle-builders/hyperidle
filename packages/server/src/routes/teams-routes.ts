@@ -18,6 +18,7 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
+import { deriveInitials, resolveAgentScaffoldSpecs } from "@hyperidle/agent-selection";
 import { getThreadById, insertMessage, insertThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions, teamMembers, teams } from "@hyperidle/db";
 import { enqueueNotification, findPendingByEventSubject } from "@hyperidle/notifications";
@@ -63,8 +64,6 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { resolveAgentScaffoldSpecs } from "../services/agent-defaults/resolvers.js";
-import { deriveInitials } from "../services/agent-utils.js";
 import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { humanizeSchedule } from "../services/schedule-label.js";

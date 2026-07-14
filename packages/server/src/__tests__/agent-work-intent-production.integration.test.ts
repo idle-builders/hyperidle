@@ -1,3 +1,4 @@
+import { createAgentSelectionOps, resolveDecompositionPlan } from "@hyperidle/agent-selection";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -20,7 +21,9 @@ import {
 	users,
 } from "@hyperidle/db";
 import { checkAndUnblockDependents } from "@hyperidle/filesystems";
+import { getTeamMembersByTeamId } from "@hyperidle/org";
 import { composeTailoredGrant } from "@hyperidle/review";
+import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
 import type { AgentSelectionDefaults, AgentWorkIntentRecorder } from "@hyperidle/work";
 import {
 	getTaskById,
@@ -29,9 +32,7 @@ import {
 	transitionTask,
 } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
-import { resolveDecompositionPlan } from "../services/agent-defaults/resolvers.js";
 import { checkAndFireRoutine } from "../services/routine-scheduler.js";
-import { enumerateTeamCandidates, selectOwner } from "../services/select-agent.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
@@ -41,10 +42,15 @@ const depWatcherDeps = {
 	workIntents: { record: recordAgentWorkIntent },
 };
 
+const agentSelectionOps = createAgentSelectionOps({
+	users: { getUserById, listActiveAiUsersByTeams },
+	teams: { getTeamMembersByTeamId },
+});
+
 /** AU19 Increment 1b: `insertProposedBetTasks` now takes injected `agent-selection`/`session-requests` ports. */
 const agentSelection: AgentSelectionDefaults = {
-	enumerateTeamCandidates,
-	selectOwner,
+	enumerateTeamCandidates: agentSelectionOps.enumerateTeamCandidates,
+	selectOwner: agentSelectionOps.selectOwner,
 	resolveDecompositionPlan,
 };
 const workIntents: AgentWorkIntentRecorder = { record: recordAgentWorkIntent };

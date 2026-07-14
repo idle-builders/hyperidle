@@ -47,6 +47,16 @@
  * `user-store.ts` copy. Still an ordinary same-layer core-api→core-api edge,
  * no EventBus rewrite needed (only the three §10.3 against-grain ports above
  * get that treatment in Increment 3).
+ *
+ * @lore AU19 Increment 3e — `AgentSelectionDefaults` (→ `agent-selection`,
+ * now a REAL migrated package): the straight DI-target swap landed —
+ * `server-factory.ts` wires it to `@hyperidle/agent-selection`'s real
+ * `createAgentSelectionOps(...)`-bound exports instead of the deleted
+ * `services/select-agent.ts`/`services/agent-defaults/resolvers.ts` flat
+ * modules. The EventBus-inversion rewire this port's top comment describes
+ * is explicitly OUT OF SCOPE for that migration (per its own item
+ * description — a later, separate item once `cost` also lands) — this port
+ * stays an ordinary interim DI port for now, unchanged shape.
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";

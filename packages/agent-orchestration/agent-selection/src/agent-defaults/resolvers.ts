@@ -1,3 +1,15 @@
+/**
+ * @lore AU19 Increment 3e: moved verbatim from
+ * `packages/server/src/services/agent-defaults/resolvers.ts` into
+ * `@hyperidle/agent-selection`. `resolveAgentSelection` now threads an
+ * explicit `AgentSelectionDeps` first parameter (Mechanism C) since
+ * `selectAgentByAppDefaults` needs the injected `users` port for its
+ * `routine_delegate` branch. `resolveAgentScaffoldSpecs`,
+ * `resolveAssistantFormation`, and `resolveDecompositionPlan` need no DB
+ * access at all (`composeRoster` only touches `@hyperidle/db`/`@hyperidle/shared`
+ * leaves directly) — unchanged signatures.
+ */
+
 import { selectAgentByAppDefaults } from "../agent-selection.js";
 import type {
 	AgentScaffoldSpec,
@@ -9,6 +21,7 @@ import type {
 	SelectAgentOutcome,
 	SelectAgentRequest,
 } from "../contracts.js";
+import type { AgentSelectionDeps } from "../ports.js";
 import { composeRoster } from "../roster.js";
 
 export type ResolveAgentScaffoldSpecsInput = ScaffoldRequest;
@@ -23,9 +36,10 @@ export async function resolveAgentScaffoldSpecs(
 }
 
 export async function resolveAgentSelection(
+	deps: AgentSelectionDeps,
 	input: ResolveAgentSelectionInput,
 ): Promise<SelectAgentOutcome> {
-	return selectAgentByAppDefaults(input);
+	return selectAgentByAppDefaults(deps, input);
 }
 
 export async function resolveAssistantFormation(
