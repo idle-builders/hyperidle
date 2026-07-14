@@ -7,11 +7,24 @@
  * each real call site directly to the target's real exported functions
  * (already-migrated packages, same idiom as `review`'s Increment 1j ports).
  * The three §10.3 against-grain edges (`session-requests`, `cost`,
- * `session-lifecycle` — all `core-api → agent-orchestration`, none of which
- * are real packages yet) are wired as interim DI ports for THIS increment,
- * flagged for the Increment-3 EventBus rewire, matching `work`'s
- * `AgentWorkIntentRecorder`/`AgentSelectionDefaults`/`CostCapChecker`
- * precedent (`packages/core-api/work/src/ports.ts`).
+ * `session-lifecycle` — all `core-api → agent-orchestration`) are wired as
+ * DI ports. `PolicyCostDedupReleaser`/`PolicySessionTerminationRequester`
+ * (`cost`/`session-lifecycle`, not real packages yet) stay interim, still
+ * flagged for a future increment's EventBus-vs-permanent-port check once
+ * those Services exist. `PolicyAgentWorkIntentRecorder`/
+ * `PolicyAgentSessionRequestReader`/`PolicySessionRunRegistry`
+ * (`session-requests`, real as of Increment 3b) are **permanent** —
+ * §10.3's amendment (decided Increment 3b, founder-directed): the
+ * `handoff-protocol.ts` read-then-branch (`findBySessionId` feeding a
+ * same-request `requestTermination`) shares a transaction with the
+ * caller's domain write, and `plans/AU9/requirements.md` line 51 mandates
+ * synchronous same-transaction intent recording — an EventBus emit-after-
+ * commit would be a durability regression, not a mechanical rewire. Same
+ * exception lever as §11's `AgentWorkIntentRecorder` (`routes/threads.ts`
+ * case). Matches `work`'s `AgentWorkIntentRecorder`/`AgentSelectionDefaults`/
+ * `CostCapChecker` port *shape* (`packages/core-api/work/src/ports.ts`) —
+ * but do not assume `work`'s ports inherit this same permanence without
+ * their own same-transaction check (§10.3 amendment note).
  *
  * @lore AU19 Increment 2a — census corrections discovered migrating for
  * real (§14 sanctions updating the census as a "floor, refinable during

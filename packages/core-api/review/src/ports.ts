@@ -35,10 +35,13 @@
  * status transition it is atomic with — an EventBus emit-after-commit would
  * split that into two transactions (a crash between them would leave a
  * granted call with no recorded intent), a genuine durability regression,
- * not a mechanical migration. Flagged for founder/review confirmation
- * rather than silently forcing the inversion or silently declining it —
- * see `@hyperidle/policy`'s `ports.ts` top `@lore` for the identical
- * finding on its own (more clearly synchronous) `session-requests` ports.
+ * not a mechanical migration. **Ruling (§10.3 amendment, decided Increment
+ * 3b, founder-directed): this port is permanent, not interim** —
+ * `plans/AU9/requirements.md` line 51 mandates synchronous same-transaction
+ * intent recording, and §11's `AgentWorkIntentRecorder` (`routes/threads.ts`
+ * case) already established this exact exception lever. See
+ * `@hyperidle/policy`'s `ports.ts` top `@lore` for the identical finding on
+ * its own (more clearly synchronous) `session-requests` ports.
  *
 
  * Types are declared locally (structural mirrors of the target Service's own
