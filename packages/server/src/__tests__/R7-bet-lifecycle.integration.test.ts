@@ -15,13 +15,36 @@
  * Ship rate = completed / (completed + active) * 100.
  */
 
+import { insertMessage, insertThread } from "@hyperidle/conversation";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { insertNotification } from "@hyperidle/notifications";
 import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
-import { transitionBet } from "@hyperidle/work";
+import { type LifecyclePropagationDeps, registerLifecyclePropagation } from "@hyperidle/policy";
+import { getFirstUserByKind } from "@hyperidle/users";
+import {
+	getBetById,
+	getTaskById,
+	listTasks,
+	transitionBet,
+	transitionBetStatus,
+	transitionTaskState,
+} from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { registerLifecyclePropagation } from "../services/lifecycle-propagation.js";
 import { test } from "../test-fixtures.js";
+
+/**
+ * @lore AU19 Increment 2a: `registerLifecyclePropagation` now takes
+ * injected `work`/`conversation`/`users`/`notifications` ports (Mechanism C
+ * — `policy` never imports another Service). This test builds the exact
+ * same production wiring `server-factory.ts` uses — no behavior change.
+ */
+const lifecyclePropagationDeps: LifecyclePropagationDeps = {
+	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
+	conversation: { insertMessage, insertThread },
+	users: { getFirstUserByKind },
+	notifications: { insert: insertNotification },
+};
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
@@ -179,7 +202,7 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 			updatedAt: now,
 		});
 
-		const unsubscribe = registerLifecyclePropagation(db, eventBus);
+		const unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
 
 		// Act: emit task_state_changed (in_progress → done) after updating DB
 		await db
@@ -256,7 +279,7 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 			updatedAt: now,
 		});
 
-		const unsubscribe = registerLifecyclePropagation(db, eventBus);
+		const unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
 
 		await db
 			.update(tasks)

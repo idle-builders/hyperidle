@@ -126,6 +126,16 @@ const TABLE_OWNER: Record<string, string> = {
 	// site (`session-review-creator.ts`) now goes through the
 	// `TaskRiskTierReader` DI port instead of direct table access.
 	taskPlanningSignals: "packages/core-api/work",
+	// AU19 Increment 2a: `policy` migrated — its `⛁*` ownership question
+	// (architecture §4/§79) resolves to ZERO owned tables. `policy-engine.ts`/
+	// `approval-rate.ts` never touched a raw table at all; `handoff-protocol.ts`
+	// (`agentSessionRequests`, `teamMembers`) and `lifecycle-propagation.ts`
+	// (`propagationLog`, `sessions`) touched only OTHER Services' tables — all
+	// four converted to injected DI ports (`agentSessionRequests`/`teamMembers`,
+	// §10.3 against-grain + ordinary respectively) except `propagationLog`/
+	// `sessions`, which stay direct `@hyperidle/db` reads because both are
+	// already in `UNOWNED_SHARED_TABLES` below (genuinely multi-owner-touched,
+	// confirmed still true after this migration — no new row added here).
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

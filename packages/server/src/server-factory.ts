@@ -13,7 +13,16 @@ import {
 	insertCredential,
 	upsertCredential,
 } from "@hyperidle/connections";
-import { getThreadById, insertThread, updateThread } from "@hyperidle/conversation";
+import {
+	getThreadById,
+	insertMessage,
+	insertThread,
+	listInitiatedVerdictMessages,
+	listMessagesByThread,
+	listVerdictMessagesByItemIds,
+	updateMessage,
+	updateThread,
+} from "@hyperidle/conversation";
 import {
 	createPgliteDb,
 	createPostgresDb,
@@ -27,6 +36,8 @@ import {
 	type AlertPreferences,
 	defaultMutePreferenceReader,
 	defaultNotificationAdapterFactory,
+	insertNotification,
+	isSilenced,
 	type NotificationsConfigDeps,
 	type NotificationsCredentialCipher,
 	type NotificationsCredentialStore,
@@ -43,6 +54,8 @@ import {
 	resolveReviewRecipients,
 	setTeamMembersActiveBets,
 } from "@hyperidle/org";
+import type { LifecyclePropagationDeps, PolicyEngineDeps } from "@hyperidle/policy";
+import { registerLifecyclePropagation, registerPolicyEngine } from "@hyperidle/policy";
 import { registerSessionReviewCreator } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
 import {
@@ -52,15 +65,26 @@ import {
 	updateServerConfig,
 } from "@hyperidle/settings";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
-import { getUserById, listActiveAiUsersByTeams, listUsersByKind } from "@hyperidle/users";
+import {
+	getFirstUserByKind,
+	getUserById,
+	listActiveAiUsersByTeams,
+	listUsersByKind,
+} from "@hyperidle/users";
 import {
 	createItem as createWorkItem,
+	getBetById,
 	getItemById,
 	getTaskById,
 	getTaskRiskTierByTaskId,
+	listItemIdsBySourceAgent,
 	listQueuedItemsSince,
+	listTasks,
 	registerBetDecomposition,
 	resolveOrphanedDecompositions,
+	transitionBetStatus,
+	transitionTaskState,
+	updateItemById,
 	updateTaskById,
 } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -88,10 +112,8 @@ import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.
 import { startCostSentinel } from "./services/cost-sentinel.js";
 import { registerGitExportHandler } from "./services/git-export.js";
 import { createGitRunner } from "./services/git-export-runner.js";
-import { registerLifecyclePropagation } from "./services/lifecycle-propagation.js";
 import { createMcpRoute } from "./services/mcp-route.js";
 import { resolveModelTier } from "./services/model-gateway.js";
-import { registerPolicyEngine } from "./services/policy-engine.js";
 import { startRetentionReaper } from "./services/retention-reaper.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
@@ -153,6 +175,33 @@ const notificationsWorkReader: NotificationsWorkReader = {
 };
 
 /**
+ * @lore AU19 Increment 2a: `@hyperidle/policy`'s DI ports (Mechanism C),
+ * wired here at the `packages/server` composition point — `work`/
+ * `conversation`/`users`/`org` are all real, already-migrated packages.
+ * `PolicyEngineDeps.silence` closes over `notificationsSilenceDeps` (built
+ * above) so `policy` itself only ever sees the boolean-returning
+ * `isSilenced` predicate, never `notifications`' own deps shape.
+ */
+const policyEngineDeps: PolicyEngineDeps = {
+	work: { getItemById, updateItemById },
+	conversation: { insertMessage, listMessagesByThread, updateMessage, updateThread },
+	silence: {
+		isSilenced: (db, item, now) => isSilenced(db, item, now, notificationsSilenceDeps),
+	},
+	approvalRate: {
+		work: { listItemIdsBySourceAgent },
+		conversation: { listInitiatedVerdictMessages, listVerdictMessagesByItemIds },
+	},
+};
+
+const lifecyclePropagationDeps: LifecyclePropagationDeps = {
+	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
+	conversation: { insertMessage, insertThread },
+	users: { getFirstUserByKind },
+	notifications: { insert: insertNotification },
+};
+
+/**
  * AU11: registers CORE-owned application services against the event bus —
  * knowledge (relevance listener, FTS), notifications, policy engine,
  * review routing, lifecycle propagation, retention, git-export, and the
@@ -210,8 +259,8 @@ export function registerCoreDomainServices(ctx: {
 			taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
 		}),
 	);
-	disposers.push(registerPolicyEngine(db, eventBus));
-	disposers.push(registerLifecyclePropagation(db, eventBus));
+	disposers.push(registerPolicyEngine(db, eventBus, policyEngineDeps));
+	disposers.push(registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps));
 	disposers.push(
 		registerGitExportHandler(db, eventBus, {
 			runnerFactory: (repoPath) => createGitRunner(repoPath),

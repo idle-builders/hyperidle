@@ -1,4 +1,5 @@
 import { bets, sessions, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import type { HandoffMetadata } from "@hyperidle/policy";
 import { beforeEach, describe } from "vitest";
 import {
 	clearDeduplicationCache,
@@ -6,7 +7,7 @@ import {
 	recordCostAndCheck,
 	registerCostCapDedupReleaser,
 } from "../services/cost-cap.js";
-import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
+import { handoff } from "../services/policy-bindings.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 import { expect, test } from "../test-fixtures.js";
 

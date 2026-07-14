@@ -11,7 +11,7 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
-import { handoff } from "../services/handoff-protocol.js";
+import { handoff } from "../services/policy-bindings.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 
 /**

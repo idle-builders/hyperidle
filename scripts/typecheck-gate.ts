@@ -343,6 +343,11 @@ function buildLeafDeclarations(root: string): void {
   // routes/threads.ts, routes/reviews.ts, tools/score-attention.ts,
   // services/builtin-routine-handlers.ts, server-factory.ts now import
   // `@hyperidle/review`.
+  //
+  // @lore AU19 Increment 2a: `core-api/policy` added — same TS6305 cascade;
+  // routes/tasks.ts, routes/agent-profile.ts, tools/handoff-to.ts,
+  // services/policy-bindings.ts, server-factory.ts now import
+  // `@hyperidle/policy`.
   for (const leaf of [
     "shared",
     "db",
@@ -357,6 +362,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/connections",
     "core-api/routine",
     "core-api/review",
+    "core-api/policy",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

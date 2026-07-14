@@ -25,6 +25,14 @@
  */
 
 import {
+	insertMessage,
+	listInitiatedVerdictMessages,
+	listMessagesByThread,
+	listVerdictMessagesByItemIds,
+	updateMessage,
+	updateThread,
+} from "@hyperidle/conversation";
+import {
 	type HyperIdleDb,
 	items,
 	messages,
@@ -33,11 +41,39 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { updateServerConfig } from "@hyperidle/settings";
+import { isSilenced, type NotificationsSilenceDeps } from "@hyperidle/notifications";
+import { getTeamMembersById } from "@hyperidle/org";
+import { type PolicyEngineDeps, registerPolicyEngine } from "@hyperidle/policy";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
+import { getUserById } from "@hyperidle/users";
+import { getItemById, listItemIdsBySourceAgent, updateItemById } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
-import { registerPolicyEngine } from "../services/policy-engine.js";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
+
+/**
+ * @lore AU19 Increment 2a: `registerPolicyEngine` now takes injected
+ * `work`/`conversation`/`notifications` ports (Mechanism C — `policy` never
+ * imports another Service). This test builds the exact same production
+ * wiring `server-factory.ts` uses — no behavior change.
+ */
+const silenceDeps: NotificationsSilenceDeps = {
+	serverConfig: { read: readServerConfig, update: updateServerConfig },
+	users: { getUserById },
+	teams: { getTeamMembersById },
+};
+
+const policyEngineDeps: PolicyEngineDeps = {
+	work: { getItemById, updateItemById },
+	conversation: { insertMessage, listMessagesByThread, updateMessage, updateThread },
+	silence: {
+		isSilenced: (db, item, now) => isSilenced(db, item, now, silenceDeps),
+	},
+	approvalRate: {
+		work: { listItemIdsBySourceAgent },
+		conversation: { listInitiatedVerdictMessages, listVerdictMessagesByItemIds },
+	},
+};
 
 const NOW = new Date().toISOString();
 const FIVE_DAYS_AGO = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
@@ -219,7 +255,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 		await seedBase(db);
 		await seedVerdicts(db, 10, "approve");
 
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -245,7 +281,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -278,7 +314,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -300,7 +336,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -322,7 +358,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "high" });
 		emitItemCreated(eventBus, itemId);
 
@@ -346,7 +382,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { kind: "skill_change", riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -365,7 +401,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 		await seedBase(db);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -388,7 +424,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low", blocking: false });
 		emitItemCreated(eventBus, itemId);
 

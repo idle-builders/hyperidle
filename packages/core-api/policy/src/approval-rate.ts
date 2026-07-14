@@ -13,14 +13,16 @@
  * @lore AD4: Path 2 excludes messages with a legacyItemId set to avoid double-
  * counting verdicts that would already match via Path 1. The condition
  * `AND m.legacy_item_id IS NULL` enforces this.
+ *
+ * @lore AU19 Increment 2a: `work`/`conversation` reads converted to the
+ * injected `ApprovalRateDeps` (Mechanism C — `policy` never imports another
+ * Service) — wired by the caller (still `packages/server`) to
+ * `@hyperidle/work`'s/`@hyperidle/conversation`'s real exports, zero
+ * behavior change.
  */
 
-import {
-	listInitiatedVerdictMessages,
-	listVerdictMessagesByItemIds,
-} from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import * as work from "@hyperidle/work";
+import type { ApprovalRateDeps } from "./ports.js";
 
 export interface ApprovalRateResult {
 	approvalRate: number;
@@ -45,12 +47,14 @@ export interface ApprovalRateResult {
  * @param db - The database connection.
  * @param agentId - The agent to compute the rate for.
  * @param windowDays - Number of days to look back (sliding window).
+ * @param deps - Injected `work`/`conversation` ports (Mechanism C).
  * @param recentLimit - Max number of recent verdicts to return (default 10).
  */
 export async function computeApprovalRate(
 	db: HyperIdleDb,
 	agentId: string,
 	windowDays: number,
+	deps: ApprovalRateDeps,
 	recentLimit = 10,
 ): Promise<ApprovalRateResult> {
 	const windowStart = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
@@ -60,14 +64,14 @@ export async function computeApprovalRate(
 	// routes through work-service (Work owns `items`), then conversation-store
 	// reads the matching verdict messages (Conversation owns `messages`) — no
 	// cross-owner table read, no join.
-	const agentItemIds = await work.listItemIdsBySourceAgent(db, agentId);
+	const agentItemIds = await deps.work.listItemIdsBySourceAgent(db, agentId);
 	const path1Rows =
 		agentItemIds.length > 0
-			? await listVerdictMessagesByItemIds(db, agentItemIds, windowStart)
+			? await deps.conversation.listVerdictMessagesByItemIds(db, agentItemIds, windowStart)
 			: [];
 
 	// Path 2: verdict messages attributed via threads.initiatorId (no legacyItemId to avoid double-count)
-	const path2Rows = await listInitiatedVerdictMessages(db, agentId, windowStart);
+	const path2Rows = await deps.conversation.listInitiatedVerdictMessages(db, agentId, windowStart);
 
 	// Deduplicate by message id (union of both paths)
 	const seenIds = new Set<string>();

@@ -36,12 +36,12 @@ import * as work from "@hyperidle/work";
 import { desc, eq } from "drizzle-orm";
 import type { Context } from "hono";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { computeApprovalRate } from "../services/approval-rate.js";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
 	registeredHarnessCount,
 } from "../services/harness-capability-read-model.js";
+import { computeApprovalRate } from "../services/policy-bindings.js";
 
 // ---------------------------------------------------------------------------
 // Health signal computation (exported for unit tests — see A5 finding)

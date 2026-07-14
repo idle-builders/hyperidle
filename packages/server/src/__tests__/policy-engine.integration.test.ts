@@ -1,4 +1,12 @@
 import {
+	insertMessage,
+	listInitiatedVerdictMessages,
+	listMessagesByThread,
+	listVerdictMessagesByItemIds,
+	updateMessage,
+	updateThread,
+} from "@hyperidle/conversation";
+import {
 	type HyperIdleDb,
 	items,
 	messages,
@@ -8,11 +16,39 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
-import { updateServerConfig } from "@hyperidle/settings";
+import { isSilenced, type NotificationsSilenceDeps } from "@hyperidle/notifications";
+import { getTeamMembersById } from "@hyperidle/org";
+import { type PolicyEngineDeps, registerPolicyEngine } from "@hyperidle/policy";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
+import { getUserById } from "@hyperidle/users";
+import { getItemById, listItemIdsBySourceAgent, updateItemById } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { registerPolicyEngine } from "../services/policy-engine.js";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
+
+/**
+ * @lore AU19 Increment 2a: `registerPolicyEngine` now takes injected
+ * `work`/`conversation`/`notifications` ports (Mechanism C — `policy` never
+ * imports another Service). This test builds the exact same production
+ * wiring `server-factory.ts` uses — no behavior change.
+ */
+const silenceDeps: NotificationsSilenceDeps = {
+	serverConfig: { read: readServerConfig, update: updateServerConfig },
+	users: { getUserById },
+	teams: { getTeamMembersById },
+};
+
+const policyEngineDeps: PolicyEngineDeps = {
+	work: { getItemById, updateItemById },
+	conversation: { insertMessage, listMessagesByThread, updateMessage, updateThread },
+	silence: {
+		isSilenced: (db, item, now) => isSilenced(db, item, now, silenceDeps),
+	},
+	approvalRate: {
+		work: { listItemIdsBySourceAgent },
+		conversation: { listInitiatedVerdictMessages, listVerdictMessagesByItemIds },
+	},
+};
 
 // L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project as
 // `verdict`-typed messages whose `legacy_item_id` ties them back to the source
@@ -200,7 +236,7 @@ describe("Policy Engine (E7)", () => {
 		// AD4: replaced L4 autonomy with verdict-based trust (10 approvals = 100% >= 0.90 threshold)
 		await seedBase(db);
 		await seedVerdicts(db, 10, "approve");
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "low" });
 
 		emitItemCreated(eventBus, itemId);
@@ -225,7 +261,7 @@ describe("Policy Engine (E7)", () => {
 		await seedVerdicts(db, 3, "reject");
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "low" });
 
 		emitItemCreated(eventBus, itemId);
@@ -247,7 +283,7 @@ describe("Policy Engine (E7)", () => {
 		await seedAgentSkill(db, 2);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "low" });
 
 		emitItemCreated(eventBus, itemId);
@@ -261,7 +297,7 @@ describe("Policy Engine (E7)", () => {
 		await seedAgentSkill(db, 1);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "low" });
 
 		emitItemCreated(eventBus, itemId);
@@ -275,7 +311,7 @@ describe("Policy Engine (E7)", () => {
 		// No seedAgentSkill call — defaults to L1
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "low" });
 
 		emitItemCreated(eventBus, itemId);
@@ -288,7 +324,7 @@ describe("Policy Engine (E7)", () => {
 		await seedAgentSkill(db, 4);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "high" });
 
 		emitItemCreated(eventBus, itemId);
@@ -307,7 +343,7 @@ describe("Policy Engine (E7)", () => {
 		await seedAgentSkill(db, 4);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { kind: "skill_change", riskTier: "low" });
 
 		emitItemCreated(eventBus, itemId);
@@ -323,7 +359,7 @@ describe("Policy Engine (E7)", () => {
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "low", blocking: false });
 
 		emitItemCreated(eventBus, itemId);
@@ -343,7 +379,7 @@ describe("Policy Engine (E7)", () => {
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "low", blocking: true });
 
 		emitItemCreated(eventBus, itemId);
@@ -358,7 +394,7 @@ describe("Policy Engine (E7)", () => {
 		// AD4: replaced L4 autonomy with verdict-based trust
 		await seedBase(db);
 		await seedVerdicts(db, 10, "approve");
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "low" });
 
 		emitItemCreated(eventBus, itemId);
@@ -384,7 +420,7 @@ describe("Policy Engine (E7)", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "low", blocking: false });
 
 		emitItemCreated(eventBus, itemId);
@@ -409,7 +445,7 @@ describe("Policy Engine (E7)", () => {
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		// Use a `now` parameter in the middle of the window
-		unsubscribe = registerPolicyEngine(db, eventBus, {
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps, {
 			nowFn: () => new Date("2026-04-16T14:00:00Z"),
 		});
 		const itemId = await createItem(db, { riskTier: "low", blocking: false });
@@ -439,7 +475,7 @@ describe("Policy Engine (E7)", () => {
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		// 14:00 is outside 22:00–07:00
-		unsubscribe = registerPolicyEngine(db, eventBus, {
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps, {
 			nowFn: () => new Date("2026-04-16T14:00:00Z"),
 		});
 		const itemId = await createItem(db, { riskTier: "low", blocking: false });
@@ -462,7 +498,7 @@ describe("Policy Engine (E7)", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, {
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps, {
 			nowFn: () => new Date("2026-04-16T23:00:00Z"),
 		});
 		const itemId = await createItem(db, { riskTier: "low", blocking: false });
@@ -484,7 +520,7 @@ describe("Policy Engine (E7)", () => {
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus);
+		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, { riskTier: "high", blocking: false });
 
 		emitItemCreated(eventBus, itemId);

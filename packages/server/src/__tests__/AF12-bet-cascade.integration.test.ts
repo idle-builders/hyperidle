@@ -20,6 +20,7 @@
  * so the test never races the async handler.
  */
 
+import { insertMessage, insertThread } from "@hyperidle/conversation";
 import {
 	bets,
 	type HyperIdleDb,
@@ -30,14 +31,37 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { insertNotification } from "@hyperidle/notifications";
 import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
+import { type LifecyclePropagationDeps, registerLifecyclePropagation } from "@hyperidle/policy";
+import { getFirstUserByKind } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
-import { cascadeBetKill, transitionBet } from "@hyperidle/work";
+import {
+	cascadeBetKill,
+	getBetById,
+	getTaskById,
+	listTasks,
+	transitionBet,
+	transitionBetStatus,
+	transitionTaskState,
+} from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
-import { registerLifecyclePropagation } from "../services/lifecycle-propagation.js";
 import { test } from "../test-fixtures.js";
+
+/**
+ * @lore AU19 Increment 2a: `registerLifecyclePropagation` now takes
+ * injected `work`/`conversation`/`users`/`notifications` ports (Mechanism C
+ * — `policy` never imports another Service). This test builds the exact
+ * same production wiring `server-factory.ts` uses — no behavior change.
+ */
+const lifecyclePropagationDeps: LifecyclePropagationDeps = {
+	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
+	conversation: { insertMessage, insertThread },
+	users: { getFirstUserByKind },
+	notifications: { insert: insertNotification },
+};
 
 /** AU19 Increment 1b: `cascadeBetKill` forwards this to `transitionTask`. */
 const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
@@ -282,7 +306,7 @@ describe("AF12 AC6 — task->bet propagation label honesty (fix '-> review' bug)
 			updatedAt: now,
 		});
 
-		const unsub = registerLifecyclePropagation(db, eventBus);
+		const unsub = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
 		try {
 			eventBus.emit({
 				type: "task_state_changed",

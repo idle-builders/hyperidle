@@ -10,9 +10,10 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { HandoffMetadata } from "@hyperidle/policy";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { eq } from "drizzle-orm";
-import { type HandoffMetadata, handoff } from "../services/handoff-protocol.js";
+import { handoff } from "../services/policy-bindings.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 import { describe, expect, test, vi } from "../test-fixtures.js";
 

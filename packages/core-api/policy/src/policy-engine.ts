@@ -10,38 +10,21 @@
  * (plan §3/§10 — no production or eval writer ever existed; the only path
  * was the generic PATCH /api/status/settings catch-all, itself retired this
  * WP). The thresholds below are now always the hardcoded defaults.
+ *
+ * @lore AU19 Increment 2a: this is the real cut-over — moved here from
+ * `packages/server/src/services/policy-engine.ts` (behavior-preserving
+ * move). Every raw cross-Service call (`work`/`conversation`/`notifications`)
+ * became an injected DI port (Mechanism C, `ports.ts`). The `silencePolicyDeps`
+ * wiring block (settings/users/org function refs for `notifications`'
+ * `isSilenced`) moved OUT to the composition root (`packages/server`) —
+ * `policy` now only sees the boolean-returning `PolicySilenceChecker` port,
+ * never `notifications`' own `NotificationsSilenceDeps` shape.
  */
 
-import {
-	insertMessage,
-	listMessagesByThread,
-	updateMessage,
-	updateThread,
-} from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	type NotificationsSilenceDeps,
-	isSilenced as sharedIsSilenced,
-} from "@hyperidle/notifications";
-import { getTeamMembersById } from "@hyperidle/org";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
 import { computeApprovalRate } from "./approval-rate.js";
-
-/**
- * @lore AU19 Increment 1g: `isSilenced` (`@hyperidle/notifications`) now
- * requires an injected `NotificationsSilenceDeps` (Mechanism C) — this is the
- * sole real consumer outside the notifications Service itself, wiring the
- * real `@hyperidle/settings`/`@hyperidle/users`/`@hyperidle/org` function
- * references directly (all real, migrated packages), zero behavior change.
- */
-const silencePolicyDeps: NotificationsSilenceDeps = {
-	serverConfig: { read: readServerConfig, update: updateServerConfig },
-	users: { getUserById },
-	teams: { getTeamMembersById },
-};
+import type { PolicyEngineDeps } from "./ports.js";
 
 interface PolicyEngineOptions {
 	/** Inject current time for testability. Defaults to () => new Date(). */
@@ -63,13 +46,14 @@ interface TrustSignal {
 export function registerPolicyEngine(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	deps: PolicyEngineDeps,
 	options?: PolicyEngineOptions,
 ): () => void {
 	const nowFn = options?.nowFn ?? (() => new Date());
 
 	const handler = (event: ItemCreatedEvent): void => {
 		void (async () => {
-			await evaluateItem(db, eventBus, event.itemId, nowFn);
+			await evaluateItem(db, eventBus, event.itemId, deps, nowFn);
 		})();
 	};
 
@@ -80,20 +64,21 @@ async function evaluateItem(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	itemId: string,
+	deps: PolicyEngineDeps,
 	nowFn: () => Date,
 ): Promise<void> {
 	// 1. Load the item
-	const item = await work.getItemById(db, itemId);
+	const item = await deps.work.getItemById(db, itemId);
 	if (!item) return;
 
 	// 2. Load the source agent's trust signal (approval rate from verdict history)
-	const trust = await getAgentTrustSignal(db, item.sourceAgentId);
+	const trust = await getAgentTrustSignal(db, item.sourceAgentId, deps);
 
 	// 3. Determine action (priority order)
-	const action = await determineAction(db, item, trust, nowFn);
+	const action = await determineAction(db, item, trust, deps, nowFn);
 
 	// 4. Execute the action
-	await executeAction(db, eventBus, itemId, action);
+	await executeAction(db, eventBus, itemId, action, deps);
 }
 
 /** @lore AU18: was settable via `factory_settings.trust_window_days` — now the fixed default. */
@@ -108,10 +93,11 @@ const TRUST_QUEUE_THRESHOLD = 0.7;
 async function getAgentTrustSignal(
 	db: HyperIdleDb,
 	sourceAgentId: string | null,
+	deps: PolicyEngineDeps,
 ): Promise<TrustSignal> {
 	if (!sourceAgentId) return { approvalRate: 0, totalVerdicts: 0 };
 
-	const result = await computeApprovalRate(db, sourceAgentId, TRUST_WINDOW_DAYS);
+	const result = await computeApprovalRate(db, sourceAgentId, TRUST_WINDOW_DAYS, deps.approvalRate);
 
 	return {
 		approvalRate: result.approvalRate,
@@ -128,6 +114,7 @@ async function determineAction(
 		sourceAgentId: string | null;
 	},
 	trust: TrustSignal,
+	deps: PolicyEngineDeps,
 	nowFn: () => Date,
 ): Promise<PolicyAction> {
 	// a. High-risk: ALWAYS push
@@ -140,9 +127,7 @@ async function determineAction(
 
 	// c. Check silence modes (only for non-blocking items)
 	if (!isBlocking) {
-		if (
-			await sharedIsSilenced(db, { sourceAgentId: item.sourceAgentId }, nowFn(), silencePolicyDeps)
-		) {
+		if (await deps.silence.isSilenced(db, { sourceAgentId: item.sourceAgentId }, nowFn())) {
 			return "queue";
 		}
 	}
@@ -176,6 +161,7 @@ async function executeAction(
 	eventBus: EventBus,
 	itemId: string,
 	action: PolicyAction,
+	deps: PolicyEngineDeps,
 ): Promise<void> {
 	switch (action) {
 		case "auto_resolve": {
@@ -183,12 +169,12 @@ async function executeAction(
 			// dropped `responses` table. The item carries a `threadId`; the
 			// verdict targets the most recent review-typed message in that
 			// thread (or the legacy item id when no review message exists).
-			const item = await work.getItemById(db, itemId);
+			const item = await deps.work.getItemById(db, itemId);
 			if (!item) break;
 			// L1 step5 (W5): push the type filter into SQL and limit to the
 			// most recent review-typed message — the previous query loaded
 			// every message in the thread to JS just to find one.
-			const [reviewMessage] = await listMessagesByThread(db, item.threadId, {
+			const [reviewMessage] = await deps.conversation.listMessagesByThread(db, item.threadId, {
 				type: "review",
 				order: "createdAt",
 				dir: "desc",
@@ -201,7 +187,7 @@ async function executeAction(
 				decision: "approve",
 				resolvesMessageId: reviewMessage?.id ?? itemId,
 			};
-			await insertMessage(db, {
+			await deps.conversation.insertMessage(db, {
 				id: messageId,
 				senderId: "policy_engine",
 				threadId: item.threadId,
@@ -212,21 +198,21 @@ async function executeAction(
 				createdAt: respondedAt,
 			});
 			if (reviewMessage) {
-				await updateMessage(db, reviewMessage.id, { resolvedAt: respondedAt });
+				await deps.conversation.updateMessage(db, reviewMessage.id, { resolvedAt: respondedAt });
 			}
-			await updateThread(db, item.threadId, { resolvedAt: respondedAt });
+			await deps.conversation.updateThread(db, item.threadId, { resolvedAt: respondedAt });
 			break;
 		}
 		case "queue": {
 			// @lore I6: append to auditTrail instead of overwriting to preserve
 			// prior entries (e.g. from re-evaluation after an unqueue).
-			const existing = await work.getItemById(db, itemId);
+			const existing = await deps.work.getItemById(db, itemId);
 			// @lore I6: old data may have a plain object instead of an array.
 			// Guard with Array.isArray to avoid crashing on legacy audit trails.
 			const parsed: unknown = existing?.auditTrail ? JSON.parse(existing.auditTrail) : [];
 			const trail: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
 			trail.push({ action: "policy_queued", timestamp: new Date().toISOString() });
-			await work.updateItemById(db, itemId, { auditTrail: JSON.stringify(trail) });
+			await deps.work.updateItemById(db, itemId, { auditTrail: JSON.stringify(trail) });
 			break;
 		}
 		case "push": {

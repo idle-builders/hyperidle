@@ -6,11 +6,34 @@
  * and uses that id as the founder participant in propagation threads.
  */
 
+import { insertMessage, insertThread } from "@hyperidle/conversation";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { insertNotification } from "@hyperidle/notifications";
+import { type LifecyclePropagationDeps, registerLifecyclePropagation } from "@hyperidle/policy";
+import { getFirstUserByKind } from "@hyperidle/users";
+import {
+	getBetById,
+	getTaskById,
+	listTasks,
+	transitionBetStatus,
+	transitionTaskState,
+} from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
-import { registerLifecyclePropagation } from "../services/lifecycle-propagation.js";
 import { test } from "../test-fixtures.js";
+
+/**
+ * @lore AU19 Increment 2a: `registerLifecyclePropagation` now takes
+ * injected `work`/`conversation`/`users`/`notifications` ports (Mechanism C
+ * — `policy` never imports another Service). This test builds the exact
+ * same production wiring `server-factory.ts` uses — no behavior change.
+ */
+const lifecyclePropagationDeps: LifecyclePropagationDeps = {
+	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
+	conversation: { insertMessage, insertThread },
+	users: { getFirstUserByKind },
+	notifications: { insert: insertNotification },
+};
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";
 
@@ -101,7 +124,7 @@ describe("M3 — lifecycle-propagation: thread participants use users-table foun
 	}) => {
 		await seedBase(db, "test-founder-1");
 		await seedDoneTasks(db);
-		registerLifecyclePropagation(db, eventBus);
+		registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
 
 		// Trigger the propagation that creates a review thread (all tasks done)
 		// Fire a task_state_changed event to drive the propagation
