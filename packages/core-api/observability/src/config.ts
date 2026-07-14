@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import type { ObservabilityConfigDeps } from "./ports.js";
 import type { ObservabilityChannel } from "./types.js";
 
 export interface ObservabilityConfig {
@@ -28,9 +28,20 @@ export type SafeObservabilityConfig = ObservabilityConfig;
  * `factorySettings.observability.*` KV keys). `enabled` keeps its
  * default-on-unless-explicitly-false semantics (AF16 T14) — the Zod schema
  * default is `true`, so an absent row already resolves to enabled.
+ *
+ * @lore AU19 Increment 2d: `readServerConfig`/`updateServerConfig`
+ * (`@hyperidle/settings`) used to be imported directly —
+ * `composition-boundary-guard` bans that once this file lives in
+ * `packages/core-api/observability/`. Converted to the injected
+ * `ObservabilityConfigDeps` (Mechanism C) — `deps.serverConfig` — wired by
+ * the caller (`packages/server`, unguarded) to the real functions, zero
+ * behavior change.
  */
-export async function readObservabilityConfig(db: HyperIdleDb): Promise<ObservabilityConfig> {
-	const { observability } = await readServerConfig(db);
+export async function readObservabilityConfig(
+	db: HyperIdleDb,
+	deps: ObservabilityConfigDeps,
+): Promise<ObservabilityConfig> {
+	const { observability } = await deps.serverConfig.read(db);
 	return observability;
 }
 
@@ -56,7 +67,8 @@ export interface ObservabilityConfigPatch {
 export async function updateObservabilityConfig(
 	db: HyperIdleDb,
 	patch: ObservabilityConfigPatch,
+	deps: ObservabilityConfigDeps,
 ): Promise<ObservabilityConfig> {
-	await updateServerConfig(db, { observability: patch });
-	return readObservabilityConfig(db);
+	await deps.serverConfig.update(db, { observability: patch });
+	return readObservabilityConfig(db, deps);
 }

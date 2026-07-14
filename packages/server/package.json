@@ -38,6 +38,7 @@
 		"@hyperidle/git-export": "*",
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/notifications": "*",
+		"@hyperidle/observability": "*",
 		"@hyperidle/org": "*",
 		"@hyperidle/policy": "*",
 		"@hyperidle/review": "*",

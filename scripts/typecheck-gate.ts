@@ -361,6 +361,10 @@ function buildLeafDeclarations(root: string): void {
   // server-factory.ts, app.ts, and the git-export/filesystem-adapter
   // integration test files now import `@hyperidle/git-export`. This closes
   // `filesystems`' Increment-2b `FilesystemsGitRunner` forward-reference.
+  //
+  // @lore AU19 Increment 2d: `core-api/observability` added — same TS6305
+  // cascade; routes/observability-routes.ts, app.ts,
+  // services/session-provisioning.ts now import `@hyperidle/observability`.
   for (const leaf of [
     "shared",
     "db",
@@ -378,6 +382,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/policy",
     "core-api/filesystems",
     "core-api/git-export",
+    "core-api/observability",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

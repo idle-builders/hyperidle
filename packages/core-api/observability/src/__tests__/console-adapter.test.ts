@@ -4,7 +4,7 @@
 
 import type { Logger, ObservabilityEvent } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createConsoleObservabilityAdapter } from "../../services/observability/console-adapter.js";
+import { createConsoleObservabilityAdapter } from "../console-adapter.js";
 
 interface LogCall {
 	level: "debug" | "info" | "warn" | "error";

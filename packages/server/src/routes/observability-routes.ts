@@ -1,18 +1,28 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import {
+	type ObservabilityConfig,
+	type ObservabilityConfigPatch,
+	type ObservabilityDispatcher,
+	readObservabilityConfig,
+	redactObservabilityConfig,
+	updateObservabilityConfig,
+} from "@hyperidle/observability";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse, Logger } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
 import { Hono, type MiddlewareHandler } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import {
-	type ObservabilityConfig,
-	type ObservabilityConfigPatch,
-	readObservabilityConfig,
-	redactObservabilityConfig,
-	updateObservabilityConfig,
-} from "../services/observability/config.js";
-import type { ObservabilityDispatcher } from "../services/observability/types.js";
+
+/**
+ * AU19 Increment 2d: `observability`'s one real outbound edge —
+ * `server_config.observability` (owned by `settings`) — wired through the
+ * injected `ObservabilityServerConfigPort` (`@hyperidle/observability`'s
+ * `ports.ts`). Same idiom as `git-export-routes.ts`'s
+ * `gitExportServerConfigPort`.
+ */
+const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 /**
  * Per-request body cap for POST routes. Observability POSTs carry
@@ -103,7 +113,7 @@ export function createObservabilityRoutes(
 	}
 	async function getCachedConfig(): Promise<ObservabilityConfig> {
 		if (statusCfgCache) return statusCfgCache.cfg;
-		const cfg = await readObservabilityConfig(db);
+		const cfg = await readObservabilityConfig(db, { serverConfig: observabilityServerConfigPort });
 		statusCfgCache = { cfg };
 		return cfg;
 	}
@@ -122,7 +132,7 @@ export function createObservabilityRoutes(
 	);
 
 	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) => {
-		const cfg = await readObservabilityConfig(db);
+		const cfg = await readObservabilityConfig(db, { serverConfig: observabilityServerConfigPort });
 		return c.json(redactObservabilityConfig(cfg));
 	});
 
@@ -142,7 +152,9 @@ export function createObservabilityRoutes(
 				return c.json(response, 400);
 			}
 			const diff = auditDiff(body);
-			const updated = await updateObservabilityConfig(db, body);
+			const updated = await updateObservabilityConfig(db, body, {
+				serverConfig: observabilityServerConfigPort,
+			});
 			auditLogger.info("config_changed", {
 				resource: "observability.config",
 				actor: "api-key",

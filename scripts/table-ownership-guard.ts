@@ -160,6 +160,18 @@ const TABLE_OWNER: Record<string, string> = {
 	// `server_config.gitExport` (owned by `settings`, now reached through
 	// the injected `GitExportServerConfigPort`, `ports.ts`) — no table this
 	// Service itself owns.
+	// AU19 Increment 2d: `observability` migrated — resolves to ZERO owned
+	// tables (same shape as `policy`'s/`git-export`'s zero). `types.ts`/
+	// `console-adapter.ts`/`dispatcher.ts` never touch the DB at all (pure
+	// in-memory ring-buffer + structured-log sink); `config.ts` reads/writes
+	// `server_config.observability` (owned by `settings`, now reached
+	// through the injected `ObservabilityServerConfigPort`, `ports.ts`) —
+	// no table this Service itself owns. The one INBOUND edge
+	// (`session-provisioning.ts`'s `summarizeToolArgs` call, a still-
+	// unmigrated agent-orchestration Service) is the caller's concern, not
+	// this row — `session-provisioning.ts` lives in the unguarded
+	// `packages/server` composition root and repoints straight to
+	// `@hyperidle/observability`'s real export (see `ports.ts`'s top `@lore`).
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

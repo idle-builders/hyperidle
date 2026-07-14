@@ -22,6 +22,15 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
+	createObservabilityDispatcher,
+	type ObservabilityAdapter,
+	type ObservabilityConfig,
+	type ObservabilityDispatcher,
+	registerObservabilityDispatcher,
+	updateObservabilityConfig,
+} from "@hyperidle/observability";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import {
 	EventBus,
 	type KnowledgeUpdatedEvent,
 	type ObservabilityEvent,
@@ -30,19 +39,10 @@ import {
 	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
-import {
-	type ObservabilityConfig,
-	updateObservabilityConfig,
-} from "../../services/observability/config.js";
-import {
-	createObservabilityDispatcher,
-	registerObservabilityDispatcher,
-} from "../../services/observability/dispatcher.js";
-import type {
-	ObservabilityAdapter,
-	ObservabilityDispatcher,
-} from "../../services/observability/types.js";
 import { describe, expect, test } from "../../test-fixtures.js";
+
+/** Same port-wiring idiom as `observability-routes.ts`'s `observabilityServerConfigPort`. */
+const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 function captureAdapter(
 	name: "console" = "console",
@@ -260,13 +260,17 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 		}
 
 		// Seed config: observability enabled, adapter=console.
-		await updateObservabilityConfig(db, {
-			enabled: true,
-			adapter: "console",
-			batchSize: 10,
-			flushIntervalMs: 60_000,
-			bufferCap: 100,
-		});
+		await updateObservabilityConfig(
+			db,
+			{
+				enabled: true,
+				adapter: "console",
+				batchSize: 10,
+				flushIntervalMs: 60_000,
+				bufferCap: 100,
+			},
+			{ serverConfig: observabilityServerConfigPort },
+		);
 
 		const router = makeRoutes();
 		// Initial dispatcher is null because makeRoutes doesn't fire
@@ -321,7 +325,11 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 	// transition is observable. Previously "false by default" was the starting state.
 	test("invalidates /status config cache after PATCH", async ({ db }) => {
 		// Explicitly disable to establish a known starting state (default is now ON).
-		await updateObservabilityConfig(db, { enabled: false });
+		await updateObservabilityConfig(
+			db,
+			{ enabled: false },
+			{ serverConfig: observabilityServerConfigPort },
+		);
 
 		const router = createObservabilityRoutes(db, {
 			getDispatcher: (): ObservabilityDispatcher | null => null,

@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { listFilesystemIdsByAgent, listFilesystemsByIds } from "@hyperidle/filesystems";
+import { summarizeToolArgs } from "@hyperidle/observability";
 import * as routineService from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
 import {
@@ -64,7 +65,6 @@ import {
 } from "./context-assembly-prompt.js";
 import type { IngestionHandle } from "./contracts.js";
 import { checkCostCap, recordCostAndCheck } from "./cost-cap.js";
-import { summarizeToolArgs } from "./observability/dispatcher.js";
 import { buildRoutineSessionContextData, buildSessionContextData } from "./session-context.js";
 import {
 	crashSession,

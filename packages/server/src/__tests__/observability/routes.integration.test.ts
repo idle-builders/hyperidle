@@ -8,15 +8,19 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import {
+	createObservabilityDispatcher,
+	type ObservabilityAdapter,
+	type ObservabilityDispatcher,
+	updateObservabilityConfig,
+} from "@hyperidle/observability";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { Logger } from "@hyperidle/shared";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
-import { updateObservabilityConfig } from "../../services/observability/config.js";
-import { createObservabilityDispatcher } from "../../services/observability/dispatcher.js";
-import type {
-	ObservabilityAdapter,
-	ObservabilityDispatcher,
-} from "../../services/observability/types.js";
 import { describe, expect, test } from "../../test-fixtures.js";
+
+/** Same port-wiring idiom as `observability-routes.ts`'s `observabilityServerConfigPort`. */
+const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 function quietAdapter(): ObservabilityAdapter {
 	return {
@@ -32,7 +36,7 @@ async function seedKeys(
 	db: HyperIdleDb,
 	patch: { enabled?: boolean; adapter?: "console" | "noop" },
 ): Promise<void> {
-	await updateObservabilityConfig(db, patch);
+	await updateObservabilityConfig(db, patch, { serverConfig: observabilityServerConfigPort });
 }
 
 function captureLogger(): { logger: Logger; calls: Array<{ msg: string; extra: unknown }> } {

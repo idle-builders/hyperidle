@@ -9,13 +9,13 @@
  */
 
 import { createTestDb } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import type {
 	FlushOutcome,
 	ObservabilityDispatcher,
 	ObservabilityDispatcherStatus,
-} from "../../services/observability/types.js";
+} from "@hyperidle/observability";
+import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-observability";

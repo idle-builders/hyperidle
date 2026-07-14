@@ -6,6 +6,7 @@
  * carries the same traceId the DB populated on session insert.
  */
 
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	type CostCapBreachedEvent,
 	EventBus,
@@ -16,9 +17,8 @@ import {
 	createDbTraceIdResolver,
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
-} from "../../services/observability/dispatcher.js";
-import type { ObservabilityAdapter } from "../../services/observability/types.js";
-import { describe, expect, test } from "../../test-fixtures.js";
+} from "../dispatcher.js";
+import type { ObservabilityAdapter } from "../types.js";
 
 function captureAdapter(): ObservabilityAdapter & { events: ObservabilityEvent[] } {
 	const events: ObservabilityEvent[] = [];

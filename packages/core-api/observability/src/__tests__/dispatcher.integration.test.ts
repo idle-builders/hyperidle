@@ -18,16 +18,13 @@ import {
 	type SessionStartedEvent,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
+import { afterEach, describe, expect, test } from "vitest";
 import {
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
 	summarizeToolArgs,
-} from "../../services/observability/dispatcher.js";
-import type {
-	ObservabilityAdapter,
-	ObservabilityChannel,
-} from "../../services/observability/types.js";
-import { afterEach, describe, expect, test } from "../../test-fixtures.js";
+} from "../dispatcher.js";
+import type { ObservabilityAdapter, ObservabilityChannel } from "../types.js";
 
 function fakeAdapter(
 	name: ObservabilityChannel = "console",
@@ -52,7 +49,7 @@ function fakeAdapter(
 }
 
 function makeInMemResolver(): ReturnType<
-	typeof import("../../services/observability/dispatcher.js").createDbTraceIdResolver
+	typeof import("../dispatcher.js").createDbTraceIdResolver
 > {
 	const map = new Map<string, string>();
 	return {

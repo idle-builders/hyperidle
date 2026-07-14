@@ -14,8 +14,8 @@
 
 import type { ObservabilityEvent } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createObservabilityDispatcher } from "../../services/observability/dispatcher.js";
-import type { ObservabilityAdapter } from "../../services/observability/types.js";
+import { createObservabilityDispatcher } from "../dispatcher.js";
+import type { ObservabilityAdapter } from "../types.js";
 
 function quietAdapter(): ObservabilityAdapter {
 	return {

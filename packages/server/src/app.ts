@@ -20,6 +20,16 @@ import {
 	type NotificationsSilenceDeps,
 	type NotificationsWorkReader,
 } from "@hyperidle/notifications";
+import {
+	createConsoleObservabilityAdapter,
+	createDbTraceIdResolver,
+	createObservabilityDispatcher,
+	type ObservabilityAdapter,
+	type ObservabilityConfig,
+	type ObservabilityDispatcher,
+	readObservabilityConfig,
+	registerObservabilityDispatcher,
+} from "@hyperidle/observability";
 import { getTeamMembersById } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
@@ -78,20 +88,6 @@ import { createWorkersRoutes } from "./routes/workers.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
 import { recordAgentWorkIntent } from "./services/agent-work-intents.js";
 import { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
-import {
-	type ObservabilityConfig,
-	readObservabilityConfig,
-} from "./services/observability/config.js";
-import { createConsoleObservabilityAdapter } from "./services/observability/console-adapter.js";
-import {
-	createDbTraceIdResolver,
-	createObservabilityDispatcher,
-	registerObservabilityDispatcher,
-} from "./services/observability/dispatcher.js";
-import type {
-	ObservabilityAdapter,
-	ObservabilityDispatcher,
-} from "./services/observability/types.js";
 import { SessionActivityBuffer } from "./services/session-activity-buffer.js";
 
 interface AppOptions {
@@ -243,6 +239,14 @@ const appLogger = createLogger({ pkg: "server.app" });
  * Increment 1h and wire directly to `@hyperidle/connections`' real exports.
  */
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
+
+/**
+ * AU19 Increment 2d: `observability`'s one real outbound edge —
+ * `server_config.observability` — wired through the injected
+ * `ObservabilityConfigDeps` (`@hyperidle/observability`'s `ports.ts`), same
+ * idiom as `notificationsServerConfigPort` above.
+ */
+const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 const notificationsCredentialCipher: NotificationsCredentialCipher = {
 	getServerSecret,
@@ -576,7 +580,9 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			}
 		}
 
-		const obsCfg = await readObservabilityConfig(db);
+		const obsCfg = await readObservabilityConfig(db, {
+			serverConfig: observabilityServerConfigPort,
+		});
 		wireObservability(obsCfg);
 
 		api.route(
