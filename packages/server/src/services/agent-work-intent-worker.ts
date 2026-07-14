@@ -10,13 +10,41 @@ import {
 	taskDispatchAttempts,
 	teamMembers,
 } from "@hyperidle/db";
+import { getTeamMembersByTeamId } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
+import { listResolvedConfiguration } from "@hyperidle/settings";
 import type { AgentSessionRequestInput, TriggerEventType } from "@hyperidle/shared";
-import { getUserById, listUsersByTeam } from "@hyperidle/users";
+import {
+	createTriggeredAgentSessionRequest,
+	type TriggerResolutionDeps,
+} from "@hyperidle/trigger-resolution";
+import { getUserById, getUserByIdScopedToTeam, listUsersByTeam } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, asc, eq, lt, or } from "drizzle-orm";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
-import { createTriggeredAgentSessionRequest } from "./trigger-resolution.js";
+import {
+	createAgentSessionRequest,
+	findAgentSessionRequestByIdempotencyKey,
+} from "./agent-session-requests.js";
+
+/**
+ * @lore AU19 Increment 3a: `trigger-resolution`'s DI ports (Mechanism C),
+ * wired here — the only real production call site. `settings`/`users`/`org`
+ * are real, already-migrated packages. `sessionRequests` is INTERIM (real
+ * behavior, just not yet packaged): `session-requests` migrates next in
+ * Increment 3, at which point only this const's `sessionRequests` field
+ * swaps its import source to `@hyperidle/session-requests` — the port shape
+ * and every other field are unaffected.
+ */
+const triggerResolutionDeps: TriggerResolutionDeps = {
+	sessionRequests: {
+		findByIdempotencyKey: findAgentSessionRequestByIdempotencyKey,
+		create: createAgentSessionRequest,
+	},
+	config: { listResolvedConfiguration },
+	users: { getUserByIdScopedToTeam },
+	teams: { getTeamMembersByTeamId },
+};
 
 export { executeAgentRunRequest as consumeAgentSessionRequest } from "./agent-run-boundary.js";
 export { recordAgentWorkIntent } from "./agent-work-intents.js";
@@ -478,6 +506,7 @@ export async function drainAgentWorkIntents(
 					tx,
 					input as AgentSessionRequestInput &
 						Parameters<typeof createTriggeredAgentSessionRequest>[1],
+					triggerResolutionDeps,
 				);
 				const checkpoint = await tx
 					.update(agentWorkIntents)

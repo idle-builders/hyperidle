@@ -126,6 +126,21 @@ const TABLE_OWNER: Record<string, string> = {
 	// site (`session-review-creator.ts`) now goes through the
 	// `TaskRiskTierReader` DI port instead of direct table access.
 	taskPlanningSignals: "packages/core-api/work",
+	// AU19 Increment 3a: `trigger-resolution` migrated — closes Increment 3's
+	// first agent-orchestration Service. Its roster `⛁` column showed plain
+	// `—` (not `⛁*` "confirm at migration" like `policy`/`filesystems`), but
+	// the codebase reality is `trigger-resolution.ts` is the sole
+	// reader/writer of `triggerResolutionHistory` (`persistResolution`/
+	// `findPersistedResolution`) — a genuine owned table the roster
+	// undercounted, same "confirm during migration" shape as `policy`'s/
+	// `filesystems`' `⛁*` findings just for a Service the roster marked
+	// plain `—` instead. `agentSessionRequests`/`agentWorkIntents` stay
+	// UNOWNED here — `session-requests` is the real owner (§4), migrating
+	// next in this Increment; `trigger-resolution`'s access to
+	// `agentSessionRequests` is a DI port (`TriggerResolutionSessionRequestPort`,
+	// wired INTERIM to `packages/server`'s still-unmigrated
+	// `agent-session-requests.ts`), never a raw table read.
+	triggerResolutionHistory: "packages/agent-orchestration/trigger-resolution",
 	// AU19 Increment 2a: `policy` migrated — its `⛁*` ownership question
 	// (architecture §4/§79) resolves to ZERO owned tables. `policy-engine.ts`/
 	// `approval-rate.ts` never touched a raw table at all; `handoff-protocol.ts`

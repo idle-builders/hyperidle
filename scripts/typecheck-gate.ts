@@ -377,6 +377,12 @@ function buildLeafDeclarations(root: string): void {
   // @lore AU19 Increment 2g: `core-api/retention` added — closes Increment 2
   // (core-api non-SQL Services). Same TS6305 cascade; server-factory.ts and
   // retention-reaper.integration.test.ts now import `@hyperidle/retention`.
+  //
+  // @lore AU19 Increment 3a: `agent-orchestration/trigger-resolution` added —
+  // same TS6305 cascade; services/agent-work-intent-worker.ts and
+  // __tests__/AR4b-formation-seam.test.ts /
+  // __tests__/trigger-resolution.integration.test.ts now import
+  // `@hyperidle/trigger-resolution`.
   for (const leaf of [
     "shared",
     "db",
@@ -398,6 +404,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/model-gateway",
     "core-api/realtime",
     "core-api/retention",
+    "agent-orchestration/trigger-resolution",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

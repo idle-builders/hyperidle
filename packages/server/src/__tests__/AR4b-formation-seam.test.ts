@@ -35,13 +35,33 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { getTeamMembersByTeamId } from "@hyperidle/org";
+import { listResolvedConfiguration } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
+import {
+	createTriggeredAgentSessionRequest,
+	type TriggerResolutionDeps,
+} from "@hyperidle/trigger-resolution";
+import { getUserByIdScopedToTeam } from "@hyperidle/users";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
+import {
+	createAgentSessionRequest,
+	findAgentSessionRequestByIdempotencyKey,
+} from "../services/agent-session-requests.js";
 import { executeAssistantRequest } from "../services/agent-work-assistant.js";
-import { createTriggeredAgentSessionRequest } from "../services/trigger-resolution.js";
 import { test } from "../test-fixtures.js";
+
+const triggerResolutionDeps: TriggerResolutionDeps = {
+	sessionRequests: {
+		findByIdempotencyKey: findAgentSessionRequestByIdempotencyKey,
+		create: createAgentSessionRequest,
+	},
+	config: { listResolvedConfiguration },
+	users: { getUserByIdScopedToTeam },
+	teams: { getTeamMembersByTeamId },
+};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -210,22 +230,26 @@ async function createAssistantRequest(
 	params: { userId: string; threadId: string; triggerMessageId: string },
 ): Promise<AgentSessionRequest> {
 	const assistantAgentId = `ast-${params.userId}`;
-	const { request } = await createTriggeredAgentSessionRequest(db, {
-		eventType: "assistant.message",
-		sourceKind: "assistant",
-		sourceId: params.triggerMessageId,
-		streamId: `thread:${params.threadId}`,
-		defaultAgentId: assistantAgentId,
-		userId: params.userId,
-		idempotencyKey: `assistant:${params.triggerMessageId}`,
-		payload: { threadId: params.threadId, triggerMessageId: params.triggerMessageId },
-		sourceCorrelation: {
-			threadId: params.threadId,
-			messageId: params.triggerMessageId,
+	const { request } = await createTriggeredAgentSessionRequest(
+		db,
+		{
+			eventType: "assistant.message",
+			sourceKind: "assistant",
+			sourceId: params.triggerMessageId,
+			streamId: `thread:${params.threadId}`,
+			defaultAgentId: assistantAgentId,
 			userId: params.userId,
-			assistantAgentId,
+			idempotencyKey: `assistant:${params.triggerMessageId}`,
+			payload: { threadId: params.threadId, triggerMessageId: params.triggerMessageId },
+			sourceCorrelation: {
+				threadId: params.threadId,
+				messageId: params.triggerMessageId,
+				userId: params.userId,
+				assistantAgentId,
+			},
 		},
-	});
+		triggerResolutionDeps,
+	);
 	return request;
 }
 

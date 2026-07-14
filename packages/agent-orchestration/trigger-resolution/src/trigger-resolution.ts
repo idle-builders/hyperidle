@@ -1,12 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
 	type AgentSessionRequest,
-	agentSessionRequests,
 	type HyperIdleDb,
-	teamMembers,
 	triggerResolutionHistory,
 } from "@hyperidle/db";
-import { listResolvedConfiguration } from "@hyperidle/settings";
 import {
 	type AgentSessionPromptMode,
 	type AgentSessionRequestInput,
@@ -18,9 +15,8 @@ import {
 	type TriggerRuleValue,
 	TriggerRuleValueSchema,
 } from "@hyperidle/shared";
-import { getUserByIdScopedToTeam } from "@hyperidle/users";
-import { and, eq } from "drizzle-orm";
-import { createAgentSessionRequest } from "./agent-session-requests.js";
+import { eq } from "drizzle-orm";
+import type { TriggerResolutionDeps } from "./ports.js";
 
 const PROMPT_MODE_BY_SOURCE: Record<AgentSessionSourceKind, AgentSessionPromptMode> = {
 	task: "task",
@@ -50,7 +46,7 @@ export interface TriggeredSessionRequestInput {
 
 interface Candidate {
 	readonly key: string;
-	readonly value: import("@hyperidle/shared").TriggerRuleValue;
+	readonly value: TriggerRuleValue;
 	readonly source: "default" | "user_override" | "user_owned";
 	readonly pluginId: string | null;
 	readonly specificity: number;
@@ -122,19 +118,13 @@ function buildPayload(
 
 async function isEligibleAgent(
 	db: HyperIdleDb,
+	deps: TriggerResolutionDeps,
 	agentId: string,
 	teamId?: string,
 ): Promise<boolean> {
-	const membership = teamId
-		? await db
-				.select({ id: teamMembers.id })
-				.from(teamMembers)
-				.where(eq(teamMembers.teamId, teamId))
-				.limit(1)
-		: [];
-	if (teamId && !membership[0]) return false;
-	const membershipId = membership[0]?.id;
-	const agent = await getUserByIdScopedToTeam(db, agentId, membershipId);
+	const membership = teamId ? await deps.teams.getTeamMembersByTeamId(db, teamId) : undefined;
+	if (teamId && !membership) return false;
+	const agent = await deps.users.getUserByIdScopedToTeam(db, agentId, membership?.id);
 	if (!agent || agent.kind !== "ai" || !isRunnableAgentStatus(agent.status)) return false;
 	return true;
 }
@@ -164,19 +154,14 @@ async function persistResolution(
 
 async function findExistingRequest(
 	db: HyperIdleDb,
+	deps: TriggerResolutionDeps,
 	input: TriggeredSessionRequestInput,
 ): Promise<AgentSessionRequest | null> {
-	const [existing] = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(
-			and(
-				eq(agentSessionRequests.sourceKind, input.sourceKind),
-				eq(agentSessionRequests.sourceId, input.sourceId),
-				eq(agentSessionRequests.idempotencyKey, input.idempotencyKey),
-			),
-		)
-		.limit(1);
+	const existing = await deps.sessionRequests.findByIdempotencyKey(db, {
+		sourceKind: input.sourceKind,
+		sourceId: input.sourceId,
+		idempotencyKey: input.idempotencyKey,
+	});
 	return existing ?? null;
 }
 
@@ -228,11 +213,12 @@ function synthesizeResolutionFromRequest(
 export async function resolveTriggerForSessionRequest(
 	db: HyperIdleDb,
 	input: TriggeredSessionRequestInput,
+	deps: TriggerResolutionDeps,
 ): Promise<TriggerResolutionResult> {
 	if (!isTriggerEventType(input.eventType)) {
 		throw new Error(`Unknown trigger event type: ${input.eventType}`);
 	}
-	const entries = await listResolvedConfiguration(db, "trigger");
+	const entries = await deps.config.listResolvedConfiguration(db, "trigger");
 	const candidates: Candidate[] = [];
 	for (const entry of entries) {
 		if (!entry.active) continue;
@@ -289,8 +275,9 @@ export async function resolveTriggerForSessionRequest(
 export async function createTriggeredAgentSessionRequest(
 	db: HyperIdleDb,
 	input: TriggeredSessionRequestInput,
+	deps: TriggerResolutionDeps,
 ): Promise<{ request: AgentSessionRequest; resolution: TriggerResolutionResult }> {
-	const existing = await findExistingRequest(db, input);
+	const existing = await findExistingRequest(db, deps, input);
 	if (existing) {
 		const persisted = await findPersistedResolution(db, existing.id);
 		if (persisted) return { request: existing, resolution: persisted };
@@ -298,7 +285,7 @@ export async function createTriggeredAgentSessionRequest(
 		await persistResolution(db, input, synthesized, existing.id);
 		return { request: existing, resolution: synthesized };
 	}
-	const resolution = await resolveTriggerForSessionRequest(db, input);
+	const resolution = await resolveTriggerForSessionRequest(db, input, deps);
 	const effectiveResolution =
 		input.sourceKind === "proposed_call" && resolution.result === "matched"
 			? {
@@ -307,7 +294,7 @@ export async function createTriggeredAgentSessionRequest(
 					reason: "matched_trigger_preserved_granted_agent",
 				}
 			: resolution;
-	if (!(await isEligibleAgent(db, effectiveResolution.chosenAgentId ?? "", input.teamId))) {
+	if (!(await isEligibleAgent(db, deps, effectiveResolution.chosenAgentId ?? "", input.teamId))) {
 		const failed: TriggerResolutionResult = {
 			...effectiveResolution,
 			result: "failed",
@@ -334,7 +321,7 @@ export async function createTriggeredAgentSessionRequest(
 		sourceCorrelation:
 			input.buildSourceCorrelation?.(effectiveResolution) ?? input.sourceCorrelation,
 	} as AgentSessionRequestInput;
-	const request = await createAgentSessionRequest(db, requestInput);
+	const request = await deps.sessionRequests.create(db, requestInput);
 	const persisted = await findPersistedResolution(db, request.id);
 	if (persisted) return { request, resolution: persisted };
 	const requestMatchesResolution =

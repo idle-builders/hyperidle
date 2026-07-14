@@ -9,6 +9,7 @@ import {
 import {
 	type AgentSessionRequestInput,
 	type AgentSessionRequestStatus,
+	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
 } from "@hyperidle/shared";
 import { and, asc, eq, lt, or, sql } from "drizzle-orm";
@@ -24,6 +25,36 @@ function nowIso(): string {
 
 function rowToRequest(row: AgentSessionRequest): AgentSessionRequest {
 	return row;
+}
+
+/**
+ * Idempotency-keyed dedupe lookup — the exact match `createAgentSessionRequest`
+ * runs internally before inserting.
+ *
+ * @lore AU19 Increment 3a: extracted for `trigger-resolution`'s
+ * `TriggerResolutionSessionRequestPort.findByIdempotencyKey` — previously an
+ * inline raw `agentSessionRequests` table query inside
+ * `trigger-resolution.ts` (pre-migration). Wired here INTERIM
+ * (`server-factory.ts`) until `session-requests` migrates and becomes the
+ * real target package — the port shape does not change, only the concrete
+ * wiring target does.
+ */
+export async function findAgentSessionRequestByIdempotencyKey(
+	db: HyperIdleDb,
+	key: { sourceKind: AgentSessionSourceKind; sourceId: string; idempotencyKey: string },
+): Promise<AgentSessionRequest | undefined> {
+	const [existing] = await db
+		.select()
+		.from(agentSessionRequests)
+		.where(
+			and(
+				eq(agentSessionRequests.sourceKind, key.sourceKind),
+				eq(agentSessionRequests.sourceId, key.sourceId),
+				eq(agentSessionRequests.idempotencyKey, key.idempotencyKey),
+			),
+		)
+		.limit(1);
+	return existing;
 }
 
 export async function createAgentSessionRequest(
@@ -212,6 +243,16 @@ export async function markRequestRunning(
 		.where(predicate)
 		.returning({ id: agentSessionRequests.id });
 	if (updated.length !== 1) throw new Error(`Lost request custody before admission: ${requestId}`);
+	// @lore AU19 Increment 3a: `triggerResolutionHistory` is now owned by the
+	// migrated `trigger-resolution` Service (`TABLE_OWNER`,
+	// `scripts/table-ownership-guard.ts`). This raw update is a NEW
+	// session-requests -> trigger-resolution edge the original §10.2 census
+	// missed (a table write, not a function call) — surfaces for real when
+	// `session-requests` migrates next in Increment 3: convert to a
+	// `TriggerResolutionHistorySessionWriter`-shaped DI port wired to
+	// `trigger-resolution`'s real exported accessor, same shape as this WP's
+	// other post-hoc census corrections (`git-export -> knowledge`,
+	// `realtime -> org`, `retention -> users`/`knowledge`).
 	await db
 		.update(triggerResolutionHistory)
 		.set({ sessionId })

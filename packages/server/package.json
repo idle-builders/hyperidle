@@ -47,6 +47,7 @@
 		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/shared": "*",
+		"@hyperidle/trigger-resolution": "*",
 		"@hyperidle/users": "*",
 		"@hyperidle/work": "*",
 		"@modelcontextprotocol/sdk": "^1.29.0",
