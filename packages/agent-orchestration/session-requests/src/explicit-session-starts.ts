@@ -1,4 +1,9 @@
-import { type ExplicitSessionStart, explicitSessionStarts, type HyperIdleDb } from "@hyperidle/db";
+import {
+	type ExplicitSessionStart,
+	explicitSessionStarts,
+	type HyperIdleDb,
+	type WriteExecutor,
+} from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 
 /**
@@ -16,6 +21,21 @@ import { eq } from "drizzle-orm";
  * access is UNCHANGED — it lives in `packages/server` (the still-unguarded
  * composition root, `table-ownership-guard.ts`'s scan scope), out of this
  * migration's scope.
+ *
+ * @lore AU19 Increment 3d: `projectExplicitSessionStartTerminalState` added
+ * — the real target of `@hyperidle/lifecycle-projection`'s
+ * `LifecycleProjectionExplicitSessionStartWriter` port
+ * (`projectExplicitStart`'s `explicit_session_start` family projection, a
+ * NEW `lifecycle-projection → session-requests` edge this migration
+ * surfaces). Distinct from `markExplicitSessionStartAdmitted`/`Failed` above
+ * (those are keyed by `id` and cover the pre-admission `requested`→
+ * `admitted`/`failed` transition); this one is keyed by `requestId` and
+ * covers the POST-admission terminal projection (`completed`/`failed`/
+ * `cancelled`) that used to run as an inline `packages/server` query inside
+ * `agent-lifecycle-projectors.ts`'s `projectTask`/top-level
+ * `explicit_session_start` dispatch — takes a `WriteExecutor` (not just
+ * `HyperIdleDb`) because `projectTask` calls it INSIDE the same transaction
+ * as its `task_dispatch_attempts` update.
  */
 
 /** Single-row read by id — the pre-admission requested-model-tier lookup. */
@@ -56,4 +76,28 @@ export async function markExplicitSessionStartFailed(
 		.update(explicitSessionStarts)
 		.set({ status: "failed", failureCode: input.failureCode, updatedAt: new Date().toISOString() })
 		.where(eq(explicitSessionStarts.id, input.id));
+}
+
+/**
+ * Post-run terminal projection, keyed by `requestId` — the
+ * `lifecycle-projection`-injected target (`LifecycleProjectionExplicitSessionStartWriter`).
+ */
+export async function projectExplicitSessionStartTerminalState(
+	exec: WriteExecutor,
+	requestId: string,
+	patch: {
+		readonly status: "completed" | "failed" | "cancelled";
+		readonly sessionId: string | null;
+		readonly failureCode: string | null;
+	},
+): Promise<void> {
+	await exec
+		.update(explicitSessionStarts)
+		.set({
+			status: patch.status,
+			sessionId: patch.sessionId,
+			failureCode: patch.failureCode,
+			updatedAt: new Date().toISOString(),
+		})
+		.where(eq(explicitSessionStarts.requestId, requestId));
 }

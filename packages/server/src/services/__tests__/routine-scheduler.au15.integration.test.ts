@@ -32,7 +32,7 @@ import * as routineService from "@hyperidle/routine";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { startAgentLifecycleProjectionDrain } from "../agent-lifecycle-projectors.js";
+import { startAgentLifecycleProjectionDrain } from "../lifecycle-projection-bindings.js";
 import { checkAndFireRoutine } from "../routine-scheduler.js";
 import { drainAgentWorkIntents } from "../session-requests-bindings.js";
 

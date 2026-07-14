@@ -12,9 +12,10 @@
  * (behavior-preserving move, aside from the DI-port signature additions
  * documented in `ports.ts`). Real outbound edges (`routine`, `work`,
  * `conversation`, `users`, `org`, `review`, `trigger-resolution`) plus one
- * interim edge (`agent-selection`, not yet migrated) and two interim
- * forward-references (`lifecycle-projection`'s `agent_lifecycle_inbox`,
- * not yet migrated) became injected DI ports (Mechanism C, see `ports.ts`).
+ * interim edge (`agent-selection`, not yet migrated) became injected DI
+ * ports (Mechanism C, see `ports.ts`). The two `lifecycle-projection`
+ * (`agent_lifecycle_inbox`) forward-reference ports resolved to that
+ * Service's real exports at Increment 3d — see `ports.ts`'s top `@lore`.
  */
 
 export {
@@ -59,6 +60,7 @@ export {
 	findExplicitSessionStartById,
 	markExplicitSessionStartAdmitted,
 	markExplicitSessionStartFailed,
+	projectExplicitSessionStartTerminalState,
 } from "./explicit-session-starts.js";
 export type {
 	AgentWorkIntentReapDeps,

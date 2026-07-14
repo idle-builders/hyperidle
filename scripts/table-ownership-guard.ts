@@ -149,15 +149,30 @@ const TABLE_OWNER: Record<string, string> = {
 	// shape as `trigger-resolution`'s `triggerResolutionHistory` finding.
 	// `taskDispatchAttempts` stays in `UNOWNED_SHARED_TABLES` (unchanged, still
 	// genuinely multi-owner-touched). `agentLifecycleInbox` (roster-assigned to
-	// the not-yet-migrated `lifecycle-projection`, §4) is NOT added here even
-	// though `session-requests` is its durable writer today — the write went
-	// through an INTERIM `SessionRequestsLifecycleInboxWriter`/`Reaper` port
-	// (`@hyperidle/session-requests`'s `ports.ts` top `@lore`), wired to
-	// `packages/server`'s raw table ops, so `session-requests` never touches
-	// it as a nested-package raw accessor.
+	// `lifecycle-projection`, §4) was NOT added at this Increment — it migrated
+	// later, in Increment 3d (see below) — `session-requests` was its durable
+	// writer at 3b through an INTERIM `SessionRequestsLifecycleInboxWriter`/
+	// `Reaper` port wired to `packages/server`'s raw table ops.
 	agentWorkIntents: "packages/agent-orchestration/session-requests",
 	agentSessionRequests: "packages/agent-orchestration/session-requests",
 	explicitSessionStarts: "packages/agent-orchestration/session-requests",
+	// AU19 Increment 3d: `lifecycle-projection` migrated — its `⛁` "confirm"
+	// column (§4) resolves to ONE owned table, `agentLifecycleInbox`
+	// (`agent-lifecycle-projectors.ts`'s claim/project/ack drain loop, moved
+	// unchanged). Closes the `session-requests`-forward-reference above:
+	// `session-requests-bindings.ts`'s writer/reaper now call this Service's
+	// real exports (`insertLifecycleInboxFactIfAbsent`/
+	// `listProjectedLifecycleInboxBefore`/`deleteLifecycleInboxByRequestIds`,
+	// `agent-lifecycle-inbox.ts`) instead of raw table ops — a genuinely NEW
+	// `session-requests → lifecycle-projection` edge (§10.2). This migration
+	// also surfaced a NEW `lifecycle-projection → session-requests` edge
+	// (`projectExplicitStart`'s `explicitSessionStarts` write, previously an
+	// inline `packages/server` raw update) — converted to
+	// `LifecycleProjectionExplicitSessionStartWriter`, wired to
+	// `@hyperidle/session-requests`'s new `projectExplicitSessionStartTerminalState`
+	// export. Both are ORDINARY same-layer DI (both Services are
+	// agent-orchestration, neither above the other) — not §10.3 against-grain.
+	agentLifecycleInbox: "packages/agent-orchestration/lifecycle-projection",
 	// AU19 Increment 2a: `policy` migrated — its `⛁*` ownership question
 	// (architecture §4/§79) resolves to ZERO owned tables. `policy-engine.ts`/
 	// `approval-rate.ts` never touched a raw table at all; `handoff-protocol.ts`

@@ -41,6 +41,7 @@ export default defineConfig({
 			"packages/agent-orchestration",
 			"packages/agent-orchestration/context-assembly",
 			"packages/agent-orchestration/run-orchestration",
+			"packages/agent-orchestration/lifecycle-projection",
 			"packages/agent-execution",
 			"packages/agent-execution/harness-registry",
 		],

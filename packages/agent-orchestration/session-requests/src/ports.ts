@@ -19,20 +19,26 @@
  * `trigger-resolution`'s own interim `sessionRequests` port before this
  * increment (`@hyperidle/trigger-resolution`'s `ports.ts` top `@lore`).
  *
- * Two more ports are genuinely forward-referencing a Service that has not
- * migrated yet (`lifecycle-projection`, later in Increment 3): the
+ * Two more ports forward-reference `lifecycle-projection`: the
  * `agent_lifecycle_inbox` table is architecture §4's roster-assigned
  * `lifecycle-projection` table, but `session-requests` is the durable
  * single-terminal-writer into it (`terminalizeAgentSessionRequestInTx`) and
  * its own retention reaper deletes projected rows from it
  * (`reapTerminalAgentWorkIntents`) — moving those two functions here without
  * a port would make `session-requests` a nested-package raw accessor of a
- * table it does not own (Table ACL / Mechanism A failure). Wired INTERIM to
- * `packages/server`'s raw table ops (zero behavior change) until
- * `lifecycle-projection` is a real package, matching the `policy`/`work`
- * against-grain-port precedent's shape even though this specific edge is NOT
- * against-grain (both Services are agent-orchestration) — it is simply
- * forward-referencing.
+ * table it does not own (Table ACL / Mechanism A failure).
+ *
+ * **RESOLVED at Increment 3d:** `lifecycle-projection` is now a real
+ * package. `packages/server`'s `session-requests-bindings.ts` wires these
+ * two ports to `@hyperidle/lifecycle-projection`'s real exports
+ * (`insertLifecycleInboxFactIfAbsent`/`listProjectedLifecycleInboxBefore`/
+ * `deleteLifecycleInboxByRequestIds`) instead of raw table ops — a genuinely
+ * NEW `session-requests → lifecycle-projection` edge (§10.2, appended by
+ * that migration), same shape as the `policy`/`work` against-grain-port
+ * precedent even though this specific edge is NOT against-grain (both
+ * Services are agent-orchestration) — it was simply forward-referencing,
+ * now closed. The port interfaces below are unchanged (only the concrete
+ * wiring moved) — no signature here needed to change.
  *
  * Census corrections surfaced migrating for real (§14 sanctions updating the
  * census as a "floor, refinable during migration"):

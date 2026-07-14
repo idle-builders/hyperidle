@@ -113,12 +113,12 @@ import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { resolveDecompositionPlan } from "./services/agent-defaults/resolvers.js";
-import { startAgentLifecycleProjectionDrain } from "./services/agent-lifecycle-projectors.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handlers.js";
 import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 import { startCostSentinel } from "./services/cost-sentinel.js";
+import { startAgentLifecycleProjectionDrain } from "./services/lifecycle-projection-bindings.js";
 import { createMcpRoute } from "./services/mcp-route.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";

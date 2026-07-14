@@ -37,6 +37,7 @@
 		"@hyperidle/git-export": "*",
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/model-gateway": "*",
+		"@hyperidle/lifecycle-projection": "*",
 		"@hyperidle/notifications": "*",
 		"@hyperidle/observability": "*",
 		"@hyperidle/org": "*",

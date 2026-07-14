@@ -4,9 +4,12 @@
  * `terminalizeAgentSessionRequest(InTx)`/`markRequestRunning` need injected
  * `routine`/`work`/`agent-selection`/`conversation`/`users`/`org`/`review`/
  * `trigger-resolution` ports (Mechanism C — `session-requests` never imports
- * another Service) plus two INTERIM forward-references
- * (`agent-selection`, not yet migrated; `agent_lifecycle_inbox`, owned by
- * the not-yet-migrated `lifecycle-projection` Service). This module builds
+ * another Service) plus one remaining INTERIM forward-reference
+ * (`agent-selection`, not yet migrated). `agent_lifecycle_inbox` was the
+ * SECOND interim forward-reference (owned by `lifecycle-projection`) —
+ * resolved at Increment 3d: `lifecycleInboxWriter`/`lifecycleInboxReaper`
+ * below now call `@hyperidle/lifecycle-projection`'s real exports instead of
+ * raw table ops. This module builds
  * each bound singleton ONCE, at the composition root, so every real call
  * site (`agent-layer-boot.ts`, `session-lifecycle.ts`, `agent-session-runtime.ts`,
  * `routes/threads.ts`, `routes/sessions-routes.ts`, `routes/tasks.ts`,
@@ -27,8 +30,14 @@
  */
 
 import { getMessageById } from "@hyperidle/conversation";
-import { agentLifecycleInbox, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { findById as findKnowledgeItemById } from "@hyperidle/knowledge";
+import {
+	type AgentLifecycleInboxFact,
+	deleteLifecycleInboxByRequestIds,
+	insertLifecycleInboxFactIfAbsent,
+	listProjectedLifecycleInboxBefore,
+} from "@hyperidle/lifecycle-projection";
 import { getTeamMembersByTeamId } from "@hyperidle/org";
 import { findGrantedProposedCall } from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
@@ -62,7 +71,6 @@ import {
 } from "@hyperidle/trigger-resolution";
 import { getUserById, getUserByIdScopedToTeam, listUsersByTeam } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { and, inArray, isNotNull, lt } from "drizzle-orm";
 import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
 
 // ---------------------------------------------------------------------------
@@ -82,42 +90,27 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 };
 
 // ---------------------------------------------------------------------------
-// agent_lifecycle_inbox — INTERIM raw table ops (owned by the not-yet-migrated
-// `lifecycle-projection` Service; see `@hyperidle/session-requests`'s
-// `ports.ts` top `@lore`). Zero behavior change from the pre-move inline
-// queries — only relocated to the composition root.
+// agent_lifecycle_inbox — resolved to `@hyperidle/lifecycle-projection`'s
+// real exports (Increment 3d; was an INTERIM raw-table-ops implementation
+// since Increment 3b, see `@hyperidle/session-requests`'s `ports.ts` top
+// `@lore`). `lifecycle-projection` is the real `TABLE_OWNER` of
+// `agent_lifecycle_inbox` — `session-requests` now reaches it through an
+// ordinary same-layer DI port (both are agent-orchestration Services)
+// instead of a raw table access, closing the forward-reference.
 // ---------------------------------------------------------------------------
 
 const lifecycleInboxWriter = {
-	async insertIfAbsent(tx: HyperIdleDb, fact: SessionRequestsLifecycleInboxFact): Promise<void> {
-		await tx
-			.insert(agentLifecycleInbox)
-			.values({
-				requestId: fact.requestId,
-				sourceKind: fact.sourceKind,
-				sourceId: fact.sourceId,
-				state: fact.state,
-				sessionId: fact.sessionId,
-				failureCode: fact.failureCode,
-				occurredAt: fact.occurredAt,
-			})
-			.onConflictDoNothing();
+	insertIfAbsent(tx: HyperIdleDb, fact: SessionRequestsLifecycleInboxFact): Promise<void> {
+		return insertLifecycleInboxFactIfAbsent(tx, fact satisfies AgentLifecycleInboxFact);
 	},
 };
 
 const lifecycleInboxReaper = {
 	listProjectedBefore(tx: HyperIdleDb, cutoff: string, batchSize: number) {
-		return tx
-			.select({ requestId: agentLifecycleInbox.requestId })
-			.from(agentLifecycleInbox)
-			.where(
-				and(isNotNull(agentLifecycleInbox.projectedAt), lt(agentLifecycleInbox.occurredAt, cutoff)),
-			)
-			.limit(batchSize);
+		return listProjectedLifecycleInboxBefore(tx, cutoff, batchSize);
 	},
-	async deleteByRequestIds(tx: HyperIdleDb, requestIds: readonly string[]): Promise<void> {
-		if (requestIds.length === 0) return;
-		await tx.delete(agentLifecycleInbox).where(inArray(agentLifecycleInbox.requestId, requestIds));
+	deleteByRequestIds(tx: HyperIdleDb, requestIds: readonly string[]): Promise<void> {
+		return deleteLifecycleInboxByRequestIds(tx, requestIds);
 	},
 };
 

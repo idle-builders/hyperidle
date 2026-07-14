@@ -1,13 +1,22 @@
+/**
+ * @lore AU19 Increment 3d: moved from
+ * `packages/server/src/services/agent-lifecycle-projectors.ts` (behavior-
+ * preserving move) — `projectRoutine`/`projectDecomposition`/
+ * `projectExplicitStart` now take an injected `AgentLifecycleProjectionDeps`
+ * bundle (`ports.ts`) instead of importing `@hyperidle/routine`/
+ * `@hyperidle/work` directly and writing `explicit_session_starts` raw
+ * (Mechanism C — a Service never imports another Service package). The
+ * `agent_lifecycle_inbox` reads/writes stay direct `@hyperidle/db` table
+ * access — this Service is `agent_lifecycle_inbox`'s real owner
+ * (`TABLE_OWNER`). `task_dispatch_attempts` also stays direct — it is in
+ * `UNOWNED_SHARED_TABLES` (genuinely multi-owner-touched, no single owner
+ * anywhere in architecture §4's roster), the same idiom `work`/`policy`/
+ * `session-requests` already rely on for `sessions`/`propagation_log`.
+ */
 import { randomUUID } from "node:crypto";
-import {
-	agentLifecycleInbox,
-	explicitSessionStarts,
-	type HyperIdleDb,
-	taskDispatchAttempts,
-} from "@hyperidle/db";
-import * as routine from "@hyperidle/routine";
-import * as work from "@hyperidle/work";
+import { agentLifecycleInbox, type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
 import { and, eq, isNull, lt, or } from "drizzle-orm";
+import type { AgentLifecycleProjectionDeps } from "./ports.js";
 
 export const AGENT_LIFECYCLE_SOURCE_KINDS = [
 	"assistant",
@@ -33,15 +42,20 @@ export interface AgentLifecycleFact {
 	readonly failureCode?: string;
 }
 
-type Projector = (db: HyperIdleDb, fact: AgentLifecycleFact) => Promise<void>;
+type Projector = (
+	db: HyperIdleDb,
+	fact: AgentLifecycleFact,
+	deps: AgentLifecycleProjectionDeps,
+) => Promise<void>;
 
-const observeOnly: Projector = (db, fact) => {
+const observeOnly: Projector = (db, fact, deps) => {
 	void db;
 	void fact;
+	void deps;
 	return Promise.resolve();
 };
 
-const projectTask: Projector = async (db, fact) => {
+const projectTask: Projector = async (db, fact, deps) => {
 	await db.transaction(async (tx) => {
 		await tx
 			.update(taskDispatchAttempts)
@@ -59,12 +73,12 @@ const projectTask: Projector = async (db, fact) => {
 					),
 				),
 			);
-		await projectExplicitStart(tx, fact);
+		await projectExplicitStart(tx, fact, deps);
 	});
 };
 
-const projectRoutine: Projector = async (db, fact) => {
-	await routine.updateRoutineRunIfRunning(db, fact.sourceId, {
+const projectRoutine: Projector = async (db, fact, deps) => {
+	await deps.routine.updateRoutineRunIfRunning(db, fact.sourceId, {
 		outcome: fact.state === "completed" ? "success" : "error",
 		endedAt: new Date().toISOString(),
 		sessionId: fact.sessionId ?? null,
@@ -75,23 +89,19 @@ const projectRoutine: Projector = async (db, fact) => {
 	});
 };
 
-const projectDecomposition: Projector = async (db, fact) => {
-	await work.updateBetDecompositionStatusIfRunning(db, fact.sourceId, {
+const projectDecomposition: Projector = async (db, fact, deps) => {
+	await deps.work.updateBetDecompositionStatusIfRunning(db, fact.sourceId, {
 		decompositionStatus: fact.state === "completed" ? "done" : "blocked",
 		decompositionBlockerReason: fact.state === "completed" ? null : "failed",
 	});
 };
 
-const projectExplicitStart: Projector = async (db, fact) => {
-	await db
-		.update(explicitSessionStarts)
-		.set({
-			status: fact.state,
-			sessionId: fact.sessionId ?? null,
-			failureCode: fact.state === "failed" ? (fact.failureCode ?? "INTERNAL_ERROR") : null,
-			updatedAt: new Date().toISOString(),
-		})
-		.where(eq(explicitSessionStarts.requestId, fact.requestId));
+const projectExplicitStart: Projector = async (db, fact, deps) => {
+	await deps.explicitSessionStarts.projectTerminalState(db, fact.requestId, {
+		status: fact.state,
+		sessionId: fact.sessionId ?? null,
+		failureCode: fact.state === "failed" ? (fact.failureCode ?? "INTERNAL_ERROR") : null,
+	});
 };
 
 /**
@@ -111,6 +121,7 @@ export const AGENT_LIFECYCLE_PROJECTORS: Record<SourceKind, Projector> = {
 
 export async function drainAgentLifecycleInbox(
 	db: HyperIdleDb,
+	deps: AgentLifecycleProjectionDeps,
 	options: { now?: Date; leaseMs?: number; workerId?: string } = {},
 ): Promise<number> {
 	// Inbox persistence/claiming is deliberately the delivery boundary. Projectors
@@ -176,7 +187,7 @@ export async function drainAgentLifecycleInbox(
 			...(row.failureCode ? { failureCode: row.failureCode } : {}),
 		};
 		try {
-			await AGENT_LIFECYCLE_PROJECTORS[fact.sourceKind](db, fact);
+			await AGENT_LIFECYCLE_PROJECTORS[fact.sourceKind](db, fact, deps);
 			const acknowledged = await db
 				.update(agentLifecycleInbox)
 				.set({
@@ -215,6 +226,7 @@ export async function drainAgentLifecycleInbox(
 /** Core-owned boot drain. Volatile events only accelerate this durable poller. */
 export function startAgentLifecycleProjectionDrain(
 	db: HyperIdleDb,
+	deps: AgentLifecycleProjectionDeps,
 	options: { pollIntervalMs?: number } = {},
 ): () => void {
 	let active = false;
@@ -222,7 +234,7 @@ export function startAgentLifecycleProjectionDrain(
 		if (active) return;
 		active = true;
 		try {
-			await drainAgentLifecycleInbox(db);
+			await drainAgentLifecycleInbox(db, deps);
 		} finally {
 			active = false;
 		}
