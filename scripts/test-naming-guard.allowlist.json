@@ -120,7 +120,7 @@
 	"packages/server/src/__tests__/P3-health-auth.integration.test.ts",
 	"packages/server/src/__tests__/P3-settings-config.integration.test.ts",
 	"packages/server/src/__tests__/R5-agent-work-loop.integration.test.ts",
-	"packages/server/src/__tests__/R6-events-and-broadcaster.test.ts",
+	"packages/core-api/realtime/src/__tests__/R6-events-and-broadcaster.test.ts",
 	"packages/server/src/__tests__/R7-bet-lifecycle.integration.test.ts",
 	"packages/server/src/__tests__/R7-knowledge-e2e.integration.test.ts",
 	"packages/server/src/__tests__/S1-auth-middleware.integration.test.ts",

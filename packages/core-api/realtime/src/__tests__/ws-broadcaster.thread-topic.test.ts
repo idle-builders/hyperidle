@@ -22,7 +22,7 @@ import {
 	type ThreadResolvedEvent,
 } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { WsBroadcaster, type WsClient } from "../services/ws-broadcaster.js";
+import { WsBroadcaster, type WsClient } from "../ws-broadcaster.js";
 
 function createMockClient(): WsClient & { messages: string[] } {
 	const messages: string[] = [];

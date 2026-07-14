@@ -1,9 +1,9 @@
+import { WsBroadcaster, type WsClient } from "@hyperidle/realtime";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";
-import { WsBroadcaster, type WsClient } from "../services/ws-broadcaster.js";
 
 /**
  * Adapter that wraps a Hono WSContext into the WsClient interface

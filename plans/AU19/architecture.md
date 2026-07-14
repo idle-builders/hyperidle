@@ -317,9 +317,9 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 
 **This is a real edge-by-edge census, not an estimate.** Method (reproducible): map every one of the 238 production files to its §4 Service, parse each file's relative imports, resolve each import to its target file → target Service, and count distinct `sourceService → targetService` pairs (excluding intra-Service imports, imports of `@hyperidle/db`/`@hyperidle/shared`, and **routes/middleware/app-factory as source** — those are legitimate core-api Layer composition per §5). Tools are counted as a single `tools` unit here (their internal descriptor/handler split, §7.5, moves the shared tool types to `@hyperidle/shared` and DI-registers handlers, so the ~68 intra-`tools` `tool-registry ↔ handler` call sites do **not** become runtime Service edges).
 
-**Result: 110 distinct Service→Service edges across 208 call sites at original census time; 111 distinct edges / 210 call sites after Increment 2c's `git-export → knowledge` addition (§10.2 — the census is a floor, refinable during migration, per §10 method note).** Each distinct edge becomes one DI port wired by the owning Layer (downward edges, §10.2) or one event-bus inversion (against-grain edges, §10.3). The per-source breakdown below sums exactly to 111 (post-2c).
+**Result: 110 distinct Service→Service edges across 208 call sites at original census time; 111 distinct edges / 210 call sites after Increment 2c's `git-export → knowledge` addition; 112 distinct edges / 211 call sites after Increment 2f's `realtime → org` addition (§10.2 — the census is a floor, refinable during migration, per §10 method note).** Each distinct edge becomes one DI port wired by the owning Layer (downward edges, §10.2) or one event-bus inversion (against-grain edges, §10.3). The per-source breakdown below sums exactly to 112 (post-2f).
 
-### 10.1 Per-source summary (sums to 111, post-Increment-2c)
+### 10.1 Per-source summary (sums to 112, post-Increment-2f)
 
 | Source Service | Layer | Distinct edges | Call sites |
 |---|---|:--:|:--:|
@@ -336,7 +336,7 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 | `run-orchestration` | orch | 4 | 12 |
 | `work` | core-api | 4 | 6 |
 | `cost` | orch | 3 | 3 |
-| `realtime` | core-api | 3 | 3 |
+| `realtime` | core-api | 4 | 4 |
 | `trigger-resolution` | orch | 3 | 3 |
 | `capture-writeback` | orch | 2 | 3 |
 | `knowledge` | core-api | 2 | 2 |
@@ -344,9 +344,11 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 | `mcp-provider` | exec | 2 | 3 |
 | `agent-selection`, `connections`, `harness-registry`, `model-gateway`, `observability`, `org`, `retention` | (mixed) | 1 each (7 total) | 9 |
 | `git-export` | core-api | 2 | 3 |
-| **Total** | | **111** | **210** |
+| **Total** | | **112** | **211** |
 
 *Row updated post-Increment-2c: `git-export` moved out of the "1 each" group — the real migration surfaced a second, census-missed edge (`git-export → knowledge`, 2 call sites) alongside the originally-listed `git-export → settings` (1 call site). See `git-export`'s `ports.ts` top comment.*
+
+*Row updated post-Increment-2f: `realtime` moved from 3 distinct edges / 3 call sites to 4 / 4 — the real migration surfaced a census-missed edge (`realtime → org`, 1 call site, `senderInTeam`'s `teamMembers` read) alongside the three originally-listed edges (`realtime → work`/`→ conversation`/`→ users`). See `realtime`'s `ports.ts` top comment.*
 
 ### 10.2 Full edge table (all 111, post-Increment-2c — the migration inventory)
 
@@ -384,6 +386,7 @@ Legend: `→` legal **downward** DI (orchestration→core-api, intra-layer) — 
 | realtime | → work | 1 | ws-broadcaster → work-service |
 | realtime | → conversation | 1 | ws-broadcaster → conversation-store |
 | realtime | → users | 1 | ws-broadcaster → user-store |
+| realtime | → org | 1 | ws-broadcaster → team-lookup (census correction, added Increment 2f — see `realtime`'s `ports.ts` top comment) |
 | retention | → notifications | 1 | retention-reaper → notification-queue |
 | review | → work | 2 | session-review-creator → work-service |
 | review | → conversation | 2 | session-review-creator → conversation-store |

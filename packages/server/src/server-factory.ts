@@ -64,6 +64,7 @@ import {
 } from "@hyperidle/org";
 import type { LifecyclePropagationDeps, PolicyEngineDeps } from "@hyperidle/policy";
 import { registerLifecyclePropagation, registerPolicyEngine } from "@hyperidle/policy";
+import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
 import { registerSessionReviewCreator } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
 import {
@@ -125,7 +126,6 @@ import { startSandboxReaper } from "./services/sandbox-reaper.js";
 import { enumerateTeamCandidates, selectOwner } from "./services/select-agent.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
 import { registerWorkerWsRoute } from "./services/worker-ws.js";
-import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
 
 const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
 
@@ -770,7 +770,19 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 			// L1 step9 (Adv-C1): production WS subscribe must enforce participant
 			// authz on `thread:<id>` topics. The authorizer reads the threads
 			// table on each subscribe call.
-			const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+			// @lore AU19 Increment 2f: `createDbSubscribeAuthorizer` is
+			// `@hyperidle/realtime`'s Mechanism C DI boundary — this deps bundle
+			// wires its four real outbound edges (`conversation`/`users`/`org`/
+			// `work`) to the real already-imported functions above.
+			const broadcaster = new WsBroadcaster(
+				eventBus,
+				createDbSubscribeAuthorizer(db, {
+					conversation: { getThreadById },
+					users: { getUserById },
+					org: { getTeamMembersById },
+					work: { getTaskById },
+				}),
+			);
 			broadcaster.start();
 			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, upgradeWebSocket, broadcaster);
 		},

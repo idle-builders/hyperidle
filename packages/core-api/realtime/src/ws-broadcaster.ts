@@ -1,9 +1,7 @@
-import { getThreadById } from "@hyperidle/conversation";
-import { type HyperIdleDb, sessions, teamMembers } from "@hyperidle/db";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { AgentSessionSourceCorrelation, EventBus } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
+import type { SubscribeAuthorizerDeps } from "./ports.js";
 
 /**
  * Manages WebSocket topic subscriptions and event broadcasting.
@@ -219,11 +217,20 @@ export class WsBroadcaster {
  * @lore L1 step9 (Adv-C1): subscribe authorization for per-thread topics is
  * the L1a §6.2 contract. The DB lookup is one-shot per subscribe call;
  * topic membership is cached in `WsBroadcaster`'s set.
+ *
+ * @lore AU19 Increment 2f: `deps` is the Mechanism C DI bundle for this
+ * Service's four real outbound edges (`conversation`/`users`/`org`/`work` —
+ * see `ports.ts`'s top comment for the census correction that added `org`).
+ * `sessions` stays a direct `@hyperidle/db` read — it is in
+ * `UNOWNED_SHARED_TABLES`, not owned by any single Service.
  */
-export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorizer {
+export function createDbSubscribeAuthorizer(
+	db: HyperIdleDb,
+	deps: SubscribeAuthorizerDeps,
+): SubscribeAuthorizer {
 	const GLOBAL_TOPICS = new Set(["conversations", "work"]);
 	async function senderInThread(senderId: string, threadId: string): Promise<boolean> {
-		const row = await getThreadById(db, threadId);
+		const row = await deps.conversation.getThreadById(db, threadId);
 		if (!row) return false;
 		try {
 			const parts = JSON.parse(row.participants);
@@ -233,13 +240,9 @@ export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorize
 		}
 	}
 	async function senderInTeam(senderId: string, teamId: string): Promise<boolean> {
-		const sender = await getUserById(db, senderId);
+		const sender = await deps.users.getUserById(db, senderId);
 		if (!sender?.teamId) return false;
-		const [membership] = await db
-			.select({ teamId: teamMembers.teamId })
-			.from(teamMembers)
-			.where(eq(teamMembers.id, sender.teamId))
-			.limit(1);
+		const membership = await deps.org.getTeamMembersById(db, sender.teamId);
 		return membership?.teamId === teamId;
 	}
 	async function canSubscribeToTaskFreeSession(
@@ -286,7 +289,7 @@ export function createDbSubscribeAuthorizer(db: HyperIdleDb): SubscribeAuthorize
 				if (!sessionRow.taskId) return canSubscribeToTaskFreeSession(senderId, sessionRow);
 
 				// Resolve the task host to verify it exists and confirm host-scope
-				const taskRow = await work.getTaskById(db, sessionRow.taskId);
+				const taskRow = await deps.work.getTaskById(db, sessionRow.taskId);
 				// Task must exist; host-scope = any authenticated principal → true
 				return taskRow !== undefined;
 			}

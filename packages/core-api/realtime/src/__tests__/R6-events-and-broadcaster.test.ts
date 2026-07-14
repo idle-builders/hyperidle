@@ -14,7 +14,7 @@
 import type { ArtifactCreatedEvent, KernelEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { WsBroadcaster, type WsClient } from "../services/ws-broadcaster.js";
+import { WsBroadcaster, type WsClient } from "../ws-broadcaster.js";
 
 // --- Mock WS client -----------------------------------------------------------
 

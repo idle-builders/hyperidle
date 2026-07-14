@@ -9,14 +9,19 @@
  *    topic. Subsequent broadcasts must skip the would-be subscriber.
  */
 
+import { getThreadById } from "@hyperidle/conversation";
 import { sessions, threads as threadsTable, users } from "@hyperidle/db";
-import type { ThreadMessageAppendedEvent } from "@hyperidle/shared";
-import { describe, expect } from "vitest";
+import { getTeamMembersById } from "@hyperidle/org";
 import {
 	createDbSubscribeAuthorizer,
+	type SubscribeAuthorizerDeps,
 	WsBroadcaster,
 	type WsClient,
-} from "../services/ws-broadcaster.js";
+} from "@hyperidle/realtime";
+import type { ThreadMessageAppendedEvent } from "@hyperidle/shared";
+import { getUserById } from "@hyperidle/users";
+import { getTaskById } from "@hyperidle/work";
+import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
 
 function createMockClient(): WsClient & { messages: string[] } {
@@ -29,9 +34,17 @@ function createMockClient(): WsClient & { messages: string[] } {
 	};
 }
 
+/** Real Mechanism C deps — mirrors `server-factory.ts`'s production wiring. */
+const REALTIME_DEPS: SubscribeAuthorizerDeps = {
+	conversation: { getThreadById },
+	users: { getUserById },
+	org: { getTeamMembersById },
+	work: { getTaskById },
+};
+
 describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 	test("participant subscribe to thread:<id> → ok", async ({ db, eventBus }) => {
-		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		broadcaster.start();
 
 		// Seed a thread
@@ -60,7 +73,7 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 		db,
 		eventBus,
 	}) => {
-		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		broadcaster.start();
 
 		const now = new Date().toISOString();
@@ -102,7 +115,7 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 		db,
 		eventBus,
 	}) => {
-		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		broadcaster.start();
 
 		const now = new Date().toISOString();
@@ -127,7 +140,7 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 	});
 
 	test("global topics (`conversations`, `work`) accept any identity", async ({ db, eventBus }) => {
-		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		broadcaster.start();
 
 		const client = createMockClient();
@@ -140,7 +153,7 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 	});
 
 	test("subscribe to a non-existent thread → forbidden", async ({ db, eventBus }) => {
-		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		broadcaster.start();
 
 		const client = createMockClient();
@@ -152,7 +165,7 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 	});
 
 	test("subscribe to malformed topic prefix → forbidden", async ({ db, eventBus }) => {
-		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		broadcaster.start();
 
 		const client = createMockClient();
@@ -167,7 +180,7 @@ describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {
 		db,
 		eventBus,
 	}) => {
-		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db));
+		const broadcaster = new WsBroadcaster(eventBus, createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		broadcaster.start();
 
 		const now = new Date().toISOString();

@@ -369,6 +369,10 @@ function buildLeafDeclarations(root: string): void {
   // @lore AU19 Increment 2e: `core-api/model-gateway` added — same TS6305
   // cascade; server-factory.ts, services/agent-work-assistant.ts, and
   // packages/eval/src/runner.ts now import `@hyperidle/model-gateway`.
+  //
+  // @lore AU19 Increment 2f: `core-api/realtime` added — same TS6305
+  // cascade; server-factory.ts, routes/ws.ts, and
+  // ws-subscribe-authz.integration.test.ts now import `@hyperidle/realtime`.
   for (const leaf of [
     "shared",
     "db",
@@ -388,6 +392,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/git-export",
     "core-api/observability",
     "core-api/model-gateway",
+    "core-api/realtime",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

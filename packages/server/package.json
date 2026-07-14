@@ -41,6 +41,7 @@
 		"@hyperidle/observability": "*",
 		"@hyperidle/org": "*",
 		"@hyperidle/policy": "*",
+		"@hyperidle/realtime": "*",
 		"@hyperidle/review": "*",
 		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",
