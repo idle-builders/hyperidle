@@ -67,7 +67,17 @@ const AU9_AGENT_FILES = [
 	"packages/server/src/services/agent-work-assistant.ts",
 ];
 
-/** AU11's 14 agent-owned files (joined AU9's set in server/src/services/). */
+/**
+ * AU11's 14 agent-owned files (joined AU9's set in server/src/services/).
+ *
+ * @lore AU19 Increment 3f: `writeback.ts` moved to
+ * `@hyperidle/capture-writeback` (out of this guard's scanned
+ * `packages/server/src` tree entirely, same shape as Increment 3c's three
+ * `run-orchestration` moves above) — that entry is now a harmless dead
+ * allowlist row, not an error. `file-watcher.ts` below never lived in
+ * `packages/server` (it was always `@hyperidle/filesystems`' own file since
+ * Increment 2b) — also a pre-existing dead row, unrelated to this migration.
+ */
 const AU11_AGENT_FILES = [
 	"packages/server/src/services/context-assembly.ts",
 	"packages/server/src/services/context-assembly-prompt.ts",

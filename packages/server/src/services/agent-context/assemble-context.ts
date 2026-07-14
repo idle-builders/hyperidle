@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { FilesystemsWritebackProcessor } from "@hyperidle/filesystems";
 import { startWatcher } from "@hyperidle/filesystems";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
+	EventBus,
 	UserRole,
 } from "@hyperidle/shared";
 import { assembleContext } from "../context-assembly.js";
@@ -87,18 +87,19 @@ export async function assembleAgentContext(
 }
 
 export function beginAgentWriteback(input: {
-	readonly db: HyperIdleDb;
 	readonly sandboxPath: string;
 	readonly sessionId: string;
 	readonly manifestPath: string;
 	/**
-	 * `capture-writeback`'s batch writeback processor — injected DI port
-	 * (`@hyperidle/filesystems`' `FilesystemsWritebackProcessor`, AU19
-	 * Increment 2b, §10.3 against-grain). The caller wires it to
-	 * `services/writeback.ts`'s real `processWriteback` (still
-	 * `packages/server`-only — `capture-writeback` hasn't migrated yet).
+	 * @lore AU19 Increment 3f: was `writeback: FilesystemsWritebackProcessor`
+	 * (an injected DI port, §10.3 against-grain, Increment 2b interim
+	 * wiring). Per §10.3 line 517's pure-inversion ruling, `startWatcher`'s
+	 * debounced flush now emits `sandbox_writeback_changes_detected` on this
+	 * `EventBus` instead of calling a port — `@hyperidle/capture-writeback`'s
+	 * `registerCaptureWriteback` subscriber (wired at boot, `server-factory.ts`)
+	 * drives `processWriteback` itself.
 	 */
-	readonly writeback: FilesystemsWritebackProcessor;
+	readonly eventBus: EventBus;
 }): IngestionHandle & AgentWritebackHandle {
 	const watcher = startWatcher(input);
 	return {

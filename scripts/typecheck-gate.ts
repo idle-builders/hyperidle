@@ -403,6 +403,10 @@ function buildLeafDeclarations(root: string): void {
   // same TS6305 cascade; server-factory.ts, session-requests-bindings.ts,
   // and many `packages/server` route/tool call sites now import
   // `@hyperidle/agent-selection`.
+  //
+  // @lore AU19 Increment 3f: `agent-orchestration/capture-writeback` added —
+  // same TS6305 cascade; app.ts, routes/sessions-routes.ts, and
+  // server-factory.ts now import `@hyperidle/capture-writeback`.
   for (const leaf of [
     "shared",
     "db",
@@ -429,6 +433,7 @@ function buildLeafDeclarations(root: string): void {
     "agent-orchestration/run-orchestration",
     "agent-orchestration/lifecycle-projection",
     "agent-orchestration/agent-selection",
+    "agent-orchestration/capture-writeback",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

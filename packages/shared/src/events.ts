@@ -229,6 +229,33 @@ export interface DependencyMetEvent {
 	timestamp: number;
 }
 
+/** A single detected file-level writeback change (create/modify/delete). */
+export interface SandboxWritebackChange {
+	readonly type: "create" | "modify" | "delete";
+	readonly relativePath: string;
+	readonly fullPath: string;
+}
+
+/**
+ * @lore AU19 Increment 3f: §10.3 against-grain inversion for `filesystems ⚠
+ * capture-writeback` (§10.3 line 517's pure-inversion ruling). Emitted by
+ * `@hyperidle/filesystems`' `file-watcher.ts` debounced flush (previously a
+ * direct call to an injected `FilesystemsWritebackProcessor` port);
+ * `@hyperidle/capture-writeback`'s `registerCaptureWriteback` subscribes and
+ * drives `processWriteback` off the batch. See both packages' `@lore`
+ * comments (`file-watcher.ts`, `writeback-subscriber.ts`) for the full
+ * atomicity-check reasoning.
+ */
+export interface SandboxWritebackChangesDetectedEvent {
+	type: "sandbox_writeback_changes_detected";
+	streamId: string;
+	sessionId: string;
+	sandboxPath: string;
+	manifestPath: string;
+	changes: readonly SandboxWritebackChange[];
+	timestamp: number;
+}
+
 export interface BetRevisedEvent {
 	type: "bet_revised";
 	streamId: string;
@@ -508,6 +535,8 @@ export type KernelEvent =
 	| ThreadArchivedEvent
 	| ItemCreatedEvent
 	| DependencyMetEvent
+	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
+	| SandboxWritebackChangesDetectedEvent
 	| KnowledgeCreatedEvent
 	| KnowledgeUpdatedEvent
 	| KnowledgeArchivedEvent

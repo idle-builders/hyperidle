@@ -1,10 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { WriteExecutor } from "@hyperidle/db";
-import type { FilesystemsWritebackChange, FilesystemsWritebackProcessor } from "./ports.js";
+import type { EventBus, SandboxWritebackChange } from "@hyperidle/shared";
 
 export interface FileWatcherConfig {
-	db: WriteExecutor;
 	/**
 	 * Absolute path to the agent's sandbox directory.
 	 * @lore AK1: Renamed per harness-vocab plan (AK1).
@@ -13,12 +11,18 @@ export interface FileWatcherConfig {
 	sessionId: string;
 	manifestPath: string;
 	/**
-	 * `capture-writeback`'s batch writeback processor (§10.3 against-grain —
-	 * see this package's `ports.ts` top `@lore` for the Increment-3 EventBus
-	 * rewire plan). Injected so the composition root (`packages/server`) can
-	 * pass its still-in-place `processWriteback` unchanged.
+	 * @lore AU19 Increment 3f: `capture-writeback`'s batch writeback processor
+	 * used to be an injected `FilesystemsWritebackProcessor` port (§10.3
+	 * against-grain, Increment 2b interim wiring). Per §10.3 line 517's
+	 * pure-inversion ruling ("`file-watcher` already fires on sandbox change
+	 * — emit that as an event; `capture-writeback` subscribes"), the debounced
+	 * flush now emits `sandbox_writeback_changes_detected` on this `EventBus`
+	 * instead — `@hyperidle/capture-writeback`'s `registerCaptureWriteback`
+	 * subscriber drives `processWriteback` itself. Atomicity check: this
+	 * watcher's change detection is a filesystem read, not a DB write, so
+	 * there is no shared transaction an async handoff could split.
 	 */
-	writeback: FilesystemsWritebackProcessor;
+	eventBus: EventBus;
 	debounceMs?: number;
 }
 
@@ -52,7 +56,7 @@ function isWatchedPath(relativePath: string): boolean {
 /** Start watching a sandbox for file changes. */
 export function startWatcher(config: FileWatcherConfig): FileWatcher {
 	const debounceMs = config.debounceMs ?? DEFAULT_DEBOUNCE_MS;
-	const pendingChanges = new Map<string, FilesystemsWritebackChange>();
+	const pendingChanges = new Map<string, SandboxWritebackChange>();
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let stopped = false;
 	const watchers: fs.FSWatcher[] = [];
@@ -60,43 +64,38 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 	const knowledgeDir = path.join(config.sandboxPath, "knowledge");
 	const workDir = path.join(config.sandboxPath, "work");
 
+	/**
+	 * @lore AU19 Increment 3f: publishes the debounced batch as a domain
+	 * event instead of calling an injected writeback port (§10.3 line 517's
+	 * pure-inversion ruling — see `FileWatcherConfig.eventBus`'s own `@lore`).
+	 * `EventBus.emit` is synchronous and does not return the subscriber's
+	 * promise, so this watcher can no longer learn synchronously whether
+	 * processing hit ENOENT (sandbox torn down before the flush landed) —
+	 * the pre-inversion code used that signal to proactively `watcher.close()`
+	 * every `fs.watch` handle early. Dropped as an accepted, safe consequence:
+	 * `session-lifecycle.ts` ALWAYS calls `context.ingestion.dispose()` (→
+	 * `watcher.stop()`) at session end regardless, so the watcher is still
+	 * guaranteed to be torn down — this only removes a redundant early-stop
+	 * optimization for an edge case, not a correctness guarantee. ENOENT
+	 * suppression itself is unaffected — it moved into
+	 * `@hyperidle/capture-writeback`'s `writeback-subscriber.ts`, which is
+	 * now the only place that sees the processing outcome.
+	 */
 	function flush(): void {
 		if (pendingChanges.size === 0) return;
 
 		const changes = Array.from(pendingChanges.values());
 		pendingChanges.clear();
 
-		// @lore file-watcher flush: processWriteback is async, so errors inside
-		// it become Promise rejections — a sync try/catch does NOT catch them.
-		// Attach a .catch() to suppress ENOENT when the sandbox directory is
-		// removed (test cleanup, session end with sandbox reaper) before the
-		// debounce timer fires. Stop the watcher on ENOENT to prevent further
-		// flushes — the sandbox is gone and there is nothing left to flush.
-		config.writeback
-			.process(
-				{
-					db: config.db,
-					sandboxPath: config.sandboxPath,
-					sessionId: config.sessionId,
-					manifestPath: config.manifestPath,
-				},
-				changes,
-			)
-			.catch((err: unknown) => {
-				if (err !== null && typeof err === "object" && "code" in err && err.code === "ENOENT") {
-					stopped = true;
-					if (debounceTimer) {
-						clearTimeout(debounceTimer);
-						debounceTimer = null;
-					}
-					for (const watcher of watchers) {
-						watcher.close();
-					}
-					return;
-				}
-				// Re-throw non-ENOENT errors as unhandled rejections
-				throw err;
-			});
+		config.eventBus.emit({
+			type: "sandbox_writeback_changes_detected",
+			streamId: config.sessionId,
+			sessionId: config.sessionId,
+			sandboxPath: config.sandboxPath,
+			manifestPath: config.manifestPath,
+			changes,
+			timestamp: Date.now(),
+		});
 	}
 
 	function scheduleFlush(): void {
@@ -119,7 +118,7 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 
 		if (!isWatchedPath(relativePath)) return;
 
-		let changeType: FilesystemsWritebackChange["type"];
+		let changeType: SandboxWritebackChange["type"];
 		if (fs.existsSync(fullPath)) {
 			const stat = fs.statSync(fullPath);
 			if (!stat.isFile()) return;

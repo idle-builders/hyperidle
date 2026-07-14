@@ -73,7 +73,6 @@ import {
 	type SessionContext,
 } from "./session-lifecycle.js";
 import { recordAgentWorkIntent } from "./session-requests-bindings.js";
-import { processWriteback } from "./writeback.js";
 
 // @lore X3: validateSystemPromptPath and SYSTEM_PROMPT_DIR_RELATIVE removed.
 // The path traversal attack surface is eliminated by X3 — system prompts are now
@@ -920,15 +919,15 @@ export async function admitSession(
 		// ── Phase 7: begin writeback ingestion.
 		const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
 		ingestion = beginAgentWriteback({
-			db,
 			sandboxPath,
 			sessionId,
 			manifestPath,
-			// AU19 Increment 2b: `@hyperidle/filesystems`' interim
-			// `FilesystemsWritebackProcessor` port — wired to this package's own
-			// `processWriteback` (still `packages/server`-only; `capture-writeback`
-			// hasn't migrated, Increment 3).
-			writeback: { process: processWriteback },
+			// AU19 Increment 3f: §10.3 line 517's pure-inversion — the watcher
+			// emits `sandbox_writeback_changes_detected` on this EventBus instead
+			// of calling an injected writeback port; `@hyperidle/capture-writeback`'s
+			// `registerCaptureWriteback` subscriber (wired at boot,
+			// `server-factory.ts`) drives `processWriteback` itself.
+			eventBus,
 		});
 	} catch (err) {
 		const reason = `provisioning failed: ${err instanceof Error ? err.message : String(err)}`;

@@ -176,6 +176,8 @@ export type {
 	ProposedCallExecutedEvent,
 	ProposedCallGrantedEvent,
 	RoutineFiredEvent,
+	SandboxWritebackChange,
+	SandboxWritebackChangesDetectedEvent,
 	SessionEndedEvent,
 	SessionNotReturnedEvent,
 	SessionOutcome,

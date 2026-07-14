@@ -213,38 +213,18 @@ export interface FilesystemsServiceConnectionResolver {
 }
 
 // ---------------------------------------------------------------------------
-// capture-writeback — FilesystemsWritebackProcessor (§10.3 against-grain —
-// Inc 3 rewires to an EventBus subscription per §10.3's own resolution note)
+// capture-writeback — CLOSED, AU19 Increment 3f: the `FilesystemsWritebackConfig`/
+// `FilesystemsWritebackChange`/`FilesystemsWritebackResult`/
+// `FilesystemsWritebackProcessor` DI-port quartet that lived here (Increment
+// 2b interim wiring) is REMOVED — §10.3 line 517's pure-inversion ruling
+// applied: `file-watcher.ts`'s debounced flush now emits
+// `sandbox_writeback_changes_detected` on the `EventBus` instead of calling
+// an injected port. `@hyperidle/capture-writeback`'s `registerCaptureWriteback`
+// subscribes and drives `processWriteback` itself. See `file-watcher.ts`'s
+// and `@hyperidle/capture-writeback`'s `writeback-subscriber.ts` `@lore`
+// comments for the atomicity-check reasoning. The change-item shape lives on
+// the event now (`SandboxWritebackChange`, `@hyperidle/shared`), not here.
 // ---------------------------------------------------------------------------
-
-export interface FilesystemsWritebackConfig {
-	readonly db: WriteExecutor;
-	readonly sandboxPath: string;
-	readonly sessionId: string;
-	readonly manifestPath: string;
-}
-
-export interface FilesystemsWritebackChange {
-	readonly type: "create" | "modify" | "delete";
-	readonly relativePath: string;
-	readonly fullPath: string;
-}
-
-export interface FilesystemsWritebackResult {
-	readonly processed: number;
-	readonly created: number;
-	readonly updated: number;
-	readonly deleted: number;
-	readonly conflicts: number;
-}
-
-/** Port for `capture-writeback`'s batch writeback processor `file-watcher.ts` calls directly today. */
-export interface FilesystemsWritebackProcessor {
-	process(
-		config: FilesystemsWritebackConfig,
-		changes: readonly FilesystemsWritebackChange[],
-	): Promise<FilesystemsWritebackResult>;
-}
 
 // Re-exported for call sites that need the plain EventBus/TaskState types alongside these ports.
 export type { EventBus, TaskState };

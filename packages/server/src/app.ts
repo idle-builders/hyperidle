@@ -1,3 +1,4 @@
+import { SessionActivityBuffer } from "@hyperidle/capture-writeback";
 import {
 	type CredentialResolver,
 	decryptCredentialValue,
@@ -87,7 +88,6 @@ import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
 import { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
-import { SessionActivityBuffer } from "./services/session-activity-buffer.js";
 import {
 	agentWorkIntentReader,
 	agentWorkIntentRecorder,

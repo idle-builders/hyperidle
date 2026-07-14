@@ -5,8 +5,12 @@
  * `filesystemInjections`, `filesystemCaptures` (confirmed this increment;
  * see `filesystem-registry.ts`'s and `ports.ts`'s headers for the §14 `⛁*`
  * resolution). Every foreign-Service reach (`git-export`, `work`,
- * `connections`, `capture-writeback`) is an injected DI port (`ports.ts`) —
- * never a raw cross-package import.
+ * `connections`) is an injected DI port (`ports.ts`) — never a raw
+ * cross-package import. `capture-writeback` is the one exception: the
+ * against-grain `filesystems ⚠ capture-writeback` edge inverts through the
+ * `EventBus` (AU19 Increment 3f, §10.3 line 517) rather than a DI port —
+ * `file-watcher.ts` emits `sandbox_writeback_changes_detected` instead of
+ * calling an injected processor.
  *
  * @lore AU19 Increment 2b: real cut-over — the filesystem/* adapter seam
  * (`mount-adapter.ts`, `mounter-registry.ts`, `git-clone-adapter.ts`,
@@ -94,10 +98,6 @@ export type {
 	FilesystemsGitRunnerFactory,
 	FilesystemsServiceConnectionResolver,
 	FilesystemsWorkStore,
-	FilesystemsWritebackChange,
-	FilesystemsWritebackConfig,
-	FilesystemsWritebackProcessor,
-	FilesystemsWritebackResult,
 } from "./ports.js";
 // -- scaffolding-paths (AO2 §8) --
 export {

@@ -1,4 +1,5 @@
 [
+	"packages/agent-orchestration/capture-writeback/src/__tests__/session-activity-buffer.test.ts",
 	"packages/api-contract/src/__tests__/typecheck-verdict.test.ts",
 	"packages/core-api/observability/src/__tests__/console-adapter.test.ts",
 	"packages/core-api/observability/src/__tests__/performance.bench.test.ts",
@@ -251,7 +252,6 @@
 	"packages/server/src/services/__tests__/credential-runtime-path.integration.test.ts",
 	"packages/server/src/services/__tests__/direct-thread.recipientKind.integration.test.ts",
 	"packages/server/src/services/__tests__/fail-loud-secret.integration.test.ts",
-	"packages/server/src/services/__tests__/session-activity-buffer.test.ts",
 	"packages/server/src/tools/__tests__/AL6-return-actions.closure.test.ts",
 	"packages/server/src/tools/__tests__/create-artifact-role.integration.test.ts",
 	"packages/server/src/tools/__tests__/create-artifact.integration.test.ts",

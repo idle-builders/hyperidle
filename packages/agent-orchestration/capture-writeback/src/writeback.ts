@@ -1,10 +1,12 @@
-import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, knowledgeConflicts, sessions } from "@hyperidle/db";
-import * as repo from "@hyperidle/knowledge";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import type { Manifest, ManifestEntry } from "./context-assembly.js";
+import type {
+	CaptureWritebackKnowledgeWriter,
+	CaptureWritebackManifest as Manifest,
+	CaptureWritebackManifestEntry as ManifestEntry,
+} from "./ports.js";
 
 export interface WritebackConfig {
 	db: HyperIdleDb;
@@ -14,6 +16,14 @@ export interface WritebackConfig {
 	sandboxPath: string;
 	sessionId: string;
 	manifestPath: string;
+	/**
+	 * `knowledge`'s create/update/conflict-record surface (Mechanism C DI
+	 * port — `capture-writeback -> knowledge`, ordinary downward edge, §10.2).
+	 * Concrete impl wired at the composition root (`packages/server`) to
+	 * `@hyperidle/knowledge`'s real `create`/`update`/`recordWritebackConflict`.
+	 * See `ports.ts`'s top `@lore`.
+	 */
+	knowledge: CaptureWritebackKnowledgeWriter;
 }
 
 export interface WritebackChange {
@@ -157,7 +167,7 @@ async function handleCreate(
 		else if (subdir === "practices") kind = "pattern";
 	}
 
-	const item = await repo.create(config.db, {
+	const item = await config.knowledge.create(config.db, {
 		layer: "L1",
 		kind,
 		title,
@@ -191,50 +201,43 @@ async function handleModify(
 
 	const body = fs.readFileSync(change.fullPath, "utf-8");
 
-	try {
-		const updated = await repo.update(
-			config.db,
-			existing.itemId,
-			{
-				body,
-				updatedBy: `session:${config.sessionId}`,
-			},
-			existing.entry.version,
-		);
+	const updateResult = await config.knowledge.update(
+		config.db,
+		existing.itemId,
+		{
+			body,
+			updatedBy: `session:${config.sessionId}`,
+		},
+		existing.entry.version,
+	);
 
+	if (updateResult.ok) {
 		// Update manifest version
 		// @lore AF3 C3: existing.itemId was resolved from this manifest so the entry
 		// is guaranteed present; use a local ref to avoid repeated index access.
 		const manifestEntry = manifest.items[existing.itemId];
 		if (manifestEntry !== undefined) {
-			manifestEntry.version = updated.version;
+			manifestEntry.version = updateResult.item.version;
 		}
 		return "updated";
-	} catch (err) {
-		if (err instanceof repo.VersionConflictError) {
-			// Create conflict record
-			const conflictId = crypto.randomUUID();
-			await config.db.insert(knowledgeConflicts).values({
-				id: conflictId,
-				itemId: existing.itemId,
-				versionBase: existing.entry.version,
-				versionCurrent: err.currentVersion,
-				proposedBody: body,
-				proposedBy: `session:${config.sessionId}`,
-				status: "open",
-				createdAt: new Date().toISOString(),
-			});
-
-			// Update manifest to current version so subsequent writes don't keep conflicting
-			const conflictEntry = manifest.items[existing.itemId];
-			if (conflictEntry !== undefined) {
-				conflictEntry.version = err.currentVersion;
-			}
-
-			return "conflict";
-		}
-		throw err;
 	}
+
+	// Version conflict — create a conflict record instead of overwriting.
+	await config.knowledge.recordConflict(config.db, {
+		itemId: existing.itemId,
+		versionBase: existing.entry.version,
+		versionCurrent: updateResult.currentVersion,
+		proposedBody: body,
+		proposedBy: `session:${config.sessionId}`,
+	});
+
+	// Update manifest to current version so subsequent writes don't keep conflicting
+	const conflictEntry = manifest.items[existing.itemId];
+	if (conflictEntry !== undefined) {
+		conflictEntry.version = updateResult.currentVersion;
+	}
+
+	return "conflict";
 }
 
 /** Handle a deleted file — flag for facilitator review, don't auto-delete. Returns true if flagged. */
@@ -250,16 +253,12 @@ async function handleDelete(
 	}
 
 	// Create a review item flagging the deletion for facilitator
-	const conflictId = crypto.randomUUID();
-	await config.db.insert(knowledgeConflicts).values({
-		id: conflictId,
+	await config.knowledge.recordConflict(config.db, {
 		itemId: existing.itemId,
 		versionBase: existing.entry.version,
 		versionCurrent: existing.entry.version,
 		proposedBody: "[DELETED]",
 		proposedBy: `session:${config.sessionId}`,
-		status: "open",
-		createdAt: new Date().toISOString(),
 	});
 
 	// Remove from manifest (file is gone)

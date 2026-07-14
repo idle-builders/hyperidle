@@ -1,3 +1,4 @@
+import type { SessionActivityBuffer } from "@hyperidle/capture-writeback";
 import { explicitSessionStarts, type HyperIdleDb, sessions } from "@hyperidle/db";
 import { sessionRunRegistry } from "@hyperidle/session-requests";
 import {
@@ -18,7 +19,6 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
 import {
 	requestAgentTermination,
 	transitionAgentRunLifecycle,

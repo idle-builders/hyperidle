@@ -40,6 +40,12 @@
  * knowledge` edge the original §10.2 census missed (raw table access wasn't
  * a countable edge at original census time) — see `@hyperidle/retention`'s
  * `ports.ts` top `@lore` for the census-correction row.
+ *
+ * @lore AU19 Increment 3f: `writeback-conflict-store.ts` added — the third
+ * `capture-writeback -> knowledge` call site (`create`/`update` were already
+ * counted; `writeback.ts`'s direct `knowledgeConflicts` inserts were raw
+ * table access at original census time, not a countable edge). See
+ * `@hyperidle/capture-writeback`'s `ports.ts` top `@lore` for the port side.
  */
 
 // -- attention engine (recompute service + DI ports for work/review edges) --
@@ -184,3 +190,6 @@ export {
 	type KnowledgeStatus,
 	type PropagationLevel,
 } from "./types.js";
+// -- writeback-conflict-store (AU19 Increment 3f — the capture-writeback -> knowledge edge) --
+export type { RecordWritebackConflictInput } from "./writeback-conflict-store.js";
+export { recordWritebackConflict } from "./writeback-conflict-store.js";

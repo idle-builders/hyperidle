@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { createAgentSelectionOps, resolveDecompositionPlan } from "@hyperidle/agent-selection";
+import { registerCaptureWriteback } from "@hyperidle/capture-writeback";
 import {
 	type CredentialResolver,
 	DbCredentialResolver,
@@ -35,11 +36,15 @@ import {
 import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
+	create as createKnowledgeItem,
 	findKnowledgeItemProjectionById,
 	listExportableKnowledgeItems,
 	reapKnowledgeAccessLog,
+	recordWritebackConflict,
 	registerRelevanceListener,
 	setupFts,
+	update as updateKnowledgeItem,
+	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { resolveModelTier } from "@hyperidle/model-gateway";
 import {
@@ -719,6 +724,36 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		teamCapacity: { getByTeamId: getTeamMembersByTeamId, setActiveBets: setTeamMembersActiveBets },
 	});
 
+	// AU19 Increment 3f: register the capture-writeback subscriber — the
+	// §10.3 line 517 EventBus inversion for `filesystems ⚠ capture-writeback`.
+	// `@hyperidle/filesystems`' `file-watcher.ts` emits
+	// `sandbox_writeback_changes_detected`; this subscriber drives
+	// `processWriteback` off it. The `knowledge` port's `update` wraps the
+	// real `@hyperidle/knowledge` `update()` (which THROWS `VersionConflictError`)
+	// into the port's discriminated `CaptureWritebackUpdateResult` — the one
+	// place both `@hyperidle/knowledge` and the port type are legally
+	// importable together (see `@hyperidle/capture-writeback`'s `ports.ts`
+	// top `@lore`).
+	const disposeCaptureWriteback = registerCaptureWriteback({
+		db,
+		eventBus,
+		knowledge: {
+			create: createKnowledgeItem,
+			async update(execDb, id, patch, expectedVersion) {
+				try {
+					const item = await updateKnowledgeItem(execDb, id, patch, expectedVersion);
+					return { ok: true, item };
+				} catch (err) {
+					if (err instanceof VersionConflictError) {
+						return { ok: false, currentVersion: err.currentVersion };
+					}
+					throw err;
+				}
+			},
+			recordConflict: recordWritebackConflict,
+		},
+	});
+
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
 	const mcpBridgeRegistry = createMcpBridgeRegistry();
 	const mcpBaseUrl = `http://localhost:${port}`;
@@ -890,6 +925,8 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		// runtime. Order: domain handlers -> WS route -> HTTP server -> DB.
 		// AK3: unsubscribe the bet decomposition subscriber.
 		disposeBetDecomp();
+		// AU19 Increment 3f: unsubscribe the capture-writeback subscriber.
+		disposeCaptureWriteback();
 		disposeAgentLayer();
 		// @lore AU9: best-effort — store the durable "shutdown" cause on every
 		// still-running correlated request BEFORE the process tears down, so a

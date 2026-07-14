@@ -212,6 +212,9 @@ describe("T4: exhaustive KernelEvent switch handles proposed_call_granted (AC13)
 					return "item_created";
 				case "dependency_met":
 					return "dependency_met";
+				// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
+				case "sandbox_writeback_changes_detected":
+					return "sandbox_writeback_changes_detected";
 				case "knowledge_created":
 					return "knowledge_created";
 				case "knowledge_updated":
