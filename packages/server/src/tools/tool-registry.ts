@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
 import { type HyperIdleDb, operationOutcomes, proposedCalls, tailoredGrants } from "@hyperidle/db";
+import type { IngestionHandle } from "@hyperidle/session-lifecycle";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
@@ -10,7 +11,6 @@ import type {
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
-import type { IngestionHandle } from "../services/contracts.js";
 import { addAgentTool } from "./add-agent.js";
 import type { AssistantToolShape } from "./assistant-tool-result.js";
 import { commitFileTool } from "./commit-file.js";

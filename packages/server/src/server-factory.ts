@@ -132,14 +132,17 @@ import {
 } from "./services/dispatch-bindings.js";
 import { startAgentLifecycleProjectionDrain } from "./services/lifecycle-projection-bindings.js";
 import { createMcpRoute } from "./services/mcp-route.js";
-import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import {
 	bootAgentLayer,
 	markRunningAgentSessionRequestsForShutdown,
 	registerWorkerWsRoute,
 } from "./services/run-orchestration-bindings.js";
-import { startSandboxReaper } from "./services/sandbox-reaper.js";
-import type { ProvisionSessionDeps } from "./services/session-provisioning.js";
+import {
+	type ProvisionSessionDeps,
+	reapStaleRoutineSessions,
+	registerHandoffTerminationRequester,
+	startSandboxReaper,
+} from "./services/session-lifecycle-bindings.js";
 import { recordAgentWorkIntent } from "./services/session-requests-bindings.js";
 
 const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
@@ -396,6 +399,7 @@ export function registerAgentLayerServices(ctx: {
 
 	disposers.push(registerBuiltinRoutineHandlers(db, eventBus));
 	disposers.push(registerCostCapDedupReleaser(eventBus));
+	disposers.push(registerHandoffTerminationRequester(db, eventBus));
 	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
 	disposers.push(startCostSentinel(db, eventBus));
 

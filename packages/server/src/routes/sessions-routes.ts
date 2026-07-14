@@ -22,7 +22,7 @@ import { validateBody } from "../middleware/validate.js";
 import {
 	requestAgentTermination,
 	transitionAgentRunLifecycle,
-} from "../services/session-lifecycle.js";
+} from "../services/session-lifecycle-bindings.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part

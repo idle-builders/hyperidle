@@ -14,4 +14,4 @@ export {
 	type ProvisionSessionParams,
 	type ProvisionSessionResult,
 	provisionSession,
-} from "./services/session-provisioning.js";
+} from "./services/session-lifecycle-bindings.js";

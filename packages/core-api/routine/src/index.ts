@@ -45,6 +45,7 @@ export {
 	findRunningRoutineRun,
 	getRoutineById,
 	getRoutineRunById,
+	incrementRoutineCost,
 	insertRoutine,
 	insertRoutineRun,
 	listActiveRoutines,

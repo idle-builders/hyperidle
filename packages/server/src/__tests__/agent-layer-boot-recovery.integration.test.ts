@@ -28,14 +28,14 @@ import { describe, expect, test } from "../test-fixtures.js";
 
 const admitSessionCalls: string[] = [];
 
-vi.mock("../services/session-provisioning.js", async (importOriginal) => {
-	const original = await importOriginal<typeof import("../services/session-provisioning.js")>();
+vi.mock("@hyperidle/session-lifecycle", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/session-lifecycle")>();
 	return {
 		...original,
 		admitSession: vi.fn(
 			async (
-				deps: import("../services/session-provisioning.js").ProvisionSessionDeps,
-				params: import("../services/session-provisioning.js").ProvisionSessionParams,
+				deps: import("@hyperidle/session-lifecycle").ProvisionSessionDeps,
+				params: import("@hyperidle/session-lifecycle").ProvisionSessionParams,
 			) => {
 				const requestId = params.requestContext?.requestId ?? "unknown";
 				admitSessionCalls.push(requestId);

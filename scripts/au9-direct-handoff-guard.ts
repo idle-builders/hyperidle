@@ -12,6 +12,13 @@ const forbiddenSymbols = new Set([
 const agentFiles = new Set([
 	"packages/server/src/services/agent-work-handoff.ts", "packages/server/src/services/agent-work-intent-worker.ts",
 	"packages/server/src/services/agent-session-requests.ts",
+	// @lore AU19 Increment 3i: `session-provisioning.ts` moved to
+	// `@hyperidle/session-lifecycle` (out of this guard's scanned
+	// `packages/server/src` tree entirely) — the entry below is now a
+	// harmless dead allowlist row, not an error. `session-lifecycle-bindings.ts`
+	// (the new composition-root wiring file) never literally calls the
+	// forbidden `provisionSession` symbol (it calls `provisionSessionInternal`,
+	// the aliased import), so it needs no allowlist entry here.
 	"packages/server/src/services/session-provisioning.ts",
 	"packages/server/src/services/agent-work-assistant.ts",
 	// @lore AU19 Increment 3b: `agent-work-intent-worker.ts`/`agent-session-requests.ts`

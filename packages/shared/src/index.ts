@@ -310,6 +310,14 @@ export {
 	RETURN_ACTION_NAMES,
 	shouldForceReturn,
 } from "./harness/index.js";
+// ── AU19 §7.4: HarnessPort — the one genuine cross-process seam ──
+export type {
+	AdmittedRun,
+	HarnessPort,
+	HarnessPortDeps,
+	HarnessRunOutput,
+	RunContextBundle,
+} from "./harness-port.js";
 // ── Hint catalog (P5) ──
 export type { HintCatalogEntry, HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";

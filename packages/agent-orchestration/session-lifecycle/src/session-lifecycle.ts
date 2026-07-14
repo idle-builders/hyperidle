@@ -1,15 +1,38 @@
 import * as fs from "node:fs";
-import { agentSessionRequests, type HyperIdleDb, routines, sessions } from "@hyperidle/db";
-import * as routine from "@hyperidle/routine";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type {
 	AgentSessionSourceKind,
 	EventBus,
 	SessionLifecycleCorrelation,
 } from "@hyperidle/shared";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { IngestionHandle } from "./contracts.js";
-import { releaseSessionDedup } from "./cost-bindings.js";
-import { terminalizeAgentSessionRequestInTx } from "./session-requests-bindings.js";
+import type { SessionLifecyclePorts } from "./ports.js";
+
+/**
+ * @lore AU19 Increment 3i: real cut-over — moved here from
+ * `packages/server/src/services/session-lifecycle.ts` (behavior-preserving
+ * move). Every raw cross-Service touch became an injected `ports:
+ * SessionLifecyclePorts` parameter (Mechanism C, see `ports.ts`):
+ *  - `requestAgentTermination`/`recoverRequestedTerminations`/
+ *    `transitionAgentRunLifecycle` raw-read/wrote `agentSessionRequests`
+ *    directly pre-migration — closed via `ports.sessionRequests`'
+ *    `requestAgentSessionTermination`/`listRunningAgentSessionRequests`/
+ *    `findAgentSessionRequestTerminationReasonInTx`/
+ *    `terminalizeAgentSessionRequestInTx` (see `ports.ts`'s top `@lore`).
+ *  - `updateRoutineRunOnSessionEnd`'s `routine.updateRoutineById`/
+ *    `updateRoutineRunById` calls — ordinary downward DI via `ports.routine`.
+ *    The `costActualMinor = coalesce(...) + n` accumulation split into its
+ *    own `ports.routine.incrementRoutineCost` call (closes the coalesce-
+ *    ownership gap `@hyperidle/routine`'s `RoutinePatch` doc comment
+ *    anticipated) — see `@hyperidle/routine`'s `incrementRoutineCost` top
+ *    `@lore` for the atomicity note (unchanged: these were never
+ *    transactional with each other pre-migration either).
+ *  - `releaseSessionDedup` (`cost`) stays a direct `@hyperidle/db`-free,
+ *    in-memory singleton import — `cost-bindings.ts`'s dedup map, not a
+ *    table-owning call; unaffected by this migration (still wired the same
+ *    way at the composition root, `session-lifecycle-bindings.ts`).
+ */
 
 export const TERMINATION_REASONS = [
 	"user_done",
@@ -31,60 +54,34 @@ export const TERMINATION_DISPOSITIONS = {
 export async function requestAgentTermination(
 	db: HyperIdleDb,
 	input: { requestId: string; reason: AgentTerminationReason; requestedBy?: string },
+	ports: SessionLifecyclePorts,
 ): Promise<"accepted" | "idempotent" | "conflict" | "terminal"> {
-	const [request] = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(eq(agentSessionRequests.id, input.requestId))
-		.limit(1);
-	if (!request) throw new Error(`Unknown agent request ${input.requestId}`);
-	if (["completed", "failed", "cancelled"].includes(request.status)) return "terminal";
-	if (request.terminationReason === input.reason) return "idempotent";
-	if (request.terminationReason) return "conflict";
-	const now = new Date().toISOString();
-	const updated = await db
-		.update(agentSessionRequests)
-		.set({
-			terminationReason: input.reason,
-			terminationRequestedAt: now,
-			terminationRequestedBy: input.requestedBy ?? null,
-			updatedAt: now,
-		})
-		.where(
-			and(
-				eq(agentSessionRequests.id, input.requestId),
-				eq(agentSessionRequests.status, "running"),
-				sql`${agentSessionRequests.terminationReason} is null`,
-			),
-		)
-		.returning({ id: agentSessionRequests.id });
-	return updated.length === 1 ? "accepted" : "conflict";
+	return ports.sessionRequests.requestAgentSessionTermination(db, input);
 }
 
 /** @lore AU9: recovery reads the durable reason; abort signals never define outcome. */
 export async function recoverRequestedTerminations(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	ports: SessionLifecyclePorts,
 ): Promise<number> {
-	const requests = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(
-			and(
-				eq(agentSessionRequests.status, "running"),
-				sql`${agentSessionRequests.terminationReason} is not null`,
-			),
-		);
+	const running = await ports.sessionRequests.listRunningAgentSessionRequests(db);
+	const requests = running.filter((r) => r.terminationReason != null);
 	let recovered = 0;
 	for (const request of requests) {
 		const reason = request.terminationReason as AgentTerminationReason;
 		const disposition = TERMINATION_DISPOSITIONS[reason];
-		await transitionAgentRunLifecycle(db, eventBus, {
-			requestId: request.id,
-			state: disposition.state,
-			sessionId: request.sessionId ?? undefined,
-			failureCode: disposition.failureCode ?? undefined,
-		});
+		await transitionAgentRunLifecycle(
+			db,
+			eventBus,
+			{
+				requestId: request.id,
+				state: disposition.state,
+				sessionId: request.sessionId ?? undefined,
+				failureCode: disposition.failureCode ?? undefined,
+			},
+			ports,
+		);
 		recovered += 1;
 	}
 	return recovered;
@@ -114,22 +111,23 @@ export async function transitionAgentRunLifecycle(
 		readonly failureCode?: string;
 		readonly errorMessage?: string;
 	},
+	ports: SessionLifecyclePorts,
 ): Promise<void> {
 	const row = await db.transaction(async (tx) => {
-		const [current] = await tx
-			.select({ terminationReason: agentSessionRequests.terminationReason })
-			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.id, input.requestId))
-			.limit(1);
-		if (!current) return null;
-		const reason = current.terminationReason as AgentTerminationReason | null;
+		const txDb = tx as HyperIdleDb;
+		const current = await ports.sessionRequests.findAgentSessionRequestTerminationReasonInTx(
+			txDb,
+			input.requestId,
+		);
+		if (current === undefined) return null;
+		const reason = current as AgentTerminationReason | null;
 		const disposition = reason ? TERMINATION_DISPOSITIONS[reason] : null;
 		const effectiveState = disposition?.state ?? input.state;
 		const effectiveFailureCode = disposition
 			? (disposition.failureCode ?? undefined)
 			: input.failureCode;
 		if (input.sessionId) {
-			return terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, {
+			return ports.sessionRequests.terminalizeAgentSessionRequestInTx(txDb, {
 				requestId: input.requestId,
 				precondition: "running",
 				sessionId: input.sessionId,
@@ -144,7 +142,7 @@ export async function transitionAgentRunLifecycle(
 				`transitionAgentRunLifecycle requires sessionId or claimToken for ${input.requestId}`,
 			);
 		}
-		return terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, {
+		return ports.sessionRequests.terminalizeAgentSessionRequestInTx(txDb, {
 			requestId: input.requestId,
 			precondition: "claimed",
 			claimToken: input.claimToken,
@@ -223,6 +221,7 @@ async function updateRoutineRunOnSessionEnd(
 	outcome: "success" | "error" | "budget_exhausted",
 	endedAt: string,
 	costInCents: number,
+	ports: SessionLifecyclePorts,
 	summary?: string,
 ): Promise<void> {
 	// Find the routine_run row that is still "running" for this routine.
@@ -231,14 +230,14 @@ async function updateRoutineRunOnSessionEnd(
 	// @lore AU13 addendum §A6: this call site currently passes the pooled `db`
 	// (not a `tx`) — findRunningRoutineRun accepts whatever executor the caller
 	// passes; do not hard-code tx here.
-	const run = await routine.findRunningRoutineRun(db, routineId);
+	const run = await ports.routine.findRunningRoutineRun(db, routineId);
 
 	if (!run) {
 		// No matching running run — pre-AA2 session or already finalized. No-op.
 		return;
 	}
 
-	await routine.updateRoutineRunById(db, run.id, {
+	await ports.routine.updateRoutineRunById(db, run.id, {
 		outcome,
 		// Set sessionId here so the historical record is complete even though
 		// it was NULL when the row was first inserted.
@@ -251,20 +250,22 @@ async function updateRoutineRunOnSessionEnd(
 
 	// AF10 AC2: increment routines.costActualMinor (cumulative, += per run).
 	// costInCents is the per-run session total — a true delta w.r.t. the running
-	// cumulative field. Uses atomic SQL coalesce to avoid lost updates under
-	// concurrent routine runs (same pattern as recordCostAndCheck cost-cap.ts:247).
+	// cumulative field. Uses an atomic coalesce accumulator (mirrors
+	// recordCostAndCheck cost-cap.ts:247) to avoid lost updates under
+	// concurrent routine runs.
 	// @lore AF10: currency literal "USD" matches routineRuns.costCurrency write above.
 	// Single-currency factory assumption — see architecture.md §2 tech-debt note.
-	await routine.updateRoutineById(db, routineId, {
-		lastRunAt: endedAt,
-		...(costInCents > 0
-			? {
-					costActualMinor: sql`coalesce(${routines.costActualMinor}, 0) + ${costInCents}`,
-					costActualCurrency: "USD",
-				}
-			: {}),
-		...(summary ? { lastRunSummary: summary } : {}),
-	});
+	if (costInCents > 0) {
+		await ports.routine.incrementRoutineCost(db, routineId, costInCents, "USD");
+	}
+	if (summary) {
+		await ports.routine.updateRoutineById(db, routineId, {
+			lastRunAt: endedAt,
+			lastRunSummary: summary,
+		});
+	} else {
+		await ports.routine.updateRoutineById(db, routineId, { lastRunAt: endedAt });
+	}
 }
 
 /**
@@ -289,6 +290,7 @@ export async function endSession(
 	eventBus: EventBus,
 	context: SessionContext,
 	costInCents: number,
+	ports: SessionLifecyclePorts,
 	baselineCost?: number,
 	routineRunOutcome?: "budget_exhausted",
 	terminalOutcome: "completed" | "not_returned" = "completed",
@@ -315,22 +317,14 @@ export async function endSession(
 	// persisted correctly in the DB and carried on the bus — not just in the in-memory
 	// ProvisionSessionResult. Passing "not_returned" here is what gives AC1/AC3 real
 	// teeth at the persistence layer.
-	const updated = await db
-		.update(sessions)
-		.set({
-			state: "done",
-			outcome: terminalOutcome,
-			endedAt: now,
-		})
-		.where(and(eq(sessions.id, context.sessionId), eq(sessions.state, "active")))
-		.returning({ id: sessions.id });
+	const updated = await updateSessionRow(db, context.sessionId, "done", terminalOutcome, now);
 
 	// 3. Emit session_ended IFF the CAS UPDATE actually transitioned a row.
 	// HARD INVARIANT (AF7 §4.3): gate the emit on rowCount, NOT merely on "the
 	// UPDATE ran". A handoff-ended session (already 'done') whose detached
 	// runSession tail later calls endSession would otherwise emit a spurious
 	// session_ended that handoff is forbidden to emit (handoff-protocol.ts).
-	if (updated.length > 0) {
+	if (updated) {
 		eventBus.emit({
 			type: "session_ended",
 			streamId: context.sessionId,
@@ -356,7 +350,7 @@ export async function endSession(
 	// AA3: routineRunOutcome defaults to "success"; "budget_exhausted" is passed through
 	// from the per-run cap enforcement path to avoid write-then-overwrite (critique Warning 1).
 	// Only run routine-run finalization when WE performed the terminal transition.
-	if (updated.length > 0 && context.routineId) {
+	if (updated && context.routineId) {
 		await updateRoutineRunOnSessionEnd(
 			db,
 			context.routineId,
@@ -364,12 +358,13 @@ export async function endSession(
 			routineRunOutcome ?? "success",
 			now,
 			costInCents,
+			ports,
 		);
 	}
 
 	// 5. Drop the cost-cap dedup state so the per-session map doesn't grow
 	//    unboundedly across the factory's lifetime (I3 / TRACK-I.md L156-159).
-	releaseSessionDedup(context.sessionId);
+	ports.cost.releaseSessionDedup(context.sessionId);
 
 	// 6. Delete workspace directory
 	// @lore I6: use async fs.promises.rm() instead of sync fs.rmSync() to avoid
@@ -390,6 +385,7 @@ export async function crashSession(
 	eventBus: EventBus,
 	context: SessionContext,
 	costInCents: number,
+	ports: SessionLifecyclePorts,
 	baselineCost?: number,
 ): Promise<void> {
 	// 1. Try to dispose ingestion handle (may be in a bad state during crash).
@@ -410,18 +406,10 @@ export async function crashSession(
 	const now = new Date().toISOString();
 	// AF7 §4.3: CAS terminal write — see endSession. Crashing an already-terminal
 	// session affects zero rows and emits nothing.
-	const updated = await db
-		.update(sessions)
-		.set({
-			state: "crashed",
-			outcome: "crashed",
-			endedAt: now,
-		})
-		.where(and(eq(sessions.id, context.sessionId), eq(sessions.state, "active")))
-		.returning({ id: sessions.id });
+	const updated = await updateSessionRow(db, context.sessionId, "crashed", "crashed", now);
 
 	// 3. Emit session_ended IFF the CAS UPDATE transitioned a row (AF7 §4.3 invariant).
-	if (updated.length > 0) {
+	if (updated) {
 		eventBus.emit({
 			type: "session_ended",
 			streamId: context.sessionId,
@@ -442,7 +430,7 @@ export async function crashSession(
 	}
 
 	// 4. AA2: If this is a routine session, update the routine_run row with error outcome.
-	if (updated.length > 0 && context.routineId) {
+	if (updated && context.routineId) {
 		await updateRoutineRunOnSessionEnd(
 			db,
 			context.routineId,
@@ -450,13 +438,37 @@ export async function crashSession(
 			"error",
 			now,
 			costInCents,
+			ports,
 		);
 	}
 
 	// 5. Release cost-cap dedup state (mirror endSession). Crashes still need
 	//    to reclaim the per-session entry — see I3 / TRACK-I.md L156-159.
-	releaseSessionDedup(context.sessionId);
+	ports.cost.releaseSessionDedup(context.sessionId);
 
 	// Note: Do NOT delete workspace on crash -- knowledge is preserved in DB
 	// and workspace may be needed for debugging
+}
+
+// ---------------------------------------------------------------------------
+// `sessions` table access — UNOWNED_SHARED_TABLES (table-ownership-guard.ts
+// exemption, unaffected by this migration, same as `handoff-protocol.ts`'s
+// own direct `sessions` access). Kept as a tiny local helper (not a port —
+// no Service owns this table) so `endSession`/`crashSession` stay
+// import-clean of `@hyperidle/db`'s table object in their own bodies.
+// ---------------------------------------------------------------------------
+
+async function updateSessionRow(
+	db: HyperIdleDb,
+	sessionId: string,
+	state: "done" | "crashed",
+	outcome: "completed" | "not_returned" | "crashed",
+	endedAt: string,
+): Promise<boolean> {
+	const updated = await db
+		.update(sessions)
+		.set({ state, outcome, endedAt })
+		.where(and(eq(sessions.id, sessionId), eq(sessions.state, "active")))
+		.returning({ id: sessions.id });
+	return updated.length > 0;
 }

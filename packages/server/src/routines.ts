@@ -7,7 +7,7 @@
  *
  * This is a deliberate, narrow public seam — three named functions, not a
  * grouping barrel — idiomatic to this package (cf. `./tools` → `src/tools/
- * index.ts`, `./services/session-provisioning`). It is NOT an app-runtime
+ * index.ts`, `./services/session-lifecycle-bindings`). It is NOT an app-runtime
  * alias: `checkAndFireRoutine` comes from the Core-owned routine scheduler;
  * `provisionTeamRoutines` / `runBuiltinRoutine` come from the agent-owned
  * builtin-routine handlers. Do not add further exports here without a

@@ -27,6 +27,7 @@
  */
 
 import { SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
+import { EMITTED_ROOTS_MCP_JSON } from "@hyperidle/session-lifecycle";
 import { describe, expect, it } from "vitest";
 import { EMITTED_ROOTS_CLI_MCP_CONFIG } from "../../harness/cli-mcp-config.js";
 import {
@@ -37,7 +38,6 @@ import {
 import { EMITTED_ROOTS_CONTEXT_ASSEMBLY } from "../../services/context-assembly.js";
 // ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
 import { EMITTED_ROOTS_AGENTS_MD } from "../../services/context-assembly-prompt.js";
-import { EMITTED_ROOTS_MCP_JSON } from "../../services/session-provisioning.js";
 
 // ── Coverage helper ───────────────────────────────────────────────────────────
 

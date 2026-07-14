@@ -1,4 +1,5 @@
 import { type HyperIdleDb, sessions, type tasks } from "@hyperidle/db";
+import type { SessionContext } from "@hyperidle/session-lifecycle";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
@@ -11,7 +12,6 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
 import { handoff } from "../services/policy-bindings.js";
-import type { SessionContext } from "../services/session-lifecycle.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 /**

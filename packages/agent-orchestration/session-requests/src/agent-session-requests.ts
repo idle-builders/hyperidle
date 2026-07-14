@@ -466,3 +466,75 @@ export async function terminalizeAgentSessionRequest(
 ): Promise<AgentSessionRequest | null> {
 	return db.transaction((tx) => terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, input, deps));
 }
+
+/**
+ * @lore AU19 Increment 3i: moved here (behavior-preserving) from
+ * `session-lifecycle.ts`'s `requestAgentTermination` — the function did a
+ * raw `db.select`/`db.update` on `agentSessionRequests` directly, a Table
+ * ACL violation the moment `session-lifecycle.ts` becomes its own Service
+ * package (`agentSessionRequests` is this Service's `TABLE_OWNER`). A
+ * census-missed edge (`session-lifecycle`'s own §10.2 row never listed
+ * this — `session-lifecycle`'s only counted `→ session-requests` edge was
+ * `sessionRunRegistry`, 2 call sites — same "roster-undercounted accessor
+ * closes at the consumer's migration" shape as `findAgentSessionRequestBySessionId`/
+ * `findAgentSessionRequestById` before it). `session-lifecycle` now reaches
+ * this through an ordinary same-layer DI port (both agent-orchestration).
+ */
+/**
+ * @lore AU19 Increment 3i: tx-scoped read closing `session-lifecycle`'s
+ * `transitionAgentRunLifecycle` — its transaction re-reads the durable
+ * termination reason BEFORE calling {@link terminalizeAgentSessionRequestInTx}
+ * (AU9 R1: "once a reason exists, teardown disposition wins" precedence),
+ * raw-reading `agentSessionRequests.terminationReason` directly pre-migration
+ * — a Table ACL violation once `session-lifecycle.ts` becomes its own
+ * Service package. The read-then-branch is consumed for control flow WITHIN
+ * the same transaction as the terminal write that follows — `session-lifecycle`
+ * opens the `db.transaction(...)` and passes the SAME `tx` through both this
+ * read and the existing `terminalizeAgentSessionRequestInTx` write, preserving
+ * atomicity (the port carries the caller's `tx`, same idiom §11's
+ * `AgentWorkIntentRecorder` and dispatch's `runOrchestration` port use).
+ */
+export async function findAgentSessionRequestTerminationReasonInTx(
+	tx: HyperIdleDb,
+	requestId: string,
+): Promise<string | null | undefined> {
+	const [current] = await tx
+		.select({ terminationReason: agentSessionRequests.terminationReason })
+		.from(agentSessionRequests)
+		.where(eq(agentSessionRequests.id, requestId))
+		.limit(1);
+	return current?.terminationReason;
+}
+
+export async function requestAgentSessionTermination(
+	db: HyperIdleDb,
+	input: { readonly requestId: string; readonly reason: string; readonly requestedBy?: string },
+): Promise<"accepted" | "idempotent" | "conflict" | "terminal"> {
+	const [request] = await db
+		.select()
+		.from(agentSessionRequests)
+		.where(eq(agentSessionRequests.id, input.requestId))
+		.limit(1);
+	if (!request) throw new Error(`Unknown agent request ${input.requestId}`);
+	if (["completed", "failed", "cancelled"].includes(request.status)) return "terminal";
+	if (request.terminationReason === input.reason) return "idempotent";
+	if (request.terminationReason) return "conflict";
+	const now = new Date().toISOString();
+	const updated = await db
+		.update(agentSessionRequests)
+		.set({
+			terminationReason: input.reason,
+			terminationRequestedAt: now,
+			terminationRequestedBy: input.requestedBy ?? null,
+			updatedAt: now,
+		})
+		.where(
+			and(
+				eq(agentSessionRequests.id, input.requestId),
+				eq(agentSessionRequests.status, "running"),
+				sql`${agentSessionRequests.terminationReason} is null`,
+			),
+		)
+		.returning({ id: agentSessionRequests.id });
+	return updated.length === 1 ? "accepted" : "conflict";
+}

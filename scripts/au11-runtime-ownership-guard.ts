@@ -55,6 +55,11 @@ const BOOTSTRAP_SYMBOL = "bootstrapAppRuntime";
  * `agent-work-intent-worker.ts`/`agent-session-requests.ts` did in
  * Increment 3b) — the three entries below are now harmless dead allowlist
  * rows, not errors.
+ *
+ * @lore AU19 Increment 3i: `session-provisioning.ts` moved to
+ * `@hyperidle/session-lifecycle` (out of this guard's scanned
+ * `packages/server/src` tree entirely) — that entry below is now a harmless
+ * dead allowlist row, not an error.
  */
 const AU9_AGENT_FILES = [
 	"packages/server/src/services/agent-work-handoff.ts",
@@ -77,6 +82,14 @@ const AU9_AGENT_FILES = [
  * allowlist row, not an error. `file-watcher.ts` below never lived in
  * `packages/server` (it was always `@hyperidle/filesystems`' own file since
  * Increment 2b) — also a pre-existing dead row, unrelated to this migration.
+ *
+ * @lore AU19 Increment 3i: `context-assembly.ts`/`context-assembly-prompt.ts`/
+ * `session-context.ts` remain agent-owned dead-relevant entries (their own
+ * Service migration is this WP's own next item, per architecture §12's
+ * Increment-0 note — not yet moved). `contracts.ts`/`routine-session-reaper.ts`/
+ * `sandbox-reaper.ts` moved to `@hyperidle/session-lifecycle` (out of this
+ * guard's scanned tree entirely) — those three entries below are now
+ * harmless dead allowlist rows, not errors.
  */
 const AU11_AGENT_FILES = [
 	"packages/server/src/services/context-assembly.ts",
@@ -153,11 +166,24 @@ const AU16_AGENT_FILES = ["packages/server/src/services/harness-capability-read-
  * routes) reach this file to call `provisionTeamRoutines`/`runBuiltinRoutine`/
  * `checkAndFireRoutine`/etc — the sink stops recursion here exactly like the
  * two entries above.
+ *
+ * @lore AU19 Increment 3i: `session-lifecycle-bindings.ts` — the
+ * composition-root wiring file for `@hyperidle/session-lifecycle` (same
+ * factory-curry role the three entries above have) — wires the
+ * `harnessRuntime`/`mcpProvider`/`toolProvider`/`contextAssembly` INTERIM
+ * ports directly to their still-flat `harness/*`/`mcp/*`/`tools/tool-registry.ts`/
+ * `services/agent-context/assemble-context.ts`/`services/context-assembly-prompt.ts`/
+ * `services/session-context.ts` real implementations — a legitimate
+ * agent-owned edge, not a core→execution-internal leak. `routes/sessions-routes.ts`
+ * (and other core routes) reach this file to call `admitSession`/`runSession`/
+ * `provisionSession`/`requestAgentTermination`/etc — the sink stops
+ * recursion here exactly like the entries above.
  */
 const AU19_AGENT_FILES = [
 	"packages/server/src/services/session-requests-bindings.ts",
 	"packages/server/src/services/run-orchestration-bindings.ts",
 	"packages/server/src/services/dispatch-bindings.ts",
+	"packages/server/src/services/session-lifecycle-bindings.ts",
 ];
 
 const AGENT_OWNED_ALLOWLIST = new Set([

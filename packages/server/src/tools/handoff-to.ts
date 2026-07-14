@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { HandoffMetadata, HandoffParams } from "@hyperidle/policy";
+import type { SessionContext } from "@hyperidle/session-lifecycle";
 import { getUserById } from "@hyperidle/users";
 import z from "zod";
 import { handoff } from "../services/policy-bindings.js";
-import type { SessionContext } from "../services/session-lifecycle.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

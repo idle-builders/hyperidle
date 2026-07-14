@@ -129,16 +129,6 @@ export function buildHandoff(
 		if (!(params.toHuman || params.toAgent || params.toRole)) {
 			throw new Error("One of toAgent, toRole, or toHuman must be specified");
 		}
-		const correlatedRequest = await deps.sessionRequests.findBySessionId(
-			db,
-			sessionContext.sessionId,
-		);
-		if (correlatedRequest)
-			await deps.sessionLifecycle.requestTermination(db, {
-				requestId: correlatedRequest.id,
-				reason: "handoff",
-				requestedBy: sessionContext.agentId,
-			});
 
 		// Events captured inside the tx and emitted AFTER commit. Order:
 		//   1. task_state_changed (toHuman only, via the inlined transition)
@@ -400,6 +390,24 @@ export function buildHandoff(
 		// `cost`'s `registerCostCapDedupReleaser` now subscribes to this event
 		// (see `@hyperidle/shared`'s `events.ts` top `@lore` on
 		// `SessionHandoffCompletedEvent` and `@hyperidle/cost`'s `cost-cap.ts`).
+		// @lore AU19 Increment 3i: §10.3 against-grain inversion for
+		// `policy ⚠ session-lifecycle` — this used to be a direct
+		// `deps.sessionLifecycle.requestTermination(db, {...})` call (fed by a
+		// `deps.sessionRequests.findBySessionId` read) through an interim
+		// `PolicySessionTerminationRequester` DI port. Atomicity check (§10.3
+		// amendment): the call ran BEFORE this transaction even opened (using
+		// bare `db`, never a shared `tx`) and its return value was never
+		// consumed for branching (`await ...; ` — fire-and-forget) — the
+		// "common case" pure-inversion shape (`filesystems ⚠ capture-writeback`/
+		// `policy ⚠ cost`), NOT the `policy ⚠ session-requests`/
+		// `review ⚠ session-requests` same-transaction-write-consumed-for-
+		// control-flow exception. `session-lifecycle`'s own
+		// `registerHandoffTerminationRequester` (composition root,
+		// `session-lifecycle-bindings.ts`) now subscribes to
+		// `session_handoff_completed` and re-resolves the correlated request via
+		// its own `session-requests` port before calling `requestAgentTermination`
+		// — same shape `cost`'s `registerCostCapDedupReleaser` already
+		// established for this exact event.
 		eventBus.emit({
 			type: "session_handoff_completed",
 			streamId: sessionContext.sessionId,

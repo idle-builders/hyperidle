@@ -28,6 +28,11 @@
  * @lore AF7 §6: rm({ recursive, force }) is idempotent — a no-op on an
  * already-gone dir — so the reaper is crash-safe and safe to run concurrently
  * with a teardown that deletes the same dir.
+ *
+ * @lore AU19 Increment 3i: real cut-over — moved here from
+ * `packages/server/src/services/sandbox-reaper.ts` (behavior-preserving
+ * move, zero cross-Service edges — `sessions` is `@hyperidle/db`'s
+ * `UNOWNED_SHARED_TABLES` exemption, no port needed).
  */
 
 import * as fs from "node:fs";

@@ -264,36 +264,19 @@ export interface PolicyAgentWorkIntentRecorder {
 	): Promise<PolicyAgentWorkIntentRecord>;
 }
 
-/** Port for `session-requests`' `agent_session_requests` correlated-request read. */
-export interface PolicyAgentSessionRequestReader {
-	findBySessionId(db: WriteExecutor, sessionId: string): Promise<{ id: string } | undefined>;
-}
-
 /** Port for `session-requests`' `session-run-registry.ts` (census correction #2 above). */
 export interface PolicySessionRunRegistry {
 	abort(sessionId: string): Promise<boolean>;
 }
 
 // ---------------------------------------------------------------------------
-// session-lifecycle — against-grain (§10.3 — Inc 3 rewires to EventBus)
+// session-lifecycle — §10.3 against-grain edge INVERTED to EventBus at
+// Increment 3i (`session_handoff_completed` — see `handoff-protocol.ts`'s
+// inline `@lore` at the emission site). `PolicyAgentSessionRequestReader`/
+// `PolicyTerminationReason`/`PolicyTerminationRequest`/
+// `PolicySessionTerminationRequester` (the former interim DI port this
+// edge used) are REMOVED — no real call site remains.
 // ---------------------------------------------------------------------------
-
-/** The one termination reason `policy` requests today (`handoff-protocol.ts`'s handoff path). */
-export type PolicyTerminationReason = "handoff";
-
-export interface PolicyTerminationRequest {
-	readonly requestId: string;
-	readonly reason: PolicyTerminationReason;
-	readonly requestedBy?: string;
-}
-
-/** Port for `session-lifecycle`'s agent-termination request `handoff-protocol.ts` calls directly today. */
-export interface PolicySessionTerminationRequester {
-	requestTermination(
-		db: WriteExecutor,
-		input: PolicyTerminationRequest,
-	): Promise<"accepted" | "idempotent" | "conflict" | "terminal">;
-}
 
 /**
  * Structural mirror of `session-lifecycle`'s `SessionContext`, narrowed to
@@ -340,10 +323,7 @@ export interface HandoffDeps {
 	readonly conversation: Pick<PolicyConversationStore, "insertMessage" | "insertThread">;
 	readonly users: Pick<PolicyUserDirectory, "getUserById" | "findActiveTeammateByRole">;
 	readonly org: PolicyOrgTeamReader;
-	readonly sessionRequests: PolicyAgentWorkIntentRecorder &
-		PolicyAgentSessionRequestReader &
-		PolicySessionRunRegistry;
-	readonly sessionLifecycle: PolicySessionTerminationRequester;
+	readonly sessionRequests: PolicyAgentWorkIntentRecorder & PolicySessionRunRegistry;
 }
 
 /** Deps `registerLifecyclePropagation` needs — every real outbound edge `lifecycle-propagation.ts` has. */

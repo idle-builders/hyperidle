@@ -52,13 +52,17 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 	// @lore AU11: bootstrap.ts split into registerCoreDomainServices (11 disposers)
 	// + registerAgentLayerServices (3 unconditional disposers, dispatcherDeps
 	// absent here) — same 14 total, grouping changed only.
-	test("returns exactly 14 disposers (one per disposer-registered service)", async ({
+	// @lore AU19 Increment 3i: registerHandoffTerminationRequester added
+	// (§10.3 EventBus inversion for `policy ⚠ session-lifecycle` —
+	// subscribes to `session_handoff_completed` alongside
+	// `registerCostCapDedupReleaser`). Count 14 → 15.
+	test("returns exactly 15 disposers (one per disposer-registered service)", async ({
 		db,
 		eventBus,
 	}) => {
 		const disposers = fullServiceBootstrap({ db, eventBus });
 
-		expect(disposers).toHaveLength(14);
+		expect(disposers).toHaveLength(15);
 
 		for (const d of disposers) {
 			d();

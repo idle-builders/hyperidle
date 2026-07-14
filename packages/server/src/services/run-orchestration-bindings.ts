@@ -104,18 +104,12 @@ import { RemoteHarnessAdapter } from "../harness/remote-harness-adapter.js";
 import { executeAssistantRequest } from "./dispatch-bindings.js";
 import {
 	crashSession,
+	harnessPort,
 	recoverRequestedTerminations,
 	requestAgentTermination,
 	type SessionContext,
 	transitionAgentRunLifecycle,
-} from "./session-lifecycle.js";
-import {
-	type AdmittedSession,
-	admitSession,
-	type ProvisionSessionDeps,
-	type ProvisionSessionParams,
-	runSession,
-} from "./session-provisioning.js";
+} from "./session-lifecycle-bindings.js";
 import {
 	drainAgentWorkIntents,
 	markRequestRunning,
@@ -145,7 +139,8 @@ const sessionRequestsPort: RunOrchestrationSessionRequestsPort = {
 };
 
 // ---------------------------------------------------------------------------
-// session-lifecycle — INTERIM, wired to still-flat packages/server functions.
+// session-lifecycle — REAL since AU19 Increment 3i, wired to
+// `session-lifecycle-bindings.ts`'s bound functions.
 // ---------------------------------------------------------------------------
 
 const sessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
@@ -167,29 +162,12 @@ const sessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 };
 
 // ---------------------------------------------------------------------------
-// session-lifecycle's admission/execution surface — INTERIM.
+// session-lifecycle's admission/execution surface — REAL since AU19
+// Increment 3i, `@hyperidle/shared`'s `HarnessPort` (§7.4) satisfied by
+// `session-lifecycle-bindings.ts`'s `harnessPort` export.
 // ---------------------------------------------------------------------------
 
-const sessionProvisionerPort: RunOrchestrationSessionProvisioner = {
-	admitSession(deps, params, enforceResolvedModelGuard) {
-		// @lore boundary-crossing cast: `deps`/`params` are the SAME real
-		// `ProvisionSessionDeps`/`ProvisionSessionParams` values this Service's own
-		// callers built — only narrowed in TYPE crossing the boundary.
-		return admitSession(
-			deps as ProvisionSessionDeps,
-			params as ProvisionSessionParams,
-			enforceResolvedModelGuard,
-		);
-	},
-	runSession(deps, params, admitted, onHarnessStarted) {
-		return runSession(
-			deps as ProvisionSessionDeps,
-			params as ProvisionSessionParams,
-			admitted as AdmittedSession,
-			onHarnessStarted,
-		);
-	},
-};
+const sessionProvisionerPort: RunOrchestrationSessionProvisioner = harnessPort;
 
 // ---------------------------------------------------------------------------
 // dispatch — real, same-layer since AU19 Increment 3h, wired to

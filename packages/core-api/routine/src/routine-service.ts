@@ -63,6 +63,40 @@ export async function updateRoutineById(
 	await exec.update(routines).set(patch).where(eq(routines.id, id));
 }
 
+/**
+ * Atomically add `deltaMinor` to a routine's `costActualMinor` via
+ * `coalesce(costActualMinor, 0) + delta`. Owns the coalesce SQL so the
+ * `routines.costActualMinor` column ref never leaves this store. Mirrors
+ * `@hyperidle/work`'s `incrementBetCost` / `@hyperidle/users`'
+ * `incrementUserCost` / `@hyperidle/org`'s `incrementTeamMembersCost`.
+ *
+ * @lore AU19 Increment 3i: closes the coalesce-ownership gap `RoutinePatch`'s
+ * own doc comment anticipated — `session-lifecycle.ts`'s
+ * `updateRoutineRunOnSessionEnd` used to build this fragment itself via a raw
+ * `updateRoutineById(db, routineId, { costActualMinor: sql\`...\` })` patch,
+ * which required importing the `routines` table object directly (an
+ * ownership violation once `session-lifecycle.ts` becomes its own Service
+ * package — `routines` is this Service's `TABLE_OWNER`). Split into its own
+ * call (previously part of ONE combined `updateRoutineById` patch alongside
+ * `lastRunAt`/`lastRunSummary`) — the two writes were never transactional
+ * with each other pre-migration either (`db`, not a shared `tx`), so this
+ * does not weaken any atomicity guarantee.
+ */
+export async function incrementRoutineCost(
+	exec: WriteExecutor,
+	id: string,
+	deltaMinor: number,
+	currency: string,
+): Promise<void> {
+	await exec
+		.update(routines)
+		.set({
+			costActualMinor: sql`coalesce(${routines.costActualMinor}, 0) + ${deltaMinor}`,
+			costActualCurrency: currency,
+		})
+		.where(eq(routines.id, id));
+}
+
 export async function insertRoutineRun(exec: WriteExecutor, values: NewRoutineRun): Promise<void> {
 	await exec.insert(routineRuns).values(values);
 }

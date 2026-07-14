@@ -73,15 +73,14 @@
 
 import type { AgentSessionRequest, ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
 import type {
-	AgentSessionSourceCorrelation,
+	AdmittedRun,
 	AgentSessionSourceKind,
-	CapturedToolCall,
 	EventBus,
 	HarnessAdapter,
-	ModelTier,
-	ResolvedModel,
-	SessionMetrics,
-	SessionOutcome,
+	HarnessPort,
+	HarnessPortDeps,
+	HarnessRunOutput,
+	RunContextBundle,
 } from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
@@ -213,69 +212,24 @@ export interface RunOrchestrationSessionLifecycleRuntime {
 	): Promise<void>;
 }
 
-/** Narrow mirror of `session-provisioning.ts`'s (pre-migration) `ProvisionSessionDeps` — only the fields this Service reads directly; the rest (`adapterPool`, `workspace`, …) flows through opaquely as the same real value. */
-export interface RunOrchestrationProvisionDeps {
-	readonly db: HyperIdleDb;
-	readonly eventBus: EventBus;
-	readonly onHarnessStarted?: () => void;
-}
+/**
+ * @lore AU19 Increment 3i: these four types are now straight ALIASES of
+ * `@hyperidle/shared`'s `HarnessPort` types (§7.4) — the same narrow-mirror
+ * shapes this file declared locally since Increment 3c, relocated to the
+ * shared, Application-visible abstraction so `run-orchestration` depends on
+ * the named `HarnessPort` contract instead of an ad-hoc local interface (see
+ * `harness-port.ts`'s own top `@lore` for the two-method-vs-single-call
+ * deviation reasoning). Every existing reference in this package
+ * (`agent-session-runtime.ts`, `agent-layer-boot.ts`) keeps using these local
+ * names unchanged.
+ */
+export type RunOrchestrationProvisionDeps = HarnessPortDeps<HyperIdleDb>;
+export type RunOrchestrationProvisionParams = RunContextBundle;
+export type RunOrchestrationAdmittedSession = AdmittedRun;
+export type RunOrchestrationProvisionResult = HarnessRunOutput;
 
-/** Narrow mirror of `session-provisioning.ts`'s (pre-migration) `ProvisionSessionParams` — every field this Service constructs. `sessionWorkflow`/`conversational` are opaque pass-through (never inspected here, see this file's top `@lore`). */
-export interface RunOrchestrationProvisionParams {
-	readonly taskId: string | null;
-	readonly agentId: string;
-	readonly productId: string;
-	readonly sandboxBasePath: string;
-	readonly modelTier?: ModelTier;
-	readonly resolvedModel?: ResolvedModel;
-	readonly resolvedFastModel?: ResolvedModel;
-	readonly routineId?: string;
-	readonly requestContext?: {
-		readonly requestId: string;
-		readonly sourceKind: AgentSessionSourceKind;
-		readonly sourceId: string;
-		readonly sourceCorrelation: AgentSessionSourceCorrelation;
-		readonly triggerPromptOverride?: string;
-	};
-	/** Opaque pass-through — `session-lifecycle`-owned `RegistrySessionWorkflow` (destined for `tool-handlers`, Increment 4). Never inspected here. */
-	readonly sessionWorkflow?: unknown;
-	/** Opaque pass-through — `session-lifecycle`-owned conversational-turn bundle (incl. a `tool-handlers`-destined `ToolRegistry`). Never inspected here. */
-	readonly conversational?: unknown;
-}
-
-/** Narrow mirror of `session-provisioning.ts`'s (pre-migration) `AdmittedSession` — only the fields this Service reads directly; `sessionContext`'s other fields flow through opaquely. */
-export interface RunOrchestrationAdmittedSession {
-	readonly sessionId: string;
-	readonly sessionContext: RunOrchestrationSessionContext;
-}
-
-/** Full mirror of `session-provisioning.ts`'s (pre-migration) `ProvisionSessionResult` — every field is already `@hyperidle/db`/`@hyperidle/shared`-typed, so this is a complete (non-opaque) structural equivalent. */
-export interface RunOrchestrationProvisionResult {
-	readonly sessionId: string;
-	readonly outcome: SessionOutcome | "budget_exhausted";
-	readonly totalCostCents: number;
-	readonly taskId: string | null;
-	readonly returnVerdict?: "returned" | "not_returned";
-	readonly forceReturnCount: number;
-	readonly metrics?: SessionMetrics;
-	readonly conversationalReply?: string;
-	readonly conversationalToolCalls?: readonly CapturedToolCall[];
-}
-
-/** Port for `session-lifecycle`'s admission/execution surface this Service calls directly today. */
-export interface RunOrchestrationSessionProvisioner {
-	admitSession(
-		deps: RunOrchestrationProvisionDeps,
-		params: RunOrchestrationProvisionParams,
-		enforceResolvedModelGuard?: boolean,
-	): Promise<RunOrchestrationAdmittedSession>;
-	runSession(
-		deps: RunOrchestrationProvisionDeps,
-		params: RunOrchestrationProvisionParams,
-		admitted: RunOrchestrationAdmittedSession,
-		onHarnessStarted?: () => void,
-	): Promise<RunOrchestrationProvisionResult>;
-}
+/** Port for `session-lifecycle`'s admission/execution surface this Service calls directly today — `@hyperidle/shared`'s `HarnessPort` (§7.4). */
+export type RunOrchestrationSessionProvisioner = HarnessPort<HyperIdleDb>;
 
 // ---------------------------------------------------------------------------
 // dispatch — RunOrchestrationDispatchPort (real, same-layer edge since AU19

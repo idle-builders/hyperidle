@@ -25,14 +25,14 @@ import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { drainAgentSessionRequests } from "../services/run-orchestration-bindings.js";
 import { expect, test } from "../test-fixtures.js";
 
-vi.mock("../services/session-provisioning.js", async (importOriginal) => {
-	const original = await importOriginal<typeof import("../services/session-provisioning.js")>();
+vi.mock("@hyperidle/session-lifecycle", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/session-lifecycle")>();
 	return {
 		...original,
 		admitSession: vi.fn(
 			async (
-				deps: import("../services/session-provisioning.js").ProvisionSessionDeps,
-				params: import("../services/session-provisioning.js").ProvisionSessionParams,
+				deps: import("@hyperidle/session-lifecycle").ProvisionSessionDeps,
+				params: import("@hyperidle/session-lifecycle").ProvisionSessionParams,
 			) => {
 				// Reflects whichever session row the REAL reserve-or-adopt path already
 				// created/adopted for this request — never fabricates a second one.

@@ -30,7 +30,7 @@ import { AdapterPool } from "../../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
 import { test as fixtureTest } from "../../test-fixtures.js";
 import { executeAgentRunRequest } from "../run-orchestration-bindings.js";
-import type { ProvisionSessionDeps } from "../session-provisioning.js";
+import type { ProvisionSessionDeps } from "../session-lifecycle-bindings.js";
 
 class RecordingHarnessAdapter implements HarnessAdapter {
 	readonly configs: SessionConfig[] = [];

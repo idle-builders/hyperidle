@@ -1,7 +1,17 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import * as routine from "@hyperidle/routine";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import { and, eq, lt, sql } from "drizzle-orm";
+import type { SessionLifecyclePorts } from "./ports.js";
+
+/**
+ * @lore AU19 Increment 3i: real cut-over — moved here from
+ * `packages/server/src/services/routine-session-reaper.ts`
+ * (behavior-preserving move). `routine.findRunningRoutineRun`/
+ * `routine.updateRoutineRunById` become an injected `ports: SessionLifecyclePorts`
+ * parameter (Mechanism C — `@hyperidle/routine` is a real Service).
+ * `sessions` stays a direct `@hyperidle/db` read/write — it is in
+ * `table-ownership-guard.ts`'s `UNOWNED_SHARED_TABLES` exemption.
+ */
 
 const reaperLog = createLogger({ pkg: "server.routine-reaper" });
 
@@ -34,6 +44,7 @@ export async function reapStaleRoutineSessions(
 	db: HyperIdleDb,
 	_eventBus: EventBus,
 	opts: ReapStaleRoutineSessionsOpts,
+	ports: SessionLifecyclePorts,
 ): Promise<number> {
 	const nowMs = opts.now ?? Date.now();
 	const cutoffIso = new Date(nowMs - opts.staleAfterMs).toISOString();
@@ -58,10 +69,10 @@ export async function reapStaleRoutineSessions(
 		await db.update(sessions).set({ state: "crashed", endedAt }).where(eq(sessions.id, session.id));
 
 		// Finalize the still-"running" routine_run for this routine to timeout.
-		const run = await routine.findRunningRoutineRun(db, session.routineId);
+		const run = await ports.routine.findRunningRoutineRun(db, session.routineId);
 
 		if (run) {
-			await routine.updateRoutineRunById(db, run.id, {
+			await ports.routine.updateRoutineRunById(db, run.id, {
 				outcome: "timeout",
 				endedAt,
 				errorMessage: "Routine session reaped: stale active session finalized to timeout",

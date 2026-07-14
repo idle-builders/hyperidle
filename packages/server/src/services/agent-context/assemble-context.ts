@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { startWatcher } from "@hyperidle/filesystems";
+import type { IngestionHandle } from "@hyperidle/session-lifecycle";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
@@ -9,7 +10,6 @@ import type {
 	UserRole,
 } from "@hyperidle/shared";
 import { assembleContext } from "../context-assembly.js";
-import type { IngestionHandle } from "../contracts.js";
 
 export interface AssembleAgentContextInput {
 	readonly db: HyperIdleDb;

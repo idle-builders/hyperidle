@@ -19,7 +19,7 @@ import { BuiltinHarnessAdapter } from "@hyperidle/server/harness/builtin-harness
 import { CliHarnessAdapter } from "@hyperidle/server/harness/cli-harness-adapter";
 import { callLlm } from "@hyperidle/server/harness/llm-client";
 import { LocalSandboxAdapter } from "@hyperidle/server/harness/local-sandbox-adapter";
-import { provisionSession } from "@hyperidle/server/services/session-provisioning";
+import { provisionSession } from "@hyperidle/server/services/session-lifecycle-bindings";
 import type {
 	EventBus,
 	HarnessAdapter,

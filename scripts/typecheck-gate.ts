@@ -417,6 +417,12 @@ function buildLeafDeclarations(root: string): void {
   // tools/create-routine.ts, tools/create-team.ts, routes/routines-routes.ts,
   // routes/dispatch-queue-routes.ts, routes/teams-routes.ts, and the new
   // dispatch-bindings.ts now import `@hyperidle/dispatch`.
+  //
+  // @lore AU19 Increment 3i: `agent-orchestration/session-lifecycle` added —
+  // same TS6305 cascade; server-factory.ts, session.ts,
+  // routes/sessions-routes.ts, routes/tasks.ts, tools/handoff-to.ts,
+  // run-orchestration-bindings.ts, and the new session-lifecycle-bindings.ts
+  // now import `@hyperidle/session-lifecycle`.
   for (const leaf of [
     "shared",
     "db",
@@ -446,6 +452,7 @@ function buildLeafDeclarations(root: string): void {
     "agent-orchestration/capture-writeback",
     "agent-orchestration/cost",
     "agent-orchestration/dispatch",
+    "agent-orchestration/session-lifecycle",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
