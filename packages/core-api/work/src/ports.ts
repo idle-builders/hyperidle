@@ -53,10 +53,22 @@
  * `server-factory.ts` wires it to `@hyperidle/agent-selection`'s real
  * `createAgentSelectionOps(...)`-bound exports instead of the deleted
  * `services/select-agent.ts`/`services/agent-defaults/resolvers.ts` flat
- * modules. The EventBus-inversion rewire this port's top comment describes
- * is explicitly OUT OF SCOPE for that migration (per its own item
- * description — a later, separate item once `cost` also lands) — this port
- * stays an ordinary interim DI port for now, unchanged shape.
+ * modules.
+ *
+ * RULED PERMANENT (founder-confirmed 2026-07-14, closing the item Increment
+ * 3e explicitly deferred): same test as `CostCapChecker` below, same
+ * outcome. `bet-decomposition.ts`'s `selectOwner`/`enumerateTeamCandidates`/
+ * `resolveDecompositionPlan` are all synchronous request/response calls
+ * whose return values are consumed immediately to continue decomposition
+ * (choose the owner, build the candidate set, resolve the plan) — the exact
+ * "return value gates the caller's next branch" shape the amendment's test
+ * targets, not a fire-and-forget notification. Contrast
+ * `filesystems ⚠ capture-writeback` (§10.3, Increment 3f): a GENUINE
+ * fire-and-forget case (file-watcher's change detection has no caller
+ * waiting on a reply) that WAS successfully EventBus-inverted the same
+ * increment cost's ruling landed — proving this test discriminates real
+ * cases rather than excusing every port from inversion. This port's shape
+ * is unchanged; only its permanence is now settled.
  *
  * @lore AU19 Increment 3g — `CostCapChecker` (→ `cost`, now a REAL migrated
  * package): RULED PERMANENT, not inverted. §10.3's amendment atomicity test
