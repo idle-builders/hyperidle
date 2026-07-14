@@ -39,6 +39,7 @@ import {
 	registerRelevanceListener,
 	setupFts,
 } from "@hyperidle/knowledge";
+import { resolveModelTier } from "@hyperidle/model-gateway";
 import {
 	type AlertPreferences,
 	defaultMutePreferenceReader,
@@ -117,7 +118,6 @@ import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 import { startCostSentinel } from "./services/cost-sentinel.js";
 import { createMcpRoute } from "./services/mcp-route.js";
-import { resolveModelTier } from "./services/model-gateway.js";
 import { startRetentionReaper } from "./services/retention-reaper.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";

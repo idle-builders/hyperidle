@@ -11,9 +11,9 @@
  */
 
 import type { CredentialResolver } from "@hyperidle/connections";
+import { BUILT_IN_GATEWAY_CONFIG, resolveAgentModel } from "@hyperidle/model-gateway";
 import { MissingCredentialError } from "@hyperidle/shared";
 import { describe, expect, vi } from "vitest";
-import { BUILT_IN_GATEWAY_CONFIG, resolveAgentModel } from "../../services/model-gateway.js";
 import { test } from "../../test-fixtures.js";
 
 function makeResolver(entries: Record<string, string | null>): CredentialResolver {

@@ -18,12 +18,12 @@
 
 import { DbCredentialResolver } from "@hyperidle/connections";
 import { serverCredentials } from "@hyperidle/db";
+import { resolveModelTier } from "@hyperidle/model-gateway";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { MissingCredentialError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
-import { resolveModelTier } from "../model-gateway.js";
 
 const TEST_API_KEY = "test-key-ah1-runtime-path";
 const TEST_SERVER_SECRET = "ah1-runtime-path-secret-32chars!!";

@@ -22,6 +22,11 @@
 
 import { insertMessage, listMessagesByThread } from "@hyperidle/conversation";
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
+import {
+	BUILT_IN_GATEWAY_CONFIG,
+	resolveAgentModel,
+	resolveModelTier,
+} from "@hyperidle/model-gateway";
 import { readServerConfig } from "@hyperidle/settings";
 import {
 	type ConversationMessage,
@@ -42,11 +47,6 @@ import { CassetteMissError } from "../harness/llm-cassette.js";
 import { HttpError } from "../harness/llm-client.js";
 import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
 import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import {
-	BUILT_IN_GATEWAY_CONFIG,
-	resolveAgentModel,
-	resolveModelTier,
-} from "../services/model-gateway.js";
 import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
 import {
 	buildAssistantDraftRegistry,

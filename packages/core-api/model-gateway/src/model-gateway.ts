@@ -12,9 +12,19 @@
  *     - "openai-compatible" → resolve openai_compatible_api_key from credentialResolver
  *  3. If required key is null → throw MissingCredentialError
  *  4. Return { provider, model, apiKey, baseUrl }
+ *
+ * @lore AU19 Increment 2e: moved here from `packages/server/src/services/
+ * model-gateway.ts` (behavior-preserving move). `model-gateway` owns ZERO
+ * tables — its config lives on `server_config.modelGateway`, owned by
+ * `settings` and passed in as a plain parameter (never read directly by this
+ * Service, so no DI port needed for that edge — `settings → model-gateway`
+ * dissolved entirely back in Increment 1f, see `@hyperidle/settings`'
+ * `ports.ts`). The one real outbound edge (`model-gateway → connections`,
+ * §10.2 line 368) is now the locally-declared `ModelGatewayCredentialResolver`
+ * port (`ports.ts`) instead of importing `CredentialResolver` straight from
+ * `@hyperidle/connections`.
  */
 
-import type { CredentialResolver } from "@hyperidle/connections";
 import type {
 	ModelGatewayConfig,
 	ModelProvider,
@@ -22,6 +32,7 @@ import type {
 	ResolvedModel,
 } from "@hyperidle/shared";
 import { BUILT_IN_GATEWAY_CONFIG, MissingCredentialError } from "@hyperidle/shared";
+import type { ModelGatewayCredentialResolver } from "./ports.js";
 
 /**
  * @lore AU19 Increment 1f: `BUILT_IN_GATEWAY_CONFIG` moved to
@@ -59,7 +70,7 @@ export class UnsupportedAgentProviderError extends Error {
 async function resolveProvider(
 	provider: ModelProvider,
 	model: string,
-	credentialResolver: CredentialResolver,
+	credentialResolver: ModelGatewayCredentialResolver,
 	options: {
 		baseUrl?: string;
 		agentPath?: boolean;
@@ -135,7 +146,7 @@ async function resolveProvider(
 export async function resolveModelTier(
 	tier: ModelTier,
 	config: ModelGatewayConfig,
-	credentialResolver: CredentialResolver,
+	credentialResolver: ModelGatewayCredentialResolver,
 ): Promise<ResolvedModel> {
 	const tierConfig = config[tier];
 	// AH1 §2: No plaintext apiKey passed from config — credentials resolved via credentialResolver.
@@ -176,7 +187,7 @@ export async function resolveAgentModel(
 	agent: AgentModelParams,
 	tierFallback: string,
 	config: ModelGatewayConfig,
-	credentialResolver: CredentialResolver,
+	credentialResolver: ModelGatewayCredentialResolver,
 ): Promise<ResolvedModel> {
 	if (agent.modelId) {
 		// Per-agent path: anthropic + openrouter supported; openai-compatible rejected

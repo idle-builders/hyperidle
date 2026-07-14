@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { EnvCredentialResolver } from "@hyperidle/connections";
 import { type HyperIdleDb, schema } from "@hyperidle/db";
-import { resolveModelTier } from "@hyperidle/server/services/model-gateway";
+import { resolveModelTier } from "@hyperidle/model-gateway";
 import type { ModelGatewayConfig, ResolvedModel } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { drizzle } from "drizzle-orm/pglite";

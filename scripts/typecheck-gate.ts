@@ -365,6 +365,10 @@ function buildLeafDeclarations(root: string): void {
   // @lore AU19 Increment 2d: `core-api/observability` added — same TS6305
   // cascade; routes/observability-routes.ts, app.ts,
   // services/session-provisioning.ts now import `@hyperidle/observability`.
+  //
+  // @lore AU19 Increment 2e: `core-api/model-gateway` added — same TS6305
+  // cascade; server-factory.ts, services/agent-work-assistant.ts, and
+  // packages/eval/src/runner.ts now import `@hyperidle/model-gateway`.
   for (const leaf of [
     "shared",
     "db",
@@ -383,6 +387,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/filesystems",
     "core-api/git-export",
     "core-api/observability",
+    "core-api/model-gateway",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
