@@ -23,11 +23,10 @@ import type { AgentWorkIntentReapDeps } from "./ports.js";
  * `UNOWNED_SHARED_TABLES` exemption (genuinely multi-owner-touched, confirmed
  * unchanged by this migration), so no port is needed for it.
  *
- * `agentLifecycleInbox` (owned by the not-yet-migrated `lifecycle-projection`
- * Service per architecture §4's roster) is accessed by `reapTerminalAgentWorkIntents`
- * below — converted to the INTERIM `SessionRequestsLifecycleInboxReaper` port
- * (see `ports.ts`'s top `@lore`), wired to `packages/server`'s raw table ops
- * (zero behavior change) until `lifecycle-projection` is a real package.
+ * `agentLifecycleInbox` (owned by `lifecycle-projection`, a real package
+ * since Increment 3d) is accessed by `reapTerminalAgentWorkIntents`
+ * below — converted to the `SessionRequestsLifecycleInboxReaper` port (see
+ * `ports.ts`'s top `@lore`), wired to `lifecycle-projection`'s real exports.
  */
 
 export const AGENT_WORK_RETENTION_DAYS = 30;

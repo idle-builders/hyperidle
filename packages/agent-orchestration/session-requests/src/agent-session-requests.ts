@@ -17,11 +17,11 @@ import type { MarkRequestRunningDeps, TerminalizeSessionRequestDeps } from "./po
  * 3a) is written by `markRequestRunning`'s post-admission backfill —
  * converted to the `SessionRequestsTriggerHistoryWriter` port (real target,
  * `trigger-resolution`'s new `recordSessionForResolutionHistory` export, see
- * `ports.ts`). `agentLifecycleInbox` (owned by the not-yet-migrated
- * `lifecycle-projection` Service) is written by
+ * `ports.ts`). `agentLifecycleInbox` (owned by `lifecycle-projection`, a real
+ * package since Increment 3d) is written by
  * `terminalizeAgentSessionRequestInTx`'s single-terminal-writer append —
- * converted to the INTERIM `SessionRequestsLifecycleInboxWriter` port (see
- * `ports.ts`'s top `@lore`).
+ * converted to the `SessionRequestsLifecycleInboxWriter` port, wired to
+ * `lifecycle-projection`'s real exports (see `ports.ts`'s top `@lore`).
  *
  * @lore AU19 Increment 3c: `findAgentSessionRequestById`/
  * `listAgentSessionRequestsBySource`/`listRunningAgentSessionRequests`/
