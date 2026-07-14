@@ -23,9 +23,12 @@
  * keeps the two-phase admit/run shape `run-orchestration` already had
  * (`RunOrchestrationSessionProvisioner`, Increment 3c) as the two
  * `HarnessPort` methods — a straight rename+relocation into the shared,
- * Application-visible abstraction §7.4 calls for, not a new one. Flagged for
- * founder/review confirmation as an interpretive deviation from §7.4's
- * literal single-call text.
+ * Application-visible abstraction §7.4 calls for, not a new one.
+ *
+ * RULED PERMANENT (founder-confirmed 2026-07-15, `plans/AU19/architecture.md`
+ * §7.4 amendment): the two-method shape is the permanent `HarnessPort`
+ * contract, not `provisionAndRun`. §7.4's original text is now corrected to
+ * match — this is not an open deviation.
  *
  * `TDb` is generic because `@hyperidle/shared` has zero `@hyperidle/db`
  * dependency (a leaf package) — same pattern as `AgentWorkIntentRecorder`'s
