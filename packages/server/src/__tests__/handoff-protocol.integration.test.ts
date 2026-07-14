@@ -1,4 +1,5 @@
 import {
+	agentSessionRequests,
 	bets,
 	type HyperIdleDb,
 	items,
@@ -15,6 +16,7 @@ import type { SessionContext } from "@hyperidle/session-lifecycle";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { eq } from "drizzle-orm";
 import { handoff } from "../services/policy-bindings.js";
+import { registerHandoffTerminationRequester } from "../services/session-lifecycle-bindings.js";
 import { describe, expect, test, vi } from "../test-fixtures.js";
 
 // --- Test helpers ---
@@ -101,6 +103,30 @@ async function insertSession(
 		modelTier: "workhorse",
 		startedAt: now,
 		state,
+	});
+}
+
+/** @lore AU19 Increment 3i fix round: a running request correlated to a session, for `registerHandoffTerminationRequester` coverage. */
+async function insertRunningAgentSessionRequest(
+	db: HyperIdleDb,
+	id: string,
+	sessionId: string,
+	agentId: string,
+): Promise<void> {
+	const now = new Date().toISOString();
+	await db.insert(agentSessionRequests).values({
+		id,
+		sourceKind: "task_run",
+		sourceId: `source-${id}`,
+		streamId: sessionId,
+		agentId,
+		promptMode: "task",
+		sourceCorrelationJson: JSON.stringify({ kind: "task_run", sourceId: `source-${id}` }),
+		idempotencyKey: `idem-${id}`,
+		status: "running",
+		sessionId,
+		createdAt: now,
+		updatedAt: now,
 	});
 }
 
@@ -719,6 +745,65 @@ describe("Handoff Protocol", () => {
 			await expect(
 				handoff(db, eventBus, { sessionContext: ctx, toAgent: "nonexistent", metadata }),
 			).rejects.toThrow("Agent not found");
+		});
+	});
+
+	// @lore AU19 Increment 3i fix round: `session_handoff_completed`'s `requestedBy`
+	// field (added this fix round — see `SessionHandoffCompletedEvent`'s top `@lore`)
+	// and `registerHandoffTerminationRequester`'s attribution threading.
+	describe("§10.3 policy ⚠ session-lifecycle inversion: termination attribution", () => {
+		test("emits session_handoff_completed carrying requestedBy = the outgoing agent", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedPrerequisites(db);
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
+
+			const emitted: Array<{ type: string; requestedBy?: string }> = [];
+			eventBus.on("session_handoff_completed", (e) => emitted.push(e));
+
+			await handoff(db, eventBus, {
+				sessionContext: makeSessionContext("session-a", "agent-a", "task-1"),
+				toAgent: "agent-b",
+				metadata: makeMetadata(),
+			});
+
+			expect(emitted).toHaveLength(1);
+			expect(emitted[0]?.requestedBy).toBe("agent-a");
+		});
+
+		test("registerHandoffTerminationRequester writes terminationRequestedBy on the correlated request", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedPrerequisites(db);
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertTask(db, "task-1", "in_progress", "agent-a");
+			await insertSession(db, "session-a", "task-1", "agent-a");
+			await insertRunningAgentSessionRequest(db, "req-1", "session-a", "agent-a");
+
+			registerHandoffTerminationRequester(db, eventBus);
+
+			await handoff(db, eventBus, {
+				sessionContext: makeSessionContext("session-a", "agent-a", "task-1"),
+				toAgent: "agent-b",
+				metadata: makeMetadata(),
+			});
+
+			// The subscriber's own DB work is fire-and-forget (§10.3-sanctioned) —
+			// wait a tick for it to settle, same idiom writeback-subscriber.test.ts uses.
+			await new Promise((resolve) => setTimeout(resolve, 20));
+
+			const [request] = await db
+				.select()
+				.from(agentSessionRequests)
+				.where(eq(agentSessionRequests.id, "req-1"));
+			expect(request?.terminationReason).toBe("handoff");
+			expect(request?.terminationRequestedBy).toBe("agent-a");
 		});
 	});
 });

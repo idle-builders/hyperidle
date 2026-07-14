@@ -112,11 +112,22 @@ export interface SessionEndedEvent {
  * `sandbox_writeback_changes_detected` (Increment 3f). Emitted by
  * `handoff-protocol.ts`'s `buildHandoff`, post-commit, in the exact spot the
  * direct `deps.cost.release(...)` call used to sit.
+ *
+ * @lore AU19 Increment 3i fix round: `requestedBy` carries the outgoing
+ * agent's id (`sessionContext.agentId`) so `session-lifecycle`'s
+ * `registerHandoffTerminationRequester` subscriber can pass it through to
+ * `requestAgentTermination`'s `terminationRequestedBy` write
+ * (`agent_session_requests.termination_requested_by`, `schema.ts`). Pre-
+ * migration `handoff-protocol.ts` passed `requestedBy: sessionContext.agentId`
+ * directly to the (then-synchronous) termination call; the EventBus inversion
+ * had silently dropped it since the event carried only `sessionId` — this
+ * field closes that gap so the inversion stays behavior-preserving.
  */
 export interface SessionHandoffCompletedEvent {
 	type: "session_handoff_completed";
 	streamId: string;
 	sessionId: string;
+	requestedBy: string;
 	timestamp: number;
 }
 

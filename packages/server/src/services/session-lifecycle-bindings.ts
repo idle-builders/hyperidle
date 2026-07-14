@@ -336,6 +336,19 @@ export function requestAgentTermination(
  * `registerCostCapDedupReleaser`'s own subscription to this exact event
  * (`@hyperidle/cost`'s `cost-cap.ts`). Registered at boot alongside it
  * (`server-factory.ts`).
+ *
+ * @lore AU19 Increment 3i fix round: `event.requestedBy` (the outgoing
+ * agent's id, `sessionContext.agentId` at emit time) is threaded through to
+ * `requestAgentTermination`'s `requestedBy` so `terminationRequestedBy`
+ * (`agent_session_requests`, `schema.ts:338`) keeps getting written —
+ * pre-migration `handoff-protocol.ts` passed this synchronously; the
+ * EventBus inversion had silently dropped it (event carried only
+ * `sessionId`) until this fix. The handler stays deliberately
+ * fire-and-forget (§10.3-sanctioned — a rejection here can no longer abort
+ * the already-committed handoff), but no longer swallows silently: same
+ * `.catch()` idiom `writeback-subscriber.ts` established for this exact
+ * shape — re-throw as an unhandled rejection so a real failure surfaces
+ * (process-level error reporting) instead of vanishing into a bare `void`.
  */
 export function registerHandoffTerminationRequester(
 	db: HyperIdleDb,
@@ -346,8 +359,17 @@ export function registerHandoffTerminationRequester(
 			const { findAgentSessionRequestBySessionId } = await import("@hyperidle/session-requests");
 			const correlatedRequest = await findAgentSessionRequestBySessionId(db, event.sessionId);
 			if (!correlatedRequest) return;
-			await requestAgentTermination(db, { requestId: correlatedRequest.id, reason: "handoff" });
-		})();
+			await requestAgentTermination(db, {
+				requestId: correlatedRequest.id,
+				reason: "handoff",
+				requestedBy: event.requestedBy,
+			});
+		})().catch((err: unknown) => {
+			// Re-throw as an unhandled rejection, matching writeback-subscriber.ts's
+			// fire-and-forget error-visibility idiom — this handler cannot abort the
+			// already-committed handoff, but a real failure must not vanish silently.
+			throw err;
+		});
 	};
 	return eventBus.on("session_handoff_completed", handler);
 }

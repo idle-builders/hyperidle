@@ -407,11 +407,14 @@ export function buildHandoff(
 		// `session_handoff_completed` and re-resolves the correlated request via
 		// its own `session-requests` port before calling `requestAgentTermination`
 		// — same shape `cost`'s `registerCostCapDedupReleaser` already
-		// established for this exact event.
+		// established for this exact event. `requestedBy: sessionContext.agentId`
+		// carries the pre-migration attribution through (fix round — see
+		// `SessionHandoffCompletedEvent`'s own top `@lore`).
 		eventBus.emit({
 			type: "session_handoff_completed",
 			streamId: sessionContext.sessionId,
 			sessionId: sessionContext.sessionId,
+			requestedBy: sessionContext.agentId,
 			timestamp: Date.now(),
 		});
 
