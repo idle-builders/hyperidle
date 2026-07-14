@@ -6,6 +6,16 @@
  * (still `packages/server`, the not-yet-split Application composition root)
  * to each target's real exported functions.
  *
+ * @lore AU19 Increment 1k: `TaskRiskTierReader` (→ `work`) ADDED — a seventh
+ * outbound edge, surfaced when finishing AU3's half-done Strategy-vocabulary
+ * rename. `taskPlanningSignals`'s real owner is `work` (`riskTier` is data
+ * moved off `tasks`, which `work` owns), not `review` — `review` only ever
+ * READ the table (`session-review-creator.ts`'s risk-tier lookup, its one
+ * accessor anywhere in the repo), so this is an ordinary same-layer
+ * core-api→core-api DI port, matching `TeamCapacityReader`'s Inc-1c
+ * precedent, wired directly to `@hyperidle/work`'s real exported
+ * `getTaskRiskTierByTaskId`.
+ *
  * @lore AU19 Increment 1j: the `work`/`conversation`/`org`/`users`/
  * `knowledge` targets are ALL already-migrated real packages (unlike
  * `work`'s Increment 1b interim edges) — ordinary same-layer
@@ -180,6 +190,19 @@ export interface PracticeMeetingKnowledgeStore {
 		scopeId: string | null,
 	): Promise<readonly CapturedProjectedItem[]>;
 	archiveKnowledgeItemWithLog(db: HyperIdleDb, input: ArchiveKnowledgeItemInput): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// work — TaskRiskTierReader (ordinary downward core-api edge, NOT against-grain)
+// ---------------------------------------------------------------------------
+
+/**
+ * Port for `work`'s `task_planning_signals` risk-tier read `review` calls
+ * directly today (`session-review-creator.ts`'s risk-tier lookup, driving
+ * whether a review item is created for a session).
+ */
+export interface TaskRiskTierReader {
+	getRiskTierByTaskId(db: HyperIdleDb, taskId: string): Promise<string | null>;
 }
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@ import {
 	type HyperIdleDb,
 	items,
 	sessions,
-	taskStrategyFabric,
+	taskPlanningSignals,
 	tasks,
 	teamMembers,
 	teams,
@@ -15,7 +15,7 @@ import { resolveReviewRecipients } from "@hyperidle/org";
 import { registerSessionReviewCreator, type SessionReviewCreatorDeps } from "@hyperidle/review";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { getUserById, listUsersByKind } from "@hyperidle/users";
-import { createItem, getTaskById, updateTaskById } from "@hyperidle/work";
+import { createItem, getTaskById, getTaskRiskTierByTaskId, updateTaskById } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -25,12 +25,17 @@ import { test } from "../test-fixtures.js";
  * `work`/`conversation`/`users`/`org` ports (Mechanism C — `review` never
  * imports another Service). This test builds the exact same production
  * wiring `server-factory.ts` uses — no behavior change.
+ *
+ * @lore AU19 Increment 1k: `taskRiskTier` ADDED — wired to `work`'s real
+ * `getTaskRiskTierByTaskId`, replacing the direct `taskStrategyFabric` table
+ * seed/query this test used before AU3's half-done rename was finished.
  */
 const reviewDeps: SessionReviewCreatorDeps = {
 	work: { getTaskById, updateTaskById, createItem },
 	conversation: { insertThread, getThreadById, updateThread },
 	users: { getUserById, listUsersByKind },
 	org: { resolveReviewRecipients },
+	taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
 };
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
@@ -99,7 +104,7 @@ describe("registerSessionReviewCreator", () => {
 		});
 
 		await db
-			.insert(taskStrategyFabric)
+			.insert(taskPlanningSignals)
 			.values({ id: "tsf-task-1", taskId: "task-1", riskTier: "high" });
 
 		await db.insert(sessions).values({
@@ -157,7 +162,7 @@ describe("registerSessionReviewCreator", () => {
 		});
 
 		await db
-			.insert(taskStrategyFabric)
+			.insert(taskPlanningSignals)
 			.values({ id: "tsf-task-low", taskId: "task-low", riskTier: "low" });
 
 		await db.insert(sessions).values({
@@ -203,7 +208,7 @@ describe("registerSessionReviewCreator", () => {
 		});
 
 		await db
-			.insert(taskStrategyFabric)
+			.insert(taskPlanningSignals)
 			.values({ id: "tsf-task-no-thread", taskId: "task-no-thread", riskTier: "medium" });
 
 		await db.insert(sessions).values({
@@ -262,7 +267,7 @@ describe("registerSessionReviewCreator", () => {
 		});
 
 		await db
-			.insert(taskStrategyFabric)
+			.insert(taskPlanningSignals)
 			.values({ id: "tsf-task-unsub", taskId: "task-unsub", riskTier: "high" });
 
 		await db.insert(sessions).values({

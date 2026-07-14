@@ -11,7 +11,7 @@
  * All tests in this file should FAIL until implementation is complete.
  */
 
-import { type HyperIdleDb, knowledgeItems, knowledgeStrategyFabric, users } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
 import { KERNEL_KNOWLEDGE_STATUSES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -63,17 +63,17 @@ async function seedFabricWithAttentionScore(
 ): Promise<void> {
 	const [existing] = await db
 		.select()
-		.from(knowledgeStrategyFabric)
-		.where(eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItemId))
+		.from(knowledgeAppProjection)
+		.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId))
 		.limit(1);
 
 	if (existing) {
 		await db
-			.update(knowledgeStrategyFabric)
+			.update(knowledgeAppProjection)
 			.set({ attentionScore })
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItemId));
+			.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId));
 	} else {
-		await db.insert(knowledgeStrategyFabric).values({
+		await db.insert(knowledgeAppProjection).values({
 			id: crypto.randomUUID(),
 			knowledgeItemId,
 			layer: "L4",

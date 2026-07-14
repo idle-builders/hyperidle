@@ -108,7 +108,7 @@ function fixtureCheck(): void {
 			combinedRoot,
 			GUARDED_FILE,
 			[
-				'import { knowledgeAccessLog, knowledgeAppProjection, knowledgeItems, knowledgeStrategyFabric } from "@hyperidle/db";',
+				'import { knowledgeAccessLog, knowledgeAppProjection, knowledgeConflicts, knowledgeItems } from "@hyperidle/db";',
 				"type Db = {",
 				"  select: () => { from: (t: unknown) => { innerJoin: (t2: unknown, c: unknown) => unknown; leftJoin: (t2: unknown, c: unknown) => unknown } };",
 				"  insert: (t: unknown) => { values: (v: unknown) => Promise<void> };",
@@ -132,7 +132,7 @@ function fixtureCheck(): void {
 				"}",
 				"export async function legalUnrelatedJoin(db: Db) {",
 				// legal — join arg is NOT knowledgeItems
-				"  await db.select().from(knowledgeAppProjection).leftJoin(knowledgeStrategyFabric, true);",
+				"  await db.select().from(knowledgeAppProjection).leftJoin(knowledgeConflicts, true);",
 				"}",
 			].join("\n"),
 		);

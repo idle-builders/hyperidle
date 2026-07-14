@@ -57,6 +57,7 @@ import {
 	createItem as createWorkItem,
 	getItemById,
 	getTaskById,
+	getTaskRiskTierByTaskId,
 	listQueuedItemsSince,
 	registerBetDecomposition,
 	resolveOrphanedDecompositions,
@@ -206,6 +207,7 @@ export function registerCoreDomainServices(ctx: {
 			conversation: { insertThread, getThreadById, updateThread },
 			users: { getUserById, listUsersByKind },
 			org: { resolveReviewRecipients },
+			taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
 		}),
 	);
 	disposers.push(registerPolicyEngine(db, eventBus));

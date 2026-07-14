@@ -2,8 +2,8 @@ import {
 	bets,
 	type HyperIdleDb,
 	items,
+	knowledgeAppProjection,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	type Routine,
 	routineRuns,
 	routines,
@@ -366,11 +366,11 @@ describe("G4: Built-in Routines", () => {
 			expect(anchors.length).toBeGreaterThanOrEqual(1);
 			const anchor = anchors[0];
 			expect(anchor!.status).toBe("captured");
-			// @lore O2: layer/kind/meta are in knowledgeStrategyFabric
+			// @lore O2: layer/kind/meta are in knowledgeAppProjection
 			const [anchorFabric] = await db
 				.select()
-				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, anchor!.id))
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, anchor!.id))
 				.limit(1);
 			expect(anchorFabric?.layer).toBe("L2");
 			expect(anchorFabric?.kind).toBe("reflection");
@@ -565,7 +565,7 @@ describe("G4: Built-in Routines", () => {
 			const recentIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 			const staleIso = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
-			// @lore O2: split kernel (knowledgeItems) from strategy (knowledgeStrategyFabric)
+			// @lore O2: split kernel (knowledgeItems) from strategy (knowledgeAppProjection)
 			await db.insert(knowledgeItems).values({
 				id: "ki-recent-l3",
 				title: "Recent L3 pattern",
@@ -577,7 +577,7 @@ describe("G4: Built-in Routines", () => {
 				createdAt: recentIso,
 				updatedAt: recentIso,
 			});
-			await db.insert(knowledgeStrategyFabric).values({
+			await db.insert(knowledgeAppProjection).values({
 				id: "ksf-ki-recent-l3",
 				knowledgeItemId: "ki-recent-l3",
 				layer: "L3",
@@ -594,7 +594,7 @@ describe("G4: Built-in Routines", () => {
 				createdAt: recentIso,
 				updatedAt: recentIso,
 			});
-			await db.insert(knowledgeStrategyFabric).values({
+			await db.insert(knowledgeAppProjection).values({
 				id: "ksf-ki-recent-l4",
 				knowledgeItemId: "ki-recent-l4",
 				layer: "L4",
@@ -611,7 +611,7 @@ describe("G4: Built-in Routines", () => {
 				createdAt: staleIso,
 				updatedAt: staleIso,
 			});
-			await db.insert(knowledgeStrategyFabric).values({
+			await db.insert(knowledgeAppProjection).values({
 				id: "ksf-ki-stale-l3",
 				knowledgeItemId: "ki-stale-l3",
 				layer: "L3",

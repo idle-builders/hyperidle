@@ -869,7 +869,7 @@ export const orgEdges = pgTable(
 /**
  * @lore O2: kernel/strategy separation. Strategy fields (layer, scopeId, kind,
  * attentionScore, relevanceScore, citationCount, lastCitedAt, confidence, meta)
- * moved to knowledgeStrategyFabric extension table.
+ * moved to knowledgeAppProjection extension table.
  */
 export const knowledgeItems = pgTable(
 	"knowledge_items",
@@ -980,9 +980,20 @@ export const knowledgeConflicts = pgTable("knowledge_conflicts", {
  * citationCount, lastCitedAt, confidence, meta) are moved here. The kernel
  * table retains only identity + content columns. No `strategy` discriminator
  * column: multiple strategies can coexist in the same row.
+ *
+ * @lore AU19 Increment 1k: this table/export was formerly named
+ * `knowledgeStrategyFabric` (physical SQL name `knowledge_strategy_fabric`).
+ * AU3's Kernel/Strategy runtime retirement was supposed to rename it to the
+ * app-owned vocabulary but only bolted on a JS alias export, leaving the real
+ * `pgTable` declaration under the legacy name — which silently evaded
+ * `table-ownership-guard.ts`'s AST scan (it only recognizes
+ * `export const X = pgTable(...)`, not alias assignments). This increment
+ * finishes the rename for real: `knowledgeAppProjection` is now the only
+ * exported name, and the physical table is renamed via a non-destructive
+ * `ALTER TABLE ... RENAME TO` migration (`drizzle/0050_*.sql`).
  */
-export const knowledgeStrategyFabric = pgTable(
-	"knowledge_strategy_fabric",
+export const knowledgeAppProjection = pgTable(
+	"knowledge_app_projection",
 	{
 		id: text("id").primaryKey(),
 		knowledgeItemId: text("knowledge_item_id")
@@ -1013,9 +1024,17 @@ export const knowledgeStrategyFabric = pgTable(
  * @lore O2: kernel/strategy separation. The strategy signal that was inline
  * on tasks (riskTier) is moved here.
  * The kernel tasks table retains only identity + work columns.
+ *
+ * @lore AU19 Increment 1k: formerly named `taskStrategyFabric` (physical SQL
+ * name `task_strategy_fabric`) — same half-done AU3 rename gap as
+ * `knowledgeAppProjection` above, finished here. Owner is `work`
+ * (`packages/core-api/work`), not `review` — `riskTier` is data moved off
+ * `tasks` (which `work` owns) into its own extension table, same domain,
+ * same owner. `review`'s one read site (`session-review-creator.ts`) goes
+ * through the `TaskRiskTierReader` DI port instead of direct table access.
  */
-export const taskStrategyFabric = pgTable(
-	"task_strategy_fabric",
+export const taskPlanningSignals = pgTable(
+	"task_planning_signals",
 	{
 		id: text("id").primaryKey(),
 		taskId: text("task_id")
@@ -1023,7 +1042,7 @@ export const taskStrategyFabric = pgTable(
 			.unique()
 			.references(() => tasks.id, { onDelete: "cascade" }),
 		/**
-		 * @lore O2: riskTier moved from tasks to taskStrategyFabric.
+		 * @lore O2: riskTier moved from tasks to taskPlanningSignals.
 		 * Drives review-item creation in session-review-creator.
 		 */
 		riskTier: text("risk_tier"),
@@ -1031,10 +1050,6 @@ export const taskStrategyFabric = pgTable(
 	(table) => [index("tsf_task_id_idx").on(table.taskId)],
 );
 
-// AU3 compatibility aliases: production callers use app-owned names while the
-// physical table names remain unchanged for existing databases.
-export const knowledgeAppProjection = knowledgeStrategyFabric;
-export const taskPlanningSignals = taskStrategyFabric;
 export type KnowledgeAppProjectionRow = typeof knowledgeAppProjection.$inferSelect;
 export type NewKnowledgeAppProjectionRow = typeof knowledgeAppProjection.$inferInsert;
 export type TaskPlanningSignalRow = typeof taskPlanningSignals.$inferSelect;
@@ -1644,12 +1659,6 @@ export type NewArtifactRow = typeof artifacts.$inferInsert;
 
 export type PropagationLogRow = typeof propagationLog.$inferSelect;
 export type NewPropagationLogRow = typeof propagationLog.$inferInsert;
-
-export type KnowledgeStrategyFabricRow = typeof knowledgeStrategyFabric.$inferSelect;
-export type NewKnowledgeStrategyFabricRow = typeof knowledgeStrategyFabric.$inferInsert;
-
-export type TaskStrategyFabricRow = typeof taskStrategyFabric.$inferSelect;
-export type NewTaskStrategyFabricRow = typeof taskStrategyFabric.$inferInsert;
 
 export type ServerCredential = typeof serverCredentials.$inferSelect;
 export type NewServerCredential = typeof serverCredentials.$inferInsert;

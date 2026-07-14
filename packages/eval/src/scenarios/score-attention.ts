@@ -5,7 +5,7 @@
  * Facilitator-only tool.
  */
 
-import { knowledgeStrategyFabric } from "@hyperidle/db";
+import { knowledgeAppProjection } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -91,9 +91,9 @@ Document your prioritization decision in session notes.`,
 				label: "Attention Score Set on Knowledge Item",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [fabric] = await ctx.db
-						.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-						.from(knowledgeStrategyFabric)
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, saOverrideKnowledgeItemId))
+						.select({ attentionScore: knowledgeAppProjection.attentionScore })
+						.from(knowledgeAppProjection)
+						.where(eq(knowledgeAppProjection.knowledgeItemId, saOverrideKnowledgeItemId))
 						.limit(1);
 					const hasScore = fabric?.attentionScore !== null && fabric?.attentionScore !== undefined;
 					return {
@@ -109,9 +109,9 @@ Document your prioritization decision in session notes.`,
 				label: "Score is High (0.8+) for Critical Item",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [fabric] = await ctx.db
-						.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-						.from(knowledgeStrategyFabric)
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, saOverrideKnowledgeItemId))
+						.select({ attentionScore: knowledgeAppProjection.attentionScore })
+						.from(knowledgeAppProjection)
+						.where(eq(knowledgeAppProjection.knowledgeItemId, saOverrideKnowledgeItemId))
 						.limit(1);
 					if (!fabric?.attentionScore) {
 						return { score: 0.0, note: "No score to evaluate" };
@@ -198,9 +198,9 @@ Document what you did in session notes.`,
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					// After recompute, the fabric row should have an attentionScore
 					const [fabric] = await ctx.db
-						.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-						.from(knowledgeStrategyFabric)
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, saRecomputeKnowledgeItemId))
+						.select({ attentionScore: knowledgeAppProjection.attentionScore })
+						.from(knowledgeAppProjection)
+						.where(eq(knowledgeAppProjection.knowledgeItemId, saRecomputeKnowledgeItemId))
 						.limit(1);
 					// Recompute creates or updates the fabric attentionScore
 					const hasScore = fabric?.attentionScore !== null && fabric?.attentionScore !== undefined;

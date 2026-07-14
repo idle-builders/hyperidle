@@ -15,9 +15,9 @@
 
 import {
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	routineRuns,
 	routines,
 	teamMembers,
@@ -118,7 +118,7 @@ async function seedPromotionCandidates(db: HyperIdleDb, prefix: string): Promise
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
 		});
-		await db.insert(knowledgeStrategyFabric).values({
+		await db.insert(knowledgeAppProjection).values({
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
 			layer,

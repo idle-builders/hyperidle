@@ -4,7 +4,7 @@
  * Tests the write_memory tool: kind selection, layer enforcement, facilitator L4, brand voice.
  */
 
-import { knowledgeItems, knowledgeStrategyFabric, sessions } from "@hyperidle/db";
+import { knowledgeAppProjection, knowledgeItems, sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
 	judgeCostTracked,
@@ -95,9 +95,9 @@ Choose the most appropriate kind for an incident post-mortem.`,
 					if (!item) return { score: 0.0, note: "No knowledge item created" };
 
 					const [fabric] = await ctx.db
-						.select({ kind: knowledgeStrategyFabric.kind })
-						.from(knowledgeStrategyFabric)
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
+						.select({ kind: knowledgeAppProjection.kind })
+						.from(knowledgeAppProjection)
+						.where(eq(knowledgeAppProjection.knowledgeItemId, item.id))
 						.limit(1);
 
 					const kind = fabric?.kind;
@@ -124,9 +124,9 @@ Choose the most appropriate kind for an incident post-mortem.`,
 					if (!item) return { score: 0.0, note: "No knowledge item created" };
 
 					const [fabric] = await ctx.db
-						.select({ layer: knowledgeStrategyFabric.layer })
-						.from(knowledgeStrategyFabric)
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
+						.select({ layer: knowledgeAppProjection.layer })
+						.from(knowledgeAppProjection)
+						.where(eq(knowledgeAppProjection.knowledgeItemId, item.id))
 						.limit(1);
 
 					const layer = fabric?.layer ?? "";
@@ -220,9 +220,9 @@ Document what happened in your session notes.`,
 					}
 
 					const [fabric] = await ctx.db
-						.select({ layer: knowledgeStrategyFabric.layer })
-						.from(knowledgeStrategyFabric)
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
+						.select({ layer: knowledgeAppProjection.layer })
+						.from(knowledgeAppProjection)
+						.where(eq(knowledgeAppProjection.knowledgeItemId, item.id))
 						.limit(1);
 
 					const layer = fabric?.layer ?? "";
@@ -329,9 +329,9 @@ Choose kind "context" or "pattern" — these are foundational company principles
 					if (!item) return { score: 0.0, note: "No knowledge item created" };
 
 					const [fabric] = await ctx.db
-						.select({ layer: knowledgeStrategyFabric.layer })
-						.from(knowledgeStrategyFabric)
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
+						.select({ layer: knowledgeAppProjection.layer })
+						.from(knowledgeAppProjection)
+						.where(eq(knowledgeAppProjection.knowledgeItemId, item.id))
 						.limit(1);
 
 					const layer = fabric?.layer ?? "";
@@ -355,9 +355,9 @@ Choose kind "context" or "pattern" — these are foundational company principles
 					if (!item) return { score: 0.0, note: "No knowledge item created" };
 
 					const [fabric] = await ctx.db
-						.select({ kind: knowledgeStrategyFabric.kind })
-						.from(knowledgeStrategyFabric)
-						.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
+						.select({ kind: knowledgeAppProjection.kind })
+						.from(knowledgeAppProjection)
+						.where(eq(knowledgeAppProjection.knowledgeItemId, item.id))
 						.limit(1);
 
 					const kind = fabric?.kind;

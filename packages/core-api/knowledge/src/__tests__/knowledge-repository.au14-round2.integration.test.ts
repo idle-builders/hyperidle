@@ -13,9 +13,9 @@
  */
 import {
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KernelKnowledgeStatus } from "@hyperidle/shared";
@@ -146,8 +146,8 @@ describe("splitItem exact-behavior lock", () => {
 		for (const item of created) {
 			const [projection] = await db
 				.select()
-				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id));
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, item.id));
 			expect(projection).toBeDefined();
 			expect(projection?.scopeId).toBeNull();
 			expect(projection?.kind).toBeNull();

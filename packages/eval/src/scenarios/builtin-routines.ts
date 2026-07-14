@@ -16,7 +16,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { items, knowledgeStrategyFabric } from "@hyperidle/db";
+import { items, knowledgeAppProjection } from "@hyperidle/db";
 import { provisionTeamRoutines, runBuiltinRoutine } from "@hyperidle/server/routines";
 
 // @lore AL6: clearBuiltinCostSentinelCache was removed from @hyperidle/server/app-runtime (AD8c).
@@ -291,14 +291,14 @@ const brPracticeMeeting: EvalScenario = {
 				id: "meeting_anchor_created",
 				label: "Practice Meeting Anchor Created",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// createPracticeMeeting creates a knowledgeStrategyFabric row with meta containing role=practice_meeting_anchor
+					// createPracticeMeeting creates a knowledgeAppProjection row with meta containing role=practice_meeting_anchor
 					const [fabric] = await ctx.db
-						.select({ meta: knowledgeStrategyFabric.meta, kind: knowledgeStrategyFabric.kind })
-						.from(knowledgeStrategyFabric)
+						.select({ meta: knowledgeAppProjection.meta, kind: knowledgeAppProjection.kind })
+						.from(knowledgeAppProjection)
 						.where(
 							and(
-								isNotNull(knowledgeStrategyFabric.meta),
-								like(knowledgeStrategyFabric.meta, "%practice_meeting%"),
+								isNotNull(knowledgeAppProjection.meta),
+								like(knowledgeAppProjection.meta, "%practice_meeting%"),
 							),
 						)
 						.limit(1);
@@ -308,7 +308,7 @@ const brPracticeMeeting: EvalScenario = {
 						score: created ? 1.0 : 0.0,
 						note: created
 							? `Meeting anchor meta: ${fabric.meta}`
-							: "No knowledgeStrategyFabric row with practice_meeting meta found",
+							: "No knowledgeAppProjection row with practice_meeting meta found",
 					};
 				},
 			},
@@ -475,7 +475,7 @@ const brPortfolioRetro: EvalScenario = {
 		await seedBuiltinRoutines(ctx.db);
 
 		// Seed some L3/L4 knowledge items updated recently
-		const { knowledgeItems: ki, knowledgeStrategyFabric: ksf } = await import("@hyperidle/db");
+		const { knowledgeItems: ki, knowledgeAppProjection: ksf } = await import("@hyperidle/db");
 		const now = new Date().toISOString();
 		for (let i = 0; i < 3; i++) {
 			const itemId = randomUUID();
@@ -556,7 +556,7 @@ const brKnowledgeDecay: EvalScenario = {
 		await seedBuiltinRoutines(ctx.db);
 
 		// Seed old knowledge items (180+ days ago = stale)
-		const { knowledgeItems: ki, knowledgeStrategyFabric: ksf } = await import("@hyperidle/db");
+		const { knowledgeItems: ki, knowledgeAppProjection: ksf } = await import("@hyperidle/db");
 		const oldDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString();
 		for (let i = 0; i < 2; i++) {
 			const itemId = randomUUID();

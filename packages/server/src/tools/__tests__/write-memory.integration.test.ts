@@ -2,9 +2,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	users,
 } from "@hyperidle/db";
 import { setupFts } from "@hyperidle/knowledge";
@@ -78,11 +78,11 @@ describe("write_memory tool", () => {
 				.where(eq(knowledgeItems.id, data.knowledgeItemId));
 			expect(row?.title).toBe("New practice");
 			expect(row?.body).toBe("Always validate input at the boundary.");
-			// O2: layer and kind moved to knowledgeStrategyFabric
+			// O2: layer and kind moved to knowledgeAppProjection
 			const [fabricRow] = await db
 				.select()
-				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, data.knowledgeItemId));
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, data.knowledgeItemId));
 			expect(fabricRow?.layer).toBe("L3");
 			expect(fabricRow?.kind).toBe("pattern");
 		});

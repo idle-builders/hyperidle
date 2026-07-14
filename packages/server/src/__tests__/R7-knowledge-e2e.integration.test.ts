@@ -15,8 +15,8 @@ import * as path from "node:path";
 import {
 	bets,
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	tasks,
 	teamMembers,
 	teams,
@@ -150,7 +150,7 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 	});
 
 	test("write_memory correctly writes scopeId to the fabric extension table", async ({ db }) => {
-		// R7 fix: the fabric extension table (knowledgeStrategyFabric.scopeId) must
+		// R7 fix: the fabric extension table (knowledgeAppProjection.scopeId) must
 		// match the team ID for fetchAllForLayer(db, "L2", productId) to find the item.
 		await seedBase(db);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac1c-${Date.now()}`);
@@ -172,9 +172,9 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		const data = result.data as { knowledgeItemId: string; version: number };
 
 		const [fabricRow] = await db
-			.select({ scopeId: knowledgeStrategyFabric.scopeId, layer: knowledgeStrategyFabric.layer })
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, data.knowledgeItemId))
+			.select({ scopeId: knowledgeAppProjection.scopeId, layer: knowledgeAppProjection.layer })
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, data.knowledgeItemId))
 			.limit(1);
 
 		// The fabric extension row must have scopeId matching the team
@@ -499,9 +499,9 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 		// After R7 fix: scopeId is set to TEAM_ID (derived from task-r7's teamId)
 		const data = writeResult.data as { knowledgeItemId: string };
 		const [fabricRow] = await db
-			.select({ scopeId: knowledgeStrategyFabric.scopeId })
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, data.knowledgeItemId))
+			.select({ scopeId: knowledgeAppProjection.scopeId })
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, data.knowledgeItemId))
 			.limit(1);
 
 		// After R7 fix: scopeId is TEAM_ID (items are now properly scoped via task lookup)

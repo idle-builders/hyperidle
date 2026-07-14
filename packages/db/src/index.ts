@@ -57,13 +57,11 @@ export {
 	type KnowledgeConflict,
 	type KnowledgeEditLogEntry,
 	type KnowledgeItem,
-	type KnowledgeStrategyFabricRow,
 	knowledgeAccessLog,
 	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	type LoginSession,
 	loginSessions,
 	type Message,
@@ -84,7 +82,6 @@ export {
 	type NewKnowledgeConflict,
 	type NewKnowledgeEditLogEntry,
 	type NewKnowledgeItem,
-	type NewKnowledgeStrategyFabricRow,
 	type NewLoginSession,
 	type NewMessage,
 	type NewNotificationQueueRow,
@@ -104,7 +101,6 @@ export {
 	type NewTask,
 	type NewTaskDispatchAttempt,
 	type NewTaskPlanningSignalRow,
-	type NewTaskStrategyFabricRow,
 	// @lore U1: NewTeam (formerly NewProduct) is the domain entity insert type.
 	type NewTeam,
 	// @lore U1: NewTeamMember (formerly NewTeam) is the agent-membership insert type.
@@ -143,7 +139,6 @@ export {
 	type Task,
 	type TaskDispatchAttempt,
 	type TaskPlanningSignalRow,
-	type TaskStrategyFabricRow,
 	// @lore U1: Team (formerly Product) is the domain entity select type.
 	type Team,
 	// @lore U1: TeamMember (formerly Team) is the agent-membership select type.
@@ -153,7 +148,6 @@ export {
 	tailoredGrants,
 	taskDispatchAttempts,
 	taskPlanningSignals,
-	taskStrategyFabric,
 	tasks,
 	// @lore U1: teamMembers table (formerly teams agent-membership table).
 	teamMembers,

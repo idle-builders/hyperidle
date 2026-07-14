@@ -17,8 +17,8 @@
 import {
 	createTestDb,
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
@@ -259,7 +259,7 @@ async function seedKnowledge(
 		status?: string;
 	}>,
 ): Promise<void> {
-	// @lore O2: layer/kind/scopeId are in knowledgeStrategyFabric; kernel only
+	// @lore O2: layer/kind/scopeId are in knowledgeAppProjection; kernel only
 	// holds identity + content. Insert both tables so computeExportPlan (which
 	// does an INNER JOIN) finds the fabric row.
 	for (const r of rows) {
@@ -278,7 +278,7 @@ async function seedKnowledge(
 		});
 
 		await db
-			.insert(knowledgeStrategyFabric)
+			.insert(knowledgeAppProjection)
 			.values({
 				id: `ksf-${itemId}`,
 				knowledgeItemId: itemId,

@@ -17,9 +17,9 @@ import {
 	bets,
 	type HyperIdleDb,
 	items,
+	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	messages,
 	routines,
 	sessions,
@@ -223,7 +223,7 @@ export async function seedTask(
  * Seed a knowledge item with its strategy fabric row.
  *
  * @lore X7: Two inserts are required: knowledgeItems (kernel) +
- * knowledgeStrategyFabric (strategy extension). The fabric row is needed
+ * knowledgeAppProjection (strategy extension). The fabric row is needed
  * for knowledge context assembly to work correctly during provisioning.
  * See arch critique WARNING #3 and schema.ts lines 478-501.
  */
@@ -260,7 +260,7 @@ export async function seedKnowledge(
 	});
 
 	// Always insert the strategy fabric row so assembleContext() can find it.
-	await db.insert(knowledgeStrategyFabric).values({
+	await db.insert(knowledgeAppProjection).values({
 		id: randomUUID(),
 		knowledgeItemId: itemId,
 		layer: opts.layer ?? "factory",

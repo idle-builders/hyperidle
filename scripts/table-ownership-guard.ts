@@ -48,7 +48,7 @@ const TABLE_OWNER: Record<string, string> = {
 	knowledgeEditLog: "packages/core-api/knowledge",
 	knowledgeAccessLog: "packages/core-api/knowledge",
 	knowledgeConflicts: "packages/core-api/knowledge",
-	knowledgeStrategyFabric: "packages/core-api/knowledge",
+	knowledgeAppProjection: "packages/core-api/knowledge",
 	bets: "packages/core-api/work",
 	tasks: "packages/core-api/work",
 	items: "packages/core-api/work",
@@ -112,21 +112,20 @@ const TABLE_OWNER: Record<string, string> = {
 	// (`proposed-call-workflow.ts`, moved unchanged) is `review`'s real
 	// owned table set — `review` ⛁* is now confirmed, not "reviews" (no such
 	// table exists; the §4 "reviews / proposed-calls" candidate resolved to
-	// proposed-calls). `taskStrategyFabric` (session-review-creator.ts's
-	// risk-tier read) is imported under its real pgTable-declared name — NOT
-	// the `taskPlanningSignals` alias (`packages/db/src/schema.ts`:
-	// `export const taskPlanningSignals = taskStrategyFabric`), which would
-	// evade this guard's name-based `knownTables()` regex entirely (it only
-	// matches `export const X = pgTable(...)` declarations, not alias
-	// assignments — the exact same latent gap already present for
-	// `knowledgeAppProjection`/`knowledgeStrategyFabric`, out of this WP's
-	// scope to retrofit). `taskStrategyFabric` has exactly ONE accessor
-	// anywhere in the repo (`session-review-creator.ts`) — genuinely
-	// `review`'s own table, not a false-ownership claim.
+	// proposed-calls).
 	proposedCalls: "packages/core-api/review",
 	operationOutcomes: "packages/core-api/review",
 	tailoredGrants: "packages/core-api/review",
-	taskStrategyFabric: "packages/core-api/review",
+	// AU19 Increment 1k: `taskPlanningSignals` (O2's `riskTier` extension
+	// table, physical name `task_planning_signals`) is owned by `work`, not
+	// `review` — `riskTier` is data moved off `tasks` (which `work` owns),
+	// same domain, same owner. Finishing AU3's half-done Strategy-vocabulary
+	// rename made the `pgTable` declaration itself the canonical name (no
+	// more legacy `taskStrategyFabric` alias to evade this guard's
+	// name-based `knownTables()` AST scan through). `review`'s one read
+	// site (`session-review-creator.ts`) now goes through the
+	// `TaskRiskTierReader` DI port instead of direct table access.
+	taskPlanningSignals: "packages/core-api/work",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

@@ -7,9 +7,9 @@
  */
 import {
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import { createRelevanceService } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
@@ -185,7 +185,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 });
 
 describe("RelevanceService.recomputeScores (L22)", () => {
-	test("updates relevanceScore on knowledgeStrategyFabric after recompute", async ({ db }) => {
+	test("updates relevanceScore on knowledgeAppProjection after recompute", async ({ db }) => {
 		const itemId = await insertItem(db);
 		// Give it some access history so score is non-null
 		await insertAccessLog(db, itemId, "2026-05-05T00:00:00.000Z");
@@ -193,11 +193,11 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		const service = createRelevanceService(db);
 		await service.recomputeScores([itemId]);
 
-		// O2: relevanceScore moved to knowledgeStrategyFabric
+		// O2: relevanceScore moved to knowledgeAppProjection
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, itemId));
 		expect(fabricRow).toBeDefined();
 		expect(fabricRow?.relevanceScore).not.toBeNull();
 		expect(typeof Number(fabricRow?.relevanceScore)).toBe("number");
@@ -210,11 +210,11 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		const service = createRelevanceService(db);
 		await service.recomputeScores([itemId]);
 
-		// O2: relevanceScore moved to knowledgeStrategyFabric
+		// O2: relevanceScore moved to knowledgeAppProjection
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, itemId));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, itemId));
 		expect(fabricRow).toBeDefined();
 		expect(fabricRow?.relevanceScore).toBeNull();
 	});

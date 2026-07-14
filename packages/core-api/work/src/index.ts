@@ -2,9 +2,16 @@
  * Barrel for @hyperidle/work (core-api Layer, SQL-owning Service).
  *
  * Typed functions only. This barrel MUST NOT re-export the raw `bets`/`tasks`/
- * `items` pgTable objects — that would let a consumer obtain a table
- * transitively and defeat Table ACL (Mechanism A). Consumers get typed
- * functions; the tables stay private to this Service.
+ * `items`/`taskPlanningSignals` pgTable objects — that would let a consumer
+ * obtain a table transitively and defeat Table ACL (Mechanism A). Consumers
+ * get typed functions; the tables stay private to this Service.
+ *
+ * @lore AU19 Increment 1k: `taskPlanningSignals` (`task_planning_signals`,
+ * O2's `riskTier` extension table) added as `work`'s fourth owned table —
+ * `riskTier` moved off `tasks` (which `work` already owns), same domain,
+ * same owner. `review`'s one read site (`session-review-creator.ts`) goes
+ * through the `TaskRiskTierReader` DI port instead of direct table access
+ * (mirrors `org`'s `TeamCapacityReader` precedent, Increment 1c).
  *
  * @lore AU19 Increment 1b: this is the real cut-over — `work-service.ts` +
  * `bet-decomposition(-subscriber)`/`bet-kill-cascade`/`bet-state-machine`/
@@ -69,6 +76,8 @@ export type {
 	StateTransitionAuditEntry,
 	TaskAuditEntry,
 } from "./task-audit.js";
+// -- task planning signals (O2 extension table: riskTier) --
+export { getTaskRiskTierByTaskId } from "./task-planning-signals.js";
 
 // -- task state machine --
 export type { TaskStateMachineDeps } from "./task-state-machine.js";

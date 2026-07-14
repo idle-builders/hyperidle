@@ -1177,12 +1177,6 @@ export default [
 							name: "@hyperidle/strategy-minimal",
 							message: "AU3: production boot has no Strategy package dependency.",
 						},
-						{
-							name: "@hyperidle/db",
-							importNames: ["knowledgeStrategyFabric", "taskStrategyFabric"],
-							message:
-								"AU3: production code must import app-owned projection aliases, not Fabric-named table exports.",
-						},
 					],
 					patterns: [
 						{

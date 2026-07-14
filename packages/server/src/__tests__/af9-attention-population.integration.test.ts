@@ -18,9 +18,9 @@
 
 import {
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	teamMembers,
 	teams,
 	users,
@@ -112,7 +112,7 @@ async function seedCandidates(db: HyperIdleDb, prefix: string): Promise<string[]
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
 		});
-		await db.insert(knowledgeStrategyFabric).values({
+		await db.insert(knowledgeAppProjection).values({
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
 			layer: "L3",
@@ -139,9 +139,9 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 		// Sanity: all attentionScores start null.
 		for (const id of ids) {
 			const [row] = await db
-				.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+				.select({ attentionScore: knowledgeAppProjection.attentionScore })
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 			expect(row?.attentionScore).toBeNull();
 		}
 
@@ -154,9 +154,9 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 		let populatedCount = 0;
 		for (const id of ids) {
 			const [fabric] = await db
-				.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+				.select({ attentionScore: knowledgeAppProjection.attentionScore })
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 			if (fabric?.attentionScore != null) populatedCount++;
 		}
 
@@ -193,14 +193,14 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 
 		// Retrieve scores.
 		const [conflictedFabric] = await db
-			.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, conflictedId));
+			.select({ attentionScore: knowledgeAppProjection.attentionScore })
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, conflictedId));
 
 		const [cleanFabric] = await db
-			.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, cleanId));
+			.select({ attentionScore: knowledgeAppProjection.attentionScore })
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, cleanId));
 
 		// Both scores must be populated (not null).
 		expect(conflictedFabric?.attentionScore).not.toBeNull();
@@ -242,9 +242,9 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 		const scores: number[] = [];
 		for (const id of ids) {
 			const [row] = await db
-				.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+				.select({ attentionScore: knowledgeAppProjection.attentionScore })
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 			if (row?.attentionScore != null) {
 				scores.push(Number(row.attentionScore));
 			}
@@ -283,15 +283,15 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 
 		// Retrieve scores for the conflicted item and the first clean item.
 		const [conflictedFabric] = await db
-			.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, conflictedId));
+			.select({ attentionScore: knowledgeAppProjection.attentionScore })
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, conflictedId));
 
 		const cleanId = ids[0]!; // no conflict seeded for ids[0]
 		const [cleanFabric] = await db
-			.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, cleanId));
+			.select({ attentionScore: knowledgeAppProjection.attentionScore })
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, cleanId));
 
 		expect(conflictedFabric?.attentionScore).not.toBeNull();
 		expect(cleanFabric?.attentionScore).not.toBeNull();

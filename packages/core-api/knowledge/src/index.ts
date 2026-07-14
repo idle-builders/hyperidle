@@ -3,7 +3,7 @@
  *
  * Typed functions only. This barrel MUST NOT re-export the raw `knowledgeItems`
  * (or `knowledgeEditLog`/`knowledgeAccessLog`/`knowledgeConflicts`/
- * `knowledgeStrategyFabric`) pgTable object — that would let a consumer obtain
+ * `knowledgeAppProjection`) pgTable object — that would let a consumer obtain
  * a table transitively and defeat Table ACL (Mechanism A). Consumers get
  * typed functions; the tables stay private to this Service.
  *

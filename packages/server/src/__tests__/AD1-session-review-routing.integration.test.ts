@@ -20,7 +20,7 @@ import {
 	orgEdges,
 	sessions,
 	type TestDbHandle,
-	taskStrategyFabric,
+	taskPlanningSignals,
 	tasks,
 	teamMembers,
 	teams,
@@ -32,7 +32,7 @@ import { registerSessionReviewCreator, type SessionReviewCreatorDeps } from "@hy
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { getUserById, listUsersByKind } from "@hyperidle/users";
-import { createItem, getTaskById, updateTaskById } from "@hyperidle/work";
+import { createItem, getTaskById, getTaskRiskTierByTaskId, updateTaskById } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -40,12 +40,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * `work`/`conversation`/`users`/`org` ports (Mechanism C — `review` never
  * imports another Service). This test builds the exact same production
  * wiring `server-factory.ts` uses — no behavior change.
+ *
+ * @lore AU19 Increment 1k: `taskRiskTier` ADDED — wired to `work`'s real
+ * `getTaskRiskTierByTaskId`, replacing the direct `taskStrategyFabric` table
+ * seed/query this test used before AU3's half-done rename was finished.
  */
 const reviewDeps: SessionReviewCreatorDeps = {
 	work: { getTaskById, updateTaskById, createItem },
 	conversation: { insertThread, getThreadById, updateThread },
 	users: { getUserById, listUsersByKind },
 	org: { resolveReviewRecipients },
+	taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
 };
 
 const NOW = new Date().toISOString();
@@ -144,7 +149,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				updatedAt: NOW,
 			});
 			await db
-				.insert(taskStrategyFabric)
+				.insert(taskPlanningSignals)
 				.values({ id: "tsf-src-high", taskId: "task-src-high", riskTier: "high" });
 			await db.insert(sessions).values({
 				id: "session-src-high",
@@ -225,7 +230,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				updatedAt: NOW,
 			});
 			await db
-				.insert(taskStrategyFabric)
+				.insert(taskPlanningSignals)
 				.values({ id: "tsf-fallback", taskId: "task-fallback", riskTier: "medium" });
 			await db.insert(sessions).values({
 				id: "session-fallback",
@@ -295,7 +300,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				updatedAt: NOW,
 			});
 			await db
-				.insert(taskStrategyFabric)
+				.insert(taskPlanningSignals)
 				.values({ id: "tsf-sort", taskId: "task-sort", riskTier: "high" });
 			await db.insert(sessions).values({
 				id: "session-sort",

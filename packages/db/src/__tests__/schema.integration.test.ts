@@ -442,7 +442,7 @@ describe("A2: Database Schema", () => {
 		});
 
 		test("inserts and reads knowledge_items", async ({ db }) => {
-			// @lore O2: layer, kind stripped from kernel table; use knowledgeStrategyFabric.
+			// @lore O2: layer, kind stripped from kernel table; use knowledgeAppProjection.
 			const now = new Date().toISOString();
 			await db.insert(knowledgeItems).values({
 				id: "ki-1",
@@ -541,7 +541,7 @@ describe("A2: Database Schema", () => {
 	describe("AC3: knowledge_items indexes", () => {
 		test("has indexes on topic, status (kernel table)", async ({ db }) => {
 			// @lore O2: layer, scope_id, kind indexes removed from kernel table.
-			// They now live on knowledge_strategy_fabric.
+			// They now live on knowledge_app_projection.
 			const result = await db.execute(
 				`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_items' AND schemaname = 'public'` as Parameters<
 					typeof db.execute
@@ -555,10 +555,10 @@ describe("A2: Database Schema", () => {
 			expect(indexes.length).toBeGreaterThanOrEqual(3);
 		});
 
-		test("knowledge_strategy_fabric has index on knowledge_item_id", async ({ db }) => {
+		test("knowledge_app_projection has index on knowledge_item_id", async ({ db }) => {
 			// @lore O2: strategy-layer indexes live on the extension table.
 			const result = await db.execute(
-				`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_strategy_fabric' AND schemaname = 'public'` as Parameters<
+				`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_app_projection' AND schemaname = 'public'` as Parameters<
 					typeof db.execute
 				>[0],
 			);

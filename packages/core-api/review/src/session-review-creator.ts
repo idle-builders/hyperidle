@@ -1,4 +1,4 @@
-import { type HyperIdleDb, sessions, taskStrategyFabric } from "@hyperidle/db";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type {
@@ -6,6 +6,7 @@ import type {
 	ReviewOrgRouting,
 	ReviewUserDirectory,
 	ReviewWorkStore,
+	TaskRiskTierReader,
 } from "./ports.js";
 
 /**
@@ -17,6 +18,12 @@ import type {
  * already-migrated real packages — ordinary same-layer core-api→core-api
  * edges, wired directly at the production call site (`server-factory.ts`)
  * to the real exported functions (no interim indirection needed).
+ *
+ * @lore AU19 Increment 1k: `taskRiskTier` ADDED — replaces the direct
+ * legacy-named extension-table import this file used before AU3's half-done
+ * Strategy-vocabulary rename was finished. `work` owns `task_planning_signals`
+ * (see `ports.ts`'s `TaskRiskTierReader` doc for the ownership call and the
+ * full rename history).
  */
 export interface SessionReviewCreatorDeps {
 	readonly work: Pick<ReviewWorkStore, "getTaskById" | "updateTaskById" | "createItem">;
@@ -26,6 +33,7 @@ export interface SessionReviewCreatorDeps {
 	>;
 	readonly users: Pick<ReviewUserDirectory, "getUserById" | "listUsersByKind">;
 	readonly org: ReviewOrgRouting;
+	readonly taskRiskTier: TaskRiskTierReader;
 }
 
 /**
@@ -53,14 +61,10 @@ export function registerSessionReviewCreator(
 			const task = await deps.work.getTaskById(db, session.taskId);
 			if (!task) return;
 
-			// @lore O2: riskTier moved from tasks to taskStrategyFabric extension table.
+			// @lore O2: riskTier moved from tasks to taskPlanningSignals extension
+			// table (owned by `work` — read via the TaskRiskTierReader DI port).
 			// Only create review items for medium/high risk.
-			const [fabricRow] = await db
-				.select()
-				.from(taskStrategyFabric)
-				.where(eq(taskStrategyFabric.taskId, session.taskId))
-				.limit(1);
-			const riskTier = fabricRow?.riskTier ?? null;
+			const riskTier = await deps.taskRiskTier.getRiskTierByTaskId(db, session.taskId);
 			if (riskTier !== "medium" && riskTier !== "high") return;
 
 			// Create or use existing thread

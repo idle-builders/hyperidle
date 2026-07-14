@@ -5,7 +5,7 @@
  * the O2 implementation is complete. That is the point — red phase.
  *
  * Acceptance Criteria covered:
- * 1. Extension tables (knowledge_strategy_fabric, task_strategy_fabric) created
+ * 1. Extension tables (knowledge_app_projection, task_planning_signals) created
  * 2. Kernel table columns stripped (knowledgeItems, tasks, sessions, items, artifacts)
  * 3. Knowledge route URL shape changed (/:layer/... → /:id or /)
  * 4. Route purity: no routeToFounder/routeItem/createRelevanceService inline calls
@@ -34,29 +34,29 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("1. Extension tables exist with correct structure", () => {
-		test("knowledge_strategy_fabric table exists in the database", async ({ db }) => {
+		test("knowledge_app_projection table exists in the database", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// If the table doesn't exist this will throw
 			await expect(
-				db.execute(sql.raw("SELECT id FROM knowledge_strategy_fabric LIMIT 1")),
+				db.execute(sql.raw("SELECT id FROM knowledge_app_projection LIMIT 1")),
 			).resolves.toBeDefined();
 			vi.unstubAllEnvs();
 		});
 
-		test("task_strategy_fabric table exists in the database", async ({ db }) => {
+		test("task_planning_signals table exists in the database", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await expect(
-				db.execute(sql.raw("SELECT id FROM task_strategy_fabric LIMIT 1")),
+				db.execute(sql.raw("SELECT id FROM task_planning_signals LIMIT 1")),
 			).resolves.toBeDefined();
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledge_strategy_fabric has FK to knowledge_items with cascade delete", async ({
+		test("knowledge_app_projection has FK to knowledge_items with cascade delete", async ({
 			db,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_strategy_fabric"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_app_projection"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).toContain("id");
@@ -64,10 +64,10 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("task_strategy_fabric has FK to tasks with cascade delete", async ({ db }) => {
+		test("task_planning_signals has FK to tasks with cascade delete", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_strategy_fabric"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_planning_signals"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).toContain("id");
@@ -75,22 +75,22 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledge_strategy_fabric does NOT have a strategy discriminator column", async ({
+		test("knowledge_app_projection does NOT have a strategy discriminator column", async ({
 			db,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_strategy_fabric"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_app_projection"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("strategy");
 			vi.unstubAllEnvs();
 		});
 
-		test("task_strategy_fabric does NOT have a strategy discriminator column", async ({ db }) => {
+		test("task_planning_signals does NOT have a strategy discriminator column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_strategy_fabric"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_planning_signals"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("strategy");
@@ -892,7 +892,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("10. Extension table FK cascade delete", () => {
-		test("deleting a knowledge item cascades to knowledge_strategy_fabric rows", async ({ db }) => {
+		test("deleting a knowledge item cascades to knowledge_app_projection rows", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const itemId = crypto.randomUUID();
 			const now = new Date().toISOString();
@@ -908,13 +908,13 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const extId = crypto.randomUUID();
 			await db.execute(
 				sql.raw(
-					`INSERT INTO knowledge_strategy_fabric (id, knowledge_item_id) VALUES ('${extId}', '${itemId}')`,
+					`INSERT INTO knowledge_app_projection (id, knowledge_item_id) VALUES ('${extId}', '${itemId}')`,
 				),
 			);
 
 			// Verify extension row exists
 			const beforeResult = await db.execute(
-				sql.raw(`SELECT id FROM knowledge_strategy_fabric WHERE knowledge_item_id = '${itemId}'`),
+				sql.raw(`SELECT id FROM knowledge_app_projection WHERE knowledge_item_id = '${itemId}'`),
 			);
 			const before = (beforeResult as { rows: Array<{ id: string }> }).rows;
 			expect(before).toHaveLength(1);
@@ -924,14 +924,14 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 
 			// Extension row should be gone (CASCADE DELETE)
 			const afterResult = await db.execute(
-				sql.raw(`SELECT id FROM knowledge_strategy_fabric WHERE knowledge_item_id = '${itemId}'`),
+				sql.raw(`SELECT id FROM knowledge_app_projection WHERE knowledge_item_id = '${itemId}'`),
 			);
 			const after = (afterResult as { rows: Array<{ id: string }> }).rows;
 			expect(after).toHaveLength(0);
 			vi.unstubAllEnvs();
 		});
 
-		test("deleting a task cascades to task_strategy_fabric rows", async ({ db }) => {
+		test("deleting a task cascades to task_planning_signals rows", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const now = new Date().toISOString();
 
@@ -963,12 +963,12 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			// Insert extension row — table must exist with FK cascade
 			const extId = crypto.randomUUID();
 			await db.execute(
-				sql.raw(`INSERT INTO task_strategy_fabric (id, task_id) VALUES ('${extId}', '${taskId}')`),
+				sql.raw(`INSERT INTO task_planning_signals (id, task_id) VALUES ('${extId}', '${taskId}')`),
 			);
 
 			// Verify extension row exists
 			const beforeResult = await db.execute(
-				sql.raw(`SELECT id FROM task_strategy_fabric WHERE task_id = '${taskId}'`),
+				sql.raw(`SELECT id FROM task_planning_signals WHERE task_id = '${taskId}'`),
 			);
 			const before = (beforeResult as { rows: Array<{ id: string }> }).rows;
 			expect(before).toHaveLength(1);
@@ -977,7 +977,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			await db.execute(sql.raw(`DELETE FROM tasks WHERE id = '${taskId}'`));
 
 			const afterResult = await db.execute(
-				sql.raw(`SELECT id FROM task_strategy_fabric WHERE task_id = '${taskId}'`),
+				sql.raw(`SELECT id FROM task_planning_signals WHERE task_id = '${taskId}'`),
 			);
 			const after = (afterResult as { rows: Array<{ id: string }> }).rows;
 			expect(after).toHaveLength(0);

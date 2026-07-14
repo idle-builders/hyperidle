@@ -16,6 +16,16 @@ const SOURCE_ROOTS = [
 	"packages/api-contract/src",
 	"packages/web/src",
 	"packages/design-system/src",
+	// AU19 Increment 1k: extended to cover every migrated Layer — this guard
+	// was blind to `packages/core-api/**` since Inc 0 (the exact gap that let
+	// `knowledge`'s and `review`'s legacy `taskStrategyFabric`/
+	// `knowledgeStrategyFabric` production imports evade it silently).
+	// `packages/agent-orchestration`/`packages/agent-execution` are included
+	// pre-emptively so a future Increment 3/4 migration is never blind here
+	// either.
+	"packages/core-api",
+	"packages/agent-orchestration",
+	"packages/agent-execution",
 ] as const;
 
 const MANIFESTS = [

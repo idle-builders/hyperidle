@@ -25,8 +25,8 @@
 import {
 	bets,
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	messages,
 	teamMembers,
 	teams,
@@ -167,7 +167,7 @@ async function seedKnowledgeItem(
 	});
 
 	if (opts.layer !== undefined || opts.kind !== undefined) {
-		await db.insert(knowledgeStrategyFabric).values({
+		await db.insert(knowledgeAppProjection).values({
 			id: `ksf-${opts.id}`,
 			knowledgeItemId: opts.id,
 			layer: opts.layer ?? null,

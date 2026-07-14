@@ -1,4 +1,4 @@
-import { type HyperIdleDb, items, knowledgeItems, knowledgeStrategyFabric } from "@hyperidle/db";
+import { type HyperIdleDb, items, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../test-fixtures.js";
@@ -23,7 +23,7 @@ async function seedKnowledgeItemWithScore(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(knowledgeStrategyFabric).values({
+	await db.insert(knowledgeAppProjection).values({
 		id: `ksf-${id}`,
 		knowledgeItemId: id,
 		layer: "L3",
@@ -66,11 +66,11 @@ describe("score_attention tool", () => {
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
-		// O2: attentionScore moved to knowledgeStrategyFabric extension table
+		// O2: attentionScore moved to knowledgeAppProjection extension table
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-1"));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, "ki-1"));
 		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.42, 5);
 	});
 
@@ -99,8 +99,8 @@ describe("score_attention tool", () => {
 		// But fabric row should exist with the score
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-2"));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, "ki-2"));
 		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.7, 5);
 	});
 
@@ -161,8 +161,8 @@ describe("score_attention tool", () => {
 		expect(result.success).toBe(true);
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, "ki-override"));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, "ki-override"));
 		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.42, 5);
 	});
 
@@ -178,7 +178,7 @@ describe("score_attention tool", () => {
 			mode: "recompute",
 		});
 		expect(result.success).toBe(true);
-		// O2: attentionScore in knowledgeStrategyFabric; recompute returns a result
+		// O2: attentionScore in knowledgeAppProjection; recompute returns a result
 		if (result.success) {
 			const data = result.data as { score: number };
 			expect(data.score).toBeGreaterThanOrEqual(0);

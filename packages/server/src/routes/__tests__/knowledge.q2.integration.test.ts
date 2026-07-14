@@ -16,9 +16,9 @@
 
 import {
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
@@ -698,8 +698,8 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		const id = await createItem(app, "factory", null);
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 		expect(fabricRow?.layer).toBe("L4");
 	});
 
@@ -708,8 +708,8 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		const id = await createItem(app, "product", "prod-1");
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 		expect(fabricRow?.layer).toBe("L2");
 	});
 
@@ -718,8 +718,8 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		const id = await createItem(app, "practice", "fe-practice");
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 		expect(fabricRow?.layer).toBe("L3");
 	});
 
@@ -728,8 +728,8 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		const id = await createItem(app, "task", "task-1");
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 		expect(fabricRow?.layer).toBe("L1");
 	});
 
@@ -738,8 +738,8 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		const id = await createItem(app, "bet", "bet-1");
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 		// bet has null layer — fabric row may not exist or has null layer
 		expect(fabricRow?.layer ?? null).toBeNull();
 	});
@@ -749,8 +749,8 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		const id = await createItem(app, "team", "team-1");
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 		expect(fabricRow?.layer ?? null).toBeNull();
 	});
 
@@ -759,8 +759,8 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		const id = await createItem(app, "user", null);
 		const [fabricRow] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, id));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 		expect(fabricRow?.layer ?? null).toBeNull();
 	});
 });
@@ -865,8 +865,8 @@ describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
 		// Verify no fabric layer initially (user → null)
 		const [beforeFabric] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, created.id));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, created.id));
 		expect(beforeFabric?.layer ?? null).toBeNull();
 
 		// Change scope to product
@@ -886,8 +886,8 @@ describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
 		// Verify fabric now has L2
 		const [afterFabric] = await db
 			.select()
-			.from(knowledgeStrategyFabric)
-			.where(eq(knowledgeStrategyFabric.knowledgeItemId, created.id));
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, created.id));
 		expect(afterFabric?.layer).toBe("L2");
 	});
 });

@@ -11,8 +11,8 @@ import {
 	bets,
 	filesystems,
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	tasks,
 	teamMembers,
 	teams,
@@ -52,7 +52,7 @@ async function createKnowledgeItem(
 		topic: null,
 	});
 	// Insert a minimal fabric row to satisfy joins in GET /:id
-	await db.insert(knowledgeStrategyFabric).values({
+	await db.insert(knowledgeAppProjection).values({
 		id: crypto.randomUUID(),
 		knowledgeItemId: id,
 		layer: null,
