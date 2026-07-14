@@ -1,8 +1,16 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import type { TaskState } from "@hyperidle/shared";
+import { getTaskById, listHoldTasksWithDependencyPattern, transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { describe, expect, test } from "../test-fixtures.js";
+
+// @lore AU19 Increment 2b: see dependency-watcher.integration.test.ts's top `@lore`.
+const depWatcherDeps = {
+	work: { listHoldTasksWithDependencyPattern, getTaskById, transitionTask },
+	workIntents: { record: recordAgentWorkIntent },
+};
 
 /**
  * I3 — dependency-watcher SQL filter & benchmark.
@@ -79,7 +87,7 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		}
 
 		const start = performance.now();
-		await checkAndUnblockDependents(db, eventBus, "target");
+		await checkAndUnblockDependents(db, eventBus, "target", depWatcherDeps);
 		const elapsedMs = performance.now() - start;
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
@@ -125,7 +133,9 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 			updatedAt: now,
 		});
 
-		await expect(checkAndUnblockDependents(db, eventBus, "target")).resolves.not.toThrow();
+		await expect(
+			checkAndUnblockDependents(db, eventBus, "target", depWatcherDeps),
+		).resolves.not.toThrow();
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		expect(dependent?.state).toBe("accepted");
 	});
@@ -143,7 +153,7 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 		await insertTask(db, "dep-12", "in_progress");
 		await insertTask(db, "dependent", "hold", ["dep-12"]);
 
-		await checkAndUnblockDependents(db, eventBus, "dep-1");
+		await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		// Must remain in hold — dep-12 is NOT done.
@@ -159,7 +169,7 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 		await insertTask(db, "dep-100", "in_progress");
 		await insertTask(db, "sibling", "hold", ["dep-100"]);
 
-		await checkAndUnblockDependents(db, eventBus, "dep-1");
+		await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
 
 		const [sibling] = await db.select().from(tasks).where(eq(tasks.id, "sibling"));
 		expect(sibling?.state).toBe("hold");

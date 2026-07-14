@@ -4,11 +4,17 @@
  * AC6: registry of adapters by (kind,source); v1 = worktree+clone+local-folder;
  *      cloud → explicit "not built", never silent.
  * AC1: selectMountAdapter is the only dispatcher; session-provisioning never branches on source.
+ *
+ * @lore AU19 Increment 2b: `gitRunnerFactory` in `makeDeps()` no longer uses
+ * `git-export-runner.ts`'s `createFakeGitRunner` (that Fake stays in
+ * `packages/server` — `git-export` hasn't migrated). `selectMountAdapter`
+ * never invokes it in this test (only `.id` / `.mount` / `.captureBack` on
+ * the CloudNotBuiltAdapter path are exercised), so a typed-but-unused stub
+ * is sufficient, same idiom as the existing `db: null as never`.
  */
 
 import type { Filesystem } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createFakeGitRunner } from "../../services/git-export-runner.js";
 import {
 	type AdapterDeps,
 	MalformedFilesystemError,
@@ -18,7 +24,7 @@ import {
 // Minimal AdapterDeps for unit testing.
 function makeDeps(): AdapterDeps {
 	return {
-		gitRunnerFactory: (_repoPath: string) => createFakeGitRunner(),
+		gitRunnerFactory: (_repoPath: string) => null as never, // never invoked by this test
 		capturesDir: "/tmp/captures",
 		db: null as never, // capture-store not exercised in unit tests
 	};

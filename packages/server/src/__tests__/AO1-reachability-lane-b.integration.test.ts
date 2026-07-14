@@ -25,12 +25,13 @@
 import * as crypto from "node:crypto";
 import { encryptCredentialValue, ServiceConnectionResolver } from "@hyperidle/connections";
 import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
-import { describe, expect, it } from "vitest";
 import {
 	probeGitRemote,
 	resolveFilesystemState,
 	ServiceConnectionResolverAdapter,
-} from "../services/filesystem-reachability.js";
+} from "@hyperidle/filesystems";
+import { describe, expect, it } from "vitest";
+import { createGitRunner } from "../services/git-export-runner.js";
 import { test } from "../test-fixtures.js";
 
 // ─── Skip guard ───────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 		async () => {
 			// LIVE PROOF: real GitHub token → real git ls-remote → exit 0 → reachable.
 			// This exercises the FULL auth path: token → base64 → GIT_CONFIG_* env → git.
-			const result = await probeGitRemote(GITHUB_REPO, PAT);
+			const result = await probeGitRemote(GITHUB_REPO, PAT, createGitRunner);
 			expect(result.state).toBe("reachable");
 		},
 		35_000,
@@ -71,7 +72,11 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 		async () => {
 			// LIVE PROOF: invalid token → git ls-remote exits non-zero → needs_attention.
 			// The auth injection mechanism is exercised; the token is wrong so forge rejects.
-			const result = await probeGitRemote(GITHUB_REPO, "ghp_garbage_token_not_real_at_all_0000");
+			const result = await probeGitRemote(
+				GITHUB_REPO,
+				"ghp_garbage_token_not_real_at_all_0000",
+				createGitRunner,
+			);
 			expect(result.state).toBe("needs_attention");
 		},
 		35_000,
@@ -143,7 +148,7 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 					state: "attached",
 					createdAt: NOW,
 				},
-				{ authResolver: adapter },
+				{ authResolver: adapter, gitRunnerFactory: createGitRunner },
 			);
 			expect(state).toBe("reachable"); // LIVE: git ls-remote with real token → exit 0
 
@@ -162,7 +167,7 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 					state: "attached",
 					createdAt: NOW,
 				},
-				{ authResolver: crossUserAdapter },
+				{ authResolver: crossUserAdapter, gitRunnerFactory: createGitRunner },
 			);
 			expect(crossState).toBe("needs_attention"); // AN1 AC5: cross-user → null → no auth → non-zero exit
 		},

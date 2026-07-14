@@ -4,9 +4,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { ServiceConnectionResolver } from "@hyperidle/connections";
 import type { FilesystemAuth, FilesystemAuthResolver, FilesystemState } from "@hyperidle/shared";
-import { createGitRunner } from "./git-export-runner.js";
+import type { FilesystemsGitRunnerFactory, FilesystemsServiceConnectionResolver } from "./ports.js";
 
 // ─── NoopAuthResolver ────────────────────────────────────────────────────────
 
@@ -50,10 +49,16 @@ export class NoopAuthResolver implements FilesystemAuthResolver {
  * @lore AO1 v2: serviceConnections.service is a free-form display name
  * ("GitHub", "github.com", etc.) — we lowercase+strip whitespace for source
  * derivation, not a guarantee of exact mapping.
+ *
+ * @lore AU19 Increment 2b: `resolver` is typed off this Service's own
+ * `FilesystemsServiceConnectionResolver` port (`ports.ts`), not an imported
+ * `@hyperidle/connections` type — `connections` is a real migrated package,
+ * so the composition root (`packages/server`) passes its real
+ * `ServiceConnectionResolver` instance unchanged (structural match).
  */
 export class ServiceConnectionResolverAdapter implements FilesystemAuthResolver {
 	constructor(
-		private readonly resolver: ServiceConnectionResolver,
+		private readonly resolver: FilesystemsServiceConnectionResolver,
 		private readonly userId: string,
 	) {}
 
@@ -146,12 +151,22 @@ export function probeLocalPath(targetPath: string): Promise<ProbeResult> {
  * @lore AO1 v2: Token injected via GIT_CONFIG_KEY_0 =
  * "http.<host>/.extraHeader", GIT_CONFIG_VALUE_0 = "Authorization: Basic <b64>".
  * This is the ONLY safe env-injection path — invisible to ps, stripped from env inheritance.
+ *
+ * @lore AU19 Increment 2b: `gitRunnerFactory` is now a REQUIRED injected param
+ * (this Service's own `FilesystemsGitRunnerFactory` port, `ports.ts`) instead
+ * of an internal `createGitRunner(scratchCwd)` call — `git-export` hasn't
+ * migrated yet (forward-reference, closed when it does; see `ports.ts`'s
+ * top `@lore`).
  */
-export async function probeGitRemote(url: string, token?: string | null): Promise<ProbeResult> {
+export async function probeGitRemote(
+	url: string,
+	token: string | null | undefined,
+	gitRunnerFactory: FilesystemsGitRunnerFactory,
+): Promise<ProbeResult> {
 	// ls-remote only needs a scratch cwd — use the OS temp dir.
 	// We don't create or write any files; the dir just satisfies the spawn contract.
 	const scratchCwd = os.tmpdir();
-	const runner = createGitRunner(scratchCwd);
+	const runner = gitRunnerFactory(scratchCwd);
 
 	let tokenConfig: { key: string; value: string } | undefined;
 	if (token) {
@@ -223,10 +238,13 @@ export interface FilesystemReachabilityInput {
  * @lore AO1 v2: GDrive, Dropbox, S3 are explicitly DEFERRED. If a doc_set has a
  * connectionId pointing to one of these, it returns needs_attention with a clear reason.
  * NOT a stub — an honest deferral with the source documented.
+ *
+ * @lore AU19 Increment 2b: `deps.gitRunnerFactory` added (required) — see
+ * `probeGitRemote`'s `@lore` above.
  */
 export async function resolveFilesystemState(
 	row: FilesystemReachabilityInput,
-	deps: { authResolver: FilesystemAuthResolver },
+	deps: { authResolver: FilesystemAuthResolver; gitRunnerFactory: FilesystemsGitRunnerFactory },
 	opts?: { timeoutMs?: number },
 ): Promise<FilesystemState> {
 	// Read-only reference: nothing to auth, always reachable.
@@ -270,7 +288,10 @@ export async function resolveFilesystemState(
 		// resolveToken() and NoopAuthResolver returns null (→ ls-remote without auth).
 		const rawToken = await deps.authResolver.resolveToken(row.connectionId);
 
-		const result = await withTimeout(probeGitRemote(url, rawToken), opts?.timeoutMs ?? 30_000);
+		const result = await withTimeout(
+			probeGitRemote(url, rawToken, deps.gitRunnerFactory),
+			opts?.timeoutMs ?? 30_000,
+		);
 		return result.state;
 	}
 

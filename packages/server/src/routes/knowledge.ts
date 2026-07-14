@@ -21,14 +21,15 @@
  * The assignment is done inline (not via event) so the projection row is immediately
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
+
 import {
-	filesystems,
 	type HyperIdleDb,
 	knowledgeAccessLog,
 	// @lore U1: `teamMembers` is the agent membership group (formerly `teams`).
 	teamMembers,
 	teams,
 } from "@hyperidle/db";
+import { getFilesystemById } from "@hyperidle/filesystems";
 import {
 	archiveItem,
 	changeScope,
@@ -175,11 +176,7 @@ export async function resolveScopeName(
 		// For code kind: last path segment of repo (e.g. "owner/nimmly" → "nimmly").
 		// For doc_set kind: basename of folder (last non-empty path segment).
 		// On parse failure or empty result: fall back to a source label map, then "Filesystem".
-		const [row] = await db
-			.select({ source: filesystems.source, resourceRef: filesystems.resourceRef })
-			.from(filesystems)
-			.where(eq(filesystems.id, scopeId))
-			.limit(1);
+		const row = await getFilesystemById(db, scopeId);
 
 		if (!row) return scopeKindToLabel("filesystem");
 

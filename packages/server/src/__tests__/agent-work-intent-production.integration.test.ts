@@ -19,16 +19,27 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import { composeTailoredGrant } from "@hyperidle/review";
 import type { AgentSelectionDefaults, AgentWorkIntentRecorder } from "@hyperidle/work";
-import { insertProposedBetTasks } from "@hyperidle/work";
+import {
+	getTaskById,
+	insertProposedBetTasks,
+	listHoldTasksWithDependencyPattern,
+	transitionTask,
+} from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
 import { resolveDecompositionPlan } from "../services/agent-defaults/resolvers.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
-import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 import { checkAndFireRoutine } from "../services/routine-scheduler.js";
 import { enumerateTeamCandidates, selectOwner } from "../services/select-agent.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
+
+/** AU19 Increment 2b: `checkAndUnblockDependents` now requires an injected `{ work, workIntents }` deps bundle. */
+const depWatcherDeps = {
+	work: { listHoldTasksWithDependencyPattern, getTaskById, transitionTask },
+	workIntents: { record: recordAgentWorkIntent },
+};
 
 /** AU19 Increment 1b: `insertProposedBetTasks` now takes injected `agent-selection`/`session-requests` ports. */
 const agentSelection: AgentSelectionDefaults = {
@@ -370,7 +381,7 @@ describe("atomic production handoffs", () => {
 		});
 		await db.update(tasks).set({ state: "done" }).where(eq(tasks.id, "au9-production-task"));
 
-		await checkAndUnblockDependents(db, eventBus, "au9-production-task");
+		await checkAndUnblockDependents(db, eventBus, "au9-production-task", depWatcherDeps);
 
 		const [dependent] = await db
 			.select()

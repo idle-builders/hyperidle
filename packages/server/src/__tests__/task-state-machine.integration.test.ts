@@ -1,19 +1,30 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import type {
 	StateTransitionAuditEntry,
 	TaskAuditEntry,
 	TaskStateMachineDeps,
 } from "@hyperidle/work";
-import { InvalidTransitionError, transitionTask } from "@hyperidle/work";
+import {
+	getTaskById,
+	InvalidTransitionError,
+	listHoldTasksWithDependencyPattern,
+	transitionTask,
+} from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
-import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
 import { test } from "../test-fixtures.js";
 
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
 const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
+
+/** AU19 Increment 2b: `checkAndUnblockDependents` now requires an injected `{ work, workIntents }` deps bundle. */
+const depWatcherDeps = {
+	work: { listHoldTasksWithDependencyPattern, getTaskById, transitionTask },
+	workIntents: { record: recordAgentWorkIntent },
+};
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -322,7 +333,7 @@ describe("Task State Machine", () => {
 			// Complete task A through valid path
 			await transitionTask(db, eventBus, "task-a", "review", testDeps);
 			await transitionTask(db, eventBus, "task-a", "done", testDeps);
-			await checkAndUnblockDependents(db, eventBus, "task-a");
+			await checkAndUnblockDependents(db, eventBus, "task-a", depWatcherDeps);
 
 			const [taskB] = await db.select().from(tasks).where(eq(tasks.id, "task-b"));
 			expect(taskB?.state).toBe("accepted");
@@ -340,7 +351,7 @@ describe("Task State Machine", () => {
 			// Complete A
 			await transitionTask(db, eventBus, "task-a", "review", testDeps);
 			await transitionTask(db, eventBus, "task-a", "done", testDeps);
-			await checkAndUnblockDependents(db, eventBus, "task-a");
+			await checkAndUnblockDependents(db, eventBus, "task-a", depWatcherDeps);
 
 			let [taskC] = await db.select().from(tasks).where(eq(tasks.id, "task-c"));
 			expect(taskC?.state).toBe("hold");
@@ -348,7 +359,7 @@ describe("Task State Machine", () => {
 			// Complete B
 			await transitionTask(db, eventBus, "task-b", "review", testDeps);
 			await transitionTask(db, eventBus, "task-b", "done", testDeps);
-			await checkAndUnblockDependents(db, eventBus, "task-b");
+			await checkAndUnblockDependents(db, eventBus, "task-b", depWatcherDeps);
 
 			[taskC] = await db.select().from(tasks).where(eq(tasks.id, "task-c"));
 			expect(taskC?.state).toBe("accepted");
@@ -363,7 +374,7 @@ describe("Task State Machine", () => {
 			eventBus.on("notification", (e) => notifications.push(e));
 
 			await transitionTask(db, eventBus, "task-a", "done", testDeps);
-			await checkAndUnblockDependents(db, eventBus, "task-a");
+			await checkAndUnblockDependents(db, eventBus, "task-a", depWatcherDeps);
 
 			expect(notifications).toHaveLength(1);
 			expect(notifications[0]!.targetId).toBe("task-b");

@@ -31,6 +31,7 @@ import {
 	resolveProfile,
 	serviceConnections,
 } from "@hyperidle/db";
+import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { registerRelevanceListener, setupFts } from "@hyperidle/knowledge";
 import {
 	type AlertPreferences,
@@ -90,7 +91,6 @@ import {
 import { eq } from "drizzle-orm";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
-import { RegistryFilesystemMounter } from "./filesystem/mounter-registry.js";
 import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
 import { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
 import { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";

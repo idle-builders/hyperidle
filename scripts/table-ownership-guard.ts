@@ -136,6 +136,18 @@ const TABLE_OWNER: Record<string, string> = {
 	// `sessions`, which stay direct `@hyperidle/db` reads because both are
 	// already in `UNOWNED_SHARED_TABLES` below (genuinely multi-owner-touched,
 	// confirmed still true after this migration — no new row added here).
+	// AU19 Increment 2b: `filesystems` migrated — its `⛁*` ownership question
+	// resolves to THREE owned tables (contrast `policy`'s zero): `filesystems`/
+	// `filesystemInjections` (the registry CRUD, previously inline in
+	// `routes/filesystems.ts` — never a seed file, a §4 gap not a new edge;
+	// now `filesystem-registry.ts`) and `filesystemCaptures` (already
+	// `capture-store.ts`'s sole concern). Every foreign consumer
+	// (`routes/filesystems.ts`, `routes/knowledge.ts`,
+	// `services/session-provisioning.ts`) now calls the real exported
+	// registry functions instead of querying the tables raw.
+	filesystems: "packages/core-api/filesystems",
+	filesystemInjections: "packages/core-api/filesystems",
+	filesystemCaptures: "packages/core-api/filesystems",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

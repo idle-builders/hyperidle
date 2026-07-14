@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { filesystemInjections, filesystems, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import { listFilesystemIdsByAgent, listFilesystemsByIds } from "@hyperidle/filesystems";
 import * as routineService from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
 import {
@@ -34,7 +35,7 @@ import { getFirstUserByKind, getUserById } from "@hyperidle/users";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
 import { transitionTask } from "@hyperidle/work";
-import { and, inArray as drizzleInArray, eq, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { AdapterPool, SelectedEntry } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import { writeCliMcpConfig } from "../harness/cli-mcp-config.js";
@@ -72,6 +73,7 @@ import {
 	type SessionContext,
 } from "./session-lifecycle.js";
 import { sessionRunRegistry } from "./session-run-registry.js";
+import { processWriteback } from "./writeback.js";
 
 // @lore X3: validateSystemPromptPath and SYSTEM_PROMPT_DIR_RELATIVE removed.
 // The path traversal attack surface is eliminated by X3 — system prompts are now
@@ -270,6 +272,11 @@ export const EMITTED_ROOTS_MCP_JSON = [".mcp.json"] as const;
  * @lore AO2 §9: Mount BEFORE context assembly so .git/info/exclude is written before
  * assembly drops scaffolding into the directory. A filesystem-less session → empty list,
  * no mounts, no capture rows — purely non-breaking for existing sessions.
+ *
+ * @lore AU19 Increment 2b: `filesystems`/`filesystem_injections` raw table
+ * reads converted to `@hyperidle/filesystems`' real registry functions
+ * (`filesystem-registry.ts`) — `filesystems` is now the confirmed real
+ * `TABLE_OWNER` for both tables (§14 `⛁*` resolution).
  */
 export async function mountFilesystemsForAgent(
 	db: HyperIdleDb,
@@ -278,15 +285,11 @@ export async function mountFilesystemsForAgent(
 	mounter: FilesystemMounter,
 ): Promise<Filesystem[]> {
 	// Resolve injected filesystems: sessions.agentId → filesystem_injections → filesystems.
-	const injections = await db
-		.select({ filesystemId: filesystemInjections.filesystemId })
-		.from(filesystemInjections)
-		.where(eq(filesystemInjections.agentUserId, agentId));
+	const fsIds = await listFilesystemIdsByAgent(db, agentId);
 
-	if (injections.length === 0) return [];
+	if (fsIds.length === 0) return [];
 
-	const fsIds = injections.map((i) => i.filesystemId);
-	const rows = await db.select().from(filesystems).where(drizzleInArray(filesystems.id, fsIds));
+	const rows = await listFilesystemsByIds(db, fsIds);
 
 	if (rows.length === 0) return [];
 
@@ -921,6 +924,11 @@ export async function admitSession(
 			sandboxPath,
 			sessionId,
 			manifestPath,
+			// AU19 Increment 2b: `@hyperidle/filesystems`' interim
+			// `FilesystemsWritebackProcessor` port — wired to this package's own
+			// `processWriteback` (still `packages/server`-only; `capture-writeback`
+			// hasn't migrated, Increment 3).
+			writeback: { process: processWriteback },
 		});
 	} catch (err) {
 		const reason = `provisioning failed: ${err instanceof Error ? err.message : String(err)}`;

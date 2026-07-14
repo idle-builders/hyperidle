@@ -34,6 +34,7 @@
 		"@hyperidle/connections": "*",
 		"@hyperidle/conversation": "*",
 		"@hyperidle/db": "*",
+		"@hyperidle/filesystems": "*",
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/notifications": "*",
 		"@hyperidle/org": "*",

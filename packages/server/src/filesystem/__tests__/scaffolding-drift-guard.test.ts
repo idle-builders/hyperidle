@@ -14,8 +14,19 @@
  * @lore AO2 C2 round-2: ALL harness provisioners must be enumerated — not just
  * Claude. Codex (.codex, .codex-home) and OpenCode (.opencode) were the gap in
  * the original drift-guard spec.
+ *
+ * @lore AU19 Increment 2b: `SANDBOX_SCAFFOLDING_PATHS` (the constant under
+ * test) moved to `@hyperidle/filesystems`, but this test itself STAYS here —
+ * its other four writer surfaces (`context-assembly.ts`,
+ * `context-assembly-prompt.ts`, `session-provisioning.ts`, `harness/*`) are
+ * all still `packages/server`-only (destined for `context-assembly`/
+ * `run-orchestration`/`agent-execution` in later increments), and a core-api
+ * package can never import from `packages/server` (wrong dependency
+ * direction). This cross-cutting guard can only compose at the
+ * `packages/server` level until every writer it covers has migrated.
  */
 
+import { SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
 import { describe, expect, it } from "vitest";
 import { EMITTED_ROOTS_CLI_MCP_CONFIG } from "../../harness/cli-mcp-config.js";
 import {
@@ -27,9 +38,6 @@ import { EMITTED_ROOTS_CONTEXT_ASSEMBLY } from "../../services/context-assembly.
 // ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
 import { EMITTED_ROOTS_AGENTS_MD } from "../../services/context-assembly-prompt.js";
 import { EMITTED_ROOTS_MCP_JSON } from "../../services/session-provisioning.js";
-
-// ── Import the constant under test ───────────────────────────────────────────
-import { SANDBOX_SCAFFOLDING_PATHS } from "../scaffolding-paths.js";
 
 // ── Coverage helper ───────────────────────────────────────────────────────────
 
@@ -55,7 +63,7 @@ function assertAllCovered(writerName: string, emittedRoots: readonly string[]): 
 		if (!covered) {
 			throw new Error(
 				`DRIFT: ${writerName} emits '${root}' which is NOT covered by SANDBOX_SCAFFOLDING_PATHS.\n` +
-					`Add '${root}' (or its parent root) to packages/server/src/filesystem/scaffolding-paths.ts`,
+					`Add '${root}' (or its parent root) to packages/core-api/filesystems/src/scaffolding-paths.ts`,
 			);
 		}
 	}

@@ -1,8 +1,22 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
+import { getTaskById, listHoldTasksWithDependencyPattern, transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { describe, expect, test } from "../test-fixtures.js";
+
+/**
+ * @lore AU19 Increment 2b: `checkAndUnblockDependents` now requires an
+ * injected `{ work, workIntents }` deps bundle (`@hyperidle/filesystems`'
+ * `FilesystemsWorkStore`/`FilesystemsAgentWorkIntentRecorder` ports) — wired
+ * here to `@hyperidle/work`'s real exports + the still-unmigrated
+ * `recordAgentWorkIntent` (same wiring as `app.ts`'s composition root).
+ */
+const depWatcherDeps = {
+	work: { listHoldTasksWithDependencyPattern, getTaskById, transitionTask },
+	workIntents: { record: recordAgentWorkIntent },
+};
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -47,7 +61,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("accepted");
@@ -58,7 +72,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "in_progress", ["dep-1"]);
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("in_progress");
@@ -68,7 +82,7 @@ describe("Dependency Watcher", () => {
 			await seedPrerequisites(db);
 			await insertTask(db, "standalone", "done");
 			// Should not throw
-			await checkAndUnblockDependents(db, eventBus, "standalone");
+			await checkAndUnblockDependents(db, eventBus, "standalone", depWatcherDeps);
 		});
 	});
 
@@ -79,7 +93,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dep-2", "in_progress");
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
@@ -91,7 +105,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dep-2", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
 
-			await checkAndUnblockDependents(db, eventBus, "dep-2");
+			await checkAndUnblockDependents(db, eventBus, "dep-2", depWatcherDeps);
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("accepted");
@@ -107,7 +121,7 @@ describe("Dependency Watcher", () => {
 			const notifications: NotificationEvent[] = [];
 			eventBus.on("notification", (e) => notifications.push(e));
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
 
 			expect(notifications).toHaveLength(1);
 			expect(notifications[0]!.targetId).toBe("dependent");
@@ -123,7 +137,7 @@ describe("Dependency Watcher", () => {
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
 
 			expect(events).toHaveLength(1);
 			expect(events[0]!.taskId).toBe("dependent");
@@ -140,7 +154,7 @@ describe("Dependency Watcher", () => {
 			const notifications: NotificationEvent[] = [];
 			eventBus.on("notification", (e) => notifications.push(e));
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
 
 			expect(notifications).toHaveLength(0);
 		});
@@ -163,7 +177,7 @@ describe("Dependency Watcher", () => {
 			// escape, the SQL LIKE pattern `%"any%id"%` would match the
 			// stored dependency `"anyREALLYid"`. With the escape it
 			// doesn't.
-			await checkAndUnblockDependents(db, eventBus, "any%id");
+			await checkAndUnblockDependents(db, eventBus, "any%id", depWatcherDeps);
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
@@ -179,7 +193,7 @@ describe("Dependency Watcher", () => {
 
 			// SQL `_` is single-char wildcard; without escape `dep_1` would
 			// match `depX1`. Escape forces literal.
-			await checkAndUnblockDependents(db, eventBus, "dep_1");
+			await checkAndUnblockDependents(db, eventBus, "dep_1", depWatcherDeps);
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
@@ -196,7 +210,7 @@ describe("Dependency Watcher", () => {
 			await insertTask(db, "dependent-a", "hold", ["dep-1"]);
 			await insertTask(db, "dependent-b", "hold", ["dep-1"]);
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1");
+			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
 
 			const [taskA] = await db.select().from(tasks).where(eq(tasks.id, "dependent-a"));
 			const [taskB] = await db.select().from(tasks).where(eq(tasks.id, "dependent-b"));

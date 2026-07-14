@@ -17,7 +17,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { MountResult } from "@hyperidle/shared";
-import type { GitConfigInjection } from "../services/git-export-runner.js";
 import type {
 	AdapterCaptureResult,
 	CaptureContext,
@@ -25,6 +24,7 @@ import type {
 	MountContext,
 } from "./mount-adapter.js";
 import type { AdapterDeps } from "./mounter-registry.js";
+import type { FilesystemsGitConfigInjection } from "./ports.js";
 import { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 
 export class GitCloneAdapter implements MountAdapter {
@@ -114,7 +114,7 @@ export class GitCloneAdapter implements MountAdapter {
 }
 
 /** Extract a GitConfigInjection from FilesystemAuth if present. */
-function resolveTokenConfig(auth: MountContext["auth"]): GitConfigInjection | undefined {
+function resolveTokenConfig(auth: MountContext["auth"]): FilesystemsGitConfigInjection | undefined {
 	if (!auth) return undefined;
 	const { provision } = auth;
 	if (provision.mode === "git-credential") {

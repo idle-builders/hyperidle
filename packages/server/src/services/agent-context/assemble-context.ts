@@ -1,6 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { FilesystemsWritebackProcessor } from "@hyperidle/filesystems";
+import { startWatcher } from "@hyperidle/filesystems";
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
@@ -8,7 +10,6 @@ import type {
 } from "@hyperidle/shared";
 import { assembleContext } from "../context-assembly.js";
 import type { IngestionHandle } from "../contracts.js";
-import { startWatcher } from "../file-watcher.js";
 
 export interface AssembleAgentContextInput {
 	readonly db: HyperIdleDb;
@@ -90,6 +91,14 @@ export function beginAgentWriteback(input: {
 	readonly sandboxPath: string;
 	readonly sessionId: string;
 	readonly manifestPath: string;
+	/**
+	 * `capture-writeback`'s batch writeback processor — injected DI port
+	 * (`@hyperidle/filesystems`' `FilesystemsWritebackProcessor`, AU19
+	 * Increment 2b, §10.3 against-grain). The caller wires it to
+	 * `services/writeback.ts`'s real `processWriteback` (still
+	 * `packages/server`-only — `capture-writeback` hasn't migrated yet).
+	 */
+	readonly writeback: FilesystemsWritebackProcessor;
 }): IngestionHandle & AgentWritebackHandle {
 	const watcher = startWatcher(input);
 	return {

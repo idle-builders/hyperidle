@@ -1,11 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { HyperIdleDb } from "@hyperidle/db";
-import type { WritebackChange } from "./writeback.js";
-import { getRelativePath, isWatchedPath, processWriteback } from "./writeback.js";
+import type { WriteExecutor } from "@hyperidle/db";
+import type { FilesystemsWritebackChange, FilesystemsWritebackProcessor } from "./ports.js";
 
 export interface FileWatcherConfig {
-	db: HyperIdleDb;
+	db: WriteExecutor;
 	/**
 	 * Absolute path to the agent's sandbox directory.
 	 * @lore AK1: Renamed per harness-vocab plan (AK1).
@@ -13,6 +12,13 @@ export interface FileWatcherConfig {
 	sandboxPath: string;
 	sessionId: string;
 	manifestPath: string;
+	/**
+	 * `capture-writeback`'s batch writeback processor (§10.3 against-grain —
+	 * see this package's `ports.ts` top `@lore` for the Increment-3 EventBus
+	 * rewire plan). Injected so the composition root (`packages/server`) can
+	 * pass its still-in-place `processWriteback` unchanged.
+	 */
+	writeback: FilesystemsWritebackProcessor;
 	debounceMs?: number;
 }
 
@@ -22,10 +28,31 @@ export interface FileWatcher {
 
 const DEFAULT_DEBOUNCE_MS = 500;
 
+/**
+ * Determine the relative path of a file within the sandbox.
+ *
+ * @lore AU19 Increment 2b: inlined from `capture-writeback`'s (future)
+ * `writeback.ts` — a pure, stateless path helper with zero dependency on
+ * `capture-writeback`'s own DB/knowledge state, so it is duplicated here
+ * rather than ported as a DI edge (see `ports.ts`'s top `@lore`).
+ */
+function getRelativePath(sandboxPath: string, fullPath: string): string {
+	return path.relative(sandboxPath, fullPath);
+}
+
+/**
+ * Check if a path is in a watched zone (knowledge/ or work/).
+ *
+ * @lore AU19 Increment 2b: inlined alongside `getRelativePath` — same reasoning.
+ */
+function isWatchedPath(relativePath: string): boolean {
+	return relativePath.startsWith("knowledge/") || relativePath.startsWith("work/");
+}
+
 /** Start watching a sandbox for file changes. */
 export function startWatcher(config: FileWatcherConfig): FileWatcher {
 	const debounceMs = config.debounceMs ?? DEFAULT_DEBOUNCE_MS;
-	const pendingChanges = new Map<string, WritebackChange>();
+	const pendingChanges = new Map<string, FilesystemsWritebackChange>();
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let stopped = false;
 	const watchers: fs.FSWatcher[] = [];
@@ -45,29 +72,31 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 		// removed (test cleanup, session end with sandbox reaper) before the
 		// debounce timer fires. Stop the watcher on ENOENT to prevent further
 		// flushes — the sandbox is gone and there is nothing left to flush.
-		processWriteback(
-			{
-				db: config.db,
-				sandboxPath: config.sandboxPath,
-				sessionId: config.sessionId,
-				manifestPath: config.manifestPath,
-			},
-			changes,
-		).catch((err: unknown) => {
-			if (err !== null && typeof err === "object" && "code" in err && err.code === "ENOENT") {
-				stopped = true;
-				if (debounceTimer) {
-					clearTimeout(debounceTimer);
-					debounceTimer = null;
+		config.writeback
+			.process(
+				{
+					db: config.db,
+					sandboxPath: config.sandboxPath,
+					sessionId: config.sessionId,
+					manifestPath: config.manifestPath,
+				},
+				changes,
+			)
+			.catch((err: unknown) => {
+				if (err !== null && typeof err === "object" && "code" in err && err.code === "ENOENT") {
+					stopped = true;
+					if (debounceTimer) {
+						clearTimeout(debounceTimer);
+						debounceTimer = null;
+					}
+					for (const watcher of watchers) {
+						watcher.close();
+					}
+					return;
 				}
-				for (const watcher of watchers) {
-					watcher.close();
-				}
-				return;
-			}
-			// Re-throw non-ENOENT errors as unhandled rejections
-			throw err;
-		});
+				// Re-throw non-ENOENT errors as unhandled rejections
+				throw err;
+			});
 	}
 
 	function scheduleFlush(): void {
@@ -90,7 +119,7 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 
 		if (!isWatchedPath(relativePath)) return;
 
-		let changeType: WritebackChange["type"];
+		let changeType: FilesystemsWritebackChange["type"];
 		if (fs.existsSync(fullPath)) {
 			const stat = fs.statSync(fullPath);
 			if (!stat.isFile()) return;

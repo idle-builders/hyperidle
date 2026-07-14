@@ -9,10 +9,9 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { type AdapterDeps, LocalFolderAdapter } from "@hyperidle/filesystems";
 import type { Filesystem } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { LocalFolderAdapter } from "../local-folder-adapter.js";
-import type { AdapterDeps } from "../mounter-registry.js";
 
 function makeFs(folderPath: string): Filesystem {
 	return {

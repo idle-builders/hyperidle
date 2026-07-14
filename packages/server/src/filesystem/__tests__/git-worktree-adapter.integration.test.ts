@@ -10,11 +10,10 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { type AdapterDeps, GitWorktreeAdapter } from "@hyperidle/filesystems";
 import type { Filesystem } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createGitRunner } from "../../services/git-export-runner.js";
-import { GitWorktreeAdapter } from "../git-worktree-adapter.js";
-import type { AdapterDeps } from "../mounter-registry.js";
 
 async function createSourceRepo(parentDir: string): Promise<string> {
 	const repoDir = path.join(parentDir, "source-repo");

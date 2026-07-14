@@ -17,21 +17,32 @@
  *   LIVE — Lane A: hermetic git ls-remote (file://) + fs.access probes (no network, no secrets)
  *
  * Source of truth: plans/AO1/architecture.md §v2 (Reachability rework v2)
+ *
+ * @lore AU19 Increment 2b: `filesystem-reachability.ts` moved to
+ * `@hyperidle/filesystems`; imports repointed there. This test file itself
+ * STAYS in `packages/server` — `probeGitRemote`/`resolveFilesystemState` now
+ * take a REQUIRED `gitRunnerFactory` port (`FilesystemsGitRunnerFactory`),
+ * and the only real implementation (`createGitRunner`) still lives in
+ * `services/git-export-runner.ts` (`git-export` hasn't migrated yet — the
+ * very next Increment-2 item). Every real-git-spawning call site below wires
+ * it explicitly; when `git-export` migrates, its closing commit repoints
+ * this import (same "closing" idiom as `work`'s `UserStoreReader` → `users`).
  */
 
 import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
 	NoopAuthResolver,
 	probeGitRemote,
 	probeLocalPath,
 	repoToUrl,
 	resolveFilesystemState,
-} from "../services/filesystem-reachability.js";
+} from "@hyperidle/filesystems";
+import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createGitRunner } from "../services/git-export-runner.js";
 
 // ─── Lane A: Hermetic temp-repo setup ────────────────────────────────────────
 
@@ -85,7 +96,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver() },
+			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("reachable");
 	});
@@ -104,7 +115,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver() },
+			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("reachable");
 	});
@@ -122,7 +133,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver() },
+			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("needs_attention");
 	});
@@ -140,7 +151,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver() },
+			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("reachable");
 	});
@@ -158,7 +169,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver() },
+			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("needs_attention");
 	});
@@ -180,7 +191,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver() },
+			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("needs_attention");
 	});
@@ -213,7 +224,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: fakeResolver },
+			{ authResolver: fakeResolver, gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("reachable");
 	});
@@ -231,7 +242,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver() },
+			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("needs_attention");
 	});
@@ -268,7 +279,7 @@ describe("probeGitRemote — real git ls-remote probe (Lane A, hermetic, no netw
 	it("real file:// git repo → { reachable: true }", async () => {
 		// LIVE PROOF: real `git ls-remote file://<tempRepoDir>` → exit 0 → reachable
 		const url = `file://${tempRepoDir}`;
-		const result = await probeGitRemote(url);
+		const result = await probeGitRemote(url, undefined, createGitRunner);
 		expect(result.state).toBe("reachable");
 		expect(result.reason).toBeUndefined();
 	});
@@ -276,7 +287,7 @@ describe("probeGitRemote — real git ls-remote probe (Lane A, hermetic, no netw
 	it("non-existent file:// path → { reachable: false }", async () => {
 		// LIVE PROOF: real `git ls-remote file:///path/does/not/exist` → exit non-zero → needs_attention
 		const url = `file://${missingPath}`;
-		const result = await probeGitRemote(url);
+		const result = await probeGitRemote(url, undefined, createGitRunner);
 		expect(result.state).toBe("needs_attention");
 		expect(result.reason).toBeDefined();
 	});
@@ -286,7 +297,7 @@ describe("probeGitRemote — real git ls-remote probe (Lane A, hermetic, no netw
 		// GIT_TERMINAL_PROMPT=0 ensures it errors immediately without hanging.
 		// This tests the non-zero exit → needs_attention path without network.
 		const url = "https://localhost:9999/no-such-repo.git";
-		const result = await probeGitRemote(url);
+		const result = await probeGitRemote(url, undefined, createGitRunner);
 		expect(result.state).toBe("needs_attention");
 	}, 35_000); // allow up to git's connect timeout
 });

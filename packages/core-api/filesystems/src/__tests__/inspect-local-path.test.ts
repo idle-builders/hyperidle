@@ -2,34 +2,26 @@
  * AV1 — inspectLocalPath unit tests
  *
  * AC3: Folder registered as filesystem with detected branch.
- * Tests use createFakeGitRunner for injection (no real git).
+ * Tests use a fake FilesystemsGitRunner for injection (no real git).
  */
 
 import { describe, expect, it } from "vitest";
-import type { GitRunner } from "../services/git-export-runner.js";
-import { inspectLocalPath } from "../services/inspect-local-path.js";
+import { inspectLocalPath } from "../inspect-local-path.js";
+import type { FilesystemsGitRunner } from "../ports.js";
 
-function makeFakeRunner(isInsideWorkTree: boolean, branch: string | null): GitRunner {
+function makeFakeRunner(isInsideWorkTree: boolean, branch: string | null): FilesystemsGitRunner {
 	return {
-		async init() {},
 		async add() {},
-		async rm() {},
 		async commit() {
 			return "sha";
 		},
-		async push() {},
 		async diffCached() {
 			return true;
 		},
 		async revParseIsInsideWorkTree() {
 			return isInsideWorkTree;
 		},
-		async configSet() {},
-		async remoteAdd() {},
 		async lsFiles() {
-			return [];
-		},
-		async statusPorcelain() {
 			return [];
 		},
 		async lsRemote() {
@@ -39,8 +31,6 @@ function makeFakeRunner(isInsideWorkTree: boolean, branch: string | null): GitRu
 		async bundle() {},
 		async worktreeAdd() {},
 		async worktreeRemove() {},
-		async fetch() {},
-		async checkout() {},
 		async restoreStaged() {},
 		async currentBranch() {
 			return branch;

@@ -9,6 +9,7 @@ import {
 	upsertCredential,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import {
 	defaultNotificationAdapterFactory,
 	type NotificationAdapter,
@@ -24,7 +25,13 @@ import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { createUpgradeTokenStore, getUserById, type UpgradeTokenStore } from "@hyperidle/users";
-import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
+import {
+	getItemById,
+	getTaskById as getWorkTaskById,
+	listHoldTasksWithDependencyPattern,
+	listQueuedItemsSince,
+	transitionTask,
+} from "@hyperidle/work";
 import { Hono } from "hono";
 import type { AdapterPool } from "./harness/adapter-pool.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
@@ -69,8 +76,8 @@ import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
+import { recordAgentWorkIntent } from "./services/agent-work-intents.js";
 import { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
-import { checkAndUnblockDependents } from "./services/dependency-watcher.js";
 import {
 	type ObservabilityConfig,
 	readObservabilityConfig,
@@ -592,11 +599,21 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
 		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot
-		// import from server (layer violation). checkAndUnblockDependents is already
-		// in the server package so no cross-package dependency issue exists here.
+		// import from server (layer violation). checkAndUnblockDependents now lives
+		// in `@hyperidle/filesystems` (AU19 Increment 2b) — this app.ts call site is
+		// the composition root wiring its `work`/`workIntents` DI ports to
+		// `@hyperidle/work`'s real exports (`work` migrated Increment 1b) and the
+		// still-unmigrated `recordAgentWorkIntent` (`session-requests`, Increment 3).
 		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
 			if (event.toState === "done") {
-				void checkAndUnblockDependents(db, eventBus, event.taskId).catch((err) => {
+				void checkAndUnblockDependents(db, eventBus, event.taskId, {
+					work: {
+						listHoldTasksWithDependencyPattern,
+						getTaskById: getWorkTaskById,
+						transitionTask,
+					},
+					workIntents: { record: recordAgentWorkIntent },
+				}).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
 						taskId: event.taskId,
 						error: err instanceof Error ? err.message : String(err),

@@ -23,12 +23,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { filesystemInjections, filesystems, teamMembers, teams, users } from "@hyperidle/db";
+import { GitWorktreeAdapter, SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
 import type { Filesystem } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { createGitRunner } from "../../services/git-export-runner.js";
 import { afterEach, beforeEach, describe, expect, test } from "../../test-fixtures.js";
-import { GitWorktreeAdapter } from "../git-worktree-adapter.js";
-import { SANDBOX_SCAFFOLDING_PATHS } from "../scaffolding-paths.js";
 
 // ── Repo root — this repo's git dir ──────────────────────────────────────────
 

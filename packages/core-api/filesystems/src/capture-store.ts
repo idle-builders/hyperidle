@@ -9,8 +9,7 @@
  * separate so AO3 can locate captures without touching the artifacts table.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
-import { filesystemCaptures } from "@hyperidle/db";
+import { filesystemCaptures, type WriteExecutor } from "@hyperidle/db";
 
 export interface FilesystemCaptureInput {
 	readonly id: string;
@@ -27,10 +26,10 @@ export interface FilesystemCaptureInput {
  * fail loudly — never silently dropped).
  */
 export async function writeFilesystemCapture(
-	db: HyperIdleDb,
+	exec: WriteExecutor,
 	input: FilesystemCaptureInput,
 ): Promise<void> {
-	await db.insert(filesystemCaptures).values({
+	await exec.insert(filesystemCaptures).values({
 		id: input.id,
 		sessionId: input.sessionId,
 		filesystemId: input.filesystemId,

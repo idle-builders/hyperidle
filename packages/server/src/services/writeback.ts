@@ -54,11 +54,6 @@ function findItemByPath(
 	return null;
 }
 
-/** Determine the relative path of a file within the sandbox. */
-export function getRelativePath(sandboxPath: string, fullPath: string): string {
-	return path.relative(sandboxPath, fullPath);
-}
-
 /** Check if a path is in the knowledge/ zone. */
 export function isKnowledgePath(relativePath: string): boolean {
 	return relativePath.startsWith("knowledge/");
@@ -67,11 +62,6 @@ export function isKnowledgePath(relativePath: string): boolean {
 /** Check if a path is the session notes file. */
 export function isSessionNotesPath(relativePath: string): boolean {
 	return relativePath === "work/session-notes.md" || relativePath === "work/task-notes.md";
-}
-
-/** Check if a path is in a watched zone (knowledge/ or work/). */
-export function isWatchedPath(relativePath: string): boolean {
-	return relativePath.startsWith("knowledge/") || relativePath.startsWith("work/");
 }
 
 /** Extract a title from a filename. */

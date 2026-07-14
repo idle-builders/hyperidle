@@ -348,6 +348,13 @@ function buildLeafDeclarations(root: string): void {
   // routes/tasks.ts, routes/agent-profile.ts, tools/handoff-to.ts,
   // services/policy-bindings.ts, server-factory.ts now import
   // `@hyperidle/policy`.
+  //
+  // @lore AU19 Increment 2b: `core-api/filesystems` added — same TS6305
+  // cascade; routes/filesystems.ts, routes/knowledge.ts, app.ts,
+  // server-factory.ts, services/session-provisioning.ts,
+  // services/agent-context/assemble-context.ts,
+  // filesystem/__tests__/scaffolding-drift-guard.test.ts now import
+  // `@hyperidle/filesystems`.
   for (const leaf of [
     "shared",
     "db",
@@ -363,6 +370,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/routine",
     "core-api/review",
     "core-api/policy",
+    "core-api/filesystems",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

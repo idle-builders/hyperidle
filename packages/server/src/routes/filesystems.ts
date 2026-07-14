@@ -4,14 +4,25 @@
 
 import * as crypto from "node:crypto";
 import type { ServiceConnectionResolver } from "@hyperidle/connections";
+import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
 import {
+	deleteFilesystemById,
+	deleteFilesystemInjection,
 	type FilesystemInjectionRow,
 	type FilesystemRow,
-	filesystemInjections,
-	filesystems,
-	type HyperIdleDb,
-	teamMembers,
-} from "@hyperidle/db";
+	getFilesystemById,
+	getFilesystemInjection,
+	insertFilesystem,
+	insertFilesystemInjection,
+	inspectLocalPath,
+	listFilesystemIdsByAgent,
+	listFilesystemsByIds,
+	listFilesystemsByTeamId,
+	NoopAuthResolver,
+	resolveFilesystemState,
+	ServiceConnectionResolverAdapter,
+	updateFilesystemState,
+} from "@hyperidle/filesystems";
 import type {
 	EventBus,
 	Filesystem,
@@ -20,19 +31,14 @@ import type {
 } from "@hyperidle/shared";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
 import { getUserById } from "@hyperidle/users";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import {
-	NoopAuthResolver,
-	resolveFilesystemState,
-	ServiceConnectionResolverAdapter,
-} from "../services/filesystem-reachability.js";
-import { inspectLocalPath } from "../services/inspect-local-path.js";
+import { createGitRunner } from "../services/git-export-runner.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
@@ -126,9 +132,15 @@ async function checkAndPersistState(
 	row: FilesystemRow,
 	authResolver: FilesystemAuthResolver,
 ): Promise<FilesystemRow> {
-	const newState = await resolveFilesystemState(row, { authResolver });
+	const newState = await resolveFilesystemState(row, {
+		authResolver,
+		// AU19 Increment 2b: forward-reference to the still-unmigrated
+		// `git-export` (the very next Increment-2 item) — see
+		// `@hyperidle/filesystems`' `ports.ts` top `@lore`.
+		gitRunnerFactory: createGitRunner,
+	});
 	if (newState !== row.state) {
-		await db.update(filesystems).set({ state: newState }).where(eq(filesystems.id, row.id));
+		await updateFilesystemState(db, row.id, newState);
 		return { ...row, state: newState };
 	}
 	return row;
@@ -179,7 +191,7 @@ export function createFilesystemRoutes(
 
 			// Insert with 'attached' state — probe below will update if different.
 			try {
-				await db.insert(filesystems).values({
+				await insertFilesystem(db, {
 					id,
 					teamId: body.teamId,
 					source,
@@ -207,9 +219,8 @@ export function createFilesystemRoutes(
 				throw err;
 			}
 
-			const rows2 = await db.select().from(filesystems).where(eq(filesystems.id, id)).limit(1);
 			// Row must exist — we just inserted it.
-			const inserted = rows2[0];
+			const inserted = await getFilesystemById(db, id);
 			if (inserted == null) throw new Error("Filesystem disappeared after insert");
 
 			// Run live probe on register — persists result, returns the updated row.
@@ -230,7 +241,9 @@ export function createFilesystemRoutes(
 		validateBody(z.object({ path: z.string().min(1) })),
 		async (c) => {
 			const { path } = c.req.valid("json");
-			const info = await inspectLocalPath(path);
+			// AU19 Increment 2b: forward-reference to the still-unmigrated
+			// `git-export` — see `@hyperidle/filesystems`' `ports.ts` top `@lore`.
+			const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });
 			return c.json(info, 200);
 		},
 	);
@@ -253,21 +266,17 @@ export function createFilesystemRoutes(
 		let rows: FilesystemRow[];
 
 		if (teamId) {
-			rows = await db.select().from(filesystems).where(eq(filesystems.teamId, teamId));
+			rows = await listFilesystemsByTeamId(db, teamId);
 		} else {
 			// agentUserId: join filesystem_injections → filesystems
-			const injections = await db
-				.select({ filesystemId: filesystemInjections.filesystemId })
-				.from(filesystemInjections)
-				// agentUserId is non-null here (we checked !(teamId || agentUserId) above and teamId is null in this branch)
-				.where(eq(filesystemInjections.agentUserId, agentUserId ?? ""));
+			// agentUserId is non-null here (we checked !(teamId || agentUserId) above and teamId is null in this branch)
+			const fsIds = await listFilesystemIdsByAgent(db, agentUserId ?? "");
 
-			if (injections.length === 0) {
+			if (fsIds.length === 0) {
 				return c.json({ filesystems: [] }, 200);
 			}
 
-			const fsIds = injections.map((i) => i.filesystemId);
-			rows = await db.select().from(filesystems).where(inArray(filesystems.id, fsIds));
+			rows = await listFilesystemsByIds(db, fsIds);
 		}
 
 		// LIST route: use STORED state (do NOT live-probe every row).
@@ -279,8 +288,7 @@ export function createFilesystemRoutes(
 	// ── GET /api/filesystems/:id — Inspect one filesystem ─────────────────────
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
-		const rows = await db.select().from(filesystems).where(eq(filesystems.id, id)).limit(1);
-		const row = rows[0];
+		const row = await getFilesystemById(db, id);
 		if (row == null) {
 			return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
 		}
@@ -296,17 +304,13 @@ export function createFilesystemRoutes(
 		const id = c.req.param("id");
 
 		// Check exists first
-		const rows = await db
-			.select({ id: filesystems.id })
-			.from(filesystems)
-			.where(eq(filesystems.id, id))
-			.limit(1);
-		if (rows.length === 0) {
+		const existing = await getFilesystemById(db, id);
+		if (existing == null) {
 			return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
 		}
 
 		// CASCADE on filesystem_injections is DB-level (onDelete: cascade).
-		await db.delete(filesystems).where(eq(filesystems.id, id));
+		await deleteFilesystemById(db, id);
 		return new Response(null, { status: 204 });
 	});
 
@@ -321,8 +325,7 @@ export function createFilesystemRoutes(
 			const body = c.req.valid("json");
 
 			// Check filesystem exists
-			const fsRows = await db.select().from(filesystems).where(eq(filesystems.id, fsId)).limit(1);
-			const fs = fsRows[0];
+			const fs = await getFilesystemById(db, fsId);
 			if (fs == null) {
 				return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
 			}
@@ -357,7 +360,7 @@ export function createFilesystemRoutes(
 			const now = new Date().toISOString();
 
 			try {
-				await db.insert(filesystemInjections).values({
+				await insertFilesystemInjection(db, {
 					agentUserId: body.agentUserId,
 					filesystemId: fsId,
 					createdAt: now,
@@ -387,19 +390,8 @@ export function createFilesystemRoutes(
 				throw err;
 			}
 
-			const injRow = await db
-				.select()
-				.from(filesystemInjections)
-				.where(
-					and(
-						eq(filesystemInjections.agentUserId, body.agentUserId),
-						eq(filesystemInjections.filesystemId, fsId),
-					),
-				)
-				.limit(1);
-
 			// injected is defined — we just inserted it.
-			const inserted2 = injRow[0];
+			const inserted2 = await getFilesystemInjection(db, body.agentUserId, fsId);
 			if (inserted2 == null) throw new Error("Injection disappeared after insert");
 			return c.json(rowToInjection(inserted2), 201);
 		},
@@ -413,29 +405,12 @@ export function createFilesystemRoutes(
 			const fsId = c.req.param("id");
 			const agentUserId = c.req.param("agentUserId");
 
-			const existing = await db
-				.select()
-				.from(filesystemInjections)
-				.where(
-					and(
-						eq(filesystemInjections.agentUserId, agentUserId),
-						eq(filesystemInjections.filesystemId, fsId),
-					),
-				)
-				.limit(1);
-
-			if (existing.length === 0) {
+			const existing = await getFilesystemInjection(db, agentUserId, fsId);
+			if (existing == null) {
 				return c.json({ error: "Injection not found", code: "NOT_FOUND" }, 404);
 			}
 
-			await db
-				.delete(filesystemInjections)
-				.where(
-					and(
-						eq(filesystemInjections.agentUserId, agentUserId),
-						eq(filesystemInjections.filesystemId, fsId),
-					),
-				);
+			await deleteFilesystemInjection(db, agentUserId, fsId);
 
 			return new Response(null, { status: 204 });
 		},

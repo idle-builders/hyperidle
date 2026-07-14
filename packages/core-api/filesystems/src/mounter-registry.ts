@@ -16,18 +16,25 @@
  *   4. doc_set + CLOUD_SOURCES         → CloudNotBuiltAdapter (explicit "not built")
  *   5. doc_set + (local/obsidian/...)  → LocalFolderAdapter
  *   6. unknown kind                    → CloudNotBuiltAdapter (explicit, never silent)
+ *
+ * @lore AU19 Increment 2b: `AdapterDeps.gitRunnerFactory` is now typed off
+ * `FilesystemsGitRunnerFactory` (this Service's own port, `ports.ts`) instead
+ * of importing `GitRunner`/`createGitRunner` from `git-export-runner.ts`
+ * (still `packages/server`-only — `git-export` hasn't migrated). The real
+ * `createGitRunner` structurally satisfies the narrower port, so the
+ * composition root passes it unchanged (zero behavior change).
  */
 
 import { randomUUID } from "node:crypto";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { WriteExecutor } from "@hyperidle/db";
 import type { CaptureResult, Filesystem, FilesystemMounter, MountResult } from "@hyperidle/shared";
-import type { GitRunner } from "../services/git-export-runner.js";
 import { writeFilesystemCapture } from "./capture-store.js";
 import { CloudNotBuiltAdapter } from "./cloud-not-built-adapter.js";
 import { GitCloneAdapter } from "./git-clone-adapter.js";
 import { GitWorktreeAdapter } from "./git-worktree-adapter.js";
 import { LocalFolderAdapter } from "./local-folder-adapter.js";
 import type { CaptureContext, MountAdapter, MountContext } from "./mount-adapter.js";
+import type { FilesystemsGitRunnerFactory } from "./ports.js";
 
 // ── Cloud sources set (deferred — explicit "not built") ──────────────────────
 
@@ -37,11 +44,11 @@ const CLOUD_SOURCES = new Set(["gdrive", "dropbox", "s3"]);
 
 export interface AdapterDeps {
 	/** Factory for a GitRunner bound to a specific cwd. Injected so tests substitute FakeGitRunner. */
-	readonly gitRunnerFactory: (repoPath: string) => GitRunner;
+	readonly gitRunnerFactory: FilesystemsGitRunnerFactory;
 	/** Directory for storing durable capture artifacts (bundles / snapshot dirs). */
 	readonly capturesDir: string;
 	/** DB handle for writing filesystem_captures rows. */
-	readonly db: HyperIdleDb;
+	readonly db: WriteExecutor;
 }
 
 // ── isLocalRepoPath heuristic ────────────────────────────────────────────────
