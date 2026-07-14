@@ -34,6 +34,16 @@ const agentFiles = new Set([
 	"packages/server/src/services/agent-run-boundary.ts",
 	"packages/server/src/services/agent-session-runtime.ts",
 	"packages/server/src/services/agent-layer-boot.ts",
+	// @lore AU19 Increment 3h: `agent-work-assistant.ts` moved to
+	// `@hyperidle/dispatch` (out-of-scanned-tree, same shape as 3b/3c above —
+	// the entry above is now a harmless dead allowlist row, not an error).
+	// `dispatch-bindings.ts` is the new composition-root wiring file (same
+	// legitimate-wiring role `session-requests-bindings.ts`/
+	// `run-orchestration-bindings.ts` have) — it calls `executeAgentRunRequest`
+	// directly (no `...Internal` alias, unlike `run-orchestration-bindings.ts`)
+	// to implement `dispatch`'s own `runOrchestration` port, so it needs this
+	// allowlist entry.
+	"packages/server/src/services/dispatch-bindings.ts",
 ]);
 
 type Finding = { file: string; reason: string };

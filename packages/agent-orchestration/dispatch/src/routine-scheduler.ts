@@ -1,12 +1,21 @@
+/**
+ * @lore AU19 Increment 3h: `routineService.*` (routine), `readServerConfig`
+ * (settings), `getFactoryCostActual` (cost), and `recordAgentWorkIntent`
+ * (session-requests) all became injected `DispatchPorts` ports (Mechanism
+ * C). `checkAndFireRoutine`/`registerEventTriggers`/`backfillMissingNextRunAt`/
+ * `startRoutineScheduler`/`getRoutineMonthlySpend`/`isFactoryCostCapReached`
+ * all now take an explicit `ports: DispatchPorts` parameter; `service.ts`'s
+ * `createDispatchOps` binds it once at the composition root so the exported
+ * bound versions keep the ORIGINAL deps-free signatures every real call
+ * site (`routes/routines-routes.ts`, `tools/create-routine.ts`,
+ * `routines.ts`, `server-factory.ts`) already uses.
+ */
 import * as crypto from "node:crypto";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
-import * as routineService from "@hyperidle/routine";
-import { readServerConfig } from "@hyperidle/settings";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
-import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
-import { runBuiltinRoutine } from "./builtin-routine-handlers.js";
-import { getFactoryCostActual } from "./cost-bindings.js";
-import { recordAgentWorkIntent } from "./session-requests-bindings.js";
+import { runBuiltinRoutineInternal } from "./builtin-routine-handlers.js";
+import { extractBuiltinKind, isBuiltinRoutineId } from "./builtin-routines-config.js";
+import type { DispatchPorts } from "./ports.js";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 
 const schedulerLog = createLogger({ pkg: "server.routine-scheduler" });
@@ -195,59 +204,13 @@ export function nextCronMatch(cron: CronFields, from: Date): Date {
 
 // --- Cost cap check ---
 
-async function isFactoryCostCapReached(db: HyperIdleDb): Promise<boolean> {
-	const { cost } = await readServerConfig(db);
+async function isFactoryCostCapReached(ports: DispatchPorts, db: HyperIdleDb): Promise<boolean> {
+	const { cost } = await ports.settings.readServerConfig(db);
 	const cap = cost.capMinor;
 	if (!Number.isFinite(cap) || cap <= 0) return false;
-	const actual = await getFactoryCostActual(db);
+	const actual = await ports.cost.getFactoryCostActual(db);
 	return actual >= cap;
 }
-
-// --- Review item creation ---
-
-/* AU9: review projection moves to terminal lifecycle consumers. */
-/*
-async function createReviewItem(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	routine: Routine,
-	_sessionId: string,
-): Promise<void> {
-	const now = new Date().toISOString();
-	const threadId = crypto.randomUUID();
-
-	await db.insert(threads).values({
-		id: threadId,
-		hostKind: "task",
-		hostId: routine.id,
-		initiatorId: routine.ownerAgentId,
-		participants: JSON.stringify([routine.ownerAgentId]),
-		lastActiveAt: now,
-		createdAt: now,
-	});
-
-	const itemId = crypto.randomUUID();
-	await db.insert(items).values({
-		id: itemId,
-		sourceAgentId: routine.ownerAgentId,
-		layer: "meta",
-		kind: "review",
-		title: `Review: Routine ${routine.id}`,
-		body: `Routine ${routine.id} output requires human review.`,
-		threadId,
-		createdAt: now,
-	});
-
-	eventBus.emit({
-		type: "item_created",
-		streamId: itemId,
-		itemId,
-		conversationId: threadId,
-		kind: "review",
-		timestamp: Date.now(),
-	});
-}
-*/
 
 // --- Compute next_run_at ---
 
@@ -278,15 +241,20 @@ export function computeNextRunAt(routine: Routine, now: Date): string {
  * on Jan 31 and ends Feb 1 is counted in January. This matches the mental model
  * "I authorized this run in January" and avoids double-counting ambiguity.
  */
-export async function getRoutineMonthlySpend(db: HyperIdleDb, routineId: string): Promise<number> {
+export async function getRoutineMonthlySpendInternal(
+	ports: DispatchPorts,
+	db: HyperIdleDb,
+	routineId: string,
+): Promise<number> {
 	const now = new Date();
 	const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-	return routineService.sumRoutineRunCostSince(db, routineId, firstOfMonth);
+	return ports.routine.sumRoutineRunCostSince(db, routineId, firstOfMonth);
 }
 
 // --- Core: check and fire a routine ---
 
-export async function checkAndFireRoutine(
+export async function checkAndFireRoutineInternal(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	routine: Routine,
@@ -295,26 +263,26 @@ export async function checkAndFireRoutine(
 	const now = new Date();
 
 	// Check factory cost cap
-	if (await isFactoryCostCapReached(db)) {
+	if (await isFactoryCostCapReached(ports, db)) {
 		const nextRunAt = computeNextRunAt(routine, now);
-		await routineService.updateRoutineById(db, routine.id, { nextRunAt });
+		await ports.routine.updateRoutineById(db, routine.id, { nextRunAt });
 		return { fired: false, reason: "factory cost cap reached" };
 	}
 
 	// AA3: Check routine monthly cost cap
 	if (routine.costCapMonthlyMinor != null) {
-		const monthlySpend = await getRoutineMonthlySpend(db, routine.id);
+		const monthlySpend = await getRoutineMonthlySpendInternal(ports, db, routine.id);
 		if (monthlySpend >= routine.costCapMonthlyMinor) {
 			// Insert a skipped run record with the monthly_budget_exhausted outcome
 			const runId = crypto.randomUUID();
-			await routineService.insertRoutineRun(db, {
+			await ports.routine.insertRoutineRun(db, {
 				id: runId,
 				routineId: routine.id,
 				startedAt: now.toISOString(),
 				outcome: "monthly_budget_exhausted",
 			});
 			const nextRunAt = computeNextRunAt(routine, now);
-			await routineService.updateRoutineById(db, routine.id, { nextRunAt });
+			await ports.routine.updateRoutineById(db, routine.id, { nextRunAt });
 			return { fired: false, reason: "monthly cost cap reached" };
 		}
 	}
@@ -325,9 +293,9 @@ export async function checkAndFireRoutine(
 	// double-run window a session-keyed signal would miss (a routine_run
 	// stays "running" from fire until the terminal lifecycle fact finalizes
 	// it — see agent-work-intent-worker.ts's failOrRelease + projectRoutine).
-	if (await routineService.findRunningRoutineRun(db, routine.id)) {
+	if (await ports.routine.findRunningRoutineRun(db, routine.id)) {
 		const nextRunAt = computeNextRunAt(routine, now);
-		await routineService.updateRoutineById(db, routine.id, { nextRunAt });
+		await ports.routine.updateRoutineById(db, routine.id, { nextRunAt });
 		return { fired: false, reason: "previous run still in progress" };
 	}
 
@@ -344,15 +312,17 @@ export async function checkAndFireRoutine(
 	const targetAgentId = routine.ownerAgentId;
 
 	const runId = crypto.randomUUID();
-	let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
+	let intent:
+		| Awaited<ReturnType<DispatchPorts["sessionRequests"]["recordAgentWorkIntent"]>>
+		| undefined;
 	await db.transaction(async (tx) => {
-		await routineService.insertRoutineRun(tx, {
+		await ports.routine.insertRoutineRun(tx, {
 			id: runId,
 			routineId: routine.id,
 			startedAt: now.toISOString(),
 			outcome: "running",
 		});
-		intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
+		intent = await ports.sessionRequests.recordAgentWorkIntent(tx as HyperIdleDb, {
 			kind: "routine_run",
 			sourceKind: "routine_run",
 			sourceId: runId,
@@ -376,7 +346,7 @@ export async function checkAndFireRoutine(
 	const lastRunAt = now.toISOString();
 	const nextRunAt = computeNextRunAt(routine, now);
 
-	await routineService.updateRoutineById(db, routine.id, {
+	await ports.routine.updateRoutineById(db, routine.id, {
 		lastRunAt,
 		nextRunAt: nextRunAt || null,
 	});
@@ -398,12 +368,13 @@ export async function checkAndFireRoutine(
 
 // --- Event triggers ---
 
-export async function registerEventTriggers(
+export async function registerEventTriggersInternal(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	runtimeDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">,
 ): Promise<() => void> {
-	const eventRoutines = await routineService.listActiveRoutines(db, { triggerType: "event" });
+	const eventRoutines = await ports.routine.listActiveRoutines(db, { triggerType: "event" });
 
 	const unsubscribers: Array<() => void> = [];
 
@@ -415,11 +386,11 @@ export async function registerEventTriggers(
 		const unsub = eventBus.on(eventType, () => {
 			// Re-read the routine to get current state
 			void (async () => {
-				const current = await routineService.getRoutineById(db, routine.id);
+				const current = await ports.routine.getRoutineById(db, routine.id);
 				if (current?.active) {
 					// @lore I6: .catch() prevents unhandled promise rejection from crashing
 					// the event-bus handler chain. Errors are logged, not propagated.
-					checkAndFireRoutine(db, eventBus, current, runtimeDeps).catch(() => {
+					checkAndFireRoutineInternal(ports, db, eventBus, current, runtimeDeps).catch(() => {
 						/* fire-and-forget: checkAndFireRoutine is resilient internally */
 					});
 				}
@@ -446,15 +417,18 @@ export async function registerEventTriggers(
  * to avoid a thundering herd of catch-up runs after downtime. A routine that was
  * due during downtime simply fires at its next scheduled slot.
  */
-export async function backfillMissingNextRunAt(db: HyperIdleDb): Promise<number> {
+export async function backfillMissingNextRunAtInternal(
+	ports: DispatchPorts,
+	db: HyperIdleDb,
+): Promise<number> {
 	const now = new Date();
-	const candidates = await routineService.listScheduledRoutinesMissingNextRunAt(db);
+	const candidates = await ports.routine.listScheduledRoutinesMissingNextRunAt(db);
 
 	let count = 0;
 	for (const routine of candidates) {
 		const nextRunAt = computeNextRunAt(routine, now);
 		if (!nextRunAt) continue;
-		await routineService.updateRoutineById(db, routine.id, { nextRunAt });
+		await ports.routine.updateRoutineById(db, routine.id, { nextRunAt });
 		count += 1;
 	}
 	return count;
@@ -464,7 +438,8 @@ export async function backfillMissingNextRunAt(db: HyperIdleDb): Promise<number>
 
 const ROUTINE_REAPER_CADENCE_MS = 5 * 60 * 1000;
 
-export async function startRoutineScheduler(
+export async function startRoutineSchedulerInternal(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	config: RoutineSchedulerConfig,
@@ -474,7 +449,7 @@ export async function startRoutineScheduler(
 	let lastReapedAt = 0;
 
 	// Self-heal: ensure scheduled routines have a nextRunAt before the first poll.
-	await backfillMissingNextRunAt(db);
+	await backfillMissingNextRunAtInternal(ports, db);
 
 	const intervalId = setInterval(() => {
 		const now = new Date().toISOString();
@@ -489,7 +464,7 @@ export async function startRoutineScheduler(
 				});
 			}
 
-			const allRoutines = await routineService.listActiveRoutines(db);
+			const allRoutines = await ports.routine.listActiveRoutines(db);
 			const dueRoutines = allRoutines.filter((r) => {
 				if (r.triggerType === "event") return false;
 				if (!r.nextRunAt) return false;
@@ -511,24 +486,26 @@ export async function startRoutineScheduler(
 					// next poll re-select this still-due routine and double-fire. Advancing
 					// first makes the row no longer due before the next poll observes it.
 					const nextRunAt = computeNextRunAt(routine, new Date());
-					await routineService.updateRoutineById(db, routine.id, { nextRunAt });
-					void runBuiltinRoutine(db, eventBus, routine.id).catch(() => {
+					await ports.routine.updateRoutineById(db, routine.id, { nextRunAt });
+					void runBuiltinRoutineInternal(ports, db, eventBus, routine.id).catch(() => {
 						/* runBuiltinRoutine writes its own terminal run row (§3a) */
 					});
 				} else {
 					// Generic routines require runtime wiring; when absent, skip instead
 					// of creating an unconsumable request.
 					if (!canProvision) continue;
-					checkAndFireRoutine(db, eventBus, routine, config.runtimeDeps).catch(() => {
-						/* fire-and-forget: errors do not block subsequent routines */
-					});
+					checkAndFireRoutineInternal(ports, db, eventBus, routine, config.runtimeDeps).catch(
+						() => {
+							/* fire-and-forget: errors do not block subsequent routines */
+						},
+					);
 				}
 			}
 		})();
 	}, config.pollIntervalMs);
 
 	// Register event triggers
-	const unsubEvents = await registerEventTriggers(db, eventBus, config.runtimeDeps);
+	const unsubEvents = await registerEventTriggersInternal(ports, db, eventBus, config.runtimeDeps);
 
 	schedulerLog.info("routine scheduler started", {
 		pollIntervalMs: config.pollIntervalMs,

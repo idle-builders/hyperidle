@@ -9,11 +9,17 @@
  *   401/403 → auth notice (missing_key kind + "check your key" copy)
  *   400     → model/config notice (not "temporary")
  *   other   → keep provider_error (genuinely transient)
+ *
+ * @lore AU19 Increment 3h: moved from `packages/server/src/__tests__/` — a
+ * pure unit test of `mapErrorToNotice` (no DB/app fixture). `HttpError` is
+ * imported from `@hyperidle/shared` (reclassified this migration, see
+ * `@hyperidle/dispatch`'s `agent-work-assistant.ts` top `@lore`) instead of
+ * the deleted `../harness/llm-client.js`.
  */
 
+import { HttpError } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { HttpError } from "../harness/llm-client.js";
-import { mapErrorToNotice } from "../services/agent-work-assistant.js";
+import { mapErrorToNotice } from "../agent-work-assistant.js";
 
 describe("mapErrorToNotice — HttpError mapping", () => {
 	it("HttpError 401 returns auth notice with key guidance, not temporary-error copy", () => {

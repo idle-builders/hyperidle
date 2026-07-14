@@ -16,5 +16,8 @@
  * and exactly these three re-exports).
  */
 
-export { provisionTeamRoutines, runBuiltinRoutine } from "./services/builtin-routine-handlers.js";
-export { checkAndFireRoutine } from "./services/routine-scheduler.js";
+export {
+	checkAndFireRoutine,
+	provisionTeamRoutines,
+	runBuiltinRoutine,
+} from "./services/dispatch-bindings.js";

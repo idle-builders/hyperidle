@@ -18,44 +18,53 @@
  * within one process lifetime. After a crash it is empty → a user-initiated Retry
  * is correctly unblocked. The §1.7b crash-recovery Retry card is computed on the
  * CLIENT from lastMessage.createdAt + ASSISTANT_TURN_TIMEOUT_MS — no DB column needed.
+ *
+ * @lore AU19 Increment 3h: `resolveAssistantFormation` (agent-selection),
+ * `insertMessage`/`listMessagesByThread` (conversation),
+ * `resolveAgentModel`/`resolveModelTier` (model-gateway), `readServerConfig`
+ * (settings), `getOrCreateUser` (users), `executeAgentRunRequest`
+ * (run-orchestration), `resolveDraftTeamId`/`resolveCurrentDraftBetId`/
+ * `buildAssistantDraftRegistry` (tool-handlers, INTERIM) all became injected
+ * `DispatchPorts` ports (Mechanism C). `AdapterPool`/`McpBridgeRegistry`
+ * (harness-registry/mcp-provider, both INTERIM) are pure pass-through values
+ * this Service never inspects — typed `unknown` on `AssistantTurnDeps`
+ * rather than reconstructed, same idiom `run-orchestration`'s own
+ * `ports.ts` documents for its `sessionWorkflow`/`conversational` fields.
+ * `LocalSandboxAdapter`'s construction (harness-registry, INTERIM) moved
+ * behind `ports.workspaceFactory.create()`. `HttpError`/`CassetteMissError`
+ * (harness-registry's `llm-client.ts`/`llm-cassette.ts`) were reclassified
+ * to `@hyperidle/shared` (this Service needs `instanceof` across the
+ * agent-orchestration → agent-execution seam, and Mechanism C forbids
+ * importing another Service's class) — `mapErrorToNotice` stays pure
+ * (deps-free), unchanged behavior. `executeAssistantRequest` takes `ports`
+ * via `AssistantTurnDeps.ports`; `service.ts`'s `createDispatchOps` binds it
+ * once at the composition root so the exported bound version keeps the
+ * ORIGINAL `(deps, request)` signature every real call site
+ * (`run-orchestration-bindings.ts`'s interim `dispatch` port, `threads.ts`)
+ * already uses.
  */
 
-import { resolveAssistantFormation } from "@hyperidle/agent-selection";
-import { insertMessage, listMessagesByThread } from "@hyperidle/conversation";
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
-	resolveAgentModel,
-	resolveModelTier,
-} from "@hyperidle/model-gateway";
-import { readServerConfig } from "@hyperidle/settings";
-import {
+	CassetteMissError,
 	type ConversationMessage,
 	createLogger,
 	type EventBus,
+	HttpError,
 	MissingCredentialError,
 	NoEligibleHarnessError,
 	type PlainPayload,
 	ProviderTimeoutError,
+	type ResolvedModel,
 	type ThreadMessageAppendedEvent,
 } from "@hyperidle/shared";
-import { getOrCreateUser } from "@hyperidle/users";
-import type { AdapterPool } from "../harness/adapter-pool.js";
-// AH6 WARNING-2: CassetteMissError must be explicitly mapped to provider_error so it
-// doesn't trip the "unmapped error class" logger.error on every cassette miss in tests.
-// Only imported when LLM_CASSETTE_MODE is set (test lane); production is unaffected.
-import { CassetteMissError } from "../harness/llm-cassette.js";
-import { HttpError } from "../harness/llm-client.js";
-import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
-import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import type { ProvisionSessionDeps } from "../services/session-provisioning.js";
-import {
-	buildAssistantDraftRegistry,
-	resolveCurrentDraftBetId,
-	resolveDraftTeamId,
-} from "../tools/assistant-draft-registry.js";
-import type { ToolContext } from "../tools/tool-registry.js";
-import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
+import type {
+	DispatchCredentialResolver,
+	DispatchPorts,
+	DispatchProvisionDeps,
+	DispatchToolContext,
+} from "./ports.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 
@@ -87,15 +96,17 @@ const BUILTIN_SYSTEM_PROMPT =
 export interface AssistantTurnDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	readonly adapterPool: AdapterPool;
-	readonly credentialResolver?: import("@hyperidle/connections").CredentialResolver;
+	/** Opaque pass-through — the real `AdapterPool` (harness-registry, INTERIM). Never inspected here. */
+	readonly adapterPool: unknown;
+	readonly credentialResolver?: DispatchCredentialResolver;
 	/** Override the turn timeout (ms). Defaults to ASSISTANT_TURN_TIMEOUT_MS. Used in tests. */
 	readonly turnTimeoutMs?: number;
 	/**
 	 * AR4a: MCP bridge registry for CLI harness tool delivery. Absent → no bridge → CLI harnesses
 	 * run without tool access (builtin still uses in-process registry).
+	 * Opaque pass-through — the real `McpBridgeRegistry` (mcp-provider, INTERIM). Never inspected here.
 	 */
-	readonly mcpBridgeRegistry?: McpBridgeRegistry;
+	readonly mcpBridgeRegistry?: unknown;
 	/**
 	 * AR4a: Base URL for the MCP bridge server (e.g., "http://localhost:3001").
 	 * Required when mcpBridgeRegistry is set.
@@ -120,7 +131,7 @@ export interface AssistantTurnDeps {
 	 * Production callers (assistant-dispatcher.ts) do not set this — they rely on the
 	 * DB row's modelProvider (always "openrouter" or "anthropic" in production agents).
 	 */
-	readonly resolvedModel?: import("@hyperidle/shared").ResolvedModel;
+	readonly resolvedModel?: ResolvedModel;
 }
 
 /** Error class → notice kind mapping */
@@ -219,7 +230,8 @@ export function mapErrorToNotice(err: unknown): {
  * Called both from runAssistantTurn's internal error branches and from the
  * fire-and-forget .catch() in threads.ts.
  */
-export async function persistTurnFailure(
+export async function persistTurnFailureInternal(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	userId: string,
@@ -234,7 +246,7 @@ export async function persistTurnFailure(
 	const notice: PlainPayload["notice"] = code ? { kind, code } : { kind };
 	const payload: PlainPayload = { text, notice };
 
-	await insertMessage(db, {
+	await ports.conversation.insertMessage(db, {
 		id: messageId,
 		senderId: assistantAgentId,
 		threadId,
@@ -269,7 +281,8 @@ export async function persistTurnFailure(
  * Resolves without throwing — all errors are mapped to persisted notices.
  * Never returns silently (every branch emits thread_message_appended).
  */
-export async function executeAssistantRequest(
+export async function executeAssistantRequestInternal(
+	ports: DispatchPorts,
 	deps: AssistantTurnDeps,
 	request: AgentSessionRequest,
 ): Promise<void> {
@@ -279,9 +292,9 @@ export async function executeAssistantRequest(
 		messageId: string;
 	};
 	await runTurnInternal(
+		ports,
 		deps.db,
 		deps.eventBus,
-		deps.adapterPool,
 		correlation.userId,
 		correlation.threadId,
 		deps,
@@ -289,10 +302,11 @@ export async function executeAssistantRequest(
 	);
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: model-resolution branching (pre-resolved / credential-resolver / env-fallback) + result-outcome mapping is one sequential turn — decomposing further would obscure the control flow
 async function runTurnInternal(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	adapterPool: AdapterPool,
 	userId: string,
 	threadId: string,
 	deps: AssistantTurnDeps,
@@ -306,7 +320,7 @@ async function runTurnInternal(
 	// user is created exactly once (Validation Scenario 2). The persona /
 	// BUILTIN_SYSTEM_PROMPT stays composed here (caller owns the agent-layer
 	// constant; pulling it into a core store would be a boundary smell).
-	const agentRow = await getOrCreateUser(db, assistantAgentId, {
+	const agentRow = await ports.users.getOrCreateUser(db, assistantAgentId, {
 		id: assistantAgentId,
 		kind: "ai",
 		name: "Assistant",
@@ -331,8 +345,8 @@ async function runTurnInternal(
 	// whose native keychain auth can't be expressed as a supported modelProvider ("openai-compatible"
 	// throws UnsupportedAgentProviderError on the per-agent path). When provided, skip
 	// resolveAgentModel entirely.
-	let resolvedModel: import("@hyperidle/shared").ResolvedModel | undefined;
-	let resolvedFastModel: import("@hyperidle/shared").ResolvedModel | undefined;
+	let resolvedModel: ResolvedModel | undefined;
+	let resolvedFastModel: ResolvedModel | undefined;
 
 	if (deps.resolvedModel) {
 		// Pre-resolved model supplied (CLI harness test seam — see AR4a lore above)
@@ -340,8 +354,8 @@ async function runTurnInternal(
 		if (deps.credentialResolver) {
 			// Still try to resolve fast model for builtin tier (non-fatal)
 			try {
-				const serverCfg = await readServerConfig(db);
-				resolvedFastModel = await resolveModelTier(
+				const serverCfg = await ports.settings.readServerConfig(db);
+				resolvedFastModel = await ports.modelGateway.resolveModelTier(
 					"fast",
 					serverCfg.modelGateway,
 					deps.credentialResolver,
@@ -352,8 +366,8 @@ async function runTurnInternal(
 		}
 	} else if (deps.credentialResolver) {
 		try {
-			const serverCfg = await readServerConfig(db);
-			resolvedModel = await resolveAgentModel(
+			const serverCfg = await ports.settings.readServerConfig(db);
+			resolvedModel = await ports.modelGateway.resolveAgentModel(
 				{ modelId: agentRow.modelId ?? null, modelProvider: agentRow.modelProvider ?? null },
 				"workhorse",
 				serverCfg.modelGateway,
@@ -361,7 +375,7 @@ async function runTurnInternal(
 			);
 			// Non-fatal: fast tier failure is graceful (builtin falls back to primary)
 			try {
-				resolvedFastModel = await resolveModelTier(
+				resolvedFastModel = await ports.modelGateway.resolveModelTier(
 					"fast",
 					serverCfg.modelGateway,
 					deps.credentialResolver,
@@ -371,7 +385,7 @@ async function runTurnInternal(
 			}
 		} catch (err) {
 			if (err instanceof MissingCredentialError) {
-				await persistTurnFailure(db, eventBus, userId, threadId, err);
+				await persistTurnFailureInternal(ports, db, eventBus, userId, threadId, err);
 				return;
 			}
 			throw err;
@@ -381,7 +395,8 @@ async function runTurnInternal(
 		// This path only exists in test environments and local-no-DB mode.
 		const apiKey = process.env.ANTHROPIC_API_KEY;
 		if (!apiKey) {
-			await persistTurnFailure(
+			await persistTurnFailureInternal(
+				ports,
 				db,
 				eventBus,
 				userId,
@@ -401,12 +416,12 @@ async function runTurnInternal(
 	// --- Step 3: Build conversational context from thread transcript ---
 	// @lore AH3 H3: Load the thread's plain messages in chronological order.
 	// The triggering user message was just inserted before runAssistantTurn was called.
-	const transcriptRows = await loadRawTranscript(db, threadId);
+	const transcriptRows = await loadRawTranscript(ports, db, threadId);
 	const conversationMessages = mapTranscriptToMessages(transcriptRows, assistantAgentId);
 
 	// --- Step 3.5: Formation seam — resolve persona + draft surface ---
 	// The formation answer is a per-turn decision, NOT persisted to the users row.
-	const formation = await resolveAssistantFormation({
+	const formation = await ports.agentSelection.resolveAssistantFormation({
 		db,
 		userId,
 		threadId,
@@ -417,14 +432,18 @@ async function runTurnInternal(
 	// @lore AR4b: draftRegistry source is now the app formation answer (§3b seam rerouted).
 	// formation.assistantDraftSurface === "standard" → buildAssistantDraftRegistry (the canonical 2-tool builder).
 	// A future app formation response returning a different surface marker maps to a different builder here.
-	const resolvedTeamId = await resolveDraftTeamId(db, userId);
-	const currentDraftBetId = await resolveCurrentDraftBetId(db, transcriptRows, assistantAgentId);
+	const resolvedTeamId = await ports.toolHandlers.resolveDraftTeamId(db, userId);
+	const currentDraftBetId = await ports.toolHandlers.resolveCurrentDraftBetId(
+		db,
+		transcriptRows,
+		assistantAgentId,
+	);
 
 	// Synthetic tool context for building the draft registry — sessionId/taskId/sandboxPath
 	// are placeholders (the draft registry only needs
 	// db/eventBus/agentId for its handlers).
 	const syntheticSessionId = crypto.randomUUID();
-	const toolCtx: ToolContext = {
+	const toolCtx: DispatchToolContext = {
 		db,
 		eventBus,
 		agentId: assistantAgentId,
@@ -445,8 +464,14 @@ async function runTurnInternal(
 	// would map to their respective builders.
 	const draftRegistry =
 		formation.assistantDraftSurface === "standard"
-			? buildAssistantDraftRegistry(toolCtx, { resolvedTeamId, currentDraftBetId })
-			: buildAssistantDraftRegistry(toolCtx, { resolvedTeamId, currentDraftBetId }); // future: other surfaces
+			? ports.toolHandlers.buildAssistantDraftRegistry(toolCtx, {
+					resolvedTeamId,
+					currentDraftBetId,
+				})
+			: ports.toolHandlers.buildAssistantDraftRegistry(toolCtx, {
+					resolvedTeamId,
+					currentDraftBetId,
+				}); // future: other surfaces
 
 	// --- Step 5: Delegate through the AU1 runtime request boundary ---
 	//
@@ -470,17 +495,25 @@ async function runTurnInternal(
 	// consumes the request the drain already resolved, created, and checkpointed.
 	const request = existingRequest;
 
-	const sessionDeps: ProvisionSessionDeps = {
+	// @lore AU19 Increment 3h: built as its own variable (not an inline literal)
+	// so it type-checks against `executeAgentRunRequest`'s Mechanism-C-narrowed
+	// `DispatchProvisionDeps` (only `db`/`eventBus`/`onHarnessStarted` declared)
+	// without an excess-property error — `adapterPool`/`workspace`/
+	// `mcpBridgeRegistry`/`mcpBaseUrl` still flow through unchanged at runtime,
+	// only assigned via a variable rather than a fresh literal (TS
+	// excess-property-check applies to literals, not variable references). See
+	// `run-orchestration`'s `ports.ts` top `@lore` for the same idiom.
+	const sessionDeps: DispatchProvisionDeps = {
 		db,
 		eventBus,
-		adapterPool,
-		workspace: new LocalSandboxAdapter(),
+		adapterPool: deps.adapterPool,
+		workspace: ports.workspaceFactory.create(),
 		...(deps.mcpBridgeRegistry ? { mcpBridgeRegistry: deps.mcpBridgeRegistry } : {}),
 		...(deps.mcpBaseUrl ? { mcpBaseUrl: deps.mcpBaseUrl } : {}),
 	};
 
 	try {
-		const result = await executeAgentRunRequest(sessionDeps, request, {
+		const result = await ports.runOrchestration.executeAgentRunRequest(sessionDeps, request, {
 			sandboxBasePath,
 			resolvedModel,
 			resolvedFastModel,
@@ -519,7 +552,7 @@ async function runTurnInternal(
 						}
 					: {}),
 			};
-			await insertMessage(db, {
+			await ports.conversation.insertMessage(db, {
 				id: messageId,
 				senderId: assistantAgentId,
 				threadId,
@@ -540,7 +573,8 @@ async function runTurnInternal(
 			eventBus.emit(appendedEvent);
 		} else if (result.outcome === "completed" && !result.conversationalReply) {
 			// Completed but no reply captured (empty response from model) — treat as provider_error
-			await persistTurnFailure(
+			await persistTurnFailureInternal(
+				ports,
 				db,
 				eventBus,
 				userId,
@@ -549,7 +583,8 @@ async function runTurnInternal(
 			);
 		} else {
 			// crashed / budget_exhausted / not_returned — map to notice
-			await persistTurnFailure(
+			await persistTurnFailureInternal(
+				ports,
 				db,
 				eventBus,
 				userId,
@@ -558,7 +593,7 @@ async function runTurnInternal(
 			);
 		}
 	} catch (err) {
-		await persistTurnFailure(db, eventBus, userId, threadId, err);
+		await persistTurnFailureInternal(ports, db, eventBus, userId, threadId, err);
 	}
 }
 
@@ -575,11 +610,15 @@ async function runTurnInternal(
  * and draft-betId binding) share one DB query instead of two sequential queries.
  */
 async function loadRawTranscript(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	threadId: string,
 ): Promise<Array<{ senderId: string; payload: string; type: string }>> {
 	try {
-		const rows = await listMessagesByThread(db, threadId, { order: "createdAt", dir: "asc" });
+		const rows = await ports.conversation.listMessagesByThread(db, threadId, {
+			order: "createdAt",
+			dir: "asc",
+		});
 		return rows.map((m) => ({ senderId: m.senderId, payload: m.payload, type: m.type }));
 	} catch (err) {
 		logger.error("[assistant-turn] loadRawTranscript failed — proceeding with empty history", {

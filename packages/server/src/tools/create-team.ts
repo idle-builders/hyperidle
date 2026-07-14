@@ -5,7 +5,7 @@ import { persistScaffoldedAgents } from "@hyperidle/org";
 import { getUserById, insertUser, listUsersByTeam } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
+import { provisionTeamRoutines } from "../services/dispatch-bindings.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 

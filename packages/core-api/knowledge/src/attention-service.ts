@@ -27,12 +27,22 @@ import {
  * (`createReviewItemForKnowledge` / `attentionReviewReasoningMarker`) — both
  * still live in `packages/server` (not yet migrated Services). Per Mechanism
  * C, `knowledge` never imports another Service; these become injected DI
- * ports on `AttentionServiceDeps`, wired by the caller (`score-attention.ts` /
- * `builtin-routine-handlers.ts` in `packages/server`, which — being in the
- * same package as `work-service.ts`/`review-item-factory.ts` — supplies the
- * real concrete functions unchanged). No behavior change: this is the
- * sanctioned "function gains a DI parameter" signature change (architecture
- * §2/§7.3), not a rewrite of attention scoring/threshold logic.
+ * ports on `AttentionServiceDeps`, wired by the caller (`score-attention.ts`
+ * in `packages/server`, which — being in the same package as
+ * `work-service.ts`/`review-item-factory.ts` — supplies the real concrete
+ * functions unchanged). No behavior change: this is the sanctioned "function
+ * gains a DI parameter" signature change (architecture §2/§7.3), not a
+ * rewrite of attention scoring/threshold logic.
+ *
+ * @lore AU19 Increment 3h: `builtin-routine-handlers.ts`'s own
+ * `work`/`review` wiring for its `recomputeScope` call moved to
+ * `packages/server/src/services/dispatch-bindings.ts` (the composition
+ * root) — `dispatch` (the migrated Service `builtin-routine-handlers.ts`
+ * now lives in) cannot import `work`/`review` itself (Mechanism C), so it
+ * calls a single collapsed `DispatchKnowledgeAccessor.recomputeAttentionForCandidates`
+ * port method instead; the composition root performs the exact same
+ * `buildAttentionService({db, eventBus, work, review})` wiring this file
+ * always expected, just from a different source file.
  */
 export type AttentionWriteExecutor =
 	| HyperIdleDb

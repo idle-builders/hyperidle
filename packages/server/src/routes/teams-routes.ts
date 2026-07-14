@@ -64,7 +64,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { provisionTeamRoutines } from "../services/builtin-routine-handlers.js";
+import { provisionTeamRoutines } from "../services/dispatch-bindings.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import {

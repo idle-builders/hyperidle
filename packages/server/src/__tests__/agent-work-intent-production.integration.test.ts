@@ -32,7 +32,7 @@ import {
 	transitionTask,
 } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
-import { checkAndFireRoutine } from "../services/routine-scheduler.js";
+import { checkAndFireRoutine } from "../services/dispatch-bindings.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 

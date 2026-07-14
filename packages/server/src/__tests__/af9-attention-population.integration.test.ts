@@ -25,9 +25,9 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { BuiltinRoutineId } from "@hyperidle/dispatch";
 import { eq } from "drizzle-orm";
-import type { BuiltinRoutineId } from "../config/builtin-routines.js";
-import { provisionTeamRoutines, runBuiltinRoutine } from "../services/builtin-routine-handlers.js";
+import { provisionTeamRoutines, runBuiltinRoutine } from "../services/dispatch-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-06-11T00:00:00.000Z";

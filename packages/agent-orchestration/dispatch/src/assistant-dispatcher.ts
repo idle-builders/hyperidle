@@ -17,12 +17,18 @@
  * @lore AD8b: The assistant thread exists per-user. When a human posts,
  * the dispatcher fires. AI senders (the assistant itself) are filtered out
  * to prevent echo loops.
+ *
+ * @lore AU19 Increment 3h: `getThreadById`/`updateThread` (conversation) and
+ * `getUserById` (users) became the injected `DispatchPorts.conversation`/
+ * `.users` ports (Mechanism C). `registerAssistantDispatcher` takes `ports`
+ * as an explicit first parameter; `service.ts`'s `createDispatchOps` binds
+ * it once at the composition root so the exported bound version keeps the
+ * ORIGINAL `(eventBus, db)` signature every real call site (`app.ts`) uses.
  */
 
-import { getThreadById, updateThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ThreadMessageAppendedEvent } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import type { DispatchPorts } from "./ports.js";
 
 // ---------------------------------------------------------------------------
 // Filter types and pure functions (exported for unit testing)
@@ -76,7 +82,11 @@ const logger = {
  * eliminates the two-subscriber ambiguity. shouldDispatchForAssistant is
  * retained for unit tests that validate the filter predicate independently.
  */
-export function registerAssistantDispatcher(eventBus: EventBus, db: HyperIdleDb): () => void {
+export function registerAssistantDispatcherInternal(
+	ports: DispatchPorts,
+	eventBus: EventBus,
+	db: HyperIdleDb,
+): () => void {
 	// @lore AF3 C9b: async handlers fail the EventHandler<T> overload (Promise<void>
 	// vs void). Use a sync outer wrapper + void async IIFE so the on<T> overload
 	// resolves correctly. Explicit event type annotation ensures T is inferred.
@@ -86,14 +96,14 @@ export function registerAssistantDispatcher(eventBus: EventBus, db: HyperIdleDb)
 			void (async () => {
 				try {
 					// Look up the thread to get hostKind/hostId
-					const threadRow = await getThreadById(db, event.threadId);
+					const threadRow = await ports.conversation.getThreadById(db, event.threadId);
 
 					if (!threadRow) {
 						return; // Thread not found — skip
 					}
 
 					// Look up the sender to determine their kind (human vs ai)
-					const senderRow = await getUserById(db, event.senderId);
+					const senderRow = await ports.users.getUserById(db, event.senderId);
 
 					if (!senderRow) {
 						return; // Unknown sender — skip
@@ -108,7 +118,7 @@ export function registerAssistantDispatcher(eventBus: EventBus, db: HyperIdleDb)
 					// AC-6: When the AI assistant posts their first response to an assistant
 					// thread, pin the thread. Idempotent — skip if already pinned.
 					if (senderRow.kind === "ai" && isAssistantThread(threadLike) && !threadLike.pinned) {
-						await updateThread(db, event.threadId, { pinned: true });
+						await ports.conversation.updateThread(db, event.threadId, { pinned: true });
 
 						logger.info("assistant thread pinned after first response", {
 							threadId: event.threadId,

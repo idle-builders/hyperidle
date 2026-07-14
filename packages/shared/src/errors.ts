@@ -114,3 +114,52 @@ export class ProviderTimeoutError extends Error {
  * than stranding the UI in "thinking…" forever.
  */
 export const ASSISTANT_TURN_TIMEOUT_MS = 120_000;
+
+/**
+ * POLISH-060 B2: Thrown by the LLM HTTP client on a non-2xx response.
+ * `dispatch`'s `mapErrorToNotice` maps 401/403 → auth notice, 400 →
+ * model/config notice, other codes → generic (transient) provider_error.
+ *
+ * @lore AU19 Increment 3h: reclassified from `packages/server/src/harness/
+ * llm-client.ts` to `@hyperidle/shared` — `dispatch`'s error-mapping needs
+ * `instanceof HttpError` across the agent-orchestration → agent-execution
+ * seam, and Mechanism C forbids a Service importing another Service's class
+ * (even for `instanceof`). Same treatment as `MissingCredentialError`/
+ * `NoEligibleHarnessError`/`ProviderTimeoutError` above — a cross-cutting
+ * error taxonomy lives in `shared`, not in the Service that happens to throw
+ * it first.
+ */
+export class HttpError extends Error {
+	constructor(
+		public readonly status: number,
+		message: string,
+	) {
+		super(message);
+		this.name = "HttpError";
+	}
+}
+
+/**
+ * Thrown by the LLM cassette replay lane when the cassette file has no entry
+ * for the request key. Fail-closed: a missing cassette must FAIL the lane,
+ * never silently fall through to a network call.
+ *
+ * @lore AU19 Increment 3h: reclassified from `packages/server/src/harness/
+ * llm-cassette.ts` to `@hyperidle/shared` — same reason as `HttpError` above
+ * (`dispatch`'s `mapErrorToNotice` needs `instanceof` across the
+ * agent-orchestration → agent-execution seam).
+ */
+export class CassetteMissError extends Error {
+	public readonly missingKey: string;
+	public readonly cassettePath: string;
+
+	constructor(missingKey: string, cassettePath: string) {
+		super(
+			`Cassette miss: no recorded response for key ${missingKey.slice(0, 8)}… ` +
+				`in ${cassettePath}. Re-record with LLM_CASSETTE_MODE=record.`,
+		);
+		this.name = "CassetteMissError";
+		this.missingKey = missingKey;
+		this.cassettePath = cassettePath;
+	}
+}

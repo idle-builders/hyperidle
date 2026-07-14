@@ -139,9 +139,25 @@ const AU16_AGENT_FILES = ["packages/server/src/services/harness-capability-read-
  * implementations — a legitimate agent-owned edge, not a
  * core→execution-internal leak.
  */
+/**
+ * AU19 Increment 3h: `dispatch-bindings.ts` — the composition-root wiring
+ * file for `@hyperidle/dispatch` (same factory-curry role
+ * `session-requests-bindings.ts`/`run-orchestration-bindings.ts` have) —
+ * wires the `toolHandlers`/`workspaceFactory` INTERIM ports directly to
+ * their still-flat `tools/assistant-draft-registry.js`/
+ * `harness/local-sandbox-adapter.js` real implementations, and calls
+ * `run-orchestration-bindings.ts`'s `executeAgentRunRequest` (forbidden
+ * basename `agent-run-boundary`) for `dispatch`'s own `runOrchestration`
+ * port — a legitimate agent-owned edge, not a core→execution-internal leak.
+ * `routes/routines-routes.ts`/`routes/teams-routes.ts` (and other core
+ * routes) reach this file to call `provisionTeamRoutines`/`runBuiltinRoutine`/
+ * `checkAndFireRoutine`/etc — the sink stops recursion here exactly like the
+ * two entries above.
+ */
 const AU19_AGENT_FILES = [
 	"packages/server/src/services/session-requests-bindings.ts",
 	"packages/server/src/services/run-orchestration-bindings.ts",
+	"packages/server/src/services/dispatch-bindings.ts",
 ];
 
 const AGENT_OWNED_ALLOWLIST = new Set([

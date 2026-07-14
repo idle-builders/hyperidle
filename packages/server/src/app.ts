@@ -10,6 +10,7 @@ import {
 	upsertCredential,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { AssistantTurnDeps } from "@hyperidle/dispatch";
 import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import {
 	defaultNotificationAdapterFactory,
@@ -86,8 +87,7 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
-import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
-import { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
+import { registerAssistantDispatcher } from "./services/dispatch-bindings.js";
 import {
 	agentWorkIntentReader,
 	agentWorkIntentRecorder,

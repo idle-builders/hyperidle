@@ -33,6 +33,7 @@ import {
 	resolveProfile,
 	serviceConnections,
 } from "@hyperidle/db";
+import type { AssistantTurnDeps, TaskDispatcherDeps } from "@hyperidle/dispatch";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
@@ -118,17 +119,19 @@ import { enforcementRegistry } from "./harness/return-enforcement-registry.js";
 import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { registerWsRoute } from "./routes/ws.js";
-import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
-import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handlers.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 import {
 	checkCostCap,
 	registerCostCapDedupReleaser,
 	startCostSentinel,
 } from "./services/cost-bindings.js";
+import {
+	registerBuiltinRoutineHandlers,
+	registerTaskDispatcher,
+	startRoutineScheduler,
+} from "./services/dispatch-bindings.js";
 import { startAgentLifecycleProjectionDrain } from "./services/lifecycle-projection-bindings.js";
 import { createMcpRoute } from "./services/mcp-route.js";
-import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import {
 	bootAgentLayer,
@@ -138,7 +141,6 @@ import {
 import { startSandboxReaper } from "./services/sandbox-reaper.js";
 import type { ProvisionSessionDeps } from "./services/session-provisioning.js";
 import { recordAgentWorkIntent } from "./services/session-requests-bindings.js";
-import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
 
 const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
 

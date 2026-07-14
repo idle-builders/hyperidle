@@ -50,7 +50,7 @@ import { getUserByIdScopedToTeam } from "@hyperidle/users";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import { executeAssistantRequest } from "../services/agent-work-assistant.js";
+import { executeAssistantRequest } from "../services/dispatch-bindings.js";
 import { test } from "../test-fixtures.js";
 
 const triggerResolutionDeps: TriggerResolutionDeps = {

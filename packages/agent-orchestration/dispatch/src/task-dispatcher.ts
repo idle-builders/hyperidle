@@ -23,6 +23,16 @@
  * because production runs a single dispatcher. Tests that re-register the
  * dispatcher start fresh because registerTaskDispatcher resets the queue.
  * This is an accepted v1 limitation — see architecture-critique Finding 3.
+ *
+ * @lore AU19 Increment 3h: `work.listTasks`/`work.getTaskById` became the
+ * injected `DispatchWorkAccessor` port (Mechanism C) — `sessions` stays a
+ * direct `@hyperidle/db` access (it is in `table-ownership-guard.ts`'s
+ * `UNOWNED_SHARED_TABLES` exemption, same treatment `run-orchestration`'s
+ * own `agent-session-runtime.ts` documents). `registerTaskDispatcher`/
+ * `drainQueue`/`startupSweep` all now take an explicit `DispatchPorts`
+ * parameter; `service.ts`'s `createDispatchOps` binds it once at the
+ * composition root so every real call site (`app.ts`, `server-factory.ts`,
+ * `routes/dispatch-queue-routes.ts`) keeps the ORIGINAL deps-free signature.
  */
 
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
@@ -33,8 +43,8 @@ import {
 	type SessionEndedEvent,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
+import type { DispatchPorts } from "./ports.js";
 
 // ---------------------------------------------------------------------------
 // Simple inline logger (observability adapter not yet available here)
@@ -350,7 +360,11 @@ async function drainQueue(deps: TaskDispatcherDeps, generation: number): Promise
  * because lifecycle-propagation is not wired in tests), re-registering would
  * find the in_progress task with no active session and dispatch again.
  */
-async function startupSweep(db: HyperIdleDb, generation: number): Promise<void> {
+async function startupSweep(
+	ports: DispatchPorts,
+	db: HyperIdleDb,
+	generation: number,
+): Promise<void> {
 	// Find active session task IDs to exclude
 	const activeSessions = await db
 		.select({ taskId: sessions.taskId })
@@ -369,7 +383,7 @@ async function startupSweep(db: HyperIdleDb, generation: number): Promise<void> 
 	// AND-composed eq-only opts shape — filter client-side over the
 	// state-filtered list instead of adding a new SQL-level function for one
 	// caller (same result set).
-	const dispatchableTasks = (await work.listTasks(db, { state: "accepted" })).filter(
+	const dispatchableTasks = (await ports.work.listTasks(db, { state: "accepted" })).filter(
 		(t) => t.ownerAgentId !== null,
 	);
 
@@ -403,8 +417,19 @@ async function startupSweep(db: HyperIdleDb, generation: number): Promise<void> 
  * Subscribes to:
  *   - task_state_changed (toState=accepted) — enqueue if ownerAgentId set
  *   - session_ended — re-dispatch for handoff + free capacity drain
+ *
+ * @lore AU19 Increment 3h: takes `ports` as an explicit first parameter —
+ * `service.ts`'s `createDispatchOps` binds it once at the composition root
+ * and exports `registerTaskDispatcher(deps)` with the ORIGINAL deps-free
+ * signature every real call site (`app.ts`, `server-factory.ts`) already
+ * uses. This raw, ports-taking function is the one moving piece; callers
+ * should import the bound version from `./service.js` (re-exported by
+ * `./index.js`), not this one directly.
  */
-export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
+export function registerTaskDispatcherInternal(
+	ports: DispatchPorts,
+	deps: TaskDispatcherDeps,
+): () => void {
 	// Bump generation to invalidate any in-flight async operations from previous registration
 	currentGeneration++;
 	const myGeneration = currentGeneration;
@@ -433,7 +458,7 @@ export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
 		if (event.toState !== "accepted") return;
 
 		void (async () => {
-			const task = await work.getTaskById(db, event.taskId);
+			const task = await ports.work.getTaskById(db, event.taskId);
 
 			if (!task?.ownerAgentId) return; // No agent assigned — skip
 
@@ -457,7 +482,7 @@ export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
 			// commits ownerAgentId=agentB to the DB before the harness stream ends, so
 			// by the time session_ended fires, ownerAgentId is already agentB. Safe.
 			if (event.taskId) {
-				const task = await work.getTaskById(db, event.taskId);
+				const task = await ports.work.getTaskById(db, event.taskId);
 
 				if (
 					task?.state === "in_progress" &&
@@ -497,7 +522,7 @@ export function registerTaskDispatcher(deps: TaskDispatcherDeps): () => void {
 	// Perform startup sweep (async, fire-and-forget drain after sweep).
 	// Pass myGeneration so the sweep can bail out if it becomes stale
 	// (dispose + re-register) while its DB queries are in-flight.
-	void startupSweep(db, myGeneration)
+	void startupSweep(ports, db, myGeneration)
 		.then(() => {
 			if (myGeneration === currentGeneration && queue.length > 0) {
 				scheduleDrain();

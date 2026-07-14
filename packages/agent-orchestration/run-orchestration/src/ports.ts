@@ -278,8 +278,10 @@ export interface RunOrchestrationSessionProvisioner {
 }
 
 // ---------------------------------------------------------------------------
-// dispatch — RunOrchestrationDispatchPort (INTERIM forward-reference — see
-// this file's top `@lore`)
+// dispatch — RunOrchestrationDispatchPort (real, same-layer edge since AU19
+// Increment 3h — `deps` stays opaque `unknown` on purpose: this Service
+// never inspects `dispatch`'s internals even though `dispatch` is now a
+// real migrated Service, same shape as every other same-layer port here)
 // ---------------------------------------------------------------------------
 
 /** Port for `dispatch`'s assistant-turn entrypoint this Service calls directly today. `deps` is opaque (`dispatch`-owned `AssistantTurnDeps`) — never constructed or inspected here, only forwarded whole from this Service's own caller. */

@@ -3,69 +3,38 @@
  * `app-runtime/services/builtin-routines.ts`. Executes the 5 built-in
  * routines (provisioning + dispatch + per-routine implementations). The
  * *default records* (stable IDs, cron, owner roles) are editable config —
- * see `config/builtin-routines.ts`.
+ * see `builtin-routines-config.ts`.
+ *
+ * @lore AU19 Increment 3h: `getThreadIdsByHost`/`insertThread` (conversation),
+ * `routineService.*` (routine), `work.*` (work), and the raw
+ * `knowledgeItems ⋈ knowledgeAppProjection` portfolio-retro join all became
+ * injected `DispatchPorts` ports (Mechanism C). The `practiceMeetingKnowledgeStore`
+ * wiring (9 raw `@hyperidle/knowledge` accessors → `@hyperidle/review`'s
+ * `createPracticeMeeting`) and the attention-recompute
+ * `buildAttentionService({db, eventBus, work, review})` wiring both COLLAPSED
+ * into single port methods (`ports.review.createPracticeMeeting`,
+ * `ports.knowledge.recomputeAttentionForCandidates`) — `dispatch` can no
+ * longer import `@hyperidle/knowledge`'s raw accessors or
+ * `@hyperidle/review`'s `PracticeMeetingKnowledgeStore` type to build that
+ * store itself; see `ports.js`'s top `@lore` for the full reasoning. Every
+ * exported entry point now takes an explicit `ports: DispatchPorts`
+ * parameter; `service.ts`'s `createDispatchOps` binds it once at the
+ * composition root so the exported bound versions keep the ORIGINAL
+ * deps-free signatures every real call site (`tools/create-team.ts`,
+ * `routes/routines-routes.ts`, `routes/teams-routes.ts`, `routines.ts`)
+ * already uses.
  */
 import * as crypto from "node:crypto";
-import { getThreadIdsByHost, insertThread } from "@hyperidle/conversation";
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	type Routine,
-} from "@hyperidle/db";
-import {
-	archiveKnowledgeItemWithLogRaw,
-	buildAttentionService,
-	findKnowledgeAppProjectionByItemIdRaw,
-	findKnowledgeItemByIdRaw,
-	insertKnowledgeAppProjectionRaw,
-	insertKnowledgeEditLogRaw,
-	insertKnowledgeItemRaw,
-	listCapturedItemsByProjectionScopeRaw,
-	runAutoPromotionSweep,
-	runStaleSweep,
-	touchKnowledgeItemUpdatedAtRaw,
-	updateKnowledgeAppProjectionMetaIfUnchangedRaw,
-} from "@hyperidle/knowledge";
-import {
-	attentionReviewReasoningMarker,
-	buildCreateReviewItemForKnowledge,
-	createPracticeMeeting,
-	type PracticeMeetingKnowledgeStore,
-} from "@hyperidle/review";
-import * as routineService from "@hyperidle/routine";
+import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
 	createLogger,
 	type EventBus,
 	type ItemCreatedEvent,
 } from "@hyperidle/shared";
-import * as work from "@hyperidle/work";
-import { and, eq, gte, inArray } from "drizzle-orm";
-import { BUILTIN_SPECS, extractBuiltinKind } from "../config/builtin-routines.js";
-// @lore AF6: cron helpers used only at runtime inside provisionTeamRoutines. The
-// scheduler↔builtin-routine-handlers import cycle is init-safe because neither module
-// calls the other at top level (only runBuiltinRoutine / parseCron at call time).
+import { BUILTIN_SPECS, extractBuiltinKind } from "./builtin-routines-config.js";
+import type { DispatchPorts } from "./ports.js";
 import { nextCronMatch, parseCron } from "./routine-scheduler.js";
-
-/**
- * @lore AU19 Increment 1j: `@hyperidle/review`'s `createPracticeMeeting`
- * needs an injected `PracticeMeetingKnowledgeStore` port (Mechanism C —
- * `review` never imports `@hyperidle/knowledge` directly). This module
- * already lives beside `work-service.ts`/`knowledge`'s real consumers, so it
- * wires the concrete raw accessors unchanged (no behavior change).
- */
-const practiceMeetingKnowledgeStore: PracticeMeetingKnowledgeStore = {
-	insertKnowledgeItem: insertKnowledgeItemRaw,
-	insertKnowledgeAppProjection: insertKnowledgeAppProjectionRaw,
-	insertKnowledgeEditLog: insertKnowledgeEditLogRaw,
-	findKnowledgeItemById: findKnowledgeItemByIdRaw,
-	findKnowledgeAppProjectionByItemId: findKnowledgeAppProjectionByItemIdRaw,
-	updateKnowledgeAppProjectionMetaIfUnchanged: updateKnowledgeAppProjectionMetaIfUnchangedRaw,
-	touchKnowledgeItemUpdatedAt: touchKnowledgeItemUpdatedAtRaw,
-	listCapturedItemsByProjectionScope: listCapturedItemsByProjectionScopeRaw,
-	archiveKnowledgeItemWithLog: archiveKnowledgeItemWithLogRaw,
-};
 
 const PORTFOLIO_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -93,7 +62,8 @@ const PORTFOLIO_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
  * key on the kind prefix (`builtin:<kind>`) not the full stored id. This keeps
  * the dispatch contract on the 5 stable kinds while storage is per-team.
  */
-export async function provisionTeamRoutines(
+export async function provisionTeamRoutinesInternal(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	opts: {
 		teamId: string;
@@ -117,7 +87,7 @@ export async function provisionTeamRoutines(
 		// Resolve owner: role → roster agent; fall back to lead.
 		const ownerAgentId = ownerByRole[spec.ownerRole] ?? leadAgentId;
 
-		await routineService.insertRoutine(
+		await ports.routine.insertRoutine(
 			db,
 			{
 				id: routineId,
@@ -160,13 +130,14 @@ export interface PostBetRetroArgs {
  * short-circuits with `{ fired: false, reason: "disabled" }` when
  * `active=0` and delegates to the per-routine implementation otherwise.
  */
-export async function runBuiltinRoutine(
+export async function runBuiltinRoutineInternal(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	routineId: string,
 	args?: PostBetRetroArgs,
 ): Promise<RunBuiltinResult> {
-	const routine = await routineService.getRoutineById(db, routineId);
+	const routine = await ports.routine.getRoutineById(db, routineId);
 	if (!routine) {
 		return { fired: false, reason: `routine ${routineId} not found` };
 	}
@@ -196,22 +167,22 @@ export async function runBuiltinRoutine(
 	let result: RunBuiltinResult;
 	switch (kind) {
 		case "builtin:practice-meeting":
-			result = await runPracticeMeetingRoutine(db, routine);
+			result = await runPracticeMeetingRoutine(ports, db, routine);
 			break;
 		case "builtin:post-bet-retro":
 			if (!args) {
 				return { fired: false, reason: "post-bet-retro requires { betId } args" };
 			}
-			result = await runPostBetRetro(db, eventBus, routine, args);
+			result = await runPostBetRetro(ports, db, eventBus, routine, args);
 			break;
 		case "builtin:portfolio-retro":
-			result = await runPortfolioRetro(db, eventBus, routine);
+			result = await runPortfolioRetro(ports, db, eventBus, routine);
 			break;
 		case "builtin:knowledge-decay":
-			result = await runKnowledgeDecay(db, eventBus, routine);
+			result = await runKnowledgeDecay(ports, db, eventBus, routine);
 			break;
 		case "builtin:knowledge-promotion":
-			result = await runKnowledgePromotion(db, eventBus, routine);
+			result = await runKnowledgePromotion(ports, db, eventBus, routine);
 			break;
 		default: {
 			const exhaustive: never = kind;
@@ -223,7 +194,7 @@ export async function runBuiltinRoutine(
 	// Terminal on insert (no "running" intermediate) — built-in execution is
 	// synchronous and cannot leave a zombie. `skipped` rows are still recorded so
 	// runs[] stays honest about scheduler activity (observability, Hard rule 1).
-	await routineService.insertRoutineRun(db, {
+	await ports.routine.insertRoutineRun(db, {
 		id: crypto.randomUUID(),
 		routineId,
 		startedAt: startedAt.toISOString(),
@@ -233,7 +204,7 @@ export async function runBuiltinRoutine(
 	});
 
 	if (result.fired) {
-		await routineService.updateRoutineById(db, routineId, { lastRunAt: endedAt.toISOString() });
+		await ports.routine.updateRoutineById(db, routineId, { lastRunAt: endedAt.toISOString() });
 	}
 
 	return result;
@@ -256,7 +227,11 @@ export async function runBuiltinRoutine(
  * with a `toState === "completed"` filter. The guard must be FIRST to ensure
  * non-completed transitions are ignored before any work is done.
  */
-export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventBus): () => void {
+export function registerBuiltinRoutineHandlersInternal(
+	ports: DispatchPorts,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+): () => void {
 	const unsubs: Array<() => void> = [];
 
 	const betCompletedHandler = (event: BetStateChangedEvent): void => {
@@ -269,23 +244,23 @@ export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventB
 			const betId = event.betId;
 
 			// Look up the bet's teamId
-			const betRow = await work.getBetById(db, betId);
+			const betRow = await ports.work.getBetById(db, betId);
 			const betTeamId = betRow?.teamId;
 
 			// Try per-team id first
 			let routineRow: Routine | undefined;
 			if (betTeamId) {
 				const perTeamId = `builtin:post-bet-retro:${betTeamId}`;
-				routineRow = await routineService.getRoutineById(db, perTeamId);
+				routineRow = await ports.routine.getRoutineById(db, perTeamId);
 			}
 			// Fall back to legacy global id (backward compat)
 			if (!routineRow) {
-				routineRow = await routineService.getRoutineById(db, "builtin:post-bet-retro");
+				routineRow = await ports.routine.getRoutineById(db, "builtin:post-bet-retro");
 			}
 			if (!(routineRow && routineRow.active)) return;
 
 			// Best-effort fire-and-forget
-			await runBuiltinRoutine(db, eventBus, routineRow.id, { betId });
+			await runBuiltinRoutineInternal(ports, db, eventBus, routineRow.id, { betId });
 		})();
 	};
 	unsubs.push(eventBus.on("bet_state_changed", betCompletedHandler));
@@ -295,13 +270,14 @@ export function registerBuiltinRoutineHandlers(db: HyperIdleDb, eventBus: EventB
 	};
 }
 
-// @lore AD8c: Cost Sentinel code lives in packages/server/src/services/cost-sentinel.ts.
+// @lore AD8c: Cost Sentinel code lives in `@hyperidle/cost`'s `cost-sentinel.ts`.
 // The cost sentinel is registered as an application-level scheduled job via
 // startCostSentinel in server-factory.ts's registerAgentLayerServices.
 
 // --- Practice Meeting routine ---
 
 async function runPracticeMeetingRoutine(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	routine: Routine,
 ): Promise<RunBuiltinResult> {
@@ -310,15 +286,11 @@ async function runPracticeMeetingRoutine(
 	// re-points it we still want a valid anchor. Fall back to "facilitation"
 	// when no scope can be derived — keeps anchor creation total.
 	const isoNow = new Date().toISOString();
-	const result = await createPracticeMeeting(
-		db,
-		{
-			scopeId: "facilitation",
-			title: `Weekly practice meeting — ${isoNow.slice(0, 10)}`,
-			nowMs: Date.now(),
-		},
-		practiceMeetingKnowledgeStore,
-	);
+	const result = await ports.review.createPracticeMeeting(db, {
+		scopeId: "facilitation",
+		title: `Weekly practice meeting — ${isoNow.slice(0, 10)}`,
+		nowMs: Date.now(),
+	});
 
 	return {
 		fired: true,
@@ -348,12 +320,13 @@ function postBetRetroBetIdMarker(betId: string): string {
 }
 
 async function runPostBetRetro(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	routine: Routine,
 	args: PostBetRetroArgs,
 ): Promise<RunBuiltinResult> {
-	const bet = await work.getBetById(db, args.betId);
+	const bet = await ports.work.getBetById(db, args.betId);
 	if (!bet) {
 		return { fired: false, reason: `bet ${args.betId} not found` };
 	}
@@ -366,8 +339,8 @@ async function runPostBetRetro(
 	// exceptions: Conversation owns `threads`, so resolve the bet's thread ids
 	// via conversation-store, then let Work own the `items` read through
 	// `findRetroItemByThreadIds` (no `items ⋈ threads` join in work-service).
-	const betThreadIds = await getThreadIdsByHost(db, "bet", args.betId);
-	const existing = await work.findRetroItemByThreadIds(db, betThreadIds, marker);
+	const betThreadIds = await ports.conversation.getThreadIdsByHost(db, "bet", args.betId);
+	const existing = await ports.work.findRetroItemByThreadIds(db, betThreadIds, marker);
 	if (existing) {
 		return { fired: false, reason: "already-retroed" };
 	}
@@ -394,7 +367,7 @@ async function runPostBetRetro(
 	const isoNow = new Date().toISOString();
 
 	await db.transaction(async (tx) => {
-		await insertThread(tx as HyperIdleDb, {
+		await ports.conversation.insertThread(tx as HyperIdleDb, {
 			id: threadId,
 			hostKind: "bet",
 			hostId: args.betId,
@@ -404,7 +377,7 @@ async function runPostBetRetro(
 			createdAt: isoNow,
 		});
 
-		await work.createItem(tx, {
+		await ports.work.createItem(tx, {
 			id: itemId,
 			sourceAgentId: routine.ownerAgentId,
 			layer: "meta",
@@ -437,6 +410,7 @@ async function runPostBetRetro(
 // --- Portfolio Retro ---
 
 async function runPortfolioRetro(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	routine: Routine,
@@ -444,28 +418,19 @@ async function runPortfolioRetro(
 	const nowMs = Date.now();
 	const cutoffIso = new Date(nowMs - PORTFOLIO_WINDOW_MS).toISOString();
 
-	// @lore O2: layer is in knowledgeAppProjection. JOIN to filter by layer.
-	const recentRows = await db
-		.select({ item: knowledgeItems, fabric: knowledgeAppProjection })
-		.from(knowledgeItems)
-		.innerJoin(
-			knowledgeAppProjection,
-			eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-		)
-		.where(
-			and(
-				inArray(knowledgeAppProjection.layer, ["L3", "L4"]),
-				gte(knowledgeItems.updatedAt, cutoffIso),
-			),
-		);
+	// @lore O2: layer is in knowledgeAppProjection. `ports.knowledge.listRecentByLayers`
+	// joins knowledgeItems ⋈ knowledgeAppProjection filtered by layer (AU19
+	// Increment 3h — the raw join moved to `@hyperidle/knowledge`'s
+	// `portfolio-retro-store.ts`, Table ACL).
+	const recentRows = await ports.knowledge.listRecentByLayers(db, ["L3", "L4"], cutoffIso);
 
 	const bodyLines = [
 		`Portfolio retro — window: last 30 days (since ${cutoffIso})`,
 		`Recent L3/L4 items: ${recentRows.length}`,
 		"",
 	];
-	for (const { item: ki, fabric } of recentRows) {
-		bodyLines.push(`- [${fabric.layer ?? "?"}] ${ki.title} (updated ${ki.updatedAt})`);
+	for (const row of recentRows) {
+		bodyLines.push(`- [${row.layer ?? "?"}] ${row.title} (updated ${row.updatedAt})`);
 	}
 	if (recentRows.length === 0) {
 		bodyLines.push("(no cross-product patterns updated in the window)");
@@ -476,7 +441,7 @@ async function runPortfolioRetro(
 	const isoNow = new Date(nowMs).toISOString();
 
 	await db.transaction(async (tx) => {
-		await insertThread(tx as HyperIdleDb, {
+		await ports.conversation.insertThread(tx as HyperIdleDb, {
 			id: threadId,
 			hostKind: "factory",
 			hostId: "portfolio",
@@ -486,7 +451,7 @@ async function runPortfolioRetro(
 			createdAt: isoNow,
 		});
 
-		await work.createItem(tx, {
+		await ports.work.createItem(tx, {
 			id: itemId,
 			sourceAgentId: routine.ownerAgentId,
 			layer: "meta",
@@ -533,12 +498,13 @@ const promotionLog = createLogger({ pkg: "server.knowledge-promotion" });
  * This is the primary design, not a fallback.
  */
 async function runKnowledgePromotion(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	_routine: Routine,
 ): Promise<RunBuiltinResult> {
 	// Step 1: run the promotion sweep. The sweep emits per-promotion events itself.
-	const sweep = await runAutoPromotionSweep(db, eventBus);
+	const sweep = await ports.knowledge.runAutoPromotionSweep(db, eventBus);
 
 	// Step 2 (Task 4): recompute attention scores for the candidates the sweep
 	// touched. Use the narrow { ids } form to satisfy FILTER_REQUIRED and stay
@@ -554,18 +520,11 @@ async function runKnowledgePromotion(
 		];
 
 		if (candidateIds.length > 0) {
-			const createReviewItemForKnowledge = buildCreateReviewItemForKnowledge({
-				conversation: { insertThread },
-				work: { createItem: work.createItem },
-			});
-			const attentionResult = await buildAttentionService({
+			const attentionResult = await ports.knowledge.recomputeAttentionForCandidates(
 				db,
 				eventBus,
-				work: { findItemByReasoningMarker: work.findItemByReasoningMarker },
-				review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
-			}).recomputeScope({
-				ids: candidateIds,
-			});
+				candidateIds,
+			);
 			if (!attentionResult.ok) {
 				promotionLog.error("attention recompute failed on promotion sweep", {
 					code: attentionResult.error.code,
@@ -589,6 +548,7 @@ async function runKnowledgePromotion(
 // --- Knowledge Decay ---
 
 async function runKnowledgeDecay(
+	ports: DispatchPorts,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	routine: Routine,
@@ -597,6 +557,6 @@ async function runKnowledgeDecay(
 	// Honor the `silent` column so the seeded built-in decay sweep does
 	// not flood the bus with `knowledge_updated` events on every tick.
 	const silent = !!routine.silent;
-	const sweep = await runStaleSweep(db, eventBus, nowMs, undefined, { silent });
+	const sweep = await ports.knowledge.runStaleSweep(db, eventBus, nowMs, undefined, { silent });
 	return { fired: true, extra: { markedCount: sweep.markedIds.length } };
 }

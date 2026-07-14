@@ -46,6 +46,12 @@
  * counted; `writeback.ts`'s direct `knowledgeConflicts` inserts were raw
  * table access at original census time, not a countable edge). See
  * `@hyperidle/capture-writeback`'s `ports.ts` top `@lore` for the port side.
+ *
+ * @lore AU19 Increment 3h: `portfolio-retro-store.ts` added — the
+ * `dispatch -> knowledge` census correction (`runPortfolioRetro`'s raw
+ * `knowledgeItems`/`knowledgeAppProjection` join was never a countable edge
+ * at original census time). See `@hyperidle/dispatch`'s `ports.ts` top
+ * `@lore` for the port side.
  */
 
 // -- attention engine (recompute service + DI ports for work/review edges) --
@@ -114,6 +120,9 @@ export {
 	type UpdateKnowledgeItemInput,
 	update,
 } from "./knowledge-repository.js";
+// -- portfolio-retro-store (AU19 Increment 3h — the dispatch -> knowledge edge) --
+export type { RecentLayeredKnowledgeItemRow } from "./portfolio-retro-store.js";
+export { listRecentByLayers } from "./portfolio-retro-store.js";
 // -- practice-meeting raw accessors (Mechanism C port for @hyperidle/review) --
 export type {
 	ArchiveKnowledgeItemInput,

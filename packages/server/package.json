@@ -36,6 +36,7 @@
 		"@hyperidle/conversation": "*",
 		"@hyperidle/cost": "*",
 		"@hyperidle/db": "*",
+		"@hyperidle/dispatch": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/git-export": "*",
 		"@hyperidle/knowledge": "*",

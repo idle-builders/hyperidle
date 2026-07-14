@@ -1,5 +1,12 @@
 import { deriveInitials } from "@hyperidle/agent-selection";
 import { type HyperIdleDb, teams } from "@hyperidle/db";
+import {
+	extractBuiltinKind,
+	isBuiltinRoutineId,
+	nextCronMatch,
+	type PostBetRetroArgs,
+	parseCron,
+} from "@hyperidle/dispatch";
 import * as routineService from "@hyperidle/routine";
 import {
 	type AgentWorkIntentEvent,
@@ -17,11 +24,9 @@ import { getUserById } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import { type PostBetRetroArgs, runBuiltinRoutine } from "../services/builtin-routine-handlers.js";
-import { getRoutineMonthlySpend, nextCronMatch, parseCron } from "../services/routine-scheduler.js";
+import { getRoutineMonthlySpend, runBuiltinRoutine } from "../services/dispatch-bindings.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
