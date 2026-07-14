@@ -13,6 +13,7 @@ import {
 	insertCredential,
 	upsertCredential,
 } from "@hyperidle/connections";
+import { getThreadById, insertThread, updateThread } from "@hyperidle/conversation";
 import {
 	createPgliteDb,
 	createPostgresDb,
@@ -39,8 +40,10 @@ import {
 import {
 	getTeamMembersById,
 	getTeamMembersByTeamId,
+	resolveReviewRecipients,
 	setTeamMembersActiveBets,
 } from "@hyperidle/org";
+import { registerSessionReviewCreator } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
 import {
 	migrateCredentialsToStore,
@@ -51,10 +54,13 @@ import {
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { getUserById, listActiveAiUsersByTeams, listUsersByKind } from "@hyperidle/users";
 import {
+	createItem as createWorkItem,
 	getItemById,
+	getTaskById,
 	listQueuedItemsSince,
 	registerBetDecomposition,
 	resolveOrphanedDecompositions,
+	updateTaskById,
 } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { WebSocketServer } from "ws";
@@ -90,7 +96,6 @@ import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import { startSandboxReaper } from "./services/sandbox-reaper.js";
 import { enumerateTeamCandidates, selectOwner } from "./services/select-agent.js";
-import { registerSessionReviewCreator } from "./services/session-review-creator.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
 import { registerWorkerWsRoute } from "./services/worker-ws.js";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "./services/ws-broadcaster.js";
@@ -195,7 +200,14 @@ export function registerCoreDomainServices(ctx: {
 	});
 
 	disposers.push(registerRelevanceListener(db, eventBus));
-	disposers.push(registerSessionReviewCreator(db, eventBus));
+	disposers.push(
+		registerSessionReviewCreator(db, eventBus, {
+			work: { getTaskById, updateTaskById, createItem: createWorkItem },
+			conversation: { insertThread, getThreadById, updateThread },
+			users: { getUserById, listUsersByKind },
+			org: { resolveReviewRecipients },
+		}),
+	);
 	disposers.push(registerPolicyEngine(db, eventBus));
 	disposers.push(registerLifecyclePropagation(db, eventBus));
 	disposers.push(

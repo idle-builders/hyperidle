@@ -337,6 +337,12 @@ function buildLeafDeclarations(root: string): void {
   // services/session-context.ts, services/session-lifecycle.ts,
   // services/session-provisioning.ts, server-factory.ts now import
   // `@hyperidle/routine`.
+  //
+  // @lore AU19 Increment 1j: `core-api/review` added — closes Increment 1
+  // (the last unmigrated core-api SQL-owning Service). Same TS6305 cascade;
+  // routes/threads.ts, routes/reviews.ts, tools/score-attention.ts,
+  // services/builtin-routine-handlers.ts, server-factory.ts now import
+  // `@hyperidle/review`.
   for (const leaf of [
     "shared",
     "db",
@@ -350,6 +356,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/notifications",
     "core-api/connections",
     "core-api/routine",
+    "core-api/review",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

@@ -37,6 +37,7 @@ import {
 	proposedCalls,
 	sessions,
 } from "@hyperidle/db";
+import { composeTailoredGrant } from "@hyperidle/review";
 import type {
 	AgentOperationalStatus,
 	ApiErrorResponse,
@@ -69,7 +70,7 @@ import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
+import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
@@ -1389,14 +1390,18 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 					return c.json({ error: "Task not found", code: "not_found" }, 404);
 				}
 
-				await composeTailoredGrant(db, {
-					proposedCallId: pc.id,
-					taskScope: taskId,
-					agentScope: agentId,
-					approvedToolId: pc.toolId,
-					approvedArgs: pc.args,
-					identityHash: pc.identityHash ?? undefined,
-				});
+				await composeTailoredGrant(
+					db,
+					{
+						proposedCallId: pc.id,
+						taskScope: taskId,
+						agentScope: agentId,
+						approvedToolId: pc.toolId,
+						approvedArgs: pc.args,
+						identityHash: pc.identityHash ?? undefined,
+					},
+					{ sessionRequests: { record: recordAgentWorkIntent } },
+				);
 
 				const event: ProposedCallGrantedEvent = {
 					type: "proposed_call_granted",

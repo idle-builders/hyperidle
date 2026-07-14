@@ -1,3 +1,4 @@
+import { insertThread } from "@hyperidle/conversation";
 import {
 	type HyperIdleDb,
 	items,
@@ -6,29 +7,35 @@ import {
 	knowledgeStrategyFabric,
 } from "@hyperidle/db";
 import { buildAttentionService, MAX_RECOMPUTE_BATCH } from "@hyperidle/knowledge";
+import {
+	attentionReviewReasoningMarker,
+	buildCreateReviewItemForKnowledge,
+} from "@hyperidle/review";
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import {
-	attentionReviewReasoningMarker,
-	createReviewItemForKnowledge,
-} from "../services/review-item-factory.js";
 import { test } from "../test-fixtures.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();
 
 /**
- * @lore AU19 Increment 1a: `buildAttentionService` now takes `work`/`review`
+ * @lore AU19 Increment 1a/1j: `buildAttentionService` now takes `work`/`review`
  * as injected DI ports (Mechanism C — `knowledge` never imports another
  * Service). This test constructs the real `work-service.ts` /
- * `review-item-factory.ts` functions and passes them through, exercising the
+ * `@hyperidle/review` functions and passes them through, exercising the
  * exact same production wiring `score-attention.ts`/`builtin-routine-handlers.ts`
  * use — no behavior change from the pre-migration direct-import version.
  */
 const workPort = { findItemByReasoningMarker: work.findItemByReasoningMarker };
-const reviewPort = { createReviewItemForKnowledge, attentionReviewReasoningMarker };
+const reviewPort = {
+	createReviewItemForKnowledge: buildCreateReviewItemForKnowledge({
+		conversation: { insertThread },
+		work: { createItem: work.createItem },
+	}),
+	attentionReviewReasoningMarker,
+};
 
 interface SeedKiOverrides {
 	readonly id: string;

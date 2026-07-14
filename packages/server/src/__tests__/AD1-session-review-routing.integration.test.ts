@@ -11,6 +11,7 @@
  *     by their team's agents appear in the list (humans are participants).
  */
 
+import { getThreadById, insertThread, updateThread } from "@hyperidle/conversation";
 import {
 	bets,
 	createTestDb,
@@ -26,10 +27,26 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { resolveReviewRecipients } from "@hyperidle/org";
+import { registerSessionReviewCreator, type SessionReviewCreatorDeps } from "@hyperidle/review";
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
+import { getUserById, listUsersByKind } from "@hyperidle/users";
+import { createItem, getTaskById, updateTaskById } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerSessionReviewCreator } from "../services/session-review-creator.js";
+
+/**
+ * @lore AU19 Increment 1j: `registerSessionReviewCreator` now takes injected
+ * `work`/`conversation`/`users`/`org` ports (Mechanism C — `review` never
+ * imports another Service). This test builds the exact same production
+ * wiring `server-factory.ts` uses — no behavior change.
+ */
+const reviewDeps: SessionReviewCreatorDeps = {
+	work: { getTaskById, updateTaskById, createItem },
+	conversation: { insertThread, getThreadById, updateThread },
+	users: { getUserById, listUsersByKind },
+	org: { resolveReviewRecipients },
+};
 
 const NOW = new Date().toISOString();
 
@@ -139,7 +156,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				outcome: "success",
 			});
 
-			const unsubscribe = registerSessionReviewCreator(db, eventBus);
+			const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
 
 			const event: SessionEndedEvent = {
 				type: "session_ended",
@@ -220,7 +237,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				outcome: "partial",
 			});
 
-			const unsubscribe = registerSessionReviewCreator(db, eventBus);
+			const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
 
 			const event: SessionEndedEvent = {
 				type: "session_ended",
@@ -289,7 +306,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				state: "ended",
 			});
 
-			const unsubscribe = registerSessionReviewCreator(db, eventBus);
+			const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
 
 			const event: SessionEndedEvent = {
 				type: "session_ended",

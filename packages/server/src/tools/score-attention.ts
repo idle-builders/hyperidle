@@ -1,12 +1,13 @@
+import { insertThread } from "@hyperidle/conversation";
 import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { buildAttentionService } from "@hyperidle/knowledge";
+import {
+	attentionReviewReasoningMarker,
+	buildCreateReviewItemForKnowledge,
+} from "@hyperidle/review";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import {
-	attentionReviewReasoningMarker,
-	createReviewItemForKnowledge,
-} from "../services/review-item-factory.js";
 import type { ToolContext, ToolDefinition } from "./tool-registry.js";
 import { err, ok, type ToolResult } from "./tool-result.js";
 
@@ -85,6 +86,10 @@ async function handler(
 		if (!existing) {
 			return err("NOT_FOUND", `Knowledge item not found: ${id}`);
 		}
+		const createReviewItemForKnowledge = buildCreateReviewItemForKnowledge({
+			conversation: { insertThread },
+			work: { createItem: work.createItem },
+		});
 		const service = buildAttentionService({
 			db: ctx.db,
 			eventBus: ctx.eventBus,

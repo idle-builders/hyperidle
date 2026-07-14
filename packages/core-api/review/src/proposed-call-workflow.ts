@@ -12,14 +12,68 @@
  * @lore AL7 R7: `handleUnconsumedGrantOnSessionEnd` is a SEPARATE session_ended
  * subscription (not inside `handleSessionEnded`). Sharing the guard with
  * `handleSessionEnded` would risk double-dispatch. Both share `hasActiveSession`.
+ *
+ * @lore AU19 Increment 1j: `proposedCalls`/`operationOutcomes`/`tailoredGrants`
+ * are `review`'s OWN owned tables (Table ACL, Mechanism A — see
+ * `scripts/table-ownership-guard.ts`'s `TABLE_OWNER` map) — this file's raw
+ * Drizzle access to them is legal, unchanged. The one real outbound edge —
+ * `recordAgentWorkIntent` (session-requests' durable intent writer) — is
+ * §10.3 against-grain and becomes an injected `ReviewAgentWorkIntentRecorder`
+ * port (see `ports.ts`), interim-wired to `packages/server`'s still-unmigrated
+ * `agent-work-intents.ts` until Increment 3.
+ *
+ * `findProposedCallWithOutcomeByReviewMessageId` was added here to repoint
+ * `routes/reviews.ts` (`GET /api/reviews/:reviewMessageId`) off its raw
+ * `proposedCalls ⋈ operationOutcomes` query — the exact same join, now
+ * routed through `review`'s barrel instead of a foreign table touch.
  */
 
 import { type HyperIdleDb, operationOutcomes, proposedCalls, tailoredGrants } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
-import { recordAgentWorkIntent } from "./agent-work-intents.js";
+import type { ReviewAgentWorkIntentRecorder } from "./ports.js";
 
 function nowIso(): string {
 	return new Date().toISOString();
+}
+
+export interface ProposedCallWithOutcomeRow {
+	readonly pcId: string;
+	readonly pcStatus: string;
+	readonly toolId: string;
+	readonly args: string;
+	readonly artifactId: string;
+	readonly outcomeStatus: string | null;
+	readonly outcomeReceipt: string | null;
+	readonly outcomeError: string | null;
+	readonly outcomeExecutedAt: string | null;
+}
+
+/**
+ * Load the Proposed Call (+ its Operation Outcome, if any) anchored to a
+ * review message. Mirrors `routes/reviews.ts`'s pre-migration inline query
+ * exactly (same columns, same LEFT JOIN, same `.limit(1)`).
+ */
+export async function findProposedCallWithOutcomeByReviewMessageId(
+	db: HyperIdleDb,
+	reviewMessageId: string,
+): Promise<ProposedCallWithOutcomeRow | undefined> {
+	const [row] = await db
+		.select({
+			pcId: proposedCalls.id,
+			pcStatus: proposedCalls.status,
+			toolId: proposedCalls.toolId,
+			args: proposedCalls.args,
+			artifactId: proposedCalls.artifactId,
+			outcomeStatus: operationOutcomes.status,
+			outcomeReceipt: operationOutcomes.receipt,
+			outcomeError: operationOutcomes.error,
+			outcomeExecutedAt: operationOutcomes.executedAt,
+		})
+		.from(proposedCalls)
+		.leftJoin(operationOutcomes, eq(operationOutcomes.proposedCallId, proposedCalls.id))
+		.where(eq(proposedCalls.reviewMessageId, reviewMessageId))
+		.limit(1);
+	return row;
 }
 
 /**
@@ -108,6 +162,7 @@ export async function composeTailoredGrant(
 		argPinned?: boolean;
 		identityHash?: string;
 	},
+	deps: { readonly sessionRequests: ReviewAgentWorkIntentRecorder },
 ): Promise<void> {
 	const approvedArgsSer =
 		typeof opts.approvedArgs === "string" ? opts.approvedArgs : JSON.stringify(opts.approvedArgs);
@@ -130,7 +185,7 @@ export async function composeTailoredGrant(
 			.update(proposedCalls)
 			.set({ status: "granted" })
 			.where(and(eq(proposedCalls.id, opts.proposedCallId), eq(proposedCalls.status, "captured")));
-		await recordAgentWorkIntent(tx, {
+		await deps.sessionRequests.record(tx, {
 			kind: "reengagement",
 			sourceKind: "proposed_call",
 			sourceId: opts.proposedCallId,

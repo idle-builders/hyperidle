@@ -107,6 +107,26 @@ const TABLE_OWNER: Record<string, string> = {
 	// exemption to close.
 	routines: "packages/core-api/routine",
 	routineRuns: "packages/core-api/routine",
+	// AU19 Increment 1j: `review` migrated — closes Increment 1. The AL7
+	// trust-first proposed-call/tailored-grant/operation-outcome trio
+	// (`proposed-call-workflow.ts`, moved unchanged) is `review`'s real
+	// owned table set — `review` ⛁* is now confirmed, not "reviews" (no such
+	// table exists; the §4 "reviews / proposed-calls" candidate resolved to
+	// proposed-calls). `taskStrategyFabric` (session-review-creator.ts's
+	// risk-tier read) is imported under its real pgTable-declared name — NOT
+	// the `taskPlanningSignals` alias (`packages/db/src/schema.ts`:
+	// `export const taskPlanningSignals = taskStrategyFabric`), which would
+	// evade this guard's name-based `knownTables()` regex entirely (it only
+	// matches `export const X = pgTable(...)` declarations, not alias
+	// assignments — the exact same latent gap already present for
+	// `knowledgeAppProjection`/`knowledgeStrategyFabric`, out of this WP's
+	// scope to retrofit). `taskStrategyFabric` has exactly ONE accessor
+	// anywhere in the repo (`session-review-creator.ts`) — genuinely
+	// `review`'s own table, not a false-ownership claim.
+	proposedCalls: "packages/core-api/review",
+	operationOutcomes: "packages/core-api/review",
+	tailoredGrants: "packages/core-api/review",
+	taskStrategyFabric: "packages/core-api/review",
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

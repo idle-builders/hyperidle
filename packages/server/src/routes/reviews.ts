@@ -1,5 +1,6 @@
 import { getMessageById } from "@hyperidle/conversation";
-import { artifacts, type HyperIdleDb, operationOutcomes, proposedCalls } from "@hyperidle/db";
+import { artifacts, type HyperIdleDb } from "@hyperidle/db";
+import { findProposedCallWithOutcomeByReviewMessageId } from "@hyperidle/review";
 import { relativeLong } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -96,24 +97,7 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 
 		// AL7 trust-first: load proposed call + outcome (if any) anchored to this review message.
 		// WARNING-2: args are returned verbatim (not a summary) so the human approves the real call.
-		const [opRow] = await db
-			.select({
-				// proposed call fields
-				pcId: proposedCalls.id,
-				pcStatus: proposedCalls.status,
-				toolId: proposedCalls.toolId,
-				args: proposedCalls.args,
-				artifactId: proposedCalls.artifactId,
-				// outcome fields (null when no outcome yet)
-				outcomeStatus: operationOutcomes.status,
-				outcomeReceipt: operationOutcomes.receipt,
-				outcomeError: operationOutcomes.error,
-				outcomeExecutedAt: operationOutcomes.executedAt,
-			})
-			.from(proposedCalls)
-			.leftJoin(operationOutcomes, eq(operationOutcomes.proposedCallId, proposedCalls.id))
-			.where(eq(proposedCalls.reviewMessageId, reviewMessageId))
-			.limit(1);
+		const opRow = await findProposedCallWithOutcomeByReviewMessageId(db, reviewMessageId);
 
 		// Build the response payload from the review message.
 		const reviewPayload = JSON.parse(reviewMsg.payload) as Record<string, unknown>;

@@ -13,7 +13,26 @@ import {
 	knowledgeItems,
 	type Routine,
 } from "@hyperidle/db";
-import { buildAttentionService, runAutoPromotionSweep, runStaleSweep } from "@hyperidle/knowledge";
+import {
+	archiveKnowledgeItemWithLogRaw,
+	buildAttentionService,
+	findKnowledgeAppProjectionByItemIdRaw,
+	findKnowledgeItemByIdRaw,
+	insertKnowledgeAppProjectionRaw,
+	insertKnowledgeEditLogRaw,
+	insertKnowledgeItemRaw,
+	listCapturedItemsByProjectionScopeRaw,
+	runAutoPromotionSweep,
+	runStaleSweep,
+	touchKnowledgeItemUpdatedAtRaw,
+	updateKnowledgeAppProjectionMetaIfUnchangedRaw,
+} from "@hyperidle/knowledge";
+import {
+	attentionReviewReasoningMarker,
+	buildCreateReviewItemForKnowledge,
+	createPracticeMeeting,
+	type PracticeMeetingKnowledgeStore,
+} from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
 import {
 	type BetStateChangedEvent,
@@ -24,15 +43,29 @@ import {
 import * as work from "@hyperidle/work";
 import { and, eq, gte, inArray } from "drizzle-orm";
 import { BUILTIN_SPECS, extractBuiltinKind } from "../config/builtin-routines.js";
-import { createPracticeMeeting } from "./practice-meeting.js";
-import {
-	attentionReviewReasoningMarker,
-	createReviewItemForKnowledge,
-} from "./review-item-factory.js";
 // @lore AF6: cron helpers used only at runtime inside provisionTeamRoutines. The
 // scheduler↔builtin-routine-handlers import cycle is init-safe because neither module
 // calls the other at top level (only runBuiltinRoutine / parseCron at call time).
 import { nextCronMatch, parseCron } from "./routine-scheduler.js";
+
+/**
+ * @lore AU19 Increment 1j: `@hyperidle/review`'s `createPracticeMeeting`
+ * needs an injected `PracticeMeetingKnowledgeStore` port (Mechanism C —
+ * `review` never imports `@hyperidle/knowledge` directly). This module
+ * already lives beside `work-service.ts`/`knowledge`'s real consumers, so it
+ * wires the concrete raw accessors unchanged (no behavior change).
+ */
+const practiceMeetingKnowledgeStore: PracticeMeetingKnowledgeStore = {
+	insertKnowledgeItem: insertKnowledgeItemRaw,
+	insertKnowledgeAppProjection: insertKnowledgeAppProjectionRaw,
+	insertKnowledgeEditLog: insertKnowledgeEditLogRaw,
+	findKnowledgeItemById: findKnowledgeItemByIdRaw,
+	findKnowledgeAppProjectionByItemId: findKnowledgeAppProjectionByItemIdRaw,
+	updateKnowledgeAppProjectionMetaIfUnchanged: updateKnowledgeAppProjectionMetaIfUnchangedRaw,
+	touchKnowledgeItemUpdatedAt: touchKnowledgeItemUpdatedAtRaw,
+	listCapturedItemsByProjectionScope: listCapturedItemsByProjectionScopeRaw,
+	archiveKnowledgeItemWithLog: archiveKnowledgeItemWithLogRaw,
+};
 
 const PORTFOLIO_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -277,11 +310,15 @@ async function runPracticeMeetingRoutine(
 	// re-points it we still want a valid anchor. Fall back to "facilitation"
 	// when no scope can be derived — keeps anchor creation total.
 	const isoNow = new Date().toISOString();
-	const result = await createPracticeMeeting(db, {
-		scopeId: "facilitation",
-		title: `Weekly practice meeting — ${isoNow.slice(0, 10)}`,
-		nowMs: Date.now(),
-	});
+	const result = await createPracticeMeeting(
+		db,
+		{
+			scopeId: "facilitation",
+			title: `Weekly practice meeting — ${isoNow.slice(0, 10)}`,
+			nowMs: Date.now(),
+		},
+		practiceMeetingKnowledgeStore,
+	);
 
 	return {
 		fired: true,
@@ -517,6 +554,10 @@ async function runKnowledgePromotion(
 		];
 
 		if (candidateIds.length > 0) {
+			const createReviewItemForKnowledge = buildCreateReviewItemForKnowledge({
+				conversation: { insertThread },
+				work: { createItem: work.createItem },
+			});
 			const attentionResult = await buildAttentionService({
 				db,
 				eventBus,

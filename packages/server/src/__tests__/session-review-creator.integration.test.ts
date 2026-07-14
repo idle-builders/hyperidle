@@ -1,3 +1,4 @@
+import { getThreadById, insertThread, updateThread } from "@hyperidle/conversation";
 import {
 	bets,
 	type HyperIdleDb,
@@ -10,11 +11,27 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { resolveReviewRecipients } from "@hyperidle/org";
+import { registerSessionReviewCreator, type SessionReviewCreatorDeps } from "@hyperidle/review";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
+import { getUserById, listUsersByKind } from "@hyperidle/users";
+import { createItem, getTaskById, updateTaskById } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
-import { registerSessionReviewCreator } from "../services/session-review-creator.js";
 import { test } from "../test-fixtures.js";
+
+/**
+ * @lore AU19 Increment 1j: `registerSessionReviewCreator` now takes injected
+ * `work`/`conversation`/`users`/`org` ports (Mechanism C — `review` never
+ * imports another Service). This test builds the exact same production
+ * wiring `server-factory.ts` uses — no behavior change.
+ */
+const reviewDeps: SessionReviewCreatorDeps = {
+	work: { getTaskById, updateTaskById, createItem },
+	conversation: { insertThread, getThreadById, updateThread },
+	users: { getUserById, listUsersByKind },
+	org: { resolveReviewRecipients },
+};
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({
@@ -57,7 +74,7 @@ describe("registerSessionReviewCreator", () => {
 
 	test("creates review item for high-risk task on session_ended", async ({ db, eventBus }) => {
 		await seedBase(db);
-		const unsubscribe = registerSessionReviewCreator(db, eventBus);
+		const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
 
 		// Create high-risk task with a thread
 		await db.insert(threads).values({
@@ -127,7 +144,7 @@ describe("registerSessionReviewCreator", () => {
 
 	test("does not create review item for low-risk task", async ({ db, eventBus }) => {
 		await seedBase(db);
-		const unsubscribe = registerSessionReviewCreator(db, eventBus);
+		const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
 
 		await db.insert(tasks).values({
 			id: "task-low",
@@ -173,7 +190,7 @@ describe("registerSessionReviewCreator", () => {
 
 	test("auto-creates thread when task has no threadId", async ({ db, eventBus }) => {
 		await seedBase(db);
-		const unsubscribe = registerSessionReviewCreator(db, eventBus);
+		const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
 
 		await db.insert(tasks).values({
 			id: "task-no-thread",
@@ -232,7 +249,7 @@ describe("registerSessionReviewCreator", () => {
 
 	test("returns an unsubscribe function that stops handling events", async ({ db, eventBus }) => {
 		await seedBase(db);
-		const unsubscribe = registerSessionReviewCreator(db, eventBus);
+		const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
 
 		await db.insert(tasks).values({
 			id: "task-unsub",

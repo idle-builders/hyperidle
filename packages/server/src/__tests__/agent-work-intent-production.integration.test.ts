@@ -19,13 +19,13 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { composeTailoredGrant } from "@hyperidle/review";
 import type { AgentSelectionDefaults, AgentWorkIntentRecorder } from "@hyperidle/work";
 import { insertProposedBetTasks } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
 import { resolveDecompositionPlan } from "../services/agent-defaults/resolvers.js";
 import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { checkAndUnblockDependents } from "../services/dependency-watcher.js";
-import { composeTailoredGrant } from "../services/proposed-call-workflow.js";
 import { checkAndFireRoutine } from "../services/routine-scheduler.js";
 import { enumerateTeamCandidates, selectOwner } from "../services/select-agent.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
@@ -659,13 +659,17 @@ describe("atomic production handoffs", () => {
 		db,
 	}) => {
 		await seedProposedCallWorld(db);
-		await composeTailoredGrant(db, {
-			proposedCallId: "au9-production-call",
-			taskScope: "au9-production-task",
-			agentScope: "au9-production-agent",
-			approvedToolId: "commit_file",
-			approvedArgs: { path: "result.txt" },
-		});
+		await composeTailoredGrant(
+			db,
+			{
+				proposedCallId: "au9-production-call",
+				taskScope: "au9-production-task",
+				agentScope: "au9-production-agent",
+				approvedToolId: "commit_file",
+				approvedArgs: { path: "result.txt" },
+			},
+			{ sessionRequests: { record: recordAgentWorkIntent } },
+		);
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)

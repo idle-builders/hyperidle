@@ -336,9 +336,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 	test("session 2 ends without consuming the grant → re-provision once (retryCount→1)", async ({
 		db,
 	}) => {
-		const { handleUnconsumedGrantOnSessionEnd } = await import(
-			"../services/proposed-call-workflow.js"
-		);
+		const { handleUnconsumedGrantOnSessionEnd } = await import("@hyperidle/review");
 
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const pcId = `pc-liveness-${crypto.randomUUID()}`;
@@ -397,9 +395,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 	test("second session-ended with retryCount>=1 → PC held + failed Outcome (not a silent hang)", async ({
 		db,
 	}) => {
-		const { handleUnconsumedGrantOnSessionEnd } = await import(
-			"../services/proposed-call-workflow.js"
-		);
+		const { handleUnconsumedGrantOnSessionEnd } = await import("@hyperidle/review");
 
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const pcId = `pc-liveness2-${crypto.randomUUID()}`;

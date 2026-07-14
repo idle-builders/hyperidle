@@ -14,6 +14,13 @@
  * (`attention-service.ts` → `work`/`review`) became injected DI ports
  * (Mechanism C) since neither `work` nor `review` has migrated yet — see
  * `AttentionServiceDeps` in `attention-service.ts`.
+ *
+ * @lore AU19 Increment 1j: `practice-meeting-store.ts` added — low-level raw
+ * accessors `@hyperidle/review`'s `practice-meeting.ts` needs (its own
+ * `PracticeMeetingKnowledgeStore` DI port, Mechanism C — an ordinary
+ * downward core-api-to-core-api edge, wired directly since `knowledge` is
+ * already a real migrated package). NOT the general CRUD surface — see that
+ * file's own top-of-file `@lore` for why `create()`/`update()` weren't reused.
  */
 
 // -- attention engine (recompute service + DI ports for work/review edges) --
@@ -73,6 +80,27 @@ export {
 	type UpdateKnowledgeItemInput,
 	update,
 } from "./knowledge-repository.js";
+// -- practice-meeting raw accessors (Mechanism C port for @hyperidle/review) --
+export type {
+	ArchiveKnowledgeItemInput,
+	CapturedProjectedItem,
+	KnowledgeAppProjectionRow,
+	RawKnowledgeAppProjectionInsert,
+	RawKnowledgeEditLogInsert,
+	RawKnowledgeItemInsert,
+	RawKnowledgeItemRow,
+} from "./practice-meeting-store.js";
+export {
+	archiveKnowledgeItemWithLogRaw,
+	findKnowledgeAppProjectionByItemIdRaw,
+	findKnowledgeItemByIdRaw,
+	insertKnowledgeAppProjectionRaw,
+	insertKnowledgeEditLogRaw,
+	insertKnowledgeItemRaw,
+	listCapturedItemsByProjectionScopeRaw,
+	touchKnowledgeItemUpdatedAtRaw,
+	updateKnowledgeAppProjectionMetaIfUnchangedRaw,
+} from "./practice-meeting-store.js";
 // -- promotion pipeline (auto-promotion + stale sweeps) --
 export {
 	AUTO_PROMOTION_EDITOR,
