@@ -11,7 +11,7 @@ const forbiddenSymbols = new Set([
 ]);
 const agentFiles = new Set([
 	"packages/server/src/services/agent-work-handoff.ts", "packages/server/src/services/agent-work-intent-worker.ts",
-	"packages/server/src/services/trigger-resolution.ts", "packages/server/src/services/agent-session-requests.ts",
+	"packages/server/src/services/agent-session-requests.ts",
 	"packages/server/src/services/agent-run-boundary.ts", "packages/server/src/services/agent-session-runtime.ts",
 	"packages/server/src/services/session-provisioning.ts", "packages/server/src/services/agent-layer-boot.ts",
 	"packages/server/src/services/agent-work-assistant.ts",

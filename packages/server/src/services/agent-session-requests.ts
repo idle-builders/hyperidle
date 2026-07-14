@@ -35,9 +35,10 @@ function rowToRequest(row: AgentSessionRequest): AgentSessionRequest {
  * `TriggerResolutionSessionRequestPort.findByIdempotencyKey` — previously an
  * inline raw `agentSessionRequests` table query inside
  * `trigger-resolution.ts` (pre-migration). Wired here INTERIM
- * (`server-factory.ts`) until `session-requests` migrates and becomes the
- * real target package — the port shape does not change, only the concrete
- * wiring target does.
+ * (`agent-work-intent-worker.ts`'s `triggerResolutionDeps`, and the
+ * corresponding test fixtures) until `session-requests` migrates and becomes
+ * the real target package — the port shape does not change, only the
+ * concrete wiring target does.
  */
 export async function findAgentSessionRequestByIdempotencyKey(
 	db: HyperIdleDb,

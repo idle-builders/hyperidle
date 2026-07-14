@@ -50,7 +50,6 @@ const BOOTSTRAP_SYMBOL = "bootstrapAppRuntime";
 const AU9_AGENT_FILES = [
 	"packages/server/src/services/agent-work-handoff.ts",
 	"packages/server/src/services/agent-work-intent-worker.ts",
-	"packages/server/src/services/trigger-resolution.ts",
 	"packages/server/src/services/agent-session-requests.ts",
 	"packages/server/src/services/agent-run-boundary.ts",
 	"packages/server/src/services/agent-session-runtime.ts",

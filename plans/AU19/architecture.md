@@ -84,7 +84,7 @@ Legend: **⛁** = SQL-table owner (Table-ACL-enforced). Package name = `@hyperid
 
 | Service | ⛁ | Owns | Seed files |
 |---|:--:|---|---|
-| `trigger-resolution` | — | — | `services/trigger-resolution.ts` |
+| `trigger-resolution` | ⛁ | `triggerResolutionHistory` (confirmed at Increment 3a migration — roster's original "—" undercounted it) | `services/trigger-resolution.ts` |
 | `session-requests` | ⛁ | `agent_work_intents`, `agent_session_requests` | `services/agent-session-requests.ts`, `agent-work-intents.ts`, `agent-work-intent-worker.ts`, `session-run-registry.ts` |
 | `run-orchestration` | — | — | `services/agent-run-boundary.ts`, `agent-session-runtime.ts`, `agent-layer-boot.ts`, `worker-ws.ts` |
 | `lifecycle-projection` | ⛁ | `agent_lifecycle_inbox` (confirm) | `services/agent-lifecycle-projectors.ts` |
@@ -317,9 +317,9 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 
 **This is a real edge-by-edge census, not an estimate.** Method (reproducible): map every one of the 238 production files to its §4 Service, parse each file's relative imports, resolve each import to its target file → target Service, and count distinct `sourceService → targetService` pairs (excluding intra-Service imports, imports of `@hyperidle/db`/`@hyperidle/shared`, and **routes/middleware/app-factory as source** — those are legitimate core-api Layer composition per §5). Tools are counted as a single `tools` unit here (their internal descriptor/handler split, §7.5, moves the shared tool types to `@hyperidle/shared` and DI-registers handlers, so the ~68 intra-`tools` `tool-registry ↔ handler` call sites do **not** become runtime Service edges).
 
-**Result: 110 distinct Service→Service edges across 208 call sites at original census time; 111 distinct edges / 210 call sites after Increment 2c's `git-export → knowledge` addition; 112 distinct edges / 211 call sites after Increment 2f's `realtime → org` addition; 114 distinct edges / 214 call sites after Increment 2g's `retention → users` + `retention → knowledge` additions (§10.2 — the census is a floor, refinable during migration, per §10 method note).** Each distinct edge becomes one DI port wired by the owning Layer (downward edges, §10.2) or one event-bus inversion (against-grain edges, §10.3). The per-source breakdown below sums exactly to 114 (post-2g, closing Increment 2).
+**Result: 110 distinct Service→Service edges across 208 call sites at original census time; 111 distinct edges / 210 call sites after Increment 2c's `git-export → knowledge` addition; 112 distinct edges / 211 call sites after Increment 2f's `realtime → org` addition; 114 distinct edges / 214 call sites after Increment 2g's `retention → users` + `retention → knowledge` additions; 115 distinct edges / 215 call sites after Increment 3a's `trigger-resolution → org` addition (§10.2 — the census is a floor, refinable during migration, per §10 method note).** Each distinct edge becomes one DI port wired by the owning Layer (downward edges, §10.2) or one event-bus inversion (against-grain edges, §10.3). The per-source breakdown below sums exactly to 115 (post-3a).
 
-### 10.1 Per-source summary (sums to 114, post-Increment-2g)
+### 10.1 Per-source summary (sums to 115, post-Increment-3a)
 
 | Source Service | Layer | Distinct edges | Call sites |
 |---|---|:--:|:--:|
@@ -338,14 +338,14 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 | `cost` | orch | 3 | 3 |
 | `realtime` | core-api | 4 | 4 |
 | `retention` | core-api | 3 | 4 |
-| `trigger-resolution` | orch | 3 | 3 |
+| `trigger-resolution` | orch | 4 | 4 |
 | `capture-writeback` | orch | 2 | 3 |
 | `knowledge` | core-api | 2 | 2 |
 | `lifecycle-projection` | orch | 2 | 2 |
 | `mcp-provider` | exec | 2 | 3 |
 | `agent-selection`, `connections`, `harness-registry`, `model-gateway`, `observability`, `org` | (mixed) | 1 each (6 total) | 8 |
 | `git-export` | core-api | 2 | 3 |
-| **Total** | | **114** | **214** |
+| **Total** | | **115** | **215** |
 
 *Row updated post-Increment-2c: `git-export` moved out of the "1 each" group — the real migration surfaced a second, census-missed edge (`git-export → knowledge`, 2 call sites) alongside the originally-listed `git-export → settings` (1 call site). See `git-export`'s `ports.ts` top comment.*
 
@@ -353,7 +353,7 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 
 *Row updated post-Increment-2g: `retention` moved out of the "1 each" group — the real migration surfaced TWO census-missed edges (`retention → users`, 2 call sites for `reapLoginSessions`/`reapInviteCodes`; `retention → knowledge`, 1 call site for `reapKnowledgeAccessLog`) alongside the originally-listed `retention → notifications` (1 call site). Both new edges were raw `@hyperidle/db` table access at original census time (not a countable relative-import edge until `users`/`knowledge` existed as real owner packages — Table ACL is what surfaces them, on migrating `retention` for real). See `retention`'s `ports.ts` top comment. This closes Increment 2 (core-api non-SQL Services).*
 
-### 10.2 Full edge table (all 114, post-Increment-2g — the migration inventory)
+### 10.2 Full edge table (all 115, post-Increment-3a — the migration inventory)
 
 Legend: `→` legal **downward** DI (orchestration→core-api, intra-layer) — becomes an injected port wired by the owning Layer. `§` = **execution seam** (orchestration→execution) — becomes `HarnessPort`/execution-port injection at the Application tier (not a package dep, §7.4). `⚠` = **against-grain** (core-api→orchestration/execution) — cannot be a downward DI port; **inverts through the existing `EventBus`** (the lower Service emits a domain event; the higher Service subscribes — the pattern `bet-decomposition-subscriber.ts` / `notification-listener.ts` already use) **or** is reclassified. These ⚠ edges are the real risk the census surfaces (§10.3).
 
@@ -409,7 +409,7 @@ Legend: `→` legal **downward** DI (orchestration→core-api, intra-layer) — 
 | work | ⚠ cost | 1 | bet-decomposition → cost-cap |
 | work | → users | 1 | bet-decomposition → user-store |
 
-**agent-orchestration sources (64 edges):**
+**agent-orchestration sources (65 edges):**
 
 | Source | → Target | calls | example |
 |---|---|:--:|---|
@@ -466,6 +466,7 @@ Legend: `→` legal **downward** DI (orchestration→core-api, intra-layer) — 
 | trigger-resolution | → session-requests | 1 | trigger-resolution → agent-session-requests |
 | trigger-resolution | → settings | 1 | trigger-resolution → plugin-configuration |
 | trigger-resolution | → users | 1 | trigger-resolution → user-store |
+| trigger-resolution | → org | 1 | trigger-resolution → team-membership (census correction, added Increment 3a — see `trigger-resolution`'s `ports.ts` top comment) |
 | tools | → work | 13 | route-item → item-router |
 | tools | → users | 7 | create-item → user-store |
 | tools | → conversation | 4 | create-item → conversation-store |
