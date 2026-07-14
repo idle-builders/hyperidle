@@ -18,9 +18,15 @@
  * `@hyperidle/policy`'s `ports.ts` top `@lore` for why (synchronous
  * read-then-branch: `findBySessionId` decides whether to call
  * `sessionLifecycle.requestTermination` in the same code path, both inside
- * `buildHandoff`'s transaction). `cost`/`session-lifecycle` stay wired to
- * their still-flat `packages/server` implementations — neither Service has
+ * `buildHandoff`'s transaction). `session-lifecycle` stays wired to its
+ * still-flat `packages/server` implementation — that Service has not
  * migrated yet.
+ *
+ * @lore AU19 Increment 3g: `cost` — `HandoffDeps.cost`/`PolicyCostDedupReleaser`
+ * REMOVED. `handoff-protocol.ts` now emits `session_handoff_completed` on the
+ * `EventBus` instead of calling a DI port directly (§10.3 against-grain
+ * inversion — see `@hyperidle/policy`'s `ports.ts` top `@lore`); no wiring
+ * needed here anymore.
  */
 
 import {
@@ -46,7 +52,6 @@ import {
 import type { EventBus } from "@hyperidle/shared";
 import { findActiveTeammateByRole, getUserById } from "@hyperidle/users";
 import { createItem, getTaskById, listItemIdsBySourceAgent, updateTaskById } from "@hyperidle/work";
-import { releaseSessionDedup } from "./cost-cap.js";
 import { requestAgentTermination } from "./session-lifecycle.js";
 
 const handoffDeps: HandoffDeps = {
@@ -59,7 +64,6 @@ const handoffDeps: HandoffDeps = {
 		findBySessionId: findAgentSessionRequestBySessionId,
 		abort: sessionRunRegistry.abort,
 	},
-	cost: { release: releaseSessionDedup },
 	sessionLifecycle: { requestTermination: requestAgentTermination },
 };
 

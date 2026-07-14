@@ -8,7 +8,7 @@ import {
 	getDedupCacheSize,
 	recordCostAndCheck,
 	releaseSessionDedup,
-} from "../services/cost-cap.js";
+} from "../services/cost-bindings.js";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 /**

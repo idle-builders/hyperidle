@@ -67,8 +67,11 @@ export interface BetDecompositionDeps {
 	 */
 	readonly teamCapacity: TeamCapacityReader;
 	/**
-	 * Injected `cost` Service port (Mechanism C — §10.3 against-grain, interim
-	 * DI port; Increment 3 rewires to an EventBus subscription).
+	 * Injected `cost` Service port (Mechanism C — §10.3 against-grain).
+	 * RULED PERMANENT at Increment 3g: `checkCostCap` is a synchronous
+	 * pre-flight read whose return value gates this function's control flow
+	 * (see the "Cost pre-flight" step below) — an EventBus emit cannot serve
+	 * a synchronous request/response need. See `ports.ts`'s top `@lore`.
 	 */
 	readonly costCap: CostCapChecker;
 	/**

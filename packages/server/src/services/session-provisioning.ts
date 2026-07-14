@@ -64,7 +64,7 @@ import {
 	writeSandboxAgentsMd,
 } from "./context-assembly-prompt.js";
 import type { IngestionHandle } from "./contracts.js";
-import { checkCostCap, recordCostAndCheck } from "./cost-cap.js";
+import { checkCostCap, recordCostAndCheck } from "./cost-bindings.js";
 import { buildRoutineSessionContextData, buildSessionContextData } from "./session-context.js";
 import {
 	crashSession,

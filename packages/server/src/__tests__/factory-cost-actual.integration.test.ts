@@ -8,7 +8,7 @@
  */
 
 import { users } from "@hyperidle/db";
-import { getFactoryCostActual } from "../services/cost-cap.js";
+import { getFactoryCostActual } from "../services/cost-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 describe("getFactoryCostActual — live SUM(users.costActual)", () => {

@@ -6,7 +6,7 @@ import {
 	getDedupCacheSize,
 	recordCostAndCheck,
 	registerCostCapDedupReleaser,
-} from "../services/cost-cap.js";
+} from "../services/cost-bindings.js";
 import { handoff } from "../services/policy-bindings.js";
 import type { SessionContext } from "../services/session-lifecycle.js";
 import { expect, test } from "../test-fixtures.js";

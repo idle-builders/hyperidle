@@ -57,7 +57,6 @@ export type {
 	PolicyAgentWorkIntentRecord,
 	PolicyAgentWorkIntentRecorder,
 	PolicyConversationStore,
-	PolicyCostDedupReleaser,
 	PolicyEngineDeps,
 	PolicyMessageListOpts,
 	PolicyNewNotificationRow,

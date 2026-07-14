@@ -40,7 +40,7 @@ import type { BetDecompositionDeps } from "@hyperidle/work";
 import { runBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { checkCostCap } from "../services/cost-cap.js";
+import { checkCostCap } from "../services/cost-bindings.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../tools/create-task.js";

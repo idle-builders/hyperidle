@@ -8,7 +8,7 @@ import type {
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { IngestionHandle } from "./contracts.js";
-import { releaseSessionDedup } from "./cost-cap.js";
+import { releaseSessionDedup } from "./cost-bindings.js";
 import { terminalizeAgentSessionRequestInTx } from "./session-requests-bindings.js";
 
 export const TERMINATION_REASONS = [

@@ -1,10 +1,17 @@
 import * as crypto from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { CostCapBreachedEvent, CostCapWarningEvent, EventBus } from "@hyperidle/shared";
 import { getFactoryCostActual } from "./cost-cap.js";
+import type { CostDeps } from "./ports.js";
 
 /**
+ * @lore AU19 Increment 3g: moved here from
+ * `packages/server/src/services/cost-sentinel.ts` (behavior-preserving
+ * move). `settings` (`readServerConfig`/`updateServerConfig`) became an
+ * injected DI port (Mechanism C, `ports.ts`) — an ordinary downward edge.
+ * `getFactoryCostActual` stays an intra-package import (`cost-cap.ts`, same
+ * package now) — no port needed.
+ *
  * Cost sentinel level states. Persisted as `server_config.internal.costSentinelLastLevel`
  * and checked on every tick to dedupe warning/breach emissions.
  *
@@ -50,14 +57,18 @@ export function clearCostSentinelCache(): void {
 	testResetRequested = true;
 }
 
-async function readStoredLevel(db: HyperIdleDb): Promise<CostSentinelLevel | null> {
+async function readStoredLevel(deps: CostDeps, db: HyperIdleDb): Promise<CostSentinelLevel | null> {
 	if (testResetRequested) return null;
-	const { internal } = await readServerConfig(db);
+	const { internal } = await deps.settings.readServerConfig(db);
 	return internal.costSentinelLastLevel;
 }
 
-async function writeStoredLevel(db: HyperIdleDb, level: CostSentinelLevel): Promise<void> {
-	await updateServerConfig(db, { internal: { costSentinelLastLevel: level } });
+async function writeStoredLevel(
+	deps: CostDeps,
+	db: HyperIdleDb,
+	level: CostSentinelLevel,
+): Promise<void> {
+	await deps.settings.updateServerConfig(db, { internal: { costSentinelLastLevel: level } });
 	// After any real write, the test-reset flag is consumed.
 	testResetRequested = false;
 }
@@ -78,19 +89,20 @@ function classifyLevel(ratio: number): CostSentinelLevel {
  * (graceful no-op — defensive; the schema default is 20000, always positive).
  */
 export async function runCostSentinelCheck(
+	deps: CostDeps,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 ): Promise<{ fired: true; emitted: readonly string[] }> {
-	const { cost } = await readServerConfig(db);
+	const { cost } = await deps.settings.readServerConfig(db);
 	const cap = cost.capMinor;
-	const actual = await getFactoryCostActual(db);
+	const actual = await getFactoryCostActual(deps, db);
 	if (!Number.isFinite(cap) || cap <= 0) {
 		return { fired: true, emitted: [] };
 	}
 
 	const ratio = actual / cap;
 	const currentLevel = classifyLevel(ratio);
-	const previousLevel = (await readStoredLevel(db)) ?? "ok";
+	const previousLevel = (await readStoredLevel(deps, db)) ?? "ok";
 	const emitted: string[] = [];
 	const timestamp = Date.now();
 
@@ -130,7 +142,7 @@ export async function runCostSentinelCheck(
 	// Always persist the latest level so a reset back to ok is observable
 	// on the next transition.
 	if (currentLevel !== previousLevel || testResetRequested) {
-		await writeStoredLevel(db, currentLevel);
+		await writeStoredLevel(deps, db, currentLevel);
 	}
 
 	return { fired: true, emitted };
@@ -150,9 +162,9 @@ export async function runCostSentinelCheck(
  * (see architecture plan Phase 3, Alternative B). Do not add that complexity
  * until the requirement is concrete.
  */
-export function startCostSentinel(db: HyperIdleDb, eventBus: EventBus): () => void {
+export function startCostSentinel(deps: CostDeps, db: HyperIdleDb, eventBus: EventBus): () => void {
 	const handle = setInterval(() => {
-		void runCostSentinelCheck(db, eventBus);
+		void runCostSentinelCheck(deps, db, eventBus);
 	}, COST_SENTINEL_INTERVAL_MS);
 
 	return (): void => {

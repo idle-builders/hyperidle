@@ -6,25 +6,36 @@
  * `notifications`) are ordinary same-layer core-api→core-api edges, wired at
  * each real call site directly to the target's real exported functions
  * (already-migrated packages, same idiom as `review`'s Increment 1j ports).
- * The three §10.3 against-grain edges (`session-requests`, `cost`,
- * `session-lifecycle` — all `core-api → agent-orchestration`) are wired as
- * DI ports. `PolicyCostDedupReleaser`/`PolicySessionTerminationRequester`
- * (`cost`/`session-lifecycle`, not real packages yet) stay interim, still
- * flagged for a future increment's EventBus-vs-permanent-port check once
- * those Services exist. `PolicyAgentWorkIntentRecorder`/
- * `PolicyAgentSessionRequestReader`/`PolicySessionRunRegistry`
- * (`session-requests`, real as of Increment 3b) are **permanent** —
- * §10.3's amendment (decided Increment 3b, founder-directed): the
- * `handoff-protocol.ts` read-then-branch (`findBySessionId` feeding a
- * same-request `requestTermination`) shares a transaction with the
- * caller's domain write, and `plans/AU9/requirements.md` line 51 mandates
- * synchronous same-transaction intent recording — an EventBus emit-after-
- * commit would be a durability regression, not a mechanical rewire. Same
- * exception lever as §11's `AgentWorkIntentRecorder` (`routes/threads.ts`
- * case). Matches `work`'s `AgentWorkIntentRecorder`/`AgentSelectionDefaults`/
- * `CostCapChecker` port *shape* (`packages/core-api/work/src/ports.ts`) —
- * but do not assume `work`'s ports inherit this same permanence without
- * their own same-transaction check (§10.3 amendment note).
+ * The two remaining §10.3 against-grain edges (`session-requests`,
+ * `session-lifecycle` — `core-api → agent-orchestration`) are wired as DI
+ * ports. `PolicySessionTerminationRequester` (`session-lifecycle`, not a
+ * real package yet) stays interim, still flagged for a future increment's
+ * EventBus-vs-permanent-port check once that Service exists.
+ * `PolicyAgentWorkIntentRecorder`/`PolicyAgentSessionRequestReader`/
+ * `PolicySessionRunRegistry` (`session-requests`, real as of Increment 3b)
+ * are **permanent** — §10.3's amendment (decided Increment 3b,
+ * founder-directed): the `handoff-protocol.ts` read-then-branch
+ * (`findBySessionId` feeding a same-request `requestTermination`) shares a
+ * transaction with the caller's domain write, and
+ * `plans/AU9/requirements.md` line 51 mandates synchronous same-transaction
+ * intent recording — an EventBus emit-after-commit would be a durability
+ * regression, not a mechanical rewire. Same exception lever as §11's
+ * `AgentWorkIntentRecorder` (`routes/threads.ts` case). Matches `work`'s
+ * `AgentWorkIntentRecorder`/`AgentSelectionDefaults`/`CostCapChecker` port
+ * *shape* (`packages/core-api/work/src/ports.ts`) — but do not assume
+ * `work`'s ports inherit this same permanence without their own
+ * same-transaction check (§10.3 amendment note).
+ *
+ * @lore AU19 Increment 3g: `PolicyCostDedupReleaser` (`cost`) REMOVED —
+ * `cost` is now a real Service package, and its atomicity check (§10.3
+ * amendment) came out the OTHER way from `session-requests`' two ports
+ * above: `handoff-protocol.ts`'s `releaseSessionDedup` call was already
+ * POST-COMMIT and touches only an in-memory `Map` (no DB write, no shared
+ * transaction to split) — the "common case" pure-inversion shape. Inverted
+ * to an EventBus emission instead (`session_handoff_completed`,
+ * `@hyperidle/shared`'s `events.ts`); `@hyperidle/cost`'s
+ * `registerCostCapDedupReleaser` subscribes. See `handoff-protocol.ts`'s
+ * inline `@lore` at the emission site for the full reasoning.
  *
  * @lore AU19 Increment 2a — census corrections discovered migrating for
  * real (§14 sanctions updating the census as a "floor, refinable during
@@ -264,15 +275,6 @@ export interface PolicySessionRunRegistry {
 }
 
 // ---------------------------------------------------------------------------
-// cost — against-grain (§10.3 — Inc 3 rewires to EventBus)
-// ---------------------------------------------------------------------------
-
-/** Port for `cost`'s per-session dedup release `handoff-protocol.ts` calls directly today. */
-export interface PolicyCostDedupReleaser {
-	release(sessionId: string): void;
-}
-
-// ---------------------------------------------------------------------------
 // session-lifecycle — against-grain (§10.3 — Inc 3 rewires to EventBus)
 // ---------------------------------------------------------------------------
 
@@ -341,7 +343,6 @@ export interface HandoffDeps {
 	readonly sessionRequests: PolicyAgentWorkIntentRecorder &
 		PolicyAgentSessionRequestReader &
 		PolicySessionRunRegistry;
-	readonly cost: PolicyCostDedupReleaser;
 	readonly sessionLifecycle: PolicySessionTerminationRequester;
 }
 

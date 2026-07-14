@@ -2,18 +2,27 @@ import * as crypto from "node:crypto";
 // @lore U1: `teams` is the domain entity (no costActual/costCap columns).
 // Cost tracking uses `teamMembers` (the agent-membership group) which has costActual/costCap.
 // params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
-// @lore R5: `bets` and `tasks` added for bet cost accumulation via taskId lookup.
-import { bets, type HyperIdleDb, teamMembers } from "@hyperidle/db";
-import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
-import {
-	getUserById,
-	incrementUserCost,
-	resetAllUserCost,
-	sumAllUserCost,
-	updateUser,
-} from "@hyperidle/users";
-import * as work from "@hyperidle/work";
-import { eq, sql } from "drizzle-orm";
+// @lore R5: bet cost accumulation via taskId lookup (through the `work` port).
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus, SessionEndedEvent, SessionHandoffCompletedEvent } from "@hyperidle/shared";
+import type { CostDeps } from "./ports.js";
+
+/**
+ * @lore AU19 Increment 3g: moved here from `packages/server/src/services/cost-cap.ts`
+ * (behavior-preserving move). Every raw cross-Service call became an
+ * injected DI port (Mechanism C, `ports.ts`):
+ *  - `users` (`getUserById`/`incrementUserCost`/`resetAllUserCost`/
+ *    `sumAllUserCost`/`updateUser`) — ordinary downward edge.
+ *  - `org` (`teamMembers` cost read/write) — ordinary downward edge, a
+ *    genuinely NEW edge this migration surfaces (see `ports.ts` top `@lore`).
+ *  - `work` (`getTaskById`/`updateBetById`/`createItem`) — ordinary downward edge.
+ * Every exported function now takes an explicit `deps: CostDeps` first
+ * parameter (Mechanism C DI). `createCostOps` (`service.ts`) binds a single
+ * `CostDeps` instance once, at the composition root, and returns the
+ * ORIGINAL deps-free call signatures every real consumer already expects
+ * (`work`'s `CostCapChecker` port, `packages/server`'s many direct callers) —
+ * same idiom as `agent-selection`'s `createAgentSelectionOps`.
+ */
 
 export interface CostCapResult {
 	allowed: boolean;
@@ -124,8 +133,8 @@ function tryRecordDedupKey(
  * accumulated on users.costActual (integer minor units). This column is the
  * authoritative running total for an agent's spend within the current cycle.
  */
-async function getAgentSpend(db: HyperIdleDb, agentId: string): Promise<number> {
-	const row = await getUserById(db, agentId);
+async function getAgentSpend(deps: CostDeps, db: HyperIdleDb, agentId: string): Promise<number> {
+	const row = await deps.users.getUserById(db, agentId);
 	return row?.costActual ?? 0;
 }
 
@@ -136,12 +145,8 @@ async function getAgentSpend(db: HyperIdleDb, agentId: string): Promise<number> 
  * accumulated across all users in the team for the current billing cycle.
  * @lore U1: teamId here refers to teamMembers.id (the membership group), not teams.id (domain entity).
  */
-async function getTeamSpend(db: HyperIdleDb, teamId: string): Promise<number> {
-	const [row] = await db
-		.select({ costActual: teamMembers.costActual })
-		.from(teamMembers)
-		.where(eq(teamMembers.id, teamId))
-		.limit(1);
+async function getTeamSpend(deps: CostDeps, db: HyperIdleDb, teamId: string): Promise<number> {
+	const row = await deps.org.getTeamMembersById(db, teamId);
 	return row?.costActual ?? 0;
 }
 
@@ -159,12 +164,13 @@ async function getTeamSpend(db: HyperIdleDb, teamId: string): Promise<number> {
  * directly on integer minor units for efficiency.
  */
 export async function checkCostCap(
+	deps: CostDeps,
 	db: HyperIdleDb,
 	_eventBus: EventBus,
 	params: CheckCostCapParams,
 ): Promise<CostCapResult> {
 	// 1. Check agent cap
-	const agent = await getUserById(db, params.agentId);
+	const agent = await deps.users.getUserById(db, params.agentId);
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
@@ -172,7 +178,7 @@ export async function checkCostCap(
 	// L17: prefer costCapMinor (new column) over costCap (legacy)
 	const agentCap = agent.costCapMinor ?? agent.costCap;
 	if (agentCap != null) {
-		const agentSpend = await getAgentSpend(db, params.agentId);
+		const agentSpend = await getAgentSpend(deps, db, params.agentId);
 		if (agentSpend >= agentCap) {
 			return {
 				allowed: false,
@@ -186,15 +192,11 @@ export async function checkCostCap(
 	// 2. Check team cap
 	// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
 	if (params.teamId) {
-		const [team] = await db
-			.select()
-			.from(teamMembers)
-			.where(eq(teamMembers.id, params.teamId))
-			.limit(1);
+		const team = await deps.org.getTeamMembersById(db, params.teamId);
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
-			const teamSpend = await getTeamSpend(db, params.teamId);
+			const teamSpend = await getTeamSpend(deps, db, params.teamId);
 			if (teamSpend >= teamCap) {
 				return {
 					allowed: false,
@@ -226,6 +228,7 @@ export async function checkCostCap(
  * Updates the session cost, then checks thresholds and emits events.
  */
 export async function recordCostAndCheck(
+	deps: CostDeps,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	params: RecordCostAndCheckParams,
@@ -238,32 +241,31 @@ export async function recordCostAndCheck(
 
 	if (effectiveCostMinor > 0) {
 		// Accumulate on agent
-		await incrementUserCost(db, params.agentId, effectiveCostMinor);
+		await deps.users.incrementUserCost(db, params.agentId, effectiveCostMinor);
 
 		// Accumulate on team if provided
 		// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
 		if (params.teamId) {
-			await db
-				.update(teamMembers)
-				.set({ costActual: sql`coalesce(${teamMembers.costActual}, 0) + ${effectiveCostMinor}` })
-				.where(eq(teamMembers.id, params.teamId));
+			await deps.org.incrementTeamMembersCost(db, params.teamId, effectiveCostMinor);
 		}
 
 		// R5: Accumulate on bet (via task.betId lookup) if taskId is provided.
 		// Uses the same atomic SQL pattern as agent/team accumulation to prevent
 		// lost updates under concurrent sessions on the same bet.
 		if (params.taskId) {
-			const task = await work.getTaskById(db, params.taskId);
+			const task = await deps.work.getTaskById(db, params.taskId);
 			if (task?.betId) {
-				await work.updateBetById(db, task.betId, {
-					costActualMinor: sql`coalesce(${bets.costActualMinor}, 0) + ${effectiveCostMinor}`,
-					costActualCurrency: params.currency ?? "USD",
-				});
+				await deps.work.incrementBetCost(
+					db,
+					task.betId,
+					effectiveCostMinor,
+					params.currency ?? "USD",
+				);
 			}
 		}
 	}
 
-	const agent = await getUserById(db, params.agentId);
+	const agent = await deps.users.getUserById(db, params.agentId);
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
 	}
@@ -275,8 +277,8 @@ export async function recordCostAndCheck(
 
 	// Check agent cap
 	if (agentCap != null) {
-		const agentSpend = await getAgentSpend(db, params.agentId);
-		await checkAndEmit(db, eventBus, {
+		const agentSpend = await getAgentSpend(deps, db, params.agentId);
+		await checkAndEmit(deps, db, eventBus, {
 			sessionId: params.sessionId,
 			capLevel: "agent",
 			entityId: params.agentId,
@@ -292,16 +294,12 @@ export async function recordCostAndCheck(
 	// Check team cap
 	// @lore U1: params.teamId is a teamMembers.id (membership group), not teams.id (domain entity).
 	if (params.teamId) {
-		const [team] = await db
-			.select()
-			.from(teamMembers)
-			.where(eq(teamMembers.id, params.teamId))
-			.limit(1);
+		const team = await deps.org.getTeamMembersById(db, params.teamId);
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
-			const teamSpend = await getTeamSpend(db, params.teamId);
-			await checkAndEmit(db, eventBus, {
+			const teamSpend = await getTeamSpend(deps, db, params.teamId);
+			await checkAndEmit(deps, db, eventBus, {
 				sessionId: params.sessionId,
 				capLevel: "team",
 				entityId: params.teamId,
@@ -318,7 +316,7 @@ export async function recordCostAndCheck(
 	// Check factory cap
 	if (params.factoryCap != null) {
 		const factorySpend = (params.factorySpend ?? 0) + effectiveCostMinor;
-		await checkAndEmit(db, eventBus, {
+		await checkAndEmit(deps, db, eventBus, {
 			sessionId: params.sessionId,
 			capLevel: "factory",
 			entityId: "factory",
@@ -352,8 +350,8 @@ export async function recordCostAndCheck(
  * deltas (not running totals), so users.costActual is correct (10+5+5=20, not 45).
  * The SUM here is accurate.
  */
-export async function getFactoryCostActual(db: HyperIdleDb): Promise<number> {
-	return sumAllUserCost(db);
+export function getFactoryCostActual(deps: CostDeps, db: HyperIdleDb): Promise<number> {
+	return deps.users.sumAllUserCost(db);
 }
 
 interface CheckAndEmitParams {
@@ -370,6 +368,7 @@ interface CheckAndEmitParams {
 }
 
 async function checkAndEmit(
+	deps: CostDeps,
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	params: CheckAndEmitParams,
@@ -401,7 +400,7 @@ async function checkAndEmit(
 
 			// Create review item on breach (AC8)
 			if (params.reviewThreadId) {
-				await createReviewItem(db, eventBus, params);
+				await createReviewItem(deps, db, eventBus, params);
 			}
 		}
 	}
@@ -433,6 +432,7 @@ async function checkAndEmit(
 }
 
 async function createReviewItem(
+	deps: CostDeps,
 	db: HyperIdleDb,
 	_eventBus: EventBus,
 	params: CheckAndEmitParams,
@@ -442,7 +442,7 @@ async function createReviewItem(
 	const itemId = crypto.randomUUID();
 	const now = new Date().toISOString();
 
-	await work.createItem(db, {
+	await deps.work.createItem(db, {
 		id: itemId,
 		sourceAgentId: params.entityId !== "factory" ? params.entityId : null,
 		kind: "cost_cap_breach",
@@ -465,6 +465,7 @@ async function createReviewItem(
  * `{ level: "team", id: teamId }` and resets both costMinor and cost columns.
  */
 export async function resetCosts(
+	deps: CostDeps,
 	db: HyperIdleDb,
 	params: ResetCostsParams | string,
 ): Promise<void> {
@@ -497,23 +498,20 @@ export async function resetCosts(
 	switch (normalizedParams.level) {
 		case "agent": {
 			if (!normalizedParams.id) throw new Error("Agent ID required for agent reset");
-			await updateUser(db, normalizedParams.id, { costActual: 0 });
+			await deps.users.updateUser(db, normalizedParams.id, { costActual: 0 });
 			break;
 		}
 		case "team": {
 			if (!normalizedParams.id) throw new Error("Team ID required for team reset");
 			// @lore U1: teamId here is a teamMembers.id (membership group), not teams.id (domain entity).
-			await db
-				.update(teamMembers)
-				.set({ costActual: 0 })
-				.where(eq(teamMembers.id, normalizedParams.id));
+			await deps.org.resetTeamMembersCost(db, normalizedParams.id);
 			break;
 		}
 		case "factory": {
 			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
-			await resetAllUserCost(db);
+			await deps.users.resetAllUserCost(db);
 			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
-			await db.update(teamMembers).set({ costActual: 0 }).where(sql`true`);
+			await deps.org.resetAllTeamMembersCost(db);
 			break;
 		}
 	}
@@ -547,20 +545,39 @@ export function getDedupCacheSize(): number {
 /**
  * Subscribe the cost-cap dedup releaser to the EventBus so EVERY
  * `session_ended` (graceful end via `endSession`, crash via `crashSession`,
- * client-driven PATCH /sessions/:id done|crashed) reclaims the per-session
- * dedup entry. Returns an unsubscribe function.
+ * client-driven PATCH /sessions/:id done|crashed) AND `session_handoff_completed`
+ * (handoff — which deliberately suppresses `session_ended`, see below)
+ * reclaims the per-session dedup entry. Returns an unsubscribe function.
  *
  * @lore I3 review C1 / arch H-1: handoff and PATCH /sessions/:id formerly
  * bypassed `endSession`/`crashSession` and never released the dedup entry.
  * Subscribing centrally here keeps cleanup at a single chokepoint — any
  * future code path that emits `session_ended` is automatically covered.
- * Handoff still calls `releaseSessionDedup` directly because handoff
- * deliberately suppresses `session_ended` (see handoff-protocol.ts line
- * 85-87).
+ *
+ * @lore AU19 Increment 3g: `policy ⚠ cost` (§10.3 against-grain) inverted to
+ * this EventBus subscription — `handoff-protocol.ts` used to call
+ * `releaseSessionDedup` directly via an interim `PolicyCostDedupReleaser` DI
+ * port (Increment 2a). Atomicity check (§10.3 amendment): the call was
+ * already POST-COMMIT (outside `buildHandoff`'s transaction) and touches
+ * only this in-memory `Map` — no DB write, no shared transaction to split.
+ * This is the "common case" §10.3 describes (the `bet-decomposition-
+ * subscriber.ts`/`sandbox_writeback_changes_detected` pure-inversion shape),
+ * NOT the `policy ⚠ session-requests`/`review ⚠ session-requests`
+ * same-transaction exception (those stayed permanent DI ports, §10.3
+ * amendment ruling). `handoff-protocol.ts` now emits
+ * `session_handoff_completed` (a NEW event, `@hyperidle/shared`'s
+ * `events.ts`) in the exact spot the direct call used to sit; this
+ * subscriber reclaims the dedup entry off it, same as it always has for
+ * `session_ended`.
  */
 export function registerCostCapDedupReleaser(eventBus: EventBus): () => void {
-	const handler = (event: SessionEndedEvent): void => {
+	const handler = (event: SessionEndedEvent | SessionHandoffCompletedEvent): void => {
 		releaseSessionDedup(event.sessionId);
 	};
-	return eventBus.on("session_ended", handler);
+	const offEnded = eventBus.on("session_ended", handler);
+	const offHandoff = eventBus.on("session_handoff_completed", handler);
+	return (): void => {
+		offEnded();
+		offHandoff();
+	};
 }

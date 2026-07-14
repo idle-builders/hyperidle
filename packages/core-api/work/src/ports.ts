@@ -57,6 +57,32 @@
  * is explicitly OUT OF SCOPE for that migration (per its own item
  * description — a later, separate item once `cost` also lands) — this port
  * stays an ordinary interim DI port for now, unchanged shape.
+ *
+ * @lore AU19 Increment 3g — `CostCapChecker` (→ `cost`, now a REAL migrated
+ * package): RULED PERMANENT, not inverted. §10.3's amendment atomicity test
+ * (`policy ⚠ session-requests`/`review ⚠ session-requests` precedent,
+ * `plans/AU19/architecture.md` line 528) generalizes past literal
+ * same-transaction writes to synchronous read-then-branch control flow that
+ * an async, fire-and-forget EventBus emit structurally cannot serve.
+ * `bet-decomposition.ts`'s `runBetDecomposition` calls
+ * `deps.costCap.checkCostCap(...)` synchronously and branches on its
+ * `allowed` return value in the SAME code path (`if (!capResult.allowed) {
+ * markTerminal(...); return; }`) — a pre-flight budget QUERY, not a
+ * fire-and-forget domain-event notification. `checkCostCap` itself performs
+ * zero writes (pure SELECT reads via `CostUserAccessor`/`CostTeamAccessor`),
+ * so this is not even a borderline "same transaction" case — it fails the
+ * more fundamental test §10.3's own reasoning already established: an
+ * EventBus has no synchronous response channel, so any port whose return
+ * value gates the caller's next branch cannot be inverted without a genuine
+ * control-flow redesign. `server-factory.ts` repoints this port's concrete
+ * wiring to `@hyperidle/cost`'s real `createCostOps(...)`-bound
+ * `checkCostCap` (via `packages/server/src/services/cost-bindings.ts`)
+ * instead of the deleted `services/cost-cap.ts` flat module — mechanical,
+ * zero behavior change. `AgentWorkIntentRecorder`/`AgentSelectionDefaults`
+ * (the other two `work` §10.3 ports) are UNAFFECTED by this ruling — each
+ * needs its own same-transaction-or-synchronous-read check when its own
+ * target Service's EventBus-inversion item comes up; do not assume either
+ * inherits `CostCapChecker`'s permanence.
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
@@ -141,7 +167,8 @@ export interface AgentSelectionDefaults {
 }
 
 // ---------------------------------------------------------------------------
-// cost — CostCapChecker (§10.3 against-grain — Inc 3 rewires to EventBus)
+// cost — CostCapChecker (§10.3 against-grain — RULED PERMANENT at Increment 3g,
+// synchronous read-then-branch control flow; see top `@lore`)
 // ---------------------------------------------------------------------------
 
 export interface WorkCostCapResult {

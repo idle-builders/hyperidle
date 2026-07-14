@@ -13,7 +13,7 @@
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export class ApiError extends Error {
 	constructor(
@@ -114,4 +114,55 @@ export async function setTeamMembersActiveBets(
 	activeBets: number,
 ): Promise<void> {
 	await db.update(teamMembers).set({ activeBets }).where(eq(teamMembers.id, teamMembersId));
+}
+
+/**
+ * Atomically add `deltaMinor` to a `team_members` row's `costActual` via
+ * `coalesce(costActual, 0) + delta`. Owns the coalesce SQL so the
+ * `teamMembers.costActual` column ref never leaves this store.
+ *
+ * @lore AU19 Increment 3g: the concrete write-side counterpart to
+ * `getTeamMembersById` — `cost`'s `CostTeamAccessor` port (Mechanism C) wires
+ * to this. `cost-cap.ts`'s `recordCostAndCheck` used to `db.update(teamMembers)`
+ * directly (an ownership violation once `cost-cap.ts` becomes its own Service
+ * package — `teamMembers` is `org`'s `TABLE_OWNER` since Increment 1c). Mirrors
+ * `@hyperidle/users`' `incrementUserCost`.
+ */
+export async function incrementTeamMembersCost(
+	db: WriteExecutor,
+	teamMembersId: string,
+	deltaMinor: number,
+): Promise<void> {
+	await db
+		.update(teamMembers)
+		.set({ costActual: sql`coalesce(${teamMembers.costActual}, 0) + ${deltaMinor}` })
+		.where(eq(teamMembers.id, teamMembersId));
+}
+
+/**
+ * Reset a single `team_members` row's `costActual` to zero.
+ *
+ * @lore AU19 Increment 3g: closes `cost`'s per-team billing-cycle reset
+ * (`resetCosts({level:"team"})`) — same ownership-violation closure as
+ * `incrementTeamMembersCost` above.
+ */
+export async function resetTeamMembersCost(
+	db: WriteExecutor,
+	teamMembersId: string,
+): Promise<void> {
+	await db.update(teamMembers).set({ costActual: 0 }).where(eq(teamMembers.id, teamMembersId));
+}
+
+/**
+ * Bulk reset EVERY `team_members` row's `costActual` to zero (factory-wide
+ * billing-cycle reset). Deliberate no-WHERE update, mirrors
+ * `@hyperidle/users`' `resetAllUserCost`.
+ *
+ * @lore AU19 Increment 3g: closes `cost`'s factory-level reset
+ * (`resetCosts({level:"factory"})`) — same ownership-violation closure as
+ * `incrementTeamMembersCost` above.
+ */
+export async function resetAllTeamMembersCost(db: WriteExecutor): Promise<void> {
+	// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
+	await db.update(teamMembers).set({ costActual: 0 }).where(sql`true`);
 }

@@ -79,6 +79,36 @@ export async function updateBetById(
 	await exec.update(bets).set(patch).where(eq(bets.id, id));
 }
 
+/**
+ * Atomically add `deltaMinor` to a bet's `costActualMinor` via
+ * `coalesce(costActualMinor, 0) + delta`. Owns the coalesce SQL so the
+ * `bets.costActualMinor` column ref never leaves this store. Mirrors
+ * `@hyperidle/users`' `incrementUserCost` / `@hyperidle/org`'s
+ * `incrementTeamMembersCost`.
+ *
+ * @lore AU19 Increment 3g: the concrete write-side counterpart `cost`'s
+ * `CostWorkAccessor` port (Mechanism C) wires to — `cost-cap.ts`'s
+ * `recordCostAndCheck` used to build this `coalesce(...)` SQL fragment
+ * itself via a raw `updateBetById(db, betId, { costActualMinor: sql\`...\` })`
+ * patch, which required importing the `bets` table object directly (an
+ * ownership violation once `cost-cap.ts` becomes its own Service package —
+ * `bets` is `work`'s `TABLE_OWNER`).
+ */
+export async function incrementBetCost(
+	exec: WriteExecutor,
+	id: string,
+	deltaMinor: number,
+	currency: string,
+): Promise<void> {
+	await exec
+		.update(bets)
+		.set({
+			costActualMinor: sql`coalesce(${bets.costActualMinor}, 0) + ${deltaMinor}`,
+			costActualCurrency: currency,
+		})
+		.where(eq(bets.id, id));
+}
+
 export interface TransitionBetStatusArgs {
 	readonly betId: string;
 	readonly fromStatus: string;

@@ -24,6 +24,16 @@
  * read/write, `bet-decomposition.ts`'s membership-group read) were converted
  * to `work`'s own `TeamCapacityReader` DI port, wired to this package's
  * `getTeamMembersByTeamId`/`setTeamMembersActiveBets` unchanged.
+ *
+ * @lore AU19 Increment 3g: `cost-cap.ts`'s three direct `teamMembers`
+ * accessors (per-team spend read, atomic cost-accumulation write, cost-reset
+ * write) were a genuinely NEW ownership violation surfaced only when
+ * `cost-cap.ts` became its own Service package (not caught earlier — while
+ * flat in `packages/server` there was no guard boundary to violate).
+ * Converted to `cost`'s own `CostTeamAccessor` DI port, wired to this
+ * package's `getTeamMembersById` (read, pre-existing) plus three new writes
+ * added for this closure: `incrementTeamMembersCost`/`resetTeamMembersCost`/
+ * `resetAllTeamMembersCost`.
  */
 
 // -- org edges (AH4) --
@@ -53,6 +63,9 @@ export {
 	ApiError,
 	getTeamMembersById,
 	getTeamMembersByTeamId,
+	incrementTeamMembersCost,
 	loadTeamMembers,
+	resetAllTeamMembersCost,
+	resetTeamMembersCost,
 	setTeamMembersActiveBets,
 } from "./team-lookup.js";

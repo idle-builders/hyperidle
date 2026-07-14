@@ -15,12 +15,14 @@ import { InvalidTransitionError, VALID_TRANSITIONS } from "./task-transitions.js
  *    select became `org`'s real `getTeamMembersByTeamId` (see `ports.ts`'s
  *    top `@lore`, census correction #1, for the 1:1-invariant equivalence).
  *  - `session-requests` (`agentSessionRequests` read, `recordAgentWorkIntent`
- *    write, `sessionRunRegistry.abort`), `cost` (`releaseSessionDedup`), and
- *    `session-lifecycle` (`requestAgentTermination`) — §10.3 against-grain
- *    edges, wired as interim DI ports this increment (Increment 3 rewires
- *    them to an EventBus subscription), matching `work`'s
- *    `AgentWorkIntentRecorder`/`AgentSelectionDefaults`/`CostCapChecker`
- *    precedent.
+ *    write, `sessionRunRegistry.abort`) — §10.3 against-grain edge, ruled
+ *    PERMANENT at Increment 3b (synchronous read-then-branch control flow;
+ *    see `ports.ts`'s top `@lore`). `session-lifecycle`
+ *    (`requestAgentTermination`) — §10.3 against-grain edge, still an interim
+ *    DI port (`session-lifecycle` has not migrated yet, still deferred).
+ *    `cost` (`releaseSessionDedup`) — §10.3 against-grain edge, INVERTED to
+ *    an EventBus emission (`session_handoff_completed`) at Increment 3g (see
+ *    below and `ports.ts`'s top `@lore`).
  *  - `InvalidTransitionError`/`VALID_TRANSITIONS` were a real VALUE import
  *    from `@hyperidle/work` pre-migration — converted to a local mirror
  *    (`task-transitions.ts`), consolidated with `lifecycle-propagation.ts`'s
@@ -385,9 +387,25 @@ export function buildHandoff(
 		// `session_ended` (handoff is not a cost-attribution event — see lines
 		// 85-87). The cost-cap dedup map subscribes to session_ended through
 		// `registerCostCapDedupReleaser`, so handoff would otherwise leak the
-		// per-session entry. Release it explicitly here, post-commit, so the
-		// release happens exactly when the session row's state has flipped.
-		deps.cost.release(sessionContext.sessionId);
+		// per-session entry.
+		//
+		// @lore AU19 Increment 3g: §10.3 against-grain inversion for
+		// `policy ⚠ cost` — this used to be a direct `deps.cost.release(...)`
+		// call through an interim `PolicyCostDedupReleaser` DI port
+		// (Increment 2a). Atomicity check (§10.3 amendment): the call was
+		// already POST-COMMIT and touches only `cost`'s in-memory dedup Map —
+		// no DB write, no shared transaction an emit-after-commit split could
+		// endanger (the "common case" pure-inversion shape, NOT the
+		// `policy ⚠ session-requests` same-transaction exception below).
+		// `cost`'s `registerCostCapDedupReleaser` now subscribes to this event
+		// (see `@hyperidle/shared`'s `events.ts` top `@lore` on
+		// `SessionHandoffCompletedEvent` and `@hyperidle/cost`'s `cost-cap.ts`).
+		eventBus.emit({
+			type: "session_handoff_completed",
+			streamId: sessionContext.sessionId,
+			sessionId: sessionContext.sessionId,
+			timestamp: Date.now(),
+		});
 
 		// AF7 §5 (Z8-048): stop the prior session's tool access. The handoff set the
 		// session row to 'done' in-tx but the prior agent's harness loop + tool

@@ -501,6 +501,11 @@ export function registerObservabilityDispatcher(
 			// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion —
 			// internal plumbing between two Services, not an observability event.
 			case "sandbox_writeback_changes_detected":
+			// AU19 Increment 3g: policy ⚠ cost EventBus inversion — internal
+			// cost-dedup-cleanup plumbing between two Services, not an
+			// observability event (the real observable outcome is the handoff's
+			// own task_state_changed/item_created, already translated above).
+			case "session_handoff_completed":
 				return false;
 			default: {
 				// Exhaustiveness check — if a new DomainEvent kind is added

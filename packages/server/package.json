@@ -34,6 +34,7 @@
 		"@hyperidle/capture-writeback": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/conversation": "*",
+		"@hyperidle/cost": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/git-export": "*",

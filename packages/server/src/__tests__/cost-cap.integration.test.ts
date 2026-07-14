@@ -16,7 +16,7 @@ import {
 	clearDeduplicationCache,
 	recordCostAndCheck,
 	resetCosts,
-} from "../services/cost-cap.js";
+} from "../services/cost-bindings.js";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();

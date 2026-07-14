@@ -26,7 +26,7 @@ import {
 	registerBuiltinRoutineHandlers,
 	runBuiltinRoutine,
 } from "../services/builtin-routine-handlers.js";
-import { clearCostSentinelCache, runCostSentinelCheck } from "../services/cost-sentinel.js";
+import { clearCostSentinelCache, runCostSentinelCheck } from "../services/cost-bindings.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";

@@ -30,7 +30,7 @@ import {
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { clearDeduplicationCache, recordCostAndCheck } from "../services/cost-cap.js";
+import { clearDeduplicationCache, recordCostAndCheck } from "../services/cost-bindings.js";
 import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../tools/create-task.js";
 import { readInboxTool } from "../tools/read-inbox.js";

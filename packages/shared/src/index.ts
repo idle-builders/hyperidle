@@ -179,6 +179,7 @@ export type {
 	SandboxWritebackChange,
 	SandboxWritebackChangesDetectedEvent,
 	SessionEndedEvent,
+	SessionHandoffCompletedEvent,
 	SessionNotReturnedEvent,
 	SessionOutcome,
 	SessionStartedEvent,

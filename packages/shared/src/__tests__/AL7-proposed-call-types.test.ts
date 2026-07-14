@@ -196,6 +196,8 @@ describe("T4: exhaustive KernelEvent switch handles proposed_call_granted (AC13)
 					return "session_started";
 				case "session_ended":
 					return "session_ended";
+				case "session_handoff_completed":
+					return "session_handoff_completed";
 				case "session_not_returned":
 					return "session_not_returned";
 				case "thread_created":

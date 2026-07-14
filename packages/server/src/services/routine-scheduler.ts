@@ -5,7 +5,7 @@ import { readServerConfig } from "@hyperidle/settings";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
 import { runBuiltinRoutine } from "./builtin-routine-handlers.js";
-import { getFactoryCostActual } from "./cost-cap.js";
+import { getFactoryCostActual } from "./cost-bindings.js";
 import { recordAgentWorkIntent } from "./session-requests-bindings.js";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 

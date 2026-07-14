@@ -33,8 +33,11 @@ import {
 import { updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { getFactoryCostActual } from "../../services/cost-cap.js";
-import { clearCostSentinelCache, runCostSentinelCheck } from "../../services/cost-sentinel.js";
+import {
+	clearCostSentinelCache,
+	getFactoryCostActual,
+	runCostSentinelCheck,
+} from "../../services/cost-bindings.js";
 import { expect, test } from "../../test-fixtures.js";
 import {
 	notificationsConfigDeps,

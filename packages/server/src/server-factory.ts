@@ -120,9 +120,12 @@ import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { registerWsRoute } from "./routes/ws.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handlers.js";
-import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
-import { startCostSentinel } from "./services/cost-sentinel.js";
+import {
+	checkCostCap,
+	registerCostCapDedupReleaser,
+	startCostSentinel,
+} from "./services/cost-bindings.js";
 import { startAgentLifecycleProjectionDrain } from "./services/lifecycle-projection-bindings.js";
 import { createMcpRoute } from "./services/mcp-route.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
@@ -707,10 +710,13 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		sandboxBasePath,
 		resolveModel: makeResolveModel(db, credentialResolver),
 		// AU19 Increment 1b: `work`'s four outbound DI ports (Mechanism C) — the
-		// concrete implementations still live in packages/server
-		// (session-requests/cost have not migrated yet; `agent-selection` is now
-		// a real package as of Increment 3e, see `agentSelectionOps` above). See
-		// packages/core-api/work/src/ports.ts for the port contracts.
+		// concrete implementation for `workIntents` still lives in packages/server
+		// (session-requests has not migrated yet); `agentSelection`/`costCap`
+		// wire to real Service packages (`agent-selection` since Increment 3e,
+		// `cost` since Increment 3g — `costCap` is RULED PERMANENT, not an
+		// EventBus-inversion target, see `@hyperidle/work`'s `ports.ts` top
+		// `@lore`). See packages/core-api/work/src/ports.ts for the port
+		// contracts.
 		agentSelection: {
 			enumerateTeamCandidates: agentSelectionOps.enumerateTeamCandidates,
 			selectOwner: agentSelectionOps.selectOwner,

@@ -106,6 +106,7 @@ export {
 	getBetById,
 	getItemById,
 	getTaskById,
+	incrementBetCost,
 	listBets,
 	listBetsByIds,
 	listBetsByTeamAndStatus,

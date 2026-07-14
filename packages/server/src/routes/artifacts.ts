@@ -22,7 +22,7 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
 import { artifactPreviewSchema, fallbackPreviewSchema } from "../schemas/artifact-preview.js";
-import { recordCostAndCheck } from "../services/cost-cap.js";
+import { recordCostAndCheck } from "../services/cost-bindings.js";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;

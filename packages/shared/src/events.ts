@@ -99,6 +99,28 @@ export interface SessionEndedEvent {
 }
 
 /**
+ * @lore AU19 Increment 3g: §10.3 against-grain inversion for `policy ⚠ cost`
+ * (`handoff-protocol.ts`'s `releaseSessionDedup` call). Handoff deliberately
+ * does NOT emit `session_ended` (a handoff is not a cost-attribution outcome
+ * — see `handoff-protocol.ts`'s own comment on why), so `cost`'s
+ * `registerCostCapDedupReleaser` had no event to subscribe to for this path
+ * and `policy` called `releaseSessionDedup` directly via an interim
+ * `PolicyCostDedupReleaser` DI port instead (Increment 2a). Atomicity check
+ * (§10.3 amendment): the call is POST-COMMIT and touches only an in-memory
+ * `Map` — no DB write, no shared transaction an emit-after-commit split could
+ * endanger — the "common case" pure-inversion shape, same as
+ * `sandbox_writeback_changes_detected` (Increment 3f). Emitted by
+ * `handoff-protocol.ts`'s `buildHandoff`, post-commit, in the exact spot the
+ * direct `deps.cost.release(...)` call used to sit.
+ */
+export interface SessionHandoffCompletedEvent {
+	type: "session_handoff_completed";
+	streamId: string;
+	sessionId: string;
+	timestamp: number;
+}
+
+/**
  * AL6: Emitted by `runSession` (site A) when a task-session turn exhausts its
  * event stream without having invoked any member of the accepted-return set
  * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed (AC3).
@@ -526,6 +548,8 @@ export type KernelEvent =
 	| BetRevisedEvent
 	| SessionStartedEvent
 	| SessionEndedEvent
+	// AU19 Increment 3g: policy ⚠ cost EventBus inversion
+	| SessionHandoffCompletedEvent
 	// AL6: return-gate escape surface
 	| SessionNotReturnedEvent
 	| ThreadCreatedEvent
