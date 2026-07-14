@@ -17,21 +17,23 @@
  * `git-export → knowledge`/`realtime → org`/`retention → users` census
  * corrections landed in prior Increment-2 sub-increments.
  *
- * `session-requests` is scheduled to migrate the NEXT Increment-3 item, not
- * this one — `TriggerResolutionSessionRequestPort` is wired INTERIM (real
- * behavior, just not yet packaged) to `packages/server`'s still-unmigrated
- * `services/agent-session-requests.ts` functions. This needs no `@lore`
- * EventBus-rewire caveat (unlike `policy`'s/`work`'s Increment-1b/2a interim
- * ports): this is an ORDINARY downward edge, not against-grain — once
- * `session-requests` migrates, only the concrete wiring target changes
- * (the consumer swaps its import to `@hyperidle/session-requests`), the port
- * shape itself is permanent.
+ * `session-requests` migrated for real at Increment 3b (the next item after
+ * this one, as flagged above) — `TriggerResolutionSessionRequestPort`'s
+ * concrete wiring repointed from `packages/server`'s (then-unmigrated)
+ * `services/agent-session-requests.ts` to `@hyperidle/session-requests`'s
+ * real `findAgentSessionRequestByIdempotencyKey`/`createAgentSessionRequest`
+ * exports (mechanical, zero behavior change) — the port shape itself did not
+ * change, exactly as predicted here.
  *
  * `triggerResolutionHistory` — this Service's own table — is a genuine table
  * this Service owns (roster's "—" `⛁` column undercounted it; same "confirm
  * at migration" shape as `policy`'s/`filesystems`' `⛁*` findings, just for a
  * Service the roster marked plain `—` instead of `⛁*`). See `TABLE_OWNER` in
- * `scripts/table-ownership-guard.ts`.
+ * `scripts/table-ownership-guard.ts`. Increment 3b also added
+ * `recordSessionForResolutionHistory` (`trigger-resolution.ts`) — a NEW
+ * census correction (`session-requests → trigger-resolution`) surfaced
+ * migrating `session-requests`' `markRequestRunning` for real: it wrote this
+ * table directly, which a foreign nested Service package may not do.
  */
 
 import type {

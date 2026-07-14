@@ -27,7 +27,6 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import {
-	agentWorkIntents,
 	artifacts,
 	type Message as DbMessage,
 	type Thread as DbThread,
@@ -40,6 +39,7 @@ import {
 import { composeTailoredGrant } from "@hyperidle/review";
 import type {
 	AgentOperationalStatus,
+	AgentWorkIntentRecorder,
 	ApiErrorResponse,
 	EventBus,
 	HostKind,
@@ -70,7 +70,7 @@ import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
+import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
@@ -593,7 +593,19 @@ function err(
 	return { body: { error, code }, status };
 }
 
-export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+/**
+ * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder` is the Application-injected
+ * cross-Layer port (`@hyperidle/shared`, Mechanism C) — this route (core-api)
+ * must not import `@hyperidle/session-requests` (agent-orchestration)
+ * directly for its raw `agent_work_intents` write below. `createApp`
+ * defaults it to the real production binding
+ * (`session-requests-bindings.ts`); tests may override.
+ */
+export function createThreadRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentWorkIntentRecorder: AgentWorkIntentRecorder<HyperIdleDb>,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// --- GET /api/threads/assistant ----------------------------------------
@@ -1193,16 +1205,12 @@ export function createThreadRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hy
 						createdAt: now,
 					});
 					if (recordsAssistantIntent) {
-						await tx.insert(agentWorkIntents).values({
-							id: crypto.randomUUID(),
+						await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "assistant_turn",
 							sourceKind: "thread_message",
 							sourceId: messageId,
 							requestedBy: senderId,
 							idempotencyKey: `assistant:${messageId}`,
-							status: "pending",
-							createdAt: now,
-							updatedAt: now,
 						});
 					}
 

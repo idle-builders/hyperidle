@@ -4,9 +4,9 @@ import * as routineService from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
 import { createLogger, type EventBus, type EventType } from "@hyperidle/shared";
 import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routines.js";
-import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import { runBuiltinRoutine } from "./builtin-routine-handlers.js";
 import { getFactoryCostActual } from "./cost-cap.js";
+import { recordAgentWorkIntent } from "./session-requests-bindings.js";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 
 const schedulerLog = createLogger({ pkg: "server.routine-scheduler" });

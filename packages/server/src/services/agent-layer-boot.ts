@@ -1,21 +1,22 @@
+import { agentSessionRequests, explicitSessionStarts, type HyperIdleDb } from "@hyperidle/db";
 import {
-	agentSessionRequests,
-	agentWorkIntents,
-	explicitSessionStarts,
-	type HyperIdleDb,
-} from "@hyperidle/db";
+	claimNextAgentSessionRequest,
+	findAgentWorkIntentSourceByRequestId,
+	releaseRequestClaim,
+} from "@hyperidle/session-requests";
 import { EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import {
 	executeAgentRunRequest,
 	recoverRunningAgentSessionRequests,
 } from "./agent-run-boundary.js";
-import { claimNextAgentSessionRequest, releaseRequestClaim } from "./agent-session-requests.js";
 import { type AssistantTurnDeps, executeAssistantRequest } from "./agent-work-assistant.js";
-import { drainAgentWorkIntents } from "./agent-work-intent-worker.js";
-import { reapTerminalAgentWorkIntents } from "./agent-work-intents.js";
 import { recoverRequestedTerminations, requestAgentTermination } from "./session-lifecycle.js";
 import type { ProvisionSessionDeps } from "./session-provisioning.js";
+import {
+	drainAgentWorkIntents,
+	reapTerminalAgentWorkIntents,
+} from "./session-requests-bindings.js";
 
 export interface AgentLayerBootDeps {
 	readonly db: HyperIdleDb;
@@ -51,11 +52,7 @@ export async function drainAgentSessionRequests(deps: AgentLayerBootDeps): Promi
 		// projection, which then never surfaces a terminal code to the poller.
 		// The correlated intent's sourceId is the durable link the whole way
 		// through — resolve the explicit-session-start row through it instead.
-		const [correlatedIntent] = await deps.db
-			.select({ sourceId: agentWorkIntents.sourceId, sourceKind: agentWorkIntents.sourceKind })
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.requestId, request.id))
-			.limit(1);
+		const correlatedIntent = await findAgentWorkIntentSourceByRequestId(deps.db, request.id);
 		const explicitStartId =
 			correlatedIntent?.sourceKind === "explicit_session_start" ? correlatedIntent.sourceId : null;
 		try {

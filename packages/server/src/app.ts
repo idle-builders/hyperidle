@@ -86,9 +86,13 @@ import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
-import { recordAgentWorkIntent } from "./services/agent-work-intents.js";
 import { registerAssistantDispatcher } from "./services/assistant-dispatcher.js";
 import { SessionActivityBuffer } from "./services/session-activity-buffer.js";
+import {
+	agentWorkIntentReader,
+	agentWorkIntentRecorder,
+	recordAgentWorkIntent,
+} from "./services/session-requests-bindings.js";
 
 interface AppOptions {
 	db?: HyperIdleDb;
@@ -209,6 +213,17 @@ interface AppOptions {
 	 * run around each session. When absent, sessions run without filesystem mount.
 	 */
 	mounter?: import("@hyperidle/shared").FilesystemMounter;
+	/**
+	 * AU19 §11 (AC-9): Application-injected cross-Layer `agent_work_intents`
+	 * recorder/reader (`@hyperidle/shared`-typed, Mechanism C) — the
+	 * `agent-orchestration`/`session-requests` Layer boundary
+	 * `routes/threads.ts`/`routes/sessions-routes.ts` (core-api routes) must
+	 * not cross by importing `@hyperidle/session-requests` directly. Defaults
+	 * to the real production binding (`session-requests-bindings.ts`); tests
+	 * may override for isolation.
+	 */
+	agentWorkIntentRecorder?: import("@hyperidle/shared").AgentWorkIntentRecorder<HyperIdleDb>;
+	agentWorkIntentReader?: import("@hyperidle/shared").AgentWorkIntentReader<HyperIdleDb>;
 }
 
 function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
@@ -477,7 +492,14 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
-		api.route("/threads", createThreadRoutes(options.db, eventBus));
+		api.route(
+			"/threads",
+			createThreadRoutes(
+				options.db,
+				eventBus,
+				options.agentWorkIntentRecorder ?? agentWorkIntentRecorder,
+			),
+		);
 		api.route("/users", createUserRoutes(options.db, eventBus, options.adapterPool));
 		api.route("/org", createOrgRoutes(options.db));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
@@ -496,7 +518,14 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			// boolean gate (see routes/sessions-routes.ts's removal note) — the
 			// composition root now computes that boolean directly instead of
 			// threading the whole harness-typed deps object into the route.
-			createSessionRoutes(options.db, eventBus, activityBuffer, Boolean(options.adapterPool)),
+			createSessionRoutes(
+				options.db,
+				eventBus,
+				activityBuffer,
+				Boolean(options.adapterPool),
+				options.agentWorkIntentRecorder ?? agentWorkIntentRecorder,
+				options.agentWorkIntentReader ?? agentWorkIntentReader,
+			),
 		);
 		api.route("/status", createStatusRoutes(options.db));
 
@@ -608,8 +637,9 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// import from server (layer violation). checkAndUnblockDependents now lives
 		// in `@hyperidle/filesystems` (AU19 Increment 2b) — this app.ts call site is
 		// the composition root wiring its `work`/`workIntents` DI ports to
-		// `@hyperidle/work`'s real exports (`work` migrated Increment 1b) and the
-		// still-unmigrated `recordAgentWorkIntent` (`session-requests`, Increment 3).
+		// `@hyperidle/work`'s real exports (`work` migrated Increment 1b) and
+		// `@hyperidle/session-requests`'s real `recordAgentWorkIntent`
+		// (migrated Increment 3b, `session-requests-bindings.js`).
 		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
 			if (event.toState === "done") {
 				void checkAndUnblockDependents(db, eventBus, event.taskId, {

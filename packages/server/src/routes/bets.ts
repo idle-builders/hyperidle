@@ -30,7 +30,7 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
+import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 const SUMMARY_CAP = 10;
 

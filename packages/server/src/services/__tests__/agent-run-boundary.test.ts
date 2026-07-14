@@ -8,18 +8,20 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import {
+	claimAgentSessionRequestById,
+	createAgentSessionRequest,
+} from "@hyperidle/session-requests";
 import { type AgentSessionRequestInput, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { AdapterPool } from "../../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../../harness/sandbox-adapter.js";
+import { runSession } from "../session-provisioning.js";
 import {
-	claimAgentSessionRequestById,
-	createAgentSessionRequest,
 	markRequestRunning,
 	terminalizeAgentSessionRequest,
-} from "../agent-session-requests.js";
-import { runSession } from "../session-provisioning.js";
+} from "../session-requests-bindings.js";
 
 vi.mock("../session-provisioning.js", () => ({
 	admitSession: vi.fn(async (_deps, params) => ({

@@ -23,11 +23,24 @@
  * exported functions (no interim indirection needed, matching
  * `TeamCapacityReader`'s Inc-1c precedent — `packages/core-api/work/src/ports.ts`).
  * Only the `session-requests` edge (`composeTailoredGrant` →
- * `recordAgentWorkIntent`) is §10.3 against-grain (core-api→orchestration) —
- * wired as an ordinary DI port for THIS increment (interim); Increment 3
- * rewires it to an EventBus subscription once `session-requests` is a real
- * Service package, matching `AgentWorkIntentRecorder`'s Inc-1b precedent.
+ * `recordAgentWorkIntent`) is §10.3 against-grain (core-api→orchestration).
  *
+ * @lore AU19 Increment 3b: `session-requests` is now a real Service package
+ * — this port's concrete wiring repoints from `packages/server`'s
+ * still-flat `agent-work-intents.ts` to `@hyperidle/session-requests`'s real
+ * `recordAgentWorkIntent` export (mechanical, zero behavior change). It
+ * stays a plain DI port rather than the EventBus inversion §10.3 names as
+ * the default lever: `composeTailoredGrant` records the intent INSIDE the
+ * same transaction as the `tailoredGrants` insert + `proposedCalls`
+ * status transition it is atomic with — an EventBus emit-after-commit would
+ * split that into two transactions (a crash between them would leave a
+ * granted call with no recorded intent), a genuine durability regression,
+ * not a mechanical migration. Flagged for founder/review confirmation
+ * rather than silently forcing the inversion or silently declining it —
+ * see `@hyperidle/policy`'s `ports.ts` top `@lore` for the identical
+ * finding on its own (more clearly synchronous) `session-requests` ports.
+ *
+
  * Types are declared locally (structural mirrors of the target Service's own
  * types) rather than imported from the target package — a Service NEVER
  * imports another Service, even for a type-only reference (composition-
@@ -206,7 +219,8 @@ export interface TaskRiskTierReader {
 }
 
 // ---------------------------------------------------------------------------
-// session-requests — ReviewAgentWorkIntentRecorder (§10.3 against-grain — Inc 3 rewires to EventBus)
+// session-requests — ReviewAgentWorkIntentRecorder (§10.3 against-grain —
+// real target since Increment 3b, stays a DI port, see this file's top `@lore`)
 // ---------------------------------------------------------------------------
 
 /** The one `agent_work_intents` kind `review` records today (`composeTailoredGrant`'s re-engagement). */

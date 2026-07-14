@@ -33,7 +33,10 @@ async function seedTerminalRequest(db: HyperIdleDb, id: string): Promise<void> {
 }
 
 async function reaper() {
-	const module = (await import("../services/agent-work-intents.js")) as Record<string, unknown>;
+	const module = (await import("../services/session-requests-bindings.js")) as Record<
+		string,
+		unknown
+	>;
 	expect(module.reapTerminalAgentWorkIntents).toBeTypeOf("function");
 	return module.reapTerminalAgentWorkIntents as (
 		db: unknown,
@@ -124,7 +127,7 @@ describe("terminal intent retention", () => {
 	});
 
 	test("reaper exposes FK-safe cleanup for projected inbox, intent, and explicit source ordering", async () => {
-		const module = (await import("../services/agent-work-intents.js")) as Record<string, unknown>;
+		const module = (await import("@hyperidle/session-requests")) as Record<string, unknown>;
 		expect(module.reapTerminalAgentWorkIntents).toBeTypeOf("function");
 		expect(module.AGENT_WORK_RETENTION_DAYS).toBe(30);
 		expect(module.AGENT_WORK_RETENTION_BATCH_SIZE).toBe(500);

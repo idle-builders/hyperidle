@@ -33,8 +33,8 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { describe, expect, test } from "../../test-fixtures.js";
 import { startAgentLifecycleProjectionDrain } from "../agent-lifecycle-projectors.js";
-import { drainAgentWorkIntents } from "../agent-work-intent-worker.js";
 import { checkAndFireRoutine } from "../routine-scheduler.js";
+import { drainAgentWorkIntents } from "../session-requests-bindings.js";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 const TEST_API_KEY = "test-key-au15-routine-scheduler";

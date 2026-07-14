@@ -94,11 +94,22 @@ const AU11_EXTRA_AGENT_FILES = [
  */
 const AU16_AGENT_FILES = ["packages/server/src/services/harness-capability-read-model.ts"];
 
+/**
+ * AU19 Increment 3b: `session-requests-bindings.ts` — the composition-root
+ * wiring file for `@hyperidle/session-requests` (same factory-curry role AU9's
+ * `agent-work-intent-worker.ts` had pre-move) — re-exports
+ * `executeAgentRunRequest as consumeAgentSessionRequest` from the
+ * forbidden-basename `agent-run-boundary.js`, a legitimate agent-owned edge,
+ * not a core→execution-internal leak.
+ */
+const AU19_AGENT_FILES = ["packages/server/src/services/session-requests-bindings.ts"];
+
 const AGENT_OWNED_ALLOWLIST = new Set([
 	...AU9_AGENT_FILES,
 	...AU11_AGENT_FILES,
 	...AU11_EXTRA_AGENT_FILES,
 	...AU16_AGENT_FILES,
+	...AU19_AGENT_FILES,
 ]);
 
 /** Agent lifecycle internals, provisioning internals, tool execution, context assembly. */

@@ -165,6 +165,31 @@ async function findExistingRequest(
 	return existing ?? null;
 }
 
+/**
+ * Backfills the resolution history row's `session_id` once a session is
+ * admitted for a request. Mirrors `agent-session-requests.ts`'s (pre-move,
+ * `markRequestRunning`) inline update exactly.
+ *
+ * @lore AU19 Increment 3b: added purpose-built for `session-requests`'
+ * `markRequestRunning` — a census correction (`session-requests →
+ * trigger-resolution`, flagged at Increment 3a, see
+ * `@hyperidle/session-requests`'s `ports.ts` top `@lore`) surfaced by
+ * migrating `session-requests` for real: that call updated
+ * `triggerResolutionHistory` (this Service's own table) directly via a raw
+ * write, which a foreign nested Service package may not do (Table ACL,
+ * Mechanism A).
+ */
+export async function recordSessionForResolutionHistory(
+	db: HyperIdleDb,
+	requestId: string,
+	sessionId: string,
+): Promise<void> {
+	await db
+		.update(triggerResolutionHistory)
+		.set({ sessionId })
+		.where(eq(triggerResolutionHistory.requestId, requestId));
+}
+
 async function findPersistedResolution(
 	db: HyperIdleDb,
 	requestId: string,

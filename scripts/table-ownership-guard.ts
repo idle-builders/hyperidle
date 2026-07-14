@@ -134,13 +134,30 @@ const TABLE_OWNER: Record<string, string> = {
 	// `findPersistedResolution`) — a genuine owned table the roster
 	// undercounted, same "confirm during migration" shape as `policy`'s/
 	// `filesystems`' `⛁*` findings just for a Service the roster marked
-	// plain `—` instead. `agentSessionRequests`/`agentWorkIntents` stay
-	// UNOWNED here — `session-requests` is the real owner (§4), migrating
-	// next in this Increment; `trigger-resolution`'s access to
+	// plain `—` instead. `agentSessionRequests`/`agentWorkIntents` are NOT
+	// owned here — `session-requests` is the real owner (§4, mapped below,
+	// migrated Increment 3b); `trigger-resolution`'s access to
 	// `agentSessionRequests` is a DI port (`TriggerResolutionSessionRequestPort`,
-	// wired INTERIM to `packages/server`'s still-unmigrated
-	// `agent-session-requests.ts`), never a raw table read.
+	// wired to `@hyperidle/session-requests`'s real exports since Increment
+	// 3b), never a raw table read.
 	triggerResolutionHistory: "packages/agent-orchestration/trigger-resolution",
+	// AU19 Increment 3b: `session-requests` migrated — the real owner (§4)
+	// `agentSessionRequests`/`agentWorkIntents` were forward-referenced above
+	// as "UNOWNED here" pending this migration; now real. `explicitSessionStarts`
+	// is a roster-undercounted sibling table this Service (+ its worker/reaper)
+	// is the sole nested-package accessor of — same "confirm at migration"
+	// shape as `trigger-resolution`'s `triggerResolutionHistory` finding.
+	// `taskDispatchAttempts` stays in `UNOWNED_SHARED_TABLES` (unchanged, still
+	// genuinely multi-owner-touched). `agentLifecycleInbox` (roster-assigned to
+	// the not-yet-migrated `lifecycle-projection`, §4) is NOT added here even
+	// though `session-requests` is its durable writer today — the write went
+	// through an INTERIM `SessionRequestsLifecycleInboxWriter`/`Reaper` port
+	// (`@hyperidle/session-requests`'s `ports.ts` top `@lore`), wired to
+	// `packages/server`'s raw table ops, so `session-requests` never touches
+	// it as a nested-package raw accessor.
+	agentWorkIntents: "packages/agent-orchestration/session-requests",
+	agentSessionRequests: "packages/agent-orchestration/session-requests",
+	explicitSessionStarts: "packages/agent-orchestration/session-requests",
 	// AU19 Increment 2a: `policy` migrated — its `⛁*` ownership question
 	// (architecture §4/§79) resolves to ZERO owned tables. `policy-engine.ts`/
 	// `approval-rate.ts` never touched a raw table at all; `handoff-protocol.ts`

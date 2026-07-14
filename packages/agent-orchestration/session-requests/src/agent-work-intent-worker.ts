@@ -1,53 +1,40 @@
 import { randomUUID } from "node:crypto";
-import { getMessageById } from "@hyperidle/conversation";
 import {
 	agentWorkIntents,
 	explicitSessionStarts,
 	type HyperIdleDb,
-	knowledgeItems,
-	proposedCalls,
-	tailoredGrants,
 	taskDispatchAttempts,
-	teamMembers,
 } from "@hyperidle/db";
-import { getTeamMembersByTeamId } from "@hyperidle/org";
-import * as routineService from "@hyperidle/routine";
-import { listResolvedConfiguration } from "@hyperidle/settings";
-import type { AgentSessionRequestInput, TriggerEventType } from "@hyperidle/shared";
-import {
-	createTriggeredAgentSessionRequest,
-	type TriggerResolutionDeps,
-} from "@hyperidle/trigger-resolution";
-import { getUserById, getUserByIdScopedToTeam, listUsersByTeam } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
+import type { TriggerEventType } from "@hyperidle/shared";
 import { and, asc, eq, lt, or } from "drizzle-orm";
-import { isAgentAtWipLimit, selectAgentByAppDefaults } from "./agent-selection.js";
-import {
-	createAgentSessionRequest,
-	findAgentSessionRequestByIdempotencyKey,
-} from "./agent-session-requests.js";
+import type { AgentWorkIntentWorkerDeps, SessionRequestsTriggerInput } from "./ports.js";
 
 /**
- * @lore AU19 Increment 3a: `trigger-resolution`'s DI ports (Mechanism C),
- * wired here — the only real production call site. `settings`/`users`/`org`
- * are real, already-migrated packages. `sessionRequests` is INTERIM (real
- * behavior, just not yet packaged): `session-requests` migrates next in
- * Increment 3, at which point only this const's `sessionRequests` field
- * swaps its import source to `@hyperidle/session-requests` — the port shape
- * and every other field are unaffected.
+ * @lore AU19 Increment 3b: real cut-over — moved here from
+ * `packages/server/src/services/agent-work-intent-worker.ts`
+ * (behavior-preserving move). Every raw cross-Service call became an
+ * injected DI port (Mechanism C, `ports.ts`): `routine`/`work`/`conversation`/
+ * `users`/`org` (census correction)/`review` (census correction)/`knowledge`
+ * (census correction)/`trigger-resolution` are ordinary same-layer/downward
+ * edges; `agent-selection` is wired INTERIM (not yet migrated). See
+ * `ports.ts`'s top `@lore` for the full breakdown, including the census
+ * corrections this migration surfaced (`org`, `review`, `knowledge`).
+ *
+ * `knowledgeItems` (raw table, former direct `@hyperidle/db` access in the
+ * `knowledge_action` branch) is now the `SessionRequestsKnowledgeReader` port,
+ * wired to `knowledge`'s real `findById` export (census correction #4).
+ * `teamMembers` (former raw access, `bet_decomposition` branch) is now the
+ * `SessionRequestsTeamReader` port (census correction #1).
+ *
+ * `resolveAuthoritativeInput`/`drainAgentWorkIntents` now take an explicit
+ * `deps: AgentWorkIntentWorkerDeps` parameter (mirroring
+ * `trigger-resolution`'s own `(db, input, deps)` shape) instead of building a
+ * module-level deps const — this package cannot import `work`/`users`/
+ * `routine`/`conversation`/`org`/`review`/`trigger-resolution`/`agent-selection`
+ * itself (Mechanism C), so the composition root
+ * (`packages/server/src/services/session-requests-bindings.ts`) builds the
+ * real deps bundle and every call site passes it through.
  */
-const triggerResolutionDeps: TriggerResolutionDeps = {
-	sessionRequests: {
-		findByIdempotencyKey: findAgentSessionRequestByIdempotencyKey,
-		create: createAgentSessionRequest,
-	},
-	config: { listResolvedConfiguration },
-	users: { getUserByIdScopedToTeam },
-	teams: { getTeamMembersByTeamId },
-};
-
-export { executeAgentRunRequest as consumeAgentSessionRequest } from "./agent-run-boundary.js";
-export { recordAgentWorkIntent } from "./agent-work-intents.js";
 
 const DEFAULT_LEASE_MS = 30_000;
 const DEFAULT_MAX_ATTEMPTS = 5;
@@ -91,8 +78,12 @@ function eventTypeFor(intent: Intent): TriggerEventType {
 	}
 }
 
-async function requireRunnableActor(db: HyperIdleDb, actorId: string): Promise<void> {
-	const actor = await getUserById(db, actorId);
+async function requireRunnableActor(
+	db: HyperIdleDb,
+	deps: AgentWorkIntentWorkerDeps,
+	actorId: string,
+): Promise<void> {
+	const actor = await deps.users.getUserById(db, actorId);
 	if (actor?.kind !== "ai" || !["active", "idle"].includes(actor.status)) {
 		throw new InvalidAgentWorkSourceError(`Intent actor ${actorId} is not runnable`);
 	}
@@ -115,7 +106,11 @@ function resolveAssistantAgentIdForSender(senderId: string): string {
 
 /** Reloads domain truth; the intent's actor is only a correlation hint, never sufficient authority. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: explicit family switch is the audit surface for all seven eligibility contracts.
-export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent) {
+export async function resolveAuthoritativeInput(
+	db: HyperIdleDb,
+	intent: Intent,
+	deps: AgentWorkIntentWorkerDeps,
+) {
 	const eventType = eventTypeFor(intent);
 	const common = {
 		eventType,
@@ -124,11 +119,11 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 
 	switch (intent.kind) {
 		case "assistant_turn": {
-			const message = await getMessageById(db, intent.sourceId);
+			const message = await deps.conversation.getMessageById(db, intent.sourceId);
 			if (!message || message.deletedAt || message.redactedAt)
 				throw new InvalidAgentWorkSourceError("Assistant source message is unavailable");
 			const targetAgentId = resolveAssistantAgentIdForSender(message.senderId);
-			await requireRunnableActor(db, targetAgentId);
+			await requireRunnableActor(db, deps, targetAgentId);
 			return {
 				...common,
 				defaultAgentId: targetAgentId,
@@ -152,8 +147,8 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 				.limit(1);
 			if (!start || start.status !== "requested")
 				throw new InvalidAgentWorkSourceError("Explicit session start is unavailable");
-			await requireRunnableActor(db, start.requestedAgentId);
-			const task = await work.getTaskById(db, start.taskId);
+			await requireRunnableActor(db, deps, start.requestedAgentId);
+			const task = await deps.work.getTaskById(db, start.taskId);
 			if (!task) throw new InvalidAgentWorkSourceError("Explicit session task is unavailable");
 			return {
 				...common,
@@ -174,12 +169,12 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 				.limit(1);
 			if (!attempt || attempt.status !== "requested")
 				throw new InvalidAgentWorkSourceError("Task dispatch attempt is unavailable");
-			const task = await work.getTaskById(db, attempt.taskId);
+			const task = await deps.work.getTaskById(db, attempt.taskId);
 			if (!(task && ["ready", "accepted", "in_progress"].includes(task.state)))
 				throw new InvalidAgentWorkSourceError("Task is not eligible for agent work");
 			if (task.ownerAgentId && task.ownerAgentId !== attempt.agentId)
 				throw new InvalidAgentWorkSourceError("Task owner changed after intent creation");
-			await requireRunnableActor(db, attempt.agentId);
+			await requireRunnableActor(db, deps, attempt.agentId);
 			return {
 				...common,
 				defaultAgentId: attempt.agentId,
@@ -193,14 +188,10 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 		}
 		case "knowledge_action": {
 			const itemId = intent.sourceId.replace(/^knowledge:/, "");
-			const [item] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, itemId))
-				.limit(1);
+			const item = await deps.knowledge.findById(db, itemId);
 			if (!item || item.status === "archived")
 				throw new InvalidAgentWorkSourceError("Knowledge item is unavailable");
-			await requireRunnableActor(db, item.updatedBy);
+			await requireRunnableActor(db, deps, item.updatedBy);
 			return {
 				...common,
 				defaultAgentId: item.updatedBy,
@@ -215,22 +206,23 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 			};
 		}
 		case "routine_run": {
-			const run = await routineService.getRoutineRunById(db, intent.sourceId);
+			const run = await deps.routine.getRoutineRunById(db, intent.sourceId);
 			if (!run || run.outcome !== "running")
 				throw new InvalidAgentWorkSourceError("Routine run is unavailable");
-			const routine = await routineService.getRoutineById(db, run.routineId);
+			const routine = await deps.routine.getRoutineById(db, run.routineId);
 			if (!routine || routine.deletedAt || !routine.active || routine.state !== "active")
 				throw new InvalidAgentWorkSourceError("Routine is not eligible to run");
 			// AU15 §4b: owner-WIP evaluation + delegate resolution moved here from
 			// the (now-removed) fire-time `checkAndFireRoutine` block — drain-time
 			// is closest to execution, matching the family-standard shape
 			// (`bet_decomposition` also selects at drain). `isAgentAtWipLimit` +
-			// `selectAgentByAppDefaults` are imported from the agent-owned
-			// `agent-selection.ts` — agent→agent, same layer, no boundary crossing.
+			// `selectAgentByAppDefaults` are called through the INTERIM
+			// `agent-selection` port — agent-selection migrates later in this
+			// same Increment 3.
 			let selectedAgentId = routine.ownerAgentId;
-			if (await isAgentAtWipLimit(db, routine.ownerAgentId)) {
+			if (await deps.agentSelection.isAgentAtWipLimit(db, routine.ownerAgentId)) {
 				if (routine.delegationAllowed && routine.skillId) {
-					const { agentId } = await selectAgentByAppDefaults({
+					const { agentId } = await deps.agentSelection.selectAgentByAppDefaults({
 						db,
 						surface: "routine_delegate",
 						teamId: null,
@@ -247,7 +239,7 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 					if (agentId) selectedAgentId = agentId;
 				}
 			}
-			await requireRunnableActor(db, selectedAgentId);
+			await requireRunnableActor(db, deps, selectedAgentId);
 			const runId = run.id;
 			return {
 				...common,
@@ -265,24 +257,18 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 			};
 		}
 		case "bet_decomposition": {
-			const bet = await work.getBetById(db, intent.sourceId);
+			const bet = await deps.work.getBetById(db, intent.sourceId);
 			if (bet?.status !== "active" || bet.decompositionStatus !== "running")
 				throw new InvalidAgentWorkSourceError("Bet decomposition is no longer eligible");
-			const [membership] = await db
-				.select({
-					id: teamMembers.id,
-					members: teamMembers.members,
-					leadAgentId: teamMembers.leadAgentId,
-				})
-				.from(teamMembers)
-				.where(eq(teamMembers.teamId, bet.teamId))
-				.limit(1);
+			const membership = await deps.teams.getTeamMembersByTeamId(db, bet.teamId);
 			const memberIds = membership?.members
 				? (JSON.parse(membership.members) as unknown[]).filter(
 						(memberId): memberId is string => typeof memberId === "string",
 					)
 				: [];
-			const persistedMemberIds = membership ? await listUsersByTeam(db, membership.id) : [];
+			const persistedMemberIds = membership
+				? await deps.users.listUsersByTeam(db, membership.id)
+				: [];
 			const candidates = await Promise.all(
 				[
 					...new Set([
@@ -291,7 +277,7 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 						...persistedMemberIds.map((member) => member.id),
 					]),
 				].map(async (id) => {
-					return getUserById(db, id);
+					return deps.users.getUserById(db, id);
 				}),
 			);
 			const runnableCandidates = candidates.filter(
@@ -303,7 +289,7 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 				runnableCandidates[0]?.id;
 			if (!targetAgentId)
 				throw new InvalidAgentWorkSourceError("Bet decomposition has no runnable target");
-			await requireRunnableActor(db, targetAgentId);
+			await requireRunnableActor(db, deps, targetAgentId);
 			return {
 				...common,
 				defaultAgentId: targetAgentId,
@@ -319,29 +305,24 @@ export async function resolveAuthoritativeInput(db: HyperIdleDb, intent: Intent)
 			};
 		}
 		case "reengagement": {
-			const [row] = await db
-				.select({ call: proposedCalls, grant: tailoredGrants })
-				.from(proposedCalls)
-				.innerJoin(tailoredGrants, eq(tailoredGrants.proposedCallId, proposedCalls.id))
-				.where(eq(proposedCalls.id, intent.sourceId))
-				.limit(1);
-			if (row?.call.status !== "granted")
+			const granted = await deps.review.findGrantedProposedCall(db, intent.sourceId);
+			if (granted?.call.status !== "granted")
 				throw new InvalidAgentWorkSourceError("Proposed call grant is not eligible");
-			await requireRunnableActor(db, row.grant.agentScope);
-			const task = await work.getTaskById(db, row.grant.taskScope);
+			await requireRunnableActor(db, deps, granted.grant.agentScope);
+			const task = await deps.work.getTaskById(db, granted.grant.taskScope);
 			if (!task) throw new InvalidAgentWorkSourceError("Proposed call task is unavailable");
 			return {
 				...common,
-				defaultAgentId: row.grant.agentScope,
+				defaultAgentId: granted.grant.agentScope,
 				sourceKind: "proposed_call" as const,
-				sourceId: row.call.id,
+				sourceId: granted.call.id,
 				streamId: `task:${task.id}`,
 				taskId: task.id,
 				teamId: task.teamId,
 				sourceCorrelation: {
 					taskId: task.id,
-					proposedCallId: row.call.id,
-					grantedAgentId: row.grant.agentScope,
+					proposedCallId: granted.call.id,
+					grantedAgentId: granted.grant.agentScope,
 				},
 			};
 		}
@@ -431,10 +412,9 @@ export async function renewAgentWorkIntentLease(
 	return rows.length === 1;
 }
 
-export const reconcileAgentWorkIntents = drainAgentWorkIntents;
-
 async function failOrRelease(
 	db: HyperIdleDb,
+	deps: AgentWorkIntentWorkerDeps,
 	intent: Intent,
 	error: unknown,
 	options: AgentWorkIntentWorkerOptions,
@@ -475,9 +455,9 @@ async function failOrRelease(
 	// no-op if the run is already terminal, so this is race-safe against a
 	// concurrent `projectRoutine` finalize (post-hand-off intents are
 	// `handed_off` and never re-enter `failOrRelease`, so this never touches
-	// the legitimate retryable-defer path).
+	// the legitimately retryable-defer path).
 	if (terminal && intent.kind === "routine_run") {
-		await routineService.updateRoutineRunIfRunning(db, intent.sourceId, {
+		await deps.routine.updateRoutineRunIfRunning(db, intent.sourceId, {
 			outcome: "error",
 			endedAt: now.toISOString(),
 			errorMessage: lastErrorCode,
@@ -487,6 +467,7 @@ async function failOrRelease(
 
 export async function drainAgentWorkIntents(
 	db: HyperIdleDb,
+	deps: AgentWorkIntentWorkerDeps,
 	options: AgentWorkIntentWorkerOptions = {},
 ): Promise<void> {
 	for (;;) {
@@ -500,13 +481,11 @@ export async function drainAgentWorkIntents(
 		if (!intent.claimToken) throw new Error(`Claimed intent ${intent.id} has no claim token`);
 		const claimToken = intent.claimToken;
 		try {
-			const input = await resolveAuthoritativeInput(db, intent);
+			const input = await resolveAuthoritativeInput(db, intent, deps);
 			await db.transaction(async (tx) => {
-				const { request } = await createTriggeredAgentSessionRequest(
+				const { request } = await deps.triggerResolver.resolveAndCreate(
 					tx,
-					input as AgentSessionRequestInput &
-						Parameters<typeof createTriggeredAgentSessionRequest>[1],
-					triggerResolutionDeps,
+					input as SessionRequestsTriggerInput,
 				);
 				const checkpoint = await tx
 					.update(agentWorkIntents)
@@ -525,7 +504,7 @@ export async function drainAgentWorkIntents(
 				if (checkpoint.length !== 1) throw new Error(`Lost intent custody ${intent.id}`);
 			});
 		} catch (error) {
-			await failOrRelease(db, intent, error, options);
+			await failOrRelease(db, deps, intent, error, options);
 		}
 	}
 }

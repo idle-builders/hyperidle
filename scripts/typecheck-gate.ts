@@ -383,6 +383,11 @@ function buildLeafDeclarations(root: string): void {
   // __tests__/AR4b-formation-seam.test.ts /
   // __tests__/trigger-resolution.integration.test.ts now import
   // `@hyperidle/trigger-resolution`.
+  //
+  // @lore AU19 Increment 3b: `agent-orchestration/session-requests` added —
+  // same TS6305 cascade; server-factory.ts, session-requests-bindings.ts,
+  // and many other `packages/server` call sites now import
+  // `@hyperidle/session-requests`.
   for (const leaf of [
     "shared",
     "db",
@@ -405,6 +410,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/realtime",
     "core-api/retention",
     "agent-orchestration/trigger-resolution",
+    "agent-orchestration/session-requests",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

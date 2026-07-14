@@ -30,9 +30,9 @@ import {
 } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
 import { resolveDecompositionPlan } from "../services/agent-defaults/resolvers.js";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { checkAndFireRoutine } from "../services/routine-scheduler.js";
 import { enumerateTeamCandidates, selectOwner } from "../services/select-agent.js";
+import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 /** AU19 Increment 2b: `checkAndUnblockDependents` now requires an injected `{ work, workIntents }` deps bundle. */
@@ -239,7 +239,7 @@ describe("atomic production handoffs", () => {
 	});
 
 	test("production module offers one drain with no domain callback", async () => {
-		const worker = (await import("../services/agent-work-intent-worker.js")) as Record<
+		const worker = (await import("../services/session-requests-bindings.js")) as Record<
 			string,
 			unknown
 		>;
@@ -310,7 +310,7 @@ describe("atomic production handoffs", () => {
 		});
 		expect(response.status).toBe(202);
 		let callbacks = 0;
-		const { drainAgentWorkIntents } = await import("../services/agent-work-intent-worker.js");
+		const { drainAgentWorkIntents } = await import("../services/session-requests-bindings.js");
 		await drainAgentWorkIntents(db, {
 			now: () => new Date(Date.now() + 1_000),
 			...({

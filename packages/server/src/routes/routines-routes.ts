@@ -20,10 +20,10 @@ import { extractBuiltinKind, isBuiltinRoutineId } from "../config/builtin-routin
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 import { deriveInitials } from "../services/agent-utils.js";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { type PostBetRetroArgs, runBuiltinRoutine } from "../services/builtin-routine-handlers.js";
 import { getRoutineMonthlySpend, nextCronMatch, parseCron } from "../services/routine-scheduler.js";
 import { humanizeSchedule } from "../services/schedule-label.js";
+import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
 

@@ -23,6 +23,7 @@ export type {
 } from "./ports.js";
 export {
 	createTriggeredAgentSessionRequest,
+	recordSessionForResolutionHistory,
 	resolveTriggerForSessionRequest,
 	type TriggeredSessionRequestInput,
 } from "./trigger-resolution.js";

@@ -45,6 +45,7 @@
 		"@hyperidle/retention": "*",
 		"@hyperidle/review": "*",
 		"@hyperidle/routine": "*",
+		"@hyperidle/session-requests": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/shared": "*",
 		"@hyperidle/trigger-resolution": "*",

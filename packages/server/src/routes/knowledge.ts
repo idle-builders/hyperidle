@@ -71,7 +71,7 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
+import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation

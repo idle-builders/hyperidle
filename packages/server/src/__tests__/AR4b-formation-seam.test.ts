@@ -36,6 +36,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import { getTeamMembersByTeamId } from "@hyperidle/org";
+import {
+	createAgentSessionRequest,
+	findAgentSessionRequestByIdempotencyKey,
+} from "@hyperidle/session-requests";
 import { listResolvedConfiguration } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
 import {
@@ -46,10 +50,6 @@ import { getUserByIdScopedToTeam } from "@hyperidle/users";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { AdapterPool } from "../harness/adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import {
-	createAgentSessionRequest,
-	findAgentSessionRequestByIdempotencyKey,
-} from "../services/agent-session-requests.js";
 import { executeAssistantRequest } from "../services/agent-work-assistant.js";
 import { test } from "../test-fixtures.js";
 

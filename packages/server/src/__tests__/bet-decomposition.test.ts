@@ -40,9 +40,9 @@ import { runBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { resolveDecompositionPlan } from "../services/agent-defaults/resolvers.js";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import { checkCostCap } from "../services/cost-cap.js";
 import { enumerateTeamCandidates, selectOwner } from "../services/select-agent.js";
+import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { test } from "../test-fixtures.js";
 import { createTaskTool } from "../tools/create-task.js";
 

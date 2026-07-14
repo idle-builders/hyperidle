@@ -47,7 +47,7 @@ import {
 } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
+import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { test } from "../test-fixtures.js";
 
 /**

@@ -10,11 +10,17 @@
  * factory-curry idiom as `@hyperidle/review`'s `buildCreateReviewItemForKnowledge`,
  * Increment 1j).
  *
- * The three §10.3 against-grain edges (`session-requests`, `cost`,
- * `session-lifecycle`) are wired here to their still-flat `packages/server`
- * implementations — Increment 3 rewires all three to an EventBus
- * subscription once those Services are real packages (see
- * `@hyperidle/policy`'s `ports.ts` top `@lore`).
+ * @lore AU19 Increment 3b: `session-requests` is now a real Service package
+ * — `record`/`findBySessionId`/`abort` all repoint to its real exports
+ * (`recordAgentWorkIntent`/`findAgentSessionRequestBySessionId`/
+ * `sessionRunRegistry.abort`, mechanical, zero behavior change). This stays
+ * a plain DI port rather than the §10.3-default EventBus inversion — see
+ * `@hyperidle/policy`'s `ports.ts` top `@lore` for why (synchronous
+ * read-then-branch: `findBySessionId` decides whether to call
+ * `sessionLifecycle.requestTermination` in the same code path, both inside
+ * `buildHandoff`'s transaction). `cost`/`session-lifecycle` stay wired to
+ * their still-flat `packages/server` implementations — neither Service has
+ * migrated yet.
  */
 
 import {
@@ -23,7 +29,7 @@ import {
 	listInitiatedVerdictMessages,
 	listVerdictMessagesByItemIds,
 } from "@hyperidle/conversation";
-import { agentSessionRequests, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { getTeamMembersByTeamId } from "@hyperidle/org";
 import type {
 	ApprovalRateDeps,
@@ -32,14 +38,16 @@ import type {
 	HandoffResult,
 } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
+import {
+	findAgentSessionRequestBySessionId,
+	recordAgentWorkIntent,
+	sessionRunRegistry,
+} from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { findActiveTeammateByRole, getUserById } from "@hyperidle/users";
 import { createItem, getTaskById, listItemIdsBySourceAgent, updateTaskById } from "@hyperidle/work";
-import { eq } from "drizzle-orm";
-import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import { releaseSessionDedup } from "./cost-cap.js";
 import { requestAgentTermination } from "./session-lifecycle.js";
-import { sessionRunRegistry } from "./session-run-registry.js";
 
 const handoffDeps: HandoffDeps = {
 	work: { getTaskById, updateTaskById, createItem },
@@ -48,14 +56,7 @@ const handoffDeps: HandoffDeps = {
 	org: { getByTeamId: getTeamMembersByTeamId },
 	sessionRequests: {
 		record: recordAgentWorkIntent,
-		findBySessionId: async (db: HyperIdleDb, sessionId: string) => {
-			const [row] = await db
-				.select({ id: agentSessionRequests.id })
-				.from(agentSessionRequests)
-				.where(eq(agentSessionRequests.sessionId, sessionId))
-				.limit(1);
-			return row;
-		},
+		findBySessionId: findAgentSessionRequestBySessionId,
 		abort: sessionRunRegistry.abort,
 	},
 	cost: { release: releaseSessionDedup },

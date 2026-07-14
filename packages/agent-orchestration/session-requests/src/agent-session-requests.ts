@@ -1,11 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-	type AgentSessionRequest,
-	agentLifecycleInbox,
-	agentSessionRequests,
-	type HyperIdleDb,
-	triggerResolutionHistory,
-} from "@hyperidle/db";
+import { type AgentSessionRequest, agentSessionRequests, type HyperIdleDb } from "@hyperidle/db";
 import {
 	type AgentSessionRequestInput,
 	type AgentSessionRequestStatus,
@@ -13,6 +7,22 @@ import {
 	agentSessionRequestInputSchema,
 } from "@hyperidle/shared";
 import { and, asc, eq, lt, or, sql } from "drizzle-orm";
+import type { MarkRequestRunningDeps, TerminalizeSessionRequestDeps } from "./ports.js";
+
+/**
+ * @lore AU19 Increment 3b: real cut-over — moved here from
+ * `packages/server/src/services/agent-session-requests.ts` (behavior-preserving
+ * move). `agentSessionRequests` is this Service's own table (`TABLE_OWNER`).
+ * `triggerResolutionHistory` (owned by `trigger-resolution` since Increment
+ * 3a) is written by `markRequestRunning`'s post-admission backfill —
+ * converted to the `SessionRequestsTriggerHistoryWriter` port (real target,
+ * `trigger-resolution`'s new `recordSessionForResolutionHistory` export, see
+ * `ports.ts`). `agentLifecycleInbox` (owned by the not-yet-migrated
+ * `lifecycle-projection` Service) is written by
+ * `terminalizeAgentSessionRequestInTx`'s single-terminal-writer append —
+ * converted to the INTERIM `SessionRequestsLifecycleInboxWriter` port (see
+ * `ports.ts`'s top `@lore`).
+ */
 
 export interface ClaimRequestOptions {
 	readonly now: Date;
@@ -34,11 +44,9 @@ function rowToRequest(row: AgentSessionRequest): AgentSessionRequest {
  * @lore AU19 Increment 3a: extracted for `trigger-resolution`'s
  * `TriggerResolutionSessionRequestPort.findByIdempotencyKey` — previously an
  * inline raw `agentSessionRequests` table query inside
- * `trigger-resolution.ts` (pre-migration). Wired here INTERIM
- * (`agent-work-intent-worker.ts`'s `triggerResolutionDeps`, and the
- * corresponding test fixtures) until `session-requests` migrates and becomes
- * the real target package — the port shape does not change, only the
- * concrete wiring target does.
+ * `trigger-resolution.ts` (pre-migration). Wired here for real now that this
+ * module lives in the real `session-requests` package alongside
+ * `agent-work-intent-worker.ts`'s `triggerResolutionDeps` wiring.
  */
 export async function findAgentSessionRequestByIdempotencyKey(
 	db: HyperIdleDb,
@@ -56,6 +64,27 @@ export async function findAgentSessionRequestByIdempotencyKey(
 		)
 		.limit(1);
 	return existing;
+}
+
+/**
+ * @lore AU19 Increment 3b (AC-9, §11): the fourth non-owner accessor of
+ * `agentSessionRequests` surfaced closing this migration —
+ * `policy-bindings.ts`'s `HandoffDeps.sessionRequests.findBySessionId` ran a
+ * raw `agentSessionRequests` select in `packages/server` (not flagged in
+ * architecture §11's original three, but the exact same shape). Extracted
+ * here as the canonical reader so `policy-bindings.ts` repoints to a real
+ * exported function instead of a raw table touch.
+ */
+export async function findAgentSessionRequestBySessionId(
+	db: HyperIdleDb,
+	sessionId: string,
+): Promise<Pick<AgentSessionRequest, "id"> | undefined> {
+	const [row] = await db
+		.select({ id: agentSessionRequests.id })
+		.from(agentSessionRequests)
+		.where(eq(agentSessionRequests.sessionId, sessionId))
+		.limit(1);
+	return row;
 }
 
 export async function createAgentSessionRequest(
@@ -221,6 +250,7 @@ export async function markRequestRunning(
 	db: HyperIdleDb,
 	requestId: string,
 	sessionId: string,
+	deps: MarkRequestRunningDeps,
 	claimToken?: string,
 ): Promise<void> {
 	const predicate = claimToken
@@ -244,20 +274,7 @@ export async function markRequestRunning(
 		.where(predicate)
 		.returning({ id: agentSessionRequests.id });
 	if (updated.length !== 1) throw new Error(`Lost request custody before admission: ${requestId}`);
-	// @lore AU19 Increment 3a: `triggerResolutionHistory` is now owned by the
-	// migrated `trigger-resolution` Service (`TABLE_OWNER`,
-	// `scripts/table-ownership-guard.ts`). This raw update is a NEW
-	// session-requests -> trigger-resolution edge the original §10.2 census
-	// missed (a table write, not a function call) — surfaces for real when
-	// `session-requests` migrates next in Increment 3: convert to a
-	// `TriggerResolutionHistorySessionWriter`-shaped DI port wired to
-	// `trigger-resolution`'s real exported accessor, same shape as this WP's
-	// other post-hoc census corrections (`git-export -> knowledge`,
-	// `realtime -> org`, `retention -> users`/`knowledge`).
-	await db
-		.update(triggerResolutionHistory)
-		.set({ sessionId })
-		.where(eq(triggerResolutionHistory.requestId, requestId));
+	await deps.triggerHistory.recordSessionForResolutionHistory(db, requestId, sessionId);
 }
 
 export async function releaseRequestClaim(
@@ -320,6 +337,7 @@ export type TerminalizeAgentSessionRequestInput =
 export async function terminalizeAgentSessionRequestInTx(
 	tx: HyperIdleDb,
 	input: TerminalizeAgentSessionRequestInput,
+	deps: TerminalizeSessionRequestDeps,
 ): Promise<AgentSessionRequest | null> {
 	const now = nowIso();
 	const baseSet = {
@@ -353,18 +371,15 @@ export async function terminalizeAgentSessionRequestInTx(
 		.where(predicate)
 		.returning();
 	if (!winner) return null;
-	await tx
-		.insert(agentLifecycleInbox)
-		.values({
-			requestId: winner.id,
-			sourceKind: winner.sourceKind,
-			sourceId: winner.sourceId,
-			state: input.state,
-			sessionId: input.precondition === "running" ? input.sessionId : null,
-			failureCode: input.failureCode ?? null,
-			occurredAt: now,
-		})
-		.onConflictDoNothing();
+	await deps.lifecycleInbox.insertIfAbsent(tx, {
+		requestId: winner.id,
+		sourceKind: winner.sourceKind,
+		sourceId: winner.sourceId,
+		state: input.state,
+		sessionId: input.precondition === "running" ? input.sessionId : null,
+		failureCode: input.failureCode ?? null,
+		occurredAt: now,
+	});
 	return winner;
 }
 
@@ -372,6 +387,7 @@ export async function terminalizeAgentSessionRequestInTx(
 export async function terminalizeAgentSessionRequest(
 	db: HyperIdleDb,
 	input: TerminalizeAgentSessionRequestInput,
+	deps: TerminalizeSessionRequestDeps,
 ): Promise<AgentSessionRequest | null> {
-	return db.transaction((tx) => terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, input));
+	return db.transaction((tx) => terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, input, deps));
 }

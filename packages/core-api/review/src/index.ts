@@ -71,6 +71,7 @@ export {
 export type { ProposedCallWithOutcomeRow } from "./proposed-call-workflow.js";
 export {
 	composeTailoredGrant,
+	findGrantedProposedCall,
 	findProposedCallWithOutcomeByReviewMessageId,
 	handleUnconsumedGrantOnSessionEnd,
 } from "./proposed-call-workflow.js";

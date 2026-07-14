@@ -8,12 +8,12 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { createAgentSessionRequest } from "@hyperidle/session-requests";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { AdapterPool } from "../../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../../harness/sandbox-adapter.js";
-import { createAgentSessionRequest } from "../agent-session-requests.js";
 import { consumeAgentSessionRequest } from "../agent-session-runtime.js";
 import { admitSession, runSession } from "../session-provisioning.js";
 

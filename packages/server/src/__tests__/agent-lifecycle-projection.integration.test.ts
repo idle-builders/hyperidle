@@ -20,11 +20,11 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { sessionRunRegistry } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { bootAgentLayer } from "../services/agent-layer-boot.js";
 import { startAgentLifecycleProjectionDrain } from "../services/agent-lifecycle-projectors.js";
-import { sessionRunRegistry } from "../services/session-run-registry.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au9-lifecycle";

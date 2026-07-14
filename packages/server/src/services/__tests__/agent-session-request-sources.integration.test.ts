@@ -12,6 +12,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { createAgentSessionRequest } from "@hyperidle/session-requests";
 import {
 	type AgentSessionRequestInput,
 	type DomainEvent,
@@ -29,7 +30,6 @@ import { AdapterPool } from "../../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
 import { test as fixtureTest } from "../../test-fixtures.js";
 import { executeAgentRunRequest } from "../agent-run-boundary.js";
-import { createAgentSessionRequest } from "../agent-session-requests.js";
 import type { ProvisionSessionDeps } from "../session-provisioning.js";
 
 class RecordingHarnessAdapter implements HarnessAdapter {

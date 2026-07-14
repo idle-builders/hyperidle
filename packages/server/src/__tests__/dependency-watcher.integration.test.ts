@@ -3,7 +3,7 @@ import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { getTaskById, listHoldTasksWithDependencyPattern, transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
+import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 /**

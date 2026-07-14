@@ -28,7 +28,14 @@
  * routed through `review`'s barrel instead of a foreign table touch.
  */
 
-import { type HyperIdleDb, operationOutcomes, proposedCalls, tailoredGrants } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	operationOutcomes,
+	type ProposedCall,
+	proposedCalls,
+	type TailoredGrant,
+	tailoredGrants,
+} from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import type { ReviewAgentWorkIntentRecorder } from "./ports.js";
 
@@ -72,6 +79,32 @@ export async function findProposedCallWithOutcomeByReviewMessageId(
 		.from(proposedCalls)
 		.leftJoin(operationOutcomes, eq(operationOutcomes.proposedCallId, proposedCalls.id))
 		.where(eq(proposedCalls.reviewMessageId, reviewMessageId))
+		.limit(1);
+	return row;
+}
+
+/**
+ * A granted Proposed Call joined with its Tailored Grant, by Proposed Call
+ * id. Mirrors `agent-work-intent-worker.ts`'s (pre-migration) inline query
+ * exactly (same INNER JOIN, same `.limit(1)`).
+ *
+ * @lore AU19 Increment 3b: added purpose-built for `session-requests`'
+ * `resolveAuthoritativeInput`'s `reengagement` branch — a census correction
+ * (`session-requests → review`, see `@hyperidle/session-requests`'s
+ * `ports.ts` top `@lore`) surfaced by migrating `session-requests` for real:
+ * that branch read `proposedCalls`/`tailoredGrants` (both `review`-owned)
+ * directly via a raw join, which a nested Service package may not do
+ * (Table ACL, Mechanism A).
+ */
+export async function findGrantedProposedCall(
+	db: HyperIdleDb,
+	proposedCallId: string,
+): Promise<{ readonly call: ProposedCall; readonly grant: TailoredGrant } | undefined> {
+	const [row] = await db
+		.select({ call: proposedCalls, grant: tailoredGrants })
+		.from(proposedCalls)
+		.innerJoin(tailoredGrants, eq(tailoredGrants.proposedCallId, proposedCalls.id))
+		.where(eq(proposedCalls.id, proposedCallId))
 		.limit(1);
 	return row;
 }

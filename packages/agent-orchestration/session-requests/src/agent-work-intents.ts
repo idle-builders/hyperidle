@@ -1,13 +1,34 @@
 import { randomUUID } from "node:crypto";
 import {
 	type AgentWorkIntent,
-	agentLifecycleInbox,
 	agentWorkIntents,
 	explicitSessionStarts,
 	type HyperIdleDb,
 	taskDispatchAttempts,
 } from "@hyperidle/db";
-import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import type { AgentWorkIntentReapDeps } from "./ports.js";
+
+/**
+ * @lore AU19 Increment 3b: real cut-over — moved here from
+ * `packages/server/src/services/agent-work-intents.ts` (behavior-preserving
+ * move). `agentWorkIntents` is this Service's own table (`TABLE_OWNER`,
+ * `scripts/table-ownership-guard.ts`). `explicitSessionStarts` is a
+ * roster-undercounted sibling table this module (+ `agent-session-requests.ts`/
+ * `agent-work-intent-worker.ts`) is the sole nested-package accessor of —
+ * added to `TABLE_OWNER` alongside `agentWorkIntents`/`agentSessionRequests`
+ * (same "confirm at migration" shape as `trigger-resolution`'s
+ * `triggerResolutionHistory` finding). `taskDispatchAttempts` stays a direct
+ * `@hyperidle/db` import — it is in `table-ownership-guard.ts`'s
+ * `UNOWNED_SHARED_TABLES` exemption (genuinely multi-owner-touched, confirmed
+ * unchanged by this migration), so no port is needed for it.
+ *
+ * `agentLifecycleInbox` (owned by the not-yet-migrated `lifecycle-projection`
+ * Service per architecture §4's roster) is accessed by `reapTerminalAgentWorkIntents`
+ * below — converted to the INTERIM `SessionRequestsLifecycleInboxReaper` port
+ * (see `ports.ts`'s top `@lore`), wired to `packages/server`'s raw table ops
+ * (zero behavior change) until `lifecycle-projection` is a real package.
+ */
 
 export const AGENT_WORK_RETENTION_DAYS = 30;
 export const AGENT_WORK_RETENTION_BATCH_SIZE = 500;
@@ -82,12 +103,49 @@ export async function recordAgentWorkIntent(
 }
 
 /**
+ * Narrow reader for the AC-9 `agent_work_intents` closure (§11) —
+ * `routes/sessions-routes.ts`'s explicit-session-start idempotent-replay path.
+ * Returns only the fields that call site consumes (`id`/`idempotencyKey`).
+ */
+export async function findAgentWorkIntentByKindAndSource(
+	db: AgentWorkIntentDb,
+	kind: AgentWorkIntentKind,
+	sourceId: string,
+): Promise<Pick<AgentWorkIntent, "id" | "idempotencyKey"> | undefined> {
+	const [row] = await db
+		.select()
+		.from(agentWorkIntents)
+		.where(and(eq(agentWorkIntents.kind, kind), eq(agentWorkIntents.sourceId, sourceId)))
+		.limit(1);
+	return row;
+}
+
+/**
+ * AC-9 boot-time reader (§11) — `agent-layer-boot.ts`'s (`run-orchestration`,
+ * not yet migrated) correlated explicit-session-start lookup by request id.
+ * Intra-orchestration DI — same Layer as this Service, no Application
+ * involvement needed (§11's third accessor).
+ */
+export async function findAgentWorkIntentSourceByRequestId(
+	db: AgentWorkIntentDb,
+	requestId: string,
+): Promise<Pick<AgentWorkIntent, "sourceId" | "sourceKind"> | undefined> {
+	const [row] = await db
+		.select({ sourceId: agentWorkIntents.sourceId, sourceKind: agentWorkIntents.sourceKind })
+		.from(agentWorkIntents)
+		.where(eq(agentWorkIntents.requestId, requestId))
+		.limit(1);
+	return row;
+}
+
+/**
  * Deletes only acknowledged/terminal handoff facts after the audit window.
  * @lore AU9: inbox rows go first and intents before family sources. Keeping this
  * FK order in one transaction prevents retention from weakening request custody.
  */
 export async function reapTerminalAgentWorkIntents(
 	db: HyperIdleDb,
+	deps: AgentWorkIntentReapDeps,
 	options: {
 		readonly now?: Date;
 		readonly retentionDays?: number;
@@ -100,19 +158,11 @@ export async function reapTerminalAgentWorkIntents(
 	const cutoff = new Date(now.getTime() - retentionDays * 86_400_000).toISOString();
 
 	return await db.transaction(async (tx) => {
-		const projected = await tx
-			.select({ requestId: agentLifecycleInbox.requestId })
-			.from(agentLifecycleInbox)
-			.where(
-				and(isNotNull(agentLifecycleInbox.projectedAt), lt(agentLifecycleInbox.occurredAt, cutoff)),
-			)
-			.limit(batchSize);
+		const projected = await deps.lifecycleInbox.listProjectedBefore(tx, cutoff, batchSize);
 		if (projected.length > 0) {
-			await tx.delete(agentLifecycleInbox).where(
-				inArray(
-					agentLifecycleInbox.requestId,
-					projected.map((row) => row.requestId),
-				),
+			await deps.lifecycleInbox.deleteByRequestIds(
+				tx,
+				projected.map((row) => row.requestId),
 			);
 		}
 

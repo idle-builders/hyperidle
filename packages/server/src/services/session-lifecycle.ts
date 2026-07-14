@@ -7,9 +7,9 @@ import type {
 	SessionLifecycleCorrelation,
 } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
-import { terminalizeAgentSessionRequestInTx } from "./agent-session-requests.js";
 import type { IngestionHandle } from "./contracts.js";
 import { releaseSessionDedup } from "./cost-cap.js";
+import { terminalizeAgentSessionRequestInTx } from "./session-requests-bindings.js";
 
 export const TERMINATION_REASONS = [
 	"user_done",

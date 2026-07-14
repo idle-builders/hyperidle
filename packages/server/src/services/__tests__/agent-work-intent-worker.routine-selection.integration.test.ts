@@ -22,8 +22,7 @@ import {
 import * as routineService from "@hyperidle/routine";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { drainAgentWorkIntents } from "../agent-work-intent-worker.js";
-import { recordAgentWorkIntent } from "../agent-work-intents.js";
+import { drainAgentWorkIntents, recordAgentWorkIntent } from "../session-requests-bindings.js";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 

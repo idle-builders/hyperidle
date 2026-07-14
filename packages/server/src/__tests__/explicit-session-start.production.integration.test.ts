@@ -14,7 +14,7 @@ import { vi } from "vitest";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { drainAgentSessionRequests } from "../services/agent-layer-boot.js";
-import { drainAgentWorkIntents } from "../services/agent-work-intent-worker.js";
+import { drainAgentWorkIntents } from "../services/session-requests-bindings.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 vi.mock("../services/session-provisioning.js", async (importOriginal) => {

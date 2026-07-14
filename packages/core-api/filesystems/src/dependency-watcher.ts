@@ -28,9 +28,9 @@ const logger = createLogger({ pkg: "filesystems.dependency-watcher" });
  * exports unchanged (same idiom as `policy`'s `PolicyWorkStore`). `workIntents`
  * is forwarded, unchanged, into `work.transitionTask`'s own `workIntents` port
  * (`work`'s pre-existing §10.3 against-grain `AgentWorkIntentRecorder`,
- * Increment 1b) — the composition root still wires it to
- * `services/agent-work-intents.ts`'s `recordAgentWorkIntent` (unmigrated,
- * `session-requests` is scheduled for Increment 3).
+ * Increment 1b) — the composition root wires it to
+ * `@hyperidle/session-requests`'s real `recordAgentWorkIntent` (migrated
+ * Increment 3b, `session-requests-bindings.ts`).
  */
 export async function checkAndUnblockDependents(
 	db: WriteExecutor,

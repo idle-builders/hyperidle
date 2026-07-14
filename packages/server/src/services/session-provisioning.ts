@@ -5,6 +5,7 @@ import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { listFilesystemIdsByAgent, listFilesystemsByIds } from "@hyperidle/filesystems";
 import { summarizeToolArgs } from "@hyperidle/observability";
 import * as routineService from "@hyperidle/routine";
+import { sessionRunRegistry } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import {
 	type AgentSessionSourceCorrelation,
@@ -55,7 +56,6 @@ import {
 	toolsForRole,
 } from "../tools/tool-registry.js";
 import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
-import { recordAgentWorkIntent } from "./agent-work-intents.js";
 import {
 	assemblePrompt,
 	assembleRoutinePrompt,
@@ -72,7 +72,7 @@ import {
 	requestAgentTermination,
 	type SessionContext,
 } from "./session-lifecycle.js";
-import { sessionRunRegistry } from "./session-run-registry.js";
+import { recordAgentWorkIntent } from "./session-requests-bindings.js";
 import { processWriteback } from "./writeback.js";
 
 // @lore X3: validateSystemPromptPath and SYSTEM_PROMPT_DIR_RELATIVE removed.

@@ -6,6 +6,12 @@ import {
 	sessions,
 } from "@hyperidle/db";
 import {
+	type ClaimRequestOptions,
+	claimAgentSessionRequestById,
+	releaseRequestClaim,
+	renewAgentSessionRequestLease as renewRequestLease,
+} from "@hyperidle/session-requests";
+import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
@@ -14,13 +20,6 @@ import {
 	type EventBus,
 } from "@hyperidle/shared";
 import { and, eq, gt } from "drizzle-orm";
-import {
-	type ClaimRequestOptions,
-	claimAgentSessionRequestById,
-	markRequestRunning,
-	releaseRequestClaim,
-	renewAgentSessionRequestLease as renewRequestLease,
-} from "./agent-session-requests.js";
 import { crashSession, transitionAgentRunLifecycle } from "./session-lifecycle.js";
 import {
 	type AdmittedSession,
@@ -30,6 +29,7 @@ import {
 	type ProvisionSessionResult,
 	runSession,
 } from "./session-provisioning.js";
+import { markRequestRunning } from "./session-requests-bindings.js";
 
 export const renewAgentSessionRequestLease = renewRequestLease;
 

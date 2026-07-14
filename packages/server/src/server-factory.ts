@@ -119,7 +119,6 @@ import {
 } from "./services/agent-layer-boot.js";
 import { startAgentLifecycleProjectionDrain } from "./services/agent-lifecycle-projectors.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
-import { recordAgentWorkIntent } from "./services/agent-work-intents.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handlers.js";
 import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
@@ -129,6 +128,7 @@ import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import { startSandboxReaper } from "./services/sandbox-reaper.js";
 import { enumerateTeamCandidates, selectOwner } from "./services/select-agent.js";
+import { recordAgentWorkIntent } from "./services/session-requests-bindings.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
 import { registerWorkerWsRoute } from "./services/worker-ws.js";
 

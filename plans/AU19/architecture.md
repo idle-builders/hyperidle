@@ -85,7 +85,7 @@ Legend: **⛁** = SQL-table owner (Table-ACL-enforced). Package name = `@hyperid
 | Service | ⛁ | Owns | Seed files |
 |---|:--:|---|---|
 | `trigger-resolution` | ⛁ | `triggerResolutionHistory` (confirmed at Increment 3a migration — roster's original "—" undercounted it) | `services/trigger-resolution.ts` |
-| `session-requests` | ⛁ | `agent_work_intents`, `agent_session_requests` | `services/agent-session-requests.ts`, `agent-work-intents.ts`, `agent-work-intent-worker.ts`, `session-run-registry.ts` |
+| `session-requests` | ⛁ | `agent_work_intents`, `agent_session_requests`, `explicit_session_starts` (confirmed at Increment 3b migration — roster's original two-table listing undercounted the sibling table; `agent_lifecycle_inbox` stays `lifecycle-projection`'s per this row's original assignment — `session-requests` writes it via an INTERIM DI port, not raw access, see `ports.ts` top comment) | `services/agent-session-requests.ts`, `agent-work-intents.ts`, `agent-work-intent-worker.ts`, `session-run-registry.ts` |
 | `run-orchestration` | — | — | `services/agent-run-boundary.ts`, `agent-session-runtime.ts`, `agent-layer-boot.ts`, `worker-ws.ts` |
 | `lifecycle-projection` | ⛁ | `agent_lifecycle_inbox` (confirm) | `services/agent-lifecycle-projectors.ts` |
 | `agent-selection` | — | — | `services/agent-selection.ts`, `select-agent.ts`, `roster.ts`, `agent-defaults/resolvers.ts`, `agent-utils.ts` |
@@ -182,6 +182,7 @@ const TABLE_OWNER: Record<string, string> = {
   serverCredentials:     "packages/core-api/connections",
   agentWorkIntents:      "packages/agent-orchestration/session-requests", // AC-9
   agentSessionRequests:  "packages/agent-orchestration/session-requests",
+  explicitSessionStarts: "packages/agent-orchestration/session-requests", // confirmed Inc 3b
   agentLifecycleInbox:   "packages/agent-orchestration/lifecycle-projection",
   // …one row per table, populated as each Service migrates (Increments 1–4)
 };
@@ -317,9 +318,9 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 
 **This is a real edge-by-edge census, not an estimate.** Method (reproducible): map every one of the 238 production files to its §4 Service, parse each file's relative imports, resolve each import to its target file → target Service, and count distinct `sourceService → targetService` pairs (excluding intra-Service imports, imports of `@hyperidle/db`/`@hyperidle/shared`, and **routes/middleware/app-factory as source** — those are legitimate core-api Layer composition per §5). Tools are counted as a single `tools` unit here (their internal descriptor/handler split, §7.5, moves the shared tool types to `@hyperidle/shared` and DI-registers handlers, so the ~68 intra-`tools` `tool-registry ↔ handler` call sites do **not** become runtime Service edges).
 
-**Result: 110 distinct Service→Service edges across 208 call sites at original census time; 111 distinct edges / 210 call sites after Increment 2c's `git-export → knowledge` addition; 112 distinct edges / 211 call sites after Increment 2f's `realtime → org` addition; 114 distinct edges / 214 call sites after Increment 2g's `retention → users` + `retention → knowledge` additions; 115 distinct edges / 215 call sites after Increment 3a's `trigger-resolution → org` addition (§10.2 — the census is a floor, refinable during migration, per §10 method note).** Each distinct edge becomes one DI port wired by the owning Layer (downward edges, §10.2) or one event-bus inversion (against-grain edges, §10.3). The per-source breakdown below sums exactly to 115 (post-3a).
+**Result: 110 distinct Service→Service edges across 208 call sites at original census time; 111 distinct edges / 210 call sites after Increment 2c's `git-export → knowledge` addition; 112 distinct edges / 211 call sites after Increment 2f's `realtime → org` addition; 114 distinct edges / 214 call sites after Increment 2g's `retention → users` + `retention → knowledge` additions; 115 distinct edges / 215 call sites after Increment 3a's `trigger-resolution → org` addition; 118 distinct edges / 219 call sites after Increment 3b's `session-requests → org` + `session-requests → review` + `session-requests → knowledge` additions (3 new distinct edges) plus a second `session-requests → trigger-resolution` call site (§10.2 — the census is a floor, refinable during migration, per §10 method note).** Each distinct edge becomes one DI port wired by the owning Layer (downward edges, §10.2) or one event-bus inversion (against-grain edges, §10.3). The per-source breakdown below sums exactly to 118 (post-3b).
 
-### 10.1 Per-source summary (sums to 115, post-Increment-3a)
+### 10.1 Per-source summary (sums to 118, post-Increment-3b)
 
 | Source Service | Layer | Distinct edges | Call sites |
 |---|---|:--:|:--:|
@@ -328,7 +329,7 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 | `tools` (→ `tool-handlers`) | orch | 11 | 39 |
 | `policy` | core-api | 8 | 19 |
 | `review` | core-api | 6 | 8 |
-| `session-requests` | orch | 6 | 6 |
+| `session-requests` | orch | 9 | 10 |
 | `context-assembly` | orch | 5 | 12 |
 | `notifications` | core-api | 5 | 7 |
 | `settings` | core-api | 5 | 5 |
@@ -345,7 +346,9 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 | `mcp-provider` | exec | 2 | 3 |
 | `agent-selection`, `connections`, `harness-registry`, `model-gateway`, `observability`, `org` | (mixed) | 1 each (6 total) | 8 |
 | `git-export` | core-api | 2 | 3 |
-| **Total** | | **115** | **215** |
+| **Total** | | **118** | **219** |
+
+*Row updated post-Increment-3b: `session-requests` moved from 6 distinct edges / 6 call sites to 9 / 10 — the real migration surfaced THREE census-missed edges (`session-requests → org`, 1 call site, `teamMembers` membership-group read in `resolveAuthoritativeInput`'s `bet_decomposition` branch; `session-requests → review`, 1 call site, `proposedCalls ⋈ tailoredGrants` read in the `reengagement` branch; `session-requests → knowledge`, 1 call site, `knowledgeItems` read in the `knowledge_action` branch) alongside a SECOND `session-requests → trigger-resolution` call site (`markRequestRunning`'s post-admission `triggerResolutionHistory.session_id` backfill, flagged at Increment 3a, closed here) — same distinct edge, +1 call site, +0 distinct edges. See `@hyperidle/session-requests`'s `ports.ts` top comment.*
 
 *Row updated post-Increment-2c: `git-export` moved out of the "1 each" group — the real migration surfaced a second, census-missed edge (`git-export → knowledge`, 2 call sites) alongside the originally-listed `git-export → settings` (1 call site). See `git-export`'s `ports.ts` top comment.*
 
@@ -353,7 +356,7 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 
 *Row updated post-Increment-2g: `retention` moved out of the "1 each" group — the real migration surfaced TWO census-missed edges (`retention → users`, 2 call sites for `reapLoginSessions`/`reapInviteCodes`; `retention → knowledge`, 1 call site for `reapKnowledgeAccessLog`) alongside the originally-listed `retention → notifications` (1 call site). Both new edges were raw `@hyperidle/db` table access at original census time (not a countable relative-import edge until `users`/`knowledge` existed as real owner packages — Table ACL is what surfaces them, on migrating `retention` for real). See `retention`'s `ports.ts` top comment. This closes Increment 2 (core-api non-SQL Services).*
 
-### 10.2 Full edge table (all 115, post-Increment-3a — the migration inventory)
+### 10.2 Full edge table (all 118, post-Increment-3b — the migration inventory)
 
 Legend: `→` legal **downward** DI (orchestration→core-api, intra-layer) — becomes an injected port wired by the owning Layer. `§` = **execution seam** (orchestration→execution) — becomes `HarnessPort`/execution-port injection at the Application tier (not a package dep, §7.4). `⚠` = **against-grain** (core-api→orchestration/execution) — cannot be a downward DI port; **inverts through the existing `EventBus`** (the lower Service emits a domain event; the higher Service subscribes — the pattern `bet-decomposition-subscriber.ts` / `notification-listener.ts` already use) **or** is reclassified. These ⚠ edges are the real risk the census surfaces (§10.3).
 
@@ -461,8 +464,11 @@ Legend: `→` legal **downward** DI (orchestration→core-api, intra-layer) — 
 | session-requests | → work | 1 | agent-work-intent-worker → work-service |
 | session-requests | → agent-selection | 1 | agent-work-intent-worker → agent-selection |
 | session-requests | → conversation | 1 | agent-work-intent-worker → conversation-store |
-| session-requests | → trigger-resolution | 1 | agent-work-intent-worker → trigger-resolution |
+| session-requests | → trigger-resolution | 2 | agent-work-intent-worker → trigger-resolution; markRequestRunning → recordSessionForResolutionHistory (census correction, added Increment 3b) |
 | session-requests | → users | 1 | agent-work-intent-worker → user-store |
+| session-requests | → org | 1 | agent-work-intent-worker → team-membership (census correction, added Increment 3b — see `session-requests`'s `ports.ts` top comment) |
+| session-requests | → review | 1 | agent-work-intent-worker → findGrantedProposedCall (census correction, added Increment 3b) |
+| session-requests | → knowledge | 1 | agent-work-intent-worker → findById (census correction, added Increment 3b) |
 | trigger-resolution | → session-requests | 1 | trigger-resolution → agent-session-requests |
 | trigger-resolution | → settings | 1 | trigger-resolution → plugin-configuration |
 | trigger-resolution | → users | 1 | trigger-resolution → user-store |
@@ -523,6 +529,8 @@ Owner module: `services/agent-work-intents.ts` (exports `recordAgentWorkIntent`,
 
 Scheduled in **Increment 3** (when `session-requests` becomes a package); the three accessors close in the **same commit** — not deferred again.
 
+**Closed at Increment 3b, same commit as the `session-requests` migration.** All three accessors landed exactly as designed: `routes/threads.ts`'s tx-carrying recorder and `routes/sessions-routes.ts`'s reader are `AgentWorkIntentRecorder<TTx>`/`AgentWorkIntentReader<TDb>` (generic-over-tx, since `@hyperidle/shared` has zero `@hyperidle/db` dependency) in `packages/shared/src/agent-work-intent-recorder.ts`, defaulted in `createApp`'s `AppOptions` (`agentWorkIntentRecorder`/`agentWorkIntentReader`, optional-injectable for tests) to `packages/server/src/services/session-requests-bindings.ts`'s real production singletons (concrete = `@hyperidle/session-requests`'s `recordAgentWorkIntent`/`findAgentWorkIntentByKindAndSource`), and threaded into `createThreadRoutes`/`createSessionRoutes` as explicit params. `agent-layer-boot.ts`'s boot-time reader is a direct `findAgentWorkIntentSourceByRequestId` import from `@hyperidle/session-requests` (intra-orchestration, no Application involvement, as designed). A fourth non-owner `agentSessionRequests` accessor surfaced during the same migration — `policy-bindings.ts`'s `HandoffDeps.sessionRequests.findBySessionId` ran a raw `agentSessionRequests` select in `packages/server` — closed the same way (mechanical repoint to a new `findAgentSessionRequestBySessionId` export), not flagged in this table's original three but the identical shape.
+
 ---
 
 ## 12. Ordered build plan (RESUMABLE — the increment checklist)
@@ -578,6 +586,10 @@ All seven Services landed (2a `policy`, 2b `filesystems`, 2c `git-export`, 2d `o
 
 ### Increment 3 — agent-orchestration Services
 `trigger-resolution`, `session-requests` (**+ AC-9 `agent_work_intents` closure with the injected recorder/reader, §11**), `run-orchestration`, `lifecycle-projection`, `agent-selection`, `capture-writeback`, `cost`, `dispatch`, `session-lifecycle`. **Finalize `context-assembly`** (replace the Inc-0 transitional stubs with real work/users/routine/filesystems ports; swap into the live app). Add the `HarnessPort` interface to `@hyperidle/shared`; wire `session-lifecycle`/`run-orchestration` to it (not to `harness-registry`). Land the against-grain event-bus inversions (§10.3). Green + commit.
+
+**3a `trigger-resolution` + 3b `session-requests` landed.** §11's AC-9 closure done (see §11's own closure note). `session-requests`'s real outbound edges (`routine`/`work`/`conversation`/`users`/`org`/`review`/`knowledge`/`trigger-resolution`, ordinary; `agent-selection` interim, not yet migrated) are injected DI ports per `ports.ts`; three census corrections (`org`/`review`/`knowledge`) plus a second `trigger-resolution` call site landed (§10.1/§10.2). `agent_lifecycle_inbox` (roster-assigned `lifecycle-projection`, not yet migrated) is written by `session-requests`' single-terminal-writer/reaper through an INTERIM `SessionRequestsLifecycleInboxWriter`/`Reaper` port, concrete impl still raw table ops in `packages/server` — this is a forward-reference, not against-grain (both Services are agent-orchestration), same interim-port shape as policy/work's against-grain precedent but for a different reason.
+
+**§10.3 EventBus-rewire — partial landing, explicit split (Increment 3b).** Of the `session-requests`-targeted against-grain ports (`policy ⚠ session-requests` ×2, `review ⚠ session-requests` ×1), the DEFAULT lever (§10.3's own text) is the EventBus inversion. **Neither converted this increment — both stay ordinary DI ports, concrete wiring repointed to the now-real `@hyperidle/session-requests` package (mechanical, zero behavior change).** Reasoning, not a guess: `policy`'s `handoff-protocol.ts` uses `sessionRequests.findBySessionId` synchronously to decide whether to call `sessionLifecycle.requestTermination` in the same code path, both inside one transaction — EventBus fire-and-forget cannot preserve that read-then-branch control flow without a genuine redesign, out of scope for a mechanical migration. `review`'s `composeTailoredGrant` records the intent INSIDE the same transaction as its `tailoredGrants` insert + `proposedCalls` status transition — an EventBus emit-after-commit would split that into two transactions, weakening the durability guarantee `@lore AU9`'s "durable intent, no bypass channel" design repeatedly insists on. `policy ⚠ cost` (×1) and `policy ⚠ session-lifecycle` (×1) are untouched — `cost`/`session-lifecycle` have not migrated yet, still not real packages. **Flagged for founder/review confirmation** rather than silently forcing a durability-weakening inversion or silently declining the whole lever: see `policy`'s and `review`'s `ports.ts` top `@lore` comments for the per-port detail. The `bet-decomposition-subscriber.ts`-style inversion pattern §10.3 points to (`work`'s three against-grain ports) is untouched by this item — out of `session-requests`'s own migration scope, a candidate for a later, separate item once `agent-selection`/`cost` land.
 
 ### Increment 4 — agent-execution Services + the tool split
 `harness-registry` (already migrated in Inc 0 — finalize), `mcp-provider`, and the **tool split (§7.5)**: extract the 11 db-/domain-touching handler bodies into the `agent-orchestration/tool-handlers` Service (DI-wired to domain Services); leave descriptors + dispatch in `agent-execution/tool-provider` (deps = shared only; move `ToolContext`/`ToolHandler`/`ToolResult` types to `@hyperidle/shared`). Convert the 11 tool→domain edges to injected ports (§10.2). Resolve `harness-capability-read-model` split (§6). Green + commit.

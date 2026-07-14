@@ -1,4 +1,14 @@
 /**
+ * @lore AU19 Increment 3b: moved here unchanged from
+ * `packages/server/src/services/session-run-registry.ts` — architecture §4's
+ * roster explicitly lists this as one of `session-requests`' seed files.
+ * Dependency-free (`@hyperidle/shared` types only), so the move is a pure
+ * relocation with zero port conversion. Every real consumer
+ * (`session-provisioning.ts`, `routes/sessions-routes.ts`,
+ * `policy-bindings.ts`) repoints its import to `@hyperidle/session-requests`.
+ */
+
+/**
  * AF7 §4/§5 — SessionRunRegistry.
  *
  * A process-singleton leaf module that tracks the live runtime entry for each

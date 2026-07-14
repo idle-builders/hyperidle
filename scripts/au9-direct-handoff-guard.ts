@@ -15,6 +15,15 @@ const agentFiles = new Set([
 	"packages/server/src/services/agent-run-boundary.ts", "packages/server/src/services/agent-session-runtime.ts",
 	"packages/server/src/services/session-provisioning.ts", "packages/server/src/services/agent-layer-boot.ts",
 	"packages/server/src/services/agent-work-assistant.ts",
+	// @lore AU19 Increment 3b: `agent-work-intent-worker.ts`/`agent-session-requests.ts`
+	// moved to `@hyperidle/session-requests` (out of this guard's scanned
+	// `packages/server/src` tree entirely — still-relevant entries above are
+	// harmless dead allowlist rows, not errors). `session-requests-bindings.ts`
+	// is the new composition-root wiring file that legitimately calls
+	// `createTriggeredAgentSessionRequest` (building `TriggerResolutionDeps`)
+	// — same legitimate-wiring role as `agent-work-intent-worker.ts` had
+	// pre-move, added here so it is not flagged as a bypass.
+	"packages/server/src/services/session-requests-bindings.ts",
 ]);
 
 type Finding = { file: string; reason: string };

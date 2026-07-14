@@ -26,6 +26,10 @@ import {
 } from "@hyperidle/db";
 import { getTeamMembersByTeamId } from "@hyperidle/org";
 import {
+	createAgentSessionRequest,
+	findAgentSessionRequestByIdempotencyKey,
+} from "@hyperidle/session-requests";
+import {
 	listResolvedConfiguration,
 	loadPluginConfigurationDefaults,
 	setConfigurationOverride,
@@ -37,10 +41,6 @@ import {
 import { getUserByIdScopedToTeam } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import {
-	createAgentSessionRequest,
-	findAgentSessionRequestByIdempotencyKey,
-} from "../services/agent-session-requests.js";
 import { test } from "../test-fixtures.js";
 
 const NOW = "2026-07-09T10:00:00.000Z";

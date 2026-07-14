@@ -1,6 +1,10 @@
-import { agentWorkIntents, explicitSessionStarts, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { explicitSessionStarts, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { sessionRunRegistry } from "@hyperidle/session-requests";
 import {
 	type AgentWorkIntentEvent,
+	type AgentWorkIntentReader,
+	type AgentWorkIntentRecord,
+	type AgentWorkIntentRecorder,
 	API_ERROR_CODES,
 	type EventBus,
 	type SessionEndedEvent,
@@ -14,13 +18,11 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { recordAgentWorkIntent } from "../services/agent-work-intents.js";
 import type { SessionActivityBuffer } from "../services/session-activity-buffer.js";
 import {
 	requestAgentTermination,
 	transitionAgentRunLifecycle,
 } from "../services/session-lifecycle.js";
-import { sessionRunRegistry } from "../services/session-run-registry.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -278,11 +280,22 @@ async function applyStateChangePatch(
  *   removal note above — this replaces the former `deps.adapterPool`
  *   presence check with a plain boolean, no harness type dependency).
  */
+/**
+ * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder`/`agentWorkIntentReader`
+ * are the Application-injected cross-Layer ports (`@hyperidle/shared`,
+ * Mechanism C) — this route (core-api) must not import
+ * `@hyperidle/session-requests` (agent-orchestration) directly for the raw
+ * `agent_work_intents` write/read below. `createApp` defaults them to the
+ * real production binding (`session-requests-bindings.ts`); tests may
+ * override.
+ */
 export function createSessionRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	activityBuffer?: SessionActivityBuffer,
-	durableStartEnabled?: boolean,
+	activityBuffer: SessionActivityBuffer | undefined,
+	durableStartEnabled: boolean | undefined,
+	agentWorkIntentRecorder: AgentWorkIntentRecorder<HyperIdleDb>,
+	agentWorkIntentReader: AgentWorkIntentReader<HyperIdleDb>,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -363,7 +376,7 @@ export function createSessionRoutes(
 						},
 						409,
 					);
-				let intent: typeof agentWorkIntents.$inferSelect | undefined;
+				let intent: AgentWorkIntentRecord | undefined;
 				if (!start) {
 					const startId = crypto.randomUUID();
 					await db.transaction(async (tx) => {
@@ -381,7 +394,7 @@ export function createSessionRoutes(
 								updatedAt: new Date().toISOString(),
 							})
 							.returning();
-						intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
+						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "session_start",
 							sourceKind: "explicit_session_start",
 							sourceId: startId,
@@ -392,16 +405,7 @@ export function createSessionRoutes(
 				}
 				if (!(start && intent)) {
 					if (!start) throw new Error("Explicit session start was not persisted");
-					[intent] = await db
-						.select()
-						.from(agentWorkIntents)
-						.where(
-							and(
-								eq(agentWorkIntents.kind, "session_start"),
-								eq(agentWorkIntents.sourceId, start.id),
-							),
-						)
-						.limit(1);
+					intent = await agentWorkIntentReader.findByKindAndSource(db, "session_start", start.id);
 				}
 				c.header("Idempotency-Key", idempotencyKey);
 				c.header("Location", `/api/sessions/starts/${start.id}`);
