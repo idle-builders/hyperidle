@@ -46,7 +46,16 @@ const BOOTSTRAP_SYMBOL = "bootstrapAppRuntime";
 
 // --- AC-2: agent-owned allowlist (core vs agent within shared services/) ---
 
-/** AU9's agent-owned handoff set (au9-direct-handoff-guard.ts `agentFiles`). */
+/**
+ * AU9's agent-owned handoff set (au9-direct-handoff-guard.ts `agentFiles`).
+ *
+ * @lore AU19 Increment 3c: `agent-run-boundary.ts`/`agent-session-runtime.ts`/
+ * `agent-layer-boot.ts` moved to `@hyperidle/run-orchestration` (out of this
+ * guard's scanned `packages/server/src` tree entirely, same as
+ * `agent-work-intent-worker.ts`/`agent-session-requests.ts` did in
+ * Increment 3b) — the three entries below are now harmless dead allowlist
+ * rows, not errors.
+ */
 const AU9_AGENT_FILES = [
 	"packages/server/src/services/agent-work-handoff.ts",
 	"packages/server/src/services/agent-work-intent-worker.ts",
@@ -80,6 +89,12 @@ const AU11_AGENT_FILES = [
  * The builtin-routines handler-split file (agent-owned per the AU11
  * builtin-routines split — see config/builtin-routines.ts vs this file) and
  * the two AC-2 "still-direct execution" route relocations.
+ *
+ * @lore AU19 Increment 3c: `worker-ws.ts` moved to
+ * `@hyperidle/run-orchestration` (out of this guard's scanned
+ * `packages/server/src` tree entirely) — that entry below is now a harmless
+ * dead allowlist row, not an error. `mcp-route.ts` is unaffected (not part
+ * of this migration).
  */
 const AU11_EXTRA_AGENT_FILES = [
 	"packages/server/src/services/builtin-routine-handlers.ts",

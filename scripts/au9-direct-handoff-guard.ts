@@ -12,8 +12,7 @@ const forbiddenSymbols = new Set([
 const agentFiles = new Set([
 	"packages/server/src/services/agent-work-handoff.ts", "packages/server/src/services/agent-work-intent-worker.ts",
 	"packages/server/src/services/agent-session-requests.ts",
-	"packages/server/src/services/agent-run-boundary.ts", "packages/server/src/services/agent-session-runtime.ts",
-	"packages/server/src/services/session-provisioning.ts", "packages/server/src/services/agent-layer-boot.ts",
+	"packages/server/src/services/session-provisioning.ts",
 	"packages/server/src/services/agent-work-assistant.ts",
 	// @lore AU19 Increment 3b: `agent-work-intent-worker.ts`/`agent-session-requests.ts`
 	// moved to `@hyperidle/session-requests` (out of this guard's scanned
@@ -24,6 +23,17 @@ const agentFiles = new Set([
 	// — same legitimate-wiring role as `agent-work-intent-worker.ts` had
 	// pre-move, added here so it is not flagged as a bypass.
 	"packages/server/src/services/session-requests-bindings.ts",
+	// @lore AU19 Increment 3c: `agent-run-boundary.ts`/`agent-session-runtime.ts`/
+	// `agent-layer-boot.ts` moved to `@hyperidle/run-orchestration` (same
+	// out-of-scanned-tree situation as 3b's entries above — harmless dead
+	// allowlist rows, not errors). `run-orchestration-bindings.ts` is the new
+	// composition-root wiring file (same legitimate-wiring role
+	// `session-requests-bindings.ts` has) — it never literally calls a
+	// forbidden symbol (every internal export is imported under an
+	// `...Internal` alias), so it does not need its own allowlist entry here.
+	"packages/server/src/services/agent-run-boundary.ts",
+	"packages/server/src/services/agent-session-runtime.ts",
+	"packages/server/src/services/agent-layer-boot.ts",
 ]);
 
 type Finding = { file: string; reason: string };
