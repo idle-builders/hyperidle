@@ -1,16 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-	type AgentSessionRequest,
-	agentSessionRequests,
-	type HyperIdleDb,
-	sessions,
-} from "@hyperidle/db";
-import {
-	type ClaimRequestOptions,
-	claimAgentSessionRequestById,
-	releaseRequestClaim,
-	renewAgentSessionRequestLease as renewRequestLease,
-} from "@hyperidle/session-requests";
+import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
@@ -19,44 +8,45 @@ import {
 	CostCapExceededError,
 	type EventBus,
 } from "@hyperidle/shared";
-import { and, eq, gt } from "drizzle-orm";
-import { crashSession, transitionAgentRunLifecycle } from "./session-lifecycle.js";
-import {
-	type AdmittedSession,
-	admitSession,
-	type ProvisionSessionDeps,
-	type ProvisionSessionParams,
-	type ProvisionSessionResult,
-	runSession,
-} from "./session-provisioning.js";
-import { markRequestRunning } from "./session-requests-bindings.js";
+import { and, eq } from "drizzle-orm";
+import type {
+	RunOrchestrationAdmittedSession,
+	RunOrchestrationPorts,
+	RunOrchestrationProvisionDeps,
+	RunOrchestrationProvisionParams,
+	RunOrchestrationProvisionResult,
+} from "./ports.js";
 
-export const renewAgentSessionRequestLease = renewRequestLease;
+/**
+ * @lore AU19 Increment 3c: real cut-over — moved here from
+ * `packages/server/src/services/agent-session-runtime.ts` (behavior-preserving
+ * move, aside from every `session-requests`/`session-lifecycle`/
+ * `session-provisioning` (`session-lifecycle`-destined) touch converting to
+ * an injected `ports: RunOrchestrationPorts` parameter — Mechanism C forbids
+ * a Service importing another Service, even same-layer, even a forward-ref.
+ * `sessions` stays a direct `@hyperidle/db` read/write — it is in
+ * `table-ownership-guard.ts`'s `UNOWNED_SHARED_TABLES` exemption. See
+ * `ports.ts`'s top `@lore` for the full edge inventory.
+ */
 
-export async function admitOnlyWithRequestLease(
+export function admitOnlyWithRequestLease(
 	db: HyperIdleDb,
 	input: { requestId: string; claimToken: string; now?: Date },
+	ports: RunOrchestrationPorts,
 ): Promise<boolean> {
-	const [owned] = await db
-		.select({ id: agentSessionRequests.id })
-		.from(agentSessionRequests)
-		.where(
-			and(
-				eq(agentSessionRequests.id, input.requestId),
-				eq(agentSessionRequests.status, "claimed"),
-				eq(agentSessionRequests.claimToken, input.claimToken),
-				gt(agentSessionRequests.claimExpiresAt, (input.now ?? new Date()).toISOString()),
-			),
-		)
-		.limit(1);
-	return Boolean(owned);
+	return ports.sessionRequests.isAgentSessionRequestClaimActive(db, {
+		requestId: input.requestId,
+		claimToken: input.claimToken,
+		now: input.now ?? new Date(),
+	});
 }
 
 export async function reserveOrAdoptSession(
 	db: HyperIdleDb,
 	input: { requestId: string; claimToken: string },
+	ports: RunOrchestrationPorts,
 ): Promise<{ adopted: boolean; sessionId: string }> {
-	if (!(await admitOnlyWithRequestLease(db, input))) {
+	if (!(await admitOnlyWithRequestLease(db, input, ports))) {
 		throw new Error(`Request ${input.requestId} is not owned by this claim`);
 	}
 	const [existing] = await db
@@ -65,11 +55,7 @@ export async function reserveOrAdoptSession(
 		.where(eq(sessions.requestId, input.requestId))
 		.limit(1);
 	if (existing) return { adopted: true, sessionId: existing.id };
-	const [request] = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(eq(agentSessionRequests.id, input.requestId))
-		.limit(1);
+	const request = await ports.sessionRequests.findAgentSessionRequestById(db, input.requestId);
 	if (!request) throw new Error(`Unknown agent session request ${input.requestId}`);
 	const agentId = request.agentId;
 	const now = new Date().toISOString();
@@ -108,16 +94,14 @@ export async function reserveOrAdoptSession(
 export async function recoverRunningAgentSessionRequests(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	ports: RunOrchestrationPorts,
 ): Promise<{ adopted: number; runtimeLost: number; running: number }> {
-	const running = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(eq(agentSessionRequests.status, "running"));
+	const running = await ports.sessionRequests.listRunningAgentSessionRequests(db);
 	let adopted = 0;
 	let runtimeLost = 0;
 	for (const request of running) {
 		if (!request.sessionId) {
-			await transitionAgentRunLifecycle(db, eventBus, {
+			await ports.sessionLifecycle.transitionAgentRunLifecycle(db, eventBus, {
 				requestId: request.id,
 				state: "failed",
 				claimToken: request.claimToken ?? undefined,
@@ -138,7 +122,7 @@ export async function recoverRunningAgentSessionRequests(
 					.set({ state: "crashed", outcome: "crashed", endedAt: new Date().toISOString() })
 					.where(and(eq(sessions.id, session.id), eq(sessions.state, "active")));
 			}
-			await transitionAgentRunLifecycle(db, eventBus, {
+			await ports.sessionLifecycle.transitionAgentRunLifecycle(db, eventBus, {
 				requestId: request.id,
 				state: "failed",
 				sessionId: request.sessionId,
@@ -147,7 +131,7 @@ export async function recoverRunningAgentSessionRequests(
 			runtimeLost += 1;
 			continue;
 		}
-		await transitionAgentRunLifecycle(db, eventBus, {
+		await ports.sessionLifecycle.transitionAgentRunLifecycle(db, eventBus, {
 			requestId: request.id,
 			state: session.state === "done" ? "completed" : "failed",
 			sessionId: session.id,
@@ -161,12 +145,12 @@ export async function recoverRunningAgentSessionRequests(
 export interface ConsumeAgentSessionRequestOptions {
 	readonly sandboxBasePath: string;
 	readonly workerId?: string;
-	readonly claim?: ClaimRequestOptions;
-	readonly resolvedModel?: ProvisionSessionParams["resolvedModel"];
-	readonly resolvedFastModel?: ProvisionSessionParams["resolvedFastModel"];
-	readonly modelTier?: ProvisionSessionParams["modelTier"];
-	readonly sessionWorkflow?: ProvisionSessionParams["sessionWorkflow"];
-	readonly conversational?: ProvisionSessionParams["conversational"];
+	readonly claim?: { readonly now: Date; readonly leaseMs: number };
+	readonly resolvedModel?: RunOrchestrationProvisionParams["resolvedModel"];
+	readonly resolvedFastModel?: RunOrchestrationProvisionParams["resolvedFastModel"];
+	readonly modelTier?: RunOrchestrationProvisionParams["modelTier"];
+	readonly sessionWorkflow?: RunOrchestrationProvisionParams["sessionWorkflow"];
+	readonly conversational?: RunOrchestrationProvisionParams["conversational"];
 	readonly detachAfterAdmission?: boolean;
 	readonly enforceResolvedModelGuard?: boolean;
 }
@@ -203,12 +187,13 @@ async function ensureClaimedRequest(
 	db: HyperIdleDb,
 	request: AgentSessionRequest,
 	options: ConsumeAgentSessionRequestOptions,
+	ports: RunOrchestrationPorts,
 ): Promise<AgentSessionRequest> {
 	if (request.status === "claimed") return request;
 	if (request.status !== "pending") {
 		throw new Error(`Agent session request ${request.id} is not claimable (${request.status})`);
 	}
-	const claimed = await claimAgentSessionRequestById(
+	const claimed = await ports.sessionRequests.claimAgentSessionRequestById(
 		db,
 		request.id,
 		options.workerId ?? "local-runtime",
@@ -221,20 +206,21 @@ async function ensureClaimedRequest(
 }
 
 async function runClaimedRequest(
-	deps: ProvisionSessionDeps,
+	deps: RunOrchestrationProvisionDeps,
 	request: AgentSessionRequest,
-	provisionParams: ProvisionSessionParams,
+	provisionParams: RunOrchestrationProvisionParams,
+	ports: RunOrchestrationPorts,
 	options: Pick<
 		ConsumeAgentSessionRequestOptions,
 		"detachAfterAdmission" | "enforceResolvedModelGuard"
 	> = {},
-): Promise<ProvisionSessionResult> {
-	let admitted: AdmittedSession | null = null;
+): Promise<RunOrchestrationProvisionResult> {
+	let admitted: RunOrchestrationAdmittedSession | null = null;
 	try {
 		if (
 			!(
 				request.claimToken &&
-				(await renewRequestLease(deps.db, {
+				(await ports.sessionRequests.renewAgentSessionRequestLease(deps.db, {
 					requestId: request.id,
 					claimToken: request.claimToken,
 					now: new Date(),
@@ -244,19 +230,29 @@ async function runClaimedRequest(
 		) {
 			throw new Error(`Lost request custody before admission: ${request.id}`);
 		}
-		await reserveOrAdoptSession(deps.db, { requestId: request.id, claimToken: request.claimToken });
+		await reserveOrAdoptSession(
+			deps.db,
+			{ requestId: request.id, claimToken: request.claimToken },
+			ports,
+		);
 		admitted = options.enforceResolvedModelGuard
-			? await admitSession(deps, provisionParams, true)
-			: await admitSession(deps, provisionParams);
-		await markRequestRunning(deps.db, request.id, admitted.sessionId, request.claimToken);
+			? await ports.sessionProvisioner.admitSession(deps, provisionParams, true)
+			: await ports.sessionProvisioner.admitSession(deps, provisionParams);
+		await ports.sessionRequests.markRequestRunning(
+			deps.db,
+			request.id,
+			admitted.sessionId,
+			request.claimToken,
+		);
 		if (options.detachAfterAdmission) {
 			let signalStarted!: () => void;
 			const started = new Promise<void>((resolve) => {
 				signalStarted = resolve;
 			});
-			void runSession(deps, provisionParams, admitted, signalStarted)
+			void ports.sessionProvisioner
+				.runSession(deps, provisionParams, admitted, signalStarted)
 				.then(async () => {
-					await transitionAgentRunLifecycle(deps.db, deps.eventBus, {
+					await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
 						requestId: request.id,
 						state: "completed",
 						sessionId: admitted?.sessionId,
@@ -265,7 +261,13 @@ async function runClaimedRequest(
 				.catch(async (err) => {
 					try {
 						if (admitted) {
-							await crashSession(deps.db, deps.eventBus, admitted.sessionContext, 0, 0);
+							await ports.sessionLifecycle.crashSession(
+								deps.db,
+								deps.eventBus,
+								admitted.sessionContext,
+								0,
+								0,
+							);
 						}
 					} catch {
 						// best-effort last-resort teardown
@@ -275,7 +277,7 @@ async function runClaimedRequest(
 					// insert). A prior markRequestTerminal-then-transitionAgentRunLifecycle
 					// double-write left the second CAS matching zero rows (status already
 					// "failed"), losing the inbox row and the lifecycle publish entirely.
-					await transitionAgentRunLifecycle(deps.db, deps.eventBus, {
+					await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
 						requestId: request.id,
 						state: "failed",
 						sessionId: admitted?.sessionId,
@@ -295,8 +297,13 @@ async function runClaimedRequest(
 				forceReturnCount: 0,
 			};
 		}
-		const result = await runSession(deps, provisionParams, admitted, deps.onHarnessStarted);
-		await transitionAgentRunLifecycle(deps.db, deps.eventBus, {
+		const result = await ports.sessionProvisioner.runSession(
+			deps,
+			provisionParams,
+			admitted,
+			deps.onHarnessStarted,
+		);
+		await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
 			requestId: request.id,
 			state: "completed",
 			sessionId: admitted.sessionId,
@@ -304,7 +311,11 @@ async function runClaimedRequest(
 		return result;
 	} catch (err) {
 		if (err instanceof ConcurrencyLimitError || err instanceof CostCapExceededError) {
-			await releaseRequestClaim(deps.db, request.id, request.claimToken ?? undefined);
+			await ports.sessionRequests.releaseRequestClaim(
+				deps.db,
+				request.id,
+				request.claimToken ?? undefined,
+			);
 			throw err;
 		}
 		// @lore AU9 R1: this catch spans both preconditions of the single terminal
@@ -312,7 +323,7 @@ async function runClaimedRequest(
 		// post-admission (running+sessionId). When it is still null, the failure
 		// happened before admission — pre-admission (claimed+claimToken); the
 		// `running`-only CAS would silently match zero rows for this branch.
-		await transitionAgentRunLifecycle(deps.db, deps.eventBus, {
+		await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
 			requestId: request.id,
 			state: "failed",
 			sessionId: admitted?.sessionId,
@@ -325,14 +336,15 @@ async function runClaimedRequest(
 }
 
 export async function consumeAgentSessionRequest(
-	deps: ProvisionSessionDeps,
+	deps: RunOrchestrationProvisionDeps,
 	request: AgentSessionRequest,
 	options: ConsumeAgentSessionRequestOptions,
-): Promise<ProvisionSessionResult> {
-	const claimedRequest = await ensureClaimedRequest(deps.db, request, options);
+	ports: RunOrchestrationPorts,
+): Promise<RunOrchestrationProvisionResult> {
+	const claimedRequest = await ensureClaimedRequest(deps.db, request, options, ports);
 	const sourceCorrelation = parseCorrelation(claimedRequest);
 	const triggerPromptOverride = parseTriggerPrompt(claimedRequest);
-	const provisionParams: ProvisionSessionParams = {
+	const provisionParams: RunOrchestrationProvisionParams = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
 		productId: claimedRequest.teamId ?? "task-free",
@@ -353,5 +365,5 @@ export async function consumeAgentSessionRequest(
 			...(triggerPromptOverride ? { triggerPromptOverride } : {}),
 		},
 	};
-	return runClaimedRequest(deps, claimedRequest, provisionParams, options);
+	return runClaimedRequest(deps, claimedRequest, provisionParams, ports, options);
 }

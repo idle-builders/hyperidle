@@ -1,55 +1,37 @@
-import {
-	agentSessionRequests,
-	bets,
-	createTestDb,
-	type TestDbHandle,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+/**
+ * @lore AU19 Increment 3c: real cut-over — moved here from
+ * `packages/server/src/services/__tests__/agent-run-boundary.test.ts`
+ * (a `.test.ts` using `createTestDb()` directly — a pre-existing rule
+ * violation, same shape session-requests' own `agent-session-requests.test.ts`
+ * had before its Increment 3b fix). Converted to `@hyperidle/db/test-fixtures`'s
+ * `{ db }`-only fixture pattern, renamed `.integration.test.ts` — same
+ * DB-fixture naming convention every other migrated package's DB test
+ * follows. `session-provisioning.js`'s module-level `vi.mock` (the harness-
+ * execution boundary) becomes an explicit `sessionProvisioner` port override
+ * per test — `test-ports.ts`'s `buildTestPorts()` supplies REAL
+ * `sessionRequests` behavior (this Service's own real, same-layer target)
+ * and a reproduced-but-real `sessionLifecycle.transitionAgentRunLifecycle`
+ * (see that file's top `@lore`).
+ */
+
+import type { HyperIdleDb } from "@hyperidle/db";
+import { agentSessionRequests, bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	claimAgentSessionRequestById,
 	createAgentSessionRequest,
 } from "@hyperidle/session-requests";
 import { type AgentSessionRequestInput, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { AdapterPool } from "../../harness/adapter-pool.js";
-import type { SandboxAdapter } from "../../harness/sandbox-adapter.js";
-import { runSession } from "../session-provisioning.js";
+import { beforeEach, describe, vi } from "vitest";
 import {
-	markRequestRunning,
-	terminalizeAgentSessionRequest,
-} from "../session-requests-bindings.js";
+	executeAgentRunRequest,
+	getAgentRunLifecycle,
+	listAgentRunLifecycleBySource,
+} from "../agent-run-boundary.js";
+import { buildTestPorts, testMarkRequestRunning, testTerminalize } from "./test-ports.js";
 
-vi.mock("../session-provisioning.js", () => ({
-	admitSession: vi.fn(async (_deps, params) => ({
-		sessionId: "session-au6-boundary",
-		sessionContext: {
-			sessionId: "session-au6-boundary",
-			agentId: params.agentId,
-			taskId: params.taskId,
-			sandboxPath: "/tmp/au6-boundary/session-au6-boundary",
-			ingestion: { dispose: vi.fn() },
-			traceId: "trace-au6-boundary",
-			requestContext: params.requestContext,
-		},
-	})),
-	runSession: vi.fn(async () => ({
-		sessionId: "session-au6-boundary",
-		outcome: "completed",
-		totalCostCents: 0,
-		taskId: "task-au6",
-		forceReturnCount: 0,
-	})),
-}));
-
-async function loadBoundary() {
-	return import("../agent-run-boundary.js");
-}
-
-async function seedBase(db: TestDbHandle["db"]): Promise<void> {
+async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "team-au6", name: "AU6", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
@@ -186,38 +168,32 @@ function sourceInput(
 }
 
 describe("agent run boundary", () => {
-	let handle: TestDbHandle;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-		await seedBase(handle.db);
+	beforeEach(() => {
 		vi.clearAllMocks();
 	});
 
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	test("normalizes request lifecycle for domain observers without runtime imports", async () => {
-		const boundary = await loadBoundary();
+	test("normalizes request lifecycle for domain observers without runtime imports", async ({
+		db,
+	}) => {
+		await seedBase(db);
+		const ports = buildTestPorts();
 		const requests = await Promise.all(
 			["pending", "claimed", "running", "completed", "failed", "cancelled"].map(async (status) => {
 				const request = await createAgentSessionRequest(
-					handle.db,
+					db,
 					sourceInput("task", `lifecycle-${status}`),
 				);
 				if (status === "claimed") {
-					await claimAgentSessionRequestById(handle.db, request.id, "worker-au6", {
+					await claimAgentSessionRequestById(db, request.id, "worker-au6", {
 						now: new Date("2026-07-10T10:00:00.000Z"),
 						leaseMs: 30_000,
 					});
 				}
-				if (status === "running")
-					await markRequestRunning(handle.db, request.id, "session-running");
+				if (status === "running") await testMarkRequestRunning(db, request.id, "session-running");
 				if (status === "completed" || status === "failed" || status === "cancelled") {
 					const sessionId = `session-${status}`;
-					await markRequestRunning(handle.db, request.id, sessionId);
-					await terminalizeAgentSessionRequest(handle.db, {
+					await testMarkRequestRunning(db, request.id, sessionId);
+					await testTerminalize(db, {
 						requestId: request.id,
 						precondition: "running",
 						sessionId,
@@ -232,7 +208,7 @@ describe("agent run boundary", () => {
 		const observed = await Promise.all(
 			requests.map(async ({ status, id }) => ({
 				status,
-				lifecycle: await boundary.getAgentRunLifecycle(handle.db, id),
+				lifecycle: await getAgentRunLifecycle(db, id, ports),
 			})),
 		);
 
@@ -251,11 +227,18 @@ describe("agent run boundary", () => {
 		});
 	});
 
-	test("executes a durable request through the agent-layer boundary and publishes lifecycle", async () => {
-		const boundary = await loadBoundary();
-		const request = await createAgentSessionRequest(handle.db, sourceInput("task", "execute"));
-		vi.mocked(runSession).mockImplementationOnce(async () => {
-			const lifecycle = await boundary.getAgentRunLifecycle(handle.db, request.id);
+	test("executes a durable request through the agent-layer boundary and publishes lifecycle", async ({
+		db,
+	}) => {
+		await seedBase(db);
+		const ports = buildTestPorts();
+		const request = await createAgentSessionRequest(db, sourceInput("task", "execute"));
+		vi.mocked(ports.sessionProvisioner.admitSession).mockImplementation(async (_deps, params) => ({
+			sessionId: "session-au6-boundary",
+			sessionContext: { taskId: params.taskId },
+		}));
+		vi.mocked(ports.sessionProvisioner.runSession).mockImplementationOnce(async () => {
+			const lifecycle = await getAgentRunLifecycle(db, request.id, ports);
 			expect(lifecycle).toMatchObject({ state: "running", sessionId: "session-au6-boundary" });
 			return {
 				sessionId: "session-au6-boundary",
@@ -266,18 +249,14 @@ describe("agent run boundary", () => {
 			};
 		});
 
-		await boundary.executeAgentRunRequest(
-			{
-				db: handle.db,
-				eventBus: new EventBus(),
-				adapterPool: {} as AdapterPool,
-				workspace: {} as SandboxAdapter,
-			},
+		await executeAgentRunRequest(
+			{ db, eventBus: new EventBus() },
 			request,
 			{ sandboxBasePath: "/tmp/au6-boundary" },
+			ports,
 		);
 
-		await expect(boundary.getAgentRunLifecycle(handle.db, request.id)).resolves.toMatchObject({
+		await expect(getAgentRunLifecycle(db, request.id, ports)).resolves.toMatchObject({
 			requestId: request.id,
 			sourceKind: "task",
 			sourceId: "task-au6",
@@ -286,8 +265,11 @@ describe("agent run boundary", () => {
 		});
 	});
 
-	test("reports the same failed lifecycle shape for every LLM-capable source kind", async () => {
-		const boundary = await loadBoundary();
+	test("reports the same failed lifecycle shape for every LLM-capable source kind", async ({
+		db,
+	}) => {
+		await seedBase(db);
+		const ports = buildTestPorts();
 		for (const sourceKind of [
 			"task",
 			"assistant",
@@ -296,10 +278,10 @@ describe("agent run boundary", () => {
 			"decomposition",
 			"proposed_call",
 		] as const) {
-			const request = await createAgentSessionRequest(handle.db, sourceInput(sourceKind, "failed"));
+			const request = await createAgentSessionRequest(db, sourceInput(sourceKind, "failed"));
 			const sessionId = `session-${sourceKind}-failed`;
-			await markRequestRunning(handle.db, request.id, sessionId);
-			await terminalizeAgentSessionRequest(handle.db, {
+			await testMarkRequestRunning(db, request.id, sessionId);
+			await testTerminalize(db, {
 				requestId: request.id,
 				precondition: "running",
 				sessionId,
@@ -307,7 +289,7 @@ describe("agent run boundary", () => {
 				failureCode: "AgentRunFailed",
 				errorMessage: `${sourceKind} failed`,
 			});
-			await expect(boundary.getAgentRunLifecycle(handle.db, request.id)).resolves.toMatchObject({
+			await expect(getAgentRunLifecycle(db, request.id, ports)).resolves.toMatchObject({
 				sourceKind,
 				state: "failed",
 				error: { code: "AgentRunFailed", message: `${sourceKind} failed` },
@@ -315,16 +297,16 @@ describe("agent run boundary", () => {
 		}
 	});
 
-	test("lists lifecycle by source so domain code reacts without execution internals", async () => {
-		const boundary = await loadBoundary();
-		const request = await createAgentSessionRequest(
-			handle.db,
-			sourceInput("assistant", "source-list"),
-		);
-		await markRequestRunning(handle.db, request.id, "session-source-list");
+	test("lists lifecycle by source so domain code reacts without execution internals", async ({
+		db,
+	}) => {
+		await seedBase(db);
+		const ports = buildTestPorts();
+		const request = await createAgentSessionRequest(db, sourceInput("assistant", "source-list"));
+		await testMarkRequestRunning(db, request.id, "session-source-list");
 
 		await expect(
-			boundary.listAgentRunLifecycleBySource(handle.db, "assistant", request.sourceId),
+			listAgentRunLifecycleBySource(db, "assistant", request.sourceId, ports),
 		).resolves.toEqual([
 			expect.objectContaining({
 				requestId: request.id,
@@ -335,33 +317,48 @@ describe("agent run boundary", () => {
 		]);
 	});
 
-	test("keeps failed execution lifecycle uniform when runtime throws", async () => {
-		const boundary = await loadBoundary();
-		const request = await createAgentSessionRequest(handle.db, sourceInput("routine", "throws"));
-		vi.mocked(runSession).mockRejectedValueOnce(new Error("runtime exploded"));
+	test("keeps failed execution lifecycle uniform when runtime throws", async ({ db }) => {
+		await seedBase(db);
+		const ports = buildTestPorts();
+		const request = await createAgentSessionRequest(db, sourceInput("routine", "throws"));
+		vi.mocked(ports.sessionProvisioner.admitSession).mockImplementation(async (_deps, params) => ({
+			sessionId: "session-au6-boundary",
+			sessionContext: { taskId: params.taskId },
+		}));
+		vi.mocked(ports.sessionProvisioner.runSession).mockRejectedValueOnce(
+			new Error("runtime exploded"),
+		);
 
 		await expect(
-			boundary.executeAgentRunRequest(
-				{
-					db: handle.db,
-					eventBus: new EventBus(),
-					adapterPool: {} as AdapterPool,
-					workspace: {} as SandboxAdapter,
-				},
+			executeAgentRunRequest(
+				{ db, eventBus: new EventBus() },
 				request,
 				{ sandboxBasePath: "/tmp/au6-boundary" },
+				ports,
 			),
 		).rejects.toThrow("runtime exploded");
 
-		await expect(boundary.getAgentRunLifecycle(handle.db, request.id)).resolves.toMatchObject({
+		await expect(getAgentRunLifecycle(db, request.id, ports)).resolves.toMatchObject({
 			sourceKind: "routine",
 			state: "failed",
 			error: { code: "Error", message: "runtime exploded" },
 		});
 	});
 
-	test("all source kinds can enter the boundary from a durable request", async () => {
-		const boundary = await loadBoundary();
+	test("all source kinds can enter the boundary from a durable request", async ({ db }) => {
+		await seedBase(db);
+		const ports = buildTestPorts();
+		vi.mocked(ports.sessionProvisioner.admitSession).mockImplementation(async (_deps, params) => ({
+			sessionId: "session-au6-boundary",
+			sessionContext: { taskId: params.taskId },
+		}));
+		vi.mocked(ports.sessionProvisioner.runSession).mockImplementation(async () => ({
+			sessionId: "session-au6-boundary",
+			outcome: "completed",
+			totalCostCents: 0,
+			taskId: "task-au6",
+			forceReturnCount: 0,
+		}));
 		for (const sourceKind of [
 			"task",
 			"assistant",
@@ -370,21 +367,14 @@ describe("agent run boundary", () => {
 			"decomposition",
 			"proposed_call",
 		] as const) {
-			const request = await createAgentSessionRequest(
-				handle.db,
-				sourceInput(sourceKind, "boundary"),
-			);
-			await boundary.executeAgentRunRequest(
-				{
-					db: handle.db,
-					eventBus: new EventBus(),
-					adapterPool: {} as AdapterPool,
-					workspace: {} as SandboxAdapter,
-				},
+			const request = await createAgentSessionRequest(db, sourceInput(sourceKind, "boundary"));
+			await executeAgentRunRequest(
+				{ db, eventBus: new EventBus() },
 				request,
 				{ sandboxBasePath: "/tmp/au6-boundary" },
+				ports,
 			);
-			const [row] = await handle.db
+			const [row] = await db
 				.select()
 				.from(agentSessionRequests)
 				.where(eq(agentSessionRequests.id, request.id));

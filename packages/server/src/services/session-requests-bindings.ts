@@ -219,13 +219,13 @@ export const renewAgentWorkIntentLease = renewAgentWorkIntentLeaseInternal;
 
 /**
  * @lore AU9 R1 (pre-move alias, kept for the "production module offers one
- * drain" test's assertion surface): `executeAgentRunRequest` lives in
- * `agent-run-boundary.ts` (future `run-orchestration`, not migrated this
- * increment) — this is a convenience alias, not `session-requests`' own
- * behavior, so it stays at the composition root rather than moving into the
- * new package.
+ * drain" test's assertion surface): `executeAgentRunRequest` now lives in
+ * `@hyperidle/run-orchestration` (migrated Increment 3c), wired through
+ * `run-orchestration-bindings.ts` — this is a convenience alias, not
+ * `session-requests`' own behavior, so it stays at the composition root
+ * rather than moving into the new package.
  */
-export { executeAgentRunRequest as consumeAgentSessionRequest } from "./agent-run-boundary.js";
+export { executeAgentRunRequest as consumeAgentSessionRequest } from "./run-orchestration-bindings.js";
 export { findAgentWorkIntentByKindAndSource };
 
 // ---------------------------------------------------------------------------

@@ -23,7 +23,7 @@ import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
-import { bootAgentLayer } from "../services/agent-layer-boot.js";
+import { bootAgentLayer } from "../services/run-orchestration-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const admitSessionCalls: string[] = [];
@@ -257,15 +257,16 @@ describe("agent-layer boot recovery", () => {
 			updatedAt: new Date(now.getTime() - 31 * 86_400_000).toISOString(),
 		});
 
+		const runtimeDeps = {
+			db,
+			eventBus,
+			adapterPool: {} as AdapterPool,
+			workspace: {} as SandboxAdapter,
+		};
 		const dispose = await bootAgentLayer({
 			db,
 			eventBus,
-			runtime: {
-				db,
-				eventBus,
-				adapterPool: {} as AdapterPool,
-				workspace: {} as SandboxAdapter,
-			},
+			runtime: runtimeDeps,
 			sandboxBasePath: "/tmp/au9-boot-recovery",
 		});
 		try {

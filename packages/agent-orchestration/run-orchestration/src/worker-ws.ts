@@ -16,14 +16,28 @@
  * repointed. `registerWorkerWsRoute` still takes a Hono `app` + mutates it
  * (route registration) — composition wiring for the Hono app stays at the
  * call site in server-factory.ts, unchanged.
+ *
+ * @lore AU19 Increment 3c: real cut-over — moved here from
+ * `packages/server/src/services/worker-ws.ts`. `AdapterPool`/
+ * `RemoteHarnessAdapter` (`harness-registry`, INTERIM forward-ref — the
+ * bulk of `harness-registry`'s files have not migrated yet, scheduled
+ * Increment 4) convert to injected `pool: RunOrchestrationAdapterPool` +
+ * `adapterFactory: RunOrchestrationRemoteHarnessAdapterFactory` (see
+ * `ports.ts`'s top `@lore`). This is NOT the final `HarnessPort` (§7.4)
+ * abstraction — a separate, later item builds that; this is the ordinary
+ * interim-forward-ref treatment every other not-yet-migrated Service edge
+ * in this Increment gets. `constantTimeStringEqual` moves to a small local
+ * copy (`timing-safe.ts`) — see that file's top `@lore`.
  */
 
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";
 import { z } from "zod";
-import type { AdapterPool } from "../harness/adapter-pool.js";
-import { RemoteHarnessAdapter } from "../harness/remote-harness-adapter.js";
-import { constantTimeStringEqual } from "../middleware/timing-safe.js";
+import type {
+	RunOrchestrationAdapterPool,
+	RunOrchestrationRemoteHarnessAdapterFactory,
+} from "./ports.js";
+import { constantTimeStringEqual } from "./timing-safe.js";
 
 // ── Zod schemas for worker protocol messages ──────────────────────────────────
 
@@ -93,13 +107,18 @@ const LIVE_WORKER_SOCKETS = new Map<string, { isLive: () => boolean }>();
  * spinning up a real WebSocket server.
  */
 export class WorkerConnectionManager {
-	private readonly pool: AdapterPool;
+	private readonly pool: RunOrchestrationAdapterPool;
+	private readonly adapterFactory: RunOrchestrationRemoteHarnessAdapterFactory;
 	private workerId: string | null = null;
 	/** Set after registration — routes runtime messages to the adapter. */
-	private adapter: RemoteHarnessAdapter | null = null;
+	private adapter: ReturnType<RunOrchestrationRemoteHarnessAdapterFactory["create"]> | null = null;
 
-	constructor(pool: AdapterPool) {
+	constructor(
+		pool: RunOrchestrationAdapterPool,
+		adapterFactory: RunOrchestrationRemoteHarnessAdapterFactory,
+	) {
 		this.pool = pool;
+		this.adapterFactory = adapterFactory;
 	}
 
 	/**
@@ -169,7 +188,7 @@ export class WorkerConnectionManager {
 			// Pass ws as the WsLike interface — RemoteHarnessAdapter.dispatchMessage
 			// is called below for post-registration messages so we do not rely on
 			// ws.onmessage assignment (which WSContext may not support).
-			this.adapter = new RemoteHarnessAdapter(ws as never, msg);
+			this.adapter = this.adapterFactory.create(ws, msg);
 			this.pool.register(msg.id, this.adapter, {
 				name: msg.name,
 				kind: "remote",
@@ -216,7 +235,8 @@ export class WorkerConnectionManager {
  */
 export function registerWorkerWsRoute(
 	app: Hono,
-	pool: AdapterPool,
+	pool: RunOrchestrationAdapterPool,
+	adapterFactory: RunOrchestrationRemoteHarnessAdapterFactory,
 	upgradeWebSocket: UpgradeWebSocket,
 ): () => void {
 	// Auth middleware: validate worker token before upgrade
@@ -236,7 +256,7 @@ export function registerWorkerWsRoute(
 	app.get(
 		"/ws/worker",
 		upgradeWebSocket(() => {
-			const manager = new WorkerConnectionManager(pool);
+			const manager = new WorkerConnectionManager(pool, adapterFactory);
 
 			return {
 				onMessage(event: MessageEvent, ws: WSContext): void {

@@ -6,7 +6,7 @@ import {
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
 } from "@hyperidle/shared";
-import { and, asc, eq, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, lt, or, sql } from "drizzle-orm";
 import type { MarkRequestRunningDeps, TerminalizeSessionRequestDeps } from "./ports.js";
 
 /**
@@ -22,6 +22,21 @@ import type { MarkRequestRunningDeps, TerminalizeSessionRequestDeps } from "./po
  * `terminalizeAgentSessionRequestInTx`'s single-terminal-writer append —
  * converted to the INTERIM `SessionRequestsLifecycleInboxWriter` port (see
  * `ports.ts`'s top `@lore`).
+ *
+ * @lore AU19 Increment 3c: `findAgentSessionRequestById`/
+ * `listAgentSessionRequestsBySource`/`listRunningAgentSessionRequests`/
+ * `isAgentSessionRequestClaimActive` ADDED — surfaced migrating
+ * `run-orchestration` (`agent-run-boundary.ts`'s `getAgentRunLifecycle`/
+ * `listAgentRunLifecycleBySource`, `agent-session-runtime.ts`'s
+ * `admitOnlyWithRequestLease`/`reserveOrAdoptSession`/
+ * `recoverRunningAgentSessionRequests`, `agent-layer-boot.ts`'s
+ * `markRunningAgentSessionRequestsForShutdown`), which raw-read
+ * `agentSessionRequests` directly pre-migration — a foreign nested-package
+ * Table ACL violation once those files land in
+ * `packages/agent-orchestration/run-orchestration`. Same "roster-undercounted
+ * accessor closes at the consumer's migration" shape as
+ * `findAgentSessionRequestBySessionId` (Increment 3b, `policy-bindings.ts`'s
+ * accessor). See `@hyperidle/run-orchestration`'s `ports.ts` top `@lore`.
  */
 
 export interface ClaimRequestOptions {
@@ -85,6 +100,66 @@ export async function findAgentSessionRequestBySessionId(
 		.where(eq(agentSessionRequests.sessionId, sessionId))
 		.limit(1);
 	return row;
+}
+
+/** Full-row read by id (Increment 3c, `run-orchestration`'s lifecycle-projection reads). */
+export async function findAgentSessionRequestById(
+	db: HyperIdleDb,
+	requestId: string,
+): Promise<AgentSessionRequest | undefined> {
+	const [row] = await db
+		.select()
+		.from(agentSessionRequests)
+		.where(eq(agentSessionRequests.id, requestId))
+		.limit(1);
+	return row;
+}
+
+/** Full-row read by source, ordered oldest-first (Increment 3c, `run-orchestration`'s by-source lifecycle listing). */
+export function listAgentSessionRequestsBySource(
+	db: HyperIdleDb,
+	sourceKind: AgentSessionSourceKind,
+	sourceId: string,
+): Promise<AgentSessionRequest[]> {
+	return db
+		.select()
+		.from(agentSessionRequests)
+		.where(
+			and(
+				eq(agentSessionRequests.sourceKind, sourceKind),
+				eq(agentSessionRequests.sourceId, sourceId),
+			),
+		)
+		.orderBy(asc(agentSessionRequests.createdAt), asc(agentSessionRequests.id));
+}
+
+/** Full-row read of every `running` request (Increment 3c, boot-recovery + shutdown-marking sweeps). */
+export function listRunningAgentSessionRequests(db: HyperIdleDb): Promise<AgentSessionRequest[]> {
+	return db.select().from(agentSessionRequests).where(eq(agentSessionRequests.status, "running"));
+}
+
+/**
+ * True when `requestId` is currently claimed under `claimToken` with a
+ * not-yet-expired lease (Increment 3c, `run-orchestration`'s
+ * `admitOnlyWithRequestLease` custody check).
+ */
+export async function isAgentSessionRequestClaimActive(
+	db: HyperIdleDb,
+	input: { requestId: string; claimToken: string; now: Date },
+): Promise<boolean> {
+	const [owned] = await db
+		.select({ id: agentSessionRequests.id })
+		.from(agentSessionRequests)
+		.where(
+			and(
+				eq(agentSessionRequests.id, input.requestId),
+				eq(agentSessionRequests.status, "claimed"),
+				eq(agentSessionRequests.claimToken, input.claimToken),
+				gt(agentSessionRequests.claimExpiresAt, input.now.toISOString()),
+			),
+		)
+		.limit(1);
+	return Boolean(owned);
 }
 
 export async function createAgentSessionRequest(

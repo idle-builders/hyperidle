@@ -1,13 +1,24 @@
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
-import { agentSessionRequests } from "@hyperidle/db";
 import type { AgentSessionRequestStatus, AgentSessionSourceKind } from "@hyperidle/shared";
-import { and, asc, eq } from "drizzle-orm";
 import {
 	type ConsumeAgentSessionRequestOptions,
 	consumeAgentSessionRequest,
 	recoverRunningAgentSessionRequests,
 } from "./agent-session-runtime.js";
-import type { ProvisionSessionDeps, ProvisionSessionResult } from "./session-provisioning.js";
+import type {
+	RunOrchestrationPorts,
+	RunOrchestrationProvisionDeps,
+	RunOrchestrationProvisionResult,
+} from "./ports.js";
+
+/**
+ * @lore AU19 Increment 3c: real cut-over — moved here from
+ * `packages/server/src/services/agent-run-boundary.ts` (behavior-preserving
+ * move). `getAgentRunLifecycle`/`listAgentRunLifecycleBySource` raw-read
+ * `agentSessionRequests` (`session-requests`-owned) directly pre-migration —
+ * converted to `ports.sessionRequests`'s `findAgentSessionRequestById`/
+ * `listAgentSessionRequestsBySource` (see `ports.ts`'s top `@lore`).
+ */
 
 /** @lore AU6 boundary: the composition root reaches recovery only through this file. */
 export { recoverRunningAgentSessionRequests };
@@ -62,22 +73,20 @@ function rowToLifecycle(row: AgentSessionRequest): AgentRunLifecycle {
 }
 
 export function executeAgentRunRequest(
-	deps: ProvisionSessionDeps,
+	deps: RunOrchestrationProvisionDeps,
 	request: AgentSessionRequest,
 	options: ConsumeAgentSessionRequestOptions,
-): Promise<ProvisionSessionResult> {
-	return consumeAgentSessionRequest(deps, request, options);
+	ports: RunOrchestrationPorts,
+): Promise<RunOrchestrationProvisionResult> {
+	return consumeAgentSessionRequest(deps, request, options, ports);
 }
 
 export async function getAgentRunLifecycle(
 	db: HyperIdleDb,
 	requestId: string,
+	ports: RunOrchestrationPorts,
 ): Promise<AgentRunLifecycle | null> {
-	const [row] = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(eq(agentSessionRequests.id, requestId))
-		.limit(1);
+	const row = await ports.sessionRequests.findAgentSessionRequestById(db, requestId);
 	return row ? rowToLifecycle(row) : null;
 }
 
@@ -85,16 +94,12 @@ export async function listAgentRunLifecycleBySource(
 	db: HyperIdleDb,
 	sourceKind: AgentSessionSourceKind,
 	sourceId: string,
+	ports: RunOrchestrationPorts,
 ): Promise<AgentRunLifecycle[]> {
-	const rows = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(
-			and(
-				eq(agentSessionRequests.sourceKind, sourceKind),
-				eq(agentSessionRequests.sourceId, sourceId),
-			),
-		)
-		.orderBy(asc(agentSessionRequests.createdAt), asc(agentSessionRequests.id));
+	const rows = await ports.sessionRequests.listAgentSessionRequestsBySource(
+		db,
+		sourceKind,
+		sourceId,
+	);
 	return rows.map(rowToLifecycle);
 }

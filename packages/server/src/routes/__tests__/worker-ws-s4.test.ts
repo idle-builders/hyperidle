@@ -11,9 +11,10 @@
  *  - Pause message before registration with adapter null → no-op
  */
 
+import type { WorkerConnectionManager } from "@hyperidle/run-orchestration";
 import { describe, expect, it, vi } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
-import { WorkerConnectionManager } from "../../services/worker-ws.js";
+import { createWorkerConnectionManager } from "../../services/run-orchestration-bindings.js";
 
 // ── Mock WebSocket ────────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ function makeRegisteredManager(
 	ws: MockWs,
 	id = "w-pause-1",
 ): WorkerConnectionManager {
-	const manager = new WorkerConnectionManager(pool);
+	const manager = createWorkerConnectionManager(pool);
 	manager.onMessage(
 		JSON.stringify({
 			type: "register",
@@ -77,7 +78,7 @@ describe("S4: WorkerConnectionManager pause/resume", () => {
 		const ws = new MockWs();
 		const pauseSpy = vi.spyOn(pool, "pause");
 
-		const manager = new WorkerConnectionManager(pool);
+		const manager = createWorkerConnectionManager(pool);
 
 		// Send pause BEFORE registering — should be silently ignored
 		expect(() => manager.onMessage(JSON.stringify({ type: "pause" }), ws)).not.toThrow();
@@ -90,7 +91,7 @@ describe("S4: WorkerConnectionManager pause/resume", () => {
 		const ws = new MockWs();
 		const resumeSpy = vi.spyOn(pool, "resume");
 
-		const manager = new WorkerConnectionManager(pool);
+		const manager = createWorkerConnectionManager(pool);
 		expect(() => manager.onMessage(JSON.stringify({ type: "resume" }), ws)).not.toThrow();
 		expect(resumeSpy).not.toHaveBeenCalled();
 	});
@@ -100,7 +101,7 @@ describe("S4: WorkerConnectionManager pause/resume", () => {
 		const ws = new MockWs();
 
 		// Register ONLY w-rt2 via manager2 (no makeRegisteredManager here so only one worker)
-		const manager2 = new WorkerConnectionManager(pool);
+		const manager2 = createWorkerConnectionManager(pool);
 		manager2.onMessage(
 			JSON.stringify({
 				type: "register",

@@ -55,7 +55,7 @@ import {
 } from "../tools/assistant-draft-registry.js";
 import type { ToolContext } from "../tools/tool-registry.js";
 import { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
-import { executeAgentRunRequest } from "./agent-run-boundary.js";
+import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
 
 const logger = createLogger({ pkg: "server.assistant-turn" });
 

@@ -113,10 +113,6 @@ import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
 import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { resolveDecompositionPlan } from "./services/agent-defaults/resolvers.js";
-import {
-	bootAgentLayer,
-	markRunningAgentSessionRequestsForShutdown,
-} from "./services/agent-layer-boot.js";
 import { startAgentLifecycleProjectionDrain } from "./services/agent-lifecycle-projectors.js";
 import type { AssistantTurnDeps } from "./services/agent-work-assistant.js";
 import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handlers.js";
@@ -126,11 +122,16 @@ import { startCostSentinel } from "./services/cost-sentinel.js";
 import { createMcpRoute } from "./services/mcp-route.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
+import {
+	bootAgentLayer,
+	markRunningAgentSessionRequestsForShutdown,
+	registerWorkerWsRoute,
+} from "./services/run-orchestration-bindings.js";
 import { startSandboxReaper } from "./services/sandbox-reaper.js";
 import { enumerateTeamCandidates, selectOwner } from "./services/select-agent.js";
+import type { ProvisionSessionDeps } from "./services/session-provisioning.js";
 import { recordAgentWorkIntent } from "./services/session-requests-bindings.js";
 import { registerTaskDispatcher, type TaskDispatcherDeps } from "./services/task-dispatcher.js";
-import { registerWorkerWsRoute } from "./services/worker-ws.js";
 
 const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
 
@@ -703,19 +704,28 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
 	const mcpBridgeRegistry = createMcpBridgeRegistry();
 	const mcpBaseUrl = `http://localhost:${port}`;
+	// @lore AU19 Increment 3c: `runtime` is built as its own variable (not an
+	// inline literal in the `bootAgentLayer` call) so it type-checks against
+	// `bootAgentLayer`'s Mechanism-C-narrowed `RunOrchestrationProvisionDeps`
+	// (only `db`/`eventBus`/`onHarnessStarted` declared) without an excess-
+	// property error — the extra fields (`adapterPool`, `workspace`, …) still
+	// flow through unchanged at runtime, only assigned via a variable rather
+	// than a fresh literal (TS excess-property-check applies to literals, not
+	// variable references). See `run-orchestration`'s `ports.ts` top `@lore`.
+	const runtimeDeps: ProvisionSessionDeps = {
+		db,
+		eventBus,
+		adapterPool,
+		workspace: workspaceAdapter,
+		mcpBridgeRegistry,
+		mcpBaseUrl,
+		serviceConnectionResolver: credentialResolver,
+		mounter,
+	};
 	const disposeAgentLayer = await bootAgentLayer({
 		db,
 		eventBus,
-		runtime: {
-			db,
-			eventBus,
-			adapterPool,
-			workspace: workspaceAdapter,
-			mcpBridgeRegistry,
-			mcpBaseUrl,
-			serviceConnectionResolver: credentialResolver,
-			mounter,
-		},
+		runtime: runtimeDeps,
 		sandboxBasePath,
 		resolveModel: makeResolveModel(db, credentialResolver),
 		assistantTurn: deps?.assistantTurnDeps ?? { db, eventBus, adapterPool, credentialResolver },

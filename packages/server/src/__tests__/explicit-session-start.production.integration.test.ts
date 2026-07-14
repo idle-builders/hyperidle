@@ -13,7 +13,7 @@ import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import type { AdapterPool } from "../harness/adapter-pool.js";
 import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
-import { drainAgentSessionRequests } from "../services/agent-layer-boot.js";
+import { drainAgentSessionRequests } from "../services/run-orchestration-bindings.js";
 import { drainAgentWorkIntents } from "../services/session-requests-bindings.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
@@ -148,7 +148,10 @@ describe("explicit session production contract", () => {
 		["NoEligibleHarnessError", "NO_ELIGIBLE_HARNESS", 422],
 		["Error", "INTERNAL_ERROR", 500],
 	] as const)("persists and projects stable %s admission failure", async (errorName, code, status) => {
-		const boot = (await import("../services/agent-layer-boot.js")) as Record<string, unknown>;
+		const boot = (await import("../services/run-orchestration-bindings.js")) as Record<
+			string,
+			unknown
+		>;
 		const classify = boot.classifyAdmissionFailure;
 		expect(classify).toBeTypeOf("function");
 		expect(
@@ -219,14 +222,15 @@ describe("explicit session production contract", () => {
 		});
 		const { startId } = (await created.json()) as { startId: string };
 		await drainAgentWorkIntents(db);
+		const runtimeDepsAdmit = {
+			db,
+			eventBus: new (await import("@hyperidle/shared")).EventBus(),
+			adapterPool: {} as AdapterPool,
+			workspace: {} as SandboxAdapter,
+		};
 		await drainAgentSessionRequests({
 			db,
-			runtime: {
-				db,
-				eventBus: new (await import("@hyperidle/shared")).EventBus(),
-				adapterPool: {} as AdapterPool,
-				workspace: {} as SandboxAdapter,
-			},
+			runtime: runtimeDepsAdmit,
 			sandboxBasePath: "/tmp/au9-explicit-start",
 		});
 		const poll = await app.request(`/api/sessions/starts/${startId}`, { headers });
@@ -265,14 +269,15 @@ describe("explicit session production contract", () => {
 		});
 		const { startId } = (await created.json()) as { startId: string };
 		await drainAgentWorkIntents(db);
+		const runtimeDepsFailure = {
+			db,
+			eventBus: new (await import("@hyperidle/shared")).EventBus(),
+			adapterPool: {} as AdapterPool,
+			workspace: {} as SandboxAdapter,
+		};
 		await drainAgentSessionRequests({
 			db,
-			runtime: {
-				db,
-				eventBus: new (await import("@hyperidle/shared")).EventBus(),
-				adapterPool: {} as AdapterPool,
-				workspace: {} as SandboxAdapter,
-			},
+			runtime: runtimeDepsFailure,
 			sandboxBasePath: "/tmp/au9-explicit-start",
 		});
 		const poll = await app.request(`/api/sessions/starts/${startId}`, { headers });

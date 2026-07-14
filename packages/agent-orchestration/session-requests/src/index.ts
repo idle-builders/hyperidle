@@ -22,8 +22,12 @@ export {
 	claimAgentSessionRequestById,
 	claimNextAgentSessionRequest,
 	createAgentSessionRequest,
+	findAgentSessionRequestById,
 	findAgentSessionRequestByIdempotencyKey,
 	findAgentSessionRequestBySessionId,
+	isAgentSessionRequestClaimActive,
+	listAgentSessionRequestsBySource,
+	listRunningAgentSessionRequests,
 	markRequestRunning,
 	releaseRequestClaim,
 	renewAgentSessionRequestLease,
@@ -31,7 +35,6 @@ export {
 	terminalizeAgentSessionRequest,
 	terminalizeAgentSessionRequestInTx,
 } from "./agent-session-requests.js";
-
 export {
 	AGENT_WORK_INTENT_FAILURE_CODES,
 	type AgentWorkIntentWorkerOptions,
@@ -52,6 +55,11 @@ export {
 	reapTerminalAgentWorkIntents,
 	recordAgentWorkIntent,
 } from "./agent-work-intents.js";
+export {
+	findExplicitSessionStartById,
+	markExplicitSessionStartAdmitted,
+	markExplicitSessionStartFailed,
+} from "./explicit-session-starts.js";
 export type {
 	AgentWorkIntentReapDeps,
 	AgentWorkIntentWorkerDeps,

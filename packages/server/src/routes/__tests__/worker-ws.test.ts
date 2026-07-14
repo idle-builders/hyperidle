@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
-import { registerWorkerWsRoute } from "../../services/worker-ws.js";
+import { registerWorkerWsRoute } from "../../services/run-orchestration-bindings.js";
 
 // ── Mock WebSocket context ─────────────────────────────────────────────────
 
@@ -146,11 +146,13 @@ describe("registerWorkerWsRoute — token auth", () => {
 
 describe("registerWorkerWsRoute — worker lifecycle", () => {
 	it("registers adapter in pool after WorkerRegisterMessage", async () => {
-		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
+		const { createWorkerConnectionManager } = await import(
+			"../../services/run-orchestration-bindings.js"
+		);
 
 		const pool = makePool();
 		const ws = new MockWsContext();
-		const manager = new WorkerConnectionManager(pool);
+		const manager = createWorkerConnectionManager(pool);
 
 		manager.onMessage(
 			JSON.stringify({
@@ -174,11 +176,13 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 	});
 
 	it("unregisters adapter when connection closes", async () => {
-		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
+		const { createWorkerConnectionManager } = await import(
+			"../../services/run-orchestration-bindings.js"
+		);
 
 		const pool = makePool();
 		const ws = new MockWsContext();
-		const manager = new WorkerConnectionManager(pool);
+		const manager = createWorkerConnectionManager(pool);
 
 		manager.onMessage(
 			JSON.stringify({
@@ -199,12 +203,14 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 	});
 
 	it("two workers connect — both appear in pool", async () => {
-		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
+		const { createWorkerConnectionManager } = await import(
+			"../../services/run-orchestration-bindings.js"
+		);
 
 		const pool = makePool();
 
 		const ws1 = new MockWsContext();
-		const manager1 = new WorkerConnectionManager(pool);
+		const manager1 = createWorkerConnectionManager(pool);
 		manager1.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -217,7 +223,7 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 		);
 
 		const ws2 = new MockWsContext();
-		const manager2 = new WorkerConnectionManager(pool);
+		const manager2 = createWorkerConnectionManager(pool);
 		manager2.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -241,11 +247,13 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 
 describe("WorkerConnectionManager — post-registration message routing", () => {
 	it("routes event messages to the adapter after registration", async () => {
-		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
+		const { createWorkerConnectionManager } = await import(
+			"../../services/run-orchestration-bindings.js"
+		);
 
 		const pool = makePool();
 		const ws = new MockWsContext();
-		const manager = new WorkerConnectionManager(pool);
+		const manager = createWorkerConnectionManager(pool);
 
 		// Register the worker
 		manager.onMessage(
@@ -316,11 +324,13 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 	});
 
 	it("drops malformed messages and does not throw (S2-F05 Zod validation)", async () => {
-		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
+		const { createWorkerConnectionManager } = await import(
+			"../../services/run-orchestration-bindings.js"
+		);
 
 		const pool = makePool();
 		const ws = new MockWsContext();
-		const manager = new WorkerConnectionManager(pool);
+		const manager = createWorkerConnectionManager(pool);
 
 		// Malformed JSON — should be swallowed silently
 		expect(() => manager.onMessage("not-json", ws as never)).not.toThrow();
@@ -335,11 +345,13 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 	});
 
 	it("clears adapter reference on close", async () => {
-		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
+		const { createWorkerConnectionManager } = await import(
+			"../../services/run-orchestration-bindings.js"
+		);
 
 		const pool = makePool();
 		const ws = new MockWsContext();
-		const manager = new WorkerConnectionManager(pool);
+		const manager = createWorkerConnectionManager(pool);
 
 		manager.onMessage(
 			JSON.stringify({

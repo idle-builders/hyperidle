@@ -102,7 +102,22 @@ const AU16_AGENT_FILES = ["packages/server/src/services/harness-capability-read-
  * forbidden-basename `agent-run-boundary.js`, a legitimate agent-owned edge,
  * not a core→execution-internal leak.
  */
-const AU19_AGENT_FILES = ["packages/server/src/services/session-requests-bindings.ts"];
+/**
+ * AU19 Increment 3c: `run-orchestration-bindings.ts` — the composition-root
+ * wiring file for `@hyperidle/run-orchestration` (same factory-curry role
+ * `session-requests-bindings.ts` has for `@hyperidle/session-requests`,
+ * `agent-run-boundary.ts`/`agent-layer-boot.ts`/`worker-ws.ts` had pre-move)
+ * — wires the `sessionLifecycle`/`sessionProvisioner`/`dispatch`/
+ * `harness-registry` INTERIM ports directly to their still-flat
+ * `session-lifecycle.js`/`session-provisioning.js`/`agent-work-assistant.js`/
+ * `harness/adapter-pool.js`/`harness/remote-harness-adapter.js` real
+ * implementations — a legitimate agent-owned edge, not a
+ * core→execution-internal leak.
+ */
+const AU19_AGENT_FILES = [
+	"packages/server/src/services/session-requests-bindings.ts",
+	"packages/server/src/services/run-orchestration-bindings.ts",
+];
 
 const AGENT_OWNED_ALLOWLIST = new Set([
 	...AU9_AGENT_FILES,

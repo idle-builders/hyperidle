@@ -29,7 +29,7 @@ import { afterEach, describe, expect } from "vitest";
 import { AdapterPool } from "../../harness/adapter-pool.js";
 import { LocalSandboxAdapter } from "../../harness/local-sandbox-adapter.js";
 import { test as fixtureTest } from "../../test-fixtures.js";
-import { executeAgentRunRequest } from "../agent-run-boundary.js";
+import { executeAgentRunRequest } from "../run-orchestration-bindings.js";
 import type { ProvisionSessionDeps } from "../session-provisioning.js";
 
 class RecordingHarnessAdapter implements HarnessAdapter {

@@ -40,6 +40,7 @@ export default defineConfig({
 			"packages/core-api/realtime",
 			"packages/agent-orchestration",
 			"packages/agent-orchestration/context-assembly",
+			"packages/agent-orchestration/run-orchestration",
 			"packages/agent-execution",
 			"packages/agent-execution/harness-registry",
 		],

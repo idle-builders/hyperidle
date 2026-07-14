@@ -347,7 +347,9 @@ describe("AC3: Worker token cannot access credentials or admin routes", () => {
 
 describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => {
 	test("register with already-active id is rejected when incumbent is live", async ({}) => {
-		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
+		const { createWorkerConnectionManager } = await import(
+			"../../services/run-orchestration-bindings.js"
+		);
 		const { AdapterPool } = await import("../../harness/adapter-pool.js");
 
 		const pool = new AdapterPool();
@@ -359,7 +361,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		const ws2Sent: string[] = [];
 		const ws2 = { send: (data: string) => ws2Sent.push(data) };
 
-		const manager1 = new WorkerConnectionManager(pool);
+		const manager1 = createWorkerConnectionManager(pool);
 		manager1.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -375,7 +377,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		expect(ws1Sent).toContain(JSON.stringify({ type: "registered" }));
 
 		// Second connection tries to register the same id
-		const manager2 = new WorkerConnectionManager(pool);
+		const manager2 = createWorkerConnectionManager(pool);
 		manager2.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -395,7 +397,9 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 	});
 
 	test("register with dead-incumbent id is accepted (reconnect)", async ({}) => {
-		const { WorkerConnectionManager } = await import("../../services/worker-ws.js");
+		const { createWorkerConnectionManager } = await import(
+			"../../services/run-orchestration-bindings.js"
+		);
 		const { AdapterPool } = await import("../../harness/adapter-pool.js");
 
 		const pool = new AdapterPool();
@@ -408,7 +412,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		const ws2Sent: string[] = [];
 		const ws2 = { send: (data: string) => ws2Sent.push(data) };
 
-		const manager1 = new WorkerConnectionManager(pool);
+		const manager1 = createWorkerConnectionManager(pool);
 		manager1.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -422,7 +426,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 
 		// worker-y registered but the socket is now CLOSED (simulating stale entry)
 		// Second manager reconnects with same id
-		const manager2 = new WorkerConnectionManager(pool);
+		const manager2 = createWorkerConnectionManager(pool);
 		manager2.onMessage(
 			JSON.stringify({
 				type: "register",
