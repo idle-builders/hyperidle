@@ -317,9 +317,9 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 
 **This is a real edge-by-edge census, not an estimate.** Method (reproducible): map every one of the 238 production files to its §4 Service, parse each file's relative imports, resolve each import to its target file → target Service, and count distinct `sourceService → targetService` pairs (excluding intra-Service imports, imports of `@hyperidle/db`/`@hyperidle/shared`, and **routes/middleware/app-factory as source** — those are legitimate core-api Layer composition per §5). Tools are counted as a single `tools` unit here (their internal descriptor/handler split, §7.5, moves the shared tool types to `@hyperidle/shared` and DI-registers handlers, so the ~68 intra-`tools` `tool-registry ↔ handler` call sites do **not** become runtime Service edges).
 
-**Result: 110 distinct Service→Service edges across 208 call sites.** Each distinct edge becomes one DI port wired by the owning Layer (downward edges, §10.2) or one event-bus inversion (against-grain edges, §10.3). The per-source breakdown below sums exactly to 110.
+**Result: 110 distinct Service→Service edges across 208 call sites at original census time; 111 distinct edges / 210 call sites after Increment 2c's `git-export → knowledge` addition (§10.2 — the census is a floor, refinable during migration, per §10 method note).** Each distinct edge becomes one DI port wired by the owning Layer (downward edges, §10.2) or one event-bus inversion (against-grain edges, §10.3). The per-source breakdown below sums exactly to 111 (post-2c).
 
-### 10.1 Per-source summary (sums to 110)
+### 10.1 Per-source summary (sums to 111, post-Increment-2c)
 
 | Source Service | Layer | Distinct edges | Call sites |
 |---|---|:--:|:--:|
@@ -342,10 +342,13 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 | `knowledge` | core-api | 2 | 2 |
 | `lifecycle-projection` | orch | 2 | 2 |
 | `mcp-provider` | exec | 2 | 3 |
-| `agent-selection`, `connections`, `git-export`, `harness-registry`, `model-gateway`, `observability`, `org`, `retention` | (mixed) | 1 each (8 total) | 10 |
-| **Total** | | **110** | **208** |
+| `agent-selection`, `connections`, `harness-registry`, `model-gateway`, `observability`, `org`, `retention` | (mixed) | 1 each (7 total) | 9 |
+| `git-export` | core-api | 2 | 3 |
+| **Total** | | **111** | **210** |
 
-### 10.2 Full edge table (all 110 — the migration inventory)
+*Row updated post-Increment-2c: `git-export` moved out of the "1 each" group — the real migration surfaced a second, census-missed edge (`git-export → knowledge`, 2 call sites) alongside the originally-listed `git-export → settings` (1 call site). See `git-export`'s `ports.ts` top comment.*
+
+### 10.2 Full edge table (all 111, post-Increment-2c — the migration inventory)
 
 Legend: `→` legal **downward** DI (orchestration→core-api, intra-layer) — becomes an injected port wired by the owning Layer. `§` = **execution seam** (orchestration→execution) — becomes `HarnessPort`/execution-port injection at the Application tier (not a package dep, §7.4). `⚠` = **against-grain** (core-api→orchestration/execution) — cannot be a downward DI port; **inverts through the existing `EventBus`** (the lower Service emits a domain event; the higher Service subscribes — the pattern `bet-decomposition-subscriber.ts` / `notification-listener.ts` already use) **or** is reclassified. These ⚠ edges are the real risk the census surfaces (§10.3).
 
@@ -359,6 +362,7 @@ Legend: `→` legal **downward** DI (orchestration→core-api, intra-layer) — 
 | filesystems | → work | 2 | dependency-watcher → work-service |
 | filesystems | → connections | 1 | filesystem-reachability → service-connection-resolver |
 | git-export | → settings | 1 | git-export-config → server-config |
+| git-export | → knowledge | 2 | computeExportPlan → listExportableKnowledgeItems |
 | knowledge | → review | 1 | attention-service → review-item-factory |
 | knowledge | → work | 1 | attention-service → work-service |
 | model-gateway | → connections | 1 | model-gateway → credential-resolver |
@@ -585,7 +589,7 @@ Migrate `knowledge` (W3 correction — omitted from the original list despite be
 | 3 | Every SQL-owning Service is its own package, sole table path, barrel hides table; **one** general guard replaces nine | §4, §7.1, Inc 0–4, Inc 5 (retirement) | `table-ownership-guard --fixtures` green; negative fixture (foreign `.from(bets)`) fails; nine `au*` invocations gone from `lint`. |
 | 4 | orchestration + execution are real Service packages, not flat dirs; **run-coordination tables owned by `session-requests`/`lifecycle-projection` (AC-4 correction, top callout)** | §4, §7.1, Inc 3–4 | Packages exist with own `package.json`/tests; `services/` flat dir emptied; `agent_work_intents`/`agent_session_requests`/`agent_lifecycle_inbox` have `TABLE_OWNER` rows. |
 | 5 | Only agent-execution Services reach LLM/harness/MCP/tools; **execution holds zero Service/DB reference** | §7.2, §7.5, Inc 0 (sanity-break B), Inc 4 | `execution-boundary-guard --fixtures`; `composition-boundary-guard` proves `tool-provider`/`harness-registry`/`mcp-provider` deps = shared(+runtime), no `@hyperidle/db`; negative fixtures fail `tsc`. |
-| 6 | No Service imports another Service/Layer; deps = db/shared(+shared port); cross-Service wired by Layer | §7.3, §10, Inc 0 (sanity-break C), all increments | `composition-boundary-guard --fixtures`; negative fixture fails; the **110** census edges are all Layer-wired (downward DI) or event-bus-inverted (against-grain, §10.3). |
+| 6 | No Service imports another Service/Layer; deps = db/shared(+shared port); cross-Service wired by Layer | §7.3, §10, Inc 0 (sanity-break C), all increments | `composition-boundary-guard --fixtures`; negative fixture fails; the **111** census edges (post-Increment-2c) are all Layer-wired (downward DI) or event-bus-inverted (against-grain, §10.3). |
 | 7 | Enforcement built + proven on minimal slice with ≥1 sanity-break per mechanism BEFORE bulk migration | **Increment 0** (§12) | Inc 0 commit shows 3 sanity-breaks (A/B/C) injected→RED→reverted; single real edge (`context-assembly←knowledge`); lands before Inc 1. |
 | 8 | ~238 files migrated (reuse AU17 classification); behavior unchanged all topologies | §5, §6, Inc 1–5 | Full existing test suite (unit/component/integration/e2e) green unchanged; boot each topology. |
 | 9 | `agent_work_intents` TABLE_OWNER + 3 accessors migrated onto owner | §11, Inc 3 | `TABLE_OWNER` has `agentWorkIntents` row; guard fails any non-`session-requests` access; the 3 sites converted (route recorder/reader injected; boot-time reader DI-wired). |
@@ -607,7 +611,7 @@ Migrate `knowledge` (W3 correction — omitted from the original list despite be
 
 ## 15. Self-critique
 
-- **C1/C2 close honestly.** C1 is resolved by moving the DB-touching work *out* of execution entirely (not by claiming zero-DB while deferring it) — package location now matches runtime location. C2 is a real, reproducible 110-edge / 208-call-site census whose per-source breakdown sums to its own total; the prior "115 vs 133" self-inconsistency is gone. The census additionally surfaced 9 against-grain edges the estimate had hidden — the single most useful output of doing it for real.
+- **C1/C2 close honestly.** C1 is resolved by moving the DB-touching work *out* of execution entirely (not by claiming zero-DB while deferring it) — package location now matches runtime location. C2 is a real, reproducible 110-edge / 208-call-site census (111 edges / 210 call sites post-Increment-2c, once `git-export → knowledge` was found mid-migration) whose per-source breakdown sums to its own total; the prior "115 vs 133" self-inconsistency is gone. The census additionally surfaced 9 against-grain edges the estimate had hidden — the single most useful output of doing it for real.
 - **Over-reach check:** the roster (31 Services) is at the top of the floor range; `retention`, `realtime`, `model-gateway`, `observability`, and the new `tool-handlers` are candidates a reviewer should probe. `tool-handlers` is justified (it is where the DB-touching tool logic must live once execution is clean); the thin core-api ones are kept separate to avoid re-introducing the grab-bag module this WP kills — `retention` flagged as a fold candidate (§9.5).
 - **Scope honesty:** the tool split (§7.5) reuses the existing MCP proxy-back path unchanged — the WP proves the package/dependency boundary + relocates+DI-converts the 11 handler bodies; it builds no new cross-process machinery.
 - **Did I invent abstraction?** `HarnessPort` and the `AgentWorkIntentRecorder`/`Reader` ports are the only new interfaces, all bound to existing seams (worker-ws/remote-harness-adapter; the existing transactional intent insert). No ports package. No new runtime layer. `tool-handlers` is an extraction, not an invention.

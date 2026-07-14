@@ -80,5 +80,9 @@ export type {
 	GitExportConfigDeps,
 	GitExportConfigSection,
 	GitExportConfigSectionPatch,
+	GitExportDeps,
+	GitExportKnowledgeItemProjection,
+	GitExportKnowledgeItemRow,
+	GitExportKnowledgeReader,
 	GitExportServerConfigPort,
 } from "./ports.js";

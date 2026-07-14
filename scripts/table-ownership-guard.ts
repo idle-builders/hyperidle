@@ -153,8 +153,10 @@ const TABLE_OWNER: Record<string, string> = {
 	// zero). `git-export-runner.ts` never touches the DB at all (pure git
 	// subprocess spawning); `git-export.ts` reads/writes `knowledgeItems`/
 	// `knowledgeAppProjection` (owned by `knowledge`, direct read — the
-	// export plan computation is a pure SELECT, not a write, matching the
-	// existing `knowledge → git-export` census direction) and
+	// export plan computation is a pure SELECT, not a write) through the
+	// injected `GitExportKnowledgeReader` port — a genuinely NEW
+	// `git-export → knowledge` edge the original architecture §10.2 census
+	// missed entirely, now appended as its own row (see §10.2) — and
 	// `server_config.gitExport` (owned by `settings`, now reached through
 	// the injected `GitExportServerConfigPort`, `ports.ts`) — no table this
 	// Service itself owns.
