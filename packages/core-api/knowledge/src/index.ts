@@ -29,6 +29,17 @@
  * `GitExportKnowledgeReader` port wires directly to
  * `listExportableKnowledgeItems` (ordinary downward edge, `knowledge`
  * already real).
+ *
+ * @lore AU19 Increment 2g: `reapKnowledgeAccessLog` added to
+ * `relevance-service.ts` (the module already reading `knowledgeAccessLog`) —
+ * `@hyperidle/retention`'s TTL sweep used to delete from
+ * `knowledgeAccessLog` directly; Table ACL now forbids that foreign direct
+ * access, so the delete logic moved here (verbatim, zero behavior change)
+ * and `retention` calls it through its injected
+ * `RetentionKnowledgeAccessLogReaper` port. A genuinely NEW `retention →
+ * knowledge` edge the original §10.2 census missed (raw table access wasn't
+ * a countable edge at original census time) — see `@hyperidle/retention`'s
+ * `ports.ts` top `@lore` for the census-correction row.
  */
 
 // -- attention engine (recompute service + DI ports for work/review edges) --
@@ -147,7 +158,7 @@ export { computeRelevanceScore, DEFAULT_RELEVANCE_CONFIG } from "./relevance-eng
 export { registerRelevanceListener } from "./relevance-listener.js";
 export { rankAndBudget, scoreItem } from "./relevance-scoring.js";
 export type { RelevanceService, SignalSet } from "./relevance-service.js";
-export { createRelevanceService } from "./relevance-service.js";
+export { createRelevanceService, reapKnowledgeAccessLog } from "./relevance-service.js";
 // -- role/community mapping --
 export { communityForRole } from "./role-community-map.js";
 // -- scoring config (weights, thresholds, token budgets) --

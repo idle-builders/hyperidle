@@ -16,7 +16,7 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, lt } from "drizzle-orm";
 import { computeRelevanceScore, DEFAULT_RELEVANCE_CONFIG } from "./relevance-engine.js";
 import { loadRelevanceConfig } from "./scoring-config.js";
 
@@ -209,4 +209,27 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
 	}
 
 	return { computeSignals, recomputeScores };
+}
+
+// ─── Retention (AU19 Increment 2g) ────────────────────────────────────────────
+
+/**
+ * Prune `knowledge_access_log` rows older than `cutoff` (age-based, on
+ * `accessedAt`). Returns the deleted row ids.
+ *
+ * @lore AU19 Increment 2g: moved verbatim from
+ * `packages/server/src/services/retention-reaper.ts`'s inline delete (Table
+ * ACL forbids `retention` from touching `knowledgeAccessLog` directly now
+ * that `knowledge` owns it — Mechanism A). `retention` calls this through
+ * its injected `RetentionKnowledgeAccessLogReaper` port
+ * (`@hyperidle/retention`'s `ports.ts`). Zero behavior change: same
+ * predicate, same cutoff computation (caller passes
+ * `now − terminalLogTtlMs`, default 30 days).
+ */
+export async function reapKnowledgeAccessLog(db: HyperIdleDb, cutoff: string): Promise<string[]> {
+	const deleted = await db
+		.delete(knowledgeAccessLog)
+		.where(lt(knowledgeAccessLog.accessedAt, cutoff))
+		.returning({ id: knowledgeAccessLog.id });
+	return deleted.map((r) => r.id);
 }

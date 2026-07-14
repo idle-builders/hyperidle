@@ -373,6 +373,10 @@ function buildLeafDeclarations(root: string): void {
   // @lore AU19 Increment 2f: `core-api/realtime` added — same TS6305
   // cascade; server-factory.ts, routes/ws.ts, and
   // ws-subscribe-authz.integration.test.ts now import `@hyperidle/realtime`.
+  //
+  // @lore AU19 Increment 2g: `core-api/retention` added — closes Increment 2
+  // (core-api non-SQL Services). Same TS6305 cascade; server-factory.ts and
+  // retention-reaper.integration.test.ts now import `@hyperidle/retention`.
   for (const leaf of [
     "shared",
     "db",
@@ -393,6 +397,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/observability",
     "core-api/model-gateway",
     "core-api/realtime",
+    "core-api/retention",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

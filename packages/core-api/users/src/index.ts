@@ -24,16 +24,28 @@
  * `OrgUserDirectory` port (both pre-existing forward-reference DI ports built
  * in Increments 1b/1c before `users` was migrated) are now wired to these
  * real functions instead of `packages/server`'s `user-store.ts` copy.
+ *
+ * @lore AU19 Increment 2g: `reapLoginSessions`/`reapInviteCodes` added —
+ * `@hyperidle/retention`'s TTL sweep (`retention-reaper.ts`) used to delete
+ * from `loginSessions`/`inviteCodes` directly; now that `users` is a real
+ * migrated package, Table ACL forbids that foreign direct access, so the
+ * delete logic moved here (verbatim, zero behavior change) and `retention`
+ * calls it through its injected `RetentionUsersReaper` port. This is a
+ * genuinely NEW `retention → users` edge the original §10.2 census missed
+ * (raw `@hyperidle/db` table access wasn't a countable Service→Service edge
+ * at original census time) — see `@hyperidle/retention`'s `ports.ts` top
+ * `@lore` for the census-correction row.
  */
 
 // -- invite code (S1 — invite/claim flow) --
-export { claimInvite, createInvite, generateInviteCode } from "./invite-code.js";
+export { claimInvite, createInvite, generateInviteCode, reapInviteCodes } from "./invite-code.js";
 // -- login session (S1 — bearer-token auth) --
 export {
 	createLoginSession,
 	findLoginSessionByTokenHash,
 	generateToken,
 	hashToken,
+	reapLoginSessions,
 	revokeLoginSession,
 	validateBearerToken,
 } from "./login-session.js";

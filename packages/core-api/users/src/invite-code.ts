@@ -15,7 +15,7 @@ import type { HyperIdleDb, InviteCode, User } from "@hyperidle/db";
 import { inviteCodes } from "@hyperidle/db";
 import type { InviteRole } from "@hyperidle/shared";
 import { INVITE_CODE_TTL_MS } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
 import { createLoginSession } from "./login-session.js";
 import { getOrCreateUser } from "./user-store.js";
 
@@ -130,4 +130,52 @@ export async function claimInvite(
 
 		return { ok: true as const, user, token };
 	});
+}
+
+// ─── Retention (AU19 Increment 2g) ────────────────────────────────────────────
+
+/**
+ * Prune `invite_codes` rows in two branches — expired-and-unclaimed
+ * (`expiresAt < expiredCutoff AND claimedBy IS NULL`) and consumed-past-audit
+ * (`claimedBy IS NOT NULL AND createdAt < consumedCutoff`). Returns the
+ * union of deleted row ids (deduped, one delete statement).
+ *
+ * @lore AU19 Increment 2g: moved verbatim from
+ * `packages/server/src/services/retention-reaper.ts`'s inline two-branch
+ * select+filter+delete (Table ACL now forbids `retention` from touching
+ * `inviteCodes` directly — `users` owns it). `retention` calls this through
+ * its injected `RetentionUsersReaper` port. Zero behavior change: same
+ * JS-side null-filter for `claimedBy` (nullable column, `isNotNull` is
+ * insufficient to express "unclaimed" on its own), same id-union-then-single-
+ * delete shape.
+ */
+export async function reapInviteCodes(
+	db: HyperIdleDb,
+	expiredCutoff: string,
+	consumedCutoff: string,
+): Promise<string[]> {
+	// Expired rows (both claimed and unclaimed) — filter JS-side for unclaimed.
+	const expiredRows = await db
+		.select({ id: inviteCodes.id, claimedBy: inviteCodes.claimedBy })
+		.from(inviteCodes)
+		.where(lt(inviteCodes.expiresAt, expiredCutoff));
+	const expiredUnclaimedIds = expiredRows.filter((r) => r.claimedBy === null).map((r) => r.id);
+
+	// Consumed rows past the audit window.
+	const consumedOldRows = await db
+		.select({ id: inviteCodes.id })
+		.from(inviteCodes)
+		.where(and(isNotNull(inviteCodes.claimedBy), lt(inviteCodes.createdAt, consumedCutoff)));
+	const consumedOldIds = consumedOldRows.map((r) => r.id);
+
+	const toDelete = [...new Set([...expiredUnclaimedIds, ...consumedOldIds])];
+	if (toDelete.length === 0) {
+		return [];
+	}
+
+	const deleted = await db
+		.delete(inviteCodes)
+		.where(inArray(inviteCodes.id, toDelete))
+		.returning({ id: inviteCodes.id });
+	return deleted.map((r) => r.id);
 }

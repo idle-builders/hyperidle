@@ -317,9 +317,9 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 
 **This is a real edge-by-edge census, not an estimate.** Method (reproducible): map every one of the 238 production files to its §4 Service, parse each file's relative imports, resolve each import to its target file → target Service, and count distinct `sourceService → targetService` pairs (excluding intra-Service imports, imports of `@hyperidle/db`/`@hyperidle/shared`, and **routes/middleware/app-factory as source** — those are legitimate core-api Layer composition per §5). Tools are counted as a single `tools` unit here (their internal descriptor/handler split, §7.5, moves the shared tool types to `@hyperidle/shared` and DI-registers handlers, so the ~68 intra-`tools` `tool-registry ↔ handler` call sites do **not** become runtime Service edges).
 
-**Result: 110 distinct Service→Service edges across 208 call sites at original census time; 111 distinct edges / 210 call sites after Increment 2c's `git-export → knowledge` addition; 112 distinct edges / 211 call sites after Increment 2f's `realtime → org` addition (§10.2 — the census is a floor, refinable during migration, per §10 method note).** Each distinct edge becomes one DI port wired by the owning Layer (downward edges, §10.2) or one event-bus inversion (against-grain edges, §10.3). The per-source breakdown below sums exactly to 112 (post-2f).
+**Result: 110 distinct Service→Service edges across 208 call sites at original census time; 111 distinct edges / 210 call sites after Increment 2c's `git-export → knowledge` addition; 112 distinct edges / 211 call sites after Increment 2f's `realtime → org` addition; 114 distinct edges / 214 call sites after Increment 2g's `retention → users` + `retention → knowledge` additions (§10.2 — the census is a floor, refinable during migration, per §10 method note).** Each distinct edge becomes one DI port wired by the owning Layer (downward edges, §10.2) or one event-bus inversion (against-grain edges, §10.3). The per-source breakdown below sums exactly to 114 (post-2g, closing Increment 2).
 
-### 10.1 Per-source summary (sums to 112, post-Increment-2f)
+### 10.1 Per-source summary (sums to 114, post-Increment-2g)
 
 | Source Service | Layer | Distinct edges | Call sites |
 |---|---|:--:|:--:|
@@ -337,24 +337,27 @@ The generator also: (a) appends `{ "path": "packages/<layer>/<service>" }` to th
 | `work` | core-api | 4 | 6 |
 | `cost` | orch | 3 | 3 |
 | `realtime` | core-api | 4 | 4 |
+| `retention` | core-api | 3 | 4 |
 | `trigger-resolution` | orch | 3 | 3 |
 | `capture-writeback` | orch | 2 | 3 |
 | `knowledge` | core-api | 2 | 2 |
 | `lifecycle-projection` | orch | 2 | 2 |
 | `mcp-provider` | exec | 2 | 3 |
-| `agent-selection`, `connections`, `harness-registry`, `model-gateway`, `observability`, `org`, `retention` | (mixed) | 1 each (7 total) | 9 |
+| `agent-selection`, `connections`, `harness-registry`, `model-gateway`, `observability`, `org` | (mixed) | 1 each (6 total) | 8 |
 | `git-export` | core-api | 2 | 3 |
-| **Total** | | **112** | **211** |
+| **Total** | | **114** | **214** |
 
 *Row updated post-Increment-2c: `git-export` moved out of the "1 each" group — the real migration surfaced a second, census-missed edge (`git-export → knowledge`, 2 call sites) alongside the originally-listed `git-export → settings` (1 call site). See `git-export`'s `ports.ts` top comment.*
 
 *Row updated post-Increment-2f: `realtime` moved from 3 distinct edges / 3 call sites to 4 / 4 — the real migration surfaced a census-missed edge (`realtime → org`, 1 call site, `senderInTeam`'s `teamMembers` read) alongside the three originally-listed edges (`realtime → work`/`→ conversation`/`→ users`). See `realtime`'s `ports.ts` top comment.*
 
-### 10.2 Full edge table (all 111, post-Increment-2c — the migration inventory)
+*Row updated post-Increment-2g: `retention` moved out of the "1 each" group — the real migration surfaced TWO census-missed edges (`retention → users`, 2 call sites for `reapLoginSessions`/`reapInviteCodes`; `retention → knowledge`, 1 call site for `reapKnowledgeAccessLog`) alongside the originally-listed `retention → notifications` (1 call site). Both new edges were raw `@hyperidle/db` table access at original census time (not a countable relative-import edge until `users`/`knowledge` existed as real owner packages — Table ACL is what surfaces them, on migrating `retention` for real). See `retention`'s `ports.ts` top comment. This closes Increment 2 (core-api non-SQL Services).*
+
+### 10.2 Full edge table (all 114, post-Increment-2g — the migration inventory)
 
 Legend: `→` legal **downward** DI (orchestration→core-api, intra-layer) — becomes an injected port wired by the owning Layer. `§` = **execution seam** (orchestration→execution) — becomes `HarnessPort`/execution-port injection at the Application tier (not a package dep, §7.4). `⚠` = **against-grain** (core-api→orchestration/execution) — cannot be a downward DI port; **inverts through the existing `EventBus`** (the lower Service emits a domain event; the higher Service subscribes — the pattern `bet-decomposition-subscriber.ts` / `notification-listener.ts` already use) **or** is reclassified. These ⚠ edges are the real risk the census surfaces (§10.3).
 
-**core-api sources (43 edges):**
+**core-api sources (47 edges):**
 
 | Source | → Target | calls | example |
 |---|---|:--:|---|
@@ -388,6 +391,8 @@ Legend: `→` legal **downward** DI (orchestration→core-api, intra-layer) — 
 | realtime | → users | 1 | ws-broadcaster → user-store |
 | realtime | → org | 1 | ws-broadcaster → team-lookup (census correction, added Increment 2f — see `realtime`'s `ports.ts` top comment) |
 | retention | → notifications | 1 | retention-reaper → notification-queue |
+| retention | → users | 2 | retention-reaper → reapLoginSessions/reapInviteCodes (census correction, added Increment 2g — see `retention`'s `ports.ts` top comment) |
+| retention | → knowledge | 1 | retention-reaper → reapKnowledgeAccessLog (census correction, added Increment 2g — see `retention`'s `ports.ts` top comment) |
 | review | → work | 2 | session-review-creator → work-service |
 | review | → conversation | 2 | session-review-creator → conversation-store |
 | review | → org | 1 | session-review-creator → org-routing |
@@ -492,12 +497,14 @@ Nine core-api→orchestration/execution edges (16 call sites) run **against the 
 | Against-grain edge | Resolution lever |
 |---|---|
 | `work ⚠ session-requests` (×2), `work ⚠ agent-selection` (×2), `work ⚠ cost` (×1) | `work` emits a domain event (`bet-decomposed`, `task-ready`); `session-requests`/`agent-selection`/`cost` subscribe. The `bet-decomposition-subscriber.ts` inversion pattern already exists — extend it. |
-| `policy ⚠ session-requests` (×2), `policy ⚠ cost` (×1), `policy ⚠ session-lifecycle` (×1) | `handoff-protocol.ts` is orchestration-flavored — **reclassify `handoff-protocol` into an orchestration Service** (candidate: `dispatch` or a `handoff` Service) so these become intra-orchestration; else invert via event. Decide at Increment 2/3. |
+| `policy ⚠ session-requests` (×2), `policy ⚠ cost` (×1), `policy ⚠ session-lifecycle` (×1) | `handoff-protocol.ts` is orchestration-flavored — **reclassify `handoff-protocol` into an orchestration Service** (candidate: `dispatch` or a `handoff` Service) so these become intra-orchestration; else invert via event. **Decided (Increment 2a, confirmed at Increment 2g — see below): DEFER to Increment 3.** |
 | `review ⚠ session-requests` (×1) | `proposed-call-workflow` emits a "call proposed" event; `session-requests` subscribes (records the intent). |
 | `filesystems ⚠ capture-writeback` (×2) | `file-watcher` already fires on sandbox change — emit that as an event; `capture-writeback` subscribes. Pure inversion, no reclassification. |
 | `settings ⚠ (builtin-tool-catalog)` (×1) | **reclassified**: `builtin-tool-catalog` → `@hyperidle/shared` (static data, §5). Edge dissolves entirely — no inversion needed. |
 
 The migration must **not** reproduce the ad-hoc-route bypass anti-pattern (MEMORY: post-bet-retro bypassed the durable-intent queue) — every inversion routes through the standard durable-event / durable-intent path, never a fresh side-channel.
+
+**`handoff-protocol` reclassification — final Increment-2 decision (resolved at Increment 2g, retention, the last Increment 2 item, as scheduled):** DEFER, confirmed. The three against-grain targets (`session-requests`, `cost`, `session-lifecycle`) are still not real packages — all three are scheduled Increment 3, which has not started. Reclassifying `handoff-protocol` into a real orchestration Service (`dispatch` or a new `handoff` Service) now would mean standing up an agent-orchestration Service ahead of its own increment, purely to host one core-api Service's outbound edges — a structural inversion of the plan's increment ordering for no present benefit (the interim DI ports built at Increment 2a already satisfy Mechanism C correctly; they are not incorrect, just not-yet-inverted-to-EventBus). `handoff-protocol.ts` stays in `@hyperidle/policy` with its three interim DI ports (`PolicyAgentWorkIntentRecorder`/`PolicyAgentSessionRequestReader`/`PolicySessionRunRegistry`, `PolicyCostDedupReleaser`, `PolicySessionTerminationRequester` — `packages/core-api/policy/src/ports.ts`), each already flagged with an Increment-3 EventBus-rewire `@lore`. This closes Increment 2's "Decide `handoff-protocol` reclassification" action item (§12) — the decision is DEFER, not an open question; Increment 3 executes the actual EventBus inversion (or, if `dispatch`/a `handoff` Service is stood up first and the edges turn out to compose more naturally as intra-orchestration DI at that point, the reclassification lever stays available — but the inversion is the default, sanctioned lever, not reclassification).
 
 ---
 
@@ -563,8 +570,10 @@ Migrate `knowledge` (W3 correction — omitted from the original list despite be
 
   This closes Increment 1 for real (review's 1j lands clean) and pre-empts the same alias/scan-root gap from recurring in every remaining increment.
 
-### Increment 2 — core-api non-SQL Services
+### Increment 2 — core-api non-SQL Services — CLOSED
 `policy`, `git-export`, `observability`, `model-gateway`, `filesystems`, `realtime`, `retention`. Confirm `policy`/`filesystems` table ownership (SQL or DI). Convert edges. **Decide `handoff-protocol` reclassification** (§10.3). Green + commit.
+
+All seven Services landed (2a `policy`, 2b `filesystems`, 2c `git-export`, 2d `observability`, 2e `model-gateway`, 2f `realtime`, 2g `retention`). `policy`/`filesystems` table ownership confirmed (`policy` owns zero tables; `filesystems` owns three: `filesystems`/`filesystemInjections`/`filesystemCaptures`). `handoff-protocol` reclassification decided: DEFER — see §10.3's final-decision paragraph. Increment 2's real edge count (§10.1/§10.2) grew from the original 43/64/3-split census (110 total) to 114 via four census corrections surfaced during real migration (`git-export → knowledge` at 2c, `realtime → org` at 2f, `retention → users` + `retention → knowledge` at 2g) — all documented inline at their landing increment, per §14's "census is a floor, refinable during migration" sanction.
 
 ### Increment 3 — agent-orchestration Services
 `trigger-resolution`, `session-requests` (**+ AC-9 `agent_work_intents` closure with the injected recorder/reader, §11**), `run-orchestration`, `lifecycle-projection`, `agent-selection`, `capture-writeback`, `cost`, `dispatch`, `session-lifecycle`. **Finalize `context-assembly`** (replace the Inc-0 transitional stubs with real work/users/routine/filesystems ports; swap into the live app). Add the `HarnessPort` interface to `@hyperidle/shared`; wire `session-lifecycle`/`run-orchestration` to it (not to `harness-registry`). Land the against-grain event-bus inversions (§10.3). Green + commit.
@@ -592,7 +601,7 @@ Migrate `knowledge` (W3 correction — omitted from the original list despite be
 | 3 | Every SQL-owning Service is its own package, sole table path, barrel hides table; **one** general guard replaces nine | §4, §7.1, Inc 0–4, Inc 5 (retirement) | `table-ownership-guard --fixtures` green; negative fixture (foreign `.from(bets)`) fails; nine `au*` invocations gone from `lint`. |
 | 4 | orchestration + execution are real Service packages, not flat dirs; **run-coordination tables owned by `session-requests`/`lifecycle-projection` (AC-4 correction, top callout)** | §4, §7.1, Inc 3–4 | Packages exist with own `package.json`/tests; `services/` flat dir emptied; `agent_work_intents`/`agent_session_requests`/`agent_lifecycle_inbox` have `TABLE_OWNER` rows. |
 | 5 | Only agent-execution Services reach LLM/harness/MCP/tools; **execution holds zero Service/DB reference** | §7.2, §7.5, Inc 0 (sanity-break B), Inc 4 | `execution-boundary-guard --fixtures`; `composition-boundary-guard` proves `tool-provider`/`harness-registry`/`mcp-provider` deps = shared(+runtime), no `@hyperidle/db`; negative fixtures fail `tsc`. |
-| 6 | No Service imports another Service/Layer; deps = db/shared(+shared port); cross-Service wired by Layer | §7.3, §10, Inc 0 (sanity-break C), all increments | `composition-boundary-guard --fixtures`; negative fixture fails; the **111** census edges (post-Increment-2c) are all Layer-wired (downward DI) or event-bus-inverted (against-grain, §10.3). |
+| 6 | No Service imports another Service/Layer; deps = db/shared(+shared port); cross-Service wired by Layer | §7.3, §10, Inc 0 (sanity-break C), all increments | `composition-boundary-guard --fixtures`; negative fixture fails; the **114** census edges (post-Increment-2g) are all Layer-wired (downward DI) or event-bus-inverted (against-grain, §10.3). |
 | 7 | Enforcement built + proven on minimal slice with ≥1 sanity-break per mechanism BEFORE bulk migration | **Increment 0** (§12) | Inc 0 commit shows 3 sanity-breaks (A/B/C) injected→RED→reverted; single real edge (`context-assembly←knowledge`); lands before Inc 1. |
 | 8 | ~238 files migrated (reuse AU17 classification); behavior unchanged all topologies | §5, §6, Inc 1–5 | Full existing test suite (unit/component/integration/e2e) green unchanged; boot each topology. |
 | 9 | `agent_work_intents` TABLE_OWNER + 3 accessors migrated onto owner | §11, Inc 3 | `TABLE_OWNER` has `agentWorkIntents` row; guard fails any non-`session-requests` access; the 3 sites converted (route recorder/reader injected; boot-time reader DI-wired). |

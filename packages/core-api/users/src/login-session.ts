@@ -21,7 +21,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { HyperIdleDb, LoginSession } from "@hyperidle/db";
 import { loginSessions } from "@hyperidle/db";
 import { LOGIN_SESSION_TTL_MS } from "@hyperidle/shared";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lt, or } from "drizzle-orm";
 
 // ─── Token generation ─────────────────────────────────────────────────────────
 
@@ -141,4 +141,34 @@ export async function revokeLoginSession(db: HyperIdleDb, sessionId: string): Pr
 		.update(loginSessions)
 		.set({ revokedAt: new Date().toISOString() })
 		.where(and(eq(loginSessions.id, sessionId), isNull(loginSessions.revokedAt)));
+}
+
+// ─── Retention (AU19 Increment 2g) ────────────────────────────────────────────
+
+/**
+ * Prune `login_sessions` rows past `cutoff` — expiry-based: prune when
+ * `expiresAt < cutoff` OR (`revokedAt` is set AND `revokedAt < cutoff`).
+ * Returns the deleted row ids.
+ *
+ * @lore AU19 Increment 2g: moved verbatim from
+ * `packages/server/src/services/retention-reaper.ts`'s inline delete (the
+ * table-ownership guard forbids `retention` from touching `loginSessions`
+ * directly now that `users` owns it — Mechanism A) — `retention` calls this
+ * through its injected `RetentionUsersReaper` port (`@hyperidle/retention`'s
+ * `ports.ts`). Zero behavior change: same predicate, same cutoff
+ * computation (caller passes `now − expiredGraceMs`, default grace 0 — see
+ * `@lore AF16 T16 WARNING-3` at the call site for why pruning as soon as
+ * expired, not a TTL-delayed cutoff, is correct).
+ */
+export async function reapLoginSessions(db: HyperIdleDb, cutoff: string): Promise<string[]> {
+	const deleted = await db
+		.delete(loginSessions)
+		.where(
+			or(
+				lt(loginSessions.expiresAt, cutoff),
+				and(isNotNull(loginSessions.revokedAt), lt(loginSessions.revokedAt, cutoff)),
+			),
+		)
+		.returning({ id: loginSessions.id });
+	return deleted.map((r) => r.id);
 }

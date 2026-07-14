@@ -36,6 +36,7 @@ import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export
 import {
 	findKnowledgeItemProjectionById,
 	listExportableKnowledgeItems,
+	reapKnowledgeAccessLog,
 	registerRelevanceListener,
 	setupFts,
 } from "@hyperidle/knowledge";
@@ -44,6 +45,7 @@ import {
 	type AlertPreferences,
 	defaultMutePreferenceReader,
 	defaultNotificationAdapterFactory,
+	deleteReaped,
 	insertNotification,
 	isSilenced,
 	type NotificationsConfigDeps,
@@ -65,6 +67,8 @@ import {
 import type { LifecyclePropagationDeps, PolicyEngineDeps } from "@hyperidle/policy";
 import { registerLifecyclePropagation, registerPolicyEngine } from "@hyperidle/policy";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
+import type { RetentionReaperDeps } from "@hyperidle/retention";
+import { startRetentionReaper } from "@hyperidle/retention";
 import { registerSessionReviewCreator } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
 import {
@@ -79,6 +83,8 @@ import {
 	getUserById,
 	listActiveAiUsersByTeams,
 	listUsersByKind,
+	reapInviteCodes,
+	reapLoginSessions,
 } from "@hyperidle/users";
 import {
 	createItem as createWorkItem,
@@ -119,7 +125,6 @@ import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 import { startCostSentinel } from "./services/cost-sentinel.js";
 import { createMcpRoute } from "./services/mcp-route.js";
-import { startRetentionReaper } from "./services/retention-reaper.js";
 import { startRoutineScheduler } from "./services/routine-scheduler.js";
 import { reapStaleRoutineSessions } from "./services/routine-session-reaper.js";
 import { startSandboxReaper } from "./services/sandbox-reaper.js";
@@ -220,6 +225,21 @@ const lifecyclePropagationDeps: LifecyclePropagationDeps = {
 };
 
 /**
+ * @lore AU19 Increment 2g: `@hyperidle/retention`'s DI ports (Mechanism C),
+ * wired here at the `packages/server` composition point — `users`/
+ * `knowledge`/`notifications` are all real, already-migrated packages.
+ * Two of the three ports (`users`, `knowledge`) close census-missed edges
+ * surfaced by this migration (raw table access wasn't a countable edge at
+ * original census time — see `@hyperidle/retention`'s `ports.ts` top
+ * `@lore`); `notifications` was already census-listed.
+ */
+const retentionReaperDeps: RetentionReaperDeps = {
+	users: { reapLoginSessions, reapInviteCodes },
+	knowledge: { reapKnowledgeAccessLog },
+	notifications: { deleteReaped },
+};
+
+/**
  * AU11: registers CORE-owned application services against the event bus —
  * knowledge (relevance listener, FTS), notifications, policy engine,
  * review routing, lifecycle propagation, retention, git-export, and the
@@ -309,7 +329,7 @@ export function registerCoreDomainServices(ctx: {
 	);
 
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
-	disposers.push(startRetentionReaper(db));
+	disposers.push(startRetentionReaper(db, retentionReaperDeps));
 
 	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
 	// AF6 §1 (Option A): start the routine scheduler async, push a deferred
