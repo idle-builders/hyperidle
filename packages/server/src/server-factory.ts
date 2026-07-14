@@ -32,7 +32,13 @@ import {
 	serviceConnections,
 } from "@hyperidle/db";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
-import { registerRelevanceListener, setupFts } from "@hyperidle/knowledge";
+import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
+import {
+	findKnowledgeItemProjectionById,
+	listExportableKnowledgeItems,
+	registerRelevanceListener,
+	setupFts,
+} from "@hyperidle/knowledge";
 import {
 	type AlertPreferences,
 	defaultMutePreferenceReader,
@@ -110,8 +116,6 @@ import { registerBuiltinRoutineHandlers } from "./services/builtin-routine-handl
 import { checkCostCap, registerCostCapDedupReleaser } from "./services/cost-cap.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 import { startCostSentinel } from "./services/cost-sentinel.js";
-import { registerGitExportHandler } from "./services/git-export.js";
-import { createGitRunner } from "./services/git-export-runner.js";
 import { createMcpRoute } from "./services/mcp-route.js";
 import { resolveModelTier } from "./services/model-gateway.js";
 import { startRetentionReaper } from "./services/retention-reaper.js";
@@ -140,6 +144,20 @@ const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
  * raw-table indirection).
  */
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
+
+/**
+ * @lore AU19 Increment 2c: `git-export`'s two DI ports (Mechanism C), wired
+ * here at the `packages/server` composition point — both targets
+ * (`settings`, `knowledge`) are real, already-migrated packages.
+ * `gitExportKnowledgeReader` closes the census-missed `git-export ->
+ * knowledge` edge surfaced by this migration (see `@hyperidle/git-export`'s
+ * `ports.ts` top `@lore`).
+ */
+const gitExportServerConfigPort = { read: readServerConfig, update: updateServerConfig };
+const gitExportKnowledgeReader = {
+	listExportableItems: listExportableKnowledgeItems,
+	getProjectionByItemId: findKnowledgeItemProjectionById,
+};
 
 const notificationsCredentialCipher: NotificationsCredentialCipher = {
 	getServerSecret,
@@ -264,6 +282,8 @@ export function registerCoreDomainServices(ctx: {
 	disposers.push(
 		registerGitExportHandler(db, eventBus, {
 			runnerFactory: (repoPath) => createGitRunner(repoPath),
+			serverConfig: gitExportServerConfigPort,
+			knowledge: gitExportKnowledgeReader,
 		}),
 	);
 	disposers.push(

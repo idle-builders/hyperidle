@@ -1,13 +1,12 @@
 import * as nodeFs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	createLogger,
 	type EventBus,
 	type KnowledgeUpdatedEvent,
 	type Logger,
 } from "@hyperidle/shared";
-import { and, eq, inArray, notInArray } from "drizzle-orm";
 import {
 	type GitExportConfig,
 	loadGitExportConfig,
@@ -15,8 +14,13 @@ import {
 	sanitizePathSegment,
 	writeLastCommit,
 	writeLastPush,
-} from "../config/git-export-config.js";
+} from "./git-export-config.js";
 import type { GitRunner } from "./git-export-runner.js";
+import type {
+	GitExportDeps,
+	GitExportKnowledgeItemRow,
+	GitExportKnowledgeReader,
+} from "./ports.js";
 
 /**
  * Exported kinds (case-insensitive). L2 items land under
@@ -92,7 +96,7 @@ export type GitExportResult =
 	  }
 	| { status: "error"; error: string; phase: "init" | "write" | "commit" | "push" };
 
-export interface RunGitExportDeps {
+export interface RunGitExportDeps extends GitExportDeps {
 	runner: GitRunner;
 	fs: FsAdapter;
 	now?: () => Date;
@@ -119,39 +123,28 @@ export function buildCommitMessage(entries: ExportPlanEntry[], trigger: GitExpor
 }
 
 /**
- * @lore O2: layer/kind/scopeId are now in knowledgeAppProjection, not
- * knowledgeItems. mapRowToEntry takes a combined row with both item and
- * projection fields so the caller can do one JOIN query and pass results here.
- */
-interface JoinedExportRow {
-	item: typeof knowledgeItems.$inferSelect;
-	projection: typeof knowledgeAppProjection.$inferSelect | null;
-}
-
-/**
- * Map a DB row to a plan entry. Returns `null` when the row should be
- * skipped silently (wrong layer/kind). Returns a rejection object when
- * the row tried to do something unsafe (path traversal via scopeId/topic)
- * so the caller can surface the rejection in the result + log.
+ * Map a knowledge-item row to a plan entry. Returns `null` when the row
+ * should be skipped silently (wrong layer/kind). Returns a rejection object
+ * when the row tried to do something unsafe (path traversal via
+ * scopeId/topic) so the caller can surface the rejection in the result + log.
  */
 function mapRowToEntry(
-	joined: JoinedExportRow,
+	row: GitExportKnowledgeItemRow,
 ): ExportPlanEntry | { rejected: true; reason: string } | null {
-	const { item, projection } = joined;
-	const layer = projection?.layer ?? null;
+	const layer = row.layer;
 	if (!isExportedLayer(layer ?? "")) return null;
 	const exportLayer = layer as "L2" | "L4";
-	const rawKind = projection?.kind ?? null;
+	const rawKind = row.kind;
 	if (!rawKind) return null;
 	const kind = rawKind.toUpperCase();
 	if (!EXPORTED_KINDS.has(kind)) return null;
 
-	const scopeId = projection?.scopeId ?? null;
+	const scopeId = row.scopeId;
 
 	let relPath: string;
 	if (exportLayer === "L4") {
 		if (kind === "REFLECTION") {
-			const rawTopic = item.topic && item.topic.length > 0 ? item.topic : item.id;
+			const rawTopic = row.topic && row.topic.length > 0 ? row.topic : row.id;
 			const topic = sanitizePathSegment(rawTopic);
 			if (topic === null) {
 				return {
@@ -178,13 +171,13 @@ function mapRowToEntry(
 
 	return {
 		relPath,
-		body: item.body,
-		knowledgeItemId: item.id,
+		body: row.body,
+		knowledgeItemId: row.id,
 		layer: exportLayer,
 		kind,
 		scopeId: exportLayer === "L4" ? (scopeId ?? "factory") : scopeId,
-		version: item.version,
-		title: item.title,
+		version: row.version,
+		title: row.title,
 	};
 }
 
@@ -193,50 +186,29 @@ function compareEntries(a: ExportPlanEntry, b: ExportPlanEntry): number {
 }
 
 /**
- * Compute the full export plan from the DB. Filters at the SQL layer:
- * only L2/L4 rows with non-archived/non-draft status hit our code.
+ * Compute the full export plan from the DB. Filters at the SQL layer (inside
+ * `knowledge`'s `listExportableItems`): only L2/L4 rows with non-archived/
+ * non-draft status reach `mapRowToEntry`.
  *
- * @lore O2: layer/kind/scopeId are now in knowledgeAppProjection. The
- * kernel-layer filter (status) is still on knowledgeItems. The projection
- * filter (layer=L2|L4) is on the projection table via an INNER JOIN so items
- * without a projection row (no layer assigned) are automatically excluded.
- * The status filter is on the kernel table as before.
+ * @lore AU19 Increment 2c: `knowledgeItems`/`knowledgeAppProjection` are
+ * `knowledge`-owned tables — reached through the injected
+ * `GitExportKnowledgeReader` port (`ports.ts`), not a direct query (Table ACL).
  */
-export async function computeExportPlan(db: HyperIdleDb): Promise<ExportPlan> {
-	// @lore O2: INNER JOIN with knowledgeAppProjection so only items that
-	// have a projection row (and thus a layer assignment) are included. Items
-	// without a projection row have no layer and are not exportable.
-	const rows = await db
-		.select({
-			item: knowledgeItems,
-			projection: knowledgeAppProjection,
-		})
-		.from(knowledgeItems)
-		.innerJoin(
-			knowledgeAppProjection,
-			eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-		)
-		.where(
-			and(
-				inArray(knowledgeAppProjection.layer, ["L2", "L4"]),
-				inArray(knowledgeItems.status, EXPORTED_STATUSES as string[]),
-				// Belt+braces — defend even if EXPORTED_STATUSES ever grows.
-				notInArray(knowledgeItems.status, [
-					"archived",
-					"captured",
-					"provisional",
-					"needs_human",
-					"stale",
-				]),
-			),
-		);
+export async function computeExportPlan(
+	db: HyperIdleDb,
+	deps: { readonly knowledge: GitExportKnowledgeReader },
+): Promise<ExportPlan> {
+	const rows = await deps.knowledge.listExportableItems(db, {
+		layers: ["L2", "L4"],
+		statuses: EXPORTED_STATUSES,
+	});
 	const entries: ExportPlanEntry[] = [];
 	const rejected: Array<{ itemId: string; reason: string }> = [];
-	for (const joined of rows) {
-		const mapped = mapRowToEntry(joined);
+	for (const row of rows) {
+		const mapped = mapRowToEntry(row);
 		if (mapped === null) continue;
 		if ("rejected" in mapped) {
-			rejected.push({ itemId: joined.item.id, reason: mapped.reason });
+			rejected.push({ itemId: row.id, reason: mapped.reason });
 			continue;
 		}
 		entries.push(mapped);
@@ -391,7 +363,9 @@ export async function runGitExport(
 ): Promise<GitExportResult> {
 	// We need to know the repoPath to scope the mutex. Load config outside
 	// the mutex — it's a cheap DB read and mutex scoping depends on it.
-	const cfg = deps.force ? await readGitExportConfig(db) : await loadGitExportConfig(db);
+	const cfg = deps.force
+		? await readGitExportConfig(db, deps)
+		: await loadGitExportConfig(db, deps);
 	if (!cfg) return { status: "disabled" };
 	if (!cfg.repoPath || cfg.repoPath.length === 0) {
 		if (!deps.force) return { status: "disabled" };
@@ -418,7 +392,7 @@ async function runGitExportInner(
 
 	let plan: ExportPlan;
 	try {
-		plan = await computeExportPlan(db);
+		plan = await computeExportPlan(db, deps);
 	} catch (err) {
 		logger.error("git-export: plan failed", { error: String(err) });
 		return { status: "error", error: String(err), phase: "init" };
@@ -471,7 +445,7 @@ async function runGitExportInner(
 
 	// Commit succeeded locally — record it. `last_push_at` stays unchanged.
 	const committedAt = nowFn();
-	await writeLastCommit(db, sha, committedAt);
+	await writeLastCommit(db, sha, committedAt, deps);
 
 	if (cfg.remoteUrl) {
 		try {
@@ -480,14 +454,14 @@ async function runGitExportInner(
 			logger.error("git-export: push failed", { error: String(err) });
 			return { status: "error", error: String(err), phase: "push" };
 		}
-		await writeLastPush(db, committedAt);
+		await writeLastPush(db, committedAt, deps);
 		return { status: "pushed", commitSha: sha, filesChanged, filesDeleted, message };
 	}
 
 	return { status: "committed", commitSha: sha, filesChanged, filesDeleted, message };
 }
 
-export interface RegisterGitExportHandlerOptions {
+export interface RegisterGitExportHandlerOptions extends GitExportDeps {
 	debounceMs?: number;
 	runner?: GitRunner;
 	fs?: FsAdapter;
@@ -510,7 +484,7 @@ export interface RegisterGitExportHandlerOptions {
 export function registerGitExportHandler(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	opts: RegisterGitExportHandlerOptions = {},
+	opts: RegisterGitExportHandlerOptions,
 ): () => void {
 	const logger = opts.logger ?? createLogger({ pkg: "git-export" });
 	let pending: NodeJS.Timeout | null = null;
@@ -529,7 +503,7 @@ export function registerGitExportHandler(
 		try {
 			// Re-check config AFTER debounce — operator may have disabled us
 			// between the event and now. Silent drop is correct.
-			const cfg = await loadGitExportConfig(db);
+			const cfg = await loadGitExportConfig(db, opts);
 			if (!cfg) return;
 			const runner = opts.runnerFactory ? opts.runnerFactory(cfg.repoPath) : opts.runner;
 			if (!runner) {
@@ -542,6 +516,8 @@ export function registerGitExportHandler(
 				fs,
 				logger,
 				trigger: "event",
+				serverConfig: opts.serverConfig,
+				knowledge: opts.knowledge,
 			});
 		} catch (err) {
 			// `runGitExport` is already total, but the loadGitExportConfig /
@@ -553,25 +529,17 @@ export function registerGitExportHandler(
 
 	const handler = (event: KnowledgeUpdatedEvent): void => {
 		if (disposed) return;
-		// @lore O2: layer/kind are in knowledgeAppProjection. LEFT JOIN to
-		// get projection fields for the updated item; skip if no projection row.
+		// @lore AU19 Increment 2c: `knowledge`-owned tables, reached through the
+		// injected `GitExportKnowledgeReader` port — not a direct query (Table ACL).
 		void (async () => {
-			const [row] = await db
-				.select({ item: knowledgeItems, projection: knowledgeAppProjection })
-				.from(knowledgeItems)
-				.leftJoin(
-					knowledgeAppProjection,
-					eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-				)
-				.where(eq(knowledgeItems.id, event.itemId))
-				.limit(1);
-			if (!row) return;
-			const projectionLayer = row.projection?.layer ?? null;
-			const projectionKind = row.projection?.kind ?? null;
+			const projection = await opts.knowledge.getProjectionByItemId(db, event.itemId);
+			if (!projection) return;
+			const projectionLayer = projection.layer;
+			const projectionKind = projection.kind;
 			if (!isExportedLayer(projectionLayer ?? "")) return;
 			if (!(projectionKind && EXPORTED_KINDS.has(projectionKind.toUpperCase()))) return;
 
-			const cfg = await loadGitExportConfig(db);
+			const cfg = await loadGitExportConfig(db, opts);
 			if (!cfg) return;
 			const debounceMs = opts.debounceMs ?? cfg.debounceMs;
 			clearPending();

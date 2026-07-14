@@ -23,6 +23,7 @@ import {
 	ServiceConnectionResolverAdapter,
 	updateFilesystemState,
 } from "@hyperidle/filesystems";
+import { createGitRunner } from "@hyperidle/git-export";
 import type {
 	EventBus,
 	Filesystem,
@@ -38,7 +39,6 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import { createGitRunner } from "../services/git-export-runner.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
@@ -134,8 +134,9 @@ async function checkAndPersistState(
 ): Promise<FilesystemRow> {
 	const newState = await resolveFilesystemState(row, {
 		authResolver,
-		// AU19 Increment 2b: forward-reference to the still-unmigrated
-		// `git-export` (the very next Increment-2 item) — see
+		// AU19 Increment 2c: `git-export` migrated — `createGitRunner` now
+		// comes from `@hyperidle/git-export`, closing `filesystems`' Increment 2b
+		// `FilesystemsGitRunnerFactory` forward-reference. See
 		// `@hyperidle/filesystems`' `ports.ts` top `@lore`.
 		gitRunnerFactory: createGitRunner,
 	});
@@ -241,8 +242,9 @@ export function createFilesystemRoutes(
 		validateBody(z.object({ path: z.string().min(1) })),
 		async (c) => {
 			const { path } = c.req.valid("json");
-			// AU19 Increment 2b: forward-reference to the still-unmigrated
-			// `git-export` — see `@hyperidle/filesystems`' `ports.ts` top `@lore`.
+			// AU19 Increment 2c: `git-export` migrated — `createGitRunner` now
+			// comes from `@hyperidle/git-export`. See `@hyperidle/filesystems`'
+			// `ports.ts` top `@lore`.
 			const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });
 			return c.json(info, 200);
 		},

@@ -20,15 +20,20 @@ import {
 	knowledgeAppProjection,
 	knowledgeItems,
 } from "@hyperidle/db";
-import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, vi } from "vitest";
-import { createApp, disposeApp } from "../app.js";
 import {
+	buildCommitMessage,
+	computeExportPlan,
+	type ExportPlanEntry,
+	type FsAdapter,
 	type GitExportConfig,
 	type GitExportConfigPatch,
+	type GitRunner,
 	getLastExportMeta,
 	loadGitExportConfig,
 	redactRemoteUrl,
+	registerGitExportHandler,
+	resetExportMutexes,
+	runGitExport,
 	sanitizeAuthorEmail,
 	sanitizeAuthorName,
 	sanitizeBranch,
@@ -36,18 +41,22 @@ import {
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
 	updateGitExportConfig,
-} from "../config/git-export-config.js";
+} from "@hyperidle/git-export";
 import {
-	buildCommitMessage,
-	computeExportPlan,
-	type ExportPlanEntry,
-	type FsAdapter,
-	registerGitExportHandler,
-	resetExportMutexes,
-	runGitExport,
-} from "../services/git-export.js";
-import type { GitRunner } from "../services/git-export-runner.js";
+	findKnowledgeItemProjectionById,
+	listExportableKnowledgeItems,
+} from "@hyperidle/knowledge";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, vi } from "vitest";
+import { createApp, disposeApp } from "../app.js";
 import { expect, test } from "../test-fixtures.js";
+
+const serverConfig = { read: readServerConfig, update: updateServerConfig };
+const knowledgeReader = {
+	listExportableItems: listExportableKnowledgeItems,
+	getProjectionByItemId: findKnowledgeItemProjectionById,
+};
 
 type GitCall =
 	| { cmd: "init"; branch: string }
@@ -230,7 +239,7 @@ const REPO = "/tmp/h1-unit-repo";
 // @lore AU18: seeds via updateGitExportConfig (server_config-backed) instead
 // of raw factorySettings KV rows — same observable outcome, new storage.
 async function setConfigKV(db: HyperIdleDb, patch: GitExportConfigPatch): Promise<void> {
-	await updateGitExportConfig(db, patch);
+	await updateGitExportConfig(db, patch, { serverConfig });
 }
 
 async function enableExport(db: HyperIdleDb, overrides: GitExportConfigPatch = {}): Promise<void> {
@@ -291,13 +300,13 @@ async function seedKnowledge(
 }
 
 async function getLastCommitSha(db: HyperIdleDb): Promise<string | undefined> {
-	return (await getLastExportMeta(db)).lastCommitSha ?? undefined;
+	return (await getLastExportMeta(db, { serverConfig })).lastCommitSha ?? undefined;
 }
 async function getLastCommitAt(db: HyperIdleDb): Promise<string | undefined> {
-	return (await getLastExportMeta(db)).lastCommitAt ?? undefined;
+	return (await getLastExportMeta(db, { serverConfig })).lastCommitAt ?? undefined;
 }
 async function getLastPushAt(db: HyperIdleDb): Promise<string | undefined> {
-	return (await getLastExportMeta(db)).lastPushAt ?? undefined;
+	return (await getLastExportMeta(db, { serverConfig })).lastPushAt ?? undefined;
 }
 
 beforeEach(async () => {
@@ -307,11 +316,11 @@ beforeEach(async () => {
 describe("loadGitExportConfig", () => {
 	test("returns null when disabled", async ({ db }) => {
 		await setConfigKV(db, { enabled: false, repoPath: "/tmp/x" });
-		expect(await loadGitExportConfig(db)).toBeNull();
+		expect(await loadGitExportConfig(db, { serverConfig })).toBeNull();
 	});
 
 	test("returns null when no config rows exist", async ({ db }) => {
-		expect(await loadGitExportConfig(db)).toBeNull();
+		expect(await loadGitExportConfig(db, { serverConfig })).toBeNull();
 	});
 
 	test("returns null when stored repoPath is under a denied system prefix", async ({ db }) => {
@@ -319,7 +328,7 @@ describe("loadGitExportConfig", () => {
 			enabled: true,
 			repoPath: "/etc/ha",
 		});
-		expect(await loadGitExportConfig(db)).toBeNull();
+		expect(await loadGitExportConfig(db, { serverConfig })).toBeNull();
 	});
 
 	test("defaults branch to main when not set", async ({ db }) => {
@@ -327,7 +336,7 @@ describe("loadGitExportConfig", () => {
 			enabled: true,
 			repoPath: "/tmp/repo",
 		});
-		const cfg = await loadGitExportConfig(db);
+		const cfg = await loadGitExportConfig(db, { serverConfig });
 		expect(cfg).not.toBeNull();
 		expect(cfg?.branch).toBe("main");
 	});
@@ -341,7 +350,7 @@ describe("loadGitExportConfig", () => {
 			authorEmail: "bot@example.com",
 			debounceMs: 5000,
 		});
-		const cfg = (await loadGitExportConfig(db)) as GitExportConfig;
+		const cfg = (await loadGitExportConfig(db, { serverConfig })) as GitExportConfig;
 
 		expect(cfg.enabled).toBe(true);
 		expect(cfg.repoPath).toBe("/tmp/custom-repo");
@@ -358,7 +367,7 @@ describe("loadGitExportConfig", () => {
 			// userinfo-bearing URL is not allowed in or out
 			remoteUrl: "https://user:token@github.com/owner/repo.git",
 		});
-		const cfg = await loadGitExportConfig(db);
+		const cfg = await loadGitExportConfig(db, { serverConfig });
 		expect(cfg).not.toBeNull();
 		expect(cfg?.remoteUrl).toBeNull();
 	});
@@ -591,7 +600,7 @@ describe("computeExportPlan", () => {
 				body: "## Principles\n\nShip weekly.",
 			},
 		]);
-		const plan = await computeExportPlan(db);
+		const plan = await computeExportPlan(db, { knowledge: knowledgeReader });
 		const e = plan.entries.find((x) => x.layer === "L4" && x.kind.toUpperCase() === "PRINCIPLES");
 		expect(e).toBeDefined();
 		expect(e?.relPath).toBe("factory/PRINCIPLES.md");
@@ -604,7 +613,7 @@ describe("computeExportPlan", () => {
 			{ layer: "L2", kind: "BRAND", scopeId: "acme", body: "# Brand\n" },
 			{ layer: "L2", kind: "PRINCIPLES", scopeId: "acme", body: "# Prin\n" },
 		]);
-		const plan = await computeExportPlan(db);
+		const plan = await computeExportPlan(db, { knowledge: knowledgeReader });
 		const paths = plan.entries.map((e) => e.relPath).sort();
 		expect(paths).toContain("products/acme/BRIEF.md");
 		expect(paths).toContain("products/acme/ARCHITECTURE.md");
@@ -622,7 +631,7 @@ describe("computeExportPlan", () => {
 				body: "Monthly reflection body.",
 			},
 		]);
-		const plan = await computeExportPlan(db);
+		const plan = await computeExportPlan(db, { knowledge: knowledgeReader });
 		const e = plan.entries.find((x) => x.kind.toUpperCase() === "REFLECTION");
 		expect(e?.relPath).toBe("factory/REFLECTIONS/2026-04.md");
 	});
@@ -633,13 +642,13 @@ describe("computeExportPlan", () => {
 			{ layer: "L1", kind: "PRINCIPLES", body: "x" },
 			{ layer: "L3", kind: "PRINCIPLES", body: "x" },
 		]);
-		const plan = await computeExportPlan(db);
+		const plan = await computeExportPlan(db, { knowledge: knowledgeReader });
 		expect(plan.entries).toHaveLength(0);
 	});
 
 	test("ignores L4 items with unknown kinds", async ({ db }) => {
 		await seedKnowledge(db, [{ layer: "L4", kind: "NOT_A_REAL_KIND", body: "x" }]);
-		const plan = await computeExportPlan(db);
+		const plan = await computeExportPlan(db, { knowledge: knowledgeReader });
 		expect(plan.entries).toHaveLength(0);
 	});
 
@@ -647,7 +656,7 @@ describe("computeExportPlan", () => {
 		await seedKnowledge(db, [
 			{ layer: "L4", kind: "principles", scopeId: null, body: "lowercase kind" },
 		]);
-		const plan = await computeExportPlan(db);
+		const plan = await computeExportPlan(db, { knowledge: knowledgeReader });
 		expect(plan.entries).toHaveLength(1);
 		expect(plan.entries[0]?.relPath).toBe("factory/PRINCIPLES.md");
 	});
@@ -655,7 +664,7 @@ describe("computeExportPlan", () => {
 	test("entry.body equals the knowledge item body byte-for-byte (AC4)", async ({ db }) => {
 		const body = "# Title\n\nUnicode: café 🎯\nTrailing newline preserved.\n";
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body }]);
-		const plan = await computeExportPlan(db);
+		const plan = await computeExportPlan(db, { knowledge: knowledgeReader });
 		expect(plan.entries[0]?.body).toBe(body);
 	});
 
@@ -671,7 +680,7 @@ describe("computeExportPlan", () => {
 			{ layer: "L4", kind: "PRINCIPLES", body: "f", status: "active" },
 			{ layer: "L4", kind: "PRINCIPLES", body: "g", status: "validated" },
 		]);
-		const plan = await computeExportPlan(db);
+		const plan = await computeExportPlan(db, { knowledge: knowledgeReader });
 		expect(plan.entries.map((e) => e.body).sort()).toEqual(["f", "g"]);
 	});
 
@@ -683,7 +692,7 @@ describe("computeExportPlan", () => {
 			{ layer: "L2", kind: "BRIEF", scopeId: "../root/.ssh", body: "evil2" },
 			{ layer: "L2", kind: "BRIEF", scopeId: "normal", body: "ok" },
 		]);
-		const plan = await computeExportPlan(db);
+		const plan = await computeExportPlan(db, { knowledge: knowledgeReader });
 		expect(plan.entries).toHaveLength(1);
 		expect(plan.entries[0]?.relPath).toBe("products/normal/BRIEF.md");
 		expect(plan.rejected.length).toBeGreaterThanOrEqual(2);
@@ -699,7 +708,7 @@ describe("computeExportPlan", () => {
 			},
 			{ layer: "L4", kind: "REFLECTION", topic: "2026-05", body: "ok" },
 		]);
-		const plan = await computeExportPlan(db);
+		const plan = await computeExportPlan(db, { knowledge: knowledgeReader });
 		expect(plan.entries.map((e) => e.relPath)).toEqual(["factory/REFLECTIONS/2026-05.md"]);
 		expect(plan.rejected.length).toBe(1);
 	});
@@ -710,7 +719,7 @@ describe("runGitExport", () => {
 		await setConfigKV(db, { enabled: false });
 		const runner = new FakeGitRunner(REPO);
 		const fs = createMemFs();
-		const result = await runGitExport(db, { runner, fs });
+		const result = await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 		expect(result.status).toBe("disabled");
 	});
 
@@ -723,7 +732,7 @@ describe("runGitExport", () => {
 		// Pre-populate the fs with the body — writePlanToDisk will skip (byte-equal),
 		// add -A sees nothing to stage, diffCached returns clean.
 		const fs = createMemFs({ [`${REPO}/factory/PRINCIPLES.md`]: "# P\n" });
-		const result = await runGitExport(db, { runner, fs });
+		const result = await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 		expect(result).toEqual(expect.objectContaining({ status: "noop", reason: "no-changes" }));
 	});
 
@@ -736,7 +745,7 @@ describe("runGitExport", () => {
 		]);
 		const runner = new FakeGitRunner(REPO, { diffClean: false });
 		const fs = createMemFs();
-		const result = await runGitExport(db, { runner, fs });
+		const result = await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 
 		expect(result.status).toBe("committed");
 		expect(fs.files.get(`${REPO}/factory/PRINCIPLES.md`)).toBe("# Principles\n");
@@ -760,7 +769,7 @@ describe("runGitExport", () => {
 		]);
 		const runner = new FakeGitRunner(REPO);
 		const fs = createMemFs();
-		await runGitExport(db, { runner, fs });
+		await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 
 		const commitCall = runner.calls.find((c) => c.cmd === "commit");
 		if (commitCall?.cmd !== "commit") throw new Error("no commit call");
@@ -773,7 +782,7 @@ describe("runGitExport", () => {
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "x" }]);
 		const runner = new FakeGitRunner(REPO);
 		const fs = createMemFs();
-		const result = await runGitExport(db, { runner, fs });
+		const result = await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 
 		expect(result.status).toBe("pushed");
 		expect(runner.calls.some((c) => c.cmd === "push")).toBe(true);
@@ -789,7 +798,7 @@ describe("runGitExport", () => {
 			headSha: "1234567890abcdef1234567890abcdef12345678",
 		});
 		const fs = createMemFs();
-		const result = await runGitExport(db, { runner, fs });
+		const result = await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
@@ -807,7 +816,7 @@ describe("runGitExport", () => {
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "z" }]);
 		const runner = new FakeGitRunner(REPO, { insideWorkTree: false });
 		const fs = createMemFs();
-		await runGitExport(db, { runner, fs });
+		await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 
 		expect(runner.calls.some((c) => c.cmd === "init")).toBe(true);
 	});
@@ -824,8 +833,8 @@ describe("runGitExport", () => {
 		const runner = new FakeGitRunner(REPO, { gate });
 		const fs = createMemFs();
 
-		const aPromise = runGitExport(db, { runner, fs });
-		const bPromise = runGitExport(db, { runner, fs });
+		const aPromise = runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
+		const bPromise = runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 		// Let the queue settle both entrants against the mutex, then release.
 		await Promise.resolve();
 		releaseGate();
@@ -899,8 +908,18 @@ describe("runGitExport", () => {
 		// B has NO gate — it should run to completion on its own.
 		const runnerB = new FakeGitRunner("/tmp/h1-parallel-b");
 
-		const pA = runGitExport(dbA, { runner: runnerA, fs: createMemFs() });
-		const pB = runGitExport(dbB, { runner: runnerB, fs: createMemFs() });
+		const pA = runGitExport(dbA, {
+			runner: runnerA,
+			fs: createMemFs(),
+			serverConfig,
+			knowledge: knowledgeReader,
+		});
+		const pB = runGitExport(dbB, {
+			runner: runnerB,
+			fs: createMemFs(),
+			serverConfig,
+			knowledge: knowledgeReader,
+		});
 
 		// B should complete WITHOUT us releasing A. If A's mutex blocked B,
 		// this would time out.
@@ -924,7 +943,7 @@ describe("runGitExport", () => {
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "b" }]);
 		const runner = new FakeGitRunner(REPO);
 		const fs = createMemFs();
-		await runGitExport(db, { runner, fs });
+		await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 
 		const pushCall = runner.calls.find((c) => c.cmd === "push");
 		if (pushCall?.cmd !== "push") throw new Error("no push");
@@ -936,7 +955,7 @@ describe("runGitExport", () => {
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "c" }]);
 		const runner = new FakeGitRunner("/tmp/h1-custom-location");
 		const fs = createMemFs();
-		await runGitExport(db, { runner, fs });
+		await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 
 		expect(fs.files.has("/tmp/h1-custom-location/factory/PRINCIPLES.md")).toBe(true);
 	});
@@ -951,7 +970,13 @@ describe("runGitExport", () => {
 		});
 		const fs = createMemFs();
 		const fixedNow = new Date("2026-04-18T09:15:00Z");
-		await runGitExport(db, { runner, fs, now: () => fixedNow });
+		await runGitExport(db, {
+			runner,
+			fs,
+			now: () => fixedNow,
+			serverConfig,
+			knowledge: knowledgeReader,
+		});
 
 		const commitAt = await getLastCommitAt(db);
 		const sha = await getLastCommitSha(db);
@@ -968,7 +993,13 @@ describe("runGitExport", () => {
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "e" }]);
 		const runner = new FakeGitRunner(REPO, { headSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" });
 		const fs = createMemFs();
-		await runGitExport(db, { runner, fs, now: () => new Date("2026-04-18T10:00:00Z") });
+		await runGitExport(db, {
+			runner,
+			fs,
+			now: () => new Date("2026-04-18T10:00:00Z"),
+			serverConfig,
+			knowledge: knowledgeReader,
+		});
 
 		expect(await getLastCommitSha(db)).toBe("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 		expect(await getLastCommitAt(db)).toBe("2026-04-18T10:00:00.000Z");
@@ -993,7 +1024,7 @@ describe("runGitExport", () => {
 			[`${REPO}/products/ghost/BRIEF.md`]: "stale",
 			[`${REPO}/factory/FOCUS.md`]: "stale",
 		});
-		const result = await runGitExport(db, { runner, fs });
+		const result = await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 		expect(result.status).toBe("committed");
 		if (result.status !== "committed") return;
 		expect(result.filesDeleted).toEqual(
@@ -1010,7 +1041,7 @@ describe("runGitExport", () => {
 			trackedFiles: ["README.md", "LICENSE"],
 		});
 		const fs = createMemFs({ [`${REPO}/README.md`]: "readme" });
-		const result = await runGitExport(db, { runner, fs });
+		const result = await runGitExport(db, { runner, fs, serverConfig, knowledge: knowledgeReader });
 		// README.md outside factory/ + products/ — must not be deleted.
 		expect(fs.files.get(`${REPO}/README.md`)).toBe("readme");
 		if (result.status === "committed") {
@@ -1048,7 +1079,13 @@ describe("registerGitExportHandler", () => {
 		const fs = createMemFs();
 		await enableExport(db);
 		await seedKnowledge(db, [{ id: "ki-l1", layer: "L1", kind: "PRINCIPLES", body: "ignored" }]);
-		unsubscribe = registerGitExportHandler(db, eventBus, { runner, fs, debounceMs: 10 });
+		unsubscribe = registerGitExportHandler(db, eventBus, {
+			runner,
+			fs,
+			debounceMs: 10,
+			serverConfig,
+			knowledge: knowledgeReader,
+		});
 
 		emitKnowledgeUpdated(eventBus, "ki-l1");
 		await vi.advanceTimersByTimeAsync(50);
@@ -1062,7 +1099,13 @@ describe("registerGitExportHandler", () => {
 		const fs = createMemFs();
 		await enableExport(db);
 		await seedKnowledge(db, [{ id: "ki-weird", layer: "L4", kind: "MYSTERY_KIND", body: "weird" }]);
-		unsubscribe = registerGitExportHandler(db, eventBus, { runner, fs, debounceMs: 10 });
+		unsubscribe = registerGitExportHandler(db, eventBus, {
+			runner,
+			fs,
+			debounceMs: 10,
+			serverConfig,
+			knowledge: knowledgeReader,
+		});
 
 		emitKnowledgeUpdated(eventBus, "ki-weird");
 		await vi.advanceTimersByTimeAsync(50);
@@ -1078,7 +1121,13 @@ describe("registerGitExportHandler", () => {
 		await seedKnowledge(db, [
 			{ id: "ki-burst", layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "from handler" },
 		]);
-		unsubscribe = registerGitExportHandler(db, eventBus, { runner, fs, debounceMs: 100 });
+		unsubscribe = registerGitExportHandler(db, eventBus, {
+			runner,
+			fs,
+			debounceMs: 100,
+			serverConfig,
+			knowledge: knowledgeReader,
+		});
 
 		emitKnowledgeUpdated(eventBus, "ki-burst");
 		await vi.advanceTimersByTimeAsync(20);
@@ -1099,7 +1148,13 @@ describe("registerGitExportHandler", () => {
 		await seedKnowledge(db, [
 			{ id: "ki-fire", layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "from handler" },
 		]);
-		unsubscribe = registerGitExportHandler(db, eventBus, { runner, fs, debounceMs: 50 });
+		unsubscribe = registerGitExportHandler(db, eventBus, {
+			runner,
+			fs,
+			debounceMs: 50,
+			serverConfig,
+			knowledge: knowledgeReader,
+		});
 
 		emitKnowledgeUpdated(eventBus, "ki-fire");
 		expect(runner.calls.filter((c) => c.cmd === "commit")).toHaveLength(0);
@@ -1115,7 +1170,13 @@ describe("registerGitExportHandler", () => {
 		await seedKnowledge(db, [
 			{ id: "ki-unsub", layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "from handler" },
 		]);
-		const dispose = registerGitExportHandler(db, eventBus, { runner, fs, debounceMs: 30 });
+		const dispose = registerGitExportHandler(db, eventBus, {
+			runner,
+			fs,
+			debounceMs: 30,
+			serverConfig,
+			knowledge: knowledgeReader,
+		});
 		dispose();
 
 		emitKnowledgeUpdated(eventBus, "ki-unsub");
@@ -1142,6 +1203,8 @@ describe("registerGitExportHandler", () => {
 				captured.push(repoPath);
 				return runnerForPath;
 			},
+			serverConfig,
+			knowledge: knowledgeReader,
 		});
 
 		emitKnowledgeUpdated(eventBus, "ki-factory");
@@ -1159,7 +1222,13 @@ describe("registerGitExportHandler", () => {
 		await seedKnowledge(db, [
 			{ id: "ki-toggle", layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "from handler" },
 		]);
-		unsubscribe = registerGitExportHandler(db, eventBus, { runner, fs, debounceMs: 50 });
+		unsubscribe = registerGitExportHandler(db, eventBus, {
+			runner,
+			fs,
+			debounceMs: 50,
+			serverConfig,
+			knowledge: knowledgeReader,
+		});
 
 		emitKnowledgeUpdated(eventBus, "ki-toggle");
 		// Operator disables mid-debounce.
@@ -1211,6 +1280,8 @@ describe("createApp -> git-export wiring (AC1 production path)", () => {
 							factoryCalls.push(repoPath);
 							return runner as unknown as GitRunner;
 						},
+						serverConfig,
+						knowledge: knowledgeReader,
 					}),
 				);
 				return disposers;

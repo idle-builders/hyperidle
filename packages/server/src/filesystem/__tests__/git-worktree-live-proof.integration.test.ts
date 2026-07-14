@@ -24,9 +24,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { filesystemInjections, filesystems, teamMembers, teams, users } from "@hyperidle/db";
 import { GitWorktreeAdapter, SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
+import { createGitRunner } from "@hyperidle/git-export";
 import type { Filesystem } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { createGitRunner } from "../../services/git-export-runner.js";
 import { afterEach, beforeEach, describe, expect, test } from "../../test-fixtures.js";
 
 // ── Repo root — this repo's git dir ──────────────────────────────────────────

@@ -52,6 +52,17 @@
  * is needed — this is an ordinary downward core-api→core-api edge (`git-export`
  * just hasn't migrated yet), not a §10.3 against-grain edge.
  *
+ * @lore AU19 Increment 2c — CLOSED: `git-export` migrated. Every real
+ * `gitRunnerFactory` call site (`server-factory.ts`, `routes/filesystems.ts`
+ * ×2, plus the AO1-filesystem-reachability/AO1-reachability-lane-b/
+ * git-clone-adapter/git-worktree-adapter/git-worktree-live-proof test files,
+ * all still in `packages/server`) now imports `createGitRunner` from
+ * `@hyperidle/git-export` instead of the deleted
+ * `packages/server/src/services/git-export-runner.ts`. `FilesystemsGitRunner`/
+ * `FilesystemsGitRunnerFactory` stay as-is here — `createGitRunner`
+ * structurally satisfies the narrower port unchanged, no port-shape edit
+ * needed.
+ *
  * @lore AU19 Increment 2b — `capture-writeback` (§10.3 against-grain, ×2:
  * `file-watcher.ts` → `writeback.ts`'s `processWriteback`). Wired as an
  * interim DI port for THIS increment (same precedent as `work`'s

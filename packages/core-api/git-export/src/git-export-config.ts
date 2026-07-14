@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import type { GitExportConfigDeps } from "./ports.js";
 
 /** Typed shape loaded from `server_config.gitExport`. */
 export interface GitExportConfig {
@@ -23,8 +23,11 @@ export interface GitExportConfig {
  * `repoPath` is empty — the orchestrator short-circuits to
  * `{status:"disabled"}` in that case.
  */
-export async function readGitExportConfig(db: HyperIdleDb): Promise<GitExportConfig> {
-	const { gitExport } = await readServerConfig(db);
+export async function readGitExportConfig(
+	db: HyperIdleDb,
+	deps: GitExportConfigDeps,
+): Promise<GitExportConfig> {
+	const { gitExport } = await deps.serverConfig.read(db);
 	return {
 		enabled: gitExport.enabled,
 		repoPath: gitExport.repoPath,
@@ -36,17 +39,20 @@ export async function readGitExportConfig(db: HyperIdleDb): Promise<GitExportCon
 	};
 }
 
-export async function loadGitExportConfig(db: HyperIdleDb): Promise<GitExportConfig | null> {
-	const cfg = await readGitExportConfig(db);
+export async function loadGitExportConfig(
+	db: HyperIdleDb,
+	deps: GitExportConfigDeps,
+): Promise<GitExportConfig | null> {
+	const cfg = await readGitExportConfig(db, deps);
 	if (!cfg.enabled) return null;
 	if (cfg.repoPath.length === 0) return null;
 	// Defense-in-depth: if somebody seeded `repo_path` directly (bypassing
 	// PATCH /config's sanitizer), re-validate at load time. Reject rather
 	// than silently letting the orchestrator write outside the allow-list.
-	const check = sanitizeRepoPath(cfg.repoPath, await readRepoAllowRoots(db));
+	const check = sanitizeRepoPath(cfg.repoPath, await readRepoAllowRoots(db, deps));
 	if (!check.ok) return null;
 	if (cfg.remoteUrl !== null) {
-		const opts = { allowFileRemote: await readAllowFileRemote(db) };
+		const opts = { allowFileRemote: await readAllowFileRemote(db, deps) };
 		const remoteCheck = sanitizeRemoteUrl(cfg.remoteUrl, opts);
 		if (!remoteCheck.ok) {
 			// Treat an invalid stored remote as "no remote" — commit only.
@@ -73,8 +79,9 @@ export interface GitExportConfigPatch {
 export async function updateGitExportConfig(
 	db: HyperIdleDb,
 	patch: GitExportConfigPatch,
+	deps: GitExportConfigDeps,
 ): Promise<GitExportConfig> {
-	await updateServerConfig(db, {
+	await deps.serverConfig.update(db, {
 		gitExport: {
 			...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
 			...(patch.repoPath !== undefined ? { repoPath: patch.repoPath } : {}),
@@ -90,19 +97,28 @@ export async function updateGitExportConfig(
 				: {}),
 		},
 	});
-	return readGitExportConfig(db);
+	return readGitExportConfig(db, deps);
 }
 
 /** Persist the commit stamps after a successful local commit. */
-export async function writeLastCommit(db: HyperIdleDb, sha: string, at: Date): Promise<void> {
-	await updateServerConfig(db, {
+export async function writeLastCommit(
+	db: HyperIdleDb,
+	sha: string,
+	at: Date,
+	deps: GitExportConfigDeps,
+): Promise<void> {
+	await deps.serverConfig.update(db, {
 		gitExport: { lastCommitAt: at.toISOString(), lastCommitSha: sha },
 	});
 }
 
 /** Persist the push stamp after a successful remote push. */
-export async function writeLastPush(db: HyperIdleDb, at: Date): Promise<void> {
-	await updateServerConfig(db, { gitExport: { lastPushAt: at.toISOString() } });
+export async function writeLastPush(
+	db: HyperIdleDb,
+	at: Date,
+	deps: GitExportConfigDeps,
+): Promise<void> {
+	await deps.serverConfig.update(db, { gitExport: { lastPushAt: at.toISOString() } });
 }
 
 export interface LastExportMeta {
@@ -111,8 +127,11 @@ export interface LastExportMeta {
 	lastPushAt: string | null;
 }
 
-export async function getLastExportMeta(db: HyperIdleDb): Promise<LastExportMeta> {
-	const { gitExport } = await readServerConfig(db);
+export async function getLastExportMeta(
+	db: HyperIdleDb,
+	deps: GitExportConfigDeps,
+): Promise<LastExportMeta> {
+	const { gitExport } = await deps.serverConfig.read(db);
 	return {
 		lastCommitAt: gitExport.lastCommitAt,
 		lastCommitSha: gitExport.lastCommitSha,
@@ -146,13 +165,16 @@ const DENIED_ROOT_PREFIXES: readonly string[] = [
 	"/var/log",
 ];
 
-async function readAllowFileRemote(db: HyperIdleDb): Promise<boolean> {
-	const { gitExport } = await readServerConfig(db);
+async function readAllowFileRemote(db: HyperIdleDb, deps: GitExportConfigDeps): Promise<boolean> {
+	const { gitExport } = await deps.serverConfig.read(db);
 	return gitExport.allowFileRemote;
 }
 
-async function readRepoAllowRoots(db: HyperIdleDb): Promise<readonly string[]> {
-	const { gitExport } = await readServerConfig(db);
+async function readRepoAllowRoots(
+	db: HyperIdleDb,
+	deps: GitExportConfigDeps,
+): Promise<readonly string[]> {
+	const { gitExport } = await deps.serverConfig.read(db);
 	return gitExport.repoRoot;
 }
 

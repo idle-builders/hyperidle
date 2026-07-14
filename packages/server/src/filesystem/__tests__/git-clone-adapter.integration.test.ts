@@ -10,9 +10,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type AdapterDeps, GitCloneAdapter } from "@hyperidle/filesystems";
+import { createGitRunner } from "@hyperidle/git-export";
 import type { Filesystem } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createGitRunner } from "../../services/git-export-runner.js";
 
 // Create a local bare-style repo (works for local clone with git-cli).
 async function createSourceRepo(parentDir: string): Promise<string> {

@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createFakeGitRunner, type FakeGitRunner } from "../../services/git-export-runner.js";
+import { createFakeGitRunner, type FakeGitRunner } from "../git-export-runner.js";
 
 describe("FakeGitRunner records filesystem git operation argv", () => {
 	it("clone records args and resolves", async () => {

@@ -30,8 +30,8 @@ import {
 	resolveFilesystemState,
 	ServiceConnectionResolverAdapter,
 } from "@hyperidle/filesystems";
+import { createGitRunner } from "@hyperidle/git-export";
 import { describe, expect, it } from "vitest";
-import { createGitRunner } from "../services/git-export-runner.js";
 import { test } from "../test-fixtures.js";
 
 // ─── Skip guard ───────────────────────────────────────────────────────────────

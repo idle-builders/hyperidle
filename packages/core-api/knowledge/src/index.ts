@@ -21,6 +21,14 @@
  * downward core-api-to-core-api edge, wired directly since `knowledge` is
  * already a real migrated package). NOT the general CRUD surface — see that
  * file's own top-of-file `@lore` for why `create()`/`update()` weren't reused.
+ *
+ * @lore AU19 Increment 2c: `git-export-store.ts` added — a genuinely NEW
+ * `git-export -> knowledge` edge the §10.2 census missed entirely (surfaced
+ * when `git-export`'s own migration hit Table ACL on its direct
+ * `knowledgeItems`/`knowledgeAppProjection` query). `@hyperidle/git-export`'s
+ * `GitExportKnowledgeReader` port wires directly to
+ * `listExportableKnowledgeItems` (ordinary downward edge, `knowledge`
+ * already real).
  */
 
 // -- attention engine (recompute service + DI ports for work/review edges) --
@@ -42,7 +50,6 @@ export { buildAttentionService, MAX_RECOMPUTE_BATCH } from "./attention-service.
 
 // -- errors --
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
-
 // -- full-text search --
 export {
 	FTS_MAX_QUERY_CHARS,
@@ -52,6 +59,16 @@ export {
 	sanitizeFtsQuery,
 	setupFts,
 } from "./fts.js";
+// -- git-export read surface (AU19 Increment 2c — the git-export -> knowledge edge) --
+export type {
+	ExportableKnowledgeItemFilters,
+	ExportableKnowledgeItemRow,
+	KnowledgeItemProjectionRow,
+} from "./git-export-store.js";
+export {
+	findKnowledgeItemProjectionById,
+	listExportableKnowledgeItems,
+} from "./git-export-store.js";
 // -- read (scope-based; the Increment 0 KnowledgeReader edge for context-assembly) --
 export type { KnowledgeScope } from "./knowledge-reader.js";
 export { listByScope } from "./knowledge-reader.js";

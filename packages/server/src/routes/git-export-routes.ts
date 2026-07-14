@@ -1,24 +1,38 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { API_ERROR_CODES } from "@hyperidle/shared";
-import { Hono } from "hono";
-import z from "zod";
 import {
+	createGitRunner,
+	createNodeFsAdapter,
+	type FsAdapter,
 	type GitExportConfig,
+	type GitRunner,
 	getLastExportMeta,
 	readGitExportConfig,
 	redactRemoteUrl,
+	runGitExport,
 	sanitizeAuthorEmail,
 	sanitizeAuthorName,
 	sanitizeBranch,
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
 	updateGitExportConfig,
-} from "../config/git-export-config.js";
+} from "@hyperidle/git-export";
+import {
+	findKnowledgeItemProjectionById,
+	listExportableKnowledgeItems,
+} from "@hyperidle/knowledge";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import type { ApiErrorResponse } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/shared";
+import { Hono } from "hono";
+import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import { createNodeFsAdapter, type FsAdapter, runGitExport } from "../services/git-export.js";
-import { createGitRunner, type GitRunner } from "../services/git-export-runner.js";
+
+const gitExportServerConfigPort = { read: readServerConfig, update: updateServerConfig };
+const gitExportKnowledgeReader = {
+	listExportableItems: listExportableKnowledgeItems,
+	getProjectionByItemId: findKnowledgeItemProjectionById,
+};
 
 const patchConfigSchema = z
 	.object({
@@ -119,7 +133,9 @@ export function createGitExportRoutes(
 	);
 
 	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) =>
-		c.json(toSafeConfig(await readGitExportConfig(db))),
+		c.json(
+			toSafeConfig(await readGitExportConfig(db, { serverConfig: gitExportServerConfigPort })),
+		),
 	);
 
 	router.patch(
@@ -136,7 +152,9 @@ export function createGitExportRoutes(
 				};
 				return c.json(response, 400);
 			}
-			const updated = await updateGitExportConfig(db, body);
+			const updated = await updateGitExportConfig(db, body, {
+				serverConfig: gitExportServerConfigPort,
+			});
 			return c.json(toSafeConfig(updated));
 		},
 	);
@@ -147,7 +165,7 @@ export function createGitExportRoutes(
 		validateBody(runBodySchema),
 		async (c) => {
 			const body = c.req.valid("json");
-			const cfg = await readGitExportConfig(db);
+			const cfg = await readGitExportConfig(db, { serverConfig: gitExportServerConfigPort });
 			if (!cfg.repoPath || cfg.repoPath.length === 0) {
 				const response: ApiErrorResponse = {
 					error: "repoPath is not configured",
@@ -161,14 +179,16 @@ export function createGitExportRoutes(
 				fs,
 				trigger: body.trigger ?? "manual",
 				force: body.force,
+				serverConfig: gitExportServerConfigPort,
+				knowledge: gitExportKnowledgeReader,
 			});
 			return c.json(result);
 		},
 	);
 
 	router.get("/status", requireBoundary({ kind: "public-data" }), async (c) => {
-		const cfg = await readGitExportConfig(db);
-		const meta = await getLastExportMeta(db);
+		const cfg = await readGitExportConfig(db, { serverConfig: gitExportServerConfigPort });
+		const meta = await getLastExportMeta(db, { serverConfig: gitExportServerConfigPort });
 		return c.json({
 			enabled: cfg.enabled,
 			repoPath: cfg.repoPath,

@@ -148,6 +148,16 @@ const TABLE_OWNER: Record<string, string> = {
 	filesystems: "packages/core-api/filesystems",
 	filesystemInjections: "packages/core-api/filesystems",
 	filesystemCaptures: "packages/core-api/filesystems",
+	// AU19 Increment 2c: `git-export` migrated — resolves to ZERO owned
+	// tables (contrast `filesystems`' three, same shape as `policy`'s
+	// zero). `git-export-runner.ts` never touches the DB at all (pure git
+	// subprocess spawning); `git-export.ts` reads/writes `knowledgeItems`/
+	// `knowledgeAppProjection` (owned by `knowledge`, direct read — the
+	// export plan computation is a pure SELECT, not a write, matching the
+	// existing `knowledge → git-export` census direction) and
+	// `server_config.gitExport` (owned by `settings`, now reached through
+	// the injected `GitExportServerConfigPort`, `ports.ts`) — no table this
+	// Service itself owns.
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 };
 

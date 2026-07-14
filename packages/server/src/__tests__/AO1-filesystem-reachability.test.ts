@@ -21,12 +21,10 @@
  * @lore AU19 Increment 2b: `filesystem-reachability.ts` moved to
  * `@hyperidle/filesystems`; imports repointed there. This test file itself
  * STAYS in `packages/server` — `probeGitRemote`/`resolveFilesystemState` now
- * take a REQUIRED `gitRunnerFactory` port (`FilesystemsGitRunnerFactory`),
- * and the only real implementation (`createGitRunner`) still lives in
- * `services/git-export-runner.ts` (`git-export` hasn't migrated yet — the
- * very next Increment-2 item). Every real-git-spawning call site below wires
- * it explicitly; when `git-export` migrates, its closing commit repoints
- * this import (same "closing" idiom as `work`'s `UserStoreReader` → `users`).
+ * take a REQUIRED `gitRunnerFactory` port (`FilesystemsGitRunnerFactory`).
+ * Increment 2c: `git-export` migrated — `createGitRunner` now comes from
+ * `@hyperidle/git-export`, closing this forward-reference (same "closing"
+ * idiom as `work`'s `UserStoreReader` → `users`).
  */
 
 import * as cp from "node:child_process";
@@ -40,9 +38,9 @@ import {
 	repoToUrl,
 	resolveFilesystemState,
 } from "@hyperidle/filesystems";
+import { createGitRunner } from "@hyperidle/git-export";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createGitRunner } from "../services/git-export-runner.js";
 
 // ─── Lane A: Hermetic temp-repo setup ────────────────────────────────────────
 

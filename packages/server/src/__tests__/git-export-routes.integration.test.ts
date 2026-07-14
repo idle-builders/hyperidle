@@ -9,22 +9,26 @@
  */
 
 import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import {
+	type FsAdapter,
+	type GitExportConfigPatch,
+	type GitRunner,
+	resetExportMutexes,
+	updateGitExportConfig,
+	writeLastCommit,
+	writeLastPush,
+} from "@hyperidle/git-export";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import {
-	type GitExportConfigPatch,
-	updateGitExportConfig,
-	writeLastCommit,
-	writeLastPush,
-} from "../config/git-export-config.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { errorHandler } from "../middleware/error-handler.js";
 import { createGitExportRoutes } from "../routes/git-export-routes.js";
-import { type FsAdapter, resetExportMutexes } from "../services/git-export.js";
-import type { GitRunner } from "../services/git-export-runner.js";
 import { test } from "../test-fixtures.js";
+
+const serverConfig = { read: readServerConfig, update: updateServerConfig };
 
 const TEST_API_KEY = "test-key-git-export";
 const REPO = "/tmp/h1-routes-repo";
@@ -40,7 +44,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 // @lore AU18: seeds via updateGitExportConfig (server_config-backed) instead
 // of raw factorySettings KV rows — same observable outcome, new storage.
 async function setConfigKV(db: HyperIdleDb, patch: GitExportConfigPatch): Promise<void> {
-	await updateGitExportConfig(db, patch);
+	await updateGitExportConfig(db, patch, { serverConfig });
 }
 
 async function enableExport(db: HyperIdleDb, overrides: GitExportConfigPatch = {}): Promise<void> {
@@ -539,8 +543,9 @@ describe("Git Export HTTP routes", () => {
 				db,
 				"deadbeefcafef00d1234567890abcdef12345678",
 				new Date("2026-04-18T09:15:00.000Z"),
+				{ serverConfig },
 			);
-			await writeLastPush(db, new Date("2026-04-18T09:15:05.000Z"));
+			await writeLastPush(db, new Date("2026-04-18T09:15:05.000Z"), { serverConfig });
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/status", { headers: authHeaders() });
 			expect(res.status).toBe(200);

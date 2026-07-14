@@ -355,6 +355,12 @@ function buildLeafDeclarations(root: string): void {
   // services/agent-context/assemble-context.ts,
   // filesystem/__tests__/scaffolding-drift-guard.test.ts now import
   // `@hyperidle/filesystems`.
+  //
+  // @lore AU19 Increment 2c: `core-api/git-export` added — same TS6305
+  // cascade; routes/git-export-routes.ts, routes/filesystems.ts,
+  // server-factory.ts, app.ts, and the git-export/filesystem-adapter
+  // integration test files now import `@hyperidle/git-export`. This closes
+  // `filesystems`' Increment-2b `FilesystemsGitRunner` forward-reference.
   for (const leaf of [
     "shared",
     "db",
@@ -371,6 +377,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/review",
     "core-api/policy",
     "core-api/filesystems",
+    "core-api/git-export",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
