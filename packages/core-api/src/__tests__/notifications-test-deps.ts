@@ -19,13 +19,11 @@ import {
 	encryptCredentialValue,
 	getServerSecret,
 } from "@hyperidle/connections";
-import { listVerdictItemIds } from "@hyperidle/conversation";
 import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
 import type {
 	NotificationsConfigDeps,
 	NotificationsCredentialCipher,
 	NotificationsCredentialStore,
-	NotificationsDigestDeps,
 	NotificationsSilenceDeps,
 	NotificationsWorkReader,
 } from "@hyperidle/notifications";
@@ -81,9 +79,4 @@ export const notificationsSilenceDeps: NotificationsSilenceDeps = {
 export const notificationsWorkReader: NotificationsWorkReader = {
 	listQueuedItemsSince,
 	getItemById,
-};
-
-export const notificationsDigestDeps: NotificationsDigestDeps = {
-	work: notificationsWorkReader,
-	verdicts: { listVerdictItemIds },
 };
