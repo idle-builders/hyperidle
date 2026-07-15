@@ -4,7 +4,7 @@
 
 import * as crypto from "node:crypto";
 import type { ServiceConnectionResolver } from "@hyperidle/connections";
-import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	deleteFilesystemById,
 	deleteFilesystemInjection,
@@ -24,6 +24,7 @@ import {
 	updateFilesystemState,
 } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/git-export";
+import { getTeamMembersById } from "@hyperidle/org";
 import type {
 	EventBus,
 	Filesystem,
@@ -32,7 +33,6 @@ import type {
 } from "@hyperidle/shared";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
 import { getUserById } from "@hyperidle/users";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -342,12 +342,8 @@ export function createFilesystemRoutes(
 			// The bot's teamId points at team_members.id (schema.ts:47); we need the teams.id.
 			// @lore AO1 §3: Route-level guard — no DB-level cross-table CHECK constraint.
 			if (agent.teamId != null) {
-				const tmRows = await db
-					.select({ teamId: teamMembers.teamId })
-					.from(teamMembers)
-					.where(eq(teamMembers.id, agent.teamId))
-					.limit(1);
-				const agentActualTeamId = tmRows[0]?.teamId ?? null;
+				const tmRow = await getTeamMembersById(db, agent.teamId);
+				const agentActualTeamId = tmRow?.teamId ?? null;
 				if (agentActualTeamId !== fs.teamId) {
 					return c.json(
 						{ error: "Agent team does not match filesystem team", code: "TEAM_MISMATCH" },

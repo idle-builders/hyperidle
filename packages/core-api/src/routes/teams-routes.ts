@@ -20,13 +20,23 @@
 
 import { deriveInitials, resolveAgentScaffoldSpecs } from "@hyperidle/agent-selection";
 import { getThreadById, insertMessage, insertThread } from "@hyperidle/conversation";
-import { type HyperIdleDb, sessions, teamMembers, teams } from "@hyperidle/db";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { enqueueNotification, findPendingByEventSubject } from "@hyperidle/notifications";
 import {
 	ApiError,
+	createTeam,
+	createTeamMembersGroup,
+	deleteTeamById,
+	deleteTeamMembersGroupById,
+	getTeamById,
+	getTeamByName,
+	getTeamMembersByTeamId,
+	listAllTeams,
 	loadTeamMembers,
 	persistScaffoldedAgents,
 	resolveTeamAgentHarness,
+	setTeamMembersLeadAgent,
+	updateTeamPhase,
 	upsertOrgEdge,
 } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
@@ -61,7 +71,7 @@ import {
 	updateUser,
 } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
@@ -181,16 +191,12 @@ export function createTeamRoutes(
 
 	// GET / — list all teams with portfolio counters
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allTeams = await db.select().from(teams);
+		const allTeams = await listAllTeams(db);
 
 		const result: TeamListItem[] = await Promise.all(
 			allTeams.map(async (team) => {
 				// Fetch the team_members for this team (may be missing — tolerate gracefully here)
-				const [memberGroup] = await db
-					.select()
-					.from(teamMembers)
-					.where(eq(teamMembers.teamId, team.id))
-					.limit(1);
+				const memberGroup = await getTeamMembersByTeamId(db, team.id);
 
 				// Count active and completed bets
 				const activeBetCount = await work.countBetsByTeamAndStatus(db, team.id, "active");
@@ -342,11 +348,7 @@ export function createTeamRoutes(
 		// AK6 strategy-swap test creates two teams with different names in one session.
 		// The "same-name" guard still prevents duplicate setup teams (same name = same
 		// team) while allowing the test to create a second team with a different name.
-		const [existingTeam] = await db
-			.select()
-			.from(teams)
-			.where(eq(teams.name, name.trim()))
-			.limit(1);
+		const existingTeam = await getTeamByName(db, name.trim());
 		if (existingTeam) {
 			return c.json(existingTeam, 200);
 		}
@@ -360,7 +362,7 @@ export function createTeamRoutes(
 		const teamId = `team-${crypto.randomUUID()}`;
 		const teamMembersId = `team-${crypto.randomUUID()}`;
 
-		await db.insert(teams).values({
+		await createTeam(db, {
 			id: teamId,
 			name: name.trim(),
 			phase: "build",
@@ -374,7 +376,7 @@ export function createTeamRoutes(
 			defaultModelProvider: primaryHarness?.modelProvider ?? null,
 		});
 
-		await db.insert(teamMembers).values({
+		await createTeamMembersGroup(db, {
 			id: teamMembersId,
 			teamId,
 			capacity: 5,
@@ -400,8 +402,8 @@ export function createTeamRoutes(
 		// catalog matches), reject with 400 — a team with no agents is invalid.
 		// Roll back the already-inserted team + teamMembers rows.
 		if (specs.length === 0) {
-			await db.delete(teamMembers).where(eq(teamMembers.id, teamMembersId));
-			await db.delete(teams).where(eq(teams.id, teamId));
+			await deleteTeamMembersGroupById(db, teamMembersId);
+			await deleteTeamById(db, teamId);
 			return c.json({ error: "Team functions produced no agents", code: "validation_error" }, 400);
 		}
 
@@ -417,7 +419,7 @@ export function createTeamRoutes(
 
 		// Set lead agent on team_members.
 		if (leadAgentId) {
-			await db.update(teamMembers).set({ leadAgentId }).where(eq(teamMembers.id, teamMembersId));
+			await setTeamMembersLeadAgent(db, teamMembersId, leadAgentId);
 		}
 
 		// AH4: upsert founder→team org edge (best-effort — failure must not 500 team creation).
@@ -472,10 +474,10 @@ export function createTeamRoutes(
 
 		// @lore AK6 T6: A post-emit await is needed so async event handlers
 		// (test spies that query the DB) complete before the response is sent.
-		// The `select` below is a no-op read that takes ~0ms but creates the
+		// The read below is a no-op read that takes ~0ms but creates the
 		// await boundary PGlite needs to resolve pending handler promises.
 		// Production handlers are sync — the overhead is one lightweight SELECT.
-		await db.select({ id: teams.id }).from(teams).where(eq(teams.id, teamId)).limit(1);
+		await getTeamById(db, teamId);
 
 		// AE2: seed welcome message in assistant thread when userId is provided.
 		// Best-effort: failure does not roll back team creation.
@@ -603,15 +605,11 @@ export function createTeamRoutes(
 		}
 
 		// Look up team + membership group
-		const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+		const team = await getTeamById(db, teamId);
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
-		const [memberGroup] = await db
-			.select()
-			.from(teamMembers)
-			.where(eq(teamMembers.teamId, teamId))
-			.limit(1);
+		const memberGroup = await getTeamMembersByTeamId(db, teamId);
 		if (!memberGroup) {
 			return c.json({ error: "Team membership group not found", code: "not_found" }, 404);
 		}
@@ -664,7 +662,7 @@ export function createTeamRoutes(
 	router.patch("/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
 		const teamId = c.req.param("teamId");
 
-		const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+		const team = await getTeamById(db, teamId);
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
@@ -680,7 +678,6 @@ export function createTeamRoutes(
 		// @lore U2: valid phases per shared/team.ts and docs/requirements.
 		// "shape" | "build" | "cool-down" | "live" | "archived"
 		const VALID_PHASES = ["shape", "build", "cool-down", "live", "archived"] as const;
-		type TeamPhase = (typeof VALID_PHASES)[number];
 		if (!(phase && (VALID_PHASES as readonly string[]).includes(phase))) {
 			return c.json(
 				{ error: `phase must be one of: ${VALID_PHASES.join(", ")}`, code: "validation_error" },
@@ -688,12 +685,9 @@ export function createTeamRoutes(
 			);
 		}
 
-		await db
-			.update(teams)
-			.set({ phase: phase as TeamPhase })
-			.where(eq(teams.id, teamId));
+		await updateTeamPhase(db, teamId, phase);
 
-		const [updated] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+		const updated = await getTeamById(db, teamId);
 		if (!updated) {
 			return c.json({ error: "Team not found after update", code: "internal_error" }, 500);
 		}
@@ -706,7 +700,7 @@ export function createTeamRoutes(
 		const teamId = c.req.param("teamId");
 
 		// 1. Look up the team
-		const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+		const team = await getTeamById(db, teamId);
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}

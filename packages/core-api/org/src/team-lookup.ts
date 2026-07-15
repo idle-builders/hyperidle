@@ -13,7 +13,7 @@
 
 import type { Team, TeamMember, WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, isNull, sql } from "drizzle-orm";
 
 export class ApiError extends Error {
 	constructor(
@@ -205,6 +205,47 @@ export async function listTeamsByIds(db: HyperIdleDb, ids: readonly string[]): P
 		.where(inArray(teams.id, Array.from(ids)));
 }
 
+/**
+ * List every `teams` row (unfiltered).
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
+ * closes `routes/settings.ts`'s `buildSettingsResponse` — the settings panel's
+ * team list has no filter (unlike `listTeamsByIds`, which is a batch id-keyed
+ * lookup for a page of bet results), so it needs its own unfiltered export
+ * rather than reusing that one with a contrived "all ids" call.
+ */
+export async function listAllTeams(db: HyperIdleDb): Promise<Team[]> {
+	return db.select().from(teams);
+}
+
+/** Row shape for {@link listActiveTeamMembersWithTeamNames}. */
+export interface ActiveTeamMembersWithTeamName {
+	readonly id: string;
+	readonly name: string;
+	readonly teamActualId: string;
+}
+
+/**
+ * List every non-dissolved `teamMembers` row joined to its `teams.name` —
+ * `{ id: teamMembers.id, name: teams.name, teamActualId: teams.id }`.
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
+ * closes `routes/org.ts`'s `GET /` org-chart response's team-select
+ * denormalization (AF15/AO1) — `teamMembers.id` is the value the UI submits
+ * for `mechanism:"team"` edges, `teams.name` is the label, `teams.id`
+ * (`teamActualId`) lets the UI fetch team-scoped resources keyed on the
+ * domain-entity id rather than the membership-group id.
+ */
+export async function listActiveTeamMembersWithTeamNames(
+	db: HyperIdleDb,
+): Promise<ActiveTeamMembersWithTeamName[]> {
+	return db
+		.select({ id: teamMembers.id, name: teams.name, teamActualId: teams.id })
+		.from(teamMembers)
+		.innerJoin(teams, eq(teams.id, teamMembers.teamId))
+		.where(isNull(teamMembers.dissolvedAt));
+}
+
 /** Input for {@link createTeam}. */
 export interface CreateTeamInput {
 	readonly id: string;
@@ -213,6 +254,30 @@ export interface CreateTeamInput {
 	readonly functions: string | null;
 	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
+	/**
+	 * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org`
+	 * sub-item): the AV1 primary-harness team-default triple, optional so
+	 * `tool-handlers`' `create-team.ts` (which never sets a primary harness at
+	 * creation) keeps its existing 6-field call unchanged — `routes/
+	 * teams-routes.ts`'s POST /teams passes all three explicitly (`?? null`).
+	 */
+	readonly defaultHarnessType?: string | null;
+	readonly defaultModelId?: string | null;
+	readonly defaultModelProvider?: string | null;
+}
+
+/**
+ * Read a single `teams` row by its exact (trimmed) `name`, or `undefined` if
+ * none exists.
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org`
+ * sub-item): closes `routes/teams-routes.ts`'s POST /teams idempotency guard
+ * (AF15 AC-4 — re-running setup with the same name returns the existing team
+ * rather than duplicating it).
+ */
+export async function getTeamByName(db: HyperIdleDb, name: string): Promise<Team | undefined> {
+	const [row] = await db.select().from(teams).where(eq(teams.name, name)).limit(1);
+	return row;
 }
 
 /**
@@ -261,4 +326,45 @@ export async function setTeamMembersLeadAgent(
 	leadAgentId: string,
 ): Promise<void> {
 	await db.update(teamMembers).set({ leadAgentId }).where(eq(teamMembers.id, teamMembersId));
+}
+
+/**
+ * Delete a single `teamMembers` row by its own `id`.
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
+ * closes `routes/teams-routes.ts`'s POST /teams AE2 AC-1h rollback path — when
+ * app-owned scaffolding produces zero agent specs, the already-inserted
+ * `teamMembers` + `teams` rows for the rejected team must be rolled back.
+ */
+export async function deleteTeamMembersGroupById(db: HyperIdleDb, id: string): Promise<void> {
+	await db.delete(teamMembers).where(eq(teamMembers.id, id));
+}
+
+/**
+ * Delete a single `teams` row by its own `id`.
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
+ * write-side counterpart to {@link deleteTeamMembersGroupById} — closes the
+ * same POST /teams rollback path's `teams` deletion.
+ */
+export async function deleteTeamById(db: HyperIdleDb, id: string): Promise<void> {
+	await db.delete(teams).where(eq(teams.id, id));
+}
+
+/**
+ * Set a `teams` row's `phase`.
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org`
+ * sub-item): closes `routes/teams-routes.ts`'s PATCH /:teamId phase-update
+ * write (P4 AC-18 — SettingsTeams active/archived toggle). `phase` is a plain
+ * `text` column (no Drizzle enum) — the route's own `VALID_PHASES` literal
+ * union is validated at the HTTP boundary, this function just persists the
+ * already-validated string.
+ */
+export async function updateTeamPhase(
+	db: HyperIdleDb,
+	teamId: string,
+	phase: string,
+): Promise<void> {
+	await db.update(teams).set({ phase }).where(eq(teams.id, teamId));
 }

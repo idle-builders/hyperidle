@@ -1,5 +1,5 @@
 import { deriveInitials } from "@hyperidle/agent-selection";
-import { type HyperIdleDb, teams } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	extractBuiltinKind,
 	isBuiltinRoutineId,
@@ -7,6 +7,7 @@ import {
 	type PostBetRetroArgs,
 	parseCron,
 } from "@hyperidle/dispatch";
+import { getTeamById } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import {
@@ -22,7 +23,6 @@ import {
 	type RoutineRunSummary,
 } from "@hyperidle/shared";
 import { getUserById } from "@hyperidle/users";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -93,7 +93,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			const body = c.req.valid("json" as never) as z.infer<typeof createRoutineSchema>;
 
 			// Verify teamId exists
-			const [team] = await db.select().from(teams).where(eq(teams.id, body.teamId)).limit(1);
+			const team = await getTeamById(db, body.teamId);
 			if (!team) {
 				return c.json({ error: "Team not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
@@ -210,7 +210,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const agentName = ownerUser?.name ?? routine.ownerAgentId;
 
 		// Resolve team name
-		const [teamRow] = await db.select().from(teams).where(eq(teams.id, routine.teamId)).limit(1);
+		const teamRow = await getTeamById(db, routine.teamId);
 		const teamName = teamRow?.name ?? routine.teamId;
 
 		// Fetch up to 20 runs (newest first). allRuns[0] is the latest run — no

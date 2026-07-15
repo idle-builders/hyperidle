@@ -24,6 +24,41 @@ import { type HyperIdleDb, orgEdges } from "@hyperidle/db";
 import type { OrgEdgeMechanism } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 
+/**
+ * List every `orgEdges` row (unfiltered).
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
+ * closes `routes/org.ts`'s `GET /` org-chart response, which used to
+ * `db.select().from(orgEdges)` directly.
+ */
+export async function listOrgEdges(db: HyperIdleDb): Promise<Array<typeof orgEdges.$inferSelect>> {
+	return db.select().from(orgEdges);
+}
+
+/**
+ * Read a single `orgEdges` row by its own `id`, or `undefined` if none exists.
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
+ * closes `routes/org.ts`'s `DELETE /edges/:id` existence check.
+ */
+export async function getOrgEdgeById(
+	db: HyperIdleDb,
+	id: string,
+): Promise<typeof orgEdges.$inferSelect | undefined> {
+	const [row] = await db.select().from(orgEdges).where(eq(orgEdges.id, id)).limit(1);
+	return row;
+}
+
+/**
+ * Delete a single `orgEdges` row by its own `id`.
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
+ * closes `routes/org.ts`'s `DELETE /edges/:id` write.
+ */
+export async function deleteOrgEdgeById(db: HyperIdleDb, id: string): Promise<void> {
+	await db.delete(orgEdges).where(eq(orgEdges.id, id));
+}
+
 export interface UpsertOrgEdgeInput {
 	fromUserId: string;
 	mechanism: OrgEdgeMechanism;

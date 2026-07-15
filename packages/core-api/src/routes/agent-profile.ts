@@ -19,7 +19,8 @@
  * columns. Honest over fabricated.
  */
 
-import { sessions, teamMembers, teams } from "@hyperidle/db";
+import { sessions } from "@hyperidle/db";
+import { getTeamById, getTeamMembersById } from "@hyperidle/org";
 import type {
 	AgentActiveSession,
 	AgentHarnessCapabilities,
@@ -229,14 +230,10 @@ export async function handleAgentProfile(
 	let teamName: string | null = null;
 	let resolvedTeamId: string | null = null;
 	if (agent.teamId) {
-		const [tmRow] = await db
-			.select({ teamName: teams.name, teamId: teams.id })
-			.from(teamMembers)
-			.innerJoin(teams, eq(teamMembers.teamId, teams.id))
-			.where(eq(teamMembers.id, agent.teamId))
-			.limit(1);
-		teamName = tmRow?.teamName ?? null;
-		resolvedTeamId = tmRow?.teamId ?? null;
+		const teamMembersRow = await getTeamMembersById(db, agent.teamId);
+		const team = teamMembersRow ? await getTeamById(db, teamMembersRow.teamId) : undefined;
+		teamName = team?.name ?? null;
+		resolvedTeamId = team?.id ?? null;
 	}
 
 	// 3. Fetch all sessions for this agent (needed for active check + recent + performance + health)

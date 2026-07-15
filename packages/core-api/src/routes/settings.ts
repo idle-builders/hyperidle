@@ -20,7 +20,8 @@
  * @lore U1: `products` table reference -> `teams`. `mutedProducts` -> `mutedTeams`.
  */
 
-import { type HyperIdleDb, teams } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { listAllTeams } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
 import { getFirstUserByKind, listUsersByKind } from "@hyperidle/users";
@@ -125,7 +126,7 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 	const serverCfg = await readServerConfig(db);
 
 	// Teams — active derived from phase !== "archived"
-	const teamRows = await db.select().from(teams);
+	const teamRows = await listAllTeams(db);
 	// AI Users — paused derived from status === "paused" (kind = 'ai' for the agents panel)
 	const aiUserRows = await listUsersByKind(db, "ai");
 

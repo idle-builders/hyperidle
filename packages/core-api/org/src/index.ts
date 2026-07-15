@@ -49,7 +49,7 @@
 
 // -- org edges (AH4) --
 export type { UpsertOrgEdgeInput } from "./org-edges.js";
-export { upsertOrgEdge } from "./org-edges.js";
+export { deleteOrgEdgeById, getOrgEdgeById, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
 
 // -- org routing (P2 — review recipient resolution) --
 export type { ReviewRoutingContext } from "./org-routing.js";
@@ -71,6 +71,7 @@ export { resolveTeamAgentHarness } from "./team-default-harness.js";
 
 // -- team lookup (L13 — 1:1 Team=TeamMembers invariant) --
 export type {
+	ActiveTeamMembersWithTeamName,
 	CreateTeamInput,
 	CreateTeamMembersGroupInput,
 } from "./team-lookup.js";
@@ -78,14 +79,20 @@ export {
 	ApiError,
 	createTeam,
 	createTeamMembersGroup,
+	deleteTeamById,
+	deleteTeamMembersGroupById,
 	getTeamById,
+	getTeamByName,
 	getTeamMembersById,
 	getTeamMembersByTeamId,
 	incrementTeamMembersCost,
+	listActiveTeamMembersWithTeamNames,
+	listAllTeams,
 	listTeamsByIds,
 	loadTeamMembers,
 	resetAllTeamMembersCost,
 	resetTeamMembersCost,
 	setTeamMembersActiveBets,
 	setTeamMembersLeadAgent,
+	updateTeamPhase,
 } from "./team-lookup.js";
