@@ -86,6 +86,45 @@ export async function findProposedCallWithOutcomeByReviewMessageId(
 }
 
 /**
+ * Load the raw Proposed Call row anchored to a review message (no join).
+ * Mirrors `routes/threads.ts`'s (pre-migration) inline verdict-path query
+ * exactly (same columns, same `.limit(1)`).
+ *
+ * @lore AU19 Increment 5 item 4 (review sub-item, full-sweep): added to
+ * repoint `routes/threads.ts`'s verdict handler off its raw `proposedCalls`
+ * select — the verdict path needs the FULL row (`toolId`/`args`/`artifactId`/
+ * `identityHash`), unlike `findProposedCallWithOutcomeByReviewMessageId`
+ * (which is a narrower, joined projection for the `GET /api/reviews/:id`
+ * read path).
+ */
+export async function findProposedCallByReviewMessageId(
+	db: HyperIdleDb,
+	reviewMessageId: string,
+): Promise<ProposedCall | undefined> {
+	const [row] = await db
+		.select()
+		.from(proposedCalls)
+		.where(eq(proposedCalls.reviewMessageId, reviewMessageId))
+		.limit(1);
+	return row;
+}
+
+/**
+ * Hold a Proposed Call (never executed) — transitions `status: "held"`.
+ * Used on a non-approve verdict decision.
+ *
+ * @lore AU19 Increment 5 item 4 (review sub-item, full-sweep): added to
+ * repoint `routes/threads.ts`'s verdict handler off its raw `proposedCalls`
+ * update.
+ */
+export async function holdProposedCall(db: HyperIdleDb, proposedCallId: string): Promise<void> {
+	await db
+		.update(proposedCalls)
+		.set({ status: "held" })
+		.where(eq(proposedCalls.id, proposedCallId));
+}
+
+/**
  * A granted Proposed Call joined with its Tailored Grant, by Proposed Call
  * id. Mirrors `agent-work-intent-worker.ts`'s (pre-migration) inline query
  * exactly (same INNER JOIN, same `.limit(1)`).

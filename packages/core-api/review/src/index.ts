@@ -27,6 +27,14 @@
  * surfaced the real ownership call: `work` owns it (`riskTier` moved off
  * `tasks`, which `work` owns). `review` now reads it through the
  * `TaskRiskTierReader` DI port instead of direct table access.
+ *
+ * @lore AU19 Increment 5 item 4 (review sub-item, full-sweep): widening
+ * `table-ownership-guard.ts`'s scan surfaced one real raw accessor the
+ * original Increment 1j migration missed — `routes/threads.ts`'s verdict
+ * handler (`POST /api/threads/:id/verdict`) still selected/updated
+ * `proposedCalls` directly. Added `findProposedCallByReviewMessageId`/
+ * `holdProposedCall` to close it — same pattern as the `work` sub-item's
+ * `routes/threads.ts` fix (`work.getArtifactById`).
  */
 
 // -- ports (Mechanism C — DI-injected outbound edges) --
@@ -74,8 +82,10 @@ export {
 	composeTailoredGrant,
 	consumeTailoredGrant,
 	findGrantedProposedCall,
+	findProposedCallByReviewMessageId,
 	findProposedCallWithOutcomeByReviewMessageId,
 	handleUnconsumedGrantOnSessionEnd,
+	holdProposedCall,
 	recordOutcome,
 } from "./proposed-call-workflow.js";
 // -- review-item-factory (attention-engine knowledge-review items) --

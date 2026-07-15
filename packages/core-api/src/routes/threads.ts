@@ -31,11 +31,14 @@ import {
 	type Thread as DbThread,
 	escapeLikePattern,
 	type HyperIdleDb,
-	proposedCalls,
 	sessions,
 } from "@hyperidle/db";
 import { findById as findKnowledgeItemById, listTitlesByIds } from "@hyperidle/knowledge";
-import { composeTailoredGrant } from "@hyperidle/review";
+import {
+	composeTailoredGrant,
+	findProposedCallByReviewMessageId,
+	holdProposedCall,
+} from "@hyperidle/review";
 import type {
 	AgentOperationalStatus,
 	AgentWorkIntentRecorder,
@@ -1361,11 +1364,7 @@ export function createThreadRoutes(
 			if (writeDenial) return writeDenial;
 
 			// Find the Proposed Call anchored to this review message
-			const [pc] = await db
-				.select()
-				.from(proposedCalls)
-				.where(eq(proposedCalls.reviewMessageId, messageId))
-				.limit(1);
+			const pc = await findProposedCallByReviewMessageId(db, messageId);
 
 			if (!pc) {
 				// No PC anchored to this review message — verdict accepted but nothing to do
@@ -1410,7 +1409,7 @@ export function createThreadRoutes(
 				eventBus.emit(event);
 			} else {
 				// Non-approve: hold the Proposed Call (never executed)
-				await db.update(proposedCalls).set({ status: "held" }).where(eq(proposedCalls.id, pc.id));
+				await holdProposedCall(db, pc.id);
 			}
 
 			return c.json({ ok: true }, 200);
