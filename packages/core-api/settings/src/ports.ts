@@ -30,11 +30,18 @@
  * exports (`credential-store.ts`, added this Increment specifically to give
  * the store port a real target) — no more interim indirection, same closure
  * shape as `users`' Inc-1d closure of `work`'s `UserStoreReader`/`org`'s
- * `OrgUserDirectory`. `ServiceConnectionsReader` (below) deliberately stays
- * INTERIM — this Increment's explicit scope named only the credential-
- * cipher/store pair for `settings`+`notifications`, not the
- * `serviceConnections`-table reader; its raw-table wiring in
- * `packages/server` is legal (unguarded) and carried forward.
+ * `OrgUserDirectory`. `ServiceConnectionsReader` (below) deliberately stayed
+ * INTERIM at this Increment — this Increment's explicit scope named only the
+ * credential-cipher/store pair for `settings`+`notifications`, not the
+ * `serviceConnections`-table reader.
+ *
+ * @lore AU19 Increment 5 item 4 (connections sub-item, guard-retirement
+ * full-sweep) — `ServiceConnectionsReader` is now CLOSED: `server-factory.ts`
+ * wires it directly to `@hyperidle/connections`' real
+ * `listServiceConnectionsByAuthSource` export instead of the raw inline
+ * `db.select().from(serviceConnections).where(...)` query — same closure
+ * shape as `RoutineReader`/`SettingsCredentialCipher`/`SettingsCredentialStore`
+ * above. No port shape change (`listByAuthSource` unchanged).
  *
  * @lore AU19 Increment 1f — `SettingsUserDirectory` (→ `users`, already a REAL
  * migrated package) is wired directly to `@hyperidle/users`' real exported
@@ -71,11 +78,11 @@
  * `serverCredentials` (read + insert, for the AH1 one-shot credential
  * migration) — both real `connections`-owned tables per architecture §4
  * (`connections | server_credentials, service_connections`) — became the
- * `ServiceConnectionsReader`/`SettingsCredentialStore` ports below (originally
- * the same INTERIM treatment `RoutineReader` still has; `SettingsCredentialStore`
- * CLOSED in Increment 1h, see this file's top-level `@lore` — only
- * `ServiceConnectionsReader` remains interim). Per ground-rule #10, this is
- * the census staying "a floor, refinable during migration" — not scope creep.
+ * `ServiceConnectionsReader`/`SettingsCredentialStore` ports below
+ * (`SettingsCredentialStore` CLOSED in Increment 1h, `ServiceConnectionsReader`
+ * CLOSED in Increment 5 item 4 — see this file's top-level `@lore`). Per
+ * ground-rule #10, this is the census staying "a floor, refinable during
+ * migration" — not scope creep.
  *
  * `userSkills` (read, for per-agent skill/autonomy seeds) is DIFFERENT: it
  * has NO single owner named anywhere in architecture §4's roster, and is
@@ -133,14 +140,16 @@ export interface SettingsCredentialCipher {
 }
 
 // ---------------------------------------------------------------------------
-// connections — ServiceConnectionsReader (interim, ordinary downward core-api edge)
+// connections — ServiceConnectionsReader (CLOSED Increment 5 item 4, ordinary downward core-api edge)
 // ---------------------------------------------------------------------------
 
 /**
  * Port for `connections`' `serviceConnections` read surface `settings` calls
- * directly today (the raw `db.select().from(serviceConnections).where(...)`
- * inline in `backfillLegacyConfigurationDefaults`, table-ownership-guard
- * completeness finding — see this file's top-level `@lore`).
+ * (`backfillLegacyConfigurationDefaults`'s MCP-server config seed) — wired to
+ * `@hyperidle/connections`' real `listServiceConnectionsByAuthSource` export
+ * since Increment 5 item 4 (originally a raw inline query, a
+ * table-ownership-guard completeness finding — see this file's top-level
+ * `@lore`).
  */
 export interface ServiceConnectionsReader {
 	listByAuthSource(db: HyperIdleDb, authSource: string): Promise<ServiceConnectionRow[]>;

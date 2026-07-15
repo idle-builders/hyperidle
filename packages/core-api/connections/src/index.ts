@@ -44,7 +44,11 @@ export {
 	deleteCredentialByName,
 	findCredentialByName,
 	insertCredential,
+	listAllCredentials,
 	type ServerCredentialWriteValues,
+	type SetCredentialValueInput,
+	setCredentialValue,
+	updateCredentialValidationState,
 	upsertCredential,
 } from "./credential-store.js";
 // -- DI ports (Mechanism C) --
@@ -53,3 +57,13 @@ export type { ConnectionsUserReader } from "./ports.js";
 export { projectInheritedConnections } from "./service-connection-projection.js";
 // -- service connection resolver (AN1 — per-user plaintext token resolver) --
 export { ServiceConnectionResolver } from "./service-connection-resolver.js";
+// -- service connection store (service_connections CRUD — closes routes/connections.ts + settings' ServiceConnectionsReader) --
+export {
+	deleteServiceConnectionForUser,
+	getServiceConnectionById,
+	getServiceConnectionByIdForUser,
+	insertServiceConnection,
+	listServiceConnectionsByAuthSource,
+	listServiceConnectionsByUserId,
+	updateServiceConnectionHealth,
+} from "./service-connection-store.js";

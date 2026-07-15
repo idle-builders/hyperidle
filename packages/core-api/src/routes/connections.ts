@@ -21,14 +21,20 @@
  */
 
 import {
+	decryptCredentialValue,
+	deleteServiceConnectionForUser,
 	encryptCredentialValue,
+	getServiceConnectionById,
+	getServiceConnectionByIdForUser,
+	insertServiceConnection,
+	listServiceConnectionsByUserId,
 	projectInheritedConnections,
 	requireServerSecret,
+	updateServiceConnectionHealth,
 } from "@hyperidle/connections";
-import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/shared";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/shared/net";
-import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -193,10 +199,7 @@ export function createConnectionRoutes(
 		const userId = c.get("userId");
 
 		// Held connections from DB
-		const rows = await db
-			.select()
-			.from(serviceConnections)
-			.where(eq(serviceConnections.userId, userId));
+		const rows = await listServiceConnectionsByUserId(db, userId);
 
 		const storedViews = rows.map(rowToView);
 
@@ -253,7 +256,7 @@ export function createConnectionRoutes(
 			const encryptedToken = encryptCredentialValue(body.token, serverSecret);
 
 			try {
-				await db.insert(serviceConnections).values({
+				await insertServiceConnection(db, {
 					id,
 					userId,
 					service: body.service,
@@ -277,7 +280,7 @@ export function createConnectionRoutes(
 			const service = body.service ?? deriveServiceFromUrl(body.serverUrl);
 
 			try {
-				await db.insert(serviceConnections).values({
+				await insertServiceConnection(db, {
 					id,
 					userId,
 					service,
@@ -298,11 +301,7 @@ export function createConnectionRoutes(
 		}
 
 		// Return the view (no secret)
-		const [row] = await db
-			.select()
-			.from(serviceConnections)
-			.where(eq(serviceConnections.id, id))
-			.limit(1);
+		const row = await getServiceConnectionById(db, id);
 
 		if (!row) {
 			return c.json({ error: "Failed to retrieve created connection" }, 500);
@@ -332,19 +331,13 @@ export function createConnectionRoutes(
 		}
 
 		// SELECT first (userId-scoped) to confirm ownership before deleting
-		const [existing] = await db
-			.select({ id: serviceConnections.id })
-			.from(serviceConnections)
-			.where(and(eq(serviceConnections.id, id), eq(serviceConnections.userId, userId)))
-			.limit(1);
+		const existing = await getServiceConnectionByIdForUser(db, id, userId);
 
 		if (!existing) {
 			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
 		}
 
-		await db
-			.delete(serviceConnections)
-			.where(and(eq(serviceConnections.id, id), eq(serviceConnections.userId, userId)));
+		await deleteServiceConnectionForUser(db, id, userId);
 
 		return c.body(null, 204);
 	});
@@ -370,11 +363,7 @@ export function createConnectionRoutes(
 			const userId = c.get("userId");
 			const id = c.req.param("id");
 
-			const [row] = await db
-				.select()
-				.from(serviceConnections)
-				.where(and(eq(serviceConnections.id, id), eq(serviceConnections.userId, userId)))
-				.limit(1);
+			const row = await getServiceConnectionByIdForUser(db, id, userId);
 
 			if (!row) {
 				return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
@@ -396,7 +385,6 @@ export function createConnectionRoutes(
 					if (!serverSecret) {
 						health = "needs-attention";
 					} else {
-						const { decryptCredentialValue } = await import("@hyperidle/connections");
 						const plaintext = decryptCredentialValue(row.encryptedToken, serverSecret);
 						health = plaintext ? "working" : "needs-attention";
 					}
@@ -415,10 +403,7 @@ export function createConnectionRoutes(
 			}
 
 			const now = new Date().toISOString();
-			await db
-				.update(serviceConnections)
-				.set({ health, lastValidatedAt: now, updatedAt: now })
-				.where(eq(serviceConnections.id, id));
+			await updateServiceConnectionHealth(db, id, { health, lastValidatedAt: now, updatedAt: now });
 
 			return c.json({ health });
 		},

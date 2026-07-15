@@ -11,14 +11,18 @@
 
 import {
 	decryptCredentialValue,
+	deleteCredentialByName,
 	encryptCredentialValue,
+	findCredentialByName,
+	listAllCredentials,
 	requireServerSecret,
+	setCredentialValue,
+	updateCredentialValidationState,
 } from "@hyperidle/connections";
-import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { readServerConfig } from "@hyperidle/settings";
 import type { CredentialName, CredentialState } from "@hyperidle/shared";
 import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -179,7 +183,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 	/** GET /api/credentials — list all catalog entries with state */
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const rows = await db.select().from(serverCredentials);
+		const rows = await listAllCredentials(db);
 		const rowMap = new Map(rows.map((r) => [r.name, r]));
 
 		const response: CredentialStatusResponse[] = CREDENTIAL_CATALOG.map((entry) =>
@@ -230,38 +234,11 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const encryptedValue = encryptCredentialValue(value, serverSecret);
 		const now = new Date().toISOString();
 
-		// Upsert: update if exists, insert if not
-		const [existing] = await db
-			.select()
-			.from(serverCredentials)
-			.where(eq(serverCredentials.name, name))
-			.limit(1);
+		// Upsert: resets validationState to "present_untested" + clears
+		// lastValidatedAt on every write (a new value has never been re-validated).
+		await setCredentialValue(db, { name, encryptedValue, updatedAt: now });
 
-		if (existing) {
-			await db
-				.update(serverCredentials)
-				.set({
-					encryptedValue,
-					validationState: "present_untested",
-					lastValidatedAt: null,
-					updatedAt: now,
-				})
-				.where(eq(serverCredentials.name, name));
-		} else {
-			await db.insert(serverCredentials).values({
-				name,
-				encryptedValue,
-				validationState: "present_untested",
-				lastValidatedAt: null,
-				updatedAt: now,
-			});
-		}
-
-		const [row] = await db
-			.select()
-			.from(serverCredentials)
-			.where(eq(serverCredentials.name, name))
-			.limit(1);
+		const row = await findCredentialByName(db, name);
 
 		return c.json(buildStatusResponse(name, row));
 	});
@@ -273,7 +250,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
 		}
 
-		await db.delete(serverCredentials).where(eq(serverCredentials.name, name));
+		await deleteCredentialByName(db, name);
 
 		return c.body(null, 204);
 	});
@@ -290,11 +267,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			}
 
 			// Check if credential exists
-			const [row] = await db
-				.select()
-				.from(serverCredentials)
-				.where(eq(serverCredentials.name, name))
-				.limit(1);
+			const row = await findCredentialByName(db, name);
 
 			if (!row) {
 				return c.json({ valid: false, error: "Credential not set" }, 200);
@@ -392,10 +365,11 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			const now = new Date().toISOString();
 			const newState: CredentialState = validationResult.valid ? "valid" : "invalid";
 
-			await db
-				.update(serverCredentials)
-				.set({ validationState: newState, lastValidatedAt: now, updatedAt: now })
-				.where(eq(serverCredentials.name, name));
+			await updateCredentialValidationState(db, name, {
+				validationState: newState,
+				lastValidatedAt: now,
+				updatedAt: now,
+			});
 
 			// Response MUST NOT include the raw value
 			const result: { valid: boolean; error?: string } = { valid: validationResult.valid };

@@ -13,6 +13,7 @@ import {
 	findCredentialByName,
 	getServerSecret,
 	insertCredential,
+	listServiceConnectionsByAuthSource,
 	upsertCredential,
 } from "@hyperidle/connections";
 import {
@@ -31,7 +32,6 @@ import {
 	type DbHandle,
 	type HyperIdleDb,
 	resolveProfile,
-	serviceConnections,
 } from "@hyperidle/db";
 import type { AssistantTurnDeps, TaskDispatcherDeps } from "@hyperidle/dispatch";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
@@ -115,7 +115,6 @@ import {
 	updateItemById,
 	updateTaskById,
 } from "@hyperidle/work";
-import { eq } from "drizzle-orm";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
@@ -661,27 +660,20 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// model on production boot. This keeps registered tools, builtin harness
 	// metadata, and legacy rows queryable through the new resolver without moving
 	// runtime ownership away from existing services.
-	// @lore AU19 Increment 1f/1i: `settings`' `RoutineReader`/`SettingsUserDirectory`/
+	// @lore AU19 Increment 1f/1i + Increment 5 item 4 (connections sub-item):
+	// `settings`' `RoutineReader`/`SettingsUserDirectory`/
 	// `ServiceConnectionsReader` ports (Mechanism C) wired here — `users` to
 	// the real `@hyperidle/users` exports (already migrated), `routine` to
 	// `@hyperidle/routine`'s real `listRoutines` export (closed Increment 1i —
-	// no more interim `routine-service.ts` indirection). `serviceConnections`
-	// stays a raw table query — `connections` migrated in Increment 1h, but
-	// that Increment's explicit scope closed only the credential-cipher/store
-	// pair, not this reader (see `@hyperidle/settings`' `ports.ts`); carried
-	// forward. All ordinary downward core-api→core-api edges, zero behavior
-	// change.
+	// no more interim `routine-service.ts` indirection), `serviceConnections`
+	// to `@hyperidle/connections`' real `listServiceConnectionsByAuthSource`
+	// export (closes the Increment 1h `ServiceConnectionsReader` interim —
+	// see `@hyperidle/settings`' `ports.ts`). All ordinary downward
+	// core-api→core-api edges, zero behavior change.
 	await projectProductionConfigurationDefaults(db, {
 		users: { listUsersByKind },
 		routines: { listRoutines },
-		serviceConnections: {
-			listByAuthSource(execDb, authSource) {
-				return execDb
-					.select()
-					.from(serviceConnections)
-					.where(eq(serviceConnections.authSource, authSource));
-			},
-		},
+		serviceConnections: { listByAuthSource: listServiceConnectionsByAuthSource },
 	});
 	// @lore AU19 Increment 5 (item 2): `adapterPool`/`workspaceAdapter` are now
 	// REQUIRED, Application-supplied deps (see `CreateServerDeps`'s top `@lore`)
