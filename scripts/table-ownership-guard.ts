@@ -1,7 +1,8 @@
 #!/usr/bin/env tsx
 /**
  * AU19 Mechanism A — Table ACL. ONE general, map-driven guard that replaces the
- * nine hand-typed `au10`…`au18` per-domain scripts (retired in Increment 5).
+ * legacy hand-typed `au10`…`au18` per-domain scripts (retired in Increment 5,
+ * commit following this one).
  *
  * Two tiers (architecture §7.1):
  *  1. Barrel discipline — a nested Service barrel (`packages/<layer>/<service>/
@@ -19,15 +20,33 @@
  *     nested package with no `TABLE_OWNER` row → FAIL (forces the map to stay
  *     complete as Services migrate).
  *
- * @lore AU19 Increment 0 scope: the ACL/completeness tiers scan the NEW nested
- * Service packages (`packages/<layer>/<service>/`) only — `packages/server` stays
- * guarded by the legacy `au*` scripts until Increment 5, when every owner package
- * exists and this guard replaces them repo-wide in one edit. Barrel discipline +
- * `--fixtures` prove all failure modes now, including the W2 checkpoint-review
- * gaps (fe48f126): `export * from "@hyperidle/db"` and namespace-import
+ * @lore AU19 Increment 0 scope (SUPERSEDED, kept for history): the ACL/
+ * completeness tiers originally scanned the NEW nested Service packages
+ * (`packages/<layer>/<service>/`) only — `packages/server` stayed guarded by
+ * the legacy `au*` scripts until Increment 5. Barrel discipline + `--fixtures`
+ * prove all failure modes now, including the W2 checkpoint-review gaps
+ * (fe48f126): `export * from "@hyperidle/db"` and namespace-import
  * (`import * as db`) evasions of both tiers. Test files are exempt from the
  * ACL (they legitimately seed tables). The full `@hyperidle/db` barrel exports every
  * table to everyone, so this guard — not barrel discipline alone — is load-bearing.
+ *
+ * @lore AU19 Increment 5 item 4 scan-widening (this commit): `packages/server`
+ * was dissolved into `@hyperidle/core-api` (commit cee027ab) — its former
+ * routes/middleware/auth/schemas/services now live flat under
+ * `packages/core-api/src/`, core-api's OWN src, not a further-nested
+ * `packages/<layer>/<service>/` package with its own `package.json`. `inspect()`
+ * now ALSO Tier-2-scans `packages/core-api/src/` directly (Tier 1 barrel
+ * discipline doesn't apply — `core-api` itself owns zero tables, every
+ * `TABLE_OWNER` row points at one of its nested Service subpackages). This is
+ * what finally closes every deferred direct-table-access site this WP carried
+ * forward from `packages/server` (`teamMembers`/`teams` in the old
+ * routes/tools, etc. — architecture.md §12 Increment 5). Verified clean on the
+ * real repo: every real site was already converted during the org/knowledge/
+ * work/connections/review/session-requests/hintProgress sub-items, which
+ * manually widened their grep scope to `packages/core-api/src` ahead of this
+ * mechanical scan-widening landing; a deliberate sanity-break (a raw
+ * `teamMembers` accessor re-added to `routes/bets.ts`) proved the widened
+ * scan genuinely fails before being reverted.
  */
 import {
 	existsSync,
@@ -585,6 +604,22 @@ export function inspect(root: string): Finding[] {
 			findings.push(...checkAccess(root, abs, tables));
 		}
 	}
+	// AU19 Increment 5 item 4 scan-widening: `packages/core-api/src` is the
+	// former `packages/server` composition root (routes/middleware/auth/
+	// schemas/services, dissolved into `core-api` in Increment 5 item 2,
+	// commit cee027ab) — it is core-api's OWN `src/`, not a further-nested
+	// `packages/<layer>/<service>/` package with its own `package.json`, so
+	// `nestedServiceRoots()` structurally never walks into it. `core-api`
+	// itself owns zero tables (every TABLE_OWNER row points at one of its
+	// nested Service subpackages), so only Tier 2 (ownership ACL +
+	// completeness) applies here — there is no barrel for Tier 1 to check.
+	// This is what finally closes every deferred direct-table-access site
+	// this WP carried forward from `packages/server` (teamMembers/teams in
+	// the old routes/tools, etc.) per architecture.md §12 Increment 5.
+	const coreApiSrc = join(root, "packages/core-api/src");
+	for (const abs of collectSourceFiles(coreApiSrc)) {
+		findings.push(...checkAccess(root, abs, tables));
+	}
 	return findings;
 }
 
@@ -654,12 +689,23 @@ function fixtureCheck(): void {
 			"packages/agent-orchestration/context-assembly/src/sessions-ok.ts",
 			'import { sessions } from "@hyperidle/db"; export const q = (db: any) => db.select().from(sessions);',
 		);
+		// AU19 Increment 5 item 4 scan-widening: `packages/core-api/src` is
+		// core-api's OWN src (the former `packages/server` composition root),
+		// not a further-nested `packages/<layer>/<service>/` package — a raw
+		// accessor there must still be caught as a foreign ACL violation
+		// against `knowledge`'s real TABLE_OWNER row.
+		writeFixture(
+			root,
+			"packages/core-api/src/routes/leak.ts",
+			'import { knowledgeItems } from "@hyperidle/db"; export const q = (db: any) => db.select().from(knowledgeItems);',
+		);
 		const findings = inspect(root);
-		// leak.ts: 1 (foreign .from) + 1 (value import) = 2; orders.ts: 1 + 1 = 2 → 4 total.
+		// leak.ts (nested): 1 (foreign .from) + 1 (value import) = 2;
+		// orders.ts: 1 + 1 = 2; routes/leak.ts (core-api/src): 1 + 1 = 2 → 6 total.
 		// sessions-ok.ts contributes 0 (UNOWNED_SHARED_TABLES exemption).
-		if (findings.length !== 4) {
+		if (findings.length !== 6) {
 			throw new Error(
-				`table-ownership-guard: expected 4 findings (foreign access + import + 2 completeness), got ${findings.length}: ${JSON.stringify(findings)}`,
+				`table-ownership-guard: expected 6 findings (2x foreign access+import across two nested/core-api-src leaks + 2 completeness), got ${findings.length}: ${JSON.stringify(findings)}`,
 			);
 		}
 	} finally {

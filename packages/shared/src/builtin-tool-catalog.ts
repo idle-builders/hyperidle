@@ -34,8 +34,13 @@ export interface ToolCatalogEntry {
  * depend *down* onto this one pure-data source, instead of config depending
  * upward on execution.
  *
- * Zero import of `tool-registry.ts` or any `./tools/*` handler module — enforced
- * by `scripts/au10-plugin-config-ownership-guard.ts` (wired into `npm run lint`).
+ * Zero import of `tool-registry.ts` or any `./tools/*` handler module —
+ * originally enforced by `scripts/au10-plugin-config-ownership-guard.ts`
+ * (retired AU19 Increment 5 item 4: vacuous once `plugin-configuration.ts`
+ * moved into the real `@hyperidle/settings` Service package, where
+ * `scripts/composition-boundary-guard.ts`'s Mechanism C now bans importing
+ * ANY other Service package — a strictly stricter guarantee than au10's
+ * denylist ever gave).
  *
  * Kept in sync with `ALL_TOOL_DEFINITIONS` by
  * `tools/__tests__/builtin-tool-catalog-consistency.test.ts` — a name-set +

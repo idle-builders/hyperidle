@@ -8,16 +8,18 @@
  * metadata, capability descriptors, and discovery refresh. No execution,
  * selection, or registration surface — see `HarnessCapabilityReader` below.
  *
- * @lore AU16: replaces the hand-verified DESCRIPTOR_READ_ALLOWLIST in
- * scripts/au11-runtime-ownership-guard.ts. Two independent facts now hold:
- * (1) the guard enforces the import boundary — no core route imports
- * `harness/`/`mcp/` (this file is the only sanctioned core→agent edge for
- * capability reads); (2) `HarnessCapabilityReader` is a `Pick`-narrowed view
- * of `AdapterPool` that structurally omits every execution/selection/
- * registration/lifecycle method — a route holding this handle type cannot
- * name `select()`/`register()`/`unregister()`/etc. regardless of how many
- * forwarders exist. See scripts/au11-runtime-ownership-guard.ts's AU16 doc
- * comment for the guard-side half of this guarantee.
+ * @lore AU16: replaces the hand-verified DESCRIPTOR_READ_ALLOWLIST originally
+ * in `scripts/au11-runtime-ownership-guard.ts` (retired AU19 Increment 5 item
+ * 4: vacuous once `packages/server` was dissolved — the guard's own scan root
+ * no longer existed). Two independent facts now hold: (1) the import boundary
+ * is enforced by `scripts/execution-boundary-guard.ts` (Mechanism B) — no
+ * `core-api` file imports `harness-registry`/`mcp-provider` raw (this file is
+ * the only sanctioned core→agent edge for capability reads); (2)
+ * `HarnessCapabilityReader` is a `Pick`-narrowed view of `AdapterPool` that
+ * structurally omits every execution/selection/registration/lifecycle
+ * method — a route holding this handle type cannot name
+ * `select()`/`register()`/`unregister()`/etc. regardless of how many
+ * forwarders exist.
  *
  * @lore AU19 Increment 4 (§6 finding resolution): architecture.md §6 flagged
  * "if it reads a DB table it violates zero-DB-execution → then it splits:

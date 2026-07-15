@@ -1,9 +1,12 @@
 /**
  * @lore AU18: the single repository owning every `notificationQueue` read
  * AND write. This is the AU14 pattern (`knowledge-repository.ts`): one
- * file, zero allowlist, everyone else calls it. Enforced repo-wide by
- * `scripts/au18-notification-ownership-guard.ts` — the ONLY other legal
- * reference site is this module's own `*.test.ts`.
+ * file, zero allowlist, everyone else calls it. Originally enforced
+ * repo-wide by `scripts/au18-notification-ownership-guard.ts` (retired AU19
+ * Increment 5 item 4: vacuous once `packages/server` was dissolved — its own
+ * scan root no longer existed); now enforced by `scripts/table-ownership-
+ * guard.ts`'s `TABLE_OWNER` map + widened `packages/core-api/src` scan — the
+ * ONLY other legal reference site is this module's own `*.test.ts`.
  *
  * `dispatcher.ts` keeps its orchestration logic (flood cap eviction,
  * lease flush loop, adapter calls, silence/quiet-hours routing) — it
