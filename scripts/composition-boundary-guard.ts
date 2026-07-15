@@ -26,6 +26,24 @@
  * (1). Check (2) — mirroring execution-boundary-guard's own source-import scan —
  * is the real source-of-truth enforcer; `--fixtures` proves both the declared and
  * the undeclared path.
+ *
+ * @lore AU19 Increment 5 (core-ui boundary, item 1/6): `packages/web` IS the
+ * `core-ui` Layer package (§4, undecomposed — no nested Services this WP), so
+ * it doesn't fit `serviceRoots()`'s nested-package shape above. A THIRD check,
+ * `inspectCoreUiLayer`, generalizes Mechanism C to the Layer grain: `packages/
+ * web/src/**` may only import the sanctioned composition surface (`@hyperidle/
+ * server` — still the composition root pending Increment 5's own Application-
+ * bootstrap item — `@hyperidle/core-api`, plus the universal `@hyperidle/shared`
+ * + `@hyperidle/design-system` leaves), not an individual Service package or an
+ * agent-orchestration/agent-execution internal directly. Deliberately scoped to
+ * `src/**` only, source-import-only (no manifest check): `packages/web/scripts/*`
+ * (the ah1/ah5/ah6 e2e test-server bootstraps) already deep-import `@hyperidle/
+ * connections` + `@hyperidle/server/server-factory` — a known, separately
+ * scheduled cleanup (§12 Increment 5's own next item, "external-consumer
+ * migration ... packages/web/scripts/*"), and `packages/web/package.json`'s
+ * `dependencies` mix both scopes in one manifest, so the binary allowed/denied
+ * manifest check the Service grain uses doesn't fit here — the source scan is
+ * the real enforcer regardless (same reasoning as the C1 lore above).
  */
 import {
 	existsSync,
@@ -59,8 +77,26 @@ const ALLOWED_HYPERIDLE = new Set(["@hyperidle/db", "@hyperidle/shared"]);
  * leaf-package allowance.
  */
 function isAllowedHyperidleSpec(spec: string): boolean {
-	if (ALLOWED_HYPERIDLE.has(spec)) return true;
-	for (const leaf of ALLOWED_HYPERIDLE) {
+	return matchesAllowedLeaf(spec, ALLOWED_HYPERIDLE);
+}
+
+/** The core-ui Layer's (`packages/web`) sanctioned composition surface — see the top `@lore`. */
+const CORE_UI_ROOT = "packages/web";
+const CORE_UI_ALLOWED_HYPERIDLE = new Set([
+	"@hyperidle/shared",
+	"@hyperidle/design-system",
+	"@hyperidle/server",
+	"@hyperidle/core-api",
+]);
+
+function isAllowedCoreUiSpec(spec: string): boolean {
+	return matchesAllowedLeaf(spec, CORE_UI_ALLOWED_HYPERIDLE);
+}
+
+/** Shared prefix-match: `spec` is allowed if it IS a leaf, or a subpath export of one. */
+function matchesAllowedLeaf(spec: string, allowed: ReadonlySet<string>): boolean {
+	if (allowed.has(spec)) return true;
+	for (const leaf of allowed) {
 		if (spec.startsWith(`${leaf}/`)) return true;
 	}
 	return false;
@@ -131,8 +167,18 @@ function checkManifest(root: string, serviceRoot: string): Finding[] {
 	return findings;
 }
 
-/** Check (2) — source-import scan of a single file (static + dynamic import). */
-function checkSourceFile(root: string, abs: string): Finding[] {
+/**
+ * Check (2) — source-import scan of a single file (static + dynamic import).
+ * `isAllowed`/`reason` are parameterized so the same AST walk serves both the
+ * Service grain (default) and the core-ui Layer grain (`inspectCoreUiLayer`).
+ */
+function checkSourceFile(
+	root: string,
+	abs: string,
+	isAllowed: (spec: string) => boolean = isAllowedHyperidleSpec,
+	reason: (spec: string) => string = (spec) =>
+		`Service source imports "${spec}" — a Service may only import @hyperidle/db + @hyperidle/shared; cross-Service wiring is the Layer's job (Mechanism C)`,
+): Finding[] {
 	const rel = relative(root, abs).split("\\").join("/");
 	const text = readFileSync(abs, "utf8");
 	const ast = ts.createSourceFile(abs, text, ts.ScriptTarget.Latest, true);
@@ -163,15 +209,30 @@ function checkSourceFile(root: string, abs: string): Finding[] {
 		) {
 			spec = node.arguments[0].text;
 		}
-		if (spec !== undefined && spec.startsWith("@hyperidle/") && !isAllowedHyperidleSpec(spec)) {
-			findings.push({
-				file: rel,
-				reason: `Service source imports "${spec}" — a Service may only import @hyperidle/db + @hyperidle/shared; cross-Service wiring is the Layer's job (Mechanism C)`,
-			});
+		if (spec !== undefined && spec.startsWith("@hyperidle/") && !isAllowed(spec)) {
+			findings.push({ file: rel, reason: reason(spec) });
 		}
 		ts.forEachChild(node, visit);
 	};
 	visit(ast);
+	return findings;
+}
+
+/** Check (3) — core-ui Layer boundary: `packages/web/src/**` (see top `@lore`). */
+function inspectCoreUiLayer(root: string): Finding[] {
+	const findings: Finding[] = [];
+	const srcDir = join(root, CORE_UI_ROOT, "src");
+	for (const abs of collectSourceFiles(srcDir)) {
+		findings.push(
+			...checkSourceFile(
+				root,
+				abs,
+				isAllowedCoreUiSpec,
+				(spec) =>
+					`core-ui (packages/web) source imports "${spec}" — the core-ui Layer may only import @hyperidle/shared + @hyperidle/design-system + @hyperidle/server + @hyperidle/core-api; direct Service/Layer-internal imports reach past the Layer boundary (Mechanism C)`,
+			),
+		);
+	}
 	return findings;
 }
 
@@ -183,6 +244,7 @@ export function inspect(root: string): Finding[] {
 			findings.push(...checkSourceFile(root, abs));
 		}
 	}
+	findings.push(...inspectCoreUiLayer(root));
 	return findings;
 }
 
@@ -289,6 +351,43 @@ function fixtureCheck(): void {
 		}
 	} finally {
 		rmSync(subpathRoot, { recursive: true, force: true });
+	}
+
+	// AU19 Increment 5 (core-ui boundary) regression fixture — `packages/web/src`
+	// reaching PAST the Layer boundary into an individual Service package (e.g.
+	// `@hyperidle/knowledge`) must be flagged, but its sanctioned composition
+	// surface (`@hyperidle/server`, `@hyperidle/shared`, `@hyperidle/design-system`,
+	// `@hyperidle/core-api`) must NOT be — and `packages/web/scripts/*` (the known,
+	// separately-scheduled Increment-5 item-3 cleanup) must NOT be scanned at all.
+	const coreUiRoot = mkdtempSync(join(tmpdir(), "au19-comp-guard-core-ui-"));
+	try {
+		writeFixture(
+			coreUiRoot,
+			"packages/web/src/api/client.ts",
+			'import type { AppType } from "@hyperidle/server/schemas"; export type A = AppType;',
+		);
+		writeFixture(
+			coreUiRoot,
+			"packages/web/src/leak.ts",
+			'import { list } from "@hyperidle/knowledge"; export const leak = list;',
+		);
+		writeFixture(
+			coreUiRoot,
+			"packages/web/scripts/ah6-test-server.ts",
+			'import { encryptCredentialValue } from "@hyperidle/connections"; export const f = encryptCredentialValue;',
+		);
+		const findings = inspect(coreUiRoot);
+		if (
+			findings.length !== 1 ||
+			findings[0]?.file !== "packages/web/src/leak.ts" ||
+			!findings[0]?.reason.includes("@hyperidle/knowledge")
+		) {
+			throw new Error(
+				`composition-boundary-guard: expected exactly the web/src/leak.ts→knowledge finding (client.ts's @hyperidle/server/schemas import must NOT be flagged, scripts/ must NOT be scanned), got ${JSON.stringify(findings)}`,
+			);
+		}
+	} finally {
+		rmSync(coreUiRoot, { recursive: true, force: true });
 	}
 
 	process.stdout.write("composition-boundary-guard fixtures: PASS\n");

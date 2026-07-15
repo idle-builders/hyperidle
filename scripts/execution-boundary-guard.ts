@@ -35,6 +35,17 @@
  *     `harness-registry` has a legitimate reason to spawn a harness CLI
  *     directly.
  *
+ * @lore AU19 Increment 5 (core-ui boundary, item 1/6): `packages/web` (the
+ * `core-ui` Layer — undecomposed, §4) gets the SAME full check 1+2 ban as
+ * `core-api`/`agent-orchestration`/`agent-execution`, not the narrower
+ * composition-root treatment `packages/server` gets. Unlike `packages/server`,
+ * `packages/web` never legitimately wires a concrete execution Service — it is
+ * a browser client + its own dev/e2e tooling, with zero production reason to
+ * import the MCP SDK, an execution Service package, or spawn a harness CLI.
+ * Confirmed zero pre-existing hits repo-wide before adding "web" to
+ * `SCAN_LAYERS` below (verified via grep, not assumed) — this locks the
+ * boundary in going forward rather than retrofitting around a violation.
+ *
  * @lore AU19 Increment 4: closes the Increment-0-flagged gap ("CLI-spawn/
  * raw-LLM-SDK detection... resolve before Increment 4/5"). Increment 0's
  * scope note said `packages/server` was out of scope "until Increment 4/5,
@@ -61,8 +72,15 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import ts from "typescript";
 
-/** Package roots whose subtrees get the FULL Service-boundary ban (checks 1+2). */
-const SCAN_LAYERS = ["core-api", "agent-orchestration", "agent-execution"];
+/**
+ * Package roots whose subtrees get the FULL Service-boundary ban (checks 1+2).
+ * `web` is the (undecomposed) `core-ui` Layer — scanned the same way as the
+ * three backend Layer dirs, `packages/web` being the Layer package's own root
+ * rather than a parent of nested Service packages changes nothing for
+ * `walkPkg`'s package.json discovery below (it still finds `packages/web/
+ * package.json` directly).
+ */
+const SCAN_LAYERS = ["core-api", "agent-orchestration", "agent-execution", "web"];
 /** Only files under this prefix may import the execution surface. */
 const EXECUTION_PREFIX = "packages/agent-execution/";
 
@@ -363,6 +381,18 @@ function fixtureCheck(): void {
 			"packages/server/package.json",
 			'{ "name": "@hyperidle/server", "dependencies": { "@modelcontextprotocol/sdk": "^1.0.0" } }',
 		);
+		// Negative: `web` (core-ui Layer) imports `@hyperidle/harness-registry` directly → finding (check 1, Increment 5).
+		writeFixture(
+			root,
+			"packages/web/src/leak.ts",
+			'import type { AdapterPool } from "@hyperidle/harness-registry"; export type R = AdapterPool;',
+		);
+		// Positive: `web`'s legitimate composition-root type import stays clean → NO finding.
+		writeFixture(
+			root,
+			"packages/web/src/api/client.ts",
+			'import type { AppType } from "@hyperidle/server/schemas"; export type A = AppType;',
+		);
 		const findings = inspect(root);
 		const files = findings.map((f) => f.file).sort();
 		const expectedFindingFiles = [
@@ -372,6 +402,7 @@ function fixtureCheck(): void {
 			"packages/server/package.json",
 			"packages/server/src/leak.ts",
 			"packages/server/src/spawn-leak.ts",
+			"packages/web/src/leak.ts",
 		].sort();
 		const sameSet =
 			files.length === expectedFindingFiles.length &&
