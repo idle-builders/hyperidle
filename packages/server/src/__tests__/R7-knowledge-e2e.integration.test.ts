@@ -25,7 +25,7 @@ import {
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { assembleContext } from "../services/context-assembly.js";
+import { assembleContext } from "../services/context-assembly-bindings.js";
 import { test } from "../test-fixtures.js";
 import { promoteKnowledgeTool } from "../tools/promote-knowledge.js";
 import type { ToolContext } from "../tools/tool-registry.js";

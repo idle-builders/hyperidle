@@ -17,15 +17,23 @@
  *
  * @lore AU19 Increment 2b: `SANDBOX_SCAFFOLDING_PATHS` (the constant under
  * test) moved to `@hyperidle/filesystems`, but this test itself STAYS here —
- * its other four writer surfaces (`context-assembly.ts`,
- * `context-assembly-prompt.ts`, `session-provisioning.ts`, `harness/*`) are
- * all still `packages/server`-only (destined for `context-assembly`/
- * `run-orchestration`/`agent-execution` in later increments), and a core-api
- * package can never import from `packages/server` (wrong dependency
- * direction). This cross-cutting guard can only compose at the
- * `packages/server` level until every writer it covers has migrated.
+ * its other two writer surfaces (`session-provisioning.ts`, `harness/*`) are
+ * still `packages/server`-only (destined for `run-orchestration`/
+ * `agent-execution` in later increments), and a core-api package can never
+ * import from `packages/server` (wrong dependency direction). This
+ * cross-cutting guard can only compose at the `packages/server` level until
+ * every writer it covers has migrated.
+ *
+ * @lore AU19 Increment 3 (context-assembly finalize): `EMITTED_ROOTS_CONTEXT_ASSEMBLY`/
+ * `EMITTED_ROOTS_AGENTS_MD` now import from the real `@hyperidle/context-assembly`
+ * package instead of the deleted flat `services/context-assembly*.ts` files.
  */
 
+// ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
+import {
+	EMITTED_ROOTS_AGENTS_MD,
+	EMITTED_ROOTS_CONTEXT_ASSEMBLY,
+} from "@hyperidle/context-assembly";
 import { SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
 import { EMITTED_ROOTS_MCP_JSON } from "@hyperidle/session-lifecycle";
 import { describe, expect, it } from "vitest";
@@ -35,9 +43,6 @@ import {
 	EMITTED_ROOTS_CODEX_HOME,
 	EMITTED_ROOTS_OPENCODE_PLUGIN,
 } from "../../harness/provision-return-hook.js";
-import { EMITTED_ROOTS_CONTEXT_ASSEMBLY } from "../../services/context-assembly.js";
-// ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
-import { EMITTED_ROOTS_AGENTS_MD } from "../../services/context-assembly-prompt.js";
 
 // ── Coverage helper ───────────────────────────────────────────────────────────
 

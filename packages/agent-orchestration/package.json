@@ -9,10 +9,5 @@
 	"scripts": {
 		"check": "tsc --noEmit",
 		"test": "vitest run"
-	},
-	"dependencies": {
-		"@hyperidle/db": "*",
-		"@hyperidle/context-assembly": "*",
-		"@hyperidle/knowledge": "*"
 	}
 }

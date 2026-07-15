@@ -83,13 +83,15 @@ const AU9_AGENT_FILES = [
  * `packages/server` (it was always `@hyperidle/filesystems`' own file since
  * Increment 2b) — also a pre-existing dead row, unrelated to this migration.
  *
- * @lore AU19 Increment 3i: `context-assembly.ts`/`context-assembly-prompt.ts`/
- * `session-context.ts` remain agent-owned dead-relevant entries (their own
- * Service migration is this WP's own next item, per architecture §12's
- * Increment-0 note — not yet moved). `contracts.ts`/`routine-session-reaper.ts`/
- * `sandbox-reaper.ts` moved to `@hyperidle/session-lifecycle` (out of this
- * guard's scanned tree entirely) — those three entries below are now
- * harmless dead allowlist rows, not errors.
+ * @lore AU19 Increment 3 (context-assembly finalize): `context-assembly.ts`/
+ * `context-assembly-prompt.ts`/`session-context.ts` moved to
+ * `@hyperidle/context-assembly` (out of this guard's scanned
+ * `packages/server/src` tree entirely, same shape as `writeback.ts` above)
+ * — those three entries are now harmless dead allowlist rows, not errors.
+ * `contracts.ts`/`routine-session-reaper.ts`/`sandbox-reaper.ts` moved to
+ * `@hyperidle/session-lifecycle` (out of this guard's scanned tree entirely)
+ * — those three entries below are now harmless dead allowlist rows, not
+ * errors.
  */
 const AU11_AGENT_FILES = [
 	"packages/server/src/services/context-assembly.ts",
@@ -170,20 +172,31 @@ const AU16_AGENT_FILES = ["packages/server/src/services/harness-capability-read-
  * @lore AU19 Increment 3i: `session-lifecycle-bindings.ts` — the
  * composition-root wiring file for `@hyperidle/session-lifecycle` (same
  * factory-curry role the three entries above have) — wires the
- * `harnessRuntime`/`mcpProvider`/`toolProvider`/`contextAssembly` INTERIM
- * ports directly to their still-flat `harness/*`/`mcp/*`/`tools/tool-registry.ts`/
- * `services/agent-context/assemble-context.ts`/`services/context-assembly-prompt.ts`/
- * `services/session-context.ts` real implementations — a legitimate
- * agent-owned edge, not a core→execution-internal leak. `routes/sessions-routes.ts`
+ * `harnessRuntime`/`mcpProvider`/`toolProvider` INTERIM ports directly to
+ * their still-flat `harness/*`/`mcp/*`/`tools/tool-registry.ts` real
+ * implementations, and its `contextAssembly` port to
+ * `context-assembly-bindings.ts`'s real bound ops — a legitimate agent-owned
+ * edge, not a core→execution-internal leak. `routes/sessions-routes.ts`
  * (and other core routes) reach this file to call `admitSession`/`runSession`/
  * `provisionSession`/`requestAgentTermination`/etc — the sink stops
  * recursion here exactly like the entries above.
+ *
+ * @lore AU19 Increment 3 (context-assembly finalize): `context-assembly-bindings.ts`
+ * — the composition-root wiring file for `@hyperidle/context-assembly` (same
+ * factory-curry role the four entries above have) — imports `@hyperidle/context-assembly`
+ * directly (module basename `context-assembly`, one of `FORBIDDEN_MODULE_BASENAMES`
+ * above), so it must be agent-owned-allowlisted itself, same as every other
+ * `*-bindings.ts` composition-root file. `session-lifecycle-bindings.ts`
+ * (already agent-owned) and `__tests__/R7-knowledge-e2e.integration.test.ts`
+ * (test file, out of this guard's scan entirely) are its only real
+ * consumers today.
  */
 const AU19_AGENT_FILES = [
 	"packages/server/src/services/session-requests-bindings.ts",
 	"packages/server/src/services/run-orchestration-bindings.ts",
 	"packages/server/src/services/dispatch-bindings.ts",
 	"packages/server/src/services/session-lifecycle-bindings.ts",
+	"packages/server/src/services/context-assembly-bindings.ts",
 ];
 
 const AGENT_OWNED_ALLOWLIST = new Set([

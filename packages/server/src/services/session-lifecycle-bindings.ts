@@ -4,12 +4,11 @@
  * `requestAgentTermination`/`recoverRequestedTerminations`/
  * `transitionAgentRunLifecycle`/`reapStaleRoutineSessions` need injected
  * `routine`/`work`/`users`/`settings`/`observability`/`filesystems`/
- * `connections`/`sessionRequests`/`cost` (real, ordinary DI) plus
- * `harnessRuntime`/`mcpProvider`/`toolProvider`/`contextAssembly` (INTERIM
+ * `connections`/`sessionRequests`/`cost`/`contextAssembly` (real, ordinary
+ * DI) plus `harnessRuntime`/`mcpProvider`/`toolProvider` (INTERIM
  * forward-references — `harness/*`/`mcp/*`/`tools/tool-registry.ts`'s full
- * migration is Increment 4; `context-assembly`/`context-assembly-prompt.ts`/
- * `session-context.ts` finalize as this WP's own next item) ports
- * (Mechanism C — `session-lifecycle` never imports another Service). This
+ * migration is Increment 4) ports (Mechanism C — `session-lifecycle` never
+ * imports another Service). This
  * module builds each bound singleton ONCE, at the composition root, so every
  * real call site (`server-factory.ts`, `session.ts`, `routes/sessions-routes.ts`,
  * `routes/tasks.ts`, `tools/handoff-to.ts`, `run-orchestration-bindings.ts`)
@@ -83,15 +82,17 @@ import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
 import { createMcpBridge } from "../mcp/mcp-bridge.js";
 import { returnStatusTool } from "../tools/return-status-tool.js";
 import { buildToolRegistry, type ToolContext, toolsForRole } from "../tools/tool-registry.js";
-import { assembleAgentContext, beginAgentWriteback } from "./agent-context/assemble-context.js";
 import {
+	assembleAgentContext,
 	assemblePrompt,
 	assembleRoutinePrompt,
+	beginAgentWriteback,
+	buildRoutineSessionContextData,
+	buildSessionContextData,
 	composeAssistantPrompt,
 	writeSandboxAgentsMd,
-} from "./context-assembly-prompt.js";
+} from "./context-assembly-bindings.js";
 import { checkCostCap, recordCostAndCheck, releaseSessionDedup } from "./cost-bindings.js";
-import { buildRoutineSessionContextData, buildSessionContextData } from "./session-context.js";
 import { terminalizeAgentSessionRequestInTx } from "./session-requests-bindings.js";
 
 // ---------------------------------------------------------------------------

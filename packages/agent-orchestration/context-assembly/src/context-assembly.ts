@@ -1,21 +1,24 @@
+/**
+ * @lore AU19 Increment 3 (finalize): moved unchanged (behavior-preserving)
+ * from `packages/server/src/services/context-assembly.ts` — the sole change
+ * is threading `ports` (`KnowledgeReader`/`WorkReader`, plus `UsersReader`/
+ * `RoutineReader` via `buildSessionContext`) through `assembleContext`
+ * instead of importing `@hyperidle/knowledge`/`@hyperidle/work` directly
+ * (Mechanism C). `communityForRole` is imported directly from
+ * `@hyperidle/shared` — it is re-exported there verbatim
+ * (`@hyperidle/knowledge`'s own `role-community-map.ts` is itself just a
+ * re-export of `@hyperidle/shared`'s `communityForRole`), so this is an
+ * allowed-leaf import, not a cross-Service edge.
+ *
+ * @lore AK1: Renamed per harness-vocab plan (AK1). Old type was the assembly-config variant. Field also renamed: sandbox path.
+ */
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb, KnowledgeItem } from "@hyperidle/db";
-import {
-	communityForRole,
-	DEFAULT_KNOWLEDGE_BUDGET,
-	list,
-	loadScoringWeights,
-	rankAndBudget,
-	type ScoringContext,
-} from "@hyperidle/knowledge";
-import type { UserRole } from "@hyperidle/shared";
-import * as work from "@hyperidle/work";
+import { communityForRole, type UserRole } from "@hyperidle/shared";
+import type { ContextAssemblyPorts } from "./ports.js";
 import { buildSessionContext } from "./session-context.js";
 
-/**
- * @lore AK1: Renamed per harness-vocab plan (AK1). Old type was the assembly-config variant. Field also renamed: sandbox path.
- */
 export interface ContextAssemblyConfig {
 	sandboxPath: string;
 	sessionId: string;
@@ -172,6 +175,7 @@ function setContextReadOnly(sandboxPath: string): void {
 /** Fetch all items for a layer, handling pagination. */
 async function fetchAllForLayer(
 	db: HyperIdleDb,
+	ports: Pick<ContextAssemblyPorts, "knowledge">,
 	layer: "L0" | "L1" | "L2" | "L3" | "L4",
 	scopeId?: string,
 ): Promise<KnowledgeItem[]> {
@@ -180,7 +184,7 @@ async function fetchAllForLayer(
 	let offset = 0;
 
 	while (true) {
-		const batch = await list(db, {
+		const batch = await ports.knowledge.list(db, {
 			layer,
 			scopeId,
 			limit: batchSize,
@@ -202,6 +206,7 @@ async function fetchAllForLayer(
 export async function assembleContext(
 	db: HyperIdleDb,
 	config: ContextAssemblyConfig,
+	ports: ContextAssemblyPorts,
 ): Promise<ContextAssemblyResult> {
 	const start = performance.now();
 
@@ -217,21 +222,20 @@ export async function assembleContext(
 	// Fetch all items by layer
 	const community = communityForRole(config.agentRole);
 	const [l4Items, l2Items, l3Items] = await Promise.all([
-		fetchAllForLayer(db, "L4"),
-		fetchAllForLayer(db, "L2", config.productId),
-		fetchAllForLayer(db, "L3", community),
+		fetchAllForLayer(db, ports, "L4"),
+		fetchAllForLayer(db, ports, "L2", config.productId),
+		fetchAllForLayer(db, ports, "L3", community),
 	]);
 
 	// @lore I6: apply rankAndBudget() before writing items to workspace.
 	// This ensures that the agent's context window is not overwhelmed by
 	// low-relevance knowledge. Items are scored against the task context
 	// and trimmed to fit the configured token budget.
-	const weights = await loadScoringWeights(db);
-
+	//
 	// Build a minimal scoring context from assembly config.
 	// Task description is fetched from the DB if available.
-	const task = await work.getTaskById(db, config.taskId);
-	const scoringContext: ScoringContext = {
+	const task = await ports.work.getTaskById(db, config.taskId);
+	const scoringContext = {
 		taskDescription: task?.description ?? task?.title ?? "",
 		taskTags: [],
 		agentRole: config.agentRole,
@@ -239,7 +243,7 @@ export async function assembleContext(
 	};
 
 	const allItems = [...l4Items, ...l2Items, ...l3Items];
-	const budgetedItems = rankAndBudget(allItems, scoringContext, weights, DEFAULT_KNOWLEDGE_BUDGET);
+	const budgetedItems = await ports.knowledge.rankAndBudget(db, allItems, scoringContext);
 
 	// Build a Set of budgeted item IDs for fast lookup
 	const budgetedIds = new Set(budgetedItems.map((i) => i.id));
@@ -276,13 +280,17 @@ export async function assembleContext(
 	}
 
 	// Build session.toon -> context/session.toon
-	const sessionToon = await buildSessionContext(db, {
-		sessionId: config.sessionId,
-		taskId: config.taskId,
-		agentId: config.agentId,
-		agentRole: config.agentRole,
-		productId: config.productId,
-	});
+	const sessionToon = await buildSessionContext(
+		db,
+		{
+			sessionId: config.sessionId,
+			taskId: config.taskId,
+			agentId: config.agentId,
+			agentRole: config.agentRole,
+			productId: config.productId,
+		},
+		ports,
+	);
 	fs.writeFileSync(path.join(config.sandboxPath, "context/session.toon"), sessionToon);
 
 	// Set context/ to read-only

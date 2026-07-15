@@ -18,12 +18,18 @@
  * @lore AK1: Dual-write: AGENTS.md (standard surface) + CLAUDE.md (compat). See
  * writeSandboxAgentsMd for rationale. Rename per AK1: assembly function renamed,
  * assembled prompt renamed, sandbox path renamed.
+ * @lore AU19 Increment 3 (finalize): moved unchanged (behavior-preserving) from
+ * `packages/server/src/services/context-assembly-prompt.ts` — `countTokens` now
+ * arrives via the injected `KnowledgeReader` port (Mechanism C forbids importing
+ * `@hyperidle/knowledge` directly); `communityForRole` stays a direct
+ * `@hyperidle/shared` import (allowed leaf — see `context-assembly.ts`'s own
+ * top `@lore` for why that one is not a cross-Service edge).
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { communityForRole, countTokens } from "@hyperidle/knowledge";
-import { createLogger } from "@hyperidle/shared";
+import { communityForRole, createLogger } from "@hyperidle/shared";
+import type { ContextAssemblyPorts } from "./ports.js";
 import type { RoutineSessionContextData, SessionContextData } from "./session-context.js";
 
 const logger = createLogger({ pkg: "server.agent-context-prompt" });
@@ -207,6 +213,7 @@ Your workspace is organized as follows:
  */
 export async function assemblePrompt(
 	input: PromptCompositionInput,
+	ports: Pick<ContextAssemblyPorts, "knowledge">,
 ): Promise<PromptCompositionResult> {
 	const { systemPromptText, context, tools, sandboxPath: _sandboxPath } = input;
 
@@ -224,8 +231,8 @@ export async function assemblePrompt(
 	const toolsContent = buildToolsSection(tools);
 
 	// Enforce token budget on persona + tools
-	const personaTokens = countTokens(personaSection);
-	const toolsTokens = countTokens(toolsContent);
+	const personaTokens = ports.knowledge.countTokens(personaSection);
+	const toolsTokens = ports.knowledge.countTokens(toolsContent);
 	let personaToolsTokens = personaTokens + toolsTokens;
 
 	if (personaToolsTokens > PERSONA_TOOLS_TOKEN_BUDGET && personaSection.length > 0) {
@@ -233,7 +240,7 @@ export async function assemblePrompt(
 			`Persona + tools section exceeds ${PERSONA_TOOLS_TOKEN_BUDGET} tokens (${personaToolsTokens}). Truncating persona.`,
 		);
 		personaSection = `${truncatePersona(personaSection)}\n\n(Persona truncated to fit token budget.)`;
-		personaToolsTokens = countTokens(personaSection) + toolsTokens;
+		personaToolsTokens = ports.knowledge.countTokens(personaSection) + toolsTokens;
 	}
 
 	// Assemble sections
@@ -399,6 +406,7 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
  */
 export async function assembleRoutinePrompt(
 	input: RoutinePromptCompositionInput,
+	ports: Pick<ContextAssemblyPorts, "knowledge">,
 ): Promise<PromptCompositionResult> {
 	const { systemPromptText, context, tools, sandboxPath: _sandboxPath } = input;
 
@@ -417,8 +425,8 @@ export async function assembleRoutinePrompt(
 	const toolsContent = buildToolsSection(tools);
 
 	// Enforce token budget on persona + tools
-	const personaTokens = countTokens(personaSection);
-	const toolsTokens = countTokens(toolsContent);
+	const personaTokens = ports.knowledge.countTokens(personaSection);
+	const toolsTokens = ports.knowledge.countTokens(toolsContent);
 	let personaToolsTokens = personaTokens + toolsTokens;
 
 	if (personaToolsTokens > PERSONA_TOOLS_TOKEN_BUDGET && personaSection.length > 0) {
@@ -426,7 +434,7 @@ export async function assembleRoutinePrompt(
 			`Routine persona + tools section exceeds ${PERSONA_TOOLS_TOKEN_BUDGET} tokens (${personaToolsTokens}). Truncating persona.`,
 		);
 		personaSection = `${truncatePersona(personaSection)}\n\n(Persona truncated to fit token budget.)`;
-		personaToolsTokens = countTokens(personaSection) + toolsTokens;
+		personaToolsTokens = ports.knowledge.countTokens(personaSection) + toolsTokens;
 	}
 
 	// Assemble sections

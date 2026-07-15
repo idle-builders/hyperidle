@@ -13,10 +13,15 @@
  * `await import("@hyperidle/connections")` block — neither was a countable
  * relative-import edge until this migration made them real cross-package
  * touches). `harness-registry`/`mcp-provider`/`tool-provider` (the
- * execution-layer `§` seams) and `context-assembly` (not yet finalized) stay
- * INTERIM forward-references, wired to their still-flat `packages/server`
- * files, same shape as `run-orchestration`'s own Increment-3c interim ports
- * before their targets migrated.
+ * execution-layer `§` seams, Increment 4) stay INTERIM forward-references,
+ * wired to their still-flat `packages/server` files, same shape as
+ * `run-orchestration`'s own Increment-3c interim ports before their targets
+ * migrated. `context-assembly` was ALSO an interim forward-reference at this
+ * Service's own Increment-3i migration; it is now real (Increment 3
+ * context-assembly finalize) — `SessionLifecycleContextAssembly` below is
+ * wired by the composition root to `@hyperidle/context-assembly`'s real
+ * `createContextAssemblyOps` output (`packages/server/src/services/
+ * context-assembly-bindings.ts`).
  *
  * Types are declared locally (structural mirrors of the target Service's own
  * types, or typed directly off `@hyperidle/db`/`@hyperidle/shared` row types
@@ -531,9 +536,10 @@ export interface SessionLifecycleToolProvider {
 }
 
 // ---------------------------------------------------------------------------
-// context-assembly — SessionLifecycleContextAssembly (INTERIM forward-
-// reference — `context-assembly` finalization is this WP's next item after
-// `session-lifecycle` lands, per architecture §12's Increment-0 note)
+// context-assembly — SessionLifecycleContextAssembly (real, ordinary
+// same-layer DI — `context-assembly` finalized per architecture §12's
+// Increment-0 note; wired by the composition root to
+// `@hyperidle/context-assembly`'s real `createContextAssemblyOps` output)
 // ---------------------------------------------------------------------------
 
 export interface SessionLifecycleContextAssemblyOutcome {

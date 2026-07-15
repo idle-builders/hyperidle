@@ -11,6 +11,8 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/db": "*"
+		"@hyperidle/db": "*",
+		"@hyperidle/shared": "*",
+		"drizzle-orm": "^0.45.2"
 	}
 }

@@ -423,6 +423,13 @@ function buildLeafDeclarations(root: string): void {
   // routes/sessions-routes.ts, routes/tasks.ts, tools/handoff-to.ts,
   // run-orchestration-bindings.ts, and the new session-lifecycle-bindings.ts
   // now import `@hyperidle/session-lifecycle`.
+  //
+  // @lore AU19 Increment 3 (context-assembly finalize, closes Increment 3):
+  // `agent-orchestration/context-assembly` added — same TS6305 cascade; the
+  // new context-assembly-bindings.ts, session-lifecycle-bindings.ts,
+  // __tests__/R7-knowledge-e2e.integration.test.ts, and
+  // filesystem/__tests__/scaffolding-drift-guard.test.ts now import
+  // `@hyperidle/context-assembly`.
   for (const leaf of [
     "shared",
     "db",
@@ -453,6 +460,7 @@ function buildLeafDeclarations(root: string): void {
     "agent-orchestration/cost",
     "agent-orchestration/dispatch",
     "agent-orchestration/session-lifecycle",
+    "agent-orchestration/context-assembly",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

@@ -1,16 +1,24 @@
 /**
+ * @lore AU19 Increment 3 (finalize): moved unchanged (behavior-preserving)
+ * from `packages/server/src/services/session-context.ts` — the sole change
+ * is threading `ports` (`WorkReader`/`UsersReader`/`RoutineReader`) through
+ * every function instead of importing `@hyperidle/work`/`@hyperidle/users`/
+ * `@hyperidle/routine` directly (Mechanism C). `teams` stays a direct
+ * `@hyperidle/db` read — `teams` is `UNOWNED_SHARED_TABLES` (this WP's own
+ * `table-ownership-guard.ts` top `@lore`), the same "not one of the five
+ * owned tables" finding already established in `routes/search.ts` and
+ * `packages/core-api/work/src/work-service.ts`.
+ *
  * @lore U1: `products` table renamed to `teams`. `bet.pitch` renamed to `bet.description`.
  * Interface field `productId` kept for backward compat (value is now a teams.id).
  * `SessionContextData.bet.pitch` renamed to `description`.
  * `SessionContextData.product` renamed to `team`.
  */
 import { type HyperIdleDb, teams } from "@hyperidle/db";
-import * as routineService from "@hyperidle/routine";
 import type { UserRole } from "@hyperidle/shared";
 import { encodeTyped } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
+import type { ContextAssemblyPorts } from "./ports.js";
 
 export interface SessionContextConfig {
 	sessionId: string;
@@ -55,18 +63,19 @@ export interface SessionContextData {
 export async function buildSessionContextData(
 	db: HyperIdleDb,
 	config: SessionContextConfig,
+	ports: Pick<ContextAssemblyPorts, "work" | "users">,
 ): Promise<SessionContextData> {
-	const task = await work.getTaskById(db, config.taskId);
+	const task = await ports.work.getTaskById(db, config.taskId);
 	if (!task) {
 		throw new Error(`Task ${config.taskId} not found`);
 	}
 
-	const bet = await work.getBetById(db, task.betId);
+	const bet = await ports.work.getBetById(db, task.betId);
 	if (!bet) {
 		throw new Error(`Bet ${task.betId} not found`);
 	}
 
-	const agent = await getUserById(db, config.agentId);
+	const agent = await ports.users.getUserById(db, config.agentId);
 	if (!agent) {
 		throw new Error(`Agent ${config.agentId} not found`);
 	}
@@ -161,13 +170,14 @@ export interface RoutineSessionContextData {
 export async function buildRoutineSessionContextData(
 	db: HyperIdleDb,
 	config: RoutineSessionContextConfig,
+	ports: Pick<ContextAssemblyPorts, "routine" | "users">,
 ): Promise<RoutineSessionContextData> {
-	const routine = await routineService.getRoutineById(db, config.routineId);
+	const routine = await ports.routine.getRoutineById(db, config.routineId);
 	if (!routine) {
 		throw new Error(`Routine ${config.routineId} not found`);
 	}
 
-	const agent = await getUserById(db, config.agentId);
+	const agent = await ports.users.getUserById(db, config.agentId);
 	if (!agent) {
 		throw new Error(`Agent ${config.agentId} not found`);
 	}
@@ -200,7 +210,8 @@ export async function buildRoutineSessionContextData(
 export async function buildSessionContext(
 	db: HyperIdleDb,
 	config: SessionContextConfig,
+	ports: Pick<ContextAssemblyPorts, "work" | "users">,
 ): Promise<string> {
-	const data = await buildSessionContextData(db, config);
+	const data = await buildSessionContextData(db, config, ports);
 	return encodeTyped(data);
 }

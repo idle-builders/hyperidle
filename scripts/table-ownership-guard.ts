@@ -278,12 +278,26 @@ const TABLE_OWNER: Record<string, string> = {
  * owner, genuinely cross-cutting" shape as `sessions`/`propagationLog`/
  * `taskDispatchAttempts`, not a candidate for a false single-owner
  * `TABLE_OWNER` claim.
+ *
+ * @lore AU19 Increment 3 (context-assembly finalize): `teams` ADDED —
+ * surfaced migrating `context-assembly`'s `session-context.ts` (`teams`
+ * lookup for `SessionContextData.team`/`RoutineSessionContextData.team`).
+ * No `⛁`/table column anywhere in architecture §4 names `teams` for any
+ * Service (the roster's five owned tables are `bets`/`tasks`/`items`/
+ * `teamMembers`/`orgEdges`), and this exact "no single owner" finding is
+ * already established TWICE elsewhere in the codebase pre-AU19 —
+ * `routes/search.ts` and `packages/core-api/work/src/work-service.ts` both
+ * carry the verbatim `@lore`: "`teams` is not one of the five owned tables,
+ * so any file may query it directly." `context-assembly` is simply the
+ * first NESTED Service package to touch it directly, surfacing the same
+ * already-confirmed fact to this guard's completeness check.
  */
 const UNOWNED_SHARED_TABLES = new Set([
 	"sessions",
 	"propagationLog",
 	"taskDispatchAttempts",
 	"userSkills",
+	"teams",
 ]);
 
 /**
