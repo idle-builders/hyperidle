@@ -26,17 +26,12 @@ import {
 	listThreadMetaByIds,
 	searchConversations,
 } from "@hyperidle/conversation";
-import {
-	escapeLikePattern,
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-} from "@hyperidle/db";
+import { escapeLikePattern, type HyperIdleDb } from "@hyperidle/db";
+import { searchVisibleByText } from "@hyperidle/knowledge";
 import { listTeamsByIds } from "@hyperidle/org";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
-import { and, desc, eq, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -267,35 +262,19 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		//
 		// Auth boundary: scope_kind != 'user' OR updated_by = userId.
 		// (user-scoped items are private to their author)
+		//
+		// @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, knowledge
+		// sub-item): this used to be a direct `.from(knowledgeItems).leftJoin(
+		// knowledgeAppProjection, …)` query — `knowledgeItems`/
+		// `knowledgeAppProjection` are `knowledge`-owned (TABLE_OWNER since
+		// Increment 1a). Now calls `@hyperidle/knowledge`'s `searchVisibleByText`
+		// — same ILIKE/auth-filter/join/order/limit, zero behavior change.
 
-		const kiRows = await db
-			.select({
-				id: knowledgeItems.id,
-				title: knowledgeItems.title,
-				status: knowledgeItems.status,
-				updatedAt: knowledgeItems.updatedAt,
-				layer: knowledgeAppProjection.layer,
-				kind: knowledgeAppProjection.kind,
-			})
-			.from(knowledgeItems)
-			.leftJoin(
-				knowledgeAppProjection,
-				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-			)
-			.where(
-				and(
-					// Auth boundary: exclude user-private items belonging to other users
-					or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, userId)),
-					// Content match: title or body (case-insensitive)
-					or(
-						sql`${knowledgeItems.title} ILIKE ${pattern} ESCAPE '\\'`,
-						sql`${knowledgeItems.body} ILIKE ${pattern} ESCAPE '\\'`,
-					),
-				),
-			)
-			// AF16 T7: stable sort — id ASC tiebreaker for equal updatedAt
-			.orderBy(desc(knowledgeItems.updatedAt), knowledgeItems.id)
-			.limit(MAX_PER_CATEGORY);
+		const kiRows = await searchVisibleByText(db, {
+			pattern,
+			viewerUserId: userId,
+			limit: MAX_PER_CATEGORY,
+		});
 
 		const knowledgeResults = kiRows.map((row) => ({
 			id: row.id,

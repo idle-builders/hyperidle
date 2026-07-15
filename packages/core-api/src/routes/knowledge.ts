@@ -24,7 +24,6 @@
 
 import {
 	type HyperIdleDb,
-	knowledgeAccessLog,
 	// @lore U1: `teamMembers` is the agent membership group (formerly `teams`).
 	teamMembers,
 	teams,
@@ -43,6 +42,7 @@ import {
 	ItemDeletedError,
 	listVisibleWithSignals,
 	mergeItems,
+	recordKnowledgeAccess,
 	searchByText,
 	splitItem,
 	update as updateKnowledgeItem,
@@ -411,8 +411,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// @lore O2: accessor_kind defaults to "human" for browser-initiated reads.
 		// @lore AF13: INSERT happens AFTER the count query so accessCount excludes own load.
 		try {
-			await db.insert(knowledgeAccessLog).values({
-				id: crypto.randomUUID(),
+			await recordKnowledgeAccess(db, {
 				itemId: item.id,
 				accessorKind: "human",
 				accessorId: "browser",

@@ -1,13 +1,10 @@
 import { getArtifactThreadSummaries } from "@hyperidle/conversation";
+import { artifacts, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import {
-	artifacts,
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	tasks,
-	teamMembers,
-	teams,
-} from "@hyperidle/db";
+	findById as findKnowledgeItemById,
+	findRetroKnowledgeItemForBet,
+	upsertBetRetroKnowledgeItem,
+} from "@hyperidle/knowledge";
 import {
 	ApiError,
 	getTeamMembersByTeamId,
@@ -23,7 +20,7 @@ import {
 } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -520,12 +517,8 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// Lookup happens per-bet (already on PK path) — no index needed.
 		let sourceKnowledge: { id: string; title: string } | null = null;
 		if (sourceKnowledgeItemId != null) {
-			const [srcItem] = await db
-				.select({ id: knowledgeItems.id, title: knowledgeItems.title })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, sourceKnowledgeItemId))
-				.limit(1);
-			sourceKnowledge = srcItem ?? null;
+			const srcItem = await findKnowledgeItemById(db, sourceKnowledgeItemId);
+			sourceKnowledge = srcItem ? { id: srcItem.id, title: srcItem.title } : null;
 		}
 
 		return c.json({
@@ -582,11 +575,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// AK5: validate sourceKnowledgeItemId refers to an existing knowledge item.
 			// Guards dangling provenance FK — the column has onDelete:"restrict".
 			if (body.sourceKnowledgeItemId !== undefined) {
-				const [srcItem] = await db
-					.select({ id: knowledgeItems.id })
-					.from(knowledgeItems)
-					.where(eq(knowledgeItems.id, body.sourceKnowledgeItemId))
-					.limit(1);
+				const srcItem = await findKnowledgeItemById(db, body.sourceKnowledgeItemId);
 				if (!srcItem) {
 					return c.json(
 						{
@@ -1038,30 +1027,18 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 
 			// Find existing retro knowledge item for this bet (upsert pattern)
 			// Query: knowledge_items scoped to this bet + projection kind='reflection'
-			const existingKiRows = await db
-				.select({ id: knowledgeItems.id, version: knowledgeItems.version })
-				.from(knowledgeItems)
-				.innerJoin(
-					knowledgeAppProjection,
-					eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-				)
-				.where(
-					and(
-						eq(knowledgeItems.scopeKind, "bet"),
-						eq(knowledgeItems.scopeId, betId),
-						eq(knowledgeAppProjection.kind, "reflection"),
-					),
-				)
-				.limit(1);
-
-			const existingKi = existingKiRows[0];
-			let retroKnowledgeItemId: string;
-
-			if (existingKi) {
-				retroKnowledgeItemId = existingKi.id;
-			} else {
-				retroKnowledgeItemId = crypto.randomUUID();
-			}
+			//
+			// @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, knowledge
+			// sub-item): this used to be a direct `.from(knowledgeItems).innerJoin(
+			// knowledgeAppProjection, …)` query plus the transaction's own raw
+			// `knowledgeItems`/`knowledgeAppProjection` reads/writes — both
+			// `knowledge`-owned (TABLE_OWNER since Increment 1a). Now calls
+			// `@hyperidle/knowledge`'s `findRetroKnowledgeItemForBet`/
+			// `upsertBetRetroKnowledgeItem` — same exact write sequence
+			// (update-with-meta-merge vs insert), zero behavior change.
+			const existingKi = await findRetroKnowledgeItemForBet(db, betId);
+			const retroKnowledgeItemId = existingKi ? existingKi.id : crypto.randomUUID();
+			const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
 
 			// @lore AC2: Atomic transaction wrapping bet-outcome write + knowledge-item upsert.
 			// Without this, a partial failure (outcome saved, knowledge item not) leaves the bet
@@ -1077,77 +1054,17 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 					revisionLog: JSON.stringify(revisionLog),
 				});
 
-				if (existingKi) {
-					// Upsert: update existing knowledge item — version incremented, body updated
-					await tx
-						.update(knowledgeItems)
-						.set({
-							title: kiTitle,
-							body: kiBody,
-							version: existingKi.version + 1,
-							updatedAt: now,
-							updatedBy: actor ?? "system",
-						})
-						.where(eq(knowledgeItems.id, existingKi.id));
-
-					// Update projection meta (verdict changes; hypothesis snapshot stays from first write)
-					const existingFabricRows = await tx
-						.select()
-						.from(knowledgeAppProjection)
-						.where(eq(knowledgeAppProjection.knowledgeItemId, existingKi.id))
-						.limit(1);
-					const existingFabric = existingFabricRows[0];
-					if (existingFabric) {
-						const existingMeta = existingFabric.meta
-							? (JSON.parse(existingFabric.meta) as Record<string, unknown>)
-							: {};
-						// AC2-4: hypothesis snapshot is immutable — preserve the original
-						const updatedMeta = {
-							...existingMeta,
-							verdict: body.verdict,
-							validatedAt: now,
-							validatedBy: actor ?? null,
-						};
-						await tx
-							.update(knowledgeAppProjection)
-							.set({ meta: JSON.stringify(updatedMeta) })
-							.where(eq(knowledgeAppProjection.knowledgeItemId, existingKi.id));
-					}
-				} else {
-					// Insert: create new knowledge item + projection row
-					const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
-
-					await tx.insert(knowledgeItems).values({
-						id: retroKnowledgeItemId,
-						scopeKind: "bet",
-						scopeId: betId,
-						topic: null,
-						title: kiTitle,
-						body: kiBody,
-						format: "markdown",
-						status: "active",
-						version: 1,
-						updatedBy: actor ?? "system",
-						createdAt: now,
-						updatedAt: now,
-					});
-
-					const fabricMeta = {
-						betId,
-						hypothesis: hypothesisSnapshot,
-						verdict: body.verdict,
-						validatedAt: now,
-						validatedBy: actor ?? null,
-					};
-
-					await tx.insert(knowledgeAppProjection).values({
-						id: crypto.randomUUID(),
-						knowledgeItemId: retroKnowledgeItemId,
-						layer: null,
-						kind: "reflection",
-						meta: JSON.stringify(fabricMeta),
-					});
-				}
+				await upsertBetRetroKnowledgeItem(tx as HyperIdleDb, {
+					existing: existingKi,
+					retroKnowledgeItemId,
+					betId,
+					title: kiTitle,
+					body: kiBody,
+					verdict: body.verdict,
+					hypothesisSnapshot,
+					actor,
+					timestamp: now,
+				});
 			});
 
 			const updated = await work.getBetById(db, betId);

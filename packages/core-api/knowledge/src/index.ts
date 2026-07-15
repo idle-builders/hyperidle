@@ -52,6 +52,17 @@
  * `knowledgeItems`/`knowledgeAppProjection` join was never a countable edge
  * at original census time). See `@hyperidle/dispatch`'s `ports.ts` top
  * `@lore` for the port side.
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, knowledge
+ * sub-item): `route-support.ts` (`listTitlesByIds`/`searchVisibleByText`/
+ * `recordKnowledgeAccess`) and `bet-retro-store.ts`
+ * (`findRetroKnowledgeItemForBet`/`upsertBetRetroKnowledgeItem`) added —
+ * `core-api/src`'s `routes/{threads,search,knowledge,bets}.ts` queried
+ * `knowledgeItems`/`knowledgeAppProjection`/`knowledgeAccessLog` directly,
+ * legal in the unguarded composition root, a Table ACL violation now that
+ * these tables are real `TABLE_OWNER` rows. Ordinary `core-api/src ->
+ * core-api/knowledge` downward edges (both real migrated packages) — no new
+ * DI ports, no against-grain caveats.
  */
 
 // -- attention-score-store (AU19 Increment 4 — the tool-handlers -> knowledge edge) --
@@ -72,6 +83,12 @@ export type {
 	ReasoningMarkerFinder,
 } from "./attention-service.js";
 export { buildAttentionService, MAX_RECOMPUTE_BATCH } from "./attention-service.js";
+// -- bet-retro-store (AU19 Increment 5 item 4 — the routes/bets.ts retro edge) --
+export type {
+	RetroExistingKnowledgeItemRow,
+	UpsertBetRetroKnowledgeItemInput,
+} from "./bet-retro-store.js";
+export { findRetroKnowledgeItemForBet, upsertBetRetroKnowledgeItem } from "./bet-retro-store.js";
 // -- conflict-review-store (AU19 Increment 4 — the tool-handlers -> knowledge edge) --
 export type {
 	CreateKnowledgeConflictInput,
@@ -193,6 +210,9 @@ export type { RelevanceService, SignalSet } from "./relevance-service.js";
 export { createRelevanceService, reapKnowledgeAccessLog } from "./relevance-service.js";
 // -- role/community mapping --
 export { communityForRole } from "./role-community-map.js";
+// -- route-support (AU19 Increment 5 item 4 — routes/{threads,search,knowledge}.ts edges) --
+export type { RecordKnowledgeAccessInput, SearchVisibleKnowledgeRow } from "./route-support.js";
+export { listTitlesByIds, recordKnowledgeAccess, searchVisibleByText } from "./route-support.js";
 // -- scoring config (weights, thresholds, token budgets) --
 export {
 	ATTENTION_THRESHOLD,

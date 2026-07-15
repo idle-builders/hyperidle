@@ -32,10 +32,10 @@ import {
 	type Thread as DbThread,
 	escapeLikePattern,
 	type HyperIdleDb,
-	knowledgeItems,
 	proposedCalls,
 	sessions,
 } from "@hyperidle/db";
+import { findById as findKnowledgeItemById, listTitlesByIds } from "@hyperidle/knowledge";
 import { composeTailoredGrant } from "@hyperidle/review";
 import type {
 	AgentOperationalStatus,
@@ -63,7 +63,7 @@ import {
 } from "@hyperidle/shared";
 import { getUserById, getUsersByIds, listUsersByTeams } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
 import { z as zod } from "zod";
@@ -317,11 +317,7 @@ async function resolveHostTitle(
 			return row?.title ?? null;
 		}
 		case "knowledge_item": {
-			const [row] = await db
-				.select({ title: knowledgeItems.title })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, hostId))
-				.limit(1);
+			const row = await findKnowledgeItemById(db, hostId);
 			return row?.title ?? null;
 		}
 		default:
@@ -421,11 +417,8 @@ async function resolveThreadTitles(
 		work.listBetsByIds(db, betIds),
 		work.listTasksByIds(db, taskIds),
 		kiIds.length > 0
-			? db
-					.select({ id: knowledgeItems.id, title: knowledgeItems.title })
-					.from(knowledgeItems)
-					.where(inArray(knowledgeItems.id, kiIds))
-			: Promise.resolve([] as Array<{ id: string; title: string }>),
+			? listTitlesByIds(db, kiIds)
+			: Promise.resolve([] as ReadonlyArray<{ id: string; title: string }>),
 		allParticipantIds.size > 0
 			? getUsersByIds(db, [...allParticipantIds])
 			: Promise.resolve([] as Array<{ id: string; name: string }>),
