@@ -3,7 +3,7 @@
 // Source: plans/AE6/architecture.md §3.
 
 import * as crypto from "node:crypto";
-import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	type Artifact,
@@ -17,7 +17,6 @@ import {
 } from "@hyperidle/shared";
 import { getUserById } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -66,15 +65,6 @@ const createArtifactSchema = z.object({
 
 const patchPreviewSchema = z.object({ preview: artifactPreviewSchema });
 
-interface ArtifactRow {
-	id: string;
-	producingTaskId: string;
-	kind: string;
-	label: string | null;
-	previewJson: string | null;
-	createdAt: string;
-}
-
 /**
  * @lore O2: cost columns stripped from artifacts table. The Artifact wire
  * type still has a `cost` field (kept for API compat with existing consumers).
@@ -102,7 +92,7 @@ const NULL_COST: ArtifactCostFromSession = { money: null, tokens: null };
  *   support (code_diff via text_diff, data_analysis via action_summary, dashboard via
  *   data_metrics). The text-like kinds never had a visual renderer.
  */
-function rowToArtifact(row: ArtifactRow, producingTaskTitle: string): Artifact {
+function rowToArtifact(row: work.ArtifactRow, producingTaskTitle: string): Artifact {
 	let { kind, label } = row;
 
 	// Apply read-time normalization for old kinds
@@ -204,55 +194,19 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 
 		// L3 review fix Adv-B5: composite cursor on (createdAt, id)
 		const cursorParam = c.req.query("cursor");
-		let cursorClause: ReturnType<typeof or> | undefined;
+		let cursor: { createdAt: string; id: string } | null = null;
 		if (cursorParam) {
 			const sep = cursorParam.lastIndexOf("|");
 			if (sep <= 0) {
 				return c.json({ error: "Invalid cursor", code: "INVALID_CURSOR" }, 400);
 			}
-			const cursorCreatedAt = cursorParam.slice(0, sep);
-			const cursorId = cursorParam.slice(sep + 1);
-			cursorClause = or(
-				lt(artifacts.createdAt, cursorCreatedAt),
-				and(eq(artifacts.createdAt, cursorCreatedAt), lt(artifacts.id, cursorId)),
-			);
+			cursor = { createdAt: cursorParam.slice(0, sep), id: cursorParam.slice(sep + 1) };
 		}
 
-		const baseQuery = db
-			.select({
-				artifact: artifacts,
-				taskTitle: tasks.title,
-			})
-			.from(artifacts)
-			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId));
-
-		const filterClauses = [
-			taskIds === null ? undefined : inArray(artifacts.producingTaskId, taskIds),
-			cursorClause,
-		].filter((c) => c !== undefined);
-		const whereClause = filterClauses.length > 0 ? and(...filterClauses) : undefined;
-
-		const rows =
-			taskIds !== null && taskIds.length === 0
-				? []
-				: await (whereClause === undefined ? baseQuery : baseQuery.where(whereClause))
-						.orderBy(desc(artifacts.createdAt), desc(artifacts.id))
-						.limit(limit + 1);
+		const rows = await work.listArtifactsPage(db, { taskIds, cursor, limit: limit + 1 });
 
 		const sliced = rows.slice(0, limit);
-		const items = sliced.map((r) =>
-			rowToArtifact(
-				{
-					id: r.artifact.id,
-					producingTaskId: r.artifact.producingTaskId,
-					kind: r.artifact.kind,
-					label: r.artifact.label ?? null,
-					previewJson: r.artifact.previewJson ?? null,
-					createdAt: r.artifact.createdAt,
-				},
-				r.taskTitle,
-			),
-		);
+		const items = sliced.map((r) => rowToArtifact(r.artifact, r.taskTitle));
 		const last = sliced[sliced.length - 1];
 		const nextCursor =
 			rows.length > limit && last ? `${last.artifact.createdAt}|${last.artifact.id}` : null;
@@ -263,26 +217,9 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
-		const [row] = await db
-			.select({ artifact: artifacts, taskTitle: tasks.title })
-			.from(artifacts)
-			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
-			.where(eq(artifacts.id, id))
-			.limit(1);
+		const row = await work.getArtifactWithTaskTitleById(db, id);
 		if (!row) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-		return c.json(
-			rowToArtifact(
-				{
-					id: row.artifact.id,
-					producingTaskId: row.artifact.producingTaskId,
-					kind: row.artifact.kind,
-					label: row.artifact.label ?? null,
-					previewJson: row.artifact.previewJson ?? null,
-					createdAt: row.artifact.createdAt,
-				},
-				row.taskTitle,
-			),
-		);
+		return c.json(rowToArtifact(row.artifact, row.taskTitle));
 	});
 
 	router.post(
@@ -305,7 +242,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			const id = crypto.randomUUID();
 			const now = new Date().toISOString();
 
-			await db.insert(artifacts).values({
+			await work.createArtifact(db, {
 				id,
 				producingTaskId: body.producingTaskId,
 				kind: body.kind,
@@ -372,18 +309,9 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof patchPreviewSchema>;
 			// Race-safe update: only updates rows where preview_json IS NULL.
-			const updated = await db
-				.update(artifacts)
-				.set({ previewJson: JSON.stringify(body.preview) })
-				.where(and(eq(artifacts.id, id), isNull(artifacts.previewJson)))
-				.returning({ id: artifacts.id });
-			if (updated.length === 0) {
-				const [exists] = await db
-					.select({ id: artifacts.id })
-					.from(artifacts)
-					.where(eq(artifacts.id, id))
-					.limit(1);
-				if (!exists) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
+			const outcome = await work.setArtifactPreviewIfAbsent(db, id, JSON.stringify(body.preview));
+			if (outcome === "not_found") return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
+			if (outcome === "immutable") {
 				return c.json({ error: "Preview already set", code: "IMMUTABLE" }, 409);
 			}
 			return c.json({ ok: true });

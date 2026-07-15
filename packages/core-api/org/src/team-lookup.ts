@@ -206,6 +206,22 @@ export async function listTeamsByIds(db: HyperIdleDb, ids: readonly string[]): P
 }
 
 /**
+ * List every `teamMembers` row (unfiltered, all columns).
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, work sub-item
+ * org-cleanup addendum): closes `routes/bets.ts`'s GET /bets/canvas capacity
+ * aggregate (`.from(teamMembers)`, no filter, summed client-side) and
+ * `routes/knowledge.ts`'s `createTeamMembersRoutes` GET / (same unfiltered
+ * scan, narrower column projection applied by the caller) — both were raw
+ * `teamMembers` reads left in place by the org sub-item (which converted
+ * `routes/teams-routes.ts` but not these two call sites) and the knowledge
+ * sub-item (which didn't own `teamMembers` and correctly left it alone).
+ */
+export async function listAllTeamMembers(db: HyperIdleDb): Promise<TeamMember[]> {
+	return db.select().from(teamMembers);
+}
+
+/**
  * List every `teams` row (unfiltered).
  *
  * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):

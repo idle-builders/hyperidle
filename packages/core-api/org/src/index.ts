@@ -87,6 +87,7 @@ export {
 	getTeamMembersByTeamId,
 	incrementTeamMembersCost,
 	listActiveTeamMembersWithTeamNames,
+	listAllTeamMembers,
 	listAllTeams,
 	listTeamsByIds,
 	loadTeamMembers,

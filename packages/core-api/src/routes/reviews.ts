@@ -1,8 +1,8 @@
 import { getMessageById } from "@hyperidle/conversation";
-import { artifacts, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { findProposedCallWithOutcomeByReviewMessageId } from "@hyperidle/review";
 import { relativeLong } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { getArtifactById } from "@hyperidle/work";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
@@ -131,11 +131,7 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 		};
 
 		// Load the artifact to embed proposedCall on it.
-		const [artifactRow] = await db
-			.select()
-			.from(artifacts)
-			.where(eq(artifacts.id, opRow.artifactId))
-			.limit(1);
+		const artifactRow = await getArtifactById(db, opRow.artifactId);
 
 		// Build the artifacts array: one artifact with proposedCall attached.
 		const existingArtifacts = Array.isArray(reviewPayload.artifacts)

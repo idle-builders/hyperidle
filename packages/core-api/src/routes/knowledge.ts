@@ -22,12 +22,7 @@
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 
-import {
-	type HyperIdleDb,
-	// @lore U1: `teamMembers` is the agent membership group (formerly `teams`).
-	teamMembers,
-	teams,
-} from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { getFilesystemById } from "@hyperidle/filesystems";
 import {
 	archiveItem,
@@ -48,6 +43,7 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
+import { getTeamById, getTeamMembersById, listAllTeamMembers } from "@hyperidle/org";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
 	type AgentWorkIntentEvent,
@@ -65,7 +61,6 @@ import {
 } from "@hyperidle/shared";
 import { getUserById } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -132,25 +127,13 @@ export async function resolveScopeName(
 	if (scopeKind === "team") {
 		// @lore AV3 U1: scopeId may be teams.id or team_members.id.
 		// Try teams first (direct id). On miss, try team_members then teams.
-		const [teamRow] = await db
-			.select({ name: teams.name })
-			.from(teams)
-			.where(eq(teams.id, scopeId))
-			.limit(1);
+		const teamRow = await getTeamById(db, scopeId);
 		if (teamRow?.name) return teamRow.name;
 
 		// Two-hop: scopeId is a team_members.id — find the teamId, then look up teams.name.
-		const [memberRow] = await db
-			.select({ teamId: teamMembers.teamId })
-			.from(teamMembers)
-			.where(eq(teamMembers.id, scopeId))
-			.limit(1);
+		const memberRow = await getTeamMembersById(db, scopeId);
 		if (memberRow?.teamId) {
-			const [teamFromMember] = await db
-				.select({ name: teams.name })
-				.from(teams)
-				.where(eq(teams.id, memberRow.teamId))
-				.limit(1);
+			const teamFromMember = await getTeamById(db, memberRow.teamId);
 			if (teamFromMember?.name) return teamFromMember.name;
 		}
 
@@ -882,16 +865,15 @@ export function createTeamMembersRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 	// Row 11: GET /api/team-members — P (host-scope team listing)
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const rows = await db
-			.select({
-				id: teamMembers.id,
-				teamId: teamMembers.teamId,
-				capacity: teamMembers.capacity,
-				activeBets: teamMembers.activeBets,
-				formedAt: teamMembers.formedAt,
-				dissolvedAt: teamMembers.dissolvedAt,
-			})
-			.from(teamMembers);
+		const allTeamMembers = await listAllTeamMembers(db);
+		const rows = allTeamMembers.map((t) => ({
+			id: t.id,
+			teamId: t.teamId,
+			capacity: t.capacity,
+			activeBets: t.activeBets,
+			formedAt: t.formedAt,
+			dissolvedAt: t.dissolvedAt,
+		}));
 
 		return c.json({ teams: rows });
 	});

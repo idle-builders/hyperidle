@@ -36,9 +36,24 @@
  * test that constructs a `transitionBet`/`BetDecompositionDeps` call.
  */
 
-// -- artifact-store (AU19 Increment 4 — `artifacts` TABLE_OWNER closure) --
-export type { CreateArtifactInput } from "./artifact-store.js";
-export { createArtifact } from "./artifact-store.js";
+// -- artifact-store (AU19 Increment 4 — `artifacts` TABLE_OWNER closure;
+// Increment 5 item 4 work sub-item — list/detail/preview-patch/task-summary
+// exports closing the remaining core-api/src raw accessors) --
+export type {
+	ArtifactRow,
+	ArtifactTaskSummaryRow,
+	ArtifactWithTaskTitle,
+	CreateArtifactInput,
+	SetArtifactPreviewOutcome,
+} from "./artifact-store.js";
+export {
+	createArtifact,
+	getArtifactById,
+	getArtifactWithTaskTitleById,
+	listArtifactSummariesByTaskIds,
+	listArtifactsPage,
+	setArtifactPreviewIfAbsent,
+} from "./artifact-store.js";
 // -- bet decomposition (AK3) --
 export type { BetDecompositionDeps } from "./bet-decomposition.js";
 export {

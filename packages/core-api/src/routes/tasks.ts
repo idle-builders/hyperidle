@@ -1,4 +1,4 @@
-import { type HyperIdleDb, sessions, type tasks } from "@hyperidle/db";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { SessionContext } from "@hyperidle/session-lifecycle";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
@@ -159,7 +159,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			}
 
 			const now = new Date().toISOString();
-			const updates: Partial<typeof tasks.$inferInsert> = {
+			const updates: work.TaskPatch = {
 				updatedAt: now,
 			};
 			if (body.title !== undefined) updates.title = body.title;

@@ -1,5 +1,5 @@
 import { getArtifactThreadSummaries } from "@hyperidle/conversation";
-import { artifacts, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	findById as findKnowledgeItemById,
 	findRetroKnowledgeItemForBet,
@@ -7,7 +7,10 @@ import {
 } from "@hyperidle/knowledge";
 import {
 	ApiError,
+	getTeamById,
 	getTeamMembersByTeamId,
+	listAllTeamMembers,
+	listAllTeams,
 	loadTeamMembers,
 	setTeamMembersActiveBets,
 } from "@hyperidle/org";
@@ -20,7 +23,6 @@ import {
 } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
-import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -400,13 +402,13 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// @lore U1: uses `teams` (domain entity, formerly `products`) and `teamMembers`.
 	router.get("/canvas", requireBoundary({ kind: "public-data" }), async (c) => {
 		const allBets = await work.listBets(db);
-		const allTeamMembers = await db.select().from(teamMembers);
+		const allTeamMembers = await listAllTeamMembers(db);
 
 		const totalCapacity = allTeamMembers.reduce((sum, t) => sum + t.capacity, 0);
 		const totalUsed = allTeamMembers.reduce((sum, t) => sum + t.activeBets, 0);
 
 		// Batch team lookup — one query, then a Map for O(1) access.
-		const allTeams = await db.select({ id: teams.id, name: teams.name }).from(teams);
+		const allTeams = await listAllTeams(db);
 		const teamMap = new Map(allTeams.map((t) => [t.id, t.name]));
 
 		/** Shape a bet row into the CanvasBetWire format. */
@@ -476,11 +478,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// @lore U1: `description` (formerly `pitch`), `teamId` (formerly `productId`).
 		const title = deriveTitle(bet.description, bet.id);
 
-		const [teamRow] = await db
-			.select({ name: teams.name })
-			.from(teams)
-			.where(eq(teams.id, bet.teamId))
-			.limit(1);
+		const teamRow = await getTeamById(db, bet.teamId);
 		const team = teamRow?.name ?? bet.teamId;
 
 		const done = betTasks.filter((t) => t.state === "done").length;
@@ -563,11 +561,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
 
 			// Check team existence before team_members lookup.
-			const [teamRow] = await db
-				.select({ id: teams.id })
-				.from(teams)
-				.where(eq(teams.id, body.teamId))
-				.limit(1);
+			const teamRow = await getTeamById(db, body.teamId);
 			if (!teamRow) {
 				return c.json({ error: `Team '${body.teamId}' not found`, code: "VALIDATION_ERROR" }, 400);
 			}
@@ -1107,16 +1101,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			//    conversation summaries from conversation-store (threads+messages only,
 			//    keyed by artifactId) and merge per-artifact in JS — AU12 decomposition
 			//    keeps neither side crossing the ownership boundary.
-			const artifactRows = await db
-				.select({
-					artifactId: artifacts.id,
-					artifactKind: artifacts.kind,
-					artifactPreviewJson: artifacts.previewJson,
-					taskTitle: tasks.title,
-				})
-				.from(artifacts)
-				.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
-				.where(inArray(artifacts.producingTaskId, taskIds));
+			const artifactRows = await work.listArtifactSummariesByTaskIds(db, taskIds);
 			const summaryByArtifact = new Map(
 				(
 					await getArtifactThreadSummaries(
