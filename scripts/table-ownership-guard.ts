@@ -59,6 +59,14 @@ const TABLE_OWNER: Record<string, string> = {
 	// exempt).
 	teamMembers: "packages/core-api/org",
 	orgEdges: "packages/core-api/org",
+	// AU19 Increment 3 (teams table-ownership remediation, 2026-07-15 founder
+	// ruling): `teams` REMOVED from `UNOWNED_SHARED_TABLES` — `org` is its real
+	// owner per architecture.md §4 line 69, not a genuinely ownerless table.
+	// `org` gained a new `getTeamById`/`listTeamsByIds` export pair
+	// (`team-lookup.ts`) as the concrete implementation of `context-assembly`'s
+	// `TeamReader` DI port, mirroring `TeamCapacityReader` (Increment 1c) and
+	// `CostTeamAccessor` (Increment 3g).
+	teams: "packages/core-api/org",
 	// AU19 Increment 1d: `users` migrated. `loginSessions`/`inviteCodes` are
 	// `users`' other two owned tables (login-session.ts/invite-code.ts moved
 	// alongside user-store.ts unchanged) — mapped now so any future foreign
@@ -233,13 +241,17 @@ const TABLE_OWNER: Record<string, string> = {
  * `scripts/au18-notification-ownership-guard.ts` (~line 156,
  * `legalPropagationWrite` treats `propagationLog` as "legal — unrelated
  * table"), `scripts/au13-work-routine-ownership-guard.ts` ("`threads` is not
- * one of the five owned tables"), and the same phrase verbatim in
- * `packages/server/src/routes/search.ts` (`teams` is "not one of the five
- * owned tables, so any file may query it") and
- * `packages/core-api/work/src/work-service.ts` (`searchBetsByText`'s
- * `@lore`, same `teams` reasoning). Completeness is intentionally NOT
+ * one of the five owned tables"). Completeness is intentionally NOT
  * enforced for this short, explicit, reviewed list, rather than forcing a
  * false single-owner assignment onto a real cross-cutting table.
+ *
+ * @lore AU19 Increment 3 (teams remediation, 2026-07-15): `teams` is NOT an
+ * example of this idiom, despite `packages/server/src/routes/search.ts` and
+ * `packages/core-api/work/src/work-service.ts` historically carrying the
+ * verbatim phrase "`teams` is not one of the five owned tables, so any file
+ * may query it directly." Those two `@lore` comments predate `org` existing
+ * as a real, guarded Table-ACL package and were themselves the false-exemption
+ * claim this remediation corrects — see `TABLE_OWNER`'s `teams` row.
  *
  * @lore AU19 Increment 1b: surfaced migrating `work` — `bet-kill-cascade.ts`
  * reads/writes `sessions` + `propagationLog` (cascade); `task-state-machine.ts`/
@@ -279,25 +291,22 @@ const TABLE_OWNER: Record<string, string> = {
  * `taskDispatchAttempts`, not a candidate for a false single-owner
  * `TABLE_OWNER` claim.
  *
- * @lore AU19 Increment 3 (context-assembly finalize): `teams` ADDED —
- * surfaced migrating `context-assembly`'s `session-context.ts` (`teams`
- * lookup for `SessionContextData.team`/`RoutineSessionContextData.team`).
- * No `⛁`/table column anywhere in architecture §4 names `teams` for any
- * Service (the roster's five owned tables are `bets`/`tasks`/`items`/
- * `teamMembers`/`orgEdges`), and this exact "no single owner" finding is
- * already established TWICE elsewhere in the codebase pre-AU19 —
- * `routes/search.ts` and `packages/core-api/work/src/work-service.ts` both
- * carry the verbatim `@lore`: "`teams` is not one of the five owned tables,
- * so any file may query it directly." `context-assembly` is simply the
- * first NESTED Service package to touch it directly, surfacing the same
- * already-confirmed fact to this guard's completeness check.
+ * @lore AU19 Increment 3 (context-assembly finalize) — REVERTED by the
+ * 2026-07-15 founder ruling (`teams` table ownership) and this Increment's
+ * remediation: `teams` was WRONGLY added here — architecture.md §4 line 69
+ * (`| org | ⛁ | teams, org edges | ...`) already names `teams` as `org`-owned.
+ * The "not one of the five owned tables" @lore in `routes/search.ts` and
+ * `packages/core-api/work/src/work-service.ts` predates `org` existing as a
+ * real, guarded Table-ACL package (AU13-era) and is exactly the
+ * foreign-import-ceiling carve-out pattern this project has a standing
+ * zero-exceptions rule against, not a competing architectural decision. See
+ * `TABLE_OWNER`'s `teams` row below for the real ownership entry.
  */
 const UNOWNED_SHARED_TABLES = new Set([
 	"sessions",
 	"propagationLog",
 	"taskDispatchAttempts",
 	"userSkills",
-	"teams",
 ]);
 
 /**

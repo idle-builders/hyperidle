@@ -34,6 +34,17 @@
  * package's `getTeamMembersById` (read, pre-existing) plus three new writes
  * added for this closure: `incrementTeamMembersCost`/`resetTeamMembersCost`/
  * `resetAllTeamMembersCost`.
+ *
+ * @lore AU19 Increment 3 (teams table-ownership remediation, 2026-07-15
+ * founder ruling): `teams` (the domain-entity table, distinct from
+ * `teamMembers`) is ALSO `org`-owned per architecture.md §4 line 69 —
+ * `context-assembly`'s `session-context.ts` had wrongly exempted it into
+ * `table-ownership-guard.ts`'s `UNOWNED_SHARED_TABLES`, citing the same
+ * stale pre-AU19 "not one of the five owned tables" `@lore` this WP's
+ * zero-exceptions ACL rule rejects. `getTeamById`/`listTeamsByIds` added to
+ * `team-lookup.ts` — `context-assembly`'s new `TeamReader` DI port
+ * (Increment 3) and `routes/search.ts`'s batch team-name lookup both wire to
+ * these.
  */
 
 // -- org edges (AH4) --
@@ -61,9 +72,11 @@ export { resolveTeamAgentHarness } from "./team-default-harness.js";
 // -- team lookup (L13 — 1:1 Team=TeamMembers invariant) --
 export {
 	ApiError,
+	getTeamById,
 	getTeamMembersById,
 	getTeamMembersByTeamId,
 	incrementTeamMembersCost,
+	listTeamsByIds,
 	loadTeamMembers,
 	resetAllTeamMembersCost,
 	resetTeamMembersCost,

@@ -11,9 +11,9 @@
  * Queries `teamMembers` table (formerly `teams`). Returns `TeamMember` (formerly `Team`).
  */
 
-import type { TeamMember, WriteExecutor } from "@hyperidle/db";
-import { type HyperIdleDb, teamMembers } from "@hyperidle/db";
-import { eq, sql } from "drizzle-orm";
+import type { Team, TeamMember, WriteExecutor } from "@hyperidle/db";
+import { type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { eq, inArray, sql } from "drizzle-orm";
 
 export class ApiError extends Error {
 	constructor(
@@ -165,4 +165,42 @@ export async function resetTeamMembersCost(
 export async function resetAllTeamMembersCost(db: WriteExecutor): Promise<void> {
 	// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
 	await db.update(teamMembers).set({ costActual: 0 }).where(sql`true`);
+}
+
+/**
+ * Read a single `teams` row (the domain-entity table — distinct from
+ * `team_members`, the membership-group table the rest of this file's
+ * functions operate on) by its own `id`, or `undefined` if none exists.
+ *
+ * @lore AU19 Increment 3 (teams table-ownership remediation, 2026-07-15
+ * founder ruling): the concrete implementation `context-assembly`'s
+ * `TeamReader` DI port (Mechanism C) wires to — `session-context.ts` used to
+ * `.from(teams)` directly, citing a stale pre-AU19 `@lore` ("`teams` is not
+ * one of the five owned tables, so any file may query it") that predates
+ * `org` existing as a real, guarded Table-ACL package. Mirrors
+ * `getTeamMembersById`'s shape one column over (`teams.id` vs
+ * `teamMembers.id`).
+ */
+export async function getTeamById(db: HyperIdleDb, teamId: string): Promise<Team | undefined> {
+	const [row] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+	return row;
+}
+
+/**
+ * Batch-read `teams` rows by id — mirrors `@hyperidle/work`'s
+ * `listBetsByIds`' empty-ids short-circuit (an empty `inArray` errors in some
+ * dialects).
+ *
+ * @lore AU19 Increment 3 (teams table-ownership remediation): closes
+ * `routes/search.ts`'s batch team-name lookup for a page of bet results —
+ * the other named stale-`@lore` site (alongside `work-service.ts`) the
+ * founder ruling identified as evidence of the same unconverted `teams`
+ * access pattern.
+ */
+export async function listTeamsByIds(db: HyperIdleDb, ids: readonly string[]): Promise<Team[]> {
+	if (ids.length === 0) return [];
+	return db
+		.select()
+		.from(teams)
+		.where(inArray(teams.id, Array.from(ids)));
 }

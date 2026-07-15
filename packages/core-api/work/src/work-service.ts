@@ -337,11 +337,17 @@ export async function listBetsByIds(exec: WriteExecutor, ids: readonly string[])
  * team name. Routing the join in would require a THIRD foreign-table import
  * (past the two-function ceiling — addendum §A2/§A9). Resolved instead by
  * keeping this function bets-only (no foreign import) and having the caller
- * (`routes/search.ts`) do a SEPARATE direct `teams` lookup for the returned
- * bet ids — `teams` is not one of the five owned tables, so any file may
- * query it directly without going through a service. Same result set, same
- * order, same values — only the SQL mechanics (JOIN vs. app-level map)
- * differ, which is unobservable to the caller.
+ * (`routes/search.ts`) do a SEPARATE `teams` lookup for the returned bet ids.
+ * Same result set, same order, same values — only the SQL mechanics (JOIN
+ * vs. app-level map) differ, which is unobservable to the caller.
+ *
+ * @lore AU19 Increment 3 (teams table-ownership remediation, 2026-07-15
+ * founder ruling): the above previously read "`teams` is not one of the five
+ * owned tables, so any file may query it directly without going through a
+ * service" — WRONG, `teams` IS `org`-owned (architecture.md §4 line 69).
+ * `routes/search.ts`'s separate lookup now calls `@hyperidle/org`'s
+ * `listTeamsByIds` instead of a direct `@hyperidle/db` query; this function
+ * itself never imported `teams` and needed no code change.
  */
 export async function searchBetsByText(
 	exec: WriteExecutor,

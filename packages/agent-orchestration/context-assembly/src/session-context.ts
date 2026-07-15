@@ -3,21 +3,22 @@
  * from `packages/server/src/services/session-context.ts` — the sole change
  * is threading `ports` (`WorkReader`/`UsersReader`/`RoutineReader`) through
  * every function instead of importing `@hyperidle/work`/`@hyperidle/users`/
- * `@hyperidle/routine` directly (Mechanism C). `teams` stays a direct
- * `@hyperidle/db` read — `teams` is `UNOWNED_SHARED_TABLES` (this WP's own
- * `table-ownership-guard.ts` top `@lore`), the same "not one of the five
- * owned tables" finding already established in `routes/search.ts` and
- * `packages/core-api/work/src/work-service.ts`.
+ * `@hyperidle/routine` directly (Mechanism C).
+ *
+ * @lore AU19 Increment 3 (teams table-ownership remediation, 2026-07-15
+ * founder ruling): `teams` was WRONGLY treated as `UNOWNED_SHARED_TABLES` in
+ * a first pass — `teams` IS `org`-owned (architecture.md §4 line 69). Now
+ * reads through the `TeamReader` DI port (`ports.org.getTeamById`), same
+ * idiom as `work`/`users`/`routine` above — not a direct `@hyperidle/db` read.
  *
  * @lore U1: `products` table renamed to `teams`. `bet.pitch` renamed to `bet.description`.
  * Interface field `productId` kept for backward compat (value is now a teams.id).
  * `SessionContextData.bet.pitch` renamed to `description`.
  * `SessionContextData.product` renamed to `team`.
  */
-import { type HyperIdleDb, teams } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { UserRole } from "@hyperidle/shared";
 import { encodeTyped } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import type { ContextAssemblyPorts } from "./ports.js";
 
 export interface SessionContextConfig {
@@ -63,7 +64,7 @@ export interface SessionContextData {
 export async function buildSessionContextData(
 	db: HyperIdleDb,
 	config: SessionContextConfig,
-	ports: Pick<ContextAssemblyPorts, "work" | "users">,
+	ports: Pick<ContextAssemblyPorts, "work" | "users" | "org">,
 ): Promise<SessionContextData> {
 	const task = await ports.work.getTaskById(db, config.taskId);
 	if (!task) {
@@ -81,7 +82,7 @@ export async function buildSessionContextData(
 	}
 
 	// @lore U1: productId now holds a teams.id value (the domain entity id).
-	const [team] = await db.select().from(teams).where(eq(teams.id, config.productId)).limit(1);
+	const team = await ports.org.getTeamById(db, config.productId);
 	if (!team) {
 		throw new Error(`Team ${config.productId} not found`);
 	}
@@ -170,7 +171,7 @@ export interface RoutineSessionContextData {
 export async function buildRoutineSessionContextData(
 	db: HyperIdleDb,
 	config: RoutineSessionContextConfig,
-	ports: Pick<ContextAssemblyPorts, "routine" | "users">,
+	ports: Pick<ContextAssemblyPorts, "routine" | "users" | "org">,
 ): Promise<RoutineSessionContextData> {
 	const routine = await ports.routine.getRoutineById(db, config.routineId);
 	if (!routine) {
@@ -182,7 +183,7 @@ export async function buildRoutineSessionContextData(
 		throw new Error(`Agent ${config.agentId} not found`);
 	}
 
-	const [team] = await db.select().from(teams).where(eq(teams.id, config.teamId)).limit(1);
+	const team = await ports.org.getTeamById(db, config.teamId);
 	if (!team) {
 		throw new Error(`Team ${config.teamId} not found`);
 	}
@@ -210,7 +211,7 @@ export async function buildRoutineSessionContextData(
 export async function buildSessionContext(
 	db: HyperIdleDb,
 	config: SessionContextConfig,
-	ports: Pick<ContextAssemblyPorts, "work" | "users">,
+	ports: Pick<ContextAssemblyPorts, "work" | "users" | "org">,
 ): Promise<string> {
 	const data = await buildSessionContextData(db, config, ports);
 	return encodeTyped(data);

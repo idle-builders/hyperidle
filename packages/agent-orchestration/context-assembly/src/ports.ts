@@ -27,6 +27,7 @@ import type {
 	KnowledgeItem,
 	Routine,
 	Task,
+	Team,
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
@@ -136,6 +137,21 @@ export interface FilesystemsReader {
 	startWatcher(config: ContextAssemblyFileWatcherConfig): ContextAssemblyFileWatcher;
 }
 
+// ---------------------------------------------------------------------------
+// org — TeamReader (real, Increment 3 teams table-ownership remediation,
+// 2026-07-15 founder ruling).
+//
+// @lore AU19 Increment 3: `session-context.ts` used to read `teams` via a
+// direct `@hyperidle/db` query, citing `teams` as `UNOWNED_SHARED_TABLES` —
+// WRONG, `teams` is `org`-owned per architecture.md §4 line 69. `TeamReader`
+// is the concrete port `@hyperidle/org`'s new `getTeamById` wires to, same
+// idiom as `WorkReader`/`UsersReader`/`RoutineReader` above.
+// ---------------------------------------------------------------------------
+
+export interface TeamReader {
+	getTeamById(db: HyperIdleDb, teamId: string): Promise<Team | undefined>;
+}
+
 /** The full port set `context-assembly`'s real logic needs. Wired at the composition root. */
 export interface ContextAssemblyPorts {
 	readonly knowledge: KnowledgeReader;
@@ -143,4 +159,5 @@ export interface ContextAssemblyPorts {
 	readonly users: UsersReader;
 	readonly routine: RoutineReader;
 	readonly filesystems: FilesystemsReader;
+	readonly org: TeamReader;
 }

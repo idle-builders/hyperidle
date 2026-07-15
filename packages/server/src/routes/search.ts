@@ -31,12 +31,12 @@ import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
-	teams,
 } from "@hyperidle/db";
+import { listTeamsByIds } from "@hyperidle/org";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
-import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -229,9 +229,15 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// query — routing it through work-service would require a THIRD
 		// foreign-table import past the two-function ceiling. Resolved by keeping
 		// `searchBetsByText` bets-only (owns the matchRank + LIKE predicate, no
-		// foreign columns) and doing the team-name lookup here directly — `teams`
-		// is not one of the five owned tables, so any file may query it. Same
-		// result set/order/values; only JOIN-vs-app-level-map mechanics differ.
+		// foreign columns) and doing the team-name lookup here as a separate
+		// batch call. Same result set/order/values; only JOIN-vs-app-level-map
+		// mechanics differ.
+		//
+		// @lore AU19 Increment 3 (teams table-ownership remediation, 2026-07-15
+		// founder ruling): this used to be a direct `.from(teams)` query,
+		// claiming "`teams` is not one of the five owned tables, so any file may
+		// query it" — WRONG, `teams` IS `org`-owned (architecture.md §4 line 69).
+		// Now calls `@hyperidle/org`'s `listTeamsByIds`.
 		const betRows = await work.searchBetsByText(db, {
 			pattern,
 			query: escapeLikePattern(query),
@@ -239,15 +245,10 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		});
 		const betTeamRows =
 			betRows.length > 0
-				? await db
-						.select({ id: teams.id, name: teams.name })
-						.from(teams)
-						.where(
-							inArray(
-								teams.id,
-								betRows.map((b) => b.teamId),
-							),
-						)
+				? await listTeamsByIds(
+						db,
+						betRows.map((b) => b.teamId),
+					)
 				: [];
 		const teamNameMap = new Map(betTeamRows.map((t) => [t.id, t.name]));
 
