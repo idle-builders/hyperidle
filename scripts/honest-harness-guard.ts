@@ -638,11 +638,16 @@ const SCAN_DIRS = [
 	// harness-registry file with zero real coverage — this was the flagged
 	// Increment-0 "resolve before Increment 4/5" gap.
 	"packages/agent-execution/harness-registry/src/__tests__",
-	"packages/server/src/__tests__",
+	// @lore AU19 Increment 5 item 5: `packages/server/src/__tests__` and
+	// `packages/server/src/routes/__tests__` moved to `packages/core-api` when
+	// Increment 2 dissolved `packages/server` (commit cee027ab) — both dirs
+	// were left stale here (silently skipped, `collectSelectedFiles` skips
+	// missing dirs) until this repoint.
+	"packages/core-api/src/__tests__",
 	// AR4: AH3/AK4 real files live here — add to SCAN_DIRS so the guard lints them.
 	// NOTE: SCAN_DIRS is guard-lint-only; attestation floor selects via isHarnessIntegrationPath
 	// on vitest JSON paths (EXPLICIT_HARNESS_INTEGRATION suffix), independent of SCAN_DIRS (N-1).
-	"packages/server/src/routes/__tests__",
+	"packages/core-api/src/routes/__tests__",
 ];
 
 /** Collect every existing harness-facing integration file as a GuardFile. */
