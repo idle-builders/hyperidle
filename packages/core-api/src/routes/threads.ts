@@ -27,7 +27,6 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import {
-	artifacts,
 	type Message as DbMessage,
 	type Thread as DbThread,
 	escapeLikePattern,
@@ -1375,11 +1374,7 @@ export function createThreadRoutes(
 
 			if (decision === "approve") {
 				// Resolve task + agent scope via the artifact → task chain
-				const [art] = await db
-					.select({ producingTaskId: artifacts.producingTaskId })
-					.from(artifacts)
-					.where(eq(artifacts.id, pc.artifactId))
-					.limit(1);
+				const art = await work.getArtifactById(db, pc.artifactId);
 				const taskId = art?.producingTaskId;
 				if (!taskId) {
 					return c.json({ error: "Artifact not found", code: "not_found" }, 404);
