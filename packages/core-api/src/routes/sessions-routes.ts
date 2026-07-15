@@ -1,6 +1,11 @@
 import type { SessionActivityBuffer } from "@hyperidle/capture-writeback";
-import { explicitSessionStarts, type HyperIdleDb, sessions } from "@hyperidle/db";
-import { sessionRunRegistry } from "@hyperidle/session-requests";
+import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
+import {
+	createExplicitSessionStart,
+	findExplicitSessionStartById,
+	findExplicitSessionStartByRequesterAndIdempotencyKey,
+	sessionRunRegistry,
+} from "@hyperidle/session-requests";
 import {
 	type AgentWorkIntentEvent,
 	type AgentWorkIntentReader,
@@ -37,7 +42,7 @@ const createSessionSchema = z.object({
 export const EXPLICIT_SESSION_ADMISSION_WAIT_MS = 2_000;
 const IDEMPOTENCY_KEY_PATTERN = /^[\x21-\x7e]{1,200}$/;
 
-function pendingStart(start: typeof explicitSessionStarts.$inferSelect) {
+function pendingStart(start: ExplicitSessionStart) {
 	return {
 		status: "requested" as const,
 		startId: start.id,
@@ -49,10 +54,7 @@ function pendingStart(start: typeof explicitSessionStarts.$inferSelect) {
 	};
 }
 
-async function projectExplicitStart(
-	db: HyperIdleDb,
-	start: typeof explicitSessionStarts.$inferSelect,
-) {
+async function projectExplicitStart(db: HyperIdleDb, start: ExplicitSessionStart) {
 	if (start.status === "admitted" && start.sessionId) {
 		const [session] = await db
 			.select()
@@ -353,16 +355,10 @@ export function createSessionRoutes(
 					);
 				const idempotencyKey = suppliedKey ?? `session-start:${crypto.randomUUID()}`;
 				const requestedBy = c.get("userId");
-				let [start] = await db
-					.select()
-					.from(explicitSessionStarts)
-					.where(
-						and(
-							eq(explicitSessionStarts.requestedBy, requestedBy),
-							eq(explicitSessionStarts.idempotencyKey, idempotencyKey),
-						),
-					)
-					.limit(1);
+				let start = await findExplicitSessionStartByRequesterAndIdempotencyKey(db, {
+					requestedBy,
+					idempotencyKey,
+				});
 				if (
 					start &&
 					(start.taskId !== body.taskId ||
@@ -380,20 +376,14 @@ export function createSessionRoutes(
 				if (!start) {
 					const startId = crypto.randomUUID();
 					await db.transaction(async (tx) => {
-						[start] = await tx
-							.insert(explicitSessionStarts)
-							.values({
-								id: startId,
-								taskId: body.taskId,
-								requestedAgentId: body.agentId,
-								requestedModelTier: body.modelTier,
-								requestedBy,
-								idempotencyKey,
-								status: "requested",
-								createdAt: new Date().toISOString(),
-								updatedAt: new Date().toISOString(),
-							})
-							.returning();
+						start = await createExplicitSessionStart(tx, {
+							id: startId,
+							taskId: body.taskId,
+							requestedAgentId: body.agentId,
+							requestedModelTier: body.modelTier,
+							requestedBy,
+							idempotencyKey,
+						});
 						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "session_start",
 							sourceKind: "explicit_session_start",
@@ -426,11 +416,7 @@ export function createSessionRoutes(
 							}
 						};
 						const check = async () => {
-							const [fresh] = await db
-								.select()
-								.from(explicitSessionStarts)
-								.where(eq(explicitSessionStarts.id, committedStart.id))
-								.limit(1);
+							const fresh = await findExplicitSessionStartById(db, committedStart.id);
 							if (fresh && fresh.status !== "requested")
 								finish(await projectExplicitStart(db, fresh));
 						};
@@ -485,17 +471,8 @@ export function createSessionRoutes(
 	);
 
 	router.get("/starts/:startId", requireBoundary({ kind: "public-data" }), async (c) => {
-		const [start] = await db
-			.select()
-			.from(explicitSessionStarts)
-			.where(
-				and(
-					eq(explicitSessionStarts.id, c.req.param("startId")),
-					eq(explicitSessionStarts.requestedBy, c.get("userId")),
-				),
-			)
-			.limit(1);
-		if (!start)
+		const start = await findExplicitSessionStartById(db, c.req.param("startId"));
+		if (!start || start.requestedBy !== c.get("userId"))
 			return c.json({ error: "Session start not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		c.header("Idempotency-Key", start.idempotencyKey);
 		c.header("Location", `/api/sessions/starts/${start.id}`);

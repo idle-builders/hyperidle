@@ -59,7 +59,10 @@ export {
 	recordAgentWorkIntent,
 } from "./agent-work-intents.js";
 export {
+	type CreateExplicitSessionStartInput,
+	createExplicitSessionStart,
 	findExplicitSessionStartById,
+	findExplicitSessionStartByRequesterAndIdempotencyKey,
 	markExplicitSessionStartAdmitted,
 	markExplicitSessionStartFailed,
 	projectExplicitSessionStartTerminalState,
