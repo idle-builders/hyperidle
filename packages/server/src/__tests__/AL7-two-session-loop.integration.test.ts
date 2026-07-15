@@ -32,12 +32,11 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { BuildToolRegistryOptions, EventBus, ToolContext } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 import { test } from "../test-fixtures.js";
-import type { ToolContext } from "../tools/tool-registry.js";
-import { type BuildToolRegistryOptions, buildToolRegistry } from "../tools/tool-registry.js";
 
 const NOW = new Date().toISOString();
 
@@ -129,7 +128,7 @@ function makeCtx(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	opts: { agentId: string; taskId: string; sessionId: string; sandboxPath: string },
-): ToolContext {
+): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus,
@@ -202,7 +201,7 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 					argPinned: false,
 				},
 			},
-		} as BuildToolRegistryOptions);
+		} as BuildToolRegistryOptions<HyperIdleDb>);
 
 		// Invoke commit_file — should CAS-consume the grant + run the handler
 		const result = await registry.invoke("commit_file", {
@@ -297,7 +296,7 @@ describe("AC5: different irreversible op in session 2 is re-routed to review", (
 					argPinned: false,
 				},
 			},
-		} as BuildToolRegistryOptions);
+		} as BuildToolRegistryOptions<HyperIdleDb>);
 
 		// Attempt a DIFFERENT irreversible op (not the approved commit_file with those args,
 		// but a "github_merge_pr" — a distinct irreversible tool)
@@ -529,7 +528,7 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 					argPinned: false,
 				},
 			},
-		} as BuildToolRegistryOptions);
+		} as BuildToolRegistryOptions<HyperIdleDb>);
 
 		// Step 1: invoke the approved op (commit_file) — CAS-consumes grant + writes file
 		const approvedResult = await registry.invoke("commit_file", {

@@ -57,6 +57,7 @@
 
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import type { AssistantTurnDeps } from "@hyperidle/dispatch";
+import { type AdapterPool, RemoteHarnessAdapter } from "@hyperidle/harness-registry";
 import {
 	AGENT_LAYER_REAP_INTERVAL_MS,
 	type AgentLayerBootDeps,
@@ -99,8 +100,6 @@ import {
 import type { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
-import type { AdapterPool } from "../harness/adapter-pool.js";
-import { RemoteHarnessAdapter } from "../harness/remote-harness-adapter.js";
 import { executeAssistantRequest } from "./dispatch-bindings.js";
 import {
 	crashSession,

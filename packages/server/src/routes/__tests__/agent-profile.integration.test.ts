@@ -35,8 +35,8 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
+import { AdapterPool } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../../harness/adapter-pool.js";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 

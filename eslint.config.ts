@@ -640,14 +640,20 @@ export default [
 	// (b) catches "I added a BUILTIN_ASSISTANT_SYSTEM_PROMPT const locally and used it".
 	// Neither can substitute for the other.
 	{
-		files: ["packages/server/src/routes/**/*.ts", "packages/server/src/tools/**/*.ts"],
+		// @lore AU19 Increment 4: `packages/server/src/tools/**` (the domain-
+		// touching tool bodies) moved to `agent-orchestration/tool-handlers` —
+		// creation surfaces now live there, not under `packages/server`.
+		files: [
+			"packages/server/src/routes/**/*.ts",
+			"packages/agent-orchestration/tool-handlers/src/**/*.ts",
+		],
 		ignores: [
 			"packages/server/src/routes/**/__tests__/**",
 			"packages/server/src/routes/**/*.test.ts",
 			"packages/server/src/routes/**/*.spec.ts",
-			"packages/server/src/tools/**/__tests__/**",
-			"packages/server/src/tools/**/*.test.ts",
-			"packages/server/src/tools/**/*.spec.ts",
+			"packages/agent-orchestration/tool-handlers/src/__tests__/**",
+			"packages/agent-orchestration/tool-handlers/src/**/*.test.ts",
+			"packages/agent-orchestration/tool-handlers/src/**/*.spec.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -1110,18 +1116,21 @@ export default [
 	// and the extraction drain (bet-decomposition) are classified by their markers
 	// so the rule never requires eslint-disable on them.
 	{
+		// @lore AU19 Increment 4: `packages/server/src/harness/**` moved to
+		// `agent-execution/harness-registry` — the stream-drain surfaces this
+		// guard polices now live there, not under `packages/server`.
 		files: [
 			"packages/server/src/services/**/*.ts",
-			"packages/server/src/harness/**/*.ts",
+			"packages/agent-execution/harness-registry/src/**/*.ts",
 			"packages/desktop/src/**/*.ts",
 		],
 		ignores: [
 			"packages/server/src/services/**/__tests__/**",
 			"packages/server/src/services/**/*.test.ts",
 			"packages/server/src/services/**/*.integration.test.ts",
-			"packages/server/src/harness/**/__tests__/**",
-			"packages/server/src/harness/**/*.test.ts",
-			"packages/server/src/harness/**/*.integration.test.ts",
+			"packages/agent-execution/harness-registry/src/__tests__/**",
+			"packages/agent-execution/harness-registry/src/**/*.test.ts",
+			"packages/agent-execution/harness-registry/src/**/*.integration.test.ts",
 			"packages/desktop/src/**/__tests__/**",
 			"packages/desktop/src/**/*.test.ts",
 		],

@@ -33,10 +33,9 @@ import {
 	encryptCredentialValue,
 } from "@hyperidle/connections";
 import { serverCredentials } from "@hyperidle/db";
+import { AdapterPool, DisabledSandboxAdapter } from "@hyperidle/harness-registry";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { DisabledSandboxAdapter } from "../harness/disabled-sandbox-adapter.js";
 import { createServer } from "../server-factory.js";
 import { test } from "../test-fixtures.js";
 

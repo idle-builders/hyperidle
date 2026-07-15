@@ -11,8 +11,8 @@
  * select() already uses meta.modelProviders and that is the authoritative source.
  */
 
+import { AdapterPool } from "@hyperidle/harness-registry";
 import { describe, expect, it } from "vitest";
-import { AdapterPool } from "../harness/adapter-pool.js";
 import { validateAgentConfig } from "../routes/agents.js";
 
 // ---------------------------------------------------------------------------

@@ -11,9 +11,9 @@
  *  - Pause message before registration with adapter null → no-op
  */
 
+import { AdapterPool } from "@hyperidle/harness-registry";
 import type { WorkerConnectionManager } from "@hyperidle/run-orchestration";
 import { describe, expect, it, vi } from "vitest";
-import { AdapterPool } from "../../harness/adapter-pool.js";
 import { createWorkerConnectionManager } from "../../services/run-orchestration-bindings.js";
 
 // ── Mock WebSocket ────────────────────────────────────────────────────────────

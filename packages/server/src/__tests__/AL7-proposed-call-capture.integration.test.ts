@@ -34,12 +34,11 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus, ToolContext } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 import { test } from "../test-fixtures.js";
-import type { ToolContext } from "../tools/tool-registry.js";
-import { buildToolRegistry } from "../tools/tool-registry.js";
 
 const NOW = new Date().toISOString();
 
@@ -134,8 +133,8 @@ function makeCtx(
 	agentId: string,
 	taskId: string,
 	sessionId: string,
-	extraCtx?: Partial<ToolContext>,
-): ToolContext {
+	extraCtx?: Partial<ToolContext<HyperIdleDb>>,
+): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus,
@@ -209,7 +208,7 @@ describe("AC1: irreversible call is captured + session 1 aborted", () => {
 
 		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId, {
 			onAbortSession: abortTracker.abort,
-		} as Partial<ToolContext>);
+		} as Partial<ToolContext<HyperIdleDb>>);
 
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",

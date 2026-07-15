@@ -54,6 +54,8 @@
  * `@lore` for the port side.
  */
 
+// -- attention-score-store (AU19 Increment 4 — the tool-handlers -> knowledge edge) --
+export { upsertKnowledgeAppProjectionAttentionScore } from "./attention-score-store.js";
 // -- attention engine (recompute service + DI ports for work/review edges) --
 export type {
 	AttentionRecomputeResult,
@@ -70,7 +72,16 @@ export type {
 	ReasoningMarkerFinder,
 } from "./attention-service.js";
 export { buildAttentionService, MAX_RECOMPUTE_BATCH } from "./attention-service.js";
-
+// -- conflict-review-store (AU19 Increment 4 — the tool-handlers -> knowledge edge) --
+export type {
+	CreateKnowledgeConflictInput,
+	KnowledgeItemVersionRow,
+} from "./conflict-review-store.js";
+export {
+	createKnowledgeConflict,
+	findKnowledgeItemVersionById,
+	findOpenConflictByItemAndProposer,
+} from "./conflict-review-store.js";
 // -- errors --
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
 // -- full-text search --
@@ -162,6 +173,12 @@ export {
 	type StaleSweepOptions,
 	type StaleSweepResult,
 } from "./promotion-pipeline.js";
+// -- promotion-transition (AU19 Increment 4 — the tool-handlers -> knowledge edge) --
+export type {
+	PromoteKnowledgeItemInput,
+	PromoteKnowledgeItemResult,
+} from "./promotion-transition.js";
+export { findKnowledgeItemStatusById, promoteKnowledgeItem } from "./promotion-transition.js";
 export type {
 	RelevanceConfig,
 	RelevanceInput,

@@ -37,6 +37,14 @@ import type { AssistantTurnDeps, TaskDispatcherDeps } from "@hyperidle/dispatch"
 import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
+	type AdapterPool,
+	createLocalAdapterPool,
+	DisabledSandboxAdapter,
+	enforcementRegistry,
+	LocalSandboxAdapter,
+	type SandboxAdapter,
+} from "@hyperidle/harness-registry";
+import {
 	create as createKnowledgeItem,
 	findKnowledgeItemProjectionById,
 	listExportableKnowledgeItems,
@@ -47,6 +55,7 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
+import { createMcpBridgeRegistry, createMcpRoute } from "@hyperidle/mcp-provider";
 import { resolveModelTier } from "@hyperidle/model-gateway";
 import {
 	type AlertPreferences,
@@ -112,12 +121,6 @@ import {
 import { eq } from "drizzle-orm";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
-import { type AdapterPool, createLocalAdapterPool } from "./harness/adapter-pool.js";
-import { DisabledSandboxAdapter } from "./harness/disabled-sandbox-adapter.js";
-import { LocalSandboxAdapter } from "./harness/local-sandbox-adapter.js";
-import { enforcementRegistry } from "./harness/return-enforcement-registry.js";
-import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
-import { createMcpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { registerWsRoute } from "./routes/ws.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 import {
@@ -131,7 +134,6 @@ import {
 	startRoutineScheduler,
 } from "./services/dispatch-bindings.js";
 import { startAgentLifecycleProjectionDrain } from "./services/lifecycle-projection-bindings.js";
-import { createMcpRoute } from "./services/mcp-route.js";
 import {
 	bootAgentLayer,
 	markRunningAgentSessionRequestsForShutdown,

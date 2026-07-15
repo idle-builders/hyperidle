@@ -25,15 +25,13 @@
  * into the bridge registry — no need for a real McpServer or transport.
  */
 
+import type { EnforcementRegistry } from "@hyperidle/harness-registry";
+import { createEnforcementRegistry } from "@hyperidle/harness-registry";
+import type { McpBridgeInstance, McpBridgeRegistry } from "@hyperidle/mcp-provider";
+import { createMcpBridgeRegistry, createMcpRoute } from "@hyperidle/mcp-provider";
 import { AL6_FORCE_RETURN_MESSAGE, AL6_MAX_FORCE_RETURNS } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it as test } from "vitest";
-import type { EnforcementRegistry } from "../harness/return-enforcement-registry.js";
-import { createEnforcementRegistry } from "../harness/return-enforcement-registry.js";
-import type { McpBridgeInstance } from "../mcp/mcp-bridge.js";
-import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import { createMcpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import { createMcpRoute } from "../services/mcp-route.js";
 
 // ── Bridge stub ───────────────────────────────────────────────────────────────
 // The /return-status route only reads bridge.sessionId; the rest of

@@ -3,11 +3,13 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { serviceConnections, teamMembers, teams, userSkills, users } from "@hyperidle/db";
+import {
+	AdapterPool,
+	BuiltinHarnessAdapter,
+	DisabledSandboxAdapter,
+} from "@hyperidle/harness-registry";
 import { getResolvedConfiguration, listResolvedConfiguration } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import { DisabledSandboxAdapter } from "../harness/disabled-sandbox-adapter.js";
 import { createServer, type ServerHandle } from "../server-factory.js";
 import { test } from "../test-fixtures.js";
 

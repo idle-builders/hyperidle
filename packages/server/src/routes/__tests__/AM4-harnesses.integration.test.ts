@@ -21,12 +21,15 @@
  *  - POST /:type/disabled endpoint with :type validation + builtin-reject
  */
 
+import type { HarnessDiscoveryInput } from "@hyperidle/harness-registry";
+import {
+	AdapterPool,
+	BuiltinHarnessAdapter,
+	CLAUDE_CLI_CONFIG,
+	CliHarnessAdapter,
+} from "@hyperidle/harness-registry";
 import { updateServerConfig } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool, CLAUDE_CLI_CONFIG } from "../../harness/adapter-pool.js";
-import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
-import { CliHarnessAdapter } from "../../harness/cli-harness-adapter.js";
-import type { HarnessDiscoveryInput } from "../../harness/harness-discovery.js";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 

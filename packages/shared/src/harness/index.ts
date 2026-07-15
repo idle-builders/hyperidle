@@ -1,5 +1,7 @@
 export { derivePrimaryHarness } from "./derive-primary-harness.js";
 export type {
+	AdapterInfo,
+	AdapterMeta,
 	ConversationMessage,
 	HarnessAdapter,
 	HarnessCapabilities,

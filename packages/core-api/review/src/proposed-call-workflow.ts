@@ -28,6 +28,7 @@
  * routed through `review`'s barrel instead of a foreign table touch.
  */
 
+import * as crypto from "node:crypto";
 import {
 	type HyperIdleDb,
 	operationOutcomes,
@@ -36,6 +37,7 @@ import {
 	type TailoredGrant,
 	tailoredGrants,
 } from "@hyperidle/db";
+import type { ToolResult } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import type { ReviewAgentWorkIntentRecorder } from "./ports.js";
 
@@ -226,4 +228,118 @@ export async function composeTailoredGrant(
 			idempotencyKey: `grant:${opts.proposedCallId}`,
 		});
 	});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AU19 Increment 4 — the AL7 trust-first workflow router's DB touches
+// (`@hyperidle/tool-provider`'s `ProposedCallWorkflowPort`). Moved verbatim
+// (byte-identical SQL shape) from the pre-migration `tools/tool-registry.ts`'s
+// `captureProposedCall`/`recordOutcome` module-private helpers + the inline
+// CAS-consume `tailoredGrants` update inside `invoke()` — `proposedCalls`/
+// `tailoredGrants`/`operationOutcomes` are `review`'s own owned tables
+// (Table ACL, Mechanism A), so this is where they belong now that
+// `tool-provider` (agent-execution, zero `@hyperidle/db`) can no longer
+// touch them directly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Insert a Proposed Call row idempotently using ON CONFLICT DO NOTHING semantics.
+ * Returns `{ firstCapture: true }` if the row was newly inserted (zero prior rows
+ * for this `(originSessionId, identityHash)` pair) or `{ firstCapture: false }` if
+ * it was a duplicate.
+ *
+ * @lore AL7 WARNING-5.2: the `(origin_session_id, identity_hash)` constraint MUST
+ * be a UNIQUE constraint (not a plain index) so the INSERT ON CONFLICT DO NOTHING
+ * truly deduplicates. A plain index does NOT block duplicates in PostgreSQL.
+ */
+export async function captureProposedCall(
+	db: HyperIdleDb,
+	opts: {
+		readonly originSessionId: string;
+		readonly taskId: string;
+		readonly agentId: string;
+		readonly toolId: string;
+		readonly args: Record<string, unknown>;
+		readonly hash: string;
+		readonly reviewMessageId: string;
+		readonly subjectThreadId: string;
+		readonly artifactId: string;
+	},
+): Promise<{ readonly firstCapture: boolean }> {
+	const id = `pc-${crypto.randomUUID()}`;
+	const rows = await db
+		.insert(proposedCalls)
+		.values({
+			id,
+			reviewMessageId: opts.reviewMessageId,
+			subjectThreadId: opts.subjectThreadId,
+			artifactId: opts.artifactId,
+			originSessionId: opts.originSessionId,
+			toolId: opts.toolId,
+			args: JSON.stringify(opts.args),
+			identityHash: opts.hash,
+			reversibility: "irreversible",
+			status: "captured",
+			stagedByAgentId: opts.agentId,
+			createdAt: nowIso(),
+		})
+		.onConflictDoNothing()
+		.returning();
+	return { firstCapture: rows.length > 0 };
+}
+
+/**
+ * CAS-consume a tailored grant for `(taskId, agentId, toolId)`. Returns the
+ * claimed `proposedCallId`, or `null` if already consumed / not granted.
+ */
+export async function consumeTailoredGrant(
+	db: HyperIdleDb,
+	opts: { readonly taskId: string; readonly agentId: string; readonly toolId: string },
+): Promise<{ readonly proposedCallId: string } | null> {
+	const [claimed] = await db
+		.update(tailoredGrants)
+		.set({ consumed: true, consumedAt: nowIso() })
+		.where(
+			and(
+				eq(tailoredGrants.taskScope, opts.taskId),
+				eq(tailoredGrants.agentScope, opts.agentId),
+				eq(tailoredGrants.approvedToolId, opts.toolId),
+				eq(tailoredGrants.consumed, false),
+			),
+		)
+		.returning();
+	return claimed ? { proposedCallId: claimed.proposedCallId } : null;
+}
+
+/**
+ * Record the terminal outcome of an executed Proposed Call.
+ * One row per `proposedCallId` (PK enforces immutability).
+ */
+export async function recordOutcome(
+	db: HyperIdleDb,
+	proposedCallId: string,
+	result: ToolResult,
+): Promise<void> {
+	const executedAt = nowIso();
+	if (result.success) {
+		const receipt = typeof result.data === "string" ? result.data : JSON.stringify(result.data);
+		await db.insert(operationOutcomes).values({
+			proposedCallId,
+			status: "ok",
+			receipt,
+			executedAt,
+		});
+	} else {
+		await db.insert(operationOutcomes).values({
+			proposedCallId,
+			status: "failed",
+			error: result.error,
+			executedAt,
+		});
+	}
+	const newStatus = result.success ? "executed" : "failed";
+	await db
+		.update(proposedCalls)
+		.set({ status: newStatus })
+		.where(eq(proposedCalls.id, proposedCallId));
 }

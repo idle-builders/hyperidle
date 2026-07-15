@@ -35,6 +35,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
 import { getTeamMembersByTeamId } from "@hyperidle/org";
 import {
 	createAgentSessionRequest,
@@ -48,8 +49,6 @@ import {
 } from "@hyperidle/trigger-resolution";
 import { getUserByIdScopedToTeam } from "@hyperidle/users";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
 import { executeAssistantRequest } from "../services/dispatch-bindings.js";
 import { test } from "../test-fixtures.js";
 

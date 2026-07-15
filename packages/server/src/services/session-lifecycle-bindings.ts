@@ -35,6 +35,14 @@ import {
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { listFilesystemIdsByAgent, listFilesystemsByIds } from "@hyperidle/filesystems";
+import {
+	createReturnGate,
+	enforcementRegistry,
+	evaluateReturn,
+	provisionReturnHook,
+	writeCliMcpConfig,
+} from "@hyperidle/harness-registry";
+import { createMcpBridge } from "@hyperidle/mcp-provider";
 import { summarizeToolArgs } from "@hyperidle/observability";
 import * as routineService from "@hyperidle/routine";
 import {
@@ -66,6 +74,7 @@ import type {
 	RunContextBundle,
 	SessionHandoffCompletedEvent,
 	AdmittedRun as SharedAdmittedRun,
+	ToolContext,
 } from "@hyperidle/shared";
 import { getFirstUserByKind, getUserById } from "@hyperidle/users";
 import {
@@ -75,13 +84,6 @@ import {
 	updateBetById,
 	updateTaskById,
 } from "@hyperidle/work";
-import { writeCliMcpConfig } from "../harness/cli-mcp-config.js";
-import { provisionReturnHook } from "../harness/provision-return-hook.js";
-import { enforcementRegistry } from "../harness/return-enforcement-registry.js";
-import { createReturnGate, evaluateReturn } from "../harness/return-gate.js";
-import { createMcpBridge } from "../mcp/mcp-bridge.js";
-import { returnStatusTool } from "../tools/return-status-tool.js";
-import { buildToolRegistry, type ToolContext, toolsForRole } from "../tools/tool-registry.js";
 import {
 	assembleAgentContext,
 	assemblePrompt,
@@ -94,6 +96,7 @@ import {
 } from "./context-assembly-bindings.js";
 import { checkCostCap, recordCostAndCheck, releaseSessionDedup } from "./cost-bindings.js";
 import { terminalizeAgentSessionRequestInTx } from "./session-requests-bindings.js";
+import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
 // ---------------------------------------------------------------------------
 // routine — ordinary downward DI.
@@ -234,8 +237,8 @@ const mcpProvider: SessionLifecyclePorts["mcpProvider"] = {
  * shapes are structurally identical — a single documented cast, not the
  * banned `X as unknown as T` double-assertion (`design/no-unknown-cast`).
  */
-function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext {
-	return ctx as ToolContext;
+function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<HyperIdleDb> {
+	return ctx as ToolContext<HyperIdleDb>;
 }
 
 const toolProvider: SessionLifecyclePorts["toolProvider"] = {

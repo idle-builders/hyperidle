@@ -35,14 +35,14 @@ import {
 	EMITTED_ROOTS_CONTEXT_ASSEMBLY,
 } from "@hyperidle/context-assembly";
 import { SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
-import { EMITTED_ROOTS_MCP_JSON } from "@hyperidle/session-lifecycle";
-import { describe, expect, it } from "vitest";
-import { EMITTED_ROOTS_CLI_MCP_CONFIG } from "../../harness/cli-mcp-config.js";
 import {
 	EMITTED_ROOTS_CLAUDE_SETTINGS,
+	EMITTED_ROOTS_CLI_MCP_CONFIG,
 	EMITTED_ROOTS_CODEX_HOME,
 	EMITTED_ROOTS_OPENCODE_PLUGIN,
-} from "../../harness/provision-return-hook.js";
+} from "@hyperidle/harness-registry";
+import { EMITTED_ROOTS_MCP_JSON } from "@hyperidle/session-lifecycle";
+import { describe, expect, it } from "vitest";
 
 // ── Coverage helper ───────────────────────────────────────────────────────────
 

@@ -12,6 +12,8 @@ import {
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { AssistantTurnDeps } from "@hyperidle/dispatch";
 import { checkAndUnblockDependents } from "@hyperidle/filesystems";
+import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
+import type { McpBridgeRegistry } from "@hyperidle/mcp-provider";
 import {
 	defaultNotificationAdapterFactory,
 	type NotificationAdapter,
@@ -45,9 +47,6 @@ import {
 	transitionTask,
 } from "@hyperidle/work";
 import { Hono } from "hono";
-import type { AdapterPool } from "./harness/adapter-pool.js";
-import type { SandboxAdapter } from "./harness/sandbox-adapter.js";
-import type { McpBridgeRegistry } from "./mcp/mcp-bridge-registry.js";
 import { failClosedAssertion } from "./middleware/access-boundary-middleware.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";

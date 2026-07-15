@@ -27,11 +27,13 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus, type ToolContext } from "@hyperidle/shared";
+import { createCreateItemTool } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createItemTool } from "../tools/create-item.js";
-import type { ToolContext } from "../tools/tool-registry.js";
+import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+
+const createItemTool = createCreateItemTool(toolHandlersPorts);
 
 const NOW = new Date().toISOString();
 const TEST_TEAM_ID = "team-ad1";
@@ -90,8 +92,8 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 function makeContext(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	overrides?: Partial<ToolContext>,
-): ToolContext {
+	overrides?: Partial<ToolContext<HyperIdleDb>>,
+): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus,

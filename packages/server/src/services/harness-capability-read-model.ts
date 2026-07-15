@@ -18,10 +18,24 @@
  * name `select()`/`register()`/`unregister()`/etc. regardless of how many
  * forwarders exist. See scripts/au11-runtime-ownership-guard.ts's AU16 doc
  * comment for the guard-side half of this guarantee.
+ *
+ * @lore AU19 Increment 4 (§6 finding resolution): architecture.md §6 flagged
+ * "if it reads a DB table it violates zero-DB-execution → then it splits:
+ * the projection storage is core-api, the capability descriptors are
+ * execution." Verified at migration: this file has ZERO `@hyperidle/db`
+ * import — its only state is the in-memory `AdapterPool` (agent-execution,
+ * `harness-registry`), which itself has zero DB access. The conditional
+ * split therefore does not fire; no split needed. This file stays exactly
+ * where it was (core-api-side composition, `packages/server/src/services/`)
+ * as the sanctioned core→agent-execution capability-READ boundary — routes
+ * never import `@hyperidle/harness-registry` directly, only this narrow,
+ * `Pick`-derived reader (AU16's own guarantee, unchanged). `AdapterPool`'s
+ * concrete instance is still Application-injected (`app.ts`'s
+ * `options.adapterPool`), same as before this migration.
  */
 
+import type { AdapterInfo, AdapterMeta, AdapterPool } from "@hyperidle/harness-registry";
 import type { HarnessCapabilities, HarnessCapabilityDescriptor } from "@hyperidle/shared";
-import type { AdapterInfo, AdapterMeta, AdapterPool } from "../harness/adapter-pool.js";
 
 /**
  * Read-only handle over the harness adapter pool. Exactly the

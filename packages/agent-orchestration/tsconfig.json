@@ -18,6 +18,9 @@
 		},
 		{
 			"path": "agent-selection"
+		},
+		{
+			"path": "tool-handlers"
 		}
 	]
 }

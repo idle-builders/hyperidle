@@ -8,14 +8,20 @@
  */
 
 import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
-import type { CredentialName } from "@hyperidle/shared";
+import type { CredentialName, CredentialResolver } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { decryptCredentialValue } from "./credential-encryption.js";
 
-/** Resolves a credential value by name. */
-export interface CredentialResolver {
-	resolve(name: CredentialName): Promise<string | null>;
-}
+/**
+ * Resolves a credential value by name.
+ *
+ * @lore AU19 Increment 4: reclassified to `@hyperidle/shared` (re-exported
+ * here unchanged) — `harness-registry` (agent-execution) needs the interface
+ * type to accept an injected resolver, and Mechanism B forbids it depending
+ * on `@hyperidle/connections`. This Service stays the sole owner of the
+ * concrete `EnvCredentialResolver`/`DbCredentialResolver` implementations.
+ */
+export type { CredentialResolver } from "@hyperidle/shared";
 
 /**
  * Maps credential names to environment variable names.

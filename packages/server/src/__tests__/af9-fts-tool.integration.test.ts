@@ -18,12 +18,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { create as createKnowledgeItem } from "@hyperidle/knowledge";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus, type ToolContext } from "@hyperidle/shared";
+import { createQueryPracticeTool } from "@hyperidle/tool-handlers";
+import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
-import { queryPracticeTool } from "../tools/query-practice.js";
-import type { ToolContext } from "../tools/tool-registry.js";
 
-function makeContext(db: HyperIdleDb): ToolContext {
+const queryPracticeTool = createQueryPracticeTool(toolHandlersPorts);
+
+function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus: new EventBus(),

@@ -59,6 +59,11 @@ export {
 } from "./agent-roles.js";
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
+// ── AU19 Increment 4: artifactPreviewSchema (reclassified from
+// packages/server/src/schemas/artifact-preview.ts — zero server-specific
+// dependency, needed by both routes/artifacts.ts (core-api) and
+// create-artifact.ts (agent-orchestration/tool-handlers)) ──
+export { artifactPreviewSchema, fallbackPreviewSchema } from "./artifact-preview.js";
 // ── S1: Per-user auth types ──
 export type { InviteRole } from "./auth.js";
 export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
@@ -127,7 +132,12 @@ export {
 	isHeldAuthSource,
 } from "./connection.js";
 // ── Credential catalog (P3) ──
-export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
+export type {
+	CredentialCatalogEntry,
+	CredentialName,
+	CredentialResolver,
+	CredentialState,
+} from "./credential.js";
 export {
 	CREDENTIAL_CATALOG,
 	CREDENTIAL_NAMES,
@@ -241,7 +251,12 @@ export {
 	relativeShort,
 	TIME_PLACEHOLDER,
 } from "./format/time.js";
+// ── AU19 Increment 4: harness-registry's EnforcementRegistry (crosses the
+// harness-registry ↔ mcp-provider ↔ tool-provider intra-execution boundary) ──
+export type { EnforcementEntry, EnforcementRegistry } from "./harness/enforcement-registry.js";
 export type {
+	AdapterInfo,
+	AdapterMeta,
 	CapturedToolCall,
 	CompletionEvent,
 	ConversationMessage,
@@ -555,6 +570,33 @@ export {
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
 } from "./thread.js";
+// ── AU19 Increment 4 (§7.5 C1): tool-provider/tool-handlers cross-boundary types ──
+export type {
+	AssistantToolResult,
+	AssistantToolShape,
+	BuildToolRegistryOptions,
+	ClaudeToolSpec,
+	ProposedCallWorkflowPort,
+	RegisteredTool,
+	RegistrySessionWorkflow,
+	ToolContext,
+	ToolDefinition,
+	ToolHandler,
+	ToolRegistry,
+	ToolResult,
+} from "./tool.js";
+export {
+	canonicalJson,
+	classifyReversibility,
+	composeWorkflowAllowDeny,
+	err,
+	identityHash,
+	ok,
+	toClaudeToolSpec,
+	toolsForRole,
+	toRegistered,
+	wrapForRegistry,
+} from "./tool.js";
 export { decode, decodeTyped, encode, encodeTyped } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
 export type {

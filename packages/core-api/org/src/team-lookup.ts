@@ -204,3 +204,61 @@ export async function listTeamsByIds(db: HyperIdleDb, ids: readonly string[]): P
 		.from(teams)
 		.where(inArray(teams.id, Array.from(ids)));
 }
+
+/** Input for {@link createTeam}. */
+export interface CreateTeamInput {
+	readonly id: string;
+	readonly name: string;
+	readonly phase: string;
+	readonly functions: string | null;
+	readonly factoryDbPath: string | null;
+	readonly createdAt: string;
+}
+
+/**
+ * Insert a `teams` row.
+ *
+ * @lore AU19 Increment 4: closes `tools/create-team.ts`'s direct `teams`
+ * insert — the same forcing function as `getTeamById` above, now for the
+ * write side (`create-team.ts` moves into the guarded `tool-handlers`
+ * package this increment).
+ */
+export async function createTeam(db: HyperIdleDb, input: CreateTeamInput): Promise<void> {
+	await db.insert(teams).values(input);
+}
+
+/** Input for {@link createTeamMembersGroup}. */
+export interface CreateTeamMembersGroupInput {
+	readonly id: string;
+	readonly teamId: string;
+	readonly capacity: number;
+	readonly activeBets: number;
+	readonly formedAt: string;
+}
+
+/**
+ * Insert a `teamMembers` (membership-group) row.
+ *
+ * @lore AU19 Increment 4: closes `tools/create-team.ts`'s direct
+ * `teamMembers` insert — same forcing function as `createTeam` above.
+ */
+export async function createTeamMembersGroup(
+	db: HyperIdleDb,
+	input: CreateTeamMembersGroupInput,
+): Promise<void> {
+	await db.insert(teamMembers).values(input);
+}
+
+/**
+ * Set the lead agent on a `teamMembers` row.
+ *
+ * @lore AU19 Increment 4: closes `tools/create-team.ts`'s direct
+ * `teamMembers` update.
+ */
+export async function setTeamMembersLeadAgent(
+	db: HyperIdleDb,
+	teamMembersId: string,
+	leadAgentId: string,
+): Promise<void> {
+	await db.update(teamMembers).set({ leadAgentId }).where(eq(teamMembers.id, teamMembersId));
+}

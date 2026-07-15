@@ -1,0 +1,12 @@
+{
+	"type": "step_start",
+	"timestamp": 1782051926301,
+	"sessionID": "ses_1156d9aa2ffeSdP6nJT07tdC4A",
+	"part": {
+		"id": "prt_eea927118001aF6vT6RbDua6Vt",
+		"messageID": "msg_eea926a51001GBseBPxhUiENkI",
+		"sessionID": "ses_1156d9aa2ffeSdP6nJT07tdC4A",
+		"snapshot": "84047fde9fb74a8d5b89cd787146e0e29fe48698",
+		"type": "step-start"
+	}
+}

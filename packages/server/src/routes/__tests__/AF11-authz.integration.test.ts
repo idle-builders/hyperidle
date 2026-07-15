@@ -350,7 +350,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		const { createWorkerConnectionManager } = await import(
 			"../../services/run-orchestration-bindings.js"
 		);
-		const { AdapterPool } = await import("../../harness/adapter-pool.js");
+		const { AdapterPool } = await import("@hyperidle/harness-registry");
 
 		const pool = new AdapterPool();
 		const ws1Sent: string[] = [];
@@ -400,7 +400,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		const { createWorkerConnectionManager } = await import(
 			"../../services/run-orchestration-bindings.js"
 		);
-		const { AdapterPool } = await import("../../harness/adapter-pool.js");
+		const { AdapterPool } = await import("@hyperidle/harness-registry");
 
 		const pool = new AdapterPool();
 		// Closed socket (readyState=3: CLOSED)

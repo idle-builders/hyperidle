@@ -70,8 +70,14 @@ export { persistScaffoldedAgents } from "./scaffold-agents.js";
 export { resolveTeamAgentHarness } from "./team-default-harness.js";
 
 // -- team lookup (L13 — 1:1 Team=TeamMembers invariant) --
+export type {
+	CreateTeamInput,
+	CreateTeamMembersGroupInput,
+} from "./team-lookup.js";
 export {
 	ApiError,
+	createTeam,
+	createTeamMembersGroup,
 	getTeamById,
 	getTeamMembersById,
 	getTeamMembersByTeamId,
@@ -81,4 +87,5 @@ export {
 	resetAllTeamMembersCost,
 	resetTeamMembersCost,
 	setTeamMembersActiveBets,
+	setTeamMembersLeadAgent,
 } from "./team-lookup.js";

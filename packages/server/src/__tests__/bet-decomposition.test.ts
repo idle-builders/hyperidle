@@ -35,6 +35,7 @@ import {
 	type DecompositionTaskInput,
 	type ResolvedModel,
 } from "@hyperidle/shared";
+import { createCreateTaskTool } from "@hyperidle/tool-handlers";
 import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
 import type { BetDecompositionDeps } from "@hyperidle/work";
 import { runBetDecomposition } from "@hyperidle/work";
@@ -42,8 +43,10 @@ import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { checkCostCap } from "../services/cost-bindings.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
+import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
-import { createTaskTool } from "../tools/create-task.js";
+
+const createTaskTool = createCreateTaskTool(toolHandlersPorts);
 
 const agentSelectionOps = createAgentSelectionOps({
 	users: { getUserById, listActiveAiUsersByTeams },

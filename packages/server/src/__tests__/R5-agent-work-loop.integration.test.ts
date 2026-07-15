@@ -27,15 +27,21 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus, ToolContext } from "@hyperidle/shared";
+import {
+	createCreateTaskTool,
+	createReadInboxTool,
+	createSubmitReviewTool,
+} from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { clearDeduplicationCache, recordCostAndCheck } from "../services/cost-bindings.js";
+import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
-import { createTaskTool } from "../tools/create-task.js";
-import { readInboxTool } from "../tools/read-inbox.js";
-import { submitReviewTool } from "../tools/submit-review.js";
-import type { ToolContext } from "../tools/tool-registry.js";
+
+const createTaskTool = createCreateTaskTool(toolHandlersPorts);
+const readInboxTool = createReadInboxTool(toolHandlersPorts);
+const submitReviewTool = createSubmitReviewTool(toolHandlersPorts);
 
 const TEST_API_KEY = "test-key-r5-agent-loop";
 const NOW = new Date().toISOString();
@@ -97,7 +103,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext {
+function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus,

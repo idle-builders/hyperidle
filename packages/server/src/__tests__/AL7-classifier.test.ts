@@ -13,14 +13,14 @@
  *         Task 4 (classifier + composer + live-proof tool registration).
  */
 
-import type { SessionWorkflow } from "@hyperidle/shared";
-import { describe, expect, it } from "vitest";
 import {
-	ALL_TOOL_DEFINITIONS,
 	classifyReversibility,
 	composeWorkflowAllowDeny,
 	identityHash,
-} from "../tools/tool-registry.js";
+	type SessionWorkflow,
+} from "@hyperidle/shared";
+import { describe, expect, it } from "vitest";
+import { allToolDefinitions as ALL_TOOL_DEFINITIONS } from "../services/tool-handlers-bindings.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // T1 — classifyReversibility: fail-closed (no signal → irreversible)

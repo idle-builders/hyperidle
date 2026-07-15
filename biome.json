@@ -159,7 +159,7 @@
 			"!.pipeline",
 			"!**/plans",
 			"!packages/eslint-plugin-design/test-fixtures",
-			"!packages/server/src/harness/__tests__/fixtures",
+			"!packages/agent-execution/harness-registry/src/__tests__/fixtures",
 			"!scripts",
 			"!.verify-attestation.json",
 			"!.verify-attestations",

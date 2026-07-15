@@ -23,12 +23,12 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 		// Dynamic import — if the symbol exists it would resolve; if deleted it won't.
 		// The import itself failing is fine (that's the green state); the test verifies
 		// the value is NOT available on the live tool-registry.
-		const registry = await import("../tools/tool-registry.js");
+		const registry = await import("@hyperidle/tool-provider");
 		expect("KERNEL_DISPATCHABLE_CAPABILITIES" in registry).toBe(false);
 	});
 
 	it("buildExecuteCapability is not exported from the server package", async () => {
-		const registry = await import("../tools/tool-registry.js");
+		const registry = await import("@hyperidle/tool-provider");
 		expect("buildExecuteCapability" in registry).toBe(false);
 	});
 
@@ -62,7 +62,9 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 	});
 
 	it("stage_operation tool is NOT in ALL_TOOL_DEFINITIONS (v1 tool retired)", async () => {
-		const { ALL_TOOL_DEFINITIONS } = await import("../tools/tool-registry.js");
+		const { allToolDefinitions: ALL_TOOL_DEFINITIONS } = await import(
+			"../services/tool-handlers-bindings.js"
+		);
 		const names = ALL_TOOL_DEFINITIONS.map((d: { name: string }) => d.name);
 		// The stage_operation tool was the v1 agent-authored staging tool — retired per concept rejection #8
 		expect(names).not.toContain("stage_operation");

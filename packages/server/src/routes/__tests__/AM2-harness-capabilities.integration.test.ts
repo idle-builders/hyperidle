@@ -1,7 +1,6 @@
+import type { HarnessDiscoveryInput } from "@hyperidle/harness-registry";
+import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../../harness/adapter-pool.js";
-import { BuiltinHarnessAdapter } from "../../harness/builtin-harness-adapter.js";
-import type { HarnessDiscoveryInput } from "../../harness/harness-discovery.js";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 

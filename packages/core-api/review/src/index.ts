@@ -70,10 +70,13 @@ export {
 // -- proposed-call-workflow (AL7 trust-first two-session loop) --
 export type { ProposedCallWithOutcomeRow } from "./proposed-call-workflow.js";
 export {
+	captureProposedCall,
 	composeTailoredGrant,
+	consumeTailoredGrant,
 	findGrantedProposedCall,
 	findProposedCallWithOutcomeByReviewMessageId,
 	handleUnconsumedGrantOnSessionEnd,
+	recordOutcome,
 } from "./proposed-call-workflow.js";
 // -- review-item-factory (attention-engine knowledge-review items) --
 export type {

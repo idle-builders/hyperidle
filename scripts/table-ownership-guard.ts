@@ -52,6 +52,13 @@ const TABLE_OWNER: Record<string, string> = {
 	bets: "packages/core-api/work",
 	tasks: "packages/core-api/work",
 	items: "packages/core-api/work",
+	// AU19 Increment 4: `artifacts` — always `work`'s owned table per
+	// architecture.md §4 but never had a TABLE_OWNER row (the tool that wrote
+	// it, `create-artifact.ts`, stayed a flat `packages/server` file until
+	// this increment moved it into the guarded `tool-handlers` package,
+	// surfacing the gap for real — `artifact-store.ts`'s `createArtifact` is
+	// the concrete closure).
+	artifacts: "packages/core-api/work",
 	// AU19 Increment 1c: `org` migrated — closes the W2 `teamMembers` exemption
 	// (removed from UNOWNED_SHARED_TABLES below). `orgEdges` is `org`'s other
 	// owned table (never accessed from a foreign nested package today, but

@@ -629,7 +629,15 @@ const COVERAGE_DEBT_PATH = path.join(SCRIPT_DIR, "coverage-debt.allowlist.json")
 const MODEL_IMPORT_DEBT_PATH = path.join(SCRIPT_DIR, "model-import-debt.allowlist.json");
 
 const SCAN_DIRS = [
-	"packages/server/src/harness/__tests__",
+	// @lore AU19 Increment 4: `packages/server/src/harness/__tests__` moved to
+	// `agent-execution/harness-registry` — this scan dir is the only real
+	// source of harness-facing (`requireHarness`) tests in the repo (checked:
+	// zero `requireHarness(` sites in mcp-provider/tool-provider/tool-handlers).
+	// The stale pre-migration path silently scanned a non-existent dir
+	// (`collectSelectedFiles` skips missing dirs), vacuously passing every
+	// harness-registry file with zero real coverage — this was the flagged
+	// Increment-0 "resolve before Increment 4/5" gap.
+	"packages/agent-execution/harness-registry/src/__tests__",
 	"packages/server/src/__tests__",
 	// AR4: AH3/AK4 real files live here — add to SCAN_DIRS so the guard lints them.
 	// NOTE: SCAN_DIRS is guard-lint-only; attestation floor selects via isHarnessIntegrationPath

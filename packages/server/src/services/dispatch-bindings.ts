@@ -53,6 +53,7 @@ import type {
 	DispatchToolContext,
 } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
+import { LocalSandboxAdapter } from "@hyperidle/harness-registry";
 import {
 	archiveKnowledgeItemWithLogRaw,
 	buildAttentionService,
@@ -87,7 +88,12 @@ import {
 } from "@hyperidle/routine";
 import type { AgentWorkIntentKind } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus, ToolContext } from "@hyperidle/shared";
+import {
+	buildAssistantDraftRegistry,
+	resolveCurrentDraftBetId,
+	resolveDraftTeamId,
+} from "@hyperidle/tool-handlers";
 import { getOrCreateUser, getUserById } from "@hyperidle/users";
 import {
 	createItem,
@@ -97,16 +103,10 @@ import {
 	getTaskById,
 	listTasks,
 } from "@hyperidle/work";
-import { LocalSandboxAdapter } from "../harness/local-sandbox-adapter.js";
-import {
-	buildAssistantDraftRegistry,
-	resolveCurrentDraftBetId,
-	resolveDraftTeamId,
-} from "../tools/assistant-draft-registry.js";
-import type { ToolContext } from "../tools/tool-registry.js";
 import { getFactoryCostActual } from "./cost-bindings.js";
 import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
 import { recordAgentWorkIntent } from "./session-requests-bindings.js";
+import { toolHandlersPorts } from "./tool-handlers-bindings.js";
 
 /**
  * @lore AU19 Increment 3h: collapses `dispatch`'s former
@@ -240,10 +240,15 @@ const dispatchPorts: DispatchPorts = {
 		recomputeAttentionForCandidates,
 	},
 	toolHandlers: {
-		resolveDraftTeamId,
-		resolveCurrentDraftBetId,
+		resolveDraftTeamId: (db: HyperIdleDb, userId: string) =>
+			resolveDraftTeamId(db, userId, toolHandlersPorts),
+		resolveCurrentDraftBetId: (
+			db: HyperIdleDb,
+			transcriptRows: ReadonlyArray<{ readonly senderId: string; readonly payload: string }>,
+			assistantAgentId: string,
+		) => resolveCurrentDraftBetId(db, transcriptRows, assistantAgentId, toolHandlersPorts),
 		buildAssistantDraftRegistry: (ctx: DispatchToolContext, opts) =>
-			buildAssistantDraftRegistry(ctx as ToolContext, opts),
+			buildAssistantDraftRegistry(ctx as ToolContext<HyperIdleDb>, opts, toolHandlersPorts),
 	},
 	workspaceFactory: {
 		create: () => new LocalSandboxAdapter(),

@@ -1,7 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import { AdapterPool, DisabledSandboxAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { AdapterPool } from "../harness/adapter-pool.js";
-import { DisabledSandboxAdapter } from "../harness/disabled-sandbox-adapter.js";
 import { createServer, type ServerHandle } from "../server-factory.js";
 import { test as fixtureTest } from "../test-fixtures.js";
 

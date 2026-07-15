@@ -9,7 +9,9 @@ import {
 	type Artifact,
 	type ArtifactCostFromSession,
 	type ArtifactPage,
+	artifactPreviewSchema,
 	type EventBus,
+	fallbackPreviewSchema,
 	isRegisteredKind,
 	OLD_KIND_MAP,
 } from "@hyperidle/shared";
@@ -21,7 +23,6 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import { artifactPreviewSchema, fallbackPreviewSchema } from "../schemas/artifact-preview.js";
 import { recordCostAndCheck } from "../services/cost-bindings.js";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;

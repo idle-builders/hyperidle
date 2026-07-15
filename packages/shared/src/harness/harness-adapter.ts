@@ -267,6 +267,43 @@ export interface HarnessCapabilities {
 	readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
 }
 
+/**
+ * Descriptor for a registered adapter-pool entry.
+ *
+ * @lore AU19 Increment 4: reclassified from `packages/server/src/harness/
+ * adapter-pool.ts` to `@hyperidle/shared` — `harness-registry`'s `AdapterPool`
+ * (agent-execution) is the sole owner/constructor of these values, but
+ * `packages/server`'s (pre-Layer-split) `services/harness-capability-read-model.ts`
+ * (core-api-side read model) needs the TYPE to describe its own
+ * `HarnessCapabilityReader` port without importing `@hyperidle/harness-registry`
+ * (Mechanism B forbids a non-execution package reaching into an execution
+ * Service). Same cross-boundary-type-lives-in-shared idiom as `HttpError`/
+ * `CassetteMissError` (Increment 3h) and `HarnessCapabilityDescriptor` above.
+ */
+export interface AdapterMeta {
+	readonly name: string;
+	readonly kind: "local" | "remote";
+	/** X3: Harness type for agent preference matching (e.g. "claude-code", "opencode"). */
+	readonly type?: string;
+	readonly modelProviders: readonly string[];
+	readonly maxConcurrent: number;
+}
+
+/** Public view of a pool entry (used by GET /api/workers). */
+export interface AdapterInfo {
+	readonly id: string;
+	readonly name: string;
+	readonly kind: "local" | "remote";
+	/** X3: Harness type for agent preference matching. */
+	readonly type?: string;
+	readonly modelProviders: readonly string[];
+	readonly currentLoad: number;
+	readonly maxConcurrent: number;
+	readonly connectedSince: string;
+	/** S4: true when the worker has sent a pause message — skipped by select(). */
+	readonly paused: boolean;
+}
+
 export interface HarnessAdapter {
 	startSession(config: SessionConfig): Promise<SessionHandle>;
 	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent>;

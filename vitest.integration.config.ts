@@ -18,7 +18,16 @@ import { defineConfig } from "vitest/config";
 const SHARED_EXCLUDE = ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.worktrees/**"];
 
 const HARNESS_INCLUDE = [
-	"packages/server/src/harness/__tests__/**/*.integration.test.ts",
+	// @lore AU19 Increment 4: `packages/server/src/harness/__tests__/` moved to
+	// `packages/agent-execution/harness-registry/src/__tests__/` (harness-registry
+	// finalize). Four cross-package tests (spanning harness+mcp+tools, or needing
+	// `{db,app,eventBus}` fixtures) stayed behind in `packages/server/src/__tests__/`
+	// — listed explicitly below (they don't match the generic `*-real.integration.test.ts`
+	// pattern, same as the harness-lane-collapse precedent this file already documents).
+	"packages/agent-execution/harness-registry/src/__tests__/**/*.integration.test.ts",
+	"packages/server/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
+	"packages/server/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
+	"packages/server/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
 	// @lore real-harness serial: *-real.integration.test.ts files in src/__tests__ and
 	// routes/__tests__ drive real CLI harnesses (codex/claude/opencode). They must run
 	// SERIALLY (harness project, fileParallelism:false) — concurrent codex sessions

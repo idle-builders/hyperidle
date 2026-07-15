@@ -14,6 +14,8 @@
  * is created.
  */
 
+import type { AdapterMeta } from "@hyperidle/harness-registry";
+import { AdapterPool } from "@hyperidle/harness-registry";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -23,8 +25,6 @@ import type {
 	SessionResult,
 } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import type { AdapterMeta } from "../../harness/adapter-pool.js";
-import { AdapterPool } from "../../harness/adapter-pool.js";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,

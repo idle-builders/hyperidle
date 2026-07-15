@@ -430,6 +430,17 @@ function buildLeafDeclarations(root: string): void {
   // __tests__/R7-knowledge-e2e.integration.test.ts, and
   // filesystem/__tests__/scaffolding-drift-guard.test.ts now import
   // `@hyperidle/context-assembly`.
+  //
+  // @lore AU19 Increment 4: `agent-execution/harness-registry` finalized
+  // (was the Increment-0 single-file slice) — same TS6305 cascade; app.ts,
+  // session.ts, server-factory.ts, tools/return-status-tool.ts,
+  // services/{harness-capability-read-model,session-lifecycle-bindings,
+  // run-orchestration-bindings,dispatch-bindings,mcp-route}.ts, and dozens
+  // of __tests__/routes/__tests__ files now import
+  // `@hyperidle/harness-registry` (repointed from the deleted
+  // `packages/server/src/harness/*`). `agent-execution/mcp-provider` and
+  // `agent-execution/tool-provider` added the same increment for the same
+  // reason (mcp-route.ts + the tool-provider/tool-handlers split).
   for (const leaf of [
     "shared",
     "db",
@@ -461,6 +472,10 @@ function buildLeafDeclarations(root: string): void {
     "agent-orchestration/dispatch",
     "agent-orchestration/session-lifecycle",
     "agent-orchestration/context-assembly",
+    "agent-execution/harness-registry",
+    "agent-execution/mcp-provider",
+    "agent-execution/tool-provider",
+    "agent-orchestration/tool-handlers",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

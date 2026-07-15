@@ -30,16 +30,16 @@
  * With the §5.3 guard, the SECOND tool call in the same batch must NOT start.
  */
 
+import type { LlmResponse } from "@hyperidle/harness-registry";
+import { BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
 import type { SessionConfig } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
-import { BuiltinHarnessAdapter } from "../harness/builtin-harness-adapter.js";
-import type { LlmResponse } from "../harness/llm-types.js";
 
-vi.mock("../harness/llm-client.js", () => ({
+vi.mock("@hyperidle/harness-registry/llm-client", () => ({
 	callLlm: vi.fn(),
 }));
 
-const { callLlm } = await import("../harness/llm-client.js");
+const { callLlm } = await import("@hyperidle/harness-registry/llm-client");
 const callLlmMock = vi.mocked(callLlm);
 
 const RESOLVED_MODEL = {

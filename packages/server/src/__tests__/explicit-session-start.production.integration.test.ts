@@ -9,10 +9,9 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import type { AdapterPool } from "../harness/adapter-pool.js";
-import type { SandboxAdapter } from "../harness/sandbox-adapter.js";
 import { drainAgentSessionRequests } from "../services/run-orchestration-bindings.js";
 import { drainAgentWorkIntents } from "../services/session-requests-bindings.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";

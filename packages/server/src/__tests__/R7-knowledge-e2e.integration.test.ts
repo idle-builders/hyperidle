@@ -22,14 +22,16 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus, type ToolContext } from "@hyperidle/shared";
+import { createPromoteKnowledgeTool, createWriteMemoryTool } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { assembleContext } from "../services/context-assembly-bindings.js";
+import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
-import { promoteKnowledgeTool } from "../tools/promote-knowledge.js";
-import type { ToolContext } from "../tools/tool-registry.js";
-import { writeMemoryTool } from "../tools/write-memory.js";
+
+const promoteKnowledgeTool = createPromoteKnowledgeTool(toolHandlersPorts);
+const writeMemoryTool = createWriteMemoryTool(toolHandlersPorts);
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -68,7 +70,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-function makeContext(db: HyperIdleDb, sandboxPath: string): ToolContext {
+function makeContext(db: HyperIdleDb, sandboxPath: string): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus: new EventBus(),
@@ -234,7 +236,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			createdAt: NOW,
 		});
 
-		const ctx: ToolContext = {
+		const ctx: ToolContext<HyperIdleDb> = {
 			db,
 			eventBus,
 			agentId: "agent-fac-r7",
@@ -302,7 +304,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			createdAt: NOW,
 		});
 
-		const ctx: ToolContext = {
+		const ctx: ToolContext<HyperIdleDb> = {
 			db,
 			eventBus,
 			agentId: "agent-fac-r7",
@@ -353,7 +355,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			createdAt: NOW,
 		});
 
-		const writeCtx: ToolContext = {
+		const writeCtx: ToolContext<HyperIdleDb> = {
 			db,
 			eventBus,
 			agentId: AGENT_ID,
@@ -362,7 +364,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			sandboxPath,
 			ingestion: { dispose: (): void => {} },
 		};
-		const facCtx: ToolContext = {
+		const facCtx: ToolContext<HyperIdleDb> = {
 			...writeCtx,
 			agentId: "agent-fac-r7",
 		};

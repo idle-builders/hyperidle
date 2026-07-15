@@ -13,13 +13,13 @@
 		"**/test-setup.ts",
 		"**/__tests__/setup.ts",
 		"**/__tests__/_helpers.ts",
-		"packages/server/src/harness/__tests__/require-harness.ts",
+		"packages/agent-execution/harness-registry/src/__tests__/require-harness.ts",
 		"packages/server/src/test-fixtures.ts",
 		"packages/web/e2e/fixtures.ts",
 		"packages/web/src/pages/**/__fixtures__/**",
 		"packages/web/src/preview/**",
 		"packages/server/src/services/service-connection-resolver.ts",
-		"packages/server/src/harness/re-engage.ts",
+		"packages/agent-execution/harness-registry/src/re-engage.ts",
 		"packages/server/src/__tests__/AL7-no-kernel-executor.test.ts"
 	],
 	"ignoreExportsUsedInFile": true,
@@ -50,9 +50,11 @@
 		},
 		"packages/api-contract": {},
 		"packages/server": {
-			"entry": ["src/harness/harness-session-probe.ts!"],
-			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor", "gh"],
 			"ignoreDependencies": ["@electric-sql/pglite"]
+		},
+		"packages/agent-execution/harness-registry": {
+			"entry": ["src/harness-session-probe.ts!"],
+			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor", "gh"]
 		},
 		"packages/design-system": {
 			"entry": ["src/**/*.stories.tsx", "scripts/*.ts!"],

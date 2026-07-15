@@ -11,8 +11,8 @@
  * - validates incoming messages with Zod and drops malformed data (S2-F05)
  */
 
+import { AdapterPool } from "@hyperidle/harness-registry";
 import { describe, expect, it } from "vitest";
-import { AdapterPool } from "../../harness/adapter-pool.js";
 import { registerWorkerWsRoute } from "../../services/run-orchestration-bindings.js";
 
 // ── Mock WebSocket context ─────────────────────────────────────────────────
