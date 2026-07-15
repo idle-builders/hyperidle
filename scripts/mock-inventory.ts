@@ -304,12 +304,12 @@ function walkTs(dir: string): string[] {
  * Returns the sorted list of InventoryRow objects.
  */
 export async function runInventory(options: RunInventoryOptions): Promise<InventoryRow[]> {
-	const { webSrc, serverSrc } = options;
+	const { webSrc, serverSrcDirs } = options;
 
 	// Collect all files to scan
 	const allFilePaths: string[] = [];
 	if (webSrc) allFilePaths.push(...walkTs(webSrc));
-	if (serverSrc) allFilePaths.push(...walkTs(serverSrc));
+	for (const dir of serverSrcDirs) allFilePaths.push(...walkTs(dir));
 
 	// Read all file contents (needed for importer count)
 	const allFiles = allFilePaths.map((p) => {
@@ -494,6 +494,46 @@ function emitQueue(rows: InventoryRow[], repoRoot: string): string {
 // CLI entry point
 // ---------------------------------------------------------------------------
 
+/**
+ * AU19 Increment 5 item 6: `packages/server/src` no longer exists —
+ * Increment 2/5 dissolved it into the `core-api`/`agent-orchestration`/
+ * `agent-execution` Layer packages (each with its own composition-root
+ * `src/` PLUS many nested `packages/<layer>/<service>/src/` Service
+ * packages) and the `remote-server`/`remote-worker` Application bootstraps.
+ * Mirrors `table-ownership-guard.ts`'s `nestedServiceRoots()` discovery
+ * pattern rather than hand-listing ~31 Service dirs (same rationale: a
+ * hardcoded list silently goes blind when a Service package is
+ * added/renamed — this is the exact class of bug this fix is closing).
+ */
+function collectAU19SrcDirs(repoRoot: string): string[] {
+	const dirs: string[] = [];
+	const layers = ["core-api", "agent-orchestration", "agent-execution"];
+	const applications = ["remote-server", "remote-worker"];
+
+	for (const layer of layers) {
+		const layerDir = join(repoRoot, "packages", layer);
+		if (!existsSync(layerDir)) continue;
+		// Layer's own composition-root src/ (e.g. core-api/src).
+		const layerSrc = join(layerDir, "src");
+		if (existsSync(layerSrc)) dirs.push(layerSrc);
+		// Nested Service package src/ dirs (packages/<layer>/<service>/src).
+		for (const entry of readdirSync(layerDir, { withFileTypes: true })) {
+			if (!entry.isDirectory() || entry.name === "node_modules" || entry.name === "dist") {
+				continue;
+			}
+			const svcSrc = join(layerDir, entry.name, "src");
+			if (existsSync(svcSrc)) dirs.push(svcSrc);
+		}
+	}
+
+	for (const app of applications) {
+		const appSrc = join(repoRoot, "packages", app, "src");
+		if (existsSync(appSrc)) dirs.push(appSrc);
+	}
+
+	return dirs;
+}
+
 // Node-compatible entrypoint check (replaces Bun's import.meta.main)
 const isEntrypoint =
 	process.argv[1] ===
@@ -506,17 +546,16 @@ if (isEntrypoint) {
 	// scripts/mock-inventory.ts → repo root is one level up
 	const repoRoot = join(scriptPath, "..", "..");
 	const webSrc = join(repoRoot, "packages/web/src");
-	const serverSrc = join(repoRoot, "packages/server/src");
+	const serverSrcDirs = collectAU19SrcDirs(repoRoot);
 	const outDir = join(repoRoot, "plans/mock-data-purge");
 	const inventoryPath = join(outDir, "inventory.json");
 
 	const webSrcExists = existsSync(webSrc);
-	const serverSrcExists = existsSync(serverSrc);
 
 	if (isCheck) {
 		const result = await runInventoryCheck({
 			webSrc: webSrcExists ? webSrc : null,
-			serverSrc: serverSrcExists ? serverSrc : null,
+			serverSrcDirs,
 			inventoryPath,
 			repoRoot,
 		});
@@ -554,7 +593,7 @@ if (isEntrypoint) {
 	// absolute rows + repoRoot and relativize themselves.
 	const rowsAbs = await runInventory({
 		webSrc: webSrcExists ? webSrc : null,
-		serverSrc: serverSrcExists ? serverSrc : null,
+		serverSrcDirs,
 	});
 	const rows = rowsAbs.map((r) => ({ ...r, path: relative(repoRoot, r.path) }));
 

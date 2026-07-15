@@ -22,7 +22,17 @@ export interface InventoryCheckResult {
 
 export interface RunInventoryOptions {
 	webSrc: string | null;
-	serverSrc: string | null;
+	/**
+	 * @lore AU19 Increment 5 item 6: replaces the old singular `serverSrc:
+	 * string | null` (a single `packages/server/src` walk). AU19 dissolved
+	 * `packages/server` into many packages (`core-api`/`agent-orchestration`/
+	 * `agent-execution` Layer composition roots + their nested Service
+	 * packages + the `remote-server`/`remote-worker` Application bootstraps)
+	 * — a single dir no longer covers the equivalent surface, so this is now
+	 * a list. See `collectAU19SrcDirs()` at the CLI entrypoint below for how
+	 * the list is discovered.
+	 */
+	serverSrcDirs: string[];
 }
 
 export interface RunInventoryCheckOptions extends RunInventoryOptions {

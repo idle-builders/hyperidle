@@ -41,7 +41,7 @@ export type {
 	ManifestEntry,
 } from "./context-assembly.js";
 export { EMITTED_ROOTS_CONTEXT_ASSEMBLY } from "./context-assembly.js";
-// -- context-assembly-prompt (persona/task/tools prompt composition) --
+// -- context-assembly-prompt (identity/task/tools prompt assembly) --
 export type {
 	AssistantPromptResult,
 	PromptCompositionInput,
