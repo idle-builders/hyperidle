@@ -8,6 +8,7 @@ import {
 	parseCron,
 } from "@hyperidle/dispatch";
 import * as routineService from "@hyperidle/routine";
+import { humanizeSchedule } from "@hyperidle/routine";
 import {
 	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
@@ -27,7 +28,6 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 import { getRoutineMonthlySpend, runBuiltinRoutine } from "../services/dispatch-bindings.js";
-import { humanizeSchedule } from "../services/schedule-label.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];

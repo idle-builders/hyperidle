@@ -1,5 +1,5 @@
 /**
- * S4 RED — DesktopWorkerClient: unit tests (AC-2, AC-3, AC-4, AC-5, AC-7, AC-8).
+ * S4 RED — RemoteWorkerClient: unit tests (AC-2, AC-3, AC-4, AC-5, AC-7, AC-8).
  *
  * AC coverage:
  *  - connect(): calls POST /api/auth/worker-token first, then opens WS
@@ -108,7 +108,7 @@ afterEach(() => {
 
 // We dynamically import to allow vi.mock hoisting
 const getClient = async () => {
-	const mod = await import("../src/desktop-worker-client.js");
+	const mod = await import("../src/remote-worker-client.js");
 	return mod;
 };
 
@@ -189,16 +189,16 @@ function makeMockAdapter(opts: MockAdapterOptions = {}): HarnessAdapter & {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
+describe("S4 AC-2/AC-3 — RemoteWorkerClient connect/disconnect", () => {
 	it("connect() calls POST /api/auth/worker-token before opening WS", async () => {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 
 		// @lore S4: vi.fn mock must use regular function (not arrow) so `new MockWebSocket()` works
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
 		});
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -233,13 +233,13 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 	});
 
 	it("connect() sends WorkerRegisterMessage with correct fields after WS opens", async () => {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
 		});
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -284,14 +284,14 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 	});
 
 	it("connect() rejects if worker-token endpoint returns 404", async () => {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 
 		fetchResponses = [{ ok: false, status: 404, json: async () => ({ error: "not found" }) }];
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
 		});
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -308,13 +308,13 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 	});
 
 	it("disconnect() with no active sessions closes WS immediately", async () => {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
 		});
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -340,14 +340,14 @@ describe("S4 AC-2/AC-3 — DesktopWorkerClient connect/disconnect", () => {
 	});
 });
 
-describe("S4 AC-5 — DesktopWorkerClient dispatch", () => {
+describe("S4 AC-5 — RemoteWorkerClient dispatch", () => {
 	async function makeConnectedClientWithAdapter(
 		MockWebSocket: ReturnType<typeof vi.fn>,
 		adapter: HarnessAdapter,
 	) {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -481,7 +481,7 @@ describe("S4 AC-5 — DesktopWorkerClient dispatch", () => {
 	});
 });
 
-describe("S4 AC-8 — DesktopWorkerClient graceful shutdown", () => {
+describe("S4 AC-8 — RemoteWorkerClient graceful shutdown", () => {
 	it("disconnect() waits for active session completing within timeout then closes", async () => {
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
@@ -509,8 +509,8 @@ describe("S4 AC-8 — DesktopWorkerClient graceful shutdown", () => {
 			}),
 		};
 
-		const { DesktopWorkerClient } = await getClient();
-		const client = new DesktopWorkerClient(
+		const { RemoteWorkerClient } = await getClient();
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -585,8 +585,8 @@ describe("S4 AC-8 — DesktopWorkerClient graceful shutdown", () => {
 			}),
 		};
 
-		const { DesktopWorkerClient } = await getClient();
-		const client = new DesktopWorkerClient(
+		const { RemoteWorkerClient } = await getClient();
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -637,11 +637,11 @@ describe("S4 AC-8 — DesktopWorkerClient graceful shutdown", () => {
 	}, 5_000);
 });
 
-describe("S4 AC-7 — DesktopWorkerClient pause/resume", () => {
+describe("S4 AC-7 — RemoteWorkerClient pause/resume", () => {
 	async function makeConnectedClient(MockWebSocket: ReturnType<typeof vi.fn>) {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -698,15 +698,15 @@ describe("S4 AC-7 — DesktopWorkerClient pause/resume", () => {
 	});
 });
 
-describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
+describe("S4 AC-6 — RemoteWorkerClient getStatus()", () => {
 	it("getStatus() returns not-connected when not yet connected", async () => {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
 		});
 
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -729,13 +729,13 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 	});
 
 	it("getStatus().connected is true after connect()", async () => {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
 		});
 
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -760,13 +760,13 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 	});
 
 	it("getStatus().paused is true after pause(), false after resume()", async () => {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
 		});
 
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -794,15 +794,15 @@ describe("S4 AC-6 — DesktopWorkerClient getStatus()", () => {
 	});
 });
 
-describe("S4 — DesktopWorkerClient onStatusChange()", () => {
+describe("S4 — RemoteWorkerClient onStatusChange()", () => {
 	it("onStatusChange() callback fired when status changes", async () => {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
 		});
 
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",
@@ -834,13 +834,13 @@ describe("S4 — DesktopWorkerClient onStatusChange()", () => {
 	});
 
 	it("unsubscribe() stops further callbacks", async () => {
-		const { DesktopWorkerClient } = await getClient();
+		const { RemoteWorkerClient } = await getClient();
 		// biome-ignore lint/complexity/useArrowFunction: regular function required so `new MockWebSocket()` works via Reflect.construct
 		const MockWebSocket = vi.fn().mockImplementation(function () {
 			return makeWsInstance();
 		});
 
-		const client = new DesktopWorkerClient(
+		const client = new RemoteWorkerClient(
 			{
 				serverUrl: "http://localhost:3001",
 				credentialsPath: "/tmp/creds.json",

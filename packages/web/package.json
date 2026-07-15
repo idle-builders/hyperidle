@@ -16,7 +16,8 @@
 	"dependencies": {
 		"@hyperidle/connections": "*",
 		"@hyperidle/design-system": "*",
-		"@hyperidle/server": "*",
+		"@hyperidle/core-api": "*",
+		"@hyperidle/harness-registry": "*",
 		"@hyperidle/shared": "*",
 		"hono": "^4.12.27",
 		"dompurify": "^3.4.11",

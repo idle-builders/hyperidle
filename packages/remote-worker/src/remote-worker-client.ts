@@ -1,5 +1,5 @@
 /**
- * S4: DesktopWorkerClient — manages the desktop worker WebSocket connection.
+ * S4: RemoteWorkerClient — manages the desktop worker WebSocket connection.
  *
  * Lifecycle:
  * 1. connect(): POST /api/auth/worker-token → get worker token
@@ -29,7 +29,7 @@ import type {
 	WorkerSessionResultMessage,
 } from "@hyperidle/shared";
 
-export interface DesktopWorkerClientOptions {
+export interface RemoteWorkerClientOptions {
 	serverUrl: string;
 	credentialsPath: string;
 	authKey: string; // shared_backend_key, used as X-API-Key for worker-token endpoint
@@ -62,7 +62,7 @@ export interface WorkerStatus {
 }
 
 /**
- * DesktopWorkerClient manages the lifecycle of the desktop worker.
+ * RemoteWorkerClient manages the lifecycle of the desktop worker.
  *
  * The second constructor parameter accepts typeof WebSocket for production
  * or a vi.fn() mock for tests. The mock must return a WebSocket-compatible
@@ -72,8 +72,8 @@ export interface WorkerStatus {
  * In tests, vi.fn().mockImplementation(() => mockInstance) is passed — vitest
  * mocks support `new` calls when the implementation returns an object.
  */
-export class DesktopWorkerClient {
-	private readonly options: DesktopWorkerClientOptions;
+export class RemoteWorkerClient {
+	private readonly options: RemoteWorkerClientOptions;
 	private readonly wsConstructor: new (
 		url: string,
 		// biome-ignore lint/suspicious/noExplicitAny: supports both real WebSocket constructor and vi.fn() mocks
@@ -89,7 +89,7 @@ export class DesktopWorkerClient {
 	private readonly listeners = new Set<(status: WorkerStatus) => void>();
 
 	constructor(
-		options: DesktopWorkerClientOptions,
+		options: RemoteWorkerClientOptions,
 		wsConstructorOverride?: typeof WebSocket,
 		adapter?: HarnessAdapter,
 	) {

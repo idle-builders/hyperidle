@@ -17,7 +17,7 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/model-gateway": "*",
-		"@hyperidle/server": "*",
+		"@hyperidle/core-api": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/shared": "*",
 		"drizzle-orm": "^0.45.2"

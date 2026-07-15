@@ -3,7 +3,6 @@
 	"references": [
 		{ "path": "packages/shared" },
 		{ "path": "packages/db" },
-		{ "path": "packages/server" },
 		{ "path": "packages/design-system" },
 		{ "path": "packages/eslint-plugin-design" },
 		{ "path": "packages/eslint-plugin-authz" },
@@ -12,7 +11,9 @@
 		{ "path": "packages/eval" },
 		{ "path": "packages/core-api" },
 		{ "path": "packages/agent-orchestration" },
-		{ "path": "packages/agent-execution" }
+		{ "path": "packages/agent-execution" },
+		{ "path": "packages/remote-server" },
+		{ "path": "packages/remote-worker" }
 	],
 	"include": [],
 	"exclude": ["node_modules", "dist"]

@@ -687,3 +687,6 @@ export {
 	TASK_STATES,
 	USER_KINDS,
 } from "./types.js";
+
+// -- validate-env (AU19 Increment 5: relocated from packages/server per §5 — Application boot util) --
+export { LAPTOP_DEV_API_KEY, validateStartupEnv } from "./validate-env.js";

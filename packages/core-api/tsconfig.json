@@ -7,35 +7,38 @@
 	},
 	"include": ["src"],
 	"references": [
-		{
-			"path": "../db"
-		},
-		{
-			"path": "../shared"
-		},
-		{
-			"path": "knowledge"
-		},
-		{
-			"path": "work"
-		},
-		{
-			"path": "org"
-		},
-		{
-			"path": "users"
-		},
-		{
-			"path": "conversation"
-		},
-		{
-			"path": "notifications"
-		},
-		{
-			"path": "connections"
-		},
-		{
-			"path": "routine"
-		}
+		{ "path": "../db" },
+		{ "path": "../shared" },
+		{ "path": "../agent-orchestration/agent-selection" },
+		{ "path": "../agent-orchestration/capture-writeback" },
+		{ "path": "connections" },
+		{ "path": "../agent-orchestration/context-assembly" },
+		{ "path": "conversation" },
+		{ "path": "../agent-orchestration/cost" },
+		{ "path": "../agent-orchestration/dispatch" },
+		{ "path": "filesystems" },
+		{ "path": "git-export" },
+		{ "path": "../agent-execution/harness-registry" },
+		{ "path": "knowledge" },
+		{ "path": "model-gateway" },
+		{ "path": "../agent-orchestration/lifecycle-projection" },
+		{ "path": "../agent-execution/mcp-provider" },
+		{ "path": "notifications" },
+		{ "path": "observability" },
+		{ "path": "org" },
+		{ "path": "policy" },
+		{ "path": "realtime" },
+		{ "path": "retention" },
+		{ "path": "review" },
+		{ "path": "routine" },
+		{ "path": "../agent-orchestration/run-orchestration" },
+		{ "path": "../agent-orchestration/session-lifecycle" },
+		{ "path": "../agent-orchestration/session-requests" },
+		{ "path": "settings" },
+		{ "path": "../agent-orchestration/tool-handlers" },
+		{ "path": "../agent-execution/tool-provider" },
+		{ "path": "../agent-orchestration/trigger-resolution" },
+		{ "path": "users" },
+		{ "path": "work" }
 	]
 }

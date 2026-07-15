@@ -58,6 +58,29 @@
  * wiring). tsc alone cannot enforce any of this (a hoisted node_modules
  * resolves any package from anywhere, and spawn() calls are runtime, not
  * type-level) — this guard is the real enforcer.
+ *
+ * @lore AU19 Increment 5 (item 2): `packages/server` dissolved — its real
+ * files (`app.ts`, `server-factory.ts`, `routes/`, `middleware/`, `auth/`,
+ * `schemas/`, the 10 `*-bindings.ts` Service-wiring files) moved bodily into
+ * `packages/core-api/src/**` (founder ruling `97b8728b`: "ordinary
+ * Mechanism-C wiring... just owned by the Layer instead of packages/server").
+ * That code is STILL the composition root today — it legitimately wires
+ * concrete `harness-registry`/`mcp-provider`/`tool-provider` Services into
+ * the app the exact same way `packages/server` used to (only the concrete
+ * `HarnessPort` adapter injection itself moved to the real Application
+ * bootstrap files, `desktop`/`remote-server` — see `server-factory.ts`'s
+ * `CreateServerDeps` top `@lore`). So `packages/core-api/src/**` (the Layer
+ * package's OWN files) now gets the SAME narrow composition-root treatment
+ * `packages/server` had (checks 3+4 only) — NOT the full Service-boundary
+ * ban, which would false-positive on this exact legitimate wiring the same
+ * way it would have on `packages/server`'s. Its NESTED Service packages
+ * (`packages/core-api/knowledge`, `packages/core-api/work`, …) are a
+ * completely different thing — real Table-ACL-enforced Services that must
+ * NEVER reach the execution surface directly (Mechanism C) — so they keep
+ * (and are the only part of `core-api` now subject to) the full check 1+2
+ * ban, scanned individually below instead of via a blanket `packages/
+ * core-api` walk (which would have wrongly swept the Layer's own `src/`
+ * composition root into the strict ban too).
  */
 import {
 	existsSync,
@@ -73,14 +96,36 @@ import { dirname, join, relative } from "node:path";
 import ts from "typescript";
 
 /**
- * Package roots whose subtrees get the FULL Service-boundary ban (checks 1+2).
- * `web` is the (undecomposed) `core-ui` Layer — scanned the same way as the
- * three backend Layer dirs, `packages/web` being the Layer package's own root
- * rather than a parent of nested Service packages changes nothing for
- * `walkPkg`'s package.json discovery below (it still finds `packages/web/
- * package.json` directly).
+ * Package roots whose ENTIRE subtree gets the FULL Service-boundary ban
+ * (checks 1+2), scanned generically (the whole package root, package.json
+ * included).
+ *
+ * `core-api` and `web` are deliberately NOT listed here — both have a real
+ * subtree that legitimately composes execution Services (`core-api/src`, the
+ * composition root; `web/scripts`, the E2E-only test-server bootstraps) and a
+ * real subtree that must never do so (`core-api`'s nested Service packages;
+ * `web/src` + `web/e2e`). See the Increment-5-item-2 `@lore` above for
+ * `core-api` and the carve-out comment on the `web/scripts` composition-root
+ * scan below — both are scanned with a split full-ban/narrow-ban treatment
+ * instead of this generic per-package-root loop.
  */
-const SCAN_LAYERS = ["core-api", "agent-orchestration", "agent-execution", "web"];
+const SCAN_LAYERS = ["agent-orchestration", "agent-execution"];
+
+/**
+ * `packages/core-api`'s nested Service packages (everything except the
+ * Layer's own `src/` composition root, `dist/`, and `node_modules/`) — each
+ * gets the full Mechanism-B ban, same as any other Service package. Read
+ * from disk rather than hand-maintained so a newly-scaffolded Service is
+ * covered automatically (mirrors `table-ownership-guard.ts`'s own
+ * disk-discovery idiom for its ownership map).
+ */
+function discoverCoreApiServiceDirs(root: string): string[] {
+	const coreApiDir = join(root, "packages", "core-api");
+	if (!existsSync(coreApiDir)) return [];
+	return readdirSync(coreApiDir, { withFileTypes: true })
+		.filter((e) => e.isDirectory() && !["src", "dist", "node_modules"].includes(e.name))
+		.map((e) => join("packages", "core-api", e.name));
+}
 /** Only files under this prefix may import the execution surface. */
 const EXECUTION_PREFIX = "packages/agent-execution/";
 
@@ -274,43 +319,88 @@ function checkCompositionRootPackageJson(root: string, abs: string): Finding[] {
 		}));
 }
 
+/** Checks 1+2 (full Service-boundary ban), applied to one already-resolved scan root. */
+function inspectFullBanRoot(root: string, scanDir: string, findings: Finding[]): void {
+	for (const abs of collectSourceFiles(scanDir)) {
+		if (abs.endsWith("package.json")) continue;
+		findings.push(...checkSource(root, abs));
+		findings.push(...checkCliSpawn(root, abs));
+	}
+	const pkgJsons: string[] = [];
+	const walkPkg = (dir: string): void => {
+		if (!existsSync(dir)) return;
+		for (const e of readdirSync(dir, { withFileTypes: true })) {
+			const a = join(dir, e.name);
+			if (e.isDirectory()) {
+				if (e.name === "node_modules" || e.name === "dist" || e.name === "src") continue;
+				walkPkg(a);
+			} else if (e.name === "package.json") {
+				pkgJsons.push(a);
+			}
+		}
+	};
+	walkPkg(scanDir);
+	for (const abs of pkgJsons) findings.push(...checkPackageJson(root, abs));
+}
+
 export function inspect(root: string): Finding[] {
 	const findings: Finding[] = [];
 	for (const layer of SCAN_LAYERS) {
-		const layerDir = join(root, "packages", layer);
-		for (const abs of collectSourceFiles(layerDir)) {
-			if (abs.endsWith("package.json")) continue;
-			findings.push(...checkSource(root, abs));
-			findings.push(...checkCliSpawn(root, abs));
-		}
-		// package.json files (Layer + nested Services)
-		const pkgJsons: string[] = [];
-		const walkPkg = (dir: string): void => {
-			if (!existsSync(dir)) return;
-			for (const e of readdirSync(dir, { withFileTypes: true })) {
-				const a = join(dir, e.name);
-				if (e.isDirectory()) {
-					if (e.name === "node_modules" || e.name === "dist" || e.name === "src") continue;
-					walkPkg(a);
-				} else if (e.name === "package.json") {
-					pkgJsons.push(a);
-				}
-			}
-		};
-		walkPkg(layerDir);
-		for (const abs of pkgJsons) findings.push(...checkPackageJson(root, abs));
+		inspectFullBanRoot(root, join(root, "packages", layer), findings);
+	}
+	// `core-api`'s nested Service packages get the SAME full ban as any other
+	// Service package — see the Increment-5-item-2 `@lore` above for why this
+	// is scanned separately from `core-api/src` (the composition root).
+	for (const serviceDir of discoverCoreApiServiceDirs(root)) {
+		inspectFullBanRoot(root, join(root, serviceDir), findings);
+	}
+	// `web`'s production surfaces (`src/`, `e2e/`) get the full ban — see the
+	// Increment-5-item-1 `@lore` in this file's header ("packages/web never
+	// legitimately wires a concrete execution Service"). `web/scripts/`
+	// (ah1/ah5/ah6-test-server.ts) is the one carve-out: these are Playwright
+	// webServer entrypoints that boot a REAL local server for E2E specs —
+	// functionally minimal, test-only Application bootstraps (the same job
+	// `desktop`/`remote-server` do in production), not shipped browser-client
+	// code. They construct a real `LocalSandboxAdapter` the exact same way
+	// `packages/desktop/src/boot-server.ts` does (AU19 Increment 5 item 2 —
+	// `CreateServerDeps.adapterPool`/`workspaceAdapter` are now required, so
+	// every real `createServer` caller must supply them). Scanned via the
+	// narrow composition-root treatment below instead.
+	for (const webSubdir of ["src", "e2e"]) {
+		inspectFullBanRoot(root, join(root, "packages", "web", webSubdir), findings);
 	}
 
-	// Check 3+4: composition root (`packages/server`) — narrow raw-runtime ban, not the full Service ban.
-	const serverDir = join(root, "packages", "server");
-	for (const abs of collectSourceFiles(serverDir)) {
-		if (abs.endsWith("package.json")) continue;
-		findings.push(...checkCompositionRootSource(root, abs));
-		findings.push(...checkCliSpawn(root, abs));
+	// Check 3+4: composition root — narrow raw-runtime ban, not the full Service
+	// ban. `packages/server` is dissolved (Increment 5 item 2) but the walk stays
+	// harmless (finds nothing) rather than being deleted outright, matching this
+	// script's own established pattern of never assuming a scan root vanished
+	// without verifying; `packages/core-api/src` is its real successor.
+	// `packages/web/scripts` joins this list per the carve-out documented above.
+	for (const compRootDir of [
+		join(root, "packages", "server"),
+		join(root, "packages", "core-api", "src"),
+		join(root, "packages", "web", "scripts"),
+	]) {
+		for (const abs of collectSourceFiles(compRootDir)) {
+			if (abs.endsWith("package.json")) continue;
+			findings.push(...checkCompositionRootSource(root, abs));
+			findings.push(...checkCliSpawn(root, abs));
+		}
 	}
-	const serverPkgJson = join(serverDir, "package.json");
-	if (existsSync(serverPkgJson)) {
-		findings.push(...checkCompositionRootPackageJson(root, serverPkgJson));
+	// `web/package.json` moves to the narrow composition-root manifest check
+	// too — it is one manifest shared by both `src/` (never legitimately
+	// depends on an execution package) and `scripts/` (legitimately does, per
+	// the carve-out above); npm has no per-subdirectory dependency scoping, so
+	// the manifest-level check can only be as strict as the package's most
+	// permissive real subtree.
+	for (const compRootPkgJson of [
+		join(root, "packages", "server", "package.json"),
+		join(root, "packages", "core-api", "package.json"),
+		join(root, "packages", "web", "package.json"),
+	]) {
+		if (existsSync(compRootPkgJson)) {
+			findings.push(...checkCompositionRootPackageJson(root, compRootPkgJson));
+		}
 	}
 
 	return findings;

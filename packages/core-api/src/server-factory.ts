@@ -38,10 +38,7 @@ import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
 	type AdapterPool,
-	createLocalAdapterPool,
-	DisabledSandboxAdapter,
 	enforcementRegistry,
-	LocalSandboxAdapter,
 	type SandboxAdapter,
 } from "@hyperidle/harness-registry";
 import {
@@ -446,21 +443,31 @@ function makeResolveModel(
 }
 
 /**
- * AF7 §1 / §14.3: test-only dependency overrides for `createServer`. Lets an
- * integration test inject a stub adapter pool + workspace adapter + a migrated
- * fixture DB so the production boot wire (dispatcher registration) runs without a
- * real LLM or a throwaway unmigrated DB.
+ * AF7 §1 / §14.3: test-only dependency overrides for `createServer`.
  *
- * @lore AF7 §1: this widens a production entry point for tests ONLY — production
- * call sites pass nothing and `createServer` constructs the real DB + adapter
- * pool. The optional branch is reached by af7-dispatch-wiring.integration.test.ts,
- * so knip does not flag it as dead. Mirrors createApp's existing SessionRouteDeps
- * DI pattern.
+ * @lore AU19 Increment 5 (item 2): `adapterPool`/`workspaceAdapter` were
+ * OPTIONAL through Increment 4 — `packages/server` (the pre-AU19 composition
+ * root) defaulted them internally via `createLocalAdapterPool()` +
+ * `isServerProfile ? DisabledSandboxAdapter : LocalSandboxAdapter`, a runtime
+ * `HYPERIDLE_PROFILE` env-var branch inside the ONE shared binary. That
+ * defaulting made the concrete `HarnessPort` adapter a runtime toggle, not a
+ * structural (tsc-enforceable) one — exactly what §12 Increment 5 item 2
+ * (founder ruling `97b8728b`) requires fixing. Both fields are now REQUIRED:
+ * `@hyperidle/core-api` (this Layer's composition barrel) no longer imports
+ * `LocalSandboxAdapter`/`DisabledSandboxAdapter`/`createLocalAdapterPool` at
+ * all — each Application (`desktop`, `remote-server`) constructs its own
+ * concrete adapter/pool in its own bootstrap file and injects it here. Every
+ * real call site already passed these explicitly (verified repo-wide before
+ * this change — only the two zero-deps production entrypoints,
+ * `packages/server/src/index.ts` and `packages/desktop/src/boot-server.ts`,
+ * relied on the internal default; both are now Application bootstrap code
+ * that supplies the concrete value itself, see `packages/remote-server/src/index.ts`
+ * and `packages/desktop/src/boot-server.ts`).
  */
 export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
-	readonly adapterPool?: AdapterPool;
-	readonly workspaceAdapter?: SandboxAdapter;
+	readonly adapterPool: AdapterPool;
+	readonly workspaceAdapter: SandboxAdapter;
 	readonly sandboxBasePath?: string;
 	/**
 	 * AH6 B3: Optional assistantTurnDeps override for test environments.
@@ -595,12 +602,12 @@ function resolvePglitePath(rawPath: string): string {
 	return path.resolve(repoRoot, rawPath);
 }
 
-export async function createServer(port: number, deps?: CreateServerDeps): Promise<ServerHandle> {
+export async function createServer(port: number, deps: CreateServerDeps): Promise<ServerHandle> {
 	// AF7 §1: when a test injects `deps.db`, use the migrated fixture DB and do NOT
 	// construct/own a throwaway DB. Production passes nothing → real DB + close.
 	let dbHandle: DbHandle | null = null;
 	let db: HyperIdleDb;
-	if (deps?.db) {
+	if (deps.db) {
 		db = deps.db;
 	} else {
 		const profile = resolveProfile({ env: process.env });
@@ -676,20 +683,16 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 			},
 		},
 	});
-	// AF7 §1: test-only overrides for the adapter pool + workspace adapter + base
-	// path so the dispatcher wire can run against a stub pool (no real LLM).
-	const adapterPool = deps?.adapterPool ?? (await createLocalAdapterPool());
-	// Server profiles (production, non-laptop) run no agents — LocalSandboxAdapter
-	// refuses to construct there. Use a disabled no-op adapter so the server boots;
-	// it fails loudly only if something actually tries to provision a sandbox.
-	const isServerProfile =
-		process.env.NODE_ENV === "production" &&
-		(process.env.HYPERIDLE_PROFILE ?? "laptop") !== "laptop";
-	const workspaceAdapter =
-		deps?.workspaceAdapter ??
-		(isServerProfile ? new DisabledSandboxAdapter() : new LocalSandboxAdapter());
+	// @lore AU19 Increment 5 (item 2): `adapterPool`/`workspaceAdapter` are now
+	// REQUIRED, Application-supplied deps (see `CreateServerDeps`'s top `@lore`)
+	// — this Layer no longer constructs a concrete `SandboxAdapter`/`AdapterPool`
+	// itself, and no longer branches on `HYPERIDLE_PROFILE` at runtime. Which
+	// concrete adapter to inject is each Application's own choice (`desktop`:
+	// `LocalSandboxAdapter` + `createLocalAdapterPool()`; `remote-server`: an
+	// empty pool + `DisabledSandboxAdapter` — see each package's bootstrap file).
+	const { adapterPool, workspaceAdapter } = deps;
 	const sandboxBasePath =
-		deps?.sandboxBasePath ??
+		deps.sandboxBasePath ??
 		process.env.HYPERIDLE_WORKSPACES_DIR ??
 		path.join(os.tmpdir(), "hyperidle-workspaces");
 
@@ -795,7 +798,7 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 		runtime: runtimeDeps,
 		sandboxBasePath,
 		resolveModel: makeResolveModel(db, credentialResolver),
-		assistantTurn: deps?.assistantTurnDeps ?? { db, eventBus, adapterPool, credentialResolver },
+		assistantTurn: deps.assistantTurnDeps ?? { db, eventBus, adapterPool, credentialResolver },
 	});
 
 	// AH6 B3 (R-1): Build assistantTurnDeps from the already-constructed adapterPool
@@ -807,7 +810,7 @@ export async function createServer(port: number, deps?: CreateServerDeps): Promi
 	//
 	// @lore AH6 B3: deps.assistantTurnDeps can override (test-only) if the caller
 	// needs to inject a stub. Production always uses the constructed deps here.
-	const assistantTurnDeps = deps?.assistantTurnDeps ?? {
+	const assistantTurnDeps = deps.assistantTurnDeps ?? {
 		db,
 		eventBus,
 		adapterPool,

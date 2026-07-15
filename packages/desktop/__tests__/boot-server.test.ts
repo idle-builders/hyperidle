@@ -2,7 +2,8 @@
  * N4 — boot-server tests
  *
  * AC coverage:
- *  - startServer() calls createServer(0) from @hyperidle/server/server-factory
+ *  - startServer() calls createServer(0, deps) from @hyperidle/core-api/server-factory,
+ *    injecting a concrete LocalSandboxAdapter/AdapterPool (AU19 Increment 5 item 2)
  *  - getPort() extracts the OS-assigned port from a listening handle
  *  - waitForHealth() resolves when /api/health returns 200
  *  - waitForHealth() throws after 30s timeout (mocked to fast timeout)
@@ -13,9 +14,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getPort, startServer, waitForHealth } from "../src/boot-server.js";
 
 // ---------------------------------------------------------------------------
-// Mock @hyperidle/server/server-factory subpath export (doesn't exist yet)
+// Mock @hyperidle/core-api/server-factory + @hyperidle/harness-registry
 // ---------------------------------------------------------------------------
-vi.mock("@hyperidle/server/server-factory", () => ({
+vi.mock("@hyperidle/core-api/server-factory", () => ({
 	createServer: vi.fn(async (port: number) => ({
 		httpServer: {
 			address: () => ({ port: port === 0 ? 51234 : port }),
@@ -25,11 +26,29 @@ vi.mock("@hyperidle/server/server-factory", () => ({
 	})),
 }));
 
+vi.mock("@hyperidle/harness-registry", () => ({
+	createLocalAdapterPool: vi.fn(async () => ({ pool: "fake-adapter-pool" })),
+	// @lore: `boot-server.ts` calls `new LocalSandboxAdapter()` — vi.fn() only
+	// supports `new` when its implementation is a regular `function`, not an
+	// arrow function (same constraint remote-worker-client.test.ts documents
+	// for its MockWebSocket).
+	// biome-ignore lint/complexity/useArrowFunction: regular function required so `new LocalSandboxAdapter()` works via Reflect.construct
+	LocalSandboxAdapter: vi.fn().mockImplementation(function () {
+		return { workspaceAdapter: "fake" };
+	}),
+}));
+
 describe("startServer", () => {
-	it("calls createServer with port 0 (OS-assigned random port)", async () => {
-		const { createServer } = await import("@hyperidle/server/server-factory");
+	it("calls createServer with port 0 and an injected adapterPool/workspaceAdapter", async () => {
+		const { createServer } = await import("@hyperidle/core-api/server-factory");
 		await startServer();
-		expect(createServer).toHaveBeenCalledWith(0);
+		expect(createServer).toHaveBeenCalledWith(
+			0,
+			expect.objectContaining({
+				adapterPool: expect.anything(),
+				workspaceAdapter: expect.anything(),
+			}),
+		);
 	});
 
 	it("returns a ServerHandle with httpServer and dispose", async () => {

@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { humanizeSchedule } from "../services/schedule-label.js";
+import { humanizeSchedule } from "../schedule-label.js";
 
 describe("humanizeSchedule (AA1)", () => {
 	// calendar + cron expression — weekday

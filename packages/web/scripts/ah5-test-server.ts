@@ -34,9 +34,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { encryptCredentialValue, getServerSecret } from "@hyperidle/connections";
+import { createServer } from "@hyperidle/core-api/server-factory";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema, serverCredentials } from "@hyperidle/db";
-import { createServer } from "@hyperidle/server/server-factory";
+import { createLocalAdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 
@@ -127,10 +128,15 @@ if (resolveModelFile && fs.existsSync(resolveModelFile)) {
 
 // ---------------------------------------------------------------------------
 // 4. Boot the Hono server with the already-migrated in-memory DB.
+//    AU19 Increment 5 (item 2): adapterPool/workspaceAdapter are now REQUIRED
+//    — inject a LocalSandboxAdapter (laptop profile, set above), mirroring
+//    packages/desktop's boot-server.ts.
 // ---------------------------------------------------------------------------
 const handle = await createServer(AH5_API_PORT, {
 	db,
 	sandboxBasePath: "/tmp/ah5-e2e-workspaces",
+	adapterPool: await createLocalAdapterPool(),
+	workspaceAdapter: new LocalSandboxAdapter(),
 });
 
 // 5. Signal readiness — playwright.ah5.config.ts waits for this line.

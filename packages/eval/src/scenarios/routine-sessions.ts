@@ -11,8 +11,8 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { checkAndFireRoutine } from "@hyperidle/core-api/routines";
 import { items, routines, sessions } from "@hyperidle/db";
-import { checkAndFireRoutine } from "@hyperidle/server/routines";
 import { updateServerConfig } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq, isNotNull } from "drizzle-orm";

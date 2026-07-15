@@ -11,12 +11,12 @@
 		"packages/*/*"
 	],
 	"scripts": {
-		"dev": "concurrently --names server,web --prefix-colors blue,green \"npm run -w @hyperidle/server dev\" \"npm run -w @hyperidle/web dev\"",
+		"dev": "concurrently --names server,web --prefix-colors blue,green \"npm run -w @hyperidle/remote-server dev\" \"npm run -w @hyperidle/web dev\"",
 		"dev:desktop": "concurrently --names web,desktop --prefix-colors green,blue \"npm run -w @hyperidle/web dev\" \"npm run -w @hyperidle/desktop dev\"",
 		"build": "npm run -w @hyperidle/web build",
 		"build:desktop": "npm run -w @hyperidle/web build && npm run -w @hyperidle/desktop build",
 		"build:desktop:local": "bash packages/desktop/scripts/build-local.sh",
-		"start": "HYPERIDLE_STATIC_DIR=packages/web/dist npm run -w @hyperidle/server start",
+		"start": "HYPERIDLE_STATIC_DIR=packages/web/dist npm run -w @hyperidle/remote-server start",
 		"test": "vitest run --changed=origin/main --passWithNoTests",
 		"test:full": "vitest run",
 		"test:integration": "vitest run --config vitest.integration.config.ts",

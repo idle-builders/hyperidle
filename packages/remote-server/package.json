@@ -1,0 +1,18 @@
+{
+	"name": "@hyperidle/remote-server",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"main": "src/index.ts",
+	"scripts": {
+		"check": "tsc --noEmit",
+		"dev": "tsx watch src/index.ts",
+		"start": "node --import tsx src/index.ts",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@hyperidle/core-api": "*",
+		"@hyperidle/harness-registry": "*",
+		"@hyperidle/shared": "*"
+	}
+}

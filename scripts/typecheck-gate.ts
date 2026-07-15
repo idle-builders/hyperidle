@@ -441,10 +441,24 @@ function buildLeafDeclarations(root: string): void {
   // `packages/server/src/harness/*`). `agent-execution/mcp-provider` and
   // `agent-execution/tool-provider` added the same increment for the same
   // reason (mcp-route.ts + the tool-provider/tool-handlers split).
+  //
+  // @lore AU19 Increment 5 (item 2): `core-api` itself (the Layer package —
+  // `app.ts`/`server-factory.ts`/`routes/*`/`middleware/*`/`auth/*`/`schemas/*`,
+  // moved wholesale from the dissolved `packages/server`) added — same TS6305
+  // cascade; the new `packages/desktop/src/boot-server.ts`,
+  // `packages/remote-server/src/index.ts`, `packages/eval/src/{routines
+  // scenarios,provision-harness}.ts`, and `packages/web/scripts/ah{1,5,6}-
+  // test-server.ts`/`src/api/client.ts` now import `@hyperidle/core-api`
+  // (repointed from the deleted `@hyperidle/server`). `remote-server` and
+  // `remote-worker` added the same increment — `remote-server` is itself a
+  // leaf-consumed-by-nothing-else Application, but building its declarations
+  // here keeps its own measurement (below) deterministic the same way every
+  // other leaf's does; `remote-worker` is consumed by `packages/desktop`.
   for (const leaf of [
     "shared",
     "db",
     "design-system",
+    "core-api",
     "core-api/knowledge",
     "core-api/work",
     "core-api/org",
@@ -476,6 +490,8 @@ function buildLeafDeclarations(root: string): void {
     "agent-execution/mcp-provider",
     "agent-execution/tool-provider",
     "agent-orchestration/tool-handlers",
+    "remote-server",
+    "remote-worker",
   ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });

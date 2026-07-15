@@ -24,7 +24,7 @@
  * duplicating it in every call site.
  */
 
-import type { AppType } from "@hyperidle/server/schemas";
+import type { AppType } from "@hyperidle/core-api/schemas";
 import { hc } from "hono/client";
 import { apiFetch } from "../services/api-fetch.js";
 

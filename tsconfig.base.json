@@ -19,8 +19,6 @@
 		"paths": {
 			"@hyperidle/shared": ["./packages/shared/src"],
 			"@hyperidle/db": ["./packages/db/src"],
-			"@hyperidle/server": ["./packages/server/src"],
-			"@hyperidle/server/routines": ["./packages/server/src/routines.ts"],
 			"@hyperidle/web": ["./packages/web/src"],
 			"@hyperidle/design-system": ["./packages/design-system/src"],
 			"@hyperidle/api-contract": ["./packages/api-contract/src"],

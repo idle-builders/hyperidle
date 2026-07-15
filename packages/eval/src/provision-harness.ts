@@ -13,6 +13,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { provisionSession } from "@hyperidle/core-api/services/session-lifecycle-bindings";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
@@ -21,7 +22,6 @@ import {
 	callLlm,
 	LocalSandboxAdapter,
 } from "@hyperidle/harness-registry";
-import { provisionSession } from "@hyperidle/server/services/session-lifecycle-bindings";
 import type {
 	EventBus,
 	HarnessAdapter,

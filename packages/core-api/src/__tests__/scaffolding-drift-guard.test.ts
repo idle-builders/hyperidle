@@ -16,17 +16,33 @@
  * the original drift-guard spec.
  *
  * @lore AU19 Increment 2b: `SANDBOX_SCAFFOLDING_PATHS` (the constant under
- * test) moved to `@hyperidle/filesystems`, but this test itself STAYS here —
- * its other two writer surfaces (`session-provisioning.ts`, `harness/*`) are
- * still `packages/server`-only (destined for `run-orchestration`/
- * `agent-execution` in later increments), and a core-api package can never
- * import from `packages/server` (wrong dependency direction). This
- * cross-cutting guard can only compose at the `packages/server` level until
- * every writer it covers has migrated.
+ * test) moved to `@hyperidle/filesystems`, but this test itself STAYED under
+ * `packages/server/src/filesystem/__tests__/` at the time — its other two
+ * writer surfaces (`session-provisioning.ts`, `harness/*`) were still
+ * `packages/server`-only, and a core-api Service package can never import
+ * from another Service/Layer (Mechanism C). This cross-cutting guard could
+ * only compose at the `packages/server` (then-unguarded composition root)
+ * level until every writer it covers had migrated.
  *
  * @lore AU19 Increment 3 (context-assembly finalize): `EMITTED_ROOTS_CONTEXT_ASSEMBLY`/
  * `EMITTED_ROOTS_AGENTS_MD` now import from the real `@hyperidle/context-assembly`
  * package instead of the deleted flat `services/context-assembly*.ts` files.
+ *
+ * @lore AU19 Increment 5 (item 2): `packages/server` dissolved. This test
+ * relocated a second time — from `packages/core-api/filesystems/src/
+ * __tests__/` (its Increment-2b home, a NESTED core-api Service package) to
+ * `packages/core-api/src/__tests__/` (the `core-api` Layer's own composition
+ * root). It genuinely spans four Layers/Services (`context-assembly`,
+ * `session-lifecycle` — agent-orchestration; `filesystems` — core-api;
+ * `harness-registry` — agent-execution) and legitimately needs to import
+ * `@hyperidle/harness-registry`'s pure-constant `EMITTED_ROOTS_*` exports —
+ * exactly the "composition root legitimately wires the execution Service
+ * packages" case `execution-boundary-guard.ts`'s check-3 exemption
+ * (narrow raw-runtime-bypass ban, not the full Service-boundary ban) is for.
+ * A NESTED core-api Service package (like `filesystems`, its prior home)
+ * does NOT get that exemption — only the Layer's own `src/` composition root
+ * does — so it cannot legitimately live there anymore now that `filesystems`
+ * is itself Mechanism-B-enforced.
  */
 
 // ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────

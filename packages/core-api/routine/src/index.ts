@@ -59,3 +59,6 @@ export {
 	updateRoutineRunById,
 	updateRoutineRunIfRunning,
 } from "./routine-service.js";
+
+// -- schedule-label (AU19 Increment 5: relocated from packages/server per §6 disposition — humanizeSchedule is routine's own display concern) --
+export { humanizeSchedule } from "./schedule-label.js";
