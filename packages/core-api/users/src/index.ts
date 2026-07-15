@@ -35,8 +35,16 @@
  * (raw `@hyperidle/db` table access wasn't a countable Service→Service edge
  * at original census time) — see `@hyperidle/retention`'s `ports.ts` top
  * `@lore` for the census-correction row.
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, hintProgress —
+ * LAST sub-item): `hint-progress.ts` added — `hintProgress` cascades from
+ * `users.id`, sole real accessor `packages/core-api/src/routes/hints.ts`,
+ * ruled owned by `users` (see `TABLE_OWNER` row + architecture.md §12).
  */
 
+// -- hint progress (P5 — first-time hint dismissal tracking) --
+export type { DismissedHint } from "./hint-progress.js";
+export { dismissHint, listDismissedHints } from "./hint-progress.js";
 // -- invite code (S1 — invite/claim flow) --
 export { claimInvite, createInvite, generateInviteCode, reapInviteCodes } from "./invite-code.js";
 // -- login session (S1 — bearer-token auth) --

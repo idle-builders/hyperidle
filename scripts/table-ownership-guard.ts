@@ -235,6 +235,18 @@ const TABLE_OWNER: Record<string, string> = {
 	// `packages/server` composition root and repoints straight to
 	// `@hyperidle/observability`'s real export (see `ports.ts`'s top `@lore`).
 	// …one row per table, populated as each Service migrates (Increments 1–4).
+	// AU19 Increment 5 item 4 (guard-retirement full-sweep, hintProgress —
+	// LAST sub-item, 2026-07-15 ruling): `hintProgress` cascades from
+	// `users.id` and had exactly one real accessor anywhere in the codebase,
+	// `packages/core-api/src/routes/hints.ts` — a clear FK-anchored domain
+	// home never previously mapped (found during the scan-widening that
+	// surfaced 119 findings, not a pre-existing `UNOWNED_SHARED_TABLES`
+	// exemption to close). Ruled owned by `users`, same shape as
+	// `teamMembers`/`taskPlanningSignals` before their owner was assigned.
+	// `hint-progress.ts` (new file, `users` package) is the real
+	// implementation; `routes/hints.ts` now calls its exported functions
+	// instead of querying `hintProgress` directly.
+	hintProgress: "packages/core-api/users",
 };
 
 /**

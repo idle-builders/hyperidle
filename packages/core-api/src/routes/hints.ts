@@ -8,11 +8,17 @@
  * race conditions instead of a SELECT-then-INSERT pattern. We use RETURNING
  * to detect whether the row was inserted (non-empty result) or already
  * existed (empty result), enabling 200 vs 409 differentiation without a second query.
+ *
+ * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, hintProgress —
+ * LAST sub-item): the raw `hintProgress` Drizzle calls moved to
+ * `@hyperidle/users`'s `hint-progress.ts` (ruled owned by `users`, cascades
+ * from `users.id`) — this route now calls `listDismissedHints`/`dismissHint`
+ * instead of querying the table directly.
  */
 
-import { type HyperIdleDb, hintProgress } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { isHintId } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { dismissHint, listDismissedHints } from "@hyperidle/users";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
@@ -27,13 +33,8 @@ export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	 */
 	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const userId = c.get("userId");
-		const rows = await db.select().from(hintProgress).where(eq(hintProgress.userId, userId));
-		return c.json({
-			dismissed: rows.map((r) => ({
-				hintId: r.hintId,
-				seenAt: r.seenAt,
-			})),
-		});
+		const dismissed = await listDismissedHints(db, userId);
+		return c.json({ dismissed });
 	});
 
 	/**
@@ -56,19 +57,10 @@ export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			return c.json({ error: "Unknown hint ID", code: "VALIDATION_ERROR" }, 400);
 		}
 
-		// INSERT OR IGNORE — atomic, no race condition. RETURNING tells us if it inserted.
-		const inserted = await db
-			.insert(hintProgress)
-			.values({
-				userId,
-				hintId,
-				seenAt: new Date().toISOString(),
-			})
-			.onConflictDoNothing()
-			.returning({ hintId: hintProgress.hintId });
+		// INSERT OR IGNORE — atomic, no race condition. `inserted` tells us whether it inserted.
+		const { inserted } = await dismissHint(db, userId, hintId);
 
-		// Empty result means the row already existed (conflict was ignored)
-		if (inserted.length === 0) {
+		if (!inserted) {
 			return c.json({ error: "Already dismissed", code: "CONFLICT" }, 409);
 		}
 
