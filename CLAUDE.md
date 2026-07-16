@@ -2,7 +2,7 @@
 
 HyperIdle is an agentic operating system for AI-first companies. Flat teams of humans and AI agents collaborate through conversations, manage work as time-boxed bets, and build shared knowledge — like Slack + Linear + Notion + GitHub in one app, with AI agents as first-class participants.
 
-**Status:** Actively developed. Core platform shipped. Work packages build incrementally from `.pipeline/work-packages/` (per-track files).
+**Status:** Actively developed. Core platform shipped. Work packages build incrementally. The `pipeline@agent-pipeline` plugin's work-planning skill moved to a new registration shape: new-style work packages seed `.pipeline/work/<id>/plan.md`, registered in a per-track coordination file `.pipeline/<track>.md`. Older work packages remain under `.pipeline/work-packages/` (`TRACK-*.md` specs + `pipeline-manifest.yaml`) pending migration — check both locations for a given track until fully transferred.
 
 **Builder philosophy:** Read `ETHOS.md` — four principles (**Build for the Fast, Not the Enterprise**, **Trust Agents and Humans**, Boil the Lake, Search Before Building) that guide all agent behavior. We build for fast-moving small teams (never enterprise features); we trust agents and humans and live by self-reliance. **Security is never preemptive — it is earned from real learnings, never a wall built first.** "Irreversible" alone is not a reason to gate; review rides AL7 only where a human chose it or a learning earned it. Never design for paranoia, a rogue agent, or a gate-by-default classifier.
 
@@ -106,7 +106,9 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 
 **Pipeline** — `.pipeline/` (tracked durable pipeline state):
 
-- `work-packages/` — track-level files (`TRACK-*.md` workpackage specs, `pipeline-manifest.yaml`)
+- `<track>.md` — new-shape per-track coordination file (WP registry table + dependency graph); a WP's full spec seeds at `work/<id>/plan.md` alongside it.
+- `work/<id>/` — new-shape per-workpackage folder; `plan.md` is the seeded spec (`/refine` → `requirements.md`, `/design` → `design/`, `/architecture` → `architecture.md` + `feasibility.md` land alongside it).
+- `work-packages/` — legacy per-track files (`TRACK-*.md` workpackage specs, `pipeline-manifest.yaml`); work packages not yet migrated to the new shape stay here.
 - `progress/` — per-workpackage progress JSON files
 - `retro-log/<workpackage>.jsonl` — retro observations, one append-only file per workpackage (feeds `/pipeline:compound`). Split per-workpackage so parallel branches never merge-conflict; `.gitattributes` sets `merge=union` as a safety net.
 
