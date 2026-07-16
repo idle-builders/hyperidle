@@ -93,7 +93,7 @@ async function assertBottomAnchored(
 	page: import("@playwright/test").Page,
 	viewportHeight: number,
 ): Promise<void> {
-	const box = await page.evaluate((vh) => {
+	const box = await page.evaluate((_vh) => {
 		// Find the dialog box — it may be marked by data-dialog-box or role="dialog"
 		const el =
 			(document.querySelector("[data-dialog-box]") as HTMLElement) ??

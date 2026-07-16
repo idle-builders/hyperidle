@@ -317,7 +317,7 @@ function getClassName(node: ts.JsxOpeningLikeElement): string | undefined {
 	const attrs = node.attributes.properties;
 	for (const attr of attrs) {
 		if (!ts.isJsxAttribute(attr)) continue;
-		if (!attr.name || attr.name.getText() !== "className") continue;
+		if (attr.name?.getText() !== "className") continue;
 		const init = attr.initializer;
 		if (!init) return undefined;
 		if (ts.isStringLiteral(init)) return init.text;

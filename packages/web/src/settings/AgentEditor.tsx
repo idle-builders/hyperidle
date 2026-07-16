@@ -179,7 +179,6 @@ export function AgentEditor({
 		return () => {
 			controller.abort();
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [onDraftChange, fetchTemplateOnMount, draft.role]);
 
 	const isAssistant = agentId.startsWith("ast-");

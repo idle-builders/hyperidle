@@ -20,7 +20,7 @@ describe("composeArtifactBody (Artifact composition)", () => {
 			lang: "typescript",
 			text: "const x = 1;",
 		};
-		const { container } = render(<>{composeArtifactBody("code", preview)}</>);
+		const { container } = render(composeArtifactBody("code", preview));
 		// CodePayload renders a pre block with the code text
 		expect(container.querySelector("pre")).toBeTruthy();
 		expect(container.textContent).toContain("const x = 1;");
@@ -34,13 +34,13 @@ describe("composeArtifactBody (Artifact composition)", () => {
 			height: 600,
 			alt: "Test image",
 		};
-		render(<>{composeArtifactBody("image", preview)}</>);
+		render(composeArtifactBody("image", preview));
 		expect(screen.getByRole("img")).toBeTruthy();
 	});
 
 	it("'url' kind → renders an anchor link", () => {
 		const preview = { kind: "url", url: "https://example.com/service" };
-		const { container } = render(<>{composeArtifactBody("url", preview)}</>);
+		const { container } = render(composeArtifactBody("url", preview));
 		const link = container.querySelector("a");
 		expect(link).toBeTruthy();
 		expect(link?.getAttribute("href")).toBe("https://example.com/service");
@@ -50,28 +50,28 @@ describe("composeArtifactBody (Artifact composition)", () => {
 		const preview = { kind: "html", html: "<p>Hello</p>" };
 		// sanitizeHtml that passes content through
 		const sanitizeHtml = (raw: string): string => raw;
-		const { container } = render(<>{composeArtifactBody("html", preview, sanitizeHtml)}</>);
+		const { container } = render(composeArtifactBody("html", preview, sanitizeHtml));
 		// HtmlPayload renders via dangerouslySetInnerHTML
 		expect(container.querySelector("p")).toBeTruthy();
 	});
 
 	it("'html' kind → renders UnknownPayload when sanitizeHtml is absent", () => {
 		const preview = { kind: "html", html: "<p>Hello</p>" };
-		const { container } = render(<>{composeArtifactBody("html", preview)}</>);
+		const { container } = render(composeArtifactBody("html", preview));
 		// UnknownPayload uses a border-l warning stripe — data-block-unknown-pill is present
 		expect(container.querySelector("[data-block-unknown-pill]")).toBeTruthy();
 	});
 
 	it("unknown kind → renders UnknownPayload (K1 fallback, never crashes)", () => {
 		const preview = { kind: "mystery_kind", data: "something" };
-		const { container } = render(<>{composeArtifactBody("mystery_kind", preview)}</>);
+		const { container } = render(composeArtifactBody("mystery_kind", preview));
 		expect(container.querySelector("[data-block-unknown-pill]")).toBeTruthy();
 	});
 
 	it("AC5: composeArtifactBody('mystery', …) → UnknownPayload, never throws", () => {
 		// K1: unknown content → fallback, never crash
 		expect(() => {
-			render(<>{composeArtifactBody("mystery", { kind: "mystery" })}</>);
+			render(composeArtifactBody("mystery", { kind: "mystery" }));
 		}).not.toThrow();
 	});
 
@@ -81,7 +81,7 @@ describe("composeArtifactBody (Artifact composition)", () => {
 			kind: "text",
 			body: "# Hello World\n\nThis is a paragraph.\n\n- item one\n- item two",
 		};
-		const { container } = render(<>{composeArtifactBody("text", preview)}</>);
+		const { container } = render(composeArtifactBody("text", preview));
 		// Block component renders <article data-ds-component="block"> per block
 		const blocks = container.querySelectorAll("[data-ds-component='block']");
 		// heading + paragraph + list = 3 blocks
@@ -93,7 +93,7 @@ describe("composeArtifactBody (Artifact composition)", () => {
 
 	it("'text' kind renders via Block (article elements), NOT a flat div with whitespace-pre-wrap", () => {
 		const preview = { kind: "text", body: "Just a simple line." };
-		const { container } = render(<>{composeArtifactBody("text", preview)}</>);
+		const { container } = render(composeArtifactBody("text", preview));
 		// Must have at least one block (article), not a flat div with pre-wrap
 		const blocks = container.querySelectorAll("[data-ds-component='block']");
 		expect(blocks.length).toBeGreaterThanOrEqual(1);
@@ -111,7 +111,7 @@ describe("composeArtifactBody (Artifact composition)", () => {
 				{ label: "MRR", value: "$48k" },
 			],
 		};
-		const { container } = render(<>{composeArtifactBody("data", preview)}</>);
+		const { container } = render(composeArtifactBody("data", preview));
 		// KpiStat renders section[aria-label="Key metrics"]
 		const kpiSection = container.querySelector("section[aria-label='Key metrics']");
 		expect(kpiSection).toBeTruthy();
@@ -125,7 +125,7 @@ describe("composeArtifactBody (Artifact composition)", () => {
 			headlines: [{ label: "MAU", value: "5k" }],
 			charts: [{ label: "trend", values: [1, 2, 3, 4, 5] }],
 		};
-		const { container } = render(<>{composeArtifactBody("data", preview)}</>);
+		const { container } = render(composeArtifactBody("data", preview));
 		// Sparkline renders role="img" SVG
 		const sparkline = container.querySelector("svg[role='img']");
 		expect(sparkline).toBeTruthy();
@@ -140,7 +140,7 @@ describe("composeArtifactBody (Artifact composition)", () => {
 				{ name: "Bob", score: "87" },
 			],
 		};
-		const { container } = render(<>{composeArtifactBody("data", preview)}</>);
+		const { container } = render(composeArtifactBody("data", preview));
 		// DataRowsTable renders a <table>
 		const table = container.querySelector("table");
 		expect(table).toBeTruthy();

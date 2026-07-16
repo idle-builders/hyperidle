@@ -147,7 +147,7 @@ function isRouteCall(node: CallExpression): boolean {
 
 	// First arg must be a string literal (the route path)
 	const firstArg = args[0] as (typeof args)[number] | undefined;
-	if (!firstArg || firstArg.type !== "Literal") return false;
+	if (firstArg?.type !== "Literal") return false;
 	// estree Literal.value may be string | number | boolean | null | RegExp | bigint
 	if (typeof (firstArg as { value?: unknown }).value !== "string") return false;
 

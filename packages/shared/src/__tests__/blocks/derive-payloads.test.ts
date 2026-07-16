@@ -173,7 +173,7 @@ describe("derivePayloads() — inline nodes in paragraphs (AC-3)", () => {
 		const types = p.inline.map((n) => n.type);
 		expect(types).toContain("inlineCode");
 		const codeNode = p.inline.find((n) => n.type === "inlineCode");
-		if (!codeNode || codeNode.type !== "inlineCode") throw new Error();
+		if (codeNode?.type !== "inlineCode") throw new Error();
 		expect(codeNode.value).toBe("const x = 1");
 	});
 
@@ -184,7 +184,7 @@ describe("derivePayloads() — inline nodes in paragraphs (AC-3)", () => {
 		if (p.kind !== "paragraph") throw new Error("expected paragraph");
 		const linkNode = p.inline.find((n) => n.type === "link");
 		expect(linkNode).toBeDefined();
-		if (!linkNode || linkNode.type !== "link") throw new Error();
+		if (linkNode?.type !== "link") throw new Error();
 		expect(linkNode.href).toBe("https://example.com");
 	});
 
@@ -383,7 +383,7 @@ describe("derivePayloads() — URL security (AC-16)", () => {
 		for (const md of cases) {
 			const payloads = derivePayloads(md);
 			const p = payloads[0]!;
-			if (!p || p.kind !== "paragraph") throw new Error("expected paragraph");
+			if (p?.kind !== "paragraph") throw new Error("expected paragraph");
 			const hasLink = p.inline.some((n) => n.type === "link");
 			expect(hasLink).toBe(true);
 		}
@@ -443,7 +443,7 @@ describe("derivePayloads() — plain text and mixed content", () => {
 		const payloads = derivePayloads(md);
 		const htmlPayload = payloads.find((p) => p.kind === "html");
 		expect(htmlPayload).toBeDefined();
-		if (!htmlPayload || htmlPayload.kind !== "html") throw new Error();
+		if (htmlPayload?.kind !== "html") throw new Error();
 		expect(htmlPayload.raw).toContain("<details>");
 	});
 });

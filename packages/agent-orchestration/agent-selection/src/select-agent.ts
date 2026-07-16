@@ -148,7 +148,7 @@ export async function selectOwner(
 
 	const row = await deps.users.getUserById(db, agentId);
 
-	if (!row || row.kind !== "ai" || row.status !== "active") {
+	if (row?.kind !== "ai" || row.status !== "active") {
 		return null;
 	}
 

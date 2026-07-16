@@ -125,7 +125,7 @@ async function isEligibleAgent(
 	const membership = teamId ? await deps.teams.getTeamMembersByTeamId(db, teamId) : undefined;
 	if (teamId && !membership) return false;
 	const agent = await deps.users.getUserByIdScopedToTeam(db, agentId, membership?.id);
-	if (!agent || agent.kind !== "ai" || !isRunnableAgentStatus(agent.status)) return false;
+	if (agent?.kind !== "ai" || !isRunnableAgentStatus(agent.status)) return false;
 	return true;
 }
 

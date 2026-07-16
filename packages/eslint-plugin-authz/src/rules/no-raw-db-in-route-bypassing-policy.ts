@@ -45,7 +45,7 @@ function isRouteCall(node: CallExpression): boolean {
 	if (args.length < 2) return false;
 	// First arg must be a string literal (route path)
 	const firstArg = args[0] as (typeof args)[number] | undefined;
-	if (!firstArg || firstArg.type !== "Literal") return false;
+	if (firstArg?.type !== "Literal") return false;
 	if (typeof (firstArg as { value?: unknown }).value !== "string") return false;
 	// Last arg must be a function (route handler)
 	const lastArg = args[args.length - 1] as (typeof args)[number] | undefined;
@@ -61,7 +61,7 @@ function isEnforcedBoundary(node: Node): boolean {
 	if (callee.type !== "Identifier" || callee.name !== "requireBoundary") return false;
 	if (call.arguments.length === 0) return false;
 	const arg0 = call.arguments[0] as (typeof call.arguments)[number] | undefined;
-	if (!arg0 || arg0.type !== "ObjectExpression") return false;
+	if (arg0?.type !== "ObjectExpression") return false;
 	// Find the `kind` property
 	for (const prop of arg0.properties) {
 		if (prop.type !== "Property") continue;

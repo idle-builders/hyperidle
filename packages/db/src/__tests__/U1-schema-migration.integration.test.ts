@@ -367,7 +367,7 @@ describe("U1 AC5: at_risk column on bets", () => {
 describe("U1 AC6: Zod schemas updated", () => {
 	test("selectTeamMemberSchema exists and is a valid Zod schema (replaces old selectTeamSchema)", () => {
 		const schemas = zodSchemas as Record<string, unknown>;
-		const selectTeamMemberSchema = schemas["selectTeamMemberSchema"] as
+		const selectTeamMemberSchema = schemas.selectTeamMemberSchema as
 			| { parse: unknown; safeParse: unknown }
 			| undefined;
 		expect(selectTeamMemberSchema).toBeDefined();
@@ -376,9 +376,7 @@ describe("U1 AC6: Zod schemas updated", () => {
 
 	test("insertTeamMemberSchema exists and is a valid Zod schema", () => {
 		const schemas = zodSchemas as Record<string, unknown>;
-		const insertTeamMemberSchema = schemas["insertTeamMemberSchema"] as
-			| { parse: unknown }
-			| undefined;
+		const insertTeamMemberSchema = schemas.insertTeamMemberSchema as { parse: unknown } | undefined;
 		expect(insertTeamMemberSchema).toBeDefined();
 		expect(typeof insertTeamMemberSchema?.parse).toBe("function");
 	});
@@ -410,12 +408,12 @@ describe("U1 AC6: Zod schemas updated", () => {
 
 	test("insertProductSchema no longer exists (replaced by insertTeamSchema for the domain entity)", () => {
 		const schemas = zodSchemas as Record<string, unknown>;
-		expect(schemas["insertProductSchema"]).toBeUndefined();
+		expect(schemas.insertProductSchema).toBeUndefined();
 	});
 
 	test("selectProductSchema no longer exists (replaced by selectTeamSchema for the domain entity)", () => {
 		const schemas = zodSchemas as Record<string, unknown>;
-		expect(schemas["selectProductSchema"]).toBeUndefined();
+		expect(schemas.selectProductSchema).toBeUndefined();
 	});
 
 	test("selectBetSchema reflects new bet columns: description (not pitch), team_id (not product_id)", () => {
@@ -492,15 +490,15 @@ describe("U1 AC7: TypeScript type exports updated", () => {
 	});
 
 	test("schema exports teamMembers table (formerly teams)", () => {
-		expect((schema as Record<string, unknown>)["teamMembers"]).toBeDefined();
+		expect((schema as Record<string, unknown>).teamMembers).toBeDefined();
 	});
 
 	test("schema does NOT export 'products' table", () => {
-		expect((schema as Record<string, unknown>)["products"]).toBeUndefined();
+		expect((schema as Record<string, unknown>).products).toBeUndefined();
 	});
 
 	test("TeamMember type is exported from schema (formerly Team)", () => {
-		const teamsTable = (schema as Record<string, unknown>)["teamMembers"];
+		const teamsTable = (schema as Record<string, unknown>).teamMembers;
 		expect(teamsTable).toBeDefined();
 	});
 });

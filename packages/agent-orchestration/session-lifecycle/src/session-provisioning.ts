@@ -392,7 +392,7 @@ export interface ProvisionSessionDeps {
 	 */
 	readonly onBeforeHarnessStart?: (
 		ctx: BeforeHarnessStartContext,
-	) => void | "abort" | Promise<void | "abort">;
+	) => undefined | "abort" | Promise<undefined | "abort">;
 	/**
 	 * Optional observer fired after `harness.startSession` succeeds.
 	 * Production callers use the explicit `runSession` callback path; this dep-level

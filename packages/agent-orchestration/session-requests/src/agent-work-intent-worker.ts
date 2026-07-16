@@ -146,7 +146,7 @@ export async function resolveAuthoritativeInput(
 				.from(explicitSessionStarts)
 				.where(eq(explicitSessionStarts.id, intent.sourceId))
 				.limit(1);
-			if (!start || start.status !== "requested")
+			if (start?.status !== "requested")
 				throw new InvalidAgentWorkSourceError("Explicit session start is unavailable");
 			await requireRunnableActor(db, deps, start.requestedAgentId);
 			const task = await deps.work.getTaskById(db, start.taskId);
@@ -168,7 +168,7 @@ export async function resolveAuthoritativeInput(
 				.from(taskDispatchAttempts)
 				.where(eq(taskDispatchAttempts.id, intent.sourceId))
 				.limit(1);
-			if (!attempt || attempt.status !== "requested")
+			if (attempt?.status !== "requested")
 				throw new InvalidAgentWorkSourceError("Task dispatch attempt is unavailable");
 			const task = await deps.work.getTaskById(db, attempt.taskId);
 			if (!(task && ["ready", "accepted", "in_progress"].includes(task.state)))
@@ -208,7 +208,7 @@ export async function resolveAuthoritativeInput(
 		}
 		case "routine_run": {
 			const run = await deps.routine.getRoutineRunById(db, intent.sourceId);
-			if (!run || run.outcome !== "running")
+			if (run?.outcome !== "running")
 				throw new InvalidAgentWorkSourceError("Routine run is unavailable");
 			const routine = await deps.routine.getRoutineById(db, run.routineId);
 			if (!routine || routine.deletedAt || !routine.active || routine.state !== "active")

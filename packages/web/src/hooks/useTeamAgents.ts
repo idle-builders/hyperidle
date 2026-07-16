@@ -39,7 +39,6 @@ export function useTeamAgents(rosterAgentIds: readonly string[]): UseTeamAgentsR
 	// We convert to a JSON key so the effect dep doesn't change on every render.
 	const idsKey = useMemo(
 		() => [...rosterAgentIds].sort().join(","),
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 		// @lore AB3: Intentionally re-compute only when the sorted id list changes,
 		// not on every render. Callers passing an inline array will trigger this
 		// once per unique set of IDs.
@@ -88,7 +87,6 @@ export function useTeamAgents(rosterAgentIds: readonly string[]): UseTeamAgentsR
 			cancelled = true;
 		};
 		// Re-run when the set of IDs changes OR when refetch() is called.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [idsKey, fetchCount]);
 
 	const refetch = useCallback((): void => {

@@ -154,9 +154,9 @@ describe("AN1 — /api/connections routes", () => {
 			const res = await app.request("/api/connections", { headers: authHeadersA() });
 			expect(res.status).toBe(200);
 			const list = (await res.json()) as Array<Record<string, unknown>>;
-			const found = list.find((c) => c["service"] === "Stripe" && c["authSource"] === "token");
+			const found = list.find((c) => c.service === "Stripe" && c.authSource === "token");
 			expect(found).toBeDefined();
-			expect(found?.["authSource"]).toBe("token");
+			expect(found?.authSource).toBe("token");
 		});
 
 		test("POST mcp → 201 with authSource:'mcp'", async ({ app, db }) => {
@@ -209,7 +209,7 @@ describe("AN1 — /api/connections routes", () => {
 				}),
 			});
 			const created = (await createRes.json()) as Record<string, unknown>;
-			const id = created["id"] as string;
+			const id = created.id as string;
 
 			const deleteRes = await app.request(`/api/connections/${id}`, {
 				method: "DELETE",
@@ -231,7 +231,7 @@ describe("AN1 — /api/connections routes", () => {
 				}),
 			});
 			const created = (await createRes.json()) as Record<string, unknown>;
-			const id = created["id"] as string;
+			const id = created.id as string;
 
 			await app.request(`/api/connections/${id}`, {
 				method: "DELETE",
@@ -240,7 +240,7 @@ describe("AN1 — /api/connections routes", () => {
 
 			const listRes = await app.request("/api/connections", { headers: authHeadersA() });
 			const list = (await listRes.json()) as Array<Record<string, unknown>>;
-			const found = list.find((c) => c["id"] === id);
+			const found = list.find((c) => c.id === id);
 			expect(found).toBeUndefined();
 		});
 	});
@@ -281,7 +281,7 @@ describe("AN1 — /api/connections routes", () => {
 				}),
 			});
 			const created = (await createRes.json()) as Record<string, unknown>;
-			const id = created["id"] as string;
+			const id = created.id as string;
 
 			const validateRes = await app.request(`/api/connections/${id}/validate`, {
 				method: "POST",
@@ -413,7 +413,7 @@ describe("AN1 — /api/connections routes", () => {
 			});
 			expect(createRes.status).toBe(201);
 			const created = (await createRes.json()) as Record<string, unknown>;
-			const aConnectionId = created["id"] as string;
+			const aConnectionId = created.id as string;
 			expect(typeof aConnectionId).toBe("string");
 
 			// Mint a real Bearer session for user B
@@ -455,7 +455,7 @@ describe("AN1 — /api/connections routes", () => {
 			});
 			expect(createRes.status).toBe(201);
 			const created = (await createRes.json()) as Record<string, unknown>;
-			const aConnectionId = created["id"] as string;
+			const aConnectionId = created.id as string;
 
 			// Mint Bearer session for user B
 			const { token: tokenB } = await createLoginSession(db, USER_B_ID);
@@ -499,7 +499,7 @@ describe("AN1 — /api/connections routes", () => {
 			});
 			expect(createRes.status).toBe(201);
 			const created = (await createRes.json()) as Record<string, unknown>;
-			const aConnectionId = created["id"] as string;
+			const aConnectionId = created.id as string;
 
 			// Mint Bearer session for user B
 			const { token: tokenB } = await createLoginSession(db, USER_B_ID);

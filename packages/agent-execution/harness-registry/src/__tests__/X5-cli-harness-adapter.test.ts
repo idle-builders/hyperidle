@@ -138,7 +138,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
-		expect(spawnEnv["FAKE_API_KEY"]).toBe("sk-test-key");
+		expect(spawnEnv.FAKE_API_KEY).toBe("sk-test-key");
 	});
 
 	it("resolves {{baseUrl}} in envMap", async () => {
@@ -158,7 +158,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
-		expect(spawnEnv["FAKE_BASE_URL"]).toBe("https://api.anthropic.com");
+		expect(spawnEnv.FAKE_BASE_URL).toBe("https://api.anthropic.com");
 	});
 
 	it("resolves {{mcpUrl}} in envMap", async () => {
@@ -178,7 +178,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
-		expect(spawnEnv["MCP_URL"]).toBe("http://localhost:3001/api/mcp/abc123token");
+		expect(spawnEnv.MCP_URL).toBe("http://localhost:3001/api/mcp/abc123token");
 	});
 
 	it("resolves {{mcpUrl}} to empty string when mcpConnectionInfo is absent", async () => {
@@ -199,7 +199,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
-		expect(spawnEnv["MCP_URL"]).toBe("");
+		expect(spawnEnv.MCP_URL).toBe("");
 	});
 
 	it("drops --model flag when resolvedModel is absent (WARNING-D1 conditional-model fix)", async () => {
@@ -372,10 +372,10 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
 		// Temporarily set some env vars to simulate host process env
-		const originalPath = process.env["PATH"];
-		const originalSecret = process.env["HYPERIDLE_SECRET"];
-		process.env["PATH"] = "/usr/bin:/bin";
-		process.env["HYPERIDLE_SECRET"] = "super-secret-should-not-leak";
+		const originalPath = process.env.PATH;
+		const originalSecret = process.env.HYPERIDLE_SECRET;
+		process.env.PATH = "/usr/bin:/bin";
+		process.env.HYPERIDLE_SECRET = "super-secret-should-not-leak";
 
 		const adapter = new CliHarnessAdapter(
 			makeConfig({
@@ -388,17 +388,17 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		await adapter.startSession(makeSessionConfig());
 
 		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
-		expect(spawnEnv["PATH"]).toBe("/usr/bin:/bin");
-		expect(spawnEnv["FAKE_KEY"]).toBe("sk-test-key");
+		expect(spawnEnv.PATH).toBe("/usr/bin:/bin");
+		expect(spawnEnv.FAKE_KEY).toBe("sk-test-key");
 		// Secret must NOT be forwarded
-		expect(spawnEnv["HYPERIDLE_SECRET"]).toBeUndefined();
+		expect(spawnEnv.HYPERIDLE_SECRET).toBeUndefined();
 
 		// Restore
-		process.env["PATH"] = originalPath;
+		process.env.PATH = originalPath;
 		if (originalSecret !== undefined) {
-			process.env["HYPERIDLE_SECRET"] = originalSecret;
+			process.env.HYPERIDLE_SECRET = originalSecret;
 		} else {
-			delete process.env["HYPERIDLE_SECRET"];
+			delete process.env.HYPERIDLE_SECRET;
 		}
 	});
 
@@ -407,7 +407,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
 
-		process.env["DATABASE_URL"] = "postgres://should-not-leak";
+		process.env.DATABASE_URL = "postgres://should-not-leak";
 		const adapter = new CliHarnessAdapter(
 			makeConfig({ args: [], envMap: {}, envAllowlist: ["PATH"] }),
 			{ spawnFn: spawnSpy },
@@ -415,8 +415,8 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		await adapter.startSession(makeSessionConfig());
 
 		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
-		expect(spawnEnv["DATABASE_URL"]).toBeUndefined();
-		delete process.env["DATABASE_URL"];
+		expect(spawnEnv.DATABASE_URL).toBeUndefined();
+		delete process.env.DATABASE_URL;
 	});
 });
 

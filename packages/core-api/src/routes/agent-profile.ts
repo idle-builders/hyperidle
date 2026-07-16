@@ -220,7 +220,7 @@ export async function handleAgentProfile(
 	// 1. Fetch the agent (kind='ai', not system)
 	const agent = await getUserById(db, agentId);
 
-	if (!agent || agent.kind !== "ai") {
+	if (agent?.kind !== "ai") {
 		return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);
 	}
 

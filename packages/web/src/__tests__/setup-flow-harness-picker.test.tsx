@@ -380,7 +380,7 @@ describe("setup submit ordering — key write before nav", () => {
 		});
 
 		expect(capturedTeamsBody).not.toBeNull();
-		const phRaw = (capturedTeamsBody as unknown as Record<string, unknown>)["primaryHarness"];
+		const phRaw = (capturedTeamsBody as unknown as Record<string, unknown>).primaryHarness;
 		expect(phRaw).toBeDefined();
 		const ph = phRaw as Record<string, unknown>;
 		expect(ph.harnessType).toBe("claude-code");
@@ -433,7 +433,7 @@ describe("setup submit ordering — key write before nav", () => {
 
 		expect(capturedTeamsBody).not.toBeNull();
 		// builtin → omit primaryHarness
-		expect(capturedTeamsBody?.["primaryHarness"]).toBeUndefined();
+		expect(capturedTeamsBody?.primaryHarness).toBeUndefined();
 	});
 });
 
@@ -525,10 +525,10 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 
 		// Assert: client used kind:"code" (branch was resolvable)
 		expect(captureRef.body).not.toBeNull();
-		expect(captureRef.body?.["kind"]).toBe("code");
-		const ref = captureRef.body?.["resourceRef"] as Record<string, unknown> | undefined;
-		expect(ref?.["branch"]).toBe("main");
-		expect(captureRef.body?.["writeback"]).toBe("none");
+		expect(captureRef.body?.kind).toBe("code");
+		const ref = captureRef.body?.resourceRef as Record<string, unknown> | undefined;
+		expect(ref?.branch).toBe("main");
+		expect(captureRef.body?.writeback).toBe("none");
 	});
 
 	it("git repo with no resolvable branch (null) → POST /api/filesystems body has kind:'doc_set', not 400", async () => {
@@ -553,10 +553,10 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 
 		// Assert: client degraded to kind:"doc_set" (no branch → no 400)
 		expect(captureRef.body).not.toBeNull();
-		expect(captureRef.body?.["kind"]).toBe("doc_set");
+		expect(captureRef.body?.kind).toBe("doc_set");
 		// Must NOT have sent kind:"code" with an empty branch (that would 400)
-		const ref = captureRef.body?.["resourceRef"] as Record<string, unknown> | undefined;
-		expect(ref?.["branch"]).toBeUndefined();
-		expect(captureRef.body?.["writeback"]).toBe("none");
+		const ref = captureRef.body?.resourceRef as Record<string, unknown> | undefined;
+		expect(ref?.branch).toBeUndefined();
+		expect(captureRef.body?.writeback).toBe("none");
 	});
 });

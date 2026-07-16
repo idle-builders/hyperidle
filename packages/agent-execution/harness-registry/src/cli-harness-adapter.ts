@@ -533,7 +533,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
 		let extraArgs: string[] = [];
 		if (this.config.binary === "codex" && fs.existsSync(codexHomeDir)) {
-			resolvedEnvMap["CODEX_HOME"] = codexHomeDir;
+			resolvedEnvMap.CODEX_HOME = codexHomeDir;
 			// --dangerously-bypass-hook-trust: bypass hash-check so hook runs without
 			// requiring the user to have pre-approved the hook command.
 			extraArgs = ["--dangerously-bypass-hook-trust"];
@@ -989,7 +989,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				parsed !== null &&
 				typeof parsed === "object" &&
 				"type" in parsed &&
-				typeof (parsed as Record<string, unknown>)["type"] === "string"
+				typeof (parsed as Record<string, unknown>).type === "string"
 			) {
 				const obj = parsed as Record<string, unknown>;
 				const shouldRecordMetrics =
@@ -1005,7 +1005,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				// Cost capture runs on the ORIGINAL parsed object (before any dialect
 				// pre-map) because the "result" type and "total_cost_usd" field are
 				// present on the raw claude stream-json line.
-				if (obj["type"] === "result" && session && shouldRecordMetrics) {
+				if (obj.type === "result" && session && shouldRecordMetrics) {
 					const costField = this.config.costField ?? "total_cost_usd";
 					const rawCost = obj[costField];
 					if (typeof rawCost === "number" && Number.isFinite(rawCost) && rawCost >= 0) {
@@ -1028,7 +1028,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					);
 				}
 
-				if (obj["type"] === "step_finish" && session && shouldRecordMetrics) {
+				if (obj.type === "step_finish" && session && shouldRecordMetrics) {
 					const metrics = extractOpencodeStepMetrics(obj);
 					if (metrics.costUsd !== undefined) {
 						session.totalCostUsd = (session.totalCostUsd ?? 0) + metrics.costUsd;

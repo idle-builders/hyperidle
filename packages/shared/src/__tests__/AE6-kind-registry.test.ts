@@ -428,17 +428,17 @@ describe("OLD_KIND_MAP covers all 13 old kinds", () => {
 
 	it("maps code_diff to code with null label", async () => {
 		const { OLD_KIND_MAP } = await import("../kinds/old-kind-map.js");
-		expect(OLD_KIND_MAP["code_diff"]).toEqual({ kind: "code", label: null });
+		expect(OLD_KIND_MAP.code_diff).toEqual({ kind: "code", label: null });
 	});
 
 	it("maps contract to text with label 'contract'", async () => {
 		const { OLD_KIND_MAP } = await import("../kinds/old-kind-map.js");
-		expect(OLD_KIND_MAP["contract"]).toEqual({ kind: "text", label: "contract" });
+		expect(OLD_KIND_MAP.contract).toEqual({ kind: "text", label: "contract" });
 	});
 
 	it("maps unknown_kind to text with null label", async () => {
 		const { OLD_KIND_MAP } = await import("../kinds/old-kind-map.js");
-		expect(OLD_KIND_MAP["unknown_kind"]).toEqual({ kind: "text", label: null });
+		expect(OLD_KIND_MAP.unknown_kind).toEqual({ kind: "text", label: null });
 	});
 });
 

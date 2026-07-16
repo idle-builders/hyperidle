@@ -42,36 +42,36 @@ describe("TASK_STATE_LABEL (AI4 AC2)", () => {
 	});
 
 	it("maps proposed to 'Planned'", () => {
-		expect(TASK_STATE_LABEL["proposed"]).toBe("Planned");
+		expect(TASK_STATE_LABEL.proposed).toBe("Planned");
 	});
 
 	it("maps accepted to 'Planned'", () => {
 		// Both proposed+accepted are pre-work states that read "Planned"
-		expect(TASK_STATE_LABEL["accepted"]).toBe("Planned");
+		expect(TASK_STATE_LABEL.accepted).toBe("Planned");
 	});
 
 	it("maps hold to 'On hold'", () => {
-		expect(TASK_STATE_LABEL["hold"]).toBe("On hold");
+		expect(TASK_STATE_LABEL.hold).toBe("On hold");
 	});
 
 	it("maps in_progress to 'In progress'", () => {
-		expect(TASK_STATE_LABEL["in_progress"]).toBe("In progress");
+		expect(TASK_STATE_LABEL.in_progress).toBe("In progress");
 	});
 
 	it("maps blocked to 'Blocked'", () => {
-		expect(TASK_STATE_LABEL["blocked"]).toBe("Blocked");
+		expect(TASK_STATE_LABEL.blocked).toBe("Blocked");
 	});
 
 	it("maps review to 'In review'", () => {
-		expect(TASK_STATE_LABEL["review"]).toBe("In review");
+		expect(TASK_STATE_LABEL.review).toBe("In review");
 	});
 
 	it("maps done to 'Done'", () => {
-		expect(TASK_STATE_LABEL["done"]).toBe("Done");
+		expect(TASK_STATE_LABEL.done).toBe("Done");
 	});
 
 	it("maps killed to 'Killed'", () => {
-		expect(TASK_STATE_LABEL["killed"]).toBe("Killed");
+		expect(TASK_STATE_LABEL.killed).toBe("Killed");
 	});
 
 	it("has exactly 8 entries (one per TASK_STATES value)", () => {
@@ -101,19 +101,19 @@ describe("BET_STATUS_LABEL (AI4 AC2)", () => {
 	});
 
 	it("maps draft to 'Draft'", () => {
-		expect(BET_STATUS_LABEL["draft"]).toBe("Draft");
+		expect(BET_STATUS_LABEL.draft).toBe("Draft");
 	});
 
 	it("maps active to 'Active'", () => {
-		expect(BET_STATUS_LABEL["active"]).toBe("Active");
+		expect(BET_STATUS_LABEL.active).toBe("Active");
 	});
 
 	it("maps completed to 'Completed'", () => {
-		expect(BET_STATUS_LABEL["completed"]).toBe("Completed");
+		expect(BET_STATUS_LABEL.completed).toBe("Completed");
 	});
 
 	it("maps killed to 'Killed'", () => {
-		expect(BET_STATUS_LABEL["killed"]).toBe("Killed");
+		expect(BET_STATUS_LABEL.killed).toBe("Killed");
 	});
 
 	it("has exactly 4 entries (one per BET_STATUSES value)", () => {
@@ -146,19 +146,19 @@ describe("BET_OUTCOME_VERDICT_LABEL (AI4 AC2, AC5)", () => {
 	});
 
 	it("maps validated to 'Validated'", () => {
-		expect(BET_OUTCOME_VERDICT_LABEL["validated"]).toBe("Validated");
+		expect(BET_OUTCOME_VERDICT_LABEL.validated).toBe("Validated");
 	});
 
 	it("maps refuted to 'Refuted'", () => {
-		expect(BET_OUTCOME_VERDICT_LABEL["refuted"]).toBe("Refuted");
+		expect(BET_OUTCOME_VERDICT_LABEL.refuted).toBe("Refuted");
 	});
 
 	it("maps partial to 'Partial'", () => {
-		expect(BET_OUTCOME_VERDICT_LABEL["partial"]).toBe("Partial");
+		expect(BET_OUTCOME_VERDICT_LABEL.partial).toBe("Partial");
 	});
 
 	it("maps inconclusive to 'Inconclusive'", () => {
-		expect(BET_OUTCOME_VERDICT_LABEL["inconclusive"]).toBe("Inconclusive");
+		expect(BET_OUTCOME_VERDICT_LABEL.inconclusive).toBe("Inconclusive");
 	});
 
 	it("exhaustively covers all BET_OUTCOME_VERDICTS values", () => {
@@ -187,21 +187,21 @@ describe("TASK_OUTCOME_VERDICT_LABEL (AI4 AC2, AC5)", () => {
 	});
 
 	it("maps met to 'Met'", () => {
-		expect(TASK_OUTCOME_VERDICT_LABEL["met"]).toBe("Met");
+		expect(TASK_OUTCOME_VERDICT_LABEL.met).toBe("Met");
 	});
 
 	it("maps met_with_rework to 'Rework' (preserving WorkBet abbreviation)", () => {
 		// @lore AC1: abbreviated to match the pre-existing WorkBet rendering
-		expect(TASK_OUTCOME_VERDICT_LABEL["met_with_rework"]).toBe("Rework");
+		expect(TASK_OUTCOME_VERDICT_LABEL.met_with_rework).toBe("Rework");
 	});
 
 	it("maps partially_met to 'Partial' (preserving WorkBet abbreviation)", () => {
 		// @lore AC1: abbreviated to match the pre-existing WorkBet rendering
-		expect(TASK_OUTCOME_VERDICT_LABEL["partially_met"]).toBe("Partial");
+		expect(TASK_OUTCOME_VERDICT_LABEL.partially_met).toBe("Partial");
 	});
 
 	it("maps not_met to 'Not met'", () => {
-		expect(TASK_OUTCOME_VERDICT_LABEL["not_met"]).toBe("Not met");
+		expect(TASK_OUTCOME_VERDICT_LABEL.not_met).toBe("Not met");
 	});
 
 	it("exhaustively covers all TASK_OUTCOME_VERDICTS values", () => {
@@ -231,15 +231,15 @@ describe("AGENT_OPERATIONAL_STATUS_LABEL (AI4 AC2, Decision 3a)", () => {
 	});
 
 	it("maps active to 'Active'", () => {
-		expect(AGENT_OPERATIONAL_STATUS_LABEL["active"]).toBe("Active");
+		expect(AGENT_OPERATIONAL_STATUS_LABEL.active).toBe("Active");
 	});
 
 	it("maps error to 'Error'", () => {
-		expect(AGENT_OPERATIONAL_STATUS_LABEL["error"]).toBe("Error");
+		expect(AGENT_OPERATIONAL_STATUS_LABEL.error).toBe("Error");
 	});
 
 	it("maps idle to 'Idle'", () => {
-		expect(AGENT_OPERATIONAL_STATUS_LABEL["idle"]).toBe("Idle");
+		expect(AGENT_OPERATIONAL_STATUS_LABEL.idle).toBe("Idle");
 	});
 
 	it("has exactly 3 entries", () => {

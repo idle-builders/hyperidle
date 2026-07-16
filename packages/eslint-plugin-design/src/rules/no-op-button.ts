@@ -124,7 +124,7 @@ function isHeadlessTriggerChild(startNode: unknown): boolean {
 	if (!cur) return false;
 	// Now look at the parent JSXElement (the wrapper component)
 	const wrapper = asWalk(cur.parent);
-	if (!wrapper || wrapper.type !== "JSXElement") return false;
+	if (wrapper?.type !== "JSXElement") return false;
 	const openingEl = wrapper.openingElement as JSXOpeningElement | undefined;
 	if (!openingEl) return false;
 	const tagName = openingEl.name.type === "JSXIdentifier" ? openingEl.name.name : null;

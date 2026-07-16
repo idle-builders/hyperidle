@@ -860,7 +860,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					// dir (not ~/.codex). The dir contains only auth.json + config.toml —
 					// no SQLite files. codex reads hooks.json from CODEX_HOME/hooks.json.
 					const cleanEnv = buildCleanEnv();
-					cleanEnv["CODEX_HOME"] = codexHomeDir;
+					cleanEnv.CODEX_HOME = codexHomeDir;
 
 					const result = await spawnDetached(
 						"codex",

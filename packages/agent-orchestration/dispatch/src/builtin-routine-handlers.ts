@@ -257,7 +257,7 @@ export function registerBuiltinRoutineHandlersInternal(
 			if (!routineRow) {
 				routineRow = await ports.routine.getRoutineById(db, "builtin:post-bet-retro");
 			}
-			if (!(routineRow && routineRow.active)) return;
+			if (!routineRow?.active) return;
 
 			// Best-effort fire-and-forget
 			await runBuiltinRoutineInternal(ports, db, eventBus, routineRow.id, { betId });

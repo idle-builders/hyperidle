@@ -173,7 +173,7 @@ describe("callLlm — Anthropic provider (AC-3, AC-5)", () => {
 		// Anthropic uses x-api-key header, not Authorization
 		const hasAuth =
 			headers["x-api-key"] === ANTHROPIC_MODEL.apiKey ||
-			headers["Authorization"] === `Bearer ${ANTHROPIC_MODEL.apiKey}`;
+			headers.Authorization === `Bearer ${ANTHROPIC_MODEL.apiKey}`;
 		expect(hasAuth).toBe(true);
 	});
 
@@ -321,7 +321,7 @@ describe("callLlm — OpenAI-compatible provider (AC-3, AC-6)", () => {
 
 		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 		const headers = init.headers as Record<string, string>;
-		expect(headers["Authorization"]).toBe(`Bearer ${OPENAI_MODEL.apiKey}`);
+		expect(headers.Authorization).toBe(`Bearer ${OPENAI_MODEL.apiKey}`);
 	});
 
 	it("normalizes OpenAI stop → end_turn in LlmResponse", async () => {

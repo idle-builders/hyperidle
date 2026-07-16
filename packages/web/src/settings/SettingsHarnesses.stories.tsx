@@ -151,7 +151,7 @@ function makeMockFetch(
 /** Loading state — fetch never resolves. */
 export const Loading = (): React.JSX.Element => {
 	globalThis.fetch = makeMockFetch(null) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
@@ -164,7 +164,7 @@ Loading.storyName = "Loading State";
 /** Error state — fetch fails. */
 export const ErrorStory = (): React.JSX.Element => {
 	globalThis.fetch = makeMockFetch([], true) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
@@ -177,7 +177,7 @@ ErrorStory.storyName = "Error State";
 /** Empty state — no descriptors returned. */
 export const Empty = (): React.JSX.Element => {
 	globalThis.fetch = makeMockFetch([]) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
@@ -190,7 +190,7 @@ Empty.storyName = "Empty State";
 /** Populated — 5 AM4-scope backends, production shape (caps all-false). */
 export const Populated = (): React.JSX.Element => {
 	globalThis.fetch = makeMockFetch(MOCK_DESCRIPTORS) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
@@ -203,7 +203,7 @@ Populated.storyName = "Populated (5 backends)";
 /** Disabled row — claude-code is turned off (discovery.disabled=true). */
 export const WithDisabledRow = (): React.JSX.Element => {
 	globalThis.fetch = makeMockFetch(DESCRIPTORS_WITH_DISABLED) as typeof fetch;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">

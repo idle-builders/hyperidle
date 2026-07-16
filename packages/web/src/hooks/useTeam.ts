@@ -66,7 +66,6 @@ export function useTeam(teamId: string | undefined): UseTeamResult {
 			cancelled = true;
 		};
 		// fetchCount in deps so refetch() triggers a new fetch (counter pattern).
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [teamId, fetchCount]);
 
 	return { data, loading, error, refetch };

@@ -22,13 +22,13 @@ describe("O1 kernel type additions to @hyperidle/shared", () => {
 
 		it("has exactly 4 values", () => {
 			// Y4: needs_human added for triage escalation (was 3)
-			const val = (sharedIndex as Record<string, unknown>)["KERNEL_KNOWLEDGE_STATUSES"];
+			const val = (sharedIndex as Record<string, unknown>).KERNEL_KNOWLEDGE_STATUSES;
 			expect(Array.isArray(val)).toBe(true);
 			expect((val as unknown[]).length).toBe(4);
 		});
 
 		it("contains draft, active, archived", () => {
-			const val = (sharedIndex as Record<string, unknown>)["KERNEL_KNOWLEDGE_STATUSES"] as string[];
+			const val = (sharedIndex as Record<string, unknown>).KERNEL_KNOWLEDGE_STATUSES as string[];
 			expect(val).toContain("draft");
 			expect(val).toContain("active");
 			expect(val).toContain("archived");
@@ -41,7 +41,7 @@ describe("O1 kernel type additions to @hyperidle/shared", () => {
 		});
 
 		it("AGENT_CATEGORIES has 3 values", () => {
-			const val = (sharedIndex as Record<string, unknown>)["AGENT_CATEGORIES"] as string[];
+			const val = (sharedIndex as Record<string, unknown>).AGENT_CATEGORIES as string[];
 			expect(Array.isArray(val)).toBe(true);
 			expect(val.length).toBe(3);
 		});

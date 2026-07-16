@@ -31,7 +31,7 @@ import type { z } from "zod";
 export function validationHook(
 	result: { success: boolean; error?: { issues: unknown[] } },
 	c: Context,
-): Response | void {
+): Response | undefined {
 	if (!result.success) {
 		const response: ApiErrorResponse = {
 			error: "Validation failed",

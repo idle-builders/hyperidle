@@ -295,7 +295,7 @@ describe("AE2-SetupFlow — submitting sends functions array", () => {
 		});
 
 		expect(teamCreateBody).not.toBeNull();
-		expect((teamCreateBody as Record<string, unknown> | null)?.["functions"]).toEqual(["design"]);
+		expect((teamCreateBody as Record<string, unknown> | null)?.functions).toEqual(["design"]);
 	});
 });
 

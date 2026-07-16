@@ -1010,8 +1010,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			}
 
 			// Compose retro knowledge item body (markdown only — no YAML frontmatter in body per arch critique)
-			const learningsSection =
-				body.learnings && body.learnings.trim() ? body.learnings.trim() : "(No learnings recorded)";
+			const learningsSection = body.learnings?.trim()
+				? body.learnings.trim()
+				: "(No learnings recorded)";
 
 			const kiBody = `## Reality\n\n${body.summary}\n\n## Learnings\n\n${learningsSection}`;
 

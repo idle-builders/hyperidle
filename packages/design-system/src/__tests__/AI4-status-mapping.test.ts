@@ -45,20 +45,20 @@ describe("BET_OUTCOME_VERDICT_STATUS (AI4 AC5, Decision 6)", () => {
 	});
 
 	it("maps validated to 'healthy' (hypothesis held = green)", () => {
-		expect(BET_OUTCOME_VERDICT_STATUS["validated"]).toBe("healthy" satisfies Status);
+		expect(BET_OUTCOME_VERDICT_STATUS.validated).toBe("healthy" satisfies Status);
 	});
 
 	it("maps refuted to 'error' (hypothesis failed = red)", () => {
-		expect(BET_OUTCOME_VERDICT_STATUS["refuted"]).toBe("error" satisfies Status);
+		expect(BET_OUTCOME_VERDICT_STATUS.refuted).toBe("error" satisfies Status);
 	});
 
 	it("maps partial to 'behind' (mixed result = amber, reviewer-approved)", () => {
 		// @lore AI4 Decision 6: partial → behind (amber). "Not a clean win, look closer."
-		expect(BET_OUTCOME_VERDICT_STATUS["partial"]).toBe("behind" satisfies Status);
+		expect(BET_OUTCOME_VERDICT_STATUS.partial).toBe("behind" satisfies Status);
 	});
 
 	it("maps inconclusive to 'paused' (insufficient evidence = info/blue)", () => {
-		expect(BET_OUTCOME_VERDICT_STATUS["inconclusive"]).toBe("paused" satisfies Status);
+		expect(BET_OUTCOME_VERDICT_STATUS.inconclusive).toBe("paused" satisfies Status);
 	});
 
 	it("every value maps to a valid Status", () => {
@@ -129,20 +129,20 @@ describe("TASK_OUTCOME_VERDICT_STATUS (AI4 AC5, Decision 6)", () => {
 	});
 
 	it("maps met to 'healthy' (done condition fully met = green)", () => {
-		expect(TASK_OUTCOME_VERDICT_STATUS["met"]).toBe("healthy" satisfies Status);
+		expect(TASK_OUTCOME_VERDICT_STATUS.met).toBe("healthy" satisfies Status);
 	});
 
 	it("maps met_with_rework to 'behind' (amber — not a clean pass)", () => {
 		// @lore AI4 Decision 6: amber for anything "not a clean win"
-		expect(TASK_OUTCOME_VERDICT_STATUS["met_with_rework"]).toBe("behind" satisfies Status);
+		expect(TASK_OUTCOME_VERDICT_STATUS.met_with_rework).toBe("behind" satisfies Status);
 	});
 
 	it("maps partially_met to 'behind' (amber — partial delivery)", () => {
-		expect(TASK_OUTCOME_VERDICT_STATUS["partially_met"]).toBe("behind" satisfies Status);
+		expect(TASK_OUTCOME_VERDICT_STATUS.partially_met).toBe("behind" satisfies Status);
 	});
 
 	it("maps not_met to 'error' (done condition failed = red)", () => {
-		expect(TASK_OUTCOME_VERDICT_STATUS["not_met"]).toBe("error" satisfies Status);
+		expect(TASK_OUTCOME_VERDICT_STATUS.not_met).toBe("error" satisfies Status);
 	});
 
 	it("every value maps to a valid Status", () => {
@@ -200,15 +200,15 @@ describe("AGENT_OPERATIONAL_STATUS_MAP (AI4 Decision 3a)", () => {
 	});
 
 	it("maps active to 'healthy' (live agent = green)", () => {
-		expect(AGENT_OPERATIONAL_STATUS_MAP["active"]).toBe("healthy" satisfies Status);
+		expect(AGENT_OPERATIONAL_STATUS_MAP.active).toBe("healthy" satisfies Status);
 	});
 
 	it("maps error to 'error' (agent in error = red)", () => {
-		expect(AGENT_OPERATIONAL_STATUS_MAP["error"]).toBe("error" satisfies Status);
+		expect(AGENT_OPERATIONAL_STATUS_MAP.error).toBe("error" satisfies Status);
 	});
 
 	it("maps idle to 'paused' (agent not running = blue/info)", () => {
-		expect(AGENT_OPERATIONAL_STATUS_MAP["idle"]).toBe("paused" satisfies Status);
+		expect(AGENT_OPERATIONAL_STATUS_MAP.idle).toBe("paused" satisfies Status);
 	});
 
 	it("has exactly 3 entries for the closed 3-value AgentOperationalStatus set", () => {

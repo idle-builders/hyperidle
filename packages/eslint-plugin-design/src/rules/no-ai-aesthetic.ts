@@ -240,7 +240,7 @@ export const noAiAesthetic: Rule.RuleModule = createRule({
 			Literal(node) {
 				if (typeof node.value !== "string") return;
 				const parent = (node as { parent?: { type?: string } }).parent;
-				if (!parent || parent.type !== "JSXExpressionContainer") return;
+				if (parent?.type !== "JSXExpressionContainer") return;
 				const text = node.value as string;
 				const mLorem = LOREM_IPSUM.exec(text);
 				if (mLorem) {

@@ -28,7 +28,7 @@ import { KnowledgeList } from "../../pages/KnowledgeList";
 // Mock API for KnowledgeList
 vi.mock("../../hooks/useFetch", () => ({
 	useFetch: (url: string | null) => {
-		if (url && url.includes("/api/knowledge")) {
+		if (url?.includes("/api/knowledge")) {
 			return {
 				data: {
 					items: [

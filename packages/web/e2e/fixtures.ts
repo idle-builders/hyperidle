@@ -66,7 +66,7 @@ const DEFAULT_TEAMS = {
 
 type CoreApiFixtures = {
 	/** Auto-use fixture: registers default M3 API mocks before every test. */
-	_coreApiMocks: void;
+	_coreApiMocks: undefined;
 };
 
 /**

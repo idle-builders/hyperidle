@@ -59,8 +59,8 @@ describe("extractAgenticCounts — byHarness bucketing from [harness:X] ancestor
 			fileResult(HARNESS_FILE, [assertion("passed", ["[harness:claude] lane 2"])]),
 		);
 		const counts = extractAgenticCounts(json, (p) => /harness\/__tests__\/.*\.integration/.test(p));
-		expect(counts.byHarness["claude"]?.executed).toBe(1);
-		expect(counts.byHarness["claude"]?.skipped).toBe(0);
+		expect(counts.byHarness.claude?.executed).toBe(1);
+		expect(counts.byHarness.claude?.skipped).toBe(0);
 	});
 
 	test("[harness:builtin] skipped → skipped bucket incremented", () => {
@@ -68,8 +68,8 @@ describe("extractAgenticCounts — byHarness bucketing from [harness:X] ancestor
 			fileResult(HARNESS_FILE, [assertion("skipped", ["[harness:builtin] lane 1"])]),
 		);
 		const counts = extractAgenticCounts(json, (p) => /harness\/__tests__\/.*\.integration/.test(p));
-		expect(counts.byHarness["builtin"]?.executed).toBe(0);
-		expect(counts.byHarness["builtin"]?.skipped).toBe(1);
+		expect(counts.byHarness.builtin?.executed).toBe(0);
+		expect(counts.byHarness.builtin?.skipped).toBe(1);
 	});
 
 	test("all four harness tags → all four buckets present", () => {
@@ -82,10 +82,10 @@ describe("extractAgenticCounts — byHarness bucketing from [harness:X] ancestor
 			]),
 		);
 		const counts = extractAgenticCounts(json, (p) => /harness\/__tests__\/.*\.integration/.test(p));
-		expect(counts.byHarness["builtin"]?.executed).toBeGreaterThanOrEqual(1);
-		expect(counts.byHarness["claude"]?.executed).toBeGreaterThanOrEqual(1);
-		expect(counts.byHarness["codex"]?.executed).toBeGreaterThanOrEqual(1);
-		expect(counts.byHarness["opencode"]?.executed).toBeGreaterThanOrEqual(1);
+		expect(counts.byHarness.builtin?.executed).toBeGreaterThanOrEqual(1);
+		expect(counts.byHarness.claude?.executed).toBeGreaterThanOrEqual(1);
+		expect(counts.byHarness.codex?.executed).toBeGreaterThanOrEqual(1);
+		expect(counts.byHarness.opencode?.executed).toBeGreaterThanOrEqual(1);
 	});
 
 	test("global agenticExecuted is still correct (back-compat)", () => {

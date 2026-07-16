@@ -31,7 +31,7 @@ describe("composeArtifactBody dispatch (AC1/AC4)", () => {
 			lang: "typescript",
 			text: "const x = 1;",
 		};
-		const { container } = render(<>{composeArtifactBody("code", preview)}</>);
+		const { container } = render(composeArtifactBody("code", preview));
 		expect(container.querySelector("pre")).toBeTruthy();
 		expect(container.textContent).toContain("const x = 1;");
 	});
@@ -44,13 +44,13 @@ describe("composeArtifactBody dispatch (AC1/AC4)", () => {
 			height: 600,
 			alt: "Test image",
 		};
-		render(<>{composeArtifactBody("image", preview)}</>);
+		render(composeArtifactBody("image", preview));
 		expect(screen.getByRole("img")).toBeTruthy();
 	});
 
 	it("'url' kind → renders an anchor link to the url", () => {
 		const preview = { kind: "url", url: "https://example.com/service" };
-		const { container } = render(<>{composeArtifactBody("url", preview)}</>);
+		const { container } = render(composeArtifactBody("url", preview));
 		const link = container.querySelector("a");
 		expect(link).toBeTruthy();
 		expect(link?.getAttribute("href")).toBe("https://example.com/service");
@@ -59,19 +59,19 @@ describe("composeArtifactBody dispatch (AC1/AC4)", () => {
 	it("'html' kind + sanitizeHtml → renders HtmlPayload", () => {
 		const preview = { kind: "html", html: "<p>Hello dashboard</p>" };
 		const sanitizeHtml = (raw: string): string => raw;
-		const { container } = render(<>{composeArtifactBody("html", preview, sanitizeHtml)}</>);
+		const { container } = render(composeArtifactBody("html", preview, sanitizeHtml));
 		expect(container.querySelector("p")?.textContent).toBe("Hello dashboard");
 	});
 
 	it("'html' kind without sanitizeHtml → UnknownPayload (security fallback)", () => {
 		const preview = { kind: "html", html: "<p>Hello</p>" };
-		const { container } = render(<>{composeArtifactBody("html", preview)}</>);
+		const { container } = render(composeArtifactBody("html", preview));
 		expect(container.querySelector("[data-block-unknown-pill]")).toBeTruthy();
 	});
 
 	it("unknown kind → UnknownPayload (K1 fallback, never crashes)", () => {
 		const preview = { kind: "mystery_kind", data: "something" };
-		const { container } = render(<>{composeArtifactBody("mystery_kind", preview)}</>);
+		const { container } = render(composeArtifactBody("mystery_kind", preview));
 		expect(container.querySelector("[data-block-unknown-pill]")).toBeTruthy();
 	});
 });

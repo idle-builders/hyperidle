@@ -161,7 +161,7 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 	 * scopeName is response-only (never persisted); story fixture inlines it directly
 	 * because the story runs without a real API and the fixture path skips resolveScopeName.
 	 */
-	// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
+
 	"k-team-scoped": {
 		id: "k-team-scoped",
 		title: "Team Knowledge: Nimmly Onboarding Guide",
@@ -181,7 +181,7 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 	 * AK5: archived knowledge item fixture used by the "Promote to bet" disabled test.
 	 * status:"archived" causes the promote menu item to be disabled (aria-disabled="true").
 	 */
-	// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
+
 	"k-archived": {
 		id: "k-archived",
 		title: "Archived Decision",
