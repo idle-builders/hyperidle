@@ -21,6 +21,14 @@ designSystem:
 # Version control + where /ship opens PRs and waits for CI.
 vcs: github
 
+# Engineering tier — calibrates RIGOR, not size. prototype | mvp | production | critical.
+# HyperIdle is MVP-stage: shipping toward a functional beta, not production hardening or
+# enterprise scale. Every WP inherits this unless its own plan.md names an explicit,
+# maintainer-argued override. Downstream phases (architecture, architecture-critique's
+# tier-fit dimension, review) trust this and calibrate against it directly.
+engineering:
+  tier: mvp
+
 # Model ROLES, not vendor ids. high = most capable (design, review);
 # fast = quick (build).
 models:
