@@ -18,6 +18,9 @@ sync-reports/
 !.pipeline/progress/
 !.pipeline/retro-log/
 !.pipeline/audits/
+!.pipeline/work/
+!.pipeline/[A-Z].md
+!.pipeline/[A-Z][A-Z].md
 .env
 !infrastructure/langfuse/.env
 .worktrees/
