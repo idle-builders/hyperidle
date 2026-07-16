@@ -1503,6 +1503,18 @@ stories:
     type: framework
     depends: [AU12, AU13, AU14, AU15, AU16, AU18]
     complexity: L
+  - id: AU20
+    title: "Challenge every Service's exposed method surface (reduce, don't just document)"
+    track: AU
+    type: backend
+    depends: [AU19]
+    complexity: L
+  - id: AU21
+    title: "Reduce agent-to-core coupling; formalize core-to-agent as EventBus-only"
+    track: AU
+    type: backend
+    depends: [AU19]
+    complexity: L
 
   # Track AV: First-Run Usability & Product Polish (v0.6.0 human-testing)
   # Remediation of the larger v0.6.0 human-testing findings; each WP refined+built in its own session.

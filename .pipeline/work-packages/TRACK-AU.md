@@ -1147,3 +1147,107 @@ worktrees per this repo's `plans/<workpackage-id>/` convention.
 - Building the abstraction layer for choosing an Application's concrete cross-process wiring (e.g. a formal "harness client" interface with in-process vs remote-worker implementations) if it doesn't already exist in a usable form — `worker-ws.ts`/`remote-harness-adapter.ts` already provide this; this WP relocates/formalizes ownership of that choice at the Application level, it does not design a new abstraction from scratch.
 
 **Effort.** L (~8-10d) — larger than AU17's original 3-5d estimate: adds the Application tier, the agent-orchestration/agent-execution split (new, no AU17 precedent), ~20-25 Service packages instead of 2-3 (mitigated by a scaffolding template, but still more surface to migrate files into and verify), the general Table ACL mechanism (AU8's absorbed scope), the `agent_work_intents` debt cleanup, and now the composition-boundary audit + dependency-injection refactor (mechanism 3) — genuinely new refactoring work on top of relocation, not just more files to move.
+
+---
+
+### AU20 — Challenge every Service's exposed method surface (reduce, don't just document)
+
+**Work package.** As a maintainer continuing the simplification AU19 started, I want every Service's exposed API (its `src/index.ts` barrel exports) audited method-by-method for whether each one earns its place, and reduced where it doesn't — not just documented. AU19's mechanical extraction script (`scripts/generate-dependency-graph.ts`) found 1194 named exports across 31 Services (`work` alone exposes 84). A number that large is itself a finding: either the product genuinely has that much distinct, reachable surface area, or a large fraction is micro-methods carved out for one narrow caller's exact shape — over-fragmentation that `knip` cannot see, because a method with exactly one real caller is still "used," not dead. When this ships, every Service's exposed method has an explicit disposition (kept as genuinely load-bearing, merged with a sibling, inlined into its sole caller, or deleted/redesigned), and the extraction script is extended to make this a re-runnable, mechanical audit rather than a one-time hand pass.
+
+**Why this matters.** This WP exists because the AU19 dependency-graph work already surfaced concrete, verified evidence of the problem it's meant to fix, not because of a hunch. The adversarial edge-audit workflow run during AU19 (112 `agent-orchestration → core-api` capabilities individually challenged) found real, code-verified cases of exactly this pattern: `tool-handlers`' `log_task` reads a task's full row, string-concatenates a note, and writes it back — with zero transaction, zero row lock, zero CAS predicate, so two concurrent calls silently clobber each other's note — when the same file already has the right primitive (`transitionTaskState`'s CAS-guarded update) two functions away, and the fix collapses two Service calls into one atomic SQL statement. `cost`'s `getTeamMembersById` gets called twice back-to-back in the same function with zero mutation in between, purely duplicating a row the caller already had in scope. `context-assembly`'s `getUserById` re-fetches a row `session-provisioning.ts` already fetched moments earlier in the same request chain. None of these are hypothetical — each was independently re-verified against the real call site by a second, adversarial reviewer before being counted. If this pattern shows up this often in the 139 edges AU19's audit already covered, the exposed-method surface (1194 exports, most never touched by that audit) is very likely carrying the same debt at a larger scale.
+
+**Type.** backend.
+
+**What exists today.** `plans/AU19/service-catalog.md` (every Service's complete exposed API, one sentence per export) and `plans/AU19/dependency-graph-data.json` (machine-readable, produced by `scripts/generate-dependency-graph.ts`) already give an exhaustive, mechanically-verified inventory of what every Service exposes. What neither produces yet: how many real call sites each exported method actually has, which is the load-bearing signal for "is this method earning its keep or is it a one-off." The AU19 edge-audit workflow (`plans/AU19/as-is-dependency-graph.md`'s "Why 5 of 8 against-grain edges are permanent" section and the underlying 112-capability challenge run) already proved the adversarial-review pattern works at the edge level and surfaced 11 UNJUSTIFIED + 52 QUESTIONABLE findings largely *because* of exactly this fragmentation (many capabilities exist to serve one specific caller's narrow need).
+
+**What's genuinely missing.** (1) Extend `scripts/generate-dependency-graph.ts` (or a sibling script) to count real call-site references per exported function, not just its existence — reusing the same AST-scan technique, now counting usages instead of just declarations. (2) For every method with a single external call site (or zero — a `knip`-missed case if one exists), an explicit, evidence-backed disposition. (3) The concrete bugs the AU19 audit already found and did not fix (`log_task`'s race condition chief among them — flagged there as real and unresolved) get fixed here, not re-discovered.
+
+**Depends on.**
+- **AU19** — needs the real Service package boundaries, the mechanical extraction script, and the edge-audit findings this WP directly builds on.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Required — needs to settle the actual criteria for "does this method earn its place" (single-call-site alone isn't automatically wrong; some genuinely narrow operations are correctly narrow) before an architecture pass can apply it at scale across 1194 exports.
+- **Design:** Not required — backend refactor, no UI surface.
+
+**Human concept review.** No — internal refactor, no user-facing behavior change except where fixing a genuine bug (e.g. `log_task`'s race condition) changes *correctness*, not the visible feature.
+
+**Acceptance criteria.**
+- `scripts/generate-dependency-graph.ts` (or an extension of it) mechanically reports a real call-site count per exported method across the whole monorepo, re-runnable on demand — not a one-time hand count.
+- Every method with exactly one real call site outside its own package has an explicit, written disposition (keep/merge/inline/delete), not a silent pass.
+- The `log_task` race condition (no transaction, no CAS, lost-update on concurrent calls) is fixed using the same atomic-SQL-append pattern `transitionTaskState` already establishes in the same file, closing the exact gap the AU19 audit found and left open.
+- Every other concrete redundancy the AU19 audit already named (duplicate `getTeamMembersById`, duplicate `getUserById` reads across `context-assembly`/`session-lifecycle`, the `dispatch→work`/`dispatch→conversation` reads whose claimed freshness need was refuted) is resolved, not re-litigated from scratch.
+- No externally-observable behavior changes except where a named bug is being fixed — a reduction in method count or calls, not a feature change.
+- The full existing test suite passes unchanged (or is updated to newly cover a fixed race condition, e.g. a concurrency test for `log_task`).
+
+**Validation scenarios.**
+- Given the call-site-count script runs against the full monorepo, when its output is compared against a hand-spot-check of 5 known Services, then the counts match.
+- Given `log_task` is called twice concurrently against the same task, when the fix lands, then no note is lost (a real concurrency test, not just a unit test of the happy path).
+- Given a method previously flagged single-call-site, when its disposition is applied (merge/inline/delete), then every real caller is confirmed updated and the test suite stays green.
+
+**Plan calls.** Reuse the AU19 adversarial workflow shape (explain from real code → independently challenge, defaulting to skepticism) but scoped per-method rather than per-edge, since that's the actual unit of concern here. Start from the concrete findings AU19's audit already produced rather than re-running a blind sweep first — those are free, verified evidence, not something to re-derive.
+
+**Contracts / constraints.**
+- No product behavior change except where fixing a named, verified bug.
+- Reductions must preserve every genuinely-needed capability — verified by the full test suite plus the call-site count, not assumed safe because a method "looks small."
+- The extended script becomes the new standing tool for this kind of audit — do not build a one-off, throwaway script duplicate of `generate-dependency-graph.ts`'s AST-scan approach.
+
+**Out of scope.**
+- Re-litigating Service *boundaries* themselves (which Service owns what) — already settled by AU19. This WP is about method-level granularity within already-settled boundaries.
+- The `agent-orchestration → core-api` edge-count/structure question — that's AU21's job; this WP is about the methods *within* a Service's exposed surface, not the cross-Service edges themselves (though the two will share findings, e.g. `log_task`, and should cross-reference rather than duplicate fixes).
+
+**Effort.** L
+
+---
+
+### AU21 — Reduce agent-to-core coupling; formalize core-to-agent as EventBus-only
+
+**Work package.** As a maintainer continuing the simplification AU19 started, I want the 139 `agent-orchestration → core-api` DI edges AU19's mechanical audit found (49 justified / 52 questionable / 11 unjustified, per the independent adversarial challenge run against every one of them) reduced to only what's genuinely needed, and I want the *other* direction — `core-api → agent-orchestration` — kept exactly as clean as AU19 left it: exactly 8 against-grain edges in the whole system (5 correctly ruled permanent on same-transaction/synchronous-read grounds, 3 genuine EventBus inversions), with the EventBus as the only lever that direction is allowed to use. When this ships, every one of the 63 non-clean-justified `agent-orchestration → core-api` edges has a real disposition (fixed or re-justified with evidence that survives scrutiny), and the mechanical dependency-graph script reflects the new, reduced baseline.
+
+**Why this matters.** The founder's own read of the AU19 graph named the actual asymmetry precisely: `core-api → agent-orchestration` stays disciplined because it has a structural forcing function (Mechanism C makes a direct import fail to compile; only the EventBus or a founder-argued permanent exception can cross that direction) — but `agent-orchestration → core-api` has no equivalent pressure. It's "legal" downward DI, so nothing stops any orchestration Service from wiring up to as many core-api Services as it wants, and nothing forces anyone to ask whether each wire is earning its keep. The AU19 adversarial audit already tested this directly rather than asserting it: of 112 individually-challenged capabilities, 11 were rated UNJUSTIFIED by an independent reviewer who read the real call site and found the stated justification false (duplicate reads, phantom edges, claimed freshness needs that don't hold up), and 52 more were QUESTIONABLE — genuine trade-offs the first pass couldn't cleanly resolve either way. This is the concrete, evidence-backed continuation of that finding, not a fresh worry.
+
+**Type.** backend.
+
+**What exists today.** `plans/AU19/as-is-dependency-graph.md` (the full corrected edge list, including the "Why 5 of 8 against-grain edges are permanent" reasoning table) and `plans/AU19/dependency-graph-data.json` (the machine-readable, mechanically-extracted version, 139 DI edges + 34 EventBus edges, zero unresolved) are both current and trustworthy as of AU19's close. The 112-capability adversarial challenge run (referenced in `as-is-dependency-graph.md`, full results in the workflow transcript) already individually re-verified every `agent-orchestration → core-api` capability against real code and produced a verdict — JUSTIFIED, QUESTIONABLE, or UNJUSTIFIED — with a written challenge and reasoning for each. One confirmed phantom edge (`session-requests → settings`, present in an earlier hand-derived catalog, absent from real code) was already caught and needs its removal confirmed in all downstream docs.
+
+**What's genuinely missing.** For each of the 63 non-cleanly-justified edges (11 UNJUSTIFIED + 52 QUESTIONABLE): either a real fix (remove the edge — richer event payload at the point the triggering fact is first known, merge a duplicate call, delete a dead capability) or an explicit, evidence-backed re-justification that would survive the same adversarial test the first pass applied. Also missing: a standing practice (a checklist item, or a lint-adjacent check) that makes "does this edge need to exist, and does the target's data need to be read live vs. carried in the triggering event" a required question when a *new* orchestration→core-api edge is introduced — so this doesn't just get cleaned up once and re-accumulate.
+
+**Depends on.**
+- **AU19** — needs the real Service boundaries, the mechanical extraction script, and the 112-capability adversarial audit's findings this WP directly resolves.
+
+**Complexity.** L
+
+**Pre-build gates.**
+- **Refinement:** Not required — the disposition-per-edge process reuses AU19's own already-proven adversarial method; no new primitive needs settling.
+- **Design:** Not required — backend refactor, no UI surface.
+
+**Human concept review.** No — internal refactor; behavior changes only where fixing a genuine bug or removing genuinely-dead capability.
+
+**Acceptance criteria.**
+- Every one of the 11 UNJUSTIFIED edges from the AU19 audit is resolved: removed (with its real capability served correctly some other way) or directly rebutted in writing with new evidence that overturns the original challenge.
+- Every one of the 52 QUESTIONABLE edges gets a real, written disposition — not silently left open — either resolved the same way or re-classified JUSTIFIED with reasoning that would survive the same adversarial challenge applied the first time.
+- The confirmed-phantom `session-requests → settings` edge is verified absent from every document and data artifact that might still reference it.
+- `scripts/generate-dependency-graph.ts` is re-run at the end and its new edge count becomes the documented baseline in `plans/AU19/as-is-dependency-graph.md`, replacing the 139/8/34 figures with the post-reduction numbers.
+- The 5 permanent against-grain DI ports and 3 EventBus inversions AU19 already ruled on are **not** silently reopened by this WP — this is about the *ordinary downward* `agent-orchestration → core-api` edges' proliferation, not re-litigating already-evidenced rulings.
+- A concrete, documented practice exists (in `plans/AU19/architecture.md` or a successor doc) for evaluating a *new* orchestration→core-api edge going forward, so the reduction doesn't silently regrow.
+
+**Validation scenarios.**
+- Given an UNJUSTIFIED edge is removed, when `scripts/generate-dependency-graph.ts` is re-run, then it no longer appears in the edge list, and the capability it used to serve is confirmed still correctly available another way (test coverage proves this, not assertion).
+- Given a QUESTIONABLE edge is re-justified rather than removed, when the same adversarial-challenge method is reapplied, then the new justification survives it (documented, not just asserted).
+- Given the full existing test suite, when re-run after every fix in this WP, then it passes unchanged except for tests newly added to cover a fixed bug.
+
+**Plan calls.** This WP's method is already proven — reuse the exact two-phase workflow AU19 used (explain each edge from real code, independently challenge it, default to skepticism) rather than inventing a new process; the 63-edge worklist already exists, so this WP starts from disposition, not discovery. Cross-reference AU20 explicitly where a finding is shared (`log_task`, the duplicate-read cases) rather than fixing the same thing twice under two different work packages.
+
+**Contracts / constraints.**
+- No product behavior change except where fixing a named, verified bug or removing a confirmed-dead/duplicate capability.
+- The 5 permanent against-grain rulings and 3 EventBus inversions from AU19 stand as decided — this WP does not reopen them without new evidence of the same rigor that closed them.
+- Every edge removal must have its genuine capability need served correctly some other way, verified by the test suite, not simply deleted and left broken.
+- `core-api → agent-orchestration` stays EventBus-only (plus the 5 named, evidenced permanent exceptions) — no new direct DI edge in that direction without the same same-transaction/synchronous-read test AU19 established.
+
+**Out of scope.**
+- The per-method / per-Service exposed-API audit (AU20's job) — this WP is about the cross-Service *edges*, not a Service's internal method count.
+- Reopening AU19's own 5 permanent-DI / 3 EventBus rulings — those are settled, evidence-backed decisions, not part of this WP's worklist.
+- Any UI-facing change — pure backend edge reduction.
+
+**Effort.** L
