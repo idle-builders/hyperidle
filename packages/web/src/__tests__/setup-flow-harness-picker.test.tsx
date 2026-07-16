@@ -433,7 +433,12 @@ describe("setup submit ordering — key write before nav", () => {
 
 		expect(capturedTeamsBody).not.toBeNull();
 		// builtin → omit primaryHarness
-		expect(capturedTeamsBody?.primaryHarness).toBeUndefined();
+		// @lore LG1: useLiteralKeys autofix converted this to dot-access but TS narrows
+		// capturedTeamsBody to `never` at this line via closure control-flow (the closure
+		// reassignment is not visible at the call site). Bracket notation avoids the
+		// narrowing — the other 3 similar accesses in this file use different declaration
+		// patterns and do not hit the same narrowing path.
+		expect(capturedTeamsBody?.["primaryHarness"]).toBeUndefined();
 	});
 });
 
