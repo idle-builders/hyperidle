@@ -81,7 +81,7 @@ jobs:
             echo "Docs-only change — skipping verify steps (check reports green)."
           fi
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         if: steps.changes.outputs.only_docs != 'true'
         with:
           node-version: 24
