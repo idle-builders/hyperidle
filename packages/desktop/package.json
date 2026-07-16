@@ -14,7 +14,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@electric-sql/pglite": "^0.5.1"
+		"@electric-sql/pglite": "^0.5.4"
 	},
 	"devDependencies": {
 		"@hyperidle/core-api": "*",
@@ -22,7 +22,7 @@
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/remote-worker": "*",
 		"@hyperidle/shared": "*",
-		"electron": "^42.5.0",
+		"electron": "^43.1.1",
 		"electron-builder": "^26.15.3",
 		"esbuild": "^0.28.1",
 		"vitest": "*",

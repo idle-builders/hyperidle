@@ -103,7 +103,7 @@ describe("AM2 GET /api/harnesses capability descriptors", () => {
 		expect(builtin?.authAction).toMatchObject({ kind: "enter_api_key" });
 		expect(builtin?.discovery).toMatchObject({ state: "ready" });
 		expect(Array.isArray(builtin?.models)).toBe(true);
-		expect((builtin?.models as unknown[]).length).toBeGreaterThan(0);
+		expect((builtin!.models as unknown[]).length).toBeGreaterThan(0);
 		expect(builtin?.runtime).toMatchObject({
 			preCompactionTrigger: true,
 			mcpSupport: false,
