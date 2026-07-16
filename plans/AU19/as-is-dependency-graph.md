@@ -125,6 +125,8 @@ flowchart TD
   ca_settings --> ca_connections
   ca_filesystems --> ca_work
   ca_filesystems --> ca_connections
+  ca_work --> ca_org
+  ca_work --> ca_users
 
   %% agent-orchestration -> core-api (legal downward DI)
   ao_agentselection --> ca_users
@@ -197,18 +199,39 @@ flowchart TD
   %% the ONE execution seam (application-injected, not a package dep)
   ao_runorchestration ==>|"HarnessPort seam<br/>(admitSession/runSession,<br/>Application-injected)"| ae_harnessregistry
 
-  %% AGAINST-GRAIN edges — all EventBus inversions, zero direct DI exceptions
+  %% AGAINST-GRAIN edges — EventBus inversions (3)
   ca_filesystems -.->|"EventBus:<br/>sandbox_writeback_changes_detected"| ao_capturewriteback
   ca_policy -.->|"EventBus:<br/>session_handoff_completed"| ao_cost
   ca_policy -.->|"EventBus:<br/>session_handoff_completed"| ao_sessionlifecycle
+
+  %% AGAINST-GRAIN edges — PERMANENT synchronous DI ports (5, NOT EventBus — corrected 2026-07-16,
+  %% see the correction note below the legend)
+  ca_work ==>|"PERMANENT DI:<br/>same-tx write"| ao_sessionrequests
+  ca_work ==>|"PERMANENT DI:<br/>sync read-then-branch"| ao_agentselection
+  ca_work ==>|"PERMANENT DI:<br/>sync read-then-branch"| ao_cost
+  ca_policy ==>|"PERMANENT DI:<br/>same-tx write"| ao_sessionrequests
+  ca_review ==>|"PERMANENT DI:<br/>same-tx write"| ao_sessionrequests
 ```
 
 **Legend:** solid arrow `-->` = ordinary DI port (downward or same-layer, wired at a composition
-root). `<-->` = mutual peer DI (both sides bound-function only, no package cycle). Thick `==>` = the
-one `HarnessPort` execution seam, Application-injected. Dashed `-.->` = EventBus inversion — always
-against-grain (a `core-api` Service reaching "up" into `agent-orchestration`), the only lever that
-direction is legal. `-.compose.->` = an Application composing a Layer at boot (bootstrap wiring, not
-a runtime call edge).
+root). `<-->` = mutual peer DI (both sides bound-function only, no package cycle). Dashed `-.->` =
+EventBus inversion — against-grain (`core-api` reaching "up" into `agent-orchestration`), resolved
+via a domain event. Thick `==>` = against-grain edges that are NOT EventBus-inverted — either the one
+`HarnessPort` execution seam (Application-injected), or (new label, see below) a **permanent
+synchronous DI port** crossing the against-grain direction directly. `-.compose.->` = an Application
+composing a Layer at boot (bootstrap wiring, not a runtime call edge).
+
+**Correction, 2026-07-16 (this section previously said "against-grain edges are always EventBus-
+inverted, zero exceptions" — that was wrong and has been fixed).** The first version of this document
+omitted `work`'s entire outbound port set (5 ports: 2 ordinary + 3 against-grain) and did not list
+`policy`'s and `review`'s already-real `session-requests` ports in the cross-layer table, understating
+the against-grain edge count as 3 when it is actually **8**: `work→session-requests`,
+`work→agent-selection`, `work→cost`, `policy→session-requests`, and `review→session-requests` are
+**permanent synchronous DI ports**, not EventBus inversions — each was individually ruled this way
+because the caller needs either a same-transaction write or an immediate synchronous answer, which an
+async, fire-and-forget EventBus structurally cannot serve. Only `policy→cost`, `policy→session-lifecycle`,
+and `filesystems→capture-writeback` are genuine EventBus inversions. See the "Why 5 of 8 against-grain
+edges are permanent, not inverted" section below for the reasoning behind each one.
 
 **Simplifications for readability:** `observability` (wildcard `"*"` subscriber — every domain event)
 and `realtime` (broad WS-push fan-in from ~15 event-emitting sites) are drawn only with their DI ports
@@ -219,15 +242,15 @@ boxes that are otherwise a clean one-directional DI edge — noted in prose inst
 
 ## Per-layer graphs (intra-layer connections only)
 
-Addendum, 2026-07-16: the combined graph above answers "who talks to whom." These three answer a
-different question — "how much do Services within one Layer actually talk to each other, versus
-reaching out." **The honest count: 31 edges inside `core-api`, 12 inside `agent-orchestration`, 0
-inside `agent-execution` — versus 53 edges crossing Layer boundaries** (45 `agent-orchestration →
-core-api`, 3 `core-api → agent-orchestration` EventBus inversions, 5 `agent-orchestration →
-agent-execution`). Cross-Layer traffic is not a minority case — it is the majority of the system's
-real coupling. See the "Why so many cross-layer edges" discussion after the cross-layer list below.
+Addendum, 2026-07-16, corrected same day: an earlier version of this section undercounted — it
+omitted `work`'s entire outbound port set. **Corrected count: 33 edges inside `core-api`, 12 inside
+`agent-orchestration`, 0 inside `agent-execution` — versus 59 edges crossing Layer boundaries** (45
+`agent-orchestration → core-api`, 8 `core-api → agent-orchestration` — 5 permanent DI ports + 3
+EventBus inversions, NOT all EventBus as first stated — 5 `agent-orchestration → agent-execution`,
+1 `core-ui → core-api`). Cross-Layer traffic is not a minority case — it is the majority of the
+system's real coupling. See "Why 5 of 8 against-grain edges are permanent" after the cross-layer list.
 
-### `core-api` — 17 Services, 31 intra-layer edges
+### `core-api` — 17 Services, 33 intra-layer edges
 
 ```mermaid
 flowchart LR
@@ -268,12 +291,15 @@ flowchart LR
   settings --> connections
   filesystems --> work
   filesystems --> connections
+  work --> org
+  work --> users
 ```
 
-`work`, `org`, `users`, `conversation`, `knowledge`, `routine` receive edges but never originate one
-here — they're the leaf domain-data Services everything else in this Layer reads. `notifications`,
-`policy`, `review`, `realtime`, `retention`, `settings` are the ones actually reaching across to their
-siblings.
+`org`, `users`, `conversation`, `knowledge`, `routine` receive edges but never originate one here —
+they're the leaf domain-data Services everything else in this Layer reads. `notifications`, `policy`,
+`review`, `realtime`, `retention`, `settings`, and `work` (2 ordinary edges shown here — its 3
+against-grain ports go to `agent-orchestration`, listed separately below, not in this intra-layer
+graph) are the ones actually reaching across to their siblings.
 
 ### `agent-orchestration` — 11 Services, 12 intra-layer edges
 
@@ -325,9 +351,12 @@ A single package (`packages/web`), not decomposed into Services — nothing to g
 
 ## Every connection crossing a Layer boundary (the full list)
 
-53 edges total. Format: `source Service (Layer)` → `target Service (Layer)` — mechanism.
+**59 edges total, corrected 2026-07-16** (an earlier version of this list said 53 — it omitted
+`work`'s entire outbound port set and didn't list `policy`'s/`review`'s already-real
+`session-requests` ports; see the correction note above the per-layer graphs). Format: `source
+Service (Layer)` → `target Service (Layer)` — mechanism.
 
-**`agent-orchestration` → `core-api`, 45 edges (ordinary downward DI, legal):**
+**`agent-orchestration` → `core-api`, 45 edges (ordinary downward DI, legal — the expected direction):**
 
 | Source | Targets |
 |---|---|
@@ -341,14 +370,24 @@ A single package (`packages/web`), not decomposed into Services — nothing to g
 | `tool-handlers` | `conversation`, `knowledge`, `org`, `routine`, `users`, `work`, `review` |
 | `trigger-resolution` | `users`, `org` |
 
-**`core-api` → `agent-orchestration`, 3 edges (against-grain — the ONLY legal way to cross this
-direction is an EventBus inversion, zero exceptions):**
+**`core-api` → `agent-orchestration`, 8 edges (against-grain — `core-api` reaching "up," the
+direction that isn't supposed to be legal DI). Two different resolutions, not one:**
 
-| Source | Target | Event |
-|---|---|---|
-| `filesystems` | `capture-writeback` | `sandbox_writeback_changes_detected` |
-| `policy` | `cost` | `session_handoff_completed` |
-| `policy` | `session-lifecycle` | `session_handoff_completed` |
+| Source | Target | Mechanism | Why |
+|---|---|---|---|
+| `work` | `session-requests` | **Permanent DI** (`AgentWorkIntentRecorder`) | Same-transaction write — `record(tx, ...)` runs inside `work`'s own `db.transaction` alongside the bet claim. A crash between an emit and an async record would leave a claimed bet with no intent, silently stuck. |
+| `work` | `agent-selection` | **Permanent DI** (`AgentSelectionDefaults`) | Synchronous read-then-branch — `selectOwner`/`enumerateTeamCandidates`/`resolveDecompositionPlan` return values are consumed immediately to continue decomposition. An event has no reply channel. |
+| `work` | `cost` | **Permanent DI** (`CostCapChecker`) | Same shape — `checkCostCap`'s `allowed` boolean gates the very next line of code. |
+| `policy` | `session-requests` | **Permanent DI** (`PolicyAgentWorkIntentRecorder`) | Same-transaction write, same reasoning as `work`'s. |
+| `review` | `session-requests` | **Permanent DI** (`ReviewAgentWorkIntentRecorder`) | Same-transaction write — recording the intent alongside the `tailoredGrants` insert + `proposedCalls` transition. |
+| `filesystems` | `capture-writeback` | EventBus (`sandbox_writeback_changes_detected`) | Genuine fire-and-forget — a file-watcher noticing a change, no caller waiting on a reply, no shared transaction. |
+| `policy` | `cost` | EventBus (`session_handoff_completed`) | Post-commit, in-memory-only cleanup (dedup-lock release) — nothing to keep atomic, no answer needed. |
+| `policy` | `session-lifecycle` | EventBus (`session_handoff_completed`) | Same shape — fires outside any transaction, return value never used. |
+
+**5 of these 8 are permanent synchronous DI ports, not EventBus.** See "Why 5 of 8 are permanent"
+below for the full reasoning — the short version: an EventBus can't serve a caller that needs an
+atomic same-transaction write or an immediate answer to branch on, and 5 of the 8 real against-grain
+edges turned out to be exactly that shape.
 
 **`agent-orchestration` → `agent-execution`, 5 edges (ordinary downward DI, legal):**
 
@@ -368,6 +407,21 @@ tool implementation at boot. This is not `tool-provider` (the package) depending
 the same composition root that wires everything else reaching across two Layers in one place to
 build a single tool's concrete behavior. Flagged here because it's easy to misread as a `core-api ↔
 agent-execution` edge if you only grep imports; it isn't one.
+
+### Why 5 of 8 against-grain edges are permanent, not EventBus-inverted
+
+The architecture's original rule was: against-grain edges (`core-api` reaching "up" into
+`agent-orchestration`) invert through the EventBus — that's the only legal way for the direction to
+flip. In practice, over the course of the migration, 5 of the 8 real edges turned out not to fit that
+rule at all, and each was individually ruled a **permanent exception** rather than forced into an
+EventBus shape that would have introduced a real bug. The test that emerged: **does the caller need
+the write and the target's action to succeed or fail together as one atomic transaction, or does it
+need an answer back immediately to decide what to do next?** If either is true, an event can't do the
+job — it's fire-and-forget, no return trip, no shared transaction. All 5 permanent ports fit one of
+those two shapes; all 3 genuine EventBus edges are pure notifications with nothing waiting on a
+reply. See the table above for the specific reasoning per edge — the pattern was verified against
+actual code for each one (`db.transaction` boundaries, return-value usage, whether a write exists at
+all), not assumed from the port's name.
 
 ### Why so many cross-layer edges, and is that a problem
 
@@ -413,10 +467,12 @@ enforcement), and AU19 never claimed to pursue it.
 | — (wildcard) | every `DomainEvent` | `observability` | audit sink, not a directional edge |
 | — (~15 producers) | thread/*, propagation_*, session_started, tool_call_recorded, etc. | `realtime` | broad UI-push fan-in, not enumerated individually |
 
-**Against-grain edges are genuinely rare and fully resolved: exactly three.** Zero illegal direct DI
-edges were found crossing `core-api → agent-orchestration` anywhere in the shipped tree — every case
-that needed to reach "up" inverts through the `EventBus`, matching the architecture's own rule with no
-exceptions.
+**Against-grain edges: 8 total (corrected 2026-07-16 — an earlier version of this document said
+"three," missing `work`'s and `policy`'s/`review`'s permanent ports).** All 8 are typed DI ports
+wired at the composition root, never a raw import or table access — but only 3 are EventBus
+inversions. The other 5 are permanent synchronous DI ports crossing the against-grain direction
+directly, each individually justified (same-transaction write, or a synchronous answer the caller
+needs to branch on). See "Why 5 of 8 against-grain edges are permanent" above for the reasoning.
 
 ## Full Service roster
 
@@ -488,9 +544,10 @@ exceptions.
 3. **`observability` and `realtime` are broad fan-in hubs** (wildcard sink / ~15 producers) — drawn as
    single nodes with their outbound DI ports only, not one line per emitter, to keep the diagram
    legible.
-4. **Three against-grain edges, all EventBus-inverted, zero exceptions** — `filesystems→capture-writeback`,
-   `policy→cost`, `policy→session-lifecycle`. This was the single riskiest part of the plan (§10.3) and
-   it closed clean.
+4. **8 against-grain edges, 5 permanent DI + 3 EventBus-inverted (corrected 2026-07-16)** — this was
+   the single riskiest part of the plan (§10.3). It didn't close as originally specified (EventBus for
+   all of them); it closed *correctly*, with each edge individually tested against whether it could
+   actually tolerate an async, no-reply-channel handoff. 5 couldn't.
 5. **`packages/core-api/src/` (the dissolved former `packages/server`) is the true composition root** —
    the `agent-orchestration` and `agent-execution` Layer barrels are both empty (`export {}`) by
    design, pending a future consumer that needs a real Layer-level import surface.
