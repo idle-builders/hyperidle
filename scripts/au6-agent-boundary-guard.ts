@@ -35,7 +35,14 @@ const SOURCE_EXCLUDES = [
 	".spec.tsx",
 ] as const;
 
-const ALLOWED_DIRECT_CONSUMER_IMPORTS = new Set(["packages/server/src/services/agent-run-boundary.ts"]);
+// AU19 Increment 3c: `agent-run-boundary.ts` (the sole prior entry) moved to
+// `@hyperidle/run-orchestration` — out of this guard's scanned
+// `packages/server/src` tree entirely, so it can no longer even be visited.
+// Left empty rather than deleted: this is the rule's designated allowlist
+// slot for whichever file directly imports `agent-session-runtime` next; a
+// still-flat `packages/server` file legitimately doing that would need to be
+// added back here.
+const ALLOWED_DIRECT_CONSUMER_IMPORTS = new Set<string>([]);
 const ALLOWED_REGISTRY_DEFINITIONS = new Set([
 	// AU11: provision-registry.ts moved from app-runtime/services/ to the
 	// agent-owned services/ home (import-path-only move, no behavior change).

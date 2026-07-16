@@ -1,0 +1,23 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"outDir": "dist",
+		"rootDir": "src"
+	},
+	"include": ["src"],
+	"references": [
+		{
+			"path": "../shared"
+		},
+		{
+			"path": "harness-registry"
+		},
+		{
+			"path": "mcp-provider"
+		},
+		{
+			"path": "tool-provider"
+		}
+	]
+}

@@ -11,15 +11,27 @@ const ROOT = process.cwd();
 const FINDINGS: Finding[] = [];
 
 const SOURCE_ROOTS = [
-	"packages/server/src",
 	"packages/shared/src",
 	"packages/api-contract/src",
 	"packages/web/src",
 	"packages/design-system/src",
+	// AU19 Increment 1k: extended to cover every migrated Layer — this guard
+	// was blind to `packages/core-api/**` since Inc 0 (the exact gap that let
+	// `knowledge`'s and `review`'s legacy `taskStrategyFabric`/
+	// `knowledgeStrategyFabric` production imports evade it silently).
+	// `packages/agent-orchestration`/`packages/agent-execution` are included
+	// pre-emptively so a future Increment 3/4 migration is never blind here
+	// either.
+	"packages/core-api",
+	"packages/agent-orchestration",
+	"packages/agent-execution",
 ] as const;
 
 const MANIFESTS = [
-	"packages/server/package.json",
+	// @lore AU19 Increment 5 (item 2): `packages/server` dissolved — the
+	// strategy-registry exports check now reads the composition-root Layer
+	// package's own manifest, `packages/core-api/package.json`.
+	"packages/core-api/package.json",
 	"packages/web/package.json",
 	"packages/design-system/package.json",
 ] as const;
@@ -34,7 +46,7 @@ const SOURCE_EXCLUDES = [
 	".spec.ts",
 	".spec.tsx",
 	".stories.tsx",
-	"packages/server/src/services/strategy-registry.ts",
+	"packages/core-api/src/services/strategy-registry.ts",
 	"packages/shared/src/strategy-port.ts",
 ] as const;
 
@@ -87,7 +99,7 @@ for (const manifest of MANIFESTS) {
 			add(manifest, `production dependency on ${dep} is banned by AU3`);
 		}
 	}
-	if (manifest === "packages/server/package.json" && raw.exports?.["./services/strategy-registry"]) {
+	if (manifest === "packages/core-api/package.json" && raw.exports?.["./services/strategy-registry"]) {
 		add(manifest, "exporting strategy-registry is banned by AU3");
 	}
 }
@@ -123,7 +135,7 @@ for (const root of SOURCE_ROOTS) {
 			add(file, "user-facing Strategy runtime vocabulary is banned by AU3");
 		}
 		if (
-			file.includes("packages/server/src/app-runtime/") &&
+			file.includes("packages/core-api/src/app-runtime/") &&
 				/\b(Strategy types|strategy fields|strategy filter|strategy fabric|skip strategy|Fabric's implementation|Fabric-internal|Fabric-owned|fabric row|fabric table|fabric projects|fabric must|fabric does not|depends on fabric|packages\/fabric|kernel\/strategy|strategy\/fabric)\b/i.test(
 				text,
 			)

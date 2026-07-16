@@ -17,10 +17,10 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from "e
 const Dirname =
 	typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
+import { RemoteWorkerClient } from "@hyperidle/remote-worker";
 import { buildAppMenuTemplate } from "./app-menu.js";
 import { getPort, startServer, waitForHealth } from "./boot-server.js";
 import { loadClientConfig, migrateWindowState, saveClientConfig } from "./client-config.js";
-import { DesktopWorkerClient } from "./desktop-worker-client.js";
 import type { LogRotator } from "./log-rotation.js";
 import { createLogRotator } from "./log-rotation.js";
 import { resolveMigrationsFolder, runMigrations } from "./migrate.js";
@@ -655,7 +655,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 	registerCommonIpcHandlers(mainWindow, ctx);
 
 	// S4: Worker client — initialized if config.workerEnabled is true
-	let workerClient: DesktopWorkerClient | null = null;
+	let workerClient: RemoteWorkerClient | null = null;
 	const workerIpcChannels = [
 		"worker:enable",
 		"worker:disable",
@@ -680,7 +680,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		}
 	}
 
-	function createWorkerClient(maxConcurrent: number): DesktopWorkerClient | null {
+	function createWorkerClient(maxConcurrent: number): RemoteWorkerClient | null {
 		const config = loadClientConfig(ctx.configPath);
 		const authKey = readCredentialFromStore("shared_backend_key");
 		if (!authKey) {
@@ -706,7 +706,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 			modelProviders.push("openrouter");
 		}
 
-		const client = new DesktopWorkerClient({
+		const client = new RemoteWorkerClient({
 			serverUrl,
 			credentialsPath: ctx.credentialsPath,
 			authKey,

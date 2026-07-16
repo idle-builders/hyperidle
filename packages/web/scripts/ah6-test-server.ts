@@ -41,13 +41,11 @@ import * as fs from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { encryptCredentialValue, getServerSecret } from "@hyperidle/connections";
+import { createServer } from "@hyperidle/core-api/server-factory";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema, serverCredentials, teamMembers, teams, users } from "@hyperidle/db";
-import { createServer } from "@hyperidle/server/server-factory";
-import {
-	encryptCredentialValue,
-	getServerSecret,
-} from "@hyperidle/server/services/credential-encryption";
+import { createLocalAdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 
@@ -250,6 +248,10 @@ const handle = await createServer(AH6_API_PORT, {
 	// No assistantTurnDeps override: createServer builds them from adapterPool + credentialResolver.
 	// In record mode credentialResolver resolves the seeded openrouter_api_key (production path).
 	// In replay mode the cassette intercepts before any real network call.
+	// AU19 Increment 5 (item 2): adapterPool/workspaceAdapter are now REQUIRED —
+	// inject a LocalSandboxAdapter (laptop profile, set above).
+	adapterPool: await createLocalAdapterPool(),
+	workspaceAdapter: new LocalSandboxAdapter(),
 });
 
 // 5. Signal readiness — playwright.ah6.config.ts waits for this line.

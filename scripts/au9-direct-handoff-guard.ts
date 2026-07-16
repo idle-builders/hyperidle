@@ -11,10 +11,46 @@ const forbiddenSymbols = new Set([
 ]);
 const agentFiles = new Set([
 	"packages/server/src/services/agent-work-handoff.ts", "packages/server/src/services/agent-work-intent-worker.ts",
-	"packages/server/src/services/trigger-resolution.ts", "packages/server/src/services/agent-session-requests.ts",
-	"packages/server/src/services/agent-run-boundary.ts", "packages/server/src/services/agent-session-runtime.ts",
-	"packages/server/src/services/session-provisioning.ts", "packages/server/src/services/agent-layer-boot.ts",
+	"packages/server/src/services/agent-session-requests.ts",
+	// @lore AU19 Increment 3i: `session-provisioning.ts` moved to
+	// `@hyperidle/session-lifecycle` (out of this guard's scanned
+	// `packages/server/src` tree entirely) — the entry below is now a
+	// harmless dead allowlist row, not an error. `session-lifecycle-bindings.ts`
+	// (the new composition-root wiring file) never literally calls the
+	// forbidden `provisionSession` symbol (it calls `provisionSessionInternal`,
+	// the aliased import), so it needs no allowlist entry here.
+	"packages/server/src/services/session-provisioning.ts",
 	"packages/server/src/services/agent-work-assistant.ts",
+	// @lore AU19 Increment 3b: `agent-work-intent-worker.ts`/`agent-session-requests.ts`
+	// moved to `@hyperidle/session-requests` (out of this guard's scanned
+	// `packages/server/src` tree entirely — still-relevant entries above are
+	// harmless dead allowlist rows, not errors). `session-requests-bindings.ts`
+	// is the new composition-root wiring file that legitimately calls
+	// `createTriggeredAgentSessionRequest` (building `TriggerResolutionDeps`)
+	// — same legitimate-wiring role as `agent-work-intent-worker.ts` had
+	// pre-move, added here so it is not flagged as a bypass.
+	"packages/server/src/services/session-requests-bindings.ts",
+	// @lore AU19 Increment 3c: `agent-run-boundary.ts`/`agent-session-runtime.ts`/
+	// `agent-layer-boot.ts` moved to `@hyperidle/run-orchestration` (same
+	// out-of-scanned-tree situation as 3b's entries above — harmless dead
+	// allowlist rows, not errors). `run-orchestration-bindings.ts` is the new
+	// composition-root wiring file (same legitimate-wiring role
+	// `session-requests-bindings.ts` has) — it never literally calls a
+	// forbidden symbol (every internal export is imported under an
+	// `...Internal` alias), so it does not need its own allowlist entry here.
+	"packages/server/src/services/agent-run-boundary.ts",
+	"packages/server/src/services/agent-session-runtime.ts",
+	"packages/server/src/services/agent-layer-boot.ts",
+	// @lore AU19 Increment 3h: `agent-work-assistant.ts` moved to
+	// `@hyperidle/dispatch` (out-of-scanned-tree, same shape as 3b/3c above —
+	// the entry above is now a harmless dead allowlist row, not an error).
+	// `dispatch-bindings.ts` is the new composition-root wiring file (same
+	// legitimate-wiring role `session-requests-bindings.ts`/
+	// `run-orchestration-bindings.ts` have) — it calls `executeAgentRunRequest`
+	// directly (no `...Internal` alias, unlike `run-orchestration-bindings.ts`)
+	// to implement `dispatch`'s own `runOrchestration` port, so it needs this
+	// allowlist entry.
+	"packages/server/src/services/dispatch-bindings.ts",
 ]);
 
 type Finding = { file: string; reason: string };

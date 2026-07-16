@@ -1,0 +1,29 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ES2022",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"noUncheckedIndexedAccess": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"exactOptionalPropertyTypes": false,
+		"composite": true,
+		"paths": {
+			"@hyperidle/shared": ["./packages/shared/src"],
+			"@hyperidle/db": ["./packages/db/src"],
+			"@hyperidle/web": ["./packages/web/src"],
+			"@hyperidle/design-system": ["./packages/design-system/src"],
+			"@hyperidle/api-contract": ["./packages/api-contract/src"],
+			"@hyperidle/desktop": ["./packages/desktop/src"],
+			"@hyperidle/eval": ["./packages/eval/src"]
+		}
+	}
+}

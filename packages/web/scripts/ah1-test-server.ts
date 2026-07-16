@@ -24,9 +24,10 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { createServer } from "@hyperidle/core-api/server-factory";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema } from "@hyperidle/db";
-import { createServer } from "@hyperidle/server/server-factory";
+import { createLocalAdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 
@@ -55,9 +56,14 @@ const db = rawDb as unknown as HyperIdleDb;
 
 // 2. Boot the Hono server with the already-migrated in-memory DB.
 //    Passing deps.db skips createServer's own DB construction (file-path branch).
+//    AU19 Increment 5 (item 2): adapterPool/workspaceAdapter are now REQUIRED —
+//    this test-server bootstrap is Application-shaped (mirrors packages/desktop's
+//    boot-server.ts), injecting its own LocalSandboxAdapter (laptop profile, set above).
 const handle = await createServer(AH1_API_PORT, {
 	db,
 	sandboxBasePath: "/tmp/ah1-e2e-workspaces",
+	adapterPool: await createLocalAdapterPool(),
+	workspaceAdapter: new LocalSandboxAdapter(),
 });
 
 // 3. Signal readiness — playwright.ah1.config.ts waits for this line.

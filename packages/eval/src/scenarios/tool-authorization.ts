@@ -5,7 +5,7 @@
  * and write_memory layer enforcement as inner gate.
  */
 
-import { knowledgeItems, knowledgeStrategyFabric, messages, sessions } from "@hyperidle/db";
+import { knowledgeAppProjection, knowledgeItems, messages, sessions } from "@hyperidle/db";
 import { eq, like } from "drizzle-orm";
 import {
 	judgeCostTracked,
@@ -90,7 +90,7 @@ Use only the standard builder tools. Do not attempt facilitator-only tools.`,
 
 					// Facilitator-only tools that would leave these traces:
 					// promote_knowledge: updates knowledgeItems.status + knowledgeEditLog
-					// score_attention: updates knowledgeStrategyFabric
+					// score_attention: updates knowledgeAppProjection
 					// route_item: updates items.riskTier/kind/verb
 					// The builder completing task with write_session_notes/create_artifact is appropriate
 					return {
@@ -251,13 +251,13 @@ Document this experience in session notes — what you tried and what the restri
 					// Check that any knowledge items written are at L0-L2
 					const writtenItems = await ctx.db
 						.select({
-							layer: knowledgeStrategyFabric.layer,
+							layer: knowledgeAppProjection.layer,
 							updatedBy: knowledgeItems.updatedBy,
 						})
 						.from(knowledgeItems)
 						.leftJoin(
-							knowledgeStrategyFabric,
-							eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+							knowledgeAppProjection,
+							eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 						)
 						.where(eq(knowledgeItems.updatedBy, `agent:${ctx.seedResult.agentId}`));
 

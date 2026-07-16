@@ -196,6 +196,8 @@ describe("T4: exhaustive KernelEvent switch handles proposed_call_granted (AC13)
 					return "session_started";
 				case "session_ended":
 					return "session_ended";
+				case "session_handoff_completed":
+					return "session_handoff_completed";
 				case "session_not_returned":
 					return "session_not_returned";
 				case "thread_created":
@@ -212,6 +214,9 @@ describe("T4: exhaustive KernelEvent switch handles proposed_call_granted (AC13)
 					return "item_created";
 				case "dependency_met":
 					return "dependency_met";
+				// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
+				case "sandbox_writeback_changes_detected":
+					return "sandbox_writeback_changes_detected";
 				case "knowledge_created":
 					return "knowledge_created";
 				case "knowledge_updated":

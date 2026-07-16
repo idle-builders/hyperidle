@@ -47,7 +47,7 @@ export default [
 
 	// Drizzle ORM safety (db + server packages)
 	{
-		files: ["packages/db/src/**/*.ts", "packages/server/src/**/*.ts"],
+		files: ["packages/db/src/**/*.ts", "packages/core-api/src/**/*.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -235,11 +235,11 @@ export default [
 	// Warn-level so the baseline does not break during the migration window;
 	// will promote to error once the remaining offenders are cleared.
 	{
-		files: ["packages/server/src/**/*.ts", "packages/web/src/**/*.{ts,tsx}"],
+		files: ["packages/core-api/src/**/*.ts", "packages/web/src/**/*.{ts,tsx}"],
 		ignores: [
-			"packages/server/src/**/__tests__/**",
-			"packages/server/src/**/*.test.ts",
-			"packages/server/src/**/*.spec.ts",
+			"packages/core-api/src/**/__tests__/**",
+			"packages/core-api/src/**/*.test.ts",
+			"packages/core-api/src/**/*.spec.ts",
 			"packages/web/src/**/__tests__/**",
 			"packages/web/src/**/*.test.{ts,tsx}",
 			"packages/web/src/**/*.spec.{ts,tsx}",
@@ -298,7 +298,7 @@ export default [
 	// error for __fixtures__/ imports. This rule layers on top with broader
 	// coverage (also catches fixtures/ without double-underscore) at warn.
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}", "packages/server/src/**/*.ts"],
+		files: ["packages/web/src/**/*.{ts,tsx}", "packages/core-api/src/**/*.ts"],
 		ignores: [
 			"packages/web/src/**/*.stories.tsx",
 			"packages/web/src/**/__tests__/**",
@@ -306,12 +306,12 @@ export default [
 			"packages/web/src/**/*.spec.{ts,tsx}",
 			"packages/web/src/**/__fixtures__/**",
 			"packages/web/src/**/e2e/**",
-			"packages/server/src/**/__tests__/**",
-			"packages/server/src/**/*.test.ts",
-			"packages/server/src/**/*.spec.ts",
-			"packages/server/src/**/__fixtures__/**",
-			"packages/server/src/**/e2e/**",
-			"packages/server/src/**/seed*.ts",
+			"packages/core-api/src/**/__tests__/**",
+			"packages/core-api/src/**/*.test.ts",
+			"packages/core-api/src/**/*.spec.ts",
+			"packages/core-api/src/**/__fixtures__/**",
+			"packages/core-api/src/**/e2e/**",
+			"packages/core-api/src/**/seed*.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -364,7 +364,7 @@ export default [
 	// Routes should use the Hono chaining pattern (.get().post()…) so the return type is
 	// inferred as a union of typed routes — required for AppType / hono/client.
 	{
-		files: ["packages/server/src/routes/**/*.ts"],
+		files: ["packages/core-api/src/routes/**/*.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -447,10 +447,10 @@ export default [
 	},
 
 	// api-typesafety Rule 6 (error): Ban zValidator from @hono/zod-validator in route files.
-	// Use the internal validateBody() helper (packages/server/src/middleware/validate.ts) which
+	// Use the internal validateBody() helper (packages/core-api/src/middleware/validate.ts) which
 	// integrates with the response-validator middleware and error schema.
 	{
-		files: ["packages/server/src/routes/**/*.ts"],
+		files: ["packages/core-api/src/routes/**/*.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -470,16 +470,16 @@ export default [
 		},
 	},
 
-	// api-typesafety Rule 7 (error): Ban importing @hyperidle/server from the web package
+	// api-typesafety Rule 7 (error): Ban importing @hyperidle/core-api from the web package
 	// (except schema files). The web package must only consume the server via the typed
 	// hono/client — not by importing server internals directly.
 	//
-	// The client.ts file is the ONLY file allowed to import from @hyperidle/server/schemas
+	// The client.ts file is the ONLY file allowed to import from @hyperidle/core-api/schemas
 	// (it uses AppType for hc<AppType>). All other web code must go through @/api/client.
 	{
 		files: ["packages/web/src/**/*.{ts,tsx}"],
 		ignores: [
-			// client.ts legitimately imports AppType from @hyperidle/server/schemas
+			// client.ts legitimately imports AppType from @hyperidle/core-api/schemas
 			"packages/web/src/api/client.ts",
 		],
 		languageOptions: {
@@ -494,11 +494,11 @@ export default [
 				{
 					patterns: [
 						{
-							// Ban any @hyperidle/server import (including subpaths like /schemas)
+							// Ban any @hyperidle/core-api import (including subpaths like /schemas)
 							// from general web code. Only client.ts (ignored above) may import /schemas.
-							group: ["@hyperidle/server", "@hyperidle/server/**"],
+							group: ["@hyperidle/core-api", "@hyperidle/core-api/**"],
 							message:
-								"api-typesafety Rule 7: The web package must not import @hyperidle/server internals directly. Use the typed hono/client from @/api/client. Only packages/web/src/api/client.ts may import @hyperidle/server/schemas.",
+								"api-typesafety Rule 7: The web package must not import @hyperidle/core-api internals directly. Use the typed hono/client from @/api/client. Only packages/web/src/api/client.ts may import @hyperidle/core-api/schemas.",
 						},
 					],
 				},
@@ -512,12 +512,12 @@ export default [
 	//   authz/require-boundary-declaration       — Hard Rule 6: every route must declare a boundary
 	//   authz/no-raw-db-in-route-bypassing-policy — Hard Rule 6: enforced routes need authorizeRead/Write
 	{
-		files: ["packages/server/src/routes/**/*.ts"],
+		files: ["packages/core-api/src/routes/**/*.ts"],
 		ignores: [
-			"packages/server/src/routes/**/__tests__/**",
-			"packages/server/src/routes/**/*.test.ts",
-			"packages/server/src/routes/**/*.integration.test.ts",
-			"packages/server/src/routes/**/*.spec.ts",
+			"packages/core-api/src/routes/**/__tests__/**",
+			"packages/core-api/src/routes/**/*.test.ts",
+			"packages/core-api/src/routes/**/*.integration.test.ts",
+			"packages/core-api/src/routes/**/*.spec.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -562,11 +562,11 @@ export default [
 
 	// AK2 — Strategy Port static guard (AC4).
 	//
-	// The Kernel (packages/server/src/**) must NOT import a concrete Strategy
+	// The Kernel (packages/core-api/src/**) must NOT import a concrete Strategy
 	// implementation. The port contract is:
 	//   1. assembleContext, startWatcher, FileWatcher, FileWatcherConfig from
 	//      @hyperidle/fabric are now behind the Strategy Port — use getActiveStrategy()
-	//      from packages/server/src/services/strategy-registry.ts instead.
+	//      from packages/core-api/src/services/strategy-registry.ts instead.
 	//   2. The whole @hyperidle/strategy-minimal package is banned from Kernel
 	//      non-composition-root files (the Kernel must not know which Strategy
 	//      is active — only the composition root picks one).
@@ -580,13 +580,13 @@ export default [
 	// AK2 bans ONLY the two port-crossing symbols (assembleContext + startWatcher)
 	// and the minimal Strategy package.
 	{
-		files: ["packages/server/src/**/*.ts"],
+		files: ["packages/core-api/src/**/*.ts"],
 		ignores: [
-			"packages/server/src/server-factory.ts", // composition root — may import a concrete Strategy
-			"packages/server/src/test-fixtures.ts", // test infrastructure — registers minimalStrategy as fixture default
-			"packages/server/src/**/__tests__/**",
-			"packages/server/src/**/*.test.ts",
-			"packages/server/src/**/*.spec.ts",
+			"packages/core-api/src/server-factory.ts", // composition root — may import a concrete Strategy
+			"packages/core-api/src/test-fixtures.ts", // test infrastructure — registers minimalStrategy as fixture default
+			"packages/core-api/src/**/__tests__/**",
+			"packages/core-api/src/**/*.test.ts",
+			"packages/core-api/src/**/*.spec.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -632,7 +632,7 @@ export default [
 	//     catch a module-local const (it is never imported); this selector is the real
 	//     enforcement for hard-rule #1.
 	//
-	// Scoped to creation surfaces only: routes/ + tools/ in packages/server/src.
+	// Scoped to creation surfaces only: routes/ + tools/ in packages/core-api/src.
 	// Test files are exempt (same pattern as AK2 above).
 	//
 	// @lore AK6 T10: Both guards exist because they catch orthogonal violations.
@@ -640,14 +640,20 @@ export default [
 	// (b) catches "I added a BUILTIN_ASSISTANT_SYSTEM_PROMPT const locally and used it".
 	// Neither can substitute for the other.
 	{
-		files: ["packages/server/src/routes/**/*.ts", "packages/server/src/tools/**/*.ts"],
+		// @lore AU19 Increment 4: `packages/core-api/src/tools/**` (the domain-
+		// touching tool bodies) moved to `agent-orchestration/tool-handlers` —
+		// creation surfaces now live there, not under `packages/server`.
+		files: [
+			"packages/core-api/src/routes/**/*.ts",
+			"packages/agent-orchestration/tool-handlers/src/**/*.ts",
+		],
 		ignores: [
-			"packages/server/src/routes/**/__tests__/**",
-			"packages/server/src/routes/**/*.test.ts",
-			"packages/server/src/routes/**/*.spec.ts",
-			"packages/server/src/tools/**/__tests__/**",
-			"packages/server/src/tools/**/*.test.ts",
-			"packages/server/src/tools/**/*.spec.ts",
+			"packages/core-api/src/routes/**/__tests__/**",
+			"packages/core-api/src/routes/**/*.test.ts",
+			"packages/core-api/src/routes/**/*.spec.ts",
+			"packages/agent-orchestration/tool-handlers/src/__tests__/**",
+			"packages/agent-orchestration/tool-handlers/src/**/*.test.ts",
+			"packages/agent-orchestration/tool-handlers/src/**/*.spec.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -824,7 +830,7 @@ export default [
 	},
 
 	// AJ3: the isolation harness (packages/web/src/preview/**) is a dev/story/test
-	// surface. It must NEVER reach a backend — importing @hyperidle/server or
+	// surface. It must NEVER reach a backend — importing @hyperidle/core-api or
 	// @hyperidle/db would defeat the no-backend contract that lets a design mount
 	// in jsdom with no server, db, or real data. Static "must not
 	// import X" property → lint rule, not a test (CLAUDE.md). Shape copied from
@@ -846,7 +852,7 @@ export default [
 	//   The select-agent.ts file is the ONLY place the Kernel is permitted to
 	//   perform candidate selection logic; all others must call selectOwner.
 	//
-	//   Scoped to: packages/server/src/services/**  (Kernel services only)
+	//   Scoped to: packages/core-api/src/services/**  (Kernel services only)
 	//   Allowlisted: select-agent.ts (the single permitted caller)
 	//   @lore AK7: This guard carries the static half of AC1 ("Kernel no longer
 	//   chooses"). The runtime half is the selectOwner seam itself. The selector
@@ -859,15 +865,16 @@ export default [
 	//   Bans `systemPrompt` and `AGENTS.md` string literals in select-agent.ts.
 	//   Enforces §2a Execution rule: "the Kernel never inspects the AGENTS.md".
 	//   select-agent.ts is a selection helper; it must not read persona content.
-	//   Scoped to: packages/server/src/services/select-agent.ts only.
+	//   Scoped to: packages/core-api/src/services/select-agent.ts only.
 	{
-		files: ["packages/server/src/services/**/*.ts"],
-		ignores: [
-			// select-agent.ts is the ONLY place selection logic is permitted
-			"packages/server/src/services/select-agent.ts",
-			// Test files are exempt
-			"packages/server/src/services/**/__tests__/**",
-		],
+		// @lore AU19: `select-agent.ts` (agent-selection Service) and
+		// `bet-decomposition.ts` (work Service) split into separate Service
+		// packages at Increment 3e / 1b respectively — no longer siblings under
+		// one flat `services/` dir. Guard 1's real, historically-named target is
+		// `bet-decomposition.ts` (its own comment above names it as the original
+		// round-robin offender); pointing directly at it achieves the same intent
+		// as the old glob+ignore pair without needing a cross-package ignore.
+		files: ["packages/core-api/work/src/bet-decomposition.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -887,7 +894,7 @@ export default [
 		},
 	},
 	{
-		files: ["packages/server/src/services/select-agent.ts"],
+		files: ["packages/agent-orchestration/agent-selection/src/select-agent.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -925,8 +932,8 @@ export default [
 					patterns: [
 						{
 							group: [
-								"@hyperidle/server",
-								"@hyperidle/server/**",
+								"@hyperidle/core-api",
+								"@hyperidle/core-api/**",
 								"@hyperidle/db",
 								"@hyperidle/db/**",
 							],
@@ -986,7 +993,7 @@ export default [
 	// AgentSessionRequest, but runtime start belongs to agent-session-runtime /
 	// session-provisioning. Keep adapter selection and harness starts out of this file.
 	{
-		files: ["packages/server/src/services/bet-decomposition.ts"],
+		files: ["packages/core-api/work/src/bet-decomposition.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -1110,20 +1117,30 @@ export default [
 	// and the extraction drain (bet-decomposition) are classified by their markers
 	// so the rule never requires eslint-disable on them.
 	{
+		// @lore AU19 Increment 4: `packages/core-api/src/harness/**` moved to
+		// `agent-execution/harness-registry` — the stream-drain surfaces this
+		// guard polices now live there, not under `packages/server`.
+		// @lore AU19 Increment 5 (item 2): `packages/server` dissolved —
+		// the composition-root services relocated to `packages/core-api/src/
+		// services/**`, and `desktop-worker-client.ts` (a forwarding relay)
+		// relocated to `packages/remote-worker/src/**`.
 		files: [
-			"packages/server/src/services/**/*.ts",
-			"packages/server/src/harness/**/*.ts",
+			"packages/core-api/src/services/**/*.ts",
+			"packages/agent-execution/harness-registry/src/**/*.ts",
 			"packages/desktop/src/**/*.ts",
+			"packages/remote-worker/src/**/*.ts",
 		],
 		ignores: [
-			"packages/server/src/services/**/__tests__/**",
-			"packages/server/src/services/**/*.test.ts",
-			"packages/server/src/services/**/*.integration.test.ts",
-			"packages/server/src/harness/**/__tests__/**",
-			"packages/server/src/harness/**/*.test.ts",
-			"packages/server/src/harness/**/*.integration.test.ts",
+			"packages/core-api/src/services/**/__tests__/**",
+			"packages/core-api/src/services/**/*.test.ts",
+			"packages/core-api/src/services/**/*.integration.test.ts",
+			"packages/agent-execution/harness-registry/src/__tests__/**",
+			"packages/agent-execution/harness-registry/src/**/*.test.ts",
+			"packages/agent-execution/harness-registry/src/**/*.integration.test.ts",
 			"packages/desktop/src/**/__tests__/**",
 			"packages/desktop/src/**/*.test.ts",
+			"packages/remote-worker/src/**/__tests__/**",
+			"packages/remote-worker/src/**/*.test.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -1137,7 +1154,7 @@ export default [
 	// AU3 — production runtime must not import Fabric/Strategy package seams.
 	{
 		files: [
-			"packages/server/src/**/*.ts",
+			"packages/core-api/src/**/*.ts",
 			"packages/shared/src/**/*.ts",
 			"packages/api-contract/src/**/*.ts",
 			"packages/web/src/**/*.{ts,tsx}",
@@ -1149,7 +1166,7 @@ export default [
 			"packages/**/*.integration.test.{ts,tsx}",
 			"packages/**/*.spec.{ts,tsx}",
 			"packages/**/*.stories.tsx",
-			"packages/server/src/services/strategy-registry.ts",
+			"packages/core-api/src/services/strategy-registry.ts",
 			"packages/shared/src/strategy-port.ts",
 		],
 		languageOptions: {
@@ -1176,12 +1193,6 @@ export default [
 						{
 							name: "@hyperidle/strategy-minimal",
 							message: "AU3: production boot has no Strategy package dependency.",
-						},
-						{
-							name: "@hyperidle/db",
-							importNames: ["knowledgeStrategyFabric", "taskStrategyFabric"],
-							message:
-								"AU3: production code must import app-owned projection aliases, not Fabric-named table exports.",
 						},
 					],
 					patterns: [

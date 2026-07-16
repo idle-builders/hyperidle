@@ -629,12 +629,25 @@ const COVERAGE_DEBT_PATH = path.join(SCRIPT_DIR, "coverage-debt.allowlist.json")
 const MODEL_IMPORT_DEBT_PATH = path.join(SCRIPT_DIR, "model-import-debt.allowlist.json");
 
 const SCAN_DIRS = [
-	"packages/server/src/harness/__tests__",
-	"packages/server/src/__tests__",
+	// @lore AU19 Increment 4: `packages/server/src/harness/__tests__` moved to
+	// `agent-execution/harness-registry` — this scan dir is the only real
+	// source of harness-facing (`requireHarness`) tests in the repo (checked:
+	// zero `requireHarness(` sites in mcp-provider/tool-provider/tool-handlers).
+	// The stale pre-migration path silently scanned a non-existent dir
+	// (`collectSelectedFiles` skips missing dirs), vacuously passing every
+	// harness-registry file with zero real coverage — this was the flagged
+	// Increment-0 "resolve before Increment 4/5" gap.
+	"packages/agent-execution/harness-registry/src/__tests__",
+	// @lore AU19 Increment 5 item 5: `packages/server/src/__tests__` and
+	// `packages/server/src/routes/__tests__` moved to `packages/core-api` when
+	// Increment 2 dissolved `packages/server` (commit cee027ab) — both dirs
+	// were left stale here (silently skipped, `collectSelectedFiles` skips
+	// missing dirs) until this repoint.
+	"packages/core-api/src/__tests__",
 	// AR4: AH3/AK4 real files live here — add to SCAN_DIRS so the guard lints them.
 	// NOTE: SCAN_DIRS is guard-lint-only; attestation floor selects via isHarnessIntegrationPath
 	// on vitest JSON paths (EXPLICIT_HARNESS_INTEGRATION suffix), independent of SCAN_DIRS (N-1).
-	"packages/server/src/routes/__tests__",
+	"packages/core-api/src/routes/__tests__",
 ];
 
 /** Collect every existing harness-facing integration file as a GuardFile. */

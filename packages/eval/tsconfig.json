@@ -7,7 +7,8 @@
 	"include": ["src"],
 	"references": [
 		{ "path": "../db" },
-		{ "path": "../server" },
+		{ "path": "../core-api" },
+		{ "path": "../agent-execution/harness-registry" },
 		{ "path": "../shared" }
 	]
 }

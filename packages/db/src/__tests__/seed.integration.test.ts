@@ -40,7 +40,7 @@ describe("A2: Seed script", () => {
 		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
 		// @lore P2: agents → users table
 		// @lore AF17: seed() now calls applyFactoryBootstrap + seedDemoWorld.
-		// factory_bootstrap inserts users/knowledge_items/knowledge_strategy_fabric;
+		// factory_bootstrap inserts users/knowledge_items/knowledge_app_projection;
 		// demo_fixture inserts teams/team_members.
 		// @lore AU18: `factory_settings` dropped from this list — factory-bootstrap no
 		// longer writes to it (cost_cap/cost_cycle/system_template rows retired).
@@ -49,7 +49,7 @@ describe("A2: Seed script", () => {
 			"teams",
 			"team_members",
 			"knowledge_items",
-			"knowledge_strategy_fabric",
+			"knowledge_app_projection",
 		];
 
 		for (const table of majorTables) {
@@ -89,7 +89,7 @@ describe("A2: Seed script", () => {
 		expect(teamMembers[0]?.id).toBeTruthy();
 		expect(teamMembers[0]?.capacity).toBeGreaterThan(0);
 
-		// @lore O2: layer moved to knowledgeStrategyFabric; query via JOIN.
+		// @lore O2: layer moved to knowledgeAppProjection; query via JOIN.
 		const kiRows = await queryRows<{ id: string; version: number }>(
 			db,
 			"SELECT id, version FROM knowledge_items LIMIT 1",
@@ -100,7 +100,7 @@ describe("A2: Seed script", () => {
 		// Verify layer is accessible via the extension table
 		const ksfRows = await queryRows<{ layer: string | null }>(
 			db,
-			`SELECT layer FROM knowledge_strategy_fabric WHERE knowledge_item_id = '${kiRows[0]?.id}'`,
+			`SELECT layer FROM knowledge_app_projection WHERE knowledge_item_id = '${kiRows[0]?.id}'`,
 		);
 		expect(ksfRows[0]?.layer).toBeTruthy();
 	});

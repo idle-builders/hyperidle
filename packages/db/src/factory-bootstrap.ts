@@ -3,7 +3,7 @@ import type { FactoryRosterSpec } from "@hyperidle/shared";
 import { defaultFactoryRoster } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
-import { knowledgeItems, knowledgeStrategyFabric, users } from "./schema.js";
+import { knowledgeAppProjection, knowledgeItems, users } from "./schema.js";
 import { COMMUNITY_DISPLAY_NAMES, FACILITATOR_TOOLS } from "./seed-fixtures.js";
 import {
 	readSystemPromptTemplate,
@@ -18,7 +18,7 @@ import {
  *   - `system:propagation` system user (DB infra — always written unconditionally)
  *   - `seed-agent-cos` system-assistant singleton (iff roster.systemAssistant non-null)
  *   - one facilitator agent per roster.facilitators entry (roster-driven)
- *   - `knowledge_items` + `knowledge_strategy_fabric`: the factory principle seed-ki-1 (DB infra)
+ *   - `knowledge_items` + `knowledge_app_projection`: the factory principle seed-ki-1 (DB infra)
  *
  * @lore AU18: system prompt templates are no longer cached as
  * `factory_settings.system_template:<role>` rows — that table is retired.
@@ -235,7 +235,7 @@ export async function applyFactoryBootstrap(
 		.onConflictDoNothing();
 
 	await db
-		.insert(knowledgeStrategyFabric)
+		.insert(knowledgeAppProjection)
 		.values({
 			id: "seed-ksf-1",
 			knowledgeItemId: "seed-ki-1",

@@ -13,8 +13,12 @@
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.106.0",
 		"@electric-sql/pglite": "^0.5.1",
+		"@hyperidle/connections": "*",
 		"@hyperidle/db": "*",
-		"@hyperidle/server": "*",
+		"@hyperidle/harness-registry": "*",
+		"@hyperidle/model-gateway": "*",
+		"@hyperidle/core-api": "*",
+		"@hyperidle/settings": "*",
 		"@hyperidle/shared": "*",
 		"drizzle-orm": "^0.45.2"
 	},

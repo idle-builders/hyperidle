@@ -99,6 +99,43 @@ export const DEFAULT_AGENT_MODEL_PROVIDER: ModelProvider = "anthropic";
 /** AH2: Default harnessType for per-agent harness selection. */
 export const DEFAULT_AGENT_HARNESS = "builtin";
 
+/**
+ * X4: Built-in gateway configuration — matches the old MODEL_TIER_MAP values exactly.
+ * Zero behavior change when no gateway config is stored in serverConfig.
+ *
+ * @lore X4 A-TEST-2: This constant is intentionally kept in sync with the
+ * deleted model-tier-map.ts. `AH2-resolve-agent-model.integration.test.ts`
+ * asserts exact model IDs to catch drift. If you change a model ID here,
+ * update the test comment explaining why.
+ *
+ * @lore X4 naming: Named BUILT_IN_GATEWAY_CONFIG (not DEFAULT_GATEWAY_CONFIG)
+ * because the ESLint mock-data-policy flags DEFAULT_* symbols in the
+ * `/services/` path fragment as potentially mock data. This is not mock data
+ * — it is the genuine production fallback. Callers may import and re-alias
+ * if desired.
+ *
+ * @lore AH2: Re-keyed to current catalog IDs (see {@link MODEL_CATALOG}).
+ *
+ * @lore AU19 Increment 1f: moved here from `packages/server/src/services/
+ * model-gateway.ts` (the not-yet-migrated `model-gateway` Service). It is
+ * pure data with no domain/DB reference, composed entirely from this file's
+ * own `ModelGatewayConfig` type — the same "static config data → shared"
+ * rationale §5 already applies to `config/builtin-tool-catalog.ts`. Moving it
+ * dissolves the `settings → model-gateway` census edge (§10.2) instead of
+ * threading a `ModelGatewayDefaults` DI parameter through
+ * `readServerConfig`/`updateServerConfig`'s ~40 production + ~120 test call
+ * sites for one constant. `model-gateway.ts`'s own domain logic
+ * (`resolveModelTier`/`resolveAgentModel`) is untouched and stays in
+ * `packages/server` until the `model-gateway` Service migrates (Increment 2);
+ * it re-exports this constant for its existing consumers
+ * (`agent-work-assistant.ts` and its own tests) so behavior is unchanged.
+ */
+export const BUILT_IN_GATEWAY_CONFIG: ModelGatewayConfig = {
+	reasoning: { provider: "anthropic", model: "claude-opus-4-8" },
+	workhorse: { provider: "anthropic", model: "claude-sonnet-4-6" },
+	fast: { provider: "anthropic", model: "claude-haiku-4-5" },
+} as const;
+
 /** AH2: Returns true if `id` is a valid catalog model ID. */
 export function isCatalogModel(id: string): boolean {
 	return MODEL_CATALOG.some((m) => m.id === id);

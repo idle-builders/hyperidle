@@ -1,51 +1,6 @@
 [
   {
-    "path": "packages/server/src/middleware/auth.ts",
-    "line": 168,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/middleware/auth.ts",
-    "line": 200,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/middleware/auth.ts",
-    "line": 227,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/middleware/auth.ts",
-    "line": 231,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/routes/auth.ts",
-    "line": 62,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/server/src/services/connection-provisioning.ts",
+    "path": "packages/core-api/connections/src/connection-provisioning.ts",
     "line": 97,
     "symbol": "u-founder",
     "kind": "literal-id",
@@ -54,8 +9,8 @@
     "triageHint": "straight-swap"
   },
   {
-    "path": "packages/server/src/services/connection-provisioning.ts",
-    "line": 105,
+    "path": "packages/core-api/connections/src/connection-provisioning.ts",
+    "line": 113,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -63,8 +18,8 @@
     "triageHint": "straight-swap"
   },
   {
-    "path": "packages/server/src/services/lifecycle-propagation.ts",
-    "line": 536,
+    "path": "packages/core-api/policy/src/lifecycle-propagation.ts",
+    "line": 547,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -72,8 +27,53 @@
     "triageHint": "straight-swap"
   },
   {
-    "path": "packages/server/src/services/lifecycle-propagation.ts",
-    "line": 538,
+    "path": "packages/core-api/policy/src/lifecycle-propagation.ts",
+    "line": 549,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/core-api/src/middleware/auth.ts",
+    "line": 167,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/core-api/src/middleware/auth.ts",
+    "line": 199,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/core-api/src/middleware/auth.ts",
+    "line": 226,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/core-api/src/middleware/auth.ts",
+    "line": 230,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/core-api/src/routes/auth.ts",
+    "line": 64,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",

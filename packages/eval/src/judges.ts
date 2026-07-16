@@ -16,9 +16,9 @@ import {
 	artifacts,
 	bets,
 	items,
+	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
-	knowledgeStrategyFabric,
 	messages,
 	routines,
 	sessions,
@@ -324,16 +324,16 @@ export function judgePromoteKnowledgeCalled(): RubricDimension {
 	};
 }
 
-/** Judge: score_attention on knowledge_item was called — knowledgeStrategyFabric.attentionScore changed. */
+/** Judge: score_attention on knowledge_item was called — knowledgeAppProjection.attentionScore changed. */
 export function judgeScoreAttentionCalled(): RubricDimension {
 	return {
 		id: "score_set",
 		label: "Attention Score Set (score_attention called)",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 			const [fabric] = await ctx.db
-				.select({ attentionScore: knowledgeStrategyFabric.attentionScore })
-				.from(knowledgeStrategyFabric)
-				.where(isNotNull(knowledgeStrategyFabric.attentionScore))
+				.select({ attentionScore: knowledgeAppProjection.attentionScore })
+				.from(knowledgeAppProjection)
+				.where(isNotNull(knowledgeAppProjection.attentionScore))
 				.limit(1);
 
 			const set = fabric !== undefined;
@@ -341,7 +341,7 @@ export function judgeScoreAttentionCalled(): RubricDimension {
 				score: set ? 1.0 : 0.0,
 				note: set
 					? `Attention score: ${fabric.attentionScore}`
-					: "No knowledgeStrategyFabric row has attentionScore set",
+					: "No knowledgeAppProjection row has attentionScore set",
 			};
 		},
 	};
@@ -394,9 +394,9 @@ export function judgeKnowledgeLayerCorrect(expectedLayer: string): RubricDimensi
 			}
 
 			const [fabric] = await ctx.db
-				.select({ layer: knowledgeStrategyFabric.layer })
-				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
+				.select({ layer: knowledgeAppProjection.layer })
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, item.id))
 				.limit(1);
 
 			if (!fabric) {
@@ -430,9 +430,9 @@ export function judgeKnowledgeKindCorrect(expectedKind: string): RubricDimension
 			}
 
 			const [fabric] = await ctx.db
-				.select({ kind: knowledgeStrategyFabric.kind })
-				.from(knowledgeStrategyFabric)
-				.where(eq(knowledgeStrategyFabric.knowledgeItemId, item.id))
+				.select({ kind: knowledgeAppProjection.kind })
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, item.id))
 				.limit(1);
 
 			if (!fabric) {
@@ -1014,11 +1014,11 @@ export function judgeKnowledgeCaptured(): RubricDimension {
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 			const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
 			const [item] = await ctx.db
-				.select({ id: knowledgeItems.id, kind: knowledgeStrategyFabric.kind })
+				.select({ id: knowledgeItems.id, kind: knowledgeAppProjection.kind })
 				.from(knowledgeItems)
 				.leftJoin(
-					knowledgeStrategyFabric,
-					eq(knowledgeStrategyFabric.knowledgeItemId, knowledgeItems.id),
+					knowledgeAppProjection,
+					eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 				)
 				.where(eq(knowledgeItems.updatedBy, agentUpdatedBy))
 				.limit(1);

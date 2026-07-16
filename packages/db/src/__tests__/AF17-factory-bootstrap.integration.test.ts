@@ -119,7 +119,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 
 		const rows = await queryRows<{ knowledge_item_id: string; layer: string; kind: string }>(
 			db,
-			"SELECT knowledge_item_id, layer, kind FROM knowledge_strategy_fabric WHERE knowledge_item_id = 'seed-ki-1'",
+			"SELECT knowledge_item_id, layer, kind FROM knowledge_app_projection WHERE knowledge_item_id = 'seed-ki-1'",
 		);
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.layer).toBe("L4");

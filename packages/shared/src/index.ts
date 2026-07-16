@@ -1,4 +1,13 @@
 // ── AV3: Scope bucket label helper (SSOT — used by server + web) ──
+
+// ── AU19 §11 (AC-9): cross-Layer AgentWorkIntentRecorder/Reader seam ──
+export type {
+	AgentWorkIntentReader,
+	AgentWorkIntentRecord,
+	AgentWorkIntentRecorder,
+	AgentWorkIntentRecorderInput,
+	AgentWorkIntentRecorderKind,
+} from "./agent-work-intent-recorder.js";
 export { scopeKindToLabel } from "./scope-labels.js";
 
 // ── AK3: Bet decomposition types + constants ──
@@ -50,6 +59,11 @@ export {
 } from "./agent-roles.js";
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
+// ── AU19 Increment 4: artifactPreviewSchema (reclassified from
+// packages/server/src/schemas/artifact-preview.ts — zero server-specific
+// dependency, needed by both routes/artifacts.ts (core-api) and
+// create-artifact.ts (agent-orchestration/tool-handlers)) ──
+export { artifactPreviewSchema, fallbackPreviewSchema } from "./artifact-preview.js";
 // ── S1: Per-user auth types ──
 export type { InviteRole } from "./auth.js";
 export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
@@ -85,6 +99,9 @@ export {
 	normalisedPayload,
 	slug,
 } from "./blocks/index.js";
+// ── AU19 Increment 1f: built-in tool catalog (moved from packages/server/src/config) ──
+export type { ToolCatalogEntry } from "./builtin-tool-catalog.js";
+export { BUILTIN_TOOL_CATALOG } from "./builtin-tool-catalog.js";
 export type {
 	ConfigurationKind,
 	ConfigurationOrigin,
@@ -115,7 +132,12 @@ export {
 	isHeldAuthSource,
 } from "./connection.js";
 // ── Credential catalog (P3) ──
-export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
+export type {
+	CredentialCatalogEntry,
+	CredentialName,
+	CredentialResolver,
+	CredentialState,
+} from "./credential.js";
 export {
 	CREDENTIAL_CATALOG,
 	CREDENTIAL_NAMES,
@@ -126,8 +148,10 @@ export {
 	ActiveRoutinesError,
 	ASSISTANT_TURN_TIMEOUT_MS,
 	CapacityExceededError,
+	CassetteMissError,
 	ConcurrencyLimitError,
 	CostCapExceededError,
+	HttpError,
 	InvalidTransitionError,
 	MissingCredentialError,
 	NoEligibleHarnessError,
@@ -164,7 +188,10 @@ export type {
 	ProposedCallExecutedEvent,
 	ProposedCallGrantedEvent,
 	RoutineFiredEvent,
+	SandboxWritebackChange,
+	SandboxWritebackChangesDetectedEvent,
 	SessionEndedEvent,
+	SessionHandoffCompletedEvent,
 	SessionNotReturnedEvent,
 	SessionOutcome,
 	SessionStartedEvent,
@@ -224,7 +251,12 @@ export {
 	relativeShort,
 	TIME_PLACEHOLDER,
 } from "./format/time.js";
+// ── AU19 Increment 4: harness-registry's EnforcementRegistry (crosses the
+// harness-registry ↔ mcp-provider ↔ tool-provider intra-execution boundary) ──
+export type { EnforcementEntry, EnforcementRegistry } from "./harness/enforcement-registry.js";
 export type {
+	AdapterInfo,
+	AdapterMeta,
 	CapturedToolCall,
 	CompletionEvent,
 	ConversationMessage,
@@ -293,6 +325,14 @@ export {
 	RETURN_ACTION_NAMES,
 	shouldForceReturn,
 } from "./harness/index.js";
+// ── AU19 §7.4: HarnessPort — the one genuine cross-process seam ──
+export type {
+	AdmittedRun,
+	HarnessPort,
+	HarnessPortDeps,
+	HarnessRunOutput,
+	RunContextBundle,
+} from "./harness-port.js";
 // ── Hint catalog (P5) ──
 export type { HintCatalogEntry, HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
@@ -352,6 +392,7 @@ export type {
 	ResolvedModel,
 } from "./model-gateway.js";
 export {
+	BUILT_IN_GATEWAY_CONFIG,
 	catalogEntry,
 	DEFAULT_AGENT_HARNESS,
 	DEFAULT_AGENT_MODEL_ID,
@@ -529,6 +570,33 @@ export {
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
 } from "./thread.js";
+// ── AU19 Increment 4 (§7.5 C1): tool-provider/tool-handlers cross-boundary types ──
+export type {
+	AssistantToolResult,
+	AssistantToolShape,
+	BuildToolRegistryOptions,
+	ClaudeToolSpec,
+	ProposedCallWorkflowPort,
+	RegisteredTool,
+	RegistrySessionWorkflow,
+	ToolContext,
+	ToolDefinition,
+	ToolHandler,
+	ToolRegistry,
+	ToolResult,
+} from "./tool.js";
+export {
+	canonicalJson,
+	classifyReversibility,
+	composeWorkflowAllowDeny,
+	err,
+	identityHash,
+	ok,
+	toClaudeToolSpec,
+	toolsForRole,
+	toRegistered,
+	wrapForRegistry,
+} from "./tool.js";
 export { decode, decodeTyped, encode, encodeTyped } from "./toon-codec.js";
 export { ToonParseError } from "./toon-errors.js";
 export type {
@@ -619,3 +687,6 @@ export {
 	TASK_STATES,
 	USER_KINDS,
 } from "./types.js";
+
+// -- validate-env (AU19 Increment 5: relocated from packages/server per §5 — Application boot util) --
+export { LAPTOP_DEV_API_KEY, validateStartupEnv } from "./validate-env.js";

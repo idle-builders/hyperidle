@@ -15,8 +15,10 @@
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { basename, join } from "node:path";
 
-const ROUTES_DIR = "packages/server/src/routes";
-const ROUTE_TESTS_DIR = "packages/server/src/routes/__tests__";
+// @lore AU19 Increment 5 item 5: repointed from the dissolved packages/server
+// (commit cee027ab) — routes now live under packages/core-api.
+const ROUTES_DIR = "packages/core-api/src/routes";
+const ROUTE_TESTS_DIR = "packages/core-api/src/routes/__tests__";
 const E2E_DIR = "packages/web/e2e";
 const ROUTER_FILE = "packages/web/src/router.tsx";
 

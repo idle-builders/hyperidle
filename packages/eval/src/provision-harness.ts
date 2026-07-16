@@ -13,13 +13,15 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { provisionSession } from "@hyperidle/core-api/services/session-lifecycle-bindings";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { AdapterPool } from "@hyperidle/server/harness/adapter-pool";
-import { BuiltinHarnessAdapter } from "@hyperidle/server/harness/builtin-harness-adapter";
-import { CliHarnessAdapter } from "@hyperidle/server/harness/cli-harness-adapter";
-import { callLlm } from "@hyperidle/server/harness/llm-client";
-import { LocalSandboxAdapter } from "@hyperidle/server/harness/local-sandbox-adapter";
-import { provisionSession } from "@hyperidle/server/services/session-provisioning";
+import {
+	AdapterPool,
+	BuiltinHarnessAdapter,
+	CliHarnessAdapter,
+	callLlm,
+	LocalSandboxAdapter,
+} from "@hyperidle/harness-registry";
 import type {
 	EventBus,
 	HarnessAdapter,

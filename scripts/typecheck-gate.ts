@@ -68,23 +68,60 @@ const REFERENCE_NOISE_CODES: ReadonlySet<string> = new Set([
 const DEBT_FILE = "typecheck-debt.json";
 const MAX_ERROR_LINES = 10;
 
-// Matches: packages/<name>/path/to/file.ts(line,col): error TS1234: message
-// or:      packages/<name>/path/to/file.ts:line:col - error TS1234: message
-const ERROR_LINE_RE = /^(packages\/([^/]+)\/[^:]+)[:(].*\berror (TS\d+)\b/;
+// Matches: packages/<path...>/file.ts(line,col): error TS1234: message
+// or:      packages/<path...>/file.ts:line:col - error TS1234: message
+// Group 1 = full repo-relative path; group 2 = TS error code. The owning
+// package is resolved by longest-prefix match (AU19: nested Layer/Service
+// packages share a top-level segment, so a bare first-segment match would
+// mis-attribute a Service's error to its Layer).
+const ERROR_LINE_RE = /^(packages\/[^:]+)[:(].*\berror (TS\d+)\b/;
 
 // -- Discovery --
 
+// @lore AU19: package discovery recurses ONE level so the nested Layer/Service
+// packages (`packages/<layer>/<service>/tsconfig.json`) are typechecked. Without
+// this, the nested Service packages are never `tsc`-checked and Mechanisms B/C
+// (execution + composition boundaries) go silently unenforced by `npm run check`
+// — the single biggest silent-failure risk the AU19 architecture flags (§9.2).
 function discoverPackages(root: string): string[] {
   const packagesDir = resolve(root, "packages");
-  const entries = readdirSync(packagesDir, { withFileTypes: true });
-  return entries
-    .filter(
-      (e) =>
-        e.isDirectory() &&
-        existsSync(resolve(packagesDir, e.name, "tsconfig.json")),
-    )
-    .map((e) => e.name)
-    .sort();
+  const found: string[] = [];
+  const topLevel = readdirSync(packagesDir, { withFileTypes: true }).filter(
+    (e) => e.isDirectory(),
+  );
+  for (const top of topLevel) {
+    if (existsSync(resolve(packagesDir, top.name, "tsconfig.json"))) {
+      found.push(top.name);
+    }
+    // Recurse one level: packages/<layer>/<service>/tsconfig.json
+    const nested = readdirSync(resolve(packagesDir, top.name), {
+      withFileTypes: true,
+    }).filter((e) => e.isDirectory());
+    for (const sub of nested) {
+      if (
+        existsSync(resolve(packagesDir, top.name, sub.name, "tsconfig.json"))
+      ) {
+        found.push(`${top.name}/${sub.name}`);
+      }
+    }
+  }
+  return found.sort();
+}
+
+/**
+ * Resolve which discovered package owns an error path via longest-prefix match.
+ * `packages/core-api/knowledge/src/x.ts` must attribute to `core-api/knowledge`,
+ * not `core-api`, so a Service error never counts against its Layer.
+ */
+function ownerOf(path: string, allPackages: readonly string[]): string | null {
+  let owner: string | null = null;
+  for (const pkg of allPackages) {
+    const prefix = `packages/${pkg}/`;
+    if (path.startsWith(prefix) && (owner === null || pkg.length > owner.length)) {
+      owner = pkg;
+    }
+  }
+  return owner;
 }
 
 // -- Debt file reading --
@@ -118,7 +155,11 @@ function readDebtFile(root: string): { excepted: Set<string>; raw: DebtFile } {
 
 // -- Per-package tsc runner --
 
-function runPackage(root: string, pkg: string): PackageResult {
+function runPackage(
+  root: string,
+  pkg: string,
+  allPackages: readonly string[],
+): PackageResult {
   const tsconfig = `packages/${pkg}/tsconfig.json`;
   let rawOutput = "";
   let exitCode = 0;
@@ -150,8 +191,9 @@ function runPackage(root: string, pkg: string): PackageResult {
     const m = ERROR_LINE_RE.exec(line);
     if (!m) continue;
     rawParsedCount++;
-    const linePkg = m[2]; // package directory name from path
-    const tsCode = m[3]; // e.g. "TS2322"
+    const linePath = m[1] ?? ""; // full repo-relative path
+    const tsCode = m[2] ?? ""; // e.g. "TS2322"
+    const linePkg = ownerOf(linePath, allPackages); // longest-prefix owner
     if (linePkg === pkg && !REFERENCE_NOISE_CODES.has(tsCode)) {
       ownErrorLines.push(line);
     }
@@ -249,7 +291,208 @@ function buildLeafDeclarations(root: string): void {
   // can't find SenderGroupedMessage / TagKindMeta and infers `any`/`unknown` for
   // callbacks, producing 5 spurious TS7006/TS18046 errors. Building design-system
   // declarations (which depend on shared) before the measurement loop fixes this.
-  for (const leaf of ["shared", "db", "design-system"]) {
+  //
+  // @lore AU19 Increment 1a: `core-api/knowledge` added — the exact same TS6305
+  // "output file has not been built" cascade hits `server` (its first real Service
+  // package dependency, replacing the old in-package `knowledge/` dir) without a
+  // pre-built dist: 12 spurious TS7031/TS7006/TS18046 errors across
+  // routes/knowledge.ts, server-factory.ts, context-assembly.ts, writeback.ts,
+  // query-practice.ts — confirmed by building `core-api/knowledge` in isolation
+  // and re-measuring `server`, which then drops to 0. Every future Increment that
+  // migrates a Service consumed by `server` (or another non-Layer package) will
+  // need the same addition here.
+  //
+  // @lore AU19 Increment 1b: `core-api/work` added — same TS6305 cascade hits
+  // `server` again (43+ consumer files across routes/tools/services now import
+  // `@hyperidle/work`) without a pre-built dist.
+  //
+  // @lore AU19 Increment 1c: `core-api/org` added — same TS6305 cascade;
+  // routes/tools/services now import `@hyperidle/org`.
+  //
+  // @lore AU19 Increment 1d: `core-api/users` added — same TS6305 cascade;
+  // ~30 routes/tools/services now import `@hyperidle/users`.
+  //
+  // @lore AU19 Increment 1e: `core-api/conversation` added — same TS6305
+  // cascade; ~27 routes/tools/services now import `@hyperidle/conversation`.
+  //
+  // @lore AU19 Increment 1f: `core-api/settings` added — same TS6305 cascade;
+  // ~25 routes/notifications/services/config files now import
+  // `@hyperidle/settings`.
+  //
+  // @lore AU19 Increment 1g: `core-api/notifications` added — same TS6305
+  // cascade; routes/services (retention-reaper, lifecycle-propagation,
+  // policy-engine)/app.ts/server-factory.ts now import `@hyperidle/notifications`.
+  //
+  // @lore AU19 Increment 1h: `core-api/connections` added — same TS6305
+  // cascade; routes/connections.ts, routes/credentials.ts, routes/filesystems.ts,
+  // harness/cli-harness-adapter.ts, services/model-gateway.ts,
+  // services/filesystem-reachability.ts, services/session-provisioning.ts,
+  // app.ts/server-factory.ts now import `@hyperidle/connections`.
+  //
+  // @lore AU19 Increment 1i: `core-api/routine` added — same TS6305 cascade;
+  // routes/routines-routes.ts, routes/teams-routes.ts, tools/create-routine.ts,
+  // tools/update-routine.ts, services/agent-lifecycle-projectors.ts,
+  // services/agent-work-intent-worker.ts, services/builtin-routine-handlers.ts,
+  // services/routine-scheduler.ts, services/routine-session-reaper.ts,
+  // services/session-context.ts, services/session-lifecycle.ts,
+  // services/session-provisioning.ts, server-factory.ts now import
+  // `@hyperidle/routine`.
+  //
+  // @lore AU19 Increment 1j: `core-api/review` added — closes Increment 1
+  // (the last unmigrated core-api SQL-owning Service). Same TS6305 cascade;
+  // routes/threads.ts, routes/reviews.ts, tools/score-attention.ts,
+  // services/builtin-routine-handlers.ts, server-factory.ts now import
+  // `@hyperidle/review`.
+  //
+  // @lore AU19 Increment 2a: `core-api/policy` added — same TS6305 cascade;
+  // routes/tasks.ts, routes/agent-profile.ts, tools/handoff-to.ts,
+  // services/policy-bindings.ts, server-factory.ts now import
+  // `@hyperidle/policy`.
+  //
+  // @lore AU19 Increment 2b: `core-api/filesystems` added — same TS6305
+  // cascade; routes/filesystems.ts, routes/knowledge.ts, app.ts,
+  // server-factory.ts, services/session-provisioning.ts,
+  // services/agent-context/assemble-context.ts,
+  // filesystem/__tests__/scaffolding-drift-guard.test.ts now import
+  // `@hyperidle/filesystems`.
+  //
+  // @lore AU19 Increment 2c: `core-api/git-export` added — same TS6305
+  // cascade; routes/git-export-routes.ts, routes/filesystems.ts,
+  // server-factory.ts, app.ts, and the git-export/filesystem-adapter
+  // integration test files now import `@hyperidle/git-export`. This closes
+  // `filesystems`' Increment-2b `FilesystemsGitRunner` forward-reference.
+  //
+  // @lore AU19 Increment 2d: `core-api/observability` added — same TS6305
+  // cascade; routes/observability-routes.ts, app.ts,
+  // services/session-provisioning.ts now import `@hyperidle/observability`.
+  //
+  // @lore AU19 Increment 2e: `core-api/model-gateway` added — same TS6305
+  // cascade; server-factory.ts, services/agent-work-assistant.ts, and
+  // packages/eval/src/runner.ts now import `@hyperidle/model-gateway`.
+  //
+  // @lore AU19 Increment 2f: `core-api/realtime` added — same TS6305
+  // cascade; server-factory.ts, routes/ws.ts, and
+  // ws-subscribe-authz.integration.test.ts now import `@hyperidle/realtime`.
+  //
+  // @lore AU19 Increment 2g: `core-api/retention` added — closes Increment 2
+  // (core-api non-SQL Services). Same TS6305 cascade; server-factory.ts and
+  // retention-reaper.integration.test.ts now import `@hyperidle/retention`.
+  //
+  // @lore AU19 Increment 3a: `agent-orchestration/trigger-resolution` added —
+  // same TS6305 cascade; services/agent-work-intent-worker.ts and
+  // __tests__/AR4b-formation-seam.test.ts /
+  // __tests__/trigger-resolution.integration.test.ts now import
+  // `@hyperidle/trigger-resolution`.
+  //
+  // @lore AU19 Increment 3b: `agent-orchestration/session-requests` added —
+  // same TS6305 cascade; server-factory.ts, session-requests-bindings.ts,
+  // and many other `packages/server` call sites now import
+  // `@hyperidle/session-requests`.
+  //
+  // @lore AU19 Increment 3c: `agent-orchestration/run-orchestration` added —
+  // same TS6305 cascade; agent-work-assistant.ts, session-requests-bindings.ts,
+  // server-factory.ts, and the new run-orchestration-bindings.ts now import
+  // `@hyperidle/run-orchestration`.
+  //
+  // @lore AU19 Increment 3d: `agent-orchestration/lifecycle-projection`
+  // added — same TS6305 cascade; server-factory.ts, session-requests-
+  // bindings.ts, and the new lifecycle-projection-bindings.ts now import
+  // `@hyperidle/lifecycle-projection`.
+  //
+  // @lore AU19 Increment 3e: `agent-orchestration/agent-selection` added —
+  // same TS6305 cascade; server-factory.ts, session-requests-bindings.ts,
+  // and many `packages/server` route/tool call sites now import
+  // `@hyperidle/agent-selection`.
+  //
+  // @lore AU19 Increment 3f: `agent-orchestration/capture-writeback` added —
+  // same TS6305 cascade; app.ts, routes/sessions-routes.ts, and
+  // server-factory.ts now import `@hyperidle/capture-writeback`.
+  //
+  // @lore AU19 Increment 3g: `agent-orchestration/cost` added — same TS6305
+  // cascade; server-factory.ts and the new cost-bindings.ts now import
+  // `@hyperidle/cost`.
+  //
+  // @lore AU19 Increment 3h: `agent-orchestration/dispatch` added — same
+  // TS6305 cascade; app.ts, server-factory.ts, routines.ts,
+  // tools/create-routine.ts, tools/create-team.ts, routes/routines-routes.ts,
+  // routes/dispatch-queue-routes.ts, routes/teams-routes.ts, and the new
+  // dispatch-bindings.ts now import `@hyperidle/dispatch`.
+  //
+  // @lore AU19 Increment 3i: `agent-orchestration/session-lifecycle` added —
+  // same TS6305 cascade; server-factory.ts, session.ts,
+  // routes/sessions-routes.ts, routes/tasks.ts, tools/handoff-to.ts,
+  // run-orchestration-bindings.ts, and the new session-lifecycle-bindings.ts
+  // now import `@hyperidle/session-lifecycle`.
+  //
+  // @lore AU19 Increment 3 (context-assembly finalize, closes Increment 3):
+  // `agent-orchestration/context-assembly` added — same TS6305 cascade; the
+  // new context-assembly-bindings.ts, session-lifecycle-bindings.ts,
+  // __tests__/R7-knowledge-e2e.integration.test.ts, and
+  // filesystem/__tests__/scaffolding-drift-guard.test.ts now import
+  // `@hyperidle/context-assembly`.
+  //
+  // @lore AU19 Increment 4: `agent-execution/harness-registry` finalized
+  // (was the Increment-0 single-file slice) — same TS6305 cascade; app.ts,
+  // session.ts, server-factory.ts, tools/return-status-tool.ts,
+  // services/{harness-capability-read-model,session-lifecycle-bindings,
+  // run-orchestration-bindings,dispatch-bindings,mcp-route}.ts, and dozens
+  // of __tests__/routes/__tests__ files now import
+  // `@hyperidle/harness-registry` (repointed from the deleted
+  // `packages/server/src/harness/*`). `agent-execution/mcp-provider` and
+  // `agent-execution/tool-provider` added the same increment for the same
+  // reason (mcp-route.ts + the tool-provider/tool-handlers split).
+  //
+  // @lore AU19 Increment 5 (item 2): `core-api` itself (the Layer package —
+  // `app.ts`/`server-factory.ts`/`routes/*`/`middleware/*`/`auth/*`/`schemas/*`,
+  // moved wholesale from the dissolved `packages/server`) added — same TS6305
+  // cascade; the new `packages/desktop/src/boot-server.ts`,
+  // `packages/remote-server/src/index.ts`, `packages/eval/src/{routines
+  // scenarios,provision-harness}.ts`, and `packages/web/scripts/ah{1,5,6}-
+  // test-server.ts`/`src/api/client.ts` now import `@hyperidle/core-api`
+  // (repointed from the deleted `@hyperidle/server`). `remote-server` and
+  // `remote-worker` added the same increment — `remote-server` is itself a
+  // leaf-consumed-by-nothing-else Application, but building its declarations
+  // here keeps its own measurement (below) deterministic the same way every
+  // other leaf's does; `remote-worker` is consumed by `packages/desktop`.
+  for (const leaf of [
+    "shared",
+    "db",
+    "design-system",
+    "core-api",
+    "core-api/knowledge",
+    "core-api/work",
+    "core-api/org",
+    "core-api/users",
+    "core-api/conversation",
+    "core-api/settings",
+    "core-api/notifications",
+    "core-api/connections",
+    "core-api/routine",
+    "core-api/review",
+    "core-api/policy",
+    "core-api/filesystems",
+    "core-api/git-export",
+    "core-api/observability",
+    "core-api/model-gateway",
+    "core-api/realtime",
+    "core-api/retention",
+    "agent-orchestration/trigger-resolution",
+    "agent-orchestration/session-requests",
+    "agent-orchestration/run-orchestration",
+    "agent-orchestration/lifecycle-projection",
+    "agent-orchestration/agent-selection",
+    "agent-orchestration/capture-writeback",
+    "agent-orchestration/cost",
+    "agent-orchestration/dispatch",
+    "agent-orchestration/session-lifecycle",
+    "agent-orchestration/context-assembly",
+    "agent-execution/harness-registry",
+    "agent-execution/mcp-provider",
+    "agent-execution/tool-provider",
+    "agent-orchestration/tool-handlers",
+    "remote-server",
+    "remote-worker",
+  ]) {
     try {
       execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
     } catch {
@@ -302,7 +545,7 @@ function main(): void {
   const results: PackageResult[] = [];
   for (const pkg of allPackages) {
     process.stderr.write(`  tsc ${pkg}...`);
-    const result = runPackage(root, pkg);
+    const result = runPackage(root, pkg, allPackages);
     result.excepted = excepted.has(pkg);
     results.push(result);
 

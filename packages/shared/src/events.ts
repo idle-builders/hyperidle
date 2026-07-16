@@ -99,6 +99,39 @@ export interface SessionEndedEvent {
 }
 
 /**
+ * @lore AU19 Increment 3g: §10.3 against-grain inversion for `policy ⚠ cost`
+ * (`handoff-protocol.ts`'s `releaseSessionDedup` call). Handoff deliberately
+ * does NOT emit `session_ended` (a handoff is not a cost-attribution outcome
+ * — see `handoff-protocol.ts`'s own comment on why), so `cost`'s
+ * `registerCostCapDedupReleaser` had no event to subscribe to for this path
+ * and `policy` called `releaseSessionDedup` directly via an interim
+ * `PolicyCostDedupReleaser` DI port instead (Increment 2a). Atomicity check
+ * (§10.3 amendment): the call is POST-COMMIT and touches only an in-memory
+ * `Map` — no DB write, no shared transaction an emit-after-commit split could
+ * endanger — the "common case" pure-inversion shape, same as
+ * `sandbox_writeback_changes_detected` (Increment 3f). Emitted by
+ * `handoff-protocol.ts`'s `buildHandoff`, post-commit, in the exact spot the
+ * direct `deps.cost.release(...)` call used to sit.
+ *
+ * @lore AU19 Increment 3i fix round: `requestedBy` carries the outgoing
+ * agent's id (`sessionContext.agentId`) so `session-lifecycle`'s
+ * `registerHandoffTerminationRequester` subscriber can pass it through to
+ * `requestAgentTermination`'s `terminationRequestedBy` write
+ * (`agent_session_requests.termination_requested_by`, `schema.ts`). Pre-
+ * migration `handoff-protocol.ts` passed `requestedBy: sessionContext.agentId`
+ * directly to the (then-synchronous) termination call; the EventBus inversion
+ * had silently dropped it since the event carried only `sessionId` — this
+ * field closes that gap so the inversion stays behavior-preserving.
+ */
+export interface SessionHandoffCompletedEvent {
+	type: "session_handoff_completed";
+	streamId: string;
+	sessionId: string;
+	requestedBy: string;
+	timestamp: number;
+}
+
+/**
  * AL6: Emitted by `runSession` (site A) when a task-session turn exhausts its
  * event stream without having invoked any member of the accepted-return set
  * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed (AC3).
@@ -226,6 +259,33 @@ export interface DependencyMetEvent {
 	streamId: string;
 	taskId: string;
 	dependencyId: string;
+	timestamp: number;
+}
+
+/** A single detected file-level writeback change (create/modify/delete). */
+export interface SandboxWritebackChange {
+	readonly type: "create" | "modify" | "delete";
+	readonly relativePath: string;
+	readonly fullPath: string;
+}
+
+/**
+ * @lore AU19 Increment 3f: §10.3 against-grain inversion for `filesystems ⚠
+ * capture-writeback` (§10.3 line 517's pure-inversion ruling). Emitted by
+ * `@hyperidle/filesystems`' `file-watcher.ts` debounced flush (previously a
+ * direct call to an injected `FilesystemsWritebackProcessor` port);
+ * `@hyperidle/capture-writeback`'s `registerCaptureWriteback` subscribes and
+ * drives `processWriteback` off the batch. See both packages' `@lore`
+ * comments (`file-watcher.ts`, `writeback-subscriber.ts`) for the full
+ * atomicity-check reasoning.
+ */
+export interface SandboxWritebackChangesDetectedEvent {
+	type: "sandbox_writeback_changes_detected";
+	streamId: string;
+	sessionId: string;
+	sandboxPath: string;
+	manifestPath: string;
+	changes: readonly SandboxWritebackChange[];
 	timestamp: number;
 }
 
@@ -499,6 +559,8 @@ export type KernelEvent =
 	| BetRevisedEvent
 	| SessionStartedEvent
 	| SessionEndedEvent
+	// AU19 Increment 3g: policy ⚠ cost EventBus inversion
+	| SessionHandoffCompletedEvent
 	// AL6: return-gate escape surface
 	| SessionNotReturnedEvent
 	| ThreadCreatedEvent
@@ -508,6 +570,8 @@ export type KernelEvent =
 	| ThreadArchivedEvent
 	| ItemCreatedEvent
 	| DependencyMetEvent
+	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
+	| SandboxWritebackChangesDetectedEvent
 	| KnowledgeCreatedEvent
 	| KnowledgeUpdatedEvent
 	| KnowledgeArchivedEvent

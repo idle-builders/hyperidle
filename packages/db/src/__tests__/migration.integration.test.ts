@@ -70,7 +70,7 @@ describe("A2: Migration", () => {
 
 	test("migrated database has kernel and fabric knowledge indexes", async ({ db }) => {
 		// @lore O2: layer, scope_id, kind indexes removed from knowledge_items kernel table.
-		// They now live on knowledge_strategy_fabric extension table.
+		// They now live on knowledge_app_projection extension table.
 		const kiResult = await db.execute(
 			`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_items' AND schemaname = 'public'` as Parameters<
 				typeof db.execute
@@ -85,7 +85,7 @@ describe("A2: Migration", () => {
 
 		// Strategy fabric table should have indexes too
 		const ksfResult = await db.execute(
-			`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_strategy_fabric' AND schemaname = 'public'` as Parameters<
+			`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_app_projection' AND schemaname = 'public'` as Parameters<
 				typeof db.execute
 			>[0],
 		);

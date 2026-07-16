@@ -175,8 +175,12 @@ const EXCLUDED_FILE_PATTERNS: string[] = [
 	"packages/db/src/__tests__/AK1-harness-vocab-guard.test.js",
 	// AK1 field-rename integration test — asserts that old field names are ABSENT in API responses.
 	// Contains old field names as strings in not.toHaveProperty() assertions.
-	"packages/server/src/routes/__tests__/AK1-renamed-fields.integration.test.ts",
-	"packages/server/src/routes/__tests__/AK1-renamed-fields.integration.test.js",
+	// @lore AU19 Increment 5 item 6: repathed from `packages/server/src/routes/__tests__/...`
+	// (stale — `packages/server` dissolved, see Increment 2/5) to its real post-dissolution
+	// home under `packages/core-api/src/routes/__tests__/...`. Same repath-don't-delete
+	// pattern as knip.json's stale packages/server entries fixed in Increment 5 item 5.
+	"packages/core-api/src/routes/__tests__/AK1-renamed-fields.integration.test.ts",
+	"packages/core-api/src/routes/__tests__/AK1-renamed-fields.integration.test.js",
 ];
 
 function isExcludedFile(relPath: string): boolean {

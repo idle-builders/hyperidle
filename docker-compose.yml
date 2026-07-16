@@ -39,6 +39,15 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # @lore HYPERIDLE_PROFILE is NOT dead here despite server-factory no
+      # longer branching on it for adapter selection (AU19 Increment 5 item 2
+      # made CreateServerDeps.adapterPool/workspaceAdapter required, injected
+      # by remote-server's own bootstrap instead). It is still load-bearing:
+      # @hyperidle/shared's validateStartupEnv (called by remote-server's
+      # src/index.ts) branches on it to REQUIRE an explicit HYPERIDLE_API_KEY
+      # on vps/cloud profiles rather than silently falling back to the
+      # laptop-dev default key — a real security behavior for a
+      # network-exposed deployment, not dead code.
       HYPERIDLE_PROFILE: vps
       # @lore Interpolated from POSTGRES_* so setting POSTGRES_PASSWORD in
       # .env actually takes effect. Previously hard-coded to hyperidle:hyperidle
@@ -51,7 +60,13 @@ services:
     # Hono dev server directly.
     ports:
       - "127.0.0.1:3001:3001"
-    command: ["npm", "run", "-w", "@hyperidle/server", "dev"]
+    # @lore AU19 Increment 5 item 2: repointed from the retired @hyperidle/server
+    # to @hyperidle/remote-server, the real thin Application entrypoint for this
+    # deployment profile — it injects an empty AdapterPool + DisabledSandboxAdapter
+    # itself (no local sandbox) rather than server-factory branching on
+    # HYPERIDLE_PROFILE internally (that internal default no longer exists;
+    # CreateServerDeps.adapterPool/workspaceAdapter are now required).
+    command: ["npm", "run", "-w", "@hyperidle/remote-server", "dev"]
 
   web:
     build:

@@ -66,3 +66,21 @@ export const CREDENTIAL_CATALOG: readonly CredentialCatalogEntry[] = [
 export function isCredentialName(name: string): name is CredentialName {
 	return (CREDENTIAL_NAMES as readonly string[]).includes(name);
 }
+
+/**
+ * Resolves a credential value by name.
+ *
+ * @lore AU19 Increment 4: reclassified from `packages/core-api/connections/src/
+ * credential-resolver.ts` to `@hyperidle/shared` — `harness-registry`'s
+ * `cli-harness-adapter.ts` (agent-execution) accepts an injected
+ * `CredentialResolver` (never mutating `process.env` directly, P3 Decision 4)
+ * but Mechanism B forbids an execution Service depending on `@hyperidle/connections`
+ * (a core-api domain Service), even for a type-only reference. `connections`
+ * stays the sole owner of the concrete `EnvCredentialResolver`/
+ * `DbCredentialResolver` implementations and re-exports this interface
+ * unchanged — same cross-boundary-type-lives-in-shared idiom as `HttpError`/
+ * `CassetteMissError` (Increment 3h).
+ */
+export interface CredentialResolver {
+	resolve(name: CredentialName): Promise<string | null>;
+}

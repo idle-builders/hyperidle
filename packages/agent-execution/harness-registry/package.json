@@ -1,0 +1,22 @@
+{
+	"name": "@hyperidle/harness-registry",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./llm-client": "./src/llm-client.ts",
+		"./test-utils": "./src/__tests__/require-harness.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@hyperidle/shared": "*"
+	},
+	"devDependencies": {
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"zod": "^4.3.6"
+	}
+}

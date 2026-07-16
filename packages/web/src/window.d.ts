@@ -7,7 +7,7 @@
 
 /**
  * S4: Worker status snapshot exposed via IPC bridge.
- * Kept in sync with WorkerStatus in packages/desktop/src/desktop-worker-client.ts.
+ * Kept in sync with WorkerStatus in packages/remote-worker/src/remote-worker-client.ts.
  */
 interface WorkerStatus {
 	enabled: boolean;
