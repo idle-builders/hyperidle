@@ -217,6 +217,182 @@ inversions below for the full list. `knowledge → git-export` (a second, EventB
 `git-export`'s DI read of `knowledge`) is omitted from the diagram to avoid a visual cycle between two
 boxes that are otherwise a clean one-directional DI edge — noted in prose instead.
 
+## Per-layer graphs (intra-layer connections only)
+
+Addendum, 2026-07-16: the combined graph above answers "who talks to whom." These three answer a
+different question — "how much do Services within one Layer actually talk to each other, versus
+reaching out." **The honest count: 31 edges inside `core-api`, 12 inside `agent-orchestration`, 0
+inside `agent-execution` — versus 53 edges crossing Layer boundaries** (45 `agent-orchestration →
+core-api`, 3 `core-api → agent-orchestration` EventBus inversions, 5 `agent-orchestration →
+agent-execution`). Cross-Layer traffic is not a minority case — it is the majority of the system's
+real coupling. See the "Why so many cross-layer edges" discussion after the cross-layer list below.
+
+### `core-api` — 17 Services, 31 intra-layer edges
+
+```mermaid
+flowchart LR
+  work["work"]; org["org"]; users["users"]; conversation["conversation"]
+  knowledge["knowledge"]; review["review"]; settings["settings"]; notifications["notifications"]
+  connections["connections"]; routine["routine"]; filesystems["filesystems"]; policy["policy"]
+  gitexport["git-export"]; modelgateway["model-gateway"]; observability["observability"]
+  realtime["realtime"]; retention["retention"]
+
+  connections --> users
+  gitexport --> settings
+  gitexport --> knowledge
+  modelgateway --> connections
+  notifications --> settings
+  notifications --> users
+  notifications --> org
+  notifications --> work
+  notifications --> connections
+  observability --> settings
+  policy --> work
+  policy --> conversation
+  policy --> users
+  policy --> org
+  policy --> notifications
+  realtime --> conversation
+  realtime --> users
+  realtime --> org
+  realtime --> work
+  retention --> users
+  retention --> knowledge
+  retention --> notifications
+  review --> work
+  review --> conversation
+  review --> users
+  review --> org
+  settings --> routine
+  settings --> users
+  settings --> connections
+  filesystems --> work
+  filesystems --> connections
+```
+
+`work`, `org`, `users`, `conversation`, `knowledge`, `routine` receive edges but never originate one
+here — they're the leaf domain-data Services everything else in this Layer reads. `notifications`,
+`policy`, `review`, `realtime`, `retention`, `settings` are the ones actually reaching across to their
+siblings.
+
+### `agent-orchestration` — 11 Services, 12 intra-layer edges
+
+```mermaid
+flowchart LR
+  sessionrequests["session-requests"]; sessionlifecycle["session-lifecycle"]
+  runorchestration["run-orchestration"]; dispatch["dispatch"]; toolhandlers["tool-handlers"]
+  triggerresolution["trigger-resolution"]; agentselection["agent-selection"]; cost["cost"]
+  contextassembly["context-assembly"]; lifecycleprojection["lifecycle-projection"]
+  capturewriteback["capture-writeback"]
+
+  dispatch <--> toolhandlers
+  runorchestration <--> dispatch
+  runorchestration --> sessionrequests
+  runorchestration --> sessionlifecycle
+  sessionrequests --> lifecycleprojection
+  lifecycleprojection --> sessionrequests
+  dispatch --> sessionrequests
+  sessionlifecycle --> sessionrequests
+  sessionlifecycle --> cost
+  sessionlifecycle --> contextassembly
+  toolhandlers --> dispatch
+  toolhandlers --> agentselection
+```
+
+`trigger-resolution` and `capture-writeback` have **zero** intra-layer edges — both are pure
+consumers of `core-api` (trigger-resolution) or a pure EventBus subscriber with no outbound DI at all
+(capture-writeback). `session-requests` is the most-referenced node (4 inbound peer edges) — it's the
+central request queue every other orchestration Service eventually needs to write into.
+
+### `agent-execution` — 3 Services, 0 intra-layer edges
+
+```mermaid
+flowchart LR
+  harnessregistry["harness-registry"]
+  mcpprovider["mcp-provider"]
+  toolprovider["tool-provider"]
+```
+
+No edges — confirmed directly (each package's `package.json` depends only on `@hyperidle/shared`,
+and none has a `ports.ts` at all, meaning none declares an outbound dependency on anything). This is
+the one Layer where the "layers are isolated" intuition holds completely: these three Services don't
+know about each other, don't know about `core-api`, and don't know about `agent-orchestration` — they
+are only ever reached *from* orchestration, never the reverse, and never sideways.
+
+### `core-ui`
+
+A single package (`packages/web`), not decomposed into Services — nothing to graph internally.
+
+## Every connection crossing a Layer boundary (the full list)
+
+53 edges total. Format: `source Service (Layer)` → `target Service (Layer)` — mechanism.
+
+**`agent-orchestration` → `core-api`, 45 edges (ordinary downward DI, legal):**
+
+| Source | Targets |
+|---|---|
+| `agent-selection` | `users`, `org` |
+| `cost` | `org`, `settings`, `work` |
+| `context-assembly` | `knowledge`, `work`, `users`, `routine`, `filesystems`, `org` |
+| `dispatch` | `conversation`, `knowledge`, `model-gateway`, `review`, `routine`, `settings`, `users`, `work` |
+| `lifecycle-projection` | `routine`, `work` |
+| `session-lifecycle` | `connections`, `filesystems`, `routine`, `settings`, `users`, `work`, `observability` |
+| `session-requests` | `conversation`, `knowledge`, `org`, `review`, `routine`, `settings`, `users`, `work` |
+| `tool-handlers` | `conversation`, `knowledge`, `org`, `routine`, `users`, `work`, `review` |
+| `trigger-resolution` | `users`, `org` |
+
+**`core-api` → `agent-orchestration`, 3 edges (against-grain — the ONLY legal way to cross this
+direction is an EventBus inversion, zero exceptions):**
+
+| Source | Target | Event |
+|---|---|---|
+| `filesystems` | `capture-writeback` | `sandbox_writeback_changes_detected` |
+| `policy` | `cost` | `session_handoff_completed` |
+| `policy` | `session-lifecycle` | `session_handoff_completed` |
+
+**`agent-orchestration` → `agent-execution`, 5 edges (ordinary downward DI, legal):**
+
+| Source | Target |
+|---|---|
+| `session-lifecycle` | `harness-registry`, `mcp-provider`, `tool-provider` |
+| `dispatch` | `harness-registry` |
+| `run-orchestration` | `harness-registry` |
+
+**`core-ui` → `core-api`, 1 edge:** `web` → `core-api` (type-only Hono RPC client import — no runtime
+call, just shared response types).
+
+**One additional wiring-only case, not a Layer edge in the architectural sense:** the composition
+root (`packages/core-api/src/services/tool-provider-bindings.ts`) wires `review`'s functions
+(`captureProposedCall`/`consumeTailoredGrant`/`recordOutcome`) into one specific `agent-execution`
+tool implementation at boot. This is not `tool-provider` (the package) depending on `review` — it's
+the same composition root that wires everything else reaching across two Layers in one place to
+build a single tool's concrete behavior. Flagged here because it's easy to misread as a `core-api ↔
+agent-execution` edge if you only grep imports; it isn't one.
+
+### Why so many cross-layer edges, and is that a problem
+
+The 53 cross-layer edges are not evenly spread — `dispatch`, `session-requests`, and `tool-handlers`
+alone account for 23 of the 45 `agent-orchestration → core-api` edges (roughly half). That concentration
+matters: three Services are doing most of the reaching-out; the rest of the Layer is much more modest.
+
+This is the direct, honest answer to "how is that possible": the architecture's actual rule was never
+"Layers communicate through a small number of specified points." It was "a Service may reach
+downward into another Service only through a typed port, never a raw import or raw table access."
+That rule bounds *how* a crossing happens (auditable, swappable, no bypass) but does not bound *how
+many* Services get to cross, or how many targets each one reaches. Nothing in Mechanism C forbids
+`dispatch` from independently wiring to 8 different `core-api` Services — it only forbids it from
+doing so via a raw `@hyperidle/work` import or a direct `bets` table read.
+
+Whether that's actually a problem depends on what you want from "layers." If the goal was
+enforcement — no raw access, no accidental coupling, everything visible in one composition root — AU19
+delivered that with zero exceptions. If the goal is closer to the classical layered-architecture
+promise (a small, stable set of seams between subsystems), this graph does not deliver that: it's a
+densely-connected bipartite graph between two Layers, just a *typed* one. Reducing the touchpoint
+count (e.g. consolidating `dispatch`'s eight downward edges behind a narrower interface, or asking
+whether `dispatch`/`session-requests`/`tool-handlers` are doing too much) is a legitimate follow-up
+architecture question — but it's a *different* goal than AU19's (topology reduction vs. boundary
+enforcement), and AU19 never claimed to pursue it.
+
 ## EventBus edges (full list, including same-layer ones omitted from the diagram above)
 
 | Emitter | Event | Subscriber | Grain |
