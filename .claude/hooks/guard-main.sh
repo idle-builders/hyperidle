@@ -16,8 +16,15 @@ COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 LEAD=$(echo "$COMMAND" | head -1 | sed 's/[|;&].*//')
 
 # --- Guard 1: no worktree checkouts of main ---
+# Strip any "<remote>/main" occurrences (e.g. "origin/main") before checking for a
+# bare "main" token, so `git worktree add <path> -b <branch> origin/main` — the
+# mandated base-ref pattern — isn't false-flagged by the word-boundary match on
+# "main" inside "origin/main". BSD sed (macOS default) has no \b in -E mode, so
+# use bracket-expression boundaries instead: strip "<remote>/main" only when
+# followed by a non-word char or end-of-string, preserving that trailing char.
 if echo "$LEAD" | grep -qE '^\s*git\s+worktree\s+add\b'; then
-  if echo "$LEAD" | grep -qE '^\s*git\s+worktree\s+add\s+.*\bmain\b'; then
+  LEAD_NO_REMOTE_MAIN=$(echo "$LEAD" | sed -E 's#[A-Za-z0-9_.-]+/main([^A-Za-z0-9_]|$)#\1#g')
+  if echo "$LEAD_NO_REMOTE_MAIN" | grep -qE '^\s*git\s+worktree\s+add\s+.*\bmain\b'; then
     echo "BLOCKED: cannot check out 'main' in a worktree. Create a feature branch instead: git worktree add <path> -b <type>/<id>-<desc> origin/main"
     exit 2
   fi
