@@ -90,18 +90,31 @@
  * wiring to `@hyperidle/cost`'s real `createCostOps(...)`-bound
  * `checkCostCap` (via `packages/server/src/services/cost-bindings.ts`)
  * instead of the deleted `services/cost-cap.ts` flat module — mechanical,
- * zero behavior change. `AgentWorkIntentRecorder`/`AgentSelectionDefaults`
- * (the other two `work` §10.3 ports) are UNAFFECTED by this ruling — each
- * needs its own same-transaction-or-synchronous-read check when its own
- * target Service's EventBus-inversion item comes up; do not assume either
- * inherits `CostCapChecker`'s permanence.
+ * zero behavior change.
+ *
+ * @lore AU19 (closing ruling, 2026-07-16 — this was left open through
+ * Increments 3e/3g and never explicitly closed, unlike its two siblings;
+ * caught by a post-ship audit sweep) — `AgentWorkIntentRecorder` (→
+ * `session-requests`, real since Increment 3b) is **RULED PERMANENT**, not
+ * inverted. It is in fact the *strongest* case for permanence of all three
+ * `work` §10.3 ports, not merely an analogous one: `bet-decomposition.ts`
+ * calls `deps.workIntents.record(tx, {...})` **inside the same `db.transaction`**
+ * as `work.claimBetDecomposition(tx, betId)` — the literal same-transaction-write
+ * shape §10.3's amendment names first (`plans/AU19/architecture.md` line
+ * 528), the exact precedent this comment itself cited when ruling
+ * `policy`'s and `review`'s own `session-requests` ports permanent. An
+ * EventBus emit-after-commit would split the bet claim and the intent
+ * record into two transactions — a crash between them leaves a bet marked
+ * "claimed for decomposition" with no recorded intent anywhere, silently
+ * stuck forever. This port's shape is unchanged; only its permanence is
+ * now settled, matching `AgentSelectionDefaults`/`CostCapChecker` above.
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
 import type { EventBus, UserRole } from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
-// session-requests — AgentWorkIntentRecorder (§10.3 against-grain — Inc 3 rewires to EventBus)
+// session-requests — AgentWorkIntentRecorder (§10.3 against-grain — RULED PERMANENT, see top @lore)
 // ---------------------------------------------------------------------------
 
 /**

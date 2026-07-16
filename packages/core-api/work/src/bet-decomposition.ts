@@ -51,8 +51,12 @@ export interface BetDecompositionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	/**
-	 * Injected `agent-selection` Service port (Mechanism C — §10.3 against-grain,
-	 * interim DI port; Increment 3 rewires to an EventBus subscription).
+	 * Injected `agent-selection` Service port (Mechanism C — §10.3 against-grain).
+	 * RULED PERMANENT at Increment 3e's follow-up ruling: `selectOwner`/
+	 * `enumerateTeamCandidates`/`resolveDecompositionPlan` are synchronous
+	 * request/response calls this function consumes immediately to continue
+	 * decomposition — an EventBus emit cannot serve that. See `ports.ts`'s
+	 * top `@lore`.
 	 */
 	readonly agentSelection: AgentSelectionDefaults;
 	/**
@@ -75,8 +79,11 @@ export interface BetDecompositionDeps {
 	 */
 	readonly costCap: CostCapChecker;
 	/**
-	 * Injected `session-requests` Service port (Mechanism C — §10.3 against-grain,
-	 * interim DI port; Increment 3 rewires to an EventBus subscription).
+	 * Injected `session-requests` Service port (Mechanism C — §10.3 against-grain).
+	 * RULED PERMANENT (closing ruling, 2026-07-16): `record(tx, ...)` is called
+	 * inside the same `db.transaction` as `claimBetDecomposition` — the
+	 * literal same-transaction-write shape, the strongest case of the three
+	 * `work` §10.3 ports. See `ports.ts`'s top `@lore`.
 	 */
 	readonly workIntents: AgentWorkIntentRecorder;
 	/**
