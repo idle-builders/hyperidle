@@ -36,7 +36,7 @@ import {
 	SkeletonCard,
 	SkeletonList,
 } from "@hyperidle/design-system";
-import type { ArtifactFilterAxis, ArtifactQuery } from "@hyperidle/shared";
+import type { Artifact, ArtifactFilterAxis, ArtifactQuery } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
 import { useArtifacts } from "../hooks/useArtifacts.js";
@@ -172,7 +172,12 @@ export function ArtifactSection({
 
 	// ── Populated ─────────────────────────────────────────────────────────────
 
-	const { items, nextCursor } = data;
+	// TypeScript's Array.isArray signature is `(arg: any): arg is any[]`, so the
+	// guard above narrows data.items to any[]. The API contract is
+	// ArtifactPage.items: ReadonlyArray<Artifact> — restore it explicitly after
+	// the runtime guard so map callbacks infer Artifact, not any. (LG1 Phase 3)
+	const items = data.items as ReadonlyArray<Artifact>;
+	const { nextCursor } = data;
 
 	return (
 		<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
@@ -209,7 +214,10 @@ export function ArtifactSection({
 			{layout === "single" && (
 				// @lore L12 (B-4): items[0] access is guarded by the empty check above.
 				// If we reach this branch, items.length >= 1 is guaranteed.
-				<ArtifactPreview data={items[0]} />
+				// noUncheckedIndexedAccess adds | undefined to array[N] — the ! asserts the
+				// length guard above makes this defined. (LG1 Phase 3)
+				// biome-ignore lint/style/noNonNullAssertion: length guard above
+				<ArtifactPreview data={items[0]!} />
 			)}
 
 			{/* @lore AM5 T9 (was L12 B-3): wired via onViewAll callback (the /artifacts/:id route

@@ -93,7 +93,7 @@ export function CredentialsTab(): JSX.Element {
 				setLoadError(`Failed to load credentials (${res.status})`);
 				return;
 			}
-			const raw = await res.json();
+			const raw = (await res.json()) as unknown;
 			const data = Array.isArray(raw) ? (raw as CredentialStatus[]) : [];
 			setStatuses(data);
 			setLoadError(null);

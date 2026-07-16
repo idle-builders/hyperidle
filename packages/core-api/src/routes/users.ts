@@ -377,7 +377,7 @@ export function createUserRoutes(
 
 		const matched = inboxRows.filter((row) => {
 			try {
-				const parts = JSON.parse(row.participants);
+				const parts = JSON.parse(row.participants) as unknown;
 				return Array.isArray(parts) && parts.includes(userId);
 			} catch {
 				return false;

@@ -10,6 +10,12 @@
  */
 
 import type React from "react";
+// @lore LG1 Phase 3: static import replaces per-story require() calls.
+// The mock (globalThis.fetch = makeMockFetch(...)) only needs to be in place
+// before the component RENDERS (its useEffect fires fetch), not before the
+// module loads. ESM modules are cached — the component function is the same
+// reference; the mock window is set just before React renders it.
+import { SettingsHarnesses } from "./SettingsHarnesses.js";
 
 export default {
 	title: "SettingsHarnesses",
@@ -152,7 +158,6 @@ function makeMockFetch(
 export const Loading = (): React.JSX.Element => {
 	globalThis.fetch = makeMockFetch(null) as typeof fetch;
 
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -165,7 +170,6 @@ Loading.storyName = "Loading State";
 export const ErrorStory = (): React.JSX.Element => {
 	globalThis.fetch = makeMockFetch([], true) as typeof fetch;
 
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -178,7 +182,6 @@ ErrorStory.storyName = "Error State";
 export const Empty = (): React.JSX.Element => {
 	globalThis.fetch = makeMockFetch([]) as typeof fetch;
 
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -191,7 +194,6 @@ Empty.storyName = "Empty State";
 export const Populated = (): React.JSX.Element => {
 	globalThis.fetch = makeMockFetch(MOCK_DESCRIPTORS) as typeof fetch;
 
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -204,7 +206,6 @@ Populated.storyName = "Populated (5 backends)";
 export const WithDisabledRow = (): React.JSX.Element => {
 	globalThis.fetch = makeMockFetch(DESCRIPTORS_WITH_DISABLED) as typeof fetch;
 
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />

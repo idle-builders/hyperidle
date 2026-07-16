@@ -234,6 +234,14 @@ export default [
 	//
 	// Warn-level so the baseline does not break during the migration window;
 	// will promote to error once the remaining offenders are cleared.
+	//
+	// @lore LG1 Phase 2: projectService (typescript-eslint v6+) auto-discovers
+	// each package's own tsconfig.json without hardcoding paths. The three
+	// no-unsafe-* rules REQUIRE type information — without parserOptions.project
+	// or projectService they crash with "ERR requires type information" and were
+	// silently hidden by --quiet. tsconfigRootDir = import.meta.dirname (the
+	// repo root) gives projectService the anchor it needs to find tsconfig.json
+	// files via the monorepo's references graph.
 	{
 		files: ["packages/core-api/src/**/*.ts", "packages/web/src/**/*.{ts,tsx}"],
 		ignores: [
@@ -246,6 +254,10 @@ export default [
 		],
 		languageOptions: {
 			parser: tsParser,
+			parserOptions: {
+				projectService: true,
+				tsconfigRootDir: import.meta.dirname,
+			},
 		},
 		plugins: {
 			"@typescript-eslint": tseslint.plugin,

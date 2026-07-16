@@ -88,7 +88,7 @@ function rowToMessage(row: {
 }): Message {
 	const parsed = messageRowSchema.parse({
 		type: row.type as MessageType,
-		payload: JSON.parse(row.payload),
+		payload: JSON.parse(row.payload) as unknown,
 	});
 	const base = {
 		id: row.id,
