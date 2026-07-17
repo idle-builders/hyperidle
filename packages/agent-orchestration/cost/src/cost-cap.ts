@@ -126,31 +126,6 @@ function tryRecordDedupKey(
 }
 
 /**
- * Sum session costs for an agent.
- *
- * @lore O2: session cost columns (cost, costMinor, costCurrency) stripped from
- * the kernel sessions table as part of canonical/projection split. Cost is now
- * accumulated on users.costActual (integer minor units). This column is the
- * authoritative running total for an agent's spend within the current cycle.
- */
-async function getAgentSpend(deps: CostDeps, db: HyperIdleDb, agentId: string): Promise<number> {
-	const row = await deps.users.getUserById(db, agentId);
-	return row?.costActual ?? 0;
-}
-
-/**
- * Sum session costs for all users in a team.
- *
- * @lore O2: reads teamMembers.costActual, which is the running minor-unit total
- * accumulated across all users in the team for the current billing cycle.
- * @lore U1: teamId here refers to teamMembers.id (the membership group), not teams.id (domain entity).
- */
-async function getTeamSpend(deps: CostDeps, db: HyperIdleDb, teamId: string): Promise<number> {
-	const row = await deps.org.getTeamMembersById(db, teamId);
-	return row?.costActual ?? 0;
-}
-
-/**
  * Check if a new session is allowed given cost caps.
  * Checks agent -> team -> factory hierarchy, returning the first breach.
  *
@@ -178,7 +153,9 @@ export async function checkCostCap(
 	// L17: prefer costCapMinor (new column) over costCap (legacy)
 	const agentCap = agent.costCapMinor ?? agent.costCap;
 	if (agentCap != null) {
-		const agentSpend = await getAgentSpend(deps, db, params.agentId);
+		// @lore I0b: agent row already loaded above — read costActual directly
+		// instead of re-querying via the now-deleted getAgentSpend helper.
+		const agentSpend = agent.costActual ?? 0;
 		if (agentSpend >= agentCap) {
 			return {
 				allowed: false,
@@ -196,7 +173,9 @@ export async function checkCostCap(
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
-			const teamSpend = await getTeamSpend(deps, db, params.teamId);
+			// @lore I0b: team row already loaded above — read costActual directly
+			// instead of re-querying via the now-deleted getTeamSpend helper.
+			const teamSpend = team?.costActual ?? 0;
 			if (teamSpend >= teamCap) {
 				return {
 					allowed: false,
@@ -277,7 +256,9 @@ export async function recordCostAndCheck(
 
 	// Check agent cap
 	if (agentCap != null) {
-		const agentSpend = await getAgentSpend(deps, db, params.agentId);
+		// @lore I0b: agent row was fetched above (post-increment, the correct
+		// updated value). Read costActual directly — no second getUserById call.
+		const agentSpend = agent.costActual ?? 0;
 		await checkAndEmit(deps, db, eventBus, {
 			sessionId: params.sessionId,
 			capLevel: "agent",
@@ -298,7 +279,9 @@ export async function recordCostAndCheck(
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
-			const teamSpend = await getTeamSpend(deps, db, params.teamId);
+			// @lore I0b: team row was fetched above (post-increment, the correct
+			// updated value). Read costActual directly — no second getTeamMembersById call.
+			const teamSpend = team?.costActual ?? 0;
 			await checkAndEmit(deps, db, eventBus, {
 				sessionId: params.sessionId,
 				capLevel: "team",
