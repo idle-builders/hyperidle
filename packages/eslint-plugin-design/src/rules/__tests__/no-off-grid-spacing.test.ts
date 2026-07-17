@@ -16,6 +16,24 @@ ruleTester.run("no-off-grid-spacing", noOffGridSpacing, {
 			filename: "Foo.tsx",
 			code: 'const J = <div className="p-[6px] gap-[12px] mx-[24px]" />;',
 		},
+		// hearth-internal-padding directive: vertical button/input padding 7px and 10px exempt
+		{
+			filename: "Button.tsx",
+			code: '// hearth-internal-padding\nconst J = <button className="py-[7px] px-[12px]" />;',
+		},
+		{
+			filename: "Button.tsx",
+			code: '// hearth-internal-padding\nconst J = <button className="py-[10px] pt-[10px] pb-[7px]" />;',
+		},
+		// hearth-internal-padding directive: badge gap-[4px] and toggle gap-[2px] exempt
+		{
+			filename: "Badge.tsx",
+			code: '// hearth-internal-padding\nconst J = <span className="gap-[4px] px-[6px]" />;',
+		},
+		{
+			filename: "Toggle.tsx",
+			code: '// hearth-internal-padding\nconst J = <div className="gap-[2px]" />;',
+		},
 		{
 			filename: "Foo.tsx",
 			code: 'const J = <div className="p-[3px] gap-[9px] mx-[18px]" />;',
@@ -82,6 +100,24 @@ ruleTester.run("no-off-grid-spacing", noOffGridSpacing, {
 		{
 			filename: "Foo.tsx",
 			code: 'const J = <div className={cn("p-[5px]", "bg-surface-1")} />;',
+			errors: [{ messageId: "offGrid" }],
+		},
+		// hearth-internal-padding directive does NOT exempt horizontal padding (px-[7px])
+		{
+			filename: "Button.tsx",
+			code: '// hearth-internal-padding\nconst J = <button className="px-[7px]" />;',
+			errors: [{ messageId: "offGrid" }],
+		},
+		// hearth-internal-padding directive does NOT exempt gap-[4px] without the directive
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <span className="gap-[4px]" />;',
+			errors: [{ messageId: "offGrid" }],
+		},
+		// hearth-internal-padding directive does NOT exempt py-[7px] without the directive
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <button className="py-[7px]" />;',
 			errors: [{ messageId: "offGrid" }],
 		},
 	],

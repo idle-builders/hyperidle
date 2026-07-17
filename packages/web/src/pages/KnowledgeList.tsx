@@ -606,7 +606,7 @@ function KnowledgeListContent({
 									<kbd className="inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
 										j
 									</kbd>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)] ml-[3px]">
+									<kbd className="inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)] ml-[3px]">
 										k
 									</kbd>
 									&nbsp;navigate

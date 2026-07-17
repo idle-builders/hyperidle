@@ -35,12 +35,33 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
+		// When a file carries the `// hearth-internal-padding` file-level directive
+		// (AQ-001 component-internal exemption), suppress the specific off-grid values
+		// that are optically tuned rather than layout-grid values:
+		//   • vertical padding (py/pt/pb) at 7px and 10px — button/input optical tuning
+		//   • gap at 4px — badge sub-element gap
+		//   • gap at 2px — toggle label-stack gap
+		// Horizontal padding (px) and margin are never exempt — the directive only covers
+		// the two named exemption families in AQ-001.
+		const sourceText: string = (context.sourceCode as { text: string }).text;
+		const hasInternalPaddingDirective = sourceText.includes("hearth-internal-padding");
+
+		function isExemptInternalPadding(prop: string, dir: string | undefined, n: number): boolean {
+			if (!hasInternalPaddingDirective) return false;
+			// Vertical-only padding in buttons/inputs: py/pt/pb at 7px or 10px.
+			if (prop === "p" && (dir === "y" || dir === "t" || dir === "b") && (n === 7 || n === 10))
+				return true;
+			// Sub-element gaps in badges (4px) and toggle label stacks (2px).
+			if (prop === "gap" && dir === undefined && (n === 4 || n === 2)) return true;
+			return false;
+		}
+
 		function checkClassString(text: string, node: unknown): void {
 			const reportNode = node as Rule.Node;
 			for (const match of text.matchAll(ARBITRARY_SPACING)) {
-				const [cls, , , nStr] = match;
+				const [cls, prop, dir, nStr] = match;
 				const n = Number(nStr);
-				if (!SPACING_ALLOWLIST.has(n)) {
+				if (!SPACING_ALLOWLIST.has(n) && !isExemptInternalPadding(prop, dir, n)) {
 					context.report({
 						node: reportNode,
 						messageId: "offGrid",
