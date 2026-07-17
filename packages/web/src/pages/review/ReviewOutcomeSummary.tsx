@@ -132,7 +132,7 @@ function NeedsYouChip({
 			}}
 		>
 			<span
-				className="mt-[2px] inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[6px] py-[2px] text-[10px] font-[600] uppercase"
+				className="mt-[3px] inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[6px] py-[3px] text-[10px] font-[600] uppercase"
 				style={{
 					letterSpacing: "var(--tracking-caps-sm)",
 					background: isError ? "var(--status-error)" : "var(--surface-container)",
@@ -144,7 +144,7 @@ function NeedsYouChip({
 			<span className="min-w-0 flex-1 text-[13px] leading-[1.4] text-[var(--text-primary)]">
 				{item.detail}
 			</span>
-			<span className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] transition-opacity duration-[var(--motion-fast)] group-hover:text-[var(--accent-primary)]">
+			<span className="mt-[3px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] transition-opacity duration-[var(--motion-fast)] group-hover:text-[var(--accent-primary)]">
 				Jump ↓
 			</span>
 		</button>
@@ -166,7 +166,7 @@ function DoneRow({
 		>
 			<span
 				aria-hidden="true"
-				className="mt-[1px] inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[12px] font-[700]"
+				className="mt-[3px] inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[12px] font-[700]"
 				style={{
 					background: cond.met ? "var(--surface-container)" : "var(--status-error-dim)",
 					color: cond.met ? "var(--status-success)" : "var(--status-error)",
@@ -188,7 +188,7 @@ function DoneRow({
 				) : null}
 			</span>
 			{cond.met ? null : (
-				<span className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] group-hover:text-[var(--accent-primary)]">
+				<span className="mt-[3px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] group-hover:text-[var(--accent-primary)]">
 					Jump ↓
 				</span>
 			)}

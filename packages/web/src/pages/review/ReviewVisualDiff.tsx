@@ -1,3 +1,4 @@
+// hearth-internal-padding
 // AL1 review canvas #6 — ReviewVisualDiff: the visual before→after canvas.
 //
 // Proof family: visual before→after (Figma design frame vs the implemented screen).

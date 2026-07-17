@@ -148,7 +148,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	return (
 		<div
 			data-testid="recipient-picker"
-			className="flex flex-col gap-[8px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] border border-[var(--border-default)]"
+			className="flex flex-col gap-[9px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] border border-[var(--border-default)]"
 			onKeyDown={handleKeyDown}
 		>
 			{pickerState === "browsing" && (
@@ -160,17 +160,17 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 						onChange={setQuery}
 					/>
 					<div
-						className="flex flex-col gap-[2px] max-h-[320px] overflow-y-auto"
+						className="flex flex-col gap-[3px] max-h-[320px] overflow-y-auto"
 						role="listbox"
 						aria-label="Recipients"
 					>
 						{status === "loading" && (
-							<div className="py-[8px] text-center text-[var(--text-tertiary)] text-[13px]">
+							<div className="py-[9px] text-center text-[var(--text-tertiary)] text-[13px]">
 								Loading...
 							</div>
 						)}
 						{status === "ready" && filteredRecipients.length === 0 && (
-							<div className="py-[8px] text-center text-[var(--text-tertiary)] text-[13px]">
+							<div className="py-[9px] text-center text-[var(--text-tertiary)] text-[13px]">
 								No recipients found
 							</div>
 						)}
@@ -181,7 +181,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 									type="button"
 									role="option"
 									aria-selected={false}
-									className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-[var(--r-subtle)] text-left cursor-pointer bg-transparent border-none transition-[background] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] focus:outline-none focus:bg-[var(--surface-container)]"
+									className="flex items-center gap-[9px] px-[9px] py-[6px] rounded-[var(--r-subtle)] text-left cursor-pointer bg-transparent border-none transition-[background] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] focus:outline-none focus:bg-[var(--surface-container)]"
 									onClick={() => handleSelectRecipient(recipient)}
 								>
 									{/* AI5: shared Avatar primitive (initials now uppercased via deriveInitials). */}
@@ -197,7 +197,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 											</span>
 											{recipient.hasActiveSession && (
 												<span
-													className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-primary)] text-[10px] font-medium uppercase tracking-[0.05em]"
+													className="inline-flex items-center gap-[3px] px-[6px] py-[3px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-primary)] text-[10px] font-medium uppercase tracking-[0.05em]"
 													aria-label="Live session"
 												>
 													<span className="w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse" />
@@ -218,7 +218,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 
 			{(pickerState === "selected" || pickerState === "sending") && selected && (
 				<>
-					<div className="flex items-center gap-[8px] mb-[4px]">
+					<div className="flex items-center gap-[9px] mb-[3px]">
 						{/* AI5: shared Avatar primitive. */}
 						<Avatar initials={deriveInitials(selected.name)} size="sm" className="flex-shrink-0" />
 						<span className="text-[13px] text-[var(--text-primary)] font-medium">
@@ -238,7 +238,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 					</div>
 					<textarea
 						ref={messageRef}
-						className="w-full min-h-[80px] p-[8px] bg-[var(--surface-elevated)] border border-[var(--border-default)] rounded-[var(--r-subtle)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:border-[var(--accent-primary)] transition-[border-color] duration-[var(--motion-fast)]"
+						className="w-full min-h-[80px] p-[9px] bg-[var(--surface-elevated)] border border-[var(--border-default)] rounded-[var(--r-subtle)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:border-[var(--accent-primary)] transition-[border-color] duration-[var(--motion-fast)]"
 						placeholder="Type a message..."
 						value={message}
 						onChange={(e) => setMessage(e.target.value)}
@@ -250,7 +250,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 							{sendError}
 						</p>
 					)}
-					<div className="flex justify-end gap-[8px]">
+					<div className="flex justify-end gap-[9px]">
 						<button
 							type="button"
 							className="btn btn-sm btn-ghost text-[var(--text-tertiary)]"

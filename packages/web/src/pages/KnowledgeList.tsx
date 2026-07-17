@@ -603,7 +603,7 @@ function KnowledgeListContent({
 								className="flex items-center gap-[12px] px-[24px] py-[9px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-tertiary)]"
 							>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
 										j
 									</kbd>
 									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)] ml-[3px]">
@@ -612,19 +612,19 @@ function KnowledgeListContent({
 									&nbsp;navigate
 								</span>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
 										Enter
 									</kbd>
 									&nbsp;open
 								</span>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
 										v
 									</kbd>
 									&nbsp;validate
 								</span>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
 										x
 									</kbd>
 									&nbsp;reject

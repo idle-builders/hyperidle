@@ -143,7 +143,7 @@ function SessionRow({ id, title, agent, status, cost }: TaskSession): JSX.Elemen
 		>
 			<div className="flex-1 min-w-0">
 				<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">{title}</div>
-				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">{agent}</div>
+				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[3px]">{agent}</div>
 			</div>
 			{cost !== null && (
 				<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">

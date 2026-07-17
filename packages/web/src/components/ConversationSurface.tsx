@@ -177,7 +177,7 @@ function ConversationHeader({
 			<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-						<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
+						<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[3px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
 							{header.hostKind}
 						</span>
 						<span className="text-[var(--text-tertiary)]">·</span>

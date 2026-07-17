@@ -1,3 +1,4 @@
+// hearth-internal-padding
 // AL1 #7 — ReviewCodeDiff: the code-diff review canvas (the must-win family —
 // AI tooling is strongest in code, so this one has to be excellent).
 //
@@ -312,7 +313,7 @@ function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element
 				{checks.map((c) => (
 					<span
 						key={c.label}
-						className="inline-flex items-center gap-[4px] text-[12px] text-[var(--text-secondary)]"
+						className="inline-flex items-center gap-[3px] text-[12px] text-[var(--text-secondary)]"
 					>
 						<span className="text-[var(--status-success)]">
 							<CheckGlyph />
@@ -466,7 +467,7 @@ function FileDiff({
 		return (
 			<Fragment key={`below:${ref.hunkIndex}:${ref.lineIndex}`}>
 				{composerOpen ? (
-					<div className="flex gap-[12px] pl-[88px] pr-[12px] py-[9px]">
+					<div className="flex gap-[12px] pl-[48px] pr-[12px] py-[9px]">
 						<div className="flex flex-col items-center gap-0">
 							<div className="w-[var(--bw-default)] h-[18px] bg-[var(--border-strong)]" />
 							<div className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]" />
@@ -482,7 +483,7 @@ function FileDiff({
 					</div>
 				) : null}
 				{threadComments.length > 0 ? (
-					<div className="pl-[88px] pr-[12px] py-[9px]">
+					<div className="pl-[48px] pr-[12px] py-[9px]">
 						<AnchoredThreadCard
 							anchor={anchor}
 							comments={threadComments}
@@ -679,12 +680,12 @@ function ReviewCodeDiffView({
 				<div className="flex items-start gap-[12px]">
 					<div className="min-w-0 flex-1">
 						<div className="flex items-center gap-[9px] text-[12px] text-[var(--text-tertiary)]">
-							<span className="inline-flex items-center gap-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[2px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-success)]">
+							<span className="inline-flex items-center gap-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-success)]">
 								Open
 							</span>
 						</div>
 					</div>
-					<div className="shrink-0 pt-[2px]">
+					<div className="shrink-0 pt-[3px]">
 						<ChangeBadge added={totalAdded} removed={totalRemoved} />
 					</div>
 				</div>

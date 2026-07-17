@@ -1,3 +1,4 @@
+// hearth-internal-padding
 /**
  * AM1 — ReviewRequestPart: a COMPACT reference into the review experience.
  *
@@ -31,7 +32,7 @@ export function ReviewRequestPart({
 				<span
 					aria-label="Review request"
 					title="Review request"
-					className="mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+					className="mt-[3px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
 				>
 					<svg
 						viewBox="0 0 16 16"
@@ -52,9 +53,9 @@ export function ReviewRequestPart({
 				</div>
 			</div>
 			{part.changeSet !== null && (
-				<div className="pl-[29px]">{renderEmbed(part.changeSet, "changeset", onOpen)}</div>
+				<div className="pl-[24px]">{renderEmbed(part.changeSet, "changeset", onOpen)}</div>
 			)}
-			<div className="pl-[29px]">
+			<div className="pl-[24px]">
 				<button
 					type="button"
 					onClick={() => onOpen({ route: "review", ...part.reviewTarget })}

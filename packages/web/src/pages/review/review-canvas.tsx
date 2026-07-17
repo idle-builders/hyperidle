@@ -172,11 +172,11 @@ export function AnchoredThreadCard({
 					{anchor.spotLabel ?? "anchor"}
 				</span>
 				{orphan ? (
-					<span className="ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] text-[var(--text-tertiary)]">
+					<span className="ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[3px] text-[10px] text-[var(--text-tertiary)]">
 						source changed
 					</span>
 				) : readOnly ? (
-					<span className="ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] text-[var(--text-tertiary)]">
+					<span className="ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[3px] text-[10px] text-[var(--text-tertiary)]">
 						resolved
 					</span>
 				) : null}

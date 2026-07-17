@@ -1,3 +1,4 @@
+// hearth-internal-padding
 // AL1 review canvas #4 — rendered-in-context.
 //
 // Proof family: an asset shown AS its recipient sees it. Fixture: a Mailchimp
@@ -365,7 +366,7 @@ function ReviewRenderedInContextView({
 						<button
 							type="button"
 							onClick={() => setComposerOpen((o) => !o)}
-							className="rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-on-accent)]"
+							className="rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[9px] py-[6px] text-[12px] font-[500] text-[var(--text-on-accent)]"
 						>
 							{composerOpen ? "Cancel" : "Comment on body"}
 						</button>

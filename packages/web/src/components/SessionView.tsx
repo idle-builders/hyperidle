@@ -156,7 +156,7 @@ function QueuedBubble({
 					<span className="text-[13px] font-[600] text-[var(--text-secondary)]">
 						{msg.author.name}
 					</span>
-					<span className="inline-flex items-center gap-[4px] text-[11px] text-[var(--text-tertiary)]">
+					<span className="inline-flex items-center gap-[3px] text-[11px] text-[var(--text-tertiary)]">
 						<svg
 							viewBox="0 0 16 16"
 							className="h-[11px] w-[11px] shrink-0"
@@ -786,7 +786,7 @@ export function SessionView({
 				<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 					<div className="min-w-0 flex-1">
 						<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-							<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
+							<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[3px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
 								{running && (
 									<span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
 								)}

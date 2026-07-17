@@ -1543,7 +1543,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												<div className="text-[15px] text-[var(--text-primary)] truncate">
 													{task.title}
 												</div>
-												<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">
+												<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[3px]">
 													{metaParts.join(" · ")}
 												</div>
 											</div>

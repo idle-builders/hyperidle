@@ -1,3 +1,4 @@
+// hearth-internal-padding
 import { Composer, SplitView } from "@hyperidle/design-system";
 import { type AnchorRef, type VerdictDecision, verdictDecisionLabel } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
@@ -141,7 +142,7 @@ function Verdict({
 				disabled={resolved}
 				onClick={() => onSubmit("approve")}
 				aria-pressed={activeDecision === "approve"}
-				className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[14px] py-[7px] text-[13px] font-[600] text-white transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+				className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[12px] py-[7px] text-[13px] font-[600] text-white transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				<CheckGlyph />
 				Approve
@@ -256,7 +257,7 @@ function TaskSection({ subject }: { readonly subject: ComposedReviewSubject }): 
 	return (
 		<section>
 			<SectionHead label="The task" />
-			<div className="rounded-[var(--r-subtle)] border-l-[3px] border-[var(--border-default)] bg-[var(--surface-container)] px-[14px] py-[12px]">
+			<div className="rounded-[var(--r-subtle)] border-l-[3px] border-[var(--border-default)] bg-[var(--surface-container)] px-[12px] py-[12px]">
 				<p className="max-w-[72ch] text-[14px] italic leading-[1.55] text-[var(--text-secondary)]">
 					“{s.prompt}”
 				</p>
@@ -323,7 +324,7 @@ function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element
 					{isAfter ? "After" : "Before"}
 				</span>
 				<span
-					className="inline-flex items-center gap-[4px] rounded-[var(--r-pill)] px-[6px] py-[2px] text-[10px] font-[600]"
+					className="inline-flex items-center gap-[4px] rounded-[var(--r-pill)] px-[6px] py-[3px] text-[10px] font-[600]"
 					style={{
 						color: isAfter ? "var(--status-success)" : "var(--status-error)",
 						background: `color-mix(in oklab, ${isAfter ? "var(--status-success)" : "var(--status-error)"} 14%, transparent)`,
@@ -462,7 +463,7 @@ function NeedsSection({
 								</span>
 							</span>
 							{target ? (
-								<span className="mt-[1px] shrink-0 whitespace-nowrap text-[12px] font-[500] text-[var(--accent-primary)]">
+								<span className="mt-[3px] shrink-0 whitespace-nowrap text-[12px] font-[500] text-[var(--accent-primary)]">
 									Jump →
 								</span>
 							) : null}
@@ -563,7 +564,7 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 						{comment.author}
 					</span>
 					{comment.authorIsAgent ? (
-						<span className="rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[1px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
+						<span className="rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
 							agent
 						</span>
 					) : null}
@@ -575,7 +576,7 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 						onClick={() => {
 							if (comment.anchor) onJumpToAnchor(comment.anchor);
 						}}
-						className="mt-[3px] inline-flex items-center gap-[4px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]"
+						className="mt-[3px] inline-flex items-center gap-[3px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[3px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]"
 						aria-label={comment.anchor ? `Go to anchor ${label}` : undefined}
 					>
 						<span className="text-[var(--text-tertiary)]">on</span>
@@ -655,7 +656,7 @@ function ExaminePane({
 					onClick={() => {
 						/* no-op */
 					}}
-					className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
+					className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] py-[6px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
 				>
 					Comment on this
 				</button>

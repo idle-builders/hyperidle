@@ -1,3 +1,4 @@
+// hearth-internal-padding
 // AL1 review canvas — browser preview (the LOW-fidelity end of the proof spectrum).
 //
 // Founder direction (human-design-review round 1): "not all stuff will be combined

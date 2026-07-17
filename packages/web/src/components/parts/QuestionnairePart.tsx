@@ -35,7 +35,7 @@ export function QuestionnairePart({ part }: { part: QuestionnairePartValue }): J
 				<span
 					aria-label="Quick ask"
 					title="Quick ask"
-					className="mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+					className="mt-[3px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
 				>
 					<svg
 						viewBox="0 0 16 16"
@@ -50,7 +50,7 @@ export function QuestionnairePart({ part }: { part: QuestionnairePartValue }): J
 					{part.question}
 				</p>
 			</div>
-			<ul className="m-0 mt-[12px] flex list-none flex-wrap items-center gap-[6px] p-0 pl-[29px]">
+			<ul className="m-0 mt-[12px] flex list-none flex-wrap items-center gap-[6px] p-0 pl-[24px]">
 				{part.options.map((option) => (
 					// DES-1: static, non-interactive option chip — NOT a button. Answering
 					// is not wired in AM1, so the options must not present a clickable

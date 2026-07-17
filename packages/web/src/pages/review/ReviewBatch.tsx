@@ -184,7 +184,7 @@ const FLAG_LABEL: Record<FlagKind, string> = {
 function FlagPill({ kind }: { readonly kind: FlagKind }): JSX.Element {
 	return (
 		<span
-			className="inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-[1.4] whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]"
+			className="inline-flex items-center gap-[6px] px-[9px] py-[3px] rounded-full text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-[1.4] whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]"
 			title={FLAG_LABEL[kind]}
 		>
 			<span className="h-[6px] w-[6px] rounded-full shrink-0 bg-[var(--status-error)]" />
@@ -260,7 +260,7 @@ function ReviewBatchView({
 		<div className="mx-auto max-w-[760px] w-full font-[family-name:var(--font-sans)] text-[var(--text-primary)]">
 			{/* L1 — the rollup */}
 			<section className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
-				<header className="flex items-start justify-between gap-[12px] px-[18px] pt-[15px] pb-[12px]">
+				<header className="flex items-start justify-between gap-[12px] px-[18px] pt-[18px] pb-[12px]">
 					<div className="flex flex-col gap-[3px] min-w-0">
 						<div className="flex items-center gap-[9px]">
 							<StatusChip status="behind" label={`${batch.needsYou} NEED YOU`} />
@@ -323,7 +323,7 @@ function ReviewBatchView({
 									type="button"
 									onClick={() => toggleItem(item.id)}
 									aria-expanded={open}
-									className="w-full flex items-center gap-[12px] px-[15px] py-[12px] text-left cursor-pointer hover:bg-[var(--surface-page)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
+									className="w-full flex items-center gap-[12px] px-[18px] py-[12px] text-left cursor-pointer hover:bg-[var(--surface-page)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
 								>
 									{/* left edge: priority index */}
 									<span className="flex items-center justify-center h-[22px] w-[22px] shrink-0 rounded-full bg-[color-mix(in_oklab,var(--status-error)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--status-error)]">
@@ -367,7 +367,7 @@ function ReviewBatchView({
 
 								{/* L3 — expanded context: customer's message + the drafted reply + per-item verdict */}
 								{open ? (
-									<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-page)] px-[15px] py-[15px] flex flex-col gap-[12px]">
+									<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[18px] flex flex-col gap-[12px]">
 										{/* the customer's last message */}
 										<div className="flex flex-col gap-[6px]">
 											<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
@@ -450,7 +450,7 @@ function ReviewBatchView({
 									type="button"
 									onClick={() => toggleGroup(g.id)}
 									aria-expanded={open}
-									className="w-full flex items-center gap-[12px] px-[15px] py-[9px] text-left cursor-pointer hover:bg-[var(--surface-page)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
+									className="w-full flex items-center gap-[12px] px-[18px] py-[9px] text-left cursor-pointer hover:bg-[var(--surface-page)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
 								>
 									<span className="flex items-center justify-center h-[22px] min-w-[22px] px-[6px] shrink-0 rounded-full bg-[color-mix(in_oklab,var(--text-tertiary)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--text-secondary)]">
 										{g.count}
@@ -474,7 +474,7 @@ function ReviewBatchView({
 									</span>
 								</button>
 								{open ? (
-									<div className="border-t border-[var(--border-subtle)] px-[15px] py-[12px] flex flex-wrap items-center gap-[6px]">
+									<div className="border-t border-[var(--border-subtle)] px-[18px] py-[12px] flex flex-wrap items-center gap-[6px]">
 										{g.sample.map((ref) => (
 											<span
 												key={ref}

@@ -1,3 +1,4 @@
+// hearth-internal-padding
 /**
  * WorkBetCreate — full-page bet create flow at /work/bet/new.
  *

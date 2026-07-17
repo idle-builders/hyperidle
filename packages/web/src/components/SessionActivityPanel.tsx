@@ -48,8 +48,8 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	if (entry.type === "tool_call") {
 		const { toolName, argsSummary } = entry.data;
 		return (
-			<div className="flex items-start gap-[8px] py-[6px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
-				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)]">
+			<div className="flex items-start gap-[9px] py-[6px] px-[9px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
+				<span className="flex-shrink-0 mt-[3px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)]">
 					<svg
 						viewBox="0 0 16 16"
 						fill="currentColor"
@@ -80,9 +80,9 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	if (entry.type === "reasoning") {
 		const { excerpt } = entry.data;
 		return (
-			<div className="flex items-start gap-[8px] py-[6px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
+			<div className="flex items-start gap-[9px] py-[6px] px-[9px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
 				{/* Q1 review issue #12: SVG icon instead of emoji 💭 */}
-				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)]">
+				<span className="flex-shrink-0 mt-[3px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)]">
 					<ReasoningIcon />
 				</span>
 				<p className="flex-1 text-[12px] text-[var(--text-secondary)] italic">{excerpt}</p>
@@ -102,7 +102,7 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 		// Defaults to "USD" (the only currency in use today — AF10 §2 tech-debt).
 		const cur = (currency || "USD") as import("@hyperidle/shared").CurrencyCode;
 		return (
-			<div className="flex items-center gap-[8px] py-[4px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
+			<div className="flex items-center gap-[9px] py-[3px] px-[9px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
 				<span className="text-[11px] text-[var(--text-tertiary)] tabular-nums">
 					+{formatMoney({ minor: deltaMinor, currency: cur })} / total{" "}
 					{formatMoney({ minor: totalMinor, currency: cur })}
@@ -184,7 +184,7 @@ export function SessionActivityPanel({
 			className="flex flex-col h-full bg-[var(--surface-container)] border-l border-[var(--border-subtle)]"
 		>
 			{/* Header */}
-			<div className="flex items-center gap-[8px] px-[12px] py-[10px] border-b border-[var(--border-subtle)] flex-shrink-0">
+			<div className="flex items-center gap-[9px] px-[12px] py-[9px] border-b border-[var(--border-subtle)] flex-shrink-0">
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-[6px]">
 						<span className="text-[13px] font-medium text-[var(--text-primary)] truncate">
@@ -193,7 +193,7 @@ export function SessionActivityPanel({
 						{isLive && (
 							<span
 								role="status"
-								className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-primary)] text-[10px] font-medium uppercase tracking-[0.05em]"
+								className="inline-flex items-center gap-[3px] px-[6px] py-[3px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-primary)] text-[10px] font-medium uppercase tracking-[0.05em]"
 								aria-label="Live session"
 							>
 								<span className="w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse" />
@@ -231,7 +231,7 @@ export function SessionActivityPanel({
 			</div>
 
 			{/* Q1 review issue #11: filter tabs — AI5: shared TabBar (underline). */}
-			<div className="flex-shrink-0 px-[8px] pt-[6px] pb-[2px] border-b border-[var(--border-subtle)]">
+			<div className="flex-shrink-0 px-[9px] pt-[6px] pb-[3px] border-b border-[var(--border-subtle)]">
 				<TabBar
 					variant="underline"
 					tabs={FILTER_TABS}
@@ -243,17 +243,17 @@ export function SessionActivityPanel({
 			{/* Activity stream */}
 			<div
 				ref={scrollRef}
-				className="flex-1 overflow-y-auto px-[4px] py-[4px]"
+				className="flex-1 overflow-y-auto px-[3px] py-[3px]"
 				onScroll={handleScroll}
 			>
 				{status === "connecting" && (
-					<div className="py-[16px] text-center text-[var(--text-tertiary)] text-[12px]">
+					<div className="py-[18px] text-center text-[var(--text-tertiary)] text-[12px]">
 						Connecting...
 					</div>
 				)}
 
 				{status === "error" && (
-					<div className="py-[16px] text-center text-[var(--status-error)] text-[12px]">
+					<div className="py-[18px] text-center text-[var(--status-error)] text-[12px]">
 						{error ?? "Failed to load activity"}
 					</div>
 				)}
@@ -274,7 +274,7 @@ export function SessionActivityPanel({
 
 				{/* Q1 review issue #10: scroll-to-bottom nudge when paused */}
 				{autoScrollPaused && entries.length > 0 && (
-					<div className="sticky bottom-0 flex justify-center pb-[4px]">
+					<div className="sticky bottom-0 flex justify-center pb-[3px]">
 						<button
 							type="button"
 							className="btn btn-xs btn-ghost text-[var(--text-tertiary)] text-[10px]"
@@ -293,7 +293,7 @@ export function SessionActivityPanel({
 
 			{/* Summary / footer */}
 			{status === "ended" && (
-				<div className="flex-shrink-0 px-[12px] py-[8px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-tertiary)]">
+				<div className="flex-shrink-0 px-[12px] py-[9px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-tertiary)]">
 					Session complete — {entries.length} events recorded
 				</div>
 			)}

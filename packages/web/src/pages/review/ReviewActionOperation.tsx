@@ -1,3 +1,4 @@
+// hearth-internal-padding
 // AL1 review canvas #3 — the action / operation canvas.
 //
 // Proof family: a staged, PRE-COMMIT *receipt* for an irreversible side-effect
@@ -164,7 +165,7 @@ function ReviewActionOperationView({
 							borderTop: i === 0 ? undefined : "1px solid var(--border-subtle)",
 						}}
 					>
-						<dt className="shrink-0 pt-[1px] text-[13px] text-[var(--text-tertiary)]">
+						<dt className="shrink-0 pt-[3px] text-[13px] text-[var(--text-tertiary)]">
 							{field.label}
 						</dt>
 						<dd className="min-w-0 text-right">
@@ -218,7 +219,7 @@ function ReviewActionOperationView({
 								>
 									<span
 										aria-hidden="true"
-										className="mt-[7px] h-[4px] w-[4px] shrink-0 rounded-full bg-[var(--text-tertiary)]"
+										className="mt-[6px] h-[4px] w-[4px] shrink-0 rounded-full bg-[var(--text-tertiary)]"
 									/>
 									<span>{item}</span>
 								</li>
@@ -327,7 +328,7 @@ function OutcomeBand({
 		>
 			<span
 				aria-hidden="true"
-				className="mt-[2px] flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full"
+				className="mt-[3px] flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full"
 				style={{ background: ok ? "var(--accent-primary)" : "var(--status-error)" }}
 			>
 				<svg width="9" height="9" viewBox="0 0 12 12" fill="none">
@@ -508,7 +509,7 @@ function ProposedCallArgsPanel({
 								borderTop: i === 0 ? undefined : "1px solid var(--border-subtle)",
 							}}
 						>
-							<dt className="shrink-0 pt-[1px] text-[13px] text-[var(--text-tertiary)]">{key}</dt>
+							<dt className="shrink-0 pt-[3px] text-[13px] text-[var(--text-tertiary)]">{key}</dt>
 							<dd
 								className="min-w-0 text-right font-[var(--font-mono)] text-[13px] text-[var(--text-primary)] break-all"
 								data-testid={`proposed-call-arg-${key}`}

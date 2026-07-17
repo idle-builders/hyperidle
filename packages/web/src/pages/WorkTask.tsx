@@ -83,7 +83,7 @@ function SessionRow({
 		>
 			<div className="flex-1 min-w-0">
 				<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">{title}</div>
-				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">{agent}</div>
+				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[3px]">{agent}</div>
 			</div>
 			{/* AC1: Session effectiveness score — float displayed to 2dp */}
 			{effectivenessScore !== null && effectivenessScore !== undefined && (

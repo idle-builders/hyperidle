@@ -74,7 +74,7 @@ export function ArtifactDemo(): JSX.Element | null {
 
 			<section className={SECTION}>
 				<div className={SECTION_LABEL}>Stack item</div>
-				<div className="flex flex-col gap-[4px]">
+				<div className="flex flex-col gap-[3px]">
 					{items.slice(0, 4).map((a) => (
 						<ArtifactStackItem key={a.id} data={a} onOpen={noop} />
 					))}

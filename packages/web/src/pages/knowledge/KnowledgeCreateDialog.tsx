@@ -193,7 +193,7 @@ export function KnowledgeCreateDialog({
 				<div className="flex flex-col gap-1">
 					<span className="text-xs text-[var(--text-tertiary)]">Scope</span>
 					{isLocked ? (
-						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] w-fit">
+						<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] w-fit">
 							{lockedScopeKind}
 						</span>
 					) : (
