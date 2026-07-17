@@ -94,6 +94,36 @@ export function scrubInlineTokens(input: string): string {
 }
 
 /**
+ * Bounded preview of tool-call args. Strips common secret shapes and
+ * caps length at 512 chars. Never returns the raw object — the caller
+ * must treat the result as opaque.
+ *
+ * @lore AU20 Ab3: relocated from `@hyperidle/observability`'s `dispatcher.ts`
+ * — `summarizeToolArgs` touches no observability state (it is
+ * `scrubInlineTokens(JSON.stringify(args))` + truncation, sitting next to
+ * `scrubInlineTokens`). Moving it here removes observability's only
+ * cross-service export and makes it a pure platform runtime.
+ *
+ * @lore Scrub BEFORE truncation (adversary review H3 #11): a secret
+ * straddling the truncation boundary would have its tail cut off and
+ * become un-matchable by the regex. Scrubbing first replaces the full
+ * secret with a short sentinel, then we truncate the scrubbed output.
+ */
+export function summarizeToolArgs(args: Record<string, unknown>): string {
+	const json = redactSafeStringify(args);
+	const scrubbed = scrubInlineTokens(json);
+	return scrubbed.length > 512 ? `${scrubbed.slice(0, 509)}...` : scrubbed;
+}
+
+function redactSafeStringify(value: unknown): string {
+	try {
+		return JSON.stringify(value) ?? "";
+	} catch {
+		return "[unserialisable]";
+	}
+}
+
+/**
  * Redact credentials from a database/connection URL for logging.
  *
  * Replaces the password in `scheme://user:password@host/…` forms and,

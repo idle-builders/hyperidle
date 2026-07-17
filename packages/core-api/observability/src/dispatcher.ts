@@ -36,7 +36,6 @@ import {
 	type ObservabilityEvent,
 	type SessionEndedEvent,
 	type SessionStartedEvent,
-	scrubInlineTokens,
 	type TaskStateChangedEvent,
 	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
@@ -526,26 +525,5 @@ export function registerObservabilityDispatcher(
 	};
 }
 
-/**
- * Bounded preview of tool-call args. Strips common secret shapes and
- * caps length at 512 chars. Never returns the raw object — the caller
- * must treat the result as opaque.
- *
- * @lore Scrub BEFORE truncation (adversary review H3 #11): a secret
- * straddling the truncation boundary would have its tail cut off and
- * become un-matchable by the regex. Scrubbing first replaces the full
- * secret with a short sentinel, then we truncate the scrubbed output.
- */
-export function summarizeToolArgs(args: Record<string, unknown>): string {
-	const json = safeStringify(args);
-	const scrubbed = scrubInlineTokens(json);
-	return scrubbed.length > 512 ? `${scrubbed.slice(0, 509)}...` : scrubbed;
-}
-
-function safeStringify(value: unknown): string {
-	try {
-		return JSON.stringify(value) ?? "";
-	} catch {
-		return "[unserialisable]";
-	}
-}
+// AU20 Ab3: `summarizeToolArgs` relocated to `@hyperidle/shared` (redact.ts).
+// Import it from there; the copy here was dead after the move.

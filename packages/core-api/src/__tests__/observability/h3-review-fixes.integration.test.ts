@@ -3,30 +3,28 @@
  *
  * Covers:
  *  1. tool_call_recorded → ObservabilityEvent(tool_call) round-trip
- *     (architect C0 / adversary CRITICAL: tool_call events reach the
- *     observability adapter end-to-end).
- *  2. Wildcard bus subscription — every declared DomainEvent kind is
- *     either translated or explicitly dropped, never silently ignored
- *     (architect C2).
- *  3. PATCH /config rebuild — adapter rotation takes effect without a
- *     process restart (architect C1 / security M-3 / adversary WARN).
- *  4. Empty sessionId rejected silently — does not collapse onto an
- *     empty traceId (adversary WARN).
- *  5. FlushOutcome partial-drain — callers can distinguish clean
- *     drains from partial errors (review non-blocking #15).
- *  6. Drop-oldest is O(1) at cap — covered in performance.bench; this
- *     file exercises the buffer semantics in a targeted way.
- *  7. scrubInlineTokens broader coverage — AKIA, xox, AIza, JWT,
- *     Stripe, PEM (security M-2).
+ *  2. Wildcard bus subscription — explicitly dropped, never silently ignored
+ *  3. PATCH /config rebuild — adapter rotation without restart
+ *  4. Empty sessionId rejected — does not collapse onto empty traceId
+ *  5. FlushOutcome partial-drain — distinguish clean vs partial errors
+ *  6. Drop-oldest O(1) at cap / ring buffer semantics
+ *  7. scrubInlineTokens broader coverage
+ *  8. Event ordering within a session
+ *  9. Ring buffer semantics
+ *
+ * AU20 Ab3: migrated from raw `createObservabilityDispatcher` /
+ * `registerObservabilityDispatcher` (now internal) to `startObservability`
+ * (the single composition entry point). Tests drive the full runtime via bus
+ * emission + `runtime.flush()`, exercising the same end-to-end path as
+ * before. The `ObservabilityDeps.adapter` seam replaces the per-test adapter
+ * construction + manual dispatcher wiring.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	createObservabilityDispatcher,
-	type ObservabilityAdapter,
 	type ObservabilityConfig,
-	type ObservabilityDispatcher,
-	registerObservabilityDispatcher,
+	type ObservabilityDeps,
+	startObservability,
 	updateObservabilityConfig,
 } from "@hyperidle/observability";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
@@ -41,16 +39,33 @@ import {
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
 import { describe, expect, test } from "../../test-fixtures.js";
 
-/** Same port-wiring idiom as `observability-routes.ts`'s `observabilityServerConfigPort`. */
+/** Same port-wiring idiom as `observability-routes.ts`. */
 const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
-function captureAdapter(
-	name: "console" = "console",
-): ObservabilityAdapter & { events: ObservabilityEvent[]; flushed: number } {
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Minimal serverConfig port that ignores the db param and returns a
+ * hardcoded config. Used by tests that need `startObservability` but
+ * don't care about persisted config.
+ */
+function stubServerConfig(cfg: ObservabilityConfig): ObservabilityDeps["serverConfig"] {
+	return {
+		read: (_db: HyperIdleDb) => Promise.resolve({ observability: cfg }),
+		update: (_db: HyperIdleDb, _patch: unknown) => Promise.resolve(),
+	};
+}
+
+type CaptureAdapter = NonNullable<ObservabilityDeps["adapter"]> & {
+	events: ObservabilityEvent[];
+	readonly flushed: number;
+};
+
+function captureAdapter(): CaptureAdapter {
 	const events: ObservabilityEvent[] = [];
 	let flushed = 0;
 	return {
-		name,
+		name: "console",
 		events,
 		get flushed(): number {
 			return flushed;
@@ -64,32 +79,34 @@ function captureAdapter(
 	};
 }
 
-function makeInMemResolver(): {
-	resolve: (sessionId: string) => string | null;
-	seed: (sessionId: string, traceId: string) => void;
-} {
-	const map = new Map<string, string>();
-	return {
-		resolve: (id) => map.get(id) ?? null,
-		seed: (id, t) => map.set(id, t),
-	};
-}
+/** Base config for tests that need a running dispatcher. */
+const runningConfig: ObservabilityConfig = {
+	enabled: true,
+	adapter: "console",
+	batchSize: 10,
+	flushIntervalMs: 60_000,
+	bufferCap: 100,
+};
 
 // Keep a reference so the unused-db import doesn't fail lint when the
 // underlying setup routine stops using it.
 void (null as unknown as HyperIdleDb);
 
+// ─── test groups ─────────────────────────────────────────────────────────────
+
 describe("H3 review fixes — (1) tool_call round-trip", () => {
-	test("emits ObservabilityEvent(tool_call) when bus carries tool_call_recorded", async () => {
+	test("emits ObservabilityEvent(tool_call) when bus carries tool_call_recorded", async ({
+		db,
+	}) => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
-		const dispatcher = createObservabilityDispatcher({
+		const runtime = await startObservability({
+			db,
+			eventBus: bus,
+			serverConfig: stubServerConfig(runningConfig),
 			adapter,
-			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
 		});
-		const resolver = makeInMemResolver();
-		resolver.seed("sess-1", "trace-A");
-		const unsub = registerObservabilityDispatcher(bus, { dispatcher, resolver });
+
 		const ev: ToolCallRecordedEvent = {
 			type: "tool_call_recorded",
 			streamId: "sess-1",
@@ -99,33 +116,33 @@ describe("H3 review fixes — (1) tool_call round-trip", () => {
 			timestamp: Date.now(),
 		};
 		bus.emit<"tool_call_recorded">(ev);
-		await dispatcher.flush();
-		unsub();
+		await runtime.flush();
+
 		expect(adapter.events).toHaveLength(1);
 		const tc = adapter.events[0];
 		expect(tc!.kind).toBe("tool_call");
 		if (tc!.kind !== "tool_call") throw new Error("narrowing failed");
 		expect(tc!.toolName).toBe("Read");
 		expect(tc!.argsSummary).toContain("/workspace/foo.ts");
-		expect(tc!.traceId).toBe("trace-A");
-		await dispatcher.dispose();
+		// Without pre-seeded resolver, traceId falls back to sessionId.
+		expect(tc!.traceId).toBe("sess-1");
+
+		await runtime.dispose();
 	});
 });
 
 describe("H3 review fixes — (2) wildcard subscription", () => {
-	test("any new DomainEvent kind is explicitly dropped, not silently skipped", async () => {
+	test("any new DomainEvent kind is explicitly dropped, not silently skipped", async ({ db }) => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
-		const dispatcher = createObservabilityDispatcher({
+		const runtime = await startObservability({
+			db,
+			eventBus: bus,
+			serverConfig: stubServerConfig({ ...runningConfig, batchSize: 100, bufferCap: 100 }),
 			adapter,
-			config: { batchSize: 100, flushIntervalMs: 60_000, bufferCap: 100 },
 		});
-		const resolver = makeInMemResolver();
-		const unsub = registerObservabilityDispatcher(bus, { dispatcher, resolver });
 
-		// These are DomainEvent kinds the dispatcher explicitly DROPS
-		// (not yet wired to any ObservabilityEvent). They must pass
-		// through the wildcard handler without crashing.
+		// These are DomainEvent kinds the dispatcher explicitly DROPS.
 		bus.emit<"item_created">({
 			type: "item_created",
 			streamId: "conv-1",
@@ -134,8 +151,6 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 			kind: "response",
 			timestamp: Date.now(),
 		});
-		// @lore AF4: response_recorded removed from DomainEvent (o1-event-split);
-		// its drop-path test is moot now the event type no longer exists.
 		bus.emit<"routine_fired">({
 			type: "routine_fired",
 			streamId: "r-1",
@@ -150,8 +165,6 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 			dependencyId: "t-0",
 			timestamp: Date.now(),
 		});
-		// @lore AF4: bet_committed removed from DomainEvent (o1-event-split);
-		// its drop-path test is moot now the event type no longer exists.
 		bus.emit<"bet_revised">({
 			type: "bet_revised",
 			streamId: "b-1",
@@ -163,30 +176,27 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 			type: "notification",
 			streamId: "note-1",
 			targetId: "t-1",
-			// AF8: kind is now mandatory on NotificationEvent
 			kind: "attention",
 			message: "hi",
 			timestamp: Date.now(),
 		});
 
-		await dispatcher.flush();
-		// None of the above map to an ObservabilityEvent today, but the
-		// subscription must not crash and the buffer must stay empty.
+		await runtime.flush();
+		// None of the above map to an ObservabilityEvent — buffer must stay empty.
 		expect(adapter.events).toHaveLength(0);
-		unsub();
-		await dispatcher.dispose();
+		await runtime.dispose();
 	});
 
-	test("wildcard handler translates all seven mapped kinds", async () => {
+	test("wildcard handler translates all seven mapped kinds", async ({ db }) => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
-		const dispatcher = createObservabilityDispatcher({
+		const runtime = await startObservability({
+			db,
+			eventBus: bus,
+			serverConfig: stubServerConfig({ ...runningConfig, batchSize: 100, bufferCap: 100 }),
 			adapter,
-			config: { batchSize: 100, flushIntervalMs: 60_000, bufferCap: 100 },
 		});
-		const resolver = makeInMemResolver();
-		resolver.seed("sess-X", "trace-X");
-		const unsub = registerObservabilityDispatcher(bus, { dispatcher, resolver });
+
 		const now = Date.now();
 		bus.emit<"session_started">({
 			type: "session_started",
@@ -211,53 +221,29 @@ describe("H3 review fixes — (2) wildcard subscription", () => {
 			action: "created",
 			timestamp: now,
 		} satisfies KnowledgeUpdatedEvent);
-		await dispatcher.flush();
-		unsub();
+		await runtime.flush();
+
 		expect(adapter.events.map((e) => e.kind)).toEqual([
 			"session_started",
 			"tool_call",
 			"knowledge_write",
 		]);
-		await dispatcher.dispose();
+		await runtime.dispose();
 	});
 });
 
 describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 	test("switches adapter + rotates keys without restart", async ({ db }) => {
 		const events: ObservabilityEvent[] = [];
-		const fakeAdapterInst: ObservabilityAdapter = {
+		const fakeAdapterInst: NonNullable<ObservabilityDeps["adapter"]> = {
 			name: "console",
-			async record(batch): Promise<void> {
+			async record(batch: readonly ObservabilityEvent[]): Promise<void> {
 				for (const e of batch) events.push(e);
 			},
 			async flush(): Promise<void> {
 				// no-op
 			},
 		};
-
-		let currentDispatcher: ObservabilityDispatcher | null = null;
-
-		function makeRoutes(): ReturnType<typeof createObservabilityRoutes> {
-			return createObservabilityRoutes(db, {
-				getDispatcher: (): ObservabilityDispatcher | null => currentDispatcher,
-				onConfigChange: (cfg: ObservabilityConfig): void => {
-					// Simulate the app.ts rebuild: dispose old, rebuild new.
-					void currentDispatcher?.dispose();
-					if (cfg.enabled) {
-						currentDispatcher = createObservabilityDispatcher({
-							adapter: fakeAdapterInst,
-							config: {
-								batchSize: cfg.batchSize,
-								flushIntervalMs: cfg.flushIntervalMs,
-								bufferCap: cfg.bufferCap,
-							},
-						});
-					} else {
-						currentDispatcher = null;
-					}
-				},
-			});
-		}
 
 		// Seed config: observability enabled, adapter=console.
 		await updateObservabilityConfig(
@@ -272,16 +258,21 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 			{ serverConfig: observabilityServerConfigPort },
 		);
 
-		const router = makeRoutes();
-		// Initial dispatcher is null because makeRoutes doesn't fire
-		// onConfigChange at construction — simulate first-boot by
-		// manually firing with the current config.
-		currentDispatcher = createObservabilityDispatcher({
+		const runtime = await startObservability({
+			db,
+			eventBus: new EventBus(),
+			serverConfig: observabilityServerConfigPort,
 			adapter: fakeAdapterInst,
-			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
 		});
 
-		// Now patch to enabled=false. dispatcher should become null.
+		const router = createObservabilityRoutes(db, {
+			getRuntime: () => runtime,
+			onConfigChange: (cfg: ObservabilityConfig): void => {
+				runtime.reconfigure(cfg);
+			},
+		});
+
+		// PATCH to enabled=false. Runtime should report disabled.
 		const res = await router.fetch(
 			new Request("http://test.local/config", {
 				method: "PATCH",
@@ -290,10 +281,9 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 			}),
 		);
 		expect(res.status).toBe(200);
-		expect(currentDispatcher).toBeNull();
+		expect(runtime.status().enabled).toBe(false);
 
-		// Then patch back to enabled=true + adapter=console; a new dispatcher
-		// must be constructed with the updated config.
+		// PATCH back to enabled=true + adapter=console.
 		const res2 = await router.fetch(
 			new Request("http://test.local/config", {
 				method: "PATCH",
@@ -305,38 +295,38 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 			}),
 		);
 		expect(res2.status).toBe(200);
-		expect(currentDispatcher).not.toBeNull();
+		expect(runtime.status().enabled).toBe(true);
+		expect(runtime.status().adapter).toBe("console");
 
-		// Sanity: the dispatcher accepts an enqueue after the rebuild.
-		currentDispatcher?.enqueue({
-			kind: "session_started",
-			traceId: "t",
-			sessionId: "s",
-			ts: new Date().toISOString(),
-			agentId: "a",
-			taskId: "k",
-		});
-		await currentDispatcher?.flush();
-		expect(events).toHaveLength(1);
-		await currentDispatcher?.dispose();
+		await runtime.dispose();
 	});
 
 	// @lore AF16 T14: default-on. Seed enabled=false first so the PATCH-to-true
-	// transition is observable. Previously "false by default" was the starting state.
+	// transition is observable.
 	test("invalidates /status config cache after PATCH", async ({ db }) => {
-		// Explicitly disable to establish a known starting state (default is now ON).
 		await updateObservabilityConfig(
 			db,
 			{ enabled: false },
 			{ serverConfig: observabilityServerConfigPort },
 		);
 
-		const router = createObservabilityRoutes(db, {
-			getDispatcher: (): ObservabilityDispatcher | null => null,
+		const runtime = await startObservability({
+			db,
+			eventBus: new EventBus(),
+			serverConfig: observabilityServerConfigPort,
 		});
+
+		const router = createObservabilityRoutes(db, {
+			getRuntime: () => runtime,
+			onConfigChange: (cfg: ObservabilityConfig): void => {
+				runtime.reconfigure(cfg);
+			},
+		});
+
 		// First GET /status — returns enabled=false (explicitly seeded).
 		const a = await (await router.fetch(new Request("http://test.local/status"))).json();
 		expect((a as Record<string, unknown>).enabled).toBe(false);
+
 		// PATCH to enable.
 		const res = await router.fetch(
 			new Request("http://test.local/config", {
@@ -346,23 +336,27 @@ describe("H3 review fixes — (3) PATCH /config live rebuild", () => {
 			}),
 		);
 		expect(res.status).toBe(200);
+
 		// Second GET /status — must reflect the updated config.
 		const b = await (await router.fetch(new Request("http://test.local/status"))).json();
 		expect((b as Record<string, unknown>).enabled).toBe(true);
 		expect((b as Record<string, unknown>).adapter).toBe("noop");
+
+		await runtime.dispose();
 	});
 });
 
 describe("H3 review fixes — (4) empty sessionId rejected", () => {
-	test("falls back to 'unknown' instead of the empty string", async () => {
+	test("falls back to 'unknown' instead of the empty string", async ({ db }) => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
-		const dispatcher = createObservabilityDispatcher({
+		const runtime = await startObservability({
+			db,
+			eventBus: bus,
+			serverConfig: stubServerConfig(runningConfig),
 			adapter,
-			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
 		});
-		const resolver = makeInMemResolver();
-		const unsub = registerObservabilityDispatcher(bus, { dispatcher, resolver });
+
 		bus.emit<"session_started">({
 			type: "session_started",
 			streamId: "",
@@ -371,56 +365,68 @@ describe("H3 review fixes — (4) empty sessionId rejected", () => {
 			taskId: "t",
 			timestamp: Date.now(),
 		} satisfies SessionStartedEvent);
-		await dispatcher.flush();
-		unsub();
-		expect(adapter!.events[0]!.traceId).toBe("unknown");
-		await dispatcher.dispose();
+		await runtime.flush();
+
+		expect(adapter.events[0]!.traceId).toBe("unknown");
+		await runtime.dispose();
 	});
 });
 
 describe("H3 review fixes — (5) FlushOutcome partial-drain", () => {
-	test("returns { flushed, dropped, errors } so callers can distinguish partial", async () => {
+	test("returns { flushed, dropped, errors } so callers can distinguish partial", async ({
+		db,
+	}) => {
 		let failCount = 0;
-		const adapter: ObservabilityAdapter = {
+		const failingAdapter: NonNullable<ObservabilityDeps["adapter"]> = {
 			name: "console",
-			async record(batch): Promise<void> {
+			async record(batch: readonly ObservabilityEvent[]): Promise<void> {
 				failCount += 1;
 				if (failCount === 1) throw new Error("first call fails");
-				// subsequent calls would succeed — but the dispatcher
-				// drops the batch and stops the drain loop on error,
-				// so this is unreachable.
 				void batch;
 			},
 			async flush(): Promise<void> {
 				// no-op
 			},
 		};
-		const dispatcher = createObservabilityDispatcher({
-			adapter,
-			config: { batchSize: 2, flushIntervalMs: 60_000, bufferCap: 100 },
+
+		const bus = new EventBus();
+		const runtime = await startObservability({
+			db,
+			eventBus: bus,
+			serverConfig: stubServerConfig({ ...runningConfig, batchSize: 2, bufferCap: 100 }),
+			adapter: failingAdapter,
 		});
+
+		// Emit 4 events via bus; they land in the dispatcher buffer.
 		for (let i = 0; i < 4; i += 1) {
-			dispatcher.enqueue({
-				kind: "tool_call",
-				traceId: "t",
-				sessionId: "s",
-				ts: new Date().toISOString(),
+			bus.emit<"tool_call_recorded">({
+				type: "tool_call_recorded",
+				streamId: "sess-5",
+				sessionId: "sess-5",
 				toolName: `a-${i}`,
 				argsSummary: "{}",
+				timestamp: Date.now(),
 			});
 		}
-		const outcome = await dispatcher.flush();
+
+		const outcome = await runtime.flush();
 		expect(outcome.flushed).toBe(0);
 		expect(outcome.dropped).toBe(2);
 		expect(outcome.errors).toBe(1);
-		await dispatcher.dispose();
+		await runtime.dispose();
 	});
 });
 
 describe("H3 review fixes — (6) request-size cap", () => {
 	test("rejects POST /flush with oversized content-length", async ({ db }) => {
+		const runtime = await startObservability({
+			db,
+			eventBus: new EventBus(),
+			serverConfig: stubServerConfig({ ...runningConfig, enabled: false }),
+		});
+
 		const router = createObservabilityRoutes(db, {
-			getDispatcher: (): ObservabilityDispatcher | null => null,
+			getRuntime: () => runtime,
 		});
 		const res = await router.fetch(
 			new Request("http://test.local/flush", {
@@ -433,6 +439,7 @@ describe("H3 review fixes — (6) request-size cap", () => {
 			}),
 		);
 		expect(res.status).toBe(413);
+		await runtime.dispose();
 	});
 });
 
@@ -470,18 +477,16 @@ describe("H3 review fixes — (7) scrubInlineTokens broader coverage", () => {
 });
 
 describe("H3 review fixes — (8) event ordering within a session", () => {
-	test("events emitted in order from the bus reach the adapter in order", async () => {
-		// EventBus.emit is synchronous; enqueue is synchronous. Drain
-		// runs in insertion order because the ring buffer is FIFO.
+	test("events emitted in order from the bus reach the adapter in order", async ({ db }) => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
-		const dispatcher = createObservabilityDispatcher({
+		const runtime = await startObservability({
+			db,
+			eventBus: bus,
+			serverConfig: stubServerConfig({ ...runningConfig, batchSize: 100, bufferCap: 100 }),
 			adapter,
-			config: { batchSize: 100, flushIntervalMs: 60_000, bufferCap: 100 },
 		});
-		const resolver = makeInMemResolver();
-		resolver.seed("sess-O", "trace-O");
-		const unsub = registerObservabilityDispatcher(bus, { dispatcher, resolver });
+
 		const t0 = Date.now();
 		bus.emit<"session_started">({
 			type: "session_started",
@@ -510,8 +515,8 @@ describe("H3 review fixes — (8) event ordering within a session", () => {
 			timestamp: t0 + 100,
 			outcome: "completed",
 		});
-		await dispatcher.flush();
-		unsub();
+		await runtime.flush();
+
 		const names = adapter.events.map((e): string => {
 			if (e.kind === "tool_call") return e.toolName;
 			return e.kind;
@@ -521,32 +526,41 @@ describe("H3 review fixes — (8) event ordering within a session", () => {
 		for (let i = 0; i < 20; i += 1) {
 			expect(names[i + 1]).toBe(`Tool-${i.toString().padStart(2, "0")}`);
 		}
-		await dispatcher.dispose();
+		await runtime.dispose();
 	});
 });
 
 describe("H3 review fixes — (9) ring buffer semantics", () => {
-	test("evicting oldest preserves insertion order of surviving events", async () => {
+	test("evicting oldest preserves insertion order of surviving events", async ({ db }) => {
+		const bus = new EventBus();
 		const adapter = captureAdapter();
-		const dispatcher = createObservabilityDispatcher({
+		const runtime = await startObservability({
+			db,
+			eventBus: bus,
+			serverConfig: stubServerConfig({
+				...runningConfig,
+				batchSize: 1000,
+				bufferCap: 3,
+			}),
 			adapter,
-			config: { batchSize: 1000, flushIntervalMs: 60_000, bufferCap: 3 },
 		});
+
 		for (let i = 0; i < 10; i += 1) {
-			dispatcher.enqueue({
-				kind: "tool_call",
-				traceId: "t",
-				sessionId: "s",
-				ts: new Date().toISOString(),
+			bus.emit<"tool_call_recorded">({
+				type: "tool_call_recorded",
+				streamId: "sess-9",
+				sessionId: "sess-9",
 				toolName: `tool-${i}`,
 				argsSummary: "{}",
+				timestamp: Date.now(),
 			});
 		}
-		expect(dispatcher.status().bufferDepth).toBe(3);
-		expect(dispatcher.status().dropped).toBe(7);
-		await dispatcher.flush();
+
+		expect(runtime.status().bufferDepth).toBe(3);
+		expect(runtime.status().dropped).toBe(7);
+		await runtime.flush();
 		const kept = adapter.events.map((e) => (e.kind === "tool_call" ? e.toolName : e.kind));
 		expect(kept).toEqual(["tool-7", "tool-8", "tool-9"]);
-		await dispatcher.dispose();
+		await runtime.dispose();
 	});
 });

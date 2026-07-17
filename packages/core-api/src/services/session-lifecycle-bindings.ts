@@ -43,7 +43,6 @@ import {
 	writeCliMcpConfig,
 } from "@hyperidle/harness-registry";
 import { createMcpBridge } from "@hyperidle/mcp-provider";
-import { summarizeToolArgs } from "@hyperidle/observability";
 import * as routineService from "@hyperidle/routine";
 import {
 	admitSession as admitSessionInternal,
@@ -76,6 +75,7 @@ import type {
 	AdmittedRun as SharedAdmittedRun,
 	ToolContext,
 } from "@hyperidle/shared";
+import { summarizeToolArgs } from "@hyperidle/shared";
 import { getFirstUserByKind, getUserById } from "@hyperidle/users";
 import {
 	getBetById,

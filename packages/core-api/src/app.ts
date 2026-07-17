@@ -25,14 +25,10 @@ import {
 	type NotificationsWorkReader,
 } from "@hyperidle/notifications";
 import {
-	createConsoleObservabilityAdapter,
-	createDbTraceIdResolver,
-	createObservabilityDispatcher,
-	type ObservabilityAdapter,
 	type ObservabilityConfig,
-	type ObservabilityDispatcher,
-	readObservabilityConfig,
-	registerObservabilityDispatcher,
+	type ObservabilityDeps,
+	type ObservabilityRuntime,
+	startObservability,
 } from "@hyperidle/observability";
 import { getTeamMembersById } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
@@ -111,9 +107,12 @@ interface AppOptions {
 	 * Optional override for the observability adapter (H3). Tests inject
 	 * a FakeAdapter whose `record` captures every event. When omitted
 	 * production wiring picks console or noop based on
-	 * `factory_settings.observability.adapter`.
+	 * `server_config.observability.adapter`.
+	 *
+	 * Typed as `ObservabilityDeps['adapter']` — the test seam field on the
+	 * single deps contract, same shape as before (structural adapter interface).
 	 */
-	observabilityAdapter?: ObservabilityAdapter;
+	observabilityAdapter?: ObservabilityDeps["adapter"];
 	/**
 	 * Optional WebSocket registration hook. When provided,
 	 * `createApp` invokes it with the `/api` sub-router just after the
@@ -225,15 +224,6 @@ interface AppOptions {
 	agentWorkIntentReader?: import("@hyperidle/shared").AgentWorkIntentReader<HyperIdleDb>;
 }
 
-function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
-	switch (cfg.adapter) {
-		case "console":
-			return createConsoleObservabilityAdapter();
-		case "noop":
-			return null;
-	}
-}
-
 /**
  * @lore Event-bus disposers live alongside the app instance but must not
  * appear on the public Hono surface. A module-scoped WeakMap keyed by
@@ -255,10 +245,9 @@ const appLogger = createLogger({ pkg: "server.app" });
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 /**
- * AU19 Increment 2d: `observability`'s one real outbound edge —
- * `server_config.observability` — wired through the injected
- * `ObservabilityConfigDeps` (`@hyperidle/observability`'s `ports.ts`), same
- * idiom as `notificationsServerConfigPort` above.
+ * AU20 Ab3: observability config port — same `{ read, update }` pair wired
+ * into `startObservability` (the collapsed `ObservabilityDeps` contract),
+ * same idiom as `notificationsServerConfigPort` above.
  */
 const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
@@ -557,67 +546,26 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			}),
 		);
 
-		// Observability dispatcher (H3). Constructed lazily so tests can
-		// spin up apps without needing a configured adapter; the /status
-		// route reports "disabled" when no dispatcher is attached.
-		//
-		// PATCH /config rebuilds the dispatcher in place so credential
-		// rotation, adapter switches, and enable/disable transitions take
-		// effect without a process restart (security M-3, architect C1,
-		// adversary WARN).
-		let observabilityDispatcher: ObservabilityDispatcher | null = null;
-		let observabilityUnsubscribe: (() => void) | null = null;
+		// Observability runtime (H3, AU20 Ab3). `startObservability` wires the
+		// adapter, resolver, dispatcher, and bus subscription in one call.
+		// PATCH /config calls `runtime.reconfigure(cfg)` so adapter switches
+		// and enable/disable transitions take effect without a process restart
+		// (security M-3, architect C1, adversary WARN).
 		const db = options.db;
-		const resolver = createDbTraceIdResolver(db);
-
-		function buildDispatcher(cfg: ObservabilityConfig): ObservabilityDispatcher | null {
-			const adapter = cfg.enabled
-				? (options?.observabilityAdapter ?? buildObservabilityAdapter(cfg))
-				: null;
-			if (!(cfg.enabled && adapter)) return null;
-			return createObservabilityDispatcher({
-				adapter,
-				config: {
-					batchSize: cfg.batchSize,
-					flushIntervalMs: cfg.flushIntervalMs,
-					bufferCap: cfg.bufferCap,
-				},
-			});
-		}
-
-		function wireObservability(cfg: ObservabilityConfig): void {
-			// Tear down the previous subscription + dispatcher first so we
-			// never run two subscribers against the same bus.
-			if (observabilityUnsubscribe) {
-				observabilityUnsubscribe();
-				observabilityUnsubscribe = null;
-			}
-			const previous = observabilityDispatcher;
-			observabilityDispatcher = buildDispatcher(cfg);
-			if (observabilityDispatcher) {
-				const dispatcher = observabilityDispatcher;
-				observabilityUnsubscribe = registerObservabilityDispatcher(eventBus, {
-					dispatcher,
-					resolver,
-				});
-			}
-			if (previous) {
-				// Drain + release the old adapter. Fire-and-forget: we must
-				// not block the PATCH route on an outbound adapter flush.
-				void previous.dispose();
-			}
-		}
-
-		const obsCfg = await readObservabilityConfig(db, {
+		const observabilityRuntime = await startObservability({
+			db,
+			eventBus,
 			serverConfig: observabilityServerConfigPort,
+			...(options?.observabilityAdapter ? { adapter: options.observabilityAdapter } : {}),
 		});
-		wireObservability(obsCfg);
 
 		api.route(
 			"/observability",
 			createObservabilityRoutes(db, {
-				getDispatcher: (): ObservabilityDispatcher | null => observabilityDispatcher,
-				onConfigChange: wireObservability,
+				getRuntime: (): ObservabilityRuntime => observabilityRuntime,
+				onConfigChange: (cfg: ObservabilityConfig): void => {
+					observabilityRuntime.reconfigure(cfg);
+				},
 			}),
 		);
 
@@ -663,13 +611,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		});
 
 		disposers.push(() => {
-			if (observabilityUnsubscribe) {
-				observabilityUnsubscribe();
-				observabilityUnsubscribe = null;
-			}
-			const d = observabilityDispatcher;
-			observabilityDispatcher = null;
-			if (d) void d.dispose();
+			void observabilityRuntime.dispose();
 		});
 		APP_DISPOSERS.set(app, disposers);
 	}

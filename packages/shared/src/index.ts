@@ -461,6 +461,7 @@ export {
 	SLACK_TOKEN_RE,
 	STRIPE_TOKEN_RE,
 	scrubInlineTokens,
+	summarizeToolArgs,
 	TK_TOKEN_RE,
 } from "./redact.js";
 // ── Routine primitive (AA1 + AA2 + AA3) ──
