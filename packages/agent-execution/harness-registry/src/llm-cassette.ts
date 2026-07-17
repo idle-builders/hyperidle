@@ -493,6 +493,7 @@ export async function recordLlm(
  * @testonly Reset the in-memory cost accumulator between tests.
  * Not used in production — only imported by llm-cassette.test.ts.
  */
+// biome-ignore lint/style/useNamingConvention: __ prefix marks test-only export; convention prevents accidental production use
 export function __resetCostAccumulatorForTest(): void {
 	recordRunCost.totalCostUsd = 0;
 	recordRunCost.totalInputTokens = 0;
@@ -506,6 +507,7 @@ export function __resetCostAccumulatorForTest(): void {
  * @testonly Read the current in-memory cost accumulator.
  * Not used in production — only imported by llm-cassette.test.ts.
  */
+// biome-ignore lint/style/useNamingConvention: __ prefix marks test-only export; convention prevents accidental production use
 export function __getCostAccumulatorForTest(): Readonly<RecordRunCost> {
 	return { ...recordRunCost };
 }

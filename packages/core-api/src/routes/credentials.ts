@@ -332,7 +332,8 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 							const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
 							try {
 								const response = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/models`, {
-									headers: { Authorization: `Bearer ${plaintext}` },
+									// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
+								headers: { Authorization: `Bearer ${plaintext}` },
 									signal: controller.signal,
 								});
 								if (response.status === 401 || response.status === 403) {

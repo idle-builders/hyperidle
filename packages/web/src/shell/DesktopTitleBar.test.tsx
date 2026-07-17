@@ -14,6 +14,7 @@ import { DesktopTitleBar } from "./DesktopTitleBar";
 // @lore AV5: Use the cast-through-unknown pattern (SettingsWorker.stories.tsx precedent)
 // to install a minimal __HYPERIDLE__ stub without satisfying the full bridge interface.
 // The property is optional so delete is valid.
+// biome-ignore lint/style/useNamingConvention: Electron bridge name set by main process on window.__HYPERIDLE__
 type PartialBridgeWindow = { __HYPERIDLE__?: Partial<HyperIdleElectronBridge> };
 
 describe("DesktopTitleBar (AV5)", () => {

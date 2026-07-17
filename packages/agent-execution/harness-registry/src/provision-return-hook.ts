@@ -159,6 +159,7 @@ async function provisionClaudeSettings(
 		enableAllProjectMcpServers: true,
 		enabledMcpjsonServers: ["hyperidle"],
 		hooks: {
+			// biome-ignore lint/style/useNamingConvention: Claude Code hook event name is PascalCase per its API spec
 			Stop: [
 				{
 					hooks: [
@@ -315,6 +316,7 @@ async function provisionCodexHome(
 function buildCodexHooksConfig(scriptDir: string): Record<string, unknown> {
 	return {
 		hooks: {
+			// biome-ignore lint/style/useNamingConvention: Claude Code hook event name is PascalCase per its API spec
 			Stop: [
 				{
 					hooks: [

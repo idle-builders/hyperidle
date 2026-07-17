@@ -25,6 +25,7 @@ export default {
 };
 
 // @lore AF5/S: Type alias for the cast-through-unknown pattern used by all stories.
+// biome-ignore lint/style/useNamingConvention: Electron bridge name set by main process on window.__HYPERIDLE__
 type PartialBridgeWindow = { __HYPERIDLE__: Partial<HyperIdleElectronBridge> };
 
 /**

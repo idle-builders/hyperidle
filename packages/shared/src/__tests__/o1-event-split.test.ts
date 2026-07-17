@@ -37,8 +37,8 @@ describe("O1 event split", () => {
 			};
 			// This assignment will cause a TS compile error if knowledge_created
 			// is not in DomainEvent (which it isn't yet -- RED phase via bun run check)
-			const _domainEvent: DomainEvent = event as DomainEvent;
-			expect(_domainEvent.type).toBe("knowledge_created");
+			const domainEvent: DomainEvent = event as DomainEvent;
+			expect(domainEvent.type).toBe("knowledge_created");
 		});
 
 		it("knowledge_archived is a valid DomainEvent discriminant", () => {
@@ -48,8 +48,8 @@ describe("O1 event split", () => {
 				itemId: "ki-1",
 				timestamp: Date.now(),
 			};
-			const _domainEvent: DomainEvent = event as DomainEvent;
-			expect(_domainEvent.type).toBe("knowledge_archived");
+			const domainEvent: DomainEvent = event as DomainEvent;
+			expect(domainEvent.type).toBe("knowledge_archived");
 		});
 
 		it("knowledge_accessed is a valid DomainEvent discriminant with accessorKind", () => {
@@ -61,8 +61,8 @@ describe("O1 event split", () => {
 				accessorId: "u-1",
 				timestamp: Date.now(),
 			};
-			const _domainEvent: DomainEvent = event as DomainEvent;
-			expect(_domainEvent.type).toBe("knowledge_accessed");
+			const domainEvent: DomainEvent = event as DomainEvent;
+			expect(domainEvent.type).toBe("knowledge_accessed");
 		});
 	});
 

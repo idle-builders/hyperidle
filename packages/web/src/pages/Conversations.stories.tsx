@@ -24,7 +24,7 @@ export default { title: "Page: Conversations" };
 // State A — no thread selected
 // ---------------------------------------------------------------------------
 
-export const StateA_Empty = (): JSX.Element => {
+export const StateAEmpty = (): JSX.Element => {
 	const router = createMemoryRouter(
 		[
 			{ path: "/conversations", element: <Conversations /> },
@@ -34,13 +34,13 @@ export const StateA_Empty = (): JSX.Element => {
 	);
 	return <RouterProvider router={router} />;
 };
-StateA_Empty.storyName = "A — Queue empty (no thread selected)";
+StateAEmpty.storyName = "A — Queue empty (no thread selected)";
 
 // ---------------------------------------------------------------------------
 // State B — loading
 // ---------------------------------------------------------------------------
 
-export const StateB_Loading = (): JSX.Element => {
+export const StateBLoading = (): JSX.Element => {
 	// @lore LG1: globalThis.fetch is a side-effect; move to useLayoutEffect (runs
 	// before children's useEffects) and gate child rendering until it's set.
 	const [ready, setReady] = useState(false);
@@ -63,13 +63,13 @@ export const StateB_Loading = (): JSX.Element => {
 	if (!ready) return <></>;
 	return <RouterProvider router={router} />;
 };
-StateB_Loading.storyName = "B — Thread loading";
+StateBLoading.storyName = "B — Thread loading";
 
 // ---------------------------------------------------------------------------
 // State C — error
 // ---------------------------------------------------------------------------
 
-export const StateC_Error = (): JSX.Element => {
+export const StateCError = (): JSX.Element => {
 	const [ready, setReady] = useState(false);
 	useLayoutEffect(() => {
 		(globalThis as unknown as { fetch: unknown }).fetch = async () =>
@@ -90,7 +90,7 @@ export const StateC_Error = (): JSX.Element => {
 	if (!ready) return <></>;
 	return <RouterProvider router={router} />;
 };
-StateC_Error.storyName = "C — Thread error";
+StateCError.storyName = "C — Thread error";
 
 // ---------------------------------------------------------------------------
 // State D — populated (review shape)
@@ -133,7 +133,7 @@ const REVIEW_THREAD = {
 	},
 };
 
-export const StateD_Populated = (): JSX.Element => {
+export const StateDPopulated = (): JSX.Element => {
 	const [ready, setReady] = useState(false);
 	useLayoutEffect(() => {
 		(globalThis as unknown as { fetch: unknown }).fetch = async () =>
@@ -157,13 +157,13 @@ export const StateD_Populated = (): JSX.Element => {
 	if (!ready) return <></>;
 	return <RouterProvider router={router} />;
 };
-StateD_Populated.storyName = "D — Thread populated (review shape)";
+StateDPopulated.storyName = "D — Thread populated (review shape)";
 
 // ---------------------------------------------------------------------------
 // State E — not found
 // ---------------------------------------------------------------------------
 
-export const StateE_NotFound = (): JSX.Element => {
+export const StateENotFound = (): JSX.Element => {
 	const [ready, setReady] = useState(false);
 	useLayoutEffect(() => {
 		(globalThis as unknown as { fetch: unknown }).fetch = async () =>
@@ -184,4 +184,4 @@ export const StateE_NotFound = (): JSX.Element => {
 	if (!ready) return <></>;
 	return <RouterProvider router={router} />;
 };
-StateE_NotFound.storyName = "E — Thread not found (404)";
+StateENotFound.storyName = "E — Thread not found (404)";

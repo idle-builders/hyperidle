@@ -90,6 +90,12 @@
 									"kind": "variable"
 								},
 								"formats": ["camelCase", "PascalCase", "CONSTANT_CASE"]
+							},
+							{
+								"selector": {
+									"kind": "objectLiteralMethod"
+								},
+								"formats": ["camelCase", "PascalCase"]
 							}
 						]
 					}
@@ -203,7 +209,8 @@
 				"**/*.spec.ts",
 				"**/*.spec.tsx",
 				"**/*.stories.tsx",
-				"**/test-fixtures.ts"
+				"**/test-fixtures.ts",
+				"**/e2e/**"
 			],
 			"linter": {
 				"rules": {
@@ -215,7 +222,8 @@
 						"useAwait": "off"
 					},
 					"style": {
-						"noNonNullAssertion": "off"
+						"noNonNullAssertion": "off",
+						"useNamingConvention": "off"
 					}
 				}
 			}

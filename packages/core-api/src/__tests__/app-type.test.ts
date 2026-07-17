@@ -51,6 +51,7 @@ describe("E2. hc<AppType> client constructs typed requests", () => {
 		type MinimalType = {
 			api: {
 				bets: {
+					// biome-ignore lint/style/useNamingConvention: Hono hc() client type uses $get/$post convention
 					$get: () => Promise<Response>;
 				};
 			};
@@ -70,14 +71,22 @@ describe("E3. Client paths match expected route structure", () => {
 		// Verified at compile-time; this runtime test confirms the pattern compiles.
 		type BetsClientType = {
 			api: {
+				// biome-ignore lint/style/useNamingConvention: Hono hc() client type uses $get/$post convention
 				bets: { $get: () => Promise<Response> };
+				// biome-ignore lint/style/useNamingConvention: Hono hc() client type uses $get/$post convention
 				health: { $get: () => Promise<Response> };
+				// biome-ignore lint/style/useNamingConvention: Hono hc() client type uses $get/$post convention
 				products: { $get: () => Promise<Response> };
+				// biome-ignore lint/style/useNamingConvention: Hono hc() client type uses $get/$post convention
 				tasks: { $get: () => Promise<Response> };
+				// biome-ignore lint/style/useNamingConvention: Hono hc() client type uses $get/$post convention
 				sessions: { $get: () => Promise<Response> };
 				/** @lore P2: renamed from agents → users */
+				// biome-ignore lint/style/useNamingConvention: Hono hc() client type uses $get/$post convention
 				users: { $get: () => Promise<Response> };
+				// biome-ignore lint/style/useNamingConvention: Hono hc() client type uses $get/$post convention
 				settings: { $get: () => Promise<Response> };
+				// biome-ignore lint/style/useNamingConvention: Hono hc() client type uses $get/$post convention
 				knowledge: { $get: () => Promise<Response> };
 			};
 		};

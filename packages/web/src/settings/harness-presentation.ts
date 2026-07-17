@@ -76,8 +76,8 @@ export function statusLine(d: HarnessCapabilityDescriptor): {
 		default: {
 			// TypeScript exhaustive check — if a new state is added to HarnessReadinessState,
 			// this assertion will fail at compile time.
-			const _: never = discovery.state as never;
-			void _;
+			const exhaustiveCheck: never = discovery.state as never;
+			void exhaustiveCheck;
 			return { tone: "unknown", text: "Unknown state." };
 		}
 	}

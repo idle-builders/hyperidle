@@ -55,5 +55,6 @@ interface HyperIdleElectronBridge {
 }
 
 interface Window {
+	// biome-ignore lint/style/useNamingConvention: Electron bridge name set by main process on window.__HYPERIDLE__
 	__HYPERIDLE__?: HyperIdleElectronBridge;
 }

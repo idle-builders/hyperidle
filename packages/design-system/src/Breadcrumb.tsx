@@ -41,10 +41,12 @@ export interface BreadcrumbProps {
 	 * Web passes RR's <Link>; stories pass plain <a> or custom stub.
 	 * Falls back to plain <a> when omitted.
 	 */
+	// biome-ignore lint/style/useNamingConvention: PascalCase required — prop is used directly as JSX component, React requires PascalCase for JSX element rendering
 	LinkComponent?: ComponentType<{
 		to: string;
 		className?: string;
 		children: ReactNode;
+		// biome-ignore lint/style/useNamingConvention: HTML data attribute; hyphen is required by the spec
 		"data-testid"?: string;
 	}>;
 }

@@ -19,6 +19,7 @@ export default {
 
 // @lore AV5: Cast-through-unknown pattern for partial bridge stubs.
 // Optional property so delete is valid in BrowserContext story.
+// biome-ignore lint/style/useNamingConvention: Electron bridge name set by main process on window.__HYPERIDLE__
 type PartialBridgeWindow = { __HYPERIDLE__?: Partial<HyperIdleElectronBridge> };
 
 /**

@@ -81,6 +81,7 @@ async function validateOpenRouterKey(apiKey: string): Promise<ValidationResult> 
 	try {
 		const response = await fetch("https://openrouter.ai/api/v1/auth/key", {
 			headers: {
+				// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 				Authorization: `Bearer ${apiKey}`,
 			},
 		});

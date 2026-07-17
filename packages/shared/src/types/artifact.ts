@@ -80,8 +80,11 @@ export interface CreateArtifactInput {
 	readonly label?: string | null;
 	readonly preview: ArtifactPreview | null;
 	readonly cost: {
+		// biome-ignore lint/style/useNamingConvention: DB column name; snake_case matches PostgreSQL schema
 		readonly money_micros: number | null;
+		// biome-ignore lint/style/useNamingConvention: DB column name; snake_case matches PostgreSQL schema
 		readonly tokens_input: number | null;
+		// biome-ignore lint/style/useNamingConvention: DB column name; snake_case matches PostgreSQL schema
 		readonly tokens_output: number | null;
 	} | null;
 }

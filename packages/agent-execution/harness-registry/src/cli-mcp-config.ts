@@ -145,6 +145,7 @@ function writeOpencodeJson(params: {
 	// The `type:"remote"` + `headers.Authorization:"Bearer <token>"` shape is the
 	// exact output of `opencode mcp add ... --header "Authorization=Bearer <tok>"`.
 	const config = {
+		// biome-ignore lint/style/useNamingConvention: $schema is the canonical JSON Schema field name
 		$schema: "https://opencode.ai/config.json",
 		mcp: {
 			hyperidle: {
@@ -186,6 +187,7 @@ function writeCursorJson(params: {
 			hyperidle: {
 				url: mcpUrl,
 				headers: {
+					// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 					Authorization: `Bearer ${token}`,
 				},
 			},

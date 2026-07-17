@@ -422,11 +422,13 @@ function writeOpencodeJsonEntries(params: {
 		enabled: boolean;
 	};
 	type OpenCodeJson = {
+		// biome-ignore lint/style/useNamingConvention: $schema is the canonical JSON Schema field name
 		$schema?: string;
 		mcp: Record<string, McpEntry>;
 	};
 
 	let existing: OpenCodeJson = {
+		// biome-ignore lint/style/useNamingConvention: $schema is the canonical JSON Schema field name
 		$schema: "https://opencode.ai/config.json",
 		mcp: {},
 	};
@@ -437,6 +439,7 @@ function writeOpencodeJsonEntries(params: {
 			if (!existing.mcp) existing.mcp = {};
 		} catch {
 			// Corrupted file — start fresh
+			// biome-ignore lint/style/useNamingConvention: $schema is the canonical JSON Schema field name
 			existing = { $schema: "https://opencode.ai/config.json", mcp: {} };
 		}
 	}

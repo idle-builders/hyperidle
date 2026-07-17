@@ -7,8 +7,11 @@ import type { ArtifactCostFromSession } from "../types/artifact.js";
 import type { WireMoney } from "../types/money.js";
 
 export interface ArtifactCostInput {
+	// biome-ignore lint/style/useNamingConvention: DB column name; snake_case matches PostgreSQL schema
 	readonly money_micros: number | null;
+	// biome-ignore lint/style/useNamingConvention: DB column name; snake_case matches PostgreSQL schema
 	readonly tokens_input: number | null;
+	// biome-ignore lint/style/useNamingConvention: DB column name; snake_case matches PostgreSQL schema
 	readonly tokens_output: number | null;
 }
 

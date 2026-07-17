@@ -28,24 +28,31 @@ export interface OpenRouterModel {
 		readonly completion: string;
 	};
 	/** Model-level union across providers — NOT authoritative for per-provider tool support. */
+	// biome-ignore lint/style/useNamingConvention: OpenRouter API field name; renaming breaks JSON deserialization
 	readonly supported_parameters?: readonly string[];
+	// biome-ignore lint/style/useNamingConvention: OpenRouter API field name; renaming breaks JSON deserialization
 	readonly context_length?: number;
 }
 
 /** Per-provider endpoint from GET /api/v1/models/{id}/endpoints. */
 export interface OpenRouterEndpoint {
+	// biome-ignore lint/style/useNamingConvention: OpenRouter API field name; renaming breaks JSON deserialization
 	readonly provider_name: string;
 	/** Per-provider — authoritative for "tools" gate. */
+	// biome-ignore lint/style/useNamingConvention: OpenRouter API field name; renaming breaks JSON deserialization
 	readonly supported_parameters: readonly string[];
 	readonly pricing: {
 		readonly prompt: string;
 		readonly completion: string;
 	};
 	/** 0..1 or null when no data available. */
+	// biome-ignore lint/style/useNamingConvention: OpenRouter API field name; renaming breaks JSON deserialization
 	readonly uptime_last_30m: number | null;
 	/** Percentile throughput objects or null. */
+	// biome-ignore lint/style/useNamingConvention: OpenRouter API field name; renaming breaks JSON deserialization
 	readonly throughput_last_30m: { readonly p50: number } | null;
 	/** Percentile latency objects or null. */
+	// biome-ignore lint/style/useNamingConvention: OpenRouter API field name; renaming breaks JSON deserialization
 	readonly latency_last_30m: { readonly p50: number } | null;
 	readonly status: string;
 }
@@ -71,6 +78,7 @@ const BASE_URL = "https://openrouter.ai/api/v1";
 export async function fetchSmokeCatalog(apiKey: string): Promise<readonly OpenRouterModel[]> {
 	const res = await fetch(`${BASE_URL}/models`, {
 		headers: {
+			// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 			Authorization: `Bearer ${apiKey}`,
 			"Content-Type": "application/json",
 		},
@@ -100,6 +108,7 @@ export async function fetchModelEndpoints(
 	const endpointPath = modelId.split("/").map(encodeURIComponent).join("/");
 	const res = await fetch(`${BASE_URL}/models/${endpointPath}/endpoints`, {
 		headers: {
+			// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 			Authorization: `Bearer ${apiKey}`,
 			"Content-Type": "application/json",
 		},
