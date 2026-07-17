@@ -114,6 +114,7 @@ export type {
 	TransitionTaskStateArgs,
 } from "./work-service.js";
 export {
+	appendTaskNote,
 	claimBetDecomposition,
 	countBetsByTeamAndStatus,
 	createBet,

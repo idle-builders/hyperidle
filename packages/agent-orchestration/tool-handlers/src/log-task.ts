@@ -9,8 +9,6 @@ const logTaskInputSchema = z.object({
 
 type LogTaskInput = z.infer<typeof logTaskInputSchema>;
 
-const NOTE_SEPARATOR = "\n\n---\n\n";
-
 async function handler<TDb>(
 	args: LogTaskInput,
 	ctx: ToolContext<TDb>,
@@ -22,18 +20,15 @@ async function handler<TDb>(
 	}
 	const { note } = parsed.data;
 
-	const task = await ports.work.getTaskById(ctx.db, ctx.taskId);
-	if (!task) {
+	const now = new Date().toISOString();
+	const entry = `[${now} ${ctx.agentId}] ${note}`;
+
+	// Atomic append — single UPDATE with SQL CASE, no pre-read, no lost-update race.
+	// `undefined` means the task row was not found (WHERE matched no rows).
+	const result = await ports.work.appendTaskNote(ctx.db, ctx.taskId, entry);
+	if (!result) {
 		return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);
 	}
-
-	const now = new Date().toISOString();
-	const prefix = `[${now} ${ctx.agentId}] `;
-	const entry = `${prefix}${note}`;
-	const combined =
-		task.notes && task.notes.length > 0 ? `${task.notes}${NOTE_SEPARATOR}${entry}` : entry;
-
-	await ports.work.updateTaskById(ctx.db, ctx.taskId, { notes: combined, updatedAt: now });
 
 	return ok({ taskId: ctx.taskId });
 }

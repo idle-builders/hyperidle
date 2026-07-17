@@ -59,6 +59,7 @@ import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildAllToolDefinitions } from "@hyperidle/tool-handlers";
 import { getUserById, insertUser, listUsersByKind, listUsersByTeam } from "@hyperidle/users";
 import {
+	appendTaskNote,
 	createArtifact,
 	createBet,
 	createTask,
@@ -193,6 +194,7 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 		updateBetById,
 		createTask,
 		updateTaskById,
+		appendTaskNote,
 		getItemById,
 		updateItemById,
 		createItem: createWorkItem,

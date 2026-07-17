@@ -87,6 +87,16 @@ export interface ToolHandlersWorkAccessor<TDb> {
 		id: string,
 		updates: Partial<{ notes: string; updatedAt: string }>,
 	): Promise<void>;
+	/**
+	 * Atomic note append — single UPDATE with SQL CASE, no pre-read.
+	 * Returns `{ id }` when the task was found and updated, `undefined` when
+	 * the task does not exist (task-not-found signal for the `log_task` handler).
+	 */
+	appendTaskNote(
+		db: TDb,
+		taskId: string,
+		entry: string,
+	): Promise<{ readonly id: string } | undefined>;
 	getItemById(
 		db: TDb,
 		id: string,

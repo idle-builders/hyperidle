@@ -205,6 +205,40 @@ export async function claimBetDecomposition(
 // tasks
 // ---------------------------------------------------------------------------
 
+const NOTE_SEPARATOR = "\n\n---\n\n";
+
+/**
+ * Atomically appends `entry` to `tasks.notes`, separated by {@link NOTE_SEPARATOR},
+ * using a single UPDATE with a SQL CASE expression that references the live
+ * column value — no pre-read, no CAS, no lost-update race.
+ *
+ * Mirrors `incrementBetCost`'s atomic-write idiom (sql`coalesce(...)` accumulation
+ * in one UPDATE). Returns `{ id }` when the row exists and was updated, `undefined`
+ * when no row matches (task not found).
+ *
+ * @lore AU20 I0a: the old `log_task` path did getTaskById → concat in memory →
+ * updateTaskById. Two concurrent callers both read notes=null, then the second
+ * write clobbered the first. Proven red by the integration test's Promise.all
+ * concurrency probe before this fix landed. The SQL CASE runs the concatenation
+ * inside the DB engine atomically, so concurrent callers see each other's writes.
+ */
+export async function appendTaskNote(
+	exec: WriteExecutor,
+	taskId: string,
+	entry: string,
+): Promise<{ id: string } | undefined> {
+	const now = new Date().toISOString();
+	const rows = await exec
+		.update(tasks)
+		.set({
+			notes: sql`CASE WHEN ${tasks.notes} IS NULL OR ${tasks.notes} = '' THEN ${entry} ELSE ${tasks.notes} || ${NOTE_SEPARATOR} || ${entry} END`,
+			updatedAt: now,
+		})
+		.where(eq(tasks.id, taskId))
+		.returning({ id: tasks.id });
+	return rows[0];
+}
+
 export async function createTask(exec: WriteExecutor, values: NewTask): Promise<void> {
 	await exec.insert(tasks).values(values);
 }

@@ -19,6 +19,7 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 		updateBetById: notImplemented,
 		createTask: notImplemented,
 		updateTaskById: notImplemented,
+		appendTaskNote: notImplemented,
 		getItemById: notImplemented,
 		updateItemById: notImplemented,
 		createItem: notImplemented,
