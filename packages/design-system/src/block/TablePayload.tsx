@@ -16,33 +16,38 @@ export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.El
 			<table className="w-full border-collapse text-[13px]">
 				<thead className="sticky top-0 bg-[var(--surface-container)]">
 					<tr>
-						{header.map((cell, i) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: table header columns have no stable id; column position is their identity
-							<th
-								key={i}
-								scope="col"
-								style={{ textAlign: align[i] ?? "left" }}
-								className="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]"
-							>
-								{renderInline(cell)}
-							</th>
-						))}
+						{header.map((cell, i) => {
+							// @lore LG1: block body + variable extraction keeps <th> on one line so biome-ignore immediately precedes the line with key={i}.
+							const thClass =
+								"font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]";
+							const thStyle = { textAlign: align[i] ?? "left" };
+							const thContent = renderInline(cell);
+							return (
+								// biome-ignore lint/suspicious/noArrayIndexKey: table header columns have no stable id; column position is their identity
+								<th key={i} scope="col" style={thStyle} className={thClass}>
+									{thContent}
+								</th>
+							);
+						})}
 					</tr>
 				</thead>
 				<tbody>
 					{rows.map((row, ri) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: table rows have no stable id; row position is their identity
 						<tr key={ri}>
-							{row.map((cell, ci) => (
-								// biome-ignore lint/suspicious/noArrayIndexKey: table cells have no stable id; column position is their identity
-								<td
-									key={ci}
-									style={{ textAlign: align[ci] ?? "left" }}
-									className="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums"
-								>
-									{renderInline(cell)}
-								</td>
-							))}
+							{row.map((cell, ci) => {
+								// @lore LG1: block body + variable extraction keeps <td> on one line so biome-ignore immediately precedes the line with key={ci}.
+								const tdClass =
+									"px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums";
+								const tdStyle = { textAlign: align[ci] ?? "left" };
+								const tdContent = renderInline(cell);
+								return (
+									// biome-ignore lint/suspicious/noArrayIndexKey: table cells have no stable id; column position is their identity
+									<td key={ci} style={tdStyle} className={tdClass}>
+										{tdContent}
+									</td>
+								);
+							})}
 						</tr>
 					))}
 				</tbody>

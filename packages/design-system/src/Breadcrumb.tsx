@@ -56,6 +56,9 @@ const LINK_CLASS =
 
 const CURRENT_CLASS = "text-[color:var(--text-primary)]";
 
+// @lore LG1: breadcrumb separator class extracted so separator span fits on one line — required for biome-ignore lint anchor to work (comment must immediately precede the line containing key={i}).
+const SEP_CLASS = "text-[color:var(--text-secondary)] select-none mx-[3px]";
+
 export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps): JSX.Element {
 	const Link =
 		LinkComponent ??
@@ -94,38 +97,33 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 
 		if (i > 0) {
 			items.push(
-				<span
-					key={`sep-${seg.to ?? seg.label}`}
-					aria-hidden="true"
-					className="text-[color:var(--text-secondary)] select-none mx-[3px]"
-				>
+				// biome-ignore lint/suspicious/noArrayIndexKey: breadcrumb segments are positionally stable, never reordered/filtered
+				<span key={`sep-${i}`} aria-hidden="true" className={SEP_CLASS}>
 					/
 				</span>,
 			);
 		}
 
 		if (seg.to !== undefined && !isLast) {
+			// @lore LG1: extract linkCls/testIdAttr so <Link> fits on one line — required for biome-ignore anchor.
+			const linkCls = [LINK_CLASS, isMiddle ? "max-w-[120px] truncate" : ""]
+				.filter(Boolean)
+				.join(" ");
+			const testIdAttr = seg.testId ? { "data-testid": seg.testId } : {};
 			items.push(
-				<Link
-					key={`seg-${seg.to ?? seg.label}`}
-					to={seg.to}
-					className={[LINK_CLASS, isMiddle ? "max-w-[120px] truncate" : ""]
-						.filter(Boolean)
-						.join(" ")}
-					{...(seg.testId ? { "data-testid": seg.testId } : {})}
-				>
+				// biome-ignore lint/suspicious/noArrayIndexKey: breadcrumb segments are positionally stable, never reordered/filtered
+				<Link key={`seg-${i}`} to={seg.to} className={linkCls} {...testIdAttr}>
 					{seg.label}
 				</Link>,
 			);
 		} else {
+			// @lore LG1: extract curCls so <span> fits on one line — required for biome-ignore anchor.
+			const curCls = [CURRENT_CLASS, isLast && !isFirst ? "max-w-[180px] truncate" : ""]
+				.filter(Boolean)
+				.join(" ");
 			items.push(
-				<span
-					key={`seg-${seg.to ?? seg.label}`}
-					className={[CURRENT_CLASS, isLast && !isFirst ? "max-w-[180px] truncate" : ""]
-						.filter(Boolean)
-						.join(" ")}
-					aria-current="page"
-				>
+				// biome-ignore lint/suspicious/noArrayIndexKey: breadcrumb segments are positionally stable, never reordered/filtered
+				<span key={`seg-${i}`} className={curCls} aria-current="page">
 					{seg.label}
 				</span>,
 			);

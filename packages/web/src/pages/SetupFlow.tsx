@@ -125,6 +125,8 @@ function WelcomeVisual(): JSX.Element {
 		"var(--accent-secondary)",
 		"var(--status-info)",
 	] as const;
+	// @lore LG1: DOT_CARD_CLASS extracted so <div> fits on one line — biome-ignore anchor requires the comment to immediately precede the line containing key={i}.
+	const DOT_CARD_CLASS = "flex-1 bg-[var(--surface-elevated)] rounded-[var(--r-subtle)] p-[9px]";
 
 	return (
 		<div
@@ -132,23 +134,27 @@ function WelcomeVisual(): JSX.Element {
 			aria-hidden="true"
 			className="flex gap-[9px] bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[12px] mb-[24px]"
 		>
-			{dotColors.map((dotColor, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: static color array; dots have no semantic identity
-				<div
-					key={i}
-					className="flex-1 bg-[var(--surface-elevated)] rounded-[var(--r-subtle)] p-[9px]"
-				>
-					<div className="flex items-center gap-[6px] mb-[6px]">
-						<span
-							className="block w-[8px] h-[8px] rounded-full shrink-0"
-							style={{ background: dotColor }}
-						/>
-						<span className="block h-[6px] rounded-full bg-[var(--border-subtle)] w-3/5" />
+			{dotColors.map((dotColor, i) => {
+				const inner = (
+					<>
+						<div className="flex items-center gap-[6px] mb-[6px]">
+							<span
+								className="block w-[8px] h-[8px] rounded-full shrink-0"
+								style={{ background: dotColor }}
+							/>
+							<span className="block h-[6px] rounded-full bg-[var(--border-subtle)] w-3/5" />
+						</div>
+						<span className="block h-[6px] bg-[var(--border-subtle)] rounded-full w-[90%] mb-[3px]" />
+						<span className="block h-[6px] bg-[var(--border-subtle)] rounded-full w-3/5" />
+					</>
+				);
+				return (
+					// biome-ignore lint/suspicious/noArrayIndexKey: static color array; dots have no semantic identity
+					<div key={i} className={DOT_CARD_CLASS}>
+						{inner}
 					</div>
-					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-full w-[90%] mb-[3px]" />
-					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-full w-3/5" />
-				</div>
-			))}
+				);
+			})}
 		</div>
 	);
 }

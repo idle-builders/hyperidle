@@ -13,6 +13,10 @@ import { EmbedRow } from "./embeds.js";
 type ProsePartValue = Extract<Part, { kind: "prose" }>;
 
 /** Highlight each `@displayName` mention span inside the prose text. */
+// @lore LG1: extracted module-level constant so <span> fits on one line — biome-ignore lint anchor requires comment immediately above the line containing key={i}.
+const MENTION_CLASS =
+	"rounded-[var(--r-subtle)] bg-[var(--accent-primary-dim)] px-[3px] font-[500] text-[var(--accent-primary)]";
+
 function renderText(text: string, mentions: ReadonlyArray<{ displayName: string }>): JSX.Element {
 	if (mentions.length === 0) {
 		return <>{text}</>;
@@ -27,20 +31,18 @@ function renderText(text: string, mentions: ReadonlyArray<{ displayName: string 
 	const segments = text.split(re);
 	return (
 		<>
-			{segments.map((seg, i) =>
-				tokens.includes(seg) ? (
-					// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments — text split order is deterministic
-					<span
-						key={i}
-						className="rounded-[var(--r-subtle)] bg-[var(--accent-primary-dim)] px-[3px] font-[500] text-[var(--accent-primary)]"
-					>
-						{seg}
-					</span>
-				) : (
-					// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments
-					<span key={i}>{seg}</span>
-				),
-			)}
+			{segments.map((seg, i) => {
+				if (tokens.includes(seg)) {
+					return (
+						// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments — text split order is deterministic
+						<span key={i} className={MENTION_CLASS}>
+							{seg}
+						</span>
+					);
+				}
+				// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments
+				return <span key={i}>{seg}</span>;
+			})}
 		</>
 	);
 }

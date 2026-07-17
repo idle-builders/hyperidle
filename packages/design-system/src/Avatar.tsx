@@ -70,15 +70,16 @@ export function AvatarGroup({
 
 	return (
 		<div {...dsProps("AvatarGroup", "0")} className={`flex flex-row ${className}`}>
-			{Children.map(items, (item, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: React.Children API exposes no stable id; avatar group order is stable (static member list)
-				<div
-					key={i}
-					className={`${i > 0 ? overlapClass : ""} ring-[2px] ring-[var(--surface-elevated)] rounded-full`}
-				>
-					{item}
-				</div>
-			))}
+			{Children.map(items, (item, i) => {
+				// @lore LG1: cls extracted so <div> opening tag is short; biome-ignore goes inside return() so it immediately precedes the line containing key={i}.
+				const cls = `${i > 0 ? overlapClass : ""} ring-[2px] ring-[var(--surface-elevated)] rounded-full`;
+				return (
+					// biome-ignore lint/suspicious/noArrayIndexKey: React.Children API exposes no stable id; avatar group order is stable (static member list)
+					<div key={i} className={cls}>
+						{item}
+					</div>
+				);
+			})}
 		</div>
 	);
 }
