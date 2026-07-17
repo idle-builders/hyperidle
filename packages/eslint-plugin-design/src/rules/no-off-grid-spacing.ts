@@ -46,7 +46,11 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 		const sourceText: string = (context.sourceCode as { text: string }).text;
 		const hasInternalPaddingDirective = sourceText.includes("hearth-internal-padding");
 
-		function isExemptInternalPadding(prop: string, dir: string | undefined, n: number): boolean {
+		function isExemptInternalPadding(
+			prop: string | undefined,
+			dir: string | undefined,
+			n: number,
+		): boolean {
 			if (!hasInternalPaddingDirective) return false;
 			// Vertical-only padding in buttons/inputs: py/pt/pb at 7px or 10px.
 			if (prop === "p" && (dir === "y" || dir === "t" || dir === "b") && (n === 7 || n === 10))
