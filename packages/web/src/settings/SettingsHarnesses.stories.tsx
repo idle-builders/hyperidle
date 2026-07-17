@@ -10,6 +10,12 @@
  */
 
 import { type JSX, useLayoutEffect, useState } from "react";
+// @lore LG1 Phase 3: static import replaces per-story require() calls.
+// The mock (globalThis.fetch = makeMockFetch(...)) only needs to be in place
+// before the component RENDERS (its useEffect fires fetch), not before the
+// module loads. ESM modules are cached — the component function is the same
+// reference; the mock window is set just before React renders it.
+import { SettingsHarnesses } from "./SettingsHarnesses.js";
 
 export default {
 	title: "SettingsHarnesses",
@@ -122,10 +128,9 @@ const DESCRIPTORS_WITH_DISABLED = MOCK_DESCRIPTORS.map((d) =>
 		: d,
 );
 
-// biome-ignore lint/suspicious/noExplicitAny: Story fixture uses partial descriptor shapes that don't align with the full type
+// LG1 Phase 4: partial story-fixture descriptors only need JSON.stringify; unknown[] is sufficient
 function makeMockFetch(
-	// biome-ignore lint/suspicious/noExplicitAny: same
-	descriptors: any[] | null,
+	descriptors: readonly unknown[] | null,
 	error = false,
 ): (url: string | Request | URL, init?: RequestInit) => Promise<Response> {
 	return (url: unknown) => {
@@ -158,8 +163,6 @@ export const Loading = (): JSX.Element => {
 		setReady(true);
 	}, []);
 	if (!ready) return <></>;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -176,8 +179,6 @@ export const ErrorStory = (): JSX.Element => {
 		setReady(true);
 	}, []);
 	if (!ready) return <></>;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -194,8 +195,6 @@ export const Empty = (): JSX.Element => {
 		setReady(true);
 	}, []);
 	if (!ready) return <></>;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -212,8 +211,6 @@ export const Populated = (): JSX.Element => {
 		setReady(true);
 	}, []);
 	if (!ready) return <></>;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -230,8 +227,6 @@ export const WithDisabledRow = (): JSX.Element => {
 		setReady(true);
 	}, []);
 	if (!ready) return <></>;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />

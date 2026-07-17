@@ -61,7 +61,6 @@ export const Loading = (): ReactElement => {
 		setReady(true);
 	}, []);
 	if (!ready) return <></>;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
 	const { SettingsModels } = require("./SettingsModels.js") as {
 		SettingsModels: ComponentType;
 	};
