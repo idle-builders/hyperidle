@@ -30,6 +30,7 @@ export function ReviewRequestPart({
 		>
 			<div className="flex items-start gap-[9px]">
 				<span
+					role="img"
 					aria-label="Review request"
 					title="Review request"
 					className="mt-[3px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"

@@ -83,6 +83,7 @@ export function ScopePicker({
 				const isActive = option.id === activeId;
 				const isDisabled = option.disabled ?? false;
 				return (
+					// biome-ignore lint/a11y/useSemanticElements: <button role="radio"> is intentional — changing to <input type="radio"> requires restructuring the layout and event model; the radio group semantics are correct
 					<button
 						key={option.id}
 						type="button"

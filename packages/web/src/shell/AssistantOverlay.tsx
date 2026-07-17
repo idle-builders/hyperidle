@@ -678,7 +678,7 @@ export function AssistantOverlay({
 
 	return (
 		<div
-			role={overlayProps.role}
+			role="dialog"
 			aria-label="Assistant conversation"
 			aria-modal={overlayProps["aria-modal"]}
 			data-dialog-layer={overlayProps["data-dialog-layer"]}

@@ -293,6 +293,7 @@ function ExecutingBand(): JSX.Element {
 			}}
 		>
 			<span
+				role="status"
 				aria-label="executing"
 				className="h-[14px] w-[14px] shrink-0 rounded-full border-2 border-[var(--text-tertiary)] border-t-transparent"
 				style={{ animation: "spin 0.75s linear infinite" }}

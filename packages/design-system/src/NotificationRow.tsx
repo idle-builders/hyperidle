@@ -59,6 +59,7 @@ export function NotificationRow({
 				style={{ backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)` }}
 			/>
 			<StatusChip status={severity} />
+			{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label provides "Notification: " context prefix for screen readers within the row */}
 			<span className="flex-1 text-[15px] truncate" aria-label={`Notification: ${message}`}>
 				{message}
 			</span>

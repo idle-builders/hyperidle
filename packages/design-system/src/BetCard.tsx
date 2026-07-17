@@ -136,6 +136,7 @@ export function BetCard({
 				{leadAvatar && (
 					<span
 						className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-primary)] text-[11px] font-semibold"
+						role="img"
 						aria-label={`Lead agent: ${leadAvatar.name}`}
 					>
 						{leadAvatar.initials}
@@ -147,7 +148,6 @@ export function BetCard({
 				{/* AI4 AC5: Outcome verdict badge — semantic coloring via StatusChip */}
 				{outcomeVerdict && (
 					<span
-						aria-label={`Outcome: ${outcomeVerdict}`}
 						data-testid={id ? `bet-card-verdict-badge-${id}` : "bet-card-verdict-badge"}
 					>
 						<StatusChip
@@ -167,7 +167,6 @@ export function BetCard({
 			{/* Title */}
 			<span
 				className="text-[17px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] truncate"
-				aria-label={`Bet: ${title}`}
 			>
 				{title}
 			</span>

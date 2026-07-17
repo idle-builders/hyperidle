@@ -460,6 +460,7 @@ function WorkTeamLoaded({
 												<span
 													className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-primary)]"
 													style={{ background: "var(--accent-primary-dim)" }}
+													role="img"
 													aria-label={routine.agentName}
 													title={routine.agentName}
 												>

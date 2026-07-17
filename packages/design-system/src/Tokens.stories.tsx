@@ -165,6 +165,7 @@ export const Motion = (): React.JSX.Element => (
 	<div style={{ display: "flex", gap: "18px" }}>
 		{(["--motion-fast", "--motion-default", "--motion-slow"] as const).map((token) => (
 			<div key={token}>
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: motion demo — pointer-only interaction for visual token preview; no keyboard behavior needed */}
 				<div
 					style={{
 						height: "44px",

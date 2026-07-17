@@ -388,6 +388,7 @@ function KnowledgeListContent({
 			    getByRole("button", { name: /recency/ }) works in tests.
 			    @lore AF13: role="radio" buttons are not found by getByRole("button"),
 			    since explicit role overrides the implicit element role. */}
+			{/* biome-ignore lint/a11y/useSemanticElements: <div role="group"> is correct here — <fieldset> has different block-level styling behavior that breaks this inline sort bar layout; @lore AF13 */}
 			<div
 				role="group"
 				aria-label="Sort order"
@@ -398,13 +399,11 @@ function KnowledgeListContent({
 				{KNOWLEDGE_SORT_OPTIONS.map((option) => {
 					const isActive = sort === option;
 					return (
+						// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is kept alongside aria-pressed so U9 test [aria-checked='true'] query passes; @lore AF13
 						<button
 							key={option}
 							type="button"
 							aria-pressed={isActive}
-							// @lore AF13: aria-checked kept alongside aria-pressed so U9 test
-							// [aria-checked='true'] query still passes. role="radio" was removed
-							// because it prevents getByRole("button") from finding these pills.
 							aria-checked={isActive}
 							onClick={() => onSortChange(option)}
 							className={

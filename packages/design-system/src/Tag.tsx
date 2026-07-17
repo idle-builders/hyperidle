@@ -50,6 +50,7 @@ export function Tag({ label, kind }: TagProps): JSX.Element {
 		<span
 			{...dsProps("Tag", "1")}
 			className={`${TAG_BASE} ${meta.tintClass}`}
+			role="img"
 			aria-label={`${meta.ariaLabel}: ${label}`}
 		>
 			<span className="inline-flex items-center shrink-0">{meta.icon}</span>

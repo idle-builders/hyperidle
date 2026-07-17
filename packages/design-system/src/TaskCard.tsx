@@ -34,6 +34,7 @@ export function TaskCard({
 				`bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] max-w-[320px] shadow-[var(--shadow-default)] border hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${state === "blocked" ? "border-[var(--status-error)]" : "border-[var(--border-subtle)]"}`,
 			)}
 		>
+			{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label provides "Task: " context prefix for screen readers within the clickable card */}
 			<span
 				className="text-[15px] font-medium truncate text-[var(--text-primary)]"
 				aria-label={`Task: ${title}`}

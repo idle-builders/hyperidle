@@ -132,7 +132,7 @@ export function NotificationPopover({
 	return (
 		<div
 			ref={overlayRef}
-			role={overlayProps.role}
+			role="dialog"
 			aria-modal={overlayProps["aria-modal"]}
 			aria-label="Notifications"
 			data-testid="notification-popover"
@@ -243,6 +243,7 @@ export function NotificationPopover({
 									 * hydration errors. Row is a div with role=row semantics; interactive
 									 * via onClick + onKeyDown. The real buttons at the end handle mute/dismiss.
 									 */}
+									{/* biome-ignore lint/a11y/useSemanticElements: <div role="button"> — cannot use <button> here because the row contains <button> children (mute/dismiss actions); nested buttons are invalid HTML and cause hydration errors */}
 									<div
 										role="button"
 										tabIndex={0}

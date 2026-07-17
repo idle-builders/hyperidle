@@ -391,7 +391,7 @@ export function TaskSheet({
 	return (
 		<div
 			ref={dialogRef}
-			role={overlayProps.role}
+			role="dialog"
 			aria-modal={overlayProps["aria-modal"]}
 			aria-labelledby="task-sheet-title"
 			data-testid="task-sheet"

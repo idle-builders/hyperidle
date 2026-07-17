@@ -146,7 +146,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 		: recipients;
 
 	return (
-		<div
+		<search
 			data-testid="recipient-picker"
 			className="flex flex-col gap-[9px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] border border-[var(--border-default)]"
 			onKeyDown={handleKeyDown}
@@ -198,6 +198,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 											{recipient.hasActiveSession && (
 												<span
 													className="inline-flex items-center gap-[3px] px-[6px] py-[3px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-primary)] text-[10px] font-medium uppercase tracking-[0.05em]"
+													role="img"
 													aria-label="Live session"
 												>
 													<span className="w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse" />
@@ -270,6 +271,6 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 					</div>
 				</>
 			)}
-		</div>
+		</search>
 	);
 }

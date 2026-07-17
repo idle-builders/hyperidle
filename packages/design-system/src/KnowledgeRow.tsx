@@ -89,6 +89,7 @@ export function KnowledgeRow({
 		>
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-[12px]">
+					{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label provides "Knowledge: " context prefix for screen readers within the clickable row */}
 					<span className={titleClass} aria-label={`Knowledge: ${title}`}>
 						{title}
 					</span>

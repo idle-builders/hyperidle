@@ -25,6 +25,7 @@ export function Loading(): JSX.Element {
 		<div style={{ width: 360, padding: 16 }}>
 			<div
 				data-testid="block-ref-embed-loading"
+				role="status"
 				aria-busy="true"
 				aria-label="Loading block reference"
 				className="h-[32px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] animate-pulse"

@@ -60,6 +60,7 @@ function PresenceDot({
 	return (
 		<span
 			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-full border-[1.5px] border-[var(--surface-container)] ${bg}`}
+			role="img"
 			aria-label={`${name} - ${status}`}
 		/>
 	);

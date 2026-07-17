@@ -252,9 +252,8 @@ function SidebarV2({ initialView = "conversations" }: { initialView?: ViewId }):
 	}
 
 	return (
-		<aside
+		<nav
 			{...dsShellProps("SidebarV2")}
-			role="navigation"
 			aria-label="Main navigation"
 			className="flex h-full w-full shrink-0 flex-col gap-[12px] p-[12px]"
 		>
@@ -318,7 +317,7 @@ function SidebarV2({ initialView = "conversations" }: { initialView?: ViewId }):
 
 			{/* AD9 fix 3: Settings pinned at the BOTTOM (footer area). */}
 			<SettingsFooter active={settingsActive} onClick={() => setSettingsActive(true)} />
-		</aside>
+		</nav>
 	);
 }
 

@@ -62,10 +62,12 @@ export function KnowledgeTopicGroup({
 					{/* Health dot — sr-only visually but kept for accessibility and tests */}
 					<span
 						className={`inline-block h-2 w-2 rounded-full shrink-0 sr-only ${HEALTH_DOT_CLASS[health]}`}
+						role="img"
 						aria-label={`Health: ${HEALTH_DOT_LABEL[health]}`}
 						data-testid={`topic-health-${topic}`}
 						data-health={health}
 					/>
+					{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label used for test selection and screen-reader accessibility; text content matches label */}
 					<span
 						className="text-[11px] text-[var(--text-tertiary)]"
 						aria-label={`${itemCount} items`}
@@ -73,7 +75,7 @@ export function KnowledgeTopicGroup({
 						{itemCount} items
 					</span>
 					{staleCount > 0 && (
-						<span className="sr-only" aria-label={`${staleCount} stale`}>
+						<span role="status" className="sr-only" aria-label={`${staleCount} stale`}>
 							{staleCount} stale
 						</span>
 					)}

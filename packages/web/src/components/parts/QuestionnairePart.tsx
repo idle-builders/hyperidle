@@ -33,6 +33,7 @@ export function QuestionnairePart({ part }: { part: QuestionnairePartValue }): J
 		>
 			<div className="flex items-start gap-[9px]">
 				<span
+					role="img"
 					aria-label="Quick ask"
 					title="Quick ask"
 					className="mt-[3px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
