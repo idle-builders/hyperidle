@@ -438,7 +438,7 @@ describe("setup submit ordering — key write before nav", () => {
 		// reassignment is not visible at the call site). Bracket notation avoids the
 		// narrowing — the other 3 similar accesses in this file use different declaration
 		// patterns and do not hit the same narrowing path.
-		expect(capturedTeamsBody?.primaryHarness).toBeUndefined();
+		expect(capturedTeamsBody?.["primaryHarness"]).toBeUndefined();
 	});
 });
 
