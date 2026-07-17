@@ -18,7 +18,8 @@ export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.El
 					<tr>
 						{header.map((cell, i) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: table header columns have no stable id; column position is their identity
-							<th key={i}
+							<th
+								key={i}
 								scope="col"
 								style={{ textAlign: align[i] ?? "left" }}
 								className="font-mono text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-secondary)] px-[12px] py-[9px] border-b border-[var(--border-subtle)]"
@@ -34,7 +35,8 @@ export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.El
 						<tr key={ri}>
 							{row.map((cell, ci) => (
 								// biome-ignore lint/suspicious/noArrayIndexKey: table cells have no stable id; column position is their identity
-								<td key={ci}
+								<td
+									key={ci}
 									style={{ textAlign: align[ci] ?? "left" }}
 									className="px-[12px] py-[9px] border-b border-[var(--border-subtle)] tabular-nums"
 								>

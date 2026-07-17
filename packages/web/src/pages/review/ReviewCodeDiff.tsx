@@ -468,34 +468,34 @@ function FileDiff({
 			<Fragment key={`below:${ref.hunkIndex}:${ref.lineIndex}`}>
 				{composerOpen ? (
 					<div className="pl-[36px]">
-					<div className="flex gap-[12px] pl-[48px] pr-[12px] py-[9px]">
-						<div className="flex flex-col items-center gap-0">
-							<div className="w-[var(--bw-default)] h-[18px] bg-[var(--border-strong)]" />
-							<div className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]" />
-							<div className="w-[var(--bw-default)] flex-1 bg-[var(--border-strong)]" />
+						<div className="flex gap-[12px] pl-[48px] pr-[12px] py-[9px]">
+							<div className="flex flex-col items-center gap-0">
+								<div className="w-[var(--bw-default)] h-[18px] bg-[var(--border-strong)]" />
+								<div className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]" />
+								<div className="w-[var(--bw-default)] flex-1 bg-[var(--border-strong)]" />
+							</div>
+							<InlineComposer
+								anchor={anchor}
+								onSubmit={async (text: string) => {
+									await onAddAnchor({ anchor, text });
+									setComposerBlockId(null);
+								}}
+							/>
 						</div>
-						<InlineComposer
-							anchor={anchor}
-							onSubmit={async (text: string) => {
-								await onAddAnchor({ anchor, text });
-								setComposerBlockId(null);
-							}}
-						/>
-					</div>
 					</div>
 				) : null}
 				{threadComments.length > 0 ? (
 					<div className="pl-[36px]">
-					<div className="pl-[48px] pr-[12px] py-[9px]">
-						<AnchoredThreadCard
-							anchor={anchor}
-							comments={threadComments}
-							readOnly={readOnly}
-							onReply={async (text: string) => {
-								await onAddAnchor({ anchor, text });
-							}}
-						/>
-					</div>
+						<div className="pl-[48px] pr-[12px] py-[9px]">
+							<AnchoredThreadCard
+								anchor={anchor}
+								comments={threadComments}
+								readOnly={readOnly}
+								onReply={async (text: string) => {
+									await onAddAnchor({ anchor, text });
+								}}
+							/>
+						</div>
 					</div>
 				) : null}
 			</Fragment>

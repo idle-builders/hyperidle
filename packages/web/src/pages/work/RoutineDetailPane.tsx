@@ -148,9 +148,12 @@ function RoutineDetailPaneLoaded({
 	// Stabilize showToast with useCallback so handleSave (which depends on it) stays
 	// stable between renders. The inline ?? fallback created a new function reference
 	// every render, causing handleSave to re-create unnecessarily.
-	const showToast = useCallback((msg: string): void => {
-		toast?.showToast(msg);
-	}, [toast]);
+	const showToast = useCallback(
+		(msg: string): void => {
+			toast?.showToast(msg);
+		},
+		[toast],
+	);
 
 	// Derive initial schedule state from triggerConfig
 	// @lore AV4: if the stored cron matches a preset, show that preset; else show "custom"

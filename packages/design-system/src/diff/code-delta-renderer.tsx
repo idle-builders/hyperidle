@@ -123,7 +123,7 @@ export function CodeDeltaRenderer({
 								text: line.text,
 							};
 							return (
-								<div key={`${line.oldNo ?? ''}-${line.newNo ?? ''}-${line.kind}`}>
+								<div key={`${line.oldNo ?? ""}-${line.newNo ?? ""}-${line.kind}`}>
 									<div data-diff-type={line.kind} className={`relative flex ${LINE_BG[line.kind]}`}>
 										{renderLineGutter?.(ref)}
 										{renderLineAffordance?.(ref)}

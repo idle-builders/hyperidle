@@ -72,7 +72,8 @@ export function AvatarGroup({
 		<div {...dsProps("AvatarGroup", "0")} className={`flex flex-row ${className}`}>
 			{Children.map(items, (item, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: React.Children API exposes no stable id; avatar group order is stable (static member list)
-				<div key={i}
+				<div
+					key={i}
 					className={`${i > 0 ? overlapClass : ""} ring-[2px] ring-[var(--surface-elevated)] rounded-full`}
 				>
 					{item}

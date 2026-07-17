@@ -134,7 +134,8 @@ function WelcomeVisual(): JSX.Element {
 		>
 			{dotColors.map((dotColor, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: static color array; dots have no semantic identity
-				<div key={i}
+				<div
+					key={i}
 					className="flex-1 bg-[var(--surface-elevated)] rounded-[var(--r-subtle)] p-[9px]"
 				>
 					<div className="flex items-center gap-[6px] mb-[6px]">
@@ -209,10 +210,7 @@ export function SetupFlow(): JSX.Element {
 		(): readonly string[] =>
 			selectedPreset === "custom"
 				? customFunctions
-				: (PRESETS.find((p) => p.id === selectedPreset)?.functions ?? [
-						"development",
-						"product",
-					]),
+				: (PRESETS.find((p) => p.id === selectedPreset)?.functions ?? ["development", "product"]),
 		[selectedPreset, customFunctions],
 	);
 

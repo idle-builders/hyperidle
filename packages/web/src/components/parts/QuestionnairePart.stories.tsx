@@ -22,7 +22,11 @@ function makeQuestionnairePart(
 		createdAt: "2026-06-22T14:00:00.000Z",
 		embeds: [],
 		question: "Which approach should I use for the streaming fix?",
-		options: ["Update server emit path only", "Update both server and client", "Revert the SDK upgrade"],
+		options: [
+			"Update server emit path only",
+			"Update both server and client",
+			"Revert the SDK upgrade",
+		],
 		...overrides,
 	};
 }

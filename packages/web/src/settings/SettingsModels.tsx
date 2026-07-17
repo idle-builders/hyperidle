@@ -180,36 +180,36 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 			{/* openai-compatible: baseUrl and apiKey */}
 			{isOpenAiCompatible && (
 				<div className="pl-[36px]">
-				<div className="flex flex-col gap-[12px] pl-[48px]">
-					<Input
-						id={`${tier}-base-url`}
-						label="Base URL"
-						type="url"
-						value={config.baseUrl}
-						onChange={(e) => onChange(tier, "baseUrl", e.target.value)}
-						placeholder="https://api.together.xyz/v1"
-						aria-label="Base URL"
-					/>
+					<div className="flex flex-col gap-[12px] pl-[48px]">
+						<Input
+							id={`${tier}-base-url`}
+							label="Base URL"
+							type="url"
+							value={config.baseUrl}
+							onChange={(e) => onChange(tier, "baseUrl", e.target.value)}
+							placeholder="https://api.together.xyz/v1"
+							aria-label="Base URL"
+						/>
 
-					<div className="flex items-center gap-[6px]">
-						<div className="flex-1">
-							<Input
-								id={`${tier}-api-key`}
-								label="API Key"
-								type="password"
-								value={config.apiKey}
-								onChange={(e) => onChange(tier, "apiKey", e.target.value)}
-								placeholder={hasApiKey ? "Key stored — enter to replace" : "Enter API key"}
-								aria-label="API Key"
-							/>
-						</div>
-						{hasApiKey && (
-							<div className="self-end pb-[3px]">
-								<StatusChip status="healthy" label="Stored" />
+						<div className="flex items-center gap-[6px]">
+							<div className="flex-1">
+								<Input
+									id={`${tier}-api-key`}
+									label="API Key"
+									type="password"
+									value={config.apiKey}
+									onChange={(e) => onChange(tier, "apiKey", e.target.value)}
+									placeholder={hasApiKey ? "Key stored — enter to replace" : "Enter API key"}
+									aria-label="API Key"
+								/>
 							</div>
-						)}
+							{hasApiKey && (
+								<div className="self-end pb-[3px]">
+									<StatusChip status="healthy" label="Stored" />
+								</div>
+							)}
+						</div>
 					</div>
-				</div>
 				</div>
 			)}
 		</div>

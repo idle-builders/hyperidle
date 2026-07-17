@@ -147,9 +147,7 @@ export function BetCard({
 				<StatusChip status={betStatusToStatus(status)} label={BET_STATUS_LABEL[status]} />
 				{/* AI4 AC5: Outcome verdict badge — semantic coloring via StatusChip */}
 				{outcomeVerdict && (
-					<span
-						data-testid={id ? `bet-card-verdict-badge-${id}` : "bet-card-verdict-badge"}
-					>
+					<span data-testid={id ? `bet-card-verdict-badge-${id}` : "bet-card-verdict-badge"}>
 						<StatusChip
 							status={betOutcomeVerdictToStatus(outcomeVerdict)}
 							label={BET_OUTCOME_VERDICT_LABEL[outcomeVerdict]}
@@ -165,9 +163,7 @@ export function BetCard({
 			</div>
 
 			{/* Title */}
-			<span
-				className="text-[17px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] truncate"
-			>
+			<span className="text-[17px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] truncate">
 				{title}
 			</span>
 

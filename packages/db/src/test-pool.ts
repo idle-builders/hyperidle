@@ -26,7 +26,9 @@ function trace(event: string, durationMs: number, meta?: Record<string, unknown>
 	};
 	try {
 		appendFileSync(TRACE_FILE, `${JSON.stringify(entry)}\n`);
-	} catch { /* trace file write failure is silent — test tracing is optional */ }
+	} catch {
+		/* trace file write failure is silent — test tracing is optional */
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -157,7 +159,9 @@ if (typeof process.send === "function") {
 		if (state.primary) {
 			try {
 				state.primary.client.close();
-			} catch { /* best-effort: PGlite client close on disconnect */ }
+			} catch {
+				/* best-effort: PGlite client close on disconnect */
+			}
 		}
 		process.exit(0);
 	});

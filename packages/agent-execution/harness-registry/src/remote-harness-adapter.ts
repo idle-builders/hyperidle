@@ -199,7 +199,9 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 					sessionId,
 					resolve,
 					reject,
-					pushEvent: () => { /* no-op: placeholder event sink — session created without a prior waitForResult caller */ },
+					pushEvent: () => {
+						/* no-op: placeholder event sink — session created without a prior waitForResult caller */
+					},
 					close: () => reject(new Error("WebSocket closed before session result")),
 				});
 			}

@@ -331,7 +331,11 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 								</div>
 								<div className="flex gap-[6px] mt-[6px]">
 									{data.reviewTrackRecord.recentVerdicts.slice(0, 10).map((v) => (
-										<VerdictDot key={`verdict-${v.createdAt}`} decision={v.decision} createdAt={v.createdAt} />
+										<VerdictDot
+											key={`verdict-${v.createdAt}`}
+											decision={v.decision}
+											createdAt={v.createdAt}
+										/>
 									))}
 								</div>
 							</div>

@@ -206,23 +206,23 @@ function FieldRow({
 					{/* L3 — per-field provenance + needs-you detail, on demand */}
 					{expanded ? (
 						<div className="mt-[9px] ml-[48px]">
-						<div className="ml-[48px] flex flex-col gap-[6px]">
-							<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-								<ToolLogo tool="salesforce" size="sm" label="" />
-								<span>{field.source}</span>
-							</div>
-							{needs ? (
-								<div
-									className="rounded-[var(--r-subtle)] px-[9px] py-[6px] text-[12px]"
-									style={{
-										background: "var(--accent-secondary-dim)",
-										color: "var(--status-warning)",
-									}}
-								>
-									{field.needsYou}
+							<div className="ml-[48px] flex flex-col gap-[6px]">
+								<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
+									<ToolLogo tool="salesforce" size="sm" label="" />
+									<span>{field.source}</span>
 								</div>
-							) : null}
-						</div>
+								{needs ? (
+									<div
+										className="rounded-[var(--r-subtle)] px-[9px] py-[6px] text-[12px]"
+										style={{
+											background: "var(--accent-secondary-dim)",
+											color: "var(--status-warning)",
+										}}
+									>
+										{field.needsYou}
+									</div>
+								) : null}
+							</div>
 						</div>
 					) : null}
 				</div>

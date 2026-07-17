@@ -147,7 +147,7 @@
 			"!**/visual-reports",
 			"!**/sync-reports",
 			"!.hermes",
-		"!.claude/agents",
+			"!.claude/agents",
 			"!.claude/package.json",
 			"!.claude/process",
 			"!.claude/references",
