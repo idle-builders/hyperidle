@@ -205,7 +205,8 @@ function FieldRow({
 
 					{/* L3 — per-field provenance + needs-you detail, on demand */}
 					{expanded ? (
-						<div className="mt-[9px] ml-[48px] flex flex-col gap-[6px]">
+						<div className="mt-[9px] ml-[48px]">
+						<div className="ml-[48px] flex flex-col gap-[6px]">
 							<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
 								<ToolLogo tool="salesforce" size="sm" label="" />
 								<span>{field.source}</span>
@@ -221,6 +222,7 @@ function FieldRow({
 									{field.needsYou}
 								</div>
 							) : null}
+						</div>
 						</div>
 					) : null}
 				</div>

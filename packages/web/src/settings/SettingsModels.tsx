@@ -179,6 +179,7 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 
 			{/* openai-compatible: baseUrl and apiKey */}
 			{isOpenAiCompatible && (
+				<div className="pl-[36px]">
 				<div className="flex flex-col gap-[12px] pl-[48px]">
 					<Input
 						id={`${tier}-base-url`}
@@ -208,6 +209,7 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 							</div>
 						)}
 					</div>
+				</div>
 				</div>
 			)}
 		</div>

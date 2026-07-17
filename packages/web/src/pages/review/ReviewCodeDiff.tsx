@@ -467,6 +467,7 @@ function FileDiff({
 		return (
 			<Fragment key={`below:${ref.hunkIndex}:${ref.lineIndex}`}>
 				{composerOpen ? (
+					<div className="pl-[36px]">
 					<div className="flex gap-[12px] pl-[48px] pr-[12px] py-[9px]">
 						<div className="flex flex-col items-center gap-0">
 							<div className="w-[var(--bw-default)] h-[18px] bg-[var(--border-strong)]" />
@@ -481,8 +482,10 @@ function FileDiff({
 							}}
 						/>
 					</div>
+					</div>
 				) : null}
 				{threadComments.length > 0 ? (
+					<div className="pl-[36px]">
 					<div className="pl-[48px] pr-[12px] py-[9px]">
 						<AnchoredThreadCard
 							anchor={anchor}
@@ -492,6 +495,7 @@ function FileDiff({
 								await onAddAnchor({ anchor, text });
 							}}
 						/>
+					</div>
 					</div>
 				) : null}
 			</Fragment>
