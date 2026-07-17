@@ -94,7 +94,7 @@ import {
 	composeAssistantPrompt,
 	writeSandboxAgentsMd,
 } from "./context-assembly-bindings.js";
-import { checkCostCap, recordCostAndCheck, releaseSessionDedup } from "./cost-bindings.js";
+import { checkCostCap, recordCostAndCheck } from "./cost-bindings.js";
 import { terminalizeAgentSessionRequestInTx } from "./session-requests-bindings.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
@@ -205,7 +205,6 @@ const sessionRequestsAccessor: SessionLifecyclePorts["sessionRequests"] = {
 const costAccessor: SessionLifecyclePorts["cost"] = {
 	checkCostCap,
 	recordCostAndCheck,
-	releaseSessionDedup,
 };
 
 // ---------------------------------------------------------------------------

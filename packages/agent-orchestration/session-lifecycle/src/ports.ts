@@ -349,8 +349,13 @@ export interface SessionLifecycleCostAccessor {
 			readonly reviewThreadId?: string;
 		},
 	): Promise<void>;
-	/** `@hyperidle/cost`'s per-session dedup-map cleanup — pure in-memory, no DB, but still a real Service export (Mechanism C). */
-	releaseSessionDedup(sessionId: string): void;
+	/**
+	 * @lore AU20 Am3: `releaseSessionDedup` removed from this port. The
+	 * EventBus subscription installed by `startSentinel` (via
+	 * `installDedupReleaser`) already covers `session_ended` and
+	 * `session_handoff_completed` — the direct calls in `endSession` /
+	 * `crashSession` were belt-and-suspenders and are removed here.
+	 */
 }
 
 // ---------------------------------------------------------------------------

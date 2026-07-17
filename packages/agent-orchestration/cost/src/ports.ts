@@ -22,6 +22,12 @@
  * see `org`'s `team-lookup.ts`) — a genuinely NEW `cost → org` edge, not in
  * the original census (§10.1/§10.2 updated).
  *
+ * @lore AU20 Am3: Row types (`CostUserRow`, `CostTeamRow`, etc.) remain in
+ * this file for package-internal use but are NOT re-exported from the barrel.
+ * The four new discriminated-union types (`CostScope`, `CostVerdict`,
+ * `CostCheckParams`, `CostRecordParams`) drive the new 6-method `CostOps`
+ * interface; only `CostDeps` is needed at the composition root.
+ *
  * Types are declared locally (structural mirrors of the target Service's own
  * types, or typed directly off `@hyperidle/db` row types per §7.3 W4) rather
  * than imported from the target package — a Service NEVER imports another
@@ -31,10 +37,69 @@
 import type { HyperIdleDb, TeamMember, User } from "@hyperidle/db";
 
 // ---------------------------------------------------------------------------
+// New discriminated-union public types (AM3 API collapse)
+// ---------------------------------------------------------------------------
+
+/**
+ * The single scope discriminator that drives `spend()` + `reset()`.
+ * Replaces the proliferation of `level`-string params across the old API.
+ */
+export interface CostScope {
+	readonly level: "agent" | "team" | "factory";
+	readonly id?: string;
+}
+
+/**
+ * The single gate-check result type (replaces `CostCapResult`).
+ * All `check()` callers receive exactly this shape.
+ */
+export interface CostVerdict {
+	readonly allowed: boolean;
+	readonly level?: "agent" | "team" | "factory";
+	readonly currentSpend?: number;
+	readonly cap?: number;
+}
+
+/** Gate-check request (replaces `CheckCostCapParams`). */
+export interface CostCheckParams {
+	readonly agentId: string;
+	readonly teamId?: string;
+	readonly factoryCap?: number;
+	readonly factorySpend?: number;
+}
+
+/** Ledger-write request (replaces `RecordCostAndCheckParams`). */
+export interface CostRecordParams {
+	readonly sessionId: string;
+	/**
+	 * @deprecated Use costMinor + currency instead (L17). Kept for backward
+	 * compatibility with existing callers. If costMinor is provided, cost is ignored.
+	 */
+	readonly cost?: number;
+	/** L17: cost in minor units (e.g. cents for USD). */
+	readonly costMinor?: number;
+	/** L17: currency code for costMinor. */
+	readonly currency?: string;
+	readonly agentId: string;
+	readonly teamId?: string;
+	/**
+	 * R5: Optional task id. When provided, cost is also accumulated on the
+	 * task's parent bet (via tasks.betId lookup).
+	 */
+	readonly taskId?: string;
+	readonly factoryCap?: number;
+	readonly factorySpend?: number;
+	readonly reviewThreadId?: string;
+}
+
+// ---------------------------------------------------------------------------
 // users — CostUserAccessor (ordinary downward edge, real target)
 // ---------------------------------------------------------------------------
 
-/** The `users` row fields `cost-cap.ts` reads. */
+/**
+ * The `users` row fields `cost-cap.ts` reads.
+ * Package-internal — not re-exported from the barrel (AU20 Am3).
+ */
 export type CostUserRow = Pick<User, "id" | "costActual" | "costCap" | "costCapMinor">;
 
 /** Port for `users`' read/write surface this Service calls directly today. */
@@ -50,7 +115,10 @@ export interface CostUserAccessor {
 // org — CostTeamAccessor (ordinary downward edge, NEW edge — census correction)
 // ---------------------------------------------------------------------------
 
-/** The `team_members` row fields `cost-cap.ts` reads. */
+/**
+ * The `team_members` row fields `cost-cap.ts` reads.
+ * Package-internal — not re-exported from the barrel (AU20 Am3).
+ */
 export type CostTeamRow = Pick<TeamMember, "id" | "costActual" | "costCap" | "costCapMinor">;
 
 /** Port for `org`'s `team_members` cost read/write surface this Service calls directly today. */
@@ -65,12 +133,18 @@ export interface CostTeamAccessor {
 // work — CostWorkAccessor (ordinary downward edge, real target)
 // ---------------------------------------------------------------------------
 
-/** The task field `cost-cap.ts` reads (bet-cost accumulation via task -> bet lookup). */
+/**
+ * The task field `cost-cap.ts` reads (bet-cost accumulation via task -> bet lookup).
+ * Package-internal — not re-exported from the barrel (AU20 Am3).
+ */
 export interface CostTaskRef {
 	readonly betId: string | null;
 }
 
-/** The review item `cost-cap.ts` creates on a cost-cap breach (AC8). */
+/**
+ * The review item `cost-cap.ts` creates on a cost-cap breach (AC8).
+ * Package-internal — not re-exported from the barrel (AU20 Am3).
+ */
 export interface CostReviewItemInput {
 	readonly id: string;
 	readonly sourceAgentId: string | null;
@@ -105,7 +179,10 @@ export interface CostWorkAccessor {
 // settings — CostSettingsAccessor (ordinary downward edge, real target)
 // ---------------------------------------------------------------------------
 
-/** The `server_config` fields `cost-sentinel.ts` reads. */
+/**
+ * The `server_config` fields `cost-sentinel.ts` reads.
+ * Package-internal — not re-exported from the barrel (AU20 Am3).
+ */
 export interface CostSettingsSnapshot {
 	readonly cost: { readonly capMinor: number };
 	readonly internal: {
@@ -113,7 +190,10 @@ export interface CostSettingsSnapshot {
 	};
 }
 
-/** The `server_config` patch `cost-sentinel.ts` writes (its own dedup level). */
+/**
+ * The `server_config` patch `cost-sentinel.ts` writes (its own dedup level).
+ * Package-internal — not re-exported from the barrel (AU20 Am3).
+ */
 export interface CostSettingsPatch {
 	readonly internal?: {
 		readonly costSentinelLastLevel?: "ok" | "warning" | "breach";

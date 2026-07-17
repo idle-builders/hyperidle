@@ -7,12 +7,16 @@
  * each helper is called EXACTLY ONCE per top-level function invocation.
  *
  * RED before I0b implementation (counts are 2); GREEN after (counts are 1).
+ *
+ * @lore AU20 Am3: `clearDeduplicationCache` removed from cost-cap.ts barrel.
+ * Tests now create a fresh `CostDedupState` per call (via `createDedupState`)
+ * so state never bleeds between tests without a `beforeEach` sweep.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
-import { beforeEach, describe, expect, it } from "vitest";
-import { checkCostCap, clearDeduplicationCache, recordCostAndCheck } from "../cost-cap.js";
+import { describe, expect, it } from "vitest";
+import { checkCostCap, createDedupState, recordCostAndCheck } from "../cost-cap.js";
 import type { CostDeps, CostTeamRow, CostUserRow } from "../ports.js";
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -97,19 +101,23 @@ const db = {} as HyperIdleDb;
 // ────────────────────────────────────────────────────────────────────────────
 
 describe("I0b: no duplicate DB reads", () => {
-	beforeEach(() => {
-		clearDeduplicationCache();
-	});
-
 	describe("checkCostCap", () => {
 		it("calls getUserById exactly once (not 2×)", async () => {
 			const { deps, getUserByIdCount } = makeCountingDeps();
 			const bus = new EventBus();
+			// Fresh dedup state per test — no beforeEach needed.
+			const dedup = createDedupState();
 
-			await checkCostCap(deps, db, bus, {
-				agentId: "agent-1",
-				teamId: "team-1",
-			});
+			await checkCostCap(
+				deps,
+				db,
+				bus,
+				{
+					agentId: "agent-1",
+					teamId: "team-1",
+				},
+				dedup,
+			);
 
 			expect(getUserByIdCount()).toBe(1);
 		});
@@ -117,11 +125,18 @@ describe("I0b: no duplicate DB reads", () => {
 		it("calls getTeamMembersById exactly once (not 2×)", async () => {
 			const { deps, getTeamMembersByIdCount } = makeCountingDeps();
 			const bus = new EventBus();
+			const dedup = createDedupState();
 
-			await checkCostCap(deps, db, bus, {
-				agentId: "agent-1",
-				teamId: "team-1",
-			});
+			await checkCostCap(
+				deps,
+				db,
+				bus,
+				{
+					agentId: "agent-1",
+					teamId: "team-1",
+				},
+				dedup,
+			);
 
 			expect(getTeamMembersByIdCount()).toBe(1);
 		});
@@ -131,13 +146,20 @@ describe("I0b: no duplicate DB reads", () => {
 		it("calls getUserById exactly once after increment (not 2×)", async () => {
 			const { deps, getUserByIdCount } = makeCountingDeps();
 			const bus = new EventBus();
+			const dedup = createDedupState();
 
-			await recordCostAndCheck(deps, db, bus, {
-				sessionId: "sess-1",
-				agentId: "agent-1",
-				teamId: "team-1",
-				costMinor: 10,
-			});
+			await recordCostAndCheck(
+				deps,
+				db,
+				bus,
+				{
+					sessionId: "sess-1",
+					agentId: "agent-1",
+					teamId: "team-1",
+					costMinor: 10,
+				},
+				dedup,
+			);
 
 			expect(getUserByIdCount()).toBe(1);
 		});
@@ -145,13 +167,20 @@ describe("I0b: no duplicate DB reads", () => {
 		it("calls getTeamMembersById exactly once after increment (not 2×)", async () => {
 			const { deps, getTeamMembersByIdCount } = makeCountingDeps();
 			const bus = new EventBus();
+			const dedup = createDedupState();
 
-			await recordCostAndCheck(deps, db, bus, {
-				sessionId: "sess-1",
-				agentId: "agent-1",
-				teamId: "team-1",
-				costMinor: 10,
-			});
+			await recordCostAndCheck(
+				deps,
+				db,
+				bus,
+				{
+					sessionId: "sess-1",
+					agentId: "agent-1",
+					teamId: "team-1",
+					costMinor: 10,
+				},
+				dedup,
+			);
 
 			expect(getTeamMembersByIdCount()).toBe(1);
 		});

@@ -119,11 +119,10 @@ import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { agentSelectionService } from "./services/agent-selection-bindings.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
-import {
-	checkCostCap,
-	registerCostCapDedupReleaser,
-	startCostSentinel,
-} from "./services/cost-bindings.js";
+// @lore AU20 Am3: `registerCostCapDedupReleaser` removed — folded into
+// `startCostSentinel` (now a single call covers both the dedup releaser
+// subscription and the sentinel interval). Disposer count 15→14.
+import { checkCostCap, startCostSentinel } from "./services/cost-bindings.js";
 import {
 	registerBuiltinRoutineHandlers,
 	registerTaskDispatcher,
@@ -393,9 +392,11 @@ export function registerAgentLayerServices(ctx: {
 	const disposers: Array<() => void> = [];
 
 	disposers.push(registerBuiltinRoutineHandlers(db, eventBus));
-	disposers.push(registerCostCapDedupReleaser(eventBus));
 	disposers.push(registerHandoffTerminationRequester(db, eventBus));
 	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
+	// @lore AU20 Am3: `startCostSentinel` now also installs the dedup-releaser
+	// EventBus subscription (folded from `registerCostCapDedupReleaser`).
+	// One disposer instead of two; count drops from 15 to 14.
 	disposers.push(startCostSentinel(db, eventBus));
 
 	// AD2: Register task dispatcher when provisioning deps are provided.

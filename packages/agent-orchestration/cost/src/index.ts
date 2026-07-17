@@ -1,62 +1,34 @@
 /**
  * Barrel for @hyperidle/cost (agent-orchestration Layer Service).
  *
- * Typed functions only — this Service owns zero tables (§4 roster confirms
- * the original "—"/"—" entry), so there is no raw table object to guard
- * against re-exporting.
+ * @lore AU20 Am3: collapsed from 25 exports to 8. The only public surface
+ * is the `CostOps` interface, the `createCostOps` factory, the `CostDeps`
+ * DI contract, and the four discriminated-union parameter/result types
+ * (`CostScope`, `CostVerdict`, `CostCheckParams`, `CostRecordParams`).
  *
- * @lore AU19 Increment 3g: this is the real cut-over — `cost-cap.ts`/
- * `cost-sentinel.ts` moved here from `packages/server/src/services/`
- * (behavior-preserving move). Every raw cross-Service call became an
- * injected DI port (Mechanism C, `ports.ts`): `users`/`org`/`work`/`settings`,
- * all ordinary downward edges (agent-orchestration reaching down into
- * core-api). `createCostOps` (`service.ts`) binds a single `CostDeps`
- * instance once, at the composition root (`packages/server`'s new
- * `cost-bindings.ts`), and every real call site imports the bound singleton
- * — same idiom as `agent-selection`.
+ * Row types (`CostUserRow`, `CostTeamRow`, etc.) remain in `ports.ts` for
+ * package-internal use but are NOT re-exported here — the composition root
+ * (`cost-bindings.ts`) receives them through `CostDeps` context inference.
  *
- * `work`'s against-grain `CostCapChecker` port (`packages/core-api/work/src/ports.ts`,
- * interim since Increment 1b) is RULED PERMANENT this migration — see
- * `ports.ts`'s top `@lore`. `policy`'s against-grain `PolicyCostDedupReleaser`
- * port is INVERTED to an EventBus subscription this migration — see
- * `cost-cap.ts`'s `registerCostCapDedupReleaser` top `@lore`.
+ * Test hooks (`clearDeduplicationCache`, `getDedupCacheSize`,
+ * `releaseSessionDedup`, `registerCostCapDedupReleaser`,
+ * `clearCostSentinelCache`) are bridged by `cost-bindings.ts` via
+ * `createCostOps(deps)._testHooks` — not in this barrel.
+ *
+ * Sentinel constants/types (`COST_SENTINEL_INTERVAL_MS`, `COST_WARNING_RATIO`,
+ * `CostSentinelLevel`) are package-internal — not in this barrel.
  */
 
-// -- cost cap (I3/L17/R5/AU18 — agent/team/factory cap check + accumulation) --
+// -- discriminated-union parameter/result types --
+// -- DI contract (ONE deps bundle, replaces 10 separate accessor re-exports) --
 export type {
-	CheckCostCapParams,
-	CostCapResult,
-	RecordCostAndCheckParams,
-	ResetCostsParams,
-} from "./cost-cap.js";
-export {
-	clearDeduplicationCache,
-	getDedupCacheSize,
-	registerCostCapDedupReleaser,
-	releaseSessionDedup,
-} from "./cost-cap.js";
-// -- cost sentinel (G4/AD8c/AU18 — periodic factory-cap dedup-by-level sentinel) --
-export type { CostSentinelLevel } from "./cost-sentinel.js";
-export {
-	COST_SENTINEL_INTERVAL_MS,
-	COST_WARNING_RATIO,
-	clearCostSentinelCache,
-} from "./cost-sentinel.js";
-// -- ports (Mechanism C — DI-injected outbound edges) --
-export type {
+	CostCheckParams,
 	CostDeps,
-	CostReviewItemInput,
-	CostSettingsAccessor,
-	CostSettingsPatch,
-	CostSettingsSnapshot,
-	CostTaskRef,
-	CostTeamAccessor,
-	CostTeamRow,
-	CostUserAccessor,
-	CostUserRow,
-	CostWorkAccessor,
+	CostRecordParams,
+	CostScope,
+	CostVerdict,
 } from "./ports.js";
 
-// -- service (the bound-ops factory, same idiom as `agent-selection`) --
-export type { CostOps } from "./service.js";
+// -- service interface + factory --
+export type { CostOps, CostTestHooks } from "./service.js";
 export { createCostOps } from "./service.js";

@@ -8,20 +8,26 @@
  * imports the already-wired functions unchanged — same factory-curry idiom
  * as `agent-selection`'s `AgentSelectionOps` wiring in `server-factory.ts`.
  *
- * `work`'s `CostCapChecker` port (`packages/core-api/work/src/ports.ts`) is
- * RULED PERMANENT — its concrete wiring repoints to `checkCostCap` here
- * (see that port's top `@lore`). `policy`'s former `PolicyCostDedupReleaser`
- * port is REMOVED — `handoff-protocol.ts` now emits
- * `session_handoff_completed` instead, which `registerCostCapDedupReleaser`
- * (re-exported below, deps-free) subscribes to directly.
+ * @lore AU20 Am3: API collapse (25 → 8 barrel exports). The five test-hook
+ * helpers (`clearDeduplicationCache`, `getDedupCacheSize`, `releaseSessionDedup`,
+ * `registerCostCapDedupReleaser`, `clearCostSentinelCache`) are no longer
+ * in the `@hyperidle/cost` barrel — they're bridged here via
+ * `costOps._testHooks` so integration tests that import from
+ * `../services/cost-bindings.js` continue to work unchanged.
+ *
+ * The production function names (`checkCostCap`, `recordCostAndCheck`,
+ * `resetCosts`, `getFactoryCostActual`, `startCostSentinel`,
+ * `runCostSentinelCheck`) keep their old signatures for backward compatibility
+ * — they delegate to the renamed new methods (`check`, `record`, `reset`,
+ * `spend({level:"factory"})`, `startSentinel`, `runCostSentinelCheck`).
  */
 
 import type {
-	CheckCostCapParams,
-	CostCapResult,
+	CostCheckParams,
 	CostDeps,
-	RecordCostAndCheckParams,
-	ResetCostsParams,
+	CostRecordParams,
+	CostScope,
+	CostVerdict,
 } from "@hyperidle/cost";
 import { createCostOps } from "@hyperidle/cost";
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -41,14 +47,6 @@ import {
 	updateUser,
 } from "@hyperidle/users";
 import { createItem, getTaskById, incrementBetCost } from "@hyperidle/work";
-
-export {
-	clearCostSentinelCache,
-	clearDeduplicationCache,
-	getDedupCacheSize,
-	registerCostCapDedupReleaser,
-	releaseSessionDedup,
-} from "@hyperidle/cost";
 
 const costDeps: CostDeps = {
 	users: { getUserById, incrementUserCost, resetAllUserCost, sumAllUserCost, updateUser },
@@ -71,42 +69,97 @@ const costDeps: CostDeps = {
 	},
 };
 
+// @lore AU20 Am3: `createCostOps` returns `CostOps & { _testHooks: CostTestHooks }`.
+// Capture as `const` (not `CostOps`) so TypeScript sees the wider return type
+// and `._ testHooks` is accessible without a cast.
 const costOps = createCostOps(costDeps);
 
-/** Production-wired `checkCostCap` — every real call site imports this, not `@hyperidle/cost` directly. */
+// ---------------------------------------------------------------------------
+// Test-hook bridges (backward compat — same names integration tests import)
+// NOT in the @hyperidle/cost barrel; only available from this bindings file.
+// ---------------------------------------------------------------------------
+
+/** Clear all dedup state. Integration tests call this in `beforeEach`. */
+export function clearDeduplicationCache(): void {
+	costOps._testHooks.clearDedup();
+}
+
+/** Count of sessions tracked in the dedup map. Integration tests use this to assert. */
+export function getDedupCacheSize(): number {
+	return costOps._testHooks.getDedupSize();
+}
+
+/** Drop a single session's dedup entry. Integration tests use this for manual cleanup. */
+export function releaseSessionDedup(sessionId: string): void {
+	costOps._testHooks.releaseDedup(sessionId);
+}
+
+/**
+ * Subscribe the dedup releaser to the EventBus.
+ * Integration tests call this to replicate the production boot wiring without
+ * invoking `startCostSentinel` (which would also start a 15-min interval).
+ */
+export function registerCostCapDedupReleaser(eventBus: EventBus): () => void {
+	return costOps._testHooks.installDedupReleaser(eventBus);
+}
+
+/** Force the sentinel state reset. Integration tests call this in `beforeEach`. */
+export function clearCostSentinelCache(): void {
+	costOps._testHooks.resetSentinelState();
+}
+
+// ---------------------------------------------------------------------------
+// Production-wired functions (backward-compat names, new underlying methods)
+// ---------------------------------------------------------------------------
+
+/**
+ * Production-wired gate check.
+ * Returns `CostVerdict` (structurally identical to old `CostCapResult`).
+ */
 export function checkCostCap(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	params: CheckCostCapParams,
-): Promise<CostCapResult> {
-	return costOps.checkCostCap(db, eventBus, params);
+	params: CostCheckParams,
+): Promise<CostVerdict> {
+	return costOps.check(db, eventBus, params);
 }
 
-/** Production-wired `recordCostAndCheck` — every real call site imports this. */
+/** Production-wired cost ledger write + cap check. */
 export function recordCostAndCheck(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	params: RecordCostAndCheckParams,
+	params: CostRecordParams,
 ): Promise<void> {
-	return costOps.recordCostAndCheck(db, eventBus, params);
+	return costOps.record(db, eventBus, params);
 }
 
-/** Production-wired `getFactoryCostActual` — every real call site imports this. */
+/** Production-wired factory cost read (delegates to `spend({level:"factory"})`). */
 export function getFactoryCostActual(db: HyperIdleDb): Promise<number> {
-	return costOps.getFactoryCostActual(db);
+	return costOps.spend(db, { level: "factory" });
 }
 
-/** Production-wired `resetCosts` — every real call site imports this. */
-export function resetCosts(db: HyperIdleDb, params: ResetCostsParams | string): Promise<void> {
-	return costOps.resetCosts(db, params);
+/**
+ * Production-wired cost reset.
+ * Accepts `CostScope | string` (string = old team-reset shorthand: `{ level: "team", id }`)
+ * for backward compatibility with existing callers that pass a bare teamId string.
+ */
+export function resetCosts(db: HyperIdleDb, params: CostScope | string): Promise<void> {
+	const scope: CostScope = typeof params === "string" ? { level: "team", id: params } : params;
+	return costOps.reset(db, scope);
 }
 
-/** Production-wired `startCostSentinel` — every real call site imports this. */
+/**
+ * Production-wired sentinel start.
+ *
+ * @lore AU20 Am3: now also installs the dedup-releaser EventBus subscription
+ * (folded into `startSentinel`). Server-factory no longer calls
+ * `registerCostCapDedupReleaser(eventBus)` separately — this call covers both.
+ */
 export function startCostSentinel(db: HyperIdleDb, eventBus: EventBus): () => void {
-	return costOps.startCostSentinel(db, eventBus);
+	return costOps.startSentinel(db, eventBus);
 }
 
-/** Production-wired `runCostSentinelCheck` — every real call site imports this. */
+/** Production-wired deterministic single-tick sentinel check. */
 export function runCostSentinelCheck(
 	db: HyperIdleDb,
 	eventBus: EventBus,
