@@ -604,6 +604,7 @@ export function Sidebar({
 			<div className="flex items-center gap-[6px] shrink-0">
 				{/* biome-ignore lint/a11y/noStaticElementInteractions: div wraps SearchField (interactive); onClick is a hint for the Cmd+K trigger, actual input focus is handled by SearchField itself */}
 				{/* biome-ignore lint/a11y/useKeyWithClickEvents: SearchField is a real keyboard-accessible input; wrapper div onClick only supplements pointer interaction for the Cmd+K hint */}
+				{/* eslint-disable-next-line design/require-focus-on-interactive -- LG1: wrapper div supplements SearchField pointer click for Cmd+K hint; SearchField inside is the real keyboard-accessible target */}
 				<div
 					className="flex-1 min-w-0"
 					data-testid="sidebar-search-hint"

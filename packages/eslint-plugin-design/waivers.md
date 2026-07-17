@@ -86,3 +86,55 @@ K8 promotion):
 
 These remain `warn` so the noise stays visible without breaking lint
 locally.
+
+---
+
+## LG1 Phase 4 waivers (promoted to error, inline-disabled with reason)
+
+### `design/require-focus-on-interactive` — `packages/web/src/**`
+
+Both surviving warnings are inline-disabled with `eslint-disable-next-line` +
+reason comment at the site. They are NOT user-reachable interactive primitives:
+
+- **`packages/web/src/components/GlobalSearchPanel.tsx:145`** — `aria-hidden="true"`
+  scrim/backdrop div with `onClick={onClose}`. Keyboard close is handled by the
+  Escape key in `useKeyboardNavigation` — the backdrop is purely visual. Already
+  had a `biome-ignore lint/a11y/useKeyWithClickEvents` comment for the same reason.
+
+- **`packages/web/src/shell/Sidebar.tsx:607`** — wrapper div around `<SearchField>`
+  that supplements pointer click for the Cmd+K hint. `SearchField` inside is the
+  real keyboard-accessible interactive target. Already had two
+  `biome-ignore lint/a11y/...` comments for the same reason.
+
+### `design/no-ai-aesthetic` — `packages/web/src/**`
+
+Waivers for typographic symbols and deliberate fake-browser-chrome design. All
+inline-disabled with `eslint-disable-next-line` + reason at the site.
+
+- **`packages/web/src/components/ReviewBrowserPreview.tsx:256`** — `✓` (U+2713)
+  inside the rendered fake pricing-page content, `aria-hidden="true"`. The file
+  header (lines 1-16) explicitly states that the rendered page is "the one place
+  neutral page styling is allowed — it must read as a real web page." The symbol
+  is page content, not product chrome.
+
+- **`packages/web/src/components/ReviewBrowserPreview.tsx:375`** — `🔒` (lock emoji)
+  in the URL bar of the fake browser chrome, `aria-hidden="true"`. Part of the
+  deliberately-designed fake-browser simulation; the file header cites this pattern.
+
+- **`packages/web/src/components/ReviewComposition.tsx:667`** — `✕` (U+2715) in a
+  close button with `aria-label="Close artifact"`. Typographic symbol (same pattern
+  as the K8-waivered `SearchField.tsx:53` `×` clear-button glyph).
+
+- **`packages/web/src/components/ReviewMetricsMoved.tsx:382`** — `✓` in a
+  `<span aria-hidden="true">` with explicit `color: var(--status-success)` token.
+  Typographic symbol as status indicator, accessible label via parent element.
+
+- **`packages/web/src/components/ReviewOutcomeSummary.tsx:317`** — `✓` in a
+  `<span aria-hidden="true">`. Same pattern.
+
+- **`packages/web/src/settings/SettingsHarnesses.tsx:347`** — `✕` in a `<Button>`
+  with `aria-label="Close detail"`. Typographic symbol (same pattern as above).
+
+- **`packages/web/src/shell/TaskSheet.tsx:409`** — `✕` in a `<button>` with
+  `aria-label="Close"`. Typographic symbol. (TaskSheet:400 `shadow-lg` was a real
+  fix — changed to `shadow-[var(--shadow-elevated)]` per AQ-012.)

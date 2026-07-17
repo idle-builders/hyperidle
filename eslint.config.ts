@@ -93,7 +93,15 @@ export default [
 	// codebase still has documented backlog (see eslint-plugin-design/waivers.md).
 	{
 		files: ["packages/web/src/**/*.tsx"],
-		ignores: ["packages/web/src/**/*.stories.tsx"],
+		ignores: [
+			"packages/web/src/**/*.stories.tsx",
+			// LG1 Phase 4: no-op-button fires 13 false-positive hits in test fixtures
+			// (confirmed via direct measurement). Test mocks pass no-op buttons as
+			// props — they are NOT real interactive buttons in shipped chrome.
+			// Mirror the K6-AC2 block's ignores so the rule still enforces outside tests.
+			"packages/web/src/**/__tests__/**",
+			"packages/web/src/**/*.test.tsx",
+		],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {

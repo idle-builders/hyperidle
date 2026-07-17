@@ -142,6 +142,7 @@ export function GlobalSearchPanel({
 		<>
 			{/* Scrim / backdrop — closes on click */}
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop is a visual overlay; keyboard close is handled by Escape via useKeyboardNavigation */}
+			{/* eslint-disable-next-line design/require-focus-on-interactive -- LG1: scrim is aria-hidden backdrop, not a user-reachable interactive primitive; keyboard close via Escape in useKeyboardNavigation */}
 			<div
 				aria-hidden="true"
 				style={{

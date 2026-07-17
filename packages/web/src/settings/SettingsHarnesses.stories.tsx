@@ -128,10 +128,9 @@ const DESCRIPTORS_WITH_DISABLED = MOCK_DESCRIPTORS.map((d) =>
 		: d,
 );
 
-// biome-ignore lint/suspicious/noExplicitAny: Story fixture uses partial descriptor shapes that don't align with the full type
+// LG1 Phase 4: partial story-fixture descriptors only need JSON.stringify; unknown[] is sufficient
 function makeMockFetch(
-	// biome-ignore lint/suspicious/noExplicitAny: same
-	descriptors: any[] | null,
+	descriptors: readonly unknown[] | null,
 	error = false,
 ): (url: string | Request | URL, init?: RequestInit) => Promise<Response> {
 	return (url: unknown) => {
