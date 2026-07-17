@@ -610,6 +610,8 @@ export interface SessionLifecycleContextAssembly {
 			agentRole: UserRole;
 			productId: string;
 		},
+		/** I0c: optional pre-fetched agent — skips the getUserById call when supplied. */
+		preloadedAgent?: { id: string; name: string; role: string },
 	): Promise<SessionLifecycleSessionContextData>;
 	buildRoutineSessionContextData(
 		db: HyperIdleDb,

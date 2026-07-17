@@ -533,6 +533,12 @@ export interface AdmittedSession {
 	 * AO2: Filesystems that were successfully mounted in Phase 4.5 for this session.
 	 */
 	readonly mountedFilesystems: Filesystem[];
+	/**
+	 * I0c: Agent identity preloaded by admitSession Phase 1 (getUserById).
+	 * Passed to buildSessionContextData to skip the duplicate getUserById call
+	 * that context assembly would otherwise make moments later.
+	 */
+	readonly preloadedAgent: { readonly id: string; readonly name: string; readonly role: string };
 }
 
 /**
@@ -826,6 +832,10 @@ export async function admitSession(
 		adapterId,
 		routinePerRunCap,
 		mountedFilesystems,
+		// I0c: capture the identity fields already fetched in Phase 1 so
+		// runSession can forward them to buildSessionContextData, skipping the
+		// duplicate getUserById call inside context assembly.
+		preloadedAgent: { id: agent.id, name: agent.name, role: agent.role },
 	};
 }
 
@@ -999,13 +1009,19 @@ export async function runSession(
 		if (!params.taskId) {
 			throw new Error("Task session provisioning requires taskId");
 		}
-		const sessionContextData = await ports.contextAssembly.buildSessionContextData(db, {
-			sessionId,
-			taskId: params.taskId,
-			agentId: params.agentId,
-			agentRole,
-			productId: params.productId,
-		});
+		// I0c: pass the agent preloaded in admitSession Phase 1, skipping the
+		// duplicate getUserById that buildSessionContextData would otherwise issue.
+		const sessionContextData = await ports.contextAssembly.buildSessionContextData(
+			db,
+			{
+				sessionId,
+				taskId: params.taskId,
+				agentId: params.agentId,
+				agentRole,
+				productId: params.productId,
+			},
+			admitted.preloadedAgent,
+		);
 		({ assembledPrompt } = await ports.contextAssembly.assemblePrompt({
 			systemPromptText: effectiveSystemPromptText,
 			context: sessionContextData,

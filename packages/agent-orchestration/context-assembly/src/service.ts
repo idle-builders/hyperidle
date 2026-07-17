@@ -68,6 +68,8 @@ export interface ContextAssemblyOps {
 	buildSessionContextData(
 		db: HyperIdleDb,
 		config: SessionContextConfig,
+		/** I0c: optional pre-fetched agent — skips the getUserById call when supplied. */
+		preloadedAgent?: { id: string; name: string; role: string },
 	): Promise<SessionContextData>;
 	buildRoutineSessionContextData(
 		db: HyperIdleDb,
@@ -86,7 +88,8 @@ export function createContextAssemblyOps(ports: ContextAssemblyPorts): ContextAs
 		assembleContext: (db, config) => assembleContext(db, config, ports),
 		assembleAgentContext: (input) => assembleAgentContext(input, ports),
 		beginAgentWriteback: (input) => beginAgentWriteback(input, ports),
-		buildSessionContextData: (db, config) => buildSessionContextData(db, config, ports),
+		buildSessionContextData: (db, config, preloadedAgent) =>
+			buildSessionContextData(db, config, ports, preloadedAgent),
 		buildRoutineSessionContextData: (db, config) =>
 			buildRoutineSessionContextData(db, config, ports),
 		buildSessionContext: (db, config) => buildSessionContext(db, config, ports),

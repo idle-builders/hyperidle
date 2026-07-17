@@ -60,11 +60,19 @@ export interface SessionContextData {
  * Query the DB and assemble structured SessionContextData without encoding.
  * X1: extracted from buildSessionContext so context assembly can use the
  * typed data directly without a second DB query or TOON decoding.
+ *
+ * @param preloadedAgent — I0c: optional pre-fetched agent row supplied by
+ * session-provisioning's `admitSession` (which already loaded the agent for
+ * cost/concurrency checks). When present the `ports.users.getUserById` call
+ * is skipped, eliminating the duplicate DB read in the provisioning chain.
+ * The not-found throw is preserved on the fallback path so callers that omit
+ * `preloadedAgent` retain the same error semantics.
  */
 export async function buildSessionContextData(
 	db: HyperIdleDb,
 	config: SessionContextConfig,
 	ports: Pick<ContextAssemblyPorts, "work" | "users" | "org">,
+	preloadedAgent?: { id: string; name: string; role: string },
 ): Promise<SessionContextData> {
 	const task = await ports.work.getTaskById(db, config.taskId);
 	if (!task) {
@@ -76,7 +84,10 @@ export async function buildSessionContextData(
 		throw new Error(`Bet ${task.betId} not found`);
 	}
 
-	const agent = await ports.users.getUserById(db, config.agentId);
+	// @lore I0c: use preloadedAgent when supplied (session-provisioning already
+	// fetched the agent row); fall back to a fresh getUserById only when the
+	// caller does not supply one (e.g. buildSessionContext, standalone callers).
+	const agent = preloadedAgent ?? (await ports.users.getUserById(db, config.agentId));
 	if (!agent) {
 		throw new Error(`Agent ${config.agentId} not found`);
 	}
