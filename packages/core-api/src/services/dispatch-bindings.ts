@@ -69,7 +69,7 @@ import {
 	touchKnowledgeItemUpdatedAtRaw,
 	updateKnowledgeAppProjectionMetaIfUnchangedRaw,
 } from "@hyperidle/knowledge";
-import { resolveAgentModel, resolveModelTier } from "@hyperidle/model-gateway";
+import { resolveModel } from "@hyperidle/model-gateway";
 import {
 	attentionReviewReasoningMarker,
 	buildCreateReviewItemForKnowledge,
@@ -199,9 +199,14 @@ const dispatchPorts: DispatchPorts = {
 			tierFallback: string,
 			config,
 			credentialResolver: DispatchCredentialResolver,
-		) => resolveAgentModel(agent, tierFallback, config, credentialResolver),
+		) =>
+			resolveModel(
+				{ kind: "agent", modelId: agent.modelId, modelProvider: agent.modelProvider, tierFallback },
+				config,
+				credentialResolver,
+			),
 		resolveModelTier: (tier, config, credentialResolver: DispatchCredentialResolver) =>
-			resolveModelTier(tier, config, credentialResolver),
+			resolveModel({ kind: "tier", tier }, config, credentialResolver),
 	},
 	agentSelection: {
 		resolveAssistantFormation,

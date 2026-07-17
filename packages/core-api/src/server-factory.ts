@@ -53,7 +53,7 @@ import {
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { createMcpBridgeRegistry, createMcpRoute } from "@hyperidle/mcp-provider";
-import { resolveModelTier } from "@hyperidle/model-gateway";
+import { resolveModel } from "@hyperidle/model-gateway";
 import {
 	type AlertPreferences,
 	defaultMutePreferenceReader,
@@ -437,7 +437,11 @@ function makeResolveModel(
 ): (tier: string) => Promise<ResolvedModel | undefined> {
 	return async (tier: string): Promise<ResolvedModel | undefined> => {
 		const cfg = await readServerConfig(db);
-		return resolveModelTier(tier as ModelTier, cfg.modelGateway, credentialResolver);
+		return resolveModel(
+			{ kind: "tier", tier: tier as ModelTier },
+			cfg.modelGateway,
+			credentialResolver,
+		);
 	};
 }
 

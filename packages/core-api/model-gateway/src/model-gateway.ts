@@ -2,16 +2,17 @@
  * X4: Model Gateway service.
  *
  * Pure function. No class, no state. The gateway answers one question:
- * "for this ModelTier + config, what provider/model/apiKey/baseUrl should be used?"
+ * "for this ModelRequest + config, what provider/model/apiKey/baseUrl should be used?"
  *
  * Resolution logic:
- *  1. Look up config[tier] → { provider, model, baseUrl }
- *  2. Based on provider:
+ *  1. Discriminate on ModelRequest.kind ("tier" | "agent").
+ *  2. Look up config[tier] → { provider, model, baseUrl }
+ *  3. Based on provider:
  *     - "anthropic"       → resolve anthropic_api_key from credentialResolver
  *     - "openrouter"      → resolve openrouter_api_key from credentialResolver
  *     - "openai-compatible" → resolve openai_compatible_api_key from credentialResolver
- *  3. If required key is null → throw MissingCredentialError
- *  4. Return { provider, model, apiKey, baseUrl }
+ *  4. If required key is null → throw MissingCredentialError
+ *  5. Return { provider, model, apiKey, baseUrl }
  *
  * @lore AU19 Increment 2e: moved here from `packages/server/src/services/
  * model-gateway.ts` (behavior-preserving move). `model-gateway` owns ZERO
@@ -23,6 +24,14 @@
  * §10.2 line 368) is now the locally-declared `ModelGatewayCredentialResolver`
  * port (`ports.ts`) instead of importing `CredentialResolver` straight from
  * `@hyperidle/connections`.
+ *
+ * @lore AU20 Increment Ab1: `resolveModelTier` + `resolveAgentModel` collapsed
+ * into `resolveModel(request: ModelRequest, ...)`. The two were already one
+ * operation with a discriminated input — `resolveAgentModel` delegated to
+ * `resolveModelTier` on the null-modelId path. `AgentModelParams` folded into
+ * the agent branch of `ModelRequest`. `BUILT_IN_GATEWAY_CONFIG` re-export
+ * dropped — consumers import it directly from `@hyperidle/shared`. Surface:
+ * 6 → 4 exports.
  */
 
 import type {
@@ -31,21 +40,12 @@ import type {
 	ModelTier,
 	ResolvedModel,
 } from "@hyperidle/shared";
-import { BUILT_IN_GATEWAY_CONFIG, MissingCredentialError } from "@hyperidle/shared";
+import { MissingCredentialError } from "@hyperidle/shared";
 import type { ModelGatewayCredentialResolver } from "./ports.js";
 
 /**
- * @lore AU19 Increment 1f: `BUILT_IN_GATEWAY_CONFIG` moved to
- * `@hyperidle/shared` (pure static data — see the constant's own `@lore` at
- * its new home for the full rationale) and re-exported here so this file's
- * existing consumers (`agent-work-assistant.ts`, this file's own tests) are
- * unchanged — zero behavior change.
- */
-export { BUILT_IN_GATEWAY_CONFIG };
-
-/**
  * AH2: Error thrown when a per-agent model uses an unsupported provider.
- * Only "anthropic" is supported for per-agent model selection in v1.
+ * Only "anthropic" and "openrouter" are supported for per-agent model selection.
  */
 export class UnsupportedAgentProviderError extends Error {
 	constructor(public readonly provider: string) {
@@ -58,9 +58,26 @@ export class UnsupportedAgentProviderError extends Error {
 }
 
 /**
+ * A model resolution request — discriminated by kind.
+ *
+ * - `{ kind: "tier"; tier }` — resolve a concrete ModelTier (e.g. "workhorse").
+ * - `{ kind: "agent"; modelId; modelProvider; tierFallback }` — resolve a
+ *   per-agent model, falling back to the tier when modelId is null. This is
+ *   the collapsed form of the former `AgentModelParams` + `tierFallback` pair.
+ */
+export type ModelRequest =
+	| { readonly kind: "tier"; readonly tier: ModelTier }
+	| {
+			readonly kind: "agent";
+			readonly modelId: string | null;
+			readonly modelProvider: string | null;
+			readonly tierFallback: string;
+	  };
+
+/**
  * AH2: Shared provider resolution logic — extracts the provider-specific
- * credential/baseUrl lookup so it can be reused by both resolveModelTier
- * and resolveAgentModel without duplicating the switch.
+ * credential/baseUrl lookup so it can be reused by both the tier path and the
+ * agent path without duplicating the switch.
  *
  * @throws {MissingCredentialError} when the required API key is absent.
  * @throws {Error} when openai-compatible provider has no baseUrl.
@@ -138,12 +155,12 @@ async function resolveProvider(
 }
 
 /**
- * Resolve a ModelTier to a fully-specified ResolvedModel.
+ * Internal: resolve a ModelTier to a fully-specified ResolvedModel.
  *
  * @throws {MissingCredentialError} when the required API key is absent.
  * @throws {Error} when openai-compatible provider has no baseUrl (A-ERR-2).
  */
-export async function resolveModelTier(
+async function resolveModelTier(
 	tier: ModelTier,
 	config: ModelGatewayConfig,
 	credentialResolver: ModelGatewayCredentialResolver,
@@ -157,48 +174,44 @@ export async function resolveModelTier(
 }
 
 /**
- * AH2: Per-agent model parameters — what's stored on the users row.
- */
-export interface AgentModelParams {
-	/** Per-agent model ID override. null = use tier fallback. */
-	modelId: string | null;
-	/** Per-agent provider override. null = use tier fallback. */
-	modelProvider: string | null;
-}
-
-/**
- * AH2: Resolve the model for a specific agent.
+ * Resolve a model request to a fully-specified `ResolvedModel`.
  *
- * Priority:
- * 1. If agent has modelId → use agent's (modelProvider, modelId) pair directly.
- *    Supports "anthropic" and "openrouter" providers for per-agent selection.
- *    "openai-compatible" throws UnsupportedAgentProviderError.
- * 2. If agent has no modelId → fall back to resolveModelTier using tierFallback.
+ * Accepts a discriminated `ModelRequest`:
+ *  - `{ kind: "tier", tier }` — resolves the named tier from config.
+ *  - `{ kind: "agent", modelId, modelProvider, tierFallback }` — uses the
+ *    per-agent model when `modelId` is set; falls back to the tier when null.
+ *    "openai-compatible" is rejected on the agent path (throws
+ *    `UnsupportedAgentProviderError`).
  *
- * @param agent — per-agent model params from the DB row
- * @param tierFallback — the tier to use when agent.modelId is null (e.g. "workhorse")
- * @param config — the full gateway config (for tier resolution)
- * @param credentialResolver — for key lookups
+ * This is the single entry point that replaces `resolveModelTier` +
+ * `resolveAgentModel`. The two were already one operation with a discriminated
+ * input — `resolveAgentModel` already delegated to `resolveModelTier` on the
+ * null-modelId path.
  *
  * @throws {UnsupportedAgentProviderError} when agent.modelProvider is "openai-compatible".
  * @throws {MissingCredentialError} when the required API key is absent.
+ * @throws {Error} when openai-compatible tier has no baseUrl (A-ERR-2).
  */
-export async function resolveAgentModel(
-	agent: AgentModelParams,
-	tierFallback: string,
+export async function resolveModel(
+	request: ModelRequest,
 	config: ModelGatewayConfig,
 	credentialResolver: ModelGatewayCredentialResolver,
 ): Promise<ResolvedModel> {
-	if (agent.modelId) {
+	if (request.kind === "tier") {
+		return resolveModelTier(request.tier, config, credentialResolver);
+	}
+
+	// kind === "agent"
+	if (request.modelId) {
 		// Per-agent path: anthropic + openrouter supported; openai-compatible rejected
-		const provider = (agent.modelProvider ?? "anthropic") as ModelProvider;
-		return resolveProvider(provider, agent.modelId, credentialResolver, {
+		const provider = (request.modelProvider ?? "anthropic") as ModelProvider;
+		return resolveProvider(provider, request.modelId, credentialResolver, {
 			agentPath: true,
-			context: `agent model: ${agent.modelId}`,
+			context: `agent model: ${request.modelId}`,
 		});
 	}
 
 	// Tier fallback
-	const tier = (tierFallback ?? "workhorse") as ModelTier;
+	const tier = (request.tierFallback ?? "workhorse") as ModelTier;
 	return resolveModelTier(tier, config, credentialResolver);
 }
