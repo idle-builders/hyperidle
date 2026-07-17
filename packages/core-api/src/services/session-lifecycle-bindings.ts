@@ -103,10 +103,13 @@ import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provid
 // ---------------------------------------------------------------------------
 
 const routineAccessor: SessionLifecyclePorts["routine"] = {
-	getRoutineById: routineService.getRoutineById,
-	findRunningRoutineRun: routineService.findRunningRoutineRun,
-	updateRoutineRunById: routineService.updateRoutineRunById,
-	updateRoutineById: routineService.updateRoutineById,
+	getRoutineById: routineService.getRoutine,
+	findRunningRoutineRun: (db, routineId) =>
+		routineService
+			.listRoutineRuns(db, { routineId, running: true, limit: 1 })
+			.then((runs) => (runs[0] ? { id: runs[0].id } : undefined)),
+	updateRoutineRunById: (exec, id, patch) => routineService.updateRoutineRun(exec, id, patch),
+	updateRoutineById: routineService.updateRoutine,
 	incrementRoutineCost: routineService.incrementRoutineCost,
 };
 

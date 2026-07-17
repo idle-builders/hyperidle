@@ -185,7 +185,7 @@ describe("terminal-failure finalization of session-less running runs", () => {
 
 		// Routine deactivated between fire and drain — resolveAuthoritativeInput
 		// throws InvalidAgentWorkSourceError (pre-hand-off, no session ever exists).
-		await routineService.updateRoutineById(db, routineId, { active: false });
+		await routineService.updateRoutine(db, routineId, { active: false });
 
 		await drainAgentWorkIntents(db);
 
@@ -203,7 +203,7 @@ describe("terminal-failure finalization of session-less running runs", () => {
 		expect(finalizedRun?.endedAt).toBeTruthy();
 
 		// Self-healed: coalescing no longer blocks a fresh fire once reactivated.
-		await routineService.updateRoutineById(db, routineId, { active: true });
+		await routineService.updateRoutine(db, routineId, { active: true });
 		const [reactivated] = await db.select().from(routines).where(eq(routines.id, routineId));
 		const secondFire = await checkAndFireRoutine(db, eventBus, reactivated!, RUNTIME_DEPS);
 		expect(secondFire.fired).toBe(true);

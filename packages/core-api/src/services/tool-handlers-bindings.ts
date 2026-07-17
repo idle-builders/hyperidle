@@ -53,7 +53,7 @@ import {
 	attentionReviewReasoningMarker,
 	buildCreateReviewItemForKnowledge,
 } from "@hyperidle/review";
-import { getRoutineById, insertRoutine, updateRoutineById } from "@hyperidle/routine";
+import { getRoutine, insertRoutine, updateRoutine } from "@hyperidle/routine";
 import type { EventBus } from "@hyperidle/shared";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildAllToolDefinitions } from "@hyperidle/tool-handlers";
@@ -224,7 +224,7 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 		persistScaffoldedAgents,
 	},
 	agentSelection: { resolveAgentScaffoldSpecs: resolveAgentScaffoldSpecsForTool },
-	routine: { insertRoutine, getRoutineById, updateRoutineById },
+	routine: { insertRoutine, getRoutineById: getRoutine, updateRoutineById: updateRoutine },
 	dispatch: { nextCronMatch, parseCron, provisionTeamRoutines },
 	knowledge: {
 		search: searchKnowledgeForTool,

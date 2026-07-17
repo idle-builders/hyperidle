@@ -32,7 +32,7 @@ import {
 	rankAndBudget,
 } from "@hyperidle/knowledge";
 import { getTeamById } from "@hyperidle/org";
-import { getRoutineById } from "@hyperidle/routine";
+import { getRoutine } from "@hyperidle/routine";
 import { getUserById } from "@hyperidle/users";
 import { getBetById, getTaskById } from "@hyperidle/work";
 
@@ -58,7 +58,7 @@ const contextAssemblyPorts: ContextAssemblyPorts = {
 		getUserById,
 	},
 	routine: {
-		getRoutineById,
+		getRoutineById: getRoutine,
 	},
 	filesystems: {
 		startWatcher,

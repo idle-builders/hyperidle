@@ -77,14 +77,13 @@ import {
 	type PracticeMeetingKnowledgeStore,
 } from "@hyperidle/review";
 import {
-	findRunningRoutineRun,
-	getRoutineById,
+	getRoutine,
 	insertRoutine,
 	insertRoutineRun,
-	listActiveRoutines,
-	listScheduledRoutinesMissingNextRunAt,
-	sumRoutineRunCostSince,
-	updateRoutineById,
+	listRoutineRuns,
+	listRoutines,
+	sumRunCost,
+	updateRoutine,
 } from "@hyperidle/routine";
 import type { AgentWorkIntentKind } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
@@ -167,13 +166,19 @@ const dispatchPorts: DispatchPorts = {
 	},
 	routine: {
 		insertRoutine,
-		getRoutineById,
+		getRoutineById: getRoutine,
 		insertRoutineRun,
-		updateRoutineById,
-		findRunningRoutineRun,
-		listActiveRoutines,
-		listScheduledRoutinesMissingNextRunAt,
-		sumRoutineRunCostSince,
+		updateRoutineById: updateRoutine,
+		findRunningRoutineRun: (db, routineId) =>
+			listRoutineRuns(db, { routineId, running: true, limit: 1 }).then((runs) =>
+				runs[0] ? { id: runs[0].id } : undefined,
+			),
+		listActiveRoutines: (db, opts) =>
+			listRoutines(db, { active: true, triggerType: opts?.triggerType }),
+		listScheduledRoutinesMissingNextRunAt: (db) =>
+			listRoutines(db, { active: true, missingNextRunAt: true }),
+		sumRoutineRunCostSince: (db, routineId, since) =>
+			sumRunCost(db, { routineIds: [routineId], since, kind: "sum" }),
 	},
 	conversation: {
 		insertMessage,

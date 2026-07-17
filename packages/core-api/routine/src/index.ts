@@ -29,35 +29,42 @@
  * (violating the "Service deps = db+shared only" composition rule) before
  * `dispatch` exists as a package. It stays exactly where it is until
  * Increment 2 migrates `dispatch`.
+ *
+ * @lore AU20 Am2: surface collapsed 24 → 15 exports (11 functions + 4 types).
+ * Key collapses:
+ *   - `getRoutineById` → `getRoutine`
+ *   - `updateRoutineById` → `updateRoutine`
+ *   - `listRoutines` (old opts) + `listRoutinesByTeam` + `listActiveRoutines`
+ *     + `listScheduledRoutinesMissingNextRunAt` + `countRoutinesByTeam`
+ *     → `listRoutines(filter)` (count via `.length`)
+ *   - `getRoutineRunById` → `getRoutineRun`
+ *   - `updateRoutineRunById` + `updateRoutineRunIfRunning`
+ *     → `updateRoutineRun(exec, id, patch, opts?)`
+ *   - `listRoutineRunsByRoutine` + `findRunningRoutineRun`
+ *     → `listRoutineRuns(filter)` (`{running:true,limit:1}[0]`)
+ *   - `avgRoutineRunCost` + `sumRoutineRunCostSince`
+ *     + `sumRoutineRunCostForRoutinesSince` → `sumRunCost({routineIds,since?,kind})`
+ *   - `InsertRoutineOpts` (named export dropped — opts are inline on `insertRoutine`)
  */
 
 // -- routine-service (AU13: routines + routineRuns CRUD + reads) --
 export type {
-	InsertRoutineOpts,
 	Routine,
 	RoutinePatch,
 	RoutineRun,
 	RoutineRunPatch,
 } from "./routine-service.js";
 export {
-	avgRoutineRunCost,
-	countRoutinesByTeam,
-	findRunningRoutineRun,
-	getRoutineById,
-	getRoutineRunById,
+	getRoutine,
+	getRoutineRun,
 	incrementRoutineCost,
 	insertRoutine,
 	insertRoutineRun,
-	listActiveRoutines,
-	listRoutineRunsByRoutine,
+	listRoutineRuns,
 	listRoutines,
-	listRoutinesByTeam,
-	listScheduledRoutinesMissingNextRunAt,
-	sumRoutineRunCostForRoutinesSince,
-	sumRoutineRunCostSince,
-	updateRoutineById,
-	updateRoutineRunById,
-	updateRoutineRunIfRunning,
+	sumRunCost,
+	updateRoutine,
+	updateRoutineRun,
 } from "./routine-service.js";
 
 // -- schedule-label (AU19 Increment 5: relocated from packages/server per §6 disposition — humanizeSchedule is routine's own display concern) --

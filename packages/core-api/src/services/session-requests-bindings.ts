@@ -145,9 +145,10 @@ const lifecycleInboxReaper = {
 
 const agentWorkIntentWorkerDeps: AgentWorkIntentWorkerDeps = {
 	routine: {
-		getRoutineRunById: routineService.getRoutineRunById,
-		getRoutineById: routineService.getRoutineById,
-		updateRoutineRunIfRunning: routineService.updateRoutineRunIfRunning,
+		getRoutineRunById: routineService.getRoutineRun,
+		getRoutineById: routineService.getRoutine,
+		updateRoutineRunIfRunning: (exec, id, patch) =>
+			routineService.updateRoutineRun(exec, id, patch, { onlyIfRunning: true }),
 	},
 	work: { getTaskById: work.getTaskById, getBetById: work.getBetById },
 	agentSelection: {

@@ -166,7 +166,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				nextRunAt,
 			});
 
-			const created = await routineService.getRoutineById(db, routineId);
+			const created = await routineService.getRoutine(db, routineId);
 			return c.json(created, 201);
 		},
 	);
@@ -181,13 +181,13 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
-		const existing = await routineService.getRoutineById(db, routineId);
+		const existing = await routineService.getRoutine(db, routineId);
 		if (!existing || existing.deletedAt) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		const now = new Date().toISOString();
-		await routineService.updateRoutineById(db, routineId, {
+		await routineService.updateRoutine(db, routineId, {
 			deletedAt: now,
 			state: "paused",
 			active: false,
@@ -200,7 +200,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
-		const routine = await routineService.getRoutineById(db, routineId);
+		const routine = await routineService.getRoutine(db, routineId);
 		if (!routine || routine.deletedAt) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -215,7 +215,8 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 
 		// Fetch up to 20 runs (newest first). allRuns[0] is the latest run — no
 		// separate latestRun query needed.
-		const allRuns = await routineService.listRoutineRunsByRoutine(db, routineId, {
+		const allRuns = await routineService.listRoutineRuns(db, {
+			routineId,
 			limit: 20,
 			order: "desc",
 		});
@@ -228,14 +229,17 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		).toISOString();
 
 		// AVG cost per run (from all runs with cost > 0)
-		const avgCostMinor = await routineService.avgRoutineRunCost(db, routineId);
+		const avgCostMinor = await routineService.sumRunCost(db, {
+			routineIds: [routineId],
+			kind: "avg",
+		});
 
 		// SUM cost this month
-		const costThisMonthMinor = await routineService.sumRoutineRunCostSince(
-			db,
-			routineId,
-			firstOfMonth3,
-		);
+		const costThisMonthMinor = await routineService.sumRunCost(db, {
+			routineIds: [routineId],
+			since: firstOfMonth3,
+			kind: "sum",
+		});
 
 		// Last completed run cost for per-run utilization (from the 20 most recent runs)
 		const lastCompletedRun = allRuns.find(
@@ -377,7 +381,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			// at every call site — out of scope for the G4 fix-pack.
 			const body = c.req.valid("json" as never) as z.infer<typeof updateRoutineSchema>;
 
-			const existing = await routineService.getRoutineById(db, routineId);
+			const existing = await routineService.getRoutine(db, routineId);
 			// AA2: treat soft-deleted routines as not found for PATCH
 			if (!existing || existing.deletedAt) {
 				return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
@@ -404,10 +408,10 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				updates.costCapMonthlyMinor = body.costCapMonthlyMinor ?? null;
 
 			if (Object.keys(updates).length > 0) {
-				await routineService.updateRoutineById(db, routineId, updates);
+				await routineService.updateRoutine(db, routineId, updates);
 			}
 
-			const updated = await routineService.getRoutineById(db, routineId);
+			const updated = await routineService.getRoutine(db, routineId);
 			return c.json(updated);
 		},
 	);
@@ -416,14 +420,14 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.post("/:id/retire", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
-		const existing = await routineService.getRoutineById(db, routineId);
+		const existing = await routineService.getRoutine(db, routineId);
 		if (!existing) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		await routineService.updateRoutineById(db, routineId, { active: false });
+		await routineService.updateRoutine(db, routineId, { active: false });
 
-		const updated = await routineService.getRoutineById(db, routineId);
+		const updated = await routineService.getRoutine(db, routineId);
 		return c.json(updated);
 	});
 
@@ -431,7 +435,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	router.post("/:id/trigger", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");
 
-		const routine = await routineService.getRoutineById(db, routineId);
+		const routine = await routineService.getRoutine(db, routineId);
 		if (!routine) {
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -495,7 +499,11 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		// `checkAndFireRoutine` uses, so a poll-created fired-but-unprovisioned
 		// run also blocks a concurrent manual trigger (closing the double-run
 		// window the old session-keyed `shouldCoalesce` signal missed).
-		const runningRun = await routineService.findRunningRoutineRun(db, routineId);
+		const [runningRun] = await routineService.listRoutineRuns(db, {
+			routineId,
+			running: true,
+			limit: 1,
+		});
 		if (runningRun) {
 			// Record a skipped run
 			const runId = crypto.randomUUID();
@@ -518,7 +526,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				startedAt: now,
 				outcome: "running",
 			});
-			await routineService.updateRoutineById(tx, routineId, { lastRunAt: now });
+			await routineService.updateRoutine(tx, routineId, { lastRunAt: now });
 			intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
 				kind: "routine_run",
 				sourceKind: "routine_run",

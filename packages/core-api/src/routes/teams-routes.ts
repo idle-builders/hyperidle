@@ -233,7 +233,7 @@ export function createTeamRoutes(
 					: ("healthy" as const);
 
 				// AA1: routine count for this team (AA2: exclude soft-deleted)
-				const routineCount = await routineService.countRoutinesByTeam(db, team.id);
+				const routineCount = (await routineService.listRoutines(db, { teamId: team.id })).length;
 
 				// AB2: agent summary — count AI agents and compute health warning.
 				// Re-use computeHealthSignals for accurate health checks (reviewer S4).
@@ -858,7 +858,7 @@ export function createTeamRoutes(
 			);
 
 			// AA1: Load routines for this team (AA2: exclude soft-deleted)
-			const routineRows = await routineService.listRoutinesByTeam(db, teamId);
+			const routineRows = await routineService.listRoutines(db, { teamId });
 
 			// AA3: Sum of routine runs this calendar month for routine cost breakdown
 			// Guard: skip the query when there are no routines (empty IN clause is a SQL error in some dialects)
@@ -868,11 +868,11 @@ export function createTeamRoutes(
 				const firstOfMonth3 = new Date(
 					Date.UTC(now3.getUTCFullYear(), now3.getUTCMonth(), 1),
 				).toISOString();
-				routineCostThisMonthMinor = await routineService.sumRoutineRunCostForRoutinesSince(
-					db,
-					routineRows.map((r) => r.id),
-					firstOfMonth3,
-				);
+				routineCostThisMonthMinor = await routineService.sumRunCost(db, {
+					routineIds: routineRows.map((r) => r.id),
+					since: firstOfMonth3,
+					kind: "sum",
+				});
 			}
 
 			// Build agent name map for routine owners
@@ -885,7 +885,8 @@ export function createTeamRoutes(
 			// Fetch latest routine_run for each routine to get lastRunOutcome
 			const teamRoutines: RoutineCardSummary[] = await Promise.all(
 				routineRows.map(async (r) => {
-					const [latestRun] = await routineService.listRoutineRunsByRoutine(db, r.id, {
+					const [latestRun] = await routineService.listRoutineRuns(db, {
+						routineId: r.id,
 						limit: 1,
 						order: "desc",
 					});
