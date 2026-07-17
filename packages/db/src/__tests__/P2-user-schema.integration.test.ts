@@ -162,7 +162,6 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 				>[0],
 			);
 			const cols = new Map(
-				// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 				(result as { rows: Array<{ column_name: string; is_nullable: string }> }).rows.map((r) => [
 					r.column_name,
 					r.is_nullable,
@@ -198,7 +197,6 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 					typeof db.execute
 				>[0],
 			);
-			// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 			const colNames = (result as { rows: Array<{ column_name: string }> }).rows.map(
 				(r) => r.column_name,
 			);
@@ -255,7 +253,6 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 					typeof db.execute
 				>[0],
 			);
-			// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 			const colNames = (result as { rows: Array<{ column_name: string }> }).rows.map(
 				(r) => r.column_name,
 			);

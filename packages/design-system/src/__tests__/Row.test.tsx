@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Row } from "../Row.js";
 
-// biome-ignore lint/style/useNamingConvention: React flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("Row (AG6 T2)", () => {

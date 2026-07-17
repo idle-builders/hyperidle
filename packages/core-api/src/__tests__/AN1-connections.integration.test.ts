@@ -422,7 +422,6 @@ describe("AN1 — /api/connections routes", () => {
 			// User B lists their connections — must NOT see user A's Stripe row
 			const listRes = await sharedApp.request("/api/connections", {
 				headers: {
-					// biome-ignore lint/style/useNamingConvention: HTTP header name
 					Authorization: `Bearer ${tokenB}`,
 					"Content-Type": "application/json",
 				},
@@ -464,7 +463,6 @@ describe("AN1 — /api/connections routes", () => {
 			const deleteRes = await sharedApp.request(`/api/connections/${aConnectionId}`, {
 				method: "DELETE",
 				headers: {
-					// biome-ignore lint/style/useNamingConvention: HTTP header name
 					Authorization: `Bearer ${tokenB}`,
 				},
 			});
@@ -508,7 +506,6 @@ describe("AN1 — /api/connections routes", () => {
 			const validateRes = await sharedApp.request(`/api/connections/${aConnectionId}/validate`, {
 				method: "POST",
 				headers: {
-					// biome-ignore lint/style/useNamingConvention: HTTP header name
 					Authorization: `Bearer ${tokenB}`,
 				},
 			});

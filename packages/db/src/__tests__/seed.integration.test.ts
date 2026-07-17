@@ -158,7 +158,6 @@ describe("A2: Seed script", () => {
 		await seed(db);
 
 		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
-		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
 		const rows = await queryRows<{ id: string; role: string; system_prompt_path: string | null }>(
 			db,
 			`SELECT id, role, system_prompt_path FROM users WHERE role IN (${rolesList})`,
@@ -178,7 +177,6 @@ describe("A2: Seed script", () => {
 		await seed(db);
 
 		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
-		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
 		const rows = await queryRows<{ id: string; system_prompt_path: string | null }>(
 			db,
 			`SELECT id, system_prompt_path FROM users WHERE role IN (${rolesList})`,

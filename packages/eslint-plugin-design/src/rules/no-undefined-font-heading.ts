@@ -66,7 +66,6 @@ export const noUndefinedFontHeading: Rule.RuleModule = createRule({
 		const inPages = isInPages(filename);
 
 		return {
-			// biome-ignore lint/style/useNamingConvention: ESLint visitor methods must match AST node type names
 			JSXAttribute(rawNode: unknown) {
 				const node = rawNode as JSXAttribute;
 				if (node.type !== "JSXAttribute") return;

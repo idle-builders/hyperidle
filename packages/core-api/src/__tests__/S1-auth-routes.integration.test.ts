@@ -42,7 +42,6 @@ function apiKeyHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 function bearerHeaders(token: string, extra?: Record<string, string>): Record<string, string> {
-	// biome-ignore lint/style/useNamingConvention: HTTP header name
 	return { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...extra };
 }
 

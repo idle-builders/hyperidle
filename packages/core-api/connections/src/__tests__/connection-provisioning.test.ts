@@ -206,7 +206,6 @@ describe("buildProvisioningPlan", () => {
 			db,
 			resolver,
 			userId: "u-founder",
-			// biome-ignore lint/style/useNamingConvention: _ prefix marks test-only injection parameter
 			_ssrfLookup: async () => [{ address: "10.0.0.1", family: 4 }],
 		});
 

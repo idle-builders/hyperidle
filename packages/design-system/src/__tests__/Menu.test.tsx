@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // @lore AG5: Menu does not exist yet — this import drives the red phase.
 import { Menu, type MenuItem, type MenuProps } from "../Menu.js";
 
-// biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const noop = (): void => {};

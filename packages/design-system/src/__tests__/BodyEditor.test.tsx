@@ -19,7 +19,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BodyEditorProps } from "../BodyEditor.js";
 import { BodyEditor } from "../BodyEditor.js";
 
-// biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Suppress TipTap console noise in tests

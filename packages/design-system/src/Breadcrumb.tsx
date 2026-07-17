@@ -46,7 +46,6 @@ export interface BreadcrumbProps {
 		to: string;
 		className?: string;
 		children: ReactNode;
-		// biome-ignore lint/style/useNamingConvention: HTML data attribute; hyphen is required by the spec
 		"data-testid"?: string;
 	}>;
 }

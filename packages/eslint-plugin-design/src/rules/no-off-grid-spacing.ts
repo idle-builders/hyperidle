@@ -65,7 +65,7 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 			for (const match of text.matchAll(ARBITRARY_SPACING)) {
 				const [cls, prop, dir, nStr] = match;
 				const n = Number(nStr);
-				if (!SPACING_ALLOWLIST.has(n) && !isExemptInternalPadding(prop, dir, n)) {
+				if (!(SPACING_ALLOWLIST.has(n) || isExemptInternalPadding(prop, dir, n))) {
 					context.report({
 						node: reportNode,
 						messageId: "offGrid",

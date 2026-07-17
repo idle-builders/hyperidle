@@ -18,7 +18,6 @@ import { Button } from "../Button.js";
 import { Input } from "../Input.js";
 import { ItemList } from "../ItemList.js";
 
-// biome-ignore lint/style/useNamingConvention: React flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function FakeRow({ label }: { label: string }) {

@@ -19,7 +19,6 @@ import { sql } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
-// biome-ignore lint/style/useNamingConvention: SQL information_schema returns snake_case column_name
 type SqlColumnRow = { column_name: string };
 
 const TEST_API_KEY = "test-key-O2-migration";

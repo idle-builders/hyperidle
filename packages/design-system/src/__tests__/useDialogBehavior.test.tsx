@@ -31,7 +31,6 @@ import {
 	useDialogBehavior,
 } from "../useDialogBehavior.js";
 
-// biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // ---------------------------------------------------------------------------

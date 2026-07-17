@@ -57,7 +57,6 @@ function makeWorkerBridge(overrides: Partial<WorkerStatus> = {}) {
 			};
 		}),
 		// Test helper to push a status update
-		// biome-ignore lint/style/useNamingConvention: _ prefix marks test-only injection method in mock
 		_triggerStatusChange: (s: WorkerStatus) => {
 			statusChangeCallback?.(s);
 		},

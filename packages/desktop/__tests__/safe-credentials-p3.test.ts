@@ -45,7 +45,6 @@ vi.mock("electron", () => {
 			get decryptString() {
 				return decryptString;
 			},
-			// biome-ignore lint/style/useNamingConvention: _ prefix marks test-only injection method in mock
 			_setEncryptionAvailable: (v: boolean) => {
 				encryptionAvailable.value = v;
 			},

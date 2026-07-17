@@ -723,7 +723,6 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
-						// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 						Accept: "application/json, text/event-stream",
 					},
 					body: JSON.stringify({
@@ -1053,7 +1052,6 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
-						// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 						Accept: "application/json, text/event-stream",
 					},
 					body: JSON.stringify({
@@ -1350,7 +1348,6 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
-						// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 						Accept: "application/json, text/event-stream",
 					},
 					body: JSON.stringify({
@@ -1390,7 +1387,6 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
-						// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 						Accept: "application/json, text/event-stream",
 					},
 					body: JSON.stringify({
@@ -1443,7 +1439,6 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
-						// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
 						Accept: "application/json, text/event-stream",
 					},
 					body: JSON.stringify({

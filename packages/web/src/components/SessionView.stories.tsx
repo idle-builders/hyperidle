@@ -337,7 +337,6 @@ export default { title: "Session View", group: "Conversations" as const };
  * failure) · hard aggregation · diff chip + changed-files panel · cost in
  * header · queued message · descriptor pills · working/Stop state.
  */
-// biome-ignore lint/style/useNamingConvention: story exports use Snake_Case to show variant hierarchy in the viewer (established pattern across all stories)
 export function SessionView_Streaming(): JSX.Element {
 	const [entries, setEntries] = useState<import("@hyperidle/shared").ActivityEntry[]>([
 		...SESSION_ENTRIES,
@@ -380,7 +379,6 @@ export function SessionView_Streaming(): JSX.Element {
 /**
  * Idle state — no active stream; the composer shows Send (not Stop).
  */
-// biome-ignore lint/style/useNamingConvention: story exports use Snake_Case to show variant hierarchy in the viewer (established pattern across all stories)
 export function SessionView_Idle(): JSX.Element {
 	return (
 		<div className="h-[900px] w-full">
@@ -404,7 +402,6 @@ export function SessionView_Idle(): JSX.Element {
 /**
  * No descriptor — composer shows no pills.
  */
-// biome-ignore lint/style/useNamingConvention: story exports use Snake_Case to show variant hierarchy in the viewer (established pattern across all stories)
 export function SessionView_NoPills(): JSX.Element {
 	return (
 		<div className="h-[900px] w-full">

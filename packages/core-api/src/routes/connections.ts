@@ -465,7 +465,7 @@ async function probeMcpReachability(
 			const response = await fetch(pinnedUrl.toString(), {
 				method: "GET",
 				// biome-ignore lint/style/useNamingConvention: HTTP header name is canonical RFC case
-			headers: { Host: parsed.hostname },
+				headers: { Host: parsed.hostname },
 				signal: controller.signal,
 			});
 			clearTimeout(timer);

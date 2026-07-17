@@ -193,7 +193,6 @@ describe("AN1 opencode inherited-tools (real binary)", () => {
 		const configDir = join(tmpDir, "opencode");
 		await mkdir(configDir, { recursive: true });
 		const openCodeJsonc = JSON.stringify({
-			// biome-ignore lint/style/useNamingConvention: $schema is the canonical JSON Schema field name
 			$schema: "https://opencode.ai/config.json",
 			mcp: {
 				"an1-test-opencode-mcp": {
@@ -223,7 +222,6 @@ describe("AN1 opencode inherited-tools (real binary)", () => {
 		await mkdir(configDir, { recursive: true });
 		await writeFile(
 			join(configDir, "opencode.jsonc"),
-			// biome-ignore lint/style/useNamingConvention: $schema is the canonical JSON Schema field name
 			JSON.stringify({ $schema: "https://opencode.ai/config.json" }),
 			"utf-8",
 		);
@@ -244,7 +242,6 @@ describe("AN1 opencode inherited-tools (real binary)", () => {
 		const configDir = join(tmpDir, "opencode");
 		await mkdir(configDir, { recursive: true });
 		const openCodeJsonc = JSON.stringify({
-			// biome-ignore lint/style/useNamingConvention: $schema is the canonical JSON Schema field name
 			$schema: "https://opencode.ai/config.json",
 			mcp: {
 				"an1-discover-opencode-mcp": {

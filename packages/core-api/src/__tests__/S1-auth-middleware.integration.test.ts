@@ -39,7 +39,6 @@ async function seedUser(db: HyperIdleDb, id = "u-mw-1", role = "member"): Promis
 }
 
 function bearerHeaders(token: string): Record<string, string> {
-	// biome-ignore lint/style/useNamingConvention: HTTP header name
 	return { Authorization: `Bearer ${token}` };
 }
 

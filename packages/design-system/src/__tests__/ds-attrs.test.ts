@@ -24,7 +24,6 @@ import { TaskCard } from "../TaskCard";
 import { ThreadRow } from "../ThreadRow";
 
 // Silence React 19 act() warnings for sync render+assert pattern below.
-// biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 interface ComponentCase {

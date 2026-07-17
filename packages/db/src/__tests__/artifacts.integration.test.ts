@@ -145,7 +145,6 @@ describe("L3 artifacts schema", () => {
 				typeof db.execute
 			>[0],
 		);
-		// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 		const cols = (result as { rows: Array<{ column_name: string }> }).rows.map(
 			(r) => r.column_name,
 		);
@@ -160,7 +159,6 @@ describe("L3 artifacts schema", () => {
 				typeof db.execute
 			>[0],
 		);
-		// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 		const rows = (result as { rows: Array<{ column_name: string; is_nullable: string }> }).rows;
 		expect(rows[0]).toBeDefined();
 		expect(rows[0]?.is_nullable).toBe("YES");
@@ -175,7 +173,6 @@ describe("L3 artifacts schema", () => {
 				typeof db.execute
 			>[0],
 		);
-		// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 		const cols = (result as { rows: Array<{ column_name: string }> }).rows.map(
 			(r) => r.column_name,
 		);
@@ -191,7 +188,6 @@ describe("L3 artifacts schema", () => {
 				typeof db.execute
 			>[0],
 		);
-		// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 		const rows = (result as { rows: Array<{ column_name: string; is_nullable: string }> }).rows;
 		expect(rows[0]?.is_nullable).toBe("NO");
 	});

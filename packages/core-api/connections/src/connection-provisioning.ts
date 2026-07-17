@@ -422,7 +422,6 @@ function writeOpencodeJsonEntries(params: {
 		enabled: boolean;
 	};
 	type OpenCodeJson = {
-		// biome-ignore lint/style/useNamingConvention: $schema is the canonical JSON Schema field name
 		$schema?: string;
 		mcp: Record<string, McpEntry>;
 	};

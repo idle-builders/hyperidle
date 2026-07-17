@@ -44,7 +44,6 @@ function apiKeyHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 function bearerHeaders(token: string, extra?: Record<string, string>): Record<string, string> {
-	// biome-ignore lint/style/useNamingConvention: HTTP header name
 	return { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...extra };
 }
 
@@ -211,7 +210,6 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 
 		const { token } = await createLoginSession(db, "u-e2e-local");
 		const res = await app.request("/api/auth/me", {
-			// biome-ignore lint/style/useNamingConvention: HTTP header name
 			headers: { Authorization: `Bearer ${token}` },
 		});
 		expect(res.status).toBe(401);
@@ -383,7 +381,6 @@ describe("S1 — Security: token never appears in response except at creation", 
 
 		// /me should NOT include the token in its response
 		const meRes = await app.request("/api/auth/me", {
-			// biome-ignore lint/style/useNamingConvention: HTTP header name
 			headers: { Authorization: `Bearer ${token}` },
 		});
 		const meBody = await meRes.text();

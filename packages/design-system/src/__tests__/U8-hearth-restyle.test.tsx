@@ -21,7 +21,6 @@ import { NotificationRow } from "../NotificationRow.js";
 import { TaskCard } from "../TaskCard.js";
 import { ThreadRow } from "../ThreadRow.js";
 
-// biome-ignore lint/style/useNamingConvention: React's flag name is fixed.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("U8 — Hearth restyle structural elements", () => {
