@@ -50,7 +50,7 @@ export function useTeamAgents(rosterAgentIds: readonly string[]): UseTeamAgentsR
 		idsRef.current = new Set(rosterAgentIds);
 	}, [rosterAgentIds]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: fetchCount is intentionally used as a refetch trigger only — it is not read inside the effect body. eslint-disable-next-line react-hooks/exhaustive-deps
+	// biome-ignore lint/correctness/useExhaustiveDependencies: fetchCount is intentionally used as a refetch trigger only — it is not read inside the effect body.
 	useEffect(() => {
 		if (!idsKey) {
 			setAgents(new Map());
