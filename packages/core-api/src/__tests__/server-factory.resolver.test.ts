@@ -71,7 +71,7 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 
 	test("DbCredentialResolver resolves key from DB even when env is clear", async ({ db }) => {
 		// Store a key in the DB via direct insert (bypassing HTTP route).
-		const encryptedValue = encryptCredentialValue(TEST_PLAINTEXT_KEY, TEST_SERVER_SECRET);
+		const encryptedValue = encryptCredentialValue(TEST_PLAINTEXT_KEY);
 		await db.insert(serverCredentials).values({
 			name: "anthropic_api_key",
 			encryptedValue,
@@ -81,7 +81,7 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 		});
 
 		// DbCredentialResolver reads from the DB — should resolve the key.
-		const dbResolver = new DbCredentialResolver(db, TEST_SERVER_SECRET);
+		const dbResolver = new DbCredentialResolver(db);
 		const resolved = await dbResolver.resolve("anthropic_api_key");
 		expect(resolved).toBe(TEST_PLAINTEXT_KEY);
 
@@ -128,7 +128,7 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 		// If DbCredentialResolver is wired → key is found (TEST_PLAINTEXT_KEY).
 		// If EnvCredentialResolver is wired → null (env is clear).
 
-		const encryptedValue = encryptCredentialValue(TEST_PLAINTEXT_KEY, TEST_SERVER_SECRET);
+		const encryptedValue = encryptCredentialValue(TEST_PLAINTEXT_KEY);
 		await db.insert(serverCredentials).values({
 			name: "anthropic_api_key",
 			encryptedValue,

@@ -97,7 +97,9 @@ async function seedConnection(
 		token?: string;
 	},
 ): Promise<void> {
-	const encryptedToken = opts.token ? encryptCredentialValue(opts.token, SERVER_SECRET) : null;
+	// @lore AU20 Am4: encryptCredentialValue is now no-arg; env is stubbed with
+	// SERVER_SECRET in beforeEach so this reads the correct key.
+	const encryptedToken = opts.token ? encryptCredentialValue(opts.token) : null;
 	await db.insert(serviceConnections).values({
 		id: opts.id,
 		userId: opts.userId,
@@ -178,7 +180,7 @@ describe("provisions held token connection into sandbox", () => {
 			token: "sk_test_stripe_secret",
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 		const result = await applyProvisioningPlan({
@@ -210,7 +212,7 @@ describe("provisions held token connection into sandbox", () => {
 			token: "sk_test_stripe_codex",
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 		const result = await applyProvisioningPlan({
@@ -238,7 +240,7 @@ describe("provisions held token connection into sandbox", () => {
 			token: "ghs_github_pat_123",
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 
@@ -262,7 +264,7 @@ describe("respawn idempotent (destroy sandbox, re-provision, same entries)", () 
 			token: "sk_idempotent",
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 
 		// First provisioning
@@ -315,7 +317,7 @@ describe("two services, both provisioned from one generic path", () => {
 			serverUrl: "https://mcp.figma.com",
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 
@@ -348,7 +350,7 @@ describe("disconnect removes entry on next spawn", () => {
 			serverUrl: "https://mcp.stripe.com",
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 
 		// First spawn — entry present
@@ -417,7 +419,7 @@ describe("cross-user isolation", () => {
 			serverUrl: "https://mcp.figma.com",
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 
 		// Provision for user B
 		const planB = await buildProvisioningPlan({ db, resolver, userId: USER_OTHER_ID });
@@ -442,7 +444,7 @@ describe("secret never written into $HOME", () => {
 			token: "sk_test_secret",
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 		await applyProvisioningPlan({
@@ -485,7 +487,7 @@ describe("envInjections in plan and mcpTokenEnv for CLI-key path", () => {
 			token: "ghs_c2_test_token",
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 
@@ -525,7 +527,7 @@ describe("envInjections in plan and mcpTokenEnv for CLI-key path", () => {
 			token: "sk_c2_stripe",
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
 		const plan = await buildProvisioningPlan({ db, resolver, userId });
 

@@ -494,11 +494,9 @@ export async function migrateCredentialsToStore(
 	cipher: SettingsCredentialCipher,
 	credentialStore: SettingsCredentialStore,
 ): Promise<void> {
-	const secret = cipher.getServerSecret();
-	if (!secret) {
-		// No root secret — cannot encrypt, skip migration. Boot warning already logged.
-		return;
-	}
+	// @lore AU20 Am4: cipher.getServerSecret() is gone; cipher.encryptCredentialValue
+	// throws MISSING_ROOT_SECRET when no secret is configured. We probe availability
+	// lazily — the first encrypt call will throw and we return early.
 
 	const now = new Date().toISOString();
 
@@ -530,8 +528,9 @@ export async function migrateCredentialsToStore(
 					if (tier && typeof tier === "object" && "apiKey" in tier) {
 						const rawKey = tier.apiKey;
 						if (typeof rawKey === "string" && rawKey !== "") {
-							// Decrypt-or-take-as-is: if it's our ciphertext, decrypt; else it's legacy plaintext.
-							const decrypted = cipher.decryptCredentialValue(rawKey, secret);
+							// Decrypt-or-take-as-is: if it's our ciphertext, decrypt (null = no secret
+							// or tampered); else treat as legacy plaintext.
+							const decrypted = cipher.decryptCredentialValue(rawKey);
 							const plaintext = decrypted !== null ? decrypted : rawKey;
 							if (plaintext !== "" && legacyApiKey === null) {
 								legacyApiKey = plaintext;
@@ -555,7 +554,13 @@ export async function migrateCredentialsToStore(
 			if (legacyApiKey !== null) {
 				const existing = await credentialStore.findByName(db, "openai_compatible_api_key");
 				if (!existing) {
-					const encryptedValue = cipher.encryptCredentialValue(legacyApiKey, secret);
+					let encryptedValue: string;
+					try {
+						encryptedValue = cipher.encryptCredentialValue(legacyApiKey);
+					} catch {
+						// No root secret — cannot encrypt; skip migration (boot warning already logged).
+						return;
+					}
 					await credentialStore.insert(db, {
 						name: "openai_compatible_api_key",
 						encryptedValue,
@@ -573,7 +578,13 @@ export async function migrateCredentialsToStore(
 	if (envAnthropicKey && envAnthropicKey !== "") {
 		const existing = await credentialStore.findByName(db, "anthropic_api_key");
 		if (!existing) {
-			const encryptedValue = cipher.encryptCredentialValue(envAnthropicKey, secret);
+			let encryptedValue: string;
+			try {
+				encryptedValue = cipher.encryptCredentialValue(envAnthropicKey);
+			} catch {
+				// No root secret — skip (same no-op as when getServerSecret() returned null).
+				return;
+			}
 			await credentialStore.insert(db, {
 				name: "anthropic_api_key",
 				encryptedValue,

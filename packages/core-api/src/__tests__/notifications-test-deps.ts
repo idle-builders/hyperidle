@@ -16,10 +16,11 @@
 
 import {
 	decryptCredentialValue,
+	deleteCredential,
 	encryptCredentialValue,
-	getServerSecret,
+	readCredentials,
+	writeCredential,
 } from "@hyperidle/connections";
-import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
 import type {
 	NotificationsConfigDeps,
 	NotificationsCredentialCipher,
@@ -31,37 +32,29 @@ import { getTeamMembersById } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { getUserById } from "@hyperidle/users";
 import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
-import { eq } from "drizzle-orm";
 
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
+// @lore AU20 Am4: getServerSecret removed from barrel — cipher owns the key.
+// encryptCredentialValue/decryptCredentialValue are now no-arg; MISSING_ROOT_SECRET
+// is thrown by encrypt when no secret is set; decrypt returns null.
 const notificationsCredentialCipher: NotificationsCredentialCipher = {
-	getServerSecret,
 	encryptCredentialValue,
 	decryptCredentialValue,
 };
 
+// @lore AU20 Am4: adapter wraps the collapsed read/write API to satisfy the
+// NotificationsCredentialStore port shape (findByName / upsert / deleteByName).
 const notificationsCredentialStore: NotificationsCredentialStore = {
-	async findByName(db: HyperIdleDb, name: string) {
-		const [row] = await db
-			.select()
-			.from(serverCredentials)
-			.where(eq(serverCredentials.name, name))
-			.limit(1);
-		return row;
-	},
-	async upsert(db: HyperIdleDb, values) {
-		await db
-			.insert(serverCredentials)
-			.values(values)
-			.onConflictDoUpdate({
-				target: serverCredentials.name,
-				set: { encryptedValue: values.encryptedValue, updatedAt: values.updatedAt },
-			});
-	},
-	async deleteByName(db: HyperIdleDb, name: string) {
-		await db.delete(serverCredentials).where(eq(serverCredentials.name, name));
-	},
+	findByName: async (db, name) => (await readCredentials(db, { name }))[0],
+	upsert: async (db, values) =>
+		writeCredential(db, values.name, {
+			encryptedValue: values.encryptedValue,
+			validationState: values.validationState,
+			lastValidatedAt: values.lastValidatedAt,
+			updatedAt: values.updatedAt,
+		}),
+	deleteByName: (db, name) => deleteCredential(db, name),
 };
 
 export const notificationsConfigDeps: NotificationsConfigDeps = {

@@ -537,13 +537,10 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 
 		// Run the AH1 migration — relocates blob apiKey to server_credentials.
 		const { migrateCredentialsToStore } = await import("@hyperidle/settings");
-		const {
-			decryptCredentialValue: decryptCipher,
-			encryptCredentialValue: encryptCipher,
-			getServerSecret,
-		} = await import("@hyperidle/connections");
+		// @lore AU20 Am4: getServerSecret removed from barrel; cipher is now no-arg.
+		const { decryptCredentialValue: decryptCipher, encryptCredentialValue: encryptCipher } =
+			await import("@hyperidle/connections");
 		const cipher = {
-			getServerSecret,
 			encryptCredentialValue: encryptCipher,
 			decryptCredentialValue: decryptCipher,
 		};
@@ -601,7 +598,9 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 
 		// It must decrypt back to the original plaintext.
 		const { decryptCredentialValue } = await import("@hyperidle/connections");
-		const decrypted = decryptCredentialValue(encryptedValue, TEST_SERVER_SECRET);
+		// @lore AU20 Am4: decryptCredentialValue is no-arg; reads HYPERIDLE_CREDENTIAL_KEY from env.
+		// TEST_SERVER_SECRET is already stubbed in beforeEach for this test suite.
+		const decrypted = decryptCredentialValue(encryptedValue);
 		expect(decrypted).toBe(plaintextApiKey);
 
 		// Run migration again — idempotent (does not overwrite the existing credential row).

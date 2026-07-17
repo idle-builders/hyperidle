@@ -63,6 +63,8 @@ import type { ServiceConnectionResolver } from "./service-connection-resolver.js
 // AC5's "second service = configuration" is proven by the generic plan-builder
 // plus this single map.
 
+// @lore AU20 Am4: SERVICE_CLI_ENV removed from barrel — no external cross-package
+// consumer. Exported from this file so within-package tests can import directly.
 export const SERVICE_CLI_ENV: Readonly<Record<string, readonly string[]>> = {
 	github: ["GH_TOKEN", "GITHUB_TOKEN"],
 };
@@ -72,6 +74,8 @@ export const SERVICE_CLI_ENV: Readonly<Record<string, readonly string[]>> = {
 /**
  * One MCP server entry to provision into the harness config.
  * bearerToken is present for token-MCP-bearer, absent for plain mcp.
+ * @lore AU20 Am4: removed from barrel — no cross-package consumer.
+ * Exported from this file so within-package tests can reference it.
  */
 export interface ResolvedMcpServer {
 	readonly name: string;
@@ -125,6 +129,8 @@ export async function resolveOwningHumanUserId(
  * "Active" = row exists (AN1 has no disabled state; DELETE = disconnect).
  * Scoped eq(userId), authSource in HELD_AUTH_SOURCES.
  */
+// @lore AU20 Am4: listActiveHeld removed from barrel — not a cross-package public API.
+// Exported from this file so within-package tests can import it directly for unit coverage.
 export async function listActiveHeld(
 	db: HyperIdleDb,
 	userId: string,

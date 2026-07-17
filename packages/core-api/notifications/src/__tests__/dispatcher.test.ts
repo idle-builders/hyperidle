@@ -49,8 +49,9 @@ import type { Notification, NotificationAdapter, Recipient, SendResult } from ".
 // so these are real functions, not stubs.
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
+// @lore AU20 Am4: getServerSecret removed from NotificationsCredentialCipher.
+// Test-local cipher: identity encrypt/decrypt (no real secret needed for dispatcher tests).
 const notificationsCredentialCipher: NotificationsCredentialCipher = {
-	getServerSecret: () => null,
 	encryptCredentialValue: (v) => v,
 	decryptCredentialValue: (v) => v,
 };

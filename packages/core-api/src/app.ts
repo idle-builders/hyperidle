@@ -2,12 +2,11 @@ import { SessionActivityBuffer } from "@hyperidle/capture-writeback";
 import {
 	type CredentialResolver,
 	decryptCredentialValue,
-	deleteCredentialByName,
+	deleteCredential,
 	encryptCredentialValue,
-	findCredentialByName,
-	getServerSecret,
+	readCredentials,
 	ServiceConnectionResolver,
-	upsertCredential,
+	writeCredential,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { AssistantTurnDeps } from "@hyperidle/dispatch";
@@ -252,15 +251,20 @@ const notificationsServerConfigPort = { read: readServerConfig, update: updateSe
 const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 const notificationsCredentialCipher: NotificationsCredentialCipher = {
-	getServerSecret,
 	encryptCredentialValue,
 	decryptCredentialValue,
 };
 
 const notificationsCredentialStore: NotificationsCredentialStore = {
-	findByName: findCredentialByName,
-	upsert: upsertCredential,
-	deleteByName: deleteCredentialByName,
+	findByName: async (db, name) => (await readCredentials(db, { name }))[0],
+	upsert: async (db, values) =>
+		writeCredential(db, values.name, {
+			encryptedValue: values.encryptedValue,
+			validationState: values.validationState,
+			lastValidatedAt: values.lastValidatedAt,
+			updatedAt: values.updatedAt,
+		}),
+	deleteByName: (db, name) => deleteCredential(db, name),
 };
 
 const notificationsConfigDeps: NotificationsConfigDeps = {
@@ -473,7 +477,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// AO1 v2: Wire the real ServiceConnectionResolver for reachability probes.
 		// serverSecret may be null (no credential key configured) — the resolver handles null
 		// gracefully (returns null for every connectionId → needs_attention for git probes).
-		const scResolver = new ServiceConnectionResolver(options.db, getServerSecret());
+		const scResolver = new ServiceConnectionResolver(options.db);
 		api.route("/filesystems", createFilesystemRoutes(options.db, eventBus, scResolver));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));

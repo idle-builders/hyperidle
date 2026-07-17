@@ -7,13 +7,11 @@ import {
 	type CredentialResolver,
 	DbCredentialResolver,
 	decryptCredentialValue,
-	deleteCredentialByName,
+	deleteCredential,
 	encryptCredentialValue,
-	findCredentialByName,
-	getServerSecret,
-	insertCredential,
-	listServiceConnectionsByAuthSource,
-	upsertCredential,
+	listConnections,
+	readCredentials,
+	writeCredential,
 } from "@hyperidle/connections";
 import {
 	getThreadById,
@@ -175,15 +173,20 @@ const gitExportKnowledgeReader = {
 };
 
 const notificationsCredentialCipher: NotificationsCredentialCipher = {
-	getServerSecret,
 	encryptCredentialValue,
 	decryptCredentialValue,
 };
 
 const notificationsCredentialStore: NotificationsCredentialStore = {
-	findByName: findCredentialByName,
-	upsert: upsertCredential,
-	deleteByName: deleteCredentialByName,
+	findByName: async (db, name) => (await readCredentials(db, { name }))[0],
+	upsert: async (db, values) =>
+		writeCredential(db, values.name, {
+			encryptedValue: values.encryptedValue,
+			validationState: values.validationState,
+			lastValidatedAt: values.lastValidatedAt,
+			updatedAt: values.updatedAt,
+		}),
+	deleteByName: (db, name) => deleteCredential(db, name),
 };
 
 const notificationsConfigDeps: NotificationsConfigDeps = {
@@ -631,8 +634,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// invariant is tested in server-factory.resolver.test.ts via
 	// `handle.credentialResolver instanceof DbCredentialResolver` — the resolver is
 	// exposed on ServerHandle so the test can assert the production wiring directly.
-	const serverSecret = getServerSecret();
-	if (!serverSecret) {
+	// @lore AU20 Am4: getServerSecret removed from barrel (cipher-owns-key pattern).
+	// Boot warning now checks env directly instead of calling getServerSecret().
+	const hasSecret = Boolean(process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY);
+	if (!hasSecret) {
 		// @lore AH1 §6: Boot is non-fatal but we log a warning so misconfigured deployments
 		// are visible. The write boundary (PUT /api/credentials) rejects loudly (500
 		// MISSING_ROOT_SECRET). console.warn is intentional here — the observability adapter
@@ -642,7 +647,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — credential writes will be refused (MISSING_ROOT_SECRET). Agents cannot resolve keys until a secret is configured.",
 		);
 	}
-	const credentialResolver: CredentialResolver = new DbCredentialResolver(db, serverSecret);
+	const credentialResolver: CredentialResolver = new DbCredentialResolver(db);
 
 	// AH1 §4: Run the one-time credential migration at boot.
 	// Relocates legacy server_config blob apiKeys → server_credentials.
@@ -653,10 +658,22 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// `@hyperidle/connections`' real exports now that `connections` has
 	// migrated (closes the Inc-1f interim wiring; see `@hyperidle/settings`'
 	// `ports.ts` top-level `@lore`), zero behavior change.
+	// @lore AU20 Am4: cipher is now no-arg (encryptCredentialValue/decryptCredentialValue
+	// read the root secret internally). Store adapts to the new collapsed write API:
+	// writeCredential with encryptedValue present = upsert path.
 	await migrateCredentialsToStore(
 		db,
-		{ getServerSecret, encryptCredentialValue, decryptCredentialValue },
-		{ findByName: findCredentialByName, insert: insertCredential },
+		{ encryptCredentialValue, decryptCredentialValue },
+		{
+			findByName: async (execDb, name) => (await readCredentials(execDb, { name }))[0],
+			insert: async (execDb, values) =>
+				writeCredential(execDb, values.name, {
+					encryptedValue: values.encryptedValue,
+					validationState: values.validationState,
+					lastValidatedAt: values.lastValidatedAt,
+					updatedAt: values.updatedAt,
+				}),
+		},
 	);
 	// AU2: Project existing first-party behavior into the editable configuration
 	// model on production boot. This keeps registered tools, builtin harness
@@ -672,10 +689,14 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// export (closes the Increment 1h `ServiceConnectionsReader` interim —
 	// see `@hyperidle/settings`' `ports.ts`). All ordinary downward
 	// core-api→core-api edges, zero behavior change.
+	// @lore AU20 Am4: listServiceConnectionsByAuthSource removed from barrel; adapt
+	// to listConnections(db, { authSource }) to satisfy ServiceConnectionsReader port.
 	await projectProductionConfigurationDefaults(db, {
 		users: { listUsersByKind },
 		routines: { listRoutines },
-		serviceConnections: { listByAuthSource: listServiceConnectionsByAuthSource },
+		serviceConnections: {
+			listByAuthSource: (execDb, authSource) => listConnections(execDb, { authSource }),
+		},
 	});
 	// @lore AU19 Increment 5 (item 2): `adapterPool`/`workspaceAdapter` are now
 	// REQUIRED, Application-supplied deps (see `CreateServerDeps`'s top `@lore`)

@@ -1,104 +1,107 @@
 /**
- * AH1 RED — requireServerSecret() unit tests.
+ * AH1 — credential encryption unit tests (public API).
  *
- * AC3: getServerSecret() returning "" must no longer silently disable encryption.
- * requireServerSecret() is the new function AH1 §6 adds — throws MISSING_ROOT_SECRET
- * when both HYPERIDLE_CREDENTIAL_KEY and HYPERIDLE_API_KEY are unset/empty.
+ * AC3: encryptCredentialValue() must throw MISSING_ROOT_SECRET when no secret is
+ * configured — not silently produce a ciphertext with an empty key.
  *
- * Proof type: unit (pure function, no DB, no HTTP).
- *
- * @lore AH1 §6: requireServerSecret() is only used at write/validate boundaries.
- * getServerSecret() is kept for read paths (returns string | null after AH1).
+ * @lore AU20 Am4: getServerSecret/requireServerSecret are now INTERNAL — not
+ * exported from credential-encryption.ts. These tests were originally written
+ * to test those internal functions directly. After AU20 they test the same
+ * semantics through the public encryptCredentialValue / decryptCredentialValue API:
+ *   - encryptCredentialValue throws MISSING_ROOT_SECRET when no secret set
+ *   - decryptCredentialValue returns null when no secret set
+ *   - both work normally when HYPERIDLE_CREDENTIAL_KEY is present
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// requireServerSecret does not exist yet — this import will fail at runtime.
-// The test is designed to fail for the RIGHT reason:
-//   "Module has no exported member 'requireServerSecret'" (green phase adds it).
-// We use a dynamic import pattern to avoid a compile-time hard error that blocks
-// other tests from running.
-
-describe("requireServerSecret() unit", () => {
+describe("encryptCredentialValue / decryptCredentialValue — secret-gate", () => {
 	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "");
-		vi.stubEnv("HYPERIDLE_API_KEY", "");
+		// biome-ignore lint/suspicious/noConsole: test setup logging
+		// Clear both env vars so every test starts from "no secret configured".
+		// vi.stubEnv is used so sibling workers cannot inherit the unstubbed env.
+		// Use dynamic import inside each test (see below) so the module re-reads env.
 	});
 
 	afterEach(() => {
-		vi.unstubAllEnvs();
+		// Dynamic import caches the module — env changes take effect because the functions
+		// read process.env at call time (not at module load time).
 	});
 
-	it("requireServerSecret throws when both credential env vars are absent/empty", async () => {
-		// Dynamic import so we can test the "function missing" case gracefully.
-		const mod = await import("../credential-encryption.js");
-		const { requireServerSecret } = mod as typeof mod & {
-			requireServerSecret?: () => string;
-		};
-
-		// Fails today (red phase): requireServerSecret is undefined — function not yet added.
-		expect(requireServerSecret).toBeDefined();
-
-		if (requireServerSecret) {
-			expect(() => requireServerSecret()).toThrow();
-		}
-	});
-
-	it("requireServerSecret throws with code MISSING_ROOT_SECRET", async () => {
-		const mod = await import("../credential-encryption.js");
-		const { requireServerSecret } = mod as typeof mod & {
-			requireServerSecret?: () => string;
-		};
-
-		if (!requireServerSecret) {
-			// Function not yet added — fail the test explicitly.
-			throw new Error(
-				"requireServerSecret is not exported from credential-encryption.ts — AH1 §6 not implemented yet",
-			);
-		}
-
+	it("encryptCredentialValue throws when both credential env vars are absent/empty", async () => {
+		// biome-ignore lint/suspicious/noConsole: test
+		process.env.HYPERIDLE_CREDENTIAL_KEY = "";
+		process.env.HYPERIDLE_API_KEY = "";
 		try {
-			requireServerSecret();
-			throw new Error("Expected requireServerSecret to throw");
-		} catch (err) {
-			expect(err).toBeInstanceOf(Error);
-			const code = (err as Error & { code?: string }).code;
-			expect(code).toBe("MISSING_ROOT_SECRET");
+			const { encryptCredentialValue } = await import("../credential-encryption.js");
+			expect(() => encryptCredentialValue("any-value")).toThrow();
+		} finally {
+			delete process.env.HYPERIDLE_CREDENTIAL_KEY;
+			delete process.env.HYPERIDLE_API_KEY;
 		}
 	});
 
-	it("getServerSecret returns null (not empty string) when both vars absent/empty after AH1", async () => {
-		const { getServerSecret } = await import("../credential-encryption.js");
-		// Fails today: getServerSecret() returns "" (empty string).
-		// After AH1, it returns null.
-		const secret = getServerSecret();
-		expect(secret).toBeNull();
-	});
-
-	it("getServerSecret returns the credential key when HYPERIDLE_CREDENTIAL_KEY is set", async () => {
-		vi.unstubAllEnvs();
-		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "my-cred-key-32chars-long!!!!!!");
-		vi.stubEnv("HYPERIDLE_API_KEY", "");
-
-		const { getServerSecret } = await import("../credential-encryption.js");
-		const secret = getServerSecret();
-		expect(secret).toBe("my-cred-key-32chars-long!!!!!!");
-	});
-
-	it("requireServerSecret returns the key when set", async () => {
-		vi.unstubAllEnvs();
-		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", "my-cred-key-32chars-long!!!!!!");
-		vi.stubEnv("HYPERIDLE_API_KEY", "");
-
-		const mod = await import("../credential-encryption.js");
-		const { requireServerSecret } = mod as typeof mod & {
-			requireServerSecret?: () => string;
-		};
-
-		if (!requireServerSecret) {
-			throw new Error("requireServerSecret not yet exported — AH1 §6 not implemented");
+	it("encryptCredentialValue throws with code MISSING_ROOT_SECRET", async () => {
+		process.env.HYPERIDLE_CREDENTIAL_KEY = "";
+		process.env.HYPERIDLE_API_KEY = "";
+		try {
+			const { encryptCredentialValue } = await import("../credential-encryption.js");
+			try {
+				encryptCredentialValue("any-value");
+				throw new Error("Expected encryptCredentialValue to throw");
+			} catch (err) {
+				expect(err).toBeInstanceOf(Error);
+				const code = (err as Error & { code?: string }).code;
+				expect(code).toBe("MISSING_ROOT_SECRET");
+			}
+		} finally {
+			delete process.env.HYPERIDLE_CREDENTIAL_KEY;
+			delete process.env.HYPERIDLE_API_KEY;
 		}
+	});
 
-		expect(requireServerSecret()).toBe("my-cred-key-32chars-long!!!!!!");
+	it("decryptCredentialValue returns null when both vars absent/empty (no secret)", async () => {
+		process.env.HYPERIDLE_CREDENTIAL_KEY = "";
+		process.env.HYPERIDLE_API_KEY = "";
+		try {
+			const { decryptCredentialValue } = await import("../credential-encryption.js");
+			// Any ciphertext — returns null because no secret is available to decrypt with.
+			const result = decryptCredentialValue("dGVzdC1jaXBoZXJ0ZXh0");
+			expect(result).toBeNull();
+		} finally {
+			delete process.env.HYPERIDLE_CREDENTIAL_KEY;
+			delete process.env.HYPERIDLE_API_KEY;
+		}
+	});
+
+	it("encryptCredentialValue succeeds when HYPERIDLE_CREDENTIAL_KEY is set", async () => {
+		process.env.HYPERIDLE_CREDENTIAL_KEY = "my-cred-key-32chars-long!!!!!!";
+		process.env.HYPERIDLE_API_KEY = "";
+		try {
+			const { encryptCredentialValue } = await import("../credential-encryption.js");
+			const result = encryptCredentialValue("my-secret-value");
+			expect(typeof result).toBe("string");
+			expect(result.length).toBeGreaterThan(0);
+		} finally {
+			delete process.env.HYPERIDLE_CREDENTIAL_KEY;
+			delete process.env.HYPERIDLE_API_KEY;
+		}
+	});
+
+	it("encrypt then decrypt round-trips when key is set", async () => {
+		process.env.HYPERIDLE_CREDENTIAL_KEY = "my-cred-key-32chars-long!!!!!!";
+		process.env.HYPERIDLE_API_KEY = "";
+		try {
+			const { encryptCredentialValue, decryptCredentialValue } = await import(
+				"../credential-encryption.js"
+			);
+			const plaintext = "super-secret-credential";
+			const encrypted = encryptCredentialValue(plaintext);
+			const decrypted = decryptCredentialValue(encrypted);
+			expect(decrypted).toBe(plaintext);
+		} finally {
+			delete process.env.HYPERIDLE_CREDENTIAL_KEY;
+			delete process.env.HYPERIDLE_API_KEY;
+		}
 	});
 });

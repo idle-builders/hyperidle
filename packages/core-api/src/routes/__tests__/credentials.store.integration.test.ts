@@ -60,7 +60,7 @@ describe("AH1 AC2 — credential store: ciphertext in DB, no plaintext in blob",
 			// The stored value must NOT equal the plaintext.
 			expect(row?.encryptedValue).not.toBe(plaintext);
 			// It must decrypt back to the plaintext.
-			const decrypted = decryptCredentialValue(row!.encryptedValue, TEST_SERVER_SECRET);
+			const decrypted = decryptCredentialValue(row!.encryptedValue);
 			expect(decrypted).toBe(plaintext);
 		});
 
@@ -106,7 +106,7 @@ describe("AH1 AC2 — credential store: ciphertext in DB, no plaintext in blob",
 			expect(row).toBeDefined();
 			expect(row?.encryptedValue).not.toBe(plaintext);
 
-			const decrypted = decryptCredentialValue(row!.encryptedValue, TEST_SERVER_SECRET);
+			const decrypted = decryptCredentialValue(row!.encryptedValue);
 			expect(decrypted).toBe(plaintext);
 		});
 

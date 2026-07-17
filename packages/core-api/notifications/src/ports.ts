@@ -177,14 +177,17 @@ export interface NotificationsVerdictReader {
 
 /**
  * Port for `connections`' credential-cipher surface `config.ts` calls (real,
- * `@hyperidle/connections`'s `getServerSecret`/`encryptCredentialValue`/
- * `decryptCredentialValue`) — used to read/write the notification-secret rows
+ * `@hyperidle/connections`'s `encryptCredentialValue`/`decryptCredentialValue`)
+ * — used to read/write the notification-secret rows
  * (`notifications_smtp_password`, `notifications_ntfy_auth_token`).
+ *
+ * @lore AU20 Am4: getServerSecret removed — the cipher owns the key.
+ * encryptCredentialValue throws MISSING_ROOT_SECRET when no secret is set;
+ * decryptCredentialValue returns null. config.ts handles both cases.
  */
 export interface NotificationsCredentialCipher {
-	getServerSecret(): string | null;
-	encryptCredentialValue(plaintext: string, serverSecret: string): string;
-	decryptCredentialValue(encrypted: string, serverSecret: string): string | null;
+	encryptCredentialValue(plaintext: string): string;
+	decryptCredentialValue(encrypted: string): string | null;
 }
 
 // ---------------------------------------------------------------------------

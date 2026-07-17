@@ -66,7 +66,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 
 			// Step 3: Construct DbCredentialResolver with the same secret — this is the
 			// PRODUCTION wiring AH1 §3 mandates. No mock of the resolver.
-			const resolver = new DbCredentialResolver(db, TEST_SERVER_SECRET);
+			const resolver = new DbCredentialResolver(db);
 
 			// Step 4: Call resolveModelTier — the same function makeResolveModel wraps in
 			// server-factory. Use the default workhorse tier (anthropic provider).
@@ -90,7 +90,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 			db,
 		}) => {
 			// No key stored — resolver returns null → MissingCredentialError.
-			const resolver = new DbCredentialResolver(db, TEST_SERVER_SECRET);
+			const resolver = new DbCredentialResolver(db);
 			const cfg = await readServerConfig(db);
 
 			// Must throw MissingCredentialError, never return undefined or swallow.
@@ -132,7 +132,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 			expect(putRes.status).toBe(200);
 
 			// Step 3: Construct the PRODUCTION resolver.
-			const resolver = new DbCredentialResolver(db, TEST_SERVER_SECRET);
+			const resolver = new DbCredentialResolver(db);
 
 			// Step 4: Resolve the openai-compatible tier.
 			const cfg = await readServerConfig(db);
@@ -164,7 +164,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 				},
 			});
 
-			const resolver = new DbCredentialResolver(db, TEST_SERVER_SECRET);
+			const resolver = new DbCredentialResolver(db);
 			const cfg = await readServerConfig(db);
 
 			// Fails today: the current path reads tier.apiKey (absent after §2) and

@@ -41,7 +41,7 @@ import * as fs from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { encryptCredentialValue, getServerSecret } from "@hyperidle/connections";
+import { encryptCredentialValue } from "@hyperidle/connections";
 import { createServer } from "@hyperidle/core-api/server-factory";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema, serverCredentials, teamMembers, teams, users } from "@hyperidle/db";
@@ -174,13 +174,18 @@ if (cassettMode === "record") {
 	// env-based Anthropic path, never exercising the per-agent OpenRouter seam (R-5).
 	const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 	if (openrouterApiKey) {
-		const serverSecret = getServerSecret();
-		if (!serverSecret) {
+		// @lore AU20 Am4: encryptCredentialValue is now no-arg; HYPERIDLE_CREDENTIAL_KEY
+		// is set above so the secret is available. Throws MISSING_ROOT_SECRET if absent.
+		let encryptedValue: string;
+		try {
+			encryptedValue = encryptCredentialValue(openrouterApiKey);
+		} catch {
 			process.stderr.write(
 				"[ah6-test-server] WARNING: No server secret configured. Credential encryption will fail.\n",
 			);
-		} else {
-			const encryptedValue = encryptCredentialValue(openrouterApiKey, serverSecret);
+			encryptedValue = "";
+		}
+		if (encryptedValue) {
 			await db
 				.insert(serverCredentials)
 				.values({

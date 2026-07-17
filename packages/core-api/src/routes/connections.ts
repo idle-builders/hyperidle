@@ -22,15 +22,12 @@
 
 import {
 	decryptCredentialValue,
-	deleteServiceConnectionForUser,
+	deleteConnection,
 	encryptCredentialValue,
-	getServiceConnectionById,
-	getServiceConnectionByIdForUser,
-	insertServiceConnection,
-	listServiceConnectionsByUserId,
+	insertConnection,
+	listConnections,
 	projectInheritedConnections,
-	requireServerSecret,
-	updateServiceConnectionHealth,
+	updateConnection,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/shared";
@@ -199,7 +196,7 @@ export function createConnectionRoutes(
 		const userId = c.get("userId");
 
 		// Held connections from DB
-		const rows = await listServiceConnectionsByUserId(db, userId);
+		const rows = await listConnections(db, { userId });
 
 		const storedViews = rows.map(rowToView);
 
@@ -243,9 +240,9 @@ export function createConnectionRoutes(
 
 		if (body.authSource === "token") {
 			// Fail-loud on missing root secret at the write boundary
-			let serverSecret: string;
+			let encryptedToken: string;
 			try {
-				serverSecret = requireServerSecret();
+				encryptedToken = encryptCredentialValue(body.token);
 			} catch {
 				return c.json(
 					{ error: "Encryption secret not configured", code: "MISSING_ROOT_SECRET" },
@@ -253,10 +250,8 @@ export function createConnectionRoutes(
 				);
 			}
 
-			const encryptedToken = encryptCredentialValue(body.token, serverSecret);
-
 			try {
-				await insertServiceConnection(db, {
+				await insertConnection(db, {
 					id,
 					userId,
 					service: body.service,
@@ -280,7 +275,7 @@ export function createConnectionRoutes(
 			const service = body.service ?? deriveServiceFromUrl(body.serverUrl);
 
 			try {
-				await insertServiceConnection(db, {
+				await insertConnection(db, {
 					id,
 					userId,
 					service,
@@ -301,7 +296,7 @@ export function createConnectionRoutes(
 		}
 
 		// Return the view (no secret)
-		const row = await getServiceConnectionById(db, id);
+		const [row] = await listConnections(db, { id });
 
 		if (!row) {
 			return c.json({ error: "Failed to retrieve created connection" }, 500);
@@ -331,13 +326,13 @@ export function createConnectionRoutes(
 		}
 
 		// SELECT first (userId-scoped) to confirm ownership before deleting
-		const existing = await getServiceConnectionByIdForUser(db, id, userId);
+		const [existing] = await listConnections(db, { id, userId });
 
 		if (!existing) {
 			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
 		}
 
-		await deleteServiceConnectionForUser(db, id, userId);
+		await deleteConnection(db, { id, userId });
 
 		return c.body(null, 204);
 	});
@@ -363,7 +358,7 @@ export function createConnectionRoutes(
 			const userId = c.get("userId");
 			const id = c.req.param("id");
 
-			const row = await getServiceConnectionByIdForUser(db, id, userId);
+			const [row] = await listConnections(db, { id, userId });
 
 			if (!row) {
 				return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
@@ -376,18 +371,9 @@ export function createConnectionRoutes(
 				if (!row.encryptedToken) {
 					health = "needs-attention";
 				} else {
-					let serverSecret: string | null;
-					try {
-						serverSecret = requireServerSecret();
-					} catch {
-						serverSecret = null;
-					}
-					if (!serverSecret) {
-						health = "needs-attention";
-					} else {
-						const plaintext = decryptCredentialValue(row.encryptedToken, serverSecret);
-						health = plaintext ? "working" : "needs-attention";
-					}
+					// decryptCredentialValue returns null when no root secret is set
+					const plaintext = decryptCredentialValue(row.encryptedToken);
+					health = plaintext ? "working" : "needs-attention";
 				}
 			} else {
 				// mcp: AN2 live MCP reachability probe.
@@ -403,7 +389,7 @@ export function createConnectionRoutes(
 			}
 
 			const now = new Date().toISOString();
-			await updateServiceConnectionHealth(db, id, { health, lastValidatedAt: now, updatedAt: now });
+			await updateConnection(db, id, { health, lastValidatedAt: now, updatedAt: now });
 
 			return c.json({ health });
 		},

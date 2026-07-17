@@ -111,7 +111,9 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 			});
 
 			// Encrypt the real PAT and store it as a service_connection.
-			const encryptedToken = encryptCredentialValue(PAT, CREDENTIAL_KEY);
+			// @lore AU20 Am4: encryptCredentialValue is now no-arg; reads HYPERIDLE_CREDENTIAL_KEY
+			// from env directly (same key the skip guard checks above).
+			const encryptedToken = encryptCredentialValue(PAT);
 			const connectionId = `lb-conn-${crypto.randomUUID().slice(0, 8)}`;
 			await db.insert(serviceConnections).values({
 				id: connectionId,
@@ -125,7 +127,9 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 			});
 
 			// Wire the real resolver + adapter.
-			const resolver = new ServiceConnectionResolver(db, CREDENTIAL_KEY);
+			// @lore AU20 Am4: ServiceConnectionResolver no longer takes serverSecret;
+			// decryptCredentialValue reads HYPERIDLE_CREDENTIAL_KEY from env internally.
+			const resolver = new ServiceConnectionResolver(db);
 			const adapter = new ServiceConnectionResolverAdapter(resolver, userId);
 
 			// Verify the adapter can resolve.

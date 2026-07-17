@@ -70,11 +70,10 @@ async function readSecret(
 	name: string,
 	deps: NotificationsConfigDeps,
 ): Promise<string | null> {
-	const secret = deps.credentialCipher.getServerSecret();
-	if (!secret) return null;
 	const row = await deps.credentialStore.findByName(db, name);
 	if (!row) return null;
-	return deps.credentialCipher.decryptCredentialValue(row.encryptedValue, secret);
+	// decryptCredentialValue returns null when no root secret is set (graceful degradation).
+	return deps.credentialCipher.decryptCredentialValue(row.encryptedValue);
 }
 
 /**
@@ -82,6 +81,9 @@ async function readSecret(
  * No-ops when no server secret is configured — there is no way to store an
  * encrypted value without one; the caller's other (non-secret) fields still
  * persist normally through `server_config`.
+ *
+ * @lore AU20 Am4: encryptCredentialValue now throws MISSING_ROOT_SECRET when
+ * no secret is set; we catch that code and no-op, preserving the prior behaviour.
  */
 async function writeSecret(
 	db: HyperIdleDb,
@@ -94,9 +96,13 @@ async function writeSecret(
 		await deps.credentialStore.deleteByName(db, name);
 		return;
 	}
-	const secret = deps.credentialCipher.getServerSecret();
-	if (!secret) return;
-	const encryptedValue = deps.credentialCipher.encryptCredentialValue(value, secret);
+	let encryptedValue: string;
+	try {
+		encryptedValue = deps.credentialCipher.encryptCredentialValue(value);
+	} catch {
+		// No root secret configured — skip (same no-op behaviour as before).
+		return;
+	}
 	await deps.credentialStore.upsert(db, {
 		name,
 		encryptedValue,

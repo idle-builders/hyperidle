@@ -129,14 +129,16 @@ export interface SettingsUserDirectory {
 
 /**
  * Port for `connections`' credential-cipher surface `settings` calls (real,
- * `@hyperidle/connections`' `getServerSecret`/`encryptCredentialValue`/
- * `decryptCredentialValue`) — used by `migrateCredentialsToStore`'s one-shot
- * boot migration.
+ * `@hyperidle/connections`' `encryptCredentialValue`/`decryptCredentialValue`)
+ * — used by `migrateCredentialsToStore`'s one-shot boot migration.
+ *
+ * @lore AU20 Am4: getServerSecret removed — cipher owns the key.
+ * encryptCredentialValue throws MISSING_ROOT_SECRET when no secret is set;
+ * decryptCredentialValue returns null. migrateCredentialsToStore handles both.
  */
 export interface SettingsCredentialCipher {
-	getServerSecret(): string | null;
-	encryptCredentialValue(plaintext: string, serverSecret: string): string;
-	decryptCredentialValue(encrypted: string, serverSecret: string): string | null;
+	encryptCredentialValue(plaintext: string): string;
+	decryptCredentialValue(encrypted: string): string | null;
 }
 
 // ---------------------------------------------------------------------------
