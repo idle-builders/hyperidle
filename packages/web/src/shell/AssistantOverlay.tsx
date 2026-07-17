@@ -54,7 +54,7 @@ function ToolCallRow({ toolCall }: { toolCall: ToolCallSummary }): JSX.Element {
 	return (
 		<div
 			style={{
-				background: "rgba(22, 118, 79, 0.03)",
+				background: "color-mix(in oklab, var(--accent-primary) 3%, transparent)",
 				borderRadius: "var(--r-subtle, 10px)",
 				padding: "9px 12px",
 			}}
@@ -412,7 +412,7 @@ function ThinkingRow(): JSX.Element {
 				gap: "9px",
 				padding: "9px 12px",
 				borderRadius: "var(--r-subtle)",
-				background: "var(--accent-primary-dim, rgba(22,118,79,0.06))",
+				background: "var(--accent-primary-dim)",
 			}}
 		>
 			<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />

@@ -198,8 +198,8 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 							role="alert"
 							className="rounded-[var(--r-subtle)] p-[12px] text-[13px] text-[var(--text-secondary)]"
 							style={{
-								background: "rgba(220, 100, 60, 0.08)",
-								border: "1px solid rgba(220, 100, 60, 0.2)",
+								background: "var(--status-error-dim)",
+								border: "1px solid color-mix(in oklab, var(--status-error) 20%, transparent)",
 							}}
 						>
 							<span className="font-medium text-[var(--text-primary)]">Health warning</span>

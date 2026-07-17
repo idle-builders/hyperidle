@@ -145,7 +145,7 @@ function MockScreen({ variant, active }: ScreenProps): JSX.Element {
 			{/* cta band */}
 			<div className="px-[18px] pb-[18px]" style={active === "cta" ? HL : undefined}>
 				<div
-					className="flex h-[36px] items-center justify-center text-[13px] font-[600] text-[var(--text-on-accent,#fff)]"
+					className="flex h-[36px] items-center justify-center text-[13px] font-[600] text-[var(--text-on-accent)]"
 					style={{ background: ctaBg, borderRadius: "var(--r-pill)" }}
 				>
 					Create account
@@ -286,7 +286,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 									style={{
 										borderRadius: "var(--r-pill)",
 										background: on ? "var(--accent-primary)" : "transparent",
-										color: on ? "var(--text-on-accent,#fff)" : "var(--text-secondary)",
+										color: on ? "var(--text-on-accent)" : "var(--text-secondary)",
 									}}
 								>
 									{m.label}

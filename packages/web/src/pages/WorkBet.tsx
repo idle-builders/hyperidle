@@ -949,7 +949,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							label={BET_STATUS_LABEL[bet.status]}
 						/>
 						{bet.costAppetite && (
-							<span className="inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[rgba(217,119,6,0.10)] text-[var(--accent-secondary)]">
+							<span className="inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-secondary-dim)] text-[var(--accent-secondary)]">
 								{formatMoney(bet.costAppetite)} appetite
 							</span>
 						)}
@@ -1535,7 +1535,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 											key={task.id}
 											type="button"
 											data-testid="task-row"
-											className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[rgba(44,36,26,0.02)] transition-colors duration-[var(--motion-fast)] text-left w-full"
+											className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[color-mix(in_oklab,var(--text-primary)_2%,transparent)] transition-colors duration-[var(--motion-fast)] text-left w-full"
 											onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
 											aria-label={task.title}
 										>

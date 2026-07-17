@@ -202,7 +202,7 @@ export function AgentDetailPane({
 					{isStrategy && (
 						<div
 							className="rounded-[var(--r-subtle)] p-[9px] mt-[6px] mb-[6px]"
-							style={{ background: "rgba(217,119,6,0.06)" }}
+							style={{ background: "var(--accent-secondary-dim)" }}
 						>
 							<p className="text-[12px] text-[var(--text-secondary)]">
 								This agent is managed by app defaults. Your system prompt edits are preserved, but

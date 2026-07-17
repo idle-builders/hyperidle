@@ -459,7 +459,7 @@ function WorkTeamLoaded({
 											content: (
 												<span
 													className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-primary)]"
-													style={{ background: "rgba(22,118,79,0.08)" }}
+													style={{ background: "var(--accent-primary-dim)" }}
 													aria-label={routine.agentName}
 													title={routine.agentName}
 												>
@@ -506,7 +506,7 @@ function WorkTeamLoaded({
 							role="status"
 							data-testid={hintReviewAgents.testId}
 							className="rounded-[var(--r-subtle)] p-[18px] flex flex-col gap-[6px] mb-[6px]"
-							style={{ background: "rgba(22,118,79,0.03)" }}
+							style={{ background: "color-mix(in oklab, var(--accent-primary) 3%, transparent)" }}
 						>
 							<p className="text-[13px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 								{hintReviewAgents.copy}

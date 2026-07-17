@@ -138,3 +138,46 @@ inline-disabled with `eslint-disable-next-line` + reason at the site.
 - **`packages/web/src/shell/TaskSheet.tsx:409`** — `✕` in a `<button>` with
   `aria-label="Close"`. Typographic symbol. (TaskSheet:400 `shadow-lg` was a real
   fix — changed to `shadow-[var(--shadow-elevated)]` per AQ-012.)
+
+---
+
+## LG1 Phase 9a waivers (design/no-hardcoded-color — browser-chrome mockup files)
+
+### `design/no-hardcoded-color` — AL1 fake browser/inbox chrome family
+
+Both files are waived in their entirety via a scoped `eslint.config.ts` override block
+(see the "LG1 Phase 9a" comment block near the end of `eslint.config.ts`). The rule
+is turned **off** for these two file paths only. All other `packages/web/src/**` files
+remain covered.
+
+**Rationale:** These files deliberately hand-build fake browser or inbox chrome with
+neutral, email-safe-style inline styling (white backgrounds, neutral borders, subtle
+grays). Converting those values to Hearth semantic tokens would fight the founding
+design intent: the rendered page/email IS the artifact under review and must look like
+a real web page or email — not like Hearth chrome.
+
+The REVIEW CHROME wrapper elements (header bar, URL bar, verdict pills) in both files
+already use Hearth/CP1 tokens by name (AQ-008 compliant). Only the rendered
+page/email body contains the deliberate neutral colors. The distinction is documented
+inline in each file's header.
+
+**File-level founding rationale (quoted directly from each file's header comment):**
+
+- **`packages/web/src/pages/review/ReviewBrowserPreview.tsx`** (27 findings waived) —
+  lines 1-16: *"The REVIEW CHROME (header, URL bar, verdict pills) uses Hearth/CP1
+  tokens by name only (AQ-008); the rendered page is the one place neutral page
+  styling is allowed, because that IS the artifact under review (it must read as a
+  real web page)."* Founder direction (human-design-review round 1): *"not all stuff
+  will be combined and fancy — some things will be a simple browser window to look
+  at."*
+
+- **`packages/web/src/pages/review/ReviewRenderedInContext.tsx`** (11 findings waived)
+  — lines 9-15: *"The email body is hand-built from divs with neutral, email-safe
+  inline styling... the REVIEW CHROME around it uses Hearth/CP1 tokens by name only
+  (AQ-008); the email body is the one place neutral email styling is allowed, because
+  that IS the artifact under review (it must look like an email, not like Hearth
+  chrome)."*
+
+**What is NOT waived:** any hardcoded colors outside these two specific files in the
+AL1 review-canvas family (e.g. `ReviewComposition.tsx`, `ReviewVisualDiff.tsx`) are
+NOT part of this waiver and must use semantic tokens.

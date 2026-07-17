@@ -1282,4 +1282,41 @@ export default [
 			],
 		},
 	},
+
+	// LG1 Phase 9a — design/no-hardcoded-color waiver for the AL1 browser-chrome mockup files.
+	//
+	// These two files deliberately hand-build fake browser/inbox chrome with neutral,
+	// email-safe-style inline styling (white backgrounds, neutral borders). Converting
+	// those values to Hearth tokens would fight the documented design intent — the
+	// rendered page/email IS the artifact under review and must look like a real web
+	// page or email, not like Hearth chrome.
+	//
+	// The REVIEW CHROME wrapper (header, URL bar, verdict pills) in both files already
+	// uses Hearth/CP1 tokens by name (AQ-008 compliant). Only the rendered page/email
+	// body contains the deliberate neutral colors.
+	//
+	// File headers carry the founding rationale inline:
+	//   ReviewBrowserPreview.tsx lines 1-16 — "the rendered page is the one place
+	//   neutral page styling is allowed... it must read as a real web page"
+	//   ReviewRenderedInContext.tsx lines 1-16 — "the email body is the one place
+	//   neutral email styling is allowed, because that IS the artifact under review"
+	//
+	// See packages/eslint-plugin-design/waivers.md § LG1 Phase 9a for the full
+	// waiver documentation.
+	{
+		files: [
+			"packages/web/src/pages/review/ReviewBrowserPreview.tsx",
+			"packages/web/src/pages/review/ReviewRenderedInContext.tsx",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		plugins: { design },
+		rules: {
+			"design/no-hardcoded-color": "off",
+		},
+	},
 ];
