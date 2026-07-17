@@ -70,7 +70,7 @@ const KIND_LABEL: Record<string, string> = {
 
 function KindBadge({ kind }: { kind: string }): JSX.Element {
 	return (
-		<span className="inline-flex items-center rounded-[6px] bg-[var(--surface-container)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-none text-[var(--text-tertiary)]">
+		<span className="inline-flex items-center rounded-[var(--r-subtle)] bg-[var(--surface-container)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-none text-[var(--text-tertiary)]">
 			{KIND_LABEL[kind as keyof typeof KIND_LABEL] ?? kind}
 		</span>
 	);
@@ -345,7 +345,7 @@ function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element
 						>
 							SPRING24
 						</div>
-						<span className="rounded-[8px] bg-[var(--surface-container)] px-[9px] py-[6px] text-[12px] font-[500] text-[var(--text-tertiary)]">
+						<span className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] px-[9px] py-[6px] text-[12px] font-[500] text-[var(--text-tertiary)]">
 							Apply
 						</span>
 					</div>
@@ -575,7 +575,7 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 						onClick={() => {
 							if (comment.anchor) onJumpToAnchor(comment.anchor);
 						}}
-						className="mt-[3px] inline-flex items-center gap-[4px] rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]"
+						className="mt-[3px] inline-flex items-center gap-[4px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]"
 						aria-label={comment.anchor ? `Go to anchor ${label}` : undefined}
 					>
 						<span className="text-[var(--text-tertiary)]">on</span>

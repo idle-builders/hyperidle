@@ -170,7 +170,7 @@ function TaskSheetSessions({ taskId }: { taskId: string }): JSX.Element {
 	return (
 		<div className="border-b border-[var(--border-subtle)]">
 			<div className="flex items-center px-4 pt-3 pb-1">
-				<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
+				<span className="text-xs font-[600] uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 					Sessions
 				</span>
 			</div>
@@ -403,7 +403,7 @@ export function TaskSheet({
 		>
 			{/* Header */}
 			<div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
-				<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
+				<span className="text-xs font-[600] uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 					Task
 				</span>
 				<button type="button" aria-label="Close" className="btn btn-ghost btn-xs" onClick={onClose}>
@@ -483,7 +483,7 @@ export function TaskSheet({
 			    to the full thread view (AC §621: the L15 affordance must still work). */}
 				<div className="border-b border-[var(--border-subtle)]">
 					<div className="flex items-center justify-between px-4 pt-3 pb-1">
-						<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
+						<span className="text-xs font-[600] uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 							Discussion
 						</span>
 						<button
@@ -506,7 +506,7 @@ export function TaskSheet({
 
 				{/* Request section */}
 				<div className="flex flex-col gap-3 px-4 py-4">
-					<p className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
+					<p className="text-xs font-[600] uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 						REQUEST
 					</p>
 
@@ -515,7 +515,7 @@ export function TaskSheet({
 						{REQUEST_INTENTS.map((intent) => (
 							<label
 								key={intent.id}
-								className="flex items-center gap-2 min-h-[44px] px-3 rounded cursor-pointer hover:bg-[var(--surface-elevated)]"
+								className="flex items-center gap-2 min-h-[44px] px-3 rounded-[var(--r-subtle)] cursor-pointer hover:bg-[var(--surface-elevated)]"
 							>
 								<input
 									type="radio"

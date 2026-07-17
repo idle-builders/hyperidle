@@ -51,7 +51,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 				aria-label="Artifact discussion"
 				className="flex flex-col gap-2"
 			>
-				<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
+				<h3 className="text-xs font-[600] uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 					ARTIFACT DISCUSSION
 				</h3>
 				<ErrorState
@@ -77,7 +77,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 			className="flex flex-col gap-2"
 		>
 			{/* M4: header copy matches design — "ARTIFACT DISCUSSION" */}
-			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
+			<h3 className="text-xs font-[600] uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 				ARTIFACT DISCUSSION
 			</h3>
 
@@ -96,7 +96,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 							<Link
 								to={`/artifacts/${summary.artifactId}`}
 								data-artifact-id={summary.artifactId}
-								className="flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-[var(--surface-container)] text-sm"
+								className="flex flex-col gap-0.5 px-3 py-2 rounded-none hover:bg-[var(--surface-container)] text-sm"
 							>
 								<div className="flex items-center justify-between gap-2">
 									<span className="font-medium text-[var(--text-primary)] truncate">

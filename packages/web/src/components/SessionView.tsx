@@ -634,7 +634,7 @@ function SessionComposer({
 						onClick={onStop}
 						className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--status-error)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--status-error-hover)]"
 					>
-						<span className="h-[10px] w-[10px] rounded-[2px] bg-current" />
+						<span className="h-[10px] w-[10px] rounded-none bg-current" />
 					</button>
 				) : (
 					<button

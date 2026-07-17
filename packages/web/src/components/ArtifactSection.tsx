@@ -105,7 +105,7 @@ export function ArtifactSection({
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
 				{heading && (
-					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+					<h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 						{heading}
 					</h2>
 				)}
@@ -137,7 +137,7 @@ export function ArtifactSection({
 		if (!heading) return null;
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading}>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+				<h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 					{heading}
 				</h2>
 				<ErrorState
@@ -156,7 +156,7 @@ export function ArtifactSection({
 
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading}>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+				<h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 					{heading}
 				</h2>
 				<EmptyState
@@ -182,7 +182,7 @@ export function ArtifactSection({
 	return (
 		<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
 			{heading && (
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+				<h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
 					{heading}
 				</h2>
 			)}
