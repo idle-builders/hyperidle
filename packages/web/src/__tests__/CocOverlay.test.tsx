@@ -15,11 +15,7 @@ import userEvent from "@testing-library/user-event";
 import { createRef, useContext } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-	AssistantContext,
-	type AssistantContextRef,
-	type AssistantContextValue,
-} from "../contexts/AssistantContext";
+import { AssistantContext, type AssistantContextRef } from "../contexts/AssistantContext";
 import { AssistantOverlay } from "../shell/AssistantOverlay";
 
 // Module-level mock: provides a "ready" assistant thread for all AssistantOverlay tests.
@@ -205,10 +201,11 @@ describe("AF14 — AssistantContext (AC-10)", () => {
 	it("AssistantContext is importable and has correct default shape", () => {
 		// Verify the context exports exist and have the expected interface.
 		// The context default value must have overlayOpen=false and attachContext as a function.
-		let capturedValue: AssistantContextValue | null = null;
-
 		function Consumer(): null {
-			capturedValue = useContext(AssistantContext);
+			const value = useContext(AssistantContext);
+			expect(value).not.toBeNull();
+			expect(value.overlayOpen).toBe(false);
+			expect(typeof value.attachContext).toBe("function");
 			return null;
 		}
 
@@ -217,10 +214,6 @@ describe("AF14 — AssistantContext (AC-10)", () => {
 				<Consumer />
 			</MemoryRouter>,
 		);
-
-		expect(capturedValue).not.toBeNull();
-		expect(capturedValue!.overlayOpen).toBe(false);
-		expect(typeof capturedValue!.attachContext).toBe("function");
 	});
 
 	it("AssistantContext.Provider passes overlayOpen=true to consumers when overlay is open", () => {
@@ -230,10 +223,9 @@ describe("AF14 — AssistantContext (AC-10)", () => {
 			attachContext: mockAttachContext,
 		};
 
-		let capturedOverlayOpen = false;
 		function Consumer(): null {
 			const ctx = useContext(AssistantContext);
-			capturedOverlayOpen = ctx.overlayOpen;
+			expect(ctx.overlayOpen).toBe(true);
 			return null;
 		}
 
@@ -242,8 +234,6 @@ describe("AF14 — AssistantContext (AC-10)", () => {
 				<Consumer />
 			</AssistantContext.Provider>,
 		);
-
-		expect(capturedOverlayOpen).toBe(true);
 	});
 
 	it("attachContext passes the ref to the provider's handler", () => {

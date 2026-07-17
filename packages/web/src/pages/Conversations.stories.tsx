@@ -14,7 +14,7 @@
  * page handles all five states by reading :threadId from the URL.
  */
 
-import type React from "react";
+import { type JSX, useLayoutEffect, useMemo, useState } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { Conversations } from "./Conversations";
 
@@ -24,7 +24,7 @@ export default { title: "Page: Conversations" };
 // State A — no thread selected
 // ---------------------------------------------------------------------------
 
-export const StateA_Empty = (): React.JSX.Element => {
+export const StateA_Empty = (): JSX.Element => {
 	const router = createMemoryRouter(
 		[
 			{ path: "/conversations", element: <Conversations /> },
@@ -40,16 +40,27 @@ StateA_Empty.storyName = "A — Queue empty (no thread selected)";
 // State B — loading
 // ---------------------------------------------------------------------------
 
-export const StateB_Loading = (): React.JSX.Element => {
-	// Never-resolving fetch keeps the hook in loading indefinitely.
-	(globalThis as unknown as { fetch: unknown }).fetch = () => new Promise(() => {});
-	const router = createMemoryRouter(
-		[
-			{ path: "/conversations", element: <Conversations /> },
-			{ path: "/conversations/:threadId", element: <Conversations /> },
-		],
-		{ initialEntries: ["/conversations/t-loading-demo"] },
+export const StateB_Loading = (): JSX.Element => {
+	// @lore LG1: globalThis.fetch is a side-effect; move to useLayoutEffect (runs
+	// before children's useEffects) and gate child rendering until it's set.
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		// Never-resolving fetch keeps the hook in loading indefinitely.
+		(globalThis as unknown as { fetch: unknown }).fetch = () => new Promise(() => {});
+		setReady(true);
+	}, []);
+	const router = useMemo(
+		() =>
+			createMemoryRouter(
+				[
+					{ path: "/conversations", element: <Conversations /> },
+					{ path: "/conversations/:threadId", element: <Conversations /> },
+				],
+				{ initialEntries: ["/conversations/t-loading-demo"] },
+			),
+		[],
 	);
+	if (!ready) return <></>;
 	return <RouterProvider router={router} />;
 };
 StateB_Loading.storyName = "B — Thread loading";
@@ -58,16 +69,25 @@ StateB_Loading.storyName = "B — Thread loading";
 // State C — error
 // ---------------------------------------------------------------------------
 
-export const StateC_Error = (): React.JSX.Element => {
-	(globalThis as unknown as { fetch: unknown }).fetch = async () =>
-		new Response(JSON.stringify({ error: "Network failure" }), { status: 500 });
-	const router = createMemoryRouter(
-		[
-			{ path: "/conversations", element: <Conversations /> },
-			{ path: "/conversations/:threadId", element: <Conversations /> },
-		],
-		{ initialEntries: ["/conversations/t-error-demo"] },
+export const StateC_Error = (): JSX.Element => {
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		(globalThis as unknown as { fetch: unknown }).fetch = async () =>
+			new Response(JSON.stringify({ error: "Network failure" }), { status: 500 });
+		setReady(true);
+	}, []);
+	const router = useMemo(
+		() =>
+			createMemoryRouter(
+				[
+					{ path: "/conversations", element: <Conversations /> },
+					{ path: "/conversations/:threadId", element: <Conversations /> },
+				],
+				{ initialEntries: ["/conversations/t-error-demo"] },
+			),
+		[],
 	);
+	if (!ready) return <></>;
 	return <RouterProvider router={router} />;
 };
 StateC_Error.storyName = "C — Thread error";
@@ -113,19 +133,28 @@ const REVIEW_THREAD = {
 	},
 };
 
-export const StateD_Populated = (): React.JSX.Element => {
-	(globalThis as unknown as { fetch: unknown }).fetch = async () =>
-		new Response(JSON.stringify(REVIEW_THREAD), {
-			status: 200,
-			headers: { "Content-Type": "application/json" },
-		});
-	const router = createMemoryRouter(
-		[
-			{ path: "/conversations", element: <Conversations /> },
-			{ path: "/conversations/:threadId", element: <Conversations /> },
-		],
-		{ initialEntries: ["/conversations/t-review-story"] },
+export const StateD_Populated = (): JSX.Element => {
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		(globalThis as unknown as { fetch: unknown }).fetch = async () =>
+			new Response(JSON.stringify(REVIEW_THREAD), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
+		setReady(true);
+	}, []);
+	const router = useMemo(
+		() =>
+			createMemoryRouter(
+				[
+					{ path: "/conversations", element: <Conversations /> },
+					{ path: "/conversations/:threadId", element: <Conversations /> },
+				],
+				{ initialEntries: ["/conversations/t-review-story"] },
+			),
+		[],
 	);
+	if (!ready) return <></>;
 	return <RouterProvider router={router} />;
 };
 StateD_Populated.storyName = "D — Thread populated (review shape)";
@@ -134,16 +163,25 @@ StateD_Populated.storyName = "D — Thread populated (review shape)";
 // State E — not found
 // ---------------------------------------------------------------------------
 
-export const StateE_NotFound = (): React.JSX.Element => {
-	(globalThis as unknown as { fetch: unknown }).fetch = async () =>
-		new Response("not found", { status: 404 });
-	const router = createMemoryRouter(
-		[
-			{ path: "/conversations", element: <Conversations /> },
-			{ path: "/conversations/:threadId", element: <Conversations /> },
-		],
-		{ initialEntries: ["/conversations/no-such-thread"] },
+export const StateE_NotFound = (): JSX.Element => {
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		(globalThis as unknown as { fetch: unknown }).fetch = async () =>
+			new Response("not found", { status: 404 });
+		setReady(true);
+	}, []);
+	const router = useMemo(
+		() =>
+			createMemoryRouter(
+				[
+					{ path: "/conversations", element: <Conversations /> },
+					{ path: "/conversations/:threadId", element: <Conversations /> },
+				],
+				{ initialEntries: ["/conversations/no-such-thread"] },
+			),
+		[],
 	);
+	if (!ready) return <></>;
 	return <RouterProvider router={router} />;
 };
 StateE_NotFound.storyName = "E — Thread not found (404)";

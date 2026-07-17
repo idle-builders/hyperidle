@@ -9,13 +9,7 @@
  * 5. Disabled row — claude-code disabled (discovery.disabled=true)
  */
 
-import type React from "react";
-// @lore LG1 Phase 3: static import replaces per-story require() calls.
-// The mock (globalThis.fetch = makeMockFetch(...)) only needs to be in place
-// before the component RENDERS (its useEffect fires fetch), not before the
-// module loads. ESM modules are cached — the component function is the same
-// reference; the mock window is set just before React renders it.
-import { SettingsHarnesses } from "./SettingsHarnesses.js";
+import { type JSX, useLayoutEffect, useState } from "react";
 
 export default {
 	title: "SettingsHarnesses",
@@ -128,9 +122,10 @@ const DESCRIPTORS_WITH_DISABLED = MOCK_DESCRIPTORS.map((d) =>
 		: d,
 );
 
-// LG1 Phase 4: partial story-fixture descriptors only need JSON.stringify; unknown[] is sufficient
+// biome-ignore lint/suspicious/noExplicitAny: Story fixture uses partial descriptor shapes that don't align with the full type
 function makeMockFetch(
-	descriptors: readonly unknown[] | null,
+	// biome-ignore lint/suspicious/noExplicitAny: same
+	descriptors: any[] | null,
 	error = false,
 ): (url: string | Request | URL, init?: RequestInit) => Promise<Response> {
 	return (url: unknown) => {
@@ -154,9 +149,17 @@ function makeMockFetch(
 }
 
 /** Loading state — fetch never resolves. */
-export const Loading = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch(null) as typeof fetch;
-
+export const Loading = (): JSX.Element => {
+	// @lore LG1: globalThis.fetch moved to useLayoutEffect + ready gate (same pattern
+	// as other stories in this codebase) so the side-effect is not during render.
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = makeMockFetch(null) as typeof fetch;
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -166,9 +169,15 @@ export const Loading = (): React.JSX.Element => {
 Loading.storyName = "Loading State";
 
 /** Error state — fetch fails. */
-export const ErrorStory = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch([], true) as typeof fetch;
-
+export const ErrorStory = (): JSX.Element => {
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = makeMockFetch([], true) as typeof fetch;
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -178,9 +187,15 @@ export const ErrorStory = (): React.JSX.Element => {
 ErrorStory.storyName = "Error State";
 
 /** Empty state — no descriptors returned. */
-export const Empty = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch([]) as typeof fetch;
-
+export const Empty = (): JSX.Element => {
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = makeMockFetch([]) as typeof fetch;
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -190,9 +205,15 @@ export const Empty = (): React.JSX.Element => {
 Empty.storyName = "Empty State";
 
 /** Populated — 5 AM4-scope backends, production shape (caps all-false). */
-export const Populated = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch(MOCK_DESCRIPTORS) as typeof fetch;
-
+export const Populated = (): JSX.Element => {
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = makeMockFetch(MOCK_DESCRIPTORS) as typeof fetch;
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />
@@ -202,9 +223,15 @@ export const Populated = (): React.JSX.Element => {
 Populated.storyName = "Populated (5 backends)";
 
 /** Disabled row — claude-code is turned off (discovery.disabled=true). */
-export const WithDisabledRow = (): React.JSX.Element => {
-	globalThis.fetch = makeMockFetch(DESCRIPTORS_WITH_DISABLED) as typeof fetch;
-
+export const WithDisabledRow = (): JSX.Element => {
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = makeMockFetch(DESCRIPTORS_WITH_DISABLED) as typeof fetch;
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const { SettingsHarnesses } = require("./SettingsHarnesses");
 	return (
 		<div className="p-[24px] max-w-[680px]">
 			<SettingsHarnesses />

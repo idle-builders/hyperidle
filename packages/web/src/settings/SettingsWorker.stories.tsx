@@ -16,6 +16,7 @@
  * without needing a full bridge implementation.
  */
 
+import { useLayoutEffect, useState } from "react";
 import { SettingsWorker } from "./SettingsWorker";
 
 export default {
@@ -44,11 +45,19 @@ export const NoBridge = (): React.JSX.Element => {
  * Sets window.__HYPERIDLE__.backendMode = "local" before rendering.
  */
 export const ElectronLocalMode = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			backendMode: "local",
-		};
-	}
+	// @lore LG1: window mutation moved to useLayoutEffect + ready gate —
+	// SettingsWorker reads window.__HYPERIDLE__ during synchronous render, so the
+	// gate ensures __HYPERIDLE__ is set before SettingsWorker first renders.
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		if (typeof window !== "undefined") {
+			(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
+				backendMode: "local",
+			};
+		}
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<div className="p-4 w-80">
 			<SettingsWorker />
@@ -60,27 +69,32 @@ export const ElectronLocalMode = (): React.JSX.Element => {
  * Electron, shared mode — worker disabled (default state after connecting to a shared backend).
  */
 export const SharedModeDisabled = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			backendMode: "shared",
-			worker: {
-				enable: async (_n: number) => {},
-				disable: async () => {},
-				pause: async () => {},
-				resume: async () => {},
-				status: async () => ({
-					enabled: false,
-					connected: false,
-					paused: false,
-					activeSessions: 0,
-					maxConcurrent: 1,
-					deviceId: null,
-					modelProviders: [],
-				}),
-				onStatusChange: (_cb) => () => {},
-			},
-		};
-	}
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		if (typeof window !== "undefined") {
+			(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
+				backendMode: "shared",
+				worker: {
+					enable: async (_n: number) => {},
+					disable: async () => {},
+					pause: async () => {},
+					resume: async () => {},
+					status: async () => ({
+						enabled: false,
+						connected: false,
+						paused: false,
+						activeSessions: 0,
+						maxConcurrent: 1,
+						deviceId: null,
+						modelProviders: [],
+					}),
+					onStatusChange: (_cb) => () => {},
+				},
+			};
+		}
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<div className="p-4 w-80">
 			<SettingsWorker />
@@ -92,27 +106,32 @@ export const SharedModeDisabled = (): React.JSX.Element => {
  * Electron, shared mode — worker enabled but not yet connected (connecting state).
  */
 export const SharedModeConnecting = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			backendMode: "shared",
-			worker: {
-				enable: async (_n: number) => {},
-				disable: async () => {},
-				pause: async () => {},
-				resume: async () => {},
-				status: async () => ({
-					enabled: true,
-					connected: false,
-					paused: false,
-					activeSessions: 0,
-					maxConcurrent: 1,
-					deviceId: "device-abc123",
-					modelProviders: ["anthropic"],
-				}),
-				onStatusChange: (_cb) => () => {},
-			},
-		};
-	}
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		if (typeof window !== "undefined") {
+			(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
+				backendMode: "shared",
+				worker: {
+					enable: async (_n: number) => {},
+					disable: async () => {},
+					pause: async () => {},
+					resume: async () => {},
+					status: async () => ({
+						enabled: true,
+						connected: false,
+						paused: false,
+						activeSessions: 0,
+						maxConcurrent: 1,
+						deviceId: "device-abc123",
+						modelProviders: ["anthropic"],
+					}),
+					onStatusChange: (_cb) => () => {},
+				},
+			};
+		}
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<div className="p-4 w-80">
 			<SettingsWorker />
@@ -124,27 +143,32 @@ export const SharedModeConnecting = (): React.JSX.Element => {
  * Electron, shared mode — worker enabled and connected, 2 active sessions.
  */
 export const SharedModeConnected = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			backendMode: "shared",
-			worker: {
-				enable: async (_n: number) => {},
-				disable: async () => {},
-				pause: async () => {},
-				resume: async () => {},
-				status: async () => ({
-					enabled: true,
-					connected: true,
-					paused: false,
-					activeSessions: 2,
-					maxConcurrent: 4,
-					deviceId: "device-abc123",
-					modelProviders: ["anthropic"],
-				}),
-				onStatusChange: (_cb) => () => {},
-			},
-		};
-	}
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		if (typeof window !== "undefined") {
+			(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
+				backendMode: "shared",
+				worker: {
+					enable: async (_n: number) => {},
+					disable: async () => {},
+					pause: async () => {},
+					resume: async () => {},
+					status: async () => ({
+						enabled: true,
+						connected: true,
+						paused: false,
+						activeSessions: 2,
+						maxConcurrent: 4,
+						deviceId: "device-abc123",
+						modelProviders: ["anthropic"],
+					}),
+					onStatusChange: (_cb) => () => {},
+				},
+			};
+		}
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<div className="p-4 w-80">
 			<SettingsWorker />
@@ -156,27 +180,32 @@ export const SharedModeConnected = (): React.JSX.Element => {
  * Electron, shared mode — worker enabled but paused (no new sessions accepted).
  */
 export const SharedModePaused = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			backendMode: "shared",
-			worker: {
-				enable: async (_n: number) => {},
-				disable: async () => {},
-				pause: async () => {},
-				resume: async () => {},
-				status: async () => ({
-					enabled: true,
-					connected: true,
-					paused: true,
-					activeSessions: 0,
-					maxConcurrent: 2,
-					deviceId: "device-abc123",
-					modelProviders: ["anthropic"],
-				}),
-				onStatusChange: (_cb) => () => {},
-			},
-		};
-	}
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		if (typeof window !== "undefined") {
+			(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
+				backendMode: "shared",
+				worker: {
+					enable: async (_n: number) => {},
+					disable: async () => {},
+					pause: async () => {},
+					resume: async () => {},
+					status: async () => ({
+						enabled: true,
+						connected: true,
+						paused: true,
+						activeSessions: 0,
+						maxConcurrent: 2,
+						deviceId: "device-abc123",
+						modelProviders: ["anthropic"],
+					}),
+					onStatusChange: (_cb) => () => {},
+				},
+			};
+		}
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<div className="p-4 w-80">
 			<SettingsWorker />

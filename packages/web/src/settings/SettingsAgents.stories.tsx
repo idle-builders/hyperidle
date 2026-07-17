@@ -16,7 +16,7 @@
  */
 
 import type React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ToastRegion } from "../shell/ToastRegion.js";
 import { SettingsAgents } from "./SettingsAgents.js";
 
@@ -150,7 +150,15 @@ function mockFetch(
 
 /** Loading state — fetch never resolves. */
 export const Loading = (): React.JSX.Element => {
-	globalThis.fetch = (() => new Promise(() => {})) as typeof fetch;
+	// @lore LG1: globalThis.fetch is a side-effect; useLayoutEffect runs before
+	// children's useEffects, and the ready gate prevents children from mounting
+	// before the mock is installed.
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = (() => new Promise(() => {})) as typeof fetch;
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<Frame>
 			<SettingsAgents />
@@ -161,7 +169,12 @@ Loading.storyName = "Loading State";
 
 /** Error state — fetch fails. */
 export const ErrorState = (): React.JSX.Element => {
-	globalThis.fetch = mockFetch([], true) as typeof fetch;
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = mockFetch([], true) as typeof fetch;
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<Frame>
 			<SettingsAgents />
@@ -172,7 +185,12 @@ ErrorState.storyName = "Error State";
 
 /** Empty state — no agents. */
 export const Empty = (): React.JSX.Element => {
-	globalThis.fetch = mockFetch([]) as typeof fetch;
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = mockFetch([]) as typeof fetch;
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<Frame>
 			<SettingsAgents />
@@ -183,7 +201,12 @@ Empty.storyName = "Empty State";
 
 /** Populated state — agents listed with harness + model selects. */
 export const Populated = (): React.JSX.Element => {
-	globalThis.fetch = mockFetch(MOCK_AGENTS) as typeof fetch;
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = mockFetch(MOCK_AGENTS) as typeof fetch;
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<Frame>
 			<SettingsAgents />
@@ -198,13 +221,19 @@ Populated.storyName = "Populated (two agents)";
  * led by its source Tag), plus the "Add from registry…" Select.
  */
 export const FilesystemInjection = (): React.JSX.Element => {
-	globalThis.fetch = mockFetch(MOCK_AGENTS) as typeof fetch;
+	const [ready, setReady] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
+
+	useLayoutEffect(() => {
+		globalThis.fetch = mockFetch(MOCK_AGENTS) as typeof fetch;
+		setReady(true);
+	}, []);
 
 	// Open Builder Bot's edit row after the table paints so the injection control
 	// (which lives in the edit form) is visible in the static story. Scoped to this
 	// variant's own subtree so the click doesn't leak into other variants on the page.
 	useEffect(() => {
+		if (!ready) return;
 		const open = (): void => {
 			const btn = rootRef.current?.querySelector<HTMLButtonElement>(
 				'[aria-label="Edit Builder Bot"]',
@@ -217,8 +246,9 @@ export const FilesystemInjection = (): React.JSX.Element => {
 		};
 		const raf = requestAnimationFrame(open);
 		return () => cancelAnimationFrame(raf);
-	}, []);
+	}, [ready]);
 
+	if (!ready) return <></>;
 	return (
 		<Frame rootRef={rootRef}>
 			<SettingsAgents />
@@ -229,7 +259,12 @@ FilesystemInjection.storyName = "Per-bot Filesystems injection";
 
 /** Harness unavailable warning — agent's harnessType not in registry. */
 export const HarnessUnavailable = (): React.JSX.Element => {
-	globalThis.fetch = mockFetch(MOCK_AGENT_UNAVAILABLE_HARNESS) as typeof fetch;
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = mockFetch(MOCK_AGENT_UNAVAILABLE_HARNESS) as typeof fetch;
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<Frame>
 			<SettingsAgents />

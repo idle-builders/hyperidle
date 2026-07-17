@@ -9,6 +9,7 @@
  * the full HyperIdleElectronBridge interface.
  */
 
+import { useLayoutEffect, useState } from "react";
 import { DesktopTitleBar } from "./DesktopTitleBar";
 
 export default {
@@ -24,9 +25,16 @@ type PartialBridgeWindow = { __HYPERIDLE__?: Partial<HyperIdleElectronBridge> };
  * Browser context — component returns null; no strip, no height, no layout shift.
  */
 export const BrowserContext = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		delete (window as unknown as PartialBridgeWindow).__HYPERIDLE__;
-	}
+	// @lore LG1: window mutation moved to useLayoutEffect + ready gate —
+	// DesktopTitleBar reads window.__HYPERIDLE__ during synchronous render.
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		if (typeof window !== "undefined") {
+			delete (window as unknown as PartialBridgeWindow).__HYPERIDLE__;
+		}
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<div className="bg-[var(--surface-page)] h-[100px] w-full flex items-start justify-center text-[var(--text-secondary)] text-[13px] pt-[12px]">
 			(No strip renders — DesktopTitleBar returns null in browser context)
@@ -40,11 +48,16 @@ export const BrowserContext = (): React.JSX.Element => {
  * Main content (right column) is unaffected — reaches the window top.
  */
 export const ElectronContext = (): React.JSX.Element => {
-	if (typeof window !== "undefined") {
-		(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
-			platform: "electron",
-		};
-	}
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		if (typeof window !== "undefined") {
+			(window as unknown as PartialBridgeWindow).__HYPERIDLE__ = {
+				platform: "electron",
+			};
+		}
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
 	return (
 		<div className="bg-[var(--surface-container)] w-[200px] flex flex-col">
 			<DesktopTitleBar />

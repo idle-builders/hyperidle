@@ -10,46 +10,34 @@
 import { render } from "@testing-library/react";
 import { useContext } from "react";
 import { describe, expect, it, vi } from "vitest";
-import {
-	AssistantContext,
-	type AssistantContextRef,
-	type AssistantContextValue,
-} from "../contexts/AssistantContext";
+import { AssistantContext, type AssistantContextRef } from "../contexts/AssistantContext";
 
 describe("AD8b — AssistantContext", () => {
 	it("AssistantContext default value has overlayOpen=false", () => {
-		let capturedValue: AssistantContextValue | null = null;
-
 		function Consumer(): null {
-			capturedValue = useContext(AssistantContext);
+			const value = useContext(AssistantContext);
+			expect(value).not.toBeNull();
+			expect(value.overlayOpen).toBe(false);
 			return null;
 		}
 
 		render(<Consumer />);
-
-		expect(capturedValue).not.toBeNull();
-		expect(capturedValue!.overlayOpen).toBe(false);
 	});
 
 	it("AssistantContext default attachContext is a function", () => {
-		let capturedValue: AssistantContextValue | null = null;
-
 		function Consumer(): null {
-			capturedValue = useContext(AssistantContext);
+			const value = useContext(AssistantContext);
+			expect(typeof value.attachContext).toBe("function");
 			return null;
 		}
 
 		render(<Consumer />);
-
-		expect(typeof capturedValue!.attachContext).toBe("function");
 	});
 
 	it("Provider passes overlayOpen=true to consumers", () => {
-		let capturedOverlayOpen = false;
-
 		function Consumer(): null {
 			const ctx = useContext(AssistantContext);
-			capturedOverlayOpen = ctx.overlayOpen;
+			expect(ctx.overlayOpen).toBe(true);
 			return null;
 		}
 
@@ -58,8 +46,6 @@ describe("AD8b — AssistantContext", () => {
 				<Consumer />
 			</AssistantContext.Provider>,
 		);
-
-		expect(capturedOverlayOpen).toBe(true);
 	});
 
 	it("attachContext passes the ref to the provider handler", () => {

@@ -14,16 +14,13 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, RouterProvider, useLocation } from "react-router-dom";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Conversations } from "../pages/Conversations";
 
-let lastPath = "";
-function LocationProbe(): null {
-	const loc = useLocation();
-	lastPath = loc.pathname;
-	return null;
-}
+// @lore LG1: instead of a LocationProbe component (which requires side-effects
+// during render to capture the path), read router.state.location.pathname directly —
+// the MemoryRouter instance tracks navigation state with no component side-effects.
 
 const THREAD_ID = "t-am1-migration";
 
@@ -141,7 +138,6 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 		posts = [];
 		originalFetch = globalThis.fetch;
 		installFetch(posts);
-		lastPath = "";
 	});
 
 	afterEach(() => {
@@ -149,21 +145,20 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 		vi.restoreAllMocks();
 	});
 
+	// Holds the active router so tests can inspect router.state.location.pathname
+	// without needing a LocationProbe component that would cause render-phase side-effects.
+	let router: ReturnType<typeof createMemoryRouter>;
+
 	function renderConversations(): void {
 		// A catch-all `*` route captures wherever the conversation navigates so the
 		// review-route param (betId opaque/AM5-owned) cannot make the router throw.
-		const router = createMemoryRouter(
+		router = createMemoryRouter(
 			[
 				{
 					path: "/conversations/:threadId",
-					element: (
-						<>
-							<LocationProbe />
-							<Conversations />
-						</>
-					),
+					element: <Conversations />,
 				},
-				{ path: "*", element: <LocationProbe /> },
+				{ path: "*", element: <></> },
 			],
 			{ initialEntries: [`/conversations/${THREAD_ID}`] },
 		);
@@ -224,9 +219,11 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 		// (host id IS the bet), so there is no empty segment / double slash. The
 		// conversation navigates AWAY to the review route and never takes the verdict
 		// inline.
-		await waitFor(() => expect(lastPath).toBe(`/work/bet/${BET_ID}/review/${REVIEW_MSG.id}`));
-		expect(lastPath).not.toContain("//");
-		expect(lastPath).not.toContain("/conversations");
+		await waitFor(() =>
+			expect(router.state.location.pathname).toBe(`/work/bet/${BET_ID}/review/${REVIEW_MSG.id}`),
+		);
+		expect(router.state.location.pathname).not.toContain("//");
+		expect(router.state.location.pathname).not.toContain("/conversations");
 		// No verdict was POSTed by the conversation.
 		expect(posts.some((p) => p.body?.type === "verdict")).toBe(false);
 	});

@@ -15,18 +15,14 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, RouterProvider, useLocation } from "react-router-dom";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Conversations } from "../pages/Conversations";
 
 const THREAD_ID = "t-am1-review-routing";
 
-let lastPath = "";
-function LocationProbe(): null {
-	const loc = useLocation();
-	lastPath = loc.pathname;
-	return null;
-}
+// @lore LG1: navigation path inspected via router.state.location.pathname — no
+// LocationProbe component needed (which would require render-phase side-effects).
 
 // ARCH-1: a bet-hosted thread — the host id IS the bet the review belongs to, so
 // the page sources a real betId and the review route resolves validly.
@@ -71,7 +67,6 @@ describe("Conversations — review routing (AM1, no inline verdict)", () => {
 
 	beforeEach(() => {
 		posts = [];
-		lastPath = "";
 		originalFetch = globalThis.fetch;
 		const detail = {
 			thread: FAKE_THREAD,
@@ -114,19 +109,18 @@ describe("Conversations — review routing (AM1, no inline verdict)", () => {
 		vi.restoreAllMocks();
 	});
 
+	// Holds the active router so tests can read router.state.location.pathname
+	// without a LocationProbe component that would require render-phase side-effects.
+	let router: ReturnType<typeof createMemoryRouter>;
+
 	function renderConversations(): void {
-		const router = createMemoryRouter(
+		router = createMemoryRouter(
 			[
 				{
 					path: "/conversations/:threadId",
-					element: (
-						<>
-							<LocationProbe />
-							<Conversations />
-						</>
-					),
+					element: <Conversations />,
 				},
-				{ path: "*", element: <LocationProbe /> },
+				{ path: "*", element: <></> },
 			],
 			{ initialEntries: [`/conversations/${THREAD_ID}`] },
 		);
@@ -157,9 +151,11 @@ describe("Conversations — review routing (AM1, no inline verdict)", () => {
 
 		// ARCH-1 / ADV-2: the page sources the betId from the bet-hosted thread, so
 		// the review route is the FULL valid path — no empty segment, no double slash.
-		await waitFor(() => expect(lastPath).toBe(`/work/bet/${BET_ID}/review/${FAKE_REVIEW.id}`));
-		expect(lastPath).not.toContain("//");
-		expect(lastPath).not.toContain("/conversations");
+		await waitFor(() =>
+			expect(router.state.location.pathname).toBe(`/work/bet/${BET_ID}/review/${FAKE_REVIEW.id}`),
+		);
+		expect(router.state.location.pathname).not.toContain("//");
+		expect(router.state.location.pathname).not.toContain("/conversations");
 		// The conversation took NO verdict — no POST of any kind from a review click.
 		expect(posts.some((p) => p.body?.type === "verdict")).toBe(false);
 	});

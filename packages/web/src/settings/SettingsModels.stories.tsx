@@ -8,7 +8,7 @@
  * 4. Mixed providers (openrouter + openai-compatible)
  */
 
-import type React from "react";
+import { type ComponentType, type ReactElement, useLayoutEffect, useState } from "react";
 
 export default {
 	title: "SettingsModels",
@@ -33,10 +33,10 @@ const MOCK_GATEWAY_CONFIG_MIXED = {
 	},
 };
 
-type StoryComponent = React.ComponentType & { storyName?: string };
+type StoryComponent = ComponentType & { storyName?: string };
 
 function withMockedFetch(config: typeof MOCK_GATEWAY_CONFIG_DEFAULT | null): StoryComponent {
-	return function Story(): React.ReactElement {
+	return function Story(): ReactElement {
 		// Patch global fetch for the story
 		if (config === null) {
 			globalThis.fetch = (): Promise<Response> =>
@@ -47,16 +47,23 @@ function withMockedFetch(config: typeof MOCK_GATEWAY_CONFIG_DEFAULT | null): Sto
 		}
 
 		const { SettingsModels } = require("./SettingsModels.js") as {
-			SettingsModels: React.ComponentType;
+			SettingsModels: ComponentType;
 		};
 		return <SettingsModels />;
 	};
 }
 
-export const Loading = (): React.ReactElement => {
-	globalThis.fetch = (): Promise<Response> => new Promise(() => {});
+export const Loading = (): ReactElement => {
+	// @lore LG1: globalThis.fetch side-effect moved to useLayoutEffect + ready gate.
+	const [ready, setReady] = useState(false);
+	useLayoutEffect(() => {
+		globalThis.fetch = (): Promise<Response> => new Promise(() => {});
+		setReady(true);
+	}, []);
+	if (!ready) return <></>;
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
 	const { SettingsModels } = require("./SettingsModels.js") as {
-		SettingsModels: React.ComponentType;
+		SettingsModels: ComponentType;
 	};
 	return <SettingsModels />;
 };
