@@ -41,6 +41,7 @@ import {
 	type JSX,
 	useCallback,
 	useEffect,
+	useMemo,
 	useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -203,10 +204,18 @@ export function SetupFlow(): JSX.Element {
 	const [folderInfo, setFolderInfo] = useState<FolderInfo | null>(null);
 
 	// Resolved functions array based on current preset selection.
-	const resolvedFunctions: readonly string[] =
-		selectedPreset === "custom"
-			? customFunctions
-			: (PRESETS.find((p) => p.id === selectedPreset)?.functions ?? ["development", "product"]);
+	// Memoized so the useCallback below (handleSubmit) gets a stable dep reference;
+	// without useMemo the ?? fallback creates a new array literal on every render.
+	const resolvedFunctions = useMemo(
+		(): readonly string[] =>
+			selectedPreset === "custom"
+				? customFunctions
+				: (PRESETS.find((p) => p.id === selectedPreset)?.functions ?? [
+						"development",
+						"product",
+					]),
+		[selectedPreset, customFunctions],
+	);
 
 	const toggleCustomFunction = useCallback((fn: string): void => {
 		setCustomFunctions((prev) =>

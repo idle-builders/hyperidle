@@ -425,17 +425,20 @@ function AppetiteDialog({
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Reset form when dialog opens (preserve defaults when re-opened for a new appetite).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset only when open changes
+	// Reset form only when the dialog transitions from closed → open, so that changing
+	// defaultAmount/defaultCurrency mid-edit (unlikely but possible) does NOT reset the
+	// user's in-progress edits. prevOpenRef tracks the previous open value.
+	const prevOpenRef = useRef(false);
 	useEffect(() => {
-		if (open) {
+		if (open && !prevOpenRef.current) {
 			setAmount(defaultAmount);
 			setCurrency(defaultCurrency);
 			setReason("");
 			setError(null);
 			setSubmitting(false);
 		}
-	}, [open]);
+		prevOpenRef.current = open;
+	}, [open, defaultAmount, defaultCurrency]);
 
 	const parsedAmount = Number.parseFloat(amount);
 	const amountValid = Number.isFinite(parsedAmount) && parsedAmount >= 0;

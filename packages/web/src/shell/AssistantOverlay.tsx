@@ -651,6 +651,10 @@ export function AssistantOverlay({
 		modal: false,
 		layer: "overlay",
 	});
+	// Extract the memoized requestDismiss so the effect below has a stable dep reference.
+	// behavior is a new object each render; requestDismiss is useCallback-memoized inside
+	// useDialogBehavior and only changes when guarding/isDirty/onClose change.
+	const { requestDismiss } = behavior;
 
 	// @lore AI2: modal=false surfaces don't use a focus trap, so Escape must be caught
 	// at document level (the overlay div won't receive keyboard events unless focused).
@@ -659,14 +663,14 @@ export function AssistantOverlay({
 		if (!open) return;
 		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
-				behavior.requestDismiss();
+				requestDismiss();
 			}
 		};
 		document.addEventListener("keydown", handler);
 		return () => {
 			document.removeEventListener("keydown", handler);
 		};
-	}, [open, behavior.requestDismiss]);
+	}, [open, requestDismiss]);
 
 	if (!open) return null;
 

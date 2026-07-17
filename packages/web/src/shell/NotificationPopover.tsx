@@ -73,6 +73,10 @@ export function NotificationPopover({
 	// events unless focused). Layer "overlay" (--z-overlay=40) replaces z-30.
 	const behavior = useDialogBehavior({ open, onClose, modal: false, layer: "overlay" });
 	const overlayProps = behavior.getOverlayProps();
+	// Extract the memoized requestDismiss so the effect below has a stable dep reference.
+	// behavior is a new object each render; requestDismiss is useCallback-memoized inside
+	// useDialogBehavior and only changes when guarding/isDirty/onClose change.
+	const { requestDismiss } = behavior;
 
 	// Mark all unseen on open — intentionally only depends on `open` so this fires
 	// exactly once when the popover opens, not on every unseenCount/markSeen update.
@@ -91,12 +95,12 @@ export function NotificationPopover({
 		if (!open) return;
 		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
-				behavior.requestDismiss();
+				requestDismiss();
 			}
 		};
 		document.addEventListener("keydown", handler);
 		return () => document.removeEventListener("keydown", handler);
-	}, [open, behavior.requestDismiss]);
+	}, [open, requestDismiss]);
 
 	// Outside-click-to-close
 	useEffect(() => {

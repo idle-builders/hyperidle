@@ -217,6 +217,10 @@ export function TaskSheet({
 	// Layer "drawer" (--z-drawer=30) replaces the old hardcoded z-50 class.
 	const behavior = useDialogBehavior({ open, onClose, modal: false, layer: "drawer" });
 	const overlayProps = behavior.getOverlayProps();
+	// Extract the memoized requestDismiss so the effect below has a stable dep reference.
+	// behavior is a new object each render; requestDismiss is useCallback-memoized inside
+	// useDialogBehavior and only changes when guarding/isDirty/onClose change.
+	const { requestDismiss } = behavior;
 
 	// @lore Focus restoration: capture the active element the moment the sheet
 	// opens (before any DOM mutation) so we can restore it on close. We use a
@@ -274,20 +278,21 @@ export function TaskSheet({
 	}, []);
 
 	// @lore AI2: Esc is caught at document level for non-modal surfaces (the drawer
-	// div won't receive keyboard events unless focused). behavior.requestDismiss()
-	// routes through the unified guard rule (AC-1). Replaces the old bare onClose().
+	// div won't receive keyboard events unless focused). requestDismiss (extracted from
+	// behavior above) routes through the unified guard rule (AC-1). Replaces the old
+	// bare onClose().
 	useEffect(() => {
 		if (!open) return;
 		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
-				behavior.requestDismiss();
+				requestDismiss();
 			}
 		};
 		document.addEventListener("keydown", handler);
 		return () => {
 			document.removeEventListener("keydown", handler);
 		};
-	}, [open, behavior.requestDismiss]);
+	}, [open, requestDismiss]);
 
 	// Focus trap: intercept Tab/Shift-Tab and cycle within the dialog.
 	// @lore AI2: TaskSheet keeps its hand-rolled Tab-cycling trap (not focus-trap-react)
