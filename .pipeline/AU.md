@@ -17,7 +17,7 @@ The point is not a new harness path. The point is one contract for every agent r
 | ID | Title | Type | Complexity | Depends | Status |
 |---|---|---|---|---|---|
 | AU20 | Challenge every Service's exposed method surface (reduce, don't just document) | backend | L | AU19 (legacy: `.pipeline/work-packages/TRACK-AU.md`) | planned |
-| AU21 | Reduce agent-to-core coupling; formalize core-to-agent as EventBus-only | backend | L | AU19 (legacy: `.pipeline/work-packages/TRACK-AU.md`) | planned |
+| AU21 | Seam the core-api ↔ agent-orchestration boundary; resolve agent-to-core coupling against it | backend | L | AU19 (legacy: `.pipeline/work-packages/TRACK-AU.md`) | planned (redirected 2026-07-17 — see `work/AU21/requirements.md`) |
 
 ## Dependency graph
 

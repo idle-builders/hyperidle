@@ -37,8 +37,13 @@ into four:
   lifecycle projection, **context assembly and capture/writeback against Knowledge**. Decides *that*
   and *when* an agent run happens, and prepares/consumes everything a run needs *before/after*
   handing off to execution; never touches an LLM CLI, harness adapter, or MCP server directly.
-  Always colocated with `core-api` in the same process (every Application that composes one composes
-  both), so its Service calls stay in-process.
+  Always colocated with `core-api` in the same process today (every Application that composes one
+  composes both). **Flagged 2026-07-17, AU21 redirect (see `.pipeline/work/AU21/requirements.md`):**
+  the "so its Service calls stay in-process" conclusion is reopened — the founder's direction is that
+  this boundary needs a location-transparent seam (modeled on the `HarnessPort` seam already proven
+  for `agent-orchestration → agent-execution`), not an assumption that colocation makes ad hoc DI
+  safe. This sentence is stale until AU21's `/architecture` phase resolves the seam's actual shape;
+  do not treat it as still-settled ground truth in the meantime.
 - `agent-execution` — harness adapters, MCP, tool execution. **The only Layer permitted to invoke an
   LLM CLI, harness adapter, or MCP server — and the only Layer with zero Service/table access of any
   kind, including `knowledge`.** (Founder correction, 2026-07-13: the original draft gave
