@@ -81,7 +81,7 @@ ruleTester.run("no-hardcoded-color", noHardcodedColor, {
 		// AI6: rgba inside a template-string className fires (regression test).
 		{
 			filename: "Foo.tsx",
-			code: "const x = true; const J = <div className={`p-2 ${x}px bg-[rgba(22,118,79,0.08)]`} />;",
+			code: `const x = true; const J = <div className={\`p-2 \${x}px bg-[rgba(22,118,79,0.08)]\`} />;`,
 			errors: [{ messageId: "hardcoded" }],
 		},
 	],

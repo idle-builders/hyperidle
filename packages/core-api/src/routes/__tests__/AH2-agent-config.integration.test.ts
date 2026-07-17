@@ -173,9 +173,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		const agent = body.find((a) => a.id === "ah2-builder");
 		expect(agent).toBeDefined();
 		// Fields must be present in response (even if null before migration — post-migration they'll be set)
-		// biome-ignore lint/style/noNonNullAssertion: asserted defined above
 		expect(Object.hasOwn(agent!, "modelId")).toBe(true);
-		// biome-ignore lint/style/noNonNullAssertion: asserted defined above
 		expect(Object.hasOwn(agent!, "modelProvider")).toBe(true);
 	});
 

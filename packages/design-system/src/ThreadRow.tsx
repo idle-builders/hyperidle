@@ -27,6 +27,7 @@ function ThreadRowPresenceDot({
 	return (
 		<span
 			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-full border-[1.5px] border-[var(--surface-elevated)] ${bg}`}
+			role="img"
 			aria-label={`${initials} - ${status}`}
 		/>
 	);
@@ -158,6 +159,7 @@ export function ThreadRow({
 							<path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5-3-1.5-3 1.5.5-3.5L1 4.5l3.5-.5L6 1z" />
 						</svg>
 					)}
+					{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label provides "Thread: " context prefix for screen readers; span is presentational text within a button-like row */}
 					<span
 						className={["text-[15px] truncate", unread ? "font-[600]" : "font-[400]"].join(" ")}
 						aria-label={`Thread: ${title}`}
@@ -210,7 +212,7 @@ export function ThreadRow({
 					<div className="flex">
 						{avatars.map((a, i) => (
 							<span
-								key={`${a.initials}-${i}`}
+								key={`${a.initials}-${a.agent ? "agent" : "human"}`}
 								className={[
 									"relative w-[24px] h-[24px] rounded-full inline-flex items-center justify-center shrink-0",
 									"text-[9px] font-[600] leading-none",

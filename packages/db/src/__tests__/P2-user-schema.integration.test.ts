@@ -47,7 +47,6 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 				>[0],
 			);
 			const rows =
-				// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
 				(
 					result as {
 						rows: Array<{

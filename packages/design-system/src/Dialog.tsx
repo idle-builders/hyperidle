@@ -133,7 +133,7 @@ export function Dialog({
 				}}
 			>
 				<div
-					role={overlayProps.role}
+					role="dialog"
 					aria-modal={overlayProps["aria-modal"]}
 					data-dialog-layer={overlayProps["data-dialog-layer"]}
 					aria-label={ariaLabel ?? title}
@@ -155,7 +155,6 @@ export function Dialog({
 						data-testid="dialog-box"
 						// tabIndex allows the box itself to receive focus as the fallback
 						// when no other tabbable element exists (e.g. content-only dialogs)
-						// biome-ignore lint/a11y/noNoninteractiveTabindex: intentional fallback focus target
 						tabIndex={-1}
 						style={{
 							position: "relative",

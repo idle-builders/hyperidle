@@ -37,12 +37,12 @@ describe("KnowledgeDetail: block-anchored scroll (AC2)", () => {
 		// Spy on scrollIntoView — capture which elements it fires on.
 		// jsdom leaves scrollIntoView undefined, so we need to assign it.
 		const assignScrollSpy = (): void => {
-			document.querySelectorAll("[data-block-id]").forEach((el) => {
+			for (const el of document.querySelectorAll("[data-block-id]")) {
 				Object.defineProperty(el, "scrollIntoView", {
 					configurable: true,
 					value: vi.fn(() => scrolled.push(el)),
 				});
-			});
+			}
 		};
 
 		await act(async () => {

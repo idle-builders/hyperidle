@@ -95,7 +95,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 		if (i > 0) {
 			items.push(
 				<span
-					key={`sep-${i}`}
+					key={`sep-${seg.to ?? seg.label}`}
 					aria-hidden="true"
 					className="text-[color:var(--text-secondary)] select-none mx-[3px]"
 				>
@@ -107,7 +107,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 		if (seg.to !== undefined && !isLast) {
 			items.push(
 				<Link
-					key={`seg-${i}`}
+					key={`seg-${seg.to ?? seg.label}`}
 					to={seg.to}
 					className={[LINK_CLASS, isMiddle ? "max-w-[120px] truncate" : ""]
 						.filter(Boolean)
@@ -120,7 +120,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 		} else {
 			items.push(
 				<span
-					key={`seg-${i}`}
+					key={`seg-${seg.to ?? seg.label}`}
 					className={[CURRENT_CLASS, isLast && !isFirst ? "max-w-[180px] truncate" : ""]
 						.filter(Boolean)
 						.join(" ")}

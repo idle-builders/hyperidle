@@ -101,12 +101,14 @@ export function CodeDeltaRenderer({
 	renderTrailing,
 }: CodeDeltaProps): JSX.Element {
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: <pre> must stay — it preserves whitespace and monospace formatting essential for diff rendering; <section> would lose pre-formatting semantics
 		<pre
+			role="region"
 			aria-label={`Code diff: ${delta.file}`}
 			className="bg-[var(--surface-container)] rounded-[var(--r-default)] overflow-x-auto text-xs font-mono leading-[1.4] m-0"
 		>
 			{delta.hunks.map((hunk, hunkIndex) => (
-				<div key={`${hunkIndex}-${hunk.header}`}>
+				<div key={hunk.header}>
 					<div className="px-[12px] py-[6px] font-mono text-[12px] text-[var(--text-tertiary)] bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] select-none">
 						{hunk.header}
 					</div>
@@ -121,7 +123,7 @@ export function CodeDeltaRenderer({
 								text: line.text,
 							};
 							return (
-								<div key={`${hunkIndex}-${lineIndex}-${line.kind}`}>
+								<div key={`${line.oldNo ?? ''}-${line.newNo ?? ''}-${line.kind}`}>
 									<div data-diff-type={line.kind} className={`relative flex ${LINE_BG[line.kind]}`}>
 										{renderLineGutter?.(ref)}
 										{renderLineAffordance?.(ref)}

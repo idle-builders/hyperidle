@@ -117,7 +117,6 @@ function renderCell(cell: RowCell, i: number): JSX.Element {
 	const hideClass = cell.hideBelow !== undefined ? `max-[${cell.hideBelow}px]:hidden` : "";
 	return (
 		<span
-			// biome-ignore lint/suspicious/noArrayIndexKey: fixed-position cell columns — order is stable by design
 			key={i}
 			data-testid={cell["data-testid"]}
 			className={[
@@ -280,7 +279,6 @@ export function Row({
 					data-focused={commonProps["data-focused"]}
 					className={[liSeparatorClass, selectedClasses].filter(Boolean).join(" ")}
 				>
-					{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside a <button>; li keeps listitem role */}
 					<div {...clickableProps(onClick, "")} className={innerClickableClass}>
 						{lead !== undefined && lead !== null && (
 							<span className="shrink-0 inline-flex items-center">{lead}</span>
@@ -324,7 +322,6 @@ export function Row({
 					aria-current={commonProps["aria-current"]}
 					className={[liSeparatorClass, selectedClasses].filter(Boolean).join(" ")}
 				>
-					{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — li must keep listitem role; inner button not possible without actions (nested button would duplicate semantic) */}
 					<div
 						{...clickableProps(onClick, "")}
 						className={innerClickableClass}
@@ -356,7 +353,6 @@ export function Row({
 		// W2 fix: spread clickableProps directly — no hand-rolled duplicate utilities,
 		// no discarded className. commonProps className is overridden by clickableProps.
 		return (
-			// biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside a <button>
 			<div {...commonProps} {...clickableProps(onClick, baseClasses)}>
 				{inner}
 			</div>
@@ -367,7 +363,6 @@ export function Row({
 		// This case is covered by button branch above (no actions), but as="div" override
 		// W2 fix: route through clickableProps for consistent hover/focus.
 		return (
-			// biome-ignore lint/a11y/useSemanticElements: forced via as="div" prop override
 			<div {...commonProps} {...clickableProps(onClick, baseClasses)}>
 				{inner}
 			</div>

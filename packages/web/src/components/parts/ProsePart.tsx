@@ -29,9 +29,8 @@ function renderText(text: string, mentions: ReadonlyArray<{ displayName: string 
 		<>
 			{segments.map((seg, i) =>
 				tokens.includes(seg) ? (
-					// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments
-					<span
-						key={i}
+					// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments — text split order is deterministic
+					<span key={i}
 						className="rounded-[var(--r-subtle)] bg-[var(--accent-primary-dim)] px-[3px] font-[500] text-[var(--accent-primary)]"
 					>
 						{seg}

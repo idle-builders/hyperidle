@@ -182,7 +182,6 @@ describe("AD1 — session-review-creator: human participants added to review thr
 
 			const allThreads = await db.select().from(threads);
 			expect(allThreads).toHaveLength(1);
-			// biome-ignore lint/style/noNonNullAssertion: thread must exist
 			const participants: string[] = JSON.parse(allThreads[0]!.participants);
 
 			// founder-src matched via team edge → must be in participants
@@ -262,7 +261,6 @@ describe("AD1 — session-review-creator: human participants added to review thr
 
 			const allThreads = await db.select().from(threads);
 			expect(allThreads).toHaveLength(1);
-			// biome-ignore lint/style/noNonNullAssertion: thread must exist
 			const participants: string[] = JSON.parse(allThreads[0]!.participants);
 
 			// Both human users must be in participants (fallback)
@@ -330,7 +328,6 @@ describe("AD1 — session-review-creator: human participants added to review thr
 			});
 
 			const allThreads = await db.select().from(threads);
-			// biome-ignore lint/style/noNonNullAssertion: thread must exist
 			const participants: string[] = JSON.parse(allThreads[0]!.participants);
 
 			// No duplicates

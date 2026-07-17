@@ -45,7 +45,7 @@ ruleTester.run("no-raw-tailwind-color", noRawTailwindColor, {
 		// AI6: template-string className must be scanned (covers the template-literal gap).
 		{
 			filename: "Foo.tsx",
-			code: 'const active = true; const J = <div className={`bg-[var(--x)] ${active ? "bg-blue-500" : ""}`} />;',
+			code: `const active = true; const J = <div className={\`bg-[var(--x)] \${active ? "bg-blue-500" : ""}\`} />;`,
 			errors: [{ messageId: "rawColor" }],
 		},
 		// AI6: undefined-semantic-token-opacity form `bg-success/10` — silently renders nothing.

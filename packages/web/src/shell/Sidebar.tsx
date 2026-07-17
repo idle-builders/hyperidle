@@ -602,9 +602,9 @@ export function Sidebar({
 			    onSearchClick so clicking anywhere on the row (not just the input) opens
 			    the Cmd+K panel — same UX as the old hint-button pattern. */}
 			<div className="flex items-center gap-[6px] shrink-0">
-				{/* biome-ignore lint/a11y/noStaticElementInteractions: div wraps SearchField (interactive); onClick is a hint for the Cmd+K trigger, actual input focus is handled by SearchField itself */}
-				{/* biome-ignore lint/a11y/useKeyWithClickEvents: SearchField is a real keyboard-accessible input; wrapper div onClick only supplements pointer interaction for the Cmd+K hint */}
 				{/* eslint-disable-next-line design/require-focus-on-interactive -- LG1: wrapper div supplements SearchField pointer click for Cmd+K hint; SearchField inside is the real keyboard-accessible target */}
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: pointer-event expander for Cmd+K hint — SearchField inside is the real keyboard-accessible target */}
+				{/* biome-ignore lint/a11y/useKeyWithClickEvents: SearchField's own onChange handles keyboard nav; outer onClick is pointer-only supplemental hint */}
 				<div
 					className="flex-1 min-w-0"
 					data-testid="sidebar-search-hint"

@@ -112,6 +112,7 @@ export const Truncated = (): React.JSX.Element => (
 			</h3>
 			<ul className="flex flex-col gap-1">
 				{Array.from({ length: 10 }, (_, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: story fake data — no stable IDs; purely visual
 					<li key={i}>
 						<a
 							href={`/artifacts/art-${i}`}

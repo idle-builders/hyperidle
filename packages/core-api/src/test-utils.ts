@@ -18,7 +18,7 @@ export async function createTestApp(options?: AppOptions): Promise<Hono> {
 				TRACE_FILE,
 				`${JSON.stringify({ ts: Date.now(), pid: process.pid, event: "createTestApp", ms })}\n`,
 			);
-		} catch {}
+		} catch { /* trace file write failure is silent — test tracing is optional */ }
 	}
 	return app;
 }

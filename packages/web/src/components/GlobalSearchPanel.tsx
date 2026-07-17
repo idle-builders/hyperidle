@@ -141,7 +141,6 @@ export function GlobalSearchPanel({
 	return (
 		<>
 			{/* Scrim / backdrop — closes on click */}
-			{/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop is a visual overlay; keyboard close is handled by Escape via useKeyboardNavigation */}
 			{/* eslint-disable-next-line design/require-focus-on-interactive -- LG1: scrim is aria-hidden backdrop, not a user-reachable interactive primitive; keyboard close via Escape in useKeyboardNavigation */}
 			<div
 				aria-hidden="true"
@@ -168,7 +167,7 @@ export function GlobalSearchPanel({
 			>
 				{/* Panel — data-dialog-layer + max-w-[640px] on the same node (sanctioned assertion) */}
 				<div
-					role={overlayProps.role}
+					role="dialog"
 					aria-modal={overlayProps["aria-modal"]}
 					data-dialog-layer={overlayProps["data-dialog-layer"]}
 					aria-label="Global search"
@@ -302,13 +301,13 @@ export function GlobalSearchPanel({
 					 * match spec. The data-testid lets tests and e2e pin the
 					 * region without coupling to visual text.
 					 */}
-					<div
+					<section
 						data-testid="search-recent-queries"
 						aria-label="Recent queries"
 						className="font-mono text-xs text-[var(--text-tertiary)] border-t border-[var(--border-subtle)] pt-2 px-1"
 					>
 						<span>No recent queries</span>
-					</div>
+					</section>
 				</div>
 			</FocusTrap>
 		</>

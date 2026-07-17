@@ -373,7 +373,7 @@ export function registerCoreDomainServices(ctx: {
 		serviceBootstrapLog.error("routine scheduler failed to start", { err });
 	});
 	disposers.push(() => {
-		void schedulerPromise.then((s) => s.stop()).catch(() => {});
+		void schedulerPromise.then((s) => s.stop()).catch(() => { /* best-effort scheduler stop on dispose; errors discarded */ });
 	});
 
 	return disposers;
@@ -941,7 +941,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// still-running correlated request BEFORE the process tears down, so a
 		// later boot's recovery sweep disposes it via the reason (failed/
 		// RUNTIME_LOST) instead of a generic guess. Never blocks teardown.
-		void markRunningAgentSessionRequestsForShutdown(db).catch(() => {});
+		void markRunningAgentSessionRequestsForShutdown(db).catch(() => { /* best-effort: shutdown marker; never blocks teardown */ });
 		disposeApp(app);
 		if (wsDispose) {
 			wsDispose();

@@ -47,7 +47,9 @@ const HintContext = createContext<HintContextValue>({
 	dismissed: new Set<HintId>(),
 	ready: false,
 	failed: false,
-	dismiss: () => {},
+	dismiss: () => {
+		// no-op: HintContext default — replaced by HintProvider implementation
+	},
 });
 
 export function HintProvider({ children }: { children: ReactNode }): ReactNode {

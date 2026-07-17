@@ -330,8 +330,8 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 									<KeyValue label="Window" value={`${data.reviewTrackRecord.windowDays} days`} />
 								</div>
 								<div className="flex gap-[6px] mt-[6px]">
-									{data.reviewTrackRecord.recentVerdicts.slice(0, 10).map((v, i) => (
-										<VerdictDot key={i} decision={v.decision} createdAt={v.createdAt} />
+									{data.reviewTrackRecord.recentVerdicts.slice(0, 10).map((v) => (
+										<VerdictDot key={`verdict-${v.createdAt}`} decision={v.decision} createdAt={v.createdAt} />
 									))}
 								</div>
 							</div>

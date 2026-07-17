@@ -12,6 +12,7 @@ export function QuotePayload({ children }: QuotePayloadProps): JSX.Element {
 	return (
 		<blockquote className="border-l-2 border-[var(--border-strong)] pl-[12px] text-[var(--text-secondary)] m-0 flex flex-col gap-[9px]">
 			{children.map((c, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: block payload children have no stable id; positional order is stable
 				<span key={i}>{renderPayload(c)}</span>
 			))}
 		</blockquote>

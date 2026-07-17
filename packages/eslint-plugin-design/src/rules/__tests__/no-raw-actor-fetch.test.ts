@@ -56,7 +56,7 @@ ruleTester.run("no-raw-actor-fetch", noRawActorFetch, {
 		// Template literal whose first quasi is /api/.
 		{
 			filename: "/repo/packages/web/src/pages/ConversationsReview.tsx",
-			code: "const id = 'x'; await fetch(`/api/threads/${id}/verdict/undo`, { method: 'POST' });",
+			code: `const id = 'x'; await fetch(\`/api/threads/\${id}/verdict/undo\`, { method: 'POST' });`,
 			errors: [{ messageId: "rawActorFetch", data: { path: "/api/threads/" } }],
 		},
 		// In a component file (not in hooks/, not in __tests__).

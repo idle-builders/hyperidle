@@ -19,8 +19,10 @@ export function ListPayload({ ordered, start, items }: ListPayloadProps): JSX.El
 			className: "pl-[20px] m-0 flex flex-col gap-[2px]",
 		},
 		items.map((it, i) => (
+			// biome-ignore lint/suspicious/noArrayIndexKey: block list items have no stable id; positional order is stable
 			<li key={i} className="text-[var(--text-primary)] leading-[1.6]">
 				{it.children.map((c: BlockPayload, j: number) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: block payload children have no stable id; positional order is stable
 					<span key={j}>{renderPayload(c)}</span>
 				))}
 			</li>

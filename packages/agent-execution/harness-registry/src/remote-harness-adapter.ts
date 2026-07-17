@@ -118,7 +118,6 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent> {
 		const sessionId = handle.sessionId;
 
-		// biome-ignore lint/suspicious/useAwait: async generator requires async keyword
 		return (async function* (
 			adapter: RemoteHarnessAdapter,
 		): AsyncGenerator<HarnessEvent, void, unknown> {
@@ -200,7 +199,7 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 					sessionId,
 					resolve,
 					reject,
-					pushEvent: () => {},
+					pushEvent: () => { /* no-op: placeholder event sink — session created without a prior waitForResult caller */ },
 					close: () => reject(new Error("WebSocket closed before session result")),
 				});
 			}

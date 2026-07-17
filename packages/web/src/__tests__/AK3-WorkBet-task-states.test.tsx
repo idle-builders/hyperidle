@@ -30,7 +30,6 @@ import type { BetDetail } from "../types/bet";
 // Use `as any` / `as BetDetail` to allow red phase to compile while asserting the new fields.
 // ---------------------------------------------------------------------------
 
-// biome-ignore lint/suspicious/noExplicitAny: decomposition fields not on BetDetail yet (AK3 red phase)
 type BetDetailWithDecomp = BetDetail & {
 	decompositionStatus?: string | null;
 	decompositionBlockerReason?: string | null;
@@ -43,7 +42,6 @@ function makeBetDetail(overrides: Partial<BetDetailWithDecomp> = {}): BetDetailW
 		title: "Test Bet",
 		team: "Alpha Core",
 		// teamId is a new field to be added in green phase (for "Add an agent" link)
-		// biome-ignore lint/suspicious/noExplicitAny: teamId not on BetDetail yet (AK3 red phase)
 		teamId: "team-1" as unknown as string,
 		status: "active",
 		atRisk: false,
