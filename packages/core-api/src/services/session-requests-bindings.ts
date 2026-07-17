@@ -37,7 +37,7 @@
  * `packages/server` composition-root import, not a route→Service import).
  */
 
-import { createAgentSelectionOps } from "@hyperidle/agent-selection";
+import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import { getMessageById } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { findById as findKnowledgeItemById } from "@hyperidle/knowledge";
@@ -109,7 +109,7 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 // root, to `agent-selection`'s own `users`/`org` ports (Mechanism C).
 // ---------------------------------------------------------------------------
 
-const agentSelectionOps = createAgentSelectionOps({
+const agentSelectionService = createAgentSelectionService({
 	users: { getUserById, listActiveAiUsersByTeams },
 	teams: { getTeamMembersByTeamId },
 });
@@ -151,8 +151,25 @@ const agentWorkIntentWorkerDeps: AgentWorkIntentWorkerDeps = {
 	},
 	work: { getTaskById: work.getTaskById, getBetById: work.getBetById },
 	agentSelection: {
-		isAgentAtWipLimit: agentSelectionOps.isAgentAtWipLimit,
-		selectAgentByAppDefaults: agentSelectionOps.selectAgentByAppDefaults,
+		// @lore AU20 Ab4: adapts new AgentSelectionService methods to session-requests'
+		// SessionRequestsAgentSelector structural-mirror port (unchanged in ports.ts).
+		isAgentAtWipLimit: (db, agentId) => agentSelectionService.isAtCapacity(db, agentId),
+		selectAgentByAppDefaults: (req) => {
+			// session-requests only calls this with routine_delegate (AU15 drain-time
+			// delegation — see agent-work-intent-worker.ts). bet_* surfaces are handled
+			// by work's selectOwner path. Guard for completeness.
+			if (req.surface === "routine_delegate" && req.skillId && req.excludeAgentId) {
+				return agentSelectionService.selectAgent({
+					surface: "routine_delegate",
+					db: req.db,
+					teamId: req.teamId,
+					workKey: req.workKey,
+					skillId: req.skillId,
+					excludeAgentId: req.excludeAgentId,
+				});
+			}
+			return Promise.resolve({ agentId: null });
+		},
 	},
 	conversation: { getMessageById },
 	users: { getUserById, listUsersByTeam },

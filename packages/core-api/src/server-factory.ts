@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
-import { createAgentSelectionOps, resolveDecompositionPlan } from "@hyperidle/agent-selection";
 import { registerCaptureWriteback } from "@hyperidle/capture-writeback";
 import {
 	type CredentialResolver,
@@ -118,6 +117,7 @@ import {
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
+import { agentSelectionService } from "./services/agent-selection-bindings.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 import {
 	checkCostCap,
@@ -249,20 +249,6 @@ const retentionReaperDeps: RetentionReaperDeps = {
 	knowledge: { reapKnowledgeAccessLog },
 	notifications: { deleteReaped },
 };
-
-/**
- * @lore AU19 Increment 3e: `@hyperidle/agent-selection`'s bound-ops factory,
- * wired here at the `packages/server` composition point — `users`/`org` are
- * both real, already-migrated packages. `work`'s (still-interim, §10.3
- * against-grain) `AgentSelectionDefaults` port below now points at these
- * real bound exports instead of the deleted `services/select-agent.ts` /
- * `services/agent-defaults/resolvers.ts` flat modules — mechanical wiring
- * swap, zero behavior change.
- */
-const agentSelectionOps = createAgentSelectionOps({
-	users: { getUserById, listActiveAiUsersByTeams },
-	teams: { getTeamMembersByTeamId },
-});
 
 /**
  * AU11: registers CORE-owned application services against the event bus —
@@ -725,9 +711,29 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// `@lore`). See packages/core-api/work/src/ports.ts for the port
 		// contracts.
 		agentSelection: {
-			enumerateTeamCandidates: agentSelectionOps.enumerateTeamCandidates,
-			selectOwner: agentSelectionOps.selectOwner,
-			resolveDecompositionPlan,
+			// @lore AU20 Ab4: adapts new AgentSelectionService methods to work's
+			// AgentSelectionDefaults structural-mirror port (unchanged in work/ports.ts).
+			enumerateTeamCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
+			selectOwner: (occDeps, occasion) =>
+				agentSelectionService
+					.selectAgent({
+						surface: occasion.surface,
+						db: occDeps.db,
+						eventBus: occDeps.eventBus,
+						teamId: occasion.teamId,
+						workKey: occasion.workKey,
+						roleHint: occasion.roleHint,
+						spreadIndex: occasion.spreadIndex ?? null,
+					})
+					.then((r) => r.agentId),
+			resolveDecompositionPlan: async (input) => {
+				// @lore AU20 Ab4: resolveDecompositionPlan dropped from barrel —
+				// logic inlined here. PM-role preference then candidates[0]; tasks
+				// always [] (vestigial field confirmed by spec).
+				const pm =
+					input.candidates.find((c) => c.role === "product_manager") ?? input.candidates[0];
+				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
+			},
 		},
 		users: { getUserById, listActiveAiUsersByTeams },
 		costCap: { checkCostCap },

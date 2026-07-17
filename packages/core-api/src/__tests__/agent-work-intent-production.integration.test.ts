@@ -1,4 +1,4 @@
-import { createAgentSelectionOps, resolveDecompositionPlan } from "@hyperidle/agent-selection";
+import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -42,16 +42,31 @@ const depWatcherDeps = {
 	workIntents: { record: recordAgentWorkIntent },
 };
 
-const agentSelectionOps = createAgentSelectionOps({
+const agentSelectionService = createAgentSelectionService({
 	users: { getUserById, listActiveAiUsersByTeams },
 	teams: { getTeamMembersByTeamId },
 });
 
-/** AU19 Increment 1b: `insertProposedBetTasks` now takes injected `agent-selection`/`session-requests` ports. */
+/** AU19 Increment 1b: `insertProposedBetTasks` now takes injected `agent-selection`/`session-requests` ports.
+ * @lore AU20 Ab4: adapts `AgentSelectionService` to `AgentSelectionDefaults`; resolveDecompositionPlan inlined. */
 const agentSelection: AgentSelectionDefaults = {
-	enumerateTeamCandidates: agentSelectionOps.enumerateTeamCandidates,
-	selectOwner: agentSelectionOps.selectOwner,
-	resolveDecompositionPlan,
+	enumerateTeamCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
+	selectOwner: (occDeps, occasion) =>
+		agentSelectionService
+			.selectAgent({
+				surface: occasion.surface,
+				db: occDeps.db,
+				eventBus: occDeps.eventBus,
+				teamId: occasion.teamId,
+				workKey: occasion.workKey,
+				roleHint: occasion.roleHint,
+				spreadIndex: occasion.spreadIndex ?? null,
+			})
+			.then((r) => r.agentId),
+	resolveDecompositionPlan: async (input) => {
+		const pm = input.candidates.find((c) => c.role === "product_manager") ?? input.candidates[0];
+		return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
+	},
 };
 const workIntents: AgentWorkIntentRecorder = { record: recordAgentWorkIntent };
 

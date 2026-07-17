@@ -14,7 +14,7 @@
  *   - packages/server/src/services/bet-decomposition-subscriber.ts exports registerBetDecomposition
  */
 
-import { createAgentSelectionOps, resolveDecompositionPlan } from "@hyperidle/agent-selection";
+import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import {
 	type AgentSessionRequest,
 	agentSessionRequests,
@@ -37,7 +37,7 @@ import {
 } from "@hyperidle/shared";
 import { createCreateTaskTool } from "@hyperidle/tool-handlers";
 import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
-import type { BetDecompositionDeps } from "@hyperidle/work";
+import type { AgentSelectionDefaults, BetDecompositionDeps } from "@hyperidle/work";
 import { runBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
@@ -48,7 +48,7 @@ import { test } from "../test-fixtures.js";
 
 const createTaskTool = createCreateTaskTool(toolHandlersPorts);
 
-const agentSelectionOps = createAgentSelectionOps({
+const agentSelectionService = createAgentSelectionService({
 	users: { getUserById, listActiveAiUsersByTeams },
 	teams: { getTeamMembersByTeamId },
 });
@@ -60,13 +60,29 @@ const agentSelectionOps = createAgentSelectionOps({
  *
  * @lore AU19 Increment 1c: `teamCapacity` (fifth port, → `org`) added — closes
  * W2's `teamMembers` ownership gap.
+ * @lore AU20 Ab4: adapts `AgentSelectionService` methods to `AgentSelectionDefaults`
+ * port; `resolveDecompositionPlan` inlined (PM-role preference then candidates[0]).
  */
 const productionPorts = {
 	agentSelection: {
-		enumerateTeamCandidates: agentSelectionOps.enumerateTeamCandidates,
-		selectOwner: agentSelectionOps.selectOwner,
-		resolveDecompositionPlan,
-	},
+		enumerateTeamCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
+		selectOwner: (occDeps, occasion) =>
+			agentSelectionService
+				.selectAgent({
+					surface: occasion.surface,
+					db: occDeps.db,
+					eventBus: occDeps.eventBus,
+					teamId: occasion.teamId,
+					workKey: occasion.workKey,
+					roleHint: occasion.roleHint,
+					spreadIndex: occasion.spreadIndex ?? null,
+				})
+				.then((r) => r.agentId),
+		resolveDecompositionPlan: async (input) => {
+			const pm = input.candidates.find((c) => c.role === "product_manager") ?? input.candidates[0];
+			return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
+		},
+	} satisfies AgentSelectionDefaults,
 	users: { getUserById, listActiveAiUsersByTeams },
 	costCap: { checkCostCap },
 	workIntents: { record: recordAgentWorkIntent },

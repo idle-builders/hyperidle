@@ -1,4 +1,3 @@
-import { deriveInitials } from "@hyperidle/agent-selection";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	extractBuiltinKind,
@@ -14,6 +13,7 @@ import {
 	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
 	type CurrencyCode,
+	deriveInitials,
 	type EventBus,
 	ROUTINE_STATES,
 	type RoutineBudget,

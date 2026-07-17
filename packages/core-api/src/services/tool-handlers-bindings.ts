@@ -16,7 +16,7 @@
  * every other `*-bindings.ts` file in this directory.
  */
 
-import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-selection";
+import type { ScaffoldRequest } from "@hyperidle/agent-selection";
 import {
 	findOrCreateDirectThread,
 	getFirstThreadByHost,
@@ -73,6 +73,7 @@ import {
 	updateItemById,
 	updateTaskById,
 } from "@hyperidle/work";
+import { agentSelectionService } from "./agent-selection-bindings.js";
 import { provisionTeamRoutines as provisionTeamRoutinesBound } from "./dispatch-bindings.js";
 import { handoff } from "./policy-bindings.js";
 
@@ -109,9 +110,9 @@ function provisionTeamRoutines(
  * boundary-crossing as {@link searchKnowledgeForTool} below.
  */
 async function resolveAgentScaffoldSpecsForTool(
-	input: Parameters<typeof resolveAgentScaffoldSpecs>[0],
+	input: ScaffoldRequest,
 ): Promise<readonly Record<string, unknown>[]> {
-	const specs = await resolveAgentScaffoldSpecs(input);
+	const specs = await agentSelectionService.resolveScaffoldSpecs(input);
 	return specs.map((spec) => ({ ...spec }));
 }
 

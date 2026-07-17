@@ -13,7 +13,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { DecompositionTaskInput, UserRole } from "@hyperidle/shared";
+import type { DecompositionTaskInput, EventBus, UserRole } from "@hyperidle/shared";
 
 export interface ScaffoldRequest {
 	readonly db: HyperIdleDb;
@@ -80,4 +80,56 @@ export interface AssistantFormationRequest {
 export interface AssistantFormation {
 	readonly persona: string | null;
 	readonly assistantDraftSurface: "standard";
+}
+
+// ---------------------------------------------------------------------------
+// AU20 Ab4 — new collapsed types
+// ---------------------------------------------------------------------------
+
+/**
+ * Parameterised selection occasion — discriminated union over `surface`.
+ *
+ * Subsumes `SelectAgentRequest` (routine_delegate / bet surface with pre-built
+ * candidates) and the `AgentSelectionSelectOwnerOccasion` shape (bet surfaces
+ * with internal enumeration + event emission). The service's `selectAgent`
+ * dispatches internally: bet surfaces enumerate candidates + emit the occasion
+ * event; routine_delegate runs the userSkills delegate query directly.
+ *
+ * @lore AU20 Ab4: replaces `SelectAgentRequest`, `DecomposeBetRequest`, and
+ * `AgentSelectionSelectOwnerOccasion` — three request types for three surfaces
+ * of the same question. New surface = new union arm + one `case` in
+ * `selectAgent`. `eventBus` is required only for bet surfaces (event emission
+ * is not part of routine_delegate).
+ */
+export type SelectionOccasion =
+	| {
+			readonly surface: "bet_task" | "bet_decomposer";
+			readonly db: HyperIdleDb;
+			readonly eventBus: EventBus;
+			readonly teamId: string;
+			readonly workKey: string;
+			readonly roleHint: UserRole | null;
+			readonly spreadIndex: number | null;
+	  }
+	| {
+			readonly surface: "routine_delegate";
+			readonly db: HyperIdleDb;
+			readonly teamId: string | null;
+			readonly workKey: string;
+			readonly skillId: string;
+			readonly excludeAgentId: string;
+	  };
+
+/**
+ * Filter for the `listCandidates` read surface.
+ *
+ * @lore AU20 Ab4: replaces the bare `(db, teamId)` parameter tuple of
+ * `enumerateTeamCandidates`. `category` is reserved for future narrowing
+ * (e.g. skill-filtered or availability-filtered candidate sets) without
+ * adding a new method.
+ */
+export interface CandidateFilter {
+	readonly db: HyperIdleDb;
+	readonly teamId: string;
+	readonly category?: string;
 }

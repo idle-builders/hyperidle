@@ -15,7 +15,6 @@
  * hostId=userId + participants includes the assistant agent.
  */
 
-import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-selection";
 import { getFirstThreadByHost, insertThread, listMessagesByThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
@@ -38,6 +37,7 @@ import z from "zod";
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { agentSelectionService } from "../services/agent-selection-bindings.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
@@ -305,7 +305,7 @@ export function createAssistantSoulRoutes(
 			// @lore AH3 N2: Lazy-create handles legacy/test users seeded directly into DB.
 			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 			// persistScaffoldedAgents is the single writer of agent user rows (AK6 hard-rule).
-			const specs = await resolveAgentScaffoldSpecs({
+			const specs = await agentSelectionService.resolveScaffoldSpecs({
 				db,
 				trigger: "user_assistant",
 				teamId: null,
@@ -421,7 +421,7 @@ export function createAssistantSoulRoutes(
 			// @lore AU3: Lazy-create (PATCH path) routes through app defaults (same as GET path).
 			// @lore AH3 N2: Lazy-create (PATCH path) handles legacy/test users seeded directly into DB.
 			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-			const specs = await resolveAgentScaffoldSpecs({
+			const specs = await agentSelectionService.resolveScaffoldSpecs({
 				db,
 				trigger: "user_assistant",
 				teamId: null,

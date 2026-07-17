@@ -18,7 +18,6 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
-import { deriveInitials, resolveAgentScaffoldSpecs } from "@hyperidle/agent-selection";
 import { getThreadById, insertMessage, insertThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { enqueueNotification, findPendingByEventSubject } from "@hyperidle/notifications";
@@ -58,6 +57,7 @@ import type {
 import {
 	AGENT_ROLE_CATALOG,
 	createLogger,
+	deriveInitials,
 	deriveTitle,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
@@ -75,6 +75,7 @@ import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { agentSelectionService } from "../services/agent-selection-bindings.js";
 import { provisionTeamRoutines } from "../services/dispatch-bindings.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import {
@@ -385,7 +386,7 @@ export function createTeamRoutes(
 		});
 
 		// AU3: route through app-owned scaffolding for the default roster.
-		const specs = await resolveAgentScaffoldSpecs({
+		const specs = await agentSelectionService.resolveScaffoldSpecs({
 			db,
 			trigger: "team_scaffold",
 			teamId,
@@ -615,7 +616,7 @@ export function createTeamRoutes(
 		}
 
 		// AU3: route through app-owned scaffolding for agent_added.
-		const specs = await resolveAgentScaffoldSpecs({
+		const specs = await agentSelectionService.resolveScaffoldSpecs({
 			db,
 			trigger: "agent_added",
 			teamId,

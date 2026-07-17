@@ -1,42 +1,55 @@
 /**
  * `@hyperidle/agent-selection` — public barrel.
  *
- * Table ACL (Mechanism A): this Service owns zero tables (architecture §4's
- * `agent-selection` roster row: `⛁` — none) — no raw table re-export here at
- * all, function exports only.
+ * Table ACL (Mechanism A): this Service owns zero tables — no raw table
+ * re-export here, function exports only.
  *
- * @lore AU19 Increment 3e: migrated from `packages/server/src/services/{agent-selection,select-agent,roster,agent-utils,agent-defaults/resolvers}.ts`.
- * `createAgentSelectionOps` is the sanctioned way callers reach the
- * DB-touching surface (`isAgentAtWipLimit`/`selectAgentByAppDefaults`/
- * `enumerateTeamCandidates`/`selectOwner`) — see `service.ts`'s top `@lore`
- * for why the bound-ops factory shape exists (both downstream consumer
- * ports, `work`'s and `session-requests`', expect deps-free signatures).
+ * @lore AU19 Increment 3e: migrated from `packages/server/src/services/`.
+ * `createAgentSelectionOps` was the sanctioned factory; AU20 Ab4 renames it
+ * to `createAgentSelectionService` and collapses 19 → 9 exports (2 runtime +
+ * 7 types).
+ *
+ * @lore AU20 Ab4: surface collapse. Three per-surface selection methods
+ * (`selectOwner`, `selectAgentByAppDefaults`, `resolveDecompositionPlan`) →
+ * one `selectAgent(occasion)`. Three per-surface request types →
+ * `SelectionOccasion`. `deriveInitials` dissolves to `@hyperidle/shared`.
+ * `DecompositionPlan`, `SelectAgentOutcome`, `DecomposeBetRequest`,
+ * `SelectAgentRequest`, `AgentSelectionSelectOwnerOccasion`,
+ * `AgentSelectionTeamReader`, `AgentSelectionUserReader`, `AgentSelectionOps`
+ * are no longer public (internal or inlined at the composition root).
+ * `resolveAgentScaffoldSpecs` (formerly re-exported as `resolveScaffoldSpecs`)
+ * is removed from the barrel — callers now use
+ * `agentSelectionService.resolveScaffoldSpecs(...)` (the method on the
+ * composition-root singleton from `core-api/services/agent-selection-bindings.ts`).
+ *
+ * @lore AU20 Ab4 DEFERRED: `resolveAssistantFormation` — spec §2 Key Collapses
+ * #3 requires dissolving this degenerate constant stub by folding it into
+ * `resolveScaffoldSpecs({trigger:"user_assistant"})` and having dispatch read
+ * the spec's `systemPrompt` directly. Doing so requires migrating
+ * `DispatchAgentSelectionAccessor` in `@hyperidle/dispatch`'s `ports.ts`
+ * (removing `resolveAssistantFormation`, adding `resolveScaffoldSpecs`) and
+ * updating `agent-work-assistant.ts` and the AR4b formation-seam test. This
+ * dispatch-port migration is out of scope for Ab4; `resolveAssistantFormation`
+ * remains exported until a follow-up increment completes the dissolution.
  */
 
-export {
-	resolveAgentScaffoldSpecs,
-	resolveAssistantFormation,
-	resolveDecompositionPlan,
-} from "./agent-defaults/resolvers.js";
-export { deriveInitials } from "./agent-utils.js";
+// ---------------------------------------------------------------------------
+// Runtime exports (2)
+// ---------------------------------------------------------------------------
+
+export { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
+export { createAgentSelectionService } from "./service.js";
+
+// ---------------------------------------------------------------------------
+// Type exports (7)
+// ---------------------------------------------------------------------------
+
 export type {
 	AgentScaffoldSpec,
-	AssistantFormation,
-	AssistantFormationRequest,
-	DecomposeBetRequest,
-	DecompositionPlan,
+	CandidateFilter,
 	ScaffoldRequest,
-	SelectAgentOutcome,
-	SelectAgentRequest,
 	SelectionCandidate,
+	SelectionOccasion,
 } from "./contracts.js";
-export type {
-	AgentSelectionDeps,
-	AgentSelectionTeamReader,
-	AgentSelectionUserReader,
-} from "./ports.js";
-export {
-	type AgentSelectionOps,
-	type AgentSelectionSelectOwnerOccasion,
-	createAgentSelectionOps,
-} from "./service.js";
+export type { AgentSelectionDeps } from "./ports.js";
+export type { AgentSelectionService } from "./service.js";
