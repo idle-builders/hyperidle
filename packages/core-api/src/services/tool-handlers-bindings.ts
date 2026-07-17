@@ -138,17 +138,19 @@ async function persistScaffoldedAgents(
 	teamMembersId: string | null,
 	specs: readonly Record<string, unknown>[],
 ): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }> {
-	// @lore LG1 Phase 4: specs arrives as Record<string,unknown>[] from ToolHandlersPorts (Mechanism C
-	// boundary — tool-handlers cannot import AgentScaffoldSpec). At this composition root we CAN
-	// import the type. TS requires intermediate unknown because Record<string,unknown>[] and
-	// AgentScaffoldSpec[] don't "sufficiently overlap" (index signature vs specific properties).
-	// The value IS an AgentScaffoldSpec[] at runtime — resolveAgentScaffoldSpecs returns that real type.
+	// @lore LG1 Phase 4 follow-up: specs arrives as Record<string,unknown>[] from ToolHandlersPorts
+	// (Mechanism C boundary — tool-handlers cannot import AgentScaffoldSpec). At this composition
+	// root we CAN import the type. TypeScript rejects a direct `specs as readonly AgentScaffoldSpec[]`
+	// (TS2352 — Record index-signature vs specific-property types don't overlap); widening to
+	// `readonly unknown[]` first (plain assignment, no cast) then asserting to the known shape is
+	// the single-assertion fix. Safe: resolveAgentScaffoldSpecsForTool spreads AgentScaffoldSpec[]
+	// items — all fields are present and correctly shaped at runtime.
+	const specsAsUnknown: readonly unknown[] = specs;
 	return orgPersistScaffoldedAgents(
 		db,
 		orgUsersForScaffold,
 		teamMembersId,
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-		specs as unknown as readonly AgentScaffoldSpec[],
+		specsAsUnknown as readonly AgentScaffoldSpec[],
 	);
 }
 
