@@ -146,19 +146,22 @@ describe("explicit session production contract", () => {
 		["MissingCredentialError", "MISSING_CREDENTIAL", 500],
 		["NoEligibleHarnessError", "NO_ELIGIBLE_HARNESS", 422],
 		["Error", "INTERNAL_ERROR", 500],
-	] as const)("persists and projects stable %s admission failure", async (errorName, code, status) => {
-		const boot = (await import("../services/run-orchestration-bindings.js")) as Record<
-			string,
-			unknown
-		>;
-		const classify = boot.classifyAdmissionFailure;
-		expect(classify).toBeTypeOf("function");
-		expect(
-			(classify as (error: Error) => { code: string; status: number })(
-				Object.assign(new Error("private"), { name: errorName }),
-			),
-		).toEqual(expect.objectContaining({ code, status }));
-	});
+	] as const)(
+		"persists and projects stable %s admission failure",
+		async (errorName, code, status) => {
+			const boot = (await import("../services/run-orchestration-bindings.js")) as Record<
+				string,
+				unknown
+			>;
+			const classify = boot.classifyAdmissionFailure;
+			expect(classify).toBeTypeOf("function");
+			expect(
+				(classify as (error: Error) => { code: string; status: number })(
+					Object.assign(new Error("private"), { name: errorName }),
+				),
+			).toEqual(expect.objectContaining({ code, status }));
+		},
+	);
 
 	test("same idempotency key replays one pending start and one intent", async ({ db, app }) => {
 		await seed(db);
