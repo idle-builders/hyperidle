@@ -61,7 +61,6 @@ import { enforcementRegistry } from "../return-enforcement-registry.js";
 function makeProcessReEngageConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig {
 	// Access the real shipped opencode config — Record<string, CliAdapterConfig> index signature
 	// makes it technically `CliAdapterConfig | undefined`, but "opencode" is a known key.
-	// biome-ignore lint/style/noNonNullAssertion: "opencode" is a known key in CLI_TOOL_CONFIGS
 	const opencodeConfig = CLI_TOOL_CONFIGS.opencode!;
 	return {
 		...opencodeConfig,

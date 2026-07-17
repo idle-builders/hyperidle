@@ -688,7 +688,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		const adapter = this;
 		const sessionId = handle.sessionId;
 
-		// biome-ignore lint/suspicious/useAwait: async generator requires async keyword
 		return (async function* (): AsyncGenerator<HarnessEvent, void, unknown> {
 			const session = adapter.sessions.get(sessionId);
 			if (!session) return;

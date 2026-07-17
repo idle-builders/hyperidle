@@ -165,7 +165,6 @@ export interface HarnessTestModelSpec {
 	readonly apiKeyEnv: "OPENROUTER_API_KEY" | null;
 }
 
-// biome-ignore lint/style/useNamingConvention: SCREAMING_SNAKE_CASE constant per typescript.md.
 export const HARNESS_TEST_MODELS = {
 	builtin: {
 		provider: "openai-compatible",
