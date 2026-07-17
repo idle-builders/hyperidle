@@ -15,19 +15,30 @@
  * Ship rate = completed / (completed + active) * 100.
  */
 
-import { insertMessage, insertThread } from "@hyperidle/conversation";
+import {
+	insertMessage,
+	insertThread,
+	listInitiatedVerdictMessages,
+	listMessagesByThread,
+	listVerdictMessagesByItemIds,
+	updateMessage,
+	updateThread,
+} from "@hyperidle/conversation";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { insertNotification } from "@hyperidle/notifications";
 import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
-import { type LifecyclePropagationDeps, registerLifecyclePropagation } from "@hyperidle/policy";
+import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { getFirstUserByKind } from "@hyperidle/users";
 import {
 	getBetById,
+	getItemById,
 	getTaskById,
+	listItemIdsBySourceAgent,
 	listTasks,
 	transitionBet,
 	transitionBetStatus,
 	transitionTaskState,
+	updateItemById,
 } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
@@ -39,11 +50,29 @@ import { test } from "../test-fixtures.js";
  * — `policy` never imports another Service). This test builds the exact
  * same production wiring `server-factory.ts` uses — no behavior change.
  */
-const lifecyclePropagationDeps: LifecyclePropagationDeps = {
-	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
-	conversation: { insertMessage, insertThread },
+const lifecyclePropagationDeps: PolicyDeps = {
+	work: {
+		getTaskById,
+		transitionTaskState,
+		getBetById,
+		transitionBetStatus,
+		listTasks,
+		getItemById,
+		updateItemById,
+		listItemIdsBySourceAgent,
+	},
+	conversation: {
+		insertMessage,
+		insertThread,
+		listMessagesByThread,
+		updateMessage,
+		updateThread,
+		listInitiatedVerdictMessages,
+		listVerdictMessagesByItemIds,
+	},
 	users: { getFirstUserByKind },
 	notifications: { insert: insertNotification },
+	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
@@ -202,7 +231,7 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 			updatedAt: now,
 		});
 
-		const unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		const unsubscribe = registerPolicy(db, eventBus, lifecyclePropagationDeps);
 
 		// Act: emit task_state_changed (in_progress → done) after updating DB
 		await db
@@ -279,7 +308,7 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 			updatedAt: now,
 		});
 
-		const unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		const unsubscribe = registerPolicy(db, eventBus, lifecyclePropagationDeps);
 
 		await db
 			.update(tasks)

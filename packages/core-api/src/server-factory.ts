@@ -76,8 +76,8 @@ import {
 	resolveReviewRecipients,
 	setTeamMembersActiveBets,
 } from "@hyperidle/org";
-import type { LifecyclePropagationDeps, PolicyEngineDeps } from "@hyperidle/policy";
-import { registerLifecyclePropagation, registerPolicyEngine } from "@hyperidle/policy";
+import type { PolicyDeps } from "@hyperidle/policy";
+import { registerPolicy } from "@hyperidle/policy";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
 import type { RetentionReaperDeps } from "@hyperidle/retention";
 import { startRetentionReaper } from "@hyperidle/retention";
@@ -212,26 +212,38 @@ const notificationsWorkReader: NotificationsWorkReader = {
  * @lore AU19 Increment 2a: `@hyperidle/policy`'s DI ports (Mechanism C),
  * wired here at the `packages/server` composition point — `work`/
  * `conversation`/`users`/`org` are all real, already-migrated packages.
- * `PolicyEngineDeps.silence` closes over `notificationsSilenceDeps` (built
+ * `PolicyDeps.silence` closes over `notificationsSilenceDeps` (built
  * above) so `policy` itself only ever sees the boolean-returning
  * `isSilenced` predicate, never `notifications`' own deps shape.
+ *
+ * @lore AU20 Am1: merged `policyEngineDeps` + `lifecyclePropagationDeps`
+ * into one `PolicyDeps` aggregate. `registerPolicy` constructs the sub-shapes
+ * internally; the composition root sees a single wiring point.
  */
-const policyEngineDeps: PolicyEngineDeps = {
-	work: { getItemById, updateItemById },
-	conversation: { insertMessage, listMessagesByThread, updateMessage, updateThread },
+const policyDeps: PolicyDeps = {
+	work: {
+		getItemById,
+		updateItemById,
+		listItemIdsBySourceAgent,
+		getTaskById,
+		getBetById,
+		transitionBetStatus,
+		transitionTaskState,
+		listTasks,
+	},
+	conversation: {
+		insertMessage,
+		listMessagesByThread,
+		updateMessage,
+		updateThread,
+		insertThread,
+		listInitiatedVerdictMessages,
+		listVerdictMessagesByItemIds,
+	},
+	users: { getFirstUserByKind },
 	silence: {
 		isSilenced: (db, item, now) => isSilenced(db, item, now, notificationsSilenceDeps),
 	},
-	approvalRate: {
-		work: { listItemIdsBySourceAgent },
-		conversation: { listInitiatedVerdictMessages, listVerdictMessagesByItemIds },
-	},
-};
-
-const lifecyclePropagationDeps: LifecyclePropagationDeps = {
-	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
-	conversation: { insertMessage, insertThread },
-	users: { getFirstUserByKind },
 	notifications: { insert: insertNotification },
 };
 
@@ -308,8 +320,7 @@ export function registerCoreDomainServices(ctx: {
 			taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
 		}),
 	);
-	disposers.push(registerPolicyEngine(db, eventBus, policyEngineDeps));
-	disposers.push(registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps));
+	disposers.push(registerPolicy(db, eventBus, policyDeps));
 	disposers.push(
 		registerGitExportHandler(db, eventBus, {
 			runnerFactory: (repoPath) => createGitRunner(repoPath),

@@ -6,17 +6,28 @@
  * and uses that id as the founder participant in propagation threads.
  */
 
-import { insertMessage, insertThread } from "@hyperidle/conversation";
+import {
+	insertMessage,
+	insertThread,
+	listInitiatedVerdictMessages,
+	listMessagesByThread,
+	listVerdictMessagesByItemIds,
+	updateMessage,
+	updateThread,
+} from "@hyperidle/conversation";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { insertNotification } from "@hyperidle/notifications";
-import { type LifecyclePropagationDeps, registerLifecyclePropagation } from "@hyperidle/policy";
+import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { getFirstUserByKind } from "@hyperidle/users";
 import {
 	getBetById,
+	getItemById,
 	getTaskById,
+	listItemIdsBySourceAgent,
 	listTasks,
 	transitionBetStatus,
 	transitionTaskState,
+	updateItemById,
 } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
@@ -28,11 +39,29 @@ import { test } from "../test-fixtures.js";
  * — `policy` never imports another Service). This test builds the exact
  * same production wiring `server-factory.ts` uses — no behavior change.
  */
-const lifecyclePropagationDeps: LifecyclePropagationDeps = {
-	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
-	conversation: { insertMessage, insertThread },
+const lifecyclePropagationDeps: PolicyDeps = {
+	work: {
+		getTaskById,
+		transitionTaskState,
+		getBetById,
+		transitionBetStatus,
+		listTasks,
+		getItemById,
+		updateItemById,
+		listItemIdsBySourceAgent,
+	},
+	conversation: {
+		insertMessage,
+		insertThread,
+		listMessagesByThread,
+		updateMessage,
+		updateThread,
+		listInitiatedVerdictMessages,
+		listVerdictMessagesByItemIds,
+	},
 	users: { getFirstUserByKind },
 	notifications: { insert: insertNotification },
+	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";
@@ -124,7 +153,7 @@ describe("M3 — lifecycle-propagation: thread participants use users-table foun
 	}) => {
 		await seedBase(db, "test-founder-1");
 		await seedDoneTasks(db);
-		registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		registerPolicy(db, eventBus, lifecyclePropagationDeps);
 
 		// Trigger the propagation that creates a review thread (all tasks done)
 		// Fire a task_state_changed event to drive the propagation

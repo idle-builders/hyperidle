@@ -20,7 +20,15 @@
  * so the test never races the async handler.
  */
 
-import { insertMessage, insertThread } from "@hyperidle/conversation";
+import {
+	insertMessage,
+	insertThread,
+	listInitiatedVerdictMessages,
+	listMessagesByThread,
+	listVerdictMessagesByItemIds,
+	updateMessage,
+	updateThread,
+} from "@hyperidle/conversation";
 import {
 	bets,
 	type HyperIdleDb,
@@ -33,17 +41,20 @@ import {
 } from "@hyperidle/db";
 import { insertNotification } from "@hyperidle/notifications";
 import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
-import { type LifecyclePropagationDeps, registerLifecyclePropagation } from "@hyperidle/policy";
+import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { getFirstUserByKind } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
 import {
 	cascadeBetKill,
 	getBetById,
+	getItemById,
 	getTaskById,
+	listItemIdsBySourceAgent,
 	listTasks,
 	transitionBet,
 	transitionBetStatus,
 	transitionTaskState,
+	updateItemById,
 } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
@@ -55,12 +66,33 @@ import { test } from "../test-fixtures.js";
  * injected `work`/`conversation`/`users`/`notifications` ports (Mechanism C
  * — `policy` never imports another Service). This test builds the exact
  * same production wiring `server-factory.ts` uses — no behavior change.
+ *
+ * @lore AU20 Am1: migrated to `PolicyDeps`; engine/handoff stubs are never
+ * called in these lifecycle tests.
  */
-const lifecyclePropagationDeps: LifecyclePropagationDeps = {
-	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
-	conversation: { insertMessage, insertThread },
+const lifecyclePropagationDeps: PolicyDeps = {
+	work: {
+		getTaskById,
+		transitionTaskState,
+		getBetById,
+		transitionBetStatus,
+		listTasks,
+		getItemById,
+		updateItemById,
+		listItemIdsBySourceAgent,
+	},
+	conversation: {
+		insertMessage,
+		insertThread,
+		listMessagesByThread,
+		updateMessage,
+		updateThread,
+		listInitiatedVerdictMessages,
+		listVerdictMessagesByItemIds,
+	},
 	users: { getFirstUserByKind },
 	notifications: { insert: insertNotification },
+	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
 /** AU19 Increment 1b: `cascadeBetKill` forwards this to `transitionTask`. */
@@ -306,7 +338,7 @@ describe("AF12 AC6 — task->bet propagation label honesty (fix '-> review' bug)
 			updatedAt: now,
 		});
 
-		const unsub = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		const unsub = registerPolicy(db, eventBus, lifecyclePropagationDeps);
 		try {
 			eventBus.emit({
 				type: "task_state_changed",

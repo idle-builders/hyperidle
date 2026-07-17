@@ -337,5 +337,54 @@ export interface LifecyclePropagationDeps {
 	readonly notifications: PolicyNotificationQueue;
 }
 
+/**
+ * Single aggregate injection contract for the composition root.
+ *
+ * @lore AU20 Am1: replaces `PolicyEngineDeps`/`ApprovalRateDeps`/
+ * `LifecyclePropagationDeps` as the ONE injection type consumed by
+ * `registerPolicy`. Fields are exactly the union of what `registerPolicy`
+ * passes into `PolicyEngineDeps` + `ApprovalRateDeps` + `LifecyclePropagationDeps`
+ * — no more, no less.
+ *
+ * `HandoffDeps` fields (`org`, `sessionRequests`, `users.getUserById`,
+ * `users.findActiveTeammateByRole`, `work.updateTaskById`, `work.createItem`)
+ * are intentionally ABSENT here: `buildHandoff` is a curried factory wired
+ * independently via its own `HandoffDeps` in `policy-bindings.ts`. Keeping
+ * them out of `PolicyDeps` ensures no dead fields at the composition root
+ * and the type is an honest contract — every field `registerPolicy` reads.
+ */
+export interface PolicyDeps {
+	readonly work: Pick<
+		PolicyWorkStore,
+		// engine:
+		| "getItemById"
+		| "updateItemById"
+		// approval-rate:
+		| "listItemIdsBySourceAgent"
+		// lifecycle:
+		| "getTaskById"
+		| "getBetById"
+		| "transitionBetStatus"
+		| "transitionTaskState"
+		| "listTasks"
+	>;
+	readonly conversation: Pick<
+		PolicyConversationStore,
+		// engine:
+		| "insertMessage"
+		| "listMessagesByThread"
+		| "updateMessage"
+		| "updateThread"
+		// approval-rate:
+		| "listInitiatedVerdictMessages"
+		| "listVerdictMessagesByItemIds"
+		// lifecycle:
+		| "insertThread"
+	>;
+	readonly users: Pick<PolicyUserDirectory, "getFirstUserByKind">;
+	readonly silence: PolicySilenceChecker;
+	readonly notifications: PolicyNotificationQueue;
+}
+
 // Re-exported for call sites that need the plain EventBus type alongside these ports.
 export type { EventBus, TaskState };

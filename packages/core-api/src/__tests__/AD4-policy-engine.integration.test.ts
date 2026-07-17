@@ -26,6 +26,7 @@
 
 import {
 	insertMessage,
+	insertThread,
 	listInitiatedVerdictMessages,
 	listMessagesByThread,
 	listVerdictMessagesByItemIds,
@@ -43,7 +44,7 @@ import {
 } from "@hyperidle/db";
 import { isSilenced, type NotificationsSilenceDeps } from "@hyperidle/notifications";
 import { getTeamMembersById } from "@hyperidle/org";
-import { type PolicyEngineDeps, registerPolicyEngine } from "@hyperidle/policy";
+import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { getUserById } from "@hyperidle/users";
@@ -63,16 +64,35 @@ const silenceDeps: NotificationsSilenceDeps = {
 	teams: { getTeamMembersById },
 };
 
-const policyEngineDeps: PolicyEngineDeps = {
-	work: { getItemById, updateItemById },
-	conversation: { insertMessage, listMessagesByThread, updateMessage, updateThread },
+const policyEngineDeps: PolicyDeps = {
+	work: {
+		getItemById,
+		updateItemById,
+		listItemIdsBySourceAgent,
+		// lifecycle stubs (never called in engine tests):
+		getTaskById: () => Promise.resolve(undefined),
+		getBetById: () => Promise.resolve(undefined),
+		transitionBetStatus: () => Promise.resolve({ applied: false }),
+		transitionTaskState: () => Promise.resolve({ applied: false }),
+		listTasks: () => Promise.resolve([]),
+	},
+	conversation: {
+		insertMessage,
+		listMessagesByThread,
+		updateMessage,
+		updateThread,
+		listInitiatedVerdictMessages,
+		listVerdictMessagesByItemIds,
+		insertThread,
+	},
+	users: {
+		// lifecycle stub (never called in engine tests):
+		getFirstUserByKind: () => Promise.resolve(undefined),
+	},
 	silence: {
 		isSilenced: (db, item, now) => isSilenced(db, item, now, silenceDeps),
 	},
-	approvalRate: {
-		work: { listItemIdsBySourceAgent },
-		conversation: { listInitiatedVerdictMessages, listVerdictMessagesByItemIds },
-	},
+	notifications: { insert: () => Promise.resolve() },
 };
 
 const NOW = new Date().toISOString();
@@ -255,7 +275,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 		await seedBase(db);
 		await seedVerdicts(db, 10, "approve");
 
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -281,7 +301,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -314,7 +334,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -336,7 +356,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -358,7 +378,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "high" });
 		emitItemCreated(eventBus, itemId);
 
@@ -382,7 +402,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { kind: "skill_change", riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -401,7 +421,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 		await seedBase(db);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -424,7 +444,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low", blocking: false });
 		emitItemCreated(eventBus, itemId);
 

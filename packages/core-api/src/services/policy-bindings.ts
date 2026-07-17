@@ -38,19 +38,14 @@ import {
 } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { getTeamMembersByTeamId } from "@hyperidle/org";
-import type {
-	ApprovalRateDeps,
-	HandoffDeps,
-	HandoffParams,
-	HandoffResult,
-} from "@hyperidle/policy";
+import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
 import { recordAgentWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { findActiveTeammateByRole, getUserById } from "@hyperidle/users";
 import { createItem, getTaskById, listItemIdsBySourceAgent, updateTaskById } from "@hyperidle/work";
 
-const handoffDeps: HandoffDeps = {
+const handoffDeps = {
 	work: { getTaskById, updateTaskById, createItem },
 	conversation: { insertMessage, insertThread },
 	users: { getUserById, findActiveTeammateByRole },
@@ -68,7 +63,7 @@ export const handoff: (
 	params: HandoffParams,
 ) => Promise<HandoffResult> = buildHandoff(handoffDeps);
 
-const approvalRateDeps: ApprovalRateDeps = {
+const approvalRateDeps = {
 	work: { listItemIdsBySourceAgent },
 	conversation: { listInitiatedVerdictMessages, listVerdictMessagesByItemIds },
 };
