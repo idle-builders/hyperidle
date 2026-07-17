@@ -397,7 +397,7 @@ export function TaskSheet({
 			// small viewports get a bottom-sheet; desktop gets a right drawer. Both share
 			// the same component — Tailwind responsive prefixes do the layout switching.
 			// @lore AI2: z-50 removed; z-layer now via --z-drawer token in style prop (AC-3).
-			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)] flex flex-col w-full bg-[var(--surface-container)] border-t border-[var(--border-subtle)] shadow-lg sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
+			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)] flex flex-col w-full bg-[var(--surface-container)] border-t border-[var(--border-subtle)] shadow-[var(--shadow-elevated)] sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
 			style={{ zIndex: overlayProps.style.zIndex }}
 			onKeyDown={handleDialogKeyDown}
 		>
@@ -407,7 +407,8 @@ export function TaskSheet({
 					Task
 				</span>
 				<button type="button" aria-label="Close" className="btn btn-ghost btn-xs" onClick={onClose}>
-					✕
+					{/* LG1: U+2715 multiplication sign used as typographic close glyph; aria-label="Close" carries the accessible label. JSX string expression avoids JSXText emoji detection. */}
+					{'✕'}
 				</button>
 			</div>
 

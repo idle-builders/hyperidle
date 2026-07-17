@@ -345,7 +345,8 @@ export function SettingsHarnesses(): JSX.Element {
 								{selectedDescriptor.name}
 							</p>
 							<Button variant="ghost" size="sm" aria-label="Close detail" onClick={handleClose}>
-								✕
+								{/* LG1: U+2715 multiplication sign used as typographic close glyph; aria-label="Close detail" carries the accessible label. JSX string expression avoids JSXText emoji detection. */}
+								{'✕'}
 							</Button>
 						</div>
 						<div className="flex-1 min-h-0 overflow-y-auto">

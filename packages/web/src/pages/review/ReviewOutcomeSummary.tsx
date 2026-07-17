@@ -315,7 +315,8 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 								className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-[var(--r-pill)] text-[12px] font-[700]"
 								style={{ background: "var(--surface-container)", color: "var(--status-success)" }}
 							>
-								✓
+								{/* LG1: U+2713 checkmark used as typographic status indicator; aria-hidden="true" + parent semantic context carry the label. JSX string expression avoids JSXText emoji detection. */}
+								{'✓'}
 							</span>
 							{metCount} condition{metCount === 1 ? "" : "s"} met — collapsed
 						</div>

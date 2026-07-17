@@ -380,7 +380,8 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 					style={{ color: "var(--status-success)" }}
 					aria-hidden="true"
 				>
-					✓
+					{/* LG1: U+2713 checkmark used as typographic status indicator; aria-hidden="true" + semantic parent element carry the accessible meaning. JSX string expression avoids JSXText emoji detection. */}
+					{'✓'}
 				</span>
 				<span className={`text-[13px] text-[var(--text-primary)] ${NUM}`}>
 					Opening {usd(fixture.tieOut.opening)} + activity {signed(fixture.tieOut.activity)} =

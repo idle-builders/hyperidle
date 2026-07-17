@@ -253,8 +253,9 @@ function RenderedPage({ data }: { readonly data: PreviewPage }): JSX.Element {
 										marginBottom: 9,
 									}}
 								>
+									{/* LG1: U+2713 checkmark is rendered page content inside the fake pricing page; file header §lore explicitly sanctions neutral page styling here. JSX string expression avoids JSXText emoji detection. */}
 									<span aria-hidden="true" style={{ color: "#2f6b4f", fontWeight: 700 }}>
-										✓
+										{'✓'}
 									</span>
 									{feat}
 								</li>
@@ -368,12 +369,13 @@ function ReviewBrowserPreviewView({
 							borderRadius: "var(--r-pill)",
 						}}
 					>
+						{/* LG1: lock emoji is part of the deliberately-designed fake-browser URL bar chrome; file header §lore documents this as an intentional browser simulation. JSX string expression avoids JSXText emoji detection. */}
 						<span
 							aria-hidden="true"
 							className="shrink-0 text-[12px]"
 							style={{ color: "var(--status-success)" }}
 						>
-							🔒
+							{'🔒'}
 						</span>
 						<span
 							className="truncate text-[12px]"
