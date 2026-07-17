@@ -1,0 +1,58 @@
+{
+  "id": "AU20",
+  "status": "in_progress",
+  "currentStep": "build-incremental",
+  "sessionStartedAt": "2026-07-17",
+  "worktree": ".worktrees/pipeline-AU20",
+  "branch": "pipeline/AU20",
+  "conceptGate": {
+    "v1": "REJECTED 2026-07-17 by founder. The whole audit was framed on call-site COUNTS (keep/merge/inline/delete by usage; service existence by owns-a-table/has-a-loop). Wrong question: knip already deletes dead code, so 'is it called' is solved. The real question is architectural coherence + product purpose: 1218 exports/31 services IS the finding (over-fragmentation, engineering garbage at MVP tier — a bespoke method per call site). Reframe: per-service holistic reasoning of a clean minimal public API + product-purpose-for-existence, judged from layer boundaries at MVP tier. Counter survives as a DATA-GATHERING input per service; 3 bug fixes survive (correctness). Back to refine + architecture.",
+    "v2": "APPROVED 2026-07-17 by founder. Reframed per-service product audit (workflow: 31 planner→reviewer→revise + synthesis) → 31→23 services, 1218→~371 exports (~70% cut), 3 merges (durable-agent-queue, session-runtime, agent-execution-platform) + retention dissolve. Dashboard presented. Operational change: ALL structural merges land in THIS WP (not deferred), executed as SEQUENTIAL INCREMENTS, each test→code→review→verify→commit→repeat — low blast radius, every commit green."
+  },
+  "approvals": {
+    "requirements": true,
+    "concept": true,
+    "final": false
+  },
+  "critiqueScores": {
+    "refineV1Superseded": {
+      "score": 8,
+      "rounds": 1,
+      "verdict": "pass-SUPERSEDED",
+      "note": "v1 refine cleared but was built on the wrong (usage-count) frame; superseded by the reframe after concept-gate v1 rejection."
+    },
+    "refine": {
+      "score": 7,
+      "rounds": 1,
+      "verdict": "pass-marginal",
+      "openCritical": 0,
+      "openWarning": 3,
+      "note": "Reframed requirement (architecture-coherence + product-purpose + usage-as-input + service-as-product + scaling test). Critique confirmed it genuinely escaped the usage frame both directions and the scaling test is baked in 4 places. 3 WARNINGs surgically fixed post-critique: (1) false engineering.tier:mvp/PR#454 citation → grounded in ETHOS §1 + PR #454 landing (open); (2) scope-breadth (31 analyses + 31 critiques may be an ocean) → carried to /architecture to tier depth by surface size; (3) product-purpose bar under-defined for ~14 orchestration/execution services → carried to /architecture. Plus suggestions applied (scaling worked-heuristic, keep-unchanged burden, DOC-CLASS bump).",
+      "gatedFor": "phase-3-human-requirement-review"
+    },
+    "architectureV1Superseded": {
+      "score": 7.8,
+      "displayScore": 8,
+      "rounds": 2,
+      "verdict": "pass",
+      "scoreLine": "SA:8 IM:7 LI:9 AC:8 DM:8 N:8 MD:8 FMC:7 S:7 V:8 FE:8",
+      "openCritical": 0,
+      "openWarning": 1,
+      "warningNote": "NEW non-blocking: hasNonDelegatedBody's limb (a) (genuine local algorithm) is a reviewer judgment the counter surfaces evidence for, not a fully mechanical output; must not be mistaken for counter-emitted. Carry into build.",
+      "round1": {
+        "score": 6.9,
+        "verdict": "blocked-below-7",
+        "scoreLine": "SA:8 IM:5 LI:9 AC:8 DM:8 N:7 MD:8 FMC:5 S:5 V:8 FE:5",
+        "critical": "Pass C + error bound + POC only handled 3-level ports.svc.method; destructured/aliased port receivers (const {work,review}=deps; work.method()) on high-value ports (work/review/agentSelection/workIntents) silently undercounted. Fixed round 2, independently re-verified by re-running the POC against real attention-service.ts/bet-decomposition.ts call sites.",
+        "warning": "Service-existence thin-wrapper rubric never produced a non-keep verdict (all 9 named services kept, including AU19's own flagged fold-candidate retention). Fixed round 2: sharpened hasNonDelegatedBody + retention traced through with a bound counterfactual proving the rubric is non-degenerate."
+      },
+      "gate": "ready-for-phase-6-human-concept-review"
+    }
+  },
+  "notes": [
+    "ANALYSIS COMPLETE (concept-gate material) via workflow au20-service-product-audit (run wf_a72cf37c-86c): landscape + 31 per-service planner\u2192reviewer\u2192revise chains + synthesis (65 agents, ~4.6M tokens). Result: 31\u219223 services, 1218\u2192~371 exports (~70% cut). 3 structural merges (durable-agent-queue = session-requests+trigger-resolution+lifecycle-projection; session-runtime = run-orchestration+session-lifecycle+context-assembly+capture-writeback; agent-execution-platform = harness-registry+tool-provider+mcp-provider) + retention distributed-dissolve. Core finding: the 14 infra services are ONE agent-session pipeline chopped per-stage (9 of 14 have <=1 consumer); much of the big export counts is DI-port-TYPE re-exports, never product surface (dispatch 58%). work(84->~35) + cost(25->11) failed structured-output in-workflow but their .md analyses landed; re-reviewed standalone 8/10 out-of-band. Per-service analyses at analysis/services/*.md; data packages at analysis/service-data-packages.json. Dashboard artifact presented to founder for concept gate. NOT built \u2014 awaiting founder decision on direction + apply-now/record-later split.",
+    "Fixed unrelated bug in .claude/hooks/guard-main.sh (false-blocked 'origin/main' worktree base) before this run could create its worktree \u2014 landed separately as PR #453, not part of AU20's scope.",
+    "engineering.tier: mvp landed globally via PR #454 (chore/engineering-tier-mvp) \u2014 OPEN, not yet merged into this worktree's base; requirements grounds the tier in ETHOS \u00a71 meanwhile, not in the unmerged config key.",
+    "Concept gate v1 REJECTED by founder (see conceptGate.v1). Reframed the whole WP off usage-counts onto architecture-coherence + product-purpose + service-as-product; back through refine (this v2) + architecture. approvals.requirements reset to false \u2014 awaiting the re-run Phase 3 gate on the reframed requirement."
+  ]
+}

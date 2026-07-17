@@ -1,0 +1,7631 @@
+[
+  {
+    "name": "connections",
+    "layer": "core-api",
+    "ownedTables": [
+      "serverCredentials",
+      "serviceConnections"
+    ],
+    "exposedApiCount": 34,
+    "exposedApi": [
+      {
+        "name": "applyProvisioningPlan",
+        "kind": "re-export"
+      },
+      {
+        "name": "buildProvisioningPlan",
+        "kind": "re-export"
+      },
+      {
+        "name": "listActiveHeld",
+        "kind": "re-export"
+      },
+      {
+        "name": "ProvisioningPlan",
+        "kind": "re-export"
+      },
+      {
+        "name": "ResolvedMcpServer",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveOwningHumanUserId",
+        "kind": "re-export"
+      },
+      {
+        "name": "SERVICE_CLI_ENV",
+        "kind": "re-export"
+      },
+      {
+        "name": "decryptCredentialValue",
+        "kind": "re-export"
+      },
+      {
+        "name": "deriveKey",
+        "kind": "re-export"
+      },
+      {
+        "name": "encryptCredentialValue",
+        "kind": "re-export"
+      },
+      {
+        "name": "getServerSecret",
+        "kind": "re-export"
+      },
+      {
+        "name": "requireServerSecret",
+        "kind": "re-export"
+      },
+      {
+        "name": "CredentialResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "DbCredentialResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "EnvCredentialResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "deleteCredentialByName",
+        "kind": "re-export"
+      },
+      {
+        "name": "findCredentialByName",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertCredential",
+        "kind": "re-export"
+      },
+      {
+        "name": "listAllCredentials",
+        "kind": "re-export"
+      },
+      {
+        "name": "ServerCredentialWriteValues",
+        "kind": "re-export"
+      },
+      {
+        "name": "SetCredentialValueInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "setCredentialValue",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateCredentialValidationState",
+        "kind": "re-export"
+      },
+      {
+        "name": "upsertCredential",
+        "kind": "re-export"
+      },
+      {
+        "name": "ConnectionsUserReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "projectInheritedConnections",
+        "kind": "re-export"
+      },
+      {
+        "name": "ServiceConnectionResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "deleteServiceConnectionForUser",
+        "kind": "re-export"
+      },
+      {
+        "name": "getServiceConnectionById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getServiceConnectionByIdForUser",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertServiceConnection",
+        "kind": "re-export"
+      },
+      {
+        "name": "listServiceConnectionsByAuthSource",
+        "kind": "re-export"
+      },
+      {
+        "name": "listServiceConnectionsByUserId",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateServiceConnectionHealth",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "filesystems",
+        "requests": [
+          "resolve"
+        ],
+        "via": "FilesystemsServiceConnectionResolver"
+      },
+      {
+        "service": "model-gateway",
+        "requests": [
+          "resolve"
+        ],
+        "via": "ModelGatewayCredentialResolver"
+      },
+      {
+        "service": "notifications",
+        "requests": [
+          "getServerSecret",
+          "encryptCredentialValue",
+          "decryptCredentialValue"
+        ],
+        "via": "NotificationsCredentialCipher"
+      },
+      {
+        "service": "notifications",
+        "requests": [
+          "findByName",
+          "upsert",
+          "deleteByName"
+        ],
+        "via": "NotificationsCredentialStore"
+      },
+      {
+        "service": "settings",
+        "requests": [
+          "getServerSecret",
+          "encryptCredentialValue",
+          "decryptCredentialValue"
+        ],
+        "via": "SettingsCredentialCipher"
+      },
+      {
+        "service": "settings",
+        "requests": [
+          "listByAuthSource"
+        ],
+        "via": "ServiceConnectionsReader"
+      },
+      {
+        "service": "settings",
+        "requests": [
+          "findByName",
+          "insert"
+        ],
+        "via": "SettingsCredentialStore"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "resolve"
+        ],
+        "via": "SessionLifecycleServiceConnectionResolver"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "resolveOwningHumanUserId",
+          "buildProvisioningPlan",
+          "applyProvisioningPlan"
+        ],
+        "via": "SessionLifecycleConnectionsProvisioner"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "users",
+        "uses": [
+          "getFirstUserByKind"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "conversation",
+    "layer": "core-api",
+    "ownedTables": [
+      "threads",
+      "messages"
+    ],
+    "exposedApiCount": 34,
+    "exposedApi": [
+      {
+        "name": "ArtifactThreadSummaryRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "InboxRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "MessageListOpts",
+        "kind": "re-export"
+      },
+      {
+        "name": "ThreadSearchRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "VerdictMessageRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "countThreads",
+        "kind": "re-export"
+      },
+      {
+        "name": "findOrCreateDirectThread",
+        "kind": "re-export"
+      },
+      {
+        "name": "getArtifactThreadSummaries",
+        "kind": "re-export"
+      },
+      {
+        "name": "getFirstPinnedThreadByHost",
+        "kind": "re-export"
+      },
+      {
+        "name": "getFirstThreadByHost",
+        "kind": "re-export"
+      },
+      {
+        "name": "getMessageByClientKey",
+        "kind": "re-export"
+      },
+      {
+        "name": "getMessageById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getMessagesByThreadIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "getThreadByDirectKey",
+        "kind": "re-export"
+      },
+      {
+        "name": "getThreadById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getThreadIdsByHost",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertMessage",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertThread",
+        "kind": "re-export"
+      },
+      {
+        "name": "listInboxByParticipantProbe",
+        "kind": "re-export"
+      },
+      {
+        "name": "listInboxBySenderExclusion",
+        "kind": "re-export"
+      },
+      {
+        "name": "listInitiatedVerdictMessages",
+        "kind": "re-export"
+      },
+      {
+        "name": "listMessagesByThread",
+        "kind": "re-export"
+      },
+      {
+        "name": "listThreadMetaByIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "listThreadsByHost",
+        "kind": "re-export"
+      },
+      {
+        "name": "listThreadsByHostKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "listThreadsByParticipant",
+        "kind": "re-export"
+      },
+      {
+        "name": "listThreadsByRecency",
+        "kind": "re-export"
+      },
+      {
+        "name": "listUnresolvedReviewThreadIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "listVerdictItemIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "listVerdictMessagesByItemIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveMessageIfUnresolved",
+        "kind": "re-export"
+      },
+      {
+        "name": "searchConversations",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateMessage",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateThread",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "notifications",
+        "requests": [
+          "listVerdictItemIds"
+        ],
+        "via": "NotificationsVerdictReader"
+      },
+      {
+        "service": "policy",
+        "requests": [
+          "insertMessage",
+          "updateMessage",
+          "listMessagesByThread",
+          "insertThread",
+          "updateThread",
+          "listInitiatedVerdictMessages",
+          "listVerdictMessagesByItemIds"
+        ],
+        "via": "PolicyConversationStore"
+      },
+      {
+        "service": "realtime",
+        "requests": [
+          "getThreadById"
+        ],
+        "via": "RealtimeThreadReader"
+      },
+      {
+        "service": "review",
+        "requests": [
+          "insertThread",
+          "updateThread",
+          "getThreadById"
+        ],
+        "via": "ReviewConversationStore"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "insertMessage",
+          "listMessagesByThread",
+          "getThreadById",
+          "updateThread",
+          "getThreadIdsByHost",
+          "insertThread"
+        ],
+        "via": "DispatchConversationAccessor"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "getMessageById"
+        ],
+        "via": "SessionRequestsConversationReader"
+      },
+      {
+        "service": "tool-handlers",
+        "requests": [
+          "getThreadById",
+          "insertThread",
+          "updateThread",
+          "insertMessage",
+          "listInboxBySenderExclusion",
+          "findOrCreateDirectThread",
+          "getFirstThreadByHost"
+        ],
+        "via": "ToolHandlersConversationAccessor"
+      }
+    ],
+    "dependsOn": [],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "filesystems",
+    "layer": "core-api",
+    "ownedTables": [
+      "filesystems",
+      "filesystemInjections",
+      "filesystemCaptures"
+    ],
+    "exposedApiCount": 61,
+    "exposedApi": [
+      {
+        "name": "FilesystemCaptureInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "writeFilesystemCapture",
+        "kind": "re-export"
+      },
+      {
+        "name": "CloudNotBuiltAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "checkAndUnblockDependents",
+        "kind": "re-export"
+      },
+      {
+        "name": "FileWatcher",
+        "kind": "re-export"
+      },
+      {
+        "name": "FileWatcherConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "startWatcher",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemReachabilityInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "ProbeResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "NoopAuthResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "probeGitRemote",
+        "kind": "re-export"
+      },
+      {
+        "name": "probeLocalPath",
+        "kind": "re-export"
+      },
+      {
+        "name": "repoToUrl",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveFilesystemState",
+        "kind": "re-export"
+      },
+      {
+        "name": "ServiceConnectionResolverAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemInjectionRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "NewFilesystem",
+        "kind": "re-export"
+      },
+      {
+        "name": "NewFilesystemInjection",
+        "kind": "re-export"
+      },
+      {
+        "name": "deleteFilesystemById",
+        "kind": "re-export"
+      },
+      {
+        "name": "deleteFilesystemInjection",
+        "kind": "re-export"
+      },
+      {
+        "name": "getFilesystemById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getFilesystemInjection",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertFilesystem",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertFilesystemInjection",
+        "kind": "re-export"
+      },
+      {
+        "name": "listFilesystemIdsByAgent",
+        "kind": "re-export"
+      },
+      {
+        "name": "listFilesystemsByIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "listFilesystemsByTeamId",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateFilesystemState",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitCloneAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitWorktreeAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "InspectLocalPathDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "LocalPathInfo",
+        "kind": "re-export"
+      },
+      {
+        "name": "inspectLocalPath",
+        "kind": "re-export"
+      },
+      {
+        "name": "LocalFolderAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "AdapterCaptureResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "MountAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "MountContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "AdapterDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "isLocalRepoPath",
+        "kind": "re-export"
+      },
+      {
+        "name": "MalformedFilesystemError",
+        "kind": "re-export"
+      },
+      {
+        "name": "RegistryFilesystemMounter",
+        "kind": "re-export"
+      },
+      {
+        "name": "selectMountAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemsAgentWorkIntentInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemsAgentWorkIntentKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemsAgentWorkIntentRecord",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemsAgentWorkIntentRecorder",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemsGitConfigInjection",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemsGitRunner",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemsGitRunnerFactory",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemsServiceConnectionResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemsWorkStore",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_AGENTS_MD",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_CLAUDE_SETTINGS",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_CLI_MCP_CONFIG",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_CODEX_HOME",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_CONTEXT_ASSEMBLY",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_MCP_JSON",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_OPENCODE_PLUGIN",
+        "kind": "re-export"
+      },
+      {
+        "name": "SANDBOX_SCAFFOLDING_PATHS",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "context-assembly",
+        "requests": [
+          "stop"
+        ],
+        "via": "ContextAssemblyFileWatcher"
+      },
+      {
+        "service": "context-assembly",
+        "requests": [
+          "startWatcher"
+        ],
+        "via": "FilesystemsReader"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "listFilesystemIdsByAgent",
+          "listFilesystemsByIds"
+        ],
+        "via": "SessionLifecycleFilesystemsReader"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "git-export",
+        "uses": [
+          "add",
+          "commit",
+          "diffCached",
+          "revParseIsInsideWorkTree",
+          "lsFiles",
+          "lsRemote",
+          "clone",
+          "bundle",
+          "worktreeAdd",
+          "worktreeRemove",
+          "restoreStaged",
+          "currentBranch"
+        ]
+      },
+      {
+        "service": "work",
+        "uses": [
+          "record"
+        ]
+      },
+      {
+        "service": "work",
+        "uses": [
+          "listHoldTasksWithDependencyPattern",
+          "getTaskById",
+          "transitionTask"
+        ]
+      },
+      {
+        "service": "connections",
+        "uses": [
+          "resolve"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [
+      "capture-writeback",
+      "notifications"
+    ],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "git-export",
+    "layer": "core-api",
+    "ownedTables": [],
+    "exposedApiCount": 47,
+    "exposedApi": [
+      {
+        "name": "ExportPlan",
+        "kind": "re-export"
+      },
+      {
+        "name": "ExportPlanEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "FsAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportTrigger",
+        "kind": "re-export"
+      },
+      {
+        "name": "RegisterGitExportHandlerOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunGitExportDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "buildCommitMessage",
+        "kind": "re-export"
+      },
+      {
+        "name": "computeExportPlan",
+        "kind": "re-export"
+      },
+      {
+        "name": "createNodeFsAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "EXPORTED_KINDS",
+        "kind": "re-export"
+      },
+      {
+        "name": "EXPORTED_STATUSES",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerGitExportHandler",
+        "kind": "re-export"
+      },
+      {
+        "name": "resetExportMutexes",
+        "kind": "re-export"
+      },
+      {
+        "name": "runGitExport",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportConfigPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "LastExportMeta",
+        "kind": "re-export"
+      },
+      {
+        "name": "SanitizeRemoteUrlOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "getLastExportMeta",
+        "kind": "re-export"
+      },
+      {
+        "name": "loadGitExportConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "readGitExportConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "redactRemoteUrl",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeAuthorEmail",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeAuthorName",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeBranch",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizePathSegment",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeRemoteUrl",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeRepoPath",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateGitExportConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "writeLastCommit",
+        "kind": "re-export"
+      },
+      {
+        "name": "writeLastPush",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateGitRunnerOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "FakeGitCall",
+        "kind": "re-export"
+      },
+      {
+        "name": "FakeGitRunner",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitConfigInjection",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitRunner",
+        "kind": "re-export"
+      },
+      {
+        "name": "createFakeGitRunner",
+        "kind": "re-export"
+      },
+      {
+        "name": "createGitRunner",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportConfigDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportConfigSection",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportConfigSectionPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportKnowledgeItemProjection",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportKnowledgeItemRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportKnowledgeReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "GitExportServerConfigPort",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "filesystems",
+        "requests": [
+          "add",
+          "commit",
+          "diffCached",
+          "revParseIsInsideWorkTree",
+          "lsFiles",
+          "lsRemote",
+          "clone",
+          "bundle",
+          "worktreeAdd",
+          "worktreeRemove",
+          "restoreStaged",
+          "currentBranch"
+        ],
+        "via": "FilesystemsGitRunner"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "settings",
+        "uses": [
+          "read",
+          "update"
+        ]
+      },
+      {
+        "service": "knowledge",
+        "uses": [
+          "listExportableItems",
+          "getProjectionByItemId"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "knowledge",
+    "layer": "core-api",
+    "ownedTables": [
+      "knowledgeItems",
+      "knowledgeEditLog",
+      "knowledgeAccessLog",
+      "knowledgeConflicts",
+      "knowledgeAppProjection"
+    ],
+    "exposedApiCount": 138,
+    "exposedApi": [
+      {
+        "name": "upsertKnowledgeAppProjectionAttentionScore",
+        "kind": "re-export"
+      },
+      {
+        "name": "AttentionRecomputeResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "AttentionRecomputeScopeError",
+        "kind": "re-export"
+      },
+      {
+        "name": "AttentionRecomputeScopeResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "AttentionRecomputeSummary",
+        "kind": "re-export"
+      },
+      {
+        "name": "AttentionService",
+        "kind": "re-export"
+      },
+      {
+        "name": "AttentionServiceDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "AttentionServiceFilter",
+        "kind": "re-export"
+      },
+      {
+        "name": "AttentionWriteExecutor",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateReviewItemForKnowledgeInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateReviewItemForKnowledgeResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeReviewWriter",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReasoningMarkerFinder",
+        "kind": "re-export"
+      },
+      {
+        "name": "buildAttentionService",
+        "kind": "re-export"
+      },
+      {
+        "name": "MAX_RECOMPUTE_BATCH",
+        "kind": "re-export"
+      },
+      {
+        "name": "RetroExistingKnowledgeItemRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "UpsertBetRetroKnowledgeItemInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "findRetroKnowledgeItemForBet",
+        "kind": "re-export"
+      },
+      {
+        "name": "upsertBetRetroKnowledgeItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateKnowledgeConflictInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeItemVersionRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "createKnowledgeConflict",
+        "kind": "re-export"
+      },
+      {
+        "name": "findKnowledgeItemVersionById",
+        "kind": "re-export"
+      },
+      {
+        "name": "findOpenConflictByItemAndProposer",
+        "kind": "re-export"
+      },
+      {
+        "name": "ItemDeletedError",
+        "kind": "re-export"
+      },
+      {
+        "name": "VersionConflictError",
+        "kind": "re-export"
+      },
+      {
+        "name": "FTS_MAX_QUERY_CHARS",
+        "kind": "re-export"
+      },
+      {
+        "name": "FTS_MAX_TOKENS",
+        "kind": "re-export"
+      },
+      {
+        "name": "FtsSearchOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "ftsSearch",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeFtsQuery",
+        "kind": "re-export"
+      },
+      {
+        "name": "setupFts",
+        "kind": "re-export"
+      },
+      {
+        "name": "ExportableKnowledgeItemFilters",
+        "kind": "re-export"
+      },
+      {
+        "name": "ExportableKnowledgeItemRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeItemProjectionRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "findKnowledgeItemProjectionById",
+        "kind": "re-export"
+      },
+      {
+        "name": "listExportableKnowledgeItems",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeScope",
+        "kind": "re-export"
+      },
+      {
+        "name": "listByScope",
+        "kind": "re-export"
+      },
+      {
+        "name": "archiveItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateKnowledgeItemInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "changeScope",
+        "kind": "re-export"
+      },
+      {
+        "name": "countAccessesSince",
+        "kind": "re-export"
+      },
+      {
+        "name": "countTriageVisible",
+        "kind": "re-export"
+      },
+      {
+        "name": "create",
+        "kind": "re-export"
+      },
+      {
+        "name": "findById",
+        "kind": "re-export"
+      },
+      {
+        "name": "findDetailById",
+        "kind": "re-export"
+      },
+      {
+        "name": "findRelatedByTopic",
+        "kind": "re-export"
+      },
+      {
+        "name": "flagItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeDetailRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeItemWithProjection",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeListRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "ListFilters",
+        "kind": "re-export"
+      },
+      {
+        "name": "list",
+        "kind": "re-export"
+      },
+      {
+        "name": "listVisibleWithSignals",
+        "kind": "re-export"
+      },
+      {
+        "name": "mergeItems",
+        "kind": "re-export"
+      },
+      {
+        "name": "search",
+        "kind": "re-export"
+      },
+      {
+        "name": "searchByText",
+        "kind": "re-export"
+      },
+      {
+        "name": "splitItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "UpdateKnowledgeItemInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "update",
+        "kind": "re-export"
+      },
+      {
+        "name": "RecentLayeredKnowledgeItemRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "listRecentByLayers",
+        "kind": "re-export"
+      },
+      {
+        "name": "ArchiveKnowledgeItemInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "CapturedProjectedItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeAppProjectionRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "RawKnowledgeAppProjectionInsert",
+        "kind": "re-export"
+      },
+      {
+        "name": "RawKnowledgeEditLogInsert",
+        "kind": "re-export"
+      },
+      {
+        "name": "RawKnowledgeItemInsert",
+        "kind": "re-export"
+      },
+      {
+        "name": "RawKnowledgeItemRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "archiveKnowledgeItemWithLogRaw",
+        "kind": "re-export"
+      },
+      {
+        "name": "findKnowledgeAppProjectionByItemIdRaw",
+        "kind": "re-export"
+      },
+      {
+        "name": "findKnowledgeItemByIdRaw",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertKnowledgeAppProjectionRaw",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertKnowledgeEditLogRaw",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertKnowledgeItemRaw",
+        "kind": "re-export"
+      },
+      {
+        "name": "listCapturedItemsByProjectionScopeRaw",
+        "kind": "re-export"
+      },
+      {
+        "name": "touchKnowledgeItemUpdatedAtRaw",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateKnowledgeAppProjectionMetaIfUnchangedRaw",
+        "kind": "re-export"
+      },
+      {
+        "name": "AUTO_PROMOTION_EDITOR",
+        "kind": "re-export"
+      },
+      {
+        "name": "AUTO_PROMOTION_REPETITION_THRESHOLD",
+        "kind": "re-export"
+      },
+      {
+        "name": "AutoPromotionResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "AutoPromotionSweepResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "ContradictionResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "checkAutoPromotion",
+        "kind": "re-export"
+      },
+      {
+        "name": "DEFAULT_SWEEP_MAX_BATCH_SIZE",
+        "kind": "re-export"
+      },
+      {
+        "name": "detectLayerContradiction",
+        "kind": "re-export"
+      },
+      {
+        "name": "findStaleItems",
+        "kind": "re-export"
+      },
+      {
+        "name": "markStale",
+        "kind": "re-export"
+      },
+      {
+        "name": "runAutoPromotionSweep",
+        "kind": "re-export"
+      },
+      {
+        "name": "runStaleSweep",
+        "kind": "re-export"
+      },
+      {
+        "name": "STALE_THRESHOLD_MS",
+        "kind": "re-export"
+      },
+      {
+        "name": "StaleSweepOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "StaleSweepResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "PromoteKnowledgeItemInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "PromoteKnowledgeItemResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "findKnowledgeItemStatusById",
+        "kind": "re-export"
+      },
+      {
+        "name": "promoteKnowledgeItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "RelevanceConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "RelevanceInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "RelevanceShape",
+        "kind": "re-export"
+      },
+      {
+        "name": "RelevanceWeights",
+        "kind": "re-export"
+      },
+      {
+        "name": "computeRelevanceScore",
+        "kind": "re-export"
+      },
+      {
+        "name": "DEFAULT_RELEVANCE_CONFIG",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerRelevanceListener",
+        "kind": "re-export"
+      },
+      {
+        "name": "rankAndBudget",
+        "kind": "re-export"
+      },
+      {
+        "name": "scoreItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "RelevanceService",
+        "kind": "re-export"
+      },
+      {
+        "name": "SignalSet",
+        "kind": "re-export"
+      },
+      {
+        "name": "createRelevanceService",
+        "kind": "re-export"
+      },
+      {
+        "name": "reapKnowledgeAccessLog",
+        "kind": "re-export"
+      },
+      {
+        "name": "communityForRole",
+        "kind": "re-export"
+      },
+      {
+        "name": "RecordKnowledgeAccessInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "SearchVisibleKnowledgeRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "listTitlesByIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "recordKnowledgeAccess",
+        "kind": "re-export"
+      },
+      {
+        "name": "searchVisibleByText",
+        "kind": "re-export"
+      },
+      {
+        "name": "ATTENTION_THRESHOLD",
+        "kind": "re-export"
+      },
+      {
+        "name": "AttentionWeights",
+        "kind": "re-export"
+      },
+      {
+        "name": "CONTEXT_WINDOW_TOKENS",
+        "kind": "re-export"
+      },
+      {
+        "name": "DEFAULT_KNOWLEDGE_BUDGET",
+        "kind": "re-export"
+      },
+      {
+        "name": "KNOWLEDGE_ALLOCATION_RATIO",
+        "kind": "re-export"
+      },
+      {
+        "name": "loadAttentionWeights",
+        "kind": "re-export"
+      },
+      {
+        "name": "loadRelevanceConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "loadScoringWeights",
+        "kind": "re-export"
+      },
+      {
+        "name": "ScoringContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "ScoringWeights",
+        "kind": "re-export"
+      },
+      {
+        "name": "countItemTokens",
+        "kind": "re-export"
+      },
+      {
+        "name": "countTokens",
+        "kind": "re-export"
+      },
+      {
+        "name": "enforceBudget",
+        "kind": "re-export"
+      },
+      {
+        "name": "ScoredItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "KNOWLEDGE_STATUSES",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeLayer",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeStatus",
+        "kind": "re-export"
+      },
+      {
+        "name": "PropagationLevel",
+        "kind": "re-export"
+      },
+      {
+        "name": "RecordWritebackConflictInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "recordWritebackConflict",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "git-export",
+        "requests": [
+          "listExportableItems",
+          "getProjectionByItemId"
+        ],
+        "via": "GitExportKnowledgeReader"
+      },
+      {
+        "service": "retention",
+        "requests": [
+          "reapKnowledgeAccessLog"
+        ],
+        "via": "RetentionKnowledgeAccessLogReaper"
+      },
+      {
+        "service": "review",
+        "requests": [
+          "insertKnowledgeItem",
+          "insertKnowledgeAppProjection",
+          "insertKnowledgeEditLog",
+          "findKnowledgeItemById",
+          "findKnowledgeAppProjectionByItemId",
+          "updateKnowledgeAppProjectionMetaIfUnchanged",
+          "touchKnowledgeItemUpdatedAt",
+          "listCapturedItemsByProjectionScope",
+          "archiveKnowledgeItemWithLog"
+        ],
+        "via": "PracticeMeetingKnowledgeStore"
+      },
+      {
+        "service": "capture-writeback",
+        "requests": [
+          "create",
+          "update",
+          "recordConflict"
+        ],
+        "via": "CaptureWritebackKnowledgeWriter"
+      },
+      {
+        "service": "context-assembly",
+        "requests": [
+          "list",
+          "rankAndBudget",
+          "countTokens"
+        ],
+        "via": "KnowledgeReader"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "runAutoPromotionSweep",
+          "runStaleSweep",
+          "listRecentByLayers",
+          "recomputeAttentionForCandidates"
+        ],
+        "via": "DispatchKnowledgeAccessor"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "findById"
+        ],
+        "via": "SessionRequestsKnowledgeReader"
+      },
+      {
+        "service": "tool-handlers",
+        "requests": [
+          "search",
+          "create",
+          "findKnowledgeItemVersionById",
+          "findKnowledgeItemStatusById",
+          "findOpenConflictByItemAndProposer",
+          "createKnowledgeConflict",
+          "promoteKnowledgeItem",
+          "upsertKnowledgeAppProjectionAttentionScore",
+          "recomputeAttentionScoreForItem"
+        ],
+        "via": "ToolHandlersKnowledgeAccessor"
+      }
+    ],
+    "dependsOn": [],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "model-gateway",
+    "layer": "core-api",
+    "ownedTables": [],
+    "exposedApiCount": 6,
+    "exposedApi": [
+      {
+        "name": "AgentModelParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "BUILT_IN_GATEWAY_CONFIG",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveAgentModel",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveModelTier",
+        "kind": "re-export"
+      },
+      {
+        "name": "UnsupportedAgentProviderError",
+        "kind": "re-export"
+      },
+      {
+        "name": "ModelGatewayCredentialResolver",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "dispatch",
+        "requests": [
+          "resolve"
+        ],
+        "via": "DispatchCredentialResolver"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "resolveAgentModel",
+          "resolveModelTier"
+        ],
+        "via": "DispatchModelGatewayAccessor"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "connections",
+        "uses": [
+          "resolve"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "notifications",
+    "layer": "core-api",
+    "ownedTables": [
+      "notificationQueue"
+    ],
+    "exposedApiCount": 89,
+    "exposedApi": [
+      {
+        "name": "defaultNotificationAdapterFactory",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationConfigPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "SafeNotificationConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "assertNtfyUrlNotSSRF",
+        "kind": "re-export"
+      },
+      {
+        "name": "loadNotificationConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "pickRecipient",
+        "kind": "re-export"
+      },
+      {
+        "name": "readNotificationConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "redactNotificationConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeCron",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeEmail",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeNtfyUrl",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeSmtpCredential",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeSmtpHost",
+        "kind": "re-export"
+      },
+      {
+        "name": "sanitizeTopic",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateNotificationConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "ConsoleAdapterOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "createConsoleAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "getDailyDigest",
+        "kind": "re-export"
+      },
+      {
+        "name": "DigestResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "runDailyDigest",
+        "kind": "re-export"
+      },
+      {
+        "name": "AdapterFactory",
+        "kind": "re-export"
+      },
+      {
+        "name": "AlertPreferences",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatcherDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "applyAlertPreferences",
+        "kind": "re-export"
+      },
+      {
+        "name": "dispatchDigest",
+        "kind": "re-export"
+      },
+      {
+        "name": "enqueueNotification",
+        "kind": "re-export"
+      },
+      {
+        "name": "flushQueue",
+        "kind": "re-export"
+      },
+      {
+        "name": "recoverStuckLeases",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerNotificationDispatcher",
+        "kind": "re-export"
+      },
+      {
+        "name": "tryFloodReserve",
+        "kind": "re-export"
+      },
+      {
+        "name": "DrainDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "NOTIFICATION_DRAIN_INTERVAL_MS",
+        "kind": "re-export"
+      },
+      {
+        "name": "startNotificationDrain",
+        "kind": "re-export"
+      },
+      {
+        "name": "MutePreferenceReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "MutePreferenceWriter",
+        "kind": "re-export"
+      },
+      {
+        "name": "defaultMutePreferenceReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "defaultMutePreferenceWriter",
+        "kind": "re-export"
+      },
+      {
+        "name": "getMutedTypeKeys",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationListenerDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerNotificationListener",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationQueuePatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "claimForSend",
+        "kind": "re-export"
+      },
+      {
+        "name": "deleteReaped",
+        "kind": "re-export"
+      },
+      {
+        "name": "findById",
+        "kind": "re-export"
+      },
+      {
+        "name": "findPendingByEventSubject",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertNotification",
+        "kind": "re-export"
+      },
+      {
+        "name": "listAll",
+        "kind": "re-export"
+      },
+      {
+        "name": "listByIdsWithStatus",
+        "kind": "re-export"
+      },
+      {
+        "name": "listByStatus",
+        "kind": "re-export"
+      },
+      {
+        "name": "listPending",
+        "kind": "re-export"
+      },
+      {
+        "name": "listPendingDigest",
+        "kind": "re-export"
+      },
+      {
+        "name": "listStuckLeases",
+        "kind": "re-export"
+      },
+      {
+        "name": "listUnread",
+        "kind": "re-export"
+      },
+      {
+        "name": "markRead",
+        "kind": "re-export"
+      },
+      {
+        "name": "markSeenAll",
+        "kind": "re-export"
+      },
+      {
+        "name": "queueCountByStatus",
+        "kind": "re-export"
+      },
+      {
+        "name": "requeueLease",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateManyByIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateStatus",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsConfigDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsConfigPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsConfigSection",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsCredentialCipher",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsCredentialStore",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsDeliveryConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsDigestDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsMuteDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsServerConfigPort",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsSilenceConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsSilenceDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsTeamReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsUserReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsVerdictReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsWorkReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "ScrubContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "scrubErrorMessage",
+        "kind": "re-export"
+      },
+      {
+        "name": "isFactorySilenced",
+        "kind": "re-export"
+      },
+      {
+        "name": "isInSilenceWindow",
+        "kind": "re-export"
+      },
+      {
+        "name": "isSilenced",
+        "kind": "re-export"
+      },
+      {
+        "name": "readSilenceWindow",
+        "kind": "re-export"
+      },
+      {
+        "name": "Classification",
+        "kind": "re-export"
+      },
+      {
+        "name": "Notification",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationChannel",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationSeverity",
+        "kind": "re-export"
+      },
+      {
+        "name": "QueueReason",
+        "kind": "re-export"
+      },
+      {
+        "name": "Recipient",
+        "kind": "re-export"
+      },
+      {
+        "name": "SendResult",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "policy",
+        "requests": [
+          "isSilenced"
+        ],
+        "via": "PolicySilenceChecker"
+      },
+      {
+        "service": "policy",
+        "requests": [
+          "insert"
+        ],
+        "via": "PolicyNotificationQueue"
+      },
+      {
+        "service": "retention",
+        "requests": [
+          "deleteReaped"
+        ],
+        "via": "RetentionNotificationQueueReaper"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "settings",
+        "uses": [
+          "read",
+          "update"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getUserById"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "getTeamMembersById"
+        ]
+      },
+      {
+        "service": "work",
+        "uses": [
+          "listQueuedItemsSince",
+          "getItemById"
+        ]
+      },
+      {
+        "service": "conversation",
+        "uses": [
+          "listVerdictItemIds"
+        ]
+      },
+      {
+        "service": "connections",
+        "uses": [
+          "getServerSecret",
+          "encryptCredentialValue",
+          "decryptCredentialValue"
+        ]
+      },
+      {
+        "service": "connections",
+        "uses": [
+          "findByName",
+          "upsert",
+          "deleteByName"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": [
+      "cost",
+      "dispatch",
+      "filesystems",
+      "work"
+    ]
+  },
+  {
+    "name": "observability",
+    "layer": "core-api",
+    "ownedTables": [],
+    "exposedApiCount": 23,
+    "exposedApi": [
+      {
+        "name": "ObservabilityConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "ObservabilityConfigPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "SafeObservabilityConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "readObservabilityConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "redactObservabilityConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateObservabilityConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "createConsoleObservabilityAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatcherDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "RegisterObservabilityDispatcherDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "TraceIdResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "createDbTraceIdResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "createObservabilityDispatcher",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerObservabilityDispatcher",
+        "kind": "re-export"
+      },
+      {
+        "name": "summarizeToolArgs",
+        "kind": "re-export"
+      },
+      {
+        "name": "ObservabilityConfigDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "ObservabilityConfigSection",
+        "kind": "re-export"
+      },
+      {
+        "name": "ObservabilityConfigSectionPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "ObservabilityServerConfigPort",
+        "kind": "re-export"
+      },
+      {
+        "name": "FlushOutcome",
+        "kind": "re-export"
+      },
+      {
+        "name": "ObservabilityAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "ObservabilityChannel",
+        "kind": "re-export"
+      },
+      {
+        "name": "ObservabilityDispatcher",
+        "kind": "re-export"
+      },
+      {
+        "name": "ObservabilityDispatcherStatus",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "summarizeToolArgs"
+        ],
+        "via": "SessionLifecycleObservability"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "settings",
+        "uses": [
+          "read",
+          "update"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "org",
+    "layer": "core-api",
+    "ownedTables": [
+      "teamMembers",
+      "orgEdges",
+      "teams"
+    ],
+    "exposedApiCount": 36,
+    "exposedApi": [
+      {
+        "name": "UpsertOrgEdgeInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "deleteOrgEdgeById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getOrgEdgeById",
+        "kind": "re-export"
+      },
+      {
+        "name": "listOrgEdges",
+        "kind": "re-export"
+      },
+      {
+        "name": "upsertOrgEdge",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewRoutingContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveReviewRecipients",
+        "kind": "re-export"
+      },
+      {
+        "name": "OrgUserDirectory",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentScaffoldSpec",
+        "kind": "re-export"
+      },
+      {
+        "name": "PrimaryHarnessConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "ScaffoldResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "persistScaffoldedAgents",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveTeamAgentHarness",
+        "kind": "re-export"
+      },
+      {
+        "name": "ActiveTeamMembersWithTeamName",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateTeamInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateTeamMembersGroupInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "ApiError",
+        "kind": "re-export"
+      },
+      {
+        "name": "createTeam",
+        "kind": "re-export"
+      },
+      {
+        "name": "createTeamMembersGroup",
+        "kind": "re-export"
+      },
+      {
+        "name": "deleteTeamById",
+        "kind": "re-export"
+      },
+      {
+        "name": "deleteTeamMembersGroupById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getTeamById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getTeamByName",
+        "kind": "re-export"
+      },
+      {
+        "name": "getTeamMembersById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getTeamMembersByTeamId",
+        "kind": "re-export"
+      },
+      {
+        "name": "incrementTeamMembersCost",
+        "kind": "re-export"
+      },
+      {
+        "name": "listActiveTeamMembersWithTeamNames",
+        "kind": "re-export"
+      },
+      {
+        "name": "listAllTeamMembers",
+        "kind": "re-export"
+      },
+      {
+        "name": "listAllTeams",
+        "kind": "re-export"
+      },
+      {
+        "name": "listTeamsByIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "loadTeamMembers",
+        "kind": "re-export"
+      },
+      {
+        "name": "resetAllTeamMembersCost",
+        "kind": "re-export"
+      },
+      {
+        "name": "resetTeamMembersCost",
+        "kind": "re-export"
+      },
+      {
+        "name": "setTeamMembersActiveBets",
+        "kind": "re-export"
+      },
+      {
+        "name": "setTeamMembersLeadAgent",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateTeamPhase",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "notifications",
+        "requests": [
+          "getTeamMembersById"
+        ],
+        "via": "NotificationsTeamReader"
+      },
+      {
+        "service": "policy",
+        "requests": [
+          "getByTeamId"
+        ],
+        "via": "PolicyOrgTeamReader"
+      },
+      {
+        "service": "realtime",
+        "requests": [
+          "getTeamMembersById"
+        ],
+        "via": "RealtimeOrgTeamReader"
+      },
+      {
+        "service": "review",
+        "requests": [
+          "resolveReviewRecipients"
+        ],
+        "via": "ReviewOrgRouting"
+      },
+      {
+        "service": "work",
+        "requests": [
+          "getByTeamId",
+          "setActiveBets"
+        ],
+        "via": "TeamCapacityReader"
+      },
+      {
+        "service": "agent-selection",
+        "requests": [
+          "getTeamMembersByTeamId"
+        ],
+        "via": "AgentSelectionTeamReader"
+      },
+      {
+        "service": "context-assembly",
+        "requests": [
+          "getTeamById"
+        ],
+        "via": "TeamReader"
+      },
+      {
+        "service": "cost",
+        "requests": [
+          "getTeamMembersById",
+          "incrementTeamMembersCost",
+          "resetTeamMembersCost",
+          "resetAllTeamMembersCost"
+        ],
+        "via": "CostTeamAccessor"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "getTeamMembersByTeamId"
+        ],
+        "via": "SessionRequestsTeamReader"
+      },
+      {
+        "service": "tool-handlers",
+        "requests": [
+          "getTeamById",
+          "getTeamMembersByTeamId",
+          "getTeamMembersById",
+          "createTeam",
+          "createTeamMembersGroup",
+          "setTeamMembersLeadAgent",
+          "resolveReviewRecipientsForItem",
+          "persistScaffoldedAgents"
+        ],
+        "via": "ToolHandlersOrgAccessor"
+      },
+      {
+        "service": "trigger-resolution",
+        "requests": [
+          "getTeamMembersByTeamId"
+        ],
+        "via": "TriggerResolutionTeamReader"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "users",
+        "uses": [
+          "getUserById",
+          "insertUser",
+          "listUsersByKind"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "policy",
+    "layer": "core-api",
+    "ownedTables": [],
+    "exposedApiCount": 32,
+    "exposedApi": [
+      {
+        "name": "ApprovalRateResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "computeApprovalRate",
+        "kind": "re-export"
+      },
+      {
+        "name": "HandoffMetadata",
+        "kind": "re-export"
+      },
+      {
+        "name": "HandoffParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "HandoffResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "buildHandoff",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerLifecyclePropagation",
+        "kind": "re-export"
+      },
+      {
+        "name": "retryFailedPropagations",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerPolicyEngine",
+        "kind": "re-export"
+      },
+      {
+        "name": "ApprovalRateDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "HandoffDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "LifecyclePropagationDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "NewMessagePayload",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyAgentWorkIntentInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyAgentWorkIntentKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyAgentWorkIntentRecord",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyAgentWorkIntentRecorder",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyConversationStore",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyEngineDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyMessageListOpts",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyNewNotificationRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyNotificationQueue",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyOrgTeamReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicySessionContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicySessionRunRegistry",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicySilenceChecker",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicySilenceItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyUserDirectory",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyVerdictMessageRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "PolicyWorkStore",
+        "kind": "re-export"
+      },
+      {
+        "name": "InvalidTransitionError",
+        "kind": "re-export"
+      },
+      {
+        "name": "VALID_TRANSITIONS",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "tool-handlers",
+        "requests": [
+          "handoff"
+        ],
+        "via": "ToolHandlersPolicyAccessor"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "work",
+        "uses": [
+          "getItemById",
+          "updateItemById",
+          "listItemIdsBySourceAgent",
+          "getTaskById",
+          "updateTaskById",
+          "createItem",
+          "getBetById",
+          "transitionBetStatus",
+          "transitionTaskState",
+          "listTasks"
+        ]
+      },
+      {
+        "service": "conversation",
+        "uses": [
+          "insertMessage",
+          "updateMessage",
+          "listMessagesByThread",
+          "insertThread",
+          "updateThread",
+          "listInitiatedVerdictMessages",
+          "listVerdictMessagesByItemIds"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getUserById",
+          "getFirstUserByKind",
+          "findActiveTeammateByRole"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "getByTeamId"
+        ]
+      },
+      {
+        "service": "notifications",
+        "uses": [
+          "isSilenced"
+        ]
+      },
+      {
+        "service": "notifications",
+        "uses": [
+          "insert"
+        ]
+      },
+      {
+        "service": "session-requests",
+        "uses": [
+          "record"
+        ]
+      },
+      {
+        "service": "session-requests",
+        "uses": [
+          "abort"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [
+      "cost",
+      "dispatch",
+      "realtime",
+      "work"
+    ],
+    "eventsReceivedFrom": [
+      "session-lifecycle",
+      "work"
+    ]
+  },
+  {
+    "name": "realtime",
+    "layer": "core-api",
+    "ownedTables": [],
+    "exposedApiCount": 12,
+    "exposedApi": [
+      {
+        "name": "RealtimeOrgTeamReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "RealtimeTaskReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "RealtimeTeamMembersRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "RealtimeThreadReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "RealtimeThreadRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "RealtimeUserDirectory",
+        "kind": "re-export"
+      },
+      {
+        "name": "RealtimeUserRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "SubscribeAuthorizerDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "SubscribeResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "WsClient",
+        "kind": "re-export"
+      },
+      {
+        "name": "createDbSubscribeAuthorizer",
+        "kind": "re-export"
+      },
+      {
+        "name": "WsBroadcaster",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [],
+    "dependsOn": [
+      {
+        "service": "conversation",
+        "uses": [
+          "getThreadById"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getUserById"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "getTeamMembersById"
+        ]
+      },
+      {
+        "service": "work",
+        "uses": [
+          "getTaskById"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": [
+      "cost",
+      "policy",
+      "session-lifecycle",
+      "work"
+    ]
+  },
+  {
+    "name": "retention",
+    "layer": "core-api",
+    "ownedTables": [],
+    "exposedApiCount": 11,
+    "exposedApi": [
+      {
+        "name": "RetentionKnowledgeAccessLogReaper",
+        "kind": "re-export"
+      },
+      {
+        "name": "RetentionNotificationQueueReaper",
+        "kind": "re-export"
+      },
+      {
+        "name": "RetentionReaperDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "RetentionUsersReaper",
+        "kind": "re-export"
+      },
+      {
+        "name": "RetentionReaperOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "RetentionSweepResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "CONSUMED_INVITE_TTL_MS",
+        "kind": "re-export"
+      },
+      {
+        "name": "RETENTION_REAPER_INTERVAL_MS",
+        "kind": "re-export"
+      },
+      {
+        "name": "reapRetentionOnce",
+        "kind": "re-export"
+      },
+      {
+        "name": "startRetentionReaper",
+        "kind": "re-export"
+      },
+      {
+        "name": "TERMINAL_LOG_TTL_MS",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [],
+    "dependsOn": [
+      {
+        "service": "users",
+        "uses": [
+          "reapLoginSessions",
+          "reapInviteCodes"
+        ]
+      },
+      {
+        "service": "knowledge",
+        "uses": [
+          "reapKnowledgeAccessLog"
+        ]
+      },
+      {
+        "service": "notifications",
+        "uses": [
+          "deleteReaped"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "review",
+    "layer": "core-api",
+    "ownedTables": [
+      "proposedCalls",
+      "operationOutcomes",
+      "tailoredGrants"
+    ],
+    "exposedApiCount": 48,
+    "exposedApi": [
+      {
+        "name": "ArchiveKnowledgeItemInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "CapturedProjectedItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeAppProjectionRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "PracticeMeetingKnowledgeStore",
+        "kind": "re-export"
+      },
+      {
+        "name": "RawKnowledgeAppProjectionInsert",
+        "kind": "re-export"
+      },
+      {
+        "name": "RawKnowledgeEditLogInsert",
+        "kind": "re-export"
+      },
+      {
+        "name": "RawKnowledgeItemInsert",
+        "kind": "re-export"
+      },
+      {
+        "name": "RawKnowledgeItemRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewAgentWorkIntentInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewAgentWorkIntentKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewAgentWorkIntentRecord",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewAgentWorkIntentRecorder",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewConversationStore",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewOrgRouting",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewRoutingContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewTaskPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewUserDirectory",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewWorkStore",
+        "kind": "re-export"
+      },
+      {
+        "name": "TaskRiskTierReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreatePracticeMeetingInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreatePracticeMeetingResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "PracticeMeetingTurnInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "PracticeMeetingTurnResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "ProposalInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReactionInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunPracticeMeetingTurnInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "SynthesisInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "createPracticeMeeting",
+        "kind": "re-export"
+      },
+      {
+        "name": "PRACTICE_MEETING_ANCHOR_ROLE",
+        "kind": "re-export"
+      },
+      {
+        "name": "runPracticeMeetingTurn",
+        "kind": "re-export"
+      },
+      {
+        "name": "ProposedCallWithOutcomeRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "captureProposedCall",
+        "kind": "re-export"
+      },
+      {
+        "name": "composeTailoredGrant",
+        "kind": "re-export"
+      },
+      {
+        "name": "consumeTailoredGrant",
+        "kind": "re-export"
+      },
+      {
+        "name": "findGrantedProposedCall",
+        "kind": "re-export"
+      },
+      {
+        "name": "findProposedCallByReviewMessageId",
+        "kind": "re-export"
+      },
+      {
+        "name": "findProposedCallWithOutcomeByReviewMessageId",
+        "kind": "re-export"
+      },
+      {
+        "name": "handleUnconsumedGrantOnSessionEnd",
+        "kind": "re-export"
+      },
+      {
+        "name": "holdProposedCall",
+        "kind": "re-export"
+      },
+      {
+        "name": "recordOutcome",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateReviewItemForKnowledgeInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateReviewItemForKnowledgeResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReviewItemFactoryDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "ATTENTION_REVIEW_SOURCE",
+        "kind": "re-export"
+      },
+      {
+        "name": "attentionReviewReasoningMarker",
+        "kind": "re-export"
+      },
+      {
+        "name": "buildCreateReviewItemForKnowledge",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionReviewCreatorDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerSessionReviewCreator",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "dispatch",
+        "requests": [
+          "createPracticeMeeting"
+        ],
+        "via": "DispatchReviewAccessor"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "findGrantedProposedCall"
+        ],
+        "via": "SessionRequestsReviewReader"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "work",
+        "uses": [
+          "getTaskById",
+          "updateTaskById",
+          "createItem"
+        ]
+      },
+      {
+        "service": "conversation",
+        "uses": [
+          "insertThread",
+          "updateThread",
+          "getThreadById"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getUserById",
+          "listUsersByKind"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "resolveReviewRecipients"
+        ]
+      },
+      {
+        "service": "knowledge",
+        "uses": [
+          "insertKnowledgeItem",
+          "insertKnowledgeAppProjection",
+          "insertKnowledgeEditLog",
+          "findKnowledgeItemById",
+          "findKnowledgeAppProjectionByItemId",
+          "updateKnowledgeAppProjectionMetaIfUnchanged",
+          "touchKnowledgeItemUpdatedAt",
+          "listCapturedItemsByProjectionScope",
+          "archiveKnowledgeItemWithLog"
+        ]
+      },
+      {
+        "service": "work",
+        "uses": [
+          "getRiskTierByTaskId"
+        ]
+      },
+      {
+        "service": "session-requests",
+        "uses": [
+          "record"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": [
+      "session-lifecycle"
+    ]
+  },
+  {
+    "name": "routine",
+    "layer": "core-api",
+    "ownedTables": [
+      "routines",
+      "routineRuns"
+    ],
+    "exposedApiCount": 24,
+    "exposedApi": [
+      {
+        "name": "InsertRoutineOpts",
+        "kind": "re-export"
+      },
+      {
+        "name": "Routine",
+        "kind": "re-export"
+      },
+      {
+        "name": "RoutinePatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "RoutineRun",
+        "kind": "re-export"
+      },
+      {
+        "name": "RoutineRunPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "avgRoutineRunCost",
+        "kind": "re-export"
+      },
+      {
+        "name": "countRoutinesByTeam",
+        "kind": "re-export"
+      },
+      {
+        "name": "findRunningRoutineRun",
+        "kind": "re-export"
+      },
+      {
+        "name": "getRoutineById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getRoutineRunById",
+        "kind": "re-export"
+      },
+      {
+        "name": "incrementRoutineCost",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertRoutine",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertRoutineRun",
+        "kind": "re-export"
+      },
+      {
+        "name": "listActiveRoutines",
+        "kind": "re-export"
+      },
+      {
+        "name": "listRoutineRunsByRoutine",
+        "kind": "re-export"
+      },
+      {
+        "name": "listRoutines",
+        "kind": "re-export"
+      },
+      {
+        "name": "listRoutinesByTeam",
+        "kind": "re-export"
+      },
+      {
+        "name": "listScheduledRoutinesMissingNextRunAt",
+        "kind": "re-export"
+      },
+      {
+        "name": "sumRoutineRunCostForRoutinesSince",
+        "kind": "re-export"
+      },
+      {
+        "name": "sumRoutineRunCostSince",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateRoutineById",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateRoutineRunById",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateRoutineRunIfRunning",
+        "kind": "re-export"
+      },
+      {
+        "name": "humanizeSchedule",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "settings",
+        "requests": [
+          "listRoutines"
+        ],
+        "via": "RoutineReader"
+      },
+      {
+        "service": "context-assembly",
+        "requests": [
+          "getRoutineById"
+        ],
+        "via": "RoutineReader"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "insertRoutine",
+          "getRoutineById",
+          "insertRoutineRun",
+          "updateRoutineById",
+          "findRunningRoutineRun",
+          "listActiveRoutines",
+          "listScheduledRoutinesMissingNextRunAt",
+          "sumRoutineRunCostSince"
+        ],
+        "via": "DispatchRoutineAccessor"
+      },
+      {
+        "service": "lifecycle-projection",
+        "requests": [
+          "updateRoutineRunIfRunning"
+        ],
+        "via": "LifecycleProjectionRoutineWriter"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "getRoutineById",
+          "findRunningRoutineRun",
+          "updateRoutineRunById",
+          "updateRoutineById",
+          "incrementRoutineCost"
+        ],
+        "via": "SessionLifecycleRoutineAccessor"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "getRoutineRunById",
+          "getRoutineById",
+          "updateRoutineRunIfRunning"
+        ],
+        "via": "SessionRequestsRoutineReader"
+      },
+      {
+        "service": "tool-handlers",
+        "requests": [
+          "insertRoutine",
+          "getRoutineById",
+          "updateRoutineById"
+        ],
+        "via": "ToolHandlersRoutineAccessor"
+      }
+    ],
+    "dependsOn": [],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "settings",
+    "layer": "core-api",
+    "ownedTables": [
+      "serverConfig",
+      "plugins",
+      "pluginConfigurationDefaults",
+      "configurationOverrides"
+    ],
+    "exposedApiCount": 36,
+    "exposedApi": [
+      {
+        "name": "AgentBehaviorConfigError",
+        "kind": "re-export"
+      },
+      {
+        "name": "ListAgentBehaviorConfigOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "listAgentBehaviorConfiguration",
+        "kind": "re-export"
+      },
+      {
+        "name": "PatchAgentBehaviorConfigInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "patchAgentBehaviorConfiguration",
+        "kind": "re-export"
+      },
+      {
+        "name": "BackfillLegacyConfigurationDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "BackfillLegacyConfigurationOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "ClearConfigurationOverrideInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "LoadBuiltInConfigurationDefaultsInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "LoadPluginConfigurationDefaultsInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "PluginConfigurationSeed",
+        "kind": "re-export"
+      },
+      {
+        "name": "PluginConfigurationSource",
+        "kind": "re-export"
+      },
+      {
+        "name": "PluginStateOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "SetConfigurationOverrideInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "BUILTIN_PLUGIN_SOURCE",
+        "kind": "re-export"
+      },
+      {
+        "name": "backfillLegacyConfigurationDefaults",
+        "kind": "re-export"
+      },
+      {
+        "name": "clearConfigurationOverride",
+        "kind": "re-export"
+      },
+      {
+        "name": "getResolvedConfiguration",
+        "kind": "re-export"
+      },
+      {
+        "name": "listResolvedConfiguration",
+        "kind": "re-export"
+      },
+      {
+        "name": "loadBuiltInConfigurationDefaults",
+        "kind": "re-export"
+      },
+      {
+        "name": "loadPluginConfigurationDefaults",
+        "kind": "re-export"
+      },
+      {
+        "name": "projectProductionConfigurationDefaults",
+        "kind": "re-export"
+      },
+      {
+        "name": "setConfigurationOverride",
+        "kind": "re-export"
+      },
+      {
+        "name": "setPluginConfigurationState",
+        "kind": "re-export"
+      },
+      {
+        "name": "RoutineReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "SettingsCredentialCipher",
+        "kind": "re-export"
+      },
+      {
+        "name": "SettingsUserDirectory",
+        "kind": "re-export"
+      },
+      {
+        "name": "ServerConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "ServerConfigPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "ModelGatewayConfigSchema",
+        "kind": "re-export"
+      },
+      {
+        "name": "ModelTierConfigSchema",
+        "kind": "re-export"
+      },
+      {
+        "name": "migrateCredentialsToStore",
+        "kind": "re-export"
+      },
+      {
+        "name": "NotificationsSchema",
+        "kind": "re-export"
+      },
+      {
+        "name": "readServerConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "ServerConfigSchema",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateServerConfig",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "git-export",
+        "requests": [
+          "read",
+          "update"
+        ],
+        "via": "GitExportServerConfigPort"
+      },
+      {
+        "service": "notifications",
+        "requests": [
+          "read",
+          "update"
+        ],
+        "via": "NotificationsServerConfigPort"
+      },
+      {
+        "service": "observability",
+        "requests": [
+          "read",
+          "update"
+        ],
+        "via": "ObservabilityServerConfigPort"
+      },
+      {
+        "service": "cost",
+        "requests": [
+          "readServerConfig",
+          "updateServerConfig"
+        ],
+        "via": "CostSettingsAccessor"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "readServerConfig"
+        ],
+        "via": "DispatchSettingsAccessor"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "readServerConfig"
+        ],
+        "via": "SessionLifecycleSettingsReader"
+      },
+      {
+        "service": "trigger-resolution",
+        "requests": [
+          "listResolvedConfiguration"
+        ],
+        "via": "TriggerResolutionConfigReader"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "routine",
+        "uses": [
+          "listRoutines"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "listUsersByKind"
+        ]
+      },
+      {
+        "service": "connections",
+        "uses": [
+          "getServerSecret",
+          "encryptCredentialValue",
+          "decryptCredentialValue"
+        ]
+      },
+      {
+        "service": "connections",
+        "uses": [
+          "listByAuthSource"
+        ]
+      },
+      {
+        "service": "connections",
+        "uses": [
+          "findByName",
+          "insert"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "users",
+    "layer": "core-api",
+    "ownedTables": [
+      "users",
+      "loginSessions",
+      "inviteCodes",
+      "hintProgress"
+    ],
+    "exposedApiCount": 38,
+    "exposedApi": [
+      {
+        "name": "DismissedHint",
+        "kind": "re-export"
+      },
+      {
+        "name": "dismissHint",
+        "kind": "re-export"
+      },
+      {
+        "name": "listDismissedHints",
+        "kind": "re-export"
+      },
+      {
+        "name": "claimInvite",
+        "kind": "re-export"
+      },
+      {
+        "name": "createInvite",
+        "kind": "re-export"
+      },
+      {
+        "name": "generateInviteCode",
+        "kind": "re-export"
+      },
+      {
+        "name": "reapInviteCodes",
+        "kind": "re-export"
+      },
+      {
+        "name": "createLoginSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "findLoginSessionByTokenHash",
+        "kind": "re-export"
+      },
+      {
+        "name": "generateToken",
+        "kind": "re-export"
+      },
+      {
+        "name": "hashToken",
+        "kind": "re-export"
+      },
+      {
+        "name": "reapLoginSessions",
+        "kind": "re-export"
+      },
+      {
+        "name": "revokeLoginSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "validateBearerToken",
+        "kind": "re-export"
+      },
+      {
+        "name": "UpgradeTokenStore",
+        "kind": "re-export"
+      },
+      {
+        "name": "createUpgradeTokenStore",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentProfileRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "OrgDirectoryRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "findActiveTeammateByRole",
+        "kind": "re-export"
+      },
+      {
+        "name": "getFirstUserByKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "getOrCreateUser",
+        "kind": "re-export"
+      },
+      {
+        "name": "getUserById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getUserByIdScopedToTeam",
+        "kind": "re-export"
+      },
+      {
+        "name": "getUsersByIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "incrementUserCost",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertUser",
+        "kind": "re-export"
+      },
+      {
+        "name": "listActiveAiUsersByTeams",
+        "kind": "re-export"
+      },
+      {
+        "name": "listAgentProfiles",
+        "kind": "re-export"
+      },
+      {
+        "name": "listAllUsers",
+        "kind": "re-export"
+      },
+      {
+        "name": "listUserDirectory",
+        "kind": "re-export"
+      },
+      {
+        "name": "listUsersByKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "listUsersByTeam",
+        "kind": "re-export"
+      },
+      {
+        "name": "listUsersByTeamAndKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "listUsersByTeams",
+        "kind": "re-export"
+      },
+      {
+        "name": "resetAllUserCost",
+        "kind": "re-export"
+      },
+      {
+        "name": "searchUsersByName",
+        "kind": "re-export"
+      },
+      {
+        "name": "sumAllUserCost",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateUser",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "connections",
+        "requests": [
+          "getFirstUserByKind"
+        ],
+        "via": "ConnectionsUserReader"
+      },
+      {
+        "service": "notifications",
+        "requests": [
+          "getUserById"
+        ],
+        "via": "NotificationsUserReader"
+      },
+      {
+        "service": "org",
+        "requests": [
+          "getUserById",
+          "insertUser",
+          "listUsersByKind"
+        ],
+        "via": "OrgUserDirectory"
+      },
+      {
+        "service": "policy",
+        "requests": [
+          "getUserById",
+          "getFirstUserByKind",
+          "findActiveTeammateByRole"
+        ],
+        "via": "PolicyUserDirectory"
+      },
+      {
+        "service": "realtime",
+        "requests": [
+          "getUserById"
+        ],
+        "via": "RealtimeUserDirectory"
+      },
+      {
+        "service": "retention",
+        "requests": [
+          "reapLoginSessions",
+          "reapInviteCodes"
+        ],
+        "via": "RetentionUsersReaper"
+      },
+      {
+        "service": "review",
+        "requests": [
+          "getUserById",
+          "listUsersByKind"
+        ],
+        "via": "ReviewUserDirectory"
+      },
+      {
+        "service": "settings",
+        "requests": [
+          "listUsersByKind"
+        ],
+        "via": "SettingsUserDirectory"
+      },
+      {
+        "service": "work",
+        "requests": [
+          "getUserById",
+          "listActiveAiUsersByTeams"
+        ],
+        "via": "UserStoreReader"
+      },
+      {
+        "service": "agent-selection",
+        "requests": [
+          "getUserById",
+          "listActiveAiUsersByTeams"
+        ],
+        "via": "AgentSelectionUserReader"
+      },
+      {
+        "service": "context-assembly",
+        "requests": [
+          "getUserById"
+        ],
+        "via": "UsersReader"
+      },
+      {
+        "service": "cost",
+        "requests": [
+          "getUserById",
+          "incrementUserCost",
+          "resetAllUserCost",
+          "sumAllUserCost",
+          "updateUser"
+        ],
+        "via": "CostUserAccessor"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "getOrCreateUser",
+          "getUserById"
+        ],
+        "via": "DispatchUserAccessor"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "getUserById",
+          "getFirstUserByKind"
+        ],
+        "via": "SessionLifecycleUserReader"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "getUserById",
+          "listUsersByTeam"
+        ],
+        "via": "SessionRequestsUserReader"
+      },
+      {
+        "service": "tool-handlers",
+        "requests": [
+          "getUserById",
+          "listUsersByTeam"
+        ],
+        "via": "ToolHandlersUsersAccessor"
+      },
+      {
+        "service": "trigger-resolution",
+        "requests": [
+          "getUserByIdScopedToTeam"
+        ],
+        "via": "TriggerResolutionUserReader"
+      }
+    ],
+    "dependsOn": [],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "work",
+    "layer": "core-api",
+    "ownedTables": [
+      "bets",
+      "tasks",
+      "items",
+      "artifacts",
+      "taskPlanningSignals"
+    ],
+    "exposedApiCount": 84,
+    "exposedApi": [
+      {
+        "name": "ArtifactRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "ArtifactTaskSummaryRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "ArtifactWithTaskTitle",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateArtifactInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "SetArtifactPreviewOutcome",
+        "kind": "re-export"
+      },
+      {
+        "name": "createArtifact",
+        "kind": "re-export"
+      },
+      {
+        "name": "getArtifactById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getArtifactWithTaskTitleById",
+        "kind": "re-export"
+      },
+      {
+        "name": "listArtifactSummariesByTaskIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "listArtifactsPage",
+        "kind": "re-export"
+      },
+      {
+        "name": "setArtifactPreviewIfAbsent",
+        "kind": "re-export"
+      },
+      {
+        "name": "BetDecompositionDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "findEligibleTeamAgents",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertProposedBetTasks",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveOrphanedDecompositions",
+        "kind": "re-export"
+      },
+      {
+        "name": "runBetDecomposition",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerBetDecomposition",
+        "kind": "re-export"
+      },
+      {
+        "name": "cascadeBetKill",
+        "kind": "re-export"
+      },
+      {
+        "name": "RevisionLogEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "transitionBet",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateBetField",
+        "kind": "re-export"
+      },
+      {
+        "name": "routeItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentSelectionDefaults",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentWorkIntentRecorder",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostCapChecker",
+        "kind": "re-export"
+      },
+      {
+        "name": "ResolveDecompositionPlanInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "SelectOwnerOccasion",
+        "kind": "re-export"
+      },
+      {
+        "name": "TeamCapacityReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "UserStoreReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "WorkAgentWorkIntentInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "WorkAgentWorkIntentKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "WorkAgentWorkIntentRecord",
+        "kind": "re-export"
+      },
+      {
+        "name": "WorkCheckCostCapParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "WorkCostCapResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "WorkDecompositionPlan",
+        "kind": "re-export"
+      },
+      {
+        "name": "WorkSelectionCandidate",
+        "kind": "re-export"
+      },
+      {
+        "name": "WorkUserRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "HandoffAuditEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "StateTransitionAuditEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "TaskAuditEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "getTaskRiskTierByTaskId",
+        "kind": "re-export"
+      },
+      {
+        "name": "TaskStateMachineDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "InvalidTransitionError",
+        "kind": "re-export"
+      },
+      {
+        "name": "transitionTask",
+        "kind": "re-export"
+      },
+      {
+        "name": "VALID_TRANSITIONS",
+        "kind": "re-export"
+      },
+      {
+        "name": "Bet",
+        "kind": "re-export"
+      },
+      {
+        "name": "BetPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "BetTaskWithLatestSessionOutcome",
+        "kind": "re-export"
+      },
+      {
+        "name": "Item",
+        "kind": "re-export"
+      },
+      {
+        "name": "ItemPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "ListTasksOpts",
+        "kind": "re-export"
+      },
+      {
+        "name": "Task",
+        "kind": "re-export"
+      },
+      {
+        "name": "TaskPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "TransitionBetStatusArgs",
+        "kind": "re-export"
+      },
+      {
+        "name": "TransitionTaskStateArgs",
+        "kind": "re-export"
+      },
+      {
+        "name": "claimBetDecomposition",
+        "kind": "re-export"
+      },
+      {
+        "name": "countBetsByTeamAndStatus",
+        "kind": "re-export"
+      },
+      {
+        "name": "createBet",
+        "kind": "re-export"
+      },
+      {
+        "name": "createItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "createTask",
+        "kind": "re-export"
+      },
+      {
+        "name": "findItemByReasoningMarker",
+        "kind": "re-export"
+      },
+      {
+        "name": "findRetroItemByThreadIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "getBetById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getItemById",
+        "kind": "re-export"
+      },
+      {
+        "name": "getTaskById",
+        "kind": "re-export"
+      },
+      {
+        "name": "incrementBetCost",
+        "kind": "re-export"
+      },
+      {
+        "name": "listBets",
+        "kind": "re-export"
+      },
+      {
+        "name": "listBetsByIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "listBetsByTeamAndStatus",
+        "kind": "re-export"
+      },
+      {
+        "name": "listBetTasksWithLatestSessionOutcome",
+        "kind": "re-export"
+      },
+      {
+        "name": "listHoldTasksWithDependencyPattern",
+        "kind": "re-export"
+      },
+      {
+        "name": "listItemIdsBySourceAgent",
+        "kind": "re-export"
+      },
+      {
+        "name": "listItemsByThread",
+        "kind": "re-export"
+      },
+      {
+        "name": "listQueuedItemsSince",
+        "kind": "re-export"
+      },
+      {
+        "name": "listTasks",
+        "kind": "re-export"
+      },
+      {
+        "name": "listTasksByIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveOrphanedBetDecompositions",
+        "kind": "re-export"
+      },
+      {
+        "name": "searchBetsByText",
+        "kind": "re-export"
+      },
+      {
+        "name": "transitionBetStatus",
+        "kind": "re-export"
+      },
+      {
+        "name": "transitionTaskState",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateBetById",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateBetDecompositionStatusIfRunning",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateItemById",
+        "kind": "re-export"
+      },
+      {
+        "name": "updateTaskById",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "filesystems",
+        "requests": [
+          "record"
+        ],
+        "via": "FilesystemsAgentWorkIntentRecorder"
+      },
+      {
+        "service": "filesystems",
+        "requests": [
+          "listHoldTasksWithDependencyPattern",
+          "getTaskById",
+          "transitionTask"
+        ],
+        "via": "FilesystemsWorkStore"
+      },
+      {
+        "service": "notifications",
+        "requests": [
+          "listQueuedItemsSince",
+          "getItemById"
+        ],
+        "via": "NotificationsWorkReader"
+      },
+      {
+        "service": "policy",
+        "requests": [
+          "getItemById",
+          "updateItemById",
+          "listItemIdsBySourceAgent",
+          "getTaskById",
+          "updateTaskById",
+          "createItem",
+          "getBetById",
+          "transitionBetStatus",
+          "transitionTaskState",
+          "listTasks"
+        ],
+        "via": "PolicyWorkStore"
+      },
+      {
+        "service": "realtime",
+        "requests": [
+          "getTaskById"
+        ],
+        "via": "RealtimeTaskReader"
+      },
+      {
+        "service": "review",
+        "requests": [
+          "getTaskById",
+          "updateTaskById",
+          "createItem"
+        ],
+        "via": "ReviewWorkStore"
+      },
+      {
+        "service": "review",
+        "requests": [
+          "getRiskTierByTaskId"
+        ],
+        "via": "TaskRiskTierReader"
+      },
+      {
+        "service": "context-assembly",
+        "requests": [
+          "getTaskById",
+          "getBetById"
+        ],
+        "via": "WorkReader"
+      },
+      {
+        "service": "cost",
+        "requests": [
+          "getTaskById",
+          "incrementBetCost",
+          "createItem"
+        ],
+        "via": "CostWorkAccessor"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "listTasks",
+          "getTaskById",
+          "getBetById",
+          "createItem",
+          "findRetroItemByThreadIds"
+        ],
+        "via": "DispatchWorkAccessor"
+      },
+      {
+        "service": "lifecycle-projection",
+        "requests": [
+          "updateBetDecompositionStatusIfRunning"
+        ],
+        "via": "LifecycleProjectionWorkWriter"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "getTaskById",
+          "updateTaskById",
+          "getBetById",
+          "updateBetById",
+          "transitionTask"
+        ],
+        "via": "SessionLifecycleWorkAccessor"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "getTaskById",
+          "getBetById"
+        ],
+        "via": "SessionRequestsWorkReader"
+      },
+      {
+        "service": "tool-handlers",
+        "requests": [
+          "getTaskById",
+          "getBetById",
+          "createBet",
+          "updateBetById",
+          "createTask",
+          "updateTaskById",
+          "getItemById",
+          "updateItemById",
+          "createItem",
+          "routeItem",
+          "findItemByReasoningMarker",
+          "createArtifact"
+        ],
+        "via": "ToolHandlersWorkAccessor"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "session-requests",
+        "uses": [
+          "record"
+        ]
+      },
+      {
+        "service": "agent-selection",
+        "uses": [
+          "enumerateTeamCandidates",
+          "selectOwner",
+          "resolveDecompositionPlan"
+        ]
+      },
+      {
+        "service": "cost",
+        "uses": [
+          "checkCostCap"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getUserById",
+          "listActiveAiUsersByTeams"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "getByTeamId",
+          "setActiveBets"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [
+      "dispatch",
+      "notifications",
+      "policy",
+      "realtime"
+    ],
+    "eventsReceivedFrom": [
+      "policy"
+    ]
+  },
+  {
+    "name": "agent-selection",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "exposedApiCount": 19,
+    "exposedApi": [
+      {
+        "name": "resolveAgentScaffoldSpecs",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveAssistantFormation",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveDecompositionPlan",
+        "kind": "re-export"
+      },
+      {
+        "name": "deriveInitials",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentScaffoldSpec",
+        "kind": "re-export"
+      },
+      {
+        "name": "AssistantFormation",
+        "kind": "re-export"
+      },
+      {
+        "name": "AssistantFormationRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "DecomposeBetRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "DecompositionPlan",
+        "kind": "re-export"
+      },
+      {
+        "name": "ScaffoldRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "SelectAgentOutcome",
+        "kind": "re-export"
+      },
+      {
+        "name": "SelectAgentRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "SelectionCandidate",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentSelectionDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentSelectionTeamReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentSelectionUserReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentSelectionOps",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentSelectionSelectOwnerOccasion",
+        "kind": "re-export"
+      },
+      {
+        "name": "createAgentSelectionOps",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "work",
+        "requests": [
+          "enumerateTeamCandidates",
+          "selectOwner",
+          "resolveDecompositionPlan"
+        ],
+        "via": "AgentSelectionDefaults"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "resolveAssistantFormation"
+        ],
+        "via": "DispatchAgentSelectionAccessor"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "isAgentAtWipLimit",
+          "selectAgentByAppDefaults"
+        ],
+        "via": "SessionRequestsAgentSelector"
+      },
+      {
+        "service": "tool-handlers",
+        "requests": [
+          "resolveAgentScaffoldSpecs"
+        ],
+        "via": "ToolHandlersAgentSelectionAccessor"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "users",
+        "uses": [
+          "getUserById",
+          "listActiveAiUsersByTeams"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "getTeamMembersByTeamId"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "capture-writeback",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "exposedApiCount": 23,
+    "exposedApi": [
+      {
+        "name": "CaptureWritebackCreateKnowledgeItemInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureWritebackDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureWritebackKnowledgeItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureWritebackKnowledgeKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureWritebackKnowledgeLayer",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureWritebackKnowledgeWriter",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureWritebackManifest",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureWritebackManifestEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureWritebackRecordConflictInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureWritebackUpdateResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "ActivityEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolCallData",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionActivityBuffer",
+        "kind": "re-export"
+      },
+      {
+        "name": "WritebackChange",
+        "kind": "re-export"
+      },
+      {
+        "name": "WritebackConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "WritebackResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "isKnowledgePath",
+        "kind": "re-export"
+      },
+      {
+        "name": "isSessionNotesPath",
+        "kind": "re-export"
+      },
+      {
+        "name": "processWriteback",
+        "kind": "re-export"
+      },
+      {
+        "name": "readManifest",
+        "kind": "re-export"
+      },
+      {
+        "name": "writeManifest",
+        "kind": "re-export"
+      },
+      {
+        "name": "CaptureWritebackSubscriberDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerCaptureWriteback",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [],
+    "dependsOn": [
+      {
+        "service": "knowledge",
+        "uses": [
+          "create",
+          "update",
+          "recordConflict"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": [
+      "filesystems",
+      "session-lifecycle"
+    ]
+  },
+  {
+    "name": "context-assembly",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "exposedApiCount": 33,
+    "exposedApi": [
+      {
+        "name": "AgentContextAssemblyOutcome",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentWritebackHandle",
+        "kind": "re-export"
+      },
+      {
+        "name": "AssembleAgentContextInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "ContextAssemblyConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "ContextAssemblyResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "Manifest",
+        "kind": "re-export"
+      },
+      {
+        "name": "ManifestEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_CONTEXT_ASSEMBLY",
+        "kind": "re-export"
+      },
+      {
+        "name": "AssistantPromptResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "PromptCompositionInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "PromptCompositionResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "RoutinePromptCompositionInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolSummary",
+        "kind": "re-export"
+      },
+      {
+        "name": "buildTemplateVariables",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_AGENTS_MD",
+        "kind": "re-export"
+      },
+      {
+        "name": "stripFrontmatter",
+        "kind": "re-export"
+      },
+      {
+        "name": "substituteTemplateVars",
+        "kind": "re-export"
+      },
+      {
+        "name": "ContextAssemblyFileWatcher",
+        "kind": "re-export"
+      },
+      {
+        "name": "ContextAssemblyFileWatcherConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "ContextAssemblyKnowledgeListFilters",
+        "kind": "re-export"
+      },
+      {
+        "name": "ContextAssemblyPorts",
+        "kind": "re-export"
+      },
+      {
+        "name": "ContextAssemblyScoringContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "FilesystemsReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "KnowledgeReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "RoutineReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "UsersReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "WorkReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "ContextAssemblyOps",
+        "kind": "re-export"
+      },
+      {
+        "name": "createContextAssemblyOps",
+        "kind": "re-export"
+      },
+      {
+        "name": "RoutineSessionContextConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "RoutineSessionContextData",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionContextConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionContextData",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "assembleAgentContext",
+          "beginAgentWriteback",
+          "buildSessionContextData",
+          "buildRoutineSessionContextData",
+          "assemblePrompt",
+          "assembleRoutinePrompt",
+          "composeAssistantPrompt",
+          "writeSandboxAgentsMd"
+        ],
+        "via": "SessionLifecycleContextAssembly"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "knowledge",
+        "uses": [
+          "list",
+          "rankAndBudget",
+          "countTokens"
+        ]
+      },
+      {
+        "service": "work",
+        "uses": [
+          "getTaskById",
+          "getBetById"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getUserById"
+        ]
+      },
+      {
+        "service": "routine",
+        "uses": [
+          "getRoutineById"
+        ]
+      },
+      {
+        "service": "filesystems",
+        "uses": [
+          "stop"
+        ]
+      },
+      {
+        "service": "filesystems",
+        "uses": [
+          "startWatcher"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "getTeamById"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "cost",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "exposedApiCount": 25,
+    "exposedApi": [
+      {
+        "name": "CheckCostCapParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostCapResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "RecordCostAndCheckParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "ResetCostsParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "clearDeduplicationCache",
+        "kind": "re-export"
+      },
+      {
+        "name": "getDedupCacheSize",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerCostCapDedupReleaser",
+        "kind": "re-export"
+      },
+      {
+        "name": "releaseSessionDedup",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostSentinelLevel",
+        "kind": "re-export"
+      },
+      {
+        "name": "COST_SENTINEL_INTERVAL_MS",
+        "kind": "re-export"
+      },
+      {
+        "name": "COST_WARNING_RATIO",
+        "kind": "re-export"
+      },
+      {
+        "name": "clearCostSentinelCache",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostReviewItemInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostSettingsAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostSettingsPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostSettingsSnapshot",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostTaskRef",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostTeamAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostTeamRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostUserAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostUserRow",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostWorkAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "CostOps",
+        "kind": "re-export"
+      },
+      {
+        "name": "createCostOps",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "work",
+        "requests": [
+          "checkCostCap"
+        ],
+        "via": "CostCapChecker"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "getFactoryCostActual"
+        ],
+        "via": "DispatchCostAccessor"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "checkCostCap",
+          "recordCostAndCheck",
+          "releaseSessionDedup"
+        ],
+        "via": "SessionLifecycleCostAccessor"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "users",
+        "uses": [
+          "getUserById",
+          "incrementUserCost",
+          "resetAllUserCost",
+          "sumAllUserCost",
+          "updateUser"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "getTeamMembersById",
+          "incrementTeamMembersCost",
+          "resetTeamMembersCost",
+          "resetAllTeamMembersCost"
+        ]
+      },
+      {
+        "service": "work",
+        "uses": [
+          "getTaskById",
+          "incrementBetCost",
+          "createItem"
+        ]
+      },
+      {
+        "service": "settings",
+        "uses": [
+          "readServerConfig",
+          "updateServerConfig"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [
+      "notifications",
+      "realtime"
+    ],
+    "eventsReceivedFrom": [
+      "policy",
+      "session-lifecycle"
+    ]
+  },
+  {
+    "name": "dispatch",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "exposedApiCount": 59,
+    "exposedApi": [
+      {
+        "name": "AssistantTurnDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "mapErrorToNotice",
+        "kind": "re-export"
+      },
+      {
+        "name": "ThreadLike",
+        "kind": "re-export"
+      },
+      {
+        "name": "isAssistantThread",
+        "kind": "re-export"
+      },
+      {
+        "name": "PostBetRetroArgs",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunBuiltinResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "BuiltinRoutineId",
+        "kind": "re-export"
+      },
+      {
+        "name": "BuiltinSpec",
+        "kind": "re-export"
+      },
+      {
+        "name": "BUILTIN_ROUTINE_IDS",
+        "kind": "re-export"
+      },
+      {
+        "name": "BUILTIN_SPECS",
+        "kind": "re-export"
+      },
+      {
+        "name": "extractBuiltinKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "isBuiltinRoutineId",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchAgentModelParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchAgentSelectionAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchAgentWorkIntentInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchAgentWorkIntentRecord",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchAssistantFormation",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchAssistantFormationRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchAttentionRecomputeOutcome",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchAutoPromotionSweepResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchConsumeOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchConversationAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchConversationalOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchCostAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchCreatePracticeMeetingInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchCreatePracticeMeetingResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchCredentialResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchKnowledgeAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchModelGatewayAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchPorts",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchProvisionDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchProvisionResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchRecentLayeredKnowledgeItem",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchReviewAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchRoutineAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchRoutinePatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchRunOrchestrationAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchServerConfigSnapshot",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchSessionRequestsAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchSettingsAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchStaleSweepResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchToolContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchToolHandlersAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchUserAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchWorkAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchWorkspaceFactory",
+        "kind": "re-export"
+      },
+      {
+        "name": "FireResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReapStaleSessions",
+        "kind": "re-export"
+      },
+      {
+        "name": "RoutineScheduler",
+        "kind": "re-export"
+      },
+      {
+        "name": "RoutineSchedulerConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "computeNextRunAt",
+        "kind": "re-export"
+      },
+      {
+        "name": "nextCronMatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "parseCron",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchOps",
+        "kind": "re-export"
+      },
+      {
+        "name": "createDispatchOps",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchQueueEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "DispatchQueueSnapshot",
+        "kind": "re-export"
+      },
+      {
+        "name": "TaskDispatcherDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "getDispatchQueueSnapshot",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "run-orchestration",
+        "requests": [
+          "executeAssistantRequest"
+        ],
+        "via": "RunOrchestrationDispatchPort"
+      },
+      {
+        "service": "tool-handlers",
+        "requests": [
+          "nextCronMatch",
+          "parseCron",
+          "provisionTeamRoutines"
+        ],
+        "via": "ToolHandlersDispatchAccessor"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "work",
+        "uses": [
+          "listTasks",
+          "getTaskById",
+          "getBetById",
+          "createItem",
+          "findRetroItemByThreadIds"
+        ]
+      },
+      {
+        "service": "routine",
+        "uses": [
+          "insertRoutine",
+          "getRoutineById",
+          "insertRoutineRun",
+          "updateRoutineById",
+          "findRunningRoutineRun",
+          "listActiveRoutines",
+          "listScheduledRoutinesMissingNextRunAt",
+          "sumRoutineRunCostSince"
+        ]
+      },
+      {
+        "service": "conversation",
+        "uses": [
+          "insertMessage",
+          "listMessagesByThread",
+          "getThreadById",
+          "updateThread",
+          "getThreadIdsByHost",
+          "insertThread"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getOrCreateUser",
+          "getUserById"
+        ]
+      },
+      {
+        "service": "settings",
+        "uses": [
+          "readServerConfig"
+        ]
+      },
+      {
+        "service": "model-gateway",
+        "uses": [
+          "resolve"
+        ]
+      },
+      {
+        "service": "model-gateway",
+        "uses": [
+          "resolveAgentModel",
+          "resolveModelTier"
+        ]
+      },
+      {
+        "service": "agent-selection",
+        "uses": [
+          "resolveAssistantFormation"
+        ]
+      },
+      {
+        "service": "run-orchestration",
+        "uses": [
+          "onHarnessStarted"
+        ]
+      },
+      {
+        "service": "run-orchestration",
+        "uses": [
+          "executeAgentRunRequest"
+        ]
+      },
+      {
+        "service": "session-requests",
+        "uses": [
+          "recordAgentWorkIntent"
+        ]
+      },
+      {
+        "service": "cost",
+        "uses": [
+          "getFactoryCostActual"
+        ]
+      },
+      {
+        "service": "review",
+        "uses": [
+          "createPracticeMeeting"
+        ]
+      },
+      {
+        "service": "knowledge",
+        "uses": [
+          "runAutoPromotionSweep",
+          "runStaleSweep",
+          "listRecentByLayers",
+          "recomputeAttentionForCandidates"
+        ]
+      },
+      {
+        "service": "tool-handlers",
+        "uses": [
+          "ingestion"
+        ]
+      },
+      {
+        "service": "tool-handlers",
+        "uses": [
+          "resolveDraftTeamId",
+          "resolveCurrentDraftBetId",
+          "buildAssistantDraftRegistry"
+        ]
+      },
+      {
+        "service": "tool-handlers",
+        "uses": [
+          "create"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [
+      "notifications"
+    ],
+    "eventsReceivedFrom": [
+      "policy",
+      "session-lifecycle",
+      "work"
+    ]
+  },
+  {
+    "name": "lifecycle-projection",
+    "layer": "agent-orchestration",
+    "ownedTables": [
+      "agentLifecycleInbox"
+    ],
+    "exposedApiCount": 14,
+    "exposedApi": [
+      {
+        "name": "AgentLifecycleInboxFact",
+        "kind": "re-export"
+      },
+      {
+        "name": "deleteLifecycleInboxByRequestIds",
+        "kind": "re-export"
+      },
+      {
+        "name": "insertLifecycleInboxFactIfAbsent",
+        "kind": "re-export"
+      },
+      {
+        "name": "listProjectedLifecycleInboxBefore",
+        "kind": "re-export"
+      },
+      {
+        "name": "AGENT_LIFECYCLE_PROJECTORS",
+        "kind": "re-export"
+      },
+      {
+        "name": "AGENT_LIFECYCLE_SOURCE_KINDS",
+        "kind": "re-export"
+      },
+      {
+        "name": "AGENT_LIFECYCLE_TERMINAL_STATES",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentLifecycleFact",
+        "kind": "re-export"
+      },
+      {
+        "name": "drainAgentLifecycleInbox",
+        "kind": "re-export"
+      },
+      {
+        "name": "startAgentLifecycleProjectionDrain",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentLifecycleProjectionDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "LifecycleProjectionExplicitSessionStartWriter",
+        "kind": "re-export"
+      },
+      {
+        "name": "LifecycleProjectionRoutineWriter",
+        "kind": "re-export"
+      },
+      {
+        "name": "LifecycleProjectionWorkWriter",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [],
+    "dependsOn": [
+      {
+        "service": "routine",
+        "uses": [
+          "updateRoutineRunIfRunning"
+        ]
+      },
+      {
+        "service": "work",
+        "uses": [
+          "updateBetDecompositionStatusIfRunning"
+        ]
+      },
+      {
+        "service": "session-requests",
+        "uses": [
+          "projectTerminalState"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "run-orchestration",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "exposedApiCount": 36,
+    "exposedApi": [
+      {
+        "name": "AGENT_LAYER_REAP_INTERVAL_MS",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentAdmissionFailureCode",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentLayerBootDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "bootAgentLayer",
+        "kind": "re-export"
+      },
+      {
+        "name": "classifyAdmissionFailure",
+        "kind": "re-export"
+      },
+      {
+        "name": "drainAgentSessionRequests",
+        "kind": "re-export"
+      },
+      {
+        "name": "markRunningAgentSessionRequestsForShutdown",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentRunLifecycle",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentRunLifecycleState",
+        "kind": "re-export"
+      },
+      {
+        "name": "executeAgentRunRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "getAgentRunLifecycle",
+        "kind": "re-export"
+      },
+      {
+        "name": "listAgentRunLifecycleBySource",
+        "kind": "re-export"
+      },
+      {
+        "name": "recoverRunningAgentSessionRequests",
+        "kind": "re-export"
+      },
+      {
+        "name": "admitOnlyWithRequestLease",
+        "kind": "re-export"
+      },
+      {
+        "name": "ConsumeAgentSessionRequestOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "consumeAgentSessionRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "reserveOrAdoptSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationAdapterMeta",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationAdapterPool",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationAdmittedSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationClaimOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationDispatchPort",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationPorts",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationProvisionDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationProvisionParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationProvisionResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationRemoteHarnessAdapterFactory",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationRemoteWorkerAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationSessionContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationSessionLifecycleRuntime",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationSessionProvisioner",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationSessionRequestsPort",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationTerminationReason",
+        "kind": "re-export"
+      },
+      {
+        "name": "RunOrchestrationWorkIntentSource",
+        "kind": "re-export"
+      },
+      {
+        "name": "registerWorkerWsRoute",
+        "kind": "re-export"
+      },
+      {
+        "name": "WorkerConnectionManager",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "dispatch",
+        "requests": [
+          "onHarnessStarted"
+        ],
+        "via": "DispatchProvisionDeps"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "executeAgentRunRequest"
+        ],
+        "via": "DispatchRunOrchestrationAccessor"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "session-requests",
+        "uses": [
+          "findAgentSessionRequestById",
+          "listAgentSessionRequestsBySource",
+          "listRunningAgentSessionRequests",
+          "isAgentSessionRequestClaimActive",
+          "claimNextAgentSessionRequest",
+          "claimAgentSessionRequestById",
+          "releaseRequestClaim",
+          "renewAgentSessionRequestLease",
+          "markRequestRunning",
+          "findAgentWorkIntentSourceByRequestId",
+          "drainAgentWorkIntents",
+          "reapTerminalAgentWorkIntents",
+          "findExplicitSessionStartById",
+          "markExplicitSessionStartAdmitted",
+          "markExplicitSessionStartFailed"
+        ]
+      },
+      {
+        "service": "session-lifecycle",
+        "uses": [
+          "requestAgentTermination",
+          "recoverRequestedTerminations",
+          "transitionAgentRunLifecycle",
+          "crashSession"
+        ]
+      },
+      {
+        "service": "dispatch",
+        "uses": [
+          "executeAssistantRequest"
+        ]
+      },
+      {
+        "service": "harness-registry",
+        "uses": [
+          "dispatchMessage"
+        ]
+      },
+      {
+        "service": "harness-registry",
+        "uses": [
+          "has",
+          "register",
+          "unregister",
+          "pause",
+          "resume"
+        ]
+      },
+      {
+        "service": "harness-registry",
+        "uses": [
+          "create"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "session-lifecycle",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "exposedApiCount": 29,
+    "exposedApi": [
+      {
+        "name": "IngestionHandle",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReapStaleRoutineSessionsOpts",
+        "kind": "re-export"
+      },
+      {
+        "name": "reapStaleRoutineSessions",
+        "kind": "re-export"
+      },
+      {
+        "name": "reapSandboxesOnce",
+        "kind": "re-export"
+      },
+      {
+        "name": "SANDBOX_REAPER_INTERVAL_MS",
+        "kind": "re-export"
+      },
+      {
+        "name": "SandboxReaperOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "startSandboxReaper",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentTerminationReason",
+        "kind": "re-export"
+      },
+      {
+        "name": "crashSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "endSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "recoverRequestedTerminations",
+        "kind": "re-export"
+      },
+      {
+        "name": "requestAgentTermination",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "TERMINATION_DISPOSITIONS",
+        "kind": "re-export"
+      },
+      {
+        "name": "TERMINATION_REASONS",
+        "kind": "re-export"
+      },
+      {
+        "name": "transitionAgentRunLifecycle",
+        "kind": "re-export"
+      },
+      {
+        "name": "AdmittedSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "admitSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "BeforeHarnessStartContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "BeforeTeardownContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "captureMountedFilesystems",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_MCP_JSON",
+        "kind": "re-export"
+      },
+      {
+        "name": "mountFilesystemsForAgent",
+        "kind": "re-export"
+      },
+      {
+        "name": "ProvisionSessionDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "ProvisionSessionParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "ProvisionSessionResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "provisionSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "runSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "startSessionProvision",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "run-orchestration",
+        "requests": [
+          "requestAgentTermination",
+          "recoverRequestedTerminations",
+          "transitionAgentRunLifecycle",
+          "crashSession"
+        ],
+        "via": "RunOrchestrationSessionLifecycleRuntime"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "routine",
+        "uses": [
+          "getRoutineById",
+          "findRunningRoutineRun",
+          "updateRoutineRunById",
+          "updateRoutineById",
+          "incrementRoutineCost"
+        ]
+      },
+      {
+        "service": "work",
+        "uses": [
+          "getTaskById",
+          "updateTaskById",
+          "getBetById",
+          "updateBetById",
+          "transitionTask"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getUserById",
+          "getFirstUserByKind"
+        ]
+      },
+      {
+        "service": "settings",
+        "uses": [
+          "readServerConfig"
+        ]
+      },
+      {
+        "service": "observability",
+        "uses": [
+          "summarizeToolArgs"
+        ]
+      },
+      {
+        "service": "filesystems",
+        "uses": [
+          "listFilesystemIdsByAgent",
+          "listFilesystemsByIds"
+        ]
+      },
+      {
+        "service": "connections",
+        "uses": [
+          "resolve"
+        ]
+      },
+      {
+        "service": "connections",
+        "uses": [
+          "resolveOwningHumanUserId",
+          "buildProvisioningPlan",
+          "applyProvisioningPlan"
+        ]
+      },
+      {
+        "service": "session-requests",
+        "uses": [
+          "signalAbort"
+        ]
+      },
+      {
+        "service": "session-requests",
+        "uses": [
+          "register",
+          "deregister",
+          "has",
+          "abort"
+        ]
+      },
+      {
+        "service": "session-requests",
+        "uses": [
+          "recordAgentWorkIntent",
+          "terminalizeAgentSessionRequestInTx",
+          "findAgentSessionRequestTerminationReasonInTx",
+          "requestAgentSessionTermination",
+          "listRunningAgentSessionRequests"
+        ]
+      },
+      {
+        "service": "cost",
+        "uses": [
+          "checkCostCap",
+          "recordCostAndCheck",
+          "releaseSessionDedup"
+        ]
+      },
+      {
+        "service": "harness-registry",
+        "uses": [
+          "startSession",
+          "streamEvents",
+          "stopSession",
+          "getCapabilities",
+          "getForceReturnCount",
+          "setSessionToolRegistry"
+        ]
+      },
+      {
+        "service": "harness-registry",
+        "uses": [
+          "select",
+          "release"
+        ]
+      },
+      {
+        "service": "harness-registry",
+        "uses": [
+          "register",
+          "get",
+          "incrementForce",
+          "unregister"
+        ]
+      },
+      {
+        "service": "harness-registry",
+        "uses": [
+          "observe"
+        ]
+      },
+      {
+        "service": "harness-registry",
+        "uses": [
+          "spawn",
+          "exec",
+          "destroy"
+        ]
+      },
+      {
+        "service": "harness-registry",
+        "uses": [
+          "createReturnGate",
+          "evaluateReturn",
+          "provisionReturnHook",
+          "writeCliMcpConfig"
+        ]
+      },
+      {
+        "service": "mcp-provider",
+        "uses": [
+          "register",
+          "unregister"
+        ]
+      },
+      {
+        "service": "mcp-provider",
+        "uses": [
+          "createMcpBridge"
+        ]
+      },
+      {
+        "service": "tool-provider",
+        "uses": [
+          "onAbortSession"
+        ]
+      },
+      {
+        "service": "tool-provider",
+        "uses": [
+          "invoke"
+        ]
+      },
+      {
+        "service": "tool-provider",
+        "uses": [
+          "buildToolRegistry",
+          "toolsForRole",
+          "returnStatusToolForRegistry"
+        ]
+      },
+      {
+        "service": "context-assembly",
+        "uses": [
+          "assembleAgentContext",
+          "beginAgentWriteback",
+          "buildSessionContextData",
+          "buildRoutineSessionContextData",
+          "assemblePrompt",
+          "assembleRoutinePrompt",
+          "composeAssistantPrompt",
+          "writeSandboxAgentsMd"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [
+      "capture-writeback",
+      "cost",
+      "dispatch",
+      "policy",
+      "realtime",
+      "review"
+    ],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "session-requests",
+    "layer": "agent-orchestration",
+    "ownedTables": [
+      "agentWorkIntents",
+      "agentSessionRequests",
+      "explicitSessionStarts"
+    ],
+    "exposedApiCount": 65,
+    "exposedApi": [
+      {
+        "name": "ClaimRequestOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "claimAgentSessionRequestById",
+        "kind": "re-export"
+      },
+      {
+        "name": "claimNextAgentSessionRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "createAgentSessionRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "findAgentSessionRequestById",
+        "kind": "re-export"
+      },
+      {
+        "name": "findAgentSessionRequestByIdempotencyKey",
+        "kind": "re-export"
+      },
+      {
+        "name": "findAgentSessionRequestBySessionId",
+        "kind": "re-export"
+      },
+      {
+        "name": "findAgentSessionRequestTerminationReasonInTx",
+        "kind": "re-export"
+      },
+      {
+        "name": "isAgentSessionRequestClaimActive",
+        "kind": "re-export"
+      },
+      {
+        "name": "listAgentSessionRequestsBySource",
+        "kind": "re-export"
+      },
+      {
+        "name": "listRunningAgentSessionRequests",
+        "kind": "re-export"
+      },
+      {
+        "name": "markRequestRunning",
+        "kind": "re-export"
+      },
+      {
+        "name": "releaseRequestClaim",
+        "kind": "re-export"
+      },
+      {
+        "name": "renewAgentSessionRequestLease",
+        "kind": "re-export"
+      },
+      {
+        "name": "requestAgentSessionTermination",
+        "kind": "re-export"
+      },
+      {
+        "name": "TerminalizeAgentSessionRequestInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "terminalizeAgentSessionRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "terminalizeAgentSessionRequestInTx",
+        "kind": "re-export"
+      },
+      {
+        "name": "AGENT_WORK_INTENT_FAILURE_CODES",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentWorkIntentWorkerOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "claimAgentWorkIntent",
+        "kind": "re-export"
+      },
+      {
+        "name": "renewAgentWorkIntentLease",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveAuthoritativeInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "AGENT_WORK_INTENT_KINDS",
+        "kind": "re-export"
+      },
+      {
+        "name": "AGENT_WORK_RETENTION_BATCH_SIZE",
+        "kind": "re-export"
+      },
+      {
+        "name": "AGENT_WORK_RETENTION_DAYS",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentWorkIntentDb",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentWorkIntentInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentWorkIntentKind",
+        "kind": "re-export"
+      },
+      {
+        "name": "drainAgentWorkIntents",
+        "kind": "re-export"
+      },
+      {
+        "name": "findAgentWorkIntentByKindAndSource",
+        "kind": "re-export"
+      },
+      {
+        "name": "findAgentWorkIntentSourceByRequestId",
+        "kind": "re-export"
+      },
+      {
+        "name": "reapTerminalAgentWorkIntents",
+        "kind": "re-export"
+      },
+      {
+        "name": "recordAgentWorkIntent",
+        "kind": "re-export"
+      },
+      {
+        "name": "CreateExplicitSessionStartInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "createExplicitSessionStart",
+        "kind": "re-export"
+      },
+      {
+        "name": "findExplicitSessionStartById",
+        "kind": "re-export"
+      },
+      {
+        "name": "findExplicitSessionStartByRequesterAndIdempotencyKey",
+        "kind": "re-export"
+      },
+      {
+        "name": "markExplicitSessionStartAdmitted",
+        "kind": "re-export"
+      },
+      {
+        "name": "markExplicitSessionStartFailed",
+        "kind": "re-export"
+      },
+      {
+        "name": "projectExplicitSessionStartTerminalState",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentWorkIntentReapDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "AgentWorkIntentWorkerDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "MarkRequestRunningDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsAgentSelectionOutcome",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsAgentSelectionRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsAgentSelector",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsConversationReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsGrantedProposedCall",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsKnowledgeReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsLifecycleInboxFact",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsLifecycleInboxReaper",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsLifecycleInboxWriter",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsReviewReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsRoutineReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsRoutineRunPatch",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsSelectionCandidate",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsTeamReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsTriggerHistoryWriter",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsTriggerInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsTriggerResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsUserReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "SessionRequestsWorkReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "TerminalizeSessionRequestDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "sessionRunRegistry",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "policy",
+        "requests": [
+          "record"
+        ],
+        "via": "PolicyAgentWorkIntentRecorder"
+      },
+      {
+        "service": "policy",
+        "requests": [
+          "abort"
+        ],
+        "via": "PolicySessionRunRegistry"
+      },
+      {
+        "service": "review",
+        "requests": [
+          "record"
+        ],
+        "via": "ReviewAgentWorkIntentRecorder"
+      },
+      {
+        "service": "work",
+        "requests": [
+          "record"
+        ],
+        "via": "AgentWorkIntentRecorder"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "recordAgentWorkIntent"
+        ],
+        "via": "DispatchSessionRequestsAccessor"
+      },
+      {
+        "service": "lifecycle-projection",
+        "requests": [
+          "projectTerminalState"
+        ],
+        "via": "LifecycleProjectionExplicitSessionStartWriter"
+      },
+      {
+        "service": "run-orchestration",
+        "requests": [
+          "findAgentSessionRequestById",
+          "listAgentSessionRequestsBySource",
+          "listRunningAgentSessionRequests",
+          "isAgentSessionRequestClaimActive",
+          "claimNextAgentSessionRequest",
+          "claimAgentSessionRequestById",
+          "releaseRequestClaim",
+          "renewAgentSessionRequestLease",
+          "markRequestRunning",
+          "findAgentWorkIntentSourceByRequestId",
+          "drainAgentWorkIntents",
+          "reapTerminalAgentWorkIntents",
+          "findExplicitSessionStartById",
+          "markExplicitSessionStartAdmitted",
+          "markExplicitSessionStartFailed"
+        ],
+        "via": "RunOrchestrationSessionRequestsPort"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "signalAbort"
+        ],
+        "via": "SessionLifecycleSessionRunEntry"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "register",
+          "deregister",
+          "has",
+          "abort"
+        ],
+        "via": "SessionLifecycleSessionRunRegistry"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "recordAgentWorkIntent",
+          "terminalizeAgentSessionRequestInTx",
+          "findAgentSessionRequestTerminationReasonInTx",
+          "requestAgentSessionTermination",
+          "listRunningAgentSessionRequests"
+        ],
+        "via": "SessionLifecycleSessionRequestsAccessor"
+      },
+      {
+        "service": "trigger-resolution",
+        "requests": [
+          "findByIdempotencyKey",
+          "create"
+        ],
+        "via": "TriggerResolutionSessionRequestPort"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "routine",
+        "uses": [
+          "getRoutineRunById",
+          "getRoutineById",
+          "updateRoutineRunIfRunning"
+        ]
+      },
+      {
+        "service": "work",
+        "uses": [
+          "getTaskById",
+          "getBetById"
+        ]
+      },
+      {
+        "service": "agent-selection",
+        "uses": [
+          "isAgentAtWipLimit",
+          "selectAgentByAppDefaults"
+        ]
+      },
+      {
+        "service": "conversation",
+        "uses": [
+          "getMessageById"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getUserById",
+          "listUsersByTeam"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "getTeamMembersByTeamId"
+        ]
+      },
+      {
+        "service": "knowledge",
+        "uses": [
+          "findById"
+        ]
+      },
+      {
+        "service": "review",
+        "uses": [
+          "findGrantedProposedCall"
+        ]
+      },
+      {
+        "service": "trigger-resolution",
+        "uses": [
+          "buildSourceCorrelation"
+        ]
+      },
+      {
+        "service": "trigger-resolution",
+        "uses": [
+          "resolveAndCreate"
+        ]
+      },
+      {
+        "service": "trigger-resolution",
+        "uses": [
+          "recordSessionForResolutionHistory"
+        ]
+      },
+      {
+        "service": "trigger-resolution",
+        "uses": [
+          "insertIfAbsent"
+        ]
+      },
+      {
+        "service": "trigger-resolution",
+        "uses": [
+          "listProjectedBefore",
+          "deleteByRequestIds"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "tool-handlers",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "exposedApiCount": 42,
+    "exposedApi": [
+      {
+        "name": "createAddAgentTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "AssistantDraftRegistryParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "buildAssistantDraftRegistry",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveCurrentDraftBetId",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveDraftTeamId",
+        "kind": "re-export"
+      },
+      {
+        "name": "createCommitFileTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createCreateArtifactTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createCreateBetTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createCreateConflictReviewTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createCreateItemTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createCreateRoutineTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createCreateTaskTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createCreateTeamTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createEditBetTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createHandoffToTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createLogTaskTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersAgentSelectionAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersConversationAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersDispatchAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersHandoffMetadata",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersHandoffParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersHandoffResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersKnowledgeAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersOrgAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersPolicyAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersPorts",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersRoutineAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersSessionContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersUsersAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandlersWorkAccessor",
+        "kind": "re-export"
+      },
+      {
+        "name": "createPromoteKnowledgeTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createQueryPracticeTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createReadInboxTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createRouteItemTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createScoreAttentionTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createSendMessageTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createSubmitReviewTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "buildAllToolDefinitions",
+        "kind": "re-export"
+      },
+      {
+        "name": "toolsForRoleFromPorts",
+        "kind": "re-export"
+      },
+      {
+        "name": "createUpdateRoutineTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createWriteMemoryTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "createWriteSessionNotesTool",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "dispatch",
+        "requests": [
+          "ingestion"
+        ],
+        "via": "DispatchToolContext"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "resolveDraftTeamId",
+          "resolveCurrentDraftBetId",
+          "buildAssistantDraftRegistry"
+        ],
+        "via": "DispatchToolHandlersAccessor"
+      },
+      {
+        "service": "dispatch",
+        "requests": [
+          "create"
+        ],
+        "via": "DispatchWorkspaceFactory"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "work",
+        "uses": [
+          "getTaskById",
+          "getBetById",
+          "createBet",
+          "updateBetById",
+          "createTask",
+          "updateTaskById",
+          "getItemById",
+          "updateItemById",
+          "createItem",
+          "routeItem",
+          "findItemByReasoningMarker",
+          "createArtifact"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getUserById",
+          "listUsersByTeam"
+        ]
+      },
+      {
+        "service": "conversation",
+        "uses": [
+          "getThreadById",
+          "insertThread",
+          "updateThread",
+          "insertMessage",
+          "listInboxBySenderExclusion",
+          "findOrCreateDirectThread",
+          "getFirstThreadByHost"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "getTeamById",
+          "getTeamMembersByTeamId",
+          "getTeamMembersById",
+          "createTeam",
+          "createTeamMembersGroup",
+          "setTeamMembersLeadAgent",
+          "resolveReviewRecipientsForItem",
+          "persistScaffoldedAgents"
+        ]
+      },
+      {
+        "service": "agent-selection",
+        "uses": [
+          "resolveAgentScaffoldSpecs"
+        ]
+      },
+      {
+        "service": "routine",
+        "uses": [
+          "insertRoutine",
+          "getRoutineById",
+          "updateRoutineById"
+        ]
+      },
+      {
+        "service": "dispatch",
+        "uses": [
+          "nextCronMatch",
+          "parseCron",
+          "provisionTeamRoutines"
+        ]
+      },
+      {
+        "service": "knowledge",
+        "uses": [
+          "search",
+          "create",
+          "findKnowledgeItemVersionById",
+          "findKnowledgeItemStatusById",
+          "findOpenConflictByItemAndProposer",
+          "createKnowledgeConflict",
+          "promoteKnowledgeItem",
+          "upsertKnowledgeAppProjectionAttentionScore",
+          "recomputeAttentionScoreForItem"
+        ]
+      },
+      {
+        "service": "policy",
+        "uses": [
+          "handoff"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "trigger-resolution",
+    "layer": "agent-orchestration",
+    "ownedTables": [
+      "triggerResolutionHistory"
+    ],
+    "exposedApiCount": 9,
+    "exposedApi": [
+      {
+        "name": "TriggerResolutionConfigReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "TriggerResolutionDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "TriggerResolutionSessionRequestPort",
+        "kind": "re-export"
+      },
+      {
+        "name": "TriggerResolutionTeamReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "TriggerResolutionUserReader",
+        "kind": "re-export"
+      },
+      {
+        "name": "createTriggeredAgentSessionRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "recordSessionForResolutionHistory",
+        "kind": "re-export"
+      },
+      {
+        "name": "resolveTriggerForSessionRequest",
+        "kind": "re-export"
+      },
+      {
+        "name": "TriggeredSessionRequestInput",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "session-requests",
+        "requests": [
+          "buildSourceCorrelation"
+        ],
+        "via": "SessionRequestsTriggerInput"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "resolveAndCreate"
+        ],
+        "via": "SessionRequestsTriggerResolver"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "recordSessionForResolutionHistory"
+        ],
+        "via": "SessionRequestsTriggerHistoryWriter"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "insertIfAbsent"
+        ],
+        "via": "SessionRequestsLifecycleInboxWriter"
+      },
+      {
+        "service": "session-requests",
+        "requests": [
+          "listProjectedBefore",
+          "deleteByRequestIds"
+        ],
+        "via": "SessionRequestsLifecycleInboxReaper"
+      }
+    ],
+    "dependsOn": [
+      {
+        "service": "session-requests",
+        "uses": [
+          "findByIdempotencyKey",
+          "create"
+        ]
+      },
+      {
+        "service": "settings",
+        "uses": [
+          "listResolvedConfiguration"
+        ]
+      },
+      {
+        "service": "users",
+        "uses": [
+          "getUserByIdScopedToTeam"
+        ]
+      },
+      {
+        "service": "org",
+        "uses": [
+          "getTeamMembersByTeamId"
+        ]
+      }
+    ],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "harness-registry",
+    "layer": "agent-execution",
+    "ownedTables": [],
+    "exposedApiCount": 79,
+    "exposedApi": [
+      {
+        "name": "HarnessCapabilityDescriptor",
+        "kind": "re-export"
+      },
+      {
+        "name": "AdapterInfo",
+        "kind": "re-export"
+      },
+      {
+        "name": "AdapterMeta",
+        "kind": "re-export"
+      },
+      {
+        "name": "AdapterPool",
+        "kind": "re-export"
+      },
+      {
+        "name": "CLAUDE_CLI_CONFIG",
+        "kind": "re-export"
+      },
+      {
+        "name": "CLI_TOOL_CONFIGS",
+        "kind": "re-export"
+      },
+      {
+        "name": "CURSOR_AGENT_CLI_CONFIG",
+        "kind": "re-export"
+      },
+      {
+        "name": "createLocalAdapterPool",
+        "kind": "re-export"
+      },
+      {
+        "name": "SelectedEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "SelectRequirements",
+        "kind": "re-export"
+      },
+      {
+        "name": "BuiltinHarnessAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "BuiltinHarnessOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "CliAdapterConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "CliAdapterDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "CliAvailabilityDeps",
+        "kind": "re-export"
+      },
+      {
+        "name": "CredentialResolver",
+        "kind": "re-export"
+      },
+      {
+        "name": "CliHarnessAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_CLI_MCP_CONFIG",
+        "kind": "re-export"
+      },
+      {
+        "name": "WriteCliMcpConfigParams",
+        "kind": "re-export"
+      },
+      {
+        "name": "WriteCliMcpConfigResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "writeCliMcpConfig",
+        "kind": "re-export"
+      },
+      {
+        "name": "contextWindowForModel",
+        "kind": "re-export"
+      },
+      {
+        "name": "DEFAULT_CONTEXT_WINDOW",
+        "kind": "re-export"
+      },
+      {
+        "name": "isAboveThreshold",
+        "kind": "re-export"
+      },
+      {
+        "name": "MODEL_CONTEXT_WINDOWS",
+        "kind": "re-export"
+      },
+      {
+        "name": "DisabledSandboxAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "describeRegisteredHarness",
+        "kind": "re-export"
+      },
+      {
+        "name": "KNOWN_HARNESS_FAMILIES",
+        "kind": "re-export"
+      },
+      {
+        "name": "missingKnownHarnessDescriptors",
+        "kind": "re-export"
+      },
+      {
+        "name": "BUILTIN_MODELS_FETCH_TIMEOUT_MS",
+        "kind": "re-export"
+      },
+      {
+        "name": "discoverLocalHarnesses",
+        "kind": "re-export"
+      },
+      {
+        "name": "HarnessDiscoveryInput",
+        "kind": "re-export"
+      },
+      {
+        "name": "HarnessDiscoveryResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "HarnessSessionProbeResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "parseClaudeModelsOutput",
+        "kind": "re-export"
+      },
+      {
+        "name": "parseOpencodeModelsOutput",
+        "kind": "re-export"
+      },
+      {
+        "name": "probeClaudeCodeMcpList",
+        "kind": "re-export"
+      },
+      {
+        "name": "probeCodexMcpList",
+        "kind": "re-export"
+      },
+      {
+        "name": "probeEnvironmentClis",
+        "kind": "re-export"
+      },
+      {
+        "name": "probeOpenCodeCli",
+        "kind": "re-export"
+      },
+      {
+        "name": "probeOpencodeMcpList",
+        "kind": "re-export"
+      },
+      {
+        "name": "probeHarnessSession",
+        "kind": "re-export"
+      },
+      {
+        "name": "__getCostAccumulatorForTest",
+        "kind": "re-export"
+      },
+      {
+        "name": "__resetCostAccumulatorForTest",
+        "kind": "re-export"
+      },
+      {
+        "name": "buildCassetteKey",
+        "kind": "re-export"
+      },
+      {
+        "name": "CassetteEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "loadCassetteEntries",
+        "kind": "re-export"
+      },
+      {
+        "name": "recordLlm",
+        "kind": "re-export"
+      },
+      {
+        "name": "replayLlm",
+        "kind": "re-export"
+      },
+      {
+        "name": "CallLlmOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "callLlm",
+        "kind": "re-export"
+      },
+      {
+        "name": "callLlmDirect",
+        "kind": "re-export"
+      },
+      {
+        "name": "estimateCostUsd",
+        "kind": "re-export"
+      },
+      {
+        "name": "LlmContentBlock",
+        "kind": "re-export"
+      },
+      {
+        "name": "LlmMessage",
+        "kind": "re-export"
+      },
+      {
+        "name": "LlmResponse",
+        "kind": "re-export"
+      },
+      {
+        "name": "LlmRole",
+        "kind": "re-export"
+      },
+      {
+        "name": "LlmTextBlock",
+        "kind": "re-export"
+      },
+      {
+        "name": "LlmToolDef",
+        "kind": "re-export"
+      },
+      {
+        "name": "LlmToolResultBlock",
+        "kind": "re-export"
+      },
+      {
+        "name": "LlmToolUseBlock",
+        "kind": "re-export"
+      },
+      {
+        "name": "LocalSandboxAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_CLAUDE_SETTINGS",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_CODEX_HOME",
+        "kind": "re-export"
+      },
+      {
+        "name": "EMITTED_ROOTS_OPENCODE_PLUGIN",
+        "kind": "re-export"
+      },
+      {
+        "name": "ProvisionReturnHookOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "provisionReturnHook",
+        "kind": "re-export"
+      },
+      {
+        "name": "RemoteHarnessAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "createEnforcementRegistry",
+        "kind": "re-export"
+      },
+      {
+        "name": "EnforcementEntry",
+        "kind": "re-export"
+      },
+      {
+        "name": "EnforcementRegistry",
+        "kind": "re-export"
+      },
+      {
+        "name": "enforcementRegistry",
+        "kind": "re-export"
+      },
+      {
+        "name": "createReturnGate",
+        "kind": "re-export"
+      },
+      {
+        "name": "evaluateReturn",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReturnGate",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReturnVerdict",
+        "kind": "re-export"
+      },
+      {
+        "name": "ExecResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "SandboxAdapter",
+        "kind": "re-export"
+      },
+      {
+        "name": "SandboxHandle",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "run-orchestration",
+        "requests": [
+          "dispatchMessage"
+        ],
+        "via": "RunOrchestrationRemoteWorkerAdapter"
+      },
+      {
+        "service": "run-orchestration",
+        "requests": [
+          "has",
+          "register",
+          "unregister",
+          "pause",
+          "resume"
+        ],
+        "via": "RunOrchestrationAdapterPool"
+      },
+      {
+        "service": "run-orchestration",
+        "requests": [
+          "create"
+        ],
+        "via": "RunOrchestrationRemoteHarnessAdapterFactory"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "startSession",
+          "streamEvents",
+          "stopSession",
+          "getCapabilities",
+          "getForceReturnCount",
+          "setSessionToolRegistry"
+        ],
+        "via": "SessionLifecycleHarnessAdapter"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "select",
+          "release"
+        ],
+        "via": "SessionLifecycleAdapterPool"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "register",
+          "get",
+          "incrementForce",
+          "unregister"
+        ],
+        "via": "SessionLifecycleEnforcementRegistry"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "observe"
+        ],
+        "via": "SessionLifecycleReturnGate"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "spawn",
+          "exec",
+          "destroy"
+        ],
+        "via": "SessionLifecycleSandboxAdapter"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "createReturnGate",
+          "evaluateReturn",
+          "provisionReturnHook",
+          "writeCliMcpConfig"
+        ],
+        "via": "SessionLifecycleHarnessRuntime"
+      }
+    ],
+    "dependsOn": [],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "mcp-provider",
+    "layer": "agent-execution",
+    "ownedTables": [],
+    "exposedApiCount": 7,
+    "exposedApi": [
+      {
+        "name": "CreateMcpBridgeOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "createMcpBridge",
+        "kind": "re-export"
+      },
+      {
+        "name": "McpBridgeInstance",
+        "kind": "re-export"
+      },
+      {
+        "name": "toolResultToCallToolResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "createMcpBridgeRegistry",
+        "kind": "re-export"
+      },
+      {
+        "name": "McpBridgeRegistry",
+        "kind": "re-export"
+      },
+      {
+        "name": "createMcpRoute",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "register",
+          "unregister"
+        ],
+        "via": "SessionLifecycleMcpBridgeRegistry"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "createMcpBridge"
+        ],
+        "via": "SessionLifecycleMcpProvider"
+      }
+    ],
+    "dependsOn": [],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  },
+  {
+    "name": "tool-provider",
+    "layer": "agent-execution",
+    "ownedTables": [],
+    "exposedApiCount": 25,
+    "exposedApi": [
+      {
+        "name": "AssistantToolResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "AssistantToolShape",
+        "kind": "re-export"
+      },
+      {
+        "name": "BuildToolRegistryOptions",
+        "kind": "re-export"
+      },
+      {
+        "name": "ClaudeToolSpec",
+        "kind": "re-export"
+      },
+      {
+        "name": "ProposedCallWorkflowPort",
+        "kind": "re-export"
+      },
+      {
+        "name": "RegisteredTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "RegistrySessionWorkflow",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolContext",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolDefinition",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolHandler",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolRegistry",
+        "kind": "re-export"
+      },
+      {
+        "name": "ToolResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "canonicalJson",
+        "kind": "re-export"
+      },
+      {
+        "name": "classifyReversibility",
+        "kind": "re-export"
+      },
+      {
+        "name": "composeWorkflowAllowDeny",
+        "kind": "re-export"
+      },
+      {
+        "name": "err",
+        "kind": "re-export"
+      },
+      {
+        "name": "identityHash",
+        "kind": "re-export"
+      },
+      {
+        "name": "ok",
+        "kind": "re-export"
+      },
+      {
+        "name": "toClaudeToolSpec",
+        "kind": "re-export"
+      },
+      {
+        "name": "toolsForRole",
+        "kind": "re-export"
+      },
+      {
+        "name": "toRegistered",
+        "kind": "re-export"
+      },
+      {
+        "name": "wrapForRegistry",
+        "kind": "re-export"
+      },
+      {
+        "name": "ReturnStatusResult",
+        "kind": "re-export"
+      },
+      {
+        "name": "returnStatusTool",
+        "kind": "re-export"
+      },
+      {
+        "name": "buildToolRegistry",
+        "kind": "re-export"
+      }
+    ],
+    "consumers": [
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "onAbortSession"
+        ],
+        "via": "SessionLifecycleToolContext"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "invoke"
+        ],
+        "via": "SessionLifecycleToolRegistry"
+      },
+      {
+        "service": "session-lifecycle",
+        "requests": [
+          "buildToolRegistry",
+          "toolsForRole",
+          "returnStatusToolForRegistry"
+        ],
+        "via": "SessionLifecycleToolProvider"
+      }
+    ],
+    "dependsOn": [],
+    "eventsEmittedTo": [],
+    "eventsReceivedFrom": []
+  }
+]
