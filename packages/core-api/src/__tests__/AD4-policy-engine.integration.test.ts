@@ -41,7 +41,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { isSilenced, type NotificationsSilenceDeps } from "@hyperidle/notifications";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
@@ -59,7 +59,7 @@ import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 const silenceDeps: NotificationsSilenceDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
 	users: { getUserById },
-	teams: { getTeamMembersById },
+	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 
 const policyEngineDeps: PolicyDeps = {

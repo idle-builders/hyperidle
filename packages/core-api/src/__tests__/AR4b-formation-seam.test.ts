@@ -36,7 +36,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
-import { getTeamMembersByTeamId } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import {
 	createAgentSessionRequest,
 	findAgentSessionRequestByIdempotencyKey,
@@ -59,7 +59,7 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 	},
 	config: { listConfiguration },
 	users: { getUserByIdScopedToTeam },
-	teams: { getTeamMembersByTeamId },
+	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────

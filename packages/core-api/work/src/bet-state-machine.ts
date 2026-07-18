@@ -192,13 +192,17 @@ export async function transitionBet(
 		}
 
 		if (toState === "active") {
-			await teamCapacity.setActiveBets(tx, freshMemberGroup.id, freshMemberGroup.activeBets + 1);
+			await teamCapacity.setActiveBets(
+				tx,
+				freshMemberGroup.teamId,
+				freshMemberGroup.activeBets + 1,
+			);
 		}
 
 		if (toState === "completed") {
 			await teamCapacity.setActiveBets(
 				tx,
-				freshMemberGroup.id,
+				freshMemberGroup.teamId,
 				Math.max(0, freshMemberGroup.activeBets - 1),
 			);
 		}
@@ -211,7 +215,7 @@ export async function transitionBet(
 		) {
 			await teamCapacity.setActiveBets(
 				tx,
-				freshMemberGroup.id,
+				freshMemberGroup.teamId,
 				Math.max(0, freshMemberGroup.activeBets - 1),
 			);
 		}

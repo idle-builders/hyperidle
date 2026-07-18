@@ -252,13 +252,20 @@ export interface UserStoreReader {
 
 /**
  * Port for `org`'s team-capacity read/write surface `work` calls directly
- * today (`team-lookup.ts`'s `getTeamMembersByTeamId`/`setTeamMembersActiveBets`).
+ * today (`team-lookup.ts`'s `getTeamMembers`/`updateTeam`).
  * Types off `@hyperidle/db`'s `TeamMember` row directly (`work` keeps
  * `@hyperidle/db` — architecture §7.3 W4, core-api Services may type ports
  * off `@hyperidle/db` row types directly) — no narrower `Work*` row type is
  * needed since `org` already owns the canonical row shape.
+ *
+ * @lore AU20 Am7: `setActiveBets` signature changed from `(db, teamMembersId, activeBets)`
+ * to `(db, teamId, activeBets)` — the 1:1 invariant lets `org`'s new
+ * `updateTeam(db, teamId, { activeBets })` address the row by `teamId`
+ * (WHERE teamMembers.teamId = teamId), eliminating the need to pass
+ * `teamMembers.id` to the write side. `bet-state-machine.ts` passes
+ * `freshMemberGroup.teamId` instead of `freshMemberGroup.id` unchanged in semantics.
  */
 export interface TeamCapacityReader {
 	getByTeamId(db: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
-	setActiveBets(db: WriteExecutor, teamMembersId: string, activeBets: number): Promise<void>;
+	setActiveBets(db: WriteExecutor, teamId: string, activeBets: number): Promise<void>;
 }

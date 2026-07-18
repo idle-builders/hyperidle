@@ -22,7 +22,7 @@
 
 import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, readSystemPromptTemplateForRole, sessions } from "@hyperidle/db";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import {
 	AGENT_CATEGORIES,
 	catalogEntry,
@@ -297,7 +297,7 @@ export function createAgentRoutes(
 		// AH4: FK 422 — reject unknown teamId before the INSERT to surface a clear 422
 		// rather than a FK constraint 500. teamId references team_members.id.
 		if (data.teamId) {
-			const tmRow = await getTeamMembersById(db, data.teamId);
+			const tmRow = await getTeamMembers(db, { id: data.teamId });
 			if (!tmRow) {
 				return c.json({ error: `teamId not found: ${data.teamId}`, code: "VALIDATION_ERROR" }, 422);
 			}

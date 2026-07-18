@@ -40,13 +40,11 @@ import {
 } from "@hyperidle/knowledge";
 import {
 	createTeam,
-	createTeamMembersGroup,
-	getTeamById,
-	getTeamMembersById,
-	getTeamMembersByTeamId,
+	getTeam,
+	getTeamMembers,
 	persistScaffoldedAgents as orgPersistScaffoldedAgents,
 	resolveReviewRecipients,
-	setTeamMembersLeadAgent,
+	updateTeam,
 } from "@hyperidle/org";
 import {
 	attentionReviewReasoningMarker,
@@ -215,12 +213,13 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 			findThread(db, { host: { kind: hostKind, id: hostId } }),
 	},
 	org: {
-		getTeamById,
-		getTeamMembersByTeamId,
-		getTeamMembersById,
+		// @lore AU20 Am7: per-WHERE accessors replaced by parameterized API; adapters bridge the port interface.
+		getTeamById: (db: HyperIdleDb, teamId: string) => getTeam(db, { id: teamId }),
+		getTeamMembersByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+		getTeamMembersById: (db: HyperIdleDb, teamMembersId: string) =>
+			getTeamMembers(db, { id: teamMembersId }),
 		createTeam,
-		createTeamMembersGroup,
-		setTeamMembersLeadAgent,
+		updateTeam,
 		resolveReviewRecipientsForItem,
 		persistScaffoldedAgents,
 	},

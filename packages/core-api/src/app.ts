@@ -29,7 +29,7 @@ import {
 	type ObservabilityRuntime,
 	startObservability,
 } from "@hyperidle/observability";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
@@ -276,7 +276,7 @@ const notificationsConfigDeps: NotificationsConfigDeps = {
 const notificationsSilenceDeps: NotificationsSilenceDeps = {
 	serverConfig: notificationsServerConfigPort,
 	users: { getUserById },
-	teams: { getTeamMembersById },
+	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 
 const notificationsWorkReader: NotificationsWorkReader = {

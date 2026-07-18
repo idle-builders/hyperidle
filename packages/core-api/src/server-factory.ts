@@ -66,12 +66,7 @@ import {
 	registerNotificationListener,
 	startNotificationDrain,
 } from "@hyperidle/notifications";
-import {
-	getTeamMembersById,
-	getTeamMembersByTeamId,
-	resolveReviewRecipients,
-	setTeamMembersActiveBets,
-} from "@hyperidle/org";
+import { getTeamMembers, resolveReviewRecipients, updateTeam } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
@@ -200,7 +195,7 @@ const notificationsMuteDeps: NotificationsMuteDeps = {
 const notificationsSilenceDeps: NotificationsSilenceDeps = {
 	serverConfig: notificationsServerConfigPort,
 	users: { getUserById },
-	teams: { getTeamMembersById },
+	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 
 const notificationsWorkReader: NotificationsWorkReader = {
@@ -789,7 +784,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		workIntents: { record: recordAgentWorkIntent },
 		// AU19 Increment 1c: `org` is a REAL migrated package — wired to its real
 		// exported functions (W2 closure).
-		teamCapacity: { getByTeamId: getTeamMembersByTeamId, setActiveBets: setTeamMembersActiveBets },
+		teamCapacity: {
+			getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
+			setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
+		},
 	});
 
 	// AU19 Increment 3f: register the capture-writeback subscriber — the
@@ -930,7 +928,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				createDbSubscribeAuthorizer(db, {
 					conversation: { getThreadById: (db, id) => findThread(db, { id }) },
 					users: { getUserById },
-					org: { getTeamMembersById },
+					org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 					work: { getTaskById },
 				}),
 			);

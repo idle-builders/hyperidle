@@ -31,12 +31,7 @@ import type {
 } from "@hyperidle/cost";
 import { createCostOps } from "@hyperidle/cost";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	getTeamMembersById,
-	incrementTeamMembersCost,
-	resetAllTeamMembersCost,
-	resetTeamMembersCost,
-} from "@hyperidle/org";
+import { applyTeamCost, getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
 import {
@@ -50,11 +45,13 @@ import { createItem, getTaskById, incrementBetCost } from "@hyperidle/work";
 
 const costDeps: CostDeps = {
 	users: { getUserById, incrementUserCost, resetAllUserCost, sumAllUserCost, updateUser },
+	// @lore AU20 Am7: per-verb cost functions replaced by applyTeamCost + getTeamMembers;
+	// adapters satisfy CostTeamAccessor without changing cost package internals.
 	org: {
-		getTeamMembersById,
-		incrementTeamMembersCost,
-		resetTeamMembersCost,
-		resetAllTeamMembersCost,
+		getTeamMembersById: (db, id) => getTeamMembers(db, { id }),
+		incrementTeamMembersCost: (db, id, deltaMinor) => applyTeamCost(db, { id }, { deltaMinor }),
+		resetTeamMembersCost: (db, id) => applyTeamCost(db, { id }, "reset"),
+		resetAllTeamMembersCost: (db) => applyTeamCost(db, "all", "reset"),
 	},
 	work: { getTaskById, incrementBetCost, createItem },
 	settings: {

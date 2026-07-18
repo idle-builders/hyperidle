@@ -6,7 +6,7 @@ import {
 	type TestDbHandle,
 	threads,
 } from "@hyperidle/db";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import {
 	type CostCapBreachedEvent,
@@ -88,7 +88,7 @@ const notificationsConfigDeps: NotificationsConfigDeps = {
 const notificationsSilenceDeps: NotificationsSilenceDeps = {
 	serverConfig: notificationsServerConfigPort,
 	users: { getUserById },
-	teams: { getTeamMembersById },
+	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 
 const notificationsWorkReader: NotificationsWorkReader = {

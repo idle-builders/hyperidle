@@ -11,7 +11,7 @@ import {
 	listAll,
 	type NotificationsSilenceDeps,
 } from "@hyperidle/notifications";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { getUserById } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
@@ -21,7 +21,7 @@ import { test as fixtureTest } from "../test-fixtures.js";
 const silencePolicyDeps: NotificationsSilenceDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
 	users: { getUserById },
-	teams: { getTeamMembersById },
+	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 
 const TEST_API_KEY = "test-key-au3-domain";

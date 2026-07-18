@@ -11,7 +11,7 @@
 
 import { findThread } from "@hyperidle/conversation";
 import { sessions, threads as threadsTable, users } from "@hyperidle/db";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import {
 	createDbSubscribeAuthorizer,
 	type SubscribeAuthorizerDeps,
@@ -38,7 +38,7 @@ function createMockClient(): WsClient & { messages: string[] } {
 const REALTIME_DEPS: SubscribeAuthorizerDeps = {
 	conversation: { getThreadById: (db, id) => findThread(db, { id }) },
 	users: { getUserById },
-	org: { getTeamMembersById },
+	org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 	work: { getTaskById },
 };
 

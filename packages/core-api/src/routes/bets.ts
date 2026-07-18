@@ -7,12 +7,11 @@ import {
 } from "@hyperidle/knowledge";
 import {
 	ApiError,
-	getTeamById,
-	getTeamMembersByTeamId,
-	listAllTeamMembers,
-	listAllTeams,
-	loadTeamMembers,
-	setTeamMembersActiveBets,
+	getTeam,
+	getTeamMembers,
+	listTeamMembers,
+	listTeams,
+	updateTeam,
 } from "@hyperidle/org";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import {
@@ -35,9 +34,12 @@ const SUMMARY_CAP = 10;
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service — closes W2's `teamMembers` ownership gap.
+// @lore AU20 Am7: adapters bridge TeamCapacityReader to the new parameterized API.
 const teamCapacity = {
-	getByTeamId: getTeamMembersByTeamId,
-	setActiveBets: setTeamMembersActiveBets,
+	getByTeamId: (db: import("@hyperidle/db").WriteExecutor, teamId: string) =>
+		getTeamMembers(db, { teamId }),
+	setActiveBets: (db: import("@hyperidle/db").WriteExecutor, teamId: string, activeBets: number) =>
+		updateTeam(db, teamId, { activeBets }),
 };
 
 /**
@@ -402,13 +404,13 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// @lore U1: uses `teams` (domain entity, formerly `products`) and `teamMembers`.
 	router.get("/canvas", requireBoundary({ kind: "public-data" }), async (c) => {
 		const allBets = await work.listBets(db);
-		const allTeamMembers = await listAllTeamMembers(db);
+		const allTeamMembers = await listTeamMembers(db);
 
 		const totalCapacity = allTeamMembers.reduce((sum, t) => sum + t.capacity, 0);
 		const totalUsed = allTeamMembers.reduce((sum, t) => sum + t.activeBets, 0);
 
 		// Batch team lookup — one query, then a Map for O(1) access.
-		const allTeams = await listAllTeams(db);
+		const allTeams = await listTeams(db);
 		const teamMap = new Map(allTeams.map((t) => [t.id, t.name]));
 
 		/** Shape a bet row into the CanvasBetWire format. */
@@ -478,7 +480,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// @lore U1: `description` (formerly `pitch`), `teamId` (formerly `productId`).
 		const title = deriveTitle(bet.description, bet.id);
 
-		const teamRow = await getTeamById(db, bet.teamId);
+		const teamRow = await getTeam(db, { id: bet.teamId });
 		const team = teamRow?.name ?? bet.teamId;
 
 		const done = betTasks.filter((t) => t.state === "done").length;
@@ -561,7 +563,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
 
 			// Check team existence before team_members lookup.
-			const teamRow = await getTeamById(db, body.teamId);
+			const teamRow = await getTeam(db, { id: body.teamId });
 			if (!teamRow) {
 				return c.json({ error: `Team '${body.teamId}' not found`, code: "VALIDATION_ERROR" }, 400);
 			}
@@ -723,10 +725,10 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		}
 
 		try {
-			loadTeamMembers(db, bet.teamId);
+			await getTeamMembers(db, { teamId: bet.teamId }, { require: true });
 		} catch (err) {
 			if (err instanceof ApiError) {
-				return c.json({ error: err.message, code: err.code }, 500);
+				return c.json({ error: err.message, code: err.code }, err.status as 500);
 			}
 			throw err;
 		}

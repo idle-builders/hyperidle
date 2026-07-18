@@ -31,8 +31,8 @@
  */
 
 import { insertMessage, insertThread, listMessages } from "@hyperidle/conversation";
-import type { HyperIdleDb } from "@hyperidle/db";
-import { getTeamMembersByTeamId } from "@hyperidle/org";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import { getTeamMembers } from "@hyperidle/org";
 import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
 import { recordAgentWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
@@ -44,7 +44,7 @@ const handoffDeps = {
 	work: { getTaskById, updateTaskById, createItem },
 	conversation: { insertMessage, insertThread },
 	users: { getUserById, findActiveTeammateByRole },
-	org: { getByTeamId: getTeamMembersByTeamId },
+	org: { getByTeamId: (db: WriteExecutor, teamId: string) => getTeamMembers(db, { teamId }) },
 	sessionRequests: {
 		record: recordAgentWorkIntent,
 		abort: sessionRunRegistry.abort,

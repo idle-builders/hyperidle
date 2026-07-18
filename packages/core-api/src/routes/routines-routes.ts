@@ -6,7 +6,7 @@ import {
 	type PostBetRetroArgs,
 	parseCron,
 } from "@hyperidle/dispatch";
-import { getTeamById } from "@hyperidle/org";
+import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import {
@@ -93,7 +93,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			const body = c.req.valid("json" as never) as z.infer<typeof createRoutineSchema>;
 
 			// Verify teamId exists
-			const team = await getTeamById(db, body.teamId);
+			const team = await getTeam(db, { id: body.teamId });
 			if (!team) {
 				return c.json({ error: "Team not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
@@ -210,7 +210,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const agentName = ownerUser?.name ?? routine.ownerAgentId;
 
 		// Resolve team name
-		const teamRow = await getTeamById(db, routine.teamId);
+		const teamRow = await getTeam(db, { id: routine.teamId });
 		const teamName = teamRow?.name ?? routine.teamId;
 
 		// Fetch up to 20 runs (newest first). allRuns[0] is the latest run — no

@@ -24,7 +24,7 @@
 import { listMessages, listThreads, searchConversations } from "@hyperidle/conversation";
 import { escapeLikePattern, type HyperIdleDb } from "@hyperidle/db";
 import { searchVisibleByText } from "@hyperidle/knowledge";
-import { listTeamsByIds } from "@hyperidle/org";
+import { listTeams } from "@hyperidle/org";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
@@ -239,12 +239,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 			limit: MAX_PER_CATEGORY,
 		});
 		const betTeamRows =
-			betRows.length > 0
-				? await listTeamsByIds(
-						db,
-						betRows.map((b) => b.teamId),
-					)
-				: [];
+			betRows.length > 0 ? await listTeams(db, { ids: betRows.map((b) => b.teamId) }) : [];
 		const teamNameMap = new Map(betTeamRows.map((t) => [t.id, t.name]));
 
 		const workResults = betRows.map((row) => ({

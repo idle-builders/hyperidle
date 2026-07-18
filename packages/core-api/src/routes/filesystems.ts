@@ -24,7 +24,7 @@ import {
 	updateFilesystemState,
 } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/git-export";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import type {
 	EventBus,
 	Filesystem,
@@ -342,7 +342,7 @@ export function createFilesystemRoutes(
 			// The bot's teamId points at team_members.id (schema.ts:47); we need the teams.id.
 			// @lore AO1 §3: Route-level guard — no DB-level cross-table CHECK constraint.
 			if (agent.teamId != null) {
-				const tmRow = await getTeamMembersById(db, agent.teamId);
+				const tmRow = await getTeamMembers(db, { id: agent.teamId });
 				const agentActualTeamId = tmRow?.teamId ?? null;
 				if (agentActualTeamId !== fs.teamId) {
 					return c.json(

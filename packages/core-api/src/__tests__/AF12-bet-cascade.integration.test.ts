@@ -38,10 +38,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import { insertNotification } from "@hyperidle/notifications";
-import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
+import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { getFirstUserByKind } from "@hyperidle/users";
-import type { TaskStateMachineDeps } from "@hyperidle/work";
+import type { TaskStateMachineDeps, TeamCapacityReader } from "@hyperidle/work";
 import {
 	cascadeBetKill,
 	getBetById,
@@ -106,9 +106,9 @@ const lifecyclePropagationDeps: PolicyDeps = {
 const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity = {
-	getByTeamId: getTeamMembersByTeamId,
-	setActiveBets: setTeamMembersActiveBets,
+const teamCapacity: TeamCapacityReader = {
+	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
+	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 };
 
 async function seed(db: HyperIdleDb): Promise<void> {

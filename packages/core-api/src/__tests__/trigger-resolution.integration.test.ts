@@ -24,7 +24,7 @@ import {
 	triggerResolutionHistory,
 	users,
 } from "@hyperidle/db";
-import { getTeamMembersByTeamId } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import {
 	createAgentSessionRequest,
 	findAgentSessionRequestByIdempotencyKey,
@@ -52,7 +52,7 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 	},
 	config: { listConfiguration },
 	users: { getUserByIdScopedToTeam },
-	teams: { getTeamMembersByTeamId },
+	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 };
 
 async function seedTeamAndAgents(db: HyperIdleDb): Promise<void> {

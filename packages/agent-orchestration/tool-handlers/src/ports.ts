@@ -177,13 +177,9 @@ export interface ToolHandlersConversationAccessor<TDb> {
 
 /**
  * Structural mirror of `org`'s own `CreateTeamInput` (`team-lookup.ts`) —
- * `org`'s `createTeam` reads these specific fields (`db.insert(teams)
- * .values(input)`), so (unlike the spread/forward `Record<string,unknown>`
- * inputs elsewhere in this file) an opaque type would fail the composition
- * root's function-assignment check (`Record<string, unknown>` and a
- * concrete-fielded interface do not sufficiently overlap for a single
- * audited `as` cast — see `design/no-unknown-cast`, which bans the
- * `X as unknown as T` escape hatch this file must not reach for).
+ * `org`'s `createTeam` atomically inserts both the `teams` row and its
+ * `teamMembers` companion (1:1 invariant). `teamMembersId` replaced the
+ * old separate `CreateTeamMembersGroupInput.id` (AU20 Am7).
  */
 export interface ToolHandlersCreateTeamInput {
 	readonly id: string;
@@ -192,15 +188,11 @@ export interface ToolHandlersCreateTeamInput {
 	readonly functions: string | null;
 	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
-}
-
-/** Structural mirror of `org`'s own `CreateTeamMembersGroupInput` — same reasoning as {@link ToolHandlersCreateTeamInput}. */
-export interface ToolHandlersCreateTeamMembersGroupInput {
-	readonly id: string;
-	readonly teamId: string;
-	readonly capacity: number;
-	readonly activeBets: number;
-	readonly formedAt: string;
+	/** The `teamMembers.id` for the companion row (1:1 invariant). */
+	readonly teamMembersId: string;
+	readonly capacity?: number;
+	readonly activeBets?: number;
+	readonly formedAt?: string;
 }
 
 export interface ToolHandlersOrgAccessor<TDb> {
@@ -214,9 +206,20 @@ export interface ToolHandlersOrgAccessor<TDb> {
 		db: TDb,
 		teamMembersId: string,
 	): Promise<{ readonly teamId: string } | undefined>;
+	/**
+	 * Atomically creates a `teams` row + its `teamMembers` companion (1:1 invariant).
+	 * @lore AU20 Am7: replaces the old `createTeam + createTeamMembersGroup` two-call pattern.
+	 */
 	createTeam(db: TDb, input: ToolHandlersCreateTeamInput): Promise<void>;
-	createTeamMembersGroup(db: TDb, input: ToolHandlersCreateTeamMembersGroupInput): Promise<void>;
-	setTeamMembersLeadAgent(db: TDb, teamMembersId: string, leadAgentId: string): Promise<void>;
+	/**
+	 * Update team-owned columns (phase on `teams`, activeBets/leadAgentId on `teamMembers`).
+	 * @lore AU20 Am7: replaces `setTeamMembersLeadAgent` (and `updateTeamPhase`/`setTeamMembersActiveBets`).
+	 */
+	updateTeam(
+		db: TDb,
+		teamId: string,
+		patch: { phase?: string; activeBets?: number; leadAgentId?: string },
+	): Promise<void>;
 	/** Collapses `resolveReviewRecipients(db, ctx, {getUserById})` — see this file's top `@lore`. */
 	resolveReviewRecipientsForItem(
 		db: TDb,

@@ -31,7 +31,7 @@ import {
 	loadScoringWeights,
 	rankAndBudget,
 } from "@hyperidle/knowledge";
-import { getTeamById } from "@hyperidle/org";
+import { getTeam } from "@hyperidle/org";
 import { getRoutine } from "@hyperidle/routine";
 import { getUserById } from "@hyperidle/users";
 import { getBetById, getTaskById } from "@hyperidle/work";
@@ -64,7 +64,7 @@ const contextAssemblyPorts: ContextAssemblyPorts = {
 		startWatcher,
 	},
 	org: {
-		getTeamById,
+		getTeamById: (db, id) => getTeam(db, { id }),
 	},
 };
 

@@ -24,18 +24,12 @@ import { enqueueNotification, findPendingByEventSubject } from "@hyperidle/notif
 import {
 	ApiError,
 	createTeam,
-	createTeamMembersGroup,
-	deleteTeamById,
-	deleteTeamMembersGroupById,
-	getTeamById,
-	getTeamByName,
-	getTeamMembersByTeamId,
-	listAllTeams,
-	loadTeamMembers,
+	deleteTeam,
+	getTeam,
+	getTeamMembers,
+	listTeams,
 	persistScaffoldedAgents,
-	resolveTeamAgentHarness,
-	setTeamMembersLeadAgent,
-	updateTeamPhase,
+	updateTeam,
 	upsertOrgEdge,
 } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
@@ -192,12 +186,12 @@ export function createTeamRoutes(
 
 	// GET / — list all teams with portfolio counters
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allTeams = await listAllTeams(db);
+		const allTeams = await listTeams(db);
 
 		const result: TeamListItem[] = await Promise.all(
 			allTeams.map(async (team) => {
 				// Fetch the team_members for this team (may be missing — tolerate gracefully here)
-				const memberGroup = await getTeamMembersByTeamId(db, team.id);
+				const memberGroup = await getTeamMembers(db, { teamId: team.id });
 
 				// Count active and completed bets
 				const activeBetCount = await work.countBetsByTeamAndStatus(db, team.id, "active");
@@ -349,7 +343,7 @@ export function createTeamRoutes(
 		// AK6 strategy-swap test creates two teams with different names in one session.
 		// The "same-name" guard still prevents duplicate setup teams (same name = same
 		// team) while allowing the test to create a second team with a different name.
-		const existingTeam = await getTeamByName(db, name.trim());
+		const existingTeam = await getTeam(db, { name: name.trim() });
 		if (existingTeam) {
 			return c.json(existingTeam, 200);
 		}
@@ -363,6 +357,7 @@ export function createTeamRoutes(
 		const teamId = `team-${crypto.randomUUID()}`;
 		const teamMembersId = `team-${crypto.randomUUID()}`;
 
+		// @lore AU20 Am7: atomic createTeam inserts teams + teamMembers companion in one call.
 		await createTeam(db, {
 			id: teamId,
 			name: name.trim(),
@@ -375,11 +370,8 @@ export function createTeamRoutes(
 			defaultHarnessType: primaryHarness?.harnessType ?? null,
 			defaultModelId: primaryHarness?.modelId ?? null,
 			defaultModelProvider: primaryHarness?.modelProvider ?? null,
-		});
-
-		await createTeamMembersGroup(db, {
-			id: teamMembersId,
-			teamId,
+			// teamMembers companion (1:1)
+			teamMembersId,
 			capacity: 5,
 			activeBets: 0,
 			formedAt: now,
@@ -403,8 +395,8 @@ export function createTeamRoutes(
 		// catalog matches), reject with 400 — a team with no agents is invalid.
 		// Roll back the already-inserted team + teamMembers rows.
 		if (specs.length === 0) {
-			await deleteTeamMembersGroupById(db, teamMembersId);
-			await deleteTeamById(db, teamId);
+			// @lore AU20 Am7: deleteTeam cascades (deletes teamMembers then teams) in one call.
+			await deleteTeam(db, teamId);
 			return c.json({ error: "Team functions produced no agents", code: "validation_error" }, 400);
 		}
 
@@ -419,8 +411,9 @@ export function createTeamRoutes(
 		);
 
 		// Set lead agent on team_members.
+		// @lore AU20 Am7: updateTeam(teamId, {leadAgentId}) replaces setTeamMembersLeadAgent.
 		if (leadAgentId) {
-			await setTeamMembersLeadAgent(db, teamMembersId, leadAgentId);
+			await updateTeam(db, teamId, { leadAgentId });
 		}
 
 		// AH4: upsert founder→team org edge (best-effort — failure must not 500 team creation).
@@ -478,7 +471,7 @@ export function createTeamRoutes(
 		// The read below is a no-op read that takes ~0ms but creates the
 		// await boundary PGlite needs to resolve pending handler promises.
 		// Production handlers are sync — the overhead is one lightweight SELECT.
-		await getTeamById(db, teamId);
+		await getTeam(db, { id: teamId });
 
 		// AE2: seed welcome message in assistant thread when userId is provided.
 		// Best-effort: failure does not roll back team creation.
@@ -500,11 +493,9 @@ export function createTeamRoutes(
 				// primaryHarness, we must UPDATE the existing stub — the stub was created
 				// before the user picked a harness so it defaults to builtin. The UPDATE
 				// overwrites that with the team default so the auto-opened overlay opens READY.
-				const stubHarness = resolveTeamAgentHarness(primaryHarness, {
-					defaultHarnessType: primaryHarness?.harnessType ?? null,
-					defaultModelId: primaryHarness?.modelId ?? null,
-					defaultModelProvider: primaryHarness?.modelProvider ?? null,
-				});
+				// @lore AU20 Am7: resolveTeamAgentHarness removed from barrel; when primaryHarness
+				// is supplied it IS the resolved harness; when absent, undefined (builtin fallback).
+				const stubHarness = primaryHarness ?? undefined;
 
 				if (!existingAssistant) {
 					// Lookup user name to personalise the assistant name.
@@ -606,11 +597,11 @@ export function createTeamRoutes(
 		}
 
 		// Look up team + membership group
-		const team = await getTeamById(db, teamId);
+		const team = await getTeam(db, { id: teamId });
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
-		const memberGroup = await getTeamMembersByTeamId(db, teamId);
+		const memberGroup = await getTeamMembers(db, { teamId });
 		if (!memberGroup) {
 			return c.json({ error: "Team membership group not found", code: "not_found" }, 404);
 		}
@@ -631,16 +622,10 @@ export function createTeamRoutes(
 		});
 
 		// AV1: read team default so add-agent-later inherits the persisted primary harness.
-		// resolveTeamAgentHarness(undefined, team) returns the team default or undefined
-		// (→ persistScaffoldedAgents applies builtin fallback at :112-114).
-		const addAgentHarness = resolveTeamAgentHarness(undefined, team);
-		const { agentIds } = await persistScaffoldedAgents(
-			db,
-			orgUsers,
-			memberGroup.id,
-			specs,
-			addAgentHarness,
-		);
+		// @lore AU20 Am7: pass team directly to persistScaffoldedAgents — it accepts
+		// TeamHarnessDefault (defaultHarnessType/modelId/modelProvider) and resolves
+		// team-default → builtin internally (resolveTeamAgentHarness folded in).
+		const { agentIds } = await persistScaffoldedAgents(db, orgUsers, memberGroup.id, specs, team);
 		const agentId = agentIds[0] ?? crypto.randomUUID();
 		const now = new Date().toISOString();
 
@@ -663,7 +648,7 @@ export function createTeamRoutes(
 	router.patch("/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
 		const teamId = c.req.param("teamId");
 
-		const team = await getTeamById(db, teamId);
+		const team = await getTeam(db, { id: teamId });
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
@@ -686,9 +671,10 @@ export function createTeamRoutes(
 			);
 		}
 
-		await updateTeamPhase(db, teamId, phase);
+		// @lore AU20 Am7: updateTeam(teamId, {phase}) replaces updateTeamPhase.
+		await updateTeam(db, teamId, { phase });
 
-		const updated = await getTeamById(db, teamId);
+		const updated = await getTeam(db, { id: teamId });
 		if (!updated) {
 			return c.json({ error: "Team not found after update", code: "internal_error" }, 500);
 		}
@@ -701,14 +687,14 @@ export function createTeamRoutes(
 		const teamId = c.req.param("teamId");
 
 		// 1. Look up the team
-		const team = await getTeamById(db, teamId);
+		const team = await getTeam(db, { id: teamId });
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
 
 		// 2. Load the team_members row (enforces 1:1 invariant — throws ApiError(500) if broken)
 		try {
-			const memberGroup = await loadTeamMembers(db, teamId);
+			const memberGroup = await getTeamMembers(db, { teamId }, { require: true });
 			// 3. Load roster
 			const agentRows = await listUsersByTeam(db, memberGroup.id);
 

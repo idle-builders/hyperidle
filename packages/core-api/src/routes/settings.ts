@@ -21,7 +21,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { listAllTeams } from "@hyperidle/org";
+import { listTeams } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
 import { getFirstUserByKind, listUsersByKind } from "@hyperidle/users";
@@ -126,7 +126,7 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 	const serverCfg = await readServerConfig(db);
 
 	// Teams — active derived from phase !== "archived"
-	const teamRows = await listAllTeams(db);
+	const teamRows = await listTeams(db);
 	// AI Users — paused derived from status === "paused" (kind = 'ai' for the agents panel)
 	const aiUserRows = await listUsersByKind(db, "ai");
 

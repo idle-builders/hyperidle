@@ -28,7 +28,7 @@ import type {
 	NotificationsSilenceDeps,
 	NotificationsWorkReader,
 } from "@hyperidle/notifications";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { getUserById } from "@hyperidle/users";
 import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
@@ -66,7 +66,7 @@ export const notificationsConfigDeps: NotificationsConfigDeps = {
 export const notificationsSilenceDeps: NotificationsSilenceDeps = {
 	serverConfig: notificationsServerConfigPort,
 	users: { getUserById },
-	teams: { getTeamMembersById },
+	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 
 export const notificationsWorkReader: NotificationsWorkReader = {

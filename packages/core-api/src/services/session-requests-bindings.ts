@@ -47,7 +47,7 @@ import {
 	insertLifecycleInboxFactIfAbsent,
 	listProjectedLifecycleInboxBefore,
 } from "@hyperidle/lifecycle-projection";
-import { getTeamMembersByTeamId } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import { findGrantedProposedCall } from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
 import {
@@ -99,7 +99,7 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 	},
 	config: { listConfiguration },
 	users: { getUserByIdScopedToTeam },
-	teams: { getTeamMembersByTeamId },
+	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 };
 
 // ---------------------------------------------------------------------------
@@ -111,7 +111,7 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 
 const agentSelectionService = createAgentSelectionService({
 	users: { getUserById, listActiveAiUsersByTeams },
-	teams: { getTeamMembersByTeamId },
+	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 });
 
 // ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ const agentWorkIntentWorkerDeps: AgentWorkIntentWorkerDeps = {
 	},
 	conversation: { getMessageById: (db, id) => findMessage(db, { id }) },
 	users: { getUserById, listUsersByTeam },
-	teams: { getTeamMembersByTeamId },
+	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 	review: { findGrantedProposedCall },
 	knowledge: { findById: findKnowledgeItemById },
 	triggerResolver: {

@@ -15,10 +15,10 @@ import {
 	type AgentSelectionService,
 	createAgentSelectionService,
 } from "@hyperidle/agent-selection";
-import { getTeamMembersByTeamId } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
 
 export const agentSelectionService: AgentSelectionService = createAgentSelectionService({
 	users: { getUserById, listActiveAiUsersByTeams },
-	teams: { getTeamMembersByTeamId },
+	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 });

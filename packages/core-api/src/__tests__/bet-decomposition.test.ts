@@ -26,7 +26,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
+import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import {
 	type AgentSessionSourceKind,
 	DECOMPOSITION_TURN_TIMEOUT_MS,
@@ -50,7 +50,7 @@ const createTaskTool = createCreateTaskTool(toolHandlersPorts);
 
 const agentSelectionService = createAgentSelectionService({
 	users: { getUserById, listActiveAiUsersByTeams },
-	teams: { getTeamMembersByTeamId },
+	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 });
 
 /**
@@ -86,7 +86,11 @@ const productionPorts = {
 	users: { getUserById, listActiveAiUsersByTeams },
 	costCap: { checkCostCap },
 	workIntents: { record: recordAgentWorkIntent },
-	teamCapacity: { getByTeamId: getTeamMembersByTeamId, setActiveBets: setTeamMembersActiveBets },
+	teamCapacity: {
+		getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+		setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
+			updateTeam(db, teamId, { activeBets }),
+	},
 } as const;
 
 // ---------------------------------------------------------------------------

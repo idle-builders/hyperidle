@@ -43,7 +43,7 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
-import { getTeamById, getTeamMembersById, listAllTeamMembers } from "@hyperidle/org";
+import { getTeam, getTeamMembers, listTeamMembers } from "@hyperidle/org";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
 	type AgentWorkIntentEvent,
@@ -127,13 +127,13 @@ export async function resolveScopeName(
 	if (scopeKind === "team") {
 		// @lore AV3 U1: scopeId may be teams.id or team_members.id.
 		// Try teams first (direct id). On miss, try team_members then teams.
-		const teamRow = await getTeamById(db, scopeId);
+		const teamRow = await getTeam(db, { id: scopeId });
 		if (teamRow?.name) return teamRow.name;
 
 		// Two-hop: scopeId is a team_members.id — find the teamId, then look up teams.name.
-		const memberRow = await getTeamMembersById(db, scopeId);
+		const memberRow = await getTeamMembers(db, { id: scopeId });
 		if (memberRow?.teamId) {
-			const teamFromMember = await getTeamById(db, memberRow.teamId);
+			const teamFromMember = await getTeam(db, { id: memberRow.teamId });
 			if (teamFromMember?.name) return teamFromMember.name;
 		}
 
@@ -865,7 +865,7 @@ export function createTeamMembersRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 	// Row 11: GET /api/team-members — P (host-scope team listing)
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allTeamMembers = await listAllTeamMembers(db);
+		const allTeamMembers = await listTeamMembers(db);
 		const rows = allTeamMembers.map((t) => ({
 			id: t.id,
 			teamId: t.teamId,

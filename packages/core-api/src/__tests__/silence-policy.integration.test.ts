@@ -4,7 +4,7 @@ import {
 	isSilenced,
 	type NotificationsSilenceDeps,
 } from "@hyperidle/notifications";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { getUserById } from "@hyperidle/users";
 import { describe, expect } from "vitest";
@@ -13,7 +13,7 @@ import { test } from "../test-fixtures.js";
 const silencePolicyDeps: NotificationsSilenceDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
 	users: { getUserById },
-	teams: { getTeamMembersById },
+	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 
 describe("isInSilenceWindow", () => {

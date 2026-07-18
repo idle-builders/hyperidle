@@ -24,7 +24,7 @@ import {
 } from "@hyperidle/conversation";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { insertNotification } from "@hyperidle/notifications";
-import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
+import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { getFirstUserByKind } from "@hyperidle/users";
 import {
@@ -33,6 +33,7 @@ import {
 	getTaskById,
 	listItemIdsBySourceAgent,
 	listTasks,
+	type TeamCapacityReader,
 	transitionBet,
 	transitionBetStatus,
 	transitionTaskState,
@@ -84,9 +85,9 @@ const lifecyclePropagationDeps: PolicyDeps = {
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity = {
-	getByTeamId: getTeamMembersByTeamId,
-	setActiveBets: setTeamMembersActiveBets,
+const teamCapacity: TeamCapacityReader = {
+	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
+	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 };
 
 const TEST_API_KEY = "test-key-r7-bets";

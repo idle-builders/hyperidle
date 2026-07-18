@@ -21,7 +21,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { checkAndUnblockDependents } from "@hyperidle/filesystems";
-import { getTeamMembersByTeamId } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import { composeTailoredGrant } from "@hyperidle/review";
 import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
 import type { AgentSelectionDefaults, AgentWorkIntentRecorder } from "@hyperidle/work";
@@ -44,7 +44,7 @@ const depWatcherDeps = {
 
 const agentSelectionService = createAgentSelectionService({
 	users: { getUserById, listActiveAiUsersByTeams },
-	teams: { getTeamMembersByTeamId },
+	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 });
 
 /** AU19 Increment 1b: `insertProposedBetTasks` now takes injected `agent-selection`/`session-requests` ports.

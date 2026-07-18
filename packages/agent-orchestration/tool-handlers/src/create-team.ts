@@ -34,6 +34,7 @@ async function handler<TDb>(
 	const teamId = `team-${randomUUID()}`;
 	const teamMembersId = `team-${randomUUID()}`;
 
+	// @lore AU20 Am7: atomic createTeam (teams + teamMembers companion in one call).
 	await ports.org.createTeam(ctx.db, {
 		id: teamId,
 		name: input.name,
@@ -41,11 +42,7 @@ async function handler<TDb>(
 		functions: JSON.stringify(input.functions),
 		factoryDbPath: input.repoPath ?? null,
 		createdAt: now,
-	});
-
-	await ports.org.createTeamMembersGroup(ctx.db, {
-		id: teamMembersId,
-		teamId,
+		teamMembersId,
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
@@ -79,7 +76,8 @@ async function handler<TDb>(
 
 	const lead = leadAgentId ?? agentIds[0] ?? null;
 	if (lead !== null) {
-		await ports.org.setTeamMembersLeadAgent(ctx.db, teamMembersId, lead);
+		// @lore AU20 Am7: updateTeam(teamId, {leadAgentId}) replaces setTeamMembersLeadAgent(teamMembersId, id).
+		await ports.org.updateTeam(ctx.db, teamId, { leadAgentId: lead });
 	}
 
 	{
