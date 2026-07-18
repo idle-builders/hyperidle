@@ -1,19 +1,10 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	createGitRunner,
-	createNodeFsAdapter,
-	type FsAdapter,
-	type GitExportConfig,
 	type GitRunner,
 	getLastExportMeta,
 	readGitExportConfig,
-	redactRemoteUrl,
 	runGitExport,
-	sanitizeAuthorEmail,
-	sanitizeAuthorName,
-	sanitizeBranch,
-	sanitizeRemoteUrl,
-	sanitizeRepoPath,
 	updateGitExportConfig,
 } from "@hyperidle/git-export";
 import {
@@ -54,59 +45,25 @@ const runBodySchema = z
 	.strict();
 
 /**
- * Returned GitExportConfig shape — NEVER includes credential-bearing URLs.
- * The raw `remoteUrl` in `factory_settings` is redacted before leaving
- * the process.
+ * Minimal fs surface — matches git-export's internal FsAdapter. Defined
+ * locally so production code doesn't import internal types from the package.
+ *
+ * @lore AU20 Am8: FsAdapter moved to @hyperidle/git-export/testing subpath
+ * (internal mechanics of the export pipeline, not product surface). Routes
+ * define the injection interface locally; structural typing handles compat.
  */
-interface SafeGitExportConfig {
-	enabled: boolean;
-	repoPath: string;
-	remoteUrl: string | null;
-	branch: string;
-	authorName: string;
-	authorEmail: string;
-	debounceMs: number;
-}
-
-function toSafeConfig(raw: GitExportConfig): SafeGitExportConfig {
-	return { ...raw, remoteUrl: redactRemoteUrl(raw.remoteUrl) };
-}
-
-type PatchBody = z.infer<typeof patchConfigSchema>;
-
-/**
- * Apply every field-level sanitizer to a PATCH body. Returns `null` on
- * success or a reason string to reject with (400).
- */
-function validatePatchBody(body: PatchBody): string | null {
-	if (body.repoPath !== undefined) {
-		const r = sanitizeRepoPath(body.repoPath);
-		if (!r.ok) return r.reason;
-	}
-	if (body.branch !== undefined) {
-		const r = sanitizeBranch(body.branch);
-		if (!r.ok) return r.reason;
-	}
-	if (body.authorName !== undefined) {
-		const r = sanitizeAuthorName(body.authorName);
-		if (!r.ok) return r.reason;
-	}
-	if (body.authorEmail !== undefined) {
-		const r = sanitizeAuthorEmail(body.authorEmail);
-		if (!r.ok) return r.reason;
-	}
-	if (body.remoteUrl !== undefined && body.remoteUrl !== null && body.remoteUrl.length > 0) {
-		const allowFileRemote = process.env.HYPERIDLE_GIT_ALLOW_FILE_REMOTE === "true";
-		const r = sanitizeRemoteUrl(body.remoteUrl, { allowFileRemote });
-		if (!r.ok) return r.reason;
-	}
-	return null;
+interface FsAdapter {
+	existsSync(p: string): boolean;
+	readFileSync(p: string): string;
+	writeFileSync(p: string, data: string): void;
+	mkdirSync(p: string): void;
+	unlinkSync(p: string): void;
 }
 
 export interface CreateGitExportRoutesOptions {
 	/** Factory for the GitRunner; defaults to `createGitRunner(repoPath)`. */
 	createRunner?: (repoPath: string) => GitRunner;
-	/** Filesystem adapter; defaults to `createNodeFsAdapter()`. */
+	/** Filesystem adapter; defaults to the Node fs adapter inside runGitExport. */
 	fs?: FsAdapter;
 }
 
@@ -117,7 +74,6 @@ export function createGitExportRoutes(
 	const router = new Hono();
 	const createRunner =
 		opts.createRunner ?? ((repoPath: string): GitRunner => createGitRunner(repoPath));
-	const fs = opts.fs ?? createNodeFsAdapter();
 
 	// GET / — Bounded resource descriptor. Proves the route is mounted
 	// (I1 S2) without a DB read on every hit. Callers that want the
@@ -132,10 +88,9 @@ export function createGitExportRoutes(
 		}),
 	);
 
+	// readGitExportConfig returns already-redacted remoteUrl — safe to send directly.
 	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) =>
-		c.json(
-			toSafeConfig(await readGitExportConfig(db, { serverConfig: gitExportServerConfigPort })),
-		),
+		c.json(await readGitExportConfig(db, { serverConfig: gitExportServerConfigPort })),
 	);
 
 	router.patch(
@@ -144,18 +99,20 @@ export function createGitExportRoutes(
 		validateBody(patchConfigSchema),
 		async (c) => {
 			const body = c.req.valid("json");
-			const reason = validatePatchBody(body);
-			if (reason !== null) {
+			// Validation is now inside updateGitExportConfig — routes no longer
+			// import per-field sanitizers.
+			// @lore AU20 Am8: validatePatchBody removed; folded into updateGitExportConfig.
+			const result = await updateGitExportConfig(db, body, {
+				serverConfig: gitExportServerConfigPort,
+			});
+			if (!result.ok) {
 				const response: ApiErrorResponse = {
-					error: reason,
+					error: result.reason,
 					code: API_ERROR_CODES.VALIDATION_ERROR,
 				};
 				return c.json(response, 400);
 			}
-			const updated = await updateGitExportConfig(db, body, {
-				serverConfig: gitExportServerConfigPort,
-			});
-			return c.json(toSafeConfig(updated));
+			return c.json(result.config);
 		},
 	);
 
@@ -176,7 +133,7 @@ export function createGitExportRoutes(
 			const runner = createRunner(cfg.repoPath);
 			const result = await runGitExport(db, {
 				runner,
-				fs,
+				fs: opts.fs, // undefined → defaults to createNodeFsAdapter() inside runGitExport
 				trigger: body.trigger ?? "manual",
 				force: body.force,
 				serverConfig: gitExportServerConfigPort,
@@ -193,7 +150,7 @@ export function createGitExportRoutes(
 			enabled: cfg.enabled,
 			repoPath: cfg.repoPath,
 			branch: cfg.branch,
-			remoteUrl: redactRemoteUrl(cfg.remoteUrl),
+			remoteUrl: cfg.remoteUrl, // already redacted by readGitExportConfig
 			lastCommitAt: meta.lastCommitAt,
 			lastCommitSha: meta.lastCommitSha,
 			lastPushAt: meta.lastPushAt,

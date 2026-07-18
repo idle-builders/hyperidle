@@ -10,7 +10,7 @@ import {
 import {
 	type GitExportConfig,
 	loadGitExportConfig,
-	readGitExportConfig,
+	readRawGitExportConfig,
 	sanitizePathSegment,
 	writeLastCommit,
 	writeLastPush,
@@ -98,13 +98,14 @@ export type GitExportResult =
 
 export interface RunGitExportDeps extends GitExportDeps {
 	runner: GitRunner;
-	fs: FsAdapter;
+	/** Filesystem adapter. Defaults to the Node `fs` adapter when omitted. */
+	fs?: FsAdapter;
 	now?: () => Date;
 	logger?: Logger;
 	trigger?: GitExportTrigger;
 	/**
 	 * When true, `runGitExport` proceeds even if the config is disabled — it
-	 * falls back to `readGitExportConfig` so `POST /run {force:true}` can be
+	 * falls back to the raw config read so `POST /run {force:true}` can be
 	 * used during initial setup.
 	 */
 	force?: boolean;
@@ -363,8 +364,9 @@ export async function runGitExport(
 ): Promise<GitExportResult> {
 	// We need to know the repoPath to scope the mutex. Load config outside
 	// the mutex — it's a cheap DB read and mutex scoping depends on it.
+	// Use the raw (un-redacted) config so git operations receive the real URL.
 	const cfg = deps.force
-		? await readGitExportConfig(db, deps)
+		? await readRawGitExportConfig(db, deps)
 		: await loadGitExportConfig(db, deps);
 	if (!cfg) return { status: "disabled" };
 	if (!cfg.repoPath || cfg.repoPath.length === 0) {
@@ -382,9 +384,11 @@ async function runGitExportInner(
 	const logger = deps.logger ?? createLogger({ pkg: "git-export" });
 	const trigger: GitExportTrigger = deps.trigger ?? "manual";
 	const nowFn = deps.now ?? ((): Date => new Date());
+	// Default to the Node fs adapter so callers don't have to pass it.
+	const fs = deps.fs ?? createNodeFsAdapter();
 
 	try {
-		await ensureRepo(deps.runner, deps.fs, cfg, logger);
+		await ensureRepo(deps.runner, fs, cfg, logger);
 	} catch (err) {
 		logger.error("git-export: init failed", { error: String(err) });
 		return { status: "error", error: String(err), phase: "init" };
@@ -407,7 +411,7 @@ async function runGitExportInner(
 	let filesChanged: string[] = [];
 	let filesDeleted: string[] = [];
 	try {
-		const result = writePlanToDisk(plan, cfg.repoPath, deps.fs);
+		const result = writePlanToDisk(plan, cfg.repoPath, fs);
 		filesChanged = result.filesChanged;
 	} catch (err) {
 		logger.error("git-export: write failed", { error: String(err) });
@@ -415,7 +419,7 @@ async function runGitExportInner(
 	}
 
 	try {
-		const del = await applyDeletions(plan, cfg.repoPath, deps.fs, deps.runner);
+		const del = await applyDeletions(plan, cfg.repoPath, fs, deps.runner);
 		filesDeleted = [...del.filesDeleted];
 	} catch (err) {
 		logger.error("git-export: delete-enumerate failed", { error: String(err) });
@@ -510,10 +514,9 @@ export function registerGitExportHandler(
 				logger.warn("git-export: no runner available for event-triggered export");
 				return;
 			}
-			const fs = opts.fs ?? createNodeFsAdapter();
 			await runGitExport(db, {
 				runner,
-				fs,
+				fs: opts.fs, // undefined → defaults to createNodeFsAdapter() inside runGitExport
 				logger,
 				trigger: "event",
 				serverConfig: opts.serverConfig,

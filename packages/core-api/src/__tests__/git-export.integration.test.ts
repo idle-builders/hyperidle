@@ -21,27 +21,29 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 import {
-	buildCommitMessage,
-	computeExportPlan,
-	type ExportPlanEntry,
-	type FsAdapter,
 	type GitExportConfig,
 	type GitExportConfigPatch,
 	type GitRunner,
 	getLastExportMeta,
+	registerGitExportHandler,
+	runGitExport,
+	updateGitExportConfig,
+} from "@hyperidle/git-export";
+import {
+	buildCommitMessage,
+	computeExportPlan,
+	type ExportPlanEntry,
+	type FsAdapter,
 	loadGitExportConfig,
 	redactRemoteUrl,
-	registerGitExportHandler,
 	resetExportMutexes,
-	runGitExport,
 	sanitizeAuthorEmail,
 	sanitizeAuthorName,
 	sanitizeBranch,
 	sanitizePathSegment,
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
-	updateGitExportConfig,
-} from "@hyperidle/git-export";
+} from "@hyperidle/git-export/testing";
 import {
 	findKnowledgeItemProjectionById,
 	listExportableKnowledgeItems,
@@ -362,10 +364,15 @@ describe("loadGitExportConfig", () => {
 	});
 
 	test("drops a stored remoteUrl that fails the scheme/credential allow-list", async ({ db }) => {
-		await enableExport(db, {
-			repoPath: "/tmp/safe-repo",
-			// userinfo-bearing URL is not allowed in or out
-			remoteUrl: "https://user:token@github.com/owner/repo.git",
+		// @lore AU20 Am8: updateGitExportConfig now validates at write-time, so we
+		// can no longer seed a credential-bearing URL through it. This defense-in-
+		// depth test exercises the READ path (loadGitExportConfig's sanitizeRemoteUrl
+		// guard at lines 74-80) — the only way to reach it is to bypass validation
+		// by writing the bad URL directly via raw settings, simulating a URL that
+		// predates the write-time guard or arrived via migration/CLI/bypass.
+		await enableExport(db, { repoPath: "/tmp/safe-repo" });
+		await updateServerConfig(db, {
+			gitExport: { remoteUrl: "https://user:token@github.com/owner/repo.git" },
 		});
 		const cfg = await loadGitExportConfig(db, { serverConfig });
 		expect(cfg).not.toBeNull();

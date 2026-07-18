@@ -15,15 +15,14 @@ export interface GitExportConfig {
 }
 
 /**
- * Read the typed config from `server_config.gitExport`.
+ * Read the raw (un-redacted) config from `server_config.gitExport`.
+ * Internal seam — used by `loadGitExportConfig` and the git-export
+ * orchestrator for git operations that need the real remote URL.
  *
- * With `{ includeDisabled: true }` (default) it always returns the shape —
- * used by GET /config / /status so operators can see + edit a disabled
- * config. Without it, returns `null` when either `enabled` is false or
- * `repoPath` is empty — the orchestrator short-circuits to
- * `{status:"disabled"}` in that case.
+ * NOT re-exported from the package barrel. Routes and callers outside
+ * this package must use `readGitExportConfig` (redacted public surface).
  */
-export async function readGitExportConfig(
+export async function readRawGitExportConfig(
 	db: HyperIdleDb,
 	deps: GitExportConfigDeps,
 ): Promise<GitExportConfig> {
@@ -39,11 +38,32 @@ export async function readGitExportConfig(
 	};
 }
 
+/**
+ * Read the typed config from `server_config.gitExport`.
+ *
+ * Always returns the shape (including when disabled) — used by GET /config
+ * and /status so operators can see and edit a disabled config. The
+ * `remoteUrl` field is **redacted** (credentials stripped) before returning,
+ * so this is safe to send over the HTTP layer.
+ *
+ * Use `loadGitExportConfig` (internal) when the raw URL is needed for git
+ * operations, or `readRawGitExportConfig` when bypassing the enabled check.
+ */
+export async function readGitExportConfig(
+	db: HyperIdleDb,
+	deps: GitExportConfigDeps,
+): Promise<GitExportConfig> {
+	const cfg = await readRawGitExportConfig(db, deps);
+	return { ...cfg, remoteUrl: redactRemoteUrl(cfg.remoteUrl) };
+}
+
 export async function loadGitExportConfig(
 	db: HyperIdleDb,
 	deps: GitExportConfigDeps,
 ): Promise<GitExportConfig | null> {
-	const cfg = await readGitExportConfig(db, deps);
+	// Use raw read so defensive URL validation runs against the stored value,
+	// not the redacted one. The raw URL is also required for git push.
+	const cfg = await readRawGitExportConfig(db, deps);
 	if (!cfg.enabled) return null;
 	if (cfg.repoPath.length === 0) return null;
 	// Defense-in-depth: if somebody seeded `repo_path` directly (bypassing
@@ -72,15 +92,48 @@ export interface GitExportConfigPatch {
 	debounceMs?: number;
 }
 
+export type UpdateGitExportConfigResult =
+	| { ok: true; config: GitExportConfig }
+	| { ok: false; reason: string };
+
 /**
- * Write a partial patch back to `server_config.gitExport`. Unknown fields
- * are ignored. `null`/`""` on `remoteUrl` clears the field (treated as unset).
+ * Validate and write a partial patch back to `server_config.gitExport`.
+ * Unknown fields are ignored. `null`/`""` on `remoteUrl` clears the field.
+ *
+ * Returns `{ ok: false, reason }` on validation failure so callers can map
+ * to a 400 without catching exceptions. On success, returns `{ ok: true,
+ * config }` where `config.remoteUrl` is already redacted (safe for HTTP).
+ *
+ * @lore AU20 Am8: validation folded inward from git-export-routes.ts
+ * validatePatchBody — the config section owns its write validation, routes
+ * no longer import per-field sanitizers.
  */
 export async function updateGitExportConfig(
 	db: HyperIdleDb,
 	patch: GitExportConfigPatch,
 	deps: GitExportConfigDeps,
-): Promise<GitExportConfig> {
+): Promise<UpdateGitExportConfigResult> {
+	if (patch.repoPath !== undefined) {
+		const r = sanitizeRepoPath(patch.repoPath);
+		if (!r.ok) return { ok: false, reason: r.reason };
+	}
+	if (patch.branch !== undefined) {
+		const r = sanitizeBranch(patch.branch);
+		if (!r.ok) return { ok: false, reason: r.reason };
+	}
+	if (patch.authorName !== undefined) {
+		const r = sanitizeAuthorName(patch.authorName);
+		if (!r.ok) return { ok: false, reason: r.reason };
+	}
+	if (patch.authorEmail !== undefined) {
+		const r = sanitizeAuthorEmail(patch.authorEmail);
+		if (!r.ok) return { ok: false, reason: r.reason };
+	}
+	if (patch.remoteUrl !== undefined && patch.remoteUrl !== null && patch.remoteUrl.length > 0) {
+		const allowFileRemote = process.env.HYPERIDLE_GIT_ALLOW_FILE_REMOTE === "true";
+		const r = sanitizeRemoteUrl(patch.remoteUrl, { allowFileRemote });
+		if (!r.ok) return { ok: false, reason: r.reason };
+	}
 	await deps.serverConfig.update(db, {
 		gitExport: {
 			...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
@@ -97,7 +150,8 @@ export async function updateGitExportConfig(
 				: {}),
 		},
 	});
-	return readGitExportConfig(db, deps);
+	const config = await readGitExportConfig(db, deps); // returns redacted
+	return { ok: true, config };
 }
 
 /** Persist the commit stamps after a successful local commit. */

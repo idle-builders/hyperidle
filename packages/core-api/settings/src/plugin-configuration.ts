@@ -779,4 +779,3 @@ export async function backfillConfigurationDefaults(
 
 	await loadBuiltInConfigurationDefaults(db, { defaults: dedupeSeeds(seeds), now });
 }
-

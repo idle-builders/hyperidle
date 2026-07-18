@@ -10,14 +10,16 @@
 
 import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import {
-	type FsAdapter,
 	type GitExportConfigPatch,
 	type GitRunner,
-	resetExportMutexes,
 	updateGitExportConfig,
+} from "@hyperidle/git-export";
+import {
+	type FsAdapter,
+	resetExportMutexes,
 	writeLastCommit,
 	writeLastPush,
-} from "@hyperidle/git-export";
+} from "@hyperidle/git-export/testing";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
@@ -230,8 +232,13 @@ describe("Git Export HTTP routes", () => {
 		test("redacts embedded credentials from remoteUrl in the response", async ({ db }) => {
 			// Somebody seeded `factory_settings` with a credential-bearing URL
 			// via migrations / CLI / bypass. GET /config MUST NOT echo it.
-			await enableExport(db, {
-				remoteUrl: "https://user:ghp_secrettoken@github.com/owner/repo.git",
+			// @lore AU20 Am8: updateGitExportConfig now rejects credential-bearing
+			// URLs at write-time, so seed the defense-in-depth scenario via raw
+			// updateServerConfig, bypassing the sanitizer, to prove the read-path
+			// redaction still fires on URLs that predate or bypass the write guard.
+			await enableExport(db, {});
+			await updateServerConfig(db, {
+				gitExport: { remoteUrl: "https://user:ghp_secrettoken@github.com/owner/repo.git" },
 			});
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/config", { headers: authHeaders() });
@@ -583,8 +590,12 @@ describe("Git Export HTTP routes", () => {
 		});
 
 		test("redacts embedded credentials from remoteUrl", async ({ db }) => {
-			await enableExport(db, {
-				remoteUrl: "https://user:ghp_secret@github.com/owner/repo.git",
+			// @lore AU20 Am8: same bypass rationale as the GET /config redact test —
+			// seed via raw updateServerConfig to exercise the read-path defense-in-depth
+			// guard without triggering the write-time sanitizer.
+			await enableExport(db, {});
+			await updateServerConfig(db, {
+				gitExport: { remoteUrl: "https://user:ghp_secret@github.com/owner/repo.git" },
 			});
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/status", { headers: authHeaders() });
