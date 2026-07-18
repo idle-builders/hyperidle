@@ -20,15 +20,13 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
 	type BackfillLegacyConfigurationDeps,
 	BUILTIN_PLUGIN_SOURCE,
-	backfillLegacyConfigurationDefaults,
-	clearConfigurationOverride,
+	backfillConfigurationDefaults,
 	getResolvedConfiguration,
-	listResolvedConfiguration,
-	loadBuiltInConfigurationDefaults,
-	loadPluginConfigurationDefaults,
+	listConfiguration,
 	type PluginConfigurationSeed,
-	setConfigurationOverride,
-	setPluginConfigurationState,
+	seedConfigurationDefaults,
+	setPluginState,
+	writeConfigurationOverride,
 } from "../plugin-configuration.js";
 
 const NOW = "2026-07-08T10:00:00.000Z";
@@ -84,13 +82,13 @@ describe("plugin configuration service", () => {
 	});
 
 	test("loads fixture plugin defaults for every kind with plugin provenance", async () => {
-		await loadPluginConfigurationDefaults(handle.db, {
-			plugin: PLUGIN_SOURCE,
+		await seedConfigurationDefaults(handle.db, {
+			source: PLUGIN_SOURCE,
 			defaults: CONFIGURATION_KINDS.map((kind) => seed(kind, `${kind}.alpha`)),
 			now: NOW,
 		});
 
-		const entries = await listResolvedConfiguration(handle.db);
+		const entries = await listConfiguration(handle.db);
 
 		expect(entries).toHaveLength(CONFIGURATION_KINDS.length);
 		for (const kind of CONFIGURATION_KINDS) {
@@ -116,14 +114,14 @@ describe("plugin configuration service", () => {
 	});
 
 	test("user overrides win for every kind, survive default changes, and can reset to default", async () => {
-		await loadPluginConfigurationDefaults(handle.db, {
-			plugin: PLUGIN_SOURCE,
+		await seedConfigurationDefaults(handle.db, {
+			source: PLUGIN_SOURCE,
 			defaults: CONFIGURATION_KINDS.map((kind) => seed(kind, `${kind}.alpha`, "v1")),
 			now: NOW,
 		});
 
 		for (const kind of CONFIGURATION_KINDS) {
-			await setConfigurationOverride(handle.db, {
+			await writeConfigurationOverride(handle.db, {
 				kind,
 				key: `${kind}.alpha`,
 				value: expectedValue(kind, `${kind} user`),
@@ -131,8 +129,8 @@ describe("plugin configuration service", () => {
 			});
 		}
 
-		await loadPluginConfigurationDefaults(handle.db, {
-			plugin: { ...PLUGIN_SOURCE, version: "1.1.0" },
+		await seedConfigurationDefaults(handle.db, {
+			source: { ...PLUGIN_SOURCE, version: "1.1.0" },
 			defaults: CONFIGURATION_KINDS.map((kind) => seed(kind, `${kind}.alpha`, "v2")),
 			now: "2026-07-08T10:02:00.000Z",
 		});
@@ -157,9 +155,10 @@ describe("plugin configuration service", () => {
 			);
 		}
 
-		await clearConfigurationOverride(handle.db, {
+		await writeConfigurationOverride(handle.db, {
 			kind: "agent",
 			key: "agent.alpha",
+			value: null,
 			now: "2026-07-08T10:03:00.000Z",
 		});
 
@@ -173,21 +172,19 @@ describe("plugin configuration service", () => {
 	});
 
 	test("disabled and removed plugin states are explicit without deleting overrides", async () => {
-		await loadPluginConfigurationDefaults(handle.db, {
-			plugin: PLUGIN_SOURCE,
+		await seedConfigurationDefaults(handle.db, {
+			source: PLUGIN_SOURCE,
 			defaults: [seed("agent", "agent.alpha"), seed("tool", "tool.alpha")],
 			now: NOW,
 		});
-		await setConfigurationOverride(handle.db, {
+		await writeConfigurationOverride(handle.db, {
 			kind: "agent",
 			key: "agent.alpha",
 			value: { label: "agent user" },
 			now: "2026-07-08T10:01:00.000Z",
 		});
 
-		await setPluginConfigurationState(handle.db, "plugin.alpha", "disabled", {
-			now: "2026-07-08T10:02:00.000Z",
-		});
+		await setPluginState(handle.db, "plugin.alpha", "disabled", "2026-07-08T10:02:00.000Z");
 
 		expect(await getResolvedConfiguration(handle.db, "agent", "agent.alpha")).toEqual(
 			expect.objectContaining({
@@ -206,9 +203,7 @@ describe("plugin configuration service", () => {
 			}),
 		);
 
-		await setPluginConfigurationState(handle.db, "plugin.alpha", "removed", {
-			now: "2026-07-08T10:03:00.000Z",
-		});
+		await setPluginState(handle.db, "plugin.alpha", "removed", "2026-07-08T10:03:00.000Z");
 
 		expect(await getResolvedConfiguration(handle.db, "agent", "agent.alpha")).toEqual(
 			expect.objectContaining({
@@ -227,18 +222,19 @@ describe("plugin configuration service", () => {
 	});
 
 	test("built-in defaults load through the same resolver and override path", async () => {
-		await loadBuiltInConfigurationDefaults(handle.db, {
+		await seedConfigurationDefaults(handle.db, {
+			source: BUILTIN_PLUGIN_SOURCE,
 			defaults: CONFIGURATION_KINDS.map((kind) => seed(kind, `${kind}.builtin`)),
 			now: NOW,
 		});
-		await setConfigurationOverride(handle.db, {
+		await writeConfigurationOverride(handle.db, {
 			kind: "mcp_server",
 			key: "mcp_server.builtin",
 			value: { label: "edited MCP default" },
 			now: "2026-07-08T10:01:00.000Z",
 		});
 
-		const entries = await listResolvedConfiguration(handle.db);
+		const entries = await listConfiguration(handle.db);
 
 		expect(entries.map((entry) => entry.kind).sort()).toEqual([...CONFIGURATION_KINDS].sort());
 		expect(entries.every((entry) => entry.origin.type === "builtin")).toBe(true);
@@ -261,9 +257,9 @@ describe("plugin configuration service", () => {
 	test("legacy users, routines, skills, tools, MCP, and harness data are visible after backfill", async () => {
 		await seedLegacyData(handle);
 
-		await backfillLegacyConfigurationDefaults(handle.db, settingsDeps, { now: NOW });
+		await backfillConfigurationDefaults(handle.db, settingsDeps, NOW);
 
-		const entries = await listResolvedConfiguration(handle.db);
+		const entries = await listConfiguration(handle.db);
 		expect(entries).toContainEqual(
 			expect.objectContaining({
 				kind: "agent",
@@ -315,8 +311,8 @@ describe("plugin configuration service", () => {
 
 	test("rejects secret-bearing plugin defaults recursively without persisting", async () => {
 		await expect(
-			loadPluginConfigurationDefaults(handle.db, {
-				plugin: PLUGIN_SOURCE,
+			seedConfigurationDefaults(handle.db, {
+				source: PLUGIN_SOURCE,
 				defaults: [
 					{
 						kind: "tool",
@@ -333,14 +329,14 @@ describe("plugin configuration service", () => {
 	});
 
 	test("rejects secret-bearing user overrides recursively without persisting", async () => {
-		await loadPluginConfigurationDefaults(handle.db, {
-			plugin: PLUGIN_SOURCE,
+		await seedConfigurationDefaults(handle.db, {
+			source: PLUGIN_SOURCE,
 			defaults: [seed("agent", "agent.alpha")],
 			now: NOW,
 		});
 
 		await expect(
-			setConfigurationOverride(handle.db, {
+			writeConfigurationOverride(handle.db, {
 				kind: "agent",
 				key: "agent.alpha",
 				value: { label: "bad", credentials: { token: "hidden" } },
@@ -360,8 +356,8 @@ describe("plugin configuration service", () => {
 
 	test("rejects invalid MCP server URLs in defaults and overrides without persisting", async () => {
 		await expect(
-			loadPluginConfigurationDefaults(handle.db, {
-				plugin: PLUGIN_SOURCE,
+			seedConfigurationDefaults(handle.db, {
+				source: PLUGIN_SOURCE,
 				defaults: [
 					{
 						kind: "mcp_server",
@@ -374,8 +370,8 @@ describe("plugin configuration service", () => {
 		).rejects.toThrow(/http\/https URL/i);
 		expect(await defaultRows()).toHaveLength(0);
 
-		await loadPluginConfigurationDefaults(handle.db, {
-			plugin: PLUGIN_SOURCE,
+		await seedConfigurationDefaults(handle.db, {
+			source: PLUGIN_SOURCE,
 			defaults: [
 				{
 					kind: "mcp_server",
@@ -387,7 +383,7 @@ describe("plugin configuration service", () => {
 		});
 
 		await expect(
-			setConfigurationOverride(handle.db, {
+			writeConfigurationOverride(handle.db, {
 				kind: "mcp_server",
 				key: "mcp_server.good",
 				value: { label: "bad override", serverUrl: "ftp://mcp.example.test" },

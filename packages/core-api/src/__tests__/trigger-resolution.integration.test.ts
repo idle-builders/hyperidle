@@ -30,9 +30,9 @@ import {
 	findAgentSessionRequestByIdempotencyKey,
 } from "@hyperidle/session-requests";
 import {
-	listResolvedConfiguration,
-	loadPluginConfigurationDefaults,
-	setConfigurationOverride,
+	listConfiguration,
+	seedConfigurationDefaults,
+	writeConfigurationOverride,
 } from "@hyperidle/settings";
 import {
 	createTriggeredAgentSessionRequest,
@@ -50,7 +50,7 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 		findByIdempotencyKey: findAgentSessionRequestByIdempotencyKey,
 		create: createAgentSessionRequest,
 	},
-	config: { listResolvedConfiguration },
+	config: { listConfiguration },
 	users: { getUserByIdScopedToTeam },
 	teams: { getTeamMembersByTeamId },
 };
@@ -155,8 +155,8 @@ describe("trigger resolution", () => {
 
 	test("user trigger overrides plugin trigger for the same event scope", async ({ db }) => {
 		await seedTeamAndAgents(db);
-		await loadPluginConfigurationDefaults(db, {
-			plugin: { id: "plugin.routine", name: "Routine Plugin", version: "1.0.0" },
+		await seedConfigurationDefaults(db, {
+			source: { id: "plugin.routine", name: "Routine Plugin", version: "1.0.0" },
 			defaults: [
 				{
 					kind: "trigger",
@@ -172,7 +172,7 @@ describe("trigger resolution", () => {
 			],
 			now: NOW,
 		});
-		await setConfigurationOverride(db, {
+		await writeConfigurationOverride(db, {
 			kind: "trigger",
 			key: "trigger.routine.daily",
 			value: {
@@ -222,8 +222,8 @@ describe("trigger resolution", () => {
 
 	test("plugin trigger conflicts are deterministic and observable", async ({ db }) => {
 		await seedTeamAndAgents(db);
-		await loadPluginConfigurationDefaults(db, {
-			plugin: { id: "plugin.zeta", name: "Zeta", version: "1.0.0" },
+		await seedConfigurationDefaults(db, {
+			source: { id: "plugin.zeta", name: "Zeta", version: "1.0.0" },
 			defaults: [
 				{
 					kind: "trigger",
@@ -239,8 +239,8 @@ describe("trigger resolution", () => {
 			],
 			now: NOW,
 		});
-		await loadPluginConfigurationDefaults(db, {
-			plugin: { id: "plugin.alpha", name: "Alpha", version: "1.0.0" },
+		await seedConfigurationDefaults(db, {
+			source: { id: "plugin.alpha", name: "Alpha", version: "1.0.0" },
 			defaults: [
 				{
 					kind: "trigger",
@@ -291,8 +291,8 @@ describe("trigger resolution", () => {
 
 	test("more specific plugin trigger beats a broader user-owned trigger", async ({ db }) => {
 		await seedTeamAndAgents(db);
-		await loadPluginConfigurationDefaults(db, {
-			plugin: { id: "plugin.specific", name: "Specific", version: "1.0.0" },
+		await seedConfigurationDefaults(db, {
+			source: { id: "plugin.specific", name: "Specific", version: "1.0.0" },
 			defaults: [
 				{
 					kind: "trigger",
@@ -308,7 +308,7 @@ describe("trigger resolution", () => {
 			],
 			now: NOW,
 		});
-		await setConfigurationOverride(db, {
+		await writeConfigurationOverride(db, {
 			kind: "trigger",
 			key: "trigger.routine.broad",
 			value: {
@@ -359,8 +359,8 @@ describe("trigger resolution", () => {
 			status: "paused",
 			createdAt: NOW,
 		});
-		await loadPluginConfigurationDefaults(db, {
-			plugin: { id: "plugin.invalid", name: "Invalid", version: "1.0.0" },
+		await seedConfigurationDefaults(db, {
+			source: { id: "plugin.invalid", name: "Invalid", version: "1.0.0" },
 			defaults: [
 				{
 					kind: "trigger",
@@ -415,8 +415,8 @@ describe("trigger resolution", () => {
 		db,
 	}) => {
 		await seedTeamAndAgents(db);
-		await loadPluginConfigurationDefaults(db, {
-			plugin: { id: "plugin.original", name: "Original", version: "1.0.0" },
+		await seedConfigurationDefaults(db, {
+			source: { id: "plugin.original", name: "Original", version: "1.0.0" },
 			defaults: [
 				{
 					kind: "trigger",
@@ -447,7 +447,7 @@ describe("trigger resolution", () => {
 			},
 		};
 		const first = await createTriggeredAgentSessionRequest(db, input, triggerResolutionDeps);
-		await setConfigurationOverride(db, {
+		await writeConfigurationOverride(db, {
 			kind: "trigger",
 			key: "trigger.retry",
 			value: {
@@ -493,8 +493,8 @@ describe("trigger resolution", () => {
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
-		await loadPluginConfigurationDefaults(db, {
-			plugin: { id: "plugin.proposed", name: "Proposed", version: "1.0.0" },
+		await seedConfigurationDefaults(db, {
+			source: { id: "plugin.proposed", name: "Proposed", version: "1.0.0" },
 			defaults: [
 				{
 					kind: "trigger",

@@ -80,8 +80,8 @@ import { startRetentionReaper } from "@hyperidle/retention";
 import { registerSessionReviewCreator } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
 import {
+	backfillConfigurationDefaults,
 	migrateCredentialsToStore,
-	projectProductionConfigurationDefaults,
 	readServerConfig,
 	updateServerConfig,
 } from "@hyperidle/settings";
@@ -707,7 +707,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// core-api→core-api edges, zero behavior change.
 	// @lore AU20 Am4: listServiceConnectionsByAuthSource removed from barrel; adapt
 	// to listConnections(db, { authSource }) to satisfy ServiceConnectionsReader port.
-	await projectProductionConfigurationDefaults(db, {
+	await backfillConfigurationDefaults(db, {
 		users: { listUsersByKind },
 		routines: { listRoutines },
 		serviceConnections: {

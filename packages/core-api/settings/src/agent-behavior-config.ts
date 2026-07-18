@@ -14,8 +14,8 @@ import {
 } from "@hyperidle/shared";
 import {
 	getResolvedConfiguration,
-	listResolvedConfiguration,
-	setConfigurationOverride,
+	listConfiguration,
+	writeConfigurationOverride,
 } from "./plugin-configuration.js";
 
 export interface ListAgentBehaviorConfigOptions {
@@ -69,7 +69,7 @@ export async function listAgentBehaviorConfiguration(
 	options: ListAgentBehaviorConfigOptions = {},
 ): Promise<AgentBehaviorConfigView[]> {
 	const configKind = options.kind ? AGENT_BEHAVIOR_KIND_TO_CONFIG_KIND[options.kind] : undefined;
-	const resolved = await listResolvedConfiguration(db, configKind);
+	const resolved = await listConfiguration(db, { kind: configKind });
 	const projected = resolved
 		.map(projectResolvedConfiguration)
 		.filter((item): item is AgentBehaviorConfigView => {
@@ -103,12 +103,18 @@ export async function patchAgentBehaviorConfiguration(
 	}
 	const nextValue = { ...currentValue, ...input.fields };
 	try {
-		const resolved = await setConfigurationOverride(db, {
+		const resolved = await writeConfigurationOverride(db, {
 			kind: parsed.configKind,
 			key: parsed.key,
 			value: nextValue,
 			createdByUserId: input.createdByUserId,
 		});
+		if (!resolved) {
+			throw new AgentBehaviorConfigError(
+				"NOT_FOUND",
+				"Configuration item is not displayable after write.",
+			);
+		}
 		const projected = projectResolvedConfiguration(resolved);
 		if (!projected) {
 			throw new AgentBehaviorConfigError("NOT_FOUND", "Configuration item is not displayable.");

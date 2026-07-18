@@ -446,7 +446,9 @@ export async function updateServerConfig(
 	return merged;
 }
 
-export { ModelGatewayConfigSchema, ModelTierConfigSchema, NotificationsSchema, ServerConfigSchema };
+// @lore AU20 Am6: ServerConfigSchema / NotificationsSchema / ModelGatewayConfigSchema /
+// ModelTierConfigSchema are validation internals — zero census demand from callers;
+// dropped from the public barrel. Not re-exported here.
 
 // ---------------------------------------------------------------------------
 // AH1 §4: One-shot boot migration — relocate legacy openai-compatible key +

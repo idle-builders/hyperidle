@@ -8,7 +8,7 @@ import {
 	BuiltinHarnessAdapter,
 	DisabledSandboxAdapter,
 } from "@hyperidle/harness-registry";
-import { getResolvedConfiguration, listResolvedConfiguration } from "@hyperidle/settings";
+import { listConfiguration } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createServer, type ServerHandle } from "../server-factory.js";
 import { test } from "../test-fixtures.js";
@@ -33,7 +33,7 @@ describe("configuration projection boot wiring", () => {
 
 		const handle = await bootTestServer(db, "au2-config-boot");
 		try {
-			const entries = await listResolvedConfiguration(db);
+			const entries = await listConfiguration(db);
 
 			expect(entries).toContainEqual(
 				expect.objectContaining({
@@ -76,7 +76,12 @@ describe("configuration projection boot wiring", () => {
 				}),
 			);
 			expect(
-				await getResolvedConfiguration(db, "harness_descriptor", "harness_descriptor.builtin"),
+				(
+					await listConfiguration(db, {
+						kind: "harness_descriptor",
+						key: "harness_descriptor.builtin",
+					})
+				)[0],
 			).toEqual(
 				expect.objectContaining({
 					activeValue: expect.objectContaining({ type: "builtin" }),

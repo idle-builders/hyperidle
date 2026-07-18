@@ -243,7 +243,7 @@ export async function resolveTriggerForSessionRequest(
 	if (!isTriggerEventType(input.eventType)) {
 		throw new Error(`Unknown trigger event type: ${input.eventType}`);
 	}
-	const entries = await deps.config.listResolvedConfiguration(db, "trigger");
+	const entries = await deps.config.listConfiguration(db, { kind: "trigger" });
 	const candidates: Candidate[] = [];
 	for (const entry of entries) {
 		if (!entry.active) continue;

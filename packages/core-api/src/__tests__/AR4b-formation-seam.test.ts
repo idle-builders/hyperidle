@@ -41,7 +41,7 @@ import {
 	createAgentSessionRequest,
 	findAgentSessionRequestByIdempotencyKey,
 } from "@hyperidle/session-requests";
-import { listResolvedConfiguration } from "@hyperidle/settings";
+import { listConfiguration } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
 import {
 	createTriggeredAgentSessionRequest,
@@ -57,7 +57,7 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 		findByIdempotencyKey: findAgentSessionRequestByIdempotencyKey,
 		create: createAgentSessionRequest,
 	},
-	config: { listResolvedConfiguration },
+	config: { listConfiguration },
 	users: { getUserByIdScopedToTeam },
 	teams: { getTeamMembersByTeamId },
 };

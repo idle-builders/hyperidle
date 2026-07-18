@@ -71,7 +71,7 @@ import {
 	terminalizeAgentSessionRequestInTx as terminalizeAgentSessionRequestInTxInternal,
 	terminalizeAgentSessionRequest as terminalizeAgentSessionRequestInternal,
 } from "@hyperidle/session-requests";
-import { listResolvedConfiguration } from "@hyperidle/settings";
+import { listConfiguration } from "@hyperidle/settings";
 import type { AgentWorkIntentReader, AgentWorkIntentRecorder } from "@hyperidle/shared";
 import {
 	createTriggeredAgentSessionRequest,
@@ -97,7 +97,7 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 		findByIdempotencyKey: findAgentSessionRequestByIdempotencyKey,
 		create: createAgentSessionRequest,
 	},
-	config: { listResolvedConfiguration },
+	config: { listConfiguration },
 	users: { getUserByIdScopedToTeam },
 	teams: { getTeamMembersByTeamId },
 };

@@ -74,11 +74,18 @@ export interface TriggerResolutionSessionRequestPort {
 // settings — TriggerResolutionConfigReader (ordinary downward edge, real target)
 // ---------------------------------------------------------------------------
 
-/** Port for `settings`' resolved-configuration read surface this Service calls directly today (`listResolvedConfiguration`). */
+/**
+ * Port for `settings`' resolved-configuration read surface this Service calls directly today.
+ *
+ * @lore AU20 Am6: renamed listResolvedConfiguration → listConfiguration to
+ * match the collapsed @hyperidle/settings barrel (kind filter now lives inside
+ * the filter object rather than as a positional arg). Trigger-resolution passes
+ * { kind } to list only trigger entries.
+ */
 export interface TriggerResolutionConfigReader {
-	listResolvedConfiguration(
+	listConfiguration(
 		db: HyperIdleDb,
-		kind: ConfigurationKind,
+		filter: { kind?: ConfigurationKind; key?: string },
 	): Promise<ResolvedConfigurationItem[]>;
 }
 
