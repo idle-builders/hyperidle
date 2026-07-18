@@ -11,7 +11,7 @@
  *     by their team's agents appear in the list (humans are participants).
  */
 
-import { getThreadById, insertThread, updateThread } from "@hyperidle/conversation";
+import { findThread, insertThread, updateThread } from "@hyperidle/conversation";
 import {
 	bets,
 	createTestDb,
@@ -47,7 +47,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 const reviewDeps: SessionReviewCreatorDeps = {
 	work: { getTaskById, updateTaskById, createItem },
-	conversation: { insertThread, getThreadById, updateThread },
+	conversation: { insertThread, getThreadById: (db, id) => findThread(db, { id }), updateThread },
 	users: { getUserById, listUsersByKind },
 	org: { resolveReviewRecipients },
 	taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },

@@ -13,15 +13,13 @@
  */
 
 import {
+	findMessage,
+	findThread,
 	getArtifactThreadSummaries,
-	getFirstThreadByHost,
-	getMessageById,
-	getThreadById,
-	getThreadIdsByHost,
 	insertMessage,
 	insertThread,
-	listMessagesByThread,
-	listThreadsByHost,
+	listMessages,
+	listThreads,
 	searchConversations,
 } from "@hyperidle/conversation";
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
@@ -181,28 +179,28 @@ describe("user-store reads", () => {
 });
 
 describe("conversation-store reads", () => {
-	test("getThreadById + getMessageById return the row or undefined", async ({ db }) => {
+	test("findThread + findMessage return the row or undefined", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
 		await insertThread(db, threadValues("t1"));
 		await insertMessage(db, messageValues("m1", "t1", NOW));
-		expect((await getThreadById(db, "t1"))?.id).toBe("t1");
-		expect((await getMessageById(db, "m1"))?.id).toBe("m1");
-		expect(await getThreadById(db, "nope")).toBeUndefined();
+		expect((await findThread(db, { id: "t1" }))?.id).toBe("t1");
+		expect((await findMessage(db, { id: "m1" }))?.id).toBe("m1");
+		expect(await findThread(db, { id: "nope" })).toBeUndefined();
 	});
 
-	test("listMessagesByThread preserves createdAt order", async ({ db }) => {
+	test("listMessages preserves createdAt order", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
 		await insertThread(db, threadValues("t1"));
 		await insertMessage(db, messageValues("m3", "t1", "2026-01-03T00:00:00.000Z"));
 		await insertMessage(db, messageValues("m1", "t1", "2026-01-01T00:00:00.000Z"));
 		await insertMessage(db, messageValues("m2", "t1", "2026-01-02T00:00:00.000Z"));
-		const asc = await listMessagesByThread(db, "t1", { order: "createdAt", dir: "asc" });
+		const asc = await listMessages(db, { threadId: "t1", order: "createdAt", dir: "asc" });
 		expect(asc.map((m) => m.id)).toEqual(["m1", "m2", "m3"]);
-		const desc = await listMessagesByThread(db, "t1", { order: "createdAt", dir: "desc" });
+		const desc = await listMessages(db, { threadId: "t1", order: "createdAt", dir: "desc" });
 		expect(desc.map((m) => m.id)).toEqual(["m3", "m2", "m1"]);
 	});
 
-	test("listThreadsByHost orders by lastActiveAt desc, id desc, and limits", async ({ db }) => {
+	test("listThreads orders by lastActiveAt desc, id desc, and limits", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
 		await insertThread(
 			db,
@@ -228,16 +226,23 @@ describe("conversation-store reads", () => {
 				lastActiveAt: "2026-01-02T00:00:00.000Z",
 			}),
 		);
-		const rows = await listThreadsByHost(db, "bet", "b1", 2);
+		const rows = await listThreads(db, {
+			host: { kind: "bet", id: "b1" },
+			order: "lastActive",
+			limit: 2,
+		});
 		expect(rows.map((r) => r.id)).toEqual(["tb", "tc"]);
 	});
 
-	test("getFirstThreadByHost + getThreadIdsByHost scope by host pair", async ({ db }) => {
+	test("findThread + listThreads scope by host pair", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
 		await insertThread(db, threadValues("t1", { hostKind: "bet", hostId: "b9" }));
-		expect((await getFirstThreadByHost(db, "bet", "b9"))?.id).toBe("t1");
-		expect(await getThreadIdsByHost(db, "bet", "b9")).toEqual(["t1"]);
-		expect(await getFirstThreadByHost(db, "bet", "other")).toBeUndefined();
+		expect((await findThread(db, { host: { kind: "bet", id: "b9" } }))?.id).toBe("t1");
+		const ids = await listThreads(db, { host: { kind: "bet", id: "b9" } }).then((ts) =>
+			ts.map((t) => t.id),
+		);
+		expect(ids).toEqual(["t1"]);
+		expect(await findThread(db, { host: { kind: "bet", id: "other" } })).toBeUndefined();
 	});
 
 	test("searchConversations matches participant + message and orders by lastActiveAt desc", async ({

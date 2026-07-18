@@ -18,7 +18,7 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
-import { getThreadById, insertMessage, insertThread } from "@hyperidle/conversation";
+import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { enqueueNotification, findPendingByEventSubject } from "@hyperidle/notifications";
 import {
@@ -533,7 +533,7 @@ export function createTeamRoutes(
 				}
 
 				// Create the thread if it doesn't exist.
-				const existingThread = await getThreadById(db, threadId);
+				const existingThread = await findThread(db, { id: threadId });
 
 				if (!existingThread) {
 					await insertThread(db, {

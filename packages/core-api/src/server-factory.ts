@@ -14,12 +14,10 @@ import {
 	writeCredential,
 } from "@hyperidle/connections";
 import {
-	getThreadById,
+	findThread,
 	insertMessage,
 	insertThread,
-	listInitiatedVerdictMessages,
-	listMessagesByThread,
-	listVerdictMessagesByItemIds,
+	listMessages,
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
@@ -235,12 +233,26 @@ const policyDeps: PolicyDeps = {
 	},
 	conversation: {
 		insertMessage,
-		listMessagesByThread,
+		listMessagesByThread: (db, threadId, opts) =>
+			listMessages(db, {
+				threadId,
+				types: opts?.type ? [opts.type] : undefined,
+				order: opts?.order,
+				dir: opts?.dir,
+				limit: opts?.limit,
+			}),
 		updateMessage,
 		updateThread,
 		insertThread,
-		listInitiatedVerdictMessages,
-		listVerdictMessagesByItemIds,
+		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+			listMessages(db, {
+				threadInitiatorId: initiatorId,
+				types: ["verdict"],
+				since: windowStart,
+				noLegacyItem: true,
+			}),
+		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
 	users: { getFirstUserByKind },
 	silence: {
@@ -316,7 +328,11 @@ export function registerCoreDomainServices(ctx: {
 	disposers.push(
 		registerSessionReviewCreator(db, eventBus, {
 			work: { getTaskById, updateTaskById, createItem: createWorkItem },
-			conversation: { insertThread, getThreadById, updateThread },
+			conversation: {
+				insertThread,
+				getThreadById: (db, id) => findThread(db, { id }),
+				updateThread,
+			},
 			users: { getUserById, listUsersByKind },
 			org: { resolveReviewRecipients },
 			taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
@@ -912,7 +928,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			const broadcaster = new WsBroadcaster(
 				eventBus,
 				createDbSubscribeAuthorizer(db, {
-					conversation: { getThreadById },
+					conversation: { getThreadById: (db, id) => findThread(db, { id }) },
 					users: { getUserById },
 					org: { getTeamMembersById },
 					work: { getTaskById },

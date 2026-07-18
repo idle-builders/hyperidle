@@ -1,4 +1,4 @@
-import { getMessageById } from "@hyperidle/conversation";
+import { findMessage } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { findProposedCallWithOutcomeByReviewMessageId } from "@hyperidle/review";
 import { relativeLong } from "@hyperidle/shared";
@@ -89,7 +89,7 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 		}
 
 		// Load the review message to confirm it exists.
-		const reviewMsg = await getMessageById(db, reviewMessageId);
+		const reviewMsg = await findMessage(db, { id: reviewMessageId });
 
 		if (!reviewMsg) {
 			return c.json({ error: "review_not_found" }, 404);

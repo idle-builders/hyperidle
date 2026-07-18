@@ -1,4 +1,4 @@
-import { listVerdictItemIds } from "@hyperidle/conversation";
+import { listMessages } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { getDailyDigest, type NotificationsDigestDeps } from "@hyperidle/notifications";
 import { listAllUsers } from "@hyperidle/users";
@@ -16,7 +16,12 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
  */
 const digestDeps: NotificationsDigestDeps = {
 	work: { listQueuedItemsSince, getItemById },
-	verdicts: { listVerdictItemIds },
+	verdicts: {
+		listVerdictItemIds: (db, itemIds) =>
+			listMessages(db, { types: ["verdict"], legacyItemIds: itemIds }).then((msgs) => [
+				...new Set(msgs.map((m) => m.legacyItemId).filter((id): id is string => id !== null)),
+			]),
+	},
 };
 
 const SERVER_START_TIME = new Date().toISOString();

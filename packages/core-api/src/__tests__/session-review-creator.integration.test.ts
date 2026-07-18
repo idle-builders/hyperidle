@@ -1,4 +1,4 @@
-import { getThreadById, insertThread, updateThread } from "@hyperidle/conversation";
+import { findThread, insertThread, updateThread } from "@hyperidle/conversation";
 import {
 	bets,
 	type HyperIdleDb,
@@ -32,7 +32,7 @@ import { test } from "../test-fixtures.js";
  */
 const reviewDeps: SessionReviewCreatorDeps = {
 	work: { getTaskById, updateTaskById, createItem },
-	conversation: { insertThread, getThreadById, updateThread },
+	conversation: { insertThread, getThreadById: (db, id) => findThread(db, { id }), updateThread },
 	users: { getUserById, listUsersByKind },
 	org: { resolveReviewRecipients },
 	taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },

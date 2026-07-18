@@ -12,17 +12,12 @@
  */
 
 import {
-	getMessageByClientKey,
-	getMessageById,
-	getThreadByDirectKey,
-	getThreadById,
+	findMessage,
+	findThread,
 	insertMessage,
 	insertThread,
-	listMessagesByThread,
-	listThreadsByHost,
-	listThreadsByHostKind,
-	listThreadsByParticipant,
-	listUnresolvedReviewThreadIds,
+	listMessages,
+	listThreads,
 	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
@@ -646,15 +641,23 @@ export function createThreadRoutes(
 
 		let rows: DbThread[];
 		if (q.host_kind && q.host_id) {
-			rows = await listThreadsByHost(db, q.host_kind, q.host_id, q.limit);
+			rows = await listThreads(db, {
+				host: { kind: q.host_kind, id: q.host_id },
+				order: "lastActive",
+				limit: q.limit,
+			});
 		} else if (q.host_kind) {
-			rows = await listThreadsByHostKind(db, q.host_kind, q.limit);
+			rows = await listThreads(db, { hostKind: q.host_kind, order: "lastActive", limit: q.limit });
 		} else {
 			// L1 step5 (W6): participant_id scope — pre-filter in SQL with LIKE probe,
 			// then re-verify membership in JS.
 			const participantId = q.participant_id ?? "";
 			const probe = `%${escapeLikePattern(JSON.stringify(participantId))}%`;
-			const rawRows = await listThreadsByParticipant(db, probe, q.limit);
+			const rawRows = await listThreads(db, {
+				participantProbe: probe,
+				order: "lastActive",
+				limit: q.limit,
+			});
 			rows = rawRows.filter((row) => {
 				try {
 					const parts = threadParticipantsSchema.parse(JSON.parse(row.participants));
@@ -669,7 +672,12 @@ export function createThreadRoutes(
 		const threadIds = rows.map((r) => r.id);
 		const unresolvedThreadIds = new Set<string>();
 		if (threadIds.length > 0) {
-			const unresolvedRows = await listUnresolvedReviewThreadIds(db, threadIds);
+			const unresolvedMsgs = await listMessages(db, {
+				threadIds,
+				types: ["review", "questionnaire"],
+				unresolved: true,
+			});
+			const unresolvedRows = [...new Set(unresolvedMsgs.map((m) => m.threadId))];
 			for (const threadId of unresolvedRows) {
 				unresolvedThreadIds.add(threadId);
 			}
@@ -706,7 +714,7 @@ export function createThreadRoutes(
 		}
 		const blockIdFilter = rawBlockId ?? null;
 
-		const row = await getThreadById(db, id);
+		const row = await findThread(db, { id });
 		if (!row) {
 			const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 			return c.json(e.body, e.status);
@@ -734,7 +742,8 @@ export function createThreadRoutes(
 		}
 
 		// Message query — optionally filter by block_id column (owned by the store).
-		const messageRows = await listMessagesByThread(db, id, {
+		const messageRows = await listMessages(db, {
+			threadId: id,
 			blockId: blockIdFilter ?? undefined,
 			order: "createdAt",
 			dir: "desc",
@@ -805,7 +814,7 @@ export function createThreadRoutes(
 
 		if (dmDirectKey) {
 			// Happy path: existing thread lookup (read-before-insert — the DB index backstops the race).
-			const existing = await getThreadByDirectKey(db, dmDirectKey);
+			const existing = await findThread(db, { directKey: dmDirectKey });
 
 			if (existing) {
 				// Option B: append the initial message to the existing thread + bump lastActiveAt.
@@ -880,7 +889,7 @@ export function createThreadRoutes(
 				};
 				eventBus.emit(appendedEvent);
 
-				const reusedThread = await getThreadById(db, existing.id);
+				const reusedThread = await findThread(db, { id: existing.id });
 				if (!reusedThread) {
 					const e = err("internal_error", "Reused thread missing", 500);
 					return c.json(e.body, e.status);
@@ -970,7 +979,7 @@ export function createThreadRoutes(
 				cause instanceof Error &&
 				constraintMsgInChain(cause).toLowerCase().includes("threads_direct_key_uq")
 			) {
-				const winner = await getThreadByDirectKey(db, dmDirectKey);
+				const winner = await findThread(db, { directKey: dmDirectKey });
 				if (winner) {
 					const nowRace = new Date().toISOString();
 					const raceMsgId = crypto.randomUUID();
@@ -1005,7 +1014,7 @@ export function createThreadRoutes(
 						timestamp: Date.now(),
 					};
 					eventBus.emit(appendedRaceEvent);
-					const reloadedWinner = await getThreadById(db, winner.id);
+					const reloadedWinner = await findThread(db, { id: winner.id });
 					if (!reloadedWinner) {
 						const e = err("internal_error", "Race winner thread missing", 500);
 						return c.json(e.body, e.status);
@@ -1040,8 +1049,8 @@ export function createThreadRoutes(
 		};
 		eventBus.emit(appendedEvent);
 
-		const threadRow = await getThreadById(db, threadId);
-		const msgRow = await getMessageById(db, messageId);
+		const threadRow = await findThread(db, { id: threadId });
+		const msgRow = await findMessage(db, { id: messageId });
 		if (!(threadRow && msgRow)) {
 			const e = err("internal_error", "Created thread missing", 500);
 			return c.json(e.body, e.status);
@@ -1085,7 +1094,7 @@ export function createThreadRoutes(
 			// into any thread by spoofing the senderId header.
 			const senderId = c.get("userId");
 
-			const threadRow = await getThreadById(db, threadId);
+			const threadRow = await findThread(db, { id: threadId });
 			if (!threadRow) {
 				const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 				return c.json(e.body, e.status);
@@ -1110,7 +1119,7 @@ export function createThreadRoutes(
 			if (writedenial) return writedenial;
 
 			// Idempotency check before transaction.
-			const existing = await getMessageByClientKey(db, threadId, senderId, input.clientKey);
+			const existing = await findMessage(db, { threadId, senderId, clientKey: input.clientKey });
 			if (existing) {
 				// L1 step9 (Adv-C3): divergent payload on replay => 409.
 				const sameType = existing.type === input.type;
@@ -1135,7 +1144,7 @@ export function createThreadRoutes(
 			// Verdict authorization (plan §6.1 REVISED for adversary C4).
 			let resolvesMessageRow: DbMessage | undefined;
 			if (input.type === "verdict") {
-				resolvesMessageRow = await getMessageById(db, input.payload.resolvesMessageId);
+				resolvesMessageRow = await findMessage(db, { id: input.payload.resolvesMessageId });
 				if (!resolvesMessageRow || resolvesMessageRow.threadId !== threadId) {
 					const e = err("validation_error", "resolvesMessageId not found in thread", 400);
 					return c.json(e.body, e.status);
@@ -1296,8 +1305,8 @@ export function createThreadRoutes(
 				eventBus.emit(reopenedEvent);
 			}
 
-			const updatedThread = await getThreadById(db, threadId);
-			const created = await getMessageById(db, messageId);
+			const updatedThread = await findThread(db, { id: threadId });
+			const created = await findMessage(db, { id: messageId });
 			if (!(updatedThread && created)) {
 				const e = err("internal_error", "Created message missing", 500);
 				return c.json(e.body, e.status);
@@ -1345,7 +1354,7 @@ export function createThreadRoutes(
 			// Authz: load thread to validate the caller has write access.
 			// @lore AL7 Task 8: authorizeWrite guards the verdict action — only
 			// thread participants (team members on the host) can approve/reject.
-			const threadRow = await getThreadById(db, threadId);
+			const threadRow = await findThread(db, { id: threadId });
 			if (!threadRow) {
 				return c.json({ error: "Thread not found", code: "not_found" }, 404);
 			}

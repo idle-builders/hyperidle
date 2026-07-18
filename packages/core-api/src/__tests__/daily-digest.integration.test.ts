@@ -1,4 +1,4 @@
-import { listVerdictItemIds } from "@hyperidle/conversation";
+import { listMessages } from "@hyperidle/conversation";
 import {
 	type HyperIdleDb,
 	items,
@@ -14,7 +14,12 @@ import { describe, expect, test } from "../test-fixtures.js";
 
 const digestDeps: NotificationsDigestDeps = {
 	work: { listQueuedItemsSince, getItemById },
-	verdicts: { listVerdictItemIds },
+	verdicts: {
+		listVerdictItemIds: (db, itemIds) =>
+			listMessages(db, { types: ["verdict"], legacyItemIds: itemIds }).then((msgs) => [
+				...new Set(msgs.map((m) => m.legacyItemId).filter((id): id is string => id !== null)),
+			]),
+	},
 };
 
 describe("Daily Digest (E7)", () => {

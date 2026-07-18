@@ -19,11 +19,10 @@
 import type { ScaffoldRequest } from "@hyperidle/agent-selection";
 import {
 	findOrCreateDirectThread,
-	getFirstThreadByHost,
-	getThreadById,
+	findThread,
 	insertMessage,
 	insertThread,
-	listInboxBySenderExclusion,
+	listInbox,
 	updateThread,
 } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -205,13 +204,15 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	},
 	users: { getUserById, listUsersByTeam },
 	conversation: {
-		getThreadById,
+		getThreadById: (db, id) => findThread(db, { id }),
 		insertThread,
 		updateThread,
 		insertMessage,
-		listInboxBySenderExclusion,
+		listInboxBySenderExclusion: (db, agentId, limit) =>
+			listInbox(db, { excludeSenderId: agentId, limit }),
 		findOrCreateDirectThread,
-		getFirstThreadByHost,
+		getFirstThreadByHost: (db, hostKind, hostId) =>
+			findThread(db, { host: { kind: hostKind, id: hostId } }),
 	},
 	org: {
 		getTeamById,

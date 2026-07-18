@@ -27,9 +27,7 @@
 import {
 	insertMessage,
 	insertThread,
-	listInitiatedVerdictMessages,
-	listMessagesByThread,
-	listVerdictMessagesByItemIds,
+	listMessages,
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
@@ -78,11 +76,20 @@ const policyEngineDeps: PolicyDeps = {
 	},
 	conversation: {
 		insertMessage,
-		listMessagesByThread,
+		listMessagesByThread: (db, threadId, opts) =>
+			listMessages(db, {
+				threadId,
+				types: opts?.type ? [opts.type] : undefined,
+				order: opts?.order,
+				dir: opts?.dir,
+				limit: opts?.limit,
+			}),
 		updateMessage,
 		updateThread,
-		listInitiatedVerdictMessages,
-		listVerdictMessagesByItemIds,
+		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
+		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 		insertThread,
 	},
 	users: {

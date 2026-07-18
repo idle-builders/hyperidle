@@ -38,7 +38,7 @@
  */
 
 import { createAgentSelectionService } from "@hyperidle/agent-selection";
-import { getMessageById } from "@hyperidle/conversation";
+import { findMessage } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { findById as findKnowledgeItemById } from "@hyperidle/knowledge";
 import {
@@ -172,7 +172,7 @@ const agentWorkIntentWorkerDeps: AgentWorkIntentWorkerDeps = {
 			return Promise.resolve({ agentId: null });
 		},
 	},
-	conversation: { getMessageById },
+	conversation: { getMessageById: (db, id) => findMessage(db, { id }) },
 	users: { getUserById, listUsersByTeam },
 	teams: { getTeamMembersByTeamId },
 	review: { findGrantedProposedCall },

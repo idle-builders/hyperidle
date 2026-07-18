@@ -29,11 +29,11 @@
 
 import { resolveAssistantFormation } from "@hyperidle/agent-selection";
 import {
-	getThreadById,
-	getThreadIdsByHost,
+	findThread,
 	insertMessage,
 	insertThread,
-	listMessagesByThread,
+	listMessages,
+	listThreads,
 	updateThread,
 } from "@hyperidle/conversation";
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
@@ -182,10 +182,16 @@ const dispatchPorts: DispatchPorts = {
 	},
 	conversation: {
 		insertMessage,
-		listMessagesByThread,
-		getThreadById,
+		listMessagesByThread: (exec, threadId, opts) =>
+			listMessages(exec, {
+				threadId,
+				order: opts?.order,
+				dir: opts?.dir,
+			}),
+		getThreadById: (exec, id) => findThread(exec, { id }),
 		updateThread,
-		getThreadIdsByHost,
+		getThreadIdsByHost: (exec, hostKind, hostId) =>
+			listThreads(exec, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
 		insertThread,
 	},
 	users: {

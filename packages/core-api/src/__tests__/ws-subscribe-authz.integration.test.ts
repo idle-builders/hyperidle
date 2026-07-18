@@ -9,7 +9,7 @@
  *    topic. Subsequent broadcasts must skip the would-be subscriber.
  */
 
-import { getThreadById } from "@hyperidle/conversation";
+import { findThread } from "@hyperidle/conversation";
 import { sessions, threads as threadsTable, users } from "@hyperidle/db";
 import { getTeamMembersById } from "@hyperidle/org";
 import {
@@ -36,7 +36,7 @@ function createMockClient(): WsClient & { messages: string[] } {
 
 /** Real Mechanism C deps — mirrors `server-factory.ts`'s production wiring. */
 const REALTIME_DEPS: SubscribeAuthorizerDeps = {
-	conversation: { getThreadById },
+	conversation: { getThreadById: (db, id) => findThread(db, { id }) },
 	users: { getUserById },
 	org: { getTeamMembersById },
 	work: { getTaskById },

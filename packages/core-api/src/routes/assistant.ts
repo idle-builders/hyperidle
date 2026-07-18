@@ -15,7 +15,7 @@
  * hostId=userId + participants includes the assistant agent.
  */
 
-import { getFirstThreadByHost, insertThread, listMessagesByThread } from "@hyperidle/conversation";
+import { findThread, insertThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import {
@@ -202,10 +202,10 @@ export function createAssistantThreadRoute(
 		const assistantAgentId = assistantAgentIdForUser(userId);
 
 		// AC-6 Reviewer C1: Query by hostKind="user" + hostId, NOT by pinned.
-		const existing = await getFirstThreadByHost(db, "user", userId);
+		const existing = await findThread(db, { host: { kind: "user", id: userId } });
 
 		if (existing) {
-			const messageRows = await listMessagesByThread(db, existing.id);
+			const messageRows = await listMessages(db, { threadId: existing.id });
 
 			return c.json({
 				thread: rowToThread(existing),

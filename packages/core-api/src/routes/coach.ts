@@ -17,11 +17,7 @@
  * as-is — AD8b renames the route to /api/threads/assistant and the file to assistant.ts.
  */
 
-import {
-	getFirstPinnedThreadByHost,
-	insertThread,
-	listMessagesByThread,
-} from "@hyperidle/conversation";
+import { findThread, insertThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	EventBus,
@@ -164,10 +160,10 @@ export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<Hy
 		const userId = c.get("userId");
 
 		// Find existing pinned coach thread for this user.
-		const existing = await getFirstPinnedThreadByHost(db, "user", userId);
+		const existing = await findThread(db, { host: { kind: "user", id: userId }, pinned: true });
 
 		if (existing) {
-			const messageRows = await listMessagesByThread(db, existing.id);
+			const messageRows = await listMessages(db, { threadId: existing.id });
 
 			return c.json({
 				thread: rowToThread(existing),

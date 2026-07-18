@@ -30,12 +30,7 @@
  * now owns — see `handoff-protocol.ts`'s inline `@lore` at the emission site.
  */
 
-import {
-	insertMessage,
-	insertThread,
-	listInitiatedVerdictMessages,
-	listVerdictMessagesByItemIds,
-} from "@hyperidle/conversation";
+import { insertMessage, insertThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { getTeamMembersByTeamId } from "@hyperidle/org";
 import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
@@ -65,7 +60,17 @@ export const handoff: (
 
 const approvalRateDeps = {
 	work: { listItemIdsBySourceAgent },
-	conversation: { listInitiatedVerdictMessages, listVerdictMessagesByItemIds },
+	conversation: {
+		listInitiatedVerdictMessages: (db: HyperIdleDb, initiatorId: string, windowStart: string) =>
+			listMessages(db, {
+				threadInitiatorId: initiatorId,
+				types: ["verdict"],
+				since: windowStart,
+				noLegacyItem: true,
+			}),
+		listVerdictMessagesByItemIds: (db: HyperIdleDb, itemIds: string[], windowStart: string) =>
+			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+	},
 };
 
 /** Production-wired `computeApprovalRate` — every real call site imports this. */

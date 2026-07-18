@@ -21,11 +21,7 @@
  * - Knowledge: scope_kind != 'user' OR updated_by = userId.
  */
 
-import {
-	getMessagesByThreadIds,
-	listThreadMetaByIds,
-	searchConversations,
-} from "@hyperidle/conversation";
+import { listMessages, listThreads, searchConversations } from "@hyperidle/conversation";
 import { escapeLikePattern, type HyperIdleDb } from "@hyperidle/db";
 import { searchVisibleByText } from "@hyperidle/knowledge";
 import { listTeamsByIds } from "@hyperidle/org";
@@ -167,14 +163,18 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 			// Batch 1: thread rows for hostKind and lastActiveAt
 			const threadRowMap = new Map<string, { hostKind: string; lastActiveAt: string }>();
 			// AF16 T7: id ASC tiebreaker for deterministic order on tied lastActiveAt
-			const threadRowsBatch = await listThreadMetaByIds(db, verifiedThreadIds);
+			const threadRowsBatch = await listThreads(db, {
+				ids: verifiedThreadIds,
+				order: "lastActive",
+			});
 			for (const row of threadRowsBatch) {
 				threadRowMap.set(row.id, { hostKind: row.hostKind, lastActiveAt: row.lastActiveAt });
 			}
 
 			// Batch 2: all non-deleted messages for these threads, ordered by createdAt ASC.
 			// First occurrence per thread = title source; last occurrence = snippet source.
-			const allMsgs = await getMessagesByThreadIds(db, verifiedThreadIds, {
+			const allMsgs = await listMessages(db, {
+				threadIds: verifiedThreadIds,
 				includeDeleted: false,
 				order: "createdAt",
 			});

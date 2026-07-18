@@ -8,11 +8,11 @@ import { agentSelectionService } from "../services/agent-selection-bindings.js";
 // persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
 
 import {
+	findMessage,
 	findOrCreateDirectThread,
-	getMessageById,
 	insertMessage,
 	insertThread,
-	listInboxByParticipantProbe,
+	listInbox,
 } from "@hyperidle/conversation";
 import {
 	getFirstUserByKind,
@@ -373,7 +373,7 @@ export function createUserRoutes(
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
 		const probe = `%${escapeLikePattern(JSON.stringify(userId))}%`;
-		const inboxRows = await listInboxByParticipantProbe(db, probe, limit, offset);
+		const inboxRows = await listInbox(db, { participantProbe: probe, limit, offset });
 
 		const matched = inboxRows.filter((row) => {
 			try {
@@ -427,7 +427,7 @@ export function createUserRoutes(
 				createdAt: now,
 			});
 
-			const created = await getMessageById(db, messageId);
+			const created = await findMessage(db, { id: messageId });
 			return c.json(created, 201);
 		},
 	);
