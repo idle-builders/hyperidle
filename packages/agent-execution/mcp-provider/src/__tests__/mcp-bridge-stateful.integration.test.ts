@@ -34,28 +34,61 @@ import { serve } from "@hono/node-server";
 import { createEnforcementRegistry, type EnforcementRegistry } from "@hyperidle/harness-registry";
 import {
 	err,
+	ok,
 	type RegisteredTool,
 	type ToolRegistry,
 	toClaudeToolSpec,
 	toRegistered,
 } from "@hyperidle/shared";
-import { createCommitFileTool } from "@hyperidle/tool-handlers";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import z from "zod";
 import { createMcpBridge, type McpBridgeInstance } from "../mcp-bridge.js";
 import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../mcp-bridge-registry.js";
 import { createMcpRoute } from "../mcp-route.js";
 
-const commitFileTool = createCommitFileTool();
+/**
+ * Inline commit_file proof-vehicle tool.
+ *
+ * @lore AU20 Am10: `createCommitFileTool` factory is now internal to
+ * `@hyperidle/tool-handlers` (AU20 Am10 collapse). `commit_file` is a pure
+ * disk-write tool with no DB dependency — inlined here so the MCP bridge
+ * proof vehicle is self-contained without a cross-layer import.
+ */
+const commitFileTool = toRegistered({
+	name: "commit_file",
+	description:
+		"Write content to a file in the session sandbox. Overwrites the file if it already exists.",
+	inputSchema: z.object({
+		path: z.string().min(1),
+		content: z.string(),
+	}),
+	handler: async (args: { path: string; content: string }, ctx) => {
+		const resolved = path.resolve(
+			path.isAbsolute(args.path) ? args.path : path.join(ctx.sandboxPath, args.path),
+		);
+		const sandboxResolved = path.resolve(ctx.sandboxPath);
+		if (!resolved.startsWith(sandboxResolved + path.sep) && resolved !== sandboxResolved) {
+			return err("OUTSIDE_SANDBOX", `commit_file: path outside sandbox ${sandboxResolved}`);
+		}
+		try {
+			fs.mkdirSync(path.dirname(resolved), { recursive: true });
+			fs.writeFileSync(resolved, args.content, "utf-8");
+		} catch (e) {
+			return err("WRITE_FAILED", `commit_file: could not write: ${String(e)}`);
+		}
+		return ok({ written: resolved, bytes: Buffer.byteLength(args.content, "utf-8") });
+	},
+});
 
 // ── Minimal one-tool registry for the proof vehicle ──────────────────────────
 // Avoids a full buildToolRegistry (which needs a DB). commit_file is a pure
 // disk-write tool with no DB dependency.
 
 function buildMinimalRegistry(sandboxPath: string): ToolRegistry {
-	const commitFileDef = toRegistered(commitFileTool);
+	const commitFileDef = commitFileTool;
 
 	const definitions: readonly RegisteredTool[] = [commitFileDef];
 

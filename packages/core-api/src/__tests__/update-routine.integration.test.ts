@@ -5,14 +5,16 @@
  */
 
 import { bets, routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { createUpdateRoutineTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 import { makeContext, NOW } from "./_helpers.js";
 
-const updateRoutineTool = createUpdateRoutineTool(toolHandlersPorts);
+const updateRoutineTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "update_routine",
+)!;
 
 async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 	routineId: string;

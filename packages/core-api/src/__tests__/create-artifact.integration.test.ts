@@ -20,12 +20,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { ArtifactPreview, EventBus, ToolContext } from "@hyperidle/shared";
-import { createCreateArtifactTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const createArtifactTool = createCreateArtifactTool(toolHandlersPorts);
+const createArtifactTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "create_artifact",
+)!;
 
 const TEST_API_KEY = "test-key-r6-integration";
 const NOW = "2026-05-30T00:00:00.000Z";

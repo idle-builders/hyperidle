@@ -88,11 +88,7 @@ import {
 import type { AgentWorkIntentKind } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus, ToolContext } from "@hyperidle/shared";
-import {
-	buildAssistantDraftRegistry,
-	resolveCurrentDraftBetId,
-	resolveDraftTeamId,
-} from "@hyperidle/tool-handlers";
+import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
 import { getOrCreateUser, getUserById } from "@hyperidle/users";
 import {
 	createItem,
@@ -256,15 +252,8 @@ const dispatchPorts: DispatchPorts = {
 		recomputeAttentionForCandidates,
 	},
 	toolHandlers: {
-		resolveDraftTeamId: (db: HyperIdleDb, userId: string) =>
-			resolveDraftTeamId(db, userId, toolHandlersPorts),
-		resolveCurrentDraftBetId: (
-			db: HyperIdleDb,
-			transcriptRows: ReadonlyArray<{ readonly senderId: string; readonly payload: string }>,
-			assistantAgentId: string,
-		) => resolveCurrentDraftBetId(db, transcriptRows, assistantAgentId, toolHandlersPorts),
-		buildAssistantDraftRegistry: (ctx: DispatchToolContext, opts) =>
-			buildAssistantDraftRegistry(ctx as ToolContext<HyperIdleDb>, opts, toolHandlersPorts),
+		buildAssistantDraftRegistry: (ctx: DispatchToolContext, params) =>
+			buildAssistantDraftRegistry(ctx as ToolContext<HyperIdleDb>, params, toolHandlersPorts),
 	},
 	workspaceFactory: {
 		create: () => new LocalSandboxAdapter(),

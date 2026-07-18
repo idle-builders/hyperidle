@@ -11,14 +11,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { createCreateBetTool, createEditBetTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const createBetTool = createCreateBetTool(toolHandlersPorts);
-const editBetTool = createEditBetTool(toolHandlersPorts);
+const createBetTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "create_bet")!;
+const editBetTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "edit_bet")!;
 
 const NOW = "2026-06-09T00:00:00.000Z";
 
@@ -84,8 +84,8 @@ describe("AD8b — create_bet tool", () => {
 			ctx,
 		);
 
-		expect(result.status).toBe("ok");
-		expect(typeof (result as { status: "ok"; value: { betId: string } }).value?.betId).toBe(
+		expect(result.success).toBe(true);
+		expect(typeof (result as { success: true; data: { betId: string } }).data?.betId).toBe(
 			"string",
 		);
 
@@ -101,12 +101,12 @@ describe("AD8b — create_bet tool", () => {
 		const ctx = makeCtx(db, "create-bet-err");
 
 		const result = await createBetTool.handler(
-			// @ts-expect-error: intentionally missing teamId to test validation
+			// handler accepts unknown after registry erasure — validation happens inside
 			{ description: "Missing team ID" },
 			ctx,
 		);
 
-		expect(result.status).toBe("error");
+		expect(result.success).toBe(false);
 	});
 
 	test("bet tool definition has name='create_bet'", () => {
@@ -129,7 +129,7 @@ describe("AD8b — edit_bet tool", () => {
 			ctx,
 		);
 
-		expect(result.status).toBe("ok");
+		expect(result.success).toBe(true);
 
 		const [row] = await db.select().from(bets).where(eq(bets.id, "bet-ad8b-1"));
 		expect(row?.description).toBe("Updated description");
@@ -144,7 +144,7 @@ describe("AD8b — edit_bet tool", () => {
 			ctx,
 		);
 
-		expect(result.status).toBe("error");
+		expect(result.success).toBe(false);
 	});
 
 	test("bet edit tool definition has name='edit_bet'", () => {

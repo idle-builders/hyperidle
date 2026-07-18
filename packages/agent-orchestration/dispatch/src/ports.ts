@@ -454,22 +454,27 @@ export interface DispatchToolContext {
 	readonly ingestion: { readonly dispose: () => void };
 }
 
-/** Port for `tool-handlers`' (interim: `tools/assistant-draft-registry.ts`) draft-tool surface this Service calls directly today. */
+/**
+ * Port for `tool-handlers`' draft-tool surface this Service calls directly.
+ *
+ * @lore AU20 Am10: collapsed from 3 methods to 1. `resolveDraftTeamId` and
+ * `resolveCurrentDraftBetId` are folded inside `buildAssistantDraftRegistry`;
+ * callers pass raw inputs and the registry builder handles resolution internally.
+ * The function is now async (returns `Promise<unknown>`).
+ */
 export interface DispatchToolHandlersAccessor {
-	resolveDraftTeamId(db: HyperIdleDb, userId: string): Promise<string | undefined>;
-	resolveCurrentDraftBetId(
-		db: HyperIdleDb,
-		transcriptRows: ReadonlyArray<{ readonly senderId: string; readonly payload: string }>,
-		assistantAgentId: string,
-	): Promise<string | undefined>;
 	/** Opaque return — forwarded whole into `DispatchConversationalOptions.draftRegistry`, never inspected here. */
 	buildAssistantDraftRegistry(
 		ctx: DispatchToolContext,
-		opts: {
-			readonly resolvedTeamId: string | undefined;
-			readonly currentDraftBetId: string | undefined;
+		params: {
+			readonly userId: string;
+			readonly transcriptRows: ReadonlyArray<{
+				readonly senderId: string;
+				readonly payload: string;
+			}>;
+			readonly assistantAgentId: string;
 		},
-	): unknown;
+	): Promise<unknown>;
 }
 
 // ---------------------------------------------------------------------------

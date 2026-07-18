@@ -2,13 +2,15 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, items, teamMembers, teams, threads, users } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, ToolContext } from "@hyperidle/shared";
-import { createCreateItemTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const createItemTool = createCreateItemTool(toolHandlersPorts);
+const createItemTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "create_item",
+)!;
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();

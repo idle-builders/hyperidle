@@ -4,7 +4,7 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
-import { createPromoteKnowledgeTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { and, eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
@@ -12,7 +12,9 @@ import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 import { test } from "../test-fixtures.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
-const promoteKnowledgeTool = createPromoteKnowledgeTool(toolHandlersPorts);
+const promoteKnowledgeTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "promote_knowledge",
+)!;
 
 async function seedKnowledgeItem(
 	db: HyperIdleDb,

@@ -53,7 +53,7 @@ import {
 import { getRoutine, insertRoutine, updateRoutine } from "@hyperidle/routine";
 import type { EventBus } from "@hyperidle/shared";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
-import { buildAllToolDefinitions } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { getUserById, insertUser, listUsersByKind, listUsersByTeam } from "@hyperidle/users";
 import {
 	appendTaskNote,
@@ -240,7 +240,7 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	policy: { handoff },
 };
 
-/** Production-wired `ALL_TOOL_DEFINITIONS` — every real call site imports this. */
-export const allToolDefinitions = buildAllToolDefinitions(toolHandlersPorts);
+/** Production-wired tool definitions — every real call site imports this. */
+export const allToolDefinitions = buildToolDefinitions(toolHandlersPorts);
 
 export { toolHandlersPorts };

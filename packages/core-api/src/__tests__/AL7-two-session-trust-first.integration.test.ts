@@ -79,6 +79,7 @@ import {
 import {
 	err,
 	normalizeHarnessEvent,
+	ok,
 	type RegisteredTool,
 	type ToolContext,
 	type ToolRegistry,
@@ -86,11 +87,44 @@ import {
 	toClaudeToolSpec,
 	toRegistered,
 } from "@hyperidle/shared";
-import { createCommitFileTool } from "@hyperidle/tool-handlers";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import z from "zod";
 
-const commitFileTool = createCommitFileTool();
+/**
+ * Inline commit_file proof-vehicle tool.
+ *
+ * @lore AU20 Am10: `createCommitFileTool` factory is now internal to
+ * `@hyperidle/tool-handlers`. `commit_file` is a pure disk-write tool with
+ * no DB dependency — safe to inline here so this harness test owns its
+ * proof vehicle without a cross-layer import.
+ */
+const commitFileTool = toRegistered({
+	name: "commit_file",
+	description:
+		"Write content to a file in the session sandbox. Overwrites the file if it already exists.",
+	inputSchema: z.object({
+		path: z.string().min(1),
+		content: z.string(),
+	}),
+	handler: async (args: { path: string; content: string }, ctx: ToolContext) => {
+		const resolved = path.resolve(
+			path.isAbsolute(args.path) ? args.path : path.join(ctx.sandboxPath, args.path),
+		);
+		const sandboxResolved = path.resolve(ctx.sandboxPath);
+		if (!resolved.startsWith(sandboxResolved + path.sep) && resolved !== sandboxResolved) {
+			return err("OUTSIDE_SANDBOX", `commit_file: path outside sandbox ${sandboxResolved}`);
+		}
+		try {
+			fs.mkdirSync(path.dirname(resolved), { recursive: true });
+			fs.writeFileSync(resolved, args.content, "utf-8");
+		} catch (e) {
+			return err("WRITE_FAILED", `commit_file: could not write: ${String(e)}`);
+		}
+		return ok({ written: resolved, bytes: Buffer.byteLength(args.content, "utf-8") });
+	},
+	reversibility: "irreversible" as const,
+});
 
 // ── In-memory capturing router ────────────────────────────────────────────────
 //
@@ -142,7 +176,8 @@ function createCapturingRouter(sandboxPath: string): CapturingRouter {
 	let mode: RouterMode = "capture";
 	let approvedCall: CapturedCall | null = null;
 
-	const commitFileDef = toRegistered(commitFileTool);
+	// commitFileTool is already toRegistered() — no double-wrap needed.
+	const commitFileDef = commitFileTool;
 
 	// Minimal stub context: only sandboxPath is used by commit_file.handler.
 	const stubCtx: ToolContext = {

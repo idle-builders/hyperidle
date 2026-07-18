@@ -82,9 +82,16 @@ export async function resolveCurrentDraftBetId<TDb>(
 	return undefined;
 }
 
+/**
+ * @lore AU20 Am10: `AssistantDraftRegistryParams` (pre-resolved team + bet ids)
+ * is replaced by raw inputs. `resolveDraftTeamId` and `resolveCurrentDraftBetId`
+ * are folded inside; callers no longer need to call them separately. The function
+ * is now `async` to perform the two cheap DB lookups before building the registry.
+ */
 export interface AssistantDraftRegistryParams {
-	readonly resolvedTeamId: string | undefined;
-	readonly currentDraftBetId: string | undefined;
+	readonly userId: string;
+	readonly transcriptRows: ReadonlyArray<{ readonly senderId: string; readonly payload: string }>;
+	readonly assistantAgentId: string;
 }
 
 const createBetDraftInputSchema = z.object({
@@ -99,12 +106,18 @@ const editBetDraftInputSchema = z.object({
 	hypothesis: z.string().max(65_536).optional(),
 });
 
-export function buildAssistantDraftRegistry<TDb>(
+export async function buildAssistantDraftRegistry<TDb>(
 	ctx: ToolContext<TDb>,
 	params: AssistantDraftRegistryParams,
 	ports: ToolHandlersPorts<TDb>,
-): ToolRegistry<TDb> {
-	const { resolvedTeamId, currentDraftBetId } = params;
+): Promise<ToolRegistry<TDb>> {
+	const resolvedTeamId = await resolveDraftTeamId(ctx.db, params.userId, ports);
+	const currentDraftBetId = await resolveCurrentDraftBetId(
+		ctx.db,
+		params.transcriptRows,
+		params.assistantAgentId,
+		ports,
+	);
 	const createBetTool = createCreateBetTool(ports);
 	const editBetTool = createEditBetTool(ports);
 

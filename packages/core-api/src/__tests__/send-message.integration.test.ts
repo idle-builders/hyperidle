@@ -2,13 +2,15 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { createSendMessageTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const sendMessageTool = createSendMessageTool(toolHandlersPorts);
+const sendMessageTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "send_message",
+)!;
 
 async function seedFactory(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();

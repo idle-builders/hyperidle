@@ -1,12 +1,14 @@
 import { type HyperIdleDb, knowledgeConflicts, knowledgeItems } from "@hyperidle/db";
-import { createCreateConflictReviewTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
-const createConflictReviewTool = createCreateConflictReviewTool(toolHandlersPorts);
+const createConflictReviewTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "create_conflict_review",
+)!;
 
 async function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): Promise<void> {
 	await db.insert(knowledgeItems).values({

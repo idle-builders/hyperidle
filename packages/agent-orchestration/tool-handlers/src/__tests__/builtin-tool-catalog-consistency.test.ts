@@ -2,14 +2,14 @@ import { createTestDb, type TestDbHandle } from "@hyperidle/db";
 import { BUILTIN_PLUGIN_SOURCE, seedConfigurationDefaults } from "@hyperidle/settings";
 import { BUILTIN_TOOL_CATALOG } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { buildAllToolDefinitions } from "../tool-definitions.js";
+import { buildToolDefinitions } from "../tool-definitions.js";
 import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";
 
 const NOW = "2026-07-11T09:00:00.000Z";
 
 // Descriptor metadata (name/description/roles/reversibility) never touches a
 // port method — a stub ports bundle is enough to assemble the catalogue.
-const ALL_TOOL_DEFINITIONS = buildAllToolDefinitions(STUB_TOOL_HANDLERS_PORTS);
+const ALL_TOOL_DEFINITIONS = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS);
 
 describe("builtin tool catalog consistency", () => {
 	test("catalog name-set exactly matches the runtime tool registry name-set", () => {

@@ -430,18 +430,11 @@ async function runTurnInternal(
 	// --- Step 4: Resolve draft tool binding ---
 	// @lore AK4: resolve team + draft binding BEFORE the session. Both are cheap single-row DB lookups.
 	// @lore AR4b: draftRegistry source is now the app formation answer (§3b seam rerouted).
-	// formation.assistantDraftSurface === "standard" → buildAssistantDraftRegistry (the canonical 2-tool builder).
-	// A future app formation response returning a different surface marker maps to a different builder here.
-	const resolvedTeamId = await ports.toolHandlers.resolveDraftTeamId(db, userId);
-	const currentDraftBetId = await ports.toolHandlers.resolveCurrentDraftBetId(
-		db,
-		transcriptRows,
-		assistantAgentId,
-	);
+	// @lore AU20 Am10: resolveDraftTeamId + resolveCurrentDraftBetId folded inside
+	// buildAssistantDraftRegistry; callers pass raw inputs, resolution is internal.
 
 	// Synthetic tool context for building the draft registry — sessionId/taskId/sandboxPath
-	// are placeholders (the draft registry only needs
-	// db/eventBus/agentId for its handlers).
+	// are placeholders (the draft registry only needs db/eventBus/agentId for its handlers).
 	const syntheticSessionId = crypto.randomUUID();
 	const toolCtx: DispatchToolContext = {
 		db,
@@ -462,16 +455,11 @@ async function runTurnInternal(
 	// @lore AR4b: §3b seam rerouted — source is now the app formation answer.
 	// "standard" maps to the canonical buildAssistantDraftRegistry; other markers (future)
 	// would map to their respective builders.
-	const draftRegistry =
-		formation.assistantDraftSurface === "standard"
-			? ports.toolHandlers.buildAssistantDraftRegistry(toolCtx, {
-					resolvedTeamId,
-					currentDraftBetId,
-				})
-			: ports.toolHandlers.buildAssistantDraftRegistry(toolCtx, {
-					resolvedTeamId,
-					currentDraftBetId,
-				}); // future: other surfaces
+	const draftRegistry = await ports.toolHandlers.buildAssistantDraftRegistry(toolCtx, {
+		userId,
+		transcriptRows,
+		assistantAgentId,
+	});
 
 	// --- Step 5: Delegate through the AU1 runtime request boundary ---
 	//

@@ -9,13 +9,15 @@ import {
 } from "@hyperidle/db";
 import { setupFts } from "@hyperidle/knowledge";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { createWriteMemoryTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const writeMemoryTool = createWriteMemoryTool(toolHandlersPorts);
+const writeMemoryTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "write_memory",
+)!;
 
 const NOW = new Date().toISOString();
 

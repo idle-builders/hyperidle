@@ -23,15 +23,19 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { createPromoteKnowledgeTool, createWriteMemoryTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { assembleContext } from "../services/context-assembly-bindings.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const promoteKnowledgeTool = createPromoteKnowledgeTool(toolHandlersPorts);
-const writeMemoryTool = createWriteMemoryTool(toolHandlersPorts);
+const promoteKnowledgeTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "promote_knowledge",
+)!;
+const writeMemoryTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "write_memory",
+)!;
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 

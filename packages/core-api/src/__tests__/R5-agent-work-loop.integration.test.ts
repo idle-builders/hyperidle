@@ -28,20 +28,20 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { EventBus, ToolContext } from "@hyperidle/shared";
-import {
-	createCreateTaskTool,
-	createReadInboxTool,
-	createSubmitReviewTool,
-} from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { clearDeduplicationCache, recordCostAndCheck } from "../services/cost-bindings.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const createTaskTool = createCreateTaskTool(toolHandlersPorts);
-const readInboxTool = createReadInboxTool(toolHandlersPorts);
-const submitReviewTool = createSubmitReviewTool(toolHandlersPorts);
+const createTaskTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "create_task",
+)!;
+const readInboxTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "read_inbox")!;
+const submitReviewTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "submit_review",
+)!;
 
 const TEST_API_KEY = "test-key-r5-agent-loop";
 const NOW = new Date().toISOString();

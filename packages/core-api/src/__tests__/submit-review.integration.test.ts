@@ -21,13 +21,15 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { createSubmitReviewTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const submitReviewTool = createSubmitReviewTool(toolHandlersPorts);
+const submitReviewTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "submit_review",
+)!;
 
 const NOW = new Date().toISOString();
 

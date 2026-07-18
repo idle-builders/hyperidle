@@ -43,18 +43,24 @@ import { createWriteMemoryTool } from "./write-memory.js";
 import { createWriteSessionNotesTool } from "./write-session-notes.js";
 
 /**
+ * Build all (or role-scoped) tool definitions, DI-wired to the injected ports.
+ *
+ * @lore AU20 Am10: collapses the former `buildAllToolDefinitions` +
+ * `toolsForRoleFromPorts` into one entry. Role is a filter parameter
+ * (omit → all tools); this is the `list(filter)` north-star pattern —
+ * one method, zero per-role proliferation.
+ *
  * @lore tool-handlers ALWAYS operates with the real `HyperIdleDb` — it is the
  * db-keeping side of the §7.5 C1 split (only `tool-provider`, agent-execution,
- * needs the generic `TDb = unknown` erasure). `buildAllToolDefinitions` is
- * therefore concretely typed rather than generic; each individual
- * `createXxxTool<TDb>(ports)` factory still stays generic (so its own unit
- * tests can instantiate it against a lighter fake `TDb`), with `TDb` inferred
- * as `HyperIdleDb` here from the concrete `ports` argument.
+ * needs the generic `TDb = unknown` erasure). This function is concretely typed
+ * rather than generic; each individual `createXxxTool<TDb>(ports)` factory stays
+ * generic (for its own unit tests), with `TDb` inferred as `HyperIdleDb` here.
  */
-export function buildAllToolDefinitions(
+export function buildToolDefinitions(
 	ports: ToolHandlersPorts<HyperIdleDb>,
+	opts?: { readonly role?: UserRole },
 ): readonly RegisteredTool<HyperIdleDb>[] {
-	return [
+	const all: readonly RegisteredTool<HyperIdleDb>[] = [
 		toRegistered(createReadInboxTool(ports)),
 		toRegistered(createSendMessageTool(ports)),
 		toRegistered(createLogTaskTool(ports)),
@@ -78,16 +84,8 @@ export function buildAllToolDefinitions(
 		toRegistered(createUpdateRoutineTool(ports)),
 		toRegistered(createCommitFileTool<HyperIdleDb>()),
 	];
-}
-
-/**
- * Return the subset of tool definitions accessible to a given agent role.
- * A tool with `roles === undefined` is available to all roles; otherwise the
- * role must appear in the tool's `roles` array.
- */
-export function toolsForRoleFromPorts(
-	ports: ToolHandlersPorts<HyperIdleDb>,
-	role: UserRole,
-): readonly RegisteredTool<HyperIdleDb>[] {
-	return toolsForRole(buildAllToolDefinitions(ports), role);
+	if (opts?.role !== undefined) {
+		return toolsForRole(all, opts.role);
+	}
+	return all;
 }

@@ -17,12 +17,12 @@
 
 import { isReturnAction, RETURN_ACTION_NAMES } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { buildAllToolDefinitions } from "../tool-definitions.js";
+import { buildToolDefinitions } from "../tool-definitions.js";
 import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";
 
 // This test only needs the tool NAME set — a stub ports bundle is enough
 // (no port method is ever actually invoked while building the definitions).
-const ALL_TOOL_DEFINITIONS = buildAllToolDefinitions(STUB_TOOL_HANDLERS_PORTS);
+const ALL_TOOL_DEFINITIONS = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS);
 
 describe("RETURN_ACTION_NAMES — AC2: closed enumerable set", () => {
 	it("is a non-empty readonly tuple", () => {
