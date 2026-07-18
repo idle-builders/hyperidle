@@ -59,7 +59,7 @@ import {
 	scopeKindToLabel,
 	scopeToLayer,
 } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
@@ -120,7 +120,7 @@ export async function resolveScopeName(
 	if (!scopeId) return scopeKindToLabel(scopeKind);
 
 	if (scopeKind === "user") {
-		const row = await getUserById(db, scopeId);
+		const row = await findUser(db, { id: scopeId });
 		return row?.name ?? scopeKindToLabel("user");
 	}
 
@@ -784,7 +784,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			}
 
 			if (body.agentId) {
-				const agent = await getUserById(db, body.agentId);
+				const agent = await findUser(db, { id: body.agentId });
 				if (!agent) {
 					const response: ApiErrorResponse = {
 						error: "Agent not found",

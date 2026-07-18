@@ -45,7 +45,7 @@ import { getTeamMembers } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { getItemById, listItemIdsBySourceAgent, updateItemById } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
@@ -58,7 +58,7 @@ import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
  */
 const silenceDeps: NotificationsSilenceDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
-	users: { getUserById },
+	users: { getUserById: (db, id) => findUser(db, { id }) },
 	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 

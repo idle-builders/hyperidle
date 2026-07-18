@@ -28,7 +28,7 @@ import {
 	type RedactedPayload,
 	type Thread,
 } from "@hyperidle/shared";
-import { getUserById, insertUser, updateUser } from "@hyperidle/users";
+import { findUser, insertUser, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 // AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.
@@ -42,9 +42,12 @@ import type { HarnessCapabilityReader } from "../services/harness-capability-rea
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
-// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
-// the real `user-store.ts` function references unchanged (no behavior change).
-const orgUsers = { getUserById, insertUser };
+// AU19 Increment 1c / AU20 Am11: `org`'s `OrgUserDirectory` port (Mechanism C),
+// wired via adapter so `findUser({id})` satisfies `getUserById`.
+const orgUsers = {
+	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
+	insertUser,
+};
 
 // @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths
 // (thread scoping, participant checks) MUST derive identity from c.get("userId")
@@ -155,11 +158,11 @@ async function buildIdentities(
 	userId: string,
 	assistantAgentId: string,
 ): Promise<Record<string, { name: string; role?: string; isAgent?: boolean }>> {
-	const userRow = await getUserById(db, userId);
+	const userRow = await findUser(db, { id: userId });
 	const userName = userRow?.name ?? "You";
 	const userRole = userRow?.role;
 
-	const agentRow = await getUserById(db, assistantAgentId);
+	const agentRow = await findUser(db, { id: assistantAgentId });
 	const agentName = agentRow?.name ?? "Assistant";
 	const agentRole = agentRow?.role ?? "assistant";
 
@@ -289,7 +292,7 @@ export function createAssistantSoulRoutes(
 		}
 
 		// Verify the target user exists
-		const userRow = await getUserById(db, targetUserId);
+		const userRow = await findUser(db, { id: targetUserId });
 		if (!userRow) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -298,7 +301,7 @@ export function createAssistantSoulRoutes(
 		// @lore AD8b: The assistant agent is normally created at user registration.
 		// This lazy-create path handles legacy users and direct-DB seeded test users.
 		const assistantAgentId = assistantAgentIdForUser(targetUserId);
-		let agentRow = await getUserById(db, assistantAgentId);
+		let agentRow = await findUser(db, { id: assistantAgentId });
 
 		if (!agentRow) {
 			// @lore AU3: Lazy-create routes through app defaults (identical to POST /api/users).
@@ -318,7 +321,7 @@ export function createAssistantSoulRoutes(
 				ownerUserName: userRow.name,
 			});
 			await persistScaffoldedAgents(db, orgUsers, null, specs);
-			agentRow = await getUserById(db, assistantAgentId);
+			agentRow = await findUser(db, { id: assistantAgentId });
 		}
 
 		if (!agentRow) {
@@ -408,14 +411,14 @@ export function createAssistantSoulRoutes(
 		}
 
 		// Verify the target user exists
-		const userRow = await getUserById(db, targetUserId);
+		const userRow = await findUser(db, { id: targetUserId });
 		if (!userRow) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
 		// Find or create assistant agent (lazy creation for legacy/test users)
 		const assistantAgentId = assistantAgentIdForUser(targetUserId);
-		let agentRow = await getUserById(db, assistantAgentId);
+		let agentRow = await findUser(db, { id: assistantAgentId });
 
 		if (!agentRow) {
 			// @lore AU3: Lazy-create (PATCH path) routes through app defaults (same as GET path).
@@ -434,7 +437,7 @@ export function createAssistantSoulRoutes(
 				ownerUserName: userRow.name,
 			});
 			await persistScaffoldedAgents(db, orgUsers, null, specs);
-			agentRow = await getUserById(db, assistantAgentId);
+			agentRow = await findUser(db, { id: assistantAgentId });
 		}
 
 		if (!agentRow) {
@@ -470,7 +473,7 @@ export function createAssistantSoulRoutes(
 		await updateUser(db, assistantAgentId, updateSet);
 
 		// Re-read the updated row to return accurate values
-		const updatedRow = await getUserById(db, assistantAgentId);
+		const updatedRow = await findUser(db, { id: assistantAgentId });
 
 		return c.json({
 			id: agentRow.id,

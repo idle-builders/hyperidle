@@ -21,7 +21,7 @@ import {
 import { reapKnowledgeAccessLog } from "@hyperidle/knowledge";
 import { deleteReaped, insertNotification, listAll } from "@hyperidle/notifications";
 import { type RetentionReaperDeps, reapRetentionOnce } from "@hyperidle/retention";
-import { reapInviteCodes, reapLoginSessions } from "@hyperidle/users";
+import { reapExpiredCredentials } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";
 
@@ -29,7 +29,7 @@ const now = new Date("2026-07-13T12:00:00.000Z");
 const DAY = 86_400_000;
 
 const deps: RetentionReaperDeps = {
-	users: { reapLoginSessions, reapInviteCodes },
+	users: { reapExpiredCredentials },
 	knowledge: { reapKnowledgeAccessLog },
 	notifications: { deleteReaped },
 };

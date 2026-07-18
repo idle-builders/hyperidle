@@ -32,7 +32,7 @@ import type {
 	AgentSessionSummary,
 	HarnessCapabilities,
 } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq } from "drizzle-orm";
 import type { Context } from "hono";
@@ -218,7 +218,7 @@ export async function handleAgentProfile(
 	}
 
 	// 1. Fetch the agent (kind='ai', not system)
-	const agent = await getUserById(db, agentId);
+	const agent = await findUser(db, { id: agentId });
 
 	if (!agent || agent.kind !== "ai") {
 		return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);

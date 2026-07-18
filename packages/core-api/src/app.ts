@@ -33,7 +33,7 @@ import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
-import { createUpgradeTokenStore, getUserById, type UpgradeTokenStore } from "@hyperidle/users";
+import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import {
 	getItemById,
 	getTaskById as getWorkTaskById,
@@ -275,7 +275,7 @@ const notificationsConfigDeps: NotificationsConfigDeps = {
 
 const notificationsSilenceDeps: NotificationsSilenceDeps = {
 	serverConfig: notificationsServerConfigPort,
-	users: { getUserById },
+	users: { getUserById: (db, id) => findUser(db, { id }) },
 	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 

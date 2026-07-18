@@ -46,16 +46,24 @@ import type { WriteExecutor } from "@hyperidle/db";
 // correction — see this file's top @lore)
 // ---------------------------------------------------------------------------
 
-/** Port for `users`' `login_sessions`/`invite_codes` TTL sweep functions. */
+/**
+ * Port for `users`' merged credential TTL sweep.
+ *
+ * @lore AU20 Am11: `reapLoginSessions` + `reapInviteCodes` merged into
+ * `reapExpiredCredentials` — the two callers inside `retention-reaper.ts`
+ * became one call that computes all three cutoffs and receives the split
+ * result.
+ */
 export interface RetentionUsersReaper {
-	/** Wires to `@hyperidle/users`' `reapLoginSessions`. Returns deleted ids. */
-	reapLoginSessions(db: WriteExecutor, cutoff: string): Promise<readonly string[]>;
-	/** Wires to `@hyperidle/users`' `reapInviteCodes`. Returns deleted ids. */
-	reapInviteCodes(
+	/** Wires to `@hyperidle/users`' `reapExpiredCredentials`. */
+	reapExpiredCredentials(
 		db: WriteExecutor,
-		expiredCutoff: string,
-		consumedCutoff: string,
-	): Promise<readonly string[]>;
+		args: {
+			sessionCutoff: string;
+			inviteExpiredCutoff: string;
+			inviteConsumedCutoff: string;
+		},
+	): Promise<{ sessions: readonly string[]; invites: readonly string[] }>;
 }
 
 // ---------------------------------------------------------------------------

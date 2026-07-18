@@ -36,7 +36,7 @@ import {
 	type ResolvedModel,
 } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
-import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/users";
 import type { AgentSelectionDefaults, BetDecompositionDeps } from "@hyperidle/work";
 import { runBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -51,7 +51,11 @@ const createTaskTool = buildToolDefinitions(toolHandlersPorts).find(
 )!;
 
 const agentSelectionService = createAgentSelectionService({
-	users: { getUserById, listActiveAiUsersByTeams },
+	users: {
+		getUserById: (db, id) => findUser(db, { id }),
+		listActiveAiUsersByTeams: (db, teamIds) =>
+			listUsers(db, { teamIds, kind: "ai", status: "active" }),
+	},
 	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 });
 
@@ -85,7 +89,11 @@ const productionPorts = {
 			return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 		},
 	} satisfies AgentSelectionDefaults,
-	users: { getUserById, listActiveAiUsersByTeams },
+	users: {
+		getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
+		listActiveAiUsersByTeams: (db: HyperIdleDb, teamIds: string[]) =>
+			listUsers(db, { teamIds, kind: "ai", status: "active" }),
+	},
 	costCap: { checkCostCap },
 	workIntents: { record: recordAgentWorkIntent },
 	teamCapacity: {

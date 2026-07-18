@@ -22,7 +22,7 @@ import {
 	type RoutineRunOutcome,
 	type RoutineRunSummary,
 } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -99,7 +99,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			}
 
 			// Verify ownerAgentId exists
-			const agent = await getUserById(db, body.ownerAgentId);
+			const agent = await findUser(db, { id: body.ownerAgentId });
 			if (!agent) {
 				return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
@@ -206,7 +206,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		}
 
 		// Resolve agent name
-		const ownerUser = await getUserById(db, routine.ownerAgentId);
+		const ownerUser = await findUser(db, { id: routine.ownerAgentId });
 		const agentName = ownerUser?.name ?? routine.ownerAgentId;
 
 		// Resolve team name

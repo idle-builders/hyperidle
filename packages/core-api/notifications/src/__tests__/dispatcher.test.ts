@@ -14,7 +14,7 @@ import {
 	EventBus,
 	type ItemCreatedEvent,
 } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -87,7 +87,7 @@ const notificationsConfigDeps: NotificationsConfigDeps = {
 
 const notificationsSilenceDeps: NotificationsSilenceDeps = {
 	serverConfig: notificationsServerConfigPort,
-	users: { getUserById },
+	users: { getUserById: (db, id) => findUser(db, { id }) },
 	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 

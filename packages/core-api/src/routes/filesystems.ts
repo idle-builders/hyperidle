@@ -32,7 +32,7 @@ import type {
 	FilesystemInjection,
 } from "@hyperidle/shared";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -333,7 +333,7 @@ export function createFilesystemRoutes(
 			}
 
 			// Check agent exists
-			const agent = await getUserById(db, body.agentUserId);
+			const agent = await findUser(db, { id: body.agentUserId });
 			if (agent == null) {
 				return c.json({ error: "Agent user not found", code: "NOT_FOUND" }, 404);
 			}

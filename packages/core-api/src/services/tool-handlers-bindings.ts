@@ -54,7 +54,7 @@ import { getRoutine, insertRoutine, updateRoutine } from "@hyperidle/routine";
 import type { EventBus } from "@hyperidle/shared";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
-import { getUserById, insertUser, listUsersByKind, listUsersByTeam } from "@hyperidle/users";
+import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import {
 	appendTaskNote,
 	createArtifact,
@@ -74,7 +74,10 @@ import { agentSelectionService } from "./agent-selection-bindings.js";
 import { provisionTeamRoutines as provisionTeamRoutinesBound } from "./dispatch-bindings.js";
 import { handoff } from "./policy-bindings.js";
 
-const orgUsersForScaffold = { getUserById, insertUser };
+const orgUsersForScaffold = {
+	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
+	insertUser,
+};
 
 /**
  * @lore AU19 Increment 4: `dispatch-bindings.ts` imports `toolHandlersPorts`
@@ -127,7 +130,9 @@ async function resolveReviewRecipientsForItem(
 		readonly teamId: string | undefined;
 	},
 ): Promise<readonly string[]> {
-	return resolveReviewRecipients(db, ctx, { listUsersByKind });
+	return resolveReviewRecipients(db, ctx, {
+		listUsersByKind: (db2, kind) => listUsers(db2, { kind }),
+	});
 }
 
 /** Collapses `persistScaffoldedAgents(db, {getUserById,insertUser}, teamMembersId, specs)`. */
@@ -200,7 +205,10 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 		findItemByReasoningMarker,
 		createArtifact,
 	},
-	users: { getUserById, listUsersByTeam },
+	users: {
+		getUserById: (db, id) => findUser(db, { id }),
+		listUsersByTeam: (db, teamId) => listUsers(db, { teamIds: [teamId] }),
+	},
 	conversation: {
 		getThreadById: (db, id) => findThread(db, { id }),
 		insertThread,

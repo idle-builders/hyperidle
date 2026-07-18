@@ -1,7 +1,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
-import { getFirstUserByKind, validateBearerToken } from "@hyperidle/users";
+import { findUser, validateBearerToken } from "@hyperidle/users";
 import type { Context, MiddlewareHandler } from "hono";
 import { constantTimeStringEqual } from "./timing-safe.js";
 
@@ -195,7 +195,7 @@ export function createAuthMiddleware(
 			const expectedKey = process.env.HYPERIDLE_API_KEY ?? "";
 
 			if (apiKey.length > 0 && constantTimeStringEqual(apiKey, expectedKey)) {
-				const humanUserShared = await getFirstUserByKind(db, "human");
+				const humanUserShared = await findUser(db, { kind: "human" });
 				c.set("userId", humanUserShared?.id ?? "u-founder");
 				c.set("authMethod", "api_key");
 				c.set("loginSessionId", undefined);
@@ -226,7 +226,7 @@ export function createAuthMiddleware(
 		// @lore P2: fallback to "u-founder" for unseeded DBs and existing tests
 		// that don't seed a human user. The fallback is a safety net, not a
 		// design choice — all production paths should have a human user row.
-		const humanUser = await getFirstUserByKind(db, "human");
+		const humanUser = await findUser(db, { kind: "human" });
 		c.set("userId", humanUser?.id ?? "u-founder");
 		c.set("authMethod", "api_key");
 		c.set("loginSessionId", undefined);

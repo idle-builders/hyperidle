@@ -76,7 +76,7 @@ import type {
 	ToolContext,
 } from "@hyperidle/shared";
 import { summarizeToolArgs } from "@hyperidle/shared";
-import { getFirstUserByKind, getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import {
 	getBetById,
 	getTaskById,
@@ -139,7 +139,10 @@ const workAccessor: SessionLifecyclePorts["work"] = {
 // users — ordinary downward DI.
 // ---------------------------------------------------------------------------
 
-const userReader: SessionLifecyclePorts["users"] = { getUserById, getFirstUserByKind };
+const userReader: SessionLifecyclePorts["users"] = {
+	getUserById: (db, id) => findUser(db, { id }),
+	getFirstUserByKind: (db, kind) => findUser(db, { kind }),
+};
 
 // ---------------------------------------------------------------------------
 // settings — ordinary downward DI.
@@ -168,7 +171,9 @@ const filesystemsReader: SessionLifecyclePorts["filesystems"] = {
 
 const connectionsProvisioner: SessionLifecyclePorts["connections"] = {
 	resolveOwningHumanUserId(db: HyperIdleDb) {
-		return resolveOwningHumanUserIdInternal(db, { users: { getFirstUserByKind } });
+		return resolveOwningHumanUserIdInternal(db, {
+			users: { getFirstUserByKind: (db2, kind) => findUser(db2, { kind }) },
+		});
 	},
 	buildProvisioningPlan,
 	applyProvisioningPlan,

@@ -15,7 +15,7 @@ import {
 	isRegisteredKind,
 	OLD_KIND_MAP,
 } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
@@ -267,7 +267,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				eventBus !== undefined
 			) {
 				// Resolve teamMembers.id from users.teamId (§5.2 — NOT tasks.teamId which is teams.id)
-				const agentRow = await getUserById(db, resolvedAgentId);
+				const agentRow = await findUser(db, { id: resolvedAgentId });
 
 				if (agentRow) {
 					const resolvedSessionId = body.sessionId ?? `artifact:${id}`;

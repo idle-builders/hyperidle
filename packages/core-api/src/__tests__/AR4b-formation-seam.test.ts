@@ -47,7 +47,7 @@ import {
 	createTriggeredAgentSessionRequest,
 	type TriggerResolutionDeps,
 } from "@hyperidle/trigger-resolution";
-import { getUserByIdScopedToTeam } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { executeAssistantRequest } from "../services/dispatch-bindings.js";
 import { test } from "../test-fixtures.js";
@@ -58,7 +58,10 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 		create: createAgentSessionRequest,
 	},
 	config: { listConfiguration },
-	users: { getUserByIdScopedToTeam },
+	users: {
+		getUserByIdScopedToTeam: (db, userId, teamId) =>
+			findUser(db, teamId !== undefined ? { id: userId, teamIds: [teamId] } : { id: userId }),
+	},
 	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 };
 

@@ -78,12 +78,7 @@ import {
 	recordSessionForResolutionHistory,
 	type TriggerResolutionDeps,
 } from "@hyperidle/trigger-resolution";
-import {
-	getUserById,
-	getUserByIdScopedToTeam,
-	listActiveAiUsersByTeams,
-	listUsersByTeam,
-} from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 
 // ---------------------------------------------------------------------------
@@ -98,7 +93,10 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 		create: createAgentSessionRequest,
 	},
 	config: { listConfiguration },
-	users: { getUserByIdScopedToTeam },
+	users: {
+		getUserByIdScopedToTeam: (db, userId, teamId) =>
+			findUser(db, teamId !== undefined ? { id: userId, teamIds: [teamId] } : { id: userId }),
+	},
 	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 };
 
@@ -110,7 +108,11 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 // ---------------------------------------------------------------------------
 
 const agentSelectionService = createAgentSelectionService({
-	users: { getUserById, listActiveAiUsersByTeams },
+	users: {
+		getUserById: (db, id) => findUser(db, { id }),
+		listActiveAiUsersByTeams: (db, teamIds) =>
+			listUsers(db, { teamIds, kind: "ai", status: "active" }),
+	},
 	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 });
 
@@ -173,7 +175,10 @@ const agentWorkIntentWorkerDeps: AgentWorkIntentWorkerDeps = {
 		},
 	},
 	conversation: { getMessageById: (db, id) => findMessage(db, { id }) },
-	users: { getUserById, listUsersByTeam },
+	users: {
+		getUserById: (db, id) => findUser(db, { id }),
+		listUsersByTeam: (db, teamId) => listUsers(db, { teamIds: [teamId] }),
+	},
 	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 	review: { findGrantedProposedCall },
 	knowledge: { findById: findKnowledgeItemById },

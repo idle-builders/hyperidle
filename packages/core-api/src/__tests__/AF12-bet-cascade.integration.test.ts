@@ -40,7 +40,7 @@ import {
 import { insertNotification } from "@hyperidle/notifications";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
-import { getFirstUserByKind } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import type { TaskStateMachineDeps, TeamCapacityReader } from "@hyperidle/work";
 import {
 	cascadeBetKill,
@@ -97,7 +97,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
-	users: { getFirstUserByKind },
+	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
 	notifications: { insert: insertNotification },
 	silence: { isSilenced: () => Promise.resolve(false) },
 };

@@ -13,14 +13,14 @@ import {
 } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../test-fixtures.js";
 
 const silencePolicyDeps: NotificationsSilenceDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
-	users: { getUserById },
+	users: { getUserById: (db, id) => findUser(db, { id }) },
 	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 

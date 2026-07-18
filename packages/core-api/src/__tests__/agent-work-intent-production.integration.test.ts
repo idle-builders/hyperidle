@@ -23,7 +23,7 @@ import {
 import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import { getTeamMembers } from "@hyperidle/org";
 import { composeTailoredGrant } from "@hyperidle/review";
-import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/users";
 import type { AgentSelectionDefaults, AgentWorkIntentRecorder } from "@hyperidle/work";
 import {
 	getTaskById,
@@ -43,7 +43,11 @@ const depWatcherDeps = {
 };
 
 const agentSelectionService = createAgentSelectionService({
-	users: { getUserById, listActiveAiUsersByTeams },
+	users: {
+		getUserById: (db, id) => findUser(db, { id }),
+		listActiveAiUsersByTeams: (db, teamIds) =>
+			listUsers(db, { teamIds, kind: "ai", status: "active" }),
+	},
 	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 });
 

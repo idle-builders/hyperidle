@@ -81,14 +81,7 @@ import {
 	updateServerConfig,
 } from "@hyperidle/settings";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
-import {
-	getFirstUserByKind,
-	getUserById,
-	listActiveAiUsersByTeams,
-	listUsersByKind,
-	reapInviteCodes,
-	reapLoginSessions,
-} from "@hyperidle/users";
+import { findUser, listUsers, reapExpiredCredentials } from "@hyperidle/users";
 import {
 	createItem as createWorkItem,
 	getBetById,
@@ -194,7 +187,7 @@ const notificationsMuteDeps: NotificationsMuteDeps = {
 
 const notificationsSilenceDeps: NotificationsSilenceDeps = {
 	serverConfig: notificationsServerConfigPort,
-	users: { getUserById },
+	users: { getUserById: (db, id) => findUser(db, { id }) },
 	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 
@@ -249,7 +242,7 @@ const policyDeps: PolicyDeps = {
 		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
-	users: { getFirstUserByKind },
+	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
 	silence: {
 		isSilenced: (db, item, now) => isSilenced(db, item, now, notificationsSilenceDeps),
 	},
@@ -266,7 +259,7 @@ const policyDeps: PolicyDeps = {
  * `@lore`); `notifications` was already census-listed.
  */
 const retentionReaperDeps: RetentionReaperDeps = {
-	users: { reapLoginSessions, reapInviteCodes },
+	users: { reapExpiredCredentials },
 	knowledge: { reapKnowledgeAccessLog },
 	notifications: { deleteReaped },
 };
@@ -328,7 +321,10 @@ export function registerCoreDomainServices(ctx: {
 				getThreadById: (db, id) => findThread(db, { id }),
 				updateThread,
 			},
-			users: { getUserById, listUsersByKind },
+			users: {
+				getUserById: (db, id) => findUser(db, { id }),
+				listUsersByKind: (db, kind) => listUsers(db, { kind }),
+			},
 			org: { resolveReviewRecipients },
 			taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
 		}),
@@ -703,7 +699,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// @lore AU20 Am4: listServiceConnectionsByAuthSource removed from barrel; adapt
 	// to listConnections(db, { authSource }) to satisfy ServiceConnectionsReader port.
 	await backfillConfigurationDefaults(db, {
-		users: { listUsersByKind },
+		users: { listUsersByKind: (db, kind) => listUsers(db, { kind }) },
 		routines: { listRoutines },
 		serviceConnections: {
 			listByAuthSource: (execDb, authSource) => listConnections(execDb, { authSource }),
@@ -779,7 +775,11 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 			},
 		},
-		users: { getUserById, listActiveAiUsersByTeams },
+		users: {
+			getUserById: (db, id) => findUser(db, { id }),
+			listActiveAiUsersByTeams: (db, teamIds) =>
+				listUsers(db, { teamIds, kind: "ai", status: "active" }),
+		},
 		costCap: { checkCostCap },
 		workIntents: { record: recordAgentWorkIntent },
 		// AU19 Increment 1c: `org` is a REAL migrated package — wired to its real
@@ -927,7 +927,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				eventBus,
 				createDbSubscribeAuthorizer(db, {
 					conversation: { getThreadById: (db, id) => findThread(db, { id }) },
-					users: { getUserById },
+					users: { getUserById: (db, id) => findUser(db, { id }) },
 					org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 					work: { getTaskById },
 				}),

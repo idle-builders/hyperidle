@@ -14,7 +14,7 @@ import {
 import { resolveReviewRecipients } from "@hyperidle/org";
 import { registerSessionReviewCreator, type SessionReviewCreatorDeps } from "@hyperidle/review";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
-import { getUserById, listUsersByKind } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/users";
 import { createItem, getTaskById, getTaskRiskTierByTaskId, updateTaskById } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
@@ -33,7 +33,10 @@ import { test } from "../test-fixtures.js";
 const reviewDeps: SessionReviewCreatorDeps = {
 	work: { getTaskById, updateTaskById, createItem },
 	conversation: { insertThread, getThreadById: (db, id) => findThread(db, { id }), updateThread },
-	users: { getUserById, listUsersByKind },
+	users: {
+		getUserById: (db, id) => findUser(db, { id }),
+		listUsersByKind: (db, kind) => listUsers(db, { kind }),
+	},
 	org: { resolveReviewRecipients },
 	taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
 };

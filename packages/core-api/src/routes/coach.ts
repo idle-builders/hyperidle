@@ -28,7 +28,7 @@ import type {
 	RedactedPayload,
 	Thread,
 } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
@@ -127,7 +127,7 @@ async function buildIdentities(
 	db: HyperIdleDb,
 	userId: string,
 ): Promise<Record<string, { name: string; role?: string }>> {
-	const userRow = await getUserById(db, userId);
+	const userRow = await findUser(db, { id: userId });
 	const userName = userRow?.name ?? "You";
 	const userRole = userRow?.role;
 

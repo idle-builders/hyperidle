@@ -19,7 +19,7 @@ import {
 	type WsClient,
 } from "@hyperidle/realtime";
 import type { ThreadMessageAppendedEvent } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { getTaskById } from "@hyperidle/work";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -37,7 +37,7 @@ function createMockClient(): WsClient & { messages: string[] } {
 /** Real Mechanism C deps — mirrors `server-factory.ts`'s production wiring. */
 const REALTIME_DEPS: SubscribeAuthorizerDeps = {
 	conversation: { getThreadById: (db, id) => findThread(db, { id }) },
-	users: { getUserById },
+	users: { getUserById: (db, id) => findUser(db, { id }) },
 	org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 	work: { getTaskById },
 };

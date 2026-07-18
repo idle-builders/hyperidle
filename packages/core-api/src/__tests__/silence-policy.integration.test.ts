@@ -6,13 +6,13 @@ import {
 } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
 
 const silencePolicyDeps: NotificationsSilenceDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
-	users: { getUserById },
+	users: { getUserById: (db, id) => findUser(db, { id }) },
 	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 };
 

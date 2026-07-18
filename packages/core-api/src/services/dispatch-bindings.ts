@@ -89,7 +89,7 @@ import type { AgentWorkIntentKind } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus, ToolContext } from "@hyperidle/shared";
 import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
-import { getOrCreateUser, getUserById } from "@hyperidle/users";
+import { findUser, getOrCreateUser } from "@hyperidle/users";
 import {
 	createItem,
 	findItemByReasoningMarker,
@@ -192,7 +192,7 @@ const dispatchPorts: DispatchPorts = {
 	},
 	users: {
 		getOrCreateUser,
-		getUserById,
+		getUserById: (db, id) => findUser(db, { id }),
 	},
 	settings: {
 		readServerConfig: async (db) => {

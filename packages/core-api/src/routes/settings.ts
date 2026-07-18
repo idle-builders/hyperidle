@@ -24,7 +24,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { listTeams } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
-import { getFirstUserByKind, listUsersByKind } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -120,7 +120,7 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 	};
 }> {
 	// P2: Read founder profile from users table (kind = 'human')
-	const humanUser = await getFirstUserByKind(db, "human");
+	const humanUser = await findUser(db, { kind: "human" });
 
 	// P3: Read notification settings from server_config (defaults if not configured)
 	const serverCfg = await readServerConfig(db);
@@ -128,7 +128,7 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 	// Teams — active derived from phase !== "archived"
 	const teamRows = await listTeams(db);
 	// AI Users — paused derived from status === "paused" (kind = 'ai' for the agents panel)
-	const aiUserRows = await listUsersByKind(db, "ai");
+	const aiUserRows = await listUsers(db, { kind: "ai" });
 
 	return {
 		profile: {

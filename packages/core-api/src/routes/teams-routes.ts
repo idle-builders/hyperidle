@@ -55,15 +55,7 @@ import {
 	deriveTitle,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
-import {
-	getFirstUserByKind,
-	getUserById,
-	getUsersByIds,
-	insertUser,
-	listUsersByTeam,
-	listUsersByTeamAndKind,
-	updateUser,
-} from "@hyperidle/users";
+import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
@@ -81,7 +73,10 @@ import {
 
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
 // the real `user-store.ts` function references unchanged (no behavior change).
-const orgUsers = { getUserById, insertUser };
+const orgUsers = {
+	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
+	insertUser,
+};
 
 /**
  * Derive team status from team_members and active bet states.
@@ -165,14 +160,14 @@ async function resolveFounderId(
 	bodyUserId: string | undefined,
 ): Promise<string | null> {
 	if (ctxUserId) {
-		const u = await getUserById(db, ctxUserId);
+		const u = await findUser(db, { id: ctxUserId });
 		if (u) return u.id;
 	}
 	if (bodyUserId) {
-		const u = await getUserById(db, bodyUserId);
+		const u = await findUser(db, { id: bodyUserId });
 		if (u) return u.id;
 	}
-	const human = await getFirstUserByKind(db, "human");
+	const human = await findUser(db, { kind: "human" });
 	return human?.id ?? null;
 }
 
@@ -232,7 +227,7 @@ export function createTeamRoutes(
 				// AB2: agent summary — count AI agents and compute health warning.
 				// Re-use computeHealthSignals for accurate health checks (reviewer S4).
 				const teamAgentRows = memberGroup
-					? await listUsersByTeamAndKind(db, memberGroup.id, "ai")
+					? await listUsers(db, { teamIds: [memberGroup.id], kind: "ai" })
 					: [];
 
 				const agentCount = teamAgentRows.length;
@@ -439,7 +434,7 @@ export function createTeamRoutes(
 		// @lore AF17: routines.team_id must be teams.id (teamId), NOT team_members.id (teamMembersId).
 		// ownerByRole is built from the created roster rows in the DB.
 		{
-			const createdAgents = await listUsersByTeam(db, teamMembersId);
+			const createdAgents = await listUsers(db, { teamIds: [teamMembersId] });
 			const ownerByRole: Partial<Record<string, string>> = {};
 			for (const agent of createdAgents) {
 				if (agent.role && !ownerByRole[agent.role]) {
@@ -485,7 +480,7 @@ export function createTeamRoutes(
 				// @lore AE2: The assistant agent is normally created at user registration.
 				// During onboarding, team creation may happen before the assistant agent
 				// is created — we upsert a stub here so the FK on messages.senderId succeeds.
-				const existingAssistant = await getUserById(db, assistantId);
+				const existingAssistant = await findUser(db, { id: assistantId });
 
 				// AV1: Resolve the harness the assistant should carry.
 				// @lore AV1: The assistant stub may already exist (created by user registration
@@ -499,7 +494,7 @@ export function createTeamRoutes(
 
 				if (!existingAssistant) {
 					// Lookup user name to personalise the assistant name.
-					const userRow = await getUserById(db, userId);
+					const userRow = await findUser(db, { id: userId });
 					const assistantName = userRow ? `${userRow.name}'s Assistant` : "Assistant";
 
 					await insertUser(db, {
@@ -541,7 +536,7 @@ export function createTeamRoutes(
 
 				// Build agent names list for welcome message text.
 				// Use the persisted roster from DB (app-decided set).
-				const agentRows = await listUsersByTeam(db, teamMembersId);
+				const agentRows = await listUsers(db, { teamIds: [teamMembersId] });
 				const agentLabels = agentRows
 					.map(({ role }) => {
 						const entry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
@@ -696,7 +691,7 @@ export function createTeamRoutes(
 		try {
 			const memberGroup = await getTeamMembers(db, { teamId }, { require: true });
 			// 3. Load roster
-			const agentRows = await listUsersByTeam(db, memberGroup.id);
+			const agentRows = await listUsers(db, { teamIds: [memberGroup.id] });
 
 			const roster: RosterMember[] = agentRows.map((agent) => ({
 				agentId: agent.id,
@@ -865,7 +860,7 @@ export function createTeamRoutes(
 			const ownerIds = [
 				...new Set(routineRows.map((r) => r.ownerAgentId).filter(Boolean)),
 			] as string[];
-			const ownerRows = ownerIds.length > 0 ? await getUsersByIds(db, ownerIds) : [];
+			const ownerRows = ownerIds.length > 0 ? await listUsers(db, { ids: ownerIds }) : [];
 			const ownerMap = new Map(ownerRows.map((u) => [u.id, u]));
 
 			// Fetch latest routine_run for each routine to get lastRunOutcome

@@ -1,7 +1,7 @@
 import { listMessages } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { getDailyDigest, type NotificationsDigestDeps } from "@hyperidle/notifications";
-import { listAllUsers } from "@hyperidle/users";
+import { listUsers } from "@hyperidle/users";
 import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -54,7 +54,7 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
-		const allAgents = await listAllUsers(db);
+		const allAgents = await listUsers(db);
 
 		const agentStates: Record<string, number> = {};
 		for (const agent of allAgents) {

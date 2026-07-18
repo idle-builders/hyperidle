@@ -37,13 +37,21 @@ import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
 import { recordAgentWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
-import { findActiveTeammateByRole, getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { createItem, getTaskById, listItemIdsBySourceAgent, updateTaskById } from "@hyperidle/work";
 
 const handoffDeps = {
 	work: { getTaskById, updateTaskById, createItem },
 	conversation: { insertMessage, insertThread },
-	users: { getUserById, findActiveTeammateByRole },
+	users: {
+		getUserById: (db: WriteExecutor, id: string) => findUser(db, { id }),
+		findActiveTeammateByRole: (
+			db: WriteExecutor,
+			role: string,
+			teamMembersIds: string[],
+			excludeId: string,
+		) => findUser(db, { role, teamIds: teamMembersIds, status: "active", excludeId }),
+	},
 	org: { getByTeamId: (db: WriteExecutor, teamId: string) => getTeamMembers(db, { teamId }) },
 	sessionRequests: {
 		record: recordAgentWorkIntent,

@@ -99,19 +99,21 @@ export async function reapRetentionOnce(
 
 	const results: RetentionSweepResult[] = [];
 
-	// ── 1. login_sessions — expiry-based (owned by `users`, injected port) ──
+	// ── 1+2. login_sessions + invite_codes (owned by `users`, injected port) ─
+	// @lore AU20 Am11: merged into one reapExpiredCredentials call; result
+	// carries per-table arrays so we can push individual RetentionSweepResult
+	// entries without changing the observable output shape.
 	{
-		const cutoff = new Date(nowMs - expiredGraceMs).toISOString();
-		const deleted = await deps.users.reapLoginSessions(db, cutoff);
-		results.push({ table: "login_sessions", deleted: deleted.length });
-	}
-
-	// ── 2. invite_codes — two branches (owned by `users`, injected port) ────
-	{
-		const expiredCutoff = new Date(nowMs - expiredGraceMs).toISOString();
-		const consumedCutoff = new Date(nowMs - consumedInviteTtlMs).toISOString();
-		const deleted = await deps.users.reapInviteCodes(db, expiredCutoff, consumedCutoff);
-		results.push({ table: "invite_codes", deleted: deleted.length });
+		const sessionCutoff = new Date(nowMs - expiredGraceMs).toISOString();
+		const inviteExpiredCutoff = new Date(nowMs - expiredGraceMs).toISOString();
+		const inviteConsumedCutoff = new Date(nowMs - consumedInviteTtlMs).toISOString();
+		const reaped = await deps.users.reapExpiredCredentials(db, {
+			sessionCutoff,
+			inviteExpiredCutoff,
+			inviteConsumedCutoff,
+		});
+		results.push({ table: "login_sessions", deleted: reaped.sessions.length });
+		results.push({ table: "invite_codes", deleted: reaped.invites.length });
 	}
 
 	// ── 3. notification_queue — age-based, terminal-only (owned by ────────

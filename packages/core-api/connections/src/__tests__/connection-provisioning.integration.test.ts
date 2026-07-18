@@ -25,7 +25,7 @@ import { test } from "@hyperidle/db/test-fixtures";
 // composition-boundary-guard (it only scans `src/**` production files) — this
 // mirrors `@hyperidle/notifications`' `dispatcher.test.ts` precedent of wiring a
 // REAL sibling Service function directly for test-only DI construction.
-import { getFirstUserByKind } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
 	applyProvisioningPlan,
@@ -42,7 +42,7 @@ const NOW = new Date().toISOString();
 const USER_HUMAN_ID = "u-an2-human";
 const USER_OTHER_ID = "u-an2-other-human";
 const connectionsUserReaderDeps: { readonly users: ConnectionsUserReader } = {
-	users: { getFirstUserByKind },
+	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
 };
 
 let sandboxPath: string;

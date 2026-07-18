@@ -14,13 +14,7 @@ import {
 	insertThread,
 	listInbox,
 } from "@hyperidle/conversation";
-import {
-	getFirstUserByKind,
-	getUserById,
-	insertUser,
-	listAllUsers,
-	updateUser,
-} from "@hyperidle/users";
+import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -34,7 +28,11 @@ import { createAssistantSoulRoutes } from "./assistant.js";
 
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
 // the real `user-store.ts` function references unchanged (no behavior change).
-const orgUsers = { getUserById, insertUser };
+// AU19 Increment 1c / AU20 Am11: adapter so `findUser({id})` satisfies `getUserById`.
+const orgUsers = {
+	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
+	insertUser,
+};
 
 const updateSkillSchema = z.object({
 	autonomyLevel: z.number().int().min(1).max(4),
@@ -110,7 +108,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 		}
 
 		// Check if a human user already exists
-		const existingHuman = await getFirstUserByKind(db, "human");
+		const existingHuman = await findUser(db, { kind: "human" });
 
 		if (existingHuman) {
 			// Human user exists: require auth. Check the API key.
@@ -176,7 +174,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 			at: now,
 		});
 
-		const created = await getUserById(db, id);
+		const created = await findUser(db, { id });
 		return c.json({ user: created }, 201);
 	});
 
@@ -199,7 +197,7 @@ export function createUserRoutes(
 
 	// GET / — List all users with active session counts
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allUsers = await listAllUsers(db);
+		const allUsers = await listUsers(db);
 		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
 		const result = allUsers.map((user) => ({
@@ -213,7 +211,7 @@ export function createUserRoutes(
 	// GET /:id — User detail with skills
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.req.param("id");
-		const user = await getUserById(db, userId);
+		const user = await findUser(db, { id: userId });
 
 		if (!user) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
@@ -239,7 +237,7 @@ export function createUserRoutes(
 			);
 		}
 
-		const target = await getUserById(db, targetId);
+		const target = await findUser(db, { id: targetId });
 		if (!target) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -271,7 +269,7 @@ export function createUserRoutes(
 			await updateUser(db, targetId, updates);
 		}
 
-		const updated = await getUserById(db, targetId);
+		const updated = await findUser(db, { id: targetId });
 		return c.json(updated, 200);
 	});
 
@@ -364,7 +362,7 @@ export function createUserRoutes(
 			);
 		}
 
-		const user = await getUserById(db, userId);
+		const user = await findUser(db, { id: userId });
 		if (!user) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -401,12 +399,12 @@ export function createUserRoutes(
 			// Previous code accepted the header, enabling impersonation (WARNING-1).
 			const senderId = c.get("userId");
 
-			const user = await getUserById(db, recipientId);
+			const user = await findUser(db, { id: recipientId });
 			if (!user) {
 				return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
 
-			const senderUser = await getUserById(db, senderId);
+			const senderUser = await findUser(db, { id: senderId });
 			if (!senderUser) {
 				return c.json({ error: "Sender identity not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}

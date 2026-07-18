@@ -58,7 +58,7 @@ import {
 	headCollapsePredicate,
 	resolveMentions,
 } from "@hyperidle/shared";
-import { getUserById, getUsersByIds, listUsersByTeams } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -116,7 +116,7 @@ async function readInitialSenderId(
 	if (explicit) return explicit;
 	if (messageType === "review" || messageType === "questionnaire") {
 		for (const p of participants) {
-			const ag = await getUserById(db, p);
+			const ag = await findUser(db, { id: p });
 			// @lore P2: "founder" is intentionally NOT in USER_ROLES (the role column is
 			// unconstrained text). This check selects the first non-founder participant as
 			// the sender for review/questionnaire messages. If you rename or remove the
@@ -154,7 +154,7 @@ async function buildThreadIdentities(
 	>
 > {
 	if (senderIds.length === 0) return {};
-	const rows = await getUsersByIds(db, senderIds);
+	const rows = await listUsers(db, { ids: senderIds });
 	const result: Record<
 		string,
 		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: AgentOperationalStatus }
@@ -206,7 +206,7 @@ async function buildMentionLookup(
 	if (participantIds.length === 0) return new Map();
 
 	// Find the teamIds for all participants.
-	const participantRows = await getUsersByIds(db, [...participantIds]);
+	const participantRows = await listUsers(db, { ids: [...participantIds] });
 
 	const teamIds = [
 		...new Set(participantRows.map((r) => r.teamId).filter((id): id is string => id !== null)),
@@ -214,7 +214,7 @@ async function buildMentionLookup(
 
 	if (teamIds.length === 0) {
 		// No team-scoped users — still resolve from direct participants.
-		const allRows = await getUsersByIds(db, [...participantIds]);
+		const allRows = await listUsers(db, { ids: [...participantIds] });
 		const map = new Map<string, { identityId: string; displayName: string }>();
 		// Sort by id for deterministic first-match when names conflict.
 		const sorted = allRows.slice().sort((a, b) => a.id.localeCompare(b.id));
@@ -228,7 +228,7 @@ async function buildMentionLookup(
 	}
 
 	// Query all users in the same team(s).
-	const teamUserRows = await listUsersByTeams(db, teamIds);
+	const teamUserRows = await listUsers(db, { teamIds });
 
 	const map = new Map<string, { identityId: string; displayName: string }>();
 	// Sort by id for deterministic first-match when names conflict.
@@ -417,7 +417,7 @@ async function resolveThreadTitles(
 			? listTitlesByIds(db, kiIds)
 			: Promise.resolve([] as ReadonlyArray<{ id: string; title: string }>),
 		allParticipantIds.size > 0
-			? getUsersByIds(db, [...allParticipantIds])
+			? listUsers(db, { ids: [...allParticipantIds] })
 			: Promise.resolve([] as Array<{ id: string; name: string }>),
 	]);
 
@@ -1149,7 +1149,7 @@ export function createThreadRoutes(
 					const e = err("validation_error", "resolvesMessageId not found in thread", 400);
 					return c.json(e.body, e.status);
 				}
-				const senderAgent = await getUserById(db, senderId);
+				const senderAgent = await findUser(db, { id: senderId });
 				// @lore P2: "founder" role is NOT in USER_ROLES (unconstrained text).
 				const isFounder = senderAgent?.role === "founder";
 				const selfVerdict = resolvesMessageRow.senderId === senderId;

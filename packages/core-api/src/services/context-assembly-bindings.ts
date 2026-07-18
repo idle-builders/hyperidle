@@ -33,7 +33,7 @@ import {
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { getRoutine } from "@hyperidle/routine";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import { getBetById, getTaskById } from "@hyperidle/work";
 
 const contextAssemblyPorts: ContextAssemblyPorts = {
@@ -55,7 +55,7 @@ const contextAssemblyPorts: ContextAssemblyPorts = {
 		getBetById,
 	},
 	users: {
-		getUserById,
+		getUserById: (db, id) => findUser(db, { id }),
 	},
 	routine: {
 		getRoutineById: getRoutine,

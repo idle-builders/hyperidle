@@ -31,7 +31,7 @@ import {
 import { insertNotification, listAll } from "@hyperidle/notifications";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
-import { getFirstUserByKind } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import {
 	getBetById,
 	getItemById,
@@ -88,7 +88,7 @@ const policyDeps: PolicyDeps = {
 		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
-	users: { getFirstUserByKind },
+	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
 	notifications: { insert: insertNotification },
 	silence: { isSilenced: () => Promise.resolve(false) },
 };

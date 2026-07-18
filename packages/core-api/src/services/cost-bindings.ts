@@ -35,7 +35,7 @@ import { applyTeamCost, getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
 import {
-	getUserById,
+	findUser,
 	incrementUserCost,
 	resetAllUserCost,
 	sumAllUserCost,
@@ -44,7 +44,13 @@ import {
 import { createItem, getTaskById, incrementBetCost } from "@hyperidle/work";
 
 const costDeps: CostDeps = {
-	users: { getUserById, incrementUserCost, resetAllUserCost, sumAllUserCost, updateUser },
+	users: {
+		getUserById: (db, id) => findUser(db, { id }),
+		incrementUserCost,
+		resetAllUserCost,
+		sumAllUserCost,
+		updateUser,
+	},
 	// @lore AU20 Am7: per-verb cost functions replaced by applyTeamCost + getTeamMembers;
 	// adapters satisfy CostTeamAccessor without changing cost package internals.
 	org: {

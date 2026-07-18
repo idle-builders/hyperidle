@@ -16,7 +16,7 @@ import {
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { insertNotification } from "@hyperidle/notifications";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
-import { getFirstUserByKind } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import {
 	getBetById,
 	getItemById,
@@ -66,7 +66,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
-	users: { getFirstUserByKind },
+	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
 	notifications: { insert: insertNotification },
 	silence: { isSilenced: () => Promise.resolve(false) },
 };
