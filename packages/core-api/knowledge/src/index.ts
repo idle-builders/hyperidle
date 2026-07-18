@@ -151,27 +151,21 @@ export {
 // -- portfolio-retro-store (AU19 Increment 3h — the dispatch -> knowledge edge) --
 export type { RecentLayeredKnowledgeItemRow } from "./portfolio-retro-store.js";
 export { listRecentByLayers } from "./portfolio-retro-store.js";
-// -- practice-meeting raw accessors (Mechanism C port for @hyperidle/review) --
+// -- practice-meeting workflow (AU20 Am9: relocated from @hyperidle/review — actual data owner) --
 export type {
-	ArchiveKnowledgeItemInput,
-	CapturedProjectedItem,
-	KnowledgeAppProjectionRow,
-	RawKnowledgeAppProjectionInsert,
-	RawKnowledgeEditLogInsert,
-	RawKnowledgeItemInsert,
-	RawKnowledgeItemRow,
-} from "./practice-meeting-store.js";
+	CreatePracticeMeetingInput,
+	CreatePracticeMeetingResult,
+	PracticeMeetingTurnResult,
+	ProposalInput,
+	ReactionInput,
+	RunPracticeMeetingTurnInput,
+	SynthesisInput,
+} from "./practice-meeting.js";
 export {
-	archiveKnowledgeItemWithLogRaw,
-	findKnowledgeAppProjectionByItemIdRaw,
-	findKnowledgeItemByIdRaw,
-	insertKnowledgeAppProjectionRaw,
-	insertKnowledgeEditLogRaw,
-	insertKnowledgeItemRaw,
-	listCapturedItemsByProjectionScopeRaw,
-	touchKnowledgeItemUpdatedAtRaw,
-	updateKnowledgeAppProjectionMetaIfUnchangedRaw,
-} from "./practice-meeting-store.js";
+	createPracticeMeeting,
+	PRACTICE_MEETING_ANCHOR_ROLE,
+	runPracticeMeetingTurn,
+} from "./practice-meeting.js";
 // -- promotion pipeline (auto-promotion + stale sweeps) --
 export {
 	AUTO_PROMOTION_EDITOR,

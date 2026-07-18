@@ -16,7 +16,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { captureProposedCall, consumeTailoredGrant, recordOutcome } from "@hyperidle/review";
+import { recordProposedCall, transitionProposedCall } from "@hyperidle/review";
 import type {
 	BuildToolRegistryOptions,
 	ProposedCallWorkflowPort,
@@ -30,10 +30,27 @@ import {
 } from "@hyperidle/tool-provider";
 import { allToolDefinitions } from "./tool-handlers-bindings.js";
 
+/**
+ * @lore AU20 Am9: `ProposedCallWorkflowPort<TDb>` in `@hyperidle/shared` keeps the
+ * OLD method names (`captureProposedCall`/`consumeTailoredGrant`/`recordOutcome`)
+ * because the port is defined in the shared layer and changing it would cascade
+ * across `@hyperidle/tool-provider`. These bridge adapters translate to the new
+ * `recordProposedCall`/`transitionProposedCall` API at the composition root — the
+ * only legal place where both layers are importable together.
+ */
 export const proposedCallWorkflowPort: ProposedCallWorkflowPort<HyperIdleDb> = {
-	captureProposedCall,
-	consumeTailoredGrant,
-	recordOutcome,
+	captureProposedCall: recordProposedCall,
+	consumeTailoredGrant: async (db, opts) => {
+		const result = await transitionProposedCall(db, {
+			to: "consumed",
+			taskId: opts.taskId,
+			agentId: opts.agentId,
+			toolId: opts.toolId,
+		});
+		return result ?? null;
+	},
+	recordOutcome: (db, id, result) =>
+		transitionProposedCall(db, { to: "outcome-recorded", id, result }),
 };
 
 /** Production-wired `buildToolRegistry` — every real call site imports this, not `@hyperidle/tool-provider` directly. */

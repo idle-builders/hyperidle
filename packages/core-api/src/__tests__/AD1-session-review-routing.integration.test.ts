@@ -28,15 +28,16 @@ import {
 	users,
 } from "@hyperidle/db";
 import { resolveReviewRecipients } from "@hyperidle/org";
-import { registerSessionReviewCreator, type SessionReviewCreatorDeps } from "@hyperidle/review";
+import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { findUser, listUsers } from "@hyperidle/users";
 import { createItem, getTaskById, getTaskRiskTierByTaskId, updateTaskById } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 /**
- * @lore AU19 Increment 1j: `registerSessionReviewCreator` now takes injected
+ * @lore AU19 Increment 1j: `registerReviewSubscriptions` now takes injected
  * `work`/`conversation`/`users`/`org` ports (Mechanism C — `review` never
  * imports another Service). This test builds the exact same production
  * wiring `server-factory.ts` uses — no behavior change.
@@ -45,15 +46,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * `getTaskRiskTierByTaskId`, replacing the direct `taskStrategyFabric` table
  * seed/query this test used before AU3's half-done rename was finished.
  */
-const reviewDeps: SessionReviewCreatorDeps = {
-	work: { getTaskById, updateTaskById, createItem },
+const reviewDeps: ReviewPorts = {
+	work: { getTaskById, updateTaskById, createItem, getRiskTierByTaskId: getTaskRiskTierByTaskId },
 	conversation: { insertThread, getThreadById: (db, id) => findThread(db, { id }), updateThread },
 	users: {
 		getUserById: (db, id) => findUser(db, { id }),
 		listUsersByKind: (db, kind) => listUsers(db, { kind }),
 	},
 	org: { resolveReviewRecipients },
-	taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
+	intentRecorder: { record: recordAgentWorkIntent },
 };
 
 const NOW = new Date().toISOString();
@@ -164,7 +165,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				outcome: "success",
 			});
 
-			const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
+			const unsubscribe = registerReviewSubscriptions(db, eventBus, reviewDeps);
 
 			const event: SessionEndedEvent = {
 				type: "session_ended",
@@ -245,7 +246,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				outcome: "partial",
 			});
 
-			const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
+			const unsubscribe = registerReviewSubscriptions(db, eventBus, reviewDeps);
 
 			const event: SessionEndedEvent = {
 				type: "session_ended",
@@ -314,7 +315,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				state: "ended",
 			});
 
-			const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
+			const unsubscribe = registerReviewSubscriptions(db, eventBus, reviewDeps);
 
 			const event: SessionEndedEvent = {
 				type: "session_ended",

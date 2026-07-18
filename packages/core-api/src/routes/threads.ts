@@ -29,11 +29,7 @@ import {
 	sessions,
 } from "@hyperidle/db";
 import { findById as findKnowledgeItemById, listTitlesByIds } from "@hyperidle/knowledge";
-import {
-	composeTailoredGrant,
-	findProposedCallByReviewMessageId,
-	holdProposedCall,
-} from "@hyperidle/review";
+import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import type {
 	AgentOperationalStatus,
 	AgentWorkIntentRecorder,
@@ -1373,16 +1369,16 @@ export function createThreadRoutes(
 			if (writeDenial) return writeDenial;
 
 			// Find the Proposed Call anchored to this review message
-			const pc = await findProposedCallByReviewMessageId(db, messageId);
+			const pcView = await findProposedCall(db, { by: { reviewMessageId: messageId } });
 
-			if (!pc) {
+			if (!pcView) {
 				// No PC anchored to this review message — verdict accepted but nothing to do
 				return c.json({ ok: true }, 200);
 			}
 
 			if (decision === "approve") {
 				// Resolve task + agent scope via the artifact → task chain
-				const art = await work.getArtifactById(db, pc.artifactId);
+				const art = await work.getArtifactById(db, pcView.call.artifactId);
 				const taskId = art?.producingTaskId;
 				if (!taskId) {
 					return c.json({ error: "Artifact not found", code: "not_found" }, 404);
@@ -1394,23 +1390,24 @@ export function createThreadRoutes(
 					return c.json({ error: "Task not found", code: "not_found" }, 404);
 				}
 
-				await composeTailoredGrant(
+				await transitionProposedCall(
 					db,
 					{
-						proposedCallId: pc.id,
+						to: "granted",
+						id: pcView.call.id,
 						taskScope: taskId,
 						agentScope: agentId,
-						approvedToolId: pc.toolId,
-						approvedArgs: pc.args,
-						identityHash: pc.identityHash ?? undefined,
+						approvedToolId: pcView.call.toolId,
+						approvedArgs: pcView.call.args,
+						identityHash: pcView.call.identityHash,
 					},
-					{ sessionRequests: { record: recordAgentWorkIntent } },
+					{ intentRecorder: { record: recordAgentWorkIntent } },
 				);
 
 				const event: ProposedCallGrantedEvent = {
 					type: "proposed_call_granted",
 					streamId: threadId,
-					proposedCallId: pc.id,
+					proposedCallId: pcView.call.id,
 					taskId,
 					agentId,
 					timestamp: Date.now(),
@@ -1418,7 +1415,7 @@ export function createThreadRoutes(
 				eventBus.emit(event);
 			} else {
 				// Non-approve: hold the Proposed Call (never executed)
-				await holdProposedCall(db, pc.id);
+				await transitionProposedCall(db, { to: "held", id: pcView.call.id });
 			}
 
 			return c.json({ ok: true }, 200);

@@ -55,27 +55,14 @@ import type {
 import { createDispatchOps } from "@hyperidle/dispatch";
 import { LocalSandboxAdapter } from "@hyperidle/harness-registry";
 import {
-	archiveKnowledgeItemWithLogRaw,
 	buildAttentionService,
-	findKnowledgeAppProjectionByItemIdRaw,
-	findKnowledgeItemByIdRaw,
-	insertKnowledgeAppProjectionRaw,
-	insertKnowledgeEditLogRaw,
-	insertKnowledgeItemRaw,
-	listCapturedItemsByProjectionScopeRaw,
+	createPracticeMeeting,
 	listRecentByLayers,
 	runAutoPromotionSweep,
 	runStaleSweep,
-	touchKnowledgeItemUpdatedAtRaw,
-	updateKnowledgeAppProjectionMetaIfUnchangedRaw,
 } from "@hyperidle/knowledge";
 import { resolveModel } from "@hyperidle/model-gateway";
-import {
-	attentionReviewReasoningMarker,
-	buildCreateReviewItemForKnowledge,
-	createPracticeMeeting,
-	type PracticeMeetingKnowledgeStore,
-} from "@hyperidle/review";
+import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import {
 	getRoutine,
 	insertRoutine,
@@ -104,29 +91,16 @@ import { recordAgentWorkIntent } from "./session-requests-bindings.js";
 import { toolHandlersPorts } from "./tool-handlers-bindings.js";
 
 /**
- * @lore AU19 Increment 3h: collapses `dispatch`'s former
- * `practiceMeetingKnowledgeStore` construction (9 raw `@hyperidle/knowledge`
- * accessors) into a single bound `createPracticeMeeting(db, input)` call —
- * `dispatch` can no longer build this store itself (Mechanism C). Wired
- * exactly like `review`'s own Increment 1j wiring here, just relocated.
+ * @lore AU20 Am9: `createPracticeMeeting` relocated to `@hyperidle/knowledge`
+ * (its actual data owner). The `PracticeMeetingKnowledgeStore` port +
+ * 9 raw-accessor construction evaporated — `dispatch` now calls
+ * `createPracticeMeeting(db, input)` directly (no port arg).
  */
-const practiceMeetingKnowledgeStore: PracticeMeetingKnowledgeStore = {
-	insertKnowledgeItem: insertKnowledgeItemRaw,
-	insertKnowledgeAppProjection: insertKnowledgeAppProjectionRaw,
-	insertKnowledgeEditLog: insertKnowledgeEditLogRaw,
-	findKnowledgeItemById: findKnowledgeItemByIdRaw,
-	findKnowledgeAppProjectionByItemId: findKnowledgeAppProjectionByItemIdRaw,
-	updateKnowledgeAppProjectionMetaIfUnchanged: updateKnowledgeAppProjectionMetaIfUnchangedRaw,
-	touchKnowledgeItemUpdatedAt: touchKnowledgeItemUpdatedAtRaw,
-	listCapturedItemsByProjectionScope: listCapturedItemsByProjectionScopeRaw,
-	archiveKnowledgeItemWithLog: archiveKnowledgeItemWithLogRaw,
-};
-
 function createPracticeMeetingBound(
 	db: HyperIdleDb,
 	input: DispatchCreatePracticeMeetingInput,
 ): Promise<DispatchCreatePracticeMeetingResult> {
-	return createPracticeMeeting(db, input, practiceMeetingKnowledgeStore);
+	return createPracticeMeeting(db, input);
 }
 
 /**
@@ -140,7 +114,7 @@ async function recomputeAttentionForCandidates(
 	eventBus: EventBus,
 	candidateIds: readonly string[],
 ): Promise<DispatchAttentionRecomputeOutcome> {
-	const createReviewItemForKnowledge = buildCreateReviewItemForKnowledge({
+	const createReviewItemForKnowledge = createReviewItem({
 		conversation: { insertThread },
 		work: { createItem },
 	});

@@ -48,7 +48,7 @@ import {
 	listProjectedLifecycleInboxBefore,
 } from "@hyperidle/lifecycle-projection";
 import { getTeamMembers } from "@hyperidle/org";
-import { findGrantedProposedCall } from "@hyperidle/review";
+import { findProposedCall } from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
 import {
 	type AgentWorkIntentReapDeps,
@@ -180,7 +180,16 @@ const agentWorkIntentWorkerDeps: AgentWorkIntentWorkerDeps = {
 		listUsersByTeam: (db, teamId) => listUsers(db, { teamIds: [teamId] }),
 	},
 	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
-	review: { findGrantedProposedCall },
+	review: {
+		findGrantedProposedCall: async (db, proposedCallId) => {
+			const view = await findProposedCall(db, {
+				by: { id: proposedCallId },
+				include: { grant: true },
+			});
+			if (!view?.grant) return undefined;
+			return { call: view.call, grant: view.grant };
+		},
+	},
 	knowledge: { findById: findKnowledgeItemById },
 	triggerResolver: {
 		resolveAndCreate: (db, input) =>

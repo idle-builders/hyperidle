@@ -1,7 +1,17 @@
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, KnowledgeKind, KnowledgeUpdatedEvent } from "@hyperidle/shared";
-import type { PracticeMeetingKnowledgeStore } from "./ports.js";
+import {
+	archiveKnowledgeItemWithLogRaw,
+	findKnowledgeAppProjectionByItemIdRaw,
+	findKnowledgeItemByIdRaw,
+	insertKnowledgeAppProjectionRaw,
+	insertKnowledgeEditLogRaw,
+	insertKnowledgeItemRaw,
+	listCapturedItemsByProjectionScopeRaw,
+	touchKnowledgeItemUpdatedAtRaw,
+	updateKnowledgeAppProjectionMetaIfUnchangedRaw,
+} from "./practice-meeting-store.js";
 
 /**
  * Practice meeting (TRACK-G §G3 AC6): a 3-turn workflow that produces
@@ -15,28 +25,25 @@ import type { PracticeMeetingKnowledgeStore } from "./ports.js";
  * Turn 3 — synthesis  → creates `provisional` items and archives all
  *                       proposal + reaction intermediates.
  *
- * @lore G3 meeting storage: the meeting lives in `meta.role` on a single
- * `knowledge_items` row. The rationale — documented in
- * plans/work-packages/G3-plan.md §3.7 — is that introducing a new
- * table for a feature that already fits a JSON meta blob would pay a
- * migration cost we don't yet need. When meetings grow complex enough to
- * need indexed queries, a `practice_meetings` table becomes the refactor.
+ * @lore AU20 Am9: relocated from `@hyperidle/review` to `@hyperidle/knowledge`
+ * (its actual data owner). Every write this workflow makes is against
+ * `knowledge`-owned tables (`knowledgeItems`/`knowledgeAppProjection`/
+ * `knowledgeEditLog`), so `review` had no logical ownership over it — only an
+ * accidental name association ("review meeting"). Sitting inside `knowledge`,
+ * the workflow calls the `*Raw` accessors from `practice-meeting-store.ts`
+ * directly (Mechanism A — legal, same package) and the 9-accessor
+ * `PracticeMeetingKnowledgeStore` DI port that `review` maintained evaporates
+ * entirely. See `@hyperidle/review`'s barrel `@lore` for the before/after
+ * export count.
  *
- * @lore AU19 Increment 1j: `knowledgeItems`/`knowledgeAppProjection`/
- * `knowledgeEditLog` are `knowledge`'s owned tables, not `review`'s — every
- * raw Drizzle call this file used to make against them is now routed
- * through the injected `PracticeMeetingKnowledgeStore` port (Mechanism C),
- * wired directly to `@hyperidle/knowledge`'s new `practice-meeting-store.ts`
- * raw accessors (an ordinary downward core-api→core-api edge — `knowledge`
- * is already a real migrated package, no interim indirection needed). The
- * accessors are 1:1 with this file's pre-migration SQL — zero behavior
- * change (see `practice-meeting-store.ts`'s own `@lore` for why the general
- * `create()`/`update()` repository functions were NOT reused: they use a
- * fresh internal clock and write `scopeId` onto the kernel row, both of
- * which would be real behavior changes here). `KnowledgeKind` now imports
- * from `@hyperidle/shared` (identical type, also exported there) instead of
- * `@hyperidle/knowledge` — a Service may not import another Service's types
- * either, only `@hyperidle/db`/`@hyperidle/shared`.
+ * @lore G3 meeting storage: the meeting lives in `meta.role` on a single
+ * `knowledge_items` row. When meetings grow complex enough to need indexed
+ * queries, a `practice_meetings` table becomes the refactor.
+ *
+ * @lore AU19 Increment 1j (original): the general `create()`/`update()`
+ * repository functions were NOT reused because they use a fresh internal
+ * clock and write `scopeId` onto the kernel row — both real behavior changes.
+ * These primitives are 1:1 with the pre-migration raw Drizzle calls.
  */
 
 // --- Types ---
@@ -114,16 +121,6 @@ interface AnchorMeta {
 
 // --- Helpers ---
 
-/**
- * Parse result for an anchor row's `meta` blob:
- *   - `{ kind: "ok", meta }`      — valid practice meeting anchor.
- *   - `{ kind: "not-anchor" }`    — row is NOT a practice meeting anchor
- *     (meta missing or `role` mismatch). Callers treat this as NOT_FOUND.
- *   - `{ kind: "malformed" }`     — the row IS tagged as an anchor but its
- *     `meta` JSON is unparseable. Callers treat this as INVALID_STATE —
- *     a distinct failure mode from "not an anchor" so ops can triage data
- *     drift vs. lookup typos.
- */
 type AnchorMetaParse =
 	| { readonly kind: "ok"; readonly meta: AnchorMeta }
 	| { readonly kind: "not-anchor" }
@@ -135,9 +132,6 @@ function parseAnchorMeta(raw: string | null): AnchorMetaParse {
 	try {
 		parsed = JSON.parse(raw);
 	} catch {
-		// The row has non-JSON in its meta. We cannot tell whether it was
-		// meant to be an anchor, so this is not a malformed-anchor signal —
-		// report "not-anchor" (the row is simply not a practice meeting).
 		return { kind: "not-anchor" };
 	}
 	if (typeof parsed !== "object" || parsed === null) return { kind: "not-anchor" };
@@ -161,12 +155,6 @@ function parseAnchorMeta(raw: string | null): AnchorMetaParse {
 	};
 }
 
-/**
- * Serialize `turnsCompleted` deterministically so the conditional-UPDATE
- * race guard in `runPracticeMeetingTurn` can compare against a known-good
- * byte sequence. JSON.stringify on a plain number-array is deterministic —
- * but pinning this in a helper makes the intent (and the coupling) explicit.
- */
 function serializeTurnsCompleted(turnsCompleted: readonly number[]): string {
 	return JSON.stringify(turnsCompleted);
 }
@@ -174,14 +162,12 @@ function serializeTurnsCompleted(turnsCompleted: readonly number[]): string {
 // --- createPracticeMeeting ---
 
 /**
- * Create the anchor knowledge item for a new practice meeting. Returns
- * the anchor's id which callers pass as `meetingId` to
- * `runPracticeMeetingTurn`.
+ * Create the anchor knowledge item for a new practice meeting.
+ * No DI port required — calls raw accessors directly (Mechanism A, same package).
  */
 export async function createPracticeMeeting(
 	db: HyperIdleDb,
 	input: CreatePracticeMeetingInput,
-	knowledge: PracticeMeetingKnowledgeStore,
 ): Promise<CreatePracticeMeetingResult> {
 	const id = randomUUID();
 	const isoNow = new Date(input.nowMs).toISOString();
@@ -191,11 +177,8 @@ export async function createPracticeMeeting(
 		title: input.title,
 		turnsCompleted: [],
 	};
-	// @lore O2: canonical/projection split. Insert identity+content into
-	// knowledgeItems; projection fields (layer, kind, scopeId, meta) go to
-	// knowledgeAppProjection. The anchor meta includes the meeting state
-	// so the practice-meeting service can track turn progress.
-	await knowledge.insertKnowledgeItem(db, {
+	// @lore O2: canonical/projection split.
+	await insertKnowledgeItemRaw(db, {
 		id,
 		topic: "practice_meeting",
 		title: input.title,
@@ -207,7 +190,7 @@ export async function createPracticeMeeting(
 		createdAt: isoNow,
 		updatedAt: isoNow,
 	});
-	await knowledge.insertKnowledgeAppProjection(db, {
+	await insertKnowledgeAppProjectionRaw(db, {
 		id: `ksf-${id}`,
 		knowledgeItemId: id,
 		layer: "L2",
@@ -215,8 +198,7 @@ export async function createPracticeMeeting(
 		scopeId: input.scopeId,
 		meta: JSON.stringify(meta),
 	});
-
-	await knowledge.insertKnowledgeEditLog(db, {
+	await insertKnowledgeEditLogRaw(db, {
 		id: randomUUID(),
 		itemId: id,
 		editor: "agent:practice-meeting",
@@ -226,40 +208,25 @@ export async function createPracticeMeeting(
 		editType: "create",
 		createdAt: isoNow,
 	});
-
 	return { meetingId: id };
 }
 
 // --- runPracticeMeetingTurn ---
 
 /**
- * @lore G3 per-turn atomicity: the entire turn — anchor read, turn writes,
- * anchor `turnsCompleted` update — runs in one `db.transaction`. Any
- * failure rolls back the turn's inserts AND the anchor bump together, so
- * the invariant "turnsCompleted reflects persisted turn work" holds.
- *
- * @lore G3 race-safe turn ordering: after re-reading the anchor inside the
- * transaction we compute the expected next turn, then apply the anchor
- * UPDATE with a WHERE clause pinning the OLD `turnsCompleted` serialization.
- * If two callers race on turn 1 the loser's UPDATE changes = 0 and we
- * return CONCURRENT_MODIFICATION — the per-turn inserts are rolled back by
- * returning an error from the transaction callback (we throw a sentinel
- * and catch it at the boundary).
+ * @lore G3 per-turn atomicity: entire turn runs in one `db.transaction`.
+ * @lore G3 race-safe: conditional UPDATE pins the old `turnsCompleted`
+ * serialization; losing concurrent caller sees CONCURRENT_MODIFICATION.
  */
 export async function runPracticeMeetingTurn(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	input: RunPracticeMeetingTurnInput,
-	knowledge: PracticeMeetingKnowledgeStore,
 ): Promise<PracticeMeetingTurnResult> {
 	const { meetingId, turnNumber, nowMs } = input;
 	const isoNow = new Date(nowMs).toISOString();
-
 	const turnInput = input.input;
 
-	// Validate turn-input shape before we open a transaction. The shape
-	// check is input-layer, not state-dependent, so there's no reason to
-	// take a tx for it.
 	if (turnNumber === 1 && !("proposals" in turnInput)) {
 		return {
 			success: false,
@@ -284,12 +251,7 @@ export async function runPracticeMeetingTurn(
 
 	/**
 	 * @lore G3 rollback via throw: the async transaction commits on normal
-	 * return and rolls back only on a thrown error. For the
-	 * CONCURRENT_MODIFICATION branch we need to roll back the per-turn
-	 * inserts that already ran, so we throw a sentinel error and unwrap it
-	 * outside the tx. For early gate failures (NOT_FOUND, INVALID_TURN,
-	 * INVALID_STATE) we also throw — nothing was written, but keeping
-	 * rollback uniform simplifies reasoning.
+	 * return and rolls back only on a thrown error.
 	 */
 	class PracticeMeetingTxError extends Error {
 		public readonly result: Extract<PracticeMeetingTurnResult, { success: false }>;
@@ -303,7 +265,7 @@ export async function runPracticeMeetingTurn(
 	let txOutcome: PracticeMeetingTurnResult;
 	try {
 		txOutcome = await db.transaction(async (tx): Promise<PracticeMeetingTurnResult> => {
-			const anchor = await knowledge.findKnowledgeItemById(tx, meetingId);
+			const anchor = await findKnowledgeItemByIdRaw(tx, meetingId);
 			if (!anchor) {
 				throw new PracticeMeetingTxError({
 					success: false,
@@ -312,9 +274,7 @@ export async function runPracticeMeetingTurn(
 				});
 			}
 			// @lore O2: anchor meta and scopeId are in knowledgeAppProjection.
-			// Read the projection row inside the same transaction for atomic meta
-			// pinning on the conditional UPDATE.
-			const anchorFabric = await knowledge.findKnowledgeAppProjectionByItemId(tx, meetingId);
+			const anchorFabric = await findKnowledgeAppProjectionByItemIdRaw(tx, meetingId);
 			const parsed = parseAnchorMeta(anchorFabric?.meta ?? null);
 			if (parsed.kind === "not-anchor") {
 				throw new PracticeMeetingTxError({
@@ -347,34 +307,12 @@ export async function runPracticeMeetingTurn(
 
 			let turnResult: PracticeMeetingTurnResult;
 			if (turnNumber === 1 && "proposals" in turnInput) {
-				turnResult = await runTurn1(
-					tx,
-					knowledge,
-					meetingId,
-					anchorScopeId,
-					turnInput.proposals,
-					isoNow,
-				);
+				turnResult = await runTurn1(tx, meetingId, anchorScopeId, turnInput.proposals, isoNow);
 			} else if (turnNumber === 2 && "reactions" in turnInput) {
-				turnResult = await runTurn2(
-					tx,
-					knowledge,
-					meetingId,
-					anchorScopeId,
-					turnInput.reactions,
-					isoNow,
-				);
+				turnResult = await runTurn2(tx, meetingId, anchorScopeId, turnInput.reactions, isoNow);
 			} else if (turnNumber === 3 && "synthesis" in turnInput) {
-				turnResult = await runTurn3(
-					tx,
-					knowledge,
-					meetingId,
-					anchorScopeId,
-					turnInput.synthesis,
-					isoNow,
-				);
+				turnResult = await runTurn3(tx, meetingId, anchorScopeId, turnInput.synthesis, isoNow);
 			} else {
-				// Unreachable — the shape checks above cover all three turns.
 				throw new PracticeMeetingTxError({
 					success: false,
 					code: "INVALID_INPUT",
@@ -386,33 +324,19 @@ export async function runPracticeMeetingTurn(
 				throw new PracticeMeetingTxError(turnResult);
 			}
 
-			// Conditional anchor UPDATE: pin the OLD full `meta` blob so a
-			// concurrent turn-N caller cannot also pass the expected-turn
-			// gate. If two callers race on turn 1 the loser's UPDATE
-			// returns 0 rows and we throw CONCURRENT_MODIFICATION — the tx
-			// rollback undoes the per-turn inserts the loser wrote.
-			// @lore O2: meta lives in knowledgeAppProjection now. The conditional
-			// UPDATE targets that table, pinning via knowledgeItemId + old meta value.
+			// Conditional anchor UPDATE with old-meta pin for race safety.
+			// @lore O2: meta lives in knowledgeAppProjection.
 			const nextTurns: number[] = [...turnsCompleted, turnNumber];
-			const nextMeta: AnchorMeta = {
-				...anchorMeta,
-				turnsCompleted: nextTurns,
-			};
+			const nextMeta: AnchorMeta = { ...anchorMeta, turnsCompleted: nextTurns };
 			const oldSerialized = serializeTurnsCompleted(turnsCompleted);
-			// @lore G3 meta not-null invariant: `createPracticeMeeting`
-			// writes a JSON object into `meta` in knowledgeAppProjection so
-			// the projection row always has a non-null meta we can pin here. If
-			// that invariant is ever broken the `eq` below will no-op and
-			// the caller will see CONCURRENT_MODIFICATION — safe default.
 			const pinMeta = anchorFabric?.meta ?? "";
-			const updatedRows = await knowledge.updateKnowledgeAppProjectionMetaIfUnchanged(
+			const updatedRows = await updateKnowledgeAppProjectionMetaIfUnchangedRaw(
 				tx,
 				meetingId,
 				JSON.stringify(nextMeta),
 				pinMeta,
 			);
-			// Also update kernel updatedAt for recency tracking
-			await knowledge.touchKnowledgeItemUpdatedAt(tx, meetingId, isoNow);
+			await touchKnowledgeItemUpdatedAtRaw(tx, meetingId, isoNow);
 			if (updatedRows === 0) {
 				throw new PracticeMeetingTxError({
 					success: false,
@@ -420,7 +344,6 @@ export async function runPracticeMeetingTurn(
 					message: `anchor ${meetingId} was modified concurrently (stale turnsCompleted=${oldSerialized})`,
 				});
 			}
-
 			return turnResult;
 		});
 	} catch (err) {
@@ -456,23 +379,13 @@ export async function runPracticeMeetingTurn(
 		};
 		eventBus.emit(event);
 	}
-
 	return txOutcome;
 }
 
 // --- Turn implementations ---
 
-/**
- * Per-turn writes accept the transaction handle so the outer caller can
- * wrap {read anchor, write turn items, update anchor} in one atomic unit.
- * Passing `HyperIdleDb` as the `tx` parameter type is safe — the drizzle
- * transaction object is structurally compatible (same `insert`/`update`/
- * `select` methods) and this avoids depending on drizzle's internal
- * transaction type.
- */
 async function runTurn1(
 	tx: HyperIdleDb,
-	knowledge: PracticeMeetingKnowledgeStore,
 	meetingId: string,
 	anchorScopeId: string | null,
 	proposals: readonly ProposalInput[],
@@ -481,9 +394,7 @@ async function runTurn1(
 	const createdIds: string[] = [];
 	for (const p of proposals) {
 		const id = randomUUID();
-		// @lore O2: canonical/projection split. Kernel row: identity + content.
-		// Projection row: layer, kind, scopeId, meta (meeting state).
-		await knowledge.insertKnowledgeItem(tx, {
+		await insertKnowledgeItemRaw(tx, {
 			id,
 			topic: p.topic ?? null,
 			title: p.title,
@@ -495,7 +406,7 @@ async function runTurn1(
 			createdAt: isoNow,
 			updatedAt: isoNow,
 		});
-		await knowledge.insertKnowledgeAppProjection(tx, {
+		await insertKnowledgeAppProjectionRaw(tx, {
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
 			layer: p.layer,
@@ -503,7 +414,7 @@ async function runTurn1(
 			scopeId: anchorScopeId,
 			meta: JSON.stringify({ meetingId, meetingPhase: "proposal" }),
 		});
-		await knowledge.insertKnowledgeEditLog(tx, {
+		await insertKnowledgeEditLogRaw(tx, {
 			id: randomUUID(),
 			itemId: id,
 			editor: "agent:practice-meeting",
@@ -515,17 +426,11 @@ async function runTurn1(
 		});
 		createdIds.push(id);
 	}
-	return {
-		success: true,
-		turnNumber: 1,
-		createdIds,
-		archivedIds: [],
-	};
+	return { success: true, turnNumber: 1, createdIds, archivedIds: [] };
 }
 
 async function runTurn2(
 	tx: HyperIdleDb,
-	knowledge: PracticeMeetingKnowledgeStore,
 	meetingId: string,
 	anchorScopeId: string | null,
 	reactions: readonly ReactionInput[],
@@ -534,8 +439,7 @@ async function runTurn2(
 	const createdIds: string[] = [];
 	for (const r of reactions) {
 		const id = randomUUID();
-		// @lore O2: canonical/projection split.
-		await knowledge.insertKnowledgeItem(tx, {
+		await insertKnowledgeItemRaw(tx, {
 			id,
 			topic: "practice_meeting_reaction",
 			title: `Reaction to ${r.proposalId}`,
@@ -547,7 +451,7 @@ async function runTurn2(
 			createdAt: isoNow,
 			updatedAt: isoNow,
 		});
-		await knowledge.insertKnowledgeAppProjection(tx, {
+		await insertKnowledgeAppProjectionRaw(tx, {
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
 			layer: "L2",
@@ -560,7 +464,7 @@ async function runTurn2(
 				author: r.author,
 			}),
 		});
-		await knowledge.insertKnowledgeEditLog(tx, {
+		await insertKnowledgeEditLogRaw(tx, {
 			id: randomUUID(),
 			itemId: id,
 			editor: "agent:practice-meeting",
@@ -572,17 +476,11 @@ async function runTurn2(
 		});
 		createdIds.push(id);
 	}
-	return {
-		success: true,
-		turnNumber: 2,
-		createdIds,
-		archivedIds: [],
-	};
+	return { success: true, turnNumber: 2, createdIds, archivedIds: [] };
 }
 
 async function runTurn3(
 	tx: HyperIdleDb,
-	knowledge: PracticeMeetingKnowledgeStore,
 	meetingId: string,
 	anchorScopeId: string | null,
 	synthesis: readonly SynthesisInput[],
@@ -591,13 +489,7 @@ async function runTurn3(
 	const createdIds: string[] = [];
 	const archivedIds: string[] = [];
 
-	// Find all proposal + reaction intermediates for this meeting.
-	// @lore G3 meeting intermediates: the meeting linkage lives inside
-	// `meta` JSON on knowledgeAppProjection (O2: meta moved from kernel table).
-	// To keep the candidate set small we JOIN with app projection and filter on
-	// `status = 'captured'` AND `scope_id = <anchor scope>` from the projection row;
-	// the final filter on `meta.meetingId` + `meta.meetingPhase` is done in JS.
-	const candidateRows = await knowledge.listCapturedItemsByProjectionScope(tx, anchorScopeId);
+	const candidateRows = await listCapturedItemsByProjectionScopeRaw(tx, anchorScopeId);
 	const intermediates = candidateRows.filter(({ fabric }) => {
 		if (!fabric.meta) return false;
 		try {
@@ -613,11 +505,9 @@ async function runTurn3(
 		}
 	});
 
-	// Insert synthesis items as provisional.
-	// @lore O2: canonical/projection split.
 	for (const s of synthesis) {
 		const id = randomUUID();
-		await knowledge.insertKnowledgeItem(tx, {
+		await insertKnowledgeItemRaw(tx, {
 			id,
 			topic: s.topic ?? null,
 			title: s.title,
@@ -629,7 +519,7 @@ async function runTurn3(
 			createdAt: isoNow,
 			updatedAt: isoNow,
 		});
-		await knowledge.insertKnowledgeAppProjection(tx, {
+		await insertKnowledgeAppProjectionRaw(tx, {
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
 			layer: s.layer,
@@ -637,7 +527,7 @@ async function runTurn3(
 			scopeId: anchorScopeId,
 			meta: JSON.stringify({ meetingId, meetingPhase: "synthesis" }),
 		});
-		await knowledge.insertKnowledgeEditLog(tx, {
+		await insertKnowledgeEditLogRaw(tx, {
 			id: randomUUID(),
 			itemId: id,
 			editor: "agent:practice-meeting",
@@ -650,10 +540,8 @@ async function runTurn3(
 		createdIds.push(id);
 	}
 
-	// Archive all intermediates. Use the standard captured→archived
-	// path (it is a legal transition per the G1 table).
 	for (const { item: inter } of intermediates) {
-		await knowledge.archiveKnowledgeItemWithLog(tx, {
+		await archiveKnowledgeItemWithLogRaw(tx, {
 			id: inter.id,
 			oldStatus: inter.status,
 			updatedAt: isoNow,
@@ -663,10 +551,5 @@ async function runTurn3(
 		archivedIds.push(inter.id);
 	}
 
-	return {
-		success: true,
-		turnNumber: 3,
-		createdIds,
-		archivedIds,
-	};
+	return { success: true, turnNumber: 3, createdIds, archivedIds };
 }

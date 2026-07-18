@@ -22,7 +22,7 @@ import {
 } from "@hyperidle/db";
 import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import { getTeamMembers } from "@hyperidle/org";
-import { composeTailoredGrant } from "@hyperidle/review";
+import { transitionProposedCall } from "@hyperidle/review";
 import { findUser, listUsers } from "@hyperidle/users";
 import type { AgentSelectionDefaults, AgentWorkIntentRecorder } from "@hyperidle/work";
 import {
@@ -695,16 +695,17 @@ describe("atomic production handoffs", () => {
 		db,
 	}) => {
 		await seedProposedCallWorld(db);
-		await composeTailoredGrant(
+		await transitionProposedCall(
 			db,
 			{
-				proposedCallId: "au9-production-call",
+				to: "granted",
+				id: "au9-production-call",
 				taskScope: "au9-production-task",
 				agentScope: "au9-production-agent",
 				approvedToolId: "commit_file",
 				approvedArgs: { path: "result.txt" },
 			},
-			{ sessionRequests: { record: recordAgentWorkIntent } },
+			{ intentRecorder: { record: recordAgentWorkIntent } },
 		);
 		const intents = await db
 			.select()

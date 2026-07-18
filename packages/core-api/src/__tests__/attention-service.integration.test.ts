@@ -7,10 +7,7 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 import { buildAttentionService, MAX_RECOMPUTE_BATCH } from "@hyperidle/knowledge";
-import {
-	attentionReviewReasoningMarker,
-	buildCreateReviewItemForKnowledge,
-} from "@hyperidle/review";
+import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
 import { eq, like } from "drizzle-orm";
@@ -30,7 +27,7 @@ const NOW_MS = new Date(NOW).getTime();
  */
 const workPort = { findItemByReasoningMarker: work.findItemByReasoningMarker };
 const reviewPort = {
-	createReviewItemForKnowledge: buildCreateReviewItemForKnowledge({
+	createReviewItemForKnowledge: createReviewItem({
 		conversation: { insertThread },
 		work: { createItem: work.createItem },
 	}),

@@ -72,7 +72,7 @@ import { registerPolicy } from "@hyperidle/policy";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
 import type { RetentionReaperDeps } from "@hyperidle/retention";
 import { startRetentionReaper } from "@hyperidle/retention";
-import { registerSessionReviewCreator } from "@hyperidle/review";
+import { registerReviewSubscriptions } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
 import {
 	backfillConfigurationDefaults,
@@ -314,8 +314,13 @@ export function registerCoreDomainServices(ctx: {
 
 	disposers.push(registerRelevanceListener(db, eventBus));
 	disposers.push(
-		registerSessionReviewCreator(db, eventBus, {
-			work: { getTaskById, updateTaskById, createItem: createWorkItem },
+		registerReviewSubscriptions(db, eventBus, {
+			work: {
+				getTaskById,
+				updateTaskById,
+				createItem: createWorkItem,
+				getRiskTierByTaskId: getTaskRiskTierByTaskId,
+			},
 			conversation: {
 				insertThread,
 				getThreadById: (db, id) => findThread(db, { id }),
@@ -326,7 +331,7 @@ export function registerCoreDomainServices(ctx: {
 				listUsersByKind: (db, kind) => listUsers(db, { kind }),
 			},
 			org: { resolveReviewRecipients },
-			taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
+			intentRecorder: { record: recordAgentWorkIntent },
 		}),
 	);
 	disposers.push(registerPolicy(db, eventBus, policyDeps));

@@ -46,10 +46,7 @@ import {
 	resolveReviewRecipients,
 	updateTeam,
 } from "@hyperidle/org";
-import {
-	attentionReviewReasoningMarker,
-	buildCreateReviewItemForKnowledge,
-} from "@hyperidle/review";
+import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import { getRoutine, insertRoutine, updateRoutine } from "@hyperidle/routine";
 import type { EventBus } from "@hyperidle/shared";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
@@ -177,7 +174,7 @@ async function recomputeAttentionScoreForItem(
 	eventBus: EventBus,
 	knowledgeItemId: string,
 ): Promise<{ readonly current: number }> {
-	const createReviewItemForKnowledge = buildCreateReviewItemForKnowledge({
+	const createReviewItemForKnowledge = createReviewItem({
 		conversation: { insertThread },
 		work: { createItem: createWorkItem },
 	});
