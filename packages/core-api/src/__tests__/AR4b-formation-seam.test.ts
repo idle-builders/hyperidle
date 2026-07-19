@@ -35,7 +35,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { getTeamMembers } from "@hyperidle/org";
 import { createAgentSessionRequest, findSessionRequest } from "@hyperidle/session-requests";
 import { listConfiguration } from "@hyperidle/settings";
@@ -254,7 +254,7 @@ async function runTurn(
 
 function makeAdapterPool(): AdapterPool {
 	const pool = new AdapterPool();
-	pool.register("builtin-ar4b", new BuiltinHarnessAdapter(), {
+	pool.register("builtin-ar4b", createHarnessAdapter({ kind: "builtin" }), {
 		name: "Builtin AR4b Test",
 		kind: "local",
 		type: "builtin",

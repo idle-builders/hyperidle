@@ -57,7 +57,7 @@
 
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import type { AssistantTurnDeps } from "@hyperidle/dispatch";
-import { type AdapterPool, RemoteHarnessAdapter } from "@hyperidle/harness-registry";
+import { type AdapterPool, createRemoteHarnessAdapter } from "@hyperidle/harness-registry";
 import {
 	AGENT_LAYER_REAP_INTERVAL_MS,
 	type AgentLayerBootDeps,
@@ -92,7 +92,7 @@ import {
 	releaseRequestClaim,
 	renewAgentSessionRequestLease,
 } from "@hyperidle/session-requests";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus, WorkerRegisterMessage } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { executeAssistantRequest } from "./dispatch-bindings.js";
@@ -210,23 +210,23 @@ export function asRunOrchestrationAdapterPool(pool: AdapterPool): RunOrchestrati
  * The ONE audited cast recovering `WorkerRegisterMessage` from this Service's
  * Mechanism-C-narrowed registration type (`ports.ts`'s top `@lore`) — the
  * SAME real object `worker-ws.ts` received off the wire, only its TYPE was
- * narrowed crossing the boundary. `registration`'s parameter type is already
- * `unknown` (not a cast expression), so this is a single, contained
- * assertion — `design/no-unknown-cast` bans the `X as unknown as T`
- * double-assertion shape, not an audited single cast inside a named helper.
+ * narrowed crossing the boundary. `registration`'s parameter type is `unknown`
+ * (not a cast expression) so this is a single, contained assertion —
+ * `design/no-unknown-cast` bans the `X as unknown as T` double-assertion
+ * shape, not an audited single cast inside a named helper.
  */
-function widenToWorkerRegisterMessage(
-	registration: unknown,
-): ConstructorParameters<typeof RemoteHarnessAdapter>[1] {
-	return registration as ConstructorParameters<typeof RemoteHarnessAdapter>[1];
+function widenToWorkerRegisterMessage(registration: unknown): WorkerRegisterMessage {
+	return registration as WorkerRegisterMessage;
 }
 
 const remoteHarnessAdapterFactory: RunOrchestrationRemoteHarnessAdapterFactory = {
 	create(ws, registration) {
 		// @lore boundary-crossing cast: `ws` is the SAME real `WSContext` value
-		// `worker-ws.ts` received off the wire — same established idiom as this
-		// file's pre-move `ws as never`.
-		return new RemoteHarnessAdapter(ws as never, widenToWorkerRegisterMessage(registration));
+		// `worker-ws.ts` received off the wire — createRemoteHarnessAdapter accepts
+		// ws: unknown and casts internally (same posture as the pre-migration `ws as never`).
+		// `registration` is the same real WorkerRegisterMessage received off the wire —
+		// the cast recovers the full type from the Mechanism-C-narrowed port shape.
+		return createRemoteHarnessAdapter(ws, widenToWorkerRegisterMessage(registration));
 	},
 };
 

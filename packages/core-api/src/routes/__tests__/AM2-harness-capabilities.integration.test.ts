@@ -1,5 +1,5 @@
 import type { HarnessDiscoveryInput } from "@hyperidle/harness-registry";
-import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
@@ -66,7 +66,7 @@ function authHeaders(): Record<string, string> {
 
 function makePool(): AdapterPool {
 	const pool = new AdapterPool(STATIC_DISCOVERIES);
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
+	pool.register("local-builtin", createHarnessAdapter({ kind: "builtin" }), {
 		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",

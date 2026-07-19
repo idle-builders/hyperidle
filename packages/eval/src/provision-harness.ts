@@ -17,8 +17,8 @@ import { provisionSession } from "@hyperidle/core-api/services/session-lifecycle
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
-	BuiltinHarnessAdapter,
-	CliHarnessAdapter,
+	checkCliHarnessAvailability,
+	createHarnessAdapter,
 	LocalSandboxAdapter,
 } from "@hyperidle/harness-registry";
 import { callLlm } from "@hyperidle/harness-registry/llm-client";
@@ -296,22 +296,24 @@ export async function runEvalSession(
 		// is openrouter (or openai-compatible), the CLI would fail auth even if the
 		// binary exists. Guard: only use CLI when provider="anthropic".
 		const claudeAvailable =
-			deps.resolvedModel.provider === "anthropic" &&
-			(await CliHarnessAdapter.checkAvailability("claude"));
+			deps.resolvedModel.provider === "anthropic" && (await checkCliHarnessAvailability("claude"));
 
 		if (claudeAvailable) {
 			// Real claude CLI in ndjson/stream-json mode.
 			// @lore AL6 v3: claude CLI args follow the AF10 cost-test pattern (ndjson mode).
 			// The CLI reads AGENTS.md from the working directory (cwd = sandboxPath).
-			const cliAdapter = new CliHarnessAdapter({
-				binary: "claude",
-				args: ["-p", "--output-format", "stream-json", "--verbose"],
-				envMap: {
-					ANTHROPIC_API_KEY: "{{apiKey}}",
+			const cliAdapter = createHarnessAdapter({
+				kind: "cli",
+				config: {
+					binary: "claude",
+					args: ["-p", "--output-format", "stream-json", "--verbose"],
+					envMap: {
+						ANTHROPIC_API_KEY: "{{apiKey}}",
+					},
+					eventFormat: "ndjson",
+					envAllowlist: ["PATH", "HOME", "LANG", "ANTHROPIC_API_KEY"],
+					costField: "total_cost_usd",
 				},
-				eventFormat: "ndjson",
-				envAllowlist: ["PATH", "HOME", "LANG", "ANTHROPIC_API_KEY"],
-				costField: "total_cost_usd",
 			});
 			pool.register(EVAL_EXTERNAL_NAME, cliAdapter, {
 				name: "Eval External CLI (claude)",
@@ -333,7 +335,10 @@ export async function runEvalSession(
 		}
 	} else {
 		// Default: Register a BuiltinHarnessAdapter with maxIterations: 20 to limit eval cost.
-		const builtinAdapter = new BuiltinHarnessAdapter({ maxIterations: 20 });
+		const builtinAdapter = createHarnessAdapter({
+			kind: "builtin",
+			options: { maxIterations: 20 },
+		});
 		pool.register(EVAL_BUILTIN_NAME, builtinAdapter, {
 			name: "Eval Built-in Harness",
 			kind: "local",

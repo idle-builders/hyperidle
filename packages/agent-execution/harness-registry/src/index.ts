@@ -14,7 +14,7 @@
  * live here now.
  */
 
-export type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+export type { HarnessAdapter, HarnessCapabilityDescriptor } from "@hyperidle/shared";
 // -- adapter-pool (registry of HarnessAdapter instances) --
 export type { AdapterInfo, AdapterMeta } from "./adapter-pool.js";
 export {
@@ -23,10 +23,6 @@ export {
 	type SelectedEntry,
 	type SelectRequirements,
 } from "./adapter-pool.js";
-// -- builtin harness adapter (direct LLM API loop) --
-export { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
-// -- CLI harness adapter (claude/codex/opencode/cursor-agent) --
-export { CliHarnessAdapter } from "./cli-harness-adapter.js";
 // -- CLI MCP config (writes .mcp.json / config.toml for CLI auto-discovery) --
 export {
 	EMITTED_ROOTS_CLI_MCP_CONFIG,
@@ -43,6 +39,13 @@ export {
 } from "./context-window.js";
 // -- disabled sandbox adapter (no-filesystem fallback) --
 export { DisabledSandboxAdapter } from "./disabled-sandbox-adapter.js";
+// -- harness-adapter factory (collapses builtin/CLI/remote concrete classes) --
+export {
+	checkCliHarnessAvailability,
+	createHarnessAdapter,
+	createRemoteHarnessAdapter,
+	type HarnessAdapterSpec,
+} from "./harness-adapter-factory.js";
 // -- harness capability descriptors --
 export {
 	describeRegisteredHarness,
@@ -78,8 +81,6 @@ export {
 	type ProvisionReturnHookOptions,
 	provisionReturnHook,
 } from "./provision-return-hook.js";
-// -- remote harness adapter (WS client speaking to a remote-worker) --
-export { RemoteHarnessAdapter } from "./remote-harness-adapter.js";
 // -- return-enforcement registry (per-session force-return bookkeeping) --
 export {
 	createEnforcementRegistry,

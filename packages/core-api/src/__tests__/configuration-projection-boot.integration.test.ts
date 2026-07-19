@@ -5,7 +5,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { serviceConnections, teamMembers, teams, userSkills, users } from "@hyperidle/db";
 import {
 	AdapterPool,
-	BuiltinHarnessAdapter,
+	createHarnessAdapter,
 	DisabledSandboxAdapter,
 } from "@hyperidle/harness-registry";
 import { listConfiguration } from "@hyperidle/settings";
@@ -112,7 +112,7 @@ async function bootTestServer(db: HyperIdleDb, label: string): Promise<ServerHan
 
 function makeBuiltinPool(): AdapterPool {
 	const pool = new AdapterPool();
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
+	pool.register("local-builtin", createHarnessAdapter({ kind: "builtin" }), {
 		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",
