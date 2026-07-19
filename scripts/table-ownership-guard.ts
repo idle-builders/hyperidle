@@ -174,7 +174,9 @@ const TABLE_OWNER: Record<string, string> = {
 	// `agentSessionRequests` is a DI port (`TriggerResolutionSessionRequestPort`,
 	// wired to `@hyperidle/session-requests`'s real exports since Increment
 	// 3b), never a raw table read.
-	triggerResolutionHistory: "packages/agent-orchestration/trigger-resolution",
+	// @lore AU20 B1b: trigger-resolution folded into session-requests; ownership
+	// moves with the code — session-requests is now the sole writer of this table.
+	triggerResolutionHistory: "packages/agent-orchestration/session-requests",
 	// AU19 Increment 3b: `session-requests` migrated — the real owner (§4)
 	// `agentSessionRequests`/`agentWorkIntents` were forward-referenced above
 	// as "UNOWNED here" pending this migration; now real. `explicitSessionStarts`

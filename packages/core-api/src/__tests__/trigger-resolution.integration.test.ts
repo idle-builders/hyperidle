@@ -25,16 +25,17 @@ import {
 	users,
 } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
-import { createAgentSessionRequest, findSessionRequest } from "@hyperidle/session-requests";
+import {
+	createAgentSessionRequest,
+	createTriggeredAgentSessionRequest,
+	findSessionRequest,
+	type TriggerResolutionDeps,
+} from "@hyperidle/session-requests";
 import {
 	listConfiguration,
 	seedConfigurationDefaults,
 	writeConfigurationOverride,
 } from "@hyperidle/settings";
-import {
-	createTriggeredAgentSessionRequest,
-	type TriggerResolutionDeps,
-} from "@hyperidle/trigger-resolution";
 import { findUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";

@@ -476,7 +476,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/model-gateway",
     "core-api/realtime",
     "core-api/retention",
-    "agent-orchestration/trigger-resolution",
+    // @lore AU20 B1b: agent-orchestration/trigger-resolution folded into session-requests.
     "agent-orchestration/session-requests",
     "agent-orchestration/run-orchestration",
     "agent-orchestration/agent-selection",

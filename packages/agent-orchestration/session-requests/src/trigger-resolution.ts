@@ -16,7 +16,7 @@ import {
 	TriggerRuleValueSchema,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { TriggerResolutionDeps } from "./ports.js";
+import type { TriggerResolutionDeps } from "./trigger-resolution-ports.js";
 
 const PROMPT_MODE_BY_SOURCE: Record<AgentSessionSourceKind, AgentSessionPromptMode> = {
 	task: "task",

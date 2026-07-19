@@ -62,23 +62,21 @@ import {
 	type AgentWorkIntentKind,
 	claimAgentWorkIntent as claimAgentWorkIntentInternal,
 	createAgentSessionRequest,
+	createTriggeredAgentSessionRequest,
 	type DurableAgentQueueDeps,
 	drainAgentWorkIntents as drainAgentWorkIntentsInternal,
 	findSessionRequest,
 	reapTerminalAgentWorkIntents as reapTerminalAgentWorkIntentsInternal,
 	recordAgentWorkIntent,
+	recordSessionForResolutionHistory,
 	renewAgentWorkIntentLease as renewAgentWorkIntentLeaseInternal,
 	resolveAuthoritativeInput as resolveAuthoritativeInputInternal,
+	type TriggerResolutionDeps,
 	transitionSessionRequest,
 	transitionSessionRequestInTx,
 } from "@hyperidle/session-requests";
 import { listConfiguration } from "@hyperidle/settings";
 import type { AgentWorkIntentReader, AgentWorkIntentRecorder } from "@hyperidle/shared";
-import {
-	createTriggeredAgentSessionRequest,
-	recordSessionForResolutionHistory,
-	type TriggerResolutionDeps,
-} from "@hyperidle/trigger-resolution";
 import { findUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 

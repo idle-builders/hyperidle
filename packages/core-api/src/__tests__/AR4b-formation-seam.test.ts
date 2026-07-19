@@ -37,13 +37,14 @@ import {
 } from "@hyperidle/db";
 import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { getTeamMembers } from "@hyperidle/org";
-import { createAgentSessionRequest, findSessionRequest } from "@hyperidle/session-requests";
+import {
+	createAgentSessionRequest,
+	createTriggeredAgentSessionRequest,
+	findSessionRequest,
+	type TriggerResolutionDeps,
+} from "@hyperidle/session-requests";
 import { listConfiguration } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
-import {
-	createTriggeredAgentSessionRequest,
-	type TriggerResolutionDeps,
-} from "@hyperidle/trigger-resolution";
 import { findUser } from "@hyperidle/users";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { agentSelectionService } from "../services/agent-selection-bindings.js";

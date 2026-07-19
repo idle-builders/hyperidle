@@ -36,7 +36,6 @@
 		{ "path": "settings" },
 		{ "path": "../agent-orchestration/tool-handlers" },
 		{ "path": "../agent-execution/tool-provider" },
-		{ "path": "../agent-orchestration/trigger-resolution" },
 		{ "path": "users" },
 		{ "path": "work" }
 	]

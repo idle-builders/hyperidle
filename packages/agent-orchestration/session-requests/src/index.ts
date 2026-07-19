@@ -123,3 +123,19 @@ export {
 	transitionSessionRequest,
 	transitionSessionRequestInTx,
 } from "./transition-session-request.js";
+export {
+	createTriggeredAgentSessionRequest,
+	recordSessionForResolutionHistory,
+	resolveTriggerForSessionRequest,
+	type TriggeredSessionRequestInput,
+} from "./trigger-resolution.js";
+// ---------------------------------------------------------------------------
+// trigger-resolution (AU20 B1b: folded from trigger-resolution package)
+// ---------------------------------------------------------------------------
+export type {
+	TriggerResolutionConfigReader,
+	TriggerResolutionDeps,
+	TriggerResolutionSessionRequestPort,
+	TriggerResolutionTeamReader,
+	TriggerResolutionUserReader,
+} from "./trigger-resolution-ports.js";
