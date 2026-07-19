@@ -1,5 +1,5 @@
 /**
- * AF8 — Notification delivery integration tests (RED phase)
+ * AF8 — Notification delivery integration tests
  *
  * Covers:
  *   AC1  — drain loop delivers pending row automatically (no manual flush)
@@ -11,24 +11,25 @@
  *   AC9  — muting a type suppresses enqueue
  *   AC10 — popover API: GET /notifications/inbox, POST /seen, POST /:id/read
  *   AC12 — cost_breach bypasses factory silence; defers during quiet hours
+ *
+ * @lore AU20 Ag6b: migrated from internal delivery-chain imports
+ * (`flushQueue`, `loadNotificationConfig`, `recoverStuckLeases`,
+ * `registerNotificationListener`, `defaultMutePreferenceReader/Writer`,
+ * `startNotificationDrain`, `updateNotificationConfig`) to the public wrappers
+ * `flush`, `installNotifications`, `updateConfig`, `updatePreferences`; and
+ * from three separate dep exports to `notificationsDeps`.
  */
 
 import { type HyperIdleDb, items as itemsTable, threads, users } from "@hyperidle/db";
 import {
-	defaultMutePreferenceReader,
-	defaultMutePreferenceWriter,
 	enqueue,
-	flushQueue,
+	flush,
+	installNotifications,
 	listNotifications,
-	loadNotificationConfig,
 	type Notification,
 	type NotificationAdapter,
-	type Recipient,
-	recoverStuckLeases,
-	registerNotificationListener,
-	type SendResult,
-	startNotificationDrain,
-	updateNotificationConfig,
+	updateConfig,
+	updatePreferences,
 } from "@hyperidle/notifications";
 import { updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
@@ -39,16 +40,12 @@ import {
 	runCostSentinelCheck,
 } from "../../services/cost-bindings.js";
 import { expect, test } from "../../test-fixtures.js";
-import {
-	notificationsConfigDeps,
-	notificationsSilenceDeps,
-	notificationsWorkReader,
-} from "../notifications-test-deps.js";
+import { notificationsDeps } from "../notifications-test-deps.js";
 
 // --- helpers ---
 
 interface AdapterCall {
-	recipient: Recipient;
+	recipient: { channelId: string; label?: string };
 	notification: Notification;
 }
 
@@ -57,17 +54,17 @@ function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
 	return {
 		name: "console",
 		calls,
-		async send(recipient, notification): Promise<SendResult> {
+		async send(recipient, notification) {
 			calls.push({ recipient, notification });
 			return { ok: true, channel: "console", sentAt: new Date().toISOString() };
 		},
 	};
 }
 
-// @lore AU18: seeds via updateNotificationConfig (server_config-backed) instead
+// @lore AU18: seeds via updateConfig (server_config-backed) instead
 // of raw factorySettings KV rows — same observable outcome, new storage.
 async function enableNotifications(db: HyperIdleDb): Promise<void> {
-	await updateNotificationConfig(
+	await updateConfig(
 		db,
 		{
 			enabled: true,
@@ -76,7 +73,7 @@ async function enableNotifications(db: HyperIdleDb): Promise<void> {
 			floodMaxPerMinute: 100,
 			floodCoalesceWindowMs: 60_000,
 		},
-		notificationsConfigDeps,
+		notificationsDeps,
 	);
 }
 
@@ -123,36 +120,29 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 		vi.unstubAllEnvs();
 	});
 
-	test("startNotificationDrain interval calls flushQueue and marks pending rows sent", async ({
-		db,
-	}) => {
+	test("flush delivers pending rows and marks them sent", async ({ db }) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		await insertPendingRow(db, "drain-row-1", "blocking");
 
-		// Start drain with a short interval; call it directly via the returned disposer.
-		// Call flushQueue directly (the drain loop wraps this).
-		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
-		if (!cfg) throw new Error("No notification config");
-		await flushQueue(db, () => adapter, cfg, new Date(), notificationsSilenceDeps);
+		// flush wraps loadNotificationConfig + recoverStuckLeases + flushQueue internally
+		await flush(db, notificationsDeps, { adapterOverride: adapter });
 
 		const rows = (await listNotifications(db, { kind: "all" })).filter(
 			(r) => r.id === "drain-row-1",
 		);
-		// Row should be sent (or in-flight via adapter)
 		// After flush: status = sent OR the adapter was called
 		expect(adapter.calls.length + rows.filter((r) => r.status === "sent").length).toBeGreaterThan(
 			0,
 		);
 	});
 
-	test("startNotificationDrain returns a disposer that stops the interval", async ({ db }) => {
-		const adapter = createFakeAdapter();
-		// startNotificationDrain must be importable from fabric
-		const dispose = startNotificationDrain(db, () => adapter, {
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-		});
+	test("installNotifications returns a disposer that stops the interval", async ({
+		db,
+		eventBus,
+	}) => {
+		// installNotifications replaces startNotificationDrain (Ag6b)
+		const dispose = installNotifications(db, eventBus, notificationsDeps);
 		expect(typeof dispose).toBe("function");
 		dispose(); // should not throw
 	});
@@ -196,12 +186,8 @@ describe("AF8 AC2 — notification event produces typed, source-linked row", () 
 			createdAt: "2026-06-11T00:00:00.000Z",
 		});
 
-		// Register listener
-		const mute = defaultMutePreferenceReader(db, notificationsConfigDeps);
-		const dispose = registerNotificationListener(db, eventBus, {
-			mute,
-			work: notificationsWorkReader,
-		});
+		// installNotifications sets up the listener (and dispatcher + drain)
+		const dispose = installNotifications(db, eventBus, notificationsDeps);
 
 		// Emit policy-engine push notification (kind="attention")
 		const event: NotificationEvent = {
@@ -249,11 +235,7 @@ describe("AF8 AC3 — auto_unblock event is filtered out (ambient, not a notific
 		db,
 		eventBus,
 	}) => {
-		const mute = defaultMutePreferenceReader(db, notificationsConfigDeps);
-		const dispose = registerNotificationListener(db, eventBus, {
-			mute,
-			work: notificationsWorkReader,
-		});
+		const dispose = installNotifications(db, eventBus, notificationsDeps);
 
 		// Emit auto-unblock notification (dep-watcher kind)
 		const event: NotificationEvent = {
@@ -297,11 +279,8 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 
 		await insertPendingRow(db, "quiet-block-1", "blocking");
 
-		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
-		if (!cfg) throw new Error("No config");
-
 		// Run drain with "now" inside quiet hours
-		const result = await flushQueue(db, () => adapter, cfg, new Date(), notificationsSilenceDeps);
+		const result = await flush(db, notificationsDeps, { adapterOverride: adapter, now: new Date() });
 		expect(result.deferred).toBeGreaterThan(0);
 
 		// Row should still be pending
@@ -317,7 +296,7 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 
 		// Run drain with a time clearly outside quiet hours (noon UTC)
 		const noonUTC = new Date("2026-06-11T12:00:00.000Z");
-		const result2 = await flushQueue(db, () => adapter, cfg, noonUTC, notificationsSilenceDeps);
+		const result2 = await flush(db, notificationsDeps, { adapterOverride: adapter, now: noonUTC });
 		// Should have delivered (flushed) or at least not deferred
 		expect(result2.deferred).toBe(0);
 	});
@@ -326,7 +305,8 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 // --- AC5: stuck sending lease recovered by drain ---
 
 describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
-	test("drain tick requeues sending rows older than 6 minutes", async ({ db }) => {
+	test("flush recovers stuck sending rows and delivers them", async ({ db }) => {
+		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 
 		// Insert a row that appears stuck in 'sending' for 6 minutes
@@ -346,16 +326,16 @@ describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 			createdAt: stuckClaimedAt,
 		});
 
-		// Call recoverStuckLeases directly — the drain calls this at its top
-		const recovered = await recoverStuckLeases(db, new Date());
-		expect(recovered).toBeGreaterThan(0);
+		// flush internally calls recoverStuckLeases then flushes pending rows
+		// @lore AU20 Ag6b: recoverStuckLeases removed from public API; behavior
+		// verified through flush: stuck → recovered → sent.
+		const result = await flush(db, notificationsDeps, { adapterOverride: adapter });
+		expect(result.flushed).toBeGreaterThan(0);
 
-		// Row should be back to pending
 		const rows = await listNotifications(db, { kind: "all" });
 		const row = rows.find((r) => r.id === "stuck-lease-1");
 		expect(row).toBeDefined();
-		expect(row!.status).toBe("pending");
-		expect(row!.claimedAt).toBeNull();
+		expect(row!.status).toBe("sent");
 	});
 });
 
@@ -423,15 +403,10 @@ describe("AF8 AC9 — muting a type suppresses notification enqueue", () => {
 			createdAt: "2026-06-11T00:00:00.000Z",
 		});
 
-		// Set mute for review_request
-		const writer = defaultMutePreferenceWriter(db, notificationsConfigDeps);
-		await writer.setMuted("review_request", true);
+		// Set mute for review_request via public updatePreferences
+		await updatePreferences(db, "review_request", true, notificationsDeps);
 
-		const mute = defaultMutePreferenceReader(db, notificationsConfigDeps);
-		const dispose = registerNotificationListener(db, eventBus, {
-			mute,
-			work: notificationsWorkReader,
-		});
+		const dispose = installNotifications(db, eventBus, notificationsDeps);
 
 		const event: NotificationEvent = {
 			type: "notification",
@@ -471,17 +446,11 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 		// Insert a cost_breach pending row
 		await insertPendingRow(db, "cost-breach-factory-silence", "cost_breach");
 
-		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
-		if (!cfg) throw new Error("No config");
-
 		// Drain at a time outside quiet hours
-		const result = await flushQueue(
-			db,
-			() => adapter,
-			cfg,
-			new Date("2026-06-11T12:00:00.000Z"),
-			notificationsSilenceDeps,
-		);
+		const result = await flush(db, notificationsDeps, {
+			adapterOverride: adapter,
+			now: new Date("2026-06-11T12:00:00.000Z"),
+		});
 
 		// cost_breach should BYPASS factory silence → flushed
 		expect(result.flushed + adapter.calls.length).toBeGreaterThan(0);
@@ -500,12 +469,9 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 
 		await insertPendingRow(db, "cost-breach-quiet-hours", "cost_breach");
 
-		const cfg = await loadNotificationConfig(db, notificationsConfigDeps);
-		if (!cfg) throw new Error("No config");
-
 		// Drain during quiet hours (12:00 UTC)
 		const noonUTC = new Date("2026-06-11T12:00:00.000Z");
-		const result = await flushQueue(db, () => adapter, cfg, noonUTC, notificationsSilenceDeps);
+		const result = await flush(db, notificationsDeps, { adapterOverride: adapter, now: noonUTC });
 
 		// cost_breach RESPECTS quiet hours → deferred
 		expect(result.deferred).toBeGreaterThan(0);
@@ -515,7 +481,10 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 		await setSilenceWindow(db, "22:00", "22:01");
 
 		const afternoon = new Date("2026-06-11T14:00:00.000Z");
-		const result2 = await flushQueue(db, () => adapter, cfg, afternoon, notificationsSilenceDeps);
+		const result2 = await flush(db, notificationsDeps, {
+			adapterOverride: adapter,
+			now: afternoon,
+		});
 		expect(result2.deferred).toBe(0);
 	});
 });

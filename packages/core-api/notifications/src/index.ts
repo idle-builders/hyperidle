@@ -16,115 +16,56 @@
  * `conversation`, `work`, `users`, `connections`) became injected DI ports
  * (Mechanism C, see `ports.ts`); a sixth (`org`, `teamMembers`-by-id) was a
  * table-ownership-guard completeness finding, also ported.
+ *
+ * @lore AU20 Ag6a: 18 fragmented queue-CRUD functions collapsed into 4 general
+ * operations with discriminated filter/selector/patch types. Old functions remain
+ * as package-internal helpers (used by dispatcher.ts / digest.ts via relative
+ * import); only these 4 are public surface.
+ *
+ * @lore AU20 Ag6b: entire adapter + digest + mute/silence-policy + PII-redact +
+ * SSRF-guard delivery chain absorbed behind `installNotifications` and the wrapper
+ * functions in `install.ts`. The 15 individual DI-port types are replaced by one
+ * collapsed `NotificationsDeps` bag. ~78 exports → ~20. Four queue types
+ * (EnqueueOptions, NotificationFilter, NotificationPatch, NotificationSelector)
+ * removed from barrel (zero external importers; callers use inline literals).
+ * NOTIFICATION_QUEUE_CAP moved to notification-queue.ts so both the public
+ * `enqueue` and the package-internal `enqueueNotification` share one ceiling.
  */
 
-// -- adapter factory (config → concrete NotificationAdapter) --
-export { defaultNotificationAdapterFactory } from "./adapter-factory.js";
-// -- config (server_config.notifications projection + secrets) --
-export type {
-	NotificationConfig,
-	NotificationConfigPatch,
-	SafeNotificationConfig,
-} from "./config.js";
+// -- delivery chain entry point (config-driven, wires dispatcher+listener+drain) --
 export {
-	assertNtfyUrlNotSSRF,
-	loadNotificationConfig,
-	pickRecipient,
-	readNotificationConfig,
-	redactNotificationConfig,
-	sanitizeCron,
-	sanitizeEmail,
-	sanitizeNtfyUrl,
-	sanitizeSmtpCredential,
-	sanitizeSmtpHost,
-	sanitizeTopic,
-	updateNotificationConfig,
-} from "./config.js";
-// -- console adapter --
-export type { ConsoleAdapterOptions } from "./console-adapter.js";
-export { createConsoleAdapter } from "./console-adapter.js";
-// -- daily digest (E7 — queued items with no verdict in the last 24h) --
+	flush,
+	installNotifications,
+	readConfig,
+	readPreferences,
+	runDigest,
+	sendTest,
+	updateConfig,
+	updatePreferences,
+} from "./install.js";
+// -- collapsed deps bag (replaces 15 individual port types) --
+export type { NotificationsDeps } from "./ports.js";
+// -- config (public patch shape + safe read-only projection) --
+export type { NotificationConfigPatch, SafeNotificationConfig } from "./config.js";
+// -- daily digest query (status route) --
 export { getDailyDigest } from "./daily-digest.js";
-// -- digest (drain-all-pending → one batched send) --
+// -- digest dispatch result type --
 export type { DigestResult } from "./digest.js";
-export { runDailyDigest } from "./digest.js";
-// -- dispatcher (event-bus subscriber → route/push/queue) --
-export type { AdapterFactory, AlertPreferences, DispatcherDeps } from "./dispatcher.js";
-export {
-	applyAlertPreferences,
-	dispatchDigest,
-	enqueueNotification,
-	flushQueue,
-	recoverStuckLeases,
-	registerNotificationDispatcher,
-	tryFloodReserve,
-} from "./dispatcher.js";
-// -- drain (1-minute interval → flushQueue) --
-export type { DrainDeps } from "./drain.js";
-export { NOTIFICATION_DRAIN_INTERVAL_MS, startNotificationDrain } from "./drain.js";
-// -- mute (per-type mute preferences) --
-export type { MutePreferenceReader, MutePreferenceWriter } from "./mute.js";
-export {
-	defaultMutePreferenceReader,
-	defaultMutePreferenceWriter,
-	getMutedTypeKeys,
-} from "./mute.js";
-// -- notification listener (event → typed in-app row) --
-export type { NotificationListenerDeps } from "./notification-listener.js";
-export { registerNotificationListener } from "./notification-listener.js";
-// -- notification queue (the ONLY module touching the notificationQueue table) --
-// @lore AU20 Ag6a: 18 fragmented queue-CRUD functions collapsed into 4 general
-// operations with discriminated filter/selector/patch types. Old functions remain
-// as package-internal helpers (used by dispatcher.ts / digest.ts via relative
-// import); only these 4 are public surface.
-export type {
-	EnqueueOptions,
-	NotificationFilter,
-	NotificationPatch,
-	NotificationSelector,
-} from "./notification-queue.js";
+// -- notification queue (public CRUD surface from Ag6a) --
+// EnqueueOptions, NotificationFilter, NotificationPatch, NotificationSelector
+// are module-internal types (zero external importers); callers use inline
+// object literals inferred from the function signatures.
 export {
 	enqueue,
 	listNotifications,
 	markNotifications,
 	reap,
 } from "./notification-queue.js";
-// -- DI ports (Mechanism C) --
+// -- silence policy predicate (used by @hyperidle/policy via composition root) --
+export { isSilenced } from "./silence-policy.js";
+// -- wire shapes shared with consumers --
 export type {
-	NotificationsConfigDeps,
-	NotificationsConfigPatch,
-	NotificationsConfigSection,
-	NotificationsCredentialCipher,
-	NotificationsCredentialStore,
-	NotificationsDeliveryConfig,
-	NotificationsDigestDeps,
-	NotificationsMuteDeps,
-	NotificationsServerConfigPort,
-	NotificationsSilenceConfig,
-	NotificationsSilenceDeps,
-	NotificationsTeamReader,
-	NotificationsUserReader,
-	NotificationsVerdictReader,
-	NotificationsWorkReader,
-} from "./ports.js";
-// -- redact (secret-scrubbing for error messages) --
-export type { ScrubContext } from "./redact.js";
-export { scrubErrorMessage } from "./redact.js";
-// -- silence policy (factory/quiet-hours/per-team silence) --
-export {
-	isFactorySilenced,
-	isInSilenceWindow,
-	isSilenced,
-	readSilenceWindow,
-} from "./silence-policy.js";
-// -- types (wire shapes shared across this Service's modules) --
-export type {
-	Classification,
 	Notification,
 	NotificationAdapter,
 	NotificationChannel,
-	NotificationSeverity,
-	QueueReason,
-	Recipient,
-	SendResult,
 } from "./types.js";

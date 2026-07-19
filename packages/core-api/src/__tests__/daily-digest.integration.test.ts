@@ -9,11 +9,13 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { getDailyDigest, type NotificationsDigestDeps } from "@hyperidle/notifications";
+import { getDailyDigest } from "@hyperidle/notifications";
 import * as work from "@hyperidle/work";
 import { describe, expect, test } from "../test-fixtures.js";
 
-const digestDeps: NotificationsDigestDeps = {
+// @lore AU20 Ag6b: NotificationsDigestDeps removed from public API; inferred
+// structurally — getDailyDigest takes its own inline type parameter.
+const digestDeps = {
 	work: {
 		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
 			work.list(exec, "item", { queued: true, createdSince: cutoff }),

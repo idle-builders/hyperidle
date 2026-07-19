@@ -1,7 +1,7 @@
 import { listMessages } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { getDailyDigest, type NotificationsDigestDeps } from "@hyperidle/notifications";
+import { getDailyDigest } from "@hyperidle/notifications";
 import { listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -10,12 +10,13 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 /**
  * @lore AU19 Increment 1g: `getDailyDigest` (`@hyperidle/notifications`) now
- * requires an injected `NotificationsDigestDeps` (Mechanism C) — this route
- * is the sole real consumer that constructs it, wiring the real
- * `@hyperidle/work`/`@hyperidle/conversation` function references directly
- * (both real, migrated packages), zero behavior change.
+ * requires an injected deps bag (Mechanism C) — this route constructs it,
+ * wiring the real `@hyperidle/work`/`@hyperidle/conversation` function
+ * references directly (both real, migrated packages), zero behavior change.
+ * @lore AU20 Ag6b: `NotificationsDigestDeps` removed from public API; type
+ * inferred structurally — getDailyDigest uses structural typing.
  */
-const digestDeps: NotificationsDigestDeps = {
+const digestDeps = {
 	work: {
 		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
 			work.list(exec, "item", { queued: true, createdSince: cutoff }),

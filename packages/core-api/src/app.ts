@@ -13,14 +13,8 @@ import type { AssistantTurnDeps } from "@hyperidle/dispatch";
 import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { McpBridgeRegistry } from "@hyperidle/mcp-provider";
 import {
-	defaultNotificationAdapterFactory,
 	type NotificationAdapter,
-	type NotificationConfig,
-	type NotificationsConfigDeps,
-	type NotificationsCredentialCipher,
-	type NotificationsCredentialStore,
-	type NotificationsSilenceDeps,
-	type NotificationsWorkReader,
+	type NotificationsDeps,
 } from "@hyperidle/notifications";
 import {
 	type ObservabilityConfig,
@@ -88,15 +82,19 @@ interface AppOptions {
 	eventBus?: EventBus;
 	serviceBootstrap?: (ctx: { db: HyperIdleDb; eventBus: EventBus }) => Array<() => void>;
 	/**
-	 * Optional override for the notification adapter factory used by the
-	 * HTTP `/notifications/test`, `/notifications/flush`, and
+	 * Optional override for the notification adapter used by the HTTP
+	 * `/notifications/test`, `/notifications/flush`, and
 	 * `/notifications/digest` routes. Tests inject a FakeAdapter that
 	 * records every send.
 	 *
 	 * NOTE: This does NOT affect the app-level notification dispatcher. This
 	 * option is purely for the HTTP route layer.
+	 *
+	 * @lore AU20 Ag6b: factory signature simplified to `() => NotificationAdapter`
+	 * (no config arg) since the route layer delegates all config-reading to the
+	 * internal `sendTest`/`flush`/`runDigest` wrappers.
 	 */
-	notificationAdapterFactory?: (cfg: NotificationConfig) => NotificationAdapter;
+	notificationAdapterFactory?: () => NotificationAdapter;
 	/**
 	 * Optional override for the observability adapter (H3). Tests inject
 	 * a FakeAdapter whose `record` captures every event. When omitted
@@ -235,6 +233,9 @@ const appLogger = createLogger({ pkg: "server.app" });
  * (`settings`, `users`, `org`, `work`, `connections`) are now real,
  * already-migrated packages; the credential cipher/store closed in
  * Increment 1h and wire directly to `@hyperidle/connections`' real exports.
+ *
+ * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
+ * `NotificationsDeps` bag (same pattern as server-factory.ts).
  */
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
@@ -245,39 +246,27 @@ const notificationsServerConfigPort = { read: readServerConfig, update: updateSe
  */
 const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
-const notificationsCredentialCipher: NotificationsCredentialCipher = {
-	encryptCredentialValue,
-	decryptCredentialValue,
-};
-
-const notificationsCredentialStore: NotificationsCredentialStore = {
-	findByName: async (db, name) => (await readCredentials(db, { name }))[0],
-	upsert: async (db, values) =>
-		writeCredential(db, values.name, {
-			encryptedValue: values.encryptedValue,
-			validationState: values.validationState,
-			lastValidatedAt: values.lastValidatedAt,
-			updatedAt: values.updatedAt,
-		}),
-	deleteByName: (db, name) => deleteCredential(db, name),
-};
-
-const notificationsConfigDeps: NotificationsConfigDeps = {
+const notificationsDeps: NotificationsDeps = {
 	serverConfig: notificationsServerConfigPort,
-	credentialCipher: notificationsCredentialCipher,
-	credentialStore: notificationsCredentialStore,
-};
-
-const notificationsSilenceDeps: NotificationsSilenceDeps = {
-	serverConfig: notificationsServerConfigPort,
+	credentialCipher: { encryptCredentialValue, decryptCredentialValue },
+	credentialStore: {
+		findByName: async (db, name) => (await readCredentials(db, { name }))[0],
+		upsert: async (db, values) =>
+			writeCredential(db, values.name, {
+				encryptedValue: values.encryptedValue,
+				validationState: values.validationState,
+				lastValidatedAt: values.lastValidatedAt,
+				updatedAt: values.updatedAt,
+			}),
+		deleteByName: (db, name) => deleteCredential(db, name),
+	},
 	users: { getUserById: (db, id) => findUser(db, { id }) },
 	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
-};
-
-const notificationsWorkReader: NotificationsWorkReader = {
-	listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
-		work.list(exec, "item", { queued: true, createdSince: cutoff }),
-	getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+	work: {
+		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+			work.list(exec, "item", { queued: true, createdSince: cutoff }),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+	},
 };
 
 /**
@@ -536,13 +525,14 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/dispatch-queue", createDispatchQueueRoutes());
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.
+		// @lore AU20 Ag6b: adapterFactory option replaced with adapterOverride (no config arg).
 		api.route(
 			"/notifications",
 			createNotificationRoutes(options.db, {
-				adapterFactory: options.notificationAdapterFactory ?? defaultNotificationAdapterFactory,
-				notificationsConfig: notificationsConfigDeps,
-				silencePolicy: notificationsSilenceDeps,
-				work: notificationsWorkReader,
+				deps: notificationsDeps,
+				adapterOverride: options.notificationAdapterFactory
+					? options.notificationAdapterFactory()
+					: undefined,
 			}),
 		);
 

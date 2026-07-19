@@ -48,6 +48,7 @@ import {
 	listPending,
 	listPendingDigest,
 	listStuckLeases,
+	NOTIFICATION_QUEUE_CAP,
 	queueCountByStatus,
 	requeueLease,
 	updateStatus,
@@ -173,7 +174,7 @@ interface FloodState {
 	count: number;
 }
 
-const QUEUE_CAP = 10_000;
+const QUEUE_CAP = NOTIFICATION_QUEUE_CAP;
 const LEASE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — rollback stuck "sending" rows
 
 function classifyItem(item: Pick<Item, "blocking" | "riskTier">): Classification {

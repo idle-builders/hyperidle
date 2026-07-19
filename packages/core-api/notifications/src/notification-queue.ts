@@ -236,6 +236,18 @@ export async function deleteReaped(
 // relative path); only the 4 below appear in index.ts.
 
 /**
+ * Defense-in-depth queue ceiling shared by `enqueue` (public) and
+ * `enqueueNotification` (package-internal, dispatcher.ts). Kept here so
+ * both paths enforce an identical cap without cross-file coupling.
+ *
+ * @lore AU20 Ag6b: when `enqueueNotification` callers were migrated to the
+ * public `enqueue`, the cap was initially missing from `enqueue`, creating a
+ * behavior regression at the teams-routes.ts emit site. Cap now lives in the
+ * public function so every caller gets it uniformly.
+ */
+export const NOTIFICATION_QUEUE_CAP = 10_000;
+
+/**
  * Discriminated filter for `listNotifications`. Each variant maps to one or
  * more of the old per-caller list functions; the `kind` field selects the
  * query shape with no any-bag optional fields.
@@ -294,7 +306,15 @@ export interface EnqueueOptions {
  * same `eventType` + `subjectId`, the existing id is returned without
  * inserting a duplicate.
  *
- * Replaces: `insertNotification`, `findPendingByEventSubject` (via dedupeBy).
+ * Enforces NOTIFICATION_QUEUE_CAP (10 000) before inserting: evicts the
+ * oldest digest row first so blocking/cost_breach rows always have room.
+ * Incoming digest rows are silently dropped (id returned, row not inserted)
+ * when the queue is at capacity. If no digest row can be evicted, drops the
+ * oldest pending row of any severity to hold the ceiling. This matches the
+ * identical cap loop in the package-internal `enqueueNotification`.
+ *
+ * Replaces: `insertNotification`, `findPendingByEventSubject` (via dedupeBy),
+ * `enqueueNotification` (cap behavior now included).
  */
 export async function enqueue(
 	db: HyperIdleDb,
@@ -308,6 +328,21 @@ export async function enqueue(
 			opts.dedupeBy.subjectId,
 		);
 		if (existing !== undefined) return existing.id;
+	}
+	// Defense-in-depth queue cap. Digest rows are silently dropped when the
+	// queue is full so blocking + cost_breach rows always have room. If no
+	// digest row can be evicted, drop the oldest pending row of any severity
+	// rather than exceed the cap.
+	while ((await queueCountByStatus(db, "pending")) >= NOTIFICATION_QUEUE_CAP) {
+		if (input.severity === "digest") return input.id;
+		const [oldestDigest] = await listPendingDigest(db);
+		if (!oldestDigest) {
+			const [oldest] = await listPending(db);
+			if (!oldest) break; // queue unexpectedly empty — insert safely
+			await updateStatus(db, oldest.id, { status: "dropped" });
+			continue;
+		}
+		await updateStatus(db, oldestDigest.id, { status: "dropped" });
 	}
 	await insertNotification(db, input);
 	return input.id;

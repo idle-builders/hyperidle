@@ -51,21 +51,11 @@ import {
 import { createMcpBridgeRegistry, createMcpRoute } from "@hyperidle/mcp-provider";
 import { resolveModel } from "@hyperidle/model-gateway";
 import {
-	type AlertPreferences,
-	defaultMutePreferenceReader,
-	defaultNotificationAdapterFactory,
 	enqueue,
+	installNotifications,
 	isSilenced,
-	type NotificationsConfigDeps,
-	type NotificationsCredentialCipher,
-	type NotificationsCredentialStore,
-	type NotificationsMuteDeps,
-	type NotificationsSilenceDeps,
-	type NotificationsWorkReader,
+	type NotificationsDeps,
 	reap,
-	registerNotificationDispatcher,
-	registerNotificationListener,
-	startNotificationDrain,
 } from "@hyperidle/notifications";
 import { getTeamMembers, resolveReviewRecipients, updateTeam } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
@@ -146,43 +136,32 @@ const gitExportKnowledgeReader = {
 	getProjectionByItemId: findKnowledgeItemProjectionById,
 };
 
-const notificationsCredentialCipher: NotificationsCredentialCipher = {
-	encryptCredentialValue,
-	decryptCredentialValue,
-};
-
-const notificationsCredentialStore: NotificationsCredentialStore = {
-	findByName: async (db, name) => (await readCredentials(db, { name }))[0],
-	upsert: async (db, values) =>
-		writeCredential(db, values.name, {
-			encryptedValue: values.encryptedValue,
-			validationState: values.validationState,
-			lastValidatedAt: values.lastValidatedAt,
-			updatedAt: values.updatedAt,
-		}),
-	deleteByName: (db, name) => deleteCredential(db, name),
-};
-
-const notificationsConfigDeps: NotificationsConfigDeps = {
+/**
+ * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
+ * `NotificationsDeps` bag. `installNotifications` internally extracts
+ * the sub-deps it needs; the composition root sees a single wiring point.
+ */
+const notificationsDeps: NotificationsDeps = {
 	serverConfig: notificationsServerConfigPort,
-	credentialCipher: notificationsCredentialCipher,
-	credentialStore: notificationsCredentialStore,
-};
-
-const notificationsMuteDeps: NotificationsMuteDeps = {
-	serverConfig: notificationsServerConfigPort,
-};
-
-const notificationsSilenceDeps: NotificationsSilenceDeps = {
-	serverConfig: notificationsServerConfigPort,
+	credentialCipher: { encryptCredentialValue, decryptCredentialValue },
+	credentialStore: {
+		findByName: async (db, name) => (await readCredentials(db, { name }))[0],
+		upsert: async (db, values) =>
+			writeCredential(db, values.name, {
+				encryptedValue: values.encryptedValue,
+				validationState: values.validationState,
+				lastValidatedAt: values.lastValidatedAt,
+				updatedAt: values.updatedAt,
+			}),
+		deleteByName: (db, name) => deleteCredential(db, name),
+	},
 	users: { getUserById: (db, id) => findUser(db, { id }) },
 	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
-};
-
-const notificationsWorkReader: NotificationsWorkReader = {
-	listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
-		work.list(exec, "item", { queued: true, createdSince: cutoff }),
-	getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+	work: {
+		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+			work.list(exec, "item", { queued: true, createdSince: cutoff }),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+	},
 };
 
 /**
@@ -248,7 +227,7 @@ const policyDeps: PolicyDeps = {
 	},
 	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
 	silence: {
-		isSilenced: (db, item, now) => isSilenced(db, item, now, notificationsSilenceDeps),
+		isSilenced: (db, item, now) => isSilenced(db, item, now, notificationsDeps),
 	},
 	notifications: {
 		insert: async (db, row) => {
@@ -294,7 +273,20 @@ const retentionReaperDeps: RetentionReaperDeps = {
 export function registerCoreDomainServices(ctx: {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	readonly readAlertPreferences?: () => Promise<AlertPreferences>;
+	/**
+	 * Inject alert preferences reader for the notification dispatcher.
+	 * Uses an inline structural type so `AlertPreferences` (delivery-chain
+	 * internal) stays out of the public server-factory surface.
+	 * @lore AU20 Ag6b: AlertPreferences removed from barrel; inline type here.
+	 */
+	readonly readAlertPreferences?: () => Promise<{
+		blockerAlerts: boolean;
+		costAlerts: boolean;
+		reviewAlerts: boolean;
+		quietHoursEnabled: boolean;
+		quietHoursStart: string;
+		quietHoursEnd: string;
+	}>;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
@@ -351,25 +343,13 @@ export function registerCoreDomainServices(ctx: {
 			knowledge: gitExportKnowledgeReader,
 		}),
 	);
+	// @lore AU20 Ag6b: three separate worker registrations (dispatcher + listener
+	// + drain) collapsed into one `installNotifications` call. The delivery chain
+	// is fully internal to @hyperidle/notifications; server-factory sees one boot
+	// entry and one disposer.
 	disposers.push(
-		registerNotificationDispatcher(db, eventBus, {
-			adapterFactory: defaultNotificationAdapterFactory,
+		installNotifications(db, eventBus, notificationsDeps, {
 			readAlertPreferences: ctx.readAlertPreferences,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
-		}),
-	);
-
-	// AF8: notification listener (event→typed row) + drain loop (automatic delivery).
-	const muteReader = defaultMutePreferenceReader(db, notificationsMuteDeps);
-	disposers.push(
-		registerNotificationListener(db, eventBus, { mute: muteReader, work: notificationsWorkReader }),
-	);
-	disposers.push(
-		startNotificationDrain(db, defaultNotificationAdapterFactory, {
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
 		}),
 	);
 

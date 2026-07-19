@@ -20,7 +20,7 @@
 
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { enqueueNotification, listNotifications } from "@hyperidle/notifications";
+import { enqueue, listNotifications } from "@hyperidle/notifications";
 import {
 	ApiError,
 	createTeam,
@@ -139,7 +139,10 @@ async function maybeNotifyAgentError(
 
 	if (existing) return; // already pending — throttled
 
-	await enqueueNotification(db, {
+	// @lore AU20 Ag6b: enqueueNotification removed from public API; use enqueue
+	// with explicit id, status, attempts, createdAt fields.
+	await enqueue(db, {
+		id: crypto.randomUUID(),
 		eventType: "agent.health.degraded",
 		subjectId: member.agentId,
 		severity: "blocking",
@@ -147,7 +150,9 @@ async function maybeNotifyAgentError(
 		body: `${member.name} on team ${teamName}: ${member.healthDetail ?? "Error state detected"}`,
 		reason: "agent_health_transition",
 		channel: null,
-		now: new Date(),
+		status: "pending",
+		attempts: 0,
+		createdAt: new Date().toISOString(),
 	});
 }
 

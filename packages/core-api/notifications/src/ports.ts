@@ -244,3 +244,24 @@ export interface NotificationsDigestDeps {
 	work: NotificationsWorkReader;
 	verdicts: NotificationsVerdictReader;
 }
+
+/**
+ * @lore AU20 Ag6b: collapsed deps bag — replaces 15 individual port interfaces
+ * as the single public surface for `installNotifications` and the public
+ * wrapper functions. Callers build one `NotificationsDeps` at the composition
+ * root; individual ports remain package-internal.
+ *
+ * `verdicts` is optional because `installNotifications`/`flush`/`readConfig`
+ * etc. don't need it; only `getDailyDigest` does (status.ts builds its own
+ * narrower `{ work, verdicts }` struct and TypeScript structural-types it
+ * through the inline parameter shape, avoiding a required field here that
+ * would force every composition root to import `@hyperidle/conversation`).
+ */
+export interface NotificationsDeps {
+	serverConfig: NotificationsServerConfigPort;
+	credentialCipher: NotificationsCredentialCipher;
+	credentialStore: NotificationsCredentialStore;
+	users: NotificationsUserReader;
+	teams: NotificationsTeamReader;
+	work: NotificationsWorkReader;
+}

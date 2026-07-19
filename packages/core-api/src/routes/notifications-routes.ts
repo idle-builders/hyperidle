@@ -1,30 +1,18 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	type AdapterFactory,
-	defaultMutePreferenceWriter,
-	dispatchDigest,
-	flushQueue,
-	getMutedTypeKeys,
+	flush,
 	listNotifications,
-	loadNotificationConfig,
 	markNotifications,
-	type Notification,
+	type NotificationAdapter,
 	type NotificationChannel,
 	type NotificationConfigPatch,
-	type NotificationsConfigDeps,
-	type NotificationsSilenceDeps,
-	type NotificationsWorkReader,
-	pickRecipient,
-	readNotificationConfig,
-	redactNotificationConfig,
-	type SendResult,
-	sanitizeCron,
-	sanitizeEmail,
-	sanitizeNtfyUrl,
-	sanitizeSmtpCredential,
-	sanitizeSmtpHost,
-	sanitizeTopic,
-	updateNotificationConfig,
+	type NotificationsDeps,
+	readConfig,
+	readPreferences,
+	runDigest,
+	sendTest,
+	updateConfig,
+	updatePreferences,
 } from "@hyperidle/notifications";
 import type { ApiErrorResponse, Logger, NotificationTypeKey } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/shared";
@@ -68,62 +56,55 @@ const testBodySchema = z
 const flushBodySchema = z.object({}).strict();
 const digestBodySchema = z.object({}).strict();
 
-type SanitizeFn = (input: string) => { ok: true } | { ok: false; reason: string };
-
-const PATCH_SANITIZERS: ReadonlyArray<{
-	field: keyof z.infer<typeof patchConfigSchema>;
-	sanitize: SanitizeFn;
-}> = [
-	{ field: "recipientEmail", sanitize: sanitizeEmail },
-	{ field: "recipientNtfyTopic", sanitize: sanitizeTopic },
-	{ field: "ntfyBaseUrl", sanitize: sanitizeNtfyUrl },
-	{ field: "smtpHost", sanitize: sanitizeSmtpHost },
-	{ field: "smtpFrom", sanitize: sanitizeEmail },
-	{ field: "smtpUsername", sanitize: sanitizeSmtpCredential },
-	{ field: "smtpPassword", sanitize: sanitizeSmtpCredential },
-	{ field: "digestCron", sanitize: sanitizeCron },
-];
-
-function validatePatchBody(body: z.infer<typeof patchConfigSchema>): string | null {
-	for (const { field, sanitize } of PATCH_SANITIZERS) {
-		const value = body[field];
-		if (value === undefined || value === null) continue;
-		if (typeof value !== "string") continue;
-		const r = sanitize(value);
-		if (!r.ok) return r.reason;
+/**
+ * Sanitize a config patch for the audit log — booleans / enums kept,
+ * secret strings replaced with `"***"`. We never persist the full patch
+ * body.
+ */
+function auditDiff(body: NotificationConfigPatch): Record<string, unknown> {
+	const SECRET_FIELDS: ReadonlyArray<keyof NotificationConfigPatch> = [
+		"smtpPassword",
+		"ntfyAuthToken",
+		"smtpUsername",
+	];
+	const out: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(body) as Array<
+		[keyof NotificationConfigPatch, unknown]
+	>) {
+		if (value === undefined) continue;
+		if (SECRET_FIELDS.includes(key)) {
+			out[key] = value === null ? null : "***";
+			continue;
+		}
+		out[key] = value;
 	}
-	if (body.smtpIgnoreTls === true && process.env.NODE_ENV === "production") {
-		return "smtpIgnoreTls is not permitted in production";
-	}
-	return null;
+	return out;
 }
 
 export interface CreateNotificationRoutesOptions {
 	/**
-	 * Adapter factory used by `/test`, `/flush`, and `/digest`. Production
-	 * wiring passes the same factory the dispatcher uses; tests pass a
-	 * FakeAdapter that records every send.
+	 * Collapsed deps bag (replaces the old notificationsConfig +
+	 * silencePolicy + work triple).
+	 *
+	 * @lore AU20 Ag6b: single deps bag; internal functions extract the
+	 * sub-deps they need.
 	 */
-	adapterFactory: AdapterFactory;
+	deps: NotificationsDeps;
+	/**
+	 * Optional adapter override for `/test`, `/flush`, and `/digest`.
+	 * Production omits this; tests inject a FakeAdapter that records every send.
+	 *
+	 * @lore AU20 Ag6b: simplified from `(cfg: NotificationConfig) =>
+	 * NotificationAdapter` to a plain `NotificationAdapter` instance — the
+	 * route layer no longer needs to pass the internal config shape.
+	 */
+	adapterOverride?: NotificationAdapter;
 	now?: () => Date;
 	/**
 	 * Logger used for the admin-audit log. Injectable so tests can
 	 * assert the `config_changed` event shape without grepping stdout.
 	 */
 	logger?: Logger;
-	/**
-	 * @lore AU19 Increment 1g: DI ports (Mechanism C) — `readNotificationConfig`/
-	 * `updateNotificationConfig`/`loadNotificationConfig`/`getMutedTypeKeys`/
-	 * `defaultMutePreferenceWriter` all need `notificationsConfig`;
-	 * `flushQueue` needs `silencePolicy`; `dispatchDigest` needs the full
-	 * `DispatcherDeps` shape (`notificationsConfig` + `silencePolicy` + `work`,
-	 * even though it only reads `notificationsConfig` at runtime). The caller
-	 * (`app.ts`, unguarded) wires the real functions directly, zero behavior
-	 * change.
-	 */
-	notificationsConfig: NotificationsConfigDeps;
-	silencePolicy: NotificationsSilenceDeps;
-	work: NotificationsWorkReader;
 }
 
 /**
@@ -170,46 +151,16 @@ function retryAfterSeconds(bucket: TestBucket, capacity: number): number {
 	return Math.max(1, Math.ceil((deficit * windowMs) / capacity / 1000));
 }
 
-/**
- * Sanitize a config patch for the audit log — booleans / enums kept,
- * secret strings replaced with `"***"`. We never persist the full patch
- * body.
- */
-function auditDiff(body: NotificationConfigPatch): Record<string, unknown> {
-	const SECRET_FIELDS: ReadonlyArray<keyof NotificationConfigPatch> = [
-		"smtpPassword",
-		"ntfyAuthToken",
-		"smtpUsername",
-	];
-	const out: Record<string, unknown> = {};
-	for (const [key, value] of Object.entries(body) as Array<
-		[keyof NotificationConfigPatch, unknown]
-	>) {
-		if (value === undefined) continue;
-		if (SECRET_FIELDS.includes(key)) {
-			out[key] = value === null ? null : "***";
-			continue;
-		}
-		out[key] = value;
-	}
-	return out;
-}
-
 export function createNotificationRoutes(
 	db: HyperIdleDb,
 	opts: CreateNotificationRoutesOptions,
 ): Hono {
 	const router = new Hono();
-	const factory: AdapterFactory = opts.adapterFactory;
 	const nowFn = opts.now ?? ((): Date => new Date());
 	const auditLogger: Logger = opts.logger ?? createLogger({ pkg: "notifications.audit" });
 	const testBucket = createTestBucket(5, nowFn().getTime());
 
-	// GET / — Bounded resource descriptor. Proves the route is mounted
-	// (I1 S2) without reading or redacting the config on every hit.
-	// @lore I1 simplification-#2: previous handler read the full
-	// NotificationConfig + redacted it on every request. The descriptor
-	// shape is DB-free; callers that want config hit `/config`.
+	// GET / — Bounded resource descriptor.
 	router.get("/", requireBoundary({ kind: "principal-self" }), (c) =>
 		c.json({
 			ok: true,
@@ -226,8 +177,8 @@ export function createNotificationRoutes(
 	);
 
 	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) => {
-		const cfg = await readNotificationConfig(db, opts.notificationsConfig);
-		return c.json(redactNotificationConfig(cfg));
+		const cfg = await readConfig(db, opts.deps);
+		return c.json(cfg);
 	});
 
 	router.patch(
@@ -236,16 +187,23 @@ export function createNotificationRoutes(
 		validateBody(patchConfigSchema),
 		async (c) => {
 			const body = c.req.valid("json");
-			const reason = validatePatchBody(body);
-			if (reason !== null) {
-				const response: ApiErrorResponse = {
-					error: reason,
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				};
-				return c.json(response, 400);
-			}
 			const diff = auditDiff(body);
-			const updated = await updateNotificationConfig(db, body, opts.notificationsConfig);
+			let updated;
+			try {
+				updated = await updateConfig(db, body, opts.deps);
+			} catch (err) {
+				if (
+					err instanceof Error &&
+					(err as { code?: string }).code === "NOTIFICATIONS_VALIDATION_ERROR"
+				) {
+					const response: ApiErrorResponse = {
+						error: err.message,
+						code: API_ERROR_CODES.VALIDATION_ERROR,
+					};
+					return c.json(response, 400);
+				}
+				throw err;
+			}
 			// @lore Emit an admin-action audit record on every PATCH so any
 			// rewrite of `recipientEmail`, `ntfyBaseUrl`, or SMTP creds is
 			// attributable. Secret fields are replaced with "***" before
@@ -256,7 +214,7 @@ export function createNotificationRoutes(
 				diff,
 				timestamp: nowFn().toISOString(),
 			});
-			return c.json(redactNotificationConfig(updated));
+			return c.json(updated);
 		},
 	);
 
@@ -266,7 +224,8 @@ export function createNotificationRoutes(
 		validateBody(testBodySchema),
 		async (c) => {
 			const body = c.req.valid("json");
-			const cfg = await readNotificationConfig(db, opts.notificationsConfig);
+			// Rate-limit check uses the public readConfig (redacted is enough for testMaxPerHour).
+			const cfg = await readConfig(db, opts.deps);
 			const capacity = Math.max(0, cfg.testMaxPerHour);
 			const took = takeTestToken(testBucket, capacity, nowFn().getTime());
 			if (!took) {
@@ -278,32 +237,14 @@ export function createNotificationRoutes(
 				};
 				return c.json(response, 429);
 			}
-			const channel: NotificationChannel = body.channel ?? cfg.primaryChannel;
-			const recipient = pickRecipient(cfg, channel);
-			if (!recipient) {
+			const channel = body.channel as NotificationChannel | undefined;
+			const result = await sendTest(db, channel, opts.deps, opts.adapterOverride);
+			if (!result.ok && result.error?.startsWith("recipient not configured")) {
 				const response: ApiErrorResponse = {
-					error: `recipient not configured for channel '${channel}'`,
+					error: result.error,
 					code: API_ERROR_CODES.VALIDATION_ERROR,
 				};
 				return c.json(response, 400);
-			}
-			const adapter = factory({ ...cfg, primaryChannel: channel });
-			const notification: Notification = {
-				title: "HyperIdle notification test",
-				body: "This is a test notification from HyperIdle.",
-				severity: "digest",
-				timestamp: nowFn().getTime(),
-			};
-			let result: SendResult;
-			try {
-				result = await adapter.send(recipient, notification);
-			} catch (err) {
-				result = {
-					ok: false,
-					channel: adapter.name,
-					error: err instanceof Error ? err.message : String(err),
-					retriable: true,
-				};
 			}
 			return c.json(result);
 		},
@@ -315,9 +256,7 @@ export function createNotificationRoutes(
 		const limitNum = limitParam ? Number.parseInt(limitParam, 10) : 50;
 		const limit = Number.isFinite(limitNum) && limitNum > 0 ? Math.min(limitNum, 500) : 50;
 		// @lore zod-enum validation on `status` query parameter — rejects
-		// typos instead of silently returning an empty list. Security
-		// review H2 #4 called out the divergence from the PATCH-body
-		// zod enforcement.
+		// typos instead of silently returning an empty list.
 		const parsed = queueStatusEnum.safeParse(statusParam);
 		if (!parsed.success) {
 			const response: ApiErrorResponse = {
@@ -351,11 +290,13 @@ export function createNotificationRoutes(
 		requireBoundary({ kind: "public-data" }),
 		validateBody(flushBodySchema),
 		async (c) => {
-			const cfg = await loadNotificationConfig(db, opts.notificationsConfig);
-			if (!cfg) {
+			const result = await flush(db, opts.deps, {
+				adapterOverride: opts.adapterOverride,
+				now: nowFn(),
+			});
+			if (result.disabled) {
 				return c.json({ flushed: 0, failed: 0, reason: "disabled" });
 			}
-			const result = await flushQueue(db, factory, cfg, nowFn(), opts.silencePolicy);
 			return c.json(result);
 		},
 	);
@@ -365,12 +306,9 @@ export function createNotificationRoutes(
 		requireBoundary({ kind: "public-data" }),
 		validateBody(digestBodySchema),
 		async (c) => {
-			const result = await dispatchDigest(db, {
-				adapterFactory: factory,
-				now: nowFn,
-				notificationsConfig: opts.notificationsConfig,
-				silencePolicy: opts.silencePolicy,
-				work: opts.work,
+			const result = await runDigest(db, opts.deps, {
+				adapterOverride: opts.adapterOverride,
+				now: nowFn(),
 			});
 			return c.json(result);
 		},
@@ -382,12 +320,10 @@ export function createNotificationRoutes(
 
 	/**
 	 * GET /inbox — list unread (readAt IS NULL) notifications, urgency+recency order, cap 50.
-	 * Drives the popover row list and unread dot count.
 	 */
 	router.get("/inbox", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const rows = await listNotifications(db, { kind: "unread", limit: 50 });
 
-		// Sort: immediate urgency first, then ambient; within each group, newest first
 		const sorted = [...rows].sort((a, b) => {
 			if (a.urgency === "immediate" && b.urgency !== "immediate") return -1;
 			if (a.urgency !== "immediate" && b.urgency === "immediate") return 1;
@@ -413,11 +349,8 @@ export function createNotificationRoutes(
 
 	/**
 	 * POST /seen — mark all currently-unseen rows as seen.
-	 * Called on popover open to clear the unread dot.
 	 *
-	 * @lore AF8 W3: single bulk UPDATE instead of per-row loop — one statement
-	 * regardless of how many unseen rows exist. The previous N+1 loop issued one
-	 * round-trip per unseen row (50+ rows = 50+ DB calls on every popover open).
+	 * @lore AF8 W3: single bulk UPDATE instead of per-row loop.
 	 */
 	router.post("/seen", requireBoundary({ kind: "principal-self" }), async (c) => {
 		await markNotifications(db, { kind: "all" }, { seen: true }, nowFn());
@@ -425,11 +358,9 @@ export function createNotificationRoutes(
 	});
 
 	/**
-	 * POST /:id/read — mark a specific notification as read (jump or dismiss).
+	 * POST /:id/read — mark a specific notification as read.
 	 *
-	 * @lore AF8 W4: Use z.string().uuid() for strict UUID validation (version/variant
-	 * nibbles + hyphen positions). The previous regex /^[0-9a-f-]{36}$/ accepted
-	 * 36-dash strings and other non-UUID inputs. The plan promised z.string().uuid().
+	 * @lore AF8 W4: z.string().uuid() for strict UUID validation.
 	 */
 	router.post("/:id/read", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const id = c.req.param("id");
@@ -447,20 +378,16 @@ export function createNotificationRoutes(
 
 	/**
 	 * GET /mute — return the list of muted notification type keys.
-	 * Used by Settings to render initial toggle states.
 	 */
 	router.get("/mute", requireBoundary({ kind: "public-data" }), async (c) => {
-		const muted = await getMutedTypeKeys(db, opts.notificationsConfig);
+		const muted = await readPreferences(db, opts.deps);
 		return c.json({ muted });
 	});
 
 	/**
 	 * PUT /mute/:key — set mute state for a notification type.
-	 * Validates that :key is a registered type from NOTIFICATION_TYPES.
-	 * Writes via MutePreferenceWriter (factory-level until AF15).
 	 *
-	 * @lore AF8: No rate limiter — idempotent set-to-value, founder-tier auth,
-	 * no fan-out. See architecture §Security for full justification.
+	 * @lore AF8: No rate limiter — idempotent set-to-value, founder-tier auth.
 	 */
 	router.put(
 		"/mute/:key",
@@ -477,8 +404,7 @@ export function createNotificationRoutes(
 				return c.json(response, 400);
 			}
 			const body = c.req.valid("json");
-			const writer = defaultMutePreferenceWriter(db, opts.notificationsConfig);
-			await writer.setMuted(key as NotificationTypeKey, body.muted);
+			await updatePreferences(db, key as NotificationTypeKey, body.muted, opts.deps);
 			return c.json({ ok: true });
 		},
 	);
