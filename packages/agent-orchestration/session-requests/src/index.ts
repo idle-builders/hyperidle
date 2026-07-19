@@ -67,29 +67,12 @@ export {
 	markExplicitSessionStartFailed,
 	projectExplicitSessionStartTerminalState,
 } from "./explicit-session-starts.js";
-export type {
-	AgentWorkIntentReapDeps,
-	AgentWorkIntentWorkerDeps,
-	MarkRequestRunningDeps,
-	SessionRequestsAgentSelectionOutcome,
-	SessionRequestsAgentSelectionRequest,
-	SessionRequestsAgentSelector,
-	SessionRequestsConversationReader,
-	SessionRequestsGrantedProposedCall,
-	SessionRequestsKnowledgeReader,
-	SessionRequestsLifecycleInboxFact,
-	SessionRequestsLifecycleInboxReaper,
-	SessionRequestsLifecycleInboxWriter,
-	SessionRequestsReviewReader,
-	SessionRequestsRoutineReader,
-	SessionRequestsRoutineRunPatch,
-	SessionRequestsSelectionCandidate,
-	SessionRequestsTeamReader,
-	SessionRequestsTriggerHistoryWriter,
-	SessionRequestsTriggerInput,
-	SessionRequestsTriggerResolver,
-	SessionRequestsUserReader,
-	SessionRequestsWorkReader,
-	TerminalizeSessionRequestDeps,
-} from "./ports.js";
+/**
+ * @lore AU20 Ag3a (TYPE-BUNDLE): The ~21 individual SessionRequests*Reader/
+ * Writer structural-mirror types and the 4 per-function mini-bundle types
+ * were collapsed into one DurableAgentQueueDeps contract. Internal files in
+ * this package still import from "./ports.js" directly — only the barrel's
+ * public surface changed. See ports.ts for the full rationale.
+ */
+export type { DurableAgentQueueDeps } from "./ports.js";
 export { sessionRunRegistry } from "./session-run-registry.js";

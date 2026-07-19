@@ -51,23 +51,19 @@ import { getTeamMembers } from "@hyperidle/org";
 import { findProposedCall } from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
 import {
-	type AgentWorkIntentReapDeps,
-	type AgentWorkIntentWorkerDeps,
 	claimAgentWorkIntent as claimAgentWorkIntentInternal,
 	createAgentSessionRequest,
+	type DurableAgentQueueDeps,
 	drainAgentWorkIntents as drainAgentWorkIntentsInternal,
 	findAgentSessionRequestByIdempotencyKey,
 	findAgentSessionRequestBySessionId,
 	findAgentWorkIntentByKindAndSource,
-	type MarkRequestRunningDeps,
 	markRequestRunning as markRequestRunningInternal,
 	reapTerminalAgentWorkIntents as reapTerminalAgentWorkIntentsInternal,
 	recordAgentWorkIntent,
 	renewAgentWorkIntentLease as renewAgentWorkIntentLeaseInternal,
 	resolveAuthoritativeInput as resolveAuthoritativeInputInternal,
-	type SessionRequestsLifecycleInboxFact,
 	type TerminalizeAgentSessionRequestInput,
-	type TerminalizeSessionRequestDeps,
 	terminalizeAgentSessionRequestInTx as terminalizeAgentSessionRequestInTxInternal,
 	terminalizeAgentSessionRequest as terminalizeAgentSessionRequestInternal,
 } from "@hyperidle/session-requests";
@@ -117,35 +113,18 @@ const agentSelectionService = createAgentSelectionService({
 });
 
 // ---------------------------------------------------------------------------
-// agent_lifecycle_inbox — resolved to `@hyperidle/lifecycle-projection`'s
-// real exports (Increment 3d; was an INTERIM raw-table-ops implementation
-// since Increment 3b, see `@hyperidle/session-requests`'s `ports.ts` top
-// `@lore`). `lifecycle-projection` is the real `TABLE_OWNER` of
-// `agent_lifecycle_inbox` — `session-requests` now reaches it through an
-// ordinary same-layer DI port (both are agent-orchestration Services)
-// instead of a raw table access, closing the forward-reference.
+// DurableAgentQueueDeps — single composition-root deps bundle (AU20 Ag3a).
+//
+// @lore AU20 Ag3a: previously 4 separate mini-bundle consts were built and
+// passed to individual functions. DurableAgentQueueDeps is a structural
+// superset of all four: TypeScript structural typing means passing `deps`
+// (or `{ lifecycleInbox: deps.lifecycleInbox }` / `{ triggerHistory: deps.triggerHistory }`)
+// satisfies every internal function's mini-bundle parameter type without
+// runtime wrapping or casting. The individual SessionRequests* port types and
+// mini-bundles remain as internal building blocks inside ports.ts.
 // ---------------------------------------------------------------------------
 
-const lifecycleInboxWriter = {
-	insertIfAbsent(tx: HyperIdleDb, fact: SessionRequestsLifecycleInboxFact): Promise<void> {
-		return insertLifecycleInboxFactIfAbsent(tx, fact satisfies AgentLifecycleInboxFact);
-	},
-};
-
-const lifecycleInboxReaper = {
-	listProjectedBefore(tx: HyperIdleDb, cutoff: string, batchSize: number) {
-		return listProjectedLifecycleInboxBefore(tx, cutoff, batchSize);
-	},
-	deleteByRequestIds(tx: HyperIdleDb, requestIds: readonly string[]): Promise<void> {
-		return deleteLifecycleInboxByRequestIds(tx, requestIds);
-	},
-};
-
-// ---------------------------------------------------------------------------
-// Aggregate deps bundles
-// ---------------------------------------------------------------------------
-
-const agentWorkIntentWorkerDeps: AgentWorkIntentWorkerDeps = {
+const deps: DurableAgentQueueDeps = {
 	routine: {
 		getRoutineRunById: routineService.getRoutineRun,
 		getRoutineById: routineService.getRoutine,
@@ -199,17 +178,19 @@ const agentWorkIntentWorkerDeps: AgentWorkIntentWorkerDeps = {
 				triggerResolutionDeps,
 			),
 	},
-};
-
-const agentWorkIntentReapDeps: AgentWorkIntentReapDeps = {
-	lifecycleInbox: lifecycleInboxReaper,
-};
-
-const terminalizeSessionRequestDeps: TerminalizeSessionRequestDeps = {
-	lifecycleInbox: lifecycleInboxWriter,
-};
-
-const markRequestRunningDeps: MarkRequestRunningDeps = {
+	// Satisfies both SessionRequestsLifecycleInboxWriter (terminalize path)
+	// and SessionRequestsLifecycleInboxReaper (reap path) in one object.
+	lifecycleInbox: {
+		insertIfAbsent(tx, fact) {
+			return insertLifecycleInboxFactIfAbsent(tx, fact satisfies AgentLifecycleInboxFact);
+		},
+		listProjectedBefore(tx: HyperIdleDb, cutoff: string, batchSize: number) {
+			return listProjectedLifecycleInboxBefore(tx, cutoff, batchSize);
+		},
+		deleteByRequestIds(tx: HyperIdleDb, requestIds: readonly string[]): Promise<void> {
+			return deleteLifecycleInboxByRequestIds(tx, requestIds);
+		},
+	},
 	triggerHistory: { recordSessionForResolutionHistory },
 };
 
@@ -227,21 +208,21 @@ export function drainAgentWorkIntents(
 	db: HyperIdleDb,
 	options?: Parameters<typeof drainAgentWorkIntentsInternal>[2],
 ): Promise<void> {
-	return drainAgentWorkIntentsInternal(db, agentWorkIntentWorkerDeps, options);
+	return drainAgentWorkIntentsInternal(db, deps, options);
 }
 
 export function resolveAuthoritativeInput(
 	db: HyperIdleDb,
 	intent: Parameters<typeof resolveAuthoritativeInputInternal>[1],
 ): ReturnType<typeof resolveAuthoritativeInputInternal> {
-	return resolveAuthoritativeInputInternal(db, intent, agentWorkIntentWorkerDeps);
+	return resolveAuthoritativeInputInternal(db, intent, deps);
 }
 
 export function reapTerminalAgentWorkIntents(
 	db: HyperIdleDb,
 	options?: Parameters<typeof reapTerminalAgentWorkIntentsInternal>[2],
 ): ReturnType<typeof reapTerminalAgentWorkIntentsInternal> {
-	return reapTerminalAgentWorkIntentsInternal(db, agentWorkIntentReapDeps, options);
+	return reapTerminalAgentWorkIntentsInternal(db, deps, options);
 }
 
 export function markRequestRunning(
@@ -250,21 +231,21 @@ export function markRequestRunning(
 	sessionId: string,
 	claimToken?: string,
 ): Promise<void> {
-	return markRequestRunningInternal(db, requestId, sessionId, markRequestRunningDeps, claimToken);
+	return markRequestRunningInternal(db, requestId, sessionId, deps, claimToken);
 }
 
 export function terminalizeAgentSessionRequestInTx(
 	tx: HyperIdleDb,
 	input: TerminalizeAgentSessionRequestInput,
 ): ReturnType<typeof terminalizeAgentSessionRequestInTxInternal> {
-	return terminalizeAgentSessionRequestInTxInternal(tx, input, terminalizeSessionRequestDeps);
+	return terminalizeAgentSessionRequestInTxInternal(tx, input, deps);
 }
 
 export function terminalizeAgentSessionRequest(
 	db: HyperIdleDb,
 	input: TerminalizeAgentSessionRequestInput,
 ): ReturnType<typeof terminalizeAgentSessionRequestInternal> {
-	return terminalizeAgentSessionRequestInternal(db, input, terminalizeSessionRequestDeps);
+	return terminalizeAgentSessionRequestInternal(db, input, deps);
 }
 
 export const claimAgentWorkIntent = claimAgentWorkIntentInternal;

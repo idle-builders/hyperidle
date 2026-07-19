@@ -346,3 +346,41 @@ export interface TerminalizeSessionRequestDeps {
 export interface MarkRequestRunningDeps {
 	readonly triggerHistory: SessionRequestsTriggerHistoryWriter;
 }
+
+// ---------------------------------------------------------------------------
+// DurableAgentQueueDeps — the single exported deps contract (AU20 Ag3a).
+//
+// @lore AU20 Ag3a (TYPE-BUNDLE): The ~21 individual SessionRequests*Reader/
+// Writer structural-mirror types and the 4 per-function mini-bundle types
+// (AgentWorkIntentWorkerDeps / AgentWorkIntentReapDeps /
+// TerminalizeSessionRequestDeps / MarkRequestRunningDeps) are internal
+// plumbing — they should never have been the public API surface. This single
+// type is what the composition root declares; TypeScript structural typing
+// ensures it satisfies every function-level mini-bundle automatically
+// (DurableAgentQueueDeps is a strict superset of all four). The internal
+// function signatures are UNCHANGED — only the external barrel export and
+// the composition-root constant declaration change. The individual
+// SessionRequests* types and mini-bundles stay in this file as internal
+// building blocks; they are NOT re-exported from index.ts.
+// ---------------------------------------------------------------------------
+
+/**
+ * Single deps contract for the durable-agent-queue service.
+ *
+ * Extends `AgentWorkIntentWorkerDeps` (gaining all worker fan-out ports) and
+ * adds the two per-function deps that were previously separate mini-bundles:
+ *   - `lifecycleInbox` — satisfies both `SessionRequestsLifecycleInboxWriter`
+ *     (terminalize path) and `SessionRequestsLifecycleInboxReaper` (reap path)
+ *     in one object.
+ *   - `triggerHistory` — satisfies `MarkRequestRunningDeps.triggerHistory`.
+ *
+ * TypeScript structural typing means a `DurableAgentQueueDeps` value also
+ * satisfies `AgentWorkIntentWorkerDeps`, `AgentWorkIntentReapDeps`,
+ * `TerminalizeSessionRequestDeps`, and `MarkRequestRunningDeps` — no
+ * runtime wrapping needed at any call site.
+ */
+export interface DurableAgentQueueDeps extends AgentWorkIntentWorkerDeps {
+	readonly lifecycleInbox: SessionRequestsLifecycleInboxWriter &
+		SessionRequestsLifecycleInboxReaper;
+	readonly triggerHistory: SessionRequestsTriggerHistoryWriter;
+}
