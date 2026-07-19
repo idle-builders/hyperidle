@@ -21,11 +21,11 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KernelKnowledgeStatus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import {
-	archiveItem,
 	changeScope,
 	create as createKnowledgeItem,
 	flagItem,
 	mergeItems,
+	remove,
 	splitItem,
 } from "../knowledge-repository.js";
 import type { KnowledgeStatus } from "../types.js";
@@ -163,7 +163,7 @@ describe("archiveItem exact-behavior lock", () => {
 		const preVersion = item.version;
 		const preUpdatedBy = item.updatedBy;
 
-		const archived = await archiveItem(db, item);
+		const archived = await remove(db, item);
 
 		expect(archived.version).toBe(preVersion);
 		expect(archived.updatedBy).toBe(preUpdatedBy);

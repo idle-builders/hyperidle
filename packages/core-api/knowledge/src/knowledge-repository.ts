@@ -1110,12 +1110,16 @@ export async function splitItem(
 }
 
 /**
- * `POST /:id/archive` — replicates the pre-round-2 route's exact write
- * sequence (§7c): status→archived + updatedAt ONLY — deliberately NO version
- * bump, NO updatedBy rewrite (unlike update(), which unconditionally bumps
- * version on every call — §7a) — plus one `editType:"archive"` edit-log row.
+ * `POST /:id/archive` — soft-deletes by setting status→archived + updatedAt
+ * ONLY — deliberately NO version bump, NO updatedBy rewrite (unlike update(),
+ * which unconditionally bumps version on every call — §7a) — plus one
+ * `editType:"archive"` edit-log row.
+ *
+ * @lore AU20 Ag7c: renamed from `archiveItem` to `remove` to align with the
+ * collapsed write surface (create / update / remove). The archive-with-log
+ * path folds under `remove` — behavior unchanged.
  */
-export async function archiveItem(db: HyperIdleDb, item: KnowledgeItem): Promise<KnowledgeItem> {
+export async function remove(db: HyperIdleDb, item: KnowledgeItem): Promise<KnowledgeItem> {
 	const timestamp = now();
 	await db
 		.update(knowledgeItems)

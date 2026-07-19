@@ -25,7 +25,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { getFilesystemById } from "@hyperidle/filesystems";
 import {
-	archiveItem,
+	remove as archiveKnowledgeItem,
 	changeScope,
 	countAccessesSince,
 	countTriageVisible,
@@ -748,8 +748,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 		// @lore AU14 round 2: exact write sequence (status→archived, NO version bump,
 		// NO updatedBy rewrite, one `editType:"archive"` edit-log row) moved into the
-		// repository's archiveItem — see knowledge-repository.ts §7c.
-		const updated = await archiveItem(db, item);
+		// repository's remove (archiveItem) — see knowledge-repository.ts §7c.
+		const updated = await archiveKnowledgeItem(db, item);
 
 		// O2: emit knowledge_archived event (distinct from knowledge_updated)
 		const archivedEvent: KnowledgeArchivedEvent = {

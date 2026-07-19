@@ -25,170 +25,74 @@
  * `findKnowledgeItemStatusById`) were retired from the barrel entirely —
  * callers replaced with `findById` adapters. The 6 individual DI-port-type
  * exports are bundled into one `KnowledgeDeps` re-export.
+ *
+ * @lore AU20 Ag7b: reads unified — findById/findDetailById/
+ * findKnowledgeItemProjectionById collapsed into `get(id,{view?})`;
+ * 8 specialized list helpers collapsed into `list(filter)` with
+ * discriminated overloads. All row/filter types removed from barrel —
+ * callers infer from function signatures.
+ *
+ * @lore AU20 Ag7c: writes collapsed — `archiveItem` renamed to `remove`
+ * (archive-with-log path folds under `remove`; behavior unchanged).
+ * All per-caller internal types, DI-port types, promotion-pipeline
+ * internals, relevance/scoring internals, FTS internals, practice-meeting
+ * types, and vocabulary types removed from barrel — callers use structural
+ * typing or import from @hyperidle/shared directly. Target surface: ~39 exports
+ * (functions + the two types needed for inline-typed call sites).
  */
 
-// -- attention engine (recompute service + public DI types) --
-/**
- * Bundled DI contract for wiring the knowledge attention service — replaces
- * the 6 individual DI-port-type re-exports (`AttentionServiceDeps`,
- * `AttentionWriteExecutor`, `ReasoningMarkerFinder`, `KnowledgeReviewWriter`,
- * `CreateReviewItemForKnowledgeInput`, `CreateReviewItemForKnowledgeResult`).
- *
- * @lore AU20 Ag7a: these were "inbound DI-port-type mirrors" — types external
- * packages implement to wire into the attention service. Bundling them under
- * one name removes the per-component churn from the public surface.
- */
-export type {
-	AttentionRecomputeResult,
-	AttentionRecomputeScopeError,
-	AttentionRecomputeScopeResult,
-	AttentionRecomputeSummary,
-	AttentionService,
-	AttentionServiceDeps as KnowledgeDeps,
-	AttentionServiceFilter,
-} from "./attention-service.js";
+// -- attention engine (recompute service) --
 export { buildAttentionService, MAX_RECOMPUTE_BATCH } from "./attention-service.js";
 // -- errors --
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
-// -- full-text search --
-export {
-	FTS_MAX_QUERY_CHARS,
-	FTS_MAX_TOKENS,
-	type FtsSearchOptions,
-	ftsSearch,
-	sanitizeFtsQuery,
-	setupFts,
-} from "./fts.js";
-// -- conflicts (knowledgeConflicts accessors, consolidated from retired barrels) --
-export type {
-	CreateKnowledgeConflictInput,
-	RecordWritebackConflictInput,
-} from "./knowledge-conflicts.js";
+// -- full-text search (setup only; ftsSearch/sanitizeFtsQuery are internal) --
+export { setupFts } from "./fts.js";
+// -- conflicts (knowledgeConflicts accessors) --
 export {
 	createKnowledgeConflict,
 	findOpenConflictByItemAndProposer,
 	recordWritebackConflict,
 } from "./knowledge-conflicts.js";
-// -- read (scope vocabulary — KnowledgeScope kept for external DI port typing) --
-// @lore Ag7b: listByScope retired from public barrel (zero external callers; the
-// knowledge-reader.integration.test.ts imports directly from "./knowledge-reader.js").
-// KnowledgeScope kept because core-api/src/index.ts re-exports it for downstream use.
+// -- scope vocabulary (KnowledgeScope kept for core-api/src/index.ts re-export) --
 export type { KnowledgeScope } from "./knowledge-reader.js";
-// -- the CRUD repository (general surface + absorbed per-consumer helpers) --
-// @lore Ag7b: findById, findDetailById, findKnowledgeItemProjectionById, findRelatedByTopic,
-// findRetroKnowledgeItemForBet, listVisibleWithSignals, listRecentByLayers,
-// listExportableKnowledgeItems, listTitlesByIds retired from public barrel — callers
-// migrated to get(id,{view?}) and list(filter) with discriminated return types.
+// -- the CRUD repository --
+// @lore Ag7c: ExportableKnowledgeItemFilters kept — inline-typed by
+// server-factory.ts and git-export-routes.ts via
+// `import("@hyperidle/knowledge").ExportableKnowledgeItemFilters`.
+// All other row/filter types removed (callers infer from return types).
 export {
-	archiveItem,
-	type CreateKnowledgeItemInput,
 	changeScope,
 	countAccessesSince,
 	countTriageVisible,
 	create,
 	type ExportableKnowledgeItemFilters,
-	type ExportableKnowledgeItemRow,
-	type ExportableListFilter,
 	flagItem,
 	get,
-	type KnowledgeDetailRow,
-	type KnowledgeItemProjectionRow,
-	type KnowledgeItemView,
-	type KnowledgeItemWithProjection,
-	type KnowledgeListRow,
-	type ListFilters,
 	list,
 	mergeItems,
-	type RecentByLayersFilter,
-	type RecentLayeredKnowledgeItemRow,
-	type RecordKnowledgeAccessInput,
-	type RelatedByTopicFilter,
-	type RetroExistingKnowledgeItemRow,
-	type RetroForBetFilter,
 	recordKnowledgeAccess,
-	type SearchVisibleKnowledgeRow,
+	remove,
 	search,
 	searchByText,
 	searchVisibleByText,
 	splitItem,
-	type TitlesByIdsFilter,
-	type UpdateKnowledgeItemInput,
-	type UpsertBetRetroKnowledgeItemInput,
 	update,
 	upsertBetRetroKnowledgeItem,
 	upsertKnowledgeAppProjectionAttentionScore,
-	type VisibleWithSignalsFilter,
 } from "./knowledge-repository.js";
-// -- practice-meeting workflow (AU20 Am9: relocated from @hyperidle/review — actual data owner) --
-export type {
-	CreatePracticeMeetingInput,
-	CreatePracticeMeetingResult,
-	PracticeMeetingTurnResult,
-	ProposalInput,
-	ReactionInput,
-	RunPracticeMeetingTurnInput,
-	SynthesisInput,
-} from "./practice-meeting.js";
+// -- practice-meeting workflow --
+export { createPracticeMeeting, runPracticeMeetingTurn } from "./practice-meeting.js";
+// -- promotion pipeline (sweep + promote transition; internals are package-private) --
 export {
-	createPracticeMeeting,
-	PRACTICE_MEETING_ANCHOR_ROLE,
-	runPracticeMeetingTurn,
-} from "./practice-meeting.js";
-// -- promotion pipeline (auto-promotion + stale sweeps + promote transition) --
-export {
-	AUTO_PROMOTION_EDITOR,
-	AUTO_PROMOTION_REPETITION_THRESHOLD,
-	type AutoPromotionResult,
-	type AutoPromotionSweepResult,
-	type ContradictionResult,
-	checkAutoPromotion,
-	DEFAULT_SWEEP_MAX_BATCH_SIZE,
-	detectLayerContradiction,
-	findStaleItems,
-	markStale,
-	type PromoteKnowledgeItemInput,
-	type PromoteKnowledgeItemResult,
 	promoteKnowledgeItem,
 	runAutoPromotionSweep,
 	runStaleSweep,
-	STALE_THRESHOLD_MS,
-	type StaleSweepOptions,
-	type StaleSweepResult,
 } from "./promotion-pipeline.js";
-export type {
-	RelevanceConfig,
-	RelevanceInput,
-	RelevanceShape,
-	RelevanceWeights,
-} from "./relevance-engine.js";
-// -- relevance engine + service + scoring --
-export { computeRelevanceScore, DEFAULT_RELEVANCE_CONFIG } from "./relevance-engine.js";
+// -- relevance engine + service --
 export { registerRelevanceListener } from "./relevance-listener.js";
-export { rankAndBudget, scoreItem } from "./relevance-scoring.js";
-export type { RelevanceService, SignalSet } from "./relevance-service.js";
+export { rankAndBudget } from "./relevance-scoring.js";
 export { createRelevanceService, reapKnowledgeAccessLog } from "./relevance-service.js";
-// -- role/community mapping --
-export { communityForRole } from "./role-community-map.js";
-// -- scoring config (weights, thresholds, token budgets) --
-export {
-	ATTENTION_THRESHOLD,
-	type AttentionWeights,
-	CONTEXT_WINDOW_TOKENS,
-	DEFAULT_KNOWLEDGE_BUDGET,
-	KNOWLEDGE_ALLOCATION_RATIO,
-	loadAttentionWeights,
-	loadRelevanceConfig,
-	loadScoringWeights,
-	type ScoringContext,
-	type ScoringWeights,
-} from "./scoring-config.js";
+// -- scoring config (weights + token budget) --
+export { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 // -- token budgeting --
-export { countItemTokens, countTokens, enforceBudget, type ScoredItem } from "./token-budget.js";
-// -- shared knowledge types --
-export {
-	KNOWLEDGE_STATUSES,
-	type KnowledgeKind,
-	type KnowledgeLayer,
-	type KnowledgeStatus,
-	type PropagationLevel,
-} from "./types.js";
+export { countTokens } from "./token-budget.js";
