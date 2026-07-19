@@ -280,7 +280,10 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 		await insertPendingRow(db, "quiet-block-1", "blocking");
 
 		// Run drain with "now" inside quiet hours
-		const result = await flush(db, notificationsDeps, { adapterOverride: adapter, now: new Date() });
+		const result = await flush(db, notificationsDeps, {
+			adapterOverride: adapter,
+			now: new Date(),
+		});
 		expect(result.deferred).toBeGreaterThan(0);
 
 		// Row should still be pending

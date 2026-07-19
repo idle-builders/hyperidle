@@ -22,7 +22,7 @@ const digestDeps = {
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 	},
 	verdicts: {
-		listVerdictItemIds: (db, itemIds) =>
+		listVerdictItemIds: (db: HyperIdleDb, itemIds: string[]) =>
 			listMessages(db, { types: ["verdict"], legacyItemIds: itemIds }).then((msgs) => [
 				...new Set(msgs.map((m) => m.legacyItemId).filter((id): id is string => id !== null)),
 			]),

@@ -32,6 +32,12 @@
  * `enqueue` and the package-internal `enqueueNotification` share one ceiling.
  */
 
+// -- config (public patch shape + safe read-only projection) --
+export type { NotificationConfigPatch, SafeNotificationConfig } from "./config.js";
+// -- daily digest query (status route) --
+export { getDailyDigest } from "./daily-digest.js";
+// -- digest dispatch result type --
+export type { DigestResult } from "./digest.js";
 // -- delivery chain entry point (config-driven, wires dispatcher+listener+drain) --
 export {
 	flush,
@@ -43,14 +49,6 @@ export {
 	updateConfig,
 	updatePreferences,
 } from "./install.js";
-// -- collapsed deps bag (replaces 15 individual port types) --
-export type { NotificationsDeps } from "./ports.js";
-// -- config (public patch shape + safe read-only projection) --
-export type { NotificationConfigPatch, SafeNotificationConfig } from "./config.js";
-// -- daily digest query (status route) --
-export { getDailyDigest } from "./daily-digest.js";
-// -- digest dispatch result type --
-export type { DigestResult } from "./digest.js";
 // -- notification queue (public CRUD surface from Ag6a) --
 // EnqueueOptions, NotificationFilter, NotificationPatch, NotificationSelector
 // are module-internal types (zero external importers); callers use inline
@@ -61,8 +59,19 @@ export {
 	markNotifications,
 	reap,
 } from "./notification-queue.js";
+// -- collapsed deps bag (replaces 15 individual port types) --
+// @lore AU20 Ag6b-fix: `NotificationsSilenceDeps` was NOT dead — `isSilenced`
+// (exported below) takes it as a parameter, and `packages/core-api/src/__tests__/
+// {AD4-,}policy-engine.integration.test.ts` + `silence-policy.integration.test.ts`
+// build one to call `isSilenced` directly. Re-exporting the existing
+// package-internal type (unchanged shape) restores usability without
+// widening the barrel with new ports.
+export type { NotificationsDeps, NotificationsSilenceDeps } from "./ports.js";
 // -- silence policy predicate (used by @hyperidle/policy via composition root) --
-export { isSilenced } from "./silence-policy.js";
+// @lore AU20 Ag6b-fix: `isInSilenceWindow` restored — pure predicate with a
+// real external consumer (`silence-policy.integration.test.ts`'s unit-style
+// coverage of the window math), mistakenly dropped as "zero importers".
+export { isInSilenceWindow, isSilenced } from "./silence-policy.js";
 // -- wire shapes shared with consumers --
 export type {
 	Notification,

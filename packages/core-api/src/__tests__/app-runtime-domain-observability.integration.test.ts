@@ -4,12 +4,7 @@ import {
 	knowledgeAppProjection,
 	users,
 } from "@hyperidle/db";
-import {
-	enqueue,
-	flush,
-	listNotifications,
-	updateConfig,
-} from "@hyperidle/notifications";
+import { enqueue, flush, listNotifications, updateConfig } from "@hyperidle/notifications";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../test-fixtures.js";

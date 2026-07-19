@@ -10,6 +10,7 @@ import {
 	readConfig,
 	readPreferences,
 	runDigest,
+	type SafeNotificationConfig,
 	sendTest,
 	updateConfig,
 	updatePreferences,
@@ -188,7 +189,7 @@ export function createNotificationRoutes(
 		async (c) => {
 			const body = c.req.valid("json");
 			const diff = auditDiff(body);
-			let updated;
+			let updated: SafeNotificationConfig;
 			try {
 				updated = await updateConfig(db, body, opts.deps);
 			} catch (err) {

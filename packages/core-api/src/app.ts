@@ -12,10 +12,7 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { AssistantTurnDeps } from "@hyperidle/dispatch";
 import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { McpBridgeRegistry } from "@hyperidle/mcp-provider";
-import {
-	type NotificationAdapter,
-	type NotificationsDeps,
-} from "@hyperidle/notifications";
+import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import {
 	type ObservabilityConfig,
 	type ObservabilityDeps,

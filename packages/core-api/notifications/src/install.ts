@@ -11,15 +11,15 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus, Logger, NotificationTypeKey } from "@hyperidle/shared";
 import { defaultNotificationAdapterFactory } from "./adapter-factory.js";
 import {
 	loadNotificationConfig,
+	type NotificationConfig,
+	type NotificationConfigPatch,
 	pickRecipient,
 	readNotificationConfig,
 	redactNotificationConfig,
-	updateNotificationConfig,
-	type NotificationConfig,
-	type NotificationConfigPatch,
 	type SafeNotificationConfig,
 	sanitizeCron,
 	sanitizeEmail,
@@ -27,12 +27,17 @@ import {
 	sanitizeSmtpCredential,
 	sanitizeSmtpHost,
 	sanitizeTopic,
+	updateNotificationConfig,
 } from "./config.js";
-import { dispatchDigest, flushQueue, registerNotificationDispatcher } from "./dispatcher.js";
-import type { AlertPreferences } from "./dispatcher.js";
 import type { DigestResult } from "./digest.js";
+import type { AlertPreferences } from "./dispatcher.js";
+import { dispatchDigest, flushQueue, registerNotificationDispatcher } from "./dispatcher.js";
 import { startNotificationDrain } from "./drain.js";
-import { getMutedTypeKeys, defaultMutePreferenceReader, defaultMutePreferenceWriter } from "./mute.js";
+import {
+	defaultMutePreferenceReader,
+	defaultMutePreferenceWriter,
+	getMutedTypeKeys,
+} from "./mute.js";
 import { registerNotificationListener } from "./notification-listener.js";
 import type {
 	NotificationsConfigDeps,
@@ -40,11 +45,6 @@ import type {
 	NotificationsMuteDeps,
 	NotificationsSilenceDeps,
 } from "./ports.js";
-import type {
-	EventBus,
-	Logger,
-	NotificationTypeKey,
-} from "@hyperidle/shared";
 import type { NotificationAdapter, NotificationChannel } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -315,7 +315,13 @@ export async function sendTest(
 	channel: NotificationChannel | undefined,
 	deps: NotificationsDeps,
 	adapterOverride?: NotificationAdapter,
-): Promise<{ ok: boolean; channel: NotificationChannel; sentAt?: string; error?: string; retriable?: boolean }> {
+): Promise<{
+	ok: boolean;
+	channel: NotificationChannel;
+	sentAt?: string;
+	error?: string;
+	retriable?: boolean;
+}> {
 	const cfg = await readNotificationConfig(db, toConfigDeps(deps));
 	const ch: NotificationChannel = channel ?? cfg.primaryChannel;
 	const recipient = pickRecipient(cfg, ch);
@@ -327,7 +333,8 @@ export async function sendTest(
 			retriable: false,
 		};
 	}
-	const adapter = adapterOverride ?? defaultNotificationAdapterFactory({ ...cfg, primaryChannel: ch });
+	const adapter =
+		adapterOverride ?? defaultNotificationAdapterFactory({ ...cfg, primaryChannel: ch });
 	try {
 		const result = await adapter.send(recipient, {
 			title: "HyperIdle notification test",
