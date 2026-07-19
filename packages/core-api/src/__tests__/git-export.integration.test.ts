@@ -44,10 +44,7 @@ import {
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
 } from "@hyperidle/git-export/testing";
-import {
-	findKnowledgeItemProjectionById,
-	listExportableKnowledgeItems,
-} from "@hyperidle/knowledge";
+import { get as getKnowledgeItem, list as listKnowledgeItems } from "@hyperidle/knowledge";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
@@ -56,8 +53,12 @@ import { expect, test } from "../test-fixtures.js";
 
 const serverConfig = { read: readServerConfig, update: updateServerConfig };
 const knowledgeReader = {
-	listExportableItems: listExportableKnowledgeItems,
-	getProjectionByItemId: findKnowledgeItemProjectionById,
+	listExportableItems: (
+		db: import("@hyperidle/db").HyperIdleDb,
+		filters: import("@hyperidle/knowledge").ExportableKnowledgeItemFilters,
+	) => listKnowledgeItems(db, { exportable: filters }),
+	getProjectionByItemId: (db: import("@hyperidle/db").HyperIdleDb, id: string) =>
+		getKnowledgeItem(db, id, { view: "projection" }),
 };
 
 type GitCall =

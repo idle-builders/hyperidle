@@ -50,7 +50,7 @@ import { LocalSandboxAdapter } from "@hyperidle/harness-registry";
 import {
 	buildAttentionService,
 	createPracticeMeeting,
-	listRecentByLayers,
+	list as listKnowledgeItems,
 	runAutoPromotionSweep,
 	runStaleSweep,
 } from "@hyperidle/knowledge";
@@ -205,7 +205,8 @@ const dispatchPorts: DispatchPorts = {
 		runAutoPromotionSweep: (db, eventBus) => runAutoPromotionSweep(db, eventBus),
 		runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
 			runStaleSweep(db, eventBus, nowMs, thresholdMs, options),
-		listRecentByLayers,
+		listRecentByLayers: (db, layers, since) =>
+			listKnowledgeItems(db, { recentByLayers: { layers, since } }),
 		recomputeAttentionForCandidates,
 	},
 	toolHandlers: {

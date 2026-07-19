@@ -7,10 +7,7 @@ import {
 	runGitExport,
 	updateGitExportConfig,
 } from "@hyperidle/git-export";
-import {
-	findKnowledgeItemProjectionById,
-	listExportableKnowledgeItems,
-} from "@hyperidle/knowledge";
+import { get as getKnowledgeItem, list as listKnowledgeItems } from "@hyperidle/knowledge";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
@@ -21,8 +18,12 @@ import { validateBody } from "../middleware/validate.js";
 
 const gitExportServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 const gitExportKnowledgeReader = {
-	listExportableItems: listExportableKnowledgeItems,
-	getProjectionByItemId: findKnowledgeItemProjectionById,
+	listExportableItems: (
+		db: import("@hyperidle/db").HyperIdleDb,
+		filters: import("@hyperidle/knowledge").ExportableKnowledgeItemFilters,
+	) => listKnowledgeItems(db, { exportable: filters }),
+	getProjectionByItemId: (db: import("@hyperidle/db").HyperIdleDb, id: string) =>
+		getKnowledgeItem(db, id, { view: "projection" }),
 };
 
 const patchConfigSchema = z

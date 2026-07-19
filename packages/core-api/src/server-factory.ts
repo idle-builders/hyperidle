@@ -39,8 +39,8 @@ import {
 } from "@hyperidle/harness-registry";
 import {
 	create as createKnowledgeItem,
-	findKnowledgeItemProjectionById,
-	listExportableKnowledgeItems,
+	get as getKnowledgeItem,
+	list as listKnowledgeItems,
 	reapKnowledgeAccessLog,
 	recordWritebackConflict,
 	registerRelevanceListener,
@@ -132,8 +132,12 @@ const notificationsServerConfigPort = { read: readServerConfig, update: updateSe
  */
 const gitExportServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 const gitExportKnowledgeReader = {
-	listExportableItems: listExportableKnowledgeItems,
-	getProjectionByItemId: findKnowledgeItemProjectionById,
+	listExportableItems: (
+		db: import("@hyperidle/db").HyperIdleDb,
+		filters: import("@hyperidle/knowledge").ExportableKnowledgeItemFilters,
+	) => listKnowledgeItems(db, { exportable: filters }),
+	getProjectionByItemId: (db: import("@hyperidle/db").HyperIdleDb, id: string) =>
+		getKnowledgeItem(db, id, { view: "projection" }),
 };
 
 /**

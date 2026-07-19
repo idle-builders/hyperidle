@@ -19,7 +19,6 @@ import {
 } from "@hyperidle/db";
 
 import { type KernelKnowledgeStatus, type SCOPE_KINDS, scopeToLayer } from "@hyperidle/shared";
-
 import { and, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { type FtsSearchOptions, ftsSearch } from "./fts.js";
@@ -100,6 +99,51 @@ export interface ListFilters {
 	limit?: number;
 	offset?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Ag7b: Discriminated filter variant types for the overloaded list() interface
+// ---------------------------------------------------------------------------
+
+/** Filter variant: all items visible to viewerUserId (Q2) with L22 signals. */
+export interface VisibleWithSignalsFilter {
+	readonly visibleWithSignals: string;
+}
+
+/** Filter variant: find the existing retro knowledge item for a bet. Returns single item or null. */
+export interface RetroForBetFilter {
+	readonly retroForBet: string;
+}
+
+/** Filter variant: batched title lookup by ids. */
+export interface TitlesByIdsFilter {
+	readonly titlesByIds: readonly string[];
+}
+
+/** Filter variant: items whose projection layer is in `layers` and updatedAt >= since. */
+export interface RecentByLayersFilter {
+	readonly recentByLayers: {
+		readonly layers: readonly string[];
+		readonly since: string;
+	};
+}
+
+/** Filter variant: items whose projection layer/status matches export criteria. */
+export interface ExportableListFilter {
+	readonly exportable: ExportableKnowledgeItemFilters;
+}
+
+/** Filter variant: same-topic items visible to viewerUserId, capped at limit. */
+export interface RelatedByTopicFilter {
+	readonly relatedByTopic: {
+		readonly topic: string;
+		readonly excludeId: string;
+		readonly viewerUserId: string;
+		readonly limit: number;
+	};
+}
+
+/** Discriminant for get() — selects which projection view to return. */
+export type KnowledgeItemView = "summary" | "detail" | "projection";
 
 /**
  * Augments the kernel KnowledgeItem with app-runtime fields from the
@@ -409,7 +453,15 @@ export async function update(
 	return result.updated;
 }
 
-export async function list(
+/**
+ * Internal base implementation: filter by projection fields (layer/scopeId/kind) and
+ * kernel fields (topic). Called by the public overloaded `list()` for the base case.
+ *
+ * @lore Ag7b: renamed from `list` to `listBase` so the public `list()` can carry
+ * discriminated overloads for all the specialized filter variants (visible-with-signals,
+ * retro-for-bet, etc.) without colliding with the base ListFilters signature.
+ */
+async function listBase(
 	db: HyperIdleDb,
 	filters: ListFilters = {},
 ): Promise<KnowledgeItemWithProjection[]> {
@@ -473,6 +525,129 @@ export async function list(
 		.offset(offset);
 
 	return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
+}
+
+// ---------------------------------------------------------------------------
+// Ag7b: Unified get(id, {view?}) — replaces findById / findDetailById /
+// findKnowledgeItemProjectionById as the single id-based reader.
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a knowledge item by id with a discriminated view selection.
+ *
+ * - `{view: 'detail'}` → kernel row LEFT JOINed with projection (kind/layer/confidence/scores)
+ * - `{view: 'projection'}` → projection layer+kind only (for git-export event handler)
+ * - default / `{view: 'summary'}` → raw kernel row (KnowledgeItem)
+ *
+ * @lore Ag7b: Collapses findById / findDetailById / findKnowledgeItemProjectionById
+ * into one entry point with a discriminated return type so callers get the precise
+ * shape they need without widening to a common any-bag.
+ */
+export function get(
+	db: HyperIdleDb,
+	id: string,
+	opts: { view: "detail" },
+): Promise<KnowledgeDetailRow | null>;
+export function get(
+	db: HyperIdleDb,
+	id: string,
+	opts: { view: "projection" },
+): Promise<KnowledgeItemProjectionRow | null>;
+export function get(
+	db: HyperIdleDb,
+	id: string,
+	opts?: { view?: "summary" },
+): Promise<KnowledgeItem | null>;
+export async function get(
+	db: HyperIdleDb,
+	id: string,
+	opts?: { view?: KnowledgeItemView },
+): Promise<KnowledgeItem | KnowledgeDetailRow | KnowledgeItemProjectionRow | null> {
+	switch (opts?.view) {
+		case "detail":
+			return findDetailById(db, id);
+		case "projection":
+			return findKnowledgeItemProjectionById(db, id);
+		default:
+			return findById(db, id);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Ag7b: Unified list(filter) — overloaded to replace the ~8 individual listers
+// with discriminated return types so callers get precise shapes, not any-bags.
+// ---------------------------------------------------------------------------
+
+/**
+ * List knowledge items with a discriminated filter.
+ *
+ * Discriminated variants (first matching wins):
+ * - `{scope}` → items in scopeKind+scopeId (replaces listByScope)
+ * - `{visibleWithSignals}` → all items visible to viewerUserId with L22 signals (replaces listVisibleWithSignals)
+ * - `{retroForBet}` → the single retro knowledge item for a bet (replaces findRetroKnowledgeItemForBet)
+ * - `{titlesByIds}` → batched title lookup (replaces listTitlesByIds)
+ * - `{recentByLayers}` → items in given layers updated since a cutoff (replaces listRecentByLayers)
+ * - `{exportable}` → items with matching layer/status for git export (replaces listExportableKnowledgeItems)
+ * - `{relatedByTopic}` → same-topic items visible to viewer (replaces findRelatedByTopic)
+ * - base `ListFilters` → projection-joined filtered list (original list() behavior)
+ *
+ * @lore Ag7b: Each variant has a unique required discriminant property so TypeScript
+ * overload resolution picks the precise return type at the call site — no widened any-bags.
+ */
+export function list(
+	db: HyperIdleDb,
+	filter: VisibleWithSignalsFilter,
+): Promise<KnowledgeListRow[]>;
+export function list(
+	db: HyperIdleDb,
+	filter: RetroForBetFilter,
+): Promise<RetroExistingKnowledgeItemRow | null>;
+export function list(
+	db: HyperIdleDb,
+	filter: TitlesByIdsFilter,
+): Promise<Array<{ id: string; title: string }>>;
+export function list(
+	db: HyperIdleDb,
+	filter: RecentByLayersFilter,
+): Promise<readonly RecentLayeredKnowledgeItemRow[]>;
+export function list(
+	db: HyperIdleDb,
+	filter: ExportableListFilter,
+): Promise<readonly ExportableKnowledgeItemRow[]>;
+export function list(
+	db: HyperIdleDb,
+	filter: RelatedByTopicFilter,
+): Promise<Array<{ id: string; title: string }>>;
+export function list(db: HyperIdleDb, filter?: ListFilters): Promise<KnowledgeItemWithProjection[]>;
+export async function list(
+	db: HyperIdleDb,
+	filter?:
+		| VisibleWithSignalsFilter
+		| RetroForBetFilter
+		| TitlesByIdsFilter
+		| RecentByLayersFilter
+		| ExportableListFilter
+		| RelatedByTopicFilter
+		| ListFilters,
+): Promise<
+	| KnowledgeItemWithProjection[]
+	| KnowledgeListRow[]
+	| RetroExistingKnowledgeItemRow
+	| null
+	| readonly { id: string; title: string }[]
+	| readonly RecentLayeredKnowledgeItemRow[]
+	| readonly ExportableKnowledgeItemRow[]
+> {
+	if (!filter) return listBase(db);
+	if ("visibleWithSignals" in filter) return listVisibleWithSignals(db, filter.visibleWithSignals);
+	if ("retroForBet" in filter) return findRetroKnowledgeItemForBet(db, filter.retroForBet);
+	if ("titlesByIds" in filter) return listTitlesByIds(db, filter.titlesByIds);
+	if ("recentByLayers" in filter)
+		return listRecentByLayers(db, filter.recentByLayers.layers, filter.recentByLayers.since);
+	if ("exportable" in filter) return listExportableKnowledgeItems(db, filter.exportable);
+	if ("relatedByTopic" in filter) return findRelatedByTopic(db, filter.relatedByTopic);
+	// Base ListFilters case
+	return listBase(db, filter);
 }
 
 export async function search(

@@ -1,8 +1,8 @@
 import { getArtifactThreadSummaries } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	findById as findKnowledgeItemById,
-	findRetroKnowledgeItemForBet,
+	get as getKnowledgeItem,
+	list as listKnowledgeItems,
 	upsertBetRetroKnowledgeItem,
 } from "@hyperidle/knowledge";
 import {
@@ -517,7 +517,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// Lookup happens per-bet (already on PK path) — no index needed.
 		let sourceKnowledge: { id: string; title: string } | null = null;
 		if (sourceKnowledgeItemId != null) {
-			const srcItem = await findKnowledgeItemById(db, sourceKnowledgeItemId);
+			const srcItem = await getKnowledgeItem(db, sourceKnowledgeItemId);
 			sourceKnowledge = srcItem ? { id: srcItem.id, title: srcItem.title } : null;
 		}
 
@@ -571,7 +571,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// AK5: validate sourceKnowledgeItemId refers to an existing knowledge item.
 			// Guards dangling provenance FK — the column has onDelete:"restrict".
 			if (body.sourceKnowledgeItemId !== undefined) {
-				const srcItem = await findKnowledgeItemById(db, body.sourceKnowledgeItemId);
+				const srcItem = await getKnowledgeItem(db, body.sourceKnowledgeItemId);
 				if (!srcItem) {
 					return c.json(
 						{
@@ -1032,7 +1032,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// `@hyperidle/knowledge`'s `findRetroKnowledgeItemForBet`/
 			// `upsertBetRetroKnowledgeItem` — same exact write sequence
 			// (update-with-meta-merge vs insert), zero behavior change.
-			const existingKi = await findRetroKnowledgeItemForBet(db, betId);
+			const existingKi = await listKnowledgeItems(db, { retroForBet: betId });
 			const retroKnowledgeItemId = existingKi ? existingKi.id : crypto.randomUUID();
 			const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
 

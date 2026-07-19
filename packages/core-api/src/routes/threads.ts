@@ -28,7 +28,7 @@ import {
 	type HyperIdleDb,
 	sessions,
 } from "@hyperidle/db";
-import { findById as findKnowledgeItemById, listTitlesByIds } from "@hyperidle/knowledge";
+import { get as getKnowledgeItem, list as listKnowledgeItems } from "@hyperidle/knowledge";
 import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import type {
 	AgentOperationalStatus,
@@ -310,7 +310,7 @@ async function resolveHostTitle(
 			return row?.title ?? null;
 		}
 		case "knowledge_item": {
-			const row = await findKnowledgeItemById(db, hostId);
+			const row = await getKnowledgeItem(db, hostId);
 			return row?.title ?? null;
 		}
 		default:
@@ -410,7 +410,7 @@ async function resolveThreadTitles(
 		work.list(db, "bet", { ids: betIds }),
 		work.list(db, "task", { ids: taskIds }),
 		kiIds.length > 0
-			? listTitlesByIds(db, kiIds)
+			? listKnowledgeItems(db, { titlesByIds: kiIds })
 			: Promise.resolve([] as ReadonlyArray<{ id: string; title: string }>),
 		allParticipantIds.size > 0
 			? listUsers(db, { ids: [...allParticipantIds] })

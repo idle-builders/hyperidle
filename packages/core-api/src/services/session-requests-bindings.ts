@@ -54,7 +54,7 @@ import type {
 	HyperIdleDb,
 	WriteExecutor,
 } from "@hyperidle/db";
-import { findById as findKnowledgeItemById } from "@hyperidle/knowledge";
+import { get as getKnowledgeItem } from "@hyperidle/knowledge";
 import {
 	type AgentLifecycleInboxFact,
 	deleteLifecycleInboxByRequestIds,
@@ -217,7 +217,9 @@ const deps: DurableAgentQueueDeps = {
 			return { call: view.call, grant: view.grant };
 		},
 	},
-	knowledge: { findById: findKnowledgeItemById },
+	knowledge: {
+		findById: (db: import("@hyperidle/db").HyperIdleDb, id: string) => getKnowledgeItem(db, id),
+	},
 	triggerResolver: {
 		resolveAndCreate: (db, input) =>
 			createTriggeredAgentSessionRequest(

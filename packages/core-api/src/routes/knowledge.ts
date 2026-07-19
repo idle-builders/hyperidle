@@ -30,12 +30,10 @@ import {
 	countAccessesSince,
 	countTriageVisible,
 	create as createKnowledgeItem,
-	findById,
-	findDetailById,
-	findRelatedByTopic,
 	flagItem,
+	get as getKnowledgeItem,
 	ItemDeletedError,
-	listVisibleWithSignals,
+	list as listKnowledgeItems,
 	mergeItems,
 	recordKnowledgeAccess,
 	searchByText,
@@ -308,7 +306,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
 		// access-signal aggregation all moved into the repository's
 		// listVisibleWithSignals — see knowledge-repository.ts §6.
-		const rows = await listVisibleWithSignals(db, userId);
+		const rows = await listKnowledgeItems(db, { visibleWithSignals: userId });
 
 		const items = rows.map(
 			({ item, relevanceScore, attentionScore, accessCount30d, lastActivityAt }) => ({
@@ -350,7 +348,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 		// @lore AU14 round 2: kernel row + projection LEFT JOIN moved into the
 		// repository's findDetailById. Q2 stays a route-side 404 decision (§5).
-		const row = await findDetailById(db, id);
+		const row = await getKnowledgeItem(db, id, { view: "detail" });
 
 		if (!row) {
 			const response: ApiErrorResponse = {
@@ -382,11 +380,13 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// User-scope filter: exclude other users' private (user-scoped) items.
 		let relatedItems: Array<{ id: string; title: string }> = [];
 		if (item.topic !== null) {
-			relatedItems = await findRelatedByTopic(db, {
-				topic: item.topic,
-				excludeId: item.id,
-				viewerUserId: userId,
-				limit: 10,
+			relatedItems = await listKnowledgeItems(db, {
+				relatedByTopic: {
+					topic: item.topic,
+					excludeId: item.id,
+					viewerUserId: userId,
+					limit: 10,
+				},
 			});
 		}
 
@@ -481,7 +481,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			// Response shape preserved: re-select the raw kernel row (not the repo's
 			// KnowledgeItemWithProjection, which carries extra projection fields) so the
 			// 201 body stays byte-identical to pre-AU14.
-			const row = await findById(db, created.id);
+			const row = await getKnowledgeItem(db, created.id);
 
 			// O2: emit knowledge_created event
 			const createdEvent: KnowledgeCreatedEvent = {
@@ -506,7 +506,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof changeScopeSchema>;
 
-			const existing = await findById(db, id);
+			const existing = await getKnowledgeItem(db, id);
 
 			if (!existing) {
 				const response: ApiErrorResponse = {
@@ -572,7 +572,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
 
-			const existing = await findById(db, id);
+			const existing = await getKnowledgeItem(db, id);
 
 			if (!existing) {
 				const response: ApiErrorResponse = {
@@ -625,7 +625,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				throw error;
 			}
 
-			const updated = await findById(db, id);
+			const updated = await getKnowledgeItem(db, id);
 
 			// O2: emit knowledge_updated event
 			const updatedEvent: KnowledgeUpdatedEvent = {
@@ -650,7 +650,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const targetId = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
 
-			const target = await findById(db, targetId);
+			const target = await getKnowledgeItem(db, targetId);
 
 			if (!target) {
 				const response: ApiErrorResponse = {
@@ -660,7 +660,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 404);
 			}
 
-			const source = await findById(db, body.sourceId);
+			const source = await getKnowledgeItem(db, body.sourceId);
 
 			if (!source) {
 				const response: ApiErrorResponse = {
@@ -698,7 +698,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
 
-			const original = await findById(db, id);
+			const original = await getKnowledgeItem(db, id);
 
 			if (!original) {
 				const response: ApiErrorResponse = {
@@ -736,7 +736,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	router.post("/:id/archive", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
-		const item = await findById(db, id);
+		const item = await getKnowledgeItem(db, id);
 
 		if (!item) {
 			const response: ApiErrorResponse = {
@@ -773,7 +773,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof flagSchema>;
 
-			const item = await findById(db, id);
+			const item = await getKnowledgeItem(db, id);
 
 			if (!item) {
 				const response: ApiErrorResponse = {
@@ -814,7 +814,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					});
 			});
 
-			const updated = await findById(db, id);
+			const updated = await getKnowledgeItem(db, id);
 
 			// O2: emit knowledge_updated with action "flagged"
 			const flaggedEvent: KnowledgeUpdatedEvent = {

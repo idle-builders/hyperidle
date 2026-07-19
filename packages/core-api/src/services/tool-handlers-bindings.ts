@@ -31,8 +31,8 @@ import {
 	buildAttentionService,
 	createKnowledgeConflict,
 	create as createKnowledgeItem,
-	findById as findKnowledgeItemById,
 	findOpenConflictByItemAndProposer,
+	get as getKnowledgeItem,
 	promoteKnowledgeItem,
 	search as searchKnowledge,
 	upsertKnowledgeAppProjectionAttentionScore,
@@ -237,11 +237,11 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 		// findById). Adapted here at the composition boundary — findById returns the
 		// full KnowledgeItem (structurally compatible with both port shapes).
 		findKnowledgeItemVersionById: async (db, id) => {
-			const item = await findKnowledgeItemById(db, id);
+			const item = await getKnowledgeItem(db, id);
 			return item ?? undefined;
 		},
 		findKnowledgeItemStatusById: async (db, id) => {
-			const item = await findKnowledgeItemById(db, id);
+			const item = await getKnowledgeItem(db, id);
 			return item ?? undefined;
 		},
 		findOpenConflictByItemAndProposer,

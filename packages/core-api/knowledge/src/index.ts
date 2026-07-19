@@ -69,10 +69,16 @@ export {
 	findOpenConflictByItemAndProposer,
 	recordWritebackConflict,
 } from "./knowledge-conflicts.js";
-// -- read (scope-based; the Increment 0 KnowledgeReader edge for context-assembly) --
+// -- read (scope vocabulary — KnowledgeScope kept for external DI port typing) --
+// @lore Ag7b: listByScope retired from public barrel (zero external callers; the
+// knowledge-reader.integration.test.ts imports directly from "./knowledge-reader.js").
+// KnowledgeScope kept because core-api/src/index.ts re-exports it for downstream use.
 export type { KnowledgeScope } from "./knowledge-reader.js";
-export { listByScope } from "./knowledge-reader.js";
 // -- the CRUD repository (general surface + absorbed per-consumer helpers) --
+// @lore Ag7b: findById, findDetailById, findKnowledgeItemProjectionById, findRelatedByTopic,
+// findRetroKnowledgeItemForBet, listVisibleWithSignals, listRecentByLayers,
+// listExportableKnowledgeItems, listTitlesByIds retired from public barrel — callers
+// migrated to get(id,{view?}) and list(filter) with discriminated return types.
 export {
 	archiveItem,
 	type CreateKnowledgeItemInput,
@@ -82,37 +88,36 @@ export {
 	create,
 	type ExportableKnowledgeItemFilters,
 	type ExportableKnowledgeItemRow,
-	findById,
-	findDetailById,
-	findKnowledgeItemProjectionById,
-	findRelatedByTopic,
-	findRetroKnowledgeItemForBet,
+	type ExportableListFilter,
 	flagItem,
+	get,
 	type KnowledgeDetailRow,
 	type KnowledgeItemProjectionRow,
+	type KnowledgeItemView,
 	type KnowledgeItemWithProjection,
 	type KnowledgeListRow,
 	type ListFilters,
 	list,
-	listExportableKnowledgeItems,
-	listRecentByLayers,
-	listTitlesByIds,
-	listVisibleWithSignals,
 	mergeItems,
+	type RecentByLayersFilter,
 	type RecentLayeredKnowledgeItemRow,
 	type RecordKnowledgeAccessInput,
+	type RelatedByTopicFilter,
 	type RetroExistingKnowledgeItemRow,
+	type RetroForBetFilter,
 	recordKnowledgeAccess,
 	type SearchVisibleKnowledgeRow,
 	search,
 	searchByText,
 	searchVisibleByText,
 	splitItem,
+	type TitlesByIdsFilter,
 	type UpdateKnowledgeItemInput,
 	type UpsertBetRetroKnowledgeItemInput,
 	update,
 	upsertBetRetroKnowledgeItem,
 	upsertKnowledgeAppProjectionAttentionScore,
+	type VisibleWithSignalsFilter,
 } from "./knowledge-repository.js";
 // -- practice-meeting workflow (AU20 Am9: relocated from @hyperidle/review — actual data owner) --
 export type {
