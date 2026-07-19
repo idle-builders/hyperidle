@@ -37,7 +37,7 @@ import {
 } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { findUser, listUsers } from "@hyperidle/users";
-import type { AgentSelectionDefaults, BetDecompositionDeps } from "@hyperidle/work";
+import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
 import { runBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
@@ -88,7 +88,7 @@ const productionPorts = {
 			const pm = input.candidates.find((c) => c.role === "product_manager") ?? input.candidates[0];
 			return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 		},
-	} satisfies AgentSelectionDefaults,
+	} satisfies WorkDeps["agentSelection"],
 	users: {
 		getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
 		listActiveAiUsersByTeams: (db: HyperIdleDb, teamIds: string[]) =>

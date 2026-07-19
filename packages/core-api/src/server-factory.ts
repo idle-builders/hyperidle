@@ -97,6 +97,7 @@ import {
 	transitionTaskState,
 	updateItemById,
 	updateTaskById,
+	type WorkDeps,
 } from "@hyperidle/work";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
@@ -744,23 +745,16 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	// AK3 §2: Register the kernel-side bet decomposition subscriber.
 	// Deps: all already available from the dispatcherDeps wiring above.
-	const disposeBetDecomp = registerBetDecomposition({
-		db,
-		eventBus,
-		adapterPool,
-		sandboxBasePath,
-		resolveModel: makeResolveModel(db, credentialResolver),
-		// AU19 Increment 1b: `work`'s four outbound DI ports (Mechanism C) — the
-		// concrete implementation for `workIntents` still lives in packages/server
-		// (session-requests has not migrated yet); `agentSelection`/`costCap`
-		// wire to real Service packages (`agent-selection` since Increment 3e,
-		// `cost` since Increment 3g — `costCap` is RULED PERMANENT, not an
-		// EventBus-inversion target, see `@hyperidle/work`'s `ports.ts` top
-		// `@lore`). See packages/core-api/work/src/ports.ts for the port
-		// contracts.
+	//
+	// @lore AU20 Ag5a: `WorkDeps` bundles the five inbound DI ports — wired
+	// ONCE here at the composition root. Spread into `registerBetDecomposition`
+	// (and any future function that needs the full set); sub-shapes are
+	// extracted where a function only needs a subset (e.g. `transitionTask`
+	// takes `TaskStateMachineDeps` with only `workIntents`).
+	const workDeps: WorkDeps = {
+		// @lore AU20 Ab4: adapts new AgentSelectionService methods to work's
+		// AgentSelectionDefaults structural-mirror port (unchanged in work/ports.ts).
 		agentSelection: {
-			// @lore AU20 Ab4: adapts new AgentSelectionService methods to work's
-			// AgentSelectionDefaults structural-mirror port (unchanged in work/ports.ts).
 			enumerateTeamCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
 			selectOwner: (occDeps, occasion) =>
 				agentSelectionService
@@ -796,6 +790,14 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
 			setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 		},
+	};
+	const disposeBetDecomp = registerBetDecomposition({
+		db,
+		eventBus,
+		adapterPool,
+		sandboxBasePath,
+		resolveModel: makeResolveModel(db, credentialResolver),
+		...workDeps,
 	});
 
 	// AU19 Increment 3f: register the capture-writeback subscriber — the

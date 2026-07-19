@@ -269,3 +269,32 @@ export interface TeamCapacityReader {
 	getByTeamId(db: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
 	setActiveBets(db: WriteExecutor, teamId: string, activeBets: number): Promise<void>;
 }
+
+// ---------------------------------------------------------------------------
+// WorkDeps — bundled inbound wiring contract (Ag5a)
+// ---------------------------------------------------------------------------
+
+/**
+ * Single composition-root wiring contract bundling all five inbound DI ports.
+ *
+ * The composition root (`server-factory.ts`) builds this once and passes
+ * or spreads it wherever `work`'s outbound edges are needed. The individual
+ * port interfaces are internal to this Service; callers reference them via
+ * `WorkDeps["fieldName"]` rather than importing the interface by name.
+ *
+ * @lore AU20 Ag5a: individual port exports removed from barrel — `WorkDeps`
+ * is the only wiring type callers should import. This closes the over-exposure
+ * of inbound DI contracts as product surface (84 → ~32 export target).
+ */
+export interface WorkDeps {
+	/** Injected `agent-selection` port (§10.3 against-grain — RULED PERMANENT). */
+	readonly agentSelection: AgentSelectionDefaults;
+	/** Injected `users` port (ordinary downward core-api edge). */
+	readonly users: UserStoreReader;
+	/** Injected `org` port (ordinary downward core-api edge — closes W2). */
+	readonly teamCapacity: TeamCapacityReader;
+	/** Injected `cost` port (§10.3 against-grain — RULED PERMANENT). */
+	readonly costCap: CostCapChecker;
+	/** Injected `session-requests` port (§10.3 against-grain — RULED PERMANENT). */
+	readonly workIntents: AgentWorkIntentRecorder;
+}

@@ -16,14 +16,14 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import type { EventBus } from "@hyperidle/shared";
-import type { RevisionLogEntry, TeamCapacityReader } from "@hyperidle/work";
+import type { RevisionLogEntry, WorkDeps } from "@hyperidle/work";
 import { transitionBet } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity: TeamCapacityReader = {
+const teamCapacity: WorkDeps["teamCapacity"] = {
 	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
 	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 };

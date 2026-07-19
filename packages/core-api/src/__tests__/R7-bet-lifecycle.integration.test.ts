@@ -33,11 +33,11 @@ import {
 	getTaskById,
 	listItemIdsBySourceAgent,
 	listTasks,
-	type TeamCapacityReader,
 	transitionBet,
 	transitionBetStatus,
 	transitionTaskState,
 	updateItemById,
+	type WorkDeps,
 } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
@@ -85,7 +85,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity: TeamCapacityReader = {
+const teamCapacity: WorkDeps["teamCapacity"] = {
 	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
 	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 };

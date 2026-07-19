@@ -41,7 +41,7 @@ import { insertNotification } from "@hyperidle/notifications";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
-import type { TaskStateMachineDeps, TeamCapacityReader } from "@hyperidle/work";
+import type { TaskStateMachineDeps, WorkDeps } from "@hyperidle/work";
 import {
 	cascadeBetKill,
 	getBetById,
@@ -106,7 +106,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity: TeamCapacityReader = {
+const teamCapacity: WorkDeps["teamCapacity"] = {
 	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
 	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 };

@@ -13,9 +13,9 @@ import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import {
 	type RevisionLogEntry,
-	type TeamCapacityReader,
 	transitionBet,
 	updateBetField,
+	type WorkDeps,
 } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -23,7 +23,7 @@ import { test } from "../test-fixtures.js";
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity: TeamCapacityReader = {
+const teamCapacity: WorkDeps["teamCapacity"] = {
 	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
 	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 };

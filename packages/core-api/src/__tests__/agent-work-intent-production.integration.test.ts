@@ -23,7 +23,7 @@ import {
 import { getTeamMembers } from "@hyperidle/org";
 import { transitionProposedCall } from "@hyperidle/review";
 import { findUser, listUsers } from "@hyperidle/users";
-import type { AgentSelectionDefaults, AgentWorkIntentRecorder } from "@hyperidle/work";
+import type { WorkDeps } from "@hyperidle/work";
 import { checkAndUnblockDependents, insertProposedBetTasks } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
 import { checkAndFireRoutine } from "../services/dispatch-bindings.js";
@@ -46,7 +46,7 @@ const agentSelectionService = createAgentSelectionService({
 
 /** AU19 Increment 1b: `insertProposedBetTasks` now takes injected `agent-selection`/`session-requests` ports.
  * @lore AU20 Ab4: adapts `AgentSelectionService` to `AgentSelectionDefaults`; resolveDecompositionPlan inlined. */
-const agentSelection: AgentSelectionDefaults = {
+const agentSelection: WorkDeps["agentSelection"] = {
 	enumerateTeamCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
 	selectOwner: (occDeps, occasion) =>
 		agentSelectionService
@@ -65,7 +65,7 @@ const agentSelection: AgentSelectionDefaults = {
 		return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
 	},
 };
-const workIntents: AgentWorkIntentRecorder = { record: recordAgentWorkIntent };
+const workIntents: WorkDeps["workIntents"] = { record: recordAgentWorkIntent };
 
 const authHeaders = {
 	"Content-Type": "application/json",
