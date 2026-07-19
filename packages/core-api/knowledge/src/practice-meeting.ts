@@ -1,17 +1,187 @@
 import { randomUUID } from "node:crypto";
-import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus, KnowledgeKind, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import {
-	archiveKnowledgeItemWithLogRaw,
-	findKnowledgeAppProjectionByItemIdRaw,
-	findKnowledgeItemByIdRaw,
-	insertKnowledgeAppProjectionRaw,
-	insertKnowledgeEditLogRaw,
-	insertKnowledgeItemRaw,
-	listCapturedItemsByProjectionScopeRaw,
-	touchKnowledgeItemUpdatedAtRaw,
-	updateKnowledgeAppProjectionMetaIfUnchangedRaw,
-} from "./practice-meeting-store.js";
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeEditLog,
+	knowledgeItems,
+} from "@hyperidle/db";
+import type { EventBus, KnowledgeKind, KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import { and, eq, isNull } from "drizzle-orm";
+
+// ---------------------------------------------------------------------------
+// Private raw accessors (inlined from practice-meeting-store.ts, AU20 Ag7a).
+// These are intentionally NOT exported — they are 1:1 with the pre-migration
+// raw Drizzle calls and exist only to give practice-meeting.ts exact control
+// over the caller-supplied clock and write sequence (see original @lore).
+// ---------------------------------------------------------------------------
+
+interface RawKnowledgeItemInsert {
+	readonly id: string;
+	readonly topic: string | null;
+	readonly title: string;
+	readonly body: string;
+	readonly format: string;
+	readonly status: string;
+	readonly version: number;
+	readonly updatedBy: string;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+}
+
+async function insertKnowledgeItemRaw(
+	db: HyperIdleDb,
+	input: RawKnowledgeItemInsert,
+): Promise<void> {
+	await db.insert(knowledgeItems).values({ ...input });
+}
+
+interface RawKnowledgeAppProjectionInsert {
+	readonly id: string;
+	readonly knowledgeItemId: string;
+	readonly layer: string | null;
+	readonly kind: string | null;
+	readonly scopeId: string | null;
+	readonly meta: string | null;
+}
+
+async function insertKnowledgeAppProjectionRaw(
+	db: HyperIdleDb,
+	input: RawKnowledgeAppProjectionInsert,
+): Promise<void> {
+	await db.insert(knowledgeAppProjection).values({ ...input });
+}
+
+interface RawKnowledgeEditLogInsert {
+	readonly id: string;
+	readonly itemId: string;
+	readonly editor: string;
+	readonly field: string;
+	readonly oldValue: string | null;
+	readonly newValue: string | null;
+	readonly editType: string;
+	readonly createdAt: string;
+}
+
+async function insertKnowledgeEditLogRaw(
+	db: HyperIdleDb,
+	input: RawKnowledgeEditLogInsert,
+): Promise<void> {
+	await db.insert(knowledgeEditLog).values({ ...input });
+}
+
+interface RawKnowledgeItemRow {
+	readonly id: string;
+	readonly status: string;
+}
+
+async function findKnowledgeItemByIdRaw(
+	db: HyperIdleDb,
+	id: string,
+): Promise<RawKnowledgeItemRow | null> {
+	const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
+	return row ?? null;
+}
+
+interface KnowledgeAppProjectionRow {
+	readonly id: string;
+	readonly knowledgeItemId: string;
+	readonly layer: string | null;
+	readonly scopeId: string | null;
+	readonly kind: string | null;
+	readonly meta: string | null;
+}
+
+async function findKnowledgeAppProjectionByItemIdRaw(
+	db: HyperIdleDb,
+	knowledgeItemId: string,
+): Promise<KnowledgeAppProjectionRow | null> {
+	const [row] = await db
+		.select()
+		.from(knowledgeAppProjection)
+		.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId))
+		.limit(1);
+	return row ?? null;
+}
+
+async function updateKnowledgeAppProjectionMetaIfUnchangedRaw(
+	db: HyperIdleDb,
+	knowledgeItemId: string,
+	newMeta: string,
+	expectedMeta: string,
+): Promise<number> {
+	const rows = await db
+		.update(knowledgeAppProjection)
+		.set({ meta: newMeta })
+		.where(
+			and(
+				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId),
+				eq(knowledgeAppProjection.meta, expectedMeta),
+			),
+		)
+		.returning({ id: knowledgeAppProjection.id });
+	return rows.length;
+}
+
+async function touchKnowledgeItemUpdatedAtRaw(
+	db: HyperIdleDb,
+	id: string,
+	updatedAt: string,
+): Promise<void> {
+	await db.update(knowledgeItems).set({ updatedAt }).where(eq(knowledgeItems.id, id));
+}
+
+interface CapturedProjectedItem {
+	readonly item: RawKnowledgeItemRow;
+	readonly fabric: KnowledgeAppProjectionRow;
+}
+
+async function listCapturedItemsByProjectionScopeRaw(
+	db: HyperIdleDb,
+	scopeId: string | null,
+): Promise<readonly CapturedProjectedItem[]> {
+	const scopeFilter =
+		scopeId === null
+			? isNull(knowledgeAppProjection.scopeId)
+			: eq(knowledgeAppProjection.scopeId, scopeId);
+	return db
+		.select({ item: knowledgeItems, fabric: knowledgeAppProjection })
+		.from(knowledgeItems)
+		.innerJoin(
+			knowledgeAppProjection,
+			eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
+		)
+		.where(and(eq(knowledgeItems.status, "captured"), scopeFilter));
+}
+
+interface ArchiveKnowledgeItemInput {
+	readonly id: string;
+	readonly oldStatus: string;
+	readonly updatedAt: string;
+	readonly updatedBy: string;
+	readonly editLogId: string;
+}
+
+async function archiveKnowledgeItemWithLogRaw(
+	db: HyperIdleDb,
+	input: ArchiveKnowledgeItemInput,
+): Promise<void> {
+	await db
+		.update(knowledgeItems)
+		.set({ status: "archived", updatedAt: input.updatedAt, updatedBy: input.updatedBy })
+		.where(eq(knowledgeItems.id, input.id));
+	await db.insert(knowledgeEditLog).values({
+		id: input.editLogId,
+		itemId: input.id,
+		editor: input.updatedBy,
+		field: "status",
+		oldValue: input.oldStatus,
+		newValue: "archived | reason: synthesized into practice meeting output",
+		editType: "refinement",
+		createdAt: input.updatedAt,
+	});
+}
+
+// ---------------------------------------------------------------------------
 
 /**
  * Practice meeting (TRACK-G §G3 AC6): a 3-turn workflow that produces

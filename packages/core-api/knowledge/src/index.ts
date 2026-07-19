@@ -15,90 +15,39 @@
  * (Mechanism C) since neither `work` nor `review` has migrated yet — see
  * `AttentionServiceDeps` in `attention-service.ts`.
  *
- * @lore AU19 Increment 1j: `practice-meeting-store.ts` added — low-level raw
- * accessors `@hyperidle/review`'s `practice-meeting.ts` needs (its own
- * `PracticeMeetingKnowledgeStore` DI port, Mechanism C — an ordinary
- * downward core-api-to-core-api edge, wired directly since `knowledge` is
- * already a real migrated package). NOT the general CRUD surface — see that
- * file's own top-of-file `@lore` for why `create()`/`update()` weren't reused.
- *
- * @lore AU19 Increment 2c: `git-export-store.ts` added — a genuinely NEW
- * `git-export -> knowledge` edge the §10.2 census missed entirely (surfaced
- * when `git-export`'s own migration hit Table ACL on its direct
- * `knowledgeItems`/`knowledgeAppProjection` query). `@hyperidle/git-export`'s
- * `GitExportKnowledgeReader` port wires directly to
- * `listExportableKnowledgeItems` (ordinary downward edge, `knowledge`
- * already real).
- *
- * @lore AU19 Increment 2g: `reapKnowledgeAccessLog` added to
- * `relevance-service.ts` (the module already reading `knowledgeAccessLog`) —
- * `@hyperidle/retention`'s TTL sweep used to delete from
- * `knowledgeAccessLog` directly; Table ACL now forbids that foreign direct
- * access, so the delete logic moved here (verbatim, zero behavior change)
- * and `retention` calls it through its injected
- * `RetentionKnowledgeAccessLogReaper` port. A genuinely NEW `retention →
- * knowledge` edge the original §10.2 census missed (raw table access wasn't
- * a countable edge at original census time) — see `@hyperidle/retention`'s
- * `ports.ts` top `@lore` for the census-correction row.
- *
- * @lore AU19 Increment 3f: `writeback-conflict-store.ts` added — the third
- * `capture-writeback -> knowledge` call site (`create`/`update` were already
- * counted; `writeback.ts`'s direct `knowledgeConflicts` inserts were raw
- * table access at original census time, not a countable edge). See
- * `@hyperidle/capture-writeback`'s `ports.ts` top `@lore` for the port side.
- *
- * @lore AU19 Increment 3h: `portfolio-retro-store.ts` added — the
- * `dispatch -> knowledge` census correction (`runPortfolioRetro`'s raw
- * `knowledgeItems`/`knowledgeAppProjection` join was never a countable edge
- * at original census time). See `@hyperidle/dispatch`'s `ports.ts` top
- * `@lore` for the port side.
- *
- * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, knowledge
- * sub-item): `route-support.ts` (`listTitlesByIds`/`searchVisibleByText`/
- * `recordKnowledgeAccess`) and `bet-retro-store.ts`
- * (`findRetroKnowledgeItemForBet`/`upsertBetRetroKnowledgeItem`) added —
- * `core-api/src`'s `routes/{threads,search,knowledge,bets}.ts` queried
- * `knowledgeItems`/`knowledgeAppProjection`/`knowledgeAccessLog` directly,
- * legal in the unguarded composition root, a Table ACL violation now that
- * these tables are real `TABLE_OWNER` rows. Ordinary `core-api/src ->
- * core-api/knowledge` downward edges (both real migrated packages) — no new
- * DI ports, no against-grain caveats.
+ * @lore AU20 Ag7a: the 8 per-consumer *-store barrel files are retired as
+ * PUBLIC surface — their bodies were absorbed into the appropriate general
+ * modules (`knowledge-repository.ts` for read/write helpers,
+ * `promotion-pipeline.ts` for the promote transition,
+ * `knowledge-conflicts.ts` for conflict write + writeback paths,
+ * `practice-meeting.ts` for the raw accessors it was the sole consumer of).
+ * Two simple-duplicate functions (`findKnowledgeItemVersionById`,
+ * `findKnowledgeItemStatusById`) were retired from the barrel entirely —
+ * callers replaced with `findById` adapters. The 6 individual DI-port-type
+ * exports are bundled into one `KnowledgeDeps` re-export.
  */
 
-// -- attention-score-store (AU19 Increment 4 — the tool-handlers -> knowledge edge) --
-export { upsertKnowledgeAppProjectionAttentionScore } from "./attention-score-store.js";
-// -- attention engine (recompute service + DI ports for work/review edges) --
+// -- attention engine (recompute service + public DI types) --
+/**
+ * Bundled DI contract for wiring the knowledge attention service — replaces
+ * the 6 individual DI-port-type re-exports (`AttentionServiceDeps`,
+ * `AttentionWriteExecutor`, `ReasoningMarkerFinder`, `KnowledgeReviewWriter`,
+ * `CreateReviewItemForKnowledgeInput`, `CreateReviewItemForKnowledgeResult`).
+ *
+ * @lore AU20 Ag7a: these were "inbound DI-port-type mirrors" — types external
+ * packages implement to wire into the attention service. Bundling them under
+ * one name removes the per-component churn from the public surface.
+ */
 export type {
 	AttentionRecomputeResult,
 	AttentionRecomputeScopeError,
 	AttentionRecomputeScopeResult,
 	AttentionRecomputeSummary,
 	AttentionService,
-	AttentionServiceDeps,
+	AttentionServiceDeps as KnowledgeDeps,
 	AttentionServiceFilter,
-	AttentionWriteExecutor,
-	CreateReviewItemForKnowledgeInput,
-	CreateReviewItemForKnowledgeResult,
-	KnowledgeReviewWriter,
-	ReasoningMarkerFinder,
 } from "./attention-service.js";
 export { buildAttentionService, MAX_RECOMPUTE_BATCH } from "./attention-service.js";
-// -- bet-retro-store (AU19 Increment 5 item 4 — the routes/bets.ts retro edge) --
-export type {
-	RetroExistingKnowledgeItemRow,
-	UpsertBetRetroKnowledgeItemInput,
-} from "./bet-retro-store.js";
-export { findRetroKnowledgeItemForBet, upsertBetRetroKnowledgeItem } from "./bet-retro-store.js";
-// -- conflict-review-store (AU19 Increment 4 — the tool-handlers -> knowledge edge) --
-export type {
-	CreateKnowledgeConflictInput,
-	KnowledgeItemVersionRow,
-} from "./conflict-review-store.js";
-export {
-	createKnowledgeConflict,
-	findKnowledgeItemVersionById,
-	findOpenConflictByItemAndProposer,
-} from "./conflict-review-store.js";
 // -- errors --
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
 // -- full-text search --
@@ -110,20 +59,20 @@ export {
 	sanitizeFtsQuery,
 	setupFts,
 } from "./fts.js";
-// -- git-export read surface (AU19 Increment 2c — the git-export -> knowledge edge) --
+// -- conflicts (knowledgeConflicts accessors, consolidated from retired barrels) --
 export type {
-	ExportableKnowledgeItemFilters,
-	ExportableKnowledgeItemRow,
-	KnowledgeItemProjectionRow,
-} from "./git-export-store.js";
+	CreateKnowledgeConflictInput,
+	RecordWritebackConflictInput,
+} from "./knowledge-conflicts.js";
 export {
-	findKnowledgeItemProjectionById,
-	listExportableKnowledgeItems,
-} from "./git-export-store.js";
+	createKnowledgeConflict,
+	findOpenConflictByItemAndProposer,
+	recordWritebackConflict,
+} from "./knowledge-conflicts.js";
 // -- read (scope-based; the Increment 0 KnowledgeReader edge for context-assembly) --
 export type { KnowledgeScope } from "./knowledge-reader.js";
 export { listByScope } from "./knowledge-reader.js";
-// -- the CRUD repository (production surface: routes/knowledge.ts, tools/*, context-assembly.ts) --
+// -- the CRUD repository (general surface + absorbed per-consumer helpers) --
 export {
 	archiveItem,
 	type CreateKnowledgeItemInput,
@@ -131,26 +80,40 @@ export {
 	countAccessesSince,
 	countTriageVisible,
 	create,
+	type ExportableKnowledgeItemFilters,
+	type ExportableKnowledgeItemRow,
 	findById,
 	findDetailById,
+	findKnowledgeItemProjectionById,
 	findRelatedByTopic,
+	findRetroKnowledgeItemForBet,
 	flagItem,
 	type KnowledgeDetailRow,
+	type KnowledgeItemProjectionRow,
 	type KnowledgeItemWithProjection,
 	type KnowledgeListRow,
 	type ListFilters,
 	list,
+	listExportableKnowledgeItems,
+	listRecentByLayers,
+	listTitlesByIds,
 	listVisibleWithSignals,
 	mergeItems,
+	type RecentLayeredKnowledgeItemRow,
+	type RecordKnowledgeAccessInput,
+	type RetroExistingKnowledgeItemRow,
+	recordKnowledgeAccess,
+	type SearchVisibleKnowledgeRow,
 	search,
 	searchByText,
+	searchVisibleByText,
 	splitItem,
 	type UpdateKnowledgeItemInput,
+	type UpsertBetRetroKnowledgeItemInput,
 	update,
+	upsertBetRetroKnowledgeItem,
+	upsertKnowledgeAppProjectionAttentionScore,
 } from "./knowledge-repository.js";
-// -- portfolio-retro-store (AU19 Increment 3h — the dispatch -> knowledge edge) --
-export type { RecentLayeredKnowledgeItemRow } from "./portfolio-retro-store.js";
-export { listRecentByLayers } from "./portfolio-retro-store.js";
 // -- practice-meeting workflow (AU20 Am9: relocated from @hyperidle/review — actual data owner) --
 export type {
 	CreatePracticeMeetingInput,
@@ -166,7 +129,7 @@ export {
 	PRACTICE_MEETING_ANCHOR_ROLE,
 	runPracticeMeetingTurn,
 } from "./practice-meeting.js";
-// -- promotion pipeline (auto-promotion + stale sweeps) --
+// -- promotion pipeline (auto-promotion + stale sweeps + promote transition) --
 export {
 	AUTO_PROMOTION_EDITOR,
 	AUTO_PROMOTION_REPETITION_THRESHOLD,
@@ -178,18 +141,15 @@ export {
 	detectLayerContradiction,
 	findStaleItems,
 	markStale,
+	type PromoteKnowledgeItemInput,
+	type PromoteKnowledgeItemResult,
+	promoteKnowledgeItem,
 	runAutoPromotionSweep,
 	runStaleSweep,
 	STALE_THRESHOLD_MS,
 	type StaleSweepOptions,
 	type StaleSweepResult,
 } from "./promotion-pipeline.js";
-// -- promotion-transition (AU19 Increment 4 — the tool-handlers -> knowledge edge) --
-export type {
-	PromoteKnowledgeItemInput,
-	PromoteKnowledgeItemResult,
-} from "./promotion-transition.js";
-export { findKnowledgeItemStatusById, promoteKnowledgeItem } from "./promotion-transition.js";
 export type {
 	RelevanceConfig,
 	RelevanceInput,
@@ -204,9 +164,6 @@ export type { RelevanceService, SignalSet } from "./relevance-service.js";
 export { createRelevanceService, reapKnowledgeAccessLog } from "./relevance-service.js";
 // -- role/community mapping --
 export { communityForRole } from "./role-community-map.js";
-// -- route-support (AU19 Increment 5 item 4 — routes/{threads,search,knowledge}.ts edges) --
-export type { RecordKnowledgeAccessInput, SearchVisibleKnowledgeRow } from "./route-support.js";
-export { listTitlesByIds, recordKnowledgeAccess, searchVisibleByText } from "./route-support.js";
 // -- scoring config (weights, thresholds, token budgets) --
 export {
 	ATTENTION_THRESHOLD,
@@ -230,6 +187,3 @@ export {
 	type KnowledgeStatus,
 	type PropagationLevel,
 } from "./types.js";
-// -- writeback-conflict-store (AU19 Increment 3f — the capture-writeback -> knowledge edge) --
-export type { RecordWritebackConflictInput } from "./writeback-conflict-store.js";
-export { recordWritebackConflict } from "./writeback-conflict-store.js";

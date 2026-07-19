@@ -548,6 +548,91 @@ export async function runStaleSweep(
 	return { markedIds };
 }
 
+// ---------------------------------------------------------------------------
+// Absorbed from promotion-transition.ts (AU20 Ag7a — per-consumer barrel retired)
+// findKnowledgeItemStatusById is retired; its only consumer (tool-handlers-bindings.ts)
+// now uses findById from knowledge-repository.ts.
+// ---------------------------------------------------------------------------
+
+export type PromoteKnowledgeItemResult =
+	| { readonly ok: true; readonly fromStatus: string }
+	| {
+			readonly ok: false;
+			readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
+			readonly message: string;
+	  };
+
+export interface PromoteKnowledgeItemInput {
+	readonly knowledgeItemId: string;
+	readonly fromStatus: string;
+	readonly toStatus: string;
+	readonly reason: string | undefined;
+	readonly editor: string;
+}
+
+/**
+ * Atomic status-transition for the `promote_knowledge` tool.
+ * The whole gate-check + conditional-UPDATE + edit-log-INSERT transaction is one
+ * knowledge-owned function — behaviour byte-identical to the pre-migration inline block.
+ */
+export async function promoteKnowledgeItem(
+	db: HyperIdleDb,
+	input: PromoteKnowledgeItemInput,
+): Promise<PromoteKnowledgeItemResult> {
+	const { knowledgeItemId, fromStatus, toStatus, reason, editor } = input;
+	const isoNow = new Date().toISOString();
+
+	return db.transaction(async (tx): Promise<PromoteKnowledgeItemResult> => {
+		if (toStatus === "validated") {
+			const [openConflict] = await tx
+				.select()
+				.from(knowledgeConflicts)
+				.where(
+					and(
+						eq(knowledgeConflicts.itemId, knowledgeItemId),
+						eq(knowledgeConflicts.status, "open"),
+					),
+				)
+				.limit(1);
+			if (openConflict) {
+				return {
+					ok: false,
+					code: "CONFLICT_OPEN",
+					message: "open conflict blocks promotion to validated",
+				};
+			}
+		}
+
+		const updated = await tx
+			.update(knowledgeItems)
+			.set({ status: toStatus, updatedAt: isoNow, updatedBy: editor })
+			.where(and(eq(knowledgeItems.id, knowledgeItemId), eq(knowledgeItems.status, fromStatus)))
+			.returning({ id: knowledgeItems.id });
+
+		if (updated.length === 0) {
+			return {
+				ok: false,
+				code: "CONCURRENT_MODIFICATION",
+				message: `knowledge item ${knowledgeItemId} no longer in status ${fromStatus}`,
+			};
+		}
+
+		const newValue = reason ? `${toStatus} | reason: ${reason}` : toStatus;
+		await tx.insert(knowledgeEditLog).values({
+			id: randomUUID(),
+			itemId: knowledgeItemId,
+			editor,
+			field: "status",
+			oldValue: fromStatus,
+			newValue,
+			editType: "refinement",
+			createdAt: isoNow,
+		});
+
+		return { ok: true, fromStatus };
+	});
+}
+
 // --- Internal ---
 
 /**

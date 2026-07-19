@@ -31,8 +31,7 @@ import {
 	buildAttentionService,
 	createKnowledgeConflict,
 	create as createKnowledgeItem,
-	findKnowledgeItemStatusById,
-	findKnowledgeItemVersionById,
+	findById as findKnowledgeItemById,
 	findOpenConflictByItemAndProposer,
 	promoteKnowledgeItem,
 	search as searchKnowledge,
@@ -233,8 +232,18 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	knowledge: {
 		search: searchKnowledgeForTool,
 		create: createKnowledgeItem,
-		findKnowledgeItemVersionById,
-		findKnowledgeItemStatusById,
+		// @lore AU20 Ag7a: findKnowledgeItemVersionById and findKnowledgeItemStatusById
+		// retired from the knowledge barrel (simple-duplicate functions superseded by
+		// findById). Adapted here at the composition boundary — findById returns the
+		// full KnowledgeItem (structurally compatible with both port shapes).
+		findKnowledgeItemVersionById: async (db, id) => {
+			const item = await findKnowledgeItemById(db, id);
+			return item ?? undefined;
+		},
+		findKnowledgeItemStatusById: async (db, id) => {
+			const item = await findKnowledgeItemById(db, id);
+			return item ?? undefined;
+		},
 		findOpenConflictByItemAndProposer,
 		createKnowledgeConflict,
 		promoteKnowledgeItem,
