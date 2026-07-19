@@ -68,6 +68,8 @@ export { cascadeBetKill } from "./bet-kill-cascade.js";
 // -- bet state machine --
 export type { RevisionLogEntry } from "./bet-state-machine.js";
 export { transitionBet, updateBetField } from "./bet-state-machine.js";
+// -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
+export { checkAndUnblockDependents } from "./dependency-watcher.js";
 // -- item routing (pure function, no DB) --
 export { routeItem } from "./item-router.js";
 // -- ports (Mechanism C — DI-injected outbound edges) --

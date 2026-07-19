@@ -84,9 +84,6 @@
  * (§10.2's `capture-writeback → knowledge` edge, not this Service's concern).
  */
 
-import type { Task, WriteExecutor } from "@hyperidle/db";
-import type { EventBus, TaskState } from "@hyperidle/shared";
-
 // ---------------------------------------------------------------------------
 // git-export — FilesystemsGitRunner (ordinary downward edge, forward-ref —
 // git-export hasn't migrated yet; closed when it does, Increment 2)
@@ -137,67 +134,6 @@ export interface FilesystemsGitRunner {
 export type FilesystemsGitRunnerFactory = (cwd: string) => FilesystemsGitRunner;
 
 // ---------------------------------------------------------------------------
-// work — FilesystemsWorkStore (ordinary downward edge, `work` is a REAL
-// migrated package — same idiom as `policy`'s `PolicyWorkStore`)
-// ---------------------------------------------------------------------------
-
-/**
- * The one `agent_work_intents` kind `filesystems` records today
- * (`dependency-watcher.ts`'s auto-unblock dispatch, forwarded into
- * `@hyperidle/work`'s own `transitionTask` as ITS `workIntents` port).
- */
-export type FilesystemsAgentWorkIntentKind = "task_run";
-
-export interface FilesystemsAgentWorkIntentInput {
-	readonly kind: FilesystemsAgentWorkIntentKind;
-	readonly sourceKind: string;
-	readonly sourceId: string;
-	readonly requestedBy?: string;
-	readonly idempotencyKey: string;
-}
-
-export interface FilesystemsAgentWorkIntentRecord {
-	readonly id: string;
-	readonly idempotencyKey: string;
-}
-
-/**
- * Port for `session-requests`' durable `agent_work_intents` writer — this is
- * NOT a `filesystems → session-requests` edge in its own right; it is the
- * concrete recorder `dependency-watcher.ts` forwards into `@hyperidle/work`'s
- * own `TaskStateMachineDeps.workIntents` port (`work` already owns that
- * against-grain classification, Increment 1b) when it calls `transitionTask`.
- */
-export interface FilesystemsAgentWorkIntentRecorder {
-	record(
-		tx: WriteExecutor,
-		input: FilesystemsAgentWorkIntentInput,
-	): Promise<FilesystemsAgentWorkIntentRecord>;
-}
-
-/**
- * Port for `work`'s task read/transition surface `dependency-watcher.ts`
- * calls directly today (`listHoldTasksWithDependencyPattern`/`getTaskById`
- * from `work-service.ts`, `transitionTask` from `task-state-machine.ts`).
- * Typed off `@hyperidle/db`'s `Task` row directly (§7.3 W4).
- */
-export interface FilesystemsWorkStore {
-	listHoldTasksWithDependencyPattern(
-		db: WriteExecutor,
-		likePattern: string,
-	): Promise<readonly Task[]>;
-	getTaskById(db: WriteExecutor, id: string): Promise<Task | undefined>;
-	transitionTask(
-		db: WriteExecutor,
-		eventBus: EventBus,
-		taskId: string,
-		toState: TaskState,
-		deps: { readonly workIntents: FilesystemsAgentWorkIntentRecorder },
-		dispatchOccasion?: "accepted" | "retry",
-	): Promise<void>;
-}
-
-// ---------------------------------------------------------------------------
 // connections — FilesystemsServiceConnectionResolver (ordinary downward
 // edge, `connections` is a REAL migrated package)
 // ---------------------------------------------------------------------------
@@ -226,5 +162,3 @@ export interface FilesystemsServiceConnectionResolver {
 // the event now (`SandboxWritebackChange`, `@hyperidle/shared`), not here.
 // ---------------------------------------------------------------------------
 
-// Re-exported for call sites that need the plain EventBus/TaskState types alongside these ports.
-export type { EventBus, TaskState };

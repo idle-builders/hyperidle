@@ -20,25 +20,18 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import { getTeamMembers } from "@hyperidle/org";
 import { transitionProposedCall } from "@hyperidle/review";
 import { findUser, listUsers } from "@hyperidle/users";
 import type { AgentSelectionDefaults, AgentWorkIntentRecorder } from "@hyperidle/work";
-import {
-	getTaskById,
-	insertProposedBetTasks,
-	listHoldTasksWithDependencyPattern,
-	transitionTask,
-} from "@hyperidle/work";
+import { checkAndUnblockDependents, insertProposedBetTasks } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
 import { checkAndFireRoutine } from "../services/dispatch-bindings.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 
-/** AU19 Increment 2b: `checkAndUnblockDependents` now requires an injected `{ work, workIntents }` deps bundle. */
+/** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
 const depWatcherDeps = {
-	work: { listHoldTasksWithDependencyPattern, getTaskById, transitionTask },
 	workIntents: { record: recordAgentWorkIntent },
 };
 

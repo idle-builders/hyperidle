@@ -1,8 +1,10 @@
 import { escapeLikePattern, type WriteExecutor } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
-import type { FilesystemsAgentWorkIntentRecorder, FilesystemsWorkStore } from "./ports.js";
+import type { AgentWorkIntentRecorder } from "./ports.js";
+import { transitionTask } from "./task-state-machine.js";
+import { getTaskById, listHoldTasksWithDependencyPattern } from "./work-service.js";
 
-const logger = createLogger({ pkg: "filesystems.dependency-watcher" });
+const logger = createLogger({ pkg: "work.dependency-watcher" });
 
 /**
  * After a task completes, check all tasks that depend on it.
@@ -21,24 +23,20 @@ const logger = createLogger({ pkg: "filesystems.dependency-watcher" });
  * the LIKE match (single `_` matches any char; `%` matches any sequence).
  * The `ESCAPE '\'` clause makes our backslash escape effective.
  *
- * @lore AU19 Increment 2b: `work` is now the injected `FilesystemsWorkStore`
- * port (`ports.ts`) — `work` is a real migrated package, so the composition
- * root (`packages/server`) wires this to `@hyperidle/work`'s real
- * `listHoldTasksWithDependencyPattern`/`getTaskById`/`transitionTask`
- * exports unchanged (same idiom as `policy`'s `PolicyWorkStore`). `workIntents`
- * is forwarded, unchanged, into `work.transitionTask`'s own `workIntents` port
- * (`work`'s pre-existing §10.3 against-grain `AgentWorkIntentRecorder`,
- * Increment 1b) — the composition root wires it to
- * `@hyperidle/session-requests`'s real `recordAgentWorkIntent` (migrated
- * Increment 3b, `session-requests-bindings.ts`).
+ * @lore AU20 Ag2: relocated from `@hyperidle/filesystems` → `@hyperidle/work`.
+ * The function exclusively calls work's own table read/write path
+ * (`listHoldTasksWithDependencyPattern`/`getTaskById`/`transitionTask`), so
+ * its correct home is the `work` Service. The old `{ work: FilesystemsWorkStore }`
+ * DI-port sub-object is gone — the function calls those internals directly.
+ * Only the against-grain `session-requests` recorder (`workIntents`) remains
+ * injected (same port `transitionTask` itself already accepts).
  */
 export async function checkAndUnblockDependents(
 	db: WriteExecutor,
 	eventBus: EventBus,
 	completedTaskId: string,
 	deps: {
-		readonly work: FilesystemsWorkStore;
-		readonly workIntents: FilesystemsAgentWorkIntentRecorder;
+		readonly workIntents: AgentWorkIntentRecorder;
 	},
 ): Promise<void> {
 	// SQL pre-filter: hold-state tasks whose dependencies include the literal
@@ -46,7 +44,7 @@ export async function checkAndUnblockDependents(
 	// so substrings of unrelated IDs ("dep-1" vs "dep-12") don't match.
 	const escapedId = escapeLikePattern(completedTaskId);
 	const pattern = `%"${escapedId}"%`;
-	const candidates = await deps.work.listHoldTasksWithDependencyPattern(db, pattern);
+	const candidates = await listHoldTasksWithDependencyPattern(db, pattern);
 
 	for (const task of candidates) {
 		if (!task.dependencies) continue;
@@ -82,7 +80,7 @@ export async function checkAndUnblockDependents(
 		// Check if ALL dependencies are done.
 		let allDone = true;
 		for (const depId of deplist) {
-			const dep = await deps.work.getTaskById(db, depId);
+			const dep = await getTaskById(db, depId);
 			if (dep?.state !== "done") {
 				allDone = false;
 				break;
@@ -92,14 +90,7 @@ export async function checkAndUnblockDependents(
 		if (!allDone) continue;
 
 		// Auto-transition hold -> accepted
-		await deps.work.transitionTask(
-			db,
-			eventBus,
-			task.id,
-			"accepted",
-			{ workIntents: deps.workIntents },
-			"accepted",
-		);
+		await transitionTask(db, eventBus, task.id, "accepted", { workIntents: deps.workIntents }, "accepted");
 
 		// Emit ambient event — NOT a notification (concept hard rule #6: auto-unblock is ambient)
 		// AF8: kind="auto_unblock" → the notification listener filters this out entirely

@@ -10,7 +10,6 @@ import {
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { AssistantTurnDeps } from "@hyperidle/dispatch";
-import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { McpBridgeRegistry } from "@hyperidle/mcp-provider";
 import {
@@ -34,13 +33,7 @@ import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
-import {
-	getItemById,
-	getTaskById as getWorkTaskById,
-	listHoldTasksWithDependencyPattern,
-	listQueuedItemsSince,
-	transitionTask,
-} from "@hyperidle/work";
+import { checkAndUnblockDependents, getItemById, listQueuedItemsSince } from "@hyperidle/work";
 import { Hono } from "hono";
 import { failClosedAssertion } from "./middleware/access-boundary-middleware.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
@@ -581,20 +574,15 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
 		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot
-		// import from server (layer violation). checkAndUnblockDependents now lives
-		// in `@hyperidle/filesystems` (AU19 Increment 2b) — this app.ts call site is
-		// the composition root wiring its `work`/`workIntents` DI ports to
-		// `@hyperidle/work`'s real exports (`work` migrated Increment 1b) and
-		// `@hyperidle/session-requests`'s real `recordAgentWorkIntent`
+		// import from server (layer violation). checkAndUnblockDependents relocated
+		// to `@hyperidle/work` (AU20 Ag2 barrel collapse) — it exclusively calls
+		// work's own table paths, so `work` is its correct home. The `work:` DI-port
+		// sub-object is gone; only the against-grain `session-requests` recorder
+		// (`workIntents`) remains injected, wired to `recordAgentWorkIntent`
 		// (migrated Increment 3b, `session-requests-bindings.js`).
 		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
 			if (event.toState === "done") {
 				void checkAndUnblockDependents(db, eventBus, event.taskId, {
-					work: {
-						listHoldTasksWithDependencyPattern,
-						getTaskById: getWorkTaskById,
-						transitionTask,
-					},
 					workIntents: { record: recordAgentWorkIntent },
 				}).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {

@@ -1,14 +1,12 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import type { TaskState } from "@hyperidle/shared";
-import { getTaskById, listHoldTasksWithDependencyPattern, transitionTask } from "@hyperidle/work";
+import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
-// @lore AU19 Increment 2b: see dependency-watcher.integration.test.ts's top `@lore`.
+// @lore AU20 Ag2: `work:` sub-object removed (see dependency-watcher.integration.test.ts).
 const depWatcherDeps = {
-	work: { listHoldTasksWithDependencyPattern, getTaskById, transitionTask },
 	workIntents: { record: recordAgentWorkIntent },
 };
 

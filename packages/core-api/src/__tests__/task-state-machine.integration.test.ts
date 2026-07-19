@@ -1,17 +1,11 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import type {
 	StateTransitionAuditEntry,
 	TaskAuditEntry,
 	TaskStateMachineDeps,
 } from "@hyperidle/work";
-import {
-	getTaskById,
-	InvalidTransitionError,
-	listHoldTasksWithDependencyPattern,
-	transitionTask,
-} from "@hyperidle/work";
+import { checkAndUnblockDependents, InvalidTransitionError, transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
@@ -20,9 +14,8 @@ import { test } from "../test-fixtures.js";
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
 const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
 
-/** AU19 Increment 2b: `checkAndUnblockDependents` now requires an injected `{ work, workIntents }` deps bundle. */
+/** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
 const depWatcherDeps = {
-	work: { listHoldTasksWithDependencyPattern, getTaskById, transitionTask },
 	workIntents: { record: recordAgentWorkIntent },
 };
 

@@ -31,13 +31,7 @@ import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	NoopAuthResolver,
-	probeGitRemote,
-	probeLocalPath,
-	repoToUrl,
-	resolveFilesystemState,
-} from "@hyperidle/filesystems";
+import { NoopAuthResolver, resolveFilesystemState } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/git-export";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -246,59 +240,9 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 	});
 });
 
-// ─── Lane A: probeLocalPath (real fs.access) ─────────────────────────────────
-
-describe("probeLocalPath — real fs.access probe (Lane A, hermetic)", () => {
-	it("existing dir → { state: 'reachable' }", async () => {
-		const result = await probeLocalPath(existingDir);
-		expect(result.state).toBe("reachable");
-		expect(result.reason).toBeUndefined();
-	});
-
-	it("missing path → { state: 'needs_attention', reason includes 'ENOENT' }", async () => {
-		const result = await probeLocalPath(missingPath);
-		expect(result.state).toBe("needs_attention");
-		expect(result.reason).toBeDefined();
-		// reason surfaces the ENOENT code and the path
-		expect(result.reason).toMatch(/ENOENT|enoent|no such/i);
-	});
-
-	it("existing file → { state: 'reachable' }", async () => {
-		const testFile = path.join(existingDir, "probe.txt");
-		fs.writeFileSync(testFile, "probe");
-		const result = await probeLocalPath(testFile);
-		expect(result.state).toBe("reachable");
-	});
-});
-
-// ─── Lane A: probeGitRemote (real git ls-remote, file://, no network) ────────
-
-describe("probeGitRemote — real git ls-remote probe (Lane A, hermetic, no network)", () => {
-	it("real file:// git repo → { reachable: true }", async () => {
-		// LIVE PROOF: real `git ls-remote file://<tempRepoDir>` → exit 0 → reachable
-		const url = `file://${tempRepoDir}`;
-		const result = await probeGitRemote(url, undefined, createGitRunner);
-		expect(result.state).toBe("reachable");
-		expect(result.reason).toBeUndefined();
-	});
-
-	it("non-existent file:// path → { reachable: false }", async () => {
-		// LIVE PROOF: real `git ls-remote file:///path/does/not/exist` → exit non-zero → needs_attention
-		const url = `file://${missingPath}`;
-		const result = await probeGitRemote(url, undefined, createGitRunner);
-		expect(result.state).toBe("needs_attention");
-		expect(result.reason).toBeDefined();
-	});
-
-	it("bogus https:// URL → { reachable: false } (no network — git fails immediately)", async () => {
-		// git ls-remote https://localhost:9999/no-such-repo will fail (connection refused / timeout).
-		// GIT_TERMINAL_PROMPT=0 ensures it errors immediately without hanging.
-		// This tests the non-zero exit → needs_attention path without network.
-		const url = "https://localhost:9999/no-such-repo.git";
-		const result = await probeGitRemote(url, undefined, createGitRunner);
-		expect(result.state).toBe("needs_attention");
-	}, 35_000); // allow up to git's connect timeout
-});
+// probeLocalPath, probeGitRemote, repoToUrl suites moved to
+// packages/core-api/filesystems/src/__tests__/probe-internals.test.ts
+// (AU20 Ag2 barrel collapse — these are internal probe functions).
 
 // ─── NoopAuthResolver ────────────────────────────────────────────────────────
 
@@ -347,38 +291,4 @@ describe("WRITEBACK_MODES constant", () => {
 	});
 });
 
-// ─── repoToUrl — URL construction (M1 fix proof, hermetic, no network) ────────
-
-describe("repoToUrl — repo reference to git URL (AO1 M1 fix)", () => {
-	it("owner/repo short form → https://github.com/<owner>/<repo>.git", () => {
-		// The canonical GitHub short form must map to a real HTTPS clone URL,
-		// NOT a local file path. This was the M1 correctness bug.
-		expect(repoToUrl("octocat/Hello-World")).toBe("https://github.com/octocat/Hello-World.git");
-		expect(repoToUrl("owner/repo")).toBe("https://github.com/owner/repo.git");
-	});
-
-	it("full https:// URL passes through unchanged", () => {
-		expect(repoToUrl("https://github.com/owner/repo.git")).toBe(
-			"https://github.com/owner/repo.git",
-		);
-		expect(repoToUrl("https://github.com/owner/repo")).toBe("https://github.com/owner/repo");
-	});
-
-	it("full https:// URL without .git passes through unchanged", () => {
-		expect(repoToUrl("https://gitlab.com/owner/repo")).toBe("https://gitlab.com/owner/repo");
-	});
-
-	it("git@ SSH URL passes through unchanged", () => {
-		expect(repoToUrl("git@github.com:owner/repo.git")).toBe("git@github.com:owner/repo.git");
-	});
-
-	it("file:// URL passes through unchanged", () => {
-		const url = "file:///home/user/myrepo";
-		expect(repoToUrl(url)).toBe(url);
-	});
-
-	it("absolute local path → file:// URL", () => {
-		expect(repoToUrl("/home/user/myrepo")).toBe("file:///home/user/myrepo");
-		expect(repoToUrl("/tmp/ao1-test-repo")).toBe("file:///tmp/ao1-test-repo");
-	});
-});
+// repoToUrl suite moved to probe-internals.test.ts (AU20 Ag2 barrel collapse).

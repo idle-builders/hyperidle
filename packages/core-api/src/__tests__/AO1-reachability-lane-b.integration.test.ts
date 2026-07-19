@@ -25,11 +25,7 @@
 import * as crypto from "node:crypto";
 import { encryptCredentialValue, ServiceConnectionResolver } from "@hyperidle/connections";
 import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
-import {
-	probeGitRemote,
-	resolveFilesystemState,
-	ServiceConnectionResolverAdapter,
-} from "@hyperidle/filesystems";
+import { resolveFilesystemState, ServiceConnectionResolverAdapter } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/git-export";
 import { describe, expect, it } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -57,27 +53,71 @@ const NOW = "2026-06-27T00:00:00.000Z";
 
 describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, network)", () => {
 	it.skipIf(SKIP)(
-		SKIP_REASON ?? "real PAT → probeGitRemote reachable",
+		SKIP_REASON ?? "real PAT → resolveFilesystemState reachable",
 		async () => {
 			// LIVE PROOF: real GitHub token → real git ls-remote → exit 0 → reachable.
 			// This exercises the FULL auth path: token → base64 → GIT_CONFIG_* env → git.
-			const result = await probeGitRemote(GITHUB_REPO, PAT, createGitRunner);
-			expect(result.state).toBe("reachable");
+			// @lore AU20 Ag2: probeGitRemote removed from barrel; replaced with
+			// resolveFilesystemState + inline auth resolver returning the real PAT.
+			const state = await resolveFilesystemState(
+				{
+					id: "lb-direct-1",
+					teamId: "team-1",
+					source: "github",
+					kind: "code",
+					connectionId: "conn-direct",
+					resourceRef: JSON.stringify({ kind: "code", repo: GITHUB_REPO, branch: "main" }),
+					writeback: "git",
+					state: "attached",
+					createdAt: NOW,
+				},
+				{
+					authResolver: {
+						canResolve: async () => true,
+						sourceOf: async () => "github",
+						resolve: async () =>
+							PAT ? { connectionId: "conn-direct", provision: { mode: "none" as const } } : null,
+						resolveToken: async () => PAT ?? null,
+					},
+					gitRunnerFactory: createGitRunner,
+				},
+			);
+			expect(state).toBe("reachable");
 		},
 		35_000,
 	);
 
 	it.skipIf(SKIP)(
-		"garbage token → probeGitRemote needs_attention",
+		"garbage token → resolveFilesystemState needs_attention",
 		async () => {
 			// LIVE PROOF: invalid token → git ls-remote exits non-zero → needs_attention.
 			// The auth injection mechanism is exercised; the token is wrong so forge rejects.
-			const result = await probeGitRemote(
-				GITHUB_REPO,
-				"ghp_garbage_token_not_real_at_all_0000",
-				createGitRunner,
+			const state = await resolveFilesystemState(
+				{
+					id: "lb-direct-2",
+					teamId: "team-1",
+					source: "github",
+					kind: "code",
+					connectionId: "conn-garbage",
+					resourceRef: JSON.stringify({ kind: "code", repo: GITHUB_REPO, branch: "main" }),
+					writeback: "git",
+					state: "attached",
+					createdAt: NOW,
+				},
+				{
+					authResolver: {
+						canResolve: async () => true,
+						sourceOf: async () => "github",
+						resolve: async () => ({
+							connectionId: "conn-garbage",
+							provision: { mode: "none" as const },
+						}),
+						resolveToken: async () => "ghp_garbage_token_not_real_at_all_0000",
+					},
+					gitRunnerFactory: createGitRunner,
+				},
 			);
-			expect(result.state).toBe("needs_attention");
+			expect(state).toBe("needs_attention");
 		},
 		35_000,
 	);

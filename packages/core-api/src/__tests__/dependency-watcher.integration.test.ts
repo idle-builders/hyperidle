@@ -1,20 +1,14 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import { checkAndUnblockDependents } from "@hyperidle/filesystems";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
-import { getTaskById, listHoldTasksWithDependencyPattern, transitionTask } from "@hyperidle/work";
+import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
-/**
- * @lore AU19 Increment 2b: `checkAndUnblockDependents` now requires an
- * injected `{ work, workIntents }` deps bundle (`@hyperidle/filesystems`'
- * `FilesystemsWorkStore`/`FilesystemsAgentWorkIntentRecorder` ports) — wired
- * here to `@hyperidle/work`'s real exports + the still-unmigrated
- * `recordAgentWorkIntent` (same wiring as `app.ts`'s composition root).
- */
+// @lore AU20 Ag2: `checkAndUnblockDependents` relocated to `@hyperidle/work`
+// and simplified — the `work:` sub-object is gone (function calls work
+// internals directly). Only the against-grain `workIntents` recorder remains injected.
 const depWatcherDeps = {
-	work: { listHoldTasksWithDependencyPattern, getTaskById, transitionTask },
 	workIntents: { record: recordAgentWorkIntent },
 };
 

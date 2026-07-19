@@ -27,7 +27,6 @@
  * constructor satisfies `create(): unknown` directly.
  */
 
-import { agentSelectionService } from "./agent-selection-bindings.js";
 import {
 	findThread,
 	insertMessage,
@@ -36,18 +35,17 @@ import {
 	listThreads,
 	updateThread,
 } from "@hyperidle/conversation";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb, Routine } from "@hyperidle/db";
 import type {
 	AssistantTurnDeps,
 	DispatchConfig,
-	Disposer,
 	DispatchPorts,
+	Disposer,
 	FireResult,
 	PostBetRetroArgs,
 	TaskDispatcherDeps,
 } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
-import type { AgentSessionRequest, Routine } from "@hyperidle/db";
 import { LocalSandboxAdapter } from "@hyperidle/harness-registry";
 import {
 	buildAttentionService,
@@ -80,6 +78,7 @@ import {
 	getTaskById,
 	listTasks,
 } from "@hyperidle/work";
+import { agentSelectionService } from "./agent-selection-bindings.js";
 import { getFactoryCostActual } from "./cost-bindings.js";
 import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
 import { recordAgentWorkIntent } from "./session-requests-bindings.js";
