@@ -47,42 +47,12 @@ export {
 	isBuiltinRoutineId,
 } from "./builtin-routines-config.js";
 // -- ports (Mechanism C — DI-injected outbound edges) --
-export type {
-	DispatchAgentModelParams,
-	DispatchAgentSelectionAccessor,
-	DispatchAgentWorkIntentInput,
-	DispatchAgentWorkIntentRecord,
-	DispatchAssistantFormation,
-	DispatchAssistantFormationRequest,
-	DispatchAttentionRecomputeOutcome,
-	DispatchAutoPromotionSweepResult,
-	DispatchConsumeOptions,
-	DispatchConversationAccessor,
-	DispatchConversationalOptions,
-	DispatchCostAccessor,
-	DispatchCreatePracticeMeetingInput,
-	DispatchCreatePracticeMeetingResult,
-	DispatchCredentialResolver,
-	DispatchKnowledgeAccessor,
-	DispatchModelGatewayAccessor,
-	DispatchPorts,
-	DispatchProvisionDeps,
-	DispatchProvisionResult,
-	DispatchRecentLayeredKnowledgeItem,
-	DispatchReviewAccessor,
-	DispatchRoutineAccessor,
-	DispatchRoutinePatch,
-	DispatchRunOrchestrationAccessor,
-	DispatchServerConfigSnapshot,
-	DispatchSessionRequestsAccessor,
-	DispatchSettingsAccessor,
-	DispatchStaleSweepResult,
-	DispatchToolContext,
-	DispatchToolHandlersAccessor,
-	DispatchUserAccessor,
-	DispatchWorkAccessor,
-	DispatchWorkspaceFactory,
-} from "./ports.js";
+// @lore AU20 Ag1a: ~34 individual Dispatch*Accessor + mirror sub-types collapsed
+// to ONE DispatchPorts export (the single structural contract). Sub-accessor
+// interfaces and input/result mirrors remain in ports.ts (non-exported from this
+// barrel) — the composition root satisfies DispatchPorts structurally without
+// naming the sub-types.
+export type { DispatchPorts } from "./ports.js";
 // -- routine-scheduler (cron parsing + generic-routine firing) --
 export type {
 	FireResult,
