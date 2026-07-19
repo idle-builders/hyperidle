@@ -81,7 +81,8 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
-import { registerAssistantDispatcher } from "./services/dispatch-bindings.js";
+// @lore AU20 Ag1b: registerAssistantDispatcher removed — assistant dispatcher
+// is now started inside startDispatch (called from registerAgentLayerServices).
 import {
 	agentWorkIntentReader,
 	agentWorkIntentRecorder,
@@ -577,11 +578,6 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 
 		const serviceDisposers = options.serviceBootstrap?.({ db, eventBus }) ?? [];
 		disposers.push(...serviceDisposers);
-
-		// AD8b AC-3: Register assistant dispatcher — listens for thread_message_appended
-		// from human users in user-hosted threads and triggers the assistant agent.
-		const unsubAssistant = registerAssistantDispatcher(eventBus, db);
-		disposers.push(unsubAssistant);
 
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
 		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot

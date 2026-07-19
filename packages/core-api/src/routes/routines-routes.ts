@@ -27,7 +27,7 @@ import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import { getRoutineMonthlySpend, runBuiltinRoutine } from "../services/dispatch-bindings.js";
+import { runBuiltinRoutine } from "../services/dispatch-bindings.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
@@ -481,7 +481,21 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		// Must run before coalescing so the monthly_budget_exhausted record is always written.
 		// Critique Warning 3: return reason "monthly_budget_exhausted" (not the internal scheduler string).
 		if (routine.costCapMonthlyMinor != null) {
-			const monthlySpend = await getRoutineMonthlySpend(db, routineId);
+			// @lore AU20 Ag1b: `getRoutineMonthlySpend` removed from dispatch interface —
+			// inlined here: sum costs since the first day of the current UTC month.
+			const { firstOfMonth } = (() => {
+				const now = new Date();
+				return {
+					firstOfMonth: new Date(
+						Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+					).toISOString(),
+				};
+			})();
+			const monthlySpend = await routineService.sumRunCost(db, {
+				routineIds: [routineId],
+				since: firstOfMonth,
+				kind: "sum",
+			});
 			if (monthlySpend >= routine.costCapMonthlyMinor) {
 				const runId = crypto.randomUUID();
 				await routineService.insertRoutineRun(db, {

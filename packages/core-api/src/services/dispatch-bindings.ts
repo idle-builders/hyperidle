@@ -27,7 +27,7 @@
  * constructor satisfies `create(): unknown` directly.
  */
 
-import { resolveAssistantFormation } from "@hyperidle/agent-selection";
+import { agentSelectionService } from "./agent-selection-bindings.js";
 import {
 	findThread,
 	insertMessage,
@@ -37,8 +37,17 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { DispatchPorts } from "@hyperidle/dispatch";
+import type {
+	AssistantTurnDeps,
+	DispatchConfig,
+	Disposer,
+	DispatchPorts,
+	FireResult,
+	PostBetRetroArgs,
+	TaskDispatcherDeps,
+} from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
+import type { AgentSessionRequest, Routine } from "@hyperidle/db";
 import { LocalSandboxAdapter } from "@hyperidle/harness-registry";
 import {
 	buildAttentionService,
@@ -161,8 +170,10 @@ const dispatchPorts: DispatchPorts = {
 		resolveModelTier: (tier, config, credentialResolver) =>
 			resolveModel({ kind: "tier", tier }, config, credentialResolver),
 	},
+	// @lore AU20 Ag1b: `resolveAssistantFormation` dissolved — port now delegates
+	// to `agentSelectionService.resolveScaffoldSpecs` with `trigger:"user_assistant"`.
 	agentSelection: {
-		resolveAssistantFormation,
+		resolveScaffoldSpecs: (request) => agentSelectionService.resolveScaffoldSpecs(request),
 	},
 	runOrchestration: {
 		executeAgentRunRequest: (deps, request, options) =>
@@ -207,15 +218,61 @@ const dispatchPorts: DispatchPorts = {
 
 export const dispatchOps = createDispatchOps(dispatchPorts);
 
-export const {
-	registerTaskDispatcher,
-	registerAssistantDispatcher,
-	startRoutineScheduler,
-	registerBuiltinRoutineHandlers,
-	executeAssistantRequest,
-	persistTurnFailure,
-	runBuiltinRoutine,
-	provisionTeamRoutines,
-	checkAndFireRoutine,
-	getRoutineMonthlySpend,
-} = dispatchOps;
+/**
+ * Bootstrap all dispatch lifecycle subscriptions in one call.
+ * Absorbs the former `registerBuiltinRoutineHandlers` + `registerAssistantDispatcher` +
+ * `registerTaskDispatcher` + `startRoutineScheduler` individual exports.
+ *
+ * @lore AU20 Ag1b: callers (server-factory.ts, app.ts) migrated to this single entry point.
+ */
+export function startDispatch(config: DispatchConfig): Promise<Disposer> {
+	return dispatchOps.start(config);
+}
+
+/**
+ * Execute one conversational assistant turn.
+ * Backward-compat alias for `dispatchOps.runAssistantTurn` — renamed in the Ag1b collapse.
+ */
+export function executeAssistantRequest(
+	deps: AssistantTurnDeps,
+	request: AgentSessionRequest,
+): Promise<void> {
+	return dispatchOps.runAssistantTurn(deps, request);
+}
+
+/**
+ * Fire a built-in routine by ID — loads the routine row, then delegates to `fireRoutine`.
+ *
+ * Backward-compat adapter: callers pass `routineId: string` (the old signature);
+ * the new `fireRoutine` needs the full `Routine` row, so we load it here.
+ */
+export async function runBuiltinRoutine(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	routineId: string,
+	args?: PostBetRetroArgs,
+): Promise<FireResult> {
+	const routine = await dispatchPorts.routine.getRoutineById(db, routineId);
+	if (!routine) {
+		return { fired: false, reason: "routine not found" };
+	}
+	return dispatchOps.fireRoutine(db, eventBus, routine, { args });
+}
+
+/** Fire a generic (non-builtin) routine. Thin wrapper around `fireRoutine`. */
+export function checkAndFireRoutine(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	routine: Routine,
+	runtimeDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">,
+): Promise<FireResult> {
+	return dispatchOps.fireRoutine(db, eventBus, routine, { runtimeDeps });
+}
+
+/** Provision the standard built-in routines for a newly created team. */
+export function provisionTeamRoutines(
+	db: HyperIdleDb,
+	opts: { teamId: string; ownerByRole: Partial<Record<string, string>>; leadAgentId: string },
+): Promise<void> {
+	return dispatchOps.provisionTeamRoutines(db, opts);
+}

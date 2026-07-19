@@ -231,24 +231,40 @@ export interface DispatchModelGatewayAccessor {
 // real target — Mechanism C still requires a port, see this file's top `@lore`)
 // ---------------------------------------------------------------------------
 
-/** Structural mirror of `@hyperidle/agent-selection`'s `AssistantFormationRequest`. */
-export interface DispatchAssistantFormationRequest {
+/**
+ * Structural mirror of `@hyperidle/agent-selection`'s `ScaffoldRequest` — fields
+ * this Service supplies for the `user_assistant` trigger.
+ *
+ * @lore AU20 Ag1b: replaces `DispatchAssistantFormationRequest` + the degenerate
+ * `resolveAssistantFormation` stub. Dispatch now calls the same general
+ * `resolveScaffoldSpecs` path that team-scaffold and agent-added already use,
+ * parameterised by `trigger: "user_assistant"`. No behavior change: the resolver
+ * returns the same system-prompt string that `resolveAssistantFormation` constant-
+ * returned, but now through the real `composeRoster` path.
+ */
+export interface DispatchScaffoldRequest {
 	readonly db: HyperIdleDb;
-	readonly userId: string;
-	readonly threadId: string;
+	readonly trigger: "user_assistant";
+	readonly teamId: null;
+	readonly teamMembersId: null;
+	readonly teamName: null;
+	readonly functions: null;
+	readonly role: null;
+	readonly name: null;
+	readonly ownerUserId: string;
+	readonly ownerUserName: null;
 }
 
-/** Structural mirror of `@hyperidle/agent-selection`'s `AssistantFormation`. */
-export interface DispatchAssistantFormation {
-	readonly persona: string | null;
-	readonly assistantDraftSurface: "standard";
+/** Structural mirror of `@hyperidle/agent-selection`'s `AgentScaffoldSpec` — only `systemPrompt` is read by dispatch. */
+export interface DispatchAgentScaffoldSpec {
+	readonly systemPrompt: string | null;
 }
 
-/** Port for `agent-selection`'s assistant-formation surface this Service calls directly today. */
+/** Port for `agent-selection`'s scaffold-spec surface dispatch calls today. */
 export interface DispatchAgentSelectionAccessor {
-	resolveAssistantFormation(
-		request: DispatchAssistantFormationRequest,
-	): Promise<DispatchAssistantFormation>;
+	resolveScaffoldSpecs(
+		request: DispatchScaffoldRequest,
+	): Promise<readonly DispatchAgentScaffoldSpec[]>;
 }
 
 // ---------------------------------------------------------------------------

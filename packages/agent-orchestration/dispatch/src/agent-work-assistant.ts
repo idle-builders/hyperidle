@@ -419,12 +419,22 @@ async function runTurnInternal(
 	const transcriptRows = await loadRawTranscript(ports, db, threadId);
 	const conversationMessages = mapTranscriptToMessages(transcriptRows, assistantAgentId);
 
-	// --- Step 3.5: Formation seam — resolve persona + draft surface ---
-	// The formation answer is a per-turn decision, NOT persisted to the users row.
-	const formation = await ports.agentSelection.resolveAssistantFormation({
+	// --- Step 3.5: Formation seam — resolve persona via scaffold spec ---
+	// @lore AU20 Ag1b: `resolveAssistantFormation` dissolved into the general
+	// `resolveScaffoldSpecs({trigger:"user_assistant"})` path. Same system-prompt
+	// value returned; `threadId` is no longer threaded to agent-selection (the
+	// resolver never used it — it was a legacy artefact of the formation stub).
+	const scaffoldSpecs = await ports.agentSelection.resolveScaffoldSpecs({
 		db,
-		userId,
-		threadId,
+		trigger: "user_assistant",
+		teamId: null,
+		teamMembersId: null,
+		teamName: null,
+		functions: null,
+		role: null,
+		name: null,
+		ownerUserId: userId,
+		ownerUserName: null,
 	});
 
 	// --- Step 4: Resolve draft tool binding ---
@@ -514,7 +524,8 @@ async function runTurnInternal(
 				// @lore AR4b: systemPromptOverride carries the per-turn persona decision
 				// to prompt assembly, which uses it in composeAssistantPrompt(effectivePersona).
 				// The agent row is NOT mutated; this is a turn-time assembled-prompt override only.
-				systemPromptOverride: formation.persona,
+				// @lore AU20 Ag1b: persona sourced from first scaffold spec's systemPrompt.
+				systemPromptOverride: scaffoldSpecs[0]?.systemPrompt ?? null,
 			},
 		});
 

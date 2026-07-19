@@ -26,6 +26,10 @@ export interface FireResult {
 	fired: boolean;
 	reason?: string;
 	sessionId?: string;
+	/** Populated by builtin-routine handlers: IDs of any records emitted during the run. */
+	emitted?: readonly string[];
+	/** Populated by builtin-routine handlers: handler-specific extra result data. */
+	extra?: Record<string, unknown>;
 }
 
 /**

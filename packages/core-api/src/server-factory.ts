@@ -107,11 +107,7 @@ import { agentSelectionService } from "./services/agent-selection-bindings.js";
 // `startCostSentinel` (now a single call covers both the dedup releaser
 // subscription and the sentinel interval). Disposer count 15→14.
 import { checkCostCap, startCostSentinel } from "./services/cost-bindings.js";
-import {
-	registerBuiltinRoutineHandlers,
-	registerTaskDispatcher,
-	startRoutineScheduler,
-} from "./services/dispatch-bindings.js";
+import { startDispatch } from "./services/dispatch-bindings.js";
 import { startAgentLifecycleProjectionDrain } from "./services/lifecycle-projection-bindings.js";
 import {
 	bootAgentLayer,
@@ -367,26 +363,6 @@ export function registerCoreDomainServices(ctx: {
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
 	disposers.push(startRetentionReaper(db, retentionReaperDeps));
 
-	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
-	// AF6 §1 (Option A): start the routine scheduler async, push a deferred
-	// disposer that drains the start promise then stops. Built-in routines
-	// auto-fire (no session); generic routines are gated by canProvision.
-	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
-	const schedulerPromise = startRoutineScheduler(db, eventBus, {
-		pollIntervalMs,
-		canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
-		...(ctx.dispatcherDeps ? { runtimeDeps: ctx.dispatcherDeps } : {}),
-		// Non-optional periodic reaper sweep: catches in-process hangs.
-		reap: () => reapStaleRoutineSessions(db, eventBus, { staleAfterMs: reaperStaleAfterMs }),
-		reaperCadenceMs: ctx.reaperCadenceMs,
-	});
-	schedulerPromise.catch((err) => {
-		serviceBootstrapLog.error("routine scheduler failed to start", { err });
-	});
-	disposers.push(() => {
-		void schedulerPromise.then((s) => s.stop()).catch(() => {});
-	});
-
 	return disposers;
 }
 
@@ -396,17 +372,53 @@ export function registerCoreDomainServices(ctx: {
  * routine-session reapers. Split from the former `bootstrapAppRuntime`
  * shell alongside `registerCoreDomainServices` (see that function's
  * doc-comment for the behavior-preservation invariant).
+ *
+ * @lore AU20 Ag1b: `registerBuiltinRoutineHandlers` + `registerTaskDispatcher`
+ * collapsed into `startDispatch`. Scheduler config absorbed here from
+ * `registerCoreDomainServices` so a single `startDispatch` call boots
+ * the full dispatch lifecycle (builtin handlers + assistant dispatcher +
+ * optional task dispatcher + optional scheduler). The deferred-promise
+ * disposer pattern mirrors the former `startRoutineScheduler` handling.
  */
 export function registerAgentLayerServices(ctx: {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 	readonly reaperStaleAfterMs?: number;
+	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
+	readonly routinePollIntervalMs?: number;
+	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
+	readonly canProvision?: boolean;
+	/** AF6 §4: in-process periodic reaper cadence (ms). 0 = every poll (tests). */
+	readonly reaperCadenceMs?: number;
 }): Array<() => void> {
 	const { db, eventBus } = ctx;
 	const disposers: Array<() => void> = [];
+	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
 
-	disposers.push(registerBuiltinRoutineHandlers(db, eventBus));
+	// AF6 §1 + AU20 Ag1b: `startDispatch` boots the full dispatch lifecycle —
+	// builtin handlers, assistant dispatcher, optional task dispatcher, optional scheduler.
+	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
+	const dispatchPromise = startDispatch({
+		db,
+		eventBus,
+		task: ctx.dispatcherDeps,
+		scheduler: {
+			pollIntervalMs,
+			canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
+			...(ctx.dispatcherDeps ? { runtimeDeps: ctx.dispatcherDeps } : {}),
+			// Non-optional periodic reaper sweep: catches in-process hangs.
+			reap: () => reapStaleRoutineSessions(db, eventBus, { staleAfterMs: reaperStaleAfterMs }),
+			reaperCadenceMs: ctx.reaperCadenceMs,
+		},
+	});
+	dispatchPromise.catch((err) => {
+		serviceBootstrapLog.error("dispatch start failed", { err });
+	});
+	disposers.push(() => {
+		void dispatchPromise.then((d) => d()).catch(() => {});
+	});
+
 	disposers.push(registerHandoffTerminationRequester(db, eventBus));
 	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
 	// @lore AU20 Am3: `startCostSentinel` now also installs the dedup-releaser
@@ -414,22 +426,13 @@ export function registerAgentLayerServices(ctx: {
 	// One disposer instead of two; count drops from 15 to 14.
 	disposers.push(startCostSentinel(db, eventBus));
 
-	// AD2: Register task dispatcher when provisioning deps are provided.
+	// AF7 §6: TTL workspace reaper (task dispatcher is now inside startDispatch).
 	if (ctx.dispatcherDeps) {
-		disposers.push(
-			registerTaskDispatcher({
-				db,
-				eventBus,
-				...ctx.dispatcherDeps,
-			}),
-		);
-		// AF7 §6: TTL workspace reaper.
 		disposers.push(startSandboxReaper(db, { sandboxBasePath: ctx.dispatcherDeps.sandboxBasePath }));
 	}
 
 	// AF6 §4: boot one-shot reaper — clear zombie routine sessions left by a
 	// previous process. Fire-and-forget; never blocks boot.
-	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
 	reapStaleRoutineSessions(db, eventBus, { staleAfterMs: reaperStaleAfterMs }).catch((err) => {
 		serviceBootstrapLog.error("boot routine-session reaper failed", { err });
 	});

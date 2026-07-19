@@ -56,13 +56,11 @@ export type { DispatchPorts } from "./ports.js";
 // -- routine-scheduler (cron parsing + generic-routine firing) --
 export type {
 	FireResult,
-	ReapStaleSessions,
-	RoutineScheduler,
 	RoutineSchedulerConfig,
 } from "./routine-scheduler.js";
 export { computeNextRunAt, nextCronMatch, parseCron } from "./routine-scheduler.js";
 // -- service (the bound-ops factory, same idiom as `cost`/`agent-selection`) --
-export type { DispatchOps } from "./service.js";
+export type { DispatchConfig, Disposer, DispatchOps } from "./service.js";
 export { createDispatchOps } from "./service.js";
 // -- task-dispatcher (AD2: task-to-session dispatcher) --
 export type {

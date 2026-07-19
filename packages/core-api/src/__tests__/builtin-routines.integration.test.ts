@@ -24,8 +24,8 @@ import { eq } from "drizzle-orm";
 import { clearCostSentinelCache, runCostSentinelCheck } from "../services/cost-bindings.js";
 import {
 	provisionTeamRoutines,
-	registerBuiltinRoutineHandlers,
 	runBuiltinRoutine,
+	startDispatch,
 } from "../services/dispatch-bindings.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
@@ -444,7 +444,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
+			const unsub = await startDispatch({ db, eventBus });
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",
@@ -499,7 +499,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
+			const unsub = await startDispatch({ db, eventBus });
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",
@@ -529,7 +529,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
+			const unsub = await startDispatch({ db, eventBus });
 			try {
 				// Emit a non-completed transition — should be ignored
 				const nonCompleted: BetStateChangedEvent = {
@@ -768,7 +768,7 @@ describe("G4: Built-in Routines", () => {
 				createdAt: NOW_ISO,
 			});
 
-			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
+			const unsub = await startDispatch({ db, eventBus });
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",

@@ -37,7 +37,6 @@
 // Runtime exports (2)
 // ---------------------------------------------------------------------------
 
-export { resolveAssistantFormation } from "./agent-defaults/resolvers.js";
 export { createAgentSelectionService } from "./service.js";
 
 // ---------------------------------------------------------------------------
