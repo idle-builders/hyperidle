@@ -188,14 +188,17 @@ const sessionRequestsAccessor: SessionLifecyclePorts["sessionRequests"] = {
 	recordAgentWorkIntent,
 	terminalizeAgentSessionRequestInTx,
 	findAgentSessionRequestTerminationReasonInTx: async (tx, requestId) => {
-		const { findAgentSessionRequestTerminationReasonInTx } = await import(
-			"@hyperidle/session-requests"
-		);
-		return findAgentSessionRequestTerminationReasonInTx(tx, requestId);
+		const { findSessionRequest } = await import("@hyperidle/session-requests");
+		return findSessionRequest(tx, { by: "terminationReason", requestId });
 	},
 	requestAgentSessionTermination: async (db, input) => {
-		const { requestAgentSessionTermination } = await import("@hyperidle/session-requests");
-		return requestAgentSessionTermination(db, input);
+		const { transitionSessionRequest } = await import("@hyperidle/session-requests");
+		return transitionSessionRequest(db, {
+			to: "termination-requested",
+			requestId: input.requestId,
+			reason: input.reason,
+			requestedBy: input.requestedBy,
+		});
 	},
 	listRunningAgentSessionRequests: async (db) => {
 		const { listRunningAgentSessionRequests } = await import("@hyperidle/session-requests");
@@ -367,8 +370,11 @@ export function registerHandoffTerminationRequester(
 ): () => void {
 	const handler = (event: SessionHandoffCompletedEvent): void => {
 		void (async (): Promise<void> => {
-			const { findAgentSessionRequestBySessionId } = await import("@hyperidle/session-requests");
-			const correlatedRequest = await findAgentSessionRequestBySessionId(db, event.sessionId);
+			const { findSessionRequest } = await import("@hyperidle/session-requests");
+			const correlatedRequest = await findSessionRequest(db, {
+				by: "sessionId",
+				sessionId: event.sessionId,
+			});
 			if (!correlatedRequest) return;
 			await requestAgentTermination(db, {
 				requestId: correlatedRequest.id,

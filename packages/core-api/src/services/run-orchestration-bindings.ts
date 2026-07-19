@@ -86,14 +86,9 @@ import {
 import {
 	claimAgentSessionRequestById,
 	claimNextAgentSessionRequest,
-	findAgentSessionRequestById,
-	findAgentWorkIntentSourceByRequestId,
-	findExplicitSessionStartById,
-	isAgentSessionRequestClaimActive,
+	findSessionRequest,
 	listAgentSessionRequestsBySource,
 	listRunningAgentSessionRequests,
-	markExplicitSessionStartAdmitted,
-	markExplicitSessionStartFailed,
 	releaseRequestClaim,
 	renewAgentSessionRequestLease,
 } from "@hyperidle/session-requests";
@@ -111,6 +106,8 @@ import {
 } from "./session-lifecycle-bindings.js";
 import {
 	drainAgentWorkIntents,
+	markExplicitSessionStartAdmitted,
+	markExplicitSessionStartFailed,
 	markRequestRunning,
 	reapTerminalAgentWorkIntents,
 } from "./session-requests-bindings.js";
@@ -120,19 +117,27 @@ import {
 // ---------------------------------------------------------------------------
 
 const sessionRequestsPort: RunOrchestrationSessionRequestsPort = {
-	findAgentSessionRequestById,
+	findAgentSessionRequestById: (db, id) => findSessionRequest(db, { by: "id", requestId: id }),
 	listAgentSessionRequestsBySource,
 	listRunningAgentSessionRequests,
-	isAgentSessionRequestClaimActive,
+	isAgentSessionRequestClaimActive: (db, input) =>
+		findSessionRequest(db, {
+			by: "claimActive",
+			requestId: input.requestId,
+			claimToken: input.claimToken,
+			now: input.now,
+		}),
 	claimNextAgentSessionRequest,
 	claimAgentSessionRequestById,
 	releaseRequestClaim,
 	renewAgentSessionRequestLease,
 	markRequestRunning,
-	findAgentWorkIntentSourceByRequestId,
+	findAgentWorkIntentSourceByRequestId: (db, requestId) =>
+		findSessionRequest(db, { by: "intentSource", requestId }),
 	drainAgentWorkIntents,
 	reapTerminalAgentWorkIntents,
-	findExplicitSessionStartById,
+	findExplicitSessionStartById: (db, id) =>
+		findSessionRequest(db, { by: "explicitStart", startId: id }),
 	markExplicitSessionStartAdmitted,
 	markExplicitSessionStartFailed,
 };

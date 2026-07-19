@@ -25,10 +25,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
-import {
-	createAgentSessionRequest,
-	findAgentSessionRequestByIdempotencyKey,
-} from "@hyperidle/session-requests";
+import { createAgentSessionRequest, findSessionRequest } from "@hyperidle/session-requests";
 import {
 	listConfiguration,
 	seedConfigurationDefaults,
@@ -47,7 +44,13 @@ const NOW = "2026-07-09T10:00:00.000Z";
 
 const triggerResolutionDeps: TriggerResolutionDeps = {
 	sessionRequests: {
-		findByIdempotencyKey: findAgentSessionRequestByIdempotencyKey,
+		findByIdempotencyKey: (db, key) =>
+			findSessionRequest(db, {
+				by: "idempotencyKey",
+				sourceKind: key.sourceKind,
+				sourceId: key.sourceId,
+				idempotencyKey: key.idempotencyKey,
+			}),
 		create: createAgentSessionRequest,
 	},
 	config: { listConfiguration },

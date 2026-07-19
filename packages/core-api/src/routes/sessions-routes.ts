@@ -2,8 +2,7 @@ import type { SessionActivityBuffer } from "@hyperidle/capture-writeback";
 import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	createExplicitSessionStart,
-	findExplicitSessionStartById,
-	findExplicitSessionStartByRequesterAndIdempotencyKey,
+	findSessionRequest,
 	sessionRunRegistry,
 } from "@hyperidle/session-requests";
 import {
@@ -355,7 +354,8 @@ export function createSessionRoutes(
 					);
 				const idempotencyKey = suppliedKey ?? `session-start:${crypto.randomUUID()}`;
 				const requestedBy = c.get("userId");
-				let start = await findExplicitSessionStartByRequesterAndIdempotencyKey(db, {
+				let start = await findSessionRequest(db, {
+					by: "explicitStart",
 					requestedBy,
 					idempotencyKey,
 				});
@@ -416,7 +416,10 @@ export function createSessionRoutes(
 							}
 						};
 						const check = async () => {
-							const fresh = await findExplicitSessionStartById(db, committedStart.id);
+							const fresh = await findSessionRequest(db, {
+								by: "explicitStart",
+								startId: committedStart.id,
+							});
 							if (fresh && fresh.status !== "requested")
 								finish(await projectExplicitStart(db, fresh));
 						};
@@ -471,7 +474,10 @@ export function createSessionRoutes(
 	);
 
 	router.get("/starts/:startId", requireBoundary({ kind: "public-data" }), async (c) => {
-		const start = await findExplicitSessionStartById(db, c.req.param("startId"));
+		const start = await findSessionRequest(db, {
+			by: "explicitStart",
+			startId: c.req.param("startId"),
+		});
 		if (!start || start.requestedBy !== c.get("userId"))
 			return c.json({ error: "Session start not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		c.header("Idempotency-Key", start.idempotencyKey);

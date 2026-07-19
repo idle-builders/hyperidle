@@ -37,10 +37,7 @@ import {
 } from "@hyperidle/db";
 import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
 import { getTeamMembers } from "@hyperidle/org";
-import {
-	createAgentSessionRequest,
-	findAgentSessionRequestByIdempotencyKey,
-} from "@hyperidle/session-requests";
+import { createAgentSessionRequest, findSessionRequest } from "@hyperidle/session-requests";
 import { listConfiguration } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
 import {
@@ -49,13 +46,19 @@ import {
 } from "@hyperidle/trigger-resolution";
 import { findUser } from "@hyperidle/users";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { executeAssistantRequest } from "../services/dispatch-bindings.js";
 import { agentSelectionService } from "../services/agent-selection-bindings.js";
+import { executeAssistantRequest } from "../services/dispatch-bindings.js";
 import { test } from "../test-fixtures.js";
 
 const triggerResolutionDeps: TriggerResolutionDeps = {
 	sessionRequests: {
-		findByIdempotencyKey: findAgentSessionRequestByIdempotencyKey,
+		findByIdempotencyKey: (db, key) =>
+			findSessionRequest(db, {
+				by: "idempotencyKey",
+				sourceKind: key.sourceKind,
+				sourceId: key.sourceId,
+				idempotencyKey: key.idempotencyKey,
+			}),
 		create: createAgentSessionRequest,
 	},
 	config: { listConfiguration },
@@ -271,19 +274,19 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 		vi.clearAllMocks();
 		// @lore AU20 Ag1b: mock resolveScaffoldSpecs on the agentSelectionService singleton
 		// so the dispatch port returns a controllable persona without hitting the DB.
-		vi.spyOn(agentSelectionService, "resolveScaffoldSpecs").mockImplementation(
-			async (request) => {
-				formationState.calls.push({ userId: (request as { ownerUserId?: string }).ownerUserId ?? "" });
-				return [
-					{
-						role: "assistant" as const,
-						name: "Assistant",
-						agentCategory: "individual" as const,
-						systemPrompt: formationState.persona,
-					},
-				];
-			},
-		);
+		vi.spyOn(agentSelectionService, "resolveScaffoldSpecs").mockImplementation(async (request) => {
+			formationState.calls.push({
+				userId: (request as { ownerUserId?: string }).ownerUserId ?? "",
+			});
+			return [
+				{
+					role: "assistant" as const,
+					name: "Assistant",
+					agentCategory: "individual" as const,
+					systemPrompt: formationState.persona,
+				},
+			];
+		});
 	});
 
 	test("default app assistant formation leaves persona unset", async ({ db }) => {

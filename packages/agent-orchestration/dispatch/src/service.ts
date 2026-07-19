@@ -43,10 +43,7 @@ import {
 import { isBuiltinRoutineId } from "./builtin-routines-config.js";
 import type { DispatchPorts } from "./ports.js";
 import type { FireResult, RoutineSchedulerConfig } from "./routine-scheduler.js";
-import {
-	checkAndFireRoutineInternal,
-	startRoutineSchedulerInternal,
-} from "./routine-scheduler.js";
+import { checkAndFireRoutineInternal, startRoutineSchedulerInternal } from "./routine-scheduler.js";
 import type { TaskDispatcherDeps } from "./task-dispatcher.js";
 import { registerTaskDispatcherInternal } from "./task-dispatcher.js";
 

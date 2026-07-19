@@ -197,7 +197,7 @@ describe("agent run boundary", () => {
 						requestId: request.id,
 						precondition: "running",
 						sessionId,
-						state: status,
+						to: status,
 						...(status === "failed" ? { failureCode: "HarnessError", errorMessage: "boom" } : {}),
 					});
 				}
@@ -285,7 +285,7 @@ describe("agent run boundary", () => {
 				requestId: request.id,
 				precondition: "running",
 				sessionId,
-				state: "failed",
+				to: "failed",
 				failureCode: "AgentRunFailed",
 				errorMessage: `${sourceKind} failed`,
 			});

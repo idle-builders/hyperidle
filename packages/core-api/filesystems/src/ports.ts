@@ -161,4 +161,3 @@ export interface FilesystemsServiceConnectionResolver {
 // comments for the atomicity-check reasoning. The change-item shape lives on
 // the event now (`SandboxWritebackChange`, `@hyperidle/shared`), not here.
 // ---------------------------------------------------------------------------
-

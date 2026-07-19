@@ -5,7 +5,7 @@
  * source-import scanning, but these tests want REAL durable-write behavior
  * to assert against, not a stub). `sessionLifecycle`'s
  * `transitionAgentRunLifecycle` is reproduced directly against
- * `@hyperidle/session-requests`'s own `terminalizeAgentSessionRequest` (the
+ * `@hyperidle/session-requests`'s own `transitionSessionRequest` (the
  * same durable write `session-lifecycle.ts`'s real implementation ultimately
  * delegates to) — these tests never set a termination reason, so the
  * termination-reason-precedence branch `session-lifecycle.ts`'s real
@@ -15,20 +15,25 @@
  * where behavior matters (matching the pre-move tests' own
  * `vi.mock("../session-provisioning.js")` stand-in for the same harness-
  * execution edge).
+ *
+ * @lore AU20 Ag3b: `findAgentSessionRequestById`, `findAgentWorkIntentSourceByRequestId`,
+ * `isAgentSessionRequestClaimActive`, `markRequestRunning`, and
+ * `terminalizeAgentSessionRequest` are no longer barrel-exported. Replaced by
+ * `findSessionRequest` + `transitionSessionRequest`. `testMarkRequestRunning`
+ * and `testTerminalize` updated to call the new unified API; the `{state}` field
+ * in `testTerminalize`'s callers becomes `{to}`.
  */
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
 	claimAgentSessionRequestById,
 	claimNextAgentSessionRequest,
-	findAgentSessionRequestById,
-	findAgentWorkIntentSourceByRequestId,
-	isAgentSessionRequestClaimActive,
+	findSessionRequest,
 	listAgentSessionRequestsBySource,
 	listRunningAgentSessionRequests,
-	markRequestRunning as realMarkRequestRunning,
 	releaseRequestClaim,
 	renewAgentSessionRequestLease,
-	terminalizeAgentSessionRequest,
+	type SessionRequestTerminalTransition,
+	transitionSessionRequest,
 } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { vi } from "vitest";
@@ -49,41 +54,46 @@ const noopTriggerHistoryWriter = {
 	},
 };
 
-/** `markRequestRunning` with a no-op trigger-history writer (these tests never seed `triggerResolutionHistory`). */
+/** `transitionSessionRequest({to:'running',...})` with a no-op trigger-history writer. */
 export function testMarkRequestRunning(
 	db: HyperIdleDb,
 	requestId: string,
 	sessionId: string,
 	claimToken?: string,
 ): Promise<void> {
-	return realMarkRequestRunning(
+	return transitionSessionRequest(
 		db,
-		requestId,
-		sessionId,
+		{ to: "running", requestId, sessionId, claimToken },
 		{ triggerHistory: noopTriggerHistoryWriter },
-		claimToken,
 	);
 }
 
-/** `terminalizeAgentSessionRequest` with a no-op lifecycle-inbox writer (these tests assert on `agent_session_requests` only). */
+/** `transitionSessionRequest` terminal with a no-op lifecycle-inbox writer. */
 export function testTerminalize(
 	db: HyperIdleDb,
-	input: Parameters<typeof terminalizeAgentSessionRequest>[1],
-): ReturnType<typeof terminalizeAgentSessionRequest> {
-	return terminalizeAgentSessionRequest(db, input, { lifecycleInbox: noopLifecycleInboxWriter });
+	input: SessionRequestTerminalTransition,
+): Promise<AgentSessionRequest | null> {
+	return transitionSessionRequest(db, input, { lifecycleInbox: noopLifecycleInboxWriter });
 }
 
 const realSessionRequestsPort: RunOrchestrationSessionRequestsPort = {
-	findAgentSessionRequestById,
+	findAgentSessionRequestById: (db, id) => findSessionRequest(db, { by: "id", requestId: id }),
 	listAgentSessionRequestsBySource,
 	listRunningAgentSessionRequests,
-	isAgentSessionRequestClaimActive,
+	isAgentSessionRequestClaimActive: (db, input) =>
+		findSessionRequest(db, {
+			by: "claimActive",
+			requestId: input.requestId,
+			claimToken: input.claimToken,
+			now: input.now,
+		}),
 	claimNextAgentSessionRequest,
 	claimAgentSessionRequestById,
 	releaseRequestClaim,
 	renewAgentSessionRequestLease,
 	markRequestRunning: testMarkRequestRunning,
-	findAgentWorkIntentSourceByRequestId,
+	findAgentWorkIntentSourceByRequestId: (db, requestId) =>
+		findSessionRequest(db, { by: "intentSource", requestId }),
 	drainAgentWorkIntents: vi.fn(async () => {
 		/* no-op */
 	}),
@@ -93,7 +103,8 @@ const realSessionRequestsPort: RunOrchestrationSessionRequestsPort = {
 		explicitStarts: 0,
 		taskAttempts: 0,
 	})),
-	findExplicitSessionStartById: vi.fn(async () => undefined),
+	findExplicitSessionStartById: (db, id) =>
+		findSessionRequest(db, { by: "explicitStart", startId: id }),
 	markExplicitSessionStartAdmitted: vi.fn(async () => {
 		/* no-op */
 	}),
@@ -122,7 +133,7 @@ const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 					requestId: input.requestId,
 					precondition: "running",
 					sessionId: input.sessionId,
-					state: input.state,
+					to: input.state,
 					failureCode: input.failureCode,
 					errorMessage: input.errorMessage,
 				})
@@ -130,7 +141,7 @@ const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 					requestId: input.requestId,
 					precondition: "claimed",
 					claimToken: input.claimToken ?? "",
-					state: "failed",
+					to: "failed",
 					failureCode: input.failureCode,
 					errorMessage: input.errorMessage,
 				});

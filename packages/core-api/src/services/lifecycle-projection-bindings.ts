@@ -20,8 +20,8 @@ import {
 	startAgentLifecycleProjectionDrain as startAgentLifecycleProjectionDrainInternal,
 } from "@hyperidle/lifecycle-projection";
 import { updateRoutineRun } from "@hyperidle/routine";
-import { projectExplicitSessionStartTerminalState } from "@hyperidle/session-requests";
 import { updateBetDecompositionStatusIfRunning } from "@hyperidle/work";
+import { projectExplicitSessionStartTerminalState } from "./session-requests-bindings.js";
 
 const agentLifecycleProjectionDeps: AgentLifecycleProjectionDeps = {
 	routine: {
