@@ -54,8 +54,7 @@ import {
 	type AlertPreferences,
 	defaultMutePreferenceReader,
 	defaultNotificationAdapterFactory,
-	deleteReaped,
-	insertNotification,
+	enqueue,
 	isSilenced,
 	type NotificationsConfigDeps,
 	type NotificationsCredentialCipher,
@@ -63,6 +62,7 @@ import {
 	type NotificationsMuteDeps,
 	type NotificationsSilenceDeps,
 	type NotificationsWorkReader,
+	reap,
 	registerNotificationDispatcher,
 	registerNotificationListener,
 	startNotificationDrain,
@@ -250,7 +250,11 @@ const policyDeps: PolicyDeps = {
 	silence: {
 		isSilenced: (db, item, now) => isSilenced(db, item, now, notificationsSilenceDeps),
 	},
-	notifications: { insert: insertNotification },
+	notifications: {
+		insert: async (db, row) => {
+			await enqueue(db, row);
+		},
+	},
 };
 
 /**
@@ -265,7 +269,7 @@ const policyDeps: PolicyDeps = {
 const retentionReaperDeps: RetentionReaperDeps = {
 	users: { reapExpiredCredentials },
 	knowledge: { reapKnowledgeAccessLog },
-	notifications: { deleteReaped },
+	notifications: { deleteReaped: reap },
 };
 
 /**

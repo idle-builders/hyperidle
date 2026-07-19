@@ -37,7 +37,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { insertNotification } from "@hyperidle/notifications";
+import { enqueue } from "@hyperidle/notifications";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
@@ -101,7 +101,11 @@ const lifecyclePropagationDeps: PolicyDeps = {
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
 	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-	notifications: { insert: insertNotification },
+	notifications: {
+		insert: async (db, row) => {
+			await enqueue(db, row);
+		},
+	},
 	silence: { isSilenced: () => Promise.resolve(false) },
 };
 

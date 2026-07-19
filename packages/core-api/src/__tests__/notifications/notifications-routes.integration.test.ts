@@ -12,8 +12,8 @@
  */
 
 import {
-	insertNotification,
-	listAll,
+	enqueue,
+	listNotifications,
 	type Notification,
 	type NotificationAdapter,
 	type Recipient,
@@ -198,7 +198,7 @@ describe("H2 /api/notifications routes", () => {
 			const result = (await res.json()) as SendResult;
 			expect(result.ok).toBe(true);
 			expect(adapter.calls).toHaveLength(1);
-			const queueRows = await listAll(db);
+			const queueRows = await listNotifications(db, { kind: "all" });
 			expect(queueRows).toHaveLength(0);
 		} finally {
 			disposeApp(app);
@@ -210,7 +210,7 @@ describe("H2 /api/notifications routes", () => {
 		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const now = "2026-04-18T00:00:00.000Z";
-			await insertNotification(db, {
+			await enqueue(db, {
 				id: "q-1",
 				eventType: "item_created",
 				subjectId: "x",
@@ -459,7 +459,7 @@ describe("H2 /api/notifications routes", () => {
 				body: JSON.stringify({ enabled: true, primaryChannel: "console" }),
 			});
 			const now = "2026-04-18T00:00:00.000Z";
-			await insertNotification(db, {
+			await enqueue(db, {
 				id: "q-d-1",
 				eventType: "item_created",
 				subjectId: "x",
@@ -483,7 +483,7 @@ describe("H2 /api/notifications routes", () => {
 			expect(result.status).toBe("sent");
 			expect(result.notificationsIncluded).toBe(1);
 			expect(adapter.calls).toHaveLength(1);
-			const rows = await listAll(db);
+			const rows = await listNotifications(db, { kind: "all" });
 			expect(rows[0]!.status).toBe("sent");
 		} finally {
 			disposeApp(app);

@@ -5,11 +5,9 @@ import {
 	dispatchDigest,
 	flushQueue,
 	getMutedTypeKeys,
-	listByStatus,
-	listUnread,
+	listNotifications,
 	loadNotificationConfig,
-	markRead,
-	markSeenAll,
+	markNotifications,
 	type Notification,
 	type NotificationChannel,
 	type NotificationConfigPatch,
@@ -328,7 +326,7 @@ export function createNotificationRoutes(
 			};
 			return c.json(response, 400);
 		}
-		const rows = await listByStatus(db, parsed.data, limit);
+		const rows = await listNotifications(db, { kind: "by-status", status: parsed.data, limit });
 		return c.json({
 			status: parsed.data,
 			count: rows.length,
@@ -387,7 +385,7 @@ export function createNotificationRoutes(
 	 * Drives the popover row list and unread dot count.
 	 */
 	router.get("/inbox", requireBoundary({ kind: "principal-self" }), async (c) => {
-		const rows = await listUnread(db, 50);
+		const rows = await listNotifications(db, { kind: "unread", limit: 50 });
 
 		// Sort: immediate urgency first, then ambient; within each group, newest first
 		const sorted = [...rows].sort((a, b) => {
@@ -422,7 +420,7 @@ export function createNotificationRoutes(
 	 * round-trip per unseen row (50+ rows = 50+ DB calls on every popover open).
 	 */
 	router.post("/seen", requireBoundary({ kind: "principal-self" }), async (c) => {
-		await markSeenAll(db, nowFn());
+		await markNotifications(db, { kind: "all" }, { seen: true }, nowFn());
 		return c.json({ ok: true });
 	});
 
@@ -443,7 +441,7 @@ export function createNotificationRoutes(
 			};
 			return c.json(response, 400);
 		}
-		await markRead(db, parsed.data, nowFn());
+		await markNotifications(db, { kind: "ids", ids: [parsed.data] }, { read: true }, nowFn());
 		return c.json({ ok: true });
 	});
 

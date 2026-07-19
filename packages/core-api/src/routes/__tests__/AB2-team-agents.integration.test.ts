@@ -14,7 +14,7 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { listAll } from "@hyperidle/notifications";
+import { listNotifications } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { deriveHealthDetail, deriveHealthLevel } from "../../routes/agent-profile.js";
 import { test } from "../../test-fixtures.js";
@@ -339,7 +339,7 @@ describe("AB2 AC-6: Agent error state triggers notification (throttled)", () => 
 		await app.request("/api/teams/ab2-team", { headers: authHeaders() });
 
 		// maybeNotifyAgentError uses subjectId=agentId and eventType="agent.health.degraded"
-		const notifications = (await listAll(db)).filter(
+		const notifications = (await listNotifications(db, { kind: "all" })).filter(
 			(r) => r.subjectId === "ab2-agent-idle" && r.eventType === "agent.health.degraded",
 		);
 

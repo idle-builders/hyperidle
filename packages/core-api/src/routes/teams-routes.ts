@@ -20,7 +20,7 @@
 
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { enqueueNotification, findPendingByEventSubject } from "@hyperidle/notifications";
+import { enqueueNotification, listNotifications } from "@hyperidle/notifications";
 import {
 	ApiError,
 	createTeam,
@@ -131,7 +131,11 @@ async function maybeNotifyAgentError(
 	teamName: string,
 ): Promise<void> {
 	// Check for existing pending notification for this agent
-	const existing = await findPendingByEventSubject(db, "agent.health.degraded", member.agentId);
+	const [existing] = await listNotifications(db, {
+		kind: "pending-by-event",
+		eventType: "agent.health.degraded",
+		subjectId: member.agentId,
+	});
 
 	if (existing) return; // already pending — throttled
 

@@ -29,7 +29,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { insertNotification, listAll } from "@hyperidle/notifications";
+import { enqueue, listNotifications } from "@hyperidle/notifications";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
@@ -94,7 +94,11 @@ const policyDeps: PolicyDeps = {
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
 	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-	notifications: { insert: insertNotification },
+	notifications: {
+		insert: async (db, row) => {
+			await enqueue(db, row);
+		},
+	},
 	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
@@ -1023,7 +1027,9 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(row?.status).not.toBe("failed");
 
 		// No exhaustion notification — the row succeeded, it was not exhausted.
-		const notifs = (await listAll(db)).filter((r) => r.eventType === "propagation_exhausted");
+		const notifs = (await listNotifications(db, { kind: "all" })).filter(
+			(r) => r.eventType === "propagation_exhausted",
+		);
 		expect(notifs).toHaveLength(0);
 	});
 
@@ -1063,7 +1069,9 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(failedLogs[0]!.attempts).toBe(3);
 
 		// Assert: a notification queue entry was created
-		const notifs = (await listAll(db)).filter((r) => r.eventType === "propagation_exhausted");
+		const notifs = (await listNotifications(db, { kind: "all" })).filter(
+			(r) => r.eventType === "propagation_exhausted",
+		);
 		expect(notifs).toHaveLength(1);
 		expect(notifs[0]!.severity).toBe("warning");
 	});

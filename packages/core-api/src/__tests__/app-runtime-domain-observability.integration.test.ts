@@ -8,7 +8,7 @@ import {
 	defaultNotificationAdapterFactory,
 	enqueueNotification,
 	flushQueue,
-	listAll,
+	listNotifications,
 	type NotificationsSilenceDeps,
 } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
@@ -111,7 +111,7 @@ describe("app runtime domain observability", () => {
 				channel: null,
 				now: new Date(),
 			});
-			const queued = await listAll(db);
+			const queued = await listNotifications(db, { kind: "all" });
 			expect(queued).toHaveLength(1);
 
 			await flushQueue(
@@ -163,7 +163,9 @@ describe("app runtime domain observability", () => {
 			expect(typeof gitStatus.enabled).toBe("boolean");
 			expect(typeof gitStatus.branch).toBe("string");
 
-			const sent = (await listAll(db)).find((r) => r.eventType === "au3.domain");
+			const sent = (await listNotifications(db, { kind: "all" })).find(
+				(r) => r.eventType === "au3.domain",
+			);
 			expect(sent?.status).toBe("sent");
 		},
 	);

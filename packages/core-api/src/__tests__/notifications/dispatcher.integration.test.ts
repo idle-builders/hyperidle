@@ -5,8 +5,8 @@
 
 import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
 import {
-	insertNotification,
-	listAll,
+	enqueue,
+	listNotifications,
 	type Notification,
 	type NotificationAdapter,
 	type Recipient,
@@ -179,7 +179,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 		try {
 			await enable(db);
 			const now = "2026-04-18T00:00:00.000Z";
-			await insertNotification(db, {
+			await enqueue(db, {
 				id: "q-1",
 				eventType: "item_created",
 				subjectId: "foo",
@@ -202,7 +202,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 			};
 			eventBus.emit(event);
 			await vi.waitFor(async () => {
-				const rows = await listAll(db);
+				const rows = await listNotifications(db, { kind: "all" });
 				expect(rows[0]!.status).toBe("sent");
 			});
 

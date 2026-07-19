@@ -73,26 +73,21 @@ export {
 export type { NotificationListenerDeps } from "./notification-listener.js";
 export { registerNotificationListener } from "./notification-listener.js";
 // -- notification queue (the ONLY module touching the notificationQueue table) --
-export type { NotificationQueuePatch } from "./notification-queue.js";
+// @lore AU20 Ag6a: 18 fragmented queue-CRUD functions collapsed into 4 general
+// operations with discriminated filter/selector/patch types. Old functions remain
+// as package-internal helpers (used by dispatcher.ts / digest.ts via relative
+// import); only these 4 are public surface.
+export type {
+	EnqueueOptions,
+	NotificationFilter,
+	NotificationPatch,
+	NotificationSelector,
+} from "./notification-queue.js";
 export {
-	claimForSend,
-	deleteReaped,
-	findById,
-	findPendingByEventSubject,
-	insertNotification,
-	listAll,
-	listByIdsWithStatus,
-	listByStatus,
-	listPending,
-	listPendingDigest,
-	listStuckLeases,
-	listUnread,
-	markRead,
-	markSeenAll,
-	queueCountByStatus,
-	requeueLease,
-	updateManyByIds,
-	updateStatus,
+	enqueue,
+	listNotifications,
+	markNotifications,
+	reap,
 } from "./notification-queue.js";
 // -- DI ports (Mechanism C) --
 export type {

@@ -19,7 +19,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { reapKnowledgeAccessLog } from "@hyperidle/knowledge";
-import { deleteReaped, insertNotification, listAll } from "@hyperidle/notifications";
+import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
 import { type RetentionReaperDeps, reapRetentionOnce } from "@hyperidle/retention";
 import { reapExpiredCredentials } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
@@ -31,7 +31,7 @@ const DAY = 86_400_000;
 const deps: RetentionReaperDeps = {
 	users: { reapExpiredCredentials },
 	knowledge: { reapKnowledgeAccessLog },
-	notifications: { deleteReaped },
+	notifications: { deleteReaped: reap },
 };
 
 async function seedUser(db: HyperIdleDb, id: string): Promise<void> {
@@ -164,9 +164,9 @@ describe("reapRetentionOnce", () => {
 			};
 		}
 		const oldIso = new Date(now.getTime() - 31 * DAY).toISOString();
-		await insertNotification(db, nqRow("nq-old-sent", "sent", oldIso));
-		await insertNotification(db, nqRow("nq-old-pending", "pending", oldIso));
-		await insertNotification(db, nqRow("nq-recent-sent", "sent", now.toISOString()));
+		await enqueue(db, nqRow("nq-old-sent", "sent", oldIso));
+		await enqueue(db, nqRow("nq-old-pending", "pending", oldIso));
+		await enqueue(db, nqRow("nq-recent-sent", "sent", now.toISOString()));
 
 		const results = await reapRetentionOnce(db, deps, {
 			now: () => now.getTime(),
@@ -175,7 +175,7 @@ describe("reapRetentionOnce", () => {
 		const nqResult = results.find((r) => r.table === "notification_queue");
 		expect(nqResult?.deleted).toBe(1);
 
-		const survivors = await listAll(db);
+		const survivors = await listNotifications(db, { kind: "all" });
 		expect(new Set(survivors.map((s) => s.id))).toEqual(
 			new Set(["nq-old-pending", "nq-recent-sent"]),
 		);
