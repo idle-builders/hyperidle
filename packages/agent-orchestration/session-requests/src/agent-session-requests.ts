@@ -7,7 +7,8 @@ import {
 	agentSessionRequestInputSchema,
 } from "@hyperidle/shared";
 import { and, asc, eq, gt, lt, or, sql } from "drizzle-orm";
-import type { MarkRequestRunningDeps, TerminalizeSessionRequestDeps } from "./ports.js";
+import { insertLifecycleInboxFactIfAbsent } from "./agent-lifecycle-inbox.js";
+import type { MarkRequestRunningDeps } from "./ports.js";
 
 /**
  * @lore AU19 Increment 3b: real cut-over — moved here from
@@ -412,7 +413,6 @@ export type TerminalizeAgentSessionRequestInput =
 export async function terminalizeAgentSessionRequestInTx(
 	tx: HyperIdleDb,
 	input: TerminalizeAgentSessionRequestInput,
-	deps: TerminalizeSessionRequestDeps,
 ): Promise<AgentSessionRequest | null> {
 	const now = nowIso();
 	const baseSet = {
@@ -446,7 +446,9 @@ export async function terminalizeAgentSessionRequestInTx(
 		.where(predicate)
 		.returning();
 	if (!winner) return null;
-	await deps.lifecycleInbox.insertIfAbsent(tx, {
+	// @lore AU20 B1a: direct call — agentLifecycleInbox is now owned by this
+	// package (folded from lifecycle-projection); no DI port needed.
+	await insertLifecycleInboxFactIfAbsent(tx, {
 		requestId: winner.id,
 		sourceKind: winner.sourceKind,
 		sourceId: winner.sourceId,
@@ -462,9 +464,8 @@ export async function terminalizeAgentSessionRequestInTx(
 export async function terminalizeAgentSessionRequest(
 	db: HyperIdleDb,
 	input: TerminalizeAgentSessionRequestInput,
-	deps: TerminalizeSessionRequestDeps,
 ): Promise<AgentSessionRequest | null> {
-	return db.transaction((tx) => terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, input, deps));
+	return db.transaction((tx) => terminalizeAgentSessionRequestInTx(tx as HyperIdleDb, input));
 }
 
 /**

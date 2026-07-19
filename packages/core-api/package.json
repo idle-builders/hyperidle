@@ -33,7 +33,6 @@
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/model-gateway": "*",
-		"@hyperidle/lifecycle-projection": "*",
 		"@hyperidle/mcp-provider": "*",
 		"@hyperidle/notifications": "*",
 		"@hyperidle/observability": "*",

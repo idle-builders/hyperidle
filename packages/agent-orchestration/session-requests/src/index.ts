@@ -32,6 +32,23 @@
  */
 
 // ---------------------------------------------------------------------------
+// Lifecycle drain (AU20 B1a: folded from lifecycle-projection)
+// ---------------------------------------------------------------------------
+export {
+	type AgentLifecycleInboxFact,
+	deleteLifecycleInboxByRequestIds,
+	insertLifecycleInboxFactIfAbsent,
+	listProjectedLifecycleInboxBefore,
+} from "./agent-lifecycle-inbox.js";
+export {
+	AGENT_LIFECYCLE_PROJECTORS,
+	AGENT_LIFECYCLE_SOURCE_KINDS,
+	AGENT_LIFECYCLE_TERMINAL_STATES,
+	type AgentLifecycleFact,
+	drainAgentLifecycleInbox,
+	startAgentLifecycleProjectionDrain,
+} from "./agent-lifecycle-projectors.js";
+// ---------------------------------------------------------------------------
 // session-requests — claim/create/list (unchanged surface)
 // ---------------------------------------------------------------------------
 export {
@@ -44,7 +61,6 @@ export {
 	releaseRequestClaim,
 	renewAgentSessionRequestLease,
 } from "./agent-session-requests.js";
-
 // ---------------------------------------------------------------------------
 // agent-work-intent-worker (unchanged surface)
 // ---------------------------------------------------------------------------
@@ -55,7 +71,6 @@ export {
 	renewAgentWorkIntentLease,
 	resolveAuthoritativeInput,
 } from "./agent-work-intent-worker.js";
-
 // ---------------------------------------------------------------------------
 // agent-work-intents (find*/source removed; kept: record/drain/reap/constants)
 // ---------------------------------------------------------------------------
@@ -70,7 +85,6 @@ export {
 	reapTerminalAgentWorkIntents,
 	recordAgentWorkIntent,
 } from "./agent-work-intents.js";
-
 // ---------------------------------------------------------------------------
 // explicit-session-starts (find*/mark*/project* removed; kept: create)
 // ---------------------------------------------------------------------------
@@ -78,7 +92,6 @@ export {
 	type CreateExplicitSessionStartInput,
 	createExplicitSessionStart,
 } from "./explicit-session-starts.js";
-
 // ---------------------------------------------------------------------------
 // Unified parameterised find (AU20 Ag3b)
 // ---------------------------------------------------------------------------
@@ -86,7 +99,13 @@ export { findSessionRequest } from "./find-session-request.js";
 // ---------------------------------------------------------------------------
 // DI deps bundle (AU20 Ag3a)
 // ---------------------------------------------------------------------------
-export type { DurableAgentQueueDeps } from "./ports.js";
+export type {
+	AgentLifecycleProjectionDeps,
+	DurableAgentQueueDeps,
+	LifecycleProjectionExplicitSessionStartWriter,
+	LifecycleProjectionRoutineWriter,
+	LifecycleProjectionWorkWriter,
+} from "./ports.js";
 // ---------------------------------------------------------------------------
 // session-run-registry (unchanged)
 // ---------------------------------------------------------------------------

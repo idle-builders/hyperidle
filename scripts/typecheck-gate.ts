@@ -479,7 +479,6 @@ function buildLeafDeclarations(root: string): void {
     "agent-orchestration/trigger-resolution",
     "agent-orchestration/session-requests",
     "agent-orchestration/run-orchestration",
-    "agent-orchestration/lifecycle-projection",
     "agent-orchestration/agent-selection",
     "agent-orchestration/capture-writeback",
     "agent-orchestration/cost",

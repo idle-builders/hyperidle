@@ -5,13 +5,11 @@
  * real `agent_lifecycle_inbox` claim/project/ack drain loop AND the
  * DI-converted `routine`/`work`/`explicitSessionStarts` port wiring
  * (`ports.ts`) with fakes standing in for the injected Services (this
- * package must never import `@hyperidle/routine`/`@hyperidle/work`/
- * `@hyperidle/session-requests` directly — Mechanism C). The full
- * real-domain-write end-to-end proof (real `routineRuns`/`bets`/
- * `explicit_session_starts` projections through the wired production
- * singletons) stays in `packages/server`'s
- * `agent-lifecycle-projection.integration.test.ts` (needs `{app, eventBus}`
- * too, so per the migration checklist it stays at the composition root).
+ * package must never import `@hyperidle/routine`/`@hyperidle/work` directly —
+ * Mechanism C).
+ *
+ * @lore AU20 B1a: moved from `packages/agent-orchestration/lifecycle-projection`
+ * into `session-requests` as part of the fold.
  */
 
 import { agentLifecycleInbox, agentSessionRequests, users } from "@hyperidle/db";
@@ -189,7 +187,7 @@ describe("drainAgentLifecycleInbox — DI port wiring", () => {
 	});
 });
 
-describe("agent_lifecycle_inbox owned-table accessors — session-requests' foreign writer/reaper surface", () => {
+describe("agent_lifecycle_inbox owned-table accessors — writer/reaper surface", () => {
 	test("insertLifecycleInboxFactIfAbsent is idempotent by requestId", async ({ db }) => {
 		await db.insert(users).values({
 			id: "lp-acc-agent",

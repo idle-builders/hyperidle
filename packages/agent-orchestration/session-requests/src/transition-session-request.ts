@@ -29,7 +29,7 @@ import {
 	markExplicitSessionStartFailed,
 	projectExplicitSessionStartTerminalState,
 } from "./explicit-session-starts.js";
-import type { MarkRequestRunningDeps, TerminalizeSessionRequestDeps } from "./ports.js";
+import type { MarkRequestRunningDeps } from "./ports.js";
 
 // ---------------------------------------------------------------------------
 // Transition spec discriminated unions
@@ -121,7 +121,9 @@ export type SessionRequestInTxTransition =
 // Deps bundle (subset of DurableAgentQueueDeps)
 // ---------------------------------------------------------------------------
 
-type TransitionDeps = MarkRequestRunningDeps & TerminalizeSessionRequestDeps;
+// @lore AU20 B1a: TerminalizeSessionRequestDeps removed — agentLifecycleInbox
+// is now owned by session-requests; terminalize functions call inbox directly.
+type TransitionDeps = MarkRequestRunningDeps;
 
 // ---------------------------------------------------------------------------
 // transitionSessionRequest — overloads
@@ -131,14 +133,13 @@ type TransitionDeps = MarkRequestRunningDeps & TerminalizeSessionRequestDeps;
 export function transitionSessionRequest(
 	db: HyperIdleDb,
 	spec: SessionRequestRunningTransition,
-	deps: Pick<TransitionDeps, "triggerHistory">,
+	deps: TransitionDeps,
 ): Promise<void>;
 
-/** Terminal request transition → `AgentSessionRequest | null`. Requires `deps.lifecycleInbox`. */
+/** Terminal request transition → `AgentSessionRequest | null`. No deps needed. */
 export function transitionSessionRequest(
 	db: HyperIdleDb,
 	spec: SessionRequestTerminalTransition,
-	deps: Pick<TransitionDeps, "lifecycleInbox">,
 ): Promise<AgentSessionRequest | null>;
 
 /** `{to: 'termination-requested'}` → disposition string. No deps. */
@@ -214,18 +215,17 @@ export function transitionSessionRequest(
 					failureCode: spec.failureCode,
 					errorMessage: spec.errorMessage,
 				} as const);
-	return terminalizeAgentSessionRequest(db, terminalInput, deps as TerminalizeSessionRequestDeps);
+	return terminalizeAgentSessionRequest(db, terminalInput);
 }
 
 // ---------------------------------------------------------------------------
 // transitionSessionRequestInTx — tx-scoped variant
 // ---------------------------------------------------------------------------
 
-/** Terminal request transition inside an existing tx → `AgentSessionRequest | null`. Requires `deps.lifecycleInbox`. */
+/** Terminal request transition inside an existing tx → `AgentSessionRequest | null`. No deps needed. */
 export function transitionSessionRequestInTx(
 	exec: WriteExecutor,
 	spec: SessionRequestTerminalTransition,
-	deps: Pick<TransitionDeps, "lifecycleInbox">,
 ): Promise<AgentSessionRequest | null>;
 
 /** Post-run explicit-start projection inside an existing tx → `void`. No deps. */
@@ -238,7 +238,6 @@ export function transitionSessionRequestInTx(
 export function transitionSessionRequestInTx(
 	exec: WriteExecutor,
 	spec: SessionRequestInTxTransition,
-	deps?: Partial<TransitionDeps>,
 ): Promise<AgentSessionRequest | null | void> {
 	// Same `"target" in spec` alone pattern as `transitionSessionRequest` above.
 	if ("target" in spec) {
@@ -268,9 +267,5 @@ export function transitionSessionRequestInTx(
 					failureCode: spec.failureCode,
 					errorMessage: spec.errorMessage,
 				} as const);
-	return terminalizeAgentSessionRequestInTx(
-		exec as HyperIdleDb,
-		terminalInput,
-		deps as TerminalizeSessionRequestDeps,
-	);
+	return terminalizeAgentSessionRequestInTx(exec as HyperIdleDb, terminalInput);
 }

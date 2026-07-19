@@ -12,6 +12,10 @@
  * `UNOWNED_SHARED_TABLES` (genuinely multi-owner-touched, no single owner
  * anywhere in architecture §4's roster), the same idiom `work`/`policy`/
  * `session-requests` already rely on for `sessions`/`propagation_log`.
+ *
+ * @lore AU20 B1a: folded from separate `lifecycle-projection` package into
+ * `session-requests` — removing the dependency cycle. `agentLifecycleInbox`
+ * is now directly owned by session-requests.
  */
 import { randomUUID } from "node:crypto";
 import { agentLifecycleInbox, type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
@@ -73,7 +77,7 @@ const projectTask: Projector = async (db, fact, deps) => {
 					),
 				),
 			);
-		await projectExplicitStart(tx, fact, deps);
+		await projectExplicitStart(tx as HyperIdleDb, fact, deps);
 	});
 };
 

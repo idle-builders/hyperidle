@@ -55,12 +55,6 @@ import type {
 	WriteExecutor,
 } from "@hyperidle/db";
 import { get as getKnowledgeItem } from "@hyperidle/knowledge";
-import {
-	type AgentLifecycleInboxFact,
-	deleteLifecycleInboxByRequestIds,
-	insertLifecycleInboxFactIfAbsent,
-	listProjectedLifecycleInboxBefore,
-} from "@hyperidle/lifecycle-projection";
 import { getTeamMembers } from "@hyperidle/org";
 import { findProposedCall } from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
@@ -228,19 +222,6 @@ const deps: DurableAgentQueueDeps = {
 				triggerResolutionDeps,
 			),
 	},
-	// Satisfies both SessionRequestsLifecycleInboxWriter (terminalize path)
-	// and SessionRequestsLifecycleInboxReaper (reap path) in one object.
-	lifecycleInbox: {
-		insertIfAbsent(tx, fact) {
-			return insertLifecycleInboxFactIfAbsent(tx, fact satisfies AgentLifecycleInboxFact);
-		},
-		listProjectedBefore(tx: HyperIdleDb, cutoff: string, batchSize: number) {
-			return listProjectedLifecycleInboxBefore(tx, cutoff, batchSize);
-		},
-		deleteByRequestIds(tx: HyperIdleDb, requestIds: readonly string[]): Promise<void> {
-			return deleteLifecycleInboxByRequestIds(tx, requestIds);
-		},
-	},
 	triggerHistory: { recordSessionForResolutionHistory },
 };
 
@@ -278,9 +259,9 @@ export function resolveAuthoritativeInput(
 
 export function reapTerminalAgentWorkIntents(
 	db: HyperIdleDb,
-	options?: Parameters<typeof reapTerminalAgentWorkIntentsInternal>[2],
+	options?: Parameters<typeof reapTerminalAgentWorkIntentsInternal>[1],
 ): ReturnType<typeof reapTerminalAgentWorkIntentsInternal> {
-	return reapTerminalAgentWorkIntentsInternal(db, deps, options);
+	return reapTerminalAgentWorkIntentsInternal(db, options);
 }
 
 export function markRequestRunning(
@@ -320,7 +301,7 @@ export function terminalizeAgentSessionRequestInTx(
 					failureCode: input.failureCode,
 					errorMessage: input.errorMessage,
 				} as const);
-	return transitionSessionRequestInTx(tx, spec, deps);
+	return transitionSessionRequestInTx(tx, spec);
 }
 
 /**
@@ -350,7 +331,7 @@ export function terminalizeAgentSessionRequest(
 					failureCode: input.failureCode,
 					errorMessage: input.errorMessage,
 				} as const);
-	return transitionSessionRequest(db, spec, deps);
+	return transitionSessionRequest(db, spec);
 }
 
 /** Pre-admission admitted transition (bound; was direct barrel import in run-orchestration-bindings). */

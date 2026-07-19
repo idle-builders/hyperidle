@@ -1,23 +1,22 @@
 /**
  * @lore AU19 Increment 3d: `agent_lifecycle_inbox`'s owned-table accessor
- * surface for FOREIGN callers (`@hyperidle/session-requests`'s single-
- * terminal-writer/reaper, see that package's `ports.ts` top `@lore`) — moved
- * here, verbatim query logic, from the INTERIM raw-table-ops implementation
- * that lived in `packages/server/src/services/session-requests-bindings.ts`
- * since Increment 3b. `packages/server`'s `session-requests-bindings.ts` is
- * repointed by this same commit to call these real exports instead of
- * querying `agentLifecycleInbox` directly — closing the forward-reference
- * (`session-requests → lifecycle-projection`, a NEW edge, see `ports.ts`).
+ * surface for the terminal-writer/reaper — originally a separate
+ * `packages/agent-orchestration/lifecycle-projection` package. Folded into
+ * `session-requests` by AU20 B1a: `lifecycle-projection` was
+ * session-requests' terminal-fact DRAIN and session-requests was already the
+ * inbox's sole writer+reaper — the dependency cycle is removed by co-locating
+ * both sides in one package. `agentLifecycleInbox` ownership now lives here
+ * (`TABLE_OWNER` in scripts/table-ownership-guard.ts).
  *
  * `drainAgentLifecycleInbox`'s own claim/project/ack loop
  * (`agent-lifecycle-projectors.ts`) is this Service's OWN table access, not
- * this file's concern — this file is purely the writer/reaper surface for
- * `session-requests`, the durable single-terminal-writer into the inbox.
+ * this file's concern — this file is purely the writer/reaper surface for the
+ * durable single-terminal-writer into the inbox.
  */
 import { agentLifecycleInbox, type WriteExecutor } from "@hyperidle/db";
 import { and, inArray, isNotNull, lt } from "drizzle-orm";
 
-/** The one durable terminal fact `session-requests`' `terminalizeAgentSessionRequestInTx` appends. */
+/** The one durable terminal fact `terminalizeAgentSessionRequestInTx` appends. */
 export interface AgentLifecycleInboxFact {
 	readonly requestId: string;
 	readonly sourceKind: string;

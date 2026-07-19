@@ -45,7 +45,6 @@ const MANUAL_OVERRIDES: Record<string, string> = {
 	"git-export:GitExportServerConfigPort": "settings",
 	"observability:ObservabilityServerConfigPort": "settings",
 	"model-gateway:ModelGatewayCredentialResolver": "connections",
-	"lifecycle-projection:LifecycleProjectionExplicitSessionStartWriter": "session-requests",
 	"tool-handlers:ToolHandlersPolicyAccessor": "policy",
 };
 

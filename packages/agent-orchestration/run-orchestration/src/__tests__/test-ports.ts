@@ -43,11 +43,6 @@ import type {
 	RunOrchestrationSessionRequestsPort,
 } from "../ports.js";
 
-const noopLifecycleInboxWriter = {
-	insertIfAbsent: async () => {
-		/* no-op */
-	},
-};
 const noopTriggerHistoryWriter = {
 	recordSessionForResolutionHistory: async () => {
 		/* no-op */
@@ -68,12 +63,12 @@ export function testMarkRequestRunning(
 	);
 }
 
-/** `transitionSessionRequest` terminal with a no-op lifecycle-inbox writer. */
+/** `transitionSessionRequest` terminal — AU20 B1a: no deps needed (table owned directly). */
 export function testTerminalize(
 	db: HyperIdleDb,
 	input: SessionRequestTerminalTransition,
 ): Promise<AgentSessionRequest | null> {
-	return transitionSessionRequest(db, input, { lifecycleInbox: noopLifecycleInboxWriter });
+	return transitionSessionRequest(db, input);
 }
 
 const realSessionRequestsPort: RunOrchestrationSessionRequestsPort = {

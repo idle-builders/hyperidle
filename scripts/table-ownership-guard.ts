@@ -206,7 +206,10 @@ const TABLE_OWNER: Record<string, string> = {
 	// `@hyperidle/session-requests`'s new `projectExplicitSessionStartTerminalState`
 	// export. Both are ORDINARY same-layer DI (both Services are
 	// agent-orchestration, neither above the other) — not §10.3 against-grain.
-	agentLifecycleInbox: "packages/agent-orchestration/lifecycle-projection",
+	// @lore AU20 B1a: ownership moved from lifecycle-projection to session-requests
+	// (fold removes the dependency cycle; session-requests was already the sole
+	// writer+reaper of this table).
+	agentLifecycleInbox: "packages/agent-orchestration/session-requests",
 	// AU19 Increment 2a: `policy` migrated — its `⛁*` ownership question
 	// (architecture §4/§79) resolves to ZERO owned tables. `policy-engine.ts`/
 	// `approval-rate.ts` never touched a raw table at all; `handoff-protocol.ts`

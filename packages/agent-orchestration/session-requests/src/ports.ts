@@ -284,38 +284,6 @@ export interface SessionRequestsTriggerHistoryWriter {
 }
 
 // ---------------------------------------------------------------------------
-// agent_lifecycle_inbox — SessionRequestsLifecycleInbox (INTERIM — forward
-// references the not-yet-migrated `lifecycle-projection` Service; see this
-// file's top `@lore`)
-// ---------------------------------------------------------------------------
-
-/** The one durable terminal fact `terminalizeAgentSessionRequestInTx` appends. */
-export interface SessionRequestsLifecycleInboxFact {
-	readonly requestId: string;
-	readonly sourceKind: string;
-	readonly sourceId: string;
-	readonly state: string;
-	readonly sessionId: string | null;
-	readonly failureCode: string | null;
-	readonly occurredAt: string;
-}
-
-/** Port for `agent_lifecycle_inbox`'s single-terminal-writer append. */
-export interface SessionRequestsLifecycleInboxWriter {
-	insertIfAbsent(tx: WriteExecutor, fact: SessionRequestsLifecycleInboxFact): Promise<void>;
-}
-
-/** Port for the retention reaper's projected-row sweep of `agent_lifecycle_inbox`. */
-export interface SessionRequestsLifecycleInboxReaper {
-	listProjectedBefore(
-		tx: WriteExecutor,
-		cutoff: string,
-		batchSize: number,
-	): Promise<ReadonlyArray<{ readonly requestId: string }>>;
-	deleteByRequestIds(tx: WriteExecutor, requestIds: readonly string[]): Promise<void>;
-}
-
-// ---------------------------------------------------------------------------
 // Aggregate deps bundles (per registration entry point)
 // ---------------------------------------------------------------------------
 
@@ -332,16 +300,6 @@ export interface AgentWorkIntentWorkerDeps {
 	readonly triggerResolver: SessionRequestsTriggerResolver;
 }
 
-/** Deps `reapTerminalAgentWorkIntents` needs. */
-export interface AgentWorkIntentReapDeps {
-	readonly lifecycleInbox: SessionRequestsLifecycleInboxReaper;
-}
-
-/** Deps `terminalizeAgentSessionRequestInTx`/`terminalizeAgentSessionRequest` need. */
-export interface TerminalizeSessionRequestDeps {
-	readonly lifecycleInbox: SessionRequestsLifecycleInboxWriter;
-}
-
 /** Deps `markRequestRunning` needs. */
 export interface MarkRequestRunningDeps {
 	readonly triggerHistory: SessionRequestsTriggerHistoryWriter;
@@ -351,36 +309,77 @@ export interface MarkRequestRunningDeps {
 // DurableAgentQueueDeps — the single exported deps contract (AU20 Ag3a).
 //
 // @lore AU20 Ag3a (TYPE-BUNDLE): The ~21 individual SessionRequests*Reader/
-// Writer structural-mirror types and the 4 per-function mini-bundle types
-// (AgentWorkIntentWorkerDeps / AgentWorkIntentReapDeps /
-// TerminalizeSessionRequestDeps / MarkRequestRunningDeps) are internal
-// plumbing — they should never have been the public API surface. This single
-// type is what the composition root declares; TypeScript structural typing
-// ensures it satisfies every function-level mini-bundle automatically
-// (DurableAgentQueueDeps is a strict superset of all four). The internal
-// function signatures are UNCHANGED — only the external barrel export and
-// the composition-root constant declaration change. The individual
-// SessionRequests* types and mini-bundles stay in this file as internal
-// building blocks; they are NOT re-exported from index.ts.
+// Writer structural-mirror types are internal plumbing. This single type is
+// what the composition root declares; TypeScript structural typing ensures it
+// satisfies every function-level mini-bundle automatically. The individual
+// SessionRequests* types stay in this file as internal building blocks; they
+// are NOT re-exported from index.ts.
+//
+// @lore AU20 B1a: `lifecycleInbox` removed — `agentLifecycleInbox` is now
+// owned directly by session-requests (folded from lifecycle-projection).
+// `terminalizeAgentSessionRequestInTx` and `reapTerminalAgentWorkIntents`
+// call the inbox functions directly instead of through a DI port.
 // ---------------------------------------------------------------------------
 
 /**
  * Single deps contract for the durable-agent-queue service.
  *
- * Extends `AgentWorkIntentWorkerDeps` (gaining all worker fan-out ports) and
- * adds the two per-function deps that were previously separate mini-bundles:
- *   - `lifecycleInbox` — satisfies both `SessionRequestsLifecycleInboxWriter`
- *     (terminalize path) and `SessionRequestsLifecycleInboxReaper` (reap path)
- *     in one object.
- *   - `triggerHistory` — satisfies `MarkRequestRunningDeps.triggerHistory`.
- *
- * TypeScript structural typing means a `DurableAgentQueueDeps` value also
- * satisfies `AgentWorkIntentWorkerDeps`, `AgentWorkIntentReapDeps`,
- * `TerminalizeSessionRequestDeps`, and `MarkRequestRunningDeps` — no
- * runtime wrapping needed at any call site.
+ * Extends `AgentWorkIntentWorkerDeps` and adds `triggerHistory` for
+ * `markRequestRunning`. TypeScript structural typing means a
+ * `DurableAgentQueueDeps` value also satisfies `AgentWorkIntentWorkerDeps`
+ * and `MarkRequestRunningDeps` — no runtime wrapping needed at any call site.
  */
 export interface DurableAgentQueueDeps extends AgentWorkIntentWorkerDeps {
-	readonly lifecycleInbox: SessionRequestsLifecycleInboxWriter &
-		SessionRequestsLifecycleInboxReaper;
 	readonly triggerHistory: SessionRequestsTriggerHistoryWriter;
+}
+
+// ---------------------------------------------------------------------------
+// AgentLifecycleProjectionDeps — DI ports for the lifecycle drain (AU20 B1a:
+// folded from lifecycle-projection/src/ports.ts into this file).
+// ---------------------------------------------------------------------------
+
+/** Port for `projectRoutine`'s `routine_runs` terminal-outcome projection. */
+export interface LifecycleProjectionRoutineWriter {
+	updateRoutineRunIfRunning(
+		exec: WriteExecutor,
+		id: string,
+		patch: {
+			readonly outcome: "success" | "error";
+			readonly endedAt: string;
+			readonly sessionId: string | null;
+			readonly errorMessage: string | null;
+		},
+	): Promise<void>;
+}
+
+/** Port for `projectDecomposition`'s `bets.decomposition_status` terminal-outcome projection. */
+export interface LifecycleProjectionWorkWriter {
+	updateBetDecompositionStatusIfRunning(
+		exec: WriteExecutor,
+		id: string,
+		patch: {
+			readonly decompositionStatus: "done" | "blocked";
+			readonly decompositionBlockerReason: string | null;
+		},
+	): Promise<void>;
+}
+
+/** Port for `projectExplicitStart`'s `explicit_session_starts` terminal-outcome projection. */
+export interface LifecycleProjectionExplicitSessionStartWriter {
+	projectTerminalState(
+		exec: WriteExecutor,
+		requestId: string,
+		patch: {
+			readonly status: "completed" | "failed" | "cancelled";
+			readonly sessionId: string | null;
+			readonly failureCode: string | null;
+		},
+	): Promise<void>;
+}
+
+/** Deps `drainAgentLifecycleInbox`/`AGENT_LIFECYCLE_PROJECTORS` need — every real outbound edge. */
+export interface AgentLifecycleProjectionDeps {
+	readonly routine: LifecycleProjectionRoutineWriter;
+	readonly work: LifecycleProjectionWorkWriter;
+	readonly explicitSessionStarts: LifecycleProjectionExplicitSessionStartWriter;
 }

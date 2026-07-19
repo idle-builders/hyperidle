@@ -42,7 +42,6 @@ export default defineConfig({
 			"packages/agent-orchestration",
 			"packages/agent-orchestration/context-assembly",
 			"packages/agent-orchestration/run-orchestration",
-			"packages/agent-orchestration/lifecycle-projection",
 			"packages/agent-orchestration/agent-selection",
 			"packages/agent-orchestration/cost",
 			"packages/agent-orchestration/dispatch",

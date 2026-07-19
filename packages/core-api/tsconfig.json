@@ -21,7 +21,6 @@
 		{ "path": "../agent-execution/harness-registry" },
 		{ "path": "knowledge" },
 		{ "path": "model-gateway" },
-		{ "path": "../agent-orchestration/lifecycle-projection" },
 		{ "path": "../agent-execution/mcp-provider" },
 		{ "path": "notifications" },
 		{ "path": "observability" },

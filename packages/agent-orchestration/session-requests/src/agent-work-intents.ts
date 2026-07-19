@@ -7,7 +7,10 @@ import {
 	taskDispatchAttempts,
 } from "@hyperidle/db";
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
-import type { AgentWorkIntentReapDeps } from "./ports.js";
+import {
+	deleteLifecycleInboxByRequestIds,
+	listProjectedLifecycleInboxBefore,
+} from "./agent-lifecycle-inbox.js";
 
 /**
  * @lore AU19 Increment 3b: real cut-over — moved here from
@@ -141,10 +144,12 @@ export async function findAgentWorkIntentSourceByRequestId(
  * Deletes only acknowledged/terminal handoff facts after the audit window.
  * @lore AU9: inbox rows go first and intents before family sources. Keeping this
  * FK order in one transaction prevents retention from weakening request custody.
+ * @lore AU20 B1a: `deps` param removed — `agentLifecycleInbox` is now owned
+ * by this package; listProjectedLifecycleInboxBefore/deleteLifecycleInboxByRequestIds
+ * are called directly.
  */
 export async function reapTerminalAgentWorkIntents(
 	db: HyperIdleDb,
-	deps: AgentWorkIntentReapDeps,
 	options: {
 		readonly now?: Date;
 		readonly retentionDays?: number;
@@ -157,9 +162,9 @@ export async function reapTerminalAgentWorkIntents(
 	const cutoff = new Date(now.getTime() - retentionDays * 86_400_000).toISOString();
 
 	return await db.transaction(async (tx) => {
-		const projected = await deps.lifecycleInbox.listProjectedBefore(tx, cutoff, batchSize);
+		const projected = await listProjectedLifecycleInboxBefore(tx, cutoff, batchSize);
 		if (projected.length > 0) {
-			await deps.lifecycleInbox.deleteByRequestIds(
+			await deleteLifecycleInboxByRequestIds(
 				tx,
 				projected.map((row) => row.requestId),
 			);

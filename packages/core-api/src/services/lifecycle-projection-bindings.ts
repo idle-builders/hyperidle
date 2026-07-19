@@ -15,11 +15,11 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { updateRoutineRun } from "@hyperidle/routine";
 import {
 	type AgentLifecycleProjectionDeps,
 	startAgentLifecycleProjectionDrain as startAgentLifecycleProjectionDrainInternal,
-} from "@hyperidle/lifecycle-projection";
-import { updateRoutineRun } from "@hyperidle/routine";
+} from "@hyperidle/session-requests";
 import * as work from "@hyperidle/work";
 import { projectExplicitSessionStartTerminalState } from "./session-requests-bindings.js";
 
