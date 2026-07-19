@@ -23,7 +23,6 @@ import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { updateItemById } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
@@ -42,7 +41,8 @@ const silenceDeps: NotificationsSilenceDeps = {
 const policyEngineDeps: PolicyDeps = {
 	work: {
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-		updateItemById,
+		updateItemById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "item", id, patch),
 		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
 			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
 		// lifecycle stubs (never called in engine tests):

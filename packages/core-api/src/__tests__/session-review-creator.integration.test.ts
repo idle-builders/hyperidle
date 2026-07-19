@@ -17,7 +17,7 @@ import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { findUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { createItem, getTaskRiskTierByTaskId, updateTaskById } from "@hyperidle/work";
+import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
@@ -36,8 +36,9 @@ import { test } from "../test-fixtures.js";
 const reviewDeps: ReviewPorts = {
 	work: {
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		updateTaskById,
-		createItem,
+		updateTaskById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "task", id, patch),
+		createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
 		getRiskTierByTaskId: getTaskRiskTierByTaskId,
 	},
 	conversation: { insertThread, getThreadById: (db, id) => findThread(db, { id }), updateThread },

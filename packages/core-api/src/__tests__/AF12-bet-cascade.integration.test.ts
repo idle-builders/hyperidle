@@ -43,13 +43,7 @@ import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
 import type { TaskStateMachineDeps, WorkDeps } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
-import {
-	cascadeBetKill,
-	transitionBet,
-	transitionBetStatus,
-	transitionTaskState,
-	updateItemById,
-} from "@hyperidle/work";
+import { cascadeBetKill, transitionBet } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
@@ -67,12 +61,22 @@ import { test } from "../test-fixtures.js";
 const lifecyclePropagationDeps: PolicyDeps = {
 	work: {
 		getTaskById: (exec, id) => work.get(exec, "task", id),
-		transitionTaskState,
+		transitionTaskState: (exec, { taskId, fromState, patch }) =>
+			work.transition(exec, "task", {
+				id: taskId,
+				guard: { field: "state", equals: fromState },
+				patch,
+			}),
 		getBetById: (exec, id) => work.get(exec, "bet", id),
-		transitionBetStatus,
+		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
+			work.transition(exec, "bet", {
+				id: betId,
+				guard: { field: "status", equals: fromStatus },
+				patch,
+			}),
 		listTasks: (exec, opts) => work.list(exec, "task", opts ?? {}),
 		getItemById: (exec, id) => work.get(exec, "item", id),
-		updateItemById,
+		updateItemById: (exec, id, patch) => work.update(exec, "item", id, patch),
 		listItemIdsBySourceAgent: async (exec, agentId) => {
 			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
 			return rows.map((r) => r.id);

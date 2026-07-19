@@ -33,7 +33,6 @@ import {
 import type { ArtifactCreatedEvent, ArtifactPreview, ToolContext } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
-import { createArtifact } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createCreateArtifactTool } from "../create-artifact.js";
@@ -50,7 +49,7 @@ const ports: ToolHandlersPorts<HyperIdleDb> = {
 	work: {
 		...STUB_TOOL_HANDLERS_PORTS.work,
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		createArtifact,
+		createArtifact: (exec: WriteExecutor, input) => work.create(exec, "artifact", input),
 	},
 };
 const createArtifactTool = createCreateArtifactTool(ports);

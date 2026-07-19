@@ -85,14 +85,9 @@ import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyp
 import { findUser, listUsers, reapExpiredCredentials } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import {
-	createItem as createWorkItem,
 	getTaskRiskTierByTaskId,
 	registerBetDecomposition,
 	resolveOrphanedDecompositions,
-	transitionBetStatus,
-	transitionTaskState,
-	updateItemById,
-	updateTaskById,
 	type WorkDeps,
 } from "@hyperidle/work";
 import { WebSocketServer } from "ws";
@@ -205,15 +200,26 @@ const notificationsWorkReader: NotificationsWorkReader = {
 const policyDeps: PolicyDeps = {
 	work: {
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-		updateItemById,
+		updateItemById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "item", id, patch),
 		listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
 			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
 			return rows.map((r) => r.id);
 		},
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-		transitionBetStatus,
-		transitionTaskState,
+		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
+			work.transition(exec, "bet", {
+				id: betId,
+				guard: { field: "status", equals: fromStatus },
+				patch,
+			}),
+		transitionTaskState: (exec, { taskId, fromState, patch }) =>
+			work.transition(exec, "task", {
+				id: taskId,
+				guard: { field: "state", equals: fromState },
+				patch,
+			}),
 		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
 			work.list(exec, "task", { betId: opts?.betId }),
 	},
@@ -315,8 +321,9 @@ export function registerCoreDomainServices(ctx: {
 		registerReviewSubscriptions(db, eventBus, {
 			work: {
 				getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-				updateTaskById,
-				createItem: createWorkItem,
+				updateTaskById: (exec: WriteExecutor, id: string, patch) =>
+					work.update(exec, "task", id, patch),
+				createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
 				getRiskTierByTaskId: getTaskRiskTierByTaskId,
 			},
 			conversation: {

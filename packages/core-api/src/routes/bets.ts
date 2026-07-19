@@ -230,7 +230,7 @@ async function patchAtRisk(
 		reason,
 		actor,
 	});
-	await work.updateBetById(db, betId, {
+	await work.update(db, "bet", betId, {
 		atRisk: value ? 1 : 0,
 		revisionLog: JSON.stringify(revisionLog),
 	});
@@ -288,7 +288,7 @@ async function patchDescription(
 		reason,
 		actor,
 	});
-	await work.updateBetById(db, betId, {
+	await work.update(db, "bet", betId, {
 		description: value,
 		revisionLog: JSON.stringify(revisionLog),
 	});
@@ -348,7 +348,7 @@ async function patchCostAppetite(
 		reason,
 		actor,
 	});
-	await work.updateBetById(db, betId, {
+	await work.update(db, "bet", betId, {
 		costAppetiteMinor: value?.minor ?? null,
 		costAppetiteCurrency: value?.currency ?? null,
 		revisionLog: JSON.stringify(revisionLog),
@@ -612,7 +612,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				});
 			}
 
-			await work.createBet(db, {
+			await work.create(db, "bet", {
 				id,
 				teamId: body.teamId,
 				description: body.description,
@@ -872,7 +872,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				});
 			}
 
-			await work.updateBetById(db, betId, {
+			await work.update(db, "bet", betId, {
 				outcomeVerdict: body.verdict,
 				outcomeSummary: body.summary ?? null,
 				outcomeRecordedAt: now,
@@ -1042,7 +1042,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// the transaction (read-only queries) so the transaction only covers the writes.
 			await db.transaction(async (tx) => {
 				// Write outcome fields on bet
-				await work.updateBetById(tx, betId, {
+				await work.update(tx, "bet", betId, {
 					outcomeVerdict: body.verdict,
 					outcomeSummary: body.summary,
 					outcomeRecordedAt: now,

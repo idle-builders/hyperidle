@@ -20,7 +20,7 @@ import {
 	startAgentLifecycleProjectionDrain as startAgentLifecycleProjectionDrainInternal,
 } from "@hyperidle/lifecycle-projection";
 import { updateRoutineRun } from "@hyperidle/routine";
-import { updateBetDecompositionStatusIfRunning } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 import { projectExplicitSessionStartTerminalState } from "./session-requests-bindings.js";
 
 const agentLifecycleProjectionDeps: AgentLifecycleProjectionDeps = {
@@ -28,7 +28,15 @@ const agentLifecycleProjectionDeps: AgentLifecycleProjectionDeps = {
 		updateRoutineRunIfRunning: (exec, id, patch) =>
 			updateRoutineRun(exec, id, patch, { onlyIfRunning: true }),
 	},
-	work: { updateBetDecompositionStatusIfRunning },
+	work: {
+		updateBetDecompositionStatusIfRunning: async (exec, id, patch) => {
+			await work.transition(exec, "bet", {
+				id,
+				guard: { field: "decompositionStatus", equals: "running" },
+				patch,
+			});
+		},
+	},
 	explicitSessionStarts: { projectTerminalState: projectExplicitSessionStartTerminalState },
 };
 

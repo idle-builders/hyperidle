@@ -71,7 +71,6 @@ import type { EventBus, ToolContext } from "@hyperidle/shared";
 import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
 import { findUser, getOrCreateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { createItem } from "@hyperidle/work";
 import { agentSelectionService } from "./agent-selection-bindings.js";
 import { getFactoryCostActual } from "./cost-bindings.js";
 import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
@@ -95,7 +94,7 @@ async function recomputeAttentionForCandidates(
 ) {
 	const createReviewItemForKnowledge = createReviewItem({
 		conversation: { insertThread },
-		work: { createItem },
+		work: { createItem: (exec, values) => work.create(exec, "item", values) },
 	});
 	return buildAttentionService({
 		db,
@@ -116,7 +115,7 @@ const dispatchPorts: DispatchPorts = {
 			work.list(exec, "task", { state: opts.state }),
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-		createItem,
+		createItem: (exec, values) => work.create(exec, "item", values),
 		findRetroItemByThreadIds: async (exec: WriteExecutor, threadIds: string[], marker: string) => {
 			const rows = await work.list(exec, "item", { threadIds, bodyMarker: marker });
 			return rows[0] ? { id: rows[0].id } : undefined;

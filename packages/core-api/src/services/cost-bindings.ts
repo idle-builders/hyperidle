@@ -30,7 +30,7 @@ import type {
 	CostVerdict,
 } from "@hyperidle/cost";
 import { createCostOps } from "@hyperidle/cost";
-import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, NewItem, WriteExecutor } from "@hyperidle/db";
 import { applyTeamCost, getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
@@ -42,7 +42,6 @@ import {
 	updateUser,
 } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { createItem, incrementBetCost } from "@hyperidle/work";
 
 const costDeps: CostDeps = {
 	users: {
@@ -62,8 +61,12 @@ const costDeps: CostDeps = {
 	},
 	work: {
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		incrementBetCost,
-		createItem,
+		incrementBetCost: (exec: WriteExecutor, id: string, deltaMinor: number, currency: string) =>
+			work.update(exec, "bet", id, {
+				costActualMinor: { increment: deltaMinor },
+				costActualCurrency: currency,
+			}),
+		createItem: (exec: WriteExecutor, values: NewItem) => work.create(exec, "item", values),
 	},
 	settings: {
 		readServerConfig,

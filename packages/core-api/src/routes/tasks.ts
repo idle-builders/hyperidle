@@ -74,7 +74,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			}
 
 			const taskId = crypto.randomUUID();
-			await work.createTask(db, {
+			await work.create(db, "task", {
 				id: taskId,
 				betId: body.betId,
 				teamId: bet.teamId,
@@ -187,7 +187,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				updates.auditTrail = JSON.stringify(auditTrail);
 			}
 
-			await work.updateTaskById(db, taskId, updates);
+			await work.update(db, "task", taskId, updates);
 
 			const updated = await work.get(db, "task", taskId);
 			return c.json(updated);

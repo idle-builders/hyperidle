@@ -31,7 +31,7 @@
  */
 
 import { insertMessage, insertThread, listMessages } from "@hyperidle/conversation";
-import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, NewItem, NewTask, WriteExecutor } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
 import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
@@ -39,13 +39,13 @@ import { recordAgentWorkIntent, sessionRunRegistry } from "@hyperidle/session-re
 import type { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { createItem, updateTaskById } from "@hyperidle/work";
 
 const handoffDeps = {
 	work: {
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		updateTaskById,
-		createItem,
+		updateTaskById: (exec: WriteExecutor, id: string, patch: Partial<NewTask>) =>
+			work.update(exec, "task", id, patch),
+		createItem: (exec: WriteExecutor, values: NewItem) => work.create(exec, "item", values),
 	},
 	conversation: { insertMessage, insertThread },
 	users: {

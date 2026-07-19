@@ -18,8 +18,8 @@
  * private to this Service.
  */
 
-import { artifacts, type HyperIdleDb, tasks, type WriteExecutor } from "@hyperidle/db";
-import { and, desc, eq, inArray, isNull, lt, or, type SQL } from "drizzle-orm";
+import { artifacts, tasks, type WriteExecutor } from "@hyperidle/db";
+import { and, desc, eq, inArray, lt, or, type SQL } from "drizzle-orm";
 
 export interface CreateArtifactInput {
 	readonly id: string;
@@ -36,10 +36,6 @@ export type ArtifactRow = CreateArtifactInput;
 export interface ArtifactWithTaskTitle {
 	readonly artifact: ArtifactRow;
 	readonly taskTitle: string;
-}
-
-export async function createArtifact(db: HyperIdleDb, input: CreateArtifactInput): Promise<void> {
-	await db.insert(artifacts).values(input);
 }
 
 /**
@@ -108,32 +104,6 @@ export async function getArtifactById(
 ): Promise<ArtifactRow | undefined> {
 	const [row] = await db.select().from(artifacts).where(eq(artifacts.id, id)).limit(1);
 	return row;
-}
-
-export type SetArtifactPreviewOutcome = "updated" | "immutable" | "not_found";
-
-/**
- * Race-safe preview set: only updates the row when `previewJson IS NULL`.
- * `routes/artifacts.ts` PATCH /:id/preview.
- */
-export async function setArtifactPreviewIfAbsent(
-	db: HyperIdleDb,
-	id: string,
-	previewJson: string,
-): Promise<SetArtifactPreviewOutcome> {
-	const updated = await db
-		.update(artifacts)
-		.set({ previewJson })
-		.where(and(eq(artifacts.id, id), isNull(artifacts.previewJson)))
-		.returning({ id: artifacts.id });
-	if (updated.length > 0) return "updated";
-
-	const [exists] = await db
-		.select({ id: artifacts.id })
-		.from(artifacts)
-		.where(eq(artifacts.id, id))
-		.limit(1);
-	return exists ? "immutable" : "not_found";
 }
 
 export interface ArtifactTaskSummaryRow {

@@ -37,16 +37,15 @@
  */
 
 // -- artifact-store (AU19 Increment 4 — `artifacts` TABLE_OWNER closure;
-// AU20 Ag5b — read functions collapsed into get/list; only write/type surface
-// remains in the barrel) --
+// AU20 Ag5b — read functions collapsed into get/list;
+// AU20 Ag5c — createArtifact/setArtifactPreviewIfAbsent folded into generic
+//             create()/transition() primitives below; only row types remain.) --
 export type {
 	ArtifactRow,
 	ArtifactTaskSummaryRow,
 	ArtifactWithTaskTitle,
 	CreateArtifactInput,
-	SetArtifactPreviewOutcome,
 } from "./artifact-store.js";
-export { createArtifact, setArtifactPreviewIfAbsent } from "./artifact-store.js";
 // -- bet decomposition (AK3) --
 export type { BetDecompositionDeps } from "./bet-decomposition.js";
 export {
@@ -82,39 +81,40 @@ export { getTaskRiskTierByTaskId } from "./task-planning-signals.js";
 export type { TaskStateMachineDeps } from "./task-state-machine.js";
 export { InvalidTransitionError, transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";
 // -- work-service (bets/tasks/items repository — the sole table path) --
-// AU20 Ag5b: old read exports (getBetById/getTaskById/getItemById/getArtifactById/
-// list*/find*/count*) collapsed into get()/list() general primitives.
-// Internal-package files (dependency-watcher.ts, bet-state-machine.ts) still
-// import old helpers directly from ./work-service.js — that is fine (they are
-// within the same Service package and do not cross the barrel boundary).
+// AU20 Ag5b: old read exports collapsed into get()/list() general primitives.
+// AU20 Ag5c: old write exports (createBet/createTask/createItem/appendTaskNote/
+//   updateBetById/updateTaskById/updateItemById/incrementBetCost/
+//   transitionBetStatus/transitionTaskState/claimBetDecomposition/
+//   resolveOrphanedBetDecompositions/updateBetDecompositionStatusIfRunning)
+//   collapsed into create()/update()/transition() general primitives.
+//   Old named functions remain in work-service.ts for intra-package callers
+//   (bet-state-machine.ts, bet-decomposition.ts, task-state-machine.ts).
 export type {
+	AppendNoteOp,
 	Bet,
 	BetPatch,
 	BetTaskWithLatestSessionOutcome,
+	BetUpdatePatch,
+	IncrementOp,
 	Item,
 	ItemPatch,
+	ItemUpdatePatch,
 	Task,
 	TaskPatch,
-	TransitionBetStatusArgs,
-	TransitionTaskStateArgs,
+	TaskUpdatePatch,
+	TransitionGuard,
+	TransitionSpec,
 	WorkEntity,
+	WorkEntityCreateMap,
 	WorkEntityRowMap,
+	WorkEntityTransitionPatchMap,
+	WorkEntityUpdatePatchMap,
 	WorkFilter,
 } from "./work-service.js";
 export {
-	appendTaskNote,
-	claimBetDecomposition,
-	createBet,
-	createItem,
-	createTask,
+	create,
 	get,
-	incrementBetCost,
 	list,
-	resolveOrphanedBetDecompositions,
-	transitionBetStatus,
-	transitionTaskState,
-	updateBetById,
-	updateBetDecompositionStatusIfRunning,
-	updateItemById,
-	updateTaskById,
+	transition,
+	update,
 } from "./work-service.js";

@@ -69,46 +69,12 @@ export type ItemPatch = { [K in keyof NewItem]?: NewItem[K] | SQL };
 // bets
 // ---------------------------------------------------------------------------
 
-export async function createBet(exec: WriteExecutor, values: NewBet): Promise<void> {
-	await exec.insert(bets).values(values);
-}
-
 export async function updateBetById(
 	exec: WriteExecutor,
 	id: string,
 	patch: BetPatch,
 ): Promise<void> {
 	await exec.update(bets).set(patch).where(eq(bets.id, id));
-}
-
-/**
- * Atomically add `deltaMinor` to a bet's `costActualMinor` via
- * `coalesce(costActualMinor, 0) + delta`. Owns the coalesce SQL so the
- * `bets.costActualMinor` column ref never leaves this store. Mirrors
- * `@hyperidle/users`' `incrementUserCost` / `@hyperidle/org`'s
- * `incrementTeamMembersCost`.
- *
- * @lore AU19 Increment 3g: the concrete write-side counterpart `cost`'s
- * `CostWorkAccessor` port (Mechanism C) wires to — `cost-cap.ts`'s
- * `recordCostAndCheck` used to build this `coalesce(...)` SQL fragment
- * itself via a raw `updateBetById(db, betId, { costActualMinor: sql\`...\` })`
- * patch, which required importing the `bets` table object directly (an
- * ownership violation once `cost-cap.ts` becomes its own Service package —
- * `bets` is `work`'s `TABLE_OWNER`).
- */
-export async function incrementBetCost(
-	exec: WriteExecutor,
-	id: string,
-	deltaMinor: number,
-	currency: string,
-): Promise<void> {
-	await exec
-		.update(bets)
-		.set({
-			costActualMinor: sql`coalesce(${bets.costActualMinor}, 0) + ${deltaMinor}`,
-			costActualCurrency: currency,
-		})
-		.where(eq(bets.id, id));
 }
 
 export interface TransitionBetStatusArgs {
@@ -134,22 +100,6 @@ export async function transitionBetStatus(
 		.where(and(eq(bets.id, args.betId), eq(bets.status, args.fromStatus)))
 		.returning({ id: bets.id });
 	return { applied: rows.length > 0 };
-}
-
-/**
- * In-update guard, no `.returning()` — silent no-op when the bet's
- * `decompositionStatus` is not currently "running" (agent-lifecycle-
- * projectors.ts's projectDecomposition).
- */
-export async function updateBetDecompositionStatusIfRunning(
-	exec: WriteExecutor,
-	id: string,
-	patch: BetPatch,
-): Promise<void> {
-	await exec
-		.update(bets)
-		.set(patch)
-		.where(and(eq(bets.id, id), eq(bets.decompositionStatus, "running")));
 }
 
 /**
@@ -245,14 +195,6 @@ export async function createTask(exec: WriteExecutor, values: NewTask): Promise<
 	await exec.insert(tasks).values(values);
 }
 
-export async function updateTaskById(
-	exec: WriteExecutor,
-	id: string,
-	patch: TaskPatch,
-): Promise<void> {
-	await exec.update(tasks).set(patch).where(eq(tasks.id, id));
-}
-
 export interface TransitionTaskStateArgs {
 	readonly taskId: string;
 	readonly fromState: string;
@@ -280,18 +222,6 @@ export async function transitionTaskState(
 // ---------------------------------------------------------------------------
 // items
 // ---------------------------------------------------------------------------
-
-export async function createItem(exec: WriteExecutor, values: NewItem): Promise<void> {
-	await exec.insert(items).values(values);
-}
-
-export async function updateItemById(
-	exec: WriteExecutor,
-	id: string,
-	patch: ItemPatch,
-): Promise<void> {
-	await exec.update(items).set(patch).where(eq(items.id, id));
-}
 
 // ---------------------------------------------------------------------------
 // reads — bets
@@ -656,6 +586,7 @@ import type {
 	ArtifactRow,
 	ArtifactTaskSummaryRow,
 	ArtifactWithTaskTitle,
+	CreateArtifactInput,
 } from "./artifact-store.js";
 import {
 	getArtifactById as getArtifactByIdStore,
@@ -943,4 +874,271 @@ export async function list(
 	}
 
 	return [];
+}
+
+// ---------------------------------------------------------------------------
+// Generic write primitives: create() / update() / transition()
+//
+// @lore AU20 Ag5c: collapses ~14 write exports (createBet/createTask/
+// createItem/createArtifact/updateBetById/updateTaskById/updateItemById/
+// incrementBetCost/transitionBetStatus/transitionTaskState/
+// updateBetDecompositionStatusIfRunning/claimBetDecomposition/
+// resolveOrphanedBetDecompositions/appendTaskNote/setArtifactPreviewIfAbsent)
+// into three discriminated primitives.  Old named functions stay in this file
+// for internal-package callers (bet-state-machine.ts, bet-decomposition.ts,
+// task-state-machine.ts); the barrel (index.ts) only re-exports the three
+// primitives.
+// ---------------------------------------------------------------------------
+
+/** Atomic accumulation operator — translates to `coalesce(col, 0) + n`. */
+export interface IncrementOp {
+	readonly increment: number;
+}
+
+/** Atomic append operator — translates to a SQL CASE concat with separator. */
+export interface AppendNoteOp {
+	readonly appendNote: string;
+}
+
+/** Bet update patch: standard BetPatch fields; costActualMinor also accepts IncrementOp. */
+export type BetUpdatePatch = Omit<BetPatch, "costActualMinor"> & {
+	readonly costActualMinor?: BetPatch["costActualMinor"] | IncrementOp;
+};
+
+/** Task update patch: standard TaskPatch fields; notes also accepts AppendNoteOp. */
+export type TaskUpdatePatch = Omit<TaskPatch, "notes"> & {
+	readonly notes?: TaskPatch["notes"] | AppendNoteOp;
+};
+
+/** Item update patch: same as ItemPatch (no special operators). */
+export type ItemUpdatePatch = ItemPatch;
+
+/** Maps each entity discriminant to its create-values type. */
+export interface WorkEntityCreateMap {
+	bet: NewBet;
+	task: NewTask;
+	item: NewItem;
+	artifact: CreateArtifactInput;
+}
+
+/** Maps each entity discriminant to its update-patch type (excluding artifact). */
+export interface WorkEntityUpdatePatchMap {
+	bet: BetUpdatePatch;
+	task: TaskUpdatePatch;
+	item: ItemUpdatePatch;
+}
+
+/** Guard: WHERE field = value. */
+export interface TransitionFieldEqualsGuard {
+	readonly field: string;
+	readonly equals: string;
+}
+
+/** Guard: WHERE field IS NULL. */
+export interface TransitionFieldIsNullGuard {
+	readonly field: string;
+	readonly isNull: true;
+}
+
+/** Discriminated guard for transition() WHERE clause. */
+export type TransitionGuard = TransitionFieldEqualsGuard | TransitionFieldIsNullGuard;
+
+/** Spec for a guarded CAS update. id-less form is a bulk sweep. */
+export interface TransitionSpec<P = unknown> {
+	readonly id?: string;
+	readonly guard: TransitionGuard;
+	readonly patch: P;
+}
+
+/** Maps each entity discriminant to its transition-patch type. Note: "item" is excluded — items have no guard-able state column, no transition() callers. */
+export interface WorkEntityTransitionPatchMap {
+	bet: BetPatch;
+	task: TaskPatch;
+	artifact: Partial<ArtifactRow>;
+}
+
+function isNullGuard(guard: TransitionGuard): guard is TransitionFieldIsNullGuard {
+	return "isNull" in guard;
+}
+
+function buildBetGuardCond(guard: TransitionGuard): SQL {
+	if (guard.field === "status") {
+		return isNullGuard(guard) ? isNull(bets.status) : eq(bets.status, guard.equals);
+	}
+	if (guard.field === "decompositionStatus") {
+		return isNullGuard(guard)
+			? isNull(bets.decompositionStatus)
+			: eq(bets.decompositionStatus, guard.equals);
+	}
+	throw new Error(`Unknown bet field for transition guard: ${guard.field}`);
+}
+
+function buildTaskGuardCond(guard: TransitionGuard): SQL {
+	if (guard.field === "state") {
+		return isNullGuard(guard) ? isNull(tasks.state) : eq(tasks.state, guard.equals);
+	}
+	throw new Error(`Unknown task field for transition guard: ${guard.field}`);
+}
+
+function buildArtifactGuardCond(guard: TransitionGuard): SQL {
+	if (guard.field === "previewJson") {
+		return isNullGuard(guard)
+			? isNull(artifacts.previewJson)
+			: eq(artifacts.previewJson, guard.equals);
+	}
+	throw new Error(`Unknown artifact field for transition guard: ${guard.field}`);
+}
+
+// -- create() -----------------------------------------------------------------
+
+/** Insert a new entity row. Discriminated by entity literal; values typed per entity. */
+export async function create<E extends WorkEntity>(
+	exec: WriteExecutor,
+	entity: E,
+	values: WorkEntityCreateMap[E],
+): Promise<void> {
+	switch (entity) {
+		case "bet":
+			await exec.insert(bets).values(values as NewBet);
+			return;
+		case "task":
+			await exec.insert(tasks).values(values as NewTask);
+			return;
+		case "item":
+			await exec.insert(items).values(values as NewItem);
+			return;
+		case "artifact":
+			await exec.insert(artifacts).values(values as CreateArtifactInput);
+			return;
+	}
+}
+
+// -- update() -----------------------------------------------------------------
+
+/**
+ * Update a task row with atomic note-append (SQL CASE — no pre-read).
+ * Returns `{ id }` when the row was found and updated; `undefined` when absent.
+ *
+ * @lore AU20 Ag5c: appendTaskNote folds into update() via { notes: AppendNoteOp }.
+ */
+export function update(
+	exec: WriteExecutor,
+	entity: "task",
+	id: string,
+	patch: { readonly notes: AppendNoteOp },
+): Promise<{ id: string } | undefined>;
+/** Plain by-id field-set; `costActualMinor: { increment: n }` triggers atomic accumulation. */
+export function update<E extends "bet" | "task" | "item">(
+	exec: WriteExecutor,
+	entity: E,
+	id: string,
+	patch: WorkEntityUpdatePatchMap[E],
+): Promise<void>;
+export async function update(
+	exec: WriteExecutor,
+	entity: string,
+	id: string,
+	patch: Record<string, unknown>,
+): Promise<void | { id: string } | undefined> {
+	if (entity === "task") {
+		const notes = patch.notes;
+		if (typeof notes === "object" && notes !== null && "appendNote" in notes) {
+			return appendTaskNote(exec, id, (notes as AppendNoteOp).appendNote);
+		}
+		await exec
+			.update(tasks)
+			.set(patch as TaskPatch)
+			.where(eq(tasks.id, id));
+		return;
+	}
+	if (entity === "bet") {
+		const cmi = patch.costActualMinor;
+		if (typeof cmi === "object" && cmi !== null && "increment" in cmi) {
+			const { increment } = cmi as IncrementOp;
+			const { costActualMinor: _cmi, ...rest } = patch;
+			await exec
+				.update(bets)
+				.set({
+					...rest,
+					costActualMinor: sql`coalesce(${bets.costActualMinor}, 0) + ${increment}`,
+				})
+				.where(eq(bets.id, id));
+			return;
+		}
+		await exec
+			.update(bets)
+			.set(patch as BetPatch)
+			.where(eq(bets.id, id));
+		return;
+	}
+	if (entity === "item") {
+		await exec
+			.update(items)
+			.set(patch as ItemPatch)
+			.where(eq(items.id, id));
+		return;
+	}
+	throw new Error(`update(): unsupported entity "${entity}"`);
+}
+
+// -- transition() -------------------------------------------------------------
+
+/**
+ * Guarded CAS update. Returns `{ applied, affected }`.
+ * - `id` present → single-row guard (WHERE id = ? AND field ...)
+ * - `id` absent  → bulk sweep (WHERE field ...)
+ * - `guard.equals` → WHERE field = value
+ * - `guard.isNull` → WHERE field IS NULL
+ *
+ * @lore AU20 Ag5c: replaces transitionBetStatus / transitionTaskState /
+ * updateBetDecompositionStatusIfRunning / claimBetDecomposition /
+ * resolveOrphanedBetDecompositions / setArtifactPreviewIfAbsent.
+ */
+export async function transition<E extends keyof WorkEntityTransitionPatchMap>(
+	exec: WriteExecutor,
+	entity: E,
+	spec: TransitionSpec<WorkEntityTransitionPatchMap[E]>,
+): Promise<{ applied: boolean; affected: number }> {
+	let rows: { id: string }[];
+	const patch = spec.patch;
+
+	switch (entity) {
+		case "bet": {
+			const guardCond = buildBetGuardCond(spec.guard);
+			const whereCond = spec.id !== undefined ? and(eq(bets.id, spec.id), guardCond) : guardCond;
+			rows = await exec
+				.update(bets)
+				.set(patch as BetPatch)
+				.where(whereCond)
+				.returning({ id: bets.id });
+			break;
+		}
+		case "task": {
+			const guardCond = buildTaskGuardCond(spec.guard);
+			const whereCond = spec.id !== undefined ? and(eq(tasks.id, spec.id), guardCond) : guardCond;
+			rows = await exec
+				.update(tasks)
+				.set(patch as TaskPatch)
+				.where(whereCond)
+				.returning({ id: tasks.id });
+			break;
+		}
+		case "artifact": {
+			const guardCond = buildArtifactGuardCond(spec.guard);
+			const whereCond =
+				spec.id !== undefined ? and(eq(artifacts.id, spec.id), guardCond) : guardCond;
+			rows = await exec
+				.update(artifacts)
+				.set(patch as Partial<ArtifactRow>)
+				.where(whereCond)
+				.returning({ id: artifacts.id });
+			break;
+		}
+		default: {
+			const Exhaustive: never = entity;
+			throw new Error(`transition(): unsupported entity "${Exhaustive}"`);
+		}
+	}
+
+	return { applied: rows.length > 0, affected: rows.length };
 }

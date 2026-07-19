@@ -247,7 +247,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			const id = crypto.randomUUID();
 			const now = new Date().toISOString();
 
-			await work.createArtifact(db, {
+			await work.create(db, "artifact", {
 				id,
 				producingTaskId: body.producingTaskId,
 				kind: body.kind,
@@ -314,12 +314,15 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof patchPreviewSchema>;
 			// Race-safe update: only updates rows where preview_json IS NULL.
-			const outcome = await work.setArtifactPreviewIfAbsent(db, id, JSON.stringify(body.preview));
-			if (outcome === "not_found") return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-			if (outcome === "immutable") {
-				return c.json({ error: "Preview already set", code: "IMMUTABLE" }, 409);
-			}
-			return c.json({ ok: true });
+			const result = await work.transition(db, "artifact", {
+				id,
+				guard: { field: "previewJson", isNull: true },
+				patch: { previewJson: JSON.stringify(body.preview) },
+			});
+			if (result.applied) return c.json({ ok: true });
+			const existing = await work.get(db, "artifact", id);
+			if (!existing) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
+			return c.json({ error: "Preview already set", code: "IMMUTABLE" }, 409);
 		},
 	);
 

@@ -53,17 +53,7 @@ import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import {
-	appendTaskNote,
-	createArtifact,
-	createBet,
-	createTask,
-	createItem as createWorkItem,
-	routeItem,
-	updateBetById,
-	updateItemById,
-	updateTaskById,
-} from "@hyperidle/work";
+import { routeItem } from "@hyperidle/work";
 import { agentSelectionService } from "./agent-selection-bindings.js";
 import { provisionTeamRoutines as provisionTeamRoutinesBound } from "./dispatch-bindings.js";
 import { handoff } from "./policy-bindings.js";
@@ -173,7 +163,7 @@ async function recomputeAttentionScoreForItem(
 ): Promise<{ readonly current: number }> {
 	const createReviewItemForKnowledge = createReviewItem({
 		conversation: { insertThread },
-		work: { createItem: createWorkItem },
+		work: { createItem: (exec, values) => work.create(exec, "item", values) },
 	});
 	return buildAttentionService({
 		db,
@@ -192,20 +182,24 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	work: {
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-		createBet,
-		updateBetById,
-		createTask,
-		updateTaskById,
-		appendTaskNote,
+		createBet: (exec: WriteExecutor, input) => work.create(exec, "bet", input),
+		updateBetById: (exec: WriteExecutor, id, updates) => work.update(exec, "bet", id, updates),
+		createTask: (exec: WriteExecutor, input) => work.create(exec, "task", input),
+		updateTaskById: (exec: WriteExecutor, id, updates) => work.update(exec, "task", id, updates),
+		appendTaskNote: (exec: WriteExecutor, taskId, entry) =>
+			work.update(exec, "task", taskId, { notes: { appendNote: entry } }),
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-		updateItemById,
-		createItem: createWorkItem,
+		updateItemById: (exec: WriteExecutor, id, updates) => work.update(exec, "item", id, updates),
+		// @lore AU20 Ag5c: tool-handlers port uses Record<string,unknown> for createItem; cast to NewItem
+		// at the composition boundary — tool-handlers (Mechanism C) never imports @hyperidle/db types.
+		createItem: (exec: WriteExecutor, input: Record<string, unknown>) =>
+			work.create(exec, "item", input as Parameters<typeof work.create<"item">>[2]),
 		routeItem,
 		findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
 			const rows = await work.list(exec, "item", { marker });
 			return rows[0] ? { id: rows[0].id } : undefined;
 		},
-		createArtifact,
+		createArtifact: (exec: WriteExecutor, input) => work.create(exec, "artifact", input),
 	},
 	users: {
 		getUserById: (db, id) => findUser(db, { id }),

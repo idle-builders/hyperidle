@@ -78,7 +78,7 @@ import type {
 import { summarizeToolArgs } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { transitionTask, updateBetById, updateTaskById } from "@hyperidle/work";
+import { transitionTask } from "@hyperidle/work";
 import {
 	assembleAgentContext,
 	assemblePrompt,
@@ -115,9 +115,14 @@ const routineAccessor: SessionLifecyclePorts["routine"] = {
 
 const workAccessor: SessionLifecyclePorts["work"] = {
 	getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-	updateTaskById,
+	updateTaskById: (
+		exec: WriteExecutor,
+		id: string,
+		patch: { readonly state?: string; readonly auditTrail?: string },
+	) => work.update(exec, "task", id, patch),
 	getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-	updateBetById,
+	updateBetById: (exec: WriteExecutor, id: string, patch: { readonly tokensActualJson?: string }) =>
+		work.update(exec, "bet", id, patch),
 	transitionTask(db, eventBus, taskId, toState, dispatchOccasion) {
 		return transitionTask(
 			db,

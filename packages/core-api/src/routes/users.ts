@@ -322,7 +322,7 @@ export function createUserRoutes(
 				});
 
 				const itemId = crypto.randomUUID();
-				await work.createItem(db, {
+				await work.create(db, "item", {
 					id: itemId,
 					sourceAgentId: userId,
 					layer: "meta",

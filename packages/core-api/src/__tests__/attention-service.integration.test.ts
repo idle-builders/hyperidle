@@ -37,7 +37,7 @@ const workPort = {
 const reviewPort = {
 	createReviewItemForKnowledge: createReviewItem({
 		conversation: { insertThread },
-		work: { createItem: work.createItem },
+		work: { createItem: (exec, values) => work.create(exec, "item", values) },
 	}),
 	attentionReviewReasoningMarker,
 };

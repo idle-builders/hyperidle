@@ -48,7 +48,6 @@ import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { updateItemById } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
@@ -67,7 +66,8 @@ const silenceDeps: NotificationsSilenceDeps = {
 const policyEngineDeps: PolicyDeps = {
 	work: {
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-		updateItemById,
+		updateItemById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "item", id, patch),
 		listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
 			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
 			return rows.map((r) => r.id);

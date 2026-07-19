@@ -29,13 +29,7 @@ import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import {
-	transitionBet,
-	transitionBetStatus,
-	transitionTaskState,
-	updateItemById,
-	type WorkDeps,
-} from "@hyperidle/work";
+import { transitionBet, type WorkDeps } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -49,13 +43,24 @@ import { test } from "../test-fixtures.js";
 const lifecyclePropagationDeps: PolicyDeps = {
 	work: {
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		transitionTaskState,
+		transitionTaskState: (exec, { taskId, fromState, patch }) =>
+			work.transition(exec, "task", {
+				id: taskId,
+				guard: { field: "state", equals: fromState },
+				patch,
+			}),
 		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-		transitionBetStatus,
+		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
+			work.transition(exec, "bet", {
+				id: betId,
+				guard: { field: "status", equals: fromStatus },
+				patch,
+			}),
 		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
 			work.list(exec, "task", opts ?? {}),
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-		updateItemById,
+		updateItemById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "item", id, patch),
 		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
 			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
 	},

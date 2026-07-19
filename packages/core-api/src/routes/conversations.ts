@@ -148,7 +148,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			}
 
 			// O2: agents routing logic removed; sourceAgentId stored for audit purposes only
-			await work.createItem(db, {
+			await work.create(db, "item", {
 				id,
 				sourceAgentId: body.sourceAgentId ?? null,
 				layer: body.layer ?? null,
