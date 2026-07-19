@@ -114,7 +114,7 @@ describe("probeGitRemote — real git ls-remote probe (Lane A, hermetic, no netw
 
 // ─── repoToUrl — URL construction ────────────────────────────────────────────
 
-describe("repoToUrl — repo reference to git URL (AO1 M1 fix)", () => {
+describe("repoToUrl — repo reference to git URL", () => {
 	it("owner/repo short form → https://github.com/<owner>/<repo>.git", () => {
 		expect(repoToUrl("octocat/Hello-World")).toBe("https://github.com/octocat/Hello-World.git");
 		expect(repoToUrl("owner/repo")).toBe("https://github.com/owner/repo.git");
