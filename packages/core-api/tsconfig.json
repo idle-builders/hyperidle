@@ -12,7 +12,6 @@
 		{ "path": "../agent-orchestration/agent-selection" },
 		{ "path": "../agent-orchestration/capture-writeback" },
 		{ "path": "connections" },
-		{ "path": "../agent-orchestration/context-assembly" },
 		{ "path": "conversation" },
 		{ "path": "../agent-orchestration/cost" },
 		{ "path": "../agent-orchestration/dispatch" },

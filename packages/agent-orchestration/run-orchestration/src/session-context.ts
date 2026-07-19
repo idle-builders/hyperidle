@@ -19,7 +19,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { UserRole } from "@hyperidle/shared";
 import { encodeTyped } from "@hyperidle/shared";
-import type { ContextAssemblyPorts } from "./ports.js";
+import type { ContextAssemblyPorts } from "./context-assembly-ports.js";
 
 export interface SessionContextConfig {
 	sessionId: string;

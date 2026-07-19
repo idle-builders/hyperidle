@@ -16,7 +16,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb, KnowledgeItem } from "@hyperidle/db";
 import { communityForRole, type UserRole } from "@hyperidle/shared";
-import type { ContextAssemblyPorts } from "./ports.js";
+import type { ContextAssemblyPorts } from "./context-assembly-ports.js";
 import { buildSessionContext } from "./session-context.js";
 
 export interface ContextAssemblyConfig {

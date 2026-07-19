@@ -29,7 +29,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { communityForRole, createLogger } from "@hyperidle/shared";
-import type { ContextAssemblyPorts } from "./ports.js";
+import type { ContextAssemblyPorts } from "./context-assembly-ports.js";
 import type { RoutineSessionContextData, SessionContextData } from "./session-context.js";
 
 const logger = createLogger({ pkg: "server.agent-context-prompt" });

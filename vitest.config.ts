@@ -40,7 +40,6 @@ export default defineConfig({
 			"packages/core-api/observability",
 			"packages/core-api/realtime",
 			"packages/agent-orchestration",
-			"packages/agent-orchestration/context-assembly",
 			"packages/agent-orchestration/run-orchestration",
 			"packages/agent-orchestration/agent-selection",
 			"packages/agent-orchestration/cost",

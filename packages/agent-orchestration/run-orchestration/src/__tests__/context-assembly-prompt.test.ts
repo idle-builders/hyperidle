@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { KnowledgeReader } from "../context-assembly-ports.js";
 import {
 	assemblePrompt,
 	assembleRoutinePrompt,
@@ -12,7 +13,6 @@ import {
 	substituteTemplateVars,
 	writeSandboxAgentsMd,
 } from "../context-assembly-prompt.js";
-import type { KnowledgeReader } from "../ports.js";
 import type { RoutineSessionContextData, SessionContextData } from "../session-context.js";
 
 /**

@@ -45,11 +45,6 @@
  * is itself Mechanism-B-enforced.
  */
 
-// ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
-import {
-	EMITTED_ROOTS_AGENTS_MD,
-	EMITTED_ROOTS_CONTEXT_ASSEMBLY,
-} from "@hyperidle/context-assembly";
 import { SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
 import {
 	EMITTED_ROOTS_CLAUDE_SETTINGS,
@@ -57,6 +52,11 @@ import {
 	EMITTED_ROOTS_CODEX_HOME,
 	EMITTED_ROOTS_OPENCODE_PLUGIN,
 } from "@hyperidle/harness-registry";
+// ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
+import {
+	EMITTED_ROOTS_AGENTS_MD,
+	EMITTED_ROOTS_CONTEXT_ASSEMBLY,
+} from "@hyperidle/run-orchestration";
 import { EMITTED_ROOTS_MCP_JSON } from "@hyperidle/session-lifecycle";
 import { describe, expect, it } from "vitest";
 

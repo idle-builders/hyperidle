@@ -23,7 +23,6 @@
 		"@hyperidle/agent-selection": "*",
 		"@hyperidle/capture-writeback": "*",
 		"@hyperidle/connections": "*",
-		"@hyperidle/context-assembly": "*",
 		"@hyperidle/conversation": "*",
 		"@hyperidle/cost": "*",
 		"@hyperidle/db": "*",

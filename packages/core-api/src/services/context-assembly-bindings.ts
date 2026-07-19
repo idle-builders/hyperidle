@@ -21,8 +21,6 @@
  * 69), not `UNOWNED_SHARED_TABLES`.
  */
 
-import type { ContextAssemblyPorts } from "@hyperidle/context-assembly";
-import { createContextAssemblyOps } from "@hyperidle/context-assembly";
 import type { WriteExecutor } from "@hyperidle/db";
 import { startWatcher } from "@hyperidle/filesystems";
 import {
@@ -34,6 +32,8 @@ import {
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { getRoutine } from "@hyperidle/routine";
+import type { ContextAssemblyPorts } from "@hyperidle/run-orchestration";
+import { createContextAssemblyOps } from "@hyperidle/run-orchestration";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 
@@ -96,11 +96,11 @@ export type {
 	SessionContextConfig,
 	SessionContextData,
 	ToolSummary,
-} from "@hyperidle/context-assembly";
+} from "@hyperidle/run-orchestration";
 export {
 	buildTemplateVariables,
 	EMITTED_ROOTS_AGENTS_MD,
 	EMITTED_ROOTS_CONTEXT_ASSEMBLY,
 	stripFrontmatter,
 	substituteTemplateVars,
-} from "@hyperidle/context-assembly";
+} from "@hyperidle/run-orchestration";

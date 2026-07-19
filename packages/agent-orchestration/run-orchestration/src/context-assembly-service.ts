@@ -30,6 +30,7 @@ import type {
 import { assembleAgentContext, beginAgentWriteback } from "./assemble-context.js";
 import type { ContextAssemblyConfig, ContextAssemblyResult } from "./context-assembly.js";
 import { assembleContext } from "./context-assembly.js";
+import type { ContextAssemblyPorts } from "./context-assembly-ports.js";
 import type {
 	AssistantPromptResult,
 	PromptCompositionInput,
@@ -42,7 +43,6 @@ import {
 	composeAssistantPrompt,
 	writeSandboxAgentsMd,
 } from "./context-assembly-prompt.js";
-import type { ContextAssemblyPorts } from "./ports.js";
 import type {
 	RoutineSessionContextConfig,
 	RoutineSessionContextData,

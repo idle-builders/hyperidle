@@ -6,7 +6,7 @@
  * session-provisioning → buildSessionContextData chain.
  */
 import { describe, expect, it } from "vitest";
-import type { ContextAssemblyPorts } from "../ports.js";
+import type { ContextAssemblyPorts } from "../context-assembly-ports.js";
 import type { SessionContextConfig } from "../session-context.js";
 import { buildSessionContextData } from "../session-context.js";
 

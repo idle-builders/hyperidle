@@ -23,7 +23,7 @@ import type {
 	UserRole,
 } from "@hyperidle/shared";
 import { assembleContext } from "./context-assembly.js";
-import type { ContextAssemblyPorts } from "./ports.js";
+import type { ContextAssemblyPorts } from "./context-assembly-ports.js";
 
 export interface AssembleAgentContextInput {
 	readonly db: HyperIdleDb;
