@@ -19,22 +19,13 @@ export type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 export type { AdapterInfo, AdapterMeta } from "./adapter-pool.js";
 export {
 	AdapterPool,
-	CLAUDE_CLI_CONFIG,
-	CLI_TOOL_CONFIGS,
-	CURSOR_AGENT_CLI_CONFIG,
 	createLocalAdapterPool,
 	type SelectedEntry,
 	type SelectRequirements,
 } from "./adapter-pool.js";
 // -- builtin harness adapter (direct LLM API loop) --
-export { BuiltinHarnessAdapter, type BuiltinHarnessOptions } from "./builtin-harness-adapter.js";
+export { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 // -- CLI harness adapter (claude/codex/opencode/cursor-agent) --
-export type {
-	CliAdapterConfig,
-	CliAdapterDeps,
-	CliAvailabilityDeps,
-	CredentialResolver,
-} from "./cli-harness-adapter.js";
 export { CliHarnessAdapter } from "./cli-harness-adapter.js";
 // -- CLI MCP config (writes .mcp.json / config.toml for CLI auto-discovery) --
 export {
@@ -75,31 +66,8 @@ export {
 } from "./harness-discovery.js";
 // -- harness session probe (post-provision readiness probe) --
 export { probeHarnessSession } from "./harness-session-probe.js";
-// -- LLM cassette (deterministic record/replay lane) --
-export {
-	__getCostAccumulatorForTest,
-	__resetCostAccumulatorForTest,
-	buildCassetteKey,
-	type CassetteEntry,
-	loadCassetteEntries,
-	recordLlm,
-	replayLlm,
-} from "./llm-cassette.js";
-// -- LLM client (direct HTTP calls to Anthropic/OpenRouter/OpenAI-compatible) --
-export { type CallLlmOptions, callLlm, callLlmDirect } from "./llm-client.js";
-// -- LLM cost estimation --
-export { estimateCostUsd } from "./llm-cost-estimate.js";
-// -- LLM wire types --
-export type {
-	LlmContentBlock,
-	LlmMessage,
-	LlmResponse,
-	LlmRole,
-	LlmTextBlock,
-	LlmToolDef,
-	LlmToolResultBlock,
-	LlmToolUseBlock,
-} from "./llm-types.js";
+// LLM client, cassette, cost, wire types: INTERNAL to builtin adapter.
+// Access via @hyperidle/harness-registry/llm-client subpath (test/eval use only).
 // -- local sandbox adapter (per-session working-dir sandbox) --
 export { LocalSandboxAdapter } from "./local-sandbox-adapter.js";
 // -- provision-return-hook (per-harness AL6 enforcement provisioning) --

@@ -621,3 +621,22 @@ export async function callLlm(options: CallLlmOptions): Promise<LlmResponse> {
 	}
 	return callLlmDirect(options);
 }
+
+/**
+ * LLM wire-type re-exports for the ./llm-client subpath.
+ *
+ * @lore AU20 Ag4a: Llm* types removed from the product barrel (./). Tests and
+ * eval consumers that need them (e.g. af7 session-isolation, provision-harness)
+ * import via "@hyperidle/harness-registry/llm-client" which already exists as a
+ * subpath. Centralised here so types travel with the functions they describe.
+ */
+export type {
+	LlmContentBlock,
+	LlmMessage,
+	LlmResponse,
+	LlmRole,
+	LlmTextBlock,
+	LlmToolDef,
+	LlmToolResultBlock,
+	LlmToolUseBlock,
+} from "./llm-types.js";

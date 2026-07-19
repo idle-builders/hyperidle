@@ -14,12 +14,8 @@
  */
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
-import {
-	AdapterPool,
-	BuiltinHarnessAdapter,
-	CLAUDE_CLI_CONFIG,
-	CliHarnessAdapter,
-} from "@hyperidle/harness-registry";
+import { AdapterPool, BuiltinHarnessAdapter, CliHarnessAdapter } from "@hyperidle/harness-registry";
+import { CLAUDE_CLI_CONFIG } from "@hyperidle/harness-registry/cli-configs";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";

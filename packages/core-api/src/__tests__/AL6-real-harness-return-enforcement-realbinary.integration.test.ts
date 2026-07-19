@@ -594,7 +594,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 120_000);
 
 		test("claude adapter config carries prompt and return-enforcement channel", async () => {
-			const { CLAUDE_CLI_CONFIG } = await import("@hyperidle/harness-registry");
+			const { CLAUDE_CLI_CONFIG } = await import("@hyperidle/harness-registry/cli-configs");
 			const args = CLAUDE_CLI_CONFIG.args;
 
 			expect(args).toContain("{{prompt}}");
@@ -786,7 +786,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 120_000);
 
 		test("WARN-F2: forcing message prompt-carrier is provided to codex spawn args (not hardcoded 'proceed')", async () => {
-			const { CLI_TOOL_CONFIGS } = await import("@hyperidle/harness-registry");
+			const { CLI_TOOL_CONFIGS } = await import("@hyperidle/harness-registry/cli-configs");
 
 			const codexConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).codex as
 				| Record<string, unknown>
@@ -1027,7 +1027,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 120_000);
 
 		test("WARN-F3: process-reengage carries forcing message into re-invocation (not silent re-run)", async () => {
-			const { CLI_TOOL_CONFIGS } = await import("@hyperidle/harness-registry");
+			const { CLI_TOOL_CONFIGS } = await import("@hyperidle/harness-registry/cli-configs");
 
 			const opencodeConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).opencode as
 				| Record<string, unknown>

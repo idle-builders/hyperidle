@@ -19,9 +19,9 @@ import {
 	AdapterPool,
 	BuiltinHarnessAdapter,
 	CliHarnessAdapter,
-	callLlm,
 	LocalSandboxAdapter,
 } from "@hyperidle/harness-registry";
+import { callLlm } from "@hyperidle/harness-registry/llm-client";
 import type {
 	EventBus,
 	HarnessAdapter,

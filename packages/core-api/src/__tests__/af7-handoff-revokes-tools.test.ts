@@ -30,8 +30,8 @@
  * With the §5.3 guard, the SECOND tool call in the same batch must NOT start.
  */
 
-import type { LlmResponse } from "@hyperidle/harness-registry";
 import { BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
+import type { LlmResponse } from "@hyperidle/harness-registry/llm-client";
 import type { SessionConfig } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
 

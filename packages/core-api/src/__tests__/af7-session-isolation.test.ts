@@ -33,8 +33,8 @@
  * for B's.
  */
 
-import type { LlmResponse } from "@hyperidle/harness-registry";
 import { BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
+import type { LlmResponse } from "@hyperidle/harness-registry/llm-client";
 import type { SessionConfig } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
 
