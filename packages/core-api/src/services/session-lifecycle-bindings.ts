@@ -33,7 +33,7 @@ import {
 	buildProvisioningPlan,
 	resolveOwningHumanUserId as resolveOwningHumanUserIdInternal,
 } from "@hyperidle/connections";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { listFilesystemIdsByAgent, listFilesystemsByIds } from "@hyperidle/filesystems";
 import {
 	createReturnGate,
@@ -77,13 +77,8 @@ import type {
 } from "@hyperidle/shared";
 import { summarizeToolArgs } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
-import {
-	getBetById,
-	getTaskById,
-	transitionTask,
-	updateBetById,
-	updateTaskById,
-} from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { transitionTask, updateBetById, updateTaskById } from "@hyperidle/work";
 import {
 	assembleAgentContext,
 	assemblePrompt,
@@ -119,9 +114,9 @@ const routineAccessor: SessionLifecyclePorts["routine"] = {
 // ---------------------------------------------------------------------------
 
 const workAccessor: SessionLifecyclePorts["work"] = {
-	getTaskById,
+	getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 	updateTaskById,
-	getBetById,
+	getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
 	updateBetById,
 	transitionTask(db, eventBus, taskId, toState, dispatchOccasion) {
 		return transitionTask(

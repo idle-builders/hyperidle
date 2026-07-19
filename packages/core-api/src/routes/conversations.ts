@@ -110,7 +110,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		}
 
 		// Get items sorted by createdAt ASC
-		const threadItems = await work.listItemsByThread(db, threadId);
+		const threadItems = await work.list(db, "item", { threadId: threadId });
 
 		// L1 step5 (S-C2): the verdict-projection that re-shaped `verdict`
 		// messages into the legacy `responses` row format was removed alongside
@@ -166,7 +166,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 				createdAt: now,
 			});
 
-			const created = await work.getItemById(db, id);
+			const created = await work.get(db, "item", id);
 
 			// Emit item_created event
 			const event: ItemCreatedEvent = {

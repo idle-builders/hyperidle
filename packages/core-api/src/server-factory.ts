@@ -21,6 +21,7 @@ import {
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	createPgliteDb,
 	createPostgresDb,
@@ -82,15 +83,10 @@ import {
 } from "@hyperidle/settings";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
 import { findUser, listUsers, reapExpiredCredentials } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
 import {
 	createItem as createWorkItem,
-	getBetById,
-	getItemById,
-	getTaskById,
 	getTaskRiskTierByTaskId,
-	listItemIdsBySourceAgent,
-	listQueuedItemsSince,
-	listTasks,
 	registerBetDecomposition,
 	resolveOrphanedDecompositions,
 	transitionBetStatus,
@@ -189,8 +185,9 @@ const notificationsSilenceDeps: NotificationsSilenceDeps = {
 };
 
 const notificationsWorkReader: NotificationsWorkReader = {
-	listQueuedItemsSince,
-	getItemById,
+	listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+		work.list(exec, "item", { queued: true, createdSince: cutoff }),
+	getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 };
 
 /**
@@ -207,14 +204,18 @@ const notificationsWorkReader: NotificationsWorkReader = {
  */
 const policyDeps: PolicyDeps = {
 	work: {
-		getItemById,
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 		updateItemById,
-		listItemIdsBySourceAgent,
-		getTaskById,
-		getBetById,
+		listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
+			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
+			return rows.map((r) => r.id);
+		},
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
 		transitionBetStatus,
 		transitionTaskState,
-		listTasks,
+		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
+			work.list(exec, "task", { betId: opts?.betId }),
 	},
 	conversation: {
 		insertMessage,
@@ -313,7 +314,7 @@ export function registerCoreDomainServices(ctx: {
 	disposers.push(
 		registerReviewSubscriptions(db, eventBus, {
 			work: {
-				getTaskById,
+				getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 				updateTaskById,
 				createItem: createWorkItem,
 				getRiskTierByTaskId: getTaskRiskTierByTaskId,
@@ -939,7 +940,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 					conversation: { getThreadById: (db, id) => findThread(db, { id }) },
 					users: { getUserById: (db, id) => findUser(db, { id }) },
 					org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
-					work: { getTaskById },
+					work: { getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id) },
 				}),
 			);
 			broadcaster.start();

@@ -35,7 +35,7 @@ import {
 	listThreads,
 	updateThread,
 } from "@hyperidle/conversation";
-import type { AgentSessionRequest, HyperIdleDb, Routine } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb, Routine, WriteExecutor } from "@hyperidle/db";
 import type {
 	AssistantTurnDeps,
 	DispatchConfig,
@@ -70,14 +70,8 @@ import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus, ToolContext } from "@hyperidle/shared";
 import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
 import { findUser, getOrCreateUser } from "@hyperidle/users";
-import {
-	createItem,
-	findItemByReasoningMarker,
-	findRetroItemByThreadIds,
-	getBetById,
-	getTaskById,
-	listTasks,
-} from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { createItem } from "@hyperidle/work";
 import { agentSelectionService } from "./agent-selection-bindings.js";
 import { getFactoryCostActual } from "./cost-bindings.js";
 import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
@@ -106,18 +100,27 @@ async function recomputeAttentionForCandidates(
 	return buildAttentionService({
 		db,
 		eventBus,
-		work: { findItemByReasoningMarker },
+		work: {
+			findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
+				const rows = await work.list(exec, "item", { marker });
+				return rows[0] ? { id: rows[0].id } : undefined;
+			},
+		},
 		review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
 	}).recomputeScope({ ids: candidateIds as string[] });
 }
 
 const dispatchPorts: DispatchPorts = {
 	work: {
-		listTasks,
-		getTaskById,
-		getBetById,
+		listTasks: (exec: WriteExecutor, opts: { readonly state: string }) =>
+			work.list(exec, "task", { state: opts.state }),
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
 		createItem,
-		findRetroItemByThreadIds,
+		findRetroItemByThreadIds: async (exec: WriteExecutor, threadIds: string[], marker: string) => {
+			const rows = await work.list(exec, "item", { threadIds, bodyMarker: marker });
+			return rows[0] ? { id: rows[0].id } : undefined;
+		},
 	},
 	routine: {
 		insertRoutine,

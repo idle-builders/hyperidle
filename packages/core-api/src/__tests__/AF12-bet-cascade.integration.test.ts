@@ -42,13 +42,9 @@ import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
 import type { TaskStateMachineDeps, WorkDeps } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 import {
 	cascadeBetKill,
-	getBetById,
-	getItemById,
-	getTaskById,
-	listItemIdsBySourceAgent,
-	listTasks,
 	transitionBet,
 	transitionBetStatus,
 	transitionTaskState,
@@ -70,14 +66,17 @@ import { test } from "../test-fixtures.js";
  */
 const lifecyclePropagationDeps: PolicyDeps = {
 	work: {
-		getTaskById,
+		getTaskById: (exec, id) => work.get(exec, "task", id),
 		transitionTaskState,
-		getBetById,
+		getBetById: (exec, id) => work.get(exec, "bet", id),
 		transitionBetStatus,
-		listTasks,
-		getItemById,
+		listTasks: (exec, opts) => work.list(exec, "task", opts ?? {}),
+		getItemById: (exec, id) => work.get(exec, "item", id),
 		updateItemById,
-		listItemIdsBySourceAgent,
+		listItemIdsBySourceAgent: async (exec, agentId) => {
+			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
+			return rows.map((r) => r.id);
+		},
 	},
 	conversation: {
 		insertMessage,

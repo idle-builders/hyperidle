@@ -23,6 +23,7 @@
 
 import type { ContextAssemblyPorts } from "@hyperidle/context-assembly";
 import { createContextAssemblyOps } from "@hyperidle/context-assembly";
+import type { WriteExecutor } from "@hyperidle/db";
 import { startWatcher } from "@hyperidle/filesystems";
 import {
 	countTokens,
@@ -34,7 +35,7 @@ import {
 import { getTeam } from "@hyperidle/org";
 import { getRoutine } from "@hyperidle/routine";
 import { findUser } from "@hyperidle/users";
-import { getBetById, getTaskById } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 
 const contextAssemblyPorts: ContextAssemblyPorts = {
 	knowledge: {
@@ -51,8 +52,8 @@ const contextAssemblyPorts: ContextAssemblyPorts = {
 		countTokens,
 	},
 	work: {
-		getTaskById,
-		getBetById,
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
 	},
 	users: {
 		getUserById: (db, id) => findUser(db, { id }),

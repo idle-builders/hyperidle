@@ -8,7 +8,7 @@ import {
 	ServiceConnectionResolver,
 	writeCredential,
 } from "@hyperidle/connections";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { AssistantTurnDeps } from "@hyperidle/dispatch";
 import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { McpBridgeRegistry } from "@hyperidle/mcp-provider";
@@ -33,7 +33,8 @@ import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
-import { checkAndUnblockDependents, getItemById, listQueuedItemsSince } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
 import { failClosedAssertion } from "./middleware/access-boundary-middleware.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
@@ -274,8 +275,9 @@ const notificationsSilenceDeps: NotificationsSilenceDeps = {
 };
 
 const notificationsWorkReader: NotificationsWorkReader = {
-	listQueuedItemsSince,
-	getItemById,
+	listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+		work.list(exec, "item", { queued: true, createdSince: cutoff }),
+	getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 };
 
 /**

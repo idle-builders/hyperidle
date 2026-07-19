@@ -25,7 +25,15 @@ const NOW_MS = new Date(NOW).getTime();
  * exact same production wiring `score-attention.ts`/`builtin-routine-handlers.ts`
  * use — no behavior change from the pre-migration direct-import version.
  */
-const workPort = { findItemByReasoningMarker: work.findItemByReasoningMarker };
+const workPort = {
+	findItemByReasoningMarker: async (
+		exec: import("@hyperidle/db").WriteExecutor,
+		marker: string,
+	) => {
+		const rows = await work.list(exec, "item", { marker });
+		return rows[0] ? { id: rows[0].id } : undefined;
+	},
+};
 const reviewPort = {
 	createReviewItemForKnowledge: createReviewItem({
 		conversation: { insertThread },

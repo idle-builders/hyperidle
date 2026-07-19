@@ -21,6 +21,7 @@ import {
 	readCredentials,
 	writeCredential,
 } from "@hyperidle/connections";
+import type { WriteExecutor } from "@hyperidle/db";
 import type {
 	NotificationsConfigDeps,
 	NotificationsCredentialCipher,
@@ -31,7 +32,7 @@ import type {
 import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { findUser } from "@hyperidle/users";
-import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
@@ -70,6 +71,7 @@ export const notificationsSilenceDeps: NotificationsSilenceDeps = {
 };
 
 export const notificationsWorkReader: NotificationsWorkReader = {
-	listQueuedItemsSince,
-	getItemById,
+	listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+		work.list(exec, "item", { queued: true, createdSince: cutoff }),
+	getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 };

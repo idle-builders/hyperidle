@@ -38,10 +38,15 @@ import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "
 import { recordAgentWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
-import { createItem, getTaskById, listItemIdsBySourceAgent, updateTaskById } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { createItem, updateTaskById } from "@hyperidle/work";
 
 const handoffDeps = {
-	work: { getTaskById, updateTaskById, createItem },
+	work: {
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		updateTaskById,
+		createItem,
+	},
 	conversation: { insertMessage, insertThread },
 	users: {
 		getUserById: (db: WriteExecutor, id: string) => findUser(db, { id }),
@@ -67,7 +72,12 @@ export const handoff: (
 ) => Promise<HandoffResult> = buildHandoff(handoffDeps);
 
 const approvalRateDeps = {
-	work: { listItemIdsBySourceAgent },
+	work: {
+		listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
+			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
+			return rows.map((r) => r.id);
+		},
+	},
 	conversation: {
 		listInitiatedVerdictMessages: (db: HyperIdleDb, initiatorId: string, windowStart: string) =>
 			listMessages(db, {

@@ -1,8 +1,9 @@
 import { listMessages } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { getDailyDigest, type NotificationsDigestDeps } from "@hyperidle/notifications";
 import { listUsers } from "@hyperidle/users";
-import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -15,7 +16,11 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
  * (both real, migrated packages), zero behavior change.
  */
 const digestDeps: NotificationsDigestDeps = {
-	work: { listQueuedItemsSince, getItemById },
+	work: {
+		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+			work.list(exec, "item", { queued: true, createdSince: cutoff }),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+	},
 	verdicts: {
 		listVerdictItemIds: (db, itemIds) =>
 			listMessages(db, { types: ["verdict"], legacyItemIds: itemIds }).then((msgs) => [

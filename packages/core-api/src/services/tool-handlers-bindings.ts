@@ -25,7 +25,7 @@ import {
 	listInbox,
 	updateThread,
 } from "@hyperidle/conversation";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { nextCronMatch, parseCron } from "@hyperidle/dispatch";
 import {
 	buildAttentionService,
@@ -52,16 +52,13 @@ import type { EventBus } from "@hyperidle/shared";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
 import {
 	appendTaskNote,
 	createArtifact,
 	createBet,
 	createTask,
 	createItem as createWorkItem,
-	findItemByReasoningMarker,
-	getBetById,
-	getItemById,
-	getTaskById,
 	routeItem,
 	updateBetById,
 	updateItemById,
@@ -181,25 +178,33 @@ async function recomputeAttentionScoreForItem(
 	return buildAttentionService({
 		db,
 		eventBus,
-		work: { findItemByReasoningMarker },
+		work: {
+			findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
+				const rows = await work.list(exec, "item", { marker });
+				return rows[0] ? { id: rows[0].id } : undefined;
+			},
+		},
 		review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
 	}).recomputeOne(knowledgeItemId);
 }
 
 const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	work: {
-		getTaskById,
-		getBetById,
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
 		createBet,
 		updateBetById,
 		createTask,
 		updateTaskById,
 		appendTaskNote,
-		getItemById,
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 		updateItemById,
 		createItem: createWorkItem,
 		routeItem,
-		findItemByReasoningMarker,
+		findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
+			const rows = await work.list(exec, "item", { marker });
+			return rows[0] ? { id: rows[0].id } : undefined;
+		},
 		createArtifact,
 	},
 	users: {

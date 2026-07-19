@@ -40,7 +40,9 @@
  * Event emission stays at call sites (out of scope — see plan §3).
  */
 import {
+	artifacts,
 	bets,
+	escapeLikePattern,
 	items,
 	type NewBet,
 	type NewItem,
@@ -634,4 +636,311 @@ export async function listItemIdsBySourceAgent(
 		.from(items)
 		.where(eq(items.sourceAgentId, sourceAgentId));
 	return rows.map((r) => r.id);
+}
+
+// ---------------------------------------------------------------------------
+// General primitives: get() and list()
+//
+// @lore AU20 Ag5b: collapses ~19 read exports (4 get*ById + ~14 list*/find*/
+// count* + joined/enriched reads) into two discriminated primitives. Internal
+// helpers above stay exported from work-service.ts (internal-package imports in
+// dependency-watcher.ts / bet-state-machine.ts use them directly), but the
+// barrel (index.ts) only re-exports get/list. Callers that need the old named
+// functions as DI-port bindings wrap them in lambdas at the composition root.
+//
+// artifact-store read functions now accept WriteExecutor (see artifact-store.ts
+// AU20 change), so get/list can call them with the same exec they receive.
+// ---------------------------------------------------------------------------
+
+import type {
+	ArtifactRow,
+	ArtifactTaskSummaryRow,
+	ArtifactWithTaskTitle,
+} from "./artifact-store.js";
+import {
+	getArtifactById as getArtifactByIdStore,
+	getArtifactWithTaskTitleById as getArtifactWithTaskTitleByIdStore,
+	listArtifactSummariesByTaskIds as listArtifactSummariesByTaskIdsStore,
+	listArtifactsPage as listArtifactsPageStore,
+} from "./artifact-store.js";
+
+/** Discriminant union of all work-owned entity kinds. */
+export type WorkEntity = "bet" | "task" | "item" | "artifact";
+
+/** Maps each entity discriminant to its plain (non-joined) row type. */
+export interface WorkEntityRowMap {
+	bet: Bet;
+	task: Task;
+	item: Item;
+	artifact: ArtifactRow;
+}
+
+/**
+ * AND-composed filter for `list()`. Keys are entity-specific — supply only
+ * those relevant to your entity. `count: true` short-circuits to a number.
+ * `include` carries an enriched join with a CONDITIONAL return type.
+ *
+ * Key mapping to old functions:
+ *   - `text`           → searchBetsByText (internally escapes via escapeLikePattern)
+ *   - `ids`            → listBetsByIds / listTasksByIds
+ *   - `teamId+status`  → listBetsByTeamAndStatus
+ *   - `teamId+status+count:true` → countBetsByTeamAndStatus
+ *   - `betId+include:"latestSessionOutcome"` → listBetTasksWithLatestSessionOutcome
+ *   - `threadId`       → listItemsByThread
+ *   - `queued+createdSince` → listQueuedItemsSince
+ *   - `marker`         → findItemByReasoningMarker (returns Item[]; take [0] for {id})
+ *   - `threadIds+bodyMarker` → findRetroItemByThreadIds (take [0] for {id})
+ *   - `sourceAgentId`  → items filtered by sourceAgentId (map to .id for old string[])
+ *   - `taskIds+include:"taskTitle"` → listArtifactsPage
+ *   - `taskIds+include:"taskSummary"` → listArtifactSummariesByTaskIds
+ */
+export interface WorkFilter {
+	ids?: readonly string[];
+	limit?: number;
+	offset?: number;
+	count?: true;
+	include?: "taskTitle" | "taskSummary" | "latestSessionOutcome";
+	// bet-specific
+	teamId?: string;
+	status?: string;
+	text?: string;
+	// task-specific
+	state?: string;
+	betId?: string;
+	ownerAgentId?: string;
+	// item-specific
+	threadId?: string;
+	threadIds?: readonly string[];
+	sourceAgentId?: string;
+	/** Reasoning-field LIKE marker — maps to findItemByReasoningMarker. Take [0]. */
+	marker?: string;
+	/** Body-field LIKE marker — maps to findRetroItemByThreadIds. Take [0]. */
+	bodyMarker?: string;
+	queued?: true;
+	createdSince?: string;
+	// artifact-specific
+	taskIds?: readonly string[] | null;
+	cursor?: { readonly createdAt: string; readonly id: string } | null;
+}
+
+// -- get() overloads ---------------------------------------------------------
+
+/** Artifact with task-title join (getArtifactWithTaskTitleById). */
+export function get(
+	exec: WriteExecutor,
+	entity: "artifact",
+	id: string,
+	opts: { include: "taskTitle" },
+): Promise<ArtifactWithTaskTitle | undefined>;
+/** Plain get-by-id — return type discriminated by entity literal. */
+export function get<E extends WorkEntity>(
+	exec: WriteExecutor,
+	entity: E,
+	id: string,
+): Promise<WorkEntityRowMap[E] | undefined>;
+export async function get(
+	exec: WriteExecutor,
+	entity: WorkEntity,
+	id: string,
+	opts?: { include?: string },
+): Promise<unknown> {
+	switch (entity) {
+		case "bet":
+			return getBetById(exec, id);
+		case "task":
+			return getTaskById(exec, id);
+		case "item":
+			return getItemById(exec, id);
+		case "artifact":
+			if (opts?.include === "taskTitle") return getArtifactWithTaskTitleByIdStore(exec, id);
+			return getArtifactByIdStore(exec, id);
+	}
+}
+
+// -- list() overloads --------------------------------------------------------
+
+/** Count entities matching the filter. */
+export function list(
+	exec: WriteExecutor,
+	entity: WorkEntity,
+	filter: WorkFilter & { count: true },
+): Promise<number>;
+/** Tasks with correlated latestSessionOutcome subquery. Requires betId. */
+export function list(
+	exec: WriteExecutor,
+	entity: "task",
+	filter: WorkFilter & { include: "latestSessionOutcome"; betId: string },
+): Promise<BetTaskWithLatestSessionOutcome[]>;
+/** Artifacts page join (full ArtifactWithTaskTitle shape). */
+export function list(
+	exec: WriteExecutor,
+	entity: "artifact",
+	filter: WorkFilter & { include: "taskTitle" },
+): Promise<ArtifactWithTaskTitle[]>;
+/** Artifact + task-title summary projection (ArtifactTaskSummaryRow shape). */
+export function list(
+	exec: WriteExecutor,
+	entity: "artifact",
+	filter: WorkFilter & { include: "taskSummary" },
+): Promise<ArtifactTaskSummaryRow[]>;
+/** Plain entity list — return type discriminated by entity literal. */
+export function list<E extends WorkEntity>(
+	exec: WriteExecutor,
+	entity: E,
+	filter?: WorkFilter,
+): Promise<WorkEntityRowMap[E][]>;
+export async function list(
+	exec: WriteExecutor,
+	entity: WorkEntity,
+	filter?: WorkFilter,
+): Promise<unknown> {
+	const f = filter ?? {};
+
+	// ── count short-circuit ──────────────────────────────────────────────────
+	if (f.count) {
+		if (entity === "bet") {
+			const conds: SQL[] = [];
+			if (f.teamId !== undefined) conds.push(eq(bets.teamId, f.teamId));
+			if (f.status !== undefined) conds.push(eq(bets.status, f.status));
+			const [row] = await exec
+				.select({ n: sql<number>`count(*)` })
+				.from(bets)
+				.where(conds.length > 0 ? and(...conds) : undefined);
+			return Number(row?.n ?? 0);
+		}
+		if (entity === "task") {
+			const conds: SQL[] = [];
+			if (f.teamId !== undefined) conds.push(eq(tasks.teamId, f.teamId));
+			if (f.state !== undefined) conds.push(eq(tasks.state, f.state));
+			if (f.betId !== undefined) conds.push(eq(tasks.betId, f.betId));
+			const [row] = await exec
+				.select({ n: sql<number>`count(*)` })
+				.from(tasks)
+				.where(conds.length > 0 ? and(...conds) : undefined);
+			return Number(row?.n ?? 0);
+		}
+		if (entity === "item") {
+			const conds: SQL[] = [];
+			if (f.threadId !== undefined) conds.push(eq(items.threadId, f.threadId));
+			const [row] = await exec
+				.select({ n: sql<number>`count(*)` })
+				.from(items)
+				.where(conds.length > 0 ? and(...conds) : undefined);
+			return Number(row?.n ?? 0);
+		}
+		return 0;
+	}
+
+	// ── enriched includes ────────────────────────────────────────────────────
+	if (entity === "task" && f.include === "latestSessionOutcome") {
+		return listBetTasksWithLatestSessionOutcome(exec, f.betId ?? "");
+	}
+	if (entity === "artifact" && f.include === "taskTitle") {
+		return listArtifactsPageStore(exec, {
+			taskIds: f.taskIds ?? null,
+			cursor: f.cursor ?? null,
+			limit: f.limit ?? 50,
+		});
+	}
+	if (entity === "artifact" && f.include === "taskSummary") {
+		return listArtifactSummariesByTaskIdsStore(exec, f.taskIds ?? []);
+	}
+
+	// ── bet dispatches ───────────────────────────────────────────────────────
+	if (entity === "bet") {
+		if (f.text !== undefined) {
+			const escaped = escapeLikePattern(f.text);
+			const pattern = `%${escaped}%`;
+			return searchBetsByText(exec, { pattern, query: escaped, limit: f.limit ?? 50 });
+		}
+		if (f.ids !== undefined) return listBetsByIds(exec, f.ids);
+		if (f.teamId !== undefined && f.status !== undefined) {
+			return listBetsByTeamAndStatus(exec, f.teamId, f.status);
+		}
+		if (f.teamId !== undefined || f.status !== undefined) {
+			// Single-key path: mirror the count path so only the present key is
+			// applied (passing an empty string for the absent key to
+			// listBetsByTeamAndStatus would always return []).
+			const conds: SQL[] = [];
+			if (f.teamId !== undefined) conds.push(eq(bets.teamId, f.teamId));
+			if (f.status !== undefined) conds.push(eq(bets.status, f.status));
+			return exec
+				.select()
+				.from(bets)
+				.where(conds.length > 0 ? and(...conds) : undefined);
+		}
+		return listBets(exec, { limit: f.limit, offset: f.offset });
+	}
+
+	// ── task dispatches ──────────────────────────────────────────────────────
+	if (entity === "task") {
+		if (f.ids !== undefined) return listTasksByIds(exec, f.ids);
+		return listTasks(exec, {
+			betId: f.betId,
+			state: f.state,
+			ownerAgentId: f.ownerAgentId,
+			teamId: f.teamId,
+			limit: f.limit,
+		});
+	}
+
+	// ── item dispatches ──────────────────────────────────────────────────────
+	if (entity === "item") {
+		if (f.threadId !== undefined) return listItemsByThread(exec, f.threadId);
+		if (f.queued) {
+			return listQueuedItemsSince(exec, f.createdSince ?? new Date(0).toISOString());
+		}
+		if (f.marker !== undefined) {
+			return exec
+				.select()
+				.from(items)
+				.where(like(items.reasoning, `%${f.marker}%`))
+				.limit(1);
+		}
+		if (f.threadIds !== undefined) {
+			if (f.threadIds.length === 0) return [];
+			const conds: SQL[] = [inArray(items.threadId, Array.from(f.threadIds))];
+			if (f.bodyMarker !== undefined) conds.push(like(items.body, `%${f.bodyMarker}%`));
+			return exec
+				.select()
+				.from(items)
+				.where(and(...conds))
+				.limit(1);
+		}
+		if (f.sourceAgentId !== undefined) {
+			return exec.select().from(items).where(eq(items.sourceAgentId, f.sourceAgentId));
+		}
+		if (f.ids !== undefined) {
+			if (f.ids.length === 0) return [];
+			return exec
+				.select()
+				.from(items)
+				.where(inArray(items.id, Array.from(f.ids)));
+		}
+		// NOTE: bare `createdSince` without `queued:true` is intentionally absent —
+		// the only real caller passes both together (hits the `f.queued` branch above).
+		// A bare-createdSince path would silently bypass the policy_queued filter.
+		return exec.select().from(items);
+	}
+
+	// ── artifact plain dispatches ────────────────────────────────────────────
+	if (entity === "artifact") {
+		if (f.taskIds !== null && f.taskIds !== undefined) {
+			if (f.taskIds.length === 0) return [];
+			return exec
+				.select()
+				.from(artifacts)
+				.where(inArray(artifacts.producingTaskId, Array.from(f.taskIds)));
+		}
+		if (f.ids !== undefined) {
+			if (f.ids.length === 0) return [];
+			return exec
+				.select()
+				.from(artifacts)
+				.where(inArray(artifacts.id, Array.from(f.ids)));
+		}
+		return exec.select().from(artifacts);
+	}
+
+	return [];
 }

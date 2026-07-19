@@ -189,20 +189,28 @@ export function createTeamRoutes(
 				const memberGroup = await getTeamMembers(db, { teamId: team.id });
 
 				// Count active and completed bets
-				const activeBetCount = await work.countBetsByTeamAndStatus(db, team.id, "active");
-				const completedCount = await work.countBetsByTeamAndStatus(db, team.id, "completed");
+				const activeBetCount = await work.list(db, "bet", {
+					teamId: team.id,
+					status: "active",
+					count: true,
+				});
+				const completedCount = await work.list(db, "bet", {
+					teamId: team.id,
+					status: "completed",
+					count: true,
+				});
 
 				// Ship rate = completed / (completed + active), expressed as percentage
 				const total = completedCount + activeBetCount;
 				const shipRate = total === 0 ? "—" : `${Math.round((completedCount / total) * 100)}%`;
 
 				// Progress: sum done/total tasks across active bets
-				const activeBetRows = await work.listBetsByTeamAndStatus(db, team.id, "active");
+				const activeBetRows = await work.list(db, "bet", { teamId: team.id, status: "active" });
 
 				let progressDone = 0;
 				let progressTotal = 0;
 				for (const bet of activeBetRows) {
-					const taskRows = await work.listTasks(db, { betId: bet.id });
+					const taskRows = await work.list(db, "task", { betId: bet.id });
 					progressTotal += taskRows.length;
 					progressDone += taskRows.filter((t) => t.state === "done").length;
 				}
@@ -756,7 +764,7 @@ export function createTeamRoutes(
 					let activeTaskId: string | null = null;
 					let activeBetId: string | null = null;
 					if (activeSession?.taskId) {
-						const taskRow = await work.getTaskById(db, activeSession.taskId);
+						const taskRow = await work.get(db, "task", activeSession.taskId);
 						activeTaskTitle = taskRow?.title ?? null;
 						activeTaskId = activeSession.taskId;
 						activeBetId = taskRow?.betId ?? null;
@@ -799,13 +807,13 @@ export function createTeamRoutes(
 			}
 
 			// 4. Load active bets
-			const activeBetRows = await work.listBetsByTeamAndStatus(db, teamId, "active");
+			const activeBetRows = await work.list(db, "bet", { teamId: teamId, status: "active" });
 
 			// 5. Per active bet, count tasks done/total
 			let hasBlockedTask = false;
 			const activeBets: BetCardSummary[] = await Promise.all(
 				activeBetRows.map(async (bet) => {
-					const taskRows = await work.listTasks(db, { betId: bet.id });
+					const taskRows = await work.list(db, "task", { betId: bet.id });
 
 					const progressTotal = taskRows.length;
 					const progressDone = taskRows.filter((t) => t.state === "done").length;

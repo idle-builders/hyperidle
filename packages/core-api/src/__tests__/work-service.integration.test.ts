@@ -420,12 +420,12 @@ describe("work-service", () => {
 				createdAt: new Date().toISOString(),
 			});
 
-			const row = await work.getBetById(db, "bet-1");
+			const row = await work.get(db, "bet", "bet-1");
 			expect(row?.description).toBe("Ship the thing");
 		});
 
 		test("returns undefined for a missing bet", async ({ db }) => {
-			const row = await work.getBetById(db, "nope");
+			const row = await work.get(db, "bet", "nope");
 			expect(row).toBeUndefined();
 		});
 	});
@@ -448,7 +448,7 @@ describe("work-service", () => {
 				createdAt: new Date().toISOString(),
 			});
 
-			const rows = await work.listBets(db);
+			const rows = await work.list(db, "bet");
 			expect(rows).toHaveLength(2);
 		});
 
@@ -464,7 +464,7 @@ describe("work-service", () => {
 				});
 			}
 
-			const rows = await work.listBets(db, { limit: 1, offset: 1 });
+			const rows = await work.list(db, "bet", { limit: 1, offset: 1 });
 			expect(rows).toHaveLength(1);
 		});
 	});
@@ -487,11 +487,19 @@ describe("work-service", () => {
 				createdAt: new Date().toISOString(),
 			});
 
-			const active = await work.listBetsByTeamAndStatus(db, "team-1", "active");
+			const active = await work.list(db, "bet", { teamId: "team-1", status: "active" });
 			expect(active.map((b) => b.id)).toEqual(["bet-1"]);
 
-			const activeCount = await work.countBetsByTeamAndStatus(db, "team-1", "active");
-			const completedCount = await work.countBetsByTeamAndStatus(db, "team-1", "completed");
+			const activeCount = await work.list(db, "bet", {
+				teamId: "team-1",
+				status: "active",
+				count: true,
+			});
+			const completedCount = await work.list(db, "bet", {
+				teamId: "team-1",
+				status: "completed",
+				count: true,
+			});
 			expect(activeCount).toBe(1);
 			expect(completedCount).toBe(1);
 		});
@@ -519,7 +527,7 @@ describe("work-service", () => {
 				createdAt: new Date().toISOString(),
 			});
 
-			const count = await work.countBetsByTeamAndStatus(db, "team-1", "active");
+			const count = await work.list(db, "bet", { teamId: "team-1", status: "active", count: true });
 			expect(count).toBe(1);
 		});
 	});
@@ -535,10 +543,10 @@ describe("work-service", () => {
 				createdAt: new Date().toISOString(),
 			});
 
-			const rows = await work.listBetsByIds(db, ["bet-1", "missing"]);
+			const rows = await work.list(db, "bet", { ids: ["bet-1", "missing"] });
 			expect(rows.map((b) => b.id)).toEqual(["bet-1"]);
 
-			const empty = await work.listBetsByIds(db, []);
+			const empty = await work.list(db, "bet", { ids: [] });
 			expect(empty).toEqual([]);
 		});
 	});
@@ -564,11 +572,7 @@ describe("work-service", () => {
 				createdAt: "2026-01-02T00:00:00.000Z",
 			});
 
-			const rows = await work.searchBetsByText(db, {
-				pattern: "%widgets%",
-				query: "widgets",
-				limit: 10,
-			});
+			const rows = await work.list(db, "bet", { text: "widgets", limit: 10 });
 			expect(rows.map((b) => b.id).sort()).toEqual(["bet-1", "bet-2"]);
 			// bet-2's description starts with the query → matchRank 0, ranked first.
 			expect(rows[0]?.id).toBe("bet-2");
@@ -595,7 +599,7 @@ describe("work-service", () => {
 				updatedAt: new Date().toISOString(),
 			});
 
-			const row = await work.getTaskById(db, "task-1");
+			const row = await work.get(db, "task", "task-1");
 			expect(row?.title).toBe("Do it");
 		});
 	});
@@ -633,7 +637,7 @@ describe("work-service", () => {
 
 		test("returns every task when opts are omitted", async ({ db }) => {
 			await seedTwoTasks(db);
-			const rows = await work.listTasks(db);
+			const rows = await work.list(db, "task");
 			expect(rows).toHaveLength(2);
 		});
 
@@ -642,20 +646,20 @@ describe("work-service", () => {
 		}) => {
 			await seedTwoTasks(db);
 
-			const byBet = await work.listTasks(db, { betId: "bet-1" });
+			const byBet = await work.list(db, "task", { betId: "bet-1" });
 			expect(byBet).toHaveLength(2);
 
-			const byState = await work.listTasks(db, { betId: "bet-1", state: "proposed" });
+			const byState = await work.list(db, "task", { betId: "bet-1", state: "proposed" });
 			expect(byState.map((t) => t.id)).toEqual(["task-1"]);
 
-			const byOwner = await work.listTasks(db, {
+			const byOwner = await work.list(db, "task", {
 				betId: "bet-1",
 				state: "proposed",
 				ownerAgentId: "agent-1",
 			});
 			expect(byOwner.map((t) => t.id)).toEqual(["task-1"]);
 
-			const byOwnerMiss = await work.listTasks(db, {
+			const byOwnerMiss = await work.list(db, "task", {
 				betId: "bet-1",
 				state: "accepted",
 				ownerAgentId: "agent-1",
@@ -684,10 +688,10 @@ describe("work-service", () => {
 				updatedAt: new Date().toISOString(),
 			});
 
-			const rows = await work.listTasksByIds(db, ["task-1", "missing"]);
+			const rows = await work.list(db, "task", { ids: ["task-1", "missing"] });
 			expect(rows.map((t) => t.id)).toEqual(["task-1"]);
 
-			const empty = await work.listTasksByIds(db, []);
+			const empty = await work.list(db, "task", { ids: [] });
 			expect(empty).toEqual([]);
 		});
 	});
@@ -721,7 +725,7 @@ describe("work-service", () => {
 				outcome: "completed",
 			});
 
-			const rows = await work.listBetTasksWithLatestSessionOutcome(db, "bet-1");
+			const rows = await work.list(db, "task", { betId: "bet-1", include: "latestSessionOutcome" });
 			expect(rows).toHaveLength(1);
 			expect(rows[0]?.latestSessionOutcome).toBe("completed");
 		});
@@ -738,7 +742,7 @@ describe("work-service", () => {
 				createdAt: new Date().toISOString(),
 			});
 
-			const row = await work.getItemById(db, "item-1");
+			const row = await work.get(db, "item", "item-1");
 			expect(row?.title).toBe("Review me");
 		});
 
@@ -758,7 +762,7 @@ describe("work-service", () => {
 				createdAt: "2026-01-01T00:00:00.000Z",
 			});
 
-			const rows = await work.listItemsByThread(db, "thread-1");
+			const rows = await work.list(db, "item", { threadId: "thread-1" });
 			expect(rows.map((i) => i.id)).toEqual(["item-1", "item-2"]);
 		});
 	});
@@ -790,7 +794,10 @@ describe("work-service", () => {
 				createdAt: "2026-01-02T00:00:00.000Z",
 			});
 
-			const rows = await work.listQueuedItemsSince(db, "2026-01-01T00:00:00.000Z");
+			const rows = await work.list(db, "item", {
+				queued: true,
+				createdSince: "2026-01-01T00:00:00.000Z",
+			});
 			expect(rows.map((i) => i.id)).toEqual(["item-1"]);
 		});
 	});
@@ -807,11 +814,11 @@ describe("work-service", () => {
 				createdAt: new Date().toISOString(),
 			});
 
-			const row = await work.findItemByReasoningMarker(db, "attention:knowledge-item-1");
+			const [row] = await work.list(db, "item", { marker: "attention:knowledge-item-1" });
 			expect(row?.id).toBe("item-1");
 
-			const miss = await work.findItemByReasoningMarker(db, "attention:missing");
-			expect(miss).toBeUndefined();
+			const missRows = await work.list(db, "item", { marker: "attention:missing" });
+			expect(missRows[0]).toBeUndefined();
 		});
 
 		test("tx-scoped read sees an uncommitted row written earlier in the same transaction", async ({
@@ -820,7 +827,7 @@ describe("work-service", () => {
 			await seedTeamAndAgent(db);
 			await seedThread(db, "thread-1");
 
-			let sawInTx: { id: string } | undefined;
+			let sawInTx: import("@hyperidle/work").Item | undefined;
 			await db.transaction(async (tx) => {
 				await work.createItem(tx, {
 					id: "item-tx",
@@ -830,7 +837,8 @@ describe("work-service", () => {
 					createdAt: new Date().toISOString(),
 				});
 				// Not yet committed — a fn using the pooled `db` (not `tx`) would miss this.
-				sawInTx = await work.findItemByReasoningMarker(tx, "attention:tx-item");
+				const txRows = await work.list(tx, "item", { marker: "attention:tx-item" });
+				sawInTx = txRows[0];
 			});
 
 			expect(sawInTx?.id).toBe("item-tx");
@@ -860,15 +868,24 @@ describe("work-service", () => {
 				createdAt: now,
 			});
 
-			const row = await work.findRetroItemByThreadIds(db, ["thread-retro"], "betId=bet-1");
+			const [row] = await work.list(db, "item", {
+				threadIds: ["thread-retro"],
+				bodyMarker: "betId=bet-1",
+			});
 			expect(row?.id).toBe("item-retro");
 
-			const miss = await work.findRetroItemByThreadIds(db, ["thread-retro"], "betId=bet-missing");
-			expect(miss).toBeUndefined();
+			const missRows = await work.list(db, "item", {
+				threadIds: ["thread-retro"],
+				bodyMarker: "betId=bet-missing",
+			});
+			expect(missRows[0]).toBeUndefined();
 
 			// Empty thread-id set short-circuits to undefined (no bet threads yet).
-			const emptyMiss = await work.findRetroItemByThreadIds(db, [], "betId=bet-1");
-			expect(emptyMiss).toBeUndefined();
+			const emptyMissRows = await work.list(db, "item", {
+				threadIds: [],
+				bodyMarker: "betId=bet-1",
+			});
+			expect(emptyMissRows[0]).toBeUndefined();
 		});
 	});
 });

@@ -1,4 +1,5 @@
 import { findThread, insertThread, updateThread } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	bets,
 	type HyperIdleDb,
@@ -15,7 +16,8 @@ import { resolveReviewRecipients } from "@hyperidle/org";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { findUser, listUsers } from "@hyperidle/users";
-import { createItem, getTaskById, getTaskRiskTierByTaskId, updateTaskById } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { createItem, getTaskRiskTierByTaskId, updateTaskById } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
@@ -32,7 +34,12 @@ import { test } from "../test-fixtures.js";
  * seed/query this test used before AU3's half-done rename was finished.
  */
 const reviewDeps: ReviewPorts = {
-	work: { getTaskById, updateTaskById, createItem, getRiskTierByTaskId: getTaskRiskTierByTaskId },
+	work: {
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		updateTaskById,
+		createItem,
+		getRiskTierByTaskId: getTaskRiskTierByTaskId,
+	},
 	conversation: { insertThread, getThreadById: (db, id) => findThread(db, { id }), updateThread },
 	users: {
 		getUserById: (db, id) => findUser(db, { id }),

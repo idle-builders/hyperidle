@@ -182,7 +182,7 @@ const betRetroSchema = z.object({
  * repeating the 404 guard.
  */
 async function assertBetReadable(db: HyperIdleDb, betId: string): Promise<{ id: string } | null> {
-	const row = await work.getBetById(db, betId);
+	const row = await work.get(db, "bet", betId);
 	return row ? { id: row.id } : null;
 }
 
@@ -205,7 +205,7 @@ async function patchAtRisk(
 	| { ok: true; row: Record<string, unknown> }
 	| { ok: false; status: 400 | 404 | 500; body: Record<string, string> }
 > {
-	const bet = await work.getBetById(db, betId);
+	const bet = await work.get(db, "bet", betId);
 	if (!bet) {
 		return { ok: false, status: 404, body: { error: "Bet not found", code: "NOT_FOUND" } };
 	}
@@ -234,7 +234,7 @@ async function patchAtRisk(
 		atRisk: value ? 1 : 0,
 		revisionLog: JSON.stringify(revisionLog),
 	});
-	const updated = await work.getBetById(db, betId);
+	const updated = await work.get(db, "bet", betId);
 	if (!updated) {
 		return {
 			ok: false,
@@ -263,7 +263,7 @@ async function patchDescription(
 	reason: string,
 	actor: string | undefined,
 ): Promise<PatchResult> {
-	const bet = await work.getBetById(db, betId);
+	const bet = await work.get(db, "bet", betId);
 	if (!bet) {
 		return { ok: false, status: 404, body: { error: "Bet not found", code: "NOT_FOUND" } };
 	}
@@ -292,7 +292,7 @@ async function patchDescription(
 		description: value,
 		revisionLog: JSON.stringify(revisionLog),
 	});
-	const updated = await work.getBetById(db, betId);
+	const updated = await work.get(db, "bet", betId);
 	if (!updated) {
 		return {
 			ok: false,
@@ -318,7 +318,7 @@ async function patchCostAppetite(
 	reason: string,
 	actor: string | undefined,
 ): Promise<PatchResult> {
-	const bet = await work.getBetById(db, betId);
+	const bet = await work.get(db, "bet", betId);
 	if (!bet) {
 		return { ok: false, status: 404, body: { error: "Bet not found", code: "NOT_FOUND" } };
 	}
@@ -353,7 +353,7 @@ async function patchCostAppetite(
 		costAppetiteCurrency: value?.currency ?? null,
 		revisionLog: JSON.stringify(revisionLog),
 	});
-	const updated = await work.getBetById(db, betId);
+	const updated = await work.get(db, "bet", betId);
 	if (!updated) {
 		return {
 			ok: false,
@@ -377,7 +377,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
-		const allBets = await work.listBets(db, { limit, offset });
+		const allBets = await work.list(db, "bet", { limit, offset });
 
 		// @lore U2: normalize atRisk 0/1 to boolean on the wire for all list items,
 		// consistent with the detail endpoint (architecture-critique W-1).
@@ -403,7 +403,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// N+1 queries (Q3 arch critique W-4).
 	// @lore U1: uses `teams` (domain entity, formerly `products`) and `teamMembers`.
 	router.get("/canvas", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allBets = await work.listBets(db);
+		const allBets = await work.list(db, "bet");
 		const allTeamMembers = await listTeamMembers(db);
 
 		const totalCapacity = allTeamMembers.reduce((sum, t) => sum + t.capacity, 0);
@@ -462,7 +462,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	// @lore U1: `description` (formerly `pitch`), `teamId`, `completedAt` (formerly `shippedAt`).
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const betId = c.req.param("id");
-		const bet = await work.getBetById(db, betId);
+		const bet = await work.get(db, "bet", betId);
 
 		if (!bet) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
@@ -475,7 +475,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		// crossTeam) removed from select. Session cost/token/harness columns also
 		// stripped — those are strategy concerns now in the app projection layer.
 		// @lore U1: tasks.teamId now references `teams` (formerly `products`). No more productId.
-		const betTasks = await work.listBetTasksWithLatestSessionOutcome(db, betId);
+		const betTasks = await work.list(db, "task", { betId, include: "latestSessionOutcome" });
 
 		// @lore U1: `description` (formerly `pitch`), `teamId` (formerly `productId`).
 		const title = deriveTitle(bet.description, bet.id);
@@ -626,7 +626,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				sourceKnowledgeItemId: body.sourceKnowledgeItemId ?? null,
 			});
 
-			const created = await work.getBetById(db, id);
+			const created = await work.get(db, "bet", id);
 			if (!created) {
 				return c.json({ error: "Failed to create bet", code: "INTERNAL_ERROR" }, 500);
 			}
@@ -691,7 +691,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				c.get("userId"),
 			);
 
-			const updated = await work.getBetById(db, betId);
+			const updated = await work.get(db, "bet", betId);
 			return c.json(updated);
 		},
 	);
@@ -719,7 +719,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		}
 
 		// Check capacity before transitioning
-		const bet = await work.getBetById(db, betId);
+		const bet = await work.get(db, "bet", betId);
 		if (!bet) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
@@ -753,7 +753,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// this to 400 on the false premise that it otherwise 500s — it does not.
 			throw err;
 		}
-		const updated = await work.getBetById(db, betId);
+		const updated = await work.get(db, "bet", betId);
 		if (!updated) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
@@ -774,7 +774,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			}
 			throw err;
 		}
-		const updated = await work.getBetById(db, betId);
+		const updated = await work.get(db, "bet", betId);
 		if (!updated) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
@@ -811,7 +811,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			await cascadeBetKill(db, eventBus, betId, {
 				workIntents: { record: recordAgentWorkIntent },
 			});
-			const updated = await work.getBetById(db, betId);
+			const updated = await work.get(db, "bet", betId);
 			if (!updated) {
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
@@ -830,7 +830,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			const betId = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof betOutcomeSchema>;
 
-			const bet = await work.getBetById(db, betId);
+			const bet = await work.get(db, "bet", betId);
 			if (!bet) {
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
@@ -880,7 +880,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				revisionLog: JSON.stringify(revisionLog),
 			});
 
-			const updated = await work.getBetById(db, betId);
+			const updated = await work.get(db, "bet", betId);
 			if (!updated) {
 				return c.json({ error: "Bet not found after update", code: "INTERNAL_ERROR" }, 500);
 			}
@@ -900,7 +900,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 	router.post("/:id/retro/draft", requireBoundary({ kind: "public-data" }), async (c) => {
 		const betId = c.req.param("id");
 
-		const bet = await work.getBetById(db, betId);
+		const bet = await work.get(db, "bet", betId);
 		if (!bet) {
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
@@ -916,7 +916,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		}
 
 		// Load tasks for the bet
-		const betTasks = await work.listTasks(db, { betId });
+		const betTasks = await work.list(db, "task", { betId });
 
 		// Stub: derive verdict from task outcome verdicts
 		const metOutcomes = betTasks.filter((t) => t.outcomeVerdict === "met");
@@ -970,7 +970,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			const betId = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof betRetroSchema>;
 
-			const bet = await work.getBetById(db, betId);
+			const bet = await work.get(db, "bet", betId);
 			if (!bet) {
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
@@ -1063,7 +1063,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				});
 			});
 
-			const updated = await work.getBetById(db, betId);
+			const updated = await work.get(db, "bet", betId);
 			if (!updated) {
 				return c.json({ error: "Bet not found after update", code: "INTERNAL_ERROR" }, 500);
 			}
@@ -1092,7 +1092,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			}
 
 			// 1. Collect all task ids for this bet (fan-out guard: bets have bounded tasks).
-			const taskRows = await work.listTasks(db, { betId });
+			const taskRows = await work.list(db, "task", { betId });
 			const taskIds = taskRows.map((r) => r.id);
 
 			if (taskIds.length === 0) {
@@ -1103,7 +1103,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			//    conversation summaries from conversation-store (threads+messages only,
 			//    keyed by artifactId) and merge per-artifact in JS — AU12 decomposition
 			//    keeps neither side crossing the ownership boundary.
-			const artifactRows = await work.listArtifactSummariesByTaskIds(db, taskIds);
+			const artifactRows = await work.list(db, "artifact", { taskIds, include: "taskSummary" });
 			const summaryByArtifact = new Map(
 				(
 					await getArtifactThreadSummaries(

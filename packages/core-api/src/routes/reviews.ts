@@ -2,7 +2,7 @@ import { findMessage } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { findProposedCall } from "@hyperidle/review";
 import { relativeLong } from "@hyperidle/shared";
-import { getArtifactById } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
@@ -134,7 +134,7 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 		};
 
 		// Load the artifact to embed proposedCall on it.
-		const artifactRow = await getArtifactById(db, pcView.call.artifactId);
+		const artifactRow = await work.get(db, "artifact", pcView.call.artifactId);
 
 		// Build the artifacts array: one artifact with proposedCall attached.
 		const existingArtifacts = Array.isArray(reviewPayload.artifacts)

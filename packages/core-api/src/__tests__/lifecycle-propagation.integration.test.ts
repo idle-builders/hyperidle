@@ -16,6 +16,7 @@ import {
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	bets,
 	type HyperIdleDb,
@@ -32,16 +33,8 @@ import { insertNotification, listAll } from "@hyperidle/notifications";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
-import {
-	getBetById,
-	getItemById,
-	getTaskById,
-	listItemIdsBySourceAgent,
-	listTasks,
-	transitionBetStatus,
-	transitionTaskState,
-	updateItemById,
-} from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { transitionBetStatus, transitionTaskState, updateItemById } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { retryFailedPropagations } from "../../policy/src/lifecycle-propagation.js";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
@@ -61,14 +54,16 @@ import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
  */
 const policyDeps: PolicyDeps = {
 	work: {
-		getTaskById,
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 		transitionTaskState,
-		getBetById,
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
 		transitionBetStatus,
-		listTasks,
-		getItemById,
+		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
+			work.list(exec, "task", opts ?? {}),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 		updateItemById,
-		listItemIdsBySourceAgent,
+		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
+			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
 	},
 	conversation: {
 		insertMessage,

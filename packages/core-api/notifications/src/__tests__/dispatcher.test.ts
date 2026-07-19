@@ -1,3 +1,4 @@
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	createTestDb,
 	type HyperIdleDb,
@@ -15,7 +16,7 @@ import {
 	type ItemCreatedEvent,
 } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
-import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -92,8 +93,9 @@ const notificationsSilenceDeps: NotificationsSilenceDeps = {
 };
 
 const notificationsWorkReader: NotificationsWorkReader = {
-	listQueuedItemsSince,
-	getItemById,
+	listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+		work.list(exec, "item", { queued: true, createdSince: cutoff }),
+	getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 };
 
 interface AdapterCall {

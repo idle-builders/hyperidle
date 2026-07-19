@@ -174,7 +174,12 @@ const deps: DurableAgentQueueDeps = {
 		updateRoutineRunIfRunning: (exec, id, patch) =>
 			routineService.updateRoutineRun(exec, id, patch, { onlyIfRunning: true }),
 	},
-	work: { getTaskById: work.getTaskById, getBetById: work.getBetById },
+	work: {
+		getTaskById: (exec: import("@hyperidle/db").WriteExecutor, id: string) =>
+			work.get(exec, "task", id),
+		getBetById: (exec: import("@hyperidle/db").WriteExecutor, id: string) =>
+			work.get(exec, "bet", id),
+	},
 	agentSelection: {
 		// @lore AU20 Ab4: adapts new AgentSelectionService methods to session-requests'
 		// SessionRequestsAgentSelector structural-mirror port (unchanged in ports.ts).

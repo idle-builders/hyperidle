@@ -18,7 +18,7 @@
  * private to this Service.
  */
 
-import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, tasks, type WriteExecutor } from "@hyperidle/db";
 import { and, desc, eq, inArray, isNull, lt, or, type SQL } from "drizzle-orm";
 
 export interface CreateArtifactInput {
@@ -49,7 +49,7 @@ export async function createArtifact(db: HyperIdleDb, input: CreateArtifactInput
  * `limit + 1` over-fetch so the caller can detect a next page).
  */
 export async function listArtifactsPage(
-	db: HyperIdleDb,
+	db: WriteExecutor,
 	params: {
 		readonly taskIds: readonly string[] | null;
 		readonly cursor: { readonly createdAt: string; readonly id: string } | null;
@@ -89,7 +89,7 @@ export async function listArtifactsPage(
  * GET /:id.
  */
 export async function getArtifactWithTaskTitleById(
-	db: HyperIdleDb,
+	db: WriteExecutor,
 	id: string,
 ): Promise<ArtifactWithTaskTitle | undefined> {
 	const [row] = await db
@@ -103,7 +103,7 @@ export async function getArtifactWithTaskTitleById(
 
 /** Single artifact row, no join. `routes/reviews.ts`'s proposed-call artifact lookup. */
 export async function getArtifactById(
-	db: HyperIdleDb,
+	db: WriteExecutor,
 	id: string,
 ): Promise<ArtifactRow | undefined> {
 	const [row] = await db.select().from(artifacts).where(eq(artifacts.id, id)).limit(1);
@@ -150,7 +150,7 @@ export interface ArtifactTaskSummaryRow {
  * Service's ownership).
  */
 export async function listArtifactSummariesByTaskIds(
-	db: HyperIdleDb,
+	db: WriteExecutor,
 	taskIds: readonly string[],
 ): Promise<ArtifactTaskSummaryRow[]> {
 	if (taskIds.length === 0) return [];

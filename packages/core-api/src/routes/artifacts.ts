@@ -174,7 +174,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				return c.json({ error: "betId required", code: "INVALID_QUERY" }, 400);
 			}
 			// L3 review fix Sec-MED-4: cap intermediate id materialisation.
-			const rows = await work.listTasks(db, { betId, limit: MAX_TASK_ID_FANOUT + 1 });
+			const rows = await work.list(db, "task", { betId, limit: MAX_TASK_ID_FANOUT + 1 });
 			if (rows.length > MAX_TASK_ID_FANOUT) {
 				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
 			}
@@ -185,7 +185,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			if (!teamId) {
 				return c.json({ error: "teamId required", code: "INVALID_QUERY" }, 400);
 			}
-			const rows = await work.listTasks(db, { teamId, limit: MAX_TASK_ID_FANOUT + 1 });
+			const rows = await work.list(db, "task", { teamId, limit: MAX_TASK_ID_FANOUT + 1 });
 			if (rows.length > MAX_TASK_ID_FANOUT) {
 				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
 			}
@@ -203,7 +203,12 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			cursor = { createdAt: cursorParam.slice(0, sep), id: cursorParam.slice(sep + 1) };
 		}
 
-		const rows = await work.listArtifactsPage(db, { taskIds, cursor, limit: limit + 1 });
+		const rows = await work.list(db, "artifact", {
+			taskIds,
+			cursor,
+			limit: limit + 1,
+			include: "taskTitle",
+		});
 
 		const sliced = rows.slice(0, limit);
 		const items = sliced.map((r) => rowToArtifact(r.artifact, r.taskTitle));
@@ -217,7 +222,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
-		const row = await work.getArtifactWithTaskTitleById(db, id);
+		const row = await work.get(db, "artifact", id, { include: "taskTitle" });
 		if (!row) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
 		return c.json(rowToArtifact(row.artifact, row.taskTitle));
 	});
@@ -234,7 +239,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				return c.json({ error: "kind/preview discriminant mismatch", code: "KIND_MISMATCH" }, 400);
 			}
 
-			const taskRow = await work.getTaskById(db, body.producingTaskId);
+			const taskRow = await work.get(db, "task", body.producingTaskId);
 			if (!taskRow) {
 				return c.json({ error: "producing_task_id not found", code: "INVALID_TASK" }, 400);
 			}

@@ -37,8 +37,8 @@
  */
 
 // -- artifact-store (AU19 Increment 4 — `artifacts` TABLE_OWNER closure;
-// Increment 5 item 4 work sub-item — list/detail/preview-patch/task-summary
-// exports closing the remaining core-api/src raw accessors) --
+// AU20 Ag5b — read functions collapsed into get/list; only write/type surface
+// remains in the barrel) --
 export type {
 	ArtifactRow,
 	ArtifactTaskSummaryRow,
@@ -46,14 +46,7 @@ export type {
 	CreateArtifactInput,
 	SetArtifactPreviewOutcome,
 } from "./artifact-store.js";
-export {
-	createArtifact,
-	getArtifactById,
-	getArtifactWithTaskTitleById,
-	listArtifactSummariesByTaskIds,
-	listArtifactsPage,
-	setArtifactPreviewIfAbsent,
-} from "./artifact-store.js";
+export { createArtifact, setArtifactPreviewIfAbsent } from "./artifact-store.js";
 // -- bet decomposition (AK3) --
 export type { BetDecompositionDeps } from "./bet-decomposition.js";
 export {
@@ -89,43 +82,35 @@ export { getTaskRiskTierByTaskId } from "./task-planning-signals.js";
 export type { TaskStateMachineDeps } from "./task-state-machine.js";
 export { InvalidTransitionError, transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";
 // -- work-service (bets/tasks/items repository — the sole table path) --
+// AU20 Ag5b: old read exports (getBetById/getTaskById/getItemById/getArtifactById/
+// list*/find*/count*) collapsed into get()/list() general primitives.
+// Internal-package files (dependency-watcher.ts, bet-state-machine.ts) still
+// import old helpers directly from ./work-service.js — that is fine (they are
+// within the same Service package and do not cross the barrel boundary).
 export type {
 	Bet,
 	BetPatch,
 	BetTaskWithLatestSessionOutcome,
 	Item,
 	ItemPatch,
-	ListTasksOpts,
 	Task,
 	TaskPatch,
 	TransitionBetStatusArgs,
 	TransitionTaskStateArgs,
+	WorkEntity,
+	WorkEntityRowMap,
+	WorkFilter,
 } from "./work-service.js";
 export {
 	appendTaskNote,
 	claimBetDecomposition,
-	countBetsByTeamAndStatus,
 	createBet,
 	createItem,
 	createTask,
-	findItemByReasoningMarker,
-	findRetroItemByThreadIds,
-	getBetById,
-	getItemById,
-	getTaskById,
+	get,
 	incrementBetCost,
-	listBets,
-	listBetsByIds,
-	listBetsByTeamAndStatus,
-	listBetTasksWithLatestSessionOutcome,
-	listHoldTasksWithDependencyPattern,
-	listItemIdsBySourceAgent,
-	listItemsByThread,
-	listQueuedItemsSince,
-	listTasks,
-	listTasksByIds,
+	list,
 	resolveOrphanedBetDecompositions,
-	searchBetsByText,
 	transitionBetStatus,
 	transitionTaskState,
 	updateBetById,

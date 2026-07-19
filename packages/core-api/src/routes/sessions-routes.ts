@@ -342,7 +342,7 @@ export function createSessionRoutes(
 
 			// ── Durable explicit-start path (agent layer present) ─────────────────
 			if (durableStartEnabled || c.req.header("Idempotency-Key") !== undefined) {
-				const task = await work.getTaskById(db, body.taskId);
+				const task = await work.get(db, "task", body.taskId);
 				if (!task) {
 					return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 				}

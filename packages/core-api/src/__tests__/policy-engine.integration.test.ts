@@ -5,6 +5,7 @@ import {
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	type HyperIdleDb,
 	items,
@@ -21,7 +22,8 @@ import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
-import { getItemById, listItemIdsBySourceAgent, updateItemById } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { updateItemById } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
@@ -39,9 +41,10 @@ const silenceDeps: NotificationsSilenceDeps = {
 
 const policyEngineDeps: PolicyDeps = {
 	work: {
-		getItemById,
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 		updateItemById,
-		listItemIdsBySourceAgent,
+		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
+			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
 		// lifecycle stubs (never called in engine tests):
 		getTaskById: () => Promise.resolve(undefined),
 		getBetById: () => Promise.resolve(undefined),

@@ -302,11 +302,11 @@ async function resolveHostTitle(
 ): Promise<string | null> {
 	switch (hostKind) {
 		case "bet": {
-			const row = await work.getBetById(db, hostId);
+			const row = await work.get(db, "bet", hostId);
 			return row ? deriveTitle(row.description, hostId) : null;
 		}
 		case "task": {
-			const row = await work.getTaskById(db, hostId);
+			const row = await work.get(db, "task", hostId);
 			return row?.title ?? null;
 		}
 		case "knowledge_item": {
@@ -407,8 +407,8 @@ async function resolveThreadTitles(
 
 	// ── batched queries ───────────────────────────────────────────────────────
 	const [betRows, taskRows, kiRows, userRows] = await Promise.all([
-		work.listBetsByIds(db, betIds),
-		work.listTasksByIds(db, taskIds),
+		work.list(db, "bet", { ids: betIds }),
+		work.list(db, "task", { ids: taskIds }),
 		kiIds.length > 0
 			? listTitlesByIds(db, kiIds)
 			: Promise.resolve([] as ReadonlyArray<{ id: string; title: string }>),
@@ -1378,13 +1378,13 @@ export function createThreadRoutes(
 
 			if (decision === "approve") {
 				// Resolve task + agent scope via the artifact → task chain
-				const art = await work.getArtifactById(db, pcView.call.artifactId);
+				const art = await work.get(db, "artifact", pcView.call.artifactId);
 				const taskId = art?.producingTaskId;
 				if (!taskId) {
 					return c.json({ error: "Artifact not found", code: "not_found" }, 404);
 				}
 
-				const task = await work.getTaskById(db, taskId);
+				const task = await work.get(db, "task", taskId);
 				const agentId = task?.ownerAgentId;
 				if (!agentId) {
 					return c.json({ error: "Task not found", code: "not_found" }, 404);

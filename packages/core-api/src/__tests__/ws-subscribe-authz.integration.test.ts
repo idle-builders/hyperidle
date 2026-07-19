@@ -10,6 +10,7 @@
  */
 
 import { findThread } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import { sessions, threads as threadsTable, users } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
 import {
@@ -20,7 +21,7 @@ import {
 } from "@hyperidle/realtime";
 import type { ThreadMessageAppendedEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
-import { getTaskById } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
 
@@ -39,7 +40,7 @@ const REALTIME_DEPS: SubscribeAuthorizerDeps = {
 	conversation: { getThreadById: (db, id) => findThread(db, { id }) },
 	users: { getUserById: (db, id) => findUser(db, { id }) },
 	org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
-	work: { getTaskById },
+	work: { getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id) },
 };
 
 describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {

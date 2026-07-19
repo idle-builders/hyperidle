@@ -255,7 +255,7 @@ export async function handleAgentProfile(
 	const activeSessionRow = allSessions.find((s) => s.state === "active") ?? null;
 	let activeSession: AgentActiveSession | null = null;
 	if (activeSessionRow?.taskId) {
-		const activeTaskRow = await work.getTaskById(db, activeSessionRow.taskId);
+		const activeTaskRow = await work.get(db, "task", activeSessionRow.taskId);
 		activeSession = {
 			sessionId: activeSessionRow.id,
 			taskId: activeSessionRow.taskId,
@@ -274,7 +274,7 @@ export async function handleAgentProfile(
 			s.taskId ? [{ ...s, taskId: s.taskId }] : [],
 		);
 		const taskIds = taskBackedSessionRows.map((s) => s.taskId);
-		const taskTitleRows = await work.listTasksByIds(db, taskIds);
+		const taskTitleRows = await work.list(db, "task", { ids: taskIds });
 		const taskTitleMap = new Map(taskTitleRows.map((t) => [t.id, t.title]));
 		recentSessions = taskBackedSessionRows.map((s) => ({
 			sessionId: s.id,

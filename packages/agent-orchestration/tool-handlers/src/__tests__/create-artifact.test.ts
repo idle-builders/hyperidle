@@ -19,6 +19,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	artifacts,
 	bets,
@@ -31,7 +32,8 @@ import {
 } from "@hyperidle/db";
 import type { ArtifactCreatedEvent, ArtifactPreview, ToolContext } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
-import { createArtifact, getTaskById } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { createArtifact } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createCreateArtifactTool } from "../create-artifact.js";
@@ -45,7 +47,11 @@ const NOW = "2026-05-30T00:00:00.000Z";
 // everything else stays the unused stub.
 const ports: ToolHandlersPorts<HyperIdleDb> = {
 	...STUB_TOOL_HANDLERS_PORTS,
-	work: { ...STUB_TOOL_HANDLERS_PORTS.work, getTaskById, createArtifact },
+	work: {
+		...STUB_TOOL_HANDLERS_PORTS.work,
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		createArtifact,
+	},
 };
 const createArtifactTool = createCreateArtifactTool(ports);
 

@@ -233,11 +233,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// claiming "`teams` is not one of the five owned tables, so any file may
 		// query it" — WRONG, `teams` IS `org`-owned (architecture.md §4 line 69).
 		// Now calls `@hyperidle/org`'s `listTeamsByIds`.
-		const betRows = await work.searchBetsByText(db, {
-			pattern,
-			query: escapeLikePattern(query),
-			limit: MAX_PER_CATEGORY,
-		});
+		const betRows = await work.list(db, "bet", { text: query, limit: MAX_PER_CATEGORY });
 		const betTeamRows =
 			betRows.length > 0 ? await listTeams(db, { ids: betRows.map((b) => b.teamId) }) : [];
 		const teamNameMap = new Map(betTeamRows.map((t) => [t.id, t.name]));

@@ -141,7 +141,7 @@ export async function resolveScopeName(
 	}
 
 	if (scopeKind === "bet") {
-		const row = await work.getBetById(db, scopeId);
+		const row = await work.get(db, "bet", scopeId);
 		if (!row) return scopeKindToLabel("bet");
 		const desc = row.description?.trim() ?? "";
 		if (!desc) return scopeKindToLabel("bet");
@@ -150,7 +150,7 @@ export async function resolveScopeName(
 	}
 
 	if (scopeKind === "task") {
-		const row = await work.getTaskById(db, scopeId);
+		const row = await work.get(db, "task", scopeId);
 		return row?.title ?? scopeKindToLabel("task");
 	}
 

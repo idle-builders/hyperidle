@@ -1,4 +1,5 @@
 import { listMessages } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	type HyperIdleDb,
 	items,
@@ -9,11 +10,15 @@ import {
 	users,
 } from "@hyperidle/db";
 import { getDailyDigest, type NotificationsDigestDeps } from "@hyperidle/notifications";
-import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const digestDeps: NotificationsDigestDeps = {
-	work: { listQueuedItemsSince, getItemById },
+	work: {
+		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+			work.list(exec, "item", { queued: true, createdSince: cutoff }),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+	},
 	verdicts: {
 		listVerdictItemIds: (db, itemIds) =>
 			listMessages(db, { types: ["verdict"], legacyItemIds: itemIds }).then((msgs) => [

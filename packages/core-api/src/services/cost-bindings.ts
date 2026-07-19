@@ -30,7 +30,7 @@ import type {
 	CostVerdict,
 } from "@hyperidle/cost";
 import { createCostOps } from "@hyperidle/cost";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { applyTeamCost, getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
@@ -41,7 +41,8 @@ import {
 	sumAllUserCost,
 	updateUser,
 } from "@hyperidle/users";
-import { createItem, getTaskById, incrementBetCost } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { createItem, incrementBetCost } from "@hyperidle/work";
 
 const costDeps: CostDeps = {
 	users: {
@@ -59,7 +60,11 @@ const costDeps: CostDeps = {
 		resetTeamMembersCost: (db, id) => applyTeamCost(db, { id }, "reset"),
 		resetAllTeamMembersCost: (db) => applyTeamCost(db, "all", "reset"),
 	},
-	work: { getTaskById, incrementBetCost, createItem },
+	work: {
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		incrementBetCost,
+		createItem,
+	},
 	settings: {
 		readServerConfig,
 		// `updateServerConfig` returns the merged `ServerConfig` (unused by
