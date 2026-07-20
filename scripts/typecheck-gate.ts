@@ -407,6 +407,8 @@ function buildLeafDeclarations(root: string): void {
   // @lore AU19 Increment 3f: `agent-orchestration/capture-writeback` added —
   // same TS6305 cascade; app.ts, routes/sessions-routes.ts, and
   // server-factory.ts now import `@hyperidle/capture-writeback`.
+  // @lore AU20 B2c: `agent-orchestration/capture-writeback` folded into
+  // run-orchestration — removed from this list.
   //
   // @lore AU19 Increment 3g: `agent-orchestration/cost` added — same TS6305
   // cascade; server-factory.ts and the new cost-bindings.ts now import
@@ -480,7 +482,7 @@ function buildLeafDeclarations(root: string): void {
     "agent-orchestration/session-requests",
     "agent-orchestration/run-orchestration",
     "agent-orchestration/agent-selection",
-    "agent-orchestration/capture-writeback",
+    // @lore AU20 B2c: agent-orchestration/capture-writeback folded into run-orchestration.
     "agent-orchestration/cost",
     "agent-orchestration/dispatch",
     // @lore AU20 B2b: agent-orchestration/session-lifecycle folded into run-orchestration.

@@ -8,6 +8,9 @@
  * @lore Q1: Activity is intentionally not persisted. The dial-in view is a
  * live observation aid, not a durable audit log. A server restart is an
  * exceptional event and users re-opening the dial-in will see a fresh buffer.
+ *
+ * @lore AU20 B2c: folded from `@hyperidle/capture-writeback` into
+ * `@hyperidle/run-orchestration`.
  */
 
 import type {

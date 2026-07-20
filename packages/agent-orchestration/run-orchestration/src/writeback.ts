@@ -6,7 +6,7 @@ import type {
 	CaptureWritebackKnowledgeWriter,
 	CaptureWritebackManifest as Manifest,
 	CaptureWritebackManifestEntry as ManifestEntry,
-} from "./ports.js";
+} from "./capture-writeback-ports.js";
 
 export interface WritebackConfig {
 	db: HyperIdleDb;
@@ -21,7 +21,7 @@ export interface WritebackConfig {
 	 * port — `capture-writeback -> knowledge`, ordinary downward edge, §10.2).
 	 * Concrete impl wired at the composition root (`packages/server`) to
 	 * `@hyperidle/knowledge`'s real `create`/`update`/`recordWritebackConflict`.
-	 * See `ports.ts`'s top `@lore`.
+	 * See `capture-writeback-ports.ts`'s top `@lore`.
 	 */
 	knowledge: CaptureWritebackKnowledgeWriter;
 }

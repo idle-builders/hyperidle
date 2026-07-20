@@ -36,6 +36,11 @@
  * real target's types are never imported cross-Service (Mechanism C) — so
  * the shape is declared locally here, a structural mirror, same idiom
  * `agent-selection`'s `TeamMember` mirror already established (`ports.ts`).
+ *
+ * @lore AU20 B2c: folded from `@hyperidle/capture-writeback` into
+ * `@hyperidle/run-orchestration`. Renamed from `ports.ts` to
+ * `capture-writeback-ports.ts` to avoid collision with run-orchestration's
+ * own `ports.ts`.
  */
 import type { HyperIdleDb } from "@hyperidle/db";
 

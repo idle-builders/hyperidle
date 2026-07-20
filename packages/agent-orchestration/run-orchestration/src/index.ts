@@ -25,6 +25,12 @@
  * `session-lifecycle-ports.ts` (avoids conflict with run-orchestration's own
  * `ports.ts`). All internal `./ports.js` references in moved files updated
  * accordingly.
+ *
+ * @lore AU20 B2c: `capture-writeback` folded in — all exports from
+ * `@hyperidle/capture-writeback` now re-exported here. The satellite package
+ * is deleted. capture-writeback's `ports.ts` renamed to
+ * `capture-writeback-ports.ts` (avoids conflict with run-orchestration's own
+ * `ports.ts`).
  */
 
 export {
@@ -56,6 +62,19 @@ export type {
 	AgentWritebackHandle,
 	AssembleAgentContextInput,
 } from "./assemble-context.js";
+// -- capture-writeback (folded in, AU20 B2c) --
+export type {
+	CaptureWritebackCreateKnowledgeItemInput,
+	CaptureWritebackDeps,
+	CaptureWritebackKnowledgeItem,
+	CaptureWritebackKnowledgeKind,
+	CaptureWritebackKnowledgeLayer,
+	CaptureWritebackKnowledgeWriter,
+	CaptureWritebackManifest,
+	CaptureWritebackManifestEntry,
+	CaptureWritebackRecordConflictInput,
+	CaptureWritebackUpdateResult,
+} from "./capture-writeback-ports.js";
 export type {
 	ContextAssemblyConfig,
 	ContextAssemblyResult,
@@ -121,6 +140,8 @@ export {
 	type SandboxReaperOptions,
 	startSandboxReaper,
 } from "./sandbox-reaper.js";
+export type { ActivityEntry, ToolCallData } from "./session-activity-buffer.js";
+export { SessionActivityBuffer } from "./session-activity-buffer.js";
 export type {
 	RoutineSessionContextConfig,
 	RoutineSessionContextData,
@@ -155,3 +176,13 @@ export {
 	startSessionProvision,
 } from "./session-provisioning.js";
 export { registerWorkerWsRoute, WorkerConnectionManager } from "./worker-ws.js";
+export type { WritebackChange, WritebackConfig, WritebackResult } from "./writeback.js";
+export {
+	isKnowledgePath,
+	isSessionNotesPath,
+	processWriteback,
+	readManifest,
+	writeManifest,
+} from "./writeback.js";
+export type { CaptureWritebackSubscriberDeps } from "./writeback-subscriber.js";
+export { registerCaptureWriteback } from "./writeback-subscriber.js";

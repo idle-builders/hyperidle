@@ -4,13 +4,19 @@
  * behavior-preserving move (previously untested in `packages/server`) — this
  * test covers the genuinely NEW code this migration introduced: the
  * `sandbox_writeback_changes_detected` subscriber wiring.
+ *
+ * @lore AU20 B2c: moved from `@hyperidle/capture-writeback` into
+ * `@hyperidle/run-orchestration`.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { CaptureWritebackKnowledgeItem, CaptureWritebackKnowledgeWriter } from "../ports.js";
+import type {
+	CaptureWritebackKnowledgeItem,
+	CaptureWritebackKnowledgeWriter,
+} from "../capture-writeback-ports.js";
 import { registerCaptureWriteback } from "../writeback-subscriber.js";
 
 function mkKnowledgeWriter(

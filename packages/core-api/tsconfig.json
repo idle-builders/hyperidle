@@ -10,7 +10,6 @@
 		{ "path": "../db" },
 		{ "path": "../shared" },
 		{ "path": "../agent-orchestration/agent-selection" },
-		{ "path": "../agent-orchestration/capture-writeback" },
 		{ "path": "connections" },
 		{ "path": "conversation" },
 		{ "path": "../agent-orchestration/cost" },

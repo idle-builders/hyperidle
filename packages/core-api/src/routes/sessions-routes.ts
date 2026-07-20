@@ -1,5 +1,5 @@
-import type { SessionActivityBuffer } from "@hyperidle/capture-writeback";
 import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { SessionActivityBuffer } from "@hyperidle/run-orchestration";
 import {
 	createExplicitSessionStart,
 	findSessionRequest,

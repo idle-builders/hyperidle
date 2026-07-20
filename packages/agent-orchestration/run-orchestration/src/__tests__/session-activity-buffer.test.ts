@@ -3,6 +3,9 @@
  *
  * Architecture plan §6.1: in-memory ring buffer (max 100 per session),
  * populated by tool_call_recorded events from the EventBus.
+ *
+ * @lore AU20 B2c: moved from `@hyperidle/capture-writeback` into
+ * `@hyperidle/run-orchestration`.
  */
 
 import type { ToolCallRecordedEvent } from "@hyperidle/shared";

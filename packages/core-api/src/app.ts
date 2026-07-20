@@ -1,4 +1,3 @@
-import { SessionActivityBuffer } from "@hyperidle/capture-writeback";
 import {
 	type CredentialResolver,
 	decryptCredentialValue,
@@ -20,6 +19,7 @@ import {
 	startObservability,
 } from "@hyperidle/observability";
 import { getTeamMembers } from "@hyperidle/org";
+import { SessionActivityBuffer } from "@hyperidle/run-orchestration";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";

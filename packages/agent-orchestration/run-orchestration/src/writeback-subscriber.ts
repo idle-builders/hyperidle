@@ -36,6 +36,9 @@
  * ALWAYS calls `context.ingestion.dispose()` (→ `watcher.stop()`) at session
  * end, in both the normal-completion and error/cleanup paths — the watcher
  * is guaranteed to be torn down regardless of this optimization's removal.
+ *
+ * @lore AU20 B2c: folded from `@hyperidle/capture-writeback` into
+ * `@hyperidle/run-orchestration`.
  */
 import type { EventBus } from "@hyperidle/shared";
 import { processWriteback, type WritebackConfig } from "./writeback.js";

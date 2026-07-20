@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
-import { registerCaptureWriteback } from "@hyperidle/capture-writeback";
 import {
 	type CredentialResolver,
 	DbCredentialResolver,
@@ -65,6 +64,7 @@ import type { RetentionReaperDeps } from "@hyperidle/retention";
 import { startRetentionReaper } from "@hyperidle/retention";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
+import { registerCaptureWriteback } from "@hyperidle/run-orchestration";
 import {
 	backfillConfigurationDefaults,
 	migrateCredentialsToStore,
