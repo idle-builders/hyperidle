@@ -12,9 +12,6 @@
 		},
 		{
 			"path": "harness-registry"
-		},
-		{
-			"path": "mcp-provider"
 		}
 	]
 }

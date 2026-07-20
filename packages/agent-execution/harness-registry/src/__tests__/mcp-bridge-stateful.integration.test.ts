@@ -31,7 +31,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
-import { createEnforcementRegistry, type EnforcementRegistry } from "@hyperidle/harness-registry";
 import {
 	err,
 	ok,
@@ -45,9 +44,13 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import z from "zod";
-import { createMcpBridge, type McpBridgeInstance } from "../mcp-bridge.js";
-import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../mcp-bridge-registry.js";
-import { createMcpRoute } from "../mcp-route.js";
+import { createMcpBridge, type McpBridgeInstance } from "../mcp/mcp-bridge.js";
+import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
+import { createMcpRoute } from "../mcp/mcp-route.js";
+import {
+	createEnforcementRegistry,
+	type EnforcementRegistry,
+} from "../return-enforcement-registry.js";
 
 /**
  * Inline commit_file proof-vehicle tool.
@@ -243,7 +246,7 @@ describe("T0b — production MCP bridge stateful session-capability (AC9)", () =
 		}
 	}, 30_000);
 
-	test("sanity-break: POST without mcp-session-id after initialize → 400 or 404 (AC9 anti-vacuous)", async () => {
+	test("POST without mcp-session-id header after initialize is rejected with 400 or 404", async () => {
 		// This sanity-break proves the session gate is real, not a no-op.
 		//
 		// Protocol:

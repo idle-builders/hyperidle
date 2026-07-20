@@ -488,7 +488,7 @@ function buildLeafDeclarations(root: string): void {
     // @lore AU20 B2b: agent-orchestration/session-lifecycle folded into run-orchestration.
     // @lore AU20 B2a: agent-orchestration/context-assembly folded into run-orchestration.
     "agent-execution/harness-registry",
-    "agent-execution/mcp-provider",
+    // @lore AU20 B3b: agent-execution/mcp-provider folded into harness-registry.
     "agent-execution/tool-provider",
     "agent-orchestration/tool-handlers",
     "remote-server",

@@ -133,7 +133,8 @@ const EXECUTION_PREFIX = "packages/agent-execution/";
 const EXECUTION_MODULES = [
 	"@modelcontextprotocol/sdk",
 	"@hyperidle/harness-registry",
-	"@hyperidle/mcp-provider",
+	// @lore AU20 B3b: @hyperidle/mcp-provider folded into harness-registry/mcp — removed from
+	// EXECUTION_MODULES since the package no longer exists. harness-registry covers the boundary.
 ];
 
 /**

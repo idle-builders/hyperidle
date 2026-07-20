@@ -36,6 +36,7 @@ import {
 	enforcementRegistry,
 	type SandboxAdapter,
 } from "@hyperidle/harness-registry";
+import { createMcpBridgeRegistry, createMcpRoute } from "@hyperidle/harness-registry/mcp";
 import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
@@ -47,7 +48,6 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
-import { createMcpBridgeRegistry, createMcpRoute } from "@hyperidle/mcp-provider";
 import { resolveModel } from "@hyperidle/model-gateway";
 import {
 	enqueue,

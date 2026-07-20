@@ -27,8 +27,8 @@
 
 import type { EnforcementRegistry } from "@hyperidle/harness-registry";
 import { createEnforcementRegistry } from "@hyperidle/harness-registry";
-import type { McpBridgeInstance, McpBridgeRegistry } from "@hyperidle/mcp-provider";
-import { createMcpBridgeRegistry, createMcpRoute } from "@hyperidle/mcp-provider";
+import type { McpBridgeInstance, McpBridgeRegistry } from "@hyperidle/harness-registry/mcp";
+import { createMcpBridgeRegistry, createMcpRoute } from "@hyperidle/harness-registry/mcp";
 import { AL6_FORCE_RETURN_MESSAGE, AL6_MAX_FORCE_RETURNS } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it as test } from "vitest";

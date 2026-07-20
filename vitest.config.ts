@@ -47,7 +47,6 @@ export default defineConfig({
 			"packages/agent-orchestration/tool-handlers",
 			"packages/agent-execution",
 			"packages/agent-execution/harness-registry",
-			"packages/agent-execution/mcp-provider",
 		],
 	},
 });

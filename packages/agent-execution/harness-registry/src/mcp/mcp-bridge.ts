@@ -140,7 +140,6 @@ export async function createMcpBridge<TDb = unknown>(
 	// Register every tool from the registry with the MCP server.
 	// The registry is already role-filtered (toolsForRole called at buildToolRegistry time).
 	for (const def of registry.definitions) {
-		// eslint-disable-next-line @typescript-eslint/no-loop-func
 		mcpServer.registerTool(
 			def.name,
 			{

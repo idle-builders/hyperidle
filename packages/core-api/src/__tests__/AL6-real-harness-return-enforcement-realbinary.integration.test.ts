@@ -72,13 +72,13 @@ import {
 	type EnforcementRegistry,
 	provisionReturnHook,
 } from "@hyperidle/harness-registry";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
-import type { McpBridgeInstance } from "@hyperidle/mcp-provider";
+import type { McpBridgeInstance } from "@hyperidle/harness-registry/mcp";
 import {
 	createMcpBridgeRegistry,
 	createMcpRoute,
 	type McpBridgeRegistry,
-} from "@hyperidle/mcp-provider";
+} from "@hyperidle/harness-registry/mcp";
+import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 

@@ -42,7 +42,7 @@ import {
 	provisionReturnHook,
 	writeCliMcpConfig,
 } from "@hyperidle/harness-registry";
-import { createMcpBridge } from "@hyperidle/mcp-provider";
+import { createMcpBridge } from "@hyperidle/harness-registry/mcp";
 import * as routineService from "@hyperidle/routine";
 import {
 	admitSession as admitSessionInternal,

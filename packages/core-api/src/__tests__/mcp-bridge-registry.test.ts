@@ -20,7 +20,7 @@ import {
 	createMcpBridge,
 	createMcpBridgeRegistry,
 	type McpBridgeInstance,
-} from "@hyperidle/mcp-provider";
+} from "@hyperidle/harness-registry/mcp";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 import { describe, expect, test, vi } from "../test-fixtures.js";

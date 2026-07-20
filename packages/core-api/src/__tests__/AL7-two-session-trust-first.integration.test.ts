@@ -69,13 +69,13 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import { createEnforcementRegistry, type EnforcementRegistry } from "@hyperidle/harness-registry";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import {
 	createMcpBridge,
 	createMcpBridgeRegistry,
 	createMcpRoute,
 	type McpBridgeRegistry,
-} from "@hyperidle/mcp-provider";
+} from "@hyperidle/harness-registry/mcp";
+import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import {
 	err,
 	normalizeHarnessEvent,
