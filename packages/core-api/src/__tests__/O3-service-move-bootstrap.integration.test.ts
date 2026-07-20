@@ -53,14 +53,33 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 	// + registerAgentLayerServices (3 unconditional disposers, dispatcherDeps
 	// absent here) — same 14 total, grouping changed only.
 	// @lore AU20 Am3: `registerCostCapDedupReleaser` folded into `startCostSentinel`
-	// (dedup-releaser subscription now inside `startSentinel`). Count 15 → 14.
-	test("returns exactly 14 disposers (one per disposer-registered service)", async ({
+	// (dedup-releaser subscription now inside `startSentinel`). Count 15 → 14 (a
+	// wash against an unlisted intermediate add — net still 14 against AU9's baseline).
+	// @lore AU20: 14 → 10. Two consolidations, no leaks — every background process
+	// that used to own a top-level disposer is still stopped, just nested inside a
+	// composed disposer that IS returned:
+	//  - Ag6b: `registerNotificationDispatcher` + `registerNotificationListener` +
+	//    `startNotificationDrain` (3 disposers) folded into one `installNotifications`
+	//    call (`packages/core-api/notifications/src/install.ts`) whose single returned
+	//    disposer invokes all three teardowns. Net -2.
+	//  - Ag1b: `registerBuiltinRoutineHandlers` + `registerAssistantDispatcher` +
+	//    the routine-scheduler disposer (formerly a separate push in
+	//    registerCoreDomainServices, AF6) folded into one `startDispatch` call
+	//    (`dispatchOps.start` in `packages/agent-orchestration/dispatch/src/service.ts`)
+	//    whose single returned disposer tears down all of them (plus the optional
+	//    task dispatcher, when `dispatcherDeps` is supplied). Net -2.
+	// C1 (retention dissolution) and Am3 (cost dedup-releaser) are NOT part of this
+	// drop — both stayed single disposers before and after (retention: still one
+	// `clearInterval`; cost: `startSentinel` already disposed both offDedup+offSentinel
+	// pre-AU20). 14 - 2 - 2 = 10. Zero resource leaks: every setInterval/subscription
+	// started still has a path back to a returned disposer.
+	test("returns exactly 10 disposers (one per disposer-registered service)", async ({
 		db,
 		eventBus,
 	}) => {
 		const disposers = fullServiceBootstrap({ db, eventBus });
 
-		expect(disposers).toHaveLength(14);
+		expect(disposers).toHaveLength(10);
 
 		for (const d of disposers) {
 			d();
