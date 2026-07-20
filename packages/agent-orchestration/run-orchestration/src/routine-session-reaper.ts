@@ -1,7 +1,7 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import { and, eq, lt, sql } from "drizzle-orm";
-import type { SessionLifecyclePorts } from "./ports.js";
+import type { SessionLifecyclePorts } from "./session-lifecycle-ports.js";
 
 /**
  * @lore AU19 Increment 3i: real cut-over — moved here from

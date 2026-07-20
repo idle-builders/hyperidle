@@ -56,8 +56,8 @@ import {
 import {
 	EMITTED_ROOTS_AGENTS_MD,
 	EMITTED_ROOTS_CONTEXT_ASSEMBLY,
+	EMITTED_ROOTS_MCP_JSON,
 } from "@hyperidle/run-orchestration";
-import { EMITTED_ROOTS_MCP_JSON } from "@hyperidle/session-lifecycle";
 import { describe, expect, it } from "vitest";
 
 // ── Coverage helper ───────────────────────────────────────────────────────────

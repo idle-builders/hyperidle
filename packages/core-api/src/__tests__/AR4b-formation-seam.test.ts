@@ -101,14 +101,14 @@ const capturedConversational: CapturedConversational[] = [];
  * formation seam consulted the app resolver at turn time. The mock never runs
  * a real harness — this is a unit test of the call-site wiring, not the turn itself.
  */
-vi.mock("@hyperidle/session-lifecycle", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/session-lifecycle")>();
+vi.mock("@hyperidle/run-orchestration", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/run-orchestration")>();
 	return {
 		...original,
 		admitSession: vi.fn(
 			async (
 				_deps: unknown,
-				params: import("@hyperidle/session-lifecycle").ProvisionSessionParams,
+				params: import("@hyperidle/run-orchestration").ProvisionSessionParams,
 			) => {
 				return {
 					sessionId: "stub-session-ar4b",
@@ -127,7 +127,7 @@ vi.mock("@hyperidle/session-lifecycle", async (importOriginal) => {
 		runSession: vi.fn(
 			async (
 				_deps: unknown,
-				params: import("@hyperidle/session-lifecycle").ProvisionSessionParams,
+				params: import("@hyperidle/run-orchestration").ProvisionSessionParams,
 			) => {
 				if (params.conversational) {
 					capturedConversational.push({
@@ -137,7 +137,7 @@ vi.mock("@hyperidle/session-lifecycle", async (importOriginal) => {
 						),
 					});
 				}
-				const stubResult: import("@hyperidle/session-lifecycle").ProvisionSessionResult = {
+				const stubResult: import("@hyperidle/run-orchestration").ProvisionSessionResult = {
 					sessionId: "stub-session-ar4b",
 					outcome: "completed",
 					totalCostCents: 0,

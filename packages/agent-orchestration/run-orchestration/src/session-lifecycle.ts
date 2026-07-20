@@ -7,7 +7,7 @@ import type {
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import type { IngestionHandle } from "./contracts.js";
-import type { SessionLifecyclePorts } from "./ports.js";
+import type { SessionLifecyclePorts } from "./session-lifecycle-ports.js";
 
 /**
  * @lore AU19 Increment 3i: real cut-over — moved here from

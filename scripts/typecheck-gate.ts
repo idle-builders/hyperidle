@@ -483,7 +483,7 @@ function buildLeafDeclarations(root: string): void {
     "agent-orchestration/capture-writeback",
     "agent-orchestration/cost",
     "agent-orchestration/dispatch",
-    "agent-orchestration/session-lifecycle",
+    // @lore AU20 B2b: agent-orchestration/session-lifecycle folded into run-orchestration.
     // @lore AU20 B2a: agent-orchestration/context-assembly folded into run-orchestration.
     "agent-execution/harness-registry",
     "agent-execution/mcp-provider",

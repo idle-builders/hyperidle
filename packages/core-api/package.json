@@ -42,7 +42,6 @@
 		"@hyperidle/review": "*",
 		"@hyperidle/routine": "*",
 		"@hyperidle/run-orchestration": "*",
-		"@hyperidle/session-lifecycle": "*",
 		"@hyperidle/session-requests": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/shared": "*",

@@ -44,7 +44,6 @@ export default defineConfig({
 			"packages/agent-orchestration/agent-selection",
 			"packages/agent-orchestration/cost",
 			"packages/agent-orchestration/dispatch",
-			"packages/agent-orchestration/session-lifecycle",
 			"packages/agent-orchestration/tool-handlers",
 			"packages/agent-execution",
 			"packages/agent-execution/harness-registry",

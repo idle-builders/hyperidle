@@ -18,6 +18,13 @@
  * `@hyperidle/context-assembly` now re-exported here. Consumers that previously
  * imported from `@hyperidle/context-assembly` now import from
  * `@hyperidle/run-orchestration`. The satellite package is deleted.
+ *
+ * @lore AU20 B2b: `session-lifecycle` folded in — all exports from
+ * `@hyperidle/session-lifecycle` now re-exported here. The satellite package
+ * is deleted. session-lifecycle's `ports.ts` renamed to
+ * `session-lifecycle-ports.ts` (avoids conflict with run-orchestration's own
+ * `ports.ts`). All internal `./ports.js` references in moved files updated
+ * accordingly.
  */
 
 export {
@@ -83,6 +90,8 @@ export {
 } from "./context-assembly-prompt.js";
 export type { ContextAssemblyOps } from "./context-assembly-service.js";
 export { createContextAssemblyOps } from "./context-assembly-service.js";
+// -- session-lifecycle (folded in, AU20 B2b) --
+export type { IngestionHandle } from "./contracts.js";
 export type {
 	RunOrchestrationAdapterMeta,
 	RunOrchestrationAdapterPool,
@@ -102,10 +111,47 @@ export type {
 	RunOrchestrationTerminationReason,
 	RunOrchestrationWorkIntentSource,
 } from "./ports.js";
+export {
+	type ReapStaleRoutineSessionsOpts,
+	reapStaleRoutineSessions,
+} from "./routine-session-reaper.js";
+export {
+	reapSandboxesOnce,
+	SANDBOX_REAPER_INTERVAL_MS,
+	type SandboxReaperOptions,
+	startSandboxReaper,
+} from "./sandbox-reaper.js";
 export type {
 	RoutineSessionContextConfig,
 	RoutineSessionContextData,
 	SessionContextConfig,
 	SessionContextData,
 } from "./session-context.js";
+export {
+	type AgentTerminationReason,
+	crashSession,
+	endSession,
+	recoverRequestedTerminations,
+	requestAgentTermination,
+	type SessionContext,
+	TERMINATION_DISPOSITIONS,
+	TERMINATION_REASONS,
+	transitionAgentRunLifecycle,
+} from "./session-lifecycle.js";
+export * from "./session-lifecycle-ports.js";
+export {
+	type AdmittedSession,
+	admitSession,
+	type BeforeHarnessStartContext,
+	type BeforeTeardownContext,
+	captureMountedFilesystems,
+	EMITTED_ROOTS_MCP_JSON,
+	mountFilesystemsForAgent,
+	type ProvisionSessionDeps,
+	type ProvisionSessionParams,
+	type ProvisionSessionResult,
+	provisionSession,
+	runSession,
+	startSessionProvision,
+} from "./session-provisioning.js";
 export { registerWorkerWsRoute, WorkerConnectionManager } from "./worker-ws.js";

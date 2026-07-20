@@ -1,5 +1,5 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { SessionContext } from "@hyperidle/session-lifecycle";
+import type { SessionContext } from "@hyperidle/run-orchestration";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";

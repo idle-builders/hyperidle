@@ -30,7 +30,6 @@
 		{ "path": "review" },
 		{ "path": "routine" },
 		{ "path": "../agent-orchestration/run-orchestration" },
-		{ "path": "../agent-orchestration/session-lifecycle" },
 		{ "path": "../agent-orchestration/session-requests" },
 		{ "path": "settings" },
 		{ "path": "../agent-orchestration/tool-handlers" },

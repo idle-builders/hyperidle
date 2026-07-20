@@ -30,6 +30,12 @@ import {
 } from "@hyperidle/shared";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { IngestionHandle } from "./contracts.js";
+import {
+	crashSession,
+	endSession,
+	requestAgentTermination,
+	type SessionContext,
+} from "./session-lifecycle.js";
 import type {
 	SessionLifecycleModelTier as PortModelTier,
 	SessionLifecycleResolvedModel as PortResolvedModel,
@@ -48,13 +54,7 @@ import type {
 	SessionLifecycleToolContext,
 	SessionLifecycleToolRegistry,
 	SessionLifecycleToolSummary,
-} from "./ports.js";
-import {
-	crashSession,
-	endSession,
-	requestAgentTermination,
-	type SessionContext,
-} from "./session-lifecycle.js";
+} from "./session-lifecycle-ports.js";
 
 // @lore X3: validateSystemPromptPath and SYSTEM_PROMPT_DIR_RELATIVE removed.
 // The path traversal attack surface is eliminated by X3 — system prompts are now

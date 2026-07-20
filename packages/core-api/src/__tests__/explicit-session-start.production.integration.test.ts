@@ -16,14 +16,14 @@ import { drainAgentSessionRequests } from "../services/run-orchestration-binding
 import { drainAgentWorkIntents } from "../services/session-requests-bindings.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
-vi.mock("@hyperidle/session-lifecycle", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/session-lifecycle")>();
+vi.mock("@hyperidle/run-orchestration", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/run-orchestration")>();
 	return {
 		...original,
 		admitSession: vi.fn(
 			async (
-				deps: import("@hyperidle/session-lifecycle").ProvisionSessionDeps,
-				params: import("@hyperidle/session-lifecycle").ProvisionSessionParams,
+				deps: import("@hyperidle/run-orchestration").ProvisionSessionDeps,
+				params: import("@hyperidle/run-orchestration").ProvisionSessionParams,
 			) => {
 				if (params.taskId === "au9-fail-task") {
 					const { MissingCredentialError } = await import("@hyperidle/shared");

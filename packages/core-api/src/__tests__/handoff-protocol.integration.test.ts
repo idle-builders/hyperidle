@@ -12,7 +12,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { HandoffMetadata } from "@hyperidle/policy";
-import type { SessionContext } from "@hyperidle/session-lifecycle";
+import type { SessionContext } from "@hyperidle/run-orchestration";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { eq } from "drizzle-orm";
 import { handoff } from "../services/policy-bindings.js";

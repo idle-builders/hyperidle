@@ -64,7 +64,7 @@ import {
 	startSandboxReaper as startSandboxReaperInternal,
 	startSessionProvision as startSessionProvisionInternal,
 	transitionAgentRunLifecycle as transitionAgentRunLifecycleInternal,
-} from "@hyperidle/session-lifecycle";
+} from "@hyperidle/run-orchestration";
 import { recordAgentWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type {
@@ -474,7 +474,7 @@ export type {
 	ProvisionSessionParams,
 	ProvisionSessionResult,
 	SessionContext,
-} from "@hyperidle/session-lifecycle";
+} from "@hyperidle/run-orchestration";
 export { SANDBOX_REAPER_INTERVAL_MS };
 
 // ---------------------------------------------------------------------------

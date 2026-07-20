@@ -24,14 +24,14 @@ import { afterEach, describe, vi } from "vitest";
 import { drainAgentSessionRequests } from "../services/run-orchestration-bindings.js";
 import { expect, test } from "../test-fixtures.js";
 
-vi.mock("@hyperidle/session-lifecycle", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/session-lifecycle")>();
+vi.mock("@hyperidle/run-orchestration", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/run-orchestration")>();
 	return {
 		...original,
 		admitSession: vi.fn(
 			async (
-				deps: import("@hyperidle/session-lifecycle").ProvisionSessionDeps,
-				params: import("@hyperidle/session-lifecycle").ProvisionSessionParams,
+				deps: import("@hyperidle/run-orchestration").ProvisionSessionDeps,
+				params: import("@hyperidle/run-orchestration").ProvisionSessionParams,
 			) => {
 				// Reflects whichever session row the REAL reserve-or-adopt path already
 				// created/adopted for this request — never fabricates a second one.
