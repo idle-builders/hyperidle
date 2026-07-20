@@ -45,7 +45,6 @@
 		"@hyperidle/settings": "*",
 		"@hyperidle/shared": "*",
 		"@hyperidle/tool-handlers": "*",
-		"@hyperidle/tool-provider": "*",
 		"@hyperidle/users": "*",
 		"@hyperidle/work": "*",
 		"drizzle-orm": "^0.45.2",

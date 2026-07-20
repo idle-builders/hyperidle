@@ -23,12 +23,12 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 		// Dynamic import — if the symbol exists it would resolve; if deleted it won't.
 		// The import itself failing is fine (that's the green state); the test verifies
 		// the value is NOT available on the live tool-registry.
-		const registry = await import("@hyperidle/tool-provider");
+		const registry = await import("@hyperidle/harness-registry");
 		expect("KERNEL_DISPATCHABLE_CAPABILITIES" in registry).toBe(false);
 	});
 
 	it("buildExecuteCapability is not exported from the server package", async () => {
-		const registry = await import("@hyperidle/tool-provider");
+		const registry = await import("@hyperidle/harness-registry");
 		expect("buildExecuteCapability" in registry).toBe(false);
 	});
 

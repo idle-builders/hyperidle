@@ -17,8 +17,8 @@
  *  3. Composition-root raw-runtime bypass — `packages/server` (today's
  *     composition root, later Applications) legitimately imports the
  *     execution Service *packages* themselves (`@hyperidle/harness-registry`
- *     / `@hyperidle/mcp-provider` / `@hyperidle/tool-provider` — that IS its
- *     job, wiring concrete Services into the app), but must never reach PAST
+ *     / `@hyperidle/mcp-provider` — that IS its job, wiring concrete Services
+ *     into the app), but must never reach PAST
  *     them to the raw runtime: the MCP SDK directly, a raw LLM SDK package
  *     (`openai`/`@anthropic-ai/sdk` — testing.md: "the only key — never
  *     Anthropic, never OpenAI"), or a `child_process` spawn of a harness CLI
@@ -134,7 +134,6 @@ const EXECUTION_MODULES = [
 	"@modelcontextprotocol/sdk",
 	"@hyperidle/harness-registry",
 	"@hyperidle/mcp-provider",
-	"@hyperidle/tool-provider",
 ];
 
 /**

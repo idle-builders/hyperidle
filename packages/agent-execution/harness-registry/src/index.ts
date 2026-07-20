@@ -14,7 +14,35 @@
  * live here now.
  */
 
-export type { HarnessAdapter, HarnessCapabilityDescriptor } from "@hyperidle/shared";
+// Re-export the shared types and helpers that callers previously obtained via @hyperidle/tool-provider
+export type {
+	AssistantToolResult,
+	AssistantToolShape,
+	BuildToolRegistryOptions,
+	ClaudeToolSpec,
+	HarnessAdapter,
+	HarnessCapabilityDescriptor,
+	ProposedCallWorkflowPort,
+	RegisteredTool,
+	RegistrySessionWorkflow,
+	ToolContext,
+	ToolDefinition,
+	ToolHandler,
+	ToolRegistry,
+	ToolResult,
+} from "@hyperidle/shared";
+export {
+	canonicalJson,
+	classifyReversibility,
+	composeWorkflowAllowDeny,
+	err,
+	identityHash,
+	ok,
+	toClaudeToolSpec,
+	toolsForRole,
+	toRegistered,
+	wrapForRegistry,
+} from "@hyperidle/shared";
 // -- adapter-pool (registry of HarnessAdapter instances) --
 export type { AdapterInfo, AdapterMeta } from "./adapter-pool.js";
 export {
@@ -95,5 +123,10 @@ export {
 	type ReturnGate,
 	type ReturnVerdict,
 } from "./return-gate.js";
+// -- return-status-tool (hyperidle_return_status bridge tool, injected per-session) --
+export { type ReturnStatusResult, returnStatusTool } from "./return-status-tool.js";
 // -- sandbox adapter interface --
 export type { ExecResult, SandboxAdapter, SandboxHandle } from "./sandbox-adapter.js";
+// -- tool-registry (dispatch: role-filter → validate → call handler → workflow router) --
+// Folded from @hyperidle/tool-provider (AU20 B3a). Zero DB/Service refs; Mechanism B preserved.
+export { buildToolRegistry } from "./tool-registry.js";

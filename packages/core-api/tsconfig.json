@@ -32,7 +32,6 @@
 		{ "path": "../agent-orchestration/session-requests" },
 		{ "path": "settings" },
 		{ "path": "../agent-orchestration/tool-handlers" },
-		{ "path": "../agent-execution/tool-provider" },
 		{ "path": "users" },
 		{ "path": "work" }
 	]
