@@ -1,13 +1,12 @@
 /**
- * AU19 Increment 2g — `@hyperidle/retention`'s `reapRetentionOnce`, wired
- * against the real db + the real owning-Service reap functions (no stubs —
- * `deps.users`/`deps.knowledge`/`deps.notifications` are the actual
- * `@hyperidle/users`/`@hyperidle/knowledge`/`@hyperidle/notifications`
- * exports, the same wiring `server-factory.ts` uses in production).
+ * AU20 C1 — retention package dissolved. Each TTL sweep is now exercised
+ * through its owning service directly (users / notifications / knowledge).
+ * The propagation_log reaper calls the exported `reapPropagationLog` from the
+ * composition root — UNOWNED_SHARED_TABLES, so direct DB access is sanctioned.
  *
- * Exact-behavior lock against the pre-migration inline deletes in
- * `packages/server/src/services/retention-reaper.ts` (removed this
- * increment) — same predicates, same cutoffs, same per-table survivor set.
+ * Exact-behavior lock against the former `reapRetentionOnce` integration
+ * test (AU19 Increment 2g): same predicates, same cutoffs, same per-table
+ * survivor sets — no behavior change.
  */
 import {
 	type HyperIdleDb,
@@ -20,19 +19,14 @@ import {
 } from "@hyperidle/db";
 import { reapKnowledgeAccessLog } from "@hyperidle/knowledge";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
-import { type RetentionReaperDeps, reapRetentionOnce } from "@hyperidle/retention";
 import { reapExpiredCredentials } from "@hyperidle/users";
-import { eq } from "drizzle-orm";
+import { and, lt } from "drizzle-orm";
+import { reapPropagationLog, TERMINAL_LOG_TTL_MS } from "../server-factory.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const now = new Date("2026-07-13T12:00:00.000Z");
 const DAY = 86_400_000;
-
-const deps: RetentionReaperDeps = {
-	users: { reapExpiredCredentials },
-	knowledge: { reapKnowledgeAccessLog },
-	notifications: { deleteReaped: reap },
-};
+const CONSUMED_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day audit window
 
 async function seedUser(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(users).values({
@@ -58,7 +52,7 @@ async function seedKnowledgeItem(db: HyperIdleDb, id: string): Promise<void> {
 	});
 }
 
-describe("reapRetentionOnce", () => {
+describe("retention reaper — individual owning-service sweeps", () => {
 	test("prunes expired login_sessions, keeps unexpired + un-revoked ones", async ({ db }) => {
 		await seedUser(db, "u-ls");
 		await db.insert(loginSessions).values([
@@ -88,9 +82,14 @@ describe("reapRetentionOnce", () => {
 			},
 		]);
 
-		const results = await reapRetentionOnce(db, deps, { now: () => now.getTime() });
-		const loginResult = results.find((r) => r.table === "login_sessions");
-		expect(loginResult?.deleted).toBe(2);
+		// expiredGraceMs=0 → cutoff = now (prune any expiresAt < now or revokedAt non-null)
+		const expiredCutoff = now.toISOString();
+		const reaped = await reapExpiredCredentials(db, {
+			sessionCutoff: expiredCutoff,
+			inviteExpiredCutoff: expiredCutoff,
+			inviteConsumedCutoff: new Date(now.getTime() - CONSUMED_INVITE_TTL_MS).toISOString(),
+		});
+		expect(reaped.sessions.length).toBe(2);
 
 		const survivors = await db.select().from(loginSessions);
 		expect(survivors.map((s) => s.id)).toEqual(["ls-live"]);
@@ -134,12 +133,14 @@ describe("reapRetentionOnce", () => {
 			},
 		]);
 
-		const results = await reapRetentionOnce(db, deps, {
-			now: () => now.getTime(),
-			consumedInviteTtlMs: 30 * DAY,
+		const expiredCutoff = now.toISOString();
+		const consumedCutoff = new Date(now.getTime() - CONSUMED_INVITE_TTL_MS).toISOString();
+		const reaped = await reapExpiredCredentials(db, {
+			sessionCutoff: expiredCutoff,
+			inviteExpiredCutoff: expiredCutoff,
+			inviteConsumedCutoff: consumedCutoff,
 		});
-		const inviteResult = results.find((r) => r.table === "invite_codes");
-		expect(inviteResult?.deleted).toBe(2);
+		expect(reaped.invites.length).toBe(2);
 
 		const survivors = await db.select().from(inviteCodes);
 		expect(new Set(survivors.map((s) => s.id))).toEqual(new Set(["ic-consumed-recent", "ic-live"]));
@@ -168,12 +169,9 @@ describe("reapRetentionOnce", () => {
 		await enqueue(db, nqRow("nq-old-pending", "pending", oldIso));
 		await enqueue(db, nqRow("nq-recent-sent", "sent", now.toISOString()));
 
-		const results = await reapRetentionOnce(db, deps, {
-			now: () => now.getTime(),
-			terminalLogTtlMs: 30 * DAY,
-		});
-		const nqResult = results.find((r) => r.table === "notification_queue");
-		expect(nqResult?.deleted).toBe(1);
+		const termCutoff = new Date(now.getTime() - TERMINAL_LOG_TTL_MS).toISOString();
+		const deleted = await reap(db, termCutoff, ["sent", "failed", "dropped"]);
+		expect(deleted.length).toBe(1);
 
 		const survivors = await listNotifications(db, { kind: "all" });
 		expect(new Set(survivors.map((s) => s.id))).toEqual(
@@ -200,18 +198,15 @@ describe("reapRetentionOnce", () => {
 			},
 		]);
 
-		const results = await reapRetentionOnce(db, deps, {
-			now: () => now.getTime(),
-			terminalLogTtlMs: 30 * DAY,
-		});
-		const kalResult = results.find((r) => r.table === "knowledge_access_log");
-		expect(kalResult?.deleted).toBe(1);
+		const termCutoff = new Date(now.getTime() - TERMINAL_LOG_TTL_MS).toISOString();
+		const deleted = await reapKnowledgeAccessLog(db, termCutoff);
+		expect(deleted.length).toBe(1);
 
 		const survivors = await db.select().from(knowledgeAccessLog);
 		expect(survivors.map((s) => s.id)).toEqual(["kal-recent"]);
 	});
 
-	test("prunes terminal propagation_log rows older than the TTL (direct unowned-shared-table access)", async ({
+	test("prunes terminal propagation_log rows older than the TTL via reapPropagationLog (UNOWNED_SHARED_TABLES)", async ({
 		db,
 	}) => {
 		await db.insert(propagationLog).values([
@@ -237,17 +232,14 @@ describe("reapRetentionOnce", () => {
 			},
 		]);
 
-		const results = await reapRetentionOnce(db, deps, {
-			now: () => now.getTime(),
-			terminalLogTtlMs: 30 * DAY,
-		});
-		const plResult = results.find((r) => r.table === "propagation_log");
-		expect(plResult?.deleted).toBe(1);
+		const termCutoff = new Date(now.getTime() - TERMINAL_LOG_TTL_MS).toISOString();
+		// Call the real composition-root function — exercises the predicate directly.
+		await reapPropagationLog(db, termCutoff);
 
 		const survivors = await db
 			.select()
 			.from(propagationLog)
-			.where(eq(propagationLog.id, "pl-old-pending"));
-		expect(survivors).toHaveLength(1);
+			.where(and(lt(propagationLog.createdAt, termCutoff)));
+		expect(survivors.map((s) => s.id)).toEqual(["pl-old-pending"]);
 	});
 });

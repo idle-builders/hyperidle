@@ -36,7 +36,6 @@
 		"@hyperidle/org": "*",
 		"@hyperidle/policy": "*",
 		"@hyperidle/realtime": "*",
-		"@hyperidle/retention": "*",
 		"@hyperidle/review": "*",
 		"@hyperidle/routine": "*",
 		"@hyperidle/run-orchestration": "*",

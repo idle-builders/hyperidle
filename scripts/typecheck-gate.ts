@@ -374,9 +374,8 @@ function buildLeafDeclarations(root: string): void {
   // cascade; server-factory.ts, routes/ws.ts, and
   // ws-subscribe-authz.integration.test.ts now import `@hyperidle/realtime`.
   //
-  // @lore AU19 Increment 2g: `core-api/retention` added — closes Increment 2
-  // (core-api non-SQL Services). Same TS6305 cascade; server-factory.ts and
-  // retention-reaper.integration.test.ts now import `@hyperidle/retention`.
+  // @lore AU20 C1: `core-api/retention` dissolved — package removed, sweeps
+  // distributed to owning services, propagation_log reaper at composition root.
   //
   // @lore AU19 Increment 3a: `agent-orchestration/trigger-resolution` added —
   // same TS6305 cascade; services/agent-work-intent-worker.ts and
@@ -477,7 +476,8 @@ function buildLeafDeclarations(root: string): void {
     "core-api/observability",
     "core-api/model-gateway",
     "core-api/realtime",
-    "core-api/retention",
+    // @lore AU20 C1: core-api/retention dissolved — sweeps distributed to owning services
+    // (users/knowledge/notifications) + propagation_log reaper co-located at composition root.
     // @lore AU20 B1b: agent-orchestration/trigger-resolution folded into session-requests.
     "agent-orchestration/session-requests",
     "agent-orchestration/run-orchestration",

@@ -26,6 +26,7 @@ import {
 	createPostgresDb,
 	type DbHandle,
 	type HyperIdleDb,
+	propagationLog,
 	resolveProfile,
 } from "@hyperidle/db";
 import type { AssistantTurnDeps, TaskDispatcherDeps } from "@hyperidle/dispatch";
@@ -60,8 +61,6 @@ import { getTeamMembers, resolveReviewRecipients, updateTeam } from "@hyperidle/
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
-import type { RetentionReaperDeps } from "@hyperidle/retention";
-import { startRetentionReaper } from "@hyperidle/retention";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
 import { registerCaptureWriteback } from "@hyperidle/run-orchestration";
@@ -80,6 +79,7 @@ import {
 	resolveOrphanedDecompositions,
 	type WorkDeps,
 } from "@hyperidle/work";
+import { and, inArray, lt } from "drizzle-orm";
 import { WebSocketServer } from "ws";
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
@@ -110,6 +110,40 @@ const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
 const DEFAULT_ROUTINE_POLL_INTERVAL_MS = 30_000;
 /** Default staleness bound for the routine-session reaper (1h). */
 const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
+/**
+ * @lore AU20 C1: retention package dissolved — these constants move here
+ * alongside the composition-root scheduler that calls the owning-service
+ * reapers. No behavior change vs. the former @hyperidle/retention exports.
+ * TERMINAL_LOG_TTL_MS is exported so the integration test can import the
+ * canonical value and stay in sync if it ever changes.
+ */
+const RETENTION_REAPER_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+export const TERMINAL_LOG_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const CONSUMED_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day audit window
+
+/**
+ * Reaps terminal propagation_log rows older than `termCutoff`.
+ *
+ * Extracted from the composition-root `runRetentionSweep` closure so the
+ * predicate is directly testable: the `propagation_log` table is
+ * UNOWNED_SHARED_TABLES, so a direct `@hyperidle/db` delete is sanctioned
+ * both here and in the integration test.
+ *
+ * @lore AU20 C1: exported for test coverage — previously the predicate was
+ * exercised via `reapRetentionOnce`; dissolving the retention package silently
+ * dropped that coverage. Exporting the function restores it without changing
+ * the predicate or the calling contract.
+ */
+export async function reapPropagationLog(db: HyperIdleDb, termCutoff: string): Promise<void> {
+	await db
+		.delete(propagationLog)
+		.where(
+			and(
+				lt(propagationLog.createdAt, termCutoff),
+				inArray(propagationLog.status, ["applied", "skipped"]),
+			),
+		);
+}
 
 /**
  * @lore AU19 Increment 1g/1h: `notifications`' DI ports (Mechanism C), wired
@@ -241,21 +275,6 @@ const policyDeps: PolicyDeps = {
 };
 
 /**
- * @lore AU19 Increment 2g: `@hyperidle/retention`'s DI ports (Mechanism C),
- * wired here at the `packages/server` composition point — `users`/
- * `knowledge`/`notifications` are all real, already-migrated packages.
- * Two of the three ports (`users`, `knowledge`) close census-missed edges
- * surfaced by this migration (raw table access wasn't a countable edge at
- * original census time — see `@hyperidle/retention`'s `ports.ts` top
- * `@lore`); `notifications` was already census-listed.
- */
-const retentionReaperDeps: RetentionReaperDeps = {
-	users: { reapExpiredCredentials },
-	knowledge: { reapKnowledgeAccessLog },
-	notifications: { deleteReaped: reap },
-};
-
-/**
  * AU11: registers CORE-owned application services against the event bus —
  * knowledge (relevance listener, FTS), notifications, policy engine,
  * review routing, lifecycle propagation, retention, git-export, and the
@@ -358,7 +377,36 @@ export function registerCoreDomainServices(ctx: {
 	);
 
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
-	disposers.push(startRetentionReaper(db, retentionReaperDeps));
+	// @lore AU20 C1: retention package dissolved — sweep logic and scheduler
+	// live here at the composition root; per-table deletes delegate to their
+	// owning services (users/notifications/knowledge). propagation_log is
+	// UNOWNED_SHARED_TABLES so its delete stays a direct @hyperidle/db call.
+	// No behavior change: same predicates, same TTLs, same cadence.
+	const runRetentionSweep = async (): Promise<void> => {
+		const nowMs = Date.now();
+		const expiredCutoff = new Date(nowMs).toISOString();
+		const termCutoff = new Date(nowMs - TERMINAL_LOG_TTL_MS).toISOString();
+		const consumedCutoff = new Date(nowMs - CONSUMED_INVITE_TTL_MS).toISOString();
+		// login_sessions + invite_codes (owned by `users`)
+		await reapExpiredCredentials(db, {
+			sessionCutoff: expiredCutoff,
+			inviteExpiredCutoff: expiredCutoff,
+			inviteConsumedCutoff: consumedCutoff,
+		});
+		// notification_queue (owned by `notifications`)
+		await reap(db, termCutoff, ["sent", "failed", "dropped"]);
+		// knowledge_access_log (owned by `knowledge`)
+		await reapKnowledgeAccessLog(db, termCutoff);
+		// propagation_log — UNOWNED_SHARED_TABLES; delegate to the exported
+		// reapPropagationLog so the predicate is covered by integration tests.
+		await reapPropagationLog(db, termCutoff);
+	};
+	const retentionHandle = setInterval(() => {
+		void runRetentionSweep().catch((err) => {
+			serviceBootstrapLog.error("retention sweep failed", { err });
+		});
+	}, RETENTION_REAPER_INTERVAL_MS);
+	disposers.push(() => clearInterval(retentionHandle));
 
 	return disposers;
 }

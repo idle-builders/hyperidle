@@ -24,7 +24,6 @@
 		{ "path": "org" },
 		{ "path": "policy" },
 		{ "path": "realtime" },
-		{ "path": "retention" },
 		{ "path": "review" },
 		{ "path": "routine" },
 		{ "path": "../agent-orchestration/run-orchestration" },
