@@ -5,14 +5,7 @@ import {
 	list as listKnowledgeItems,
 	upsertBetRetroKnowledgeItem,
 } from "@hyperidle/knowledge";
-import {
-	ApiError,
-	getTeam,
-	getTeamMembers,
-	listTeamMembers,
-	listTeams,
-	updateTeam,
-} from "@hyperidle/org";
+import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from "@hyperidle/org";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import {
 	BET_OUTCOME_VERDICTS,
@@ -727,8 +720,12 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		try {
 			await getTeamMembers(db, { teamId: bet.teamId }, { require: true });
 		} catch (err) {
-			if (err instanceof ApiError) {
-				return c.json({ error: err.message, code: err.code }, err.status as 500);
+			// @lore AU20 R-org: ApiError is unexported from @hyperidle/org (it is an
+			// internal invariant-enforcement class). Duck-type on err.name to surface
+			// the status/code without an instanceof import.
+			if (err instanceof Error && err.name === "ApiError" && "status" in err && "code" in err) {
+				const apiErr = err as Error & { status: number; code: string };
+				return c.json({ error: apiErr.message, code: apiErr.code }, apiErr.status as 500);
 			}
 			throw err;
 		}

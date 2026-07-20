@@ -22,7 +22,6 @@ import { findThread, insertMessage, insertThread } from "@hyperidle/conversation
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
 import {
-	ApiError,
 	createTeam,
 	deleteTeam,
 	getTeam,
@@ -971,8 +970,12 @@ export function createTeamRoutes(
 
 			return c.json(detail);
 		} catch (err) {
-			if (err instanceof ApiError) {
-				return c.json({ error: err.message, code: err.code }, err.status as 500);
+			// @lore AU20 R-org: ApiError is unexported from @hyperidle/org (internal
+			// invariant-enforcement class). Duck-type on err.name to surface the
+			// status/code without an instanceof import.
+			if (err instanceof Error && err.name === "ApiError" && "status" in err && "code" in err) {
+				const apiErr = err as Error & { status: number; code: string };
+				return c.json({ error: apiErr.message, code: apiErr.code }, apiErr.status as 500);
 			}
 			throw err;
 		}

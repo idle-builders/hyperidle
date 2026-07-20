@@ -18,6 +18,10 @@
  * `CreateTeamMembersGroupInput` dropped (merged into `CreateTeamInput`).
  * `deleteOrgEdgeById` renamed to `deleteOrgEdge`. `getOrgEdgeById` folded into
  * `listOrgEdges(filter)`.
+ *
+ * @lore AU20 R-org: `ApiError` removed from this barrel (was exported but no
+ * consumer outside @hyperidle/org imported it — confirmed by census audit).
+ * The class is now private to team-lookup.ts where it is defined and used.
  */
 
 // -- org edges (AH4) --
@@ -38,7 +42,6 @@ export { persistScaffoldedAgents } from "./scaffold-agents.js";
 // -- team lookup (L13 — 1:1 Team=TeamMembers invariant, AU20 Am7 collapse) --
 export type { ActiveTeamMembersWithTeamName, CreateTeamInput } from "./team-lookup.js";
 export {
-	ApiError,
 	applyTeamCost,
 	createTeam,
 	deleteTeam,

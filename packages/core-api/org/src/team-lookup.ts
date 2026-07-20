@@ -19,13 +19,18 @@
  * resetTeamMembersCost/resetAllTeamMembersCost) → applyTeamCost(target, change). Create/
  * delete pairs (createTeam+createTeamMembersGroup, deleteTeamById+deleteTeamMembersGroupById)
  * → atomic createTeam (1:1 invariant makes both rows one operation) + deleteTeam (cascades).
+ *
+ * @lore AU20 R-org: ApiError is NOT exported from this file (no `export class`). It is used
+ * only within team-lookup.ts to enforce the 1:1 TeamMembers invariant. No consumer outside
+ * this module imports or catches ApiError by instanceof — confirmed by census audit. Keeping
+ * it unexported removes it from the public API surface without any capability loss.
  */
 
 import type { Team, TeamMember, WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { eq, inArray, isNull, sql } from "drizzle-orm";
 
-export class ApiError extends Error {
+class ApiError extends Error {
 	constructor(
 		public readonly status: number,
 		public readonly code: string,
