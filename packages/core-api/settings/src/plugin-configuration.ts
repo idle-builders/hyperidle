@@ -7,6 +7,7 @@ import {
 	type PluginRow,
 	pluginConfigurationDefaults,
 	plugins,
+	type ServiceConnectionRow,
 	userSkills,
 } from "@hyperidle/db";
 import {
@@ -21,7 +22,7 @@ import {
 } from "@hyperidle/shared";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
-import type { RoutineReader, ServiceConnectionsReader, SettingsUserDirectory } from "./ports.js";
+import type { RoutineReader, SettingsUserDirectory } from "./ports.js";
 
 // ---------------------------------------------------------------------------
 // Public shared shapes
@@ -60,7 +61,9 @@ export interface PluginConfigurationSeed {
 export interface BackfillLegacyConfigurationDeps {
 	readonly users: Pick<SettingsUserDirectory, "listUsersByKind">;
 	readonly routines: Pick<RoutineReader, "listRoutines">;
-	readonly serviceConnections: Pick<ServiceConnectionsReader, "listByAuthSource">;
+	readonly serviceConnections: {
+		listByAuthSource(db: HyperIdleDb, authSource: string): Promise<ServiceConnectionRow[]>;
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -69,11 +72,6 @@ export interface BackfillLegacyConfigurationDeps {
 
 interface LoadPluginConfigurationDefaultsInput {
 	readonly plugin: PluginConfigurationSource;
-	readonly defaults: readonly PluginConfigurationSeed[];
-	readonly now?: string;
-}
-
-interface LoadBuiltInConfigurationDefaultsInput {
 	readonly defaults: readonly PluginConfigurationSeed[];
 	readonly now?: string;
 }
@@ -96,7 +94,7 @@ interface ClearConfigurationOverrideInput {
 // Constants
 // ---------------------------------------------------------------------------
 
-export const BUILTIN_PLUGIN_SOURCE: PluginConfigurationSource = {
+const BUILTIN_PLUGIN_SOURCE: PluginConfigurationSource = {
 	id: BUILTIN_PLUGIN_ID,
 	name: "HyperIdle Built-in",
 	version: "builtin",
@@ -408,17 +406,6 @@ async function loadPluginConfigurationDefaults(
 	}
 }
 
-async function loadBuiltInConfigurationDefaults(
-	db: HyperIdleDb,
-	input: LoadBuiltInConfigurationDefaultsInput,
-): Promise<void> {
-	await loadPluginConfigurationDefaults(db, {
-		plugin: BUILTIN_PLUGIN_SOURCE,
-		defaults: input.defaults,
-		now: input.now,
-	});
-}
-
 async function setConfigurationOverride(
 	db: HyperIdleDb,
 	input: SetConfigurationOverrideInput,
@@ -552,7 +539,7 @@ async function listResolvedConfiguration(
  * kept here so agent-behavior-config.ts can import directly without routing
  * through the barrel.
  */
-export async function getResolvedConfiguration(
+async function getResolvedConfiguration(
 	db: HyperIdleDb,
 	kind: ConfigurationKind,
 	key: string,
@@ -620,21 +607,21 @@ export async function writeConfigurationOverride(
 
 /**
  * Seed plugin (or built-in) configuration defaults.
- * Use `BUILTIN_PLUGIN_SOURCE` as `source` for built-in defaults.
+ * Omit `source` for built-in defaults; provide it only for plugin defaults.
  *
  * @lore AU20 Am6: collapses loadPluginConfigurationDefaults +
- * loadBuiltInConfigurationDefaults. Built-in is just source = BUILTIN_PLUGIN_SOURCE.
+ * loadBuiltInConfigurationDefaults. An omitted source selects the internal built-in source.
  */
 export async function seedConfigurationDefaults(
 	db: HyperIdleDb,
 	input: {
-		source: PluginConfigurationSource;
+		source?: PluginConfigurationSource;
 		defaults: readonly PluginConfigurationSeed[];
 		now?: string;
 	},
 ): Promise<void> {
 	await loadPluginConfigurationDefaults(db, {
-		plugin: input.source,
+		plugin: input.source ?? BUILTIN_PLUGIN_SOURCE,
 		defaults: input.defaults,
 		now: input.now,
 	});
@@ -777,5 +764,9 @@ export async function backfillConfigurationDefaults(
 		},
 	});
 
-	await loadBuiltInConfigurationDefaults(db, { defaults: dedupeSeeds(seeds), now });
+	await loadPluginConfigurationDefaults(db, {
+		plugin: BUILTIN_PLUGIN_SOURCE,
+		defaults: dedupeSeeds(seeds),
+		now,
+	});
 }

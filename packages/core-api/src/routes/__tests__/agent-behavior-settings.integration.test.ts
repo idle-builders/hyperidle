@@ -1,6 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	BUILTIN_PLUGIN_SOURCE,
 	seedConfigurationDefaults,
 	setPluginState,
 	writeConfigurationOverride,
@@ -18,7 +17,6 @@ function authHeaders(): Record<string, string> {
 
 async function seedAgentBehaviorConfig(db: HyperIdleDb) {
 	await seedConfigurationDefaults(db, {
-		source: BUILTIN_PLUGIN_SOURCE,
 		defaults: [
 			{
 				kind: "agent",

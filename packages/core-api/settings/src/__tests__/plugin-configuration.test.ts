@@ -14,12 +14,11 @@ import {
 	userSkills,
 	users,
 } from "@hyperidle/db";
-import { CONFIGURATION_KINDS, type ConfigurationKind } from "@hyperidle/shared";
+import { BUILTIN_PLUGIN_ID, CONFIGURATION_KINDS, type ConfigurationKind } from "@hyperidle/shared";
 import { eq, isNull } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
 	type BackfillLegacyConfigurationDeps,
-	BUILTIN_PLUGIN_SOURCE,
 	backfillConfigurationDefaults,
 	listConfiguration,
 	type PluginConfigurationSeed,
@@ -222,7 +221,6 @@ describe("plugin configuration service", () => {
 
 	test("built-in defaults load through the same resolver and override path", async () => {
 		await seedConfigurationDefaults(handle.db, {
-			source: BUILTIN_PLUGIN_SOURCE,
 			defaults: CONFIGURATION_KINDS.map((kind) => seed(kind, `${kind}.builtin`)),
 			now: NOW,
 		});
@@ -237,7 +235,7 @@ describe("plugin configuration service", () => {
 
 		expect(entries.map((entry) => entry.kind).sort()).toEqual([...CONFIGURATION_KINDS].sort());
 		expect(entries.every((entry) => entry.origin.type === "builtin")).toBe(true);
-		expect(entries.every((entry) => entry.origin.pluginId === BUILTIN_PLUGIN_SOURCE.id)).toBe(true);
+		expect(entries.every((entry) => entry.origin.pluginId === BUILTIN_PLUGIN_ID)).toBe(true);
 		expect(await findConfiguration("mcp_server", "mcp_server.builtin")).toEqual(
 			expect.objectContaining({
 				activeValue: { label: "edited MCP default" },

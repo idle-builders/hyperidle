@@ -44,7 +44,6 @@ export type {
 	PluginConfigurationSource,
 } from "./plugin-configuration.js";
 export {
-	BUILTIN_PLUGIN_SOURCE,
 	backfillConfigurationDefaults,
 	listConfiguration,
 	seedConfigurationDefaults,

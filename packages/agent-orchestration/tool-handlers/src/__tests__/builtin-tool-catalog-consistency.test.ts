@@ -1,5 +1,5 @@
 import { createTestDb, type TestDbHandle } from "@hyperidle/db";
-import { BUILTIN_PLUGIN_SOURCE, seedConfigurationDefaults } from "@hyperidle/settings";
+import { seedConfigurationDefaults } from "@hyperidle/settings";
 import { BUILTIN_TOOL_CATALOG } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { buildToolDefinitions } from "../tool-definitions.js";
@@ -60,13 +60,13 @@ describe("builtin tool catalog capability validation (AC5)", () => {
 			},
 		}));
 
-		// seedConfigurationDefaults with BUILTIN_PLUGIN_SOURCE runs
+		// Omitting source selects the service-owned built-in source.
 		// validateConfigurationValue over every seed before persisting (plugin-configuration.ts).
 		// A throw here means a catalog entry produced an invalid `tool` configuration
 		// value — proving capability validation is explicit and inspectable without
 		// the catalog owning runtime discovery.
 		await expect(
-			seedConfigurationDefaults(handle.db, { source: BUILTIN_PLUGIN_SOURCE, defaults, now: NOW }),
+			seedConfigurationDefaults(handle.db, { defaults, now: NOW }),
 		).resolves.toBeUndefined();
 	});
 });
