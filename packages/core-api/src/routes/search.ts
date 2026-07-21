@@ -23,7 +23,7 @@
 
 import { listMessages, listThreads, searchConversations } from "@hyperidle/conversation";
 import { escapeLikePattern, type HyperIdleDb } from "@hyperidle/db";
-import { searchVisibleByText } from "@hyperidle/knowledge";
+import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
@@ -261,9 +261,12 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// Increment 1a). Now calls `@hyperidle/knowledge`'s `searchVisibleByText`
 		// — same ILIKE/auth-filter/join/order/limit, zero behavior change.
 
-		const kiRows = await searchVisibleByText(db, {
-			pattern,
-			viewerUserId: userId,
+		// @lore AU20 K1-reads: searchVisibleByText() deleted; search(mode:'text',
+		// visibility) performs ILIKE on title/body/topic + Q2 auth filter.
+		// Accepts raw query (builds %pattern% internally). Same result set.
+		const kiRows = await searchKnowledge(db, query, {
+			mode: "text",
+			visibility: userId,
 			limit: MAX_PER_CATEGORY,
 		});
 

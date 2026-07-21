@@ -27,8 +27,8 @@ import { getFilesystem } from "@hyperidle/filesystems";
 import {
 	remove as archiveKnowledgeItem,
 	changeScope,
-	countAccessesSince,
-	countTriageVisible,
+	countAccesses,
+	count as countKnowledgeItems,
 	create as createKnowledgeItem,
 	flagItem,
 	get as getKnowledgeItem,
@@ -36,7 +36,7 @@ import {
 	list as listKnowledgeItems,
 	mergeItems,
 	recordKnowledgeAccess,
-	searchByText,
+	search as searchKnowledge,
 	splitItem,
 	update as updateKnowledgeItem,
 	VersionConflictError,
@@ -282,10 +282,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		}
 		const query = parsed.data;
 
-		// @lore AU14 round 2: LIKE-substring search (title/body/topic, wildcard-escaped)
-		// now lives in the repository's searchByText — NOT the same as the repo's FTS
-		// search() (title+body only, whole-word). See knowledge-repository.ts.
-		const results = await searchByText(db, query);
+		// @lore AU20 K1-reads: searchByText() deleted; search(mode:'text') performs
+		// ILIKE on title/body/topic (same result set, case-insensitive improvement).
+		// See knowledge-repository.ts search() docblock.
+		const results = await searchKnowledge(db, query, { mode: "text" });
 
 		return c.json({ results });
 	});
@@ -332,7 +332,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// OR updatedBy = userId. This ensures private items from other users don't inflate the count.
 	router.get("/triage-count", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.get("userId");
-		const count = await countTriageVisible(db, userId);
+		const count = await countKnowledgeItems(db, { triageVisible: userId });
 		return c.json({ count });
 	});
 
@@ -373,7 +373,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// current page-load is not counted. accessCount reflects historical accesses only.
 		// @lore AF13: Order matters: count → insert. Swapping would produce N+1 counts.
 		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-		const accessCount = await countAccessesSince(db, item.id, thirtyDaysAgo);
+		const accessCount = await countAccesses(db, { itemId: item.id, since: thirtyDaysAgo });
 
 		// AF13 §5 WARNING 2: relatedItems — same-topic items visible to this user, capped at 10.
 		// null-topic → [] (no topic match means no related items).

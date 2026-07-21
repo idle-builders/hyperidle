@@ -53,17 +53,18 @@ export {
 	findOpenConflictByItemAndProposer,
 	recordWritebackConflict,
 } from "./knowledge-conflicts.js";
-// -- scope vocabulary (KnowledgeScope kept for core-api/src/index.ts re-export) --
-export type { KnowledgeScope } from "./knowledge-reader.js";
 // -- the CRUD repository --
 // @lore Ag7c: ExportableKnowledgeItemFilters kept — inline-typed by
 // server-factory.ts and git-export-routes.ts via
 // `import("@hyperidle/knowledge").ExportableKnowledgeItemFilters`.
 // All other row/filter types removed (callers infer from return types).
+// @lore AU20 K1-reads: countAccessesSince/countTriageVisible/searchByText/
+// searchVisibleByText deleted from source; replaced by count()/countAccesses()/
+// search({mode:'text',...}).
 export {
 	changeScope,
-	countAccessesSince,
-	countTriageVisible,
+	count,
+	countAccesses,
 	create,
 	type ExportableKnowledgeItemFilters,
 	flagItem,
@@ -73,8 +74,6 @@ export {
 	recordKnowledgeAccess,
 	remove,
 	search,
-	searchByText,
-	searchVisibleByText,
 	splitItem,
 	update,
 	upsertBetRetroKnowledgeItem,
@@ -96,3 +95,6 @@ export { createRelevanceService, reapKnowledgeAccessLog } from "./relevance-serv
 export { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 // -- token budgeting --
 export { countTokens } from "./token-budget.js";
+// -- scope vocabulary (KnowledgeScope kept for core-api/src/index.ts re-export) --
+// @lore AU20 K1-reads: moved from knowledge-reader.js to types.js.
+export type { KnowledgeScope } from "./types.js";

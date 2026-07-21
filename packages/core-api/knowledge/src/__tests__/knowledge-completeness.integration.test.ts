@@ -40,15 +40,11 @@ import {
 	findOpenConflictByItemAndProposer,
 } from "../knowledge-conflicts.js";
 import {
-	countAccessesSince,
-	countTriageVisible,
+	count,
+	countAccesses,
 	create,
-	findDetailById,
-	findKnowledgeItemProjectionById,
 	get,
-	listExportableKnowledgeItems,
-	listRecentByLayers,
-	listVisibleWithSignals,
+	list,
 	recordKnowledgeAccess,
 	search,
 	update,
@@ -207,7 +203,7 @@ describe("get(id, {view:'detail'}): returns kernel item + projection fields", ()
 			.set({ relevanceScore: "0.75", confidence: "0.9" })
 			.where(eq(knowledgeAppProjection.knowledgeItemId, seeded.id));
 
-		const detail = await findDetailById(db, seeded.id);
+		const detail = await get(db, seeded.id, { view: "detail" });
 		expect(detail).not.toBeNull();
 		expect(detail?.item.id).toBe(seeded.id);
 		expect(detail?.layer).toBe("L1");
@@ -269,9 +265,8 @@ describe("list({exportable}): filters by layer and status", () => {
 		// Non-matching: wrong status.
 		await seedItem(db, { layer: "L2", status: "draft", title: "Wrong status" });
 
-		const rows = await listExportableKnowledgeItems(db, {
-			layers: ["L2"],
-			statuses: ["validated"],
+		const rows = await list(db, {
+			exportable: { layers: ["L2"], statuses: ["validated"] },
 		});
 
 		expect(rows.map((r) => r.id)).toContain(a.id);
@@ -280,11 +275,11 @@ describe("list({exportable}): filters by layer and status", () => {
 		expect(rows[0]?.title).toBe("Exportable");
 	});
 
-	test("findKnowledgeItemProjectionById (get projection view) returns layer+kind for git-export events", async ({
+	test("get(id, {view:'projection'}) returns layer+kind for git-export events", async ({
 		db,
 	}) => {
 		const item = await seedItem(db, { layer: "L2", kind: "practice" });
-		const row = await findKnowledgeItemProjectionById(db, item.id);
+		const row = await get(db, item.id, { view: "projection" });
 		expect(row?.layer).toBe("L2");
 		expect(row?.kind).toBe("practice");
 	});
@@ -306,7 +301,7 @@ describe("list({recentByLayers}): returns items in given layers updated since cu
 		// Make a 'recent' cutoff well before the items' timestamps.
 		const since = new Date(Date.now() - 60_000).toISOString(); // 1 minute ago
 
-		const rows = await listRecentByLayers(db, ["L2"], since);
+		const rows = await list(db, { recentByLayers: { layers: ["L2"], since } });
 
 		expect(rows.map((r) => r.title)).toContain("Recent L2");
 		expect(rows.some((r) => r.title === "L3 item")).toBe(false);
@@ -319,11 +314,9 @@ describe("list({recentByLayers}): returns items in given layers updated since cu
 			.set({ updatedAt: staleTs })
 			.where(eq(knowledgeItems.id, recent.id));
 
-		const rowsAfterStale = await listRecentByLayers(
-			db,
-			["L2"],
-			new Date(Date.now() - 60_000).toISOString(),
-		);
+		const rowsAfterStale = await list(db, {
+			recentByLayers: { layers: ["L2"], since: new Date(Date.now() - 60_000).toISOString() },
+		});
 		expect(rowsAfterStale.some((r) => r.title === "Recent L2")).toBe(false);
 	});
 });
@@ -362,9 +355,9 @@ describe("countTriageVisible: Q2 auth boundary on draft+needs_human items", () =
 		// Active item — not triage.
 		await seedItem(db, { status: "active" });
 
-		const count = await countTriageVisible(db, "u-viewer");
+		const triageCount = await count(db, { triageVisible: "u-viewer" });
 		// factory-draft + team-needs_human + viewer's own user-draft = 3.
-		expect(count).toBe(3);
+		expect(triageCount).toBe(3);
 	});
 });
 
@@ -746,8 +739,8 @@ describe("access log: recordKnowledgeAccess / countAccessesSince / reapKnowledge
 			accessedAt: new Date().toISOString(),
 		});
 
-		const count = await countAccessesSince(db, item.id, t0);
-		expect(count).toBe(1);
+		const accessCount = await countAccesses(db, { itemId: item.id, since: t0 });
+		expect(accessCount).toBe(1);
 	});
 
 	test("countAccessesSince returns 0 when all accesses are before the cutoff", async ({ db }) => {
@@ -761,8 +754,8 @@ describe("access log: recordKnowledgeAccess / countAccessesSince / reapKnowledge
 		});
 
 		// Cutoff AFTER the access.
-		const count = await countAccessesSince(db, item.id, "2020-06-01T00:00:00.000Z");
-		expect(count).toBe(0);
+		const accessCount = await countAccesses(db, { itemId: item.id, since: "2020-06-01T00:00:00.000Z" });
+		expect(accessCount).toBe(0);
 	});
 
 	test("reapKnowledgeAccessLog deletes rows older than cutoff and returns their ids", async ({
@@ -782,8 +775,8 @@ describe("access log: recordKnowledgeAccess / countAccessesSince / reapKnowledge
 
 		expect(deleted.length).toBeGreaterThanOrEqual(1);
 		// After reap, the count for that item is 0.
-		const count = await countAccessesSince(db, item.id, "2019-01-01T00:00:00.000Z");
-		expect(count).toBe(0);
+		const accessCount = await countAccesses(db, { itemId: item.id, since: "2019-01-01T00:00:00.000Z" });
+		expect(accessCount).toBe(0);
 	});
 });
 
@@ -872,7 +865,7 @@ describe("listVisibleWithSignals: Q2 auth boundary + access signal aggregation",
 			updatedBy: "u-other",
 		});
 
-		const rows = await listVisibleWithSignals(db, "u-viewer");
+		const rows = await list(db, { visibleWithSignals: "u-viewer" });
 
 		const titles = rows.map((r) => r.item.title);
 		expect(titles).toContain("Factory item");
