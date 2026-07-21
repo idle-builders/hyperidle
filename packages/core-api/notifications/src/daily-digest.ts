@@ -1,5 +1,16 @@
+/**
+ * @lore AU20 Stage 2: NotificationsDigestDeps removed from ports.ts barrel.
+ * This file defines its own local DigestDeps interface — callers pass
+ * structural matches (status.ts already does this with inline objects).
+ * The `verdicts` field is NOT in NotificationsDeps (not all callers wire it);
+ * keeping deps here avoids forcing every caller to include a verdicts reader.
+ */
 import type { HyperIdleDb, Item } from "@hyperidle/db";
-import type { NotificationsDigestDeps } from "./ports.js";
+
+interface DigestDeps {
+	work: { listQueuedItemsSince(db: HyperIdleDb, cutoff: string): Promise<Item[]> };
+	verdicts: { listVerdictItemIds(db: HyperIdleDb, itemIds: string[]): Promise<string[]> };
+}
 
 interface DailyDigestResult {
 	items: Item[];
@@ -16,45 +27,29 @@ interface DailyDigestResult {
  * source item. For the digest's "already responded" check we project the
  * old responses-by-item-id query to a messages-by-legacy-item-id query.
  *
- * Forward-looking note: post-L1a, items.id is NOT the canonical anchor for
- * verdicts — the verdict targets a `messages.id` (a review-typed message
- * created from the item). The bridge is `messages.legacy_item_id` for
- * backfilled rows and the review-message id (recorded on items by the new
- * item creation path) for fresh rows. Until item-creation is fully ported
- * to the thread primitive, the digest joins on `legacy_item_id`.
- *
  * @lore AU19 Increment 1g: `work.listQueuedItemsSince`(`@hyperidle/work`) and
  * `listVerdictItemIds`(`@hyperidle/conversation`) used to be plain direct
- * imports (both real, already-migrated packages) — legal only while this
- * file lived in `packages/server`, unscanned. `composition-boundary-guard`
- * bans ANY `@hyperidle/*` import (other than `db`/`shared`) from this
- * package's `src/**`, so both are now injected via `NotificationsDigestDeps`
- * (Mechanism C) — the caller (`packages/server`, unguarded) wires the real
- * functions directly, zero behavior change.
+ * imports — `composition-boundary-guard` bans ANY `@hyperidle/*` import
+ * (other than `db`/`shared`) from this package's `src/**`. Both injected
+ * via the local DigestDeps interface (structural — callers assign inline).
  */
 export async function getDailyDigest(
 	db: HyperIdleDb,
 	now: Date | undefined,
-	deps: NotificationsDigestDeps,
+	deps: DigestDeps,
 ): Promise<DailyDigestResult> {
 	const currentTime = now ?? new Date();
 	const twentyFourHoursAgo = new Date(currentTime.getTime() - 24 * 60 * 60 * 1000);
 	const cutoff = twentyFourHoursAgo.toISOString();
 
-	// Get all queued items from the last 24h
 	const queuedItems = await deps.work.listQueuedItemsSince(db, cutoff);
 
 	if (queuedItems.length === 0) {
 		return { items: [], generatedAt: currentTime.toISOString() };
 	}
 
-	// Verdict-message rows are the new source of "responded" — filter the
-	// candidate set by joining on `legacy_item_id`. Scoped to candidate
-	// ids only, not full table.
 	const candidateIds = queuedItems.map((i) => i.id);
 	const respondedItemIds = new Set(await deps.verdicts.listVerdictItemIds(db, candidateIds));
-
-	// Filter out items that already have a verdict-typed message.
 	const pendingItems = queuedItems.filter((item) => !respondedItemIds.has(item.id));
 
 	return {

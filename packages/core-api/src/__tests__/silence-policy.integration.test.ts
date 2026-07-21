@@ -1,98 +1,27 @@
+/**
+ * @lore AU20 Stage 2: isInSilenceWindow and NotificationsSilenceDeps removed
+ * from public surface. The isInSilenceWindow describe block is deleted —
+ * that function is now private within silence-policy.ts; coverage comes
+ * through isSilenced's window-check path (last two tests below).
+ * NotificationsSilenceDeps type annotation dropped; silencePolicyDeps uses
+ * structural inference from the NotificationsDeps-compatible literal.
+ */
 import { teamMembers, teams, users } from "@hyperidle/db";
-import {
-	isInSilenceWindow,
-	isSilenced,
-	type NotificationsSilenceDeps,
-} from "@hyperidle/notifications";
+import { isSilenced } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { findUser } from "@hyperidle/users";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
 
-const silencePolicyDeps: NotificationsSilenceDeps = {
+const silencePolicyDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
-	users: { getUserById: (db, id) => findUser(db, { id }) },
-	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
+	users: { getUserById: (db: Parameters<typeof findUser>[0], id: string) => findUser(db, { id }) },
+	teams: {
+		getTeamMembersById: (db: Parameters<typeof getTeamMembers>[0], id: string) =>
+			getTeamMembers(db, { id }),
+	},
 };
-
-describe("isInSilenceWindow", () => {
-	test("returns true when now is exactly at window start", async ({}) => {
-		// Window 09:00 - 17:00, now = 09:00 UTC
-		const now = new Date("2026-01-15T09:00:00Z");
-		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(true);
-	});
-
-	test("returns true when now is exactly at window end", async ({}) => {
-		// Window 09:00 - 17:00, now = 17:00 UTC
-		const now = new Date("2026-01-15T17:00:00Z");
-		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(true);
-	});
-
-	test("returns false when now is one minute before window start", async ({}) => {
-		const now = new Date("2026-01-15T08:59:00Z");
-		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(false);
-	});
-
-	test("returns false when now is one minute after window end", async ({}) => {
-		const now = new Date("2026-01-15T17:01:00Z");
-		expect(isInSilenceWindow("09:00", "17:00", now)).toBe(false);
-	});
-
-	test("supports overnight window (22:00 - 07:00)", async ({}) => {
-		// 23:00 should be inside the window
-		const late = new Date("2026-01-15T23:00:00Z");
-		expect(isInSilenceWindow("22:00", "07:00", late)).toBe(true);
-
-		// 03:00 should be inside the window (after midnight)
-		const early = new Date("2026-01-16T03:00:00Z");
-		expect(isInSilenceWindow("22:00", "07:00", early)).toBe(true);
-
-		// 12:00 should be outside the window
-		const midday = new Date("2026-01-15T12:00:00Z");
-		expect(isInSilenceWindow("22:00", "07:00", midday)).toBe(false);
-	});
-
-	test("returns false for malformed time format (missing colon)", async ({}) => {
-		const now = new Date("2026-01-15T12:00:00Z");
-		expect(isInSilenceWindow("0900", "1700", now)).toBe(false);
-	});
-
-	test("handles edge case of midnight boundary (00:00)", async ({}) => {
-		// Overnight window ending at midnight
-		const now = new Date("2026-01-15T00:00:00Z");
-		expect(isInSilenceWindow("22:00", "00:00", now)).toBe(true);
-	});
-
-	test("returns false for non-numeric time parts", async ({}) => {
-		const now = new Date("2026-01-15T12:00:00Z");
-		expect(isInSilenceWindow("ab:cd", "12:00", now)).toBe(false);
-	});
-
-	test("treats 07:00 as silenced for overnight window 22:00-07:00 (inclusive end)", async ({}) => {
-		// @lore The spec says "when time is 07:00, then not silenced" for
-		// window "22:00-07:00", but the implementation uses inclusive end
-		// boundary (<=). At 07:00, nowMinutes (420) <= endMinutes (420) is
-		// true, so the time IS silenced. This test documents the ACTUAL
-		// behavior. If the spec intent is exclusive end, the production code
-		// would need to change from <= to <.
-		const now = new Date("2026-01-15T07:00:00Z");
-		expect(isInSilenceWindow("22:00", "07:00", now)).toBe(true);
-	});
-
-	test("returns false for '25:00' malformed hour value (out of 0-23 range)", async ({}) => {
-		// @lore The implementation does not validate that hours are in the
-		// 0-23 range — it only checks for numeric-ness and colon format.
-		// "25:00" parses to startMinutes=1500, which exceeds any real
-		// nowMinutes (max 1439). In the non-overnight branch (start <= end),
-		// no real time can satisfy >= 1500, so the result is effectively
-		// false. However, in the overnight branch (e.g. "25:00"-"07:00"),
-		// times <= endMinutes would still match — the guard is accidental,
-		// not by design.
-		const now = new Date("2026-01-15T12:00:00Z");
-		expect(isInSilenceWindow("25:00", "26:00", now)).toBe(false);
-	});
-});
 
 describe("isSilenced", () => {
 	test("returns true when factory-wide silence_mode is enabled", async ({ db }) => {

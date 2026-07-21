@@ -4,7 +4,7 @@ import {
 	knowledgeAppProjection,
 	users,
 } from "@hyperidle/db";
-import { enqueue, flush, listNotifications, updateConfig } from "@hyperidle/notifications";
+import { deliver, enqueue, listNotifications, updateConfig } from "@hyperidle/notifications";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../test-fixtures.js";
@@ -119,7 +119,7 @@ describe("app runtime domain observability", () => {
 				notificationsDeps,
 			);
 
-			await flush(db, notificationsDeps);
+			await deliver(db, { kind: "flush" }, notificationsDeps);
 			const queueRes = await app.request("/api/notifications/queue?status=sent", {
 				method: "GET",
 				headers: authHeaders(),

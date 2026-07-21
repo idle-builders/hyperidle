@@ -41,7 +41,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { isSilenced, type NotificationsSilenceDeps } from "@hyperidle/notifications";
+import { isSilenced } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
@@ -57,10 +57,10 @@ import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
  * imports another Service). This test builds the exact same production
  * wiring `server-factory.ts` uses — no behavior change.
  */
-const silenceDeps: NotificationsSilenceDeps = {
+const silenceDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
-	users: { getUserById: (db, id) => findUser(db, { id }) },
-	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
+	users: { getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }) },
+	teams: { getTeamMembersById: (db: HyperIdleDb, id: string) => getTeamMembers(db, { id }) },
 };
 
 const policyEngineDeps: PolicyDeps = {

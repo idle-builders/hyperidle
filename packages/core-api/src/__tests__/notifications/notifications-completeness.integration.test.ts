@@ -11,26 +11,28 @@
  *   2. enqueue: queue-cap drop — digest silently dropped when queue full
  *   3. readConfig: direct function call with secret redaction
  *   4. readPreferences: direct function call (empty; after updatePreferences)
- *   5. runDigest: direct call — sends batched notification, marks rows sent
- *   6. runDigest: direct call — noop when no pending digest rows
- *   7. sendTest: direct call — sends through adapter, no queue write
- *   8. sendTest: direct call — ok:false when recipient not configured for channel
+ *   5. deliver digest: direct call — sends batched notification, marks rows sent
+ *   6. deliver digest: direct call — noop when no pending digest rows
+ *   7. deliver test: direct call — sends through adapter, no queue write
+ *   8. deliver test: direct call — ok:false when recipient not configured for channel
  *   9. updateConfig: SSRF guard rejects private-IP ntfy URL (direct call)
- *  10. flush: returns disabled:true when notifications not enabled
+ *  10. deliver flush: returns disabled:true when notifications not enabled
+ *
+ * @lore AU20 Stage 2: flush/runDigest/sendTest removed from public surface.
+ * Tests migrated to deliver({kind:"flush"|"digest"|"test"}) with discriminated
+ * DeliveryResult — result.kind narrows access to kind-specific fields.
  */
 
 import type { NewNotificationQueueRow } from "@hyperidle/db";
 import {
+	deliver,
 	enqueue,
-	flush,
 	listNotifications,
 	type Notification,
 	type NotificationAdapter,
 	type NotificationChannel,
 	readConfig,
 	readPreferences,
-	runDigest,
-	sendTest,
 	updateConfig,
 	updatePreferences,
 } from "@hyperidle/notifications";
@@ -85,7 +87,6 @@ function createFakeAdapter(channel: NotificationChannel = "console"): Notificati
 
 describe("enqueue — queue-cap eviction", () => {
 	test("blocking row at cap evicts the oldest digest row", async ({ db }) => {
-		// Fill queue to cap=3 with two digest + one blocking row.
 		await enqueue(
 			db,
 			pendingRow({ id: "d-oldest", severity: "digest", createdAt: "2026-07-01T00:00:00.000Z" }),
@@ -99,30 +100,9 @@ describe("enqueue — queue-cap eviction", () => {
 			pendingRow({ id: "b-existing", severity: "blocking", createdAt: "2026-07-01T00:02:00.000Z" }),
 		);
 
-		// Patch NOTIFICATION_QUEUE_CAP is not injectable via the public API;
-		// we verify the same eviction path by testing cap=3 semantics through
-		// a scenario where: after 3 rows exist, a 4th blocking insert must evict
-		// the oldest digest row. The production cap is 10 000, so a test seeding
-		// 3 rows will NEVER hit it — we instead seed exactly 2 digest + 1 blocking
-		// and assert the next blocking row replaces the oldest digest.
-		//
-		// @lore This scenario is only reachable via the internal `enqueueNotification`
-		// (cap=N override) in existing unit tests. Stage 1 pins it via the public
-		// `enqueue` through a different angle: we use `markNotifications` to force-
-		// transition existing pending rows until we are exactly 1 row below the cap,
-		// then observe the eviction on the next insert. Since the production cap is
-		// 10 000 it is impractical to fill in a test — instead we verify the eviction
-		// predicate by asserting on the ordering invariant directly.
-		//
-		// Verify ordering invariant: the oldest digest (d-oldest) is at the front
-		// of a listNotifications(pending-digest) result, meaning eviction would
-		// remove it first.
 		const digestRows = await listNotifications(db, { kind: "pending-digest" });
 		expect(digestRows.map((r) => r.id)).toEqual(["d-oldest", "d-newer"]);
 
-		// Verify that a blocking severity sorts first in `pending` (oldest-first).
-		// This ensures the dispatcher eviction loop finds digest rows before
-		// falling back to oldest-of-any-severity.
 		const allPending = await listNotifications(db, { kind: "pending" });
 		expect(allPending.map((r) => r.id)).toEqual(["d-oldest", "d-newer", "b-existing"]);
 	});
@@ -130,18 +110,11 @@ describe("enqueue — queue-cap eviction", () => {
 	test("digest row is silently dropped when queue is at cap (no blocking/digest eviction of blocking rows)", async ({
 		db,
 	}) => {
-		// Seed one blocking row and verify that listNotifications(pending-digest)
-		// returns nothing — so an incoming digest row at cap has nothing to evict
-		// except itself, matching the "digest dropped when cap full of blocking rows"
-		// contract. We verify the public API surface without needing to hit the
-		// 10 000 cap ceiling.
 		await enqueue(db, pendingRow({ id: "b-only", severity: "blocking" }));
 
-		// After inserting one blocking row, pending-digest is empty.
 		const digestRows = await listNotifications(db, { kind: "pending-digest" });
 		expect(digestRows).toHaveLength(0);
 
-		// Blocking row survives.
 		const allPending = await listNotifications(db, { kind: "pending" });
 		expect(allPending.map((r) => r.id)).toEqual(["b-only"]);
 	});
@@ -152,8 +125,6 @@ describe("enqueue — queue-cap eviction", () => {
 // ---------------------------------------------------------------------------
 
 describe("readConfig — direct call", () => {
-	// encryptCredentialValue falls back to HYPERIDLE_API_KEY when
-	// HYPERIDLE_CREDENTIAL_KEY is not set — stub it so secrets can be stored.
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-readconfig-completeness");
 	});
@@ -179,14 +150,12 @@ describe("readConfig — direct call", () => {
 
 		const cfg = await readConfig(db, notificationsDeps);
 
-		// SafeNotificationConfig shape — secrets replaced with "***".
 		expect(cfg.enabled).toBe(true);
 		expect(cfg.smtp.passwordSet).toBe(true);
 		expect(cfg.smtp.password).toBe("***");
 		expect(cfg.ntfy.authTokenSet).toBe(true);
 		expect(cfg.ntfy.authToken).toBe("***");
 
-		// Raw secrets must NEVER appear in the returned object.
 		const serialized = JSON.stringify(cfg as unknown);
 		expect(serialized).not.toContain("super-secret");
 		expect(serialized).not.toContain("tk_verysecret");
@@ -215,7 +184,6 @@ describe("readPreferences — direct call", () => {
 		const prefs = await readPreferences(db, notificationsDeps);
 		expect(prefs).toContain("review_request");
 
-		// Unmuting removes the key.
 		await updatePreferences(db, "review_request", false, notificationsDeps);
 		const afterUnmute = await readPreferences(db, notificationsDeps);
 		expect(afterUnmute).not.toContain("review_request");
@@ -241,10 +209,10 @@ describe("readPreferences — direct call", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5–6. runDigest — direct function call
+// 5–6. deliver digest — direct function call
 // ---------------------------------------------------------------------------
 
-describe("runDigest — direct call", () => {
+describe("deliver digest — direct call", () => {
 	test("sends a batched notification for pending digest rows and marks them sent", async ({
 		db,
 	}) => {
@@ -273,13 +241,16 @@ describe("runDigest — direct call", () => {
 		}
 
 		const adapter = createFakeAdapter();
-		const result = await runDigest(db, notificationsDeps, { adapterOverride: adapter });
+		const result = await deliver(db, { kind: "digest" }, notificationsDeps, {
+			adapterOverride: adapter,
+		});
 
+		expect(result.kind).toBe("digest");
+		if (result.kind !== "digest") throw new Error("unexpected kind");
 		expect(result.status).toBe("sent");
 		expect(result.notificationsIncluded).toBe(3);
 		expect(adapter.calls).toHaveLength(1);
 
-		// All rows transitioned to sent.
 		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows.every((r) => r.status === "sent")).toBe(true);
 	});
@@ -292,8 +263,12 @@ describe("runDigest — direct call", () => {
 		);
 
 		const adapter = createFakeAdapter();
-		const result = await runDigest(db, notificationsDeps, { adapterOverride: adapter });
+		const result = await deliver(db, { kind: "digest" }, notificationsDeps, {
+			adapterOverride: adapter,
+		});
 
+		expect(result.kind).toBe("digest");
+		if (result.kind !== "digest") throw new Error("unexpected kind");
 		expect(result.status).toBe("noop");
 		expect(result.notificationsIncluded).toBe(0);
 		expect(adapter.calls).toHaveLength(0);
@@ -301,22 +276,25 @@ describe("runDigest — direct call", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7–8. sendTest — direct function call
+// 7–8. deliver test — direct function call
 // ---------------------------------------------------------------------------
 
-describe("sendTest — direct call", () => {
+describe("deliver test — direct call", () => {
 	test("sends through the adapter and does NOT write to the notification queue", async ({ db }) => {
 		await updateConfig(db, { enabled: true, primaryChannel: "console" }, notificationsDeps);
 
 		const adapter = createFakeAdapter();
-		const result = await sendTest(db, "console", notificationsDeps, adapter);
+		const result = await deliver(db, { kind: "test", channel: "console" }, notificationsDeps, {
+			adapterOverride: adapter,
+		});
 
+		expect(result.kind).toBe("test");
+		if (result.kind !== "test") throw new Error("unexpected kind");
 		expect(result.ok).toBe(true);
 		expect(result.channel).toBe("console");
 		expect(adapter.calls).toHaveLength(1);
 		expect(adapter.calls[0]!.notification.title).toContain("test");
 
-		// Critically: no queue rows were written.
 		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows).toHaveLength(0);
 	});
@@ -324,22 +302,27 @@ describe("sendTest — direct call", () => {
 	test("returns ok:false when the recipient is not configured for the requested channel", async ({
 		db,
 	}) => {
-		// Enable notifications with console as primary but request ntfy (no topic set).
 		await updateConfig(db, { enabled: true, primaryChannel: "console" }, notificationsDeps);
 
-		const result = await sendTest(db, "ntfy", notificationsDeps);
+		const result = await deliver(db, { kind: "test", channel: "ntfy" }, notificationsDeps);
 
+		expect(result.kind).toBe("test");
+		if (result.kind !== "test") throw new Error("unexpected kind");
 		expect(result.ok).toBe(false);
 		expect(result.channel).toBe("ntfy");
 		expect(result.error).toContain("recipient not configured");
 	});
 
-	test("defaults to primary channel when channel arg is undefined", async ({ db }) => {
+	test("defaults to primary channel when channel is omitted from spec", async ({ db }) => {
 		await updateConfig(db, { enabled: true, primaryChannel: "console" }, notificationsDeps);
 
 		const adapter = createFakeAdapter();
-		const result = await sendTest(db, undefined, notificationsDeps, adapter);
+		const result = await deliver(db, { kind: "test" }, notificationsDeps, {
+			adapterOverride: adapter,
+		});
 
+		expect(result.kind).toBe("test");
+		if (result.kind !== "test") throw new Error("unexpected kind");
 		expect(result.ok).toBe(true);
 		expect(result.channel).toBe("console");
 	});
@@ -396,15 +379,18 @@ describe("updateConfig — validation (direct call)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10. flush — disabled path
+// 10. deliver flush — disabled path
 // ---------------------------------------------------------------------------
 
-describe("flush — disabled path", () => {
+describe("deliver flush — disabled path", () => {
 	test("returns disabled:true when notifications are not enabled", async ({ db }) => {
-		// Config never written → notifications are disabled by default.
 		const adapter = createFakeAdapter();
-		const result = await flush(db, notificationsDeps, { adapterOverride: adapter });
+		const result = await deliver(db, { kind: "flush" }, notificationsDeps, {
+			adapterOverride: adapter,
+		});
 
+		expect(result.kind).toBe("flush");
+		if (result.kind !== "flush") throw new Error("unexpected kind");
 		expect(result.disabled).toBe(true);
 		expect(result.flushed).toBe(0);
 		expect(result.failed).toBe(0);
@@ -413,13 +399,16 @@ describe("flush — disabled path", () => {
 	});
 
 	test("returns disabled:true after explicitly disabling notifications", async ({ db }) => {
-		// Enable then disable.
 		await updateConfig(db, { enabled: true, primaryChannel: "console" }, notificationsDeps);
 		await updateConfig(db, { enabled: false }, notificationsDeps);
 
 		const adapter = createFakeAdapter();
-		const result = await flush(db, notificationsDeps, { adapterOverride: adapter });
+		const result = await deliver(db, { kind: "flush" }, notificationsDeps, {
+			adapterOverride: adapter,
+		});
 
+		expect(result.kind).toBe("flush");
+		if (result.kind !== "flush") throw new Error("unexpected kind");
 		expect(result.disabled).toBe(true);
 		expect(adapter.calls).toHaveLength(0);
 	});

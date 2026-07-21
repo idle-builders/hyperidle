@@ -22,8 +22,8 @@
 
 import { type HyperIdleDb, items as itemsTable, threads, users } from "@hyperidle/db";
 import {
+	deliver,
 	enqueue,
-	flush,
 	installNotifications,
 	listNotifications,
 	type Notification,
@@ -125,8 +125,8 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 		await enableNotifications(db);
 		await insertPendingRow(db, "drain-row-1", "blocking");
 
-		// flush wraps loadNotificationConfig + recoverStuckLeases + flushQueue internally
-		await flush(db, notificationsDeps, { adapterOverride: adapter });
+		// deliver({kind:"flush"}) wraps loadNotificationConfig + recoverStuckLeases + flushQueue
+		await deliver(db, { kind: "flush" }, notificationsDeps, { adapterOverride: adapter });
 
 		const rows = (await listNotifications(db, { kind: "all" })).filter(
 			(r) => r.id === "drain-row-1",
@@ -280,11 +280,12 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 		await insertPendingRow(db, "quiet-block-1", "blocking");
 
 		// Run drain with "now" inside quiet hours
-		const result = await flush(db, notificationsDeps, {
+		const raw1 = await deliver(db, { kind: "flush" }, notificationsDeps, {
 			adapterOverride: adapter,
 			now: new Date(),
 		});
-		expect(result.deferred).toBeGreaterThan(0);
+		if (raw1.kind !== "flush") throw new Error("unexpected kind");
+		expect(raw1.deferred).toBeGreaterThan(0);
 
 		// Row should still be pending
 		const rows = (await listNotifications(db, { kind: "all" })).filter(
@@ -292,16 +293,18 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 		);
 		expect(rows.some((r) => r.id === "quiet-block-1")).toBe(true);
 
-		// Clear quiet hours (set window to past times that don't cover now)
-		// Use start=22:00, end=22:01 — won't cover 00:00 UTC test time in most TZs
-		// Actually, set silence_mode=false and remove the window
+		// Clear quiet hours
 		await setSilenceWindow(db, "22:00", "22:01");
 
 		// Run drain with a time clearly outside quiet hours (noon UTC)
 		const noonUTC = new Date("2026-06-11T12:00:00.000Z");
-		const result2 = await flush(db, notificationsDeps, { adapterOverride: adapter, now: noonUTC });
+		const raw2 = await deliver(db, { kind: "flush" }, notificationsDeps, {
+			adapterOverride: adapter,
+			now: noonUTC,
+		});
+		if (raw2.kind !== "flush") throw new Error("unexpected kind");
 		// Should have delivered (flushed) or at least not deferred
-		expect(result2.deferred).toBe(0);
+		expect(raw2.deferred).toBe(0);
 	});
 });
 
@@ -329,11 +332,14 @@ describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 			createdAt: stuckClaimedAt,
 		});
 
-		// flush internally calls recoverStuckLeases then flushes pending rows
+		// deliver({kind:"flush"}) calls recoverStuckLeases then flushes pending rows
 		// @lore AU20 Ag6b: recoverStuckLeases removed from public API; behavior
-		// verified through flush: stuck → recovered → sent.
-		const result = await flush(db, notificationsDeps, { adapterOverride: adapter });
-		expect(result.flushed).toBeGreaterThan(0);
+		// verified through deliver flush: stuck → recovered → sent.
+		const raw = await deliver(db, { kind: "flush" }, notificationsDeps, {
+			adapterOverride: adapter,
+		});
+		if (raw.kind !== "flush") throw new Error("unexpected kind");
+		expect(raw.flushed).toBeGreaterThan(0);
 
 		const rows = await listNotifications(db, { kind: "all" });
 		const row = rows.find((r) => r.id === "stuck-lease-1");
@@ -450,14 +456,15 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 		await insertPendingRow(db, "cost-breach-factory-silence", "cost_breach");
 
 		// Drain at a time outside quiet hours
-		const result = await flush(db, notificationsDeps, {
+		const raw = await deliver(db, { kind: "flush" }, notificationsDeps, {
 			adapterOverride: adapter,
 			now: new Date("2026-06-11T12:00:00.000Z"),
 		});
+		if (raw.kind !== "flush") throw new Error("unexpected kind");
 
 		// cost_breach should BYPASS factory silence → flushed
-		expect(result.flushed + adapter.calls.length).toBeGreaterThan(0);
-		expect(result.deferred).toBe(0);
+		expect(raw.flushed + adapter.calls.length).toBeGreaterThan(0);
+		expect(raw.deferred).toBe(0);
 	});
 
 	test("(b) cost_breach defers during quiet hours (silence_window covers now)", async ({ db }) => {
@@ -474,21 +481,26 @@ describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
 
 		// Drain during quiet hours (12:00 UTC)
 		const noonUTC = new Date("2026-06-11T12:00:00.000Z");
-		const result = await flush(db, notificationsDeps, { adapterOverride: adapter, now: noonUTC });
+		const raw1 = await deliver(db, { kind: "flush" }, notificationsDeps, {
+			adapterOverride: adapter,
+			now: noonUTC,
+		});
+		if (raw1.kind !== "flush") throw new Error("unexpected kind");
 
 		// cost_breach RESPECTS quiet hours → deferred
-		expect(result.deferred).toBeGreaterThan(0);
-		expect(result.flushed).toBe(0);
+		expect(raw1.deferred).toBeGreaterThan(0);
+		expect(raw1.flushed).toBe(0);
 
 		// After quiet hours (14:00 UTC), drain delivers
 		await setSilenceWindow(db, "22:00", "22:01");
 
 		const afternoon = new Date("2026-06-11T14:00:00.000Z");
-		const result2 = await flush(db, notificationsDeps, {
+		const raw2 = await deliver(db, { kind: "flush" }, notificationsDeps, {
 			adapterOverride: adapter,
 			now: afternoon,
 		});
-		expect(result2.deferred).toBe(0);
+		if (raw2.kind !== "flush") throw new Error("unexpected kind");
+		expect(raw2.deferred).toBe(0);
 	});
 });
 

@@ -28,7 +28,7 @@ import { and, asc, desc, eq, inArray, isNull, lt, type SQL, sql } from "drizzle-
 
 // ─── Reads ──────────────────────────────────────────────────────────────
 
-export async function queueCountByStatus(db: HyperIdleDb, status: string): Promise<number> {
+async function queueCountByStatus(db: HyperIdleDb, status: string): Promise<number> {
 	const [row] = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(notificationQueue)
@@ -38,7 +38,7 @@ export async function queueCountByStatus(db: HyperIdleDb, status: string): Promi
 }
 
 /** `routes/notifications-routes.ts` GET /queue — newest first, optional row cap. */
-export async function listByStatus(
+async function listByStatus(
 	db: HyperIdleDb,
 	status: string,
 	limit?: number,
@@ -52,7 +52,7 @@ export async function listByStatus(
 }
 
 /** dispatcher.ts flushQueue + digest.ts runDailyDigest — oldest first. */
-export async function listPending(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
+async function listPending(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
 	return await db
 		.select()
 		.from(notificationQueue)
@@ -65,7 +65,7 @@ export async function listPending(db: HyperIdleDb): Promise<NotificationQueueRow
  * pending digest row is evicted first so blocking/cost_breach rows always
  * have room. Caller takes `[0]` (matches the original `.limit(1)` query).
  */
-export async function listPendingDigest(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
+async function listPendingDigest(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
 	return await db
 		.select()
 		.from(notificationQueue)
@@ -74,7 +74,7 @@ export async function listPendingDigest(db: HyperIdleDb): Promise<NotificationQu
 }
 
 /** `routes/notifications-routes.ts` GET /inbox — popover list, newest first, optional row cap. */
-export async function listUnread(db: HyperIdleDb, limit?: number): Promise<NotificationQueueRow[]> {
+async function listUnread(db: HyperIdleDb, limit?: number): Promise<NotificationQueueRow[]> {
 	const query = db
 		.select()
 		.from(notificationQueue)
@@ -84,10 +84,7 @@ export async function listUnread(db: HyperIdleDb, limit?: number): Promise<Notif
 }
 
 /** dispatcher.ts's `recoverStuckLeases` — rows whose `sending` lease expired. */
-export async function listStuckLeases(
-	db: HyperIdleDb,
-	cutoff: string,
-): Promise<NotificationQueueRow[]> {
+async function listStuckLeases(db: HyperIdleDb, cutoff: string): Promise<NotificationQueueRow[]> {
 	return await db
 		.select()
 		.from(notificationQueue)
@@ -95,7 +92,7 @@ export async function listStuckLeases(
 }
 
 /** digest.ts's post-claim read — the batch of ids just claimed as `sending`. */
-export async function listByIdsWithStatus(
+async function listByIdsWithStatus(
 	db: HyperIdleDb,
 	ids: readonly string[],
 	status: string,
@@ -107,7 +104,7 @@ export async function listByIdsWithStatus(
 }
 
 /** `routes/teams-routes.ts`'s dedup/throttle check (AB2). */
-export async function findPendingByEventSubject(
+async function findPendingByEventSubject(
 	db: HyperIdleDb,
 	eventType: string,
 	subjectId: string,
@@ -127,10 +124,7 @@ export async function findPendingByEventSubject(
 }
 
 /** Single-row lookup by id. Test-support read (no single narrower shape fits every call site). */
-export async function findById(
-	db: HyperIdleDb,
-	id: string,
-): Promise<NotificationQueueRow | undefined> {
+async function findById(db: HyperIdleDb, id: string): Promise<NotificationQueueRow | undefined> {
 	const [row] = await db
 		.select()
 		.from(notificationQueue)
@@ -140,38 +134,21 @@ export async function findById(
 }
 
 /** Every row, unfiltered. Test-support read for full-table assertions. */
-export async function listAll(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
+async function listAll(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
 	return await db.select().from(notificationQueue);
 }
 
 // ─── Writes ─────────────────────────────────────────────────────────────
 
-export async function insertNotification(
-	db: HyperIdleDb,
-	row: NewNotificationQueueRow,
-): Promise<void> {
+async function insertNotification(db: HyperIdleDb, row: NewNotificationQueueRow): Promise<void> {
 	await db.insert(notificationQueue).values(row);
 }
 
-/**
- * Atomically claim a pending row for delivery (pending → sending). Returns
- * the claimed row's id, or `undefined` if a concurrent claim already took
- * it (the WHERE clause guards against double-claim).
- */
-export async function claimForSend(
-	db: HyperIdleDb,
-	id: string,
-	now: Date,
-): Promise<{ id: string } | undefined> {
-	const [row] = await db
-		.update(notificationQueue)
-		.set({ status: "sending", claimedAt: now.toISOString() })
-		.where(and(eq(notificationQueue.id, id), eq(notificationQueue.status, "pending")))
-		.returning({ id: notificationQueue.id });
-	return row;
-}
+// @lore AU20 Stage 2: claimForSend, requeueLease, updateManyByIds removed —
+// install.ts uses markNotifications({onlyIfStatus}) for claim and the batch
+// transition ops. updateStatus retained for the enqueue cap-eviction path.
 
-export interface NotificationQueuePatch {
+interface NotificationQueuePatch {
 	readonly status?: string;
 	readonly attempts?: number;
 	readonly sentAt?: string | null;
@@ -179,7 +156,7 @@ export interface NotificationQueuePatch {
 	readonly claimedAt?: string | null;
 }
 
-export async function updateStatus(
+async function updateStatus(
 	db: HyperIdleDb,
 	id: string,
 	patch: NotificationQueuePatch,
@@ -187,34 +164,8 @@ export async function updateStatus(
 	await db.update(notificationQueue).set(patch).where(eq(notificationQueue.id, id));
 }
 
-/** Requeue a single stuck lease: sending → pending, clears claimedAt. */
-export async function requeueLease(db: HyperIdleDb, id: string): Promise<void> {
-	await db
-		.update(notificationQueue)
-		.set({ status: "pending", claimedAt: null })
-		.where(eq(notificationQueue.id, id));
-}
-
-/**
- * digest.ts's cross-row batch transitions: atomic claim (pending→sending,
- * `onlyIfStatus="pending"`), and the three unconditional batch updates
- * (revert on adapter throw, revert-with-error on adapter failure, complete
- * on success) that omit `onlyIfStatus`.
- */
-export async function updateManyByIds(
-	db: HyperIdleDb,
-	ids: readonly string[],
-	patch: NotificationQueuePatch,
-	onlyIfStatus?: string,
-): Promise<void> {
-	const where = onlyIfStatus
-		? and(inArray(notificationQueue.id, ids), eq(notificationQueue.status, onlyIfStatus))
-		: inArray(notificationQueue.id, ids);
-	await db.update(notificationQueue).set(patch).where(where);
-}
-
 /** `services/retention-reaper.ts` — age-based, terminal-status-only GC. Returns deleted ids. */
-export async function deleteReaped(
+async function deleteReaped(
 	db: HyperIdleDb,
 	cutoff: string,
 	statuses: readonly string[],
@@ -245,7 +196,7 @@ export async function deleteReaped(
  * behavior regression at the teams-routes.ts emit site. Cap now lives in the
  * public function so every caller gets it uniformly.
  */
-export const NOTIFICATION_QUEUE_CAP = 10_000;
+const NOTIFICATION_QUEUE_CAP = 10_000;
 
 /**
  * Discriminated filter for `listNotifications`. Each variant maps to one or
@@ -290,7 +241,7 @@ export interface NotificationPatch {
 }
 
 /** Options for the `enqueue` function. */
-export interface EnqueueOptions {
+interface EnqueueOptions {
 	/**
 	 * When set, checks for an existing `pending` row with matching
 	 * `eventType` + `subjectId` before inserting. If one exists, returns

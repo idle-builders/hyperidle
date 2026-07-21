@@ -1,6 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	flush,
+	deliver,
 	listNotifications,
 	markNotifications,
 	type NotificationAdapter,
@@ -9,9 +9,7 @@ import {
 	type NotificationsDeps,
 	readConfig,
 	readPreferences,
-	runDigest,
 	type SafeNotificationConfig,
-	sendTest,
 	updateConfig,
 	updatePreferences,
 } from "@hyperidle/notifications";
@@ -239,15 +237,27 @@ export function createNotificationRoutes(
 				return c.json(response, 429);
 			}
 			const channel = body.channel as NotificationChannel | undefined;
-			const result = await sendTest(db, channel, opts.deps, opts.adapterOverride);
-			if (!result.ok && result.error?.startsWith("recipient not configured")) {
+			const raw = await deliver(
+				db,
+				{ kind: "test", ...(channel !== undefined ? { channel } : {}) },
+				opts.deps,
+				opts.adapterOverride !== undefined ? { adapterOverride: opts.adapterOverride } : undefined,
+			);
+			if (raw.kind !== "test") return c.json({ error: "unexpected deliver kind" }, 500);
+			if (!raw.ok && raw.error?.startsWith("recipient not configured")) {
 				const response: ApiErrorResponse = {
-					error: result.error,
+					error: raw.error,
 					code: API_ERROR_CODES.VALIDATION_ERROR,
 				};
 				return c.json(response, 400);
 			}
-			return c.json(result);
+			return c.json({
+				ok: raw.ok,
+				channel: raw.channel,
+				sentAt: raw.sentAt,
+				error: raw.error,
+				retriable: raw.retriable,
+			});
 		},
 	);
 
@@ -291,14 +301,15 @@ export function createNotificationRoutes(
 		requireBoundary({ kind: "public-data" }),
 		validateBody(flushBodySchema),
 		async (c) => {
-			const result = await flush(db, opts.deps, {
+			const raw = await deliver(db, { kind: "flush" }, opts.deps, {
 				adapterOverride: opts.adapterOverride,
 				now: nowFn(),
 			});
-			if (result.disabled) {
+			if (raw.kind !== "flush") return c.json({ error: "unexpected deliver kind" }, 500);
+			if (raw.disabled) {
 				return c.json({ flushed: 0, failed: 0, reason: "disabled" });
 			}
-			return c.json(result);
+			return c.json({ flushed: raw.flushed, failed: raw.failed, deferred: raw.deferred });
 		},
 	);
 
@@ -307,11 +318,16 @@ export function createNotificationRoutes(
 		requireBoundary({ kind: "public-data" }),
 		validateBody(digestBodySchema),
 		async (c) => {
-			const result = await runDigest(db, opts.deps, {
+			const raw = await deliver(db, { kind: "digest" }, opts.deps, {
 				adapterOverride: opts.adapterOverride,
 				now: nowFn(),
 			});
-			return c.json(result);
+			if (raw.kind !== "digest") return c.json({ error: "unexpected deliver kind" }, 500);
+			return c.json({
+				status: raw.status,
+				notificationsIncluded: raw.notificationsIncluded,
+				...(raw.error !== undefined ? { error: raw.error } : {}),
+			});
 		},
 	);
 
