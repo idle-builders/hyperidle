@@ -9,9 +9,7 @@
  *
  * These tests FAIL until:
  *   - packages/shared exports DECOMPOSITION_TURN_TIMEOUT_MS, DecompositionTaskInput
- *   - packages/server/src/services/bet-decomposition.ts exports insertProposedBetTasks,
- *     findEligibleTeamAgents, runBetDecomposition, resolveOrphanedDecompositions
- *   - packages/server/src/services/bet-decomposition-subscriber.ts exports registerBetDecomposition
+ *   - the work Service exposes registerBetDecomposition as its decomposition entry
  */
 
 import { createAgentSelectionService } from "@hyperidle/agent-selection";
@@ -38,7 +36,7 @@ import {
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { findUser, listUsers } from "@hyperidle/users";
 import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
-import { runBetDecomposition } from "@hyperidle/work";
+import { registerBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { checkCostCap } from "../services/cost-bindings.js";
@@ -170,6 +168,27 @@ async function seedTeamWithAgent(
 	return { teamId, membershipId, agentId };
 }
 
+async function triggerBetDecomposition(
+	deps: BetDecompositionDeps,
+	betId: string,
+	until: () => void | Promise<void>,
+): Promise<void> {
+	const dispose = registerBetDecomposition(deps);
+	try {
+		deps.eventBus.emit({
+			type: "bet_state_changed",
+			streamId: betId,
+			betId,
+			fromState: "draft",
+			toState: "active",
+			timestamp: Date.now(),
+		});
+		await vi.waitFor(until);
+	} finally {
+		dispose();
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Type-level / pure-logic tests (no DB needed)
 // ---------------------------------------------------------------------------
@@ -273,7 +292,10 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 			// No runDecompositionTurn override — exercises the real PM path (runRealPmTurn).
 		};
 
-		await runBetDecomposition(deps, "bet-ac5");
+		await triggerBetDecomposition(deps, "bet-ac5", async () => {
+			const [bet] = await db.select().from(bets);
+			expect(bet?.decompositionStatus).toBe("running");
+		});
 
 		expect(select).not.toHaveBeenCalled();
 		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
@@ -348,7 +370,14 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 			} satisfies ResolvedModel),
 		};
 
-		await runBetDecomposition(deps, "bet-runtime-writeback");
+		await triggerBetDecomposition(deps, "bet-runtime-writeback", async () => {
+			const [bet] = await db
+				.select()
+				.from(bets)
+				.where(eq(bets.id, "bet-runtime-writeback"))
+				.limit(1);
+			expect(bet?.decompositionStatus).toBe("running");
+		});
 
 		expect(select).not.toHaveBeenCalled();
 		expect(executeAgentRunRequest).not.toHaveBeenCalled();
@@ -376,7 +405,7 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 			}),
 		);
 
-		await runBetDecomposition(
+		await triggerBetDecomposition(
 			{
 				db,
 				eventBus,
@@ -386,6 +415,10 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 				sandboxBasePath: "/tmp/ac5-test",
 			},
 			"bet-runtime-empty",
+			async () => {
+				const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-runtime-empty")).limit(1);
+				expect(bet?.decompositionStatus).toBe("running");
+			},
 		);
 
 		const taskRows = await db.select().from(tasks).where(eq(tasks.betId, "bet-runtime-empty"));

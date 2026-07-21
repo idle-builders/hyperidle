@@ -105,7 +105,7 @@ export async function transitionBet(
 	toState: BetStatus,
 	options?: TransitionOptions,
 ): Promise<void> {
-	const bet = await work.getBetById(db, betId);
+	const bet = await work.get(db, "bet", betId);
 	if (!bet) {
 		throw new Error(`Bet '${betId}' not found`);
 	}
@@ -138,7 +138,7 @@ export async function transitionBet(
 		options?.actor,
 	);
 
-	const updates: work.BetPatch = {
+	const updates: Partial<Pick<work.Bet, "status" | "revisionLog" | "completedAt">> = {
 		status: toState,
 		revisionLog: updatedLog,
 	};
@@ -178,9 +178,9 @@ export async function transitionBet(
 			}
 		}
 
-		const { applied } = await work.transitionBetStatus(tx, {
-			betId,
-			fromStatus: fromState,
+		const { applied } = await work.transition(tx, "bet", {
+			id: betId,
+			guard: { field: "status", equals: fromState },
 			patch: updates,
 		});
 
@@ -270,7 +270,7 @@ export async function updateBetField(
 		throw new Error(`Field '${field}' is not mutable on an active bet`);
 	}
 
-	const bet = await work.getBetById(db, betId);
+	const bet = await work.get(db, "bet", betId);
 	if (!bet) {
 		throw new Error(`Bet '${betId}' not found`);
 	}
@@ -298,10 +298,10 @@ export async function updateBetField(
 	// field name (validated against MUTABLE_FIELDS above); the value is always a plain string
 	// for these three text columns. Same cast shape as the pre-AU13
 	// `.set({ [columnKey]: newValue, ... } as Record<string, string>)`.
-	await work.updateBetById(db, betId, {
+	await work.update(db, "bet", betId, {
 		[columnKey]: newValue,
 		revisionLog: updatedLog,
-	} as work.BetPatch);
+	} as work.BetUpdatePatch);
 
 	// If done_condition changed, emit item_created for human review
 	if (field === "done_condition") {

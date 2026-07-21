@@ -23,8 +23,8 @@ import {
 import { getTeamMembers } from "@hyperidle/org";
 import { transitionProposedCall } from "@hyperidle/review";
 import { findUser, listUsers } from "@hyperidle/users";
-import type { WorkDeps } from "@hyperidle/work";
-import { checkAndUnblockDependents, insertProposedBetTasks } from "@hyperidle/work";
+import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
+import { checkAndUnblockDependents, registerBetDecomposition } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
 import { checkAndFireRoutine } from "../services/dispatch-bindings.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
@@ -44,8 +44,7 @@ const agentSelectionService = createAgentSelectionService({
 	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 });
 
-/** AU19 Increment 1b: `insertProposedBetTasks` now takes injected `agent-selection`/`session-requests` ports.
- * @lore AU20 Ab4: adapts `AgentSelectionService` to `AgentSelectionDefaults`; resolveDecompositionPlan inlined. */
+/** @lore AU20 Ab4: adapts `AgentSelectionService` to `AgentSelectionDefaults`; resolveDecompositionPlan inlined. */
 const agentSelection: WorkDeps["agentSelection"] = {
 	enumerateTeamCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
 	selectOwner: (occDeps, occasion) =>
@@ -66,6 +65,54 @@ const agentSelection: WorkDeps["agentSelection"] = {
 	},
 };
 const workIntents: WorkDeps["workIntents"] = { record: recordAgentWorkIntent };
+
+async function triggerDecomposition(
+	db: HyperIdleDb,
+	eventBus: BetDecompositionDeps["eventBus"],
+	taskInputs: readonly { title: string }[],
+	intentRecorder: WorkDeps["workIntents"] = workIntents,
+): Promise<void> {
+	const deps: BetDecompositionDeps = {
+		db,
+		eventBus,
+		agentSelection: {
+			...agentSelection,
+			resolveDecompositionPlan: async (input) => ({
+				decomposerAgentId: input.candidates[0]?.agentId ?? null,
+				tasks: [...taskInputs],
+			}),
+		},
+		users: {
+			getUserById: (exec, id) => findUser(exec, { id }),
+			listActiveAiUsersByTeams: (exec, teamIds) =>
+				listUsers(exec, { teamIds: [...teamIds], kind: "ai", status: "active" }),
+		},
+		teamCapacity: {
+			getByTeamId: (exec, teamId) => getTeamMembers(exec, { teamId }),
+			setActiveBets: async () => {},
+		},
+		costCap: { checkCostCap: async () => ({ allowed: true }) },
+		workIntents: intentRecorder,
+		sandboxBasePath: "/tmp/au9-production",
+	};
+	const dispose = registerBetDecomposition(deps);
+	try {
+		eventBus.emit({
+			type: "bet_state_changed",
+			streamId: "au9-production-bet",
+			betId: "au9-production-bet",
+			fromState: "draft",
+			toState: "active",
+			timestamp: Date.now(),
+		});
+		await vi.waitFor(async () => {
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "au9-production-bet"));
+			expect(["done", "blocked"]).toContain(bet?.decompositionStatus);
+		});
+	} finally {
+		dispose();
+	}
+}
 
 const authHeaders = {
 	"Content-Type": "application/json",
@@ -424,14 +471,8 @@ describe("atomic production handoffs", () => {
 	}) => {
 		await seedExplicitSessionAuthority(db);
 
-		const result = await insertProposedBetTasks(
-			{ db, eventBus, agentSelection, workIntents },
-			{ id: "au9-production-bet", teamId: "au9-production-team" },
-			[],
-			[{ title: "First slice" }, { title: "Second slice" }],
-		);
+		await triggerDecomposition(db, eventBus, [{ title: "First slice" }, { title: "Second slice" }]);
 
-		expect(result.created).toBe(2);
 		const createdTasks = await db.select().from(tasks).where(eq(tasks.betId, "au9-production-bet"));
 		const createdIds = createdTasks
 			.filter((task) => task.id !== "au9-production-task")
@@ -670,18 +711,18 @@ describe("atomic production handoffs", () => {
 		eventBus,
 	}) => {
 		await seedExplicitSessionAuthority(db);
-		await rejectIntentWrites(db);
-		await expect(
-			insertProposedBetTasks(
-				{ db, eventBus, agentSelection, workIntents },
-				{ id: "au9-production-bet", teamId: "au9-production-team" },
-				[],
-				[{ title: "Must be atomic" }],
-			),
-		).rejects.toThrow("AU9 injected intent write failure");
+		const failDispatchIntent: WorkDeps["workIntents"] = {
+			record: (exec, input) => {
+				if (input.kind === "task_run") {
+					throw new Error("AU9 injected intent write failure");
+				}
+				return recordAgentWorkIntent(exec, input);
+			},
+		};
+		await triggerDecomposition(db, eventBus, [{ title: "Must be atomic" }], failDispatchIntent);
 		const rows = await db.select().from(tasks).where(eq(tasks.betId, "au9-production-bet"));
 		expect(rows.map((row) => row.id)).toEqual(["au9-production-task"]);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
+		expect(await db.select().from(agentWorkIntents)).toHaveLength(1);
 	});
 
 	test("real proposed-call grant command records one replay-safe reengagement occasion", async ({

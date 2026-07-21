@@ -13,7 +13,7 @@
 import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { describe } from "vitest";
-import { appendTaskNote, getTaskById } from "../work-service.js";
+import { get, update } from "../work-service.js";
 
 /** Must match the separator defined in work-service.ts. */
 const NOTE_SEPARATOR = "\n\n---\n\n";
@@ -43,21 +43,23 @@ async function seedTask(db: HyperIdleDb, id: string): Promise<void> {
 describe("appendTaskNote", () => {
 	test("appends entry to empty notes and returns the task id", async ({ db }) => {
 		await seedTask(db, "ant-task-1");
-		const result = await appendTaskNote(
-			db,
-			"ant-task-1",
-			"[2026-01-01T00:00:00.000Z agent-1] first note",
-		);
+		const result = await update(db, "task", "ant-task-1", {
+			notes: { appendNote: "[2026-01-01T00:00:00.000Z agent-1] first note" },
+		});
 		expect(result).toEqual({ id: "ant-task-1" });
-		const task = await getTaskById(db, "ant-task-1");
+		const task = await get(db, "task", "ant-task-1");
 		expect(task?.notes).toBe("[2026-01-01T00:00:00.000Z agent-1] first note");
 	});
 
 	test("appends second entry separated by NOTE_SEPARATOR", async ({ db }) => {
 		await seedTask(db, "ant-task-2");
-		await appendTaskNote(db, "ant-task-2", "[2026-01-01T00:00:00.000Z agent-1] first note");
-		await appendTaskNote(db, "ant-task-2", "[2026-01-01T00:00:01.000Z agent-1] second note");
-		const task = await getTaskById(db, "ant-task-2");
+		await update(db, "task", "ant-task-2", {
+			notes: { appendNote: "[2026-01-01T00:00:00.000Z agent-1] first note" },
+		});
+		await update(db, "task", "ant-task-2", {
+			notes: { appendNote: "[2026-01-01T00:00:01.000Z agent-1] second note" },
+		});
+		const task = await get(db, "task", "ant-task-2");
 		expect(task?.notes).toBe(
 			`[2026-01-01T00:00:00.000Z agent-1] first note${NOTE_SEPARATOR}[2026-01-01T00:00:01.000Z agent-1] second note`,
 		);
@@ -71,17 +73,23 @@ describe("appendTaskNote", () => {
 		// so the second write clobbers the first. The atomic CASE UPDATE prevents
 		// that by concatenating inside a single SQL statement.
 		await Promise.all([
-			appendTaskNote(db, "ant-task-3", "[2026-01-01T00:00:00.000Z agent-1] note-alpha"),
-			appendTaskNote(db, "ant-task-3", "[2026-01-01T00:00:00.001Z agent-2] note-beta"),
+			update(db, "task", "ant-task-3", {
+				notes: { appendNote: "[2026-01-01T00:00:00.000Z agent-1] note-alpha" },
+			}),
+			update(db, "task", "ant-task-3", {
+				notes: { appendNote: "[2026-01-01T00:00:00.001Z agent-2] note-beta" },
+			}),
 		]);
 
-		const task = await getTaskById(db, "ant-task-3");
+		const task = await get(db, "task", "ant-task-3");
 		expect(task?.notes).toContain("note-alpha");
 		expect(task?.notes).toContain("note-beta");
 	});
 
 	test("returns undefined when the task does not exist", async ({ db }) => {
-		const result = await appendTaskNote(db, "nonexistent-task-id", "[ts agent] note");
+		const result = await update(db, "task", "nonexistent-task-id", {
+			notes: { appendNote: "[ts agent] note" },
+		});
 		expect(result).toBeUndefined();
 	});
 });

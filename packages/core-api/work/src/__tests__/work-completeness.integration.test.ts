@@ -1,15 +1,7 @@
 /** AU20 Stage 1: consumer-demand completeness contract for the work service. */
 import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import {
-	claimBetDecomposition,
-	create,
-	get,
-	list,
-	listItemIdsBySourceAgent,
-	transition,
-	update,
-} from "../work-service.js";
+import { create, get, list, transition, update } from "../work-service.js";
 
 async function seedWork(
 	db: HyperIdleDb,
@@ -86,10 +78,18 @@ describe("work completeness contract", () => {
 	}) => {
 		const { betId } = await seedWork(db, "claim");
 		const results = await Promise.all([
-			claimBetDecomposition(db, betId),
-			claimBetDecomposition(db, betId),
+			transition(db, "bet", {
+				id: betId,
+				guard: { field: "decompositionStatus", isNull: true },
+				patch: { decompositionStatus: "running" },
+			}),
+			transition(db, "bet", {
+				id: betId,
+				guard: { field: "decompositionStatus", isNull: true },
+				patch: { decompositionStatus: "running" },
+			}),
 		]);
-		expect(results.filter((result) => result.claimed)).toHaveLength(1);
+		expect(results.filter((result) => result.applied)).toHaveLength(1);
 		expect((await get(db, "bet", betId))?.decompositionStatus).toBe("running");
 		const secondGuard = await transition(db, "bet", {
 			id: betId,
@@ -115,10 +115,6 @@ describe("work completeness contract", () => {
 				createdAt: "2026-07-21T00:00:00.000Z",
 			});
 		}
-		expect((await listItemIdsBySourceAgent(db, first.agentId)).sort()).toEqual([
-			"source-item-1",
-			"source-item-2",
-		]);
 		expect(
 			(await list(db, "item", { sourceAgentId: first.agentId })).map((item) => item.id).sort(),
 		).toEqual(["source-item-1", "source-item-2"]);

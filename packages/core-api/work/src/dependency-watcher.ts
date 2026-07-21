@@ -1,8 +1,8 @@
-import { escapeLikePattern, type WriteExecutor } from "@hyperidle/db";
+import type { WriteExecutor } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import type { AgentWorkIntentRecorder } from "./ports.js";
 import { transitionTask } from "./task-state-machine.js";
-import { getTaskById, listHoldTasksWithDependencyPattern } from "./work-service.js";
+import { get, list } from "./work-service.js";
 
 const logger = createLogger({ pkg: "work.dependency-watcher" });
 
@@ -42,9 +42,7 @@ export async function checkAndUnblockDependents(
 	// SQL pre-filter: hold-state tasks whose dependencies include the literal
 	// quoted completedTaskId. The LIKE pattern wraps the id in JSON quotes
 	// so substrings of unrelated IDs ("dep-1" vs "dep-12") don't match.
-	const escapedId = escapeLikePattern(completedTaskId);
-	const pattern = `%"${escapedId}"%`;
-	const candidates = await listHoldTasksWithDependencyPattern(db, pattern);
+	const candidates = await list(db, "task", { dependencyId: completedTaskId });
 
 	for (const task of candidates) {
 		if (!task.dependencies) continue;
@@ -80,7 +78,7 @@ export async function checkAndUnblockDependents(
 		// Check if ALL dependencies are done.
 		let allDone = true;
 		for (const depId of deplist) {
-			const dep = await getTaskById(db, depId);
+			const dep = await get(db, "task", depId);
 			if (dep?.state !== "done") {
 				allDone = false;
 				break;

@@ -122,9 +122,9 @@ import type { EventBus, UserRole } from "@hyperidle/shared";
  * `task-state-machine.ts`). Narrower than session-requests' full
  * `AgentWorkIntentKind` union — `work` only ever writes these two.
  */
-export type WorkAgentWorkIntentKind = "bet_decomposition" | "task_run";
+type WorkAgentWorkIntentKind = "bet_decomposition" | "task_run";
 
-export interface WorkAgentWorkIntentInput {
+interface WorkAgentWorkIntentInput {
 	readonly kind: WorkAgentWorkIntentKind;
 	readonly sourceKind: string;
 	readonly sourceId: string;
@@ -132,13 +132,13 @@ export interface WorkAgentWorkIntentInput {
 	readonly idempotencyKey: string;
 }
 
-export interface WorkAgentWorkIntentRecord {
+interface WorkAgentWorkIntentRecord {
 	readonly id: string;
 	readonly idempotencyKey: string;
 }
 
 /** Port for `session-requests`' durable `agent_work_intents` writer (Mechanism C). */
-export interface AgentWorkIntentRecorder {
+interface AgentWorkIntentRecorder {
 	record(tx: WriteExecutor, input: WorkAgentWorkIntentInput): Promise<WorkAgentWorkIntentRecord>;
 }
 
@@ -146,17 +146,17 @@ export interface AgentWorkIntentRecorder {
 // agent-selection — AgentSelectionDefaults (§10.3 against-grain — Inc 3 rewires to EventBus)
 // ---------------------------------------------------------------------------
 
-export interface WorkSelectionCandidate {
+interface WorkSelectionCandidate {
 	readonly agentId: string;
 	readonly role: UserRole;
 }
 
-export interface WorkDecompositionPlan {
+interface WorkDecompositionPlan {
 	readonly decomposerAgentId: string | null;
 	readonly tasks: readonly import("@hyperidle/shared").DecompositionTaskInput[];
 }
 
-export interface ResolveDecompositionPlanInput {
+interface ResolveDecompositionPlanInput {
 	readonly db: WriteExecutor;
 	readonly teamId: string;
 	readonly betId: string;
@@ -165,7 +165,7 @@ export interface ResolveDecompositionPlanInput {
 	readonly candidates: readonly WorkSelectionCandidate[];
 }
 
-export interface SelectOwnerOccasion {
+interface SelectOwnerOccasion {
 	readonly surface: "bet_task" | "bet_decomposer";
 	readonly teamId: string;
 	readonly workKey: string;
@@ -179,7 +179,7 @@ export interface SelectOwnerOccasion {
  * `resolveDecompositionPlan` from `agent-defaults/resolvers.ts`) — all three
  * are agent-selection's seed files per architecture §4.
  */
-export interface AgentSelectionDefaults {
+interface AgentSelectionDefaults {
 	enumerateTeamCandidates(
 		db: WriteExecutor,
 		teamId: string,
@@ -196,20 +196,20 @@ export interface AgentSelectionDefaults {
 // synchronous read-then-branch control flow; see top `@lore`)
 // ---------------------------------------------------------------------------
 
-export interface WorkCostCapResult {
+interface WorkCostCapResult {
 	readonly allowed: boolean;
 	readonly level?: "agent" | "team" | "factory";
 	readonly currentSpend?: number;
 	readonly cap?: number;
 }
 
-export interface WorkCheckCostCapParams {
+interface WorkCheckCostCapParams {
 	readonly agentId: string;
 	readonly teamId?: string;
 }
 
 /** Port for `cost`'s pre-flight budget check (`checkCostCap`, Mechanism C). */
-export interface CostCapChecker {
+interface CostCapChecker {
 	checkCostCap(
 		db: WriteExecutor,
 		eventBus: EventBus,
@@ -221,7 +221,7 @@ export interface CostCapChecker {
 // users — UserStoreReader (ordinary downward core-api edge, NOT against-grain)
 // ---------------------------------------------------------------------------
 
-export interface WorkUserRow {
+interface WorkUserRow {
 	readonly id: string;
 	readonly kind: string;
 	readonly status: string;
@@ -238,7 +238,7 @@ export interface WorkUserRow {
  * forward-reference to `packages/server`'s (now-deleted) `user-store.ts`
  * copy; the DI port abstraction itself is unchanged (zero behavior change).
  */
-export interface UserStoreReader {
+interface UserStoreReader {
 	getUserById(db: WriteExecutor, id: string): Promise<WorkUserRow | undefined>;
 	listActiveAiUsersByTeams(
 		db: WriteExecutor,
@@ -265,7 +265,7 @@ export interface UserStoreReader {
  * `teamMembers.id` to the write side. `bet-state-machine.ts` passes
  * `freshMemberGroup.teamId` instead of `freshMemberGroup.id` unchanged in semantics.
  */
-export interface TeamCapacityReader {
+interface TeamCapacityReader {
 	getByTeamId(db: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
 	setActiveBets(db: WriteExecutor, teamId: string, activeBets: number): Promise<void>;
 }
@@ -298,3 +298,13 @@ export interface WorkDeps {
 	/** Injected `session-requests` port (§10.3 against-grain — RULED PERMANENT). */
 	readonly workIntents: AgentWorkIntentRecorder;
 }
+
+export type {
+	AgentSelectionDefaults,
+	AgentWorkIntentRecorder,
+	CostCapChecker,
+	TeamCapacityReader,
+	UserStoreReader,
+	WorkDecompositionPlan,
+	WorkUserRow,
+};

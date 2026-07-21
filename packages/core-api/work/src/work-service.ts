@@ -1,5 +1,5 @@
 /**
- * AU13: Work service — the only module permitted to read or write `bets`,
+ * Work service: one repository vocabulary for all owned work entities.
  * `tasks`, `items`. Every write call site enumerated in
  * `.pipeline/plans/AU13.md` §4a-§4c, and every read call site enumerated in
  * the read-ownership addendum §A3, routes through one of these functions
@@ -52,370 +52,24 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
 
 export type Bet = typeof bets.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type Item = typeof items.$inferSelect;
 
-/** `NewBet` widened so a patch field may carry a raw `SQL` fragment (cost-cap.ts's atomic `coalesce(...)` accumulation). */
-export type BetPatch = { [K in keyof NewBet]?: NewBet[K] | SQL };
+/** Internal raw update shapes. Consumers use the operator-aware generic patches. */
+type BetPatch = { [K in keyof NewBet]?: NewBet[K] | SQL };
 /** `NewTask` widened so a patch field may carry a raw `SQL` fragment. */
-export type TaskPatch = { [K in keyof NewTask]?: NewTask[K] | SQL };
+type TaskPatch = { [K in keyof NewTask]?: NewTask[K] | SQL };
 /** `NewItem` widened so a patch field may carry a raw `SQL` fragment. */
-export type ItemPatch = { [K in keyof NewItem]?: NewItem[K] | SQL };
-
-// ---------------------------------------------------------------------------
-// bets
-// ---------------------------------------------------------------------------
-
-export async function updateBetById(
-	exec: WriteExecutor,
-	id: string,
-	patch: BetPatch,
-): Promise<void> {
-	await exec.update(bets).set(patch).where(eq(bets.id, id));
-}
-
-export interface TransitionBetStatusArgs {
-	readonly betId: string;
-	readonly fromStatus: string;
-	readonly patch: BetPatch;
-}
-
-/**
- * Guarded CAS status transition: `where(and(eq(id), eq(status, fromStatus)))
- * .returning({id})`. Returns `{applied}` — never throws itself. Callers
- * (`bet-state-machine.ts`, `lifecycle-propagation.ts`) throw their own
- * (different) error type when `applied` is false — preserved at the call
- * site, not duplicated here.
- */
-export async function transitionBetStatus(
-	exec: WriteExecutor,
-	args: TransitionBetStatusArgs,
-): Promise<{ applied: boolean }> {
-	const rows = await exec
-		.update(bets)
-		.set(args.patch)
-		.where(and(eq(bets.id, args.betId), eq(bets.status, args.fromStatus)))
-		.returning({ id: bets.id });
-	return { applied: rows.length > 0 };
-}
-
-/**
- * Boot-time crash-recovery bulk sweep (bet-decomposition.ts's
- * `resolveOrphanedDecompositions`): every bet with `decompositionStatus =
- * "running"` is an orphan (the in-process turn died with a prior process) —
- * flip all of them to blocked/failed in one statement. Returns the affected
- * row count.
- *
- * @lore AU13 CONFUSION: the architecture plan (§4a) classified this call
- * site as a plain `updateBetById` (by-id) mechanic. The real code
- * (`bet-decomposition.ts` pre-migration) updates ALL rows matching
- * `decompositionStatus = "running"` — a bulk sweep, not addressed by id.
- * That is a distinct mechanic (no id, `.returning()` used only to count
- * affected rows, not to guard/throw), so it gets its own named function per
- * §5.3's synthesis rule rather than being forced through `updateBetById`.
- */
-export async function resolveOrphanedBetDecompositions(exec: WriteExecutor): Promise<number> {
-	const result = await exec
-		.update(bets)
-		.set({ decompositionStatus: "blocked", decompositionBlockerReason: "failed" })
-		.where(eq(bets.decompositionStatus, "running"))
-		.returning({ id: bets.id });
-	return result.length;
-}
-
-/**
- * Guarded claim (NULL -> "running"): `where(and(eq(id),
- * isNull(decompositionStatus))).returning({id})`. Returns `{claimed}` — the
- * caller (`bet-decomposition.ts`) early-returns (no throw) when the claim is
- * lost to a concurrent decomposition attempt on the same bet.
- *
- * @lore AU13 CONFUSION: the architecture plan (§4a) classified
- * `bet-decomposition.ts:425` as a plain `updateBetById` (by-id) mechanic.
- * The real code guards on `isNull(decompositionStatus)` with `.returning()`
- * used to detect claim success — a genuinely different mechanic from a
- * plain field-set update, so it gets its own named function per §5.3's
- * synthesis rule (mirrors `updateBetDecompositionStatusIfRunning`'s guard
- * shape, but this one needs `.returning()` because the caller branches on
- * claim success instead of firing a silent no-op).
- */
-export async function claimBetDecomposition(
-	exec: WriteExecutor,
-	betId: string,
-): Promise<{ claimed: boolean }> {
-	const rows = await exec
-		.update(bets)
-		.set({ decompositionStatus: "running" })
-		.where(and(eq(bets.id, betId), isNull(bets.decompositionStatus)))
-		.returning({ id: bets.id });
-	return { claimed: rows.length > 0 };
-}
+type ItemPatch = { [K in keyof NewItem]?: NewItem[K] | SQL };
 
 // ---------------------------------------------------------------------------
 // tasks
 // ---------------------------------------------------------------------------
 
 const NOTE_SEPARATOR = "\n\n---\n\n";
-
-/**
- * Atomically appends `entry` to `tasks.notes`, separated by {@link NOTE_SEPARATOR},
- * using a single UPDATE with a SQL CASE expression that references the live
- * column value — no pre-read, no CAS, no lost-update race.
- *
- * Mirrors `incrementBetCost`'s atomic-write idiom (sql`coalesce(...)` accumulation
- * in one UPDATE). Returns `{ id }` when the row exists and was updated, `undefined`
- * when no row matches (task not found).
- *
- * @lore AU20 I0a: the old `log_task` path did getTaskById → concat in memory →
- * updateTaskById. Two concurrent callers both read notes=null, then the second
- * write clobbered the first. Proven red by the integration test's Promise.all
- * concurrency probe before this fix landed. The SQL CASE runs the concatenation
- * inside the DB engine atomically, so concurrent callers see each other's writes.
- */
-export async function appendTaskNote(
-	exec: WriteExecutor,
-	taskId: string,
-	entry: string,
-): Promise<{ id: string } | undefined> {
-	const now = new Date().toISOString();
-	const rows = await exec
-		.update(tasks)
-		.set({
-			notes: sql`CASE WHEN ${tasks.notes} IS NULL OR ${tasks.notes} = '' THEN ${entry} ELSE ${tasks.notes} || ${NOTE_SEPARATOR} || ${entry} END`,
-			updatedAt: now,
-		})
-		.where(eq(tasks.id, taskId))
-		.returning({ id: tasks.id });
-	return rows[0];
-}
-
-export async function createTask(exec: WriteExecutor, values: NewTask): Promise<void> {
-	await exec.insert(tasks).values(values);
-}
-
-export interface TransitionTaskStateArgs {
-	readonly taskId: string;
-	readonly fromState: string;
-	readonly patch: TaskPatch;
-}
-
-/**
- * Guarded CAS state transition: `where(and(eq(id), eq(state, fromState)))
- * .returning({id})`. Returns `{applied}` — never throws itself. Callers
- * (`task-state-machine.ts`, `lifecycle-propagation.ts`) throw their own
- * error on `!applied`.
- */
-export async function transitionTaskState(
-	exec: WriteExecutor,
-	args: TransitionTaskStateArgs,
-): Promise<{ applied: boolean }> {
-	const rows = await exec
-		.update(tasks)
-		.set(args.patch)
-		.where(and(eq(tasks.id, args.taskId), eq(tasks.state, args.fromState)))
-		.returning({ id: tasks.id });
-	return { applied: rows.length > 0 };
-}
-
-// ---------------------------------------------------------------------------
-// items
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// reads — bets
-// ---------------------------------------------------------------------------
-
-/** Full-row get-by-id. Collapses ~31 sites (plan addendum §A3). */
-export async function getBetById(exec: WriteExecutor, id: string): Promise<Bet | undefined> {
-	const [row] = await exec.select().from(bets).where(eq(bets.id, id)).limit(1);
-	return row;
-}
-
-/**
- * `routes/bets.ts:370,396` — unfiltered list; optional limit/offset for the
- * paginated `GET /bets` route (`bets.ts:396`'s canvas route passes no opts —
- * every row). Both `limit` and `offset` are always supplied together at the
- * one call site that uses them, so a paired branch (rather than a fully
- * dynamic builder) mirrors the real shapes exactly.
- */
-export async function listBets(
-	exec: WriteExecutor,
-	opts?: { limit?: number; offset?: number },
-): Promise<Bet[]> {
-	if (opts?.limit !== undefined && opts?.offset !== undefined) {
-		return exec.select().from(bets).limit(opts.limit).offset(opts.offset);
-	}
-	return exec.select().from(bets);
-}
-
-/**
- * `teams-routes.ts:230-233,885` — bets scoped to a team + status, exact
- * predicate `and(eq(bets.teamId, teamId), eq(bets.status, status))`.
- */
-export async function listBetsByTeamAndStatus(
-	exec: WriteExecutor,
-	teamId: string,
-	status: string,
-): Promise<Bet[]> {
-	return exec
-		.select()
-		.from(bets)
-		.where(and(eq(bets.teamId, teamId), eq(bets.status, status)));
-}
-
-/**
- * `teams-routes.ts:215,221` — exact predicate
- * `and(eq(bets.teamId, teamId), eq(bets.status, status))`, count only.
- */
-export async function countBetsByTeamAndStatus(
-	exec: WriteExecutor,
-	teamId: string,
-	status: string,
-): Promise<number> {
-	const [row] = await exec
-		.select({ count: sql<number>`count(*)` })
-		.from(bets)
-		.where(and(eq(bets.teamId, teamId), eq(bets.status, status)));
-	return Number(row?.count ?? 0);
-}
-
-/**
- * `routes/threads.ts:428` (`resolveThreadTitles` batched title resolver) —
- * `where(inArray(bets.id, ids))`. Mirrors `listTasksByIds`'s empty-ids
- * short-circuit (an empty `inArray` errors in some dialects).
- */
-export async function listBetsByIds(exec: WriteExecutor, ids: readonly string[]): Promise<Bet[]> {
-	if (ids.length === 0) return [];
-	return exec
-		.select()
-		.from(bets)
-		.where(inArray(bets.id, Array.from(ids)));
-}
-
-/**
- * `routes/search.ts` global search — bets-primary text search across
- * description/hypothesis/doneCondition, ranked by prefix/substring match on
- * `description`, ordered `matchRank ASC, createdAt DESC, id ASC`.
- *
- * @lore AU13 CONFUSION: the real site also `.innerJoin(teams, …)` for the
- * team name. Routing the join in would require a THIRD foreign-table import
- * (past the two-function ceiling — addendum §A2/§A9). Resolved instead by
- * keeping this function bets-only (no foreign import) and having the caller
- * (`routes/search.ts`) do a SEPARATE `teams` lookup for the returned bet ids.
- * Same result set, same order, same values — only the SQL mechanics (JOIN
- * vs. app-level map) differ, which is unobservable to the caller.
- *
- * @lore AU19 Increment 3 (teams table-ownership remediation, 2026-07-15
- * founder ruling): the above previously read "`teams` is not one of the five
- * owned tables, so any file may query it directly without going through a
- * service" — WRONG, `teams` IS `org`-owned (architecture.md §4 line 69).
- * `routes/search.ts`'s separate lookup now calls `@hyperidle/org`'s
- * `listTeamsByIds` instead of a direct `@hyperidle/db` query; this function
- * itself never imported `teams` and needed no code change.
- */
-export async function searchBetsByText(
-	exec: WriteExecutor,
-	opts: { readonly pattern: string; readonly query: string; readonly limit: number },
-): Promise<Bet[]> {
-	const matchRankExpr = sql<number>`CASE
-		WHEN ${bets.description} ILIKE ${`${opts.query}%`} ESCAPE '\\' THEN 0
-		WHEN ${bets.description} ILIKE ${`% ${opts.query}%`} ESCAPE '\\' THEN 1
-		ELSE 2
-	END`;
-	return exec
-		.select()
-		.from(bets)
-		.where(
-			or(
-				sql`${bets.description} ILIKE ${opts.pattern} ESCAPE '\\'`,
-				sql`${bets.hypothesis} ILIKE ${opts.pattern} ESCAPE '\\'`,
-				sql`${bets.doneCondition} ILIKE ${opts.pattern} ESCAPE '\\'`,
-			),
-		)
-		.orderBy(matchRankExpr, desc(bets.createdAt), bets.id)
-		.limit(opts.limit);
-}
-
-// ---------------------------------------------------------------------------
-// reads — tasks
-// ---------------------------------------------------------------------------
-
-/** Full-row get-by-id. Collapses ~22 sites (plan addendum §A3). */
-export async function getTaskById(exec: WriteExecutor, id: string): Promise<Task | undefined> {
-	const [row] = await exec.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-	return row;
-}
-
-export interface ListTasksOpts {
-	readonly betId?: string;
-	readonly state?: string;
-	readonly ownerAgentId?: string;
-	/** `routes/artifacts.ts` axis="product" — teamId filter, AND-composed like the others. */
-	readonly teamId?: string;
-	/**
-	 * `routes/artifacts.ts` axis="bet"/"product" — Sec-MED-4 fan-out cap
-	 * (`MAX_TASK_ID_FANOUT + 1`). Optional, SQL-level `.limit()` — omitted for
-	 * every other call site (unbounded, matching current behavior).
-	 */
-	readonly limit?: number;
-}
-
-/**
- * `routes/tasks.ts:96-112` (+ every `.from(tasks).where(eq(betId,…))` loop
- * site) — AND-composed over only the provided keys, exactly reproducing
- * `routes/tasks.ts`'s `conditions.push(...)` then `and(...conditions)`.
- * Omitted keys add no predicate; `opts` undefined/`{}` → unfiltered
- * `.from(tasks)`. No OR path exists today — do not add one.
- */
-export async function listTasks(exec: WriteExecutor, opts?: ListTasksOpts): Promise<Task[]> {
-	const conditions = [];
-	if (opts?.betId !== undefined) conditions.push(eq(tasks.betId, opts.betId));
-	if (opts?.state !== undefined) conditions.push(eq(tasks.state, opts.state));
-	if (opts?.ownerAgentId !== undefined) conditions.push(eq(tasks.ownerAgentId, opts.ownerAgentId));
-	if (opts?.teamId !== undefined) conditions.push(eq(tasks.teamId, opts.teamId));
-	const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-	const query =
-		whereClause === undefined
-			? exec.select().from(tasks)
-			: exec.select().from(tasks).where(whereClause);
-	return opts?.limit !== undefined ? query.limit(opts.limit) : query;
-}
-
-/**
- * `dependency-watcher.ts:36-39` — hold-state tasks whose `dependencies` JSON
- * text column contains the caller-escaped, JSON-quoted dependency id.
- * Distinct mechanic (LIKE pre-filter, not an `eq` predicate) — doesn't fit
- * `listTasks`'s AND-composed opts, so it gets its own named function per
- * plan §5.3's synthesis rule. `likePattern` is pre-escaped by the caller
- * (`escapeLikePattern`) — this function does not escape it again.
- */
-export async function listHoldTasksWithDependencyPattern(
-	exec: WriteExecutor,
-	likePattern: string,
-): Promise<Task[]> {
-	return exec
-		.select()
-		.from(tasks)
-		.where(
-			and(eq(tasks.state, "hold"), sql`${tasks.dependencies} LIKE ${likePattern} ESCAPE '\\'`),
-		);
-}
-
-/**
- * `agent-profile.ts:280` / `threads.ts:434` — `where(inArray(tasks.id, ids))`.
- * Empty `ids` → return `[]` WITHOUT querying (matches the callers'
- * length-guard; an empty `inArray` errors in some dialects — same guard as
- * `listBetsByIds`).
- */
-export async function listTasksByIds(exec: WriteExecutor, ids: readonly string[]): Promise<Task[]> {
-	if (ids.length === 0) return [];
-	return exec
-		.select()
-		.from(tasks)
-		.where(inArray(tasks.id, Array.from(ids)));
-}
 
 /**
  * `routes/bets.ts:461-496` — the bet-detail route's per-task correlated
@@ -446,128 +100,6 @@ export interface BetTaskWithLatestSessionOutcome {
 	readonly outcomeRecordedAt: string | null;
 }
 
-export async function listBetTasksWithLatestSessionOutcome(
-	exec: WriteExecutor,
-	betId: string,
-): Promise<BetTaskWithLatestSessionOutcome[]> {
-	const outerTaskId = sql`${sql.identifier("tasks")}.${sql.identifier("id")}`;
-	return exec
-		.select({
-			id: tasks.id,
-			betId: tasks.betId,
-			teamId: tasks.teamId,
-			ownerAgentId: tasks.ownerAgentId,
-			title: tasks.title,
-			description: tasks.description,
-			doneCondition: tasks.doneCondition,
-			state: tasks.state,
-			dependencies: tasks.dependencies,
-			artifacts: tasks.artifacts,
-			costCap: tasks.costCap,
-			costActual: tasks.costActual,
-			threadId: tasks.threadId,
-			notes: tasks.notes,
-			auditTrail: tasks.auditTrail,
-			createdAt: tasks.createdAt,
-			updatedAt: tasks.updatedAt,
-			latestSessionOutcome: sql<
-				string | null
-			>`(SELECT ${sessions.outcome} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-				"latest_session_outcome",
-			),
-			outcomeVerdict: tasks.outcomeVerdict,
-			outcomeRecordedAt: tasks.outcomeRecordedAt,
-		})
-		.from(tasks)
-		.where(eq(tasks.betId, betId));
-}
-
-// ---------------------------------------------------------------------------
-// reads — items
-// ---------------------------------------------------------------------------
-
-/** Full-row get-by-id. `policy-engine.ts:57,154,197`; `conversations.ts:191`; `route-item.ts:37`; `score-attention.ts:137`. */
-export async function getItemById(exec: WriteExecutor, id: string): Promise<Item | undefined> {
-	const [row] = await exec.select().from(items).where(eq(items.id, id)).limit(1);
-	return row;
-}
-
-/** `conversations.ts:127-131` — items for a thread, ordered `createdAt` ascending. */
-export async function listItemsByThread(exec: WriteExecutor, threadId: string): Promise<Item[]> {
-	return exec.select().from(items).where(eq(items.threadId, threadId)).orderBy(items.createdAt);
-}
-
-/**
- * `daily-digest.ts:32-35` — items whose `auditTrail` mentions
- * `policy_queued` and were created on/after `cutoff`.
- */
-export async function listQueuedItemsSince(exec: WriteExecutor, cutoff: string): Promise<Item[]> {
-	return exec
-		.select()
-		.from(items)
-		.where(and(like(items.auditTrail, "%policy_queued%"), sql`${items.createdAt} >= ${cutoff}`));
-}
-
-/**
- * `attention-service.ts:230-234` (tx-scoped) — existence probe for the
- * idempotency marker embedded in `items.reasoning`.
- */
-export async function findItemByReasoningMarker(
-	exec: WriteExecutor,
-	marker: string,
-): Promise<{ id: string } | undefined> {
-	const [row] = await exec
-		.select({ id: items.id })
-		.from(items)
-		.where(like(items.reasoning, `%${marker}%`))
-		.limit(1);
-	return row;
-}
-
-/**
- * `builtin-routine-handlers.ts` (`runPostBetRetro` dedupe probe) — does a retro
- * item already exist for any of the bet's threads, matching the body marker?
- * Items-only (`.from(items)`, no `threads` join): the caller resolves the bet's
- * thread ids via conversation-store (Conversation owns `threads`) and passes
- * them in. Decomposed from a former `items ⋈ threads` join to avoid a
- * cross-owned-table read, per founder ruling (2026-07-12): zero exceptions for
- * cross-service table access.
- */
-export async function findRetroItemByThreadIds(
-	exec: WriteExecutor,
-	threadIds: string[],
-	marker: string,
-): Promise<{ id: string } | undefined> {
-	if (threadIds.length === 0) {
-		return undefined;
-	}
-	const [row] = await exec
-		.select({ id: items.id })
-		.from(items)
-		.where(and(inArray(items.threadId, threadIds), like(items.body, `%${marker}%`)))
-		.limit(1);
-	return row;
-}
-
-/**
- * `approval-rate.ts` (Path 1 attribution) — the ids of items authored by
- * `sourceAgentId`. Items-only owned read; approval-rate then resolves the
- * matching verdict messages via conversation-store, so neither the Work-owned
- * `items` nor the Conversation-owned `messages` is read from the other's
- * service (no cross-owner join, per founder ruling 2026-07-12: cross-owned-table
- * reads route through the owner).
- */
-export async function listItemIdsBySourceAgent(
-	exec: WriteExecutor,
-	sourceAgentId: string,
-): Promise<string[]> {
-	const rows = await exec
-		.select({ id: items.id })
-		.from(items)
-		.where(eq(items.sourceAgentId, sourceAgentId));
-	return rows.map((r) => r.id);
-}
-
 // ---------------------------------------------------------------------------
 // General primitives: get() and list()
 //
@@ -588,18 +120,12 @@ import type {
 	ArtifactWithTaskTitle,
 	CreateArtifactInput,
 } from "./artifact-store.js";
-import {
-	getArtifactById as getArtifactByIdStore,
-	getArtifactWithTaskTitleById as getArtifactWithTaskTitleByIdStore,
-	listArtifactSummariesByTaskIds as listArtifactSummariesByTaskIdsStore,
-	listArtifactsPage as listArtifactsPageStore,
-} from "./artifact-store.js";
 
 /** Discriminant union of all work-owned entity kinds. */
 export type WorkEntity = "bet" | "task" | "item" | "artifact";
 
 /** Maps each entity discriminant to its plain (non-joined) row type. */
-export interface WorkEntityRowMap {
+interface WorkEntityRowMap {
 	bet: Bet;
 	task: Task;
 	item: Item;
@@ -639,6 +165,7 @@ export interface WorkFilter {
 	state?: string;
 	betId?: string;
 	ownerAgentId?: string;
+	dependencyId?: string;
 	// item-specific
 	threadId?: string;
 	threadIds?: readonly string[];
@@ -676,15 +203,29 @@ export async function get(
 	opts?: { include?: string },
 ): Promise<unknown> {
 	switch (entity) {
-		case "bet":
-			return getBetById(exec, id);
-		case "task":
-			return getTaskById(exec, id);
-		case "item":
-			return getItemById(exec, id);
+		case "bet": {
+			const [row] = await exec.select().from(bets).where(eq(bets.id, id)).limit(1);
+			return row;
+		}
+		case "task": {
+			const [row] = await exec.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+			return row;
+		}
+		case "item": {
+			const [row] = await exec.select().from(items).where(eq(items.id, id)).limit(1);
+			return row;
+		}
 		case "artifact":
-			if (opts?.include === "taskTitle") return getArtifactWithTaskTitleByIdStore(exec, id);
-			return getArtifactByIdStore(exec, id);
+			if (opts?.include === "taskTitle") {
+				const [row] = await exec
+					.select({ artifact: artifacts, taskTitle: tasks.title })
+					.from(artifacts)
+					.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
+					.where(eq(artifacts.id, id))
+					.limit(1);
+				return row;
+			}
+			return (await exec.select().from(artifacts).where(eq(artifacts.id, id)).limit(1))[0];
 	}
 }
 
@@ -764,17 +305,72 @@ export async function list(
 
 	// ── enriched includes ────────────────────────────────────────────────────
 	if (entity === "task" && f.include === "latestSessionOutcome") {
-		return listBetTasksWithLatestSessionOutcome(exec, f.betId ?? "");
+		const outerTaskId = sql`${sql.identifier("tasks")}.${sql.identifier("id")}`;
+		return exec
+			.select({
+				id: tasks.id,
+				betId: tasks.betId,
+				teamId: tasks.teamId,
+				ownerAgentId: tasks.ownerAgentId,
+				title: tasks.title,
+				description: tasks.description,
+				doneCondition: tasks.doneCondition,
+				state: tasks.state,
+				dependencies: tasks.dependencies,
+				artifacts: tasks.artifacts,
+				costCap: tasks.costCap,
+				costActual: tasks.costActual,
+				threadId: tasks.threadId,
+				notes: tasks.notes,
+				auditTrail: tasks.auditTrail,
+				createdAt: tasks.createdAt,
+				updatedAt: tasks.updatedAt,
+				latestSessionOutcome: sql<
+					string | null
+				>`(SELECT ${sessions.outcome} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
+					"latest_session_outcome",
+				),
+				outcomeVerdict: tasks.outcomeVerdict,
+				outcomeRecordedAt: tasks.outcomeRecordedAt,
+			})
+			.from(tasks)
+			.where(eq(tasks.betId, f.betId ?? ""));
 	}
 	if (entity === "artifact" && f.include === "taskTitle") {
-		return listArtifactsPageStore(exec, {
-			taskIds: f.taskIds ?? null,
-			cursor: f.cursor ?? null,
-			limit: f.limit ?? 50,
-		});
+		if (f.taskIds !== null && f.taskIds !== undefined && f.taskIds.length === 0) return [];
+		const conditions = [];
+		if (f.taskIds !== null && f.taskIds !== undefined)
+			conditions.push(inArray(artifacts.producingTaskId, [...f.taskIds]));
+		if (f.cursor) {
+			const cursorCondition = or(
+				lt(artifacts.createdAt, f.cursor.createdAt),
+				and(eq(artifacts.createdAt, f.cursor.createdAt), lt(artifacts.id, f.cursor.id)),
+			);
+			if (cursorCondition) conditions.push(cursorCondition);
+		}
+		const query = exec
+			.select({ artifact: artifacts, taskTitle: tasks.title })
+			.from(artifacts)
+			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId));
+		return conditions.length > 0
+			? query
+					.where(and(...conditions))
+					.orderBy(desc(artifacts.createdAt), desc(artifacts.id))
+					.limit(f.limit ?? 50)
+			: query.orderBy(desc(artifacts.createdAt), desc(artifacts.id)).limit(f.limit ?? 50);
 	}
 	if (entity === "artifact" && f.include === "taskSummary") {
-		return listArtifactSummariesByTaskIdsStore(exec, f.taskIds ?? []);
+		if (!f.taskIds || f.taskIds.length === 0) return [];
+		return exec
+			.select({
+				artifactId: artifacts.id,
+				artifactKind: artifacts.kind,
+				artifactPreviewJson: artifacts.previewJson,
+				taskTitle: tasks.title,
+			})
+			.from(artifacts)
+			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
+			.where(inArray(artifacts.producingTaskId, [...f.taskIds]));
 	}
 
 	// ── bet dispatches ───────────────────────────────────────────────────────
@@ -782,12 +378,27 @@ export async function list(
 		if (f.text !== undefined) {
 			const escaped = escapeLikePattern(f.text);
 			const pattern = `%${escaped}%`;
-			return searchBetsByText(exec, { pattern, query: escaped, limit: f.limit ?? 50 });
+			const rank = sql<number>`CASE WHEN ${bets.description} ILIKE ${`${escaped}%`} ESCAPE '\\' THEN 0 WHEN ${bets.description} ILIKE ${`% ${escaped}%`} ESCAPE '\\' THEN 1 ELSE 2 END`;
+			return exec
+				.select()
+				.from(bets)
+				.where(
+					or(
+						sql`${bets.description} ILIKE ${pattern} ESCAPE '\\'`,
+						sql`${bets.hypothesis} ILIKE ${pattern} ESCAPE '\\'`,
+						sql`${bets.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
+					),
+				)
+				.orderBy(rank, desc(bets.createdAt), bets.id)
+				.limit(f.limit ?? 50);
 		}
-		if (f.ids !== undefined) return listBetsByIds(exec, f.ids);
-		if (f.teamId !== undefined && f.status !== undefined) {
-			return listBetsByTeamAndStatus(exec, f.teamId, f.status);
-		}
+		if (f.ids !== undefined)
+			return f.ids.length === 0
+				? []
+				: exec
+						.select()
+						.from(bets)
+						.where(inArray(bets.id, [...f.ids]));
 		if (f.teamId !== undefined || f.status !== undefined) {
 			// Single-key path: mirror the count path so only the present key is
 			// applied (passing an empty string for the absent key to
@@ -800,26 +411,60 @@ export async function list(
 				.from(bets)
 				.where(conds.length > 0 ? and(...conds) : undefined);
 		}
-		return listBets(exec, { limit: f.limit, offset: f.offset });
+		return f.limit !== undefined && f.offset !== undefined
+			? exec.select().from(bets).limit(f.limit).offset(f.offset)
+			: exec.select().from(bets);
 	}
 
 	// ── task dispatches ──────────────────────────────────────────────────────
 	if (entity === "task") {
-		if (f.ids !== undefined) return listTasksByIds(exec, f.ids);
-		return listTasks(exec, {
-			betId: f.betId,
-			state: f.state,
-			ownerAgentId: f.ownerAgentId,
-			teamId: f.teamId,
-			limit: f.limit,
-		});
+		if (f.ids !== undefined)
+			return f.ids.length === 0
+				? []
+				: exec
+						.select()
+						.from(tasks)
+						.where(inArray(tasks.id, [...f.ids]));
+		if (f.dependencyId !== undefined) {
+			const escaped = escapeLikePattern(f.dependencyId);
+			return exec
+				.select()
+				.from(tasks)
+				.where(and(eq(tasks.state, "hold"), like(tasks.dependencies, `%"${escaped}"%`)));
+		}
+		const conditions = [];
+		if (f.betId !== undefined) conditions.push(eq(tasks.betId, f.betId));
+		if (f.state !== undefined) conditions.push(eq(tasks.state, f.state));
+		if (f.ownerAgentId !== undefined) conditions.push(eq(tasks.ownerAgentId, f.ownerAgentId));
+		if (f.teamId !== undefined) conditions.push(eq(tasks.teamId, f.teamId));
+		const query =
+			conditions.length > 0
+				? exec
+						.select()
+						.from(tasks)
+						.where(and(...conditions))
+				: exec.select().from(tasks);
+		return f.limit !== undefined ? query.limit(f.limit) : query;
 	}
 
 	// ── item dispatches ──────────────────────────────────────────────────────
 	if (entity === "item") {
-		if (f.threadId !== undefined) return listItemsByThread(exec, f.threadId);
+		if (f.threadId !== undefined)
+			return exec
+				.select()
+				.from(items)
+				.where(eq(items.threadId, f.threadId))
+				.orderBy(items.createdAt);
 		if (f.queued) {
-			return listQueuedItemsSince(exec, f.createdSince ?? new Date(0).toISOString());
+			return exec
+				.select()
+				.from(items)
+				.where(
+					and(
+						like(items.auditTrail, "%policy_queued%"),
+						sql`${items.createdAt} >= ${f.createdSince ?? new Date(0).toISOString()}`,
+					),
+				);
 		}
 		if (f.marker !== undefined) {
 			return exec
@@ -901,20 +546,20 @@ export interface AppendNoteOp {
 }
 
 /** Bet update patch: standard BetPatch fields; costActualMinor also accepts IncrementOp. */
-export type BetUpdatePatch = Omit<BetPatch, "costActualMinor"> & {
+type BetUpdatePatch = Omit<BetPatch, "costActualMinor"> & {
 	readonly costActualMinor?: BetPatch["costActualMinor"] | IncrementOp;
 };
 
 /** Task update patch: standard TaskPatch fields; notes also accepts AppendNoteOp. */
-export type TaskUpdatePatch = Omit<TaskPatch, "notes"> & {
+type TaskUpdatePatch = Omit<TaskPatch, "notes"> & {
 	readonly notes?: TaskPatch["notes"] | AppendNoteOp;
 };
 
 /** Item update patch: same as ItemPatch (no special operators). */
-export type ItemUpdatePatch = ItemPatch;
+type ItemUpdatePatch = ItemPatch;
 
 /** Maps each entity discriminant to its create-values type. */
-export interface WorkEntityCreateMap {
+interface WorkEntityCreateMap {
 	bet: NewBet;
 	task: NewTask;
 	item: NewItem;
@@ -922,20 +567,20 @@ export interface WorkEntityCreateMap {
 }
 
 /** Maps each entity discriminant to its update-patch type (excluding artifact). */
-export interface WorkEntityUpdatePatchMap {
+interface WorkEntityUpdatePatchMap {
 	bet: BetUpdatePatch;
 	task: TaskUpdatePatch;
 	item: ItemUpdatePatch;
 }
 
 /** Guard: WHERE field = value. */
-export interface TransitionFieldEqualsGuard {
+interface TransitionFieldEqualsGuard {
 	readonly field: string;
 	readonly equals: string;
 }
 
 /** Guard: WHERE field IS NULL. */
-export interface TransitionFieldIsNullGuard {
+interface TransitionFieldIsNullGuard {
 	readonly field: string;
 	readonly isNull: true;
 }
@@ -951,11 +596,13 @@ export interface TransitionSpec<P = unknown> {
 }
 
 /** Maps each entity discriminant to its transition-patch type. Note: "item" is excluded — items have no guard-able state column, no transition() callers. */
-export interface WorkEntityTransitionPatchMap {
+interface WorkEntityTransitionPatchMap {
 	bet: BetPatch;
 	task: TaskPatch;
 	artifact: Partial<ArtifactRow>;
 }
+
+export type { BetUpdatePatch, ItemUpdatePatch, TaskPatch, TaskUpdatePatch };
 
 function isNullGuard(guard: TransitionGuard): guard is TransitionFieldIsNullGuard {
 	return "isNull" in guard;
@@ -1043,7 +690,16 @@ export async function update(
 	if (entity === "task") {
 		const notes = patch.notes;
 		if (typeof notes === "object" && notes !== null && "appendNote" in notes) {
-			return appendTaskNote(exec, id, (notes as AppendNoteOp).appendNote);
+			const entry = (notes as AppendNoteOp).appendNote;
+			const rows = await exec
+				.update(tasks)
+				.set({
+					notes: sql`CASE WHEN ${tasks.notes} IS NULL OR ${tasks.notes} = '' THEN ${entry} ELSE ${tasks.notes} || ${NOTE_SEPARATOR} || ${entry} END`,
+					updatedAt: new Date().toISOString(),
+				})
+				.where(eq(tasks.id, id))
+				.returning({ id: tasks.id });
+			return rows[0];
 		}
 		await exec
 			.update(tasks)

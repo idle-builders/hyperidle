@@ -48,13 +48,7 @@ export type {
 } from "./artifact-store.js";
 // -- bet decomposition (AK3) --
 export type { BetDecompositionDeps } from "./bet-decomposition.js";
-export {
-	findEligibleTeamAgents,
-	insertProposedBetTasks,
-	resolveOrphanedDecompositions,
-	runBetDecomposition,
-} from "./bet-decomposition.js";
-export { registerBetDecomposition } from "./bet-decomposition-subscriber.js";
+export { registerBetDecomposition, resolveOrphanedDecompositions } from "./bet-decomposition.js";
 // -- bet kill cascade (AF12) --
 export { cascadeBetKill } from "./bet-kill-cascade.js";
 // -- bet state machine --
@@ -92,12 +86,10 @@ export { InvalidTransitionError, transitionTask, VALID_TRANSITIONS } from "./tas
 export type {
 	AppendNoteOp,
 	Bet,
-	BetPatch,
 	BetTaskWithLatestSessionOutcome,
 	BetUpdatePatch,
 	IncrementOp,
 	Item,
-	ItemPatch,
 	ItemUpdatePatch,
 	Task,
 	TaskPatch,
@@ -105,10 +97,6 @@ export type {
 	TransitionGuard,
 	TransitionSpec,
 	WorkEntity,
-	WorkEntityCreateMap,
-	WorkEntityRowMap,
-	WorkEntityTransitionPatchMap,
-	WorkEntityUpdatePatchMap,
 	WorkFilter,
 } from "./work-service.js";
 export {

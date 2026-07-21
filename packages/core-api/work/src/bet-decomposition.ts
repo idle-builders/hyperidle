@@ -157,7 +157,7 @@ export interface BetDecompositionDeps {
  * (1:1 invariant, enforced app-wide by `org`'s `loadTeamMembers`), replacing
  * the prior multi-row `memberGroups` query.
  */
-export async function findEligibleTeamAgents(
+async function findEligibleTeamAgents(
 	db: HyperIdleDb,
 	betTeamId: string,
 	teamCapacity: TeamCapacityReader,
@@ -205,7 +205,7 @@ export async function findEligibleTeamAgents(
  * round-robin spread is preserved: selectOwner passes spreadIndex:i and the
  * resolver reproduces `candidates[i % len]`. The role short-circuit is preserved.
  */
-export async function insertProposedBetTasks(
+async function insertProposedBetTasks(
 	deps: {
 		db: HyperIdleDb;
 		eventBus: EventBus;
@@ -243,7 +243,7 @@ export async function insertProposedBetTasks(
 
 		try {
 			await db.transaction(async (tx) => {
-				await work.createTask(tx, {
+				await work.create(tx, "task", {
 					id: taskId,
 					betId: bet.id,
 					teamId: bet.teamId,
@@ -311,7 +311,12 @@ export async function insertProposedBetTasks(
  * with an implicit "try committing again" CTA.
  */
 export async function resolveOrphanedDecompositions(db: HyperIdleDb): Promise<number> {
-	return work.resolveOrphanedBetDecompositions(db);
+	return (
+		await work.transition(db, "bet", {
+			guard: { field: "decompositionStatus", equals: "running" },
+			patch: { decompositionStatus: "blocked", decompositionBlockerReason: "failed" },
+		})
+	).affected;
 }
 
 // -----------------------------------------------------------------------------
@@ -327,10 +332,35 @@ async function markTerminal(
 	status: "done" | "blocked",
 	reason: DecompositionBlockerReason | null,
 ): Promise<void> {
-	await work.updateBetById(db, betId, {
+	await work.update(db, "bet", betId, {
 		decompositionStatus: status,
 		decompositionBlockerReason: reason,
 	});
+}
+
+async function persistDecompositionTasks(
+	deps: BetDecompositionDeps,
+	bet: { id: string; teamId: string },
+	eligible: readonly WorkUserRow[],
+	taskList: DecompositionTaskInput[],
+): Promise<boolean> {
+	try {
+		await insertProposedBetTasks(
+			{
+				db: deps.db,
+				eventBus: deps.eventBus,
+				agentSelection: deps.agentSelection,
+				workIntents: deps.workIntents,
+			},
+			bet,
+			eligible,
+			taskList,
+		);
+		return true;
+	} catch {
+		await markTerminal(deps.db, bet.id, "blocked", "failed");
+		return false;
+	}
 }
 
 /**
@@ -381,16 +411,13 @@ async function markTerminal(
  * candidates.some() is the net-new inline equivalent. An invalid resolver
  * returning an off-team/inactive id → blocked/no_eligible_agent.
  */
-export async function runBetDecomposition(
-	deps: BetDecompositionDeps,
-	betId: string,
-): Promise<void> {
+async function runBetDecomposition(deps: BetDecompositionDeps, betId: string): Promise<void> {
 	const { db, eventBus, sandboxBasePath } = deps;
 	const timeoutMs = deps.turnTimeoutMs ?? DECOMPOSITION_TURN_TIMEOUT_MS;
 
 	// Resolve the authoritative target before claiming. The later transaction couples
 	// the NULL→running CAS with its durable intent, so no crash can strand a running bet.
-	const bet = await work.getBetById(db, betId);
+	const bet = await work.get(db, "bet", betId);
 	if (!bet || bet.decompositionStatus !== null) return;
 
 	// --- 1. Find eligible team agents ---
@@ -448,8 +475,12 @@ export async function runBetDecomposition(
 
 	let intent: Awaited<ReturnType<AgentWorkIntentRecorder["record"]>> | undefined;
 	await db.transaction(async (tx) => {
-		const { claimed } = await work.claimBetDecomposition(tx, betId);
-		if (!claimed) return;
+		const { applied } = await work.transition(tx, "bet", {
+			id: betId,
+			guard: { field: "decompositionStatus", isNull: true },
+			patch: { decompositionStatus: "running" },
+		});
+		if (!applied) return;
 		intent = await deps.workIntents.record(tx, {
 			kind: "bet_decomposition",
 			sourceKind: "bet",
@@ -558,12 +589,7 @@ export async function runBetDecomposition(
 		}
 
 		// --- 10. Insert tasks → accepted → dispatch ---
-		await insertProposedBetTasks(
-			{ db, eventBus, agentSelection: deps.agentSelection, workIntents: deps.workIntents },
-			{ id: bet.id, teamId: bet.teamId },
-			eligible,
-			taskList,
-		);
+		if (!(await persistDecompositionTasks(deps, bet, eligible, taskList))) return;
 		await markTerminal(db, betId, "done", null);
 	} finally {
 		// --- 11. rm scratch sandbox dir (best-effort) ---
@@ -573,6 +599,14 @@ export async function runBetDecomposition(
 			// best-effort — a stale scratch dir is not fatal
 		}
 	}
+}
+
+/** Register the sole public decomposition entry on bet activation events. */
+export function registerBetDecomposition(deps: BetDecompositionDeps): () => void {
+	return deps.eventBus.on("bet_state_changed", (event) => {
+		if (event.toState !== "active") return;
+		void runBetDecomposition(deps, event.betId);
+	});
 }
 
 // -----------------------------------------------------------------------------

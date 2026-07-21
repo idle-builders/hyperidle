@@ -18,7 +18,7 @@ export interface TaskStateMachineDeps {
 }
 
 /** Map of each state to its valid target states. `killed` is always valid. */
-export const VALID_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
+const VALID_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
 	proposed: ["accepted", "killed"],
 	accepted: ["in_progress", "hold", "killed"],
 	hold: ["accepted", "killed"],
@@ -29,7 +29,7 @@ export const VALID_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
 	killed: [],
 } as const;
 
-export class InvalidTransitionError extends Error {
+class InvalidTransitionError extends Error {
 	public readonly fromState: TaskState;
 	public readonly toState: TaskState;
 	public readonly taskId: string;
@@ -42,6 +42,8 @@ export class InvalidTransitionError extends Error {
 		this.toState = toState;
 	}
 }
+
+export { InvalidTransitionError, VALID_TRANSITIONS };
 
 /**
  * Transition a task to a new state, validating the transition, updating the DB,
@@ -79,7 +81,7 @@ export async function transitionTask(
 			// Re-read INSIDE the tx so the audit read and the CAS write serialize together.
 			// @lore AU13 addendum §A6: MUST stay `tx` (not pooled `db`) — reads the
 			// pre-transition state inside the CAS tx.
-			const task = await work.getTaskById(tx, taskId);
+			const task = await work.get(tx, "task", taskId);
 			if (!task) {
 				throw new Error(`Task not found: ${taskId}`);
 			}
@@ -101,9 +103,9 @@ export async function transitionTask(
 			};
 			existingAudit.push(entry);
 
-			const { applied } = await work.transitionTaskState(tx, {
-				taskId,
-				fromState,
+			const { applied } = await work.transition(tx, "task", {
+				id: taskId,
+				guard: { field: "state", equals: fromState },
 				patch: {
 					state: toState,
 					auditTrail: JSON.stringify(existingAudit),
