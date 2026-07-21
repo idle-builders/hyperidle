@@ -9,13 +9,13 @@
  */
 
 import { createTestDb } from "@hyperidle/db";
-import type { GitRunner } from "@hyperidle/git-export";
-import type { FsAdapter } from "@hyperidle/git-export/testing";
+import type { GitRunner, RunGitExportDeps } from "@hyperidle/git-export";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createGitExportRoutes } from "../../routes/git-export-routes.js";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-git-export";
+type FsAdapter = NonNullable<RunGitExportDeps["fs"]>;
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
@@ -134,7 +134,6 @@ describe("git-export routes", () => {
 			const stubRunner: GitRunner = {
 				init: async () => {},
 				add: async () => {},
-				rm: async () => {},
 				commit: async () => "abc1234",
 				push: async () => {},
 				diffCached: async () => true,
@@ -142,15 +141,12 @@ describe("git-export routes", () => {
 				configSet: async () => {},
 				remoteAdd: async () => {},
 				lsFiles: async () => [],
-				statusPorcelain: async () => [],
 				lsRemote: async () => ({ reachable: true }),
 				// ── AO2 inbound-git stubs (not subject of git-export-routes tests) ──
 				clone: async () => {},
 				bundle: async () => {},
 				worktreeAdd: async () => {},
 				worktreeRemove: async () => {},
-				fetch: async () => {},
-				checkout: async () => {},
 				restoreStaged: async () => {},
 				currentBranch: async () => null,
 			};

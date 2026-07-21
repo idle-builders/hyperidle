@@ -12,14 +12,10 @@ import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import {
 	type GitExportConfigPatch,
 	type GitRunner,
+	type RunGitExportDeps,
 	updateGitExportConfig,
 } from "@hyperidle/git-export";
-import {
-	type FsAdapter,
-	resetExportMutexes,
-	writeLastCommit,
-	writeLastPush,
-} from "@hyperidle/git-export/testing";
+import { resetExportMutexes, writeExportMeta } from "@hyperidle/git-export/testing";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
@@ -31,6 +27,7 @@ import { createGitExportRoutes } from "../routes/git-export-routes.js";
 import { test } from "../test-fixtures.js";
 
 const serverConfig = { read: readServerConfig, update: updateServerConfig };
+type FsAdapter = NonNullable<RunGitExportDeps["fs"]>;
 
 const TEST_API_KEY = "test-key-git-export";
 const REPO = "/tmp/h1-routes-repo";
@@ -76,9 +73,6 @@ function createStubRunner(): GitRunner & { calls: string[] } {
 		async add(): Promise<void> {
 			calls.push("add");
 		},
-		async rm(): Promise<void> {
-			calls.push("rm");
-		},
 		async commit(): Promise<string> {
 			calls.push("commit");
 			return "0000000000000000000000000000000000000000";
@@ -104,10 +98,6 @@ function createStubRunner(): GitRunner & { calls: string[] } {
 			calls.push("lsFiles");
 			return [];
 		},
-		async statusPorcelain(): Promise<readonly string[]> {
-			calls.push("statusPorcelain");
-			return [];
-		},
 		async lsRemote(
 			_url: string,
 			_opts?: { tokenConfig?: { key: string; value: string } },
@@ -127,12 +117,6 @@ function createStubRunner(): GitRunner & { calls: string[] } {
 		},
 		async worktreeRemove(): Promise<void> {
 			calls.push("worktreeRemove");
-		},
-		async fetch(): Promise<void> {
-			calls.push("fetch");
-		},
-		async checkout(): Promise<void> {
-			calls.push("checkout");
 		},
 		async restoreStaged(): Promise<void> {
 			calls.push("restoreStaged");
@@ -446,9 +430,6 @@ describe("Git Export HTTP routes", () => {
 				async add() {
 					runner.calls.push("add");
 				},
-				async rm() {
-					runner.calls.push("rm");
-				},
 				async commit() {
 					runner.calls.push("commit");
 					return "deadbeefcafef00d1234567890abcdef12345678";
@@ -474,10 +455,6 @@ describe("Git Export HTTP routes", () => {
 					runner.calls.push("lsFiles");
 					return [];
 				},
-				async statusPorcelain() {
-					runner.calls.push("statusPorcelain");
-					return [];
-				},
 				async lsRemote(
 					_url: string,
 					_opts?: { tokenConfig?: { key: string; value: string } },
@@ -497,12 +474,6 @@ describe("Git Export HTTP routes", () => {
 				},
 				async worktreeRemove(): Promise<void> {
 					runner.calls.push("worktreeRemove");
-				},
-				async fetch(): Promise<void> {
-					runner.calls.push("fetch");
-				},
-				async checkout(): Promise<void> {
-					runner.calls.push("checkout");
 				},
 				async restoreStaged(): Promise<void> {
 					runner.calls.push("restoreStaged");
@@ -546,13 +517,17 @@ describe("Git Export HTTP routes", () => {
 			db,
 		}) => {
 			await enableExport(db);
-			await writeLastCommit(
+			await writeExportMeta(
 				db,
-				"deadbeefcafef00d1234567890abcdef12345678",
-				new Date("2026-04-18T09:15:00.000Z"),
+				{
+					commit: {
+						sha: "deadbeefcafef00d1234567890abcdef12345678",
+						at: new Date("2026-04-18T09:15:00.000Z"),
+					},
+					pushedAt: new Date("2026-04-18T09:15:05.000Z"),
+				},
 				{ serverConfig },
 			);
-			await writeLastPush(db, new Date("2026-04-18T09:15:05.000Z"), { serverConfig });
 			const app = buildApp(db);
 			const res = await app.request("/api/git-export/status", { headers: authHeaders() });
 			expect(res.status).toBe(200);

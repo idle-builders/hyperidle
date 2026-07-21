@@ -8,10 +8,7 @@
  *   D. Export config accessor  (read/update/getMeta + 3 types)
  *   E. DI port bag             (7 structural types)
  *
- * Test doubles (createFakeGitRunner / FakeGitRunner / FakeGitCall),
- * orchestration internals (computeExportPlan, buildCommitMessage, …),
- * per-field sanitizers, and config write-helpers (writeLastCommit,
- * writeLastPush, loadGitExportConfig) are available from the
+ * Orchestration internals, sanitizers, and config helpers are available from the
  * `@hyperidle/git-export/testing` subpath — not product surface.
  *
  * @lore AU20 Am8: collapsed from 47 exports → ~22; config/sanitizer
@@ -54,7 +51,6 @@ export type {
 	GitExportConfigSection,
 	GitExportConfigSectionPatch,
 	GitExportDeps,
-	GitExportKnowledgeItemProjection,
 	GitExportKnowledgeItemRow,
 	GitExportKnowledgeReader,
 	GitExportServerConfigPort,

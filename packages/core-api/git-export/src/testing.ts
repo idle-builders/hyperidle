@@ -5,23 +5,16 @@
  * only from test files; production code must use the main barrel.
  *
  * Includes:
- *  - GitRunner test doubles (createFakeGitRunner, FakeGitRunner, FakeGitCall)
  *  - resetExportMutexes (test teardown helper)
  *  - FsAdapter type + createNodeFsAdapter (for creating fake fs stubs)
  *  - Orchestration internals: computeExportPlan, buildCommitMessage,
  *    EXPORTED_KINDS, EXPORTED_STATUSES, ExportPlan, ExportPlanEntry,
  *    GitExportTrigger
- *  - Config internals: loadGitExportConfig, writeLastCommit, writeLastPush,
+ *  - Config internals: loadGitExportConfig and writeExportMeta,
  *    redactRemoteUrl, and all sanitizers
  */
 
 // ── Orchestration internals ────────────────────────────────────────────────
-export type {
-	ExportPlan,
-	ExportPlanEntry,
-	FsAdapter,
-	GitExportTrigger,
-} from "./git-export.js";
 export {
 	buildCommitMessage,
 	computeExportPlan,
@@ -31,7 +24,6 @@ export {
 	resetExportMutexes,
 } from "./git-export.js";
 // ── Config internals ───────────────────────────────────────────────────────
-export type { SanitizeRemoteUrlOptions } from "./git-export-config.js";
 export {
 	loadGitExportConfig,
 	redactRemoteUrl,
@@ -41,9 +33,5 @@ export {
 	sanitizePathSegment,
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
-	writeLastCommit,
-	writeLastPush,
+	writeExportMeta,
 } from "./git-export-config.js";
-// ── GitRunner test doubles ─────────────────────────────────────────────────
-export type { FakeGitCall, FakeGitRunner } from "./git-export-runner.js";
-export { createFakeGitRunner } from "./git-export-runner.js";
