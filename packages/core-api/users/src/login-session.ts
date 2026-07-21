@@ -21,27 +21,13 @@ import { createHash, randomBytes } from "node:crypto";
 import type { HyperIdleDb, LoginSession } from "@hyperidle/db";
 import { loginSessions } from "@hyperidle/db";
 import { LOGIN_SESSION_TTL_MS } from "@hyperidle/shared";
-import { and, eq, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 // ─── Token generation ─────────────────────────────────────────────────────────
 
-/**
- * Generate a 256-bit random token.
- * Returns `plaintext` (base64url, 43 chars) and `hash` (SHA-256 hex, 64 chars).
- */
-export function generateToken(): { plaintext: string; hash: string } {
-	const bytes = randomBytes(32);
-	const plaintext = bytes.toString("base64url");
-	const hash = hashToken(plaintext);
-	return { plaintext, hash };
-}
-
-/**
- * SHA-256 hash of a plaintext token.
- * The input is the base64url-encoded plaintext as produced by generateToken().
- */
-export function hashToken(plaintext: string): string {
-	return createHash("sha256").update(plaintext).digest("hex");
+function createToken(): { plaintext: string; hash: string } {
+	const plaintext = randomBytes(32).toString("base64url");
+	return { plaintext, hash: createHash("sha256").update(plaintext).digest("hex") };
 }
 
 // ─── LoginSession CRUD ────────────────────────────────────────────────────────
@@ -57,7 +43,7 @@ export async function createLoginSession(
 	userId: string,
 	ttlMs: number = LOGIN_SESSION_TTL_MS,
 ): Promise<{ session: LoginSession; token: string }> {
-	const { plaintext, hash } = generateToken();
+	const { plaintext, hash } = createToken();
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + ttlMs);
 	const id = `ls_${randomBytes(12).toString("hex")}`;
@@ -85,18 +71,6 @@ export async function createLoginSession(
  * Look up a LoginSession by its token hash.
  * Returns null if no session with that hash exists.
  */
-export async function findLoginSessionByTokenHash(
-	db: HyperIdleDb,
-	tokenHash: string,
-): Promise<LoginSession | null> {
-	const [session] = await db
-		.select()
-		.from(loginSessions)
-		.where(eq(loginSessions.tokenHash, tokenHash))
-		.limit(1);
-	return session ?? null;
-}
-
 /**
  * Validate a bearer token.
  *
@@ -112,8 +86,12 @@ export async function validateBearerToken(
 	| { ok: true; session: LoginSession }
 	| { ok: false; reason: "SESSION_EXPIRED" | "SESSION_REVOKED" | "INVALID_TOKEN" }
 > {
-	const tokenHash = hashToken(plaintextToken);
-	const session = await findLoginSessionByTokenHash(db, tokenHash);
+	const tokenHash = createHash("sha256").update(plaintextToken).digest("hex");
+	const [session] = await db
+		.select()
+		.from(loginSessions)
+		.where(eq(loginSessions.tokenHash, tokenHash))
+		.limit(1);
 
 	if (!session) {
 		return { ok: false, reason: "INVALID_TOKEN" };
@@ -144,31 +122,3 @@ export async function revokeLoginSession(db: HyperIdleDb, sessionId: string): Pr
 }
 
 // ─── Retention (AU19 Increment 2g) ────────────────────────────────────────────
-
-/**
- * Prune `login_sessions` rows past `cutoff` — expiry-based: prune when
- * `expiresAt < cutoff` OR (`revokedAt` is set AND `revokedAt < cutoff`).
- * Returns the deleted row ids.
- *
- * @lore AU19 Increment 2g: moved verbatim from
- * `packages/server/src/services/retention-reaper.ts`'s inline delete (the
- * table-ownership guard forbids `retention` from touching `loginSessions`
- * directly now that `users` owns it — Mechanism A) — `retention` calls this
- * through its injected `RetentionUsersReaper` port (`@hyperidle/retention`'s
- * `ports.ts`). Zero behavior change: same predicate, same cutoff
- * computation (caller passes `now − expiredGraceMs`, default grace 0 — see
- * `@lore AF16 T16 WARNING-3` at the call site for why pruning as soon as
- * expired, not a TTL-delayed cutoff, is correct).
- */
-export async function reapLoginSessions(db: HyperIdleDb, cutoff: string): Promise<string[]> {
-	const deleted = await db
-		.delete(loginSessions)
-		.where(
-			or(
-				lt(loginSessions.expiresAt, cutoff),
-				and(isNotNull(loginSessions.revokedAt), lt(loginSessions.revokedAt, cutoff)),
-			),
-		)
-		.returning({ id: loginSessions.id });
-	return deleted.map((r) => r.id);
-}

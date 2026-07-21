@@ -10,8 +10,8 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { reapInviteCodes } from "./invite-code.js";
-import { reapLoginSessions } from "./login-session.js";
+import { inviteCodes, loginSessions } from "@hyperidle/db";
+import { and, inArray, isNotNull, lt, or } from "drizzle-orm";
 
 export interface ReapExpiredCredentialsArgs {
 	/** ISO-8601 cutoff for login session expiry/revocation sweep. */
@@ -35,7 +35,39 @@ export async function reapExpiredCredentials(
 	db: HyperIdleDb,
 	args: ReapExpiredCredentialsArgs,
 ): Promise<ReapExpiredCredentialsResult> {
-	const sessions = await reapLoginSessions(db, args.sessionCutoff);
-	const invites = await reapInviteCodes(db, args.inviteExpiredCutoff, args.inviteConsumedCutoff);
-	return { sessions, invites };
+	const sessions = await db
+		.delete(loginSessions)
+		.where(
+			or(
+				lt(loginSessions.expiresAt, args.sessionCutoff),
+				and(isNotNull(loginSessions.revokedAt), lt(loginSessions.revokedAt, args.sessionCutoff)),
+			),
+		)
+		.returning({ id: loginSessions.id });
+	const expired = await db
+		.select({ id: inviteCodes.id, claimedBy: inviteCodes.claimedBy })
+		.from(inviteCodes)
+		.where(lt(inviteCodes.expiresAt, args.inviteExpiredCutoff));
+	const consumed = await db
+		.select({ id: inviteCodes.id })
+		.from(inviteCodes)
+		.where(
+			and(isNotNull(inviteCodes.claimedBy), lt(inviteCodes.createdAt, args.inviteConsumedCutoff)),
+		);
+	const ids = [
+		...new Set([
+			...expired.filter(({ claimedBy }) => claimedBy === null).map(({ id }) => id),
+			...consumed.map(({ id }) => id),
+		]),
+	];
+	const invites = ids.length
+		? await db
+				.delete(inviteCodes)
+				.where(inArray(inviteCodes.id, ids))
+				.returning({ id: inviteCodes.id })
+		: [];
+	return {
+		sessions: sessions.map(({ id }) => id),
+		invites: invites.map(({ id }) => id),
+	};
 }

@@ -54,6 +54,7 @@ describe("upgrade-token store enforces a hard live-token cap", () => {
 		const store = createUpgradeTokenStore();
 		const t = store.issue();
 		expect(store.consume(t.token).ok).toBe(true);
+		expect(store.consume(t.token).ok).toBe(false);
 	});
 
 	it("cap is per-store instance — separate stores do not share budget", () => {

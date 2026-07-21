@@ -12,7 +12,7 @@
  * returns a Promise<TestDbHandle> and all service functions are async.
  */
 
-import { type HyperIdleDb, users } from "@hyperidle/db";
+import { type HyperIdleDb, inviteCodes, loginSessions, users } from "@hyperidle/db";
 import { claimInvite, createInvite } from "@hyperidle/users";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -118,6 +118,32 @@ describe("S1 — claimInvite (happy path)", () => {
 		if (!result2.ok) {
 			expect(result2.error).toBe("INVITE_CLAIMED");
 		}
+	});
+
+	test("atomically allows exactly one concurrent claimant without loser artifacts", async ({
+		db,
+	}) => {
+		await seedAdminUser(db, "u-admin-1");
+		const invite = await createInvite(db, "u-admin-1", "member");
+
+		const results = await Promise.all([
+			claimInvite(db, invite.code, "Concurrent One"),
+			claimInvite(db, invite.code, "Concurrent Two"),
+		]);
+
+		expect(results.filter((result) => result.ok)).toHaveLength(1);
+		expect(
+			results.filter((result) => !result.ok && result.error === "INVITE_CLAIMED"),
+		).toHaveLength(1);
+
+		const claimedUsers = (await db.select().from(users)).filter((user) =>
+			user.name.startsWith("Concurrent "),
+		);
+		expect(claimedUsers).toHaveLength(1);
+		const sessions = await db.select().from(loginSessions);
+		expect(sessions).toHaveLength(1);
+		const [storedInvite] = await db.select().from(inviteCodes);
+		expect(storedInvite?.claimedBy).toBe(claimedUsers[0]?.id);
 	});
 });
 
