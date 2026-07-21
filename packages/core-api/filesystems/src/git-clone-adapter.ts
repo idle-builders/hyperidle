@@ -24,7 +24,6 @@ import type {
 	MountContext,
 } from "./mount-adapter.js";
 import type { AdapterDeps } from "./mounter-registry.js";
-import type { FilesystemsGitConfigInjection } from "./ports.js";
 import { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 
 export class GitCloneAdapter implements MountAdapter {
@@ -113,8 +112,10 @@ export class GitCloneAdapter implements MountAdapter {
 	}
 }
 
-/** Extract a GitConfigInjection from FilesystemAuth if present. */
-function resolveTokenConfig(auth: MountContext["auth"]): FilesystemsGitConfigInjection | undefined {
+/** Extract a git token config injection from FilesystemAuth if present. */
+function resolveTokenConfig(
+	auth: MountContext["auth"],
+): { readonly key: string; readonly value: string } | undefined {
 	if (!auth) return undefined;
 	const { provision } = auth;
 	if (provision.mode === "git-credential") {

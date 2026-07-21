@@ -1,110 +1,40 @@
 /**
  * `filesystems` Service (core-api) — outbound composition-boundary (Mechanism C)
- * DI ports, per architecture §10.2's census: `filesystems`' four real outbound
- * edges (`git-export`, `work`, `connections`, plus the §10.3 against-grain
- * `capture-writeback` edge) become injected ports here, wired at each real
- * call site — `git-export`/`capture-writeback` are NOT real packages yet
- * (both scheduled later in Increment 2/3), so those two are wired as interim
- * forward-references to their still-in-`packages/server` concrete
- * implementations for THIS increment; `work`/`connections` are already real
- * migrated packages, wired directly to their real exported functions (same
- * idiom as `policy`'s `PolicyWorkStore`/`PolicyOrgTeamReader`, Increment 2a).
+ * DI ports.
  *
- * Structural ports, same idiom as `@hyperidle/policy`'s `ports.ts`: each
- * mirrors the real target function's signature so the concrete caller (still
- * `packages/server`, the not-yet-split composition root) can pass its
- * existing function reference unchanged — zero behavior change. Types are
- * declared locally (structural mirrors of the target Service's own types, or
- * typed directly off `@hyperidle/db` row types per §7.3 W4) rather than
- * imported from the target package — a Service NEVER imports another
- * Service, even for a type-only reference.
+ * @lore AU19 Increment 2b — original port wiring documented in this file's
+ * prior version. `FilesystemsGitRunner` / `FilesystemsGitConfigInjection` are
+ * now INTERNAL (unexported) — callers pass structurally-compatible objects
+ * without importing the named interfaces. `FilesystemsGitRunnerFactory` and
+ * `FilesystemsServiceConnectionResolver` remain public: they are the wiring
+ * seams that the composition root closes over.
  *
- * @lore AU19 Increment 2b — table ownership (§14 `⛁*` marker) resolves to
- * THREE owned tables, not zero (contrast `policy`'s Increment 2a, which
- * resolved to zero): `filesystemCaptures` (already the sole concern of the
- * seed file `capture-store.ts`) PLUS `filesystems`/`filesystemInjections`,
- * whose real CRUD lived inline in `packages/server/src/routes/filesystems.ts`
- * (never factored into a `*-service.ts`/`*-store.ts` seed file the way every
- * other Service's owned-table CRUD was — an architecture §4 seed-file gap,
- * not a new edge). Grepping confirmed exactly three foreign-package
- * consumers of the two tables — `routes/filesystems.ts` (registry CRUD),
- * `routes/knowledge.ts` (filesystem display-name lookup), and
- * `services/session-provisioning.ts` (per-agent mount resolution) — all
- * three now call `@hyperidle/filesystems`' real exported registry functions
- * (`filesystem-registry.ts`) instead of querying the tables raw, matching the
- * zero-exceptions Table ACL precedent already established for every prior
- * migrated Service (e.g. `routine`'s `routines`/`routineRuns`,
- * `notifications`' `notificationQueue`). See `filesystem-registry.ts`'s own
- * header and `scripts/table-ownership-guard.ts`'s `TABLE_OWNER` map.
- *
- * @lore AU19 Increment 2b — `git-export` forward-reference: `filesystems`'
- * git adapters (`git-clone-adapter.ts`, `git-worktree-adapter.ts`,
- * `filesystem-reachability.ts`, `inspect-local-path.ts`) call a NARROWER
- * subset of `git-export-runner.ts`'s full `GitRunner` interface (12 of its
- * ~19 verbs — everything except `init`/`rm`/`push`/`configSet`/`remoteAdd`/
- * `statusPorcelain`/`fetch`/`checkout`, which are `git-export`'s own
- * push/landing concerns). `FilesystemsGitRunner` mirrors exactly that
- * narrower surface. `git-export` is the VERY NEXT Increment-2 item — when it
- * migrates, its closing commit repoints every real call site's
- * `gitRunnerFactory` wiring from `packages/server`'s `createGitRunner` to
- * `@hyperidle/git-export`'s real export (same "closing" idiom as `work`'s
- * `UserStoreReader` → `users`, Increment 1d). No Increment-3 EventBus rewrite
- * is needed — this is an ordinary downward core-api→core-api edge (`git-export`
- * just hasn't migrated yet), not a §10.3 against-grain edge.
- *
- * @lore AU19 Increment 2c — CLOSED: `git-export` migrated. Every real
- * `gitRunnerFactory` call site (`server-factory.ts`, `routes/filesystems.ts`
- * ×2, plus the AO1-filesystem-reachability/AO1-reachability-lane-b/
- * git-clone-adapter/git-worktree-adapter/git-worktree-live-proof test files,
- * all still in `packages/server`) now imports `createGitRunner` from
- * `@hyperidle/git-export` instead of the deleted
- * `packages/server/src/services/git-export-runner.ts`. `FilesystemsGitRunner`/
- * `FilesystemsGitRunnerFactory` stay as-is here — `createGitRunner`
- * structurally satisfies the narrower port unchanged, no port-shape edit
- * needed.
- *
- * @lore AU19 Increment 2b — `capture-writeback` (§10.3 against-grain, ×2:
- * `file-watcher.ts` → `writeback.ts`'s `processWriteback`). Wired as an
- * interim DI port for THIS increment (same precedent as `work`'s
- * `AgentWorkIntentRecorder`/`AgentSelectionDefaults`/`CostCapChecker`,
- * Increment 1b) — Increment 3 rewires it to the EventBus subscription
- * pattern per §10.3's own resolution note ("`file-watcher` already fires on
- * sandbox change — emit that as an event; `capture-writeback` subscribes.
- * Pure inversion, no reclassification"). `writeback.ts`'s other two exports
- * historically imported by `file-watcher.ts` (`getRelativePath`/
- * `isWatchedPath`) are NOT cross-Service calls at all — both are pure,
- * stateless path/string helpers with zero dependency on `capture-writeback`'s
- * DB/knowledge state — so they are inlined directly into the moved
- * `file-watcher.ts` instead of ported (a §10.3-style "dissolution", same
- * lever `policy`'s Increment 2a used for the `PropagationLevel` type-only
- * edge). `writeback.ts` in `packages/server` had its now-dead
- * `getRelativePath`/`isWatchedPath` exports removed as part of this move
- * (their sole consumer left the file) — `processWriteback` itself is
- * unchanged and still owns its own `knowledge`/`sessions` concerns
- * (§10.2's `capture-writeback → knowledge` edge, not this Service's concern).
+ * @lore AU20 R-filesystems: `FilesystemsGitRunner` and
+ * `FilesystemsGitConfigInjection` removed from public surface. Intra-package
+ * consumers (git-clone-adapter.ts, inspect-local-path.ts) obtain the runner
+ * shape structurally via `ReturnType<FilesystemsGitRunnerFactory>` or inline
+ * type literals. The export reduction is deliberate (census target).
  */
 
 // ---------------------------------------------------------------------------
-// git-export — FilesystemsGitRunner (ordinary downward edge, forward-ref —
-// git-export hasn't migrated yet; closed when it does, Increment 2)
+// git-export — internal runner types + public factory (Mechanism C)
 // ---------------------------------------------------------------------------
 
 /**
- * Structural mirror of `git-export-runner.ts`'s `GitConfigInjection`. Token
- * config for git's `GIT_CONFIG_COUNT`/`KEY_n`/`VALUE_n` env-injection path —
- * never argv/URL.
+ * Token config for git's `GIT_CONFIG_COUNT`/`KEY_n`/`VALUE_n` env-injection
+ * path — never argv/URL. Internal type used within this package only.
  */
-export interface FilesystemsGitConfigInjection {
+interface FilesystemsGitConfigInjection {
 	readonly key: string;
 	readonly value: string;
 }
 
 /**
  * Narrower structural mirror of `git-export-runner.ts`'s `GitRunner` —
- * exactly the 12 verbs `filesystems`' adapters/probes call today. See this
- * file's top `@lore` for the excluded (`git-export`-only) verbs.
+ * exactly the 12 verbs `filesystems`' adapters/probes call today. Internal
+ * to this package; the public seam is `FilesystemsGitRunnerFactory`.
  */
-export interface FilesystemsGitRunner {
+interface FilesystemsGitRunner {
 	add(paths: readonly string[]): Promise<void>;
 	commit(message: string, authorName: string, authorEmail: string): Promise<string>;
 	diffCached(): Promise<boolean>;
@@ -134,30 +64,13 @@ export interface FilesystemsGitRunner {
 export type FilesystemsGitRunnerFactory = (cwd: string) => FilesystemsGitRunner;
 
 // ---------------------------------------------------------------------------
-// connections — FilesystemsServiceConnectionResolver (ordinary downward
-// edge, `connections` is a REAL migrated package)
+// connections — FilesystemsServiceConnectionResolver (Mechanism C)
 // ---------------------------------------------------------------------------
 
 /**
- * Port for `connections`' per-user held-token resolver
- * (`ServiceConnectionResolver.resolve`) `filesystem-reachability.ts`'s
- * `ServiceConnectionResolverAdapter` calls directly today. Narrowed to the
- * one method the adapter uses.
+ * Port for `connections`' per-user held-token resolver.
+ * Narrowed to the one method the adapter/probe uses.
  */
 export interface FilesystemsServiceConnectionResolver {
 	resolve(userId: string, connectionId: string): Promise<string | null>;
 }
-
-// ---------------------------------------------------------------------------
-// capture-writeback — CLOSED, AU19 Increment 3f: the `FilesystemsWritebackConfig`/
-// `FilesystemsWritebackChange`/`FilesystemsWritebackResult`/
-// `FilesystemsWritebackProcessor` DI-port quartet that lived here (Increment
-// 2b interim wiring) is REMOVED — §10.3 line 517's pure-inversion ruling
-// applied: `file-watcher.ts`'s debounced flush now emits
-// `sandbox_writeback_changes_detected` on the `EventBus` instead of calling
-// an injected port. `@hyperidle/capture-writeback`'s `registerCaptureWriteback`
-// subscribes and drives `processWriteback` itself. See `file-watcher.ts`'s
-// and `@hyperidle/capture-writeback`'s `writeback-subscriber.ts` `@lore`
-// comments for the atomicity-check reasoning. The change-item shape lives on
-// the event now (`SandboxWritebackChange`, `@hyperidle/shared`), not here.
-// ---------------------------------------------------------------------------

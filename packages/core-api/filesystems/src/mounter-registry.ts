@@ -28,8 +28,8 @@
 import { randomUUID } from "node:crypto";
 import type { WriteExecutor } from "@hyperidle/db";
 import type { CaptureResult, Filesystem, FilesystemMounter, MountResult } from "@hyperidle/shared";
-import { writeFilesystemCapture } from "./capture-store.js";
 import { CloudNotBuiltAdapter } from "./cloud-not-built-adapter.js";
+import { writeCapture } from "./filesystem-registry.js";
 import { GitCloneAdapter } from "./git-clone-adapter.js";
 import { GitWorktreeAdapter } from "./git-worktree-adapter.js";
 import { LocalFolderAdapter } from "./local-folder-adapter.js";
@@ -176,7 +176,7 @@ export class RegistryFilesystemMounter implements FilesystemMounter {
 		const result = await adapter.captureBack(ctx);
 
 		if (result.success && result.captured) {
-			await writeFilesystemCapture(this.deps.db, {
+			await writeCapture(this.deps.db, {
 				id: randomUUID(),
 				sessionId: input.sessionId,
 				filesystemId: input.filesystem.id,

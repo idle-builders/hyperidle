@@ -1,72 +1,70 @@
 /**
  * Barrel for @hyperidle/filesystems (core-api Layer).
  *
- * Typed functions only. `filesystems` owns THREE tables — `filesystems`,
- * `filesystemInjections`, `filesystemCaptures` (confirmed this increment;
- * see `filesystem-registry.ts`'s and `ports.ts`'s headers for the §14 `⛁*`
- * resolution). Every foreign-Service reach (`git-export`, `connections`) is an
- * injected DI port (`ports.ts`) — never a raw cross-package import.
- * `capture-writeback` is the one exception: the against-grain
- * `filesystems ⚠ capture-writeback` edge inverts through the `EventBus`
- * (AU19 Increment 3f, §10.3 line 517) rather than a DI port — `file-watcher.ts`
- * emits `sandbox_writeback_changes_detected` instead of calling an injected
- * processor.
+ * AU20 R-filesystems: census reduced from 18m/10t to 16m/9t.
  *
- * @lore AU20 Ag2: barrel collapsed from 61 → 32 exports. The internal adapter
- * seam (`GitCloneAdapter`, `GitWorktreeAdapter`, `LocalFolderAdapter`,
- * `CloudNotBuiltAdapter`, `AdapterDeps`, `AdapterCaptureResult`,
- * `CaptureContext`, `MountAdapter`, `MountContext`, `selectMountAdapter`,
- * `isLocalRepoPath`), internal capture-store exports
- * (`FilesystemCaptureInput`, `writeFilesystemCapture`), internal probe
- * internals (`probeGitRemote`, `probeLocalPath`, `repoToUrl`), and the
- * work-facing DI-port mirrors (`FilesystemsWorkStore`,
- * `FilesystemsAgentWorkIntent*`, `checkAndUnblockDependents`) are no longer
- * re-exported — they are module-internal. The 7 `EMITTED_ROOTS_*` constants
- * are authored by `context-assembly`, `harness-registry`, and
- * `session-lifecycle` respectively; the drift-guard test imports them there
- * directly. `checkAndUnblockDependents` relocated to `@hyperidle/work`.
+ * DELETED from public surface:
+ *   Methods: insertFilesystem, getFilesystemById, listFilesystemsByTeamId,
+ *     listFilesystemsByIds, listFilesystemIdsByAgent, deleteFilesystemById,
+ *     getFilesystemInjection, insertFilesystemInjection, deleteFilesystemInjection,
+ *     NoopAuthResolver, ServiceConnectionResolverAdapter
+ *   Types: ProbeResult, InspectLocalPathDeps, FilesystemsGitConfigInjection,
+ *     FilesystemsGitRunner
+ *
+ * ADDED to public surface:
+ *   Methods: saveFilesystem, getFilesystem, listFilesystems, deleteFilesystem,
+ *     getInjection, saveInjection, deleteInjection, writeCapture, listCaptures
+ *   Types: FilesystemFilter, FilesystemCaptureInput, AdapterDeps
+ *
+ * @lore AU20 R-filesystems: NoopAuthResolver / ServiceConnectionResolverAdapter
+ * are caller-side concerns — routes/filesystems.ts inlines the adapter logic
+ * in buildAuthResolver(). Tests use inline structural objects satisfying
+ * FilesystemAuthResolver (@hyperidle/shared). probeGitRemote / probeLocalPath /
+ * repoToUrl remain accessible to intra-package tests via the source module path.
+ *
+ * @lore AU20 R-filesystems: SANDBOX_SCAFFOLDING_PATHS stays in the barrel
+ * because scaffolding-drift-guard.test.ts (packages/core-api composition root)
+ * must import it cross-package. The constant is an owned capability the
+ * git adapters require; moving it would require an import from another service.
  */
 
 // -- file-watcher --
 export type { FileWatcher, FileWatcherConfig } from "./file-watcher.js";
 export { startWatcher } from "./file-watcher.js";
-// -- filesystem-reachability (AO1 public surface) --
-export type { FilesystemReachabilityInput, ProbeResult } from "./filesystem-reachability.js";
-export {
-	NoopAuthResolver,
-	resolveFilesystemState,
-	ServiceConnectionResolverAdapter,
-} from "./filesystem-reachability.js";
-// -- filesystem-registry (filesystems, filesystem_injections) --
+// -- filesystem-reachability --
+export type { FilesystemReachabilityInput } from "./filesystem-reachability.js";
+export { resolveFilesystemState } from "./filesystem-reachability.js";
+// -- filesystem-registry (filesystems, filesystem_injections, filesystem_captures) --
 export type {
+	FilesystemCaptureInput,
+	FilesystemFilter,
 	FilesystemInjectionRow,
 	FilesystemRow,
 	NewFilesystem,
 	NewFilesystemInjection,
 } from "./filesystem-registry.js";
 export {
-	deleteFilesystemById,
-	deleteFilesystemInjection,
-	getFilesystemById,
-	getFilesystemInjection,
-	insertFilesystem,
-	insertFilesystemInjection,
-	listFilesystemIdsByAgent,
-	listFilesystemsByIds,
-	listFilesystemsByTeamId,
+	deleteFilesystem,
+	deleteInjection,
+	getFilesystem,
+	getInjection,
+	listCaptures,
+	listFilesystems,
+	saveFilesystem,
+	saveInjection,
 	updateFilesystemState,
+	writeCapture,
 } from "./filesystem-registry.js";
-// -- inspect-local-path (AV1) --
-export type { InspectLocalPathDeps, LocalPathInfo } from "./inspect-local-path.js";
+// -- inspect-local-path --
+export type { LocalPathInfo } from "./inspect-local-path.js";
 export { inspectLocalPath } from "./inspect-local-path.js";
-// -- mounter-registry (public product surface: mounter + error class) --
+// -- mounter-registry --
+export type { AdapterDeps } from "./mounter-registry.js";
 export { MalformedFilesystemError, RegistryFilesystemMounter } from "./mounter-registry.js";
 // -- ports (Mechanism C — DI-injected outbound edges) --
 export type {
-	FilesystemsGitConfigInjection,
-	FilesystemsGitRunner,
 	FilesystemsGitRunnerFactory,
 	FilesystemsServiceConnectionResolver,
 } from "./ports.js";
-// -- scaffolding-paths (AO2 §8 — single constant needed externally) --
+// -- scaffolding-paths --
 export { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";

@@ -25,7 +25,8 @@ export interface LocalPathInfo {
 	readonly branch: string | null;
 }
 
-export interface InspectLocalPathDeps {
+/** @internal Use structural type `{ gitRunnerFactory: FilesystemsGitRunnerFactory }` at call sites. */
+interface InspectLocalPathDeps {
 	readonly gitRunnerFactory: FilesystemsGitRunnerFactory;
 }
 

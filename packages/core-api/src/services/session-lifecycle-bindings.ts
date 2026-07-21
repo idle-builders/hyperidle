@@ -30,7 +30,7 @@
 
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/connections";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { listFilesystemIdsByAgent, listFilesystemsByIds } from "@hyperidle/filesystems";
+import { listFilesystems } from "@hyperidle/filesystems";
 import {
 	createReturnGate,
 	enforcementRegistry,
@@ -156,9 +156,25 @@ const observabilityAccessor: SessionLifecyclePorts["observability"] = { summariz
 // filesystems — ordinary downward DI (NEW census edge, AO2 mount resolution).
 // ---------------------------------------------------------------------------
 
+/**
+ * @lore AU20 R-filesystems: listFilesystems(filter) replaces the old two-function
+ * surface (listFilesystemIdsByAgent + listFilesystemsByIds). The port shape in
+ * run-orchestration's session-lifecycle-ports.ts still uses the two-method interface
+ * (SessionLifecycleFilesystemsReader). We satisfy it here at the composition root
+ * with wrapper closures — no changes to run-orchestration required.
+ *
+ * listFilesystemsByIds returns [] when ids is empty to guard against an empty
+ * IN() clause in Drizzle (which would emit invalid SQL).
+ */
 const filesystemsReader: SessionLifecyclePorts["filesystems"] = {
-	listFilesystemIdsByAgent,
-	listFilesystemsByIds,
+	listFilesystemIdsByAgent: async (db, agentId) => {
+		const rows = await listFilesystems(db, { agentId });
+		return rows.map((r) => r.id);
+	},
+	listFilesystemsByIds: (db, ids) => {
+		if (ids.length === 0) return Promise.resolve([]);
+		return listFilesystems(db, { ids: [...ids] });
+	},
 };
 
 // ---------------------------------------------------------------------------

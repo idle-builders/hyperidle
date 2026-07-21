@@ -23,7 +23,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { getFilesystemById } from "@hyperidle/filesystems";
+import { getFilesystem } from "@hyperidle/filesystems";
 import {
 	remove as archiveKnowledgeItem,
 	changeScope,
@@ -157,7 +157,7 @@ export async function resolveScopeName(
 		// For code kind: last path segment of repo (e.g. "owner/nimmly" → "nimmly").
 		// For doc_set kind: basename of folder (last non-empty path segment).
 		// On parse failure or empty result: fall back to a source label map, then "Filesystem".
-		const row = await getFilesystemById(db, scopeId);
+		const row = await getFilesystem(db, scopeId);
 
 		if (!row) return scopeKindToLabel("filesystem");
 

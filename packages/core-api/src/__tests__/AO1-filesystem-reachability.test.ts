@@ -31,8 +31,9 @@ import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { NoopAuthResolver, resolveFilesystemState } from "@hyperidle/filesystems";
+import { resolveFilesystemState } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/git-export";
+import type { FilesystemAuthResolver } from "@hyperidle/shared";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -71,6 +72,16 @@ afterAll(() => {
 	}
 });
 
+// ─── Inline noop resolver ────────────────────────────────────────────────────
+// @lore AU20 R-filesystems: NoopAuthResolver class deleted from @hyperidle/filesystems
+// barrel. Tests that needed a noop use this inline structural object instead.
+const noopAuthResolver: FilesystemAuthResolver = {
+	canResolve: (_connectionId: string) => false,
+	sourceOf: (_connectionId: string) => null,
+	resolve: async (_connectionId: string) => null,
+	resolveToken: async (_connectionId: string) => null,
+};
+
 // ─── resolveFilesystemState — pure logic ─────────────────────────────────────
 
 describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
@@ -88,7 +99,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
+			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("reachable");
 	});
@@ -107,7 +118,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
+			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("reachable");
 	});
@@ -125,7 +136,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
+			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("needs_attention");
 	});
@@ -143,7 +154,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
+			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("reachable");
 	});
@@ -161,7 +172,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
+			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("needs_attention");
 	});
@@ -183,7 +194,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
+			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("needs_attention");
 	});
@@ -234,7 +245,7 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				state: "attached",
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
-			{ authResolver: new NoopAuthResolver(), gitRunnerFactory: createGitRunner },
+			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
 		);
 		expect(state).toBe("needs_attention");
 	});
@@ -243,25 +254,6 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 // probeLocalPath, probeGitRemote, repoToUrl suites moved to
 // packages/core-api/filesystems/src/__tests__/probe-internals.test.ts
 // (AU20 Ag2 barrel collapse — these are internal probe functions).
-
-// ─── NoopAuthResolver ────────────────────────────────────────────────────────
-
-describe("NoopAuthResolver seam (AC2 / AC5)", () => {
-	it("canResolve always returns false", async () => {
-		const resolver = new NoopAuthResolver();
-		expect(await resolver.canResolve("any-connection-id")).toBe(false);
-	});
-
-	it("sourceOf always returns null", async () => {
-		const resolver = new NoopAuthResolver();
-		expect(await resolver.sourceOf("any-connection-id")).toBeNull();
-	});
-
-	it("resolve always returns null", async () => {
-		const resolver = new NoopAuthResolver();
-		expect(await resolver.resolve("any-connection-id")).toBeNull();
-	});
-});
 
 // ─── FILESYSTEM_KINDS shared constant (AC3) ──────────────────────────────────
 

@@ -7,9 +7,12 @@
 
 import { describe, expect, it } from "vitest";
 import { inspectLocalPath } from "../inspect-local-path.js";
-import type { FilesystemsGitRunner } from "../ports.js";
+import type { FilesystemsGitRunnerFactory } from "../ports.js";
 
-function makeFakeRunner(isInsideWorkTree: boolean, branch: string | null): FilesystemsGitRunner {
+function makeFakeRunner(
+	isInsideWorkTree: boolean,
+	branch: string | null,
+): ReturnType<FilesystemsGitRunnerFactory> {
 	return {
 		async add() {},
 		async commit() {

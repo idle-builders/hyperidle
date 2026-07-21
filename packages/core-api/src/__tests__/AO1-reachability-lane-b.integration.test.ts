@@ -25,8 +25,9 @@
 import * as crypto from "node:crypto";
 import { encryptCredentialValue, ServiceConnectionResolver } from "@hyperidle/connections";
 import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
-import { resolveFilesystemState, ServiceConnectionResolverAdapter } from "@hyperidle/filesystems";
+import { resolveFilesystemState } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/git-export";
+import type { FilesystemAuthResolver } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { test } from "../test-fixtures.js";
 
@@ -166,13 +167,25 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 				updatedAt: NOW,
 			});
 
-			// Wire the real resolver + adapter.
+			// Wire the real resolver + inline adapter object.
 			// @lore AU20 Am4: ServiceConnectionResolver no longer takes serverSecret;
 			// decryptCredentialValue reads HYPERIDLE_CREDENTIAL_KEY from env internally.
+			// @lore AU20 R-filesystems: ServiceConnectionResolverAdapter class deleted from barrel.
+			// Inline structural object satisfies FilesystemAuthResolver from @hyperidle/shared.
 			const resolver = new ServiceConnectionResolver(db);
-			const adapter = new ServiceConnectionResolverAdapter(resolver, userId);
 
-			// Verify the adapter can resolve.
+			function makeAdapter(boundUserId: string): FilesystemAuthResolver {
+				return {
+					canResolve: async (cid: string) => (await resolver.resolve(boundUserId, cid)) != null,
+					sourceOf: (_cid: string) => null,
+					resolve: async (_cid: string) => null,
+					resolveToken: (cid: string) => resolver.resolve(boundUserId, cid),
+				};
+			}
+
+			const adapter = makeAdapter(userId);
+
+			// Verify the inline adapter can resolve.
 			const canResolve = await adapter.canResolve(connectionId);
 			expect(canResolve).toBe(true); // LIVE: decrypt succeeds
 
@@ -196,9 +209,9 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 			);
 			expect(state).toBe("reachable"); // LIVE: git ls-remote with real token → exit 0
 
-			// Cross-user: resolver with a different userId should NOT decrypt → needs_attention.
+			// Cross-user: adapter bound to a different userId → null from resolver → needs_attention.
 			const otherUserId = `lb-other-${crypto.randomUUID().slice(0, 8)}`;
-			const crossUserAdapter = new ServiceConnectionResolverAdapter(resolver, otherUserId);
+			const crossUserAdapter = makeAdapter(otherUserId);
 			const crossState = await resolveFilesystemState(
 				{
 					id: "lb-fs-cross",
