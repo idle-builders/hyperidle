@@ -1,11 +1,7 @@
 import { serviceConnections, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
-import {
-	deleteCredential,
-	readCredentials,
-	writeCredential,
-} from "../credential-store.js";
+import { deleteCredential, readCredentials, writeCredential } from "../credential-store.js";
 import {
 	deleteConnection,
 	insertConnection,
@@ -57,7 +53,42 @@ describe("connections store completeness contract", () => {
 		expect(await readCredentials(db, { name: "anthropic_api_key" })).toEqual([]);
 	});
 
-	test("connection store composes auth-source/user/id filters and persists updates", async ({ db }) => {
+	test("concurrent same-name credential upserts leave one coherent winning value", async ({
+		db,
+	}) => {
+		const first = {
+			encryptedValue: "ciphertext-concurrent-a",
+			validationState: "valid",
+			lastValidatedAt: NOW,
+			updatedAt: NOW,
+		} as const;
+		const second = {
+			encryptedValue: "ciphertext-concurrent-b",
+			validationState: "invalid",
+			lastValidatedAt: LATER,
+			updatedAt: LATER,
+		} as const;
+
+		await Promise.all([
+			writeCredential(db, "concurrent_api_key", first),
+			writeCredential(db, "concurrent_api_key", second),
+		]);
+
+		const rows = await readCredentials(db, { name: "concurrent_api_key" });
+		expect(rows).toHaveLength(1);
+		const persisted = {
+			encryptedValue: rows[0]?.encryptedValue,
+			validationState: rows[0]?.validationState,
+			lastValidatedAt: rows[0]?.lastValidatedAt,
+			updatedAt: rows[0]?.updatedAt,
+		};
+		// One whole contender must win; mixing fields from both is forbidden.
+		expect([first, second]).toContainEqual(persisted);
+	});
+
+	test("connection store composes auth-source/user/id filters and persists updates", async ({
+		db,
+	}) => {
 		await db.insert(users).values([
 			{
 				id: "connections-contract-a",
@@ -107,11 +138,24 @@ describe("connections store completeness contract", () => {
 			}),
 		).toEqual([]);
 
-		await updateConnection(db, "contract-a-token", {
-			health: "healthy",
-			lastValidatedAt: LATER,
-			updatedAt: LATER,
-		});
+		await updateConnection(
+			db,
+			{ id: "contract-a-token", userId: "connections-contract-b" },
+			{ health: "healthy", lastValidatedAt: LATER, updatedAt: LATER },
+		);
+		expect(await listConnections(db, { id: "contract-a-token" })).toMatchObject([
+			{ health: "needs-attention", lastValidatedAt: null, updatedAt: NOW },
+		]);
+
+		await updateConnection(
+			db,
+			{ id: "contract-a-token", userId: "connections-contract-a" },
+			{
+				health: "healthy",
+				lastValidatedAt: LATER,
+				updatedAt: LATER,
+			},
+		);
 		expect(await listConnections(db, { id: "contract-a-token" })).toMatchObject([
 			{ health: "healthy", lastValidatedAt: LATER, updatedAt: LATER },
 		]);

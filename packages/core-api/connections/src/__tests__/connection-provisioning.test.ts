@@ -17,12 +17,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 // We'll import under test after the module is created — this drives RED first.
-import {
-	applyProvisioningPlan,
-	buildProvisioningPlan,
-	listActiveHeld,
-	SERVICE_CLI_ENV,
-} from "../connection-provisioning.js";
+import { applyProvisioningPlan, buildProvisioningPlan } from "../connection-provisioning.js";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -33,61 +28,6 @@ beforeEach(() => {
 afterEach(() => {
 	fs.rmSync(sandboxPath, { recursive: true, force: true });
 	vi.restoreAllMocks();
-});
-
-// ── T1: listActiveHeld ─────────────────────────────────────────────────────────
-
-describe("listActiveHeld", () => {
-	test("returns only held (token/mcp) rows for the specified userId", async () => {
-		const rows: MockConnection[] = [
-			{
-				id: "sc-1",
-				service: "github",
-				authSource: "token",
-				serverUrl: null,
-				token: null,
-				userId: "u-founder",
-			},
-			{
-				id: "sc-2",
-				service: "figma",
-				authSource: "mcp",
-				serverUrl: "https://mcp.figma.com",
-				token: null,
-				userId: "u-founder",
-			},
-		];
-
-		// Chain-stub matching the Drizzle pattern: select().from().where().orderBy()
-		const mockDb = buildListMockDb(rows);
-
-		const result = await listActiveHeld(mockDb, "u-founder");
-		expect(result).toHaveLength(2);
-		expect(result[0]).toMatchObject({ id: "sc-1", authSource: "token" });
-		expect(result[1]).toMatchObject({ id: "sc-2", authSource: "mcp" });
-	});
-
-	test("returns empty array when no held connections exist", async () => {
-		const mockDb = buildListMockDb([]);
-		const result = await listActiveHeld(mockDb, "u-founder");
-		expect(result).toHaveLength(0);
-	});
-
-	test("includes token, mcp rows but NOT inherited rows", async () => {
-		const rows: MockConnection[] = [
-			{
-				id: "sc-held",
-				service: "gh",
-				authSource: "token",
-				serverUrl: null,
-				token: null,
-				userId: "u",
-			},
-		];
-		const mockDb = buildListMockDb(rows);
-		const result = await listActiveHeld(mockDb, "u");
-		expect(result.map((r) => r.authSource)).not.toContain("inherited");
-	});
 });
 
 // ── T2: buildProvisioningPlan ─────────────────────────────────────────────────
@@ -255,7 +195,7 @@ describe("buildProvisioningPlan", () => {
 	});
 
 	test("stripe token + stripe mcp → deterministic key suffix (stripe vs stripe-mcp) — N3", async () => {
-		// Use "stripe" — NOT in SERVICE_CLI_ENV — so the token goes to MCP-bearer path.
+		// Use "stripe" — not a known CLI carrier — so the token goes to MCP-bearer path.
 		// The mcp entry then gets the "-mcp" suffix because "stripe" is already taken.
 		const { db, resolver, users } = buildPlanMocks([
 			{
@@ -451,15 +391,6 @@ describe("applyProvisioningPlan (no MCP dialect, no claude-native)", () => {
 	});
 });
 
-// ── SERVICE_CLI_ENV constant ──────────────────────────────────────────────────
-
-describe("SERVICE_CLI_ENV", () => {
-	test("github maps to GH_TOKEN and GITHUB_TOKEN", () => {
-		expect(SERVICE_CLI_ENV.github).toContain("GH_TOKEN");
-		expect(SERVICE_CLI_ENV.github).toContain("GITHUB_TOKEN");
-	});
-});
-
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 type MockConnection = {
@@ -470,22 +401,6 @@ type MockConnection = {
 	token: string | null;
 	userId?: string;
 };
-
-function buildListMockDb(rows: MockConnection[]): Parameters<typeof listActiveHeld>[0] {
-	const chainable = {
-		select: () => chainable,
-		from: () => chainable,
-		where: () => chainable,
-		orderBy: () =>
-			rows.map((r) => ({
-				id: r.id,
-				service: r.service,
-				authSource: r.authSource,
-				serverUrl: r.serverUrl,
-			})),
-	};
-	return chainable as unknown as Parameters<typeof listActiveHeld>[0];
-}
 
 function buildPlanMocks(connections: MockConnection[]): {
 	db: Parameters<typeof buildProvisioningPlan>[0]["db"];
@@ -500,7 +415,7 @@ function buildPlanMocks(connections: MockConnection[]): {
 		serverUrl: c.serverUrl,
 	}));
 
-	// select().from().where().orderBy() — listActiveHeld pattern only (resolveOwningHumanUserId
+	// select().from().where().orderBy() — provisioning held-row query only (owner lookup
 	// is now folded into buildProvisioningPlan via the users reader, not a DB query).
 	const db = {
 		select: () => db,

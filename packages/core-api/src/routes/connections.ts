@@ -389,7 +389,7 @@ export function createConnectionRoutes(
 			}
 
 			const now = new Date().toISOString();
-			await updateConnection(db, id, { health, lastValidatedAt: now, updatedAt: now });
+			await updateConnection(db, { id, userId }, { health, lastValidatedAt: now, updatedAt: now });
 
 			return c.json({ health });
 		},

@@ -12,7 +12,7 @@
  *
  * @lore AU20 Am4: collapsed from 34 to 18 exports.
  * Internalized: getServerSecret, requireServerSecret, deriveKey,
- *   listActiveHeld, SERVICE_CLI_ENV, ResolvedMcpServer,
+ *   held-row query, CLI carrier map, MCP entry shape,
  *   ServerCredentialWriteValues, SetCredentialValueInput.
  * Collapsed: 9 credential-row accessors → readCredentials/writeCredential/deleteCredential;
  *   7 service-connection accessors → listConnections/insertConnection/updateConnection/deleteConnection;

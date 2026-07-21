@@ -27,11 +27,7 @@ import { test } from "@hyperidle/db/test-fixtures";
 // REAL sibling Service function directly for test-only DI construction.
 import { findUser } from "@hyperidle/users";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import {
-	applyProvisioningPlan,
-	buildProvisioningPlan,
-	listActiveHeld,
-} from "../connection-provisioning.js";
+import { applyProvisioningPlan, buildProvisioningPlan } from "../connection-provisioning.js";
 import { encryptCredentialValue } from "../credential-encryption.js";
 import type { ConnectionsUserReader } from "../ports.js";
 import { ServiceConnectionResolver } from "../service-connection-resolver.js";
@@ -112,43 +108,6 @@ async function seedConnection(
 		updatedAt: NOW,
 	});
 }
-
-// ── listActiveHeld (real DB) ──────────────────────────────────────────────────
-
-describe("listActiveHeld (real DB)", () => {
-	test("returns only held rows for the userId (not other users)", async ({ db }) => {
-		await seedHumanUser(db);
-		await seedOtherHumanUser(db);
-
-		await seedConnection(db, {
-			id: "sc-an2-gh",
-			userId: USER_HUMAN_ID,
-			service: "github",
-			authSource: "token",
-			token: "ghs_abc",
-		});
-		await seedConnection(db, {
-			id: "sc-an2-figma",
-			userId: USER_HUMAN_ID,
-			service: "figma",
-			authSource: "mcp",
-			serverUrl: "https://mcp.figma.com",
-		});
-		await seedConnection(db, {
-			id: "sc-an2-other",
-			userId: USER_OTHER_ID,
-			service: "stripe",
-			authSource: "token",
-			token: "sk_other",
-		});
-
-		const result = await listActiveHeld(db, USER_HUMAN_ID);
-		const ids = result.map((r) => r.id);
-		expect(ids).toContain("sc-an2-gh");
-		expect(ids).toContain("sc-an2-figma");
-		expect(ids).not.toContain("sc-an2-other");
-	});
-});
 
 // ── AC1 — held connection provisioned into sandbox config ─────────────────────
 
@@ -419,7 +378,7 @@ describe("cross-user isolation", () => {
 
 		// Provision for the owning human (USER_HUMAN_ID — first human in DB).
 		// buildProvisioningPlan resolves the owner internally; USER_OTHER_ID's connections
-		// must not appear (cross-user isolation still enforced by listActiveHeld's AND(userId)).
+		// must not appear (cross-user isolation enforced by the held-row query's AND(userId)).
 		const planOwner = await buildProvisioningPlan({
 			db,
 			resolver,
@@ -488,7 +447,7 @@ describe("envInjections in plan and mcpTokenEnv for CLI-key path", () => {
 			userId: USER_HUMAN_ID,
 			service: "github",
 			authSource: "token",
-			// no serverUrl → CLI-key path (github is in SERVICE_CLI_ENV)
+			// no serverUrl → GitHub CLI-key path
 			token: "ghs_c2_test_token",
 		});
 

@@ -71,13 +71,12 @@ export async function insertConnection(
 }
 
 /**
- * Write back a validate-probe outcome (health + timestamp) for a connection by id.
- * No ownership check — callers that scope to a user should call listConnections
- * first to establish ownership.
+ * Atomically write back a validate-probe outcome for the connection matching
+ * both id and owning user. A mismatched owner leaves the row unchanged.
  */
 export async function updateConnection(
 	db: HyperIdleDb,
-	id: string,
+	params: { id: string; userId: string },
 	patch: {
 		readonly health?: string;
 		readonly lastValidatedAt?: string;
@@ -90,7 +89,10 @@ export async function updateConnection(
 	if (patch.health !== undefined) updateSet.health = patch.health;
 	if (patch.lastValidatedAt !== undefined) updateSet.lastValidatedAt = patch.lastValidatedAt;
 
-	await db.update(serviceConnections).set(updateSet).where(eq(serviceConnections.id, id));
+	await db
+		.update(serviceConnections)
+		.set(updateSet)
+		.where(and(eq(serviceConnections.id, params.id), eq(serviceConnections.userId, params.userId)));
 }
 
 /**
