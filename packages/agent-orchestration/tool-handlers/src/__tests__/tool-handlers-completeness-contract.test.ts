@@ -24,11 +24,12 @@
  *      The handler calls ports.work.appendTaskNote atomically (no pre-read)
  *      and returns NOT_FOUND when the port signals the task is missing.
  *
- * @lore AU20 Stage 1: tests import internal factory/handler files directly
- * (`../log-task.js`, `../assistant-draft-registry.js`) since those files
- * persist across the rewrite — only barrel exports and per-caller helpers
- * shrink. `AssistantDraftRegistryParams` is intentionally NOT imported here
- * (it will be de-exported in Stage 2); params are passed as object literals.
+ * @lore AU20 Stage 1/3: Stage 1 imported `createLogTaskTool` directly from
+ * `../log-task.js`. Stage 3 collapsed `log-task.ts` into `tool-definitions.ts`
+ * as a private maker; Section C now drives `buildToolDefinitions` to obtain
+ * the `log_task` tool, keeping all behaviour assertions identical.
+ * `AssistantDraftRegistryParams` is intentionally NOT imported here
+ * (it was de-exported in Stage 2); params are passed as object literals.
  */
 
 import * as os from "node:os";
@@ -37,7 +38,6 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildAssistantDraftRegistry } from "../assistant-draft-registry.js";
-import { createLogTaskTool } from "../log-task.js";
 import type { ToolHandlersPorts } from "../ports.js";
 import { buildToolDefinitions } from "../tool-definitions.js";
 import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";
@@ -602,7 +602,7 @@ describe("log_task handler — appendTaskNote port usage", () => {
 	});
 
 	it("happy path: appends the note and returns {taskId}", async () => {
-		const tool = createLogTaskTool(fakePorts);
+		const tool = buildToolDefinitions(fakePorts).find((t) => t.name === "log_task")!;
 		const ctx = makeFakeCtx("agent-1");
 
 		const result = await tool.handler({ note: "Completed the setup step." }, ctx);
@@ -614,7 +614,7 @@ describe("log_task handler — appendTaskNote port usage", () => {
 	});
 
 	it("calls appendTaskNote with ctx.taskId (not a hardcoded value)", async () => {
-		const tool = createLogTaskTool(fakePorts);
+		const tool = buildToolDefinitions(fakePorts).find((t) => t.name === "log_task")!;
 		const ctx = makeFakeCtx("agent-1");
 		ctx.taskId; // verify taskId is what we expect
 
@@ -625,7 +625,7 @@ describe("log_task handler — appendTaskNote port usage", () => {
 	});
 
 	it("the entry passed to appendTaskNote contains the agent id and the note text", async () => {
-		const tool = createLogTaskTool(fakePorts);
+		const tool = buildToolDefinitions(fakePorts).find((t) => t.name === "log_task")!;
 		const ctx = makeFakeCtx("my-agent-id");
 
 		await tool.handler({ note: "Note text here." }, ctx);
@@ -638,7 +638,7 @@ describe("log_task handler — appendTaskNote port usage", () => {
 
 	it("returns NOT_FOUND when appendTaskNote returns undefined (task missing)", async () => {
 		appendReturnValue = undefined; // signal: task not found
-		const tool = createLogTaskTool(fakePorts);
+		const tool = buildToolDefinitions(fakePorts).find((t) => t.name === "log_task")!;
 		const ctx = makeFakeCtx("agent-1");
 
 		const result = await tool.handler({ note: "Note for missing task." }, ctx);
@@ -649,7 +649,7 @@ describe("log_task handler — appendTaskNote port usage", () => {
 	});
 
 	it("returns INVALID_INPUT for an empty note string", async () => {
-		const tool = createLogTaskTool(fakePorts);
+		const tool = buildToolDefinitions(fakePorts).find((t) => t.name === "log_task")!;
 		const ctx = makeFakeCtx("agent-1");
 
 		// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -663,7 +663,7 @@ describe("log_task handler — appendTaskNote port usage", () => {
 	});
 
 	it("calls appendTaskNote exactly once per invocation (no duplicate writes)", async () => {
-		const tool = createLogTaskTool(fakePorts);
+		const tool = buildToolDefinitions(fakePorts).find((t) => t.name === "log_task")!;
 		const ctx = makeFakeCtx("agent-1");
 
 		await tool.handler({ note: "First invocation." }, ctx);

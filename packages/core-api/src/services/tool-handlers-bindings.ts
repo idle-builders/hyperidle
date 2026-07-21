@@ -26,7 +26,6 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { nextCronMatch, parseCron } from "@hyperidle/dispatch";
 import {
 	buildAttentionService,
 	createKnowledgeConflict,
@@ -228,7 +227,7 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	},
 	agentSelection: { resolveAgentScaffoldSpecs: resolveAgentScaffoldSpecsForTool },
 	routine: { insertRoutine, getRoutineById: getRoutine, updateRoutineById: updateRoutine },
-	dispatch: { nextCronMatch, parseCron, provisionTeamRoutines },
+	dispatch: { provisionTeamRoutines },
 	knowledge: {
 		search: searchKnowledgeForTool,
 		create: createKnowledgeItem,

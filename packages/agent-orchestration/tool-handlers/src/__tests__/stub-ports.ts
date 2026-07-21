@@ -56,8 +56,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 		updateRoutineById: notImplemented,
 	},
 	dispatch: {
-		nextCronMatch: notImplemented,
-		parseCron: notImplemented,
 		provisionTeamRoutines: notImplemented,
 	},
 	knowledge: {
