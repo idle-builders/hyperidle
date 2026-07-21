@@ -19,7 +19,7 @@
 
 import { test } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
-import { readServerConfig, updateServerConfig } from "../server-config.js";
+import { readServerConfig, updateServerConfig } from "../index.js";
 
 describe("server config read/write", () => {
 	describe("readServerConfig", () => {

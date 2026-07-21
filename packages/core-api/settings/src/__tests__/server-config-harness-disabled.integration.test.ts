@@ -17,7 +17,7 @@
 
 import { test } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
-import { readServerConfig, updateServerConfig } from "../server-config.js";
+import { readServerConfig, updateServerConfig } from "../index.js";
 
 /**
  * AM4 adds `harnessDisabled?: string[]` to ServerConfigPatch (Task 1).

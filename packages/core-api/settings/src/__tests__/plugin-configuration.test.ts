@@ -21,13 +21,12 @@ import {
 	type BackfillLegacyConfigurationDeps,
 	BUILTIN_PLUGIN_SOURCE,
 	backfillConfigurationDefaults,
-	getResolvedConfiguration,
 	listConfiguration,
 	type PluginConfigurationSeed,
 	seedConfigurationDefaults,
 	setPluginState,
 	writeConfigurationOverride,
-} from "../plugin-configuration.js";
+} from "../index.js";
 
 const NOW = "2026-07-08T10:00:00.000Z";
 
@@ -136,7 +135,7 @@ describe("plugin configuration service", () => {
 		});
 
 		for (const kind of CONFIGURATION_KINDS) {
-			const entry = await getResolvedConfiguration(handle.db, kind, `${kind}.alpha`);
+			const entry = await findConfiguration(kind, `${kind}.alpha`);
 			expect(entry).toEqual(
 				expect.objectContaining({
 					kind,
@@ -162,7 +161,7 @@ describe("plugin configuration service", () => {
 			now: "2026-07-08T10:03:00.000Z",
 		});
 
-		expect(await getResolvedConfiguration(handle.db, "agent", "agent.alpha")).toEqual(
+		expect(await findConfiguration("agent", "agent.alpha")).toEqual(
 			expect.objectContaining({
 				activeValue: { label: "agent v2" },
 				userValue: null,
@@ -186,7 +185,7 @@ describe("plugin configuration service", () => {
 
 		await setPluginState(handle.db, "plugin.alpha", "disabled", "2026-07-08T10:02:00.000Z");
 
-		expect(await getResolvedConfiguration(handle.db, "agent", "agent.alpha")).toEqual(
+		expect(await findConfiguration("agent", "agent.alpha")).toEqual(
 			expect.objectContaining({
 				activeValue: { label: "agent user" },
 				valueSource: "user_override",
@@ -194,7 +193,7 @@ describe("plugin configuration service", () => {
 				origin: expect.objectContaining({ pluginState: "disabled" }),
 			}),
 		);
-		expect(await getResolvedConfiguration(handle.db, "tool", "tool.alpha")).toEqual(
+		expect(await findConfiguration("tool", "tool.alpha")).toEqual(
 			expect.objectContaining({
 				activeValue: { label: "tool alpha" },
 				valueSource: "default",
@@ -205,7 +204,7 @@ describe("plugin configuration service", () => {
 
 		await setPluginState(handle.db, "plugin.alpha", "removed", "2026-07-08T10:03:00.000Z");
 
-		expect(await getResolvedConfiguration(handle.db, "agent", "agent.alpha")).toEqual(
+		expect(await findConfiguration("agent", "agent.alpha")).toEqual(
 			expect.objectContaining({
 				activeValue: { label: "agent user" },
 				valueSource: "user_override",
@@ -213,7 +212,7 @@ describe("plugin configuration service", () => {
 				origin: expect.objectContaining({ pluginState: "removed" }),
 			}),
 		);
-		expect(await getResolvedConfiguration(handle.db, "tool", "tool.alpha")).toEqual(
+		expect(await findConfiguration("tool", "tool.alpha")).toEqual(
 			expect.objectContaining({
 				active: false,
 				origin: expect.objectContaining({ pluginState: "removed" }),
@@ -239,7 +238,7 @@ describe("plugin configuration service", () => {
 		expect(entries.map((entry) => entry.kind).sort()).toEqual([...CONFIGURATION_KINDS].sort());
 		expect(entries.every((entry) => entry.origin.type === "builtin")).toBe(true);
 		expect(entries.every((entry) => entry.origin.pluginId === BUILTIN_PLUGIN_SOURCE.id)).toBe(true);
-		expect(await getResolvedConfiguration(handle.db, "mcp_server", "mcp_server.builtin")).toEqual(
+		expect(await findConfiguration("mcp_server", "mcp_server.builtin")).toEqual(
 			expect.objectContaining({
 				activeValue: { label: "edited MCP default" },
 				defaultValue: { label: "mcp_server alpha" },
@@ -345,7 +344,7 @@ describe("plugin configuration service", () => {
 		).rejects.toThrow(/secret-bearing field/i);
 
 		expect(await overrideRows()).toHaveLength(0);
-		expect(await getResolvedConfiguration(handle.db, "agent", "agent.alpha")).toEqual(
+		expect(await findConfiguration("agent", "agent.alpha")).toEqual(
 			expect.objectContaining({
 				activeValue: { label: "agent alpha" },
 				userValue: null,
@@ -392,7 +391,7 @@ describe("plugin configuration service", () => {
 		).rejects.toThrow(/http\/https URL/i);
 
 		expect(await overrideRows()).toHaveLength(0);
-		expect(await getResolvedConfiguration(handle.db, "mcp_server", "mcp_server.good")).toEqual(
+		expect(await findConfiguration("mcp_server", "mcp_server.good")).toEqual(
 			expect.objectContaining({
 				activeValue: { label: "good mcp", serverUrl: "https://mcp.example.test" },
 				userValue: null,
@@ -410,6 +409,11 @@ describe("plugin configuration service", () => {
 
 	async function overrideRows() {
 		return handle.db.select().from(configurationOverrides);
+	}
+
+	async function findConfiguration(kind: ConfigurationKind, key: string) {
+		const [entry] = await listConfiguration(handle.db, { kind, key });
+		return entry ?? null;
 	}
 });
 
