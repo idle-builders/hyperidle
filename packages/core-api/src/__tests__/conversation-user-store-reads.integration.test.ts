@@ -129,6 +129,38 @@ describe("user-store reads", () => {
 		expect(rows.map((r) => r.id)).toEqual(["a", "z"]);
 	});
 
+	test("findUser composes role, team, status, and exclusion predicates", async ({ db }) => {
+		await seedTeam(db, "tm-role");
+		await insertUser(
+			db,
+			userValues("self", { teamId: "tm-role", role: "reviewer", status: "active" }),
+		);
+		await insertUser(
+			db,
+			userValues("peer", { teamId: "tm-role", role: "reviewer", status: "active" }),
+		);
+		await insertUser(
+			db,
+			userValues("retired", { teamId: "tm-role", role: "reviewer", status: "retired" }),
+		);
+
+		const teammate = await findUser(db, {
+			role: "reviewer",
+			teamIds: ["tm-role"],
+			status: "active",
+			excludeId: "self",
+		});
+		expect(teammate?.id).toBe("peer");
+	});
+
+	test("listUsers nameContains is case-insensitive and escapes LIKE wildcards", async ({ db }) => {
+		await insertUser(db, userValues("literal", { name: "Agent 100%_Ready" }));
+		await insertUser(db, userValues("wildcard", { name: "Agent 100XXReady" }));
+
+		const rows = await listUsers(db, { nameContains: "%_READY" });
+		expect(rows.map((row) => row.id)).toEqual(["literal"]);
+	});
+
 	test("listUsers(kind:ai) returns AI users with systemPrompt INCLUDED (AC-2)", async ({ db }) => {
 		// @lore AU20 Am11: listAgentProfiles deleted; routes project full User rows.
 		// Verify that listUsers({kind:'ai'}) returns the systemPrompt field (AC-2).
@@ -157,6 +189,12 @@ describe("user-store reads", () => {
 		expect((await findUser(db, { id: "c1" }))?.costActual).toBe(40);
 		expect((await findUser(db, { id: "c2" }))?.costActual).toBe(105);
 		expect(await sumAllUserCost(db)).toBe(145);
+	});
+
+	test("incrementUserCost preserves every concurrent increment", async ({ db }) => {
+		await insertUser(db, userValues("metered", { costActual: null }));
+		await Promise.all(Array.from({ length: 20 }, () => incrementUserCost(db, "metered", 3)));
+		expect((await findUser(db, { id: "metered" }))?.costActual).toBe(60);
 	});
 
 	test("a read passed a live tx sees the same tx's uncommitted write", async ({ db }) => {
