@@ -16,25 +16,25 @@
  * down. This enables staged rollout of signals without retroactive re-weighting.
  */
 
-export interface RelevanceWeights {
+interface RelevanceWeights {
 	readonly recency: number;
 	readonly frequency: number;
 	readonly citation: number;
 }
 
-export interface RelevanceShape {
+interface RelevanceShape {
 	readonly recencyHalflifeDays: number;
 	readonly frequencySaturation: number;
 	readonly frequencyWindowDays: number;
 	readonly citationSaturation: number;
 }
 
-export interface RelevanceConfig {
+interface RelevanceConfig {
 	readonly weights: RelevanceWeights;
 	readonly shape: RelevanceShape;
 }
 
-export interface RelevanceInput {
+interface RelevanceInput {
 	/** Days since last validation/edit/access. null = no data. */
 	ageDays: number | null;
 	/** Access count within the frequency window. null = no data. */
@@ -48,7 +48,7 @@ export interface RelevanceInput {
  * Weights: w_r=0.4, w_f=0.4, w_c=0.2
  * Shape: halflife=14d, freqSat=5, window=30d, citSat=5
  */
-export const DEFAULT_RELEVANCE_CONFIG: RelevanceConfig = {
+const DEFAULT_RELEVANCE_CONFIG: RelevanceConfig = {
 	weights: { recency: 0.4, frequency: 0.4, citation: 0.2 },
 	shape: {
 		recencyHalflifeDays: 14,
@@ -75,10 +75,7 @@ function round6(x: number): number {
  * Invalid inputs (NaN, negative ageDays, negative counts) are treated
  * defensively: NaN ageDays returns null, negative values are clamped to 0.
  */
-export function computeRelevanceScore(
-	input: RelevanceInput,
-	config: RelevanceConfig,
-): number | null {
+function computeRelevanceScore(input: RelevanceInput, config: RelevanceConfig): number | null {
 	const { weights, shape } = config;
 	const { ageDays, accessCount, citationCount } = input;
 
@@ -117,3 +114,6 @@ export function computeRelevanceScore(
 
 	return round6(clamp01(numerator / denominator));
 }
+
+export type { RelevanceConfig };
+export { computeRelevanceScore, DEFAULT_RELEVANCE_CONFIG };

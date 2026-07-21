@@ -47,13 +47,7 @@ import type {
 } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
 import { LocalSandboxAdapter } from "@hyperidle/harness-registry";
-import {
-	buildAttentionService,
-	createPracticeMeeting,
-	list as listKnowledgeItems,
-	runAutoPromotionSweep,
-	runStaleSweep,
-} from "@hyperidle/knowledge";
+import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import { resolveModel } from "@hyperidle/model-gateway";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import {
@@ -71,6 +65,7 @@ import type { EventBus, ToolContext } from "@hyperidle/shared";
 import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
 import { findUser, getOrCreateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import { createPracticeMeeting } from "../../knowledge/src/practice-meeting.js";
 import { agentSelectionService } from "./agent-selection-bindings.js";
 import { getFactoryCostActual } from "./cost-bindings.js";
 import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
@@ -96,17 +91,22 @@ async function recomputeAttentionForCandidates(
 		conversation: { insertThread },
 		work: { createItem: (exec, values) => work.create(exec, "item", values) },
 	});
-	return buildAttentionService({
-		db,
-		eventBus,
-		work: {
-			findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
-				const rows = await work.list(exec, "item", { marker });
-				return rows[0] ? { id: rows[0].id } : undefined;
+	const result = await recomputeAttention(
+		{
+			db,
+			eventBus,
+			work: {
+				findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
+					const rows = await work.list(exec, "item", { marker });
+					return rows[0] ? { id: rows[0].id } : undefined;
+				},
 			},
+			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
 		},
-		review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
-	}).recomputeScope({ ids: candidateIds as string[] });
+		{ filter: { ids: candidateIds as string[] } },
+	);
+	if (!("ok" in result)) throw new Error("unexpected attention result");
+	return result;
 }
 
 const dispatchPorts: DispatchPorts = {
@@ -199,12 +199,12 @@ const dispatchPorts: DispatchPorts = {
 	// contextual typing from `DispatchPorts["review"]` handles parameter types.
 	// @lore AU20 Am9: `createPracticeMeeting` relocated to `@hyperidle/knowledge`.
 	review: {
-		createPracticeMeeting: (db, input) => createPracticeMeeting(db, input),
+		createPracticeMeeting,
 	},
 	knowledge: {
-		runAutoPromotionSweep: (db, eventBus) => runAutoPromotionSweep(db, eventBus),
+		runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
 		runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
-			runStaleSweep(db, eventBus, nowMs, thresholdMs, options),
+			sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
 		listRecentByLayers: (db, layers, since) =>
 			listKnowledgeItems(db, { recentByLayers: { layers, since } }),
 		recomputeAttentionForCandidates,

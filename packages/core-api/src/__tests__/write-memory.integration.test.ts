@@ -7,7 +7,6 @@ import {
 	knowledgeItems,
 	users,
 } from "@hyperidle/db";
-import { setupFts } from "@hyperidle/knowledge";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
@@ -59,7 +58,6 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext<HyperIdl
 describe("write_memory tool", () => {
 	describe("creates a knowledge item via fabric.create", () => {
 		test("inserts a knowledge_items row with version 1", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -92,7 +90,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("attributes updatedBy to `agent:<agentId>`", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -114,7 +111,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("creates an edit log entry with editType=create", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -138,7 +134,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("accepts optional topic and format/status defaults", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -163,7 +158,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("accepts explicit practice scope with role id", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -188,7 +182,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("accepts explicit filesystem scope", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -213,7 +206,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("rejects explicit scoped writes without required scopeId", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -234,7 +226,6 @@ describe("write_memory tool", () => {
 
 	describe("I6: non-facilitator agents restricted to L0-L2", () => {
 		test("builder agent writing L3 gets FORBIDDEN", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
@@ -253,7 +244,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("builder agent writing L4 gets FORBIDDEN", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
@@ -272,7 +262,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("builder agent can write to L0", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
@@ -288,7 +277,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("builder agent can write to L2", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
@@ -304,7 +292,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("facilitator agent can write to L3", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -319,7 +306,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("facilitator agent can write to L4", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -336,7 +322,6 @@ describe("write_memory tool", () => {
 
 	describe("AC9: invalid input returns structured error", () => {
 		test("returns INVALID_INPUT for unknown layer", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -349,7 +334,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("returns INVALID_INPUT for missing title", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -362,7 +346,6 @@ describe("write_memory tool", () => {
 		});
 
 		test("returns INVALID_INPUT for unknown kind", async ({ db }) => {
-			await setupFts(db);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid

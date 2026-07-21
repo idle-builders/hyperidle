@@ -17,7 +17,7 @@ import {
 	propagationLog,
 	users,
 } from "@hyperidle/db";
-import { reapKnowledgeAccessLog } from "@hyperidle/knowledge";
+import { reapAccessLog } from "@hyperidle/knowledge";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
 import { reapExpiredCredentials } from "@hyperidle/users";
 import { and, lt } from "drizzle-orm";
@@ -199,7 +199,7 @@ describe("retention reaper — individual owning-service sweeps", () => {
 		]);
 
 		const termCutoff = new Date(now.getTime() - TERMINAL_LOG_TTL_MS).toISOString();
-		const deleted = await reapKnowledgeAccessLog(db, termCutoff);
+		const deleted = await reapAccessLog(db, termCutoff);
 		expect(deleted.length).toBe(1);
 
 		const survivors = await db.select().from(knowledgeAccessLog);

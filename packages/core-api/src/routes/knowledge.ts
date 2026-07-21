@@ -26,18 +26,15 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { getFilesystem } from "@hyperidle/filesystems";
 import {
 	remove as archiveKnowledgeItem,
-	changeScope,
 	countAccesses,
 	count as countKnowledgeItems,
 	create as createKnowledgeItem,
-	flagItem,
 	get as getKnowledgeItem,
 	ItemDeletedError,
+	transition as knowledgeTransition,
 	list as listKnowledgeItems,
-	mergeItems,
-	recordKnowledgeAccess,
+	recordAccess as recordKnowledgeAccess,
 	search as searchKnowledge,
-	splitItem,
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
@@ -535,10 +532,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 400);
 			}
 
-			// @lore AU14 round 2: exact write sequence (conditional scope_kind/scope_id
-			// edit-log rows, version+1, projection-layer upsert) moved into the
-			// repository's changeScope — see knowledge-repository.ts §7c.
-			const updated = await changeScope(db, existing, {
+			// @lore AU20 K2-writes: changeScope folded into transition({target:"changeScope"}).
+			// transition() fetches the item internally by id (no need to pass `existing`).
+			const updated = await knowledgeTransition(db, id, {
+				target: "changeScope",
 				scopeKind: body.scopeKind,
 				scopeId: body.scopeId ?? null,
 				reason: body.reason,
@@ -670,10 +667,12 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 404);
 			}
 
-			// @lore AU14 round 2: exact write sequence (target body-append + version+1,
-			// source archive, two `editType:"merge"` edit-log rows) moved into the
-			// repository's mergeItems — see knowledge-repository.ts §7c.
-			const merged = await mergeItems(db, { target, source, updatedBy: body.updatedBy });
+			// @lore AU20 K2-writes: mergeItems folded into transition({target:"merge"}).
+			const merged = await knowledgeTransition(db, target.id, {
+				target: "merge",
+				sourceId: source.id,
+				updatedBy: body.updatedBy,
+			});
 
 			// O2: emit knowledge_updated event for merge
 			const mergedEvent: KnowledgeUpdatedEvent = {
@@ -708,12 +707,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 404);
 			}
 
-			// @lore AU14 round 2: exact write sequence (N new draft/v1 rows inheriting
-			// scope + layer-only projection + NO create edit-log, original archived +
-			// one `editType:"split"` row) moved into the repository's splitItem —
-			// see knowledge-repository.ts §7c.
-			const createdItems = await splitItem(db, {
-				original,
+			// @lore AU20 K2-writes: splitItem folded into transition({target:"split"}).
+			const createdItems = await knowledgeTransition(db, original.id, {
+				target: "split",
 				newItems: body.newItems,
 				updatedBy: body.updatedBy,
 			});
@@ -796,14 +792,16 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 			// O2: no attentionScore write (column stripped). Flag is recorded in the edit log.
 			// Status set to "draft" so flagged items re-enter the review queue.
-			// @lore AU14 round 2 §7d: flagItem accepts the caller's tx handle and opens no
-			// transaction of its own — the route keeps the single cross-domain transaction
-			// wrapping the knowledgeItems + edit-log write (flagItem) and the agent-layer
-			// recordAgentWorkIntent write (wrong domain for the knowledge repository).
+			// @lore AU20 K2-writes: flagItem folded into transition({target:"flag"}).
+			// transition() fetches the item internally by id — no need to pass `item`.
 			const editId = crypto.randomUUID();
 			let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
 			await db.transaction(async (tx) => {
-				await flagItem(tx as HyperIdleDb, item, { reason: body.reason, editId });
+				await knowledgeTransition(tx as HyperIdleDb, item.id, {
+					target: "flag",
+					reason: body.reason,
+					editId,
+				});
 				if (body.agentId)
 					intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
 						kind: "knowledge_action",

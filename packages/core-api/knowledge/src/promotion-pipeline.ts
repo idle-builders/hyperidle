@@ -24,14 +24,14 @@ import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
  * We match on distinct `scope_id` values (cross-product repetition) with
  * the same `(layer, topic, kind)` signature.
  */
-export const AUTO_PROMOTION_REPETITION_THRESHOLD = 5;
+const AUTO_PROMOTION_REPETITION_THRESHOLD = 5;
 
 /**
  * Stale threshold — items older than this are candidates for marking stale.
  *
  * TRACK-G §G3 AC4: "Stale detection: ACTIVE unused >90 days → STALE".
  */
-export const STALE_THRESHOLD_MS = 90 * 24 * 60 * 60 * 1000;
+const STALE_THRESHOLD_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
  * Marker editor string for auto-promotion edit-log entries so provenance
@@ -44,7 +44,7 @@ export const STALE_THRESHOLD_MS = 90 * 24 * 60 * 60 * 1000;
  * separate human-or-agent decisions from system-driven ones without a
  * separate column.
  */
-export const AUTO_PROMOTION_EDITOR = "system:auto-promotion";
+const AUTO_PROMOTION_EDITOR = "system:auto-promotion";
 
 /**
  * Default upper bound on how many candidates a single sweep pass will
@@ -58,22 +58,22 @@ export const AUTO_PROMOTION_EDITOR = "system:auto-promotion";
  * steady-state sweep volume and still cheap to iterate synchronously.
  * Callers that need different behavior can pass `maxBatchSize`.
  */
-export const DEFAULT_SWEEP_MAX_BATCH_SIZE = 1000;
+const DEFAULT_SWEEP_MAX_BATCH_SIZE = 1000;
 
 // --- Types ---
 
 /** Auto-promotion recommendation for a single knowledge item. */
-export type AutoPromotionResult =
+type AutoPromotionResult =
 	| { readonly shouldPromote: true; readonly reason: string; readonly distinctScopes: number }
 	| { readonly shouldPromote: false; readonly reason: string; readonly distinctScopes: number };
 
 /** Contradiction detection result. */
-export type ContradictionResult =
+type ContradictionResult =
 	| { readonly contradicts: true; readonly withItemId: string; readonly reason: string }
 	| { readonly contradicts: false };
 
 /** Summary of an auto-promotion sweep. */
-export interface AutoPromotionSweepResult {
+interface AutoPromotionSweepResult {
 	readonly scanned: number;
 	readonly promotedIds: readonly string[];
 	readonly flaggedForReviewIds: readonly string[];
@@ -81,7 +81,7 @@ export interface AutoPromotionSweepResult {
 }
 
 /** Summary of a stale sweep. */
-export interface StaleSweepResult {
+interface StaleSweepResult {
 	readonly markedIds: readonly string[];
 }
 
@@ -165,7 +165,7 @@ async function hasOpenConflict(db: HyperIdleDb, itemId: string): Promise<boolean
  * purpose. Including it would make every item trivially unique and
  * defeat AC2 ("same finding in 5 products → VALIDATED").
  */
-export async function checkAutoPromotion(
+async function checkAutoPromotion(
 	db: HyperIdleDb,
 	knowledgeItemId: string,
 ): Promise<AutoPromotionResult> {
@@ -261,7 +261,7 @@ export async function checkAutoPromotion(
  * items share a topic string but semantically don't conflict. Documented
  * limitation — see plans/work-packages/G3-plan.md §3.3.
  */
-export async function detectLayerContradiction(
+async function detectLayerContradiction(
 	db: HyperIdleDb,
 	knowledgeItemId: string,
 ): Promise<ContradictionResult> {
@@ -350,7 +350,7 @@ export async function detectLayerContradiction(
  * the caller can bound the working set per pass — additional stale
  * items will be returned by the next scheduled run.
  */
-export async function findStaleItems(
+async function findStaleItems(
 	db: HyperIdleDb,
 	nowMs: number,
 	thresholdMs: number = STALE_THRESHOLD_MS,
@@ -373,7 +373,7 @@ export async function findStaleItems(
  * provenance. Returns true when the transition succeeded, false when the
  * row was no longer `active` (concurrent modification or not found).
  */
-export async function markStale(db: HyperIdleDb, itemId: string): Promise<boolean> {
+async function markStale(db: HyperIdleDb, itemId: string): Promise<boolean> {
 	const isoNow = new Date().toISOString();
 	return db.transaction(async (tx): Promise<boolean> => {
 		const [row] = await tx
@@ -419,7 +419,7 @@ export async function markStale(db: HyperIdleDb, itemId: string): Promise<boolea
  *   Defaults to {@link DEFAULT_SWEEP_MAX_BATCH_SIZE}. Sweeps run on a
  *   schedule so any backlog drains across successive runs.
  */
-export async function runAutoPromotionSweep(
+async function runAutoPromotionSweep(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	maxBatchSize: number = DEFAULT_SWEEP_MAX_BATCH_SIZE,
@@ -490,7 +490,7 @@ export async function runAutoPromotionSweep(
 }
 
 /** Options for {@link runStaleSweep}. */
-export interface StaleSweepOptions {
+interface StaleSweepOptions {
 	/** Upper bound on candidates loaded in this pass. */
 	readonly maxBatchSize?: number;
 	/**
@@ -519,7 +519,7 @@ export interface StaleSweepOptions {
  * @param options.silent When true, skip emitting events. DB writes still
  *   occur.
  */
-export async function runStaleSweep(
+async function runStaleSweep(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	nowMs: number,
@@ -548,89 +548,36 @@ export async function runStaleSweep(
 	return { markedIds };
 }
 
-// ---------------------------------------------------------------------------
-// Absorbed from promotion-transition.ts (AU20 Ag7a — per-consumer barrel retired)
-// findKnowledgeItemStatusById is retired; its only consumer (tool-handlers-bindings.ts)
-// now uses findById from knowledge-repository.ts.
-// ---------------------------------------------------------------------------
-
-export type PromoteKnowledgeItemResult =
-	| { readonly ok: true; readonly fromStatus: string }
-	| {
-			readonly ok: false;
-			readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
-			readonly message: string;
-	  };
-
-export interface PromoteKnowledgeItemInput {
-	readonly knowledgeItemId: string;
-	readonly fromStatus: string;
-	readonly toStatus: string;
-	readonly reason: string | undefined;
-	readonly editor: string;
-}
-
-/**
- * Atomic status-transition for the `promote_knowledge` tool.
- * The whole gate-check + conditional-UPDATE + edit-log-INSERT transaction is one
- * knowledge-owned function — behaviour byte-identical to the pre-migration inline block.
- */
-export async function promoteKnowledgeItem(
+export function sweep(
 	db: HyperIdleDb,
-	input: PromoteKnowledgeItemInput,
-): Promise<PromoteKnowledgeItemResult> {
-	const { knowledgeItemId, fromStatus, toStatus, reason, editor } = input;
-	const isoNow = new Date().toISOString();
-
-	return db.transaction(async (tx): Promise<PromoteKnowledgeItemResult> => {
-		if (toStatus === "validated") {
-			const [openConflict] = await tx
-				.select()
-				.from(knowledgeConflicts)
-				.where(
-					and(
-						eq(knowledgeConflicts.itemId, knowledgeItemId),
-						eq(knowledgeConflicts.status, "open"),
-					),
-				)
-				.limit(1);
-			if (openConflict) {
-				return {
-					ok: false,
-					code: "CONFLICT_OPEN",
-					message: "open conflict blocks promotion to validated",
-				};
-			}
-		}
-
-		const updated = await tx
-			.update(knowledgeItems)
-			.set({ status: toStatus, updatedAt: isoNow, updatedBy: editor })
-			.where(and(eq(knowledgeItems.id, knowledgeItemId), eq(knowledgeItems.status, fromStatus)))
-			.returning({ id: knowledgeItems.id });
-
-		if (updated.length === 0) {
-			return {
-				ok: false,
-				code: "CONCURRENT_MODIFICATION",
-				message: `knowledge item ${knowledgeItemId} no longer in status ${fromStatus}`,
-			};
-		}
-
-		const newValue = reason ? `${toStatus} | reason: ${reason}` : toStatus;
-		await tx.insert(knowledgeEditLog).values({
-			id: randomUUID(),
-			itemId: knowledgeItemId,
-			editor,
-			field: "status",
-			oldValue: fromStatus,
-			newValue,
-			editType: "refinement",
-			createdAt: isoNow,
-		});
-
-		return { ok: true, fromStatus };
-	});
+	eventBus: EventBus,
+	kind: "autoPromotion",
+	options?: { readonly maxBatchSize?: number },
+): Promise<AutoPromotionSweepResult>;
+export function sweep(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	kind: "stale",
+	options: {
+		readonly nowMs: number;
+		readonly thresholdMs?: number;
+		readonly maxBatchSize?: number;
+		readonly silent?: boolean;
+	},
+): Promise<StaleSweepResult>;
+export function sweep(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	kind: "autoPromotion" | "stale",
+	options: {
+		readonly nowMs?: number;
+		readonly thresholdMs?: number;
+		readonly maxBatchSize?: number;
+		readonly silent?: boolean;
+	} = {},
+): Promise<AutoPromotionSweepResult | StaleSweepResult> {
+	if (kind === "autoPromotion") return runAutoPromotionSweep(db, eventBus, options.maxBatchSize);
+	return runStaleSweep(db, eventBus, options.nowMs ?? Date.now(), options.thresholdMs, options);
 }
 
 // --- Internal ---

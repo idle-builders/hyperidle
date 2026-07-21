@@ -39,7 +39,7 @@ const REVIEW_RECENCY_SATURATION_MS = 90 * 24 * 60 * 60 * 1000;
  */
 
 /** Public context for scoring. Built once per batch and reused across items. */
-export interface AttentionScoringContext {
+interface AttentionScoringContext {
 	/** Current time (ms epoch) — injected for deterministic tests. */
 	readonly now: number;
 	/** Items in the same (layer, scope_id, topic, kind) cohort → counts. */
@@ -55,7 +55,7 @@ export interface AttentionScoringContext {
 }
 
 /** Build a (layer, scope_id, topic, kind) cohort key. */
-export function cohortKey(
+function cohortKey(
 	layer: string | null,
 	scopeId: string | null,
 	topic: string | null,
@@ -65,11 +65,7 @@ export function cohortKey(
 }
 
 /** Build a (layer, topic, kind) cross-scope key. */
-export function crossScopeKey(
-	layer: string | null,
-	topic: string | null,
-	kind: string | null,
-): string {
+function crossScopeKey(layer: string | null, topic: string | null, kind: string | null): string {
 	return `${layer ?? ""}|${topic ?? ""}|${kind ?? ""}`;
 }
 
@@ -135,7 +131,7 @@ function computeTasteSensitivity(item: KnowledgeItemWithProjection): number {
  * @lore O2: accepts KnowledgeItemWithProjection since projection fields (layer, kind,
  * scopeId, attentionScore, confidence) moved to the extension table.
  */
-export function scoreAttention(
+function scoreAttention(
 	item: KnowledgeItemWithProjection,
 	context: AttentionScoringContext,
 	weights: AttentionWeights,
@@ -176,7 +172,7 @@ export function scoreAttention(
 }
 
 /** Score a batch of items sharing a context. Output order matches input order. */
-export function scoreAttentionBatch(
+function scoreAttentionBatch(
 	items: readonly KnowledgeItemWithProjection[],
 	context: AttentionScoringContext,
 	weights: AttentionWeights,
@@ -214,7 +210,7 @@ export function scoreAttentionBatch(
  * support varies; we filter in-app rather than risk adapter quirks. The
  * outer GROUP BY runs server-side; the subset-of-batch filter happens in JS.
  */
-export async function buildAttentionContext(
+async function buildAttentionContext(
 	db: HyperIdleDb,
 	items: readonly KnowledgeItemWithProjection[],
 	now?: number,
@@ -339,3 +335,6 @@ export async function buildAttentionContext(
 		lastHumanEditAt,
 	};
 }
+
+export type { AttentionScoringContext };
+export { buildAttentionContext, cohortKey, crossScopeKey, scoreAttention, scoreAttentionBatch };

@@ -20,14 +20,7 @@ import {
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KernelKnowledgeStatus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import {
-	changeScope,
-	create as createKnowledgeItem,
-	flagItem,
-	mergeItems,
-	remove,
-	splitItem,
-} from "../knowledge-repository.js";
+import { create as createKnowledgeItem, remove, transition } from "../knowledge-repository.js";
 import type { KnowledgeStatus } from "../types.js";
 
 async function seedItem(
@@ -71,7 +64,11 @@ describe("mergeItems exact-behavior lock", () => {
 		const target = await seedItem(db, { title: "Target", body: "Target body." });
 		const source = await seedItem(db, { title: "Source", body: "Source body." });
 
-		const merged = await mergeItems(db, { target, source, updatedBy: "u-merge" });
+		const merged = await transition(db, target.id, {
+			target: "merge",
+			sourceId: source.id,
+			updatedBy: "u-merge",
+		});
 
 		expect(merged.body).toBe(`${target.body}\n\n---\n\n${source.body}`);
 		expect(merged.version).toBe(target.version + 1);
@@ -105,8 +102,8 @@ describe("splitItem exact-behavior lock", () => {
 			scopeId: "team-123",
 		});
 
-		const created = await splitItem(db, {
-			original,
+		const created = await transition(db, original.id, {
+			target: "split",
 			newItems: [
 				{ title: "Part A", body: "Part A content." },
 				{ title: "Part B", body: "Part B content." },
@@ -190,7 +187,7 @@ describe("flagItem exact-behavior lock", () => {
 		const editId = crypto.randomUUID();
 		const reason = "Needs a second look";
 
-		await flagItem(db, item, { reason, editId });
+		await transition(db, item.id, { target: "flag", reason, editId });
 
 		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, item.id));
 		expect(row?.status).toBe("draft");
@@ -216,7 +213,11 @@ describe("flagItem rollback lock", () => {
 
 		await expect(
 			db.transaction(async (tx) => {
-				await flagItem(tx as HyperIdleDb, item, { reason: "will roll back", editId });
+				await transition(tx as HyperIdleDb, item.id, {
+					target: "flag",
+					reason: "will roll back",
+					editId,
+				});
 				throw new Error("forced rollback");
 			}),
 		).rejects.toThrow("forced rollback");
@@ -238,7 +239,8 @@ describe("changeScope exact-behavior lock", () => {
 		const existing = await seedItem(db, { scopeKind: "user", scopeId: "u-founder" });
 		const reason = "Promoted to product knowledge";
 
-		await changeScope(db, existing, {
+		await transition(db, existing.id, {
+			target: "changeScope",
 			scopeKind: "product",
 			scopeId: "prod-123",
 			reason,

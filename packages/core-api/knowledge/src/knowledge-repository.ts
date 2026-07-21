@@ -22,14 +22,15 @@ import {
 	type KnowledgeItem,
 	knowledgeAccessLog,
 	knowledgeAppProjection,
+	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
 
 import { type KernelKnowledgeStatus, type SCOPE_KINDS, scopeToLayer } from "@hyperidle/shared";
-import { and, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
-import { ftsSearch } from "./fts.js";
+import { executeTextSearch } from "./fts.js";
 import type { KnowledgeKind, KnowledgeLayer, KnowledgeScope, KnowledgeStatus } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -106,7 +107,8 @@ export interface UpdateKnowledgeItemInput {
 /** Base filter for list() — filters on kernel + projection table fields. */
 export interface ListFilters {
 	layer?: KnowledgeLayer;
-	scopeId?: string;
+	/** Matches scope stored on either the canonical row or its app projection. */
+	scopeId?: string | null;
 	kind?: KnowledgeKind;
 	topic?: string;
 	limit?: number;
@@ -114,7 +116,7 @@ export interface ListFilters {
 }
 
 /** Discriminant for get() — selects which projection view to return. */
-export type KnowledgeItemView = "summary" | "detail" | "projection";
+export type KnowledgeItemView = "summary" | "detail" | "projection" | "full";
 
 /**
  * Augments the kernel KnowledgeItem with app-runtime fields from the
@@ -133,7 +135,7 @@ export interface KnowledgeItemWithProjection extends KnowledgeItem {
 }
 
 /** Filters for listExportableKnowledgeItems (kept in barrel for git-export callers). */
-export interface ExportableKnowledgeItemFilters {
+interface ExportableKnowledgeItemFilters {
 	readonly layers: readonly string[];
 	readonly statuses: readonly string[];
 }
@@ -206,6 +208,11 @@ function now(): string {
 	return new Date().toISOString();
 }
 
+interface WriteOptions {
+	/** Caller-owned workflow clock; defaults to wall-clock time. */
+	readonly timestamp?: string;
+}
+
 /**
  * Fetch the app projection row for a knowledge item, or null if not found.
  */
@@ -247,9 +254,10 @@ function mergeWithProjection(
 export async function create(
 	db: HyperIdleDb,
 	input: CreateKnowledgeItemInput,
+	options: WriteOptions = {},
 ): Promise<KnowledgeItemWithProjection> {
 	const id = generateId();
-	const timestamp = now();
+	const timestamp = options.timestamp ?? now();
 
 	// Insert into canonical table (projection fields excluded, except scopeKind/scopeId
 	// which live on the kernel for efficient scope queries without a JOIN)
@@ -392,6 +400,7 @@ export async function update(
 	id: string,
 	changes: UpdateKnowledgeItemInput,
 	expectedVersion: number,
+	options: WriteOptions = {},
 ): Promise<KnowledgeItemWithProjection> {
 	// @lore N1/O2: PGlite uses async transactions. The transaction callback must
 	// be async. All inner DB calls are awaited.
@@ -417,7 +426,7 @@ export async function update(
 				.limit(1);
 			const existingWithProjection = mergeWithProjection(existing, projectionRow ?? null);
 
-			const timestamp = now();
+			const timestamp = options.timestamp ?? now();
 			const newVersion = existing.version + 1;
 			const { kernelChanges, projectionChanges, editLogEntries } = buildDiff(
 				id,
@@ -522,7 +531,7 @@ async function listBase(
 		if (kernelConditions.length > 0) {
 			query = query.where(and(...kernelConditions));
 		}
-		const rows = await query.limit(limit).offset(offset);
+		const rows = await query.orderBy(knowledgeItems.id).limit(limit).offset(offset);
 
 		const result: KnowledgeItemWithProjection[] = [];
 		for (const item of rows) {
@@ -534,7 +543,7 @@ async function listBase(
 
 	// Projection filters: JOIN with extension table.
 	// @lore O2: projection filter queries must JOIN with knowledgeAppProjection.
-	const conditions: ReturnType<typeof eq>[] = [];
+	const conditions: SQL[] = [];
 
 	if (filters.topic !== undefined) {
 		conditions.push(eq(knowledgeItems.topic, filters.topic));
@@ -543,7 +552,14 @@ async function listBase(
 		conditions.push(eq(knowledgeAppProjection.layer, filters.layer));
 	}
 	if (filters.scopeId !== undefined) {
-		conditions.push(eq(knowledgeAppProjection.scopeId, filters.scopeId));
+		const scopeCondition =
+			filters.scopeId === null
+				? and(isNull(knowledgeItems.scopeId), isNull(knowledgeAppProjection.scopeId))
+				: or(
+						eq(knowledgeItems.scopeId, filters.scopeId),
+						eq(knowledgeAppProjection.scopeId, filters.scopeId),
+					);
+		if (scopeCondition) conditions.push(scopeCondition);
 	}
 	if (filters.kind !== undefined) {
 		conditions.push(eq(knowledgeAppProjection.kind, filters.kind));
@@ -557,6 +573,7 @@ async function listBase(
 			eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 		)
 		.where(and(...conditions))
+		.orderBy(knowledgeItems.id)
 		.limit(limit)
 		.offset(offset);
 
@@ -580,6 +597,11 @@ async function listBase(
 export function get(
 	db: HyperIdleDb,
 	id: string,
+	opts: { view: "full" },
+): Promise<KnowledgeItemWithProjection | null>;
+export function get(
+	db: HyperIdleDb,
+	id: string,
 	opts: { view: "detail" },
 ): Promise<DetailRow | null>;
 export function get(
@@ -598,6 +620,15 @@ export async function get(
 	opts?: { view?: KnowledgeItemView },
 ): Promise<KnowledgeItem | DetailRow | ProjectionRow | null> {
 	switch (opts?.view) {
+		case "full": {
+			const [item] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+			if (!item) return null;
+			return mergeWithProjection(item, await getProjectionRow(db, id));
+		}
 		case "detail": {
 			// Inlined from former findDetailById.
 			const [row] = await db
@@ -926,7 +957,7 @@ export async function count(
  * Text mode uses ILIKE (case-insensitive) rather than searchByText's LIKE;
  * the behavioral difference is an intentional improvement (better UX).
  */
-export interface SearchOptions {
+interface SearchOptions {
 	limit?: number;
 	offset?: number;
 	/** Search mode: 'fts' (default) uses tsvector full-text; 'text' uses ILIKE on title/body/topic. */
@@ -934,6 +965,8 @@ export interface SearchOptions {
 	/** If provided, restrict to items visible to this userId (Q2 auth boundary). */
 	visibility?: string;
 }
+
+export type { ExportableKnowledgeItemFilters, SearchOptions };
 
 export async function search(
 	db: HyperIdleDb,
@@ -980,7 +1013,7 @@ export async function search(
 	}
 
 	// FTS mode (default): tsvector full-text search.
-	const ids = await ftsSearch(db, query, { limit, offset });
+	const ids = await executeTextSearch(db, query, { limit, offset });
 	if (ids.length === 0) {
 		return [];
 	}
@@ -1081,192 +1114,378 @@ async function upsertProjectionLayer(
 	}
 }
 
-/**
- * `PATCH /:id/scope` — change scope_kind and scope_id with version tracking.
- */
-export async function changeScope(
-	db: HyperIdleDb,
-	existing: KnowledgeItem,
-	input: { scopeKind: string; scopeId: string | null; reason: string; updatedBy: string },
-): Promise<KnowledgeItem> {
-	const timestamp = now();
-	const resolvedScopeId = input.scopeId;
-
-	if (existing.scopeKind !== input.scopeKind) {
-		await db.insert(knowledgeEditLog).values({
-			id: generateId(),
-			itemId: existing.id,
-			editor: input.updatedBy,
-			field: "scope_kind",
-			oldValue: existing.scopeKind,
-			newValue: `${input.scopeKind} (reason: ${input.reason})`,
-			editType: "scope_change",
-			createdAt: timestamp,
-		});
-	}
-
-	if (existing.scopeId !== resolvedScopeId) {
-		await db.insert(knowledgeEditLog).values({
-			id: generateId(),
-			itemId: existing.id,
-			editor: input.updatedBy,
-			field: "scope_id",
-			oldValue: existing.scopeId ?? null,
-			newValue: resolvedScopeId ?? null,
-			editType: "scope_change",
-			createdAt: timestamp,
-		});
-	}
-
-	await db
-		.update(knowledgeItems)
-		.set({
-			scopeKind: input.scopeKind,
-			scopeId: resolvedScopeId,
-			version: existing.version + 1,
-			updatedBy: input.updatedBy,
-			updatedAt: timestamp,
-		})
-		.where(eq(knowledgeItems.id, existing.id));
-
-	await upsertProjectionLayer(db, existing.id, input.scopeKind);
-
-	const [updated] = await db
-		.select()
-		.from(knowledgeItems)
-		.where(eq(knowledgeItems.id, existing.id))
-		.limit(1);
-	if (!updated) {
-		throw new Error(`Failed to read back knowledge item ${existing.id} after scope change`);
-	}
-	return updated;
-}
+// ---------------------------------------------------------------------------
+// transition — unified lifecycle write (replaces changeScope/flagItem/
+// mergeItems/splitItem/promoteKnowledgeItem)
+//
+// @lore AU20 K2-writes: the five per-operation write functions are collapsed
+// into one discriminated entry point. Each 'target' maps exactly to one old
+// function; behavior is byte-identical.
+// ---------------------------------------------------------------------------
 
 /**
- * `POST /:id/merge` — merge source body into target, archive source.
+ * Result of a transition('promote') call. Structurally equivalent to the
+ * former `PromoteKnowledgeItemResult` (promotion-pipeline.ts, now deleted).
  */
-export async function mergeItems(
+export type PromoteTransitionResult =
+	| { readonly ok: true; readonly fromStatus: string }
+	| {
+			readonly ok: false;
+			readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
+			readonly message: string;
+	  };
+
+// Overload signatures — callers get precise return types for each target.
+export function transition(
 	db: HyperIdleDb,
-	input: { target: KnowledgeItem; source: KnowledgeItem; updatedBy: string },
-): Promise<KnowledgeItem> {
-	const timestamp = now();
-	const mergedBody = `${input.target.body}\n\n---\n\n${input.source.body}`;
-
-	await db
-		.update(knowledgeItems)
-		.set({
-			body: mergedBody,
-			version: input.target.version + 1,
-			updatedBy: input.updatedBy,
-			updatedAt: timestamp,
-		})
-		.where(eq(knowledgeItems.id, input.target.id));
-
-	await db
-		.update(knowledgeItems)
-		.set({ status: "archived", updatedBy: input.updatedBy, updatedAt: timestamp })
-		.where(eq(knowledgeItems.id, input.source.id));
-
-	await db.insert(knowledgeEditLog).values({
-		id: generateId(),
-		itemId: input.target.id,
-		editor: input.updatedBy,
-		field: "body",
-		oldValue: input.target.body,
-		newValue: mergedBody,
-		editType: "merge",
-		createdAt: timestamp,
-	});
-
-	await db.insert(knowledgeEditLog).values({
-		id: generateId(),
-		itemId: input.source.id,
-		editor: input.updatedBy,
-		field: "status",
-		oldValue: input.source.status,
-		newValue: "archived",
-		editType: "merge",
-		createdAt: timestamp,
-	});
-
-	const [merged] = await db
-		.select()
-		.from(knowledgeItems)
-		.where(eq(knowledgeItems.id, input.target.id))
-		.limit(1);
-	if (!merged) {
-		throw new Error(`Failed to read back knowledge item ${input.target.id} after merge`);
-	}
-	return merged;
-}
-
-/**
- * `POST /:id/split` — split original into N new items, archive original.
- *
- * @lore AU14 round 2: deliberately does NOT call create() for the new items.
- * create() would add an unwanted `editType:"create"` edit-log row per new
- * item and populate projection.scopeId/kind — both forbidden behavior
- * changes for split (§7c).
- */
-export async function splitItem(
+	id: string,
+	ctx: { readonly target: "recomputeAttention"; readonly attentionScore: number },
+): Promise<void>;
+export function transition(
 	db: HyperIdleDb,
-	input: {
-		original: KnowledgeItem;
-		newItems: Array<{ title: string; body: string; topic?: string }>;
-		updatedBy: string;
+	id: string,
+	ctx: {
+		readonly target: "promote";
+		readonly fromStatus: string;
+		readonly toStatus: string;
+		readonly reason?: string;
+		readonly editor: string;
 	},
-): Promise<KnowledgeItem[]> {
-	const timestamp = now();
-	const created: KnowledgeItem[] = [];
+): Promise<PromoteTransitionResult>;
+export function transition(
+	db: HyperIdleDb,
+	id: string,
+	ctx: { readonly target: "flag"; readonly reason: string; readonly editId: string },
+): Promise<void>;
+export function transition(
+	db: HyperIdleDb,
+	id: string,
+	ctx: {
+		readonly target: "changeScope";
+		readonly scopeKind: string;
+		readonly scopeId: string | null;
+		readonly reason: string;
+		readonly updatedBy: string;
+	},
+): Promise<KnowledgeItem>;
+export function transition(
+	db: HyperIdleDb,
+	id: string,
+	ctx: { readonly target: "merge"; readonly sourceId: string; readonly updatedBy: string },
+): Promise<KnowledgeItem>;
+export function transition(
+	db: HyperIdleDb,
+	id: string,
+	ctx: {
+		readonly target: "split";
+		readonly newItems: ReadonlyArray<{
+			readonly title: string;
+			readonly body: string;
+			readonly topic?: string;
+		}>;
+		readonly updatedBy: string;
+	},
+): Promise<KnowledgeItem[]>;
 
-	for (const newItem of input.newItems) {
-		const newId = generateId();
-		await db.insert(knowledgeItems).values({
-			id: newId,
-			scopeKind: input.original.scopeKind,
-			scopeId: input.original.scopeId,
-			topic: newItem.topic ?? input.original.topic,
-			title: newItem.title,
-			body: newItem.body,
-			format: input.original.format,
-			status: "draft",
-			version: 1,
-			updatedBy: input.updatedBy,
-			createdAt: timestamp,
-			updatedAt: timestamp,
-		});
-
-		await upsertProjectionLayer(db, newId, input.original.scopeKind);
-
-		const [row] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, newId))
-			.limit(1);
-		if (!row) {
-			throw new Error(`Failed to read back split item ${newId}`);
+// Implementation
+export async function transition(
+	db: HyperIdleDb,
+	id: string,
+	ctx:
+		| { readonly target: "recomputeAttention"; readonly attentionScore: number }
+		| {
+				readonly target: "promote";
+				readonly fromStatus: string;
+				readonly toStatus: string;
+				readonly reason?: string;
+				readonly editor: string;
+		  }
+		| { readonly target: "flag"; readonly reason: string; readonly editId: string }
+		| {
+				readonly target: "changeScope";
+				readonly scopeKind: string;
+				readonly scopeId: string | null;
+				readonly reason: string;
+				readonly updatedBy: string;
+		  }
+		| { readonly target: "merge"; readonly sourceId: string; readonly updatedBy: string }
+		| {
+				readonly target: "split";
+				readonly newItems: ReadonlyArray<{
+					readonly title: string;
+					readonly body: string;
+					readonly topic?: string;
+				}>;
+				readonly updatedBy: string;
+		  },
+): Promise<PromoteTransitionResult | void | KnowledgeItem | KnowledgeItem[]> {
+	switch (ctx.target) {
+		case "recomputeAttention": {
+			// Projection-only atomic upsert: computed scores are derived state, not
+			// canonical knowledge edits. Deliberately no item version/update timestamp
+			// change and no knowledge_edit_log entry.
+			await db
+				.insert(knowledgeAppProjection)
+				.values({
+					id: generateId(),
+					knowledgeItemId: id,
+					attentionScore: String(ctx.attentionScore),
+				})
+				.onConflictDoUpdate({
+					target: knowledgeAppProjection.knowledgeItemId,
+					set: { attentionScore: String(ctx.attentionScore) },
+				});
+			return;
 		}
-		created.push(row);
+		case "promote": {
+			const { fromStatus, toStatus, reason, editor } = ctx;
+			const isoNow = new Date().toISOString();
+
+			return db.transaction(async (tx): Promise<PromoteTransitionResult> => {
+				if (toStatus === "validated") {
+					const [openConflict] = await tx
+						.select()
+						.from(knowledgeConflicts)
+						.where(and(eq(knowledgeConflicts.itemId, id), eq(knowledgeConflicts.status, "open")))
+						.limit(1);
+					if (openConflict) {
+						return {
+							ok: false,
+							code: "CONFLICT_OPEN",
+							message: "open conflict blocks promotion to validated",
+						};
+					}
+				}
+
+				const updated = await tx
+					.update(knowledgeItems)
+					.set({ status: toStatus, updatedAt: isoNow, updatedBy: editor })
+					.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.status, fromStatus)))
+					.returning({ id: knowledgeItems.id });
+
+				if (updated.length === 0) {
+					return {
+						ok: false,
+						code: "CONCURRENT_MODIFICATION",
+						message: `knowledge item ${id} no longer in status ${fromStatus}`,
+					};
+				}
+
+				const newValue = reason ? `${toStatus} | reason: ${reason}` : toStatus;
+				await tx.insert(knowledgeEditLog).values({
+					id: generateId(),
+					itemId: id,
+					editor,
+					field: "status",
+					oldValue: fromStatus,
+					newValue,
+					editType: "refinement",
+					createdAt: isoNow,
+				});
+
+				return { ok: true, fromStatus };
+			});
+		}
+
+		case "flag": {
+			const { reason, editId } = ctx;
+			const timestamp = now();
+			// Fetch the item so we know its current status for the edit-log old-value.
+			const item = await getItemForTransition(db, id);
+			await db
+				.update(knowledgeItems)
+				.set({ status: "draft", updatedAt: timestamp })
+				.where(eq(knowledgeItems.id, id));
+			await db.insert(knowledgeEditLog).values({
+				id: editId,
+				itemId: id,
+				editor: item?.updatedBy ?? "system",
+				field: "status",
+				oldValue: item?.status ?? null,
+				newValue: `flagged (reason: ${reason})`,
+				editType: "flag",
+				createdAt: timestamp,
+			});
+			return;
+		}
+
+		case "changeScope": {
+			const { scopeKind, scopeId, reason, updatedBy } = ctx;
+			const timestamp = now();
+			const existing = await getItemForTransition(db, id);
+
+			if (existing && existing.scopeKind !== scopeKind) {
+				await db.insert(knowledgeEditLog).values({
+					id: generateId(),
+					itemId: id,
+					editor: updatedBy,
+					field: "scope_kind",
+					oldValue: existing.scopeKind,
+					newValue: `${scopeKind} (reason: ${reason})`,
+					editType: "scope_change",
+					createdAt: timestamp,
+				});
+			}
+
+			if (existing && existing.scopeId !== scopeId) {
+				await db.insert(knowledgeEditLog).values({
+					id: generateId(),
+					itemId: id,
+					editor: updatedBy,
+					field: "scope_id",
+					oldValue: existing.scopeId ?? null,
+					newValue: scopeId ?? null,
+					editType: "scope_change",
+					createdAt: timestamp,
+				});
+			}
+
+			await db
+				.update(knowledgeItems)
+				.set({
+					scopeKind,
+					scopeId,
+					version: (existing?.version ?? 0) + 1,
+					updatedBy,
+					updatedAt: timestamp,
+				})
+				.where(eq(knowledgeItems.id, id));
+
+			await upsertProjectionLayer(db, id, scopeKind);
+
+			const [updated] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+			if (!updated) {
+				throw new Error(`Failed to read back knowledge item ${id} after scope change`);
+			}
+			return updated;
+		}
+
+		case "merge": {
+			const { sourceId, updatedBy } = ctx;
+			const timestamp = now();
+
+			const target = await getItemForTransition(db, id);
+			const source = await getItemForTransition(db, sourceId);
+
+			if (!target) throw new Error(`transition('merge'): target item ${id} not found`);
+			if (!source) throw new Error(`transition('merge'): source item ${sourceId} not found`);
+
+			const mergedBody = `${target.body}\n\n---\n\n${source.body}`;
+
+			await db
+				.update(knowledgeItems)
+				.set({ body: mergedBody, version: target.version + 1, updatedBy, updatedAt: timestamp })
+				.where(eq(knowledgeItems.id, id));
+
+			await db
+				.update(knowledgeItems)
+				.set({ status: "archived", updatedBy, updatedAt: timestamp })
+				.where(eq(knowledgeItems.id, sourceId));
+
+			await db.insert(knowledgeEditLog).values({
+				id: generateId(),
+				itemId: id,
+				editor: updatedBy,
+				field: "body",
+				oldValue: target.body,
+				newValue: mergedBody,
+				editType: "merge",
+				createdAt: timestamp,
+			});
+
+			await db.insert(knowledgeEditLog).values({
+				id: generateId(),
+				itemId: sourceId,
+				editor: updatedBy,
+				field: "status",
+				oldValue: source.status,
+				newValue: "archived",
+				editType: "merge",
+				createdAt: timestamp,
+			});
+
+			const [merged] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+			if (!merged) throw new Error(`Failed to read back knowledge item ${id} after merge`);
+			return merged;
+		}
+
+		case "split": {
+			const { newItems, updatedBy } = ctx;
+			const timestamp = now();
+
+			const original = await getItemForTransition(db, id);
+			if (!original) throw new Error(`transition('split'): item ${id} not found`);
+
+			const created: KnowledgeItem[] = [];
+
+			for (const newItem of newItems) {
+				const newId = generateId();
+				await db.insert(knowledgeItems).values({
+					id: newId,
+					scopeKind: original.scopeKind,
+					scopeId: original.scopeId,
+					topic: newItem.topic ?? original.topic,
+					title: newItem.title,
+					body: newItem.body,
+					format: original.format,
+					status: "draft",
+					version: 1,
+					updatedBy,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+				});
+
+				await upsertProjectionLayer(db, newId, original.scopeKind);
+
+				const [row] = await db
+					.select()
+					.from(knowledgeItems)
+					.where(eq(knowledgeItems.id, newId))
+					.limit(1);
+				if (!row) throw new Error(`Failed to read back split item ${newId}`);
+				created.push(row);
+			}
+
+			await db
+				.update(knowledgeItems)
+				.set({ status: "archived", updatedBy, updatedAt: timestamp })
+				.where(eq(knowledgeItems.id, id));
+
+			await db.insert(knowledgeEditLog).values({
+				id: generateId(),
+				itemId: id,
+				editor: updatedBy,
+				field: "status",
+				oldValue: original.status,
+				newValue: "archived",
+				editType: "split",
+				createdAt: timestamp,
+			});
+
+			return created;
+		}
 	}
-
-	await db
-		.update(knowledgeItems)
-		.set({ status: "archived", updatedBy: input.updatedBy, updatedAt: timestamp })
-		.where(eq(knowledgeItems.id, input.original.id));
-
-	await db.insert(knowledgeEditLog).values({
-		id: generateId(),
-		itemId: input.original.id,
-		editor: input.updatedBy,
-		field: "status",
-		oldValue: input.original.status,
-		newValue: "archived",
-		editType: "split",
-		createdAt: timestamp,
-	});
-
-	return created;
 }
+
+/** Internal helper — fetch a bare kernel row for transition operations. */
+async function getItemForTransition(db: HyperIdleDb, id: string): Promise<KnowledgeItem | null> {
+	const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
+	return row ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// remove — soft archive (kept as one of the 6 floor CRUD methods)
+//
+// @lore AU20 Ag7c: renamed from `archiveItem` to `remove`; behavior unchanged.
+// ---------------------------------------------------------------------------
 
 /**
  * `POST /:id/archive` — soft-delete: status→archived, NO version bump.
@@ -1274,8 +1493,12 @@ export async function splitItem(
  * @lore AU20 Ag7c: renamed from `archiveItem` to `remove` — archive-with-log
  * path folds under `remove`; behavior unchanged.
  */
-export async function remove(db: HyperIdleDb, item: KnowledgeItem): Promise<KnowledgeItem> {
-	const timestamp = now();
+export async function remove(
+	db: HyperIdleDb,
+	item: KnowledgeItem,
+	options: WriteOptions = {},
+): Promise<KnowledgeItem> {
+	const timestamp = options.timestamp ?? now();
 	await db
 		.update(knowledgeItems)
 		.set({ status: "archived", updatedAt: timestamp })
@@ -1303,172 +1526,14 @@ export async function remove(db: HyperIdleDb, item: KnowledgeItem): Promise<Know
 	return row;
 }
 
-/**
- * `POST /:id/flag` — status→draft, NO version bump; one flag edit-log row.
- */
-export async function flagItem(
-	db: HyperIdleDb,
-	item: KnowledgeItem,
-	input: { reason: string; editId: string },
-): Promise<void> {
-	const timestamp = now();
-	await db
-		.update(knowledgeItems)
-		.set({ status: "draft", updatedAt: timestamp })
-		.where(eq(knowledgeItems.id, item.id));
-
-	await db.insert(knowledgeEditLog).values({
-		id: input.editId,
-		itemId: item.id,
-		editor: item.updatedBy,
-		field: "status",
-		oldValue: item.status,
-		newValue: `flagged (reason: ${input.reason})`,
-		editType: "flag",
-		createdAt: timestamp,
-	});
-}
-
 // ---------------------------------------------------------------------------
-// Absorbed from attention-score-store.ts (AU20 Ag7a — per-consumer barrel retired)
+// recordAccess — append access-log entry (replaces recordKnowledgeAccess)
+//
+// @lore AU20 K2-writes: renamed for consistency with the target API surface.
+// Behavior identical to former recordKnowledgeAccess.
 // ---------------------------------------------------------------------------
 
-/** Upsert `attentionScore` on the `knowledgeAppProjection` row for `knowledgeItemId`. */
-export async function upsertKnowledgeAppProjectionAttentionScore(
-	db: HyperIdleDb,
-	knowledgeItemId: string,
-	attentionScore: string,
-): Promise<void> {
-	const [existing] = await db
-		.select({ id: knowledgeAppProjection.id })
-		.from(knowledgeAppProjection)
-		.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId))
-		.limit(1);
-	if (existing) {
-		await db
-			.update(knowledgeAppProjection)
-			.set({ attentionScore })
-			.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId));
-	} else {
-		await db.insert(knowledgeAppProjection).values({
-			id: `ksf-${knowledgeItemId}`,
-			knowledgeItemId,
-			attentionScore,
-		});
-	}
-	await db
-		.update(knowledgeItems)
-		.set({ updatedAt: new Date().toISOString() })
-		.where(eq(knowledgeItems.id, knowledgeItemId));
-}
-
-// ---------------------------------------------------------------------------
-// Absorbed from bet-retro-store.ts (AU20 Ag7a — per-consumer barrel retired)
-// ---------------------------------------------------------------------------
-
-export interface UpsertBetRetroKnowledgeItemInput {
-	readonly existing: RetroRow | null;
-	readonly retroKnowledgeItemId: string;
-	readonly betId: string;
-	readonly title: string;
-	readonly body: string;
-	readonly verdict: string;
-	readonly hypothesisSnapshot: string;
-	readonly actor: string | undefined;
-	readonly timestamp: string;
-}
-
-/**
- * Upsert the bet retro knowledge item + projection row inside the caller's transaction.
- */
-export async function upsertBetRetroKnowledgeItem(
-	db: HyperIdleDb,
-	input: UpsertBetRetroKnowledgeItemInput,
-): Promise<void> {
-	const {
-		existing,
-		retroKnowledgeItemId,
-		betId,
-		title,
-		body,
-		verdict,
-		hypothesisSnapshot,
-		actor,
-		timestamp,
-	} = input;
-
-	if (existing) {
-		await db
-			.update(knowledgeItems)
-			.set({
-				title,
-				body,
-				version: existing.version + 1,
-				updatedAt: timestamp,
-				updatedBy: actor ?? "system",
-			})
-			.where(eq(knowledgeItems.id, existing.id));
-
-		const [existingFabric] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, existing.id))
-			.limit(1);
-		if (existingFabric) {
-			const existingMeta = existingFabric.meta
-				? (JSON.parse(existingFabric.meta) as Record<string, unknown>)
-				: {};
-			const updatedMeta = {
-				...existingMeta,
-				verdict,
-				validatedAt: timestamp,
-				validatedBy: actor ?? null,
-			};
-			await db
-				.update(knowledgeAppProjection)
-				.set({ meta: JSON.stringify(updatedMeta) })
-				.where(eq(knowledgeAppProjection.knowledgeItemId, existing.id));
-		}
-		return;
-	}
-
-	await db.insert(knowledgeItems).values({
-		id: retroKnowledgeItemId,
-		scopeKind: "bet",
-		scopeId: betId,
-		topic: null,
-		title,
-		body,
-		format: "markdown",
-		status: "active",
-		version: 1,
-		updatedBy: actor ?? "system",
-		createdAt: timestamp,
-		updatedAt: timestamp,
-	});
-
-	const fabricMeta = {
-		betId,
-		hypothesis: hypothesisSnapshot,
-		verdict,
-		validatedAt: timestamp,
-		validatedBy: actor ?? null,
-	};
-
-	await db.insert(knowledgeAppProjection).values({
-		id: generateId(),
-		knowledgeItemId: retroKnowledgeItemId,
-		layer: null,
-		kind: "reflection",
-		meta: JSON.stringify(fabricMeta),
-	});
-}
-
-// ---------------------------------------------------------------------------
-// AccessLog operations
-// ---------------------------------------------------------------------------
-
-export interface RecordKnowledgeAccessInput {
+export interface RecordAccessInput {
 	readonly itemId: string;
 	readonly accessorKind: string;
 	readonly accessorId: string;
@@ -1478,10 +1543,7 @@ export interface RecordKnowledgeAccessInput {
 /**
  * Append an access-log entry. Best-effort — caller keeps the try/catch.
  */
-export async function recordKnowledgeAccess(
-	db: HyperIdleDb,
-	input: RecordKnowledgeAccessInput,
-): Promise<void> {
+export async function recordAccess(db: HyperIdleDb, input: RecordAccessInput): Promise<void> {
 	await db.insert(knowledgeAccessLog).values({
 		id: generateId(),
 		itemId: input.itemId,

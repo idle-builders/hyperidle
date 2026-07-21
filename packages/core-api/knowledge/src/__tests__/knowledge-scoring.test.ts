@@ -124,7 +124,6 @@ describe("sanitizeFtsQuery: FTS injection prevention + token normalization", () 
 		expect(tokenCount).toBeLessThanOrEqual(FTS_MAX_TOKENS);
 	});
 });
-
 // ===========================================================================
 // countTokens
 // ===========================================================================

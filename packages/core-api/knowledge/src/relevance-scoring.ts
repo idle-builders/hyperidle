@@ -145,7 +145,7 @@ function computeAttentionScore(item: KnowledgeItemWithProjection): number {
 }
 
 /** Score a single knowledge item against the given context. Returns 0-100. */
-export function scoreItem(
+function scoreItem(
 	item: KnowledgeItemWithProjection,
 	context: ScoringContext,
 	weights: ScoringWeights,
@@ -189,7 +189,7 @@ export function scoreItem(
  * L4 items are always included (non-negotiable).
  * Returns the top-scoring items that fit within the budget.
  */
-export function rankAndBudget(
+function rankAndBudget(
 	items: KnowledgeItemWithProjection[],
 	context: ScoringContext,
 	weights: ScoringWeights,
@@ -202,4 +202,16 @@ export function rankAndBudget(
 	}));
 
 	return enforceBudget(scored, budgetTokens) as KnowledgeItemWithProjection[];
+}
+
+export { rankAndBudget };
+
+export async function rank(
+	db: import("@hyperidle/db").HyperIdleDb,
+	items: KnowledgeItemWithProjection[],
+	context: ScoringContext & { readonly tokenLimit?: number },
+): Promise<KnowledgeItemWithProjection[]> {
+	const { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } = await import("./scoring-config.js");
+	const weights = await loadScoringWeights(db);
+	return rankAndBudget(items, context, weights, context.tokenLimit ?? DEFAULT_KNOWLEDGE_BUDGET);
 }

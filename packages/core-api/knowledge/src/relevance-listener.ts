@@ -1,6 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
-import { createRelevanceService } from "./relevance-service.js";
+import { recomputeRelevance } from "./relevance-service.js";
 
 const listenerLog = createLogger({ pkg: "server.knowledge-relevance" });
 
@@ -26,14 +26,11 @@ const listenerLog = createLogger({ pkg: "server.knowledge-relevance" });
  * exists. This is existing `recomputeScores` behaviour, but AF9 is the first
  * thing that triggers it on the live read path (not just in tests).
  */
-export function registerRelevanceListener(db: HyperIdleDb, eventBus: EventBus): () => void {
-	// Build the service once at register time (closure) — not per event.
-	const relevanceService = createRelevanceService(db);
-
+function attachRelevanceListener(db: HyperIdleDb, eventBus: EventBus): () => void {
 	const handler = (event: { itemId: string }): void => {
 		void (async () => {
 			try {
-				await relevanceService.recomputeScores([event.itemId]);
+				await recomputeRelevance(db, [event.itemId]);
 			} catch (err) {
 				listenerLog.error("relevance recompute failed on knowledge_accessed", {
 					itemId: event.itemId,
@@ -45,3 +42,5 @@ export function registerRelevanceListener(db: HyperIdleDb, eventBus: EventBus): 
 
 	return eventBus.on("knowledge_accessed", handler);
 }
+
+export { attachRelevanceListener };

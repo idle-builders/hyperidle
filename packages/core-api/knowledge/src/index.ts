@@ -42,16 +42,14 @@
  */
 
 // -- attention engine (recompute service) --
-export { buildAttentionService, MAX_RECOMPUTE_BATCH } from "./attention-service.js";
+export { recomputeAttention } from "./attention-service.js";
 // -- errors --
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
-// -- full-text search (setup only; ftsSearch/sanitizeFtsQuery are internal) --
-export { setupFts } from "./fts.js";
 // -- conflicts (knowledgeConflicts accessors) --
 export {
-	createKnowledgeConflict,
-	findOpenConflictByItemAndProposer,
-	recordWritebackConflict,
+	findOpenConflict,
+	type RecordConflictInput,
+	recordConflict,
 } from "./knowledge-conflicts.js";
 // -- the CRUD repository --
 // @lore Ag7c: ExportableKnowledgeItemFilters kept — inline-typed by
@@ -61,40 +59,25 @@ export {
 // @lore AU20 K1-reads: countAccessesSince/countTriageVisible/searchByText/
 // searchVisibleByText deleted from source; replaced by count()/countAccesses()/
 // search({mode:'text',...}).
+// @lore AU20 K2-writes: changeScope/flagItem/mergeItems/splitItem/recordKnowledgeAccess/
+// upsertBetRetroKnowledgeItem/upsertKnowledgeAppProjectionAttentionScore deleted from
+// source; callers use transition()/recordAccess(). promoteKnowledgeItem deleted from
+// promotion-pipeline; callers use transition({target:"promote",...}).
 export {
-	changeScope,
 	count,
 	countAccesses,
 	create,
-	type ExportableKnowledgeItemFilters,
-	flagItem,
 	get,
 	list,
-	mergeItems,
-	recordKnowledgeAccess,
+	recordAccess,
 	remove,
 	search,
-	splitItem,
+	transition,
 	update,
-	upsertBetRetroKnowledgeItem,
-	upsertKnowledgeAppProjectionAttentionScore,
 } from "./knowledge-repository.js";
-// -- practice-meeting workflow --
-export { createPracticeMeeting, runPracticeMeetingTurn } from "./practice-meeting.js";
-// -- promotion pipeline (sweep + promote transition; internals are package-private) --
-export {
-	promoteKnowledgeItem,
-	runAutoPromotionSweep,
-	runStaleSweep,
-} from "./promotion-pipeline.js";
-// -- relevance engine + service --
-export { registerRelevanceListener } from "./relevance-listener.js";
-export { rankAndBudget } from "./relevance-scoring.js";
-export { createRelevanceService, reapKnowledgeAccessLog } from "./relevance-service.js";
-// -- scoring config (weights + token budget) --
-export { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
-// -- token budgeting --
-export { countTokens } from "./token-budget.js";
+export { sweep } from "./promotion-pipeline.js";
+export { rank } from "./relevance-scoring.js";
+export { reapAccessLog, recomputeRelevance } from "./relevance-service.js";
 // -- scope vocabulary (KnowledgeScope kept for core-api/src/index.ts re-export) --
 // @lore AU20 K1-reads: moved from knowledge-reader.js to types.js.
 export type { KnowledgeScope } from "./types.js";

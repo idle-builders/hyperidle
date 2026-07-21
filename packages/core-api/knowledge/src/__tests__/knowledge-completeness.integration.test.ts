@@ -32,38 +32,38 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import type { KernelKnowledgeStatus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { VersionConflictError } from "../errors.js";
-import { setupFts } from "../fts.js";
-import {
-	createKnowledgeConflict,
-	findOpenConflictByItemAndProposer,
-} from "../knowledge-conflicts.js";
+import { findOpenConflict, recordConflict } from "../knowledge-conflicts.js";
 import {
 	count,
 	countAccesses,
 	create,
 	get,
 	list,
-	recordKnowledgeAccess,
+	recordAccess,
 	search,
+	transition,
 	update,
-	upsertKnowledgeAppProjectionAttentionScore,
 } from "../knowledge-repository.js";
-import {
-	promoteKnowledgeItem,
-	runAutoPromotionSweep,
-	runStaleSweep,
-	STALE_THRESHOLD_MS,
-} from "../promotion-pipeline.js";
-import { createRelevanceService, reapKnowledgeAccessLog } from "../relevance-service.js";
+import { sweep } from "../promotion-pipeline.js";
+import { reapAccessLog, recomputeRelevance } from "../relevance-service.js";
+import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Minimal mock EventBus — only `emit` is used by promotion-pipeline / attention-service. */
-const mockEventBus = { emit: (_ev: unknown): void => {} };
+/**
+ * Real EventBus instance used as test double — promotion-pipeline only calls
+ * emit(); no handlers registered so events fire into the void.
+ * @lore AU20 K2-writes: replaced `{ emit: () => void }` object literal which
+ * was not assignable to `EventBus` (class with private fields).
+ */
+const mockEventBus = new EventBus();
+const STALE_THRESHOLD_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** Seed a knowledge item + projection row via the real create() function. */
 async function seedItem(
@@ -71,12 +71,12 @@ async function seedItem(
 	overrides: {
 		title?: string;
 		body?: string;
-		status?: string;
+		status?: KnowledgeStatus | KernelKnowledgeStatus;
 		scopeKind?: string;
 		scopeId?: string | null;
 		topic?: string | null;
-		layer?: string | null;
-		kind?: string | null;
+		layer?: KnowledgeLayer | null;
+		kind?: KnowledgeKind | null;
 	} = {},
 ): Promise<typeof knowledgeItems.$inferSelect> {
 	const created = await create(db, {
@@ -118,7 +118,7 @@ describe("create: writes kernel row + projection row + edit-log in one operation
 			body: "We ship weekly.",
 			format: "markdown",
 			status: "active",
-			kind: "practice",
+			kind: "reflection",
 			updatedBy: "u-author",
 		});
 
@@ -135,7 +135,7 @@ describe("create: writes kernel row + projection row + edit-log in one operation
 			.where(eq(knowledgeAppProjection.knowledgeItemId, item.id));
 		expect(proj).toBeDefined();
 		expect(proj?.layer).toBe("L2");
-		expect(proj?.kind).toBe("practice");
+		expect(proj?.kind).toBe("reflection");
 
 		// Edit-log row with editType 'create'.
 		const logs = await db
@@ -176,11 +176,11 @@ describe("get: summary view returns kernel row or null", () => {
 
 describe("get(id, {view:'projection'}): returns layer+kind from projection table", () => {
 	test("returns layer and kind for an item with a projection row", async ({ db }) => {
-		const seeded = await seedItem(db, { layer: "L3", kind: "finding" });
+		const seeded = await seedItem(db, { layer: "L3", kind: "pattern" });
 		const proj = await get(db, seeded.id, { view: "projection" });
 		expect(proj).not.toBeNull();
 		expect(proj?.layer).toBe("L3");
-		expect(proj?.kind).toBe("finding");
+		expect(proj?.kind).toBe("pattern");
 	});
 
 	test("returns null for unknown id", async ({ db }) => {
@@ -195,7 +195,7 @@ describe("get(id, {view:'projection'}): returns layer+kind from projection table
 
 describe("get(id, {view:'detail'}): returns kernel item + projection fields", () => {
 	test("returns item with confidence and relevanceScore from projection table", async ({ db }) => {
-		const seeded = await seedItem(db, { layer: "L1", kind: "observation" });
+		const seeded = await seedItem(db, { layer: "L1", kind: "reflection" });
 
 		// Manually set a relevanceScore on the projection row.
 		await db
@@ -275,13 +275,11 @@ describe("list({exportable}): filters by layer and status", () => {
 		expect(rows[0]?.title).toBe("Exportable");
 	});
 
-	test("get(id, {view:'projection'}) returns layer+kind for git-export events", async ({
-		db,
-	}) => {
-		const item = await seedItem(db, { layer: "L2", kind: "practice" });
+	test("get(id, {view:'projection'}) returns layer+kind for git-export events", async ({ db }) => {
+		const item = await seedItem(db, { layer: "L2", kind: "reflection" });
 		const row = await get(db, item.id, { view: "projection" });
 		expect(row?.layer).toBe("L2");
-		expect(row?.kind).toBe("practice");
+		expect(row?.kind).toBe("reflection");
 	});
 });
 
@@ -368,7 +366,6 @@ describe("countTriageVisible: Q2 auth boundary on draft+needs_human items", () =
 describe("search: full-text search returns matching items", () => {
 	test("search() returns items whose title/body match the query term", async ({ db }) => {
 		// Set up the FTS generated column (idempotent).
-		await setupFts(db);
 
 		const match = await seedItem(db, {
 			title: "Continuous deployment pipeline",
@@ -384,7 +381,6 @@ describe("search: full-text search returns matching items", () => {
 	});
 
 	test("search() returns empty array for query with no matches", async ({ db }) => {
-		await setupFts(db);
 		await seedItem(db, { title: "Alpha", body: "Something about alpha." });
 
 		const results = await search(db, "xyznonexistentterm");
@@ -393,17 +389,18 @@ describe("search: full-text search returns matching items", () => {
 });
 
 // ===========================================================================
-// J. promoteKnowledgeItem — tool-handlers.promoteKnowledgeItem (atomic CAS)
+// J. transition({target:"promote"}) — tool-handlers.promoteKnowledgeItem (atomic CAS)
+// @lore AU20 K2-writes: promoteKnowledgeItem → transition({target:"promote",...}).
 // ===========================================================================
 
-describe("promoteKnowledgeItem: atomic CAS status transition", () => {
+describe("transition({target:'promote'}): atomic CAS status transition", () => {
 	test("succeeds when item is in fromStatus and no open conflicts block to-validated", async ({
 		db,
 	}) => {
 		const item = await seedItem(db, { status: "provisional" });
 
-		const result = await promoteKnowledgeItem(db, {
-			knowledgeItemId: item.id,
+		const result = await transition(db, item.id, {
+			target: "promote",
 			fromStatus: "provisional",
 			toStatus: "validated",
 			reason: "meets criteria",
@@ -435,7 +432,7 @@ describe("promoteKnowledgeItem: atomic CAS status transition", () => {
 		const item = await seedItem(db, { status: "provisional" });
 
 		// Insert an open conflict on this item.
-		await createKnowledgeConflict(db, {
+		await recordConflict(db, {
 			id: crypto.randomUUID(),
 			itemId: item.id,
 			versionBase: 1,
@@ -446,8 +443,8 @@ describe("promoteKnowledgeItem: atomic CAS status transition", () => {
 			createdAt: new Date().toISOString(),
 		});
 
-		const result = await promoteKnowledgeItem(db, {
-			knowledgeItemId: item.id,
+		const result = await transition(db, item.id, {
+			target: "promote",
 			fromStatus: "provisional",
 			toStatus: "validated",
 			reason: undefined,
@@ -469,8 +466,8 @@ describe("promoteKnowledgeItem: atomic CAS status transition", () => {
 		const item = await seedItem(db, { status: "provisional" });
 
 		// First promotion changes the status to validated.
-		await promoteKnowledgeItem(db, {
-			knowledgeItemId: item.id,
+		await transition(db, item.id, {
+			target: "promote",
 			fromStatus: "provisional",
 			toStatus: "validated",
 			reason: undefined,
@@ -478,8 +475,8 @@ describe("promoteKnowledgeItem: atomic CAS status transition", () => {
 		});
 
 		// Second attempt with stale fromStatus.
-		const result = await promoteKnowledgeItem(db, {
-			knowledgeItemId: item.id,
+		const result = await transition(db, item.id, {
+			target: "promote",
 			fromStatus: "provisional",
 			toStatus: "validated",
 			reason: undefined,
@@ -506,7 +503,7 @@ describe("runAutoPromotionSweep: promotes provisional items at 5+ cross-scope re
 			const item = await seedItem(db, {
 				status: "provisional",
 				layer: "L2",
-				kind: "observation",
+				kind: "pattern",
 				topic: "shared-pattern",
 				scopeKind: "bet",
 				scopeId: `product-${i}`,
@@ -514,7 +511,7 @@ describe("runAutoPromotionSweep: promotes provisional items at 5+ cross-scope re
 			promotable.push(item.id);
 		}
 
-		const result = await runAutoPromotionSweep(db, mockEventBus);
+		const result = await sweep(db, mockEventBus, "autoPromotion");
 
 		// All 5 items should be promoted (no open conflicts, no L4 contradiction).
 		expect(result.promotedIds.length).toBeGreaterThanOrEqual(5);
@@ -536,14 +533,14 @@ describe("runAutoPromotionSweep: promotes provisional items at 5+ cross-scope re
 			await seedItem(db, {
 				status: "provisional",
 				layer: "L2",
-				kind: "insight",
+				kind: "principle",
 				topic: "small-pattern",
 				scopeKind: "bet",
 				scopeId: `scope-${i}`,
 			});
 		}
 
-		const result = await runAutoPromotionSweep(db, mockEventBus);
+		const result = await sweep(db, mockEventBus, "autoPromotion");
 
 		expect(result.promotedIds).toHaveLength(0);
 		expect(result.skippedIds.length).toBeGreaterThanOrEqual(3);
@@ -566,7 +563,9 @@ describe("runStaleSweep: marks active items older than threshold as stale (CAS)"
 			.where(eq(knowledgeItems.id, item.id));
 
 		const nowMs = Date.now();
-		const result = await runStaleSweep(db, mockEventBus, nowMs, STALE_THRESHOLD_MS, {
+		const result = await sweep(db, mockEventBus, "stale", {
+			nowMs,
+			thresholdMs: STALE_THRESHOLD_MS,
 			silent: true,
 		});
 
@@ -580,7 +579,9 @@ describe("runStaleSweep: marks active items older than threshold as stale (CAS)"
 		const item = await seedItem(db, { status: "active" });
 
 		const nowMs = Date.now();
-		const result = await runStaleSweep(db, mockEventBus, nowMs, STALE_THRESHOLD_MS, {
+		const result = await sweep(db, mockEventBus, "stale", {
+			nowMs,
+			thresholdMs: STALE_THRESHOLD_MS,
 			silent: true,
 		});
 
@@ -599,22 +600,33 @@ describe("runStaleSweep: marks active items older than threshold as stale (CAS)"
 
 		const nowMs = Date.now();
 		// First sweep marks it stale.
-		const r1 = await runStaleSweep(db, mockEventBus, nowMs, STALE_THRESHOLD_MS, { silent: true });
+		const r1 = await sweep(db, mockEventBus, "stale", {
+			nowMs,
+			thresholdMs: STALE_THRESHOLD_MS,
+			silent: true,
+		});
 		expect(r1.markedIds).toContain(item.id);
 
 		// Second sweep — item is already stale, must not appear again.
-		const r2 = await runStaleSweep(db, mockEventBus, nowMs, STALE_THRESHOLD_MS, { silent: true });
+		const r2 = await sweep(db, mockEventBus, "stale", {
+			nowMs,
+			thresholdMs: STALE_THRESHOLD_MS,
+			silent: true,
+		});
 		expect(r2.markedIds).not.toContain(item.id);
 	});
 });
 
 // ===========================================================================
-// M. upsertKnowledgeAppProjectionAttentionScore — tool-handlers
+// M. attentionScore via update() — tool-handlers (replaces upsertKnowledgeAppProjectionAttentionScore)
 // ===========================================================================
 
-describe("upsertKnowledgeAppProjectionAttentionScore: atomic upsert of attentionScore", () => {
+describe("update({attentionScore}): write attention score to projection row (upsert-on-absent)", () => {
 	test("creates a projection row when none exists and writes attentionScore", async ({ db }) => {
 		// Create item without a projection layer (raw insert so no projection row exists).
+		// @lore AU20 K2-writes: old upsertKnowledgeAppProjectionAttentionScore did an
+		// INSERT OR UPDATE on the projection table; update() handles the same path via
+		// the "no existing projection → insert" branch in the transaction.
 		const id = crypto.randomUUID();
 		const ts = new Date().toISOString();
 		await db.insert(knowledgeItems).values({
@@ -636,7 +648,7 @@ describe("upsertKnowledgeAppProjectionAttentionScore: atomic upsert of attention
 			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 		expect(before).toBeUndefined();
 
-		await upsertKnowledgeAppProjectionAttentionScore(db, id, "0.85");
+		await update(db, id, { attentionScore: 0.85 }, 1);
 
 		const [after] = await db
 			.select()
@@ -650,29 +662,33 @@ describe("upsertKnowledgeAppProjectionAttentionScore: atomic upsert of attention
 	}) => {
 		const item = await seedItem(db, { layer: "L2" });
 
-		await upsertKnowledgeAppProjectionAttentionScore(db, item.id, "0.55");
-		await upsertKnowledgeAppProjectionAttentionScore(db, item.id, "0.92");
+		await update(db, item.id, { attentionScore: 0.55 }, 1);
+		// Re-fetch version after first update (version increments on each write).
+		const refreshed = await get(db, item.id);
+		await update(db, item.id, { attentionScore: 0.92 }, refreshed!.version);
 
 		const rows = await db
 			.select()
 			.from(knowledgeAppProjection)
 			.where(eq(knowledgeAppProjection.knowledgeItemId, item.id));
-		// Exactly one projection row (no duplicate created by double upsert).
+		// Exactly one projection row (no duplicate created by double write).
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.attentionScore).toBe("0.92");
 	});
 });
 
 // ===========================================================================
-// N. Conflicts — tool-handlers.findOpenConflict / createKnowledgeConflict
+// N. Conflicts — tool-handlers.findOpenConflict / recordConflict
+// @lore AU20 K2-writes: createKnowledgeConflict → recordConflict (unified);
+// findOpenConflictByItemAndProposer → findOpenConflict (returns null not undefined).
 // ===========================================================================
 
-describe("conflicts: createKnowledgeConflict and findOpenConflictByItemAndProposer", () => {
-	test("createKnowledgeConflict inserts an open conflict row", async ({ db }) => {
+describe("conflicts: recordConflict and findOpenConflict", () => {
+	test("recordConflict inserts an open conflict row", async ({ db }) => {
 		const item = await seedItem(db);
 		const conflictId = crypto.randomUUID();
 
-		await createKnowledgeConflict(db, {
+		await recordConflict(db, {
 			id: conflictId,
 			itemId: item.id,
 			versionBase: 1,
@@ -683,24 +699,22 @@ describe("conflicts: createKnowledgeConflict and findOpenConflictByItemAndPropos
 			createdAt: new Date().toISOString(),
 		});
 
-		const found = await findOpenConflictByItemAndProposer(db, item.id, "u-agent");
-		expect(found).toBeDefined();
+		const found = await findOpenConflict(db, item.id, "u-agent");
+		expect(found).not.toBeNull();
 		expect(found?.id).toBe(conflictId);
 	});
 
-	test("findOpenConflictByItemAndProposer returns undefined when no open conflict exists", async ({
-		db,
-	}) => {
+	test("findOpenConflict returns null when no open conflict exists", async ({ db }) => {
 		const item = await seedItem(db);
-		const result = await findOpenConflictByItemAndProposer(db, item.id, "u-nobody");
-		expect(result).toBeUndefined();
+		const result = await findOpenConflict(db, item.id, "u-nobody");
+		expect(result).toBeNull();
 	});
 
-	test("findOpenConflictByItemAndProposer does not return conflicts filed by a different proposer", async ({
+	test("findOpenConflict does not return conflicts filed by a different proposer", async ({
 		db,
 	}) => {
 		const item = await seedItem(db);
-		await createKnowledgeConflict(db, {
+		await recordConflict(db, {
 			id: crypto.randomUUID(),
 			itemId: item.id,
 			versionBase: 1,
@@ -712,27 +726,27 @@ describe("conflicts: createKnowledgeConflict and findOpenConflictByItemAndPropos
 		});
 
 		// Looking up for agent-B should return nothing.
-		const forB = await findOpenConflictByItemAndProposer(db, item.id, "agent-B");
-		expect(forB).toBeUndefined();
+		const forB = await findOpenConflict(db, item.id, "agent-B");
+		expect(forB).toBeNull();
 
 		// But agent-A's conflict is still there.
-		const forA = await findOpenConflictByItemAndProposer(db, item.id, "agent-A");
-		expect(forA).toBeDefined();
+		const forA = await findOpenConflict(db, item.id, "agent-A");
+		expect(forA).not.toBeNull();
 	});
 });
 
 // ===========================================================================
-// O. AccessLog — recordKnowledgeAccess, countAccessesSince, reapKnowledgeAccessLog
+// O. AccessLog — recordAccess, countAccessesSince, reapKnowledgeAccessLog
 // ===========================================================================
 
-describe("access log: recordKnowledgeAccess / countAccessesSince / reapKnowledgeAccessLog", () => {
-	test("recordKnowledgeAccess appends a row; countAccessesSince counts rows since cutoff", async ({
+describe("access log: recordAccess / countAccessesSince / reapKnowledgeAccessLog", () => {
+	test("recordAccess appends a row; countAccessesSince counts rows since cutoff", async ({
 		db,
 	}) => {
 		const item = await seedItem(db);
 		const t0 = new Date().toISOString();
 
-		await recordKnowledgeAccess(db, {
+		await recordAccess(db, {
 			itemId: item.id,
 			accessorKind: "user",
 			accessorId: "u-reader",
@@ -746,7 +760,7 @@ describe("access log: recordKnowledgeAccess / countAccessesSince / reapKnowledge
 	test("countAccessesSince returns 0 when all accesses are before the cutoff", async ({ db }) => {
 		const item = await seedItem(db);
 
-		await recordKnowledgeAccess(db, {
+		await recordAccess(db, {
 			itemId: item.id,
 			accessorKind: "user",
 			accessorId: "u-reader",
@@ -754,7 +768,10 @@ describe("access log: recordKnowledgeAccess / countAccessesSince / reapKnowledge
 		});
 
 		// Cutoff AFTER the access.
-		const accessCount = await countAccesses(db, { itemId: item.id, since: "2020-06-01T00:00:00.000Z" });
+		const accessCount = await countAccesses(db, {
+			itemId: item.id,
+			since: "2020-06-01T00:00:00.000Z",
+		});
 		expect(accessCount).toBe(0);
 	});
 
@@ -763,7 +780,7 @@ describe("access log: recordKnowledgeAccess / countAccessesSince / reapKnowledge
 	}) => {
 		const item = await seedItem(db);
 
-		await recordKnowledgeAccess(db, {
+		await recordAccess(db, {
 			itemId: item.id,
 			accessorKind: "user",
 			accessorId: "u-reader",
@@ -771,11 +788,14 @@ describe("access log: recordKnowledgeAccess / countAccessesSince / reapKnowledge
 		});
 
 		const cutoff = "2021-01-01T00:00:00.000Z";
-		const deleted = await reapKnowledgeAccessLog(db, cutoff);
+		const deleted = await reapAccessLog(db, cutoff);
 
 		expect(deleted.length).toBeGreaterThanOrEqual(1);
 		// After reap, the count for that item is 0.
-		const accessCount = await countAccesses(db, { itemId: item.id, since: "2019-01-01T00:00:00.000Z" });
+		const accessCount = await countAccesses(db, {
+			itemId: item.id,
+			since: "2019-01-01T00:00:00.000Z",
+		});
 		expect(accessCount).toBe(0);
 	});
 });
@@ -791,15 +811,14 @@ describe("recomputeRelevance: denormalizes relevanceScore onto projection row", 
 		const item = await seedItem(db, { layer: "L2" });
 
 		// Simulate a recent access so the relevance score is not null.
-		await recordKnowledgeAccess(db, {
+		await recordAccess(db, {
 			itemId: item.id,
 			accessorKind: "agent",
 			accessorId: "a-1",
 			accessedAt: new Date().toISOString(),
 		});
 
-		const service = createRelevanceService(db);
-		await service.recomputeScores([item.id]);
+		await recomputeRelevance(db, [item.id]);
 
 		const [proj] = await db
 			.select()
@@ -817,8 +836,7 @@ describe("recomputeRelevance: denormalizes relevanceScore onto projection row", 
 		const item = await seedItem(db, { layer: "L2" });
 		// No access log rows.
 
-		const service = createRelevanceService(db);
-		await service.recomputeScores([item.id]);
+		await recomputeRelevance(db, [item.id]);
 
 		const [proj] = await db
 			.select()

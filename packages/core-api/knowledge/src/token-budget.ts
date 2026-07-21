@@ -2,7 +2,7 @@ import type { KnowledgeItem } from "@hyperidle/db";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 
 /** Approximate token count via whitespace split. */
-export function countTokens(text: string): number {
+function countTokens(text: string): number {
 	if (!text || text.trim().length === 0) {
 		return 0;
 	}
@@ -10,11 +10,11 @@ export function countTokens(text: string): number {
 }
 
 /** Count tokens for a knowledge item (title + body). */
-export function countItemTokens(item: KnowledgeItem): number {
+function countItemTokens(item: KnowledgeItem): number {
 	return countTokens(item.title) + countTokens(item.body);
 }
 
-export interface ScoredItem {
+interface ScoredItem {
 	item: KnowledgeItemWithProjection;
 	score: number;
 }
@@ -27,7 +27,7 @@ export interface ScoredItem {
  * @lore O2: layer moved to knowledgeAppProjection; items without a projection row
  * have layer=undefined/null and are treated as non-L4 (not always included).
  */
-export function enforceBudget(
+function enforceBudget(
 	scoredItems: ScoredItem[],
 	maxTokens: number,
 ): KnowledgeItemWithProjection[] {
@@ -69,3 +69,6 @@ export function enforceBudget(
 
 	return result;
 }
+
+export type { ScoredItem };
+export { countTokens, enforceBudget };

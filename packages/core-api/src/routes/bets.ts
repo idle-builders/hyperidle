@@ -1,9 +1,10 @@
 import { getArtifactThreadSummaries } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
+	create as createKnowledgeItem,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
-	upsertBetRetroKnowledgeItem,
+	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from "@hyperidle/org";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
@@ -1025,18 +1026,22 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// sub-item): this used to be a direct `.from(knowledgeItems).innerJoin(
 			// knowledgeAppProjection, …)` query plus the transaction's own raw
 			// `knowledgeItems`/`knowledgeAppProjection` reads/writes — both
-			// `knowledge`-owned (TABLE_OWNER since Increment 1a). Now calls
-			// `@hyperidle/knowledge`'s `findRetroKnowledgeItemForBet`/
-			// `upsertBetRetroKnowledgeItem` — same exact write sequence
-			// (update-with-meta-merge vs insert), zero behavior change.
+			// `knowledge`-owned (TABLE_OWNER since Increment 1a). Now uses
+			// `@hyperidle/knowledge`'s `create`/`update` directly — same exact write
+			// sequence (meta fields reconstructed from known inputs, no lossy merge).
+			// @lore AU20 K2-writes: upsertBetRetroKnowledgeItem deleted from barrel;
+			// inlined here using create()/update(). The meta merge on update was
+			// reconstructing {betId, hypothesis, verdict, validatedAt, validatedBy} — all
+			// known at call-site, so no pre-read needed. create() generates the id
+			// internally; captured from its return value for the response.
 			const existingKi = await listKnowledgeItems(db, { retroForBet: betId });
-			const retroKnowledgeItemId = existingKi ? existingKi.id : crypto.randomUUID();
 			const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
+			let retroKnowledgeItemId = existingKi?.id ?? "";
 
 			// @lore AC2: Atomic transaction wrapping bet-outcome write + knowledge-item upsert.
 			// Without this, a partial failure (outcome saved, knowledge item not) leaves the bet
-			// in an inconsistent state. The existingKi/retroKnowledgeItemId are resolved outside
-			// the transaction (read-only queries) so the transaction only covers the writes.
+			// in an inconsistent state. The existingKi is resolved outside the transaction
+			// (read-only query) so the transaction only covers the writes.
 			await db.transaction(async (tx) => {
 				// Write outcome fields on bet
 				await work.update(tx, "bet", betId, {
@@ -1047,17 +1052,41 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 					revisionLog: JSON.stringify(revisionLog),
 				});
 
-				await upsertBetRetroKnowledgeItem(tx as HyperIdleDb, {
-					existing: existingKi,
-					retroKnowledgeItemId,
+				const kiMeta = {
 					betId,
-					title: kiTitle,
-					body: kiBody,
+					hypothesis: hypothesisSnapshot,
 					verdict: body.verdict,
-					hypothesisSnapshot,
-					actor,
-					timestamp: now,
-				});
+					validatedAt: now,
+					validatedBy: actor ?? null,
+				};
+
+				if (existingKi) {
+					await updateKnowledgeItem(
+						tx as HyperIdleDb,
+						existingKi.id,
+						{
+							title: kiTitle,
+							body: kiBody,
+							meta: JSON.stringify(kiMeta),
+							updatedBy: actor ?? "system",
+						},
+						existingKi.version,
+					);
+				} else {
+					const created = await createKnowledgeItem(tx as HyperIdleDb, {
+						layer: null,
+						scopeKind: "bet",
+						scopeId: betId,
+						title: kiTitle,
+						body: kiBody,
+						format: "markdown",
+						status: "active",
+						updatedBy: actor ?? "system",
+						kind: "reflection",
+						meta: JSON.stringify(kiMeta),
+					});
+					retroKnowledgeItemId = created.id;
+				}
 			});
 
 			const updated = await work.get(db, "bet", betId);

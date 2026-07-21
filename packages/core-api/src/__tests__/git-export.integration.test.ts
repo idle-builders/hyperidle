@@ -55,7 +55,7 @@ const serverConfig = { read: readServerConfig, update: updateServerConfig };
 const knowledgeReader = {
 	listExportableItems: (
 		db: import("@hyperidle/db").HyperIdleDb,
-		filters: import("@hyperidle/knowledge").ExportableKnowledgeItemFilters,
+		filters: { readonly layers: readonly string[]; readonly statuses: readonly string[] },
 	) => listKnowledgeItems(db, { exportable: filters }),
 	getProjectionByItemId: (db: import("@hyperidle/db").HyperIdleDb, id: string) =>
 		getKnowledgeItem(db, id, { view: "projection" }),

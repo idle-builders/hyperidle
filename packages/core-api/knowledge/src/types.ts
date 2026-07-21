@@ -10,7 +10,7 @@
 
 export type KnowledgeLayer = "L0" | "L1" | "L2" | "L3" | "L4";
 
-export const KNOWLEDGE_STATUSES = [
+const KNOWLEDGE_STATUSES = [
 	"captured",
 	"provisional",
 	"validated",
@@ -34,7 +34,7 @@ export type KnowledgeKind =
 // --- Lifecycle propagation types ---
 
 /** @lore U1: `"product"` renamed to `"team"` to match the new domain entity name. */
-export type PropagationLevel = "session" | "task" | "bet" | "team" | "portfolio";
+type PropagationLevel = "session" | "task" | "bet" | "team" | "portfolio";
 
 // --- Scope ---
 
@@ -50,3 +50,6 @@ export interface KnowledgeScope {
 	readonly scopeKind: string;
 	readonly scopeId?: string | null;
 }
+
+export type { PropagationLevel };
+export { KNOWLEDGE_STATUSES };

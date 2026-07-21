@@ -1,4 +1,4 @@
-export class VersionConflictError extends Error {
+class VersionConflictError extends Error {
 	readonly currentVersion: number;
 
 	constructor(itemId: string, currentVersion: number) {
@@ -17,7 +17,7 @@ export class VersionConflictError extends Error {
  * to react: a delete is unrecoverable, a conflict can be retried with
  * the latest version.
  */
-export class ItemDeletedError extends Error {
+class ItemDeletedError extends Error {
 	readonly itemId: string;
 
 	constructor(itemId: string) {
@@ -26,3 +26,5 @@ export class ItemDeletedError extends Error {
 		this.itemId = itemId;
 	}
 }
+
+export { ItemDeletedError, VersionConflictError };

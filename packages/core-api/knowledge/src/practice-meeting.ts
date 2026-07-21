@@ -1,187 +1,9 @@
 import { randomUUID } from "node:crypto";
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeEditLog,
-	knowledgeItems,
-} from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, KnowledgeKind, KnowledgeUpdatedEvent } from "@hyperidle/shared";
-import { and, eq, isNull } from "drizzle-orm";
-
-// ---------------------------------------------------------------------------
-// Private raw accessors (inlined from practice-meeting-store.ts, AU20 Ag7a).
-// These are intentionally NOT exported — they are 1:1 with the pre-migration
-// raw Drizzle calls and exist only to give practice-meeting.ts exact control
-// over the caller-supplied clock and write sequence (see original @lore).
-// ---------------------------------------------------------------------------
-
-interface RawKnowledgeItemInsert {
-	readonly id: string;
-	readonly topic: string | null;
-	readonly title: string;
-	readonly body: string;
-	readonly format: string;
-	readonly status: string;
-	readonly version: number;
-	readonly updatedBy: string;
-	readonly createdAt: string;
-	readonly updatedAt: string;
-}
-
-async function insertKnowledgeItemRaw(
-	db: HyperIdleDb,
-	input: RawKnowledgeItemInsert,
-): Promise<void> {
-	await db.insert(knowledgeItems).values({ ...input });
-}
-
-interface RawKnowledgeAppProjectionInsert {
-	readonly id: string;
-	readonly knowledgeItemId: string;
-	readonly layer: string | null;
-	readonly kind: string | null;
-	readonly scopeId: string | null;
-	readonly meta: string | null;
-}
-
-async function insertKnowledgeAppProjectionRaw(
-	db: HyperIdleDb,
-	input: RawKnowledgeAppProjectionInsert,
-): Promise<void> {
-	await db.insert(knowledgeAppProjection).values({ ...input });
-}
-
-interface RawKnowledgeEditLogInsert {
-	readonly id: string;
-	readonly itemId: string;
-	readonly editor: string;
-	readonly field: string;
-	readonly oldValue: string | null;
-	readonly newValue: string | null;
-	readonly editType: string;
-	readonly createdAt: string;
-}
-
-async function insertKnowledgeEditLogRaw(
-	db: HyperIdleDb,
-	input: RawKnowledgeEditLogInsert,
-): Promise<void> {
-	await db.insert(knowledgeEditLog).values({ ...input });
-}
-
-interface RawKnowledgeItemRow {
-	readonly id: string;
-	readonly status: string;
-}
-
-async function findKnowledgeItemByIdRaw(
-	db: HyperIdleDb,
-	id: string,
-): Promise<RawKnowledgeItemRow | null> {
-	const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
-	return row ?? null;
-}
-
-interface KnowledgeAppProjectionRow {
-	readonly id: string;
-	readonly knowledgeItemId: string;
-	readonly layer: string | null;
-	readonly scopeId: string | null;
-	readonly kind: string | null;
-	readonly meta: string | null;
-}
-
-async function findKnowledgeAppProjectionByItemIdRaw(
-	db: HyperIdleDb,
-	knowledgeItemId: string,
-): Promise<KnowledgeAppProjectionRow | null> {
-	const [row] = await db
-		.select()
-		.from(knowledgeAppProjection)
-		.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId))
-		.limit(1);
-	return row ?? null;
-}
-
-async function updateKnowledgeAppProjectionMetaIfUnchangedRaw(
-	db: HyperIdleDb,
-	knowledgeItemId: string,
-	newMeta: string,
-	expectedMeta: string,
-): Promise<number> {
-	const rows = await db
-		.update(knowledgeAppProjection)
-		.set({ meta: newMeta })
-		.where(
-			and(
-				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId),
-				eq(knowledgeAppProjection.meta, expectedMeta),
-			),
-		)
-		.returning({ id: knowledgeAppProjection.id });
-	return rows.length;
-}
-
-async function touchKnowledgeItemUpdatedAtRaw(
-	db: HyperIdleDb,
-	id: string,
-	updatedAt: string,
-): Promise<void> {
-	await db.update(knowledgeItems).set({ updatedAt }).where(eq(knowledgeItems.id, id));
-}
-
-interface CapturedProjectedItem {
-	readonly item: RawKnowledgeItemRow;
-	readonly fabric: KnowledgeAppProjectionRow;
-}
-
-async function listCapturedItemsByProjectionScopeRaw(
-	db: HyperIdleDb,
-	scopeId: string | null,
-): Promise<readonly CapturedProjectedItem[]> {
-	const scopeFilter =
-		scopeId === null
-			? isNull(knowledgeAppProjection.scopeId)
-			: eq(knowledgeAppProjection.scopeId, scopeId);
-	return db
-		.select({ item: knowledgeItems, fabric: knowledgeAppProjection })
-		.from(knowledgeItems)
-		.innerJoin(
-			knowledgeAppProjection,
-			eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-		)
-		.where(and(eq(knowledgeItems.status, "captured"), scopeFilter));
-}
-
-interface ArchiveKnowledgeItemInput {
-	readonly id: string;
-	readonly oldStatus: string;
-	readonly updatedAt: string;
-	readonly updatedBy: string;
-	readonly editLogId: string;
-}
-
-async function archiveKnowledgeItemWithLogRaw(
-	db: HyperIdleDb,
-	input: ArchiveKnowledgeItemInput,
-): Promise<void> {
-	await db
-		.update(knowledgeItems)
-		.set({ status: "archived", updatedAt: input.updatedAt, updatedBy: input.updatedBy })
-		.where(eq(knowledgeItems.id, input.id));
-	await db.insert(knowledgeEditLog).values({
-		id: input.editLogId,
-		itemId: input.id,
-		editor: input.updatedBy,
-		field: "status",
-		oldValue: input.oldStatus,
-		newValue: "archived | reason: synthesized into practice meeting output",
-		editType: "refinement",
-		createdAt: input.updatedAt,
-	});
-}
-
-// ---------------------------------------------------------------------------
+import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
+import { create, get, list, remove, update } from "./knowledge-repository.js";
+import type { KnowledgeLayer } from "./types.js";
 
 /**
  * Practice meeting (TRACK-G §G3 AC6): a 3-turn workflow that produces
@@ -200,71 +22,68 @@ async function archiveKnowledgeItemWithLogRaw(
  * `knowledge`-owned tables (`knowledgeItems`/`knowledgeAppProjection`/
  * `knowledgeEditLog`), so `review` had no logical ownership over it — only an
  * accidental name association ("review meeting"). Sitting inside `knowledge`,
- * the workflow calls the `*Raw` accessors from `practice-meeting-store.ts`
- * directly (Mechanism A — legal, same package) and the 9-accessor
- * `PracticeMeetingKnowledgeStore` DI port that `review` maintained evaporates
- * entirely. See `@hyperidle/review`'s barrel `@lore` for the before/after
- * export count.
+ * the workflow composes through knowledge's general create/get/update/remove
+ * operations. The former nine raw accessors and the matching review DI port
+ * are physically gone.
  *
  * @lore G3 meeting storage: the meeting lives in `meta.role` on a single
  * `knowledge_items` row. When meetings grow complex enough to need indexed
  * queries, a `practice_meetings` table becomes the refactor.
  *
- * @lore AU19 Increment 1j (original): the general `create()`/`update()`
- * repository functions were NOT reused because they use a fresh internal
- * clock and write `scopeId` onto the kernel row — both real behavior changes.
- * These primitives are 1:1 with the pre-migration raw Drizzle calls.
+ * @lore AU20 revision: practice meetings are a workflow, not a second storage
+ * API. Canonical repository operations own edit history and accept the workflow
+ * timestamp through their shared write options.
  */
 
 // --- Types ---
 
-export const PRACTICE_MEETING_ANCHOR_ROLE = "practice_meeting_anchor";
+const PRACTICE_MEETING_ANCHOR_ROLE = "practice_meeting_anchor";
 
-export interface CreatePracticeMeetingInput {
+interface CreatePracticeMeetingInput {
 	readonly scopeId: string;
 	readonly title: string;
 	readonly nowMs: number;
 }
 
-export interface CreatePracticeMeetingResult {
+interface CreatePracticeMeetingResult {
 	readonly meetingId: string;
 }
 
-export interface ProposalInput {
+interface ProposalInput {
 	readonly title: string;
 	readonly body: string;
-	readonly layer: string;
+	readonly layer: KnowledgeLayer;
 	readonly topic?: string | null;
 	readonly kind?: KnowledgeKind;
 }
 
-export interface ReactionInput {
+interface ReactionInput {
 	readonly proposalId: string;
 	readonly body: string;
 	readonly author: string;
 }
 
-export interface SynthesisInput {
+interface SynthesisInput {
 	readonly title: string;
 	readonly body: string;
-	readonly layer: string;
+	readonly layer: KnowledgeLayer;
 	readonly topic?: string | null;
 	readonly kind?: KnowledgeKind;
 }
 
-export type PracticeMeetingTurnInput =
+type PracticeMeetingTurnInput =
 	| { readonly proposals: readonly ProposalInput[] }
 	| { readonly reactions: readonly ReactionInput[] }
 	| { readonly synthesis: readonly SynthesisInput[] };
 
-export interface RunPracticeMeetingTurnInput {
+interface RunPracticeMeetingTurnInput {
 	readonly meetingId: string;
 	readonly turnNumber: 1 | 2 | 3;
 	readonly input: PracticeMeetingTurnInput;
 	readonly nowMs: number;
 }
 
-export type PracticeMeetingTurnResult =
+type PracticeMeetingTurnResult =
 	| {
 			readonly success: true;
 			readonly turnNumber: 1 | 2 | 3;
@@ -335,50 +154,33 @@ function serializeTurnsCompleted(turnsCompleted: readonly number[]): string {
  * Create the anchor knowledge item for a new practice meeting.
  * No DI port required — calls raw accessors directly (Mechanism A, same package).
  */
-export async function createPracticeMeeting(
+async function createPracticeMeeting(
 	db: HyperIdleDb,
 	input: CreatePracticeMeetingInput,
 ): Promise<CreatePracticeMeetingResult> {
-	const id = randomUUID();
-	const isoNow = new Date(input.nowMs).toISOString();
 	const meta: AnchorMeta = {
 		role: PRACTICE_MEETING_ANCHOR_ROLE,
 		scopeId: input.scopeId,
 		title: input.title,
 		turnsCompleted: [],
 	};
-	// @lore O2: canonical/projection split.
-	await insertKnowledgeItemRaw(db, {
-		id,
-		topic: "practice_meeting",
-		title: input.title,
-		body: "Practice meeting anchor — created by practice-meeting service",
-		format: "markdown",
-		status: "captured",
-		version: 1,
-		updatedBy: "agent:practice-meeting",
-		createdAt: isoNow,
-		updatedAt: isoNow,
-	});
-	await insertKnowledgeAppProjectionRaw(db, {
-		id: `ksf-${id}`,
-		knowledgeItemId: id,
-		layer: "L2",
-		kind: "reflection",
-		scopeId: input.scopeId,
-		meta: JSON.stringify(meta),
-	});
-	await insertKnowledgeEditLogRaw(db, {
-		id: randomUUID(),
-		itemId: id,
-		editor: "agent:practice-meeting",
-		field: "*",
-		oldValue: null,
-		newValue: null,
-		editType: "create",
-		createdAt: isoNow,
-	});
-	return { meetingId: id };
+	const anchor = await create(
+		db,
+		{
+			topic: "practice_meeting",
+			title: input.title,
+			body: "Practice meeting anchor — created by practice-meeting service",
+			format: "markdown",
+			status: "captured",
+			updatedBy: "agent:practice-meeting",
+			layer: "L2",
+			kind: "reflection",
+			scopeId: input.scopeId,
+			meta: JSON.stringify(meta),
+		},
+		{ timestamp: new Date(input.nowMs).toISOString() },
+	);
+	return { meetingId: anchor.id };
 }
 
 // --- runPracticeMeetingTurn ---
@@ -388,13 +190,13 @@ export async function createPracticeMeeting(
  * @lore G3 race-safe: conditional UPDATE pins the old `turnsCompleted`
  * serialization; losing concurrent caller sees CONCURRENT_MODIFICATION.
  */
-export async function runPracticeMeetingTurn(
+async function runPracticeMeetingTurn(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	input: RunPracticeMeetingTurnInput,
 ): Promise<PracticeMeetingTurnResult> {
 	const { meetingId, turnNumber, nowMs } = input;
-	const isoNow = new Date(nowMs).toISOString();
+	const timestamp = new Date(nowMs).toISOString();
 	const turnInput = input.input;
 
 	if (turnNumber === 1 && !("proposals" in turnInput)) {
@@ -435,7 +237,7 @@ export async function runPracticeMeetingTurn(
 	let txOutcome: PracticeMeetingTurnResult;
 	try {
 		txOutcome = await db.transaction(async (tx): Promise<PracticeMeetingTurnResult> => {
-			const anchor = await findKnowledgeItemByIdRaw(tx, meetingId);
+			const anchor = await get(tx, meetingId, { view: "full" });
 			if (!anchor) {
 				throw new PracticeMeetingTxError({
 					success: false,
@@ -443,9 +245,7 @@ export async function runPracticeMeetingTurn(
 					message: `meeting ${meetingId} not found`,
 				});
 			}
-			// @lore O2: anchor meta and scopeId are in knowledgeAppProjection.
-			const anchorFabric = await findKnowledgeAppProjectionByItemIdRaw(tx, meetingId);
-			const parsed = parseAnchorMeta(anchorFabric?.meta ?? null);
+			const parsed = parseAnchorMeta(anchor.meta ?? null);
 			if (parsed.kind === "not-anchor") {
 				throw new PracticeMeetingTxError({
 					success: false,
@@ -461,7 +261,7 @@ export async function runPracticeMeetingTurn(
 				});
 			}
 			const anchorMeta = parsed.meta;
-			const anchorScopeId = anchorFabric?.scopeId ?? null;
+			const anchorScopeId = anchor.scopeId ?? null;
 
 			const turnsCompleted = anchorMeta.turnsCompleted ?? [];
 			const lastCompleted =
@@ -477,11 +277,11 @@ export async function runPracticeMeetingTurn(
 
 			let turnResult: PracticeMeetingTurnResult;
 			if (turnNumber === 1 && "proposals" in turnInput) {
-				turnResult = await runTurn1(tx, meetingId, anchorScopeId, turnInput.proposals, isoNow);
+				turnResult = await runTurn1(tx, meetingId, anchorScopeId, turnInput.proposals, timestamp);
 			} else if (turnNumber === 2 && "reactions" in turnInput) {
-				turnResult = await runTurn2(tx, meetingId, anchorScopeId, turnInput.reactions, isoNow);
+				turnResult = await runTurn2(tx, meetingId, anchorScopeId, turnInput.reactions, timestamp);
 			} else if (turnNumber === 3 && "synthesis" in turnInput) {
-				turnResult = await runTurn3(tx, meetingId, anchorScopeId, turnInput.synthesis, isoNow);
+				turnResult = await runTurn3(tx, meetingId, anchorScopeId, turnInput.synthesis, timestamp);
 			} else {
 				throw new PracticeMeetingTxError({
 					success: false,
@@ -499,15 +299,11 @@ export async function runPracticeMeetingTurn(
 			const nextTurns: number[] = [...turnsCompleted, turnNumber];
 			const nextMeta: AnchorMeta = { ...anchorMeta, turnsCompleted: nextTurns };
 			const oldSerialized = serializeTurnsCompleted(turnsCompleted);
-			const pinMeta = anchorFabric?.meta ?? "";
-			const updatedRows = await updateKnowledgeAppProjectionMetaIfUnchangedRaw(
-				tx,
-				meetingId,
-				JSON.stringify(nextMeta),
-				pinMeta,
-			);
-			await touchKnowledgeItemUpdatedAtRaw(tx, meetingId, isoNow);
-			if (updatedRows === 0) {
+			try {
+				await update(tx, meetingId, { meta: JSON.stringify(nextMeta) }, anchor.version, {
+					timestamp,
+				});
+			} catch {
 				throw new PracticeMeetingTxError({
 					success: false,
 					code: "CONCURRENT_MODIFICATION",
@@ -552,6 +348,8 @@ export async function runPracticeMeetingTurn(
 	return txOutcome;
 }
 
+export { createPracticeMeeting, runPracticeMeetingTurn };
+
 // --- Turn implementations ---
 
 async function runTurn1(
@@ -559,42 +357,27 @@ async function runTurn1(
 	meetingId: string,
 	anchorScopeId: string | null,
 	proposals: readonly ProposalInput[],
-	isoNow: string,
+	timestamp: string,
 ): Promise<PracticeMeetingTurnResult> {
 	const createdIds: string[] = [];
 	for (const p of proposals) {
-		const id = randomUUID();
-		await insertKnowledgeItemRaw(tx, {
-			id,
-			topic: p.topic ?? null,
-			title: p.title,
-			body: p.body,
-			format: "markdown",
-			status: "captured",
-			version: 1,
-			updatedBy: "agent:practice-meeting",
-			createdAt: isoNow,
-			updatedAt: isoNow,
-		});
-		await insertKnowledgeAppProjectionRaw(tx, {
-			id: `ksf-${id}`,
-			knowledgeItemId: id,
-			layer: p.layer,
-			kind: p.kind ?? "reflection",
-			scopeId: anchorScopeId,
-			meta: JSON.stringify({ meetingId, meetingPhase: "proposal" }),
-		});
-		await insertKnowledgeEditLogRaw(tx, {
-			id: randomUUID(),
-			itemId: id,
-			editor: "agent:practice-meeting",
-			field: "*",
-			oldValue: null,
-			newValue: null,
-			editType: "create",
-			createdAt: isoNow,
-		});
-		createdIds.push(id);
+		const created = await create(
+			tx,
+			{
+				topic: p.topic ?? null,
+				title: p.title,
+				body: p.body,
+				format: "markdown",
+				status: "captured",
+				updatedBy: "agent:practice-meeting",
+				layer: p.layer,
+				kind: p.kind ?? "reflection",
+				scopeId: anchorScopeId,
+				meta: JSON.stringify({ meetingId, meetingPhase: "proposal" }),
+			},
+			{ timestamp },
+		);
+		createdIds.push(created.id);
 	}
 	return { success: true, turnNumber: 1, createdIds, archivedIds: [] };
 }
@@ -604,47 +387,32 @@ async function runTurn2(
 	meetingId: string,
 	anchorScopeId: string | null,
 	reactions: readonly ReactionInput[],
-	isoNow: string,
+	timestamp: string,
 ): Promise<PracticeMeetingTurnResult> {
 	const createdIds: string[] = [];
 	for (const r of reactions) {
-		const id = randomUUID();
-		await insertKnowledgeItemRaw(tx, {
-			id,
-			topic: "practice_meeting_reaction",
-			title: `Reaction to ${r.proposalId}`,
-			body: r.body,
-			format: "markdown",
-			status: "captured",
-			version: 1,
-			updatedBy: "agent:practice-meeting",
-			createdAt: isoNow,
-			updatedAt: isoNow,
-		});
-		await insertKnowledgeAppProjectionRaw(tx, {
-			id: `ksf-${id}`,
-			knowledgeItemId: id,
-			layer: "L2",
-			kind: "reflection",
-			scopeId: anchorScopeId,
-			meta: JSON.stringify({
-				meetingId,
-				meetingPhase: "reaction",
-				proposalId: r.proposalId,
-				author: r.author,
-			}),
-		});
-		await insertKnowledgeEditLogRaw(tx, {
-			id: randomUUID(),
-			itemId: id,
-			editor: "agent:practice-meeting",
-			field: "*",
-			oldValue: null,
-			newValue: null,
-			editType: "create",
-			createdAt: isoNow,
-		});
-		createdIds.push(id);
+		const created = await create(
+			tx,
+			{
+				topic: "practice_meeting_reaction",
+				title: `Reaction to ${r.proposalId}`,
+				body: r.body,
+				format: "markdown",
+				status: "captured",
+				updatedBy: "agent:practice-meeting",
+				layer: "L2",
+				kind: "reflection",
+				scopeId: anchorScopeId,
+				meta: JSON.stringify({
+					meetingId,
+					meetingPhase: "reaction",
+					proposalId: r.proposalId,
+					author: r.author,
+				}),
+			},
+			{ timestamp },
+		);
+		createdIds.push(created.id);
 	}
 	return { success: true, turnNumber: 2, createdIds, archivedIds: [] };
 }
@@ -654,16 +422,22 @@ async function runTurn3(
 	meetingId: string,
 	anchorScopeId: string | null,
 	synthesis: readonly SynthesisInput[],
-	isoNow: string,
+	timestamp: string,
 ): Promise<PracticeMeetingTurnResult> {
 	const createdIds: string[] = [];
 	const archivedIds: string[] = [];
 
-	const candidateRows = await listCapturedItemsByProjectionScopeRaw(tx, anchorScopeId);
-	const intermediates = candidateRows.filter(({ fabric }) => {
-		if (!fabric.meta) return false;
+	const candidateRows: KnowledgeItemWithProjection[] = [];
+	const pageSize = 500;
+	for (let offset = 0; ; offset += pageSize) {
+		const page = await list(tx, { scopeId: anchorScopeId, limit: pageSize, offset });
+		candidateRows.push(...page);
+		if (page.length < pageSize) break;
+	}
+	const intermediates = candidateRows.filter((item) => {
+		if (!item.meta) return false;
 		try {
-			const parsed: unknown = JSON.parse(fabric.meta);
+			const parsed: unknown = JSON.parse(item.meta);
 			if (typeof parsed !== "object" || parsed === null) return false;
 			const m = parsed as Record<string, unknown>;
 			return (
@@ -676,48 +450,27 @@ async function runTurn3(
 	});
 
 	for (const s of synthesis) {
-		const id = randomUUID();
-		await insertKnowledgeItemRaw(tx, {
-			id,
-			topic: s.topic ?? null,
-			title: s.title,
-			body: s.body,
-			format: "markdown",
-			status: "provisional",
-			version: 1,
-			updatedBy: "agent:practice-meeting",
-			createdAt: isoNow,
-			updatedAt: isoNow,
-		});
-		await insertKnowledgeAppProjectionRaw(tx, {
-			id: `ksf-${id}`,
-			knowledgeItemId: id,
-			layer: s.layer,
-			kind: s.kind ?? "pattern",
-			scopeId: anchorScopeId,
-			meta: JSON.stringify({ meetingId, meetingPhase: "synthesis" }),
-		});
-		await insertKnowledgeEditLogRaw(tx, {
-			id: randomUUID(),
-			itemId: id,
-			editor: "agent:practice-meeting",
-			field: "*",
-			oldValue: null,
-			newValue: null,
-			editType: "create",
-			createdAt: isoNow,
-		});
-		createdIds.push(id);
+		const created = await create(
+			tx,
+			{
+				topic: s.topic ?? null,
+				title: s.title,
+				body: s.body,
+				format: "markdown",
+				status: "provisional",
+				updatedBy: "agent:practice-meeting",
+				layer: s.layer,
+				kind: s.kind ?? "pattern",
+				scopeId: anchorScopeId,
+				meta: JSON.stringify({ meetingId, meetingPhase: "synthesis" }),
+			},
+			{ timestamp },
+		);
+		createdIds.push(created.id);
 	}
 
-	for (const { item: inter } of intermediates) {
-		await archiveKnowledgeItemWithLogRaw(tx, {
-			id: inter.id,
-			oldStatus: inter.status,
-			updatedAt: isoNow,
-			updatedBy: "agent:practice-meeting",
-			editLogId: randomUUID(),
-		});
+	for (const inter of intermediates) {
+		await remove(tx, inter, { timestamp });
 		archivedIds.push(inter.id);
 	}
 

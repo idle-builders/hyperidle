@@ -4,7 +4,7 @@ import type { RelevanceConfig } from "./relevance-engine.js";
 // Re-export so callers can import RelevanceConfig from scoring-config
 export type { RelevanceConfig };
 
-export interface ScoringWeights {
+interface ScoringWeights {
 	tagMatch: number;
 	roleMatch: number;
 	recency: number;
@@ -13,7 +13,7 @@ export interface ScoringWeights {
 	attentionScore: number;
 }
 
-export interface ScoringContext {
+interface ScoringContext {
 	taskDescription: string;
 	taskTags: string[];
 	agentRole: string;
@@ -30,9 +30,9 @@ const DEFAULT_WEIGHTS: ScoringWeights = {
 };
 
 /** Total context window tokens and knowledge allocation ratio. */
-export const CONTEXT_WINDOW_TOKENS = 200_000;
-export const KNOWLEDGE_ALLOCATION_RATIO = 0.2;
-export const DEFAULT_KNOWLEDGE_BUDGET = CONTEXT_WINDOW_TOKENS * KNOWLEDGE_ALLOCATION_RATIO; // 40_000
+const CONTEXT_WINDOW_TOKENS = 200_000;
+const KNOWLEDGE_ALLOCATION_RATIO = 0.2;
+const DEFAULT_KNOWLEDGE_BUDGET = CONTEXT_WINDOW_TOKENS * KNOWLEDGE_ALLOCATION_RATIO; // 40_000
 
 /**
  * Scoring weights. Always the hardcoded defaults.
@@ -45,7 +45,7 @@ export const DEFAULT_KNOWLEDGE_BUDGET = CONTEXT_WINDOW_TOKENS * KNOWLEDGE_ALLOCA
  * `db` is kept as a parameter for call-site compatibility even though it is
  * now unused — every caller passes a live db handle already.
  */
-export async function loadScoringWeights(_db: HyperIdleDb): Promise<ScoringWeights> {
+async function loadScoringWeights(_db: HyperIdleDb): Promise<ScoringWeights> {
 	return { ...DEFAULT_WEIGHTS };
 }
 
@@ -59,7 +59,7 @@ export async function loadScoringWeights(_db: HyperIdleDb): Promise<ScoringWeigh
  * itself remains a positive knob meaning "how strongly does this signal
  * dampen attention". Defaults are ratios; the scorer normalizes by total.
  */
-export interface AttentionWeights {
+interface AttentionWeights {
 	readonly novelty: number;
 	readonly impact: number;
 	readonly conflict: number;
@@ -88,7 +88,7 @@ const DEFAULT_ATTENTION_WEIGHTS: AttentionWeights = {
 };
 
 /** Threshold at which a recompute crossing upward creates a review item. */
-export const ATTENTION_THRESHOLD = 0.7;
+const ATTENTION_THRESHOLD = 0.7;
 
 /**
  * Attention weights. Always the hardcoded defaults.
@@ -100,7 +100,7 @@ export const ATTENTION_THRESHOLD = 0.7;
  * DB read is behavior-identical in practice and removes a dead config
  * surface (the defense-in-depth clamp is moot with no writer at all).
  */
-export async function loadAttentionWeights(_db: HyperIdleDb): Promise<AttentionWeights> {
+async function loadAttentionWeights(_db: HyperIdleDb): Promise<AttentionWeights> {
 	return { ...DEFAULT_ATTENTION_WEIGHTS };
 }
 
@@ -122,9 +122,18 @@ const DEFAULT_RELEVANCE_SHAPE = {
  * dropping the DB read is behavior-identical in practice and removes a dead
  * config surface. See {@link loadScoringWeights} for the same rationale.
  */
-export async function loadRelevanceConfig(_db: HyperIdleDb): Promise<RelevanceConfig> {
+async function loadRelevanceConfig(_db: HyperIdleDb): Promise<RelevanceConfig> {
 	return {
 		weights: { ...DEFAULT_RELEVANCE_WEIGHTS },
 		shape: { ...DEFAULT_RELEVANCE_SHAPE },
 	};
 }
+
+export type { AttentionWeights, ScoringContext, ScoringWeights };
+export {
+	ATTENTION_THRESHOLD,
+	DEFAULT_KNOWLEDGE_BUDGET,
+	loadAttentionWeights,
+	loadRelevanceConfig,
+	loadScoringWeights,
+};

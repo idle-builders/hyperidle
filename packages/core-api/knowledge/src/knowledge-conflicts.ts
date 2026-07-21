@@ -7,40 +7,67 @@
  * their bodies absorbed into appropriate general modules. Conflict operations
  * (from both `create_conflict_review` tool and `capture-writeback` writeback)
  * share the same owned table (`knowledgeConflicts`) and are grouped here.
+ *
+ * @lore AU20 K2-writes: `createKnowledgeConflict`, `findOpenConflictByItemAndProposer`,
+ * and `recordWritebackConflict` (three separate functions with split interfaces)
+ * are replaced by two unified functions: `recordConflict` (handles both the
+ * tool-side create and the writeback-side create in one interface) and
+ * `findOpenConflict` (returns null instead of undefined for idiomatic TS).
  */
 import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, knowledgeConflicts } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
-// From conflict-review-store.ts (tool-handlers -> knowledge edge)
+// Unified conflict write
 // ---------------------------------------------------------------------------
 
-export interface CreateKnowledgeConflictInput {
-	readonly id: string;
+/**
+ * Input for recording a knowledge conflict.
+ * Covers both the `create_conflict_review` tool (explicit id + proposedMeta)
+ * and the writeback-conflict path (auto-generated id, no proposedMeta).
+ */
+export interface RecordConflictInput {
+	/** Optional explicit id — auto-generated (randomUUID) when absent. */
+	readonly id?: string;
 	readonly itemId: string;
 	readonly versionBase: number;
 	readonly versionCurrent: number;
 	readonly proposedBody: string;
-	readonly proposedMeta: string | null;
+	/** Optional meta — null when absent. */
+	readonly proposedMeta?: string | null;
 	readonly proposedBy: string;
-	readonly createdAt: string;
+	/** Optional ISO timestamp — current time when absent. */
+	readonly createdAt?: string;
 }
 
-/** Insert an open `knowledgeConflicts` row for `create_conflict_review`. */
-export async function createKnowledgeConflict(
-	db: HyperIdleDb,
-	input: CreateKnowledgeConflictInput,
-): Promise<void> {
-	await db.insert(knowledgeConflicts).values({ ...input, status: "open" });
+/**
+ * Insert an open `knowledgeConflicts` row.
+ * Unified entry point for both `create_conflict_review` and writeback paths.
+ */
+export async function recordConflict(db: HyperIdleDb, input: RecordConflictInput): Promise<void> {
+	await db.insert(knowledgeConflicts).values({
+		id: input.id ?? randomUUID(),
+		itemId: input.itemId,
+		versionBase: input.versionBase,
+		versionCurrent: input.versionCurrent,
+		proposedBody: input.proposedBody,
+		proposedMeta: input.proposedMeta ?? null,
+		proposedBy: input.proposedBy,
+		status: "open",
+		createdAt: input.createdAt ?? new Date().toISOString(),
+	});
 }
 
-/** Find an open conflict on `itemId` filed by `proposedBy`, or `undefined`. */
-export async function findOpenConflictByItemAndProposer(
+/**
+ * Find an open conflict on `itemId` filed by `proposedBy`.
+ * Returns `null` when no open conflict exists (idiomatic TypeScript null-for-absent).
+ */
+export async function findOpenConflict(
 	db: HyperIdleDb,
 	itemId: string,
 	proposedBy: string,
-): Promise<{ readonly id: string } | undefined> {
+): Promise<{ readonly id: string } | null> {
 	const [row] = await db
 		.select({ id: knowledgeConflicts.id })
 		.from(knowledgeConflicts)
@@ -52,39 +79,5 @@ export async function findOpenConflictByItemAndProposer(
 			),
 		)
 		.limit(1);
-	return row;
-}
-
-// ---------------------------------------------------------------------------
-// From writeback-conflict-store.ts (capture-writeback -> knowledge edge)
-// ---------------------------------------------------------------------------
-
-export interface RecordWritebackConflictInput {
-	readonly itemId: string;
-	readonly versionBase: number;
-	readonly versionCurrent: number;
-	readonly proposedBody: string;
-	readonly proposedBy: string;
-}
-
-/**
- * Record a `knowledgeConflicts` row flagging a writeback-detected conflict —
- * either a version mismatch on modify, or a deletion pending facilitator
- * review (`proposedBody: "[DELETED]"`). Always `status: "open"`, matching
- * both original inline insert shapes verbatim.
- */
-export async function recordWritebackConflict(
-	db: HyperIdleDb,
-	input: RecordWritebackConflictInput,
-): Promise<void> {
-	await db.insert(knowledgeConflicts).values({
-		id: randomUUID(),
-		itemId: input.itemId,
-		versionBase: input.versionBase,
-		versionCurrent: input.versionCurrent,
-		proposedBody: input.proposedBody,
-		proposedBy: input.proposedBy,
-		status: "open",
-		createdAt: new Date().toISOString(),
-	});
+	return row ?? null;
 }

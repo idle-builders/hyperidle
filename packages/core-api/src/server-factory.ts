@@ -42,10 +42,8 @@ import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
-	reapKnowledgeAccessLog,
-	recordWritebackConflict,
-	registerRelevanceListener,
-	setupFts,
+	reapAccessLog,
+	recordConflict as recordWritebackConflict,
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
@@ -81,6 +79,7 @@ import {
 } from "@hyperidle/work";
 import { and, inArray, lt } from "drizzle-orm";
 import { WebSocketServer } from "ws";
+import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { agentSelectionService } from "./services/agent-selection-bindings.js";
@@ -168,7 +167,7 @@ const gitExportServerConfigPort = { read: readServerConfig, update: updateServer
 const gitExportKnowledgeReader = {
 	listExportableItems: (
 		db: import("@hyperidle/db").HyperIdleDb,
-		filters: import("@hyperidle/knowledge").ExportableKnowledgeItemFilters,
+		filters: { readonly layers: readonly string[]; readonly statuses: readonly string[] },
 	) => listKnowledgeItems(db, { exportable: filters }),
 	getProjectionByItemId: (db: import("@hyperidle/db").HyperIdleDb, id: string) =>
 		getKnowledgeItem(db, id, { view: "projection" }),
@@ -329,13 +328,8 @@ export function registerCoreDomainServices(ctx: {
 	const disposers: Array<() => void> = [];
 	disposers.push(startAgentLifecycleProjectionDrain(db));
 
-	// AF9 Task 3b: fire-and-forget FTS setup at every boot so the fts_vector
-	// column exists even when production createServer skips the drizzle migrator.
-	setupFts(db).catch((err) => {
-		serviceBootstrapLog.error("FTS setup failed at boot", { err });
-	});
+	disposers.push(attachRelevanceListener(db, eventBus));
 
-	disposers.push(registerRelevanceListener(db, eventBus));
 	disposers.push(
 		registerReviewSubscriptions(db, eventBus, {
 			work: {
@@ -396,7 +390,7 @@ export function registerCoreDomainServices(ctx: {
 		// notification_queue (owned by `notifications`)
 		await reap(db, termCutoff, ["sent", "failed", "dropped"]);
 		// knowledge_access_log (owned by `knowledge`)
-		await reapKnowledgeAccessLog(db, termCutoff);
+		await reapAccessLog(db, termCutoff);
 		// propagation_log — UNOWNED_SHARED_TABLES; delegate to the exported
 		// reapPropagationLog so the predicate is covered by integration tests.
 		await reapPropagationLog(db, termCutoff);

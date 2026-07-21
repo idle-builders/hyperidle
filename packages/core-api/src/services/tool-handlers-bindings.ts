@@ -27,14 +27,13 @@ import {
 } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import {
-	buildAttentionService,
-	createKnowledgeConflict,
 	create as createKnowledgeItem,
-	findOpenConflictByItemAndProposer,
+	findOpenConflict as findOpenKnowledgeConflict,
 	get as getKnowledgeItem,
-	promoteKnowledgeItem,
+	transition as knowledgeTransition,
+	recomputeAttention,
+	recordConflict as recordKnowledgeConflict,
 	search as searchKnowledge,
-	upsertKnowledgeAppProjectionAttentionScore,
 } from "@hyperidle/knowledge";
 import {
 	createTeam,
@@ -163,17 +162,23 @@ async function recomputeAttentionScoreForItem(
 		conversation: { insertThread },
 		work: { createItem: (exec, values) => work.create(exec, "item", values) },
 	});
-	return buildAttentionService({
-		db,
-		eventBus,
-		work: {
-			findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
-				const rows = await work.list(exec, "item", { marker });
-				return rows[0] ? { id: rows[0].id } : undefined;
+	const result = await recomputeAttention(
+		{
+			db,
+			eventBus,
+			work: {
+				findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
+					const rows = await work.list(exec, "item", { marker });
+					return rows[0] ? { id: rows[0].id } : undefined;
+				},
 			},
+			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
 		},
-		review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
-	}).recomputeOne(knowledgeItemId);
+		{ itemId: knowledgeItemId },
+	);
+	if (Array.isArray(result) || !("current" in result))
+		throw new Error("unexpected attention result");
+	return result;
 }
 
 const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
@@ -243,10 +248,28 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 			const item = await getKnowledgeItem(db, id);
 			return item ?? undefined;
 		},
-		findOpenConflictByItemAndProposer,
-		createKnowledgeConflict,
-		promoteKnowledgeItem,
-		upsertKnowledgeAppProjectionAttentionScore,
+		// @lore AU20 K2-writes: createKnowledgeConflict/findOpenConflictByItemAndProposer deleted
+		// from barrel; wired here via recordConflict/findOpenConflict adapters.
+		// findOpenConflict returns null instead of undefined; adapter maps null → undefined
+		// to match the port interface (ToolHandlersKnowledgeAccessor) which expects undefined.
+		findOpenConflictByItemAndProposer: async (db, itemId, proposedBy) =>
+			(await findOpenKnowledgeConflict(db, itemId, proposedBy)) ?? undefined,
+		createKnowledgeConflict: (db, input) => recordKnowledgeConflict(db, input),
+		// @lore AU20 K2-writes: promoteKnowledgeItem deleted from barrel; wired here
+		// via transition({target:"promote",...}) — same transactional gate logic.
+		promoteKnowledgeItem: async (db, input) =>
+			knowledgeTransition(db, input.knowledgeItemId, {
+				target: "promote",
+				fromStatus: input.fromStatus,
+				toStatus: input.toStatus,
+				reason: input.reason,
+				editor: input.editor,
+			}),
+		upsertKnowledgeAppProjectionAttentionScore: (db, knowledgeItemId, attentionScore) =>
+			knowledgeTransition(db, knowledgeItemId, {
+				target: "recomputeAttention",
+				attentionScore: Number(attentionScore),
+			}),
 		recomputeAttentionScoreForItem,
 	},
 	policy: { handoff },

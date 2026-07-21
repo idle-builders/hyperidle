@@ -1,12 +1,10 @@
 /**
- * AF9 — AC3b: query_practice tool succeeds at runtime without manual setupFts.
+ * AF9 — AC3b: query_practice tool succeeds without manual FTS setup.
  *
  * RED PHASE: This test fails until Task 3a migration creates `fts_vector`.
  *
- * The existing `query-practice.integration.test.ts` calls `setupFts` manually
- * before each test — that tests the manual-call path and is left untouched.
- * This test proves the migration path: the tool succeeds WITHOUT a manual
- * `setupFts` call, which is what AC3 requires for the production runtime.
+ * Search owns automatic, idempotent FTS initialization. This proves callers
+ * need no public setup operation.
  *
  * @lore AF9: The server fixture builds the DB via the drizzle migrator
  * (test-pool). If Task 3a migration exists, fts_vector is in the schema

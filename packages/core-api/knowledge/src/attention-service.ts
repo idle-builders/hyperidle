@@ -44,12 +44,12 @@ import {
  * `buildAttentionService({db, eventBus, work, review})` wiring this file
  * always expected, just from a different source file.
  */
-export type AttentionWriteExecutor =
+type AttentionWriteExecutor =
 	| HyperIdleDb
 	| Parameters<Parameters<HyperIdleDb["transaction"]>[0]>[0];
 
 /** Port for the `work` Service's idempotency-marker lookup (Mechanism C). */
-export interface ReasoningMarkerFinder {
+interface ReasoningMarkerFinder {
 	findItemByReasoningMarker(
 		exec: AttentionWriteExecutor,
 		marker: string,
@@ -57,7 +57,7 @@ export interface ReasoningMarkerFinder {
 }
 
 /** Input shape mirroring `review`'s `CreateReviewItemForKnowledgeInput` (structural port). */
-export interface CreateReviewItemForKnowledgeInput {
+interface CreateReviewItemForKnowledgeInput {
 	readonly knowledgeItemId: string;
 	readonly layer: string | null;
 	readonly title: string;
@@ -69,13 +69,13 @@ export interface CreateReviewItemForKnowledgeInput {
 }
 
 /** Result shape mirroring `review`'s `CreateReviewItemForKnowledgeResult` (structural port). */
-export interface CreateReviewItemForKnowledgeResult {
+interface CreateReviewItemForKnowledgeResult {
 	readonly itemId: string;
 	readonly threadId: string;
 }
 
 /** Port for the `review` Service's knowledge-review item creation (Mechanism C). */
-export interface KnowledgeReviewWriter {
+interface KnowledgeReviewWriter {
 	createReviewItemForKnowledge(
 		db: AttentionWriteExecutor,
 		eventBus: EventBus,
@@ -95,10 +95,10 @@ export interface KnowledgeReviewWriter {
  * largest legitimate scope (a layer × product cross-section) observed in
  * sizing exercises.
  */
-export const MAX_RECOMPUTE_BATCH = 5000;
+const ATTENTION_BATCH_LIMIT = 5000;
 
 /** Per-item recompute result. */
-export interface AttentionRecomputeResult {
+interface AttentionRecomputeResult {
 	readonly knowledgeItemId: string;
 	readonly prior: number | null;
 	readonly current: number;
@@ -108,13 +108,13 @@ export interface AttentionRecomputeResult {
 }
 
 /** Summary of a scope-wide recompute. */
-export interface AttentionRecomputeSummary {
+interface AttentionRecomputeSummary {
 	readonly updated: number;
 	readonly crossed: number;
 	readonly results: readonly AttentionRecomputeResult[];
 }
 
-export interface AttentionServiceFilter {
+interface AttentionServiceFilter {
 	readonly layer?: string;
 	readonly scopeId?: string;
 	readonly status?: string;
@@ -128,15 +128,15 @@ export interface AttentionServiceFilter {
  * rather than throwing so callers (HTTP handlers, skill tools) can route on
  * `code` without a try/catch.
  */
-export type AttentionRecomputeScopeError =
+type AttentionRecomputeScopeError =
 	| { readonly code: "FILTER_REQUIRED"; readonly message: string }
 	| { readonly code: "BATCH_TOO_LARGE"; readonly message: string; readonly size: number };
 
-export type AttentionRecomputeScopeResult =
+type AttentionRecomputeScopeResult =
 	| { readonly ok: true; readonly summary: AttentionRecomputeSummary }
 	| { readonly ok: false; readonly error: AttentionRecomputeScopeError };
 
-export interface AttentionService {
+interface AttentionService {
 	recomputeOne(knowledgeItemId: string): Promise<AttentionRecomputeResult>;
 	recomputeMany(
 		knowledgeItemIds: readonly string[],
@@ -144,7 +144,7 @@ export interface AttentionService {
 	recomputeScope(filter: AttentionServiceFilter): Promise<AttentionRecomputeScopeResult>;
 }
 
-export interface AttentionServiceDeps {
+interface AttentionServiceDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	/** Injected `work` Service port (Mechanism C — see `ReasoningMarkerFinder`). */
@@ -178,7 +178,7 @@ export interface AttentionServiceDeps {
  * section is wrapped in a SQLite transaction so two racing recomputations
  * can't both observe `prior < 0.7` and both emit `item_created`.
  */
-export function buildAttentionService(deps: AttentionServiceDeps): AttentionService {
+function buildAttentionService(deps: AttentionServiceDeps): AttentionService {
 	const { db, eventBus, work, review } = deps;
 	const loadWeights = deps.loadWeights ?? loadAttentionWeights;
 	const now = deps.now ?? ((): number => Date.now());
@@ -408,12 +408,12 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 				.where(and(...kernelConditions));
 		}
 
-		if (rows.length > MAX_RECOMPUTE_BATCH) {
+		if (rows.length > ATTENTION_BATCH_LIMIT) {
 			return {
 				ok: false,
 				error: {
 					code: "BATCH_TOO_LARGE",
-					message: `recomputeScope selected ${rows.length} items, exceeding the hard cap of ${MAX_RECOMPUTE_BATCH}`,
+					message: `recomputeScope selected ${rows.length} items, exceeding the hard cap of ${ATTENTION_BATCH_LIMIT}`,
 					size: rows.length,
 				},
 			};
@@ -433,6 +433,21 @@ export function buildAttentionService(deps: AttentionServiceDeps): AttentionServ
 	}
 
 	return { recomputeOne, recomputeMany, recomputeScope };
+}
+
+export function recomputeAttention(
+	deps: AttentionServiceDeps,
+	spec:
+		| { readonly itemId: string }
+		| { readonly itemIds: readonly string[] }
+		| { readonly filter: AttentionServiceFilter },
+): Promise<
+	AttentionRecomputeResult | ReadonlyArray<AttentionRecomputeResult> | AttentionRecomputeScopeResult
+> {
+	const service = buildAttentionService(deps);
+	if ("itemId" in spec) return service.recomputeOne(spec.itemId);
+	if ("itemIds" in spec) return service.recomputeMany(spec.itemIds);
+	return service.recomputeScope(spec.filter);
 }
 
 async function hasOpenConflict(db: HyperIdleDb, knowledgeItemId: string): Promise<boolean> {

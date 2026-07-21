@@ -1,7 +1,15 @@
-import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
-import { createPracticeMeeting, runPracticeMeetingTurn } from "@hyperidle/knowledge";
+import {
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeEditLog,
+	knowledgeItems,
+} from "@hyperidle/db";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import {
+	createPracticeMeeting,
+	runPracticeMeetingTurn,
+} from "../../knowledge/src/practice-meeting.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";
@@ -47,6 +55,13 @@ describe("practice-meeting (AC6)", () => {
 		};
 		expect(meta.role).toBe("practice_meeting_anchor");
 		expect(meta.turnsCompleted).toEqual([]);
+		expect(anchor?.createdAt).toBe(NOW);
+		expect(anchor?.updatedAt).toBe(NOW);
+		const [createLog] = await db
+			.select()
+			.from(knowledgeEditLog)
+			.where(eq(knowledgeEditLog.itemId, meetingId));
+		expect(createLog?.createdAt).toBe(NOW);
 	});
 
 	test("turn 1 creates proposal knowledge_items with status=captured and meta.meetingId", async ({
@@ -73,6 +88,8 @@ describe("practice-meeting (AC6)", () => {
 		for (const id of result.createdIds) {
 			const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id));
 			expect(row?.status).toBe("captured");
+			expect(row?.createdAt).toBe(NOW);
+			expect(row?.updatedAt).toBe(NOW);
 			// @lore O2: meta moved to knowledgeAppProjection.
 			const [fabricRow] = await db
 				.select()
@@ -84,7 +101,14 @@ describe("practice-meeting (AC6)", () => {
 			};
 			expect(meta.meetingId).toBe(meetingId);
 			expect(meta.meetingPhase).toBe("proposal");
+			const [createLog] = await db
+				.select()
+				.from(knowledgeEditLog)
+				.where(eq(knowledgeEditLog.itemId, id));
+			expect(createLog?.createdAt).toBe(NOW);
 		}
+		const [anchor] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, meetingId));
+		expect(anchor?.updatedAt).toBe(NOW);
 	});
 
 	test("turn 2 creates reaction knowledge_items linked to proposals via meta.proposalId", async ({
@@ -249,8 +273,99 @@ describe("practice-meeting (AC6)", () => {
 		for (const id of [...proposalIds, ...reactionIds]) {
 			const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id));
 			expect(row?.status).toBe("archived");
+			expect(row?.updatedAt).toBe(NOW);
+			const logs = await db.select().from(knowledgeEditLog).where(eq(knowledgeEditLog.itemId, id));
+			expect(logs.find((log) => log.editType === "archive")?.createdAt).toBe(NOW);
 		}
 	});
+
+	test("turn 3 finds legacy intermediates whose scope exists only in projection", async ({
+		db,
+		eventBus,
+	}) => {
+		const meetingId = await seedMeeting(db);
+		const legacyId = crypto.randomUUID();
+		await db.insert(knowledgeItems).values({
+			id: legacyId,
+			scopeKind: "factory",
+			scopeId: null,
+			topic: "legacy",
+			title: "Legacy proposal",
+			body: "Stored before canonical scope backfill",
+			format: "markdown",
+			status: "captured",
+			version: 1,
+			updatedBy: "agent:practice-meeting",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+		await db.insert(knowledgeAppProjection).values({
+			id: crypto.randomUUID(),
+			knowledgeItemId: legacyId,
+			layer: "L3",
+			scopeId: "community-build",
+			kind: "reflection",
+			meta: JSON.stringify({ meetingId, meetingPhase: "proposal" }),
+		});
+
+		await runPracticeMeetingTurn(db, eventBus, {
+			meetingId,
+			turnNumber: 1,
+			input: { proposals: [] },
+			nowMs: NOW_MS,
+		});
+		await runPracticeMeetingTurn(db, eventBus, {
+			meetingId,
+			turnNumber: 2,
+			input: { reactions: [] },
+			nowMs: NOW_MS,
+		});
+		const result = await runPracticeMeetingTurn(db, eventBus, {
+			meetingId,
+			turnNumber: 3,
+			input: { synthesis: [] },
+			nowMs: NOW_MS,
+		});
+
+		expect(result.success).toBe(true);
+		if (!result.success) return;
+		expect(result.archivedIds).toContain(legacyId);
+		const [legacy] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, legacyId));
+		expect(legacy?.status).toBe("archived");
+	});
+
+	test("turn 3 archives more than 500 intermediates", async ({ db, eventBus }) => {
+		const meetingId = await seedMeeting(db);
+		const proposals = Array.from({ length: 501 }, (_, index) => ({
+			title: `P${index}`,
+			body: `B${index}`,
+			layer: "L3" as const,
+			topic: "bulk",
+		}));
+		const turn1 = await runPracticeMeetingTurn(db, eventBus, {
+			meetingId,
+			turnNumber: 1,
+			input: { proposals },
+			nowMs: NOW_MS,
+		});
+		expect(turn1.success).toBe(true);
+		await runPracticeMeetingTurn(db, eventBus, {
+			meetingId,
+			turnNumber: 2,
+			input: { reactions: [] },
+			nowMs: NOW_MS,
+		});
+		const turn3 = await runPracticeMeetingTurn(db, eventBus, {
+			meetingId,
+			turnNumber: 3,
+			input: { synthesis: [] },
+			nowMs: NOW_MS,
+		});
+
+		expect(turn3.success).toBe(true);
+		if (!turn3.success) return;
+		expect(turn3.archivedIds).toHaveLength(501);
+	}, 30_000);
 
 	test("running turn 2 before turn 1 returns INVALID_TURN", async ({ db, eventBus }) => {
 		const meetingId = await seedMeeting(db);

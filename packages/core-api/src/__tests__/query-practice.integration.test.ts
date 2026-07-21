@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { create as createKnowledgeItem, setupFts } from "@hyperidle/knowledge";
+import { create as createKnowledgeItem } from "@hyperidle/knowledge";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { describe, expect } from "vitest";
@@ -27,7 +27,6 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 describe("query_practice tool", () => {
 	describe("AC4: searches 'file handling' returns matching L3 practices", () => {
 		test("returns L3 patterns whose body matches the query", async ({ db }) => {
-			await setupFts(db);
 			await createKnowledgeItem(db, {
 				layer: "L3",
 				kind: "pattern",
@@ -60,7 +59,6 @@ describe("query_practice tool", () => {
 		});
 
 		test("excludes L1 items by default (default layer filter is L3)", async ({ db }) => {
-			await setupFts(db);
 			await createKnowledgeItem(db, {
 				layer: "L3",
 				kind: "pattern",
@@ -92,7 +90,6 @@ describe("query_practice tool", () => {
 		});
 
 		test("returns empty list when no items match", async ({ db }) => {
-			await setupFts(db);
 			const result = await queryPracticeTool.handler(
 				{ query: "nothing matches xyz" },
 				makeContext(db),
@@ -104,7 +101,6 @@ describe("query_practice tool", () => {
 		});
 
 		test("respects explicit layer override", async ({ db }) => {
-			await setupFts(db);
 			await createKnowledgeItem(db, {
 				layer: "L1",
 				kind: "pattern",
@@ -129,7 +125,6 @@ describe("query_practice tool", () => {
 
 	describe("AC9: invalid input returns structured error", () => {
 		test("returns INVALID_INPUT when query is empty", async ({ db }) => {
-			await setupFts(db);
 			const result = await queryPracticeTool.handler({ query: "" }, makeContext(db));
 			expect(result.success).toBe(false);
 			if (result.success) return;
@@ -137,7 +132,6 @@ describe("query_practice tool", () => {
 		});
 
 		test("returns INVALID_INPUT when layer is not a known layer", async ({ db }) => {
-			await setupFts(db);
 			const result = await queryPracticeTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ query: "x", layer: "L99" } as any,

@@ -23,13 +23,7 @@
 
 import type { WriteExecutor } from "@hyperidle/db";
 import { startWatcher } from "@hyperidle/filesystems";
-import {
-	countTokens,
-	DEFAULT_KNOWLEDGE_BUDGET,
-	list,
-	loadScoringWeights,
-	rankAndBudget,
-} from "@hyperidle/knowledge";
+import { list, rank } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { getRoutine } from "@hyperidle/routine";
 import type { ContextAssemblyPorts } from "@hyperidle/run-orchestration";
@@ -40,16 +34,9 @@ import * as work from "@hyperidle/work";
 const contextAssemblyPorts: ContextAssemblyPorts = {
 	knowledge: {
 		list: (db, filters) => list(db, filters),
-		rankAndBudget: async (db, items, scoringContext) => {
-			const weights = await loadScoringWeights(db);
-			return rankAndBudget(
-				[...items],
-				{ ...scoringContext, taskTags: [...scoringContext.taskTags] },
-				weights,
-				DEFAULT_KNOWLEDGE_BUDGET,
-			);
-		},
-		countTokens,
+		rankAndBudget: (db, items, scoringContext) =>
+			rank(db, [...items], { ...scoringContext, taskTags: [...scoringContext.taskTags] }),
+		countTokens: (text) => Math.ceil(Buffer.byteLength(text, "utf8") / 4),
 	},
 	work: {
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),

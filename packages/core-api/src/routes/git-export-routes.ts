@@ -20,7 +20,7 @@ const gitExportServerConfigPort = { read: readServerConfig, update: updateServer
 const gitExportKnowledgeReader = {
 	listExportableItems: (
 		db: import("@hyperidle/db").HyperIdleDb,
-		filters: import("@hyperidle/knowledge").ExportableKnowledgeItemFilters,
+		filters: { readonly layers: readonly string[]; readonly statuses: readonly string[] },
 	) => listKnowledgeItems(db, { exportable: filters }),
 	getProjectionByItemId: (db: import("@hyperidle/db").HyperIdleDb, id: string) =>
 		getKnowledgeItem(db, id, { view: "projection" }),
