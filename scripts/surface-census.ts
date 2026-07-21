@@ -2,35 +2,24 @@
 /**
  * surface-census.ts — AU20 standing tool.
  *
- * Counts, per Service package, the PUBLIC exported declarations: those that
- * appear in the service's barrel (src/index.ts) and have an `export` keyword
- * at the implementation site.
+ * Counts, per Service package, the exported declarations AT THE IMPLEMENTATION
+ * SITE — every `export function/const/class/enum/type/interface` in the
+ * service's src, NOT filtered through the barrel.
  *
- * Two key design choices keep this census honest:
+ * WHY implementation-site, not barrel-scoped (founder directive): a
+ * barrel-scoped count is gameable — a builder can drop a name from
+ * `src/index.ts` while leaving `export function foo` in the source (tsc allows
+ * it; `foo` is still a valid export of its own file), which a barrel census
+ * reports as a "reduction" even though the sprawl (the code) still exists.
+ * That is exactly the internalize-don't-delete failure this tool exists to
+ * catch. Counting the declaration itself cannot be gamed that way: to lower
+ * the number you must actually DELETE the `export`.
  *
- * 1. BARREL-SCOPED: only names re-exported from `src/index.ts` are counted.
- *    An intra-package helper can carry `export function` so sibling files can
- *    import it, yet it is not public API if it is not in the barrel. The
- *    barrel is the service's public-API contract.
+ * One fair normalization kept — OVERLOAD-DEDUP: an overloaded function emits N
+ * `export function foo(...)` AST nodes; we count each name once (via Sets) so
+ * one logical function = 1, not N syntax artifacts.
  *
- *    Anti-internalization guarantee: TypeScript enforces that a barrel line
- *    `export { foo } from './file'` fails compilation when `foo` is NOT
- *    exported in `file`. Dropping a name from the barrel while leaving
- *    `export function foo` in the source is a genuine API reduction — the
- *    name is no longer callable by consumers. Hiding `export function foo`
- *    behind `function foo; export { foo }` while keeping it in the barrel
- *    does NOT reduce the census (the name still appears in the barrel).
- *
- * 2. OVERLOAD-DEDUPED: TypeScript overloaded functions produce multiple
- *    `export function foo(...)` declarations with the same name. Each
- *    overload signature is a separate AST node that would naively count as
- *    a separate method. We deduplicate by name per service so an overloaded
- *    function counts as one method regardless of how many signatures it has.
- *
- * Together these make the census count LOGICAL methods, not syntax artifacts:
- * one overloaded function = 1, one internal helper = 0.
- *
- * Classifies each barrel-exported name into:
+ * Classifies each exported declaration into:
  *   - methods  = export function | export const (value) | export class | export enum
  *   - types    = export type | export interface
  *
@@ -60,79 +49,25 @@ function isExported(n: ts.Node): boolean {
   return ts.canHaveModifiers(n) && !!ts.getModifiers(n)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
 }
 
-/**
- * Parse src/index.ts to collect all names the barrel re-exports.
- * Handles named exports (`export { foo, bar } from './x'`) and
- * export-all (`export * from './x'`, resolved one level deep).
- *
- * @lore AU20 R-org: barrel-scoping makes the census count the PUBLIC API, not
- * intra-package helpers. TypeScript enforces that every name in the barrel must
- * have a corresponding `export` in the source file — so this cannot be gamed
- * by dropping from the barrel while leaving `export function` in place (tsc
- * would fail before the census even runs).
- */
-function parseBarrelExports(svcDir: string): Set<string> {
-  const barrelPath = join(svcDir, "src", "index.ts");
-  if (!existsSync(barrelPath)) return new Set();
-  const src = readFileSync(barrelPath, "utf8");
-  const sf = ts.createSourceFile(barrelPath, src, ts.ScriptTarget.Latest, true);
-  const names = new Set<string>();
-
-  for (const n of sf.statements) {
-    if (!ts.isExportDeclaration(n)) continue;
-
-    if (n.exportClause && ts.isNamedExports(n.exportClause)) {
-      // export { foo, bar } from './x' or export type { T } from './x'
-      for (const el of n.exportClause.elements) {
-        names.add(el.name.text);
-      }
-    } else if (!n.exportClause && n.moduleSpecifier) {
-      // export * from './x' — resolve one level deep
-      const spec = (n.moduleSpecifier as ts.StringLiteral).text;
-      // Strip .js suffix and try .ts / .tsx
-      const base = spec.replace(/\.js$/, "");
-      for (const ext of [".ts", ".tsx"]) {
-        const resolved = join(svcDir, "src", base + ext);
-        if (existsSync(resolved)) {
-          const childSf = ts.createSourceFile(
-            resolved,
-            readFileSync(resolved, "utf8"),
-            ts.ScriptTarget.Latest,
-            true,
-          );
-          for (const stmt of childSf.statements) {
-            if (isExported(stmt)) {
-              if (ts.isFunctionDeclaration(stmt) && stmt.name) names.add(stmt.name.text);
-              else if (ts.isClassDeclaration(stmt) && stmt.name) names.add(stmt.name.text);
-              else if (ts.isEnumDeclaration(stmt) && stmt.name) names.add(stmt.name.text);
-              else if (ts.isInterfaceDeclaration(stmt) && stmt.name) names.add(stmt.name.text);
-              else if (ts.isTypeAliasDeclaration(stmt) && stmt.name) names.add(stmt.name.text);
-              else if (ts.isVariableStatement(stmt)) {
-                for (const d of stmt.declarationList.declarations) {
-                  if (ts.isIdentifier(d.name)) names.add(d.name.text);
-                }
-              }
-            }
-          }
-          break;
-        }
-      }
-    }
-  }
-
-  return names;
-}
-
 type Census = { methods: number; types: number };
 
 /**
- * Count the public API methods and types for a service.
+ * Count the methods and types a service EXPORTS AT THE IMPLEMENTATION SITE —
+ * every `export function/const/class/enum/type/interface` declaration in the
+ * service's src (NOT resolved through / filtered by the barrel).
  *
- * Uses Sets to:
- * (a) deduplicate overload signatures (same function name = one method), and
- * (b) filter to barrel-exported names only (intra-package helpers excluded).
+ * This is deliberate (founder directive): counting only barrel-exported names
+ * is gameable — a builder can drop a name from src/index.ts while leaving
+ * `export function foo` in the source (tsc allows it), which the barrel census
+ * would report as a reduction even though the code (the sprawl) still exists.
+ * Counting the declaration itself cannot be gamed that way: to reduce the
+ * number you must actually DELETE the `export`.
+ *
+ * The one fair normalization kept: overload dedup — an overloaded function
+ * produces N `export function foo(...)` AST nodes; we count each name once
+ * (via Sets), so one logical function = 1, not N syntax artifacts.
  */
-function censusService(svcDir: string, barrelExports: Set<string>): Census {
+function censusService(svcDir: string): Census {
   const files: string[] = [];
   walk(join(svcDir, "src"), files);
 
@@ -144,26 +79,17 @@ function censusService(svcDir: string, barrelExports: Set<string>): Census {
     for (const n of sf.statements) {
       if (!isExported(n)) continue;
 
-      if (ts.isFunctionDeclaration(n) && n.name) {
-        if (barrelExports.has(n.name.text)) methodNames.add(n.name.text);
-      } else if (ts.isClassDeclaration(n) && n.name) {
-        if (barrelExports.has(n.name.text)) methodNames.add(n.name.text);
-      } else if (ts.isEnumDeclaration(n) && n.name) {
-        if (barrelExports.has(n.name.text)) methodNames.add(n.name.text);
-      } else if (ts.isVariableStatement(n)) {
+      if (ts.isFunctionDeclaration(n) && n.name) methodNames.add(n.name.text);
+      else if (ts.isClassDeclaration(n) && n.name) methodNames.add(n.name.text);
+      else if (ts.isEnumDeclaration(n) && n.name) methodNames.add(n.name.text);
+      else if (ts.isVariableStatement(n)) {
         for (const decl of n.declarationList.declarations) {
-          if (ts.isIdentifier(decl.name) && barrelExports.has(decl.name.text)) {
-            methodNames.add(decl.name.text);
-          }
+          if (ts.isIdentifier(decl.name)) methodNames.add(decl.name.text);
         }
-      } else if (ts.isInterfaceDeclaration(n) && n.name) {
-        if (barrelExports.has(n.name.text)) typeNames.add(n.name.text);
-      } else if (ts.isTypeAliasDeclaration(n) && n.name) {
-        if (barrelExports.has(n.name.text)) typeNames.add(n.name.text);
-      }
+      } else if (ts.isInterfaceDeclaration(n) && n.name) typeNames.add(n.name.text);
+      else if (ts.isTypeAliasDeclaration(n) && n.name) typeNames.add(n.name.text);
       // `export { x }` / `export type { x }` / `export * from` re-export lines
-      // are deliberately NOT counted here — they are barrel plumbing, not the
-      // implementation-site declaration.
+      // are NOT counted — they are barrel plumbing, not the declaration.
     }
   }
 
@@ -177,8 +103,7 @@ for (const layer of LAYERS) {
   for (const svc of readdirSync(layerDir)) {
     const svcDir = join(layerDir, svc);
     if (!existsSync(join(svcDir, "src", "index.ts"))) continue; // only Services (have a barrel)
-    const barrelExports = parseBarrelExports(svcDir);
-    const { methods, types } = censusService(svcDir, barrelExports);
+    const { methods, types } = censusService(svcDir);
     services.push({ service: svc, layer, methods, types, total: methods + types });
   }
 }
