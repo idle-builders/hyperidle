@@ -92,31 +92,6 @@ export interface ProvisioningPlan {
 	readonly envInjections: Readonly<Record<string, string>>;
 }
 
-// ── T1: resolveOwningHumanUserId ──────────────────────────────────────────────
-
-/**
- * Return the id of the owning human user.
- *
- * Mirrors auth.ts:199-204 (P2 pattern): query the first kind='human' row;
- * fall back to "u-founder" for unseeded DBs or tests.
- *
- * @lore AN2 ownership: The single-founder contract (authorization-model.md:32)
- * means there is exactly one human user. This seam is the change point for a
- * future per-agent-owner lookup when the multi-tenant model lands.
- *
- * @lore AU19 Increment 1h: `deps.users` (Mechanism C — see `ports.ts`) replaces
- * the former direct `@hyperidle/users` import; the real call site
- * (`session-provisioning.ts`) wires it to `@hyperidle/users`' real
- * `getFirstUserByKind` export, zero behavior change.
- */
-export async function resolveOwningHumanUserId(
-	db: HyperIdleDb,
-	deps: { readonly users: ConnectionsUserReader },
-): Promise<string> {
-	const humanUser = await deps.users.getFirstUserByKind(db, "human");
-	return humanUser?.id ?? "u-founder";
-}
-
 // ── T1: listActiveHeld ─────────────────────────────────────────────────────────
 
 /**
@@ -193,11 +168,13 @@ export async function listActiveHeld(
 export async function buildProvisioningPlan(deps: {
 	readonly db: HyperIdleDb;
 	readonly resolver: Pick<ServiceConnectionResolver, "resolve">;
-	readonly userId: string;
+	readonly users: ConnectionsUserReader;
 	/** Injectable DNS resolver for tests (overrides real DNS lookup). */
 	readonly _ssrfLookup?: (host: string) => Promise<Array<{ address: string; family: 4 | 6 }>>;
 }): Promise<ProvisioningPlan> {
-	const { db, resolver, userId, _ssrfLookup } = deps;
+	const { db, resolver, users, _ssrfLookup } = deps;
+	const humanUser = await users.getFirstUserByKind(db, "human");
+	const userId = humanUser?.id ?? "u-founder";
 	const connections = await listActiveHeld(db, userId);
 
 	const mcpServers: ResolvedMcpServer[] = [];

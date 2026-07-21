@@ -28,11 +28,7 @@
  * `ws as never` / `run-orchestration-bindings.ts`'s own casts.
  */
 
-import {
-	applyProvisioningPlan,
-	buildProvisioningPlan,
-	resolveOwningHumanUserId as resolveOwningHumanUserIdInternal,
-} from "@hyperidle/connections";
+import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/connections";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { listFilesystemIdsByAgent, listFilesystemsByIds } from "@hyperidle/filesystems";
 import {
@@ -170,12 +166,15 @@ const filesystemsReader: SessionLifecyclePorts["filesystems"] = {
 // ---------------------------------------------------------------------------
 
 const connectionsProvisioner: SessionLifecyclePorts["connections"] = {
-	resolveOwningHumanUserId(db: HyperIdleDb) {
-		return resolveOwningHumanUserIdInternal(db, {
+	// @lore AU20 R-connections: resolveOwningHumanUserId folded into buildProvisioningPlan.
+	// The users reader is closed over here at the composition root so session-provisioning.ts
+	// only passes { db, resolver } — it no longer needs to resolve the owner separately.
+	buildProvisioningPlan: ({ db, resolver }) =>
+		buildProvisioningPlan({
+			db,
+			resolver,
 			users: { getFirstUserByKind: (db2, kind) => findUser(db2, { kind }) },
-		});
-	},
-	buildProvisioningPlan,
+		}),
 	applyProvisioningPlan,
 };
 

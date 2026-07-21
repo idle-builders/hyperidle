@@ -1,4 +1,17 @@
+/**
+ * Agent-behavior configuration view-model — presentation projection of the
+ * plugin-configuration resolution engine onto the settings-page display format.
+ *
+ * @lore AU20 R-settings: Moved from @hyperidle/settings barrel to the route
+ * layer (packages/core-api/src/routes/). This is a pure presentation view-model
+ * — it builds display labels, status strings, editable-field descriptors, and
+ * settings-page deep-links over the listConfiguration / writeConfigurationOverride
+ * primitives. It has no cross-service consumer (only the settings-UI route reads
+ * it), so it does not belong in the service's product API. Composition on top of
+ * the §B resolution engine, not a config primitive itself.
+ */
 import type { HyperIdleDb } from "@hyperidle/db";
+import { listConfiguration, writeConfigurationOverride } from "@hyperidle/settings";
 import type { ConfigurationKind, ResolvedConfigurationItem } from "@hyperidle/shared";
 import {
 	type AgentBehaviorConfigKind,
@@ -12,11 +25,6 @@ import {
 	isAgentBehaviorConfigKind,
 	TriggerRuleValueSchema,
 } from "@hyperidle/shared";
-import {
-	getResolvedConfiguration,
-	listConfiguration,
-	writeConfigurationOverride,
-} from "./plugin-configuration.js";
 
 export interface ListAgentBehaviorConfigOptions {
 	readonly kind?: AgentBehaviorConfigKind;
@@ -89,7 +97,8 @@ export async function patchAgentBehaviorConfiguration(
 	input: PatchAgentBehaviorConfigInput,
 ): Promise<AgentBehaviorConfigView> {
 	const parsed = parseAgentBehaviorId(input.id);
-	const existing = await getResolvedConfiguration(db, parsed.configKind, parsed.key);
+	const entries = await listConfiguration(db, { kind: parsed.configKind, key: parsed.key });
+	const existing = entries[0] ?? null;
 	if (!existing) {
 		throw new AgentBehaviorConfigError("NOT_FOUND", "Configuration item was not found.");
 	}

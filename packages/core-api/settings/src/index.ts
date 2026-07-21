@@ -27,17 +27,15 @@
  * null }); loadPlugin+loadBuiltIn collapsed to seedConfigurationDefaults({
  * source }); backfill+alias collapsed to backfillConfigurationDefaults; rename
  * setPluginConfigurationState → setPluginState.
+ *
+ * @lore AU20 R-settings: agent-behavior-config module (listAgentBehaviorConfiguration,
+ * patchAgentBehaviorConfiguration, AgentBehaviorConfigError, ListAgentBehaviorConfigOptions,
+ * PatchAgentBehaviorConfigInput) relocated to the settings-UI route layer
+ * (packages/core-api/src/routes/agent-behavior-config-impl.ts). It is a pure
+ * presentation view-model with no cross-service consumer; its composition on top
+ * of listConfiguration/writeConfigurationOverride does not belong in the
+ * service's product API.
  */
-
-// -- agent behavior config (view-model over the resolution engine; presentation
-//    projection collocated in service for now — see spec §E) --
-export {
-	AgentBehaviorConfigError,
-	type ListAgentBehaviorConfigOptions,
-	listAgentBehaviorConfiguration,
-	type PatchAgentBehaviorConfigInput,
-	patchAgentBehaviorConfiguration,
-} from "./agent-behavior-config.js";
 
 // -- plugin / configuration resolution (B. collapsed API — AU20 Am6) --
 export type {

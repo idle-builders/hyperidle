@@ -232,11 +232,9 @@ export interface SessionLifecycleProvisioningPlan {
 }
 
 export interface SessionLifecycleConnectionsProvisioner {
-	resolveOwningHumanUserId(db: HyperIdleDb): Promise<string>;
 	buildProvisioningPlan(deps: {
 		readonly db: HyperIdleDb;
 		readonly resolver: SessionLifecycleServiceConnectionResolver;
-		readonly userId: string;
 	}): Promise<SessionLifecycleProvisioningPlan>;
 	applyProvisioningPlan(args: {
 		readonly plan: SessionLifecycleProvisioningPlan;

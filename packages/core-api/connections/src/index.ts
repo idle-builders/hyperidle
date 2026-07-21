@@ -1,7 +1,7 @@
 /**
  * Barrel for @hyperidle/connections (core-api Layer, SQL-owning Service).
  *
- * ~18 exports — two symmetric store surfaces (credential + connection),
+ * ~14 exports — two symmetric store surfaces (credential + connection),
  * a secret vault whose key never leaves this service, resolver strategies,
  * and the provisioning plan seam.
  *
@@ -25,20 +25,23 @@
  * packages/server/src/services/ (behavior-preserving move).
  */
 
-// -- F. Provisioning (4) — build + apply plan + resolve owner + plan type --
+// -- F. Provisioning (3) — build + apply plan + plan type --
+// @lore AU20 R-connections: resolveOwningHumanUserId deleted — owner resolution folded
+// into buildProvisioningPlan via injected ConnectionsUserReader. session-lifecycle
+// no longer needs a standalone owner resolver; it passes users into buildProvisioningPlan.
 export {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
 	type ProvisioningPlan,
-	resolveOwningHumanUserId,
 } from "./connection-provisioning.js";
 // -- A. Cipher (2) — encrypt/decrypt; cipher owns the key (no secret param) --
 export { decryptCredentialValue, encryptCredentialValue } from "./credential-encryption.js";
-// -- B. CredentialResolver family (3) — resolver interface + implementations --
+// -- B. CredentialResolver family (2) — resolver interface + DB implementation --
+// @lore AU20 R-connections: EnvCredentialResolver relocated to packages/eval (eval-only
+// fixture, AH1 §3). Production barrel exports only DbCredentialResolver.
 export {
 	type CredentialResolver,
 	DbCredentialResolver,
-	EnvCredentialResolver,
 } from "./credential-resolver.js";
 
 // -- D. CredentialStore (4) — server_credentials read/write/delete + patch type --

@@ -1,10 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	AgentBehaviorConfigError,
-	listAgentBehaviorConfiguration,
-	patchAgentBehaviorConfiguration,
-} from "@hyperidle/settings";
-import {
 	type AgentBehaviorConfigErrorResponse,
 	type AgentBehaviorConfigListResponse,
 	type AgentBehaviorConfigPatchRequest,
@@ -14,6 +9,11 @@ import {
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
+import {
+	AgentBehaviorConfigError,
+	listAgentBehaviorConfiguration,
+	patchAgentBehaviorConfiguration,
+} from "./agent-behavior-config-impl.js";
 
 export function createAgentBehaviorSettingsRoutes(db: HyperIdleDb): Hono {
 	const router = new Hono();

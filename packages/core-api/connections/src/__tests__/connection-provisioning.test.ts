@@ -21,10 +21,8 @@ import {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
 	listActiveHeld,
-	resolveOwningHumanUserId,
 	SERVICE_CLI_ENV,
 } from "../connection-provisioning.js";
-import type { ConnectionsUserReader } from "../ports.js";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -35,34 +33,6 @@ beforeEach(() => {
 afterEach(() => {
 	fs.rmSync(sandboxPath, { recursive: true, force: true });
 	vi.restoreAllMocks();
-});
-
-// ── T1: resolveOwningHumanUserId ──────────────────────────────────────────────
-
-describe("resolveOwningHumanUserId", () => {
-	// AU19 Increment 1h: resolveOwningHumanUserId now takes a `deps.users`
-	// (Mechanism C) DI port instead of querying the `users` table directly —
-	// the test mocks the port, not a raw db chain.
-	const mockDb = {} as Parameters<typeof resolveOwningHumanUserId>[0];
-
-	test("returns the id of the first kind=human row", async () => {
-		const result = await resolveOwningHumanUserId(mockDb, {
-			users: {
-				getFirstUserByKind: async () =>
-					({ id: "u-human-1" }) as unknown as Awaited<
-						ReturnType<ConnectionsUserReader["getFirstUserByKind"]>
-					>,
-			},
-		});
-		expect(result).toBe("u-human-1");
-	});
-
-	test("falls back to u-founder when no human row exists", async () => {
-		const result = await resolveOwningHumanUserId(mockDb, {
-			users: { getFirstUserByKind: async () => undefined },
-		});
-		expect(result).toBe("u-founder");
-	});
 });
 
 // ── T1: listActiveHeld ─────────────────────────────────────────────────────────
@@ -124,11 +94,11 @@ describe("listActiveHeld", () => {
 
 describe("buildProvisioningPlan", () => {
 	test("github token → cli-env carrier (GH_TOKEN) when no serverUrl", async () => {
-		const { db, resolver } = buildPlanMocks([
+		const { db, resolver, users } = buildPlanMocks([
 			{ id: "sc-gh", service: "github", authSource: "token", serverUrl: null, token: "ghs_abc" },
 		]);
 
-		const plan = await buildProvisioningPlan({ db, resolver, userId: "u-founder" });
+		const plan = await buildProvisioningPlan({ db, resolver, users });
 
 		expect(plan.envInjections).toMatchObject({ GH_TOKEN: "ghs_abc" });
 		expect(plan.envInjections).toMatchObject({ GITHUB_TOKEN: "ghs_abc" });
@@ -136,7 +106,7 @@ describe("buildProvisioningPlan", () => {
 	});
 
 	test("token + serverUrl → mcp-bearer carrier (server entry + bearer token env)", async () => {
-		const { db, resolver } = buildPlanMocks([
+		const { db, resolver, users } = buildPlanMocks([
 			{
 				id: "sc-stripe",
 				service: "stripe",
@@ -146,7 +116,7 @@ describe("buildProvisioningPlan", () => {
 			},
 		]);
 
-		const plan = await buildProvisioningPlan({ db, resolver, userId: "u-founder" });
+		const plan = await buildProvisioningPlan({ db, resolver, users });
 
 		expect(plan.mcpServers).toHaveLength(1);
 		expect(plan.mcpServers[0]).toMatchObject({
@@ -159,7 +129,7 @@ describe("buildProvisioningPlan", () => {
 	});
 
 	test("mcp connection → outbound pointer (no bearer token)", async () => {
-		const { db, resolver } = buildPlanMocks([
+		const { db, resolver, users } = buildPlanMocks([
 			{
 				id: "sc-figma",
 				service: "figma",
@@ -169,7 +139,7 @@ describe("buildProvisioningPlan", () => {
 			},
 		]);
 
-		const plan = await buildProvisioningPlan({ db, resolver, userId: "u-founder" });
+		const plan = await buildProvisioningPlan({ db, resolver, users });
 
 		expect(plan.mcpServers).toHaveLength(1);
 		expect(plan.mcpServers[0]).toMatchObject({ name: "figma", url: "https://mcp.figma.com" });
@@ -191,7 +161,7 @@ describe("buildProvisioningPlan", () => {
 			};
 		});
 
-		const { db, resolver } = buildPlanMocks([
+		const { db, resolver, users } = buildPlanMocks([
 			{
 				id: "sc-private",
 				service: "internal",
@@ -205,7 +175,7 @@ describe("buildProvisioningPlan", () => {
 		const plan = await buildProvisioningPlan({
 			db,
 			resolver,
-			userId: "u-founder",
+			users,
 			_ssrfLookup: async () => [{ address: "10.0.0.1", family: 4 }],
 		});
 
@@ -221,7 +191,7 @@ describe("buildProvisioningPlan", () => {
 			loggedMessages.push(args.map(String).join(" "));
 		});
 
-		const { db, resolver } = buildPlanMocks([
+		const { db, resolver, users } = buildPlanMocks([
 			{
 				id: "sc-secret",
 				service: "stripe",
@@ -231,7 +201,7 @@ describe("buildProvisioningPlan", () => {
 			},
 		]);
 
-		await buildProvisioningPlan({ db, resolver, userId: "u-founder" });
+		await buildProvisioningPlan({ db, resolver, users });
 
 		for (const msg of loggedMessages) {
 			expect(msg).not.toContain("sk_test_SUPERSECRET_XYZ");
@@ -244,7 +214,7 @@ describe("buildProvisioningPlan", () => {
 		// We verify here that resolver.resolve() was called (not some other path).
 		// Covered by the mock setup below — if resolver.resolve() wasn't called, token would be undefined.
 		const resolverCalls: string[] = [];
-		const { db } = buildPlanMocks([
+		const { db, users } = buildPlanMocks([
 			{ id: "sc-proof", service: "github", authSource: "token", serverUrl: null, token: "tok" },
 		]);
 		const tracingResolver = {
@@ -257,7 +227,7 @@ describe("buildProvisioningPlan", () => {
 		const plan = await buildProvisioningPlan({
 			db,
 			resolver: tracingResolver,
-			userId: "u-founder",
+			users,
 		});
 		// The plan was built (not undefined) — proof that resolver.resolve() was called
 		expect(plan).toBeTruthy();
@@ -265,7 +235,7 @@ describe("buildProvisioningPlan", () => {
 	});
 
 	test("two connections → two entries, one per connection", async () => {
-		const { db, resolver } = buildPlanMocks([
+		const { db, resolver, users } = buildPlanMocks([
 			{ id: "sc-gh", service: "github", authSource: "token", serverUrl: null, token: "tok1" },
 			{
 				id: "sc-figma",
@@ -276,7 +246,7 @@ describe("buildProvisioningPlan", () => {
 			},
 		]);
 
-		const plan = await buildProvisioningPlan({ db, resolver, userId: "u-founder" });
+		const plan = await buildProvisioningPlan({ db, resolver, users });
 
 		// github → cli-env; figma → mcp pointer
 		expect(plan.envInjections.GH_TOKEN).toBe("tok1");
@@ -287,7 +257,7 @@ describe("buildProvisioningPlan", () => {
 	test("stripe token + stripe mcp → deterministic key suffix (stripe vs stripe-mcp) — N3", async () => {
 		// Use "stripe" — NOT in SERVICE_CLI_ENV — so the token goes to MCP-bearer path.
 		// The mcp entry then gets the "-mcp" suffix because "stripe" is already taken.
-		const { db, resolver } = buildPlanMocks([
+		const { db, resolver, users } = buildPlanMocks([
 			{
 				id: "sc-stripe-token",
 				service: "stripe",
@@ -304,7 +274,7 @@ describe("buildProvisioningPlan", () => {
 			},
 		]);
 
-		const plan = await buildProvisioningPlan({ db, resolver, userId: "u-founder" });
+		const plan = await buildProvisioningPlan({ db, resolver, users });
 
 		// Token entry gets "stripe" (base name); mcp entry gets "stripe-mcp" (suffix).
 		const names = plan.mcpServers.map((s) => s.name);
@@ -520,6 +490,7 @@ function buildListMockDb(rows: MockConnection[]): Parameters<typeof listActiveHe
 function buildPlanMocks(connections: MockConnection[]): {
 	db: Parameters<typeof buildProvisioningPlan>[0]["db"];
 	resolver: Parameters<typeof buildProvisioningPlan>[0]["resolver"];
+	users: Parameters<typeof buildProvisioningPlan>[0]["users"];
 } {
 	const tokenMap = new Map(connections.map((c) => [c.id, c.token ?? null]));
 	const rows = connections.map((c) => ({
@@ -529,13 +500,12 @@ function buildPlanMocks(connections: MockConnection[]): {
 		serverUrl: c.serverUrl,
 	}));
 
-	// Combine both patterns: select().from().where().orderBy() (listActiveHeld)
-	// and select().from().where().limit() (resolveOwningHumanUserId)
+	// select().from().where().orderBy() — listActiveHeld pattern only (resolveOwningHumanUserId
+	// is now folded into buildProvisioningPlan via the users reader, not a DB query).
 	const db = {
 		select: () => db,
 		from: () => db,
 		where: () => db,
-		limit: () => [{ id: "u-founder" }],
 		orderBy: () => rows,
 	} as unknown as Parameters<typeof buildProvisioningPlan>[0]["db"];
 
@@ -545,7 +515,14 @@ function buildPlanMocks(connections: MockConnection[]): {
 		},
 	};
 
-	return { db, resolver };
+	const users = {
+		getFirstUserByKind: async () =>
+			({ id: "u-founder" }) as unknown as Awaited<
+				ReturnType<Parameters<typeof buildProvisioningPlan>[0]["users"]["getFirstUserByKind"]>
+			>,
+	};
+
+	return { db, resolver, users };
 }
 
 function buildTestPlan(

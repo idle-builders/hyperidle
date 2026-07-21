@@ -31,7 +31,6 @@ import {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
 	listActiveHeld,
-	resolveOwningHumanUserId,
 } from "../connection-provisioning.js";
 import { encryptCredentialValue } from "../credential-encryption.js";
 import type { ConnectionsUserReader } from "../ports.js";
@@ -56,7 +55,7 @@ afterEach(() => {
 });
 
 // Seed helpers
-async function seedHumanUser(db: Parameters<typeof resolveOwningHumanUserId>[0]): Promise<void> {
+async function seedHumanUser(db: import("@hyperidle/db").HyperIdleDb): Promise<void> {
 	await (db as import("@hyperidle/db").HyperIdleDb)
 		.insert(users)
 		.values({
@@ -114,21 +113,6 @@ async function seedConnection(
 	});
 }
 
-// ── resolveOwningHumanUserId ──────────────────────────────────────────────────
-
-describe("resolveOwningHumanUserId (real DB)", () => {
-	test("returns the id of the kind=human user", async ({ db }) => {
-		await seedHumanUser(db);
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
-		expect(userId).toBe(USER_HUMAN_ID);
-	});
-
-	test("falls back to u-founder when no human user exists", async ({ db }) => {
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
-		expect(userId).toBe("u-founder");
-	});
-});
-
 // ── listActiveHeld (real DB) ──────────────────────────────────────────────────
 
 describe("listActiveHeld (real DB)", () => {
@@ -181,8 +165,11 @@ describe("provisions held token connection into sandbox", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
-		const plan = await buildProvisioningPlan({ db, resolver, userId });
+		const plan = await buildProvisioningPlan({
+			db,
+			resolver,
+			users: connectionsUserReaderDeps.users,
+		});
 		const result = await applyProvisioningPlan({
 			plan,
 			sandboxPath,
@@ -213,8 +200,11 @@ describe("provisions held token connection into sandbox", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
-		const plan = await buildProvisioningPlan({ db, resolver, userId });
+		const plan = await buildProvisioningPlan({
+			db,
+			resolver,
+			users: connectionsUserReaderDeps.users,
+		});
 		const result = await applyProvisioningPlan({
 			plan,
 			sandboxPath,
@@ -241,8 +231,11 @@ describe("provisions held token connection into sandbox", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
-		const plan = await buildProvisioningPlan({ db, resolver, userId });
+		const plan = await buildProvisioningPlan({
+			db,
+			resolver,
+			users: connectionsUserReaderDeps.users,
+		});
 
 		expect(plan.envInjections.GH_TOKEN).toBe("ghs_github_pat_123");
 		expect(plan.envInjections.GITHUB_TOKEN).toBe("ghs_github_pat_123");
@@ -265,10 +258,10 @@ describe("respawn idempotent (destroy sandbox, re-provision, same entries)", () 
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
+		const planUsers = connectionsUserReaderDeps.users;
 
 		// First provisioning
-		const plan1 = await buildProvisioningPlan({ db, resolver, userId });
+		const plan1 = await buildProvisioningPlan({ db, resolver, users: planUsers });
 		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "an2-ac4-a-"));
 		await applyProvisioningPlan({
 			plan: plan1,
@@ -280,7 +273,7 @@ describe("respawn idempotent (destroy sandbox, re-provision, same entries)", () 
 		fs.rmSync(sandboxA, { recursive: true, force: true });
 
 		// Second provisioning (fresh sandbox)
-		const plan2 = await buildProvisioningPlan({ db, resolver, userId });
+		const plan2 = await buildProvisioningPlan({ db, resolver, users: planUsers });
 		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "an2-ac4-b-"));
 		await applyProvisioningPlan({
 			plan: plan2,
@@ -318,8 +311,11 @@ describe("two services, both provisioned from one generic path", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
-		const plan = await buildProvisioningPlan({ db, resolver, userId });
+		const plan = await buildProvisioningPlan({
+			db,
+			resolver,
+			users: connectionsUserReaderDeps.users,
+		});
 
 		await applyProvisioningPlan({
 			plan,
@@ -351,11 +347,11 @@ describe("disconnect removes entry on next spawn", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
+		const planUsers = connectionsUserReaderDeps.users;
 
 		// First spawn — entry present
 		const sandbox1 = fs.mkdtempSync(path.join(os.tmpdir(), "an2-ac6-1-"));
-		const plan1 = await buildProvisioningPlan({ db, resolver, userId });
+		const plan1 = await buildProvisioningPlan({ db, resolver, users: planUsers });
 		await applyProvisioningPlan({
 			plan: plan1,
 			sandboxPath: sandbox1,
@@ -375,7 +371,7 @@ describe("disconnect removes entry on next spawn", () => {
 
 		// Second spawn — entry absent
 		const sandbox2 = fs.mkdtempSync(path.join(os.tmpdir(), "an2-ac6-2-"));
-		const plan2 = await buildProvisioningPlan({ db, resolver, userId });
+		const plan2 = await buildProvisioningPlan({ db, resolver, users: planUsers });
 		await applyProvisioningPlan({
 			plan: plan2,
 			sandboxPath: sandbox2,
@@ -421,12 +417,18 @@ describe("cross-user isolation", () => {
 
 		const resolver = new ServiceConnectionResolver(db);
 
-		// Provision for user B
-		const planB = await buildProvisioningPlan({ db, resolver, userId: USER_OTHER_ID });
+		// Provision for the owning human (USER_HUMAN_ID — first human in DB).
+		// buildProvisioningPlan resolves the owner internally; USER_OTHER_ID's connections
+		// must not appear (cross-user isolation still enforced by listActiveHeld's AND(userId)).
+		const planOwner = await buildProvisioningPlan({
+			db,
+			resolver,
+			users: connectionsUserReaderDeps.users,
+		});
 
-		const names = planB.mcpServers.map((s) => s.name);
-		expect(names).not.toContain("stripe");
-		expect(names).toContain("figma");
+		const names = planOwner.mcpServers.map((s) => s.name);
+		expect(names).toContain("stripe"); // owner's connection
+		expect(names).not.toContain("figma"); // other user's connection — excluded
 	});
 });
 
@@ -445,8 +447,11 @@ describe("secret never written into $HOME", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
-		const plan = await buildProvisioningPlan({ db, resolver, userId });
+		const plan = await buildProvisioningPlan({
+			db,
+			resolver,
+			users: connectionsUserReaderDeps.users,
+		});
 		await applyProvisioningPlan({
 			plan,
 			sandboxPath,
@@ -488,8 +493,11 @@ describe("envInjections in plan and mcpTokenEnv for CLI-key path", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
-		const plan = await buildProvisioningPlan({ db, resolver, userId });
+		const plan = await buildProvisioningPlan({
+			db,
+			resolver,
+			users: connectionsUserReaderDeps.users,
+		});
 
 		// C2a: buildProvisioningPlan must populate envInjections for CLI-key tokens.
 		// These vars flow to the child process env — the sole carrier for CLI-key tokens.
@@ -528,8 +536,11 @@ describe("envInjections in plan and mcpTokenEnv for CLI-key path", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const userId = await resolveOwningHumanUserId(db, connectionsUserReaderDeps);
-		const plan = await buildProvisioningPlan({ db, resolver, userId });
+		const plan = await buildProvisioningPlan({
+			db,
+			resolver,
+			users: connectionsUserReaderDeps.users,
+		});
 
 		// MCP-bearer: envInjections carries the per-server token var AND mcpTokenEnv returns it.
 		expect(plan.envInjections.STRIPE_MCP_TOKEN).toBe("sk_c2_stripe");

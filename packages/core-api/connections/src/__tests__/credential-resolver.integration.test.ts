@@ -1,11 +1,7 @@
 /**
  * P3 RED — Credential resolver interface and implementations (AC-15)
  *
- * AC coverage:
- *  - EnvCredentialResolver.resolve("anthropic_api_key") reads ANTHROPIC_API_KEY env
- *  - EnvCredentialResolver.resolve("openrouter_api_key") reads OPENROUTER_API_KEY env
- *  - EnvCredentialResolver.resolve("shared_backend_key") reads HYPERIDLE_API_KEY env
- *  - EnvCredentialResolver returns null when env var is not set
+ * AC coverage (DbCredentialResolver only; EnvCredentialResolver relocated to packages/eval):
  *  - DbCredentialResolver.resolve("anthropic_api_key") reads and decrypts from DB
  *  - DbCredentialResolver.resolve for absent credential returns null
  *  - DbCredentialResolver decrypts with the correct server secret (env-based, no-arg API)
@@ -13,64 +9,19 @@
  * @lore AU20 Am4: DbCredentialResolver no longer takes serverSecret; it reads
  * HYPERIDLE_CREDENTIAL_KEY from env via decryptCredentialValue. Tests stub the env
  * variable in beforeEach to supply the secret.
+ * @lore AU20 R-connections: EnvCredentialResolver moved to packages/eval (eval-only fixture).
+ * Its behavior tests follow it there.
  */
 
 import { test } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { encryptCredentialValue } from "../credential-encryption.js";
-import { DbCredentialResolver, EnvCredentialResolver } from "../credential-resolver.js";
+import { DbCredentialResolver } from "../credential-resolver.js";
 
 const SERVER_SECRET = "test-server-secret-resolver-au20";
 const WRONG_SECRET = "wrong-server-secret-resolver-au20";
 
 describe("CredentialResolver interface", () => {
-	describe("EnvCredentialResolver", () => {
-		beforeEach(() => {
-			vi.unstubAllEnvs();
-		});
-
-		afterEach(() => {
-			vi.unstubAllEnvs();
-		});
-
-		test("resolves anthropic_api_key from ANTHROPIC_API_KEY env var", async () => {
-			vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test-key");
-			const resolver = new EnvCredentialResolver();
-			const result = await resolver.resolve("anthropic_api_key");
-			expect(result).toBe("sk-ant-test-key");
-		});
-
-		test("resolves openrouter_api_key from OPENROUTER_API_KEY env var", async () => {
-			vi.stubEnv("OPENROUTER_API_KEY", "sk-or-test-key");
-			const resolver = new EnvCredentialResolver();
-			const result = await resolver.resolve("openrouter_api_key");
-			expect(result).toBe("sk-or-test-key");
-		});
-
-		test("resolves shared_backend_key from HYPERIDLE_API_KEY env var", async () => {
-			vi.stubEnv("HYPERIDLE_API_KEY", "shared-backend-secret");
-			const resolver = new EnvCredentialResolver();
-			const result = await resolver.resolve("shared_backend_key");
-			expect(result).toBe("shared-backend-secret");
-		});
-
-		test("returns null when ANTHROPIC_API_KEY is not set", async () => {
-			vi.stubEnv("ANTHROPIC_API_KEY", undefined as unknown as string);
-			// Ensure the env var is absent
-			delete process.env.ANTHROPIC_API_KEY;
-			const resolver = new EnvCredentialResolver();
-			const result = await resolver.resolve("anthropic_api_key");
-			expect(result).toBeNull();
-		});
-
-		test("returns null when OPENROUTER_API_KEY is not set", async () => {
-			delete process.env.OPENROUTER_API_KEY;
-			const resolver = new EnvCredentialResolver();
-			const result = await resolver.resolve("openrouter_api_key");
-			expect(result).toBeNull();
-		});
-	});
-
 	describe("DbCredentialResolver", () => {
 		// Stub HYPERIDLE_CREDENTIAL_KEY so encryptCredentialValue and DbCredentialResolver
 		// both use the same secret (no-arg cipher-owns-key model, AU20 Am4).

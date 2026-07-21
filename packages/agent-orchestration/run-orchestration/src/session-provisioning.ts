@@ -1110,11 +1110,9 @@ export async function runSession(
 	// ── Phase 8b-connections: AN2 Connection provisioning (parallel to inbound bridge).
 	if (serviceConnectionResolver) {
 		try {
-			const ownerId = await ports.connections.resolveOwningHumanUserId(db);
 			const plan = await ports.connections.buildProvisioningPlan({
 				db,
 				resolver: serviceConnectionResolver,
-				userId: ownerId,
 			});
 			const { mcpTokenEnv: connEnv } = await ports.connections.applyProvisioningPlan({
 				plan,
