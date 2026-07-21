@@ -129,3 +129,76 @@ Types only, wired at the composition root. From: the two real downward dependenc
 No capability lost; fragmentation removed. Sub-linear growth — every axis is a filter field or an internal registration, never a method-per-caller.
 
 **Consolidation judgment:** standalone. The `git-export` merge is rejected — `git-export` is filesystems' *downward* dependency (narrow `FilesystemsGitRunner` port), a different product (publishes to a repo vs mounts a source into a sandbox). Merging would turn a clean edge into a cycle.
+
+---
+
+## External-adapter re-plan (founder correction — supersedes §1's substrate + §3/§4 numbers)
+
+**Substrate: EXTERNAL-API adapter (primary), owned-tables (secondary bookkeeping).**
+The founder's correction: filesystems is fundamentally an **externally-focused adapter** — the sibling of `harness-registry`. Where harness-registry adapts the harness CLIs + the process sandbox, filesystems **adapts the external OS filesystem + git + `fs.watch`**. Its 3 tables are *metadata bookkeeping around that external substrate*, not its identity. §1 mislabelled the substrate as `owned-tables (primary)` and derived a 5×3 CRUD floor; that inverts the product. The IDENTITY is the adapter; the ledger is the register-of-record the adapter reads/writes.
+
+This mirrors `harness-registry.md` exactly: an adapter over external systems, **unified across backends** (one `mount`, not one method per source kind), with the per-backend machinery (git-clone / git-worktree / local-folder / cloud-not-built adapters, `selectMountAdapter`, `probeGitRemote` / `probeLocalPath` / `repoToUrl`, `isLocalRepoPath`) **INTERNAL** — never on the barrel. The one difference from harness-registry: filesystems genuinely owns 3 DB tables (harness-registry owns 0), so a thin metadata ledger survives — but as bookkeeping *serving* the adapter, not as the anchor.
+
+### The external systems it adapts + the minimal UNIFIED adapter surface (the floor)
+
+| External system | Unified adapter seam | Ops | Consumer |
+|---|---|---|---|
+| **OS fs + git → sandbox** (clone/worktree/local place + commit/bundle capture) | `FilesystemMounter` (`RegistryFilesystemMounter`) — one polymorphic seam; 4 adapters + `selectMountAdapter` internal | `mount` · `captureBack` = **2** | session-lifecycle (Mechanism-C) |
+| **git remote + local fs reachability** (`git ls-remote` / `fs.access` / local-repo inspect) | `FilesystemProbe` — adapter over git + OS fs; `probeGitRemote`/`probeLocalPath`/`repoToUrl` internal | `resolveFilesystemState` · `inspectLocalPath` = **2** | routes (register + onboarding) |
+| **`fs.watch`** (sandbox writeback detection) | `FileWatcher` — EventBus-inverted | `startWatcher(config) → {stop}` = **1** | context-assembly (Mechanism-C) |
+
+**External-adapter floor = 5 unified ops.** This is the product — the coherent "mount / capture / resolve / watch a filesystem" surface. Exactly the tiny real demand the census shows (consumers ask only for mount / startWatcher / stop / resolve). Everything else the old 35-method surface exposed is per-backend machinery that is now INTERNAL.
+
+### The metadata ledger (secondary — bookkeeping the 3 tables genuinely need)
+
+Not a 5-op CRUD × 3 tables. The ownership rule (reads AND writes route here) plus the **real** call-sites in `routes/filesystems.ts` + `session-lifecycle-bindings.ts` fix the genuine ledger surface — and two current store methods drop off the public API entirely:
+
+| Table | Genuine external ledger ops | Cut → internal / deleted |
+|---|---|---|
+| `filesystems` (the source registry) | `saveFilesystem` · `getFilesystem` · `listFilesystems(filter)` · `updateFilesystemState` · `deleteFilesystem` = 5 | — |
+| `filesystemInjections` (per-agent edge) | `saveInjection` · `deleteInjection` = 2 | `getInjection` **DELETED** — it is a read-after-write at `routes/filesystems.ts:402`; the route builds its response wire object from the `NewFilesystemInjection` it just wrote (no round-trip). The `agentId` join stays folded into `listFilesystems`. |
+| `filesystemCaptures` (append-only provenance) | `listCaptures(filter)` = 1 | `writeCapture` **INTERNALIZED** — the adapter writes its own provenance row inside `captureBack` (mirrors harness-registry's `provisionHarnessEnvironment` writing its own config). No consumer writes captures except the mounter itself. |
+
+**Metadata ledger = 8 ops** (registry 5 + injection edge 2 + capture read 1) — below the naive 5×3=15 CRUD floor, because `listFilesystems(filter)` absorbs 3 list variants + the injection join, `writeCapture` is internal, and `getInjection` is deleted.
+
+### Corrected coherent API (6 exported constructs → 13 methods / 11 types)
+
+```
+FilesystemMounter   (RegistryFilesystemMounter + MalformedFilesystemError)   [external, primary]
+  mount({ filesystem, sandboxPath, auth }): MountResult
+  captureBack({ filesystem, sandboxPath, sessionId }): CaptureResult          // writes its OWN filesystem_captures row (writeCapture internal)
+
+FilesystemProbe     (resolveFilesystemState + inspectLocalPath)               [external, primary]
+  resolveFilesystemState(input, deps): FilesystemState
+  inspectLocalPath(path, deps): LocalPathInfo
+
+FileWatcher         (startWatcher)                                            [external, primary]
+  startWatcher(config): FileWatcher   // { stop() }
+
+FilesystemRegistry  (the metadata ledger over the 3 owned tables)            [bookkeeping, secondary]
+  saveFilesystem(values)
+  getFilesystem(id)
+  listFilesystems(filter: { teamId? | agentId? | ids? })   // agentId does the injection join, full rows
+  updateFilesystemState(id, state)
+  deleteFilesystem(id)                                      // injections + captures cascade
+  saveInjection(values)
+  deleteInjection(agentUserId, filesystemId)
+  listCaptures(filter: { sessionId? | filesystemId? })
+
+SANDBOX_SCAFFOLDING_PATHS   (owned constant the git adapters exclude)        [inside-out]
+
+Git/connections DI ports   (FilesystemsGitRunnerFactory, FilesystemsServiceConnectionResolver)   [Mechanism-C edges, types only]
+```
+
+### Corrected target numbers
+
+**targetMethods = 13** = 5 external-adapter (mount, captureBack, resolveFilesystemState, inspectLocalPath, startWatcher) + 8 metadata-ledger. Down from the §3/§4 figure of 15. The delta from 15: `writeCapture` internalized (−1) + `getInjection` deleted (−1). The BIG change is not the two-method delta — it is the **substrate re-label**: the 5 external ops are now the anchor/identity, and the 8-method ledger is explicitly secondary bookkeeping, not a 5×3 CRUD floor. Going below 13 would delete genuine registry capability (the `/api/filesystems` REST registry is real CRUD demand — register a repo, list a team's sources, revoke an agent's access), so 13 is lean *and* complete: `featuresLost = []`.
+
+**targetTypes = 11:** `FilesystemRow`, `NewFilesystem`, `NewFilesystemInjection`, `FilesystemFilter`, `FilesystemReachabilityInput`, `LocalPathInfo`, `FileWatcherConfig`, `FileWatcher`, `AdapterDeps`, `FilesystemsGitRunnerFactory`, `FilesystemsServiceConnectionResolver`. Down from 13: `FilesystemCaptureInput` folds internal (only `captureBack`/`writeCapture` use it; `listCaptures` returns `FilesystemCaptureRow`), and `FilesystemInjectionRow` drops from the barrel (only `getInjection` returned it; with `getInjection` deleted, the route no longer needs the row type).
+
+### DELETED / INTERNALIZED beyond §4
+
+- `writeCapture` — public → **internal** (adapter self-writes provenance in `captureBack`).
+- `getInjection` — **deleted** (read-after-write; route builds response from its own write input).
+- `FilesystemCaptureInput`, `FilesystemInjectionRow` — dropped from the public barrel (fold internal).
+- Everything §4 already internalized (4 mount adapters, `selectMountAdapter`, `isLocalRepoPath`, `probeGitRemote`/`probeLocalPath`/`repoToUrl`) stays internal — reaffirmed: these are the per-backend adapter machinery, never the product surface.
