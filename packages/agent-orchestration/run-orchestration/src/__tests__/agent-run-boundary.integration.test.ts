@@ -17,10 +17,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { agentSessionRequests, bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import {
-	claimAgentSessionRequestById,
-	createAgentSessionRequest,
-} from "@hyperidle/session-requests";
+import { claimSessionRequest, createSessionRequest } from "@hyperidle/session-requests";
 import { type AgentSessionRequestInput, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, vi } from "vitest";
@@ -30,6 +27,15 @@ import {
 	listAgentRunLifecycleBySource,
 } from "../agent-run-boundary.js";
 import { buildTestPorts, testMarkRequestRunning, testTerminalize } from "./test-ports.js";
+
+const createRequestForTest = (db: HyperIdleDb, request: AgentSessionRequestInput) =>
+	createSessionRequest(db, { kind: "direct", request });
+const claimRequestForTest = (
+	db: HyperIdleDb,
+	requestId: string,
+	workerId: string,
+	options: { now: Date; leaseMs: number },
+) => claimSessionRequest(db, { id: requestId }, { workerId, ...options });
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -179,12 +185,9 @@ describe("agent run boundary", () => {
 		const ports = buildTestPorts();
 		const requests = await Promise.all(
 			["pending", "claimed", "running", "completed", "failed", "cancelled"].map(async (status) => {
-				const request = await createAgentSessionRequest(
-					db,
-					sourceInput("task", `lifecycle-${status}`),
-				);
+				const request = await createRequestForTest(db, sourceInput("task", `lifecycle-${status}`));
 				if (status === "claimed") {
-					await claimAgentSessionRequestById(db, request.id, "worker-au6", {
+					await claimRequestForTest(db, request.id, "worker-au6", {
 						now: new Date("2026-07-10T10:00:00.000Z"),
 						leaseMs: 30_000,
 					});
@@ -232,7 +235,7 @@ describe("agent run boundary", () => {
 	}) => {
 		await seedBase(db);
 		const ports = buildTestPorts();
-		const request = await createAgentSessionRequest(db, sourceInput("task", "execute"));
+		const request = await createRequestForTest(db, sourceInput("task", "execute"));
 		vi.mocked(ports.sessionProvisioner.admitSession).mockImplementation(async (_deps, params) => ({
 			sessionId: "session-au6-boundary",
 			sessionContext: { taskId: params.taskId },
@@ -278,7 +281,7 @@ describe("agent run boundary", () => {
 			"decomposition",
 			"proposed_call",
 		] as const) {
-			const request = await createAgentSessionRequest(db, sourceInput(sourceKind, "failed"));
+			const request = await createRequestForTest(db, sourceInput(sourceKind, "failed"));
 			const sessionId = `session-${sourceKind}-failed`;
 			await testMarkRequestRunning(db, request.id, sessionId);
 			await testTerminalize(db, {
@@ -302,7 +305,7 @@ describe("agent run boundary", () => {
 	}) => {
 		await seedBase(db);
 		const ports = buildTestPorts();
-		const request = await createAgentSessionRequest(db, sourceInput("assistant", "source-list"));
+		const request = await createRequestForTest(db, sourceInput("assistant", "source-list"));
 		await testMarkRequestRunning(db, request.id, "session-source-list");
 
 		await expect(
@@ -320,7 +323,7 @@ describe("agent run boundary", () => {
 	test("keeps failed execution lifecycle uniform when runtime throws", async ({ db }) => {
 		await seedBase(db);
 		const ports = buildTestPorts();
-		const request = await createAgentSessionRequest(db, sourceInput("routine", "throws"));
+		const request = await createRequestForTest(db, sourceInput("routine", "throws"));
 		vi.mocked(ports.sessionProvisioner.admitSession).mockImplementation(async (_deps, params) => ({
 			sessionId: "session-au6-boundary",
 			sessionContext: { taskId: params.taskId },
@@ -367,7 +370,7 @@ describe("agent run boundary", () => {
 			"decomposition",
 			"proposed_call",
 		] as const) {
-			const request = await createAgentSessionRequest(db, sourceInput(sourceKind, "boundary"));
+			const request = await createRequestForTest(db, sourceInput(sourceKind, "boundary"));
 			await executeAgentRunRequest(
 				{ db, eventBus: new EventBus() },
 				request,

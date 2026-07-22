@@ -1,4 +1,5 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import type {
 	StateTransitionAuditEntry,
@@ -8,15 +9,14 @@ import type {
 import { checkAndUnblockDependents, InvalidTransitionError, transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { test } from "../test-fixtures.js";
 
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
-const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
+const testDeps: TaskStateMachineDeps = { workIntents: { record: enqueueWorkIntent } };
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
 const depWatcherDeps = {
-	workIntents: { record: recordAgentWorkIntent },
+	workIntents: { record: enqueueWorkIntent },
 };
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {

@@ -115,7 +115,6 @@ export type {
 	RunOrchestrationAdapterMeta,
 	RunOrchestrationAdapterPool,
 	RunOrchestrationAdmittedSession,
-	RunOrchestrationClaimOptions,
 	RunOrchestrationDispatchPort,
 	RunOrchestrationPorts,
 	RunOrchestrationProvisionDeps,
@@ -126,9 +125,7 @@ export type {
 	RunOrchestrationSessionContext,
 	RunOrchestrationSessionLifecycleRuntime,
 	RunOrchestrationSessionProvisioner,
-	RunOrchestrationSessionRequestsPort,
 	RunOrchestrationTerminationReason,
-	RunOrchestrationWorkIntentSource,
 } from "./ports.js";
 export {
 	type ReapStaleRoutineSessionsOpts,

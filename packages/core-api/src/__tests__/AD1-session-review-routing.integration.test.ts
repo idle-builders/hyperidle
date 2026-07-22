@@ -30,13 +30,13 @@ import {
 } from "@hyperidle/db";
 import { resolveReviewRecipients } from "@hyperidle/org";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { findUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 /**
  * @lore AU19 Increment 1j: `registerReviewSubscriptions` now takes injected
@@ -62,7 +62,7 @@ const reviewDeps: ReviewPorts = {
 		listUsersByKind: (db, kind) => listUsers(db, { kind }),
 	},
 	org: { resolveReviewRecipients },
-	intentRecorder: { record: recordAgentWorkIntent },
+	intentRecorder: { record: enqueueWorkIntent },
 };
 
 const NOW = new Date().toISOString();

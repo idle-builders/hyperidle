@@ -7,6 +7,7 @@ import {
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from "@hyperidle/org";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import {
 	BET_OUTCOME_VERDICTS,
@@ -22,7 +23,6 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 const SUMMARY_CAP = 10;
 
@@ -807,7 +807,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// task-kill's upward propagation sees a terminal bet and skips (no spurious
 			// review thread). Synchronous so the UI's immediate refresh shows true state.
 			await cascadeBetKill(db, eventBus, betId, {
-				workIntents: { record: recordAgentWorkIntent },
+				workIntents: { record: enqueueWorkIntent },
 			});
 			const updated = await work.get(db, "bet", betId);
 			if (!updated) {

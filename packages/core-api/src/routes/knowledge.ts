@@ -39,6 +39,7 @@ import {
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, listTeamMembers } from "@hyperidle/org";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
 	type AgentWorkIntentEvent,
@@ -61,7 +62,6 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation
@@ -795,7 +795,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			// @lore AU20 K2-writes: flagItem folded into transition({target:"flag"}).
 			// transition() fetches the item internally by id — no need to pass `item`.
 			const editId = crypto.randomUUID();
-			let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
+			let intent: Awaited<ReturnType<typeof enqueueWorkIntent>> | undefined;
 			await db.transaction(async (tx) => {
 				await knowledgeTransition(tx as HyperIdleDb, item.id, {
 					target: "flag",
@@ -803,7 +803,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					editId,
 				});
 				if (body.agentId)
-					intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
+					intent = await enqueueWorkIntent(tx as HyperIdleDb, {
 						kind: "knowledge_action",
 						sourceKind: "knowledge_action",
 						sourceId: `knowledge:${id}`,

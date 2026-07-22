@@ -40,8 +40,8 @@
  * raw-read/wrote `agentSessionRequests`/`explicitSessionStarts` directly
  * pre-migration — both tables are `session-requests`-owned (`TABLE_OWNER`).
  * Closed by four NEW `@hyperidle/session-requests` exports
- * (`findAgentSessionRequestById`, `listAgentSessionRequestsBySource`,
- * `listRunningAgentSessionRequests`, `isAgentSessionRequestClaimActive`) plus
+ * (`findAgentSessionRequestById`, `listSessionRequests`,
+ * `listSessionRequests`, `isAgentSessionRequestClaimActive`) plus
  * a new `explicit-session-starts.ts` file
  * (`findExplicitSessionStartById`/`markExplicitSessionStartAdmitted`/
  * `markExplicitSessionStartFailed`) — see that package's `agent-session-requests.ts`
@@ -71,94 +71,140 @@
  * `worker-ws.ts`'s pre-existing `ws as never`.
  */
 
-import type { AgentSessionRequest, ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
+import type {
+	AgentSessionRequest,
+	AgentWorkIntent,
+	Bet,
+	ExplicitSessionStart,
+	HyperIdleDb,
+	KnowledgeItem,
+	Message,
+	ProposedCall,
+	Routine,
+	RoutineRun,
+	TailoredGrant,
+	Task,
+	TaskDispatchAttempt,
+	TeamMember,
+	User,
+	WriteExecutor,
+} from "@hyperidle/db";
 import type {
 	AdmittedRun,
 	AgentSessionSourceKind,
+	ConfigurationKind,
 	EventBus,
 	HarnessAdapter,
 	HarnessPort,
 	HarnessPortDeps,
 	HarnessRunOutput,
+	ResolvedConfigurationItem,
 	RunContextBundle,
 } from "@hyperidle/shared";
 
-// ---------------------------------------------------------------------------
-// session-requests — RunOrchestrationSessionRequestsPort (ordinary same-layer
-// edge, REAL target — Mechanism C still requires a port, see this file's top
-// `@lore`)
-// ---------------------------------------------------------------------------
-
-/** Structural mirror of `@hyperidle/session-requests`'s `ClaimRequestOptions`. */
-export interface RunOrchestrationClaimOptions {
-	readonly now: Date;
-	readonly leaseMs: number;
-}
-
-/** Structural mirror of `@hyperidle/session-requests`'s `findAgentWorkIntentSourceByRequestId` result. */
-export interface RunOrchestrationWorkIntentSource {
-	readonly sourceKind: string;
-	readonly sourceId: string;
-}
-
-/** Port for `session-requests`' request-lifecycle read/write/claim surface this Service calls directly today. */
-export interface RunOrchestrationSessionRequestsPort {
-	findAgentSessionRequestById(
-		db: HyperIdleDb,
-		requestId: string,
-	): Promise<AgentSessionRequest | undefined>;
-	listAgentSessionRequestsBySource(
-		db: HyperIdleDb,
-		sourceKind: AgentSessionSourceKind,
-		sourceId: string,
-	): Promise<AgentSessionRequest[]>;
-	listRunningAgentSessionRequests(db: HyperIdleDb): Promise<AgentSessionRequest[]>;
-	isAgentSessionRequestClaimActive(
-		db: HyperIdleDb,
-		input: { requestId: string; claimToken: string; now: Date },
-	): Promise<boolean>;
-	claimNextAgentSessionRequest(
-		db: HyperIdleDb,
-		workerId: string,
-		options: RunOrchestrationClaimOptions,
-	): Promise<AgentSessionRequest | null>;
-	claimAgentSessionRequestById(
-		db: HyperIdleDb,
-		requestId: string,
-		workerId: string,
-		options: RunOrchestrationClaimOptions,
-	): Promise<AgentSessionRequest | null>;
-	releaseRequestClaim(db: HyperIdleDb, requestId: string, claimToken?: string): Promise<void>;
-	renewAgentSessionRequestLease(
-		db: HyperIdleDb,
-		input: { requestId: string; claimToken: string; now: Date; leaseMs: number },
-	): Promise<boolean>;
-	markRequestRunning(
-		db: HyperIdleDb,
-		requestId: string,
-		sessionId: string,
-		claimToken?: string,
-	): Promise<void>;
-	findAgentWorkIntentSourceByRequestId(
-		db: HyperIdleDb,
-		requestId: string,
-	): Promise<RunOrchestrationWorkIntentSource | undefined>;
-	drainAgentWorkIntents(db: HyperIdleDb): Promise<void>;
-	reapTerminalAgentWorkIntents(
-		db: HyperIdleDb,
-	): Promise<{ inbox: number; intents: number; explicitStarts: number; taskAttempts: number }>;
-	findExplicitSessionStartById(
-		db: HyperIdleDb,
-		id: string,
-	): Promise<ExplicitSessionStart | undefined>;
-	markExplicitSessionStartAdmitted(
-		db: HyperIdleDb,
-		input: { id: string; requestId: string; sessionId: string },
-	): Promise<void>;
-	markExplicitSessionStartFailed(
-		db: HyperIdleDb,
-		input: { id: string; failureCode: string },
-	): Promise<void>;
+interface DurableQueueDeps {
+	readonly db: HyperIdleDb;
+	readonly lifecycleProjection: {
+		readonly routine: {
+			updateRoutineRunIfRunning(
+				exec: WriteExecutor,
+				id: string,
+				patch: {
+					outcome: "success" | "error";
+					endedAt: string;
+					sessionId: string | null;
+					errorMessage: string | null;
+				},
+			): Promise<void>;
+		};
+		readonly work: {
+			updateTaskDispatchAttemptIfActive(
+				exec: WriteExecutor,
+				requestId: string,
+				patch: { status: "completed" | "failed" | "cancelled"; sessionId: string | null },
+			): Promise<void>;
+			updateBetDecompositionStatusIfRunning(
+				exec: WriteExecutor,
+				id: string,
+				patch: {
+					decompositionStatus: "done" | "blocked";
+					decompositionBlockerReason: string | null;
+				},
+			): Promise<void>;
+		};
+		readonly explicitSessionStarts: {
+			projectTerminalState(
+				exec: WriteExecutor,
+				requestId: string,
+				patch: {
+					status: "completed" | "failed" | "cancelled";
+					sessionId: string | null;
+					failureCode: string | null;
+				},
+			): Promise<void>;
+		};
+	};
+	readonly config: {
+		listConfiguration(
+			db: HyperIdleDb,
+			filter: { kind?: ConfigurationKind; key?: string },
+		): Promise<ResolvedConfigurationItem[]>;
+	};
+	readonly teams: {
+		getTeamMembersByTeamId(exec: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
+	};
+	readonly users: {
+		getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
+		getUserByIdScopedToTeam(
+			db: HyperIdleDb,
+			id: string,
+			teamMembersId?: string,
+		): Promise<User | undefined>;
+		listUsersByTeam(exec: WriteExecutor, teamMembersId: string): Promise<User[]>;
+	};
+	readonly work: {
+		getTaskById(exec: WriteExecutor, id: string): Promise<Task | undefined>;
+		getBetById(exec: WriteExecutor, id: string): Promise<Bet | undefined>;
+		getTaskDispatchAttemptById(
+			exec: WriteExecutor,
+			id: string,
+		): Promise<TaskDispatchAttempt | undefined>;
+		reapTerminalTaskDispatchAttempts(
+			exec: WriteExecutor,
+			cutoff: string,
+			batchSize: number,
+		): Promise<number>;
+	};
+	readonly routine: {
+		getRoutineRunById(exec: WriteExecutor, id: string): Promise<RoutineRun | undefined>;
+		getRoutineById(exec: WriteExecutor, id: string): Promise<Routine | undefined>;
+		updateRoutineRunIfRunning(
+			exec: WriteExecutor,
+			id: string,
+			patch: { outcome: "error"; endedAt: string; errorMessage: string | null },
+		): Promise<void>;
+	};
+	readonly conversation: {
+		getMessageById(exec: WriteExecutor, id: string): Promise<Message | undefined>;
+	};
+	readonly review: {
+		findGrantedProposedCall(
+			exec: WriteExecutor,
+			id: string,
+		): Promise<{ call: ProposedCall; grant: TailoredGrant } | undefined>;
+	};
+	readonly knowledge: { findById(exec: WriteExecutor, id: string): Promise<KnowledgeItem | null> };
+	readonly agentSelection: {
+		isAtCapacity(exec: WriteExecutor, agentId: string): Promise<boolean>;
+		selectAgent(input: {
+			db: WriteExecutor;
+			surface: "routine_delegate";
+			teamId: string | null;
+			workKey: string;
+			excludeAgentId: string;
+			skillId: string;
+		}): Promise<{ agentId: string | null }>;
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +337,95 @@ export interface RunOrchestrationRemoteHarnessAdapterFactory {
 
 /** Every real/interim outbound port `agent-run-boundary.ts`/`agent-session-runtime.ts`/`agent-layer-boot.ts` need. */
 export interface RunOrchestrationPorts {
-	readonly sessionRequests: RunOrchestrationSessionRequestsPort;
+	readonly sessionRequests: {
+		claimSessionRequest(
+			exec: HyperIdleDb,
+			selector: { next: true } | { id: string },
+			options: { workerId: string; now: Date; leaseMs: number },
+		): Promise<AgentSessionRequest | null>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "id"; requestId: string },
+		): Promise<AgentSessionRequest | undefined>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "sessionId"; sessionId: string },
+		): Promise<Pick<AgentSessionRequest, "id"> | undefined>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "claimActive"; requestId: string; claimToken: string; now: Date },
+		): Promise<boolean>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "intentSource"; requestId: string },
+		): Promise<
+			Pick<AgentWorkIntent, "id" | "idempotencyKey" | "sourceId" | "sourceKind"> | undefined
+		>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "explicitStart"; startId: string },
+		): Promise<ExplicitSessionStart | undefined>;
+		listSessionRequests(
+			exec: HyperIdleDb,
+			filter: { source: { kind: AgentSessionSourceKind; id: string } } | { status: "running" },
+		): Promise<AgentSessionRequest[]>;
+		releaseClaim(exec: HyperIdleDb, requestId: string, claimToken: string): Promise<boolean>;
+		renewClaim(
+			exec: HyperIdleDb,
+			requestId: string,
+			claimToken: string,
+			options: { now: Date; leaseMs: number },
+		): Promise<boolean>;
+		transitionSessionRequest(
+			exec: HyperIdleDb,
+			transition:
+				| { requestId: string; to: "running"; sessionId: string; claimToken: string }
+				| {
+						requestId: string;
+						to: "completed" | "failed" | "cancelled";
+						precondition: "running";
+						sessionId: string;
+						failureCode?: string;
+						errorMessage?: string;
+						requireNoTerminationReason?: boolean;
+				  }
+				| {
+						requestId: string;
+						to: "failed";
+						precondition: "claimed";
+						claimToken: string;
+						failureCode?: string;
+						errorMessage?: string;
+				  }
+				| {
+						target: "explicitStart";
+						to: "admitted";
+						startId: string;
+						requestId: string;
+						sessionId: string;
+				  }
+				| { target: "explicitStart"; to: "failed"; startId: string; failureCode: string },
+			deps?: DurableQueueDeps,
+			options?: { now?: Date },
+		): Promise<
+			| AgentSessionRequest
+			| null
+			| boolean
+			| void
+			| "accepted"
+			| "idempotent"
+			| "conflict"
+			| "terminal"
+		>;
+		drainIntents(
+			deps: DurableQueueDeps,
+			options?: { now?: () => Date; leaseMs?: number; maxAttempts?: number },
+		): Promise<void>;
+		reapExpired(
+			deps: DurableQueueDeps,
+			options?: { now?: Date; retentionDays?: number; batchSize?: number },
+		): Promise<{ inbox: number; intents: number; explicitStarts: number; taskAttempts: number }>;
+	};
 	readonly sessionLifecycle: RunOrchestrationSessionLifecycleRuntime;
 	readonly sessionProvisioner: RunOrchestrationSessionProvisioner;
 	readonly dispatch: RunOrchestrationDispatchPort;

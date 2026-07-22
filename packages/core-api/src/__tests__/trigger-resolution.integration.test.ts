@@ -24,43 +24,41 @@ import {
 	triggerResolutionHistory,
 	users,
 } from "@hyperidle/db";
-import { getTeamMembers } from "@hyperidle/org";
 import {
-	createAgentSessionRequest,
-	createTriggeredAgentSessionRequest,
-	findSessionRequest,
-	type TriggerResolutionDeps,
+	type CreateSessionRequestInput,
+	createSessionRequest,
+	type DurableAgentQueueDeps,
 } from "@hyperidle/session-requests";
-import {
-	listConfiguration,
-	seedConfigurationDefaults,
-	writeConfigurationOverride,
-} from "@hyperidle/settings";
-import { findUser } from "@hyperidle/users";
+import { seedConfigurationDefaults, writeConfigurationOverride } from "@hyperidle/settings";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import { queueDeps } from "../services/durable-agent-queue.js";
 import { test } from "../test-fixtures.js";
 
 const NOW = "2026-07-09T10:00:00.000Z";
 
-const triggerResolutionDeps: TriggerResolutionDeps = {
-	sessionRequests: {
-		findByIdempotencyKey: (db, key) =>
-			findSessionRequest(db, {
-				by: "idempotencyKey",
-				sourceKind: key.sourceKind,
-				sourceId: key.sourceId,
-				idempotencyKey: key.idempotencyKey,
-			}),
-		create: createAgentSessionRequest,
-	},
-	config: { listConfiguration },
-	users: {
-		getUserByIdScopedToTeam: (db, userId, teamId) =>
-			findUser(db, teamId !== undefined ? { id: userId, teamIds: [teamId] } : { id: userId }),
-	},
-	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
-};
+function triggerResolutionDeps(db: HyperIdleDb): DurableAgentQueueDeps {
+	return queueDeps(db);
+}
+
+async function createTriggeredRequest(
+	db: HyperIdleDb,
+	input: Extract<CreateSessionRequestInput, { kind: "triggered" }>["request"],
+	_deps?: unknown,
+) {
+	const request = await createSessionRequest(
+		db,
+		{ kind: "triggered", request: input },
+		triggerResolutionDeps(db),
+	);
+	const [history] = await db
+		.select()
+		.from(triggerResolutionHistory)
+		.where(eq(triggerResolutionHistory.requestId, request.id))
+		.limit(1);
+	if (!history) throw new Error("Trigger resolution history was not persisted");
+	return { request, resolution: JSON.parse(history.resolutionJson) };
+}
 
 async function seedTeamAndAgents(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: NOW });
@@ -113,7 +111,7 @@ async function seedTeamAndAgents(db: HyperIdleDb): Promise<void> {
 describe("trigger resolution", () => {
 	test("falls back to the default eligible agent with no prompt override", async ({ db }) => {
 		await seedTeamAndAgents(db);
-		const { request, resolution } = await createTriggeredAgentSessionRequest(
+		const { request, resolution } = await createTriggeredRequest(
 			db,
 			{
 				eventType: "assistant.message",
@@ -193,7 +191,7 @@ describe("trigger resolution", () => {
 			now: "2026-07-09T10:01:00.000Z",
 		});
 
-		const { request, resolution } = await createTriggeredAgentSessionRequest(
+		const { request, resolution } = await createTriggeredRequest(
 			db,
 			{
 				eventType: "routine.fire",
@@ -264,7 +262,7 @@ describe("trigger resolution", () => {
 			now: NOW,
 		});
 
-		const { request, resolution } = await createTriggeredAgentSessionRequest(
+		const { request, resolution } = await createTriggeredRequest(
 			db,
 			{
 				eventType: "routine.fire",
@@ -329,7 +327,7 @@ describe("trigger resolution", () => {
 			now: "2026-07-09T10:02:00.000Z",
 		});
 
-		const { request, resolution } = await createTriggeredAgentSessionRequest(
+		const { request, resolution } = await createTriggeredRequest(
 			db,
 			{
 				eventType: "routine.fire",
@@ -384,7 +382,7 @@ describe("trigger resolution", () => {
 		});
 
 		await expect(
-			createTriggeredAgentSessionRequest(
+			createTriggeredRequest(
 				db,
 				{
 					eventType: "routine.fire",
@@ -453,7 +451,7 @@ describe("trigger resolution", () => {
 				teamId: "team-1",
 			},
 		};
-		const first = await createTriggeredAgentSessionRequest(db, input, triggerResolutionDeps);
+		const first = await createTriggeredRequest(db, input, triggerResolutionDeps);
 		await writeConfigurationOverride(db, {
 			kind: "trigger",
 			key: "trigger.retry",
@@ -468,7 +466,7 @@ describe("trigger resolution", () => {
 			now: "2026-07-09T10:03:00.000Z",
 		});
 
-		const second = await createTriggeredAgentSessionRequest(db, input, triggerResolutionDeps);
+		const second = await createTriggeredRequest(db, input, triggerResolutionDeps);
 
 		expect(second.request.id).toBe(first.request.id);
 		expect(second.request.agentId).toBe("agent-plugin");
@@ -518,7 +516,7 @@ describe("trigger resolution", () => {
 			now: NOW,
 		});
 
-		const { request, resolution } = await createTriggeredAgentSessionRequest(
+		const { request, resolution } = await createTriggeredRequest(
 			db,
 			{
 				eventType: "proposed_call.granted",
@@ -552,7 +550,7 @@ describe("trigger resolution", () => {
 
 	test("creates a session request instead of invoking runtime internals", async ({ db }) => {
 		await seedTeamAndAgents(db);
-		const { request } = await createTriggeredAgentSessionRequest(
+		const { request } = await createTriggeredRequest(
 			db,
 			{
 				eventType: "work.decompose_requested",

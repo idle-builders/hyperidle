@@ -10,10 +10,11 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
+import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
+import { queueDeps } from "../services/durable-agent-queue.js";
 import { drainAgentSessionRequests } from "../services/run-orchestration-bindings.js";
-import { drainAgentWorkIntents } from "../services/session-requests-bindings.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 vi.mock("@hyperidle/run-orchestration", async (importOriginal) => {
@@ -220,7 +221,7 @@ describe("explicit session production contract", () => {
 			body: JSON.stringify({ agentId: "au9-agent", taskId: "au9-task", modelTier: "workhorse" }),
 		});
 		const { startId } = (await created.json()) as { startId: string };
-		await drainAgentWorkIntents(db);
+		await drainIntents(queueDeps(db));
 		const runtimeDepsAdmit = {
 			db,
 			eventBus: new (await import("@hyperidle/shared")).EventBus(),
@@ -267,7 +268,7 @@ describe("explicit session production contract", () => {
 			}),
 		});
 		const { startId } = (await created.json()) as { startId: string };
-		await drainAgentWorkIntents(db);
+		await drainIntents(queueDeps(db));
 		const runtimeDepsFailure = {
 			db,
 			eventBus: new (await import("@hyperidle/shared")).EventBus(),

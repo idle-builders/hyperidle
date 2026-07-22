@@ -25,88 +25,57 @@
  */
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
-	claimAgentSessionRequestById,
-	claimNextAgentSessionRequest,
+	claimSessionRequest,
+	drainIntents,
 	findSessionRequest,
-	listAgentSessionRequestsBySource,
-	listRunningAgentSessionRequests,
-	releaseRequestClaim,
-	renewAgentSessionRequestLease,
-	type SessionRequestTerminalTransition,
+	listSessionRequests,
+	reapExpired,
+	releaseClaim,
+	renewClaim,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { vi } from "vitest";
-import type {
-	RunOrchestrationPorts,
-	RunOrchestrationSessionLifecycleRuntime,
-	RunOrchestrationSessionRequestsPort,
-} from "../ports.js";
+import type { RunOrchestrationPorts, RunOrchestrationSessionLifecycleRuntime } from "../ports.js";
 
-const noopTriggerHistoryWriter = {
-	recordSessionForResolutionHistory: async () => {
-		/* no-op */
-	},
-};
-
-/** `transitionSessionRequest({to:'running',...})` with a no-op trigger-history writer. */
+/** `transitionSessionRequest({to:'running',...})` against the real queue state machine. */
 export function testMarkRequestRunning(
 	db: HyperIdleDb,
 	requestId: string,
 	sessionId: string,
 	claimToken?: string,
 ): Promise<void> {
-	return transitionSessionRequest(
-		db,
-		{ to: "running", requestId, sessionId, claimToken },
-		{ triggerHistory: noopTriggerHistoryWriter },
-	);
+	return (async () => {
+		const activeToken =
+			claimToken ??
+			(
+				await claimSessionRequest(
+					db,
+					{ id: requestId },
+					{ workerId: "run-boundary-test", now: new Date(), leaseMs: 30_000 },
+				)
+			)?.claimToken;
+		if (!activeToken) throw new Error(`Unable to claim test request ${requestId}`);
+		await transitionSessionRequest(db, {
+			to: "running",
+			requestId,
+			sessionId,
+			claimToken: activeToken,
+		});
+	})();
 }
 
 /** `transitionSessionRequest` terminal — AU20 B1a: no deps needed (table owned directly). */
-export function testTerminalize(
+export async function testTerminalize(
 	db: HyperIdleDb,
-	input: SessionRequestTerminalTransition,
+	input: Extract<
+		Parameters<RunOrchestrationPorts["sessionRequests"]["transitionSessionRequest"]>[1],
+		{ readonly precondition: string }
+	>,
 ): Promise<AgentSessionRequest | null> {
-	return transitionSessionRequest(db, input);
+	const row = await transitionSessionRequest(db, input);
+	return row && typeof row === "object" && "id" in row ? row : null;
 }
-
-const realSessionRequestsPort: RunOrchestrationSessionRequestsPort = {
-	findAgentSessionRequestById: (db, id) => findSessionRequest(db, { by: "id", requestId: id }),
-	listAgentSessionRequestsBySource,
-	listRunningAgentSessionRequests,
-	isAgentSessionRequestClaimActive: (db, input) =>
-		findSessionRequest(db, {
-			by: "claimActive",
-			requestId: input.requestId,
-			claimToken: input.claimToken,
-			now: input.now,
-		}),
-	claimNextAgentSessionRequest,
-	claimAgentSessionRequestById,
-	releaseRequestClaim,
-	renewAgentSessionRequestLease,
-	markRequestRunning: testMarkRequestRunning,
-	findAgentWorkIntentSourceByRequestId: (db, requestId) =>
-		findSessionRequest(db, { by: "intentSource", requestId }),
-	drainAgentWorkIntents: vi.fn(async () => {
-		/* no-op */
-	}),
-	reapTerminalAgentWorkIntents: vi.fn(async () => ({
-		inbox: 0,
-		intents: 0,
-		explicitStarts: 0,
-		taskAttempts: 0,
-	})),
-	findExplicitSessionStartById: (db, id) =>
-		findSessionRequest(db, { by: "explicitStart", startId: id }),
-	markExplicitSessionStartAdmitted: vi.fn(async () => {
-		/* no-op */
-	}),
-	markExplicitSessionStartFailed: vi.fn(async () => {
-		/* no-op */
-	}),
-};
 
 const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 	requestAgentTermination: vi.fn(async () => "accepted" as const),
@@ -159,7 +128,18 @@ const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 
 export function buildTestPorts(): RunOrchestrationPorts {
 	return {
-		sessionRequests: realSessionRequestsPort,
+		sessionRequests: {
+			claimSessionRequest,
+			findSessionRequest,
+			listSessionRequests,
+			releaseClaim,
+			renewClaim,
+			transitionSessionRequest: async (exec, transition) => {
+				return await transitionSessionRequest(exec, transition);
+			},
+			drainIntents,
+			reapExpired,
+		},
 		sessionLifecycle: realSessionLifecyclePort,
 		sessionProvisioner: {
 			admitSession: vi.fn(),

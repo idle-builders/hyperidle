@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import type {
 	AgentSessionSourceKind,
 	EventBus,
@@ -17,9 +17,9 @@ import type { SessionLifecyclePorts } from "./session-lifecycle-ports.js";
  *  - `requestAgentTermination`/`recoverRequestedTerminations`/
  *    `transitionAgentRunLifecycle` raw-read/wrote `agentSessionRequests`
  *    directly pre-migration — closed via `ports.sessionRequests`'
- *    `requestAgentSessionTermination`/`listRunningAgentSessionRequests`/
+ *    `requestAgentSessionTermination`/`listSessionRequests`/
  *    `findAgentSessionRequestTerminationReasonInTx`/
- *    `terminalizeAgentSessionRequestInTx` (see `ports.ts`'s top `@lore`).
+ *    `transitionSessionRequest` (see `ports.ts`'s top `@lore`).
  *  - `updateRoutineRunOnSessionEnd`'s `routine.updateRoutineById`/
  *    `updateRoutineRunById` calls — ordinary downward DI via `ports.routine`.
  *    The `costActualMinor = coalesce(...) + n` accumulation split into its
@@ -56,7 +56,13 @@ export async function requestAgentTermination(
 	input: { requestId: string; reason: AgentTerminationReason; requestedBy?: string },
 	ports: SessionLifecyclePorts,
 ): Promise<"accepted" | "idempotent" | "conflict" | "terminal"> {
-	return ports.sessionRequests.requestAgentSessionTermination(db, input);
+	void ports;
+	return ports.sessionRequests.transitionSessionRequest(db, {
+		to: "termination-requested",
+		requestId: input.requestId,
+		reason: input.reason,
+		requestedBy: input.requestedBy,
+	}) as Promise<"accepted" | "idempotent" | "conflict" | "terminal">;
 }
 
 /** @lore AU9: recovery reads the durable reason; abort signals never define outcome. */
@@ -65,8 +71,8 @@ export async function recoverRequestedTerminations(
 	eventBus: EventBus,
 	ports: SessionLifecyclePorts,
 ): Promise<number> {
-	const running = await ports.sessionRequests.listRunningAgentSessionRequests(db);
-	const requests = running.filter((r) => r.terminationReason != null);
+	const running = await ports.sessionRequests.listSessionRequests(db, { status: "running" });
+	const requests = running.filter((r: AgentSessionRequest) => r.terminationReason != null);
 	let recovered = 0;
 	for (const request of requests) {
 		const reason = request.terminationReason as AgentTerminationReason;
@@ -91,7 +97,7 @@ export async function recoverRequestedTerminations(
  * @lore AU9 R1: this is the sole orchestration entrypoint agent-runtime call sites use
  * for a terminal transition (natural completion/failure, detached-runtime failure,
  * PATCH/handoff/shutdown/cost-cap disposition, running-recovery). It composes the
- * single low-level writer (`terminalizeAgentSessionRequestInTx`) inside one
+ * single low-level writer (`transitionSessionRequest`) inside one
  * transaction that FIRST re-reads the durable termination reason: teardown never
  * infers cause from an in-memory abort — if a reason is already stored, that
  * disposition wins over the caller's natural-completion guess (precedence:
@@ -113,12 +119,13 @@ export async function transitionAgentRunLifecycle(
 	},
 	ports: SessionLifecyclePorts,
 ): Promise<void> {
+	void ports;
 	const row = await db.transaction(async (tx) => {
 		const txDb = tx as HyperIdleDb;
-		const current = await ports.sessionRequests.findAgentSessionRequestTerminationReasonInTx(
-			txDb,
-			input.requestId,
-		);
+		const current = await ports.sessionRequests.findSessionRequest(txDb, {
+			by: "terminationReason",
+			requestId: input.requestId,
+		});
 		if (current === undefined) return null;
 		const reason = current as AgentTerminationReason | null;
 		const disposition = reason ? TERMINATION_DISPOSITIONS[reason] : null;
@@ -127,29 +134,31 @@ export async function transitionAgentRunLifecycle(
 			? (disposition.failureCode ?? undefined)
 			: input.failureCode;
 		if (input.sessionId) {
-			return ports.sessionRequests.terminalizeAgentSessionRequestInTx(txDb, {
+			return ports.sessionRequests.transitionSessionRequest(txDb, {
 				requestId: input.requestId,
 				precondition: "running",
 				sessionId: input.sessionId,
-				state: effectiveState,
+				to: effectiveState,
 				failureCode: effectiveFailureCode,
 				errorMessage: input.errorMessage,
 				requireNoTerminationReason: !reason && effectiveState === "completed",
-			});
+				transaction: "existing",
+			}) as Promise<AgentSessionRequest | null>;
 		}
 		if (!input.claimToken) {
 			throw new Error(
 				`transitionAgentRunLifecycle requires sessionId or claimToken for ${input.requestId}`,
 			);
 		}
-		return ports.sessionRequests.terminalizeAgentSessionRequestInTx(txDb, {
+		return ports.sessionRequests.transitionSessionRequest(txDb, {
 			requestId: input.requestId,
 			precondition: "claimed",
 			claimToken: input.claimToken,
-			state: "failed",
+			to: "failed",
 			failureCode: effectiveFailureCode,
 			errorMessage: input.errorMessage,
-		});
+			transaction: "existing",
+		}) as Promise<AgentSessionRequest | null>;
 	});
 	if (!row) throw new Error(`Unknown agent request ${input.requestId}`);
 	// @lore AU9: persistence precedes publication so domain projections can always

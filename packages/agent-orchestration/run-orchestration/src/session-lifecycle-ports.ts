@@ -39,7 +39,7 @@
  * is `session-requests`' `TABLE_OWNER`). Closed by two new
  * `@hyperidle/session-requests` exports
  * (`requestAgentSessionTermination`/`findAgentSessionRequestTerminationReasonInTx`)
- * plus reusing the already-exported `listRunningAgentSessionRequests` (filtered
+ * plus reusing the already-exported `listSessionRequests` (filtered
  * client-side for a pending termination reason) — see that package's
  * `agent-session-requests.ts` top `@lore` for each.
  */
@@ -56,8 +56,8 @@ import type {
 	ReturnEnforcementChannel,
 	SessionConfig,
 	SessionHandle,
-	SessionMetrics,
 	SessionOutcome,
+	SessionResult,
 	SessionWorkflow,
 	TaskState,
 	UserRole,
@@ -145,7 +145,7 @@ export interface SessionLifecycleWorkAccessor {
 		id: string,
 		patch: { readonly tokensActualJson?: string },
 	): Promise<void>;
-	/** `@hyperidle/work`'s `transitionTask` state machine — the composition root pre-binds its own AC-9 `workIntents.record` dep to `session-requests`' `recordAgentWorkIntent`, same idiom `cost-bindings.ts`/`session-requests-bindings.ts` use for other bound singletons. */
+	/** `@hyperidle/work`'s `transitionTask` state machine — the composition root pre-binds its own AC-9 `workIntents.record` dep to `session-requests`' `enqueueWorkIntent`, same idiom `cost-bindings.ts`/`session-requests-bindings.ts` use for other bound singletons. */
 	transitionTask(
 		db: HyperIdleDb,
 		eventBus: EventBus,
@@ -245,72 +245,6 @@ export interface SessionLifecycleConnectionsProvisioner {
 }
 
 // ---------------------------------------------------------------------------
-// session-requests — SessionLifecycleSessionRequestsAccessor (ordinary
-// same-layer edge, real target — Mechanism C still requires a port, see
-// `session-requests`'s own `→ trigger-resolution` port precedent)
-// ---------------------------------------------------------------------------
-
-/** Structural mirror of `@hyperidle/session-requests`'s `sessionRunRegistry` — a dependency-free process-singleton leaf. */
-export interface SessionLifecycleSessionRunEntry {
-	readonly signalAbort: () => void;
-	readonly handle: SessionHandle;
-	readonly adapter: SessionLifecycleHarnessAdapter;
-}
-
-export interface SessionLifecycleSessionRunRegistry {
-	register(sessionId: string, entry: SessionLifecycleSessionRunEntry): void;
-	deregister(sessionId: string): void;
-	has(sessionId: string): boolean;
-	abort(sessionId: string): Promise<boolean>;
-}
-
-export interface SessionLifecycleSessionRequestsAccessor {
-	readonly sessionRunRegistry: SessionLifecycleSessionRunRegistry;
-	recordAgentWorkIntent(
-		db: HyperIdleDb,
-		input: {
-			readonly kind: string;
-			readonly sourceKind: string;
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-		},
-	): Promise<{ readonly id: string; readonly idempotencyKey: string }>;
-	/** `terminalizeAgentSessionRequestInTx` — already ordinary-DI'd via `session-requests-bindings.ts`, port-carried here for `transitionAgentRunLifecycle`'s same-tx precedence read + terminal write. */
-	terminalizeAgentSessionRequestInTx(
-		tx: HyperIdleDb,
-		input:
-			| {
-					readonly requestId: string;
-					readonly precondition: "running";
-					readonly sessionId: string;
-					readonly state: "completed" | "failed" | "cancelled";
-					readonly failureCode?: string;
-					readonly errorMessage?: string;
-					readonly requireNoTerminationReason?: boolean;
-			  }
-			| {
-					readonly requestId: string;
-					readonly precondition: "claimed";
-					readonly claimToken: string;
-					readonly state: "failed";
-					readonly failureCode?: string;
-					readonly errorMessage?: string;
-			  },
-	): Promise<AgentSessionRequest | null>;
-	/** Tx-scoped precedence read — see this file's top `@lore`. */
-	findAgentSessionRequestTerminationReasonInTx(
-		tx: HyperIdleDb,
-		requestId: string,
-	): Promise<string | null | undefined>;
-	requestAgentSessionTermination(
-		db: HyperIdleDb,
-		input: { readonly requestId: string; readonly reason: string; readonly requestedBy?: string },
-	): Promise<"accepted" | "idempotent" | "conflict" | "terminal">;
-	listRunningAgentSessionRequests(db: HyperIdleDb): Promise<readonly AgentSessionRequest[]>;
-}
-
-// ---------------------------------------------------------------------------
 // cost — SessionLifecycleCostAccessor (ordinary same-layer edge, real target)
 // ---------------------------------------------------------------------------
 
@@ -366,12 +300,7 @@ export interface SessionLifecycleCostAccessor {
 export interface SessionLifecycleHarnessAdapter {
 	startSession(config: SessionConfig): Promise<SessionHandle>;
 	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent>;
-	stopSession(handle: SessionHandle): Promise<{
-		readonly outcome: "completed" | "crashed" | "stopped";
-		readonly cost: { readonly minor: number; readonly currency: string };
-		readonly tokenUsage: unknown;
-		readonly metrics?: SessionMetrics;
-	}>;
+	stopSession(handle: SessionHandle): Promise<SessionResult>;
 	getCapabilities(): {
 		readonly preCompactionTrigger: boolean;
 		readonly subAgents: boolean;
@@ -648,6 +577,63 @@ export interface SessionLifecycleContextAssembly {
 
 /** Every real/interim outbound port `session-provisioning.ts`/`session-lifecycle.ts`/`routine-session-reaper.ts` need. */
 export interface SessionLifecyclePorts {
+	readonly sessionRequests: {
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "id"; requestId: string },
+		): Promise<AgentSessionRequest | undefined>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "terminationReason"; requestId: string },
+		): Promise<string | null | undefined>;
+		listSessionRequests(
+			exec: HyperIdleDb,
+			filter: { status: "running" },
+		): Promise<AgentSessionRequest[]>;
+		transitionSessionRequest(
+			exec: HyperIdleDb,
+			transition:
+				| { requestId: string; to: "termination-requested"; reason: string; requestedBy?: string }
+				| {
+						requestId: string;
+						to: "completed" | "failed" | "cancelled";
+						precondition: "running";
+						sessionId: string;
+						failureCode?: string;
+						errorMessage?: string;
+						requireNoTerminationReason?: boolean;
+						transaction?: "existing";
+				  }
+				| {
+						requestId: string;
+						to: "failed";
+						precondition: "claimed";
+						claimToken: string;
+						failureCode?: string;
+						errorMessage?: string;
+						transaction?: "existing";
+				  },
+		): Promise<
+			| AgentSessionRequest
+			| null
+			| boolean
+			| void
+			| "accepted"
+			| "idempotent"
+			| "conflict"
+			| "terminal"
+		>;
+		abortSessionRun(sessionId: string): Promise<boolean>;
+		registerSessionRun(
+			sessionId: string,
+			control: {
+				signalAbort(): void;
+				handle: SessionHandle;
+				adapter: SessionLifecycleHarnessAdapter;
+			},
+		): void;
+		deregisterSessionRun(sessionId: string): void;
+	};
 	readonly routine: SessionLifecycleRoutineAccessor;
 	readonly work: SessionLifecycleWorkAccessor;
 	readonly users: SessionLifecycleUserReader;
@@ -655,7 +641,6 @@ export interface SessionLifecyclePorts {
 	readonly observability: SessionLifecycleObservability;
 	readonly filesystems: SessionLifecycleFilesystemsReader;
 	readonly connections: SessionLifecycleConnectionsProvisioner;
-	readonly sessionRequests: SessionLifecycleSessionRequestsAccessor;
 	readonly cost: SessionLifecycleCostAccessor;
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
 	readonly mcpProvider: SessionLifecycleMcpProvider;

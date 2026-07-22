@@ -1,15 +1,15 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 // @lore AU20 Ag2: `checkAndUnblockDependents` relocated to `@hyperidle/work`
 // and simplified — the `work:` sub-object is gone (function calls work
 // internals directly). Only the against-grain `workIntents` recorder remains injected.
 const depWatcherDeps = {
-	workIntents: { record: recordAgentWorkIntent },
+	workIntents: { record: enqueueWorkIntent },
 };
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {

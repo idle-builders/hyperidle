@@ -12,12 +12,8 @@
  * BEFORE calling the runtime. The captured systemPromptOverride must reflect
  * the current resolver response, proving the formation seam is consulted at turn time.
  *
- * @lore AU9 R1: createTriggeredAgentSessionRequest has exactly one PRODUCTION call
- * site (the intent drain) — the assistant's own direct-create fallback was deleted.
- * This test therefore builds the request the same way the drain does (via
- * createTriggeredAgentSessionRequest) before invoking runAssistantTurn, the
- * split "consume the exact durable request" entrypoint. Using the constructor here
- * is fixture setup in a non-protected unit test, not a second production caller.
+ * This test inserts a durable request fixture before invoking runAssistantTurn,
+ * the split "consume the exact durable request" entrypoint.
  *
  * @lore AR4b: We observe via the runSession call-site capture rather than
  * by reading the DB or the AGENTS.md file on disk, because:
@@ -36,39 +32,12 @@ import {
 	users,
 } from "@hyperidle/db";
 import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
-import { getTeamMembers } from "@hyperidle/org";
-import {
-	createAgentSessionRequest,
-	createTriggeredAgentSessionRequest,
-	findSessionRequest,
-	type TriggerResolutionDeps,
-} from "@hyperidle/session-requests";
-import { listConfiguration } from "@hyperidle/settings";
+import { createSessionRequest } from "@hyperidle/session-requests";
 import { EventBus } from "@hyperidle/shared";
-import { findUser } from "@hyperidle/users";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { agentSelectionService } from "../services/agent-selection-bindings.js";
 import { dispatchOps } from "../services/dispatch-bindings.js";
 import { test } from "../test-fixtures.js";
-
-const triggerResolutionDeps: TriggerResolutionDeps = {
-	sessionRequests: {
-		findByIdempotencyKey: (db, key) =>
-			findSessionRequest(db, {
-				by: "idempotencyKey",
-				sourceKind: key.sourceKind,
-				sourceId: key.sourceId,
-				idempotencyKey: key.idempotencyKey,
-			}),
-		create: createAgentSessionRequest,
-	},
-	config: { listConfiguration },
-	users: {
-		getUserByIdScopedToTeam: (db, userId, teamId) =>
-			findUser(db, teamId !== undefined ? { id: userId, teamIds: [teamId] } : { id: userId }),
-	},
-	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
-};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -213,7 +182,7 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 
 /**
  * Builds the durable request the same way the production intent drain does
- * (via createTriggeredAgentSessionRequest), so runAssistantTurn is always
+ * through the coherent request API, so runAssistantTurn is always
  * consuming an already-created row — mirroring the real production sequence.
  */
 async function createAssistantRequest(
@@ -221,17 +190,20 @@ async function createAssistantRequest(
 	params: { userId: string; threadId: string; triggerMessageId: string },
 ): Promise<AgentSessionRequest> {
 	const assistantAgentId = `ast-${params.userId}`;
-	const { request } = await createTriggeredAgentSessionRequest(
-		db,
-		{
-			eventType: "assistant.message",
+	return createSessionRequest(db, {
+		kind: "direct",
+		request: {
 			sourceKind: "assistant",
 			sourceId: params.triggerMessageId,
 			streamId: `thread:${params.threadId}`,
-			defaultAgentId: assistantAgentId,
+			agentId: assistantAgentId,
+			promptMode: "conversation",
 			userId: params.userId,
 			idempotencyKey: `assistant:${params.triggerMessageId}`,
-			payload: { threadId: params.threadId, triggerMessageId: params.triggerMessageId },
+			payloadJson: JSON.stringify({
+				threadId: params.threadId,
+				triggerMessageId: params.triggerMessageId,
+			}),
 			sourceCorrelation: {
 				threadId: params.threadId,
 				messageId: params.triggerMessageId,
@@ -239,9 +211,7 @@ async function createAssistantRequest(
 				assistantAgentId,
 			},
 		},
-		triggerResolutionDeps,
-	);
-	return request;
+	});
 }
 
 /** Test-only replacement for the deleted direct-create `runAssistantTurn` entrypoint. */

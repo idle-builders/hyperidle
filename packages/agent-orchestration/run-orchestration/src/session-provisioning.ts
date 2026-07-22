@@ -907,7 +907,7 @@ export async function runSession(
 		// after capturing the first irreversible call. Fire-and-forget is intentional.
 		onAbortSession: params.sessionWorkflow
 			? (abortedSessionId) => {
-					void ports.sessionRequests.sessionRunRegistry.abort(abortedSessionId).catch(() => {
+					void ports.sessionRequests.abortSessionRun(abortedSessionId).catch(() => {
 						// Non-fatal: the harness may have already exited.
 					});
 				}
@@ -1066,7 +1066,7 @@ export async function runSession(
 					if (selectedAdapter.meta.type === "opencode") {
 						aborted = true;
 						setTimeout(() => {
-							void ports.sessionRequests.sessionRunRegistry.abort(sessionId).catch(() => {
+							void ports.sessionRequests.abortSessionRun(sessionId).catch(() => {
 								// The harness may already have exited after the return action.
 							});
 						}, 0);
@@ -1226,7 +1226,7 @@ export async function runSession(
 	try {
 		if (!aborted) {
 			harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
-			ports.sessionRequests.sessionRunRegistry.register(sessionId, {
+			ports.sessionRequests.registerSessionRun(sessionId, {
 				signalAbort: () => {
 					aborted = true;
 				},
@@ -1322,7 +1322,7 @@ export async function runSession(
 
 	// ── Phase 11: teardown.
 	// AF7 §4/§5: the run is over — drop the abort affordance.
-	ports.sessionRequests.sessionRunRegistry.deregister(sessionId);
+	ports.sessionRequests.deregisterSessionRun(sessionId);
 
 	// X2: Unregister the MCP bridge BEFORE calling endSession/crashSession.
 	if (mcpBridgeRegistry && mcpBridgeToken) {

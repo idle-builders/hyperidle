@@ -48,6 +48,7 @@ import {
 	type NewItem,
 	type NewTask,
 	sessions,
+	taskDispatchAttempts,
 	tasks,
 	type WriteExecutor,
 } from "@hyperidle/db";
@@ -56,6 +57,48 @@ import { and, desc, eq, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
 
 export type Bet = typeof bets.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+
+/** Queue-facing operations for the work-owned dispatch-attempt table. */
+export const taskDispatchAttemptStore = {
+	get: async (exec: WriteExecutor, id: string) => {
+		const [row] = await exec
+			.select()
+			.from(taskDispatchAttempts)
+			.where(eq(taskDispatchAttempts.id, id))
+			.limit(1);
+		return row;
+	},
+	updateIfActive: async (
+		exec: WriteExecutor,
+		requestId: string,
+		patch: {
+			readonly status: "completed" | "failed" | "cancelled";
+			readonly sessionId: string | null;
+		},
+	) => {
+		await exec
+			.update(taskDispatchAttempts)
+			.set({ ...patch, updatedAt: new Date().toISOString() })
+			.where(
+				and(
+					eq(taskDispatchAttempts.requestId, requestId),
+					inArray(taskDispatchAttempts.status, ["requested", "running"]),
+				),
+			);
+	},
+	reapTerminal: async (exec: WriteExecutor, cutoff: string, batchSize: number) => {
+		const rows = await exec
+			.delete(taskDispatchAttempts)
+			.where(
+				and(
+					inArray(taskDispatchAttempts.status, ["completed", "failed", "cancelled"]),
+					lt(taskDispatchAttempts.updatedAt, cutoff),
+				),
+			)
+			.returning({ id: taskDispatchAttempts.id });
+		return Math.min(rows.length, batchSize);
+	},
+};
 export type Item = typeof items.$inferSelect;
 
 /** Internal raw update shapes. Consumers use the operator-aware generic patches. */

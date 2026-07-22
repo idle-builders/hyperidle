@@ -1,13 +1,13 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { TaskState } from "@hyperidle/shared";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 // @lore AU20 Ag2: `work:` sub-object removed (see dependency-watcher.integration.test.ts).
 const depWatcherDeps = {
-	workIntents: { record: recordAgentWorkIntent },
+	workIntents: { record: enqueueWorkIntent },
 };
 
 /**

@@ -16,7 +16,7 @@ import type { RunOrchestrationPorts, RunOrchestrationProvisionDeps } from "./por
  * reads/writes (the running-request shutdown sweep; the explicit-start
  * requested-model-tier read + admitted/failed projection) convert to the new
  * `@hyperidle/session-requests` exports this migration added
- * (`listRunningAgentSessionRequests`, `findExplicitSessionStartById`,
+ * (`listSessionRequests`, `findExplicitSessionStartById`,
  * `markExplicitSessionStartAdmitted`, `markExplicitSessionStartFailed`) —
  * both tables are `session-requests`-owned (`TABLE_OWNER`).
  */
@@ -30,6 +30,7 @@ export interface AgentLayerBootDeps {
 	/** Opaque — `dispatch`-owned assistant dependencies. Never inspected here, only forwarded whole to `ports.dispatch.runAssistantTurn`. */
 	readonly assistantTurn?: unknown;
 	readonly ports: RunOrchestrationPorts;
+	readonly durableQueue: Parameters<RunOrchestrationPorts["sessionRequests"]["drainIntents"]>[0];
 }
 
 /** @lore AU9: every recovery/reap primitive needs a bus; boot always constructs one when absent. */
@@ -46,10 +47,10 @@ export async function drainAgentSessionRequests(deps: AgentLayerBootDeps): Promi
 	const runtime = deps.runtime;
 	let consumed = 0;
 	for (;;) {
-		const request = await deps.ports.sessionRequests.claimNextAgentSessionRequest(
+		const request = await deps.ports.sessionRequests.claimSessionRequest(
 			deps.db,
-			"agent-layer",
-			{ now: new Date(), leaseMs: 30_000 },
+			{ next: true },
+			{ workerId: "agent-layer", now: new Date(), leaseMs: 30_000 },
 		);
 		if (!request) return consumed;
 		// @lore AU9: explicitSessionStarts.requestId is only populated by THIS
@@ -59,26 +60,28 @@ export async function drainAgentSessionRequests(deps: AgentLayerBootDeps): Promi
 		// projection, which then never surfaces a terminal code to the poller.
 		// The correlated intent's sourceId is the durable link the whole way
 		// through — resolve the explicit-session-start row through it instead.
-		const correlatedIntent = await deps.ports.sessionRequests.findAgentWorkIntentSourceByRequestId(
-			deps.db,
-			request.id,
-		);
+		const correlatedIntent = await deps.ports.sessionRequests.findSessionRequest(deps.db, {
+			by: "intentSource",
+			requestId: request.id,
+		});
 		const explicitStartId =
 			correlatedIntent?.sourceKind === "explicit_session_start" ? correlatedIntent.sourceId : null;
 		try {
 			if (request.sourceKind === "assistant") {
 				if (!deps.assistantTurn) {
-					await deps.ports.sessionRequests.releaseRequestClaim(deps.db, request.id);
+					if (request.claimToken) {
+						await deps.ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
+					}
 					return consumed;
 				}
 				await deps.ports.dispatch.runAssistantTurn(deps.assistantTurn, request);
 			} else {
 				let tier: ModelTier = "workhorse";
 				if (explicitStartId) {
-					const start = await deps.ports.sessionRequests.findExplicitSessionStartById(
-						deps.db,
-						explicitStartId,
-					);
+					const start = await deps.ports.sessionRequests.findSessionRequest(deps.db, {
+						by: "explicitStart",
+						startId: explicitStartId,
+					});
 					tier = (start?.requestedModelTier as ModelTier | null) ?? tier;
 				}
 				const resolvedModel = await deps.resolveModel?.(tier);
@@ -94,8 +97,10 @@ export async function drainAgentSessionRequests(deps: AgentLayerBootDeps): Promi
 					deps.ports,
 				);
 				if (explicitStartId) {
-					await deps.ports.sessionRequests.markExplicitSessionStartAdmitted(deps.db, {
-						id: explicitStartId,
+					await deps.ports.sessionRequests.transitionSessionRequest(deps.db, {
+						target: "explicitStart",
+						to: "admitted",
+						startId: explicitStartId,
 						requestId: request.id,
 						sessionId: result.sessionId,
 					});
@@ -117,8 +122,10 @@ export async function drainAgentSessionRequests(deps: AgentLayerBootDeps): Promi
 			// (runAssistantTurn never throws here — it maps failures to
 			// persisted notices internally.)
 			if (explicitStartId) {
-				await deps.ports.sessionRequests.markExplicitSessionStartFailed(deps.db, {
-					id: explicitStartId,
+				await deps.ports.sessionRequests.transitionSessionRequest(deps.db, {
+					target: "explicitStart",
+					to: "failed",
+					startId: explicitStartId,
 					failureCode: failure.code,
 				});
 			}
@@ -165,7 +172,7 @@ export async function markRunningAgentSessionRequestsForShutdown(
 	db: HyperIdleDb,
 	ports: RunOrchestrationPorts,
 ): Promise<number> {
-	const running = await ports.sessionRequests.listRunningAgentSessionRequests(db);
+	const running = await ports.sessionRequests.listSessionRequests(db, { status: "running" });
 	let marked = 0;
 	for (const request of running) {
 		const result = await ports.sessionLifecycle.requestAgentTermination(db, {
@@ -192,13 +199,13 @@ export async function bootAgentLayer(deps: AgentLayerBootDeps): Promise<() => vo
 	const eventBus = resolveEventBus(deps);
 	await recoverRunningAgentSessionRequests(deps.db, eventBus, deps.ports);
 	await deps.ports.sessionLifecycle.recoverRequestedTerminations(deps.db, eventBus);
-	await deps.ports.sessionRequests.reapTerminalAgentWorkIntents(deps.db);
+	await deps.ports.sessionRequests.reapExpired(deps.durableQueue);
 	let draining = false;
 	const wake = async () => {
 		if (draining) return;
 		draining = true;
 		try {
-			await deps.ports.sessionRequests.drainAgentWorkIntents(deps.db);
+			await deps.ports.sessionRequests.drainIntents(deps.durableQueue);
 			if (runtime) await drainAgentSessionRequests(deps);
 		} finally {
 			draining = false;
@@ -209,7 +216,7 @@ export async function bootAgentLayer(deps: AgentLayerBootDeps): Promise<() => vo
 	const unsubscribe = deps.eventBus?.on("*", () => void wake());
 	const timer = setInterval(() => void wake(), 1_000);
 	const reapTimer = setInterval(
-		() => void deps.ports.sessionRequests.reapTerminalAgentWorkIntents(deps.db),
+		() => void deps.ports.sessionRequests.reapExpired(deps.durableQueue),
 		AGENT_LAYER_REAP_INTERVAL_MS,
 	);
 	reapTimer.unref();

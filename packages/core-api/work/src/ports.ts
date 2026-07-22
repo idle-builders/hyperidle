@@ -118,15 +118,21 @@ import type { EventBus, UserRole } from "@hyperidle/shared";
  * `task-state-machine.ts`). Narrower than session-requests' full
  * `AgentWorkIntentKind` union — `work` only ever writes these two.
  */
-type WorkAgentWorkIntentKind = "bet_decomposition" | "task_run";
-
-interface WorkAgentWorkIntentInput {
-	readonly kind: WorkAgentWorkIntentKind;
-	readonly sourceKind: string;
-	readonly sourceId: string;
-	readonly requestedBy?: string;
-	readonly idempotencyKey: string;
-}
+type WorkAgentWorkIntentInput =
+	| {
+			readonly kind: "bet_decomposition";
+			readonly sourceKind: "bet";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+	  }
+	| {
+			readonly kind: "task_run";
+			readonly sourceKind: "task_dispatch_attempt";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+	  };
 
 interface WorkAgentWorkIntentRecord {
 	readonly id: string;

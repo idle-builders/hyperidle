@@ -11,9 +11,9 @@
  * forward-ref) ports (Mechanism C — `run-orchestration` never imports
  * another Service). This module builds each bound singleton ONCE, at the
  * composition root, so every real call site (`dispatch-bindings.ts`,
- * `session-requests-bindings.ts`, `server-factory.ts`) imports the
+ * `durable-agent-queue.ts`, `server-factory.ts`) imports the
  * already-wired function — same factory-curry idiom as
- * `session-requests-bindings.ts`'s own `agentWorkIntentWorkerDeps`
+ * `durable-agent-queue.ts`'s own `agentWorkIntentWorkerDeps`
  * (Increment 3b).
  *
  * @lore AU19 Increment 3h: `dispatch` migrated for real — the `dispatch`
@@ -29,7 +29,7 @@
  * .executeAgentRunRequest`'s arrow-function wrapper), never at module
  * top-level — both modules finish initial evaluation (and populate their
  * live export bindings) before either function is ever actually invoked.
- * Pre-existing shape (`session-requests-bindings.ts`'s
+ * Pre-existing shape (`durable-agent-queue.ts`'s
  * `consumeAgentSessionRequest` alias already reached back into
  * `agent-run-boundary.ts`; this file's own prior circularity with
  * `agent-work-assistant.ts` before its migration); this migration only
@@ -77,24 +77,25 @@ import {
 	type RunOrchestrationSessionContext,
 	type RunOrchestrationSessionLifecycleRuntime,
 	type RunOrchestrationSessionProvisioner,
-	type RunOrchestrationSessionRequestsPort,
 	WorkerConnectionManager as RunOrchestrationWorkerConnectionManager,
 	recoverRunningAgentSessionRequests as recoverRunningAgentSessionRequestsInternal,
 	registerWorkerWsRoute as registerWorkerWsRouteInternal,
 } from "@hyperidle/run-orchestration";
 import {
-	claimAgentSessionRequestById,
-	claimNextAgentSessionRequest,
+	claimSessionRequest,
+	drainIntents,
 	findSessionRequest,
-	listAgentSessionRequestsBySource,
-	listRunningAgentSessionRequests,
-	releaseRequestClaim,
-	renewAgentSessionRequestLease,
+	listSessionRequests,
+	reapExpired,
+	releaseClaim,
+	renewClaim,
+	transitionSessionRequest,
 } from "@hyperidle/session-requests";
 import type { EventBus, WorkerRegisterMessage } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { dispatchOps } from "./dispatch-bindings.js";
+import { queueDeps } from "./durable-agent-queue.js";
 import {
 	crashSession,
 	harnessPort,
@@ -103,43 +104,10 @@ import {
 	type SessionContext,
 	transitionAgentRunLifecycle,
 } from "./session-lifecycle-bindings.js";
-import {
-	drainAgentWorkIntents,
-	markExplicitSessionStartAdmitted,
-	markExplicitSessionStartFailed,
-	markRequestRunning,
-	reapTerminalAgentWorkIntents,
-} from "./session-requests-bindings.js";
 
 // ---------------------------------------------------------------------------
 // session-requests — every method maps 1:1 onto a real export.
 // ---------------------------------------------------------------------------
-
-const sessionRequestsPort: RunOrchestrationSessionRequestsPort = {
-	findAgentSessionRequestById: (db, id) => findSessionRequest(db, { by: "id", requestId: id }),
-	listAgentSessionRequestsBySource,
-	listRunningAgentSessionRequests,
-	isAgentSessionRequestClaimActive: (db, input) =>
-		findSessionRequest(db, {
-			by: "claimActive",
-			requestId: input.requestId,
-			claimToken: input.claimToken,
-			now: input.now,
-		}),
-	claimNextAgentSessionRequest,
-	claimAgentSessionRequestById,
-	releaseRequestClaim,
-	renewAgentSessionRequestLease,
-	markRequestRunning,
-	findAgentWorkIntentSourceByRequestId: (db, requestId) =>
-		findSessionRequest(db, { by: "intentSource", requestId }),
-	drainAgentWorkIntents,
-	reapTerminalAgentWorkIntents,
-	findExplicitSessionStartById: (db, id) =>
-		findSessionRequest(db, { by: "explicitStart", startId: id }),
-	markExplicitSessionStartAdmitted,
-	markExplicitSessionStartFailed,
-};
 
 // ---------------------------------------------------------------------------
 // session-lifecycle — REAL since AU19 Increment 3i, wired to
@@ -192,7 +160,16 @@ const dispatchPort: RunOrchestrationDispatchPort = {
 };
 
 export const runOrchestrationPorts: RunOrchestrationPorts = {
-	sessionRequests: sessionRequestsPort,
+	sessionRequests: {
+		claimSessionRequest,
+		findSessionRequest,
+		listSessionRequests,
+		releaseClaim,
+		renewClaim,
+		transitionSessionRequest,
+		drainIntents,
+		reapExpired,
+	},
 	sessionLifecycle: sessionLifecyclePort,
 	sessionProvisioner: sessionProvisionerPort,
 	dispatch: dispatchPort,
@@ -237,7 +214,7 @@ const remoteHarnessAdapterFactory: RunOrchestrationRemoteHarnessAdapterFactory =
 // not `@hyperidle/run-orchestration` directly for the deps-carrying functions.
 // ---------------------------------------------------------------------------
 
-/** @lore AU6: production code must use this boundary naming — `session-requests-bindings.ts` re-exports it under the legacy alias (see this file's top `@lore`) for its own test-assertion-surface reasons; this module never declares that other name itself (au6-agent-boundary-guard bans re-declaring it as a local binding). */
+/** @lore AU6: production code must use this boundary naming — `durable-agent-queue.ts` re-exports it under the legacy alias (see this file's top `@lore`) for its own test-assertion-surface reasons; this module never declares that other name itself (au6-agent-boundary-guard bans re-declaring it as a local binding). */
 export function executeAgentRunRequest(
 	deps: RunOrchestrationProvisionDeps,
 	request: AgentSessionRequest,
@@ -269,15 +246,23 @@ export function recoverRunningAgentSessionRequests(
 }
 
 export function bootAgentLayer(
-	deps: Omit<AgentLayerBootDeps, "ports">,
+	deps: Omit<AgentLayerBootDeps, "ports" | "durableQueue">,
 ): ReturnType<typeof bootAgentLayerInternal> {
-	return bootAgentLayerInternal({ ...deps, ports: runOrchestrationPorts });
+	return bootAgentLayerInternal({
+		...deps,
+		ports: runOrchestrationPorts,
+		durableQueue: queueDeps(deps.db),
+	});
 }
 
 export function drainAgentSessionRequests(
-	deps: Omit<AgentLayerBootDeps, "ports">,
+	deps: Omit<AgentLayerBootDeps, "ports" | "durableQueue">,
 ): ReturnType<typeof drainAgentSessionRequestsInternal> {
-	return drainAgentSessionRequestsInternal({ ...deps, ports: runOrchestrationPorts });
+	return drainAgentSessionRequestsInternal({
+		...deps,
+		ports: runOrchestrationPorts,
+		durableQueue: queueDeps(deps.db),
+	});
 }
 
 export function markRunningAgentSessionRequestsForShutdown(

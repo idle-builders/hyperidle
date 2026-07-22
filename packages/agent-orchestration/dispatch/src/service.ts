@@ -1058,7 +1058,7 @@ async function fireGenericRoutineInternal(
 
 	const runId = crypto.randomUUID();
 	let intent:
-		| Awaited<ReturnType<DispatchPorts["sessionRequests"]["recordAgentWorkIntent"]>>
+		| Awaited<ReturnType<DispatchPorts["sessionRequests"]["enqueueWorkIntent"]>>
 		| undefined;
 	await db.transaction(async (tx) => {
 		await ports.routine.insertRoutineRun(tx, {
@@ -1067,7 +1067,7 @@ async function fireGenericRoutineInternal(
 			startedAt: now.toISOString(),
 			outcome: "running",
 		});
-		intent = await ports.sessionRequests.recordAgentWorkIntent(tx as HyperIdleDb, {
+		intent = await ports.sessionRequests.enqueueWorkIntent(tx, {
 			kind: "routine_run",
 			sourceKind: "routine_run",
 			sourceId: runId,

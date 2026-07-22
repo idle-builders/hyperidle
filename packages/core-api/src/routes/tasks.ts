@@ -1,5 +1,6 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { SessionContext } from "@hyperidle/run-orchestration";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
@@ -12,7 +13,6 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
 import { handoff } from "../services/policy-bindings.js";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 
 /**
  * Zod schemas for request validation.
@@ -204,7 +204,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
 
 			await transitionTask(db, eventBus, taskId, body.state, {
-				workIntents: { record: recordAgentWorkIntent },
+				workIntents: { record: enqueueWorkIntent },
 			});
 
 			const updated = await work.get(db, "task", taskId);

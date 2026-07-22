@@ -3,10 +3,8 @@
 // ── AU19 §11 (AC-9): cross-Layer AgentWorkIntentRecorder/Reader seam ──
 export type {
 	AgentWorkIntentReader,
-	AgentWorkIntentRecord,
 	AgentWorkIntentRecorder,
 	AgentWorkIntentRecorderInput,
-	AgentWorkIntentRecorderKind,
 } from "./agent-work-intent-recorder.js";
 export { scopeKindToLabel } from "./scope-labels.js";
 

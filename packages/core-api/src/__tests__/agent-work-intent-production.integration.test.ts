@@ -22,17 +22,18 @@ import {
 } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
 import { transitionProposedCall } from "@hyperidle/review";
+import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { findUser, listUsers } from "@hyperidle/users";
 import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
 import { checkAndUnblockDependents, registerBetDecomposition } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
+import { queueDeps } from "../services/durable-agent-queue.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
 const depWatcherDeps = {
-	workIntents: { record: recordAgentWorkIntent },
+	workIntents: { record: enqueueWorkIntent },
 };
 
 const agentSelectionService = createAgentSelectionService({
@@ -58,7 +59,7 @@ const agentSelection: WorkDeps["agentSelection"] = {
 			spreadIndex: occasion.spreadIndex,
 		}),
 };
-const workIntents: WorkDeps["workIntents"] = { record: recordAgentWorkIntent };
+const workIntents: WorkDeps["workIntents"] = { record: enqueueWorkIntent };
 
 async function triggerDecomposition(
 	db: HyperIdleDb,
@@ -292,19 +293,16 @@ describe("atomic production handoffs", () => {
 		);
 	});
 
-	test("production module offers one drain with no domain callback", async () => {
-		const worker = (await import("../services/session-requests-bindings.js")) as Record<
-			string,
-			unknown
-		>;
-		expect(worker.consumeAgentSessionRequest).toBeTypeOf("function");
-		expect(worker.drainAgentWorkIntents).toBeTypeOf("function");
+	test("composition module exports dependencies only", async () => {
+		const worker = await import("../services/durable-agent-queue.js");
+		expect(worker.queueDeps).toBeTypeOf("function");
+		expect("drainIntents" in worker).toBe(false);
 		// @lore AU9 R1: handOffIntent was a zero-production-caller duplicate of the
 		// drain's own inline resolve+create+checkpoint transaction — deleted rather
 		// than kept as a second, un-wired "correct" path (the exact divergence class
 		// R1 exists to prevent). No AgentWorkIntentWorkerOptions.onRequest callback
 		// exists either — the drain is the sole request-creating path.
-		expect(worker.handOffIntent).toBeUndefined();
+		expect("handOffIntent" in worker).toBe(false);
 	});
 
 	test("explicit session command commits one source and intent before any request and replays exactly", async ({
@@ -364,8 +362,7 @@ describe("atomic production handoffs", () => {
 		});
 		expect(response.status).toBe(202);
 		let callbacks = 0;
-		const { drainAgentWorkIntents } = await import("../services/session-requests-bindings.js");
-		await drainAgentWorkIntents(db, {
+		await drainIntents(queueDeps(db), {
 			now: () => new Date(Date.now() + 1_000),
 			...({
 				onRequest: async () => {
@@ -373,7 +370,7 @@ describe("atomic production handoffs", () => {
 				},
 			} as object),
 		});
-		await drainAgentWorkIntents(db, { now: () => new Date(Date.now() + 2_000) });
+		await drainIntents(queueDeps(db), { now: () => new Date(Date.now() + 2_000) });
 		const [intent] = await db.select().from(agentWorkIntents);
 		const requests = await db.select().from(agentSessionRequests);
 		expect(callbacks, JSON.stringify(intent)).toBe(0);
@@ -744,7 +741,7 @@ describe("atomic production handoffs", () => {
 				if (input.kind === "task_run") {
 					throw new Error("AU9 injected intent write failure");
 				}
-				return recordAgentWorkIntent(exec, input);
+				return enqueueWorkIntent(exec, input);
 			},
 		};
 		await triggerDecomposition(db, eventBus, [{ title: "Must be atomic" }], failDispatchIntent);
@@ -767,7 +764,7 @@ describe("atomic production handoffs", () => {
 				approvedToolId: "commit_file",
 				approvedArgs: { path: "result.txt" },
 			},
-			{ intentRecorder: { record: recordAgentWorkIntent } },
+			{ intentRecorder: { record: enqueueWorkIntent } },
 		);
 		const intents = await db
 			.select()

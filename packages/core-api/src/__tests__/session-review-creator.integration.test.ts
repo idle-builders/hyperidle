@@ -14,13 +14,13 @@ import {
 } from "@hyperidle/db";
 import { resolveReviewRecipients } from "@hyperidle/org";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { findUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { test } from "../test-fixtures.js";
 
 /**
@@ -47,7 +47,7 @@ const reviewDeps: ReviewPorts = {
 		listUsersByKind: (db, kind) => listUsers(db, { kind }),
 	},
 	org: { resolveReviewRecipients },
-	intentRecorder: { record: recordAgentWorkIntent },
+	intentRecorder: { record: enqueueWorkIntent },
 };
 
 async function seedBase(db: HyperIdleDb): Promise<void> {

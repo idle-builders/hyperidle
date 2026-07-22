@@ -47,7 +47,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 	// Note: AF8 builder lore said 9→10 but AF6's scheduler disposer was already in place, so actual: 9→11.
 	// @lore AF9: registerRelevanceListener added. Count 11 → 12.
 	// @lore AF16 T17: startRetentionReaper added (in-process 6h TTL sweep). Count 12 → 13.
-	// @lore AU9: startAgentLifecycleProjectionDrain added (durable core-owned lifecycle
+	// @lore AU9: startLifecycleProjectionDrain added (durable core-owned lifecycle
 	// inbox drain, boot-wired in bootstrap.ts). Count 13 → 14.
 	// @lore AU11: bootstrap.ts split into registerCoreDomainServices (11 disposers)
 	// + registerAgentLayerServices (3 unconditional disposers, dispatcherDeps

@@ -23,6 +23,9 @@ import {
 } from "@hyperidle/observability";
 import { getTeamMembers } from "@hyperidle/org";
 import { SessionActivityBuffer } from "@hyperidle/run-orchestration";
+// @lore AU20 Ag1b: standalone assistant registration removed — its trigger
+// is now started through dispatchOps.start (called from registerAgentLayerServices).
+import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
@@ -69,13 +72,12 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
-// @lore AU20 Ag1b: standalone assistant registration removed — its trigger
-// is now started through dispatchOps.start (called from registerAgentLayerServices).
-import {
-	agentWorkIntentReader,
-	agentWorkIntentRecorder,
-	recordAgentWorkIntent,
-} from "./services/session-requests-bindings.js";
+
+const agentWorkIntentRecorder = { record: enqueueWorkIntent };
+const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<HyperIdleDb> = {
+	findByKindAndSource: (db, kind, sourceId) =>
+		findSessionRequest(db, { by: "intentSource", kind, sourceId }),
+};
 
 interface AppOptions {
 	db?: HyperIdleDb;
@@ -209,7 +211,7 @@ interface AppOptions {
 	 * `agent-orchestration`/`session-requests` Layer boundary
 	 * `routes/threads.ts`/`routes/sessions-routes.ts` (core-api routes) must
 	 * not cross by importing `@hyperidle/session-requests` directly. Defaults
-	 * to the real production binding (`session-requests-bindings.ts`); tests
+	 * to the real production binding (`durable-agent-queue.ts`); tests
 	 * may override for isolation.
 	 */
 	agentWorkIntentRecorder?: import("@hyperidle/shared").AgentWorkIntentRecorder<HyperIdleDb>;
@@ -570,12 +572,12 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// to `@hyperidle/work` (AU20 Ag2 barrel collapse) — it exclusively calls
 		// work's own table paths, so `work` is its correct home. The `work:` DI-port
 		// sub-object is gone; only the against-grain `session-requests` recorder
-		// (`workIntents`) remains injected, wired to `recordAgentWorkIntent`
-		// (migrated Increment 3b, `session-requests-bindings.js`).
+		// (`workIntents`) remains injected, wired to `enqueueWorkIntent`
+		// (migrated Increment 3b, `durable-agent-queue.js`).
 		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
 			if (event.toState === "done") {
 				void checkAndUnblockDependents(db, eventBus, event.taskId, {
-					workIntents: { record: recordAgentWorkIntent },
+					workIntents: { record: enqueueWorkIntent },
 				}).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
 						taskId: event.taskId,

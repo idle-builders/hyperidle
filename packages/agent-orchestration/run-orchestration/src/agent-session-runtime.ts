@@ -34,11 +34,12 @@ export function admitOnlyWithRequestLease(
 	input: { requestId: string; claimToken: string; now?: Date },
 	ports: RunOrchestrationPorts,
 ): Promise<boolean> {
-	return ports.sessionRequests.isAgentSessionRequestClaimActive(db, {
+	return ports.sessionRequests.findSessionRequest(db, {
+		by: "claimActive",
 		requestId: input.requestId,
 		claimToken: input.claimToken,
 		now: input.now ?? new Date(),
-	});
+	}) as Promise<boolean>;
 }
 
 export async function reserveOrAdoptSession(
@@ -55,8 +56,13 @@ export async function reserveOrAdoptSession(
 		.where(eq(sessions.requestId, input.requestId))
 		.limit(1);
 	if (existing) return { adopted: true, sessionId: existing.id };
-	const request = await ports.sessionRequests.findAgentSessionRequestById(db, input.requestId);
-	if (!request) throw new Error(`Unknown agent session request ${input.requestId}`);
+	const request = await ports.sessionRequests.findSessionRequest(db, {
+		by: "id",
+		requestId: input.requestId,
+	});
+	if (!request) {
+		throw new Error(`Unknown agent session request ${input.requestId}`);
+	}
 	const agentId = request.agentId;
 	const now = new Date().toISOString();
 	const sessionId = randomUUID();
@@ -96,7 +102,7 @@ export async function recoverRunningAgentSessionRequests(
 	eventBus: EventBus,
 	ports: RunOrchestrationPorts,
 ): Promise<{ adopted: number; runtimeLost: number; running: number }> {
-	const running = await ports.sessionRequests.listRunningAgentSessionRequests(db);
+	const running = await ports.sessionRequests.listSessionRequests(db, { status: "running" });
 	let adopted = 0;
 	let runtimeLost = 0;
 	for (const request of running) {
@@ -189,15 +195,18 @@ async function ensureClaimedRequest(
 	options: ConsumeAgentSessionRequestOptions,
 	ports: RunOrchestrationPorts,
 ): Promise<AgentSessionRequest> {
+	void ports;
 	if (request.status === "claimed") return request;
 	if (request.status !== "pending") {
 		throw new Error(`Agent session request ${request.id} is not claimable (${request.status})`);
 	}
-	const claimed = await ports.sessionRequests.claimAgentSessionRequestById(
+	const claimed = await ports.sessionRequests.claimSessionRequest(
 		db,
-		request.id,
-		options.workerId ?? "local-runtime",
-		options.claim ?? { now: new Date(), leaseMs: 30_000 },
+		{ id: request.id },
+		{
+			workerId: options.workerId ?? "local-runtime",
+			...(options.claim ?? { now: new Date(), leaseMs: 30_000 }),
+		},
 	);
 	if (!claimed) {
 		throw new Error(`Agent session request ${request.id} was already claimed`);
@@ -220,9 +229,7 @@ async function runClaimedRequest(
 		if (
 			!(
 				request.claimToken &&
-				(await ports.sessionRequests.renewAgentSessionRequestLease(deps.db, {
-					requestId: request.id,
-					claimToken: request.claimToken,
+				(await ports.sessionRequests.renewClaim(deps.db, request.id, request.claimToken, {
 					now: new Date(),
 					leaseMs: 30_000,
 				}))
@@ -238,12 +245,12 @@ async function runClaimedRequest(
 		admitted = options.enforceResolvedModelGuard
 			? await ports.sessionProvisioner.admitSession(deps, provisionParams, true)
 			: await ports.sessionProvisioner.admitSession(deps, provisionParams);
-		await ports.sessionRequests.markRequestRunning(
-			deps.db,
-			request.id,
-			admitted.sessionId,
-			request.claimToken,
-		);
+		await ports.sessionRequests.transitionSessionRequest(deps.db, {
+			to: "running",
+			requestId: request.id,
+			sessionId: admitted.sessionId,
+			claimToken: request.claimToken,
+		});
 		if (options.detachAfterAdmission) {
 			let signalStarted!: () => void;
 			const started = new Promise<void>((resolve) => {
@@ -311,11 +318,9 @@ async function runClaimedRequest(
 		return result;
 	} catch (err) {
 		if (err instanceof ConcurrencyLimitError || err instanceof CostCapExceededError) {
-			await ports.sessionRequests.releaseRequestClaim(
-				deps.db,
-				request.id,
-				request.claimToken ?? undefined,
-			);
+			if (request.claimToken) {
+				await ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
+			}
 			throw err;
 		}
 		// @lore AU9 R1: this catch spans both preconditions of the single terminal

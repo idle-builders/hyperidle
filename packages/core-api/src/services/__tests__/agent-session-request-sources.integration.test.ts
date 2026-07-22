@@ -13,7 +13,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { AdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
-import { createAgentSessionRequest } from "@hyperidle/session-requests";
+import { createSessionRequest } from "@hyperidle/session-requests";
 import {
 	type AgentSessionRequestInput,
 	type DomainEvent,
@@ -62,7 +62,7 @@ class RecordingHarnessAdapter implements HarnessAdapter {
 	}
 }
 
-async function seedWork(db: Parameters<typeof createAgentSessionRequest>[0]): Promise<void> {
+async function seedWork(db: Parameters<typeof createSessionRequest>[0]): Promise<void> {
 	const now = new Date().toISOString();
 	await db
 		.insert(teams)
@@ -245,7 +245,7 @@ describe("agent session request sources", () => {
 		];
 
 		for (const source of sources) {
-			const request = await createAgentSessionRequest(db, source);
+			const request = await createSessionRequest(db, { kind: "direct", request: source });
 			await executeAgentRunRequest(deps, request, { sandboxBasePath });
 		}
 

@@ -1,5 +1,6 @@
 import type {
 	AgentSessionRequest,
+	AgentWorkIntent,
 	Bet,
 	HyperIdleDb,
 	Message,
@@ -145,16 +146,28 @@ export interface DispatchPorts {
 		}>;
 	};
 	readonly sessionRequests: {
-		recordAgentWorkIntent(
-			exec: HyperIdleDb,
+		enqueueWorkIntent(
+			exec: WriteExecutor,
 			input: {
-				readonly kind: string;
-				readonly sourceKind: string;
+				readonly kind:
+					| "assistant_turn"
+					| "routine_run"
+					| "bet_decomposition"
+					| "task_run"
+					| "reengagement";
+				readonly sourceKind:
+					| "thread_message"
+					| "explicit_session_start"
+					| "knowledge_action"
+					| "routine_run"
+					| "bet"
+					| "task_dispatch_attempt"
+					| "proposed_call";
 				readonly sourceId: string;
-				readonly requestedBy: string | null;
+				readonly requestedBy?: string;
 				readonly idempotencyKey: string;
 			},
-		): Promise<{ readonly id: string; readonly idempotencyKey: string }>;
+		): Promise<AgentWorkIntent>;
 	};
 	readonly cost: { getFactoryCostActual(db: HyperIdleDb): Promise<number> };
 	readonly review: {

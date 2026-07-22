@@ -17,7 +17,7 @@ import type {
  * move). `getAgentRunLifecycle`/`listAgentRunLifecycleBySource` raw-read
  * `agentSessionRequests` (`session-requests`-owned) directly pre-migration —
  * converted to `ports.sessionRequests`'s `findAgentSessionRequestById`/
- * `listAgentSessionRequestsBySource` (see `ports.ts`'s top `@lore`).
+ * `listSessionRequests` (see `ports.ts`'s top `@lore`).
  */
 
 /** @lore AU6 boundary: the composition root reaches recovery only through this file. */
@@ -86,7 +86,7 @@ export async function getAgentRunLifecycle(
 	requestId: string,
 	ports: RunOrchestrationPorts,
 ): Promise<AgentRunLifecycle | null> {
-	const row = await ports.sessionRequests.findAgentSessionRequestById(db, requestId);
+	const row = await ports.sessionRequests.findSessionRequest(db, { by: "id", requestId });
 	return row ? rowToLifecycle(row) : null;
 }
 
@@ -96,10 +96,8 @@ export async function listAgentRunLifecycleBySource(
 	sourceId: string,
 	ports: RunOrchestrationPorts,
 ): Promise<AgentRunLifecycle[]> {
-	const rows = await ports.sessionRequests.listAgentSessionRequestsBySource(
-		db,
-		sourceKind,
-		sourceId,
-	);
+	const rows = await ports.sessionRequests.listSessionRequests(db, {
+		source: { kind: sourceKind, id: sourceId },
+	});
 	return rows.map(rowToLifecycle);
 }

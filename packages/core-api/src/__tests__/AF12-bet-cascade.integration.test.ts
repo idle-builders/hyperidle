@@ -40,13 +40,13 @@ import {
 import { enqueue } from "@hyperidle/notifications";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { findUser } from "@hyperidle/users";
 import type { TaskStateMachineDeps, WorkDeps } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { test } from "../test-fixtures.js";
 
 /**
@@ -110,7 +110,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 };
 
 /** AU19 Increment 1b: `cascadeBetKill` forwards this to `transitionTask`. */
-const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
+const testDeps: TaskStateMachineDeps = { workIntents: { record: enqueueWorkIntent } };
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
 const teamCapacity: WorkDeps["teamCapacity"] = {

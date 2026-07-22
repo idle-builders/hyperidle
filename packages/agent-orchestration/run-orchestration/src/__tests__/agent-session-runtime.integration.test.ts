@@ -4,14 +4,25 @@
  * See `agent-run-boundary.integration.test.ts`'s top `@lore` for the
  * fixture-conversion + port-injection rationale (same shape).
  */
-import { agentSessionRequests, bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	agentSessionRequests,
+	bets,
+	type HyperIdleDb,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { createAgentSessionRequest } from "@hyperidle/session-requests";
-import { EventBus } from "@hyperidle/shared";
+import { createSessionRequest } from "@hyperidle/session-requests";
+import { type AgentSessionRequestInput, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import { consumeAgentSessionRequest } from "../agent-session-runtime.js";
 import { buildTestPorts } from "./test-ports.js";
+
+const createRequestForTest = (db: HyperIdleDb, request: AgentSessionRequestInput) =>
+	createSessionRequest(db, { kind: "direct", request });
 
 describe("agent session runtime consumer", () => {
 	test("consumeAgentSessionRequest claims request, marks running before runSession, and marks terminal", async ({
@@ -61,7 +72,7 @@ describe("agent session runtime consumer", () => {
 			forceReturnCount: 0,
 		}));
 
-		const request = await createAgentSessionRequest(db, {
+		const request = await createRequestForTest(db, {
 			sourceKind: "task",
 			sourceId: "task-1",
 			streamId: "task:task-1",
@@ -138,7 +149,7 @@ describe("agent session runtime consumer", () => {
 			sessionContext: { taskId: params.taskId },
 		}));
 
-		const request = await createAgentSessionRequest(db, {
+		const request = await createRequestForTest(db, {
 			sourceKind: "task",
 			sourceId: "task-1",
 			streamId: "task:task-1",

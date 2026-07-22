@@ -13,7 +13,7 @@
  * `routes/dispatch-queue-routes.ts`, `routes/teams-routes.ts`, and the many
  * `__tests__` integration tests) imports the already-wired functions
  * unchanged — same factory-curry idiom as `cost-bindings.ts`/
- * `session-requests-bindings.ts`.
+ * `durable-agent-queue.ts`.
  *
  * `toolHandlers`/`workspaceFactory` wire to `tools/assistant-draft-registry.ts`/
  * `harness/local-sandbox-adapter.ts` — still-flat `packages/server` files
@@ -51,7 +51,7 @@ import {
 	sumRunCost,
 	updateRoutine,
 } from "@hyperidle/routine";
-import type { AgentWorkIntentKind } from "@hyperidle/session-requests";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus, ToolContext } from "@hyperidle/shared";
 import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
@@ -61,7 +61,6 @@ import { createPracticeMeeting } from "../../knowledge/src/practice-meeting.js";
 import { agentSelectionService } from "./agent-selection-bindings.js";
 import { costOps } from "./cost-bindings.js";
 import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
-import { recordAgentWorkIntent } from "./session-requests-bindings.js";
 import { toolHandlersPorts } from "./tool-handlers-bindings.js";
 
 /**
@@ -173,16 +172,7 @@ const dispatchPorts: DispatchPorts = {
 			executeAgentRunRequest(deps, request, options),
 	},
 	sessionRequests: {
-		recordAgentWorkIntent: async (exec, input) => {
-			const record = await recordAgentWorkIntent(exec, {
-				kind: input.kind as AgentWorkIntentKind,
-				sourceKind: input.sourceKind,
-				sourceId: input.sourceId,
-				requestedBy: input.requestedBy ?? undefined,
-				idempotencyKey: input.idempotencyKey,
-			});
-			return { id: record.id, idempotencyKey: record.idempotencyKey };
-		},
+		enqueueWorkIntent,
 	},
 	cost: {
 		getFactoryCostActual: (db) => costOps.spend(db, { level: "factory" }),

@@ -13,7 +13,7 @@
  * real call site (`server-factory.ts`, `session.ts`, `routes/sessions-routes.ts`,
  * `routes/tasks.ts`, `tools/handoff-to.ts`, `run-orchestration-bindings.ts`)
  * imports the already-wired function — same factory-curry idiom as
- * `cost-bindings.ts`/`session-requests-bindings.ts`/`run-orchestration-bindings.ts`.
+ * `cost-bindings.ts`/`durable-agent-queue.ts`/`run-orchestration-bindings.ts`.
  *
  * `HarnessPort`'s two methods (`@hyperidle/shared`) are satisfied by the
  * bound `admitSession`/`runSession` wrappers below — `run-orchestration-bindings.ts`
@@ -61,7 +61,13 @@ import {
 	startSessionProvision as startSessionProvisionInternal,
 	transitionAgentRunLifecycle as transitionAgentRunLifecycleInternal,
 } from "@hyperidle/run-orchestration";
-import { recordAgentWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
+import {
+	enqueueWorkIntent,
+	findSessionRequest,
+	listSessionRequests,
+	sessionRunRegistry,
+	transitionSessionRequest,
+} from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type {
 	EventBus,
@@ -86,7 +92,6 @@ import {
 	writeSandboxAgentsMd,
 } from "./context-assembly-bindings.js";
 import { costOps } from "./cost-bindings.js";
-import { terminalizeAgentSessionRequestInTx } from "./session-requests-bindings.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
 // ---------------------------------------------------------------------------
@@ -106,7 +111,7 @@ const routineAccessor: SessionLifecyclePorts["routine"] = {
 
 // ---------------------------------------------------------------------------
 // work — ordinary downward DI. `transitionTask` pre-binds its own AC-9
-// `workIntents.record` dep to `session-requests`' `recordAgentWorkIntent`.
+// `workIntents.record` dep to `session-requests`' `enqueueWorkIntent`.
 // ---------------------------------------------------------------------------
 
 const workAccessor: SessionLifecyclePorts["work"] = {
@@ -125,7 +130,7 @@ const workAccessor: SessionLifecyclePorts["work"] = {
 			eventBus,
 			taskId,
 			toState,
-			{ workIntents: { record: recordAgentWorkIntent } },
+			{ workIntents: { record: enqueueWorkIntent } },
 			dispatchOccasion,
 		);
 	},
@@ -197,29 +202,6 @@ const connectionsProvisioner: SessionLifecyclePorts["connections"] = {
 // ---------------------------------------------------------------------------
 // session-requests — ordinary same-layer DI.
 // ---------------------------------------------------------------------------
-
-const sessionRequestsAccessor: SessionLifecyclePorts["sessionRequests"] = {
-	sessionRunRegistry,
-	recordAgentWorkIntent,
-	terminalizeAgentSessionRequestInTx,
-	findAgentSessionRequestTerminationReasonInTx: async (tx, requestId) => {
-		const { findSessionRequest } = await import("@hyperidle/session-requests");
-		return findSessionRequest(tx, { by: "terminationReason", requestId });
-	},
-	requestAgentSessionTermination: async (db, input) => {
-		const { transitionSessionRequest } = await import("@hyperidle/session-requests");
-		return transitionSessionRequest(db, {
-			to: "termination-requested",
-			requestId: input.requestId,
-			reason: input.reason,
-			requestedBy: input.requestedBy,
-		});
-	},
-	listRunningAgentSessionRequests: async (db) => {
-		const { listRunningAgentSessionRequests } = await import("@hyperidle/session-requests");
-		return listRunningAgentSessionRequests(db);
-	},
-};
 
 // ---------------------------------------------------------------------------
 // cost — ordinary same-layer DI.
@@ -297,6 +279,14 @@ const contextAssembly: SessionLifecyclePorts["contextAssembly"] = {
 // ---------------------------------------------------------------------------
 
 export const sessionLifecyclePorts: SessionLifecyclePorts = {
+	sessionRequests: {
+		findSessionRequest,
+		listSessionRequests,
+		transitionSessionRequest: (exec, transition) => transitionSessionRequest(exec, transition),
+		abortSessionRun: (sessionId) => sessionRunRegistry.abort(sessionId),
+		registerSessionRun: (sessionId, control) => sessionRunRegistry.register(sessionId, control),
+		deregisterSessionRun: (sessionId) => sessionRunRegistry.deregister(sessionId),
+	},
 	routine: routineAccessor,
 	work: workAccessor,
 	users: userReader,
@@ -304,7 +294,6 @@ export const sessionLifecyclePorts: SessionLifecyclePorts = {
 	observability: observabilityAccessor,
 	filesystems: filesystemsReader,
 	connections: connectionsProvisioner,
-	sessionRequests: sessionRequestsAccessor,
 	cost: costAccessor,
 	harnessRuntime,
 	mcpProvider,

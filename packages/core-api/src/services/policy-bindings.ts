@@ -10,7 +10,7 @@
  * `buildCreateReviewItemForKnowledge`, Increment 1j).
  *
  * @lore AU19 Increment 3b: `session-requests` is now a real Service package
- * — `record`/`abort` repoint to its real exports (`recordAgentWorkIntent`/
+ * — `record`/`abort` repoint to its real exports (`enqueueWorkIntent`/
  * `sessionRunRegistry.abort`, mechanical, zero behavior change). This stays
  * a plain DI port rather than the §10.3-default EventBus inversion — see
  * `@hyperidle/policy`'s `ports.ts` top `@lore` for why (`composeTailoredGrant`-
@@ -35,7 +35,7 @@ import type { HyperIdleDb, NewItem, NewTask, WriteExecutor } from "@hyperidle/db
 import { getTeamMembers } from "@hyperidle/org";
 import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
-import { recordAgentWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
+import { enqueueWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
@@ -72,7 +72,16 @@ const handoffDeps = {
 	},
 	org: { getByTeamId: (db: WriteExecutor, teamId: string) => getTeamMembers(db, { teamId }) },
 	sessionRequests: {
-		record: recordAgentWorkIntent,
+		record: (
+			exec: WriteExecutor,
+			input: {
+				readonly kind: "task_run";
+				readonly sourceKind: string;
+				readonly sourceId: string;
+				readonly requestedBy?: string;
+				readonly idempotencyKey: string;
+			},
+		) => enqueueWorkIntent(exec, input as Parameters<typeof enqueueWorkIntent>[1]),
 		abort: sessionRunRegistry.abort,
 	},
 };

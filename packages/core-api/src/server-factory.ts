@@ -96,7 +96,8 @@ type TaskDispatcherDeps = NonNullable<DispatchConfig["task"]> & {
 	readonly eventBus: EventBus;
 };
 
-import { startAgentLifecycleProjectionDrain } from "./services/lifecycle-projection-bindings.js";
+import { enqueueWorkIntent, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
+import { queueDeps } from "./services/durable-agent-queue.js";
 import {
 	bootAgentLayer,
 	markRunningAgentSessionRequestsForShutdown,
@@ -108,7 +109,6 @@ import {
 	registerHandoffTerminationRequester,
 	startSandboxReaper,
 } from "./services/session-lifecycle-bindings.js";
-import { recordAgentWorkIntent } from "./services/session-requests-bindings.js";
 
 const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
 
@@ -284,7 +284,7 @@ const policyDeps: PolicyDeps = {
  * AU11: registers CORE-owned application services against the event bus —
  * knowledge (relevance listener, FTS), notifications, policy engine,
  * review routing, lifecycle propagation, retention, git-export, and the
- * routine scheduler (cron/due-eval + `recordAgentWorkIntent`).
+ * routine scheduler (cron/due-eval + `enqueueWorkIntent`).
  *
  * Split from the former `app-runtime` shell's `bootstrapAppRuntime` —
  * together with `registerAgentLayerServices` this replicates the exact
@@ -332,7 +332,7 @@ export function registerCoreDomainServices(ctx: {
 }): Array<() => void> {
 	const { db, eventBus } = ctx;
 	const disposers: Array<() => void> = [];
-	disposers.push(startAgentLifecycleProjectionDrain(db));
+	disposers.push(startLifecycleProjectionDrain(queueDeps(db)));
 
 	disposers.push(attachRelevanceListener(db, eventBus));
 
@@ -355,7 +355,7 @@ export function registerCoreDomainServices(ctx: {
 				listUsersByKind: (db, kind) => listUsers(db, { kind }),
 			},
 			org: { resolveReviewRecipients },
-			intentRecorder: { record: recordAgentWorkIntent },
+			intentRecorder: { record: enqueueWorkIntent },
 		}),
 	);
 	disposers.push(registerPolicy(db, eventBus, policyDeps));
@@ -816,7 +816,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				listUsers(db, { teamIds, kind: "ai", status: "active" }),
 		},
 		costCap: { checkCostCap: costOps.check },
-		workIntents: { record: recordAgentWorkIntent },
+		workIntents: { record: enqueueWorkIntent },
 		// AU19 Increment 1c: `org` is a REAL migrated package — wired to its real
 		// exported functions (W2 closure).
 		teamCapacity: {

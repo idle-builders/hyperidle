@@ -25,6 +25,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import {
 	type AgentSessionSourceKind,
 	DECOMPOSITION_TURN_TIMEOUT_MS,
@@ -40,7 +41,6 @@ import { registerBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { costOps } from "../services/cost-bindings.js";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
@@ -87,7 +87,7 @@ const productionPorts = {
 			listUsers(db, { teamIds, kind: "ai", status: "active" }),
 	},
 	costCap: { checkCostCap: costOps.check },
-	workIntents: { record: recordAgentWorkIntent },
+	workIntents: { record: enqueueWorkIntent },
 	teamCapacity: {
 		getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
 		setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>

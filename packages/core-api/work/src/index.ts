@@ -103,6 +103,7 @@ export {
 	create,
 	get,
 	list,
+	taskDispatchAttemptStore,
 	transition,
 	update,
 } from "./work-service.js";

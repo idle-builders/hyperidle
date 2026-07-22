@@ -34,7 +34,7 @@ import type {
 
 export interface ReviewAgentWorkIntentInput {
 	readonly kind: "reengagement";
-	readonly sourceKind: string;
+	readonly sourceKind: "proposed_call";
 	readonly sourceId: string;
 	readonly requestedBy?: string;
 	readonly idempotencyKey: string;

@@ -29,12 +29,12 @@ import {
 	users,
 } from "@hyperidle/db";
 import * as routineService from "@hyperidle/routine";
+import { drainIntents, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { fireGenericRoutine } from "../../__tests__/dispatch-test-helpers.js";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { startAgentLifecycleProjectionDrain } from "../lifecycle-projection-bindings.js";
-import { drainAgentWorkIntents } from "../session-requests-bindings.js";
+import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 const TEST_API_KEY = "test-key-au15-routine-scheduler";
@@ -187,7 +187,7 @@ describe("terminal-failure finalization of session-less running runs", () => {
 		// throws InvalidAgentWorkSourceError (pre-hand-off, no session ever exists).
 		await routineService.updateRoutine(db, routineId, { active: false });
 
-		await drainAgentWorkIntents(db);
+		await drainIntents(queueDeps(db));
 
 		const [intent] = await db
 			.select()
@@ -244,7 +244,7 @@ describe("terminal-failure finalization of session-less running runs", () => {
 			occurredAt: NOW,
 		});
 
-		const stop = startAgentLifecycleProjectionDrain(db, { pollIntervalMs: 10 });
+		const stop = startLifecycleProjectionDrain(queueDeps(db), { pollIntervalMs: 10 });
 		try {
 			const deadline = Date.now() + 5_000;
 			for (;;) {

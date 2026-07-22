@@ -14,38 +14,40 @@
  * dependency (a leaf package), so it cannot name `HyperIdleDb`/`WriteExecutor`
  * directly. The composition root (`packages/server`) instantiates this
  * generic with its own concrete `HyperIdleDb` type; the real concrete
- * recorder (`@hyperidle/session-requests`'s `recordAgentWorkIntent`) is
+ * recorder (`@hyperidle/session-requests`'s `enqueueWorkIntent`) is
  * assigned unchanged — no adapter needed (its `AgentWorkIntentDb` param type
  * is a structural superset of `HyperIdleDb`).
  */
 
-/** Narrow mirror of `@hyperidle/session-requests`'s `AgentWorkIntentKind` — the two kinds these two routes record. */
-export type AgentWorkIntentRecorderKind = "assistant_turn" | "session_start";
-
-export interface AgentWorkIntentRecorderInput {
-	readonly kind: AgentWorkIntentRecorderKind;
-	readonly sourceKind: string;
-	readonly sourceId: string;
-	readonly requestedBy?: string;
-	readonly idempotencyKey: string;
-}
-
-/** Narrow mirror of `@hyperidle/session-requests`'s `AgentWorkIntent` row — only the fields these two routes read. */
-export interface AgentWorkIntentRecord {
-	readonly id: string;
-	readonly idempotencyKey: string;
-}
+export type AgentWorkIntentRecorderInput =
+	| {
+			readonly kind: "assistant_turn";
+			readonly sourceKind: "thread_message";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+	  }
+	| {
+			readonly kind: "session_start";
+			readonly sourceKind: "explicit_session_start";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+	  };
 
 /** Application-injected port for `session-requests`' durable `agent_work_intents` writer (Mechanism C, §11). */
 export interface AgentWorkIntentRecorder<TTx = unknown> {
-	record(tx: TTx, input: AgentWorkIntentRecorderInput): Promise<AgentWorkIntentRecord>;
+	record(
+		tx: TTx,
+		input: AgentWorkIntentRecorderInput,
+	): Promise<{ readonly id: string; readonly idempotencyKey: string }>;
 }
 
 /** Application-injected port for `session-requests`' `agent_work_intents` reader (Mechanism C, §11). */
 export interface AgentWorkIntentReader<TDb = unknown> {
 	findByKindAndSource(
 		db: TDb,
-		kind: AgentWorkIntentRecorderKind,
+		kind: "assistant_turn" | "session_start",
 		sourceId: string,
-	): Promise<AgentWorkIntentRecord | undefined>;
+	): Promise<{ readonly id: string; readonly idempotencyKey: string } | undefined>;
 }

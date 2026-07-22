@@ -30,6 +30,7 @@ import {
 } from "@hyperidle/db";
 import { get as getKnowledgeItem, list as listKnowledgeItems } from "@hyperidle/knowledge";
 import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type {
 	AgentOperationalStatus,
 	AgentWorkIntentRecorder,
@@ -63,7 +64,6 @@ import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
@@ -585,7 +585,7 @@ function err(
  * must not import `@hyperidle/session-requests` (agent-orchestration)
  * directly for its raw `agent_work_intents` write below. `createApp`
  * defaults it to the real production binding
- * (`session-requests-bindings.ts`); tests may override.
+ * (`durable-agent-queue.ts`); tests may override.
  */
 export function createThreadRoutes(
 	db: HyperIdleDb,
@@ -1401,7 +1401,7 @@ export function createThreadRoutes(
 						approvedArgs: pcView.call.args,
 						identityHash: pcView.call.identityHash,
 					},
-					{ intentRecorder: { record: recordAgentWorkIntent } },
+					{ intentRecorder: { record: enqueueWorkIntent } },
 				);
 
 				const event: ProposedCallGrantedEvent = {

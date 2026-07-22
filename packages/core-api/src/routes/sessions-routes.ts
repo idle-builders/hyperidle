@@ -1,14 +1,13 @@
 import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { SessionActivityBuffer } from "@hyperidle/run-orchestration";
 import {
-	createExplicitSessionStart,
+	createSessionRequest,
 	findSessionRequest,
 	sessionRunRegistry,
 } from "@hyperidle/session-requests";
 import {
 	type AgentWorkIntentEvent,
 	type AgentWorkIntentReader,
-	type AgentWorkIntentRecord,
 	type AgentWorkIntentRecorder,
 	API_ERROR_CODES,
 	type EventBus,
@@ -287,7 +286,7 @@ async function applyStateChangePatch(
  * Mechanism C) — this route (core-api) must not import
  * `@hyperidle/session-requests` (agent-orchestration) directly for the raw
  * `agent_work_intents` write/read below. `createApp` defaults them to the
- * real production binding (`session-requests-bindings.ts`); tests may
+ * real production binding (`durable-agent-queue.ts`); tests may
  * override.
  */
 export function createSessionRoutes(
@@ -372,17 +371,20 @@ export function createSessionRoutes(
 						},
 						409,
 					);
-				let intent: AgentWorkIntentRecord | undefined;
+				let intent: Awaited<ReturnType<AgentWorkIntentRecorder<HyperIdleDb>["record"]>> | undefined;
 				if (!start) {
 					const startId = crypto.randomUUID();
 					await db.transaction(async (tx) => {
-						start = await createExplicitSessionStart(tx, {
-							id: startId,
-							taskId: body.taskId,
-							requestedAgentId: body.agentId,
-							requestedModelTier: body.modelTier,
-							requestedBy,
-							idempotencyKey,
+						start = await createSessionRequest(tx as HyperIdleDb, {
+							kind: "explicitStart",
+							start: {
+								id: startId,
+								taskId: body.taskId,
+								requestedAgentId: body.agentId,
+								requestedModelTier: body.modelTier,
+								requestedBy,
+								idempotencyKey,
+							},
 						});
 						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "session_start",

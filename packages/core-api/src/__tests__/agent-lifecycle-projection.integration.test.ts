@@ -1,9 +1,9 @@
 /**
  * AU9 Remediation-2 — R2: this suite drives the real request state machine and
  * public `PATCH /sessions/:id` through the app fixture, plus the sanctioned
- * `startAgentLifecycleProjectionDrain`/`bootAgentLayer` entrypoints. It does
+ * `startLifecycleProjectionDrain`/`bootAgentLayer` entrypoints. It does
  * NOT import `transitionAgentRunLifecycle`, `recoverRequestedTerminations`, or
- * the `AGENT_LIFECYCLE_PROJECTORS` map directly — no existence/constant
+ * the `lifecycle projector` map directly — no existence/constant
  * assertion stands in for driving the real transition.
  */
 
@@ -20,10 +20,10 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { sessionRunRegistry } from "@hyperidle/session-requests";
+import { sessionRunRegistry, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
-import { startAgentLifecycleProjectionDrain } from "../services/lifecycle-projection-bindings.js";
+import { queueDeps } from "../services/durable-agent-queue.js";
 import { bootAgentLayer } from "../services/run-orchestration-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
@@ -39,7 +39,7 @@ async function waitForProjection(
 	db: import("@hyperidle/db").HyperIdleDb,
 	requestIds: readonly string[],
 ): Promise<void> {
-	const stop = startAgentLifecycleProjectionDrain(db, { pollIntervalMs: 10 });
+	const stop = startLifecycleProjectionDrain(queueDeps(db), { pollIntervalMs: 10 });
 	try {
 		const deadline = Date.now() + 5_000;
 		for (;;) {
