@@ -2,10 +2,10 @@
 
 **Layer:** agent-execution · **Owned tables:** 0 · **Substrate:** EXTERNAL-API adapter (Mechanism B: runtime dep = `@hyperidle/shared` only, never `@hyperidle/db`).
 **MERGE ANCHOR:** `agent-execution-platform` = **harness-registry + tool-provider + mcp-provider**.
-**Current (concatenated, the failure):** ~87 methods / ~48 types (harness-registry 55/32 + tool-provider ~25/~12 + mcp-provider 7/~4).
-**Target:** **33 methods / 13 types** — ONE coherent execution-platform API, not the sum of the three barrels.
+**Current (implementation-site census):** **55 methods / 32 types = 87**. Tool-provider and mcp-provider are already physically folded into this package; 87 is the current harness-registry row, not a three-package arithmetic sum.
+**Corrected target:** **22 methods / 13 types = 35** — ONE coherent execution-platform API, counted by the census's actual rule (top-level exported value/type declarations, not interface or class members).
 
-> **rev2** (post adversarial numbers review): the rev1 collapse of `AdapterPool` to 6 ops was **LOSSY** — it dropped the harness capability/availability read model that `core-api`'s `harness-capability-read-model.ts` (and 12 route files through it) genuinely consume. rev2 restores that read surface as **4 general parameterized queries** (not 7 bespoke getters), lifting the target from 28 → **33** and the AdapterPool from 6 → **11 ops**. Lean *and* complete: `featuresLost = []`.
+> **rev3** (implementation-site correction): rev2 correctly restored the capability read model, but incorrectly derived the census target by adding interface members. The census counts an exported `class AdapterPool` once, regardless of its member count, and does not count re-exported shared declarations. Rev3 retains rev2's complete product behavior while enumerating the exact 22 value and 13 type declarations that may remain at implementation sites. Lean *and* complete: `featuresLost = []`.
 
 ---
 
@@ -39,7 +39,7 @@ Plus one **internal-logic** floor riding inside the platform (AL6 return-enforce
 3. **Factories that hand back the interface, hiding concrete classes (6).** `createHarnessAdapter(spec)` (folds builtin/CLI/remote concrete classes + run-orchestration's `create`), `createLocalAdapterPool()` (folds the 9 discovery/probe/parse **fns** + capability-descriptor **builders** — pool self-construction is internal), `createSandboxAdapter(topology)`, `createReturnEnforcement()`, `createMcpToolBridge({enforcement})`, `buildToolRegistry(defs, ctx, options)`.
 4. **returnStatusTool (0 methods — a data descriptor export).** The AL6 `hyperidle_return_status` tool as data, injected via `options.extraTools`; not a method surface.
 
-**TARGET = floor 15 + 11 pool + 1 provision + 6 factories = 33 methods.** 33 / 15 = **2.2× floor** — near-floor, every method tied to an external-adapter floor op, the AL6 policy, a named consumer demand, or an interface-hiding factory.
+These are **33 conceptual operations**, not 33 census methods. They are delivered through the 22 implementation declarations enumerated in §6. The operation inventory remains the behavioral completeness floor; it must not be used as census arithmetic.
 
 #### How the 4 read queries fold the 7 bespoke reads (de-fragmentation, NOT loss)
 | Current bespoke read (pool + read-model) | Consumed by | Served in rev2 by |
@@ -69,7 +69,7 @@ No consumer requests the LLM client, cassette lane, context-window sizing, the r
 
 ---
 
-## 3. THE COHERENT PRODUCT API (fused, 8 exported constructs → 33 methods / 13 types)
+## 3. THE COHERENT PRODUCT API (fused, 8 product constructs; exact declaration census in §6)
 
 | # | Interface / factory | Shape | Lens | From (owned capability / demand) |
 |---|---|---|---|---|
@@ -90,7 +90,7 @@ Every construct is **general and composed by argument**: `select(requirements)` 
 
 ## 4. TARGET NUMBERS & what gets DELETED vs INTERNALIZED
 
-**87 → 33 methods · ~48 → 13 types.** Floor = 15; +18 justified (11 pool = 7 lifecycle + 4 read model, 1 provision, 6 factories).
+**55 → 22 methods · 32 → 13 types.** The conceptual floor remains 15 operations plus 18 justified operations; census arithmetic is the exact top-level declaration inventory in §6.
 
 DELETED from the product surface entirely (test-only, dead, or a redundant façade — not merely hidden):
 - **tool-provider's 22 pass-through re-exports of `@hyperidle/shared`** (`toRegistered`, `toClaudeToolSpec`, `classifyReversibility`, `composeWorkflowAllowDeny`, `canonicalJson`, `identityHash`, `toolsForRole`, `wrapForRegistry`, `err`, `ok` + 12 types) — consumers import from `@hyperidle/shared` directly (most already do); 4 had **zero consumers**. The whole tool-provider package + barrel + build target dissolves.
@@ -128,6 +128,86 @@ Naive sum = 55 + 25 + 7 = 87 (the failure). The unification is real, not arithme
 2. **tool-provider** = *what a running harness invokes* (`buildToolRegistry`) — literally the object the harness in #1 drives. Its 25 exports were 22 redundant `@hyperidle/shared` pass-throughs + 2 real symbols; the pass-throughs delete, the 2 symbols re-home.
 3. **mcp-provider** = *the wire the harness reaches tools over* — its return-status route already mutates harness-registry's `enforcementRegistry`, and harness-registry's `writeCliMcpConfig` already advertises mcp-provider's endpoint URL. They are two halves of one contract split across a package boundary for no reason; `createMcpToolBridge` reunites them.
 
-All three share the exact **Mechanism-B security seam** (runtime dep = `@hyperidle/shared` only — must run on an untrusted, DB-less, router-optional remote-worker). Merging makes that seam **one lint on one package** instead of three micro-packages maintained in lockstep — the seam gets stronger, not weaker. The one caveat (mcp-provider drags `hono` runtime dep in) is contained by keeping the Hono router as a `.router` property the composition root mounts — the remote-worker path never touches it; `@hyperidle/shared` remains the sole hard runtime dep.
+All three share the exact **Mechanism-B security seam** (no `@hyperidle/db`; domain behavior enters through shared contracts and injected operations). Merging makes that seam one lint on one package instead of three micro-packages maintained in lockstep. MCP's Hono dependency is isolated behind the router returned by the bridge; remote-worker construction does not instantiate that router.
 
-The product is ONE API: *"pick a harness by capability, spawn it in a sandbox with its env provisioned, hand it a tool registry served over the MCP bridge, and enforce return — and let core-api read which harnesses exist and what they can do."* Eight composable constructs, 33 methods — lean (2.2× floor, no bloat) **and** complete (every real feature deliverable, none lost).
+The product is ONE API: *"pick a harness by capability, spawn it in a sandbox with its env provisioned, hand it a tool registry served over the MCP bridge, and enforce return — and let core-api read which harnesses exist and what they can do."* Eight product constructs, backed by 22 census-visible values — lean and complete.
+
+---
+
+## 6. REV3 AUTHORITATIVE DECLARATION AND RESOURCE CONTRACT
+
+This section supersedes any earlier method-count arithmetic. The implementation-site census counts top-level `export function`, value `export const`, `export class`, and `export enum` declarations as methods; it counts top-level `export type` and `export interface` declarations as types. Members of a class/interface and re-exports from `@hyperidle/shared` cost zero in this package's row.
+
+### Exact target: 22 methods / 13 types = 35
+
+The final source may contain exactly these **9 product value declarations**:
+
+1. `AdapterPool`
+2. `createLocalAdapterPool`
+3. `createHarnessAdapter`
+4. `createSandboxAdapter`
+5. `createReturnEnforcement`
+6. `buildToolRegistry`
+7. `createMcpToolBridge`
+8. `provisionHarnessEnvironment`
+9. `returnStatusTool`
+
+The following **13 cohesive internal cross-module value seams** are also authorized. They remain absent from the product barrel unless a testing subpath genuinely requires one:
+
+1. `BuiltinHarnessAdapter`
+2. `CliHarnessAdapter`
+3. `RemoteHarnessAdapter`
+4. `LocalSandboxAdapter`
+5. `DisabledSandboxAdapter`
+6. `discoverLocalHarnesses`
+7. `createCapabilityCatalog`
+8. `probeHarnessSession`
+9. `callLlm`
+10. `modelContextWindow`
+11. `estimateLlmCost`
+12. `createMcpSession`
+13. `createMcpRouter`
+
+These are real modular seams, not permission to retain similarly named legacy functions. Old discovery parsers/probes, descriptor builders, return factories, MCP registry/route/bridge facades, config writers, and concrete-adapter factories are deleted and rewritten behind the listed declarations. If the builder can eliminate an internal seam without concatenating modules or obscuring ownership, the target may be lower; it may not add a replacement declaration merely to pad back to 22.
+
+The exact **13 local type declarations** are:
+
+1. `HarnessAdapterSpec`
+2. `SelectRequirements`
+3. `AdapterFilter`
+4. `SandboxAdapter`
+5. `SandboxHandle`
+6. `ExecResult`
+7. `ReturnEnforcementSpec`
+8. `McpToolBridge`
+9. `ProvisionOptions`
+10. `CallLlmOptions`
+11. `LlmResponse`
+12. `LlmMessage`
+13. `LlmContentBlock`
+
+`HarnessAdapter`, `ToolRegistry`, capability descriptors, tool definitions, enforcement entries, runtime capabilities, and other wire types remain canonical `@hyperidle/shared` declarations and are re-exported only when compatibility requires it; re-export syntax is not a local declaration. Do not recreate mirrors. Additional private, non-exported local types are allowed only where they clarify an implementation and do not reproduce a cross-module public shape.
+
+### Correct operation contracts
+
+**MCP is one multi-session resource.** `createMcpToolBridge` creates the server-scoped registry and router. `open(session)` creates one stateful MCP server/transport, generates a cryptographically random 256-bit path token, and registers it only after successful connection. `close(token)` removes registry custody before awaiting close, is idempotent, and cannot leave an authorized token behind when transport close throws. The router serves both MCP JSON-RPC and return-status adjudication, authenticates the path/bearer token, returns 401 for unknown tokens, and never routes one token to another session. `createMcpSession` and `createMcpRouter` are its two internal protocol seams, not separately composable product APIs.
+
+**Return enforcement owns the full lifecycle.** `createReturnEnforcement` returns one resource that supports registration, lookup, force-count increment, unregister, per-turn gate creation/observation, and terminal evaluation. The conceptual `register · observe · evaluate` shorthand in §1 does not authorize dropping lookup/increment/unregister. Increment is monotonic, unregister is idempotent, an exempt or already-returned session is never forced, and normal completion without a return is the only non-return verdict. `returnStatusTool.forRegistry(...)` and the MCP route must mutate the same resource instance used by the harness drain.
+
+**Pool selection owns slot custody.** `select(requirements)` filters paused, disabled, incompatible, and at-capacity entries, chooses the least-loaded eligible entry, and increments exactly that entry before returning it. `release(id)` decrements at most once per acquired slot and never underflows. Registering a duplicate id must not silently reset live load or orphan custody: reject replacement while load is nonzero, or preserve load explicitly. `unregister`/pause/resume semantics remain deterministic for in-flight sessions. `refresh()` probes into a temporary snapshot and swaps atomically only after the complete refresh succeeds; a failed refresh preserves the previous snapshot. `list`/`describe` return defensive snapshots, and descriptor reads derive runtime capabilities plus registration metadata from one coherent entry.
+
+**Sandbox is topology-selected and resource-safe.** `createSandboxAdapter("local" | "disabled")` replaces direct concrete construction in production consumers. Local spawn returns a handle rooted inside the configured base, `exec` operates only through that handle, and destroy is idempotent. Disabled topology remains a no-filesystem implementation for remote/server profiles. Partial spawn/exec failure cannot leak created directories or child processes.
+
+**Provisioning is one idempotent external act.** `provisionHarnessEnvironment` folds CLI MCP config and return-hook provisioning. It preserves every supported dialect (Claude JSON, Codex TOML/token-env, OpenCode JSON), channel-specific return hook, per-session token, path-root placement, executable permissions, and existing unrelated user configuration. Repeating the same provision spec produces one equivalent configuration rather than duplicate blocks/hooks; a partial failure reports the exact failed artifact and leaves no falsely complete marker.
+
+**External process lifecycle is bounded.** CLI spawn uses argv without shell interpolation and an explicit environment allowlist. Abort/stop terminates the child and stream consumption drains stdout and stderr so neither pipe can deadlock. `stopSession` is idempotent. Every selected adapter slot is released exactly once across success, crash, abort, startup failure, and consumer cancellation. Event normalization preserves tool, cost, completion, and error signals. Remote adapter replacement/pause/resume keeps worker custody semantics. Builtin LLM abort cancels outbound work and cost accumulation remains isolated per run.
+
+### Physical deletion versus internalization
+
+**Delete physically:** shared helper/type pass-through declarations from this implementation; `EMITTED_ROOTS_*` and `__*ForTest` exports; per-type capability getters replaced by `list`/`describe`; separate enforcement registry/gate factories; `writeCliMcpConfig` and `provisionReturnHook`; `createRemoteHarnessAdapter` and availability factory wrappers; descriptor builders; raw discovery parser/probe exports and CLI-config constants; MCP registry/route/bridge facades; concrete classes from the product barrel; dead `re-engage` wrappers. Tests must assert imported runtime behavior, not preserve production scaffolding.
+
+**Internalize behind the authorized seams:** builtin/CLI/remote execution algorithms; local/disabled sandbox implementations; discovery and readiness probing; capability construction; model-window and cost calculation; the builtin LLM client; cassette behavior under a testing-only subpath; MCP SDK session/router mechanics; CLI dialect templates; process event normalization. Internalization means deleting old exported declarations and writing cohesive replacements, never merely removing a barrel export or stripping `export` from the old implementation.
+
+### Completeness-contract invariants
+
+The Stage-1 contract must remain unchanged and green across: pool capacity/concurrent selection/release and replacement; capability availability/refresh failure; every harness family's discovery and session probe; real-binary CLI argv/env/event/abort behavior; builtin event/cost/return behavior; remote dispatch and worker replacement; sandbox containment and cleanup; MCP token isolation/stateful request sequence/close failure; tool role/workflow routing; all return-enforcement channels and force budgets; per-dialect idempotent provisioning. Missing installed harness binaries remain hard failures in the release-gated harness lane per repository rules, never skips used to green the rewrite.
