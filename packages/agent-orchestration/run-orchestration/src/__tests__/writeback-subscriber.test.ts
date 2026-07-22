@@ -17,6 +17,7 @@ import type {
 	CaptureWritebackKnowledgeItem,
 	CaptureWritebackKnowledgeWriter,
 } from "../capture-writeback-ports.js";
+import { processWriteback } from "../writeback.js";
 import { registerCaptureWriteback } from "../writeback-subscriber.js";
 
 function mkKnowledgeWriter(
@@ -115,5 +116,88 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 		await new Promise((resolve) => setTimeout(resolve, 20));
 
 		expect(knowledge.createCalls).toHaveLength(0);
+	});
+
+	it("updates tracked knowledge with the manifest version and advances the manifest", async () => {
+		const notePath = path.join(tmpDir, "knowledge", "note.md");
+		fs.writeFileSync(notePath, "revised body");
+		fs.writeFileSync(
+			manifestPath,
+			JSON.stringify({
+				session_id: "sess-1",
+				assembled_at: new Date().toISOString(),
+				items: { "item-1": { source_path: "knowledge/note.md", version: 4, format: "markdown" } },
+			}),
+		);
+		const updateCalls: unknown[] = [];
+		const knowledge: CaptureWritebackKnowledgeWriter = {
+			async create() {
+				throw new Error("create should not be called");
+			},
+			async update(_db, id, patch, expectedVersion) {
+				updateCalls.push({ id, patch, expectedVersion });
+				return { ok: true, item: { id, version: 5, format: "markdown" } };
+			},
+			async recordConflict() {
+				throw new Error("recordConflict should not be called");
+			},
+		};
+
+		const result = await processWriteback(
+			{ db: {} as never, sandboxPath: tmpDir, sessionId: "sess-1", manifestPath, knowledge },
+			[{ type: "modify", relativePath: "knowledge/note.md", fullPath: notePath }],
+		);
+
+		expect(updateCalls).toEqual([
+			{
+				id: "item-1",
+				patch: { body: "revised body", updatedBy: "session:sess-1" },
+				expectedVersion: 4,
+			},
+		]);
+		expect(result).toMatchObject({ processed: 1, updated: 1, conflicts: 0 });
+		expect(JSON.parse(fs.readFileSync(manifestPath, "utf-8")).items["item-1"].version).toBe(5);
+	});
+
+	it("records an optimistic-write conflict and advances the manifest to the durable version", async () => {
+		const notePath = path.join(tmpDir, "knowledge", "note.md");
+		fs.writeFileSync(notePath, "competing body");
+		fs.writeFileSync(
+			manifestPath,
+			JSON.stringify({
+				session_id: "sess-1",
+				assembled_at: new Date().toISOString(),
+				items: { "item-1": { source_path: "knowledge/note.md", version: 4, format: "markdown" } },
+			}),
+		);
+		const conflictCalls: unknown[] = [];
+		const knowledge: CaptureWritebackKnowledgeWriter = {
+			async create() {
+				throw new Error("create should not be called");
+			},
+			async update() {
+				return { ok: false, currentVersion: 7 };
+			},
+			async recordConflict(_db, input) {
+				conflictCalls.push(input);
+			},
+		};
+
+		const result = await processWriteback(
+			{ db: {} as never, sandboxPath: tmpDir, sessionId: "sess-1", manifestPath, knowledge },
+			[{ type: "modify", relativePath: "knowledge/note.md", fullPath: notePath }],
+		);
+
+		expect(conflictCalls).toEqual([
+			{
+				itemId: "item-1",
+				versionBase: 4,
+				versionCurrent: 7,
+				proposedBody: "competing body",
+				proposedBy: "session:sess-1",
+			},
+		]);
+		expect(result).toMatchObject({ processed: 1, updated: 1, conflicts: 1 });
+		expect(JSON.parse(fs.readFileSync(manifestPath, "utf-8")).items["item-1"].version).toBe(7);
 	});
 });

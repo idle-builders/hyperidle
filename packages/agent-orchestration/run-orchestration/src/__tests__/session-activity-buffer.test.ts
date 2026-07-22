@@ -10,7 +10,7 @@
 
 import type { ToolCallRecordedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionActivityBuffer, type ToolCallData } from "../session-activity-buffer.js";
 
 function mkToolCallEvent(overrides?: Partial<ToolCallRecordedEvent>): ToolCallRecordedEvent {
@@ -128,5 +128,37 @@ describe("SessionActivityBuffer (Q1 §6.1)", () => {
 		expect((entries[0]!.data as ToolCallData).toolName).toBe("first");
 		expect((entries[1]!.data as ToolCallData).toolName).toBe("second");
 		expect((entries[2]!.data as ToolCallData).toolName).toBe("third");
+	});
+
+	it("returns a defensive snapshot that cannot mutate buffered activity", () => {
+		bus.emit(mkToolCallEvent({ sessionId: "sess-copy", toolName: "original" }));
+		const snapshot = buffer.getActivity("sess-copy");
+		Reflect.set(snapshot, "length", 0);
+
+		expect(buffer.getActivity("sess-copy")).toHaveLength(1);
+		expect((buffer.getActivity("sess-copy")[0]!.data as ToolCallData).toolName).toBe("original");
+	});
+
+	it("keeps the final snapshot for five minutes, then evicts it", () => {
+		vi.useFakeTimers();
+		try {
+			bus.emit(mkToolCallEvent({ sessionId: "sess-ended", toolName: "final" }));
+			bus.emit({
+				type: "session_ended",
+				streamId: "session:sess-ended",
+				sessionId: "sess-ended",
+				agentId: "agent-ended",
+				taskId: null,
+				outcome: "completed",
+				timestamp: Date.now(),
+			});
+
+			vi.advanceTimersByTime(5 * 60 * 1_000 - 1);
+			expect(buffer.getActivity("sess-ended")).toHaveLength(1);
+			vi.advanceTimersByTime(1);
+			expect(buffer.getActivity("sess-ended")).toEqual([]);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

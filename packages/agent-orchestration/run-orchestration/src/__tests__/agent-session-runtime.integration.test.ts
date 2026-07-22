@@ -5,6 +5,7 @@
  * fixture-conversion + port-injection rationale (same shape).
  */
 import {
+	agentLifecycleInbox,
 	agentSessionRequests,
 	bets,
 	type HyperIdleDb,
@@ -181,5 +182,74 @@ describe("agent session runtime consumer", () => {
 			{ sandboxBasePath: "/tmp/au1-runtime-test" },
 			ports,
 		);
+	});
+
+	test("a harness failure terminalizes the admitted request once and emits one durable fact", async ({
+		db,
+	}) => {
+		const createdAt = new Date().toISOString();
+		await db.insert(users).values([
+			{
+				id: "failure-agent",
+				kind: "ai",
+				name: "Failure Agent",
+				role: "builder",
+				status: "active",
+				createdAt,
+			},
+			{
+				id: "failure-user",
+				kind: "human",
+				name: "Failure User",
+				role: "founder",
+				status: "active",
+				createdAt,
+			},
+		]);
+		const request = await createRequestForTest(db, {
+			sourceKind: "assistant",
+			sourceId: "failure-message",
+			streamId: "thread:failure",
+			agentId: "failure-agent",
+			userId: "failure-user",
+			promptMode: "conversation",
+			idempotencyKey: "assistant:failure-message",
+			sourceCorrelation: {
+				threadId: "failure-thread",
+				messageId: "failure-message",
+				userId: "failure-user",
+				assistantAgentId: "failure-agent",
+			},
+		});
+		const ports = buildTestPorts();
+		vi.mocked(ports.sessionProvisioner.admitSession).mockResolvedValue({
+			sessionId: "failure-session",
+			sessionContext: { taskId: null },
+		});
+		vi.mocked(ports.sessionProvisioner.runSession).mockRejectedValue(new Error("harness crashed"));
+
+		await expect(
+			consumeAgentSessionRequest(
+				{ db, eventBus: new EventBus() },
+				request,
+				{ sandboxBasePath: "/tmp/au20-runtime-failure" },
+				ports,
+			),
+		).rejects.toThrow("harness crashed");
+
+		const [stored] = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.id, request.id));
+		expect(stored).toMatchObject({
+			status: "failed",
+			sessionId: "failure-session",
+		});
+		const facts = await db
+			.select()
+			.from(agentLifecycleInbox)
+			.where(eq(agentLifecycleInbox.requestId, request.id));
+		expect(facts).toHaveLength(1);
+		expect(facts[0]).toMatchObject({ state: "failed", sessionId: "failure-session" });
 	});
 });
