@@ -43,7 +43,7 @@ import {
 } from "@hyperidle/db";
 import { isSilenced } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
-import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
+import { computeApprovalRate, type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
@@ -273,6 +273,71 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 	afterEach(() => {
 		unsubscribe?.();
+	});
+
+	describe("AU20 policy completeness contract — approval-rate query", () => {
+		test("combines both attribution paths, applies the time window, and returns newest verdicts first", async ({
+			db,
+		}) => {
+			await seedBase(db);
+
+			const legacyItemId = crypto.randomUUID();
+			await db.insert(items).values({
+				id: legacyItemId,
+				sourceAgentId: "ad4-agent-1",
+				kind: "approval",
+				title: "Legacy-attributed item",
+				threadId: "ad4-thread-1",
+				createdAt: FIVE_DAYS_AGO,
+			});
+			await db.insert(messages).values([
+				{
+					id: "contract-legacy-approve",
+					senderId: "ad4-human-1",
+					threadId: "ad4-thread-1",
+					type: "verdict",
+					payload: JSON.stringify({ decision: "approve" }),
+					clientKey: "contract-legacy-approve",
+					legacyItemId,
+					createdAt: FIVE_DAYS_AGO,
+				},
+				{
+					id: "contract-thread-reject",
+					senderId: "ad4-human-1",
+					threadId: "ad4-thread-1",
+					type: "verdict",
+					payload: JSON.stringify({ decision: "reject" }),
+					clientKey: "contract-thread-reject",
+					createdAt: NOW,
+				},
+				{
+					id: "contract-expired-approve",
+					senderId: "ad4-human-1",
+					threadId: "ad4-thread-1",
+					type: "verdict",
+					payload: JSON.stringify({ decision: "approve-with-comments" }),
+					clientKey: "contract-expired-approve",
+					createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+				},
+			]);
+
+			const result = await computeApprovalRate(db, "ad4-agent-1", 30, policyEngineDeps, 2);
+
+			expect(result.approvalRate).toBe(0.5);
+			expect(result.totalVerdicts).toBe(2);
+			expect(result.recentVerdicts).toEqual([
+				{ decision: "reject", threadId: "ad4-thread-1", createdAt: NOW },
+				{ decision: "approve", threadId: "ad4-thread-1", createdAt: FIVE_DAYS_AGO },
+			]);
+		});
+
+		test("returns the stable empty result when an agent has no verdict history", async ({ db }) => {
+			await seedBase(db);
+
+			await expect(
+				computeApprovalRate(db, "agent-without-history", 30, policyEngineDeps),
+			).resolves.toEqual({ approvalRate: 0, totalVerdicts: 0, recentVerdicts: [] });
+		});
 	});
 
 	// =========================================================================
