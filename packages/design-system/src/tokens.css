@@ -179,13 +179,12 @@
 		 */
 		--text-secondary: #675f56; /* 5.88:1 page, 5.54:1 container, 6.27:1 elevated */
 		/*
-		 * @lore U3 — text-tertiary is decorative/hint-only in light mode (large
-		 * labels, timestamps, icons; NOT body text; WCAG AA-exempt in this role).
-		 * @lore CP1 — de-browned #9a8d7e (C0.027) → #958e85 (C0.016), holding
-		 * L0.65. Round-2 lifted the page so it reads ~3.04:1 — still decorative/
-		 * hint-only (large labels, timestamps, icons), cleaner tone.
+		 * @lore E2E recovery — text-tertiary is widely used for 11–13px labels and
+		 * body-adjacent metadata, so treating it as decorative was false. #716a62
+		 * preserves the warm-neutral hierarchy while clearing WCAG AA on every
+		 * light surface (5.00:1 page, 4.71:1 container, 5.33:1 elevated).
 		 */
-		--text-tertiary: #958e85; /* ~3.04:1 on lifted page — decorative/hint only */
+		--text-tertiary: #716a62;
 		/* @lore CP1 — placeholder de-browned #bfb5a5 (C0.025) → #bcb7ae (C0.014). */
 		--text-placeholder: #bcb7ae; /* placeholder-only, exempt from AA */
 		--text-on-accent: #ffffff; /* 5.62:1 on accent-primary */
@@ -197,7 +196,7 @@
 		--accent-secondary: #d97706;
 
 		/* Status — see @lore: light mode values are icon/badge only */
-		--status-success: #16764f;
+		--status-success: #146f4a; /* 4.77:1 on success tint, 6.17:1 on white */
 		--status-warning: #d97706;
 		--status-error: #dc4a3a;
 		--status-info: #2e7dba;
