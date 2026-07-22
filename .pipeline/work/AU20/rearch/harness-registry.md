@@ -1,4 +1,4 @@
-# agent-execution-platform (harness-registry) — Product Re-Architecture (AU20, rev2)
+# agent-execution-platform (harness-registry) — Product Re-Architecture (AU20, rev4)
 
 **Layer:** agent-execution · **Owned tables:** 0 · **Substrate:** EXTERNAL-API adapter (Mechanism B: runtime dep = `@hyperidle/shared` only, never `@hyperidle/db`).
 **MERGE ANCHOR:** `agent-execution-platform` = **harness-registry + tool-provider + mcp-provider**.
@@ -6,6 +6,8 @@
 **Corrected target:** **22 methods / 13 types = 35** — ONE coherent execution-platform API, counted by the census's actual rule (top-level exported value/type declarations, not interface or class members).
 
 > **rev3** (implementation-site correction): rev2 correctly restored the capability read model, but incorrectly derived the census target by adding interface members. The census counts an exported `class AdapterPool` once, regardless of its member count, and does not count re-exported shared declarations. Rev3 retains rev2's complete product behavior while enumerating the exact 22 value and 13 type declarations that may remain at implementation sites. Lean *and* complete: `featuresLost = []`.
+
+> **rev4** (eval external-carrier correction): the outside-in scan found a real product consumer omitted from `service-data-23.json`: `packages/eval` needs a non-CLI, non-builtin real-model carrier to prove Layer-B sandbox-file re-prompting when Claude CLI is unavailable or the selected provider is not Anthropic. Substituting the builtin adapter is lossy because builtin owns Layer-A in-turn enforcement. The existing factory therefore also accepts `kind: "direct"`; `callLlm` remains private and the target remains exactly 22/13 because direct execution is implemented privately behind `createHarnessAdapter`, not as another exported declaration.
 
 ---
 
@@ -18,7 +20,7 @@ The four adapted external systems + their **minimal UNIFIED adapter surface** (t
 
 | External system | Unified adapter seam | Floor ops |
 |---|---|---|
-| **Harness CLIs** (claude / codex / opencode / cursor-agent / builtin) | `HarnessAdapter` — ONE interface every backend implements (already in `@hyperidle/shared`) | `startSession · streamEvents · dispatchMessage · stopSession · getCapabilities` = **5** |
+| **Harness carriers** (claude / codex / opencode / cursor-agent / builtin / direct real-model / remote) | `HarnessAdapter` — ONE interface every backend implements (already in `@hyperidle/shared`) | `startSession · streamEvents · dispatchMessage · stopSession · getCapabilities` = **5** |
 | **OS filesystem / process sandbox** | `SandboxAdapter` — one interface, impl chosen by topology (local / disabled) | `spawn · exec · destroy` = **3** |
 | **MCP protocol** (the harness↔tools wire, server side) | `McpToolBridge` — one per-server mount, session-parameterized | `open · close` (+`router` property) = **2** |
 | **Tool invocation** (what a harness drives) | `ToolRegistry` — the dispatch surface handed to a harness | `invoke · toClaudeToolSpecs` = **2** |
@@ -36,7 +38,7 @@ Plus one **internal-logic** floor riding inside the platform (AL6 return-enforce
    - **Lifecycle / custody (7):** `register · unregister · has · pause · resume` (run-orchestration worker-ws custody) · `select(requirements)` + `release(id)` (session-lifecycle session-slot lifecycle — `select` increments load, `release` decrements; both live in `session-provisioning.ts`). *(rev1 dropped `release`; restored.)*
    - **Capability read model (4 general queries):** `list(filter?): AdapterInfo[]` · `describe(filter?): HarnessCapabilityDescriptor[]` · `refresh(): Promise<void>` · `size: number`. This is the **named "harness capability read model"** capability — HyperIdle-owned, genuinely consumed by `core-api`'s `harness-capability-read-model.ts` and 12 route files. *(rev1 collapsed this to zero and falsely claimed "no consumer requests capability descriptors"; restored as 4 parameterized queries, not 7 bespoke getters.)*
 2. **provisionHarnessEnvironment (1).** Owned act: writes HyperIdle's `.mcp.json`/`config.toml` + the AL6 return-hook into the harness's host working dir *before* spawn. Folds `writeCliMcpConfig` + `provisionReturnHook`.
-3. **Factories that hand back the interface, hiding concrete classes (6).** `createHarnessAdapter(spec)` (folds builtin/CLI/remote concrete classes + run-orchestration's `create`), `createLocalAdapterPool()` (folds the 9 discovery/probe/parse **fns** + capability-descriptor **builders** — pool self-construction is internal), `createSandboxAdapter(topology)`, `createReturnEnforcement()`, `createMcpToolBridge({enforcement})`, `buildToolRegistry(defs, ctx, options)`.
+3. **Factories that hand back the interface, hiding concrete classes (6).** `createHarnessAdapter(spec)` (folds builtin/CLI/direct/remote implementations + run-orchestration's `create`), `createLocalAdapterPool()` (folds the 9 discovery/probe/parse **fns** + capability-descriptor **builders** — pool self-construction is internal), `createSandboxAdapter(topology)`, `createReturnEnforcement()`, `createMcpToolBridge({enforcement})`, `buildToolRegistry(defs, ctx, options)`.
 4. **returnStatusTool (0 methods — a data descriptor export).** The AL6 `hyperidle_return_status` tool as data, injected via `options.extraTools`; not a method surface.
 
 These are **33 conceptual operations**, not 33 census methods. They are delivered through the 22 implementation declarations enumerated in §6. The operation inventory remains the behavioral completeness floor; it must not be used as census arithmetic.
@@ -64,8 +66,9 @@ The service-data `consumers[]` lists only **run-orchestration** (custody + dispa
 - **session-lifecycle** (via the `core-api` composition root): compose a per-session `HarnessPort` (startSession/stream/stop), `select`/`release` a pooled adapter, get a `SandboxAdapter`, build a per-session `ToolRegistry`, `open`/`close` an MCP bridge, provision the harness env, hold the `ReturnEnforcement` gate. → served by `HarnessAdapter` + `AdapterPool.select/release` + `SandboxAdapter` + `buildToolRegistry` + `createMcpToolBridge` + `provisionHarnessEnvironment` + `createReturnEnforcement`.
 - **core-api harness capability read model** (`services/harness-capability-read-model.ts` → 12 route files: `harnesses`, `agents`, `agent-profile`, `users`, `workers`, `connections`, `teams-routes`, `assistant`): the harness **availability + capability display** feature — `/harnesses` (`harnessCapabilityDescriptors`, `refreshHarnessDiscoveries`), `/workers` (`workerConnections`), agent-profile availability (`harnessCapabilitiesForType`, `registeredHarnessCount`), agents (`harnessRegistrationMeta`). → served by `AdapterPool.list / describe / refresh / size`.
 - **composition root**: mounts `mcpBridge.router` on the Hono app.
+- **eval external-carrier path** (`packages/eval/src/provision-harness.ts`): when Claude CLI cannot carry the selected model, runs one real model turn using the sandbox's current `AGENTS.md` and deliberately reports `returnEnforcement: "none"`. This proves the Layer-B rewrite/restart loop independently of builtin Layer-A enforcement. → served by `createHarnessAdapter({ kind: "direct", model })`; eval no longer imports `callLlm` or implements its own adapter.
 
-No consumer requests the LLM client, cassette lane, context-window sizing, the raw discovery/probe/parse **fns**, per-CLI config constants, or any `EMITTED_ROOTS_*` / `__…ForTest` symbol. Those are internal machinery + test scaffolding leaked through three barrels — distinct from the capability **read queries** above, which are real product demand.
+No consumer requests the **raw LLM client**: eval requests a `HarnessAdapter` with direct real-model transport, not `callLlm` or its wire types. No consumer requests the cassette lane, context-window sizing, raw discovery/probe/parse **fns**, per-CLI config constants, or any `EMITTED_ROOTS_*` / `__…ForTest` symbol. Those are internal machinery + test scaffolding leaked through three barrels — distinct from the direct adapter capability and capability **read queries** above, which are real product demand.
 
 ---
 
@@ -73,7 +76,7 @@ No consumer requests the LLM client, cassette lane, context-window sizing, the r
 
 | # | Interface / factory | Shape | Lens | From (owned capability / demand) |
 |---|---|---|---|---|
-| 1 | **HarnessAdapter** (+ `createHarnessAdapter(spec)`) | `startSession · streamEvents · dispatchMessage · stopSession · getCapabilities`; `spec` discriminates builtin / CLI-family / remote — folds all 3 concrete classes AND run-orchestration's `create` | both | External harness-CLI floor + `dispatchMessage`/`create` demand |
+| 1 | **HarnessAdapter** (+ `createHarnessAdapter(spec)`) | `startSession · streamEvents · dispatchMessage · stopSession · getCapabilities`; `spec` discriminates builtin / CLI-family / direct real-model / remote — folds all implementations AND run-orchestration's `create` | both | External harness-carrier floor + `dispatchMessage`/`create`/eval Layer-B demand |
 | 2 | **AdapterPool** (+ `createLocalAdapterPool()`) | lifecycle `register · unregister · has · pause · resume · select(requirements) · release(id)`; read model `list(filter?) · describe(filter?) · refresh() · size` | both | Owned pool: run-orchestration custody + session-slot lifecycle + core-api capability read model |
 | 3 | **SandboxAdapter** (+ `createSandboxAdapter(topology)`) | `spawn · exec · destroy`; topology picks local/disabled impl | inside-out | External OS-fs floor |
 | 4 | **ReturnEnforcement** (+ `createReturnEnforcement()`) | `register · observe · evaluate(spec)` — registry + return-gate unified | inside-out | AL6 owned policy (internal-logic floor) |
@@ -98,7 +101,7 @@ DELETED from the product surface entirely (test-only, dead, or a redundant faça
 - **4 `EMITTED_ROOTS_*` path constants + `__getCostAccumulatorForTest`/`__resetCostAccumulatorForTest`** — test-assertion scaffolding, deleted from the barrel.
 
 INTERNALIZED (kept in-package, off the product surface — moved, not deleted):
-- **LLM client + 8 wire types + cost-estimate + context-window sizing** → private to the builtin adapter's API loop (no consumer asks; not product). *(verified test/eval-only importers)*
+- **LLM client + wire types + cost-estimate + context-window sizing** → private transport machinery shared by builtin and direct adapter implementations. Eval consumes the direct `HarnessAdapter` factory case, never a raw `./llm-client` subpath.
 - **Cassette test lane** (`recordLlm`/`replayLlm`/`buildCassetteKey`/…) → `./testing` subpath export, off the product barrel (`knip:production` polices it).
 - **The 9 discovery/probe/parse FNS + per-CLI config constants + the descriptor-BUILDER helpers** (`describeRegisteredHarness`/`missingKnownHarnessDescriptors`) → folded into `createLocalAdapterPool` (pool self-construction). **NB (rev2 correction):** this is the *construction* machinery only. The descriptor **READ QUERIES** (`describe`/`list`/`refresh`/`size`) are NOT internalized — they are exposed product surface on `AdapterPool`, because routes consume them. rev1 conflated the two and disguised a capability removal as cleanup; corrected.
 
@@ -115,6 +118,7 @@ INTERNALIZED (kept in-package, off the product surface — moved, not deleted):
 | MCP tool-serving wire | `createMcpToolBridge` (+ `router`) |
 | AL6 return enforcement | `ReturnEnforcement` + `returnStatusTool` + provisioned return-hook |
 | Sandbox isolation | `SandboxAdapter` |
+| Eval Layer-B forcing without a compatible CLI | `createHarnessAdapter({kind: "direct"})`, with enforcement explicitly `none` |
 
 → **`featuresLost = []`.**
 
@@ -170,6 +174,8 @@ The following **13 cohesive internal cross-module value seams** are also authori
 
 These are real modular seams, not permission to retain similarly named legacy functions. Old discovery parsers/probes, descriptor builders, return factories, MCP registry/route/bridge facades, config writers, and concrete-adapter factories are deleted and rewritten behind the listed declarations. If the builder can eliminate an internal seam without concatenating modules or obscuring ownership, the target may be lower; it may not add a replacement declaration merely to pad back to 22.
 
+The direct adapter is intentionally **not** a fourteenth exported internal seam. It is a private implementation in the harness-adapter factory module and is reachable only through the `kind: "direct"` `HarnessAdapterSpec` case. This preserves the honest 22-method declaration target while keeping the adapter behavior product-supported and testable through the public factory.
+
 The exact **13 local type declarations** are:
 
 1. `HarnessAdapterSpec`
@@ -202,9 +208,11 @@ The exact **13 local type declarations** are:
 
 **External process lifecycle is bounded.** CLI spawn uses argv without shell interpolation and an explicit environment allowlist. Abort/stop terminates the child and stream consumption drains stdout and stderr so neither pipe can deadlock. `stopSession` is idempotent. Every selected adapter slot is released exactly once across success, crash, abort, startup failure, and consumer cancellation. Event normalization preserves tool, cost, completion, and error signals. Remote adapter replacement/pause/resume keeps worker custody semantics. Builtin LLM abort cancels outbound work and cost accumulation remains isolated per run.
 
+**Direct real-model lifecycle preserves the Layer-B proof.** `createHarnessAdapter({kind: "direct", model})` returns an adapter with `returnEnforcement: "none"`. Every `startSession` rereads `<sandboxPath>/AGENTS.md` (falling back to the assembled prompt only when absent), then `streamEvents` performs exactly one private `callLlm` turn and normalizes tool calls, cost, token usage, completion, and errors into ordinary `HarnessEvent`s. `stopSession` is idempotent and aborts active outbound fetch/retry/sleep work; an aborted turn emits no later cost or completion. The caller's abort signal is composed with transport timeouts. This is deliberately not the builtin loop and must not acquire Layer-A forcing behavior.
+
 ### Physical deletion versus internalization
 
-**Delete physically:** shared helper/type pass-through declarations from this implementation; `EMITTED_ROOTS_*` and `__*ForTest` exports; per-type capability getters replaced by `list`/`describe`; separate enforcement registry/gate factories; `writeCliMcpConfig` and `provisionReturnHook`; `createRemoteHarnessAdapter` and availability factory wrappers; descriptor builders; raw discovery parser/probe exports and CLI-config constants; MCP registry/route/bridge facades; concrete classes from the product barrel; dead `re-engage` wrappers. Tests must assert imported runtime behavior, not preserve production scaffolding.
+**Delete physically:** shared helper/type pass-through declarations from this implementation; product package subpaths `./llm-client` and `./cli-configs`; eval's hand-built direct adapter; `EMITTED_ROOTS_*` and `__*ForTest` exports; per-type capability getters replaced by `list`/`describe`; separate enforcement registry/gate factories; `writeCliMcpConfig` and `provisionReturnHook`; `createRemoteHarnessAdapter` and availability factory wrappers; descriptor builders; raw discovery parser/probe exports and CLI-config constants; MCP registry/route/bridge facades; concrete classes from the product barrel; dead `re-engage` wrappers. Tests must assert imported runtime behavior, not preserve production scaffolding. Tests inside this package may use relative imports for private transport machinery.
 
 **Internalize behind the authorized seams:** builtin/CLI/remote execution algorithms; local/disabled sandbox implementations; discovery and readiness probing; capability construction; model-window and cost calculation; the builtin LLM client; cassette behavior under a testing-only subpath; MCP SDK session/router mechanics; CLI dialect templates; process event normalization. Internalization means deleting old exported declarations and writing cohesive replacements, never merely removing a barrel export or stripping `export` from the old implementation.
 
