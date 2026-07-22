@@ -9,10 +9,9 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { type AdapterDeps, RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import type { Filesystem } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { LocalFolderAdapter } from "../local-folder-adapter.js";
-import type { AdapterDeps } from "../mounter-registry.js";
 
 function makeFs(folderPath: string): Filesystem {
 	return {
@@ -54,7 +53,7 @@ describe("LocalFolderAdapter integration (thin)", () => {
 				throw new Error("LocalFolderAdapter should not call gitRunnerFactory");
 			},
 			capturesDir,
-			db: null as never,
+			db: { insert: () => ({ values: async () => undefined }) } as never,
 		};
 	}
 
@@ -62,7 +61,7 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
-		const adapter = new LocalFolderAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		const result = await adapter.mount({
 			filesystem: makeFs(vaultDir),
 			sandboxPath,
@@ -86,7 +85,7 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		const sandboxPath = path.join(tmpDir, `sandbox-${sessionId}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
-		const adapter = new LocalFolderAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		await adapter.mount({ filesystem: makeFs(vaultDir), sandboxPath, auth: null });
 
 		// Agent edits a file in the vault (via the symlink or directly).
@@ -100,20 +99,18 @@ describe("LocalFolderAdapter integration (thin)", () => {
 
 		expect(result.success).toBe(true);
 		expect(result.captured).toBe(true);
-		expect(result.capturePath).toBeDefined();
-		expect(fs.existsSync(result.capturePath!)).toBe(true);
+		const capturePath = path.join(capturesDir, fs.readdirSync(capturesDir)[0]!);
+		expect(fs.existsSync(capturePath)).toBe(true);
 		// Snapshot contains the edited file.
-		expect(fs.existsSync(path.join(result.capturePath!, "new-note.md"))).toBe(true);
-		expect(fs.readFileSync(path.join(result.capturePath!, "new-note.md"), "utf-8")).toBe(
-			"# New Note\n",
-		);
+		expect(fs.existsSync(path.join(capturePath, "new-note.md"))).toBe(true);
+		expect(fs.readFileSync(path.join(capturePath, "new-note.md"), "utf-8")).toBe("# New Note\n");
 	});
 
 	it("mount: returns success:false when folder does not exist", async () => {
 		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
-		const adapter = new LocalFolderAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		const result = await adapter.mount({
 			filesystem: makeFs("/nonexistent/vault/path"),
 			sandboxPath,

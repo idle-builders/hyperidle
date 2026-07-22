@@ -1,35 +1,15 @@
-// AO1 — Filesystem reachability: real fs + git probes.
-// Source of truth: plans/AO1/architecture.md §v2 (Reachability rework v2).
-//
-// @lore AU20 R-filesystems: NoopAuthResolver and ServiceConnectionResolverAdapter
-// DELETED. Callers (routes/filesystems.ts, tests) build their own adapter objects
-// — the FilesystemAuthResolver interface from @hyperidle/shared is structural, so
-// no class is required. probeLocalPath / probeGitRemote / repoToUrl / ProbeResult
-// are internal: consumed by the probe-internals.test.ts via direct module import
-// (allowed for intra-package tests) but NOT part of the barrel API.
-
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { FilesystemAuthResolver, FilesystemState } from "@hyperidle/shared";
 import type { FilesystemsGitRunnerFactory } from "./ports.js";
 
-// ─── Probe result type (internal) ────────────────────────────────────────────
-
 interface ProbeResult {
 	state: FilesystemState;
 	reason?: string;
 }
 
-// ─── LocalReachabilityProbe (internal) ───────────────────────────────────────
-
-/**
- * Real filesystem reachability: checks that `targetPath` exists and is readable.
- *
- * @lore AO1 v2: Used for bare-local code repos (connectionId null, resourceRef.repo
- * is a local path) and doc_set folders (connectionId null, resourceRef.folder).
- */
-export function probeLocalPath(targetPath: string): Promise<ProbeResult> {
+function probeLocalPath(targetPath: string): Promise<ProbeResult> {
 	return new Promise<ProbeResult>((resolve) => {
 		fs.access(targetPath, fs.constants.R_OK, (err) => {
 			if (err) {
@@ -44,17 +24,7 @@ export function probeLocalPath(targetPath: string): Promise<ProbeResult> {
 	});
 }
 
-// ─── GitReachabilityProbe (internal) ─────────────────────────────────────────
-
-/**
- * Real git reachability: `git ls-remote --quiet -- <url>` with optional
- * token injection via GIT_CONFIG_COUNT/KEY_n/VALUE_n.
- *
- * @lore AO1 v2: Non-zero exit is DATA, not an exception.
- * @lore AO1 v2: Token injected via GIT_CONFIG_KEY_0 =
- * "http.<host>/.extraHeader", GIT_CONFIG_VALUE_0 = "Authorization: Basic <b64>".
- */
-export async function probeGitRemote(
+async function probeGitRemote(
 	url: string,
 	token: string | null | undefined,
 	gitRunnerFactory: FilesystemsGitRunnerFactory,
@@ -80,7 +50,6 @@ export async function probeGitRemote(
 	return { state: "needs_attention", reason: result.reason };
 }
 
-/** Extract `https://host` from a URL string for host-scoped git config injection. */
 function parseUrlHost(url: string): string | null {
 	try {
 		const parsed = new URL(url);
@@ -90,9 +59,6 @@ function parseUrlHost(url: string): string | null {
 	}
 }
 
-// ─── Row shape accepted by resolveFilesystemState ────────────────────────────
-
-/** Minimal filesystem row fields needed for reachability resolution. */
 export interface FilesystemReachabilityInput {
 	id: string;
 	teamId: string;
@@ -105,24 +71,6 @@ export interface FilesystemReachabilityInput {
 	createdAt: string;
 }
 
-// ─── resolveFilesystemState ──────────────────────────────────────────────────
-
-/**
- * Real reachability check. Resolves the state for a filesystem row.
- *
- * Decision matrix (plans/AO1/architecture.md §v2·3):
- *   writeback:'none'         → 'reachable'   (read-only ref, nothing to auth or probe)
- *   connectionId null + local path → LocalReachabilityProbe (fs.access R_OK)
- *   kind='code' + connectionId  → GitReachabilityProbe (git ls-remote, token from resolver)
- *   doc_set + connectionId not resolved → needs_attention (GDrive/Dropbox not yet supported)
- *
- * @lore AO1 v2: The LIST route MUST use stored state (not call this) — one
- * ls-remote per list row would make team-list latency-bound on the forge.
- * Only GET /:id and POST register trigger a live probe.
- *
- * @lore AO1 v2: "surface, never silent" — an unresolvable connection MUST
- * surface as needs_attention, never silently pass.
- */
 export async function resolveFilesystemState(
 	row: FilesystemReachabilityInput,
 	deps: { authResolver: FilesystemAuthResolver; gitRunnerFactory: FilesystemsGitRunnerFactory },
@@ -159,13 +107,9 @@ export async function resolveFilesystemState(
 		return result.state;
 	}
 
-	// doc_set + connectionId: GDrive/Dropbox/S3 probes are DEFERRED.
 	return "needs_attention";
 }
 
-// ─── Helpers (internal) ───────────────────────────────────────────────────────
-
-/** Extract a local filesystem path from a filesystem row for the probe. */
 function extractLocalPath(row: FilesystemReachabilityInput): string | null {
 	const ref = parseResourceRef(row.resourceRef);
 	if (ref == null) return null;
@@ -180,13 +124,7 @@ function extractLocalPath(row: FilesystemReachabilityInput): string | null {
 	return null;
 }
 
-/**
- * Convert a repo reference to a URL for git ls-remote.
- *
- * @lore AO1 v2: M1 fix — "owner/repo" short form now correctly maps to
- * https://github.com/<owner>/<repo>.git instead of a file:// path.
- */
-export function repoToUrl(repo: string): string {
+function repoToUrl(repo: string): string {
 	if (/^(https?|git@|file:|ssh:|git:)/.test(repo)) return repo;
 	if (/^[^/]+\/[^/]+$/.test(repo)) {
 		return `https://github.com/${repo}.git`;
@@ -221,7 +159,6 @@ function parseResourceRef(raw: string): ParsedRef {
 	}
 }
 
-/** Wrap a promise with a timeout; on timeout, returns needs_attention. */
 function withTimeout(p: Promise<ProbeResult>, timeoutMs: number): Promise<ProbeResult> {
 	return Promise.race([
 		p,

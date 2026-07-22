@@ -24,11 +24,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { filesystemInjections, filesystems, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
+import { RegistryFilesystemMounter, SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/git-export";
 import type { Filesystem } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { GitWorktreeAdapter } from "../git-worktree-adapter.js";
 
 // ── Repo root — this repo's git dir ──────────────────────────────────────────
 
@@ -142,10 +141,10 @@ describe("Git worktree live proof on this repo", () => {
 		const deps = {
 			gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
 			capturesDir,
-			db,
+			db: { insert: () => ({ values: async () => undefined }) } as never,
 		};
 
-		const adapter = new GitWorktreeAdapter(deps);
+		const adapter = new RegistryFilesystemMounter(deps);
 
 		// ── Step 1: mount (real git worktree add) ────────────────────────────
 		const mountResult = await adapter.mount({
@@ -179,11 +178,11 @@ describe("Git worktree live proof on this repo", () => {
 			sessionId,
 		});
 
+		expect(captureResult.error).toBeUndefined();
 		expect(captureResult.success).toBe(true);
 		expect(captureResult.captured).toBe(true);
-		expect(captureResult.capturePath).toBeDefined();
 
-		const bundlePath = captureResult.capturePath!;
+		const bundlePath = path.join(capturesDir, `${sessionId}.bundle`);
 		expect(fs.existsSync(bundlePath)).toBe(true);
 
 		// ── Step 4b: bundle clones and contains the bot's edit ───────────────

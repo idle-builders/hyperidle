@@ -8,10 +8,8 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	deleteFilesystem,
 	deleteInjection,
-	type FilesystemInjectionRow,
 	type FilesystemRow,
 	getFilesystem,
-	getInjection,
 	inspectLocalPath,
 	listFilesystems,
 	resolveFilesystemState,
@@ -85,7 +83,7 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
 	};
 }
 
-function rowToInjection(row: FilesystemInjectionRow): FilesystemInjection {
+function rowToInjection(row: FilesystemInjection): FilesystemInjection {
 	return {
 		agentUserId: row.agentUserId,
 		filesystemId: row.filesystemId,
@@ -399,9 +397,10 @@ export function createFilesystemRoutes(
 			}
 
 			// injected is defined — we just inserted it.
-			const inserted2 = await getInjection(db, body.agentUserId, fsId);
-			if (inserted2 == null) throw new Error("Injection disappeared after insert");
-			return c.json(rowToInjection(inserted2), 201);
+			return c.json(
+				rowToInjection({ agentUserId: body.agentUserId, filesystemId: fsId, createdAt: now }),
+				201,
+			);
 		},
 	);
 
@@ -413,12 +412,10 @@ export function createFilesystemRoutes(
 			const fsId = c.req.param("id");
 			const agentUserId = c.req.param("agentUserId");
 
-			const existing = await getInjection(db, agentUserId, fsId);
-			if (existing == null) {
+			const deleted = await deleteInjection(db, agentUserId, fsId);
+			if (!deleted) {
 				return c.json({ error: "Injection not found", code: "NOT_FOUND" }, 404);
 			}
-
-			await deleteInjection(db, agentUserId, fsId);
 
 			return new Response(null, { status: 204 });
 		},

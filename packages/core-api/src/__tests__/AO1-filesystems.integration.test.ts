@@ -429,6 +429,11 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				headers: auth(),
 			});
 			expect(delRes.status).toBe(204);
+			const repeatedDelRes = await app.request(`/api/filesystems/${fsId}/injections/${botId}`, {
+				method: "DELETE",
+				headers: auth(),
+			});
+			expect(repeatedDelRes.status).toBe(404);
 
 			// Filesystem itself still exists
 			const stillThere = await app.request(`/api/filesystems/${fsId}`, { headers: auth() });
