@@ -27,7 +27,7 @@ export interface AgentLayerBootDeps {
 	readonly runtime?: RunOrchestrationProvisionDeps;
 	readonly sandboxBasePath?: string;
 	readonly resolveModel?: (tier: ModelTier) => Promise<ResolvedModel | undefined>;
-	/** Opaque — `dispatch`-owned `AssistantTurnDeps` (INTERIM forward-ref). Never inspected here, only forwarded whole to `ports.dispatch.executeAssistantRequest`. */
+	/** Opaque — `dispatch`-owned assistant dependencies. Never inspected here, only forwarded whole to `ports.dispatch.runAssistantTurn`. */
 	readonly assistantTurn?: unknown;
 	readonly ports: RunOrchestrationPorts;
 }
@@ -71,7 +71,7 @@ export async function drainAgentSessionRequests(deps: AgentLayerBootDeps): Promi
 					await deps.ports.sessionRequests.releaseRequestClaim(deps.db, request.id);
 					return consumed;
 				}
-				await deps.ports.dispatch.executeAssistantRequest(deps.assistantTurn, request);
+				await deps.ports.dispatch.runAssistantTurn(deps.assistantTurn, request);
 			} else {
 				let tier: ModelTier = "workhorse";
 				if (explicitStartId) {
@@ -114,7 +114,7 @@ export async function drainAgentSessionRequests(deps: AgentLayerBootDeps): Promi
 			// silent-no-op-turned-crash class R1 exists to kill) or incorrectly
 			// terminalize a legitimately-retryable released claim. This catch's only
 			// remaining job is the family-specific explicit-session-start projection.
-			// (executeAssistantRequest never throws here — it maps failures to
+			// (runAssistantTurn never throws here — it maps failures to
 			// persisted notices internally.)
 			if (explicitStartId) {
 				await deps.ports.sessionRequests.markExplicitSessionStartFailed(deps.db, {

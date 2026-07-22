@@ -25,16 +25,15 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { BuiltinRoutineId } from "@hyperidle/dispatch";
 import { eq } from "drizzle-orm";
-import { provisionTeamRoutines, runBuiltinRoutine } from "../services/dispatch-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
+import { fireStoredRoutine, seedTeamRoutines } from "./dispatch-test-helpers.js";
 
 const NOW_ISO = "2026-06-11T00:00:00.000Z";
 
 const TEST_TEAM_ID = "prod-1";
 // @lore AF17: per-team routine id scheme — builtin:<kind>:<teamId>
-const PROMOTION_ROUTINE_ID = `builtin:knowledge-promotion:${TEST_TEAM_ID}` as BuiltinRoutineId;
+const PROMOTION_ROUTINE_ID = `builtin:knowledge-promotion:${TEST_TEAM_ID}`;
 
 async function seedOwners(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });
@@ -74,10 +73,10 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 
 /**
  * @lore AF17: replaces seedBuiltinRoutines(db, teamId).
- * Uses provisionTeamRoutines so ids are per-team: `builtin:<kind>:<teamId>`.
+ * Uses seedTeamRoutines so ids are per-team: `builtin:<kind>:<teamId>`.
  */
 async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Promise<void> {
-	await provisionTeamRoutines(db, {
+	await seedTeamRoutines(db, {
 		teamId,
 		ownerByRole: {
 			facilitator: "seed-agent-pf-facilitation",
@@ -147,7 +146,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 
 		// Act: run the promotion routine. Task 4 piggybacks recomputeScope({ids})
 		// on the sweep's candidate set.
-		const result = await runBuiltinRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		const result = await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
 		expect(result.fired).toBe(true);
 
 		// Assert: at least some items now have a populated attentionScore.
@@ -189,7 +188,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 		});
 
 		// Act: run promotion routine — attention recompute is piggybacked.
-		await runBuiltinRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
 
 		// Retrieve scores.
 		const [conflictedFabric] = await db
@@ -236,7 +235,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 			createdAt: NOW_ISO,
 		});
 
-		await runBuiltinRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
 
 		// Collect all populated scores.
 		const scores: number[] = [];
@@ -279,7 +278,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 			createdAt: NOW_ISO,
 		});
 
-		await runBuiltinRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
 
 		// Retrieve scores for the conflicted item and the first clean item.
 		const [conflictedFabric] = await db

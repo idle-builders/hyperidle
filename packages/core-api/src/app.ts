@@ -8,8 +8,11 @@ import {
 	writeCredential,
 } from "@hyperidle/connections";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import type { AssistantTurnDeps } from "@hyperidle/dispatch";
+import type { DispatchOps } from "@hyperidle/dispatch";
 import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
+
+type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
+
 import type { McpBridgeRegistry } from "@hyperidle/harness-registry/mcp";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import {
@@ -66,8 +69,8 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
-// @lore AU20 Ag1b: registerAssistantDispatcher removed — assistant dispatcher
-// is now started inside startDispatch (called from registerAgentLayerServices).
+// @lore AU20 Ag1b: standalone assistant registration removed — its trigger
+// is now started through dispatchOps.start (called from registerAgentLayerServices).
 import {
 	agentWorkIntentReader,
 	agentWorkIntentRecorder,

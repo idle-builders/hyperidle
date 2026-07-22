@@ -26,9 +26,9 @@ import { findUser, listUsers } from "@hyperidle/users";
 import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
 import { checkAndUnblockDependents, registerBetDecomposition } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
-import { checkAndFireRoutine } from "../services/dispatch-bindings.js";
 import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
+import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
 const depWatcherDeps = {
@@ -416,6 +416,45 @@ describe("atomic production handoffs", () => {
 		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
 	});
 
+	test("accepted-task event observes exactly one durable attempt and one intent", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
+		await seedExplicitSessionAuthority(db);
+		await db
+			.update(tasks)
+			.set({ state: "proposed", ownerAgentId: "au9-production-agent" })
+			.where(eq(tasks.id, "au9-production-task"));
+		let observed: Promise<readonly [number, number]> | undefined;
+		const unsubscribe = eventBus.on("task_state_changed", (event) => {
+			if (event.taskId !== "au9-production-task" || event.toState !== "accepted") return;
+			observed = Promise.all([
+				db
+					.select()
+					.from(taskDispatchAttempts)
+					.where(eq(taskDispatchAttempts.taskId, event.taskId))
+					.then((rows) => rows.length),
+				db
+					.select()
+					.from(agentWorkIntents)
+					.where(eq(agentWorkIntents.sourceKind, "task_dispatch_attempt"))
+					.then((rows) => rows.length),
+			]);
+		});
+
+		const response = await app.request("/api/tasks/au9-production-task/transition", {
+			method: "POST",
+			headers: authHeaders,
+			body: JSON.stringify({ state: "accepted" }),
+		});
+		unsubscribe();
+
+		expect(response.status).toBe(200);
+		expect(observed).toBeDefined();
+		expect(await observed).toEqual([1, 1]);
+	});
+
 	test("dependency watcher acceptance records a distinct dispatch occasion", async ({
 		db,
 		eventBus,
@@ -577,7 +616,7 @@ describe("atomic production handoffs", () => {
 		await rejectIntentWrites(db);
 
 		await expect(
-			checkAndFireRoutine(db, eventBus, routine!, {
+			fireGenericRoutine(db, eventBus, routine!, {
 				adapterPool: {},
 				workspace: {},
 				sandboxBasePath: "/tmp/au9-production",

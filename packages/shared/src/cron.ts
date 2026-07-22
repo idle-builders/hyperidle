@@ -3,19 +3,11 @@
  * Stage 2) so tool implementations can import them directly without a
  * ports back-edge into the dispatch service.
  *
- * `parseCron` returns an opaque `unknown` (the parsed CronFields structure)
- * and `nextCronMatch` consumes it. Callers hold it opaquely and never
- * inspect the fields directly — consistent with the Mechanism-C erasure
- * that tool-handlers used via its dispatch port.
- *
- * @lore AU20 Stage 2: removed parseCron/nextCronMatch from
- * ToolHandlersDispatchAccessor; these pure utilities belong in shared where
- * any package can import them without a service-layer port back-edge.
- * dispatch's own typed (CronFields-exposing) versions remain there for
- * dispatch's internal scheduler use.
+ * Shared by dispatch, API validation, and tool handlers without introducing
+ * service-layer back-edges.
  */
 
-interface CronFields {
+export interface CronFields {
 	minute: number[] | "*";
 	hour: number[] | "*";
 	dayOfMonth: number[] | "*";
@@ -95,7 +87,7 @@ function fieldMatches(field: number[] | "*", value: number): boolean {
  * Parse a 5-field cron expression into an opaque parsed form.
  * Throws on invalid input (callers should catch and return INVALID_INPUT).
  */
-export function parseCron(expr: string): unknown {
+export function parseCron(expr: string): CronFields {
 	const parts = expr.trim().split(/\s+/);
 	if (parts.length !== 5) {
 		throw new Error(`Invalid cron expression: expected 5 fields, got ${parts.length}`);
@@ -125,9 +117,7 @@ export function parseCron(expr: string): unknown {
  * Find the next calendar moment (rounded to the minute) that matches the
  * parsed cron expression, starting strictly after `from`.
  */
-export function nextCronMatch(parsed: unknown, from: Date): Date {
-	const cron = parsed as CronFields;
-
+export function nextCronMatch(cron: CronFields, from: Date): Date {
 	const candidate = new Date(from.getTime());
 	candidate.setUTCSeconds(0, 0);
 	candidate.setUTCMinutes(candidate.getUTCMinutes() + 1);
@@ -147,4 +137,30 @@ export function nextCronMatch(parsed: unknown, from: Date): Date {
 	}
 
 	throw new Error("No cron match found within 400 days");
+}
+
+interface ScheduledRoutine {
+	triggerType: string;
+	triggerConfig: string | null;
+}
+
+interface TriggerConfig {
+	intervalSeconds?: number;
+	cron?: string;
+}
+
+/** Compute a routine's next scheduled timestamp; event triggers return an empty string. */
+export function computeNextRunAt(routine: ScheduledRoutine, now: Date): string {
+	const config = JSON.parse(routine.triggerConfig ?? "{}") as TriggerConfig;
+
+	if (routine.triggerType === "heartbeat" || routine.triggerType === "continuous") {
+		const intervalMs = (config.intervalSeconds ?? 60) * 1000;
+		return new Date(now.getTime() + intervalMs).toISOString();
+	}
+
+	if (routine.triggerType === "calendar" && config.cron) {
+		return nextCronMatch(parseCron(config.cron), now).toISOString();
+	}
+
+	return "";
 }

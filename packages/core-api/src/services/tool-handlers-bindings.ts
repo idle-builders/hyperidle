@@ -51,7 +51,7 @@ import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { routeItem } from "@hyperidle/work";
 import { agentSelectionService } from "./agent-selection-bindings.js";
-import { provisionTeamRoutines as provisionTeamRoutinesBound } from "./dispatch-bindings.js";
+import { dispatchOps } from "./dispatch-bindings.js";
 import { handoff } from "./policy-bindings.js";
 
 const orgUsersForScaffold = {
@@ -78,7 +78,7 @@ function provisionTeamRoutines(
 		readonly leadAgentId: string;
 	},
 ): Promise<unknown> {
-	return provisionTeamRoutinesBound(db, opts);
+	return dispatchOps.provisionTeamRoutines(db, opts);
 }
 
 /**

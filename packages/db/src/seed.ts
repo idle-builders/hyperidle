@@ -11,9 +11,9 @@
  * compatibility with tests that have not yet been migrated.
  *
  * The builtin routine loop (BUILTIN_ROUTINE_SEEDS) is intentionally removed
- * from this wrapper — builtins are provisioned per-team by provisionTeamRoutines
- * at team-creation time. Tests that need builtins should call provisionTeamRoutines
- * via the server fixtures or the AF17-team-routines integration test.
+ * from this wrapper — the server's team-creation flow provisions builtins per team.
+ * Tests that need builtins should use server fixtures or the AF17 team-routines
+ * integration test.
  */
 
 import type { HyperIdleDb } from "./connection.js";

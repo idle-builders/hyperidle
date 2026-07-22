@@ -29,7 +29,7 @@ import {
 	propagationLog,
 	resolveProfile,
 } from "@hyperidle/db";
-import type { AssistantTurnDeps, TaskDispatcherDeps } from "@hyperidle/dispatch";
+import type { DispatchConfig, DispatchOps } from "@hyperidle/dispatch";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
@@ -88,7 +88,14 @@ import { agentSelectionService } from "./services/agent-selection-bindings.js";
 // `costOps.startSentinel` (now a single call covers both the dedup releaser
 // subscription and the sentinel interval). Disposer count 15→14.
 import { costOps } from "./services/cost-bindings.js";
-import { startDispatch } from "./services/dispatch-bindings.js";
+import { dispatchOps } from "./services/dispatch-bindings.js";
+
+type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
+type TaskDispatcherDeps = NonNullable<DispatchConfig["task"]> & {
+	readonly db: HyperIdleDb;
+	readonly eventBus: EventBus;
+};
+
 import { startAgentLifecycleProjectionDrain } from "./services/lifecycle-projection-bindings.js";
 import {
 	bootAgentLayer,
@@ -411,12 +418,11 @@ export function registerCoreDomainServices(ctx: {
  * shell alongside `registerCoreDomainServices` (see that function's
  * doc-comment for the behavior-preservation invariant).
  *
- * @lore AU20 Ag1b: `registerBuiltinRoutineHandlers` + `registerTaskDispatcher`
- * collapsed into `startDispatch`. Scheduler config absorbed here from
- * `registerCoreDomainServices` so a single `startDispatch` call boots
+ * @lore AU20 Ag1b: dispatch trigger registration collapsed into
+ * `dispatchOps.start`. Scheduler config is absorbed here so one start call boots
  * the full dispatch lifecycle (builtin handlers + assistant dispatcher +
- * optional task dispatcher + optional scheduler). The deferred-promise
- * disposer pattern mirrors the former `startRoutineScheduler` handling.
+ * optional task trigger + optional scheduler). The returned disposer owns
+ * the entire lifecycle.
  */
 export function registerAgentLayerServices(ctx: {
 	readonly db: HyperIdleDb;
@@ -434,10 +440,10 @@ export function registerAgentLayerServices(ctx: {
 	const disposers: Array<() => void> = [];
 	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
 
-	// AF6 §1 + AU20 Ag1b: `startDispatch` boots the full dispatch lifecycle —
+	// AF6 §1 + AU20 Ag1b: `dispatchOps.start` boots the full dispatch lifecycle —
 	// builtin handlers, assistant dispatcher, optional task dispatcher, optional scheduler.
 	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
-	const dispatchPromise = startDispatch({
+	const dispatchPromise = dispatchOps.start({
 		db,
 		eventBus,
 		task: ctx.dispatcherDeps,
@@ -464,7 +470,7 @@ export function registerAgentLayerServices(ctx: {
 	// One disposer instead of two; count drops from 15 to 14.
 	disposers.push(costOps.startSentinel(db, eventBus));
 
-	// AF7 §6: TTL workspace reaper (task dispatcher is now inside startDispatch).
+	// AF7 §6: TTL workspace reaper (task trigger is now inside dispatchOps.start).
 	if (ctx.dispatcherDeps) {
 		disposers.push(startSandboxReaper(db, { sandboxBasePath: ctx.dispatcherDeps.sandboxBasePath }));
 	}

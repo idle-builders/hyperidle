@@ -18,17 +18,9 @@
  * files awaiting their own Increment-2/3 migration) now imports
  * `@hyperidle/routine` directly instead of `../routine-service.js`.
  *
- * `packages/server/src/routines.ts` (the curated `@hyperidle/server/routines`
- * subpath export `packages/eval` consumes) is DELIBERATELY left untouched —
- * see this package's own top-level README-equivalent note in the AU19
- * ground rules / build report: that file re-exports `checkAndFireRoutine`/
- * `provisionTeamRoutines`/`runBuiltinRoutine`, all three owned by the
- * still-monolithic `dispatch` Service (`routine-scheduler.ts`/
- * `builtin-routine-handlers.ts`, architecture §4 line 95), not by `routine`
- * — moving it here would force this Service to import from `packages/server`
- * (violating the "Service deps = db+shared only" composition rule) before
- * `dispatch` exists as a package. It stays exactly where it is until
- * Increment 2 migrates `dispatch`.
+ * `packages/core-api/src/routines.ts` remains the curated cross-package seam
+ * consumed by `packages/eval`. It exposes the bound `DispatchOps` object;
+ * routine storage stays isolated in this SQL-owning Service.
  *
  * @lore AU20 Am2: surface collapsed 24 → 15 exports (11 functions + 4 types).
  * Key collapses:

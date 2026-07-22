@@ -240,7 +240,7 @@ export type RunOrchestrationSessionProvisioner = HarnessPort<HyperIdleDb>;
 
 /** Port for `dispatch`'s assistant-turn entrypoint this Service calls directly today. `deps` is opaque (`dispatch`-owned `AssistantTurnDeps`) — never constructed or inspected here, only forwarded whole from this Service's own caller. */
 export interface RunOrchestrationDispatchPort {
-	executeAssistantRequest(deps: unknown, request: AgentSessionRequest): Promise<void>;
+	runAssistantTurn(deps: unknown, request: AgentSessionRequest): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

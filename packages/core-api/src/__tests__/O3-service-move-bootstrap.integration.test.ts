@@ -62,10 +62,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 	//    `startNotificationDrain` (3 disposers) folded into one `installNotifications`
 	//    call (`packages/core-api/notifications/src/install.ts`) whose single returned
 	//    disposer invokes all three teardowns. Net -2.
-	//  - Ag1b: `registerBuiltinRoutineHandlers` + `registerAssistantDispatcher` +
-	//    the routine-scheduler disposer (formerly a separate push in
-	//    registerCoreDomainServices, AF6) folded into one `startDispatch` call
-	//    (`dispatchOps.start` in `packages/agent-orchestration/dispatch/src/service.ts`)
+	//  - Ag1b: builtin, assistant, task, and scheduled trigger setup folded into
+	//    `dispatchOps.start` in `packages/agent-orchestration/dispatch/src/service.ts`,
 	//    whose single returned disposer tears down all of them (plus the optional
 	//    task dispatcher, when `dispatcherDeps` is supplied). Net -2.
 	// C1 (retention dissolution) and Am3 (cost dedup-releaser) are NOT part of this

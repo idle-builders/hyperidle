@@ -2,17 +2,16 @@
  * X8: Delegation scenarios (interaction 24).
  *
  * AU15: routine agent-selection (owner-WIP evaluation + delegate resolution)
- * moved from fire-time `checkAndFireRoutine` (Core) to drain-time
+ * moved from dispatch fire-time to drain-time
  * `resolveAuthoritativeInput` (Agent Layer, `agent-work-intent-worker.ts`).
- * `checkAndFireRoutine` no longer evaluates WIP/delegation at all — it
+ * `dispatchOps.fireRoutine` does not evaluate WIP/delegation — it
  * always fires (records a run + intent) once the coalescing/cost-cap guards
  * clear, regardless of owner WIP. The actual delegate/owner selection is
  * proven by the real service-integration suite
  * (`agent-work-intent-worker.routine-selection.integration.test.ts`), not
- * this eval — `packages/server/src/routines.ts`'s curated cross-package seam
- * exports exactly `{checkAndFireRoutine, provisionTeamRoutines,
- * runBuiltinRoutine}` (au11-guard zero-allowlist), so `drainAgentWorkIntents`
- * is not reachable from here. These scenarios instead honestly assert what
+ * this eval — `@hyperidle/core-api/routines` exposes only the cohesive
+ * `dispatchOps` surface, so `drainAgentWorkIntents` is not reachable from
+ * here. These scenarios instead honestly assert what
  * IS observable at this fire-time-only layer: the routine fires and records
  * a durable `routine_run` intent every time (never a fire-time WIP skip),
  * and the intent's `requestedBy` is only ever the owner-hint (never a
@@ -28,7 +27,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { checkAndFireRoutine } from "@hyperidle/core-api/routines";
+import { dispatchOps } from "@hyperidle/core-api/routines";
 import { agentWorkIntents, routineRuns, routines } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
@@ -50,10 +49,8 @@ import type {
 	TriggerResult,
 } from "../types.js";
 
-/** AU15: dummy runtimeDeps — checkAndFireRoutine only checks truthiness to
- * pass the "agent session request runtime unavailable" guard; it never
- * dereferences adapterPool/workspace at fire-time (session provisioning
- * happens later, at drain + hand-off). */
+/** Structural runtime dependencies retained by the evaluation fixture;
+ * session provisioning happens later, at drain + hand-off. */
 const RUNTIME_DEPS = { adapterPool: {}, workspace: {}, sandboxBasePath: "/tmp/eval-delegation" };
 
 function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
@@ -167,7 +164,9 @@ const delSuccessfulDelegation: EvalScenario = {
 			.where(eq(routines.id, delSuccessRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await checkAndFireRoutine(ctx.db, eventBus, routine, RUNTIME_DEPS);
+		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine, {
+			runtimeDeps: RUNTIME_DEPS,
+		});
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -281,7 +280,9 @@ const delNoDelegateAvailable: EvalScenario = {
 			.where(eq(routines.id, delNoDelegateRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await checkAndFireRoutine(ctx.db, eventBus, routine, RUNTIME_DEPS);
+		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine, {
+			runtimeDeps: RUNTIME_DEPS,
+		});
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -375,7 +376,9 @@ const delDelegationNotAllowed: EvalScenario = {
 			.where(eq(routines.id, delNotAllowedRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await checkAndFireRoutine(ctx.db, eventBus, routine, RUNTIME_DEPS);
+		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine, {
+			runtimeDeps: RUNTIME_DEPS,
+		});
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {

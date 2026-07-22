@@ -1,20 +1,14 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	extractBuiltinKind,
-	isBuiltinRoutineId,
-	nextCronMatch,
-	type PostBetRetroArgs,
-	parseCron,
-} from "@hyperidle/dispatch";
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import {
-	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
 	type CurrencyCode,
 	deriveInitials,
 	type EventBus,
+	nextCronMatch,
+	parseCron,
 	ROUTINE_STATES,
 	type RoutineBudget,
 	type RoutineDetail,
@@ -27,10 +21,22 @@ import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import { runBuiltinRoutine } from "../services/dispatch-bindings.js";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
+import { dispatchOps } from "../services/dispatch-bindings.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
+const BUILTIN_ROUTINE_KINDS = new Set([
+	"builtin:practice-meeting",
+	"builtin:post-bet-retro",
+	"builtin:portfolio-retro",
+	"builtin:knowledge-decay",
+	"builtin:knowledge-promotion",
+]);
+
+function builtinKind(id: string): string | null {
+	const parts = id.split(":");
+	const kind = parts.length >= 2 ? `builtin:${parts[1]}` : id;
+	return BUILTIN_ROUTINE_KINDS.has(kind) ? kind : null;
+}
 
 /**
  * AA2: Schema for POST /api/routines (create routine).
@@ -78,8 +84,8 @@ function stateToActive(state: string): boolean {
  * "full 11-phase provisioning" path on POST /:id/trigger. It was never
  * consumed (`_provisionDeps` was unread) and no production call site
  * populated it — dead threading left over from a pre-AU9 design. Removed
- * per the AU11 route-cleanup classification; POST /:id/trigger always uses
- * `runBuiltinRoutine` / `recordAgentWorkIntent` (the real, current path).
+ * per the AU11 route-cleanup classification; POST /:id/trigger now delegates
+ * to the cohesive `dispatchOps.fireRoutine` path.
  */
 export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
@@ -452,11 +458,12 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		// builtin. The builtin handlers do not create sessions.
 		// @lore AF17: isBuiltinRoutineId now checks the kind prefix so per-team
 		// ids (`builtin:post-bet-retro:<teamId>`) are correctly recognised.
-		if (isBuiltinRoutineId(routineId)) {
-			let args: PostBetRetroArgs | undefined;
+		const kind = builtinKind(routineId);
+		if (kind) {
+			let args: { readonly betId: string } | undefined;
 			// Check if this is a post-bet-retro by kind prefix (not exact id)
-			if (extractBuiltinKind(routineId) === "builtin:post-bet-retro") {
-				const body = (await c.req.json().catch(() => ({}))) as Partial<PostBetRetroArgs>;
+			if (kind === "builtin:post-bet-retro") {
+				const body = (await c.req.json().catch(() => ({}))) as { betId?: string };
 				if (!body.betId || typeof body.betId !== "string") {
 					return c.json(
 						{
@@ -468,99 +475,31 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				}
 				args = { betId: body.betId };
 			}
-			const result = await runBuiltinRoutine(db, eventBus, routineId, args);
+			const result = await dispatchOps.fireRoutine(db, eventBus, routine, { args });
 			if (!result.fired) {
 				return c.json({ routineId, fired: false, reason: result.reason }, 200);
 			}
 			return c.json({ routineId, fired: true, ...(result.extra ?? {}) }, 200);
 		}
 
-		const now = new Date().toISOString();
-
-		// AA3: Monthly cap check — skip if monthly spend >= costCapMonthlyMinor.
-		// Must run before coalescing so the monthly_budget_exhausted record is always written.
-		// Critique Warning 3: return reason "monthly_budget_exhausted" (not the internal scheduler string).
-		if (routine.costCapMonthlyMinor != null) {
-			// @lore AU20 Ag1b: `getRoutineMonthlySpend` removed from dispatch interface —
-			// inlined here: sum costs since the first day of the current UTC month.
-			const { firstOfMonth } = (() => {
-				const now = new Date();
-				return {
-					firstOfMonth: new Date(
-						Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-					).toISOString(),
-				};
-			})();
-			const monthlySpend = await routineService.sumRunCost(db, {
-				routineIds: [routineId],
-				since: firstOfMonth,
-				kind: "sum",
-			});
-			if (monthlySpend >= routine.costCapMonthlyMinor) {
-				const runId = crypto.randomUUID();
-				await routineService.insertRoutineRun(db, {
-					id: runId,
-					routineId,
-					startedAt: now,
-					outcome: "monthly_budget_exhausted",
-				});
-				return c.json({ routineId, fired: false, reason: "monthly_budget_exhausted" }, 200);
-			}
-		}
-
-		// AU15 §4a (W2): unified run-row coalescing — the SAME signal
-		// (`routineService.findRunningRoutineRun`) the poll path's
-		// `checkAndFireRoutine` uses, so a poll-created fired-but-unprovisioned
-		// run also blocks a concurrent manual trigger (closing the double-run
-		// window the old session-keyed `shouldCoalesce` signal missed).
-		const [runningRun] = await routineService.listRoutineRuns(db, {
-			routineId,
-			running: true,
-			limit: 1,
+		const result = await dispatchOps.fireRoutine(db, eventBus, routine, {
+			recordSkippedRun: true,
 		});
-		if (runningRun) {
-			// Record a skipped run
-			const runId = crypto.randomUUID();
-			await routineService.insertRoutineRun(db, {
-				id: runId,
+		const reason =
+			result.reason === "monthly cost cap reached"
+				? "monthly_budget_exhausted"
+				: result.reason === "previous run still in progress"
+					? "coalesced"
+					: result.reason;
+		return c.json(
+			{
 				routineId,
-				startedAt: now,
-				outcome: "skipped",
-				errorMessage: "Coalesced: previous run still in progress",
-			});
-			return c.json({ routineId, fired: false, reason: "coalesced" }, 200);
-		}
-
-		const runId = crypto.randomUUID();
-		let intent: Awaited<ReturnType<typeof recordAgentWorkIntent>> | undefined;
-		await db.transaction(async (tx) => {
-			await routineService.insertRoutineRun(tx, {
-				id: runId,
-				routineId,
-				startedAt: now,
-				outcome: "running",
-			});
-			await routineService.updateRoutine(tx, routineId, { lastRunAt: now });
-			intent = await recordAgentWorkIntent(tx as HyperIdleDb, {
-				kind: "routine_run",
-				sourceKind: "routine_run",
-				sourceId: runId,
-				requestedBy: routine.ownerAgentId,
-				idempotencyKey: `routine:${runId}`,
-			});
-		});
-		if (!intent) throw new Error("Routine intent was not persisted");
-		eventBus.emit({
-			type: "agent_work_intent_recorded",
-			streamId: `routine:${routineId}`,
-			intentId: intent.id,
-			intentKind: "routine_run",
-			sourceKind: "routine",
-			sourceId: routineId,
-			idempotencyKey: intent.idempotencyKey,
-			timestamp: Date.now(),
-		} satisfies AgentWorkIntentEvent);
-		return c.json({ routineId, fired: true, runId }, 200);
+				fired: result.fired,
+				...(result.runId ? { runId: result.runId } : {}),
+				...(reason ? { reason } : {}),
+			},
+			200,
+		);
 	});
 
 	return router;

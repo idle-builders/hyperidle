@@ -6,16 +6,16 @@
  *
  * This is a unit test (*.test.ts) — it mocks runSession to capture the
  * conversational parameters (systemPromptOverride + draftRegistry) handed to it
- * by executeAssistantRequest after the formation seam consultation.
+ * by runAssistantTurn after the formation seam consultation.
  *
- * The key observable: executeAssistantRequest calls resolveAssistantFormation()
+ * The key observable: runAssistantTurn calls resolveAssistantFormation()
  * BEFORE calling the runtime. The captured systemPromptOverride must reflect
  * the current resolver response, proving the formation seam is consulted at turn time.
  *
  * @lore AU9 R1: createTriggeredAgentSessionRequest has exactly one PRODUCTION call
  * site (the intent drain) — the assistant's own direct-create fallback was deleted.
  * This test therefore builds the request the same way the drain does (via
- * createTriggeredAgentSessionRequest) before invoking executeAssistantRequest, the
+ * createTriggeredAgentSessionRequest) before invoking runAssistantTurn, the
  * split "consume the exact durable request" entrypoint. Using the constructor here
  * is fixture setup in a non-protected unit test, not a second production caller.
  *
@@ -48,7 +48,7 @@ import { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { agentSelectionService } from "../services/agent-selection-bindings.js";
-import { executeAssistantRequest } from "../services/dispatch-bindings.js";
+import { dispatchOps } from "../services/dispatch-bindings.js";
 import { test } from "../test-fixtures.js";
 
 const triggerResolutionDeps: TriggerResolutionDeps = {
@@ -213,7 +213,7 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 
 /**
  * Builds the durable request the same way the production intent drain does
- * (via createTriggeredAgentSessionRequest), so executeAssistantRequest is always
+ * (via createTriggeredAgentSessionRequest), so runAssistantTurn is always
  * consuming an already-created row — mirroring the real production sequence.
  */
 async function createAssistantRequest(
@@ -246,11 +246,11 @@ async function createAssistantRequest(
 
 /** Test-only replacement for the deleted direct-create `runAssistantTurn` entrypoint. */
 async function runTurn(
-	deps: Parameters<typeof executeAssistantRequest>[0],
+	deps: Parameters<typeof dispatchOps.runAssistantTurn>[0],
 	params: { userId: string; threadId: string; triggerMessageId: string },
 ): Promise<void> {
 	const request = await createAssistantRequest(deps.db, params);
-	await executeAssistantRequest(deps, request);
+	await dispatchOps.runAssistantTurn(deps, request);
 }
 
 function makeAdapterPool(): AdapterPool {

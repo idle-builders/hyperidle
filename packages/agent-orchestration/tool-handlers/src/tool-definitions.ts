@@ -27,6 +27,7 @@ import {
 	type ArtifactCreatedEvent,
 	type AssistantToolShape,
 	artifactPreviewSchema,
+	type CronFields,
 	err,
 	type ItemCreatedEvent,
 	KERNEL_KNOWLEDGE_STATUSES,
@@ -1308,7 +1309,7 @@ function makeCreateRoutineTool<TDb>(
 				return err("INVALID_INPUT", "triggerConfig must include a cron field");
 			}
 
-			let parsedCron: unknown;
+			let parsedCron: CronFields;
 			try {
 				parsedCron = parseCron(triggerConfigParsed.cron);
 			} catch {

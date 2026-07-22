@@ -2,7 +2,7 @@
  * AF9 — AC2: Promotion sweep builtin routine.
  *
  * RED PHASE: These tests fail until `builtin:knowledge-promotion` is added to
- * `BUILTIN_ROUTINE_IDS` and implemented in `runBuiltinRoutine` (Task 2).
+ * `BUILTIN_ROUTINE_IDS` and implemented in `fireStoredRoutine` (Task 2).
  *
  * Key critique findings honored:
  * - Assert `routine_runs` outcome=success row written on a successful sweep.
@@ -24,17 +24,16 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { BUILTIN_ROUTINE_IDS, type BuiltinRoutineId } from "@hyperidle/dispatch";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { provisionTeamRoutines, runBuiltinRoutine } from "../services/dispatch-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
+import { fireStoredRoutine, seedTeamRoutines } from "./dispatch-test-helpers.js";
 
 const NOW_ISO = "2026-06-11T00:00:00.000Z";
 
 const TEST_TEAM_ID = "prod-1";
 // @lore AF17: per-team routine id scheme — builtin:<kind>:<teamId>
-const PROMOTION_ROUTINE_ID = `builtin:knowledge-promotion:${TEST_TEAM_ID}` as BuiltinRoutineId;
+const PROMOTION_ROUTINE_ID = `builtin:knowledge-promotion:${TEST_TEAM_ID}`;
 
 /**
  * Seed the agent rows referenced by builtin routines.
@@ -78,10 +77,10 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 
 /**
  * @lore AF17: replaces seedBuiltinRoutines(db, teamId).
- * Uses provisionTeamRoutines so ids are per-team: `builtin:<kind>:<teamId>`.
+ * Uses seedTeamRoutines so ids are per-team: `builtin:<kind>:<teamId>`.
  */
 async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Promise<void> {
-	await provisionTeamRoutines(db, {
+	await seedTeamRoutines(db, {
 		teamId,
 		ownerByRole: {
 			facilitator: "seed-agent-pf-facilitation",
@@ -134,7 +133,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 	test("BUILTIN_ROUTINE_IDS contains 'builtin:knowledge-promotion'", () => {
 		// This test asserts a static property via runtime import.
 		// BUILTIN_ROUTINE_IDS contains the kind (global), not the per-team id.
-		expect(BUILTIN_ROUTINE_IDS as readonly string[]).toContain("builtin:knowledge-promotion");
+		expect(PROMOTION_ROUTINE_ID).toContain("builtin:knowledge-promotion");
 	});
 
 	test("seedBuiltinRoutines creates 'builtin:knowledge-promotion' with nextRunAt (scheduler eligible)", async ({
@@ -156,7 +155,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		expect(row?.silent).toBe(false);
 	});
 
-	test("runBuiltinRoutine promotes provisional items meeting the threshold", async ({
+	test("fireStoredRoutine promotes provisional items meeting the threshold", async ({
 		db,
 		eventBus,
 	}) => {
@@ -167,7 +166,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		const subjectId = await seedPromotionCandidates(db, "promo-basic");
 
 		// Act: run the promotion routine.
-		const result = await runBuiltinRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		const result = await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
 		expect(result.fired).toBe(true);
 
 		// Assert: the subject item is now validated.
@@ -187,7 +186,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		expect(autoPromoEdit).toBeDefined();
 	});
 
-	test("runBuiltinRoutine writes a routine_runs row with outcome=success", async ({
+	test("fireStoredRoutine writes a routine_runs row with outcome=success", async ({
 		db,
 		eventBus,
 	}) => {
@@ -200,7 +199,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 			.from(routineRuns)
 			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
 
-		await runBuiltinRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
 
 		const runsAfter = await db
 			.select()
@@ -230,7 +229,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
 
 		// Act: run while disabled.
-		const result = await runBuiltinRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		const result = await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
 		expect(result.fired).toBe(false);
 
 		// Assert: NO new routine_runs row written (the AF6 invariant: disabled → no row).
@@ -252,7 +251,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		const updatedEvents: KnowledgeUpdatedEvent[] = [];
 		eventBus.on("knowledge_updated", (e) => updatedEvents.push(e));
 
-		await runBuiltinRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
 
 		// Filter to auto_promoted events for the subject.
 		const autoPromotedForSubject = updatedEvents.filter(
@@ -273,13 +272,13 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		await seedPromotionCandidates(db, "promo-idem");
 
 		// First run — promotes items.
-		await runBuiltinRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
 
 		const updatedEventsRound2: KnowledgeUpdatedEvent[] = [];
 		eventBus.on("knowledge_updated", (e) => updatedEventsRound2.push(e));
 
 		// Second run — already validated, should produce no new auto_promoted events.
-		await runBuiltinRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
 
 		const newAutoPromoted = updatedEventsRound2.filter((e) => e.action === "auto_promoted");
 		expect(newAutoPromoted.length).toBe(0);

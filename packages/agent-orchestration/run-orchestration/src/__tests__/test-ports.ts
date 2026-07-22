@@ -166,7 +166,7 @@ export function buildTestPorts(): RunOrchestrationPorts {
 			runSession: vi.fn(),
 		},
 		dispatch: {
-			executeAssistantRequest: vi.fn(async () => {
+			runAssistantTurn: vi.fn(async () => {
 				/* no-op */
 			}),
 		},

@@ -17,15 +17,15 @@
  * (Increment 3b).
  *
  * @lore AU19 Increment 3h: `dispatch` migrated for real — the `dispatch`
- * port now wires to `dispatch-bindings.ts`'s bound `executeAssistantRequest`
+ * port now wires to `dispatch-bindings.ts`'s bound `dispatchOps.runAssistantTurn`
  * (was the still-flat `agent-work-assistant.ts` before this Increment).
  *
  * @lore circular-import-by-construction: this module and `dispatch-bindings.ts`
- * import each other (this file needs `executeAssistantRequest` for the
+ * import each other (this file needs `dispatchOps.runAssistantTurn` for the
  * `dispatch` port; `dispatch-bindings.ts` needs `executeAgentRunRequest`
  * from here, for `dispatch`'s own `runOrchestration` port). Safe under ESM:
  * every cross-reference is used INSIDE a function body (the
- * `dispatchPort.executeAssistantRequest` method, `dispatchPorts.runOrchestration
+ * `dispatchPort.runAssistantTurn` method, `dispatchPorts.runOrchestration
  * .executeAgentRunRequest`'s arrow-function wrapper), never at module
  * top-level — both modules finish initial evaluation (and populate their
  * live export bindings) before either function is ever actually invoked.
@@ -41,9 +41,9 @@
  * `session-lifecycle.ts`/`session-provisioning.ts`/
  * `harness/remote-harness-adapter.ts` — still-flat `packages/server` files
  * (not yet migrated). `dispatch` wires to `dispatch-bindings.ts`'s real
- * bound `executeAssistantRequest`. Each opaque-typed port method
+ * bound `dispatchOps.runAssistantTurn`. Each opaque-typed port method
  * (`crashSession`'s `context`, `admitSession`/`runSession`'s `deps`/`params`/
- * `admitted`, `executeAssistantRequest`'s `deps`, the remote-adapter
+ * `admitted`, `runAssistantTurn`'s `deps`, the remote-adapter
  * factory's `registration`) needs exactly ONE documented boundary-crossing
  * cast recovering the real wide type from the Mechanism-C-narrowed one — the
  * SAME real object flows through unchanged at runtime, only the TYPE was
@@ -56,7 +56,6 @@
  */
 
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
-import type { AssistantTurnDeps } from "@hyperidle/dispatch";
 import { type AdapterPool, createRemoteHarnessAdapter } from "@hyperidle/harness-registry";
 import {
 	AGENT_LAYER_REAP_INTERVAL_MS,
@@ -95,7 +94,7 @@ import {
 import type { EventBus, WorkerRegisterMessage } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
-import { executeAssistantRequest } from "./dispatch-bindings.js";
+import { dispatchOps } from "./dispatch-bindings.js";
 import {
 	crashSession,
 	harnessPort,
@@ -175,17 +174,20 @@ const sessionProvisionerPort: RunOrchestrationSessionProvisioner = harnessPort;
 
 // ---------------------------------------------------------------------------
 // dispatch — real, same-layer since AU19 Increment 3h, wired to
-// dispatch-bindings.ts's bound executeAssistantRequest.
+// dispatch-bindings.ts's bound dispatchOps.runAssistantTurn.
 // ---------------------------------------------------------------------------
 
 const dispatchPort: RunOrchestrationDispatchPort = {
-	executeAssistantRequest(deps: unknown, request: AgentSessionRequest): Promise<void> {
+	runAssistantTurn(deps: unknown, request: AgentSessionRequest): Promise<void> {
 		// @lore boundary-crossing cast: `deps` is the real `AssistantTurnDeps` this
 		// Service's own caller built — opaque-typed crossing the boundary
 		// (`run-orchestration`'s own port keeps `deps: unknown`, never
 		// inspecting `dispatch`'s internals, even though `dispatch` itself is
 		// now a real migrated Service).
-		return executeAssistantRequest(deps as AssistantTurnDeps, request);
+		return dispatchOps.runAssistantTurn(
+			deps as Parameters<typeof dispatchOps.runAssistantTurn>[0],
+			request,
+		);
 	},
 };
 

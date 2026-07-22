@@ -145,7 +145,7 @@ export {
 	isCredentialName,
 } from "./credential.js";
 // -- cron (AU20 Stage 2: pure cron utilities — relocated from dispatch port to shared) --
-export { nextCronMatch, parseCron } from "./cron.js";
+export { type CronFields, computeNextRunAt, nextCronMatch, parseCron } from "./cron.js";
 export {
 	ActiveRoutinesError,
 	ASSISTANT_TURN_TIMEOUT_MS,

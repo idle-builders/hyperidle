@@ -1,8 +1,8 @@
 /**
  * X8: Routine sessions scenarios (interaction 22).
  *
- * Tests the checkAndFireRoutine() path: heartbeat, calendar, humanReview, cost cap block.
- * All scenarios call checkAndFireRoutine() directly (no runEvalSession).
+ * Tests the dispatchOps.fireRoutine() path: heartbeat, calendar, humanReview, cost cap block.
+ * All scenarios call dispatchOps.fireRoutine() directly (no runEvalSession).
  *
  * @lore X8 CRITICAL-1: triggerConfig MUST include taskId pointing to a real tasks row.
  * @lore AU18 §4.1: cost cap check reads `server_config.cost.capMinor` (cap) and
@@ -11,7 +11,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { checkAndFireRoutine } from "@hyperidle/core-api/routines";
+import { dispatchOps } from "@hyperidle/core-api/routines";
 import { items, routines, sessions } from "@hyperidle/db";
 import { updateServerConfig } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
@@ -82,7 +82,7 @@ const rsHeartbeatFire: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await checkAndFireRoutine(ctx.db, eventBus, routine);
+		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -192,7 +192,7 @@ const rsCalendarFire: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await checkAndFireRoutine(ctx.db, eventBus, routine);
+		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -275,7 +275,7 @@ const rsHumanReviewFlag: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await checkAndFireRoutine(ctx.db, eventBus, routine);
+		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -362,7 +362,7 @@ const rsCostCapBlocked: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await checkAndFireRoutine(ctx.db, eventBus, routine);
+		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
