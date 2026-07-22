@@ -15,12 +15,7 @@ import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } fr
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import {
-	checkCostCap,
-	clearDeduplicationCache,
-	recordCostAndCheck,
-	resetCosts,
-} from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-l17-money";
@@ -99,15 +94,15 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 	}
 
 	test("reads costCapMinor from agents table (not old costCap)", async ({ db }) => {
-		clearDeduplicationCache();
+		costOps._testHooks.clearDedup();
 		await seedAC13Base(db);
 
 		// @lore O2: session cost stripped — spend is always 0 from kernel layer.
-		// checkCostCap still reads costCapMinor from agents table for the cap value.
+		// costOps.check still reads costCapMinor from agents table for the cap value.
 		await insertSession(db, "s1", "agent-1");
 
 		const eventBus = new EventBus();
-		const result = await checkCostCap(db, eventBus, {
+		const result = await costOps.check(db, eventBus, {
 			agentId: "agent-1",
 			teamId: "t1",
 		});
@@ -117,7 +112,7 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 	});
 
 	test("O2: session cost is always 0 (cost columns stripped from kernel table)", async ({ db }) => {
-		clearDeduplicationCache();
+		costOps._testHooks.clearDedup();
 		await seedAC13Base(db);
 
 		// @lore O2: session cost columns stripped. getAgentSpend returns 0 regardless
@@ -125,7 +120,7 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		await insertSession(db, "s1", "agent-1");
 
 		const eventBus = new EventBus();
-		const result = await checkCostCap(db, eventBus, {
+		const result = await costOps.check(db, eventBus, {
 			agentId: "agent-1",
 			teamId: "t1",
 		});
@@ -134,17 +129,15 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		expect(result.allowed).toBe(true);
 	});
 
-	test("recordCostAndCheck accepts cost params but does not write to session (O2)", async ({
-		db,
-	}) => {
-		clearDeduplicationCache();
+	test("costOps.record accepts cost params but does not write to session (O2)", async ({ db }) => {
+		costOps._testHooks.clearDedup();
 		await seedAC13Base(db);
 
 		// @lore O2: cost is accepted for API compat but not stored.
 		await insertSession(db, "s1", "agent-1");
 
 		const eventBus = new EventBus();
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 500,
 			currency: "USD",
@@ -159,18 +152,18 @@ describe("Cost-cap service with Money columns (AC13)", () => {
 		expect(session?.id).toBe("s1");
 	});
 
-	test("resetCosts resets agent/team running cost counters (O2)", async ({ db }) => {
-		clearDeduplicationCache();
+	test("costOps.reset resets agent/team running cost counters (O2)", async ({ db }) => {
+		costOps._testHooks.clearDedup();
 		await seedAC13Base(db);
 
 		await insertSession(db, "s1", "agent-1");
 		await insertSession(db, "s2", "agent-1");
 
-		await resetCosts(db, "t1");
+		await costOps.reset(db, { level: "team", id: "t1" });
 
 		// After reset, cost check should still be allowed (spend is always 0 from kernel)
 		const eventBus = new EventBus();
-		const result = await checkCostCap(db, eventBus, {
+		const result = await costOps.check(db, eventBus, {
 			agentId: "agent-1",
 			teamId: "t1",
 		});

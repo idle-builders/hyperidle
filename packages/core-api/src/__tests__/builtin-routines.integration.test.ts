@@ -21,7 +21,7 @@ import type {
 	DomainEvent,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { clearCostSentinelCache, runCostSentinelCheck } from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import {
 	provisionTeamRoutines,
 	runBuiltinRoutine,
@@ -104,11 +104,11 @@ async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Prom
 
 describe("G4: Built-in Routines", () => {
 	beforeEach(() => {
-		clearCostSentinelCache();
+		costOps._testHooks.resetSentinelState();
 	});
 
 	afterEach(() => {
-		clearCostSentinelCache();
+		costOps._testHooks.resetSentinelState();
 	});
 
 	// ------------------------------------------------------------------
@@ -207,13 +207,13 @@ describe("G4: Built-in Routines", () => {
 
 	// ------------------------------------------------------------------
 	// AC1: Cost Sentinel — extracted to app code, NOT a routine (AD8c)
-	// Tests call runCostSentinelCheck directly (no DB routine row needed).
+	// Tests call costOps.runCostSentinelCheck directly (no DB routine row needed).
 	// @lore AD8c: cost-sentinel removed from routines table. Tests migrated
-	// from runBuiltinRoutine("builtin:cost-sentinel") to runCostSentinelCheck.
+	// from runBuiltinRoutine("builtin:cost-sentinel") to costOps.runCostSentinelCheck.
 	// ------------------------------------------------------------------
 	describe("AC1: Cost Sentinel (app code, not a routine)", () => {
 		// @lore AU18: `cost_actual` is no longer a settable KV row — cost-sentinel
-		// now reads `getFactoryCostActual(db)` (= sumAllUserCost, a live SUM over
+		// now reads `costOps.spend(db)` (= sumAllUserCost, a live SUM over
 		// users.costActual). Seed exactly one costed user row so the sum resolves
 		// to `actual` (onConflictDoUpdate — safe to call more than once per test,
 		// e.g. the level-transition tests below that call this twice).
@@ -238,7 +238,7 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 500);
 
-			const result = await runCostSentinelCheck(db, eventBus);
+			const result = await costOps.runCostSentinelCheck(db, eventBus);
 
 			expect(result.fired).toBe(true);
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
@@ -252,7 +252,7 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 800);
 
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter(
 				(e): e is CostCapWarningEvent => e.type === "cost_cap_warning",
@@ -268,7 +268,7 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 1000);
 
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const breaches = emitted.filter(
 				(e): e is CostCapBreachedEvent => e.type === "cost_cap_breached",
@@ -288,9 +288,9 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 800);
 
-			await runCostSentinelCheck(db, eventBus);
-			await runCostSentinelCheck(db, eventBus);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
 			expect(warnings).toHaveLength(1);
@@ -304,8 +304,8 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 1200);
 
-			await runCostSentinelCheck(db, eventBus);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const breaches = emitted.filter((e) => e.type === "cost_cap_breached");
 			expect(breaches).toHaveLength(1);
@@ -318,15 +318,15 @@ describe("G4: Built-in Routines", () => {
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 800);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			// Drop below 80% — level transitions to 'ok' (silent reset).
 			await setFactoryCost(db, 1000, 500);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			// Climb back up — this is a new transition and must re-emit.
 			await setFactoryCost(db, 1000, 850);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
 			expect(warnings).toHaveLength(2);
@@ -336,10 +336,10 @@ describe("G4: Built-in Routines", () => {
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 800);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			await setFactoryCost(db, 1000, 1100);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
 			const breaches = emitted.filter((e) => e.type === "cost_cap_breached");

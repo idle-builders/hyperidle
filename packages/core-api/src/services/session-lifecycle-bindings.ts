@@ -85,7 +85,7 @@ import {
 	composeAssistantPrompt,
 	writeSandboxAgentsMd,
 } from "./context-assembly-bindings.js";
-import { checkCostCap, recordCostAndCheck } from "./cost-bindings.js";
+import { costOps } from "./cost-bindings.js";
 import { terminalizeAgentSessionRequestInTx } from "./session-requests-bindings.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
@@ -226,8 +226,8 @@ const sessionRequestsAccessor: SessionLifecyclePorts["sessionRequests"] = {
 // ---------------------------------------------------------------------------
 
 const costAccessor: SessionLifecyclePorts["cost"] = {
-	checkCostCap,
-	recordCostAndCheck,
+	checkCostCap: costOps.check,
+	recordCostAndCheck: costOps.record,
 };
 
 // ---------------------------------------------------------------------------
@@ -362,7 +362,7 @@ export function requestAgentTermination(
  * `PolicySessionTerminationRequester` DI port (Increment 2a). The call was
  * fire-and-forget (result never consumed for branching) and ran before any
  * transaction opened — the pure-inversion shape, same as
- * `registerCostCapDedupReleaser`'s own subscription to this exact event
+ * `costOps._testHooks.installDedupReleaser`'s own subscription to this exact event
  * (`@hyperidle/cost`'s `cost-cap.ts`). Registered at boot alongside it
  * (`server-factory.ts`).
  *

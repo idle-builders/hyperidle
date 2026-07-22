@@ -84,10 +84,10 @@ import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { agentSelectionService } from "./services/agent-selection-bindings.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
-// @lore AU20 Am3: `registerCostCapDedupReleaser` removed — folded into
-// `startCostSentinel` (now a single call covers both the dedup releaser
+// @lore AU20 Am3: `costOps._testHooks.installDedupReleaser` removed — folded into
+// `costOps.startSentinel` (now a single call covers both the dedup releaser
 // subscription and the sentinel interval). Disposer count 15→14.
-import { checkCostCap, startCostSentinel } from "./services/cost-bindings.js";
+import { costOps } from "./services/cost-bindings.js";
 import { startDispatch } from "./services/dispatch-bindings.js";
 import { startAgentLifecycleProjectionDrain } from "./services/lifecycle-projection-bindings.js";
 import {
@@ -460,10 +460,10 @@ export function registerAgentLayerServices(ctx: {
 
 	disposers.push(registerHandoffTerminationRequester(db, eventBus));
 	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
-	// @lore AU20 Am3: `startCostSentinel` now also installs the dedup-releaser
-	// EventBus subscription (folded from `registerCostCapDedupReleaser`).
+	// @lore AU20 Am3: `costOps.startSentinel` now also installs the dedup-releaser
+	// EventBus subscription (folded from `costOps._testHooks.installDedupReleaser`).
 	// One disposer instead of two; count drops from 15 to 14.
-	disposers.push(startCostSentinel(db, eventBus));
+	disposers.push(costOps.startSentinel(db, eventBus));
 
 	// AF7 §6: TTL workspace reaper (task dispatcher is now inside startDispatch).
 	if (ctx.dispatcherDeps) {
@@ -820,7 +820,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			listActiveAiUsersByTeams: (db, teamIds) =>
 				listUsers(db, { teamIds, kind: "ai", status: "active" }),
 		},
-		costCap: { checkCostCap },
+		costCap: { checkCostCap: costOps.check },
 		workIntents: { record: recordAgentWorkIntent },
 		// AU19 Increment 1c: `org` is a REAL migrated package — wired to its real
 		// exported functions (W2 closure).

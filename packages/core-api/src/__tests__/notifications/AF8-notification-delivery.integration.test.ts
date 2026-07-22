@@ -34,11 +34,7 @@ import {
 import { updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import {
-	clearCostSentinelCache,
-	getFactoryCostActual,
-	runCostSentinelCheck,
-} from "../../services/cost-bindings.js";
+import { costOps } from "../../services/cost-bindings.js";
 import { expect, test } from "../../test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
@@ -351,11 +347,11 @@ describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 // --- AC6: cost sentinel fires off a real written value ---
 
 describe("AF8 AC6 — cost sentinel reacts to real written value", () => {
-	test("getFactoryCostActual reads a real live-summed value; runCostSentinelCheck emits breach", async ({
+	test("costOps.spend reads a real live-summed value; costOps.runCostSentinelCheck emits breach", async ({
 		db,
 		eventBus,
 	}) => {
-		clearCostSentinelCache();
+		costOps._testHooks.resetSentinelState();
 
 		// Seed a user with cost_actual
 		await db.insert(users).values({
@@ -370,14 +366,14 @@ describe("AF8 AC6 — cost sentinel reacts to real written value", () => {
 		});
 
 		// @lore AU18: cost_actual is no longer a written row — it's derived live
-		// from SUM(users.costActual) via getFactoryCostActual.
-		const actual = await getFactoryCostActual(db);
+		// from SUM(users.costActual) via costOps.spend.
+		const actual = await costOps.spend(db, { level: "factory" });
 		expect(actual).toBeGreaterThan(0);
 
 		// Set a cap that will be breached
 		await updateServerConfig(db, { cost: { capMinor: 100 } });
 
-		const result = await runCostSentinelCheck(db, eventBus);
+		const result = await costOps.runCostSentinelCheck(db, eventBus);
 		expect(result.emitted).toContain("cost_cap_breached");
 	});
 });

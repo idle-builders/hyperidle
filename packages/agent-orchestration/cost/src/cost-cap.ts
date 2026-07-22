@@ -4,29 +4,20 @@ import * as crypto from "node:crypto";
 // params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
 // @lore R5: bet cost accumulation via taskId lookup (through the `work` port).
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus, SessionEndedEvent, SessionHandoffCompletedEvent } from "@hyperidle/shared";
+import type {
+	CostCapBreachedEvent,
+	CostCapWarningEvent,
+	EventBus,
+	SessionEndedEvent,
+	SessionHandoffCompletedEvent,
+} from "@hyperidle/shared";
 import type {
 	CostCheckParams,
 	CostDeps,
 	CostRecordParams,
-	CostReviewItemInput,
 	CostScope,
 	CostVerdict,
 } from "./ports.js";
-
-/**
- * @lore AU19 Increment 3g: moved here from `packages/server/src/services/cost-cap.ts`
- * (behavior-preserving move). Every raw cross-Service call became an
- * injected DI port (Mechanism C, `ports.ts`).
- *
- * @lore AU20 Am3: dedup state moved from module-level `Map` into a closure-
- * local `CostDedupState` parameter — eliminates the module-level singleton,
- * making `createCostOps` instances fully independent. The public test-hook
- * exports (`clearDeduplicationCache`, `getDedupCacheSize`, `releaseSessionDedup`,
- * `registerCostCapDedupReleaser`) are removed from this file and re-exposed
- * via `service.ts`'s `_testHooks` field; `cost-bindings.ts` bridges them
- * under the same names for backward compatibility.
- */
 
 /**
  * Per-session dedup state. Each session has a small Set of dedup keys
@@ -37,12 +28,11 @@ import type {
  * module-level `Set<string>` keyed on `sessionId:…`, so dedup keys for
  * dead sessions stayed forever. The fix is per-session scoping with a
  * lifecycle hook called from session-lifecycle.ts AND an EventBus
- * subscription registered from `startSentinel` in `service.ts`
+ * subscription registered from `startSentinel`
  * (`installDedupReleaser`) so EVERY session-end path reclaims the entry.
  *
  * @lore AU20 Am3: the map moved from module-level to closure-local in
- * `createCostOps` (service.ts). `CostDedupState` is an opaque type alias so
- * callers (service.ts, unit tests) never inspect the internals.
+ * `createCostOps`. `CostDedupState` stays private so callers never inspect it.
  */
 interface SessionDedupEntry {
 	readonly agentId?: string;
@@ -50,10 +40,10 @@ interface SessionDedupEntry {
 	readonly keys: Set<string>;
 }
 
-export type CostDedupState = Map<string, SessionDedupEntry>;
+type CostDedupState = Map<string, SessionDedupEntry>;
 
 /** Create a fresh, empty dedup state. Call once per `createCostOps` closure. */
-export function createDedupState(): CostDedupState {
+function createDedupState(): CostDedupState {
 	return new Map<string, SessionDedupEntry>();
 }
 
@@ -84,21 +74,21 @@ function tryRecordDedupKey(
 }
 
 // ---------------------------------------------------------------------------
-// Dedup-state helpers (exported for service.ts; NOT in the barrel)
+// Instance-local dedup-state helpers.
 // ---------------------------------------------------------------------------
 
 /** Clear all dedup entries. Used by `_testHooks.clearDedup`. */
-export function clearDedupState(state: CostDedupState): void {
+function clearDedupState(state: CostDedupState): void {
 	state.clear();
 }
 
 /** Count of sessions in the dedup map. Used by `_testHooks.getDedupSize`. */
-export function getDedupStateSize(state: CostDedupState): number {
+function getDedupStateSize(state: CostDedupState): number {
 	return state.size;
 }
 
 /** Drop a single session's dedup entry. Used by `_testHooks.releaseDedup`. */
-export function releaseFromDedupState(state: CostDedupState, sessionId: string): void {
+function releaseFromDedupState(state: CostDedupState, sessionId: string): void {
 	state.delete(sessionId);
 }
 
@@ -109,13 +99,10 @@ export function releaseFromDedupState(state: CostDedupState, sessionId: string):
  * `session_ended`) reclaims the per-session dedup entry.
  * Returns an unsubscribe function.
  *
- * @lore I3 review C1 / arch H-1: see original `registerCostCapDedupReleaser` lore.
- * @lore AU20 Am3: folded into `startSentinel` (one call instead of two at
- * boot). Also re-exposed via `_testHooks.installDedupReleaser` so test
- * utilities that call `registerCostCapDedupReleaser(eventBus)` continue to work
- * through `cost-bindings.ts`'s bridge.
+ * @lore AU20: `startSentinel` owns both this subscription and the timer, so
+ * production has one lifecycle owner and one disposer.
  */
-export function installDedupReleaser(state: CostDedupState, eventBus: EventBus): () => void {
+function installDedupReleaser(state: CostDedupState, eventBus: EventBus): () => void {
 	const handler = (event: SessionEndedEvent | SessionHandoffCompletedEvent): void => {
 		state.delete(event.sessionId);
 	};
@@ -137,7 +124,7 @@ export function installDedupReleaser(state: CostDedupState, eventBus: EventBus):
  *
  * @lore L17: Currency mismatch is NOT enforced at this boundary.
  */
-export async function checkCostCap(
+async function checkCostCap(
 	deps: CostDeps,
 	db: HyperIdleDb,
 	_eventBus: EventBus,
@@ -205,7 +192,7 @@ export async function checkCostCap(
  * Record cost for a session and check for warnings/breaches.
  * Updates the session cost, then checks thresholds and emits events.
  */
-export async function recordCostAndCheck(
+async function recordCostAndCheck(
 	deps: CostDeps,
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -213,7 +200,7 @@ export async function recordCostAndCheck(
 	dedupState: CostDedupState,
 ): Promise<void> {
 	// @lore O2: session cost columns stripped from the kernel sessions table.
-	const effectiveCostMinor = params.costMinor ?? params.cost ?? 0;
+	const effectiveCostMinor = params.costMinor ?? 0;
 
 	if (effectiveCostMinor > 0) {
 		// Accumulate on agent
@@ -306,35 +293,8 @@ export async function recordCostAndCheck(
 	}
 }
 
-/**
- * Read the factory's live cost total.
- *
- * Factory cost = SUM(users.costActual) — the authoritative per-agent running
- * totals accumulated by recordCostAndCheck.
- *
- * @lore AU18: replaces `recordFactoryCost`, which wrote the same SUM into
- * `factory_settings.cost_actual` after every cost event. Since
- * `recordCostAndCheck` already recomputed and wrote this value on every call,
- * a live read produces the exact same value — equal-or-fresher, never staler.
- *
- * @lore AF8 INFLATION RESOLVED (AF10): The quadratic delta-accumulation bug in
- * session-provisioning.ts (Z8-002) has been fixed. The caller now passes per-event
- * deltas (not running totals), so users.costActual is correct.
- */
-export function getFactoryCostActual(deps: CostDeps, db: HyperIdleDb): Promise<number> {
-	return deps.users.sumAllUserCost(db);
-}
-
-/**
- * Read the current spend for the given scope.
- *
- * @lore AU20 Am3: new method replacing the old `getFactoryCostActual` (factory-
- * only) with a unified discriminated-union accessor. Callers use `{ level:
- * "factory" }` where they used to call `getFactoryCostActual`; the binding
- * in `cost-bindings.ts` continues to expose `getFactoryCostActual` under
- * its old name for backward compatibility.
- */
-export async function spend(deps: CostDeps, db: HyperIdleDb, scope: CostScope): Promise<number> {
+/** Read current spend through the single scope discriminator. */
+async function spend(deps: CostDeps, db: HyperIdleDb, scope: CostScope): Promise<number> {
 	switch (scope.level) {
 		case "factory":
 			return deps.users.sumAllUserCost(db);
@@ -355,12 +315,9 @@ export async function spend(deps: CostDeps, db: HyperIdleDb, scope: CostScope): 
  * Reset costs for a new billing cycle.
  * For agent/team: zeroes running cost counters for that entity.
  * For factory: zeroes all running cost counters.
- *
- * @lore L17: the old API accepted `ResetCostsParams | string`; the string
- * form mapped to `{ level: "team", id }`. That normalization now lives in
- * `cost-bindings.ts`'s backward-compat wrapper.
+ * Every caller supplies the same `CostScope` discriminator used by `spend`.
  */
-export async function resetCosts(
+async function resetCosts(
 	deps: CostDeps,
 	db: HyperIdleDb,
 	scope: CostScope,
@@ -424,6 +381,18 @@ interface CheckAndEmitParams {
 	/** Required so dedup-map entries can be cleared by `resetCosts({level:"agent"|"team"})`. */
 	agentId?: string;
 	teamId?: string;
+}
+
+interface CostReviewItemInput {
+	readonly id: string;
+	readonly sourceAgentId: string | null;
+	readonly kind: string;
+	readonly title: string;
+	readonly body: string;
+	readonly threadId: string;
+	readonly riskTier: string;
+	readonly blocking: boolean;
+	readonly createdAt: string;
 }
 
 async function checkAndEmit(
@@ -516,4 +485,156 @@ async function createReviewItem(
 		createdAt: now,
 	};
 	await deps.work.createItem(db, item);
+}
+
+interface CostSentinelState {
+	testResetRequested: boolean;
+}
+
+const COST_SENTINEL_INTERVAL_MS = 900_000;
+const COST_WARNING_RATIO = 0.8;
+
+function createSentinelState(): CostSentinelState {
+	return { testResetRequested: false };
+}
+
+async function readStoredLevel(
+	deps: CostDeps,
+	db: HyperIdleDb,
+	state: CostSentinelState,
+): Promise<"ok" | "warning" | "breach" | null> {
+	if (state.testResetRequested) return null;
+	const { internal } = await deps.settings.readServerConfig(db);
+	return internal.costSentinelLastLevel;
+}
+
+async function writeStoredLevel(
+	deps: CostDeps,
+	db: HyperIdleDb,
+	level: "ok" | "warning" | "breach",
+	state: CostSentinelState,
+): Promise<void> {
+	await deps.settings.updateServerConfig(db, { internal: { costSentinelLastLevel: level } });
+	state.testResetRequested = false;
+}
+
+function classifyLevel(ratio: number): "ok" | "warning" | "breach" {
+	if (ratio >= 1) return "breach";
+	if (ratio >= COST_WARNING_RATIO) return "warning";
+	return "ok";
+}
+
+async function runSentinelCheck(
+	deps: CostDeps,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	state: CostSentinelState,
+): Promise<{ fired: true; emitted: readonly string[] }> {
+	const { cost } = await deps.settings.readServerConfig(db);
+	const cap = cost.capMinor;
+	const actual = await spend(deps, db, { level: "factory" });
+	if (!Number.isFinite(cap) || cap <= 0) return { fired: true, emitted: [] };
+
+	const currentLevel = classifyLevel(actual / cap);
+	const previousLevel = (await readStoredLevel(deps, db, state)) ?? "ok";
+	const emitted: string[] = [];
+	const timestamp = Date.now();
+	if (currentLevel !== previousLevel) {
+		if (currentLevel === "breach") {
+			const event: CostCapBreachedEvent = {
+				type: "cost_cap_breached",
+				streamId: crypto.randomUUID(),
+				level: "hard",
+				capLevel: "factory",
+				entityId: "factory",
+				spend: actual,
+				cap,
+				timestamp,
+			};
+			eventBus.emit(event);
+			emitted.push("cost_cap_breached");
+		} else if (currentLevel === "warning") {
+			const event: CostCapWarningEvent = {
+				type: "cost_cap_warning",
+				streamId: crypto.randomUUID(),
+				level: "warning",
+				capLevel: "factory",
+				entityId: "factory",
+				spend: actual,
+				cap,
+				timestamp,
+			};
+			eventBus.emit(event);
+			emitted.push("cost_cap_warning");
+		}
+	}
+	if (currentLevel !== previousLevel || state.testResetRequested) {
+		await writeStoredLevel(deps, db, currentLevel, state);
+	}
+	return { fired: true, emitted };
+}
+
+function startSentinelTimer(
+	deps: CostDeps,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	state: CostSentinelState,
+): () => void {
+	const handle = setInterval(() => {
+		void runSentinelCheck(deps, db, eventBus, state);
+	}, COST_SENTINEL_INTERVAL_MS);
+	return (): void => clearInterval(handle);
+}
+
+export interface CostOps {
+	check(db: HyperIdleDb, eventBus: EventBus, params: CostCheckParams): Promise<CostVerdict>;
+	record(db: HyperIdleDb, eventBus: EventBus, params: CostRecordParams): Promise<void>;
+	spend(db: HyperIdleDb, scope: CostScope): Promise<number>;
+	reset(db: HyperIdleDb, scope: CostScope): Promise<void>;
+	startSentinel(db: HyperIdleDb, eventBus: EventBus): () => void;
+	runCostSentinelCheck(
+		db: HyperIdleDb,
+		eventBus: EventBus,
+	): Promise<{ fired: true; emitted: readonly string[] }>;
+}
+
+/** Bind the complete budget policy to its four table-owner ports. */
+export function createCostOps(deps: CostDeps): CostOps & {
+	readonly _testHooks: {
+		getDedupSize(): number;
+		releaseDedup(sessionId: string): void;
+		clearDedup(): void;
+		resetSentinelState(): void;
+		installDedupReleaser(eventBus: EventBus): () => void;
+	};
+} {
+	const dedupState = createDedupState();
+	const sentinelState = createSentinelState();
+	const ops: CostOps = {
+		check: (db, eventBus, params) => checkCostCap(deps, db, eventBus, params, dedupState),
+		record: (db, eventBus, params) => recordCostAndCheck(deps, db, eventBus, params, dedupState),
+		spend: (db, scope) => spend(deps, db, scope),
+		reset: (db, scope) => resetCosts(deps, db, scope, dedupState),
+		startSentinel: (db, eventBus) => {
+			const offDedup = installDedupReleaser(dedupState, eventBus);
+			const offSentinel = startSentinelTimer(deps, db, eventBus, sentinelState);
+			return (): void => {
+				offDedup();
+				offSentinel();
+			};
+		},
+		runCostSentinelCheck: (db, eventBus) => runSentinelCheck(deps, db, eventBus, sentinelState),
+	};
+	return {
+		...ops,
+		_testHooks: {
+			getDedupSize: () => getDedupStateSize(dedupState),
+			releaseDedup: (sessionId) => releaseFromDedupState(dedupState, sessionId),
+			clearDedup: () => clearDedupState(dedupState),
+			resetSentinelState: () => {
+				sentinelState.testResetRequested = true;
+			},
+			installDedupReleaser: (eventBus) => installDedupReleaser(dedupState, eventBus),
+		},
+	};
 }

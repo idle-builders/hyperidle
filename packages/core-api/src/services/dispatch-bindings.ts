@@ -67,7 +67,7 @@ import { findUser, getOrCreateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { createPracticeMeeting } from "../../knowledge/src/practice-meeting.js";
 import { agentSelectionService } from "./agent-selection-bindings.js";
-import { getFactoryCostActual } from "./cost-bindings.js";
+import { costOps } from "./cost-bindings.js";
 import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
 import { recordAgentWorkIntent } from "./session-requests-bindings.js";
 import { toolHandlersPorts } from "./tool-handlers-bindings.js";
@@ -193,7 +193,7 @@ const dispatchPorts: DispatchPorts = {
 		},
 	},
 	cost: {
-		getFactoryCostActual,
+		getFactoryCostActual: (db) => costOps.spend(db, { level: "factory" }),
 	},
 	// @lore AU20 Ag1a: `createPracticeMeetingBound` standalone function inlined —
 	// contextual typing from `DispatchPorts["review"]` handles parameter types.

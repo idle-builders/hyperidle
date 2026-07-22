@@ -112,3 +112,108 @@ interface CostOps {
 | New cap dimension (future) | one `CostScope` arm + one branch — **0 new methods** |
 
 Nothing lost; fragmentation removed. Standalone confirmed — no merge anchor.
+
+---
+
+## Stage 2 escape-hatch adjudication — census-correct factory target (supersedes the numeric target above)
+
+### Decision
+
+Keep the Stage 1 factory/object contract. Correct the census target to **1 method / 6 types = 7**.
+
+`surface-census.ts` counts exported implementation declarations. It does **not** count methods
+declared inside an exported interface or functions stored on the object returned by a factory.
+Therefore the coherent API below has one method declaration (`createCostOps`) — not six. Retaining
+five exported implementation wrappers solely to make `targetMethods = 6` would recreate the
+method-per-binding surface this rearchitecture is removing and would game the metric rather than
+improve the Service.
+
+The committed Stage 1 completeness contract at `2745548a` fixes the required object behavior:
+`check`, `record`, `spend`, `reset`, `startSentinel`, and deterministic
+`runCostSentinelCheck`. The deterministic tick remains an object member because Stage 1 exercises
+it directly; it is not a second exported implementation declaration. `_testHooks` remains an
+instance-local test seam required by that contract, but its shape is internal and does not become
+a seventh exported product type.
+
+### Exact coherent API
+
+```ts
+createCostOps(deps: CostDeps): CostOps & {
+  readonly _testHooks: {
+    getDedupSize(): number;
+    releaseDedup(sessionId: string): void;
+    clearDedup(): void;
+    resetSentinelState(): void;
+    installDedupReleaser(eventBus: EventBus): () => void;
+  };
+}
+
+interface CostOps {
+  check(db, bus, params: CostCheckParams): Promise<CostVerdict>;
+  record(db, bus, params: CostRecordParams): Promise<void>;
+  spend(db, scope: CostScope): Promise<number>;
+  reset(db, scope: CostScope): Promise<void>;
+  startSentinel(db, bus): () => void;
+  runCostSentinelCheck(db, bus): Promise<{ fired: true; emitted: readonly string[] }>;
+}
+```
+
+**Exported method declarations (1):** `createCostOps`.
+
+**Exported type declarations (6):** `CostOps`, `CostScope`, `CostVerdict`,
+`CostCheckParams`, `CostRecordParams`, `CostDeps`.
+
+The four accessor shapes (`users`, `org`, `work`, `settings`) stay structurally named inside
+`CostDeps` only when that improves readability, but are not exported declarations: the composition
+root supplies one `CostDeps` object and contextual typing supplies every member signature. The six
+row/input mirrors and closure-state/test-hook types are likewise internal. This is a real type
+collapse, not barrel hiding: their implementation declarations lose `export`.
+
+### Required behavior and atomicity boundary
+
+This adjudication does **not** add reservation, settlement, durable event-idempotency, or a new
+cost table. Neither captured consumer demand nor the Stage 1 contract asks for those capabilities.
+`check` remains the existing synchronous read-before-branch snapshot used by `work`; `record`
+remains the post-spend per-event delta accumulator. “Atomic accumulation” means each injected
+owner accessor performs its own increment atomically (no read-modify-write lost update), as the
+current owner contracts specify. It does not newly promise one transaction spanning users, org,
+and work. Cross-owner reservation would be a new product capability and requires a separately
+refined work package if real demand earns it.
+
+Preserve these existing invariants:
+
+- `check` evaluates the first breach in agent → team → factory order and does not mutate spend.
+- `record` accepts per-event deltas and accumulates agent, optional team, and optional bet spend;
+  it never receives a running total.
+- warning/breach notification dedup is per session; `startSentinel` installs the lifecycle releaser
+  and returns one disposer for both subscription and timer.
+- sentinel notification is level-transition based; deterministic tick behavior remains available
+  through the bound ops object for the Stage 1 contract.
+- `spend` and `reset` use one `CostScope`; the deprecated `cost` field and bare-string reset
+  shorthand are migrated away rather than retained as aliases.
+
+### Stage 2 deletion and migration obligations
+
+1. Consolidate the implementation behind `createCostOps` in one module so helpers no longer need
+   cross-file exports. Delete superseded split modules after moving their still-live private logic.
+   Merely removing barrel
+   re-exports is insufficient, and merely removing `export` while retaining cross-file imports is
+   impossible. The 13 counted helper declarations (dedup/state constructors, legacy cost-cap
+   functions, factory-only read, sentinel tick/start helpers) become unexported closure/file-local
+   declarations or are deleted. Delete obsolete factory-only aliases; the bound object calls the
+   unified scope implementation directly.
+2. Remove exported declarations for `CostTestHooks`, `CostDedupState`, `CostSentinelState`, the four
+   accessor interfaces, and the six row/input mirror types. Keep only the six exported types named
+   above. This must be an implementation-site reduction, not merely removal from `index.ts`.
+3. Migrate the composition binding and production consumers to one bound `CostOps` instance:
+   work/session admission → `check`; session/artifact cost events → `record`; dispatch/eval factory
+   read → `spend({ level: "factory" })`; team billing reset → `reset(scope)`; boot →
+   `startSentinel`. Do not preserve production wrappers merely for old names.
+4. Migrate integration tests that need isolated dedup/sentinel state to a fresh `createCostOps`
+   instance and its `_testHooks`. Remove the five exported compatibility test helpers from the
+   composition binding once their callers move.
+5. Delete `CostRecordParams.cost`; require callers to use `costMinor` plus currency. Delete the
+   `reset(CostScope | string)` compatibility form; all callers construct `CostScope`.
+6. Acceptance is exact `surface-census.ts` output **cost = 1 method / 6 types**, the committed
+   Stage 1 completeness contract green, all migrated consumers green, and no new wrapper,
+   reservation, table, guard, or census-script change.

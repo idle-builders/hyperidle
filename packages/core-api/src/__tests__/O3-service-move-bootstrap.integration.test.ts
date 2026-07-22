@@ -41,7 +41,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 		}
 	});
 
-	// @lore AD8c: cost-sentinel startCostSentinel added as a disposer in app runtime. Count went from 7 to 8.
+	// @lore AD8c: cost-sentinel costOps.startSentinel added as a disposer in app runtime. Count went from 7 to 8.
 	// @lore AF6: routine-scheduler deferred disposer (Option A) added. Count 8 → 9.
 	// @lore AF8: registerNotificationListener + startNotificationDrain added. Count went from 9 to 11.
 	// Note: AF8 builder lore said 9→10 but AF6's scheduler disposer was already in place, so actual: 9→11.
@@ -52,7 +52,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 	// @lore AU11: bootstrap.ts split into registerCoreDomainServices (11 disposers)
 	// + registerAgentLayerServices (3 unconditional disposers, dispatcherDeps
 	// absent here) — same 14 total, grouping changed only.
-	// @lore AU20 Am3: `registerCostCapDedupReleaser` folded into `startCostSentinel`
+	// @lore AU20 Am3: `costOps._testHooks.installDedupReleaser` folded into `costOps.startSentinel`
 	// (dedup-releaser subscription now inside `startSentinel`). Count 15 → 14 (a
 	// wash against an unlisted intermediate add — net still 14 against AU9's baseline).
 	// @lore AU20: 14 → 10. Two consolidations, no leaks — every background process

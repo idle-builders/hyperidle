@@ -1,5 +1,5 @@
 /**
- * I0b: Eliminate duplicate DB reads in checkCostCap / recordCostAndCheck.
+ * Public check/record operations perform no duplicate owner reads.
  *
  * Both functions previously called getUserById 2× and getTeamMembersById 2×:
  * once to load the row for cap resolution, then again via getAgentSpend /
@@ -8,16 +8,15 @@
  *
  * RED before I0b implementation (counts are 2); GREEN after (counts are 1).
  *
- * @lore AU20 Am3: `clearDeduplicationCache` removed from cost-cap.ts barrel.
- * Tests now create a fresh `CostDedupState` per call (via `createDedupState`)
- * so state never bleeds between tests without a `beforeEach` sweep.
+ * Each assertion uses a fresh `createCostOps` instance, so closure state cannot
+ * bleed between tests.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { checkCostCap, createDedupState, recordCostAndCheck } from "../cost-cap.js";
-import type { CostDeps, CostTeamRow, CostUserRow } from "../ports.js";
+import { createCostOps } from "../index.js";
+import type { CostDeps } from "../ports.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Stub factory
@@ -38,14 +37,14 @@ function makeCountingDeps(): {
 
 	// Caps must be non-null so the agentCap / teamCap branches are entered and
 	// the redundant getAgentSpend / getTeamSpend calls are triggered.
-	const agentRow: CostUserRow = {
+	const agentRow = {
 		id: "agent-1",
 		costActual: 100,
 		costCap: 5000,
 		costCapMinor: null,
 	};
 
-	const teamRow: CostTeamRow = {
+	const teamRow = {
 		id: "team-1",
 		costActual: 200,
 		costCap: 10000,
@@ -101,23 +100,15 @@ const db = {} as HyperIdleDb;
 // ────────────────────────────────────────────────────────────────────────────
 
 describe("I0b: no duplicate DB reads", () => {
-	describe("checkCostCap", () => {
+	describe("check", () => {
 		it("calls getUserById exactly once (not 2×)", async () => {
 			const { deps, getUserByIdCount } = makeCountingDeps();
 			const bus = new EventBus();
 			// Fresh dedup state per test — no beforeEach needed.
-			const dedup = createDedupState();
-
-			await checkCostCap(
-				deps,
-				db,
-				bus,
-				{
-					agentId: "agent-1",
-					teamId: "team-1",
-				},
-				dedup,
-			);
+			await createCostOps(deps).check(db, bus, {
+				agentId: "agent-1",
+				teamId: "team-1",
+			});
 
 			expect(getUserByIdCount()).toBe(1);
 		});
@@ -125,41 +116,25 @@ describe("I0b: no duplicate DB reads", () => {
 		it("calls getTeamMembersById exactly once (not 2×)", async () => {
 			const { deps, getTeamMembersByIdCount } = makeCountingDeps();
 			const bus = new EventBus();
-			const dedup = createDedupState();
-
-			await checkCostCap(
-				deps,
-				db,
-				bus,
-				{
-					agentId: "agent-1",
-					teamId: "team-1",
-				},
-				dedup,
-			);
+			await createCostOps(deps).check(db, bus, {
+				agentId: "agent-1",
+				teamId: "team-1",
+			});
 
 			expect(getTeamMembersByIdCount()).toBe(1);
 		});
 	});
 
-	describe("recordCostAndCheck", () => {
+	describe("record", () => {
 		it("calls getUserById exactly once after increment (not 2×)", async () => {
 			const { deps, getUserByIdCount } = makeCountingDeps();
 			const bus = new EventBus();
-			const dedup = createDedupState();
-
-			await recordCostAndCheck(
-				deps,
-				db,
-				bus,
-				{
-					sessionId: "sess-1",
-					agentId: "agent-1",
-					teamId: "team-1",
-					costMinor: 10,
-				},
-				dedup,
-			);
+			await createCostOps(deps).record(db, bus, {
+				sessionId: "sess-1",
+				agentId: "agent-1",
+				teamId: "team-1",
+				costMinor: 10,
+			});
 
 			expect(getUserByIdCount()).toBe(1);
 		});
@@ -167,20 +142,12 @@ describe("I0b: no duplicate DB reads", () => {
 		it("calls getTeamMembersById exactly once after increment (not 2×)", async () => {
 			const { deps, getTeamMembersByIdCount } = makeCountingDeps();
 			const bus = new EventBus();
-			const dedup = createDedupState();
-
-			await recordCostAndCheck(
-				deps,
-				db,
-				bus,
-				{
-					sessionId: "sess-1",
-					agentId: "agent-1",
-					teamId: "team-1",
-					costMinor: 10,
-				},
-				dedup,
-			);
+			await createCostOps(deps).record(db, bus, {
+				sessionId: "sess-1",
+				agentId: "agent-1",
+				teamId: "team-1",
+				costMinor: 10,
+			});
 
 			expect(getTeamMembersByIdCount()).toBe(1);
 		});

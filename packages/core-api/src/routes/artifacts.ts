@@ -22,7 +22,7 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import { recordCostAndCheck } from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;
@@ -43,7 +43,7 @@ const createArtifactSchema = z.object({
 		.nullable(),
 	preview: artifactPreviewSchema.nullable(),
 	// @lore O2: cost is accepted for wire compat; money_micros is now routed through
-	// recordCostAndCheck when agentId resolves (AF10 §5.2). The artifacts table has no
+	// costOps.record when agentId resolves (AF10 §5.2). The artifacts table has no
 	// cost columns — cost lands in bet/agent/team/factory accumulators, not the artifact
 	// row itself (AC4 narrowed: per-artifact chip stays NULL_COST on GET, per §5.4).
 	cost: z
@@ -256,7 +256,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				createdAt: now,
 			});
 
-			// AF10 §5.2: Route artifact cost through recordCostAndCheck accumulators.
+			// AF10 §5.2: Route artifact cost through costOps.record accumulators.
 			// agentId: prefer body.agentId, fall back to tasks.ownerAgentId (both nullable).
 			// teamId: resolved via users.teamId = teamMembers.id (@lore U1: NOT tasks.teamId).
 			// sessionId: body.sessionId or synthesized as "artifact:<id>" (dedup scope, §5.4).
@@ -278,8 +278,8 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 					const resolvedSessionId = body.sessionId ?? `artifact:${id}`;
 					// @lore AF10 AC4: costMinor = money_micros / 10000 (micros→cents conversion).
 					// This is a delta w.r.t. the accumulators (artifact cost recorded once, §1 contract).
-					// sessionId "artifact:<id>" is used exactly once — releaseSessionDedup is moot.
-					await recordCostAndCheck(db, eventBus, {
+					// sessionId "artifact:<id>" is used exactly once — costOps._testHooks.releaseDedup is moot.
+					await costOps.record(db, eventBus, {
 						sessionId: resolvedSessionId,
 						costMinor: Math.round(moneyMicros / 10000),
 						currency: "USD",

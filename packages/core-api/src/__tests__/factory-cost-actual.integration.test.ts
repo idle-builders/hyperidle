@@ -1,19 +1,19 @@
 /**
- * AU18 §9 — `getFactoryCostActual` unit test.
+ * AU18 §9 — `costOps.spend` unit test.
  *
- * `getFactoryCostActual` replaces `recordFactoryCost` (which wrote the SUM
+ * `costOps.spend` replaces `recordFactoryCost` (which wrote the SUM
  * into the now-retired `factory_settings.cost_actual`). Proves it's a live
  * SUM(users.costActual) over ALL users — matching `sumAllUserCost`'s
  * coalesce-over-all-users semantics (not a single row).
  */
 
 import { users } from "@hyperidle/db";
-import { getFactoryCostActual } from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
-describe("getFactoryCostActual — live SUM(users.costActual)", () => {
+describe("costOps.spend — live SUM(users.costActual)", () => {
 	test("returns 0 when no users exist", async ({ db }) => {
-		expect(await getFactoryCostActual(db)).toBe(0);
+		expect(await costOps.spend(db, { level: "factory" })).toBe(0);
 	});
 
 	test("returns 0 when users exist but none have costActual set", async ({ db }) => {
@@ -25,7 +25,7 @@ describe("getFactoryCostActual — live SUM(users.costActual)", () => {
 			status: "active",
 			createdAt: new Date().toISOString(),
 		});
-		expect(await getFactoryCostActual(db)).toBe(0);
+		expect(await costOps.spend(db, { level: "factory" })).toBe(0);
 	});
 
 	test("returns the single costed user's value", async ({ db }) => {
@@ -38,7 +38,7 @@ describe("getFactoryCostActual — live SUM(users.costActual)", () => {
 			costActual: 4200,
 			createdAt: new Date().toISOString(),
 		});
-		expect(await getFactoryCostActual(db)).toBe(4200);
+		expect(await costOps.spend(db, { level: "factory" })).toBe(4200);
 	});
 
 	test("sums costActual across ALL users, not just one", async ({ db }) => {
@@ -70,6 +70,6 @@ describe("getFactoryCostActual — live SUM(users.costActual)", () => {
 				createdAt: new Date().toISOString(),
 			},
 		]);
-		expect(await getFactoryCostActual(db)).toBe(3500);
+		expect(await costOps.spend(db, { level: "factory" })).toBe(3500);
 	});
 });
