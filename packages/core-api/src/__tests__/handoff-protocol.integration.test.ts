@@ -12,12 +12,16 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { AdapterPool, createRemoteHarnessAdapter } from "@hyperidle/harness-registry";
 import type { HandoffMetadata } from "@hyperidle/policy";
-import type { SessionContext } from "@hyperidle/run-orchestration";
+import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { eq, inArray } from "drizzle-orm";
 import { handoff } from "../services/policy-bindings.js";
-import { registerHandoffTerminationRequester } from "../services/session-lifecycle-bindings.js";
+import { runtimeDeps, startRuntime } from "../services/run-orchestration-composition.js";
+
+type SessionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
+
 import { describe, expect, test, vi } from "../test-fixtures.js";
 
 // --- Test helpers ---
@@ -834,9 +838,23 @@ describe("Handoff Protocol", () => {
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
+			const runtime = await startRuntime(
+				runtimeDeps(db, eventBus, {
+					composition: {
+						context: {} as never,
+						provisioner: {} as never,
+						writeback: { db, knowledge: {} as never },
+						worker: {
+							pool: new AdapterPool(),
+							adapterFactory: {
+								create: (ws, registration) =>
+									createRemoteHarnessAdapter(ws as never, registration as never),
+							},
+						},
+					},
+				}),
+			);
 			await insertRunningAgentSessionRequest(db, "req-1", "session-a", "agent-a");
-
-			registerHandoffTerminationRequester(db, eventBus);
 
 			await handoff(db, eventBus, {
 				sessionContext: makeSessionContext("session-a", "agent-a", "task-1"),
@@ -854,6 +872,7 @@ describe("Handoff Protocol", () => {
 				.where(eq(agentSessionRequests.id, "req-1"));
 			expect(request?.terminationReason).toBe("handoff");
 			expect(request?.terminationRequestedBy).toBe("agent-a");
+			await runtime.dispose();
 		});
 	});
 });

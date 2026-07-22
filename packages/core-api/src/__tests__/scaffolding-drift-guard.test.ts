@@ -52,12 +52,10 @@ import {
 	EMITTED_ROOTS_CODEX_HOME,
 	EMITTED_ROOTS_OPENCODE_PLUGIN,
 } from "@hyperidle/harness-registry";
-// ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
 import {
-	EMITTED_ROOTS_AGENTS_MD,
-	EMITTED_ROOTS_CONTEXT_ASSEMBLY,
-	EMITTED_ROOTS_MCP_JSON,
-} from "@hyperidle/run-orchestration";
+	createContextAssembler,
+	createProvisioner,
+} from "@hyperidle/run-orchestration/scaffolding";
 import { describe, expect, it } from "vitest";
 
 // ── Coverage helper ───────────────────────────────────────────────────────────
@@ -93,16 +91,19 @@ function assertAllCovered(writerName: string, emittedRoots: readonly string[]): 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("SANDBOX_SCAFFOLDING_PATHS drift-guard", () => {
-	it("covers context-assembly emitted roots (.fabric, context, knowledge, work)", () => {
-		assertAllCovered("context-assembly.ts", EMITTED_ROOTS_CONTEXT_ASSEMBLY);
+	const context = createContextAssembler({} as Parameters<typeof createContextAssembler>[0]);
+	const provisioner = createProvisioner({} as Parameters<typeof createProvisioner>[0]);
+
+	it("covers context assembly's public filesystem contract", () => {
+		assertAllCovered("runSession assemble", context.emittedContextRoots);
 	});
 
-	it("covers writeSandboxAgentsMd files (AGENTS.md, CLAUDE.md)", () => {
-		assertAllCovered("context-assembly-prompt.ts writeSandboxAgentsMd", EMITTED_ROOTS_AGENTS_MD);
+	it("covers the public session instruction files", () => {
+		assertAllCovered("runSession session instructions", context.emittedAgentRoots);
 	});
 
-	it("covers session-provisioning .mcp.json", () => {
-		assertAllCovered("session-provisioning.ts .mcp.json writer", EMITTED_ROOTS_MCP_JSON);
+	it("covers the public MCP configuration file", () => {
+		assertAllCovered("runSession MCP configuration", provisioner.emittedFiles);
 	});
 
 	it("covers provisionClaudeSettings (.claude/)", () => {

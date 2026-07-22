@@ -9,55 +9,46 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
+import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { queueDeps } from "../services/durable-agent-queue.js";
-import { drainAgentSessionRequests } from "../services/run-orchestration-bindings.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
+import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
-vi.mock("@hyperidle/run-orchestration", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/run-orchestration")>();
-	return {
-		...original,
-		admitSession: vi.fn(
-			async (
-				deps: import("@hyperidle/run-orchestration").ProvisionSessionDeps,
-				params: import("@hyperidle/run-orchestration").ProvisionSessionParams,
-			) => {
-				if (params.taskId === "au9-fail-task") {
-					const { MissingCredentialError } = await import("@hyperidle/shared");
-					throw new MissingCredentialError("openrouter_api_key");
-				}
-				const requestId = params.requestContext?.requestId;
-				const [existing] = requestId
-					? await deps.db.select().from(sessions).where(eq(sessions.requestId, requestId)).limit(1)
-					: [];
-				const sessionId = existing?.id ?? `stub-session-${requestId ?? "unknown"}`;
-				return {
-					sessionId,
-					sessionContext: {
-						sessionId,
-						agentId: params.agentId,
-						taskId: params.taskId,
-						sandboxPath: "/tmp/au9-explicit-start",
-						ingestion: { dispose: vi.fn() },
-						traceId: "trace-au9-explicit-start",
-						requestContext: params.requestContext,
-					},
-				};
+const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
+	admitSession: vi.fn(async (deps, params) => {
+		if (params.taskId === "au9-fail-task") {
+			const { MissingCredentialError } = await import("@hyperidle/shared");
+			throw new MissingCredentialError("openrouter_api_key");
+		}
+		const requestId = params.requestContext?.requestId;
+		const [existing] = requestId
+			? await deps.db.select().from(sessions).where(eq(sessions.requestId, requestId)).limit(1)
+			: [];
+		const sessionId = existing?.id ?? `stub-session-${requestId ?? "unknown"}`;
+		return {
+			sessionId,
+			sessionContext: {
+				sessionId,
+				agentId: params.agentId,
+				taskId: params.taskId,
+				sandboxPath: "/tmp/au9-explicit-start",
+				ingestion: { dispose: vi.fn() },
+				traceId: "trace-au9-explicit-start",
+				requestContext: params.requestContext,
 			},
-		),
-		runSession: vi.fn(async () => ({
-			sessionId: "unused",
-			outcome: "completed",
-			totalCostCents: 0,
-			taskId: null,
-			forceReturnCount: 0,
-		})),
-	};
-});
+		};
+	}),
+	runSession: vi.fn(async () => ({
+		sessionId: "unused",
+		outcome: "completed" as const,
+		totalCostCents: 0,
+		taskId: null,
+		forceReturnCount: 0,
+	})),
+};
 
 const key = "au9-session-key";
 const headers = { "X-API-Key": key, "Content-Type": "application/json" };
@@ -141,26 +132,6 @@ describe("explicit session production contract", () => {
 		expect(intent).toMatchObject({ requestedBy: "au9-human" });
 	});
 
-	test.each([
-		["CostCapExceededError", "COST_CAP_EXCEEDED", 422],
-		["ConcurrencyLimitError", "CONCURRENCY_LIMIT", 429],
-		["MissingCredentialError", "MISSING_CREDENTIAL", 500],
-		["NoEligibleHarnessError", "NO_ELIGIBLE_HARNESS", 422],
-		["Error", "INTERNAL_ERROR", 500],
-	] as const)("persists and projects stable %s admission failure", async (errorName, code, status) => {
-		const boot = (await import("../services/run-orchestration-bindings.js")) as Record<
-			string,
-			unknown
-		>;
-		const classify = boot.classifyAdmissionFailure;
-		expect(classify).toBeTypeOf("function");
-		expect(
-			(classify as (error: Error) => { code: string; status: number })(
-				Object.assign(new Error("private"), { name: errorName }),
-			),
-		).toEqual(expect.objectContaining({ code, status }));
-	});
-
 	test("same idempotency key replays one pending start and one intent", async ({ db, app }) => {
 		await seed(db);
 		const request = () =>
@@ -222,17 +193,9 @@ describe("explicit session production contract", () => {
 		});
 		const { startId } = (await created.json()) as { startId: string };
 		await drainIntents(queueDeps(db));
-		const runtimeDepsAdmit = {
-			db,
-			eventBus: new (await import("@hyperidle/shared")).EventBus(),
-			adapterPool: {} as AdapterPool,
-			workspace: {} as SandboxAdapter,
-		};
-		await drainAgentSessionRequests({
-			db,
-			runtime: runtimeDepsAdmit,
-			sandboxBasePath: "/tmp/au9-explicit-start",
-		});
+		const eventBus = new (await import("@hyperidle/shared")).EventBus();
+		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, sessionProvisioner);
+		await runtime.dispose();
 		const poll = await app.request(`/api/sessions/starts/${startId}`, { headers });
 		expect(poll.status).toBe(202);
 		const body = (await poll.json()) as { state?: string; id?: string };
@@ -269,17 +232,9 @@ describe("explicit session production contract", () => {
 		});
 		const { startId } = (await created.json()) as { startId: string };
 		await drainIntents(queueDeps(db));
-		const runtimeDepsFailure = {
-			db,
-			eventBus: new (await import("@hyperidle/shared")).EventBus(),
-			adapterPool: {} as AdapterPool,
-			workspace: {} as SandboxAdapter,
-		};
-		await drainAgentSessionRequests({
-			db,
-			runtime: runtimeDepsFailure,
-			sandboxBasePath: "/tmp/au9-explicit-start",
-		});
+		const eventBus = new (await import("@hyperidle/shared")).EventBus();
+		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, sessionProvisioner);
+		await runtime.dispose();
 		const poll = await app.request(`/api/sessions/starts/${startId}`, { headers });
 		expect(poll.status).toBe(500);
 		expect(await poll.json()).toMatchObject({ code: "MISSING_CREDENTIAL" });

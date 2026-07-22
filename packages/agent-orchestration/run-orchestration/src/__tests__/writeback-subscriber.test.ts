@@ -1,28 +1,18 @@
-/**
- * AU19 Increment 3f: the §10.3 EventBus inversion for `filesystems ⚠
- * capture-writeback`. `writeback.ts`'s `processWriteback` itself is a
- * behavior-preserving move (previously untested in `packages/server`) — this
- * test covers the genuinely NEW code this migration introduced: the
- * `sandbox_writeback_changes_detected` subscriber wiring.
- *
- * @lore AU20 B2c: moved from `@hyperidle/capture-writeback` into
- * `@hyperidle/run-orchestration`.
- */
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type {
-	CaptureWritebackKnowledgeItem,
-	CaptureWritebackKnowledgeWriter,
-} from "../capture-writeback-ports.js";
-import { processWriteback } from "../writeback.js";
-import { registerCaptureWriteback } from "../writeback-subscriber.js";
+import { createWritebackProcessor } from "../writeback-processor.js";
+
+const writeback = createWritebackProcessor();
+type KnowledgeWriter = Parameters<typeof writeback.subscribe>[0]["knowledge"];
+type KnowledgeItem = Awaited<ReturnType<KnowledgeWriter["create"]>>;
 
 function mkKnowledgeWriter(
-	created: CaptureWritebackKnowledgeItem,
-): CaptureWritebackKnowledgeWriter & { readonly createCalls: unknown[] } {
+	created: KnowledgeItem,
+): KnowledgeWriter & { readonly createCalls: unknown[] } {
 	const createCalls: unknown[] = [];
 	return {
 		createCalls,
@@ -59,12 +49,12 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 
 	it("drives processWriteback off sandbox_writeback_changes_detected, using the event's fields and the injected knowledge port", async () => {
 		const bus = new EventBus();
-		const created: CaptureWritebackKnowledgeItem = { id: "item-1", version: 1, format: "markdown" };
+		const created: KnowledgeItem = { id: "item-1", version: 1, format: "markdown" };
 		const knowledge = mkKnowledgeWriter(created);
 		const notePath = path.join(tmpDir, "knowledge", "note.md");
 		fs.writeFileSync(notePath, "hello writeback");
 
-		registerCaptureWriteback({ db: {} as never, eventBus: bus, knowledge });
+		writeback.subscribe({ db: {} as HyperIdleDb, eventBus: bus, knowledge });
 
 		bus.emit({
 			type: "sandbox_writeback_changes_detected",
@@ -95,12 +85,12 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 
 	it("stops driving processWriteback after dispose()", async () => {
 		const bus = new EventBus();
-		const created: CaptureWritebackKnowledgeItem = { id: "item-2", version: 1, format: "markdown" };
+		const created: KnowledgeItem = { id: "item-2", version: 1, format: "markdown" };
 		const knowledge = mkKnowledgeWriter(created);
 		const notePath = path.join(tmpDir, "knowledge", "note2.md");
 		fs.writeFileSync(notePath, "goodbye writeback");
 
-		const dispose = registerCaptureWriteback({ db: {} as never, eventBus: bus, knowledge });
+		const dispose = writeback.subscribe({ db: {} as HyperIdleDb, eventBus: bus, knowledge });
 		dispose();
 
 		bus.emit({
@@ -130,7 +120,7 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 			}),
 		);
 		const updateCalls: unknown[] = [];
-		const knowledge: CaptureWritebackKnowledgeWriter = {
+		const knowledge: KnowledgeWriter = {
 			async create() {
 				throw new Error("create should not be called");
 			},
@@ -143,8 +133,8 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 			},
 		};
 
-		const result = await processWriteback(
-			{ db: {} as never, sandboxPath: tmpDir, sessionId: "sess-1", manifestPath, knowledge },
+		const result = await writeback.process(
+			{ db: {} as HyperIdleDb, sandboxPath: tmpDir, sessionId: "sess-1", manifestPath, knowledge },
 			[{ type: "modify", relativePath: "knowledge/note.md", fullPath: notePath }],
 		);
 
@@ -171,7 +161,7 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 			}),
 		);
 		const conflictCalls: unknown[] = [];
-		const knowledge: CaptureWritebackKnowledgeWriter = {
+		const knowledge: KnowledgeWriter = {
 			async create() {
 				throw new Error("create should not be called");
 			},
@@ -183,8 +173,8 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 			},
 		};
 
-		const result = await processWriteback(
-			{ db: {} as never, sandboxPath: tmpDir, sessionId: "sess-1", manifestPath, knowledge },
+		const result = await writeback.process(
+			{ db: {} as HyperIdleDb, sandboxPath: tmpDir, sessionId: "sess-1", manifestPath, knowledge },
 			[{ type: "modify", relativePath: "knowledge/note.md", fullPath: notePath }],
 		);
 

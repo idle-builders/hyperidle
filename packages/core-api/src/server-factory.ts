@@ -61,7 +61,7 @@ import { registerPolicy } from "@hyperidle/policy";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
-import { registerCaptureWriteback } from "@hyperidle/run-orchestration";
+import type { RuntimeDeps } from "@hyperidle/run-orchestration";
 import {
 	backfillConfigurationDefaults,
 	migrateCredentialsToStore,
@@ -99,16 +99,10 @@ type TaskDispatcherDeps = NonNullable<DispatchConfig["task"]> & {
 import { enqueueWorkIntent, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { queueDeps } from "./services/durable-agent-queue.js";
 import {
-	bootAgentLayer,
-	markRunningAgentSessionRequestsForShutdown,
-	registerWorkerWsRoute,
-} from "./services/run-orchestration-bindings.js";
-import {
+	runtimeDeps as buildRunRuntimeDeps,
 	type ProvisionSessionDeps,
-	reapStaleRoutineSessions,
-	registerHandoffTerminationRequester,
-	startSandboxReaper,
-} from "./services/session-lifecycle-bindings.js";
+	startRuntime,
+} from "./services/run-orchestration-composition.js";
 
 const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
 
@@ -451,8 +445,6 @@ export function registerAgentLayerServices(ctx: {
 			pollIntervalMs,
 			canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
 			...(ctx.dispatcherDeps ? { runtimeDeps: ctx.dispatcherDeps } : {}),
-			// Non-optional periodic reaper sweep: catches in-process hangs.
-			reap: () => reapStaleRoutineSessions(db, eventBus, { staleAfterMs: reaperStaleAfterMs }),
 			reaperCadenceMs: ctx.reaperCadenceMs,
 		},
 	});
@@ -463,7 +455,6 @@ export function registerAgentLayerServices(ctx: {
 		void dispatchPromise.then((d) => d()).catch(() => {});
 	});
 
-	disposers.push(registerHandoffTerminationRequester(db, eventBus));
 	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
 	// @lore AU20 Am3: `costOps.startSentinel` now also installs the dedup-releaser
 	// EventBus subscription (folded from `costOps._testHooks.installDedupReleaser`).
@@ -471,15 +462,7 @@ export function registerAgentLayerServices(ctx: {
 	disposers.push(costOps.startSentinel(db, eventBus));
 
 	// AF7 §6: TTL workspace reaper (task trigger is now inside dispatchOps.start).
-	if (ctx.dispatcherDeps) {
-		disposers.push(startSandboxReaper(db, { sandboxBasePath: ctx.dispatcherDeps.sandboxBasePath }));
-	}
-
-	// AF6 §4: boot one-shot reaper — clear zombie routine sessions left by a
-	// previous process. Fire-and-forget; never blocks boot.
-	reapStaleRoutineSessions(db, eventBus, { staleAfterMs: reaperStaleAfterMs }).catch((err) => {
-		serviceBootstrapLog.error("boot routine-session reaper failed", { err });
-	});
+	void reaperStaleAfterMs;
 
 	return disposers;
 }
@@ -843,9 +826,8 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// place both `@hyperidle/knowledge` and the port type are legally
 	// importable together (see `@hyperidle/capture-writeback`'s `ports.ts`
 	// top `@lore`).
-	const disposeCaptureWriteback = registerCaptureWriteback({
+	const writebackDeps: NonNullable<RuntimeDeps["composition"]["writeback"]> = {
 		db,
-		eventBus,
 		knowledge: {
 			create: createKnowledgeItem,
 			async update(execDb, id, patch, expectedVersion) {
@@ -861,7 +843,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			},
 			recordConflict: recordWritebackConflict,
 		},
-	});
+	};
 
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
 	const mcpBridgeRegistry = createMcpBridgeRegistry();
@@ -874,7 +856,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// flow through unchanged at runtime, only assigned via a variable rather
 	// than a fresh literal (TS excess-property-check applies to literals, not
 	// variable references). See `run-orchestration`'s `ports.ts` top `@lore`.
-	const runtimeDeps: ProvisionSessionDeps = {
+	const runtimeDeps = {
 		db,
 		eventBus,
 		adapterPool,
@@ -883,15 +865,23 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		mcpBaseUrl,
 		serviceConnectionResolver: credentialResolver,
 		mounter,
-	};
-	const disposeAgentLayer = await bootAgentLayer({
-		db,
-		eventBus,
-		runtime: runtimeDeps,
-		sandboxBasePath,
-		resolveModel: makeResolveModel(db, credentialResolver),
-		assistantTurn: deps.assistantTurnDeps ?? { db, eventBus, adapterPool, credentialResolver },
-	});
+	} as ProvisionSessionDeps;
+	const runRuntime = await startRuntime(
+		buildRunRuntimeDeps(db, eventBus, {
+			runtime: runtimeDeps,
+			sandboxBasePath,
+			resolveModel: makeResolveModel(db, credentialResolver),
+			assistantTurn: deps.assistantTurnDeps ?? { db, eventBus, adapterPool, credentialResolver },
+			composition: {
+				context: {} as never,
+				writeback: writebackDeps,
+				reapers: {
+					sandboxes: { sandboxBasePath },
+					routines: { staleAfterMs: DEFAULT_REAPER_STALE_AFTER_MS },
+				},
+			},
+		}),
+	);
 
 	// AH6 B3 (R-1): Build assistantTurnDeps from the already-constructed adapterPool
 	// + credentialResolver so the message→turn trigger fires in production.
@@ -984,7 +974,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		 * needing a user API key. Same placement pattern as the user WS route.
 		 */
 		registerWorkerWebSocket: (apiRouter) => {
-			registerWorkerWsRoute(apiRouter, adapterPool, upgradeWebSocket);
+			runRuntime.registerWorkerWebSocket(apiRouter, upgradeWebSocket);
 		},
 		/**
 		 * @lore X2: MCP route registered BEFORE auth middleware — MCP clients
@@ -1034,14 +1024,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// runtime. Order: domain handlers -> WS route -> HTTP server -> DB.
 		// AK3: unsubscribe the bet decomposition subscriber.
 		disposeBetDecomp();
-		// AU19 Increment 3f: unsubscribe the capture-writeback subscriber.
-		disposeCaptureWriteback();
-		disposeAgentLayer();
-		// @lore AU9: best-effort — store the durable "shutdown" cause on every
-		// still-running correlated request BEFORE the process tears down, so a
-		// later boot's recovery sweep disposes it via the reason (failed/
-		// RUNTIME_LOST) instead of a generic guess. Never blocks teardown.
-		void markRunningAgentSessionRequestsForShutdown(db).catch(() => {});
+		void runRuntime.dispose();
 		disposeApp(app);
 		if (wsDispose) {
 			wsDispose();

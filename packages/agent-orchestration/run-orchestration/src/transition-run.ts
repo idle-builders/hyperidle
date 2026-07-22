@@ -6,44 +6,24 @@ import type {
 	SessionLifecycleCorrelation,
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
-import type { IngestionHandle } from "./contracts.js";
-import type { SessionLifecyclePorts } from "./session-lifecycle-ports.js";
+import type { createProvisioner } from "./provisioner.js";
 
-/**
- * @lore AU19 Increment 3i: real cut-over — moved here from
- * `packages/server/src/services/session-lifecycle.ts` (behavior-preserving
- * move). Every raw cross-Service touch became an injected `ports:
- * SessionLifecyclePorts` parameter (Mechanism C, see `ports.ts`):
- *  - `requestAgentTermination`/`recoverRequestedTerminations`/
- *    `transitionAgentRunLifecycle` raw-read/wrote `agentSessionRequests`
- *    directly pre-migration — closed via `ports.sessionRequests`'
- *    `requestAgentSessionTermination`/`listSessionRequests`/
- *    `findAgentSessionRequestTerminationReasonInTx`/
- *    `transitionSessionRequest` (see `ports.ts`'s top `@lore`).
- *  - `updateRoutineRunOnSessionEnd`'s `routine.updateRoutineById`/
- *    `updateRoutineRunById` calls — ordinary downward DI via `ports.routine`.
- *    The `costActualMinor = coalesce(...) + n` accumulation split into its
- *    own `ports.routine.incrementRoutineCost` call (closes the coalesce-
- *    ownership gap `@hyperidle/routine`'s `RoutinePatch` doc comment
- *    anticipated) — see `@hyperidle/routine`'s `incrementRoutineCost` top
- *    `@lore` for the atomicity note (unchanged: these were never
- *    transactional with each other pre-migration either).
- *  - `releaseSessionDedup` (`cost`) stays a direct `@hyperidle/db`-free,
- *    in-memory singleton import — `cost-bindings.ts`'s dedup map, not a
- *    table-owning call; unaffected by this migration (still wired the same
- *    way at the composition root, `session-lifecycle-bindings.ts`).
- */
+interface IngestionHandle {
+	dispose(): void;
+}
+type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
+type TransitionPorts = Pick<SessionLifecyclePorts, "sessionRequests" | "routine">;
 
-export const TERMINATION_REASONS = [
+const TERMINATION_REASONS = [
 	"user_done",
 	"user_crashed",
 	"handoff",
 	"cost_cap",
 	"shutdown",
 ] as const;
-export type AgentTerminationReason = (typeof TERMINATION_REASONS)[number];
+type AgentTerminationReason = (typeof TERMINATION_REASONS)[number];
 
-export const TERMINATION_DISPOSITIONS = {
+const TERMINATION_DISPOSITIONS = {
 	user_done: { state: "cancelled", failureCode: null },
 	user_crashed: { state: "failed", failureCode: null },
 	handoff: { state: "completed", failureCode: null },
@@ -51,10 +31,10 @@ export const TERMINATION_DISPOSITIONS = {
 	shutdown: { state: "failed", failureCode: "RUNTIME_LOST" },
 } as const;
 
-export async function requestAgentTermination(
+function requestAgentTermination(
 	db: HyperIdleDb,
 	input: { requestId: string; reason: AgentTerminationReason; requestedBy?: string },
-	ports: SessionLifecyclePorts,
+	ports: TransitionPorts,
 ): Promise<"accepted" | "idempotent" | "conflict" | "terminal"> {
 	void ports;
 	return ports.sessionRequests.transitionSessionRequest(db, {
@@ -65,48 +45,7 @@ export async function requestAgentTermination(
 	}) as Promise<"accepted" | "idempotent" | "conflict" | "terminal">;
 }
 
-/** @lore AU9: recovery reads the durable reason; abort signals never define outcome. */
-export async function recoverRequestedTerminations(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	ports: SessionLifecyclePorts,
-): Promise<number> {
-	const running = await ports.sessionRequests.listSessionRequests(db, { status: "running" });
-	const requests = running.filter((r: AgentSessionRequest) => r.terminationReason != null);
-	let recovered = 0;
-	for (const request of requests) {
-		const reason = request.terminationReason as AgentTerminationReason;
-		const disposition = TERMINATION_DISPOSITIONS[reason];
-		await transitionAgentRunLifecycle(
-			db,
-			eventBus,
-			{
-				requestId: request.id,
-				state: disposition.state,
-				sessionId: request.sessionId ?? undefined,
-				failureCode: disposition.failureCode ?? undefined,
-			},
-			ports,
-		);
-		recovered += 1;
-	}
-	return recovered;
-}
-
-/**
- * @lore AU9 R1: this is the sole orchestration entrypoint agent-runtime call sites use
- * for a terminal transition (natural completion/failure, detached-runtime failure,
- * PATCH/handoff/shutdown/cost-cap disposition, running-recovery). It composes the
- * single low-level writer (`transitionSessionRequest`) inside one
- * transaction that FIRST re-reads the durable termination reason: teardown never
- * infers cause from an in-memory abort — if a reason is already stored, that
- * disposition wins over the caller's natural-completion guess (precedence:
- * "once a reason exists, teardown disposition wins"). `sessionId` selects the
- * post-admission precondition; `claimToken` (used when `sessionId` is absent)
- * selects the pre-admission precondition for a failure caught before
- * `markRequestRunning` ever ran.
- */
-export async function transitionAgentRunLifecycle(
+async function transitionAgentRunLifecycle(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	input: {
@@ -117,7 +56,7 @@ export async function transitionAgentRunLifecycle(
 		readonly failureCode?: string;
 		readonly errorMessage?: string;
 	},
-	ports: SessionLifecyclePorts,
+	ports: TransitionPorts,
 ): Promise<void> {
 	void ports;
 	const row = await db.transaction(async (tx) => {
@@ -175,7 +114,37 @@ export async function transitionAgentRunLifecycle(
 	});
 }
 
-export interface SessionContext {
+async function recoverRequestedTerminations(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	ports: TransitionPorts,
+): Promise<number> {
+	const requests = await ports.sessionRequests.listSessionRequests(db, { status: "running" });
+	let recovered = 0;
+	for (const request of requests) {
+		const reason = await ports.sessionRequests.findSessionRequest(db, {
+			by: "terminationReason",
+			requestId: request.id,
+		});
+		if (!(reason && request.sessionId)) continue;
+		const disposition = TERMINATION_DISPOSITIONS[reason as AgentTerminationReason];
+		await transitionAgentRunLifecycle(
+			db,
+			eventBus,
+			{
+				requestId: request.id,
+				state: disposition.state,
+				sessionId: request.sessionId,
+				failureCode: disposition.failureCode ?? undefined,
+			},
+			ports,
+		);
+		recovered += 1;
+	}
+	return recovered;
+}
+
+interface SessionContext {
 	sessionId: string;
 	agentId: string;
 	taskId: string | null;
@@ -190,39 +159,8 @@ export interface SessionContext {
 	/** Correlates every observability event for this session (H3). */
 	traceId: string;
 	readonly requestContext?: SessionLifecycleCorrelation;
-	/**
-	 * AA2: When set, this session belongs to a routine. Used by endSession/crashSession
-	 * to update routine_runs outcome and routines.lastRunSummary on completion.
-	 */
 	routineId?: string;
 }
-
-// @lore O1: resolveCostBaseline and costDelta removed from session_ended
-// as part of kernel/strategy separation. Session cost tracking is a
-// strategy concern, not kernel. The observability layer no longer receives
-// costDelta — intentional gap, cost signals belong in the strategy layer.
-
-/**
- * AA2: Update the routine_runs row and routines last-run fields when a routine
- * session ends (normally or via crash).
- *
- * Finds the routine_run row with outcome="running" for this routine, then
- * updates it with the final outcome, sessionId, endedAt, cost, and summary.
- * Also updates routines.lastRunAt and routines.lastRunSummary.
- *
- * @lore AA2: Match on routineId+outcome="running", NOT sessionId. The
- * routine_runs row is inserted with outcome="running" and sessionId=NULL
- * by the trigger handler before provisionSession is called. The sessionId
- * back-population happens AFTER provisionSession returns — too late for this
- * hook to use it as a filter. Coalescing guarantees at most one "running" row
- * per routine at any time, so routineId+outcome is a safe unique key.
- * sessionId is set here in the UPDATE so the historical record is complete.
- *
- * @lore AA3: outcome widened to include "budget_exhausted" so the per-run cap
- * enforcement path can write the correct outcome in a single write (no
- * write-then-overwrite). Passing the outcome through avoids the failure window
- * where endSession succeeds but the override fails (critique Warning 1).
- */
 async function updateRoutineRunOnSessionEnd(
 	db: HyperIdleDb,
 	routineId: string,
@@ -230,26 +168,17 @@ async function updateRoutineRunOnSessionEnd(
 	outcome: "success" | "error" | "budget_exhausted",
 	endedAt: string,
 	costInCents: number,
-	ports: SessionLifecyclePorts,
+	ports: TransitionPorts,
 	summary?: string,
 ): Promise<void> {
-	// Find the routine_run row that is still "running" for this routine.
-	// NOTE: Do NOT filter by sessionId — it may be NULL on the row when this
-	// hook fires (see @lore above).
-	// @lore AU13 addendum §A6: this call site currently passes the pooled `db`
-	// (not a `tx`) — findRunningRoutineRun accepts whatever executor the caller
-	// passes; do not hard-code tx here.
 	const run = await ports.routine.findRunningRoutineRun(db, routineId);
 
 	if (!run) {
-		// No matching running run — pre-AA2 session or already finalized. No-op.
 		return;
 	}
 
 	await ports.routine.updateRoutineRunById(db, run.id, {
 		outcome,
-		// Set sessionId here so the historical record is complete even though
-		// it was NULL when the row was first inserted.
 		sessionId,
 		endedAt,
 		costMinor: costInCents > 0 ? costInCents : null,
@@ -257,13 +186,6 @@ async function updateRoutineRunOnSessionEnd(
 		...(summary ? { summary } : {}),
 	});
 
-	// AF10 AC2: increment routines.costActualMinor (cumulative, += per run).
-	// costInCents is the per-run session total — a true delta w.r.t. the running
-	// cumulative field. Uses an atomic coalesce accumulator (mirrors
-	// recordCostAndCheck cost-cap.ts:247) to avoid lost updates under
-	// concurrent routine runs.
-	// @lore AF10: currency literal "USD" matches routineRuns.costCurrency write above.
-	// Single-currency factory assumption — see architecture.md §2 tech-debt note.
 	if (costInCents > 0) {
 		await ports.routine.incrementRoutineCost(db, routineId, costInCents, "USD");
 	}
@@ -277,29 +199,12 @@ async function updateRoutineRunOnSessionEnd(
 	}
 }
 
-/**
- * End a session gracefully: flush ingestion, update DB, emit event, clean up workspace.
- *
- * @param routineRunOutcome - AA3: Optional override for the routine_run outcome.
- *   When "budget_exhausted", the routine_run is recorded with that outcome directly
- *   (avoids write-then-overwrite race window; critique Warning 1).
- * @param terminalOutcome - AL6 v2 WARNING-A: Optional terminal session outcome override.
- *   When provided, overrides the hardcoded "completed" outcome in BOTH the persisted
- *   sessions row AND the session_ended bus event. Used to persist "not_returned" outcome
- *   so the DB row and bus event are consistent with ProvisionSessionResult.outcome.
- *   Defaults to "completed" for backwards compat (all existing call sites are unaffected).
- *
- * @lore AL6 v2: The previous signature had routineRunOutcome typed as "budget_exhausted"
- * and only touched the routine_run row — not the sessions row or session_ended event.
- * Adding terminalOutcome as a separate parameter keeps existing callers unchanged and
- * lets the not_returned path thread the outcome through all three write sites.
- */
-export async function endSession(
+async function endSession(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	context: SessionContext,
 	costInCents: number,
-	ports: SessionLifecyclePorts,
+	ports: TransitionPorts,
 	baselineCost?: number,
 	routineRunOutcome?: "budget_exhausted",
 	terminalOutcome: "completed" | "not_returned" = "completed",
@@ -389,12 +294,12 @@ export async function endSession(
  * Crash a session: same as end but state=crashed, outcome=crashed,
  * with try-catch around ingestion.dispose().
  */
-export async function crashSession(
+async function crashSession(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	context: SessionContext,
 	costInCents: number,
-	ports: SessionLifecyclePorts,
+	ports: TransitionPorts,
 	baselineCost?: number,
 ): Promise<void> {
 	// 1. Try to dispose ingestion handle (may be in a bad state during crash).
@@ -456,6 +361,70 @@ export async function crashSession(
 
 	// Note: Do NOT delete workspace on crash -- knowledge is preserved in DB
 	// and workspace may be needed for debugging
+}
+
+/** Single public transition operation for durable requests and admitted sessions. */
+export function transitionRun(
+	deps: {
+		readonly db: HyperIdleDb;
+		readonly eventBus: EventBus;
+		readonly ports: TransitionPorts;
+	},
+	spec:
+		| { readonly target: "request"; readonly intent: "recover-terminations" }
+		| {
+				readonly target: "request";
+				readonly requestId: string;
+				readonly intent: "request-termination";
+				readonly reason: AgentTerminationReason;
+				readonly requestedBy?: string;
+		  }
+		| {
+				readonly target: "request";
+				readonly requestId: string;
+				readonly intent: "terminalize";
+				readonly state: "completed" | "failed" | "cancelled";
+				readonly sessionId?: string;
+				readonly claimToken?: string;
+				readonly failureCode?: string;
+		  }
+		| {
+				readonly target: "session";
+				readonly context: SessionContext;
+				readonly disposition: "end" | "crash";
+				readonly costInCents?: number;
+				readonly baselineCost?: number;
+				readonly routineOutcome?: "budget_exhausted";
+				readonly terminalOutcome?: "completed" | "not_returned";
+		  },
+): Promise<unknown> {
+	if (spec.target === "request") {
+		if (spec.intent === "recover-terminations") {
+			return recoverRequestedTerminations(deps.db, deps.eventBus, deps.ports);
+		}
+		return spec.intent === "request-termination"
+			? requestAgentTermination(deps.db, spec, deps.ports)
+			: transitionAgentRunLifecycle(deps.db, deps.eventBus, spec, deps.ports);
+	}
+	return spec.disposition === "end"
+		? endSession(
+				deps.db,
+				deps.eventBus,
+				spec.context,
+				spec.costInCents ?? 0,
+				deps.ports,
+				spec.baselineCost,
+				spec.routineOutcome,
+				spec.terminalOutcome,
+			)
+		: crashSession(
+				deps.db,
+				deps.eventBus,
+				spec.context,
+				spec.costInCents ?? 0,
+				deps.ports,
+				spec.baselineCost,
+			);
 }
 
 // ---------------------------------------------------------------------------

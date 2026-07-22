@@ -1,38 +1,29 @@
 import { randomUUID } from "node:crypto";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
+	type AdmittedRun,
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
 	ConcurrencyLimitError,
 	CostCapExceededError,
-	type EventBus,
+	type HarnessPortDeps,
+	type RunContextBundle,
 } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
-import type {
-	RunOrchestrationAdmittedSession,
-	RunOrchestrationPorts,
-	RunOrchestrationProvisionDeps,
-	RunOrchestrationProvisionParams,
-	RunOrchestrationProvisionResult,
-} from "./ports.js";
+import { eq } from "drizzle-orm";
+import { createContextAssembler } from "./context.js";
+import type { RunOptions, RunResult, RuntimeDeps, RuntimePorts } from "./contracts.js";
+import { createProvisioner } from "./provisioner.js";
 
-/**
- * @lore AU19 Increment 3c: real cut-over — moved here from
- * `packages/server/src/services/agent-session-runtime.ts` (behavior-preserving
- * move, aside from every `session-requests`/`session-lifecycle`/
- * `session-provisioning` (`session-lifecycle`-destined) touch converting to
- * an injected `ports: RunOrchestrationPorts` parameter — Mechanism C forbids
- * a Service importing another Service, even same-layer, even a forward-ref.
- * `sessions` stays a direct `@hyperidle/db` read/write — it is in
- * `table-ownership-guard.ts`'s `UNOWNED_SHARED_TABLES` exemption. See
- * `ports.ts`'s top `@lore` for the full edge inventory.
- */
+type RuntimeProvisionDeps = HarnessPortDeps<HyperIdleDb>;
+type ExecutionPorts = Omit<RuntimePorts, "sessionProvisioner"> & {
+	readonly sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]>;
+};
 
-export function admitOnlyWithRequestLease(
+function admitOnlyWithRequestLease(
 	db: HyperIdleDb,
 	input: { requestId: string; claimToken: string; now?: Date },
-	ports: RunOrchestrationPorts,
+	ports: ExecutionPorts,
 ): Promise<boolean> {
 	return ports.sessionRequests.findSessionRequest(db, {
 		by: "claimActive",
@@ -42,10 +33,10 @@ export function admitOnlyWithRequestLease(
 	}) as Promise<boolean>;
 }
 
-export async function reserveOrAdoptSession(
+async function reserveOrAdoptSession(
 	db: HyperIdleDb,
 	input: { requestId: string; claimToken: string },
-	ports: RunOrchestrationPorts,
+	ports: ExecutionPorts,
 ): Promise<{ adopted: boolean; sessionId: string }> {
 	if (!(await admitOnlyWithRequestLease(db, input, ports))) {
 		throw new Error(`Request ${input.requestId} is not owned by this claim`);
@@ -87,80 +78,6 @@ export async function reserveOrAdoptSession(
 	return { adopted: true, sessionId: winner.id };
 }
 
-/**
- * @lore AU9 R1/R3: boot-time reconciliation for requests durably stuck `running`.
- * No live registry can possibly exist yet at this call site (it runs before any
- * worker starts), so an `active` correlated session is unconditionally orphaned —
- * mapped to `failed/RUNTIME_LOST`. A session that already reached a terminal DB
- * state (crash landed the session teardown but died before the request
- * terminalized) is "adopted": the request is projected to match the session's
- * already-known outcome. Never returns a constant and never throws on a lost
- * session — every row is reconciled through the single terminal writer.
- */
-export async function recoverRunningAgentSessionRequests(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	ports: RunOrchestrationPorts,
-): Promise<{ adopted: number; runtimeLost: number; running: number }> {
-	const running = await ports.sessionRequests.listSessionRequests(db, { status: "running" });
-	let adopted = 0;
-	let runtimeLost = 0;
-	for (const request of running) {
-		if (!request.sessionId) {
-			await ports.sessionLifecycle.transitionAgentRunLifecycle(db, eventBus, {
-				requestId: request.id,
-				state: "failed",
-				claimToken: request.claimToken ?? undefined,
-				failureCode: "RUNTIME_LOST",
-			});
-			runtimeLost += 1;
-			continue;
-		}
-		const [session] = await db
-			.select()
-			.from(sessions)
-			.where(and(eq(sessions.id, request.sessionId), eq(sessions.requestId, request.id)))
-			.limit(1);
-		if (!session || session.state === "active") {
-			if (session) {
-				await db
-					.update(sessions)
-					.set({ state: "crashed", outcome: "crashed", endedAt: new Date().toISOString() })
-					.where(and(eq(sessions.id, session.id), eq(sessions.state, "active")));
-			}
-			await ports.sessionLifecycle.transitionAgentRunLifecycle(db, eventBus, {
-				requestId: request.id,
-				state: "failed",
-				sessionId: request.sessionId,
-				failureCode: "RUNTIME_LOST",
-			});
-			runtimeLost += 1;
-			continue;
-		}
-		await ports.sessionLifecycle.transitionAgentRunLifecycle(db, eventBus, {
-			requestId: request.id,
-			state: session.state === "done" ? "completed" : "failed",
-			sessionId: session.id,
-			...(session.state === "done" ? {} : { failureCode: "RUNTIME_LOST" }),
-		});
-		adopted += 1;
-	}
-	return { adopted, runtimeLost, running: running.length };
-}
-
-export interface ConsumeAgentSessionRequestOptions {
-	readonly sandboxBasePath: string;
-	readonly workerId?: string;
-	readonly claim?: { readonly now: Date; readonly leaseMs: number };
-	readonly resolvedModel?: RunOrchestrationProvisionParams["resolvedModel"];
-	readonly resolvedFastModel?: RunOrchestrationProvisionParams["resolvedFastModel"];
-	readonly modelTier?: RunOrchestrationProvisionParams["modelTier"];
-	readonly sessionWorkflow?: RunOrchestrationProvisionParams["sessionWorkflow"];
-	readonly conversational?: RunOrchestrationProvisionParams["conversational"];
-	readonly detachAfterAdmission?: boolean;
-	readonly enforceResolvedModelGuard?: boolean;
-}
-
 function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorrelation {
 	const parsed = JSON.parse(request.sourceCorrelationJson) as AgentSessionSourceCorrelation;
 	agentSessionRequestInputSchema.parse({
@@ -192,8 +109,8 @@ function parseTriggerPrompt(request: AgentSessionRequest): string | null {
 async function ensureClaimedRequest(
 	db: HyperIdleDb,
 	request: AgentSessionRequest,
-	options: ConsumeAgentSessionRequestOptions,
-	ports: RunOrchestrationPorts,
+	options: Extract<RunOptions, { mode: "durable" }>,
+	ports: ExecutionPorts,
 ): Promise<AgentSessionRequest> {
 	void ports;
 	if (request.status === "claimed") return request;
@@ -215,16 +132,16 @@ async function ensureClaimedRequest(
 }
 
 async function runClaimedRequest(
-	deps: RunOrchestrationProvisionDeps,
+	deps: RuntimeProvisionDeps,
 	request: AgentSessionRequest,
-	provisionParams: RunOrchestrationProvisionParams,
-	ports: RunOrchestrationPorts,
+	provisionParams: RunContextBundle,
+	ports: ExecutionPorts,
 	options: Pick<
-		ConsumeAgentSessionRequestOptions,
-		"detachAfterAdmission" | "enforceResolvedModelGuard"
-	> = {},
-): Promise<RunOrchestrationProvisionResult> {
-	let admitted: RunOrchestrationAdmittedSession | null = null;
+		Extract<RunOptions, { mode: "durable" }>,
+		"completion" | "enforceResolvedModelGuard"
+	>,
+): Promise<RunResult> {
+	let admitted: AdmittedRun | null = null;
 	try {
 		if (
 			!(
@@ -251,7 +168,7 @@ async function runClaimedRequest(
 			sessionId: admitted.sessionId,
 			claimToken: request.claimToken,
 		});
-		if (options.detachAfterAdmission) {
+		if (options.completion === "admit") {
 			let signalStarted!: () => void;
 			const started = new Promise<void>((resolve) => {
 				signalStarted = resolve;
@@ -296,13 +213,7 @@ async function runClaimedRequest(
 					signalStarted();
 				});
 			await started;
-			return {
-				sessionId: admitted.sessionId,
-				outcome: "completed",
-				totalCostCents: 0,
-				taskId: admitted.sessionContext.taskId,
-				forceReturnCount: 0,
-			};
+			return { mode: "admitted", sessionId: admitted.sessionId };
 		}
 		const result = await ports.sessionProvisioner.runSession(
 			deps,
@@ -315,7 +226,7 @@ async function runClaimedRequest(
 			state: "completed",
 			sessionId: admitted.sessionId,
 		});
-		return result;
+		return { mode: "completed", ...result };
 	} catch (err) {
 		if (err instanceof ConcurrencyLimitError || err instanceof CostCapExceededError) {
 			if (request.claimToken) {
@@ -340,16 +251,16 @@ async function runClaimedRequest(
 	}
 }
 
-export async function consumeAgentSessionRequest(
-	deps: RunOrchestrationProvisionDeps,
+async function consumeAgentSessionRequest(
+	deps: RuntimeProvisionDeps,
 	request: AgentSessionRequest,
-	options: ConsumeAgentSessionRequestOptions,
-	ports: RunOrchestrationPorts,
-): Promise<RunOrchestrationProvisionResult> {
+	options: Extract<RunOptions, { mode: "durable" }>,
+	ports: ExecutionPorts,
+): Promise<RunResult> {
 	const claimedRequest = await ensureClaimedRequest(deps.db, request, options, ports);
 	const sourceCorrelation = parseCorrelation(claimedRequest);
 	const triggerPromptOverride = parseTriggerPrompt(claimedRequest);
-	const provisionParams: RunOrchestrationProvisionParams = {
+	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
 		productId: claimedRequest.teamId ?? "task-free",
@@ -371,4 +282,66 @@ export async function consumeAgentSessionRequest(
 		},
 	};
 	return runClaimedRequest(deps, claimedRequest, provisionParams, ports, options);
+}
+
+/** Drive a durable, one-shot, or assembly-only run through one coherent boundary. */
+export function runSession(deps: RuntimeDeps, options: RunOptions): Promise<RunResult> {
+	if (options.mode === "assemble") {
+		if ("assemble" in deps && typeof deps.assemble === "function") {
+			return Promise.resolve(deps.assemble(options.input)).then((assembled) => ({
+				mode: "assembled",
+				context: assembled as Extract<RunResult, { mode: "assembled" }>["context"],
+			}));
+		}
+		const context = createContextAssembler(deps.composition.context);
+		return context
+			.assembleAgentContext(options.input)
+			.then((assembled) => ({ mode: "assembled", context: assembled }));
+	}
+	if (!(deps.runtime || deps.ports?.sessionProvisioner)) {
+		throw new Error("Executable run mode requires harness runtime dependencies");
+	}
+	const runtime = (deps.runtime ?? deps) as RuntimeProvisionDeps;
+	const provisionerComposition = deps.composition?.provisioner;
+	if (!(provisionerComposition || deps.ports?.sessionProvisioner)) {
+		throw new Error("Executable run mode requires provisioner composition");
+	}
+	if (options.mode === "durable" && !deps.ports) {
+		throw new Error("Durable run mode requires orchestration ports");
+	}
+	const basePorts = deps.ports;
+	let executionProvisioner = basePorts?.sessionProvisioner;
+	if (!executionProvisioner) {
+		if (!provisionerComposition) throw new Error("Missing provisioner composition");
+		const provisioner = createProvisioner({
+			...provisionerComposition,
+			contextAssembly: createContextAssembler(deps.composition.context),
+		});
+		executionProvisioner = { admitSession: provisioner.admit, runSession: provisioner.run };
+	}
+	const ports: ExecutionPorts = {
+		...(basePorts ?? ({} as RuntimePorts)),
+		sessionProvisioner: executionProvisioner,
+	};
+	if (options.mode === "durable") {
+		return consumeAgentSessionRequest(runtime, options.request, options, ports);
+	}
+	return (async () => {
+		const admitted = options.enforceResolvedModelGuard
+			? await ports.sessionProvisioner.admitSession(runtime, options.input, true)
+			: await ports.sessionProvisioner.admitSession(runtime, options.input);
+		if (options.completion === "admit") {
+			void ports.sessionProvisioner
+				.runSession(runtime, options.input, admitted, runtime.onHarnessStarted)
+				.catch(() => undefined);
+			return { mode: "admitted", sessionId: admitted.sessionId };
+		}
+		const result = await ports.sessionProvisioner.runSession(
+			runtime,
+			options.input,
+			admitted,
+			runtime.onHarnessStarted,
+		);
+		return { mode: "completed", ...result };
+	})();
 }

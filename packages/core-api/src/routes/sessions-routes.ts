@@ -22,10 +22,7 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import {
-	requestAgentTermination,
-	transitionAgentRunLifecycle,
-} from "../services/session-lifecycle-bindings.js";
+import { transitionRun } from "../services/run-orchestration-composition.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -185,7 +182,9 @@ async function applyStateChangePatch(
 				body: { error: "Active session has no agent request", code: API_ERROR_CODES.CONFLICT },
 			};
 		}
-		const termination = await requestAgentTermination(db, {
+		const termination = await transitionRun(db, eventBus, {
+			target: "request",
+			intent: "request-termination",
 			requestId: existing.requestId,
 			reason: state === "done" ? "user_done" : "user_crashed",
 			...(actor ? { requestedBy: actor } : {}),
@@ -214,7 +213,9 @@ async function applyStateChangePatch(
 	// contract does not depend on a live runtime existing to drive it.
 	if (existing.requestId) {
 		const reason: "user_done" | "user_crashed" = state === "done" ? "user_done" : "user_crashed";
-		const termination = await requestAgentTermination(db, {
+		const termination = await transitionRun(db, eventBus, {
+			target: "request",
+			intent: "request-termination",
 			requestId: existing.requestId,
 			reason,
 			...(actor ? { requestedBy: actor } : {}),
@@ -225,7 +226,9 @@ async function applyStateChangePatch(
 				body: { error: "Session termination already settled", code: API_ERROR_CODES.CONFLICT },
 			};
 		}
-		await transitionAgentRunLifecycle(db, eventBus, {
+		await transitionRun(db, eventBus, {
+			target: "request",
+			intent: "terminalize",
 			requestId: existing.requestId,
 			state: reason === "user_done" ? "cancelled" : "failed",
 			sessionId,

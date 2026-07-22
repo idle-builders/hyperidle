@@ -60,7 +60,7 @@ import * as work from "@hyperidle/work";
 import { createPracticeMeeting } from "../../knowledge/src/practice-meeting.js";
 import { agentSelectionService } from "./agent-selection-bindings.js";
 import { costOps } from "./cost-bindings.js";
-import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
+import { runSession } from "./run-orchestration-composition.js";
 import { toolHandlersPorts } from "./tool-handlers-bindings.js";
 
 /**
@@ -168,8 +168,11 @@ const dispatchPorts: DispatchPorts = {
 		resolveScaffoldSpecs: (request) => agentSelectionService.resolveScaffoldSpecs(request),
 	},
 	runOrchestration: {
-		executeAgentRunRequest: (deps, request, options) =>
-			executeAgentRunRequest(deps, request, options),
+		async executeAgentRunRequest(deps, request, options) {
+			const result = await runSession(deps, { mode: "durable", request, ...options });
+			if (result.mode !== "completed") throw new Error("Durable dispatch did not complete");
+			return result;
+		},
 	},
 	sessionRequests: {
 		enqueueWorkIntent,

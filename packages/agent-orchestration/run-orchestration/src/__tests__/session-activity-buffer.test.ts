@@ -8,10 +8,12 @@
  * `@hyperidle/run-orchestration`.
  */
 
-import type { ToolCallRecordedEvent } from "@hyperidle/shared";
+import type { ActivityEntry, ToolCallRecordedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SessionActivityBuffer, type ToolCallData } from "../session-activity-buffer.js";
+import { SessionActivityBuffer } from "../session-activity-buffer.js";
+
+type ToolCallData = Extract<ActivityEntry, { type: "tool_call" }>["data"];
 
 function mkToolCallEvent(overrides?: Partial<ToolCallRecordedEvent>): ToolCallRecordedEvent {
 	return {

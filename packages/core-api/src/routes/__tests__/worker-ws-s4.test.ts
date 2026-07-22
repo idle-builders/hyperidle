@@ -12,9 +12,9 @@
  */
 
 import { AdapterPool } from "@hyperidle/harness-registry";
-import type { WorkerConnectionManager } from "@hyperidle/run-orchestration";
+
 import { describe, expect, it, vi } from "vitest";
-import { createWorkerConnectionManager } from "../../services/run-orchestration-bindings.js";
+import { registerWorkerTestSocket, startWorkerTestRuntime } from "./worker-runtime-test-helper.js";
 
 // ── Mock WebSocket ────────────────────────────────────────────────────────────
 
@@ -25,93 +25,89 @@ class MockWs {
 	}
 }
 
-function makeRegisteredManager(
-	pool: AdapterPool,
-	ws: MockWs,
-	id = "w-pause-1",
-): WorkerConnectionManager {
-	const manager = createWorkerConnectionManager(pool);
-	manager.onMessage(
-		JSON.stringify({
-			type: "register",
-			id,
-			name: "pause-worker",
-			modelProviders: ["anthropic"],
-			maxConcurrent: 2,
-		}),
-		ws,
-	);
-	return manager;
+async function makeConnection(pool: AdapterPool, ws: MockWs, id?: string) {
+	const runtime = await startWorkerTestRuntime(pool);
+	const app = registerWorkerTestSocket(runtime);
+	if (id)
+		app.handlers?.onMessage(
+			{
+				data: JSON.stringify({
+					type: "register",
+					id,
+					name: "pause-worker",
+					modelProviders: ["anthropic"],
+					maxConcurrent: 2,
+				}),
+			},
+			ws,
+		);
+	return { runtime, handlers: app.handlers! };
 }
 
 // ── pause/resume message handling ─────────────────────────────────────────────
 
 describe("S4: WorkerConnectionManager pause/resume", () => {
-	it("pause message after registration calls pool.pause(workerId)", () => {
+	it("pause message after registration calls pool.pause(workerId)", async () => {
 		const pool = new AdapterPool();
 		const ws = new MockWs();
 		const pauseSpy = vi.spyOn(pool, "pause");
 
-		const manager = makeRegisteredManager(pool, ws, "w-p1");
+		const { runtime, handlers } = await makeConnection(pool, ws, "w-p1");
 		expect(pool.size).toBe(1);
 
-		manager.onMessage(JSON.stringify({ type: "pause" }), ws);
+		handlers.onMessage({ data: JSON.stringify({ type: "pause" }) }, ws);
 
 		expect(pauseSpy).toHaveBeenCalledWith("w-p1");
+		await runtime.dispose();
 	});
 
-	it("resume message after registration calls pool.resume(workerId)", () => {
+	it("resume message after registration calls pool.resume(workerId)", async () => {
 		const pool = new AdapterPool();
 		const ws = new MockWs();
 		const resumeSpy = vi.spyOn(pool, "resume");
 
-		const manager = makeRegisteredManager(pool, ws, "w-r1");
-		manager.onMessage(JSON.stringify({ type: "pause" }), ws);
+		const { runtime, handlers } = await makeConnection(pool, ws, "w-r1");
+		handlers.onMessage({ data: JSON.stringify({ type: "pause" }) }, ws);
 
-		manager.onMessage(JSON.stringify({ type: "resume" }), ws);
+		handlers.onMessage({ data: JSON.stringify({ type: "resume" }) }, ws);
 
 		expect(resumeSpy).toHaveBeenCalledWith("w-r1");
+		await runtime.dispose();
 	});
 
-	it("pause message before registration is ignored — no crash, pool unchanged", () => {
+	it("pause message before registration is ignored — no crash, pool unchanged", async () => {
 		const pool = new AdapterPool();
 		const ws = new MockWs();
 		const pauseSpy = vi.spyOn(pool, "pause");
 
-		const manager = createWorkerConnectionManager(pool);
+		const { runtime, handlers } = await makeConnection(pool, ws);
 
 		// Send pause BEFORE registering — should be silently ignored
-		expect(() => manager.onMessage(JSON.stringify({ type: "pause" }), ws)).not.toThrow();
+		expect(() => handlers.onMessage({ data: JSON.stringify({ type: "pause" }) }, ws)).not.toThrow();
 		expect(pauseSpy).not.toHaveBeenCalled();
 		expect(pool.size).toBe(0);
+		await runtime.dispose();
 	});
 
-	it("resume message before registration is ignored — no crash, pool unchanged", () => {
+	it("resume message before registration is ignored — no crash, pool unchanged", async () => {
 		const pool = new AdapterPool();
 		const ws = new MockWs();
 		const resumeSpy = vi.spyOn(pool, "resume");
 
-		const manager = createWorkerConnectionManager(pool);
-		expect(() => manager.onMessage(JSON.stringify({ type: "resume" }), ws)).not.toThrow();
+		const { runtime, handlers } = await makeConnection(pool, ws);
+		expect(() =>
+			handlers.onMessage({ data: JSON.stringify({ type: "resume" }) }, ws),
+		).not.toThrow();
 		expect(resumeSpy).not.toHaveBeenCalled();
+		await runtime.dispose();
 	});
 
-	it("pause/resume round trip: adapter is skipped then re-eligible", () => {
+	it("pause/resume round trip: adapter is skipped then re-eligible", async () => {
 		const pool = new AdapterPool();
 		const ws = new MockWs();
 
 		// Register ONLY w-rt2 via manager2 (no makeRegisteredManager here so only one worker)
-		const manager2 = createWorkerConnectionManager(pool);
-		manager2.onMessage(
-			JSON.stringify({
-				type: "register",
-				id: "w-rt2",
-				name: "rt-worker",
-				modelProviders: ["anthropic"],
-				maxConcurrent: 2,
-			}),
-			ws,
-		);
+		const { runtime, handlers } = await makeConnection(pool, ws, "w-rt2");
 
 		// Before pause: selectable
 		const before = pool.select();
@@ -119,12 +115,13 @@ describe("S4: WorkerConnectionManager pause/resume", () => {
 		pool.release("w-rt2");
 
 		// Pause via message
-		manager2.onMessage(JSON.stringify({ type: "pause" }), ws);
+		handlers.onMessage({ data: JSON.stringify({ type: "pause" }) }, ws);
 		expect(pool.select()).toBeNull(); // w-rt2 is paused — only adapter in pool
 
-		manager2.onMessage(JSON.stringify({ type: "resume" }), ws);
+		handlers.onMessage({ data: JSON.stringify({ type: "resume" }) }, ws);
 		// "w-rt2" is resumed — should be selectable again
 		const after = pool.select();
 		expect(after).not.toBeNull();
+		await runtime.dispose();
 	});
 });

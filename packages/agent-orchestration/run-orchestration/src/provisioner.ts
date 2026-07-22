@@ -1,82 +1,599 @@
+/** Consolidated private session provisioner and its DI boundary. */
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import type {
-	AgentSessionSourceCorrelation,
-	AgentSessionSourceKind,
-	CapturedToolCall,
-	ConversationMessage,
-	EventBus,
-	Filesystem,
-	FilesystemMounter,
-	ModelTier,
-	ResolvedModel,
-	SessionConfig,
-	SessionHandle,
-	SessionMetrics,
-	TaskState,
-} from "@hyperidle/shared";
 import {
+	type AgentSessionRequest,
+	type Bet,
+	type HyperIdleDb,
+	type Routine,
+	sessions,
+	type Task,
+	type User,
+} from "@hyperidle/db";
+import {
+	type AgentSessionSourceCorrelation,
+	type AgentSessionSourceKind,
 	AL6_MAX_FORCE_RETURNS,
+	type CapturedToolCall,
 	ConcurrencyLimitError,
+	type ConversationMessage,
 	CostCapExceededError,
+	type EventBus,
+	type Filesystem,
+	type FilesystemMounter,
+	type HarnessEvent,
 	isInternalExtractionDrain,
 	isReturnAction,
 	MissingCredentialError,
 	MODEL_TIERS,
+	type ModelTier,
 	NoEligibleHarnessError,
+	type ResolvedModel,
+	type ReturnEnforcementChannel,
+	type SessionConfig,
+	type SessionHandle,
+	type SessionMetrics,
+	type SessionOutcome,
+	type SessionResult,
+	type SessionWorkflow,
 	scaleForCurrency,
+	type TaskState,
+	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
-import type { IngestionHandle } from "./contracts.js";
-import {
-	crashSession,
-	endSession,
-	requestAgentTermination,
-	type SessionContext,
-} from "./session-lifecycle.js";
-import type {
-	SessionLifecycleModelTier as PortModelTier,
-	SessionLifecycleResolvedModel as PortResolvedModel,
-	SessionLifecycleSessionOutcome as PortSessionOutcome,
-	SessionLifecycleAdapterPool,
-	SessionLifecycleHarnessAdapter,
-	SessionLifecycleMcpBridgeRegistry,
-	SessionLifecyclePorts,
-	SessionLifecycleRegistrySessionWorkflow,
-	SessionLifecycleSandboxAdapter,
-	SessionLifecycleSandboxHandle,
-	SessionLifecycleSelectedEntry,
-	SessionLifecycleServiceConnectionResolver,
-	SessionLifecycleStateTransitionAuditEntry,
-	SessionLifecycleTaskAuditEntry,
-	SessionLifecycleToolContext,
-	SessionLifecycleToolRegistry,
-	SessionLifecycleToolSummary,
-} from "./session-lifecycle-ports.js";
+import { transitionRun } from "./transition-run.js";
 
-// @lore X3: validateSystemPromptPath and SYSTEM_PROMPT_DIR_RELATIVE removed.
-// The path traversal attack surface is eliminated by X3 — system prompts are now
-// stored inline in the DB (agent.systemPrompt) rather than as file paths. No file
-// read happens during session provisioning. The old file-read approach required
-// a path traversal guard; the new inline-text approach has no such attack vector.
+type TransitionSpec = Parameters<typeof transitionRun>[1];
+type SessionContext = Extract<TransitionSpec, { target: "session" }>["context"];
 
-/**
- * @lore AU19 Increment 3i: real cut-over — moved here from
- * `packages/server/src/services/session-provisioning.ts` (behavior-preserving
- * move). Every raw cross-Service touch became an injected `ports:
- * SessionLifecyclePorts` parameter (Mechanism C, see `ports.ts`'s top
- * `@lore` for the full edge inventory, including two NEW census additions —
- * `filesystems` and `connections`, both raw cross-package touches never
- * counted as relative-import edges at original census time). `harness/*`,
- * `mcp/*`, `tools/tool-registry.ts`, and `context-assembly*`/`session-context.ts`
- * stay INTERIM forward-references (their own migrations are Increment 4 and
- * this WP's own next item respectively) — wired at the composition root
- * (`packages/server/src/services/session-lifecycle-bindings.ts`) to their
- * still-flat `packages/server` files, same shape as `run-orchestration`'s own
- * Increment-3c interim ports before their targets migrated.
- */
+interface IngestionHandle {
+	dispose(): void;
+}
+
+// ---- ports ----
+
+// ---------------------------------------------------------------------------
+// Local structural mirror of `@hyperidle/work`'s `task-audit.ts` audit-trail
+// union — `revertTaskToAccepted` JSON.parse/stringify's `tasks.auditTrail`.
+// Mechanism C forbids importing `@hyperidle/work`'s own type, even type-only
+// (same idiom `policy`'s `handoff-protocol.ts` already established for the
+// identical shape — see that file's own local mirror).
+// ---------------------------------------------------------------------------
+
+interface SessionLifecycleStateTransitionAuditEntry {
+	readonly from: TaskState;
+	readonly to: TaskState;
+	readonly timestamp: string;
+	readonly reason?: string;
+}
+
+interface SessionLifecycleHandoffAuditEntry {
+	readonly type: "handoff";
+	readonly fromAgent: string;
+	readonly toAgent?: string;
+	readonly toHuman?: boolean;
+	readonly reason: string;
+	readonly timestamp: string;
+}
+
+type SessionLifecycleTaskAuditEntry =
+	| SessionLifecycleStateTransitionAuditEntry
+	| SessionLifecycleHandoffAuditEntry;
+
+// ---------------------------------------------------------------------------
+// routine — SessionLifecycleRoutineAccessor (ordinary downward edge, real target)
+// ---------------------------------------------------------------------------
+
+interface SessionLifecycleRoutineAccessor {
+	getRoutineById(db: HyperIdleDb, id: string): Promise<Routine | undefined>;
+	findRunningRoutineRun(
+		db: HyperIdleDb,
+		routineId: string,
+	): Promise<{ readonly id: string } | undefined>;
+	updateRoutineRunById(
+		db: HyperIdleDb,
+		id: string,
+		patch: {
+			readonly outcome: "success" | "error" | "budget_exhausted" | "timeout";
+			readonly sessionId?: string;
+			readonly endedAt?: string;
+			readonly costMinor?: number | null;
+			readonly costCurrency?: string | null;
+			readonly summary?: string;
+			readonly errorMessage?: string;
+		},
+	): Promise<void>;
+	updateRoutineById(
+		db: HyperIdleDb,
+		id: string,
+		patch: { readonly lastRunAt?: string; readonly lastRunSummary?: string },
+	): Promise<void>;
+	/** Closes the coalesce-ownership gap (`@hyperidle/routine`'s `incrementRoutineCost`). */
+	incrementRoutineCost(
+		db: HyperIdleDb,
+		id: string,
+		deltaMinor: number,
+		currency: string,
+	): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// work — SessionLifecycleWorkAccessor (ordinary downward edge, real target)
+// ---------------------------------------------------------------------------
+
+interface SessionLifecycleWorkAccessor {
+	getTaskById(db: HyperIdleDb, id: string): Promise<Task | undefined>;
+	updateTaskById(
+		db: HyperIdleDb,
+		id: string,
+		patch: { readonly state?: TaskState; readonly auditTrail?: string },
+	): Promise<void>;
+	getBetById(db: HyperIdleDb, id: string): Promise<Bet | undefined>;
+	updateBetById(
+		db: HyperIdleDb,
+		id: string,
+		patch: { readonly tokensActualJson?: string },
+	): Promise<void>;
+	/** `@hyperidle/work`'s `transitionTask` state machine — the composition root pre-binds its own AC-9 `workIntents.record` dep to `session-requests`' `enqueueWorkIntent`, same idiom `cost-bindings.ts`/`session-requests-bindings.ts` use for other bound singletons. */
+	transitionTask(
+		db: HyperIdleDb,
+		eventBus: EventBus,
+		taskId: string,
+		toState: TaskState,
+		dispatchOccasion?: "accepted" | "retry",
+	): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// users — SessionLifecycleUserReader (ordinary downward edge, real target)
+// ---------------------------------------------------------------------------
+
+interface SessionLifecycleUserReader {
+	getUserById(db: HyperIdleDb, id: string): Promise<User | undefined>;
+	getFirstUserByKind(db: HyperIdleDb, kind: string): Promise<User | undefined>;
+}
+
+// ---------------------------------------------------------------------------
+// settings — SessionLifecycleSettingsReader (ordinary downward edge, real target)
+// ---------------------------------------------------------------------------
+
+interface SessionLifecycleSettingsReader {
+	readServerConfig(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
+}
+
+// ---------------------------------------------------------------------------
+// observability — SessionLifecycleObservability (ordinary downward edge, real target)
+// ---------------------------------------------------------------------------
+
+interface SessionLifecycleObservability {
+	summarizeToolArgs(args: Record<string, unknown>): string;
+}
+
+// ---------------------------------------------------------------------------
+// filesystems — SessionLifecycleFilesystemsReader (NEW census edge — AO2 mount
+// resolution; `mountFilesystemsForAgent`'s raw `@hyperidle/filesystems` calls
+// were never a countable relative-import edge at original census time)
+// ---------------------------------------------------------------------------
+
+interface SessionLifecycleFilesystemRow {
+	readonly id: string;
+	readonly teamId: string;
+	readonly source: string;
+	readonly kind: string;
+	readonly connectionId: string | null;
+	readonly resourceRef: string;
+	readonly writeback: string;
+	readonly state: string;
+	readonly createdAt: string;
+}
+
+interface SessionLifecycleFilesystemsReader {
+	listFilesystemIdsByAgent(db: HyperIdleDb, agentId: string): Promise<readonly string[]>;
+	listFilesystemsByIds(
+		db: HyperIdleDb,
+		ids: readonly string[],
+	): Promise<readonly SessionLifecycleFilesystemRow[]>;
+}
+
+interface SessionLifecycleServiceConnectionResolver {
+	resolve(userId: string, connectionId: string): Promise<string | null>;
+}
+
+interface SessionLifecycleResolvedMcpServer {
+	readonly name: string;
+	readonly url: string;
+	readonly bearerToken?: string;
+}
+
+interface SessionLifecycleProvisioningPlan {
+	readonly mcpServers: readonly SessionLifecycleResolvedMcpServer[];
+	readonly envInjections: Readonly<Record<string, string>>;
+}
+
+interface SessionLifecycleConnectionsProvisioner {
+	buildProvisioningPlan(deps: {
+		readonly db: HyperIdleDb;
+		readonly resolver: SessionLifecycleServiceConnectionResolver;
+	}): Promise<SessionLifecycleProvisioningPlan>;
+	applyProvisioningPlan(args: {
+		readonly plan: SessionLifecycleProvisioningPlan;
+		readonly sandboxPath: string;
+		readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
+		readonly claudeNative: boolean;
+	}): Promise<{ readonly mcpTokenEnv: Record<string, string> }>;
+}
+
+interface SessionLifecycleCostCapResult {
+	allowed: boolean;
+	level?: "agent" | "team" | "factory";
+	currentSpend?: number;
+	cap?: number;
+}
+
+interface SessionLifecycleCostAccessor {
+	checkCostCap(
+		db: HyperIdleDb,
+		eventBus: EventBus,
+		params: {
+			readonly agentId: string;
+			readonly teamId?: string;
+			readonly factoryCap?: number;
+			readonly factorySpend?: number;
+		},
+	): Promise<SessionLifecycleCostCapResult>;
+	recordCostAndCheck(
+		db: HyperIdleDb,
+		eventBus: EventBus,
+		params: {
+			readonly sessionId: string;
+			readonly costMinor?: number;
+			readonly currency?: string;
+			readonly agentId: string;
+			readonly teamId?: string;
+			readonly taskId?: string;
+			readonly factoryCap?: number;
+			readonly factorySpend?: number;
+			readonly reviewThreadId?: string;
+		},
+	): Promise<void>;
+}
+interface SessionLifecycleHarnessAdapter {
+	startSession(config: SessionConfig): Promise<SessionHandle>;
+	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent>;
+	stopSession(handle: SessionHandle): Promise<SessionResult>;
+	getCapabilities(): {
+		readonly preCompactionTrigger: boolean;
+		readonly subAgents: boolean;
+		readonly modelProviders: readonly string[];
+		readonly mcpSupport: boolean;
+		readonly returnEnforcement: ReturnEnforcementChannel;
+		readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
+	};
+	getForceReturnCount?(sessionId: string): number;
+	setSessionToolRegistry?(sessionId: string, registry: unknown): void;
+}
+
+interface SessionLifecycleAdapterMeta {
+	readonly name: string;
+	readonly kind: "local" | "remote";
+	readonly type?: string;
+	readonly modelProviders: readonly string[];
+	readonly maxConcurrent: number;
+}
+
+interface SessionLifecycleSelectRequirements {
+	readonly modelProviders?: readonly string[];
+	readonly harnessType?: string;
+	readonly disabledTypes?: readonly string[];
+}
+
+interface SessionLifecycleSelectedEntry {
+	readonly id: string;
+	readonly adapter: SessionLifecycleHarnessAdapter;
+	readonly meta: SessionLifecycleAdapterMeta;
+}
+
+interface SessionLifecycleAdapterPool {
+	select(requirements?: SessionLifecycleSelectRequirements): SessionLifecycleSelectedEntry | null;
+	release(id: string): void;
+}
+
+interface SessionLifecycleEnforcementEntry {
+	readonly gate: { readonly returned: boolean };
+	forceCount: number;
+	readonly exempt: boolean;
+}
+
+interface SessionLifecycleEnforcementRegistry {
+	register(sessionId: string, entry: SessionLifecycleEnforcementEntry): void;
+	get(sessionId: string): SessionLifecycleEnforcementEntry | undefined;
+	incrementForce(sessionId: string): void;
+	unregister(sessionId: string): void;
+}
+
+interface SessionLifecycleReturnGate {
+	observe(event: HarnessEvent): void;
+	readonly returned: boolean;
+}
+
+interface SessionLifecycleSandboxHandle {
+	readonly sandboxId: string;
+	readonly path: string;
+}
+
+interface SessionLifecycleSandboxAdapter {
+	spawn(baseDir: string): Promise<SessionLifecycleSandboxHandle>;
+	exec(
+		handle: SessionLifecycleSandboxHandle,
+		command: string,
+	): Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>;
+	destroy(handle: SessionLifecycleSandboxHandle): Promise<void>;
+}
+
+interface SessionLifecycleHarnessRuntime {
+	enforcementRegistry: SessionLifecycleEnforcementRegistry;
+	createReturnGate(): SessionLifecycleReturnGate;
+	evaluateReturn(
+		gate: SessionLifecycleReturnGate,
+		endReason: "completed" | "crashed" | "stopped" | "budget_exhausted",
+	): "returned" | "not_returned";
+	provisionReturnHook(opts: {
+		readonly sandboxPath: string;
+		readonly channel: ReturnEnforcementChannel;
+		readonly bridgeToken: string;
+		readonly mcpUrl: string;
+		readonly forceBudget: number;
+	}): Promise<void>;
+	writeCliMcpConfig(params: {
+		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
+		readonly sandboxPath: string;
+		readonly mcpUrl: string;
+		readonly token: string;
+	}): { readonly tokenEnv?: Record<string, string> };
+}
+
+interface SessionLifecycleMcpBridgeInstance {
+	readonly token: string;
+	readonly sessionId: string;
+}
+
+interface SessionLifecycleMcpBridgeRegistry {
+	register(instance: SessionLifecycleMcpBridgeInstance): void;
+	unregister(token: string): Promise<void>;
+}
+
+interface SessionLifecycleMcpProvider {
+	createMcpBridge(options: {
+		readonly sessionId: string;
+		readonly registry: unknown;
+		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
+	}): Promise<SessionLifecycleMcpBridgeInstance>;
+}
+
+interface SessionLifecycleToolContext {
+	readonly db: HyperIdleDb;
+	readonly eventBus: EventBus;
+	readonly agentId: string;
+	readonly sessionId: string;
+	readonly taskId: string;
+	readonly teamId?: string;
+	readonly requestContext?: {
+		readonly requestId: string;
+		readonly sourceKind: AgentSessionSourceKind;
+		readonly sourceId: string;
+		readonly sourceCorrelation: AgentSessionSourceCorrelation;
+	};
+	readonly sandboxPath: string;
+	readonly ingestion: { dispose(): void };
+	readonly onAbortSession?: (sessionId: string) => void;
+}
+
+/** `RegistrySessionWorkflow` (`tool-registry.ts`) — extends `@hyperidle/shared`'s `SessionWorkflow` with server-side capture anchors. This Service's own public `ProvisionSessionParams.sessionWorkflow` field type. */
+interface SessionLifecycleRegistrySessionWorkflow extends SessionWorkflow {
+	readonly reviewMessageId: string;
+	readonly subjectThreadId: string;
+	readonly artifactId: string;
+}
+
+interface SessionLifecycleToolRegistry {
+	invoke(name: string, rawArgs: unknown): Promise<unknown>;
+}
+
+interface SessionLifecycleToolProvider {
+	buildToolRegistry(
+		ctx: SessionLifecycleToolContext,
+		options: {
+			readonly role: UserRole;
+			readonly extraTools?: readonly unknown[];
+			readonly sessionWorkflow?: SessionLifecycleRegistrySessionWorkflow;
+			readonly useOnlyExtraTools?: boolean;
+		},
+	): SessionLifecycleToolRegistry;
+	toolsForRole(role: UserRole): readonly { readonly name: string; readonly description: string }[];
+	/** `returnStatusTool.forRegistry(enforcementRegistry)` — opaque `RegisteredTool`, never inspected here. */
+	returnStatusToolForRegistry(registry: SessionLifecycleEnforcementRegistry): unknown;
+}
+
+// ---------------------------------------------------------------------------
+// context-assembly — SessionLifecycleContextAssembly (real, ordinary
+// same-layer DI — `context-assembly` finalized per architecture §12's
+// Increment-0 note; wired by the composition root to
+// `@hyperidle/context-assembly`'s real `createContextAssemblyOps` output)
+// ---------------------------------------------------------------------------
+
+interface SessionLifecycleContextAssemblyOutcome {
+	readonly itemCount: number;
+	readonly durationMs: number;
+	readonly manifestPath: string;
+}
+
+interface SessionLifecycleSessionContextData {
+	readonly task: {
+		readonly id: string;
+		readonly title: string;
+		readonly description: string | null;
+		readonly state: string;
+	};
+	readonly bet: {
+		readonly id: string;
+		readonly description: string;
+		readonly appetite: string;
+		readonly doneCondition: string | null;
+	};
+	readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+	readonly team: { readonly id: string; readonly name: string };
+}
+
+interface SessionLifecycleRoutineSessionContextData {
+	readonly routine: {
+		readonly id: string;
+		readonly name: string;
+		readonly description: string | null;
+		readonly lastRunSummary: string | null;
+	};
+	readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+	readonly team: { readonly id: string; readonly name: string };
+}
+
+interface SessionLifecycleToolSummary {
+	readonly name: string;
+	readonly description: string;
+}
+
+interface SessionLifecycleContextAssembly {
+	assembleAgentContext(input: {
+		readonly db: HyperIdleDb;
+		readonly sandboxPath: string;
+		readonly sessionId: string;
+		readonly taskId: string | null;
+		readonly agentId: string;
+		readonly agentRole: UserRole;
+		readonly teamId: string | null;
+		readonly isRoutine: boolean;
+		readonly sourceKind: AgentSessionSourceKind | null;
+		readonly sourceId: string | null;
+		readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
+	}): Promise<SessionLifecycleContextAssemblyOutcome>;
+	beginAgentWriteback(input: {
+		readonly sandboxPath: string;
+		readonly sessionId: string;
+		readonly manifestPath: string;
+		readonly eventBus: EventBus;
+	}): { dispose(): void };
+	buildSessionContextData(
+		db: HyperIdleDb,
+		config: {
+			sessionId: string;
+			taskId: string;
+			agentId: string;
+			agentRole: UserRole;
+			productId: string;
+		},
+		/** I0c: optional pre-fetched agent — skips the getUserById call when supplied. */
+		preloadedAgent?: { id: string; name: string; role: string },
+	): Promise<SessionLifecycleSessionContextData>;
+	buildRoutineSessionContextData(
+		db: HyperIdleDb,
+		config: {
+			sessionId: string;
+			routineId: string;
+			agentId: string;
+			agentRole: UserRole;
+			teamId: string;
+		},
+	): Promise<SessionLifecycleRoutineSessionContextData>;
+	assemblePrompt(input: {
+		readonly systemPromptText: string;
+		readonly context: SessionLifecycleSessionContextData;
+		readonly tools: readonly SessionLifecycleToolSummary[];
+		readonly sandboxPath: string;
+	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
+	assembleRoutinePrompt(input: {
+		readonly systemPromptText: string;
+		readonly context: SessionLifecycleRoutineSessionContextData;
+		readonly tools: readonly SessionLifecycleToolSummary[];
+		readonly sandboxPath: string;
+	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
+	composeAssistantPrompt(systemPromptText: string): { readonly composedPrompt: string };
+	writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): void;
+}
+
+// ---------------------------------------------------------------------------
+// Aggregate deps bundle
+// ---------------------------------------------------------------------------
+
+interface SessionLifecyclePorts {
+	readonly sessionRequests: {
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "id"; requestId: string },
+		): Promise<AgentSessionRequest | undefined>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "terminationReason"; requestId: string },
+		): Promise<string | null | undefined>;
+		listSessionRequests(
+			exec: HyperIdleDb,
+			filter: { status: "running" },
+		): Promise<AgentSessionRequest[]>;
+		transitionSessionRequest(
+			exec: HyperIdleDb,
+			transition:
+				| { requestId: string; to: "termination-requested"; reason: string; requestedBy?: string }
+				| {
+						requestId: string;
+						to: "completed" | "failed" | "cancelled";
+						precondition: "running";
+						sessionId: string;
+						failureCode?: string;
+						errorMessage?: string;
+						requireNoTerminationReason?: boolean;
+						transaction?: "existing";
+				  }
+				| {
+						requestId: string;
+						to: "failed";
+						precondition: "claimed";
+						claimToken: string;
+						failureCode?: string;
+						errorMessage?: string;
+						transaction?: "existing";
+				  },
+		): Promise<
+			| AgentSessionRequest
+			| null
+			| boolean
+			| void
+			| "accepted"
+			| "idempotent"
+			| "conflict"
+			| "terminal"
+		>;
+		abortSessionRun(sessionId: string): Promise<boolean>;
+		registerSessionRun(
+			sessionId: string,
+			control: {
+				signalAbort(): void;
+				handle: SessionHandle;
+				adapter: SessionLifecycleHarnessAdapter;
+			},
+		): void;
+		deregisterSessionRun(sessionId: string): void;
+	};
+	readonly routine: SessionLifecycleRoutineAccessor;
+	readonly work: SessionLifecycleWorkAccessor;
+	readonly users: SessionLifecycleUserReader;
+	readonly settings: SessionLifecycleSettingsReader;
+	readonly observability: SessionLifecycleObservability;
+	readonly filesystems: SessionLifecycleFilesystemsReader;
+	readonly connections: SessionLifecycleConnectionsProvisioner;
+	readonly cost: SessionLifecycleCostAccessor;
+	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
+	readonly mcpProvider: SessionLifecycleMcpProvider;
+	readonly toolProvider: SessionLifecycleToolProvider;
+	readonly contextAssembly: SessionLifecycleContextAssembly;
+}
 
 /**
  * Revert a task that we transitioned to `in_progress` back to `accepted` when
@@ -90,7 +607,7 @@ import type {
  * @lore I1 H2: the revert entry lands in `tasks.auditTrail`, not `tasks.notes`.
  * `notes` is the agent-authored prose lane; writing audit JSON there corrupts
  * it. We re-use the local `SessionLifecycleStateTransitionAuditEntry` mirror
- * shape (`ports.ts`) so readers can discriminate against `HandoffAuditEntry`
+ * shape so readers can discriminate against `HandoffAuditEntry`
  * via the `type: "handoff"` tag — a Service never imports another Service's
  * own audit-trail type, even type-only (Mechanism C).
  */
@@ -225,7 +742,7 @@ async function accumulateSessionTokensOnBet(
  * Exposes the session identity and sandbox location — sufficient for a
  * harness integration test to read the real files a real agent produced.
  */
-export interface BeforeTeardownContext {
+interface BeforeTeardownContext {
 	readonly sessionId: string;
 	readonly sandboxPath: string;
 }
@@ -240,23 +757,22 @@ export interface BeforeTeardownContext {
  * already-built SessionConfig and sandbox after Phase 8b/8b-enforce. Returning
  * "abort" stops before `harness.startSession` and lets normal teardown continue.
  */
-export interface BeforeHarnessStartContext {
+interface BeforeHarnessStartContext {
 	readonly sessionId: string;
 	readonly sandboxPath: string;
 	readonly adapter: SessionLifecycleSelectedEntry;
 	readonly sessionConfig: SessionConfig;
 }
+const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
 
 /**
- * Root-level files emitted by session-provisioning into the sandbox.
+ * Root-level files emitted into the sandbox.
  * Currently: .mcp.json (Claude MCP auto-discovery config).
  * Exported so the AO2 scaffolding-drift-guard can assert coverage.
  *
- * @lore AO2 §8: .mcp.json is written at session-provisioning.ts Phase 8b
- * inside runSession. It must be excluded from authored commits so the agent
+ * .mcp.json must be excluded from authored commits so the agent
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
-export const EMITTED_ROOTS_MCP_JSON = [".mcp.json"] as const;
 
 // ── AO2 — Phase 4.5 mount + teardown capture-back helpers ────────────────────
 
@@ -274,7 +790,7 @@ export const EMITTED_ROOTS_MCP_JSON = [".mcp.json"] as const;
  * assembly drops scaffolding into the directory. A filesystem-less session → empty list,
  * no mounts, no capture rows — purely non-breaking for existing sessions.
  */
-export async function mountFilesystemsForAgent(
+async function mountFilesystemsForAgent(
 	db: HyperIdleDb,
 	agentId: string,
 	sandboxPath: string,
@@ -334,12 +850,12 @@ export async function mountFilesystemsForAgent(
  * on the in-runSession crash path. Best-effort: a capture failure is logged but
  * never blocks teardown (uncommitted-but-failed = same loss as today).
  *
- * @lore AO2 §9: The delete lives in endSession (session-lifecycle.ts), NOT
- * workspace.destroy (adapter-map cleanup only, runs after the delete).
+ * The delete lives in the terminal transition, not workspace.destroy
+ * (adapter-map cleanup only, runs after the delete).
  * Anchoring capture "before workspace.destroy" would capture an already-deleted tree.
  * Must be called BEFORE endSession.
  */
-export async function captureMountedFilesystems(
+async function captureMountedFilesystems(
 	sessionId: string,
 	sandboxPath: string,
 	mountedFilesystems: Filesystem[],
@@ -359,7 +875,7 @@ export async function captureMountedFilesystems(
 	}
 }
 
-export interface ProvisionSessionDeps {
+interface ProvisionSessionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly adapterPool: SessionLifecycleAdapterPool;
@@ -409,7 +925,7 @@ export interface ProvisionSessionDeps {
 	readonly mounter?: FilesystemMounter;
 }
 
-export interface ProvisionSessionParams {
+interface ProvisionSessionParams {
 	readonly taskId: string | null;
 	readonly agentId: string;
 	/** @lore U1: field name kept for backward compat; value is now a teams.id (formerly products.id). */
@@ -418,19 +934,19 @@ export interface ProvisionSessionParams {
 	readonly factoryCap?: number;
 	readonly factorySpend?: number;
 	readonly reviewThreadId?: string;
-	readonly modelTier?: PortModelTier;
+	readonly modelTier?: ModelTier;
 	/**
 	 * X4: Resolved model from the gateway. When present, passed through to the
 	 * harness adapter via SessionConfig so the adapter uses the correct provider,
 	 * model, and API key.
 	 */
-	readonly resolvedModel?: PortResolvedModel;
+	readonly resolvedModel?: ResolvedModel;
 	/**
 	 * X6: Resolved fast-tier model for builtin harness summarization.
 	 * Optional — when absent the builtin harness uses resolvedModel for all LLM
 	 * calls including summarization (slightly higher cost, functionally equivalent).
 	 */
-	readonly resolvedFastModel?: PortResolvedModel;
+	readonly resolvedFastModel?: ResolvedModel;
 	readonly requestContext?: {
 		readonly requestId: string;
 		readonly sourceKind: AgentSessionSourceKind;
@@ -480,10 +996,10 @@ export interface ProvisionSessionParams {
 	};
 }
 
-export interface ProvisionSessionResult {
+interface ProvisionSessionResult {
 	readonly sessionId: string;
 	/** AA3: widened to include "budget_exhausted" for per-run cap enforcement. */
-	readonly outcome: PortSessionOutcome | "budget_exhausted";
+	readonly outcome: SessionOutcome | "budget_exhausted";
 	readonly totalCostCents: number;
 	readonly taskId: string | null;
 	/**
@@ -514,7 +1030,7 @@ export interface ProvisionSessionResult {
  * `runSession` (phases 8-11) needs to run the harness and tear down. Produced by
  * `admitSession` AFTER the session row is committed and `session_started` emitted.
  */
-export interface AdmittedSession {
+interface AdmittedSession {
 	readonly sessionId: string;
 	readonly sessionContext: SessionContext;
 	readonly agentRole: string;
@@ -553,7 +1069,7 @@ export interface AdmittedSession {
  * status on the POST path and never leave a doomed row.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: admission coordinates multi-phase pre-flight with error handling
-export async function admitSession(
+async function admitSession(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,
 	ports: SessionLifecyclePorts,
@@ -765,9 +1281,6 @@ export async function admitSession(
 			sandboxPath,
 			sessionId,
 			manifestPath,
-			// AU19 Increment 3f: §10.3 line 517's pure-inversion — the watcher
-			// emits `sandbox_writeback_changes_detected` on this EventBus instead
-			// of calling an injected writeback port.
 			eventBus,
 		});
 	} catch (err) {
@@ -850,7 +1363,7 @@ export async function admitSession(
  * PATCH/handoff can cooperatively abort it, and deregisters at teardown.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: run coordinates harness lifecycle, event-stream consumption, abort, and teardown
-export async function runSession(
+async function runSession(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,
 	admitted: AdmittedSession,
@@ -935,11 +1448,6 @@ export async function runSession(
 			});
 
 	// ── Phase 8.5a: inject registry into builtin harness before startSession.
-	// @lore AU19 Increment 3i: `instanceof BuiltinHarnessAdapter` replaced by a
-	// structural duck-type check — Mechanism C forbids importing another
-	// Service's class for `instanceof` (same idiom `dispatch`'s
-	// `HttpError`/`CassetteMissError` reclassification established). The same
-	// real object flows through unchanged at runtime.
 	if (
 		selectedAdapter.meta.type === "builtin" &&
 		typeof harness.setSessionToolRegistry === "function"
@@ -1036,7 +1544,7 @@ export async function runSession(
 	const adapterCapabilities = harness.getCapabilities();
 
 	// ── Phase 8b: create MCP bridge (if registry is configured).
-	const mcpJsonPath = path.join(sandboxPath, ".mcp.json");
+	const mcpJsonPath = path.join(sandboxPath, PROVISIONER_EMITTED_FILES[0]);
 	if (!fs.existsSync(mcpJsonPath)) {
 		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: {} }, null, 2), "utf-8");
 	}
@@ -1355,7 +1863,16 @@ export async function runSession(
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 		}
-		await crashSession(db, eventBus, sessionContext, totalCostCents, ports, 0);
+		await transitionRun(
+			{ db, eventBus, ports },
+			{
+				target: "session",
+				context: sessionContext,
+				disposition: "crash",
+				costInCents: totalCostCents,
+				baselineCost: 0,
+			},
+		);
 		if (params.taskId) {
 			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
 		}
@@ -1375,20 +1892,31 @@ export async function runSession(
 	// AA3: Per-run cap hit — end the session gracefully and record budget_exhausted outcome.
 	if (budgetExhausted) {
 		if (sessionContext.requestContext) {
-			await requestAgentTermination(
-				db,
+			await transitionRun(
+				{ db, eventBus, ports },
 				{
+					target: "request",
+					intent: "request-termination",
 					requestId: sessionContext.requestContext.requestId,
 					reason: "cost_cap",
 				},
-				ports,
 			);
 		}
 		// ── Hook B: capture-back before budget_exhausted teardown (AO2 §9).
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 		}
-		await endSession(db, eventBus, sessionContext, totalCostCents, ports, 0, "budget_exhausted");
+		await transitionRun(
+			{ db, eventBus, ports },
+			{
+				target: "session",
+				context: sessionContext,
+				disposition: "end",
+				costInCents: totalCostCents,
+				baselineCost: 0,
+				routineOutcome: "budget_exhausted",
+			},
+		);
 		if (params.taskId) {
 			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
 		}
@@ -1433,15 +1961,16 @@ export async function runSession(
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 		}
-		await endSession(
-			db,
-			eventBus,
-			sessionContext,
-			totalCostCents,
-			ports,
-			0,
-			undefined,
-			"not_returned",
+		await transitionRun(
+			{ db, eventBus, ports },
+			{
+				target: "session",
+				context: sessionContext,
+				disposition: "end",
+				costInCents: totalCostCents,
+				baselineCost: 0,
+				terminalOutcome: "not_returned",
+			},
 		);
 		if (params.taskId) {
 			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
@@ -1464,7 +1993,16 @@ export async function runSession(
 	if (deps.mounter && mountedFilesystems.length > 0) {
 		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
 	}
-	await endSession(db, eventBus, sessionContext, totalCostCents, ports, 0);
+	await transitionRun(
+		{ db, eventBus, ports },
+		{
+			target: "session",
+			context: sessionContext,
+			disposition: "end",
+			costInCents: totalCostCents,
+			baselineCost: 0,
+		},
+	);
 	if (params.taskId) {
 		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
 	}
@@ -1498,7 +2036,7 @@ export async function runSession(
  * (phases 8-11) WITHOUT awaiting it, so the HTTP caller is not blocked for the
  * full agent run.
  */
-export async function startSessionProvision(
+async function startSessionProvision(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,
 	ports: SessionLifecyclePorts,
@@ -1514,7 +2052,16 @@ export async function startSessionProvision(
 	void runSession(deps, params, admitted, ports, signalStarted)
 		.catch(async (err) => {
 			try {
-				await crashSession(deps.db, deps.eventBus, admitted.sessionContext, 0, ports, 0);
+				await transitionRun(
+					{ db: deps.db, eventBus: deps.eventBus, ports },
+					{
+						target: "session",
+						context: admitted.sessionContext,
+						disposition: "crash",
+						costInCents: 0,
+						baselineCost: 0,
+					},
+				);
 			} catch (teardownErr) {
 				// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
 				console.error(
@@ -1547,11 +2094,55 @@ export async function startSessionProvision(
  * dispatcher (which is already off the request path in a fire-and-forget drain)
  * and for tests that assert on the final outcome.
  */
-export async function provisionSession(
+async function provisionSession(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,
 	ports: SessionLifecyclePorts,
 ): Promise<ProvisionSessionResult> {
 	const admitted = await admitSession(deps, params, ports);
 	return runSession(deps, params, admitted, ports, deps.onHarnessStarted);
+}
+
+interface Provisioner {
+	readonly emittedFiles: readonly string[];
+	admit(
+		deps: ProvisionSessionDeps,
+		params: ProvisionSessionParams,
+		enforceResolvedModelGuard?: boolean,
+	): Promise<AdmittedSession>;
+	run(
+		deps: ProvisionSessionDeps,
+		params: ProvisionSessionParams,
+		admitted: AdmittedSession,
+		onHarnessStarted?: () => void,
+	): Promise<ProvisionSessionResult>;
+	provision(
+		deps: ProvisionSessionDeps,
+		params: ProvisionSessionParams,
+	): Promise<ProvisionSessionResult>;
+	start(
+		deps: ProvisionSessionDeps,
+		params: ProvisionSessionParams,
+	): ReturnType<typeof startSessionProvision>;
+	mount(
+		db: HyperIdleDb,
+		agentId: string,
+		sandboxPath: string,
+		mounter: FilesystemMounter,
+	): Promise<Filesystem[]>;
+	capture: typeof captureMountedFilesystems;
+}
+
+export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
+	return {
+		emittedFiles: PROVISIONER_EMITTED_FILES,
+		admit: (deps, params, guard) => admitSession(deps, params, ports, guard),
+		run: (deps, params, admitted, onHarnessStarted) =>
+			runSession(deps, params, admitted, ports, onHarnessStarted),
+		provision: (deps, params) => provisionSession(deps, params, ports),
+		start: (deps, params) => startSessionProvision(deps, params, ports),
+		mount: (db, agentId, sandboxPath, mounter) =>
+			mountFilesystemsForAgent(db, agentId, sandboxPath, mounter, ports),
+		capture: (...args) => captureMountedFilesystems(...args),
+	};
 }

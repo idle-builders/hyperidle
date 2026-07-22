@@ -70,53 +70,34 @@ const capturedConversational: CapturedConversational[] = [];
  * formation seam consulted the app resolver at turn time. The mock never runs
  * a real harness — this is a unit test of the call-site wiring, not the turn itself.
  */
-vi.mock("@hyperidle/run-orchestration", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/run-orchestration")>();
+vi.mock("../services/run-orchestration-composition.js", async (importOriginal) => {
+	const original =
+		await importOriginal<typeof import("../services/run-orchestration-composition.js")>();
 	return {
 		...original,
-		admitSession: vi.fn(
-			async (
-				_deps: unknown,
-				params: import("@hyperidle/run-orchestration").ProvisionSessionParams,
-			) => {
-				return {
-					sessionId: "stub-session-ar4b",
-					sessionContext: {
-						sessionId: "stub-session-ar4b",
-						agentId: params.agentId,
-						taskId: params.taskId,
-						sandboxPath: "/tmp/ar4b",
-						ingestion: { dispose: vi.fn() },
-						traceId: "trace-ar4b",
-						requestContext: params.requestContext,
-					},
+		runSession: vi.fn(async (_deps, spec) => {
+			if (spec.mode === "durable" && spec.conversational) {
+				const conversational = spec.conversational as {
+					systemPromptOverride?: string | null;
+					draftRegistry: { definitions: Array<{ name: string }> };
 				};
-			},
-		),
-		runSession: vi.fn(
-			async (
-				_deps: unknown,
-				params: import("@hyperidle/run-orchestration").ProvisionSessionParams,
-			) => {
-				if (params.conversational) {
-					capturedConversational.push({
-						systemPromptOverride: params.conversational.systemPromptOverride,
-						draftRegistryToolNames: params.conversational.draftRegistry.definitions.map(
-							(d) => d.name,
-						),
-					});
-				}
-				const stubResult: import("@hyperidle/run-orchestration").ProvisionSessionResult = {
-					sessionId: "stub-session-ar4b",
-					outcome: "completed",
-					totalCostCents: 0,
-					taskId: null,
-					forceReturnCount: 0,
-					conversationalReply: "AR4b formation seam stub reply",
-				};
-				return stubResult;
-			},
-		),
+				capturedConversational.push({
+					systemPromptOverride: conversational.systemPromptOverride,
+					draftRegistryToolNames: conversational.draftRegistry.definitions.map(
+						(d: { name: string }) => d.name,
+					),
+				});
+			}
+			return {
+				mode: "completed" as const,
+				sessionId: "stub-session-ar4b",
+				outcome: "completed",
+				totalCostCents: 0,
+				taskId: null,
+				forceReturnCount: 0,
+				conversationalReply: "AR4b formation seam stub reply",
+			};
+		}),
 	};
 });
 

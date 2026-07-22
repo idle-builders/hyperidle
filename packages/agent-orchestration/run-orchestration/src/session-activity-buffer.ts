@@ -24,8 +24,6 @@ const MAX_PER_SESSION = 100;
 
 // AM3: ActivityEntry is now the canonical type from @hyperidle/shared/session-activity.
 // ToolCallData is preserved as a re-export for the server-side test that imports it.
-export type { ActivityEntry } from "@hyperidle/shared";
-export type ToolCallData = Extract<ActivityEntry, { type: "tool_call" }>["data"];
 
 // Eviction delay after session ends (ms). Entries are cleaned up after this window
 // to allow late REST fetches to still see the final activity snapshot.

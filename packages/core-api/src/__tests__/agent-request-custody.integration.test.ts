@@ -18,53 +18,51 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
+import type { RuntimePorts } from "@hyperidle/run-orchestration";
+import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, vi } from "vitest";
-import { drainAgentSessionRequests } from "../services/run-orchestration-bindings.js";
 import { expect, test } from "../test-fixtures.js";
+import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
-vi.mock("@hyperidle/run-orchestration", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/run-orchestration")>();
-	return {
-		...original,
-		admitSession: vi.fn(
-			async (
-				deps: import("@hyperidle/run-orchestration").ProvisionSessionDeps,
-				params: import("@hyperidle/run-orchestration").ProvisionSessionParams,
-			) => {
-				// Reflects whichever session row the REAL reserve-or-adopt path already
-				// created/adopted for this request — never fabricates a second one.
-				const requestId = params.requestContext?.requestId;
-				const [existing] = requestId
-					? await deps.db.select().from(sessions).where(eq(sessions.requestId, requestId)).limit(1)
-					: [];
-				const sessionId = existing?.id ?? `stub-session-${requestId ?? "unknown"}`;
-				return {
-					sessionId,
-					sessionContext: {
-						sessionId,
-						agentId: params.agentId,
-						taskId: params.taskId,
-						sandboxPath: "/tmp/au9-custody",
-						ingestion: { dispose: vi.fn() },
-						traceId: "trace-au9-custody",
-						requestContext: params.requestContext,
-					},
-				};
+const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
+	admitSession: vi.fn(async (deps, params) => {
+		// Reflects whichever session row the REAL reserve-or-adopt path already
+		// created/adopted for this request — never fabricates a second one.
+		const requestId = params.requestContext?.requestId;
+		const [existing] = requestId
+			? await deps.db.select().from(sessions).where(eq(sessions.requestId, requestId)).limit(1)
+			: [];
+		const sessionId = existing?.id ?? `stub-session-${requestId ?? "unknown"}`;
+		return {
+			sessionId,
+			sessionContext: {
+				sessionId,
+				agentId: params.agentId,
+				taskId: params.taskId,
+				sandboxPath: "/tmp/au9-custody",
+				ingestion: { dispose: vi.fn() },
+				traceId: "trace-au9-custody",
+				requestContext: params.requestContext,
 			},
-		),
-		runSession: vi.fn(async () => {
-			return {
-				sessionId: "unused",
-				outcome: "completed",
-				totalCostCents: 0,
-				taskId: null,
-				forceReturnCount: 0,
-			};
-		}),
-	};
-});
+		};
+	}),
+	runSession: vi.fn(async () => {
+		return {
+			sessionId: "unused",
+			outcome: "completed" as const,
+			totalCostCents: 0,
+			taskId: null,
+			forceReturnCount: 0,
+		};
+	}),
+};
+
+async function drain(db: import("@hyperidle/db").HyperIdleDb) {
+	const eventBus = new EventBus();
+	const handle = await startTestRuntime(db, eventBus, { db, eventBus }, sessionProvisioner);
+	await handle.dispose();
+}
 
 afterEach(() => {
 	vi.clearAllMocks();
@@ -140,21 +138,7 @@ async function seedTaskRequest(
 describe("request custody drives the real drain and runtime", () => {
 	test("two concurrent drains yield exactly one winner for a pending request", async ({ db }) => {
 		await seedTaskRequest(db, "pending-race");
-		const deps = {
-			db,
-			runtime: {
-				db,
-				eventBus: new (await import("@hyperidle/shared")).EventBus(),
-				adapterPool: {} as AdapterPool,
-				workspace: {} as SandboxAdapter,
-			},
-			sandboxBasePath: "/tmp/au9-custody",
-		};
-		const [one, two] = await Promise.all([
-			drainAgentSessionRequests(deps),
-			drainAgentSessionRequests(deps),
-		]);
-		expect(one + two).toBe(1);
+		await Promise.all([drain(db), drain(db)]);
 		expect(await db.select().from(sessions)).toHaveLength(1);
 		const [request] = await db
 			.select()
@@ -170,21 +154,7 @@ describe("request custody drives the real drain and runtime", () => {
 		db,
 	}) => {
 		await seedTaskRequest(db, "restart-request", { claimed: true, expired: true });
-		const deps = {
-			db,
-			runtime: {
-				db,
-				eventBus: new (await import("@hyperidle/shared")).EventBus(),
-				adapterPool: {} as AdapterPool,
-				workspace: {} as SandboxAdapter,
-			},
-			sandboxBasePath: "/tmp/au9-custody",
-		};
-		const [one, two] = await Promise.all([
-			drainAgentSessionRequests(deps),
-			drainAgentSessionRequests(deps),
-		]);
-		expect(one + two).toBe(1);
+		await Promise.all([drain(db), drain(db)]);
 		expect(await db.select().from(sessions)).toHaveLength(1);
 	});
 
@@ -211,17 +181,7 @@ describe("request custody drives the real drain and runtime", () => {
 				teamId: "checkpoint-request-team",
 			}),
 		});
-		const deps = {
-			db,
-			runtime: {
-				db,
-				eventBus: new (await import("@hyperidle/shared")).EventBus(),
-				adapterPool: {} as AdapterPool,
-				workspace: {} as SandboxAdapter,
-			},
-			sandboxBasePath: "/tmp/au9-custody",
-		};
-		await drainAgentSessionRequests(deps);
+		await drain(db);
 		const durableSessions = await db
 			.select()
 			.from(sessions)
@@ -239,17 +199,7 @@ describe("request custody drives the real drain and runtime", () => {
 		db,
 	}) => {
 		await seedTaskRequest(db, "terminal-request");
-		const deps = {
-			db,
-			runtime: {
-				db,
-				eventBus: new (await import("@hyperidle/shared")).EventBus(),
-				adapterPool: {} as AdapterPool,
-				workspace: {} as SandboxAdapter,
-			},
-			sandboxBasePath: "/tmp/au9-custody",
-		};
-		await drainAgentSessionRequests(deps);
+		await drain(db);
 		const [request] = await db
 			.select()
 			.from(agentSessionRequests)

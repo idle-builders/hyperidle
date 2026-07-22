@@ -1,16 +1,381 @@
-/**
- * @lore AU19 Increment 3i: `IngestionHandle` moved here (behavior-preserving)
- * from `packages/server/src/services/contracts.ts` — that file's own top
- * comment already flagged it as "owned by the not-yet-migrated
- * session-lifecycle/context-assembly/tool-handlers domains — stays here
- * until its own owning Service migrates." `session-lifecycle` is the primary
- * owner (constructs/disposes it in `endSession`/`crashSession`); the two
- * still-flat `context-assembly`/`tools` consumers (`agent-context/assemble-context.ts`,
- * `tools/tool-registry.ts`) now import it from `@hyperidle/session-lifecycle`
- * — a legitimate composition-root-to-Service edge (neither file lives inside
- * a Service package yet), not a Service-to-Service import.
- */
+import type {
+	AgentSessionRequest,
+	AgentWorkIntent,
+	Bet,
+	ExplicitSessionStart,
+	HyperIdleDb,
+	KnowledgeItem,
+	Message,
+	ProposedCall,
+	Routine,
+	RoutineRun,
+	TailoredGrant,
+	Task,
+	TaskDispatchAttempt,
+	TeamMember,
+	User,
+	WriteExecutor,
+} from "@hyperidle/db";
+import type {
+	AgentSessionSourceKind,
+	ConfigurationKind,
+	EventBus,
+	HarnessPort,
+	HarnessRunOutput,
+	ResolvedConfigurationItem,
+	RunContextBundle,
+} from "@hyperidle/shared";
 
-export interface IngestionHandle {
-	dispose(): void;
+interface DurableQueueDeps {
+	readonly db: HyperIdleDb;
+	readonly lifecycleProjection: {
+		readonly routine: {
+			updateRoutineRunIfRunning(
+				exec: WriteExecutor,
+				id: string,
+				patch: {
+					outcome: "success" | "error";
+					endedAt: string;
+					sessionId: string | null;
+					errorMessage: string | null;
+				},
+			): Promise<void>;
+		};
+		readonly work: {
+			updateTaskDispatchAttemptIfActive(
+				exec: WriteExecutor,
+				requestId: string,
+				patch: { status: "completed" | "failed" | "cancelled"; sessionId: string | null },
+			): Promise<void>;
+			updateBetDecompositionStatusIfRunning(
+				exec: WriteExecutor,
+				id: string,
+				patch: {
+					decompositionStatus: "done" | "blocked";
+					decompositionBlockerReason: string | null;
+				},
+			): Promise<void>;
+		};
+		readonly explicitSessionStarts: {
+			projectTerminalState(
+				exec: WriteExecutor,
+				requestId: string,
+				patch: {
+					status: "completed" | "failed" | "cancelled";
+					sessionId: string | null;
+					failureCode: string | null;
+				},
+			): Promise<void>;
+		};
+	};
+	readonly config: {
+		listConfiguration(
+			db: HyperIdleDb,
+			filter: { kind?: ConfigurationKind; key?: string },
+		): Promise<ResolvedConfigurationItem[]>;
+	};
+	readonly teams: {
+		getTeamMembersByTeamId(exec: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
+	};
+	readonly users: {
+		getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
+		getUserByIdScopedToTeam(
+			db: HyperIdleDb,
+			id: string,
+			teamMembersId?: string,
+		): Promise<User | undefined>;
+		listUsersByTeam(exec: WriteExecutor, teamMembersId: string): Promise<User[]>;
+	};
+	readonly work: {
+		getTaskById(exec: WriteExecutor, id: string): Promise<Task | undefined>;
+		getBetById(exec: WriteExecutor, id: string): Promise<Bet | undefined>;
+		getTaskDispatchAttemptById(
+			exec: WriteExecutor,
+			id: string,
+		): Promise<TaskDispatchAttempt | undefined>;
+		reapTerminalTaskDispatchAttempts(
+			exec: WriteExecutor,
+			cutoff: string,
+			batchSize: number,
+		): Promise<number>;
+	};
+	readonly routine: {
+		getRoutineRunById(exec: WriteExecutor, id: string): Promise<RoutineRun | undefined>;
+		getRoutineById(exec: WriteExecutor, id: string): Promise<Routine | undefined>;
+		updateRoutineRunIfRunning(
+			exec: WriteExecutor,
+			id: string,
+			patch: { outcome: "error"; endedAt: string; errorMessage: string | null },
+		): Promise<void>;
+	};
+	readonly conversation: {
+		getMessageById(exec: WriteExecutor, id: string): Promise<Message | undefined>;
+	};
+	readonly review: {
+		findGrantedProposedCall(
+			exec: WriteExecutor,
+			id: string,
+		): Promise<{ call: ProposedCall; grant: TailoredGrant } | undefined>;
+	};
+	readonly knowledge: { findById(exec: WriteExecutor, id: string): Promise<KnowledgeItem | null> };
+	readonly agentSelection: {
+		isAtCapacity(exec: WriteExecutor, agentId: string): Promise<boolean>;
+		selectAgent(input: {
+			db: WriteExecutor;
+			surface: "routine_delegate";
+			teamId: string | null;
+			workKey: string;
+			excludeAgentId: string;
+			skillId: string;
+		}): Promise<{ agentId: string | null }>;
+	};
 }
+
+type RunOrchestrationTerminationReason =
+	| "user_done"
+	| "user_crashed"
+	| "handoff"
+	| "cost_cap"
+	| "shutdown";
+
+interface RunOrchestrationSessionContext {
+	readonly taskId: string | null;
+}
+
+interface RunOrchestrationSessionLifecycleRuntime {
+	requestAgentTermination(
+		db: HyperIdleDb,
+		input: {
+			requestId: string;
+			reason: RunOrchestrationTerminationReason;
+			requestedBy?: string;
+		},
+	): Promise<"accepted" | "idempotent" | "conflict" | "terminal">;
+	recoverRequestedTerminations(db: HyperIdleDb, eventBus: EventBus): Promise<number>;
+	transitionAgentRunLifecycle(
+		db: HyperIdleDb,
+		eventBus: EventBus,
+		input: {
+			readonly requestId: string;
+			readonly state: "completed" | "failed" | "cancelled";
+			readonly sessionId?: string;
+			readonly claimToken?: string;
+			readonly failureCode?: string;
+			readonly errorMessage?: string;
+		},
+	): Promise<void>;
+	crashSession(
+		db: HyperIdleDb,
+		eventBus: EventBus,
+		context: RunOrchestrationSessionContext,
+		costInCents: number,
+		baselineCost?: number,
+	): Promise<void>;
+}
+
+type RunOrchestrationSessionProvisioner = HarnessPort<HyperIdleDb>;
+interface RunOrchestrationDispatchPort {
+	runAssistantTurn(deps: unknown, request: AgentSessionRequest): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Aggregate deps bundle (per registration entry point)
+// ---------------------------------------------------------------------------
+
+export interface RuntimePorts {
+	readonly sessionRequests: {
+		claimSessionRequest(
+			exec: HyperIdleDb,
+			selector: { next: true } | { id: string },
+			options: { workerId: string; now: Date; leaseMs: number },
+		): Promise<AgentSessionRequest | null>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "id"; requestId: string },
+		): Promise<AgentSessionRequest | undefined>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "sessionId"; sessionId: string },
+		): Promise<Pick<AgentSessionRequest, "id"> | undefined>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "claimActive"; requestId: string; claimToken: string; now: Date },
+		): Promise<boolean>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "intentSource"; requestId: string },
+		): Promise<
+			Pick<AgentWorkIntent, "id" | "idempotencyKey" | "sourceId" | "sourceKind"> | undefined
+		>;
+		findSessionRequest(
+			exec: HyperIdleDb,
+			query: { by: "explicitStart"; startId: string },
+		): Promise<ExplicitSessionStart | undefined>;
+		listSessionRequests(
+			exec: HyperIdleDb,
+			filter: { source: { kind: AgentSessionSourceKind; id: string } } | { status: "running" },
+		): Promise<AgentSessionRequest[]>;
+		releaseClaim(exec: HyperIdleDb, requestId: string, claimToken: string): Promise<boolean>;
+		renewClaim(
+			exec: HyperIdleDb,
+			requestId: string,
+			claimToken: string,
+			options: { now: Date; leaseMs: number },
+		): Promise<boolean>;
+		transitionSessionRequest(
+			exec: HyperIdleDb,
+			transition:
+				| { requestId: string; to: "running"; sessionId: string; claimToken: string }
+				| {
+						requestId: string;
+						to: "completed" | "failed" | "cancelled";
+						precondition: "running";
+						sessionId: string;
+						failureCode?: string;
+						errorMessage?: string;
+						requireNoTerminationReason?: boolean;
+				  }
+				| {
+						requestId: string;
+						to: "failed";
+						precondition: "claimed";
+						claimToken: string;
+						failureCode?: string;
+						errorMessage?: string;
+				  }
+				| {
+						target: "explicitStart";
+						to: "admitted";
+						startId: string;
+						requestId: string;
+						sessionId: string;
+				  }
+				| { target: "explicitStart"; to: "failed"; startId: string; failureCode: string },
+			deps?: DurableQueueDeps,
+			options?: { now?: Date },
+		): Promise<
+			| AgentSessionRequest
+			| null
+			| boolean
+			| void
+			| "accepted"
+			| "idempotent"
+			| "conflict"
+			| "terminal"
+		>;
+		drainIntents(
+			deps: DurableQueueDeps,
+			options?: { now?: () => Date; leaseMs?: number; maxAttempts?: number },
+		): Promise<void>;
+		reapExpired(
+			deps: DurableQueueDeps,
+			options?: { now?: Date; retentionDays?: number; batchSize?: number },
+		): Promise<{ inbox: number; intents: number; explicitStarts: number; taskAttempts: number }>;
+	};
+	readonly sessionLifecycle: RunOrchestrationSessionLifecycleRuntime;
+	/** Test-only execution seam; production runSession binds the internal provisioner. */
+	readonly sessionProvisioner?: RunOrchestrationSessionProvisioner;
+	readonly dispatch: RunOrchestrationDispatchPort;
+}
+
+export type RunResult =
+	| {
+			readonly mode: "assembled";
+			readonly context: Awaited<
+				ReturnType<
+					ReturnType<typeof import("./context.js").createContextAssembler>["assembleAgentContext"]
+				>
+			>;
+	  }
+	| { readonly mode: "admitted"; readonly sessionId: string }
+	| ({ readonly mode: "completed" } & HarnessRunOutput);
+export type RunOptions =
+	| {
+			readonly mode: "durable";
+			readonly request: AgentSessionRequest;
+			readonly completion?: "admit" | "await";
+			readonly input?: never;
+			readonly sandboxBasePath: string;
+			readonly workerId?: string;
+			readonly claim?: { readonly now: Date; readonly leaseMs: number };
+			readonly resolvedModel?: RunContextBundle["resolvedModel"];
+			readonly resolvedFastModel?: RunContextBundle["resolvedFastModel"];
+			readonly modelTier?: RunContextBundle["modelTier"];
+			readonly sessionWorkflow?: RunContextBundle["sessionWorkflow"];
+			readonly conversational?: RunContextBundle["conversational"];
+			readonly enforceResolvedModelGuard?: boolean;
+	  }
+	| {
+			readonly mode: "one-shot";
+			readonly completion: "admit" | "await";
+			readonly input: RunContextBundle;
+			readonly enforceResolvedModelGuard?: boolean;
+	  }
+	| {
+			readonly mode: "assemble";
+			readonly input: Parameters<
+				ReturnType<typeof import("./context.js").createContextAssembler>["assembleAgentContext"]
+			>[0];
+	  };
+
+export type RunTransitionSpec = Parameters<typeof import("./transition-run.js").transitionRun>[1];
+export type RunTransitionResult = Awaited<
+	ReturnType<typeof import("./transition-run.js").transitionRun>
+>;
+export interface RuntimeDeps {
+	readonly db: HyperIdleDb;
+	readonly eventBus?: EventBus;
+	readonly runtime?: Parameters<
+		ReturnType<typeof import("./provisioner.js").createProvisioner>["admit"]
+	>[0];
+	readonly sandboxBasePath?: string;
+	readonly resolveModel?: (
+		tier: import("@hyperidle/shared").ModelTier,
+	) => Promise<import("@hyperidle/shared").ResolvedModel | undefined>;
+	readonly assistantTurn?: unknown;
+	readonly ports?: RuntimePorts;
+	readonly durableQueue?: Parameters<RuntimePorts["sessionRequests"]["drainIntents"]>[0];
+	readonly composition: {
+		readonly context: Parameters<typeof import("./context.js").createContextAssembler>[0];
+		readonly provisioner?: Omit<
+			Parameters<typeof import("./provisioner.js").createProvisioner>[0],
+			"contextAssembly"
+		>;
+		readonly writeback?: Omit<
+			Parameters<
+				ReturnType<typeof import("./writeback-processor.js").createWritebackProcessor>["subscribe"]
+			>[0],
+			"eventBus"
+		>;
+		readonly worker?: {
+			readonly pool: Parameters<typeof import("./worker-ingress.js").createWorkerIngress>[0];
+			readonly adapterFactory: Parameters<
+				typeof import("./worker-ingress.js").createWorkerIngress
+			>[1];
+		};
+		readonly reapers?: {
+			readonly sandboxes?: Parameters<
+				ReturnType<typeof import("./runtime-reapers.js").createRuntimeReapers>["startSandboxes"]
+			>[0];
+			readonly routines?: Parameters<
+				ReturnType<
+					typeof import("./runtime-reapers.js").createRuntimeReapers
+				>["reapRoutineSessions"]
+			>[0];
+		};
+	};
+}
+export interface RuntimeHandle {
+	registerWorkerWebSocket(
+		...args: Parameters<
+			ReturnType<typeof import("./worker-ingress.js").createWorkerIngress>["register"]
+		>
+	): () => void;
+	dispose(): Promise<void>;
+}
+export type AgentTerminationReason =
+	| "user_done"
+	| "user_crashed"
+	| "handoff"
+	| "cost_cap"
+	| "shutdown";

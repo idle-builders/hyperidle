@@ -1,43 +1,46 @@
-/**
- * S2: Worker WebSocket route — handles remote worker connections.
- *
- * Workers connect via GET /ws/worker?token=<HYPERIDLE_WORKER_TOKEN>.
- * On connection, the worker sends WorkerRegisterMessage to identify itself.
- * The server registers a RemoteHarnessAdapter in AdapterPool and sends
- * ServerRegisteredMessage as acknowledgment.
- * On close, the adapter is unregistered.
- *
- * @lore AU11 AC-2: relocated from `routes/worker-ws.ts` to agent-owned
- * `services/` — this file's entire job is harness adapter execution
- * (`AdapterPool.register/unregister/pause/resume`, dispatching to
- * `RemoteHarnessAdapter`), the "still-direct execution" case the AU11 plan
- * calls out by name ("remote harness in worker-ws"). Pure file move — logic
- * byte-identical; only the one `server-factory.ts` import site was
- * repointed. `registerWorkerWsRoute` still takes a Hono `app` + mutates it
- * (route registration) — composition wiring for the Hono app stays at the
- * call site in server-factory.ts, unchanged.
- *
- * @lore AU19 Increment 3c: real cut-over — moved here from
- * `packages/server/src/services/worker-ws.ts`. `AdapterPool`/
- * `RemoteHarnessAdapter` (`harness-registry`, INTERIM forward-ref — the
- * bulk of `harness-registry`'s files have not migrated yet, scheduled
- * Increment 4) convert to injected `pool: RunOrchestrationAdapterPool` +
- * `adapterFactory: RunOrchestrationRemoteHarnessAdapterFactory` (see
- * `ports.ts`'s top `@lore`). This is NOT the final `HarnessPort` (§7.4)
- * abstraction — a separate, later item builds that; this is the ordinary
- * interim-forward-ref treatment every other not-yet-migrated Service edge
- * in this Increment gets. `constantTimeStringEqual` moves to a small local
- * copy (`timing-safe.ts`) — see that file's top `@lore`.
- */
-
+/** Consolidated private remote-worker ingress. */
+import { createHash, timingSafeEqual } from "node:crypto";
+import type { HarnessAdapter } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";
 import { z } from "zod";
-import type {
-	RunOrchestrationAdapterPool,
-	RunOrchestrationRemoteHarnessAdapterFactory,
-} from "./ports.js";
-import { constantTimeStringEqual } from "./timing-safe.js";
+
+interface RunOrchestrationRemoteWorkerAdapter {
+	dispatchMessage(data: string): void;
+}
+interface RunOrchestrationAdapterPool {
+	has(id: string): boolean;
+	register(
+		id: string,
+		adapter: HarnessAdapter & RunOrchestrationRemoteWorkerAdapter,
+		meta: {
+			name: string;
+			kind: "remote";
+			type?: string;
+			modelProviders: readonly string[];
+			maxConcurrent: number;
+		},
+	): void;
+	unregister(id: string): void;
+	pause(id: string): void;
+	resume(id: string): void;
+}
+interface RunOrchestrationRemoteHarnessAdapterFactory {
+	create(
+		ws: unknown,
+		registration: { readonly id: string; readonly [key: string]: unknown },
+	): HarnessAdapter & RunOrchestrationRemoteWorkerAdapter;
+}
+
+// ---- timing-safe ----
+
+function constantTimeStringEqual(actual: string, expected: string): boolean {
+	const a = createHash("sha256").update(actual).digest();
+	const b = createHash("sha256").update(expected).digest();
+	return timingSafeEqual(a, b);
+}
+
+// ---- worker ingress ----
 
 // ── Zod schemas for worker protocol messages ──────────────────────────────────
 
@@ -106,7 +109,7 @@ const LIVE_WORKER_SOCKETS = new Map<string, { isLive: () => boolean }>();
  * Exported so tests can exercise the message-handling logic without
  * spinning up a real WebSocket server.
  */
-export class WorkerConnectionManager {
+class WorkerConnectionManager {
 	private readonly pool: RunOrchestrationAdapterPool;
 	private readonly adapterFactory: RunOrchestrationRemoteHarnessAdapterFactory;
 	private workerId: string | null = null;
@@ -233,7 +236,7 @@ export class WorkerConnectionManager {
  *
  * Returns a disposer function (noop — pool cleanup happens on WS close).
  */
-export function registerWorkerWsRoute(
+function registerWorkerWsRoute(
 	app: Hono,
 	pool: RunOrchestrationAdapterPool,
 	adapterFactory: RunOrchestrationRemoteHarnessAdapterFactory,
@@ -272,5 +275,21 @@ export function registerWorkerWsRoute(
 
 	return () => {
 		// No-op: pool cleanup happens via onClose callbacks
+	};
+}
+
+interface WorkerIngress {
+	register(app: Hono, upgradeWebSocket: UpgradeWebSocket): () => void;
+	createConnection(): WorkerConnectionManager;
+}
+
+export function createWorkerIngress(
+	pool: RunOrchestrationAdapterPool,
+	adapterFactory: RunOrchestrationRemoteHarnessAdapterFactory,
+): WorkerIngress {
+	return {
+		register: (app, upgradeWebSocket) =>
+			registerWorkerWsRoute(app, pool, adapterFactory, upgradeWebSocket),
+		createConnection: () => new WorkerConnectionManager(pool, adapterFactory),
 	};
 }

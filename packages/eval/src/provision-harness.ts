@@ -13,7 +13,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { provisionSession } from "@hyperidle/core-api/services/session-lifecycle-bindings";
+import { runSession } from "@hyperidle/core-api/session";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
@@ -350,7 +350,7 @@ export async function runEvalSession(
 
 	const startMs = Date.now();
 
-	const result = await provisionSession(
+	const result = await runSession(
 		{
 			db: deps.db,
 			eventBus: deps.eventBus,
@@ -359,19 +359,23 @@ export async function runEvalSession(
 			// MCP bridge omitted — optional in ProvisionSessionDeps
 		},
 		{
-			taskId: params.taskId,
-			agentId: params.agentId,
-			// @lore X7 U1: productId receives the teamId value.
-			// ProvisionSessionParams.productId is the field name (kept for backward
-			// compat) but the value is always a teams.id (which IS the teamId).
-			productId: params.teamId,
-			sandboxBasePath: deps.sandboxBasePath,
-			resolvedModel: deps.resolvedModel,
-			resolvedFastModel: deps.resolvedFastModel,
-			// No cost cap during eval — cost is tracked but not capped.
-			factoryCap: undefined,
+			mode: "one-shot",
+			completion: "await",
+			input: {
+				taskId: params.taskId,
+				agentId: params.agentId,
+				// @lore X7 U1: productId receives the teamId value.
+				// ProvisionSessionParams.productId is the field name (kept for backward
+				// compat) but the value is always a teams.id (which IS the teamId).
+				productId: params.teamId,
+				sandboxBasePath: deps.sandboxBasePath,
+				resolvedModel: deps.resolvedModel,
+				resolvedFastModel: deps.resolvedFastModel,
+				// No cost cap during eval — cost is tracked but not capped.
+			},
 		},
 	);
+	if (result.mode !== "completed") throw new Error("Eval run did not complete");
 
 	const durationMs = Date.now() - startMs;
 

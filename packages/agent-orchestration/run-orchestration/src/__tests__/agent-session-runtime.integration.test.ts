@@ -1,9 +1,3 @@
-/**
- * @lore AU19 Increment 3c: real cut-over — moved here from
- * `packages/server/src/services/__tests__/agent-session-runtime.test.ts`.
- * See `agent-run-boundary.integration.test.ts`'s top `@lore` for the
- * fixture-conversion + port-injection rationale (same shape).
- */
 import {
 	agentLifecycleInbox,
 	agentSessionRequests,
@@ -19,14 +13,14 @@ import { createSessionRequest } from "@hyperidle/session-requests";
 import { type AgentSessionRequestInput, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
-import { consumeAgentSessionRequest } from "../agent-session-runtime.js";
+import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
 
 const createRequestForTest = (db: HyperIdleDb, request: AgentSessionRequestInput) =>
 	createSessionRequest(db, { kind: "direct", request });
 
 describe("agent session runtime consumer", () => {
-	test("consumeAgentSessionRequest claims request, marks running before runSession, and marks terminal", async ({
+	test("runSession claims request, marks running before runSession, and marks terminal", async ({
 		db,
 	}) => {
 		const now = new Date().toISOString();
@@ -61,11 +55,11 @@ describe("agent session runtime consumer", () => {
 		});
 
 		const ports = buildTestPorts();
-		vi.mocked(ports.sessionProvisioner.admitSession).mockImplementation(async (_deps, params) => ({
+		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
 			sessionId: "session-runtime-1",
 			sessionContext: { taskId: params.taskId },
 		}));
-		vi.mocked(ports.sessionProvisioner.runSession).mockImplementation(async () => ({
+		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementation(async () => ({
 			sessionId: "session-runtime-1",
 			outcome: "completed",
 			totalCostCents: 0,
@@ -85,14 +79,12 @@ describe("agent session runtime consumer", () => {
 			sourceCorrelation: { taskId: "task-1", teamId: "team-1" },
 		});
 
-		await consumeAgentSessionRequest(
-			{ db, eventBus: new EventBus() },
-			request,
-			{ sandboxBasePath: "/tmp/au1-runtime-test" },
-			ports,
+		await runSession(
+			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{ mode: "durable", request, sandboxBasePath: "/tmp/au1-runtime-test" },
 		);
 
-		expect(ports.sessionProvisioner.admitSession).toHaveBeenCalledWith(
+		expect(ports.sessionProvisioner!.admitSession).toHaveBeenCalledWith(
 			expect.any(Object),
 			expect.objectContaining({
 				taskId: "task-1",
@@ -104,7 +96,7 @@ describe("agent session runtime consumer", () => {
 				},
 			}),
 		);
-		expect(ports.sessionProvisioner.runSession).toHaveBeenCalledOnce();
+		expect(ports.sessionProvisioner!.runSession).toHaveBeenCalledOnce();
 		const [row] = await db
 			.select()
 			.from(agentSessionRequests)
@@ -145,7 +137,7 @@ describe("agent session runtime consumer", () => {
 		});
 
 		const ports = buildTestPorts();
-		vi.mocked(ports.sessionProvisioner.admitSession).mockImplementation(async (_deps, params) => ({
+		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
 			sessionId: "session-runtime-1",
 			sessionContext: { taskId: params.taskId },
 		}));
@@ -161,7 +153,7 @@ describe("agent session runtime consumer", () => {
 			idempotencyKey: "task:task-1:running-before-run",
 			sourceCorrelation: { taskId: "task-1", teamId: "team-1" },
 		});
-		vi.mocked(ports.sessionProvisioner.runSession).mockImplementationOnce(async () => {
+		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementationOnce(async () => {
 			const [row] = await db
 				.select()
 				.from(agentSessionRequests)
@@ -176,11 +168,9 @@ describe("agent session runtime consumer", () => {
 			};
 		});
 
-		await consumeAgentSessionRequest(
-			{ db, eventBus: new EventBus() },
-			request,
-			{ sandboxBasePath: "/tmp/au1-runtime-test" },
-			ports,
+		await runSession(
+			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{ mode: "durable", request, sandboxBasePath: "/tmp/au1-runtime-test" },
 		);
 	});
 
@@ -222,18 +212,16 @@ describe("agent session runtime consumer", () => {
 			},
 		});
 		const ports = buildTestPorts();
-		vi.mocked(ports.sessionProvisioner.admitSession).mockResolvedValue({
+		vi.mocked(ports.sessionProvisioner!.admitSession).mockResolvedValue({
 			sessionId: "failure-session",
 			sessionContext: { taskId: null },
 		});
-		vi.mocked(ports.sessionProvisioner.runSession).mockRejectedValue(new Error("harness crashed"));
+		vi.mocked(ports.sessionProvisioner!.runSession).mockRejectedValue(new Error("harness crashed"));
 
 		await expect(
-			consumeAgentSessionRequest(
-				{ db, eventBus: new EventBus() },
-				request,
-				{ sandboxBasePath: "/tmp/au20-runtime-failure" },
-				ports,
+			runSession(
+				{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+				{ mode: "durable", request, sandboxBasePath: "/tmp/au20-runtime-failure" },
 			),
 		).rejects.toThrow("harness crashed");
 

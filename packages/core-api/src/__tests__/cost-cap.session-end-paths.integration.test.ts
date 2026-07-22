@@ -1,9 +1,12 @@
 import { bets, sessions, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import type { HandoffMetadata } from "@hyperidle/policy";
-import type { SessionContext } from "@hyperidle/run-orchestration";
+import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
 import { beforeEach, describe } from "vitest";
 import { costOps } from "../services/cost-bindings.js";
 import { handoff } from "../services/policy-bindings.js";
+
+type SessionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
+
 import { expect, test } from "../test-fixtures.js";
 
 /**

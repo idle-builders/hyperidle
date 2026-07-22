@@ -26,7 +26,7 @@ import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { assembleContext } from "../services/context-assembly-bindings.js";
+import { runSession } from "../services/run-orchestration-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
@@ -453,14 +453,28 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 		if (!writeResult.success) return;
 
 		// Act: assemble context for a new session for the same team
-		const matResult = await assembleContext(db, {
-			sandboxPath,
-			sessionId: "session-r7-next",
-			taskId: "task-r7",
-			agentId: AGENT_ID,
-			agentRole: "builder",
-			productId: TEAM_ID, // same team
-		});
+		const assembled = await runSession(
+			{ db, eventBus: new EventBus() },
+			{
+				mode: "assemble",
+				input: {
+					db,
+					sandboxPath,
+					sessionId: "session-r7-next",
+					taskId: "task-r7",
+					agentId: AGENT_ID,
+					agentRole: "builder",
+					teamId: TEAM_ID,
+					isRoutine: false,
+					sourceKind: null,
+					sourceId: null,
+					sourceCorrelation: null,
+				},
+			},
+		);
+		expect(assembled.mode).toBe("assembled");
+		if (assembled.mode !== "assembled") return;
+		const matResult = assembled.context;
 
 		// Assert: the item is present in the assembled workspace
 		// The item is written to context/product/ zone for L2 items

@@ -28,8 +28,7 @@ import {
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
 import { test as fixtureTest } from "../../test-fixtures.js";
-import { executeAgentRunRequest } from "../run-orchestration-bindings.js";
-import type { ProvisionSessionDeps } from "../session-lifecycle-bindings.js";
+import { runSession } from "../run-orchestration-composition.js";
 
 class RecordingHarnessAdapter implements HarnessAdapter {
 	readonly configs: SessionConfig[] = [];
@@ -168,12 +167,18 @@ describe("agent session request sources", () => {
 		});
 		const sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "au3-agent-layer-"));
 		tmpDirs.push(sandboxBasePath);
-		const deps: ProvisionSessionDeps = {
+		const deps = {
 			db,
 			eventBus,
 			adapterPool,
 			workspace: new LocalSandboxAdapter(),
-			onBeforeTeardown: async ({ sessionId, sandboxPath }) => {
+			onBeforeTeardown: async ({
+				sessionId,
+				sandboxPath,
+			}: {
+				sessionId: string;
+				sandboxPath: string;
+			}) => {
 				const manifestPath = path.join(sandboxPath, ".fabric", "manifest.json");
 				const contextPath = path.join(sandboxPath, "context", "session.toon");
 				capturedContext.set(sessionId, {
@@ -246,7 +251,12 @@ describe("agent session request sources", () => {
 
 		for (const source of sources) {
 			const request = await createSessionRequest(db, { kind: "direct", request: source });
-			await executeAgentRunRequest(deps, request, { sandboxBasePath });
+			await runSession(deps, {
+				mode: "durable",
+				request,
+				completion: "await",
+				sandboxBasePath,
+			});
 		}
 
 		expect(adapter.configs).toHaveLength(4);

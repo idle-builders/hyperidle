@@ -6,10 +6,8 @@
  * to assert against, not a stub). `sessionLifecycle`'s
  * `transitionAgentRunLifecycle` is reproduced directly against
  * `@hyperidle/session-requests`'s own `transitionSessionRequest` (the
- * same durable write `session-lifecycle.ts`'s real implementation ultimately
- * delegates to) — these tests never set a termination reason, so the
- * termination-reason-precedence branch `session-lifecycle.ts`'s real
- * implementation adds on top is never exercised either way.
+ * same durable write used by the real implementation). These tests never set
+ * a termination reason, so precedence behavior is not exercised here.
  * `sessionProvisioner`/`dispatch`/`crashSession`/`requestAgentTermination`/
  * `recoverRequestedTerminations` are `vi.fn()` stubs — overridden per test
  * where behavior matters (matching the pre-move tests' own
@@ -34,9 +32,12 @@ import {
 	renewClaim,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import type { EventBus } from "@hyperidle/shared";
+import type { AgentSessionSourceKind, EventBus } from "@hyperidle/shared";
 import { vi } from "vitest";
-import type { RunOrchestrationPorts, RunOrchestrationSessionLifecycleRuntime } from "../ports.js";
+import type { RuntimePorts } from "../contracts.js";
+
+type RunOrchestrationPorts = RuntimePorts;
+type RunOrchestrationSessionLifecycleRuntime = RuntimePorts["sessionLifecycle"];
 
 /** `transitionSessionRequest({to:'running',...})` against the real queue state machine. */
 export function testMarkRequestRunning(
@@ -114,7 +115,7 @@ const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 			type: "agent_run_lifecycle_changed",
 			streamId: row.streamId,
 			requestId: row.id,
-			sourceKind: row.sourceKind as never,
+			sourceKind: row.sourceKind as AgentSessionSourceKind,
 			sourceId: row.sourceId,
 			state: row.status as "completed" | "failed" | "cancelled",
 			sessionId: row.sessionId ?? undefined,

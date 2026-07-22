@@ -1,14 +1,85 @@
+/** Consolidated private capture/writeback stage. */
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type {
-	CaptureWritebackKnowledgeWriter,
-	CaptureWritebackManifest as Manifest,
-	CaptureWritebackManifestEntry as ManifestEntry,
-} from "./capture-writeback-ports.js";
 
-export interface WritebackConfig {
+// ---- capture-writeback-ports ----
+// ---------------------------------------------------------------------------
+// knowledge — CaptureWritebackKnowledgeWriter (ordinary downward edge, real target)
+// ---------------------------------------------------------------------------
+
+type CaptureWritebackKnowledgeLayer = "L1" | "L2" | "L3";
+type CaptureWritebackKnowledgeKind = "pattern" | "decision" | "failure" | "reflection";
+
+interface CaptureWritebackCreateKnowledgeItemInput {
+	readonly layer: CaptureWritebackKnowledgeLayer;
+	readonly kind: CaptureWritebackKnowledgeKind;
+	readonly title: string;
+	readonly body: string;
+	readonly format: string;
+	/** `writeback.ts` always creates items in "captured" state — narrowed to the one literal it uses. */
+	readonly status: "captured";
+	readonly updatedBy: string;
+}
+
+/** Narrowed to the three fields `writeback.ts` actually reads off a created/updated item. */
+interface CaptureWritebackKnowledgeItem {
+	readonly id: string;
+	readonly version: number;
+	readonly format: string;
+}
+
+type CaptureWritebackUpdateResult =
+	| { readonly ok: true; readonly item: CaptureWritebackKnowledgeItem }
+	| { readonly ok: false; readonly currentVersion: number };
+
+interface CaptureWritebackRecordConflictInput {
+	readonly itemId: string;
+	readonly versionBase: number;
+	readonly versionCurrent: number;
+	readonly proposedBody: string;
+	readonly proposedBy: string;
+}
+
+/** Port for `knowledge`'s create/update/conflict-record surface `writeback.ts` calls directly today. */
+interface CaptureWritebackKnowledgeWriter {
+	create(
+		db: HyperIdleDb,
+		input: CaptureWritebackCreateKnowledgeItemInput,
+	): Promise<CaptureWritebackKnowledgeItem>;
+	update(
+		db: HyperIdleDb,
+		id: string,
+		patch: { readonly body: string; readonly updatedBy: string },
+		expectedVersion: number,
+	): Promise<CaptureWritebackUpdateResult>;
+	recordConflict(db: HyperIdleDb, input: CaptureWritebackRecordConflictInput): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// context-assembly — Manifest/ManifestEntry (pure-type structural mirror;
+// see this file's top `@lore` for why this isn't a port method)
+// ---------------------------------------------------------------------------
+
+interface ManifestEntry {
+	version: number;
+	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
+	source_path: string;
+	format: string;
+}
+
+interface Manifest {
+	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
+	session_id: string;
+	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
+	assembled_at: string;
+	items: Record<string, ManifestEntry>;
+}
+
+// ---- writeback ----
+interface WritebackConfig {
 	db: HyperIdleDb;
 	/**
 	 * @lore AK1: Renamed per harness-vocab plan (AK1).
@@ -16,23 +87,16 @@ export interface WritebackConfig {
 	sandboxPath: string;
 	sessionId: string;
 	manifestPath: string;
-	/**
-	 * `knowledge`'s create/update/conflict-record surface (Mechanism C DI
-	 * port — `capture-writeback -> knowledge`, ordinary downward edge, §10.2).
-	 * Concrete impl wired at the composition root (`packages/server`) to
-	 * `@hyperidle/knowledge`'s real `create`/`update`/`recordWritebackConflict`.
-	 * See `capture-writeback-ports.ts`'s top `@lore`.
-	 */
 	knowledge: CaptureWritebackKnowledgeWriter;
 }
 
-export interface WritebackChange {
+interface WritebackChange {
 	type: "create" | "modify" | "delete";
 	relativePath: string;
 	fullPath: string;
 }
 
-export interface WritebackResult {
+interface WritebackResult {
 	processed: number;
 	created: number;
 	updated: number;
@@ -41,13 +105,13 @@ export interface WritebackResult {
 }
 
 /** Read the manifest from disk. */
-export function readManifest(manifestPath: string): Manifest {
+function readManifest(manifestPath: string): Manifest {
 	const raw = fs.readFileSync(manifestPath, "utf-8");
 	return JSON.parse(raw) as Manifest;
 }
 
 /** Write the manifest back to disk. */
-export function writeManifest(manifestPath: string, manifest: Manifest): void {
+function writeManifest(manifestPath: string, manifest: Manifest): void {
 	fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
@@ -65,12 +129,12 @@ function findItemByPath(
 }
 
 /** Check if a path is in the knowledge/ zone. */
-export function isKnowledgePath(relativePath: string): boolean {
+function isKnowledgePath(relativePath: string): boolean {
 	return relativePath.startsWith("knowledge/");
 }
 
 /** Check if a path is the session notes file. */
-export function isSessionNotesPath(relativePath: string): boolean {
+function isSessionNotesPath(relativePath: string): boolean {
 	return relativePath === "work/session-notes.md" || relativePath === "work/task-notes.md";
 }
 
@@ -81,7 +145,7 @@ function titleFromFilename(filename: string): string {
 }
 
 /** Process a batch of writeback changes. */
-export async function processWriteback(
+async function processWriteback(
 	config: WritebackConfig,
 	changes: WritebackChange[],
 ): Promise<WritebackResult> {
@@ -272,4 +336,56 @@ async function handleSessionNotes(config: WritebackConfig, change: WritebackChan
 	const body = fs.readFileSync(change.fullPath, "utf-8");
 
 	await config.db.update(sessions).set({ notes: body }).where(eq(sessions.id, config.sessionId));
+}
+
+// ---- writeback-subscriber ----
+interface CaptureWritebackSubscriberDeps {
+	readonly db: WritebackConfig["db"];
+	readonly eventBus: EventBus;
+	readonly knowledge: WritebackConfig["knowledge"];
+}
+
+/**
+ * Register the capture-writeback subscriber on the event bus.
+ *
+ * Listens for `sandbox_writeback_changes_detected` and fires
+ * `processWriteback` for the batch. Returns a dispose function to
+ * unsubscribe (for server shutdown).
+ */
+function registerCaptureWriteback(deps: CaptureWritebackSubscriberDeps): () => void {
+	const { db, eventBus, knowledge } = deps;
+
+	const dispose = eventBus.on("sandbox_writeback_changes_detected", (event) => {
+		// Fire-and-forget, matching file-watcher.ts's pre-inversion behavior
+		// (that flush() was never awaited by its own caller either).
+		void processWriteback(
+			{
+				db,
+				sandboxPath: event.sandboxPath,
+				sessionId: event.sessionId,
+				manifestPath: event.manifestPath,
+				knowledge,
+			},
+			[...event.changes],
+		).catch((err: unknown) => {
+			if (err !== null && typeof err === "object" && "code" in err && err.code === "ENOENT") {
+				// Sandbox removed before processing (test cleanup, session end with
+				// sandbox reaper) — no-op, matches prior file-watcher suppression.
+				return;
+			}
+			// Re-throw non-ENOENT errors as unhandled rejections, matching prior behavior.
+			throw err;
+		});
+	});
+
+	return dispose;
+}
+
+interface WritebackProcessor {
+	process(config: WritebackConfig, changes: WritebackChange[]): Promise<WritebackResult>;
+	subscribe(deps: CaptureWritebackSubscriberDeps): () => void;
+}
+
+export function createWritebackProcessor(): WritebackProcessor {
+	return { process: processWriteback, subscribe: registerCaptureWriteback };
 }
