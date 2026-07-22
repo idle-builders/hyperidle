@@ -476,7 +476,9 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 
 	let handle: Awaited<ReturnType<typeof startServer>>;
 	try {
-		handle = await startServer();
+		// Vite's development proxy targets port 3001. Packaged desktop serves the
+		// SPA from the embedded server itself and can safely use an OS-assigned port.
+		handle = await startServer(IS_DEV ? 3001 : 0);
 	} catch (err) {
 		log("boot:local server start FAILED", {
 			error: (err as Error).message,
@@ -491,7 +493,9 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	log("boot:local server listening", { port });
 
 	const windowState = clientConfig.windowState;
-	const preloadPath = path.join(Dirname, "preload.js");
+	const preloadPath = IS_DEV
+		? path.resolve(Dirname, "../dist/preload.js")
+		: path.join(Dirname, "preload.js");
 	log("boot:local preload", { preloadPath, exists: fs.existsSync(preloadPath) });
 
 	// @lore AV5: titleBarStyle:"hiddenInset" — macOS-only; insets the OS traffic-lights
@@ -601,7 +605,9 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void> {
 	const clientConfig = loadClientConfig(ctx.configPath);
 	const windowState = clientConfig.windowState;
-	const preloadPath = path.join(Dirname, "preload.js");
+	const preloadPath = IS_DEV
+		? path.resolve(Dirname, "../dist/preload.js")
+		: path.join(Dirname, "preload.js");
 
 	// @lore AV5: Same hiddenInset config as bootLocalMode — both windows share the same
 	// titlebar treatment. backgroundColor matches --surface-container to avoid a flash of

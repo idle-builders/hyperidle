@@ -21,13 +21,14 @@ import { createLocalAdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-
 export type { ServerHandle };
 
 /**
- * Start the Hono server on port 0 (OS-assigned) and return a handle.
+ * Start the Hono server and return a handle. Packaged desktop uses port 0;
+ * development supplies Vite's configured proxy target (3001).
  * Environment variables DATABASE_URL, HYPERIDLE_API_KEY, and
  * HYPERIDLE_STATIC_DIR must be set before calling this.
  */
-export async function startServer(): Promise<ServerHandle> {
+export async function startServer(port = 0): Promise<ServerHandle> {
 	const adapterPool = await createLocalAdapterPool();
-	return _createServer(0, { adapterPool, workspaceAdapter: new LocalSandboxAdapter() });
+	return _createServer(port, { adapterPool, workspaceAdapter: new LocalSandboxAdapter() });
 }
 
 /**

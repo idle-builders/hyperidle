@@ -57,6 +57,12 @@ describe("startServer", () => {
 		expect(handle).toHaveProperty("dispose");
 		expect(typeof handle.dispose).toBe("function");
 	});
+
+	it("uses an explicit development port when supplied", async () => {
+		const { createServer } = await import("@hyperidle/core-api/server-factory");
+		await startServer(3001);
+		expect(createServer).toHaveBeenCalledWith(3001, expect.any(Object));
+	});
 });
 
 describe("getPort", () => {
