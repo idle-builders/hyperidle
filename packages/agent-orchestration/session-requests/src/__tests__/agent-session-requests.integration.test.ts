@@ -16,15 +16,37 @@
  * which this test never seeds a row for).
  */
 
-import { agentSessionRequests, bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	agentLifecycleInbox,
+	agentSessionRequests,
+	bets,
+	type HyperIdleDb,
+	sessions,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { describe } from "vitest";
+import { describe, vi } from "vitest";
+import { markRequestRunning } from "../agent-session-requests.js";
 import {
+	claimAgentSessionRequestById,
+	claimAgentWorkIntent,
 	claimNextAgentSessionRequest,
 	createAgentSessionRequest,
-	markRequestRunning,
-} from "../agent-session-requests.js";
+	createExplicitSessionStart,
+	findSessionRequest,
+	listAgentSessionRequestsBySource,
+	listRunningAgentSessionRequests,
+	recordAgentWorkIntent,
+	releaseRequestClaim,
+	renewAgentSessionRequestLease,
+	renewAgentWorkIntentLease,
+	sessionRunRegistry,
+	transitionSessionRequest,
+} from "../index.js";
 import type { MarkRequestRunningDeps } from "../ports.js";
 
 const noopMarkRequestRunningDeps: MarkRequestRunningDeps = {
@@ -32,6 +54,44 @@ const noopMarkRequestRunningDeps: MarkRequestRunningDeps = {
 		recordSessionForResolutionHistory: async () => {},
 	},
 };
+
+async function createAssistantRequest(db: HyperIdleDb, suffix: string, payloadJson?: string) {
+	const now = new Date().toISOString();
+	await db.insert(users).values([
+		{
+			id: `agent-${suffix}`,
+			kind: "ai",
+			name: "Agent",
+			role: "assistant",
+			status: "active",
+			createdAt: now,
+		},
+		{
+			id: `user-${suffix}`,
+			kind: "human",
+			name: "User",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		},
+	]);
+	return createAgentSessionRequest(db, {
+		sourceKind: "assistant",
+		sourceId: `message-${suffix}`,
+		streamId: `thread:${suffix}`,
+		agentId: `agent-${suffix}`,
+		userId: `user-${suffix}`,
+		promptMode: "conversation",
+		payloadJson,
+		idempotencyKey: `assistant:${suffix}`,
+		sourceCorrelation: {
+			threadId: `thread-${suffix}`,
+			messageId: `message-${suffix}`,
+			userId: `user-${suffix}`,
+			assistantAgentId: `agent-${suffix}`,
+		},
+	});
+}
 
 describe("agent session request repository", () => {
 	test("createAgentSessionRequest is idempotent by source/action key", async ({ db }) => {
@@ -227,5 +287,364 @@ describe("agent session request repository", () => {
 			.where(eq(agentSessionRequests.id, winners[0]!.id));
 		expect(row?.status).toBe("running");
 		expect(row?.sessionId).toBe("session-1");
+	});
+
+	test("claim custody is token-fenced across concurrent claim, renew, expiry, and reclaim", async ({
+		db,
+	}) => {
+		const request = await createAssistantRequest(db, "lease");
+		const now = new Date("2026-07-08T12:00:00.000Z");
+		const [first, second] = await Promise.all([
+			claimAgentSessionRequestById(db, request.id, "worker-a", { now, leaseMs: 1_000 }),
+			claimAgentSessionRequestById(db, request.id, "worker-b", { now, leaseMs: 1_000 }),
+		]);
+		const winner = [first, second].find((row) => row !== null)!;
+		expect([first, second].filter(Boolean)).toHaveLength(1);
+		expect(
+			await findSessionRequest(db, {
+				by: "claimActive",
+				requestId: request.id,
+				claimToken: "wrong-token",
+				now,
+			}),
+		).toBe(false);
+		expect(
+			await renewAgentSessionRequestLease(db, {
+				requestId: request.id,
+				claimToken: "wrong-token",
+				now,
+				leaseMs: 5_000,
+			}),
+		).toBe(false);
+		expect(
+			await renewAgentSessionRequestLease(db, {
+				requestId: request.id,
+				claimToken: winner.claimToken!,
+				now,
+				leaseMs: 5_000,
+			}),
+		).toBe(true);
+		expect(
+			await findSessionRequest(db, {
+				by: "claimActive",
+				requestId: request.id,
+				claimToken: winner.claimToken!,
+				now: new Date("2026-07-08T12:00:04.999Z"),
+			}),
+		).toBe(true);
+		expect(
+			await findSessionRequest(db, {
+				by: "claimActive",
+				requestId: request.id,
+				claimToken: winner.claimToken!,
+				now: new Date("2026-07-08T12:00:05.001Z"),
+			}),
+		).toBe(false);
+		const reclaimed = await claimAgentSessionRequestById(db, request.id, "worker-c", {
+			now: new Date("2026-07-08T12:00:05.001Z"),
+			leaseMs: 1_000,
+		});
+		expect(reclaimed?.claimedBy).toBe("worker-c");
+		expect(reclaimed?.claimToken).not.toBe(winner.claimToken);
+	});
+
+	test("release ignores a stale token and returns the matching claim to pending", async ({
+		db,
+	}) => {
+		const request = await createAssistantRequest(db, "release");
+		const claimed = await claimAgentSessionRequestById(db, request.id, "worker-a", {
+			now: new Date("2026-07-08T12:00:00.000Z"),
+			leaseMs: 30_000,
+		});
+		await releaseRequestClaim(db, request.id, "wrong-token");
+		expect((await findSessionRequest(db, { by: "id", requestId: request.id }))?.status).toBe(
+			"claimed",
+		);
+		await releaseRequestClaim(db, request.id, claimed!.claimToken!);
+		const released = await findSessionRequest(db, { by: "id", requestId: request.id });
+		expect(released?.status).toBe("pending");
+		expect(released?.claimExpiresAt).toBeNull();
+		const reclaimed = await claimAgentSessionRequestById(db, request.id, "worker-b", {
+			now: new Date("2026-07-08T12:00:01.000Z"),
+			leaseMs: 30_000,
+		});
+		expect(reclaimed?.claimedBy).toBe("worker-b");
+		expect(reclaimed?.claimToken).not.toBe(claimed?.claimToken);
+	});
+
+	test("intent claims have one concurrent winner and lease renewal is token-fenced", async ({
+		db,
+	}) => {
+		const intent = await recordAgentWorkIntent(db, {
+			kind: "reengagement",
+			sourceKind: "proposed_call",
+			sourceId: "review-intent-lease",
+			requestedBy: "agent-intent-lease",
+			idempotencyKey: "reengagement:intent-lease",
+		});
+		const now = new Date("2026-07-08T12:00:00.000Z");
+		const [first, second] = await Promise.all([
+			claimAgentWorkIntent(db, { now, leaseMs: 1_000, workerId: "worker-a" }),
+			claimAgentWorkIntent(db, { now, leaseMs: 1_000, workerId: "worker-b" }),
+		]);
+		const winner = [first, second].find((row) => row !== null)!;
+		expect([first, second].filter(Boolean)).toHaveLength(1);
+		expect(winner.id).toBe(intent.id);
+		expect(
+			await renewAgentWorkIntentLease(db, {
+				id: intent.id,
+				claimToken: "wrong-token",
+				now,
+				leaseMs: 5_000,
+			}),
+		).toBe(false);
+		expect(
+			await renewAgentWorkIntentLease(db, {
+				id: intent.id,
+				claimToken: winner.claimToken!,
+				now,
+				leaseMs: 5_000,
+			}),
+		).toBe(true);
+	});
+
+	test("parameterized reads preserve payloads and source/running filters", async ({ db }) => {
+		const request = await createAssistantRequest(db, "reads", '{"mode":"deep"}');
+		expect((await findSessionRequest(db, { by: "id", requestId: request.id }))?.payloadJson).toBe(
+			'{"mode":"deep"}',
+		);
+		expect(
+			(
+				await findSessionRequest(db, {
+					by: "idempotencyKey",
+					sourceKind: "assistant",
+					sourceId: "message-reads",
+					idempotencyKey: "assistant:reads",
+				})
+			)?.id,
+		).toBe(request.id);
+		expect(await listAgentSessionRequestsBySource(db, "assistant", "message-reads")).toHaveLength(
+			1,
+		);
+		expect(await listAgentSessionRequestsBySource(db, "assistant", "other")).toEqual([]);
+		const claimed = await claimAgentSessionRequestById(db, request.id, "worker", {
+			now: new Date(),
+			leaseMs: 30_000,
+		});
+		await transitionSessionRequest(
+			db,
+			{
+				to: "running",
+				requestId: request.id,
+				sessionId: "session-reads",
+				claimToken: claimed!.claimToken!,
+			},
+			noopMarkRequestRunningDeps,
+		);
+		expect(
+			(await findSessionRequest(db, { by: "sessionId", sessionId: "session-reads" }))?.id,
+		).toBe(request.id);
+		expect((await listRunningAgentSessionRequests(db)).map((row) => row.id)).toContain(request.id);
+	});
+
+	test("explicit starts are found by id and requester key and transition to admitted", async ({
+		db,
+	}) => {
+		const now = new Date().toISOString();
+		await db
+			.insert(teams)
+			.values({ id: "explicit-team", name: "Team", phase: "build", createdAt: now });
+		await db.insert(teamMembers).values({
+			id: "explicit-members",
+			teamId: "explicit-team",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
+		await db.insert(users).values([
+			{
+				id: "explicit-agent",
+				kind: "ai",
+				name: "Agent",
+				role: "builder",
+				status: "active",
+				createdAt: now,
+			},
+			{
+				id: "explicit-user",
+				kind: "human",
+				name: "User",
+				role: "founder",
+				status: "active",
+				createdAt: now,
+			},
+		]);
+		await db.insert(bets).values({
+			id: "explicit-bet",
+			teamId: "explicit-team",
+			description: "Bet",
+			status: "active",
+			createdAt: now,
+		});
+		await db.insert(tasks).values({
+			id: "explicit-task",
+			betId: "explicit-bet",
+			teamId: "explicit-team",
+			title: "Task",
+			state: "accepted",
+			createdAt: now,
+			updatedAt: now,
+		});
+		const start = await createExplicitSessionStart(db, {
+			id: "explicit-start",
+			taskId: "explicit-task",
+			requestedAgentId: "explicit-agent",
+			requestedModelTier: "fast",
+			requestedBy: "explicit-user",
+			idempotencyKey: "explicit-key",
+		});
+		const request = await createAgentSessionRequest(db, {
+			sourceKind: "task",
+			sourceId: "explicit-task",
+			streamId: "task:explicit-task",
+			taskId: "explicit-task",
+			teamId: "explicit-team",
+			agentId: "explicit-agent",
+			promptMode: "task",
+			idempotencyKey: "explicit-request-key",
+			sourceCorrelation: { taskId: "explicit-task", teamId: "explicit-team" },
+		});
+		await db.insert(sessions).values({
+			id: "explicit-session",
+			taskId: "explicit-task",
+			requestId: request.id,
+			sourceKind: "task",
+			sourceId: "explicit-task",
+			sourceCorrelationJson: JSON.stringify({ taskId: "explicit-task", teamId: "explicit-team" }),
+			agentId: "explicit-agent",
+			modelTier: "fast",
+			startedAt: now,
+			state: "active",
+		});
+		expect((await findSessionRequest(db, { by: "explicitStart", startId: start.id }))?.id).toBe(
+			start.id,
+		);
+		expect(
+			(
+				await findSessionRequest(db, {
+					by: "explicitStart",
+					requestedBy: "explicit-user",
+					idempotencyKey: "explicit-key",
+				})
+			)?.id,
+		).toBe(start.id);
+		await transitionSessionRequest(db, {
+			target: "explicitStart",
+			to: "admitted",
+			startId: start.id,
+			requestId: request.id,
+			sessionId: "explicit-session",
+		});
+		const admitted = await findSessionRequest(db, { by: "explicitStart", startId: start.id });
+		expect(admitted).toMatchObject({
+			status: "admitted",
+			requestId: request.id,
+			sessionId: "explicit-session",
+		});
+	});
+
+	test("lifecycle transitions are CAS-guarded and emit one terminal inbox fact", async ({ db }) => {
+		const request = await createAssistantRequest(db, "terminal");
+		const claimed = await claimAgentSessionRequestById(db, request.id, "worker", {
+			now: new Date(),
+			leaseMs: 30_000,
+		});
+		await expect(
+			transitionSessionRequest(
+				db,
+				{
+					to: "running",
+					requestId: request.id,
+					sessionId: "session-terminal",
+					claimToken: "stale",
+				},
+				noopMarkRequestRunningDeps,
+			),
+		).rejects.toThrow("Lost request custody");
+		await transitionSessionRequest(
+			db,
+			{
+				to: "running",
+				requestId: request.id,
+				sessionId: "session-terminal",
+				claimToken: claimed!.claimToken!,
+			},
+			noopMarkRequestRunningDeps,
+		);
+		expect(
+			await transitionSessionRequest(db, {
+				to: "termination-requested",
+				requestId: request.id,
+				reason: "user_done",
+				requestedBy: "user-terminal",
+			}),
+		).toBe("accepted");
+		expect(
+			await transitionSessionRequest(db, {
+				to: "termination-requested",
+				requestId: request.id,
+				reason: "user_done",
+			}),
+		).toBe("idempotent");
+		expect(
+			await transitionSessionRequest(db, {
+				to: "termination-requested",
+				requestId: request.id,
+				reason: "cost_cap",
+			}),
+		).toBe("conflict");
+		const results = await Promise.all([
+			transitionSessionRequest(db, {
+				to: "cancelled",
+				precondition: "running",
+				requestId: request.id,
+				sessionId: "session-terminal",
+			}),
+			transitionSessionRequest(db, {
+				to: "failed",
+				precondition: "running",
+				requestId: request.id,
+				sessionId: "session-terminal",
+				failureCode: "RACE_LOST",
+			}),
+		]);
+		expect(results.filter(Boolean)).toHaveLength(1);
+		expect(await db.select().from(agentLifecycleInbox)).toHaveLength(1);
+	});
+
+	test("live run registry replaces, aborts, and deregisters runtime handles", async () => {
+		const firstStop = vi.fn(async () => {});
+		const secondStop = vi.fn(async () => {});
+		const firstSignal = vi.fn();
+		const secondSignal = vi.fn();
+		sessionRunRegistry.register("registry-session", {
+			signalAbort: firstSignal,
+			handle: { id: "first" } as never,
+			adapter: { stopSession: firstStop } as never,
+		});
+		sessionRunRegistry.register("registry-session", {
+			signalAbort: secondSignal,
+			handle: { id: "second" } as never,
+			adapter: { stopSession: secondStop } as never,
+		});
+		expect(sessionRunRegistry.has("registry-session")).toBe(true);
+		expect(await sessionRunRegistry.abort("registry-session")).toBe(true);
+		expect(firstSignal).not.toHaveBeenCalled();
+		expect(firstStop).not.toHaveBeenCalled();
+		expect(secondSignal).toHaveBeenCalledOnce();
+		expect(secondStop).toHaveBeenCalledOnce();
+		sessionRunRegistry.deregister("registry-session");
+		expect(sessionRunRegistry.has("registry-session")).toBe(false);
+		expect(await sessionRunRegistry.abort("registry-session")).toBe(false);
 	});
 });
