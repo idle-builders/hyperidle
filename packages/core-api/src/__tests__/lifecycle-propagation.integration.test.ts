@@ -183,6 +183,33 @@ async function seedSession(
 describe("registerLifecyclePropagation — session -> task", () => {
 	let unsubscribe: (() => void) | undefined;
 
+	test("persists an initial task-read failure for retry", async ({ db, eventBus }) => {
+		const failingDeps: PolicyDeps = {
+			...policyDeps,
+			work: {
+				...policyDeps.work,
+				getTaskById: () => Promise.reject(new Error("read unavailable")),
+			},
+		};
+		unsubscribe = registerPolicy(db, eventBus, failingDeps);
+		eventBus.emit({
+			type: "session_ended",
+			streamId: "session-read-failure",
+			sessionId: "session-read-failure",
+			agentId: "agent-1",
+			taskId: "task-read-failure",
+			outcome: "completed",
+			timestamp: Date.now(),
+		});
+		await vi.waitFor(async () => {
+			const [row] = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.sourceId, "session-read-failure"));
+			expect(row).toMatchObject({ status: "pending_retry", failureReason: "read unavailable" });
+		});
+	});
+
 	afterEach(() => {
 		unsubscribe?.();
 		vi.restoreAllMocks();
@@ -719,6 +746,32 @@ describe("registerLifecyclePropagation — bet -> team", () => {
 	afterEach(() => {
 		unsubscribe?.();
 		vi.restoreAllMocks();
+	});
+
+	test("persists an initial bet-read failure for retry", async ({ db, eventBus }) => {
+		const failingDeps: PolicyDeps = {
+			...policyDeps,
+			work: {
+				...policyDeps.work,
+				getBetById: () => Promise.reject(new Error("bet read unavailable")),
+			},
+		};
+		unsubscribe = registerPolicy(db, eventBus, failingDeps);
+		eventBus.emit({
+			type: "bet_state_changed",
+			streamId: "team-failure",
+			betId: "bet-failure",
+			fromState: "active",
+			toState: "completed",
+			timestamp: Date.now(),
+		});
+		await vi.waitFor(async () => {
+			const [row] = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.sourceId, "bet-failure"));
+			expect(row).toMatchObject({ status: "pending_retry", failureReason: "bet read unavailable" });
+		});
 	});
 
 	test("logs propagation_applied entry when bet transitions to completed", async ({

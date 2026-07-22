@@ -624,6 +624,9 @@ function buildTaskGuardCond(guard: TransitionGuard): SQL {
 	if (guard.field === "state") {
 		return isNullGuard(guard) ? isNull(tasks.state) : eq(tasks.state, guard.equals);
 	}
+	if (guard.field === "updatedAt") {
+		return isNullGuard(guard) ? isNull(tasks.updatedAt) : eq(tasks.updatedAt, guard.equals);
+	}
 	throw new Error(`Unknown task field for transition guard: ${guard.field}`);
 }
 

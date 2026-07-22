@@ -148,8 +148,8 @@ describe("countTokens: approximate token count via whitespace split", () => {
 // enforceBudget / rankAndBudget: L4 always included, greedy fill
 // ===========================================================================
 
-describe("enforceBudget: L4 items are always included first; greedy fill for others", () => {
-	test("includes L4 items even when budget is zero", () => {
+describe("enforceBudget prioritizes always-included items then greedily fills", () => {
+	test("includes always-included items even when budget is zero", () => {
 		const l4 = makeItem("l4", { layer: "L4", title: "L4 principle", body: "Factory knowledge." });
 		const other = makeItem("other", { layer: "L2", title: "L2 item", body: "Team finding." });
 
@@ -166,7 +166,7 @@ describe("enforceBudget: L4 items are always included first; greedy fill for oth
 		// L2 item excluded because budget is 0 after L4.
 	});
 
-	test("fills remaining budget with highest-scored non-L4 items", () => {
+	test("fills remaining budget with highest-scored optional items", () => {
 		const l4 = makeItem("l4", { layer: "L4", title: "L4", body: "Principle." });
 		// Two L2 items with different scores; only one fits budget.
 		const hi = makeItem("hi", {
@@ -219,7 +219,7 @@ describe("rankAndBudget: scores items and applies budget enforcement", () => {
 		expect(result.length).toBe(2);
 	});
 
-	test("L4 items appear in result regardless of score", () => {
+	test("always-included items appear regardless of score", () => {
 		const now = Date.now();
 		const l4 = makeItem("l4", {
 			layer: "L4",

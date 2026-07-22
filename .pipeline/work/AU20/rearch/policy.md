@@ -40,8 +40,12 @@ Every candidate extra collapses:
 - Routing decision (`determineAction`/push-queue-auto_resolve) — internal to the reactive
   engine; no consumer imperatively routes an item. Not a public op.
 - Lifecycle cascade + retry drain — internal to `registerPolicy`. Not public ops.
-- Task-transition validation (`VALID_TRANSITIONS`/`InvalidTransitionError`) — **not owned**;
-  a duplicate mirror of `work`'s state machine already re-exported from `@hyperidle/shared`.
+- Task-transition validation (`VALID_TRANSITIONS`/`InvalidTransitionError`) — **not owned**.
+  The original design incorrectly claimed the task grammar was already exported from
+  `@hyperidle/shared`: only the `TaskState` vocabulary and an incompatible generic
+  two-argument `InvalidTransitionError` exist there. Correct ownership is a neutral
+  shared task-transition primitive beside `TaskState`, consumed by both `work` and
+  `policy`; see §4.
 
 Target = floor + 0 = **3 methods**.
 
@@ -104,11 +108,56 @@ The single aggregate DI type. Its members are structural function-ref groups
 are load-bearing field types a caller must construct a `HandoffParams`; `ApprovalRateResult`
 is the query return; `PolicyDeps` the DI contract.)
 
+**Exact policy census target = 3 methods / 6 types / 9 total.** Moving canonical task
+transition values into shared does not add policy surface and does not relax this target.
+
+### Corrected task-transition ownership (planner adjudication)
+
+The prior instruction to import a shared table was not implementable because that table
+does not exist. `packages/shared/src/errors.ts` exports a generic
+`InvalidTransitionError(from, to)` used by bet transitions; it lacks `taskId` and the
+task-specific `fromState`/`toState` contract. Do not repurpose or widen it.
+
+Create a neutral, DB-free `packages/shared/src/task-transition.ts`, beside the already
+shared `TaskState`, owning:
+
+- one exhaustive readonly task-transition grammar (`TASK_STATE_TRANSITIONS`);
+- `canTransitionTaskState(from, to)` as the single validation operation;
+- `TaskInvalidTransitionError(taskId, fromState, toState)`, preserving the task-specific
+  fields and `name = "InvalidTransitionError"` relied on by middleware/race handling.
+
+Export these from `@hyperidle/shared`. Migrate
+`packages/core-api/work/src/task-state-machine.ts`, policy's `handoff-protocol.ts`, and
+policy's `lifecycle-propagation.ts` to that primitive. Work may re-export
+`TaskInvalidTransitionError as InvalidTransitionError` and the canonical table as
+`VALID_TRANSITIONS` to preserve existing `@hyperidle/work` consumers; it must not retain
+a second table, subclass, or copy. Policy exports neither. Add a shared unit contract
+proving every `TaskState` is represented and pinning valid/invalid edges; existing
+work/policy integration tests remain protected behavior.
+
+Rejected alternative: permitting policy's private validator with a drift test. That
+keeps two executable grammars and synchronization machinery, contradicting the rewrite's
+deletion goal. Shared is dependency-correct: both services already depend on it, while
+policy must not import work.
+
+### Handoff concurrency/version semantics
+
+`handoff` keeps the `updatedAt` compare-and-set claim. The first read supplies
+`expectedUpdatedAt`; inside the same transaction `claimTaskHandoff` atomically updates
+only `WHERE id = taskId AND updatedAt = expectedUpdatedAt`. Zero affected rows is a
+handoff conflict and the transaction performs no session/task/thread/item mutation or
+post-commit event. The claim is required in the handoff dependency slice (not optional
+there); no unguarded fallback is permitted. Do not add caller-supplied expected versions
+to `HandoffParams`: the operation owns the fresh snapshot, and concurrent calls on that
+snapshot must yield exactly one winner. Pin one-winner/no-partial-effects behavior in an
+integration test.
+
 ### DELETED (not internalized) to reach the target
 - **`task-transitions.ts` in full** (`VALID_TRANSITIONS`, `InvalidTransitionError`) — a
-  duplicate mirror of `work`'s state machine; `@hyperidle/shared` already exports
-  `InvalidTransitionError` (lifecycle-propagation already imports it). Delete the file;
-  both call sites use the shared table. Removes drift risk + 2 types.
+  duplicate mirror of `work`'s state machine. Delete the policy file after moving the
+  canonical grammar and task-specific error to the neutral shared module above. Both
+  policy call sites and work consume that one value source. Merely making policy's
+  declarations non-public does not satisfy the target.
 - **3 of the 4 per-behavior deps bundles** — `PolicyEngineDeps`, `ApprovalRateDeps`,
   `HandoffDeps`, `LifecyclePropagationDeps` collapse to the ONE `PolicyDeps`. The
   register-time re-bundling in `register-policy.ts` (rebuilding `engineDeps`/`lifecycleDeps`)

@@ -87,7 +87,7 @@ function wireFilesystem(id: string, teamId: string, folder: string): Filesystem 
 	};
 }
 
-describe("AU20 filesystems completeness contract", () => {
+describe("filesystems completeness contract", () => {
 	test("registry CRUD and unified team/id filters preserve exact rows and state", async ({
 		db,
 	}) => {

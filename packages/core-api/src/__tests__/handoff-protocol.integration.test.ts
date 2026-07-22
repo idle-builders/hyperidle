@@ -1,5 +1,6 @@
 import {
 	agentSessionRequests,
+	agentWorkIntents,
 	bets,
 	type HyperIdleDb,
 	items,
@@ -14,7 +15,7 @@ import {
 import type { HandoffMetadata } from "@hyperidle/policy";
 import type { SessionContext } from "@hyperidle/run-orchestration";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { handoff } from "../services/policy-bindings.js";
 import { registerHandoffTerminationRequester } from "../services/session-lifecycle-bindings.js";
 import { describe, expect, test, vi } from "../test-fixtures.js";
@@ -634,6 +635,55 @@ describe("Handoff Protocol", () => {
 
 	// ---------------- I1 adversary-M2 / security-M3: handoff is atomic ----------------
 	describe("I1 M2: handoff wraps all DB mutations in one transaction", () => {
+		test("concurrent handoffs claim task once without duplicate intent or audit", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedPrerequisites(db);
+			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-c", "builder", "t1");
+			await insertTask(db, "task-concurrent", "in_progress", "agent-a");
+			const expectedVersion = "2099-01-01T00:00:00.000Z";
+			await db
+				.update(tasks)
+				.set({ updatedAt: expectedVersion })
+				.where(eq(tasks.id, "task-concurrent"));
+			await insertSession(db, "session-concurrent-1", "task-concurrent", "agent-a");
+			await insertSession(db, "session-concurrent-2", "task-concurrent", "agent-a");
+			const emitted: Array<{ type: string }> = [];
+			eventBus.on("*", (event: unknown) => emitted.push(event as { type: string }));
+
+			const outcomes = await Promise.allSettled([
+				handoff(db, eventBus, {
+					sessionContext: makeSessionContext("session-concurrent-1", "agent-a", "task-concurrent"),
+					toAgent: "agent-b",
+					metadata: makeMetadata(),
+				}),
+				handoff(db, eventBus, {
+					sessionContext: makeSessionContext("session-concurrent-2", "agent-a", "task-concurrent"),
+					toAgent: "agent-c",
+					metadata: makeMetadata(),
+				}),
+			]);
+
+			expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+			expect(outcomes.filter((outcome) => outcome.status === "rejected")).toHaveLength(1);
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-concurrent"));
+			expect(task?.updatedAt).toBe("2099-01-01T00:00:00.001Z");
+			const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<{ type?: string }>;
+			expect(audit.filter((entry) => entry.type === "handoff")).toHaveLength(1);
+			const intents = await db.select().from(agentWorkIntents);
+			expect(intents).toHaveLength(1);
+			const competingSessions = await db
+				.select()
+				.from(sessions)
+				.where(inArray(sessions.id, ["session-concurrent-1", "session-concurrent-2"]));
+			expect(competingSessions.filter((session) => session.state === "done")).toHaveLength(1);
+			expect(competingSessions.filter((session) => session.state === "active")).toHaveLength(1);
+			expect(emitted.filter((event) => event.type === "session_handoff_completed")).toHaveLength(1);
+		});
+
 		test("rolls back session, task, auditTrail when messages INSERT throws", async ({
 			db,
 			eventBus,

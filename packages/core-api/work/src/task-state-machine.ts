@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
-import type { EventBus, TaskState } from "@hyperidle/shared";
+import {
+	canTransitionTaskState,
+	type EventBus,
+	TASK_STATE_TRANSITIONS,
+	TaskInvalidTransitionError,
+	type TaskState,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { AgentWorkIntentRecorder } from "./ports.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
@@ -17,33 +23,10 @@ export interface TaskStateMachineDeps {
 	readonly workIntents: AgentWorkIntentRecorder;
 }
 
-/** Map of each state to its valid target states. `killed` is always valid. */
-const VALID_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
-	proposed: ["accepted", "killed"],
-	accepted: ["in_progress", "hold", "killed"],
-	hold: ["accepted", "killed"],
-	in_progress: ["review", "blocked", "killed"],
-	blocked: ["in_progress", "killed"],
-	review: ["done", "in_progress", "killed"],
-	done: ["killed"],
-	killed: [],
-} as const;
-
-class InvalidTransitionError extends Error {
-	public readonly fromState: TaskState;
-	public readonly toState: TaskState;
-	public readonly taskId: string;
-
-	constructor(taskId: string, fromState: TaskState, toState: TaskState) {
-		super(`Invalid transition for task ${taskId}: ${fromState} -> ${toState}`);
-		this.name = "InvalidTransitionError";
-		this.taskId = taskId;
-		this.fromState = fromState;
-		this.toState = toState;
-	}
-}
-
-export { InvalidTransitionError, VALID_TRANSITIONS };
+export {
+	TASK_STATE_TRANSITIONS as VALID_TRANSITIONS,
+	TaskInvalidTransitionError as InvalidTransitionError,
+};
 
 /**
  * Transition a task to a new state, validating the transition, updating the DB,
@@ -87,9 +70,8 @@ export async function transitionTask(
 			}
 
 			const fromState = task.state as TaskState;
-			const allowed = VALID_TRANSITIONS[fromState];
-			if (!allowed.includes(toState)) {
-				throw new InvalidTransitionError(taskId, fromState, toState);
+			if (!canTransitionTaskState(fromState, toState)) {
+				throw new TaskInvalidTransitionError(taskId, fromState, toState);
 			}
 
 			// Build audit trail — stored in auditTrail column (notes is for agent-authored prose)
@@ -116,7 +98,7 @@ export async function transitionTask(
 			// Lost the race: another concurrent transition already moved the task out
 			// of `fromState`. Throwing rolls back the tx (no partial state/audit write).
 			if (!applied) {
-				throw new InvalidTransitionError(taskId, fromState, toState);
+				throw new TaskInvalidTransitionError(taskId, fromState, toState);
 			}
 
 			if (toState === "accepted" && task.ownerAgentId) {

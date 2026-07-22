@@ -1,28 +1,13 @@
-/**
- * AD4 — Approval rate computation service.
- *
- * Computes the approval rate for an agent within a sliding time window,
- * using verdict messages attributed to the agent via two paths:
- *   1. messages.legacyItemId → items.sourceAgentId (policy-engine verdicts)
- *   2. messages.threadId → threads.initiatorId (human verdicts on agent threads)
- *
- * @lore AD4: This replaces the manually-assigned per-skill autonomy level (L1-L4)
- * as the trust signal for the policy engine. The approval rate is derived from
- * existing verdict messages, so no new data is required.
- *
- * @lore AD4: Path 2 excludes messages with a legacyItemId set to avoid double-
- * counting verdicts that would already match via Path 1. The condition
- * `AND m.legacy_item_id IS NULL` enforces this.
- *
- * @lore AU19 Increment 2a: `work`/`conversation` reads converted to the
- * injected `ApprovalRateDeps` (Mechanism C — `policy` never imports another
- * Service) — wired by the caller (still `packages/server`) to
- * `@hyperidle/work`'s/`@hyperidle/conversation`'s real exports, zero
- * behavior change.
- */
-
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApprovalRateDeps } from "./ports.js";
+import type { PolicyDeps } from "./ports.js";
+
+type ApprovalRateDeps = {
+	work: Pick<PolicyDeps["work"], "listItemIdsBySourceAgent">;
+	conversation: Pick<
+		PolicyDeps["conversation"],
+		"listInitiatedVerdictMessages" | "listVerdictMessagesByItemIds"
+	>;
+};
 
 export interface ApprovalRateResult {
 	approvalRate: number;

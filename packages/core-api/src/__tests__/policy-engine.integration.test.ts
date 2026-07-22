@@ -10,6 +10,7 @@ import {
 	type HyperIdleDb,
 	items,
 	messages,
+	propagationLog,
 	teamMembers,
 	teams,
 	threads,
@@ -113,6 +114,32 @@ async function selectVerdictsForItem(
 describe("Policy Engine (E7)", () => {
 	let unsubscribe: (() => void) | undefined;
 	const now = new Date().toISOString();
+
+	test("persists an evaluation failure", async ({ db, eventBus }) => {
+		const failingDeps: PolicyDeps = {
+			...policyEngineDeps,
+			work: {
+				...policyEngineDeps.work,
+				getItemById: () => Promise.reject(new Error("item read unavailable")),
+			},
+		};
+		unsubscribe = registerPolicy(db, eventBus, failingDeps);
+		eventBus.emit({
+			type: "item_created",
+			streamId: "item-failure",
+			itemId: "item-failure",
+			conversationId: "conversation-failure",
+			kind: "review",
+			timestamp: Date.now(),
+		});
+		await vi.waitFor(async () => {
+			const [row] = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.sourceId, "item-failure"));
+			expect(row).toMatchObject({ status: "failed", failureReason: "item read unavailable" });
+		});
+	});
 
 	async function seedBase(db: HyperIdleDb): Promise<void> {
 		await db

@@ -323,7 +323,7 @@ describe("list({recentByLayers}): returns items in given layers updated since cu
 // H. count (triage visible) — UI triage count with Q2 auth boundary
 // ===========================================================================
 
-describe("countTriageVisible: Q2 auth boundary on draft+needs_human items", () => {
+describe("countTriageVisible auth boundary on draft and needs-human items", () => {
 	test("counts draft and needs_human items; excludes user-scoped items not owned by viewer", async ({
 		db,
 	}) => {
@@ -850,7 +850,7 @@ describe("recomputeRelevance: denormalizes relevanceScore onto projection row", 
 // Q. listVisibleWithSignals — dispatch / UI context (Q2 auth boundary)
 // ===========================================================================
 
-describe("listVisibleWithSignals: Q2 auth boundary + access signal aggregation", () => {
+describe("listVisibleWithSignals auth boundary and access signal aggregation", () => {
 	test("excludes user-scoped items not owned by the viewer", async ({ db }) => {
 		// Shared item — always visible.
 		await create(db, {

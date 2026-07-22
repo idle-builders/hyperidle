@@ -13,7 +13,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { registerLifecyclePropagation } from "./lifecycle-propagation.js";
 import { registerPolicyEngine } from "./policy-engine.js";
-import type { LifecyclePropagationDeps, PolicyDeps, PolicyEngineDeps } from "./ports.js";
+import type { PolicyDeps } from "./ports.js";
 
 export function registerPolicy(
 	db: HyperIdleDb,
@@ -21,23 +21,8 @@ export function registerPolicy(
 	deps: PolicyDeps,
 	options?: { nowFn?: () => Date },
 ): () => void {
-	const engineDeps: PolicyEngineDeps = {
-		work: deps.work,
-		conversation: deps.conversation,
-		silence: deps.silence,
-		approvalRate: {
-			work: deps.work,
-			conversation: deps.conversation,
-		},
-	};
-	const lifecycleDeps: LifecyclePropagationDeps = {
-		work: deps.work,
-		conversation: deps.conversation,
-		users: deps.users,
-		notifications: deps.notifications,
-	};
-	const unsubEngine = registerPolicyEngine(db, eventBus, engineDeps, options);
-	const unsubLifecycle = registerLifecyclePropagation(db, eventBus, lifecycleDeps);
+	const unsubEngine = registerPolicyEngine(db, eventBus, deps, options);
+	const unsubLifecycle = registerLifecyclePropagation(db, eventBus, deps);
 	return () => {
 		unsubEngine();
 		unsubLifecycle();

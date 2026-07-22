@@ -144,6 +144,8 @@ export {
 	CREDENTIAL_STATES,
 	isCredentialName,
 } from "./credential.js";
+// -- cron (AU20 Stage 2: pure cron utilities — relocated from dispatch port to shared) --
+export { nextCronMatch, parseCron } from "./cron.js";
 export {
 	ActiveRoutinesError,
 	ASSISTANT_TURN_TIMEOUT_MS,
@@ -508,6 +510,11 @@ export {
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
+export {
+	canTransitionTaskState,
+	TASK_STATE_TRANSITIONS,
+	TaskInvalidTransitionError,
+} from "./task-transition.js";
 // ── Team primitive (L13, formerly Product) ──
 export type {
 	AgentHealthLevel,
@@ -689,9 +696,5 @@ export {
 	TASK_STATES,
 	USER_KINDS,
 } from "./types.js";
-
 // -- validate-env (AU19 Increment 5: relocated from packages/server per §5 — Application boot util) --
 export { LAPTOP_DEV_API_KEY, validateStartupEnv } from "./validate-env.js";
-
-// -- cron (AU20 Stage 2: pure cron utilities — relocated from dispatch port to shared) --
-export { nextCronMatch, parseCron } from "./cron.js";

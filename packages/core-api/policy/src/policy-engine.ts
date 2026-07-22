@@ -1,30 +1,9 @@
-/**
- * AD4: Policy engine rewritten to use approval-rate-based trust instead of
- * manually-assigned per-skill autonomy levels.
- *
- * @lore AD4: Removed `getAutonomyLevel` (userSkills-based) and replaced with
- * `getAgentTrustSignal` (verdict-history-based). Thresholds used to be read
- * from factory settings with safe defaults; see AU18 note below.
- *
- * @lore AU18: trust threshold settability via `factory_settings` is retired
- * (plan §3/§10 — no production or eval writer ever existed; the only path
- * was the generic PATCH /api/status/settings catch-all, itself retired this
- * WP). The thresholds below are now always the hardcoded defaults.
- *
- * @lore AU19 Increment 2a: this is the real cut-over — moved here from
- * `packages/server/src/services/policy-engine.ts` (behavior-preserving
- * move). Every raw cross-Service call (`work`/`conversation`/`notifications`)
- * became an injected DI port (Mechanism C, `ports.ts`). The `silencePolicyDeps`
- * wiring block (settings/users/org function refs for `notifications`'
- * `isSilenced`) moved OUT to the composition root (`packages/server`) —
- * `policy` now only sees the boolean-returning `PolicySilenceChecker` port,
- * never `notifications`' own `NotificationsSilenceDeps` shape.
- */
-
-import type { HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, propagationLog } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
 import { computeApprovalRate } from "./approval-rate.js";
-import type { PolicyEngineDeps } from "./ports.js";
+import type { PolicyDeps } from "./ports.js";
+
+type PolicyEngineDeps = Pick<PolicyDeps, "work" | "conversation" | "silence">;
 
 interface PolicyEngineOptions {
 	/** Inject current time for testability. Defaults to () => new Date(). */
@@ -43,7 +22,7 @@ interface TrustSignal {
  * Subscribes to `item_created` events and applies trust/silence rules.
  * Returns an unsubscribe function.
  */
-export function registerPolicyEngine(
+function registerPolicyEngine(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	deps: PolicyEngineDeps,
@@ -54,11 +33,29 @@ export function registerPolicyEngine(
 	const handler = (event: ItemCreatedEvent): void => {
 		void (async () => {
 			await evaluateItem(db, eventBus, event.itemId, deps, nowFn);
-		})();
+		})().catch(async (error: unknown) => {
+			const timestamp = new Date().toISOString();
+			await db.insert(propagationLog).values({
+				id: crypto.randomUUID(),
+				sourceLevel: "item",
+				sourceId: event.itemId,
+				sourceEvent: "item_created",
+				targetLevel: "policy",
+				targetId: event.itemId,
+				targetTransition: null,
+				status: "failed",
+				failureReason: error instanceof Error ? error.message : String(error),
+				attempts: 1,
+				createdAt: timestamp,
+				appliedAt: null,
+			});
+		});
 	};
 
 	return eventBus.on("item_created", handler);
 }
+
+export { registerPolicyEngine };
 
 async function evaluateItem(
 	db: HyperIdleDb,
@@ -97,7 +94,7 @@ async function getAgentTrustSignal(
 ): Promise<TrustSignal> {
 	if (!sourceAgentId) return { approvalRate: 0, totalVerdicts: 0 };
 
-	const result = await computeApprovalRate(db, sourceAgentId, TRUST_WINDOW_DAYS, deps.approvalRate);
+	const result = await computeApprovalRate(db, sourceAgentId, TRUST_WINDOW_DAYS, deps);
 
 	return {
 		approvalRate: result.approvalRate,

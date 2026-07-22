@@ -45,6 +45,19 @@ const handoffDeps = {
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 		updateTaskById: (exec: WriteExecutor, id: string, patch: Partial<NewTask>) =>
 			work.update(exec, "task", id, patch),
+		claimTaskHandoff: (
+			exec: WriteExecutor,
+			{
+				taskId,
+				expectedUpdatedAt,
+				claimedAt,
+			}: { taskId: string; expectedUpdatedAt: string; claimedAt: string },
+		) =>
+			work.transition(exec, "task", {
+				id: taskId,
+				guard: { field: "updatedAt", equals: expectedUpdatedAt },
+				patch: { updatedAt: claimedAt },
+			}),
 		createItem: (exec: WriteExecutor, values: NewItem) => work.create(exec, "item", values),
 	},
 	conversation: { insertMessage, insertThread },
