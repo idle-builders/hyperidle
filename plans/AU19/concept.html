@@ -418,38 +418,29 @@
       <div>
         <div class="eyebrow">Track AU — Runtime Simplification</div>
         <h1>Applications · Layers · Services</h1>
-        <div class="sub">Structural frame proposed for AU19 — supersedes AU8 &amp; AU17</div>
+        <div class="sub">As-built AU19 structure after AU20 surface consolidation</div>
       </div>
       <div class="titleblock-status">
         DWG&nbsp;AU19&#8209;001<br>
-        <span class="status-pill">Proposed — awaiting confirm</span>
+        <span class="status-pill">Implemented — AU20 current</span>
       </div>
     </div>
     <div class="titleblock-grid">
-      <div><span class="k">Rev</span><span class="v">2026&#8209;07&#8209;13</span></div>
-      <div><span class="k">Ref</span><span class="v">PR&nbsp;#449</span></div>
+      <div><span class="k">Rev</span><span class="v">2026&#8209;07&#8209;22</span></div>
+      <div><span class="k">Ref</span><span class="v">AU19 + AU20</span></div>
       <div><span class="k">Supersedes</span><span class="v">AU8, AU17 (PR&nbsp;#447)</span></div>
       <div><span class="k">Depends on</span><span class="v">AU12–16, AU18</span></div>
     </div>
   </div>
 
   <div class="callout">
-    <strong>Third enforcement mechanism added — Services may never import each other</strong>
-    Five corrections folded in: <code>remote&#8209;server</code> never composes
-    <code>agent&#8209;execution</code>; <code>agent&#8209;execution</code> holds zero Service access
-    (context assembly / capture&#8209;writeback moved to <code>agent&#8209;orchestration</code>);
-    Services span every Layer, list is a <strong>floor not a ceiling</strong>; each Service is its
-    own npm workspace package, not a folder in 4 monolithic Layer packages; and — the newest —
-    <strong>a Service package may never depend on another Service package or a Layer package.</strong>
-    Composition (one Service's output feeding another's input) is never a Service's own job — it's a
-    Layer's job composing its own Services, and an Application's job composing Layers. This is
-    Mechanism&nbsp;C in §3, with a worked example. It closes a real gap the first two mechanisms left
-    open (Mechanism B only named <em>one</em> forbidden capability, LLM/harness/MCP access — nothing
-    stopped, say, <code>work</code> importing <code>conversation</code> directly) and is the
-    concrete tool for surfacing every place a Service currently reaches into a neighbor uninvited —
-    exactly the "weird features" this structure is meant to expose. Two things are still open:
-    whether <code>core&#8209;ui</code> mirrors these same names internally, and whether "Service" or
-    "Domain" is the right word.
+    <strong>Current generated baseline — 23 Services, 231 methods, 181 types</strong>
+    AU19's package and dependency structure is implemented. AU20 rewrote the Service surfaces in
+    place, leaving <strong>412 implementation-site declarations</strong>. Service nodes and the
+    as-is tree below are regenerated from source by
+    <code>scripts/generate-dependency-graph.ts</code>; counts come from the non-gameable
+    <code>scripts/surface-census.ts</code>. Services remain isolated npm workspace packages and
+    cross-Service behavior is composed through declared ports and events.
   </div>
 
   <section>
@@ -545,17 +536,17 @@
     <p class="section-note">AU17's package boundary was real, but each package's internals stayed a flat dump. This is the gap AU19 exists to close — toggle between what PR&nbsp;#447 actually produced and the illustrative target grouping.</p>
 
     <div class="tree-toggle">
-      <button id="btn-asis" class="on warn">As&#8209;is (rejected)</button>
-      <button id="btn-should">As&#8209;should (proposed)</button>
+      <button id="btn-asis" class="on">As&#8209;is (current)</button>
+      <button id="btn-should">As&#8209;should (achieved)</button>
     </div>
 
     <div class="trees">
       <div class="tree-box">
-        <div class="th">packages/core&#8209;app/src/</div>
+        <div class="th">packages/core&#8209;api/</div>
         <pre id="tree-core"></pre>
       </div>
       <div class="tree-box">
-        <div class="th">packages/agent&#8209;layer/src/</div>
+        <div class="th">packages/agent&#8209;{orchestration,execution}/</div>
         <pre id="tree-agent"></pre>
       </div>
     </div>
@@ -633,28 +624,33 @@
       { id: 'agent-orchestration', label: 'agent-orchestration', desc: 'Trigger resolution, session request queue, run admission/custody, lifecycle projection, context assembly and capture/writeback against Knowledge. Decides that and when an agent run happens, and prepares/consumes everything a run needs. Always colocated with core-api, so its Service calls stay in-process. Never touches an LLM CLI directly.' },
       { id: 'agent-execution', label: 'agent-execution', desc: 'Harness adapters, MCP, tool execution. The only Layer permitted to invoke an LLM CLI, harness adapter, or MCP server — and the only Layer with zero Service access of any kind. Receives an assembled context bundle, returns raw run output, over the existing worker channel.' },
     ],
+    // GENERATED:SERVICE_DATA:START
     services: [
-      { id: 'knowledge', label: 'knowledge', layer: 'core-api', sql: true, desc: 'Owns knowledgeItems. Called by core-api directly and by agent-orchestration’s context-assembly / capture-writeback — the one Service both sides of the app/agent boundary legitimately reach into.' },
-      { id: 'work', label: 'work', layer: 'core-api', sql: true, desc: 'Owns bets/tasks/items. work-service.ts.' },
-      { id: 'conversation', label: 'conversation', layer: 'core-api', sql: true, desc: 'Owns threads/messages. conversation-store.ts.' },
-      { id: 'users', label: 'users', layer: 'core-api', sql: true, desc: 'Owns users. user-store.ts.' },
-      { id: 'settings', label: 'settings', layer: 'core-api', sql: true, desc: 'Owns server_config. server-config.ts, plugin-configuration.ts.' },
-      { id: 'notifications', label: 'notifications', layer: 'core-api', sql: true, desc: 'Owns notificationQueue. Notification module, AU18.' },
-      { id: 'routine', label: 'routine', layer: 'core-api', sql: true, desc: 'Owns routines/routine_runs. routine-service.ts.' },
-      { id: 'trigger-resolution', label: 'trigger-resolution', layer: 'agent-orchestration', sql: false, desc: 'Event → agent-work decision. No table ownership — reads resolved config, decides whether/how a run fires.' },
-      { id: 'session-requests', label: 'session-requests', layer: 'agent-orchestration', sql: false, desc: 'The agent session request queue — create/claim/consume.' },
-      { id: 'run-orchestration', label: 'run-orchestration', layer: 'agent-orchestration', sql: false, desc: 'Admission/custody — agent-run-boundary.ts / agent-session-runtime.ts.' },
-      { id: 'lifecycle-projection', label: 'lifecycle-projection', layer: 'agent-orchestration', sql: false, desc: 'Drains agent_lifecycle_inbox, runs per-family projectors back onto core-api’s Services.' },
-      { id: 'agent-selection', label: 'agent-selection', layer: 'agent-orchestration', sql: false, desc: 'Chooses which agent runs. agent-selection.ts, roster.ts.' },
-      { id: 'context-assembly', label: 'context-assembly', layer: 'agent-orchestration', sql: false, desc: 'Builds the context bundle handed to agent-execution before a run starts. Reads Knowledge — this is the edge that used to be miswired onto agent-execution.', calls: ['knowledge'] },
-      { id: 'capture-writeback', label: 'capture-writeback', layer: 'agent-orchestration', sql: false, desc: 'Receives raw output back from agent-execution, writes it into Knowledge / domain events.', calls: ['knowledge'] },
-      { id: 'cost', label: 'cost', layer: 'agent-orchestration', sql: false, desc: 'cost-cap.ts, cost-sentinel.ts.' },
-      { id: 'dispatch', label: 'dispatch', layer: 'agent-orchestration', sql: false, desc: 'task-dispatcher.ts, assistant-dispatcher.ts, routine-scheduler.ts, builtin-routine-handlers.ts.' },
-      { id: 'session-lifecycle', label: 'session-lifecycle', layer: 'agent-orchestration', sql: false, desc: 'session-provisioning.ts, routine-session-reaper.ts, sandbox-reaper.ts.' },
-      { id: 'harness-registry', label: 'harness-registry', layer: 'agent-execution', sql: false, desc: 'Harness adapters — builtin, CLI (claude/codex/opencode), remote, local-sandbox.' },
-      { id: 'tool-provider', label: 'tool-provider', layer: 'agent-execution', sql: false, desc: 'tools/ — 28 tool implementations.' },
-      { id: 'mcp-provider', label: 'mcp-provider', layer: 'agent-execution', sql: false, desc: 'mcp/ — MCP bridge registry.' },
+      {"id":"connections","label":"connections","layer":"core-api","sql":true,"desc":"14 methods / 3 types. Owns serverCredentials, serviceConnections.","calls":["users"]},
+      {"id":"conversation","label":"conversation","layer":"core-api","sql":true,"desc":"14 methods / 6 types. Owns threads, messages.","calls":[]},
+      {"id":"filesystems","label":"filesystems","layer":"core-api","sql":true,"desc":"13 methods / 11 types. Owns filesystems, filesystemInjections, filesystemCaptures.","calls":["git-export","connections"]},
+      {"id":"git-export","label":"git-export","layer":"core-api","sql":false,"desc":"21 methods / 16 types. Owns no tables.","calls":["settings","knowledge"]},
+      {"id":"knowledge","label":"knowledge","layer":"core-api","sql":true,"desc":"17 methods / 12 types. Owns knowledgeItems, knowledgeEditLog, knowledgeAccessLog, knowledgeConflicts, knowledgeAppProjection.","calls":[]},
+      {"id":"model-gateway","label":"model-gateway","layer":"core-api","sql":false,"desc":"2 methods / 2 types. Owns no tables.","calls":["connections"]},
+      {"id":"notifications","label":"notifications","layer":"core-api","sql":true,"desc":"17 methods / 11 types. Owns notificationQueue.","calls":["settings","users","org","work","connections","connections"]},
+      {"id":"observability","label":"observability","layer":"core-api","sql":false,"desc":"7 methods / 13 types. Owns no tables.","calls":[]},
+      {"id":"org","label":"org","layer":"core-api","sql":true,"desc":"14 methods / 7 types. Owns teamMembers, orgEdges, teams.","calls":["users"]},
+      {"id":"policy","label":"policy","layer":"core-api","sql":false,"desc":"3 methods / 6 types. Owns no tables.","calls":[]},
+      {"id":"realtime","label":"realtime","layer":"core-api","sql":false,"desc":"2 methods / 3 types. Owns no tables.","calls":["conversation","users","org","work"]},
+      {"id":"review","label":"review","layer":"core-api","sql":true,"desc":"7 methods / 7 types. Owns proposedCalls, operationOutcomes, tailoredGrants.","calls":["session-requests"]},
+      {"id":"routine","label":"routine","layer":"core-api","sql":true,"desc":"11 methods / 4 types. Owns routines, routineRuns.","calls":[]},
+      {"id":"settings","label":"settings","layer":"core-api","sql":true,"desc":"8 methods / 8 types. Owns serverConfig, plugins, pluginConfigurationDefaults, configurationOverrides.","calls":["routine","users","connections"]},
+      {"id":"users","label":"users","layer":"core-api","sql":true,"desc":"17 methods / 5 types. Owns users, loginSessions, inviteCodes, hintProgress.","calls":[]},
+      {"id":"work","label":"work","layer":"core-api","sql":true,"desc":"15 methods / 20 types. Owns bets, tasks, items, artifacts, taskPlanningSignals.","calls":["session-requests","agent-selection","cost","users","org"]},
+      {"id":"agent-selection","label":"agent-selection","layer":"agent-orchestration","sql":false,"desc":"1 methods / 7 types. Owns no tables.","calls":[]},
+      {"id":"cost","label":"cost","layer":"agent-orchestration","sql":false,"desc":"1 methods / 6 types. Owns no tables.","calls":[]},
+      {"id":"dispatch","label":"dispatch","layer":"agent-orchestration","sql":false,"desc":"1 methods / 5 types. Owns no tables.","calls":["work","routine","conversation","users","settings","model-gateway","agent-selection","run-orchestration","session-requests","cost","review","knowledge","tool-handlers"]},
+      {"id":"run-orchestration","label":"run-orchestration","layer":"agent-orchestration","sql":false,"desc":"9 methods / 8 types. Owns no tables.","calls":[]},
+      {"id":"session-requests","label":"session-requests","layer":"agent-orchestration","sql":true,"desc":"13 methods / 7 types. Owns triggerResolutionHistory, agentWorkIntents, agentSessionRequests, explicitSessionStarts, agentLifecycleInbox.","calls":[]},
+      {"id":"tool-handlers","label":"tool-handlers","layer":"agent-orchestration","sql":false,"desc":"2 methods / 1 types. Owns no tables.","calls":["work","users","conversation","org","agent-selection","routine","dispatch","knowledge","policy"]},
+      {"id":"harness-registry","label":"harness-registry","layer":"agent-execution","sql":false,"desc":"22 methods / 13 types. Owns no tables.","calls":[]},
     ],
+    // GENERATED:SERVICE_DATA:END
   };
 
   const rowApps = document.getElementById('row-apps');
@@ -804,49 +800,18 @@
   });
 
   // ---- As-is / As-should trees ----
+  // GENERATED:TREES:START
   const TREES = {
     asis: {
-      core: `<span class="dim">config/            3 files</span>
-<span class="dim">knowledge/        15 files</span>  <span class="ok">✓ already organized</span>
-<span class="dim">notifications/    15 files</span>  <span class="ok">✓ already organized</span>
-<span class="dim">schemas/           3 files</span>
-<span class="flag">services/         43 files  ⚠ FLAT</span>
-  work-service.ts
-  conversation-store.ts
-  user-store.ts
-  server-config.ts
-  <span class="dim">...39 more, no grouping</span>`,
-      agent: `<span class="dim">harness/          20 files</span>  <span class="ok">✓ already organized</span>
-<span class="dim">mcp/               2 files</span>  <span class="ok">✓ already organized</span>
-<span class="dim">tools/            28 files</span>  <span class="ok">✓ already organized</span>
-<span class="flag">services/         31 files  ⚠ FLAT</span>
-  agent-run-boundary.ts
-  agent-session-runtime.ts
-  trigger-resolution.ts
-  context-assembly.ts
-  cost-cap.ts, cost-sentinel.ts
-  <span class="dim">...26 more, no grouping</span>`,
+      core: `<span class="dir">connections/</span>  14m / 3t\n<span class="dir">conversation/</span>  14m / 6t\n<span class="dir">filesystems/</span>  13m / 11t\n<span class="dir">git-export/</span>  21m / 16t\n<span class="dir">knowledge/</span>  17m / 12t\n<span class="dir">model-gateway/</span>  2m / 2t\n<span class="dir">notifications/</span>  17m / 11t\n<span class="dir">observability/</span>  7m / 13t\n<span class="dir">org/</span>  14m / 7t\n<span class="dir">policy/</span>  3m / 6t\n<span class="dir">realtime/</span>  2m / 3t\n<span class="dir">review/</span>  7m / 7t\n<span class="dir">routine/</span>  11m / 4t\n<span class="dir">settings/</span>  8m / 8t\n<span class="dir">users/</span>  17m / 5t\n<span class="dir">work/</span>  15m / 20t`,
+      agent: `<span class="dir">agent-selection/</span>  1m / 7t\n<span class="dir">cost/</span>  1m / 6t\n<span class="dir">dispatch/</span>  1m / 5t\n<span class="dir">run-orchestration/</span>  9m / 8t\n<span class="dir">session-requests/</span>  13m / 7t\n<span class="dir">tool-handlers/</span>  2m / 1t\n<span class="dir">harness-registry/</span>  22m / 13t`,
     },
     should: {
-      core: `<span class="dir">work/</span>          work-service.ts, bet-*.ts, task-*.ts
-<span class="dir">conversation/</span>  conversation-store.ts
-<span class="dir">users/</span>         user-store.ts, login-session.ts
-<span class="dir">knowledge/</span>     <span class="dim">(unchanged)</span>
-<span class="dir">notifications/</span> <span class="dim">(unchanged)</span>
-<span class="dir">settings/</span>      server-config.ts, plugin-configuration.ts
-<span class="dir">routine/</span>       routine-service.ts
-<span class="dir">shared/</span>        <span class="dim">needs its own audit — not a default bucket</span>`,
-      agent: `<span class="dir">harness/</span>       <span class="dim">(unchanged)</span>
-<span class="dir">mcp/</span>           <span class="dim">(unchanged)</span>
-<span class="dir">tools/</span>         <span class="dim">(unchanged)</span>
-<span class="dir">execution/</span>     agent-run-boundary.ts, agent-session-runtime.ts,
-              trigger-resolution.ts, agent-selection.ts
-<span class="dir">dispatch/</span>      task-dispatcher.ts, routine-scheduler.ts
-<span class="dir">context/</span>       context-assembly.ts, session-context.ts
-<span class="dir">lifecycle/</span>     session-lifecycle.ts, session-provisioning.ts
-<span class="dir">cost/</span>          cost-cap.ts, cost-sentinel.ts`,
+      core: `<span class="dir">connections/</span>  14m / 3t\n<span class="dir">conversation/</span>  14m / 6t\n<span class="dir">filesystems/</span>  13m / 11t\n<span class="dir">git-export/</span>  21m / 16t\n<span class="dir">knowledge/</span>  17m / 12t\n<span class="dir">model-gateway/</span>  2m / 2t\n<span class="dir">notifications/</span>  17m / 11t\n<span class="dir">observability/</span>  7m / 13t\n<span class="dir">org/</span>  14m / 7t\n<span class="dir">policy/</span>  3m / 6t\n<span class="dir">realtime/</span>  2m / 3t\n<span class="dir">review/</span>  7m / 7t\n<span class="dir">routine/</span>  11m / 4t\n<span class="dir">settings/</span>  8m / 8t\n<span class="dir">users/</span>  17m / 5t\n<span class="dir">work/</span>  15m / 20t`,
+      agent: `<span class="dir">agent-selection/</span>  1m / 7t\n<span class="dir">cost/</span>  1m / 6t\n<span class="dir">dispatch/</span>  1m / 5t\n<span class="dir">run-orchestration/</span>  9m / 8t\n<span class="dir">session-requests/</span>  13m / 7t\n<span class="dir">tool-handlers/</span>  2m / 1t\n<span class="dir">harness-registry/</span>  22m / 13t`,
     },
   };
+  // GENERATED:TREES:END
 
   const treeCore = document.getElementById('tree-core');
   const treeAgent = document.getElementById('tree-agent');

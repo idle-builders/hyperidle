@@ -28,6 +28,7 @@
  * Output: a single JSON file consumed by the HTML dependency-graph explorer.
  */
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join, relative } from "node:path";
 import ts from "typescript";
 
@@ -41,10 +42,43 @@ const ROOT = process.cwd();
  * codebase's documentation convention is drifting and worth fixing at the
  * source instead of accumulating overrides here.
  */
-const MANUAL_OVERRIDES: Record<string, string> = {
+const MANUAL_OVERRIDES: Record<string, string | readonly string[]> = {
+	"filesystems:FilesystemsGitRunner": "git-export",
+	"filesystems:FilesystemsServiceConnectionResolver": "connections",
 	"git-export:GitExportServerConfigPort": "settings",
 	"observability:ObservabilityServerConfigPort": "settings",
 	"model-gateway:ModelGatewayCredentialResolver": "connections",
+	"notifications:NotificationsServerConfigPort": "settings",
+	"notifications:NotificationsUserReader": "users",
+	"notifications:NotificationsTeamReader": "org",
+	"notifications:NotificationsWorkReader": "work",
+	"notifications:NotificationsCredentialStore": "connections",
+	"org:OrgUserDirectory": "users",
+	"review:ReviewAgentWorkIntentRecorder": "session-requests",
+	"settings:SettingsUserDirectory": "users",
+	"dispatch:DispatchPorts": [
+		"work",
+		"routine",
+		"conversation",
+		"users",
+		"settings",
+		"model-gateway",
+		"agent-selection",
+		"run-orchestration",
+		"session-requests",
+		"cost",
+		"review",
+		"knowledge",
+		"tool-handlers",
+	],
+	"tool-handlers:ToolHandlersWorkAccessor": "work",
+	"tool-handlers:ToolHandlersUsersAccessor": "users",
+	"tool-handlers:ToolHandlersConversationAccessor": "conversation",
+	"tool-handlers:ToolHandlersOrgAccessor": "org",
+	"tool-handlers:ToolHandlersAgentSelectionAccessor": "agent-selection",
+	"tool-handlers:ToolHandlersRoutineAccessor": "routine",
+	"tool-handlers:ToolHandlersDispatchAccessor": "dispatch",
+	"tool-handlers:ToolHandlersKnowledgeAccessor": "knowledge",
 	"tool-handlers:ToolHandlersPolicyAccessor": "policy",
 };
 
@@ -54,6 +88,12 @@ interface ServiceInfo {
 	dir: string;
 	ownedTables: string[];
 	exposedApi: Array<{ name: string; kind: string; signature: string }>;
+}
+
+interface SurfaceCount {
+	methods: number;
+	types: number;
+	total: number;
 }
 
 interface PortMethod {
@@ -253,14 +293,17 @@ for (const svc of services) {
 			if (methods.length > 0) {
 				const overrideKey = `${svc.name}:${node.name.text}`;
 				if (MANUAL_OVERRIDES[overrideKey]) {
-					edges.push({
-						source: svc.name,
-						target: MANUAL_OVERRIDES[overrideKey],
-						portInterface: node.name.text,
-						methods: methods.map((m) => m.name),
-						confidence: "high",
-						resolutionNote: "Manually verified — target is stated only in free-form prose, not a mechanically-detectable convention. See MANUAL_OVERRIDES in this script.",
-					});
+					const targets = MANUAL_OVERRIDES[overrideKey];
+					for (const target of typeof targets === "string" ? [targets] : targets) {
+						edges.push({
+							source: svc.name,
+							target,
+							portInterface: node.name.text,
+							methods: methods.map((m) => m.name),
+							confidence: "high",
+							resolutionNote: "Manually verified at the composition root; see MANUAL_OVERRIDES in this script.",
+						});
+					}
 					ts.forEachChild(node, visit);
 					return;
 				}
@@ -400,12 +443,25 @@ console.log(`Found ${eventEdges.length} EventBus edges across ${emitters.size} d
 
 // --- 6. Write output ------------------------------------------------------------
 
+const censusBin = join(ROOT, "node_modules", ".bin", "tsx");
+const censusOutput = JSON.parse(
+	execFileSync(censusBin, [join(ROOT, "scripts", "surface-census.ts")], {
+		cwd: ROOT,
+		encoding: "utf8",
+	}),
+) as {
+	totals: SurfaceCount;
+	services: Array<{ service: string } & SurfaceCount>;
+};
+const surfaceByService = new Map(censusOutput.services.map((service) => [service.service, service]));
+
 const output = {
-	generatedAt: "2026-07-16", // static — see @lore in the workflow docs on why Date.now() is avoided in generated artifacts
+	generatedAt: "2026-07-22", // deterministic regeneration date; do not use Date.now() in tracked artifacts
 	services: services.map((s) => ({
 		name: s.name,
 		layer: s.layer,
 		ownedTables: s.ownedTables,
+		surface: surfaceByService.get(s.name) ?? { methods: 0, types: 0, total: 0 },
 		exposedApiCount: s.exposedApi.length,
 		exposedApi: s.exposedApi,
 	})),
@@ -418,6 +474,7 @@ const output = {
 		mediumConfidence: edges.filter((e) => e.confidence === "medium").length,
 		unresolved: edges.filter((e) => e.confidence === "unresolved").length,
 		totalEventEdges: eventEdges.length,
+		surface: censusOutput.totals,
 	},
 };
 
@@ -425,3 +482,42 @@ const outPath = join(ROOT, "plans/AU19/dependency-graph-data.json");
 writeFileSync(outPath, JSON.stringify(output, null, 2));
 console.log(`\nWrote ${outPath}`);
 console.log(JSON.stringify(output.summary, null, 2));
+
+const serviceByLayer = (layer: ServiceInfo["layer"]) =>
+	output.services.filter((service) => service.layer === layer).sort((a, b) => a.name.localeCompare(b.name));
+const mermaidId = (name: string) => name.replace(/[^A-Za-z0-9]/g, "_");
+const markdown = `# AU19/AU20 As-Is Dependency Graph — Generated\n\nGenerated mechanically by \`scripts/generate-dependency-graph.ts\` from the current source tree. Surface counts come from the authoritative implementation-site \`scripts/surface-census.ts\`. Do not hand-edit this file; regenerate it.\n\n## Current graph\n\n\`\`\`mermaid\nflowchart TD\n${(["core-api", "agent-orchestration", "agent-execution"] as const)
+	.map(
+		(layer) =>
+			`  subgraph ${mermaidId(layer)}["${layer}"]\n${serviceByLayer(layer)
+				.map((service) => `    ${mermaidId(service.name)}["${service.name}<br/>${service.surface.methods}m / ${service.surface.types}t"]`)
+				.join("\n")}\n  end`,
+	)
+	.join("\n")}\n${edges.map((edge) => `  ${mermaidId(edge.source)} -->|"${edge.portInterface}"| ${mermaidId(edge.target)}`).join("\n")}\n${eventEdges.map((edge) => `  ${mermaidId(edge.source)} -. "${edge.eventType}" .-> ${mermaidId(edge.target)}`).join("\n")}\n\`\`\`\n\n## Surface by Service\n\n| Service | Layer | Methods | Types | Total | Owned tables |\n|---|---|---:|---:|---:|---|\n${[...output.services]
+	.sort((a, b) => b.surface.total - a.surface.total || a.name.localeCompare(b.name))
+	.map((service) => `| ${service.name} | ${service.layer} | ${service.surface.methods} | ${service.surface.types} | ${service.surface.total} | ${service.ownedTables.join(", ") || "—"} |`)
+	.join("\n")}\n| **TOTAL (${output.services.length})** |  | **${censusOutput.totals.methods}** | **${censusOutput.totals.types}** | **${censusOutput.totals.total}** |  |\n\n## Extraction summary\n\n- Port-derived edges: ${output.summary.totalPortEdges} (${output.summary.highConfidence} high confidence, ${output.summary.mediumConfidence} medium, ${output.summary.unresolved} unresolved)\n- EventBus edges: ${output.summary.totalEventEdges}\n- Services: ${output.summary.totalServices}\n`;
+writeFileSync(join(ROOT, "plans", "AU19", "as-is-dependency-graph.md"), markdown);
+
+const conceptPath = join(ROOT, "plans", "AU19", "concept.html");
+let concept = readFileSync(conceptPath, "utf8");
+const generatedServices = output.services
+	.map((service) => {
+		const calls = edges.filter((edge) => edge.source === service.name).map((edge) => edge.target);
+		const description = `${service.surface.methods} methods / ${service.surface.types} types. Owns ${service.ownedTables.join(", ") || "no tables"}.`;
+		return `      ${JSON.stringify({ id: service.name, label: service.name, layer: service.layer, sql: service.ownedTables.length > 0, desc: description, calls })},`;
+	})
+	.join("\n");
+concept = concept.replace(
+	/    \/\/ GENERATED:SERVICE_DATA:START[\s\S]*?    \/\/ GENERATED:SERVICE_DATA:END/,
+	`    // GENERATED:SERVICE_DATA:START\n    services: [\n${generatedServices}\n    ],\n    // GENERATED:SERVICE_DATA:END`,
+);
+const treeFor = (layer: ServiceInfo["layer"]) =>
+	serviceByLayer(layer)
+		.map((service) => `<span class="dir">${service.name}/</span>  ${service.surface.methods}m / ${service.surface.types}t`)
+		.join("\\n");
+const generatedTrees = `  // GENERATED:TREES:START\n  const TREES = {\n    asis: {\n      core: \`${treeFor("core-api")}\`,\n      agent: \`${treeFor("agent-orchestration")}\\n${treeFor("agent-execution")}\`,\n    },\n    should: {\n      core: \`${treeFor("core-api")}\`,\n      agent: \`${treeFor("agent-orchestration")}\\n${treeFor("agent-execution")}\`,\n    },\n  };\n  // GENERATED:TREES:END`;
+concept = concept.replace(/  \/\/ GENERATED:TREES:START[\s\S]*?  \/\/ GENERATED:TREES:END/, generatedTrees);
+writeFileSync(conceptPath, concept);
+console.log(`Wrote ${join(ROOT, "plans", "AU19", "as-is-dependency-graph.md")}`);
+console.log(`Updated ${conceptPath}`);

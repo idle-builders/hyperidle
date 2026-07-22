@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16",
+  "generatedAt": "2026-07-22",
   "services": [
     {
       "name": "connections",
@@ -8,7 +8,14 @@
         "serverCredentials",
         "serviceConnections"
       ],
-      "exposedApiCount": 20,
+      "surface": {
+        "service": "connections",
+        "layer": "core-api",
+        "methods": 14,
+        "types": 3,
+        "total": 17
+      },
+      "exposedApiCount": 18,
       "exposedApi": [
         {
           "name": "applyProvisioningPlan",
@@ -24,11 +31,6 @@
           "name": "ProvisioningPlan",
           "kind": "re-export",
           "signature": "ProvisioningPlan"
-        },
-        {
-          "name": "resolveOwningHumanUserId",
-          "kind": "re-export",
-          "signature": "resolveOwningHumanUserId"
         },
         {
           "name": "decryptCredentialValue",
@@ -49,11 +51,6 @@
           "name": "DbCredentialResolver",
           "kind": "re-export",
           "signature": "DbCredentialResolver"
-        },
-        {
-          "name": "EnvCredentialResolver",
-          "kind": "re-export",
-          "signature": "EnvCredentialResolver"
         },
         {
           "name": "CredentialWrite",
@@ -119,6 +116,13 @@
         "threads",
         "messages"
       ],
+      "surface": {
+        "service": "conversation",
+        "layer": "core-api",
+        "methods": 14,
+        "types": 6,
+        "total": 20
+      },
       "exposedApiCount": 20,
       "exposedApi": [
         {
@@ -231,7 +235,14 @@
         "filesystemInjections",
         "filesystemCaptures"
       ],
-      "exposedApiCount": 32,
+      "surface": {
+        "service": "filesystems",
+        "layer": "core-api",
+        "methods": 13,
+        "types": 11,
+        "total": 24
+      },
+      "exposedApiCount": 24,
       "exposedApi": [
         {
           "name": "FileWatcher",
@@ -254,29 +265,14 @@
           "signature": "FilesystemReachabilityInput"
         },
         {
-          "name": "ProbeResult",
-          "kind": "re-export",
-          "signature": "ProbeResult"
-        },
-        {
-          "name": "NoopAuthResolver",
-          "kind": "re-export",
-          "signature": "NoopAuthResolver"
-        },
-        {
           "name": "resolveFilesystemState",
           "kind": "re-export",
           "signature": "resolveFilesystemState"
         },
         {
-          "name": "ServiceConnectionResolverAdapter",
+          "name": "FilesystemFilter",
           "kind": "re-export",
-          "signature": "ServiceConnectionResolverAdapter"
-        },
-        {
-          "name": "FilesystemInjectionRow",
-          "kind": "re-export",
-          "signature": "FilesystemInjectionRow"
+          "signature": "FilesystemFilter"
         },
         {
           "name": "FilesystemRow",
@@ -294,59 +290,44 @@
           "signature": "NewFilesystemInjection"
         },
         {
-          "name": "deleteFilesystemById",
+          "name": "deleteFilesystem",
           "kind": "re-export",
-          "signature": "deleteFilesystemById"
+          "signature": "deleteFilesystem"
         },
         {
-          "name": "deleteFilesystemInjection",
+          "name": "deleteInjection",
           "kind": "re-export",
-          "signature": "deleteFilesystemInjection"
+          "signature": "deleteInjection"
         },
         {
-          "name": "getFilesystemById",
+          "name": "getFilesystem",
           "kind": "re-export",
-          "signature": "getFilesystemById"
+          "signature": "getFilesystem"
         },
         {
-          "name": "getFilesystemInjection",
+          "name": "listCaptures",
           "kind": "re-export",
-          "signature": "getFilesystemInjection"
+          "signature": "listCaptures"
         },
         {
-          "name": "insertFilesystem",
+          "name": "listFilesystems",
           "kind": "re-export",
-          "signature": "insertFilesystem"
+          "signature": "listFilesystems"
         },
         {
-          "name": "insertFilesystemInjection",
+          "name": "saveFilesystem",
           "kind": "re-export",
-          "signature": "insertFilesystemInjection"
+          "signature": "saveFilesystem"
         },
         {
-          "name": "listFilesystemIdsByAgent",
+          "name": "saveInjection",
           "kind": "re-export",
-          "signature": "listFilesystemIdsByAgent"
-        },
-        {
-          "name": "listFilesystemsByIds",
-          "kind": "re-export",
-          "signature": "listFilesystemsByIds"
-        },
-        {
-          "name": "listFilesystemsByTeamId",
-          "kind": "re-export",
-          "signature": "listFilesystemsByTeamId"
+          "signature": "saveInjection"
         },
         {
           "name": "updateFilesystemState",
           "kind": "re-export",
           "signature": "updateFilesystemState"
-        },
-        {
-          "name": "InspectLocalPathDeps",
-          "kind": "re-export",
-          "signature": "InspectLocalPathDeps"
         },
         {
           "name": "LocalPathInfo",
@@ -359,24 +340,14 @@
           "signature": "inspectLocalPath"
         },
         {
-          "name": "MalformedFilesystemError",
+          "name": "AdapterDeps",
           "kind": "re-export",
-          "signature": "MalformedFilesystemError"
+          "signature": "AdapterDeps"
         },
         {
           "name": "RegistryFilesystemMounter",
           "kind": "re-export",
           "signature": "RegistryFilesystemMounter"
-        },
-        {
-          "name": "FilesystemsGitConfigInjection",
-          "kind": "re-export",
-          "signature": "FilesystemsGitConfigInjection"
-        },
-        {
-          "name": "FilesystemsGitRunner",
-          "kind": "re-export",
-          "signature": "FilesystemsGitRunner"
         },
         {
           "name": "FilesystemsGitRunnerFactory",
@@ -399,7 +370,14 @@
       "name": "git-export",
       "layer": "core-api",
       "ownedTables": [],
-      "exposedApiCount": 23,
+      "surface": {
+        "service": "git-export",
+        "layer": "core-api",
+        "methods": 21,
+        "types": 16,
+        "total": 37
+      },
+      "exposedApiCount": 22,
       "exposedApi": [
         {
           "name": "GitExportResult",
@@ -497,11 +475,6 @@
           "signature": "GitExportDeps"
         },
         {
-          "name": "GitExportKnowledgeItemProjection",
-          "kind": "re-export",
-          "signature": "GitExportKnowledgeItemProjection"
-        },
-        {
           "name": "GitExportKnowledgeItemRow",
           "kind": "re-export",
           "signature": "GitExportKnowledgeItemRow"
@@ -528,17 +501,19 @@
         "knowledgeConflicts",
         "knowledgeAppProjection"
       ],
-      "exposedApiCount": 39,
+      "surface": {
+        "service": "knowledge",
+        "layer": "core-api",
+        "methods": 17,
+        "types": 12,
+        "total": 29
+      },
+      "exposedApiCount": 21,
       "exposedApi": [
         {
-          "name": "buildAttentionService",
+          "name": "recomputeAttention",
           "kind": "re-export",
-          "signature": "buildAttentionService"
-        },
-        {
-          "name": "MAX_RECOMPUTE_BATCH",
-          "kind": "re-export",
-          "signature": "MAX_RECOMPUTE_BATCH"
+          "signature": "recomputeAttention"
         },
         {
           "name": "ItemDeletedError",
@@ -551,59 +526,34 @@
           "signature": "VersionConflictError"
         },
         {
-          "name": "setupFts",
+          "name": "findOpenConflict",
           "kind": "re-export",
-          "signature": "setupFts"
+          "signature": "findOpenConflict"
         },
         {
-          "name": "createKnowledgeConflict",
+          "name": "RecordConflictInput",
           "kind": "re-export",
-          "signature": "createKnowledgeConflict"
+          "signature": "RecordConflictInput"
         },
         {
-          "name": "findOpenConflictByItemAndProposer",
+          "name": "recordConflict",
           "kind": "re-export",
-          "signature": "findOpenConflictByItemAndProposer"
+          "signature": "recordConflict"
         },
         {
-          "name": "recordWritebackConflict",
+          "name": "count",
           "kind": "re-export",
-          "signature": "recordWritebackConflict"
+          "signature": "count"
         },
         {
-          "name": "KnowledgeScope",
+          "name": "countAccesses",
           "kind": "re-export",
-          "signature": "KnowledgeScope"
-        },
-        {
-          "name": "changeScope",
-          "kind": "re-export",
-          "signature": "changeScope"
-        },
-        {
-          "name": "countAccessesSince",
-          "kind": "re-export",
-          "signature": "countAccessesSince"
-        },
-        {
-          "name": "countTriageVisible",
-          "kind": "re-export",
-          "signature": "countTriageVisible"
+          "signature": "countAccesses"
         },
         {
           "name": "create",
           "kind": "re-export",
           "signature": "create"
-        },
-        {
-          "name": "ExportableKnowledgeItemFilters",
-          "kind": "re-export",
-          "signature": "ExportableKnowledgeItemFilters"
-        },
-        {
-          "name": "flagItem",
-          "kind": "re-export",
-          "signature": "flagItem"
         },
         {
           "name": "get",
@@ -616,14 +566,9 @@
           "signature": "list"
         },
         {
-          "name": "mergeItems",
+          "name": "recordAccess",
           "kind": "re-export",
-          "signature": "mergeItems"
-        },
-        {
-          "name": "recordKnowledgeAccess",
-          "kind": "re-export",
-          "signature": "recordKnowledgeAccess"
+          "signature": "recordAccess"
         },
         {
           "name": "remove",
@@ -636,19 +581,9 @@
           "signature": "search"
         },
         {
-          "name": "searchByText",
+          "name": "transition",
           "kind": "re-export",
-          "signature": "searchByText"
-        },
-        {
-          "name": "searchVisibleByText",
-          "kind": "re-export",
-          "signature": "searchVisibleByText"
-        },
-        {
-          "name": "splitItem",
-          "kind": "re-export",
-          "signature": "splitItem"
+          "signature": "transition"
         },
         {
           "name": "update",
@@ -656,74 +591,29 @@
           "signature": "update"
         },
         {
-          "name": "upsertBetRetroKnowledgeItem",
+          "name": "sweep",
           "kind": "re-export",
-          "signature": "upsertBetRetroKnowledgeItem"
+          "signature": "sweep"
         },
         {
-          "name": "upsertKnowledgeAppProjectionAttentionScore",
+          "name": "rank",
           "kind": "re-export",
-          "signature": "upsertKnowledgeAppProjectionAttentionScore"
+          "signature": "rank"
         },
         {
-          "name": "createPracticeMeeting",
+          "name": "reapAccessLog",
           "kind": "re-export",
-          "signature": "createPracticeMeeting"
+          "signature": "reapAccessLog"
         },
         {
-          "name": "runPracticeMeetingTurn",
+          "name": "recomputeRelevance",
           "kind": "re-export",
-          "signature": "runPracticeMeetingTurn"
+          "signature": "recomputeRelevance"
         },
         {
-          "name": "promoteKnowledgeItem",
+          "name": "KnowledgeScope",
           "kind": "re-export",
-          "signature": "promoteKnowledgeItem"
-        },
-        {
-          "name": "runAutoPromotionSweep",
-          "kind": "re-export",
-          "signature": "runAutoPromotionSweep"
-        },
-        {
-          "name": "runStaleSweep",
-          "kind": "re-export",
-          "signature": "runStaleSweep"
-        },
-        {
-          "name": "registerRelevanceListener",
-          "kind": "re-export",
-          "signature": "registerRelevanceListener"
-        },
-        {
-          "name": "rankAndBudget",
-          "kind": "re-export",
-          "signature": "rankAndBudget"
-        },
-        {
-          "name": "createRelevanceService",
-          "kind": "re-export",
-          "signature": "createRelevanceService"
-        },
-        {
-          "name": "reapKnowledgeAccessLog",
-          "kind": "re-export",
-          "signature": "reapKnowledgeAccessLog"
-        },
-        {
-          "name": "DEFAULT_KNOWLEDGE_BUDGET",
-          "kind": "re-export",
-          "signature": "DEFAULT_KNOWLEDGE_BUDGET"
-        },
-        {
-          "name": "loadScoringWeights",
-          "kind": "re-export",
-          "signature": "loadScoringWeights"
-        },
-        {
-          "name": "countTokens",
-          "kind": "re-export",
-          "signature": "countTokens"
+          "signature": "KnowledgeScope"
         }
       ]
     },
@@ -731,6 +621,13 @@
       "name": "model-gateway",
       "layer": "core-api",
       "ownedTables": [],
+      "surface": {
+        "service": "model-gateway",
+        "layer": "core-api",
+        "methods": 2,
+        "types": 2,
+        "total": 4
+      },
       "exposedApiCount": 4,
       "exposedApi": [
         {
@@ -761,8 +658,30 @@
       "ownedTables": [
         "notificationQueue"
       ],
+      "surface": {
+        "service": "notifications",
+        "layer": "core-api",
+        "methods": 17,
+        "types": 11,
+        "total": 28
+      },
       "exposedApiCount": 23,
       "exposedApi": [
+        {
+          "name": "getDailyDigest",
+          "kind": "re-export",
+          "signature": "getDailyDigest"
+        },
+        {
+          "name": "DeliveryResult",
+          "kind": "re-export",
+          "signature": "DeliveryResult"
+        },
+        {
+          "name": "DeliverySpec",
+          "kind": "re-export",
+          "signature": "DeliverySpec"
+        },
         {
           "name": "NotificationConfigPatch",
           "kind": "re-export",
@@ -774,19 +693,9 @@
           "signature": "SafeNotificationConfig"
         },
         {
-          "name": "getDailyDigest",
+          "name": "deliver",
           "kind": "re-export",
-          "signature": "getDailyDigest"
-        },
-        {
-          "name": "DigestResult",
-          "kind": "re-export",
-          "signature": "DigestResult"
-        },
-        {
-          "name": "flush",
-          "kind": "re-export",
-          "signature": "flush"
+          "signature": "deliver"
         },
         {
           "name": "installNotifications",
@@ -804,16 +713,6 @@
           "signature": "readPreferences"
         },
         {
-          "name": "runDigest",
-          "kind": "re-export",
-          "signature": "runDigest"
-        },
-        {
-          "name": "sendTest",
-          "kind": "re-export",
-          "signature": "sendTest"
-        },
-        {
           "name": "updateConfig",
           "kind": "re-export",
           "signature": "updateConfig"
@@ -822,6 +721,21 @@
           "name": "updatePreferences",
           "kind": "re-export",
           "signature": "updatePreferences"
+        },
+        {
+          "name": "NotificationFilter",
+          "kind": "re-export",
+          "signature": "NotificationFilter"
+        },
+        {
+          "name": "NotificationPatch",
+          "kind": "re-export",
+          "signature": "NotificationPatch"
+        },
+        {
+          "name": "NotificationSelector",
+          "kind": "re-export",
+          "signature": "NotificationSelector"
         },
         {
           "name": "enqueue",
@@ -849,16 +763,6 @@
           "signature": "NotificationsDeps"
         },
         {
-          "name": "NotificationsSilenceDeps",
-          "kind": "re-export",
-          "signature": "NotificationsSilenceDeps"
-        },
-        {
-          "name": "isInSilenceWindow",
-          "kind": "re-export",
-          "signature": "isInSilenceWindow"
-        },
-        {
           "name": "isSilenced",
           "kind": "re-export",
           "signature": "isSilenced"
@@ -884,6 +788,13 @@
       "name": "observability",
       "layer": "core-api",
       "ownedTables": [],
+      "surface": {
+        "service": "observability",
+        "layer": "core-api",
+        "methods": 7,
+        "types": 13,
+        "total": 20
+      },
       "exposedApiCount": 9,
       "exposedApi": [
         {
@@ -941,7 +852,14 @@
         "orgEdges",
         "teams"
       ],
-      "exposedApiCount": 21,
+      "surface": {
+        "service": "org",
+        "layer": "core-api",
+        "methods": 14,
+        "types": 7,
+        "total": 21
+      },
+      "exposedApiCount": 20,
       "exposedApi": [
         {
           "name": "UpsertOrgEdgeInput",
@@ -1004,11 +922,6 @@
           "signature": "CreateTeamInput"
         },
         {
-          "name": "ApiError",
-          "kind": "re-export",
-          "signature": "ApiError"
-        },
-        {
           "name": "applyTeamCost",
           "kind": "re-export",
           "signature": "applyTeamCost"
@@ -1054,6 +967,13 @@
       "name": "policy",
       "layer": "core-api",
       "ownedTables": [],
+      "surface": {
+        "service": "policy",
+        "layer": "core-api",
+        "methods": 3,
+        "types": 6,
+        "total": 9
+      },
       "exposedApiCount": 9,
       "exposedApi": [
         {
@@ -1107,6 +1027,13 @@
       "name": "realtime",
       "layer": "core-api",
       "ownedTables": [],
+      "surface": {
+        "service": "realtime",
+        "layer": "core-api",
+        "methods": 2,
+        "types": 3,
+        "total": 5
+      },
       "exposedApiCount": 5,
       "exposedApi": [
         {
@@ -1144,6 +1071,13 @@
         "operationOutcomes",
         "tailoredGrants"
       ],
+      "surface": {
+        "service": "review",
+        "layer": "core-api",
+        "methods": 7,
+        "types": 7,
+        "total": 14
+      },
       "exposedApiCount": 13,
       "exposedApi": [
         {
@@ -1220,6 +1154,13 @@
         "routines",
         "routineRuns"
       ],
+      "surface": {
+        "service": "routine",
+        "layer": "core-api",
+        "methods": 11,
+        "types": 4,
+        "total": 15
+      },
       "exposedApiCount": 15,
       "exposedApi": [
         {
@@ -1308,33 +1249,15 @@
         "pluginConfigurationDefaults",
         "configurationOverrides"
       ],
-      "exposedApiCount": 22,
+      "surface": {
+        "service": "settings",
+        "layer": "core-api",
+        "methods": 8,
+        "types": 8,
+        "total": 16
+      },
+      "exposedApiCount": 16,
       "exposedApi": [
-        {
-          "name": "AgentBehaviorConfigError",
-          "kind": "re-export",
-          "signature": "AgentBehaviorConfigError"
-        },
-        {
-          "name": "ListAgentBehaviorConfigOptions",
-          "kind": "re-export",
-          "signature": "ListAgentBehaviorConfigOptions"
-        },
-        {
-          "name": "listAgentBehaviorConfiguration",
-          "kind": "re-export",
-          "signature": "listAgentBehaviorConfiguration"
-        },
-        {
-          "name": "PatchAgentBehaviorConfigInput",
-          "kind": "re-export",
-          "signature": "PatchAgentBehaviorConfigInput"
-        },
-        {
-          "name": "patchAgentBehaviorConfiguration",
-          "kind": "re-export",
-          "signature": "patchAgentBehaviorConfiguration"
-        },
         {
           "name": "BackfillLegacyConfigurationDeps",
           "kind": "re-export",
@@ -1349,11 +1272,6 @@
           "name": "PluginConfigurationSource",
           "kind": "re-export",
           "signature": "PluginConfigurationSource"
-        },
-        {
-          "name": "BUILTIN_PLUGIN_SOURCE",
-          "kind": "re-export",
-          "signature": "BUILTIN_PLUGIN_SOURCE"
         },
         {
           "name": "backfillConfigurationDefaults",
@@ -1431,6 +1349,13 @@
         "inviteCodes",
         "hintProgress"
       ],
+      "surface": {
+        "service": "users",
+        "layer": "core-api",
+        "methods": 17,
+        "types": 5,
+        "total": 22
+      },
       "exposedApiCount": 22,
       "exposedApi": [
         {
@@ -1555,7 +1480,14 @@
         "artifacts",
         "taskPlanningSignals"
       ],
-      "exposedApiCount": 50,
+      "surface": {
+        "service": "work",
+        "layer": "core-api",
+        "methods": 15,
+        "types": 20,
+        "total": 35
+      },
+      "exposedApiCount": 42,
       "exposedApi": [
         {
           "name": "ArtifactRow",
@@ -1583,29 +1515,14 @@
           "signature": "BetDecompositionDeps"
         },
         {
-          "name": "findEligibleTeamAgents",
+          "name": "registerBetDecomposition",
           "kind": "re-export",
-          "signature": "findEligibleTeamAgents"
-        },
-        {
-          "name": "insertProposedBetTasks",
-          "kind": "re-export",
-          "signature": "insertProposedBetTasks"
+          "signature": "registerBetDecomposition"
         },
         {
           "name": "resolveOrphanedDecompositions",
           "kind": "re-export",
           "signature": "resolveOrphanedDecompositions"
-        },
-        {
-          "name": "runBetDecomposition",
-          "kind": "re-export",
-          "signature": "runBetDecomposition"
-        },
-        {
-          "name": "registerBetDecomposition",
-          "kind": "re-export",
-          "signature": "registerBetDecomposition"
         },
         {
           "name": "cascadeBetKill",
@@ -1693,11 +1610,6 @@
           "signature": "Bet"
         },
         {
-          "name": "BetPatch",
-          "kind": "re-export",
-          "signature": "BetPatch"
-        },
-        {
           "name": "BetTaskWithLatestSessionOutcome",
           "kind": "re-export",
           "signature": "BetTaskWithLatestSessionOutcome"
@@ -1716,11 +1628,6 @@
           "name": "Item",
           "kind": "re-export",
           "signature": "Item"
-        },
-        {
-          "name": "ItemPatch",
-          "kind": "re-export",
-          "signature": "ItemPatch"
         },
         {
           "name": "ItemUpdatePatch",
@@ -1758,26 +1665,6 @@
           "signature": "WorkEntity"
         },
         {
-          "name": "WorkEntityCreateMap",
-          "kind": "re-export",
-          "signature": "WorkEntityCreateMap"
-        },
-        {
-          "name": "WorkEntityRowMap",
-          "kind": "re-export",
-          "signature": "WorkEntityRowMap"
-        },
-        {
-          "name": "WorkEntityTransitionPatchMap",
-          "kind": "re-export",
-          "signature": "WorkEntityTransitionPatchMap"
-        },
-        {
-          "name": "WorkEntityUpdatePatchMap",
-          "kind": "re-export",
-          "signature": "WorkEntityUpdatePatchMap"
-        },
-        {
           "name": "WorkFilter",
           "kind": "re-export",
           "signature": "WorkFilter"
@@ -1798,6 +1685,11 @@
           "signature": "list"
         },
         {
+          "name": "taskDispatchAttemptStore",
+          "kind": "re-export",
+          "signature": "taskDispatchAttemptStore"
+        },
+        {
           "name": "transition",
           "kind": "re-export",
           "signature": "transition"
@@ -1813,13 +1705,15 @@
       "name": "agent-selection",
       "layer": "agent-orchestration",
       "ownedTables": [],
+      "surface": {
+        "service": "agent-selection",
+        "layer": "agent-orchestration",
+        "methods": 1,
+        "types": 7,
+        "total": 8
+      },
       "exposedApiCount": 8,
       "exposedApi": [
-        {
-          "name": "createAgentSelectionService",
-          "kind": "re-export",
-          "signature": "createAgentSelectionService"
-        },
         {
           "name": "AgentScaffoldSpec",
           "kind": "re-export",
@@ -1854,6 +1748,11 @@
           "name": "AgentSelectionService",
           "kind": "re-export",
           "signature": "AgentSelectionService"
+        },
+        {
+          "name": "createAgentSelectionService",
+          "kind": "re-export",
+          "signature": "createAgentSelectionService"
         }
       ]
     },
@@ -1861,8 +1760,25 @@
       "name": "cost",
       "layer": "agent-orchestration",
       "ownedTables": [],
-      "exposedApiCount": 8,
+      "surface": {
+        "service": "cost",
+        "layer": "agent-orchestration",
+        "methods": 1,
+        "types": 6,
+        "total": 7
+      },
+      "exposedApiCount": 7,
       "exposedApi": [
+        {
+          "name": "CostOps",
+          "kind": "re-export",
+          "signature": "CostOps"
+        },
+        {
+          "name": "createCostOps",
+          "kind": "re-export",
+          "signature": "createCostOps"
+        },
         {
           "name": "CostCheckParams",
           "kind": "re-export",
@@ -1887,21 +1803,6 @@
           "name": "CostVerdict",
           "kind": "re-export",
           "signature": "CostVerdict"
-        },
-        {
-          "name": "CostOps",
-          "kind": "re-export",
-          "signature": "CostOps"
-        },
-        {
-          "name": "CostTestHooks",
-          "kind": "re-export",
-          "signature": "CostTestHooks"
-        },
-        {
-          "name": "createCostOps",
-          "kind": "re-export",
-          "signature": "createCostOps"
         }
       ]
     },
@@ -1909,97 +1810,19 @@
       "name": "dispatch",
       "layer": "agent-orchestration",
       "ownedTables": [],
-      "exposedApiCount": 26,
+      "surface": {
+        "service": "dispatch",
+        "layer": "agent-orchestration",
+        "methods": 1,
+        "types": 5,
+        "total": 6
+      },
+      "exposedApiCount": 6,
       "exposedApi": [
-        {
-          "name": "AssistantTurnDeps",
-          "kind": "re-export",
-          "signature": "AssistantTurnDeps"
-        },
-        {
-          "name": "mapErrorToNotice",
-          "kind": "re-export",
-          "signature": "mapErrorToNotice"
-        },
-        {
-          "name": "ThreadLike",
-          "kind": "re-export",
-          "signature": "ThreadLike"
-        },
-        {
-          "name": "isAssistantThread",
-          "kind": "re-export",
-          "signature": "isAssistantThread"
-        },
-        {
-          "name": "PostBetRetroArgs",
-          "kind": "re-export",
-          "signature": "PostBetRetroArgs"
-        },
-        {
-          "name": "RunBuiltinResult",
-          "kind": "re-export",
-          "signature": "RunBuiltinResult"
-        },
-        {
-          "name": "BuiltinRoutineId",
-          "kind": "re-export",
-          "signature": "BuiltinRoutineId"
-        },
-        {
-          "name": "BuiltinSpec",
-          "kind": "re-export",
-          "signature": "BuiltinSpec"
-        },
-        {
-          "name": "BUILTIN_ROUTINE_IDS",
-          "kind": "re-export",
-          "signature": "BUILTIN_ROUTINE_IDS"
-        },
-        {
-          "name": "BUILTIN_SPECS",
-          "kind": "re-export",
-          "signature": "BUILTIN_SPECS"
-        },
-        {
-          "name": "extractBuiltinKind",
-          "kind": "re-export",
-          "signature": "extractBuiltinKind"
-        },
-        {
-          "name": "isBuiltinRoutineId",
-          "kind": "re-export",
-          "signature": "isBuiltinRoutineId"
-        },
         {
           "name": "DispatchPorts",
           "kind": "re-export",
           "signature": "DispatchPorts"
-        },
-        {
-          "name": "FireResult",
-          "kind": "re-export",
-          "signature": "FireResult"
-        },
-        {
-          "name": "RoutineSchedulerConfig",
-          "kind": "re-export",
-          "signature": "RoutineSchedulerConfig"
-        },
-        {
-          "name": "computeNextRunAt",
-          "kind": "re-export",
-          "signature": "computeNextRunAt"
-        },
-        {
-          "name": "nextCronMatch",
-          "kind": "re-export",
-          "signature": "nextCronMatch"
-        },
-        {
-          "name": "parseCron",
-          "kind": "re-export",
-          "signature": "parseCron"
         },
         {
           "name": "DispatchConfig",
@@ -2012,34 +1835,19 @@
           "signature": "DispatchOps"
         },
         {
-          "name": "Disposer",
-          "kind": "re-export",
-          "signature": "Disposer"
-        },
-        {
-          "name": "createDispatchOps",
-          "kind": "re-export",
-          "signature": "createDispatchOps"
-        },
-        {
-          "name": "DispatchQueueEntry",
-          "kind": "re-export",
-          "signature": "DispatchQueueEntry"
-        },
-        {
           "name": "DispatchQueueSnapshot",
           "kind": "re-export",
           "signature": "DispatchQueueSnapshot"
         },
         {
-          "name": "TaskDispatcherDeps",
+          "name": "FireResult",
           "kind": "re-export",
-          "signature": "TaskDispatcherDeps"
+          "signature": "FireResult"
         },
         {
-          "name": "getDispatchQueueSnapshot",
+          "name": "createDispatchOps",
           "kind": "re-export",
-          "signature": "getDispatchQueueSnapshot"
+          "signature": "createDispatchOps"
         }
       ]
     },
@@ -2047,542 +1855,54 @@
       "name": "run-orchestration",
       "layer": "agent-orchestration",
       "ownedTables": [],
-      "exposedApiCount": 121,
+      "surface": {
+        "service": "run-orchestration",
+        "layer": "agent-orchestration",
+        "methods": 9,
+        "types": 8,
+        "total": 17
+      },
+      "exposedApiCount": 12,
       "exposedApi": [
-        {
-          "name": "AGENT_LAYER_REAP_INTERVAL_MS",
-          "kind": "re-export",
-          "signature": "AGENT_LAYER_REAP_INTERVAL_MS"
-        },
-        {
-          "name": "AgentAdmissionFailureCode",
-          "kind": "re-export",
-          "signature": "AgentAdmissionFailureCode"
-        },
-        {
-          "name": "AgentLayerBootDeps",
-          "kind": "re-export",
-          "signature": "AgentLayerBootDeps"
-        },
-        {
-          "name": "bootAgentLayer",
-          "kind": "re-export",
-          "signature": "bootAgentLayer"
-        },
-        {
-          "name": "classifyAdmissionFailure",
-          "kind": "re-export",
-          "signature": "classifyAdmissionFailure"
-        },
-        {
-          "name": "drainAgentSessionRequests",
-          "kind": "re-export",
-          "signature": "drainAgentSessionRequests"
-        },
-        {
-          "name": "markRunningAgentSessionRequestsForShutdown",
-          "kind": "re-export",
-          "signature": "markRunningAgentSessionRequestsForShutdown"
-        },
-        {
-          "name": "AgentRunLifecycle",
-          "kind": "re-export",
-          "signature": "AgentRunLifecycle"
-        },
-        {
-          "name": "AgentRunLifecycleState",
-          "kind": "re-export",
-          "signature": "AgentRunLifecycleState"
-        },
-        {
-          "name": "executeAgentRunRequest",
-          "kind": "re-export",
-          "signature": "executeAgentRunRequest"
-        },
-        {
-          "name": "getAgentRunLifecycle",
-          "kind": "re-export",
-          "signature": "getAgentRunLifecycle"
-        },
-        {
-          "name": "listAgentRunLifecycleBySource",
-          "kind": "re-export",
-          "signature": "listAgentRunLifecycleBySource"
-        },
-        {
-          "name": "recoverRunningAgentSessionRequests",
-          "kind": "re-export",
-          "signature": "recoverRunningAgentSessionRequests"
-        },
-        {
-          "name": "admitOnlyWithRequestLease",
-          "kind": "re-export",
-          "signature": "admitOnlyWithRequestLease"
-        },
-        {
-          "name": "ConsumeAgentSessionRequestOptions",
-          "kind": "re-export",
-          "signature": "ConsumeAgentSessionRequestOptions"
-        },
-        {
-          "name": "consumeAgentSessionRequest",
-          "kind": "re-export",
-          "signature": "consumeAgentSessionRequest"
-        },
-        {
-          "name": "reserveOrAdoptSession",
-          "kind": "re-export",
-          "signature": "reserveOrAdoptSession"
-        },
-        {
-          "name": "AgentContextAssemblyOutcome",
-          "kind": "re-export",
-          "signature": "AgentContextAssemblyOutcome"
-        },
-        {
-          "name": "AgentWritebackHandle",
-          "kind": "re-export",
-          "signature": "AgentWritebackHandle"
-        },
-        {
-          "name": "AssembleAgentContextInput",
-          "kind": "re-export",
-          "signature": "AssembleAgentContextInput"
-        },
-        {
-          "name": "CaptureWritebackCreateKnowledgeItemInput",
-          "kind": "re-export",
-          "signature": "CaptureWritebackCreateKnowledgeItemInput"
-        },
-        {
-          "name": "CaptureWritebackDeps",
-          "kind": "re-export",
-          "signature": "CaptureWritebackDeps"
-        },
-        {
-          "name": "CaptureWritebackKnowledgeItem",
-          "kind": "re-export",
-          "signature": "CaptureWritebackKnowledgeItem"
-        },
-        {
-          "name": "CaptureWritebackKnowledgeKind",
-          "kind": "re-export",
-          "signature": "CaptureWritebackKnowledgeKind"
-        },
-        {
-          "name": "CaptureWritebackKnowledgeLayer",
-          "kind": "re-export",
-          "signature": "CaptureWritebackKnowledgeLayer"
-        },
-        {
-          "name": "CaptureWritebackKnowledgeWriter",
-          "kind": "re-export",
-          "signature": "CaptureWritebackKnowledgeWriter"
-        },
-        {
-          "name": "CaptureWritebackManifest",
-          "kind": "re-export",
-          "signature": "CaptureWritebackManifest"
-        },
-        {
-          "name": "CaptureWritebackManifestEntry",
-          "kind": "re-export",
-          "signature": "CaptureWritebackManifestEntry"
-        },
-        {
-          "name": "CaptureWritebackRecordConflictInput",
-          "kind": "re-export",
-          "signature": "CaptureWritebackRecordConflictInput"
-        },
-        {
-          "name": "CaptureWritebackUpdateResult",
-          "kind": "re-export",
-          "signature": "CaptureWritebackUpdateResult"
-        },
-        {
-          "name": "ContextAssemblyConfig",
-          "kind": "re-export",
-          "signature": "ContextAssemblyConfig"
-        },
-        {
-          "name": "ContextAssemblyResult",
-          "kind": "re-export",
-          "signature": "ContextAssemblyResult"
-        },
-        {
-          "name": "Manifest",
-          "kind": "re-export",
-          "signature": "Manifest"
-        },
-        {
-          "name": "ManifestEntry",
-          "kind": "re-export",
-          "signature": "ManifestEntry"
-        },
-        {
-          "name": "EMITTED_ROOTS_CONTEXT_ASSEMBLY",
-          "kind": "re-export",
-          "signature": "EMITTED_ROOTS_CONTEXT_ASSEMBLY"
-        },
-        {
-          "name": "ContextAssemblyFileWatcher",
-          "kind": "re-export",
-          "signature": "ContextAssemblyFileWatcher"
-        },
-        {
-          "name": "ContextAssemblyFileWatcherConfig",
-          "kind": "re-export",
-          "signature": "ContextAssemblyFileWatcherConfig"
-        },
-        {
-          "name": "ContextAssemblyKnowledgeListFilters",
-          "kind": "re-export",
-          "signature": "ContextAssemblyKnowledgeListFilters"
-        },
-        {
-          "name": "ContextAssemblyPorts",
-          "kind": "re-export",
-          "signature": "ContextAssemblyPorts"
-        },
-        {
-          "name": "ContextAssemblyScoringContext",
-          "kind": "re-export",
-          "signature": "ContextAssemblyScoringContext"
-        },
-        {
-          "name": "FilesystemsReader",
-          "kind": "re-export",
-          "signature": "FilesystemsReader"
-        },
-        {
-          "name": "KnowledgeReader",
-          "kind": "re-export",
-          "signature": "KnowledgeReader"
-        },
-        {
-          "name": "RoutineReader",
-          "kind": "re-export",
-          "signature": "RoutineReader"
-        },
-        {
-          "name": "UsersReader",
-          "kind": "re-export",
-          "signature": "UsersReader"
-        },
-        {
-          "name": "WorkReader",
-          "kind": "re-export",
-          "signature": "WorkReader"
-        },
-        {
-          "name": "AssistantPromptResult",
-          "kind": "re-export",
-          "signature": "AssistantPromptResult"
-        },
-        {
-          "name": "PromptCompositionInput",
-          "kind": "re-export",
-          "signature": "PromptCompositionInput"
-        },
-        {
-          "name": "PromptCompositionResult",
-          "kind": "re-export",
-          "signature": "PromptCompositionResult"
-        },
-        {
-          "name": "RoutinePromptCompositionInput",
-          "kind": "re-export",
-          "signature": "RoutinePromptCompositionInput"
-        },
-        {
-          "name": "ToolSummary",
-          "kind": "re-export",
-          "signature": "ToolSummary"
-        },
-        {
-          "name": "buildTemplateVariables",
-          "kind": "re-export",
-          "signature": "buildTemplateVariables"
-        },
-        {
-          "name": "EMITTED_ROOTS_AGENTS_MD",
-          "kind": "re-export",
-          "signature": "EMITTED_ROOTS_AGENTS_MD"
-        },
-        {
-          "name": "stripFrontmatter",
-          "kind": "re-export",
-          "signature": "stripFrontmatter"
-        },
-        {
-          "name": "substituteTemplateVars",
-          "kind": "re-export",
-          "signature": "substituteTemplateVars"
-        },
-        {
-          "name": "ContextAssemblyOps",
-          "kind": "re-export",
-          "signature": "ContextAssemblyOps"
-        },
-        {
-          "name": "createContextAssemblyOps",
-          "kind": "re-export",
-          "signature": "createContextAssemblyOps"
-        },
-        {
-          "name": "IngestionHandle",
-          "kind": "re-export",
-          "signature": "IngestionHandle"
-        },
-        {
-          "name": "RunOrchestrationAdapterMeta",
-          "kind": "re-export",
-          "signature": "RunOrchestrationAdapterMeta"
-        },
-        {
-          "name": "RunOrchestrationAdapterPool",
-          "kind": "re-export",
-          "signature": "RunOrchestrationAdapterPool"
-        },
-        {
-          "name": "RunOrchestrationAdmittedSession",
-          "kind": "re-export",
-          "signature": "RunOrchestrationAdmittedSession"
-        },
-        {
-          "name": "RunOrchestrationClaimOptions",
-          "kind": "re-export",
-          "signature": "RunOrchestrationClaimOptions"
-        },
-        {
-          "name": "RunOrchestrationDispatchPort",
-          "kind": "re-export",
-          "signature": "RunOrchestrationDispatchPort"
-        },
-        {
-          "name": "RunOrchestrationPorts",
-          "kind": "re-export",
-          "signature": "RunOrchestrationPorts"
-        },
-        {
-          "name": "RunOrchestrationProvisionDeps",
-          "kind": "re-export",
-          "signature": "RunOrchestrationProvisionDeps"
-        },
-        {
-          "name": "RunOrchestrationProvisionParams",
-          "kind": "re-export",
-          "signature": "RunOrchestrationProvisionParams"
-        },
-        {
-          "name": "RunOrchestrationProvisionResult",
-          "kind": "re-export",
-          "signature": "RunOrchestrationProvisionResult"
-        },
-        {
-          "name": "RunOrchestrationRemoteHarnessAdapterFactory",
-          "kind": "re-export",
-          "signature": "RunOrchestrationRemoteHarnessAdapterFactory"
-        },
-        {
-          "name": "RunOrchestrationRemoteWorkerAdapter",
-          "kind": "re-export",
-          "signature": "RunOrchestrationRemoteWorkerAdapter"
-        },
-        {
-          "name": "RunOrchestrationSessionContext",
-          "kind": "re-export",
-          "signature": "RunOrchestrationSessionContext"
-        },
-        {
-          "name": "RunOrchestrationSessionLifecycleRuntime",
-          "kind": "re-export",
-          "signature": "RunOrchestrationSessionLifecycleRuntime"
-        },
-        {
-          "name": "RunOrchestrationSessionProvisioner",
-          "kind": "re-export",
-          "signature": "RunOrchestrationSessionProvisioner"
-        },
-        {
-          "name": "RunOrchestrationSessionRequestsPort",
-          "kind": "re-export",
-          "signature": "RunOrchestrationSessionRequestsPort"
-        },
-        {
-          "name": "RunOrchestrationTerminationReason",
-          "kind": "re-export",
-          "signature": "RunOrchestrationTerminationReason"
-        },
-        {
-          "name": "RunOrchestrationWorkIntentSource",
-          "kind": "re-export",
-          "signature": "RunOrchestrationWorkIntentSource"
-        },
-        {
-          "name": "ReapStaleRoutineSessionsOpts",
-          "kind": "re-export",
-          "signature": "ReapStaleRoutineSessionsOpts"
-        },
-        {
-          "name": "reapStaleRoutineSessions",
-          "kind": "re-export",
-          "signature": "reapStaleRoutineSessions"
-        },
-        {
-          "name": "reapSandboxesOnce",
-          "kind": "re-export",
-          "signature": "reapSandboxesOnce"
-        },
-        {
-          "name": "SANDBOX_REAPER_INTERVAL_MS",
-          "kind": "re-export",
-          "signature": "SANDBOX_REAPER_INTERVAL_MS"
-        },
-        {
-          "name": "SandboxReaperOptions",
-          "kind": "re-export",
-          "signature": "SandboxReaperOptions"
-        },
-        {
-          "name": "startSandboxReaper",
-          "kind": "re-export",
-          "signature": "startSandboxReaper"
-        },
-        {
-          "name": "ActivityEntry",
-          "kind": "re-export",
-          "signature": "ActivityEntry"
-        },
-        {
-          "name": "ToolCallData",
-          "kind": "re-export",
-          "signature": "ToolCallData"
-        },
-        {
-          "name": "SessionActivityBuffer",
-          "kind": "re-export",
-          "signature": "SessionActivityBuffer"
-        },
-        {
-          "name": "RoutineSessionContextConfig",
-          "kind": "re-export",
-          "signature": "RoutineSessionContextConfig"
-        },
-        {
-          "name": "RoutineSessionContextData",
-          "kind": "re-export",
-          "signature": "RoutineSessionContextData"
-        },
-        {
-          "name": "SessionContextConfig",
-          "kind": "re-export",
-          "signature": "SessionContextConfig"
-        },
-        {
-          "name": "SessionContextData",
-          "kind": "re-export",
-          "signature": "SessionContextData"
-        },
         {
           "name": "AgentTerminationReason",
           "kind": "re-export",
           "signature": "AgentTerminationReason"
         },
         {
-          "name": "crashSession",
+          "name": "RunOptions",
           "kind": "re-export",
-          "signature": "crashSession"
+          "signature": "RunOptions"
         },
         {
-          "name": "endSession",
+          "name": "RunResult",
           "kind": "re-export",
-          "signature": "endSession"
+          "signature": "RunResult"
         },
         {
-          "name": "recoverRequestedTerminations",
+          "name": "RunTransitionResult",
           "kind": "re-export",
-          "signature": "recoverRequestedTerminations"
+          "signature": "RunTransitionResult"
         },
         {
-          "name": "requestAgentTermination",
+          "name": "RunTransitionSpec",
           "kind": "re-export",
-          "signature": "requestAgentTermination"
+          "signature": "RunTransitionSpec"
         },
         {
-          "name": "SessionContext",
+          "name": "RuntimeDeps",
           "kind": "re-export",
-          "signature": "SessionContext"
+          "signature": "RuntimeDeps"
         },
         {
-          "name": "TERMINATION_DISPOSITIONS",
+          "name": "RuntimeHandle",
           "kind": "re-export",
-          "signature": "TERMINATION_DISPOSITIONS"
+          "signature": "RuntimeHandle"
         },
         {
-          "name": "TERMINATION_REASONS",
+          "name": "RuntimePorts",
           "kind": "re-export",
-          "signature": "TERMINATION_REASONS"
-        },
-        {
-          "name": "transitionAgentRunLifecycle",
-          "kind": "re-export",
-          "signature": "transitionAgentRunLifecycle"
-        },
-        {
-          "name": "AdmittedSession",
-          "kind": "re-export",
-          "signature": "AdmittedSession"
-        },
-        {
-          "name": "admitSession",
-          "kind": "re-export",
-          "signature": "admitSession"
-        },
-        {
-          "name": "BeforeHarnessStartContext",
-          "kind": "re-export",
-          "signature": "BeforeHarnessStartContext"
-        },
-        {
-          "name": "BeforeTeardownContext",
-          "kind": "re-export",
-          "signature": "BeforeTeardownContext"
-        },
-        {
-          "name": "captureMountedFilesystems",
-          "kind": "re-export",
-          "signature": "captureMountedFilesystems"
-        },
-        {
-          "name": "EMITTED_ROOTS_MCP_JSON",
-          "kind": "re-export",
-          "signature": "EMITTED_ROOTS_MCP_JSON"
-        },
-        {
-          "name": "mountFilesystemsForAgent",
-          "kind": "re-export",
-          "signature": "mountFilesystemsForAgent"
-        },
-        {
-          "name": "ProvisionSessionDeps",
-          "kind": "re-export",
-          "signature": "ProvisionSessionDeps"
-        },
-        {
-          "name": "ProvisionSessionParams",
-          "kind": "re-export",
-          "signature": "ProvisionSessionParams"
-        },
-        {
-          "name": "ProvisionSessionResult",
-          "kind": "re-export",
-          "signature": "ProvisionSessionResult"
-        },
-        {
-          "name": "provisionSession",
-          "kind": "re-export",
-          "signature": "provisionSession"
+          "signature": "RuntimePorts"
         },
         {
           "name": "runSession",
@@ -2590,69 +1910,19 @@
           "signature": "runSession"
         },
         {
-          "name": "startSessionProvision",
+          "name": "SessionActivityBuffer",
           "kind": "re-export",
-          "signature": "startSessionProvision"
+          "signature": "SessionActivityBuffer"
         },
         {
-          "name": "registerWorkerWsRoute",
+          "name": "startRuntime",
           "kind": "re-export",
-          "signature": "registerWorkerWsRoute"
+          "signature": "startRuntime"
         },
         {
-          "name": "WorkerConnectionManager",
+          "name": "transitionRun",
           "kind": "re-export",
-          "signature": "WorkerConnectionManager"
-        },
-        {
-          "name": "WritebackChange",
-          "kind": "re-export",
-          "signature": "WritebackChange"
-        },
-        {
-          "name": "WritebackConfig",
-          "kind": "re-export",
-          "signature": "WritebackConfig"
-        },
-        {
-          "name": "WritebackResult",
-          "kind": "re-export",
-          "signature": "WritebackResult"
-        },
-        {
-          "name": "isKnowledgePath",
-          "kind": "re-export",
-          "signature": "isKnowledgePath"
-        },
-        {
-          "name": "isSessionNotesPath",
-          "kind": "re-export",
-          "signature": "isSessionNotesPath"
-        },
-        {
-          "name": "processWriteback",
-          "kind": "re-export",
-          "signature": "processWriteback"
-        },
-        {
-          "name": "readManifest",
-          "kind": "re-export",
-          "signature": "readManifest"
-        },
-        {
-          "name": "writeManifest",
-          "kind": "re-export",
-          "signature": "writeManifest"
-        },
-        {
-          "name": "CaptureWritebackSubscriberDeps",
-          "kind": "re-export",
-          "signature": "CaptureWritebackSubscriberDeps"
-        },
-        {
-          "name": "registerCaptureWriteback",
-          "kind": "re-export",
-          "signature": "registerCaptureWriteback"
+          "signature": "transitionRun"
         }
       ]
     },
@@ -2666,187 +1936,39 @@
         "explicitSessionStarts",
         "agentLifecycleInbox"
       ],
-      "exposedApiCount": 58,
+      "surface": {
+        "service": "session-requests",
+        "layer": "agent-orchestration",
+        "methods": 13,
+        "types": 7,
+        "total": 20
+      },
+      "exposedApiCount": 20,
       "exposedApi": [
-        {
-          "name": "AgentLifecycleInboxFact",
-          "kind": "re-export",
-          "signature": "AgentLifecycleInboxFact"
-        },
-        {
-          "name": "deleteLifecycleInboxByRequestIds",
-          "kind": "re-export",
-          "signature": "deleteLifecycleInboxByRequestIds"
-        },
-        {
-          "name": "insertLifecycleInboxFactIfAbsent",
-          "kind": "re-export",
-          "signature": "insertLifecycleInboxFactIfAbsent"
-        },
-        {
-          "name": "listProjectedLifecycleInboxBefore",
-          "kind": "re-export",
-          "signature": "listProjectedLifecycleInboxBefore"
-        },
-        {
-          "name": "AGENT_LIFECYCLE_PROJECTORS",
-          "kind": "re-export",
-          "signature": "AGENT_LIFECYCLE_PROJECTORS"
-        },
-        {
-          "name": "AGENT_LIFECYCLE_SOURCE_KINDS",
-          "kind": "re-export",
-          "signature": "AGENT_LIFECYCLE_SOURCE_KINDS"
-        },
-        {
-          "name": "AGENT_LIFECYCLE_TERMINAL_STATES",
-          "kind": "re-export",
-          "signature": "AGENT_LIFECYCLE_TERMINAL_STATES"
-        },
         {
           "name": "AgentLifecycleFact",
           "kind": "re-export",
           "signature": "AgentLifecycleFact"
         },
         {
-          "name": "drainAgentLifecycleInbox",
+          "name": "ClaimOptions",
           "kind": "re-export",
-          "signature": "drainAgentLifecycleInbox"
+          "signature": "ClaimOptions"
         },
         {
-          "name": "startAgentLifecycleProjectionDrain",
+          "name": "CreateSessionRequestInput",
           "kind": "re-export",
-          "signature": "startAgentLifecycleProjectionDrain"
+          "signature": "CreateSessionRequestInput"
         },
         {
-          "name": "ClaimRequestOptions",
+          "name": "claimSessionRequest",
           "kind": "re-export",
-          "signature": "ClaimRequestOptions"
+          "signature": "claimSessionRequest"
         },
         {
-          "name": "claimAgentSessionRequestById",
+          "name": "createSessionRequest",
           "kind": "re-export",
-          "signature": "claimAgentSessionRequestById"
-        },
-        {
-          "name": "claimNextAgentSessionRequest",
-          "kind": "re-export",
-          "signature": "claimNextAgentSessionRequest"
-        },
-        {
-          "name": "createAgentSessionRequest",
-          "kind": "re-export",
-          "signature": "createAgentSessionRequest"
-        },
-        {
-          "name": "listAgentSessionRequestsBySource",
-          "kind": "re-export",
-          "signature": "listAgentSessionRequestsBySource"
-        },
-        {
-          "name": "listRunningAgentSessionRequests",
-          "kind": "re-export",
-          "signature": "listRunningAgentSessionRequests"
-        },
-        {
-          "name": "releaseRequestClaim",
-          "kind": "re-export",
-          "signature": "releaseRequestClaim"
-        },
-        {
-          "name": "renewAgentSessionRequestLease",
-          "kind": "re-export",
-          "signature": "renewAgentSessionRequestLease"
-        },
-        {
-          "name": "AGENT_WORK_INTENT_FAILURE_CODES",
-          "kind": "re-export",
-          "signature": "AGENT_WORK_INTENT_FAILURE_CODES"
-        },
-        {
-          "name": "AgentWorkIntentWorkerOptions",
-          "kind": "re-export",
-          "signature": "AgentWorkIntentWorkerOptions"
-        },
-        {
-          "name": "claimAgentWorkIntent",
-          "kind": "re-export",
-          "signature": "claimAgentWorkIntent"
-        },
-        {
-          "name": "renewAgentWorkIntentLease",
-          "kind": "re-export",
-          "signature": "renewAgentWorkIntentLease"
-        },
-        {
-          "name": "resolveAuthoritativeInput",
-          "kind": "re-export",
-          "signature": "resolveAuthoritativeInput"
-        },
-        {
-          "name": "AGENT_WORK_INTENT_KINDS",
-          "kind": "re-export",
-          "signature": "AGENT_WORK_INTENT_KINDS"
-        },
-        {
-          "name": "AGENT_WORK_RETENTION_BATCH_SIZE",
-          "kind": "re-export",
-          "signature": "AGENT_WORK_RETENTION_BATCH_SIZE"
-        },
-        {
-          "name": "AGENT_WORK_RETENTION_DAYS",
-          "kind": "re-export",
-          "signature": "AGENT_WORK_RETENTION_DAYS"
-        },
-        {
-          "name": "AgentWorkIntentDb",
-          "kind": "re-export",
-          "signature": "AgentWorkIntentDb"
-        },
-        {
-          "name": "AgentWorkIntentInput",
-          "kind": "re-export",
-          "signature": "AgentWorkIntentInput"
-        },
-        {
-          "name": "AgentWorkIntentKind",
-          "kind": "re-export",
-          "signature": "AgentWorkIntentKind"
-        },
-        {
-          "name": "drainAgentWorkIntents",
-          "kind": "re-export",
-          "signature": "drainAgentWorkIntents"
-        },
-        {
-          "name": "reapTerminalAgentWorkIntents",
-          "kind": "re-export",
-          "signature": "reapTerminalAgentWorkIntents"
-        },
-        {
-          "name": "recordAgentWorkIntent",
-          "kind": "re-export",
-          "signature": "recordAgentWorkIntent"
-        },
-        {
-          "name": "CreateExplicitSessionStartInput",
-          "kind": "re-export",
-          "signature": "CreateExplicitSessionStartInput"
-        },
-        {
-          "name": "createExplicitSessionStart",
-          "kind": "re-export",
-          "signature": "createExplicitSessionStart"
-        },
-        {
-          "name": "findSessionRequest",
-          "kind": "re-export",
-          "signature": "findSessionRequest"
-        },
-        {
-          "name": "AgentLifecycleProjectionDeps",
-          "kind": "re-export",
-          "signature": "AgentLifecycleProjectionDeps"
+          "signature": "createSessionRequest"
         },
         {
           "name": "DurableAgentQueueDeps",
@@ -2854,49 +1976,49 @@
           "signature": "DurableAgentQueueDeps"
         },
         {
-          "name": "LifecycleProjectionExplicitSessionStartWriter",
+          "name": "drainIntents",
           "kind": "re-export",
-          "signature": "LifecycleProjectionExplicitSessionStartWriter"
+          "signature": "drainIntents"
         },
         {
-          "name": "LifecycleProjectionRoutineWriter",
+          "name": "drainLifecycleProjections",
           "kind": "re-export",
-          "signature": "LifecycleProjectionRoutineWriter"
+          "signature": "drainLifecycleProjections"
         },
         {
-          "name": "LifecycleProjectionWorkWriter",
+          "name": "enqueueWorkIntent",
           "kind": "re-export",
-          "signature": "LifecycleProjectionWorkWriter"
+          "signature": "enqueueWorkIntent"
         },
         {
-          "name": "sessionRunRegistry",
+          "name": "FindQuery",
           "kind": "re-export",
-          "signature": "sessionRunRegistry"
+          "signature": "FindQuery"
         },
         {
-          "name": "SessionRequestExplicitStartTransition",
+          "name": "findSessionRequest",
           "kind": "re-export",
-          "signature": "SessionRequestExplicitStartTransition"
+          "signature": "findSessionRequest"
         },
         {
-          "name": "SessionRequestInTxTransition",
+          "name": "listSessionRequests",
           "kind": "re-export",
-          "signature": "SessionRequestInTxTransition"
+          "signature": "listSessionRequests"
         },
         {
-          "name": "SessionRequestRunningTransition",
+          "name": "reapExpired",
           "kind": "re-export",
-          "signature": "SessionRequestRunningTransition"
+          "signature": "reapExpired"
         },
         {
-          "name": "SessionRequestTerminalTransition",
+          "name": "releaseClaim",
           "kind": "re-export",
-          "signature": "SessionRequestTerminalTransition"
+          "signature": "releaseClaim"
         },
         {
-          "name": "SessionRequestTerminationRequestedTransition",
+          "name": "renewClaim",
           "kind": "re-export",
-          "signature": "SessionRequestTerminationRequestedTransition"
+          "signature": "renewClaim"
         },
         {
           "name": "SessionRequestTransition",
@@ -2904,59 +2026,24 @@
           "signature": "SessionRequestTransition"
         },
         {
+          "name": "startLifecycleProjectionDrain",
+          "kind": "re-export",
+          "signature": "startLifecycleProjectionDrain"
+        },
+        {
           "name": "transitionSessionRequest",
           "kind": "re-export",
           "signature": "transitionSessionRequest"
         },
         {
-          "name": "transitionSessionRequestInTx",
+          "name": "WorkIntentInput",
           "kind": "re-export",
-          "signature": "transitionSessionRequestInTx"
+          "signature": "WorkIntentInput"
         },
         {
-          "name": "createTriggeredAgentSessionRequest",
+          "name": "sessionRunRegistry",
           "kind": "re-export",
-          "signature": "createTriggeredAgentSessionRequest"
-        },
-        {
-          "name": "recordSessionForResolutionHistory",
-          "kind": "re-export",
-          "signature": "recordSessionForResolutionHistory"
-        },
-        {
-          "name": "resolveTriggerForSessionRequest",
-          "kind": "re-export",
-          "signature": "resolveTriggerForSessionRequest"
-        },
-        {
-          "name": "TriggeredSessionRequestInput",
-          "kind": "re-export",
-          "signature": "TriggeredSessionRequestInput"
-        },
-        {
-          "name": "TriggerResolutionConfigReader",
-          "kind": "re-export",
-          "signature": "TriggerResolutionConfigReader"
-        },
-        {
-          "name": "TriggerResolutionDeps",
-          "kind": "re-export",
-          "signature": "TriggerResolutionDeps"
-        },
-        {
-          "name": "TriggerResolutionSessionRequestPort",
-          "kind": "re-export",
-          "signature": "TriggerResolutionSessionRequestPort"
-        },
-        {
-          "name": "TriggerResolutionTeamReader",
-          "kind": "re-export",
-          "signature": "TriggerResolutionTeamReader"
-        },
-        {
-          "name": "TriggerResolutionUserReader",
-          "kind": "re-export",
-          "signature": "TriggerResolutionUserReader"
+          "signature": "sessionRunRegistry"
         }
       ]
     },
@@ -2964,6 +2051,13 @@
       "name": "tool-handlers",
       "layer": "agent-orchestration",
       "ownedTables": [],
+      "surface": {
+        "service": "tool-handlers",
+        "layer": "agent-orchestration",
+        "methods": 2,
+        "types": 1,
+        "total": 3
+      },
       "exposedApiCount": 3,
       "exposedApi": [
         {
@@ -2987,27 +2081,24 @@
       "name": "harness-registry",
       "layer": "agent-execution",
       "ownedTables": [],
-      "exposedApiCount": 79,
+      "surface": {
+        "service": "harness-registry",
+        "layer": "agent-execution",
+        "methods": 22,
+        "types": 13,
+        "total": 35
+      },
+      "exposedApiCount": 23,
       "exposedApi": [
         {
-          "name": "AssistantToolResult",
+          "name": "AdapterInfo",
           "kind": "re-export",
-          "signature": "AssistantToolResult"
+          "signature": "AdapterInfo"
         },
         {
-          "name": "AssistantToolShape",
+          "name": "AdapterMeta",
           "kind": "re-export",
-          "signature": "AssistantToolShape"
-        },
-        {
-          "name": "BuildToolRegistryOptions",
-          "kind": "re-export",
-          "signature": "BuildToolRegistryOptions"
-        },
-        {
-          "name": "ClaudeToolSpec",
-          "kind": "re-export",
-          "signature": "ClaudeToolSpec"
+          "signature": "AdapterMeta"
         },
         {
           "name": "HarnessAdapter",
@@ -3020,104 +2111,14 @@
           "signature": "HarnessCapabilityDescriptor"
         },
         {
-          "name": "ProposedCallWorkflowPort",
-          "kind": "re-export",
-          "signature": "ProposedCallWorkflowPort"
-        },
-        {
-          "name": "RegisteredTool",
-          "kind": "re-export",
-          "signature": "RegisteredTool"
-        },
-        {
-          "name": "RegistrySessionWorkflow",
-          "kind": "re-export",
-          "signature": "RegistrySessionWorkflow"
-        },
-        {
-          "name": "ToolContext",
-          "kind": "re-export",
-          "signature": "ToolContext"
-        },
-        {
-          "name": "ToolDefinition",
-          "kind": "re-export",
-          "signature": "ToolDefinition"
-        },
-        {
-          "name": "ToolHandler",
-          "kind": "re-export",
-          "signature": "ToolHandler"
-        },
-        {
           "name": "ToolRegistry",
           "kind": "re-export",
           "signature": "ToolRegistry"
         },
         {
-          "name": "ToolResult",
+          "name": "AdapterFilter",
           "kind": "re-export",
-          "signature": "ToolResult"
-        },
-        {
-          "name": "canonicalJson",
-          "kind": "re-export",
-          "signature": "canonicalJson"
-        },
-        {
-          "name": "classifyReversibility",
-          "kind": "re-export",
-          "signature": "classifyReversibility"
-        },
-        {
-          "name": "composeWorkflowAllowDeny",
-          "kind": "re-export",
-          "signature": "composeWorkflowAllowDeny"
-        },
-        {
-          "name": "err",
-          "kind": "re-export",
-          "signature": "err"
-        },
-        {
-          "name": "identityHash",
-          "kind": "re-export",
-          "signature": "identityHash"
-        },
-        {
-          "name": "ok",
-          "kind": "re-export",
-          "signature": "ok"
-        },
-        {
-          "name": "toClaudeToolSpec",
-          "kind": "re-export",
-          "signature": "toClaudeToolSpec"
-        },
-        {
-          "name": "toolsForRole",
-          "kind": "re-export",
-          "signature": "toolsForRole"
-        },
-        {
-          "name": "toRegistered",
-          "kind": "re-export",
-          "signature": "toRegistered"
-        },
-        {
-          "name": "wrapForRegistry",
-          "kind": "re-export",
-          "signature": "wrapForRegistry"
-        },
-        {
-          "name": "AdapterInfo",
-          "kind": "re-export",
-          "signature": "AdapterInfo"
-        },
-        {
-          "name": "AdapterMeta",
-          "kind": "re-export",
-          "signature": "AdapterMeta"
+          "signature": "AdapterFilter"
         },
         {
           "name": "AdapterPool",
@@ -3130,64 +2131,9 @@
           "signature": "createLocalAdapterPool"
         },
         {
-          "name": "SelectedEntry",
-          "kind": "re-export",
-          "signature": "SelectedEntry"
-        },
-        {
           "name": "SelectRequirements",
           "kind": "re-export",
           "signature": "SelectRequirements"
-        },
-        {
-          "name": "EMITTED_ROOTS_CLI_MCP_CONFIG",
-          "kind": "re-export",
-          "signature": "EMITTED_ROOTS_CLI_MCP_CONFIG"
-        },
-        {
-          "name": "WriteCliMcpConfigParams",
-          "kind": "re-export",
-          "signature": "WriteCliMcpConfigParams"
-        },
-        {
-          "name": "WriteCliMcpConfigResult",
-          "kind": "re-export",
-          "signature": "WriteCliMcpConfigResult"
-        },
-        {
-          "name": "writeCliMcpConfig",
-          "kind": "re-export",
-          "signature": "writeCliMcpConfig"
-        },
-        {
-          "name": "contextWindowForModel",
-          "kind": "re-export",
-          "signature": "contextWindowForModel"
-        },
-        {
-          "name": "DEFAULT_CONTEXT_WINDOW",
-          "kind": "re-export",
-          "signature": "DEFAULT_CONTEXT_WINDOW"
-        },
-        {
-          "name": "isAboveThreshold",
-          "kind": "re-export",
-          "signature": "isAboveThreshold"
-        },
-        {
-          "name": "MODEL_CONTEXT_WINDOWS",
-          "kind": "re-export",
-          "signature": "MODEL_CONTEXT_WINDOWS"
-        },
-        {
-          "name": "DisabledSandboxAdapter",
-          "kind": "re-export",
-          "signature": "DisabledSandboxAdapter"
-        },
-        {
-          "name": "checkCliHarnessAvailability",
-          "kind": "re-export",
-          "signature": "checkCliHarnessAvailability"
         },
         {
           "name": "createHarnessAdapter",
@@ -3195,174 +2141,49 @@
           "signature": "createHarnessAdapter"
         },
         {
-          "name": "createRemoteHarnessAdapter",
-          "kind": "re-export",
-          "signature": "createRemoteHarnessAdapter"
-        },
-        {
           "name": "HarnessAdapterSpec",
           "kind": "re-export",
           "signature": "HarnessAdapterSpec"
         },
         {
-          "name": "describeRegisteredHarness",
+          "name": "createMcpToolBridge",
           "kind": "re-export",
-          "signature": "describeRegisteredHarness"
+          "signature": "createMcpToolBridge"
         },
         {
-          "name": "KNOWN_HARNESS_FAMILIES",
+          "name": "McpToolBridge",
           "kind": "re-export",
-          "signature": "KNOWN_HARNESS_FAMILIES"
+          "signature": "McpToolBridge"
         },
         {
-          "name": "missingKnownHarnessDescriptors",
+          "name": "ProvisionOptions",
           "kind": "re-export",
-          "signature": "missingKnownHarnessDescriptors"
+          "signature": "ProvisionOptions"
         },
         {
-          "name": "BUILTIN_MODELS_FETCH_TIMEOUT_MS",
+          "name": "provisionHarnessEnvironment",
           "kind": "re-export",
-          "signature": "BUILTIN_MODELS_FETCH_TIMEOUT_MS"
+          "signature": "provisionHarnessEnvironment"
         },
         {
-          "name": "discoverLocalHarnesses",
+          "name": "createReturnEnforcement",
           "kind": "re-export",
-          "signature": "discoverLocalHarnesses"
+          "signature": "createReturnEnforcement"
         },
         {
-          "name": "HarnessDiscoveryInput",
+          "name": "ReturnEnforcementSpec",
           "kind": "re-export",
-          "signature": "HarnessDiscoveryInput"
-        },
-        {
-          "name": "HarnessDiscoveryResult",
-          "kind": "re-export",
-          "signature": "HarnessDiscoveryResult"
-        },
-        {
-          "name": "HarnessSessionProbeResult",
-          "kind": "re-export",
-          "signature": "HarnessSessionProbeResult"
-        },
-        {
-          "name": "parseClaudeModelsOutput",
-          "kind": "re-export",
-          "signature": "parseClaudeModelsOutput"
-        },
-        {
-          "name": "parseOpencodeModelsOutput",
-          "kind": "re-export",
-          "signature": "parseOpencodeModelsOutput"
-        },
-        {
-          "name": "probeClaudeCodeMcpList",
-          "kind": "re-export",
-          "signature": "probeClaudeCodeMcpList"
-        },
-        {
-          "name": "probeCodexMcpList",
-          "kind": "re-export",
-          "signature": "probeCodexMcpList"
-        },
-        {
-          "name": "probeEnvironmentClis",
-          "kind": "re-export",
-          "signature": "probeEnvironmentClis"
-        },
-        {
-          "name": "probeOpenCodeCli",
-          "kind": "re-export",
-          "signature": "probeOpenCodeCli"
-        },
-        {
-          "name": "probeOpencodeMcpList",
-          "kind": "re-export",
-          "signature": "probeOpencodeMcpList"
-        },
-        {
-          "name": "probeHarnessSession",
-          "kind": "re-export",
-          "signature": "probeHarnessSession"
-        },
-        {
-          "name": "LocalSandboxAdapter",
-          "kind": "re-export",
-          "signature": "LocalSandboxAdapter"
-        },
-        {
-          "name": "EMITTED_ROOTS_CLAUDE_SETTINGS",
-          "kind": "re-export",
-          "signature": "EMITTED_ROOTS_CLAUDE_SETTINGS"
-        },
-        {
-          "name": "EMITTED_ROOTS_CODEX_HOME",
-          "kind": "re-export",
-          "signature": "EMITTED_ROOTS_CODEX_HOME"
-        },
-        {
-          "name": "EMITTED_ROOTS_OPENCODE_PLUGIN",
-          "kind": "re-export",
-          "signature": "EMITTED_ROOTS_OPENCODE_PLUGIN"
-        },
-        {
-          "name": "ProvisionReturnHookOptions",
-          "kind": "re-export",
-          "signature": "ProvisionReturnHookOptions"
-        },
-        {
-          "name": "provisionReturnHook",
-          "kind": "re-export",
-          "signature": "provisionReturnHook"
-        },
-        {
-          "name": "createEnforcementRegistry",
-          "kind": "re-export",
-          "signature": "createEnforcementRegistry"
-        },
-        {
-          "name": "EnforcementEntry",
-          "kind": "re-export",
-          "signature": "EnforcementEntry"
-        },
-        {
-          "name": "EnforcementRegistry",
-          "kind": "re-export",
-          "signature": "EnforcementRegistry"
-        },
-        {
-          "name": "enforcementRegistry",
-          "kind": "re-export",
-          "signature": "enforcementRegistry"
-        },
-        {
-          "name": "createReturnGate",
-          "kind": "re-export",
-          "signature": "createReturnGate"
-        },
-        {
-          "name": "evaluateReturn",
-          "kind": "re-export",
-          "signature": "evaluateReturn"
-        },
-        {
-          "name": "ReturnGate",
-          "kind": "re-export",
-          "signature": "ReturnGate"
-        },
-        {
-          "name": "ReturnVerdict",
-          "kind": "re-export",
-          "signature": "ReturnVerdict"
-        },
-        {
-          "name": "ReturnStatusResult",
-          "kind": "re-export",
-          "signature": "ReturnStatusResult"
+          "signature": "ReturnEnforcementSpec"
         },
         {
           "name": "returnStatusTool",
           "kind": "re-export",
           "signature": "returnStatusTool"
+        },
+        {
+          "name": "createSandboxAdapter",
+          "kind": "re-export",
+          "signature": "createSandboxAdapter"
         },
         {
           "name": "ExecResult",
@@ -3417,7 +2238,7 @@
         "currentBranch"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// git-export — ...\", line 88) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "filesystems",
@@ -3427,7 +2248,7 @@
         "resolve"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// connections — ...\", line 137) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "git-export",
@@ -3438,7 +2259,7 @@
         "update"
       ],
       "confidence": "high",
-      "resolutionNote": "Manually verified — target is stated only in free-form prose, not a mechanically-detectable convention. See MANUAL_OVERRIDES in this script."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "git-export",
@@ -3449,7 +2270,7 @@
         "getProjectionByItemId"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// knowledge — ...\", line 69) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// knowledge — ...\", line 65) — method names are generic aliases wired at the composition root, not a literal name match."
     },
     {
       "source": "model-gateway",
@@ -3459,7 +2280,7 @@
         "resolve"
       ],
       "confidence": "high",
-      "resolutionNote": "Manually verified — target is stated only in free-form prose, not a mechanically-detectable convention. See MANUAL_OVERRIDES in this script."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "notifications",
@@ -3470,7 +2291,7 @@
         "update"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// settings — ...\", line 71) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "notifications",
@@ -3480,7 +2301,7 @@
         "getUserById"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 129) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "notifications",
@@ -3490,7 +2311,7 @@
         "getTeamMembersById"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 138) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "notifications",
@@ -3501,17 +2322,7 @@
         "getItemById"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// work — ...\", line 151) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "notifications",
-      "target": "conversation",
-      "portInterface": "NotificationsVerdictReader",
-      "methods": [
-        "listVerdictItemIds"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// conversation — ...\", line 166) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "notifications",
@@ -3522,7 +2333,7 @@
         "decryptCredentialValue"
       ],
       "confidence": "high",
-      "resolutionNote": "Header comment (line 175) AND 2/2 real-export name match(es) agree on connections."
+      "resolutionNote": "All 2 method name(s) matched real exports of connections."
     },
     {
       "source": "notifications",
@@ -3534,7 +2345,7 @@
         "deleteByName"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// connections — ...\", line 194) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "org",
@@ -3545,105 +2356,8 @@
         "insertUser",
         "listUsersByKind"
       ],
-      "confidence": "medium",
-      "resolutionNote": "1/3 method name(s) matched real exports of users; remaining method(s) unmatched or ambiguous."
-    },
-    {
-      "source": "policy",
-      "target": "work",
-      "portInterface": "PolicyWorkStore",
-      "methods": [
-        "getItemById",
-        "updateItemById",
-        "listItemIdsBySourceAgent",
-        "getTaskById",
-        "updateTaskById",
-        "createItem",
-        "getBetById",
-        "transitionBetStatus",
-        "transitionTaskState",
-        "listTasks"
-      ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// work — ...\", line 94) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "policy",
-      "target": "conversation",
-      "portInterface": "PolicyConversationStore",
-      "methods": [
-        "insertMessage",
-        "updateMessage",
-        "listMessagesByThread",
-        "insertThread",
-        "updateThread",
-        "listInitiatedVerdictMessages",
-        "listVerdictMessagesByItemIds"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Header comment (line 118) AND 4/7 real-export name match(es) agree on conversation."
-    },
-    {
-      "source": "policy",
-      "target": "users",
-      "portInterface": "PolicyUserDirectory",
-      "methods": [
-        "getUserById",
-        "getFirstUserByKind",
-        "findActiveTeammateByRole"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 179) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "policy",
-      "target": "org",
-      "portInterface": "PolicyOrgTeamReader",
-      "methods": [
-        "getByTeamId"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 195) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "policy",
-      "target": "notifications",
-      "portInterface": "PolicySilenceChecker",
-      "methods": [
-        "isSilenced"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Header comment (line 209) AND 1/1 real-export name match(es) agree on notifications."
-    },
-    {
-      "source": "policy",
-      "target": "notifications",
-      "portInterface": "PolicyNotificationQueue",
-      "methods": [
-        "insert"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// notifications — ...\", line 209) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "policy",
-      "target": "session-requests",
-      "portInterface": "PolicyAgentWorkIntentRecorder",
-      "methods": [
-        "record"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// session-requests — ...\", line 237) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "policy",
-      "target": "session-requests",
-      "portInterface": "PolicySessionRunRegistry",
-      "methods": [
-        "abort"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// session-requests — ...\", line 237) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "realtime",
@@ -3687,13 +2401,13 @@
     },
     {
       "source": "review",
-      "target": "(unresolved)",
+      "target": "session-requests",
       "portInterface": "ReviewAgentWorkIntentRecorder",
       "methods": [
         "record"
       ],
-      "confidence": "unresolved",
-      "resolutionNote": "No section-header comment and no method name matched any Service's real exports — likely a pure-type structural mirror, not a functional edge. Needs manual check."
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "settings",
@@ -3703,7 +2417,7 @@
         "listRoutines"
       ],
       "confidence": "high",
-      "resolutionNote": "Header comment (line 109) AND 1/1 real-export name match(es) agree on routine."
+      "resolutionNote": "All 1 method name(s) matched real exports of routine."
     },
     {
       "source": "settings",
@@ -3713,7 +2427,7 @@
         "listUsersByKind"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 118) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "settings",
@@ -3724,28 +2438,7 @@
         "decryptCredentialValue"
       ],
       "confidence": "high",
-      "resolutionNote": "Header comment (line 127) AND 2/2 real-export name match(es) agree on connections."
-    },
-    {
-      "source": "settings",
-      "target": "connections",
-      "portInterface": "ServiceConnectionsReader",
-      "methods": [
-        "listByAuthSource"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// connections — ...\", line 145) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "settings",
-      "target": "connections",
-      "portInterface": "SettingsCredentialStore",
-      "methods": [
-        "findByName",
-        "insert"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// connections — ...\", line 161) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "All 2 method name(s) matched real exports of connections."
     },
     {
       "source": "work",
@@ -3755,19 +2448,18 @@
         "record"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// session-requests — ...\", line 117) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// session-requests — ...\", line 113) — method names are generic aliases wired at the composition root, not a literal name match."
     },
     {
       "source": "work",
       "target": "agent-selection",
       "portInterface": "AgentSelectionDefaults",
       "methods": [
-        "enumerateTeamCandidates",
-        "selectOwner",
-        "resolveDecompositionPlan"
+        "listCandidates",
+        "selectAgent"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// agent-selection — ...\", line 146) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// agent-selection — ...\", line 148) — method names are generic aliases wired at the composition root, not a literal name match."
     },
     {
       "source": "work",
@@ -3777,7 +2469,7 @@
         "checkCostCap"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// cost — ...\", line 195) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// cost — ...\", line 181) — method names are generic aliases wired at the composition root, not a literal name match."
     },
     {
       "source": "work",
@@ -3788,7 +2480,7 @@
         "listActiveAiUsersByTeams"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 221) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 207) — method names are generic aliases wired at the composition root, not a literal name match."
     },
     {
       "source": "work",
@@ -3799,495 +2491,150 @@
         "setActiveBets"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 250) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "agent-selection",
-      "target": "users",
-      "portInterface": "AgentSelectionUserReader",
-      "methods": [
-        "getUserById",
-        "listActiveAiUsersByTeams"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 43) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "agent-selection",
-      "target": "org",
-      "portInterface": "AgentSelectionTeamReader",
-      "methods": [
-        "getTeamMembersByTeamId"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 53) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "cost",
-      "target": "users",
-      "portInterface": "CostUserAccessor",
-      "methods": [
-        "getUserById",
-        "incrementUserCost",
-        "resetAllUserCost",
-        "sumAllUserCost",
-        "updateUser"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Header comment (line 96) AND 4/5 real-export name match(es) agree on users."
-    },
-    {
-      "source": "cost",
-      "target": "org",
-      "portInterface": "CostTeamAccessor",
-      "methods": [
-        "getTeamMembersById",
-        "incrementTeamMembersCost",
-        "resetTeamMembersCost",
-        "resetAllTeamMembersCost"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 115) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "cost",
-      "target": "work",
-      "portInterface": "CostWorkAccessor",
-      "methods": [
-        "getTaskById",
-        "incrementBetCost",
-        "createItem"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// work — ...\", line 133) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "cost",
-      "target": "settings",
-      "portInterface": "CostSettingsAccessor",
-      "methods": [
-        "readServerConfig",
-        "updateServerConfig"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Header comment (line 179) AND 2/2 real-export name match(es) agree on settings."
+      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 236) — method names are generic aliases wired at the composition root, not a literal name match."
     },
     {
       "source": "dispatch",
       "target": "work",
-      "portInterface": "DispatchWorkAccessor",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "listTasks",
-        "getTaskById",
-        "getBetById",
-        "createItem",
-        "findRetroItemByThreadIds"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// work — ...\", line 97) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "routine",
-      "portInterface": "DispatchRoutineAccessor",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "insertRoutine",
-        "getRoutineById",
-        "insertRoutineRun",
-        "updateRoutineById",
-        "findRunningRoutineRun",
-        "listActiveRoutines",
-        "listScheduledRoutinesMissingNextRunAt",
-        "sumRoutineRunCostSince"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Header comment (line 114) AND 2/8 real-export name match(es) agree on routine."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "conversation",
-      "portInterface": "DispatchConversationAccessor",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "insertMessage",
-        "listMessagesByThread",
-        "getThreadById",
-        "updateThread",
-        "getThreadIdsByHost",
-        "insertThread"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Header comment (line 148) AND 3/6 real-export name match(es) agree on conversation."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "users",
-      "portInterface": "DispatchUserAccessor",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "getOrCreateUser",
-        "getUserById"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Header comment (line 166) AND 1/2 real-export name match(es) agree on users."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "settings",
-      "portInterface": "DispatchSettingsAccessor",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "readServerConfig"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Header comment (line 176) AND 1/1 real-export name match(es) agree on settings."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "model-gateway",
-      "portInterface": "DispatchCredentialResolver",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "resolve"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// model-gateway — ...\", line 191) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "dispatch",
-      "target": "model-gateway",
-      "portInterface": "DispatchModelGatewayAccessor",
-      "methods": [
-        "resolveAgentModel",
-        "resolveModelTier"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// model-gateway — ...\", line 191) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "agent-selection",
-      "portInterface": "DispatchAgentSelectionAccessor",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "resolveScaffoldSpecs"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// agent-selection — ...\", line 230) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "run-orchestration",
-      "portInterface": "DispatchProvisionDeps",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "onHarnessStarted"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// run-orchestration — ...\", line 271) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "dispatch",
-      "target": "run-orchestration",
-      "portInterface": "DispatchRunOrchestrationAccessor",
-      "methods": [
-        "executeAgentRunRequest"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Header comment (line 271) AND 1/1 real-export name match(es) agree on run-orchestration."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "session-requests",
-      "portInterface": "DispatchSessionRequestsAccessor",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "recordAgentWorkIntent"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Header comment (line 338) AND 1/1 real-export name match(es) agree on session-requests."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "cost",
-      "portInterface": "DispatchCostAccessor",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "getFactoryCostActual"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// cost — ...\", line 366) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "review",
-      "portInterface": "DispatchReviewAccessor",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "createPracticeMeeting"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// review — ...\", line 375) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "knowledge",
-      "portInterface": "DispatchKnowledgeAccessor",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "runAutoPromotionSweep",
-        "runStaleSweep",
-        "listRecentByLayers",
-        "recomputeAttentionForCandidates"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Header comment (line 400) AND 2/4 real-export name match(es) agree on knowledge."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "dispatch",
       "target": "tool-handlers",
-      "portInterface": "DispatchToolContext",
+      "portInterface": "DispatchPorts",
       "methods": [
-        "ingestion"
+        "runOrchestration",
+        "toolHandlers"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// tool-handlers — ...\", line 457) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "dispatch",
-      "target": "tool-handlers",
-      "portInterface": "DispatchToolHandlersAccessor",
-      "methods": [
-        "buildAssistantDraftRegistry"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Header comment (line 457) AND 1/1 real-export name match(es) agree on tool-handlers."
-    },
-    {
-      "source": "dispatch",
-      "target": "tool-handlers",
-      "portInterface": "DispatchWorkspaceFactory",
-      "methods": [
-        "create"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// tool-handlers — ...\", line 457) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "run-orchestration",
-      "target": "session-requests",
-      "portInterface": "RunOrchestrationSessionRequestsPort",
-      "methods": [
-        "findAgentSessionRequestById",
-        "listAgentSessionRequestsBySource",
-        "listRunningAgentSessionRequests",
-        "isAgentSessionRequestClaimActive",
-        "claimNextAgentSessionRequest",
-        "claimAgentSessionRequestById",
-        "releaseRequestClaim",
-        "renewAgentSessionRequestLease",
-        "markRequestRunning",
-        "findAgentWorkIntentSourceByRequestId",
-        "drainAgentWorkIntents",
-        "reapTerminalAgentWorkIntents",
-        "findExplicitSessionStartById",
-        "markExplicitSessionStartAdmitted",
-        "markExplicitSessionStartFailed"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Header comment (line 87) AND 8/15 real-export name match(es) agree on session-requests."
-    },
-    {
-      "source": "run-orchestration",
-      "target": "session-requests",
-      "portInterface": "RunOrchestrationSessionLifecycleRuntime",
-      "methods": [
-        "requestAgentTermination",
-        "recoverRequestedTerminations",
-        "transitionAgentRunLifecycle",
-        "crashSession"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// session-requests — ...\", line 87) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "run-orchestration",
-      "target": "dispatch",
-      "portInterface": "RunOrchestrationDispatchPort",
-      "methods": [
-        "executeAssistantRequest"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// dispatch — ...\", line 235) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "run-orchestration",
-      "target": "harness-registry",
-      "portInterface": "RunOrchestrationRemoteWorkerAdapter",
-      "methods": [
-        "dispatchMessage"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// harness-registry — ...\", line 247) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "run-orchestration",
-      "target": "harness-registry",
-      "portInterface": "RunOrchestrationAdapterPool",
-      "methods": [
-        "has",
-        "register",
-        "unregister",
-        "pause",
-        "resume"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// harness-registry — ...\", line 247) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "run-orchestration",
-      "target": "harness-registry",
-      "portInterface": "RunOrchestrationRemoteHarnessAdapterFactory",
-      "methods": [
-        "create"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// harness-registry — ...\", line 247) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "routine",
-      "portInterface": "SessionRequestsRoutineReader",
-      "methods": [
-        "getRoutineRunById",
-        "getRoutineById",
-        "updateRoutineRunIfRunning"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// routine — ...\", line 113) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "work",
-      "portInterface": "SessionRequestsWorkReader",
-      "methods": [
-        "getTaskById",
-        "getBetById"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// work — ...\", line 135) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "agent-selection",
-      "portInterface": "SessionRequestsAgentSelector",
-      "methods": [
-        "isAgentAtWipLimit",
-        "selectAgentByAppDefaults"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// agent-selection — ...\", line 145) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "conversation",
-      "portInterface": "SessionRequestsConversationReader",
-      "methods": [
-        "getMessageById"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// conversation — ...\", line 182) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "users",
-      "portInterface": "SessionRequestsUserReader",
-      "methods": [
-        "getUserById",
-        "listUsersByTeam"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 191) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "org",
-      "portInterface": "SessionRequestsTeamReader",
-      "methods": [
-        "getTeamMembersByTeamId"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 201) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "knowledge",
-      "portInterface": "SessionRequestsKnowledgeReader",
-      "methods": [
-        "findById"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// knowledge — ...\", line 210) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "review",
-      "portInterface": "SessionRequestsReviewReader",
-      "methods": [
-        "findGrantedProposedCall"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// review — ...\", line 219) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "review",
-      "portInterface": "SessionRequestsTriggerInput",
-      "methods": [
-        "buildSourceCorrelation"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// review — ...\", line 219) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "review",
-      "portInterface": "SessionRequestsTriggerResolver",
-      "methods": [
-        "resolveAndCreate"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// review — ...\", line 219) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "review",
-      "portInterface": "SessionRequestsTriggerHistoryWriter",
-      "methods": [
-        "recordSessionForResolutionHistory"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// review — ...\", line 219) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "review",
-      "portInterface": "LifecycleProjectionRoutineWriter",
-      "methods": [
-        "updateRoutineRunIfRunning"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// review — ...\", line 219) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "review",
-      "portInterface": "LifecycleProjectionWorkWriter",
-      "methods": [
-        "updateBetDecompositionStatusIfRunning"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// review — ...\", line 219) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "session-requests",
-      "target": "review",
-      "portInterface": "LifecycleProjectionExplicitSessionStartWriter",
-      "methods": [
-        "projectTerminalState"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// review — ...\", line 219) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "tool-handlers",
@@ -4308,19 +2655,19 @@
         "findItemByReasoningMarker",
         "createArtifact"
       ],
-      "confidence": "medium",
-      "resolutionNote": "1/13 method name(s) matched real exports of work; remaining method(s) unmatched or ambiguous."
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "tool-handlers",
-      "target": "(unresolved)",
+      "target": "users",
       "portInterface": "ToolHandlersUsersAccessor",
       "methods": [
         "getUserById",
         "listUsersByTeam"
       ],
-      "confidence": "unresolved",
-      "resolutionNote": "No section-header comment and no method name matched any Service's real exports — likely a pure-type structural mirror, not a functional edge. Needs manual check."
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "tool-handlers",
@@ -4335,8 +2682,8 @@
         "findOrCreateDirectThread",
         "getFirstThreadByHost"
       ],
-      "confidence": "medium",
-      "resolutionNote": "4/7 method name(s) matched real exports of conversation; remaining method(s) unmatched or ambiguous."
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "tool-handlers",
@@ -4351,18 +2698,18 @@
         "resolveReviewRecipientsForItem",
         "persistScaffoldedAgents"
       ],
-      "confidence": "medium",
-      "resolutionNote": "3/7 method name(s) matched real exports of org; remaining method(s) unmatched or ambiguous."
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "tool-handlers",
-      "target": "(unresolved)",
+      "target": "agent-selection",
       "portInterface": "ToolHandlersAgentSelectionAccessor",
       "methods": [
-        "resolveAgentScaffoldSpecs"
+        "resolveScaffoldSpecs"
       ],
-      "confidence": "unresolved",
-      "resolutionNote": "No section-header comment and no method name matched any Service's real exports — likely a pure-type structural mirror, not a functional edge. Needs manual check."
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "tool-handlers",
@@ -4373,20 +2720,18 @@
         "getRoutineById",
         "updateRoutineById"
       ],
-      "confidence": "medium",
-      "resolutionNote": "1/3 method name(s) matched real exports of routine; remaining method(s) unmatched or ambiguous."
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "tool-handlers",
       "target": "dispatch",
       "portInterface": "ToolHandlersDispatchAccessor",
       "methods": [
-        "nextCronMatch",
-        "parseCron",
         "provisionTeamRoutines"
       ],
-      "confidence": "medium",
-      "resolutionNote": "2/3 method name(s) matched real exports of dispatch; remaining method(s) unmatched or ambiguous."
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "tool-handlers",
@@ -4403,8 +2748,8 @@
         "upsertKnowledgeAppProjectionAttentionScore",
         "recomputeAttentionScoreForItem"
       ],
-      "confidence": "medium",
-      "resolutionNote": "6/9 method name(s) matched real exports of knowledge; remaining method(s) unmatched or ambiguous."
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "tool-handlers",
@@ -4414,7 +2759,7 @@
         "handoff"
       ],
       "confidence": "high",
-      "resolutionNote": "Manually verified — target is stated only in free-form prose, not a mechanically-detectable convention. See MANUAL_OVERRIDES in this script."
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     }
   ],
   "eventEdges": [
@@ -4426,6 +2771,11 @@
     {
       "source": "policy",
       "target": "cost",
+      "eventType": "session_handoff_completed"
+    },
+    {
+      "source": "policy",
+      "target": "run-orchestration",
       "eventType": "session_handoff_completed"
     },
     {
@@ -4526,10 +2876,15 @@
   ],
   "summary": {
     "totalServices": 23,
-    "totalPortEdges": 89,
-    "highConfidence": 79,
-    "mediumConfidence": 7,
-    "unresolved": 3,
-    "totalEventEdges": 21
+    "totalPortEdges": 48,
+    "highConfidence": 48,
+    "mediumConfidence": 0,
+    "unresolved": 0,
+    "totalEventEdges": 22,
+    "surface": {
+      "methods": 231,
+      "types": 181,
+      "total": 412
+    }
   }
 }
