@@ -27,6 +27,7 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import {
+	applyMigrations,
 	createPgliteDb,
 	createPostgresDb,
 	type DbHandle,
@@ -501,7 +502,7 @@ export interface CreateServerDeps {
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
-	readonly dispose: () => void;
+	readonly dispose: () => Promise<void>;
 	readonly credentialResolver: CredentialResolver;
 }
 
@@ -613,6 +614,17 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		const rawDbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
 		const dbUrl = profile.dbDriver === "pglite" ? resolvePglitePath(rawDbUrl) : rawDbUrl;
 		if (profile.dbDriver === "pglite") {
+			// @lore Remote-server and direct createServer consumers do not have the
+			// desktop migration preflight. Migrate the on-disk PGlite database before
+			// any boot-time Service query; otherwise a clean checkout crashes on
+			// server_config before the HTTP server binds.
+			if (dbUrl !== ":memory:") {
+				const migrationsFolder = path.resolve(
+					path.dirname(new URL(import.meta.url).pathname),
+					"../../db/drizzle",
+				);
+				await applyMigrations(dbUrl, migrationsFolder);
+			}
 			dbHandle = await createPgliteDb(dbUrl);
 		} else {
 			dbHandle = createPostgresDb(dbUrl);
@@ -924,7 +936,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		websocket: { server: wss },
 	});
 
-	const dispose = (): void => {
+	const dispose = async (): Promise<void> => {
 		// @lore I1 M1: tear down event-bus subscriptions first so none of the
 		// five createApp-registered handlers (session-review-creator,
 		// policy-engine, builtin-routines, git-export, notification-dispatcher,
@@ -941,17 +953,17 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// still-running correlated request BEFORE the process tears down, so a
 		// later boot's recovery sweep disposes it via the reason (failed/
 		// RUNTIME_LOST) instead of a generic guess. Never blocks teardown.
-		void markRunningAgentSessionRequestsForShutdown(db).catch(() => {});
+		await markRunningAgentSessionRequestsForShutdown(db).catch(() => {});
 		disposeApp(app);
 		if (wsDispose) {
 			wsDispose();
 			wsDispose = null;
 		}
-		httpServer.close();
+		await new Promise<void>((resolve) => httpServer.close(() => resolve()));
 		// AF7 §1: only close the DB we own. When a test injected `deps.db`, the
 		// fixture owns its lifecycle — closing it here would break the test harness.
 		if (dbHandle) {
-			void dbHandle.close();
+			await dbHandle.close();
 		}
 	};
 
