@@ -20,7 +20,7 @@
  * tries to.
  */
 import { createServer } from "@hyperidle/core-api/server-factory";
-import { AdapterPool, DisabledSandboxAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createLogger, validateStartupEnv } from "@hyperidle/shared";
 
 const log = createLogger({ pkg: "remote-server" });
@@ -35,7 +35,7 @@ const port = Number(process.env.PORT) || 3001;
 
 createServer(port, {
 	adapterPool: new AdapterPool(),
-	workspaceAdapter: new DisabledSandboxAdapter(),
+	workspaceAdapter: createSandboxAdapter("disabled"),
 }).then(() => {
 	log.info(`remote-server running on http://localhost:${port}`);
 });

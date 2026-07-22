@@ -1,0 +1,68 @@
+import {
+	type EnforcementEntry,
+	type EnforcementRegistry,
+	type HarnessEvent,
+	isReturnAction,
+} from "@hyperidle/shared";
+
+export interface ReturnEnforcementSpec {
+	readonly isolated?: boolean;
+}
+
+interface ReturnGate {
+	observe(event: HarnessEvent): void;
+	readonly returned: boolean;
+}
+
+interface ReturnEnforcement extends EnforcementRegistry {
+	createGate(): ReturnGate;
+	observe(gate: ReturnGate, event: HarnessEvent): void;
+	evaluate(
+		gate: ReturnGate,
+		endReason: "completed" | "crashed" | "stopped" | "budget_exhausted",
+	): "returned" | "not_returned";
+}
+
+function buildReturnEnforcement(): ReturnEnforcement {
+	const entries = new Map<string, EnforcementEntry>();
+	return {
+		register(sessionId, entry) {
+			entries.set(sessionId, entry);
+		},
+		get(sessionId) {
+			return entries.get(sessionId);
+		},
+		incrementForce(sessionId) {
+			const entry = entries.get(sessionId);
+			if (entry) entry.forceCount += 1;
+		},
+		unregister(sessionId) {
+			entries.delete(sessionId);
+		},
+		createGate() {
+			let returned = false;
+			return {
+				observe(event) {
+					if (event.type === "tool_call" && isReturnAction(event.toolName, event.args)) {
+						returned = true;
+					}
+				},
+				get returned() {
+					return returned;
+				},
+			};
+		},
+		observe(gate, event) {
+			gate.observe(event);
+		},
+		evaluate(gate, endReason) {
+			return endReason !== "completed" || gate.returned ? "returned" : "not_returned";
+		},
+	};
+}
+
+const sharedEnforcement = buildReturnEnforcement();
+
+export function createReturnEnforcement(spec: ReturnEnforcementSpec = {}): ReturnEnforcement {
+	return spec.isolated ? buildReturnEnforcement() : sharedEnforcement;
+}

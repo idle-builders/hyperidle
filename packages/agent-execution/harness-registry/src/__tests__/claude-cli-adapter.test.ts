@@ -14,7 +14,10 @@ import { EventEmitter } from "node:events";
 import type { HarnessEvent } from "@hyperidle/shared";
 import { preMapClaudeEvent } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
-import { CLAUDE_CLI_CONFIG } from "../adapter-pool.js";
+import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+
+const CLAUDE_CLI_CONFIG = cliAdapterFixture("claude");
+
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 
 // ── 1. CLAUDE_CLI_CONFIG shape ────────────────────────────────────────────────

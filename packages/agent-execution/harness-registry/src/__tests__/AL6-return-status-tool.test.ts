@@ -19,7 +19,7 @@
  *   - buildToolRegistry gains extraTools option (Task 3 wiring)
  */
 
-import { createEnforcementRegistry } from "@hyperidle/harness-registry";
+import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import * as sharedAll from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { returnStatusTool } from "../return-status-tool.js";
@@ -28,6 +28,7 @@ import { returnStatusTool } from "../return-status-tool.js";
 const sharedNs = sharedAll as Record<string, any>;
 const AL6_FORCE_RETURN_MESSAGE: string = sharedNs.AL6_FORCE_RETURN_MESSAGE;
 const AL6_MAX_FORCE_RETURNS: number = sharedNs.AL6_MAX_FORCE_RETURNS;
+const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

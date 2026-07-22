@@ -35,7 +35,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-export interface WriteCliMcpConfigParams {
+interface HarnessMcpConfigParams {
 	/** Which binary's config dialect to produce. */
 	readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
 	/** Absolute path of the per-session sandbox directory. */
@@ -46,7 +46,7 @@ export interface WriteCliMcpConfigParams {
 	readonly token: string;
 }
 
-export interface WriteCliMcpConfigResult {
+interface HarnessMcpConfigResult {
 	/**
 	 * For codex-toml: { HYPERIDLE_MCP_TOKEN: token } — must be injected onto
 	 * the spawn env OUTSIDE the envAllowlist (per-session, not from process.env).
@@ -73,12 +73,9 @@ export interface WriteCliMcpConfigResult {
  * - opencode-json: writes opencode.json in the sandbox root.
  * Exported so the AO2 scaffolding-drift-guard can assert coverage.
  *
- * @lore AO2: .codex-home is already listed in EMITTED_ROOTS_CODEX_HOME (from
- * provisionCodexHome). opencode.json is a new root not covered elsewhere.
+ * The Codex home and OpenCode config are both rooted inside the session sandbox.
  */
-export const EMITTED_ROOTS_CLI_MCP_CONFIG = ["opencode.json"] as const;
-
-export function writeCliMcpConfig(params: WriteCliMcpConfigParams): WriteCliMcpConfigResult {
+function writeHarnessMcpConfig(params: HarnessMcpConfigParams): HarnessMcpConfigResult {
 	const { dialect, sandboxPath, mcpUrl, token } = params;
 
 	switch (dialect) {
@@ -99,7 +96,7 @@ function writeCodexToml(params: {
 	sandboxPath: string;
 	mcpUrl: string;
 	token: string;
-}): WriteCliMcpConfigResult {
+}): HarnessMcpConfigResult {
 	const { sandboxPath, mcpUrl, token } = params;
 
 	const codexHomeDir = path.join(sandboxPath, ".codex-home");
@@ -135,7 +132,7 @@ function writeOpencodeJson(params: {
 	sandboxPath: string;
 	mcpUrl: string;
 	token: string;
-}): WriteCliMcpConfigResult {
+}): HarnessMcpConfigResult {
 	const { sandboxPath, mcpUrl, token } = params;
 
 	const opencodeJsonPath = path.join(sandboxPath, "opencode.json");
@@ -172,7 +169,7 @@ function writeCursorJson(params: {
 	sandboxPath: string;
 	mcpUrl: string;
 	token: string;
-}): WriteCliMcpConfigResult {
+}): HarnessMcpConfigResult {
 	const { sandboxPath, mcpUrl, token } = params;
 
 	const cursorDir = path.join(sandboxPath, ".cursor");
@@ -195,3 +192,5 @@ function writeCursorJson(params: {
 	fs.writeFileSync(mcpJsonPath, JSON.stringify(config, null, 2), "utf-8");
 	return {};
 }
+
+export { writeHarnessMcpConfig };

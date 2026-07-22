@@ -1,67 +1,68 @@
-/**
- * AV2 — opencode model discovery integration test (harness-facing, real binary)
- *
- * AC-2: requireHarness('opencode') — real binary, zero stub, hard-fail if absent.
- * Runs opencode models --verbose through probeOpenCodeCli and asserts:
- *  - descriptor.models is non-empty (opencode has models configured)
- *  - each model has {id, label, contextWindow} shape
- *
- * Per the honest-harness rule: no skipIf, no mock of opencode, hard-fail if absent.
- * This test is LOCAL ONLY (test:integration); result rides the attestation.
- *
- * @lore AV2: discovery tests for builtin/codex/claude are unit tests (stubs OK);
- * opencode is the one requiring a real-binary integration test per the dod.
- * The plan specifies this as a harness-facing integration test, gated by
- * requireHarness('opencode'), not a skipIf.
- *
- * NOTE: The honest-harness-guard lint checks for equal coverage across all 4
- * supported harnesses for harness-facing integration tests. This test is
- * PROBE-ONLY — it tests the CLI model-enumeration probe (not provisionSession),
- * which is a single-harness path by construction. We register this in
- * BUILTIN_ONLY_INTEGRATION (or a similar exemption) because the probe itself
- * is opencode-only; the other harnesses use parser unit tests.
- */
-
+import type {
+	HarnessAdapter,
+	HarnessCapabilities,
+	HarnessEvent,
+	SessionConfig,
+	SessionHandle,
+	SessionResult,
+} from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
-import { probeOpenCodeCli } from "../harness-discovery.js";
+import { AdapterPool } from "../adapter-pool.js";
+import { discoverLocalHarnesses } from "../harness-discovery.js";
 import { requireHarness } from "./require-harness.js";
 
-describe("opencode model probe — real binary, non-empty when configured", () => {
-	test("probeOpenCodeCli with real binary yields non-empty models when configured", async () => {
-		// Hard-fail if opencode is not installed
-		requireHarness("opencode");
+function adapter(): HarnessAdapter {
+	const capabilities: HarnessCapabilities = {
+		accessMode: "provider-subscription-cli",
+		preCompactionTrigger: false,
+		subAgents: false,
+		mcpSupport: true,
+		modelProviders: [],
+		fileEditing: false,
+		toolUse: false,
+		returnEnforcement: "none",
+		descriptorModels: [],
+	};
+	return {
+		async startSession(_config: SessionConfig): Promise<SessionHandle> {
+			return { sessionId: "descriptor-only" };
+		},
+		async *streamEvents(_handle: SessionHandle): AsyncGenerator<HarnessEvent> {},
+		async stopSession(_handle: SessionHandle): Promise<SessionResult> {
+			return {
+				outcome: "completed",
+				cost: { minor: 0, currency: "USD" },
+				tokenUsage: { byTier: {} },
+			};
+		},
+		getCapabilities: () => capabilities,
+	};
+}
 
-		const result = await probeOpenCodeCli();
+describe("opencode model probe through cohesive capability API", () => {
+	requireHarness("opencode");
 
-		// The probe should complete (not crash)
-		expect(result.state).toBeDefined();
+	test("real verbose catalog is parsed and merged into AdapterPool.describe", async () => {
+		const discoveries = await discoverLocalHarnesses();
+		expect(discoveries.opencode.state).not.toBe("missing");
+		expect(discoveries.opencode.models?.length).toBeGreaterThan(0);
 
-		// If opencode has providers configured, models should be non-empty
-		if (result.state === "ready" || result.state === "installed") {
-			// models may be populated from opencode models --verbose
-			// If the probe succeeded and opencode is configured:
-			if (result.models && result.models.length > 0) {
-				for (const model of result.models) {
-					expect(model.id).toBeTruthy();
-					expect(typeof model.id).toBe("string");
-					expect(model.label).toBeTruthy();
-					expect(typeof model.label).toBe("string");
-					expect(typeof model.contextWindow).toBe("number");
-				}
-			}
-			// If models is empty because opencode isn't configured, that's OK —
-			// the honest requirement is that the PROBE ran without stubs
-		}
-	});
-
-	test("probeOpenCodeCli returns models array (possibly empty for missing/unauthenticated)", async () => {
-		requireHarness("opencode");
-
-		const result = await probeOpenCodeCli();
-
-		// models field should be an array (empty or populated, never undefined crash)
-		if (result.models !== undefined) {
-			expect(Array.isArray(result.models)).toBe(true);
+		const pool = new AdapterPool(discoveries);
+		pool.register("local-opencode", adapter(), {
+			type: "opencode",
+			name: "OpenCode",
+			kind: "local",
+			modelProviders: [],
+			maxConcurrent: 1,
+		});
+		const descriptor = pool.describe({ type: "opencode" }).at(0);
+		expect(descriptor?.models).toEqual(discoveries.opencode.models);
+		expect(descriptor?.models.some(({ contextWindow }) => (contextWindow ?? 0) > 0)).toBe(true);
+		for (const model of descriptor?.models ?? []) {
+			expect(model.id.length).toBeGreaterThan(0);
+			expect(model.label.length).toBeGreaterThan(0);
+			expect(model.contextWindow).toBeGreaterThanOrEqual(0);
+			expect(model.selectable).toBe(true);
 		}
 	});
 });

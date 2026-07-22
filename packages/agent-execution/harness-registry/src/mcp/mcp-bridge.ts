@@ -48,14 +48,14 @@ function asMcpInputSchema(schema: unknown): McpAnySchema {
  * transparently by the transport. Both coexist: path-token = auth + routing; mcp-session-id
  * = MCP protocol handshake carried by the CLI client on requests 2+.
  */
-export interface McpBridgeInstance {
+interface McpSession {
 	readonly token: string;
 	readonly sessionId: string;
 	readonly mcpServer: McpServer;
 	readonly transport: WebStandardStreamableHTTPServerTransport;
 }
 
-export interface CreateMcpBridgeOptions<TDb = unknown> {
+interface CreateMcpSessionOptions<TDb = unknown> {
 	readonly sessionId: string;
 	readonly registry: ToolRegistry<TDb>;
 	readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
@@ -68,7 +68,7 @@ export interface CreateMcpBridgeOptions<TDb = unknown> {
  * The error body is JSON-stringified so the harness can parse the machine-readable
  * `code` field without string matching.
  */
-export function toolResultToCallToolResult(result: ToolResult): CallToolResult {
+function formatToolResult(result: ToolResult): CallToolResult {
 	if (result.success) {
 		return {
 			content: [{ type: "text", text: JSON.stringify(result.data) }],
@@ -116,9 +116,9 @@ export function toolResultToCallToolResult(result: ToolResult): CallToolResult {
  * FORBIDDEN for cross-role tool calls). Bypassing it would bypass the security
  * gate. No skill tools use .transform(), so double parsing is idempotent.
  */
-export async function createMcpBridge<TDb = unknown>(
-	options: CreateMcpBridgeOptions<TDb>,
-): Promise<McpBridgeInstance> {
+export async function createMcpSession<TDb = unknown>(
+	options: CreateMcpSessionOptions<TDb>,
+): Promise<McpSession> {
 	const { sessionId, registry } = options;
 
 	// D2: 64-char hex token = 256 bits of entropy. Brute-force infeasible.
@@ -152,7 +152,7 @@ export async function createMcpBridge<TDb = unknown>(
 			async (args: unknown) => {
 				const result = await registry.invoke(def.name, args);
 				options.onToolCall?.({ toolName: def.name, args });
-				return toolResultToCallToolResult(result);
+				return formatToolResult(result);
 			},
 		);
 	}

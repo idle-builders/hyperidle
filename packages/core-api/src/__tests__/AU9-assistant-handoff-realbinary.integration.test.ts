@@ -2,7 +2,7 @@ import { agentSessionRequests, messages, sessions, threads, users } from "@hyper
 import {
 	AdapterPool,
 	createHarnessAdapter,
-	LocalSandboxAdapter,
+	createSandboxAdapter,
 } from "@hyperidle/harness-registry";
 import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { EventBus } from "@hyperidle/shared";
@@ -77,7 +77,7 @@ describe("[harness:builtin] assistant durable handoff", () => {
 		const server = await createServer(0, {
 			db,
 			adapterPool: pool,
-			workspaceAdapter: new LocalSandboxAdapter(),
+			workspaceAdapter: createSandboxAdapter("local"),
 			assistantTurnDeps: {
 				db,
 				eventBus: assistantEventBus,

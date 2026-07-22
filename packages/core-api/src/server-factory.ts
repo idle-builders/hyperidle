@@ -34,10 +34,10 @@ import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
 	type AdapterPool,
-	enforcementRegistry,
+	createMcpToolBridge,
+	createReturnEnforcement,
 	type SandboxAdapter,
 } from "@hyperidle/harness-registry";
-import { createMcpBridgeRegistry, createMcpRoute } from "@hyperidle/harness-registry/mcp";
 import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
@@ -846,7 +846,8 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	};
 
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
-	const mcpBridgeRegistry = createMcpBridgeRegistry();
+	const enforcementRegistry = createReturnEnforcement();
+	const mcpBridgeRegistry = createMcpToolBridge({ enforcement: enforcementRegistry });
 	const mcpBaseUrl = `http://localhost:${port}`;
 	// @lore AU19 Increment 3c: `runtime` is built as its own variable (not an
 	// inline literal in the `bootAgentLayer` call) so it type-checks against
@@ -983,7 +984,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		registerMcpRoute: (apiRouter) => {
 			// AL6 CRIT-1: pass enforcementRegistry so the /return-status sub-path
 			// resolves token → sessionId → entry → forceMessage (the real adjudicator).
-			const mcpRouter = createMcpRoute(mcpBridgeRegistry, enforcementRegistry);
+			const mcpRouter = mcpBridgeRegistry.router;
 			apiRouter.route("/", mcpRouter);
 		},
 	});

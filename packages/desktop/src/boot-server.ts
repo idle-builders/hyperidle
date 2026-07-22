@@ -16,7 +16,7 @@ import {
 	createServer as _createServer,
 	type ServerHandle,
 } from "@hyperidle/core-api/server-factory";
-import { createLocalAdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
+import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 
 export type { ServerHandle };
 
@@ -27,7 +27,7 @@ export type { ServerHandle };
  */
 export async function startServer(): Promise<ServerHandle> {
 	const adapterPool = await createLocalAdapterPool();
-	return _createServer(0, { adapterPool, workspaceAdapter: new LocalSandboxAdapter() });
+	return _createServer(0, { adapterPool, workspaceAdapter: createSandboxAdapter("local") });
 }
 
 /**

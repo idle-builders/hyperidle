@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { AdapterPool, createRemoteHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { create, recordConflict, update } from "@hyperidle/knowledge";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import type { EventBus, WorkerRegisterMessage } from "@hyperidle/shared";
@@ -48,7 +48,7 @@ export function startTestRuntime(
 									: [],
 								maxConcurrent: Number(registration.maxConcurrent),
 							};
-							return createRemoteHarnessAdapter(ws, message);
+							return createHarnessAdapter({ kind: "remote", ws, registration: message });
 						},
 					},
 				},

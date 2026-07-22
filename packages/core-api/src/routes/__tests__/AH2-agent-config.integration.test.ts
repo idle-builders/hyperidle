@@ -15,7 +15,6 @@
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
-import { CLAUDE_CLI_CONFIG } from "@hyperidle/harness-registry/cli-configs";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
@@ -39,7 +38,10 @@ function makeAH2Pool(): AdapterPool {
 	});
 	pool.register(
 		"local-claude-code",
-		createHarnessAdapter({ kind: "cli", config: CLAUDE_CLI_CONFIG }),
+		createHarnessAdapter({
+			kind: "cli",
+			config: { binary: "claude", args: [], envMap: {}, eventFormat: "text", envAllowlist: [] },
+		}),
 		{
 			name: "Claude Code",
 			kind: "local",

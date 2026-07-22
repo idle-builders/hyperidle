@@ -27,7 +27,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { createServer } from "@hyperidle/core-api/server-factory";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema } from "@hyperidle/db";
-import { createLocalAdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
+import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 
@@ -63,7 +63,7 @@ const handle = await createServer(AH1_API_PORT, {
 	db,
 	sandboxBasePath: "/tmp/ah1-e2e-workspaces",
 	adapterPool: await createLocalAdapterPool(),
-	workspaceAdapter: new LocalSandboxAdapter(),
+	workspaceAdapter: createSandboxAdapter("local"),
 });
 
 // 3. Signal readiness — playwright.ah1.config.ts waits for this line.

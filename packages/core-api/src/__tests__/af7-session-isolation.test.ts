@@ -34,8 +34,8 @@
  */
 
 import { createHarnessAdapter } from "@hyperidle/harness-registry";
-import type { LlmResponse } from "@hyperidle/harness-registry/llm-client";
 import type { HarnessAdapter, SessionConfig } from "@hyperidle/shared";
+import type { LlmResponse } from "../../../agent-execution/harness-registry/src/llm-client.js";
 
 /** setSessionToolRegistry is a builtin-only duck-typed method (not on HarnessAdapter). */
 type BuiltinAdapterLike = HarnessAdapter & {
@@ -43,17 +43,16 @@ type BuiltinAdapterLike = HarnessAdapter & {
 };
 /** Audited cast: createHarnessAdapter({ kind:"builtin" }) always returns BuiltinHarnessAdapter. */
 function toBuiltinLike(a: HarnessAdapter): BuiltinAdapterLike {
-	// biome-ignore lint/suspicious/noExplicitAny: audited single cast in a named helper (see session-provisioning.ts pattern)
 	return a as unknown as BuiltinAdapterLike;
 }
 
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@hyperidle/harness-registry/llm-client", () => ({
+vi.mock("../../../agent-execution/harness-registry/src/llm-client.js", () => ({
 	callLlm: vi.fn(),
 }));
 
-const { callLlm } = await import("@hyperidle/harness-registry/llm-client");
+const { callLlm } = await import("../../../agent-execution/harness-registry/src/llm-client.js");
 const callLlmMock = vi.mocked(callLlm);
 
 const RESOLVED_MODEL = {

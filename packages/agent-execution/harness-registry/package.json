@@ -5,9 +5,6 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./llm-client": "./src/llm-client.ts",
-		"./cli-configs": "./src/cli-harness-configs.ts",
-		"./mcp": "./src/mcp/index.ts",
 		"./test-utils": "./src/__tests__/require-harness.ts"
 	},
 	"scripts": {

@@ -1,132 +1,31 @@
-/**
- * Barrel for @hyperidle/harness-registry (agent-execution Layer Service).
- *
- * DB-free: deps = @hyperidle/shared only, never @hyperidle/db (Mechanism B).
- * Typed functions/classes only — no raw table (there is none; this Service
- * owns zero tables).
- *
- * @lore AU19 Increment 4: finalized from the Increment-0 minimal-slice
- * proof (a single synthetic `harness-capabilities.ts`) into the real
- * migration of `packages/server/src/harness/*` (21 files). The adapter
- * pool, all harness adapters (builtin/CLI/remote), harness discovery,
- * capability descriptors, the LLM client + cassette lane, sandbox adapters,
- * return-enforcement registry, return-gate, and CLI provisioning helpers all
- * live here now.
- */
-
-// Re-export the shared types and helpers that callers previously obtained via @hyperidle/tool-provider
 export type {
-	AssistantToolResult,
-	AssistantToolShape,
-	BuildToolRegistryOptions,
-	ClaudeToolSpec,
+	AdapterInfo,
+	AdapterMeta,
 	HarnessAdapter,
 	HarnessCapabilityDescriptor,
-	ProposedCallWorkflowPort,
-	RegisteredTool,
-	RegistrySessionWorkflow,
-	ToolContext,
-	ToolDefinition,
-	ToolHandler,
 	ToolRegistry,
-	ToolResult,
 } from "@hyperidle/shared";
 export {
-	canonicalJson,
-	classifyReversibility,
-	composeWorkflowAllowDeny,
-	err,
-	identityHash,
-	ok,
-	toClaudeToolSpec,
-	toolsForRole,
-	toRegistered,
-	wrapForRegistry,
-} from "@hyperidle/shared";
-// -- adapter-pool (registry of HarnessAdapter instances) --
-export type { AdapterInfo, AdapterMeta } from "./adapter-pool.js";
-export {
+	type AdapterFilter,
 	AdapterPool,
 	createLocalAdapterPool,
-	type SelectedEntry,
 	type SelectRequirements,
 } from "./adapter-pool.js";
-// -- CLI MCP config (writes .mcp.json / config.toml for CLI auto-discovery) --
+export { createHarnessAdapter, type HarnessAdapterSpec } from "./harness-adapter-factory.js";
+export { createMcpToolBridge, type McpToolBridge } from "./mcp-tool-bridge.js";
 export {
-	EMITTED_ROOTS_CLI_MCP_CONFIG,
-	type WriteCliMcpConfigParams,
-	type WriteCliMcpConfigResult,
-	writeCliMcpConfig,
-} from "./cli-mcp-config.js";
-// -- context window (model context-window sizing / near-limit detection) --
+	type ProvisionOptions,
+	provisionHarnessEnvironment,
+} from "./provision-harness-environment.js";
 export {
-	contextWindowForModel,
-	DEFAULT_CONTEXT_WINDOW,
-	isAboveThreshold,
-	MODEL_CONTEXT_WINDOWS,
-} from "./context-window.js";
-// -- disabled sandbox adapter (no-filesystem fallback) --
-export { DisabledSandboxAdapter } from "./disabled-sandbox-adapter.js";
-// -- harness-adapter factory (collapses builtin/CLI/remote concrete classes) --
+	createReturnEnforcement,
+	type ReturnEnforcementSpec,
+} from "./return-enforcement.js";
+export { returnStatusTool } from "./return-status-tool.js";
 export {
-	checkCliHarnessAvailability,
-	createHarnessAdapter,
-	createRemoteHarnessAdapter,
-	type HarnessAdapterSpec,
-} from "./harness-adapter-factory.js";
-// -- harness capability descriptors --
-export {
-	describeRegisteredHarness,
-	KNOWN_HARNESS_FAMILIES,
-	missingKnownHarnessDescriptors,
-} from "./harness-capability-descriptors.js";
-// -- harness discovery (local CLI probing) --
-export {
-	BUILTIN_MODELS_FETCH_TIMEOUT_MS,
-	discoverLocalHarnesses,
-	type HarnessDiscoveryInput,
-	type HarnessDiscoveryResult,
-	type HarnessSessionProbeResult,
-	parseClaudeModelsOutput,
-	parseOpencodeModelsOutput,
-	probeClaudeCodeMcpList,
-	probeCodexMcpList,
-	probeEnvironmentClis,
-	probeOpenCodeCli,
-	probeOpencodeMcpList,
-} from "./harness-discovery.js";
-// -- harness session probe (post-provision readiness probe) --
-export { probeHarnessSession } from "./harness-session-probe.js";
-// LLM client, cassette, cost, wire types: INTERNAL to builtin adapter.
-// Access via @hyperidle/harness-registry/llm-client subpath (test/eval use only).
-// -- local sandbox adapter (per-session working-dir sandbox) --
-export { LocalSandboxAdapter } from "./local-sandbox-adapter.js";
-// -- provision-return-hook (per-harness AL6 enforcement provisioning) --
-export {
-	EMITTED_ROOTS_CLAUDE_SETTINGS,
-	EMITTED_ROOTS_CODEX_HOME,
-	EMITTED_ROOTS_OPENCODE_PLUGIN,
-	type ProvisionReturnHookOptions,
-	provisionReturnHook,
-} from "./provision-return-hook.js";
-// -- return-enforcement registry (per-session force-return bookkeeping) --
-export {
-	createEnforcementRegistry,
-	type EnforcementEntry,
-	type EnforcementRegistry,
-	enforcementRegistry,
-} from "./return-enforcement-registry.js";
-// -- return-gate (drain-end un-bypassable backstop) --
-export {
-	createReturnGate,
-	evaluateReturn,
-	type ReturnGate,
-	type ReturnVerdict,
-} from "./return-gate.js";
-// -- return-status-tool (hyperidle_return_status bridge tool, injected per-session) --
-export { type ReturnStatusResult, returnStatusTool } from "./return-status-tool.js";
-// -- sandbox adapter interface --
-export type { ExecResult, SandboxAdapter, SandboxHandle } from "./sandbox-adapter.js";
-// -- tool-registry (dispatch: role-filter → validate → call handler → workflow router) --
-// Folded from @hyperidle/tool-provider (AU20 B3a). Zero DB/Service refs; Mechanism B preserved.
+	createSandboxAdapter,
+	type ExecResult,
+	type SandboxAdapter,
+	type SandboxHandle,
+} from "./sandbox-adapter.js";
 export { buildToolRegistry } from "./tool-registry.js";

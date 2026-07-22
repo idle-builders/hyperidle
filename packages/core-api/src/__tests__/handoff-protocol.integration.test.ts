@@ -12,7 +12,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { AdapterPool, createRemoteHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import type { HandoffMetadata } from "@hyperidle/policy";
 import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
 // @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
@@ -848,7 +848,19 @@ describe("Handoff Protocol", () => {
 							pool: new AdapterPool(),
 							adapterFactory: {
 								create: (ws, registration) =>
-									createRemoteHarnessAdapter(ws as never, registration as never),
+									createHarnessAdapter({
+										kind: "remote",
+										ws,
+										registration: {
+											type: "register",
+											id: registration.id,
+											name: String(registration.name),
+											modelProviders: Array.isArray(registration.modelProviders)
+												? registration.modelProviders.map(String)
+												: [],
+											maxConcurrent: Number(registration.maxConcurrent),
+										},
+									}),
 							},
 						},
 					},

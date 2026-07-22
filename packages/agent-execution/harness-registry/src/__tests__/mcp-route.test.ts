@@ -1,72 +1,84 @@
-/**
- * mcp-route.test.ts — HTTP route unit tests for createMcpRoute.
- *
- * Tests the Hono sub-router in isolation — delegates to registry.handleRequest,
- * forwards the token from the URL, and passes through the raw Response.
- *
- * Integration tests (real MCP tool calls through the production bridge) live in
- * packages/server/src/__tests__/AL7-two-session-trust-first.integration.test.ts
- * and this package's mcp-bridge-stateful.integration.test.ts (T0b).
- */
+import type { ToolRegistry } from "@hyperidle/shared";
+import { describe, expect, it } from "vitest";
+import { createMcpToolBridge } from "../mcp-tool-bridge.js";
+import { createReturnEnforcement } from "../return-enforcement.js";
 
-import { Hono } from "hono";
-import { describe, expect, it, vi } from "vitest";
-import type { McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import { createMcpRoute } from "../mcp/mcp-route.js";
+const registry: ToolRegistry = {
+	definitions: [],
+	invoke: async () => ({ success: false, code: "NOT_FOUND", error: "none" }),
+	toClaudeToolSpecs: () => [],
+};
 
-function makeMockRegistry(response: Response): McpBridgeRegistry {
-	return {
-		register: vi.fn(),
-		lookup: vi.fn(),
-		unregister: vi.fn(),
-		handleRequest: vi.fn().mockResolvedValue(response),
-		get size() {
-			return 0;
-		},
-	};
-}
-
-describe("createMcpRoute", () => {
-	it("routes ALL /mcp/:token to registry.handleRequest with the correct token", async () => {
-		const mockResponse = new Response("ok", { status: 200 });
-		const registry = makeMockRegistry(mockResponse);
-		const router = createMcpRoute(registry);
-
-		// Mount on a parent app (mirrors server-factory usage)
-		const app = new Hono();
-		app.route("/api", router);
-
-		const res = await app.request("/api/mcp/abc123", { method: "POST", body: "{}" });
-
-		expect(registry.handleRequest).toHaveBeenCalledOnce();
-		expect(registry.handleRequest).toHaveBeenCalledWith("abc123", expect.any(Request));
-		expect(res.status).toBe(200);
+describe("MCP public route", () => {
+	it("rejects unknown tokens for every supported HTTP method", async () => {
+		const bridge = createMcpToolBridge();
+		for (const method of ["GET", "POST", "DELETE"]) {
+			const response = await bridge.router.request("/mcp/unknown", { method });
+			expect(response.status).toBe(401);
+		}
 	});
 
-	it("forwards 401 from registry for unknown token", async () => {
-		const mockResponse = new Response("Unauthorized", { status: 401 });
-		const registry = makeMockRegistry(mockResponse);
-		const router = createMcpRoute(registry);
+	it("delegates a live token and revokes it on close", async () => {
+		const bridge = createMcpToolBridge();
+		const { token } = await bridge.open({ sessionId: "route-session", registry });
+		const live = await bridge.router.request(`/mcp/${token}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: "{}",
+		});
+		expect(live.status).not.toBe(401);
 
-		const app = new Hono();
-		app.route("/api", router);
-
-		const res = await app.request("/api/mcp/unknown-token", { method: "POST" });
-
-		expect(res.status).toBe(401);
+		await bridge.close(token);
+		const revoked = await bridge.router.request(`/mcp/${token}`, { method: "POST" });
+		expect(revoked.status).toBe(401);
 	});
 
-	it("supports GET requests (ALL handler)", async () => {
-		const mockResponse = new Response("ok", { status: 200 });
-		const registry = makeMockRegistry(mockResponse);
-		const router = createMcpRoute(registry);
+	it("requires an exact bearer credential for return-status", async () => {
+		const enforcement = createReturnEnforcement({ isolated: true });
+		const bridge = createMcpToolBridge({ enforcement });
+		const { token } = await bridge.open({ sessionId: "auth-session", registry });
 
-		const app = new Hono();
-		app.route("/api", router);
+		for (const authorization of [
+			`Basic ${token}`,
+			`Bearer prefix-${token}`,
+			`Bearer ${token}-suffix`,
+			`bearer ${token}`,
+		]) {
+			const response = await bridge.router.request(`/mcp/${token}/return-status`, {
+				method: "POST",
+				headers: { authorization },
+			});
+			expect(response.status).toBe(401);
+		}
 
-		const res = await app.request("/api/mcp/sometoken", { method: "GET" });
+		await bridge.close(token);
+	});
 
-		expect(registry.handleRequest).toHaveBeenCalledOnce();
-		expect(res.status).toBe(200);
+	it("rejects an unknown return-status token even when bearer and URL match", async () => {
+		const bridge = createMcpToolBridge({
+			enforcement: createReturnEnforcement({ isolated: true }),
+		});
+		const token = "unknown-token";
+		const response = await bridge.router.request(`/mcp/${token}/return-status`, {
+			method: "POST",
+			headers: { authorization: `Bearer ${token}` },
+		});
+
+		expect(response.status).toBe(401);
+	});
+
+	it("revokes return-status authorization before idempotent close completes", async () => {
+		const enforcement = createReturnEnforcement({ isolated: true });
+		const bridge = createMcpToolBridge({ enforcement });
+		const { token } = await bridge.open({ sessionId: "lifecycle-session", registry });
+
+		await bridge.close(token);
+		await expect(bridge.close(token)).resolves.toBeUndefined();
+
+		const response = await bridge.router.request(`/mcp/${token}/return-status`, {
+			method: "POST",
+			headers: { authorization: `Bearer ${token}` },
+		});
+		expect(response.status).toBe(401);
 	});
 });

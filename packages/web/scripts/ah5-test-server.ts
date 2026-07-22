@@ -37,7 +37,7 @@ import { encryptCredentialValue } from "@hyperidle/connections";
 import { createServer } from "@hyperidle/core-api/server-factory";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema, serverCredentials } from "@hyperidle/db";
-import { createLocalAdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
+import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 
@@ -141,7 +141,7 @@ const handle = await createServer(AH5_API_PORT, {
 	db,
 	sandboxBasePath: "/tmp/ah5-e2e-workspaces",
 	adapterPool: await createLocalAdapterPool(),
-	workspaceAdapter: new LocalSandboxAdapter(),
+	workspaceAdapter: createSandboxAdapter("local"),
 });
 
 // 5. Signal readiness — playwright.ah5.config.ts waits for this line.

@@ -38,7 +38,7 @@ import {
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { DispatchPorts } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
-import { LocalSandboxAdapter } from "@hyperidle/harness-registry";
+import { createSandboxAdapter } from "@hyperidle/harness-registry";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import { resolveModel } from "@hyperidle/model-gateway";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
@@ -199,7 +199,7 @@ const dispatchPorts: DispatchPorts = {
 			buildAssistantDraftRegistry(ctx as ToolContext<HyperIdleDb>, params, toolHandlersPorts),
 	},
 	workspaceFactory: {
-		create: () => new LocalSandboxAdapter(),
+		create: () => createSandboxAdapter("local"),
 	},
 };
 

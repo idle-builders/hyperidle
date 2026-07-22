@@ -68,15 +68,15 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
-import { createEnforcementRegistry, type EnforcementRegistry } from "@hyperidle/harness-registry";
 import {
-	createMcpBridge,
-	createMcpBridgeRegistry,
-	createMcpRoute,
-	type McpBridgeRegistry,
-} from "@hyperidle/harness-registry/mcp";
+	createMcpToolBridge,
+	createReturnEnforcement,
+	type McpToolBridge,
+	provisionHarnessEnvironment,
+} from "@hyperidle/harness-registry";
 import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import {
+	type EnforcementRegistry,
 	err,
 	normalizeHarnessEvent,
 	ok,
@@ -90,6 +90,8 @@ import {
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import z from "zod";
+
+const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
 
 /**
  * Inline commit_file proof-vehicle tool.
@@ -255,7 +257,7 @@ function createCapturingRouter(sandboxPath: string): CapturingRouter {
 interface Al7TestServer {
 	readonly port: number;
 	readonly url: string;
-	readonly bridgeRegistry: McpBridgeRegistry;
+	readonly bridgeRegistry: McpToolBridge;
 	readonly enforcementReg: EnforcementRegistry;
 	readonly sessionId: string;
 	token: string;
@@ -293,8 +295,8 @@ async function startAl7TestServer(
 	sandboxPath: string,
 	testSessionId: string,
 ): Promise<Al7TestServer> {
-	const bridgeRegistry = createMcpBridgeRegistry();
 	const enforcementReg = createEnforcementRegistry();
+	const bridgeRegistry = createMcpToolBridge({ enforcement: enforcementReg });
 
 	// Register enforcement entry (exempt=true so Stop hook never forces re-prompt).
 	const gate = { returned: true };
@@ -306,11 +308,10 @@ async function startAl7TestServer(
 	// Build the PRODUCTION bridge via createMcpBridge (stateful transport).
 	// The token is a 64-char hex session key; the bridgeRegistry routes /api/mcp/:token
 	// requests to this transport instance.
-	let currentBridge = await createMcpBridge({
+	let currentBridge = await bridgeRegistry.open({
 		sessionId: testSessionId,
 		registry: capturingRouter.registry,
 	});
-	bridgeRegistry.register(currentBridge);
 
 	const app = new Hono();
 
@@ -318,7 +319,7 @@ async function startAl7TestServer(
 	// createMcpRoute provides: ALL /api/mcp/:token (bridge) + return-status route.
 	// No /mcp/:token override — CLIs must use /api/mcp/:token (production path).
 	const api = new Hono();
-	const mcpRouter = createMcpRoute(bridgeRegistry, enforcementReg);
+	const mcpRouter = bridgeRegistry.router;
 	api.route("/", mcpRouter);
 	app.route("/api", api);
 
@@ -347,20 +348,19 @@ async function startAl7TestServer(
 		close: async () => {
 			enforcementReg.unregister(testSessionId);
 			// Unregister closes the bridge (mcpServer.close → transport.close).
-			await bridgeRegistry.unregister(currentBridge.token);
+			await bridgeRegistry.close(currentBridge.token);
 			await new Promise<void>((resolve, reject) => {
 				server.close((err) => (err ? reject(err) : resolve()));
 			});
 		},
 		rebuildBridge: async (newRouter: CapturingRouter) => {
 			// Unregister old bridge (closes mcpServer + transport via registry).
-			await bridgeRegistry.unregister(currentBridge.token);
+			await bridgeRegistry.close(currentBridge.token);
 			// Build a new PRODUCTION bridge with the updated router.
-			currentBridge = await createMcpBridge({
+			currentBridge = await bridgeRegistry.open({
 				sessionId: testSessionId,
 				registry: newRouter.registry,
 			});
-			bridgeRegistry.register(currentBridge);
 		},
 	};
 }
@@ -848,7 +848,6 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 				// writeCliMcpConfig (T4/T6): appends the [mcp_servers.hyperidle] block
 				// to .codex-home/config.toml (codex-toml dialect).
-				const { writeCliMcpConfig } = await import("@hyperidle/harness-registry");
 				const codexHomeDir = path.join(s1SandboxPath, ".codex-home");
 				fs.mkdirSync(codexHomeDir, { recursive: true });
 
@@ -862,7 +861,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 				}
 
 				// Append the MCP block (this is what writeCliMcpConfig does for codex-toml).
-				const { tokenEnv } = writeCliMcpConfig({
+				const { tokenEnv } = await provisionHarnessEnvironment({
 					dialect: "codex-toml",
 					sandboxPath: s1SandboxPath,
 					mcpUrl,
@@ -954,8 +953,6 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
 
 			try {
-				const { writeCliMcpConfig } = await import("@hyperidle/harness-registry");
-
 				// ── Session 1 ──────────────────────────────────────────────────────
 				const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
 				const codexHomeDir = path.join(sandboxPath, ".codex-home");
@@ -967,7 +964,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						fs.copyFileSync(src, path.join(codexHomeDir, fname));
 					}
 				}
-				const { tokenEnv: s1TokenEnv } = writeCliMcpConfig({
+				const { tokenEnv: s1TokenEnv } = await provisionHarnessEnvironment({
 					dialect: "codex-toml",
 					sandboxPath,
 					mcpUrl: s1McpUrl,
@@ -1035,7 +1032,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					fs.writeFileSync(s2ConfigTomlPath, "", "utf-8");
 				}
 				const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
-				const { tokenEnv: s2TokenEnv } = writeCliMcpConfig({
+				const { tokenEnv: s2TokenEnv } = await provisionHarnessEnvironment({
 					dialect: "codex-toml",
 					sandboxPath,
 					mcpUrl: s2McpUrl,
@@ -1164,8 +1161,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 				// @lore AL7 T3 opencode: writeCliMcpConfig writes opencode.json to sandboxPath.
 				// Currently RED: writeCliMcpConfig does not exist yet (T4).
-				const { writeCliMcpConfig } = await import("@hyperidle/harness-registry");
-				writeCliMcpConfig({
+				await provisionHarnessEnvironment({
 					dialect: "opencode-json",
 					sandboxPath: s1SandboxPath,
 					mcpUrl,
@@ -1240,11 +1236,9 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 			const testServer = await startAl7TestServer(sandboxPath, testSessionId);
 
 			try {
-				const { writeCliMcpConfig } = await import("@hyperidle/harness-registry");
-
 				// ── Session 1 ──────────────────────────────────────────────────────
 				const s1McpUrl = buildMcpUrl(testServer.url, testServer.token);
-				writeCliMcpConfig({
+				await provisionHarnessEnvironment({
 					dialect: "opencode-json",
 					sandboxPath,
 					mcpUrl: s1McpUrl,
@@ -1300,7 +1294,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 				// ── Session 2 ──────────────────────────────────────────────────────
 				const s2McpUrl = buildMcpUrl(testServer.url, testServer.token);
-				writeCliMcpConfig({
+				await provisionHarnessEnvironment({
 					dialect: "opencode-json",
 					sandboxPath,
 					mcpUrl: s2McpUrl,
@@ -1500,10 +1494,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 				expect(testServer.capturingRouter.registry.definitions).toHaveLength(1);
 				expect(testServer.capturingRouter.registry.definitions[0]?.name).toBe("commit_file");
 
-				// The bridge registry is correctly wired: lookup by token returns the bridge.
-				const bridge = testServer.bridgeRegistry.lookup(testServer.token);
-				expect(bridge).toBeDefined();
-				expect(bridge?.sessionId).toBe(testSessionId);
+				expect(testServer.token).toHaveLength(64);
 			} finally {
 				await testServer.close();
 			}

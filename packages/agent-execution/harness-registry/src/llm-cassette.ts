@@ -26,7 +26,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { CassetteMissError } from "@hyperidle/shared";
 import type { CallLlmOptions } from "./llm-client.js";
-import { estimateCostUsd } from "./llm-cost-estimate.js";
+import { estimateLlmCost } from "./llm-cost-estimate.js";
 import type {
 	LlmContentBlock,
 	LlmMessage,
@@ -41,7 +41,7 @@ import type {
 // CassetteEntry — the shape stored in cassette JSON files
 // ---------------------------------------------------------------------------
 
-export interface CassetteEntry {
+interface CassetteEntry {
 	/** SHA-256 hex key derived from the canonical request hash */
 	readonly key: string;
 	/** The original request (stored for human review in the cassette file) */
@@ -188,7 +188,7 @@ function normalizeTools(tools: readonly LlmToolDef[] | undefined): unknown[] {
  *   - crypto.randomUUID() echoes in text → __uuid__
  *   - tool array is sorted by name (order-independent)
  */
-export function buildCassetteKey(options: CallLlmOptions): string {
+function buildCassetteKey(options: CallLlmOptions): string {
 	// @lore AH6: The system prompt is normalized (UUIDs, timestamps, agent IDs replaced)
 	// so cassette keys are stable even when the system prompt includes runtime-generated
 	// values like currentDraftBetId (e.g. "[CONTEXT: You previously drafted bet <uuid>...]").
@@ -221,10 +221,7 @@ export function buildCassetteKey(options: CallLlmOptions): string {
  * Production (via the dispatcher in llm-client.ts) passes entries loaded from
  * the cassette file at LLM_CASSETTE_DIR/LLM_CASSETTE_SCENARIO.json.
  */
-export async function replayLlm(
-	options: CallLlmOptions,
-	entries: CassetteEntry[],
-): Promise<LlmResponse> {
+async function replayLlm(options: CallLlmOptions, entries: CassetteEntry[]): Promise<LlmResponse> {
 	const key = buildCassetteKey(options);
 
 	// Determine the cassette path for error reporting
@@ -254,7 +251,7 @@ export async function replayLlm(
  * Load cassette entries from the file at LLM_CASSETTE_DIR/LLM_CASSETTE_SCENARIO.json.
  * Fails closed if LLM_CASSETTE_DIR is missing.
  */
-export function loadCassetteEntries(): CassetteEntry[] {
+function loadCassetteEntries(): CassetteEntry[] {
 	const cassetteDir = process.env.LLM_CASSETTE_DIR;
 	if (!cassetteDir) {
 		throw new Error(
@@ -423,7 +420,7 @@ function scheduleRecordFlush(): void {
  * run only for KEYING (buildCassetteKey), NOT for the stored request — the stored
  * request preserves real content for human review of the cassette diff.
  */
-export async function recordLlm(
+async function recordLlm(
 	options: CallLlmOptions,
 	callLlmDirect: (options: CallLlmOptions) => Promise<LlmResponse>,
 ): Promise<LlmResponse> {
@@ -449,7 +446,7 @@ export async function recordLlm(
 	// CRITICAL-2: Accumulate cost using the shared rate estimator (same source as
 	// builtin-harness-adapter.ts trackUsage). Strip routing suffix before lookup.
 	const modelId = stripRoutingSuffix(options.model.model);
-	const deltaCostUsd = estimateCostUsd(
+	const deltaCostUsd = estimateLlmCost(
 		response.usage.inputTokens,
 		response.usage.outputTokens,
 		modelId,
@@ -493,7 +490,7 @@ export async function recordLlm(
  * @testonly Reset the in-memory cost accumulator between tests.
  * Not used in production — only imported by llm-cassette.test.ts.
  */
-export function __resetCostAccumulatorForTest(): void {
+function resetCostAccumulator(): void {
 	recordRunCost.totalCostUsd = 0;
 	recordRunCost.totalInputTokens = 0;
 	recordRunCost.totalOutputTokens = 0;
@@ -506,6 +503,16 @@ export function __resetCostAccumulatorForTest(): void {
  * @testonly Read the current in-memory cost accumulator.
  * Not used in production — only imported by llm-cassette.test.ts.
  */
-export function __getCostAccumulatorForTest(): Readonly<RecordRunCost> {
+function readCostAccumulator(): Readonly<RecordRunCost> {
 	return { ...recordRunCost };
 }
+
+export type { CassetteEntry };
+export {
+	buildCassetteKey,
+	loadCassetteEntries,
+	readCostAccumulator,
+	recordLlm,
+	replayLlm,
+	resetCostAccumulator,
+};

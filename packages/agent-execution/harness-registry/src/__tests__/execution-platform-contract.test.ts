@@ -9,7 +9,7 @@ import type {
 } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { AdapterPool } from "../adapter-pool.js";
-import { createRemoteHarnessAdapter } from "../harness-adapter-factory.js";
+import { createHarnessAdapter } from "../harness-adapter-factory.js";
 
 function adapter(label: string): HarnessAdapter {
 	return {
@@ -37,7 +37,7 @@ function adapter(label: string): HarnessAdapter {
 }
 
 describe("execution platform completeness contract", () => {
-	it("atomically replaces a registered adapter without inheriting load or pause custody", () => {
+	it("atomically replaces a registered adapter while preserving load and pause custody", () => {
 		const pool = new AdapterPool();
 		const meta = {
 			name: "worker",
@@ -53,7 +53,10 @@ describe("execution platform completeness contract", () => {
 		pool.register("worker-1", replacement, meta);
 
 		expect(pool.size).toBe(1);
-		expect(pool.list()[0]).toMatchObject({ currentLoad: 0, paused: false });
+		expect(pool.list()[0]).toMatchObject({ currentLoad: 1, paused: true });
+		expect(pool.select()).toBeNull();
+		pool.release("worker-1");
+		pool.resume("worker-1");
 		expect(pool.select()?.adapter).toBe(replacement);
 	});
 
@@ -91,7 +94,7 @@ describe("execution platform completeness contract", () => {
 			modelProviders: ["anthropic"],
 			maxConcurrent: 1,
 		};
-		const remote = createRemoteHarnessAdapter(ws, registration);
+		const remote = createHarnessAdapter({ kind: "remote", ws, registration });
 		const config: SessionConfig = {
 			sessionId: "requested-session",
 			sandboxPath: "/tmp/au20-harness-contract",

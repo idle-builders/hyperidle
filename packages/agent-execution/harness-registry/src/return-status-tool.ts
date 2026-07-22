@@ -34,7 +34,7 @@ import z from "zod";
 /** Input schema: the tool accepts an empty object (no required args). */
 const inputSchema: z.ZodType = z.object({});
 
-export interface ReturnStatusResult {
+interface ReturnStatusResult {
 	readonly returned: boolean;
 	readonly exempt: boolean;
 	readonly forceCount: number;

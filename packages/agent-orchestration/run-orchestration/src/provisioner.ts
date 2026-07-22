@@ -350,25 +350,16 @@ interface SessionLifecycleHarnessRuntime {
 		readonly sandboxPath: string;
 		readonly mcpUrl: string;
 		readonly token: string;
-	}): { readonly tokenEnv?: Record<string, string> };
-}
-
-interface SessionLifecycleMcpBridgeInstance {
-	readonly token: string;
-	readonly sessionId: string;
+	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
 }
 
 interface SessionLifecycleMcpBridgeRegistry {
-	register(instance: SessionLifecycleMcpBridgeInstance): void;
-	unregister(token: string): Promise<void>;
-}
-
-interface SessionLifecycleMcpProvider {
-	createMcpBridge(options: {
+	open(options: {
 		readonly sessionId: string;
 		readonly registry: unknown;
 		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
-	}): Promise<SessionLifecycleMcpBridgeInstance>;
+	}): Promise<{ readonly token: string }>;
+	close(token: string): Promise<void>;
 }
 
 interface SessionLifecycleToolContext {
@@ -564,7 +555,7 @@ interface SessionLifecyclePorts {
 			| AgentSessionRequest
 			| null
 			| boolean
-			| void
+			| undefined
 			| "accepted"
 			| "idempotent"
 			| "conflict"
@@ -590,7 +581,6 @@ interface SessionLifecyclePorts {
 	readonly connections: SessionLifecycleConnectionsProvisioner;
 	readonly cost: SessionLifecycleCostAccessor;
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
-	readonly mcpProvider: SessionLifecycleMcpProvider;
 	readonly toolProvider: SessionLifecycleToolProvider;
 	readonly contextAssembly: SessionLifecycleContextAssembly;
 }
@@ -908,7 +898,7 @@ interface ProvisionSessionDeps {
 	 */
 	readonly onBeforeHarnessStart?: (
 		ctx: BeforeHarnessStartContext,
-	) => void | "abort" | Promise<void | "abort">;
+	) => undefined | "abort" | Promise<undefined | "abort">;
 	/**
 	 * Optional observer fired after `harness.startSession` succeeds.
 	 * Production callers use the explicit `runSession` callback path; this dep-level
@@ -1560,7 +1550,7 @@ async function runSession(
 	let mcpTokenEnv: Record<string, string> | undefined;
 	if (mcpBridgeRegistry && mcpBaseUrl) {
 		try {
-			const bridge = await ports.mcpProvider.createMcpBridge({
+			const bridge = await mcpBridgeRegistry.open({
 				sessionId,
 				registry,
 				onToolCall: ({ toolName, args }) => {
@@ -1581,7 +1571,6 @@ async function runSession(
 					}
 				},
 			});
-			mcpBridgeRegistry.register(bridge);
 			mcpBridgeToken = bridge.token;
 			const mcpUrl = `${mcpBaseUrl}/api/mcp/${bridge.token}`;
 
@@ -1596,7 +1585,7 @@ async function runSession(
 			fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 			if (adapterCapabilities.cliMcpDialect) {
-				const result = ports.harnessRuntime.writeCliMcpConfig({
+				const result = await ports.harnessRuntime.writeCliMcpConfig({
 					dialect: adapterCapabilities.cliMcpDialect,
 					sandboxPath,
 					mcpUrl,
@@ -1834,7 +1823,7 @@ async function runSession(
 
 	// X2: Unregister the MCP bridge BEFORE calling endSession/crashSession.
 	if (mcpBridgeRegistry && mcpBridgeToken) {
-		await mcpBridgeRegistry.unregister(mcpBridgeToken);
+		await mcpBridgeRegistry.close(mcpBridgeToken);
 	}
 
 	function computeForceReturnCount(): number {

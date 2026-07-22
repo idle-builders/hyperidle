@@ -8,7 +8,7 @@ import {
 import type { AdapterMeta } from "./adapter-pool.js";
 import type { HarnessDiscoveryInput } from "./harness-discovery.js";
 
-export const KNOWN_HARNESS_FAMILIES = ["codex", "claude-code", "cursor-agent", "opencode"] as const;
+const KNOWN_HARNESS_FAMILIES = ["codex", "claude-code", "cursor-agent", "opencode"] as const;
 
 type KnownHarnessFamily = (typeof KNOWN_HARNESS_FAMILIES)[number];
 
@@ -123,7 +123,7 @@ function authActionOrDefault(
 	};
 }
 
-export function describeRegisteredHarness(
+function describe(
 	meta: AdapterMeta,
 	caps: HarnessCapabilities,
 	discoveries?: Readonly<Record<string, HarnessDiscoveryInput | undefined>>,
@@ -154,6 +154,7 @@ export function describeRegisteredHarness(
 			discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 			models,
 			runtime,
+			returnEnforcement: caps.returnEnforcement,
 			modelProviders: meta.modelProviders,
 			// AN1: environment-level CLI tools (gh, stripe, etc.) attached via discovery probe
 			inheritedTools: discoveries?.[type]?.inheritedTools ?? [],
@@ -181,6 +182,7 @@ export function describeRegisteredHarness(
 			discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 			models,
 			runtime,
+			returnEnforcement: caps.returnEnforcement,
 			modelProviders: meta.modelProviders,
 			// AN1: MCP server list from discovery probe; default [] for non-ready harnesses
 			inheritedTools: discoveries?.[type]?.inheritedTools ?? [],
@@ -201,13 +203,14 @@ export function describeRegisteredHarness(
 		discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 		models,
 		runtime,
+		returnEnforcement: caps.returnEnforcement,
 		modelProviders: meta.modelProviders,
 		// AN1: external harnesses have no probed inherited tools
 		inheritedTools: discoveries?.[type]?.inheritedTools ?? [],
 	};
 }
 
-export function missingKnownHarnessDescriptors(
+function missing(
 	registeredTypes: ReadonlySet<string>,
 	discoveries?: Readonly<Record<string, HarnessDiscoveryInput | undefined>>,
 ): HarnessCapabilityDescriptor[] {
@@ -230,9 +233,14 @@ export function missingKnownHarnessDescriptors(
 			discovery,
 			models: cliModelsFromInput(discoveryInput?.models),
 			runtime: runtimeFromDiscovery(discoveryInput),
+			returnEnforcement: "none",
 			modelProviders: [],
 			// AN1: missing harnesses were not discovered — no probed inherited tools
 			inheritedTools: discoveryInput?.inheritedTools ?? [],
 		};
 	});
+}
+
+export function createCapabilityCatalog() {
+	return { describe, missing };
 }

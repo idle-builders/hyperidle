@@ -6,7 +6,7 @@ import { serviceConnections, teamMembers, teams, userSkills, users } from "@hype
 import {
 	AdapterPool,
 	createHarnessAdapter,
-	DisabledSandboxAdapter,
+	createSandboxAdapter,
 } from "@hyperidle/harness-registry";
 import { listConfiguration } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -105,7 +105,7 @@ async function bootTestServer(db: HyperIdleDb, label: string): Promise<ServerHan
 	return createServer(0, {
 		db,
 		adapterPool: makeBuiltinPool(),
-		workspaceAdapter: new DisabledSandboxAdapter(),
+		workspaceAdapter: createSandboxAdapter("disabled"),
 		sandboxBasePath: path.join(os.tmpdir(), label),
 	});
 }

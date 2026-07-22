@@ -22,7 +22,9 @@
 import { describe, expect, it } from "vitest";
 
 // FAILS red: module does not exist yet (green phase Task 2)
-import { createEnforcementRegistry } from "../return-enforcement-registry.js";
+import { createReturnEnforcement } from "../return-enforcement.js";
+
+const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
 
 describe("AL6 v4-final — return-enforcement-registry", () => {
 	// ── Lifecycle: register / get / unregister ────────────────────────────

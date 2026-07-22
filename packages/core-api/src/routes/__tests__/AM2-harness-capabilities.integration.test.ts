@@ -1,10 +1,13 @@
-import type { HarnessDiscoveryInput } from "@hyperidle/harness-registry";
 import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 
 const TEST_API_KEY = "test-key-am2-harnesses";
+type SnapshotValue<T> = T extends Readonly<Record<string, infer V>> ? V : never;
+type HarnessDiscoveryInput = SnapshotValue<
+	NonNullable<ConstructorParameters<typeof AdapterPool>[0]>
+>;
 
 /** AM2: evidence-backed discovery snapshot used for the route integration test.
  *  In production `createLocalAdapterPool()` runs the real probes via

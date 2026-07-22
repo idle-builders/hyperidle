@@ -14,9 +14,7 @@
 
 export {
 	AdapterPool,
-	checkCliHarnessAvailability,
 	createHarnessAdapter,
 	createLocalAdapterPool,
-	createRemoteHarnessAdapter,
-	LocalSandboxAdapter,
+	createSandboxAdapter,
 } from "@hyperidle/harness-registry";

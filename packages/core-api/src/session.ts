@@ -8,7 +8,7 @@
  */
 export {
 	AdapterPool,
-	LocalSandboxAdapter,
+	createSandboxAdapter,
 	type SandboxAdapter,
 	type SandboxHandle,
 } from "@hyperidle/harness-registry";

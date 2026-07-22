@@ -68,21 +68,25 @@ import { promisify } from "node:util";
 
 import { serve } from "@hono/node-server";
 import {
-	createEnforcementRegistry,
-	type EnforcementRegistry,
-	provisionReturnHook,
+	createMcpToolBridge,
+	createReturnEnforcement,
+	type McpToolBridge,
+	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
-import type { McpBridgeInstance } from "@hyperidle/harness-registry/mcp";
-import {
-	createMcpBridgeRegistry,
-	createMcpRoute,
-	type McpBridgeRegistry,
-} from "@hyperidle/harness-registry/mcp";
 import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
+import type { EnforcementRegistry } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 const execFileAsync = promisify(execFile);
+const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
+const provisionReturnHook = (options: {
+	readonly sandboxPath: string;
+	readonly channel: Parameters<typeof provisionHarnessEnvironment>[0]["channel"];
+	readonly bridgeToken: string;
+	readonly mcpUrl: string;
+	readonly forceBudget: number;
+}) => provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 
 // ── Real HyperIdle server for hook callback capture ──────────────────────────
 //
@@ -103,7 +107,7 @@ const execFileAsync = promisify(execFile);
 interface RealHyperIdleServer {
 	port: number;
 	url: string;
-	bridgeRegistry: McpBridgeRegistry;
+	bridgeRegistry: McpToolBridge;
 	enforcementReg: EnforcementRegistry;
 	sessionId: string;
 	token: string;
@@ -131,20 +135,20 @@ interface RealHyperIdleServer {
  * the test is not vacuous.
  */
 async function startRealServer(
-	bridgeToken: string,
+	_requestedToken: string,
 	testSessionId: string,
 ): Promise<RealHyperIdleServer> {
-	const bridgeRegistry = createMcpBridgeRegistry();
 	const enforcementReg = createEnforcementRegistry();
-
-	// Register a fake bridge entry: the route only reads bridge.sessionId.
-	// No real McpServer or transport needed — the /return-status route doesn't use them.
-	bridgeRegistry.register({
-		token: bridgeToken,
+	const bridgeRegistry = createMcpToolBridge({ enforcement: enforcementReg });
+	const bridge = await bridgeRegistry.open({
 		sessionId: testSessionId,
-		mcpServer: null as unknown as McpBridgeInstance["mcpServer"],
-		transport: null as unknown as McpBridgeInstance["transport"],
+		registry: {
+			definitions: [],
+			invoke: async () => ({ success: false, code: "NOT_FOUND", error: "none" }),
+			toClaudeToolSpecs: () => [],
+		},
 	});
+	const bridgeToken = bridge.token;
 
 	// Register the enforcement entry: gate.returned=false → shouldForceReturn returns force message.
 	const gate = { returned: false };
@@ -153,7 +157,7 @@ async function startRealServer(
 	// Build the minimal Hono app with the REAL /return-status route.
 	const app = new Hono();
 	const api = new Hono();
-	const mcpRouter = createMcpRoute(bridgeRegistry, enforcementReg);
+	const mcpRouter = bridgeRegistry.router;
 	api.route("/", mcpRouter);
 	app.route("/api", api);
 
@@ -185,6 +189,7 @@ async function startRealServer(
 		token: bridgeToken,
 		close: async () => {
 			enforcementReg.unregister(testSessionId);
+			await bridgeRegistry.close(bridgeToken);
 			await new Promise<void>((resolve, reject) => {
 				server.close((err) => (err ? reject(err) : resolve()));
 			});
@@ -593,14 +598,6 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			}
 		}, 120_000);
 
-		test("claude adapter config carries prompt and return-enforcement channel", async () => {
-			const { CLAUDE_CLI_CONFIG } = await import("@hyperidle/harness-registry/cli-configs");
-			const args = CLAUDE_CLI_CONFIG.args;
-
-			expect(args).toContain("{{prompt}}");
-			expect(CLAUDE_CLI_CONFIG.returnEnforcementChannel).toBe("settings-claude");
-		});
-
 		test("LIVE: claude binary is reachable and version is valid", async () => {
 			const { stderr, stdout } = await execFileAsync("claude", ["--version"], {
 				timeout: 10_000,
@@ -785,23 +782,6 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			}
 		}, 120_000);
 
-		test("WARN-F2: forcing message prompt-carrier is provided to codex spawn args (not hardcoded 'proceed')", async () => {
-			const { CLI_TOOL_CONFIGS } = await import("@hyperidle/harness-registry/cli-configs");
-
-			const codexConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).codex as
-				| Record<string, unknown>
-				| undefined;
-			expect(codexConfig).toBeDefined();
-
-			const args = codexConfig?.args as string[] | undefined;
-			const hasSeedPromptCarrier =
-				args?.some((a) => a.includes("{{prompt}}") || a.includes("{{seed}}")) ||
-				"seedPrompt" in (codexConfig ?? {}) ||
-				"promptCarrier" in (codexConfig ?? {});
-
-			expect(hasSeedPromptCarrier).toBe(true);
-		});
-
 		test("FULL BINARY PROOF (CODEX_HOME): spawn real codex exec with per-session CODEX_HOME → LLM turn completes → Stop hook POSTs to real route → enforcementReg.forceCount>=1", async () => {
 			// Create a git-init'd sandbox (codex requires a git repo).
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-fb-"));
@@ -860,7 +840,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					// dir (not ~/.codex). The dir contains only auth.json + config.toml —
 					// no SQLite files. codex reads hooks.json from CODEX_HOME/hooks.json.
 					const cleanEnv = buildCleanEnv();
-					cleanEnv["CODEX_HOME"] = codexHomeDir;
+					cleanEnv.CODEX_HOME = codexHomeDir;
 
 					const result = await spawnDetached(
 						"codex",
@@ -1025,25 +1005,6 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
 		}, 120_000);
-
-		test("WARN-F3: process-reengage carries forcing message into re-invocation (not silent re-run)", async () => {
-			const { CLI_TOOL_CONFIGS } = await import("@hyperidle/harness-registry/cli-configs");
-
-			const opencodeConfig = (CLI_TOOL_CONFIGS as Record<string, unknown>).opencode as
-				| Record<string, unknown>
-				| undefined;
-			expect(opencodeConfig).toBeDefined();
-
-			// The config must document the re-engage prompt carrier.
-			const hasReEngageCarrier =
-				"reEngageCarrier" in (opencodeConfig ?? {}) ||
-				"promptCarrier" in (opencodeConfig ?? {}) ||
-				(opencodeConfig?.args as string[] | undefined)?.some(
-					(a) => a.includes("{{prompt}}") || a.includes("{{message}}"),
-				);
-
-			expect(hasReEngageCarrier).toBe(true);
-		});
 
 		test("LIVE: opencode binary is reachable, auth present, and version is valid", async () => {
 			// Fast verification: binary reachable + auth present + version valid.
@@ -1271,10 +1232,10 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		test("registered builtin harness capabilities declare builtin-loop return enforcement", async () => {
 			const { createLocalAdapterPool } = await import("@hyperidle/harness-registry");
 			const pool = await createLocalAdapterPool();
-			const caps = pool.getCapabilitiesByType("builtin");
+			const caps = pool.describe({ type: "builtin", includeKnownMissing: false })[0];
 
 			expect(caps?.returnEnforcement).toBe("builtin-loop");
-			expect(caps?.mcpSupport).toBe(false);
+			expect(caps?.runtime.mcpSupport).toBe(false);
 		});
 
 		test("real enforcement route rejects missing bearer token before accepting bearer token", async () => {

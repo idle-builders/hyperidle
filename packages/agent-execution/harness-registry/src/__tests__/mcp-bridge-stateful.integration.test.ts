@@ -32,6 +32,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import {
+	type EnforcementRegistry,
 	err,
 	ok,
 	type RegisteredTool,
@@ -44,13 +45,10 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import z from "zod";
-import { createMcpBridge, type McpBridgeInstance } from "../mcp/mcp-bridge.js";
-import { createMcpBridgeRegistry, type McpBridgeRegistry } from "../mcp/mcp-bridge-registry.js";
-import { createMcpRoute } from "../mcp/mcp-route.js";
-import {
-	createEnforcementRegistry,
-	type EnforcementRegistry,
-} from "../return-enforcement-registry.js";
+import { createMcpToolBridge, type McpToolBridge } from "../mcp-tool-bridge.js";
+import { createReturnEnforcement } from "../return-enforcement.js";
+
+const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
 
 /**
  * Inline commit_file proof-vehicle tool.
@@ -106,13 +104,13 @@ function buildMinimalRegistry(sandboxPath: string): ToolRegistry {
 				return err("INVALID_INPUT", parsed.error.message);
 			}
 			return commitFileDef.handler(parsed.data, {
-				db: null as never,
-				eventBus: null as never,
+				db: undefined!,
+				eventBus: undefined!,
 				agentId: "t0b-test",
 				sessionId: "t0b-session",
 				taskId: "t0b-task",
 				sandboxPath,
-				ingestion: null as never,
+				ingestion: undefined!,
 			});
 		},
 		toClaudeToolSpecs: () => definitions.map((d) => toClaudeToolSpec(d)),
@@ -123,28 +121,27 @@ function buildMinimalRegistry(sandboxPath: string): ToolRegistry {
 
 interface T0bTestServer {
 	readonly url: string;
-	readonly bridgeRegistry: McpBridgeRegistry;
+	readonly bridgeRegistry: McpToolBridge;
 	readonly enforcementReg: EnforcementRegistry;
-	readonly bridge: McpBridgeInstance;
+	readonly bridge: { readonly token: string };
 	close(): Promise<void>;
 }
 
 async function startT0bServer(sandboxPath: string): Promise<T0bTestServer> {
-	const bridgeRegistry = createMcpBridgeRegistry();
 	const enforcementReg = createEnforcementRegistry();
+	const bridgeRegistry = createMcpToolBridge({ enforcement: enforcementReg });
 	const testSessionId = `t0b-session-${Math.random().toString(36).slice(2, 10)}`;
 
 	const registry = buildMinimalRegistry(sandboxPath);
 	// Production factory — this is the line under test.
 	// RED: sessionIdGenerator: undefined → throws on request 2.
 	// GREEN (after T0): sessionIdGenerator: () => crypto.randomUUID() → multi-request works.
-	const bridge = await createMcpBridge({ sessionId: testSessionId, registry });
-	bridgeRegistry.register(bridge);
+	const bridge = await bridgeRegistry.open({ sessionId: testSessionId, registry });
 
 	// Mount the production route (createMcpRoute) — no test-only overrides.
 	const app = new Hono();
 	const api = new Hono();
-	const mcpRouter = createMcpRoute(bridgeRegistry, enforcementReg);
+	const mcpRouter = bridgeRegistry.router;
 	api.route("/", mcpRouter);
 	app.route("/api", api);
 
@@ -164,7 +161,7 @@ async function startT0bServer(sandboxPath: string): Promise<T0bTestServer> {
 		enforcementReg,
 		bridge,
 		close: async () => {
-			await bridgeRegistry.unregister(bridge.token);
+			await bridgeRegistry.close(bridge.token);
 			await new Promise<void>((resolve, reject) => {
 				server.close((e) => (e ? reject(e) : resolve()));
 			});

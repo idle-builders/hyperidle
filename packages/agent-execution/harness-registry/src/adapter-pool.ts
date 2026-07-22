@@ -14,10 +14,7 @@ import type {
 } from "@hyperidle/shared";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
-import {
-	describeRegisteredHarness,
-	missingKnownHarnessDescriptors,
-} from "./harness-capability-descriptors.js";
+import { createCapabilityCatalog } from "./harness-capability-descriptors.js";
 import type { HarnessDiscoveryInput } from "./harness-discovery.js";
 import { discoverLocalHarnesses, type HarnessDiscoveryResult } from "./harness-discovery.js";
 
@@ -61,14 +58,15 @@ export interface SelectRequirements {
 	readonly disabledTypes?: readonly string[];
 }
 
-/** A selected adapter entry (returned from select()). */
-export interface SelectedEntry {
-	readonly id: string;
-	readonly adapter: HarnessAdapter;
-	readonly meta: AdapterMeta;
+export interface AdapterFilter {
+	readonly type?: string;
+	readonly kind?: AdapterInfo["kind"];
+	readonly includeKnownMissing?: boolean;
 }
 
+/** A selected adapter entry (returned from select()). */
 export class AdapterPool {
+	private readonly catalog = createCapabilityCatalog();
 	private readonly entries = new Map<string, PoolEntry>();
 	/**
 	 * @lore AM4: `readonly` dropped to allow refreshDiscoveries() to reassign the snapshot.
@@ -98,7 +96,7 @@ export class AdapterPool {
 	 * @lore AM4: Called by POST /api/harnesses/redetect. The pool is DB-free so
 	 * the caller (route handler) stamps discovery.disabled separately from readServerConfig.
 	 */
-	async refreshDiscoveries(): Promise<void> {
+	async refresh(): Promise<void> {
 		const fresh = await discoverLocalHarnesses();
 		this.discoveries = Object.freeze(
 			Object.fromEntries(
@@ -117,12 +115,13 @@ export class AdapterPool {
 	 * Replaces any existing entry with the same ID.
 	 */
 	register(id: string, adapter: HarnessAdapter, meta: AdapterMeta): void {
+		const existing = this.entries.get(id);
 		this.entries.set(id, {
 			adapter,
 			meta,
-			currentLoad: 0,
-			paused: false,
-			connectedSince: new Date().toISOString(),
+			currentLoad: existing?.currentLoad ?? 0,
+			paused: existing?.paused ?? false,
+			connectedSince: existing?.connectedSince ?? new Date().toISOString(),
 		});
 	}
 
@@ -137,18 +136,24 @@ export class AdapterPool {
 	}
 
 	/** List all registered adapters as AdapterInfo (snapshot). */
-	list(): AdapterInfo[] {
-		return Array.from(this.entries.entries()).map(([id, entry]) => ({
-			id,
-			name: entry.meta.name,
-			kind: entry.meta.kind,
-			type: entry.meta.type,
-			modelProviders: entry.meta.modelProviders,
-			currentLoad: entry.currentLoad,
-			maxConcurrent: entry.meta.maxConcurrent,
-			connectedSince: entry.connectedSince,
-			paused: entry.paused,
-		}));
+	list(filter?: AdapterFilter): AdapterInfo[] {
+		return Array.from(this.entries.entries())
+			.filter(
+				([, entry]) =>
+					(!filter?.type || entry.meta.type === filter.type) &&
+					(!filter?.kind || entry.meta.kind === filter.kind),
+			)
+			.map(([id, entry]) => ({
+				id,
+				name: entry.meta.name,
+				kind: entry.meta.kind,
+				type: entry.meta.type,
+				modelProviders: entry.meta.modelProviders,
+				currentLoad: entry.currentLoad,
+				maxConcurrent: entry.meta.maxConcurrent,
+				connectedSince: entry.connectedSince,
+				paused: entry.paused,
+			}));
 	}
 
 	/**
@@ -180,7 +185,11 @@ export class AdapterPool {
 	 * @lore S2: "least-loaded" means lowest ratio of currentLoad/maxConcurrent.
 	 * Filtering happens first (capacity + modelProviders), then min-load selection.
 	 */
-	select(requirements?: SelectRequirements): SelectedEntry | null {
+	select(requirements?: SelectRequirements): {
+		readonly id: string;
+		readonly adapter: HarnessAdapter;
+		readonly meta: AdapterMeta;
+	} | null {
 		let best: { id: string; entry: PoolEntry } | null = null;
 
 		for (const [id, entry] of this.entries) {
@@ -244,66 +253,27 @@ export class AdapterPool {
 	 * not cached. This avoids stale capability data if adapters reconnect with
 	 * different features. The overhead is trivial (O(n) map scan, no I/O).
 	 */
-	getCapabilitiesByType(
-		harnessType: string | null,
-	): import("@hyperidle/shared").HarnessCapabilities | null {
-		for (const entry of this.entries.values()) {
-			if (harnessType === null || entry.meta.type === harnessType) {
-				return entry.adapter.getCapabilities();
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * POLISH-060 B1: Return the registration metadata for the first adapter matching
-	 * the given harnessType. Returns null when no matching adapter is registered.
-	 *
-	 * @lore POLISH-060 B1: meta.modelProviders is the authoritative source for
-	 * provider compatibility validation (it is what select() uses). CLI adapters
-	 * set meta.modelProviders = [] (provider-agnostic), while getCapabilities()
-	 * also returns [] but for a different semantic reason (CLI brings its own
-	 * provider). Using meta avoids the two-sources-of-truth divergence caught by
-	 * validateAgentConfig. Empty meta.modelProviders = "no check" (provider-agnostic).
-	 */
-	getRegistrationMetaByType(harnessType: string): AdapterMeta | null {
-		for (const entry of this.entries.values()) {
-			if (entry.meta.type === harnessType) {
-				return entry.meta;
-			}
-		}
-		return null;
-	}
-
-	listCapabilityDescriptors(options?: {
-		readonly includeKnownMissing?: boolean;
-	}): HarnessCapabilityDescriptor[] {
-		const includeKnownMissing = options?.includeKnownMissing ?? true;
+	describe(filter?: AdapterFilter): HarnessCapabilityDescriptor[] {
+		const includeKnownMissing = filter?.includeKnownMissing ?? true;
 		const descriptors: HarnessCapabilityDescriptor[] = [];
 		const seen = new Set<string>();
 
 		for (const entry of this.entries.values()) {
 			if (!entry.meta.type) continue;
+			if (filter?.type && entry.meta.type !== filter.type) continue;
+			if (filter?.kind && entry.meta.kind !== filter.kind) continue;
 			if (seen.has(entry.meta.type)) continue;
 			seen.add(entry.meta.type);
 			descriptors.push(
-				describeRegisteredHarness(entry.meta, entry.adapter.getCapabilities(), this.discoveries),
+				this.catalog.describe(entry.meta, entry.adapter.getCapabilities(), this.discoveries),
 			);
 		}
 
 		if (includeKnownMissing) {
-			descriptors.push(...missingKnownHarnessDescriptors(seen, this.discoveries));
+			descriptors.push(...this.catalog.missing(seen, this.discoveries));
 		}
 
 		return descriptors;
-	}
-
-	getCapabilityDescriptorByType(harnessType: string | null): HarnessCapabilityDescriptor | null {
-		const descriptors = this.listCapabilityDescriptors({ includeKnownMissing: false });
-		if (harnessType === null) {
-			return descriptors[0] ?? null;
-		}
-		return descriptors.find((descriptor) => descriptor.type === harnessType) ?? null;
 	}
 
 	/**
@@ -344,7 +314,7 @@ export class AdapterPool {
  * test can assert that codex config has a {{prompt}} or {{seed}} template arg. Without
  * a per-session prompt carrier codex sessions get a generic system prompt only.
  */
-export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
+const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 	codex: {
 		binary: "codex",
 		// @lore X5: `codex exec` runs a single-turn headless session; --json emits
@@ -486,7 +456,7 @@ export const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
  *   format ({mcpServers:{hyperidle:{type:"http",url}}}) for every MCP session.
  *   No dialect entry in writeCliMcpConfig needed — claude uses its own format.
  */
-export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
+const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 	binary: "claude",
 	// @lore claude-cli-adapter: `-p <prompt>` is the headless prompt flag;
 	// `--output-format stream-json --verbose` emits one JSON object per line;
@@ -549,7 +519,7 @@ export const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
  * via Cursor login — no API key in envMap. `--trust` + `--approve-mcps` allow
  * headless workspace + MCP without interactive prompts.
  */
-export const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
+const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 	binary: "cursor-agent",
 	args: [
 		"-p",

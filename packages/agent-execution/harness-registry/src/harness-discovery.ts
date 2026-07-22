@@ -37,7 +37,7 @@ function stripAnsi(value: string): string {
  * us what models it supports), NOT a relabelling of MODEL_CATALOG.
  * Real output captured 2026-07-06 from /opt/homebrew/bin/claude models.
  */
-export function parseClaudeModelsOutput(output: string): HarnessModelDescriptor[] {
+function parseClaudeCatalog(output: string): HarnessModelDescriptor[] {
 	const models: HarnessModelDescriptor[] = [];
 	const lines = output.split("\n");
 
@@ -158,7 +158,7 @@ function parseOpencodeModelJson(raw: string): HarnessModelDescriptor | null {
  * prefixed with a "provider/id" identifier line. The JSON body carries
  * the model's metadata. Real output captured 2026-07-06 from opencode models --verbose.
  */
-export function parseOpencodeModelsOutput(output: string): HarnessModelDescriptor[] {
+function parseOpenCodeCatalog(output: string): HarnessModelDescriptor[] {
 	const models: HarnessModelDescriptor[] = [];
 	if (!output.trim()) return models;
 
@@ -213,14 +213,14 @@ function parseContextWindow(raw: string): number {
  * Promise.all. A gateway reject/hang MUST degrade to models:[] without rejecting
  * the whole discovery batch. Wrap in AbortController with this timeout.
  */
-export const BUILTIN_MODELS_FETCH_TIMEOUT_MS = 10_000;
+const BUILTIN_MODELS_FETCH_TIMEOUT_MS = 10_000;
 
 /**
  * AC5 result of the harmless real one-shot session probe.
  * `runtimeFromDiscovery` only sets fileEditing/toolUse `true` when
  * `sessionProbe?.ok === true` — auth status alone proves login, NOT launchability.
  */
-export interface HarnessSessionProbeResult {
+interface HarnessSessionProbeResult {
 	readonly ok: boolean;
 	readonly family: "codex" | "claude-code" | "opencode";
 	/** First captured usage-bearing event line; committed as a fixture for AC6. */
@@ -235,7 +235,7 @@ export interface HarnessSessionProbeResult {
  *  private probe result that the descriptor builder maps into the public
  *  `HarnessDiscoveryStatus` / `HarnessCapabilityDescriptor`. Keeping it local
  *  prevents leaking discovery internals into the shared contract. */
-export interface HarnessDiscoveryInput {
+interface HarnessDiscoveryInput {
 	readonly state: HarnessReadinessState;
 	readonly version?: string;
 	readonly reason?: string;
@@ -256,7 +256,7 @@ export interface HarnessDiscoveryInput {
 	readonly inheritedTools?: readonly InheritedToolDescriptor[];
 }
 
-export interface HarnessDiscoveryResult {
+interface HarnessDiscoveryResult {
 	readonly builtin: HarnessDiscoveryInput;
 	readonly codex: HarnessDiscoveryInput;
 	readonly "claude-code": HarnessDiscoveryInput;
@@ -387,6 +387,8 @@ async function probeCodexCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInpu
 	};
 }
 
+export type { HarnessDiscoveryInput, HarnessDiscoveryResult, HarnessSessionProbeResult };
+
 async function probeClaudeCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
 	const versionResult = await runCommand(["claude", "--version"], d);
 	if (versionResult.exitCode !== 0) {
@@ -423,7 +425,7 @@ async function probeClaudeCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscover
 			try {
 				const modelsResult = await runCommand(["claude", "models"], d);
 				if (modelsResult.exitCode === 0 && modelsResult.stdout.trim()) {
-					models = parseClaudeModelsOutput(modelsResult.stdout);
+					models = parseClaudeCatalog(modelsResult.stdout);
 				}
 			} catch {
 				// degraded gracefully — models stays []
@@ -479,7 +481,7 @@ async function probeClaudeCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscover
  * (real format captured 2026-07-06). We run it when providers are configured
  * (state=ready). Failure degrades to models:[] — never throws.
  */
-export async function probeOpenCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
+async function inspectOpenCode(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
 	const versionResult = await runCommand(["opencode", "--version"], d);
 	if (versionResult.exitCode !== 0) {
 		return {
@@ -516,7 +518,7 @@ export async function probeOpenCodeCli(d?: HarnessProbeDeps): Promise<HarnessDis
 		try {
 			const modelsResult = await runCommand(["opencode", "models", "--verbose"], d);
 			if (modelsResult.exitCode === 0 && modelsResult.stdout.trim()) {
-				models = parseOpencodeModelsOutput(modelsResult.stdout);
+				models = parseOpenCodeCatalog(modelsResult.stdout);
 			}
 		} catch {
 			// degraded gracefully — models stays []
@@ -806,7 +808,7 @@ const INHERITED_PROBE_TIMEOUT_MS = 5_000;
  * and liveness status — env vars / tokens are never in the list output.
  * We parse names only; the status suffix determines health.
  */
-export async function probeClaudeCodeMcpList(
+async function inspectClaudeTools(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
 	try {
@@ -877,7 +879,7 @@ function parseCodexMcpListOutput(stdout: string): readonly InheritedToolDescript
  *
  * @lore AN1: Never reads env/command values from config.toml — names only.
  */
-export async function probeCodexMcpList(
+async function inspectCodexTools(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
 	try {
@@ -948,7 +950,7 @@ export async function probeCodexMcpList(
  * server-name → { type, url, ... }. We extract only the keys — never the values.
  * We use XDG_CONFIG_HOME env var for isolation in tests.
  */
-export async function probeOpencodeMcpList(
+async function inspectOpenCodeTools(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
 	try {
@@ -1001,7 +1003,7 @@ export async function probeOpencodeMcpList(
  * @lore AN1 hard-rule 4: `gh auth status --json hosts` never returns token values —
  * only host names and account metadata.
  */
-export async function probeEnvironmentClis(
+async function inspectInheritedTools(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
 	const tools: InheritedToolDescriptor[] = [];
@@ -1069,12 +1071,12 @@ export async function discoverLocalHarnesses(
 		probeBuiltinGateway(d),
 		probeCodexCli(d),
 		probeClaudeCodeCli(d),
-		probeOpenCodeCli(d),
+		inspectOpenCode(d),
 		probeCursorAgentCli(d),
-		probeClaudeCodeMcpList(d),
-		probeCodexMcpList(d),
-		probeOpencodeMcpList(d),
-		probeEnvironmentClis(d),
+		inspectClaudeTools(d),
+		inspectCodexTools(d),
+		inspectOpenCodeTools(d),
+		inspectInheritedTools(d),
 	]);
 
 	// Merge inherited tool probes into each harness's discovery input.

@@ -45,13 +45,11 @@
  * is itself Mechanism-B-enforced.
  */
 
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
-import {
-	EMITTED_ROOTS_CLAUDE_SETTINGS,
-	EMITTED_ROOTS_CLI_MCP_CONFIG,
-	EMITTED_ROOTS_CODEX_HOME,
-	EMITTED_ROOTS_OPENCODE_PLUGIN,
-} from "@hyperidle/harness-registry";
+import { provisionHarnessEnvironment } from "@hyperidle/harness-registry";
 import {
 	createContextAssembler,
 	createProvisioner,
@@ -106,26 +104,27 @@ describe("SANDBOX_SCAFFOLDING_PATHS drift-guard", () => {
 		assertAllCovered("runSession MCP configuration", provisioner.emittedFiles);
 	});
 
-	it("covers provisionClaudeSettings (.claude/)", () => {
-		assertAllCovered(
-			"provision-return-hook.ts provisionClaudeSettings",
-			EMITTED_ROOTS_CLAUDE_SETTINGS,
-		);
-	});
-
-	it("covers provisionCodexHome (.codex/, .codex-home/)", () => {
-		assertAllCovered("provision-return-hook.ts provisionCodexHome", EMITTED_ROOTS_CODEX_HOME);
-	});
-
-	it("covers provisionOpencodePlugin (.opencode/)", () => {
-		assertAllCovered(
-			"provision-return-hook.ts provisionOpencodePlugin",
-			EMITTED_ROOTS_OPENCODE_PLUGIN,
-		);
-	});
-
-	it("covers writeCliMcpConfig (opencode.json)", () => {
-		assertAllCovered("harness/cli-mcp-config.ts writeCliMcpConfig", EMITTED_ROOTS_CLI_MCP_CONFIG);
+	it("covers every harness environment artifact emitted by the product writer", async () => {
+		for (const channel of ["settings-claude", "settings-codex", "process-reengage"] as const) {
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "harness-scaffold-"));
+			await provisionHarnessEnvironment({
+				sandboxPath,
+				channel,
+				mcpUrl: "http://127.0.0.1/api/mcp/token",
+				token: "token",
+			});
+			assertAllCovered(channel, fs.readdirSync(sandboxPath));
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		}
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "harness-scaffold-"));
+		await provisionHarnessEnvironment({
+			sandboxPath,
+			dialect: "opencode-json",
+			mcpUrl: "http://127.0.0.1/api/mcp/token",
+			token: "token",
+		});
+		assertAllCovered("opencode-json", fs.readdirSync(sandboxPath));
+		fs.rmSync(sandboxPath, { recursive: true, force: true });
 	});
 
 	it("SANDBOX_SCAFFOLDING_PATHS has no duplicate entries", () => {

@@ -21,3 +21,13 @@ export interface SandboxAdapter {
 	exec(handle: SandboxHandle, command: string): Promise<ExecResult>;
 	destroy(handle: SandboxHandle): Promise<void>;
 }
+
+export function createSandboxAdapter(topology: "local" | "disabled"): SandboxAdapter {
+	if (topology === "local") {
+		return new LocalSandboxAdapter();
+	}
+	return new DisabledSandboxAdapter();
+}
+
+import { DisabledSandboxAdapter } from "./disabled-sandbox-adapter.js";
+import { LocalSandboxAdapter } from "./local-sandbox-adapter.js";

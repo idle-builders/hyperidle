@@ -26,13 +26,13 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-	__getCostAccumulatorForTest,
-	__resetCostAccumulatorForTest,
 	buildCassetteKey,
 	type CassetteEntry,
 	CassetteMissError,
+	readCostAccumulator,
 	recordLlm,
 	replayLlm,
+	resetCostAccumulator,
 } from "../llm-cassette.js";
 import type { CallLlmOptions } from "../llm-client.js";
 import type { LlmMessage, LlmResponse, LlmToolDef } from "../llm-types.js";
@@ -398,7 +398,7 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 	let tmpDir: string;
 
 	beforeEach(() => {
-		__resetCostAccumulatorForTest();
+		resetCostAccumulator();
 		vi.stubEnv("LLM_CASSETTE_MODE", "record");
 		vi.stubEnv("AH6_MAX_COST_CENTS", "100"); // large cap so tests don't abort
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ah6-cost-test-"));
@@ -409,7 +409,7 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
-		__resetCostAccumulatorForTest();
+		resetCostAccumulator();
 		// Clean up temp dir
 		try {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -428,7 +428,7 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 
 		await recordLlm(options, async () => stubbedResponse);
 
-		const acc = __getCostAccumulatorForTest();
+		const acc = readCostAccumulator();
 		expect(acc.totalCostUsd).toBeGreaterThan(0);
 		expect(acc.totalInputTokens).toBe(100);
 		expect(acc.totalOutputTokens).toBe(50);
@@ -445,7 +445,7 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 		await recordLlm(options, async () => stubbedResponse);
 		await recordLlm(makeOptions(MODEL_B), async () => stubbedResponse);
 
-		const acc = __getCostAccumulatorForTest();
+		const acc = readCostAccumulator();
 		expect(acc.totalInputTokens).toBe(200);
 		expect(acc.totalOutputTokens).toBe(100);
 		expect(acc.totalCostUsd).toBeGreaterThan(0);
@@ -461,7 +461,7 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 
 		await recordLlm(options, async () => stubbedResponse);
 
-		const acc = __getCostAccumulatorForTest();
+		const acc = readCostAccumulator();
 		// model id should have :nitro stripped
 		expect(acc.model).toBe("deepseek/deepseek-v4-flash");
 	});
@@ -491,7 +491,7 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 		// The cassette is only written at process exit (flush) — confirm the original
 		// options.model.apiKey hasn't leaked into the accumulator's model field.
 		expect(options.model.apiKey).toBe("sk-or-real-key"); // fixture has a real-looking key
-		const acc = __getCostAccumulatorForTest();
+		const acc = readCostAccumulator();
 		// Accumulator model field is the stripped model id — no key material
 		expect(acc.model).not.toContain("sk-or");
 	});

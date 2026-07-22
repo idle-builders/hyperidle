@@ -1,5 +1,6 @@
 import type { ConnectionHealth } from "../connection.js";
 import type { ModelProvider } from "../model-gateway.js";
+import type { HarnessCapabilities } from "./harness-adapter.js";
 
 export const HARNESS_OPTION_CONTROL_KINDS = ["select", "boolean", "number", "text"] as const;
 export type HarnessOptionControlKind = (typeof HARNESS_OPTION_CONTROL_KINDS)[number];
@@ -107,6 +108,7 @@ export interface HarnessCapabilityDescriptor {
 	readonly discovery: HarnessDiscoveryStatus;
 	readonly models: readonly HarnessModelDescriptor[];
 	readonly runtime: HarnessRuntimeCapabilities;
+	readonly returnEnforcement?: HarnessCapabilities["returnEnforcement"];
 	/** Legacy compatibility for existing SettingsAgents selector. */
 	readonly modelProviders: readonly string[];
 	/**

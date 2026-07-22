@@ -1,69 +1,24 @@
-/**
- * Factory for HarnessAdapter — collapses the three concrete harness classes
- * (BuiltinHarnessAdapter, CliHarnessAdapter, RemoteHarnessAdapter) behind a
- * single discriminated-union createHarnessAdapter factory + two helpers.
- *
- * @lore AU20 Ag4b: Part of the harness-registry surface collapse (79 → ~15
- * exports). Concrete classes are INTERNAL impls; the product is the
- * HarnessAdapter interface + this factory. Callers select the right adapter
- * by spec.kind without importing concrete class names.
- *
- * @lore AU20 Ag4b WsLike: RemoteHarnessAdapter's WsLike interface is private
- * to remote-harness-adapter.ts and cannot be imported here. We redeclare an
- * equivalent private WsLike and cast ws to it — the same WSContext value flows
- * through unchanged (structural equivalence; same strategy as the pre-migration
- * `ws as never` in run-orchestration-bindings.ts).
- */
-
-import type { HarnessAdapter, WorkerRegisterMessage } from "@hyperidle/shared";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import type {
+	HarnessAdapter,
+	HarnessCapabilities,
+	HarnessEvent,
+	ResolvedModel,
+	SessionConfig,
+	SessionHandle,
+	SessionResult,
+	WorkerRegisterMessage,
+} from "@hyperidle/shared";
 import type { BuiltinHarnessOptions } from "./builtin-harness-adapter.js";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
-import {
-	type CliAdapterConfig,
-	type CliAdapterDeps,
-	type CliAvailabilityDeps,
-	CliHarnessAdapter,
-} from "./cli-harness-adapter.js";
+import type { CliAdapterConfig, CliAdapterDeps } from "./cli-harness-adapter.js";
+import { CliHarnessAdapter } from "./cli-harness-adapter.js";
+import type { CallLlmOptions } from "./llm-client.js";
+import { callLlm } from "./llm-client.js";
+import { estimateLlmCost } from "./llm-cost-estimate.js";
 import { RemoteHarnessAdapter } from "./remote-harness-adapter.js";
 
-// ── HarnessAdapterSpec — discriminated-union factory spec ──────────────────
-
-/**
- * Discriminated-union spec for createHarnessAdapter.
- *
- * | kind      | concrete class              |
- * |-----------|-----------------------------|
- * | "builtin" | BuiltinHarnessAdapter       |
- * | "cli"     | CliHarnessAdapter           |
- *
- * Remote adapters use createRemoteHarnessAdapter (separate factory —
- * they require a live WebSocket, not a static config).
- */
-export type HarnessAdapterSpec =
-	| { readonly kind: "builtin"; readonly options?: BuiltinHarnessOptions }
-	| { readonly kind: "cli"; readonly config: CliAdapterConfig; readonly deps?: CliAdapterDeps };
-
-// ── Factories ──────────────────────────────────────────────────────────────
-
-/**
- * Create a HarnessAdapter from a discriminated spec.
- * Returns the HarnessAdapter interface; the concrete class is hidden.
- */
-export function createHarnessAdapter(spec: HarnessAdapterSpec): HarnessAdapter {
-	switch (spec.kind) {
-		case "builtin":
-			return new BuiltinHarnessAdapter(spec.options);
-		case "cli":
-			return new CliHarnessAdapter(spec.config, spec.deps);
-	}
-}
-
-/**
- * Minimal WS-like interface expected by RemoteHarnessAdapter.
- * Private to this file — mirrors the same private interface inside
- * remote-harness-adapter.ts. The factory parameter is typed as `unknown`
- * so callers (whose ws is a WSContext) are not forced to import this type.
- */
 interface WsLike {
 	send(data: string): void;
 	close(): void;
@@ -72,34 +27,157 @@ interface WsLike {
 	onerror: ((err: Error) => void) | null;
 }
 
-/**
- * Create a RemoteHarnessAdapter from a WebSocket connection + registration.
- * Returns HarnessAdapter & { dispatchMessage } — the product interface.
- * The concrete RemoteHarnessAdapter class is not exported from the barrel.
- *
- * @param ws - The WebSocket connection (accepted as unknown; WSContext
- *   satisfies WsLike structurally — same cast the pre-migration callers used
- *   as `ws as never`).
- * @param registration - The WorkerRegisterMessage received on WS connect.
- */
-export function createRemoteHarnessAdapter(
-	ws: unknown,
-	registration: WorkerRegisterMessage,
-): HarnessAdapter & { dispatchMessage(data: string): void } {
-	return new RemoteHarnessAdapter(ws as WsLike, registration);
+type BuiltinSpec = { readonly kind: "builtin"; readonly options?: BuiltinHarnessOptions };
+type CliSpec = {
+	readonly kind: "cli";
+	readonly config: CliAdapterConfig;
+	readonly deps?: CliAdapterDeps;
+};
+type DirectSpec = {
+	readonly kind: "direct";
+	readonly model: ResolvedModel;
+	readonly instruction?: string;
+	readonly tools?: CallLlmOptions["tools"];
+	readonly maxTokens?: number;
+	readonly returnEnforcement: "none";
+};
+type RemoteSpec = {
+	readonly kind: "remote";
+	readonly ws: unknown;
+	readonly registration: WorkerRegisterMessage;
+};
+export type HarnessAdapterSpec = BuiltinSpec | CliSpec | DirectSpec | RemoteSpec;
+
+interface DirectSession {
+	readonly systemPrompt: string;
+	readonly controller: AbortController;
+	stopped: boolean;
 }
 
-// ── Availability helper ────────────────────────────────────────────────────
+class DirectHarnessAdapter implements HarnessAdapter {
+	private readonly sessions = new Map<string, DirectSession>();
 
-/**
- * Check if a CLI harness binary is available on PATH.
- * Replaces the static CliHarnessAdapter.checkAvailability method.
- *
- * @returns true when the binary is found and executable; false otherwise.
- */
-export function checkCliHarnessAvailability(
-	binary: string,
-	deps?: CliAvailabilityDeps,
-): Promise<boolean> {
-	return CliHarnessAdapter.checkAvailability(binary, deps);
+	constructor(private readonly options: DirectSpec) {}
+
+	async startSession(config: SessionConfig): Promise<SessionHandle> {
+		let systemPrompt = config.assembledPrompt;
+		try {
+			systemPrompt = await fs.readFile(path.join(config.sandboxPath, "AGENTS.md"), "utf8");
+		} catch {
+			// Carrier is optional; assembled prompt is canonical fallback.
+		}
+		this.sessions.set(config.sessionId, {
+			systemPrompt,
+			controller: new AbortController(),
+			stopped: false,
+		});
+		return { sessionId: config.sessionId };
+	}
+
+	async *streamEvents(handle: SessionHandle): AsyncGenerator<HarnessEvent> {
+		const session = this.sessions.get(handle.sessionId);
+		if (!session) {
+			yield {
+				type: "error",
+				message: "Direct harness session not found",
+				code: "SESSION_NOT_FOUND",
+			};
+			return;
+		}
+		try {
+			const response = await callLlm({
+				model: this.options.model,
+				system: session.systemPrompt,
+				messages: [
+					{ role: "user", content: this.options.instruction ?? "Complete your assigned task." },
+				],
+				tools: this.options.tools,
+				maxTokens: this.options.maxTokens ?? 1024,
+				signal: session.controller.signal,
+			});
+			if (session.stopped) return;
+			const cost = estimateLlmCost(
+				response.usage.inputTokens,
+				response.usage.outputTokens,
+				this.options.model.model,
+			);
+			if (cost > 0)
+				yield { type: "cost_update", totalCost: cost, deltaCost: cost, currency: "USD" };
+			yield {
+				type: "token_usage",
+				inputTokens: response.usage.inputTokens,
+				outputTokens: response.usage.outputTokens,
+			};
+			for (const block of response.content) {
+				if (block.type === "tool_use")
+					yield { type: "tool_call", toolName: block.name, args: block.input };
+			}
+			const text = response.content
+				.flatMap((block) => (block.type === "text" ? [block.text] : []))
+				.join("");
+			if (!session.stopped) yield { type: "completion", text };
+		} catch (error) {
+			if (!session.stopped)
+				yield {
+					type: "error",
+					message: `Direct harness LLM call failed: ${String(error)}`,
+					code: "LLM_CALL_FAILED",
+				};
+		} finally {
+			this.sessions.delete(handle.sessionId);
+		}
+	}
+
+	stopSession(handle: SessionHandle): Promise<SessionResult> {
+		const session = this.sessions.get(handle.sessionId);
+		if (session) {
+			session.stopped = true;
+			session.controller.abort(new Error("Direct harness session stopped"));
+			this.sessions.delete(handle.sessionId);
+		}
+		return Promise.resolve({
+			outcome: session ? "stopped" : "completed",
+			cost: { minor: 0, currency: "USD" },
+			tokenUsage: { byTier: {} },
+		});
+	}
+
+	getCapabilities(): HarnessCapabilities {
+		return {
+			preCompactionTrigger: false,
+			subAgents: false,
+			modelProviders: [this.options.model.provider],
+			mcpSupport: false,
+			returnEnforcement: "none",
+		};
+	}
+}
+
+export function createHarnessAdapter(spec: BuiltinSpec): BuiltinHarnessAdapter;
+export function createHarnessAdapter(spec: CliSpec): CliHarnessAdapter;
+export function createHarnessAdapter(spec: DirectSpec): HarnessAdapter;
+export function createHarnessAdapter(spec: RemoteSpec): RemoteHarnessAdapter;
+export function createHarnessAdapter(spec: HarnessAdapterSpec): HarnessAdapter {
+	switch (spec.kind) {
+		case "builtin":
+			return new BuiltinHarnessAdapter(spec.options);
+		case "cli":
+			return new CliHarnessAdapter(spec.config, spec.deps);
+		case "direct":
+			return new DirectHarnessAdapter(spec);
+		case "remote":
+			if (!isSocket(spec.ws))
+				throw new TypeError("Remote harness requires a WebSocket-like transport");
+			return new RemoteHarnessAdapter(spec.ws, spec.registration);
+	}
+}
+
+function isSocket(value: unknown): value is WsLike {
+	if (typeof value !== "object" || value === null) return false;
+	return (
+		"send" in value &&
+		typeof value.send === "function" &&
+		"close" in value &&
+		typeof value.close === "function"
+	);
 }

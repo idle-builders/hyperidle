@@ -72,7 +72,7 @@ describe("RemoteHarnessAdapter interface compliance", () => {
 	it("satisfies HarnessAdapter at compile time", () => {
 		const ws = new MockWebSocket();
 		// If RemoteHarnessAdapter doesn't implement HarnessAdapter, this assignment will fail
-		const adapter: HarnessAdapter = new RemoteHarnessAdapter(ws as never, WORKER_REG);
+		const adapter: HarnessAdapter = new RemoteHarnessAdapter(ws, WORKER_REG);
 		expect(adapter).toBeDefined();
 	});
 

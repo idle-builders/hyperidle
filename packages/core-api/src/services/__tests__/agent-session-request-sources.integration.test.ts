@@ -12,7 +12,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { AdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createSessionRequest } from "@hyperidle/session-requests";
 import {
 	type AgentSessionRequestInput,
@@ -171,7 +171,7 @@ describe("agent session request sources", () => {
 			db,
 			eventBus,
 			adapterPool,
-			workspace: new LocalSandboxAdapter(),
+			workspace: createSandboxAdapter("local"),
 			onBeforeTeardown: async ({
 				sessionId,
 				sandboxPath,

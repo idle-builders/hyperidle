@@ -4,7 +4,11 @@ import {
 	shouldForceReturn,
 } from "@hyperidle/shared";
 import { Hono, type MiddlewareHandler } from "hono";
-import type { McpBridgeRegistry } from "./mcp-bridge-registry.js";
+
+interface McpSessionRegistry {
+	lookup(token: string): { readonly sessionId: string } | undefined;
+	handleRequest(token: string, request: Request): Promise<Response>;
+}
 
 /**
  * Local, minimal re-implementation of `packages/server`'s AF11
@@ -79,8 +83,8 @@ function requireBoundary(decl: {
  * clients and hook scripts can authenticate via the session token in the URL
  * path, not via X-API-Key.
  */
-export function createMcpRoute(
-	bridgeRegistry: McpBridgeRegistry,
+export function createMcpRouter(
+	bridgeRegistry: McpSessionRegistry,
 	enforcementRegistry?: EnforcementRegistry,
 ): Hono {
 	const router = new Hono();
@@ -96,29 +100,29 @@ export function createMcpRoute(
 	// so the hook script sees a non-empty response and falls back to allow-stop
 	// (drain-gate floor backstops). Production wiring (server-factory.ts) MUST
 	// pass the registry.
-	router.post("/mcp/:token/return-status", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/mcp/:token/return-status", requireBoundary({ kind: "public-data" }), (c) => {
 		const token = c.req.param("token");
 
 		// Validate Bearer token in Authorization header (optional belt-and-suspenders
 		// check — the token is already in the URL path, but belt-and-suspenders auth
 		// matches what the hook script sends).
 		const authHeader = c.req.header("Authorization") ?? "";
-		if (!authHeader.includes(token)) {
+		if (authHeader !== `Bearer ${token}`) {
 			return c.text("Unauthorized", 401);
 		}
 
 		// Resolve token → sessionId via bridge registry.
 		const bridge = bridgeRegistry.lookup(token);
 		if (!bridge) {
-			// Session has ended (bridge unregistered) or token is invalid.
-			// Allow the stop — the session drain already recorded the outcome.
-			return c.text("", 200);
+			// Header equality alone does not prove that the presented credential was
+			// issued. Ended sessions and invented tokens are both unauthorized.
+			return c.text("Unauthorized", 401);
 		}
 
 		if (!enforcementRegistry) {
 			// Registry not wired — should not happen in production.
 			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.warn("[return-status] enforcementRegistry not passed to createMcpRoute");
+			console.warn("[return-status] enforcement resource not configured");
 			return c.text("Not Implemented", 501);
 		}
 
@@ -165,3 +169,5 @@ export function createMcpRoute(
 
 	return router;
 }
+
+export type { McpSessionRegistry };

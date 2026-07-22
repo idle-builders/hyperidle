@@ -1,298 +1,160 @@
-/**
- * AV2 — Harness discovery unit tests (RED phase)
- *
- * AC-2 (discovery):
- *  - builtin probe: stubbed /models payload → yields those model ids as descriptor.models
- *  - builtin probe: no key → models: [] (never fabricated, never MODEL_CATALOG)
- *  - claude parser: real-captured fixture → expected descriptors
- *  - opencode parser: real-captured fixture → expected descriptors
- *  - codex: models: [] always
- *  - describeRegisteredHarness: discovered models from discoveries[type].models merged in
- */
-
-import type { HarnessCapabilities, HarnessModelDescriptor } from "@hyperidle/shared";
+import type { HarnessAdapter, HarnessCapabilities } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import type { AdapterMeta } from "../adapter-pool.js";
-import { describeRegisteredHarness } from "../harness-capability-descriptors.js";
-import { parseClaudeModelsOutput, parseOpencodeModelsOutput } from "../harness-discovery.js";
+import { AdapterPool } from "../adapter-pool.js";
+import { discoverLocalHarnesses } from "../harness-discovery.js";
 
-// ---------------------------------------------------------------------------
-// Real-captured claude models output (captured 2026-07-06 from /opt/homebrew/bin/claude models)
-// ---------------------------------------------------------------------------
-
-const CLAUDE_MODELS_FIXTURE = `Current Claude models:
+const CLAUDE_MODELS = `Current Claude models:
 
 | Model | ID | Context | In $/1M | Out $/1M |
 |---|---|---|---|---|
 | **Fable 5** | \`claude-fable-5\` | 1M | $10 | $50 |
-| **Opus 4.8** | \`claude-opus-4-8\` | 1M | $5 | $25 |
-| Opus 4.7 | \`claude-opus-4-7\` | 1M | $5 | $25 |
-| Opus 4.6 | \`claude-opus-4-6\` | 1M | $5 | $25 |
-| **Sonnet 4.6** | \`claude-sonnet-4-6\` | 1M | $3 | $15 |
 | **Haiku 4.5** | \`claude-haiku-4-5\` | 200K | $1 | $5 |
-
-**Picking:**
-- **Fable 5** — most capable, tier above Opus. Highest cost.
+| Decimal | \`claude-decimal\` | 1.5M | $1 | $5 |
+| Numeric | \`claude-numeric\` | 128000 | $1 | $5 |
 `;
 
-// ---------------------------------------------------------------------------
-// Real-captured opencode models --verbose output (captured 2026-07-06)
-// ---------------------------------------------------------------------------
+const OPENCODE_MODELS = `opencode/bad
+{ bad json
+opencode/good
+{"id":"good","providerID":"openrouter","name":"Good","limit":{"context":200000}}`;
 
-const OPENCODE_MODELS_FIXTURE = `opencode/big-pickle
-{
-  "id": "big-pickle",
-  "providerID": "opencode",
-  "name": "Big Pickle",
-  "family": "big-pickle",
-  "api": {
-    "id": "big-pickle",
-    "url": "https://opencode.ai/zen/v1",
-    "npm": "@ai-sdk/openai-compatible"
-  },
-  "status": "active",
-  "headers": {},
-  "options": {},
-  "cost": {
-    "input": 0,
-    "output": 0,
-    "cache": {
-      "read": 0,
-      "write": 0
-    }
-  },
-  "limit": {
-    "context": 200000,
-    "input": 160000,
-    "output": 32000
-  },
-  "capabilities": {
-    "temperature": true,
-    "reasoning": true,
-    "attachment": false,
-    "toolcall": true
-  },
-  "release_date": "2025-10-17",
-  "variants": {}
+const response = (stdout = "", exitCode = 0, stderr = "") => ({ stdout, stderr, exitCode });
+
+function discoveryRunner(overrides: Readonly<Record<string, ReturnType<typeof response>>> = {}) {
+	const defaults: Readonly<Record<string, ReturnType<typeof response>>> = {
+		"codex --version": response("codex-cli 1.2.3"),
+		"codex login status": response("Logged in using ChatGPT"),
+		"claude --version": response("2.0.0"),
+		"claude auth status": response('{"loggedIn":true}'),
+		"claude models": response(CLAUDE_MODELS),
+		"claude mcp list": response(
+			"github: https://example.invalid - ✓ Connected\nbroken: local - ✗ Failed\nwaiting: local - pending",
+		),
+		"opencode --version": response("1.0.0"),
+		"opencode providers list": response("1 credentials"),
+		"opencode models --verbose": response(OPENCODE_MODELS),
+		"cursor-agent --version": response("", 1),
+		"codex mcp list": response("", 1),
+		"gh --version": response("", 1),
+		"stripe --version": response("", 1),
+	};
+	return async (args: readonly string[]) => {
+		const key = args.join(" ");
+		return overrides[key] ?? defaults[key] ?? response("", 1);
+	};
 }
-opencode/deepseek-v4-flash-free
-{
-  "id": "deepseek-v4-flash-free",
-  "providerID": "opencode",
-  "name": "DeepSeek V4 Flash Free",
-  "family": "deepseek-flash-free",
-  "api": {
-    "id": "deepseek-v4-flash-free",
-    "url": "https://opencode.ai/zen/v1",
-    "npm": "@ai-sdk/openai-compatible"
-  },
-  "status": "active",
-  "headers": {},
-  "options": {},
-  "cost": {
-    "input": 0,
-    "output": 0
-  },
-  "limit": {
-    "context": 200000
-  },
-  "capabilities": {
-    "temperature": true
-  },
-  "release_date": "2025-01-01",
-  "variants": {}
-}
-`;
 
-// ---------------------------------------------------------------------------
-// parseClaudeModelsOutput
-// ---------------------------------------------------------------------------
+describe("discoverLocalHarnesses cohesive discovery", () => {
+	it("parses the captured Claude table, context forms, and MCP health end to end", async () => {
+		const result = await discoverLocalHarnesses({ run: discoveryRunner(), env: {} });
+		const claude = result["claude-code"];
 
-describe("parseClaudeModelsOutput", () => {
-	it("parses the real-captured claude models Markdown table", () => {
-		const models = parseClaudeModelsOutput(CLAUDE_MODELS_FIXTURE);
-		expect(models.length).toBeGreaterThan(0);
-
-		const ids = models.map((m) => m.id);
-		expect(ids).toContain("claude-fable-5");
-		expect(ids).toContain("claude-opus-4-8");
-		expect(ids).toContain("claude-sonnet-4-6");
-		expect(ids).toContain("claude-haiku-4-5");
+		expect(claude.state).toBe("ready");
+		expect(claude.models).toEqual([
+			expect.objectContaining({ id: "claude-fable-5", label: "Fable 5", contextWindow: 1_000_000 }),
+			expect.objectContaining({
+				id: "claude-haiku-4-5",
+				label: "Haiku 4.5",
+				contextWindow: 200_000,
+			}),
+			expect.objectContaining({ id: "claude-decimal", contextWindow: 1_500_000 }),
+			expect.objectContaining({ id: "claude-numeric", contextWindow: 128_000 }),
+		]);
+		expect(claude.inheritedTools).toEqual([
+			expect.objectContaining({ name: "github", health: "working" }),
+			expect.objectContaining({ name: "broken", health: "needs-attention" }),
+			expect.objectContaining({ name: "waiting", health: "needs-attention" }),
+		]);
 	});
 
-	it("strips backticks from the ID column", () => {
-		const models = parseClaudeModelsOutput(CLAUDE_MODELS_FIXTURE);
-		for (const m of models) {
-			expect(m.id).not.toContain("`");
+	it("reports honest none for Codex and skips malformed OpenCode blocks", async () => {
+		const result = await discoverLocalHarnesses({ run: discoveryRunner(), env: {} });
+		expect(result.codex).toMatchObject({ state: "ready", version: "codex-cli 1.2.3" });
+		expect(result.codex.models).toBeUndefined();
+		expect(result.opencode.models).toEqual([
+			expect.objectContaining({ id: "good", label: "Good", contextWindow: 200_000 }),
+		]);
+	});
+
+	it("returns empty OpenCode models for empty and wholly malformed output", async () => {
+		for (const stdout of ["", "opencode/bad\n{ definitely not json"]) {
+			const result = await discoverLocalHarnesses({
+				run: discoveryRunner({ "opencode models --verbose": response(stdout) }),
+				env: {},
+			});
+			expect(result.opencode.models).toEqual([]);
 		}
 	});
 
-	it("strips bold markers from the Model column to form labels", () => {
-		const models = parseClaudeModelsOutput(CLAUDE_MODELS_FIXTURE);
-		const fable = models.find((m) => m.id === "claude-fable-5");
-		expect(fable).toBeDefined();
-		expect(fable!.label).not.toContain("**");
-	});
+	it("maps Claude auth failures and unparsable health without inventing readiness", async () => {
+		const failed = await discoverLocalHarnesses({
+			run: discoveryRunner({ "claude auth status": response("denied", 1, "denied") }),
+			env: {},
+		});
+		expect(failed["claude-code"]).toMatchObject({
+			state: "installed",
+			reason: expect.stringContaining("failed"),
+		});
 
-	it("parses context window correctly (1M → 1000000, 200K → 200000)", () => {
-		const models = parseClaudeModelsOutput(CLAUDE_MODELS_FIXTURE);
-		const opus = models.find((m) => m.id === "claude-opus-4-8");
-		const haiku = models.find((m) => m.id === "claude-haiku-4-5");
-		expect(opus?.contextWindow).toBe(1_000_000);
-		expect(haiku?.contextWindow).toBe(200_000);
-	});
-
-	it("returns [] on empty or non-table input (no crash)", () => {
-		expect(parseClaudeModelsOutput("")).toEqual([]);
-		expect(parseClaudeModelsOutput("no table here")).toEqual([]);
-	});
-
-	it("sets selectable:true for each returned model", () => {
-		const models = parseClaudeModelsOutput(CLAUDE_MODELS_FIXTURE);
-		for (const m of models) {
-			expect(m.selectable).toBe(true);
-		}
+		const malformed = await discoverLocalHarnesses({
+			run: discoveryRunner({ "claude auth status": response("not-json") }),
+			env: {},
+		});
+		expect(malformed["claude-code"]).toMatchObject({
+			state: "installed",
+			reason: expect.stringContaining("unparsable"),
+		});
 	});
 });
 
-// ---------------------------------------------------------------------------
-// parseOpencodeModelsOutput
-// ---------------------------------------------------------------------------
+const capabilities: HarnessCapabilities = {
+	accessMode: "api-gateway",
+	preCompactionTrigger: false,
+	subAgents: false,
+	mcpSupport: false,
+	modelProviders: ["openrouter"],
+	fileEditing: false,
+	toolUse: false,
+	discovery: { state: "ready" },
+	returnEnforcement: "none",
+};
 
-describe("parseOpencodeModelsOutput", () => {
-	it("parses the real-captured opencode models --verbose output", () => {
-		const models = parseOpencodeModelsOutput(OPENCODE_MODELS_FIXTURE);
-		expect(models.length).toBeGreaterThan(0);
-	});
+const adapter = { getCapabilities: () => capabilities } as HarnessAdapter;
 
-	it("extracts id from the JSON body", () => {
-		const models = parseOpencodeModelsOutput(OPENCODE_MODELS_FIXTURE);
-		const ids = models.map((m) => m.id);
-		expect(ids).toContain("big-pickle");
-		expect(ids).toContain("deepseek-v4-flash-free");
-	});
-
-	it("extracts name as label", () => {
-		const models = parseOpencodeModelsOutput(OPENCODE_MODELS_FIXTURE);
-		const bigPickle = models.find((m) => m.id === "big-pickle");
-		expect(bigPickle?.label).toBe("Big Pickle");
-	});
-
-	it("extracts context window from limit.context", () => {
-		const models = parseOpencodeModelsOutput(OPENCODE_MODELS_FIXTURE);
-		const bigPickle = models.find((m) => m.id === "big-pickle");
-		expect(bigPickle?.contextWindow).toBe(200000);
-	});
-
-	it("returns [] on empty input", () => {
-		expect(parseOpencodeModelsOutput("")).toEqual([]);
-	});
-
-	it("skips malformed JSON blocks gracefully", () => {
-		const broken = `opencode/bad\n{ bad json\nopencode/good\n{"id":"good","name":"Good","limit":{"context":1000}}`;
-		const models = parseOpencodeModelsOutput(broken);
-		// 'good' should be parsed; 'bad' silently skipped
-		const ids = models.map((m) => m.id);
-		expect(ids).toContain("good");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// describeRegisteredHarness: discoveries[type].models merged into descriptor
-// ---------------------------------------------------------------------------
-
-describe("describeRegisteredHarness: discoveries[type].models merged for CLI harnesses", () => {
-	const BASE_META: AdapterMeta = {
-		type: "opencode",
-		name: "OpenCode",
-		kind: "local",
-		modelProviders: [],
-		maxConcurrent: 1,
-	};
-
-	const BASE_CAPS: HarnessCapabilities = {
-		accessMode: "provider-subscription-cli",
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: [],
-		fileEditing: false,
-		toolUse: false,
-		discovery: { state: "ready" },
-		returnEnforcement: "none",
-	};
-
-	// @lore AV2: provider omitted here since "opencode" is not a valid ModelProvider.
-	// The parser maps providerID → ModelProvider; unknown providers are omitted.
-	const DISCOVERED_MODELS: readonly HarnessModelDescriptor[] = [
-		{
-			id: "opencode/big-pickle",
-			label: "Big Pickle",
-			contextWindow: 200000,
-			selectable: true,
-			inheritedFromGateway: false,
-			options: [],
-		},
-		{
-			id: "deepseek-v4-flash-free",
-			label: "DeepSeek V4 Flash Free",
-			contextWindow: 200000,
-			selectable: true,
-			inheritedFromGateway: false,
-			options: [],
-		},
-	];
-
-	it("uses discoveries[type].models when provided (overrides empty cliModels)", () => {
-		const descriptor = describeRegisteredHarness(BASE_META, BASE_CAPS, {
-			opencode: {
+describe("AdapterPool capability catalog merge", () => {
+	it("prefers discovered models for registered builtin and retains known missing families", () => {
+		const pool = new AdapterPool({
+			builtin: {
 				state: "ready",
-				models: DISCOVERED_MODELS,
+				models: [
+					{
+						id: "openrouter/discovered",
+						label: "Discovered",
+						provider: "openrouter",
+						contextWindow: 128_000,
+						selectable: true,
+						inheritedFromGateway: true,
+						options: [],
+					},
+				],
 			},
+			codex: { state: "missing" },
+			"claude-code": { state: "missing" },
+			opencode: { state: "missing" },
+			"cursor-agent": { state: "missing" },
 		});
-
-		const ids = descriptor.models.map((m: (typeof descriptor.models)[number]) => m.id);
-		expect(ids).toContain("opencode/big-pickle");
-		expect(ids).toContain("deepseek-v4-flash-free");
-	});
-
-	it("falls back to empty when no discoveries and no descriptorModels", () => {
-		const descriptor = describeRegisteredHarness(BASE_META, BASE_CAPS, {});
-		expect(descriptor.models).toHaveLength(0);
-	});
-
-	it("builtin: uses discoveries[builtin].models when provided", () => {
-		const builtinMeta: AdapterMeta = {
+		pool.register("builtin", adapter, {
 			type: "builtin",
-			name: "Built-in",
+			name: "Builtin",
 			kind: "local",
-			modelProviders: ["anthropic", "openrouter"],
-			maxConcurrent: 10,
-		};
-
-		const builtinCaps: HarnessCapabilities = {
-			...BASE_CAPS,
-			accessMode: "api-gateway",
-			modelProviders: ["anthropic", "openrouter"],
-		};
-
-		const discoveredBuiltinModels: readonly HarnessModelDescriptor[] = [
-			{
-				id: "openrouter/deepseek/deepseek-v4-flash",
-				label: "DeepSeek V4",
-				provider: "openrouter",
-				contextWindow: 128000,
-				selectable: true,
-				inheritedFromGateway: true,
-				options: [],
-			},
-		];
-
-		const descriptor = describeRegisteredHarness(builtinMeta, builtinCaps, {
-			builtin: { state: "ready", models: discoveredBuiltinModels },
+			modelProviders: ["openrouter"],
+			maxConcurrent: 1,
 		});
 
-		const ids = descriptor.models.map((m: (typeof descriptor.models)[number]) => m.id);
-		expect(ids).toContain("openrouter/deepseek/deepseek-v4-flash");
+		const catalog = pool.describe();
+		expect(
+			catalog.find((entry) => entry.type === "builtin")?.models.map((model) => model.id),
+		).toEqual(["openrouter/discovered"]);
+		expect(catalog.find((entry) => entry.type === "codex")?.discovery.state).toBe("missing");
 	});
 });

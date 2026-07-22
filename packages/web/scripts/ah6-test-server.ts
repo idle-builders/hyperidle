@@ -45,7 +45,7 @@ import { encryptCredentialValue } from "@hyperidle/connections";
 import { createServer } from "@hyperidle/core-api/server-factory";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema, serverCredentials, teamMembers, teams, users } from "@hyperidle/db";
-import { createLocalAdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
+import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 
@@ -256,7 +256,7 @@ const handle = await createServer(AH6_API_PORT, {
 	// AU19 Increment 5 (item 2): adapterPool/workspaceAdapter are now REQUIRED —
 	// inject a LocalSandboxAdapter (laptop profile, set above).
 	adapterPool: await createLocalAdapterPool(),
-	workspaceAdapter: new LocalSandboxAdapter(),
+	workspaceAdapter: createSandboxAdapter("local"),
 });
 
 // 5. Signal readiness — playwright.ah6.config.ts waits for this line.

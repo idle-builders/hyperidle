@@ -1,4 +1,4 @@
-import { type AdapterPool, createRemoteHarnessAdapter } from "@hyperidle/harness-registry";
+import { type AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { type RuntimeDeps, type RuntimeHandle, startRuntime } from "@hyperidle/run-orchestration";
 import { EventBus } from "@hyperidle/shared";
 
@@ -26,8 +26,30 @@ export async function startWorkerTestRuntime(pool: AdapterPool): Promise<Runtime
 			worker: {
 				pool,
 				adapterFactory: {
-					create: (ws: unknown, registration: { readonly id: string }) =>
-						createRemoteHarnessAdapter(ws as never, registration as never),
+					create: (ws: unknown, registration: { readonly id: string }) => {
+						const source = ws as {
+							readonly readyState?: number;
+							send(data: string): void;
+							close?(): void;
+						};
+						return createHarnessAdapter({
+							kind: "remote",
+							ws: {
+								get readyState() {
+									return source.readyState;
+								},
+								send: (data: string) => source.send(data),
+								close: () => source.close?.(),
+							},
+							registration: {
+								type: "register",
+								id: registration.id,
+								name: registration.id,
+								modelProviders: [],
+								maxConcurrent: 1,
+							},
+						});
+					},
 				},
 			},
 		},

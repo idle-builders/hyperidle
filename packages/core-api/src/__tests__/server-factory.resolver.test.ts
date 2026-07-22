@@ -25,7 +25,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { DbCredentialResolver, encryptCredentialValue } from "@hyperidle/connections";
 import { serverCredentials } from "@hyperidle/db";
-import { AdapterPool, DisabledSandboxAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createServer } from "../server-factory.js";
@@ -77,7 +77,7 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 		const handle = await createServer(0, {
 			db,
 			adapterPool: new AdapterPool(),
-			workspaceAdapter: new DisabledSandboxAdapter(),
+			workspaceAdapter: createSandboxAdapter("disabled"),
 			sandboxBasePath: path.join(os.tmpdir(), "ah1-resolver-invariant"),
 		});
 
@@ -110,7 +110,7 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 		const handle = await createServer(0, {
 			db,
 			adapterPool: new AdapterPool(),
-			workspaceAdapter: new DisabledSandboxAdapter(),
+			workspaceAdapter: createSandboxAdapter("disabled"),
 			sandboxBasePath: path.join(os.tmpdir(), "ah1-resolver-functional"),
 		});
 

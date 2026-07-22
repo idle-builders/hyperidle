@@ -48,7 +48,11 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
-import { CLAUDE_CLI_CONFIG, CLI_TOOL_CONFIGS, CURSOR_AGENT_CLI_CONFIG } from "../adapter-pool.js";
+import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+
+const CLAUDE_CLI_CONFIG = cliAdapterFixture("claude");
+const CURSOR_AGENT_CLI_CONFIG = cliAdapterFixture("cursor-agent");
+
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { requireHarness } from "./require-harness.js";
 
@@ -207,7 +211,7 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 					// is injected. claude authenticates via the macOS keychain through the
 					// forwarded HOME/USER/LOGNAME env vars (envAllowlist).
 					// The allowlist excludes CLAUDECODE etc — no nested-session detection fires.
-					model: "claude-haiku-4-5",
+					model: "haiku",
 					apiKey: "",
 					baseUrl: "https://api.anthropic.com",
 				},
@@ -357,10 +361,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			return;
 		}
 
-		const codexConfig = CLI_TOOL_CONFIGS.codex;
-		if (!codexConfig) {
-			throw new Error("CLI_TOOL_CONFIGS.codex is not defined");
-		}
+		const codexConfig = cliAdapterFixture("codex");
 
 		const config: SessionConfig = {
 			sessionId: `cli-adapter-codex-${Math.random().toString(36).slice(2, 10)}`,
@@ -507,10 +508,7 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-opencode-"));
 
 		try {
-			const opencodeConfig = CLI_TOOL_CONFIGS.opencode;
-			if (!opencodeConfig) {
-				throw new Error("CLI_TOOL_CONFIGS.opencode is not defined");
-			}
+			const opencodeConfig = cliAdapterFixture("opencode");
 
 			const config: SessionConfig = {
 				sessionId: `cli-adapter-opencode-${Math.random().toString(36).slice(2, 10)}`,

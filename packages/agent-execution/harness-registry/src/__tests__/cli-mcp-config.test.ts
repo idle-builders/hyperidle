@@ -33,7 +33,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 // @lore AL7 T1 RED: This import will fail until writeCliMcpConfig is created in T4.
-import { writeCliMcpConfig } from "@hyperidle/harness-registry";
+import { writeHarnessMcpConfig } from "../cli-mcp-config.js";
+
+const writeCliMcpConfig = writeHarnessMcpConfig;
+
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 const TEST_MCP_URL = "http://127.0.0.1:9999/api/mcp/test-token-abc123";

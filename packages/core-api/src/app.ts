@@ -13,7 +13,7 @@ import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
 
 type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
 
-import type { McpBridgeRegistry } from "@hyperidle/harness-registry/mcp";
+import type { McpToolBridge } from "@hyperidle/harness-registry";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import {
 	type ObservabilityConfig,
@@ -173,7 +173,7 @@ interface AppOptions {
 	 * When provided alongside `mcpBaseUrl`, the session provisioner creates a
 	 * per-session bridge and writes `.mcp.json` for harness auto-discovery.
 	 */
-	mcpBridgeRegistry?: McpBridgeRegistry;
+	mcpBridgeRegistry?: McpToolBridge;
 	/**
 	 * X2: Base URL for MCP bridge (e.g., "http://localhost:3001").
 	 * Used when writing `.mcp.json` to the workspace during session provisioning.

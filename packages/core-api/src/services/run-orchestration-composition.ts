@@ -5,14 +5,10 @@ import type { AgentSessionRequest, HyperIdleDb, WriteExecutor } from "@hyperidle
 import { listFilesystems, startWatcher } from "@hyperidle/filesystems";
 import {
 	AdapterPool,
-	createRemoteHarnessAdapter,
-	createReturnGate,
-	enforcementRegistry,
-	evaluateReturn,
-	provisionReturnHook,
-	writeCliMcpConfig,
+	createHarnessAdapter,
+	createReturnEnforcement,
+	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
-import { createMcpBridge } from "@hyperidle/harness-registry/mcp";
 import { list as listKnowledge, rank as rankKnowledge } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
@@ -146,22 +142,15 @@ const costAccessor: SessionLifecyclePorts["cost"] = {
 	recordCostAndCheck: costOps.record,
 };
 
+const enforcement = createReturnEnforcement();
 const harnessRuntime: SessionLifecyclePorts["harnessRuntime"] = {
-	enforcementRegistry,
-	createReturnGate,
-	evaluateReturn,
-	provisionReturnHook,
-	writeCliMcpConfig,
-};
-
-const mcpProvider: SessionLifecyclePorts["mcpProvider"] = {
-	createMcpBridge(options) {
-		return createMcpBridge({
-			sessionId: options.sessionId,
-			registry: options.registry as Parameters<typeof createMcpBridge>[0]["registry"],
-			onToolCall: options.onToolCall,
-		});
+	enforcementRegistry: enforcement,
+	createReturnGate: () => enforcement.createGate(),
+	evaluateReturn: (gate, reason) => enforcement.evaluate(gate, reason),
+	provisionReturnHook: async (options) => {
+		await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 	},
+	writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
 };
 
 function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<HyperIdleDb> {
@@ -187,7 +176,10 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 	sessionRequests: {
 		findSessionRequest,
 		listSessionRequests,
-		transitionSessionRequest: (exec, transition) => transitionSessionRequest(exec, transition),
+		transitionSessionRequest: async (exec, transition) => {
+			const result = await transitionSessionRequest(exec, transition);
+			return result === undefined ? undefined : result;
+		},
 		abortSessionRun: (sessionId) => sessionRunRegistry.abort(sessionId),
 		registerSessionRun: (sessionId, control) => sessionRunRegistry.register(sessionId, control),
 		deregisterSessionRun: (sessionId) => sessionRunRegistry.deregister(sessionId),
@@ -201,7 +193,6 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 	connections: connectionsProvisioner,
 	cost: costAccessor,
 	harnessRuntime,
-	mcpProvider,
 	toolProvider,
 };
 const transitionPorts: Parameters<typeof transitionRunInternal>[0]["ports"] = {
@@ -324,7 +315,11 @@ const runOrchestrationPorts: RuntimePorts = {
 
 const remoteHarnessAdapterFactory = {
 	create(ws: unknown, registration: { readonly id: string; readonly [key: string]: unknown }) {
-		return createRemoteHarnessAdapter(ws, widenWorkerRegistration(registration));
+		return createHarnessAdapter({
+			kind: "remote",
+			ws,
+			registration: widenWorkerRegistration(registration),
+		});
 	},
 };
 

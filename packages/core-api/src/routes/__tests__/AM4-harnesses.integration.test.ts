@@ -21,13 +21,16 @@
  *  - POST /:type/disabled endpoint with :type validation + builtin-reject
  */
 
-import type { HarnessDiscoveryInput } from "@hyperidle/harness-registry";
 import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
-import { CLAUDE_CLI_CONFIG } from "@hyperidle/harness-registry/cli-configs";
 import { updateServerConfig } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
+
+type SnapshotValue<T> = T extends Readonly<Record<string, infer V>> ? V : never;
+type HarnessDiscoveryInput = SnapshotValue<
+	NonNullable<ConstructorParameters<typeof AdapterPool>[0]>
+>;
 
 /**
  * AM4 adds `harnessDisabled?: string[]` to ServerConfigPatch (Task 1).
@@ -65,7 +68,10 @@ function makePool(): AdapterPool {
 	});
 	pool.register(
 		"local-claude-code",
-		createHarnessAdapter({ kind: "cli", config: CLAUDE_CLI_CONFIG }),
+		createHarnessAdapter({
+			kind: "cli",
+			config: { binary: "claude", args: [], envMap: {}, eventFormat: "text", envAllowlist: [] },
+		}),
 		{
 			name: "Claude Code",
 			kind: "local",

@@ -23,6 +23,7 @@ class MockWs {
 	send(data: string): void {
 		this.sent.push(data);
 	}
+	close(): void {}
 }
 
 async function makeConnection(pool: AdapterPool, ws: MockWs, id?: string) {
