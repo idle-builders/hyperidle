@@ -16,7 +16,6 @@
  * every other `*-bindings.ts` file in this directory.
  */
 
-import type { ScaffoldRequest } from "@hyperidle/agent-selection";
 import {
 	findOrCreateDirectThread,
 	findThread,
@@ -83,20 +82,13 @@ function provisionTeamRoutines(
 }
 
 /**
- * `agentSelection`'s real `resolveAgentScaffoldSpecs` returns
+ * `agentSelection`'s real `resolveScaffoldSpecs` returns
  * `AgentScaffoldSpec[]` (concrete fields), but `ports.ts` declares this
  * port's return element as the opaque `Record<string, unknown>` (`specs`
  * is only ever piped opaquely through `persistScaffoldedAgents` — see this
  * file's own `@lore` on that function). Same "fresh object literal"
  * boundary-crossing as {@link searchKnowledgeForTool} below.
  */
-async function resolveAgentScaffoldSpecsForTool(
-	input: ScaffoldRequest,
-): Promise<readonly Record<string, unknown>[]> {
-	const specs = await agentSelectionService.resolveScaffoldSpecs(input);
-	return specs.map((spec) => ({ ...spec }));
-}
-
 /**
  * Collapses `resolveReviewRecipients(db, ctx, {listUsersByKind})` — see
  * `@hyperidle/tool-handlers`'s `ports.ts` top `@lore`. `org`'s real
@@ -122,7 +114,7 @@ async function persistScaffoldedAgents(
 	teamMembersId: string | null,
 	specs: readonly Record<string, unknown>[],
 ): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }> {
-	// biome-ignore lint/suspicious/noExplicitAny: `specs` is opaquely piped through from `resolveAgentScaffoldSpecs`'s own real return type at this composition boundary — Mechanism C forbids tool-handlers from importing that type.
+	// biome-ignore lint/suspicious/noExplicitAny: `specs` is opaquely piped through from `resolveScaffoldSpecs`'s own real return type at this composition boundary — Mechanism C forbids tool-handlers from importing that type.
 	return orgPersistScaffoldedAgents(db, orgUsersForScaffold, teamMembersId, specs as any);
 }
 
@@ -230,7 +222,10 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 		resolveReviewRecipientsForItem,
 		persistScaffoldedAgents,
 	},
-	agentSelection: { resolveAgentScaffoldSpecs: resolveAgentScaffoldSpecsForTool },
+	agentSelection: {
+		resolveScaffoldSpecs: async (input) =>
+			(await agentSelectionService.resolveScaffoldSpecs(input)).map((spec) => ({ ...spec })),
+	},
 	routine: { insertRoutine, getRoutineById: getRoutine, updateRoutineById: updateRoutine },
 	dispatch: { provisionTeamRoutines },
 	knowledge: {

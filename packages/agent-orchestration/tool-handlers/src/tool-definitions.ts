@@ -1027,7 +1027,7 @@ function makeCreateTeamTool<TDb>(
 				formedAt: now,
 			});
 
-			const specs = await ports.agentSelection.resolveAgentScaffoldSpecs({
+			const specs = await ports.agentSelection.resolveScaffoldSpecs({
 				db: ctx.db,
 				trigger: "team_scaffold",
 				teamId,
@@ -1120,7 +1120,7 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<Ad
 			if (!memberGroup)
 				return err("NOT_FOUND", `Team membership group not found for team ${input.teamId}`);
 
-			const specs = await ports.agentSelection.resolveAgentScaffoldSpecs({
+			const specs = await ports.agentSelection.resolveScaffoldSpecs({
 				db: ctx.db,
 				trigger: "agent_added",
 				teamId: input.teamId,

@@ -49,7 +49,7 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 		resolveReviewRecipientsForItem: notImplemented,
 		persistScaffoldedAgents: notImplemented,
 	},
-	agentSelection: { resolveAgentScaffoldSpecs: notImplemented },
+	agentSelection: { resolveScaffoldSpecs: notImplemented },
 	routine: {
 		insertRoutine: notImplemented,
 		getRoutineById: notImplemented,

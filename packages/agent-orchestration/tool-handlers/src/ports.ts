@@ -246,7 +246,7 @@ interface ToolHandlersOrgAccessor<TDb> {
 }
 
 interface ToolHandlersAgentSelectionAccessor<TDb> {
-	resolveAgentScaffoldSpecs(input: {
+	resolveScaffoldSpecs(input: {
 		readonly db: TDb;
 		/** Narrowed to `agent-selection`'s own `ScaffoldRequest.trigger` literal union (structural mirror, not a type import — same reasoning as `role` below). */
 		readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
@@ -254,7 +254,7 @@ interface ToolHandlersAgentSelectionAccessor<TDb> {
 		readonly teamMembersId: string | null;
 		readonly teamName: string;
 		readonly functions: readonly string[] | null;
-		/** Narrowed from `string | null` to `@hyperidle/shared`'s `UserRole | null` — `agent-selection`'s real `resolveAgentScaffoldSpecs` requires the exact role union, not an arbitrary string. `UserRole` is a `shared` leaf type, not a domain-Service import, so importing it here does not violate Mechanism C. */
+		/** Agent-selection requires the exact shared role union, not an arbitrary string. */
 		readonly role: UserRole | null;
 		readonly name: string | null;
 		readonly ownerUserId: string | null;

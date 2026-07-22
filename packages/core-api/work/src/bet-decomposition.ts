@@ -52,11 +52,8 @@ export interface BetDecompositionDeps {
 	readonly eventBus: EventBus;
 	/**
 	 * Injected `agent-selection` Service port (Mechanism C — §10.3 against-grain).
-	 * RULED PERMANENT at Increment 3e's follow-up ruling: `selectOwner`/
-	 * `enumerateTeamCandidates`/`resolveDecompositionPlan` are synchronous
-	 * request/response calls this function consumes immediately to continue
-	 * decomposition — an EventBus emit cannot serve that. See `ports.ts`'s
-	 * top `@lore`.
+	 * Selection results gate decomposition immediately, so this remains a
+	 * request/response port rather than a fire-and-forget event.
 	 */
 	readonly agentSelection: AgentSelectionDefaults;
 	/**
@@ -187,23 +184,19 @@ async function findEligibleTeamAgents(
  * and transition each to 'accepted' so task_state_changed(accepted) fires
  * and the existing task-dispatcher picks it up.
  *
- * Owner assignment is routed through selectOwner. selectOwner enumerates eligible
- * candidates, emits work_selection_requested, resolves an owner, and validates it.
+ * Owner assignment uses agent-selection's coherent `selectAgent` operation.
  *
  * betId is bound from the bet argument, NEVER from task input (cross-bet injection
  * prevention — mirrors create-task R5 D1).
  *
- * @param _eligible — passed by callers for backward compat (AK3 tests); ignored in
- * AK7 because selectOwner enumerates candidates directly (concept §4, Option A).
+ * @param _eligible — retained for callers; authoritative selection is delegated.
  *
  * @lore AK3: v1 calls this directly from runBetDecomposition. A future
  * `propose_bet_tasks` harness tool would call this as its handler body unchanged
  * (keeping the insert logic in one place).
  *
- * @lore AK7: _eligible is kept as a param so existing callers compile unchanged.
- * selectOwner (not _eligible) is the authoritative candidate source. The AK3
- * round-robin spread is preserved: selectOwner passes spreadIndex:i and the
- * resolver reproduces `candidates[i % len]`. The role short-circuit is preserved.
+ * @lore AK7: `_eligible` remains only for caller compatibility. Agent-selection
+ * owns candidate enumeration, role matching, validation, and round-robin spread.
  */
 async function insertProposedBetTasks(
 	deps: {
@@ -227,7 +220,7 @@ async function insertProposedBetTasks(
 		// candidates (orderBy users.id), emits work_selection_requested, and validates the result.
 		// spreadIndex:i preserves the AK3 round-robin spread on the mismatch branch
 		// (concept §6.3 — without it all null-role tasks collapse to candidates[0]).
-		const ownerAgentId = await agentSelection.selectOwner(
+		const { agentId: ownerAgentId } = await agentSelection.selectAgent(
 			{ db, eventBus },
 			{
 				surface: "bet_task",
@@ -366,8 +359,7 @@ async function persistDecompositionTasks(
 /**
  * Run the full bet decomposition pipeline for a single bet.
  *
- * AK8 rewire: delegates "who decomposes + what the breakdown is" to the
- * app-owned decomposition resolver, then applies 3-way turn-source
+ * Delegates decomposer selection to agent-selection, then applies turn-source
  * precedence to produce the final task list.
  *
  * Steps:
@@ -376,12 +368,8 @@ async function persistDecompositionTasks(
  *   2. findEligibleTeamAgents → none → blocked/no_eligible_agent.
  *   3. Emit work_decompose_requested (AC1 observable occasion). Post-CAS,
  *      post-eligible-check — only the CAS winner emits.
- *   4. enumerateTeamCandidates -> resolveDecompositionPlan(...).
- *      Wrapped in try/catch: throw → blocked/failed (no false promise).
- *   5. plan.decomposerAgentId null → blocked/no_eligible_agent.
- *   6. Inline-validate decomposerAgentId: candidates.some(c => c.agentId ===
- *      plan.decomposerAgentId) — proves team-membership + active-AI in one check
- *      (WARNING 1: selectOwner's internal guard no longer runs on this path).
+ *   4. selectAgent(bet_decomposer), with errors mapped to blocked/failed.
+ *   5. no selected agent → blocked/no_eligible_agent.
  *   7. Create trigger-backed AgentSessionRequest.
  *   8. Cost pre-flight: checkCostCap on requested agent.
  *   9. Runtime request or scratch sandbox + 3-way turn-source precedence:
@@ -405,11 +393,8 @@ async function persistDecompositionTasks(
  * DecompositionPlan in services/contracts.ts (AU11: agent-owned, formerly
  * app-runtime/contracts.ts).
  *
- * @lore AK8: The inline decomposerAgentId validation (step 6) replaces the
- * selectOwner(bet_decomposer) call removed from the AK7 path. selectOwner's
- * internal guard (active AI + kind=ai + status=active) no longer runs here;
- * candidates.some() is the net-new inline equivalent. An invalid resolver
- * returning an off-team/inactive id → blocked/no_eligible_agent.
+ * @lore AU20: agent-selection owns decomposer eligibility and active-AI
+ * validation; work consumes only its nullable selected id.
  */
 async function runBetDecomposition(deps: BetDecompositionDeps, betId: string): Promise<void> {
 	const { db, eventBus, sandboxBasePath } = deps;
@@ -428,17 +413,19 @@ async function runBetDecomposition(deps: BetDecompositionDeps, betId: string): P
 	}
 
 	// --- 3. Resolve the decomposition plan from app-owned defaults ---
-	const candidates = await deps.agentSelection.enumerateTeamCandidates(db, bet.teamId);
 	let plan: WorkDecompositionPlan;
 	try {
-		plan = await deps.agentSelection.resolveDecompositionPlan({
-			db,
-			teamId: bet.teamId,
-			betId,
-			betDescription: bet.description,
-			betDoneCondition: bet.doneCondition ?? null,
-			candidates,
-		});
+		const { agentId } = await deps.agentSelection.selectAgent(
+			{ db, eventBus },
+			{
+				surface: "bet_decomposer",
+				teamId: bet.teamId,
+				workKey: betId,
+				roleHint: "product_manager",
+				spreadIndex: 0,
+			},
+		);
+		plan = { decomposerAgentId: agentId, tasks: [] };
 	} catch {
 		// Resolver threw — blocked/failed (no false promise).
 		await markTerminal(db, betId, "blocked", "failed");
@@ -447,21 +434,6 @@ async function runBetDecomposition(deps: BetDecompositionDeps, betId: string): P
 
 	// --- 4. null decomposerAgentId → no eligible decomposer ---
 	if (plan.decomposerAgentId === null) {
-		await markTerminal(db, betId, "blocked", "no_eligible_agent");
-		return;
-	}
-
-	// --- 5. Inline-validate decomposerAgentId (WARNING 1) ---
-	// candidates.some() proves: team-membership + active-AI + active-status (all in one
-	// check because enumerateTeamCandidates already filters kind=ai + status=active +
-	// category=team). selectOwner(bet_decomposer)'s internal guard is NO LONGER called;
-	// this is its net-new inline replacement.
-	//
-	// @lore AK8: candidates.some(c => c.agentId === plan.decomposerAgentId) is the
-	// cheapest correct form of the unattachable-session guard. An invalid resolver
-	// returning an off-team/inactive/non-existent id hits this guard → blocked/no_eligible_agent.
-	const decomposerIsValid = candidates.some((c) => c.agentId === plan.decomposerAgentId);
-	if (!decomposerIsValid) {
 		await markTerminal(db, betId, "blocked", "no_eligible_agent");
 		return;
 	}

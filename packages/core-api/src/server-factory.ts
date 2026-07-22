@@ -286,8 +286,7 @@ const policyDeps: PolicyDeps = {
  *
  * @lore AU15: routine-scheduler.ts stays Core (cron/due-eval is a core
  * domain concern); the residual Core→Agent edge AU11 recorded here (its
- * fire-time `isAgentAtWipLimit`/`selectAgentByAppDefaults` call into the
- * agent-owned `agent-selection.ts`) is CLOSED — owner-WIP evaluation and
+ * former fire-time agent-selection call is CLOSED — owner-WIP evaluation and
  * delegate resolution moved to drain-time in
  * `agent-work-intent-worker.ts`'s `resolveAuthoritativeInput` (`routine_run`
  * branch). routine-scheduler.ts no longer imports agent-selection.ts at all.
@@ -793,27 +792,17 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// @lore AU20 Ab4: adapts new AgentSelectionService methods to work's
 		// AgentSelectionDefaults structural-mirror port (unchanged in work/ports.ts).
 		agentSelection: {
-			enumerateTeamCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
-			selectOwner: (occDeps, occasion) =>
-				agentSelectionService
-					.selectAgent({
-						surface: occasion.surface,
-						db: occDeps.db,
-						eventBus: occDeps.eventBus,
-						teamId: occasion.teamId,
-						workKey: occasion.workKey,
-						roleHint: occasion.roleHint,
-						spreadIndex: occasion.spreadIndex ?? null,
-					})
-					.then((r) => r.agentId),
-			resolveDecompositionPlan: async (input) => {
-				// @lore AU20 Ab4: resolveDecompositionPlan dropped from barrel —
-				// logic inlined here. PM-role preference then candidates[0]; tasks
-				// always [] (vestigial field confirmed by spec).
-				const pm =
-					input.candidates.find((c) => c.role === "product_manager") ?? input.candidates[0];
-				return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
-			},
+			listCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
+			selectAgent: (occDeps, occasion) =>
+				agentSelectionService.selectAgent({
+					surface: occasion.surface,
+					db: occDeps.db,
+					eventBus: occDeps.eventBus,
+					teamId: occasion.teamId,
+					workKey: occasion.workKey,
+					roleHint: occasion.roleHint,
+					spreadIndex: occasion.spreadIndex,
+				}),
 		},
 		users: {
 			getUserById: (db, id) => findUser(db, { id }),

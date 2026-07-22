@@ -18,11 +18,8 @@
  * **RESOLVED at Increment 3e:** `agent-selection` is now a real package
  * (`@hyperidle/agent-selection`). `packages/server`'s
  * `session-requests-bindings.ts` wires `SessionRequestsAgentSelector` to
- * `@hyperidle/agent-selection`'s real `createAgentSelectionOps(...)`-bound
- * exports instead of the deleted `services/agent-selection.ts` flat module —
- * same resolution shape as `agent_lifecycle_inbox` below (Increment 3d). The
- * port interface here is unchanged (only the concrete wiring moved) — no
- * signature change needed.
+ * the shared composition-root `AgentSelectionService` singleton instead of
+ * the deleted flat module.
  *
  * Two more ports forward-reference `lifecycle-projection`: the
  * `agent_lifecycle_inbox` table is architecture §4's roster-assigned
@@ -106,7 +103,6 @@ import type {
 	AgentSessionSourceKind,
 	TriggerEventType,
 	TriggerResolutionResult,
-	UserRole,
 } from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
@@ -146,36 +142,21 @@ export interface SessionRequestsWorkReader {
 // RESOLVED at Increment 3e — see this file's top `@lore`)
 // ---------------------------------------------------------------------------
 
-/** Structural mirror of `@hyperidle/agent-selection`'s `SelectionCandidate`. */
-export interface SessionRequestsSelectionCandidate {
-	readonly agentId: string;
-	readonly role: UserRole;
-}
-
-/** Structural mirror of `@hyperidle/agent-selection`'s `SelectAgentRequest`. */
-export interface SessionRequestsAgentSelectionRequest {
+interface SessionRequestsRoutineSelectionRequest {
 	readonly db: WriteExecutor;
-	readonly surface: "bet_task" | "bet_decomposer" | "routine_delegate";
+	readonly surface: "routine_delegate";
 	readonly teamId: string | null;
 	readonly workKey: string;
-	readonly candidates: readonly SessionRequestsSelectionCandidate[];
-	readonly roleHint: UserRole | null;
-	readonly spreadIndex: number | null;
-	readonly excludeAgentId: string | null;
-	readonly skillId: string | null;
+	readonly excludeAgentId: string;
+	readonly skillId: string;
 }
 
-/** Structural mirror of `@hyperidle/agent-selection`'s `SelectAgentOutcome`. */
-export interface SessionRequestsAgentSelectionOutcome {
-	readonly agentId: string | null;
-}
-
-/** Port for `agent-selection`'s WIP-check + default-selection surface this Service calls directly today. */
+/** Agent-selection capabilities needed while draining routine work. */
 export interface SessionRequestsAgentSelector {
-	isAgentAtWipLimit(db: WriteExecutor, agentId: string): Promise<boolean>;
-	selectAgentByAppDefaults(
-		req: SessionRequestsAgentSelectionRequest,
-	): Promise<SessionRequestsAgentSelectionOutcome>;
+	isAtCapacity(db: WriteExecutor, agentId: string): Promise<boolean>;
+	selectAgent(
+		req: SessionRequestsRoutineSelectionRequest,
+	): Promise<{ readonly agentId: string | null }>;
 }
 
 // ---------------------------------------------------------------------------

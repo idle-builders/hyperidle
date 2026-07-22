@@ -69,23 +69,17 @@ const agentSelectionService = createAgentSelectionService({
  */
 const productionPorts = {
 	agentSelection: {
-		enumerateTeamCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
-		selectOwner: (occDeps, occasion) =>
-			agentSelectionService
-				.selectAgent({
-					surface: occasion.surface,
-					db: occDeps.db,
-					eventBus: occDeps.eventBus,
-					teamId: occasion.teamId,
-					workKey: occasion.workKey,
-					roleHint: occasion.roleHint,
-					spreadIndex: occasion.spreadIndex ?? null,
-				})
-				.then((r) => r.agentId),
-		resolveDecompositionPlan: async (input) => {
-			const pm = input.candidates.find((c) => c.role === "product_manager") ?? input.candidates[0];
-			return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
-		},
+		listCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
+		selectAgent: (occDeps, occasion) =>
+			agentSelectionService.selectAgent({
+				surface: occasion.surface,
+				db: occDeps.db,
+				eventBus: occDeps.eventBus,
+				teamId: occasion.teamId,
+				workKey: occasion.workKey,
+				roleHint: occasion.roleHint,
+				spreadIndex: occasion.spreadIndex,
+			}),
 	} satisfies WorkDeps["agentSelection"],
 	users: {
 		getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),

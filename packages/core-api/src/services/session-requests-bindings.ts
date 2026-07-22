@@ -20,10 +20,8 @@
  *
  * @lore AU19 Increment 3e: `agentSelection` — the LAST interim forward-
  * reference this module carried — is resolved: `@hyperidle/session-requests`'s
- * `SessionRequestsAgentSelector` port (`isAgentAtWipLimit`/
- * `selectAgentByAppDefaults`) now wires to `@hyperidle/agent-selection`'s real
- * `createAgentSelectionOps(...)`-bound exports instead of the deleted
- * `./agent-selection.js` flat module. Same resolution shape as
+ * `SessionRequestsAgentSelector` now wires to the shared composition-root
+ * `AgentSelectionService` singleton. Same resolution shape as
  * `lifecycle-projection`'s own Increment 3d closure above.
  *
  * The AC-9 (§11) cross-Layer `agentWorkIntentRecorder`/`agentWorkIntentReader`
@@ -46,7 +44,6 @@
  * lifecycle-projection-bindings.ts import them from here.
  */
 
-import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import { findMessage } from "@hyperidle/conversation";
 import type {
 	AgentSessionRequest,
@@ -79,6 +76,7 @@ import { listConfiguration } from "@hyperidle/settings";
 import type { AgentWorkIntentReader, AgentWorkIntentRecorder } from "@hyperidle/shared";
 import { findUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import { agentSelectionService } from "./agent-selection-bindings.js";
 
 // ---------------------------------------------------------------------------
 // Local type alias preserving the old TerminalizeAgentSessionRequestInput shape
@@ -138,15 +136,6 @@ const triggerResolutionDeps: TriggerResolutionDeps = {
 // root, to `agent-selection`'s own `users`/`org` ports (Mechanism C).
 // ---------------------------------------------------------------------------
 
-const agentSelectionService = createAgentSelectionService({
-	users: {
-		getUserById: (db, id) => findUser(db, { id }),
-		listActiveAiUsersByTeams: (db, teamIds) =>
-			listUsers(db, { teamIds, kind: "ai", status: "active" }),
-	},
-	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
-});
-
 // ---------------------------------------------------------------------------
 // DurableAgentQueueDeps — single composition-root deps bundle (AU20 Ag3a).
 //
@@ -173,25 +162,8 @@ const deps: DurableAgentQueueDeps = {
 			work.get(exec, "bet", id),
 	},
 	agentSelection: {
-		// @lore AU20 Ab4: adapts new AgentSelectionService methods to session-requests'
-		// SessionRequestsAgentSelector structural-mirror port (unchanged in ports.ts).
-		isAgentAtWipLimit: (db, agentId) => agentSelectionService.isAtCapacity(db, agentId),
-		selectAgentByAppDefaults: (req) => {
-			// session-requests only calls this with routine_delegate (AU15 drain-time
-			// delegation — see agent-work-intent-worker.ts). bet_* surfaces are handled
-			// by work's selectOwner path. Guard for completeness.
-			if (req.surface === "routine_delegate" && req.skillId && req.excludeAgentId) {
-				return agentSelectionService.selectAgent({
-					surface: "routine_delegate",
-					db: req.db,
-					teamId: req.teamId,
-					workKey: req.workKey,
-					skillId: req.skillId,
-					excludeAgentId: req.excludeAgentId,
-				});
-			}
-			return Promise.resolve({ agentId: null });
-		},
+		isAtCapacity: agentSelectionService.isAtCapacity,
+		selectAgent: agentSelectionService.selectAgent,
 	},
 	conversation: { getMessageById: (db, id) => findMessage(db, { id }) },
 	users: {

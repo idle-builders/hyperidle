@@ -51,16 +51,12 @@
  * @lore AU19 Increment 3e — `AgentSelectionDefaults` (→ `agent-selection`,
  * now a REAL migrated package): the straight DI-target swap landed —
  * `server-factory.ts` wires it to `@hyperidle/agent-selection`'s real
- * `createAgentSelectionOps(...)`-bound exports instead of the deleted
- * `services/select-agent.ts`/`services/agent-defaults/resolvers.ts` flat
- * modules.
+ * unified `AgentSelectionService` instead of legacy per-caller modules.
  *
  * RULED PERMANENT (founder-confirmed 2026-07-14, closing the item Increment
  * 3e explicitly deferred): same test as `CostCapChecker` below, same
- * outcome. `bet-decomposition.ts`'s `selectOwner`/`enumerateTeamCandidates`/
- * `resolveDecompositionPlan` are all synchronous request/response calls
- * whose return values are consumed immediately to continue decomposition
- * (choose the owner, build the candidate set, resolve the plan) — the exact
+ * outcome. Selection and candidate reads are synchronous request/response
+ * calls whose return values are consumed immediately to continue decomposition — the exact
  * "return value gates the caller's next branch" shape the amendment's test
  * targets, not a fire-and-forget notification. Contrast
  * `filesystems ⚠ capture-writeback` (§10.3, Increment 3f): a GENUINE
@@ -156,39 +152,23 @@ interface WorkDecompositionPlan {
 	readonly tasks: readonly import("@hyperidle/shared").DecompositionTaskInput[];
 }
 
-interface ResolveDecompositionPlanInput {
-	readonly db: WriteExecutor;
-	readonly teamId: string;
-	readonly betId: string;
-	readonly betDescription: string;
-	readonly betDoneCondition: string | null;
-	readonly candidates: readonly WorkSelectionCandidate[];
-}
-
-interface SelectOwnerOccasion {
+interface WorkSelectionOccasion {
 	readonly surface: "bet_task" | "bet_decomposer";
 	readonly teamId: string;
 	readonly workKey: string;
 	readonly roleHint: UserRole | null;
-	readonly spreadIndex?: number | null;
+	readonly spreadIndex: number;
 }
 
 /**
- * Port for `agent-selection`'s three functions `work` calls directly today
- * (`enumerateTeamCandidates`/`selectOwner` from `select-agent.ts`,
- * `resolveDecompositionPlan` from `agent-defaults/resolvers.ts`) — all three
- * are agent-selection's seed files per architecture §4.
+ * Port for agent-selection's coherent candidate read and selection operation.
  */
 interface AgentSelectionDefaults {
-	enumerateTeamCandidates(
-		db: WriteExecutor,
-		teamId: string,
-	): Promise<readonly WorkSelectionCandidate[]>;
-	selectOwner(
+	listCandidates(db: WriteExecutor, teamId: string): Promise<readonly WorkSelectionCandidate[]>;
+	selectAgent(
 		deps: { readonly db: WriteExecutor; readonly eventBus: EventBus },
-		occasion: SelectOwnerOccasion,
-	): Promise<string | null>;
-	resolveDecompositionPlan(input: ResolveDecompositionPlanInput): Promise<WorkDecompositionPlan>;
+		occasion: WorkSelectionOccasion,
+	): Promise<{ readonly agentId: string | null }>;
 }
 
 // ---------------------------------------------------------------------------

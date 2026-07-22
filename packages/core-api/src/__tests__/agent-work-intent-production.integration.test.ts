@@ -46,23 +46,17 @@ const agentSelectionService = createAgentSelectionService({
 
 /** @lore AU20 Ab4: adapts `AgentSelectionService` to `AgentSelectionDefaults`; resolveDecompositionPlan inlined. */
 const agentSelection: WorkDeps["agentSelection"] = {
-	enumerateTeamCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
-	selectOwner: (occDeps, occasion) =>
-		agentSelectionService
-			.selectAgent({
-				surface: occasion.surface,
-				db: occDeps.db,
-				eventBus: occDeps.eventBus,
-				teamId: occasion.teamId,
-				workKey: occasion.workKey,
-				roleHint: occasion.roleHint,
-				spreadIndex: occasion.spreadIndex ?? null,
-			})
-			.then((r) => r.agentId),
-	resolveDecompositionPlan: async (input) => {
-		const pm = input.candidates.find((c) => c.role === "product_manager") ?? input.candidates[0];
-		return { decomposerAgentId: pm?.agentId ?? null, tasks: [] };
-	},
+	listCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
+	selectAgent: (occDeps, occasion) =>
+		agentSelectionService.selectAgent({
+			surface: occasion.surface,
+			db: occDeps.db,
+			eventBus: occDeps.eventBus,
+			teamId: occasion.teamId,
+			workKey: occasion.workKey,
+			roleHint: occasion.roleHint,
+			spreadIndex: occasion.spreadIndex,
+		}),
 };
 const workIntents: WorkDeps["workIntents"] = { record: recordAgentWorkIntent };
 
@@ -75,13 +69,7 @@ async function triggerDecomposition(
 	const deps: BetDecompositionDeps = {
 		db,
 		eventBus,
-		agentSelection: {
-			...agentSelection,
-			resolveDecompositionPlan: async (input) => ({
-				decomposerAgentId: input.candidates[0]?.agentId ?? null,
-				tasks: [...taskInputs],
-			}),
-		},
+		agentSelection,
 		users: {
 			getUserById: (exec, id) => findUser(exec, { id }),
 			listActiveAiUsersByTeams: (exec, teamIds) =>
@@ -94,6 +82,7 @@ async function triggerDecomposition(
 		costCap: { checkCostCap: async () => ({ allowed: true }) },
 		workIntents: intentRecorder,
 		sandboxBasePath: "/tmp/au9-production",
+		runDecompositionTurn: async () => [...taskInputs],
 	};
 	const dispose = registerBetDecomposition(deps);
 	try {

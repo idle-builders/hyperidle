@@ -216,21 +216,16 @@ export async function resolveAuthoritativeInput(
 			// AU15 §4b: owner-WIP evaluation + delegate resolution moved here from
 			// the (now-removed) fire-time `checkAndFireRoutine` block — drain-time
 			// is closest to execution, matching the family-standard shape
-			// (`bet_decomposition` also selects at drain). `isAgentAtWipLimit` +
-			// `selectAgentByAppDefaults` are called through the `agent-selection`
-			// port, resolved to `@hyperidle/agent-selection`'s real exports at
-			// Increment 3e.
+			// (`bet_decomposition` also selects at drain). Capacity and selection
+			// use the coherent agent-selection service at the composition root.
 			let selectedAgentId = routine.ownerAgentId;
-			if (await deps.agentSelection.isAgentAtWipLimit(db, routine.ownerAgentId)) {
+			if (await deps.agentSelection.isAtCapacity(db, routine.ownerAgentId)) {
 				if (routine.delegationAllowed && routine.skillId) {
-					const { agentId } = await deps.agentSelection.selectAgentByAppDefaults({
+					const { agentId } = await deps.agentSelection.selectAgent({
 						db,
 						surface: "routine_delegate",
 						teamId: null,
 						workKey: routine.id,
-						candidates: [],
-						roleHint: null,
-						spreadIndex: null,
 						excludeAgentId: routine.ownerAgentId,
 						skillId: routine.skillId,
 					});
