@@ -52,3 +52,12 @@ No web research was needed: all mechanisms reuse pinned repository tooling and p
 3. Exploratory `fix/e2e-recovery` commits are hypotheses only and are not cherry-picked.
 4. Measurement semantics in `scripts/surface-census.ts` stay unchanged.
 5. Historical harness behavior is trusted as the pre-AU20 baseline. Failure/timeout/unrun is not harness evidence; only an AU20-local runner/config intervention that changes the same case outcome can authorize a narrowly scoped harness repair.
+
+## Final ship-review correction verdict
+
+**GO-WITH-CHANGE.** Protected AC2/O3 failures reproduce while check, lint, unit,
+and 231m/181t census are green. Async teardown, MCP entry isolation,
+notification/watcher error semantics, demand generation, and evidence refresh
+reuse existing repository mechanisms. Corrections are feasible as serial
+one-owner increments without service surface growth. Real-backend E2E is an
+AU23 dependency and is not an AU20 implementation leaf.

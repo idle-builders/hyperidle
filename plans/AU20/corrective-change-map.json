@@ -25232,7 +25232,7 @@
   "integrity": {
     "browserLedgerSha256": "b88e512430a340121205b770a37090cde016c875295fffcf93937e89b58bd75c",
     "systemLedgerSha256": "88b0072658bc98f713c610fc7f35e7428d9ed3488953b8f450658be0cc5560e1",
-    "generatorSha256": "ceef18d1edf630cd05a5738e05e4fb3c1e60e47cf20a562afe7e4d35f3ced75d",
+    "generatorSha256": "482a390938a7faf4c9fcc0adc0df13bc9d1b24d468f305f26265fd48b6f954eb",
     "diagnosticSha256": {
       "core-work-runtime.json": "9e345f4889f9bdfa2b5a22836cd9b9a27ae940a3b2a5dbc8e60aa17c51b005c3",
       "lane-ah.json": "78b5eae8b208ba595b7b49e68217ee96c5ca568ca0bcc16bb2ae95559ab1d5e3",
@@ -25274,7 +25274,8 @@
         "sha256": "51336cc090c2951a84bcea613da2e64d0f920acd054e29768fae54703e7c134c",
         "verdict": "accept",
         "architectureSha256": "4f600566b27f210b4399322b37b399cd51f9f66c4c37cce7c30377667d990793",
-        "feasibilitySha256": "c6ce225bfaa0b5712975313a1c2206ccd6f5d967e1882ce8d4c0f27a39527f1a"
+        "feasibilitySha256": "c6ce225bfaa0b5712975313a1c2206ccd6f5d967e1882ce8d4c0f27a39527f1a",
+        "historicalStatus": "completed-before-final-ship-correction-architecture"
       },
       "supersededR3RedProofReview": {
         "path": "plans/AU20/red-proof-reviews/proof-inventory.md",
@@ -25305,9 +25306,93 @@
           "intentionallyRed": 42
         }
       },
-      "authorizedStage": "proof-inventory-amendment-r3-write-code"
+      "authorizedStage": "completed-history"
+    },
+    "finalShipCorrection": {
+      "required": true,
+      "acceptedArchitecture": {
+        "path": "plans/AU20/register-reviews/final-ship-correction-architecture.md",
+        "sha256": "5194f0382f53cfe12cd40014413750bd18907819527520f37d261cc23cc87ae9",
+        "verdict": "accept",
+        "round": 4,
+        "architectureSha256": "105edc1f4f4a9acf01cfdd982b3c5658ec8c4d67c9fd47e5b34f563498c22095",
+        "feasibilitySha256": "36ba068829bc0f8f205aff02c3e6fb1871871935bc62ff12647373338b0ae4e7",
+        "diagnosticSha256": "f1d862d1151a4d2cbb709d76012ba8cf6b91a808d0c854338d101e045a54fa39",
+        "finalReviewSha256": "cef525507cfe766356b2084b7d0ba4ba98699835f560dd1b0b2e5b6fa01c683a",
+        "priorReviewSha256": "d5e8f78444cb099d2e7dd736ea178d47ef41aca7c2c87d8cf3b8206b42f3df24",
+        "preBindingProgressSha256": "0e54e5231153bc12fcd4a62421edefc243ef66a429ed050bd53ee1b0d5c00897"
+      },
+      "f13ProvenanceAmendment": {
+        "path": ".pipeline/work/AU20/architecture-amendments/f13-review-provenance.md",
+        "sha256": "58a073b727f7ffec13f28fe61ca5a4b0194583cfff222acae2355074ae98d101",
+        "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/f13-review-provenance.md",
+        "feasibilitySha256": "2f9bcd4c0ae191c629fbf415523ef447ca0f03f9f4085b6c1bb0892c6a9927a6",
+        "critiquePath": "plans/AU20/register-reviews/f13-review-provenance-amendment.md",
+        "critiqueSha256": "24493a797b397ce97433cc550def8db133a0e229bf1393ee3f164cb417b46f6c",
+        "verdict": "accept",
+        "score": 9,
+        "preAmendmentProgressSha256": "1be04b7a6f79891f7ec0f3c73f10f8a3328efe3ebd80a9ec25d4f39c585e2ecd",
+        "historicalReview": {
+          "architectureReviewPath": "plans/AU20/register-reviews/final-ship-correction-architecture.md",
+          "architectureReviewSha256": "5194f0382f53cfe12cd40014413750bd18907819527520f37d261cc23cc87ae9",
+          "historicalLiveReviewSha256": "cef525507cfe766356b2084b7d0ba4ba98699835f560dd1b0b2e5b6fa01c683a",
+          "redProofReviewPath": "plans/AU20/red-proof-reviews/review-finding-ledger.md",
+          "redProofReviewSha256": "cc04e8563635b2e9ff3726b751293e586ba0a29ef490f4f776c4aacffcf10f0e"
+        },
+        "currentReview": {
+          "path": ".pipeline/work/AU20/review.md",
+          "sha256": "48360d3d1bf65c33c371fcfd48c7659a50acaee4159b4a802a9d52f2a9ac57e0",
+          "validatorPath": ".pipeline/work/AU20/probes/validate-review-findings.mjs",
+          "validatorSha256": "18ccc6dcf277de1bc575c4fa6d278eaee44bfd5eedfc8c6e64bf0dd32819e7b5",
+          "counts": {
+            "critical": 6,
+            "warning": 6,
+            "observation": 1
+          },
+          "ids": [
+            "F1",
+            "F2",
+            "F3",
+            "F4",
+            "F5",
+            "F6",
+            "F7",
+            "F8",
+            "F9",
+            "F10",
+            "F11",
+            "F12",
+            "F13"
+          ]
+        }
+      },
+      "activeIncrement": {
+        "name": "review-finding-ledger",
+        "redProofReview": {
+          "path": "plans/AU20/red-proof-reviews/review-finding-ledger.md",
+          "sha256": "cc04e8563635b2e9ff3726b751293e586ba0a29ef490f4f776c4aacffcf10f0e",
+          "verdict": "accept",
+          "guardPath": ".pipeline/work/AU20/probes/validate-review-findings.mjs",
+          "guardSha256": "18ccc6dcf277de1bc575c4fa6d278eaee44bfd5eedfc8c6e64bf0dd32819e7b5",
+          "historicalReviewSha256": "cef525507cfe766356b2084b7d0ba4ba98699835f560dd1b0b2e5b6fa01c683a",
+          "intendedRed": {
+            "message": "WARNING footer=6 headings=5",
+            "exitCode": 1
+          },
+          "checkExitCode": 0
+        },
+        "authorizedStage": "write-code-review-finding-ledger",
+        "productCodeAuthorized": false
+      },
+      "censusCeiling": {
+        "services": 23,
+        "methods": 231,
+        "types": 181
+      },
+      "nextIncrement": "evidence-demand-package"
     },
     "writeTestsLocked": false,
-    "codeLocked": false
+    "codeLocked": false,
+    "productCodeLocked": true
   }
 }

@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 
 const root = process.cwd();
+const progress = JSON.parse(fs.readFileSync(path.join(root, ".pipeline/work/AU20/progress.json"), "utf8"));
 const browser = JSON.parse(fs.readFileSync(path.join(root, "plans/AU20/browser-validation-ledger.json"), "utf8"));
 const system = JSON.parse(fs.readFileSync(path.join(root, "plans/AU20/system-validation-ledger.json"), "utf8"));
 const diagnosticDir = path.join(root, "plans/AU20/diagnostics");
@@ -269,6 +271,9 @@ const amendmentReviewValid =
   sha256(fs.readFileSync(amendmentReviewPath)) === proofInventoryArchitectureAmendmentR3Review.sha256 &&
   sha256(fs.readFileSync(architecturePath)) === proofInventoryArchitectureAmendmentR3Review.architectureSha256 &&
   sha256(fs.readFileSync(feasibilityPath)) === proofInventoryArchitectureAmendmentR3Review.feasibilitySha256;
+const proofInventoryHistoricalReviewValid =
+  fs.existsSync(amendmentReviewPath) &&
+  sha256(fs.readFileSync(amendmentReviewPath)) === proofInventoryArchitectureAmendmentR3Review.sha256;
 const proofInventoryRedProofReview = {
   path: "plans/AU20/red-proof-reviews/proof-inventory.md",
   sha256: "d8b46ca8e8b75c04d41ce3ec102f4fd3545287d0f30f33d2a415f3837c948085",
@@ -298,7 +303,7 @@ const proofInventoryR3CallerMigrationRedProofReview = {
   counts: { total: 153, green: 111, intentionallyRed: 42 },
 };
 const redProofReviewValid =
-  amendmentReviewValid &&
+  proofInventoryHistoricalReviewValid &&
   sha256(fs.readFileSync(path.join(root, proofInventoryR3CallerMigrationRedProofReview.path))) === proofInventoryR3CallerMigrationRedProofReview.sha256 &&
   sha256(fs.readFileSync(path.join(root, "packages/web/src/e2e-support/validation-contract.test.ts"))) === proofInventoryR3CallerMigrationRedProofReview.validationContractTestSha256 &&
   sha256(fs.readFileSync(path.join(root, "packages/web/src/e2e-support/review-trust.test.ts"))) === proofInventoryR3CallerMigrationRedProofReview.reviewTrustTestSha256 &&
@@ -310,13 +315,107 @@ const proofInventoryArchitectureAmendment = {
   scope: "single captured verifier, hash-pinned review manifest with mandatory builder identity, descriptor-stable reads, legacy authority deletion, strict attempt sequencing",
   priorAcceptedReview: proofInventoryArchitectureAmendmentReview,
   priorAcceptedRedProofReview: proofInventoryRedProofReview,
-  acceptedReview: amendmentReviewValid ? proofInventoryArchitectureAmendmentR3Review : null,
+  acceptedReview: proofInventoryHistoricalReviewValid ? {
+    ...proofInventoryArchitectureAmendmentR3Review,
+    historicalStatus: "completed-before-final-ship-correction-architecture",
+  } : null,
   supersededR3RedProofReview: {
     ...proofInventoryR3RedProofReview,
     supersededReason: "Frozen validation-contract test still imports/calls legacy authority APIs forbidden by accepted R3 architecture.",
   },
   redProofReview: redProofReviewValid ? proofInventoryR3CallerMigrationRedProofReview : null,
-  authorizedStage: redProofReviewValid ? "proof-inventory-amendment-r3-write-code" : amendmentReviewValid ? "proof-inventory-amendment-r3-write-tests-caller-migration" : null,
+  authorizedStage: redProofReviewValid ? "completed-history" : null,
+};
+const finalArchitectureBinding = progress.gateBindings?.finalShipCorrectionArchitecture ?? null;
+const findingLedgerRedBinding = progress.gateBindings?.reviewFindingLedgerRedProof ?? null;
+const f13ProvenanceBinding = progress.gateBindings?.f13ReviewProvenanceAmendment ?? null;
+const extractHistoricalArchitectureReviewHash = (text) => {
+  const matches = [...text.matchAll(/^\| `\.pipeline\/work\/AU20\/review\.md` \| `([a-f0-9]{64})` \|$/gm)];
+  return matches.length === 1 ? matches[0][1] : null;
+};
+const extractHistoricalRedProofHash = (text) => {
+  const matches = [...text.matchAll(/^- Current review SHA-256:\n  `([a-f0-9]{64})`$/gm)];
+  return matches.length === 1 ? matches[0][1] : null;
+};
+const expectedFindingOutput = {
+  findings: 13,
+  counts: { CRITICAL: 6, WARNING: 6, OBSERVATION: 1 },
+  ids: ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "F13"],
+};
+const historicalReview = f13ProvenanceBinding?.historicalReview;
+const currentReview = f13ProvenanceBinding?.currentReview;
+const findingValidation = currentReview
+  ? spawnSync(process.execPath, [path.join(root, ".pipeline/work/AU20/probes/validate-review-findings.mjs")], {
+      cwd: root,
+      encoding: "utf8",
+      shell: false,
+    })
+  : null;
+let parsedFindingOutput = null;
+try {
+  parsedFindingOutput = findingValidation?.status === 0 ? JSON.parse(findingValidation.stdout.trim()) : null;
+} catch {
+  parsedFindingOutput = null;
+}
+const f13ProvenanceValid =
+  f13ProvenanceBinding !== null &&
+  f13ProvenanceBinding.verdict === "accept" &&
+  f13ProvenanceBinding.score >= 7 &&
+  f13ProvenanceBinding.preAmendmentProgressSha256 === "1be04b7a6f79891f7ec0f3c73f10f8a3328efe3ebd80a9ec25d4f39c585e2ecd" &&
+  sha256(fs.readFileSync(path.join(root, f13ProvenanceBinding.path))) === f13ProvenanceBinding.sha256 &&
+  sha256(fs.readFileSync(path.join(root, f13ProvenanceBinding.feasibilityPath))) === f13ProvenanceBinding.feasibilitySha256 &&
+  sha256(fs.readFileSync(path.join(root, f13ProvenanceBinding.critiquePath))) === f13ProvenanceBinding.critiqueSha256 &&
+  historicalReview?.architectureReviewPath === "plans/AU20/register-reviews/final-ship-correction-architecture.md" &&
+  historicalReview?.architectureReviewSha256 === "5194f0382f53cfe12cd40014413750bd18907819527520f37d261cc23cc87ae9" &&
+  historicalReview?.redProofReviewPath === "plans/AU20/red-proof-reviews/review-finding-ledger.md" &&
+  historicalReview?.redProofReviewSha256 === "cc04e8563635b2e9ff3726b751293e586ba0a29ef490f4f776c4aacffcf10f0e" &&
+  historicalReview?.historicalLiveReviewSha256 === "cef525507cfe766356b2084b7d0ba4ba98699835f560dd1b0b2e5b6fa01c683a" &&
+  sha256(fs.readFileSync(path.join(root, historicalReview.architectureReviewPath))) === historicalReview.architectureReviewSha256 &&
+  sha256(fs.readFileSync(path.join(root, historicalReview.redProofReviewPath))) === historicalReview.redProofReviewSha256 &&
+  extractHistoricalArchitectureReviewHash(fs.readFileSync(path.join(root, historicalReview.architectureReviewPath), "utf8")) === historicalReview.historicalLiveReviewSha256 &&
+  extractHistoricalRedProofHash(fs.readFileSync(path.join(root, historicalReview.redProofReviewPath), "utf8")) === historicalReview.historicalLiveReviewSha256 &&
+  currentReview?.path === ".pipeline/work/AU20/review.md" &&
+  currentReview?.validatorPath === ".pipeline/work/AU20/probes/validate-review-findings.mjs" &&
+  JSON.stringify(currentReview?.counts) === JSON.stringify({ critical: 6, warning: 6, observation: 1 }) &&
+  JSON.stringify(currentReview?.ids) === JSON.stringify(expectedFindingOutput.ids) &&
+  sha256(fs.readFileSync(path.join(root, currentReview.path))) === currentReview.sha256 &&
+  sha256(fs.readFileSync(path.join(root, currentReview.validatorPath))) === currentReview.validatorSha256 &&
+  JSON.stringify(parsedFindingOutput) === JSON.stringify(expectedFindingOutput) &&
+  sha256(JSON.stringify(acceptedReview)) === "8fdbe10c6810358a93d3629164db083eab446750f01ecaff664b3ae087c564c8" &&
+  sha256(JSON.stringify(proofInventoryArchitectureAmendment)) === "b2422c38e17340c80399f36c6587b1702b0b3165604e65b1be6ee9cfdfc2730a" &&
+  sha256(JSON.stringify(finalArchitectureBinding)) === "353e6eafd6ae992a1e9939929f28798b07d3f0583178fc388411c119b7f81ff5" &&
+  sha256(JSON.stringify(findingLedgerRedBinding)) === "7c3a751c023b055b367d5c487a5174a6cb4ab8ec2579e65b8c13e3768e6dac1e";
+const finalArchitectureValid =
+  f13ProvenanceValid &&
+  finalArchitectureBinding !== null &&
+  finalArchitectureBinding.verdict === "accept" &&
+  sha256(fs.readFileSync(path.join(root, finalArchitectureBinding.path))) === finalArchitectureBinding.sha256 &&
+  sha256(fs.readFileSync(architecturePath)) === finalArchitectureBinding.architectureSha256 &&
+  sha256(fs.readFileSync(feasibilityPath)) === finalArchitectureBinding.feasibilitySha256 &&
+  sha256(fs.readFileSync(path.join(root, "plans/AU20/diagnostics/final-ship-review-correction-map.md"))) === finalArchitectureBinding.diagnosticSha256 &&
+  finalArchitectureBinding.finalReviewSha256 === historicalReview.historicalLiveReviewSha256 &&
+  sha256(fs.readFileSync(path.join(root, finalArchitectureBinding.path))) === "5194f0382f53cfe12cd40014413750bd18907819527520f37d261cc23cc87ae9";
+const findingLedgerRedValid =
+  finalArchitectureValid &&
+  findingLedgerRedBinding !== null &&
+  findingLedgerRedBinding.verdict === "accept" &&
+  sha256(fs.readFileSync(path.join(root, findingLedgerRedBinding.path))) === findingLedgerRedBinding.sha256 &&
+  sha256(fs.readFileSync(path.join(root, findingLedgerRedBinding.guardPath))) === findingLedgerRedBinding.guardSha256 &&
+  findingLedgerRedBinding.historicalReviewSha256 === finalArchitectureBinding.finalReviewSha256 &&
+  JSON.stringify(findingLedgerRedBinding.intendedRed) === JSON.stringify({ message: "WARNING footer=6 headings=5", exitCode: 1 }) &&
+  findingLedgerRedBinding.checkExitCode === 0;
+const finalShipCorrection = {
+  required: true,
+  acceptedArchitecture: finalArchitectureValid ? finalArchitectureBinding : null,
+  f13ProvenanceAmendment: f13ProvenanceValid ? f13ProvenanceBinding : null,
+  activeIncrement: {
+    name: "review-finding-ledger",
+    redProofReview: findingLedgerRedValid ? findingLedgerRedBinding : null,
+    authorizedStage: findingLedgerRedValid ? "write-code-review-finding-ledger" : finalArchitectureValid ? "write-tests-review-finding-ledger" : null,
+    productCodeAuthorized: false,
+  },
+  censusCeiling: { services: 23, methods: 231, types: 181 },
+  nextIncrement: "evidence-demand-package",
 };
 const output = {
   ...payload,
@@ -328,8 +427,10 @@ const output = {
     payloadSha256,
     acceptedReview: reviewBindingValid ? acceptedReview : null,
     proofInventoryArchitectureAmendment,
-    writeTestsLocked: !reviewBindingValid || !amendmentReviewValid,
-    codeLocked: !redProofReviewValid,
+    finalShipCorrection,
+    writeTestsLocked: !reviewBindingValid || !finalArchitectureValid,
+    codeLocked: !findingLedgerRedValid,
+    productCodeLocked: true,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

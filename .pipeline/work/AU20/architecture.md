@@ -327,6 +327,169 @@ The ordered plan applies first to lane/inventory infrastructure, then each servi
 
 Lane/inventory infrastructure follows the same sequence: `/write-tests` first proves duplicate ownership, ambiguity, missing-start/unrun, and cross-worktree reuse failures; implementation follows accepted red review. Corrective entries then execute in change-map dependency order. Aggregate closeout is a final separate reviewer pass and evidence-only green commit, not a substitute for increment reviews.
 
+## Final ship-review correction amendment
+
+Real-backend E2E has moved to AU23 and is excluded from AU20 implementation and
+closeout evidence. AU20 re-enters architecture from
+`.pipeline/work/AU20/review.md` plus the independent `AU20-review` worktree
+review. All build stages are relocked. Normative zero-omission finding map:
+`plans/AU20/diagnostics/final-ship-review-correction-map.md`.
+
+The review footer claims six warnings but contains five warning headings. The
+missing thirteenth item is the review-ledger count contradiction itself; this
+plan requires stable IDs and machine equality rather than inventing a product
+warning.
+
+Global constraints:
+
+- One service/domain per commit; evidence/docs commits own no service.
+- Every product increment is write-tests → independent red review → write-code
+  → strict review → green commit. Static evidence/docs use a failing static
+  check with the same review separation.
+- Census is at most 23 services / 231 methods / 181 types after every commit.
+  Any increase requires planner escape-hatch adjudication before write-tests.
+- Protected failures are AU20 regressions until evidence proves otherwise;
+  tests are not weakened to match implementation.
+
+Ordered leaves:
+
+1. `review-finding-ledger` (F13, evidence only): stable unique IDs, parser
+   heading/footer equality, exact 6 critical + 6 warning + 1 observation.
+2. `evidence-demand-package` (F1, tooling only): extend
+   `generate-dependency-graph.ts` to deterministically emit the current
+   23-service exports/DI receivers/consumers/requests package; generate twice
+   byte-identically and reconcile to census.
+3. `core-api-bootstrap-ownership` (F5, composition domain): replace unexplained
+   length assertion with exact nine intended named owners and cleanup effects.
+   If any owner is missing, fix custody; do not merely change 10 to 9.
+4. `run-orchestration-async-disposal` (F2): make `ServerHandle.dispose`
+   awaitable, ordered runtime shutdown → transports → owned DB, idempotent, and
+   failure-observable; migrate every caller. Real DB proof pins durable shutdown
+   marking before close and later cleanup after phase failure.
+5. `knowledge-retro-snapshot` (F4): using existing knowledge CRUD, retain
+   creation-time hypothesis metadata when a retro is updated after bet
+   hypothesis edit. No bespoke public method.
+6. `harness-registry-mcp-entry` (F3): dependency-isolated `./mcp` entry; main
+   import graph excludes MCP SDK/Hono/Zod; delete the bridge from main export,
+   migrate callers, retain MCP unit/stateful behavior.
+7. `notifications-secret-errors` (F9): suppress only
+   `MISSING_ROOT_SECRET`; arbitrary cipher error rejects with no upsert/success
+   audit.
+8. `filesystems-watcher-errors` (F10): setup throw and runtime watcher error are
+   observable through one coherent contract; normal debounce/flush/stop stays
+   green; no empty catch.
+9. `ownership-prose-current` (F8, docs only): remove live-owner claims for
+   deleted context-assembly/lifecycle-projection/session-lifecycle/
+   capture-writeback packages after custody fixes land.
+10. `evidence-current-census` (F7/F12): regenerate census JSON/Markdown twice
+    byte-identically from executable implementation-site census.
+11. `AU20-aggregate-closeout` (F6/F11, evidence/state only): check, lint, unit,
+    full service integration, relevant harness integration, reproducible demand
+    and census evidence, all F1–F13 closed, AU23 dependency recorded, and no
+    open non-AU23 increment before DONE.
+
+```yaml
+protectedTests:
+  - packages/core-api/src/__tests__/AC2-retro.integration.test.ts
+  - packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts
+  - packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts
+  - packages/agent-execution/harness-registry/src/__tests__/mcp-route.test.ts
+```
+
+Only `review-finding-ledger` static-red/write-tests may unlock after independent
+critique. All product code remains locked; later leaves unlock serially from
+separate accepted green commits.
+
+Implementability details required by the correction leaves:
+
+- F5's exact nine owners are: lifecycle-projection drain (stops drain);
+  relevance listener (unsubscribes); review subscriptions (unsubscribe);
+  policy registration (unsubscribe); git-export handler (unsubscribe);
+  notifications installation (dispatcher/listener/drain all stop); retention
+  reaper (interval cleared); dispatch lifecycle (builtin/assistant/task/
+  scheduler stop); cost sentinel (sentinel plus dedup subscription stop).
+  `O3-service-move-bootstrap.integration.test.ts` must observe these named
+  effects, not only array length. This ledger describes bootstrap custody
+  independent of ServerHandle shutdown ordering; F2 later awaits the composed
+  app/runtime disposers that own them.
+- F2's complete idempotent shared-promise phase order is:
+  `bet-decomposition` (`disposeBetDecomp`) → `run-runtime` (await) →
+  `app-domain` (`disposeApp`, which owns bootstrap subscriptions) →
+  `websocket` (`wsDispose`) → `http` (await close callback) → `owned-db`
+  (await; injected DB is never closed). Every phase runs even after failure;
+  failures are collected as `{phase,cause}` in order and rejected as one
+  `AggregateError`. Caller inventory is exact:
+  `packages/remote-server/src/index.ts` must retain the handle and await it on
+  SIGINT/SIGTERM; `packages/desktop/src/boot-server.ts` consumes the async
+  `ServerHandle`; `packages/desktop/src/main.ts`/`ServerHandleLike` must use a
+  one-shot async before-quit path with re-entry guard;
+  `packages/web/scripts/ah1-test-server.ts`,
+  `packages/web/scripts/ah5-test-server.ts`, and
+  `packages/web/scripts/ah6-test-server.ts` signal handlers await. Exact caller
+  tests are `packages/core-api/src/__tests__/app-runtime-route-boot.integration.test.ts`,
+  `configuration-projection-boot.integration.test.ts`,
+  `server-factory.resolver.test.ts`, `agent-request-custody.integration.test.ts`,
+  `AU9-assistant-handoff-realbinary.integration.test.ts`,
+  `packages/desktop/__tests__/boot-server.test.ts`, and
+  `packages/desktop/__tests__/main.test.ts`.
+- F10 chooses a callback contract without adding a method or type declaration:
+  existing `FileWatcherConfig` gains required
+  `onError(error: Error): void`. Setup `fs.watch` failure closes already-open
+  watchers and throws synchronously. A runtime watcher `error` closes every
+  watcher, cancels debounce, clears pending writes, invokes `onError` exactly
+  once, and leaves `stop()` idempotent. Run-orchestration's existing
+  filesystem port/config forwards the callback; its context owner logs the
+  session/sandbox failure through the existing logger and stops ingestion.
+  No new exported method/type is authorized.
+
+Exact proof paths and focused commands:
+
+- F13: `.pipeline/work/AU20/probes/validate-review-findings.mjs`;
+  `node .pipeline/work/AU20/probes/validate-review-findings.mjs`.
+- F1: `.pipeline/work/AU20/probes/validate-service-demand-package.mjs`;
+  `d=$(mktemp -d) && node --import tsx scripts/generate-dependency-graph.ts --service-data-output "$d/one.json" && node --import tsx scripts/generate-dependency-graph.ts --service-data-output "$d/two.json" && cmp "$d/one.json" "$d/two.json" && node .pipeline/work/AU20/probes/validate-service-demand-package.mjs "$d/one.json"`.
+- F5: `packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts`;
+  `npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts`.
+- F2: new
+  `packages/core-api/src/__tests__/server-disposal.integration.test.ts` plus
+  existing caller tests;
+  `npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/server-disposal.integration.test.ts packages/core-api/src/__tests__/app-runtime-route-boot.integration.test.ts packages/core-api/src/__tests__/configuration-projection-boot.integration.test.ts packages/core-api/src/__tests__/server-factory.resolver.test.ts packages/core-api/src/__tests__/agent-request-custody.integration.test.ts`,
+  `npx vitest run --config vitest.integration.config.ts --project harness packages/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`,
+  and
+  `npx vitest run --project desktop packages/desktop/__tests__/main.test.ts packages/desktop/__tests__/boot-server.test.ts`.
+- F4: protected `AC2-retro.integration.test.ts`;
+  `npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/AC2-retro.integration.test.ts`.
+- F3: package export/metafile static check plus existing
+  `mcp-route.test.ts` and `mcp-bridge-stateful.integration.test.ts`;
+  `.pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs`;
+  `node .pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs`,
+  `npm run -w @hyperidle/harness-registry test`, and
+  `npx vitest run --config vitest.integration.config.ts --project harness packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts`.
+- F9: new `packages/core-api/notifications/src/__tests__/install.test.ts`;
+  `npx vitest run --config packages/core-api/notifications/vitest.config.ts packages/core-api/notifications/src/__tests__/install.test.ts`
+  and
+  `npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts`.
+- F10: extend
+  `packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts`;
+  `npx vitest run --config vitest.integration.config.ts --project service packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts`.
+- F8: `.pipeline/work/AU20/probes/validate-ownership-prose.mjs`.
+- F7: `.pipeline/work/AU20/probes/validate-current-census-evidence.mjs`.
+
+Additional protected paths:
+
+```yaml
+protectedTests:
+  - packages/core-api/src/__tests__/app-runtime-route-boot.integration.test.ts
+  - packages/core-api/src/__tests__/configuration-projection-boot.integration.test.ts
+  - packages/core-api/src/__tests__/server-factory.resolver.test.ts
+  - packages/core-api/src/__tests__/agent-request-custody.integration.test.ts
+  - packages/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts
+  - packages/desktop/__tests__/main.test.ts
+  - packages/desktop/__tests__/boot-server.test.ts
+  - packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts
+  - packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts
+```
+
 ## Route checklist
 
 ```yaml
