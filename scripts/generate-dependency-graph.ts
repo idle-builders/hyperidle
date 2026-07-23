@@ -135,9 +135,217 @@ function walk(dir: string, out: string[] = []): string[] {
 	return out;
 }
 
+function walkServiceSource(dir: string, out: string[] = []): string[] {
+	for (const entry of readdirSync(dir)) {
+		if (entry === "__tests__" || entry === "node_modules" || entry === "dist") continue;
+		const abs = join(dir, entry);
+		const st = statSync(abs);
+		if (st.isDirectory()) walkServiceSource(abs, out);
+		else if (
+			/\.tsx?$/.test(entry) &&
+			!/\.(integration|spec|stories|test)\./.test(entry)
+		) {
+			out.push(abs);
+		}
+	}
+	return out;
+}
+
 function parseFile(abs: string): ts.SourceFile {
 	const text = readFileSync(abs, "utf-8");
 	return ts.createSourceFile(abs, text, ts.ScriptTarget.Latest, true);
+}
+
+function isExported(node: ts.Node): boolean {
+	return (
+		ts.canHaveModifiers(node) &&
+		Boolean(ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword))
+	);
+}
+
+function implementationExports(service: ServiceInfo): Array<{ name: string; kind: "method" | "type" }> {
+	const declarations = new Map<string, { name: string; kind: "method" | "type" }>();
+	for (const abs of walkServiceSource(join(service.dir, "src"))) {
+		const sf = parseFile(abs);
+		for (const node of sf.statements) {
+			if (!isExported(node)) continue;
+			const record = (name: string, kind: "method" | "type") =>
+				declarations.set(`${kind}:${name}`, { name, kind });
+			if (ts.isFunctionDeclaration(node) && node.name) record(node.name.text, "method");
+			else if (ts.isClassDeclaration(node) && node.name) record(node.name.text, "method");
+			else if (ts.isEnumDeclaration(node)) record(node.name.text, "method");
+			else if (ts.isVariableStatement(node)) {
+				for (const declaration of node.declarationList.declarations) {
+					if (ts.isIdentifier(declaration.name)) record(declaration.name.text, "method");
+				}
+			} else if (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) {
+				record(node.name.text, "type");
+			}
+		}
+	}
+	return [...declarations.values()].sort((left, right) =>
+		`${left.kind}:${left.name}`.localeCompare(`${right.kind}:${right.name}`),
+	);
+}
+
+function receiverAccessKinds(service: ServiceInfo, methods: readonly string[]): string[] {
+	const byMethod = new Map(methods.map((method) => [method, new Set<string>()]));
+	for (const abs of walkServiceSource(join(service.dir, "src"))) {
+		if (abs.endsWith("/ports.ts")) continue;
+		const sf = parseFile(abs);
+		const visit = (node: ts.Node) => {
+			if (ts.isBindingElement(node)) {
+				const property = node.propertyName ?? node.name;
+				if (ts.isIdentifier(property) && byMethod.has(property.text)) {
+					byMethod.get(property.text)?.add("destructured");
+				}
+			}
+			if (ts.isPropertyAccessExpression(node) && byMethod.has(node.name.text)) {
+				const parent = node.parent;
+				if (
+					ts.isVariableDeclaration(parent) &&
+					parent.initializer === node &&
+					ts.isIdentifier(parent.name) &&
+					parent.name.text !== node.name.text
+				) {
+					byMethod.get(node.name.text)?.add("aliased");
+				} else {
+					byMethod.get(node.name.text)?.add("direct");
+				}
+			}
+			ts.forEachChild(node, visit);
+		};
+		visit(sf);
+	}
+	return [...new Set([...byMethod.values()].flatMap((kinds) => [...kinds]))].sort();
+}
+
+interface DemandReceiver {
+	consumer: string;
+	port: string;
+	requests: string[];
+	accessKinds: string[];
+}
+
+function demandReceiversByProvider(
+	serviceInventory: readonly ServiceInfo[],
+	providersByMethod: ReadonlyMap<string, string[]>,
+): Map<string, DemandReceiver[]> {
+	const names = new Set(serviceInventory.map(({ name }) => name));
+	const receivers = new Map(serviceInventory.map(({ name }) => [name, [] as DemandReceiver[]]));
+
+	for (const consumer of serviceInventory) {
+		const portsPath = join(consumer.dir, "src/ports.ts");
+		if (!existsSync(portsPath)) continue;
+		const text = readFileSync(portsPath, "utf8");
+		const lines = text.split("\n");
+		const parsed = parseFile(portsPath);
+		const interfaces = new Map(
+			parsed.statements
+				.filter(ts.isInterfaceDeclaration)
+				.map((declaration) => [declaration.name.text, declaration]),
+		);
+		const headers: Array<{ line: number; target: string }> = [];
+		for (const [line, value] of lines.entries()) {
+			const match = value.match(/^\/\/\s*([a-z][a-z0-9-]*)\s*—/);
+			if (match && names.has(match[1])) headers.push({ line, target: match[1] });
+		}
+		const methodsFromMembers = (
+			members: ts.NodeArray<ts.TypeElement>,
+		): string[] => {
+			const methods: string[] = [];
+			for (const member of members) {
+				if (ts.isMethodSignature(member) && member.name) {
+					methods.push(member.name.getText(parsed));
+				} else if (
+					ts.isPropertySignature(member) &&
+					member.name &&
+					member.type &&
+					ts.isFunctionTypeNode(member.type)
+				) {
+					methods.push(member.name.getText(parsed));
+				}
+			}
+			return [...new Set(methods)].sort();
+		};
+		const methodsFromGroupType = (type: ts.TypeNode): string[] => {
+			if (ts.isTypeLiteralNode(type)) return methodsFromMembers(type.members);
+			if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) {
+				const declaration = interfaces.get(type.typeName.text);
+				return declaration ? methodsFromMembers(declaration.members) : [];
+			}
+			return [];
+		};
+		const addReceiver = (provider: string, port: string, requests: string[]) => {
+			const providerReceivers = receivers.get(provider);
+			if (!providerReceivers) throw new Error(`Unknown DI provider ${provider}`);
+			providerReceivers.push({
+				consumer: consumer.name,
+				port,
+				requests,
+				accessKinds: receiverAccessKinds(consumer, requests),
+			});
+		};
+
+		for (const declaration of interfaces.values()) {
+			if (!isExported(declaration)) continue;
+			const flatRequests = methodsFromMembers(declaration.members);
+			if (flatRequests.length > 0) {
+				const override = MANUAL_OVERRIDES[`${consumer.name}:${declaration.name.text}`];
+				const startLine = parsed.getLineAndCharacterOfPosition(declaration.getStart(parsed)).line;
+				const header = headers
+					.filter(({ line }) => line < startLine)
+					.sort((left, right) => right.line - left.line)[0];
+				const votes = new Map<string, number>();
+				for (const request of flatRequests) {
+					for (const provider of providersByMethod.get(request) ?? []) {
+						if (provider !== consumer.name) {
+							votes.set(provider, (votes.get(provider) ?? 0) + 1);
+						}
+					}
+				}
+				const bestVote = [...votes].sort(
+					(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+				)[0]?.[0];
+				const targets = override
+					? typeof override === "string"
+						? [override]
+						: [...override]
+					: header
+						? [header.target]
+						: bestVote
+							? [bestVote]
+							: [];
+				if (targets.length === 0) {
+					throw new Error(`Cannot resolve source DI receiver ${consumer.name}:${declaration.name.text}`);
+				}
+				for (const provider of targets) {
+					addReceiver(provider, declaration.name.text, flatRequests);
+				}
+			}
+
+			for (const member of declaration.members) {
+				if (!ts.isPropertySignature(member) || !member.name || !member.type) continue;
+				const requests = methodsFromGroupType(member.type);
+				if (requests.length === 0) continue;
+				const groupName = member.name.getText(parsed);
+				const provider = groupName
+					.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+					.toLowerCase();
+				// Non-service groups are composition adapters. Never guess a
+				// provider from generic method names such as `create`.
+				if (!names.has(provider)) continue;
+				addReceiver(provider, `${declaration.name.text}.${groupName}`, requests);
+			}
+		}
+	}
+
+	for (const providerReceivers of receivers.values()) {
+		providerReceivers.sort((left, right) =>
+			`${left.consumer}:${left.port}`.localeCompare(`${right.consumer}:${right.port}`),
+		);
+	}
+	return receivers;
 }
 
 function signatureText(node: ts.Node, sf: ts.SourceFile): string {
@@ -454,6 +662,56 @@ const censusOutput = JSON.parse(
 	services: Array<{ service: string } & SurfaceCount>;
 };
 const surfaceByService = new Map(censusOutput.services.map((service) => [service.service, service]));
+
+const serviceDataOutputFlag = process.argv.indexOf("--service-data-output");
+if (serviceDataOutputFlag >= 0) {
+	const requestedPath = process.argv[serviceDataOutputFlag + 1];
+	if (!requestedPath) throw new Error("--service-data-output requires a path");
+
+	const sourceReceivers = demandReceiversByProvider(services, reverseIndex);
+	const demandPackage = [...services]
+		.sort((left, right) => left.name.localeCompare(right.name))
+		.map((service) => {
+			const exported = implementationExports(service);
+			const methods = exported.filter(({ kind }) => kind === "method").length;
+			const types = exported.filter(({ kind }) => kind === "type").length;
+			const surface = { methods, types, total: methods + types };
+			const censusSurface = surfaceByService.get(service.name);
+			if (
+				!censusSurface ||
+				surface.methods !== censusSurface.methods ||
+				surface.types !== censusSurface.types ||
+				surface.total !== censusSurface.total
+			) {
+				throw new Error(`${service.name} export scan diverges from implementation-site census`);
+			}
+
+			const diReceivers = sourceReceivers.get(service.name) ?? [];
+			const requestsByConsumer = new Map<string, Set<string>>();
+			for (const receiver of diReceivers) {
+				const requests = requestsByConsumer.get(receiver.consumer) ?? new Set<string>();
+				for (const request of receiver.requests) requests.add(request);
+				requestsByConsumer.set(receiver.consumer, requests);
+			}
+			const consumers = [...requestsByConsumer]
+				.map(([consumer, requests]) => ({ consumer, requests: [...requests].sort() }))
+				.sort((left, right) => left.consumer.localeCompare(right.consumer));
+
+			return {
+				name: service.name,
+				layer: service.layer,
+				ownedTables: [...service.ownedTables].sort(),
+				surface,
+				exports: exported,
+				diReceivers,
+				consumers,
+			};
+		});
+
+	writeFileSync(requestedPath, `${JSON.stringify(demandPackage, null, 2)}\n`);
+	console.log(`Wrote ${requestedPath}`);
+	process.exit(0);
+}
 
 const output = {
 	generatedAt: "2026-07-22", // deterministic regeneration date; do not use Date.now() in tracked artifacts

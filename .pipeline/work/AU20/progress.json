@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "write-code-review-finding-ledger",
+  "currentStep": "finalize-demand-package-generator",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -68,6 +68,250 @@
         },
         "ids": ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "F13"]
       }
+    },
+    "reviewFindingLedgerCommit": {
+      "commit": "41c013613dc0c1fd81bc43b0ef7a52c8bc08b322",
+      "tree": "4d73df713d104ddab2104b26479f21ee4ca93e2c",
+      "parent": "cf8bee1a65e0def24995dc3b5aa3d496cef0f32b",
+      "subject": "AU20: reconcile final review finding ledger",
+      "historicalReviewSha256": "cef525507cfe766356b2084b7d0ba4ba98699835f560dd1b0b2e5b6fa01c683a",
+      "currentReviewSha256": "48360d3d1bf65c33c371fcfd48c7659a50acaee4159b4a802a9d52f2a9ac57e0",
+      "preTransitionProgressSha256": "32b63054a9edf3f28dcc55e70c3d4fc4c7e0c66eba93e31c210b83ac7ced91db",
+      "preTransitionChangeMapSha256": "93af687d5bc817490378a84264b24f418d185d2ba8a5b32401124993b11f45fe",
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "verification": {
+        "reviewFindingValidator": "pass",
+        "correctiveChangeMapValidator": "pass",
+        "check": "pass",
+        "lint": "pass",
+        "test": "pass",
+        "census": "pass"
+      },
+      "status": "completed-history"
+    },
+    "demandPackageGeneratorWriteTestsAuthorization": {
+      "increment": "evidence-demand-package",
+      "stage": "write-tests-demand-package-generator",
+      "finding": "F1",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+        ".pipeline/work/AU20/red-proofs/evidence-demand-package.json"
+      ],
+      "productionCodeAuthorized": false,
+      "implementationCodeAuthorized": false,
+      "productTestsAuthorized": false,
+      "scriptsGeneratorAuthorized": false,
+      "redProofReviewRequiredBeforeWriteCode": true,
+      "nextIncrement": "core-api-bootstrap-ownership",
+      "status": "completed-history"
+    },
+    "demandPackageGeneratorRedProof": {
+      "path": ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+      "sha256": "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df",
+      "guardPath": ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+      "guardSha256": "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c",
+      "reviewPath": "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+      "reviewSha256": "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee",
+      "verdict": "accept",
+      "round": 2,
+      "authoritativeSourceSha256": "42b9f3edbfb2d6f3a2813ec7ca71d4cbd29d8c716cfdf973ad0d32c4163a6df4",
+      "intendedRed": {
+        "staleServiceCount": "service count is stale: generated=31 live=23",
+        "generatorOutputAbsent": true
+      },
+      "status": "accepted-history"
+    },
+    "demandPackageGeneratorWriteCodeAuthorization": {
+      "increment": "evidence-demand-package",
+      "stage": "write-code-demand-package-generator",
+      "finding": "F1",
+      "authorizedPaths": [
+        "scripts/generate-dependency-graph.ts",
+        ".pipeline/work/AU20/analysis/service-data-packages.json"
+      ],
+      "frozenPaths": [
+        ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+        ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+        "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+        "scripts/surface-census.ts",
+        "scripts/table-ownership-guard.ts"
+      ],
+      "serviceCodeAuthorized": false,
+      "productCodeAuthorized": false,
+      "productTestsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "core-api-bootstrap-ownership",
+      "status": "rejected"
+    },
+    "demandPackageGeneratorRejectedCandidate": {
+      "generatorPath": "scripts/generate-dependency-graph.ts",
+      "generatorSha256": "aa97fb3ea89f97aa3a9ecb0bf778c291eeee544f32dda4618ee2c809b46b6385",
+      "artifactPath": ".pipeline/work/AU20/analysis/service-data-packages.json",
+      "artifactSha256": "6143da860cbbf91bd130905366bab26cec19cc4f5b00e64b60b2a0b50b3b2450",
+      "reviewPath": "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+      "reviewSha256": "c8c79ededeb650395020b65c4c066be24c6ef10a880141538c498db672592360",
+      "verdict": "revise",
+      "reason": "DispatchPorts nested provider groups were parsed as methods and broadcast to all thirteen providers; real nested provider methods were omitted.",
+      "requiredRedProof": [
+        "agentSelection.resolveScaffoldSpecs",
+        "conversation.insertMessage",
+        "cost.getFactoryCostActual",
+        "no provider request named runOrchestration or toolHandlers merely because those are group keys",
+        "no multi-provider request broadcast"
+      ],
+      "status": "rejected-history"
+    },
+    "demandPackageNestedPortsWriteTestsAuthorization": {
+      "increment": "evidence-demand-package",
+      "stage": "write-tests-demand-package-nested-ports",
+      "finding": "F1",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+        ".pipeline/work/AU20/red-proofs/evidence-demand-package.json"
+      ],
+      "candidatePathsFrozen": [
+        "scripts/generate-dependency-graph.ts",
+        ".pipeline/work/AU20/analysis/service-data-packages.json"
+      ],
+      "priorRedProofPreserved": {
+        "guardSha256": "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c",
+        "proofSha256": "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df",
+        "reviewSha256": "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee"
+      },
+      "generatorCodeAuthorized": false,
+      "serviceCodeAuthorized": false,
+      "productCodeAuthorized": false,
+      "productTestsAuthorized": false,
+      "redProofReviewRequiredBeforeWriteCode": true,
+      "nextIncrement": "core-api-bootstrap-ownership",
+      "status": "completed-history"
+    },
+    "demandPackageNestedPortsRedProof": {
+      "path": ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+      "sha256": "fe50ae191154ce1bed20facff969ad7e061c3974a33bfbf071fc0dafd8aefe63",
+      "guardPath": ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+      "guardSha256": "8cfaf4d8b4c1cf6c55b6941a7d2f6b16985603a68dd08c5ae63e5d8654db1758",
+      "reviewPath": "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+      "reviewSha256": "78fef8028435cfa6f715a253bab8028a93cf45c265f7235ca58a1de3c4e87011",
+      "verdict": "accept",
+      "round": 2,
+      "authoritativeSourceSha256": "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc",
+      "rejectedCandidateExpectedError": "agent-selection.diReceivers diverges from authoritative source",
+      "priorAcceptedRedProof": {
+        "guardSha256": "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c",
+        "proofSha256": "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df",
+        "reviewSha256": "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee",
+        "reviewArtifactSupersededByExpandedReview": true
+      },
+      "status": "accepted-history"
+    },
+    "demandPackageGeneratorRevisedWriteCodeAuthorization": {
+      "increment": "evidence-demand-package",
+      "stage": "write-code-demand-package-generator",
+      "finding": "F1",
+      "authorizedPaths": [
+        "scripts/generate-dependency-graph.ts",
+        ".pipeline/work/AU20/analysis/service-data-packages.json"
+      ],
+      "frozenPaths": [
+        ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+        ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+        "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+        "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+        "scripts/surface-census.ts",
+        "scripts/table-ownership-guard.ts"
+      ],
+      "requiredCorrection": "Parse DispatchPorts nested composition groups by exact provider identity and emit each provider's own nested methods without group-name requests or cross-provider broadcast.",
+      "serviceCodeAuthorized": false,
+      "productCodeAuthorized": false,
+      "productTestsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "core-api-bootstrap-ownership",
+      "status": "completed-history"
+    },
+    "demandPackageGeneratorCorrectedCandidate": {
+      "generatorPath": "scripts/generate-dependency-graph.ts",
+      "generatorSha256": "3d27a26f17a2a29bcd2fbb780cb8a500e4c463dca808068ba16efaeaf2acd5b5",
+      "artifactPath": ".pipeline/work/AU20/analysis/service-data-packages.json",
+      "artifactSha256": "f2575f32b02a66dd4d6f708c1123385433ac46e1ff91289ad70acde38e824aa5",
+      "sourceSha256": "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc",
+      "implementationReviewPath": "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+      "implementationReviewSha256": "87b9fbb1ab33be53b2031582e0896b14ce341b281fd09e9b6291cbde8b6cf99c",
+      "implementationReviewVerdict": "revise",
+      "productToolingVerdict": "pass",
+      "provenanceVerdict": "revise",
+      "rejectedHistoryAuthority": {
+        "expandedRedReviewPath": "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+        "expandedRedReviewSha256": "78fef8028435cfa6f715a253bab8028a93cf45c265f7235ca58a1de3c4e87011",
+        "rejectedGeneratorSha256": "aa97fb3ea89f97aa3a9ecb0bf778c291eeee544f32dda4618ee2c809b46b6385",
+        "rejectedArtifactSha256": "6143da860cbbf91bd130905366bab26cec19cc4f5b00e64b60b2a0b50b3b2450",
+        "historicalRejectedReviewSha256": "c8c79ededeb650395020b65c4c066be24c6ef10a880141538c498db672592360"
+      },
+      "status": "implementation-correct-provenance-review-pending"
+    },
+    "demandPackageGeneratorProvenanceReview": {
+      "path": "plans/AU20/register-reviews/evidence-demand-package-provenance.md",
+      "sha256": "5262fc92a8bb086847bf34da50f59b8462dc403b581772ee0891a6db08abfcc6",
+      "verdict": "revise",
+      "acceptedFindings": {
+        "historicalRejectedLineage": "pass",
+        "currentHashes": "pass",
+        "locks": "pass",
+        "exactCurrentPaths": "fail"
+      },
+      "requiredExactPaths": {
+        "generatorPath": "scripts/generate-dependency-graph.ts",
+        "artifactPath": ".pipeline/work/AU20/analysis/service-data-packages.json",
+        "implementationReviewPath": "plans/AU20/register-reviews/evidence-demand-package-implementation.md"
+      },
+      "status": "superseded-by-final-acceptance"
+    },
+    "demandPackageGeneratorFinalReview": {
+      "path": "plans/AU20/register-reviews/evidence-demand-package-provenance-final.md",
+      "sha256": "81fc73a5e71cf037cde4d5ef1596202a8b328c9e5101b2ceff90dc7f33ad68b4",
+      "verdict": "accept",
+      "generatorSha256": "3d27a26f17a2a29bcd2fbb780cb8a500e4c463dca808068ba16efaeaf2acd5b5",
+      "artifactSha256": "f2575f32b02a66dd4d6f708c1123385433ac46e1ff91289ad70acde38e824aa5",
+      "implementationReviewSha256": "87b9fbb1ab33be53b2031582e0896b14ce341b281fd09e9b6291cbde8b6cf99c",
+      "sourceSha256": "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc",
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "status": "accepted"
+    },
+    "demandPackageGeneratorFinalizeAuthorization": {
+      "increment": "evidence-demand-package",
+      "stage": "finalize-demand-package-generator",
+      "finding": "F1",
+      "allowedCommitPaths": [
+        "scripts/generate-dependency-graph.ts",
+        ".pipeline/work/AU20/analysis/service-data-packages.json",
+        ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+        ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+        "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+        "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+        "plans/AU20/register-reviews/evidence-demand-package-provenance.md",
+        "plans/AU20/register-reviews/evidence-demand-package-provenance-final.md",
+        ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+        ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+        ".pipeline/work/AU20/progress.json",
+        "plans/AU20/corrective-change-map.json"
+      ],
+      "workingTreeMustMatchAcceptedHashes": true,
+      "semanticEditsAuthorized": false,
+      "serviceCodeAuthorized": false,
+      "productCodeAuthorized": false,
+      "productTestsAuthorized": false,
+      "nextIncrementAuthorized": false,
+      "nextIncrement": "core-api-bootstrap-ownership"
     }
   },
   "sessionStartedAt": "2026-07-17",

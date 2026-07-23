@@ -385,6 +385,284 @@ const f13ProvenanceValid =
   sha256(JSON.stringify(proofInventoryArchitectureAmendment)) === "b2422c38e17340c80399f36c6587b1702b0b3165604e65b1be6ee9cfdfc2730a" &&
   sha256(JSON.stringify(finalArchitectureBinding)) === "353e6eafd6ae992a1e9939929f28798b07d3f0583178fc388411c119b7f81ff5" &&
   sha256(JSON.stringify(findingLedgerRedBinding)) === "7c3a751c023b055b367d5c487a5174a6cb4ab8ec2579e65b8c13e3768e6dac1e";
+const findingLedgerCommit = progress.gateBindings?.reviewFindingLedgerCommit ?? null;
+const demandWriteTestsAuthorization = progress.gateBindings?.demandPackageGeneratorWriteTestsAuthorization ?? null;
+const commitInspection = findingLedgerCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", findingLedgerCommit.commit], {
+      cwd: root,
+      encoding: "utf8",
+      shell: false,
+    })
+  : null;
+const expectedCommitInspection = findingLedgerCommit
+  ? [
+      findingLedgerCommit.commit,
+      findingLedgerCommit.tree,
+      findingLedgerCommit.parent,
+      findingLedgerCommit.subject,
+    ].join("\n")
+  : null;
+const findingLedgerCommitValid =
+  f13ProvenanceValid &&
+  findingLedgerCommit?.commit === "41c013613dc0c1fd81bc43b0ef7a52c8bc08b322" &&
+  findingLedgerCommit?.tree === "4d73df713d104ddab2104b26479f21ee4ca93e2c" &&
+  findingLedgerCommit?.parent === "cf8bee1a65e0def24995dc3b5aa3d496cef0f32b" &&
+  findingLedgerCommit?.subject === "AU20: reconcile final review finding ledger" &&
+  findingLedgerCommit?.historicalReviewSha256 === historicalReview.historicalLiveReviewSha256 &&
+  findingLedgerCommit?.currentReviewSha256 === currentReview.sha256 &&
+  findingLedgerCommit?.preTransitionProgressSha256 === "32b63054a9edf3f28dcc55e70c3d4fc4c7e0c66eba93e31c210b83ac7ced91db" &&
+  findingLedgerCommit?.preTransitionChangeMapSha256 === "93af687d5bc817490378a84264b24f418d185d2ba8a5b32401124993b11f45fe" &&
+  JSON.stringify(findingLedgerCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(findingLedgerCommit?.verification ?? {}).every((result) => result === "pass") &&
+  findingLedgerCommit?.status === "completed-history" &&
+  commitInspection?.status === 0 &&
+  commitInspection.stdout.trim() === expectedCommitInspection;
+const expectedDemandWriteTestsAuthorization = {
+  increment: "evidence-demand-package",
+  stage: "write-tests-demand-package-generator",
+  finding: "F1",
+  authorizedPaths: [
+    ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+    ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+  ],
+  productionCodeAuthorized: false,
+  implementationCodeAuthorized: false,
+  productTestsAuthorized: false,
+  scriptsGeneratorAuthorized: false,
+  redProofReviewRequiredBeforeWriteCode: true,
+  nextIncrement: "core-api-bootstrap-ownership",
+  status: "completed-history",
+};
+const demandWriteTestsCompleted =
+  findingLedgerCommitValid &&
+  JSON.stringify(demandWriteTestsAuthorization) === JSON.stringify(expectedDemandWriteTestsAuthorization);
+const demandRedProof = progress.gateBindings?.demandPackageGeneratorRedProof ?? null;
+const demandRedProofValid =
+  demandWriteTestsCompleted &&
+  demandRedProof?.path === ".pipeline/work/AU20/red-proofs/evidence-demand-package.json" &&
+  demandRedProof?.sha256 === "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df" &&
+  demandRedProof?.guardPath === ".pipeline/work/AU20/probes/validate-service-demand-package.mjs" &&
+  demandRedProof?.guardSha256 === "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c" &&
+  demandRedProof?.reviewPath === "plans/AU20/red-proof-reviews/evidence-demand-package.md" &&
+  demandRedProof?.reviewSha256 === "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee" &&
+  demandRedProof?.verdict === "accept" &&
+  demandRedProof?.round === 2 &&
+  demandRedProof?.authoritativeSourceSha256 === "42b9f3edbfb2d6f3a2813ec7ca71d4cbd29d8c716cfdf973ad0d32c4163a6df4" &&
+  demandRedProof?.intendedRed?.staleServiceCount === "service count is stale: generated=31 live=23" &&
+  demandRedProof?.intendedRed?.generatorOutputAbsent === true &&
+  demandRedProof?.status === "accepted-history";
+const demandWriteCodeAuthorization = progress.gateBindings?.demandPackageGeneratorWriteCodeAuthorization ?? null;
+const expectedDemandWriteCodeAuthorization = {
+  increment: "evidence-demand-package",
+  stage: "write-code-demand-package-generator",
+  finding: "F1",
+  authorizedPaths: [
+    "scripts/generate-dependency-graph.ts",
+    ".pipeline/work/AU20/analysis/service-data-packages.json",
+  ],
+  frozenPaths: [
+    ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+    ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+    "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+    "scripts/surface-census.ts",
+    "scripts/table-ownership-guard.ts",
+  ],
+  serviceCodeAuthorized: false,
+  productCodeAuthorized: false,
+  productTestsAuthorized: false,
+  implementationReviewRequiredBeforeCommit: true,
+  nextIncrement: "core-api-bootstrap-ownership",
+  status: "rejected",
+};
+const demandWriteCodeAuthorized =
+  demandRedProofValid &&
+  progress.currentStep === "write-code-demand-package-generator" &&
+  JSON.stringify(demandWriteCodeAuthorization) === JSON.stringify(expectedDemandWriteCodeAuthorization);
+const rejectedDemandCandidate = progress.gateBindings?.demandPackageGeneratorRejectedCandidate ?? null;
+const expandedRedReviewPath = path.join(root, "plans/AU20/red-proof-reviews/evidence-demand-package.md");
+const expandedRedReviewText = fs.readFileSync(expandedRedReviewPath, "utf8");
+const rejectedDemandCandidateValid =
+  demandRedProofValid &&
+  rejectedDemandCandidate?.generatorPath === "scripts/generate-dependency-graph.ts" &&
+  rejectedDemandCandidate?.generatorSha256 === "aa97fb3ea89f97aa3a9ecb0bf778c291eeee544f32dda4618ee2c809b46b6385" &&
+  rejectedDemandCandidate?.artifactPath === ".pipeline/work/AU20/analysis/service-data-packages.json" &&
+  rejectedDemandCandidate?.artifactSha256 === "6143da860cbbf91bd130905366bab26cec19cc4f5b00e64b60b2a0b50b3b2450" &&
+  rejectedDemandCandidate?.reviewPath === "plans/AU20/register-reviews/evidence-demand-package-implementation.md" &&
+  rejectedDemandCandidate?.reviewSha256 === "c8c79ededeb650395020b65c4c066be24c6ef10a880141538c498db672592360" &&
+  rejectedDemandCandidate?.verdict === "revise" &&
+  rejectedDemandCandidate?.reason === "DispatchPorts nested provider groups were parsed as methods and broadcast to all thirteen providers; real nested provider methods were omitted." &&
+  JSON.stringify(rejectedDemandCandidate?.requiredRedProof) === JSON.stringify([
+    "agentSelection.resolveScaffoldSpecs",
+    "conversation.insertMessage",
+    "cost.getFactoryCostActual",
+    "no provider request named runOrchestration or toolHandlers merely because those are group keys",
+    "no multi-provider request broadcast",
+  ]) &&
+  rejectedDemandCandidate?.status === "rejected-history" &&
+  sha256(fs.readFileSync(expandedRedReviewPath)) === "78fef8028435cfa6f715a253bab8028a93cf45c265f7235ca58a1de3c4e87011" &&
+  expandedRedReviewText.includes(`| Frozen rejected generator | \`${rejectedDemandCandidate.generatorSha256}\` |`) &&
+  expandedRedReviewText.includes(`| Frozen rejected package | \`${rejectedDemandCandidate.artifactSha256}\` |`);
+const nestedPortsWriteTestsAuthorization = progress.gateBindings?.demandPackageNestedPortsWriteTestsAuthorization ?? null;
+const expectedNestedPortsWriteTestsAuthorization = {
+  increment: "evidence-demand-package",
+  stage: "write-tests-demand-package-nested-ports",
+  finding: "F1",
+  authorizedPaths: [
+    ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+    ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+  ],
+  candidatePathsFrozen: [
+    "scripts/generate-dependency-graph.ts",
+    ".pipeline/work/AU20/analysis/service-data-packages.json",
+  ],
+  priorRedProofPreserved: {
+    guardSha256: "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c",
+    proofSha256: "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df",
+    reviewSha256: "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee",
+  },
+  generatorCodeAuthorized: false,
+  serviceCodeAuthorized: false,
+  productCodeAuthorized: false,
+  productTestsAuthorized: false,
+  redProofReviewRequiredBeforeWriteCode: true,
+  nextIncrement: "core-api-bootstrap-ownership",
+  status: "completed-history",
+};
+const nestedPortsWriteTestsCompleted =
+  rejectedDemandCandidateValid &&
+  JSON.stringify(nestedPortsWriteTestsAuthorization) === JSON.stringify(expectedNestedPortsWriteTestsAuthorization);
+const nestedPortsRedProof = progress.gateBindings?.demandPackageNestedPortsRedProof ?? null;
+const nestedPortsRedProofValid =
+  nestedPortsWriteTestsCompleted &&
+  nestedPortsRedProof?.path === ".pipeline/work/AU20/red-proofs/evidence-demand-package.json" &&
+  nestedPortsRedProof?.sha256 === "fe50ae191154ce1bed20facff969ad7e061c3974a33bfbf071fc0dafd8aefe63" &&
+  nestedPortsRedProof?.guardPath === ".pipeline/work/AU20/probes/validate-service-demand-package.mjs" &&
+  nestedPortsRedProof?.guardSha256 === "8cfaf4d8b4c1cf6c55b6941a7d2f6b16985603a68dd08c5ae63e5d8654db1758" &&
+  nestedPortsRedProof?.reviewPath === "plans/AU20/red-proof-reviews/evidence-demand-package.md" &&
+  nestedPortsRedProof?.reviewSha256 === "78fef8028435cfa6f715a253bab8028a93cf45c265f7235ca58a1de3c4e87011" &&
+  nestedPortsRedProof?.verdict === "accept" &&
+  nestedPortsRedProof?.round === 2 &&
+  nestedPortsRedProof?.authoritativeSourceSha256 === "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc" &&
+  nestedPortsRedProof?.rejectedCandidateExpectedError === "agent-selection.diReceivers diverges from authoritative source" &&
+  nestedPortsRedProof?.priorAcceptedRedProof?.guardSha256 === "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c" &&
+  nestedPortsRedProof?.priorAcceptedRedProof?.proofSha256 === "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df" &&
+  nestedPortsRedProof?.priorAcceptedRedProof?.reviewSha256 === "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee" &&
+  nestedPortsRedProof?.priorAcceptedRedProof?.reviewArtifactSupersededByExpandedReview === true &&
+  nestedPortsRedProof?.status === "accepted-history" &&
+  sha256(fs.readFileSync(path.join(root, nestedPortsRedProof.path))) === nestedPortsRedProof.sha256 &&
+  sha256(fs.readFileSync(path.join(root, nestedPortsRedProof.guardPath))) === nestedPortsRedProof.guardSha256 &&
+  sha256(fs.readFileSync(path.join(root, nestedPortsRedProof.reviewPath))) === nestedPortsRedProof.reviewSha256;
+const revisedWriteCodeAuthorization = progress.gateBindings?.demandPackageGeneratorRevisedWriteCodeAuthorization ?? null;
+const expectedRevisedWriteCodeAuthorization = {
+  increment: "evidence-demand-package",
+  stage: "write-code-demand-package-generator",
+  finding: "F1",
+  authorizedPaths: [
+    "scripts/generate-dependency-graph.ts",
+    ".pipeline/work/AU20/analysis/service-data-packages.json",
+  ],
+  frozenPaths: [
+    ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+    ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+    "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+    "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+    "scripts/surface-census.ts",
+    "scripts/table-ownership-guard.ts",
+  ],
+  requiredCorrection: "Parse DispatchPorts nested composition groups by exact provider identity and emit each provider's own nested methods without group-name requests or cross-provider broadcast.",
+  serviceCodeAuthorized: false,
+  productCodeAuthorized: false,
+  productTestsAuthorized: false,
+  implementationReviewRequiredBeforeCommit: true,
+  nextIncrement: "core-api-bootstrap-ownership",
+};
+const revisedWriteCodeAuthorized =
+  nestedPortsRedProofValid &&
+  progress.currentStep === "write-code-demand-package-generator" &&
+  JSON.stringify(revisedWriteCodeAuthorization) === JSON.stringify(expectedRevisedWriteCodeAuthorization);
+const correctedDemandCandidate = progress.gateBindings?.demandPackageGeneratorCorrectedCandidate ?? null;
+const correctedDemandPaths = {
+  generatorPath: "scripts/generate-dependency-graph.ts",
+  artifactPath: ".pipeline/work/AU20/analysis/service-data-packages.json",
+  implementationReviewPath: "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+};
+const correctedDemandReviewPath = path.join(root, correctedDemandPaths.implementationReviewPath);
+const correctedDemandReviewText = fs.readFileSync(correctedDemandReviewPath, "utf8");
+const provenanceReview = progress.gateBindings?.demandPackageGeneratorProvenanceReview ?? null;
+const provenanceReviewValid =
+  provenanceReview?.path === "plans/AU20/register-reviews/evidence-demand-package-provenance.md" &&
+  provenanceReview?.sha256 === "5262fc92a8bb086847bf34da50f59b8462dc403b581772ee0891a6db08abfcc6" &&
+  provenanceReview?.verdict === "revise" &&
+  JSON.stringify(provenanceReview?.requiredExactPaths) === JSON.stringify(correctedDemandPaths) &&
+  provenanceReview?.status === "superseded-by-final-acceptance" &&
+  sha256(fs.readFileSync(path.join(root, provenanceReview.path))) === provenanceReview.sha256;
+const correctedDemandCandidateValid =
+  nestedPortsRedProofValid &&
+  provenanceReviewValid &&
+  correctedDemandCandidate?.generatorPath === correctedDemandPaths.generatorPath &&
+  correctedDemandCandidate?.generatorSha256 === "3d27a26f17a2a29bcd2fbb780cb8a500e4c463dca808068ba16efaeaf2acd5b5" &&
+  correctedDemandCandidate?.artifactPath === correctedDemandPaths.artifactPath &&
+  correctedDemandCandidate?.artifactSha256 === "f2575f32b02a66dd4d6f708c1123385433ac46e1ff91289ad70acde38e824aa5" &&
+  correctedDemandCandidate?.sourceSha256 === "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc" &&
+  correctedDemandCandidate?.implementationReviewPath === correctedDemandPaths.implementationReviewPath &&
+  correctedDemandCandidate?.implementationReviewSha256 === "87b9fbb1ab33be53b2031582e0896b14ce341b281fd09e9b6291cbde8b6cf99c" &&
+  correctedDemandCandidate?.implementationReviewVerdict === "revise" &&
+  correctedDemandCandidate?.productToolingVerdict === "pass" &&
+  correctedDemandCandidate?.provenanceVerdict === "revise" &&
+  correctedDemandCandidate?.status === "implementation-correct-provenance-review-pending" &&
+  correctedDemandCandidate?.rejectedHistoryAuthority?.expandedRedReviewSha256 === nestedPortsRedProof.reviewSha256 &&
+  correctedDemandCandidate?.rejectedHistoryAuthority?.rejectedGeneratorSha256 === rejectedDemandCandidate.generatorSha256 &&
+  correctedDemandCandidate?.rejectedHistoryAuthority?.rejectedArtifactSha256 === rejectedDemandCandidate.artifactSha256 &&
+  correctedDemandCandidate?.rejectedHistoryAuthority?.historicalRejectedReviewSha256 === rejectedDemandCandidate.reviewSha256 &&
+  sha256(fs.readFileSync(path.join(root, correctedDemandCandidate.generatorPath))) === correctedDemandCandidate.generatorSha256 &&
+  sha256(fs.readFileSync(path.join(root, correctedDemandCandidate.artifactPath))) === correctedDemandCandidate.artifactSha256 &&
+  sha256(fs.readFileSync(correctedDemandReviewPath)) === correctedDemandCandidate.implementationReviewSha256 &&
+  correctedDemandReviewText.includes(`| Revised generator | \`${correctedDemandCandidate.generatorSha256}\` |`) &&
+  correctedDemandReviewText.includes(`| Revised demand package | \`${correctedDemandCandidate.artifactSha256}\` |`);
+const finalDemandReview = progress.gateBindings?.demandPackageGeneratorFinalReview ?? null;
+const finalDemandReviewValid =
+  correctedDemandCandidateValid &&
+  finalDemandReview?.path === "plans/AU20/register-reviews/evidence-demand-package-provenance-final.md" &&
+  finalDemandReview?.sha256 === "81fc73a5e71cf037cde4d5ef1596202a8b328c9e5101b2ceff90dc7f33ad68b4" &&
+  finalDemandReview?.verdict === "accept" &&
+  finalDemandReview?.generatorSha256 === correctedDemandCandidate.generatorSha256 &&
+  finalDemandReview?.artifactSha256 === correctedDemandCandidate.artifactSha256 &&
+  finalDemandReview?.implementationReviewSha256 === correctedDemandCandidate.implementationReviewSha256 &&
+  finalDemandReview?.sourceSha256 === correctedDemandCandidate.sourceSha256 &&
+  JSON.stringify(finalDemandReview?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  finalDemandReview?.status === "accepted" &&
+  sha256(fs.readFileSync(path.join(root, finalDemandReview.path))) === finalDemandReview.sha256;
+const finalizeDemandAuthorization = progress.gateBindings?.demandPackageGeneratorFinalizeAuthorization ?? null;
+const expectedFinalizeDemandAuthorization = {
+  increment: "evidence-demand-package",
+  stage: "finalize-demand-package-generator",
+  finding: "F1",
+  allowedCommitPaths: [
+    "scripts/generate-dependency-graph.ts",
+    ".pipeline/work/AU20/analysis/service-data-packages.json",
+    ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+    ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+    "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+    "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+    "plans/AU20/register-reviews/evidence-demand-package-provenance.md",
+    "plans/AU20/register-reviews/evidence-demand-package-provenance-final.md",
+    ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/progress.json",
+    "plans/AU20/corrective-change-map.json",
+  ],
+  workingTreeMustMatchAcceptedHashes: true,
+  semanticEditsAuthorized: false,
+  serviceCodeAuthorized: false,
+  productCodeAuthorized: false,
+  productTestsAuthorized: false,
+  nextIncrementAuthorized: false,
+  nextIncrement: "core-api-bootstrap-ownership",
+};
+const finalizeDemandAuthorized =
+  finalDemandReviewValid &&
+  progress.currentStep === "finalize-demand-package-generator" &&
+  JSON.stringify(finalizeDemandAuthorization) === JSON.stringify(expectedFinalizeDemandAuthorization);
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -408,14 +686,30 @@ const finalShipCorrection = {
   required: true,
   acceptedArchitecture: finalArchitectureValid ? finalArchitectureBinding : null,
   f13ProvenanceAmendment: f13ProvenanceValid ? f13ProvenanceBinding : null,
-  activeIncrement: {
+  completedIncrements: findingLedgerCommitValid ? [{
     name: "review-finding-ledger",
-    redProofReview: findingLedgerRedValid ? findingLedgerRedBinding : null,
-    authorizedStage: findingLedgerRedValid ? "write-code-review-finding-ledger" : finalArchitectureValid ? "write-tests-review-finding-ledger" : null,
+    finding: "F13",
+    redProofReview: findingLedgerRedBinding,
+    commitReceipt: findingLedgerCommit,
+    status: "completed-history",
+  }] : [],
+  activeIncrement: {
+    name: "evidence-demand-package",
+    finding: "F1",
+    priorRedProofReview: demandRedProofValid ? demandRedProof : null,
+    rejectedCandidate: rejectedDemandCandidateValid ? rejectedDemandCandidate : null,
+    candidate: correctedDemandCandidateValid ? correctedDemandCandidate : null,
+    provenanceReview: provenanceReviewValid ? provenanceReview : null,
+    finalReview: finalDemandReviewValid ? finalDemandReview : null,
+    redProofReview: nestedPortsRedProofValid ? nestedPortsRedProof : null,
+    authorizedStage: finalizeDemandAuthorized
+      ? "finalize-demand-package-generator"
+      : null,
+    authorization: finalizeDemandAuthorized ? finalizeDemandAuthorization : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "evidence-demand-package",
+  nextIncrement: "core-api-bootstrap-ownership",
 };
 const output = {
   ...payload,
@@ -428,9 +722,10 @@ const output = {
     acceptedReview: reviewBindingValid ? acceptedReview : null,
     proofInventoryArchitectureAmendment,
     finalShipCorrection,
-    writeTestsLocked: !reviewBindingValid || !finalArchitectureValid,
-    codeLocked: !findingLedgerRedValid,
+    writeTestsLocked: true,
+    codeLocked: true,
     productCodeLocked: true,
+    commitLocked: !finalizeDemandAuthorized,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

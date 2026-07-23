@@ -176,7 +176,8 @@ if (process.argv.includes("--require-review")) {
   if (canonicalObjectHash(integrity.acceptedReview) !== "8fdbe10c6810358a93d3629164db083eab446750f01ecaff664b3ae087c564c8") fail("classification review history mismatch");
   if (canonicalObjectHash(integrity.proofInventoryArchitectureAmendment) !== "b2422c38e17340c80399f36c6587b1702b0b3165604e65b1be6ee9cfdfc2730a") fail("proof-inventory history mismatch");
   if (canonicalObjectHash(finalArchitecture) !== "353e6eafd6ae992a1e9939929f28798b07d3f0583178fc388411c119b7f81ff5") fail("final architecture history mismatch");
-  if (canonicalObjectHash(finalCorrection?.activeIncrement?.redProofReview) !== "7c3a751c023b055b367d5c487a5174a6cb4ab8ec2579e65b8c13e3768e6dac1e") fail("F13 red-proof history mismatch");
+  const completedF13 = finalCorrection?.completedIncrements?.find((increment) => increment.name === "review-finding-ledger");
+  if (canonicalObjectHash(completedF13?.redProofReview) !== "7c3a751c023b055b367d5c487a5174a6cb4ab8ec2579e65b8c13e3768e6dac1e") fail("F13 red-proof history mismatch");
   if (!finalArchitecture?.path || finalArchitecture.verdict !== "accept") fail("final ship correction architecture binding absent");
   if (sha256(fs.readFileSync(path.join(root, finalArchitecture.path))) !== finalArchitecture.sha256) fail("final correction review hash mismatch");
   if (sha256(fs.readFileSync(path.join(root, ".pipeline/work/AU20/architecture.md"))) !== finalArchitecture.architectureSha256) fail("final correction architecture hash mismatch");
@@ -187,22 +188,117 @@ if (process.argv.includes("--require-review")) {
       sha256(fs.readFileSync(path.join(root, historicalProofInventory.acceptedReview.path))) !== historicalProofInventory.acceptedReview.sha256 ||
       historicalProofInventory.authorizedStage !== "completed-history") fail("prior proof-inventory binding not preserved as completed history");
   const active = finalCorrection.activeIncrement;
-  if (active?.authorizedStage === "write-code-review-finding-ledger") {
-    const redProof = active.redProofReview;
-    if (!redProof?.path || redProof.verdict !== "accept") fail("F13 red-proof binding absent");
-    if (sha256(fs.readFileSync(path.join(root, redProof.path))) !== redProof.sha256) fail("F13 red-proof review hash mismatch");
-    if (sha256(fs.readFileSync(path.join(root, redProof.guardPath))) !== redProof.guardSha256) fail("F13 guard hash mismatch");
-    if (redProof.historicalReviewSha256 !== finalArchitecture.finalReviewSha256 ||
-        JSON.stringify(redProof.intendedRed) !== JSON.stringify({ message: "WARNING footer=6 headings=5", exitCode: 1 }) ||
-        redProof.checkExitCode !== 0) fail("F13 red-proof evidence mismatch");
-    if (integrity.writeTestsLocked !== false || integrity.codeLocked !== false ||
-        integrity.productCodeLocked !== true || active.productCodeAuthorized !== false) fail("F13 write-code lock state invalid");
-  } else if (active?.authorizedStage === "write-tests-review-finding-ledger") {
-    if (active.redProofReview !== null || integrity.writeTestsLocked !== false ||
-        integrity.codeLocked !== true || integrity.productCodeLocked !== true) fail("F13 write-tests lock state invalid");
-  } else {
-    fail("final correction authorized stage invalid");
-  }
+  const receipt = completedF13?.commitReceipt;
+  if (completedF13?.finding !== "F13" || completedF13?.status !== "completed-history") fail("F13 completion history absent");
+  if (receipt?.commit !== "41c013613dc0c1fd81bc43b0ef7a52c8bc08b322" ||
+      receipt?.tree !== "4d73df713d104ddab2104b26479f21ee4ca93e2c" ||
+      receipt?.parent !== "cf8bee1a65e0def24995dc3b5aa3d496cef0f32b" ||
+      receipt?.subject !== "AU20: reconcile final review finding ledger" ||
+      receipt?.preTransitionProgressSha256 !== "32b63054a9edf3f28dcc55e70c3d4fc4c7e0c66eba93e31c210b83ac7ced91db" ||
+      receipt?.preTransitionChangeMapSha256 !== "93af687d5bc817490378a84264b24f418d185d2ba8a5b32401124993b11f45fe" ||
+      JSON.stringify(receipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      receipt?.status !== "completed-history" ||
+      Object.values(receipt?.verification ?? {}).some((result) => result !== "pass")) fail("F13 commit receipt mismatch");
+  const gitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", receipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (gitReceipt.status !== 0 ||
+      gitReceipt.stdout.trim() !== [receipt.commit, receipt.tree, receipt.parent, receipt.subject].join("\n")) fail("F13 commit object mismatch");
+  const priorRedProof = active?.priorRedProofReview;
+  if (priorRedProof?.guardSha256 !== "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c" ||
+      priorRedProof?.sha256 !== "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df" ||
+      priorRedProof?.reviewSha256 !== "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee" ||
+      priorRedProof?.verdict !== "accept") fail("prior F1 red-proof history mismatch");
+  const demandRedProof = active?.redProofReview;
+  if (demandRedProof?.path !== ".pipeline/work/AU20/red-proofs/evidence-demand-package.json" ||
+      demandRedProof?.sha256 !== "fe50ae191154ce1bed20facff969ad7e061c3974a33bfbf071fc0dafd8aefe63" ||
+      demandRedProof?.guardPath !== ".pipeline/work/AU20/probes/validate-service-demand-package.mjs" ||
+      demandRedProof?.guardSha256 !== "8cfaf4d8b4c1cf6c55b6941a7d2f6b16985603a68dd08c5ae63e5d8654db1758" ||
+      demandRedProof?.reviewPath !== "plans/AU20/red-proof-reviews/evidence-demand-package.md" ||
+      demandRedProof?.reviewSha256 !== "78fef8028435cfa6f715a253bab8028a93cf45c265f7235ca58a1de3c4e87011" ||
+      demandRedProof?.verdict !== "accept" ||
+      demandRedProof?.authoritativeSourceSha256 !== "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc") fail("F1 nested red-proof binding mismatch");
+  if (sha256(fs.readFileSync(path.join(root, demandRedProof.path))) !== demandRedProof.sha256 ||
+      sha256(fs.readFileSync(path.join(root, demandRedProof.guardPath))) !== demandRedProof.guardSha256 ||
+      sha256(fs.readFileSync(path.join(root, demandRedProof.reviewPath))) !== demandRedProof.reviewSha256) fail("F1 red-proof artifact hash mismatch");
+  const rejected = active?.rejectedCandidate;
+  const expandedRedReviewText = fs.readFileSync(path.join(root, "plans/AU20/red-proof-reviews/evidence-demand-package.md"), "utf8");
+  if (rejected?.generatorSha256 !== "aa97fb3ea89f97aa3a9ecb0bf778c291eeee544f32dda4618ee2c809b46b6385" ||
+      rejected?.artifactSha256 !== "6143da860cbbf91bd130905366bab26cec19cc4f5b00e64b60b2a0b50b3b2450" ||
+      rejected?.reviewSha256 !== "c8c79ededeb650395020b65c4c066be24c6ef10a880141538c498db672592360" ||
+      rejected?.verdict !== "revise" ||
+      rejected?.status !== "rejected-history" ||
+      !expandedRedReviewText.includes(`| Frozen rejected generator | \`${rejected.generatorSha256}\` |`) ||
+      !expandedRedReviewText.includes(`| Frozen rejected package | \`${rejected.artifactSha256}\` |`)) fail("F1 rejected candidate history mismatch");
+  const candidate = active?.candidate;
+  const provenanceReview = active?.provenanceReview;
+  if (provenanceReview?.path !== "plans/AU20/register-reviews/evidence-demand-package-provenance.md" ||
+      provenanceReview?.sha256 !== "5262fc92a8bb086847bf34da50f59b8462dc403b581772ee0891a6db08abfcc6" ||
+      provenanceReview?.verdict !== "revise" ||
+      JSON.stringify(provenanceReview?.requiredExactPaths) !== JSON.stringify({
+        generatorPath: "scripts/generate-dependency-graph.ts",
+        artifactPath: ".pipeline/work/AU20/analysis/service-data-packages.json",
+        implementationReviewPath: "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+      }) ||
+      sha256(fs.readFileSync(path.join(root, provenanceReview.path))) !== provenanceReview.sha256) fail("F1 provenance review binding mismatch");
+  if (candidate?.generatorPath !== "scripts/generate-dependency-graph.ts" ||
+      candidate?.artifactPath !== ".pipeline/work/AU20/analysis/service-data-packages.json" ||
+      candidate?.implementationReviewPath !== "plans/AU20/register-reviews/evidence-demand-package-implementation.md" ||
+      candidate?.generatorSha256 !== "3d27a26f17a2a29bcd2fbb780cb8a500e4c463dca808068ba16efaeaf2acd5b5" ||
+      candidate?.artifactSha256 !== "f2575f32b02a66dd4d6f708c1123385433ac46e1ff91289ad70acde38e824aa5" ||
+      candidate?.sourceSha256 !== "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc" ||
+      candidate?.implementationReviewSha256 !== "87b9fbb1ab33be53b2031582e0896b14ce341b281fd09e9b6291cbde8b6cf99c" ||
+      candidate?.implementationReviewVerdict !== "revise" ||
+      candidate?.productToolingVerdict !== "pass" ||
+      candidate?.provenanceVerdict !== "revise" ||
+      candidate?.status !== "implementation-correct-provenance-review-pending" ||
+      sha256(fs.readFileSync(path.join(root, candidate.generatorPath))) !== candidate.generatorSha256 ||
+      sha256(fs.readFileSync(path.join(root, candidate.artifactPath))) !== candidate.artifactSha256 ||
+      sha256(fs.readFileSync(path.join(root, candidate.implementationReviewPath))) !== candidate.implementationReviewSha256) fail("F1 corrected live candidate mismatch");
+  const finalReview = active?.finalReview;
+  if (finalReview?.path !== "plans/AU20/register-reviews/evidence-demand-package-provenance-final.md" ||
+      finalReview?.sha256 !== "81fc73a5e71cf037cde4d5ef1596202a8b328c9e5101b2ceff90dc7f33ad68b4" ||
+      finalReview?.verdict !== "accept" ||
+      finalReview?.generatorSha256 !== candidate.generatorSha256 ||
+      finalReview?.artifactSha256 !== candidate.artifactSha256 ||
+      finalReview?.implementationReviewSha256 !== candidate.implementationReviewSha256 ||
+      finalReview?.sourceSha256 !== candidate.sourceSha256 ||
+      JSON.stringify(finalReview?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      sha256(fs.readFileSync(path.join(root, finalReview.path))) !== finalReview.sha256) fail("F1 final review binding mismatch");
+  const expectedFinalizeAuthorization = {
+    increment: "evidence-demand-package",
+    stage: "finalize-demand-package-generator",
+    finding: "F1",
+    allowedCommitPaths: [
+      "scripts/generate-dependency-graph.ts",
+      ".pipeline/work/AU20/analysis/service-data-packages.json",
+      ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+      ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+      "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+      "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+      "plans/AU20/register-reviews/evidence-demand-package-provenance.md",
+      "plans/AU20/register-reviews/evidence-demand-package-provenance-final.md",
+      ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+      ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+      ".pipeline/work/AU20/progress.json",
+      "plans/AU20/corrective-change-map.json",
+    ],
+    workingTreeMustMatchAcceptedHashes: true,
+    semanticEditsAuthorized: false,
+    serviceCodeAuthorized: false,
+    productCodeAuthorized: false,
+    productTestsAuthorized: false,
+    nextIncrementAuthorized: false,
+    nextIncrement: "core-api-bootstrap-ownership",
+  };
+  if (active?.name !== "evidence-demand-package" ||
+      active?.finding !== "F1" ||
+      active?.authorizedStage !== "finalize-demand-package-generator" ||
+      JSON.stringify(active?.authorization) !== JSON.stringify(expectedFinalizeAuthorization) ||
+      active?.productCodeAuthorized !== false ||
+      finalCorrection.nextIncrement !== "core-api-bootstrap-ownership" ||
+      integrity.writeTestsLocked !== true ||
+      integrity.codeLocked !== true ||
+      integrity.productCodeLocked !== true ||
+      integrity.commitLocked !== false) fail("F1 finalize lock state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,
