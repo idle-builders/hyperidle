@@ -18,9 +18,12 @@ The point is not a new harness path. The point is one contract for every agent r
 |---|---|---|---|---|---|
 | AU20 | Challenge every Service's exposed method surface (reduce, don't just document) | backend | L | AU19 (legacy: `.pipeline/work-packages/TRACK-AU.md`) | planned |
 | AU21 | Reduce agent-to-core coupling; formalize core-to-agent as EventBus-only | backend | L | AU19 (legacy: `.pipeline/work-packages/TRACK-AU.md`) | planned |
+| AU23 | Rebuild end-to-end tests against the real application | infra | L | AU20, AU21 | planned |
 
 ## Dependency graph
 
 - `AU20` → `AU19` (legacy-registered): needs the real Service package boundaries, the mechanical extraction script, and the edge-audit findings AU19 produced.
 - `AU21` → `AU19` (legacy-registered): needs the real Service boundaries, the mechanical extraction script, and the 112-capability adversarial audit's findings.
 - `AU20` and `AU21` do not depend on each other but share findings (`log_task`, duplicate-read cases) — cross-reference rather than duplicate fixes; see each plan's **Plan calls** section.
+- `AU23` → `AU20`: needs the reduced Service APIs to be stable before rebuilding durable endpoint-level proof.
+- `AU23` → `AU21`: needs the final core/agent boundary and event flow so tests do not encode transitional coupling.
