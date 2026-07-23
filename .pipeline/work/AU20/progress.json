@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "finalize-demand-package-generator",
+  "currentStep": "finalize-core-api-bootstrap-ownership",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -311,7 +311,145 @@
       "productCodeAuthorized": false,
       "productTestsAuthorized": false,
       "nextIncrementAuthorized": false,
-      "nextIncrement": "core-api-bootstrap-ownership"
+      "nextIncrement": "core-api-bootstrap-ownership",
+      "status": "completed-history"
+    },
+    "demandPackageGeneratorCommit": {
+      "commit": "a6641fa18c781bad1ee77ac07ae2b6ebb7b74f07",
+      "tree": "9ac1a946870c123fa66f5f8568b5199b75790d5a",
+      "parent": "41c013613dc0c1fd81bc43b0ef7a52c8bc08b322",
+      "subject": "AU20: make service demand package reproducible",
+      "pathCount": 12,
+      "preTransitionProgressSha256": "85a1f35b60fbd6639583ae775b0e13e6fbeef223f6991845cbc18be7787d3cac",
+      "preTransitionChangeMapSha256": "be41c4232765d84bdb576e60f80e6274e78b1b00320228eb92a64f92b55a4b97",
+      "generatorSha256": "3d27a26f17a2a29bcd2fbb780cb8a500e4c463dca808068ba16efaeaf2acd5b5",
+      "artifactSha256": "f2575f32b02a66dd4d6f708c1123385433ac46e1ff91289ad70acde38e824aa5",
+      "sourceSha256": "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc",
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "verification": {
+        "correctiveChangeMapValidator": "pass",
+        "serviceDemandValidator": "pass",
+        "determinism": "pass",
+        "check": "pass",
+        "lint": "pass",
+        "test": "pass",
+        "census": "pass"
+      },
+      "status": "completed-history"
+    },
+    "coreApiBootstrapOwnershipWriteTestsAuthorization": {
+      "increment": "core-api-bootstrap-ownership",
+      "stage": "write-tests-core-api-bootstrap-ownership",
+      "finding": "F5",
+      "authorizedPaths": [
+        "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json"
+      ],
+      "requiredProof": {
+        "exactOwnerCount": 9,
+        "namedOwners": [
+          "lifecycle-projection drain",
+          "relevance listener",
+          "review subscriptions",
+          "policy registration",
+          "git-export handler",
+          "notifications installation",
+          "retention reaper",
+          "dispatch lifecycle",
+          "cost sentinel"
+        ],
+        "assertCleanupEffects": true,
+        "forbidLengthOnlyAssertion": true
+      },
+      "productionCodeAuthorized": false,
+      "otherTestsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "redProofReviewRequiredBeforeWriteCode": true,
+      "nextIncrement": "run-orchestration-async-disposal",
+      "status": "completed-history"
+    },
+    "coreApiBootstrapOwnershipRedProof": {
+      "testPath": "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+      "testSha256": "1d630619a4d292462e028f9e03245bfd906d60bcce023aa2feada9239a935b13",
+      "proofPath": ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json",
+      "proofSha256": "79a2c2376faaebc934193fb3e5933ad7ac98d1566388de46d5b04c39dba2dfdd",
+      "reviewPath": "plans/AU20/red-proof-reviews/core-api-bootstrap-ownership.md",
+      "reviewSha256": "a8d957dfa71beb1474dd5c1579e48387216f40df524c578beafd65f065799181",
+      "verdict": "accept",
+      "focused": {
+        "failed": 1,
+        "passed": 9,
+        "reason": "all nine returned disposers have owner, cleanupEffect, and constituents undefined"
+      },
+      "status": "accepted-history"
+    },
+    "coreApiBootstrapOwnershipWriteCodeAuthorization": {
+      "increment": "core-api-bootstrap-ownership",
+      "stage": "write-code-core-api-bootstrap-ownership",
+      "finding": "F5",
+      "authorizedPaths": [
+        "packages/core-api/src/server-factory.ts"
+      ],
+      "frozenPaths": [
+        "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json",
+        "plans/AU20/red-proof-reviews/core-api-bootstrap-ownership.md",
+        "scripts/surface-census.ts"
+      ],
+      "requiredImplementation": "Return the exact nine callable disposer owners with owner, cleanupEffect, and exact composite constituent metadata while preserving each existing cleanup behavior and registration order.",
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "otherTestsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "run-orchestration-async-disposal",
+      "status": "completed-history"
+    },
+    "coreApiBootstrapOwnershipFinalReview": {
+      "path": "plans/AU20/register-reviews/core-api-bootstrap-ownership.md",
+      "sha256": "e423371d5f7e91029fd8fb1a526cdd43ce4c6063eacd23b025b5d89af25817c3",
+      "verdict": "accept",
+      "serverFactorySha256": "b8a7c5a0fc159d8e5496a7f8c98537e1387c9df16a1ba1d2e88228b18b4382ca",
+      "testSha256": "1d630619a4d292462e028f9e03245bfd906d60bcce023aa2feada9239a935b13",
+      "focused": {
+        "passed": 10,
+        "failed": 0
+      },
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "status": "accepted"
+    },
+    "coreApiBootstrapOwnershipFinalizeAuthorization": {
+      "increment": "core-api-bootstrap-ownership",
+      "stage": "finalize-core-api-bootstrap-ownership",
+      "finding": "F5",
+      "allowedCommitPaths": [
+        "packages/core-api/src/server-factory.ts",
+        "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json",
+        "plans/AU20/red-proof-reviews/core-api-bootstrap-ownership.md",
+        "plans/AU20/register-reviews/core-api-bootstrap-ownership.md",
+        ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+        ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+        ".pipeline/work/AU20/progress.json",
+        "plans/AU20/corrective-change-map.json"
+      ],
+      "workingTreeMustMatchAcceptedHashes": true,
+      "semanticEditsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "otherTestsAuthorized": false,
+      "nextIncrementAuthorized": false,
+      "nextIncrement": "run-orchestration-async-disposal"
     }
   },
   "sessionStartedAt": "2026-07-17",

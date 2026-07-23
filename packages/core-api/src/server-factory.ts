@@ -106,6 +106,15 @@ import {
 
 const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
 
+function identifyBootstrapOwner(
+	dispose: () => void,
+	owner: string,
+	cleanupEffect: string,
+	constituents: readonly string[],
+): () => void {
+	return Object.assign(dispose, { owner, cleanupEffect, constituents });
+}
+
 /** Production default poll cadence for the routine scheduler. */
 const DEFAULT_ROUTINE_POLL_INTERVAL_MS = 30_000;
 /** Default staleness bound for the routine-session reaper (1h). */
@@ -326,48 +335,84 @@ export function registerCoreDomainServices(ctx: {
 }): Array<() => void> {
 	const { db, eventBus } = ctx;
 	const disposers: Array<() => void> = [];
-	disposers.push(startLifecycleProjectionDrain(queueDeps(db)));
-
-	disposers.push(attachRelevanceListener(db, eventBus));
-
 	disposers.push(
-		registerReviewSubscriptions(db, eventBus, {
-			work: {
-				getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-				updateTaskById: (exec: WriteExecutor, id: string, patch) =>
-					work.update(exec, "task", id, patch),
-				createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
-				getRiskTierByTaskId: getTaskRiskTierByTaskId,
-			},
-			conversation: {
-				insertThread,
-				getThreadById: (db, id) => findThread(db, { id }),
-				updateThread,
-			},
-			users: {
-				getUserById: (db, id) => findUser(db, { id }),
-				listUsersByKind: (db, kind) => listUsers(db, { kind }),
-			},
-			org: { resolveReviewRecipients },
-			intentRecorder: { record: enqueueWorkIntent },
-		}),
+		identifyBootstrapOwner(
+			startLifecycleProjectionDrain(queueDeps(db)),
+			"lifecycle-projection drain",
+			"stops drain",
+			["drain interval"],
+		),
 	);
-	disposers.push(registerPolicy(db, eventBus, policyDeps));
+
 	disposers.push(
-		registerGitExportHandler(db, eventBus, {
-			runnerFactory: (repoPath) => createGitRunner(repoPath),
-			serverConfig: gitExportServerConfigPort,
-			knowledge: gitExportKnowledgeReader,
-		}),
+		identifyBootstrapOwner(
+			attachRelevanceListener(db, eventBus),
+			"relevance listener",
+			"unsubscribes",
+			["knowledge-access subscription"],
+		),
+	);
+
+	disposers.push(
+		identifyBootstrapOwner(
+			registerReviewSubscriptions(db, eventBus, {
+				work: {
+					getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+					updateTaskById: (exec: WriteExecutor, id: string, patch) =>
+						work.update(exec, "task", id, patch),
+					createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
+					getRiskTierByTaskId: getTaskRiskTierByTaskId,
+				},
+				conversation: {
+					insertThread,
+					getThreadById: (db, id) => findThread(db, { id }),
+					updateThread,
+				},
+				users: {
+					getUserById: (db, id) => findUser(db, { id }),
+					listUsersByKind: (db, kind) => listUsers(db, { kind }),
+				},
+				org: { resolveReviewRecipients },
+				intentRecorder: { record: enqueueWorkIntent },
+			}),
+			"review subscriptions",
+			"unsubscribe",
+			["review creation subscription", "review liveness subscription"],
+		),
+	);
+	disposers.push(
+		identifyBootstrapOwner(
+			registerPolicy(db, eventBus, policyDeps),
+			"policy registration",
+			"unsubscribe",
+			["policy engine", "lifecycle propagation", "retry interval"],
+		),
+	);
+	disposers.push(
+		identifyBootstrapOwner(
+			registerGitExportHandler(db, eventBus, {
+				runnerFactory: (repoPath) => createGitRunner(repoPath),
+				serverConfig: gitExportServerConfigPort,
+				knowledge: gitExportKnowledgeReader,
+			}),
+			"git-export handler",
+			"unsubscribe",
+			["knowledge-update subscription"],
+		),
 	);
 	// @lore AU20 Ag6b: three separate worker registrations (dispatcher + listener
 	// + drain) collapsed into one `installNotifications` call. The delivery chain
 	// is fully internal to @hyperidle/notifications; server-factory sees one boot
 	// entry and one disposer.
 	disposers.push(
-		installNotifications(db, eventBus, notificationsDeps, {
-			readAlertPreferences: ctx.readAlertPreferences,
-		}),
+		identifyBootstrapOwner(
+			installNotifications(db, eventBus, notificationsDeps, {
+				readAlertPreferences: ctx.readAlertPreferences,
+			}),
+			"notifications installation",
+			"dispatcher/listener/drain all stop",
+			["dispatcher", "listener", "drain"],
+		),
 	);
 
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
@@ -400,7 +445,14 @@ export function registerCoreDomainServices(ctx: {
 			serviceBootstrapLog.error("retention sweep failed", { err });
 		});
 	}, RETENTION_REAPER_INTERVAL_MS);
-	disposers.push(() => clearInterval(retentionHandle));
+	disposers.push(
+		identifyBootstrapOwner(
+			() => clearInterval(retentionHandle),
+			"retention reaper",
+			"interval cleared",
+			["retention interval"],
+		),
+	);
 
 	return disposers;
 }
@@ -451,15 +503,29 @@ export function registerAgentLayerServices(ctx: {
 	dispatchPromise.catch((err) => {
 		serviceBootstrapLog.error("dispatch start failed", { err });
 	});
-	disposers.push(() => {
-		void dispatchPromise.then((d) => d()).catch(() => {});
-	});
+	disposers.push(
+		identifyBootstrapOwner(
+			() => {
+				void dispatchPromise.then((d) => d()).catch(() => {});
+			},
+			"dispatch lifecycle",
+			"builtin/assistant/task/scheduler stop",
+			["builtin", "assistant", "task", "scheduler"],
+		),
+	);
 
 	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
 	// @lore AU20 Am3: `costOps.startSentinel` now also installs the dedup-releaser
 	// EventBus subscription (folded from `costOps._testHooks.installDedupReleaser`).
 	// One disposer instead of two; count drops from 15 to 14.
-	disposers.push(costOps.startSentinel(db, eventBus));
+	disposers.push(
+		identifyBootstrapOwner(
+			costOps.startSentinel(db, eventBus),
+			"cost sentinel",
+			"sentinel plus dedup subscription stop",
+			["sentinel", "dedup subscription"],
+		),
+	);
 
 	// AF7 §6: TTL workspace reaper (task trigger is now inside dispatchOps.start).
 	void reaperStaleAfterMs;

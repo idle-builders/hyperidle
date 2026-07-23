@@ -658,11 +658,160 @@ const expectedFinalizeDemandAuthorization = {
   productTestsAuthorized: false,
   nextIncrementAuthorized: false,
   nextIncrement: "core-api-bootstrap-ownership",
+  status: "completed-history",
 };
-const finalizeDemandAuthorized =
+const finalizeDemandCompleted =
   finalDemandReviewValid &&
-  progress.currentStep === "finalize-demand-package-generator" &&
   JSON.stringify(finalizeDemandAuthorization) === JSON.stringify(expectedFinalizeDemandAuthorization);
+const demandCommit = progress.gateBindings?.demandPackageGeneratorCommit ?? null;
+const demandCommitInspection = demandCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", demandCommit.commit], {
+      cwd: root,
+      encoding: "utf8",
+      shell: false,
+    })
+  : null;
+const demandCommitValid =
+  finalizeDemandCompleted &&
+  demandCommit?.commit === "a6641fa18c781bad1ee77ac07ae2b6ebb7b74f07" &&
+  demandCommit?.tree === "9ac1a946870c123fa66f5f8568b5199b75790d5a" &&
+  demandCommit?.parent === "41c013613dc0c1fd81bc43b0ef7a52c8bc08b322" &&
+  demandCommit?.subject === "AU20: make service demand package reproducible" &&
+  demandCommit?.pathCount === 12 &&
+  demandCommit?.preTransitionProgressSha256 === "85a1f35b60fbd6639583ae775b0e13e6fbeef223f6991845cbc18be7787d3cac" &&
+  demandCommit?.preTransitionChangeMapSha256 === "be41c4232765d84bdb576e60f80e6274e78b1b00320228eb92a64f92b55a4b97" &&
+  demandCommit?.generatorSha256 === correctedDemandCandidate.generatorSha256 &&
+  demandCommit?.artifactSha256 === correctedDemandCandidate.artifactSha256 &&
+  demandCommit?.sourceSha256 === correctedDemandCandidate.sourceSha256 &&
+  JSON.stringify(demandCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(demandCommit?.verification ?? {}).every((result) => result === "pass") &&
+  demandCommit?.status === "completed-history" &&
+  demandCommitInspection?.status === 0 &&
+  demandCommitInspection.stdout.trim() === [
+    demandCommit.commit,
+    demandCommit.tree,
+    demandCommit.parent,
+    demandCommit.subject,
+  ].join("\n");
+const bootstrapWriteTestsAuthorization = progress.gateBindings?.coreApiBootstrapOwnershipWriteTestsAuthorization ?? null;
+const expectedBootstrapWriteTestsAuthorization = {
+  increment: "core-api-bootstrap-ownership",
+  stage: "write-tests-core-api-bootstrap-ownership",
+  finding: "F5",
+  authorizedPaths: [
+    "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+    ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json",
+  ],
+  requiredProof: {
+    exactOwnerCount: 9,
+    namedOwners: [
+      "lifecycle-projection drain",
+      "relevance listener",
+      "review subscriptions",
+      "policy registration",
+      "git-export handler",
+      "notifications installation",
+      "retention reaper",
+      "dispatch lifecycle",
+      "cost sentinel",
+    ],
+    assertCleanupEffects: true,
+    forbidLengthOnlyAssertion: true,
+  },
+  productionCodeAuthorized: false,
+  otherTestsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  redProofReviewRequiredBeforeWriteCode: true,
+  nextIncrement: "run-orchestration-async-disposal",
+  status: "completed-history",
+};
+const bootstrapWriteTestsCompleted =
+  demandCommitValid &&
+  JSON.stringify(bootstrapWriteTestsAuthorization) === JSON.stringify(expectedBootstrapWriteTestsAuthorization);
+const bootstrapRedProof = progress.gateBindings?.coreApiBootstrapOwnershipRedProof ?? null;
+const bootstrapRedProofValid =
+  bootstrapWriteTestsCompleted &&
+  bootstrapRedProof?.testPath === "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts" &&
+  bootstrapRedProof?.testSha256 === "1d630619a4d292462e028f9e03245bfd906d60bcce023aa2feada9239a935b13" &&
+  bootstrapRedProof?.proofPath === ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json" &&
+  bootstrapRedProof?.proofSha256 === "79a2c2376faaebc934193fb3e5933ad7ac98d1566388de46d5b04c39dba2dfdd" &&
+  bootstrapRedProof?.reviewPath === "plans/AU20/red-proof-reviews/core-api-bootstrap-ownership.md" &&
+  bootstrapRedProof?.reviewSha256 === "a8d957dfa71beb1474dd5c1579e48387216f40df524c578beafd65f065799181" &&
+  bootstrapRedProof?.verdict === "accept" &&
+  JSON.stringify(bootstrapRedProof?.focused) === JSON.stringify({
+    failed: 1,
+    passed: 9,
+    reason: "all nine returned disposers have owner, cleanupEffect, and constituents undefined",
+  }) &&
+  bootstrapRedProof?.status === "accepted-history" &&
+  sha256(fs.readFileSync(path.join(root, bootstrapRedProof.testPath))) === bootstrapRedProof.testSha256 &&
+  sha256(fs.readFileSync(path.join(root, bootstrapRedProof.proofPath))) === bootstrapRedProof.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, bootstrapRedProof.reviewPath))) === bootstrapRedProof.reviewSha256;
+const bootstrapWriteCodeAuthorization = progress.gateBindings?.coreApiBootstrapOwnershipWriteCodeAuthorization ?? null;
+const expectedBootstrapWriteCodeAuthorization = {
+  increment: "core-api-bootstrap-ownership",
+  stage: "write-code-core-api-bootstrap-ownership",
+  finding: "F5",
+  authorizedPaths: ["packages/core-api/src/server-factory.ts"],
+  frozenPaths: [
+    "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+    ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json",
+    "plans/AU20/red-proof-reviews/core-api-bootstrap-ownership.md",
+    "scripts/surface-census.ts",
+  ],
+  requiredImplementation: "Return the exact nine callable disposer owners with owner, cleanupEffect, and exact composite constituent metadata while preserving each existing cleanup behavior and registration order.",
+  newExportsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  otherProductionPathsAuthorized: false,
+  otherTestsAuthorized: false,
+  implementationReviewRequiredBeforeCommit: true,
+  nextIncrement: "run-orchestration-async-disposal",
+  status: "completed-history",
+};
+const bootstrapWriteCodeCompleted =
+  bootstrapRedProofValid &&
+  JSON.stringify(bootstrapWriteCodeAuthorization) === JSON.stringify(expectedBootstrapWriteCodeAuthorization);
+const bootstrapFinalReview = progress.gateBindings?.coreApiBootstrapOwnershipFinalReview ?? null;
+const bootstrapFinalReviewValid =
+  bootstrapWriteCodeCompleted &&
+  bootstrapFinalReview?.path === "plans/AU20/register-reviews/core-api-bootstrap-ownership.md" &&
+  bootstrapFinalReview?.sha256 === "e423371d5f7e91029fd8fb1a526cdd43ce4c6063eacd23b025b5d89af25817c3" &&
+  bootstrapFinalReview?.verdict === "accept" &&
+  bootstrapFinalReview?.serverFactorySha256 === "b8a7c5a0fc159d8e5496a7f8c98537e1387c9df16a1ba1d2e88228b18b4382ca" &&
+  bootstrapFinalReview?.testSha256 === bootstrapRedProof.testSha256 &&
+  JSON.stringify(bootstrapFinalReview?.focused) === JSON.stringify({ passed: 10, failed: 0 }) &&
+  JSON.stringify(bootstrapFinalReview?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  bootstrapFinalReview?.status === "accepted" &&
+  sha256(fs.readFileSync(path.join(root, bootstrapFinalReview.path))) === bootstrapFinalReview.sha256 &&
+  sha256(fs.readFileSync(path.join(root, "packages/core-api/src/server-factory.ts"))) === bootstrapFinalReview.serverFactorySha256;
+const bootstrapFinalizeAuthorization = progress.gateBindings?.coreApiBootstrapOwnershipFinalizeAuthorization ?? null;
+const expectedBootstrapFinalizeAuthorization = {
+  increment: "core-api-bootstrap-ownership",
+  stage: "finalize-core-api-bootstrap-ownership",
+  finding: "F5",
+  allowedCommitPaths: [
+    "packages/core-api/src/server-factory.ts",
+    "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+    ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json",
+    "plans/AU20/red-proof-reviews/core-api-bootstrap-ownership.md",
+    "plans/AU20/register-reviews/core-api-bootstrap-ownership.md",
+    ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/progress.json",
+    "plans/AU20/corrective-change-map.json",
+  ],
+  workingTreeMustMatchAcceptedHashes: true,
+  semanticEditsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  otherProductionPathsAuthorized: false,
+  otherTestsAuthorized: false,
+  nextIncrementAuthorized: false,
+  nextIncrement: "run-orchestration-async-disposal",
+};
+const bootstrapFinalizeAuthorized =
+  bootstrapFinalReviewValid &&
+  progress.currentStep === "finalize-core-api-bootstrap-ownership" &&
+  JSON.stringify(bootstrapFinalizeAuthorization) === JSON.stringify(expectedBootstrapFinalizeAuthorization);
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -686,30 +835,39 @@ const finalShipCorrection = {
   required: true,
   acceptedArchitecture: finalArchitectureValid ? finalArchitectureBinding : null,
   f13ProvenanceAmendment: f13ProvenanceValid ? f13ProvenanceBinding : null,
-  completedIncrements: findingLedgerCommitValid ? [{
-    name: "review-finding-ledger",
-    finding: "F13",
-    redProofReview: findingLedgerRedBinding,
-    commitReceipt: findingLedgerCommit,
-    status: "completed-history",
-  }] : [],
+  completedIncrements: [
+    ...(findingLedgerCommitValid ? [{
+      name: "review-finding-ledger",
+      finding: "F13",
+      redProofReview: findingLedgerRedBinding,
+      commitReceipt: findingLedgerCommit,
+      status: "completed-history",
+    }] : []),
+    ...(demandCommitValid ? [{
+      name: "evidence-demand-package",
+      finding: "F1",
+      priorRedProofReview: demandRedProof,
+      redProofReview: nestedPortsRedProof,
+      rejectedCandidate: rejectedDemandCandidate,
+      candidate: correctedDemandCandidate,
+      provenanceReview,
+      finalReview: finalDemandReview,
+      finalizeAuthorization: finalizeDemandAuthorization,
+      commitReceipt: demandCommit,
+      status: "completed-history",
+    }] : []),
+  ],
   activeIncrement: {
-    name: "evidence-demand-package",
-    finding: "F1",
-    priorRedProofReview: demandRedProofValid ? demandRedProof : null,
-    rejectedCandidate: rejectedDemandCandidateValid ? rejectedDemandCandidate : null,
-    candidate: correctedDemandCandidateValid ? correctedDemandCandidate : null,
-    provenanceReview: provenanceReviewValid ? provenanceReview : null,
-    finalReview: finalDemandReviewValid ? finalDemandReview : null,
-    redProofReview: nestedPortsRedProofValid ? nestedPortsRedProof : null,
-    authorizedStage: finalizeDemandAuthorized
-      ? "finalize-demand-package-generator"
-      : null,
-    authorization: finalizeDemandAuthorized ? finalizeDemandAuthorization : null,
+    name: "core-api-bootstrap-ownership",
+    finding: "F5",
+    redProofReview: bootstrapRedProofValid ? bootstrapRedProof : null,
+    finalReview: bootstrapFinalReviewValid ? bootstrapFinalReview : null,
+    authorizedStage: bootstrapFinalizeAuthorized ? "finalize-core-api-bootstrap-ownership" : null,
+    authorization: bootstrapFinalizeAuthorized ? bootstrapFinalizeAuthorization : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "core-api-bootstrap-ownership",
+  nextIncrement: "run-orchestration-async-disposal",
 };
 const output = {
   ...payload,
@@ -725,7 +883,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !finalizeDemandAuthorized,
+    commitLocked: !bootstrapFinalizeAuthorized,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

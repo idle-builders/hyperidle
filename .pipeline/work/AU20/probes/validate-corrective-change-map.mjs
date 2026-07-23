@@ -188,6 +188,7 @@ if (process.argv.includes("--require-review")) {
       sha256(fs.readFileSync(path.join(root, historicalProofInventory.acceptedReview.path))) !== historicalProofInventory.acceptedReview.sha256 ||
       historicalProofInventory.authorizedStage !== "completed-history") fail("prior proof-inventory binding not preserved as completed history");
   const active = finalCorrection.activeIncrement;
+  const completedDemand = finalCorrection?.completedIncrements?.find((increment) => increment.name === "evidence-demand-package");
   const receipt = completedF13?.commitReceipt;
   if (completedF13?.finding !== "F13" || completedF13?.status !== "completed-history") fail("F13 completion history absent");
   if (receipt?.commit !== "41c013613dc0c1fd81bc43b0ef7a52c8bc08b322" ||
@@ -202,12 +203,12 @@ if (process.argv.includes("--require-review")) {
   const gitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", receipt.commit], { cwd: root, encoding: "utf8", shell: false });
   if (gitReceipt.status !== 0 ||
       gitReceipt.stdout.trim() !== [receipt.commit, receipt.tree, receipt.parent, receipt.subject].join("\n")) fail("F13 commit object mismatch");
-  const priorRedProof = active?.priorRedProofReview;
+  const priorRedProof = completedDemand?.priorRedProofReview;
   if (priorRedProof?.guardSha256 !== "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c" ||
       priorRedProof?.sha256 !== "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df" ||
       priorRedProof?.reviewSha256 !== "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee" ||
       priorRedProof?.verdict !== "accept") fail("prior F1 red-proof history mismatch");
-  const demandRedProof = active?.redProofReview;
+  const demandRedProof = completedDemand?.redProofReview;
   if (demandRedProof?.path !== ".pipeline/work/AU20/red-proofs/evidence-demand-package.json" ||
       demandRedProof?.sha256 !== "fe50ae191154ce1bed20facff969ad7e061c3974a33bfbf071fc0dafd8aefe63" ||
       demandRedProof?.guardPath !== ".pipeline/work/AU20/probes/validate-service-demand-package.mjs" ||
@@ -219,7 +220,7 @@ if (process.argv.includes("--require-review")) {
   if (sha256(fs.readFileSync(path.join(root, demandRedProof.path))) !== demandRedProof.sha256 ||
       sha256(fs.readFileSync(path.join(root, demandRedProof.guardPath))) !== demandRedProof.guardSha256 ||
       sha256(fs.readFileSync(path.join(root, demandRedProof.reviewPath))) !== demandRedProof.reviewSha256) fail("F1 red-proof artifact hash mismatch");
-  const rejected = active?.rejectedCandidate;
+  const rejected = completedDemand?.rejectedCandidate;
   const expandedRedReviewText = fs.readFileSync(path.join(root, "plans/AU20/red-proof-reviews/evidence-demand-package.md"), "utf8");
   if (rejected?.generatorSha256 !== "aa97fb3ea89f97aa3a9ecb0bf778c291eeee544f32dda4618ee2c809b46b6385" ||
       rejected?.artifactSha256 !== "6143da860cbbf91bd130905366bab26cec19cc4f5b00e64b60b2a0b50b3b2450" ||
@@ -228,8 +229,8 @@ if (process.argv.includes("--require-review")) {
       rejected?.status !== "rejected-history" ||
       !expandedRedReviewText.includes(`| Frozen rejected generator | \`${rejected.generatorSha256}\` |`) ||
       !expandedRedReviewText.includes(`| Frozen rejected package | \`${rejected.artifactSha256}\` |`)) fail("F1 rejected candidate history mismatch");
-  const candidate = active?.candidate;
-  const provenanceReview = active?.provenanceReview;
+  const candidate = completedDemand?.candidate;
+  const provenanceReview = completedDemand?.provenanceReview;
   if (provenanceReview?.path !== "plans/AU20/register-reviews/evidence-demand-package-provenance.md" ||
       provenanceReview?.sha256 !== "5262fc92a8bb086847bf34da50f59b8462dc403b581772ee0891a6db08abfcc6" ||
       provenanceReview?.verdict !== "revise" ||
@@ -253,7 +254,7 @@ if (process.argv.includes("--require-review")) {
       sha256(fs.readFileSync(path.join(root, candidate.generatorPath))) !== candidate.generatorSha256 ||
       sha256(fs.readFileSync(path.join(root, candidate.artifactPath))) !== candidate.artifactSha256 ||
       sha256(fs.readFileSync(path.join(root, candidate.implementationReviewPath))) !== candidate.implementationReviewSha256) fail("F1 corrected live candidate mismatch");
-  const finalReview = active?.finalReview;
+  const finalReview = completedDemand?.finalReview;
   if (finalReview?.path !== "plans/AU20/register-reviews/evidence-demand-package-provenance-final.md" ||
       finalReview?.sha256 !== "81fc73a5e71cf037cde4d5ef1596202a8b328c9e5101b2ceff90dc7f33ad68b4" ||
       finalReview?.verdict !== "accept" ||
@@ -288,17 +289,79 @@ if (process.argv.includes("--require-review")) {
     productTestsAuthorized: false,
     nextIncrementAuthorized: false,
     nextIncrement: "core-api-bootstrap-ownership",
+    status: "completed-history",
   };
-  if (active?.name !== "evidence-demand-package" ||
-      active?.finding !== "F1" ||
-      active?.authorizedStage !== "finalize-demand-package-generator" ||
-      JSON.stringify(active?.authorization) !== JSON.stringify(expectedFinalizeAuthorization) ||
+  if (completedDemand?.finding !== "F1" ||
+      completedDemand?.status !== "completed-history" ||
+      JSON.stringify(completedDemand?.finalizeAuthorization) !== JSON.stringify(expectedFinalizeAuthorization)) fail("F1 completed history invalid");
+  const demandReceipt = completedDemand?.commitReceipt;
+  if (demandReceipt?.commit !== "a6641fa18c781bad1ee77ac07ae2b6ebb7b74f07" ||
+      demandReceipt?.tree !== "9ac1a946870c123fa66f5f8568b5199b75790d5a" ||
+      demandReceipt?.parent !== "41c013613dc0c1fd81bc43b0ef7a52c8bc08b322" ||
+      demandReceipt?.subject !== "AU20: make service demand package reproducible" ||
+      demandReceipt?.pathCount !== 12 ||
+      demandReceipt?.preTransitionProgressSha256 !== "85a1f35b60fbd6639583ae775b0e13e6fbeef223f6991845cbc18be7787d3cac" ||
+      demandReceipt?.preTransitionChangeMapSha256 !== "be41c4232765d84bdb576e60f80e6274e78b1b00320228eb92a64f92b55a4b97" ||
+      demandReceipt?.generatorSha256 !== candidate.generatorSha256 ||
+      demandReceipt?.artifactSha256 !== candidate.artifactSha256 ||
+      demandReceipt?.sourceSha256 !== candidate.sourceSha256 ||
+      JSON.stringify(demandReceipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      demandReceipt?.status !== "completed-history" ||
+      Object.values(demandReceipt?.verification ?? {}).some((result) => result !== "pass")) fail("F1 commit receipt mismatch");
+  const demandGitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", demandReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (demandGitReceipt.status !== 0 ||
+      demandGitReceipt.stdout.trim() !== [demandReceipt.commit, demandReceipt.tree, demandReceipt.parent, demandReceipt.subject].join("\n")) fail("F1 commit object mismatch");
+  const expectedBootstrapAuthorization = {
+    increment: "core-api-bootstrap-ownership",
+    stage: "finalize-core-api-bootstrap-ownership",
+    finding: "F5",
+    allowedCommitPaths: [
+      "packages/core-api/src/server-factory.ts",
+      "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+      ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json",
+      "plans/AU20/red-proof-reviews/core-api-bootstrap-ownership.md",
+      "plans/AU20/register-reviews/core-api-bootstrap-ownership.md",
+      ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+      ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+      ".pipeline/work/AU20/progress.json",
+      "plans/AU20/corrective-change-map.json",
+    ],
+    workingTreeMustMatchAcceptedHashes: true,
+    semanticEditsAuthorized: false,
+    serviceSurfaceGrowthAuthorized: false,
+    otherProductionPathsAuthorized: false,
+    otherTestsAuthorized: false,
+    nextIncrementAuthorized: false,
+    nextIncrement: "run-orchestration-async-disposal",
+  };
+  const bootstrapRed = active?.redProofReview;
+  if (bootstrapRed?.testSha256 !== "1d630619a4d292462e028f9e03245bfd906d60bcce023aa2feada9239a935b13" ||
+      bootstrapRed?.proofSha256 !== "79a2c2376faaebc934193fb3e5933ad7ac98d1566388de46d5b04c39dba2dfdd" ||
+      bootstrapRed?.reviewSha256 !== "a8d957dfa71beb1474dd5c1579e48387216f40df524c578beafd65f065799181" ||
+      bootstrapRed?.verdict !== "accept" ||
+      sha256(fs.readFileSync(path.join(root, bootstrapRed.testPath))) !== bootstrapRed.testSha256 ||
+      sha256(fs.readFileSync(path.join(root, bootstrapRed.proofPath))) !== bootstrapRed.proofSha256 ||
+      sha256(fs.readFileSync(path.join(root, bootstrapRed.reviewPath))) !== bootstrapRed.reviewSha256) fail("F5 red-proof binding mismatch");
+  const bootstrapFinal = active?.finalReview;
+  if (bootstrapFinal?.path !== "plans/AU20/register-reviews/core-api-bootstrap-ownership.md" ||
+      bootstrapFinal?.sha256 !== "e423371d5f7e91029fd8fb1a526cdd43ce4c6063eacd23b025b5d89af25817c3" ||
+      bootstrapFinal?.verdict !== "accept" ||
+      bootstrapFinal?.serverFactorySha256 !== "b8a7c5a0fc159d8e5496a7f8c98537e1387c9df16a1ba1d2e88228b18b4382ca" ||
+      bootstrapFinal?.testSha256 !== bootstrapRed.testSha256 ||
+      JSON.stringify(bootstrapFinal?.focused) !== JSON.stringify({ passed: 10, failed: 0 }) ||
+      JSON.stringify(bootstrapFinal?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      sha256(fs.readFileSync(path.join(root, bootstrapFinal.path))) !== bootstrapFinal.sha256 ||
+      sha256(fs.readFileSync(path.join(root, "packages/core-api/src/server-factory.ts"))) !== bootstrapFinal.serverFactorySha256) fail("F5 final review binding mismatch");
+  if (active?.name !== "core-api-bootstrap-ownership" ||
+      active?.finding !== "F5" ||
+      active?.authorizedStage !== "finalize-core-api-bootstrap-ownership" ||
+      JSON.stringify(active?.authorization) !== JSON.stringify(expectedBootstrapAuthorization) ||
       active?.productCodeAuthorized !== false ||
-      finalCorrection.nextIncrement !== "core-api-bootstrap-ownership" ||
+      finalCorrection.nextIncrement !== "run-orchestration-async-disposal" ||
       integrity.writeTestsLocked !== true ||
       integrity.codeLocked !== true ||
       integrity.productCodeLocked !== true ||
-      integrity.commitLocked !== false) fail("F1 finalize lock state invalid");
+      integrity.commitLocked !== false) fail("F5 finalize lock state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,
