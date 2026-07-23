@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "build-incremental",
+  "currentStep": "write-code-proof-inventory-amendment-r3",
   "sessionStartedAt": "2026-07-17",
   "worktree": ".worktrees/pipeline-AU20",
   "branch": "pipeline/AU20",
@@ -12,7 +12,9 @@
   "approvals": {
     "requirements": true,
     "concept": true,
-    "final": false
+    "final": false,
+    "requirementsV3Corrective": true,
+    "conceptV3Corrective": true
   },
   "critiqueScores": {
     "refineV1Superseded": {
@@ -29,6 +31,101 @@
       "openWarning": 3,
       "note": "Reframed requirement (architecture-coherence + product-purpose + usage-as-input + service-as-product + scaling test). Critique confirmed it genuinely escaped the usage frame both directions and the scaling test is baked in 4 places. 3 WARNINGs surgically fixed post-critique: (1) false engineering.tier:mvp/PR#454 citation → grounded in ETHOS §1 + PR #454 landing (open); (2) scope-breadth (31 analyses + 31 critiques may be an ocean) → carried to /architecture to tier depth by surface size; (3) product-purpose bar under-defined for ~14 orchestration/execution services → carried to /architecture. Plus suggestions applied (scaling worked-heuristic, keep-unchanged burden, DOC-CLASS bump).",
       "gatedFor": "phase-3-human-requirement-review"
+    },
+    "refineV3Corrective": {
+      "score": 8.9,
+      "rounds": 1,
+      "verdict": "pass",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Fresh reviewer confirmed all five critical and four warning findings from AU20-review are binding; exhaustive E2E/system recovery is finite and cannot be gamed by deletion, weakening, rebaseline, timeout inflation, silent skip, or lane reassignment. Required design+architecture -> independent critiques -> write-tests -> write-code -> review -> separate green commits sequence is explicit.",
+      "gatedFor": "phase-3-human-requirement-review-corrective-v3"
+    },
+    "refineV3Discovery": {
+      "score": 8.7,
+      "rounds": 3,
+      "verdict": "pass",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Round 3 PASS. Independently verified exact primary partition of all 364 browser non-passes across 21 concrete registers: 364 memberships, 364 unique, zero missing/extra/duplicates/pass contamination/intersections, exact set equality. Fourteen design-owned and seven architecture-owned registers each have a concrete statement, evidence/counter-evidence, confidence, specific proof, contract/runtime questions, and exact unresolved/settled decision sets. BR-10, stale counts, and signature-causality claims are gone. System runtime/review/proof-gap taxonomy and 604/604 accounting remain coherent. Unresolved cases are not dispositions and authorize no test/code edits; refinement unlocks the requirement gate, then light design/architecture after approval.",
+      "gatedFor": "phase-3-human-requirement-review-corrective-v3"
+    },
+    "designV3Corrective": {
+      "score": 8,
+      "rounds": 4,
+      "verdict": "accept",
+      "scoreLine": "H:8 S:8 T:8 C:8 Co:8 St:8 A:8 AS:9 PP:7",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Round 4 ACCEPT. Search result/empty and BlockActions now capture real open production-component states with semantic postconditions and mutual exclusion. Artifact copy mismatch is explicit regression evidence. All 26 paints have real TSX provenance; facsimile/collage evidence is gone; viewer cleanup verified. Exact 94/58/23/93 accounting and 116 runtime handoff remain correct.",
+      "artifact": "plans/AU20/design-critique-v3.md",
+      "gatedFor": "phase-5-design-critique-corrective-v3"
+    },
+    "architectureV3Corrective": {
+      "score": 8,
+      "rounds": 3,
+      "verdict": "accept",
+      "scoreLine": "SA:9 IM:8 LI:9 AC:8 DM:8 N:8 MD:8 FMC:8 S:8 V:9 FE:8",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Round 3 ACCEPT. Formal corrective requirements approval is explicitly recorded. All technical proof-integrity issues are closed: start-evidenced terminal truth, independently reviewed/content-hash-locked dispositions, strict eight-stage agent boundaries, finite route grammar, executable MCP isolation, AggregateError disposal, exact real-Electron dev/packaged local/shared preflights and isolated config cleanup, and fixed-count assertions. Ready for mandatory corrective concept review; concept approval remains false and no implementation is authorized.",
+      "artifact": "plans/AU20/architecture-critique-v3.md",
+      "gatedFor": "phase-6-human-concept-review-corrective-v3"
+    },
+    "architectureV3ChangeMap": {
+      "score": 9,
+      "rounds": 4,
+      "verdict": "accept",
+      "scoreLine": "SA:9 IM:9 LI:9 AC:9 DM:9 N:9 MD:9 FMC:9 S:9 V:10 FE:9",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Amendment round 4 ACCEPT. Exact 604/604 and 181/181 accounting, final disposition totals, deterministic regeneration, all integrity hashes, prior evidence constraints, and fail-closed locking pass. All 32 regressions now have standardized source regressionProjections whose exactSymbols, owners, candidates and red proofs equal the generated map; no fallback remains. Unblock, Q1 AC9 and AH6 anchors point to their proven production boundaries. Independent acceptance artifact binds payload 76a632f2d8513b359f063dc072f1a057d356889fdea4649667e865bc76dad041. Planner must embed the review artifact hash and exact payload, clear the lock, and pass --require-review before write-tests.",
+      "artifact": "plans/AU20/architecture-critique-v3.md",
+      "acceptedReviewArtifact": "plans/AU20/register-reviews/corrective-change-map.md",
+      "acceptedReviewSha256": "d08d48e4dd9526f8ca82b760a7b473b95c7590191c71224e71f3733d2e7681ee",
+      "acceptedPayloadSha256": "76a632f2d8513b359f063dc072f1a057d356889fdea4649667e865bc76dad041",
+      "gatedFor": "architecture-change-map-review-hash-embedding"
+    },
+    "proofInventoryAmendmentRedProof": {
+      "verdict": "accept",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Independent reviewer reproduced 133 total: 105 green + 28 intentionally red. The accepted red scope is limited to filesystem review provenance, repository composition, and strict attempt sequencing.",
+      "artifact": "plans/AU20/red-proof-reviews/proof-inventory.md",
+      "artifactSha256": "d8b46ca8e8b75c04d41ce3ec102f4fd3545287d0f30f33d2a415f3837c948085",
+      "validationContractTestSha256": "9edf040f70b7a93e960f282b1687b943abf652027e315c12888efb992f1cfebd",
+      "reviewTrustTestSha256": "f5c0f94caecf6e3c17e2130f97573b4a865c7cec49c3c4b5ce16fa1e9989914d",
+      "gatedFor": "write-code-proof-inventory-amendment-only"
+    },
+    "architectureV3ProofInventoryAmendment": {
+      "score": 9,
+      "rounds": 1,
+      "verdict": "accept",
+      "scoreLine": "SA:9 IM:9 LI:10 AC:9 DM:9 N:9 MD:9 FMC:9 S:9 V:9 FE:9",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Narrow proof-inventory architecture amendment ACCEPT. Repository composition captures one filesystem ReviewVerifier for payload and lineage; realpath/regular-file/canonical containment rejects nonfile, traversal, prefix-sibling and symlink escapes; manifest reviewer and captured builder identities are exact and distinct; no PKI. Strict attempts require terminal N before start N+1 and later terminals cannot mask an unmatched start. Classification payload/review hashes remain unchanged and deterministic base validation passes. Existing red proof predates this amendment, so next stage is amendment write-tests plus independent red review, not implementation.",
+      "artifact": "plans/AU20/architecture-critique-v3.md",
+      "acceptedReviewArtifact": "plans/AU20/register-reviews/proof-inventory-architecture-amendment.md",
+      "acceptedReviewSha256": "18efb793121eb20f53063c0ffe0db628d16b559d07af160b651e0525be23c8c2",
+      "acceptedArchitectureSha256": "9cd55b5634cac06ac01ac9638f452128191b5583250cf9861e0aa8fe6af61f7f",
+      "acceptedFeasibilitySha256": "972be13a717cc2b6c3250cce208cffe228ada65694febe96bbf6d56feea18ff5",
+      "gatedFor": "proof-inventory-architecture-amendment-review-hash-embedding"
+    },
+    "architectureV3ProofInventoryAmendmentR3": {
+      "score": 9,
+      "rounds": 2,
+      "verdict": "accept",
+      "scoreLine": "SA:9 IM:9 LI:10 AC:9 DM:9 N:9 MD:9 FMC:9 S:9 V:9 FE:9",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "R3 narrow amendment round 2 ACCEPT. Builder identity is mandatory in the closed hash-pinned manifest; manifest=captured=claim builder, manifest=claim reviewer, and reviewer!=builder are enforced through payload and lineage with omission/mismatch/self-review cases. Replacement-only legacy deletion, one captured verifier, descriptor-stable same-buffer verification, proportional no-PKI design, exact migration/net-negative gates, strict attempts, deterministic regeneration, unchanged 604 classification binding, and full relock remain intact.",
+      "artifact": "plans/AU20/architecture-critique-v3.md",
+      "acceptedReviewArtifact": "plans/AU20/register-reviews/proof-inventory-architecture-amendment-r3.md",
+      "acceptedReviewSha256": "51336cc090c2951a84bcea613da2e64d0f920acd054e29768fae54703e7c134c",
+      "acceptedArchitectureSha256": "4f600566b27f210b4399322b37b399cd51f9f66c4c37cce7c30377667d990793",
+      "acceptedFeasibilitySha256": "c6ce225bfaa0b5712975313a1c2206ccd6f5d967e1882ce8d4c0f27a39527f1a",
+      "gatedFor": "proof-inventory-architecture-amendment-r3-review-hash-embedding"
     },
     "architectureV1Superseded": {
       "score": 7.8,
@@ -50,6 +147,26 @@
     }
   },
   "notes": [
+    "2026-07-23 superseding R3 caller-migration red proof accepted: review 567456fc8415090a412132019d86e0579857f1c179a470ead0d8f436f82b9a39; validation test ffef339bf58f987e39f14b31c2ae67f5f6bd465aa79bbe7cb35a6c6e1d898d2e; trust test 1aea108da78586d301e35760fb8505f5795b5b2fef7232ca689660880749c758; durable JSON 2f338ac0afeeff20ed59b08a7f42afcba40c0ca81dffb9f6f06ac7a3526b1bf0; 153 total = 111 green + 42 intentionally red. Previous 119/34 R3 red proof remains superseded history. Only proof-inventory-amendment-r3 write-code is authorized.",
+    "2026-07-23 R3 gate contradiction corrected: accepted validation-contract test hash 9edf040f still imports/calls legacy standalone unlock and free inventory authority, contradicting mandatory physical deletion/no coexistence. R3 code authorization revoked. Prior R3 red proof is preserved only as superseded history. Authorized stage is now proof-inventory-amendment-r3-write-tests-caller-migration; all legacy test callers must migrate to createValidationContracts and receive a new hash + independent red review. writeTests unlocked, code locked.",
+    "2026-07-23 proof-inventory R3 red proof accepted and bound: review 4cc07ce088f39dd0d1fe5593b2384b99a6f4ab54499bbd06496c461c6093cf5a; validation test 9edf040f70b7a93e960f282b1687b943abf652027e315c12888efb992f1cfebd; trust test fc3c8bc7bd1690d27851024f4e05aed5e819cda58e72ef3d9d5cf65da9569ec7; durable JSON .pipeline/work/AU20/red-proofs/proof-inventory.json 8b3eeaae8479832d95894f12d71f9201c69a4989c77e14f13c3fedf5a129477f; 153 total = 119 green + 34 intentionally red. Only proof-inventory-amendment-r3 write-code is authorized.",
+    "2026-07-23 proof-inventory R3 architecture acceptance embedded: review plans/AU20/register-reviews/proof-inventory-architecture-amendment-r3.md sha256 51336cc090c2951a84bcea613da2e64d0f920acd054e29768fae54703e7c134c binds architecture 4f600566b27f210b4399322b37b399cd51f9f66c4c37cce7c30377667d990793 and feasibility c6ce225bfaa0b5712975313a1c2206ccd6f5d967e1882ce8d4c0f27a39527f1a. Only R3 write-tests is authorized; redProofReview remains null and codeLocked true. Prior payload, R2 architecture, and R2 red-proof reviews remain historical bindings.",
+    "2026-07-23 proof-inventory architecture R3 blocker closed: ReviewManifestEntry.builderIdentity is mandatory. Manifest schema rejects omission/empty/unknown fields/duplicate paths; verifier requires manifest builder == captured builder == claim builder and reviewer != builder for payload and lineage. Exact red cases cover omission, all mismatch directions, and self-review through both paths. Tests/code remain locked pending narrow re-review.",
+    "2026-07-23 proof-inventory architecture amendment R3 after implementation review: delete legacy exported ReviewTrust, standalone unlock, and free authority-bearing inventory path; all payload/lineage validation must use one createValidationContracts-captured verifier. Repository review manifest now binds canonical relative path, reviewer, artifact hash, payload hash, accept verdict, and optional builder, with its own reviewed hash pin. Reads are descriptor-stable (open/fstat/path identity/read same Buffer/re-fstat). Legacy callers/tests migrate with no coexistence and trust-path LOC must decrease. Accepted 604 classification remains bound; prior amendment/review are historical inputs only. Tests/code relocked pending narrow architecture review.",
+    "2026-07-23 proof-inventory amendment red proof accepted and bound: review d8b46ca8e8b75c04d41ce3ec102f4fd3545287d0f30f33d2a415f3837c948085; validation-contract test 9edf040f70b7a93e960f282b1687b943abf652027e315c12888efb992f1cfebd; review-trust test f5c0f94caecf6e3c17e2130f97573b4a865c7cec49c3c4b5ce16fa1e9989914d; 133 total = 105 green + 28 intentionally red. Only proof-inventory-amendment write-code is authorized; subsequent increments remain gated.",
+    "2026-07-23 proof-inventory amendment review binding embedded: plans/AU20/register-reviews/proof-inventory-architecture-amendment.md sha256 18efb793121eb20f53063c0ffe0db628d16b559d07af160b651e0525be23c8c2 accepts architecture 9cd55b5634cac06ac01ac9638f452128191b5583250cf9861e0aa8fe6af61f7f and feasibility 972be13a717cc2b6c3250cce208cffe228ada65694febe96bbf6d56feea18ff5. Generator/validator require all three exact hashes. Only proof-inventory amendment write-tests is unlocked; codeLocked remains true until independent red-proof review.",
+    "2026-07-23 proof-inventory architecture amendment after implementation review R2: caller-supplied ReviewTrust is forbidden. One ReviewVerifier is captured at composition from repository-owned root/actor manifest and shared by payload unlock plus lineage; filesystem resolution requires realpath containment and verified bytes/provenance. Strict attempts require every earlier start to terminalize before a retry starts, so later terminals cannot mask a gap. Accepted 604 classification payload/review binding remains unchanged, but this contract amendment requires independent architecture re-review; write-tests/code are relocked until accepted.",
+    "2026-07-23 corrective v3 change-map review binding embedded: plans/AU20/register-reviews/corrective-change-map.md sha256 d08d48e4dd9526f8ca82b760a7b473b95c7590191c71224e71f3733d2e7681ee accepts exact payload 76a632f2d8513b359f063dc072f1a057d356889fdea4649667e865bc76dad041. Generator verifies artifact+payload hashes before preserving acceptedReview and clearing writeTestsLocked; base and --require-review validators pass. Corrective concept approval remains preserved. AU20 advances only to ordered write-tests/red-proof review, beginning with proof-inventory; production code remains unauthorized until its reviewed red proof.",
+    "2026-07-23 post-concept architecture diagnosis corrected pending independent amendment review: exact historical-unknown union 181/181 (42+43+72+24), zero missing/extra/overlap, zero current unresolved/default classifications, zero harness defects. Final proposed 604 map: 273 none, 32 regressions, 112 moves, 178 stale tests/mocks, 2 named external prerequisites, 5 static/review obligations, 2 proof gaps. Forty-six formerly unrun/no-change identities bind exact terminal reporter records and artifact hash. All 32 regressions now project standardized diagnostic exactSymbols {file,symbol}, red proof, owner and candidate files with exact validator equality and no register/test fallback. Explicit anchors: WorkBet handleAction(unblock), SplitView.tsx line 237 fold-back/reset overlay, and three AH6 cases at session-requests resolveIntentInputInternal -> requireRunnableActor. Source ledgers, four diagnostics, reporter evidence, generator and payload are SHA-256 bound; acceptedReview remains null and writeTestsLocked true.",
+    "2026-07-23 corrective concept v3 APPROVED by founder with binding amendment: historical harness operation before AU20 is trusted; architecture must classify all failures and define exact product/test/prerequisite/narrowly-evidenced-harness changes before implementation. Post-concept review rejected heuristic zero-unresolved claims; the generator now restores the defensible 181-unresolved baseline and refuses defaults while identity-level diagnostics run. Approval advances only to independent architecture-amendment review; write-tests/code remain unauthorized until that review accepts the evidence-backed map.",
+    "2026-07-23 corrective requirements v3 FORMALLY APPROVED by founder in current thread: 'yea approved please continue'. Advances AU20 only to independent architecture v3 re-review. corrective concept approval remains false; no test/code implementation is authorized.",
+    "2026-07-23 architecture v3 round-1 revision addresses all 4 criticals/4 warnings: recorded explicit corrective requirements approval basis; unobserved cases remain unrun unless durable attempt-start exists; every new/changed disposition requires separate exact-set pipeline-reviewer acceptance; execution is split diagnosis -> disposition review -> write-tests -> red-proof review -> write-code -> default-reject implementation review -> verify -> isolated green commit. Added finite route grammar/precedence/ambiguity rules, MCP bundle/metafile/import isolation, best-effort ordered AggregateError disposal semantics, and closed desktop preflight/blocker matrix. Awaiting independent round-2 rescore; no implementation authorized.",
+    "2026-07-23 corrective requirements v3 approval basis prepared from founder direction: founder explicitly returned AU20 itself to the pipeline beginning for planner analysis of all test issues, then design+architecture+independent review, then test adjustment and code correction until the system works; founder separately required the mandatory fresh AU20 review to be included. Discovery refinement independently passed 8.7/10 with exact 604/604 and 364/364 accounting before concept work. Formal approval was still pending at this point and was recorded separately when received.",
+    "2026-07-23 corrective architecture v3 drafted after accepted discovery and light-design critiques. It owns all seven architecture browser registers, nine runtime validations, five review obligations, two desktop proof gaps, and the design handoff's 116 runtime obligations. Feasibility verdict GO-WITH-CHANGE. No test/code edit is authorized: architecture critique and corrective concept approval remain required, and 181 unresolved runtime cases must pass register-targeted diagnosis-to-disposition gates before any fix decision.",
+    "2026-07-23 discovery critique round 2 REVISE 6.8/10 addressed: removed BR-10; 21 coherent primary registers partition all 364 browser non-passes (14 design, 7 architecture). Mechanical reconciliation: 364 memberships = 364 unique non-passes; missing 0, duplicate 0, passing contamination 0, pairwise intersections 0, setEquality true. Six omitted regression areas now registered. Obsolete signature method removed. Awaiting round-3 independent review; design/architecture still locked.",
+    "2026-07-23 discovery critique round 1 REVISE 6.3/10. Removed all signature-derived root/cascade claims; execution state no longer implies harness disposition. Seven isolated probes and ten subsystem problem-register entries now carry commands/exits/artifacts, direct/counter-evidence, confidence, next proof, and design/architecture owner. Browser dispositions: 224 pass, 23 feature regression, 99 intentional move, 60 stale test/mock, 1 missing prerequisite, 181 unresolved. System taxonomy split into 9 runtime validations, 5 review obligations, 2 proof gaps; disposer 9-vs-10 narrowed to stale assertion after historical owner removal. Awaiting independent discovery re-review; no design/architecture authorization.",
+    "2026-07-23 corrective discovery: plans/AU20 ledgers reconcile 604/604 declared cases: 227 pass, 137 fail, 143 timeout, 32 skip, 65 unrun. Dispositions: 20 feature regression, 32 intentional move, 55 stale test/mock, 70 harness defect, 4 missing prerequisite, 196 unresolved. Inventory complete; diagnosis intentionally remains open for 196. Requirements revised only after evidence. No test or production edits.",
+    "2026-07-23: Founder declared AU20 unfinished and returned this same WP to pipeline start. Prior reductions and approvals remain historical evidence, but implementation authorization is revoked. Corrective v3 refine incorporates the full fresh review at .worktrees/AU20-review/.pipeline/work/AU20/review.md and requires individual classification of every failed/skipped/timed-out/unrun case. Required sequence: refine critique + requirement gate, light design + architecture, independent critiques + concept gate, write-tests, write-code, review, scoped green commits.",
     "ANALYSIS COMPLETE (concept-gate material) via workflow au20-service-product-audit (run wf_a72cf37c-86c): landscape + 31 per-service planner\u2192reviewer\u2192revise chains + synthesis (65 agents, ~4.6M tokens). Result: 31\u219223 services, 1218\u2192~371 exports (~70% cut). 3 structural merges (durable-agent-queue = session-requests+trigger-resolution+lifecycle-projection; session-runtime = run-orchestration+session-lifecycle+context-assembly+capture-writeback; agent-execution-platform = harness-registry+tool-provider+mcp-provider) + retention distributed-dissolve. Core finding: the 14 infra services are ONE agent-session pipeline chopped per-stage (9 of 14 have <=1 consumer); much of the big export counts is DI-port-TYPE re-exports, never product surface (dispatch 58%). work(84->~35) + cost(25->11) failed structured-output in-workflow but their .md analyses landed; re-reviewed standalone 8/10 out-of-band. Per-service analyses at analysis/services/*.md; data packages at analysis/service-data-packages.json. Dashboard artifact presented to founder for concept gate. NOT built \u2014 awaiting founder decision on direction + apply-now/record-later split.",
     "Fixed unrelated bug in .claude/hooks/guard-main.sh (false-blocked 'origin/main' worktree base) before this run could create its worktree \u2014 landed separately as PR #453, not part of AU20's scope.",
     "engineering.tier: mvp landed globally via PR #454 (chore/engineering-tier-mvp) \u2014 OPEN, not yet merged into this worktree's base; requirements grounds the tier in ETHOS \u00a71 meanwhile, not in the unmerged config key.",

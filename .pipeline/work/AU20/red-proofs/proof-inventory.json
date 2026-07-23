@@ -1,0 +1,214 @@
+{
+  "increment": "proof-inventory",
+  "history": [
+    {
+      "stage": "red-proof-review",
+      "verdict": "accept",
+      "tests": {
+        "passed": 0,
+        "failed": 78,
+        "total": 78
+      },
+      "note": "Prior red proof accepted before implementation. The coordinator recorded the acceptance, but no durable review artifact or historical test-file hash was written at that time; neither is reconstructed here."
+    },
+    {
+      "stage": "implementation-review-reopened-write-tests",
+      "verdict": "pending-review",
+      "command": "npx vitest run --project web packages/web/src/e2e-support/validation-contract.test.ts --reporter=json",
+      "exitCode": 1,
+      "tests": {
+        "passed": 78,
+        "failed": 16,
+        "total": 94
+      },
+      "testFile": "packages/web/src/e2e-support/validation-contract.test.ts",
+      "testFileSha256": "0aee7e285fc110fbb53be0e1b8ca868b76777de3fce0cf13b0d00d30e0bd1a23",
+      "newRedScope": [
+        "single target-run and temporal consistency",
+        "closed canonical JSON values",
+        "lineage cannot delete a still-current identity",
+        "trusted normalized review provenance"
+      ]
+    },
+    {
+      "stage": "reopened-red-review-revision",
+      "verdict": "pending-review",
+      "command": "npx vitest run --project web packages/web/src/e2e-support/validation-contract.test.ts --reporter=json",
+      "exitCode": 1,
+      "tests": {
+        "passed": 71,
+        "failed": 34,
+        "total": 105
+      },
+      "testFile": "packages/web/src/e2e-support/validation-contract.test.ts",
+      "testFileSha256": "05bad29456fa1cec666b96ad322b10d985b8f419ba427c9f45bca97ee10935f2",
+      "newRedScope": [
+        "mandatory trusted payload review provenance",
+        "mandatory trusted lineage review provenance",
+        "trusted identity equality and reviewer-builder distinctness",
+        "closed canonical JSON through payload and lineage unlock"
+      ],
+      "note": "Existing expectations remain; authentic canonical/trust fixture migration exposes additional current-implementation failures, so 71 rather than 78 prior assertions remain green."
+    },
+    {
+      "stage": "accepted-architecture-amendment-write-tests",
+      "verdict": "pending-review",
+      "architectureAmendmentReview": {
+        "path": "plans/AU20/register-reviews/proof-inventory-architecture-amendment.md",
+        "sha256": "18efb793121eb20f53063c0ffe0db628d16b559d07af160b651e0525be23c8c2",
+        "architectureSha256": "9cd55b5634cac06ac01ac9638f452128191b5583250cf9861e0aa8fe6af61f7f",
+        "feasibilitySha256": "972be13a717cc2b6c3250cce208cffe228ada65694febe96bbf6d56feea18ff5"
+      },
+      "command": "npx vitest run --project web packages/web/src/e2e-support/validation-contract.test.ts packages/web/src/e2e-support/review-trust.test.ts --reporter=json",
+      "exitCode": 1,
+      "tests": {
+        "passed": 105,
+        "failed": 13,
+        "total": 118
+      },
+      "testFiles": [
+        {
+          "path": "packages/web/src/e2e-support/validation-contract.test.ts",
+          "sha256": "9edf040f70b7a93e960f282b1687b943abf652027e315c12888efb992f1cfebd"
+        },
+        {
+          "path": "packages/web/src/e2e-support/review-trust.test.ts",
+          "sha256": "32b30e5e382559b5af25fac33e8c66c801dbd530f7f5b017ed26021a33b3295c"
+        }
+      ],
+      "newRedScope": [
+        "repository-owned filesystem ReviewVerifier",
+        "captured createValidationContracts verifier shared by payload and lineage",
+        "caller claims cannot inject trust configuration",
+        "strict terminal-before-next-start retry causality"
+      ]
+    },
+    {
+      "stage": "architecture-amendment-red-review-revision",
+      "verdict": "pending-review",
+      "command": "npx vitest run --project web packages/web/src/e2e-support/validation-contract.test.ts packages/web/src/e2e-support/review-trust.test.ts --reporter=json",
+      "exitCode": 1,
+      "tests": {
+        "passed": 105,
+        "failed": 28,
+        "total": 133
+      },
+      "testFiles": [
+        {
+          "path": "packages/web/src/e2e-support/validation-contract.test.ts",
+          "sha256": "9edf040f70b7a93e960f282b1687b943abf652027e315c12888efb992f1cfebd"
+        },
+        {
+          "path": "packages/web/src/e2e-support/review-trust.test.ts",
+          "sha256": "f5c0f94caecf6e3c17e2130f97573b4a865c7cec49c3c4b5ce16fa1e9989914d"
+        }
+      ],
+      "newRedScope": [
+        "repository composition invokes captured filesystem verifier",
+        "artifact bytes/hash/payload/verdict fail closed",
+        "accepted review root canonical repository containment and file kind",
+        "actor manifest canonical containment, regular JSON, and unique provenance"
+      ]
+    },
+    {
+      "stage": "accepted-r3-architecture-amendment-write-tests",
+      "verdict": "pending-review",
+      "architectureAmendmentReview": {
+        "path": "plans/AU20/register-reviews/proof-inventory-architecture-amendment-r3.md",
+        "sha256": "51336cc090c2951a84bcea613da2e64d0f920acd054e29768fae54703e7c134c",
+        "architectureSha256": "4f600566b27f210b4399322b37b399cd51f9f66c4c37cce7c30377667d990793",
+        "feasibilitySha256": "c6ce225bfaa0b5712975313a1c2206ccd6f5d967e1882ce8d4c0f27a39527f1a"
+      },
+      "command": "npx vitest run --project web packages/web/src/e2e-support/validation-contract.test.ts packages/web/src/e2e-support/review-trust.test.ts --reporter=json",
+      "exitCode": 1,
+      "tests": {
+        "passed": 119,
+        "failed": 23,
+        "total": 142
+      },
+      "testFiles": [
+        {
+          "path": "packages/web/src/e2e-support/validation-contract.test.ts",
+          "sha256": "9edf040f70b7a93e960f282b1687b943abf652027e315c12888efb992f1cfebd"
+        },
+        {
+          "path": "packages/web/src/e2e-support/review-trust.test.ts",
+          "sha256": "9b74c844f2da0ce22e01e31dc74b7b7603a00a59f4f5ad3497cf386e0212dfbb"
+        }
+      ],
+      "newRedScope": [
+        "hash-pinned closed review manifest with mandatory builder",
+        "artifact and claim rewrite cannot mint provenance",
+        "descriptor-stable canonical realpath and exact returned bytes",
+        "replacement-only repository-composed factory paths"
+      ]
+    },
+    {
+      "stage": "accepted-r3-red-review-revision",
+      "verdict": "pending-review",
+      "architectureAmendmentReview": {
+        "path": "plans/AU20/register-reviews/proof-inventory-architecture-amendment-r3.md",
+        "sha256": "51336cc090c2951a84bcea613da2e64d0f920acd054e29768fae54703e7c134c",
+        "architectureSha256": "4f600566b27f210b4399322b37b399cd51f9f66c4c37cce7c30377667d990793",
+        "feasibilitySha256": "c6ce225bfaa0b5712975313a1c2206ccd6f5d967e1882ce8d4c0f27a39527f1a"
+      },
+      "command": "npx vitest run --project web packages/web/src/e2e-support/validation-contract.test.ts packages/web/src/e2e-support/review-trust.test.ts --reporter=json",
+      "exitCode": 1,
+      "tests": {
+        "passed": 119,
+        "failed": 34,
+        "total": 153
+      },
+      "focusedResultSha256": "3edb9b5e440a11e68dca9e475d59ec1563e298f179e20cf52c17299ad0a6f899",
+      "testFiles": [
+        {
+          "path": "packages/web/src/e2e-support/validation-contract.test.ts",
+          "sha256": "9edf040f70b7a93e960f282b1687b943abf652027e315c12888efb992f1cfebd"
+        },
+        {
+          "path": "packages/web/src/e2e-support/review-trust.test.ts",
+          "sha256": "fc3c8bc7bd1690d27851024f4e05aed5e819cda58e72ef3d9d5cf65da9569ec7"
+        }
+      ],
+      "newRedScope": [
+        "closed versioned manifest schema and canonical duplicate paths",
+        "mandatory expected manifest hash at every verifier construction",
+        "payload and claim rewrite resistance through payload and lineage",
+        "descriptor identity and canonical-path swap resistance"
+      ]
+    },
+    {
+      "stage": "accepted-r3-factory-caller-migration",
+      "verdict": "pending-review",
+      "supersedes": "accepted-r3-red-review-revision",
+      "command": "npx vitest run --project web packages/web/src/e2e-support/validation-contract.test.ts packages/web/src/e2e-support/review-trust.test.ts --reporter=json",
+      "exitCode": 1,
+      "tests": {
+        "passed": 111,
+        "failed": 42,
+        "total": 153
+      },
+      "focusedResultSha256": "7cf7c8eebc89b065cedbfc30b8c6bbe8345544a607fbd60112dbde2d8c05ccb2",
+      "testFiles": [
+        {
+          "path": "packages/web/src/e2e-support/validation-contract.test.ts",
+          "sha256": "ffef339bf58f987e39f14b31c2ae67f5f6bd465aa79bbe7cb35a6c6e1d898d2e"
+        },
+        {
+          "path": "packages/web/src/e2e-support/review-trust.test.ts",
+          "sha256": "1aea108da78586d301e35760fb8505f5795b5b2fef7232ca689660880749c758"
+        }
+      ],
+      "migration": {
+        "legacyReviewTrustReferences": 0,
+        "standaloneUnlockCalls": 0,
+        "freeInventoryCalls": 0,
+        "factoryInventoryCalls": 14
+      },
+      "correctedExpectations": [
+        "verified bytes are the original Node Buffer",
+        "canonical path is filesystem realpath"
+      ]
+    }
+  ]
+}

@@ -2,6 +2,107 @@
 
 DOC-CLASS: significant
 
+## 0. Corrective completion reset (third pipeline start — 2026-07-23)
+
+> **Evidence correction.** This section was initially drafted before exhaustive discovery and was provisional. Discovery now reconciles **604/604 declared cases** (227 pass, 137 fail, 143 timeout, 32 skip, 65 unrun). Runtime dispositions: 27 feature regressions, 99 intentional moves, 61 stale test/mocks, 2 missing prerequisites, and **181 unresolved**; separately, four review obligations are open, one is child-blocked, and two desktop proof gaps are open. `plans/AU20/problem-analysis.md`, `browser-analysis.md`, and both machine ledgers are fixed input. Execution state is not a disposition; signature-derived causality is forbidden.
+
+> **Gate before design/architecture.** Seven isolated probes narrow the remaining 181 unknowns without inventing causal edges. Twenty-one coherent primary registers now partition all 364 browser non-passes: 14 design-owned, seven architecture-owned, with zero missing IDs, duplicate ownership, passing contamination, or pairwise intersection. Each includes evidence/counter-evidence, current state distribution, confidence, targeted proof, and one owner. Independent problem-framing review must accept this mechanically reconciled partition before design or architecture.
+
+### Why AU20 is back at refine
+
+AU20 delivered a real 31→23 Service reduction and a live implementation census of 1277→412 exports, but it has **not** delivered a demonstrably working system. The founder revoked prior implementation authorization and returned this same work package—not a new AU—to the beginning of the pipeline. Prior approvals remain history, not permission to skip gates.
+
+The mandatory fresh review at `/Users/tg/hyperidle/.worktrees/AU20-review/.pipeline/work/AU20/review.md` is incorporated in full. Its five critical and four warning findings are binding completion obligations:
+
+1. per-Service demand package stale and not reproducibly generated;
+2. server shutdown does not await durable runtime teardown;
+3. harness-registry lacks approved MCP dependency isolation;
+4. knowledge retro hypothesis snapshots mutate;
+5. aggregate verification red, including 9-versus-10 disposer contradiction and real-harness failures;
+6. notification secret writes swallow unexpected encryption failures;
+7. filesystem watcher failure looks healthy and may emit unhandled `EMFILE`;
+8. committed census evidence contradicts the executable census;
+9. ownership comments describe deleted packages as live.
+
+The wider application/E2E run also produced hundreds of failures plus skipped, timed-out, and unrun cases. Counts are not yet trustworthy because product regressions, intentional UI moves, stale mocks/assertions, harness defects, missing prerequisites, and environment blockers are intermingled. First deliverable is trustworthy diagnosis, not mass test rewriting.
+
+### Sharpened corrective goal
+
+**Value and audience.** Maintainers and fast-moving users regain confidence that AU20's simplification preserved the actual product: browser and desktop journeys work, durable state is not lost, service contracts remain true, and every green lane proves what it claims.
+
+**Observable success.** A fresh checkout reproduces current service/demand evidence, boots and stops cleanly, exercises canonical browser and desktop journeys, and runs isolated lanes whose results account for every discovered test. Each prior failure traces to one evidence-backed disposition and then a corrected product, test, harness, or explicit external blocker. Nothing disappears through deletion, weakening, blanket rebaseline, timeout inflation, or silent skip.
+
+**Scope.** Correct AU20 regressions, false/stale validation, and all review findings while preserving accepted Service simplification. Reconcile tests with authoritative product contracts where features intentionally moved. Restore proof for clean server boot, shutdown, real backend, harness discovery/MCP, desktop, accessibility, and current UI journeys.
+
+**Non-goals.** No new feature program, UI redesign, replacement E2E framework, arbitrary surface target, speculative hardening, or opportunistic refactor. AU22 remains the later no-fixed-number complexity challenge. AU20 removes more code only where diagnosis proves it obsolete or a smaller correction is coherent.
+
+### Guide draft — evaluating AU20 completion
+
+Run the inventory command architecture defines to enumerate all cases in each validation lane. Run lanes in isolation from the AU20 worktree. The committed ledger records case identity, lane, observed outcome, artifacts, disposition, authoritative contract, corrective increment, and final proof.
+
+For a **feature regression**, preserve/add failing behavior or visual proof, then fix production. For an **intentional move**, cite the newer canonical product/design contract and update the test to exercise the same capability at its current location. For a **stale test/mock**, prove application contract independently before changing fixture/assertion. For a **harness defect**, prove runner/config/routing/isolation caused a false failure or unrun case, then repair it. For a **missing prerequisite**, fail fast naming it. For an **environment blocker**, retain reproducible blocked evidence; never convert it into pass or silent skip.
+
+Corrections follow reviewed architecture order. Service-local changes remain separate green commits per Service. Lifecycle, E2E harness, desktop, or evidence-generator changes are separate named increments. Review checks ledger lineage, red-before-green proof, rendered evidence, all review findings, and unchanged measurement semantics.
+
+### Required pipeline order
+
+1. Revised requirement → independent `/refine-critique` → human requirement gate.
+2. `/design` performs a **light contract-reconciliation pass** over canonical journeys and rendered states. AU20 is no longer design-exempt because failed acceptance now includes UI/desktop behavior.
+3. `/architecture` defines inventory/ledger, lane boundaries, boot/teardown ownership, mock/real-backend contracts, prerequisites, diagnostics, and bounded landing sequence; it incorporates all nine review findings.
+4. Independent design/architecture critiques → human concept gate.
+5. `/write-tests` establishes failing proof. Only then `/write-code` changes implementation. `/review` default-rejects unexplained test disappearance or weakened proof.
+
+### Failure-disposition contract
+
+Every failed, skipped, timed-out, or unrun case has exactly one primary disposition:
+
+| Disposition | Required evidence | Permitted correction |
+|---|---|---|
+| Feature regression | Current contract + failing runtime/rendered proof | Production fix; retain capability proof |
+| Intentional move | Newer canonical route/interaction contract + working current capability | Move assertion; preserve capability coverage |
+| Stale test/mock | Independent current behavior + obsolete fixture/assertion provenance | Correct fixture/assertion without weakening behavior |
+| Harness defect | Reproduction that runner/config/routing/isolation caused false/absent result | Repair harness; rerun affected inventory |
+| Missing prerequisite | Named required binary/credential/service detected before execution | Fail fast; execute when available |
+| Environment blocker | Reproducible external condition after in-scope alternatives exhausted | Keep blocked evidence; never silently pass/skip |
+
+Known exploratory observations—legacy `/work/portfolio` or `/work/teams`, Knowledge creation at `/knowledge/new`, Settings full-page sections, route mocks bypassing fallback, query-glob misses, server boot migration, light-theme contrast, desktop proxy/preload, AH6 replay, session overlay interception—are leads, not verdicts. Architecture/design must verify them against docs and runtime. Three `fix/e2e-recovery` commits are untrusted POCs and must not be cherry-picked as proof.
+
+### Corrective AC alignment
+
+| Corrective AC | Requirement coverage | Current gap |
+|---|---|---|
+| Finite ledger + individual disposition | Guide and disposition contract define lineage/evidence | Architecture must define schema, commands, inventory boundary |
+| Architecture + light design first | Required order makes both mandatory | Neither corrective artifact/review exists |
+| Red proof before correction | Guide defines behavior, visual, static proof | `/write-tests` awaits concept approval |
+| Five critical findings resolved | All listed as binding | Architecture must settle teardown, MCP seam, disposer ownership, demand writer, prerequisites |
+| Four warnings resolved | All listed as binding | Architecture must define failure semantics/evidence regeneration |
+| Reductions/fixes preserved; scoped commits | Scope and guide preserve accepted work/isolation | Build plan must be revised after architecture |
+| Fully accounted green system | Success covers browser, desktop, backend, harness, service, evidence | Current system is red/unreliable by definition |
+
+### Corrective validation scenarios
+
+- Complete configured validation inventory yields stable case IDs; final results account for every ID as passed or explicitly blocked by a real external prerequisite, with nothing silently unrun.
+- Every failed/skipped/timed-out/unrun case has artifacts and current-contract evidence sufficient for a fresh reviewer to reproduce and agree with exactly one disposition before test or production changes.
+- Canonical Work, Conversations, Knowledge, Settings, setup, accessibility, and responsive journeys have reviewed current routes/interactions; Playwright plus inspected screenshots prove painted results and intentional moves retain coverage.
+- Clean browser-backend and desktop profiles apply prerequisites/migrations, reach the correct backend, and await durable runtime disposal before DB/process teardown.
+- Mocked, cassette, live-binary, inherited-discovery, and MCP harness paths run in explicit isolated lanes; absent credentials/binaries fail fast while deterministic paths need no unrelated secrets.
+- Focused red-before-green proofs and independent aggregate rerun resolve all nine fresh-review findings, including snapshot immutability, observable watcher/encryption errors, isolated MCP dependencies, current demand/census, and correct ownership docs.
+- Each bounded corrective increment is green before its separate commit; final review confirms no capability weakened and all command/rendered evidence is current.
+
+### Additional required reading for corrective phases
+
+- `plans/AU20/problem-analysis.md`, `validation-inventory.json`, `browser-validation-ledger.json`, `system-validation-ledger.json` — exhaustive discovery evidence and unresolved-case inventory.
+- `/Users/tg/hyperidle/.worktrees/AU20-review/.pipeline/work/AU20/review.md` — full fresh review; every critical/warning binding.
+- `.pipeline/work/AU20/plan.md`, `build-plan.md`, `progress.json` — plan and explicit history to revise, never erase.
+- `packages/web/playwright.config.ts`, `playwright.ah1.config.ts`, `playwright.ah5.config.ts`, `playwright.ah6.config.ts`, `e2e/fixtures.ts`, all `e2e/*.spec.ts` — lanes and inventory.
+- `docs/information-architecture/app-shell-always-present.md`, `conversations-view.md`, `work-view.md`, `knowledge-view.md`, `cross-view-navigation-map.md`.
+- `docs/human-interface-layer/the-three-views.md`, `open-contract.md`, `part-model.md`.
+- `docs/deployment/index.md`, `laptop.md`, `releases.md`; `docs/architecture/system-overview.md`, `as-implemented-domain-architecture.md`, `data-flow-examples.md`, `run-unit-model.md`, `credential-model.md`, `connection-model.md`.
+
+No apparent doc/test contradiction is adjudicated during refine. Newer authoritative contract wins only after design review confirms it; passing implementation alone does not rewrite product intent.
+
+> **Historical material below.** The retained v2 requirement records why the Service redesign was approved and what must remain preserved. Its “done,” “suite green,” open-question, and “no contradiction” statements are superseded by corrective §0 and cannot authorize design, architecture, test changes, or implementation.
+
 *(Second redirect — 2026-07-17. The founder **REJECTED the concept gate** for the prior version and sent this WP back through refine + architecture, then **sharpened** the reframe. The prior version framed the whole audit around **call-site counts** — count callers, then keep/merge/inline/delete each export by usage, and judge a Service's existence by "owns a table / has a loop." That frame is discarded. This version reframes the WP around **architectural coherence + product purpose, judged at MVP tier, per Service, holistically** — where each Service is treated as its own product designing a small set of well-structured general interfaces, **informed by (not dictated by, and not ignoring) real usage**, and stress-tested against a **sub-linear scaling** thought-experiment. See §8 for exactly what changed vs. the rejected version, and the founder's four sharpenings folded in. The prior redirect note is superseded by this one. `DOC-CLASS` is `significant` — a twice-redirected, founder-rejected reframe of the judgment criteria for the whole Service layer, gated by the mandated Phase 6 concept gate.)*
 
 References `.pipeline/work/AU20/plan.md` (the seeded WP spec — plan of record, revised in this pass: title, Work package, Acceptance criteria, Out-of-scope, Validation scenarios). This refine settles the load-bearing judgment the plan turns on — **what a clean, deliberate, general Service API looks like at MVP tier, and why a Service earns its existence** — so `/architecture` can design the per-Service analysis process it mandates.
