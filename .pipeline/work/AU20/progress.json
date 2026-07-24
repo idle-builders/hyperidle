@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "commit-harness-registry-mcp-entry",
+  "currentStep": "commit-notifications-secret-errors",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -1034,6 +1034,182 @@
           "plans/AU20/corrective-change-map.json",
           "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
           "plans/AU20/register-reviews/harness-registry-mcp-entry.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "e68a170757d71476ba147995247ac8be2d4a97e2",
+        "tree": "877f217b6d2c8efe3889da39d500e90ad6d08912",
+        "parent": "0f7f6c1b1354eea71f9cc5c36098c413b62741d8",
+        "subject": "AU20 F3: isolate harness MCP entry",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+          "packages/agent-execution/harness-registry/package.json",
+          "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+          "packages/agent-execution/harness-registry/src/index.ts",
+          "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
+          "packages/agent-execution/harness-registry/src/mcp/index.ts",
+          "packages/agent-execution/harness-registry/src/return-status-tool.ts",
+          "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
+          "packages/core-api/src/__tests__/AL6-return-status-route.test.ts",
+          "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
+          "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts",
+          "packages/core-api/src/__tests__/mcp-bridge.test.ts",
+          "packages/core-api/src/server-factory.ts",
+          "packages/core-api/src/services/tool-provider-bindings.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+          "plans/AU20/register-reviews/harness-registry-mcp-entry.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "notificationsSecretErrorsWriteTestsAuthorization": {
+      "increment": "notifications-secret-errors",
+      "stage": "write-tests-notifications-secret-errors",
+      "finding": "F9",
+      "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+      "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+      "protectedIntegrationPath": "packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
+      "protectedIntegrationSha256": "cf48978c014fe1863ca096ef7c6522864a761457531b55c8f68c07862d7b21ab",
+      "productPath": "packages/core-api/notifications/src/install.ts",
+      "productSha256": "0383969cc297053d157bb2d2b08277ae9e9fe8668c6b519e9973a18be04428ac",
+      "requiredRed": {
+        "missingRootSecret": "an error with code MISSING_ROOT_SECRET is the only encryption failure suppressed; no credential upsert occurs",
+        "unexpectedCipher": "an arbitrary encryption error rejects updateConfig and performs no credential upsert or false-success continuation",
+        "writeFailure": "credential-store upsert failure rejects; it is never converted into success",
+        "successfulWrite": "successful encryption persists exactly once and returns redacted config"
+      },
+      "authorizedPaths": [
+        "packages/core-api/notifications/src/__tests__/install.test.ts",
+        ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json"
+      ],
+      "productCodeAuthorized": false,
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "focusedCommand": "npx vitest run --config packages/core-api/notifications/vitest.config.ts packages/core-api/notifications/src/__tests__/install.test.ts",
+      "protectedCommand": "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
+      "nextStage": "red-proof-review-notifications-secret-errors",
+      "status": "write-tests-authorized"
+    },
+    "notificationsSecretErrorsRedProof": {
+      "increment": "notifications-secret-errors",
+      "finding": "F9",
+      "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+      "testSha256": "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208",
+      "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+      "proofSha256": "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf",
+      "reviewPath": "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+      "reviewSha256": "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6",
+      "verdict": "accept",
+      "expectedRed": "corrected contract evidence: 4/4 green against accepted implementation; original arbitrary-cipher red causality preserved in proof",
+      "status": "corrected-and-accepted"
+    },
+    "notificationsSecretErrorsWriteCodeAuthorization": {
+      "increment": "notifications-secret-errors",
+      "stage": "write-code-notifications-secret-errors",
+      "finding": "F9",
+      "authorizedPaths": [
+        "packages/core-api/notifications/src/install.ts"
+      ],
+      "frozenPaths": [
+        "packages/core-api/notifications/src/__tests__/install.test.ts",
+        ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+        "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+        "packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
+        "scripts/surface-census.ts"
+      ],
+      "requiredImplementation": {
+        "suppression": "catch only errors whose code is exactly MISSING_ROOT_SECRET",
+        "unexpectedFailure": "rethrow the original arbitrary cipher error; do not upsert or continue to config read",
+        "storeFailure": "credential-store upsert rejection propagates unchanged",
+        "success": "successful encryption upserts exactly once and returns redacted config"
+      },
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "testsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "filesystems-watcher-errors",
+      "status": "authorized"
+    },
+    "notificationsSecretErrorsTestNamingCorrection": {
+      "increment": "notifications-secret-errors",
+      "stage": "write-tests-notifications-secret-errors-title-correction",
+      "finding": "F9",
+      "authorizedPaths": [
+        "packages/core-api/notifications/src/__tests__/install.test.ts",
+        ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json"
+      ],
+      "baselineTestSha256": "caa81a3b9d622b6ee391a770ef698e312d8c697cefd17cdaaeb6ffe1eec4ad23",
+      "baselineProofSha256": "d323adc6d34eceef958dc5c9c4f4ca699d5225ee9851fe4c2b457ceadd2f1ed6",
+      "frozenProductPath": "packages/core-api/notifications/src/install.ts",
+      "frozenProductCandidateSha256": "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a",
+      "requiredChange": "rename describe title from WP-tagged `F9 notification secret-write errors` to semantic `notification secret-write errors`; complete serverConfig.read fixture with typed mutedTypes and silence fields; type findByName mock as ServerCredential | undefined; assertions and executable behavior remain unchanged",
+      "proofRefresh": "record focused 4/4 green, protected 20/20 green, check green, lint green, and updated test hash without changing the behavior contract",
+      "productCodeAuthorized": false,
+      "testBehaviorChangeAuthorized": false,
+      "lintBypassAuthorized": false,
+      "nextStage": "red-proof-review-notifications-secret-errors-title-correction",
+      "status": "completed-reviewed"
+    },
+    "notificationsSecretErrorsCandidate": {
+      "increment": "notifications-secret-errors",
+      "finding": "F9",
+      "productPath": "packages/core-api/notifications/src/install.ts",
+      "productSha256": "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a",
+      "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+      "testSha256": "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208",
+      "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+      "proofSha256": "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf",
+      "redReviewPath": "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+      "redReviewSha256": "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6",
+      "implementationReviewPath": "plans/AU20/register-reviews/notifications-secret-errors.md",
+      "implementationReviewSha256": "63bd7c70705b7b36d1f55f9fc15af54e258a5d31f78d2fd21d5d9058ce7847e5",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "focused": "4/4 pass",
+        "protected": "20/20 pass",
+        "notificationsCheck": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "gate": "604/604; unresolved 0",
+        "namingGuard": "pass",
+        "census": "23 services / 231 methods / 181 types / 412 total"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F9: propagate notification secret errors",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+          "packages/core-api/notifications/src/__tests__/install.test.ts",
+          "packages/core-api/notifications/src/install.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+          "plans/AU20/register-reviews/notifications-secret-errors.md"
         ]
       }
     }

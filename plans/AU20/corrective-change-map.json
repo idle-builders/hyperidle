@@ -25232,7 +25232,7 @@
   "integrity": {
     "browserLedgerSha256": "b88e512430a340121205b770a37090cde016c875295fffcf93937e89b58bd75c",
     "systemLedgerSha256": "88b0072658bc98f713c610fc7f35e7428d9ed3488953b8f450658be0cc5560e1",
-    "generatorSha256": "718b4976ff3dc81a2aadf5d5ba598118eb97635c2717aca60a04f52ed312d3d6",
+    "generatorSha256": "40cee43f7823391fb89f61935f56df4447c45f323848b214f4fce633da3aa558",
     "diagnosticSha256": {
       "core-work-runtime.json": "9e345f4889f9bdfa2b5a22836cd9b9a27ae940a3b2a5dbc8e60aa17c51b005c3",
       "lane-ah.json": "78b5eae8b208ba595b7b49e68217ee96c5ca568ca0bcc16bb2ae95559ab1d5e3",
@@ -25966,194 +25966,143 @@
             }
           },
           "status": "completed-history"
-        }
-      ],
-      "activeIncrement": {
-        "name": "harness-registry-mcp-entry",
-        "finding": "F3",
-        "writeTestsAuthorization": {
-          "increment": "harness-registry-mcp-entry",
-          "stage": "write-tests-harness-registry-mcp-entry",
+        },
+        {
+          "name": "harness-registry-mcp-entry",
           "finding": "F3",
-          "validatorPath": ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
-          "proofPath": ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
-          "protectedTests": {
-            "packages/agent-execution/harness-registry/src/__tests__/mcp-route.test.ts": "115064b9d5408c4fabf07ecff4b91f87c959f17e001bc5a3c3fbd20f6b807a81",
-            "packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts": "f08309f8b88636e82b1b75c5f60480d4ea3cdc690baa4fb8a95dcbf24973de11"
+          "amendedRedProofReview": {
+            "increment": "harness-registry-mcp-entry",
+            "finding": "F3",
+            "validatorPath": ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+            "validatorSha256": "2007c4fe44975be2d5b07381ee34ecbd6039bcb82b0acf775f6edc8c933de0ce",
+            "proofPath": ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+            "proofSha256": "9f8c60258be9b8ee320aa7388189903cbe7e0d7bd94e247c1fc82aede28a4762",
+            "reviewPath": "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+            "reviewSha256": "40a0e0e3a43e821ef8328c79c07bb053ba0be7f248e7af891c8f1e961e5142de",
+            "testSha256": {
+              "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts": "03808895574898b123c6c96ab11bbd15c8a3b6e3ff57b3a8e1b5ec3242695657",
+              "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts": "051b0c0ca43b5e6c7009b8b62a27bb0327b30d4d2009a4ba61c4cd0c5017e4b5",
+              "packages/core-api/src/__tests__/mcp-bridge.test.ts": "eb620ba73421d6a7c799c6ea5414905bf60a070233c472d4529869d99d1a49b7",
+              "packages/core-api/src/__tests__/AL6-return-status-route.test.ts": "3375ad553825c31b4fda778b013eb9231e955f570455b46e5d6acd9921ac5743",
+              "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts": "458b7312beb7598ff911427244c4c1a6076a333466f5fa90009c4f2a8cdf5dac"
+            },
+            "partialProductSha256": {
+              "packages/agent-execution/harness-registry/package.json": "c969592613f7a0a0caaf828fe1888f159e06b4b3aa567449328013b7783260d8",
+              "packages/agent-execution/harness-registry/src/index.ts": "bc6840c718bfca7d197c0daf1775e051495e793eeafa11ab106b925052ff35cc",
+              "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "add996f2f150683cf2773602bfb710b9d031fb312847c9d5bfa941d896650118",
+              "packages/agent-execution/harness-registry/src/mcp/index.ts": "e09fedd686c463493a77321d144fbc5313ee2bac60e48ac4eb73d3bb3007e13a",
+              "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
+              "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
+              "packages/agent-execution/harness-registry/src/return-status-tool.ts": "b4f21b7cae879ea91697f9edff5d372c8540056be349604e739f558672705dd7",
+              "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9",
+              "packages/core-api/src/services/tool-provider-bindings.ts": "b491fa0149ba18157e657ccad7ac3d5c3a41e0bf345c2499022a9fc8eb8e3845"
+            },
+            "verdict": "accept",
+            "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit",
+            "status": "accepted"
           },
-          "authorizedTestCorrections": {
-            "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts": {
-              "baselineSha256": "d3c29fba3c8fa7ab814c006440d2dce7b9e51b2f2e871687923b91ed2f09636f",
-              "requiredModel": "haiku",
-              "requiredCredentialBehavior": "every missing or invalid Claude/Codex/OpenCode/GitHub credential hard-fails; no skip callback or skip branch remains"
+          "candidate": {
+            "increment": "harness-registry-mcp-entry",
+            "finding": "F3",
+            "productSha256": {
+              "packages/agent-execution/harness-registry/package.json": "c969592613f7a0a0caaf828fe1888f159e06b4b3aa567449328013b7783260d8",
+              "packages/agent-execution/harness-registry/src/index.ts": "dbe88ca2a53862d919428f53b63161eba77cc8b057be07009b6d9911f9483626",
+              "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "add996f2f150683cf2773602bfb710b9d031fb312847c9d5bfa941d896650118",
+              "packages/agent-execution/harness-registry/src/mcp/index.ts": "8ed4bc28bf456fa78978785321d834540fcba151611b533b04785aecf8de4a6b",
+              "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
+              "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
+              "packages/agent-execution/harness-registry/src/return-status-tool.ts": "4df8a05503fd7897f75613acc916e182b58fc5da42790441f2f1a0e4b782270b",
+              "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9",
+              "packages/core-api/src/services/tool-provider-bindings.ts": "156fac5752e904810a3e83c970e2b1e5ea294852b62fd9c1b646c8bc3f9ab98c"
+            },
+            "implementationReviewPath": "plans/AU20/register-reviews/harness-registry-mcp-entry.md",
+            "implementationReviewSha256": "e4b7ff82bf0e67e1bbaa394bf3a0dc070d21b8b360bafee2079be500a7571eb7",
+            "implementationReviewVerdict": "accept",
+            "verification": {
+              "validator": "pass",
+              "focused": "24/24 pass",
+              "statefulBridge": "2/2 pass",
+              "check": "37/37 packages",
+              "lint": "pass",
+              "unit": "3557/3557 pass",
+              "serviceIntegration": "2869 pass; 7 existing lane-policy skips",
+              "census": "23 services / 231 methods / 181 types / 412 total",
+              "diffIntegrity": "pass"
+            },
+            "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit; unweakened real-harness release lane must pass after quota restoration",
+            "status": "accepted-commit-authorized",
+            "commitAuthorization": {
+              "message": "AU20 F3: isolate harness MCP entry",
+              "paths": [
+                ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+                ".pipeline/work/AU20/progress.json",
+                ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+                "packages/agent-execution/harness-registry/package.json",
+                "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+                "packages/agent-execution/harness-registry/src/index.ts",
+                "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
+                "packages/agent-execution/harness-registry/src/mcp/index.ts",
+                "packages/agent-execution/harness-registry/src/return-status-tool.ts",
+                "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
+                "packages/core-api/src/__tests__/AL6-return-status-route.test.ts",
+                "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
+                "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts",
+                "packages/core-api/src/__tests__/mcp-bridge.test.ts",
+                "packages/core-api/src/server-factory.ts",
+                "packages/core-api/src/services/tool-provider-bindings.ts",
+                "plans/AU20/corrective-change-map.json",
+                "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+                "plans/AU20/register-reviews/harness-registry-mcp-entry.md"
+              ]
+            },
+            "commitReceipt": {
+              "commit": "e68a170757d71476ba147995247ac8be2d4a97e2",
+              "tree": "877f217b6d2c8efe3889da39d500e90ad6d08912",
+              "parent": "0f7f6c1b1354eea71f9cc5c36098c413b62741d8",
+              "subject": "AU20 F3: isolate harness MCP entry",
+              "paths": [
+                ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+                ".pipeline/work/AU20/progress.json",
+                ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+                "packages/agent-execution/harness-registry/package.json",
+                "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+                "packages/agent-execution/harness-registry/src/index.ts",
+                "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
+                "packages/agent-execution/harness-registry/src/mcp/index.ts",
+                "packages/agent-execution/harness-registry/src/return-status-tool.ts",
+                "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
+                "packages/core-api/src/__tests__/AL6-return-status-route.test.ts",
+                "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
+                "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts",
+                "packages/core-api/src/__tests__/mcp-bridge.test.ts",
+                "packages/core-api/src/server-factory.ts",
+                "packages/core-api/src/services/tool-provider-bindings.ts",
+                "plans/AU20/corrective-change-map.json",
+                "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+                "plans/AU20/register-reviews/harness-registry-mcp-entry.md"
+              ],
+              "census": {
+                "services": 23,
+                "methods": 231,
+                "types": 181,
+                "total": 412
+              },
+              "verification": {
+                "exactPathSet": "pass",
+                "census": "pass",
+                "gate": "pass"
+              }
             }
           },
-          "frozenProduct": {
-            "packages/agent-execution/harness-registry/package.json": "de57441c84ee453a7765283e599ad8dc79f12d911826f06d18149c4cf22fc8bb",
-            "packages/agent-execution/harness-registry/src/index.ts": "cc1c796f2e29e1450927121ea37992e08299885bfac4d3d0e39f12af11a2e0c2",
-            "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "7bb90c5d0a7cc4bddb98d75092cbb2ac32a45ca975a942e4181abbcfcf9d3f58",
-            "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
-            "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
-            "packages/core-api/src/server-factory.ts": "34332d65afb258b47de22e77452f30b29514fa23afcf70ab0b4555d43587fbb1"
-          },
-          "requiredRed": {
-            "mainEntry": "main bundle/import graph contains zero src/mcp, MCP SDK, Hono, or Zod inputs",
-            "subpath": "runtime import @hyperidle/harness-registry/mcp and assert own exported createMcpToolBridge is a function; comments, strings, imports, and type-only declarations cannot satisfy it",
-            "packageExports": "package exports defines ./mcp and main index has no MCP bridge re-export",
-            "failure": "current tree fails because ./mcp is absent and main entry exposes MCP dependencies",
-            "validatorIntegrity": "derive export truth from resolved runtime namespace and esbuild metafile inputs, never regex-only source matches"
-          },
-          "realHarnessRequirements": {
-            "binaries": [
-              "claude",
-              "codex",
-              "opencode",
-              "gh"
-            ],
-            "claudeModel": "haiku",
-            "policy": "missing binary or credential is a hard failure via requireHarness/assertion; never skip to green; Claude 429 spend-limit is reported as an honest external release blocker",
-            "command": "npx vitest run --config vitest.integration.config.ts --project harness packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts"
-          },
-          "authorizedPaths": [
-            ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
-            ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
-            "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts"
-          ],
-          "testModificationAuthorized": true,
-          "productCodeAuthorized": false,
-          "newExportsAuthorized": false,
-          "serviceSurfaceGrowthAuthorized": false,
-          "census": {
-            "services": 23,
-            "methods": 231,
-            "types": 181,
-            "total": 412
-          },
-          "nextStage": "red-proof-review-harness-registry-mcp-entry",
-          "status": "write-tests-revision-authorized"
-        },
-        "supersededRedProofReview": {
-          "increment": "harness-registry-mcp-entry",
-          "finding": "F3",
-          "validatorPath": ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
-          "validatorSha256": "1fa5c4a3dc47fb427991cc78332691d168cd9a4a25d5b841f115c172b4569f47",
-          "proofPath": ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
-          "proofSha256": "212bc52b7585120394e4cd07bb1b6037f0c250969ac41173b2d03b049f9f85e8",
-          "an2TestPath": "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
-          "an2TestSha256": "075a31f57f22435b11d732ec7e4953459cb7d7680334a8aa629a03c25bce40f3",
-          "reviewPath": "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
-          "reviewSha256": "d0bd8cb31a9606b353ba8e8d262dd8b1f1b540ab258016c9a73b7e79c3d2094f",
-          "verdict": "accept",
-          "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit; unweakened real-harness lane must pass before release",
-          "status": "superseded-by-substrate-amendment"
-        },
-        "substrateAmendment": {
-          "increment": "harness-registry-mcp-entry",
-          "stage": "write-tests-harness-registry-mcp-substrate-amendment",
-          "finding": "F3",
-          "adjudication": "ESCALATION ACCEPTED: tsx --eval top-level-await is an invalid runtime probe; zero-Zod main isolation requires moving returnStatusTool with its real consumer; core MCP tests must migrate from main to /mcp.",
-          "probeContract": {
-            "mechanism": "write a temporary ESM .mts probe and execute it with node --import tsx, or use dynamic import inside an async function; never tsx --eval top-level await",
-            "exportAssertion": "resolved @hyperidle/harness-registry/mcp namespace owns function exports createMcpToolBridge and returnStatusTool",
-            "graphAssertion": "esbuild main-entry metafile contains no src/mcp, mcp-tool-bridge, return-status-tool, MCP SDK, Hono, or Zod inputs"
-          },
-          "authorizedTestPaths": {
-            ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs": "strengthen probe mechanism and runtime namespace assertions",
-            ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json": "replace superseded proof with amended intended RED",
-            "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts": "migrate createMcpToolBridge import from main to /mcp only",
-            "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts": "migrate createMcpToolBridge import from main to /mcp only",
-            "packages/core-api/src/__tests__/mcp-bridge.test.ts": "migrate createMcpToolBridge import from main to /mcp only",
-            "packages/core-api/src/__tests__/AL6-return-status-route.test.ts": "migrate createMcpToolBridge import from main to /mcp only",
-            "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts": "migrate createMcpToolBridge import from main to /mcp only"
-          },
-          "authorizedProductionPathsAfterRedReview": [
-            "packages/agent-execution/harness-registry/package.json",
-            "packages/agent-execution/harness-registry/src/index.ts",
-            "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
-            "packages/agent-execution/harness-registry/src/mcp/index.ts",
-            "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts",
-            "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts",
-            "packages/agent-execution/harness-registry/src/return-status-tool.ts",
-            "packages/core-api/src/server-factory.ts",
-            "packages/core-api/src/services/tool-provider-bindings.ts"
-          ],
-          "returnStatusDecision": "Move the existing returnStatusTool public export from main to /mcp and migrate tool-provider-bindings; do not duplicate implementation or keep a main re-export.",
-          "frozenEvidence": [
-            "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
-            "packages/agent-execution/harness-registry/src/__tests__/mcp-route.test.ts",
-            "packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts",
-            "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
-            "scripts/surface-census.ts"
-          ],
-          "productCodeAuthorized": false,
-          "newImplementationAuthorized": false,
-          "serviceSurfaceGrowthAuthorized": false,
-          "nextStage": "red-proof-review-harness-registry-mcp-substrate-amendment",
-          "status": "write-tests-authorized"
-        },
-        "amendedRedProofReview": {
-          "increment": "harness-registry-mcp-entry",
-          "finding": "F3",
-          "validatorPath": ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
-          "validatorSha256": "2007c4fe44975be2d5b07381ee34ecbd6039bcb82b0acf775f6edc8c933de0ce",
-          "proofPath": ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
-          "proofSha256": "9f8c60258be9b8ee320aa7388189903cbe7e0d7bd94e247c1fc82aede28a4762",
-          "reviewPath": "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
-          "reviewSha256": "40a0e0e3a43e821ef8328c79c07bb053ba0be7f248e7af891c8f1e961e5142de",
-          "testSha256": {
-            "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts": "03808895574898b123c6c96ab11bbd15c8a3b6e3ff57b3a8e1b5ec3242695657",
-            "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts": "051b0c0ca43b5e6c7009b8b62a27bb0327b30d4d2009a4ba61c4cd0c5017e4b5",
-            "packages/core-api/src/__tests__/mcp-bridge.test.ts": "eb620ba73421d6a7c799c6ea5414905bf60a070233c472d4529869d99d1a49b7",
-            "packages/core-api/src/__tests__/AL6-return-status-route.test.ts": "3375ad553825c31b4fda778b013eb9231e955f570455b46e5d6acd9921ac5743",
-            "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts": "458b7312beb7598ff911427244c4c1a6076a333466f5fa90009c4f2a8cdf5dac"
-          },
-          "partialProductSha256": {
-            "packages/agent-execution/harness-registry/package.json": "c969592613f7a0a0caaf828fe1888f159e06b4b3aa567449328013b7783260d8",
-            "packages/agent-execution/harness-registry/src/index.ts": "bc6840c718bfca7d197c0daf1775e051495e793eeafa11ab106b925052ff35cc",
-            "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "add996f2f150683cf2773602bfb710b9d031fb312847c9d5bfa941d896650118",
-            "packages/agent-execution/harness-registry/src/mcp/index.ts": "e09fedd686c463493a77321d144fbc5313ee2bac60e48ac4eb73d3bb3007e13a",
-            "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
-            "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
-            "packages/agent-execution/harness-registry/src/return-status-tool.ts": "b4f21b7cae879ea91697f9edff5d372c8540056be349604e739f558672705dd7",
-            "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9",
-            "packages/core-api/src/services/tool-provider-bindings.ts": "b491fa0149ba18157e657ccad7ac3d5c3a41e0bf345c2499022a9fc8eb8e3845"
-          },
-          "verdict": "accept",
-          "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit",
-          "status": "accepted"
-        },
-        "candidate": {
-          "increment": "harness-registry-mcp-entry",
-          "finding": "F3",
-          "productSha256": {
-            "packages/agent-execution/harness-registry/package.json": "c969592613f7a0a0caaf828fe1888f159e06b4b3aa567449328013b7783260d8",
-            "packages/agent-execution/harness-registry/src/index.ts": "dbe88ca2a53862d919428f53b63161eba77cc8b057be07009b6d9911f9483626",
-            "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "add996f2f150683cf2773602bfb710b9d031fb312847c9d5bfa941d896650118",
-            "packages/agent-execution/harness-registry/src/mcp/index.ts": "8ed4bc28bf456fa78978785321d834540fcba151611b533b04785aecf8de4a6b",
-            "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
-            "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
-            "packages/agent-execution/harness-registry/src/return-status-tool.ts": "4df8a05503fd7897f75613acc916e182b58fc5da42790441f2f1a0e4b782270b",
-            "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9",
-            "packages/core-api/src/services/tool-provider-bindings.ts": "156fac5752e904810a3e83c970e2b1e5ea294852b62fd9c1b646c8bc3f9ab98c"
-          },
-          "implementationReviewPath": "plans/AU20/register-reviews/harness-registry-mcp-entry.md",
-          "implementationReviewSha256": "e4b7ff82bf0e67e1bbaa394bf3a0dc070d21b8b360bafee2079be500a7571eb7",
-          "implementationReviewVerdict": "accept",
-          "verification": {
-            "validator": "pass",
-            "focused": "24/24 pass",
-            "statefulBridge": "2/2 pass",
-            "check": "37/37 packages",
-            "lint": "pass",
-            "unit": "3557/3557 pass",
-            "serviceIntegration": "2869 pass; 7 existing lane-policy skips",
-            "census": "23 services / 231 methods / 181 types / 412 total",
-            "diffIntegrity": "pass"
-          },
-          "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit; unweakened real-harness release lane must pass after quota restoration",
-          "status": "accepted-commit-authorized",
-          "commitAuthorization": {
-            "message": "AU20 F3: isolate harness MCP entry",
+          "commitReceipt": {
+            "commit": "e68a170757d71476ba147995247ac8be2d4a97e2",
+            "tree": "877f217b6d2c8efe3889da39d500e90ad6d08912",
+            "parent": "0f7f6c1b1354eea71f9cc5c36098c413b62741d8",
+            "subject": "AU20 F3: isolate harness MCP entry",
             "paths": [
               ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
               ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
@@ -26176,34 +26125,147 @@
               "plans/AU20/corrective-change-map.json",
               "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
               "plans/AU20/register-reviews/harness-registry-mcp-entry.md"
+            ],
+            "census": {
+              "services": 23,
+              "methods": 231,
+              "types": 181,
+              "total": 412
+            },
+            "verification": {
+              "exactPathSet": "pass",
+              "census": "pass",
+              "gate": "pass"
+            }
+          },
+          "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit; unweakened real-harness release lane must pass after quota restoration",
+          "status": "completed-history"
+        }
+      ],
+      "activeIncrement": {
+        "name": "notifications-secret-errors",
+        "finding": "F9",
+        "writeTestsAuthorization": {
+          "increment": "notifications-secret-errors",
+          "stage": "write-tests-notifications-secret-errors",
+          "finding": "F9",
+          "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+          "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+          "protectedIntegrationPath": "packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
+          "protectedIntegrationSha256": "cf48978c014fe1863ca096ef7c6522864a761457531b55c8f68c07862d7b21ab",
+          "productPath": "packages/core-api/notifications/src/install.ts",
+          "productSha256": "0383969cc297053d157bb2d2b08277ae9e9fe8668c6b519e9973a18be04428ac",
+          "requiredRed": {
+            "missingRootSecret": "an error with code MISSING_ROOT_SECRET is the only encryption failure suppressed; no credential upsert occurs",
+            "unexpectedCipher": "an arbitrary encryption error rejects updateConfig and performs no credential upsert or false-success continuation",
+            "writeFailure": "credential-store upsert failure rejects; it is never converted into success",
+            "successfulWrite": "successful encryption persists exactly once and returns redacted config"
+          },
+          "authorizedPaths": [
+            "packages/core-api/notifications/src/__tests__/install.test.ts",
+            ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json"
+          ],
+          "productCodeAuthorized": false,
+          "newExportsAuthorized": false,
+          "serviceSurfaceGrowthAuthorized": false,
+          "census": {
+            "services": 23,
+            "methods": 231,
+            "types": 181,
+            "total": 412
+          },
+          "focusedCommand": "npx vitest run --config packages/core-api/notifications/vitest.config.ts packages/core-api/notifications/src/__tests__/install.test.ts",
+          "protectedCommand": "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
+          "nextStage": "red-proof-review-notifications-secret-errors",
+          "status": "write-tests-authorized"
+        },
+        "redProofReview": {
+          "increment": "notifications-secret-errors",
+          "finding": "F9",
+          "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+          "testSha256": "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208",
+          "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+          "proofSha256": "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf",
+          "reviewPath": "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+          "reviewSha256": "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6",
+          "verdict": "accept",
+          "expectedRed": "corrected contract evidence: 4/4 green against accepted implementation; original arbitrary-cipher red causality preserved in proof",
+          "status": "corrected-and-accepted"
+        },
+        "titleCorrection": {
+          "increment": "notifications-secret-errors",
+          "stage": "write-tests-notifications-secret-errors-title-correction",
+          "finding": "F9",
+          "authorizedPaths": [
+            "packages/core-api/notifications/src/__tests__/install.test.ts",
+            ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json"
+          ],
+          "baselineTestSha256": "caa81a3b9d622b6ee391a770ef698e312d8c697cefd17cdaaeb6ffe1eec4ad23",
+          "baselineProofSha256": "d323adc6d34eceef958dc5c9c4f4ca699d5225ee9851fe4c2b457ceadd2f1ed6",
+          "frozenProductPath": "packages/core-api/notifications/src/install.ts",
+          "frozenProductCandidateSha256": "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a",
+          "requiredChange": "rename describe title from WP-tagged `F9 notification secret-write errors` to semantic `notification secret-write errors`; complete serverConfig.read fixture with typed mutedTypes and silence fields; type findByName mock as ServerCredential | undefined; assertions and executable behavior remain unchanged",
+          "proofRefresh": "record focused 4/4 green, protected 20/20 green, check green, lint green, and updated test hash without changing the behavior contract",
+          "productCodeAuthorized": false,
+          "testBehaviorChangeAuthorized": false,
+          "lintBypassAuthorized": false,
+          "nextStage": "red-proof-review-notifications-secret-errors-title-correction",
+          "status": "completed-reviewed"
+        },
+        "candidate": {
+          "increment": "notifications-secret-errors",
+          "finding": "F9",
+          "productPath": "packages/core-api/notifications/src/install.ts",
+          "productSha256": "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a",
+          "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+          "testSha256": "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208",
+          "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+          "proofSha256": "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf",
+          "redReviewPath": "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+          "redReviewSha256": "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6",
+          "implementationReviewPath": "plans/AU20/register-reviews/notifications-secret-errors.md",
+          "implementationReviewSha256": "63bd7c70705b7b36d1f55f9fc15af54e258a5d31f78d2fd21d5d9058ce7847e5",
+          "implementationReviewVerdict": "accept",
+          "verification": {
+            "focused": "4/4 pass",
+            "protected": "20/20 pass",
+            "notificationsCheck": "pass",
+            "check": "37/37 packages",
+            "lint": "pass",
+            "unit": "356 files / 3561 tests pass",
+            "gate": "604/604; unresolved 0",
+            "namingGuard": "pass",
+            "census": "23 services / 231 methods / 181 types / 412 total"
+          },
+          "status": "accepted-commit-authorized",
+          "commitAuthorization": {
+            "message": "AU20 F9: propagate notification secret errors",
+            "paths": [
+              ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+              ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+              ".pipeline/work/AU20/progress.json",
+              ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+              "packages/core-api/notifications/src/__tests__/install.test.ts",
+              "packages/core-api/notifications/src/install.ts",
+              "plans/AU20/corrective-change-map.json",
+              "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+              "plans/AU20/register-reviews/notifications-secret-errors.md"
             ]
           }
         },
-        "authorizedStage": "commit-harness-registry-mcp-entry",
+        "authorizedStage": "commit-notifications-secret-errors",
         "authorization": {
-          "message": "AU20 F3: isolate harness MCP entry",
+          "message": "AU20 F9: propagate notification secret errors",
           "paths": [
             ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
             ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
-            ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
             ".pipeline/work/AU20/progress.json",
-            ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
-            "packages/agent-execution/harness-registry/package.json",
-            "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
-            "packages/agent-execution/harness-registry/src/index.ts",
-            "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
-            "packages/agent-execution/harness-registry/src/mcp/index.ts",
-            "packages/agent-execution/harness-registry/src/return-status-tool.ts",
-            "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
-            "packages/core-api/src/__tests__/AL6-return-status-route.test.ts",
-            "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
-            "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts",
-            "packages/core-api/src/__tests__/mcp-bridge.test.ts",
-            "packages/core-api/src/server-factory.ts",
-            "packages/core-api/src/services/tool-provider-bindings.ts",
+            ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+            "packages/core-api/notifications/src/__tests__/install.test.ts",
+            "packages/core-api/notifications/src/install.ts",
             "plans/AU20/corrective-change-map.json",
-            "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
-            "plans/AU20/register-reviews/harness-registry-mcp-entry.md"
+            "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+            "plans/AU20/register-reviews/notifications-secret-errors.md"
           ]
         },
         "productCodeAuthorized": false
@@ -26213,7 +26275,7 @@
         "methods": 231,
         "types": 181
       },
-      "nextIncrement": "harness-registry-mcp-entry"
+      "nextIncrement": "notifications-secret-errors"
     },
     "writeTestsLocked": true,
     "codeLocked": true,

@@ -1385,6 +1385,138 @@ const mcpCandidateValid =
   JSON.stringify(mcpCandidate?.commitAuthorization?.paths) === JSON.stringify(expectedMcpCommitPaths) &&
   Object.entries(mcpCandidate.productSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
   sha256(fs.readFileSync(path.join(root, mcpCandidate.implementationReviewPath))) === mcpCandidate.implementationReviewSha256;
+const mcpCommit = mcpCandidate?.commitReceipt ?? null;
+const mcpCommitInspection = mcpCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", mcpCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const mcpCommitPaths = mcpCommit
+  ? spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", mcpCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const mcpCommitValid =
+  mcpCandidateValid &&
+  mcpCommit?.commit === "e68a170757d71476ba147995247ac8be2d4a97e2" &&
+  mcpCommit?.tree === "877f217b6d2c8efe3889da39d500e90ad6d08912" &&
+  mcpCommit?.parent === "0f7f6c1b1354eea71f9cc5c36098c413b62741d8" &&
+  mcpCommit?.subject === "AU20 F3: isolate harness MCP entry" &&
+  JSON.stringify(mcpCommit?.paths) === JSON.stringify(expectedMcpCommitPaths) &&
+  JSON.stringify(mcpCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(mcpCommit?.verification ?? {}).every((result) => result === "pass") &&
+  mcpCommitInspection?.status === 0 &&
+  mcpCommitInspection.stdout.trim() === [mcpCommit.commit, mcpCommit.tree, mcpCommit.parent, mcpCommit.subject].join("\n") &&
+  mcpCommitPaths?.status === 0 &&
+  JSON.stringify(mcpCommitPaths.stdout.trim().split("\n")) === JSON.stringify(expectedMcpCommitPaths);
+const notificationsWriteTests = progress.gateBindings?.notificationsSecretErrorsWriteTestsAuthorization ?? null;
+const notificationsWriteTestsValid =
+  mcpCommitValid &&
+  notificationsWriteTests?.increment === "notifications-secret-errors" &&
+  notificationsWriteTests?.stage === "write-tests-notifications-secret-errors" &&
+  notificationsWriteTests?.finding === "F9" &&
+  notificationsWriteTests?.testPath === "packages/core-api/notifications/src/__tests__/install.test.ts" &&
+  notificationsWriteTests?.proofPath === ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json" &&
+  notificationsWriteTests?.protectedIntegrationSha256 === "cf48978c014fe1863ca096ef7c6522864a761457531b55c8f68c07862d7b21ab" &&
+  notificationsWriteTests?.productSha256 === "0383969cc297053d157bb2d2b08277ae9e9fe8668c6b519e9973a18be04428ac" &&
+  JSON.stringify(notificationsWriteTests?.authorizedPaths) === JSON.stringify([
+    "packages/core-api/notifications/src/__tests__/install.test.ts",
+    ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+  ]) &&
+  notificationsWriteTests?.productCodeAuthorized === false &&
+  notificationsWriteTests?.newExportsAuthorized === false &&
+  notificationsWriteTests?.serviceSurfaceGrowthAuthorized === false &&
+  notificationsWriteTests?.status === "write-tests-authorized" &&
+  sha256(fs.readFileSync(path.join(root, notificationsWriteTests.protectedIntegrationPath))) === notificationsWriteTests.protectedIntegrationSha256 &&
+  (() => {
+    const baseline = spawnSync("git", ["show", `e68a170757d71476ba147995247ac8be2d4a97e2:${notificationsWriteTests.productPath}`], { cwd: root, encoding: null, shell: false });
+    return baseline.status === 0 && sha256(baseline.stdout) === notificationsWriteTests.productSha256;
+  })() &&
+  fs.existsSync(path.join(root, notificationsWriteTests.testPath)) &&
+  fs.existsSync(path.join(root, notificationsWriteTests.proofPath));
+const notificationsRedProof = progress.gateBindings?.notificationsSecretErrorsRedProof ?? null;
+const notificationsRedProofValid =
+  notificationsWriteTestsValid &&
+  notificationsRedProof?.testSha256 === "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208" &&
+  notificationsRedProof?.proofSha256 === "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf" &&
+  notificationsRedProof?.reviewSha256 === "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6" &&
+  notificationsRedProof?.verdict === "accept" &&
+  notificationsRedProof?.status === "corrected-and-accepted" &&
+  sha256(fs.readFileSync(path.join(root, notificationsRedProof.testPath))) === notificationsRedProof.testSha256 &&
+  sha256(fs.readFileSync(path.join(root, notificationsRedProof.proofPath))) === notificationsRedProof.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, notificationsRedProof.reviewPath))) === notificationsRedProof.reviewSha256;
+const notificationsWriteCode = progress.gateBindings?.notificationsSecretErrorsWriteCodeAuthorization ?? null;
+const expectedNotificationsWriteCode = {
+  increment: "notifications-secret-errors",
+  stage: "write-code-notifications-secret-errors",
+  finding: "F9",
+  authorizedPaths: ["packages/core-api/notifications/src/install.ts"],
+  frozenPaths: [
+    "packages/core-api/notifications/src/__tests__/install.test.ts",
+    ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+    "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+    "packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
+    "scripts/surface-census.ts",
+  ],
+  requiredImplementation: {
+    suppression: "catch only errors whose code is exactly MISSING_ROOT_SECRET",
+    unexpectedFailure: "rethrow the original arbitrary cipher error; do not upsert or continue to config read",
+    storeFailure: "credential-store upsert rejection propagates unchanged",
+    success: "successful encryption upserts exactly once and returns redacted config",
+  },
+  newExportsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  otherProductionPathsAuthorized: false,
+  testsAuthorized: false,
+  implementationReviewRequiredBeforeCommit: true,
+  nextIncrement: "filesystems-watcher-errors",
+  status: "authorized",
+};
+const notificationsWriteCodeValid =
+  notificationsRedProofValid &&
+  JSON.stringify(notificationsWriteCode) === JSON.stringify(expectedNotificationsWriteCode);
+const notificationsTitleCorrection = progress.gateBindings?.notificationsSecretErrorsTestNamingCorrection ?? null;
+const notificationsTitleCorrectionValid =
+  notificationsWriteCodeValid &&
+  notificationsTitleCorrection?.stage === "write-tests-notifications-secret-errors-title-correction" &&
+  JSON.stringify(notificationsTitleCorrection?.authorizedPaths) === JSON.stringify([
+    "packages/core-api/notifications/src/__tests__/install.test.ts",
+    ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+  ]) &&
+  notificationsTitleCorrection?.baselineTestSha256 === "caa81a3b9d622b6ee391a770ef698e312d8c697cefd17cdaaeb6ffe1eec4ad23" &&
+  notificationsTitleCorrection?.baselineProofSha256 === "d323adc6d34eceef958dc5c9c4f4ca699d5225ee9851fe4c2b457ceadd2f1ed6" &&
+  notificationsTitleCorrection?.frozenProductCandidateSha256 === "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a" &&
+  notificationsTitleCorrection?.productCodeAuthorized === false &&
+  notificationsTitleCorrection?.testBehaviorChangeAuthorized === false &&
+  notificationsTitleCorrection?.lintBypassAuthorized === false &&
+  notificationsTitleCorrection?.status === "write-tests-authorized" &&
+  sha256(fs.readFileSync(path.join(root, "packages/core-api/notifications/src/__tests__/install.test.ts"))) === notificationsTitleCorrection.baselineTestSha256 &&
+  sha256(fs.readFileSync(path.join(root, ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json"))) === notificationsTitleCorrection.baselineProofSha256 &&
+  sha256(fs.readFileSync(path.join(root, notificationsTitleCorrection.frozenProductPath))) === notificationsTitleCorrection.frozenProductCandidateSha256;
+const notificationsCandidate = progress.gateBindings?.notificationsSecretErrorsCandidate ?? null;
+const expectedNotificationsCommitPaths = [
+  ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+  ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+  ".pipeline/work/AU20/progress.json",
+  ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+  "packages/core-api/notifications/src/__tests__/install.test.ts",
+  "packages/core-api/notifications/src/install.ts",
+  "plans/AU20/corrective-change-map.json",
+  "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+  "plans/AU20/register-reviews/notifications-secret-errors.md",
+];
+const notificationsCandidateValid =
+  notificationsWriteCodeValid &&
+  notificationsCandidate?.productSha256 === "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a" &&
+  notificationsCandidate?.testSha256 === notificationsRedProof.testSha256 &&
+  notificationsCandidate?.proofSha256 === notificationsRedProof.proofSha256 &&
+  notificationsCandidate?.redReviewSha256 === notificationsRedProof.reviewSha256 &&
+  notificationsCandidate?.implementationReviewSha256 === "63bd7c70705b7b36d1f55f9fc15af54e258a5d31f78d2fd21d5d9058ce7847e5" &&
+  notificationsCandidate?.implementationReviewVerdict === "accept" &&
+  notificationsCandidate?.status === "accepted-commit-authorized" &&
+  notificationsCandidate?.commitAuthorization?.message === "AU20 F9: propagate notification secret errors" &&
+  JSON.stringify(notificationsCandidate?.commitAuthorization?.paths) === JSON.stringify(expectedNotificationsCommitPaths) &&
+  sha256(fs.readFileSync(path.join(root, notificationsCandidate.productPath))) === notificationsCandidate.productSha256 &&
+  sha256(fs.readFileSync(path.join(root, notificationsCandidate.testPath))) === notificationsCandidate.testSha256 &&
+  sha256(fs.readFileSync(path.join(root, notificationsCandidate.proofPath))) === notificationsCandidate.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, notificationsCandidate.redReviewPath))) === notificationsCandidate.redReviewSha256 &&
+  sha256(fs.readFileSync(path.join(root, notificationsCandidate.implementationReviewPath))) === notificationsCandidate.implementationReviewSha256;
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -1456,23 +1588,31 @@ const finalShipCorrection = {
       commitReceipt: retroCommit,
       status: "completed-history",
     }] : []),
+    ...(mcpCommitValid ? [{
+      name: "harness-registry-mcp-entry",
+      finding: "F3",
+      amendedRedProofReview: mcpAmendedRed,
+      candidate: mcpCandidate,
+      commitReceipt: mcpCommit,
+      externalReleaseBlocker: mcpCandidate.externalReleaseBlocker,
+      status: "completed-history",
+    }] : []),
   ],
   activeIncrement: {
-    name: "harness-registry-mcp-entry",
-    finding: "F3",
-    writeTestsAuthorization: mcpWriteTestsValid ? mcpWriteTestsAuthorization : null,
-    supersededRedProofReview: mcpRedProof,
-    substrateAmendment: mcpSubstrateValid ? mcpSubstrate : null,
-    amendedRedProofReview: mcpAmendedRedValid ? mcpAmendedRed : null,
-    candidate: mcpCandidateValid ? mcpCandidate : null,
-    authorizedStage: mcpCandidateValid && progress.currentStep === "commit-harness-registry-mcp-entry"
-      ? "commit-harness-registry-mcp-entry"
+    name: "notifications-secret-errors",
+    finding: "F9",
+    writeTestsAuthorization: notificationsWriteTestsValid ? notificationsWriteTests : null,
+    redProofReview: notificationsRedProofValid ? notificationsRedProof : null,
+    titleCorrection: notificationsTitleCorrection,
+    candidate: notificationsCandidateValid ? notificationsCandidate : null,
+    authorizedStage: notificationsCandidateValid && progress.currentStep === "commit-notifications-secret-errors"
+      ? "commit-notifications-secret-errors"
       : null,
-    authorization: mcpCandidateValid ? mcpCandidate.commitAuthorization : null,
+    authorization: notificationsCandidateValid ? notificationsCandidate.commitAuthorization : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "harness-registry-mcp-entry",
+  nextIncrement: "notifications-secret-errors",
 };
 const output = {
   ...payload,
@@ -1488,7 +1628,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !mcpCandidateValid,
+    commitLocked: !notificationsCandidateValid,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

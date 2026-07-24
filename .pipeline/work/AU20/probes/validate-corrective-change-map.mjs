@@ -615,8 +615,8 @@ if (process.argv.includes("--require-review")) {
       retroGitReceipt.stdout.trim() !== [retroReceipt.commit, retroReceipt.tree, retroReceipt.parent, retroReceipt.subject].join("\n") ||
       retroGitPaths.status !== 0 ||
       JSON.stringify(retroGitPaths.stdout.trim().split("\n")) !== JSON.stringify(expectedRetroCommitPaths)) fail("F4 commit object mismatch");
-  const expectedMcpWriteTests = active?.writeTestsAuthorization;
-  const mcpRed = active?.amendedRedProofReview;
+  const completedMcp = finalCorrection.completedIncrements?.find((increment) => increment.name === "harness-registry-mcp-entry");
+  const mcpRed = completedMcp?.amendedRedProofReview;
   if (mcpRed?.validatorSha256 !== "2007c4fe44975be2d5b07381ee34ecbd6039bcb82b0acf775f6edc8c933de0ce" ||
       mcpRed?.proofSha256 !== "9f8c60258be9b8ee320aa7388189903cbe7e0d7bd94e247c1fc82aede28a4762" ||
       mcpRed?.reviewSha256 !== "40a0e0e3a43e821ef8328c79c07bb053ba0be7f248e7af891c8f1e961e5142de" ||
@@ -625,7 +625,7 @@ if (process.argv.includes("--require-review")) {
       sha256(fs.readFileSync(path.join(root, mcpRed.proofPath))) !== mcpRed.proofSha256 ||
       sha256(fs.readFileSync(path.join(root, mcpRed.reviewPath))) !== mcpRed.reviewSha256 ||
       Object.entries(mcpRed.testSha256).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash)) fail("F3 amended red-proof binding mismatch");
-  const mcpCandidate = active?.candidate;
+  const mcpCandidate = completedMcp?.candidate;
   if (mcpCandidate?.implementationReviewPath !== "plans/AU20/register-reviews/harness-registry-mcp-entry.md" ||
       mcpCandidate?.implementationReviewSha256 !== "e4b7ff82bf0e67e1bbaa394bf3a0dc070d21b8b360bafee2079be500a7571eb7" ||
       mcpCandidate?.implementationReviewVerdict !== "accept" ||
@@ -633,18 +633,47 @@ if (process.argv.includes("--require-review")) {
       mcpCandidate?.commitAuthorization?.message !== "AU20 F3: isolate harness MCP entry" ||
       Object.entries(mcpCandidate?.productSha256 ?? {}).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash) ||
       sha256(fs.readFileSync(path.join(root, mcpCandidate.implementationReviewPath))) !== mcpCandidate.implementationReviewSha256) fail("F3 candidate binding mismatch");
-  if (active?.name !== "harness-registry-mcp-entry" ||
-      active?.finding !== "F3" ||
-      active?.authorizedStage !== "commit-harness-registry-mcp-entry" ||
-      JSON.stringify(active?.writeTestsAuthorization) !== JSON.stringify(expectedMcpWriteTests) ||
-      active?.substrateAmendment?.returnStatusDecision !== "Move the existing returnStatusTool public export from main to /mcp and migrate tool-provider-bindings; do not duplicate implementation or keep a main re-export." ||
-      JSON.stringify(active?.authorization) !== JSON.stringify(mcpCandidate.commitAuthorization) ||
+  const mcpReceipt = completedMcp?.commitReceipt;
+  if (mcpReceipt?.commit !== "e68a170757d71476ba147995247ac8be2d4a97e2" ||
+      mcpReceipt?.tree !== "877f217b6d2c8efe3889da39d500e90ad6d08912" ||
+      mcpReceipt?.parent !== "0f7f6c1b1354eea71f9cc5c36098c413b62741d8" ||
+      mcpReceipt?.subject !== "AU20 F3: isolate harness MCP entry" ||
+      JSON.stringify(mcpReceipt?.paths) !== JSON.stringify(mcpCandidate.commitAuthorization.paths) ||
+      JSON.stringify(mcpReceipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      Object.values(mcpReceipt?.verification ?? {}).some((result) => result !== "pass")) fail("F3 commit receipt mismatch");
+  const mcpGitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", mcpReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  const mcpGitPaths = spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", mcpReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (mcpGitReceipt.status !== 0 ||
+      mcpGitReceipt.stdout.trim() !== [mcpReceipt.commit, mcpReceipt.tree, mcpReceipt.parent, mcpReceipt.subject].join("\n") ||
+      mcpGitPaths.status !== 0 ||
+      JSON.stringify(mcpGitPaths.stdout.trim().split("\n")) !== JSON.stringify(mcpReceipt.paths)) fail("F3 commit object mismatch");
+  const notificationAuth = active?.writeTestsAuthorization;
+  const notificationRed = active?.redProofReview;
+  if (notificationRed?.testSha256 !== "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208" ||
+      notificationRed?.proofSha256 !== "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf" ||
+      notificationRed?.reviewSha256 !== "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6" ||
+      notificationRed?.verdict !== "accept" ||
+      sha256(fs.readFileSync(path.join(root, notificationRed.testPath))) !== notificationRed.testSha256 ||
+      sha256(fs.readFileSync(path.join(root, notificationRed.proofPath))) !== notificationRed.proofSha256 ||
+      sha256(fs.readFileSync(path.join(root, notificationRed.reviewPath))) !== notificationRed.reviewSha256) fail("F9 red-proof binding mismatch");
+  const notificationCandidate = active?.candidate;
+  if (notificationCandidate?.productSha256 !== "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a" ||
+      notificationCandidate?.implementationReviewSha256 !== "63bd7c70705b7b36d1f55f9fc15af54e258a5d31f78d2fd21d5d9058ce7847e5" ||
+      notificationCandidate?.implementationReviewVerdict !== "accept" ||
+      notificationCandidate?.status !== "accepted-commit-authorized" ||
+      notificationCandidate?.commitAuthorization?.message !== "AU20 F9: propagate notification secret errors" ||
+      sha256(fs.readFileSync(path.join(root, notificationCandidate.productPath))) !== notificationCandidate.productSha256 ||
+      sha256(fs.readFileSync(path.join(root, notificationCandidate.implementationReviewPath))) !== notificationCandidate.implementationReviewSha256) fail("F9 candidate binding mismatch");
+  if (active?.name !== "notifications-secret-errors" ||
+      active?.finding !== "F9" ||
+      active?.authorizedStage !== "commit-notifications-secret-errors" ||
+      JSON.stringify(active?.authorization) !== JSON.stringify(notificationCandidate.commitAuthorization) ||
       active?.productCodeAuthorized !== false ||
-      finalCorrection.nextIncrement !== "harness-registry-mcp-entry" ||
+      finalCorrection.nextIncrement !== "notifications-secret-errors" ||
       integrity.writeTestsLocked !== true ||
       integrity.codeLocked !== true ||
       integrity.productCodeLocked !== true ||
-      integrity.commitLocked !== false) fail("F3 commit authorization state invalid");
+      integrity.commitLocked !== false) fail("F9 commit authorization state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,

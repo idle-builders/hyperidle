@@ -231,8 +231,16 @@ async function writeSecret(
 	let encryptedValue: string;
 	try {
 		encryptedValue = deps.credentialCipher.encryptCredentialValue(value);
-	} catch {
-		return;
+	} catch (error) {
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"code" in error &&
+			error.code === "MISSING_ROOT_SECRET"
+		) {
+			return;
+		}
+		throw error;
 	}
 	await deps.credentialStore.upsert(db, {
 		name,
