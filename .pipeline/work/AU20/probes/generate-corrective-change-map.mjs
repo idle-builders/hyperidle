@@ -1833,6 +1833,76 @@ const censusCandidateValid =
   ]) &&
   Object.entries(censusCandidate.evidenceSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
   sha256(fs.readFileSync(path.join(root, censusCandidate.implementationReviewPath))) === censusCandidate.implementationReviewSha256;
+const censusCommit = censusCandidate?.commitReceipt ?? null;
+const censusCommitInspection = censusCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", censusCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const censusCommitPaths = censusCommit
+  ? spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", censusCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const censusCommitValid =
+  censusCandidateValid &&
+  censusCommit?.commit === "b69b822ca111677ed7e600076c0d9347c2916242" &&
+  censusCommit?.tree === "03c4fa25929b9a4893ca5690ba9d772e5955733c" &&
+  censusCommit?.parent === "4506a28c4dbd1bc581a85dbba86552c43b63fad3" &&
+  censusCommit?.subject === censusCandidate.commitAuthorization.message &&
+  JSON.stringify(censusCommit?.paths) === JSON.stringify(censusCandidate.commitAuthorization.paths) &&
+  JSON.stringify(censusCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(censusCommit?.verification ?? {}).every((result) => result === "pass") &&
+  censusCommitInspection?.status === 0 &&
+  censusCommitInspection.stdout.trim() === [censusCommit.commit, censusCommit.tree, censusCommit.parent, censusCommit.subject].join("\n") &&
+  censusCommitPaths?.status === 0 &&
+  JSON.stringify(censusCommitPaths.stdout.trim().split("\n")) === JSON.stringify(censusCommit.paths);
+const knowledgeKnipRed = progress.gateBindings?.knowledgeKnipDeadSurfaceRedProof ?? null;
+const knowledgeKnipRedValid =
+  censusCommitValid &&
+  knowledgeKnipRed?.proofSha256 === "4a940ba2ffe97e9696b64238c23539d4afc41a3e78af2bb206bc126d4a9a8e82" &&
+  knowledgeKnipRed?.reviewSha256 === "d2488e914e44c306887b7941712d7f808a5ab72d9cfaca3bd1a5c2c9641d9b3e" &&
+  knowledgeKnipRed?.verdict === "accept" &&
+  knowledgeKnipRed?.status === "accepted" &&
+  sha256(fs.readFileSync(path.join(root, knowledgeKnipRed.proofPath))) === knowledgeKnipRed.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, knowledgeKnipRed.reviewPath))) === knowledgeKnipRed.reviewSha256;
+const knowledgeKnipWriteCode = progress.gateBindings?.knowledgeKnipDeadSurfaceWriteCodeAuthorization ?? null;
+const knowledgeKnipWriteCodeValid =
+  knowledgeKnipRedValid &&
+  knowledgeKnipWriteCode?.stage === "write-code-knowledge-knip-dead-surface" &&
+  knowledgeKnipWriteCode?.service === "knowledge" &&
+  JSON.stringify(knowledgeKnipWriteCode?.authorizedPaths) === JSON.stringify([
+    "packages/core-api/knowledge/src/knowledge-reader.ts",
+    "packages/core-api/knowledge/src/types.ts",
+  ]) &&
+  knowledgeKnipWriteCode?.productBehaviorAuthorized === false &&
+  knowledgeKnipWriteCode?.newExportsAuthorized === false &&
+  knowledgeKnipWriteCode?.surfaceGrowthAuthorized === false &&
+  knowledgeKnipWriteCode?.implementationReviewRequiredBeforeCommit === true &&
+  knowledgeKnipWriteCode?.status === "authorized";
+const knowledgeKnipCandidate = progress.gateBindings?.knowledgeKnipDeadSurfaceCandidate ?? null;
+const knowledgeKnipCandidateValid =
+  knowledgeKnipWriteCodeValid &&
+  JSON.stringify(knowledgeKnipCandidate?.productSha256) === JSON.stringify({
+    "packages/core-api/knowledge/src/knowledge-reader.ts": "deleted",
+    "packages/core-api/knowledge/src/types.ts": "9798ebe305fa4d1e0e143df5a851812c212c3821e39a91634cce72511d177608",
+  }) &&
+  knowledgeKnipCandidate?.proofSha256 === knowledgeKnipRed.proofSha256 &&
+  knowledgeKnipCandidate?.redReviewSha256 === knowledgeKnipRed.reviewSha256 &&
+  knowledgeKnipCandidate?.implementationReviewSha256 === "1e5fc604893ee222d9c71f5cb9c120ae2f621709616828b039864a0d059e5162" &&
+  knowledgeKnipCandidate?.implementationReviewVerdict === "accept" &&
+  knowledgeKnipCandidate?.status === "accepted-commit-authorized" &&
+  knowledgeKnipCandidate?.commitAuthorization?.message === "AU20 knowledge: delete Knip dead surface" &&
+  JSON.stringify(knowledgeKnipCandidate?.commitAuthorization?.paths) === JSON.stringify([
+    ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/progress.json",
+    ".pipeline/work/AU20/red-proofs/knowledge-knip-dead-surface.json",
+    "packages/core-api/knowledge/src/knowledge-reader.ts",
+    "packages/core-api/knowledge/src/types.ts",
+    "plans/AU20/corrective-change-map.json",
+    "plans/AU20/red-proof-reviews/knowledge-knip-dead-surface.md",
+    "plans/AU20/register-reviews/knowledge-knip-dead-surface.md",
+  ]) &&
+  !fs.existsSync(path.join(root, "packages/core-api/knowledge/src/knowledge-reader.ts")) &&
+  sha256(fs.readFileSync(path.join(root, "packages/core-api/knowledge/src/types.ts"))) === knowledgeKnipCandidate.productSha256["packages/core-api/knowledge/src/types.ts"] &&
+  sha256(fs.readFileSync(path.join(root, knowledgeKnipCandidate.implementationReviewPath))) === knowledgeKnipCandidate.implementationReviewSha256;
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -1937,22 +2007,30 @@ const finalShipCorrection = {
       commitReceipt: ownershipCommit,
       status: "completed-history",
     }] : []),
+    ...(censusCommitValid ? [{
+      name: "evidence-current-census",
+      findings: ["F7", "F12"],
+      staticRedProof: censusRed,
+      candidate: censusCandidate,
+      commitReceipt: censusCommit,
+      status: "completed-history",
+    }] : []),
   ],
   activeIncrement: {
-    name: "evidence-current-census",
-    findings: ["F7", "F12"],
-    staticRedProof: censusRedValid ? censusRed : null,
-    candidate: censusCandidateValid ? censusCandidate : null,
-    authorizedStage: censusCandidateValid && progress.currentStep === "commit-evidence-current-census"
-      ? "commit-evidence-current-census"
+    name: "knowledge-knip-dead-surface",
+    service: "knowledge",
+    staticRedProof: knowledgeKnipRedValid ? knowledgeKnipRed : null,
+    candidate: knowledgeKnipCandidateValid ? knowledgeKnipCandidate : null,
+    authorizedStage: knowledgeKnipCandidateValid && progress.currentStep === "commit-knowledge-knip-dead-surface"
+      ? "commit-knowledge-knip-dead-surface"
       : null,
-    authorization: censusCandidateValid
-      ? censusCandidate.commitAuthorization
+    authorization: knowledgeKnipCandidateValid
+      ? knowledgeKnipCandidate.commitAuthorization
       : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "evidence-current-census",
+  nextIncrement: "knowledge-knip-dead-surface",
 };
 const output = {
   ...payload,
@@ -1968,7 +2046,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !censusCandidateValid,
+    commitLocked: !knowledgeKnipCandidateValid,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

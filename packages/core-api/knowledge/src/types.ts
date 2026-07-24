@@ -31,11 +31,6 @@ export type KnowledgeKind =
 	| "reflection"
 	| "focus";
 
-// --- Lifecycle propagation types ---
-
-/** @lore U1: `"product"` renamed to `"team"` to match the new domain entity name. */
-type PropagationLevel = "session" | "task" | "bet" | "team" | "portfolio";
-
 // --- Scope ---
 
 /**
@@ -51,5 +46,4 @@ export interface KnowledgeScope {
 	readonly scopeId?: string | null;
 }
 
-export type { PropagationLevel };
 export { KNOWLEDGE_STATUSES };

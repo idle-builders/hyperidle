@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "commit-evidence-current-census",
+  "currentStep": "commit-knowledge-knip-dead-surface",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -1631,6 +1631,122 @@
           "plans/AU20/red-proof-reviews/evidence-current-census.md",
           "plans/AU20/register-reviews/evidence-current-census.md",
           "plans/AU20/surface-census.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "b69b822ca111677ed7e600076c0d9347c2916242",
+        "tree": "03c4fa25929b9a4893ca5690ba9d772e5955733c",
+        "parent": "4506a28c4dbd1bc581a85dbba86552c43b63fad3",
+        "subject": "AU20 F7 F12: regenerate current census evidence",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/rearch/census-after.json",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/evidence-current-census.md",
+          "plans/AU20/register-reviews/evidence-current-census.md",
+          "plans/AU20/surface-census.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "determinism": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "knowledgeKnipDeadSurfaceRedProof": {
+      "increment": "knowledge-knip-dead-surface",
+      "service": "knowledge",
+      "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-knip-dead-surface.json",
+      "proofSha256": "4a940ba2ffe97e9696b64238c23539d4afc41a3e78af2bb206bc126d4a9a8e82",
+      "reviewPath": "plans/AU20/red-proof-reviews/knowledge-knip-dead-surface.md",
+      "reviewSha256": "d2488e914e44c306887b7941712d7f808a5ab72d9cfaca3bd1a5c2c9641d9b3e",
+      "verdict": "accept",
+      "expectedRed": [
+        "Unused files: packages/core-api/knowledge/src/knowledge-reader.ts",
+        "Unused exported types: PropagationLevel"
+      ],
+      "census": {
+        "service": "knowledge",
+        "methods": 17,
+        "types": 12,
+        "total": 29,
+        "aggregateMethods": 231,
+        "aggregateTypes": 181,
+        "aggregateTotal": 412
+      },
+      "status": "accepted"
+    },
+    "knowledgeKnipDeadSurfaceWriteCodeAuthorization": {
+      "increment": "knowledge-knip-dead-surface",
+      "stage": "write-code-knowledge-knip-dead-surface",
+      "service": "knowledge",
+      "authorizedPaths": [
+        "packages/core-api/knowledge/src/knowledge-reader.ts",
+        "packages/core-api/knowledge/src/types.ts"
+      ],
+      "requiredChanges": [
+        "delete comment-only knowledge-reader.ts",
+        "delete the orphan lifecycle heading, lore, private PropagationLevel declaration, and its re-export"
+      ],
+      "frozenOtherKnipLeaves": [
+        "packages/eval/package.json:@hyperidle/connections",
+        "packages/core-api/notifications/package.json:@types/smtp-server",
+        "packages/core-api/notifications/package.json:smtp-server"
+      ],
+      "productBehaviorAuthorized": false,
+      "newExportsAuthorized": false,
+      "surfaceGrowthAuthorized": false,
+      "expectedCensus": "knowledge 17/12/29; aggregate 23/231/181/412 unchanged",
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "eval-knip-unused-dependency",
+      "status": "authorized"
+    },
+    "knowledgeKnipDeadSurfaceCandidate": {
+      "increment": "knowledge-knip-dead-surface",
+      "service": "knowledge",
+      "productSha256": {
+        "packages/core-api/knowledge/src/knowledge-reader.ts": "deleted",
+        "packages/core-api/knowledge/src/types.ts": "9798ebe305fa4d1e0e143df5a851812c212c3821e39a91634cce72511d177608"
+      },
+      "proofSha256": "4a940ba2ffe97e9696b64238c23539d4afc41a3e78af2bb206bc126d4a9a8e82",
+      "redReviewSha256": "d2488e914e44c306887b7941712d7f808a5ab72d9cfaca3bd1a5c2c9641d9b3e",
+      "implementationReviewPath": "plans/AU20/register-reviews/knowledge-knip-dead-surface.md",
+      "implementationReviewSha256": "1e5fc604893ee222d9c71f5cb9c120ae2f621709616828b039864a0d059e5162",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "knowledgeCheck": "pass",
+        "knowledgeUnit": "1 file / 18 tests pass",
+        "knowledgeIntegration": "3 files / 40 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "knip": "knowledge findings absent; frozen eval/notifications findings remain",
+        "census": "knowledge 17/12/29; aggregate 23/231/181/412 unchanged",
+        "diff": "0 insertions / 12 deletions"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 knowledge: delete Knip dead surface",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/knowledge-knip-dead-surface.json",
+          "packages/core-api/knowledge/src/knowledge-reader.ts",
+          "packages/core-api/knowledge/src/types.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/knowledge-knip-dead-surface.md",
+          "plans/AU20/register-reviews/knowledge-knip-dead-surface.md"
         ]
       }
     }

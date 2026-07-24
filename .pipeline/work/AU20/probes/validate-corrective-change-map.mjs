@@ -711,48 +711,61 @@ if (process.argv.includes("--require-review")) {
       ownershipGitReceipt.stdout.trim() !== [ownershipReceipt.commit, ownershipReceipt.tree, ownershipReceipt.parent, ownershipReceipt.subject].join("\n") ||
       ownershipGitPaths.status !== 0 ||
       JSON.stringify(ownershipGitPaths.stdout.trim().split("\n")) !== JSON.stringify(ownershipReceipt.paths)) fail("F8 commit object mismatch");
-  const censusRed = active?.staticRedProof;
-  const censusCandidate = active?.candidate;
-  if (censusRed?.validatorSha256 !== "d04163f248be09bef650b0b5c5c783063f0475b3f9b7d4ec57ac18cdfa117c95" ||
-      censusRed?.censusScriptSha256 !== "df74ee90cce2bf075f2fd32199e6c86780871c2530c6baa981a4cc8498d0cc9b" ||
-      censusRed?.reviewSha256 !== "f65363266afd88510482eae976eae5f2390e0998957c1a25f628c1a59c6999d1" ||
-      censusRed?.verdict !== "accept" ||
-      censusRed?.redExit !== 1 ||
-      sha256(fs.readFileSync(path.join(root, censusRed.validatorPath))) !== censusRed.validatorSha256 ||
-      sha256(fs.readFileSync(path.join(root, censusRed.censusScriptPath))) !== censusRed.censusScriptSha256 ||
-      sha256(fs.readFileSync(path.join(root, censusRed.reviewPath))) !== censusRed.reviewSha256) fail("F7/F12 static-red binding mismatch");
-  if (JSON.stringify(censusCandidate?.evidenceSha256) !== JSON.stringify({
-        ".pipeline/work/AU20/rearch/census-after.json": "7ee19367efba17a2b92482444a50f5e5864641acfad3f20d4d8e8db3c7bbacd8",
-        "plans/AU20/surface-census.md": "68c80a96fc3f6282c117a604790dc0f080b67569bb6b9131cd31b12f1217894a",
+  const completedCensus = finalCorrection.completedIncrements?.find((increment) => increment.name === "evidence-current-census");
+  const censusReceipt = completedCensus?.commitReceipt;
+  if (censusReceipt?.commit !== "b69b822ca111677ed7e600076c0d9347c2916242" ||
+      censusReceipt?.tree !== "03c4fa25929b9a4893ca5690ba9d772e5955733c" ||
+      censusReceipt?.parent !== "4506a28c4dbd1bc581a85dbba86552c43b63fad3" ||
+      censusReceipt?.subject !== "AU20 F7 F12: regenerate current census evidence" ||
+      censusReceipt?.paths?.length !== 9 ||
+      JSON.stringify(censusReceipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      Object.values(censusReceipt?.verification ?? {}).some((result) => result !== "pass")) fail("F7/F12 commit receipt mismatch");
+  const censusGitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", censusReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  const censusGitPaths = spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", censusReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (censusGitReceipt.status !== 0 ||
+      censusGitReceipt.stdout.trim() !== [censusReceipt.commit, censusReceipt.tree, censusReceipt.parent, censusReceipt.subject].join("\n") ||
+      censusGitPaths.status !== 0 ||
+      JSON.stringify(censusGitPaths.stdout.trim().split("\n")) !== JSON.stringify(censusReceipt.paths)) fail("F7/F12 commit object mismatch");
+  const knowledgeRed = active?.staticRedProof;
+  const knowledgeCandidate = active?.candidate;
+  if (knowledgeRed?.proofSha256 !== "4a940ba2ffe97e9696b64238c23539d4afc41a3e78af2bb206bc126d4a9a8e82" ||
+      knowledgeRed?.reviewSha256 !== "d2488e914e44c306887b7941712d7f808a5ab72d9cfaca3bd1a5c2c9641d9b3e" ||
+      knowledgeRed?.verdict !== "accept" ||
+      sha256(fs.readFileSync(path.join(root, knowledgeRed.proofPath))) !== knowledgeRed.proofSha256 ||
+      sha256(fs.readFileSync(path.join(root, knowledgeRed.reviewPath))) !== knowledgeRed.reviewSha256) fail("knowledge Knip static-red binding mismatch");
+  if (JSON.stringify(knowledgeCandidate?.productSha256) !== JSON.stringify({
+        "packages/core-api/knowledge/src/knowledge-reader.ts": "deleted",
+        "packages/core-api/knowledge/src/types.ts": "9798ebe305fa4d1e0e143df5a851812c212c3821e39a91634cce72511d177608",
       }) ||
-      censusCandidate?.validatorSha256 !== censusRed.validatorSha256 ||
-      censusCandidate?.redReviewSha256 !== censusRed.reviewSha256 ||
-      censusCandidate?.implementationReviewSha256 !== "86aaf1da1a15c9d615bdf66f11851b9ea06848625df637115779851a03a20acc" ||
-      censusCandidate?.implementationReviewVerdict !== "accept" ||
-      censusCandidate?.status !== "accepted-commit-authorized" ||
-      censusCandidate?.commitAuthorization?.message !== "AU20 F7 F12: regenerate current census evidence" ||
-      Object.entries(censusCandidate.evidenceSha256).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash) ||
-      sha256(fs.readFileSync(path.join(root, censusCandidate.implementationReviewPath))) !== censusCandidate.implementationReviewSha256) fail("F7/F12 candidate binding mismatch");
-  if (active?.name !== "evidence-current-census" ||
-      JSON.stringify(active?.findings) !== JSON.stringify(["F7", "F12"]) ||
-      active?.authorizedStage !== "commit-evidence-current-census" ||
+      knowledgeCandidate?.proofSha256 !== knowledgeRed.proofSha256 ||
+      knowledgeCandidate?.redReviewSha256 !== knowledgeRed.reviewSha256 ||
+      knowledgeCandidate?.implementationReviewSha256 !== "1e5fc604893ee222d9c71f5cb9c120ae2f621709616828b039864a0d059e5162" ||
+      knowledgeCandidate?.implementationReviewVerdict !== "accept" ||
+      knowledgeCandidate?.status !== "accepted-commit-authorized" ||
+      knowledgeCandidate?.commitAuthorization?.message !== "AU20 knowledge: delete Knip dead surface" ||
+      fs.existsSync(path.join(root, "packages/core-api/knowledge/src/knowledge-reader.ts")) ||
+      sha256(fs.readFileSync(path.join(root, "packages/core-api/knowledge/src/types.ts"))) !== knowledgeCandidate.productSha256["packages/core-api/knowledge/src/types.ts"] ||
+      sha256(fs.readFileSync(path.join(root, knowledgeCandidate.implementationReviewPath))) !== knowledgeCandidate.implementationReviewSha256) fail("knowledge Knip candidate binding mismatch");
+  if (active?.name !== "knowledge-knip-dead-surface" ||
+      active?.service !== "knowledge" ||
+      active?.authorizedStage !== "commit-knowledge-knip-dead-surface" ||
       JSON.stringify(active?.authorization?.paths) !== JSON.stringify([
         ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
         ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
-        ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
         ".pipeline/work/AU20/progress.json",
-        ".pipeline/work/AU20/rearch/census-after.json",
+        ".pipeline/work/AU20/red-proofs/knowledge-knip-dead-surface.json",
+        "packages/core-api/knowledge/src/knowledge-reader.ts",
+        "packages/core-api/knowledge/src/types.ts",
         "plans/AU20/corrective-change-map.json",
-        "plans/AU20/red-proof-reviews/evidence-current-census.md",
-        "plans/AU20/register-reviews/evidence-current-census.md",
-        "plans/AU20/surface-census.md",
+        "plans/AU20/red-proof-reviews/knowledge-knip-dead-surface.md",
+        "plans/AU20/register-reviews/knowledge-knip-dead-surface.md",
       ]) ||
       active?.productCodeAuthorized !== false ||
-      finalCorrection.nextIncrement !== "evidence-current-census" ||
+      finalCorrection.nextIncrement !== "knowledge-knip-dead-surface" ||
       integrity.writeTestsLocked !== true ||
       integrity.codeLocked !== true ||
       integrity.productCodeLocked !== true ||
-      integrity.commitLocked !== false) fail("F7/F12 commit authorization state invalid");
+      integrity.commitLocked !== false) fail("knowledge Knip commit authorization state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,
