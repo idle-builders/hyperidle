@@ -726,46 +726,59 @@ if (process.argv.includes("--require-review")) {
       censusGitReceipt.stdout.trim() !== [censusReceipt.commit, censusReceipt.tree, censusReceipt.parent, censusReceipt.subject].join("\n") ||
       censusGitPaths.status !== 0 ||
       JSON.stringify(censusGitPaths.stdout.trim().split("\n")) !== JSON.stringify(censusReceipt.paths)) fail("F7/F12 commit object mismatch");
-  const knowledgeRed = active?.staticRedProof;
-  const knowledgeCandidate = active?.candidate;
-  if (knowledgeRed?.proofSha256 !== "4a940ba2ffe97e9696b64238c23539d4afc41a3e78af2bb206bc126d4a9a8e82" ||
-      knowledgeRed?.reviewSha256 !== "d2488e914e44c306887b7941712d7f808a5ab72d9cfaca3bd1a5c2c9641d9b3e" ||
-      knowledgeRed?.verdict !== "accept" ||
-      sha256(fs.readFileSync(path.join(root, knowledgeRed.proofPath))) !== knowledgeRed.proofSha256 ||
-      sha256(fs.readFileSync(path.join(root, knowledgeRed.reviewPath))) !== knowledgeRed.reviewSha256) fail("knowledge Knip static-red binding mismatch");
-  if (JSON.stringify(knowledgeCandidate?.productSha256) !== JSON.stringify({
-        "packages/core-api/knowledge/src/knowledge-reader.ts": "deleted",
-        "packages/core-api/knowledge/src/types.ts": "9798ebe305fa4d1e0e143df5a851812c212c3821e39a91634cce72511d177608",
+  const completedKnowledge = finalCorrection.completedIncrements?.find((increment) => increment.name === "knowledge-knip-dead-surface");
+  const knowledgeReceipt = completedKnowledge?.commitReceipt;
+  if (knowledgeReceipt?.commit !== "b8422e57667631117024587ee239f115b3c23165" ||
+      knowledgeReceipt?.tree !== "91575c4070969db2d1c007d4154b321204474e0c" ||
+      knowledgeReceipt?.parent !== "b69b822ca111677ed7e600076c0d9347c2916242" ||
+      knowledgeReceipt?.subject !== "AU20 knowledge: delete Knip dead surface" ||
+      knowledgeReceipt?.paths?.length !== 9 ||
+      JSON.stringify(knowledgeReceipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      Object.values(knowledgeReceipt?.verification ?? {}).some((result) => result !== "pass")) fail("knowledge Knip commit receipt mismatch");
+  const knowledgeGitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", knowledgeReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  const knowledgeGitPaths = spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", knowledgeReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (knowledgeGitReceipt.status !== 0 ||
+      knowledgeGitReceipt.stdout.trim() !== [knowledgeReceipt.commit, knowledgeReceipt.tree, knowledgeReceipt.parent, knowledgeReceipt.subject].join("\n") ||
+      knowledgeGitPaths.status !== 0 ||
+      JSON.stringify(knowledgeGitPaths.stdout.trim().split("\n")) !== JSON.stringify(knowledgeReceipt.paths)) fail("knowledge Knip commit object mismatch");
+  const evalRed = active?.staticRedProof;
+  const evalCandidate = active?.candidate;
+  if (evalRed?.proofSha256 !== "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1" ||
+      evalRed?.reviewSha256 !== "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f" ||
+      evalRed?.verdict !== "accept" ||
+      sha256(fs.readFileSync(path.join(root, evalRed.proofPath))) !== evalRed.proofSha256 ||
+      sha256(fs.readFileSync(path.join(root, evalRed.reviewPath))) !== evalRed.reviewSha256) fail("eval Knip static-red binding mismatch");
+  if (JSON.stringify(evalCandidate?.productSha256) !== JSON.stringify({
+        "packages/eval/package.json": "0a6388b34d0eafec15650b07b03bae2908325b98c4591d94525a6a9cf4af1b92",
+        "package-lock.json": "bd2d4ca14bdb9e38da74ba3ce3c26df7cbded1aa3f1f89047ca6c01ff9b70817",
       }) ||
-      knowledgeCandidate?.proofSha256 !== knowledgeRed.proofSha256 ||
-      knowledgeCandidate?.redReviewSha256 !== knowledgeRed.reviewSha256 ||
-      knowledgeCandidate?.implementationReviewSha256 !== "1e5fc604893ee222d9c71f5cb9c120ae2f621709616828b039864a0d059e5162" ||
-      knowledgeCandidate?.implementationReviewVerdict !== "accept" ||
-      knowledgeCandidate?.status !== "accepted-commit-authorized" ||
-      knowledgeCandidate?.commitAuthorization?.message !== "AU20 knowledge: delete Knip dead surface" ||
-      fs.existsSync(path.join(root, "packages/core-api/knowledge/src/knowledge-reader.ts")) ||
-      sha256(fs.readFileSync(path.join(root, "packages/core-api/knowledge/src/types.ts"))) !== knowledgeCandidate.productSha256["packages/core-api/knowledge/src/types.ts"] ||
-      sha256(fs.readFileSync(path.join(root, knowledgeCandidate.implementationReviewPath))) !== knowledgeCandidate.implementationReviewSha256) fail("knowledge Knip candidate binding mismatch");
-  if (active?.name !== "knowledge-knip-dead-surface" ||
-      active?.service !== "knowledge" ||
-      active?.authorizedStage !== "commit-knowledge-knip-dead-surface" ||
+      evalCandidate?.proofSha256 !== evalRed.proofSha256 ||
+      evalCandidate?.redReviewSha256 !== evalRed.reviewSha256 ||
+      evalCandidate?.implementationReviewSha256 !== "f8d8e0da01ea4da53abd03fa2e6b6e3638a64de6a559fdbf1b61eefafd787381" ||
+      evalCandidate?.implementationReviewVerdict !== "accept" ||
+      evalCandidate?.status !== "accepted-commit-authorized" ||
+      evalCandidate?.commitAuthorization?.message !== "AU20 eval: remove unused connections dependency" ||
+      Object.entries(evalCandidate.productSha256).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash) ||
+      sha256(fs.readFileSync(path.join(root, evalCandidate.implementationReviewPath))) !== evalCandidate.implementationReviewSha256) fail("eval Knip candidate binding mismatch");
+  if (active?.name !== "eval-knip-unused-dependency" ||
+      active?.authorizedStage !== "commit-eval-knip-unused-dependency" ||
       JSON.stringify(active?.authorization?.paths) !== JSON.stringify([
         ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
         ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
         ".pipeline/work/AU20/progress.json",
-        ".pipeline/work/AU20/red-proofs/knowledge-knip-dead-surface.json",
-        "packages/core-api/knowledge/src/knowledge-reader.ts",
-        "packages/core-api/knowledge/src/types.ts",
+        ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+        "package-lock.json",
+        "packages/eval/package.json",
         "plans/AU20/corrective-change-map.json",
-        "plans/AU20/red-proof-reviews/knowledge-knip-dead-surface.md",
-        "plans/AU20/register-reviews/knowledge-knip-dead-surface.md",
+        "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
+        "plans/AU20/register-reviews/eval-knip-unused-dependency.md",
       ]) ||
       active?.productCodeAuthorized !== false ||
-      finalCorrection.nextIncrement !== "knowledge-knip-dead-surface" ||
+      finalCorrection.nextIncrement !== "eval-knip-unused-dependency" ||
       integrity.writeTestsLocked !== true ||
       integrity.codeLocked !== true ||
       integrity.productCodeLocked !== true ||
-      integrity.commitLocked !== false) fail("knowledge Knip commit authorization state invalid");
+      integrity.commitLocked !== false) fail("eval Knip commit authorization state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,

@@ -1,0 +1,109 @@
+{
+  "workPackage": "AU20",
+  "increment": "eval-knip-unused-dependency",
+  "stage": "write-tests/static-red",
+  "baseCommit": "b8422e57667631117024587ee239f115b3c23165",
+  "command": {
+    "cwd": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+    "argv": [
+      "npm",
+      "run",
+      "knip"
+    ],
+    "exitCode": 1
+  },
+  "intendedRed": {
+    "reason": "Knip reports @hyperidle/connections as an unused packages/eval dependency.",
+    "finding": {
+      "kind": "unused-dependency",
+      "package": "@hyperidle/connections",
+      "path": "packages/eval/package.json",
+      "line": 16,
+      "column": 4,
+      "position": 305
+    }
+  },
+  "currentFiles": [
+    {
+      "path": "packages/eval/package.json",
+      "sha256": "d3d5d902d16fda92aafcc3b7c05c0d1e85ca68839b9a8cf0edd0528c70ba73e7"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "69741a16277fe522476b24e386e57d055b3093eeebc8a6465b3a8d801d8ef28f"
+    }
+  ],
+  "lockfileWorkspaceBinding": {
+    "jsonPath": "packages[\"packages/eval\"].dependencies[\"@hyperidle/connections\"]",
+    "value": "*"
+  },
+  "consumerAbsenceProof": [
+    {
+      "command": "rg -n -a \"from[[:space:]]+['\\\"]@hyperidle/connections(?:/[^'\\\"]*)?['\\\"]|import[[:space:]]*\\\\(['\\\"]@hyperidle/connections(?:/[^'\\\"]*)?['\\\"]\\\\)|require[[:space:]]*\\\\(['\\\"]@hyperidle/connections(?:/[^'\\\"]*)?['\\\"]\\\\)\" packages/eval",
+      "exitCode": 1,
+      "matches": []
+    },
+    {
+      "command": "rg -n -a -F '@hyperidle/connections' packages/eval",
+      "exitCode": 0,
+      "matches": [
+        "packages/eval/package.json:16:\t\t\"@hyperidle/connections\": \"*\","
+      ],
+      "interpretation": "The manifest declaration is the only literal occurrence; no eval source, test, script, import, dynamic import, or require consumes it."
+    }
+  ],
+  "frozenOtherKnipFindings": [
+    {
+      "kind": "unused-devDependency",
+      "package": "@types/smtp-server",
+      "path": "packages/core-api/notifications/package.json",
+      "line": 21,
+      "column": 4,
+      "position": 393
+    },
+    {
+      "kind": "unused-devDependency",
+      "package": "smtp-server",
+      "path": "packages/core-api/notifications/package.json",
+      "line": 22,
+      "column": 4,
+      "position": 428
+    }
+  ],
+  "frozenSurfaces": {
+    "notificationsManifest": {
+      "path": "packages/core-api/notifications/package.json",
+      "sha256": "32f488ea7d0e3451afc46c2178baabb679388dde57cf8cc1612cec14722ab300",
+      "gitBlob": "ff9531b94abb6344676cdcaae4690c0559fd796e"
+    },
+    "censusTool": {
+      "path": "scripts/surface-census.ts",
+      "sha256": "df74ee90cce2bf075f2fd32199e6c86780871c2530c6baa981a4cc8498d0cc9b",
+      "gitBlob": "3d59ff36c23f5a81e3fb89d20c869a00b29e7116"
+    },
+    "productTree": {
+      "path": "packages",
+      "gitTreeAtBaseCommit": "3f04d18259aac2f11de3ded4ee7cf8dfae7b39d6"
+    },
+    "census": {
+      "command": "npx tsx scripts/surface-census.ts --table",
+      "exitCode": 0,
+      "services": 23,
+      "methods": 231,
+      "types": 181,
+      "total": 412
+    }
+  },
+  "configurationHints": {
+    "count": 41,
+    "classification": "Knip configuration hints are informational and frozen outside this increment."
+  },
+  "locked": {
+    "allowedWrite": ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+    "manifestEdits": false,
+    "lockfileEdits": false,
+    "productEdits": false,
+    "gateEdits": false,
+    "commit": false
+  }
+}

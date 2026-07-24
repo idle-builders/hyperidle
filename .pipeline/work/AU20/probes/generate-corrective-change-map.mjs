@@ -1903,6 +1903,63 @@ const knowledgeKnipCandidateValid =
   !fs.existsSync(path.join(root, "packages/core-api/knowledge/src/knowledge-reader.ts")) &&
   sha256(fs.readFileSync(path.join(root, "packages/core-api/knowledge/src/types.ts"))) === knowledgeKnipCandidate.productSha256["packages/core-api/knowledge/src/types.ts"] &&
   sha256(fs.readFileSync(path.join(root, knowledgeKnipCandidate.implementationReviewPath))) === knowledgeKnipCandidate.implementationReviewSha256;
+const knowledgeKnipCommit = knowledgeKnipCandidate?.commitReceipt ?? null;
+const knowledgeKnipCommitInspection = knowledgeKnipCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", knowledgeKnipCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const knowledgeKnipCommitPaths = knowledgeKnipCommit
+  ? spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", knowledgeKnipCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const knowledgeKnipCommitValid =
+  knowledgeKnipCandidateValid &&
+  knowledgeKnipCommit?.commit === "b8422e57667631117024587ee239f115b3c23165" &&
+  knowledgeKnipCommit?.tree === "91575c4070969db2d1c007d4154b321204474e0c" &&
+  knowledgeKnipCommit?.parent === "b69b822ca111677ed7e600076c0d9347c2916242" &&
+  knowledgeKnipCommit?.subject === knowledgeKnipCandidate.commitAuthorization.message &&
+  JSON.stringify(knowledgeKnipCommit?.paths) === JSON.stringify(knowledgeKnipCandidate.commitAuthorization.paths) &&
+  JSON.stringify(knowledgeKnipCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(knowledgeKnipCommit?.verification ?? {}).every((result) => result === "pass") &&
+  knowledgeKnipCommitInspection?.status === 0 &&
+  knowledgeKnipCommitInspection.stdout.trim() === [knowledgeKnipCommit.commit, knowledgeKnipCommit.tree, knowledgeKnipCommit.parent, knowledgeKnipCommit.subject].join("\n") &&
+  knowledgeKnipCommitPaths?.status === 0 &&
+  JSON.stringify(knowledgeKnipCommitPaths.stdout.trim().split("\n")) === JSON.stringify(knowledgeKnipCommit.paths);
+const evalKnipRed = progress.gateBindings?.evalKnipUnusedDependencyRedProof ?? null;
+const evalKnipRedValid =
+  knowledgeKnipCommitValid &&
+  evalKnipRed?.proofSha256 === "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1" &&
+  evalKnipRed?.reviewSha256 === "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f" &&
+  evalKnipRed?.verdict === "accept" &&
+  evalKnipRed?.status === "accepted" &&
+  sha256(fs.readFileSync(path.join(root, evalKnipRed.proofPath))) === evalKnipRed.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, evalKnipRed.reviewPath))) === evalKnipRed.reviewSha256;
+const evalKnipWriteCode = progress.gateBindings?.evalKnipUnusedDependencyWriteCodeAuthorization ?? null;
+const evalKnipWriteCodeValid =
+  evalKnipRedValid &&
+  evalKnipWriteCode?.stage === "write-code-eval-knip-unused-dependency" &&
+  JSON.stringify(evalKnipWriteCode?.authorizedPaths) === JSON.stringify([
+    "packages/eval/package.json",
+    "package-lock.json",
+  ]) &&
+  evalKnipWriteCode?.productCodeAuthorized === false &&
+  evalKnipWriteCode?.unrelatedLockChurnAuthorized === false &&
+  evalKnipWriteCode?.surfaceGrowthAuthorized === false &&
+  evalKnipWriteCode?.implementationReviewRequiredBeforeCommit === true &&
+  evalKnipWriteCode?.status === "authorized";
+const evalKnipCandidate = progress.gateBindings?.evalKnipUnusedDependencyCandidate ?? null;
+const evalKnipCandidateValid =
+  evalKnipWriteCodeValid &&
+  JSON.stringify(evalKnipCandidate?.productSha256) === JSON.stringify({
+    "packages/eval/package.json": "0a6388b34d0eafec15650b07b03bae2908325b98c4591d94525a6a9cf4af1b92",
+    "package-lock.json": "bd2d4ca14bdb9e38da74ba3ce3c26df7cbded1aa3f1f89047ca6c01ff9b70817",
+  }) &&
+  evalKnipCandidate?.proofSha256 === evalKnipRed.proofSha256 &&
+  evalKnipCandidate?.redReviewSha256 === evalKnipRed.reviewSha256 &&
+  evalKnipCandidate?.implementationReviewSha256 === "f8d8e0da01ea4da53abd03fa2e6b6e3638a64de6a559fdbf1b61eefafd787381" &&
+  evalKnipCandidate?.implementationReviewVerdict === "accept" &&
+  evalKnipCandidate?.status === "accepted-commit-authorized" &&
+  evalKnipCandidate?.commitAuthorization?.message === "AU20 eval: remove unused connections dependency" &&
+  Object.entries(evalKnipCandidate.productSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
+  sha256(fs.readFileSync(path.join(root, evalKnipCandidate.implementationReviewPath))) === evalKnipCandidate.implementationReviewSha256;
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -2015,22 +2072,29 @@ const finalShipCorrection = {
       commitReceipt: censusCommit,
       status: "completed-history",
     }] : []),
+    ...(knowledgeKnipCommitValid ? [{
+      name: "knowledge-knip-dead-surface",
+      service: "knowledge",
+      staticRedProof: knowledgeKnipRed,
+      candidate: knowledgeKnipCandidate,
+      commitReceipt: knowledgeKnipCommit,
+      status: "completed-history",
+    }] : []),
   ],
   activeIncrement: {
-    name: "knowledge-knip-dead-surface",
-    service: "knowledge",
-    staticRedProof: knowledgeKnipRedValid ? knowledgeKnipRed : null,
-    candidate: knowledgeKnipCandidateValid ? knowledgeKnipCandidate : null,
-    authorizedStage: knowledgeKnipCandidateValid && progress.currentStep === "commit-knowledge-knip-dead-surface"
-      ? "commit-knowledge-knip-dead-surface"
+    name: "eval-knip-unused-dependency",
+    staticRedProof: evalKnipRedValid ? evalKnipRed : null,
+    candidate: evalKnipCandidateValid ? evalKnipCandidate : null,
+    authorizedStage: evalKnipCandidateValid && progress.currentStep === "commit-eval-knip-unused-dependency"
+      ? "commit-eval-knip-unused-dependency"
       : null,
-    authorization: knowledgeKnipCandidateValid
-      ? knowledgeKnipCandidate.commitAuthorization
+    authorization: evalKnipCandidateValid
+      ? evalKnipCandidate.commitAuthorization
       : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "knowledge-knip-dead-surface",
+  nextIncrement: "eval-knip-unused-dependency",
 };
 const output = {
   ...payload,
@@ -2046,7 +2110,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !knowledgeKnipCandidateValid,
+    commitLocked: !evalKnipCandidateValid,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "commit-knowledge-knip-dead-surface",
+  "currentStep": "commit-eval-knip-unused-dependency",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -1747,6 +1747,111 @@
           "plans/AU20/corrective-change-map.json",
           "plans/AU20/red-proof-reviews/knowledge-knip-dead-surface.md",
           "plans/AU20/register-reviews/knowledge-knip-dead-surface.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "b8422e57667631117024587ee239f115b3c23165",
+        "tree": "91575c4070969db2d1c007d4154b321204474e0c",
+        "parent": "b69b822ca111677ed7e600076c0d9347c2916242",
+        "subject": "AU20 knowledge: delete Knip dead surface",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/knowledge-knip-dead-surface.json",
+          "packages/core-api/knowledge/src/knowledge-reader.ts",
+          "packages/core-api/knowledge/src/types.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/knowledge-knip-dead-surface.md",
+          "plans/AU20/register-reviews/knowledge-knip-dead-surface.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "knowledgeChecks": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "evalKnipUnusedDependencyRedProof": {
+      "increment": "eval-knip-unused-dependency",
+      "proofPath": ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+      "proofSha256": "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1",
+      "reviewPath": "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
+      "reviewSha256": "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f",
+      "verdict": "accept",
+      "expectedRed": "unused dependency @hyperidle/connections in packages/eval/package.json",
+      "status": "accepted"
+    },
+    "evalKnipUnusedDependencyWriteCodeAuthorization": {
+      "increment": "eval-knip-unused-dependency",
+      "stage": "write-code-eval-knip-unused-dependency",
+      "authorizedPaths": [
+        "packages/eval/package.json",
+        "package-lock.json"
+      ],
+      "requiredChanges": [
+        "remove only @hyperidle/connections from eval dependencies",
+        "remove only packages['packages/eval'].dependencies['@hyperidle/connections'] from package-lock.json"
+      ],
+      "frozen": [
+        "node_modules/@hyperidle/connections workspace link",
+        "packages/core-api dependency entry",
+        "packages/web dependency entry",
+        "packages/core-api/notifications/package.json",
+        "all product source",
+        "scripts/surface-census.ts"
+      ],
+      "productCodeAuthorized": false,
+      "unrelatedLockChurnAuthorized": false,
+      "surfaceGrowthAuthorized": false,
+      "expectedCensus": "23/231/181/412 unchanged",
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "notifications-knip-unused-devdeps",
+      "status": "authorized"
+    },
+    "evalKnipUnusedDependencyCandidate": {
+      "increment": "eval-knip-unused-dependency",
+      "productSha256": {
+        "packages/eval/package.json": "0a6388b34d0eafec15650b07b03bae2908325b98c4591d94525a6a9cf4af1b92",
+        "package-lock.json": "bd2d4ca14bdb9e38da74ba3ce3c26df7cbded1aa3f1f89047ca6c01ff9b70817"
+      },
+      "proofSha256": "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1",
+      "redReviewSha256": "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f",
+      "implementationReviewPath": "plans/AU20/register-reviews/eval-knip-unused-dependency.md",
+      "implementationReviewSha256": "f8d8e0da01ea4da53abd03fa2e6b6e3638a64de6a559fdbf1b61eefafd787381",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "evalKnip": "pass",
+        "fullKnip": "only frozen notifications findings remain",
+        "evalCheck": "pass",
+        "evalTests": "3 files / 26 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "gate": "604/604; unresolved 0",
+        "census": "23/231/181/412 unchanged",
+        "diff": "one deletion in each of two files"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 eval: remove unused connections dependency",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+          "package-lock.json",
+          "packages/eval/package.json",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
+          "plans/AU20/register-reviews/eval-knip-unused-dependency.md"
         ]
       }
     }
