@@ -412,7 +412,8 @@ if (process.argv.includes("--require-review")) {
     implementationReviewRequiredBeforeCommit: true,
     nextIncrement: "knowledge-retro-snapshot",
   };
-  const disposalRed = active?.redProofReview;
+  const completedDisposal = finalCorrection.completedIncrements?.find((increment) => increment.name === "run-orchestration-async-disposal");
+  const disposalRed = completedDisposal?.redProofReview;
   if (disposalRed?.testSha256 !== "f136b0f3b544070a92dd9cc63a9c281de468009b296bcd9dd0d76e6d1b3e94f3" ||
       disposalRed?.proofSha256 !== "56256c3bf8e74894df90115ca873f671c87c212ae3424debd7b0383fa330987b" ||
       disposalRed?.reviewSha256 !== "a2634e280fe73c730d80b0c19e93871eee2ba883dafc9380c18bd1f12bab64fc" ||
@@ -447,7 +448,7 @@ if (process.argv.includes("--require-review")) {
     "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
     "plans/AU20/register-reviews/run-orchestration-async-disposal.md",
   ];
-  const disposalCandidate = active?.candidate;
+  const disposalCandidate = completedDisposal?.candidate;
   if (JSON.stringify(disposalCandidate?.paths) !== JSON.stringify(expectedDisposalCandidatePaths) ||
       disposalCandidate?.implementationReviewPath !== "plans/AU20/register-reviews/run-orchestration-async-disposal.md" ||
       disposalCandidate?.implementationReviewSha256 !== "ca703b9a4dbea151cf1fd19eea71b5210c3bb2269b0246cc21fda2e48f7ee88b" ||
@@ -464,16 +465,149 @@ if (process.argv.includes("--require-review")) {
         sha256(fs.readFileSync(path.join(root, candidatePath))) !== expectedHash) ||
       sha256(fs.readFileSync(path.join(root, disposalCandidate.implementationReviewPath))) !== disposalCandidate.implementationReviewSha256 ||
       sha256(fs.readFileSync(path.join(root, disposalCandidate.finalReviewPath))) !== disposalCandidate.finalReviewSha256) fail("F2 candidate binding mismatch");
-  if (active?.name !== "run-orchestration-async-disposal" ||
-      active?.finding !== "F2" ||
-      active?.authorizedStage !== "commit-async-runtime-disposal" ||
-      JSON.stringify(active?.authorization) !== JSON.stringify(disposalCandidate.commitAuthorization) ||
+  const disposalReceipt = completedDisposal?.commitReceipt;
+  if (disposalReceipt?.commit !== "1397db5a5b5a07e1bb6d1884ed550e0e148606a4" ||
+      disposalReceipt?.tree !== "f74b4b5f11c28da6ecd6486eb632f90816447b2c" ||
+      disposalReceipt?.parent !== "591f2051482581c29f082544ac36efb0f09df1d6" ||
+      disposalReceipt?.subject !== "AU20 F2: await runtime disposal" ||
+      JSON.stringify(disposalReceipt?.paths) !== JSON.stringify(expectedDisposalCommitPaths) ||
+      JSON.stringify(disposalReceipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      Object.values(disposalReceipt?.verification ?? {}).some((result) => result !== "pass")) fail("F2 commit receipt mismatch");
+  const disposalGitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", disposalReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  const disposalGitPaths = spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", disposalReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (disposalGitReceipt.status !== 0 ||
+      disposalGitReceipt.stdout.trim() !== [disposalReceipt.commit, disposalReceipt.tree, disposalReceipt.parent, disposalReceipt.subject].join("\n") ||
+      disposalGitPaths.status !== 0 ||
+      JSON.stringify(disposalGitPaths.stdout.trim().split("\n")) !== JSON.stringify(expectedDisposalCommitPaths)) fail("F2 commit object mismatch");
+  const expectedRetroAuthorization = {
+    increment: "knowledge-retro-snapshot",
+    stage: "write-tests-knowledge-retro-snapshot",
+    finding: "F4",
+    testPath: "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+    testSha256: "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+    proofPath: ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+    productPath: "packages/core-api/src/routes/bets.ts",
+    productSha256: "8b3785686fb9bd24f2d3f861ffe48a503facaa22b09cab97d0dc82a9ebf3104d",
+    focusedCommand: "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+    expectedRed: {
+      exitCode: 1,
+      failedTests: 1,
+      passedTests: 22,
+      assertion: "creation-time hypothesis snapshot remains immutable after later bet hypothesis edit",
+      expected: "Users will complete onboarding in under 5 minutes.",
+      received: "UPDATED HYPOTHESIS — should not appear in retro",
+    },
+    authorizedPaths: [".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json"],
+    testModificationAuthorized: false,
+    productCodeAuthorized: false,
+    newExportsAuthorized: false,
+    serviceSurfaceGrowthAuthorized: false,
+    nextStage: "red-proof-review-knowledge-retro-snapshot",
+    status: "write-tests-authorized",
+  };
+  const retroAuthorization = active?.writeTestsAuthorization;
+  const committedRetroProduct = spawnSync(
+    "git",
+    ["show", "1397db5a5b5a07e1bb6d1884ed550e0e148606a4:packages/core-api/src/routes/bets.ts"],
+    { cwd: root, encoding: null, shell: false },
+  );
+  if (JSON.stringify(retroAuthorization) !== JSON.stringify(expectedRetroAuthorization) ||
+      sha256(fs.readFileSync(path.join(root, retroAuthorization.testPath))) !== retroAuthorization.testSha256 ||
+      committedRetroProduct.status !== 0 ||
+      sha256(committedRetroProduct.stdout) !== retroAuthorization.productSha256) fail("F4 write-tests authorization mismatch");
+  const retroRed = active?.redProofReview;
+  if (retroRed?.increment !== "knowledge-retro-snapshot" ||
+      retroRed?.finding !== "F4" ||
+      retroRed?.testPath !== expectedRetroAuthorization.testPath ||
+      retroRed?.testSha256 !== expectedRetroAuthorization.testSha256 ||
+      retroRed?.proofPath !== expectedRetroAuthorization.proofPath ||
+      retroRed?.proofSha256 !== "f75002097cdef4080a41772ec2077ac95e0f64534dc8b511c526d2aa70baadee" ||
+      retroRed?.reviewPath !== "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md" ||
+      retroRed?.reviewSha256 !== "f64999e9ade9f5632ceb49cc0dd100f8db609c9c746d809e4db200a2984e002f" ||
+      retroRed?.verdict !== "accept" ||
+      retroRed?.expectedRedExitCode !== 1 ||
+      retroRed?.status !== "accepted" ||
+      sha256(fs.readFileSync(path.join(root, retroRed.testPath))) !== retroRed.testSha256 ||
+      sha256(fs.readFileSync(path.join(root, retroRed.proofPath))) !== retroRed.proofSha256 ||
+      sha256(fs.readFileSync(path.join(root, retroRed.reviewPath))) !== retroRed.reviewSha256) fail("F4 red-proof binding mismatch");
+  const expectedRetroCodeAuthorization = {
+    increment: "knowledge-retro-snapshot",
+    stage: "write-code-knowledge-retro-snapshot",
+    finding: "F4",
+    authorizedPaths: ["packages/core-api/src/routes/bets.ts"],
+    frozenPaths: [
+      "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+      ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+      "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+      "scripts/surface-census.ts",
+    ],
+    requiredImplementation: {
+      behavior: "retain creation-time meta.hypothesis when updating an existing retro after the bet hypothesis changes",
+      api: "use existing knowledge list/update CRUD; add no bespoke public method",
+      mutableFields: ["verdict", "validatedAt", "validatedBy"],
+      transaction: "retain atomic bet-outcome and knowledge-item update transaction",
+    },
+    newExportsAuthorized: false,
+    serviceSurfaceGrowthAuthorized: false,
+    otherProductionPathsAuthorized: false,
+    testsAuthorized: false,
+    implementationReviewRequiredBeforeCommit: true,
+    nextIncrement: "harness-registry-mcp-entry",
+    status: "authorized",
+  };
+  if (JSON.stringify(active?.writeCodeAuthorization) !== JSON.stringify(expectedRetroCodeAuthorization)) fail("F4 historical write-code authorization mismatch");
+  const expectedRetroCommitPaths = [
+    ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/progress.json",
+    ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+    "packages/core-api/src/routes/bets.ts",
+    "plans/AU20/corrective-change-map.json",
+    "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+    "plans/AU20/register-reviews/knowledge-retro-snapshot.md",
+  ];
+  const retroCandidate = active?.candidate;
+  if (retroCandidate?.increment !== "knowledge-retro-snapshot" ||
+      retroCandidate?.finding !== "F4" ||
+      retroCandidate?.productPath !== expectedRetroAuthorization.productPath ||
+      retroCandidate?.productSha256 !== "7361a2fd2977c0f6ca74527006ea0838ebe7442e784816b412962d37ac7a8bf3" ||
+      retroCandidate?.testPath !== expectedRetroAuthorization.testPath ||
+      retroCandidate?.testSha256 !== expectedRetroAuthorization.testSha256 ||
+      retroCandidate?.proofPath !== retroRed.proofPath ||
+      retroCandidate?.proofSha256 !== retroRed.proofSha256 ||
+      retroCandidate?.redReviewPath !== retroRed.reviewPath ||
+      retroCandidate?.redReviewSha256 !== retroRed.reviewSha256 ||
+      retroCandidate?.implementationReviewPath !== "plans/AU20/register-reviews/knowledge-retro-snapshot.md" ||
+      retroCandidate?.implementationReviewSha256 !== "fe7432f7f11b0dc705b90dfc45fd0c683614e395ac62991ae0e3c747d0231ce7" ||
+      retroCandidate?.implementationReviewVerdict !== "accept" ||
+      JSON.stringify(retroCandidate?.verification) !== JSON.stringify({
+        focused: "23/23 pass",
+        serviceIntegration: "2869 pass; 7 skipped by existing lane policy",
+        check: "pass",
+        lint: "pass",
+        unit: "3557 pass",
+        gate: "pass",
+        census: "23 services / 231 methods / 181 types / 412 total",
+        knowledgeCensus: "17 methods / 12 types / 29 total",
+      }) ||
+      retroCandidate?.status !== "accepted-commit-authorized" ||
+      retroCandidate?.commitAuthorization?.message !== "AU20 F4: preserve retro hypothesis snapshot" ||
+      JSON.stringify(retroCandidate?.commitAuthorization?.paths) !== JSON.stringify(expectedRetroCommitPaths) ||
+      sha256(fs.readFileSync(path.join(root, retroCandidate.productPath))) !== retroCandidate.productSha256 ||
+      sha256(fs.readFileSync(path.join(root, retroCandidate.testPath))) !== retroCandidate.testSha256 ||
+      sha256(fs.readFileSync(path.join(root, retroCandidate.proofPath))) !== retroCandidate.proofSha256 ||
+      sha256(fs.readFileSync(path.join(root, retroCandidate.redReviewPath))) !== retroCandidate.redReviewSha256 ||
+      sha256(fs.readFileSync(path.join(root, retroCandidate.implementationReviewPath))) !== retroCandidate.implementationReviewSha256) fail("F4 candidate binding mismatch");
+  if (active?.name !== "knowledge-retro-snapshot" ||
+      active?.finding !== "F4" ||
+      active?.authorizedStage !== "commit-knowledge-retro-snapshot" ||
+      JSON.stringify(active?.authorization) !== JSON.stringify(retroCandidate.commitAuthorization) ||
       active?.productCodeAuthorized !== false ||
       finalCorrection.nextIncrement !== "knowledge-retro-snapshot" ||
       integrity.writeTestsLocked !== true ||
       integrity.codeLocked !== true ||
       integrity.productCodeLocked !== true ||
-      integrity.commitLocked !== false) fail("F2 commit authorization state invalid");
+      integrity.commitLocked !== false) fail("F4 commit authorization state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,

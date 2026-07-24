@@ -25232,7 +25232,7 @@
   "integrity": {
     "browserLedgerSha256": "b88e512430a340121205b770a37090cde016c875295fffcf93937e89b58bd75c",
     "systemLedgerSha256": "88b0072658bc98f713c610fc7f35e7428d9ed3488953b8f450658be0cc5560e1",
-    "generatorSha256": "a73fe2637828dd9a91377d088ad047da65fbe1494511898b155aa8f373773254",
+    "generatorSha256": "eae692e0325659841efb47984e56202ecddf197ff4a1edeb621fbfc4130d11da",
     "diagnosticSha256": {
       "core-work-runtime.json": "9e345f4889f9bdfa2b5a22836cd9b9a27ae940a3b2a5dbc8e60aa17c51b005c3",
       "lane-ah.json": "78b5eae8b208ba595b7b49e68217ee96c5ca568ca0bcc16bb2ae95559ab1d5e3",
@@ -25663,49 +25663,108 @@
             "status": "completed-history"
           },
           "status": "completed-history"
-        }
-      ],
-      "activeIncrement": {
-        "name": "run-orchestration-async-disposal",
-        "finding": "F2",
-        "redProofReview": {
-          "testPath": "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
-          "testSha256": "f136b0f3b544070a92dd9cc63a9c281de468009b296bcd9dd0d76e6d1b3e94f3",
-          "proofPath": ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
-          "proofSha256": "56256c3bf8e74894df90115ca873f671c87c212ae3424debd7b0383fa330987b",
-          "reviewPath": "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
-          "reviewSha256": "a2634e280fe73c730d80b0c19e93871eee2ba883dafc9380c18bd1f12bab64fc",
-          "verdict": "accept",
-          "focused": {
-            "failed": 3,
-            "passed": 2,
-            "total": 5,
-            "unhandledErrors": 0
-          },
-          "status": "accepted-history"
         },
-        "candidate": {
-          "paths": {
-            "packages/core-api/src/server-factory.ts": "34332d65afb258b47de22e77452f30b29514fa23afcf70ab0b4555d43587fbb1",
-            "packages/remote-server/src/index.ts": "5268bfa5fbb6ce88c782e7b4658b11c1b6ab57c26a7b73b01006a113ac2517a3",
-            "packages/desktop/src/boot-server.ts": "5083a235f4b90fe1f609939435fb6e8b887568b6ac924337d5dbe718e7bba2f7",
-            "packages/desktop/src/main.ts": "97aedbfc49137f79ab4d9d505b4b37c6bfef9646a7d49ecfd698e130172e0118",
-            "packages/web/scripts/ah1-test-server.ts": "14e14a9a08a4642c7ea6aa19da0b0aa230389036e1b7b3474e3800be052d317e",
-            "packages/web/scripts/ah5-test-server.ts": "bf47c33bc75275b3c3c83a27e5f6f7c6356a101c072933d283c76be4266d6ff4",
-            "packages/web/scripts/ah6-test-server.ts": "68699ebe2f01b50e232c4308a7878127bab3d5ab3286aa72fcead8e710f97169"
+        {
+          "name": "run-orchestration-async-disposal",
+          "finding": "F2",
+          "redProofReview": {
+            "testPath": "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+            "testSha256": "f136b0f3b544070a92dd9cc63a9c281de468009b296bcd9dd0d76e6d1b3e94f3",
+            "proofPath": ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+            "proofSha256": "56256c3bf8e74894df90115ca873f671c87c212ae3424debd7b0383fa330987b",
+            "reviewPath": "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+            "reviewSha256": "a2634e280fe73c730d80b0c19e93871eee2ba883dafc9380c18bd1f12bab64fc",
+            "verdict": "accept",
+            "focused": {
+              "failed": 3,
+              "passed": 2,
+              "total": 5,
+              "unhandledErrors": 0
+            },
+            "status": "accepted-history"
           },
-          "implementationReviewPath": "plans/AU20/register-reviews/run-orchestration-async-disposal.md",
-          "implementationReviewSha256": "ca703b9a4dbea151cf1fd19eea71b5210c3bb2269b0246cc21fda2e48f7ee88b",
-          "implementationReviewVerdict": "revise",
-          "productVerdict": "accept",
-          "provenanceVerdict": "revise",
-          "provenanceCorrection": "Validate completed F5 server-factory bytes from commit 591f2051, never from the current F2 live path.",
-          "finalReviewPath": "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
-          "finalReviewSha256": "686dd980c4617f35b3634a9f8176f82fa662af760af8555a0bc8b9a128f49008",
-          "finalReviewVerdict": "accept",
-          "status": "accepted-commit-authorized",
-          "commitAuthorization": {
-            "message": "AU20 F2: await runtime disposal",
+          "candidate": {
+            "paths": {
+              "packages/core-api/src/server-factory.ts": "34332d65afb258b47de22e77452f30b29514fa23afcf70ab0b4555d43587fbb1",
+              "packages/remote-server/src/index.ts": "5268bfa5fbb6ce88c782e7b4658b11c1b6ab57c26a7b73b01006a113ac2517a3",
+              "packages/desktop/src/boot-server.ts": "5083a235f4b90fe1f609939435fb6e8b887568b6ac924337d5dbe718e7bba2f7",
+              "packages/desktop/src/main.ts": "97aedbfc49137f79ab4d9d505b4b37c6bfef9646a7d49ecfd698e130172e0118",
+              "packages/web/scripts/ah1-test-server.ts": "14e14a9a08a4642c7ea6aa19da0b0aa230389036e1b7b3474e3800be052d317e",
+              "packages/web/scripts/ah5-test-server.ts": "bf47c33bc75275b3c3c83a27e5f6f7c6356a101c072933d283c76be4266d6ff4",
+              "packages/web/scripts/ah6-test-server.ts": "68699ebe2f01b50e232c4308a7878127bab3d5ab3286aa72fcead8e710f97169"
+            },
+            "implementationReviewPath": "plans/AU20/register-reviews/run-orchestration-async-disposal.md",
+            "implementationReviewSha256": "ca703b9a4dbea151cf1fd19eea71b5210c3bb2269b0246cc21fda2e48f7ee88b",
+            "implementationReviewVerdict": "revise",
+            "productVerdict": "accept",
+            "provenanceVerdict": "revise",
+            "provenanceCorrection": "Validate completed F5 server-factory bytes from commit 591f2051, never from the current F2 live path.",
+            "finalReviewPath": "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
+            "finalReviewSha256": "686dd980c4617f35b3634a9f8176f82fa662af760af8555a0bc8b9a128f49008",
+            "finalReviewVerdict": "accept",
+            "status": "accepted-commit-authorized",
+            "commitAuthorization": {
+              "message": "AU20 F2: await runtime disposal",
+              "paths": [
+                ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/progress.json",
+                ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+                "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+                "packages/core-api/src/server-factory.ts",
+                "packages/desktop/src/boot-server.ts",
+                "packages/desktop/src/main.ts",
+                "packages/remote-server/src/index.ts",
+                "packages/web/scripts/ah1-test-server.ts",
+                "packages/web/scripts/ah5-test-server.ts",
+                "packages/web/scripts/ah6-test-server.ts",
+                "plans/AU20/corrective-change-map.json",
+                "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+                "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
+                "plans/AU20/register-reviews/run-orchestration-async-disposal.md"
+              ]
+            },
+            "commitReceipt": {
+              "commit": "1397db5a5b5a07e1bb6d1884ed550e0e148606a4",
+              "tree": "f74b4b5f11c28da6ecd6486eb632f90816447b2c",
+              "parent": "591f2051482581c29f082544ac36efb0f09df1d6",
+              "subject": "AU20 F2: await runtime disposal",
+              "paths": [
+                ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/progress.json",
+                ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+                "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+                "packages/core-api/src/server-factory.ts",
+                "packages/desktop/src/boot-server.ts",
+                "packages/desktop/src/main.ts",
+                "packages/remote-server/src/index.ts",
+                "packages/web/scripts/ah1-test-server.ts",
+                "packages/web/scripts/ah5-test-server.ts",
+                "packages/web/scripts/ah6-test-server.ts",
+                "plans/AU20/corrective-change-map.json",
+                "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+                "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
+                "plans/AU20/register-reviews/run-orchestration-async-disposal.md"
+              ],
+              "census": {
+                "services": 23,
+                "methods": 231,
+                "types": 181,
+                "total": 412
+              },
+              "verification": {
+                "exactPathSet": "pass",
+                "census": "pass",
+                "gate": "pass"
+              }
+            }
+          },
+          "commitReceipt": {
+            "commit": "1397db5a5b5a07e1bb6d1884ed550e0e148606a4",
+            "tree": "f74b4b5f11c28da6ecd6486eb632f90816447b2c",
+            "parent": "591f2051482581c29f082544ac36efb0f09df1d6",
+            "subject": "AU20 F2: await runtime disposal",
             "paths": [
               ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
               ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
@@ -25723,29 +25782,148 @@
               "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
               "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
               "plans/AU20/register-reviews/run-orchestration-async-disposal.md"
+            ],
+            "census": {
+              "services": 23,
+              "methods": 231,
+              "types": 181,
+              "total": 412
+            },
+            "verification": {
+              "exactPathSet": "pass",
+              "census": "pass",
+              "gate": "pass"
+            }
+          },
+          "status": "completed-history"
+        }
+      ],
+      "activeIncrement": {
+        "name": "knowledge-retro-snapshot",
+        "finding": "F4",
+        "writeTestsAuthorization": {
+          "increment": "knowledge-retro-snapshot",
+          "stage": "write-tests-knowledge-retro-snapshot",
+          "finding": "F4",
+          "testPath": "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+          "testSha256": "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+          "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+          "productPath": "packages/core-api/src/routes/bets.ts",
+          "productSha256": "8b3785686fb9bd24f2d3f861ffe48a503facaa22b09cab97d0dc82a9ebf3104d",
+          "focusedCommand": "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+          "expectedRed": {
+            "exitCode": 1,
+            "failedTests": 1,
+            "passedTests": 22,
+            "assertion": "creation-time hypothesis snapshot remains immutable after later bet hypothesis edit",
+            "expected": "Users will complete onboarding in under 5 minutes.",
+            "received": "UPDATED HYPOTHESIS — should not appear in retro"
+          },
+          "authorizedPaths": [
+            ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json"
+          ],
+          "testModificationAuthorized": false,
+          "productCodeAuthorized": false,
+          "newExportsAuthorized": false,
+          "serviceSurfaceGrowthAuthorized": false,
+          "nextStage": "red-proof-review-knowledge-retro-snapshot",
+          "status": "write-tests-authorized"
+        },
+        "redProofReview": {
+          "increment": "knowledge-retro-snapshot",
+          "finding": "F4",
+          "testPath": "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+          "testSha256": "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+          "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+          "proofSha256": "f75002097cdef4080a41772ec2077ac95e0f64534dc8b511c526d2aa70baadee",
+          "reviewPath": "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+          "reviewSha256": "f64999e9ade9f5632ceb49cc0dd100f8db609c9c746d809e4db200a2984e002f",
+          "verdict": "accept",
+          "expectedRedExitCode": 1,
+          "status": "accepted"
+        },
+        "writeCodeAuthorization": {
+          "increment": "knowledge-retro-snapshot",
+          "stage": "write-code-knowledge-retro-snapshot",
+          "finding": "F4",
+          "authorizedPaths": [
+            "packages/core-api/src/routes/bets.ts"
+          ],
+          "frozenPaths": [
+            "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+            ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+            "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+            "scripts/surface-census.ts"
+          ],
+          "requiredImplementation": {
+            "behavior": "retain creation-time meta.hypothesis when updating an existing retro after the bet hypothesis changes",
+            "api": "use existing knowledge list/update CRUD; add no bespoke public method",
+            "mutableFields": [
+              "verdict",
+              "validatedAt",
+              "validatedBy"
+            ],
+            "transaction": "retain atomic bet-outcome and knowledge-item update transaction"
+          },
+          "newExportsAuthorized": false,
+          "serviceSurfaceGrowthAuthorized": false,
+          "otherProductionPathsAuthorized": false,
+          "testsAuthorized": false,
+          "implementationReviewRequiredBeforeCommit": true,
+          "nextIncrement": "harness-registry-mcp-entry",
+          "status": "authorized"
+        },
+        "candidate": {
+          "increment": "knowledge-retro-snapshot",
+          "finding": "F4",
+          "productPath": "packages/core-api/src/routes/bets.ts",
+          "productSha256": "7361a2fd2977c0f6ca74527006ea0838ebe7442e784816b412962d37ac7a8bf3",
+          "testPath": "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+          "testSha256": "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+          "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+          "proofSha256": "f75002097cdef4080a41772ec2077ac95e0f64534dc8b511c526d2aa70baadee",
+          "redReviewPath": "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+          "redReviewSha256": "f64999e9ade9f5632ceb49cc0dd100f8db609c9c746d809e4db200a2984e002f",
+          "implementationReviewPath": "plans/AU20/register-reviews/knowledge-retro-snapshot.md",
+          "implementationReviewSha256": "fe7432f7f11b0dc705b90dfc45fd0c683614e395ac62991ae0e3c747d0231ce7",
+          "implementationReviewVerdict": "accept",
+          "verification": {
+            "focused": "23/23 pass",
+            "serviceIntegration": "2869 pass; 7 skipped by existing lane policy",
+            "check": "pass",
+            "lint": "pass",
+            "unit": "3557 pass",
+            "gate": "pass",
+            "census": "23 services / 231 methods / 181 types / 412 total",
+            "knowledgeCensus": "17 methods / 12 types / 29 total"
+          },
+          "status": "accepted-commit-authorized",
+          "commitAuthorization": {
+            "message": "AU20 F4: preserve retro hypothesis snapshot",
+            "paths": [
+              ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+              ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+              ".pipeline/work/AU20/progress.json",
+              ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+              "packages/core-api/src/routes/bets.ts",
+              "plans/AU20/corrective-change-map.json",
+              "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+              "plans/AU20/register-reviews/knowledge-retro-snapshot.md"
             ]
           }
         },
-        "authorizedStage": "commit-async-runtime-disposal",
+        "authorizedStage": "commit-knowledge-retro-snapshot",
         "authorization": {
-          "message": "AU20 F2: await runtime disposal",
+          "message": "AU20 F4: preserve retro hypothesis snapshot",
           "paths": [
             ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
             ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
             ".pipeline/work/AU20/progress.json",
-            ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
-            "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
-            "packages/core-api/src/server-factory.ts",
-            "packages/desktop/src/boot-server.ts",
-            "packages/desktop/src/main.ts",
-            "packages/remote-server/src/index.ts",
-            "packages/web/scripts/ah1-test-server.ts",
-            "packages/web/scripts/ah5-test-server.ts",
-            "packages/web/scripts/ah6-test-server.ts",
+            ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+            "packages/core-api/src/routes/bets.ts",
             "plans/AU20/corrective-change-map.json",
-            "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
-            "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
-            "plans/AU20/register-reviews/run-orchestration-async-disposal.md"
+            "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+            "plans/AU20/register-reviews/knowledge-retro-snapshot.md"
           ]
         },
         "productCodeAuthorized": false

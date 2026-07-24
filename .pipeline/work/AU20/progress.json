@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "commit-async-runtime-disposal",
+  "currentStep": "commit-knowledge-retro-snapshot",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -613,6 +613,152 @@
           "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
           "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
           "plans/AU20/register-reviews/run-orchestration-async-disposal.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "1397db5a5b5a07e1bb6d1884ed550e0e148606a4",
+        "tree": "f74b4b5f11c28da6ecd6486eb632f90816447b2c",
+        "parent": "591f2051482581c29f082544ac36efb0f09df1d6",
+        "subject": "AU20 F2: await runtime disposal",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+          "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+          "packages/core-api/src/server-factory.ts",
+          "packages/desktop/src/boot-server.ts",
+          "packages/desktop/src/main.ts",
+          "packages/remote-server/src/index.ts",
+          "packages/web/scripts/ah1-test-server.ts",
+          "packages/web/scripts/ah5-test-server.ts",
+          "packages/web/scripts/ah6-test-server.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+          "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
+          "plans/AU20/register-reviews/run-orchestration-async-disposal.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "knowledgeRetroSnapshotWriteTestsAuthorization": {
+      "increment": "knowledge-retro-snapshot",
+      "stage": "write-tests-knowledge-retro-snapshot",
+      "finding": "F4",
+      "testPath": "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+      "testSha256": "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+      "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+      "productPath": "packages/core-api/src/routes/bets.ts",
+      "productSha256": "8b3785686fb9bd24f2d3f861ffe48a503facaa22b09cab97d0dc82a9ebf3104d",
+      "focusedCommand": "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+      "expectedRed": {
+        "exitCode": 1,
+        "failedTests": 1,
+        "passedTests": 22,
+        "assertion": "creation-time hypothesis snapshot remains immutable after later bet hypothesis edit",
+        "expected": "Users will complete onboarding in under 5 minutes.",
+        "received": "UPDATED HYPOTHESIS — should not appear in retro"
+      },
+      "authorizedPaths": [
+        ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json"
+      ],
+      "testModificationAuthorized": false,
+      "productCodeAuthorized": false,
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "nextStage": "red-proof-review-knowledge-retro-snapshot",
+      "status": "write-tests-authorized"
+    },
+    "knowledgeRetroSnapshotRedProof": {
+      "increment": "knowledge-retro-snapshot",
+      "finding": "F4",
+      "testPath": "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+      "testSha256": "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+      "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+      "proofSha256": "f75002097cdef4080a41772ec2077ac95e0f64534dc8b511c526d2aa70baadee",
+      "reviewPath": "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+      "reviewSha256": "f64999e9ade9f5632ceb49cc0dd100f8db609c9c746d809e4db200a2984e002f",
+      "verdict": "accept",
+      "expectedRedExitCode": 1,
+      "status": "accepted"
+    },
+    "knowledgeRetroSnapshotWriteCodeAuthorization": {
+      "increment": "knowledge-retro-snapshot",
+      "stage": "write-code-knowledge-retro-snapshot",
+      "finding": "F4",
+      "authorizedPaths": [
+        "packages/core-api/src/routes/bets.ts"
+      ],
+      "frozenPaths": [
+        "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+        "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+        "scripts/surface-census.ts"
+      ],
+      "requiredImplementation": {
+        "behavior": "retain creation-time meta.hypothesis when updating an existing retro after the bet hypothesis changes",
+        "api": "use existing knowledge list/update CRUD; add no bespoke public method",
+        "mutableFields": [
+          "verdict",
+          "validatedAt",
+          "validatedBy"
+        ],
+        "transaction": "retain atomic bet-outcome and knowledge-item update transaction"
+      },
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "testsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "harness-registry-mcp-entry",
+      "status": "authorized"
+    },
+    "knowledgeRetroSnapshotCandidate": {
+      "increment": "knowledge-retro-snapshot",
+      "finding": "F4",
+      "productPath": "packages/core-api/src/routes/bets.ts",
+      "productSha256": "7361a2fd2977c0f6ca74527006ea0838ebe7442e784816b412962d37ac7a8bf3",
+      "testPath": "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+      "testSha256": "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+      "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+      "proofSha256": "f75002097cdef4080a41772ec2077ac95e0f64534dc8b511c526d2aa70baadee",
+      "redReviewPath": "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+      "redReviewSha256": "f64999e9ade9f5632ceb49cc0dd100f8db609c9c746d809e4db200a2984e002f",
+      "implementationReviewPath": "plans/AU20/register-reviews/knowledge-retro-snapshot.md",
+      "implementationReviewSha256": "fe7432f7f11b0dc705b90dfc45fd0c683614e395ac62991ae0e3c747d0231ce7",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "focused": "23/23 pass",
+        "serviceIntegration": "2869 pass; 7 skipped by existing lane policy",
+        "check": "pass",
+        "lint": "pass",
+        "unit": "3557 pass",
+        "gate": "pass",
+        "census": "23 services / 231 methods / 181 types / 412 total",
+        "knowledgeCensus": "17 methods / 12 types / 29 total"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F4: preserve retro hypothesis snapshot",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+          "packages/core-api/src/routes/bets.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+          "plans/AU20/register-reviews/knowledge-retro-snapshot.md"
         ]
       }
     }

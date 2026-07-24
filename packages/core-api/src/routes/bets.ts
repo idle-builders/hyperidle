@@ -1032,17 +1032,22 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// @lore AU20 K2-writes: upsertBetRetroKnowledgeItem deleted from barrel;
 			// inlined here using create()/update(). The meta merge on update was
 			// reconstructing {betId, hypothesis, verdict, validatedAt, validatedBy} — all
-			// known at call-site, so no pre-read needed. create() generates the id
-			// internally; captured from its return value for the response.
-			const existingKi = await listKnowledgeItems(db, { retroForBet: betId });
+			// known at call-site except the immutable creation-time hypothesis. Updates
+			// read the existing projection and preserve that snapshot while refreshing
+			// only its validation fields. create() generates the id internally; captured
+			// from its return value for the response.
 			const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
-			let retroKnowledgeItemId = existingKi?.id ?? "";
+			let retroKnowledgeItemId = "";
 
 			// @lore AC2: Atomic transaction wrapping bet-outcome write + knowledge-item upsert.
 			// Without this, a partial failure (outcome saved, knowledge item not) leaves the bet
-			// in an inconsistent state. The existingKi is resolved outside the transaction
-			// (read-only query) so the transaction only covers the writes.
+			// in an inconsistent state. The existing projection read stays in the same
+			// transaction so the optimistic update preserves the exact snapshot it read.
 			await db.transaction(async (tx) => {
+				const knowledgeDb = tx as HyperIdleDb;
+				const existingKi = await listKnowledgeItems(knowledgeDb, { retroForBet: betId });
+				retroKnowledgeItemId = existingKi?.id ?? "";
+
 				// Write outcome fields on bet
 				await work.update(tx, "bet", betId, {
 					outcomeVerdict: body.verdict,
@@ -1052,28 +1057,32 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 					revisionLog: JSON.stringify(revisionLog),
 				});
 
-				const kiMeta = {
-					betId,
-					hypothesis: hypothesisSnapshot,
-					verdict: body.verdict,
-					validatedAt: now,
-					validatedBy: actor ?? null,
-				};
-
 				if (existingKi) {
+					const existingKnowledge = await getKnowledgeItem(knowledgeDb, existingKi.id, {
+						view: "full",
+					});
+					const existingMeta = JSON.parse(existingKnowledge?.meta ?? "{}") as Record<
+						string,
+						unknown
+					>;
 					await updateKnowledgeItem(
-						tx as HyperIdleDb,
+						knowledgeDb,
 						existingKi.id,
 						{
 							title: kiTitle,
 							body: kiBody,
-							meta: JSON.stringify(kiMeta),
+							meta: JSON.stringify({
+								...existingMeta,
+								verdict: body.verdict,
+								validatedAt: now,
+								validatedBy: actor ?? null,
+							}),
 							updatedBy: actor ?? "system",
 						},
 						existingKi.version,
 					);
 				} else {
-					const created = await createKnowledgeItem(tx as HyperIdleDb, {
+					const created = await createKnowledgeItem(knowledgeDb, {
 						layer: null,
 						scopeKind: "bet",
 						scopeId: betId,
@@ -1083,7 +1092,13 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 						status: "active",
 						updatedBy: actor ?? "system",
 						kind: "reflection",
-						meta: JSON.stringify(kiMeta),
+						meta: JSON.stringify({
+							betId,
+							hypothesis: hypothesisSnapshot,
+							verdict: body.verdict,
+							validatedAt: now,
+							validatedBy: actor ?? null,
+						}),
 					});
 					retroKnowledgeItemId = created.id;
 				}

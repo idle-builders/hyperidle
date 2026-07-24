@@ -982,6 +982,167 @@ const disposalCandidateValid =
     sha256(fs.readFileSync(path.join(root, candidatePath))) === expectedHash) &&
   sha256(fs.readFileSync(path.join(root, disposalCandidate.implementationReviewPath))) === disposalCandidate.implementationReviewSha256 &&
   sha256(fs.readFileSync(path.join(root, disposalCandidate.finalReviewPath))) === disposalCandidate.finalReviewSha256;
+const disposalCommit = disposalCandidate?.commitReceipt ?? null;
+const disposalCommitInspection = disposalCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", disposalCommit.commit], {
+      cwd: root,
+      encoding: "utf8",
+      shell: false,
+    })
+  : null;
+const disposalCommitPaths = disposalCommit
+  ? spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", disposalCommit.commit], {
+      cwd: root,
+      encoding: "utf8",
+      shell: false,
+    })
+  : null;
+const disposalCommitValid =
+  disposalCandidateValid &&
+  disposalCommit?.commit === "1397db5a5b5a07e1bb6d1884ed550e0e148606a4" &&
+  disposalCommit?.tree === "f74b4b5f11c28da6ecd6486eb632f90816447b2c" &&
+  disposalCommit?.parent === "591f2051482581c29f082544ac36efb0f09df1d6" &&
+  disposalCommit?.subject === "AU20 F2: await runtime disposal" &&
+  JSON.stringify(disposalCommit?.paths) === JSON.stringify(expectedDisposalCommitPaths) &&
+  JSON.stringify(disposalCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(disposalCommit?.verification ?? {}).every((result) => result === "pass") &&
+  disposalCommitInspection?.status === 0 &&
+  disposalCommitInspection.stdout.trim() === [
+    disposalCommit.commit,
+    disposalCommit.tree,
+    disposalCommit.parent,
+    disposalCommit.subject,
+  ].join("\n") &&
+  disposalCommitPaths?.status === 0 &&
+  JSON.stringify(disposalCommitPaths.stdout.trim().split("\n")) === JSON.stringify(expectedDisposalCommitPaths);
+const retroWriteTestsAuthorization = progress.gateBindings?.knowledgeRetroSnapshotWriteTestsAuthorization ?? null;
+const expectedRetroWriteTestsAuthorization = {
+  increment: "knowledge-retro-snapshot",
+  stage: "write-tests-knowledge-retro-snapshot",
+  finding: "F4",
+  testPath: "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+  testSha256: "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+  proofPath: ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+  productPath: "packages/core-api/src/routes/bets.ts",
+  productSha256: "8b3785686fb9bd24f2d3f861ffe48a503facaa22b09cab97d0dc82a9ebf3104d",
+  focusedCommand: "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+  expectedRed: {
+    exitCode: 1,
+    failedTests: 1,
+    passedTests: 22,
+    assertion: "creation-time hypothesis snapshot remains immutable after later bet hypothesis edit",
+    expected: "Users will complete onboarding in under 5 minutes.",
+    received: "UPDATED HYPOTHESIS — should not appear in retro",
+  },
+  authorizedPaths: [".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json"],
+  testModificationAuthorized: false,
+  productCodeAuthorized: false,
+  newExportsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  nextStage: "red-proof-review-knowledge-retro-snapshot",
+  status: "write-tests-authorized",
+};
+const committedRetroProduct = spawnSync(
+  "git",
+  ["show", "1397db5a5b5a07e1bb6d1884ed550e0e148606a4:packages/core-api/src/routes/bets.ts"],
+  { cwd: root, encoding: null, shell: false },
+);
+const retroWriteTestsValid =
+  disposalCommitValid &&
+  JSON.stringify(retroWriteTestsAuthorization) === JSON.stringify(expectedRetroWriteTestsAuthorization) &&
+  sha256(fs.readFileSync(path.join(root, retroWriteTestsAuthorization.testPath))) === retroWriteTestsAuthorization.testSha256 &&
+  committedRetroProduct.status === 0 &&
+  sha256(committedRetroProduct.stdout) === retroWriteTestsAuthorization.productSha256;
+const retroRedProof = progress.gateBindings?.knowledgeRetroSnapshotRedProof ?? null;
+const retroRedProofValid =
+  retroWriteTestsValid &&
+  retroRedProof?.increment === "knowledge-retro-snapshot" &&
+  retroRedProof?.finding === "F4" &&
+  retroRedProof?.testPath === retroWriteTestsAuthorization.testPath &&
+  retroRedProof?.testSha256 === retroWriteTestsAuthorization.testSha256 &&
+  retroRedProof?.proofPath === retroWriteTestsAuthorization.proofPath &&
+  retroRedProof?.proofSha256 === "f75002097cdef4080a41772ec2077ac95e0f64534dc8b511c526d2aa70baadee" &&
+  retroRedProof?.reviewPath === "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md" &&
+  retroRedProof?.reviewSha256 === "f64999e9ade9f5632ceb49cc0dd100f8db609c9c746d809e4db200a2984e002f" &&
+  retroRedProof?.verdict === "accept" &&
+  retroRedProof?.expectedRedExitCode === 1 &&
+  retroRedProof?.status === "accepted" &&
+  sha256(fs.readFileSync(path.join(root, retroRedProof.testPath))) === retroRedProof.testSha256 &&
+  sha256(fs.readFileSync(path.join(root, retroRedProof.proofPath))) === retroRedProof.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, retroRedProof.reviewPath))) === retroRedProof.reviewSha256;
+const retroWriteCodeAuthorization = progress.gateBindings?.knowledgeRetroSnapshotWriteCodeAuthorization ?? null;
+const expectedRetroWriteCodeAuthorization = {
+  increment: "knowledge-retro-snapshot",
+  stage: "write-code-knowledge-retro-snapshot",
+  finding: "F4",
+  authorizedPaths: ["packages/core-api/src/routes/bets.ts"],
+  frozenPaths: [
+    "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+    ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+    "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+    "scripts/surface-census.ts",
+  ],
+  requiredImplementation: {
+    behavior: "retain creation-time meta.hypothesis when updating an existing retro after the bet hypothesis changes",
+    api: "use existing knowledge list/update CRUD; add no bespoke public method",
+    mutableFields: ["verdict", "validatedAt", "validatedBy"],
+    transaction: "retain atomic bet-outcome and knowledge-item update transaction",
+  },
+  newExportsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  otherProductionPathsAuthorized: false,
+  testsAuthorized: false,
+  implementationReviewRequiredBeforeCommit: true,
+  nextIncrement: "harness-registry-mcp-entry",
+  status: "authorized",
+};
+const retroWriteCodeValid =
+  retroRedProofValid &&
+  JSON.stringify(retroWriteCodeAuthorization) === JSON.stringify(expectedRetroWriteCodeAuthorization);
+const retroCandidate = progress.gateBindings?.knowledgeRetroSnapshotCandidate ?? null;
+const expectedRetroCommitPaths = [
+  ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+  ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+  ".pipeline/work/AU20/progress.json",
+  ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+  "packages/core-api/src/routes/bets.ts",
+  "plans/AU20/corrective-change-map.json",
+  "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+  "plans/AU20/register-reviews/knowledge-retro-snapshot.md",
+];
+const retroCandidateValid =
+  retroWriteCodeValid &&
+  retroCandidate?.increment === "knowledge-retro-snapshot" &&
+  retroCandidate?.finding === "F4" &&
+  retroCandidate?.productPath === retroWriteTestsAuthorization.productPath &&
+  retroCandidate?.productSha256 === "7361a2fd2977c0f6ca74527006ea0838ebe7442e784816b412962d37ac7a8bf3" &&
+  retroCandidate?.testPath === retroWriteTestsAuthorization.testPath &&
+  retroCandidate?.testSha256 === retroWriteTestsAuthorization.testSha256 &&
+  retroCandidate?.proofPath === retroRedProof.proofPath &&
+  retroCandidate?.proofSha256 === retroRedProof.proofSha256 &&
+  retroCandidate?.redReviewPath === retroRedProof.reviewPath &&
+  retroCandidate?.redReviewSha256 === retroRedProof.reviewSha256 &&
+  retroCandidate?.implementationReviewPath === "plans/AU20/register-reviews/knowledge-retro-snapshot.md" &&
+  retroCandidate?.implementationReviewSha256 === "fe7432f7f11b0dc705b90dfc45fd0c683614e395ac62991ae0e3c747d0231ce7" &&
+  retroCandidate?.implementationReviewVerdict === "accept" &&
+  JSON.stringify(retroCandidate?.verification) === JSON.stringify({
+    focused: "23/23 pass",
+    serviceIntegration: "2869 pass; 7 skipped by existing lane policy",
+    check: "pass",
+    lint: "pass",
+    unit: "3557 pass",
+    gate: "pass",
+    census: "23 services / 231 methods / 181 types / 412 total",
+    knowledgeCensus: "17 methods / 12 types / 29 total",
+  }) &&
+  retroCandidate?.status === "accepted-commit-authorized" &&
+  retroCandidate?.commitAuthorization?.message === "AU20 F4: preserve retro hypothesis snapshot" &&
+  JSON.stringify(retroCandidate?.commitAuthorization?.paths) === JSON.stringify(expectedRetroCommitPaths) &&
+  sha256(fs.readFileSync(path.join(root, retroCandidate.productPath))) === retroCandidate.productSha256 &&
+  sha256(fs.readFileSync(path.join(root, retroCandidate.testPath))) === retroCandidate.testSha256 &&
+  sha256(fs.readFileSync(path.join(root, retroCandidate.proofPath))) === retroCandidate.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, retroCandidate.redReviewPath))) === retroCandidate.redReviewSha256 &&
+  sha256(fs.readFileSync(path.join(root, retroCandidate.implementationReviewPath))) === retroCandidate.implementationReviewSha256;
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -1035,16 +1196,26 @@ const finalShipCorrection = {
       commitReceipt: bootstrapCommit,
       status: "completed-history",
     }] : []),
+    ...(disposalCommitValid ? [{
+      name: "run-orchestration-async-disposal",
+      finding: "F2",
+      redProofReview: disposalRedProof,
+      candidate: disposalCandidate,
+      commitReceipt: disposalCommit,
+      status: "completed-history",
+    }] : []),
   ],
   activeIncrement: {
-    name: "run-orchestration-async-disposal",
-    finding: "F2",
-    redProofReview: disposalRedProofValid ? disposalRedProof : null,
-    candidate: disposalCandidateValid ? disposalCandidate : null,
-    authorizedStage: disposalCandidateValid && progress.currentStep === "commit-async-runtime-disposal"
-      ? "commit-async-runtime-disposal"
+    name: "knowledge-retro-snapshot",
+    finding: "F4",
+    writeTestsAuthorization: retroWriteTestsValid ? retroWriteTestsAuthorization : null,
+    redProofReview: retroRedProofValid ? retroRedProof : null,
+    writeCodeAuthorization: retroWriteCodeValid ? retroWriteCodeAuthorization : null,
+    candidate: retroCandidateValid ? retroCandidate : null,
+    authorizedStage: retroCandidateValid && progress.currentStep === "commit-knowledge-retro-snapshot"
+      ? "commit-knowledge-retro-snapshot"
       : null,
-    authorization: disposalCandidateValid ? disposalCandidate.commitAuthorization : null,
+    authorization: retroCandidateValid ? retroCandidate.commitAuthorization : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
@@ -1064,7 +1235,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !disposalCandidateValid,
+    commitLocked: !retroCandidateValid,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);
