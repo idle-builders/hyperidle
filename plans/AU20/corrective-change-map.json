@@ -25232,7 +25232,7 @@
   "integrity": {
     "browserLedgerSha256": "b88e512430a340121205b770a37090cde016c875295fffcf93937e89b58bd75c",
     "systemLedgerSha256": "88b0072658bc98f713c610fc7f35e7428d9ed3488953b8f450658be0cc5560e1",
-    "generatorSha256": "87da48085fc95eb39fd7b40ff42dd9fd6e34077d9bda29f851329afe062299b9",
+    "generatorSha256": "45e0aca963db54534c98a0fe479436ee35a0164621b52436726b813e078148b2",
     "diagnosticSha256": {
       "core-work-runtime.json": "9e345f4889f9bdfa2b5a22836cd9b9a27ae940a3b2a5dbc8e60aa17c51b005c3",
       "lane-ah.json": "78b5eae8b208ba595b7b49e68217ee96c5ca568ca0bcc16bb2ae95559ab1d5e3",
@@ -26749,46 +26749,92 @@
             }
           },
           "status": "completed-history"
-        }
-      ],
-      "activeIncrement": {
-        "name": "eval-knip-unused-dependency",
-        "staticRedProof": {
-          "increment": "eval-knip-unused-dependency",
-          "proofPath": ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
-          "proofSha256": "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1",
-          "reviewPath": "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
-          "reviewSha256": "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f",
-          "verdict": "accept",
-          "expectedRed": "unused dependency @hyperidle/connections in packages/eval/package.json",
-          "status": "accepted"
         },
-        "candidate": {
-          "increment": "eval-knip-unused-dependency",
-          "productSha256": {
-            "packages/eval/package.json": "0a6388b34d0eafec15650b07b03bae2908325b98c4591d94525a6a9cf4af1b92",
-            "package-lock.json": "bd2d4ca14bdb9e38da74ba3ce3c26df7cbded1aa3f1f89047ca6c01ff9b70817"
+        {
+          "name": "eval-knip-unused-dependency",
+          "staticRedProof": {
+            "increment": "eval-knip-unused-dependency",
+            "proofPath": ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+            "proofSha256": "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1",
+            "reviewPath": "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
+            "reviewSha256": "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f",
+            "verdict": "accept",
+            "expectedRed": "unused dependency @hyperidle/connections in packages/eval/package.json",
+            "status": "accepted"
           },
-          "proofSha256": "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1",
-          "redReviewSha256": "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f",
-          "implementationReviewPath": "plans/AU20/register-reviews/eval-knip-unused-dependency.md",
-          "implementationReviewSha256": "f8d8e0da01ea4da53abd03fa2e6b6e3638a64de6a559fdbf1b61eefafd787381",
-          "implementationReviewVerdict": "accept",
-          "verification": {
-            "evalKnip": "pass",
-            "fullKnip": "only frozen notifications findings remain",
-            "evalCheck": "pass",
-            "evalTests": "3 files / 26 tests pass",
-            "check": "37/37 packages",
-            "lint": "pass",
-            "unit": "356 files / 3561 tests pass",
-            "gate": "604/604; unresolved 0",
-            "census": "23/231/181/412 unchanged",
-            "diff": "one deletion in each of two files"
+          "candidate": {
+            "increment": "eval-knip-unused-dependency",
+            "productSha256": {
+              "packages/eval/package.json": "0a6388b34d0eafec15650b07b03bae2908325b98c4591d94525a6a9cf4af1b92",
+              "package-lock.json": "bd2d4ca14bdb9e38da74ba3ce3c26df7cbded1aa3f1f89047ca6c01ff9b70817"
+            },
+            "proofSha256": "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1",
+            "redReviewSha256": "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f",
+            "implementationReviewPath": "plans/AU20/register-reviews/eval-knip-unused-dependency.md",
+            "implementationReviewSha256": "f8d8e0da01ea4da53abd03fa2e6b6e3638a64de6a559fdbf1b61eefafd787381",
+            "implementationReviewVerdict": "accept",
+            "verification": {
+              "evalKnip": "pass",
+              "fullKnip": "only frozen notifications findings remain",
+              "evalCheck": "pass",
+              "evalTests": "3 files / 26 tests pass",
+              "check": "37/37 packages",
+              "lint": "pass",
+              "unit": "356 files / 3561 tests pass",
+              "gate": "604/604; unresolved 0",
+              "census": "23/231/181/412 unchanged",
+              "diff": "one deletion in each of two files"
+            },
+            "status": "accepted-commit-authorized",
+            "commitAuthorization": {
+              "message": "AU20 eval: remove unused connections dependency",
+              "paths": [
+                ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/progress.json",
+                ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+                "package-lock.json",
+                "packages/eval/package.json",
+                "plans/AU20/corrective-change-map.json",
+                "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
+                "plans/AU20/register-reviews/eval-knip-unused-dependency.md"
+              ]
+            },
+            "commitReceipt": {
+              "commit": "f2e04790727286b1d070cfb487e7f994a230bbc6",
+              "tree": "7875e1ad1fc8640d5a855dc78d6935363ea5041a",
+              "parent": "b8422e57667631117024587ee239f115b3c23165",
+              "subject": "AU20 eval: remove unused connections dependency",
+              "paths": [
+                ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/progress.json",
+                ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+                "package-lock.json",
+                "packages/eval/package.json",
+                "plans/AU20/corrective-change-map.json",
+                "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
+                "plans/AU20/register-reviews/eval-knip-unused-dependency.md"
+              ],
+              "census": {
+                "services": 23,
+                "methods": 231,
+                "types": 181,
+                "total": 412
+              },
+              "verification": {
+                "exactPathSet": "pass",
+                "evalChecks": "pass",
+                "census": "pass",
+                "gate": "pass"
+              }
+            }
           },
-          "status": "accepted-commit-authorized",
-          "commitAuthorization": {
-            "message": "AU20 eval: remove unused connections dependency",
+          "commitReceipt": {
+            "commit": "f2e04790727286b1d070cfb487e7f994a230bbc6",
+            "tree": "7875e1ad1fc8640d5a855dc78d6935363ea5041a",
+            "parent": "b8422e57667631117024587ee239f115b3c23165",
+            "subject": "AU20 eval: remove unused connections dependency",
             "paths": [
               ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
               ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
@@ -26799,22 +26845,94 @@
               "plans/AU20/corrective-change-map.json",
               "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
               "plans/AU20/register-reviews/eval-knip-unused-dependency.md"
+            ],
+            "census": {
+              "services": 23,
+              "methods": 231,
+              "types": 181,
+              "total": 412
+            },
+            "verification": {
+              "exactPathSet": "pass",
+              "evalChecks": "pass",
+              "census": "pass",
+              "gate": "pass"
+            }
+          },
+          "status": "completed-history"
+        }
+      ],
+      "activeIncrement": {
+        "name": "notifications-knip-unused-devdeps",
+        "service": "notifications",
+        "staticRedProof": {
+          "increment": "notifications-knip-unused-devdeps",
+          "service": "notifications",
+          "proofPath": ".pipeline/work/AU20/red-proofs/notifications-knip-unused-devdeps.json",
+          "proofSha256": "fe33df8165f12fa0c0c7967ce12ebff2eb0b2d9205b3661d8b0d3c4a82e0c7c7",
+          "reviewPath": "plans/AU20/red-proof-reviews/notifications-knip-unused-devdeps.md",
+          "reviewSha256": "7dfaa82ef2765cdcb40663358331e4bef090ac7324f27eb2816e0cea7c80bb6c",
+          "verdict": "accept",
+          "expectedRed": [
+            "unused devDependency @types/smtp-server",
+            "unused devDependency smtp-server"
+          ],
+          "status": "accepted"
+        },
+        "candidate": {
+          "increment": "notifications-knip-unused-devdeps",
+          "service": "notifications",
+          "productSha256": {
+            "packages/core-api/notifications/package.json": "a87edcd4fac0b82bd5eb0feb7e306bce06a11c3c864a832cd99de42b58760b7a",
+            "package-lock.json": "cad0e88ea2c0f6406e67df4ad0fb6b8addab85cd0c96d136f25d248aa86418a5"
+          },
+          "proofSha256": "fe33df8165f12fa0c0c7967ce12ebff2eb0b2d9205b3661d8b0d3c4a82e0c7c7",
+          "redReviewSha256": "7dfaa82ef2765cdcb40663358331e4bef090ac7324f27eb2816e0cea7c80bb6c",
+          "implementationReviewPath": "plans/AU20/register-reviews/notifications-knip-unused-devdeps.md",
+          "implementationReviewSha256": "27bd368f0953bd85f7f4d57537767780a797d7156d2cad1f09b80cac216b3927",
+          "implementationReviewVerdict": "accept",
+          "verification": {
+            "focusedKnip": "pass",
+            "fullKnip": "pass; no actionable findings",
+            "notificationsCheck": "pass",
+            "notificationsUnit": "2 files / 30 tests pass",
+            "notificationsIntegration": "3 files / 37 tests pass",
+            "check": "37/37 packages",
+            "lint": "pass",
+            "unit": "356 files / 3561 tests pass",
+            "gate": "604/604; unresolved 0",
+            "census": "23/231/181/412 unchanged",
+            "diff": "2 insertions / 33 deletions"
+          },
+          "status": "accepted-commit-authorized",
+          "commitAuthorization": {
+            "message": "AU20 notifications: remove unused SMTP dev dependencies",
+            "paths": [
+              ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+              ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+              ".pipeline/work/AU20/progress.json",
+              ".pipeline/work/AU20/red-proofs/notifications-knip-unused-devdeps.json",
+              "package-lock.json",
+              "packages/core-api/notifications/package.json",
+              "plans/AU20/corrective-change-map.json",
+              "plans/AU20/red-proof-reviews/notifications-knip-unused-devdeps.md",
+              "plans/AU20/register-reviews/notifications-knip-unused-devdeps.md"
             ]
           }
         },
-        "authorizedStage": "commit-eval-knip-unused-dependency",
+        "authorizedStage": "commit-notifications-knip-unused-devdeps",
         "authorization": {
-          "message": "AU20 eval: remove unused connections dependency",
+          "message": "AU20 notifications: remove unused SMTP dev dependencies",
           "paths": [
             ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
             ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
             ".pipeline/work/AU20/progress.json",
-            ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+            ".pipeline/work/AU20/red-proofs/notifications-knip-unused-devdeps.json",
             "package-lock.json",
-            "packages/eval/package.json",
+            "packages/core-api/notifications/package.json",
             "plans/AU20/corrective-change-map.json",
-            "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
-            "plans/AU20/register-reviews/eval-knip-unused-dependency.md"
+            "plans/AU20/red-proof-reviews/notifications-knip-unused-devdeps.md",
+            "plans/AU20/register-reviews/notifications-knip-unused-devdeps.md"
           ]
         },
         "productCodeAuthorized": false
@@ -26824,7 +26942,7 @@
         "methods": 231,
         "types": 181
       },
-      "nextIncrement": "eval-knip-unused-dependency"
+      "nextIncrement": "notifications-knip-unused-devdeps"
     },
     "writeTestsLocked": true,
     "codeLocked": true,

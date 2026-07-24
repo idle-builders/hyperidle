@@ -741,44 +741,60 @@ if (process.argv.includes("--require-review")) {
       knowledgeGitReceipt.stdout.trim() !== [knowledgeReceipt.commit, knowledgeReceipt.tree, knowledgeReceipt.parent, knowledgeReceipt.subject].join("\n") ||
       knowledgeGitPaths.status !== 0 ||
       JSON.stringify(knowledgeGitPaths.stdout.trim().split("\n")) !== JSON.stringify(knowledgeReceipt.paths)) fail("knowledge Knip commit object mismatch");
-  const evalRed = active?.staticRedProof;
-  const evalCandidate = active?.candidate;
-  if (evalRed?.proofSha256 !== "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1" ||
-      evalRed?.reviewSha256 !== "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f" ||
-      evalRed?.verdict !== "accept" ||
-      sha256(fs.readFileSync(path.join(root, evalRed.proofPath))) !== evalRed.proofSha256 ||
-      sha256(fs.readFileSync(path.join(root, evalRed.reviewPath))) !== evalRed.reviewSha256) fail("eval Knip static-red binding mismatch");
-  if (JSON.stringify(evalCandidate?.productSha256) !== JSON.stringify({
-        "packages/eval/package.json": "0a6388b34d0eafec15650b07b03bae2908325b98c4591d94525a6a9cf4af1b92",
-        "package-lock.json": "bd2d4ca14bdb9e38da74ba3ce3c26df7cbded1aa3f1f89047ca6c01ff9b70817",
+  const completedEval = finalCorrection.completedIncrements?.find((increment) => increment.name === "eval-knip-unused-dependency");
+  const evalReceipt = completedEval?.commitReceipt;
+  if (evalReceipt?.commit !== "f2e04790727286b1d070cfb487e7f994a230bbc6" ||
+      evalReceipt?.tree !== "7875e1ad1fc8640d5a855dc78d6935363ea5041a" ||
+      evalReceipt?.parent !== "b8422e57667631117024587ee239f115b3c23165" ||
+      evalReceipt?.subject !== "AU20 eval: remove unused connections dependency" ||
+      evalReceipt?.paths?.length !== 9 ||
+      JSON.stringify(evalReceipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      Object.values(evalReceipt?.verification ?? {}).some((result) => result !== "pass")) fail("eval Knip commit receipt mismatch");
+  const evalGitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", evalReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  const evalGitPaths = spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", evalReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (evalGitReceipt.status !== 0 ||
+      evalGitReceipt.stdout.trim() !== [evalReceipt.commit, evalReceipt.tree, evalReceipt.parent, evalReceipt.subject].join("\n") ||
+      evalGitPaths.status !== 0 ||
+      JSON.stringify(evalGitPaths.stdout.trim().split("\n")) !== JSON.stringify(evalReceipt.paths)) fail("eval Knip commit object mismatch");
+  const notificationsRed = active?.staticRedProof;
+  const notificationsCandidate = active?.candidate;
+  if (notificationsRed?.proofSha256 !== "fe33df8165f12fa0c0c7967ce12ebff2eb0b2d9205b3661d8b0d3c4a82e0c7c7" ||
+      notificationsRed?.reviewSha256 !== "7dfaa82ef2765cdcb40663358331e4bef090ac7324f27eb2816e0cea7c80bb6c" ||
+      notificationsRed?.verdict !== "accept" ||
+      sha256(fs.readFileSync(path.join(root, notificationsRed.proofPath))) !== notificationsRed.proofSha256 ||
+      sha256(fs.readFileSync(path.join(root, notificationsRed.reviewPath))) !== notificationsRed.reviewSha256) fail("notifications Knip static-red binding mismatch");
+  if (JSON.stringify(notificationsCandidate?.productSha256) !== JSON.stringify({
+        "packages/core-api/notifications/package.json": "a87edcd4fac0b82bd5eb0feb7e306bce06a11c3c864a832cd99de42b58760b7a",
+        "package-lock.json": "cad0e88ea2c0f6406e67df4ad0fb6b8addab85cd0c96d136f25d248aa86418a5",
       }) ||
-      evalCandidate?.proofSha256 !== evalRed.proofSha256 ||
-      evalCandidate?.redReviewSha256 !== evalRed.reviewSha256 ||
-      evalCandidate?.implementationReviewSha256 !== "f8d8e0da01ea4da53abd03fa2e6b6e3638a64de6a559fdbf1b61eefafd787381" ||
-      evalCandidate?.implementationReviewVerdict !== "accept" ||
-      evalCandidate?.status !== "accepted-commit-authorized" ||
-      evalCandidate?.commitAuthorization?.message !== "AU20 eval: remove unused connections dependency" ||
-      Object.entries(evalCandidate.productSha256).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash) ||
-      sha256(fs.readFileSync(path.join(root, evalCandidate.implementationReviewPath))) !== evalCandidate.implementationReviewSha256) fail("eval Knip candidate binding mismatch");
-  if (active?.name !== "eval-knip-unused-dependency" ||
-      active?.authorizedStage !== "commit-eval-knip-unused-dependency" ||
+      notificationsCandidate?.proofSha256 !== notificationsRed.proofSha256 ||
+      notificationsCandidate?.redReviewSha256 !== notificationsRed.reviewSha256 ||
+      notificationsCandidate?.implementationReviewSha256 !== "27bd368f0953bd85f7f4d57537767780a797d7156d2cad1f09b80cac216b3927" ||
+      notificationsCandidate?.implementationReviewVerdict !== "accept" ||
+      notificationsCandidate?.status !== "accepted-commit-authorized" ||
+      notificationsCandidate?.commitAuthorization?.message !== "AU20 notifications: remove unused SMTP dev dependencies" ||
+      Object.entries(notificationsCandidate.productSha256).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash) ||
+      sha256(fs.readFileSync(path.join(root, notificationsCandidate.implementationReviewPath))) !== notificationsCandidate.implementationReviewSha256) fail("notifications Knip candidate binding mismatch");
+  if (active?.name !== "notifications-knip-unused-devdeps" ||
+      active?.service !== "notifications" ||
+      active?.authorizedStage !== "commit-notifications-knip-unused-devdeps" ||
       JSON.stringify(active?.authorization?.paths) !== JSON.stringify([
         ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
         ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
         ".pipeline/work/AU20/progress.json",
-        ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+        ".pipeline/work/AU20/red-proofs/notifications-knip-unused-devdeps.json",
         "package-lock.json",
-        "packages/eval/package.json",
+        "packages/core-api/notifications/package.json",
         "plans/AU20/corrective-change-map.json",
-        "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
-        "plans/AU20/register-reviews/eval-knip-unused-dependency.md",
+        "plans/AU20/red-proof-reviews/notifications-knip-unused-devdeps.md",
+        "plans/AU20/register-reviews/notifications-knip-unused-devdeps.md",
       ]) ||
       active?.productCodeAuthorized !== false ||
-      finalCorrection.nextIncrement !== "eval-knip-unused-dependency" ||
+      finalCorrection.nextIncrement !== "notifications-knip-unused-devdeps" ||
       integrity.writeTestsLocked !== true ||
       integrity.codeLocked !== true ||
       integrity.productCodeLocked !== true ||
-      integrity.commitLocked !== false) fail("eval Knip commit authorization state invalid");
+      integrity.commitLocked !== false) fail("notifications Knip commit authorization state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,

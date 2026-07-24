@@ -1958,8 +1958,75 @@ const evalKnipCandidateValid =
   evalKnipCandidate?.implementationReviewVerdict === "accept" &&
   evalKnipCandidate?.status === "accepted-commit-authorized" &&
   evalKnipCandidate?.commitAuthorization?.message === "AU20 eval: remove unused connections dependency" &&
-  Object.entries(evalKnipCandidate.productSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
-  sha256(fs.readFileSync(path.join(root, evalKnipCandidate.implementationReviewPath))) === evalKnipCandidate.implementationReviewSha256;
+  Object.entries(evalKnipCandidate.productSha256).every(([file, hash]) => {
+    if (!evalKnipCandidate.commitReceipt) return sha256(fs.readFileSync(path.join(root, file))) === hash;
+    const committed = spawnSync("git", ["show", `${evalKnipCandidate.commitReceipt.commit}:${file}`], { cwd: root, encoding: null, shell: false });
+    return committed.status === 0 && sha256(committed.stdout) === hash;
+  }) &&
+  (() => {
+    if (!evalKnipCandidate.commitReceipt) return sha256(fs.readFileSync(path.join(root, evalKnipCandidate.implementationReviewPath))) === evalKnipCandidate.implementationReviewSha256;
+    const committed = spawnSync("git", ["show", `${evalKnipCandidate.commitReceipt.commit}:${evalKnipCandidate.implementationReviewPath}`], { cwd: root, encoding: null, shell: false });
+    return committed.status === 0 && sha256(committed.stdout) === evalKnipCandidate.implementationReviewSha256;
+  })();
+const evalKnipCommit = evalKnipCandidate?.commitReceipt ?? null;
+const evalKnipCommitInspection = evalKnipCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", evalKnipCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const evalKnipCommitPaths = evalKnipCommit
+  ? spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", evalKnipCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const evalKnipCommitValid =
+  evalKnipCandidateValid &&
+  evalKnipCommit?.commit === "f2e04790727286b1d070cfb487e7f994a230bbc6" &&
+  evalKnipCommit?.tree === "7875e1ad1fc8640d5a855dc78d6935363ea5041a" &&
+  evalKnipCommit?.parent === "b8422e57667631117024587ee239f115b3c23165" &&
+  evalKnipCommit?.subject === evalKnipCandidate.commitAuthorization.message &&
+  JSON.stringify(evalKnipCommit?.paths) === JSON.stringify(evalKnipCandidate.commitAuthorization.paths) &&
+  JSON.stringify(evalKnipCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(evalKnipCommit?.verification ?? {}).every((result) => result === "pass") &&
+  evalKnipCommitInspection?.status === 0 &&
+  evalKnipCommitInspection.stdout.trim() === [evalKnipCommit.commit, evalKnipCommit.tree, evalKnipCommit.parent, evalKnipCommit.subject].join("\n") &&
+  evalKnipCommitPaths?.status === 0 &&
+  JSON.stringify(evalKnipCommitPaths.stdout.trim().split("\n")) === JSON.stringify(evalKnipCommit.paths);
+const notificationsKnipRed = progress.gateBindings?.notificationsKnipUnusedDevdepsRedProof ?? null;
+const notificationsKnipRedValid =
+  evalKnipCommitValid &&
+  notificationsKnipRed?.proofSha256 === "fe33df8165f12fa0c0c7967ce12ebff2eb0b2d9205b3661d8b0d3c4a82e0c7c7" &&
+  notificationsKnipRed?.reviewSha256 === "7dfaa82ef2765cdcb40663358331e4bef090ac7324f27eb2816e0cea7c80bb6c" &&
+  notificationsKnipRed?.verdict === "accept" &&
+  notificationsKnipRed?.status === "accepted" &&
+  sha256(fs.readFileSync(path.join(root, notificationsKnipRed.proofPath))) === notificationsKnipRed.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, notificationsKnipRed.reviewPath))) === notificationsKnipRed.reviewSha256;
+const notificationsKnipWriteCode = progress.gateBindings?.notificationsKnipUnusedDevdepsWriteCodeAuthorization ?? null;
+const notificationsKnipWriteCodeValid =
+  notificationsKnipRedValid &&
+  notificationsKnipWriteCode?.stage === "write-code-notifications-knip-unused-devdeps" &&
+  notificationsKnipWriteCode?.service === "notifications" &&
+  JSON.stringify(notificationsKnipWriteCode?.authorizedPaths) === JSON.stringify([
+    "packages/core-api/notifications/package.json",
+    "package-lock.json",
+  ]) &&
+  notificationsKnipWriteCode?.productCodeAuthorized === false &&
+  notificationsKnipWriteCode?.unrelatedLockChurnAuthorized === false &&
+  notificationsKnipWriteCode?.bunLockChangeAuthorized === false &&
+  notificationsKnipWriteCode?.surfaceGrowthAuthorized === false &&
+  notificationsKnipWriteCode?.implementationReviewRequiredBeforeCommit === true &&
+  notificationsKnipWriteCode?.status === "authorized";
+const notificationsKnipCandidate = progress.gateBindings?.notificationsKnipUnusedDevdepsCandidate ?? null;
+const notificationsKnipCandidateValid =
+  notificationsKnipWriteCodeValid &&
+  JSON.stringify(notificationsKnipCandidate?.productSha256) === JSON.stringify({
+    "packages/core-api/notifications/package.json": "a87edcd4fac0b82bd5eb0feb7e306bce06a11c3c864a832cd99de42b58760b7a",
+    "package-lock.json": "cad0e88ea2c0f6406e67df4ad0fb6b8addab85cd0c96d136f25d248aa86418a5",
+  }) &&
+  notificationsKnipCandidate?.proofSha256 === notificationsKnipRed.proofSha256 &&
+  notificationsKnipCandidate?.redReviewSha256 === notificationsKnipRed.reviewSha256 &&
+  notificationsKnipCandidate?.implementationReviewSha256 === "27bd368f0953bd85f7f4d57537767780a797d7156d2cad1f09b80cac216b3927" &&
+  notificationsKnipCandidate?.implementationReviewVerdict === "accept" &&
+  notificationsKnipCandidate?.status === "accepted-commit-authorized" &&
+  notificationsKnipCandidate?.commitAuthorization?.message === "AU20 notifications: remove unused SMTP dev dependencies" &&
+  Object.entries(notificationsKnipCandidate.productSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
+  sha256(fs.readFileSync(path.join(root, notificationsKnipCandidate.implementationReviewPath))) === notificationsKnipCandidate.implementationReviewSha256;
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -2080,21 +2147,29 @@ const finalShipCorrection = {
       commitReceipt: knowledgeKnipCommit,
       status: "completed-history",
     }] : []),
+    ...(evalKnipCommitValid ? [{
+      name: "eval-knip-unused-dependency",
+      staticRedProof: evalKnipRed,
+      candidate: evalKnipCandidate,
+      commitReceipt: evalKnipCommit,
+      status: "completed-history",
+    }] : []),
   ],
   activeIncrement: {
-    name: "eval-knip-unused-dependency",
-    staticRedProof: evalKnipRedValid ? evalKnipRed : null,
-    candidate: evalKnipCandidateValid ? evalKnipCandidate : null,
-    authorizedStage: evalKnipCandidateValid && progress.currentStep === "commit-eval-knip-unused-dependency"
-      ? "commit-eval-knip-unused-dependency"
+    name: "notifications-knip-unused-devdeps",
+    service: "notifications",
+    staticRedProof: notificationsKnipRedValid ? notificationsKnipRed : null,
+    candidate: notificationsKnipCandidateValid ? notificationsKnipCandidate : null,
+    authorizedStage: notificationsKnipCandidateValid && progress.currentStep === "commit-notifications-knip-unused-devdeps"
+      ? "commit-notifications-knip-unused-devdeps"
       : null,
-    authorization: evalKnipCandidateValid
-      ? evalKnipCandidate.commitAuthorization
+    authorization: notificationsKnipCandidateValid
+      ? notificationsKnipCandidate.commitAuthorization
       : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "eval-knip-unused-dependency",
+  nextIncrement: "notifications-knip-unused-devdeps",
 };
 const output = {
   ...payload,
@@ -2110,7 +2185,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !evalKnipCandidateValid,
+    commitLocked: !notificationsKnipCandidateValid,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);
