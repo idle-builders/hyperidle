@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "review-AN1-claude-discovery-architecture",
+  "currentStep": "review-AN1-claude-discovery-red-proof",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -2554,13 +2554,13 @@
       },
       "architecture": {
         "path": ".pipeline/work/AU20/architecture-amendments/an1-claude-mcp-discovery.md",
-        "sha256": "a54e5dccec1fb8215a0c3465978a31c2923b5402a8480c44960cb1d4c6c47e92",
+        "sha256": "6b80424a5f76dcbde4ad22185c7e50bf26750f0ae47b484e37ab5619ea01dbbd",
         "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/an1-claude-mcp-discovery.md",
         "feasibilitySha256": "6aa384fc3b676f44f9cad77e9c35eceb59d8be416de56cbb96ffde923b821b5e",
         "verdict": "accept",
         "review": {
           "path": "plans/AU20/register-reviews/an1-claude-mcp-discovery-architecture.md",
-          "sha256": "285a107553dd4d4586c93221dbbca6ff93fb313839377832650863f12301170f",
+          "sha256": "7668c47733f415b1ec97844cd678e19bcb44cf9eefd67f111a80cebe5462ffc4",
           "verdict": "accept",
           "score": 11
         },
@@ -2575,6 +2575,10 @@
             "effective cwd and absent/unreadable/directory/symlink behavior",
             "default execFile abort feasibility POC"
           ]
+        },
+        "postReviewClarification": {
+          "reason": "red-review listener-lifetime precision",
+          "contract": "zero net executor-owned AbortSignal listeners after every terminal path; zero added and zero removed is valid"
         }
       },
       "contract": {
@@ -2591,10 +2595,28 @@
       },
       "gates": {
         "writeTestsLocked": false,
-        "writeCodeLocked": true,
-        "next": "write-tests"
+        "writeCodeLocked": false,
+        "next": "write-code"
       },
-      "status": "architecture-accepted"
+      "redProof": {
+        "evidencePath": ".pipeline/work/AU20/red-proofs/an1-claude-mcp-discovery.json",
+        "evidenceSha256": "d0d90faf80a6af0ac1c8c7771994de0714f619afe08fb1e75d5a6d0c2fde4f84",
+        "unitTestPath": "packages/agent-execution/harness-registry/src/__tests__/harness-discovery.test.ts",
+        "unitTestSha256": "35fca3c18ceca36a697d0c821ad0254a1c4e796bfdba97d029475ccdf337b803",
+        "integrationTestPath": "packages/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
+        "integrationTestSha256": "5e822e2dae8fb5b4816dfeba9b5e2aea95eada01490355e2ccdd27348b2c9bb7",
+        "unit": "5 pass / 12 intended fail",
+        "integration": "real Claude identity expected, actual [] after three attempts",
+        "check": "37/37 packages",
+        "biome": "pass",
+        "verdict": "accept",
+        "review": {
+          "path": "plans/AU20/register-reviews/an1-claude-mcp-discovery-architecture.md",
+          "sha256": "7668c47733f415b1ec97844cd678e19bcb44cf9eefd67f111a80cebe5462ffc4",
+          "verdict": "accept"
+        }
+      },
+      "status": "red-accepted"
     }
   },
   "sessionStartedAt": "2026-07-17",

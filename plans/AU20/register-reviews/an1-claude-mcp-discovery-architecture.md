@@ -1,36 +1,48 @@
-# AU20 AN1 Claude MCP discovery — architecture critique R2
+# AU20 AN1 Claude MCP discovery — combined architecture and red-proof review R3
 
 **VERDICT: accept — 11/11**
 
 Reviewed:
 
-- `.pipeline/work/AU20/architecture-amendments/an1-claude-mcp-discovery.md`
-  (`a54e5dccec1fb8215a0c3465978a31c2923b5402a8480c44960cb1d4c6c47e92`)
-- `.pipeline/work/AU20/feasibility-amendments/an1-claude-mcp-discovery.md`
+- architecture
+  `.pipeline/work/AU20/architecture-amendments/an1-claude-mcp-discovery.md`
+  (`6b80424a5f76dcbde4ad22185c7e50bf26750f0ae47b484e37ab5619ea01dbbd`)
+- feasibility
+  `.pipeline/work/AU20/feasibility-amendments/an1-claude-mcp-discovery.md`
   (`6aa384fc3b676f44f9cad77e9c35eceb59d8be416de56cbb96ffde923b821b5e`)
+- unit red contract
+  `packages/agent-execution/harness-registry/src/__tests__/harness-discovery.test.ts`
+  (`35fca3c18ceca36a697d0c821ad0254a1c4e796bfdba97d029475ccdf337b803`)
+- real-harness integration contract
+  `packages/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts`
+  (`5e822e2dae8fb5b4816dfeba9b5e2aea95eada01490355e2ccdd27348b2c9bb7`)
 
-All prior findings are closed:
+The post-review clarification is accepted: the executor invariant is zero net
+executor-owned `AbortSignal` listeners after every terminal path. An implementation
+that adds zero and removes zero listeners is valid.
 
-1. One executor-owned `AbortController`, timer, and terminal result cover default and
-   injected runners. The injected context carries cwd, environment, and signal
-   compatibly. Late settlement and timer/listener cleanup are explicit and tested.
-2. Feasibility includes a real `execFile` abort POC proving child termination and no
-   late output.
-3. Claude health parsing is confined to the final `" - "` suffix. Adversarial
-   command/URL fixtures prevent status words or glyphs from forging health.
-4. Duplicate CLI identities reduce deterministically with
-   `needs-attention > working > unknown`, then override config fallback and sort by
-   exact name.
-5. Effective cwd and absent, malformed, unreadable, directory, broken-symlink, and
-   readable-symlink behavior are exact.
-6. Identity-only fallback and secret sentinels prove commands, URLs, headers,
-   environment values, and tokens never cross the discovery boundary.
-7. Real-Claude integration permits honest `unknown` fallback without timing
-   assertions. Real-API E2E remains explicitly AU23-owned.
+The red contract is complete:
 
-Implementation watch, not a blocker: `runCommand` is shared beyond Claude. Preserve
-existing successful-result and 15-second semantics for every caller and run their
-focused tests.
+1. Configured identity survives delayed, timed-out, non-zero, successful-empty, and
+   successful-unusable Claude output.
+2. Current and historical status suffixes, adversarial command/URL text, exact-name
+   dedupe, conservative health precedence, config/CLI merge, deterministic sorting,
+   closed descriptor shape, and secret exclusion are pinned.
+3. Absent, malformed, missing/non-object/array `mcpServers`, empty/whitespace names,
+   unreadable regular files, directories, broken symlinks, and readable symlinks are
+   covered.
+4. Success, failure, and timeout prove one invocation, signal delivery/abortion,
+   command-timer cleanup, and zero residual executor listeners.
+5. Late resolve and late reject after timeout prove one terminal result, no result
+   mutation, and no unhandled rejection.
+6. Real-Claude integration retains exact project identity while allowing honest
+   `needs-attention` or fallback `unknown` health without timing assertions.
 
-Architecture is accepted. Unlock write-tests only; write-code remains locked pending
-independent red-proof review.
+Focused unit execution produced 5 passing baseline tests and 12 intended failures in
+476ms. Biome passed. Failures are attributable to missing production behavior;
+production and AU23 E2E remained untouched. The 331-line unit addition is proportionate
+to the accepted runtime/state matrix and uses fake timers, so it adds no five- or
+fifteen-second wall-clock delay.
+
+Architecture clarification and red proof are accepted. Unlock write-code; subsequent
+implementation remains subject to default-reject review and full gates.

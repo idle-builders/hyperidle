@@ -73,7 +73,10 @@ describe("AN1 real-harness inherited tool discovery", () => {
 			);
 			const tools = (await discoverLocalHarnesses({ cwd }))["claude-code"].inheritedTools;
 			expect(tools).toContainEqual(
-				expect.objectContaining({ name: "an1-claude", health: "needs-attention" }),
+				expect.objectContaining({
+					name: "an1-claude",
+					health: expect.stringMatching(/^(needs-attention|unknown)$/),
+				}),
 			);
 			assertIdentityOnly(tools ?? []);
 		});

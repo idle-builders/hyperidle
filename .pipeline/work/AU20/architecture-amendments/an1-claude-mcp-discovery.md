@@ -77,6 +77,12 @@ failure, and timeout. There is no timeout inside `inspectClaudeTools`; the execu
 the sole lifetime owner. Unit tests exercise this through the injected runner/context,
 so no new public export is required.
 
+The executor need not register an `AbortSignal` event listener of its own: a direct
+timer race may call `controller.abort()` and settle the timeout branch. If an
+implementation does register one, it must remove it in `finally`. The invariant is
+zero net executor-owned listeners after every terminal path; zero added and zero
+removed is valid.
+
 On success, parse the emitted identities and health. On timeout, non-zero exit, empty
 output, or unusable output, retain `.mcp.json` identities as `unknown`; never replace
 a known project identity with `[]`. Account/global identities that exist only in CLI
