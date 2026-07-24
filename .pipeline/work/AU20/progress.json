@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "fix-cursor-probe-lifecycle",
+  "currentStep": "validate-AU20-aggregate-closeout",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -2432,18 +2432,67 @@
       },
       "commit": {
         "message": "AU20: format Cursor coverage guard fixture",
-        "commit": null,
-        "tree": null,
-        "status": "commit-pending"
+        "commit": "ec9f7b39409baadc3b732e269cef7cdcfc51ec32",
+        "tree": "801242ea1aacd30168d7f51c7626665c6c4a5bd1",
+        "parent": "3bf55368712dfaf29ff6db883c0f1b67e0479f07",
+        "status": "committed"
       },
       "closeoutBarrier": {
-        "status": "active",
+        "status": "cleared",
         "workPackageStatus": "in_progress",
         "reviewVerdict": "NOT DONE",
         "dependentIncrement": "cursor-probe-committed-state",
-        "dependentArchitectureSha256": "50cf35ca2d0ff3cd8a85aed9a8bbc5de16fd5e71d83bbaa6f77a3984f021a290",
-        "dependentFeasibilitySha256": "7c19ecd8d9234c4f1fafd3306c567865eb55f5eec42996a55351c97a40bbdbdd",
-        "dependentStatus": "pending"
+        "dependentArchitectureSha256": "89f4664538ed4069092140bea4ff1163a81ddb81c78babd8a6a12afce77c3f35",
+        "dependentFeasibilitySha256": "3af1378776c9544d0e372a6dbb152f03e8aed0de5be4ade33c233de63b2beeac",
+        "dependentStatus": "accepted-commit-pending"
+      },
+      "status": "committed"
+    },
+    "cursorProbeCommittedState": {
+      "increment": "cursor-probe-committed-state",
+      "formatDependency": {
+        "commit": "ec9f7b39409baadc3b732e269cef7cdcfc51ec32",
+        "tree": "801242ea1aacd30168d7f51c7626665c6c4a5bd1",
+        "parent": "3bf55368712dfaf29ff6db883c0f1b67e0479f07",
+        "formattedAr2Sha256": "40637c22d91d495e1b91d2176200974be65bf89386cd1a8849761d2e1c557e02"
+      },
+      "architecture": {
+        "path": ".pipeline/work/AU20/architecture-amendments/cursor-probe-committed-state.md",
+        "sha256": "89f4664538ed4069092140bea4ff1163a81ddb81c78babd8a6a12afce77c3f35",
+        "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/cursor-probe-committed-state.md",
+        "feasibilitySha256": "3af1378776c9544d0e372a6dbb152f03e8aed0de5be4ade33c233de63b2beeac",
+        "verdict": "accept"
+      },
+      "redProof": {
+        "validatorPath": ".pipeline/work/AU20/probes/validate-cursor-probe-state.mjs",
+        "validatorSha256": "8fc986e259148c2d570935dddb092e14f9dbb93f7e7fb9d478ad1171e2991ad6",
+        "evidencePath": ".pipeline/work/AU20/red-proofs/cursor-probe-state.json",
+        "evidenceSha256": "448bcad2b10d618a6f2df83ba719612cbc4c78e200e320e53b8cc85c2f94b360",
+        "exitCode": 1,
+        "verdict": "accept"
+      },
+      "implementation": {
+        "path": ".pipeline/work/AU20/probes/validate-cursor-harness-guard-tests.mjs",
+        "sha256": "852e6d63e6ca14fa372f6def10be2ac42e8b039015092c154639f85b53c43779",
+        "diff": "54 insertions, 18 deletions",
+        "stateValidatorPreCommit": "pass",
+        "directProbePreCommit": "pass",
+        "targeted": "2 files / 71 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "358 files / 3632 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "implementationReview": {
+        "path": "plans/AU20/register-reviews/cursor-probe-committed-state-implementation.md",
+        "sha256": "3c1eac9af62cdfee4f65fed446f72f8c5227412cc0d52f8a72e37ed070173c5a",
+        "verdict": "accept"
+      },
+      "commit": {
+        "message": "AU20: make Cursor guard evidence reproducible",
+        "commit": null,
+        "tree": null,
+        "status": "commit-pending"
       },
       "status": "commit-pending"
     }

@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const sha256 = value => createHash("sha256").update(value).digest("hex");
@@ -19,9 +19,14 @@ const guardPath = "scripts/honest-harness-guard.ts";
 const ar1Path = "packages/db/src/__tests__/ar1-honest-harness-guard.test.ts";
 const ar2Path = "packages/db/src/__tests__/ar2-coverage-guard.test.ts";
 const targetPaths = [ar1Path, ar2Path].sort();
-const currentHashes = {
+const probePath = ".pipeline/work/AU20/probes/validate-cursor-harness-guard-tests.mjs";
+const historicalRedHashes = {
   [ar1Path]: "eb77040dca75e13b10a1584e117597697fb2b7d01238d0a54670127379f836a2",
   [ar2Path]: "cf49c8f47d40372380631be3cba8405d53f54bfda9ad6bd8b549bd602b8e6d33"
+};
+const currentGreenHashes = {
+  [ar1Path]: "d2c6db87a0ad2efafcaa836f4daa7f5cf8327571f8f6ecd4c79add0b56892062",
+  [ar2Path]: "40637c22d91d495e1b91d2176200974be65bf89386cd1a8849761d2e1c557e02"
 };
 const frozen = {
   ".pipeline/work/AU20/architecture-amendments/cursor-harness-guard-tests.md":
@@ -35,6 +40,35 @@ const frozen = {
   "scripts/surface-census.ts":
     "df74ee90cce2bf075f2fd32199e6c86780871c2530c6baa981a4cc8498d0cc9b"
 };
+
+export const readScopeState = cwd => {
+  const readPaths = args => {
+    const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+    if (result.status !== 0) fail("cannot inspect tracked scope");
+    return result.stdout
+      .split("\n")
+      .filter(Boolean)
+      .map(path => path.replaceAll("\\", "/"))
+      .sort();
+  };
+  const stagedPaths = readPaths(["diff", "--cached", "--name-only", "--"]);
+  const unstagedPaths = readPaths(["diff", "--name-only", "--"]);
+  const changedPaths = [...new Set([...stagedPaths, ...unstagedPaths])].sort();
+  const unstaged = new Set(unstagedPaths);
+  const overlapPaths = stagedPaths.filter(path => unstaged.has(path)).sort();
+  return { stagedPaths, unstagedPaths, changedPaths, overlapPaths };
+};
+
+export const classifyGreenScope = scopeState => {
+  if (scopeState.overlapPaths.length > 0) return "reject";
+  const changed = scopeState.changedPaths;
+  if (changed.length === 0) return "committed-green";
+  if (JSON.stringify(changed) === JSON.stringify(targetPaths)) return "candidate-green";
+  if (changed.length === 1 && changed[0] === probePath) return "probe-candidate-green";
+  return "reject";
+};
+
+export const main = () => {
 for (const [path, expected] of Object.entries(frozen)) {
   if (sha256(read(path)) !== expected) fail(`${path}: frozen hash mismatch`);
 }
@@ -50,24 +84,19 @@ if (JSON.stringify(families) !== JSON.stringify(expectedFamilies)) {
   fail(`registry mismatch: ${JSON.stringify(families)}`);
 }
 
-const git = (...args) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
-const changed = new Set();
-for (const args of [
-  ["diff", "--name-only", "--"],
-  ["diff", "--cached", "--name-only", "--"]
-]) {
-  const result = git(...args);
-  if (result.status !== 0) fail("cannot inspect tracked scope");
-  for (const path of result.stdout.split("\n").filter(Boolean)) changed.add(path);
-}
-const changedPaths = [...changed].sort();
+const scopeState = readScopeState(root);
+const changedPaths = scopeState.changedPaths;
+const scope = classifyGreenScope(scopeState);
 const hashes = {
   [ar1Path]: sha256(read(ar1Path)),
   [ar2Path]: sha256(read(ar2Path))
 };
-const current =
-  hashes[ar1Path] === currentHashes[ar1Path] &&
-  hashes[ar2Path] === currentHashes[ar2Path];
+const historicalRed =
+  hashes[ar1Path] === historicalRedHashes[ar1Path] &&
+  hashes[ar2Path] === historicalRedHashes[ar2Path];
+const currentGreen =
+  hashes[ar1Path] === currentGreenHashes[ar1Path] &&
+  hashes[ar2Path] === currentGreenHashes[ar2Path];
 
 const command = [
   "npx",
@@ -99,7 +128,7 @@ const ar2Failures = [
   "real requireHarness call is not stripped — all four declared"
 ];
 
-if (current) {
+if (historicalRed) {
   if (changedPaths.length !== 0) {
     fail(`red baseline has tracked changes: ${JSON.stringify(changedPaths)}`);
   }
@@ -117,7 +146,8 @@ if (current) {
   process.exit(1);
 }
 
-if (JSON.stringify(changedPaths) !== JSON.stringify(targetPaths)) {
+if (!currentGreen) fail(`green test hashes changed: ${JSON.stringify(hashes)}`);
+if (scope === "reject") {
   fail(`green scope mismatch: ${JSON.stringify(changedPaths)}`);
 }
 if (targeted.status !== 0) fail(`targeted green exited ${targeted.status ?? "null"}`);
@@ -210,3 +240,9 @@ if (!ar1.includes("coverage-debt allowlist") || !ar1.includes("dirty + allowlist
 }
 
 process.stdout.write("PASS cursor harness guard tests cover exact five-family semantics\n");
+};
+
+const isMain =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (isMain) main();
