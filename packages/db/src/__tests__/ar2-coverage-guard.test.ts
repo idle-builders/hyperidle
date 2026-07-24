@@ -9,7 +9,7 @@
  *   missingHarnesses(source): SupportedHarness[]
  *     Returns the supported harnesses absent from the declared set.
  *     A fully-covered file returns []. A file declaring only "claude" returns
- *     ["builtin", "codex", "opencode"].
+ *     ["builtin", "codex", "opencode", "cursor-agent"].
  *
  * And the coverage-debt allowlist interaction via checkGuardRules (existing fn):
  *   - A harness-facing file that covers only a subset → violation naming missing harnesses
@@ -43,18 +43,20 @@ describe("declaredHarnesses — parses requireHarness() literals from source", (
 		expect(result.has("codex")).toBe(true);
 	});
 
-	test("four separate requireHarness calls → full set", () => {
+	test("five separate requireHarness calls → full set", () => {
 		const src = [
-			'requireHarness("builtin")',
-			'requireHarness("claude")',
-			'requireHarness("codex")',
-			'requireHarness("opencode")',
+			`requireHarness("builtin")`,
+			`requireHarness("claude")`,
+			`requireHarness("codex")`,
+			`requireHarness("opencode")`,
+			`requireHarness("cursor-agent")`,
 		].join("\n");
 		const result = declaredHarnesses(src);
 		expect(result.has("builtin")).toBe(true);
 		expect(result.has("claude")).toBe(true);
 		expect(result.has("codex")).toBe(true);
 		expect(result.has("opencode")).toBe(true);
+		expect(result.has("cursor-agent")).toBe(true);
 	});
 
 	test("multi-arg call captures both names", () => {
@@ -80,50 +82,42 @@ describe("declaredHarnesses — parses requireHarness() literals from source", (
 // ── missingHarnesses ──────────────────────────────────────────────────────────
 
 describe("missingHarnesses — returns SUPPORTED_HARNESSES not declared in source", () => {
-	test("source with no requireHarness → all four missing", () => {
+	test("source with no requireHarness → all five missing", () => {
 		const missing = missingHarnesses("");
-		expect(missing).toContain("builtin");
-		expect(missing).toContain("claude");
-		expect(missing).toContain("codex");
-		expect(missing).toContain("opencode");
-		expect(missing).toHaveLength(4);
+		expect(missing).toEqual(["builtin", "claude", "codex", "opencode", "cursor-agent"]);
 	});
 
-	test("source declaring only claude → missing builtin + codex + opencode", () => {
+	test("source declaring only claude → missing builtin + codex + opencode + cursor-agent", () => {
 		const src = `requireHarness("claude")`;
 		const missing = missingHarnesses(src);
-		expect(missing).toContain("builtin");
-		expect(missing).toContain("codex");
-		expect(missing).toContain("opencode");
-		expect(missing).not.toContain("claude");
-		expect(missing).toHaveLength(3);
+		expect(missing).toEqual(["builtin", "codex", "opencode", "cursor-agent"]);
 	});
 
-	test("source declaring all four → empty (fully covered)", () => {
+	test("source declaring all five → empty (fully covered)", () => {
 		const src = [
-			'requireHarness("builtin")',
-			'requireHarness("claude")',
-			'requireHarness("codex")',
-			'requireHarness("opencode")',
+			`requireHarness("builtin")`,
+			`requireHarness("claude")`,
+			`requireHarness("codex")`,
+			`requireHarness("opencode")`,
+			`requireHarness("cursor-agent")`,
 		].join("\n");
 		const missing = missingHarnesses(src);
-		expect(missing).toHaveLength(0);
+		expect(missing).toEqual([]);
 	});
 
-	test("source declaring builtin + claude → missing codex + opencode", () => {
-		const src = `requireHarness("builtin")\nrequireHarness("claude")`;
+	test("source declaring builtin + claude → missing codex + opencode + cursor-agent", () => {
+		const src = [
+			`requireHarness("builtin")`,
+			`requireHarness("claude")`,
+		].join("\n");
 		const missing = missingHarnesses(src);
-		expect(missing).toContain("codex");
-		expect(missing).toContain("opencode");
-		expect(missing).not.toContain("builtin");
-		expect(missing).not.toContain("claude");
-		expect(missing).toHaveLength(2);
+		expect(missing).toEqual(["codex", "opencode", "cursor-agent"]);
 	});
 
-	test("'gh' is NOT in SUPPORTED_HARNESSES — declaring only gh still yields all four missing", () => {
+	test("'gh' is NOT in SUPPORTED_HARNESSES — declaring only gh still yields all five missing", () => {
 		const src = `requireHarness("gh")`;
 		const missing = missingHarnesses(src);
-		expect(missing).toHaveLength(4);
+		expect(missing).toEqual(["builtin", "claude", "codex", "opencode", "cursor-agent"]);
 	});
 });
 
@@ -156,7 +150,7 @@ describe("declaredHarnesses — comment and string mentions do NOT count as decl
 		expect(result.has("builtin")).toBe(true);
 	});
 
-	test("file that gates 3 harnesses but mentions the 4th only in a comment → missingHarnesses reports the 4th", () => {
+	test("file that gates 4 harnesses but mentions codex only in a comment → missingHarnesses reports codex", () => {
 		// This is the exact sanity-break scenario from the reviewer:
 		// remove the real requireHarness("codex") gate call,
 		// leave "codex" in a JSDoc comment and an error string — guard must FAIL.
@@ -168,21 +162,22 @@ describe("declaredHarnesses — comment and string mentions do NOT count as decl
 			`requireHarness("builtin")`,
 			`requireHarness("claude")`,
 			`requireHarness("opencode")`,
+			`requireHarness("cursor-agent")`,
 		].join("\n");
 		const missing = missingHarnesses(srcWithCommentOnly);
 		// codex appears only in comment + string — must be reported as missing
-		expect(missing).toContain("codex");
-		expect(missing).toHaveLength(1);
+		expect(missing).toEqual(["codex"]);
 	});
 
-	test("real requireHarness call is not stripped — all four declared", () => {
+	test("real requireHarness call is not stripped — all five declared", () => {
 		const src = [
 			`requireHarness("builtin")`,
 			`requireHarness("claude")`,
 			`requireHarness("codex")`,
 			`requireHarness("opencode")`,
+			`requireHarness("cursor-agent")`,
 		].join("\n");
 		const missing = missingHarnesses(src);
-		expect(missing).toHaveLength(0);
+		expect(missing).toEqual([]);
 	});
 });

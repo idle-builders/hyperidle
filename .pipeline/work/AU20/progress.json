@@ -2321,6 +2321,78 @@
       "commit": null,
       "tree": null,
       "status": "commit-pending"
+    },
+    "cursorHarnessGuardTestsArchitecture": {
+      "increment": "cursor-harness-guard-tests",
+      "architecturePath": ".pipeline/work/AU20/architecture-amendments/cursor-harness-guard-tests.md",
+      "architectureSha256": "05065d957f7bf7af9aec3996104fdf5a7fb3dab6c0122cf4038803b2373a0707",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/cursor-harness-guard-tests.md",
+      "feasibilitySha256": "03a324029ce1a9b1b6144a4a694d6b4c0c7681a4fa3a2f913b3f57e3f9df7f70",
+      "round": 2,
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "cursorHarnessGuardTestsRedProof": {
+      "increment": "cursor-harness-guard-tests",
+      "proofPath": ".pipeline/work/AU20/red-proofs/cursor-harness-guard-tests.json",
+      "proofSha256": "77e4381f858632ff6bac4803164ab92390a57427d2c6816c8a048a91153a83ba",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-cursor-harness-guard-tests.mjs",
+      "validatorSha256": "5829a4bb7b7f3e12e00104a738dc119bc416a5375c847590062f23b7b5071fa6",
+      "expectedRed": "4 AR1 and 7 AR2 assertions omit cursor-agent",
+      "revision": 2,
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "cursorHarnessGuardTestsWriteCode": {
+      "increment": "cursor-harness-guard-tests",
+      "stage": "write-code-cursor-harness-guard-tests",
+      "authorizedPaths": [
+        "packages/db/src/__tests__/ar1-honest-harness-guard.test.ts",
+        "packages/db/src/__tests__/ar2-coverage-guard.test.ts"
+      ],
+      "implementationSha256": {
+        "packages/db/src/__tests__/ar1-honest-harness-guard.test.ts": "d2c6db87a0ad2efafcaa836f4daa7f5cf8327571f8f6ecd4c79add0b56892062",
+        "packages/db/src/__tests__/ar2-coverage-guard.test.ts": "b75a3367d137dcd56a11969ee0fb91422fdfa935e7381d276cb95ddd8ec796be"
+      },
+      "guardChangeAuthorized": false,
+      "registryChangeAuthorized": false,
+      "productCodeAuthorized": false,
+      "gateChangeAuthorized": false,
+      "censusChangeAuthorized": false,
+      "status": "implemented"
+    },
+    "cursorHarnessGuardTestsImplementationReview": {
+      "increment": "cursor-harness-guard-tests",
+      "path": "plans/AU20/register-reviews/cursor-harness-guard-tests-implementation.md",
+      "sha256": "fd371f0f0d11d160135ee3d92e422cb9effcbf8a269e6d19de45b7837d5b87eb",
+      "verdict": "accept",
+      "verification": {
+        "probe": "pass",
+        "targeted": "2 files / 71 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "358 files / 3632 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "status": "accepted"
+    },
+    "cursorHarnessGuardTestsCommit": {
+      "increment": "cursor-harness-guard-tests",
+      "message": "AU20: align harness guard tests with Cursor",
+      "paths": [
+        ".pipeline/work/AU20/architecture-amendments/cursor-harness-guard-tests.md",
+        ".pipeline/work/AU20/feasibility-amendments/cursor-harness-guard-tests.md",
+        ".pipeline/work/AU20/probes/validate-cursor-harness-guard-tests.mjs",
+        ".pipeline/work/AU20/progress.json",
+        ".pipeline/work/AU20/red-proofs/cursor-harness-guard-tests.json",
+        "packages/db/src/__tests__/ar1-honest-harness-guard.test.ts",
+        "packages/db/src/__tests__/ar2-coverage-guard.test.ts",
+        "plans/AU20/register-reviews/cursor-harness-guard-tests-implementation.md"
+      ],
+      "parent": "f89a8cf9aa5c857b47ee8397937222a051a93da8",
+      "commit": null,
+      "tree": null,
+      "status": "commit-pending"
     }
   },
   "sessionStartedAt": "2026-07-17",
