@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "commit-notifications-knip-unused-devdeps",
+  "currentStep": "validate-AU20-aggregate-closeout",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -1965,7 +1965,137 @@
           "plans/AU20/red-proof-reviews/notifications-knip-unused-devdeps.md",
           "plans/AU20/register-reviews/notifications-knip-unused-devdeps.md"
         ]
+      },
+      "commitReceipt": {
+        "commit": "02627290785f66f19568bff5f20b3c44481737b3",
+        "tree": "70603240166d144506881d42050c29485bbce3e2",
+        "parent": "f2e04790727286b1d070cfb487e7f994a230bbc6",
+        "subject": "AU20 notifications: remove unused SMTP dev dependencies",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/notifications-knip-unused-devdeps.json",
+          "package-lock.json",
+          "packages/core-api/notifications/package.json",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/notifications-knip-unused-devdeps.md",
+          "plans/AU20/register-reviews/notifications-knip-unused-devdeps.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "notificationsChecks": "pass",
+          "knip": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
       }
+    },
+    "aggregateCloseoutValidationAuthorization": {
+      "increment": "AU20-aggregate-closeout",
+      "stage": "validate-AU20-aggregate-closeout",
+      "findings": ["F6", "F11"],
+      "requiredValidation": [
+        "corrective map and all receipts",
+        "demand and census evidence reproducibility",
+        "check, lint, unit, Knip, production Knip, build and release verification",
+        "full service integration",
+        "real harness integration with exact external blocker reporting",
+        "Playwright inventory/run with AU23 dependency classification",
+        "independent final six-lens pipeline review",
+        "retro"
+      ],
+      "authorizedEvidencePaths": [
+        ".pipeline/work/AU20/closeout-evidence.json",
+        ".pipeline/work/AU20/review.md",
+        ".pipeline/work/AU20/retro.jsonl",
+        ".pipeline/work/AU20/progress.json",
+        "plans/AU20/register-reviews/aggregate-closeout.md"
+      ],
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "gateChangeAuthorizedBeforeReview": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "externalBlockersMustRemainVisible": true,
+      "status": "validation-authorized"
+    },
+    "knipProductionReachabilityArchitecture": {
+      "increment": "knip-production-test-reachability",
+      "architecturePath": ".pipeline/work/AU20/architecture-amendments/knip-production-test-reachability.md",
+      "architectureSha256": "1b2f92f2409e3f4b54259f2d380f780bfa36e454a199a27768ce54da8f86cc2d",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/knip-production-test-reachability.md",
+      "feasibilitySha256": "c3ff7b7398bd1fc074b9265d09b4f449f3bb9d1ae0ea734ef7ad074b956b0d02",
+      "reviewRound": 2,
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "knipProductionReachabilityRedProof": {
+      "increment": "knip-production-test-reachability",
+      "proofPath": ".pipeline/work/AU20/red-proofs/knip-production-reachability.json",
+      "proofSha256": "473b22824b508aa75455972e0e851f54f6c5ea6428f2b9998e644a3f347ff0e1",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-knip-production-reachability.mjs",
+      "validatorSha256": "c4d8f6fba44782007e4d3ad5381d9dbb2f4d8a730fd13385f63cad7bc0d7c48e",
+      "expectedRed": [
+        "package script mismatch",
+        "preprocessor missing"
+      ],
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "knipProductionReachabilityWriteCodeAuthorization": {
+      "increment": "knip-production-test-reachability",
+      "stage": "write-code-knip-production-test-reachability",
+      "authorizedPaths": [
+        "package.json",
+        "scripts/knip-production-test-files.mjs"
+      ],
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "censusChangeAuthorized": false,
+      "configChangeAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "status": "authorized"
+    },
+    "knipProductionReachabilityImplementationReview": {
+      "increment": "knip-production-test-reachability",
+      "path": "plans/AU20/register-reviews/knip-production-test-reachability-implementation.md",
+      "sha256": "c3390af5c015ac9ad9bab052f378cf09343070002673d11c82a7cda984d85502",
+      "verdict": "accept",
+      "packageSha256": "3613b72b689f045bbf0d0ff0f4e22e07672c22a66390034d628c432bebb52cf7",
+      "preprocessorSha256": "834cb07a0ff55edb350bd5ceecdf076c95d320c78d7a11fafa1400b539a00b01",
+      "verification": {
+        "validator": "pass",
+        "knipProduction": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "status": "accepted"
+    },
+    "knipProductionReachabilityCommit": {
+      "increment": "knip-production-test-reachability",
+      "message": "AU20: correct production Knip test reachability",
+      "paths": [
+        ".pipeline/work/AU20/architecture-amendments/knip-production-test-reachability.md",
+        ".pipeline/work/AU20/feasibility-amendments/knip-production-test-reachability.md",
+        ".pipeline/work/AU20/probes/validate-knip-production-reachability.mjs",
+        ".pipeline/work/AU20/progress.json",
+        ".pipeline/work/AU20/red-proofs/knip-production-reachability.json",
+        "package.json",
+        "plans/AU20/register-reviews/knip-production-test-reachability-implementation.md",
+        "scripts/knip-production-test-files.mjs"
+      ],
+      "parent": "02627290785f66f19568bff5f20b3c44481737b3",
+      "commit": null,
+      "tree": null,
+      "status": "commit-pending"
     }
   },
   "sessionStartedAt": "2026-07-17",
