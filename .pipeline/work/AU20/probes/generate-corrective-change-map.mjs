@@ -1682,6 +1682,83 @@ const watcherCandidateValid =
   sha256(fs.readFileSync(path.join(root, watcherCandidate.proofPath))) === watcherCandidate.proofSha256 &&
   sha256(fs.readFileSync(path.join(root, watcherCandidate.redReviewPath))) === watcherCandidate.redReviewSha256 &&
   sha256(fs.readFileSync(path.join(root, watcherCandidate.implementationReviewPath))) === watcherCandidate.implementationReviewSha256;
+const watcherCommit = watcherCandidate?.commitReceipt ?? null;
+const watcherCommitInspection = watcherCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", watcherCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const watcherCommitPaths = watcherCommit
+  ? spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", watcherCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const watcherCommitValid =
+  watcherCandidateValid &&
+  watcherCommit?.commit === "90aab0a2ef02d6016cccc435208d1cf6e2cb4b92" &&
+  watcherCommit?.tree === "3af7ba02edbad3e9d16a87355f13d8637b095dec" &&
+  watcherCommit?.parent === "79056099c5852aab9658534b6a7fe2341260e2f0" &&
+  watcherCommit?.subject === watcherCandidate.commitAuthorization.message &&
+  JSON.stringify(watcherCommit?.paths) === JSON.stringify(watcherCandidate.commitAuthorization.paths) &&
+  JSON.stringify(watcherCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(watcherCommit?.verification ?? {}).every((result) => result === "pass") &&
+  watcherCommitInspection?.status === 0 &&
+  watcherCommitInspection.stdout.trim() === [watcherCommit.commit, watcherCommit.tree, watcherCommit.parent, watcherCommit.subject].join("\n") &&
+  watcherCommitPaths?.status === 0 &&
+  JSON.stringify(watcherCommitPaths.stdout.trim().split("\n")) === JSON.stringify(watcherCommit.paths);
+const ownershipRed = progress.gateBindings?.ownershipProseStaticRed ?? null;
+const ownershipRedValid =
+  watcherCommitValid &&
+  ownershipRed?.increment === "ownership-prose-current" &&
+  ownershipRed?.finding === "F8" &&
+  ownershipRed?.validatorSha256 === "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330" &&
+  ownershipRed?.reviewSha256 === "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255" &&
+  ownershipRed?.verdict === "accept" &&
+  ownershipRed?.redExit === 1 &&
+  JSON.stringify(ownershipRed?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  ownershipRed?.status === "accepted" &&
+  sha256(fs.readFileSync(path.join(root, ownershipRed.validatorPath))) === ownershipRed.validatorSha256 &&
+  sha256(fs.readFileSync(path.join(root, ownershipRed.reviewPath))) === ownershipRed.reviewSha256;
+const ownershipWriteCode = progress.gateBindings?.ownershipProseWriteCodeAuthorization ?? null;
+const ownershipWriteCodeValid =
+  ownershipRedValid &&
+  ownershipWriteCode?.increment === "ownership-prose-current" &&
+  ownershipWriteCode?.stage === "write-code-ownership-prose-current" &&
+  ownershipWriteCode?.finding === "F8" &&
+  JSON.stringify(ownershipWriteCode?.authorizedPaths) === JSON.stringify([
+    "packages/agent-orchestration/src/index.ts",
+    "packages/core-api/src/services/durable-agent-queue.ts",
+  ]) &&
+  ownershipWriteCode?.productBehaviorAuthorized === false &&
+  ownershipWriteCode?.exportsAuthorized === false &&
+  ownershipWriteCode?.serviceSurfaceGrowthAuthorized === false &&
+  ownershipWriteCode?.implementationReviewRequiredBeforeCommit === true &&
+  ownershipWriteCode?.nextIncrement === "evidence-current-census" &&
+  ownershipWriteCode?.status === "authorized";
+const ownershipCandidate = progress.gateBindings?.ownershipProseCandidate ?? null;
+const ownershipCandidateValid =
+  ownershipWriteCodeValid &&
+  JSON.stringify(ownershipCandidate?.productSha256) === JSON.stringify({
+    "packages/agent-orchestration/src/index.ts": "b93edacbb7c65ce359bf6bc3ed915b9c54355da3734ef8a5c801892a5a816984",
+    "packages/core-api/src/services/durable-agent-queue.ts": "c0c8410c1db31b6bfbe153dd73c6cefa71e2c0d15b486a52add7a128dd6a4884",
+  }) &&
+  ownershipCandidate?.validatorSha256 === ownershipRed.validatorSha256 &&
+  ownershipCandidate?.redReviewSha256 === ownershipRed.reviewSha256 &&
+  ownershipCandidate?.implementationReviewSha256 === "3e5c95b4b99f603c9d6f85d71a092ccac7c26b672d42241465b22f66deb4cb09" &&
+  ownershipCandidate?.implementationReviewVerdict === "accept" &&
+  ownershipCandidate?.status === "accepted-commit-authorized" &&
+  ownershipCandidate?.commitAuthorization?.message === "AU20 F8: correct ownership prose" &&
+  JSON.stringify(ownershipCandidate?.commitAuthorization?.paths) === JSON.stringify([
+    ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+    ".pipeline/work/AU20/progress.json",
+    "packages/agent-orchestration/src/index.ts",
+    "packages/core-api/src/services/durable-agent-queue.ts",
+    "plans/AU20/corrective-change-map.json",
+    "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+    "plans/AU20/register-reviews/ownership-prose-current.md",
+  ]) &&
+  Object.entries(ownershipCandidate.productSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
+  sha256(fs.readFileSync(path.join(root, ownershipCandidate.validatorPath))) === ownershipCandidate.validatorSha256 &&
+  sha256(fs.readFileSync(path.join(root, ownershipCandidate.redReviewPath))) === ownershipCandidate.redReviewSha256 &&
+  sha256(fs.readFileSync(path.join(root, ownershipCandidate.implementationReviewPath))) === ownershipCandidate.implementationReviewSha256;
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -1770,25 +1847,30 @@ const finalShipCorrection = {
       commitReceipt: notificationsCommit,
       status: "completed-history",
     }] : []),
+    ...(watcherCommitValid ? [{
+      name: "filesystems-watcher-errors",
+      finding: "F10",
+      redProofReview: watcherRedProof,
+      candidate: watcherCandidate,
+      commitReceipt: watcherCommit,
+      status: "completed-history",
+    }] : []),
   ],
   activeIncrement: {
-    name: "filesystems-watcher-errors",
-    finding: "F10",
-    writeTestsAuthorization: watcherWriteTestsValid ? watcherWriteTests : null,
-    redProofReview: watcherRedProofValid ? watcherRedProof : null,
-    fixtureCorrection: watcherFixtureCorrection,
-    proofProvenanceCorrection: watcherProofCorrection,
-    candidate: watcherCandidateValid ? watcherCandidate : null,
-    authorizedStage: watcherCandidateValid && progress.currentStep === "commit-filesystems-watcher-errors"
-      ? "commit-filesystems-watcher-errors"
+    name: "ownership-prose-current",
+    finding: "F8",
+    staticRedProof: ownershipRedValid ? ownershipRed : null,
+    candidate: ownershipCandidateValid ? ownershipCandidate : null,
+    authorizedStage: ownershipCandidateValid && progress.currentStep === "commit-ownership-prose-current"
+      ? "commit-ownership-prose-current"
       : null,
-    authorization: watcherCandidateValid
-      ? watcherCandidate.commitAuthorization
+    authorization: ownershipCandidateValid
+      ? ownershipCandidate.commitAuthorization
       : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "filesystems-watcher-errors",
+  nextIncrement: "ownership-prose-current",
 };
 const output = {
   ...payload,
@@ -1804,7 +1886,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !watcherCandidateValid,
+    commitLocked: !ownershipCandidateValid,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

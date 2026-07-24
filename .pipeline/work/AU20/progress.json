@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "commit-filesystems-watcher-errors",
+  "currentStep": "commit-ownership-prose-current",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -1413,6 +1413,115 @@
           "plans/AU20/corrective-change-map.json",
           "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
           "plans/AU20/register-reviews/filesystems-watcher-errors.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "90aab0a2ef02d6016cccc435208d1cf6e2cb4b92",
+        "tree": "3af7ba02edbad3e9d16a87355f13d8637b095dec",
+        "parent": "79056099c5852aab9658534b6a7fe2341260e2f0",
+        "subject": "AU20 F10: surface filesystem watcher failures",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+          "packages/agent-orchestration/run-orchestration/src/context.ts",
+          "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+          "packages/core-api/filesystems/src/file-watcher.ts",
+          "packages/core-api/src/server-factory.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+          "plans/AU20/register-reviews/filesystems-watcher-errors.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "ownershipProseStaticRed": {
+      "increment": "ownership-prose-current",
+      "finding": "F8",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+      "validatorSha256": "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330",
+      "reviewPath": "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+      "reviewSha256": "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255",
+      "verdict": "accept",
+      "redExit": 1,
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "status": "accepted"
+    },
+    "ownershipProseWriteCodeAuthorization": {
+      "increment": "ownership-prose-current",
+      "stage": "write-code-ownership-prose-current",
+      "finding": "F8",
+      "authorizedPaths": [
+        "packages/agent-orchestration/src/index.ts",
+        "packages/core-api/src/services/durable-agent-queue.ts"
+      ],
+      "requiredChanges": [
+        "remove the two inventoried context-assembly live-owner claims and add the exact approved run-orchestration current-owner statement",
+        "remove the two inventoried lifecycle-projection live-owner claims and add the exact approved session-requests current-owner statement"
+      ],
+      "frozenPaths": [
+        ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+        "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+        "scripts/surface-census.ts"
+      ],
+      "productBehaviorAuthorized": false,
+      "exportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "evidence-current-census",
+      "status": "authorized"
+    },
+    "ownershipProseCandidate": {
+      "increment": "ownership-prose-current",
+      "finding": "F8",
+      "productSha256": {
+        "packages/agent-orchestration/src/index.ts": "b93edacbb7c65ce359bf6bc3ed915b9c54355da3734ef8a5c801892a5a816984",
+        "packages/core-api/src/services/durable-agent-queue.ts": "c0c8410c1db31b6bfbe153dd73c6cefa71e2c0d15b486a52add7a128dd6a4884"
+      },
+      "validatorPath": ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+      "validatorSha256": "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330",
+      "redReviewPath": "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+      "redReviewSha256": "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255",
+      "implementationReviewPath": "plans/AU20/register-reviews/ownership-prose-current.md",
+      "implementationReviewSha256": "3e5c95b4b99f603c9d6f85d71a092ccac7c26b672d42241465b22f66deb4cb09",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "validator": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23 services / 231 methods / 181 types / 412 total",
+        "diff": "3 insertions / 13 deletions; comments only"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F8: correct ownership prose",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+          ".pipeline/work/AU20/progress.json",
+          "packages/agent-orchestration/src/index.ts",
+          "packages/core-api/src/services/durable-agent-queue.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+          "plans/AU20/register-reviews/ownership-prose-current.md"
         ]
       }
     }

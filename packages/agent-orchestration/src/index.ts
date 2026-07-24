@@ -10,15 +10,8 @@
  * for production while the proof stayed self-contained.
  *
  * @lore AU19 Increment 3 (context-assembly finalize): `wiredAssemble`
- * RETIRED. `@hyperidle/context-assembly` is now the real, fully-migrated
- * Service (all five ports real — see its own `index.ts` top `@lore`), wired
- * into the live app at the actual composition root,
- * `packages/server/src/services/context-assembly-bindings.ts` — not this
- * Layer barrel, which (like every other AU19 Service's real wiring so far)
- * has zero real consumers; `packages/server` remains the practical
- * composition root through Increment 5 (it is not itself a nested
- * `packages/<layer>/<service>/` package the composition-boundary-guard
- * scans, so it is the one place allowed to name every Service together).
+ * RETIRED. `@hyperidle/run-orchestration` is the current owner of context assembly.
+ * The live server reaches that owner through its runtime composition.
  * This barrel intentionally exports nothing until a future Increment gives
  * the `agent-orchestration` Layer package itself a real consumer.
  */

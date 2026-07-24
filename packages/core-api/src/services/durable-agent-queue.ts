@@ -4,10 +4,7 @@
  * Durable queue transitions need injected
  * `routine`/`work`/`agent-selection`/`conversation`/`users`/`org`/`review`/
  * `trigger-resolution` ports (Mechanism C — `session-requests` never imports
- * another Service). `agent_lifecycle_inbox` was an interim forward-reference
- * (owned by `lifecycle-projection`) — resolved at Increment 3d:
- * `lifecycleInboxWriter`/`lifecycleInboxReaper` below now call
- * `@hyperidle/lifecycle-projection`'s real exports instead of raw table ops.
+ * another Service). `@hyperidle/session-requests` is the current owner of lifecycle projection.
  * This module builds
  * each bound singleton ONCE, at the composition root, so every real call
  * site (`agent-layer-boot.ts`, `session-lifecycle.ts`, `agent-session-runtime.ts`,

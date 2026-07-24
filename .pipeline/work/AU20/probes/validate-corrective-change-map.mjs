@@ -681,53 +681,61 @@ if (process.argv.includes("--require-review")) {
       notificationGitReceipt.stdout.trim() !== [notificationReceipt.commit, notificationReceipt.tree, notificationReceipt.parent, notificationReceipt.subject].join("\n") ||
       notificationGitPaths.status !== 0 ||
       JSON.stringify(notificationGitPaths.stdout.trim().split("\n")) !== JSON.stringify(notificationReceipt.paths)) fail("F9 commit object mismatch");
-  const watcherAuth = active?.writeTestsAuthorization;
-  const watcherRed = active?.redProofReview;
-  const watcherCandidate = active?.candidate;
-  if (watcherRed?.testSha256 !== "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac" ||
-      watcherRed?.proofSha256 !== "b17c8bdbd28e79ad09dd9a5c950aa0bbf6137e37a963caa896b9d12849d4aed0" ||
-      watcherRed?.reviewSha256 !== "a871298edba1c30af90185b65429abc60044c81f9fd3104a608b0bf14be35fbb" ||
-      watcherRed?.verdict !== "accept" ||
-      watcherRed?.status !== "corrected-and-accepted" ||
-      sha256(fs.readFileSync(path.join(root, watcherRed.testPath))) !== watcherRed.testSha256 ||
-      sha256(fs.readFileSync(path.join(root, watcherRed.proofPath))) !== watcherRed.proofSha256 ||
-      sha256(fs.readFileSync(path.join(root, watcherRed.reviewPath))) !== watcherRed.reviewSha256) fail("F10 corrected red-proof binding mismatch");
-  if (JSON.stringify(watcherCandidate?.productSha256) !== JSON.stringify({
-        "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
-        "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
-        "packages/core-api/src/server-factory.ts": "85c44c324ab10aa63027a220fe7a99a394deba59c35cc9226102f7d32896ab8b",
+  const completedWatcher = finalCorrection.completedIncrements?.find((increment) => increment.name === "filesystems-watcher-errors");
+  const watcherReceipt = completedWatcher?.commitReceipt;
+  if (watcherReceipt?.commit !== "90aab0a2ef02d6016cccc435208d1cf6e2cb4b92" ||
+      watcherReceipt?.tree !== "3af7ba02edbad3e9d16a87355f13d8637b095dec" ||
+      watcherReceipt?.parent !== "79056099c5852aab9658534b6a7fe2341260e2f0" ||
+      watcherReceipt?.subject !== "AU20 F10: surface filesystem watcher failures" ||
+      watcherReceipt?.paths?.length !== 11 ||
+      JSON.stringify(watcherReceipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      Object.values(watcherReceipt?.verification ?? {}).some((result) => result !== "pass")) fail("F10 commit receipt mismatch");
+  const watcherGitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", watcherReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  const watcherGitPaths = spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", watcherReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (watcherGitReceipt.status !== 0 ||
+      watcherGitReceipt.stdout.trim() !== [watcherReceipt.commit, watcherReceipt.tree, watcherReceipt.parent, watcherReceipt.subject].join("\n") ||
+      watcherGitPaths.status !== 0 ||
+      JSON.stringify(watcherGitPaths.stdout.trim().split("\n")) !== JSON.stringify(watcherReceipt.paths)) fail("F10 commit object mismatch");
+  const ownershipRed = active?.staticRedProof;
+  const ownershipCandidate = active?.candidate;
+  if (ownershipRed?.validatorSha256 !== "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330" ||
+      ownershipRed?.reviewSha256 !== "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255" ||
+      ownershipRed?.verdict !== "accept" ||
+      ownershipRed?.redExit !== 1 ||
+      sha256(fs.readFileSync(path.join(root, ownershipRed.validatorPath))) !== ownershipRed.validatorSha256 ||
+      sha256(fs.readFileSync(path.join(root, ownershipRed.reviewPath))) !== ownershipRed.reviewSha256) fail("F8 static-red binding mismatch");
+  if (JSON.stringify(ownershipCandidate?.productSha256) !== JSON.stringify({
+        "packages/agent-orchestration/src/index.ts": "b93edacbb7c65ce359bf6bc3ed915b9c54355da3734ef8a5c801892a5a816984",
+        "packages/core-api/src/services/durable-agent-queue.ts": "c0c8410c1db31b6bfbe153dd73c6cefa71e2c0d15b486a52add7a128dd6a4884",
       }) ||
-      watcherCandidate?.testSha256 !== watcherRed.testSha256 ||
-      watcherCandidate?.proofSha256 !== watcherRed.proofSha256 ||
-      watcherCandidate?.redReviewSha256 !== watcherRed.reviewSha256 ||
-      watcherCandidate?.implementationReviewSha256 !== "29dacc858edee2d357bebde717f2985db5c197790af02a4e2faa5de7f439ff8f" ||
-      watcherCandidate?.implementationReviewVerdict !== "accept" ||
-      watcherCandidate?.status !== "accepted-commit-authorized" ||
-      watcherCandidate?.commitAuthorization?.message !== "AU20 F10: surface filesystem watcher failures" ||
-      Object.entries(watcherCandidate.productSha256).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash) ||
-      sha256(fs.readFileSync(path.join(root, watcherCandidate.implementationReviewPath))) !== watcherCandidate.implementationReviewSha256) fail("F10 candidate binding mismatch");
-  if (active?.name !== "filesystems-watcher-errors" ||
-      active?.finding !== "F10" ||
-      active?.authorizedStage !== "commit-filesystems-watcher-errors" ||
+      ownershipCandidate?.validatorSha256 !== ownershipRed.validatorSha256 ||
+      ownershipCandidate?.redReviewSha256 !== ownershipRed.reviewSha256 ||
+      ownershipCandidate?.implementationReviewSha256 !== "3e5c95b4b99f603c9d6f85d71a092ccac7c26b672d42241465b22f66deb4cb09" ||
+      ownershipCandidate?.implementationReviewVerdict !== "accept" ||
+      ownershipCandidate?.status !== "accepted-commit-authorized" ||
+      ownershipCandidate?.commitAuthorization?.message !== "AU20 F8: correct ownership prose" ||
+      Object.entries(ownershipCandidate.productSha256).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash) ||
+      sha256(fs.readFileSync(path.join(root, ownershipCandidate.implementationReviewPath))) !== ownershipCandidate.implementationReviewSha256) fail("F8 candidate binding mismatch");
+  if (active?.name !== "ownership-prose-current" ||
+      active?.finding !== "F8" ||
+      active?.authorizedStage !== "commit-ownership-prose-current" ||
       JSON.stringify(active?.authorization?.paths) !== JSON.stringify([
         ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
         ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+        ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
         ".pipeline/work/AU20/progress.json",
-        ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
-        "packages/agent-orchestration/run-orchestration/src/context.ts",
-        "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
-        "packages/core-api/filesystems/src/file-watcher.ts",
-        "packages/core-api/src/server-factory.ts",
+        "packages/agent-orchestration/src/index.ts",
+        "packages/core-api/src/services/durable-agent-queue.ts",
         "plans/AU20/corrective-change-map.json",
-        "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
-        "plans/AU20/register-reviews/filesystems-watcher-errors.md",
+        "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+        "plans/AU20/register-reviews/ownership-prose-current.md",
       ]) ||
       active?.productCodeAuthorized !== false ||
-      finalCorrection.nextIncrement !== "filesystems-watcher-errors" ||
+      finalCorrection.nextIncrement !== "ownership-prose-current" ||
       integrity.writeTestsLocked !== true ||
       integrity.codeLocked !== true ||
       integrity.productCodeLocked !== true ||
-      integrity.commitLocked !== false) fail("F10 commit authorization state invalid");
+      integrity.commitLocked !== false) fail("F8 commit authorization state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,
