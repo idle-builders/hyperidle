@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "validate-AU20-aggregate-closeout",
+  "currentStep": "investigate-AN1-claude-discovery",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -2490,6 +2490,55 @@
       },
       "commit": {
         "message": "AU20: make Cursor guard evidence reproducible",
+        "commit": null,
+        "tree": null,
+        "status": "commit-pending"
+      },
+      "status": "commit-pending"
+    },
+    "ar2FormatValidatorSuccessor": {
+      "increment": "ar2-format-validator-successor",
+      "architecture": {
+        "path": ".pipeline/work/AU20/architecture-amendments/ar2-format-validator-successor.md",
+        "sha256": "e44521d99448ab994c031bcf3c417cabb1b741e411cb33f4e2ec09b2391450dd",
+        "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/ar2-format-validator-successor.md",
+        "feasibilitySha256": "c247e340b34ced4d0a29a7b8fc9f9c17484f6ea5ab9f5ef10abd8b6b0b103d14",
+        "verdict": "accept"
+      },
+      "redProof": {
+        "validatorPath": ".pipeline/work/AU20/probes/validate-ar2-format-validator-state.mjs",
+        "validatorSha256": "fe26000a8bc9b04fe655ecc0d04e6d72f033828c20ac473c70d2f69683792ec2",
+        "evidencePath": ".pipeline/work/AU20/red-proofs/ar2-format-validator-state.json",
+        "evidenceSha256": "425ffb0fd65d1be01a4917480713c7d02fa83ab170faa5a258159b3572c30041",
+        "exitCode": 1,
+        "verdict": "accept"
+      },
+      "implementation": {
+        "path": ".pipeline/work/AU20/probes/validate-cursor-ar2-format.mjs",
+        "sha256": "af10f065924de0532c072267f193aa3dc9fa9080cb5a6a61b3ebc0f9a4b731c4",
+        "diff": "143 insertions, 70 deletions",
+        "stateValidatorPreProgress": "pass",
+        "directValidatorPreProgress": "pass",
+        "biome": "pass",
+        "targeted": "2 files / 71 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "358 files / 3632 tests pass",
+        "census": "23/231/181/412 unchanged",
+        "verdict": "accept"
+      },
+      "implementationReview": {
+        "path": "plans/AU20/register-reviews/ar2-format-validator-successor-implementation.md",
+        "sha256": "8b0771f2bb297b5f130ec4a69a760a93cc77c7a45281d16167586efd38e23178",
+        "verdict": "accept"
+      },
+      "finalReview": {
+        "path": "plans/AU20/register-reviews/ar2-format-validator-successor-final.md",
+        "sha256": "2754e60717dcf09ea727a1f3ccc0a85cb71452ae21d094b14d18d269eaec07eb",
+        "verdict": "accept"
+      },
+      "commit": {
+        "message": "AU20: bind AR2 format evidence to final Cursor state",
         "commit": null,
         "tree": null,
         "status": "commit-pending"
