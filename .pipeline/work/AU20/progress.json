@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "investigate-AN1-claude-discovery",
+  "currentStep": "review-AN1-claude-discovery-architecture",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -2544,6 +2544,57 @@
         "status": "commit-pending"
       },
       "status": "commit-pending"
+    },
+    "an1ClaudeMcpDiscovery": {
+      "increment": "an1-claude-mcp-discovery",
+      "classification": {
+        "primary": "product-code-regression",
+        "secondary": "stale-parser-and-health-assertion",
+        "external": "observed-input-not-blocker"
+      },
+      "architecture": {
+        "path": ".pipeline/work/AU20/architecture-amendments/an1-claude-mcp-discovery.md",
+        "sha256": "a54e5dccec1fb8215a0c3465978a31c2923b5402a8480c44960cb1d4c6c47e92",
+        "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/an1-claude-mcp-discovery.md",
+        "feasibilitySha256": "6aa384fc3b676f44f9cad77e9c35eceb59d8be416de56cbb96ffde923b821b5e",
+        "verdict": "accept",
+        "review": {
+          "path": "plans/AU20/register-reviews/an1-claude-mcp-discovery-architecture.md",
+          "sha256": "285a107553dd4d4586c93221dbbca6ff93fb313839377832650863f12301170f",
+          "verdict": "accept",
+          "score": 11
+        },
+        "revision": {
+          "round": 2,
+          "priorVerdict": "revise",
+          "resolved": [
+            "single executor-owned cancellable timeout including injected runner context",
+            "exactly-once settlement and timer/listener cleanup",
+            "final status suffix parsing insulated from adversarial command/url text",
+            "duplicate CLI health precedence needs-attention > working > unknown",
+            "effective cwd and absent/unreadable/directory/symlink behavior",
+            "default execFile abort feasibility POC"
+          ]
+        }
+      },
+      "contract": {
+        "identityFallback": "cwd/.mcp.json mcpServers keys only",
+        "commandDeadline": "single executor-owned cancellable 15000ms timer with AbortSignal",
+        "cliMerge": "health overrides fallback; exact-name dedupe; deterministic sort",
+        "au23Exclusion": "no real-API E2E changes or execution"
+      },
+      "observations": {
+        "claudeVersion": "2.1.202",
+        "isolatedMcpListSeconds": [4.84, 4.81, 4.94, 2.66, 5.45],
+        "currentFiveSecondRaceCrossed": true,
+        "focusedIntegrationCanPass": true
+      },
+      "gates": {
+        "writeTestsLocked": false,
+        "writeCodeLocked": true,
+        "next": "write-tests"
+      },
+      "status": "architecture-accepted"
     }
   },
   "sessionStartedAt": "2026-07-17",
