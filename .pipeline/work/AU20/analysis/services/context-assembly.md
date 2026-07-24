@@ -26,10 +26,10 @@ Test it against the three things that earn a product boundary:
 
 ## 2. The Deliberate Target Public API
 
-Even setting the fold aside and asking "what SHOULD this surface be?", the demand is tiny and the 33 exports are almost entirely leaked internals. The real demand is **8 methods from one consumer**, and those 8 are variants-by-session-kind of a single act: *materialize a session's on-disk context.*
+Even setting the fold aside and asking "what SHOULD this surface be?", the demand is tiny and the 33 exports are almost entirely leaked internals. The real demand is **8 methods from one consumer**, and those 8 are variants-by-session-kind of a single act: *perform context assembly for a session's on-disk context.*
 
 The method-per-kind sprawl to collapse:
-- `assemblePrompt` / `assembleRoutinePrompt` / `composeAssistantPrompt` — one prompt-composition act, split three ways by session kind (task / routine / assistant).
+- `assemblePrompt` / `assembleRoutinePrompt` / `composeAssistantPrompt` — one context-assembly act, split three ways by session kind (task / routine / assistant).
 - `buildSessionContextData` / `buildRoutineSessionContextData` (+ internal `buildSessionContext`) — one context-data build, split two ways by kind.
 - `assembleAgentContext` (+ internal `assembleContext`) / `beginAgentWriteback` / `writeSandboxAgentsMd` — the emit-to-sandbox + watch side of the same act.
 
@@ -41,7 +41,7 @@ The method-per-kind sprawl to collapse:
 | `ContextAssemblyPorts` | injected read-port bundle (`knowledge`/`work`/`users`/`routine`/`filesystems`/`org`) | the 5 `*Reader` port types + filter/scoring/watcher types | The one inside seam to domain services (Mechanism-C DI). Stays as the single composition-root contract. Under the fold this becomes `session-runtime`-internal. |
 
 **Everything else is an internal detail that should NOT be a public export:**
-- `stripFrontmatter`, `substituteTemplateVars`, `buildTemplateVariables` — pure prompt-templating helpers, used only inside prompt composition. Leaked; make internal.
+- `stripFrontmatter`, `substituteTemplateVars`, `buildTemplateVariables` — pure prompt-templating helpers, used only inside context assembly. Leaked; make internal.
 - `EMITTED_ROOTS_AGENTS_MD`, `EMITTED_ROOTS_CONTEXT_ASSEMBLY` — **duplicated** definitions; the source of truth already lives in `@hyperidle/filesystems` (`scaffolding-paths.ts`). Delete the copies, import from filesystems.
 - `Manifest`, `ManifestEntry`, `ToolSummary`, `ContextAssemblyConfig`, all four `*SessionContext(Config|Data)`, all four `Prompt*(Input|Result)`, `AgentContextAssemblyOutcome`, `AgentWritebackHandle`, `AssembleAgentContextInput`, `AssistantPromptResult` — intermediate step-boundary types that exist only because the one act was sliced into many exported functions. Collapse into `SessionAssemblySpec` / `AssembledSession` (input + output of the single entry) and keep the rest local.
 - The per-Reader port types (`KnowledgeReader`, `WorkReader`, `UsersReader`, `RoutineReader`, `FilesystemsReader`, `ContextAssemblyKnowledgeListFilters`, `ContextAssemblyScoringContext`, `ContextAssemblyFileWatcher(Config)`) fold under `ContextAssemblyPorts`.
@@ -52,7 +52,7 @@ The method-per-kind sprawl to collapse:
 
 ## 3. Inside Lens
 
-As `session-runtime`'s internal `assemble` module, coherence stays high: one public entry (`assembleSession`) dispatching on `spec.kind`, backed by three private helpers (`composePrompt`, `buildContextData`, `emitSandbox`) that no longer need to be exported or type-fenced across a package wall. The Mechanism-C `ContextAssemblyPorts` DI seam stays — it is the genuinely valuable part (domain reads via injected ports, no cross-service imports), now wired once inside `session-runtime`'s composition root alongside lifecycle/orchestration wiring. Removing the package boundary deletes the duplicated `EMITTED_ROOTS_*` constants and the structural-mirror types (`Manifest`/watcher configs) that only exist to dodge cross-service type imports — a large chunk of the 33 was boundary-tax, not capability.
+As `session-runtime`'s internal `assemble` module, coherence stays high: one public entry (`assembleSession`) dispatching on `spec.kind`, backed by three private helpers (`assemblePrompt`, `buildContextData`, `emitSandbox`) that no longer need to be exported or type-fenced across a package wall. The Mechanism-C `ContextAssemblyPorts` DI seam stays — it is the genuinely valuable part (domain reads via injected ports, no cross-service imports), now wired once inside `session-runtime`'s composition root alongside lifecycle/orchestration wiring. Removing the package boundary deletes the duplicated `EMITTED_ROOTS_*` constants and the structural-mirror types (`Manifest`/watcher configs) that only exist to dodge cross-service type imports — a large chunk of the 33 was boundary-tax, not capability.
 
 ---
 
@@ -61,7 +61,7 @@ As `session-runtime`'s internal `assemble` module, coherence stays high: one pub
 Apply the test: *"add dozens more session kinds / callers — do we need more methods?"*
 
 - **Today's shape (fails):** each new session kind adds a triple — `assembleXPrompt` + `buildXSessionContextData` + its input/output types. Task and routine already cost 2 prompt methods + 2 context-data methods + assistant a third prompt method. A fourth kind (say a "review" session) would add another `assembleReviewPrompt` + `buildReviewSessionContextData` + 4 types. Linear method growth per kind.
-- **Target shape (scales sub-linearly):** a new kind is a new `spec.kind` value and a private branch inside `composePrompt`/`buildContextData`. The public surface — `assembleSession(db, spec)` — does not change. Ten new kinds add zero public methods. New *consumers* likewise compose the one entry; they don't each get a bespoke method. This is the `list(filter)` / `transition(from,to)` north-star: parameterize by intent, absorb use-cases without new methods.
+- **Target shape (scales sub-linearly):** a new kind is a new `spec.kind` value and a private branch inside `assemblePrompt`/`buildContextData`. The public surface — `assembleSession(db, spec)` — does not change. Ten new kinds add zero public methods. New *consumers* likewise compose the one entry; they don't each get a bespoke method. This is the `list(filter)` / `transition(from,to)` north-star: parameterize by intent, absorb use-cases without new methods.
 
 ---
 

@@ -2173,6 +2173,80 @@
       "commit": null,
       "tree": null,
       "status": "commit-pending"
+    },
+    "harnessVocabularyEvidenceArchitecture": {
+      "increment": "harness-vocabulary-evidence",
+      "architecturePath": ".pipeline/work/AU20/architecture-amendments/harness-vocabulary-evidence.md",
+      "architectureSha256": "d1b0fc2db896e37292332216672d865e696f871119d44130ae685b5d5c18bccd",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/harness-vocabulary-evidence.md",
+      "feasibilitySha256": "2fdad34215667fb611e8f7ca4b920b917ddaaeb733960a3824cd5b4cbd79f26c",
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "harnessVocabularyEvidenceRedProof": {
+      "increment": "harness-vocabulary-evidence",
+      "proofPath": ".pipeline/work/AU20/red-proofs/harness-vocabulary-evidence.json",
+      "proofSha256": "9b54daf4910c5e2e5500850a432dbe278c20d8e44d00a8f51a4486eae506a0d2",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs",
+      "validatorSha256": "f82fb16519e31cac3c44a0eeeb9711d19c0cea2fd1217b493798fdbbe188a92b",
+      "expectedRed": "exact 6 lines across 2 files",
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "harnessVocabularyEvidenceWriteCodeAuthorization": {
+      "increment": "harness-vocabulary-evidence",
+      "stage": "write-code-harness-vocabulary-evidence",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md",
+        ".pipeline/work/AU20/rearch/run-orchestration.md"
+      ],
+      "exactSpanCount": 6,
+      "nonTargetBytesFrozen": true,
+      "guardChangeAuthorized": false,
+      "configChangeAuthorized": false,
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "censusChangeAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "status": "authorized"
+    },
+    "harnessVocabularyEvidenceImplementationReview": {
+      "increment": "harness-vocabulary-evidence",
+      "path": "plans/AU20/register-reviews/harness-vocabulary-evidence-implementation.md",
+      "sha256": "75f30f58ee118fbb0b2f442581259797f2f43bb3e4452b4d6daea5e48f550672",
+      "verdict": "accept",
+      "documentSha256": {
+        ".pipeline/work/AU20/analysis/services/context-assembly.md": "7943212ec9371fb5cfa8320543d948bdee22407ccc2afc150565d80a3a0ced63",
+        ".pipeline/work/AU20/rearch/run-orchestration.md": "406bf14a36735840fcb12e08007b358bec56aec49e4c818f97b506e821e45920"
+      },
+      "verification": {
+        "validator": "pass",
+        "harnessVocabularyGuard": "pass",
+        "nextAh5Guard": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "status": "accepted"
+    },
+    "harnessVocabularyEvidenceCommit": {
+      "increment": "harness-vocabulary-evidence",
+      "message": "AU20: align evidence with harness vocabulary",
+      "paths": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md",
+        ".pipeline/work/AU20/architecture-amendments/harness-vocabulary-evidence.md",
+        ".pipeline/work/AU20/feasibility-amendments/harness-vocabulary-evidence.md",
+        ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs",
+        ".pipeline/work/AU20/progress.json",
+        ".pipeline/work/AU20/rearch/run-orchestration.md",
+        ".pipeline/work/AU20/red-proofs/harness-vocabulary-evidence.json",
+        "plans/AU20/register-reviews/harness-vocabulary-evidence-implementation.md"
+      ],
+      "parent": "abf86e345b505aa5ad456bec95b6322276d2ab5c",
+      "commit": null,
+      "tree": null,
+      "status": "commit-pending"
     }
   },
   "sessionStartedAt": "2026-07-17",

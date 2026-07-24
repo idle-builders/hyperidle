@@ -78,7 +78,7 @@ Four public entry points, backed by five cohesive internal module seams. Paramet
 
 | Declaration | Owns | Replaces |
 |---|---|---|
-| `createContextAssembler` | source-specific context, prompt composition, AGENTS.md, session-context loading | context-assembly service/ops plus prompt/context helper exports |
+| `createContextAssembler` | source-specific context, context assembly, AGENTS.md, session-context loading | context-assembly service/ops plus prompt/context helper exports |
 | `createProvisioner` | admission, mounts, MCP/tool setup, harness event loop, teardown/capture | admit/run/provision/startSessionProvision and provisioning hook/type sprawl |
 | `createWritebackProcessor` | manifest diff, knowledge conflict handling, notes, EventBus subscription/disposal | raw manifest/path/writeback functions and subscriber façade |
 | `createWorkerIngress` | authenticated WS route, connection replacement/pause/resume/unregister, disposal | WorkerConnectionManager + registerWorkerWsRoute split surface |
