@@ -2247,6 +2247,80 @@
       "commit": null,
       "tree": null,
       "status": "commit-pending"
+    },
+    "vocabularyValidatorCommittedStateArchitecture": {
+      "increment": "vocabulary-validator-committed-state",
+      "architecturePath": ".pipeline/work/AU20/architecture-amendments/vocabulary-validator-committed-state.md",
+      "architectureSha256": "0e5e509fdc15b0b13a0b6ceeab156abc24fb606051d185aa3047c9ab6824bd20",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/vocabulary-validator-committed-state.md",
+      "feasibilitySha256": "da0d64c654602cf9008111b6e8692da1e15a0ec3e8cb67163a714cfccf89d127",
+      "round": 4,
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "vocabularyValidatorCommittedStateRedProof": {
+      "increment": "vocabulary-validator-committed-state",
+      "proofPath": ".pipeline/work/AU20/red-proofs/vocabulary-validator-state.json",
+      "proofSha256": "7e7f61562a77753f5b8821bdb95abf1bca6d4688b4464ca203acde07abb69898",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-vocabulary-validator-state.mjs",
+      "validatorSha256": "7bbb99e9c18dbeb7d3ecba91cc1b84a0cee657ec3f6dc0fd1fd53532e0dd0cd2",
+      "expectedRed": "validator lacks committed-state seams and exits 2 on clean HEAD",
+      "revision": 4,
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "vocabularyValidatorCommittedStateWriteCode": {
+      "increment": "vocabulary-validator-committed-state",
+      "stage": "write-code-vocabulary-validator-committed-state",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs"
+      ],
+      "implementationSha256": "bbeb559f20833b67e3bb6c0e0bf500628051522ef2261999231928c3076c535e",
+      "acceptedGreenScopes": [
+        "committed-green",
+        "candidate-green",
+        "validator-candidate-green"
+      ],
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "guardChangeAuthorized": false,
+      "configChangeAuthorized": false,
+      "censusChangeAuthorized": false,
+      "status": "implemented"
+    },
+    "vocabularyValidatorCommittedStateImplementationReview": {
+      "increment": "vocabulary-validator-committed-state",
+      "path": "plans/AU20/register-reviews/vocabulary-validator-committed-state-implementation.md",
+      "sha256": "f29257668d7cfdf1ffa5eb22d6fe676874c9c34a243b541c02ec69399a8b9b20",
+      "verdict": "accept",
+      "verification": {
+        "stateProbe": "pass",
+        "validator": "pass",
+        "harnessVocabularyGuard": "pass",
+        "nextAh5Guard": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "status": "accepted"
+    },
+    "vocabularyValidatorCommittedStateCommit": {
+      "increment": "vocabulary-validator-committed-state",
+      "message": "AU20: make vocabulary evidence validation reproducible",
+      "paths": [
+        ".pipeline/work/AU20/architecture-amendments/vocabulary-validator-committed-state.md",
+        ".pipeline/work/AU20/feasibility-amendments/vocabulary-validator-committed-state.md",
+        ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs",
+        ".pipeline/work/AU20/probes/validate-vocabulary-validator-state.mjs",
+        ".pipeline/work/AU20/progress.json",
+        ".pipeline/work/AU20/red-proofs/vocabulary-validator-state.json",
+        "plans/AU20/register-reviews/vocabulary-validator-committed-state-implementation.md"
+      ],
+      "parent": "7ec8982617baa3929b1a03ac22ed2a397a17d2c3",
+      "commit": null,
+      "tree": null,
+      "status": "commit-pending"
     }
   },
   "sessionStartedAt": "2026-07-17",

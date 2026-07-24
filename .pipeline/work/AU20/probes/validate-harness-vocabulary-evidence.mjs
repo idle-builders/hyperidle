@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const baseCommit = "abf86e345b505aa5ad456bec95b6322276d2ab5c";
@@ -52,80 +52,126 @@ const documents = {
   }
 };
 
-const git = (...args) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
-let state = null;
-const expectedGuardLines = [];
+const targetPaths = Object.keys(documents).sort();
+const validatorPath =
+  ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs";
 
-for (const [path, contract] of Object.entries(documents)) {
-  const baselineResult = git("show", `${baseCommit}:${path}`);
-  if (baselineResult.status !== 0) fail(`${path}: cannot read bound baseline`);
-  const baseline = baselineResult.stdout;
-  if (sha256(baseline) !== contract.beforeSha256) fail(`${path}: baseline hash mismatch`);
+export const classifyGreenScope = paths => {
+  const normalized = [...new Set(paths)].sort();
+  if (normalized.length === 0) return "committed-green";
+  if (JSON.stringify(normalized) === JSON.stringify(targetPaths)) return "candidate-green";
+  if (normalized.length === 1 && normalized[0] === validatorPath) {
+    return "validator-candidate-green";
+  }
+  return "reject";
+};
 
-  const originalLines = baseline.split("\n");
-  const expectedLines = [...originalLines];
-  for (const replacement of contract.replacements) {
-    const index = replacement.line - 1;
-    const oldLine = originalLines[index];
-    if (!oldLine || !oldLine.includes(replacement.oldSpan)) {
-      fail(`${path}:${replacement.line}: old span missing from baseline`);
+export const classifyDocumentState = hashes => {
+  const states = targetPaths.map(path => {
+    if (hashes[path] === documents[path].beforeSha256) return "baseline";
+    if (hashes[path] === documents[path].afterSha256) return "expected";
+    return "unknown";
+  });
+  if (states.every(state => state === "baseline")) return "baseline";
+  if (states.every(state => state === "expected")) return "expected";
+  if (states.every(state => state !== "unknown")) return "mixed";
+  return "unknown";
+};
+
+export const readChangedPaths = cwd => {
+  const paths = new Set();
+  for (const args of [
+    ["diff", "--name-only", "--"],
+    ["diff", "--cached", "--name-only", "--"]
+  ]) {
+    const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+    if (result.status !== 0) fail("unable to inspect tracked working-tree scope");
+    for (const path of result.stdout.split("\n").filter(Boolean)) {
+      paths.add(path.replaceAll("\\", "/"));
     }
-    if (oldLine.split(replacement.oldSpan).length !== 2) {
-      fail(`${path}:${replacement.line}: old span is not unique`);
+  }
+  return [...paths].sort();
+};
+
+const main = () => {
+  const git = (...args) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+  const hashes = {};
+  const expectedGuardLines = [];
+
+  for (const [path, contract] of Object.entries(documents)) {
+    const baselineResult = git("show", `${baseCommit}:${path}`);
+    if (baselineResult.status !== 0) fail(`${path}: cannot read bound baseline`);
+    const baseline = baselineResult.stdout;
+    if (sha256(baseline) !== contract.beforeSha256) fail(`${path}: baseline hash mismatch`);
+
+    const originalLines = baseline.split("\n");
+    const expectedLines = [...originalLines];
+    for (const replacement of contract.replacements) {
+      const index = replacement.line - 1;
+      const oldLine = originalLines[index];
+      if (!oldLine || !oldLine.includes(replacement.oldSpan)) {
+        fail(`${path}:${replacement.line}: old span missing from baseline`);
+      }
+      if (oldLine.split(replacement.oldSpan).length !== 2) {
+        fail(`${path}:${replacement.line}: old span is not unique`);
+      }
+      expectedGuardLines.push({
+        path,
+        line: replacement.line,
+        content: oldLine
+      });
+      expectedLines[index] = oldLine.replace(replacement.oldSpan, replacement.newSpan);
     }
-    expectedGuardLines.push({
-      path,
-      line: replacement.line,
-      content: oldLine
-    });
-    expectedLines[index] = oldLine.replace(replacement.oldSpan, replacement.newSpan);
+
+    const expected = expectedLines.join("\n");
+    if (sha256(expected) !== contract.afterSha256) fail(`${path}: reconstructed hash mismatch`);
+    const current = read(path);
+    if (current !== baseline && current !== expected) {
+      fail(`${path}: bytes differ beyond the six accepted replacement spans`);
+    }
+    hashes[path] = sha256(current);
   }
 
-  const expected = expectedLines.join("\n");
-  if (sha256(expected) !== contract.afterSha256) fail(`${path}: reconstructed hash mismatch`);
-  const current = read(path);
-  const documentState =
-    current === baseline ? "red" :
-    current === expected ? "green" :
-    "invalid";
-  if (documentState === "invalid") {
-    fail(`${path}: bytes differ beyond the six accepted replacement spans`);
+  const state = classifyDocumentState(hashes);
+  if (state === "mixed") fail("documents are in mixed red/green states");
+  if (state === "unknown") fail("documents have unknown content hashes");
+  const changed = readChangedPaths(root);
+  const scope = classifyGreenScope(changed);
+  if (scope === "reject") {
+    fail(`tracked file outside evidence scope changed: ${JSON.stringify(changed)}`);
   }
-  if (state && state !== documentState) fail("documents are in mixed red/green states");
-  state = documentState;
-}
-
-const changedResult = git("diff", "--name-only");
-if (changedResult.status !== 0) fail("unable to inspect tracked working-tree scope");
-const changed = changedResult.stdout.trim().split("\n").filter(Boolean).sort();
-const allowedChanges = Object.keys(documents).sort();
-if (changed.some(path => !allowedChanges.includes(path))) {
-  fail(`tracked file outside evidence scope changed: ${JSON.stringify(changed)}`);
-}
-if (state === "green" && JSON.stringify(changed) !== JSON.stringify(allowedChanges)) {
-  fail(`green scope mismatch: ${JSON.stringify(changed)}`);
-}
-
-const guard = spawnSync("npm", ["run", "harness-vocab-guard:check"], {
-  cwd: root,
-  encoding: "utf8",
-  env: process.env
-});
-const guardOutput = `${guard.stdout ?? ""}${guard.stderr ?? ""}`;
-if (state === "red") {
-  if (guard.status !== 1) fail(`red guard exited ${guard.status ?? "null"}`);
-  for (const item of expectedGuardLines) {
-    const diagnostic = `    line ${item.line}: ${item.content}`;
-    if (!guardOutput.includes(diagnostic)) fail(`${item.path}:${item.line}: exact guard line missing`);
+  if (state === "expected" && !scope.endsWith("green")) {
+    fail(`green scope mismatch: ${JSON.stringify(changed)}`);
   }
-  const diagnosticLines = guardOutput.split("\n").filter(line => /^\s+line \d+:/.test(line));
-  if (diagnosticLines.length !== 6) fail(`guard diagnostic count ${diagnosticLines.length}, expected 6`);
-  if (!guardOutput.includes("2 file(s) contain banned harness vocabulary terms.")) {
-    fail("guard file count is not exactly 2");
-  }
-  process.stderr.write("RED harness vocabulary guard reports exact 6 lines across 2 files\n");
-  process.exit(1);
-}
 
-if (guard.status !== 0) fail(`green guard exited ${guard.status ?? "null"}`);
-process.stdout.write("PASS exact six-span harness vocabulary correction\n");
+  const guard = spawnSync("npm", ["run", "harness-vocab-guard:check"], {
+    cwd: root,
+    encoding: "utf8",
+    env: process.env
+  });
+  const guardOutput = `${guard.stdout ?? ""}${guard.stderr ?? ""}`;
+  if (state === "baseline") {
+    if (guard.status !== 1) fail(`red guard exited ${guard.status ?? "null"}`);
+    for (const item of expectedGuardLines) {
+      const diagnostic = `    line ${item.line}: ${item.content}`;
+      if (!guardOutput.includes(diagnostic)) {
+        fail(`${item.path}:${item.line}: exact guard line missing`);
+      }
+    }
+    const diagnosticLines = guardOutput.split("\n").filter(line => /^\s+line \d+:/.test(line));
+    if (diagnosticLines.length !== 6) fail(`guard diagnostic count ${diagnosticLines.length}, expected 6`);
+    if (!guardOutput.includes("2 file(s) contain banned harness vocabulary terms.")) {
+      fail("guard file count is not exactly 2");
+    }
+    process.stderr.write("RED harness vocabulary guard reports exact 6 lines across 2 files\n");
+    process.exit(1);
+  }
+
+  if (guard.status !== 0) fail(`green guard exited ${guard.status ?? "null"}`);
+  process.stdout.write("PASS exact six-span harness vocabulary correction\n");
+};
+
+const isMain =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (isMain) main();
