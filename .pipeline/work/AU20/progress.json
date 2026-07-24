@@ -2096,6 +2096,83 @@
       "commit": null,
       "tree": null,
       "status": "commit-pending"
+    },
+    "mockInventoryEvidenceArchitecture": {
+      "increment": "mock-inventory-evidence-regeneration",
+      "architecturePath": ".pipeline/work/AU20/architecture-amendments/mock-inventory-evidence-regeneration.md",
+      "architectureSha256": "b7b6c27a5dc92fca84d11f7b5e9d48634dbc05769daf0bdf6cc7d75bfe09aadd",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/mock-inventory-evidence-regeneration.md",
+      "feasibilitySha256": "6b59d2beefb7c988a4f27e152449a1f03a41e17655e89faf25e67891d4b10169",
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "mockInventoryEvidenceRedProof": {
+      "increment": "mock-inventory-evidence-regeneration",
+      "proofPath": ".pipeline/work/AU20/red-proofs/mock-inventory-regeneration.json",
+      "proofSha256": "2818db3029589a3e03d43c03f3dd839f333c468af6f0e9deada183aa341e7682",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-mock-inventory-regeneration.mjs",
+      "validatorSha256": "229fa03ce110710c6f026d6f0820dd15ec307fb1bf86740d2981e0b2e1f961f7",
+      "expectedRed": "exact pinned 3-added/4-removed drift",
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "mockInventoryEvidenceWriteCodeAuthorization": {
+      "increment": "mock-inventory-evidence-regeneration",
+      "stage": "write-code-mock-inventory-evidence-regeneration",
+      "authorizedPaths": [
+        "plans/mock-data-purge/inventory.json",
+        "plans/mock-data-purge/inventory.md",
+        "plans/mock-data-purge/queue.md"
+      ],
+      "generatorPath": "scripts/mock-inventory.ts",
+      "manualEditsAuthorized": false,
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "scriptChangeAuthorized": false,
+      "censusChangeAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "status": "authorized"
+    },
+    "mockInventoryEvidenceImplementationReview": {
+      "increment": "mock-inventory-evidence-regeneration",
+      "path": "plans/AU20/register-reviews/mock-inventory-evidence-regeneration-implementation.md",
+      "sha256": "a6804535a3dd106cec1caa99adddc81edff88185e6e38e51403134a0808da7b7",
+      "verdict": "accept",
+      "generatedSha256": {
+        "plans/mock-data-purge/inventory.json": "7a3b787b308e1eeaab39585c32cb8b92cf8c02b78b51f903e1ea790b33268837",
+        "plans/mock-data-purge/inventory.md": "1ecee5e0994c0c93de94c821b72dbf6f7d98ddfe4d13a8a7b65839502c97b12d",
+        "plans/mock-data-purge/queue.md": "bcbb9fea019e0eb5302e4fe8acef44eac524e4d00524c0eac3e6ab46b84570fb"
+      },
+      "verification": {
+        "utcBeforeBetweenAfterEmitted": "2026-07-24",
+        "twoRunByteIdentity": "pass",
+        "validator": "pass",
+        "mockInventoryCheck": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "status": "accepted"
+    },
+    "mockInventoryEvidenceCommit": {
+      "increment": "mock-inventory-evidence-regeneration",
+      "message": "AU20: regenerate mock inventory evidence",
+      "paths": [
+        ".pipeline/work/AU20/architecture-amendments/mock-inventory-evidence-regeneration.md",
+        ".pipeline/work/AU20/feasibility-amendments/mock-inventory-evidence-regeneration.md",
+        ".pipeline/work/AU20/probes/validate-mock-inventory-regeneration.mjs",
+        ".pipeline/work/AU20/progress.json",
+        ".pipeline/work/AU20/red-proofs/mock-inventory-regeneration.json",
+        "plans/AU20/register-reviews/mock-inventory-evidence-regeneration-implementation.md",
+        "plans/mock-data-purge/inventory.json",
+        "plans/mock-data-purge/inventory.md",
+        "plans/mock-data-purge/queue.md"
+      ],
+      "parent": "a4cc8fae25b38b16e9f4d00c052715e74278ac46",
+      "commit": null,
+      "tree": null,
+      "status": "commit-pending"
     }
   },
   "sessionStartedAt": "2026-07-17",
