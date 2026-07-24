@@ -772,6 +772,11 @@ const bootstrapWriteCodeCompleted =
   bootstrapRedProofValid &&
   JSON.stringify(bootstrapWriteCodeAuthorization) === JSON.stringify(expectedBootstrapWriteCodeAuthorization);
 const bootstrapFinalReview = progress.gateBindings?.coreApiBootstrapOwnershipFinalReview ?? null;
+const committedBootstrapServerFactory = spawnSync(
+  "git",
+  ["show", "591f2051482581c29f082544ac36efb0f09df1d6:packages/core-api/src/server-factory.ts"],
+  { cwd: root, encoding: null, shell: false },
+);
 const bootstrapFinalReviewValid =
   bootstrapWriteCodeCompleted &&
   bootstrapFinalReview?.path === "plans/AU20/register-reviews/core-api-bootstrap-ownership.md" &&
@@ -783,7 +788,8 @@ const bootstrapFinalReviewValid =
   JSON.stringify(bootstrapFinalReview?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
   bootstrapFinalReview?.status === "accepted" &&
   sha256(fs.readFileSync(path.join(root, bootstrapFinalReview.path))) === bootstrapFinalReview.sha256 &&
-  sha256(fs.readFileSync(path.join(root, "packages/core-api/src/server-factory.ts"))) === bootstrapFinalReview.serverFactorySha256;
+  committedBootstrapServerFactory.status === 0 &&
+  sha256(committedBootstrapServerFactory.stdout) === bootstrapFinalReview.serverFactorySha256;
 const bootstrapFinalizeAuthorization = progress.gateBindings?.coreApiBootstrapOwnershipFinalizeAuthorization ?? null;
 const expectedBootstrapFinalizeAuthorization = {
   increment: "core-api-bootstrap-ownership",
@@ -807,11 +813,175 @@ const expectedBootstrapFinalizeAuthorization = {
   otherTestsAuthorized: false,
   nextIncrementAuthorized: false,
   nextIncrement: "run-orchestration-async-disposal",
+  status: "completed-history",
 };
-const bootstrapFinalizeAuthorized =
+const bootstrapFinalizeCompleted =
   bootstrapFinalReviewValid &&
-  progress.currentStep === "finalize-core-api-bootstrap-ownership" &&
   JSON.stringify(bootstrapFinalizeAuthorization) === JSON.stringify(expectedBootstrapFinalizeAuthorization);
+const bootstrapCommit = progress.gateBindings?.coreApiBootstrapOwnershipCommit ?? null;
+const bootstrapCommitInspection = bootstrapCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", bootstrapCommit.commit], {
+      cwd: root,
+      encoding: "utf8",
+      shell: false,
+    })
+  : null;
+const bootstrapCommitValid =
+  bootstrapFinalizeCompleted &&
+  bootstrapCommit?.commit === "591f2051482581c29f082544ac36efb0f09df1d6" &&
+  bootstrapCommit?.tree === "307af84575fe83c0bffb7b9409c4fcda01533dd5" &&
+  bootstrapCommit?.parent === "a6641fa18c781bad1ee77ac07ae2b6ebb7b74f07" &&
+  bootstrapCommit?.subject === "AU20: identify bootstrap resource ownership" &&
+  bootstrapCommit?.pathCount === 9 &&
+  bootstrapCommit?.preTransitionProgressSha256 === "25b25254b0a1cbd311089461a310219a4aad1e7dfb937fc8228e060ddd26aadb" &&
+  bootstrapCommit?.preTransitionChangeMapSha256 === "f2b5f0cd4576056c55a9f62b390f217d2589446e9bbc19483be2873c0371c654" &&
+  bootstrapCommit?.serverFactorySha256 === bootstrapFinalReview.serverFactorySha256 &&
+  bootstrapCommit?.testSha256 === bootstrapFinalReview.testSha256 &&
+  JSON.stringify(bootstrapCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(bootstrapCommit?.verification ?? {}).every((result) => result === "pass") &&
+  bootstrapCommit?.status === "completed-history" &&
+  bootstrapCommitInspection?.status === 0 &&
+  bootstrapCommitInspection.stdout.trim() === [
+    bootstrapCommit.commit,
+    bootstrapCommit.tree,
+    bootstrapCommit.parent,
+    bootstrapCommit.subject,
+  ].join("\n");
+const disposalWriteTestsAuthorization = progress.gateBindings?.asyncRuntimeDisposalWriteTestsAuthorization ?? null;
+const expectedDisposalWriteTestsAuthorization = {
+  increment: "run-orchestration-async-disposal",
+  stage: "write-tests-async-runtime-disposal",
+  finding: "F2",
+  authorizedPaths: [
+    "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+    ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+  ],
+  requiredProof: {
+    phaseOrder: ["bet-decomposition", "run-runtime", "app-domain", "websocket", "http", "owned-db"],
+    allPhasesRunAfterFailure: true,
+    orderedPhaseTaggedAggregateError: true,
+    sharedPromiseIdempotence: true,
+    injectedDatabaseNeverClosed: true,
+    ownedDatabaseAwaited: true,
+    durableShutdownBeforeDatabaseClose: true,
+    callerInventoryFrozen: [
+      "packages/remote-server/src/index.ts",
+      "packages/desktop/src/boot-server.ts",
+      "packages/desktop/src/main.ts",
+      "packages/web/scripts/ah1-test-server.ts",
+      "packages/web/scripts/ah5-test-server.ts",
+      "packages/web/scripts/ah6-test-server.ts",
+    ],
+  },
+  productionCodeAuthorized: false,
+  existingCallerTestsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  redProofReviewRequiredBeforeWriteCode: true,
+  nextIncrement: "knowledge-retro-snapshot",
+  status: "completed-history",
+};
+const disposalWriteTestsCompleted =
+  bootstrapCommitValid &&
+  JSON.stringify(disposalWriteTestsAuthorization) === JSON.stringify(expectedDisposalWriteTestsAuthorization);
+const disposalRedProof = progress.gateBindings?.asyncRuntimeDisposalRedProof ?? null;
+const disposalRedProofValid =
+  disposalWriteTestsCompleted &&
+  disposalRedProof?.testPath === "packages/core-api/src/__tests__/server-disposal.integration.test.ts" &&
+  disposalRedProof?.testSha256 === "f136b0f3b544070a92dd9cc63a9c281de468009b296bcd9dd0d76e6d1b3e94f3" &&
+  disposalRedProof?.proofPath === ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json" &&
+  disposalRedProof?.proofSha256 === "56256c3bf8e74894df90115ca873f671c87c212ae3424debd7b0383fa330987b" &&
+  disposalRedProof?.reviewPath === "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md" &&
+  disposalRedProof?.reviewSha256 === "a2634e280fe73c730d80b0c19e93871eee2ba883dafc9380c18bd1f12bab64fc" &&
+  disposalRedProof?.verdict === "accept" &&
+  JSON.stringify(disposalRedProof?.focused) === JSON.stringify({ failed: 3, passed: 2, total: 5, unhandledErrors: 0 }) &&
+  disposalRedProof?.status === "accepted-history" &&
+  sha256(fs.readFileSync(path.join(root, disposalRedProof.testPath))) === disposalRedProof.testSha256 &&
+  sha256(fs.readFileSync(path.join(root, disposalRedProof.proofPath))) === disposalRedProof.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, disposalRedProof.reviewPath))) === disposalRedProof.reviewSha256;
+const disposalWriteCodeAuthorization = progress.gateBindings?.asyncRuntimeDisposalWriteCodeAuthorization ?? null;
+const expectedDisposalWriteCodeAuthorization = {
+  increment: "run-orchestration-async-disposal",
+  stage: "write-code-async-runtime-disposal",
+  finding: "F2",
+  authorizedPaths: [
+    "packages/core-api/src/server-factory.ts",
+    "packages/remote-server/src/index.ts",
+    "packages/desktop/src/boot-server.ts",
+    "packages/desktop/src/main.ts",
+    "packages/web/scripts/ah1-test-server.ts",
+    "packages/web/scripts/ah5-test-server.ts",
+    "packages/web/scripts/ah6-test-server.ts",
+  ],
+  frozenPaths: [
+    "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+    ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+    "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+    "scripts/surface-census.ts",
+  ],
+  requiredImplementation: {
+    disposeReturn: "one shared Promise<void>",
+    phaseOrder: ["bet-decomposition", "run-runtime", "app-domain", "websocket", "http", "owned-db"],
+    failureBehavior: "run every phase once and reject one ordered phase-tagged AggregateError",
+    databaseOwnership: "await owned database close; never close injected database",
+    callerBehavior: "all six production callers await disposal through one-shot signal/quit handling",
+  },
+  newExportsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  otherProductionPathsAuthorized: false,
+  testsAuthorized: false,
+  implementationReviewRequiredBeforeCommit: true,
+  nextIncrement: "knowledge-retro-snapshot",
+  status: "completed-history",
+};
+const disposalWriteCodeCompleted =
+  disposalRedProofValid &&
+  JSON.stringify(disposalWriteCodeAuthorization) === JSON.stringify(expectedDisposalWriteCodeAuthorization);
+const disposalCandidate = progress.gateBindings?.asyncRuntimeDisposalCandidate ?? null;
+const expectedDisposalCommitPaths = [
+  ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+  ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+  ".pipeline/work/AU20/progress.json",
+  ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+  "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+  "packages/core-api/src/server-factory.ts",
+  "packages/desktop/src/boot-server.ts",
+  "packages/desktop/src/main.ts",
+  "packages/remote-server/src/index.ts",
+  "packages/web/scripts/ah1-test-server.ts",
+  "packages/web/scripts/ah5-test-server.ts",
+  "packages/web/scripts/ah6-test-server.ts",
+  "plans/AU20/corrective-change-map.json",
+  "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+  "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
+  "plans/AU20/register-reviews/run-orchestration-async-disposal.md",
+];
+const expectedDisposalCandidatePaths = {
+  "packages/core-api/src/server-factory.ts": "34332d65afb258b47de22e77452f30b29514fa23afcf70ab0b4555d43587fbb1",
+  "packages/remote-server/src/index.ts": "5268bfa5fbb6ce88c782e7b4658b11c1b6ab57c26a7b73b01006a113ac2517a3",
+  "packages/desktop/src/boot-server.ts": "5083a235f4b90fe1f609939435fb6e8b887568b6ac924337d5dbe718e7bba2f7",
+  "packages/desktop/src/main.ts": "97aedbfc49137f79ab4d9d505b4b37c6bfef9646a7d49ecfd698e130172e0118",
+  "packages/web/scripts/ah1-test-server.ts": "14e14a9a08a4642c7ea6aa19da0b0aa230389036e1b7b3474e3800be052d317e",
+  "packages/web/scripts/ah5-test-server.ts": "bf47c33bc75275b3c3c83a27e5f6f7c6356a101c072933d283c76be4266d6ff4",
+  "packages/web/scripts/ah6-test-server.ts": "68699ebe2f01b50e232c4308a7878127bab3d5ab3286aa72fcead8e710f97169",
+};
+const disposalCandidateValid =
+  disposalWriteCodeCompleted &&
+  JSON.stringify(disposalCandidate?.paths) === JSON.stringify(expectedDisposalCandidatePaths) &&
+  disposalCandidate?.implementationReviewPath === "plans/AU20/register-reviews/run-orchestration-async-disposal.md" &&
+  disposalCandidate?.implementationReviewSha256 === "ca703b9a4dbea151cf1fd19eea71b5210c3bb2269b0246cc21fda2e48f7ee88b" &&
+  disposalCandidate?.implementationReviewVerdict === "revise" &&
+  disposalCandidate?.productVerdict === "accept" &&
+  disposalCandidate?.provenanceVerdict === "revise" &&
+  disposalCandidate?.finalReviewPath === "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md" &&
+  disposalCandidate?.finalReviewSha256 === "686dd980c4617f35b3634a9f8176f82fa662af760af8555a0bc8b9a128f49008" &&
+  disposalCandidate?.finalReviewVerdict === "accept" &&
+  disposalCandidate?.status === "accepted-commit-authorized" &&
+  disposalCandidate?.commitAuthorization?.message === "AU20 F2: await runtime disposal" &&
+  JSON.stringify(disposalCandidate?.commitAuthorization?.paths) === JSON.stringify(expectedDisposalCommitPaths) &&
+  Object.entries(expectedDisposalCandidatePaths).every(([candidatePath, expectedHash]) =>
+    sha256(fs.readFileSync(path.join(root, candidatePath))) === expectedHash) &&
+  sha256(fs.readFileSync(path.join(root, disposalCandidate.implementationReviewPath))) === disposalCandidate.implementationReviewSha256 &&
+  sha256(fs.readFileSync(path.join(root, disposalCandidate.finalReviewPath))) === disposalCandidate.finalReviewSha256;
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -856,18 +1026,29 @@ const finalShipCorrection = {
       commitReceipt: demandCommit,
       status: "completed-history",
     }] : []),
+    ...(bootstrapCommitValid ? [{
+      name: "core-api-bootstrap-ownership",
+      finding: "F5",
+      redProofReview: bootstrapRedProof,
+      finalReview: bootstrapFinalReview,
+      finalizeAuthorization: bootstrapFinalizeAuthorization,
+      commitReceipt: bootstrapCommit,
+      status: "completed-history",
+    }] : []),
   ],
   activeIncrement: {
-    name: "core-api-bootstrap-ownership",
-    finding: "F5",
-    redProofReview: bootstrapRedProofValid ? bootstrapRedProof : null,
-    finalReview: bootstrapFinalReviewValid ? bootstrapFinalReview : null,
-    authorizedStage: bootstrapFinalizeAuthorized ? "finalize-core-api-bootstrap-ownership" : null,
-    authorization: bootstrapFinalizeAuthorized ? bootstrapFinalizeAuthorization : null,
+    name: "run-orchestration-async-disposal",
+    finding: "F2",
+    redProofReview: disposalRedProofValid ? disposalRedProof : null,
+    candidate: disposalCandidateValid ? disposalCandidate : null,
+    authorizedStage: disposalCandidateValid && progress.currentStep === "commit-async-runtime-disposal"
+      ? "commit-async-runtime-disposal"
+      : null,
+    authorization: disposalCandidateValid ? disposalCandidate.commitAuthorization : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "run-orchestration-async-disposal",
+  nextIncrement: "knowledge-retro-snapshot",
 };
 const output = {
   ...payload,
@@ -883,7 +1064,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !bootstrapFinalizeAuthorized,
+    commitLocked: !disposalCandidateValid,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

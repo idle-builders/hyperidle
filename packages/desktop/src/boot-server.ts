@@ -21,7 +21,7 @@ import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness
 export type { ServerHandle };
 
 /**
- * Start the Hono server on port 0 (OS-assigned) and return a handle.
+ * Start the Hono server on port 0 (OS-assigned) and return its async-disposal handle.
  * Environment variables DATABASE_URL, HYPERIDLE_API_KEY, and
  * HYPERIDLE_STATIC_DIR must be set before calling this.
  */

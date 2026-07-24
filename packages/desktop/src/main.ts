@@ -134,7 +134,7 @@ export interface ServerHandleLike {
 		address(): { port: number } | string | null;
 		close(cb?: (err?: Error) => void): void;
 	};
-	readonly dispose: () => void;
+	readonly dispose: () => Promise<void> | void;
 }
 
 /**
@@ -144,14 +144,25 @@ export interface ServerHandleLike {
 export function getBeforeQuitHandler(
 	serverHandle: ServerHandleLike | null,
 	logRotator: LogRotator | null,
-): () => void {
-	return (): void => {
-		if (serverHandle) {
-			serverHandle.dispose();
-		}
-		if (logRotator) {
-			logRotator.detach();
-		}
+): (event?: { preventDefault(): void }) => void {
+	let shutdownPromise: Promise<void> | null = null;
+	let shutdownComplete = false;
+	return (event?: { preventDefault(): void }): void => {
+		if (shutdownComplete) return;
+		event?.preventDefault();
+		if (shutdownPromise) return;
+
+		logRotator?.detach();
+		shutdownPromise = Promise.resolve(serverHandle?.dispose())
+			.catch((error: unknown) => {
+				log("server shutdown failed", {
+					error: error instanceof Error ? error.message : String(error),
+				});
+			})
+			.finally(() => {
+				shutdownComplete = true;
+				app.quit();
+			});
 	};
 }
 

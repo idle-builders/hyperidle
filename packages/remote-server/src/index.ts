@@ -33,9 +33,19 @@ if (envError) {
 
 const port = Number(process.env.PORT) || 3001;
 
-createServer(port, {
+const handle = await createServer(port, {
 	adapterPool: new AdapterPool(),
 	workspaceAdapter: createSandboxAdapter("disabled"),
-}).then(() => {
-	log.info(`remote-server running on http://localhost:${port}`);
 });
+log.info(`remote-server running on http://localhost:${port}`);
+
+let shutdownPromise: Promise<void> | null = null;
+const shutdown = (): Promise<void> => {
+	shutdownPromise ??= handle.dispose().catch((error: unknown) => {
+		log.error("remote-server shutdown failed", { error });
+		process.exitCode = 1;
+	});
+	return shutdownPromise;
+};
+process.once("SIGINT", () => void shutdown());
+process.once("SIGTERM", () => void shutdown());

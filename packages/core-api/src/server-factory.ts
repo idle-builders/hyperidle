@@ -614,7 +614,7 @@ export interface CreateServerDeps {
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
-	readonly dispose: () => void;
+	readonly dispose: () => Promise<void>;
 	readonly credentialResolver: CredentialResolver;
 }
 
@@ -1081,28 +1081,46 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		websocket: { server: wss },
 	});
 
-	const dispose = (): void => {
-		// @lore I1 M1: tear down event-bus subscriptions first so none of the
-		// five createApp-registered handlers (session-review-creator,
-		// policy-engine, builtin-routines, git-export, notification-dispatcher,
-		// observability) outlive the server. If we called `server.close()` or
-		// the WS disposer first, `disposeApp` would still run, but background
-		// handlers could observe events during shutdown against a torn-down
-		// runtime. Order: domain handlers -> WS route -> HTTP server -> DB.
-		// AK3: unsubscribe the bet decomposition subscriber.
-		disposeBetDecomp();
-		void runRuntime.dispose();
-		disposeApp(app);
-		if (wsDispose) {
-			wsDispose();
-			wsDispose = null;
-		}
-		httpServer.close();
-		// AF7 §1: only close the DB we own. When a test injected `deps.db`, the
-		// fixture owns its lifecycle — closing it here would break the test harness.
-		if (dbHandle) {
-			void dbHandle.close();
-		}
+	let disposePromise: Promise<void> | null = null;
+	const dispose = (): Promise<void> => {
+		if (disposePromise) return disposePromise;
+		disposePromise = (async () => {
+			const failures: Array<{ phase: string; cause: unknown }> = [];
+			const runPhase = async (phase: string, cleanup: () => void | Promise<void>) => {
+				try {
+					await cleanup();
+				} catch (cause) {
+					failures.push({ phase, cause });
+				}
+			};
+
+			await runPhase("bet-decomposition", disposeBetDecomp);
+			await runPhase("run-runtime", () => runRuntime.dispose());
+			await runPhase("app-domain", () => disposeApp(app));
+			await runPhase("websocket", () => {
+				const disposeWebSocket = wsDispose;
+				wsDispose = null;
+				disposeWebSocket?.();
+			});
+			await runPhase(
+				"http",
+				() =>
+					new Promise<void>((resolve, reject) => {
+						httpServer.close((error?: Error) => {
+							if (error) reject(error);
+							else resolve();
+						});
+					}),
+			);
+			if (dbHandle) {
+				await runPhase("owned-db", () => dbHandle.close());
+			}
+
+			if (failures.length > 0) {
+				throw new AggregateError(failures, "Server disposal failed");
+			}
+		})();
+		return disposePromise;
 	};
 
 	return { httpServer, dispose, credentialResolver };

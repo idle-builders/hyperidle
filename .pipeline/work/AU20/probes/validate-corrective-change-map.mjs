@@ -189,6 +189,7 @@ if (process.argv.includes("--require-review")) {
       historicalProofInventory.authorizedStage !== "completed-history") fail("prior proof-inventory binding not preserved as completed history");
   const active = finalCorrection.activeIncrement;
   const completedDemand = finalCorrection?.completedIncrements?.find((increment) => increment.name === "evidence-demand-package");
+  const completedBootstrap = finalCorrection?.completedIncrements?.find((increment) => increment.name === "core-api-bootstrap-ownership");
   const receipt = completedF13?.commitReceipt;
   if (completedF13?.finding !== "F13" || completedF13?.status !== "completed-history") fail("F13 completion history absent");
   if (receipt?.commit !== "41c013613dc0c1fd81bc43b0ef7a52c8bc08b322" ||
@@ -333,8 +334,9 @@ if (process.argv.includes("--require-review")) {
     otherTestsAuthorized: false,
     nextIncrementAuthorized: false,
     nextIncrement: "run-orchestration-async-disposal",
+    status: "completed-history",
   };
-  const bootstrapRed = active?.redProofReview;
+  const bootstrapRed = completedBootstrap?.redProofReview;
   if (bootstrapRed?.testSha256 !== "1d630619a4d292462e028f9e03245bfd906d60bcce023aa2feada9239a935b13" ||
       bootstrapRed?.proofSha256 !== "79a2c2376faaebc934193fb3e5933ad7ac98d1566388de46d5b04c39dba2dfdd" ||
       bootstrapRed?.reviewSha256 !== "a8d957dfa71beb1474dd5c1579e48387216f40df524c578beafd65f065799181" ||
@@ -342,7 +344,12 @@ if (process.argv.includes("--require-review")) {
       sha256(fs.readFileSync(path.join(root, bootstrapRed.testPath))) !== bootstrapRed.testSha256 ||
       sha256(fs.readFileSync(path.join(root, bootstrapRed.proofPath))) !== bootstrapRed.proofSha256 ||
       sha256(fs.readFileSync(path.join(root, bootstrapRed.reviewPath))) !== bootstrapRed.reviewSha256) fail("F5 red-proof binding mismatch");
-  const bootstrapFinal = active?.finalReview;
+  const bootstrapFinal = completedBootstrap?.finalReview;
+  const committedBootstrapServerFactory = spawnSync(
+    "git",
+    ["show", "591f2051482581c29f082544ac36efb0f09df1d6:packages/core-api/src/server-factory.ts"],
+    { cwd: root, encoding: null, shell: false },
+  );
   if (bootstrapFinal?.path !== "plans/AU20/register-reviews/core-api-bootstrap-ownership.md" ||
       bootstrapFinal?.sha256 !== "e423371d5f7e91029fd8fb1a526cdd43ce4c6063eacd23b025b5d89af25817c3" ||
       bootstrapFinal?.verdict !== "accept" ||
@@ -351,17 +358,122 @@ if (process.argv.includes("--require-review")) {
       JSON.stringify(bootstrapFinal?.focused) !== JSON.stringify({ passed: 10, failed: 0 }) ||
       JSON.stringify(bootstrapFinal?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
       sha256(fs.readFileSync(path.join(root, bootstrapFinal.path))) !== bootstrapFinal.sha256 ||
-      sha256(fs.readFileSync(path.join(root, "packages/core-api/src/server-factory.ts"))) !== bootstrapFinal.serverFactorySha256) fail("F5 final review binding mismatch");
-  if (active?.name !== "core-api-bootstrap-ownership" ||
-      active?.finding !== "F5" ||
-      active?.authorizedStage !== "finalize-core-api-bootstrap-ownership" ||
-      JSON.stringify(active?.authorization) !== JSON.stringify(expectedBootstrapAuthorization) ||
+      committedBootstrapServerFactory.status !== 0 ||
+      sha256(committedBootstrapServerFactory.stdout) !== bootstrapFinal.serverFactorySha256) fail("F5 final review binding mismatch");
+  if (completedBootstrap?.finding !== "F5" ||
+      completedBootstrap?.status !== "completed-history" ||
+      JSON.stringify(completedBootstrap?.finalizeAuthorization) !== JSON.stringify(expectedBootstrapAuthorization)) fail("F5 completed history invalid");
+  const bootstrapReceipt = completedBootstrap?.commitReceipt;
+  if (bootstrapReceipt?.commit !== "591f2051482581c29f082544ac36efb0f09df1d6" ||
+      bootstrapReceipt?.tree !== "307af84575fe83c0bffb7b9409c4fcda01533dd5" ||
+      bootstrapReceipt?.parent !== "a6641fa18c781bad1ee77ac07ae2b6ebb7b74f07" ||
+      bootstrapReceipt?.subject !== "AU20: identify bootstrap resource ownership" ||
+      bootstrapReceipt?.pathCount !== 9 ||
+      bootstrapReceipt?.preTransitionProgressSha256 !== "25b25254b0a1cbd311089461a310219a4aad1e7dfb937fc8228e060ddd26aadb" ||
+      bootstrapReceipt?.preTransitionChangeMapSha256 !== "f2b5f0cd4576056c55a9f62b390f217d2589446e9bbc19483be2873c0371c654" ||
+      bootstrapReceipt?.serverFactorySha256 !== bootstrapFinal.serverFactorySha256 ||
+      bootstrapReceipt?.testSha256 !== bootstrapFinal.testSha256 ||
+      JSON.stringify(bootstrapReceipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      bootstrapReceipt?.status !== "completed-history" ||
+      Object.values(bootstrapReceipt?.verification ?? {}).some((result) => result !== "pass")) fail("F5 commit receipt mismatch");
+  const bootstrapGitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", bootstrapReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (bootstrapGitReceipt.status !== 0 ||
+      bootstrapGitReceipt.stdout.trim() !== [bootstrapReceipt.commit, bootstrapReceipt.tree, bootstrapReceipt.parent, bootstrapReceipt.subject].join("\n")) fail("F5 commit object mismatch");
+  const expectedDisposalAuthorization = {
+    increment: "run-orchestration-async-disposal",
+    stage: "write-code-async-runtime-disposal",
+    finding: "F2",
+    authorizedPaths: [
+      "packages/core-api/src/server-factory.ts",
+      "packages/remote-server/src/index.ts",
+      "packages/desktop/src/boot-server.ts",
+      "packages/desktop/src/main.ts",
+      "packages/web/scripts/ah1-test-server.ts",
+      "packages/web/scripts/ah5-test-server.ts",
+      "packages/web/scripts/ah6-test-server.ts",
+    ],
+    frozenPaths: [
+      "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+      ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+      "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+      "scripts/surface-census.ts",
+    ],
+    requiredImplementation: {
+      disposeReturn: "one shared Promise<void>",
+      phaseOrder: ["bet-decomposition", "run-runtime", "app-domain", "websocket", "http", "owned-db"],
+      failureBehavior: "run every phase once and reject one ordered phase-tagged AggregateError",
+      databaseOwnership: "await owned database close; never close injected database",
+      callerBehavior: "all six production callers await disposal through one-shot signal/quit handling",
+    },
+    newExportsAuthorized: false,
+    serviceSurfaceGrowthAuthorized: false,
+    otherProductionPathsAuthorized: false,
+    testsAuthorized: false,
+    implementationReviewRequiredBeforeCommit: true,
+    nextIncrement: "knowledge-retro-snapshot",
+  };
+  const disposalRed = active?.redProofReview;
+  if (disposalRed?.testSha256 !== "f136b0f3b544070a92dd9cc63a9c281de468009b296bcd9dd0d76e6d1b3e94f3" ||
+      disposalRed?.proofSha256 !== "56256c3bf8e74894df90115ca873f671c87c212ae3424debd7b0383fa330987b" ||
+      disposalRed?.reviewSha256 !== "a2634e280fe73c730d80b0c19e93871eee2ba883dafc9380c18bd1f12bab64fc" ||
+      disposalRed?.verdict !== "accept" ||
+      sha256(fs.readFileSync(path.join(root, disposalRed.testPath))) !== disposalRed.testSha256 ||
+      sha256(fs.readFileSync(path.join(root, disposalRed.proofPath))) !== disposalRed.proofSha256 ||
+      sha256(fs.readFileSync(path.join(root, disposalRed.reviewPath))) !== disposalRed.reviewSha256) fail("F2 red-proof binding mismatch");
+  const expectedDisposalCandidatePaths = {
+    "packages/core-api/src/server-factory.ts": "34332d65afb258b47de22e77452f30b29514fa23afcf70ab0b4555d43587fbb1",
+    "packages/remote-server/src/index.ts": "5268bfa5fbb6ce88c782e7b4658b11c1b6ab57c26a7b73b01006a113ac2517a3",
+    "packages/desktop/src/boot-server.ts": "5083a235f4b90fe1f609939435fb6e8b887568b6ac924337d5dbe718e7bba2f7",
+    "packages/desktop/src/main.ts": "97aedbfc49137f79ab4d9d505b4b37c6bfef9646a7d49ecfd698e130172e0118",
+    "packages/web/scripts/ah1-test-server.ts": "14e14a9a08a4642c7ea6aa19da0b0aa230389036e1b7b3474e3800be052d317e",
+    "packages/web/scripts/ah5-test-server.ts": "bf47c33bc75275b3c3c83a27e5f6f7c6356a101c072933d283c76be4266d6ff4",
+    "packages/web/scripts/ah6-test-server.ts": "68699ebe2f01b50e232c4308a7878127bab3d5ab3286aa72fcead8e710f97169",
+  };
+  const expectedDisposalCommitPaths = [
+    ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/progress.json",
+    ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+    "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+    "packages/core-api/src/server-factory.ts",
+    "packages/desktop/src/boot-server.ts",
+    "packages/desktop/src/main.ts",
+    "packages/remote-server/src/index.ts",
+    "packages/web/scripts/ah1-test-server.ts",
+    "packages/web/scripts/ah5-test-server.ts",
+    "packages/web/scripts/ah6-test-server.ts",
+    "plans/AU20/corrective-change-map.json",
+    "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+    "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
+    "plans/AU20/register-reviews/run-orchestration-async-disposal.md",
+  ];
+  const disposalCandidate = active?.candidate;
+  if (JSON.stringify(disposalCandidate?.paths) !== JSON.stringify(expectedDisposalCandidatePaths) ||
+      disposalCandidate?.implementationReviewPath !== "plans/AU20/register-reviews/run-orchestration-async-disposal.md" ||
+      disposalCandidate?.implementationReviewSha256 !== "ca703b9a4dbea151cf1fd19eea71b5210c3bb2269b0246cc21fda2e48f7ee88b" ||
+      disposalCandidate?.implementationReviewVerdict !== "revise" ||
+      disposalCandidate?.productVerdict !== "accept" ||
+      disposalCandidate?.provenanceVerdict !== "revise" ||
+      disposalCandidate?.finalReviewPath !== "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md" ||
+      disposalCandidate?.finalReviewSha256 !== "686dd980c4617f35b3634a9f8176f82fa662af760af8555a0bc8b9a128f49008" ||
+      disposalCandidate?.finalReviewVerdict !== "accept" ||
+      disposalCandidate?.status !== "accepted-commit-authorized" ||
+      disposalCandidate?.commitAuthorization?.message !== "AU20 F2: await runtime disposal" ||
+      JSON.stringify(disposalCandidate?.commitAuthorization?.paths) !== JSON.stringify(expectedDisposalCommitPaths) ||
+      Object.entries(expectedDisposalCandidatePaths).some(([candidatePath, expectedHash]) =>
+        sha256(fs.readFileSync(path.join(root, candidatePath))) !== expectedHash) ||
+      sha256(fs.readFileSync(path.join(root, disposalCandidate.implementationReviewPath))) !== disposalCandidate.implementationReviewSha256 ||
+      sha256(fs.readFileSync(path.join(root, disposalCandidate.finalReviewPath))) !== disposalCandidate.finalReviewSha256) fail("F2 candidate binding mismatch");
+  if (active?.name !== "run-orchestration-async-disposal" ||
+      active?.finding !== "F2" ||
+      active?.authorizedStage !== "commit-async-runtime-disposal" ||
+      JSON.stringify(active?.authorization) !== JSON.stringify(disposalCandidate.commitAuthorization) ||
       active?.productCodeAuthorized !== false ||
-      finalCorrection.nextIncrement !== "run-orchestration-async-disposal" ||
+      finalCorrection.nextIncrement !== "knowledge-retro-snapshot" ||
       integrity.writeTestsLocked !== true ||
       integrity.codeLocked !== true ||
       integrity.productCodeLocked !== true ||
-      integrity.commitLocked !== false) fail("F5 finalize lock state invalid");
+      integrity.commitLocked !== false) fail("F2 commit authorization state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,
