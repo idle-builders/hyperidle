@@ -1,4 +1,5 @@
-import { createMcpToolBridge, createReturnEnforcement } from "@hyperidle/harness-registry";
+import { createReturnEnforcement } from "@hyperidle/harness-registry";
+import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { AL6_MAX_FORCE_RETURNS, type ToolRegistry } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
 

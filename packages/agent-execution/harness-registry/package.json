@@ -5,6 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./mcp": "./src/mcp/index.ts",
 		"./test-utils": "./src/__tests__/require-harness.ts"
 	},
 	"scripts": {

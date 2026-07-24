@@ -17,10 +17,8 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	buildToolRegistry as buildToolRegistryInternal,
-	returnStatusTool,
-} from "@hyperidle/harness-registry";
+import { buildToolRegistry as buildToolRegistryInternal } from "@hyperidle/harness-registry";
+import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { recordProposedCall, transitionProposedCall } from "@hyperidle/review";
 import type {
 	BuildToolRegistryOptions,

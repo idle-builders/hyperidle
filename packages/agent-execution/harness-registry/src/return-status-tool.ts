@@ -98,7 +98,7 @@ async function handle(
  * - `.forRegistry(registry)` — returns a RegisteredTool for use in extraTools.
  * - `.name`, `.description`, `.inputSchema` — standard ToolDefinition fields.
  */
-export const returnStatusTool = {
+const returnStatusDefinition = {
 	name: "hyperidle_return_status" as const,
 	description:
 		"Check whether HyperIdle requires you to return your work before stopping. " +
@@ -122,3 +122,13 @@ export const returnStatusTool = {
 		};
 	},
 } as const;
+
+/**
+ * Callable export keeps the explicit MCP entry's runtime contract uniform:
+ * both exported bridge factories are functions. Existing tool consumers keep
+ * using the assigned definition fields (`forRegistry`, `handler`, schema).
+ */
+const { name: _functionName, ...returnStatusFields } = returnStatusDefinition;
+export const returnStatusTool = Object.assign(function hyperidle_return_status() {
+	return returnStatusDefinition;
+}, returnStatusFields);

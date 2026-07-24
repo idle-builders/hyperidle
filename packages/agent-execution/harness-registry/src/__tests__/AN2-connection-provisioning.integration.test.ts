@@ -254,16 +254,13 @@ describe("builtin: scoped out of AN2 connection provisioning (C1)", () => {
 
 describe("claude-code: real CLI connects to AN2-provisioned MCP server via .mcp.json Bearer", () => {
 	requireHarness("claude");
-	test("provision .mcp.json with bearer token → claude connects + ping_test returns AN2_PROBE_OK", async ({
-		skip,
-	}) => {
-		// Check claude auth
+	test("provision .mcp.json with bearer token → claude connects + ping_test returns AN2_PROBE_OK", async () => {
 		try {
 			execFileSync("claude", ["auth", "status"], { stdio: "ignore", timeout: 10_000 });
-		} catch {
-			process.stdout.write("[AN2 real-harness claude] SKIP: claude not authenticated\n");
-			skip();
-			return;
+		} catch (cause) {
+			throw new Error("[AN2 real-harness claude] authentication prerequisite failed", {
+				cause,
+			});
 		}
 
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-claude-"));
@@ -322,11 +319,9 @@ describe("claude-code: real CLI connects to AN2-provisioned MCP server via .mcp.
 				"[AN2 real-harness claude] Starting real claude session with AN2-provisioned MCP server...\n",
 			);
 
-			// @lore AN2 claude-model-tool-calling: haiku (~50% flaky) sometimes narrates the
-			// tool instead of calling it even when the schema is loaded. Pinned to sonnet
-			// (alias "sonnet" accepted by claude CLI → latest claude-sonnet-*) which reliably
-			// calls tools. The alias "sonnet" is documented in `claude --help` as an accepted
-			// shorthand alongside "opus" and "fable".
+			// @lore AN2 claude-model-tool-calling: the release proof deliberately uses
+			// Haiku, the locked smallest Claude model. A larger model would hide whether
+			// the integration works at the supported harness floor.
 			//
 			// Bounded retry (≤2 attempts) scoped ONLY to "model declined to call the tool":
 			// - Condition: the MCP-namespaced tool name `mcp__an2-test__ping_test` appears in
@@ -356,7 +351,7 @@ describe("claude-code: real CLI connects to AN2-provisioned MCP server via .mcp.
 						"--output-format",
 						"json",
 						"--model",
-						"sonnet",
+						"haiku",
 					],
 					{
 						cwd: sandboxPath,
@@ -427,26 +422,15 @@ describe("claude-code: real CLI connects to AN2-provisioned MCP server via .mcp.
 
 describe("codex: real CLI connects to AN2-provisioned MCP server via config.toml bearer", () => {
 	requireHarness("codex");
-	test("provision .codex-home/config.toml bearer → codex calls ping_test → AN2_PROBE_OK", async ({
-		skip,
-	}) => {
-		// Check codex auth
-		try {
-			const authResult = await spawnDetached("codex", ["login", "status"], {
-				cwd: os.tmpdir(),
-				env: buildCleanEnv(),
-				timeoutMs: 10_000,
-			});
-			const out = (authResult.stdout + authResult.stderr).trim();
-			if (!out.startsWith("Logged in")) {
-				process.stdout.write("[AN2 real-harness codex] SKIP: codex not authenticated\n");
-				skip();
-				return;
-			}
-		} catch {
-			process.stdout.write("[AN2 real-harness codex] SKIP: codex auth check failed\n");
-			skip();
-			return;
+	test("provision .codex-home/config.toml bearer → codex calls ping_test → AN2_PROBE_OK", async () => {
+		const authResult = await spawnDetached("codex", ["login", "status"], {
+			cwd: os.tmpdir(),
+			env: buildCleanEnv(),
+			timeoutMs: 10_000,
+		});
+		const authOutput = (authResult.stdout + authResult.stderr).trim();
+		if (authResult.exitCode !== 0 || !authOutput.startsWith("Logged in")) {
+			throw new Error(`[AN2 real-harness codex] authentication prerequisite failed: ${authOutput}`);
 		}
 
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-codex-"));
@@ -584,26 +568,17 @@ describe("codex: real CLI connects to AN2-provisioned MCP server via config.toml
 
 describe("opencode: real CLI connects to AN2-provisioned MCP server via opencode.json inline header", () => {
 	requireHarness("opencode");
-	test("provision opencode.json inline Authorization → opencode calls ping_test → AN2_PROBE_OK", async ({
-		skip,
-	}) => {
-		// Check opencode auth
-		try {
-			const authResult = await spawnDetached("opencode", ["providers", "list"], {
-				cwd: os.tmpdir(),
-				env: buildCleanEnv(),
-				timeoutMs: 10_000,
-			});
-			const out = authResult.stdout + authResult.stderr;
-			if (!/\d+\s+credentials|environment variable/i.test(out)) {
-				process.stdout.write("[AN2 real-harness opencode] SKIP: opencode has no providers\n");
-				skip();
-				return;
-			}
-		} catch {
-			process.stdout.write("[AN2 real-harness opencode] SKIP: opencode auth check failed\n");
-			skip();
-			return;
+	test("provision opencode.json inline Authorization → opencode calls ping_test → AN2_PROBE_OK", async () => {
+		const authResult = await spawnDetached("opencode", ["providers", "list"], {
+			cwd: os.tmpdir(),
+			env: buildCleanEnv(),
+			timeoutMs: 10_000,
+		});
+		const authOutput = authResult.stdout + authResult.stderr;
+		if (authResult.exitCode !== 0 || !/\d+\s+credentials|environment variable/i.test(authOutput)) {
+			throw new Error(
+				`[AN2 real-harness opencode] authentication prerequisite failed: ${authOutput}`,
+			);
 		}
 
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-opencode-"));
@@ -709,9 +684,7 @@ describe("opencode: real CLI connects to AN2-provisioned MCP server via opencode
 
 describe("CLI-key: GH_TOKEN env injection → real gh CLI op succeeds", () => {
 	requireHarness("gh");
-	test("github token → GH_TOKEN in envInjections; real gh auth status succeeds when GH_TOKEN set", async ({
-		skip,
-	}) => {
+	test("github token → GH_TOKEN in envInjections; real gh auth status succeeds when GH_TOKEN set", async () => {
 		// Use GH_TOKEN/GITHUB_TOKEN from env, or retrieve from gh keyring.
 		let ghToken = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";
 		if (!ghToken) {
@@ -736,18 +709,12 @@ describe("CLI-key: GH_TOKEN env injection → real gh CLI op succeeds", () => {
 					},
 				);
 				ghToken = stdout.trim();
-			} catch {
-				process.stdout.write(
-					"[AN2 real-harness gh] SKIP: no GH_TOKEN in env and gh auth token failed\n",
-				);
-				skip();
-				return;
+			} catch (cause) {
+				throw new Error("[AN2 real-harness gh] credential prerequisite failed", { cause });
 			}
 		}
 		if (!ghToken) {
-			process.stdout.write("[AN2 real-harness gh] SKIP: no GH_TOKEN available\n");
-			skip();
-			return;
+			throw new Error("[AN2 real-harness gh] credential prerequisite produced an empty token");
 		}
 
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "an2-rh-gh-"));

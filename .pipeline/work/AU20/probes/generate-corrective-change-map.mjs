@@ -978,8 +978,10 @@ const disposalCandidateValid =
   disposalCandidate?.status === "accepted-commit-authorized" &&
   disposalCandidate?.commitAuthorization?.message === "AU20 F2: await runtime disposal" &&
   JSON.stringify(disposalCandidate?.commitAuthorization?.paths) === JSON.stringify(expectedDisposalCommitPaths) &&
-  Object.entries(expectedDisposalCandidatePaths).every(([candidatePath, expectedHash]) =>
-    sha256(fs.readFileSync(path.join(root, candidatePath))) === expectedHash) &&
+  Object.entries(expectedDisposalCandidatePaths).every(([candidatePath, expectedHash]) => {
+    const committed = spawnSync("git", ["show", `1397db5a5b5a07e1bb6d1884ed550e0e148606a4:${candidatePath}`], { cwd: root, encoding: null, shell: false });
+    return committed.status === 0 && sha256(committed.stdout) === expectedHash;
+  }) &&
   sha256(fs.readFileSync(path.join(root, disposalCandidate.implementationReviewPath))) === disposalCandidate.implementationReviewSha256 &&
   sha256(fs.readFileSync(path.join(root, disposalCandidate.finalReviewPath))) === disposalCandidate.finalReviewSha256;
 const disposalCommit = disposalCandidate?.commitReceipt ?? null;
@@ -1143,6 +1145,246 @@ const retroCandidateValid =
   sha256(fs.readFileSync(path.join(root, retroCandidate.proofPath))) === retroCandidate.proofSha256 &&
   sha256(fs.readFileSync(path.join(root, retroCandidate.redReviewPath))) === retroCandidate.redReviewSha256 &&
   sha256(fs.readFileSync(path.join(root, retroCandidate.implementationReviewPath))) === retroCandidate.implementationReviewSha256;
+const retroCommit = retroCandidate?.commitReceipt ?? null;
+const retroCommitInspection = retroCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", retroCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const retroCommitPaths = retroCommit
+  ? spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", retroCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const retroCommitValid =
+  retroCandidateValid &&
+  retroCommit?.commit === "0f7f6c1b1354eea71f9cc5c36098c413b62741d8" &&
+  retroCommit?.tree === "beb4871cf834354cdf45bc6f6d893e94af8106ec" &&
+  retroCommit?.parent === "1397db5a5b5a07e1bb6d1884ed550e0e148606a4" &&
+  retroCommit?.subject === "AU20 F4: preserve retro hypothesis snapshot" &&
+  JSON.stringify(retroCommit?.paths) === JSON.stringify(expectedRetroCommitPaths) &&
+  JSON.stringify(retroCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(retroCommit?.verification ?? {}).every((result) => result === "pass") &&
+  retroCommitInspection?.status === 0 &&
+  retroCommitInspection.stdout.trim() === [retroCommit.commit, retroCommit.tree, retroCommit.parent, retroCommit.subject].join("\n") &&
+  retroCommitPaths?.status === 0 &&
+  JSON.stringify(retroCommitPaths.stdout.trim().split("\n")) === JSON.stringify(expectedRetroCommitPaths);
+const mcpWriteTestsAuthorization = progress.gateBindings?.harnessMcpIsolationWriteTestsAuthorization ?? null;
+const expectedMcpWriteTestsAuthorization = {
+  increment: "harness-registry-mcp-entry",
+  stage: "write-tests-harness-registry-mcp-entry",
+  finding: "F3",
+  validatorPath: ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+  proofPath: ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+  protectedTests: {
+    "packages/agent-execution/harness-registry/src/__tests__/mcp-route.test.ts": "115064b9d5408c4fabf07ecff4b91f87c959f17e001bc5a3c3fbd20f6b807a81",
+    "packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts": "f08309f8b88636e82b1b75c5f60480d4ea3cdc690baa4fb8a95dcbf24973de11",
+  },
+  authorizedTestCorrections: {
+    "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts": {
+      baselineSha256: "d3c29fba3c8fa7ab814c006440d2dce7b9e51b2f2e871687923b91ed2f09636f",
+      requiredModel: "haiku",
+      requiredCredentialBehavior: "every missing or invalid Claude/Codex/OpenCode/GitHub credential hard-fails; no skip callback or skip branch remains",
+    },
+  },
+  frozenProduct: {
+    "packages/agent-execution/harness-registry/package.json": "de57441c84ee453a7765283e599ad8dc79f12d911826f06d18149c4cf22fc8bb",
+    "packages/agent-execution/harness-registry/src/index.ts": "cc1c796f2e29e1450927121ea37992e08299885bfac4d3d0e39f12af11a2e0c2",
+    "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "7bb90c5d0a7cc4bddb98d75092cbb2ac32a45ca975a942e4181abbcfcf9d3f58",
+    "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
+    "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
+    "packages/core-api/src/server-factory.ts": "34332d65afb258b47de22e77452f30b29514fa23afcf70ab0b4555d43587fbb1",
+  },
+  requiredRed: {
+    mainEntry: "main bundle/import graph contains zero src/mcp, MCP SDK, Hono, or Zod inputs",
+    subpath: "runtime import @hyperidle/harness-registry/mcp and assert own exported createMcpToolBridge is a function; comments, strings, imports, and type-only declarations cannot satisfy it",
+    packageExports: "package exports defines ./mcp and main index has no MCP bridge re-export",
+    failure: "current tree fails because ./mcp is absent and main entry exposes MCP dependencies",
+    validatorIntegrity: "derive export truth from resolved runtime namespace and esbuild metafile inputs, never regex-only source matches",
+  },
+  realHarnessRequirements: {
+    binaries: ["claude", "codex", "opencode", "gh"],
+    claudeModel: "haiku",
+    policy: "missing binary or credential is a hard failure via requireHarness/assertion; never skip to green; Claude 429 spend-limit is reported as an honest external release blocker",
+    command: "npx vitest run --config vitest.integration.config.ts --project harness packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+  },
+  authorizedPaths: [
+    ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+    ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+    "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+  ],
+  testModificationAuthorized: true,
+  productCodeAuthorized: false,
+  newExportsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  census: { services: 23, methods: 231, types: 181, total: 412 },
+  nextStage: "red-proof-review-harness-registry-mcp-entry",
+  status: "write-tests-revision-authorized",
+};
+const mcpWriteTestsValid =
+  retroCommitValid &&
+  JSON.stringify(mcpWriteTestsAuthorization) === JSON.stringify(expectedMcpWriteTestsAuthorization) &&
+  Object.entries(mcpWriteTestsAuthorization.protectedTests).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
+  Object.entries(mcpWriteTestsAuthorization.frozenProduct).every(([file, hash]) => {
+    const baseline = spawnSync("git", ["show", `0f7f6c1b1354eea71f9cc5c36098c413b62741d8:${file}`], { cwd: root, encoding: null, shell: false });
+    return baseline.status === 0 && sha256(baseline.stdout) === hash;
+  }) &&
+  fs.existsSync(path.join(root, mcpWriteTestsAuthorization.validatorPath)) &&
+  fs.existsSync(path.join(root, mcpWriteTestsAuthorization.proofPath));
+const mcpRedProof = progress.gateBindings?.harnessMcpIsolationRedProof ?? null;
+const mcpRedProofValid =
+  mcpWriteTestsValid &&
+  mcpRedProof?.validatorPath === mcpWriteTestsAuthorization.validatorPath &&
+  mcpRedProof?.validatorSha256 === "1fa5c4a3dc47fb427991cc78332691d168cd9a4a25d5b841f115c172b4569f47" &&
+  mcpRedProof?.proofPath === mcpWriteTestsAuthorization.proofPath &&
+  mcpRedProof?.proofSha256 === "212bc52b7585120394e4cd07bb1b6037f0c250969ac41173b2d03b049f9f85e8" &&
+  mcpRedProof?.an2TestPath === "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts" &&
+  mcpRedProof?.an2TestSha256 === "075a31f57f22435b11d732ec7e4953459cb7d7680334a8aa629a03c25bce40f3" &&
+  mcpRedProof?.reviewPath === "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md" &&
+  mcpRedProof?.reviewSha256 === "d0bd8cb31a9606b353ba8e8d262dd8b1f1b540ab258016c9a73b7e79c3d2094f" &&
+  mcpRedProof?.verdict === "accept" &&
+  mcpRedProof?.externalReleaseBlocker === "Claude Haiku HTTP 429 monthly spend limit; unweakened real-harness lane must pass before release" &&
+  mcpRedProof?.status === "superseded-by-substrate-amendment" &&
+  sha256(fs.readFileSync(path.join(root, mcpRedProof.validatorPath))) === mcpRedProof.validatorSha256 &&
+  sha256(fs.readFileSync(path.join(root, mcpRedProof.proofPath))) === mcpRedProof.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, mcpRedProof.an2TestPath))) === mcpRedProof.an2TestSha256 &&
+  sha256(fs.readFileSync(path.join(root, mcpRedProof.reviewPath))) === mcpRedProof.reviewSha256;
+const mcpWriteCodeAuthorization = progress.gateBindings?.harnessMcpIsolationWriteCodeAuthorization ?? null;
+const expectedMcpWriteCodeAuthorization = {
+  increment: "harness-registry-mcp-entry",
+  stage: "write-code-harness-registry-mcp-entry",
+  finding: "F3",
+  authorizedPaths: [
+    "packages/agent-execution/harness-registry/package.json",
+    "packages/agent-execution/harness-registry/src/index.ts",
+    "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
+    "packages/agent-execution/harness-registry/src/mcp/index.ts",
+    "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts",
+    "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts",
+    "packages/agent-execution/harness-registry/src/return-status-tool.ts",
+    "packages/core-api/src/server-factory.ts",
+    "packages/core-api/src/services/tool-provider-bindings.ts",
+  ],
+  frozenPaths: [
+    ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+    ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+    "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+    "packages/agent-execution/harness-registry/src/__tests__/mcp-route.test.ts",
+    "packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts",
+    "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+    "scripts/surface-census.ts",
+  ],
+  requiredImplementation: {
+    packageExport: "./mcp resolves a runtime namespace whose own createMcpToolBridge and returnStatusTool exports are functions",
+    mainIsolation: "main entry bundle contains zero src/mcp, mcp-tool-bridge, return-status-tool, MCP SDK, Hono, or Zod inputs and no MCP public re-export",
+    consumerMigration: "core-api imports MCP bridge and returnStatusTool only from @hyperidle/harness-registry/mcp; non-MCP consumers remain on main entry",
+    behavior: "protected route and stateful bridge behavior remains unchanged",
+    compatibility: "internal legacy bridge path may only be a thin compatibility re-export for frozen tests; no duplicate main-package export",
+  },
+  newExportsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  otherProductionPathsAuthorized: false,
+  testsAuthorized: false,
+  implementationReviewRequiredBeforeCommit: true,
+  externalReleaseBlocker: "Claude Haiku HTTP 429 monthly spend limit",
+  nextIncrement: "notifications-secret-errors",
+  status: "amended-authorized",
+};
+const mcpWriteCodeValid =
+  mcpRedProofValid &&
+  JSON.stringify(mcpWriteCodeAuthorization) === JSON.stringify(expectedMcpWriteCodeAuthorization);
+const mcpSubstrate = progress.gateBindings?.harnessMcpIsolationSubstrateAmendment ?? null;
+const expectedMcpAmendedTestPaths = [
+  ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+  ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+  "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
+  "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
+  "packages/core-api/src/__tests__/mcp-bridge.test.ts",
+  "packages/core-api/src/__tests__/AL6-return-status-route.test.ts",
+  "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts",
+];
+const expectedMcpAmendedProductionPaths = [
+  "packages/agent-execution/harness-registry/package.json",
+  "packages/agent-execution/harness-registry/src/index.ts",
+  "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
+  "packages/agent-execution/harness-registry/src/mcp/index.ts",
+  "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts",
+  "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts",
+  "packages/agent-execution/harness-registry/src/return-status-tool.ts",
+  "packages/core-api/src/server-factory.ts",
+  "packages/core-api/src/services/tool-provider-bindings.ts",
+];
+const mcpSubstrateValid =
+  mcpWriteTestsValid &&
+  mcpSubstrate?.stage === "write-tests-harness-registry-mcp-substrate-amendment" &&
+  mcpSubstrate?.finding === "F3" &&
+  mcpSubstrate?.probeContract?.mechanism.includes("temporary ESM .mts probe") &&
+  mcpSubstrate?.probeContract?.exportAssertion.includes("createMcpToolBridge and returnStatusTool") &&
+  mcpSubstrate?.probeContract?.graphAssertion.includes("return-status-tool") &&
+  JSON.stringify(Object.keys(mcpSubstrate?.authorizedTestPaths ?? {})) === JSON.stringify(expectedMcpAmendedTestPaths) &&
+  JSON.stringify(mcpSubstrate?.authorizedProductionPathsAfterRedReview) === JSON.stringify(expectedMcpAmendedProductionPaths) &&
+  mcpSubstrate?.returnStatusDecision === "Move the existing returnStatusTool public export from main to /mcp and migrate tool-provider-bindings; do not duplicate implementation or keep a main re-export." &&
+  mcpSubstrate?.productCodeAuthorized === false &&
+  mcpSubstrate?.newImplementationAuthorized === false &&
+  mcpSubstrate?.serviceSurfaceGrowthAuthorized === false &&
+  mcpSubstrate?.nextStage === "red-proof-review-harness-registry-mcp-substrate-amendment" &&
+  mcpSubstrate?.status === "write-tests-authorized";
+const mcpAmendedRed = progress.gateBindings?.harnessMcpIsolationAmendedRedProof ?? null;
+const mcpAmendedRedValid =
+  mcpSubstrateValid &&
+  mcpAmendedRed?.validatorSha256 === "2007c4fe44975be2d5b07381ee34ecbd6039bcb82b0acf775f6edc8c933de0ce" &&
+  mcpAmendedRed?.proofSha256 === "9f8c60258be9b8ee320aa7388189903cbe7e0d7bd94e247c1fc82aede28a4762" &&
+  mcpAmendedRed?.reviewSha256 === "40a0e0e3a43e821ef8328c79c07bb053ba0be7f248e7af891c8f1e961e5142de" &&
+  mcpAmendedRed?.verdict === "accept" &&
+  mcpAmendedRed?.status === "accepted" &&
+  sha256(fs.readFileSync(path.join(root, mcpAmendedRed.validatorPath))) === mcpAmendedRed.validatorSha256 &&
+  sha256(fs.readFileSync(path.join(root, mcpAmendedRed.proofPath))) === mcpAmendedRed.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, mcpAmendedRed.reviewPath))) === mcpAmendedRed.reviewSha256 &&
+  Object.entries(mcpAmendedRed.testSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash);
+const mcpAmendedWriteCodeValid =
+  mcpAmendedRedValid &&
+  JSON.stringify(mcpWriteCodeAuthorization) === JSON.stringify(expectedMcpWriteCodeAuthorization);
+const mcpCandidate = progress.gateBindings?.harnessMcpIsolationCandidate ?? null;
+const expectedMcpCommitPaths = [
+  ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+  ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+  ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+  ".pipeline/work/AU20/progress.json",
+  ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+  "packages/agent-execution/harness-registry/package.json",
+  "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+  "packages/agent-execution/harness-registry/src/index.ts",
+  "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
+  "packages/agent-execution/harness-registry/src/mcp/index.ts",
+  "packages/agent-execution/harness-registry/src/return-status-tool.ts",
+  "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
+  "packages/core-api/src/__tests__/AL6-return-status-route.test.ts",
+  "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
+  "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts",
+  "packages/core-api/src/__tests__/mcp-bridge.test.ts",
+  "packages/core-api/src/server-factory.ts",
+  "packages/core-api/src/services/tool-provider-bindings.ts",
+  "plans/AU20/corrective-change-map.json",
+  "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+  "plans/AU20/register-reviews/harness-registry-mcp-entry.md",
+];
+const mcpCandidateValid =
+  mcpAmendedWriteCodeValid &&
+  JSON.stringify(mcpCandidate?.productSha256) === JSON.stringify({
+    "packages/agent-execution/harness-registry/package.json": "c969592613f7a0a0caaf828fe1888f159e06b4b3aa567449328013b7783260d8",
+    "packages/agent-execution/harness-registry/src/index.ts": "dbe88ca2a53862d919428f53b63161eba77cc8b057be07009b6d9911f9483626",
+    "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "add996f2f150683cf2773602bfb710b9d031fb312847c9d5bfa941d896650118",
+    "packages/agent-execution/harness-registry/src/mcp/index.ts": "8ed4bc28bf456fa78978785321d834540fcba151611b533b04785aecf8de4a6b",
+    "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
+    "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
+    "packages/agent-execution/harness-registry/src/return-status-tool.ts": "4df8a05503fd7897f75613acc916e182b58fc5da42790441f2f1a0e4b782270b",
+    "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9",
+    "packages/core-api/src/services/tool-provider-bindings.ts": "156fac5752e904810a3e83c970e2b1e5ea294852b62fd9c1b646c8bc3f9ab98c",
+  }) &&
+  mcpCandidate?.implementationReviewPath === "plans/AU20/register-reviews/harness-registry-mcp-entry.md" &&
+  mcpCandidate?.implementationReviewSha256 === "e4b7ff82bf0e67e1bbaa394bf3a0dc070d21b8b360bafee2079be500a7571eb7" &&
+  mcpCandidate?.implementationReviewVerdict === "accept" &&
+  mcpCandidate?.status === "accepted-commit-authorized" &&
+  mcpCandidate?.commitAuthorization?.message === "AU20 F3: isolate harness MCP entry" &&
+  JSON.stringify(mcpCandidate?.commitAuthorization?.paths) === JSON.stringify(expectedMcpCommitPaths) &&
+  Object.entries(mcpCandidate.productSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
+  sha256(fs.readFileSync(path.join(root, mcpCandidate.implementationReviewPath))) === mcpCandidate.implementationReviewSha256;
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -1204,22 +1446,33 @@ const finalShipCorrection = {
       commitReceipt: disposalCommit,
       status: "completed-history",
     }] : []),
+    ...(retroCommitValid ? [{
+      name: "knowledge-retro-snapshot",
+      finding: "F4",
+      writeTestsAuthorization: retroWriteTestsAuthorization,
+      redProofReview: retroRedProof,
+      writeCodeAuthorization: retroWriteCodeAuthorization,
+      candidate: retroCandidate,
+      commitReceipt: retroCommit,
+      status: "completed-history",
+    }] : []),
   ],
   activeIncrement: {
-    name: "knowledge-retro-snapshot",
-    finding: "F4",
-    writeTestsAuthorization: retroWriteTestsValid ? retroWriteTestsAuthorization : null,
-    redProofReview: retroRedProofValid ? retroRedProof : null,
-    writeCodeAuthorization: retroWriteCodeValid ? retroWriteCodeAuthorization : null,
-    candidate: retroCandidateValid ? retroCandidate : null,
-    authorizedStage: retroCandidateValid && progress.currentStep === "commit-knowledge-retro-snapshot"
-      ? "commit-knowledge-retro-snapshot"
+    name: "harness-registry-mcp-entry",
+    finding: "F3",
+    writeTestsAuthorization: mcpWriteTestsValid ? mcpWriteTestsAuthorization : null,
+    supersededRedProofReview: mcpRedProof,
+    substrateAmendment: mcpSubstrateValid ? mcpSubstrate : null,
+    amendedRedProofReview: mcpAmendedRedValid ? mcpAmendedRed : null,
+    candidate: mcpCandidateValid ? mcpCandidate : null,
+    authorizedStage: mcpCandidateValid && progress.currentStep === "commit-harness-registry-mcp-entry"
+      ? "commit-harness-registry-mcp-entry"
       : null,
-    authorization: retroCandidateValid ? retroCandidate.commitAuthorization : null,
+    authorization: mcpCandidateValid ? mcpCandidate.commitAuthorization : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "knowledge-retro-snapshot",
+  nextIncrement: "harness-registry-mcp-entry",
 };
 const output = {
   ...payload,
@@ -1235,7 +1488,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !retroCandidateValid,
+    commitLocked: !mcpCandidateValid,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

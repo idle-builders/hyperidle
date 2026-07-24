@@ -461,8 +461,10 @@ if (process.argv.includes("--require-review")) {
       disposalCandidate?.status !== "accepted-commit-authorized" ||
       disposalCandidate?.commitAuthorization?.message !== "AU20 F2: await runtime disposal" ||
       JSON.stringify(disposalCandidate?.commitAuthorization?.paths) !== JSON.stringify(expectedDisposalCommitPaths) ||
-      Object.entries(expectedDisposalCandidatePaths).some(([candidatePath, expectedHash]) =>
-        sha256(fs.readFileSync(path.join(root, candidatePath))) !== expectedHash) ||
+      Object.entries(expectedDisposalCandidatePaths).some(([candidatePath, expectedHash]) => {
+        const committed = spawnSync("git", ["show", `1397db5a5b5a07e1bb6d1884ed550e0e148606a4:${candidatePath}`], { cwd: root, encoding: null, shell: false });
+        return committed.status !== 0 || sha256(committed.stdout) !== expectedHash;
+      }) ||
       sha256(fs.readFileSync(path.join(root, disposalCandidate.implementationReviewPath))) !== disposalCandidate.implementationReviewSha256 ||
       sha256(fs.readFileSync(path.join(root, disposalCandidate.finalReviewPath))) !== disposalCandidate.finalReviewSha256) fail("F2 candidate binding mismatch");
   const disposalReceipt = completedDisposal?.commitReceipt;
@@ -505,7 +507,8 @@ if (process.argv.includes("--require-review")) {
     nextStage: "red-proof-review-knowledge-retro-snapshot",
     status: "write-tests-authorized",
   };
-  const retroAuthorization = active?.writeTestsAuthorization;
+  const completedRetro = finalCorrection.completedIncrements?.find((increment) => increment.name === "knowledge-retro-snapshot");
+  const retroAuthorization = completedRetro?.writeTestsAuthorization;
   const committedRetroProduct = spawnSync(
     "git",
     ["show", "1397db5a5b5a07e1bb6d1884ed550e0e148606a4:packages/core-api/src/routes/bets.ts"],
@@ -515,7 +518,7 @@ if (process.argv.includes("--require-review")) {
       sha256(fs.readFileSync(path.join(root, retroAuthorization.testPath))) !== retroAuthorization.testSha256 ||
       committedRetroProduct.status !== 0 ||
       sha256(committedRetroProduct.stdout) !== retroAuthorization.productSha256) fail("F4 write-tests authorization mismatch");
-  const retroRed = active?.redProofReview;
+  const retroRed = completedRetro?.redProofReview;
   if (retroRed?.increment !== "knowledge-retro-snapshot" ||
       retroRed?.finding !== "F4" ||
       retroRed?.testPath !== expectedRetroAuthorization.testPath ||
@@ -555,7 +558,7 @@ if (process.argv.includes("--require-review")) {
     nextIncrement: "harness-registry-mcp-entry",
     status: "authorized",
   };
-  if (JSON.stringify(active?.writeCodeAuthorization) !== JSON.stringify(expectedRetroCodeAuthorization)) fail("F4 historical write-code authorization mismatch");
+  if (JSON.stringify(completedRetro?.writeCodeAuthorization) !== JSON.stringify(expectedRetroCodeAuthorization)) fail("F4 historical write-code authorization mismatch");
   const expectedRetroCommitPaths = [
     ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
     ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
@@ -566,7 +569,7 @@ if (process.argv.includes("--require-review")) {
     "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
     "plans/AU20/register-reviews/knowledge-retro-snapshot.md",
   ];
-  const retroCandidate = active?.candidate;
+  const retroCandidate = completedRetro?.candidate;
   if (retroCandidate?.increment !== "knowledge-retro-snapshot" ||
       retroCandidate?.finding !== "F4" ||
       retroCandidate?.productPath !== expectedRetroAuthorization.productPath ||
@@ -598,16 +601,50 @@ if (process.argv.includes("--require-review")) {
       sha256(fs.readFileSync(path.join(root, retroCandidate.proofPath))) !== retroCandidate.proofSha256 ||
       sha256(fs.readFileSync(path.join(root, retroCandidate.redReviewPath))) !== retroCandidate.redReviewSha256 ||
       sha256(fs.readFileSync(path.join(root, retroCandidate.implementationReviewPath))) !== retroCandidate.implementationReviewSha256) fail("F4 candidate binding mismatch");
-  if (active?.name !== "knowledge-retro-snapshot" ||
-      active?.finding !== "F4" ||
-      active?.authorizedStage !== "commit-knowledge-retro-snapshot" ||
-      JSON.stringify(active?.authorization) !== JSON.stringify(retroCandidate.commitAuthorization) ||
+  const retroReceipt = completedRetro?.commitReceipt;
+  if (retroReceipt?.commit !== "0f7f6c1b1354eea71f9cc5c36098c413b62741d8" ||
+      retroReceipt?.tree !== "beb4871cf834354cdf45bc6f6d893e94af8106ec" ||
+      retroReceipt?.parent !== "1397db5a5b5a07e1bb6d1884ed550e0e148606a4" ||
+      retroReceipt?.subject !== "AU20 F4: preserve retro hypothesis snapshot" ||
+      JSON.stringify(retroReceipt?.paths) !== JSON.stringify(expectedRetroCommitPaths) ||
+      JSON.stringify(retroReceipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      Object.values(retroReceipt?.verification ?? {}).some((result) => result !== "pass")) fail("F4 commit receipt mismatch");
+  const retroGitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", retroReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  const retroGitPaths = spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", retroReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (retroGitReceipt.status !== 0 ||
+      retroGitReceipt.stdout.trim() !== [retroReceipt.commit, retroReceipt.tree, retroReceipt.parent, retroReceipt.subject].join("\n") ||
+      retroGitPaths.status !== 0 ||
+      JSON.stringify(retroGitPaths.stdout.trim().split("\n")) !== JSON.stringify(expectedRetroCommitPaths)) fail("F4 commit object mismatch");
+  const expectedMcpWriteTests = active?.writeTestsAuthorization;
+  const mcpRed = active?.amendedRedProofReview;
+  if (mcpRed?.validatorSha256 !== "2007c4fe44975be2d5b07381ee34ecbd6039bcb82b0acf775f6edc8c933de0ce" ||
+      mcpRed?.proofSha256 !== "9f8c60258be9b8ee320aa7388189903cbe7e0d7bd94e247c1fc82aede28a4762" ||
+      mcpRed?.reviewSha256 !== "40a0e0e3a43e821ef8328c79c07bb053ba0be7f248e7af891c8f1e961e5142de" ||
+      mcpRed?.verdict !== "accept" ||
+      sha256(fs.readFileSync(path.join(root, mcpRed.validatorPath))) !== mcpRed.validatorSha256 ||
+      sha256(fs.readFileSync(path.join(root, mcpRed.proofPath))) !== mcpRed.proofSha256 ||
+      sha256(fs.readFileSync(path.join(root, mcpRed.reviewPath))) !== mcpRed.reviewSha256 ||
+      Object.entries(mcpRed.testSha256).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash)) fail("F3 amended red-proof binding mismatch");
+  const mcpCandidate = active?.candidate;
+  if (mcpCandidate?.implementationReviewPath !== "plans/AU20/register-reviews/harness-registry-mcp-entry.md" ||
+      mcpCandidate?.implementationReviewSha256 !== "e4b7ff82bf0e67e1bbaa394bf3a0dc070d21b8b360bafee2079be500a7571eb7" ||
+      mcpCandidate?.implementationReviewVerdict !== "accept" ||
+      mcpCandidate?.status !== "accepted-commit-authorized" ||
+      mcpCandidate?.commitAuthorization?.message !== "AU20 F3: isolate harness MCP entry" ||
+      Object.entries(mcpCandidate?.productSha256 ?? {}).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash) ||
+      sha256(fs.readFileSync(path.join(root, mcpCandidate.implementationReviewPath))) !== mcpCandidate.implementationReviewSha256) fail("F3 candidate binding mismatch");
+  if (active?.name !== "harness-registry-mcp-entry" ||
+      active?.finding !== "F3" ||
+      active?.authorizedStage !== "commit-harness-registry-mcp-entry" ||
+      JSON.stringify(active?.writeTestsAuthorization) !== JSON.stringify(expectedMcpWriteTests) ||
+      active?.substrateAmendment?.returnStatusDecision !== "Move the existing returnStatusTool public export from main to /mcp and migrate tool-provider-bindings; do not duplicate implementation or keep a main re-export." ||
+      JSON.stringify(active?.authorization) !== JSON.stringify(mcpCandidate.commitAuthorization) ||
       active?.productCodeAuthorized !== false ||
-      finalCorrection.nextIncrement !== "knowledge-retro-snapshot" ||
+      finalCorrection.nextIncrement !== "harness-registry-mcp-entry" ||
       integrity.writeTestsLocked !== true ||
       integrity.codeLocked !== true ||
       integrity.productCodeLocked !== true ||
-      integrity.commitLocked !== false) fail("F4 commit authorization state invalid");
+      integrity.commitLocked !== false) fail("F3 commit authorization state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,

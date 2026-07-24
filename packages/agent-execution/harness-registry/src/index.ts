@@ -12,7 +12,7 @@ export {
 	type SelectRequirements,
 } from "./adapter-pool.js";
 export { createHarnessAdapter, type HarnessAdapterSpec } from "./harness-adapter-factory.js";
-export { createMcpToolBridge, type McpToolBridge } from "./mcp-tool-bridge.js";
+export type { McpToolBridge } from "./mcp-tool-bridge.js";
 export {
 	type ProvisionOptions,
 	provisionHarnessEnvironment,
@@ -21,7 +21,6 @@ export {
 	createReturnEnforcement,
 	type ReturnEnforcementSpec,
 } from "./return-enforcement.js";
-export { returnStatusTool } from "./return-status-tool.js";
 export {
 	createSandboxAdapter,
 	type ExecResult,

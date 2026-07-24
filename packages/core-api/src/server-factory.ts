@@ -34,10 +34,10 @@ import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
 	type AdapterPool,
-	createMcpToolBridge,
 	createReturnEnforcement,
 	type SandboxAdapter,
 } from "@hyperidle/harness-registry";
+import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,

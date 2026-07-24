@@ -1,4 +1,4 @@
-import { createMcpToolBridge } from "@hyperidle/harness-registry";
+import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import type { ToolRegistry } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
 
