@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "commit-ownership-prose-current",
+  "currentStep": "commit-evidence-current-census",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -1522,6 +1522,115 @@
           "plans/AU20/corrective-change-map.json",
           "plans/AU20/red-proof-reviews/ownership-prose-current.md",
           "plans/AU20/register-reviews/ownership-prose-current.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "4506a28c4dbd1bc581a85dbba86552c43b63fad3",
+        "tree": "fd95c25beb2036700062bb0c773b8446349b7548",
+        "parent": "90aab0a2ef02d6016cccc435208d1cf6e2cb4b92",
+        "subject": "AU20 F8: correct ownership prose",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+          ".pipeline/work/AU20/progress.json",
+          "packages/agent-orchestration/src/index.ts",
+          "packages/core-api/src/services/durable-agent-queue.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+          "plans/AU20/register-reviews/ownership-prose-current.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "currentCensusEvidenceStaticRed": {
+      "increment": "evidence-current-census",
+      "findings": ["F7", "F12"],
+      "validatorPath": ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+      "validatorSha256": "d04163f248be09bef650b0b5c5c783063f0475b3f9b7d4ec57ac18cdfa117c95",
+      "censusScriptPath": "scripts/surface-census.ts",
+      "censusScriptSha256": "df74ee90cce2bf075f2fd32199e6c86780871c2530c6baa981a4cc8498d0cc9b",
+      "reviewPath": "plans/AU20/red-proof-reviews/evidence-current-census.md",
+      "reviewSha256": "f65363266afd88510482eae976eae5f2390e0998957c1a25f628c1a59c6999d1",
+      "verdict": "accept",
+      "redExit": 1,
+      "expected": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412,
+        "jsonSha256": "7ee19367efba17a2b92482444a50f5e5864641acfad3f20d4d8e8db3c7bbacd8",
+        "markdownSha256": "68c80a96fc3f6282c117a604790dc0f080b67569bb6b9131cd31b12f1217894a"
+      },
+      "status": "accepted"
+    },
+    "currentCensusEvidenceWriteCodeAuthorization": {
+      "increment": "evidence-current-census",
+      "stage": "write-code-evidence-current-census",
+      "findings": ["F7", "F12"],
+      "authorizedCommand": "node .pipeline/work/AU20/probes/validate-current-census-evidence.mjs --write",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/rearch/census-after.json",
+        "plans/AU20/surface-census.md"
+      ],
+      "frozenPaths": [
+        ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+        "plans/AU20/red-proof-reviews/evidence-current-census.md",
+        "scripts/surface-census.ts"
+      ],
+      "productCodeAuthorized": false,
+      "censusToolChangeAuthorized": false,
+      "surfaceGrowthAuthorized": false,
+      "deterministicSecondRunRequired": true,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "AU20-aggregate-closeout",
+      "status": "authorized"
+    },
+    "currentCensusEvidenceCandidate": {
+      "increment": "evidence-current-census",
+      "findings": ["F7", "F12"],
+      "evidenceSha256": {
+        ".pipeline/work/AU20/rearch/census-after.json": "7ee19367efba17a2b92482444a50f5e5864641acfad3f20d4d8e8db3c7bbacd8",
+        "plans/AU20/surface-census.md": "68c80a96fc3f6282c117a604790dc0f080b67569bb6b9131cd31b12f1217894a"
+      },
+      "validatorSha256": "d04163f248be09bef650b0b5c5c783063f0475b3f9b7d4ec57ac18cdfa117c95",
+      "redReviewSha256": "f65363266afd88510482eae976eae5f2390e0998957c1a25f628c1a59c6999d1",
+      "implementationReviewPath": "plans/AU20/register-reviews/evidence-current-census.md",
+      "implementationReviewSha256": "86aaf1da1a15c9d615bdf66f11851b9ea06848625df637115779851a03a20acc",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "validator": "pass",
+        "determinism": "pass",
+        "gate": "604/604; unresolved 0",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23 services / 231 methods / 181 types / 412 total",
+        "diff": "JSON +96/-96; Markdown +31/-88"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F7 F12: regenerate current census evidence",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/rearch/census-after.json",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/evidence-current-census.md",
+          "plans/AU20/register-reviews/evidence-current-census.md",
+          "plans/AU20/surface-census.md"
         ]
       }
     }

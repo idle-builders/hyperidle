@@ -2,129 +2,66 @@
   "generatedFrom": "surface-census.ts",
   "serviceCount": 23,
   "totals": {
-    "methods": 646,
-    "types": 591,
-    "total": 1237
+    "methods": 231,
+    "types": 181,
+    "total": 412
   },
   "services": [
     {
-      "service": "run-orchestration",
-      "layer": "agent-orchestration",
-      "methods": 56,
-      "types": 118,
-      "total": 174
-    },
-    {
-      "service": "knowledge",
+      "service": "git-export",
       "layer": "core-api",
-      "methods": 87,
-      "types": 67,
-      "total": 154
-    },
-    {
-      "service": "notifications",
-      "layer": "core-api",
-      "methods": 66,
-      "types": 44,
-      "total": 110
-    },
-    {
-      "service": "session-requests",
-      "layer": "agent-orchestration",
-      "methods": 64,
-      "types": 44,
-      "total": 108
+      "methods": 21,
+      "types": 16,
+      "total": 37
     },
     {
       "service": "work",
       "layer": "core-api",
-      "methods": 56,
-      "types": 51,
-      "total": 107
+      "methods": 15,
+      "types": 20,
+      "total": 35
     },
     {
       "service": "harness-registry",
       "layer": "agent-execution",
-      "methods": 55,
-      "types": 32,
-      "total": 87
+      "methods": 22,
+      "types": 13,
+      "total": 35
     },
     {
-      "service": "dispatch",
-      "layer": "agent-orchestration",
-      "methods": 23,
-      "types": 50,
-      "total": 73
-    },
-    {
-      "service": "filesystems",
+      "service": "knowledge",
       "layer": "core-api",
-      "methods": 35,
-      "types": 16,
-      "total": 51
+      "methods": 17,
+      "types": 12,
+      "total": 29
     },
     {
-      "service": "git-export",
+      "service": "notifications",
       "layer": "core-api",
-      "methods": 24,
-      "types": 25,
-      "total": 49
-    },
-    {
-      "service": "tool-handlers",
-      "layer": "agent-orchestration",
-      "methods": 26,
-      "types": 18,
-      "total": 44
-    },
-    {
-      "service": "policy",
-      "layer": "core-api",
-      "methods": 8,
-      "types": 26,
-      "total": 34
-    },
-    {
-      "service": "cost",
-      "layer": "agent-orchestration",
-      "methods": 14,
-      "types": 19,
-      "total": 33
-    },
-    {
-      "service": "agent-selection",
-      "layer": "agent-orchestration",
-      "methods": 12,
-      "types": 19,
-      "total": 31
-    },
-    {
-      "service": "users",
-      "layer": "core-api",
-      "methods": 23,
-      "types": 5,
+      "methods": 17,
+      "types": 11,
       "total": 28
     },
     {
-      "service": "org",
-      "layer": "core-api",
-      "methods": 19,
-      "types": 7,
-      "total": 26
-    },
-    {
-      "service": "settings",
+      "service": "filesystems",
       "layer": "core-api",
       "methods": 13,
       "types": 11,
       "total": 24
     },
     {
-      "service": "connections",
+      "service": "users",
       "layer": "core-api",
-      "methods": 18,
-      "types": 4,
+      "methods": 17,
+      "types": 5,
       "total": 22
+    },
+    {
+      "service": "org",
+      "layer": "core-api",
+      "methods": 14,
+      "types": 7,
+      "total": 21
     },
     {
       "service": "conversation",
@@ -141,18 +78,74 @@
       "total": 20
     },
     {
+      "service": "session-requests",
+      "layer": "agent-orchestration",
+      "methods": 13,
+      "types": 7,
+      "total": 20
+    },
+    {
+      "service": "connections",
+      "layer": "core-api",
+      "methods": 14,
+      "types": 3,
+      "total": 17
+    },
+    {
+      "service": "run-orchestration",
+      "layer": "agent-orchestration",
+      "methods": 9,
+      "types": 8,
+      "total": 17
+    },
+    {
+      "service": "settings",
+      "layer": "core-api",
+      "methods": 8,
+      "types": 8,
+      "total": 16
+    },
+    {
       "service": "routine",
       "layer": "core-api",
-      "methods": 13,
+      "methods": 11,
       "types": 4,
-      "total": 17
+      "total": 15
     },
     {
       "service": "review",
       "layer": "core-api",
-      "methods": 9,
+      "methods": 7,
       "types": 7,
-      "total": 16
+      "total": 14
+    },
+    {
+      "service": "policy",
+      "layer": "core-api",
+      "methods": 3,
+      "types": 6,
+      "total": 9
+    },
+    {
+      "service": "agent-selection",
+      "layer": "agent-orchestration",
+      "methods": 1,
+      "types": 7,
+      "total": 8
+    },
+    {
+      "service": "cost",
+      "layer": "agent-orchestration",
+      "methods": 1,
+      "types": 6,
+      "total": 7
+    },
+    {
+      "service": "dispatch",
+      "layer": "agent-orchestration",
+      "methods": 1,
+      "types": 5,
+      "total": 6
     },
     {
       "service": "realtime",
@@ -167,6 +160,13 @@
       "methods": 2,
       "types": 2,
       "total": 4
+    },
+    {
+      "service": "tool-handlers",
+      "layer": "agent-orchestration",
+      "methods": 2,
+      "types": 1,
+      "total": 3
     }
   ]
 }

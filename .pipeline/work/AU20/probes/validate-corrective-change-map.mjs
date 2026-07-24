@@ -696,46 +696,63 @@ if (process.argv.includes("--require-review")) {
       watcherGitReceipt.stdout.trim() !== [watcherReceipt.commit, watcherReceipt.tree, watcherReceipt.parent, watcherReceipt.subject].join("\n") ||
       watcherGitPaths.status !== 0 ||
       JSON.stringify(watcherGitPaths.stdout.trim().split("\n")) !== JSON.stringify(watcherReceipt.paths)) fail("F10 commit object mismatch");
-  const ownershipRed = active?.staticRedProof;
-  const ownershipCandidate = active?.candidate;
-  if (ownershipRed?.validatorSha256 !== "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330" ||
-      ownershipRed?.reviewSha256 !== "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255" ||
-      ownershipRed?.verdict !== "accept" ||
-      ownershipRed?.redExit !== 1 ||
-      sha256(fs.readFileSync(path.join(root, ownershipRed.validatorPath))) !== ownershipRed.validatorSha256 ||
-      sha256(fs.readFileSync(path.join(root, ownershipRed.reviewPath))) !== ownershipRed.reviewSha256) fail("F8 static-red binding mismatch");
-  if (JSON.stringify(ownershipCandidate?.productSha256) !== JSON.stringify({
-        "packages/agent-orchestration/src/index.ts": "b93edacbb7c65ce359bf6bc3ed915b9c54355da3734ef8a5c801892a5a816984",
-        "packages/core-api/src/services/durable-agent-queue.ts": "c0c8410c1db31b6bfbe153dd73c6cefa71e2c0d15b486a52add7a128dd6a4884",
+  const completedOwnership = finalCorrection.completedIncrements?.find((increment) => increment.name === "ownership-prose-current");
+  const ownershipReceipt = completedOwnership?.commitReceipt;
+  if (ownershipReceipt?.commit !== "4506a28c4dbd1bc581a85dbba86552c43b63fad3" ||
+      ownershipReceipt?.tree !== "fd95c25beb2036700062bb0c773b8446349b7548" ||
+      ownershipReceipt?.parent !== "90aab0a2ef02d6016cccc435208d1cf6e2cb4b92" ||
+      ownershipReceipt?.subject !== "AU20 F8: correct ownership prose" ||
+      ownershipReceipt?.paths?.length !== 9 ||
+      JSON.stringify(ownershipReceipt?.census) !== JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) ||
+      Object.values(ownershipReceipt?.verification ?? {}).some((result) => result !== "pass")) fail("F8 commit receipt mismatch");
+  const ownershipGitReceipt = spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", ownershipReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  const ownershipGitPaths = spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", ownershipReceipt.commit], { cwd: root, encoding: "utf8", shell: false });
+  if (ownershipGitReceipt.status !== 0 ||
+      ownershipGitReceipt.stdout.trim() !== [ownershipReceipt.commit, ownershipReceipt.tree, ownershipReceipt.parent, ownershipReceipt.subject].join("\n") ||
+      ownershipGitPaths.status !== 0 ||
+      JSON.stringify(ownershipGitPaths.stdout.trim().split("\n")) !== JSON.stringify(ownershipReceipt.paths)) fail("F8 commit object mismatch");
+  const censusRed = active?.staticRedProof;
+  const censusCandidate = active?.candidate;
+  if (censusRed?.validatorSha256 !== "d04163f248be09bef650b0b5c5c783063f0475b3f9b7d4ec57ac18cdfa117c95" ||
+      censusRed?.censusScriptSha256 !== "df74ee90cce2bf075f2fd32199e6c86780871c2530c6baa981a4cc8498d0cc9b" ||
+      censusRed?.reviewSha256 !== "f65363266afd88510482eae976eae5f2390e0998957c1a25f628c1a59c6999d1" ||
+      censusRed?.verdict !== "accept" ||
+      censusRed?.redExit !== 1 ||
+      sha256(fs.readFileSync(path.join(root, censusRed.validatorPath))) !== censusRed.validatorSha256 ||
+      sha256(fs.readFileSync(path.join(root, censusRed.censusScriptPath))) !== censusRed.censusScriptSha256 ||
+      sha256(fs.readFileSync(path.join(root, censusRed.reviewPath))) !== censusRed.reviewSha256) fail("F7/F12 static-red binding mismatch");
+  if (JSON.stringify(censusCandidate?.evidenceSha256) !== JSON.stringify({
+        ".pipeline/work/AU20/rearch/census-after.json": "7ee19367efba17a2b92482444a50f5e5864641acfad3f20d4d8e8db3c7bbacd8",
+        "plans/AU20/surface-census.md": "68c80a96fc3f6282c117a604790dc0f080b67569bb6b9131cd31b12f1217894a",
       }) ||
-      ownershipCandidate?.validatorSha256 !== ownershipRed.validatorSha256 ||
-      ownershipCandidate?.redReviewSha256 !== ownershipRed.reviewSha256 ||
-      ownershipCandidate?.implementationReviewSha256 !== "3e5c95b4b99f603c9d6f85d71a092ccac7c26b672d42241465b22f66deb4cb09" ||
-      ownershipCandidate?.implementationReviewVerdict !== "accept" ||
-      ownershipCandidate?.status !== "accepted-commit-authorized" ||
-      ownershipCandidate?.commitAuthorization?.message !== "AU20 F8: correct ownership prose" ||
-      Object.entries(ownershipCandidate.productSha256).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash) ||
-      sha256(fs.readFileSync(path.join(root, ownershipCandidate.implementationReviewPath))) !== ownershipCandidate.implementationReviewSha256) fail("F8 candidate binding mismatch");
-  if (active?.name !== "ownership-prose-current" ||
-      active?.finding !== "F8" ||
-      active?.authorizedStage !== "commit-ownership-prose-current" ||
+      censusCandidate?.validatorSha256 !== censusRed.validatorSha256 ||
+      censusCandidate?.redReviewSha256 !== censusRed.reviewSha256 ||
+      censusCandidate?.implementationReviewSha256 !== "86aaf1da1a15c9d615bdf66f11851b9ea06848625df637115779851a03a20acc" ||
+      censusCandidate?.implementationReviewVerdict !== "accept" ||
+      censusCandidate?.status !== "accepted-commit-authorized" ||
+      censusCandidate?.commitAuthorization?.message !== "AU20 F7 F12: regenerate current census evidence" ||
+      Object.entries(censusCandidate.evidenceSha256).some(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) !== hash) ||
+      sha256(fs.readFileSync(path.join(root, censusCandidate.implementationReviewPath))) !== censusCandidate.implementationReviewSha256) fail("F7/F12 candidate binding mismatch");
+  if (active?.name !== "evidence-current-census" ||
+      JSON.stringify(active?.findings) !== JSON.stringify(["F7", "F12"]) ||
+      active?.authorizedStage !== "commit-evidence-current-census" ||
       JSON.stringify(active?.authorization?.paths) !== JSON.stringify([
         ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
         ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
-        ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+        ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
         ".pipeline/work/AU20/progress.json",
-        "packages/agent-orchestration/src/index.ts",
-        "packages/core-api/src/services/durable-agent-queue.ts",
+        ".pipeline/work/AU20/rearch/census-after.json",
         "plans/AU20/corrective-change-map.json",
-        "plans/AU20/red-proof-reviews/ownership-prose-current.md",
-        "plans/AU20/register-reviews/ownership-prose-current.md",
+        "plans/AU20/red-proof-reviews/evidence-current-census.md",
+        "plans/AU20/register-reviews/evidence-current-census.md",
+        "plans/AU20/surface-census.md",
       ]) ||
       active?.productCodeAuthorized !== false ||
-      finalCorrection.nextIncrement !== "ownership-prose-current" ||
+      finalCorrection.nextIncrement !== "evidence-current-census" ||
       integrity.writeTestsLocked !== true ||
       integrity.codeLocked !== true ||
       integrity.productCodeLocked !== true ||
-      integrity.commitLocked !== false) fail("F8 commit authorization state invalid");
+      integrity.commitLocked !== false) fail("F7/F12 commit authorization state invalid");
   console.log(JSON.stringify({
     identities: actual.length,
     diagnosedFormerUnknowns: diagnosed.length,

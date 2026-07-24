@@ -1759,6 +1759,80 @@ const ownershipCandidateValid =
   sha256(fs.readFileSync(path.join(root, ownershipCandidate.validatorPath))) === ownershipCandidate.validatorSha256 &&
   sha256(fs.readFileSync(path.join(root, ownershipCandidate.redReviewPath))) === ownershipCandidate.redReviewSha256 &&
   sha256(fs.readFileSync(path.join(root, ownershipCandidate.implementationReviewPath))) === ownershipCandidate.implementationReviewSha256;
+const ownershipCommit = ownershipCandidate?.commitReceipt ?? null;
+const ownershipCommitInspection = ownershipCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", ownershipCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const ownershipCommitPaths = ownershipCommit
+  ? spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", ownershipCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const ownershipCommitValid =
+  ownershipCandidateValid &&
+  ownershipCommit?.commit === "4506a28c4dbd1bc581a85dbba86552c43b63fad3" &&
+  ownershipCommit?.tree === "fd95c25beb2036700062bb0c773b8446349b7548" &&
+  ownershipCommit?.parent === "90aab0a2ef02d6016cccc435208d1cf6e2cb4b92" &&
+  ownershipCommit?.subject === ownershipCandidate.commitAuthorization.message &&
+  JSON.stringify(ownershipCommit?.paths) === JSON.stringify(ownershipCandidate.commitAuthorization.paths) &&
+  JSON.stringify(ownershipCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(ownershipCommit?.verification ?? {}).every((result) => result === "pass") &&
+  ownershipCommitInspection?.status === 0 &&
+  ownershipCommitInspection.stdout.trim() === [ownershipCommit.commit, ownershipCommit.tree, ownershipCommit.parent, ownershipCommit.subject].join("\n") &&
+  ownershipCommitPaths?.status === 0 &&
+  JSON.stringify(ownershipCommitPaths.stdout.trim().split("\n")) === JSON.stringify(ownershipCommit.paths);
+const censusRed = progress.gateBindings?.currentCensusEvidenceStaticRed ?? null;
+const censusRedValid =
+  ownershipCommitValid &&
+  censusRed?.validatorSha256 === "d04163f248be09bef650b0b5c5c783063f0475b3f9b7d4ec57ac18cdfa117c95" &&
+  censusRed?.censusScriptSha256 === "df74ee90cce2bf075f2fd32199e6c86780871c2530c6baa981a4cc8498d0cc9b" &&
+  censusRed?.reviewSha256 === "f65363266afd88510482eae976eae5f2390e0998957c1a25f628c1a59c6999d1" &&
+  censusRed?.verdict === "accept" &&
+  censusRed?.redExit === 1 &&
+  censusRed?.status === "accepted" &&
+  sha256(fs.readFileSync(path.join(root, censusRed.validatorPath))) === censusRed.validatorSha256 &&
+  sha256(fs.readFileSync(path.join(root, censusRed.censusScriptPath))) === censusRed.censusScriptSha256 &&
+  sha256(fs.readFileSync(path.join(root, censusRed.reviewPath))) === censusRed.reviewSha256;
+const censusWriteCode = progress.gateBindings?.currentCensusEvidenceWriteCodeAuthorization ?? null;
+const censusWriteCodeValid =
+  censusRedValid &&
+  censusWriteCode?.stage === "write-code-evidence-current-census" &&
+  JSON.stringify(censusWriteCode?.findings) === JSON.stringify(["F7", "F12"]) &&
+  censusWriteCode?.authorizedCommand === "node .pipeline/work/AU20/probes/validate-current-census-evidence.mjs --write" &&
+  JSON.stringify(censusWriteCode?.authorizedPaths) === JSON.stringify([
+    ".pipeline/work/AU20/rearch/census-after.json",
+    "plans/AU20/surface-census.md",
+  ]) &&
+  censusWriteCode?.productCodeAuthorized === false &&
+  censusWriteCode?.censusToolChangeAuthorized === false &&
+  censusWriteCode?.surfaceGrowthAuthorized === false &&
+  censusWriteCode?.deterministicSecondRunRequired === true &&
+  censusWriteCode?.implementationReviewRequiredBeforeCommit === true &&
+  censusWriteCode?.status === "authorized";
+const censusCandidate = progress.gateBindings?.currentCensusEvidenceCandidate ?? null;
+const censusCandidateValid =
+  censusWriteCodeValid &&
+  JSON.stringify(censusCandidate?.evidenceSha256) === JSON.stringify({
+    ".pipeline/work/AU20/rearch/census-after.json": "7ee19367efba17a2b92482444a50f5e5864641acfad3f20d4d8e8db3c7bbacd8",
+    "plans/AU20/surface-census.md": "68c80a96fc3f6282c117a604790dc0f080b67569bb6b9131cd31b12f1217894a",
+  }) &&
+  censusCandidate?.validatorSha256 === censusRed.validatorSha256 &&
+  censusCandidate?.redReviewSha256 === censusRed.reviewSha256 &&
+  censusCandidate?.implementationReviewSha256 === "86aaf1da1a15c9d615bdf66f11851b9ea06848625df637115779851a03a20acc" &&
+  censusCandidate?.implementationReviewVerdict === "accept" &&
+  censusCandidate?.status === "accepted-commit-authorized" &&
+  censusCandidate?.commitAuthorization?.message === "AU20 F7 F12: regenerate current census evidence" &&
+  JSON.stringify(censusCandidate?.commitAuthorization?.paths) === JSON.stringify([
+    ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+    ".pipeline/work/AU20/progress.json",
+    ".pipeline/work/AU20/rearch/census-after.json",
+    "plans/AU20/corrective-change-map.json",
+    "plans/AU20/red-proof-reviews/evidence-current-census.md",
+    "plans/AU20/register-reviews/evidence-current-census.md",
+    "plans/AU20/surface-census.md",
+  ]) &&
+  Object.entries(censusCandidate.evidenceSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
+  sha256(fs.readFileSync(path.join(root, censusCandidate.implementationReviewPath))) === censusCandidate.implementationReviewSha256;
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -1855,22 +1929,30 @@ const finalShipCorrection = {
       commitReceipt: watcherCommit,
       status: "completed-history",
     }] : []),
+    ...(ownershipCommitValid ? [{
+      name: "ownership-prose-current",
+      finding: "F8",
+      staticRedProof: ownershipRed,
+      candidate: ownershipCandidate,
+      commitReceipt: ownershipCommit,
+      status: "completed-history",
+    }] : []),
   ],
   activeIncrement: {
-    name: "ownership-prose-current",
-    finding: "F8",
-    staticRedProof: ownershipRedValid ? ownershipRed : null,
-    candidate: ownershipCandidateValid ? ownershipCandidate : null,
-    authorizedStage: ownershipCandidateValid && progress.currentStep === "commit-ownership-prose-current"
-      ? "commit-ownership-prose-current"
+    name: "evidence-current-census",
+    findings: ["F7", "F12"],
+    staticRedProof: censusRedValid ? censusRed : null,
+    candidate: censusCandidateValid ? censusCandidate : null,
+    authorizedStage: censusCandidateValid && progress.currentStep === "commit-evidence-current-census"
+      ? "commit-evidence-current-census"
       : null,
-    authorization: ownershipCandidateValid
-      ? ownershipCandidate.commitAuthorization
+    authorization: censusCandidateValid
+      ? censusCandidate.commitAuthorization
       : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "ownership-prose-current",
+  nextIncrement: "evidence-current-census",
 };
 const output = {
   ...payload,
@@ -1886,7 +1968,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !ownershipCandidateValid,
+    commitLocked: !censusCandidateValid,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

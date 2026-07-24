@@ -25232,7 +25232,7 @@
   "integrity": {
     "browserLedgerSha256": "b88e512430a340121205b770a37090cde016c875295fffcf93937e89b58bd75c",
     "systemLedgerSha256": "88b0072658bc98f713c610fc7f35e7428d9ed3488953b8f450658be0cc5560e1",
-    "generatorSha256": "5c77de226a844c8d654c243817e0b108ef95a9530a5cf77f868a6c72825b1f08",
+    "generatorSha256": "f8c9b69fb6ca875dcae3022396c49e5bab6f7f99d588af835c7c0256e86540f7",
     "diagnosticSha256": {
       "core-work-runtime.json": "9e345f4889f9bdfa2b5a22836cd9b9a27ae940a3b2a5dbc8e60aa17c51b005c3",
       "lane-ah.json": "78b5eae8b208ba595b7b49e68217ee96c5ca568ca0bcc16bb2ae95559ab1d5e3",
@@ -26377,53 +26377,98 @@
             }
           },
           "status": "completed-history"
-        }
-      ],
-      "activeIncrement": {
-        "name": "ownership-prose-current",
-        "finding": "F8",
-        "staticRedProof": {
-          "increment": "ownership-prose-current",
-          "finding": "F8",
-          "validatorPath": ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
-          "validatorSha256": "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330",
-          "reviewPath": "plans/AU20/red-proof-reviews/ownership-prose-current.md",
-          "reviewSha256": "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255",
-          "verdict": "accept",
-          "redExit": 1,
-          "census": {
-            "services": 23,
-            "methods": 231,
-            "types": 181,
-            "total": 412
-          },
-          "status": "accepted"
         },
-        "candidate": {
-          "increment": "ownership-prose-current",
+        {
+          "name": "ownership-prose-current",
           "finding": "F8",
-          "productSha256": {
-            "packages/agent-orchestration/src/index.ts": "b93edacbb7c65ce359bf6bc3ed915b9c54355da3734ef8a5c801892a5a816984",
-            "packages/core-api/src/services/durable-agent-queue.ts": "c0c8410c1db31b6bfbe153dd73c6cefa71e2c0d15b486a52add7a128dd6a4884"
+          "staticRedProof": {
+            "increment": "ownership-prose-current",
+            "finding": "F8",
+            "validatorPath": ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+            "validatorSha256": "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330",
+            "reviewPath": "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+            "reviewSha256": "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255",
+            "verdict": "accept",
+            "redExit": 1,
+            "census": {
+              "services": 23,
+              "methods": 231,
+              "types": 181,
+              "total": 412
+            },
+            "status": "accepted"
           },
-          "validatorPath": ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
-          "validatorSha256": "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330",
-          "redReviewPath": "plans/AU20/red-proof-reviews/ownership-prose-current.md",
-          "redReviewSha256": "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255",
-          "implementationReviewPath": "plans/AU20/register-reviews/ownership-prose-current.md",
-          "implementationReviewSha256": "3e5c95b4b99f603c9d6f85d71a092ccac7c26b672d42241465b22f66deb4cb09",
-          "implementationReviewVerdict": "accept",
-          "verification": {
-            "validator": "pass",
-            "check": "37/37 packages",
-            "lint": "pass",
-            "unit": "356 files / 3561 tests pass",
-            "census": "23 services / 231 methods / 181 types / 412 total",
-            "diff": "3 insertions / 13 deletions; comments only"
+          "candidate": {
+            "increment": "ownership-prose-current",
+            "finding": "F8",
+            "productSha256": {
+              "packages/agent-orchestration/src/index.ts": "b93edacbb7c65ce359bf6bc3ed915b9c54355da3734ef8a5c801892a5a816984",
+              "packages/core-api/src/services/durable-agent-queue.ts": "c0c8410c1db31b6bfbe153dd73c6cefa71e2c0d15b486a52add7a128dd6a4884"
+            },
+            "validatorPath": ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+            "validatorSha256": "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330",
+            "redReviewPath": "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+            "redReviewSha256": "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255",
+            "implementationReviewPath": "plans/AU20/register-reviews/ownership-prose-current.md",
+            "implementationReviewSha256": "3e5c95b4b99f603c9d6f85d71a092ccac7c26b672d42241465b22f66deb4cb09",
+            "implementationReviewVerdict": "accept",
+            "verification": {
+              "validator": "pass",
+              "check": "37/37 packages",
+              "lint": "pass",
+              "unit": "356 files / 3561 tests pass",
+              "census": "23 services / 231 methods / 181 types / 412 total",
+              "diff": "3 insertions / 13 deletions; comments only"
+            },
+            "status": "accepted-commit-authorized",
+            "commitAuthorization": {
+              "message": "AU20 F8: correct ownership prose",
+              "paths": [
+                ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+                ".pipeline/work/AU20/progress.json",
+                "packages/agent-orchestration/src/index.ts",
+                "packages/core-api/src/services/durable-agent-queue.ts",
+                "plans/AU20/corrective-change-map.json",
+                "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+                "plans/AU20/register-reviews/ownership-prose-current.md"
+              ]
+            },
+            "commitReceipt": {
+              "commit": "4506a28c4dbd1bc581a85dbba86552c43b63fad3",
+              "tree": "fd95c25beb2036700062bb0c773b8446349b7548",
+              "parent": "90aab0a2ef02d6016cccc435208d1cf6e2cb4b92",
+              "subject": "AU20 F8: correct ownership prose",
+              "paths": [
+                ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+                ".pipeline/work/AU20/progress.json",
+                "packages/agent-orchestration/src/index.ts",
+                "packages/core-api/src/services/durable-agent-queue.ts",
+                "plans/AU20/corrective-change-map.json",
+                "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+                "plans/AU20/register-reviews/ownership-prose-current.md"
+              ],
+              "census": {
+                "services": 23,
+                "methods": 231,
+                "types": 181,
+                "total": 412
+              },
+              "verification": {
+                "exactPathSet": "pass",
+                "census": "pass",
+                "gate": "pass"
+              }
+            }
           },
-          "status": "accepted-commit-authorized",
-          "commitAuthorization": {
-            "message": "AU20 F8: correct ownership prose",
+          "commitReceipt": {
+            "commit": "4506a28c4dbd1bc581a85dbba86552c43b63fad3",
+            "tree": "fd95c25beb2036700062bb0c773b8446349b7548",
+            "parent": "90aab0a2ef02d6016cccc435208d1cf6e2cb4b92",
+            "subject": "AU20 F8: correct ownership prose",
             "paths": [
               ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
               ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
@@ -26434,22 +26479,106 @@
               "plans/AU20/corrective-change-map.json",
               "plans/AU20/red-proof-reviews/ownership-prose-current.md",
               "plans/AU20/register-reviews/ownership-prose-current.md"
+            ],
+            "census": {
+              "services": 23,
+              "methods": 231,
+              "types": 181,
+              "total": 412
+            },
+            "verification": {
+              "exactPathSet": "pass",
+              "census": "pass",
+              "gate": "pass"
+            }
+          },
+          "status": "completed-history"
+        }
+      ],
+      "activeIncrement": {
+        "name": "evidence-current-census",
+        "findings": [
+          "F7",
+          "F12"
+        ],
+        "staticRedProof": {
+          "increment": "evidence-current-census",
+          "findings": [
+            "F7",
+            "F12"
+          ],
+          "validatorPath": ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+          "validatorSha256": "d04163f248be09bef650b0b5c5c783063f0475b3f9b7d4ec57ac18cdfa117c95",
+          "censusScriptPath": "scripts/surface-census.ts",
+          "censusScriptSha256": "df74ee90cce2bf075f2fd32199e6c86780871c2530c6baa981a4cc8498d0cc9b",
+          "reviewPath": "plans/AU20/red-proof-reviews/evidence-current-census.md",
+          "reviewSha256": "f65363266afd88510482eae976eae5f2390e0998957c1a25f628c1a59c6999d1",
+          "verdict": "accept",
+          "redExit": 1,
+          "expected": {
+            "services": 23,
+            "methods": 231,
+            "types": 181,
+            "total": 412,
+            "jsonSha256": "7ee19367efba17a2b92482444a50f5e5864641acfad3f20d4d8e8db3c7bbacd8",
+            "markdownSha256": "68c80a96fc3f6282c117a604790dc0f080b67569bb6b9131cd31b12f1217894a"
+          },
+          "status": "accepted"
+        },
+        "candidate": {
+          "increment": "evidence-current-census",
+          "findings": [
+            "F7",
+            "F12"
+          ],
+          "evidenceSha256": {
+            ".pipeline/work/AU20/rearch/census-after.json": "7ee19367efba17a2b92482444a50f5e5864641acfad3f20d4d8e8db3c7bbacd8",
+            "plans/AU20/surface-census.md": "68c80a96fc3f6282c117a604790dc0f080b67569bb6b9131cd31b12f1217894a"
+          },
+          "validatorSha256": "d04163f248be09bef650b0b5c5c783063f0475b3f9b7d4ec57ac18cdfa117c95",
+          "redReviewSha256": "f65363266afd88510482eae976eae5f2390e0998957c1a25f628c1a59c6999d1",
+          "implementationReviewPath": "plans/AU20/register-reviews/evidence-current-census.md",
+          "implementationReviewSha256": "86aaf1da1a15c9d615bdf66f11851b9ea06848625df637115779851a03a20acc",
+          "implementationReviewVerdict": "accept",
+          "verification": {
+            "validator": "pass",
+            "determinism": "pass",
+            "gate": "604/604; unresolved 0",
+            "check": "37/37 packages",
+            "lint": "pass",
+            "unit": "356 files / 3561 tests pass",
+            "census": "23 services / 231 methods / 181 types / 412 total",
+            "diff": "JSON +96/-96; Markdown +31/-88"
+          },
+          "status": "accepted-commit-authorized",
+          "commitAuthorization": {
+            "message": "AU20 F7 F12: regenerate current census evidence",
+            "paths": [
+              ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+              ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+              ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+              ".pipeline/work/AU20/progress.json",
+              ".pipeline/work/AU20/rearch/census-after.json",
+              "plans/AU20/corrective-change-map.json",
+              "plans/AU20/red-proof-reviews/evidence-current-census.md",
+              "plans/AU20/register-reviews/evidence-current-census.md",
+              "plans/AU20/surface-census.md"
             ]
           }
         },
-        "authorizedStage": "commit-ownership-prose-current",
+        "authorizedStage": "commit-evidence-current-census",
         "authorization": {
-          "message": "AU20 F8: correct ownership prose",
+          "message": "AU20 F7 F12: regenerate current census evidence",
           "paths": [
             ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
             ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
-            ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+            ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
             ".pipeline/work/AU20/progress.json",
-            "packages/agent-orchestration/src/index.ts",
-            "packages/core-api/src/services/durable-agent-queue.ts",
+            ".pipeline/work/AU20/rearch/census-after.json",
             "plans/AU20/corrective-change-map.json",
-            "plans/AU20/red-proof-reviews/ownership-prose-current.md",
-            "plans/AU20/register-reviews/ownership-prose-current.md"
+            "plans/AU20/red-proof-reviews/evidence-current-census.md",
+            "plans/AU20/register-reviews/evidence-current-census.md",
+            "plans/AU20/surface-census.md"
           ]
         },
         "productCodeAuthorized": false
@@ -26459,7 +26588,7 @@
         "methods": 231,
         "types": 181
       },
-      "nextIncrement": "ownership-prose-current"
+      "nextIncrement": "evidence-current-census"
     },
     "writeTestsLocked": true,
     "codeLocked": true,
