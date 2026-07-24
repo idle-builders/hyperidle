@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "validate-AU20-aggregate-closeout",
+  "currentStep": "fix-cursor-probe-lifecycle",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -2392,6 +2392,59 @@
       "parent": "f89a8cf9aa5c857b47ee8397937222a051a93da8",
       "commit": null,
       "tree": null,
+      "status": "commit-pending"
+    },
+    "cursorAr2Format": {
+      "increment": "cursor-ar2-format",
+      "architecture": {
+        "path": ".pipeline/work/AU20/architecture-amendments/cursor-ar2-format.md",
+        "sha256": "12978af87828fc6c442db32fe6527e30684c87fbedbe90b84c0faa687691183a",
+        "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/cursor-ar2-format.md",
+        "feasibilitySha256": "4838899422a5be6c09331692dda0bdef487e3e1cfa862160be55dcac66e353ff",
+        "verdict": "accept",
+        "round": 4
+      },
+      "redProof": {
+        "validatorPath": ".pipeline/work/AU20/probes/validate-cursor-ar2-format.mjs",
+        "validatorSha256": "f941e7e9912cf09ee53b1cc6a5d7cab0071557c3f6253a4f5ffd6de7be45a08c",
+        "evidencePath": ".pipeline/work/AU20/red-proofs/cursor-ar2-format.json",
+        "evidenceSha256": "927f904cfe5f6e4830b98340e3f3a167965972ddf07b049afbc54467d74726cb",
+        "exitCode": 1,
+        "verdict": "accept"
+      },
+      "implementation": {
+        "path": "packages/db/src/__tests__/ar2-coverage-guard.test.ts",
+        "sha256": "40637c22d91d495e1b91d2176200974be65bf89386cd1a8849761d2e1c557e02",
+        "diff": "1 insertion, 4 deletions",
+        "formatter": "byte-idempotent",
+        "validator": "pass",
+        "focusedBiome": "pass",
+        "targeted": "2 files / 71 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "358 files / 3632 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "implementationReview": {
+        "path": "plans/AU20/register-reviews/cursor-ar2-format-implementation.md",
+        "sha256": "ef2b2f7ace63f08703281aa251f94b00cfd7c15d23473988612fd32dc1264aec",
+        "verdict": "accept"
+      },
+      "commit": {
+        "message": "AU20: format Cursor coverage guard fixture",
+        "commit": null,
+        "tree": null,
+        "status": "commit-pending"
+      },
+      "closeoutBarrier": {
+        "status": "active",
+        "workPackageStatus": "in_progress",
+        "reviewVerdict": "NOT DONE",
+        "dependentIncrement": "cursor-probe-committed-state",
+        "dependentArchitectureSha256": "50cf35ca2d0ff3cd8a85aed9a8bbc5de16fd5e71d83bbaa6f77a3984f021a290",
+        "dependentFeasibilitySha256": "7c19ecd8d9234c4f1fafd3306c567865eb55f5eec42996a55351c97a40bbdbdd",
+        "dependentStatus": "pending"
+      },
       "status": "commit-pending"
     }
   },

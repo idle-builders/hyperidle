@@ -1,0 +1,38 @@
+{
+  "workPackage": "AU20",
+  "increment": "cursor-ar2-format",
+  "phase": "write-tests",
+  "architectureSha256": "12978af87828fc6c442db32fe6527e30684c87fbedbe90b84c0faa687691183a",
+  "feasibilitySha256": "4838899422a5be6c09331692dda0bdef487e3e1cfa862160be55dcac66e353ff",
+  "dependentLifecycleArchitectureSha256": "50cf35ca2d0ff3cd8a85aed9a8bbc5de16fd5e71d83bbaa6f77a3984f021a290",
+  "dependentLifecycleFeasibilitySha256": "7c19ecd8d9234c4f1fafd3306c567865eb55f5eec42996a55351c97a40bbdbdd",
+  "closeoutBarrier": {
+    "planSha256": "f6770154115b528e04706c178b62a16d5b10b0c53b3f2eb233a938f80a8bfd34",
+    "requiredStatus": "in_progress",
+    "requiredReviewVerdict": "NOT DONE",
+    "dependentLeaf": "cursor-probe-committed-state"
+  },
+  "target": "packages/db/src/__tests__/ar2-coverage-guard.test.ts",
+  "baselineSha256": "b75a3367d137dcd56a11969ee0fb91422fdfa935e7381d276cb95ddd8ec796be",
+  "formattedSha256": "40637c22d91d495e1b91d2176200974be65bf89386cd1a8849761d2e1c557e02",
+  "focusedRed": {
+    "command": "npx biome check packages/db/src/__tests__/ar2-coverage-guard.test.ts",
+    "exitCode": 1,
+    "errors": 1,
+    "reason": "Formatter would have printed the following content"
+  },
+  "acceptedDiff": {
+    "removed": "const src = [requireHarness(\"builtin\"), requireHarness(\"claude\")].join(\"\\n\") across four lines",
+    "added": "the same two-element array and join expression on one line",
+    "semanticTokenStreamIdentical": true,
+    "formatterByteIdempotent": true
+  },
+  "validatorRed": {
+    "command": "node .pipeline/work/AU20/probes/validate-cursor-ar2-format.mjs",
+    "exitCode": 1,
+    "stderr": "RED Cursor AR2 differs from Biome by the exact two-element array layout only"
+  },
+  "writeScope": [
+    "packages/db/src/__tests__/ar2-coverage-guard.test.ts"
+  ]
+}

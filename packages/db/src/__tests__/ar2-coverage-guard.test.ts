@@ -106,10 +106,7 @@ describe("missingHarnesses — returns SUPPORTED_HARNESSES not declared in sourc
 	});
 
 	test("source declaring builtin + claude → missing codex + opencode + cursor-agent", () => {
-		const src = [
-			`requireHarness("builtin")`,
-			`requireHarness("claude")`,
-		].join("\n");
+		const src = [`requireHarness("builtin")`, `requireHarness("claude")`].join("\n");
 		const missing = missingHarnesses(src);
 		expect(missing).toEqual(["codex", "opencode", "cursor-agent"]);
 	});
