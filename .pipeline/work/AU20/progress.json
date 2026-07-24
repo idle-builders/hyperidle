@@ -1,7 +1,7 @@
 {
   "id": "AU20",
   "status": "in_progress",
-  "currentStep": "commit-notifications-secret-errors",
+  "currentStep": "commit-filesystems-watcher-errors",
   "reviewVerdict": "NOT DONE",
   "reviewFindingCounts": {
     "critical": 6,
@@ -1210,6 +1210,209 @@
           "plans/AU20/corrective-change-map.json",
           "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
           "plans/AU20/register-reviews/notifications-secret-errors.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "79056099c5852aab9658534b6a7fe2341260e2f0",
+        "tree": "cfb9ad3034f35da9856bada6fe66db8efb638d73",
+        "parent": "e68a170757d71476ba147995247ac8be2d4a97e2",
+        "subject": "AU20 F9: propagate notification secret errors",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+          "packages/core-api/notifications/src/__tests__/install.test.ts",
+          "packages/core-api/notifications/src/install.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+          "plans/AU20/register-reviews/notifications-secret-errors.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "filesystemsWatcherErrorsWriteTestsAuthorization": {
+      "increment": "filesystems-watcher-errors",
+      "stage": "write-tests-filesystems-watcher-errors",
+      "finding": "F10",
+      "testPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+      "testBaselineSha256": "8343312f95cd61823ca2ac4876af0fe051404759c19166cf607a14cd1d34e986",
+      "proofPath": ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+      "frozenProduct": {
+        "packages/core-api/filesystems/src/file-watcher.ts": "a29eb21a9ab33a2e95915288ea01f102844f11e8217c5299459e662879c7977d",
+        "packages/agent-orchestration/run-orchestration/src/context.ts": "5de155f50498644ed6f0c41e17e3a584f6636c625d469d00f56879967c3d9b99",
+        "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9"
+      },
+      "requiredRed": {
+        "setupFailure": "if fs.watch throws after earlier watchers opened, all opened watchers close and startWatcher throws synchronously",
+        "runtimeFailure": "first watcher error closes every watcher, cancels debounce, clears pending changes, and calls onError exactly once",
+        "afterFailure": "later watcher events and stop emit no writeback batch; stop remains idempotent",
+        "normalBehavior": "normal debounce, watched-root filtering, flush, and stop behavior remains green",
+        "orchestrationContract": "required onError receives session/sandbox failure, logs it, and stops ingestion without adding an exported method or type"
+      },
+      "authorizedPaths": [
+        "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"
+      ],
+      "productCodeAuthorized": false,
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "focusedCommand": "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+      "nextStage": "red-proof-review-filesystems-watcher-errors",
+      "status": "write-tests-authorized"
+    },
+    "filesystemsWatcherErrorsRedProof": {
+      "increment": "filesystems-watcher-errors",
+      "finding": "F10",
+      "testPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+      "testSha256": "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac",
+      "proofPath": ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+      "proofSha256": "b17c8bdbd28e79ad09dd9a5c950aa0bbf6137e37a963caa896b9d12849d4aed0",
+      "reviewPath": "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+      "reviewSha256": "a871298edba1c30af90185b65429abc60044c81f9fd3104a608b0bf14be35fbb",
+      "verdict": "accept",
+      "expectedRed": "corrected evidence retains original 3-case red causality and records final 8/8 green",
+      "status": "corrected-and-accepted"
+    },
+    "filesystemsWatcherErrorsWriteCodeAuthorization": {
+      "increment": "filesystems-watcher-errors",
+      "stage": "write-code-filesystems-watcher-errors",
+      "finding": "F10",
+      "authorizedPaths": [
+        "packages/core-api/filesystems/src/file-watcher.ts",
+        "packages/agent-orchestration/run-orchestration/src/context.ts",
+        "packages/core-api/src/server-factory.ts"
+      ],
+      "frozenPaths": [
+        "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+        "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+        "scripts/surface-census.ts"
+      ],
+      "requiredImplementation": {
+        "config": "existing FileWatcherConfig gains required onError(error: Error): void without adding an exported method or type",
+        "setupFailure": "close every already-open watcher then synchronously rethrow the original fs.watch setup error",
+        "runtimeFailure": "first error closes all watchers, cancels debounce, clears pending changes, calls onError exactly once, and silences later events",
+        "stop": "stop remains idempotent after normal operation or failure and emits no pending batch after runtime failure",
+        "orchestration": "forward onError through existing filesystem port/config; log sessionId and sandboxPath; stop ingestion exactly once"
+      },
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "testsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "ownership-prose-current",
+      "status": "authorized"
+    },
+    "filesystemsWatcherFixtureCorrection": {
+      "increment": "filesystems-watcher-errors",
+      "stage": "write-tests-filesystems-watcher-fixture-correction",
+      "finding": "F10",
+      "authorizedPaths": [
+        "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"
+      ],
+      "baselineTestSha256": "2a92d1e2a5698bf02ab1f35cc1edcb11e9d857da162f33179cf60f1fb8b9a582",
+      "baselineProofSha256": "6c06b2027f388f0b097651a25eb42c63a32cdbd8917b8bb169e4d2e1be3e62be",
+      "frozenProductCandidateBeforeCorrection": {
+        "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
+        "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
+        "packages/core-api/src/server-factory.ts": "0e81300366615828f300ff5e89e592e16e7858348199f08d4993ba1c67789a33"
+      },
+      "requiredChange": "add only `onError: vi.fn()` to the two pre-existing normal-behavior startWatcher fixtures at the former lines 236 and 284; assertions and behavior remain unchanged",
+      "proofRefresh": "record focused 8/8 green, check green, exact updated test hash, and unchanged product hashes",
+      "productCodeAuthorized": false,
+      "testBehaviorChangeAuthorized": false,
+      "scopeExpansionAuthorized": false,
+      "lintBypassAuthorized": false,
+      "nextStage": "red-proof-review-filesystems-watcher-fixture-correction",
+      "status": "superseded-by-provenance-correction"
+    },
+    "filesystemsWatcherProofProvenanceCorrection": {
+      "increment": "filesystems-watcher-errors",
+      "stage": "write-tests-filesystems-watcher-proof-provenance-correction",
+      "finding": "F10",
+      "adjudication": "Server-factory changed inside its prior authorized F10 production scope to remove the fake context override so the real context/provisioner onError path remains reachable. The change is required F10 composition behavior, not planner formatting or unrelated drift, but it occurred after the first candidate freeze and must be disclosed and re-reviewed.",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"
+      ],
+      "frozenTestPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+      "frozenTestSha256": "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac",
+      "baselineProofSha256": "c280dee2a2110caebacd3e1e07efc0c790e7eb7713146b44e29446b58e63b81b",
+      "frozenFinalProductCandidate": {
+        "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
+        "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
+        "packages/core-api/src/server-factory.ts": "85c44c324ab10aa63027a220fe7a99a394deba59c35cc9226102f7d32896ab8b"
+      },
+      "requiredProofTruth": {
+        "productChangedDuringCorrection": true,
+        "changedPath": "packages/core-api/src/server-factory.ts",
+        "reason": "remove fake context override that shadowed production context/provisioner ports and would bypass the required F10 onError forwarding path",
+        "scope": "previously authorized F10 production path; no other product drift"
+      },
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "scopeExpansionAuthorized": false,
+      "nextStage": "red-proof-review-filesystems-watcher-proof-provenance-correction",
+      "status": "completed-reviewed"
+    },
+    "filesystemsWatcherErrorsCandidate": {
+      "increment": "filesystems-watcher-errors",
+      "finding": "F10",
+      "productSha256": {
+        "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
+        "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
+        "packages/core-api/src/server-factory.ts": "85c44c324ab10aa63027a220fe7a99a394deba59c35cc9226102f7d32896ab8b"
+      },
+      "testPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+      "testSha256": "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac",
+      "proofPath": ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+      "proofSha256": "b17c8bdbd28e79ad09dd9a5c950aa0bbf6137e37a963caa896b9d12849d4aed0",
+      "redReviewPath": "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+      "redReviewSha256": "a871298edba1c30af90185b65429abc60044c81f9fd3104a608b0bf14be35fbb",
+      "implementationReviewPath": "plans/AU20/register-reviews/filesystems-watcher-errors.md",
+      "implementationReviewSha256": "29dacc858edee2d357bebde717f2985db5c197790af02a4e2faa5de7f439ff8f",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "focused": "8/8 pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "gate": "604/604; unresolved 0",
+        "census": "23 services / 231 methods / 181 types / 412 total",
+        "diff": "61 insertions / 12 deletions across 3 authorized product paths"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F10: surface filesystem watcher failures",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+          "packages/agent-orchestration/run-orchestration/src/context.ts",
+          "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+          "packages/core-api/filesystems/src/file-watcher.ts",
+          "packages/core-api/src/server-factory.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+          "plans/AU20/register-reviews/filesystems-watcher-errors.md"
         ]
       }
     }

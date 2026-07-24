@@ -1383,7 +1383,10 @@ const mcpCandidateValid =
   mcpCandidate?.status === "accepted-commit-authorized" &&
   mcpCandidate?.commitAuthorization?.message === "AU20 F3: isolate harness MCP entry" &&
   JSON.stringify(mcpCandidate?.commitAuthorization?.paths) === JSON.stringify(expectedMcpCommitPaths) &&
-  Object.entries(mcpCandidate.productSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
+  Object.entries(mcpCandidate.productSha256).every(([file, hash]) => {
+    const committed = spawnSync("git", ["show", `e68a170757d71476ba147995247ac8be2d4a97e2:${file}`], { cwd: root, encoding: null, shell: false });
+    return committed.status === 0 && sha256(committed.stdout) === hash;
+  }) &&
   sha256(fs.readFileSync(path.join(root, mcpCandidate.implementationReviewPath))) === mcpCandidate.implementationReviewSha256;
 const mcpCommit = mcpCandidate?.commitReceipt ?? null;
 const mcpCommitInspection = mcpCommit
@@ -1517,6 +1520,168 @@ const notificationsCandidateValid =
   sha256(fs.readFileSync(path.join(root, notificationsCandidate.proofPath))) === notificationsCandidate.proofSha256 &&
   sha256(fs.readFileSync(path.join(root, notificationsCandidate.redReviewPath))) === notificationsCandidate.redReviewSha256 &&
   sha256(fs.readFileSync(path.join(root, notificationsCandidate.implementationReviewPath))) === notificationsCandidate.implementationReviewSha256;
+const notificationsCommit = notificationsCandidate?.commitReceipt ?? null;
+const notificationsCommitInspection = notificationsCommit
+  ? spawnSync("git", ["show", "-s", "--format=%H%n%T%n%P%n%s", notificationsCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const notificationsCommitPaths = notificationsCommit
+  ? spawnSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", notificationsCommit.commit], { cwd: root, encoding: "utf8", shell: false })
+  : null;
+const notificationsCommitValid =
+  notificationsCandidateValid &&
+  notificationsCommit?.commit === "79056099c5852aab9658534b6a7fe2341260e2f0" &&
+  notificationsCommit?.tree === "cfb9ad3034f35da9856bada6fe66db8efb638d73" &&
+  notificationsCommit?.parent === "e68a170757d71476ba147995247ac8be2d4a97e2" &&
+  notificationsCommit?.subject === "AU20 F9: propagate notification secret errors" &&
+  JSON.stringify(notificationsCommit?.paths) === JSON.stringify(expectedNotificationsCommitPaths) &&
+  JSON.stringify(notificationsCommit?.census) === JSON.stringify({ services: 23, methods: 231, types: 181, total: 412 }) &&
+  Object.values(notificationsCommit?.verification ?? {}).every((result) => result === "pass") &&
+  notificationsCommitInspection?.status === 0 &&
+  notificationsCommitInspection.stdout.trim() === [notificationsCommit.commit, notificationsCommit.tree, notificationsCommit.parent, notificationsCommit.subject].join("\n") &&
+  notificationsCommitPaths?.status === 0 &&
+  JSON.stringify(notificationsCommitPaths.stdout.trim().split("\n")) === JSON.stringify(expectedNotificationsCommitPaths);
+const watcherWriteTests = progress.gateBindings?.filesystemsWatcherErrorsWriteTestsAuthorization ?? null;
+const watcherWriteTestsValid =
+  notificationsCommitValid &&
+  watcherWriteTests?.increment === "filesystems-watcher-errors" &&
+  watcherWriteTests?.stage === "write-tests-filesystems-watcher-errors" &&
+  watcherWriteTests?.finding === "F10" &&
+  watcherWriteTests?.testBaselineSha256 === "8343312f95cd61823ca2ac4876af0fe051404759c19166cf607a14cd1d34e986" &&
+  watcherWriteTests?.proofPath === ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json" &&
+  JSON.stringify(watcherWriteTests?.authorizedPaths) === JSON.stringify([
+    "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+    ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+  ]) &&
+  watcherWriteTests?.productCodeAuthorized === false &&
+  watcherWriteTests?.newExportsAuthorized === false &&
+  watcherWriteTests?.serviceSurfaceGrowthAuthorized === false &&
+  watcherWriteTests?.status === "write-tests-authorized" &&
+  (() => {
+    const baseline = spawnSync("git", ["show", `79056099c5852aab9658534b6a7fe2341260e2f0:${watcherWriteTests.testPath}`], { cwd: root, encoding: null, shell: false });
+    return baseline.status === 0 && sha256(baseline.stdout) === watcherWriteTests.testBaselineSha256;
+  })() &&
+  Object.entries(watcherWriteTests.frozenProduct).every(([file, hash]) => {
+    const baseline = spawnSync("git", ["show", `79056099c5852aab9658534b6a7fe2341260e2f0:${file}`], { cwd: root, encoding: null, shell: false });
+    return baseline.status === 0 && sha256(baseline.stdout) === hash;
+  }) &&
+  fs.existsSync(path.join(root, watcherWriteTests.proofPath));
+const watcherRedProof = progress.gateBindings?.filesystemsWatcherErrorsRedProof ?? null;
+const watcherRedProofValid =
+  watcherWriteTestsValid &&
+  watcherRedProof?.testSha256 === "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac" &&
+  watcherRedProof?.proofSha256 === "b17c8bdbd28e79ad09dd9a5c950aa0bbf6137e37a963caa896b9d12849d4aed0" &&
+  watcherRedProof?.reviewSha256 === "a871298edba1c30af90185b65429abc60044c81f9fd3104a608b0bf14be35fbb" &&
+  watcherRedProof?.verdict === "accept" &&
+  watcherRedProof?.status === "corrected-and-accepted" &&
+  sha256(fs.readFileSync(path.join(root, watcherRedProof.testPath))) === watcherRedProof.testSha256 &&
+  sha256(fs.readFileSync(path.join(root, watcherRedProof.proofPath))) === watcherRedProof.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, watcherRedProof.reviewPath))) === watcherRedProof.reviewSha256;
+const watcherWriteCode = progress.gateBindings?.filesystemsWatcherErrorsWriteCodeAuthorization ?? null;
+const expectedWatcherWriteCode = {
+  increment: "filesystems-watcher-errors",
+  stage: "write-code-filesystems-watcher-errors",
+  finding: "F10",
+  authorizedPaths: [
+    "packages/core-api/filesystems/src/file-watcher.ts",
+    "packages/agent-orchestration/run-orchestration/src/context.ts",
+    "packages/core-api/src/server-factory.ts",
+  ],
+  frozenPaths: [
+    "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+    ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+    "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+    "scripts/surface-census.ts",
+  ],
+  requiredImplementation: {
+    config: "existing FileWatcherConfig gains required onError(error: Error): void without adding an exported method or type",
+    setupFailure: "close every already-open watcher then synchronously rethrow the original fs.watch setup error",
+    runtimeFailure: "first error closes all watchers, cancels debounce, clears pending changes, calls onError exactly once, and silences later events",
+    stop: "stop remains idempotent after normal operation or failure and emits no pending batch after runtime failure",
+    orchestration: "forward onError through existing filesystem port/config; log sessionId and sandboxPath; stop ingestion exactly once",
+  },
+  newExportsAuthorized: false,
+  serviceSurfaceGrowthAuthorized: false,
+  otherProductionPathsAuthorized: false,
+  testsAuthorized: false,
+  implementationReviewRequiredBeforeCommit: true,
+  nextIncrement: "ownership-prose-current",
+  status: "authorized",
+};
+const watcherWriteCodeValid =
+  watcherRedProofValid &&
+  JSON.stringify(watcherWriteCode) === JSON.stringify(expectedWatcherWriteCode);
+const watcherFixtureCorrection = progress.gateBindings?.filesystemsWatcherFixtureCorrection ?? null;
+const watcherFixtureCorrectionValid =
+  watcherWriteCodeValid &&
+  watcherFixtureCorrection?.stage === "write-tests-filesystems-watcher-fixture-correction" &&
+  JSON.stringify(watcherFixtureCorrection?.authorizedPaths) === JSON.stringify([
+    "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+    ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+  ]) &&
+  watcherFixtureCorrection?.baselineTestSha256 === "2a92d1e2a5698bf02ab1f35cc1edcb11e9d857da162f33179cf60f1fb8b9a582" &&
+  watcherFixtureCorrection?.baselineProofSha256 === "6c06b2027f388f0b097651a25eb42c63a32cdbd8917b8bb169e4d2e1be3e62be" &&
+  watcherFixtureCorrection?.productCodeAuthorized === false &&
+  watcherFixtureCorrection?.testBehaviorChangeAuthorized === false &&
+  watcherFixtureCorrection?.scopeExpansionAuthorized === false &&
+  watcherFixtureCorrection?.lintBypassAuthorized === false &&
+  watcherFixtureCorrection?.status === "write-tests-authorized" &&
+  Object.entries(watcherFixtureCorrection.frozenProductCandidateBeforeCorrection ?? {}).every(([file, hash]) =>
+    file === "packages/core-api/src/server-factory.ts" || sha256(fs.readFileSync(path.join(root, file))) === hash) &&
+  sha256(fs.readFileSync(path.join(root, "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts"))) === watcherFixtureCorrection.baselineTestSha256 &&
+  sha256(fs.readFileSync(path.join(root, ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"))) === watcherFixtureCorrection.baselineProofSha256;
+const watcherProofCorrection = progress.gateBindings?.filesystemsWatcherProofProvenanceCorrection ?? null;
+const watcherProofCorrectionValid =
+  watcherWriteTestsValid &&
+  watcherProofCorrection?.stage === "write-tests-filesystems-watcher-proof-provenance-correction" &&
+  JSON.stringify(watcherProofCorrection?.authorizedPaths) === JSON.stringify([
+    ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+  ]) &&
+  watcherProofCorrection?.frozenTestSha256 === "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac" &&
+  watcherProofCorrection?.baselineProofSha256 === "c280dee2a2110caebacd3e1e07efc0c790e7eb7713146b44e29446b58e63b81b" &&
+  watcherProofCorrection?.requiredProofTruth?.productChangedDuringCorrection === true &&
+  watcherProofCorrection?.requiredProofTruth?.changedPath === "packages/core-api/src/server-factory.ts" &&
+  watcherProofCorrection?.productCodeAuthorized === false &&
+  watcherProofCorrection?.testChangeAuthorized === false &&
+  watcherProofCorrection?.scopeExpansionAuthorized === false &&
+  watcherProofCorrection?.status === "proof-correction-authorized" &&
+  sha256(fs.readFileSync(path.join(root, watcherProofCorrection.frozenTestPath))) === watcherProofCorrection.frozenTestSha256 &&
+  sha256(fs.readFileSync(path.join(root, ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"))) === watcherProofCorrection.baselineProofSha256 &&
+  Object.entries(watcherProofCorrection.frozenFinalProductCandidate).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash);
+const watcherCandidate = progress.gateBindings?.filesystemsWatcherErrorsCandidate ?? null;
+const watcherCandidateValid =
+  watcherWriteCodeValid &&
+  watcherCandidate?.increment === "filesystems-watcher-errors" &&
+  watcherCandidate?.finding === "F10" &&
+  JSON.stringify(watcherCandidate?.productSha256) === JSON.stringify({
+    "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
+    "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
+    "packages/core-api/src/server-factory.ts": "85c44c324ab10aa63027a220fe7a99a394deba59c35cc9226102f7d32896ab8b",
+  }) &&
+  watcherCandidate?.testSha256 === watcherRedProof.testSha256 &&
+  watcherCandidate?.proofSha256 === watcherRedProof.proofSha256 &&
+  watcherCandidate?.redReviewSha256 === watcherRedProof.reviewSha256 &&
+  watcherCandidate?.implementationReviewSha256 === "29dacc858edee2d357bebde717f2985db5c197790af02a4e2faa5de7f439ff8f" &&
+  watcherCandidate?.implementationReviewVerdict === "accept" &&
+  watcherCandidate?.status === "accepted-commit-authorized" &&
+  watcherCandidate?.commitAuthorization?.message === "AU20 F10: surface filesystem watcher failures" &&
+  JSON.stringify(watcherCandidate?.commitAuthorization?.paths) === JSON.stringify([
+    ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+    ".pipeline/work/AU20/progress.json",
+    ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+    "packages/agent-orchestration/run-orchestration/src/context.ts",
+    "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+    "packages/core-api/filesystems/src/file-watcher.ts",
+    "packages/core-api/src/server-factory.ts",
+    "plans/AU20/corrective-change-map.json",
+    "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+    "plans/AU20/register-reviews/filesystems-watcher-errors.md",
+  ]) &&
+  Object.entries(watcherCandidate.productSha256).every(([file, hash]) => sha256(fs.readFileSync(path.join(root, file))) === hash) &&
+  sha256(fs.readFileSync(path.join(root, watcherCandidate.testPath))) === watcherCandidate.testSha256 &&
+  sha256(fs.readFileSync(path.join(root, watcherCandidate.proofPath))) === watcherCandidate.proofSha256 &&
+  sha256(fs.readFileSync(path.join(root, watcherCandidate.redReviewPath))) === watcherCandidate.redReviewSha256 &&
+  sha256(fs.readFileSync(path.join(root, watcherCandidate.implementationReviewPath))) === watcherCandidate.implementationReviewSha256;
 const finalArchitectureValid =
   f13ProvenanceValid &&
   finalArchitectureBinding !== null &&
@@ -1597,22 +1762,33 @@ const finalShipCorrection = {
       externalReleaseBlocker: mcpCandidate.externalReleaseBlocker,
       status: "completed-history",
     }] : []),
+    ...(notificationsCommitValid ? [{
+      name: "notifications-secret-errors",
+      finding: "F9",
+      redProofReview: notificationsRedProof,
+      candidate: notificationsCandidate,
+      commitReceipt: notificationsCommit,
+      status: "completed-history",
+    }] : []),
   ],
   activeIncrement: {
-    name: "notifications-secret-errors",
-    finding: "F9",
-    writeTestsAuthorization: notificationsWriteTestsValid ? notificationsWriteTests : null,
-    redProofReview: notificationsRedProofValid ? notificationsRedProof : null,
-    titleCorrection: notificationsTitleCorrection,
-    candidate: notificationsCandidateValid ? notificationsCandidate : null,
-    authorizedStage: notificationsCandidateValid && progress.currentStep === "commit-notifications-secret-errors"
-      ? "commit-notifications-secret-errors"
+    name: "filesystems-watcher-errors",
+    finding: "F10",
+    writeTestsAuthorization: watcherWriteTestsValid ? watcherWriteTests : null,
+    redProofReview: watcherRedProofValid ? watcherRedProof : null,
+    fixtureCorrection: watcherFixtureCorrection,
+    proofProvenanceCorrection: watcherProofCorrection,
+    candidate: watcherCandidateValid ? watcherCandidate : null,
+    authorizedStage: watcherCandidateValid && progress.currentStep === "commit-filesystems-watcher-errors"
+      ? "commit-filesystems-watcher-errors"
       : null,
-    authorization: notificationsCandidateValid ? notificationsCandidate.commitAuthorization : null,
+    authorization: watcherCandidateValid
+      ? watcherCandidate.commitAuthorization
+      : null,
     productCodeAuthorized: false,
   },
   censusCeiling: { services: 23, methods: 231, types: 181 },
-  nextIncrement: "notifications-secret-errors",
+  nextIncrement: "filesystems-watcher-errors",
 };
 const output = {
   ...payload,
@@ -1628,7 +1804,7 @@ const output = {
     writeTestsLocked: true,
     codeLocked: true,
     productCodeLocked: true,
-    commitLocked: !notificationsCandidateValid,
+    commitLocked: !watcherCandidateValid,
   },
 };
 fs.writeFileSync(path.join(root, "plans/AU20/corrective-change-map.json"), `${JSON.stringify(output, null, 2)}\n`);

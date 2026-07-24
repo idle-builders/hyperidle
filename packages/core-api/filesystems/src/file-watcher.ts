@@ -8,6 +8,7 @@ export interface FileWatcherConfig {
 	manifestPath: string;
 	eventBus: EventBus;
 	debounceMs?: number;
+	onError(error: Error): void;
 }
 
 export interface FileWatcher {
@@ -33,6 +34,24 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 
 	const knowledgeDir = path.join(config.sandboxPath, "knowledge");
 	const workDir = path.join(config.sandboxPath, "work");
+
+	function closeWatchers(): void {
+		for (const watcher of watchers) {
+			try {
+				watcher.close();
+			} catch (closeError) {
+				void closeError;
+			}
+		}
+	}
+
+	function cancelPending(): void {
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+			debounceTimer = null;
+		}
+		pendingChanges.clear();
+	}
 
 	function flush(): void {
 		if (pendingChanges.size === 0) return;
@@ -94,15 +113,29 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 		scheduleFlush();
 	}
 
-	for (const dir of [knowledgeDir, workDir]) {
-		if (fs.existsSync(dir)) {
-			try {
+	function handleError(error: Error): void {
+		if (stopped) return;
+		stopped = true;
+		cancelPending();
+		closeWatchers();
+		config.onError(error);
+	}
+
+	try {
+		for (const dir of [knowledgeDir, workDir]) {
+			if (fs.existsSync(dir)) {
 				const watcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
 					handleChange(dir, eventType, filename);
 				});
+				watcher.on("error", handleError);
 				watchers.push(watcher);
-			} catch {}
+			}
 		}
+	} catch (error) {
+		stopped = true;
+		cancelPending();
+		closeWatchers();
+		throw error;
 	}
 
 	return {
@@ -116,10 +149,7 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 			}
 
 			flush();
-
-			for (const watcher of watchers) {
-				watcher.close();
-			}
+			closeWatchers();
 		},
 	};
 }

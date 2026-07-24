@@ -66,6 +66,7 @@ interface ContextAssemblyFileWatcherConfig {
 	readonly sessionId: string;
 	readonly manifestPath: string;
 	readonly eventBus: EventBus;
+	readonly onError: (error: Error) => void;
 }
 
 interface ContextAssemblyFileWatcher {
@@ -1018,9 +1019,26 @@ function beginAgentWriteback(
 	},
 	ports: Pick<ContextAssemblyPorts, "filesystems">,
 ): AgentWritebackHandle {
-	const watcher = ports.filesystems.startWatcher(input);
+	let watcher: ContextAssemblyFileWatcher | undefined;
+	let stopped = false;
+	const stop = (): void => {
+		if (stopped) return;
+		stopped = true;
+		watcher?.stop();
+	};
+	watcher = ports.filesystems.startWatcher({
+		...input,
+		onError(error) {
+			logger.error("filesystem watcher ingestion failed", {
+				sessionId: input.sessionId,
+				sandboxPath: input.sandboxPath,
+				error: error.message,
+			});
+			stop();
+		},
+	});
 	return {
-		dispose: () => watcher.stop(),
+		dispose: stop,
 	};
 }
 

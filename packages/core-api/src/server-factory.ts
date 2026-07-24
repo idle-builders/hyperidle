@@ -939,14 +939,15 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			sandboxBasePath,
 			resolveModel: makeResolveModel(db, credentialResolver),
 			assistantTurn: deps.assistantTurnDeps ?? { db, eventBus, adapterPool, credentialResolver },
+			// runtimeDeps deep-merges this partial override with its production
+			// context/provisioner ports; do not replace context with a fake object.
 			composition: {
-				context: {} as never,
 				writeback: writebackDeps,
 				reapers: {
 					sandboxes: { sandboxBasePath },
 					routines: { staleAfterMs: DEFAULT_REAPER_STALE_AFTER_MS },
 				},
-			},
+			} as RuntimeDeps["composition"],
 		}),
 	);
 

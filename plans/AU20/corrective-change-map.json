@@ -25232,7 +25232,7 @@
   "integrity": {
     "browserLedgerSha256": "b88e512430a340121205b770a37090cde016c875295fffcf93937e89b58bd75c",
     "systemLedgerSha256": "88b0072658bc98f713c610fc7f35e7428d9ed3488953b8f450658be0cc5560e1",
-    "generatorSha256": "40cee43f7823391fb89f61935f56df4447c45f323848b214f4fce633da3aa558",
+    "generatorSha256": "7eb0945743744cec928b50660fcbb8fc66c0283836f7b2a00759145d1d351ee5",
     "diagnosticSha256": {
       "core-work-runtime.json": "9e345f4889f9bdfa2b5a22836cd9b9a27ae940a3b2a5dbc8e60aa17c51b005c3",
       "lane-ah.json": "78b5eae8b208ba595b7b49e68217ee96c5ca568ca0bcc16bb2ae95559ab1d5e3",
@@ -26140,106 +26140,97 @@
           },
           "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit; unweakened real-harness release lane must pass after quota restoration",
           "status": "completed-history"
-        }
-      ],
-      "activeIncrement": {
-        "name": "notifications-secret-errors",
-        "finding": "F9",
-        "writeTestsAuthorization": {
-          "increment": "notifications-secret-errors",
-          "stage": "write-tests-notifications-secret-errors",
-          "finding": "F9",
-          "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
-          "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
-          "protectedIntegrationPath": "packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
-          "protectedIntegrationSha256": "cf48978c014fe1863ca096ef7c6522864a761457531b55c8f68c07862d7b21ab",
-          "productPath": "packages/core-api/notifications/src/install.ts",
-          "productSha256": "0383969cc297053d157bb2d2b08277ae9e9fe8668c6b519e9973a18be04428ac",
-          "requiredRed": {
-            "missingRootSecret": "an error with code MISSING_ROOT_SECRET is the only encryption failure suppressed; no credential upsert occurs",
-            "unexpectedCipher": "an arbitrary encryption error rejects updateConfig and performs no credential upsert or false-success continuation",
-            "writeFailure": "credential-store upsert failure rejects; it is never converted into success",
-            "successfulWrite": "successful encryption persists exactly once and returns redacted config"
-          },
-          "authorizedPaths": [
-            "packages/core-api/notifications/src/__tests__/install.test.ts",
-            ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json"
-          ],
-          "productCodeAuthorized": false,
-          "newExportsAuthorized": false,
-          "serviceSurfaceGrowthAuthorized": false,
-          "census": {
-            "services": 23,
-            "methods": 231,
-            "types": 181,
-            "total": 412
-          },
-          "focusedCommand": "npx vitest run --config packages/core-api/notifications/vitest.config.ts packages/core-api/notifications/src/__tests__/install.test.ts",
-          "protectedCommand": "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
-          "nextStage": "red-proof-review-notifications-secret-errors",
-          "status": "write-tests-authorized"
         },
-        "redProofReview": {
-          "increment": "notifications-secret-errors",
+        {
+          "name": "notifications-secret-errors",
           "finding": "F9",
-          "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
-          "testSha256": "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208",
-          "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
-          "proofSha256": "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf",
-          "reviewPath": "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
-          "reviewSha256": "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6",
-          "verdict": "accept",
-          "expectedRed": "corrected contract evidence: 4/4 green against accepted implementation; original arbitrary-cipher red causality preserved in proof",
-          "status": "corrected-and-accepted"
-        },
-        "titleCorrection": {
-          "increment": "notifications-secret-errors",
-          "stage": "write-tests-notifications-secret-errors-title-correction",
-          "finding": "F9",
-          "authorizedPaths": [
-            "packages/core-api/notifications/src/__tests__/install.test.ts",
-            ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json"
-          ],
-          "baselineTestSha256": "caa81a3b9d622b6ee391a770ef698e312d8c697cefd17cdaaeb6ffe1eec4ad23",
-          "baselineProofSha256": "d323adc6d34eceef958dc5c9c4f4ca699d5225ee9851fe4c2b457ceadd2f1ed6",
-          "frozenProductPath": "packages/core-api/notifications/src/install.ts",
-          "frozenProductCandidateSha256": "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a",
-          "requiredChange": "rename describe title from WP-tagged `F9 notification secret-write errors` to semantic `notification secret-write errors`; complete serverConfig.read fixture with typed mutedTypes and silence fields; type findByName mock as ServerCredential | undefined; assertions and executable behavior remain unchanged",
-          "proofRefresh": "record focused 4/4 green, protected 20/20 green, check green, lint green, and updated test hash without changing the behavior contract",
-          "productCodeAuthorized": false,
-          "testBehaviorChangeAuthorized": false,
-          "lintBypassAuthorized": false,
-          "nextStage": "red-proof-review-notifications-secret-errors-title-correction",
-          "status": "completed-reviewed"
-        },
-        "candidate": {
-          "increment": "notifications-secret-errors",
-          "finding": "F9",
-          "productPath": "packages/core-api/notifications/src/install.ts",
-          "productSha256": "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a",
-          "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
-          "testSha256": "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208",
-          "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
-          "proofSha256": "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf",
-          "redReviewPath": "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
-          "redReviewSha256": "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6",
-          "implementationReviewPath": "plans/AU20/register-reviews/notifications-secret-errors.md",
-          "implementationReviewSha256": "63bd7c70705b7b36d1f55f9fc15af54e258a5d31f78d2fd21d5d9058ce7847e5",
-          "implementationReviewVerdict": "accept",
-          "verification": {
-            "focused": "4/4 pass",
-            "protected": "20/20 pass",
-            "notificationsCheck": "pass",
-            "check": "37/37 packages",
-            "lint": "pass",
-            "unit": "356 files / 3561 tests pass",
-            "gate": "604/604; unresolved 0",
-            "namingGuard": "pass",
-            "census": "23 services / 231 methods / 181 types / 412 total"
+          "redProofReview": {
+            "increment": "notifications-secret-errors",
+            "finding": "F9",
+            "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+            "testSha256": "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208",
+            "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+            "proofSha256": "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf",
+            "reviewPath": "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+            "reviewSha256": "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6",
+            "verdict": "accept",
+            "expectedRed": "corrected contract evidence: 4/4 green against accepted implementation; original arbitrary-cipher red causality preserved in proof",
+            "status": "corrected-and-accepted"
           },
-          "status": "accepted-commit-authorized",
-          "commitAuthorization": {
-            "message": "AU20 F9: propagate notification secret errors",
+          "candidate": {
+            "increment": "notifications-secret-errors",
+            "finding": "F9",
+            "productPath": "packages/core-api/notifications/src/install.ts",
+            "productSha256": "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a",
+            "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+            "testSha256": "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208",
+            "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+            "proofSha256": "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf",
+            "redReviewPath": "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+            "redReviewSha256": "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6",
+            "implementationReviewPath": "plans/AU20/register-reviews/notifications-secret-errors.md",
+            "implementationReviewSha256": "63bd7c70705b7b36d1f55f9fc15af54e258a5d31f78d2fd21d5d9058ce7847e5",
+            "implementationReviewVerdict": "accept",
+            "verification": {
+              "focused": "4/4 pass",
+              "protected": "20/20 pass",
+              "notificationsCheck": "pass",
+              "check": "37/37 packages",
+              "lint": "pass",
+              "unit": "356 files / 3561 tests pass",
+              "gate": "604/604; unresolved 0",
+              "namingGuard": "pass",
+              "census": "23 services / 231 methods / 181 types / 412 total"
+            },
+            "status": "accepted-commit-authorized",
+            "commitAuthorization": {
+              "message": "AU20 F9: propagate notification secret errors",
+              "paths": [
+                ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/progress.json",
+                ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+                "packages/core-api/notifications/src/__tests__/install.test.ts",
+                "packages/core-api/notifications/src/install.ts",
+                "plans/AU20/corrective-change-map.json",
+                "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+                "plans/AU20/register-reviews/notifications-secret-errors.md"
+              ]
+            },
+            "commitReceipt": {
+              "commit": "79056099c5852aab9658534b6a7fe2341260e2f0",
+              "tree": "cfb9ad3034f35da9856bada6fe66db8efb638d73",
+              "parent": "e68a170757d71476ba147995247ac8be2d4a97e2",
+              "subject": "AU20 F9: propagate notification secret errors",
+              "paths": [
+                ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+                ".pipeline/work/AU20/progress.json",
+                ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+                "packages/core-api/notifications/src/__tests__/install.test.ts",
+                "packages/core-api/notifications/src/install.ts",
+                "plans/AU20/corrective-change-map.json",
+                "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+                "plans/AU20/register-reviews/notifications-secret-errors.md"
+              ],
+              "census": {
+                "services": 23,
+                "methods": 231,
+                "types": 181,
+                "total": 412
+              },
+              "verification": {
+                "exactPathSet": "pass",
+                "census": "pass",
+                "gate": "pass"
+              }
+            }
+          },
+          "commitReceipt": {
+            "commit": "79056099c5852aab9658534b6a7fe2341260e2f0",
+            "tree": "cfb9ad3034f35da9856bada6fe66db8efb638d73",
+            "parent": "e68a170757d71476ba147995247ac8be2d4a97e2",
+            "subject": "AU20 F9: propagate notification secret errors",
             "paths": [
               ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
               ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
@@ -26250,22 +26241,185 @@
               "plans/AU20/corrective-change-map.json",
               "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
               "plans/AU20/register-reviews/notifications-secret-errors.md"
+            ],
+            "census": {
+              "services": 23,
+              "methods": 231,
+              "types": 181,
+              "total": 412
+            },
+            "verification": {
+              "exactPathSet": "pass",
+              "census": "pass",
+              "gate": "pass"
+            }
+          },
+          "status": "completed-history"
+        }
+      ],
+      "activeIncrement": {
+        "name": "filesystems-watcher-errors",
+        "finding": "F10",
+        "writeTestsAuthorization": {
+          "increment": "filesystems-watcher-errors",
+          "stage": "write-tests-filesystems-watcher-errors",
+          "finding": "F10",
+          "testPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+          "testBaselineSha256": "8343312f95cd61823ca2ac4876af0fe051404759c19166cf607a14cd1d34e986",
+          "proofPath": ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+          "frozenProduct": {
+            "packages/core-api/filesystems/src/file-watcher.ts": "a29eb21a9ab33a2e95915288ea01f102844f11e8217c5299459e662879c7977d",
+            "packages/agent-orchestration/run-orchestration/src/context.ts": "5de155f50498644ed6f0c41e17e3a584f6636c625d469d00f56879967c3d9b99",
+            "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9"
+          },
+          "requiredRed": {
+            "setupFailure": "if fs.watch throws after earlier watchers opened, all opened watchers close and startWatcher throws synchronously",
+            "runtimeFailure": "first watcher error closes every watcher, cancels debounce, clears pending changes, and calls onError exactly once",
+            "afterFailure": "later watcher events and stop emit no writeback batch; stop remains idempotent",
+            "normalBehavior": "normal debounce, watched-root filtering, flush, and stop behavior remains green",
+            "orchestrationContract": "required onError receives session/sandbox failure, logs it, and stops ingestion without adding an exported method or type"
+          },
+          "authorizedPaths": [
+            "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+            ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"
+          ],
+          "productCodeAuthorized": false,
+          "newExportsAuthorized": false,
+          "serviceSurfaceGrowthAuthorized": false,
+          "census": {
+            "services": 23,
+            "methods": 231,
+            "types": 181,
+            "total": 412
+          },
+          "focusedCommand": "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+          "nextStage": "red-proof-review-filesystems-watcher-errors",
+          "status": "write-tests-authorized"
+        },
+        "redProofReview": {
+          "increment": "filesystems-watcher-errors",
+          "finding": "F10",
+          "testPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+          "testSha256": "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac",
+          "proofPath": ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+          "proofSha256": "b17c8bdbd28e79ad09dd9a5c950aa0bbf6137e37a963caa896b9d12849d4aed0",
+          "reviewPath": "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+          "reviewSha256": "a871298edba1c30af90185b65429abc60044c81f9fd3104a608b0bf14be35fbb",
+          "verdict": "accept",
+          "expectedRed": "corrected evidence retains original 3-case red causality and records final 8/8 green",
+          "status": "corrected-and-accepted"
+        },
+        "fixtureCorrection": {
+          "increment": "filesystems-watcher-errors",
+          "stage": "write-tests-filesystems-watcher-fixture-correction",
+          "finding": "F10",
+          "authorizedPaths": [
+            "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+            ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"
+          ],
+          "baselineTestSha256": "2a92d1e2a5698bf02ab1f35cc1edcb11e9d857da162f33179cf60f1fb8b9a582",
+          "baselineProofSha256": "6c06b2027f388f0b097651a25eb42c63a32cdbd8917b8bb169e4d2e1be3e62be",
+          "frozenProductCandidateBeforeCorrection": {
+            "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
+            "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
+            "packages/core-api/src/server-factory.ts": "0e81300366615828f300ff5e89e592e16e7858348199f08d4993ba1c67789a33"
+          },
+          "requiredChange": "add only `onError: vi.fn()` to the two pre-existing normal-behavior startWatcher fixtures at the former lines 236 and 284; assertions and behavior remain unchanged",
+          "proofRefresh": "record focused 8/8 green, check green, exact updated test hash, and unchanged product hashes",
+          "productCodeAuthorized": false,
+          "testBehaviorChangeAuthorized": false,
+          "scopeExpansionAuthorized": false,
+          "lintBypassAuthorized": false,
+          "nextStage": "red-proof-review-filesystems-watcher-fixture-correction",
+          "status": "superseded-by-provenance-correction"
+        },
+        "proofProvenanceCorrection": {
+          "increment": "filesystems-watcher-errors",
+          "stage": "write-tests-filesystems-watcher-proof-provenance-correction",
+          "finding": "F10",
+          "adjudication": "Server-factory changed inside its prior authorized F10 production scope to remove the fake context override so the real context/provisioner onError path remains reachable. The change is required F10 composition behavior, not planner formatting or unrelated drift, but it occurred after the first candidate freeze and must be disclosed and re-reviewed.",
+          "authorizedPaths": [
+            ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"
+          ],
+          "frozenTestPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+          "frozenTestSha256": "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac",
+          "baselineProofSha256": "c280dee2a2110caebacd3e1e07efc0c790e7eb7713146b44e29446b58e63b81b",
+          "frozenFinalProductCandidate": {
+            "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
+            "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
+            "packages/core-api/src/server-factory.ts": "85c44c324ab10aa63027a220fe7a99a394deba59c35cc9226102f7d32896ab8b"
+          },
+          "requiredProofTruth": {
+            "productChangedDuringCorrection": true,
+            "changedPath": "packages/core-api/src/server-factory.ts",
+            "reason": "remove fake context override that shadowed production context/provisioner ports and would bypass the required F10 onError forwarding path",
+            "scope": "previously authorized F10 production path; no other product drift"
+          },
+          "productCodeAuthorized": false,
+          "testChangeAuthorized": false,
+          "scopeExpansionAuthorized": false,
+          "nextStage": "red-proof-review-filesystems-watcher-proof-provenance-correction",
+          "status": "completed-reviewed"
+        },
+        "candidate": {
+          "increment": "filesystems-watcher-errors",
+          "finding": "F10",
+          "productSha256": {
+            "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
+            "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
+            "packages/core-api/src/server-factory.ts": "85c44c324ab10aa63027a220fe7a99a394deba59c35cc9226102f7d32896ab8b"
+          },
+          "testPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+          "testSha256": "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac",
+          "proofPath": ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+          "proofSha256": "b17c8bdbd28e79ad09dd9a5c950aa0bbf6137e37a963caa896b9d12849d4aed0",
+          "redReviewPath": "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+          "redReviewSha256": "a871298edba1c30af90185b65429abc60044c81f9fd3104a608b0bf14be35fbb",
+          "implementationReviewPath": "plans/AU20/register-reviews/filesystems-watcher-errors.md",
+          "implementationReviewSha256": "29dacc858edee2d357bebde717f2985db5c197790af02a4e2faa5de7f439ff8f",
+          "implementationReviewVerdict": "accept",
+          "verification": {
+            "focused": "8/8 pass",
+            "check": "37/37 packages",
+            "lint": "pass",
+            "unit": "356 files / 3561 tests pass",
+            "gate": "604/604; unresolved 0",
+            "census": "23 services / 231 methods / 181 types / 412 total",
+            "diff": "61 insertions / 12 deletions across 3 authorized product paths"
+          },
+          "status": "accepted-commit-authorized",
+          "commitAuthorization": {
+            "message": "AU20 F10: surface filesystem watcher failures",
+            "paths": [
+              ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+              ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+              ".pipeline/work/AU20/progress.json",
+              ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+              "packages/agent-orchestration/run-orchestration/src/context.ts",
+              "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+              "packages/core-api/filesystems/src/file-watcher.ts",
+              "packages/core-api/src/server-factory.ts",
+              "plans/AU20/corrective-change-map.json",
+              "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+              "plans/AU20/register-reviews/filesystems-watcher-errors.md"
             ]
           }
         },
-        "authorizedStage": "commit-notifications-secret-errors",
+        "authorizedStage": "commit-filesystems-watcher-errors",
         "authorization": {
-          "message": "AU20 F9: propagate notification secret errors",
+          "message": "AU20 F10: surface filesystem watcher failures",
           "paths": [
             ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
             ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
             ".pipeline/work/AU20/progress.json",
-            ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
-            "packages/core-api/notifications/src/__tests__/install.test.ts",
-            "packages/core-api/notifications/src/install.ts",
+            ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+            "packages/agent-orchestration/run-orchestration/src/context.ts",
+            "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+            "packages/core-api/filesystems/src/file-watcher.ts",
+            "packages/core-api/src/server-factory.ts",
             "plans/AU20/corrective-change-map.json",
-            "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
-            "plans/AU20/register-reviews/notifications-secret-errors.md"
+            "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+            "plans/AU20/register-reviews/filesystems-watcher-errors.md"
           ]
         },
         "productCodeAuthorized": false
@@ -26275,7 +26429,7 @@
         "methods": 231,
         "types": 181
       },
-      "nextIncrement": "notifications-secret-errors"
+      "nextIncrement": "filesystems-watcher-errors"
     },
     "writeTestsLocked": true,
     "codeLocked": true,
