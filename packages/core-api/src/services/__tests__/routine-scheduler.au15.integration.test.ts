@@ -2,12 +2,12 @@
  * AU15 R2/R3/R4 — fire-time no longer selects; unified run-row coalescing;
  * terminal-failure finalization of session-less running runs.
  *
- * R2 (AC-1): `checkAndFireRoutine` no longer evaluates owner-WIP/delegate at
+ * R2 (AC-1): `fireGenericRoutine` no longer evaluates owner-WIP/delegate at
  * fire-time — an owner at WIP still fires (records a run + intent); the
  * agent-layer resolves the actual target at drain (see the sibling
  * `agent-work-intent-worker.routine-selection.integration.test.ts`).
  *
- * R3 (AC-3b, W2): both fire entry points — the poll path (`checkAndFireRoutine`)
+ * R3 (AC-3b, W2): both fire entry points — the poll path (`fireGenericRoutine`)
  * and the manual-trigger route — coalesce on the SAME run-row signal
  * (`routineService.findRunningRoutineRun`), closing the fired-but-unprovisioned
  * double-run window.
@@ -29,12 +29,12 @@ import {
 	users,
 } from "@hyperidle/db";
 import * as routineService from "@hyperidle/routine";
+import { drainIntents, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
+import { fireGenericRoutine } from "../../__tests__/dispatch-test-helpers.js";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { checkAndFireRoutine } from "../dispatch-bindings.js";
-import { startAgentLifecycleProjectionDrain } from "../lifecycle-projection-bindings.js";
-import { drainAgentWorkIntents } from "../session-requests-bindings.js";
+import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 const TEST_API_KEY = "test-key-au15-routine-scheduler";
@@ -100,7 +100,7 @@ describe("fire-time no longer evaluates owner-WIP", () => {
 		});
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 
-		const result = await checkAndFireRoutine(db, eventBus, routine!, RUNTIME_DEPS);
+		const result = await fireGenericRoutine(db, eventBus, routine!, RUNTIME_DEPS);
 
 		expect(result.fired).toBe(true);
 		const runs = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
@@ -115,18 +115,18 @@ describe("fire-time no longer evaluates owner-WIP", () => {
 });
 
 describe("unified run-row coalescing across both fire paths", () => {
-	test("poll path: a second checkAndFireRoutine coalesces against an in-flight run", async ({
+	test("poll path: a second fireGenericRoutine coalesces against an in-flight run", async ({
 		db,
 		eventBus,
 	}) => {
 		const { routineId } = await seedRoutineWorld(db, "au15-r3a-routine");
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 
-		const first = await checkAndFireRoutine(db, eventBus, routine!, RUNTIME_DEPS);
+		const first = await fireGenericRoutine(db, eventBus, routine!, RUNTIME_DEPS);
 		expect(first.fired).toBe(true);
 
 		const [reloaded] = await db.select().from(routines).where(eq(routines.id, routineId));
-		const second = await checkAndFireRoutine(db, eventBus, reloaded!, RUNTIME_DEPS);
+		const second = await fireGenericRoutine(db, eventBus, reloaded!, RUNTIME_DEPS);
 
 		expect(second).toMatchObject({ fired: false, reason: "previous run still in progress" });
 		const runs = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
@@ -149,7 +149,7 @@ describe("unified run-row coalescing across both fire paths", () => {
 		// Poll-created run: fired, but never provisioned into a session (no
 		// active session exists) — exactly the window the old session-keyed
 		// `shouldCoalesce` signal would have missed.
-		const first = await checkAndFireRoutine(db, eventBus, routine!, RUNTIME_DEPS);
+		const first = await fireGenericRoutine(db, eventBus, routine!, RUNTIME_DEPS);
 		expect(first.fired).toBe(true);
 		const activeSessions = await db
 			.select()
@@ -178,16 +178,16 @@ describe("terminal-failure finalization of session-less running runs", () => {
 	}) => {
 		const { routineId } = await seedRoutineWorld(db, "au15-r4a-routine");
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
-		const fireResult = await checkAndFireRoutine(db, eventBus, routine!, RUNTIME_DEPS);
+		const fireResult = await fireGenericRoutine(db, eventBus, routine!, RUNTIME_DEPS);
 		expect(fireResult.fired).toBe(true);
 		const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
 		expect(run?.outcome).toBe("running");
 
 		// Routine deactivated between fire and drain — resolveAuthoritativeInput
 		// throws InvalidAgentWorkSourceError (pre-hand-off, no session ever exists).
-		await routineService.updateRoutineById(db, routineId, { active: false });
+		await routineService.updateRoutine(db, routineId, { active: false });
 
-		await drainAgentWorkIntents(db);
+		await drainIntents(queueDeps(db));
 
 		const [intent] = await db
 			.select()
@@ -203,9 +203,9 @@ describe("terminal-failure finalization of session-less running runs", () => {
 		expect(finalizedRun?.endedAt).toBeTruthy();
 
 		// Self-healed: coalescing no longer blocks a fresh fire once reactivated.
-		await routineService.updateRoutineById(db, routineId, { active: true });
+		await routineService.updateRoutine(db, routineId, { active: true });
 		const [reactivated] = await db.select().from(routines).where(eq(routines.id, routineId));
-		const secondFire = await checkAndFireRoutine(db, eventBus, reactivated!, RUNTIME_DEPS);
+		const secondFire = await fireGenericRoutine(db, eventBus, reactivated!, RUNTIME_DEPS);
 		expect(secondFire.fired).toBe(true);
 		expect(secondFire.reason).not.toBe("previous run still in progress");
 	});
@@ -244,7 +244,7 @@ describe("terminal-failure finalization of session-less running runs", () => {
 			occurredAt: NOW,
 		});
 
-		const stop = startAgentLifecycleProjectionDrain(db, { pollIntervalMs: 10 });
+		const stop = startLifecycleProjectionDrain(queueDeps(db), { pollIntervalMs: 10 });
 		try {
 			const deadline = Date.now() + 5_000;
 			for (;;) {

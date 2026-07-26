@@ -41,11 +41,11 @@ import * as fs from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { encryptCredentialValue, getServerSecret } from "@hyperidle/connections";
+import { encryptCredentialValue } from "@hyperidle/connections";
 import { createServer } from "@hyperidle/core-api/server-factory";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema, serverCredentials, teamMembers, teams, users } from "@hyperidle/db";
-import { createLocalAdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
+import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 
@@ -174,13 +174,18 @@ if (cassettMode === "record") {
 	// env-based Anthropic path, never exercising the per-agent OpenRouter seam (R-5).
 	const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 	if (openrouterApiKey) {
-		const serverSecret = getServerSecret();
-		if (!serverSecret) {
+		// @lore AU20 Am4: encryptCredentialValue is now no-arg; HYPERIDLE_CREDENTIAL_KEY
+		// is set above so the secret is available. Throws MISSING_ROOT_SECRET if absent.
+		let encryptedValue: string;
+		try {
+			encryptedValue = encryptCredentialValue(openrouterApiKey);
+		} catch {
 			process.stderr.write(
 				"[ah6-test-server] WARNING: No server secret configured. Credential encryption will fail.\n",
 			);
-		} else {
-			const encryptedValue = encryptCredentialValue(openrouterApiKey, serverSecret);
+			encryptedValue = "";
+		}
+		if (encryptedValue) {
 			await db
 				.insert(serverCredentials)
 				.values({
@@ -251,17 +256,32 @@ const handle = await createServer(AH6_API_PORT, {
 	// AU19 Increment 5 (item 2): adapterPool/workspaceAdapter are now REQUIRED —
 	// inject a LocalSandboxAdapter (laptop profile, set above).
 	adapterPool: await createLocalAdapterPool(),
-	workspaceAdapter: new LocalSandboxAdapter(),
+	workspaceAdapter: createSandboxAdapter("local"),
 });
 
 // 5. Signal readiness — playwright.ah6.config.ts waits for this line.
 process.stdout.write(`[ah6-test-server] ready on http://localhost:${AH6_API_PORT}\n`);
 
 // Graceful shutdown.
-function shutdown(): void {
-	handle.dispose();
-	void client.close();
-	process.exit(0);
+let shutdownPromise: Promise<void> | null = null;
+function shutdown(): Promise<void> {
+	shutdownPromise ??= (async () => {
+		let exitCode = 0;
+		try {
+			await handle.dispose();
+		} catch (error) {
+			process.stderr.write(`[ah6-test-server] shutdown failed: ${String(error)}\n`);
+			exitCode = 1;
+		}
+		try {
+			await client.close();
+		} catch (error) {
+			process.stderr.write(`[ah6-test-server] database close failed: ${String(error)}\n`);
+			exitCode = 1;
+		}
+		process.exit(exitCode);
+	})();
+	return shutdownPromise;
 }
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
+process.once("SIGTERM", () => void shutdown());
+process.once("SIGINT", () => void shutdown());

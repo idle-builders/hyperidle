@@ -1,0 +1,2864 @@
+{
+  "id": "AU20",
+  "status": "done",
+  "currentStep": "shipped",
+  "reviewVerdict": "DONE",
+  "reviewFindingCounts": {
+    "critical": 6,
+    "warning": 6,
+    "observation": 1
+  },
+  "reviewFindingIds": {
+    "critical": [
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6"
+    ],
+    "warning": [
+      "F7",
+      "F8",
+      "F9",
+      "F10",
+      "F11",
+      "F13"
+    ],
+    "observation": [
+      "F12"
+    ]
+  },
+  "gateBindings": {
+    "finalShipCorrectionArchitecture": {
+      "path": "plans/AU20/register-reviews/final-ship-correction-architecture.md",
+      "sha256": "5194f0382f53cfe12cd40014413750bd18907819527520f37d261cc23cc87ae9",
+      "verdict": "accept",
+      "round": 4,
+      "architectureSha256": "105edc1f4f4a9acf01cfdd982b3c5658ec8c4d67c9fd47e5b34f563498c22095",
+      "feasibilitySha256": "36ba068829bc0f8f205aff02c3e6fb1871871935bc62ff12647373338b0ae4e7",
+      "diagnosticSha256": "f1d862d1151a4d2cbb709d76012ba8cf6b91a808d0c854338d101e045a54fa39",
+      "finalReviewSha256": "cef525507cfe766356b2084b7d0ba4ba98699835f560dd1b0b2e5b6fa01c683a",
+      "priorReviewSha256": "d5e8f78444cb099d2e7dd736ea178d47ef41aca7c2c87d8cf3b8206b42f3df24",
+      "preBindingProgressSha256": "0e54e5231153bc12fcd4a62421edefc243ef66a429ed050bd53ee1b0d5c00897"
+    },
+    "reviewFindingLedgerRedProof": {
+      "path": "plans/AU20/red-proof-reviews/review-finding-ledger.md",
+      "sha256": "cc04e8563635b2e9ff3726b751293e586ba0a29ef490f4f776c4aacffcf10f0e",
+      "verdict": "accept",
+      "guardPath": ".pipeline/work/AU20/probes/validate-review-findings.mjs",
+      "guardSha256": "18ccc6dcf277de1bc575c4fa6d278eaee44bfd5eedfc8c6e64bf0dd32819e7b5",
+      "historicalReviewSha256": "cef525507cfe766356b2084b7d0ba4ba98699835f560dd1b0b2e5b6fa01c683a",
+      "intendedRed": {
+        "message": "WARNING footer=6 headings=5",
+        "exitCode": 1
+      },
+      "checkExitCode": 0
+    },
+    "f13ReviewProvenanceAmendment": {
+      "path": ".pipeline/work/AU20/architecture-amendments/f13-review-provenance.md",
+      "sha256": "58a073b727f7ffec13f28fe61ca5a4b0194583cfff222acae2355074ae98d101",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/f13-review-provenance.md",
+      "feasibilitySha256": "2f9bcd4c0ae191c629fbf415523ef447ca0f03f9f4085b6c1bb0892c6a9927a6",
+      "critiquePath": "plans/AU20/register-reviews/f13-review-provenance-amendment.md",
+      "critiqueSha256": "24493a797b397ce97433cc550def8db133a0e229bf1393ee3f164cb417b46f6c",
+      "verdict": "accept",
+      "score": 9,
+      "preAmendmentProgressSha256": "1be04b7a6f79891f7ec0f3c73f10f8a3328efe3ebd80a9ec25d4f39c585e2ecd",
+      "historicalReview": {
+        "architectureReviewPath": "plans/AU20/register-reviews/final-ship-correction-architecture.md",
+        "architectureReviewSha256": "5194f0382f53cfe12cd40014413750bd18907819527520f37d261cc23cc87ae9",
+        "historicalLiveReviewSha256": "cef525507cfe766356b2084b7d0ba4ba98699835f560dd1b0b2e5b6fa01c683a",
+        "redProofReviewPath": "plans/AU20/red-proof-reviews/review-finding-ledger.md",
+        "redProofReviewSha256": "cc04e8563635b2e9ff3726b751293e586ba0a29ef490f4f776c4aacffcf10f0e"
+      },
+      "currentReview": {
+        "path": ".pipeline/work/AU20/review.md",
+        "sha256": "48360d3d1bf65c33c371fcfd48c7659a50acaee4159b4a802a9d52f2a9ac57e0",
+        "validatorPath": ".pipeline/work/AU20/probes/validate-review-findings.mjs",
+        "validatorSha256": "18ccc6dcf277de1bc575c4fa6d278eaee44bfd5eedfc8c6e64bf0dd32819e7b5",
+        "counts": {
+          "critical": 6,
+          "warning": 6,
+          "observation": 1
+        },
+        "ids": [
+          "F1",
+          "F2",
+          "F3",
+          "F4",
+          "F5",
+          "F6",
+          "F7",
+          "F8",
+          "F9",
+          "F10",
+          "F11",
+          "F12",
+          "F13"
+        ]
+      }
+    },
+    "reviewFindingLedgerCommit": {
+      "commit": "41c013613dc0c1fd81bc43b0ef7a52c8bc08b322",
+      "tree": "4d73df713d104ddab2104b26479f21ee4ca93e2c",
+      "parent": "cf8bee1a65e0def24995dc3b5aa3d496cef0f32b",
+      "subject": "AU20: reconcile final review finding ledger",
+      "historicalReviewSha256": "cef525507cfe766356b2084b7d0ba4ba98699835f560dd1b0b2e5b6fa01c683a",
+      "currentReviewSha256": "48360d3d1bf65c33c371fcfd48c7659a50acaee4159b4a802a9d52f2a9ac57e0",
+      "preTransitionProgressSha256": "32b63054a9edf3f28dcc55e70c3d4fc4c7e0c66eba93e31c210b83ac7ced91db",
+      "preTransitionChangeMapSha256": "93af687d5bc817490378a84264b24f418d185d2ba8a5b32401124993b11f45fe",
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "verification": {
+        "reviewFindingValidator": "pass",
+        "correctiveChangeMapValidator": "pass",
+        "check": "pass",
+        "lint": "pass",
+        "test": "pass",
+        "census": "pass"
+      },
+      "status": "completed-history"
+    },
+    "demandPackageGeneratorWriteTestsAuthorization": {
+      "increment": "evidence-demand-package",
+      "stage": "write-tests-demand-package-generator",
+      "finding": "F1",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+        ".pipeline/work/AU20/red-proofs/evidence-demand-package.json"
+      ],
+      "productionCodeAuthorized": false,
+      "implementationCodeAuthorized": false,
+      "productTestsAuthorized": false,
+      "scriptsGeneratorAuthorized": false,
+      "redProofReviewRequiredBeforeWriteCode": true,
+      "nextIncrement": "core-api-bootstrap-ownership",
+      "status": "completed-history"
+    },
+    "demandPackageGeneratorRedProof": {
+      "path": ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+      "sha256": "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df",
+      "guardPath": ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+      "guardSha256": "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c",
+      "reviewPath": "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+      "reviewSha256": "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee",
+      "verdict": "accept",
+      "round": 2,
+      "authoritativeSourceSha256": "42b9f3edbfb2d6f3a2813ec7ca71d4cbd29d8c716cfdf973ad0d32c4163a6df4",
+      "intendedRed": {
+        "staleServiceCount": "service count is stale: generated=31 live=23",
+        "generatorOutputAbsent": true
+      },
+      "status": "accepted-history"
+    },
+    "demandPackageGeneratorWriteCodeAuthorization": {
+      "increment": "evidence-demand-package",
+      "stage": "write-code-demand-package-generator",
+      "finding": "F1",
+      "authorizedPaths": [
+        "scripts/generate-dependency-graph.ts",
+        ".pipeline/work/AU20/analysis/service-data-packages.json"
+      ],
+      "frozenPaths": [
+        ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+        ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+        "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+        "scripts/surface-census.ts",
+        "scripts/table-ownership-guard.ts"
+      ],
+      "serviceCodeAuthorized": false,
+      "productCodeAuthorized": false,
+      "productTestsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "core-api-bootstrap-ownership",
+      "status": "rejected"
+    },
+    "demandPackageGeneratorRejectedCandidate": {
+      "generatorPath": "scripts/generate-dependency-graph.ts",
+      "generatorSha256": "aa97fb3ea89f97aa3a9ecb0bf778c291eeee544f32dda4618ee2c809b46b6385",
+      "artifactPath": ".pipeline/work/AU20/analysis/service-data-packages.json",
+      "artifactSha256": "6143da860cbbf91bd130905366bab26cec19cc4f5b00e64b60b2a0b50b3b2450",
+      "reviewPath": "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+      "reviewSha256": "c8c79ededeb650395020b65c4c066be24c6ef10a880141538c498db672592360",
+      "verdict": "revise",
+      "reason": "DispatchPorts nested provider groups were parsed as methods and broadcast to all thirteen providers; real nested provider methods were omitted.",
+      "requiredRedProof": [
+        "agentSelection.resolveScaffoldSpecs",
+        "conversation.insertMessage",
+        "cost.getFactoryCostActual",
+        "no provider request named runOrchestration or toolHandlers merely because those are group keys",
+        "no multi-provider request broadcast"
+      ],
+      "status": "rejected-history"
+    },
+    "demandPackageNestedPortsWriteTestsAuthorization": {
+      "increment": "evidence-demand-package",
+      "stage": "write-tests-demand-package-nested-ports",
+      "finding": "F1",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+        ".pipeline/work/AU20/red-proofs/evidence-demand-package.json"
+      ],
+      "candidatePathsFrozen": [
+        "scripts/generate-dependency-graph.ts",
+        ".pipeline/work/AU20/analysis/service-data-packages.json"
+      ],
+      "priorRedProofPreserved": {
+        "guardSha256": "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c",
+        "proofSha256": "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df",
+        "reviewSha256": "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee"
+      },
+      "generatorCodeAuthorized": false,
+      "serviceCodeAuthorized": false,
+      "productCodeAuthorized": false,
+      "productTestsAuthorized": false,
+      "redProofReviewRequiredBeforeWriteCode": true,
+      "nextIncrement": "core-api-bootstrap-ownership",
+      "status": "completed-history"
+    },
+    "demandPackageNestedPortsRedProof": {
+      "path": ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+      "sha256": "fe50ae191154ce1bed20facff969ad7e061c3974a33bfbf071fc0dafd8aefe63",
+      "guardPath": ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+      "guardSha256": "8cfaf4d8b4c1cf6c55b6941a7d2f6b16985603a68dd08c5ae63e5d8654db1758",
+      "reviewPath": "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+      "reviewSha256": "78fef8028435cfa6f715a253bab8028a93cf45c265f7235ca58a1de3c4e87011",
+      "verdict": "accept",
+      "round": 2,
+      "authoritativeSourceSha256": "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc",
+      "rejectedCandidateExpectedError": "agent-selection.diReceivers diverges from authoritative source",
+      "priorAcceptedRedProof": {
+        "guardSha256": "00dbc536a0c60adddccafca364631b87e5c7d46ec34d3b4daf67bcb3c531c06c",
+        "proofSha256": "d72f859f9e2a14da16d65e665e8825e9f23975f0dd4d9d83344622ca5bdf95df",
+        "reviewSha256": "ec35cfb41f797dab148fc73627e09107dd95cfa2fa3bb2a65dffef094d92e9ee",
+        "reviewArtifactSupersededByExpandedReview": true
+      },
+      "status": "accepted-history"
+    },
+    "demandPackageGeneratorRevisedWriteCodeAuthorization": {
+      "increment": "evidence-demand-package",
+      "stage": "write-code-demand-package-generator",
+      "finding": "F1",
+      "authorizedPaths": [
+        "scripts/generate-dependency-graph.ts",
+        ".pipeline/work/AU20/analysis/service-data-packages.json"
+      ],
+      "frozenPaths": [
+        ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+        ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+        "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+        "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+        "scripts/surface-census.ts",
+        "scripts/table-ownership-guard.ts"
+      ],
+      "requiredCorrection": "Parse DispatchPorts nested composition groups by exact provider identity and emit each provider's own nested methods without group-name requests or cross-provider broadcast.",
+      "serviceCodeAuthorized": false,
+      "productCodeAuthorized": false,
+      "productTestsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "core-api-bootstrap-ownership",
+      "status": "completed-history"
+    },
+    "demandPackageGeneratorCorrectedCandidate": {
+      "generatorPath": "scripts/generate-dependency-graph.ts",
+      "generatorSha256": "3d27a26f17a2a29bcd2fbb780cb8a500e4c463dca808068ba16efaeaf2acd5b5",
+      "artifactPath": ".pipeline/work/AU20/analysis/service-data-packages.json",
+      "artifactSha256": "f2575f32b02a66dd4d6f708c1123385433ac46e1ff91289ad70acde38e824aa5",
+      "sourceSha256": "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc",
+      "implementationReviewPath": "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+      "implementationReviewSha256": "87b9fbb1ab33be53b2031582e0896b14ce341b281fd09e9b6291cbde8b6cf99c",
+      "implementationReviewVerdict": "revise",
+      "productToolingVerdict": "pass",
+      "provenanceVerdict": "revise",
+      "rejectedHistoryAuthority": {
+        "expandedRedReviewPath": "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+        "expandedRedReviewSha256": "78fef8028435cfa6f715a253bab8028a93cf45c265f7235ca58a1de3c4e87011",
+        "rejectedGeneratorSha256": "aa97fb3ea89f97aa3a9ecb0bf778c291eeee544f32dda4618ee2c809b46b6385",
+        "rejectedArtifactSha256": "6143da860cbbf91bd130905366bab26cec19cc4f5b00e64b60b2a0b50b3b2450",
+        "historicalRejectedReviewSha256": "c8c79ededeb650395020b65c4c066be24c6ef10a880141538c498db672592360"
+      },
+      "status": "implementation-correct-provenance-review-pending"
+    },
+    "demandPackageGeneratorProvenanceReview": {
+      "path": "plans/AU20/register-reviews/evidence-demand-package-provenance.md",
+      "sha256": "5262fc92a8bb086847bf34da50f59b8462dc403b581772ee0891a6db08abfcc6",
+      "verdict": "revise",
+      "acceptedFindings": {
+        "historicalRejectedLineage": "pass",
+        "currentHashes": "pass",
+        "locks": "pass",
+        "exactCurrentPaths": "fail"
+      },
+      "requiredExactPaths": {
+        "generatorPath": "scripts/generate-dependency-graph.ts",
+        "artifactPath": ".pipeline/work/AU20/analysis/service-data-packages.json",
+        "implementationReviewPath": "plans/AU20/register-reviews/evidence-demand-package-implementation.md"
+      },
+      "status": "superseded-by-final-acceptance"
+    },
+    "demandPackageGeneratorFinalReview": {
+      "path": "plans/AU20/register-reviews/evidence-demand-package-provenance-final.md",
+      "sha256": "81fc73a5e71cf037cde4d5ef1596202a8b328c9e5101b2ceff90dc7f33ad68b4",
+      "verdict": "accept",
+      "generatorSha256": "3d27a26f17a2a29bcd2fbb780cb8a500e4c463dca808068ba16efaeaf2acd5b5",
+      "artifactSha256": "f2575f32b02a66dd4d6f708c1123385433ac46e1ff91289ad70acde38e824aa5",
+      "implementationReviewSha256": "87b9fbb1ab33be53b2031582e0896b14ce341b281fd09e9b6291cbde8b6cf99c",
+      "sourceSha256": "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc",
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "status": "accepted"
+    },
+    "demandPackageGeneratorFinalizeAuthorization": {
+      "increment": "evidence-demand-package",
+      "stage": "finalize-demand-package-generator",
+      "finding": "F1",
+      "allowedCommitPaths": [
+        "scripts/generate-dependency-graph.ts",
+        ".pipeline/work/AU20/analysis/service-data-packages.json",
+        ".pipeline/work/AU20/probes/validate-service-demand-package.mjs",
+        ".pipeline/work/AU20/red-proofs/evidence-demand-package.json",
+        "plans/AU20/red-proof-reviews/evidence-demand-package.md",
+        "plans/AU20/register-reviews/evidence-demand-package-implementation.md",
+        "plans/AU20/register-reviews/evidence-demand-package-provenance.md",
+        "plans/AU20/register-reviews/evidence-demand-package-provenance-final.md",
+        ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+        ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+        ".pipeline/work/AU20/progress.json",
+        "plans/AU20/corrective-change-map.json"
+      ],
+      "workingTreeMustMatchAcceptedHashes": true,
+      "semanticEditsAuthorized": false,
+      "serviceCodeAuthorized": false,
+      "productCodeAuthorized": false,
+      "productTestsAuthorized": false,
+      "nextIncrementAuthorized": false,
+      "nextIncrement": "core-api-bootstrap-ownership",
+      "status": "completed-history"
+    },
+    "demandPackageGeneratorCommit": {
+      "commit": "a6641fa18c781bad1ee77ac07ae2b6ebb7b74f07",
+      "tree": "9ac1a946870c123fa66f5f8568b5199b75790d5a",
+      "parent": "41c013613dc0c1fd81bc43b0ef7a52c8bc08b322",
+      "subject": "AU20: make service demand package reproducible",
+      "pathCount": 12,
+      "preTransitionProgressSha256": "85a1f35b60fbd6639583ae775b0e13e6fbeef223f6991845cbc18be7787d3cac",
+      "preTransitionChangeMapSha256": "be41c4232765d84bdb576e60f80e6274e78b1b00320228eb92a64f92b55a4b97",
+      "generatorSha256": "3d27a26f17a2a29bcd2fbb780cb8a500e4c463dca808068ba16efaeaf2acd5b5",
+      "artifactSha256": "f2575f32b02a66dd4d6f708c1123385433ac46e1ff91289ad70acde38e824aa5",
+      "sourceSha256": "b43f2a510f6bd4addea21716e95800e9eafd8ba4c06280aaace917c2a611cdbc",
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "verification": {
+        "correctiveChangeMapValidator": "pass",
+        "serviceDemandValidator": "pass",
+        "determinism": "pass",
+        "check": "pass",
+        "lint": "pass",
+        "test": "pass",
+        "census": "pass"
+      },
+      "status": "completed-history"
+    },
+    "coreApiBootstrapOwnershipWriteTestsAuthorization": {
+      "increment": "core-api-bootstrap-ownership",
+      "stage": "write-tests-core-api-bootstrap-ownership",
+      "finding": "F5",
+      "authorizedPaths": [
+        "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json"
+      ],
+      "requiredProof": {
+        "exactOwnerCount": 9,
+        "namedOwners": [
+          "lifecycle-projection drain",
+          "relevance listener",
+          "review subscriptions",
+          "policy registration",
+          "git-export handler",
+          "notifications installation",
+          "retention reaper",
+          "dispatch lifecycle",
+          "cost sentinel"
+        ],
+        "assertCleanupEffects": true,
+        "forbidLengthOnlyAssertion": true
+      },
+      "productionCodeAuthorized": false,
+      "otherTestsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "redProofReviewRequiredBeforeWriteCode": true,
+      "nextIncrement": "run-orchestration-async-disposal",
+      "status": "completed-history"
+    },
+    "coreApiBootstrapOwnershipRedProof": {
+      "testPath": "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+      "testSha256": "1d630619a4d292462e028f9e03245bfd906d60bcce023aa2feada9239a935b13",
+      "proofPath": ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json",
+      "proofSha256": "79a2c2376faaebc934193fb3e5933ad7ac98d1566388de46d5b04c39dba2dfdd",
+      "reviewPath": "plans/AU20/red-proof-reviews/core-api-bootstrap-ownership.md",
+      "reviewSha256": "a8d957dfa71beb1474dd5c1579e48387216f40df524c578beafd65f065799181",
+      "verdict": "accept",
+      "focused": {
+        "failed": 1,
+        "passed": 9,
+        "reason": "all nine returned disposers have owner, cleanupEffect, and constituents undefined"
+      },
+      "status": "accepted-history"
+    },
+    "coreApiBootstrapOwnershipWriteCodeAuthorization": {
+      "increment": "core-api-bootstrap-ownership",
+      "stage": "write-code-core-api-bootstrap-ownership",
+      "finding": "F5",
+      "authorizedPaths": [
+        "packages/core-api/src/server-factory.ts"
+      ],
+      "frozenPaths": [
+        "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json",
+        "plans/AU20/red-proof-reviews/core-api-bootstrap-ownership.md",
+        "scripts/surface-census.ts"
+      ],
+      "requiredImplementation": "Return the exact nine callable disposer owners with owner, cleanupEffect, and exact composite constituent metadata while preserving each existing cleanup behavior and registration order.",
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "otherTestsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "run-orchestration-async-disposal",
+      "status": "completed-history"
+    },
+    "coreApiBootstrapOwnershipFinalReview": {
+      "path": "plans/AU20/register-reviews/core-api-bootstrap-ownership.md",
+      "sha256": "e423371d5f7e91029fd8fb1a526cdd43ce4c6063eacd23b025b5d89af25817c3",
+      "verdict": "accept",
+      "serverFactorySha256": "b8a7c5a0fc159d8e5496a7f8c98537e1387c9df16a1ba1d2e88228b18b4382ca",
+      "testSha256": "1d630619a4d292462e028f9e03245bfd906d60bcce023aa2feada9239a935b13",
+      "focused": {
+        "passed": 10,
+        "failed": 0
+      },
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "status": "accepted"
+    },
+    "coreApiBootstrapOwnershipFinalizeAuthorization": {
+      "increment": "core-api-bootstrap-ownership",
+      "stage": "finalize-core-api-bootstrap-ownership",
+      "finding": "F5",
+      "allowedCommitPaths": [
+        "packages/core-api/src/server-factory.ts",
+        "packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/core-api-bootstrap-ownership.json",
+        "plans/AU20/red-proof-reviews/core-api-bootstrap-ownership.md",
+        "plans/AU20/register-reviews/core-api-bootstrap-ownership.md",
+        ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+        ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+        ".pipeline/work/AU20/progress.json",
+        "plans/AU20/corrective-change-map.json"
+      ],
+      "workingTreeMustMatchAcceptedHashes": true,
+      "semanticEditsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "otherTestsAuthorized": false,
+      "nextIncrementAuthorized": false,
+      "nextIncrement": "run-orchestration-async-disposal",
+      "status": "completed-history"
+    },
+    "coreApiBootstrapOwnershipCommit": {
+      "commit": "591f2051482581c29f082544ac36efb0f09df1d6",
+      "tree": "307af84575fe83c0bffb7b9409c4fcda01533dd5",
+      "parent": "a6641fa18c781bad1ee77ac07ae2b6ebb7b74f07",
+      "subject": "AU20: identify bootstrap resource ownership",
+      "pathCount": 9,
+      "preTransitionProgressSha256": "25b25254b0a1cbd311089461a310219a4aad1e7dfb937fc8228e060ddd26aadb",
+      "preTransitionChangeMapSha256": "f2b5f0cd4576056c55a9f62b390f217d2589446e9bbc19483be2873c0371c654",
+      "serverFactorySha256": "b8a7c5a0fc159d8e5496a7f8c98537e1387c9df16a1ba1d2e88228b18b4382ca",
+      "testSha256": "1d630619a4d292462e028f9e03245bfd906d60bcce023aa2feada9239a935b13",
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "verification": {
+        "correctiveChangeMapValidator": "pass",
+        "focusedIntegration": "pass",
+        "determinism": "pass",
+        "check": "pass",
+        "lint": "pass",
+        "census": "pass"
+      },
+      "status": "completed-history"
+    },
+    "asyncRuntimeDisposalWriteTestsAuthorization": {
+      "increment": "run-orchestration-async-disposal",
+      "stage": "write-tests-async-runtime-disposal",
+      "finding": "F2",
+      "authorizedPaths": [
+        "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json"
+      ],
+      "requiredProof": {
+        "phaseOrder": [
+          "bet-decomposition",
+          "run-runtime",
+          "app-domain",
+          "websocket",
+          "http",
+          "owned-db"
+        ],
+        "allPhasesRunAfterFailure": true,
+        "orderedPhaseTaggedAggregateError": true,
+        "sharedPromiseIdempotence": true,
+        "injectedDatabaseNeverClosed": true,
+        "ownedDatabaseAwaited": true,
+        "durableShutdownBeforeDatabaseClose": true,
+        "callerInventoryFrozen": [
+          "packages/remote-server/src/index.ts",
+          "packages/desktop/src/boot-server.ts",
+          "packages/desktop/src/main.ts",
+          "packages/web/scripts/ah1-test-server.ts",
+          "packages/web/scripts/ah5-test-server.ts",
+          "packages/web/scripts/ah6-test-server.ts"
+        ]
+      },
+      "productionCodeAuthorized": false,
+      "existingCallerTestsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "redProofReviewRequiredBeforeWriteCode": true,
+      "nextIncrement": "knowledge-retro-snapshot",
+      "status": "completed-history"
+    },
+    "asyncRuntimeDisposalRedProof": {
+      "testPath": "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+      "testSha256": "f136b0f3b544070a92dd9cc63a9c281de468009b296bcd9dd0d76e6d1b3e94f3",
+      "proofPath": ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+      "proofSha256": "56256c3bf8e74894df90115ca873f671c87c212ae3424debd7b0383fa330987b",
+      "reviewPath": "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+      "reviewSha256": "a2634e280fe73c730d80b0c19e93871eee2ba883dafc9380c18bd1f12bab64fc",
+      "verdict": "accept",
+      "focused": {
+        "failed": 3,
+        "passed": 2,
+        "total": 5,
+        "unhandledErrors": 0
+      },
+      "status": "accepted-history"
+    },
+    "asyncRuntimeDisposalWriteCodeAuthorization": {
+      "increment": "run-orchestration-async-disposal",
+      "stage": "write-code-async-runtime-disposal",
+      "finding": "F2",
+      "authorizedPaths": [
+        "packages/core-api/src/server-factory.ts",
+        "packages/remote-server/src/index.ts",
+        "packages/desktop/src/boot-server.ts",
+        "packages/desktop/src/main.ts",
+        "packages/web/scripts/ah1-test-server.ts",
+        "packages/web/scripts/ah5-test-server.ts",
+        "packages/web/scripts/ah6-test-server.ts"
+      ],
+      "frozenPaths": [
+        "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+        "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+        "scripts/surface-census.ts"
+      ],
+      "requiredImplementation": {
+        "disposeReturn": "one shared Promise<void>",
+        "phaseOrder": [
+          "bet-decomposition",
+          "run-runtime",
+          "app-domain",
+          "websocket",
+          "http",
+          "owned-db"
+        ],
+        "failureBehavior": "run every phase once and reject one ordered phase-tagged AggregateError",
+        "databaseOwnership": "await owned database close; never close injected database",
+        "callerBehavior": "all six production callers await disposal through one-shot signal/quit handling"
+      },
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "testsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "knowledge-retro-snapshot",
+      "status": "completed-history"
+    },
+    "asyncRuntimeDisposalCandidate": {
+      "paths": {
+        "packages/core-api/src/server-factory.ts": "34332d65afb258b47de22e77452f30b29514fa23afcf70ab0b4555d43587fbb1",
+        "packages/remote-server/src/index.ts": "5268bfa5fbb6ce88c782e7b4658b11c1b6ab57c26a7b73b01006a113ac2517a3",
+        "packages/desktop/src/boot-server.ts": "5083a235f4b90fe1f609939435fb6e8b887568b6ac924337d5dbe718e7bba2f7",
+        "packages/desktop/src/main.ts": "97aedbfc49137f79ab4d9d505b4b37c6bfef9646a7d49ecfd698e130172e0118",
+        "packages/web/scripts/ah1-test-server.ts": "14e14a9a08a4642c7ea6aa19da0b0aa230389036e1b7b3474e3800be052d317e",
+        "packages/web/scripts/ah5-test-server.ts": "bf47c33bc75275b3c3c83a27e5f6f7c6356a101c072933d283c76be4266d6ff4",
+        "packages/web/scripts/ah6-test-server.ts": "68699ebe2f01b50e232c4308a7878127bab3d5ab3286aa72fcead8e710f97169"
+      },
+      "implementationReviewPath": "plans/AU20/register-reviews/run-orchestration-async-disposal.md",
+      "implementationReviewSha256": "ca703b9a4dbea151cf1fd19eea71b5210c3bb2269b0246cc21fda2e48f7ee88b",
+      "implementationReviewVerdict": "revise",
+      "productVerdict": "accept",
+      "provenanceVerdict": "revise",
+      "provenanceCorrection": "Validate completed F5 server-factory bytes from commit 591f2051, never from the current F2 live path.",
+      "finalReviewPath": "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
+      "finalReviewSha256": "686dd980c4617f35b3634a9f8176f82fa662af760af8555a0bc8b9a128f49008",
+      "finalReviewVerdict": "accept",
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F2: await runtime disposal",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+          "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+          "packages/core-api/src/server-factory.ts",
+          "packages/desktop/src/boot-server.ts",
+          "packages/desktop/src/main.ts",
+          "packages/remote-server/src/index.ts",
+          "packages/web/scripts/ah1-test-server.ts",
+          "packages/web/scripts/ah5-test-server.ts",
+          "packages/web/scripts/ah6-test-server.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+          "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
+          "plans/AU20/register-reviews/run-orchestration-async-disposal.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "1397db5a5b5a07e1bb6d1884ed550e0e148606a4",
+        "tree": "f74b4b5f11c28da6ecd6486eb632f90816447b2c",
+        "parent": "591f2051482581c29f082544ac36efb0f09df1d6",
+        "subject": "AU20 F2: await runtime disposal",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/run-orchestration-async-disposal.json",
+          "packages/core-api/src/__tests__/server-disposal.integration.test.ts",
+          "packages/core-api/src/server-factory.ts",
+          "packages/desktop/src/boot-server.ts",
+          "packages/desktop/src/main.ts",
+          "packages/remote-server/src/index.ts",
+          "packages/web/scripts/ah1-test-server.ts",
+          "packages/web/scripts/ah5-test-server.ts",
+          "packages/web/scripts/ah6-test-server.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/run-orchestration-async-disposal.md",
+          "plans/AU20/register-reviews/run-orchestration-async-disposal-provenance-final.md",
+          "plans/AU20/register-reviews/run-orchestration-async-disposal.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "knowledgeRetroSnapshotWriteTestsAuthorization": {
+      "increment": "knowledge-retro-snapshot",
+      "stage": "write-tests-knowledge-retro-snapshot",
+      "finding": "F4",
+      "testPath": "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+      "testSha256": "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+      "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+      "productPath": "packages/core-api/src/routes/bets.ts",
+      "productSha256": "8b3785686fb9bd24f2d3f861ffe48a503facaa22b09cab97d0dc82a9ebf3104d",
+      "focusedCommand": "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+      "expectedRed": {
+        "exitCode": 1,
+        "failedTests": 1,
+        "passedTests": 22,
+        "assertion": "creation-time hypothesis snapshot remains immutable after later bet hypothesis edit",
+        "expected": "Users will complete onboarding in under 5 minutes.",
+        "received": "UPDATED HYPOTHESIS \u2014 should not appear in retro"
+      },
+      "authorizedPaths": [
+        ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json"
+      ],
+      "testModificationAuthorized": false,
+      "productCodeAuthorized": false,
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "nextStage": "red-proof-review-knowledge-retro-snapshot",
+      "status": "write-tests-authorized"
+    },
+    "knowledgeRetroSnapshotRedProof": {
+      "increment": "knowledge-retro-snapshot",
+      "finding": "F4",
+      "testPath": "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+      "testSha256": "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+      "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+      "proofSha256": "f75002097cdef4080a41772ec2077ac95e0f64534dc8b511c526d2aa70baadee",
+      "reviewPath": "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+      "reviewSha256": "f64999e9ade9f5632ceb49cc0dd100f8db609c9c746d809e4db200a2984e002f",
+      "verdict": "accept",
+      "expectedRedExitCode": 1,
+      "status": "accepted"
+    },
+    "knowledgeRetroSnapshotWriteCodeAuthorization": {
+      "increment": "knowledge-retro-snapshot",
+      "stage": "write-code-knowledge-retro-snapshot",
+      "finding": "F4",
+      "authorizedPaths": [
+        "packages/core-api/src/routes/bets.ts"
+      ],
+      "frozenPaths": [
+        "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+        "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+        "scripts/surface-census.ts"
+      ],
+      "requiredImplementation": {
+        "behavior": "retain creation-time meta.hypothesis when updating an existing retro after the bet hypothesis changes",
+        "api": "use existing knowledge list/update CRUD; add no bespoke public method",
+        "mutableFields": [
+          "verdict",
+          "validatedAt",
+          "validatedBy"
+        ],
+        "transaction": "retain atomic bet-outcome and knowledge-item update transaction"
+      },
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "testsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "harness-registry-mcp-entry",
+      "status": "authorized"
+    },
+    "knowledgeRetroSnapshotCandidate": {
+      "increment": "knowledge-retro-snapshot",
+      "finding": "F4",
+      "productPath": "packages/core-api/src/routes/bets.ts",
+      "productSha256": "7361a2fd2977c0f6ca74527006ea0838ebe7442e784816b412962d37ac7a8bf3",
+      "testPath": "packages/core-api/src/__tests__/AC2-retro.integration.test.ts",
+      "testSha256": "a6efabd19d952737afdcc5b956c8a8f31cb45354d47ac187b213b143064e7107",
+      "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+      "proofSha256": "f75002097cdef4080a41772ec2077ac95e0f64534dc8b511c526d2aa70baadee",
+      "redReviewPath": "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+      "redReviewSha256": "f64999e9ade9f5632ceb49cc0dd100f8db609c9c746d809e4db200a2984e002f",
+      "implementationReviewPath": "plans/AU20/register-reviews/knowledge-retro-snapshot.md",
+      "implementationReviewSha256": "fe7432f7f11b0dc705b90dfc45fd0c683614e395ac62991ae0e3c747d0231ce7",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "focused": "23/23 pass",
+        "serviceIntegration": "2869 pass; 7 skipped by existing lane policy",
+        "check": "pass",
+        "lint": "pass",
+        "unit": "3557 pass",
+        "gate": "pass",
+        "census": "23 services / 231 methods / 181 types / 412 total",
+        "knowledgeCensus": "17 methods / 12 types / 29 total"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F4: preserve retro hypothesis snapshot",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+          "packages/core-api/src/routes/bets.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+          "plans/AU20/register-reviews/knowledge-retro-snapshot.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "0f7f6c1b1354eea71f9cc5c36098c413b62741d8",
+        "tree": "beb4871cf834354cdf45bc6f6d893e94af8106ec",
+        "parent": "1397db5a5b5a07e1bb6d1884ed550e0e148606a4",
+        "subject": "AU20 F4: preserve retro hypothesis snapshot",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/knowledge-retro-snapshot.json",
+          "packages/core-api/src/routes/bets.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/knowledge-retro-snapshot.md",
+          "plans/AU20/register-reviews/knowledge-retro-snapshot.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "harnessMcpIsolationWriteTestsAuthorization": {
+      "increment": "harness-registry-mcp-entry",
+      "stage": "write-tests-harness-registry-mcp-entry",
+      "finding": "F3",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+      "proofPath": ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+      "protectedTests": {
+        "packages/agent-execution/harness-registry/src/__tests__/mcp-route.test.ts": "115064b9d5408c4fabf07ecff4b91f87c959f17e001bc5a3c3fbd20f6b807a81",
+        "packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts": "f08309f8b88636e82b1b75c5f60480d4ea3cdc690baa4fb8a95dcbf24973de11"
+      },
+      "authorizedTestCorrections": {
+        "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts": {
+          "baselineSha256": "d3c29fba3c8fa7ab814c006440d2dce7b9e51b2f2e871687923b91ed2f09636f",
+          "requiredModel": "haiku",
+          "requiredCredentialBehavior": "every missing or invalid Claude/Codex/OpenCode/GitHub credential hard-fails; no skip callback or skip branch remains"
+        }
+      },
+      "frozenProduct": {
+        "packages/agent-execution/harness-registry/package.json": "de57441c84ee453a7765283e599ad8dc79f12d911826f06d18149c4cf22fc8bb",
+        "packages/agent-execution/harness-registry/src/index.ts": "cc1c796f2e29e1450927121ea37992e08299885bfac4d3d0e39f12af11a2e0c2",
+        "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "7bb90c5d0a7cc4bddb98d75092cbb2ac32a45ca975a942e4181abbcfcf9d3f58",
+        "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
+        "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
+        "packages/core-api/src/server-factory.ts": "34332d65afb258b47de22e77452f30b29514fa23afcf70ab0b4555d43587fbb1"
+      },
+      "requiredRed": {
+        "mainEntry": "main bundle/import graph contains zero src/mcp, MCP SDK, Hono, or Zod inputs",
+        "subpath": "runtime import @hyperidle/harness-registry/mcp and assert own exported createMcpToolBridge is a function; comments, strings, imports, and type-only declarations cannot satisfy it",
+        "packageExports": "package exports defines ./mcp and main index has no MCP bridge re-export",
+        "failure": "current tree fails because ./mcp is absent and main entry exposes MCP dependencies",
+        "validatorIntegrity": "derive export truth from resolved runtime namespace and esbuild metafile inputs, never regex-only source matches"
+      },
+      "realHarnessRequirements": {
+        "binaries": [
+          "claude",
+          "codex",
+          "opencode",
+          "gh"
+        ],
+        "claudeModel": "haiku",
+        "policy": "missing binary or credential is a hard failure via requireHarness/assertion; never skip to green; Claude 429 spend-limit is reported as an honest external release blocker",
+        "command": "npx vitest run --config vitest.integration.config.ts --project harness packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts"
+      },
+      "authorizedPaths": [
+        ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+        ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+        "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts"
+      ],
+      "testModificationAuthorized": true,
+      "productCodeAuthorized": false,
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "nextStage": "red-proof-review-harness-registry-mcp-entry",
+      "status": "write-tests-revision-authorized"
+    },
+    "harnessMcpIsolationRedProof": {
+      "increment": "harness-registry-mcp-entry",
+      "finding": "F3",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+      "validatorSha256": "1fa5c4a3dc47fb427991cc78332691d168cd9a4a25d5b841f115c172b4569f47",
+      "proofPath": ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+      "proofSha256": "212bc52b7585120394e4cd07bb1b6037f0c250969ac41173b2d03b049f9f85e8",
+      "an2TestPath": "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+      "an2TestSha256": "075a31f57f22435b11d732ec7e4953459cb7d7680334a8aa629a03c25bce40f3",
+      "reviewPath": "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+      "reviewSha256": "d0bd8cb31a9606b353ba8e8d262dd8b1f1b540ab258016c9a73b7e79c3d2094f",
+      "verdict": "accept",
+      "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit; unweakened real-harness lane must pass before release",
+      "status": "superseded-by-substrate-amendment"
+    },
+    "harnessMcpIsolationWriteCodeAuthorization": {
+      "increment": "harness-registry-mcp-entry",
+      "stage": "write-code-harness-registry-mcp-entry",
+      "finding": "F3",
+      "authorizedPaths": [
+        "packages/agent-execution/harness-registry/package.json",
+        "packages/agent-execution/harness-registry/src/index.ts",
+        "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
+        "packages/agent-execution/harness-registry/src/mcp/index.ts",
+        "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts",
+        "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts",
+        "packages/agent-execution/harness-registry/src/return-status-tool.ts",
+        "packages/core-api/src/server-factory.ts",
+        "packages/core-api/src/services/tool-provider-bindings.ts"
+      ],
+      "frozenPaths": [
+        ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+        ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+        "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+        "packages/agent-execution/harness-registry/src/__tests__/mcp-route.test.ts",
+        "packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts",
+        "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+        "scripts/surface-census.ts"
+      ],
+      "requiredImplementation": {
+        "packageExport": "./mcp resolves a runtime namespace whose own createMcpToolBridge and returnStatusTool exports are functions",
+        "mainIsolation": "main entry bundle contains zero src/mcp, mcp-tool-bridge, return-status-tool, MCP SDK, Hono, or Zod inputs and no MCP public re-export",
+        "consumerMigration": "core-api imports MCP bridge and returnStatusTool only from @hyperidle/harness-registry/mcp; non-MCP consumers remain on main entry",
+        "behavior": "protected route and stateful bridge behavior remains unchanged",
+        "compatibility": "internal legacy bridge path may only be a thin compatibility re-export for frozen tests; no duplicate main-package export"
+      },
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "testsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit",
+      "nextIncrement": "notifications-secret-errors",
+      "status": "amended-authorized"
+    },
+    "harnessMcpIsolationSubstrateAmendment": {
+      "increment": "harness-registry-mcp-entry",
+      "stage": "write-tests-harness-registry-mcp-substrate-amendment",
+      "finding": "F3",
+      "adjudication": "ESCALATION ACCEPTED: tsx --eval top-level-await is an invalid runtime probe; zero-Zod main isolation requires moving returnStatusTool with its real consumer; core MCP tests must migrate from main to /mcp.",
+      "probeContract": {
+        "mechanism": "write a temporary ESM .mts probe and execute it with node --import tsx, or use dynamic import inside an async function; never tsx --eval top-level await",
+        "exportAssertion": "resolved @hyperidle/harness-registry/mcp namespace owns function exports createMcpToolBridge and returnStatusTool",
+        "graphAssertion": "esbuild main-entry metafile contains no src/mcp, mcp-tool-bridge, return-status-tool, MCP SDK, Hono, or Zod inputs"
+      },
+      "authorizedTestPaths": {
+        ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs": "strengthen probe mechanism and runtime namespace assertions",
+        ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json": "replace superseded proof with amended intended RED",
+        "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts": "migrate createMcpToolBridge import from main to /mcp only",
+        "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts": "migrate createMcpToolBridge import from main to /mcp only",
+        "packages/core-api/src/__tests__/mcp-bridge.test.ts": "migrate createMcpToolBridge import from main to /mcp only",
+        "packages/core-api/src/__tests__/AL6-return-status-route.test.ts": "migrate createMcpToolBridge import from main to /mcp only",
+        "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts": "migrate createMcpToolBridge import from main to /mcp only"
+      },
+      "authorizedProductionPathsAfterRedReview": [
+        "packages/agent-execution/harness-registry/package.json",
+        "packages/agent-execution/harness-registry/src/index.ts",
+        "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
+        "packages/agent-execution/harness-registry/src/mcp/index.ts",
+        "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts",
+        "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts",
+        "packages/agent-execution/harness-registry/src/return-status-tool.ts",
+        "packages/core-api/src/server-factory.ts",
+        "packages/core-api/src/services/tool-provider-bindings.ts"
+      ],
+      "returnStatusDecision": "Move the existing returnStatusTool public export from main to /mcp and migrate tool-provider-bindings; do not duplicate implementation or keep a main re-export.",
+      "frozenEvidence": [
+        "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+        "packages/agent-execution/harness-registry/src/__tests__/mcp-route.test.ts",
+        "packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts",
+        "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+        "scripts/surface-census.ts"
+      ],
+      "productCodeAuthorized": false,
+      "newImplementationAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "nextStage": "red-proof-review-harness-registry-mcp-substrate-amendment",
+      "status": "write-tests-authorized"
+    },
+    "harnessMcpIsolationAmendedRedProof": {
+      "increment": "harness-registry-mcp-entry",
+      "finding": "F3",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+      "validatorSha256": "2007c4fe44975be2d5b07381ee34ecbd6039bcb82b0acf775f6edc8c933de0ce",
+      "proofPath": ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+      "proofSha256": "9f8c60258be9b8ee320aa7388189903cbe7e0d7bd94e247c1fc82aede28a4762",
+      "reviewPath": "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+      "reviewSha256": "40a0e0e3a43e821ef8328c79c07bb053ba0be7f248e7af891c8f1e961e5142de",
+      "testSha256": {
+        "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts": "03808895574898b123c6c96ab11bbd15c8a3b6e3ff57b3a8e1b5ec3242695657",
+        "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts": "051b0c0ca43b5e6c7009b8b62a27bb0327b30d4d2009a4ba61c4cd0c5017e4b5",
+        "packages/core-api/src/__tests__/mcp-bridge.test.ts": "eb620ba73421d6a7c799c6ea5414905bf60a070233c472d4529869d99d1a49b7",
+        "packages/core-api/src/__tests__/AL6-return-status-route.test.ts": "3375ad553825c31b4fda778b013eb9231e955f570455b46e5d6acd9921ac5743",
+        "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts": "458b7312beb7598ff911427244c4c1a6076a333466f5fa90009c4f2a8cdf5dac"
+      },
+      "partialProductSha256": {
+        "packages/agent-execution/harness-registry/package.json": "c969592613f7a0a0caaf828fe1888f159e06b4b3aa567449328013b7783260d8",
+        "packages/agent-execution/harness-registry/src/index.ts": "bc6840c718bfca7d197c0daf1775e051495e793eeafa11ab106b925052ff35cc",
+        "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "add996f2f150683cf2773602bfb710b9d031fb312847c9d5bfa941d896650118",
+        "packages/agent-execution/harness-registry/src/mcp/index.ts": "e09fedd686c463493a77321d144fbc5313ee2bac60e48ac4eb73d3bb3007e13a",
+        "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
+        "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
+        "packages/agent-execution/harness-registry/src/return-status-tool.ts": "b4f21b7cae879ea91697f9edff5d372c8540056be349604e739f558672705dd7",
+        "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9",
+        "packages/core-api/src/services/tool-provider-bindings.ts": "b491fa0149ba18157e657ccad7ac3d5c3a41e0bf345c2499022a9fc8eb8e3845"
+      },
+      "verdict": "accept",
+      "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit",
+      "status": "accepted"
+    },
+    "harnessMcpIsolationCandidate": {
+      "increment": "harness-registry-mcp-entry",
+      "finding": "F3",
+      "productSha256": {
+        "packages/agent-execution/harness-registry/package.json": "c969592613f7a0a0caaf828fe1888f159e06b4b3aa567449328013b7783260d8",
+        "packages/agent-execution/harness-registry/src/index.ts": "dbe88ca2a53862d919428f53b63161eba77cc8b057be07009b6d9911f9483626",
+        "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "add996f2f150683cf2773602bfb710b9d031fb312847c9d5bfa941d896650118",
+        "packages/agent-execution/harness-registry/src/mcp/index.ts": "8ed4bc28bf456fa78978785321d834540fcba151611b533b04785aecf8de4a6b",
+        "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
+        "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
+        "packages/agent-execution/harness-registry/src/return-status-tool.ts": "4df8a05503fd7897f75613acc916e182b58fc5da42790441f2f1a0e4b782270b",
+        "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9",
+        "packages/core-api/src/services/tool-provider-bindings.ts": "156fac5752e904810a3e83c970e2b1e5ea294852b62fd9c1b646c8bc3f9ab98c"
+      },
+      "implementationReviewPath": "plans/AU20/register-reviews/harness-registry-mcp-entry.md",
+      "implementationReviewSha256": "e4b7ff82bf0e67e1bbaa394bf3a0dc070d21b8b360bafee2079be500a7571eb7",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "validator": "pass",
+        "focused": "24/24 pass",
+        "statefulBridge": "2/2 pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "3557/3557 pass",
+        "serviceIntegration": "2869 pass; 7 existing lane-policy skips",
+        "census": "23 services / 231 methods / 181 types / 412 total",
+        "diffIntegrity": "pass"
+      },
+      "externalReleaseBlocker": "Claude Haiku HTTP 429 monthly spend limit; unweakened real-harness release lane must pass after quota restoration",
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F3: isolate harness MCP entry",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+          "packages/agent-execution/harness-registry/package.json",
+          "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+          "packages/agent-execution/harness-registry/src/index.ts",
+          "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
+          "packages/agent-execution/harness-registry/src/mcp/index.ts",
+          "packages/agent-execution/harness-registry/src/return-status-tool.ts",
+          "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
+          "packages/core-api/src/__tests__/AL6-return-status-route.test.ts",
+          "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
+          "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts",
+          "packages/core-api/src/__tests__/mcp-bridge.test.ts",
+          "packages/core-api/src/server-factory.ts",
+          "packages/core-api/src/services/tool-provider-bindings.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+          "plans/AU20/register-reviews/harness-registry-mcp-entry.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "e68a170757d71476ba147995247ac8be2d4a97e2",
+        "tree": "877f217b6d2c8efe3889da39d500e90ad6d08912",
+        "parent": "0f7f6c1b1354eea71f9cc5c36098c413b62741d8",
+        "subject": "AU20 F3: isolate harness MCP entry",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/harness-registry-mcp-entry.json",
+          "packages/agent-execution/harness-registry/package.json",
+          "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+          "packages/agent-execution/harness-registry/src/index.ts",
+          "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts",
+          "packages/agent-execution/harness-registry/src/mcp/index.ts",
+          "packages/agent-execution/harness-registry/src/return-status-tool.ts",
+          "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
+          "packages/core-api/src/__tests__/AL6-return-status-route.test.ts",
+          "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
+          "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts",
+          "packages/core-api/src/__tests__/mcp-bridge.test.ts",
+          "packages/core-api/src/server-factory.ts",
+          "packages/core-api/src/services/tool-provider-bindings.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/harness-registry-mcp-entry.md",
+          "plans/AU20/register-reviews/harness-registry-mcp-entry.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "notificationsSecretErrorsWriteTestsAuthorization": {
+      "increment": "notifications-secret-errors",
+      "stage": "write-tests-notifications-secret-errors",
+      "finding": "F9",
+      "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+      "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+      "protectedIntegrationPath": "packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
+      "protectedIntegrationSha256": "cf48978c014fe1863ca096ef7c6522864a761457531b55c8f68c07862d7b21ab",
+      "productPath": "packages/core-api/notifications/src/install.ts",
+      "productSha256": "0383969cc297053d157bb2d2b08277ae9e9fe8668c6b519e9973a18be04428ac",
+      "requiredRed": {
+        "missingRootSecret": "an error with code MISSING_ROOT_SECRET is the only encryption failure suppressed; no credential upsert occurs",
+        "unexpectedCipher": "an arbitrary encryption error rejects updateConfig and performs no credential upsert or false-success continuation",
+        "writeFailure": "credential-store upsert failure rejects; it is never converted into success",
+        "successfulWrite": "successful encryption persists exactly once and returns redacted config"
+      },
+      "authorizedPaths": [
+        "packages/core-api/notifications/src/__tests__/install.test.ts",
+        ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json"
+      ],
+      "productCodeAuthorized": false,
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "focusedCommand": "npx vitest run --config packages/core-api/notifications/vitest.config.ts packages/core-api/notifications/src/__tests__/install.test.ts",
+      "protectedCommand": "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
+      "nextStage": "red-proof-review-notifications-secret-errors",
+      "status": "write-tests-authorized"
+    },
+    "notificationsSecretErrorsRedProof": {
+      "increment": "notifications-secret-errors",
+      "finding": "F9",
+      "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+      "testSha256": "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208",
+      "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+      "proofSha256": "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf",
+      "reviewPath": "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+      "reviewSha256": "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6",
+      "verdict": "accept",
+      "expectedRed": "corrected contract evidence: 4/4 green against accepted implementation; original arbitrary-cipher red causality preserved in proof",
+      "status": "corrected-and-accepted"
+    },
+    "notificationsSecretErrorsWriteCodeAuthorization": {
+      "increment": "notifications-secret-errors",
+      "stage": "write-code-notifications-secret-errors",
+      "finding": "F9",
+      "authorizedPaths": [
+        "packages/core-api/notifications/src/install.ts"
+      ],
+      "frozenPaths": [
+        "packages/core-api/notifications/src/__tests__/install.test.ts",
+        ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+        "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+        "packages/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts",
+        "scripts/surface-census.ts"
+      ],
+      "requiredImplementation": {
+        "suppression": "catch only errors whose code is exactly MISSING_ROOT_SECRET",
+        "unexpectedFailure": "rethrow the original arbitrary cipher error; do not upsert or continue to config read",
+        "storeFailure": "credential-store upsert rejection propagates unchanged",
+        "success": "successful encryption upserts exactly once and returns redacted config"
+      },
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "testsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "filesystems-watcher-errors",
+      "status": "authorized"
+    },
+    "notificationsSecretErrorsTestNamingCorrection": {
+      "increment": "notifications-secret-errors",
+      "stage": "write-tests-notifications-secret-errors-title-correction",
+      "finding": "F9",
+      "authorizedPaths": [
+        "packages/core-api/notifications/src/__tests__/install.test.ts",
+        ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json"
+      ],
+      "baselineTestSha256": "caa81a3b9d622b6ee391a770ef698e312d8c697cefd17cdaaeb6ffe1eec4ad23",
+      "baselineProofSha256": "d323adc6d34eceef958dc5c9c4f4ca699d5225ee9851fe4c2b457ceadd2f1ed6",
+      "frozenProductPath": "packages/core-api/notifications/src/install.ts",
+      "frozenProductCandidateSha256": "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a",
+      "requiredChange": "rename describe title from WP-tagged `F9 notification secret-write errors` to semantic `notification secret-write errors`; complete serverConfig.read fixture with typed mutedTypes and silence fields; type findByName mock as ServerCredential | undefined; assertions and executable behavior remain unchanged",
+      "proofRefresh": "record focused 4/4 green, protected 20/20 green, check green, lint green, and updated test hash without changing the behavior contract",
+      "productCodeAuthorized": false,
+      "testBehaviorChangeAuthorized": false,
+      "lintBypassAuthorized": false,
+      "nextStage": "red-proof-review-notifications-secret-errors-title-correction",
+      "status": "completed-reviewed"
+    },
+    "notificationsSecretErrorsCandidate": {
+      "increment": "notifications-secret-errors",
+      "finding": "F9",
+      "productPath": "packages/core-api/notifications/src/install.ts",
+      "productSha256": "ab20be1c9551852bbaa4d03445ad056534e9b847c84be250557e8ac80c420b9a",
+      "testPath": "packages/core-api/notifications/src/__tests__/install.test.ts",
+      "testSha256": "42e6a99fbe7fa76fcd1004251d929bffe77b88738dfa9c14d5a8f7226dd92208",
+      "proofPath": ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+      "proofSha256": "313e03ec67454bba1b271f9a6d6cefbc1ffc2523ed7b32310f2e0f7efe4cdfdf",
+      "redReviewPath": "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+      "redReviewSha256": "ce306e04f6678d02d3b38d2979cd8aed8aedbb36238bcdbdd5b8022ca0441fa6",
+      "implementationReviewPath": "plans/AU20/register-reviews/notifications-secret-errors.md",
+      "implementationReviewSha256": "63bd7c70705b7b36d1f55f9fc15af54e258a5d31f78d2fd21d5d9058ce7847e5",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "focused": "4/4 pass",
+        "protected": "20/20 pass",
+        "notificationsCheck": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "gate": "604/604; unresolved 0",
+        "namingGuard": "pass",
+        "census": "23 services / 231 methods / 181 types / 412 total"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F9: propagate notification secret errors",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+          "packages/core-api/notifications/src/__tests__/install.test.ts",
+          "packages/core-api/notifications/src/install.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+          "plans/AU20/register-reviews/notifications-secret-errors.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "79056099c5852aab9658534b6a7fe2341260e2f0",
+        "tree": "cfb9ad3034f35da9856bada6fe66db8efb638d73",
+        "parent": "e68a170757d71476ba147995247ac8be2d4a97e2",
+        "subject": "AU20 F9: propagate notification secret errors",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/notifications-secret-errors.json",
+          "packages/core-api/notifications/src/__tests__/install.test.ts",
+          "packages/core-api/notifications/src/install.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/notifications-secret-errors.md",
+          "plans/AU20/register-reviews/notifications-secret-errors.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "filesystemsWatcherErrorsWriteTestsAuthorization": {
+      "increment": "filesystems-watcher-errors",
+      "stage": "write-tests-filesystems-watcher-errors",
+      "finding": "F10",
+      "testPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+      "testBaselineSha256": "8343312f95cd61823ca2ac4876af0fe051404759c19166cf607a14cd1d34e986",
+      "proofPath": ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+      "frozenProduct": {
+        "packages/core-api/filesystems/src/file-watcher.ts": "a29eb21a9ab33a2e95915288ea01f102844f11e8217c5299459e662879c7977d",
+        "packages/agent-orchestration/run-orchestration/src/context.ts": "5de155f50498644ed6f0c41e17e3a584f6636c625d469d00f56879967c3d9b99",
+        "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9"
+      },
+      "requiredRed": {
+        "setupFailure": "if fs.watch throws after earlier watchers opened, all opened watchers close and startWatcher throws synchronously",
+        "runtimeFailure": "first watcher error closes every watcher, cancels debounce, clears pending changes, and calls onError exactly once",
+        "afterFailure": "later watcher events and stop emit no writeback batch; stop remains idempotent",
+        "normalBehavior": "normal debounce, watched-root filtering, flush, and stop behavior remains green",
+        "orchestrationContract": "required onError receives session/sandbox failure, logs it, and stops ingestion without adding an exported method or type"
+      },
+      "authorizedPaths": [
+        "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"
+      ],
+      "productCodeAuthorized": false,
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "focusedCommand": "npx vitest run --config vitest.integration.config.ts --project service packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+      "nextStage": "red-proof-review-filesystems-watcher-errors",
+      "status": "write-tests-authorized"
+    },
+    "filesystemsWatcherErrorsRedProof": {
+      "increment": "filesystems-watcher-errors",
+      "finding": "F10",
+      "testPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+      "testSha256": "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac",
+      "proofPath": ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+      "proofSha256": "b17c8bdbd28e79ad09dd9a5c950aa0bbf6137e37a963caa896b9d12849d4aed0",
+      "reviewPath": "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+      "reviewSha256": "a871298edba1c30af90185b65429abc60044c81f9fd3104a608b0bf14be35fbb",
+      "verdict": "accept",
+      "expectedRed": "corrected evidence retains original 3-case red causality and records final 8/8 green",
+      "status": "corrected-and-accepted"
+    },
+    "filesystemsWatcherErrorsWriteCodeAuthorization": {
+      "increment": "filesystems-watcher-errors",
+      "stage": "write-code-filesystems-watcher-errors",
+      "finding": "F10",
+      "authorizedPaths": [
+        "packages/core-api/filesystems/src/file-watcher.ts",
+        "packages/agent-orchestration/run-orchestration/src/context.ts",
+        "packages/core-api/src/server-factory.ts"
+      ],
+      "frozenPaths": [
+        "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+        "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+        "scripts/surface-census.ts"
+      ],
+      "requiredImplementation": {
+        "config": "existing FileWatcherConfig gains required onError(error: Error): void without adding an exported method or type",
+        "setupFailure": "close every already-open watcher then synchronously rethrow the original fs.watch setup error",
+        "runtimeFailure": "first error closes all watchers, cancels debounce, clears pending changes, calls onError exactly once, and silences later events",
+        "stop": "stop remains idempotent after normal operation or failure and emits no pending batch after runtime failure",
+        "orchestration": "forward onError through existing filesystem port/config; log sessionId and sandboxPath; stop ingestion exactly once"
+      },
+      "newExportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "otherProductionPathsAuthorized": false,
+      "testsAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "ownership-prose-current",
+      "status": "authorized"
+    },
+    "filesystemsWatcherFixtureCorrection": {
+      "increment": "filesystems-watcher-errors",
+      "stage": "write-tests-filesystems-watcher-fixture-correction",
+      "finding": "F10",
+      "authorizedPaths": [
+        "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+        ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"
+      ],
+      "baselineTestSha256": "2a92d1e2a5698bf02ab1f35cc1edcb11e9d857da162f33179cf60f1fb8b9a582",
+      "baselineProofSha256": "6c06b2027f388f0b097651a25eb42c63a32cdbd8917b8bb169e4d2e1be3e62be",
+      "frozenProductCandidateBeforeCorrection": {
+        "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
+        "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
+        "packages/core-api/src/server-factory.ts": "0e81300366615828f300ff5e89e592e16e7858348199f08d4993ba1c67789a33"
+      },
+      "requiredChange": "add only `onError: vi.fn()` to the two pre-existing normal-behavior startWatcher fixtures at the former lines 236 and 284; assertions and behavior remain unchanged",
+      "proofRefresh": "record focused 8/8 green, check green, exact updated test hash, and unchanged product hashes",
+      "productCodeAuthorized": false,
+      "testBehaviorChangeAuthorized": false,
+      "scopeExpansionAuthorized": false,
+      "lintBypassAuthorized": false,
+      "nextStage": "red-proof-review-filesystems-watcher-fixture-correction",
+      "status": "superseded-by-provenance-correction"
+    },
+    "filesystemsWatcherProofProvenanceCorrection": {
+      "increment": "filesystems-watcher-errors",
+      "stage": "write-tests-filesystems-watcher-proof-provenance-correction",
+      "finding": "F10",
+      "adjudication": "Server-factory changed inside its prior authorized F10 production scope to remove the fake context override so the real context/provisioner onError path remains reachable. The change is required F10 composition behavior, not planner formatting or unrelated drift, but it occurred after the first candidate freeze and must be disclosed and re-reviewed.",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json"
+      ],
+      "frozenTestPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+      "frozenTestSha256": "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac",
+      "baselineProofSha256": "c280dee2a2110caebacd3e1e07efc0c790e7eb7713146b44e29446b58e63b81b",
+      "frozenFinalProductCandidate": {
+        "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
+        "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
+        "packages/core-api/src/server-factory.ts": "85c44c324ab10aa63027a220fe7a99a394deba59c35cc9226102f7d32896ab8b"
+      },
+      "requiredProofTruth": {
+        "productChangedDuringCorrection": true,
+        "changedPath": "packages/core-api/src/server-factory.ts",
+        "reason": "remove fake context override that shadowed production context/provisioner ports and would bypass the required F10 onError forwarding path",
+        "scope": "previously authorized F10 production path; no other product drift"
+      },
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "scopeExpansionAuthorized": false,
+      "nextStage": "red-proof-review-filesystems-watcher-proof-provenance-correction",
+      "status": "completed-reviewed"
+    },
+    "filesystemsWatcherErrorsCandidate": {
+      "increment": "filesystems-watcher-errors",
+      "finding": "F10",
+      "productSha256": {
+        "packages/core-api/filesystems/src/file-watcher.ts": "0742250e1accab2d2ee5977cd9a3bcbcd3571385d9bc792d2ede9247965c9745",
+        "packages/agent-orchestration/run-orchestration/src/context.ts": "f90c8db93beb4a0c0f5db7e64a77ba89ab061b59ba1ea785bfe49f64dd143899",
+        "packages/core-api/src/server-factory.ts": "85c44c324ab10aa63027a220fe7a99a394deba59c35cc9226102f7d32896ab8b"
+      },
+      "testPath": "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+      "testSha256": "1654df58905d14917d97e709f6e7e136d4f512b0b722386e59f40c95b6f841ac",
+      "proofPath": ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+      "proofSha256": "b17c8bdbd28e79ad09dd9a5c950aa0bbf6137e37a963caa896b9d12849d4aed0",
+      "redReviewPath": "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+      "redReviewSha256": "a871298edba1c30af90185b65429abc60044c81f9fd3104a608b0bf14be35fbb",
+      "implementationReviewPath": "plans/AU20/register-reviews/filesystems-watcher-errors.md",
+      "implementationReviewSha256": "29dacc858edee2d357bebde717f2985db5c197790af02a4e2faa5de7f439ff8f",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "focused": "8/8 pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "gate": "604/604; unresolved 0",
+        "census": "23 services / 231 methods / 181 types / 412 total",
+        "diff": "61 insertions / 12 deletions across 3 authorized product paths"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F10: surface filesystem watcher failures",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+          "packages/agent-orchestration/run-orchestration/src/context.ts",
+          "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+          "packages/core-api/filesystems/src/file-watcher.ts",
+          "packages/core-api/src/server-factory.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+          "plans/AU20/register-reviews/filesystems-watcher-errors.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "90aab0a2ef02d6016cccc435208d1cf6e2cb4b92",
+        "tree": "3af7ba02edbad3e9d16a87355f13d8637b095dec",
+        "parent": "79056099c5852aab9658534b6a7fe2341260e2f0",
+        "subject": "AU20 F10: surface filesystem watcher failures",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/filesystems-watcher-errors.json",
+          "packages/agent-orchestration/run-orchestration/src/context.ts",
+          "packages/core-api/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts",
+          "packages/core-api/filesystems/src/file-watcher.ts",
+          "packages/core-api/src/server-factory.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/filesystems-watcher-errors.md",
+          "plans/AU20/register-reviews/filesystems-watcher-errors.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "ownershipProseStaticRed": {
+      "increment": "ownership-prose-current",
+      "finding": "F8",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+      "validatorSha256": "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330",
+      "reviewPath": "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+      "reviewSha256": "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255",
+      "verdict": "accept",
+      "redExit": 1,
+      "census": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412
+      },
+      "status": "accepted"
+    },
+    "ownershipProseWriteCodeAuthorization": {
+      "increment": "ownership-prose-current",
+      "stage": "write-code-ownership-prose-current",
+      "finding": "F8",
+      "authorizedPaths": [
+        "packages/agent-orchestration/src/index.ts",
+        "packages/core-api/src/services/durable-agent-queue.ts"
+      ],
+      "requiredChanges": [
+        "remove the two inventoried context-assembly live-owner claims and add the exact approved run-orchestration current-owner statement",
+        "remove the two inventoried lifecycle-projection live-owner claims and add the exact approved session-requests current-owner statement"
+      ],
+      "frozenPaths": [
+        ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+        "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+        "scripts/surface-census.ts"
+      ],
+      "productBehaviorAuthorized": false,
+      "exportsAuthorized": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "evidence-current-census",
+      "status": "authorized"
+    },
+    "ownershipProseCandidate": {
+      "increment": "ownership-prose-current",
+      "finding": "F8",
+      "productSha256": {
+        "packages/agent-orchestration/src/index.ts": "b93edacbb7c65ce359bf6bc3ed915b9c54355da3734ef8a5c801892a5a816984",
+        "packages/core-api/src/services/durable-agent-queue.ts": "c0c8410c1db31b6bfbe153dd73c6cefa71e2c0d15b486a52add7a128dd6a4884"
+      },
+      "validatorPath": ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+      "validatorSha256": "3682edd915912afc61fe6737ddaf81a2e7eeacf405ea527ab6cd1dff1923c330",
+      "redReviewPath": "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+      "redReviewSha256": "59922b401053f455e2be04d88bd92475221c4d10818c05e7e5aa234365401255",
+      "implementationReviewPath": "plans/AU20/register-reviews/ownership-prose-current.md",
+      "implementationReviewSha256": "3e5c95b4b99f603c9d6f85d71a092ccac7c26b672d42241465b22f66deb4cb09",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "validator": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23 services / 231 methods / 181 types / 412 total",
+        "diff": "3 insertions / 13 deletions; comments only"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F8: correct ownership prose",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+          ".pipeline/work/AU20/progress.json",
+          "packages/agent-orchestration/src/index.ts",
+          "packages/core-api/src/services/durable-agent-queue.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+          "plans/AU20/register-reviews/ownership-prose-current.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "4506a28c4dbd1bc581a85dbba86552c43b63fad3",
+        "tree": "fd95c25beb2036700062bb0c773b8446349b7548",
+        "parent": "90aab0a2ef02d6016cccc435208d1cf6e2cb4b92",
+        "subject": "AU20 F8: correct ownership prose",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-ownership-prose.mjs",
+          ".pipeline/work/AU20/progress.json",
+          "packages/agent-orchestration/src/index.ts",
+          "packages/core-api/src/services/durable-agent-queue.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/ownership-prose-current.md",
+          "plans/AU20/register-reviews/ownership-prose-current.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "currentCensusEvidenceStaticRed": {
+      "increment": "evidence-current-census",
+      "findings": [
+        "F7",
+        "F12"
+      ],
+      "validatorPath": ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+      "validatorSha256": "d04163f248be09bef650b0b5c5c783063f0475b3f9b7d4ec57ac18cdfa117c95",
+      "censusScriptPath": "scripts/surface-census.ts",
+      "censusScriptSha256": "df74ee90cce2bf075f2fd32199e6c86780871c2530c6baa981a4cc8498d0cc9b",
+      "reviewPath": "plans/AU20/red-proof-reviews/evidence-current-census.md",
+      "reviewSha256": "f65363266afd88510482eae976eae5f2390e0998957c1a25f628c1a59c6999d1",
+      "verdict": "accept",
+      "redExit": 1,
+      "expected": {
+        "services": 23,
+        "methods": 231,
+        "types": 181,
+        "total": 412,
+        "jsonSha256": "7ee19367efba17a2b92482444a50f5e5864641acfad3f20d4d8e8db3c7bbacd8",
+        "markdownSha256": "68c80a96fc3f6282c117a604790dc0f080b67569bb6b9131cd31b12f1217894a"
+      },
+      "status": "accepted"
+    },
+    "currentCensusEvidenceWriteCodeAuthorization": {
+      "increment": "evidence-current-census",
+      "stage": "write-code-evidence-current-census",
+      "findings": [
+        "F7",
+        "F12"
+      ],
+      "authorizedCommand": "node .pipeline/work/AU20/probes/validate-current-census-evidence.mjs --write",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/rearch/census-after.json",
+        "plans/AU20/surface-census.md"
+      ],
+      "frozenPaths": [
+        ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+        "plans/AU20/red-proof-reviews/evidence-current-census.md",
+        "scripts/surface-census.ts"
+      ],
+      "productCodeAuthorized": false,
+      "censusToolChangeAuthorized": false,
+      "surfaceGrowthAuthorized": false,
+      "deterministicSecondRunRequired": true,
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "AU20-aggregate-closeout",
+      "status": "authorized"
+    },
+    "currentCensusEvidenceCandidate": {
+      "increment": "evidence-current-census",
+      "findings": [
+        "F7",
+        "F12"
+      ],
+      "evidenceSha256": {
+        ".pipeline/work/AU20/rearch/census-after.json": "7ee19367efba17a2b92482444a50f5e5864641acfad3f20d4d8e8db3c7bbacd8",
+        "plans/AU20/surface-census.md": "68c80a96fc3f6282c117a604790dc0f080b67569bb6b9131cd31b12f1217894a"
+      },
+      "validatorSha256": "d04163f248be09bef650b0b5c5c783063f0475b3f9b7d4ec57ac18cdfa117c95",
+      "redReviewSha256": "f65363266afd88510482eae976eae5f2390e0998957c1a25f628c1a59c6999d1",
+      "implementationReviewPath": "plans/AU20/register-reviews/evidence-current-census.md",
+      "implementationReviewSha256": "86aaf1da1a15c9d615bdf66f11851b9ea06848625df637115779851a03a20acc",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "validator": "pass",
+        "determinism": "pass",
+        "gate": "604/604; unresolved 0",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23 services / 231 methods / 181 types / 412 total",
+        "diff": "JSON +96/-96; Markdown +31/-88"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 F7 F12: regenerate current census evidence",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/rearch/census-after.json",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/evidence-current-census.md",
+          "plans/AU20/register-reviews/evidence-current-census.md",
+          "plans/AU20/surface-census.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "b69b822ca111677ed7e600076c0d9347c2916242",
+        "tree": "03c4fa25929b9a4893ca5690ba9d772e5955733c",
+        "parent": "4506a28c4dbd1bc581a85dbba86552c43b63fad3",
+        "subject": "AU20 F7 F12: regenerate current census evidence",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/rearch/census-after.json",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/evidence-current-census.md",
+          "plans/AU20/register-reviews/evidence-current-census.md",
+          "plans/AU20/surface-census.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "determinism": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "knowledgeKnipDeadSurfaceRedProof": {
+      "increment": "knowledge-knip-dead-surface",
+      "service": "knowledge",
+      "proofPath": ".pipeline/work/AU20/red-proofs/knowledge-knip-dead-surface.json",
+      "proofSha256": "4a940ba2ffe97e9696b64238c23539d4afc41a3e78af2bb206bc126d4a9a8e82",
+      "reviewPath": "plans/AU20/red-proof-reviews/knowledge-knip-dead-surface.md",
+      "reviewSha256": "d2488e914e44c306887b7941712d7f808a5ab72d9cfaca3bd1a5c2c9641d9b3e",
+      "verdict": "accept",
+      "expectedRed": [
+        "Unused files: packages/core-api/knowledge/src/knowledge-reader.ts",
+        "Unused exported types: PropagationLevel"
+      ],
+      "census": {
+        "service": "knowledge",
+        "methods": 17,
+        "types": 12,
+        "total": 29,
+        "aggregateMethods": 231,
+        "aggregateTypes": 181,
+        "aggregateTotal": 412
+      },
+      "status": "accepted"
+    },
+    "knowledgeKnipDeadSurfaceWriteCodeAuthorization": {
+      "increment": "knowledge-knip-dead-surface",
+      "stage": "write-code-knowledge-knip-dead-surface",
+      "service": "knowledge",
+      "authorizedPaths": [
+        "packages/core-api/knowledge/src/knowledge-reader.ts",
+        "packages/core-api/knowledge/src/types.ts"
+      ],
+      "requiredChanges": [
+        "delete comment-only knowledge-reader.ts",
+        "delete the orphan lifecycle heading, lore, private PropagationLevel declaration, and its re-export"
+      ],
+      "frozenOtherKnipLeaves": [
+        "packages/eval/package.json:@hyperidle/connections",
+        "packages/core-api/notifications/package.json:@types/smtp-server",
+        "packages/core-api/notifications/package.json:smtp-server"
+      ],
+      "productBehaviorAuthorized": false,
+      "newExportsAuthorized": false,
+      "surfaceGrowthAuthorized": false,
+      "expectedCensus": "knowledge 17/12/29; aggregate 23/231/181/412 unchanged",
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "eval-knip-unused-dependency",
+      "status": "authorized"
+    },
+    "knowledgeKnipDeadSurfaceCandidate": {
+      "increment": "knowledge-knip-dead-surface",
+      "service": "knowledge",
+      "productSha256": {
+        "packages/core-api/knowledge/src/knowledge-reader.ts": "deleted",
+        "packages/core-api/knowledge/src/types.ts": "9798ebe305fa4d1e0e143df5a851812c212c3821e39a91634cce72511d177608"
+      },
+      "proofSha256": "4a940ba2ffe97e9696b64238c23539d4afc41a3e78af2bb206bc126d4a9a8e82",
+      "redReviewSha256": "d2488e914e44c306887b7941712d7f808a5ab72d9cfaca3bd1a5c2c9641d9b3e",
+      "implementationReviewPath": "plans/AU20/register-reviews/knowledge-knip-dead-surface.md",
+      "implementationReviewSha256": "1e5fc604893ee222d9c71f5cb9c120ae2f621709616828b039864a0d059e5162",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "knowledgeCheck": "pass",
+        "knowledgeUnit": "1 file / 18 tests pass",
+        "knowledgeIntegration": "3 files / 40 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "knip": "knowledge findings absent; frozen eval/notifications findings remain",
+        "census": "knowledge 17/12/29; aggregate 23/231/181/412 unchanged",
+        "diff": "0 insertions / 12 deletions"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 knowledge: delete Knip dead surface",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/knowledge-knip-dead-surface.json",
+          "packages/core-api/knowledge/src/knowledge-reader.ts",
+          "packages/core-api/knowledge/src/types.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/knowledge-knip-dead-surface.md",
+          "plans/AU20/register-reviews/knowledge-knip-dead-surface.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "b8422e57667631117024587ee239f115b3c23165",
+        "tree": "91575c4070969db2d1c007d4154b321204474e0c",
+        "parent": "b69b822ca111677ed7e600076c0d9347c2916242",
+        "subject": "AU20 knowledge: delete Knip dead surface",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/knowledge-knip-dead-surface.json",
+          "packages/core-api/knowledge/src/knowledge-reader.ts",
+          "packages/core-api/knowledge/src/types.ts",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/knowledge-knip-dead-surface.md",
+          "plans/AU20/register-reviews/knowledge-knip-dead-surface.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "knowledgeChecks": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "evalKnipUnusedDependencyRedProof": {
+      "increment": "eval-knip-unused-dependency",
+      "proofPath": ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+      "proofSha256": "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1",
+      "reviewPath": "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
+      "reviewSha256": "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f",
+      "verdict": "accept",
+      "expectedRed": "unused dependency @hyperidle/connections in packages/eval/package.json",
+      "status": "accepted"
+    },
+    "evalKnipUnusedDependencyWriteCodeAuthorization": {
+      "increment": "eval-knip-unused-dependency",
+      "stage": "write-code-eval-knip-unused-dependency",
+      "authorizedPaths": [
+        "packages/eval/package.json",
+        "package-lock.json"
+      ],
+      "requiredChanges": [
+        "remove only @hyperidle/connections from eval dependencies",
+        "remove only packages['packages/eval'].dependencies['@hyperidle/connections'] from package-lock.json"
+      ],
+      "frozen": [
+        "node_modules/@hyperidle/connections workspace link",
+        "packages/core-api dependency entry",
+        "packages/web dependency entry",
+        "packages/core-api/notifications/package.json",
+        "all product source",
+        "scripts/surface-census.ts"
+      ],
+      "productCodeAuthorized": false,
+      "unrelatedLockChurnAuthorized": false,
+      "surfaceGrowthAuthorized": false,
+      "expectedCensus": "23/231/181/412 unchanged",
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "notifications-knip-unused-devdeps",
+      "status": "authorized"
+    },
+    "evalKnipUnusedDependencyCandidate": {
+      "increment": "eval-knip-unused-dependency",
+      "productSha256": {
+        "packages/eval/package.json": "0a6388b34d0eafec15650b07b03bae2908325b98c4591d94525a6a9cf4af1b92",
+        "package-lock.json": "bd2d4ca14bdb9e38da74ba3ce3c26df7cbded1aa3f1f89047ca6c01ff9b70817"
+      },
+      "proofSha256": "72adaaf2b212f56ee34c7f0f61dd5a52acee5d2ef9d09ed8783b48b71cb608e1",
+      "redReviewSha256": "8a1ec4955f1b767946c0c1fa899333b326d3a7f7493838811adb5ef9e17b485f",
+      "implementationReviewPath": "plans/AU20/register-reviews/eval-knip-unused-dependency.md",
+      "implementationReviewSha256": "f8d8e0da01ea4da53abd03fa2e6b6e3638a64de6a559fdbf1b61eefafd787381",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "evalKnip": "pass",
+        "fullKnip": "only frozen notifications findings remain",
+        "evalCheck": "pass",
+        "evalTests": "3 files / 26 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "gate": "604/604; unresolved 0",
+        "census": "23/231/181/412 unchanged",
+        "diff": "one deletion in each of two files"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 eval: remove unused connections dependency",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+          "package-lock.json",
+          "packages/eval/package.json",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
+          "plans/AU20/register-reviews/eval-knip-unused-dependency.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "f2e04790727286b1d070cfb487e7f994a230bbc6",
+        "tree": "7875e1ad1fc8640d5a855dc78d6935363ea5041a",
+        "parent": "b8422e57667631117024587ee239f115b3c23165",
+        "subject": "AU20 eval: remove unused connections dependency",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/eval-knip-unused-dependency.json",
+          "package-lock.json",
+          "packages/eval/package.json",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/eval-knip-unused-dependency.md",
+          "plans/AU20/register-reviews/eval-knip-unused-dependency.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "evalChecks": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "notificationsKnipUnusedDevdepsRedProof": {
+      "increment": "notifications-knip-unused-devdeps",
+      "service": "notifications",
+      "proofPath": ".pipeline/work/AU20/red-proofs/notifications-knip-unused-devdeps.json",
+      "proofSha256": "fe33df8165f12fa0c0c7967ce12ebff2eb0b2d9205b3661d8b0d3c4a82e0c7c7",
+      "reviewPath": "plans/AU20/red-proof-reviews/notifications-knip-unused-devdeps.md",
+      "reviewSha256": "7dfaa82ef2765cdcb40663358331e4bef090ac7324f27eb2816e0cea7c80bb6c",
+      "verdict": "accept",
+      "expectedRed": [
+        "unused devDependency @types/smtp-server",
+        "unused devDependency smtp-server"
+      ],
+      "status": "accepted"
+    },
+    "notificationsKnipUnusedDevdepsWriteCodeAuthorization": {
+      "increment": "notifications-knip-unused-devdeps",
+      "stage": "write-code-notifications-knip-unused-devdeps",
+      "service": "notifications",
+      "authorizedPaths": [
+        "packages/core-api/notifications/package.json",
+        "package-lock.json"
+      ],
+      "requiredChanges": [
+        "remove @types/smtp-server and smtp-server from notifications devDependencies",
+        "remove their two notifications workspace lock entries",
+        "remove orphan node blocks @types/smtp-server, smtp-server, and ipv6-normalize"
+      ],
+      "requiredRetainedNodes": [
+        "@types/node",
+        "@types/nodemailer",
+        "nodemailer",
+        "punycode.js"
+      ],
+      "productCodeAuthorized": false,
+      "unrelatedLockChurnAuthorized": false,
+      "bunLockChangeAuthorized": false,
+      "surfaceGrowthAuthorized": false,
+      "expectedCensus": "23/231/181/412 unchanged",
+      "implementationReviewRequiredBeforeCommit": true,
+      "nextIncrement": "AU20-aggregate-closeout",
+      "status": "authorized"
+    },
+    "notificationsKnipUnusedDevdepsCandidate": {
+      "increment": "notifications-knip-unused-devdeps",
+      "service": "notifications",
+      "productSha256": {
+        "packages/core-api/notifications/package.json": "a87edcd4fac0b82bd5eb0feb7e306bce06a11c3c864a832cd99de42b58760b7a",
+        "package-lock.json": "cad0e88ea2c0f6406e67df4ad0fb6b8addab85cd0c96d136f25d248aa86418a5"
+      },
+      "proofSha256": "fe33df8165f12fa0c0c7967ce12ebff2eb0b2d9205b3661d8b0d3c4a82e0c7c7",
+      "redReviewSha256": "7dfaa82ef2765cdcb40663358331e4bef090ac7324f27eb2816e0cea7c80bb6c",
+      "implementationReviewPath": "plans/AU20/register-reviews/notifications-knip-unused-devdeps.md",
+      "implementationReviewSha256": "27bd368f0953bd85f7f4d57537767780a797d7156d2cad1f09b80cac216b3927",
+      "implementationReviewVerdict": "accept",
+      "verification": {
+        "focusedKnip": "pass",
+        "fullKnip": "pass; no actionable findings",
+        "notificationsCheck": "pass",
+        "notificationsUnit": "2 files / 30 tests pass",
+        "notificationsIntegration": "3 files / 37 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "gate": "604/604; unresolved 0",
+        "census": "23/231/181/412 unchanged",
+        "diff": "2 insertions / 33 deletions"
+      },
+      "status": "accepted-commit-authorized",
+      "commitAuthorization": {
+        "message": "AU20 notifications: remove unused SMTP dev dependencies",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/notifications-knip-unused-devdeps.json",
+          "package-lock.json",
+          "packages/core-api/notifications/package.json",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/notifications-knip-unused-devdeps.md",
+          "plans/AU20/register-reviews/notifications-knip-unused-devdeps.md"
+        ]
+      },
+      "commitReceipt": {
+        "commit": "02627290785f66f19568bff5f20b3c44481737b3",
+        "tree": "70603240166d144506881d42050c29485bbce3e2",
+        "parent": "f2e04790727286b1d070cfb487e7f994a230bbc6",
+        "subject": "AU20 notifications: remove unused SMTP dev dependencies",
+        "paths": [
+          ".pipeline/work/AU20/probes/generate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/probes/validate-corrective-change-map.mjs",
+          ".pipeline/work/AU20/progress.json",
+          ".pipeline/work/AU20/red-proofs/notifications-knip-unused-devdeps.json",
+          "package-lock.json",
+          "packages/core-api/notifications/package.json",
+          "plans/AU20/corrective-change-map.json",
+          "plans/AU20/red-proof-reviews/notifications-knip-unused-devdeps.md",
+          "plans/AU20/register-reviews/notifications-knip-unused-devdeps.md"
+        ],
+        "census": {
+          "services": 23,
+          "methods": 231,
+          "types": 181,
+          "total": 412
+        },
+        "verification": {
+          "exactPathSet": "pass",
+          "notificationsChecks": "pass",
+          "knip": "pass",
+          "census": "pass",
+          "gate": "pass"
+        }
+      }
+    },
+    "aggregateCloseoutValidationAuthorization": {
+      "increment": "AU20-aggregate-closeout",
+      "stage": "validate-AU20-aggregate-closeout",
+      "findings": [
+        "F6",
+        "F11"
+      ],
+      "requiredValidation": [
+        "corrective map and all receipts",
+        "demand and census evidence reproducibility",
+        "check, lint, unit, Knip, production Knip, build and release verification",
+        "full service integration",
+        "real harness integration with exact external blocker reporting",
+        "Playwright inventory/run with AU23 dependency classification",
+        "independent final six-lens pipeline review",
+        "retro"
+      ],
+      "authorizedEvidencePaths": [
+        ".pipeline/work/AU20/closeout-evidence.json",
+        ".pipeline/work/AU20/review.md",
+        ".pipeline/work/AU20/retro.jsonl",
+        ".pipeline/work/AU20/progress.json",
+        "plans/AU20/register-reviews/aggregate-closeout.md"
+      ],
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "gateChangeAuthorizedBeforeReview": false,
+      "serviceSurfaceGrowthAuthorized": false,
+      "externalBlockersMustRemainVisible": true,
+      "status": "validation-authorized"
+    },
+    "knipProductionReachabilityArchitecture": {
+      "increment": "knip-production-test-reachability",
+      "architecturePath": ".pipeline/work/AU20/architecture-amendments/knip-production-test-reachability.md",
+      "architectureSha256": "1b2f92f2409e3f4b54259f2d380f780bfa36e454a199a27768ce54da8f86cc2d",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/knip-production-test-reachability.md",
+      "feasibilitySha256": "c3ff7b7398bd1fc074b9265d09b4f449f3bb9d1ae0ea734ef7ad074b956b0d02",
+      "reviewRound": 2,
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "knipProductionReachabilityRedProof": {
+      "increment": "knip-production-test-reachability",
+      "proofPath": ".pipeline/work/AU20/red-proofs/knip-production-reachability.json",
+      "proofSha256": "473b22824b508aa75455972e0e851f54f6c5ea6428f2b9998e644a3f347ff0e1",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-knip-production-reachability.mjs",
+      "validatorSha256": "c4d8f6fba44782007e4d3ad5381d9dbb2f4d8a730fd13385f63cad7bc0d7c48e",
+      "expectedRed": [
+        "package script mismatch",
+        "preprocessor missing"
+      ],
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "knipProductionReachabilityWriteCodeAuthorization": {
+      "increment": "knip-production-test-reachability",
+      "stage": "write-code-knip-production-test-reachability",
+      "authorizedPaths": [
+        "package.json",
+        "scripts/knip-production-test-files.mjs"
+      ],
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "censusChangeAuthorized": false,
+      "configChangeAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "status": "authorized"
+    },
+    "knipProductionReachabilityImplementationReview": {
+      "increment": "knip-production-test-reachability",
+      "path": "plans/AU20/register-reviews/knip-production-test-reachability-implementation.md",
+      "sha256": "c3390af5c015ac9ad9bab052f378cf09343070002673d11c82a7cda984d85502",
+      "verdict": "accept",
+      "packageSha256": "3613b72b689f045bbf0d0ff0f4e22e07672c22a66390034d628c432bebb52cf7",
+      "preprocessorSha256": "834cb07a0ff55edb350bd5ceecdf076c95d320c78d7a11fafa1400b539a00b01",
+      "verification": {
+        "validator": "pass",
+        "knipProduction": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "status": "accepted"
+    },
+    "knipProductionReachabilityCommit": {
+      "increment": "knip-production-test-reachability",
+      "message": "AU20: correct production Knip test reachability",
+      "paths": [
+        ".pipeline/work/AU20/architecture-amendments/knip-production-test-reachability.md",
+        ".pipeline/work/AU20/feasibility-amendments/knip-production-test-reachability.md",
+        ".pipeline/work/AU20/probes/validate-knip-production-reachability.mjs",
+        ".pipeline/work/AU20/progress.json",
+        ".pipeline/work/AU20/red-proofs/knip-production-reachability.json",
+        "package.json",
+        "plans/AU20/register-reviews/knip-production-test-reachability-implementation.md",
+        "scripts/knip-production-test-files.mjs"
+      ],
+      "parent": "02627290785f66f19568bff5f20b3c44481737b3",
+      "commit": null,
+      "tree": null,
+      "status": "commit-pending"
+    },
+    "mockInventoryEvidenceArchitecture": {
+      "increment": "mock-inventory-evidence-regeneration",
+      "architecturePath": ".pipeline/work/AU20/architecture-amendments/mock-inventory-evidence-regeneration.md",
+      "architectureSha256": "b7b6c27a5dc92fca84d11f7b5e9d48634dbc05769daf0bdf6cc7d75bfe09aadd",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/mock-inventory-evidence-regeneration.md",
+      "feasibilitySha256": "6b59d2beefb7c988a4f27e152449a1f03a41e17655e89faf25e67891d4b10169",
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "mockInventoryEvidenceRedProof": {
+      "increment": "mock-inventory-evidence-regeneration",
+      "proofPath": ".pipeline/work/AU20/red-proofs/mock-inventory-regeneration.json",
+      "proofSha256": "2818db3029589a3e03d43c03f3dd839f333c468af6f0e9deada183aa341e7682",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-mock-inventory-regeneration.mjs",
+      "validatorSha256": "229fa03ce110710c6f026d6f0820dd15ec307fb1bf86740d2981e0b2e1f961f7",
+      "expectedRed": "exact pinned 3-added/4-removed drift",
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "mockInventoryEvidenceWriteCodeAuthorization": {
+      "increment": "mock-inventory-evidence-regeneration",
+      "stage": "write-code-mock-inventory-evidence-regeneration",
+      "authorizedPaths": [
+        "plans/mock-data-purge/inventory.json",
+        "plans/mock-data-purge/inventory.md",
+        "plans/mock-data-purge/queue.md"
+      ],
+      "generatorPath": "scripts/mock-inventory.ts",
+      "manualEditsAuthorized": false,
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "scriptChangeAuthorized": false,
+      "censusChangeAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "status": "authorized"
+    },
+    "mockInventoryEvidenceImplementationReview": {
+      "increment": "mock-inventory-evidence-regeneration",
+      "path": "plans/AU20/register-reviews/mock-inventory-evidence-regeneration-implementation.md",
+      "sha256": "a6804535a3dd106cec1caa99adddc81edff88185e6e38e51403134a0808da7b7",
+      "verdict": "accept",
+      "generatedSha256": {
+        "plans/mock-data-purge/inventory.json": "7a3b787b308e1eeaab39585c32cb8b92cf8c02b78b51f903e1ea790b33268837",
+        "plans/mock-data-purge/inventory.md": "1ecee5e0994c0c93de94c821b72dbf6f7d98ddfe4d13a8a7b65839502c97b12d",
+        "plans/mock-data-purge/queue.md": "bcbb9fea019e0eb5302e4fe8acef44eac524e4d00524c0eac3e6ab46b84570fb"
+      },
+      "verification": {
+        "utcBeforeBetweenAfterEmitted": "2026-07-24",
+        "twoRunByteIdentity": "pass",
+        "validator": "pass",
+        "mockInventoryCheck": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "status": "accepted"
+    },
+    "mockInventoryEvidenceCommit": {
+      "increment": "mock-inventory-evidence-regeneration",
+      "message": "AU20: regenerate mock inventory evidence",
+      "paths": [
+        ".pipeline/work/AU20/architecture-amendments/mock-inventory-evidence-regeneration.md",
+        ".pipeline/work/AU20/feasibility-amendments/mock-inventory-evidence-regeneration.md",
+        ".pipeline/work/AU20/probes/validate-mock-inventory-regeneration.mjs",
+        ".pipeline/work/AU20/progress.json",
+        ".pipeline/work/AU20/red-proofs/mock-inventory-regeneration.json",
+        "plans/AU20/register-reviews/mock-inventory-evidence-regeneration-implementation.md",
+        "plans/mock-data-purge/inventory.json",
+        "plans/mock-data-purge/inventory.md",
+        "plans/mock-data-purge/queue.md"
+      ],
+      "parent": "a4cc8fae25b38b16e9f4d00c052715e74278ac46",
+      "commit": null,
+      "tree": null,
+      "status": "commit-pending"
+    },
+    "harnessVocabularyEvidenceArchitecture": {
+      "increment": "harness-vocabulary-evidence",
+      "architecturePath": ".pipeline/work/AU20/architecture-amendments/harness-vocabulary-evidence.md",
+      "architectureSha256": "d1b0fc2db896e37292332216672d865e696f871119d44130ae685b5d5c18bccd",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/harness-vocabulary-evidence.md",
+      "feasibilitySha256": "2fdad34215667fb611e8f7ca4b920b917ddaaeb733960a3824cd5b4cbd79f26c",
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "harnessVocabularyEvidenceRedProof": {
+      "increment": "harness-vocabulary-evidence",
+      "proofPath": ".pipeline/work/AU20/red-proofs/harness-vocabulary-evidence.json",
+      "proofSha256": "9b54daf4910c5e2e5500850a432dbe278c20d8e44d00a8f51a4486eae506a0d2",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs",
+      "validatorSha256": "f82fb16519e31cac3c44a0eeeb9711d19c0cea2fd1217b493798fdbbe188a92b",
+      "expectedRed": "exact 6 lines across 2 files",
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "harnessVocabularyEvidenceWriteCodeAuthorization": {
+      "increment": "harness-vocabulary-evidence",
+      "stage": "write-code-harness-vocabulary-evidence",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md",
+        ".pipeline/work/AU20/rearch/run-orchestration.md"
+      ],
+      "exactSpanCount": 6,
+      "nonTargetBytesFrozen": true,
+      "guardChangeAuthorized": false,
+      "configChangeAuthorized": false,
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "censusChangeAuthorized": false,
+      "implementationReviewRequiredBeforeCommit": true,
+      "status": "authorized"
+    },
+    "harnessVocabularyEvidenceImplementationReview": {
+      "increment": "harness-vocabulary-evidence",
+      "path": "plans/AU20/register-reviews/harness-vocabulary-evidence-implementation.md",
+      "sha256": "75f30f58ee118fbb0b2f442581259797f2f43bb3e4452b4d6daea5e48f550672",
+      "verdict": "accept",
+      "documentSha256": {
+        ".pipeline/work/AU20/analysis/services/context-assembly.md": "7943212ec9371fb5cfa8320543d948bdee22407ccc2afc150565d80a3a0ced63",
+        ".pipeline/work/AU20/rearch/run-orchestration.md": "406bf14a36735840fcb12e08007b358bec56aec49e4c818f97b506e821e45920"
+      },
+      "verification": {
+        "validator": "pass",
+        "harnessVocabularyGuard": "pass",
+        "nextAh5Guard": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "status": "accepted"
+    },
+    "harnessVocabularyEvidenceCommit": {
+      "increment": "harness-vocabulary-evidence",
+      "message": "AU20: align evidence with harness vocabulary",
+      "paths": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md",
+        ".pipeline/work/AU20/architecture-amendments/harness-vocabulary-evidence.md",
+        ".pipeline/work/AU20/feasibility-amendments/harness-vocabulary-evidence.md",
+        ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs",
+        ".pipeline/work/AU20/progress.json",
+        ".pipeline/work/AU20/rearch/run-orchestration.md",
+        ".pipeline/work/AU20/red-proofs/harness-vocabulary-evidence.json",
+        "plans/AU20/register-reviews/harness-vocabulary-evidence-implementation.md"
+      ],
+      "parent": "abf86e345b505aa5ad456bec95b6322276d2ab5c",
+      "commit": null,
+      "tree": null,
+      "status": "commit-pending"
+    },
+    "vocabularyValidatorCommittedStateArchitecture": {
+      "increment": "vocabulary-validator-committed-state",
+      "architecturePath": ".pipeline/work/AU20/architecture-amendments/vocabulary-validator-committed-state.md",
+      "architectureSha256": "0e5e509fdc15b0b13a0b6ceeab156abc24fb606051d185aa3047c9ab6824bd20",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/vocabulary-validator-committed-state.md",
+      "feasibilitySha256": "da0d64c654602cf9008111b6e8692da1e15a0ec3e8cb67163a714cfccf89d127",
+      "round": 4,
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "vocabularyValidatorCommittedStateRedProof": {
+      "increment": "vocabulary-validator-committed-state",
+      "proofPath": ".pipeline/work/AU20/red-proofs/vocabulary-validator-state.json",
+      "proofSha256": "7e7f61562a77753f5b8821bdb95abf1bca6d4688b4464ca203acde07abb69898",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-vocabulary-validator-state.mjs",
+      "validatorSha256": "7bbb99e9c18dbeb7d3ecba91cc1b84a0cee657ec3f6dc0fd1fd53532e0dd0cd2",
+      "expectedRed": "validator lacks committed-state seams and exits 2 on clean HEAD",
+      "revision": 4,
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "vocabularyValidatorCommittedStateWriteCode": {
+      "increment": "vocabulary-validator-committed-state",
+      "stage": "write-code-vocabulary-validator-committed-state",
+      "authorizedPaths": [
+        ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs"
+      ],
+      "implementationSha256": "bbeb559f20833b67e3bb6c0e0bf500628051522ef2261999231928c3076c535e",
+      "acceptedGreenScopes": [
+        "committed-green",
+        "candidate-green",
+        "validator-candidate-green"
+      ],
+      "productCodeAuthorized": false,
+      "testChangeAuthorized": false,
+      "guardChangeAuthorized": false,
+      "configChangeAuthorized": false,
+      "censusChangeAuthorized": false,
+      "status": "implemented"
+    },
+    "vocabularyValidatorCommittedStateImplementationReview": {
+      "increment": "vocabulary-validator-committed-state",
+      "path": "plans/AU20/register-reviews/vocabulary-validator-committed-state-implementation.md",
+      "sha256": "f29257668d7cfdf1ffa5eb22d6fe676874c9c34a243b541c02ec69399a8b9b20",
+      "verdict": "accept",
+      "verification": {
+        "stateProbe": "pass",
+        "validator": "pass",
+        "harnessVocabularyGuard": "pass",
+        "nextAh5Guard": "pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "356 files / 3561 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "status": "accepted"
+    },
+    "vocabularyValidatorCommittedStateCommit": {
+      "increment": "vocabulary-validator-committed-state",
+      "message": "AU20: make vocabulary evidence validation reproducible",
+      "paths": [
+        ".pipeline/work/AU20/architecture-amendments/vocabulary-validator-committed-state.md",
+        ".pipeline/work/AU20/feasibility-amendments/vocabulary-validator-committed-state.md",
+        ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs",
+        ".pipeline/work/AU20/probes/validate-vocabulary-validator-state.mjs",
+        ".pipeline/work/AU20/progress.json",
+        ".pipeline/work/AU20/red-proofs/vocabulary-validator-state.json",
+        "plans/AU20/register-reviews/vocabulary-validator-committed-state-implementation.md"
+      ],
+      "parent": "7ec8982617baa3929b1a03ac22ed2a397a17d2c3",
+      "commit": null,
+      "tree": null,
+      "status": "commit-pending"
+    },
+    "cursorHarnessGuardTestsArchitecture": {
+      "increment": "cursor-harness-guard-tests",
+      "architecturePath": ".pipeline/work/AU20/architecture-amendments/cursor-harness-guard-tests.md",
+      "architectureSha256": "05065d957f7bf7af9aec3996104fdf5a7fb3dab6c0122cf4038803b2373a0707",
+      "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/cursor-harness-guard-tests.md",
+      "feasibilitySha256": "03a324029ce1a9b1b6144a4a694d6b4c0c7681a4fa3a2f913b3f57e3f9df7f70",
+      "round": 2,
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "cursorHarnessGuardTestsRedProof": {
+      "increment": "cursor-harness-guard-tests",
+      "proofPath": ".pipeline/work/AU20/red-proofs/cursor-harness-guard-tests.json",
+      "proofSha256": "77e4381f858632ff6bac4803164ab92390a57427d2c6816c8a048a91153a83ba",
+      "validatorPath": ".pipeline/work/AU20/probes/validate-cursor-harness-guard-tests.mjs",
+      "validatorSha256": "5829a4bb7b7f3e12e00104a738dc119bc416a5375c847590062f23b7b5071fa6",
+      "expectedRed": "4 AR1 and 7 AR2 assertions omit cursor-agent",
+      "revision": 2,
+      "verdict": "accept",
+      "status": "accepted"
+    },
+    "cursorHarnessGuardTestsWriteCode": {
+      "increment": "cursor-harness-guard-tests",
+      "stage": "write-code-cursor-harness-guard-tests",
+      "authorizedPaths": [
+        "packages/db/src/__tests__/ar1-honest-harness-guard.test.ts",
+        "packages/db/src/__tests__/ar2-coverage-guard.test.ts"
+      ],
+      "implementationSha256": {
+        "packages/db/src/__tests__/ar1-honest-harness-guard.test.ts": "d2c6db87a0ad2efafcaa836f4daa7f5cf8327571f8f6ecd4c79add0b56892062",
+        "packages/db/src/__tests__/ar2-coverage-guard.test.ts": "b75a3367d137dcd56a11969ee0fb91422fdfa935e7381d276cb95ddd8ec796be"
+      },
+      "guardChangeAuthorized": false,
+      "registryChangeAuthorized": false,
+      "productCodeAuthorized": false,
+      "gateChangeAuthorized": false,
+      "censusChangeAuthorized": false,
+      "status": "implemented"
+    },
+    "cursorHarnessGuardTestsImplementationReview": {
+      "increment": "cursor-harness-guard-tests",
+      "path": "plans/AU20/register-reviews/cursor-harness-guard-tests-implementation.md",
+      "sha256": "fd371f0f0d11d160135ee3d92e422cb9effcbf8a269e6d19de45b7837d5b87eb",
+      "verdict": "accept",
+      "verification": {
+        "probe": "pass",
+        "targeted": "2 files / 71 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "358 files / 3632 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "status": "accepted"
+    },
+    "cursorHarnessGuardTestsCommit": {
+      "increment": "cursor-harness-guard-tests",
+      "message": "AU20: align harness guard tests with Cursor",
+      "paths": [
+        ".pipeline/work/AU20/architecture-amendments/cursor-harness-guard-tests.md",
+        ".pipeline/work/AU20/feasibility-amendments/cursor-harness-guard-tests.md",
+        ".pipeline/work/AU20/probes/validate-cursor-harness-guard-tests.mjs",
+        ".pipeline/work/AU20/progress.json",
+        ".pipeline/work/AU20/red-proofs/cursor-harness-guard-tests.json",
+        "packages/db/src/__tests__/ar1-honest-harness-guard.test.ts",
+        "packages/db/src/__tests__/ar2-coverage-guard.test.ts",
+        "plans/AU20/register-reviews/cursor-harness-guard-tests-implementation.md"
+      ],
+      "parent": "f89a8cf9aa5c857b47ee8397937222a051a93da8",
+      "commit": null,
+      "tree": null,
+      "status": "commit-pending"
+    },
+    "cursorAr2Format": {
+      "increment": "cursor-ar2-format",
+      "architecture": {
+        "path": ".pipeline/work/AU20/architecture-amendments/cursor-ar2-format.md",
+        "sha256": "12978af87828fc6c442db32fe6527e30684c87fbedbe90b84c0faa687691183a",
+        "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/cursor-ar2-format.md",
+        "feasibilitySha256": "4838899422a5be6c09331692dda0bdef487e3e1cfa862160be55dcac66e353ff",
+        "verdict": "accept",
+        "round": 4
+      },
+      "redProof": {
+        "validatorPath": ".pipeline/work/AU20/probes/validate-cursor-ar2-format.mjs",
+        "validatorSha256": "f941e7e9912cf09ee53b1cc6a5d7cab0071557c3f6253a4f5ffd6de7be45a08c",
+        "evidencePath": ".pipeline/work/AU20/red-proofs/cursor-ar2-format.json",
+        "evidenceSha256": "927f904cfe5f6e4830b98340e3f3a167965972ddf07b049afbc54467d74726cb",
+        "exitCode": 1,
+        "verdict": "accept"
+      },
+      "implementation": {
+        "path": "packages/db/src/__tests__/ar2-coverage-guard.test.ts",
+        "sha256": "40637c22d91d495e1b91d2176200974be65bf89386cd1a8849761d2e1c557e02",
+        "diff": "1 insertion, 4 deletions",
+        "formatter": "byte-idempotent",
+        "validator": "pass",
+        "focusedBiome": "pass",
+        "targeted": "2 files / 71 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "358 files / 3632 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "implementationReview": {
+        "path": "plans/AU20/register-reviews/cursor-ar2-format-implementation.md",
+        "sha256": "ef2b2f7ace63f08703281aa251f94b00cfd7c15d23473988612fd32dc1264aec",
+        "verdict": "accept"
+      },
+      "commit": {
+        "message": "AU20: format Cursor coverage guard fixture",
+        "commit": "ec9f7b39409baadc3b732e269cef7cdcfc51ec32",
+        "tree": "801242ea1aacd30168d7f51c7626665c6c4a5bd1",
+        "parent": "3bf55368712dfaf29ff6db883c0f1b67e0479f07",
+        "status": "committed"
+      },
+      "closeoutBarrier": {
+        "status": "cleared",
+        "workPackageStatus": "in_progress",
+        "reviewVerdict": "NOT DONE",
+        "dependentIncrement": "cursor-probe-committed-state",
+        "dependentArchitectureSha256": "89f4664538ed4069092140bea4ff1163a81ddb81c78babd8a6a12afce77c3f35",
+        "dependentFeasibilitySha256": "3af1378776c9544d0e372a6dbb152f03e8aed0de5be4ade33c233de63b2beeac",
+        "dependentStatus": "accepted-commit-pending"
+      },
+      "status": "committed"
+    },
+    "cursorProbeCommittedState": {
+      "increment": "cursor-probe-committed-state",
+      "formatDependency": {
+        "commit": "ec9f7b39409baadc3b732e269cef7cdcfc51ec32",
+        "tree": "801242ea1aacd30168d7f51c7626665c6c4a5bd1",
+        "parent": "3bf55368712dfaf29ff6db883c0f1b67e0479f07",
+        "formattedAr2Sha256": "40637c22d91d495e1b91d2176200974be65bf89386cd1a8849761d2e1c557e02"
+      },
+      "architecture": {
+        "path": ".pipeline/work/AU20/architecture-amendments/cursor-probe-committed-state.md",
+        "sha256": "89f4664538ed4069092140bea4ff1163a81ddb81c78babd8a6a12afce77c3f35",
+        "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/cursor-probe-committed-state.md",
+        "feasibilitySha256": "3af1378776c9544d0e372a6dbb152f03e8aed0de5be4ade33c233de63b2beeac",
+        "verdict": "accept"
+      },
+      "redProof": {
+        "validatorPath": ".pipeline/work/AU20/probes/validate-cursor-probe-state.mjs",
+        "validatorSha256": "8fc986e259148c2d570935dddb092e14f9dbb93f7e7fb9d478ad1171e2991ad6",
+        "evidencePath": ".pipeline/work/AU20/red-proofs/cursor-probe-state.json",
+        "evidenceSha256": "448bcad2b10d618a6f2df83ba719612cbc4c78e200e320e53b8cc85c2f94b360",
+        "exitCode": 1,
+        "verdict": "accept"
+      },
+      "implementation": {
+        "path": ".pipeline/work/AU20/probes/validate-cursor-harness-guard-tests.mjs",
+        "sha256": "852e6d63e6ca14fa372f6def10be2ac42e8b039015092c154639f85b53c43779",
+        "diff": "54 insertions, 18 deletions",
+        "stateValidatorPreCommit": "pass",
+        "directProbePreCommit": "pass",
+        "targeted": "2 files / 71 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "358 files / 3632 tests pass",
+        "census": "23/231/181/412 unchanged"
+      },
+      "implementationReview": {
+        "path": "plans/AU20/register-reviews/cursor-probe-committed-state-implementation.md",
+        "sha256": "3c1eac9af62cdfee4f65fed446f72f8c5227412cc0d52f8a72e37ed070173c5a",
+        "verdict": "accept"
+      },
+      "commit": {
+        "message": "AU20: make Cursor guard evidence reproducible",
+        "commit": null,
+        "tree": null,
+        "status": "commit-pending"
+      },
+      "status": "commit-pending"
+    },
+    "ar2FormatValidatorSuccessor": {
+      "increment": "ar2-format-validator-successor",
+      "architecture": {
+        "path": ".pipeline/work/AU20/architecture-amendments/ar2-format-validator-successor.md",
+        "sha256": "e44521d99448ab994c031bcf3c417cabb1b741e411cb33f4e2ec09b2391450dd",
+        "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/ar2-format-validator-successor.md",
+        "feasibilitySha256": "c247e340b34ced4d0a29a7b8fc9f9c17484f6ea5ab9f5ef10abd8b6b0b103d14",
+        "verdict": "accept"
+      },
+      "redProof": {
+        "validatorPath": ".pipeline/work/AU20/probes/validate-ar2-format-validator-state.mjs",
+        "validatorSha256": "fe26000a8bc9b04fe655ecc0d04e6d72f033828c20ac473c70d2f69683792ec2",
+        "evidencePath": ".pipeline/work/AU20/red-proofs/ar2-format-validator-state.json",
+        "evidenceSha256": "425ffb0fd65d1be01a4917480713c7d02fa83ab170faa5a258159b3572c30041",
+        "exitCode": 1,
+        "verdict": "accept"
+      },
+      "implementation": {
+        "path": ".pipeline/work/AU20/probes/validate-cursor-ar2-format.mjs",
+        "sha256": "af10f065924de0532c072267f193aa3dc9fa9080cb5a6a61b3ebc0f9a4b731c4",
+        "diff": "143 insertions, 70 deletions",
+        "stateValidatorPreProgress": "pass",
+        "directValidatorPreProgress": "pass",
+        "biome": "pass",
+        "targeted": "2 files / 71 tests pass",
+        "check": "37/37 packages",
+        "lint": "pass",
+        "unit": "358 files / 3632 tests pass",
+        "census": "23/231/181/412 unchanged",
+        "verdict": "accept"
+      },
+      "implementationReview": {
+        "path": "plans/AU20/register-reviews/ar2-format-validator-successor-implementation.md",
+        "sha256": "8b0771f2bb297b5f130ec4a69a760a93cc77c7a45281d16167586efd38e23178",
+        "verdict": "accept"
+      },
+      "finalReview": {
+        "path": "plans/AU20/register-reviews/ar2-format-validator-successor-final.md",
+        "sha256": "2754e60717dcf09ea727a1f3ccc0a85cb71452ae21d094b14d18d269eaec07eb",
+        "verdict": "accept"
+      },
+      "commit": {
+        "message": "AU20: bind AR2 format evidence to final Cursor state",
+        "commit": null,
+        "tree": null,
+        "status": "commit-pending"
+      },
+      "status": "commit-pending"
+    },
+    "an1ClaudeMcpDiscovery": {
+      "increment": "an1-claude-mcp-discovery",
+      "classification": {
+        "primary": "product-code-regression",
+        "secondary": "stale-parser-and-health-assertion",
+        "external": "observed-input-not-blocker"
+      },
+      "architecture": {
+        "path": ".pipeline/work/AU20/architecture-amendments/an1-claude-mcp-discovery.md",
+        "sha256": "6b80424a5f76dcbde4ad22185c7e50bf26750f0ae47b484e37ab5619ea01dbbd",
+        "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/an1-claude-mcp-discovery.md",
+        "feasibilitySha256": "6aa384fc3b676f44f9cad77e9c35eceb59d8be416de56cbb96ffde923b821b5e",
+        "verdict": "accept",
+        "review": {
+          "path": "plans/AU20/register-reviews/an1-claude-mcp-discovery-architecture.md",
+          "sha256": "7668c47733f415b1ec97844cd678e19bcb44cf9eefd67f111a80cebe5462ffc4",
+          "verdict": "accept",
+          "score": 11
+        },
+        "revision": {
+          "round": 2,
+          "priorVerdict": "revise",
+          "resolved": [
+            "single executor-owned cancellable timeout including injected runner context",
+            "exactly-once settlement and timer/listener cleanup",
+            "final status suffix parsing insulated from adversarial command/url text",
+            "duplicate CLI health precedence needs-attention > working > unknown",
+            "effective cwd and absent/unreadable/directory/symlink behavior",
+            "default execFile abort feasibility POC"
+          ]
+        },
+        "postReviewClarification": {
+          "reason": "red-review listener-lifetime precision",
+          "contract": "zero net executor-owned AbortSignal listeners after every terminal path; zero added and zero removed is valid"
+        }
+      },
+      "contract": {
+        "identityFallback": "cwd/.mcp.json mcpServers keys only",
+        "commandDeadline": "single executor-owned cancellable 15000ms timer with AbortSignal",
+        "cliMerge": "health overrides fallback; exact-name dedupe; deterministic sort",
+        "au23Exclusion": "no real-API E2E changes or execution"
+      },
+      "observations": {
+        "claudeVersion": "2.1.202",
+        "isolatedMcpListSeconds": [
+          4.84,
+          4.81,
+          4.94,
+          2.66,
+          5.45
+        ],
+        "currentFiveSecondRaceCrossed": true,
+        "focusedIntegrationCanPass": true
+      },
+      "gates": {
+        "writeTestsLocked": false,
+        "writeCodeLocked": false,
+        "next": "write-code"
+      },
+      "redProof": {
+        "evidencePath": ".pipeline/work/AU20/red-proofs/an1-claude-mcp-discovery.json",
+        "evidenceSha256": "d0d90faf80a6af0ac1c8c7771994de0714f619afe08fb1e75d5a6d0c2fde4f84",
+        "unitTestPath": "packages/agent-execution/harness-registry/src/__tests__/harness-discovery.test.ts",
+        "unitTestSha256": "35fca3c18ceca36a697d0c821ad0254a1c4e796bfdba97d029475ccdf337b803",
+        "integrationTestPath": "packages/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
+        "integrationTestSha256": "5e822e2dae8fb5b4816dfeba9b5e2aea95eada01490355e2ccdd27348b2c9bb7",
+        "unit": "5 pass / 12 intended fail",
+        "integration": "real Claude identity expected, actual [] after three attempts",
+        "check": "37/37 packages",
+        "biome": "pass",
+        "verdict": "accept",
+        "review": {
+          "path": "plans/AU20/register-reviews/an1-claude-mcp-discovery-architecture.md",
+          "sha256": "7668c47733f415b1ec97844cd678e19bcb44cf9eefd67f111a80cebe5462ffc4",
+          "verdict": "accept"
+        }
+      },
+      "status": "red-accepted"
+    }
+  },
+  "sessionStartedAt": "2026-07-17",
+  "worktree": ".worktrees/pipeline-AU20",
+  "branch": "pipeline/AU20",
+  "conceptGate": {
+    "v1": "REJECTED 2026-07-17 by founder. The whole audit was framed on call-site COUNTS (keep/merge/inline/delete by usage; service existence by owns-a-table/has-a-loop). Wrong question: knip already deletes dead code, so 'is it called' is solved. The real question is architectural coherence + product purpose: 1218 exports/31 services IS the finding (over-fragmentation, engineering garbage at MVP tier \u2014 a bespoke method per call site). Reframe: per-service holistic reasoning of a clean minimal public API + product-purpose-for-existence, judged from layer boundaries at MVP tier. Counter survives as a DATA-GATHERING input per service; 3 bug fixes survive (correctness). Back to refine + architecture.",
+    "v2": "APPROVED 2026-07-17 by founder. Reframed per-service product audit (workflow: 31 planner\u2192reviewer\u2192revise + synthesis) \u2192 31\u219223 services, 1218\u2192~371 exports (~70% cut), 3 merges (durable-agent-queue, session-runtime, agent-execution-platform) + retention dissolve. Dashboard presented. Operational change: ALL structural merges land in THIS WP (not deferred), executed as SEQUENTIAL INCREMENTS, each test\u2192code\u2192review\u2192verify\u2192commit\u2192repeat \u2014 low blast radius, every commit green."
+  },
+  "approvals": {
+    "requirements": true,
+    "concept": true,
+    "final": false,
+    "requirementsV3Corrective": true,
+    "conceptV3Corrective": true
+  },
+  "critiqueScores": {
+    "refineV1Superseded": {
+      "score": 8,
+      "rounds": 1,
+      "verdict": "pass-SUPERSEDED",
+      "note": "v1 refine cleared but was built on the wrong (usage-count) frame; superseded by the reframe after concept-gate v1 rejection."
+    },
+    "refine": {
+      "score": 7,
+      "rounds": 1,
+      "verdict": "pass-marginal",
+      "openCritical": 0,
+      "openWarning": 3,
+      "note": "Reframed requirement (architecture-coherence + product-purpose + usage-as-input + service-as-product + scaling test). Critique confirmed it genuinely escaped the usage frame both directions and the scaling test is baked in 4 places. 3 WARNINGs surgically fixed post-critique: (1) false engineering.tier:mvp/PR#454 citation \u2192 grounded in ETHOS \u00a71 + PR #454 landing (open); (2) scope-breadth (31 analyses + 31 critiques may be an ocean) \u2192 carried to /architecture to tier depth by surface size; (3) product-purpose bar under-defined for ~14 orchestration/execution services \u2192 carried to /architecture. Plus suggestions applied (scaling worked-heuristic, keep-unchanged burden, DOC-CLASS bump).",
+      "gatedFor": "phase-3-human-requirement-review"
+    },
+    "refineV3Corrective": {
+      "score": 8.9,
+      "rounds": 1,
+      "verdict": "pass",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Fresh reviewer confirmed all five critical and four warning findings from AU20-review are binding; exhaustive E2E/system recovery is finite and cannot be gamed by deletion, weakening, rebaseline, timeout inflation, silent skip, or lane reassignment. Required design+architecture -> independent critiques -> write-tests -> write-code -> review -> separate green commits sequence is explicit.",
+      "gatedFor": "phase-3-human-requirement-review-corrective-v3"
+    },
+    "refineV3Discovery": {
+      "score": 8.7,
+      "rounds": 3,
+      "verdict": "pass",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Round 3 PASS. Independently verified exact primary partition of all 364 browser non-passes across 21 concrete registers: 364 memberships, 364 unique, zero missing/extra/duplicates/pass contamination/intersections, exact set equality. Fourteen design-owned and seven architecture-owned registers each have a concrete statement, evidence/counter-evidence, confidence, specific proof, contract/runtime questions, and exact unresolved/settled decision sets. BR-10, stale counts, and signature-causality claims are gone. System runtime/review/proof-gap taxonomy and 604/604 accounting remain coherent. Unresolved cases are not dispositions and authorize no test/code edits; refinement unlocks the requirement gate, then light design/architecture after approval.",
+      "gatedFor": "phase-3-human-requirement-review-corrective-v3"
+    },
+    "designV3Corrective": {
+      "score": 8,
+      "rounds": 4,
+      "verdict": "accept",
+      "scoreLine": "H:8 S:8 T:8 C:8 Co:8 St:8 A:8 AS:9 PP:7",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Round 4 ACCEPT. Search result/empty and BlockActions now capture real open production-component states with semantic postconditions and mutual exclusion. Artifact copy mismatch is explicit regression evidence. All 26 paints have real TSX provenance; facsimile/collage evidence is gone; viewer cleanup verified. Exact 94/58/23/93 accounting and 116 runtime handoff remain correct.",
+      "artifact": "plans/AU20/design-critique-v3.md",
+      "gatedFor": "phase-5-design-critique-corrective-v3"
+    },
+    "architectureV3Corrective": {
+      "score": 8,
+      "rounds": 3,
+      "verdict": "accept",
+      "scoreLine": "SA:9 IM:8 LI:9 AC:8 DM:8 N:8 MD:8 FMC:8 S:8 V:9 FE:8",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Round 3 ACCEPT. Formal corrective requirements approval is explicitly recorded. All technical proof-integrity issues are closed: start-evidenced terminal truth, independently reviewed/content-hash-locked dispositions, strict eight-stage agent boundaries, finite route grammar, executable MCP isolation, AggregateError disposal, exact real-Electron dev/packaged local/shared preflights and isolated config cleanup, and fixed-count assertions. Ready for mandatory corrective concept review; concept approval remains false and no implementation is authorized.",
+      "artifact": "plans/AU20/architecture-critique-v3.md",
+      "gatedFor": "phase-6-human-concept-review-corrective-v3"
+    },
+    "architectureV3ChangeMap": {
+      "score": 9,
+      "rounds": 4,
+      "verdict": "accept",
+      "scoreLine": "SA:9 IM:9 LI:9 AC:9 DM:9 N:9 MD:9 FMC:9 S:9 V:10 FE:9",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Amendment round 4 ACCEPT. Exact 604/604 and 181/181 accounting, final disposition totals, deterministic regeneration, all integrity hashes, prior evidence constraints, and fail-closed locking pass. All 32 regressions now have standardized source regressionProjections whose exactSymbols, owners, candidates and red proofs equal the generated map; no fallback remains. Unblock, Q1 AC9 and AH6 anchors point to their proven production boundaries. Independent acceptance artifact binds payload 76a632f2d8513b359f063dc072f1a057d356889fdea4649667e865bc76dad041. Planner must embed the review artifact hash and exact payload, clear the lock, and pass --require-review before write-tests.",
+      "artifact": "plans/AU20/architecture-critique-v3.md",
+      "acceptedReviewArtifact": "plans/AU20/register-reviews/corrective-change-map.md",
+      "acceptedReviewSha256": "d08d48e4dd9526f8ca82b760a7b473b95c7590191c71224e71f3733d2e7681ee",
+      "acceptedPayloadSha256": "76a632f2d8513b359f063dc072f1a057d356889fdea4649667e865bc76dad041",
+      "gatedFor": "architecture-change-map-review-hash-embedding"
+    },
+    "proofInventoryAmendmentRedProof": {
+      "verdict": "accept",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Independent reviewer reproduced 133 total: 105 green + 28 intentionally red. The accepted red scope is limited to filesystem review provenance, repository composition, and strict attempt sequencing.",
+      "artifact": "plans/AU20/red-proof-reviews/proof-inventory.md",
+      "artifactSha256": "d8b46ca8e8b75c04d41ce3ec102f4fd3545287d0f30f33d2a415f3837c948085",
+      "validationContractTestSha256": "9edf040f70b7a93e960f282b1687b943abf652027e315c12888efb992f1cfebd",
+      "reviewTrustTestSha256": "f5c0f94caecf6e3c17e2130f97573b4a865c7cec49c3c4b5ce16fa1e9989914d",
+      "gatedFor": "write-code-proof-inventory-amendment-only"
+    },
+    "architectureV3ProofInventoryAmendment": {
+      "score": 9,
+      "rounds": 1,
+      "verdict": "accept",
+      "scoreLine": "SA:9 IM:9 LI:10 AC:9 DM:9 N:9 MD:9 FMC:9 S:9 V:9 FE:9",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "Narrow proof-inventory architecture amendment ACCEPT. Repository composition captures one filesystem ReviewVerifier for payload and lineage; realpath/regular-file/canonical containment rejects nonfile, traversal, prefix-sibling and symlink escapes; manifest reviewer and captured builder identities are exact and distinct; no PKI. Strict attempts require terminal N before start N+1 and later terminals cannot mask an unmatched start. Classification payload/review hashes remain unchanged and deterministic base validation passes. Existing red proof predates this amendment, so next stage is amendment write-tests plus independent red review, not implementation.",
+      "artifact": "plans/AU20/architecture-critique-v3.md",
+      "acceptedReviewArtifact": "plans/AU20/register-reviews/proof-inventory-architecture-amendment.md",
+      "acceptedReviewSha256": "18efb793121eb20f53063c0ffe0db628d16b559d07af160b651e0525be23c8c2",
+      "acceptedArchitectureSha256": "9cd55b5634cac06ac01ac9638f452128191b5583250cf9861e0aa8fe6af61f7f",
+      "acceptedFeasibilitySha256": "972be13a717cc2b6c3250cce208cffe228ada65694febe96bbf6d56feea18ff5",
+      "gatedFor": "proof-inventory-architecture-amendment-review-hash-embedding"
+    },
+    "architectureV3ProofInventoryAmendmentR3": {
+      "score": 9,
+      "rounds": 2,
+      "verdict": "accept",
+      "scoreLine": "SA:9 IM:9 LI:10 AC:9 DM:9 N:9 MD:9 FMC:9 S:9 V:9 FE:9",
+      "openCritical": 0,
+      "openWarning": 0,
+      "note": "R3 narrow amendment round 2 ACCEPT. Builder identity is mandatory in the closed hash-pinned manifest; manifest=captured=claim builder, manifest=claim reviewer, and reviewer!=builder are enforced through payload and lineage with omission/mismatch/self-review cases. Replacement-only legacy deletion, one captured verifier, descriptor-stable same-buffer verification, proportional no-PKI design, exact migration/net-negative gates, strict attempts, deterministic regeneration, unchanged 604 classification binding, and full relock remain intact.",
+      "artifact": "plans/AU20/architecture-critique-v3.md",
+      "acceptedReviewArtifact": "plans/AU20/register-reviews/proof-inventory-architecture-amendment-r3.md",
+      "acceptedReviewSha256": "51336cc090c2951a84bcea613da2e64d0f920acd054e29768fae54703e7c134c",
+      "acceptedArchitectureSha256": "4f600566b27f210b4399322b37b399cd51f9f66c4c37cce7c30377667d990793",
+      "acceptedFeasibilitySha256": "c6ce225bfaa0b5712975313a1c2206ccd6f5d967e1882ce8d4c0f27a39527f1a",
+      "gatedFor": "proof-inventory-architecture-amendment-r3-review-hash-embedding"
+    },
+    "architectureV1Superseded": {
+      "score": 7.8,
+      "displayScore": 8,
+      "rounds": 2,
+      "verdict": "pass",
+      "scoreLine": "SA:8 IM:7 LI:9 AC:8 DM:8 N:8 MD:8 FMC:7 S:7 V:8 FE:8",
+      "openCritical": 0,
+      "openWarning": 1,
+      "warningNote": "NEW non-blocking: hasNonDelegatedBody's limb (a) (genuine local algorithm) is a reviewer judgment the counter surfaces evidence for, not a fully mechanical output; must not be mistaken for counter-emitted. Carry into build.",
+      "round1": {
+        "score": 6.9,
+        "verdict": "blocked-below-7",
+        "scoreLine": "SA:8 IM:5 LI:9 AC:8 DM:8 N:7 MD:8 FMC:5 S:5 V:8 FE:5",
+        "critical": "Pass C + error bound + POC only handled 3-level ports.svc.method; destructured/aliased port receivers (const {work,review}=deps; work.method()) on high-value ports (work/review/agentSelection/workIntents) silently undercounted. Fixed round 2, independently re-verified by re-running the POC against real attention-service.ts/bet-decomposition.ts call sites.",
+        "warning": "Service-existence thin-wrapper rubric never produced a non-keep verdict (all 9 named services kept, including AU19's own flagged fold-candidate retention). Fixed round 2: sharpened hasNonDelegatedBody + retention traced through with a bound counterfactual proving the rubric is non-degenerate."
+      },
+      "gate": "ready-for-phase-6-human-concept-review"
+    }
+  },
+  "notes": [
+    "2026-07-23 superseding R3 caller-migration red proof accepted: review 567456fc8415090a412132019d86e0579857f1c179a470ead0d8f436f82b9a39; validation test ffef339bf58f987e39f14b31c2ae67f5f6bd465aa79bbe7cb35a6c6e1d898d2e; trust test 1aea108da78586d301e35760fb8505f5795b5b2fef7232ca689660880749c758; durable JSON 2f338ac0afeeff20ed59b08a7f42afcba40c0ca81dffb9f6f06ac7a3526b1bf0; 153 total = 111 green + 42 intentionally red. Previous 119/34 R3 red proof remains superseded history. Only proof-inventory-amendment-r3 write-code is authorized.",
+    "2026-07-23 R3 gate contradiction corrected: accepted validation-contract test hash 9edf040f still imports/calls legacy standalone unlock and free inventory authority, contradicting mandatory physical deletion/no coexistence. R3 code authorization revoked. Prior R3 red proof is preserved only as superseded history. Authorized stage is now proof-inventory-amendment-r3-write-tests-caller-migration; all legacy test callers must migrate to createValidationContracts and receive a new hash + independent red review. writeTests unlocked, code locked.",
+    "2026-07-23 proof-inventory R3 red proof accepted and bound: review 4cc07ce088f39dd0d1fe5593b2384b99a6f4ab54499bbd06496c461c6093cf5a; validation test 9edf040f70b7a93e960f282b1687b943abf652027e315c12888efb992f1cfebd; trust test fc3c8bc7bd1690d27851024f4e05aed5e819cda58e72ef3d9d5cf65da9569ec7; durable JSON .pipeline/work/AU20/red-proofs/proof-inventory.json 8b3eeaae8479832d95894f12d71f9201c69a4989c77e14f13c3fedf5a129477f; 153 total = 119 green + 34 intentionally red. Only proof-inventory-amendment-r3 write-code is authorized.",
+    "2026-07-23 proof-inventory R3 architecture acceptance embedded: review plans/AU20/register-reviews/proof-inventory-architecture-amendment-r3.md sha256 51336cc090c2951a84bcea613da2e64d0f920acd054e29768fae54703e7c134c binds architecture 4f600566b27f210b4399322b37b399cd51f9f66c4c37cce7c30377667d990793 and feasibility c6ce225bfaa0b5712975313a1c2206ccd6f5d967e1882ce8d4c0f27a39527f1a. Only R3 write-tests is authorized; redProofReview remains null and codeLocked true. Prior payload, R2 architecture, and R2 red-proof reviews remain historical bindings.",
+    "2026-07-23 proof-inventory architecture R3 blocker closed: ReviewManifestEntry.builderIdentity is mandatory. Manifest schema rejects omission/empty/unknown fields/duplicate paths; verifier requires manifest builder == captured builder == claim builder and reviewer != builder for payload and lineage. Exact red cases cover omission, all mismatch directions, and self-review through both paths. Tests/code remain locked pending narrow re-review.",
+    "2026-07-23 proof-inventory architecture amendment R3 after implementation review: delete legacy exported ReviewTrust, standalone unlock, and free authority-bearing inventory path; all payload/lineage validation must use one createValidationContracts-captured verifier. Repository review manifest now binds canonical relative path, reviewer, artifact hash, payload hash, accept verdict, and optional builder, with its own reviewed hash pin. Reads are descriptor-stable (open/fstat/path identity/read same Buffer/re-fstat). Legacy callers/tests migrate with no coexistence and trust-path LOC must decrease. Accepted 604 classification remains bound; prior amendment/review are historical inputs only. Tests/code relocked pending narrow architecture review.",
+    "2026-07-23 proof-inventory amendment red proof accepted and bound: review d8b46ca8e8b75c04d41ce3ec102f4fd3545287d0f30f33d2a415f3837c948085; validation-contract test 9edf040f70b7a93e960f282b1687b943abf652027e315c12888efb992f1cfebd; review-trust test f5c0f94caecf6e3c17e2130f97573b4a865c7cec49c3c4b5ce16fa1e9989914d; 133 total = 105 green + 28 intentionally red. Only proof-inventory-amendment write-code is authorized; subsequent increments remain gated.",
+    "2026-07-23 proof-inventory amendment review binding embedded: plans/AU20/register-reviews/proof-inventory-architecture-amendment.md sha256 18efb793121eb20f53063c0ffe0db628d16b559d07af160b651e0525be23c8c2 accepts architecture 9cd55b5634cac06ac01ac9638f452128191b5583250cf9861e0aa8fe6af61f7f and feasibility 972be13a717cc2b6c3250cce208cffe228ada65694febe96bbf6d56feea18ff5. Generator/validator require all three exact hashes. Only proof-inventory amendment write-tests is unlocked; codeLocked remains true until independent red-proof review.",
+    "2026-07-23 proof-inventory architecture amendment after implementation review R2: caller-supplied ReviewTrust is forbidden. One ReviewVerifier is captured at composition from repository-owned root/actor manifest and shared by payload unlock plus lineage; filesystem resolution requires realpath containment and verified bytes/provenance. Strict attempts require every earlier start to terminalize before a retry starts, so later terminals cannot mask a gap. Accepted 604 classification payload/review binding remains unchanged, but this contract amendment requires independent architecture re-review; write-tests/code are relocked until accepted.",
+    "2026-07-23 corrective v3 change-map review binding embedded: plans/AU20/register-reviews/corrective-change-map.md sha256 d08d48e4dd9526f8ca82b760a7b473b95c7590191c71224e71f3733d2e7681ee accepts exact payload 76a632f2d8513b359f063dc072f1a057d356889fdea4649667e865bc76dad041. Generator verifies artifact+payload hashes before preserving acceptedReview and clearing writeTestsLocked; base and --require-review validators pass. Corrective concept approval remains preserved. AU20 advances only to ordered write-tests/red-proof review, beginning with proof-inventory; production code remains unauthorized until its reviewed red proof.",
+    "2026-07-23 post-concept architecture diagnosis corrected pending independent amendment review: exact historical-unknown union 181/181 (42+43+72+24), zero missing/extra/overlap, zero current unresolved/default classifications, zero harness defects. Final proposed 604 map: 273 none, 32 regressions, 112 moves, 178 stale tests/mocks, 2 named external prerequisites, 5 static/review obligations, 2 proof gaps. Forty-six formerly unrun/no-change identities bind exact terminal reporter records and artifact hash. All 32 regressions now project standardized diagnostic exactSymbols {file,symbol}, red proof, owner and candidate files with exact validator equality and no register/test fallback. Explicit anchors: WorkBet handleAction(unblock), SplitView.tsx line 237 fold-back/reset overlay, and three AH6 cases at session-requests resolveIntentInputInternal -> requireRunnableActor. Source ledgers, four diagnostics, reporter evidence, generator and payload are SHA-256 bound; acceptedReview remains null and writeTestsLocked true.",
+    "2026-07-23 corrective concept v3 APPROVED by founder with binding amendment: historical harness operation before AU20 is trusted; architecture must classify all failures and define exact product/test/prerequisite/narrowly-evidenced-harness changes before implementation. Post-concept review rejected heuristic zero-unresolved claims; the generator now restores the defensible 181-unresolved baseline and refuses defaults while identity-level diagnostics run. Approval advances only to independent architecture-amendment review; write-tests/code remain unauthorized until that review accepts the evidence-backed map.",
+    "2026-07-23 corrective requirements v3 FORMALLY APPROVED by founder in current thread: 'yea approved please continue'. Advances AU20 only to independent architecture v3 re-review. corrective concept approval remains false; no test/code implementation is authorized.",
+    "2026-07-23 architecture v3 round-1 revision addresses all 4 criticals/4 warnings: recorded explicit corrective requirements approval basis; unobserved cases remain unrun unless durable attempt-start exists; every new/changed disposition requires separate exact-set pipeline-reviewer acceptance; execution is split diagnosis -> disposition review -> write-tests -> red-proof review -> write-code -> default-reject implementation review -> verify -> isolated green commit. Added finite route grammar/precedence/ambiguity rules, MCP bundle/metafile/import isolation, best-effort ordered AggregateError disposal semantics, and closed desktop preflight/blocker matrix. Awaiting independent round-2 rescore; no implementation authorized.",
+    "2026-07-23 corrective requirements v3 approval basis prepared from founder direction: founder explicitly returned AU20 itself to the pipeline beginning for planner analysis of all test issues, then design+architecture+independent review, then test adjustment and code correction until the system works; founder separately required the mandatory fresh AU20 review to be included. Discovery refinement independently passed 8.7/10 with exact 604/604 and 364/364 accounting before concept work. Formal approval was still pending at this point and was recorded separately when received.",
+    "2026-07-23 corrective architecture v3 drafted after accepted discovery and light-design critiques. It owns all seven architecture browser registers, nine runtime validations, five review obligations, two desktop proof gaps, and the design handoff's 116 runtime obligations. Feasibility verdict GO-WITH-CHANGE. No test/code edit is authorized: architecture critique and corrective concept approval remain required, and 181 unresolved runtime cases must pass register-targeted diagnosis-to-disposition gates before any fix decision.",
+    "2026-07-23 discovery critique round 2 REVISE 6.8/10 addressed: removed BR-10; 21 coherent primary registers partition all 364 browser non-passes (14 design, 7 architecture). Mechanical reconciliation: 364 memberships = 364 unique non-passes; missing 0, duplicate 0, passing contamination 0, pairwise intersections 0, setEquality true. Six omitted regression areas now registered. Obsolete signature method removed. Awaiting round-3 independent review; design/architecture still locked.",
+    "2026-07-23 discovery critique round 1 REVISE 6.3/10. Removed all signature-derived root/cascade claims; execution state no longer implies harness disposition. Seven isolated probes and ten subsystem problem-register entries now carry commands/exits/artifacts, direct/counter-evidence, confidence, next proof, and design/architecture owner. Browser dispositions: 224 pass, 23 feature regression, 99 intentional move, 60 stale test/mock, 1 missing prerequisite, 181 unresolved. System taxonomy split into 9 runtime validations, 5 review obligations, 2 proof gaps; disposer 9-vs-10 narrowed to stale assertion after historical owner removal. Awaiting independent discovery re-review; no design/architecture authorization.",
+    "2026-07-23 corrective discovery: plans/AU20 ledgers reconcile 604/604 declared cases: 227 pass, 137 fail, 143 timeout, 32 skip, 65 unrun. Dispositions: 20 feature regression, 32 intentional move, 55 stale test/mock, 70 harness defect, 4 missing prerequisite, 196 unresolved. Inventory complete; diagnosis intentionally remains open for 196. Requirements revised only after evidence. No test or production edits.",
+    "2026-07-23: Founder declared AU20 unfinished and returned this same WP to pipeline start. Prior reductions and approvals remain historical evidence, but implementation authorization is revoked. Corrective v3 refine incorporates the full fresh review at .worktrees/AU20-review/.pipeline/work/AU20/review.md and requires individual classification of every failed/skipped/timed-out/unrun case. Required sequence: refine critique + requirement gate, light design + architecture, independent critiques + concept gate, write-tests, write-code, review, scoped green commits.",
+    "ANALYSIS COMPLETE (concept-gate material) via workflow au20-service-product-audit (run wf_a72cf37c-86c): landscape + 31 per-service planner\u2192reviewer\u2192revise chains + synthesis (65 agents, ~4.6M tokens). Result: 31\u219223 services, 1218\u2192~371 exports (~70% cut). 3 structural merges (durable-agent-queue = session-requests+trigger-resolution+lifecycle-projection; session-runtime = run-orchestration+session-lifecycle+context-assembly+capture-writeback; agent-execution-platform = harness-registry+tool-provider+mcp-provider) + retention distributed-dissolve. Core finding: the 14 infra services are ONE agent-session pipeline chopped per-stage (9 of 14 have <=1 consumer); much of the big export counts is DI-port-TYPE re-exports, never product surface (dispatch 58%). work(84->~35) + cost(25->11) failed structured-output in-workflow but their .md analyses landed; re-reviewed standalone 8/10 out-of-band. Per-service analyses at analysis/services/*.md; data packages at analysis/service-data-packages.json. Dashboard artifact presented to founder for concept gate. NOT built \u2014 awaiting founder decision on direction + apply-now/record-later split.",
+    "Fixed unrelated bug in .claude/hooks/guard-main.sh (false-blocked 'origin/main' worktree base) before this run could create its worktree \u2014 landed separately as PR #453, not part of AU20's scope.",
+    "engineering.tier: mvp landed globally via PR #454 (chore/engineering-tier-mvp) \u2014 OPEN, not yet merged into this worktree's base; requirements grounds the tier in ETHOS \u00a71 meanwhile, not in the unmerged config key.",
+    "Concept gate v1 REJECTED by founder (see conceptGate.v1). Reframed the whole WP off usage-counts onto architecture-coherence + product-purpose + service-as-product; back through refine (this v2) + architecture. approvals.requirements reset to false \u2014 awaiting the re-run Phase 3 gate on the reframed requirement."
+  ],
+  "completedAt": "2026-07-26T14:48:25.754Z",
+  "reviewFindingsResolved": {
+    "critical": [
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6"
+    ],
+    "warning": [
+      "F7",
+      "F8",
+      "F9",
+      "F10",
+      "F11",
+      "F13"
+    ],
+    "observation": [
+      "F12"
+    ],
+    "allResolved": true,
+    "note": "F9/F10/F11 were carried forward as PENDING by the review agent from the prior review.md; re-verified against current source and tests, all three resolved. F11 not reproducible."
+  }
+}

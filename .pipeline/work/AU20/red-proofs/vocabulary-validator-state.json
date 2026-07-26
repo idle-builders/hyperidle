@@ -1,0 +1,217 @@
+{
+  "workPackage": "AU20",
+  "increment": "vocabulary-validator-committed-state",
+  "stage": "write-tests/static-red",
+  "baseCommit": "7ec8982617baa3929b1a03ac22ed2a397a17d2c3",
+  "baseTree": "58a845ee3ea2f2cad209d4933a205db67c813402",
+  "acceptedArchitecture": {
+    "path": ".pipeline/work/AU20/architecture-amendments/vocabulary-validator-committed-state.md",
+    "sha256": "0e5e509fdc15b0b13a0b6ceeab156abc24fb606051d185aa3047c9ab6824bd20",
+    "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/vocabulary-validator-committed-state.md",
+    "feasibilitySha256": "da0d64c654602cf9008111b6e8692da1e15a0ec3e8cb67163a714cfccf89d127",
+    "verdict": "accept",
+    "score": 9,
+    "round": 4
+  },
+  "probe": {
+    "path": ".pipeline/work/AU20/probes/validate-vocabulary-validator-state.mjs",
+    "sha256": "7bbb99e9c18dbeb7d3ecba91cc1b84a0cee657ec3f6dc0fd1fd53532e0dd0cd2"
+  },
+  "frozen": {
+    ".pipeline/work/AU20/red-proofs/harness-vocabulary-evidence.json": "9b54daf4910c5e2e5500850a432dbe278c20d8e44d00a8f51a4486eae506a0d2",
+    ".pipeline/work/AU20/analysis/services/context-assembly.md": "7943212ec9371fb5cfa8320543d948bdee22407ccc2afc150565d80a3a0ced63",
+    ".pipeline/work/AU20/rearch/run-orchestration.md": "406bf14a36735840fcb12e08007b358bec56aec49e4c818f97b506e821e45920",
+    "scripts/harness-vocab-guard.ts": "3d9f09c70bcfae3f877b34c23caa1c734ad05ac908ef20b8a61da46207319fb1",
+    "package.json": "3613b72b689f045bbf0d0ff0f4e22e07672c22a66390034d628c432bebb52cf7",
+    "scripts/surface-census.ts": "df74ee90cce2bf075f2fd32199e6c86780871c2530c6baa981a4cc8498d0cc9b"
+  },
+  "redStateProvenance": {
+    "validatorPath": ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs",
+    "validatorSha256": "f82fb16519e31cac3c44a0eeeb9711d19c0cea2fd1217b493798fdbbe188a92b",
+    "appliesOnlyWhenRequiredSeamsOrIsMainGuardAreMissing": true,
+    "futureImplementationMayChangeValidatorHash": true
+  },
+  "rejectedWriteCodeAttempt": {
+    "disposition": "ESCALATE accepted; no implementation edit made",
+    "diagnostic": ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs: frozen hash mismatch",
+    "cause": "The first red probe treated the old validator SHA as an unconditional future freeze, making its only authorized implementation change impossible.",
+    "correction": "Old validator SHA now authenticates only the current red branch; the future branch is accepted only by exported seam behavior, disposable Git matrix, document-state matrix, direct CLI success, and unchanged original proof/docs/guard/package/census hashes."
+  },
+  "rejectedLiveCandidateAttempt": {
+    "disposition": "ESCALATE accepted; validator restored byte-exact before amendment",
+    "diagnostic": "FAIL tracked file outside evidence scope changed: [\".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs\"]",
+    "cause": "The prior accepted scope sets omitted the validator-self-only state required to review its own uncommitted correction.",
+    "correction": "Round 4 adds exactly validator-self as validator-candidate-green while validator+self+documents and validator+self+unrelated remain rejected."
+  },
+  "committedDefect": {
+    "command": "node .pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs",
+    "trackedDiff": [],
+    "exitCode": 2,
+    "exactDiagnostic": "FAIL green scope mismatch: []",
+    "documentState": "expected"
+  },
+  "futureSeams": {
+    "exports": [
+      "classifyGreenScope(paths)",
+      "classifyDocumentState(hashes)",
+      "readChangedPaths(cwd)"
+    ],
+    "normalCliBehindIsMainGuard": true,
+    "readChangedPaths": {
+      "commands": [
+        "git diff --name-only --",
+        "git diff --cached --name-only --"
+      ],
+      "combination": "normalized sorted deduplicated union",
+      "indexAndWorktreeObservedSeparatelyBeforeUnion": true
+    },
+    "classifyGreenScope": {
+      "empty": "committed-green",
+      "exactTwoTargets": "candidate-green",
+      "exactValidatorSelf": "validator-candidate-green",
+      "allOtherSets": "reject",
+      "targets": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md",
+        ".pipeline/work/AU20/rearch/run-orchestration.md"
+      ],
+      "validatorSelf": ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs",
+      "validatorSelfPlusDocuments": "reject",
+      "validatorSelfPlusUnrelated": "reject"
+    },
+    "classifyDocumentState": {
+      "inputShape": "record keyed by the exact two target paths",
+      "baseline": "baseline",
+      "expected": "expected",
+      "mixed": "mixed",
+      "modified": "unknown"
+    }
+  },
+  "disposableGitMatrix": [
+    {
+      "case": "clean",
+      "paths": [],
+      "scope": "committed-green"
+    },
+    {
+      "case": "unstaged one target",
+      "paths": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md"
+      ],
+      "scope": "reject"
+    },
+    {
+      "case": "staged one target",
+      "paths": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md"
+      ],
+      "scope": "reject"
+    },
+    {
+      "case": "mixed staged and unstaged exact targets",
+      "paths": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md",
+        ".pipeline/work/AU20/rearch/run-orchestration.md"
+      ],
+      "scope": "candidate-green"
+    },
+    {
+      "case": "same-path staged edit plus unstaged reversal to HEAD",
+      "paths": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md"
+      ],
+      "scope": "reject",
+      "mustNotCancelToClean": true
+    },
+    {
+      "case": "exact two targets staged",
+      "paths": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md",
+        ".pipeline/work/AU20/rearch/run-orchestration.md"
+      ],
+      "scope": "candidate-green"
+    },
+    {
+      "case": "exact validator self",
+      "paths": [
+        ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs"
+      ],
+      "scope": "validator-candidate-green"
+    },
+    {
+      "case": "validator self plus document",
+      "paths": [
+        ".pipeline/work/AU20/analysis/services/context-assembly.md",
+        ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs"
+      ],
+      "scope": "reject"
+    },
+    {
+      "case": "validator self plus unrelated",
+      "paths": [
+        ".pipeline/work/AU20/probes/validate-harness-vocabulary-evidence.mjs",
+        "unrelated.txt"
+      ],
+      "scope": "reject"
+    },
+    {
+      "case": "partial one target",
+      "paths": [
+        ".pipeline/work/AU20/rearch/run-orchestration.md"
+      ],
+      "scope": "reject"
+    },
+    {
+      "case": "unrelated path",
+      "paths": [
+        "unrelated.txt"
+      ],
+      "scope": "reject"
+    }
+  ],
+  "documentMatrix": {
+    "baseline": {
+      ".pipeline/work/AU20/analysis/services/context-assembly.md": "d6b698d1394a21fb6b40d680a27517d1051dcf2853ec0614a293b799839a8d7e",
+      ".pipeline/work/AU20/rearch/run-orchestration.md": "7d6100e7a9259b94a9092a268daca722dce712e2d9dd8bd508f6a4e03f7fd9d4",
+      "result": "baseline"
+    },
+    "expected": {
+      ".pipeline/work/AU20/analysis/services/context-assembly.md": "7943212ec9371fb5cfa8320543d948bdee22407ccc2afc150565d80a3a0ced63",
+      ".pipeline/work/AU20/rearch/run-orchestration.md": "406bf14a36735840fcb12e08007b358bec56aec49e4c818f97b506e821e45920",
+      "result": "expected"
+    },
+    "mixedResult": "mixed",
+    "modifiedResult": "unknown"
+  },
+  "intendedRed": {
+    "command": "node .pipeline/work/AU20/probes/validate-vocabulary-validator-state.mjs",
+    "exitCode": 1,
+    "onlyDiagnostic": "RED vocabulary validator lacks committed-state seams and exits 2 on clean HEAD",
+    "causes": [
+      "current clean committed validator exits 2",
+      "three future seams and normal CLI is-main guard are absent"
+    ]
+  },
+  "observed": {
+    "probeCommand": "node .pipeline/work/AU20/probes/validate-vocabulary-validator-state.mjs",
+    "probeExitCode": 1,
+    "probeDiagnostics": [
+      "RED vocabulary validator lacks committed-state seams and exits 2 on clean HEAD"
+    ],
+    "currentValidatorExitCode": 2,
+    "currentValidatorDiagnostic": "FAIL green scope mismatch: []",
+    "checkCommand": "npm run check",
+    "checkExitCode": 0
+  },
+  "locked": {
+    "allowedWrites": [
+      ".pipeline/work/AU20/probes/validate-vocabulary-validator-state.mjs",
+      ".pipeline/work/AU20/red-proofs/vocabulary-validator-state.json"
+    ],
+    "validatorEdits": false,
+    "originalProofEdits": false,
+    "documentEdits": false,
+    "guardEdits": false,
+    "progressEdits": false,
+    "commit": false
+  }
+}

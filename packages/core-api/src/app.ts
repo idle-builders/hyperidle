@@ -1,51 +1,37 @@
-import { SessionActivityBuffer } from "@hyperidle/capture-writeback";
 import {
 	type CredentialResolver,
 	decryptCredentialValue,
-	deleteCredentialByName,
+	deleteCredential,
 	encryptCredentialValue,
-	findCredentialByName,
-	getServerSecret,
+	readCredentials,
 	ServiceConnectionResolver,
-	upsertCredential,
+	writeCredential,
 } from "@hyperidle/connections";
-import type { HyperIdleDb } from "@hyperidle/db";
-import type { AssistantTurnDeps } from "@hyperidle/dispatch";
-import { checkAndUnblockDependents } from "@hyperidle/filesystems";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { DispatchOps } from "@hyperidle/dispatch";
 import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
-import type { McpBridgeRegistry } from "@hyperidle/mcp-provider";
+
+type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
+
+import type { McpToolBridge } from "@hyperidle/harness-registry";
+import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import {
-	defaultNotificationAdapterFactory,
-	type NotificationAdapter,
-	type NotificationConfig,
-	type NotificationsConfigDeps,
-	type NotificationsCredentialCipher,
-	type NotificationsCredentialStore,
-	type NotificationsSilenceDeps,
-	type NotificationsWorkReader,
-} from "@hyperidle/notifications";
-import {
-	createConsoleObservabilityAdapter,
-	createDbTraceIdResolver,
-	createObservabilityDispatcher,
-	type ObservabilityAdapter,
 	type ObservabilityConfig,
-	type ObservabilityDispatcher,
-	readObservabilityConfig,
-	registerObservabilityDispatcher,
+	type ObservabilityDeps,
+	type ObservabilityRuntime,
+	startObservability,
 } from "@hyperidle/observability";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
+import { SessionActivityBuffer } from "@hyperidle/run-orchestration";
+// @lore AU20 Ag1b: standalone assistant registration removed — its trigger
+// is now started through dispatchOps.start (called from registerAgentLayerServices).
+import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
-import { createUpgradeTokenStore, getUserById, type UpgradeTokenStore } from "@hyperidle/users";
-import {
-	getItemById,
-	getTaskById as getWorkTaskById,
-	listHoldTasksWithDependencyPattern,
-	listQueuedItemsSince,
-	transitionTask,
-} from "@hyperidle/work";
+import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
+import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
 import { failClosedAssertion } from "./middleware/access-boundary-middleware.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
@@ -86,34 +72,41 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
-import { registerAssistantDispatcher } from "./services/dispatch-bindings.js";
-import {
-	agentWorkIntentReader,
-	agentWorkIntentRecorder,
-	recordAgentWorkIntent,
-} from "./services/session-requests-bindings.js";
+
+const agentWorkIntentRecorder = { record: enqueueWorkIntent };
+const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<HyperIdleDb> = {
+	findByKindAndSource: (db, kind, sourceId) =>
+		findSessionRequest(db, { by: "intentSource", kind, sourceId }),
+};
 
 interface AppOptions {
 	db?: HyperIdleDb;
 	eventBus?: EventBus;
 	serviceBootstrap?: (ctx: { db: HyperIdleDb; eventBus: EventBus }) => Array<() => void>;
 	/**
-	 * Optional override for the notification adapter factory used by the
-	 * HTTP `/notifications/test`, `/notifications/flush`, and
+	 * Optional override for the notification adapter used by the HTTP
+	 * `/notifications/test`, `/notifications/flush`, and
 	 * `/notifications/digest` routes. Tests inject a FakeAdapter that
 	 * records every send.
 	 *
 	 * NOTE: This does NOT affect the app-level notification dispatcher. This
 	 * option is purely for the HTTP route layer.
+	 *
+	 * @lore AU20 Ag6b: factory signature simplified to `() => NotificationAdapter`
+	 * (no config arg) since the route layer delegates all config-reading to the
+	 * internal `sendTest`/`flush`/`runDigest` wrappers.
 	 */
-	notificationAdapterFactory?: (cfg: NotificationConfig) => NotificationAdapter;
+	notificationAdapterFactory?: () => NotificationAdapter;
 	/**
 	 * Optional override for the observability adapter (H3). Tests inject
 	 * a FakeAdapter whose `record` captures every event. When omitted
 	 * production wiring picks console or noop based on
-	 * `factory_settings.observability.adapter`.
+	 * `server_config.observability.adapter`.
+	 *
+	 * Typed as `ObservabilityDeps['adapter']` — the test seam field on the
+	 * single deps contract, same shape as before (structural adapter interface).
 	 */
-	observabilityAdapter?: ObservabilityAdapter;
+	observabilityAdapter?: ObservabilityDeps["adapter"];
 	/**
 	 * Optional WebSocket registration hook. When provided,
 	 * `createApp` invokes it with the `/api` sub-router just after the
@@ -180,7 +173,7 @@ interface AppOptions {
 	 * When provided alongside `mcpBaseUrl`, the session provisioner creates a
 	 * per-session bridge and writes `.mcp.json` for harness auto-discovery.
 	 */
-	mcpBridgeRegistry?: McpBridgeRegistry;
+	mcpBridgeRegistry?: McpToolBridge;
 	/**
 	 * X2: Base URL for MCP bridge (e.g., "http://localhost:3001").
 	 * Used when writing `.mcp.json` to the workspace during session provisioning.
@@ -218,20 +211,11 @@ interface AppOptions {
 	 * `agent-orchestration`/`session-requests` Layer boundary
 	 * `routes/threads.ts`/`routes/sessions-routes.ts` (core-api routes) must
 	 * not cross by importing `@hyperidle/session-requests` directly. Defaults
-	 * to the real production binding (`session-requests-bindings.ts`); tests
+	 * to the real production binding (`durable-agent-queue.ts`); tests
 	 * may override for isolation.
 	 */
 	agentWorkIntentRecorder?: import("@hyperidle/shared").AgentWorkIntentRecorder<HyperIdleDb>;
 	agentWorkIntentReader?: import("@hyperidle/shared").AgentWorkIntentReader<HyperIdleDb>;
-}
-
-function buildObservabilityAdapter(cfg: ObservabilityConfig): ObservabilityAdapter | null {
-	switch (cfg.adapter) {
-		case "console":
-			return createConsoleObservabilityAdapter();
-		case "noop":
-			return null;
-	}
 }
 
 /**
@@ -251,44 +235,40 @@ const appLogger = createLogger({ pkg: "server.app" });
  * (`settings`, `users`, `org`, `work`, `connections`) are now real,
  * already-migrated packages; the credential cipher/store closed in
  * Increment 1h and wire directly to `@hyperidle/connections`' real exports.
+ *
+ * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
+ * `NotificationsDeps` bag (same pattern as server-factory.ts).
  */
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 /**
- * AU19 Increment 2d: `observability`'s one real outbound edge —
- * `server_config.observability` — wired through the injected
- * `ObservabilityConfigDeps` (`@hyperidle/observability`'s `ports.ts`), same
- * idiom as `notificationsServerConfigPort` above.
+ * AU20 Ab3: observability config port — same `{ read, update }` pair wired
+ * into `startObservability` (the collapsed `ObservabilityDeps` contract),
+ * same idiom as `notificationsServerConfigPort` above.
  */
 const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
-const notificationsCredentialCipher: NotificationsCredentialCipher = {
-	getServerSecret,
-	encryptCredentialValue,
-	decryptCredentialValue,
-};
-
-const notificationsCredentialStore: NotificationsCredentialStore = {
-	findByName: findCredentialByName,
-	upsert: upsertCredential,
-	deleteByName: deleteCredentialByName,
-};
-
-const notificationsConfigDeps: NotificationsConfigDeps = {
+const notificationsDeps: NotificationsDeps = {
 	serverConfig: notificationsServerConfigPort,
-	credentialCipher: notificationsCredentialCipher,
-	credentialStore: notificationsCredentialStore,
-};
-
-const notificationsSilenceDeps: NotificationsSilenceDeps = {
-	serverConfig: notificationsServerConfigPort,
-	users: { getUserById },
-	teams: { getTeamMembersById },
-};
-
-const notificationsWorkReader: NotificationsWorkReader = {
-	listQueuedItemsSince,
-	getItemById,
+	credentialCipher: { encryptCredentialValue, decryptCredentialValue },
+	credentialStore: {
+		findByName: async (db, name) => (await readCredentials(db, { name }))[0],
+		upsert: async (db, values) =>
+			writeCredential(db, values.name, {
+				encryptedValue: values.encryptedValue,
+				validationState: values.validationState,
+				lastValidatedAt: values.lastValidatedAt,
+				updatedAt: values.updatedAt,
+			}),
+		deleteByName: (db, name) => deleteCredential(db, name),
+	},
+	users: { getUserById: (db, id) => findUser(db, { id }) },
+	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
+	work: {
+		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+			work.list(exec, "item", { queued: true, createdSince: cutoff }),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+	},
 };
 
 /**
@@ -484,7 +464,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// AO1 v2: Wire the real ServiceConnectionResolver for reachability probes.
 		// serverSecret may be null (no credential key configured) — the resolver handles null
 		// gracefully (returns null for every connectionId → needs_attention for git probes).
-		const scResolver = new ServiceConnectionResolver(options.db, getServerSecret());
+		const scResolver = new ServiceConnectionResolver(options.db);
 		api.route("/filesystems", createFilesystemRoutes(options.db, eventBus, scResolver));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
@@ -547,77 +527,37 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/dispatch-queue", createDispatchQueueRoutes());
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.
+		// @lore AU20 Ag6b: adapterFactory option replaced with adapterOverride (no config arg).
 		api.route(
 			"/notifications",
 			createNotificationRoutes(options.db, {
-				adapterFactory: options.notificationAdapterFactory ?? defaultNotificationAdapterFactory,
-				notificationsConfig: notificationsConfigDeps,
-				silencePolicy: notificationsSilenceDeps,
-				work: notificationsWorkReader,
+				deps: notificationsDeps,
+				adapterOverride: options.notificationAdapterFactory
+					? options.notificationAdapterFactory()
+					: undefined,
 			}),
 		);
 
-		// Observability dispatcher (H3). Constructed lazily so tests can
-		// spin up apps without needing a configured adapter; the /status
-		// route reports "disabled" when no dispatcher is attached.
-		//
-		// PATCH /config rebuilds the dispatcher in place so credential
-		// rotation, adapter switches, and enable/disable transitions take
-		// effect without a process restart (security M-3, architect C1,
-		// adversary WARN).
-		let observabilityDispatcher: ObservabilityDispatcher | null = null;
-		let observabilityUnsubscribe: (() => void) | null = null;
+		// Observability runtime (H3, AU20 Ab3). `startObservability` wires the
+		// adapter, resolver, dispatcher, and bus subscription in one call.
+		// PATCH /config calls `runtime.reconfigure(cfg)` so adapter switches
+		// and enable/disable transitions take effect without a process restart
+		// (security M-3, architect C1, adversary WARN).
 		const db = options.db;
-		const resolver = createDbTraceIdResolver(db);
-
-		function buildDispatcher(cfg: ObservabilityConfig): ObservabilityDispatcher | null {
-			const adapter = cfg.enabled
-				? (options?.observabilityAdapter ?? buildObservabilityAdapter(cfg))
-				: null;
-			if (!(cfg.enabled && adapter)) return null;
-			return createObservabilityDispatcher({
-				adapter,
-				config: {
-					batchSize: cfg.batchSize,
-					flushIntervalMs: cfg.flushIntervalMs,
-					bufferCap: cfg.bufferCap,
-				},
-			});
-		}
-
-		function wireObservability(cfg: ObservabilityConfig): void {
-			// Tear down the previous subscription + dispatcher first so we
-			// never run two subscribers against the same bus.
-			if (observabilityUnsubscribe) {
-				observabilityUnsubscribe();
-				observabilityUnsubscribe = null;
-			}
-			const previous = observabilityDispatcher;
-			observabilityDispatcher = buildDispatcher(cfg);
-			if (observabilityDispatcher) {
-				const dispatcher = observabilityDispatcher;
-				observabilityUnsubscribe = registerObservabilityDispatcher(eventBus, {
-					dispatcher,
-					resolver,
-				});
-			}
-			if (previous) {
-				// Drain + release the old adapter. Fire-and-forget: we must
-				// not block the PATCH route on an outbound adapter flush.
-				void previous.dispose();
-			}
-		}
-
-		const obsCfg = await readObservabilityConfig(db, {
+		const observabilityRuntime = await startObservability({
+			db,
+			eventBus,
 			serverConfig: observabilityServerConfigPort,
+			...(options?.observabilityAdapter ? { adapter: options.observabilityAdapter } : {}),
 		});
-		wireObservability(obsCfg);
 
 		api.route(
 			"/observability",
 			createObservabilityRoutes(db, {
-				getDispatcher: (): ObservabilityDispatcher | null => observabilityDispatcher,
-				onConfigChange: wireObservability,
+				getRuntime: (): ObservabilityRuntime => observabilityRuntime,
+				onConfigChange: (cfg: ObservabilityConfig): void => {
+					observabilityRuntime.reconfigure(cfg);
+				},
 			}),
 		);
 
@@ -626,28 +566,18 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		const serviceDisposers = options.serviceBootstrap?.({ db, eventBus }) ?? [];
 		disposers.push(...serviceDisposers);
 
-		// AD8b AC-3: Register assistant dispatcher — listens for thread_message_appended
-		// from human users in user-hosted threads and triggers the assistant agent.
-		const unsubAssistant = registerAssistantDispatcher(eventBus, db);
-		disposers.push(unsubAssistant);
-
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
 		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot
-		// import from server (layer violation). checkAndUnblockDependents now lives
-		// in `@hyperidle/filesystems` (AU19 Increment 2b) — this app.ts call site is
-		// the composition root wiring its `work`/`workIntents` DI ports to
-		// `@hyperidle/work`'s real exports (`work` migrated Increment 1b) and
-		// `@hyperidle/session-requests`'s real `recordAgentWorkIntent`
-		// (migrated Increment 3b, `session-requests-bindings.js`).
+		// import from server (layer violation). checkAndUnblockDependents relocated
+		// to `@hyperidle/work` (AU20 Ag2 barrel collapse) — it exclusively calls
+		// work's own table paths, so `work` is its correct home. The `work:` DI-port
+		// sub-object is gone; only the against-grain `session-requests` recorder
+		// (`workIntents`) remains injected, wired to `enqueueWorkIntent`
+		// (migrated Increment 3b, `durable-agent-queue.js`).
 		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
 			if (event.toState === "done") {
 				void checkAndUnblockDependents(db, eventBus, event.taskId, {
-					work: {
-						listHoldTasksWithDependencyPattern,
-						getTaskById: getWorkTaskById,
-						transitionTask,
-					},
-					workIntents: { record: recordAgentWorkIntent },
+					workIntents: { record: enqueueWorkIntent },
 				}).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
 						taskId: event.taskId,
@@ -663,13 +593,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		});
 
 		disposers.push(() => {
-			if (observabilityUnsubscribe) {
-				observabilityUnsubscribe();
-				observabilityUnsubscribe = null;
-			}
-			const d = observabilityDispatcher;
-			observabilityDispatcher = null;
-			if (d) void d.dispose();
+			void observabilityRuntime.dispose();
 		});
 		APP_DISPOSERS.set(app, disposers);
 	}

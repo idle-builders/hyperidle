@@ -16,14 +16,11 @@ import {
 	type KnowledgeUpdatedEvent,
 	type ObservabilityEvent,
 	type SessionStartedEvent,
+	summarizeToolArgs,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { afterEach, describe, expect, test } from "vitest";
-import {
-	createObservabilityDispatcher,
-	registerObservabilityDispatcher,
-	summarizeToolArgs,
-} from "../dispatcher.js";
+import { createObservabilityDispatcher, registerObservabilityDispatcher } from "../dispatcher.js";
 import type { ObservabilityAdapter, ObservabilityChannel } from "../types.js";
 
 function fakeAdapter(

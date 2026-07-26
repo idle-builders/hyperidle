@@ -1,6 +1,6 @@
 /**
  * AU9 Remediation-2 — R2: intent claim/reclaim races drive the real
- * `drainAgentWorkIntents` entrypoint (the sanctioned drain export from the
+ * `drainIntents` entrypoint (the sanctioned drain export from the
  * R2-banned `agent-work-intent-worker.ts` module) — never `claimAgentWorkIntent`
  * or `reclaimAgentWorkIntent` directly.
  */
@@ -15,8 +15,9 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
-import { drainAgentWorkIntents } from "../services/session-requests-bindings.js";
+import { queueDeps } from "../services/durable-agent-queue.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 async function seedExplicitStartIntent(
@@ -104,7 +105,7 @@ describe("intent recovery drives the real drain", () => {
 		db,
 	}) => {
 		await seedExplicitStartIntent(db, "pending-race");
-		await Promise.all([drainAgentWorkIntents(db), drainAgentWorkIntents(db)]);
+		await Promise.all([drainIntents(queueDeps(db)), drainIntents(queueDeps(db))]);
 		const requests = await db
 			.select()
 			.from(agentSessionRequests)
@@ -121,7 +122,7 @@ describe("intent recovery drives the real drain", () => {
 		db,
 	}) => {
 		await seedExplicitStartIntent(db, "expired-race", { claimed: true, expired: true });
-		await Promise.all([drainAgentWorkIntents(db), drainAgentWorkIntents(db)]);
+		await Promise.all([drainIntents(queueDeps(db)), drainIntents(queueDeps(db))]);
 		const requests = await db
 			.select()
 			.from(agentSessionRequests)
@@ -149,7 +150,7 @@ describe("intent recovery drives the real drain", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
-		await drainAgentWorkIntents(db);
+		await drainIntents(queueDeps(db));
 		const [intent] = await db
 			.select()
 			.from(agentWorkIntents)

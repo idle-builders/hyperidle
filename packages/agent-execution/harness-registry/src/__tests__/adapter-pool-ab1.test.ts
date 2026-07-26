@@ -57,6 +57,15 @@ const BASE_META: AdapterMeta = {
 	maxConcurrent: 4,
 };
 
+function capabilities(pool: AdapterPool, type: string | null) {
+	return (
+		pool.describe({
+			type: type ?? undefined,
+			includeKnownMissing: false,
+		})[0]?.runtime ?? null
+	);
+}
+
 // ---------------------------------------------------------------------------
 // getCapabilitiesByType tests
 // ---------------------------------------------------------------------------
@@ -64,7 +73,7 @@ const BASE_META: AdapterMeta = {
 describe("AdapterPool.getCapabilitiesByType", () => {
 	it("returns null when pool is empty", () => {
 		const pool = new AdapterPool();
-		const result = pool.getCapabilitiesByType("claude-code");
+		const result = capabilities(pool, "claude-code");
 		expect(result).toBeNull();
 	});
 
@@ -75,7 +84,7 @@ describe("AdapterPool.getCapabilitiesByType", () => {
 			type: "aider",
 		});
 
-		const result = pool.getCapabilitiesByType("nonexistent-type");
+		const result = capabilities(pool, "nonexistent-type");
 		expect(result).toBeNull();
 	});
 
@@ -94,7 +103,7 @@ describe("AdapterPool.getCapabilitiesByType", () => {
 			type: "claude-code",
 		});
 
-		const result = pool.getCapabilitiesByType("claude-code");
+		const result = capabilities(pool, "claude-code");
 		expect(result).not.toBeNull();
 		expect(result?.mcpSupport).toBe(true);
 		expect(result?.subAgents).toBe(true);
@@ -117,8 +126,8 @@ describe("AdapterPool.getCapabilitiesByType", () => {
 			type: "aider",
 		});
 
-		const claudeCodeResult = pool.getCapabilitiesByType("claude-code");
-		const aiderResult = pool.getCapabilitiesByType("aider");
+		const claudeCodeResult = capabilities(pool, "claude-code");
+		const aiderResult = capabilities(pool, "aider");
 
 		expect(claudeCodeResult?.mcpSupport).toBe(true);
 		expect(aiderResult?.mcpSupport).toBe(false);
@@ -134,28 +143,28 @@ describe("AdapterPool.getCapabilitiesByType", () => {
 		});
 
 		// Search for a different type that isn't registered
-		const result = pool.getCapabilitiesByType("claude-code");
+		const result = capabilities(pool, "claude-code");
 		expect(result).toBeNull();
 	});
 
-	it("returns capabilities when harnessType is undefined in meta (generic adapter)", () => {
+	it("returns the first descriptor when no type filter is supplied", () => {
 		// When harnessType is null/undefined, getCapabilitiesByType(null) should
 		// return ANY available adapter's capabilities (the first one found)
 		const pool = new AdapterPool();
 		pool.register("local-generic", makeAdapter({ subAgents: false }), {
 			...BASE_META,
-			// no type
+			type: "generic",
 		});
 
 		// Searching with null should return the generic adapter's capabilities
-		const result = pool.getCapabilitiesByType(null);
+		const result = capabilities(pool, null);
 		expect(result).not.toBeNull();
 		expect(result?.subAgents).toBe(false);
 	});
 
 	it("returns null when getCapabilitiesByType(null) but pool is empty", () => {
 		const pool = new AdapterPool();
-		const result = pool.getCapabilitiesByType(null);
+		const result = capabilities(pool, null);
 		expect(result).toBeNull();
 	});
 });

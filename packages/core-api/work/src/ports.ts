@@ -51,16 +51,12 @@
  * @lore AU19 Increment 3e — `AgentSelectionDefaults` (→ `agent-selection`,
  * now a REAL migrated package): the straight DI-target swap landed —
  * `server-factory.ts` wires it to `@hyperidle/agent-selection`'s real
- * `createAgentSelectionOps(...)`-bound exports instead of the deleted
- * `services/select-agent.ts`/`services/agent-defaults/resolvers.ts` flat
- * modules.
+ * unified `AgentSelectionService` instead of legacy per-caller modules.
  *
  * RULED PERMANENT (founder-confirmed 2026-07-14, closing the item Increment
  * 3e explicitly deferred): same test as `CostCapChecker` below, same
- * outcome. `bet-decomposition.ts`'s `selectOwner`/`enumerateTeamCandidates`/
- * `resolveDecompositionPlan` are all synchronous request/response calls
- * whose return values are consumed immediately to continue decomposition
- * (choose the owner, build the candidate set, resolve the plan) — the exact
+ * outcome. Selection and candidate reads are synchronous request/response
+ * calls whose return values are consumed immediately to continue decomposition — the exact
  * "return value gates the caller's next branch" shape the amendment's test
  * targets, not a fire-and-forget notification. Contrast
  * `filesystems ⚠ capture-writeback` (§10.3, Increment 3f): a GENUINE
@@ -122,23 +118,29 @@ import type { EventBus, UserRole } from "@hyperidle/shared";
  * `task-state-machine.ts`). Narrower than session-requests' full
  * `AgentWorkIntentKind` union — `work` only ever writes these two.
  */
-export type WorkAgentWorkIntentKind = "bet_decomposition" | "task_run";
+type WorkAgentWorkIntentInput =
+	| {
+			readonly kind: "bet_decomposition";
+			readonly sourceKind: "bet";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+	  }
+	| {
+			readonly kind: "task_run";
+			readonly sourceKind: "task_dispatch_attempt";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+	  };
 
-export interface WorkAgentWorkIntentInput {
-	readonly kind: WorkAgentWorkIntentKind;
-	readonly sourceKind: string;
-	readonly sourceId: string;
-	readonly requestedBy?: string;
-	readonly idempotencyKey: string;
-}
-
-export interface WorkAgentWorkIntentRecord {
+interface WorkAgentWorkIntentRecord {
 	readonly id: string;
 	readonly idempotencyKey: string;
 }
 
 /** Port for `session-requests`' durable `agent_work_intents` writer (Mechanism C). */
-export interface AgentWorkIntentRecorder {
+interface AgentWorkIntentRecorder {
 	record(tx: WriteExecutor, input: WorkAgentWorkIntentInput): Promise<WorkAgentWorkIntentRecord>;
 }
 
@@ -146,49 +148,33 @@ export interface AgentWorkIntentRecorder {
 // agent-selection — AgentSelectionDefaults (§10.3 against-grain — Inc 3 rewires to EventBus)
 // ---------------------------------------------------------------------------
 
-export interface WorkSelectionCandidate {
+interface WorkSelectionCandidate {
 	readonly agentId: string;
 	readonly role: UserRole;
 }
 
-export interface WorkDecompositionPlan {
+interface WorkDecompositionPlan {
 	readonly decomposerAgentId: string | null;
 	readonly tasks: readonly import("@hyperidle/shared").DecompositionTaskInput[];
 }
 
-export interface ResolveDecompositionPlanInput {
-	readonly db: WriteExecutor;
-	readonly teamId: string;
-	readonly betId: string;
-	readonly betDescription: string;
-	readonly betDoneCondition: string | null;
-	readonly candidates: readonly WorkSelectionCandidate[];
-}
-
-export interface SelectOwnerOccasion {
+interface WorkSelectionOccasion {
 	readonly surface: "bet_task" | "bet_decomposer";
 	readonly teamId: string;
 	readonly workKey: string;
 	readonly roleHint: UserRole | null;
-	readonly spreadIndex?: number | null;
+	readonly spreadIndex: number;
 }
 
 /**
- * Port for `agent-selection`'s three functions `work` calls directly today
- * (`enumerateTeamCandidates`/`selectOwner` from `select-agent.ts`,
- * `resolveDecompositionPlan` from `agent-defaults/resolvers.ts`) — all three
- * are agent-selection's seed files per architecture §4.
+ * Port for agent-selection's coherent candidate read and selection operation.
  */
-export interface AgentSelectionDefaults {
-	enumerateTeamCandidates(
-		db: WriteExecutor,
-		teamId: string,
-	): Promise<readonly WorkSelectionCandidate[]>;
-	selectOwner(
+interface AgentSelectionDefaults {
+	listCandidates(db: WriteExecutor, teamId: string): Promise<readonly WorkSelectionCandidate[]>;
+	selectAgent(
 		deps: { readonly db: WriteExecutor; readonly eventBus: EventBus },
-		occasion: SelectOwnerOccasion,
-	): Promise<string | null>;
-	resolveDecompositionPlan(input: ResolveDecompositionPlanInput): Promise<WorkDecompositionPlan>;
+		occasion: WorkSelectionOccasion,
+	): Promise<{ readonly agentId: string | null }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -196,20 +182,20 @@ export interface AgentSelectionDefaults {
 // synchronous read-then-branch control flow; see top `@lore`)
 // ---------------------------------------------------------------------------
 
-export interface WorkCostCapResult {
+interface WorkCostCapResult {
 	readonly allowed: boolean;
 	readonly level?: "agent" | "team" | "factory";
 	readonly currentSpend?: number;
 	readonly cap?: number;
 }
 
-export interface WorkCheckCostCapParams {
+interface WorkCheckCostCapParams {
 	readonly agentId: string;
 	readonly teamId?: string;
 }
 
 /** Port for `cost`'s pre-flight budget check (`checkCostCap`, Mechanism C). */
-export interface CostCapChecker {
+interface CostCapChecker {
 	checkCostCap(
 		db: WriteExecutor,
 		eventBus: EventBus,
@@ -221,7 +207,7 @@ export interface CostCapChecker {
 // users — UserStoreReader (ordinary downward core-api edge, NOT against-grain)
 // ---------------------------------------------------------------------------
 
-export interface WorkUserRow {
+interface WorkUserRow {
 	readonly id: string;
 	readonly kind: string;
 	readonly status: string;
@@ -238,7 +224,7 @@ export interface WorkUserRow {
  * forward-reference to `packages/server`'s (now-deleted) `user-store.ts`
  * copy; the DI port abstraction itself is unchanged (zero behavior change).
  */
-export interface UserStoreReader {
+interface UserStoreReader {
 	getUserById(db: WriteExecutor, id: string): Promise<WorkUserRow | undefined>;
 	listActiveAiUsersByTeams(
 		db: WriteExecutor,
@@ -252,13 +238,59 @@ export interface UserStoreReader {
 
 /**
  * Port for `org`'s team-capacity read/write surface `work` calls directly
- * today (`team-lookup.ts`'s `getTeamMembersByTeamId`/`setTeamMembersActiveBets`).
+ * today (`team-lookup.ts`'s `getTeamMembers`/`updateTeam`).
  * Types off `@hyperidle/db`'s `TeamMember` row directly (`work` keeps
  * `@hyperidle/db` — architecture §7.3 W4, core-api Services may type ports
  * off `@hyperidle/db` row types directly) — no narrower `Work*` row type is
  * needed since `org` already owns the canonical row shape.
+ *
+ * @lore AU20 Am7: `setActiveBets` signature changed from `(db, teamMembersId, activeBets)`
+ * to `(db, teamId, activeBets)` — the 1:1 invariant lets `org`'s new
+ * `updateTeam(db, teamId, { activeBets })` address the row by `teamId`
+ * (WHERE teamMembers.teamId = teamId), eliminating the need to pass
+ * `teamMembers.id` to the write side. `bet-state-machine.ts` passes
+ * `freshMemberGroup.teamId` instead of `freshMemberGroup.id` unchanged in semantics.
  */
-export interface TeamCapacityReader {
+interface TeamCapacityReader {
 	getByTeamId(db: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
-	setActiveBets(db: WriteExecutor, teamMembersId: string, activeBets: number): Promise<void>;
+	setActiveBets(db: WriteExecutor, teamId: string, activeBets: number): Promise<void>;
 }
+
+// ---------------------------------------------------------------------------
+// WorkDeps — bundled inbound wiring contract (Ag5a)
+// ---------------------------------------------------------------------------
+
+/**
+ * Single composition-root wiring contract bundling all five inbound DI ports.
+ *
+ * The composition root (`server-factory.ts`) builds this once and passes
+ * or spreads it wherever `work`'s outbound edges are needed. The individual
+ * port interfaces are internal to this Service; callers reference them via
+ * `WorkDeps["fieldName"]` rather than importing the interface by name.
+ *
+ * @lore AU20 Ag5a: individual port exports removed from barrel — `WorkDeps`
+ * is the only wiring type callers should import. This closes the over-exposure
+ * of inbound DI contracts as product surface (84 → ~32 export target).
+ */
+export interface WorkDeps {
+	/** Injected `agent-selection` port (§10.3 against-grain — RULED PERMANENT). */
+	readonly agentSelection: AgentSelectionDefaults;
+	/** Injected `users` port (ordinary downward core-api edge). */
+	readonly users: UserStoreReader;
+	/** Injected `org` port (ordinary downward core-api edge — closes W2). */
+	readonly teamCapacity: TeamCapacityReader;
+	/** Injected `cost` port (§10.3 against-grain — RULED PERMANENT). */
+	readonly costCap: CostCapChecker;
+	/** Injected `session-requests` port (§10.3 against-grain — RULED PERMANENT). */
+	readonly workIntents: AgentWorkIntentRecorder;
+}
+
+export type {
+	AgentSelectionDefaults,
+	AgentWorkIntentRecorder,
+	CostCapChecker,
+	TeamCapacityReader,
+	UserStoreReader,
+	WorkDecompositionPlan,
+	WorkUserRow,
+};

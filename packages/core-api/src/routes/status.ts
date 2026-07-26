@@ -1,22 +1,33 @@
-import { listVerdictItemIds } from "@hyperidle/conversation";
+import { listMessages } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { getDailyDigest, type NotificationsDigestDeps } from "@hyperidle/notifications";
-import { listAllUsers } from "@hyperidle/users";
-import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
+import { getDailyDigest } from "@hyperidle/notifications";
+import { listUsers } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 /**
  * @lore AU19 Increment 1g: `getDailyDigest` (`@hyperidle/notifications`) now
- * requires an injected `NotificationsDigestDeps` (Mechanism C) — this route
- * is the sole real consumer that constructs it, wiring the real
- * `@hyperidle/work`/`@hyperidle/conversation` function references directly
- * (both real, migrated packages), zero behavior change.
+ * requires an injected deps bag (Mechanism C) — this route constructs it,
+ * wiring the real `@hyperidle/work`/`@hyperidle/conversation` function
+ * references directly (both real, migrated packages), zero behavior change.
+ * @lore AU20 Ag6b: `NotificationsDigestDeps` removed from public API; type
+ * inferred structurally — getDailyDigest uses structural typing.
  */
-const digestDeps: NotificationsDigestDeps = {
-	work: { listQueuedItemsSince, getItemById },
-	verdicts: { listVerdictItemIds },
+const digestDeps = {
+	work: {
+		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+			work.list(exec, "item", { queued: true, createdSince: cutoff }),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+	},
+	verdicts: {
+		listVerdictItemIds: (db: HyperIdleDb, itemIds: string[]) =>
+			listMessages(db, { types: ["verdict"], legacyItemIds: itemIds }).then((msgs) => [
+				...new Set(msgs.map((m) => m.legacyItemId).filter((id): id is string => id !== null)),
+			]),
+	},
 };
 
 const SERVER_START_TIME = new Date().toISOString();
@@ -49,7 +60,7 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
-		const allAgents = await listAllUsers(db);
+		const allAgents = await listUsers(db);
 
 		const agentStates: Record<string, number> = {};
 		for (const agent of allAgents) {

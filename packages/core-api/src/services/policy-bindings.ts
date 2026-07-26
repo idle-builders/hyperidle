@@ -10,7 +10,7 @@
  * `buildCreateReviewItemForKnowledge`, Increment 1j).
  *
  * @lore AU19 Increment 3b: `session-requests` is now a real Service package
- * — `record`/`abort` repoint to its real exports (`recordAgentWorkIntent`/
+ * — `record`/`abort` repoint to its real exports (`enqueueWorkIntent`/
  * `sessionRunRegistry.abort`, mechanical, zero behavior change). This stays
  * a plain DI port rather than the §10.3-default EventBus inversion — see
  * `@hyperidle/policy`'s `ports.ts` top `@lore` for why (`composeTailoredGrant`-
@@ -30,33 +30,58 @@
  * now owns — see `handoff-protocol.ts`'s inline `@lore` at the emission site.
  */
 
-import {
-	insertMessage,
-	insertThread,
-	listInitiatedVerdictMessages,
-	listVerdictMessagesByItemIds,
-} from "@hyperidle/conversation";
-import type { HyperIdleDb } from "@hyperidle/db";
-import { getTeamMembersByTeamId } from "@hyperidle/org";
-import type {
-	ApprovalRateDeps,
-	HandoffDeps,
-	HandoffParams,
-	HandoffResult,
-} from "@hyperidle/policy";
+import { insertMessage, insertThread, listMessages } from "@hyperidle/conversation";
+import type { HyperIdleDb, NewItem, NewTask, WriteExecutor } from "@hyperidle/db";
+import { getTeamMembers } from "@hyperidle/org";
+import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
-import { recordAgentWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
+import { enqueueWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
-import { findActiveTeammateByRole, getUserById } from "@hyperidle/users";
-import { createItem, getTaskById, listItemIdsBySourceAgent, updateTaskById } from "@hyperidle/work";
+import { findUser } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
 
-const handoffDeps: HandoffDeps = {
-	work: { getTaskById, updateTaskById, createItem },
+const handoffDeps = {
+	work: {
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		updateTaskById: (exec: WriteExecutor, id: string, patch: Partial<NewTask>) =>
+			work.update(exec, "task", id, patch),
+		claimTaskHandoff: (
+			exec: WriteExecutor,
+			{
+				taskId,
+				expectedUpdatedAt,
+				claimedAt,
+			}: { taskId: string; expectedUpdatedAt: string; claimedAt: string },
+		) =>
+			work.transition(exec, "task", {
+				id: taskId,
+				guard: { field: "updatedAt", equals: expectedUpdatedAt },
+				patch: { updatedAt: claimedAt },
+			}),
+		createItem: (exec: WriteExecutor, values: NewItem) => work.create(exec, "item", values),
+	},
 	conversation: { insertMessage, insertThread },
-	users: { getUserById, findActiveTeammateByRole },
-	org: { getByTeamId: getTeamMembersByTeamId },
+	users: {
+		getUserById: (db: WriteExecutor, id: string) => findUser(db, { id }),
+		findActiveTeammateByRole: (
+			db: WriteExecutor,
+			role: string,
+			teamMembersIds: string[],
+			excludeId: string,
+		) => findUser(db, { role, teamIds: teamMembersIds, status: "active", excludeId }),
+	},
+	org: { getByTeamId: (db: WriteExecutor, teamId: string) => getTeamMembers(db, { teamId }) },
 	sessionRequests: {
-		record: recordAgentWorkIntent,
+		record: (
+			exec: WriteExecutor,
+			input: {
+				readonly kind: "task_run";
+				readonly sourceKind: string;
+				readonly sourceId: string;
+				readonly requestedBy?: string;
+				readonly idempotencyKey: string;
+			},
+		) => enqueueWorkIntent(exec, input as Parameters<typeof enqueueWorkIntent>[1]),
 		abort: sessionRunRegistry.abort,
 	},
 };
@@ -68,9 +93,24 @@ export const handoff: (
 	params: HandoffParams,
 ) => Promise<HandoffResult> = buildHandoff(handoffDeps);
 
-const approvalRateDeps: ApprovalRateDeps = {
-	work: { listItemIdsBySourceAgent },
-	conversation: { listInitiatedVerdictMessages, listVerdictMessagesByItemIds },
+const approvalRateDeps = {
+	work: {
+		listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
+			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
+			return rows.map((r) => r.id);
+		},
+	},
+	conversation: {
+		listInitiatedVerdictMessages: (db: HyperIdleDb, initiatorId: string, windowStart: string) =>
+			listMessages(db, {
+				threadInitiatorId: initiatorId,
+				types: ["verdict"],
+				since: windowStart,
+				noLegacyItem: true,
+			}),
+		listVerdictMessagesByItemIds: (db: HyperIdleDb, itemIds: string[], windowStart: string) =>
+			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+	},
 };
 
 /** Production-wired `computeApprovalRate` — every real call site imports this. */

@@ -63,103 +63,21 @@ import type { ServiceConnectionResolver } from "./service-connection-resolver.js
 // AC5's "second service = configuration" is proven by the generic plan-builder
 // plus this single map.
 
-export const SERVICE_CLI_ENV: Readonly<Record<string, readonly string[]>> = {
-	github: ["GH_TOKEN", "GITHUB_TOKEN"],
-};
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /**
  * One MCP server entry to provision into the harness config.
  * bearerToken is present for token-MCP-bearer, absent for plain mcp.
- */
-export interface ResolvedMcpServer {
-	readonly name: string;
-	readonly url: string;
-	readonly bearerToken?: string;
-}
-
-/**
- * The full set written for one spawn.
- * Input to applyProvisioningPlan.
+ * @lore AU20 Am4: removed from barrel — no cross-package consumer.
+ * Exported from this file so within-package tests can reference it.
  */
 export interface ProvisioningPlan {
-	readonly mcpServers: readonly ResolvedMcpServer[];
+	readonly mcpServers: readonly {
+		readonly name: string;
+		readonly url: string;
+		readonly bearerToken?: string;
+	}[];
 	readonly envInjections: Readonly<Record<string, string>>;
-}
-
-// ── T1: resolveOwningHumanUserId ──────────────────────────────────────────────
-
-/**
- * Return the id of the owning human user.
- *
- * Mirrors auth.ts:199-204 (P2 pattern): query the first kind='human' row;
- * fall back to "u-founder" for unseeded DBs or tests.
- *
- * @lore AN2 ownership: The single-founder contract (authorization-model.md:32)
- * means there is exactly one human user. This seam is the change point for a
- * future per-agent-owner lookup when the multi-tenant model lands.
- *
- * @lore AU19 Increment 1h: `deps.users` (Mechanism C — see `ports.ts`) replaces
- * the former direct `@hyperidle/users` import; the real call site
- * (`session-provisioning.ts`) wires it to `@hyperidle/users`' real
- * `getFirstUserByKind` export, zero behavior change.
- */
-export async function resolveOwningHumanUserId(
-	db: HyperIdleDb,
-	deps: { readonly users: ConnectionsUserReader },
-): Promise<string> {
-	const humanUser = await deps.users.getFirstUserByKind(db, "human");
-	return humanUser?.id ?? "u-founder";
-}
-
-// ── T1: listActiveHeld ─────────────────────────────────────────────────────────
-
-/**
- * List active held connections for a user.
- *
- * Sibling reader — NOT a method on ServiceConnectionResolver (N4: the resolver
- * is the ONLY path that returns a decrypted token; adding a non-token list
- * method muddies that single responsibility).
- *
- * "Active" = row exists (AN1 has no disabled state; DELETE = disconnect).
- * Scoped eq(userId), authSource in HELD_AUTH_SOURCES.
- */
-export async function listActiveHeld(
-	db: HyperIdleDb,
-	userId: string,
-): Promise<
-	readonly {
-		id: string;
-		service: string;
-		authSource: HeldAuthSource;
-		serverUrl: string | null;
-	}[]
-> {
-	const rows = await db
-		.select({
-			id: serviceConnections.id,
-			service: serviceConnections.service,
-			authSource: serviceConnections.authSource,
-			serverUrl: serviceConnections.serverUrl,
-		})
-		.from(serviceConnections)
-		.where(
-			and(
-				eq(serviceConnections.userId, userId),
-				inArray(serviceConnections.authSource, [...HELD_AUTH_SOURCES]),
-			),
-		)
-		.orderBy(serviceConnections.createdAt);
-
-	// authSource is known to be "token" | "mcp" here (enforced by the inArray filter
-	// and the Zod validation at the route boundary). The cast is safe.
-	return rows.map((r) => ({
-		id: r.id,
-		service: r.service,
-		authSource: r.authSource as HeldAuthSource,
-		serverUrl: r.serverUrl,
-	}));
 }
 
 // ── T2: buildProvisioningPlan ─────────────────────────────────────────────────
@@ -177,7 +95,7 @@ export async function listActiveHeld(
  *
  * @lore AN2 token-fork: AN1 stores no `kind` on a token connection, so
  * "is this an MCP bearer or a CLI key?" is inferred:
- *   - service slug in SERVICE_CLI_ENV → CLI-key (all vars injected)
+ *   - known CLI service slug → CLI-key (all vars injected)
  *   - serverUrl present (and not a CLI-key service) → MCP-bearer
  *   - bare token, no serverUrl, not a CLI-key service → convention
  *     <SERVICE>_TOKEN env var + logged as "carrier-by-convention" (visible gap)
@@ -187,14 +105,32 @@ export async function listActiveHeld(
 export async function buildProvisioningPlan(deps: {
 	readonly db: HyperIdleDb;
 	readonly resolver: Pick<ServiceConnectionResolver, "resolve">;
-	readonly userId: string;
+	readonly users: ConnectionsUserReader;
 	/** Injectable DNS resolver for tests (overrides real DNS lookup). */
 	readonly _ssrfLookup?: (host: string) => Promise<Array<{ address: string; family: 4 | 6 }>>;
 }): Promise<ProvisioningPlan> {
-	const { db, resolver, userId, _ssrfLookup } = deps;
-	const connections = await listActiveHeld(db, userId);
+	const { db, resolver, users, _ssrfLookup } = deps;
+	const humanUser = await users.getFirstUserByKind(db, "human");
+	const userId = humanUser?.id ?? "u-founder";
+	const connections = (
+		await db
+			.select({
+				id: serviceConnections.id,
+				service: serviceConnections.service,
+				authSource: serviceConnections.authSource,
+				serverUrl: serviceConnections.serverUrl,
+			})
+			.from(serviceConnections)
+			.where(
+				and(
+					eq(serviceConnections.userId, userId),
+					inArray(serviceConnections.authSource, [...HELD_AUTH_SOURCES]),
+				),
+			)
+			.orderBy(serviceConnections.createdAt)
+	).map((row) => ({ ...row, authSource: row.authSource as HeldAuthSource }));
 
-	const mcpServers: ResolvedMcpServer[] = [];
+	const mcpServers: Array<ProvisioningPlan["mcpServers"][number]> = [];
 	const envInjections: Record<string, string> = {};
 
 	// Track which service+authSource combos have an mcpServer entry so we can
@@ -211,7 +147,8 @@ export async function buildProvisioningPlan(deps: {
 				continue;
 			}
 
-			const cliEnvVars = SERVICE_CLI_ENV[conn.service.toLowerCase()];
+			const cliEnvVars =
+				conn.service.toLowerCase() === "github" ? ["GH_TOKEN", "GITHUB_TOKEN"] : undefined;
 			if (cliEnvVars) {
 				// CLI-key path: inject the token under all known env vars for this service.
 				for (const envVar of cliEnvVars) {
@@ -248,7 +185,7 @@ export async function buildProvisioningPlan(deps: {
 				console.warn(
 					`[AN2 connection-provisioning] carrier-by-convention for ${conn.service} (${conn.id}): ` +
 						`no serverUrl and not a known CLI-key service — injecting ${envKey} ` +
-						`(the tool may not read this var; add an entry to SERVICE_CLI_ENV if needed)`,
+						`(the tool may not read this var; add a CLI carrier mapping if needed)`,
 				);
 			}
 		} else {
@@ -372,7 +309,7 @@ export async function applyProvisioningPlan(args: {
  */
 function writeCodexTomlEntries(params: {
 	sandboxPath: string;
-	mcpServers: readonly ResolvedMcpServer[];
+	mcpServers: ProvisioningPlan["mcpServers"];
 }): { mcpTokenEnv: Record<string, string> } {
 	const { sandboxPath, mcpServers } = params;
 	const codexHomeDir = path.join(sandboxPath, ".codex-home");
@@ -409,7 +346,7 @@ function writeCodexTomlEntries(params: {
  */
 function writeOpencodeJsonEntries(params: {
 	sandboxPath: string;
-	mcpServers: readonly ResolvedMcpServer[];
+	mcpServers: ProvisioningPlan["mcpServers"];
 }): void {
 	const { sandboxPath, mcpServers } = params;
 	const opencodeJsonPath = path.join(sandboxPath, "opencode.json");
@@ -476,7 +413,7 @@ function writeOpencodeJsonEntries(params: {
  */
 function writeClaudeMcpJsonEntries(params: {
 	sandboxPath: string;
-	mcpServers: readonly ResolvedMcpServer[];
+	mcpServers: ProvisioningPlan["mcpServers"];
 }): void {
 	const { sandboxPath, mcpServers } = params;
 	const mcpJsonPath = path.join(sandboxPath, ".mcp.json");

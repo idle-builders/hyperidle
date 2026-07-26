@@ -32,9 +32,15 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { BuildToolRegistryOptions, EventBus, ToolContext } from "@hyperidle/shared";
+import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
+import type {
+	BuildToolRegistryOptions,
+	EventBus,
+	SessionEndedEvent,
+	ToolContext,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect } from "vitest";
+import { describe, expect, vi } from "vitest";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 import { test } from "../test-fixtures.js";
 
@@ -332,14 +338,35 @@ describe("AC5: different irreversible op in session 2 is re-routed to review", (
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC11b: liveness net — crash between consume and execute is surfaced", () => {
+	/**
+	 * Minimal ReviewPorts for liveness-net tests: subscriber 1 (session-review)
+	 * bails early (no session row → no task), so only intentRecorder matters.
+	 */
+	function makeLivenessPorts(intentRecorder: ReviewPorts["intentRecorder"]): ReviewPorts {
+		return {
+			work: {
+				getTaskById: async () => undefined,
+				updateTaskById: async () => {},
+				createItem: async () => {},
+				getRiskTierByTaskId: async () => null,
+			},
+			conversation: {
+				insertThread: async () => {},
+				updateThread: async () => {},
+				getThreadById: async () => undefined,
+			},
+			users: { getUserById: async () => undefined, listUsersByKind: async () => [] },
+			org: { resolveReviewRecipients: async () => [] },
+			intentRecorder,
+		};
+	}
+
 	test("session 2 ends without consuming the grant → re-provision once (retryCount→1)", async ({
 		db,
+		eventBus,
 	}) => {
-		const { handleUnconsumedGrantOnSessionEnd } = await import("@hyperidle/review");
-
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const pcId = `pc-liveness-${crypto.randomUUID()}`;
-		const sessionId2 = `sess-s2-liveness-${crypto.randomUUID()}`;
 
 		await db.insert(proposedCalls).values({
 			id: pcId,
@@ -369,15 +396,32 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 		});
 
 		// Fire the session-ended event with unconsumed grant (first occurrence)
-		const reenqueueRequests: { taskId: string; agentId: string }[] = [];
-		await handleUnconsumedGrantOnSessionEnd(db, {
-			sessionId: sessionId2,
-			taskId,
+		// @lore AU20 Am9 reviewer: explicit function-type param needed so
+		// mock.calls[0] is typed as [WriteExecutor, ReviewAgentWorkIntentInput]
+		// (Vitest v4 uses vi.fn<FunctionType> not vi.fn<Args, Return>).
+		const mockRecord = vi.fn<ReviewPorts["intentRecorder"]["record"]>(async () => ({
+			id: crypto.randomUUID(),
+			idempotencyKey: crypto.randomUUID(),
+		}));
+		const unsub = registerReviewSubscriptions(
+			db,
+			eventBus,
+			makeLivenessPorts({ record: mockRecord }),
+		);
+		const event: SessionEndedEvent = {
+			type: "session_ended",
+			streamId: "stream-liveness",
+			sessionId: `sess-s2-liveness-${crypto.randomUUID()}`,
 			agentId,
-			onReenqueue: (t: string, a: string) => {
-				reenqueueRequests.push({ taskId: t, agentId: a });
-			},
-		});
+			taskId,
+			outcome: "completed",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(event);
+
+		// Handler is async fire-and-forget — wait for it to record the reengagement intent
+		await vi.waitFor(() => expect(mockRecord).toHaveBeenCalledOnce());
+		unsub();
 
 		// retryCount→1 (one re-provision allowed)
 		const grants = await db
@@ -386,19 +430,20 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			.where(eq(tailoredGrants.proposedCallId, pcId));
 		expect(grants[0]?.retryCount).toBe(1);
 
-		// Re-provision was requested (reenqueue)
-		expect(reenqueueRequests).toHaveLength(1);
-		expect(reenqueueRequests[0]?.taskId).toBe(taskId);
+		// Re-provision was requested: record called with reengagement intent for this PC
+		expect(mockRecord.mock.calls[0]?.[1]).toMatchObject({
+			kind: "reengagement",
+			sourceId: pcId,
+			requestedBy: agentId,
+		});
 	});
 
 	test("second session-ended with retryCount>=1 → PC held + failed Outcome (not a silent hang)", async ({
 		db,
+		eventBus,
 	}) => {
-		const { handleUnconsumedGrantOnSessionEnd } = await import("@hyperidle/review");
-
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const pcId = `pc-liveness2-${crypto.randomUUID()}`;
-		const sessionId2 = `sess-s2-liveness2-${crypto.randomUUID()}`;
 
 		await db.insert(proposedCalls).values({
 			id: pcId,
@@ -427,18 +472,35 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			mintedAt: NOW,
 		});
 
-		const reenqueueRequests: { taskId: string; agentId: string }[] = [];
-		await handleUnconsumedGrantOnSessionEnd(db, {
-			sessionId: sessionId2,
-			taskId,
+		const mockRecord = vi.fn<ReviewPorts["intentRecorder"]["record"]>(async () => ({
+			id: crypto.randomUUID(),
+			idempotencyKey: crypto.randomUUID(),
+		}));
+		const unsub = registerReviewSubscriptions(
+			db,
+			eventBus,
+			makeLivenessPorts({ record: mockRecord }),
+		);
+		const event: SessionEndedEvent = {
+			type: "session_ended",
+			streamId: "stream-liveness2",
+			sessionId: `sess-s2-liveness2-${crypto.randomUUID()}`,
 			agentId,
-			onReenqueue: (t: string, a: string) => {
-				reenqueueRequests.push({ taskId: t, agentId: a });
-			},
-		});
+			taskId,
+			outcome: "completed",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(event);
 
-		// NO further re-provision
-		expect(reenqueueRequests).toHaveLength(0);
+		// Wait for the handler to complete (it transitions the PC)
+		await vi.waitFor(async () => {
+			const pcs = await db.select().from(proposedCalls).where(eq(proposedCalls.id, pcId));
+			expect(pcs[0]?.status).toBe("held");
+		});
+		unsub();
+
+		// NO further re-provision (record not called)
+		expect(mockRecord).not.toHaveBeenCalled();
 
 		// PC → held
 		const pcs = await db.select().from(proposedCalls).where(eq(proposedCalls.id, pcId));

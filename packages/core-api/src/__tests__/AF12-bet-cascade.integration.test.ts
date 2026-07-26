@@ -20,7 +20,13 @@
  * so the test never races the async handler.
  */
 
-import { insertMessage, insertThread } from "@hyperidle/conversation";
+import {
+	insertMessage,
+	insertThread,
+	listMessages,
+	updateMessage,
+	updateThread,
+} from "@hyperidle/conversation";
 import {
 	bets,
 	type HyperIdleDb,
@@ -31,23 +37,16 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { insertNotification } from "@hyperidle/notifications";
-import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
-import { type LifecyclePropagationDeps, registerLifecyclePropagation } from "@hyperidle/policy";
-import { getFirstUserByKind } from "@hyperidle/users";
-import type { TaskStateMachineDeps } from "@hyperidle/work";
-import {
-	cascadeBetKill,
-	getBetById,
-	getTaskById,
-	listTasks,
-	transitionBet,
-	transitionBetStatus,
-	transitionTaskState,
-} from "@hyperidle/work";
+import { enqueue } from "@hyperidle/notifications";
+import { getTeamMembers, updateTeam } from "@hyperidle/org";
+import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
+import { findUser } from "@hyperidle/users";
+import type { TaskStateMachineDeps, WorkDeps } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
+import { cascadeBetKill, transitionBet } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { test } from "../test-fixtures.js";
 
 /**
@@ -55,21 +54,68 @@ import { test } from "../test-fixtures.js";
  * injected `work`/`conversation`/`users`/`notifications` ports (Mechanism C
  * — `policy` never imports another Service). This test builds the exact
  * same production wiring `server-factory.ts` uses — no behavior change.
+ *
+ * @lore AU20 Am1: migrated to `PolicyDeps`; engine/handoff stubs are never
+ * called in these lifecycle tests.
  */
-const lifecyclePropagationDeps: LifecyclePropagationDeps = {
-	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
-	conversation: { insertMessage, insertThread },
-	users: { getFirstUserByKind },
-	notifications: { insert: insertNotification },
+const lifecyclePropagationDeps: PolicyDeps = {
+	work: {
+		getTaskById: (exec, id) => work.get(exec, "task", id),
+		transitionTaskState: (exec, { taskId, fromState, patch }) =>
+			work.transition(exec, "task", {
+				id: taskId,
+				guard: { field: "state", equals: fromState },
+				patch,
+			}),
+		getBetById: (exec, id) => work.get(exec, "bet", id),
+		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
+			work.transition(exec, "bet", {
+				id: betId,
+				guard: { field: "status", equals: fromStatus },
+				patch,
+			}),
+		listTasks: (exec, opts) => work.list(exec, "task", opts ?? {}),
+		getItemById: (exec, id) => work.get(exec, "item", id),
+		updateItemById: (exec, id, patch) => work.update(exec, "item", id, patch),
+		listItemIdsBySourceAgent: async (exec, agentId) => {
+			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
+			return rows.map((r) => r.id);
+		},
+	},
+	conversation: {
+		insertMessage,
+		insertThread,
+		listMessagesByThread: (db, threadId, opts) =>
+			listMessages(db, {
+				threadId,
+				types: opts?.type ? [opts.type] : undefined,
+				order: opts?.order,
+				dir: opts?.dir,
+				limit: opts?.limit,
+			}),
+		updateMessage,
+		updateThread,
+		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
+		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+	},
+	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
+	notifications: {
+		insert: async (db, row) => {
+			await enqueue(db, row);
+		},
+	},
+	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
 /** AU19 Increment 1b: `cascadeBetKill` forwards this to `transitionTask`. */
-const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
+const testDeps: TaskStateMachineDeps = { workIntents: { record: enqueueWorkIntent } };
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity = {
-	getByTeamId: getTeamMembersByTeamId,
-	setActiveBets: setTeamMembersActiveBets,
+const teamCapacity: WorkDeps["teamCapacity"] = {
+	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
+	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 };
 
 async function seed(db: HyperIdleDb): Promise<void> {
@@ -306,7 +352,7 @@ describe("AF12 AC6 — task->bet propagation label honesty (fix '-> review' bug)
 			updatedAt: now,
 		});
 
-		const unsub = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		const unsub = registerPolicy(db, eventBus, lifecyclePropagationDeps);
 		try {
 			eventBus.emit({
 				type: "task_state_changed",

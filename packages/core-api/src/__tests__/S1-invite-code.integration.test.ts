@@ -2,16 +2,18 @@
  * S1 — Unit tests for invite-code service.
  *
  * Tests verify the acceptance criteria for:
- * - Invite code generation (generateInviteCode)
  * - Create invite (createInvite)
  * - Claim invite: happy path, already claimed (INVITE_CLAIMED), expired (INVITE_EXPIRED), not found (NOT_FOUND)
+ *
+ * @lore AU20 Am11: generateInviteCode internalized — tests for its internal
+ * behavior removed; coverage preserved through createInvite/claimInvite API.
  *
  * @lore S1 PGLite migration: All tests are now async because createTestDb()
  * returns a Promise<TestDbHandle> and all service functions are async.
  */
 
-import { type HyperIdleDb, users } from "@hyperidle/db";
-import { claimInvite, createInvite, generateInviteCode } from "@hyperidle/users";
+import { type HyperIdleDb, inviteCodes, loginSessions, users } from "@hyperidle/db";
+import { claimInvite, createInvite } from "@hyperidle/users";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
 
@@ -31,28 +33,6 @@ async function seedAdminUser(db: HyperIdleDb, id = "u-admin-1"): Promise<void> {
 		})
 		.onConflictDoNothing();
 }
-
-describe("S1 — generateInviteCode", () => {
-	test("returns a non-empty URL-safe string", () => {
-		const code = generateInviteCode();
-		expect(typeof code).toBe("string");
-		expect(code.length).toBeGreaterThan(0);
-		// base64url safe characters only
-		expect(code).toMatch(/^[A-Za-z0-9_-]+$/);
-	});
-
-	test("returns codes of consistent length (24 bytes = 32 chars base64url)", () => {
-		const code = generateInviteCode();
-		// 24 bytes in base64url = 32 chars
-		expect(code.length).toBe(32);
-	});
-
-	test("returns distinct codes on each call", () => {
-		const a = generateInviteCode();
-		const b = generateInviteCode();
-		expect(a).not.toBe(b);
-	});
-});
 
 describe("S1 — createInvite", () => {
 	test("returns an InviteCode row with correct fields", async ({ db }) => {
@@ -138,6 +118,32 @@ describe("S1 — claimInvite (happy path)", () => {
 		if (!result2.ok) {
 			expect(result2.error).toBe("INVITE_CLAIMED");
 		}
+	});
+
+	test("atomically allows exactly one concurrent claimant without loser artifacts", async ({
+		db,
+	}) => {
+		await seedAdminUser(db, "u-admin-1");
+		const invite = await createInvite(db, "u-admin-1", "member");
+
+		const results = await Promise.all([
+			claimInvite(db, invite.code, "Concurrent One"),
+			claimInvite(db, invite.code, "Concurrent Two"),
+		]);
+
+		expect(results.filter((result) => result.ok)).toHaveLength(1);
+		expect(
+			results.filter((result) => !result.ok && result.error === "INVITE_CLAIMED"),
+		).toHaveLength(1);
+
+		const claimedUsers = (await db.select().from(users)).filter((user) =>
+			user.name.startsWith("Concurrent "),
+		);
+		expect(claimedUsers).toHaveLength(1);
+		const sessions = await db.select().from(loginSessions);
+		expect(sessions).toHaveLength(1);
+		const [storedInvite] = await db.select().from(inviteCodes);
+		expect(storedInvite?.claimedBy).toBe(claimedUsers[0]?.id);
 	});
 });
 

@@ -1,9 +1,9 @@
 /**
  * AU9 Remediation-2 — R2: this suite drives the real request state machine and
  * public `PATCH /sessions/:id` through the app fixture, plus the sanctioned
- * `startAgentLifecycleProjectionDrain`/`bootAgentLayer` entrypoints. It does
+ * `startLifecycleProjectionDrain`/`bootAgentLayer` entrypoints. It does
  * NOT import `transitionAgentRunLifecycle`, `recoverRequestedTerminations`, or
- * the `AGENT_LIFECYCLE_PROJECTORS` map directly — no existence/constant
+ * the `lifecycle projector` map directly — no existence/constant
  * assertion stands in for driving the real transition.
  */
 
@@ -20,12 +20,12 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { sessionRunRegistry } from "@hyperidle/session-requests";
+import { sessionRunRegistry, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
-import { startAgentLifecycleProjectionDrain } from "../services/lifecycle-projection-bindings.js";
-import { bootAgentLayer } from "../services/run-orchestration-bindings.js";
+import { queueDeps } from "../services/durable-agent-queue.js";
 import { describe, expect, test } from "../test-fixtures.js";
+import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
 const TEST_API_KEY = "test-key-au9-lifecycle";
 function authHeaders(): Record<string, string> {
@@ -39,7 +39,7 @@ async function waitForProjection(
 	db: import("@hyperidle/db").HyperIdleDb,
 	requestIds: readonly string[],
 ): Promise<void> {
-	const stop = startAgentLifecycleProjectionDrain(db, { pollIntervalMs: 10 });
+	const stop = startLifecycleProjectionDrain(queueDeps(db), { pollIntervalMs: 10 });
 	try {
 		const deadline = Date.now() + 5_000;
 		for (;;) {
@@ -475,7 +475,7 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 
 	test("shutdown recovers to failed/RUNTIME_LOST", async ({ db, eventBus }) => {
 		await seedRunningWithReason(db, "au9-recover-shutdown", "shutdown");
-		const dispose = await bootAgentLayer({ db, eventBus });
+		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, {} as never);
 		try {
 			const [request] = await db
 				.select()
@@ -483,13 +483,13 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 				.where(eq(agentSessionRequests.id, "au9-recover-shutdown-request"));
 			expect(request).toMatchObject({ status: "failed", errorCode: "RUNTIME_LOST" });
 		} finally {
-			dispose();
+			await runtime.dispose();
 		}
 	});
 
 	test("cost_cap recovers to failed/BUDGET_EXHAUSTED", async ({ db, eventBus }) => {
 		await seedRunningWithReason(db, "au9-recover-costcap", "cost_cap");
-		const dispose = await bootAgentLayer({ db, eventBus });
+		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, {} as never);
 		try {
 			const [request] = await db
 				.select()
@@ -497,13 +497,13 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 				.where(eq(agentSessionRequests.id, "au9-recover-costcap-request"));
 			expect(request).toMatchObject({ status: "failed", errorCode: "BUDGET_EXHAUSTED" });
 		} finally {
-			dispose();
+			await runtime.dispose();
 		}
 	});
 
 	test("handoff recovers to completed — never cancelled", async ({ db, eventBus }) => {
 		await seedRunningWithReason(db, "au9-recover-handoff", "handoff");
-		const dispose = await bootAgentLayer({ db, eventBus });
+		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, {} as never);
 		try {
 			const [request] = await db
 				.select()
@@ -511,13 +511,13 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 				.where(eq(agentSessionRequests.id, "au9-recover-handoff-request"));
 			expect(request).toMatchObject({ status: "completed" });
 		} finally {
-			dispose();
+			await runtime.dispose();
 		}
 	});
 
 	test("user_crashed recovers to failed with no stable failure code", async ({ db, eventBus }) => {
 		await seedRunningWithReason(db, "au9-recover-usercrash", "user_crashed");
-		const dispose = await bootAgentLayer({ db, eventBus });
+		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, {} as never);
 		try {
 			const [request] = await db
 				.select()
@@ -525,7 +525,7 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 				.where(eq(agentSessionRequests.id, "au9-recover-usercrash-request"));
 			expect(request).toMatchObject({ status: "failed", errorCode: null });
 		} finally {
-			dispose();
+			await runtime.dispose();
 		}
 	});
 });

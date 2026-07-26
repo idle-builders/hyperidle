@@ -1,0 +1,105 @@
+{
+  "workPackage": "AU20",
+  "increment": "harness-registry-mcp-entry",
+  "finding": "F3",
+  "stage": "write-tests-harness-registry-mcp-entry",
+  "baseCommit": "0f7f6c1b1354eea71f9cc5c36098c413b62741d8",
+  "validator": {
+    "path": ".pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+    "sha256": "2007c4fe44975be2d5b07381ee34ecbd6039bcb82b0acf775f6edc8c933de0ce",
+    "command": "node .pipeline/work/AU20/probes/validate-harness-mcp-isolation.mjs",
+    "exitCode": 1,
+    "verdict": "RED",
+    "failures": [
+      "main graph imports zod via src/return-status-tool.ts",
+      "runtime import '@hyperidle/harness-registry/mcp' lacks own createMcpToolBridge/returnStatusTool functions (exit 43)"
+    ]
+  },
+  "greenContract": {
+    "mainGraphExcludes": [
+      "src/mcp/",
+      "@modelcontextprotocol/sdk",
+      "hono",
+      "zod"
+    ],
+    "mcpSubpath": "@hyperidle/harness-registry/mcp resolves and owns runtime createMcpToolBridge and returnStatusTool functions",
+    "mainIndexReexportsMcpBridge": false
+  },
+  "correctedConsumerImports": {
+    "packages/core-api/src/__tests__/mcp-bridge.test.ts": "eb620ba73421d6a7c799c6ea5414905bf60a070233c472d4529869d99d1a49b7",
+    "packages/core-api/src/__tests__/mcp-bridge-registry.test.ts": "458b7312beb7598ff911427244c4c1a6076a333466f5fa90009c4f2a8cdf5dac",
+    "packages/core-api/src/__tests__/AL6-return-status-route.test.ts": "3375ad553825c31b4fda778b013eb9231e955f570455b46e5d6acd9921ac5743",
+    "packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts": "03808895574898b123c6c96ab11bbd15c8a3b6e3ff57b3a8e1b5ec3242695657",
+    "packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts": "051b0c0ca43b5e6c7009b8b62a27bb0327b30d4d2009a4ba61c4cd0c5017e4b5"
+  },
+  "protectedBehavior": {
+    "mcpRoute": {
+      "path": "packages/agent-execution/harness-registry/src/__tests__/mcp-route.test.ts",
+      "sha256": "115064b9d5408c4fabf07ecff4b91f87c959f17e001bc5a3c3fbd20f6b807a81",
+      "command": "npx vitest run packages/agent-execution/harness-registry/src/__tests__/mcp-route.test.ts",
+      "exitCode": 0,
+      "passed": 5,
+      "failed": 0
+    },
+    "statefulBridge": {
+      "path": "packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts",
+      "sha256": "f08309f8b88636e82b1b75c5f60480d4ea3cdc690baa4fb8a95dcbf24973de11",
+      "command": "npx vitest run --config vitest.integration.config.ts --project harness packages/agent-execution/harness-registry/src/__tests__/mcp-bridge-stateful.integration.test.ts",
+      "exitCode": 0,
+      "passed": 2,
+      "failed": 0
+    }
+  },
+  "realHarness": {
+    "path": "packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+    "sha256": "075a31f57f22435b11d732ec7e4953459cb7d7680334a8aa629a03c25bce40f3",
+    "command": "npx vitest run --config vitest.integration.config.ts --project harness packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
+    "exitCode": 1,
+    "passed": 4,
+    "failed": 1,
+    "binaries": {
+      "claude": "2.1.202 (Claude Code)",
+      "codex": "codex-cli 0.144.6",
+      "opencode": "1.17.13",
+      "gh": "gh version 2.92.0 (2026-04-28)"
+    },
+    "claude": {
+      "model": "haiku",
+      "attempts": 3,
+      "result": "hard failure",
+      "failure": "HTTP 429: You've hit your monthly spend limit",
+      "sentinelObserved": false
+    },
+    "codex": {
+      "sentinelObserved": true
+    },
+    "opencode": {
+      "sentinelObserved": true
+    },
+    "gh": {
+      "tokenInjectionAuthenticated": true
+    },
+    "policy": "Claude failure is recorded and remains red; it was not skipped or weakened."
+  },
+  "credentialContract": {
+    "claude": "missing or invalid authentication throws",
+    "codex": "missing or invalid authentication throws",
+    "opencode": "missing or invalid authentication throws",
+    "gh": "missing, empty, or invalid token throws",
+    "skipCallbacksOrCredentialSkipBranches": 0
+  },
+  "preservedPartialProductHashes": {
+    "packages/agent-execution/harness-registry/package.json": "c969592613f7a0a0caaf828fe1888f159e06b4b3aa567449328013b7783260d8",
+    "packages/agent-execution/harness-registry/src/index.ts": "bc6840c718bfca7d197c0daf1775e051495e793eeafa11ab106b925052ff35cc",
+    "packages/agent-execution/harness-registry/src/mcp-tool-bridge.ts": "add996f2f150683cf2773602bfb710b9d031fb312847c9d5bfa941d896650118",
+    "packages/agent-execution/harness-registry/src/mcp/index.ts": "e09fedd686c463493a77321d144fbc5313ee2bac60e48ac4eb73d3bb3007e13a",
+    "packages/agent-execution/harness-registry/src/mcp/mcp-bridge.ts": "4376c6fa0265725cd4e5c955d6474d2ccda71e6dc9c34fff188b24a4a1ef64bb",
+    "packages/agent-execution/harness-registry/src/mcp/mcp-route.ts": "e6f762d25fbb35bd96028879dfdb2b04fb8fff6d1e6689f6628ad9437dd39e0d",
+    "packages/core-api/src/server-factory.ts": "1ae38d5108492be5a5312fbb609cb6674d23502accfcfad241aaf2368db2a6e9"
+  },
+  "locked": {
+    "productionCode": true,
+    "existingTests": true,
+    "serviceSurfaceGrowth": true
+  }
+}

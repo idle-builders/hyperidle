@@ -12,13 +12,15 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type { TaskStateChangedEvent, ToolContext } from "@hyperidle/shared";
-import { createCreateTaskTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const createTaskTool = createCreateTaskTool(toolHandlersPorts);
+const createTaskTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "create_task",
+)!;
 
 const NOW = new Date().toISOString();
 

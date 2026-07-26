@@ -22,7 +22,7 @@
 
 import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, readSystemPromptTemplateForRole, sessions } from "@hyperidle/db";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import {
 	AGENT_CATEGORIES,
 	catalogEntry,
@@ -33,7 +33,7 @@ import {
 	isCatalogModel,
 	MODEL_TIERS,
 } from "@hyperidle/shared";
-import { getUserById, insertUser, listAgentProfiles, updateUser } from "@hyperidle/users";
+import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { and, count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
@@ -230,7 +230,9 @@ export function createAgentRoutes(
 	// ── GET / — list AI agents (excludes system role and retired) ──
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		// Query all non-system, non-retired AI agents
-		const agentRows = await listAgentProfiles(db);
+		// List AI agents excluding system role and retired (former listAgentProfiles scope).
+		const allAiRows = await listUsers(db, { kind: "ai" });
+		const agentRows = allAiRows.filter((u) => u.role !== "system" && u.status !== "retired");
 
 		// Count active sessions per agent
 		const activeCounts = await db
@@ -297,7 +299,7 @@ export function createAgentRoutes(
 		// AH4: FK 422 — reject unknown teamId before the INSERT to surface a clear 422
 		// rather than a FK constraint 500. teamId references team_members.id.
 		if (data.teamId) {
-			const tmRow = await getTeamMembersById(db, data.teamId);
+			const tmRow = await getTeamMembers(db, { id: data.teamId });
 			if (!tmRow) {
 				return c.json({ error: `teamId not found: ${data.teamId}`, code: "VALIDATION_ERROR" }, 422);
 			}
@@ -350,7 +352,7 @@ export function createAgentRoutes(
 	router.patch("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
-		const existing = await getUserById(db, id);
+		const existing = await findUser(db, { id });
 		if (!existing) {
 			return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);
 		}
@@ -418,7 +420,7 @@ export function createAgentRoutes(
 				await updateUser(db, id, updateSet);
 			}
 
-			const updated = await getUserById(db, id);
+			const updated = await findUser(db, { id });
 			if (!updated) {
 				return c.json({ error: "Agent not found after update", code: "NOT_FOUND" }, 404);
 			}
@@ -491,7 +493,7 @@ export function createAgentRoutes(
 			await updateUser(db, id, updateSet);
 		}
 
-		const updated = await getUserById(db, id);
+		const updated = await findUser(db, { id });
 		if (!updated) {
 			return c.json({ error: "Agent not found after update", code: "NOT_FOUND" }, 404);
 		}
@@ -522,7 +524,7 @@ export function createAgentRoutes(
 	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
-		const existing = await getUserById(db, id);
+		const existing = await findUser(db, { id });
 		if (!existing) {
 			return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);
 		}

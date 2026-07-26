@@ -1,298 +1,493 @@
-/**
- * AV2 — Harness discovery unit tests (RED phase)
- *
- * AC-2 (discovery):
- *  - builtin probe: stubbed /models payload → yields those model ids as descriptor.models
- *  - builtin probe: no key → models: [] (never fabricated, never MODEL_CATALOG)
- *  - claude parser: real-captured fixture → expected descriptors
- *  - opencode parser: real-captured fixture → expected descriptors
- *  - codex: models: [] always
- *  - describeRegisteredHarness: discovered models from discoveries[type].models merged in
- */
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { HarnessAdapter, HarnessCapabilities } from "@hyperidle/shared";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { AdapterPool } from "../adapter-pool.js";
+import { discoverLocalHarnesses } from "../harness-discovery.js";
 
-import type { HarnessCapabilities, HarnessModelDescriptor } from "@hyperidle/shared";
-import { describe, expect, it } from "vitest";
-import type { AdapterMeta } from "../adapter-pool.js";
-import { describeRegisteredHarness } from "../harness-capability-descriptors.js";
-import { parseClaudeModelsOutput, parseOpencodeModelsOutput } from "../harness-discovery.js";
-
-// ---------------------------------------------------------------------------
-// Real-captured claude models output (captured 2026-07-06 from /opt/homebrew/bin/claude models)
-// ---------------------------------------------------------------------------
-
-const CLAUDE_MODELS_FIXTURE = `Current Claude models:
+const CLAUDE_MODELS = `Current Claude models:
 
 | Model | ID | Context | In $/1M | Out $/1M |
 |---|---|---|---|---|
 | **Fable 5** | \`claude-fable-5\` | 1M | $10 | $50 |
-| **Opus 4.8** | \`claude-opus-4-8\` | 1M | $5 | $25 |
-| Opus 4.7 | \`claude-opus-4-7\` | 1M | $5 | $25 |
-| Opus 4.6 | \`claude-opus-4-6\` | 1M | $5 | $25 |
-| **Sonnet 4.6** | \`claude-sonnet-4-6\` | 1M | $3 | $15 |
 | **Haiku 4.5** | \`claude-haiku-4-5\` | 200K | $1 | $5 |
-
-**Picking:**
-- **Fable 5** — most capable, tier above Opus. Highest cost.
+| Decimal | \`claude-decimal\` | 1.5M | $1 | $5 |
+| Numeric | \`claude-numeric\` | 128000 | $1 | $5 |
 `;
 
-// ---------------------------------------------------------------------------
-// Real-captured opencode models --verbose output (captured 2026-07-06)
-// ---------------------------------------------------------------------------
+const OPENCODE_MODELS = `opencode/bad
+{ bad json
+opencode/good
+{"id":"good","providerID":"openrouter","name":"Good","limit":{"context":200000}}`;
 
-const OPENCODE_MODELS_FIXTURE = `opencode/big-pickle
-{
-  "id": "big-pickle",
-  "providerID": "opencode",
-  "name": "Big Pickle",
-  "family": "big-pickle",
-  "api": {
-    "id": "big-pickle",
-    "url": "https://opencode.ai/zen/v1",
-    "npm": "@ai-sdk/openai-compatible"
-  },
-  "status": "active",
-  "headers": {},
-  "options": {},
-  "cost": {
-    "input": 0,
-    "output": 0,
-    "cache": {
-      "read": 0,
-      "write": 0
-    }
-  },
-  "limit": {
-    "context": 200000,
-    "input": 160000,
-    "output": 32000
-  },
-  "capabilities": {
-    "temperature": true,
-    "reasoning": true,
-    "attachment": false,
-    "toolcall": true
-  },
-  "release_date": "2025-10-17",
-  "variants": {}
+const response = (stdout = "", exitCode = 0, stderr = "") => ({ stdout, stderr, exitCode });
+const temporaryDirectories: string[] = [];
+
+async function temporaryDirectory(prefix: string): Promise<string> {
+	const path = await mkdtemp(join(tmpdir(), prefix));
+	temporaryDirectories.push(path);
+	return path;
 }
-opencode/deepseek-v4-flash-free
-{
-  "id": "deepseek-v4-flash-free",
-  "providerID": "opencode",
-  "name": "DeepSeek V4 Flash Free",
-  "family": "deepseek-flash-free",
-  "api": {
-    "id": "deepseek-v4-flash-free",
-    "url": "https://opencode.ai/zen/v1",
-    "npm": "@ai-sdk/openai-compatible"
-  },
-  "status": "active",
-  "headers": {},
-  "options": {},
-  "cost": {
-    "input": 0,
-    "output": 0
-  },
-  "limit": {
-    "context": 200000
-  },
-  "capabilities": {
-    "temperature": true
-  },
-  "release_date": "2025-01-01",
-  "variants": {}
+
+afterEach(async () => {
+	vi.useRealTimers();
+	vi.restoreAllMocks();
+	await Promise.all(temporaryDirectories.splice(0).map((path) => rm(path, { recursive: true })));
+});
+
+function discoveryRunner(overrides: Readonly<Record<string, ReturnType<typeof response>>> = {}) {
+	const defaults: Readonly<Record<string, ReturnType<typeof response>>> = {
+		"codex --version": response("codex-cli 1.2.3"),
+		"codex login status": response("Logged in using ChatGPT"),
+		"claude --version": response("2.0.0"),
+		"claude auth status": response('{"loggedIn":true}'),
+		"claude models": response(CLAUDE_MODELS),
+		"claude mcp list": response(
+			"github: https://example.invalid - ✓ Connected\nbroken: local - ✗ Failed\nwaiting: local - pending",
+		),
+		"opencode --version": response("1.0.0"),
+		"opencode providers list": response("1 credentials"),
+		"opencode models --verbose": response(OPENCODE_MODELS),
+		"cursor-agent --version": response("", 1),
+		"codex mcp list": response("", 1),
+		"gh --version": response("", 1),
+		"stripe --version": response("", 1),
+	};
+	return async (args: readonly string[]) => {
+		const key = args.join(" ");
+		return overrides[key] ?? defaults[key] ?? response("", 1);
+	};
 }
-`;
 
-// ---------------------------------------------------------------------------
-// parseClaudeModelsOutput
-// ---------------------------------------------------------------------------
+describe("discoverLocalHarnesses cohesive discovery", () => {
+	it("parses the captured Claude table, context forms, and MCP health end to end", async () => {
+		const result = await discoverLocalHarnesses({ run: discoveryRunner(), env: {} });
+		const claude = result["claude-code"];
 
-describe("parseClaudeModelsOutput", () => {
-	it("parses the real-captured claude models Markdown table", () => {
-		const models = parseClaudeModelsOutput(CLAUDE_MODELS_FIXTURE);
-		expect(models.length).toBeGreaterThan(0);
-
-		const ids = models.map((m) => m.id);
-		expect(ids).toContain("claude-fable-5");
-		expect(ids).toContain("claude-opus-4-8");
-		expect(ids).toContain("claude-sonnet-4-6");
-		expect(ids).toContain("claude-haiku-4-5");
+		expect(claude.state).toBe("ready");
+		expect(claude.models).toEqual([
+			expect.objectContaining({ id: "claude-fable-5", label: "Fable 5", contextWindow: 1_000_000 }),
+			expect.objectContaining({
+				id: "claude-haiku-4-5",
+				label: "Haiku 4.5",
+				contextWindow: 200_000,
+			}),
+			expect.objectContaining({ id: "claude-decimal", contextWindow: 1_500_000 }),
+			expect.objectContaining({ id: "claude-numeric", contextWindow: 128_000 }),
+		]);
+		expect(claude.inheritedTools).toEqual([
+			expect.objectContaining({ name: "broken", health: "needs-attention" }),
+			expect.objectContaining({ name: "github", health: "working" }),
+			expect.objectContaining({ name: "waiting", health: "needs-attention" }),
+		]);
 	});
 
-	it("strips backticks from the ID column", () => {
-		const models = parseClaudeModelsOutput(CLAUDE_MODELS_FIXTURE);
-		for (const m of models) {
-			expect(m.id).not.toContain("`");
+	it("reports honest none for Codex and skips malformed OpenCode blocks", async () => {
+		const result = await discoverLocalHarnesses({ run: discoveryRunner(), env: {} });
+		expect(result.codex).toMatchObject({ state: "ready", version: "codex-cli 1.2.3" });
+		expect(result.codex.models).toBeUndefined();
+		expect(result.opencode.models).toEqual([
+			expect.objectContaining({ id: "good", label: "Good", contextWindow: 200_000 }),
+		]);
+	});
+
+	it("returns empty OpenCode models for empty and wholly malformed output", async () => {
+		for (const stdout of ["", "opencode/bad\n{ definitely not json"]) {
+			const result = await discoverLocalHarnesses({
+				run: discoveryRunner({ "opencode models --verbose": response(stdout) }),
+				env: {},
+			});
+			expect(result.opencode.models).toEqual([]);
 		}
 	});
 
-	it("strips bold markers from the Model column to form labels", () => {
-		const models = parseClaudeModelsOutput(CLAUDE_MODELS_FIXTURE);
-		const fable = models.find((m) => m.id === "claude-fable-5");
-		expect(fable).toBeDefined();
-		expect(fable!.label).not.toContain("**");
-	});
-
-	it("parses context window correctly (1M → 1000000, 200K → 200000)", () => {
-		const models = parseClaudeModelsOutput(CLAUDE_MODELS_FIXTURE);
-		const opus = models.find((m) => m.id === "claude-opus-4-8");
-		const haiku = models.find((m) => m.id === "claude-haiku-4-5");
-		expect(opus?.contextWindow).toBe(1_000_000);
-		expect(haiku?.contextWindow).toBe(200_000);
-	});
-
-	it("returns [] on empty or non-table input (no crash)", () => {
-		expect(parseClaudeModelsOutput("")).toEqual([]);
-		expect(parseClaudeModelsOutput("no table here")).toEqual([]);
-	});
-
-	it("sets selectable:true for each returned model", () => {
-		const models = parseClaudeModelsOutput(CLAUDE_MODELS_FIXTURE);
-		for (const m of models) {
-			expect(m.selectable).toBe(true);
-		}
-	});
-});
-
-// ---------------------------------------------------------------------------
-// parseOpencodeModelsOutput
-// ---------------------------------------------------------------------------
-
-describe("parseOpencodeModelsOutput", () => {
-	it("parses the real-captured opencode models --verbose output", () => {
-		const models = parseOpencodeModelsOutput(OPENCODE_MODELS_FIXTURE);
-		expect(models.length).toBeGreaterThan(0);
-	});
-
-	it("extracts id from the JSON body", () => {
-		const models = parseOpencodeModelsOutput(OPENCODE_MODELS_FIXTURE);
-		const ids = models.map((m) => m.id);
-		expect(ids).toContain("big-pickle");
-		expect(ids).toContain("deepseek-v4-flash-free");
-	});
-
-	it("extracts name as label", () => {
-		const models = parseOpencodeModelsOutput(OPENCODE_MODELS_FIXTURE);
-		const bigPickle = models.find((m) => m.id === "big-pickle");
-		expect(bigPickle?.label).toBe("Big Pickle");
-	});
-
-	it("extracts context window from limit.context", () => {
-		const models = parseOpencodeModelsOutput(OPENCODE_MODELS_FIXTURE);
-		const bigPickle = models.find((m) => m.id === "big-pickle");
-		expect(bigPickle?.contextWindow).toBe(200000);
-	});
-
-	it("returns [] on empty input", () => {
-		expect(parseOpencodeModelsOutput("")).toEqual([]);
-	});
-
-	it("skips malformed JSON blocks gracefully", () => {
-		const broken = `opencode/bad\n{ bad json\nopencode/good\n{"id":"good","name":"Good","limit":{"context":1000}}`;
-		const models = parseOpencodeModelsOutput(broken);
-		// 'good' should be parsed; 'bad' silently skipped
-		const ids = models.map((m) => m.id);
-		expect(ids).toContain("good");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// describeRegisteredHarness: discoveries[type].models merged into descriptor
-// ---------------------------------------------------------------------------
-
-describe("describeRegisteredHarness: discoveries[type].models merged for CLI harnesses", () => {
-	const BASE_META: AdapterMeta = {
-		type: "opencode",
-		name: "OpenCode",
-		kind: "local",
-		modelProviders: [],
-		maxConcurrent: 1,
-	};
-
-	const BASE_CAPS: HarnessCapabilities = {
-		accessMode: "provider-subscription-cli",
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: [],
-		fileEditing: false,
-		toolUse: false,
-		discovery: { state: "ready" },
-		returnEnforcement: "none",
-	};
-
-	// @lore AV2: provider omitted here since "opencode" is not a valid ModelProvider.
-	// The parser maps providerID → ModelProvider; unknown providers are omitted.
-	const DISCOVERED_MODELS: readonly HarnessModelDescriptor[] = [
-		{
-			id: "opencode/big-pickle",
-			label: "Big Pickle",
-			contextWindow: 200000,
-			selectable: true,
-			inheritedFromGateway: false,
-			options: [],
-		},
-		{
-			id: "deepseek-v4-flash-free",
-			label: "DeepSeek V4 Flash Free",
-			contextWindow: 200000,
-			selectable: true,
-			inheritedFromGateway: false,
-			options: [],
-		},
-	];
-
-	it("uses discoveries[type].models when provided (overrides empty cliModels)", () => {
-		const descriptor = describeRegisteredHarness(BASE_META, BASE_CAPS, {
-			opencode: {
-				state: "ready",
-				models: DISCOVERED_MODELS,
-			},
+	it("maps Claude auth failures and unparsable health without inventing readiness", async () => {
+		const failed = await discoverLocalHarnesses({
+			run: discoveryRunner({ "claude auth status": response("denied", 1, "denied") }),
+			env: {},
+		});
+		expect(failed["claude-code"]).toMatchObject({
+			state: "installed",
+			reason: expect.stringContaining("failed"),
 		});
 
-		const ids = descriptor.models.map((m: (typeof descriptor.models)[number]) => m.id);
-		expect(ids).toContain("opencode/big-pickle");
-		expect(ids).toContain("deepseek-v4-flash-free");
+		const malformed = await discoverLocalHarnesses({
+			run: discoveryRunner({ "claude auth status": response("not-json") }),
+			env: {},
+		});
+		expect(malformed["claude-code"]).toMatchObject({
+			state: "installed",
+			reason: expect.stringContaining("unparsable"),
+		});
 	});
 
-	it("falls back to empty when no discoveries and no descriptorModels", () => {
-		const descriptor = describeRegisteredHarness(BASE_META, BASE_CAPS, {});
-		expect(descriptor.models).toHaveLength(0);
-	});
-
-	it("builtin: uses discoveries[builtin].models when provided", () => {
-		const builtinMeta: AdapterMeta = {
-			type: "builtin",
-			name: "Built-in",
-			kind: "local",
-			modelProviders: ["anthropic", "openrouter"],
-			maxConcurrent: 10,
-		};
-
-		const builtinCaps: HarnessCapabilities = {
-			...BASE_CAPS,
-			accessMode: "api-gateway",
-			modelProviders: ["anthropic", "openrouter"],
-		};
-
-		const discoveredBuiltinModels: readonly HarnessModelDescriptor[] = [
+	it("retains cwd MCP identity when Claude discovery finishes after the obsolete five-second race", async () => {
+		vi.useFakeTimers();
+		const cwd = await temporaryDirectory("an1-claude-delayed-");
+		await writeFile(
+			join(cwd, ".mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					"slow-project": {
+						command: "node",
+						env: { SECRET_SENTINEL: "must-not-escape" },
+					},
+				},
+			}),
+		);
+		const base = discoveryRunner();
+		const pending = discoverLocalHarnesses({
+			cwd,
+			env: {},
+			run: async (args) => {
+				if (args.join(" ") === "claude mcp list") {
+					return new Promise((resolve) =>
+						setTimeout(() => resolve(response("", 1, "health check timed out")), 5_100),
+					);
+				}
+				return base(args);
+			},
+		});
+		await vi.advanceTimersByTimeAsync(5_100);
+		const tools = (await pending)["claude-code"].inheritedTools;
+		expect(tools).toEqual([
 			{
-				id: "openrouter/deepseek/deepseek-v4-flash",
-				label: "DeepSeek V4",
-				provider: "openrouter",
-				contextWindow: 128000,
-				selectable: true,
-				inheritedFromGateway: true,
-				options: [],
+				name: "slow-project",
+				kind: "mcp-server",
+				harness: "claude-code",
+				health: "unknown",
 			},
-		];
+		]);
+		expect(JSON.stringify(tools)).not.toContain("SECRET_SENTINEL");
+		expect(JSON.stringify(tools)).not.toContain("must-not-escape");
+	});
 
-		const descriptor = describeRegisteredHarness(builtinMeta, builtinCaps, {
-			builtin: { state: "ready", models: discoveredBuiltinModels },
+	it.each([
+		["non-zero", response("", 1, "failed")],
+		["zero-empty", response("")],
+		["zero-unusable", response("Checking MCP server health…\nnot a server row")],
+	])("retains configured identity for %s Claude list output", async (_label, cliResult) => {
+		const cwd = await temporaryDirectory("an1-claude-fallback-");
+		await writeFile(
+			join(cwd, ".mcp.json"),
+			JSON.stringify({ mcpServers: { configured: { command: "secret-command" } } }),
+		);
+		const tools = (
+			await discoverLocalHarnesses({
+				cwd,
+				env: {},
+				run: discoveryRunner({ "claude mcp list": cliResult }),
+			})
+		)["claude-code"].inheritedTools;
+		expect(tools).toEqual([
+			{
+				name: "configured",
+				kind: "mcp-server",
+				harness: "claude-code",
+				health: "unknown",
+			},
+		]);
+	});
+
+	it("parses only final Claude status suffixes and applies conservative duplicate precedence", async () => {
+		const stdout = [
+			"spoof: node connected ✘ failed.js - Mystery state",
+			"auth: https://example.invalid - ! Needs authentication",
+			"connected: local - ✔ Connected",
+			"duplicate: local - ✔ Connected",
+			"duplicate: local - ✘ Failed to connect",
+			"pending: local - ⏸ Pending approval",
+		].join("\n");
+		const result = await discoverLocalHarnesses({
+			env: {},
+			run: discoveryRunner({ "claude mcp list": response(stdout) }),
+		});
+		expect(result["claude-code"].inheritedTools).toEqual([
+			{ name: "auth", kind: "mcp-server", harness: "claude-code", health: "needs-attention" },
+			{ name: "connected", kind: "mcp-server", harness: "claude-code", health: "working" },
+			{
+				name: "duplicate",
+				kind: "mcp-server",
+				harness: "claude-code",
+				health: "needs-attention",
+			},
+			{ name: "pending", kind: "mcp-server", harness: "claude-code", health: "needs-attention" },
+			{ name: "spoof", kind: "mcp-server", harness: "claude-code", health: "unknown" },
+		]);
+	});
+
+	it("merges CLI and config identities into the exact closed descriptor shape", async () => {
+		const cwd = await temporaryDirectory("an1-claude-merge-");
+		await writeFile(
+			join(cwd, ".mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					alpha: { command: "secret-alpha", env: { TOKEN: "secret-token" } },
+					zeta: { url: "https://secret.invalid" },
+				},
+			}),
+		);
+		const tools = (
+			await discoverLocalHarnesses({
+				cwd,
+				env: {},
+				run: discoveryRunner({
+					"claude mcp list": response(
+						"global: https://example.invalid/connected - ✘ Failed\nalpha: node secret-alpha - ✔ Connected",
+					),
+				}),
+			})
+		)["claude-code"].inheritedTools;
+		expect(tools).toEqual([
+			{ name: "alpha", kind: "mcp-server", harness: "claude-code", health: "working" },
+			{
+				name: "global",
+				kind: "mcp-server",
+				harness: "claude-code",
+				health: "needs-attention",
+			},
+			{ name: "zeta", kind: "mcp-server", harness: "claude-code", health: "unknown" },
+		]);
+		for (const tool of tools ?? []) {
+			expect(Object.keys(tool).sort()).toEqual(["harness", "health", "kind", "name"]);
+		}
+		expect(JSON.stringify(tools)).not.toMatch(/secret-alpha|secret-token|secret\.invalid|TOKEN/);
+	});
+
+	it("uses only readable cwd MCP server keys across malformed and symlink path states", async () => {
+		const targetDirectory = await temporaryDirectory("an1-claude-config-target-");
+		const target = join(targetDirectory, "servers.json");
+		await writeFile(
+			target,
+			JSON.stringify({
+				mcpServers: {
+					"linked-project": {
+						command: "secret-command",
+						// biome-ignore lint/style/useNamingConvention: external MCP header fixture.
+						headers: { Authorization: "Bearer secret-token" },
+					},
+				},
+			}),
+		);
+		const linkedCwd = await temporaryDirectory("an1-claude-linked-");
+		await symlink(target, join(linkedCwd, ".mcp.json"));
+		const failedCli = discoveryRunner({ "claude mcp list": response("", 1) });
+		const linkedTools = (await discoverLocalHarnesses({ cwd: linkedCwd, env: {}, run: failedCli }))[
+			"claude-code"
+		].inheritedTools;
+		expect(linkedTools).toEqual([
+			{
+				name: "linked-project",
+				kind: "mcp-server",
+				harness: "claude-code",
+				health: "unknown",
+			},
+		]);
+		expect(JSON.stringify(linkedTools)).not.toMatch(/secret-command|Authorization|secret-token/);
+
+		for (const setup of [
+			async (_cwd: string) => undefined,
+			async (cwd: string) => writeFile(join(cwd, ".mcp.json"), "{ malformed"),
+			async (cwd: string) => writeFile(join(cwd, ".mcp.json"), JSON.stringify({ theme: "dark" })),
+			async (cwd: string) =>
+				writeFile(join(cwd, ".mcp.json"), JSON.stringify({ mcpServers: "invalid" })),
+			async (cwd: string) =>
+				writeFile(join(cwd, ".mcp.json"), JSON.stringify({ mcpServers: ["invalid"] })),
+			async (cwd: string) =>
+				writeFile(
+					join(cwd, ".mcp.json"),
+					JSON.stringify({ mcpServers: { "": { command: "node" }, "   ": { command: "node" } } }),
+				),
+			async (cwd: string) => {
+				const path = join(cwd, ".mcp.json");
+				await writeFile(path, JSON.stringify({ mcpServers: { unreadable: { command: "node" } } }));
+				await chmod(path, 0o000);
+			},
+			async (cwd: string) => mkdir(join(cwd, ".mcp.json")),
+			async (cwd: string) => symlink(join(cwd, "missing.json"), join(cwd, ".mcp.json")),
+		]) {
+			const cwd = await temporaryDirectory("an1-claude-invalid-");
+			await setup(cwd);
+			const tools = (await discoverLocalHarnesses({ cwd, env: {}, run: failedCli }))["claude-code"]
+				.inheritedTools;
+			expect(tools).toEqual([]);
+		}
+	});
+
+	it.each([
+		["success", response("configured: local - ✔ Connected"), false],
+		["failure", response("", 1, "failed"), false],
+		["timeout", undefined, true],
+	] as const)(
+		"owns and cleans the Claude command deadline on %s",
+		async (_label, cliResult, timesOut) => {
+			vi.useFakeTimers();
+			const initialTimerCount = vi.getTimerCount();
+			const cwd = await temporaryDirectory("an1-claude-lifetime-");
+			await writeFile(
+				join(cwd, ".mcp.json"),
+				JSON.stringify({ mcpServers: { configured: { command: "node" } } }),
+			);
+			const base = discoveryRunner();
+			let invocations = 0;
+			let aborts = 0;
+			let completions = 0;
+			let capturedSignal: AbortSignal | undefined;
+			let listenersAdded = 0;
+			let listenersRemoved = 0;
+			const addListener = vi
+				.spyOn(AbortSignal.prototype, "addEventListener")
+				.mockImplementation(function (this: AbortSignal, ...args) {
+					listenersAdded += 1;
+					return EventTarget.prototype.addEventListener.apply(this, args);
+				});
+			const removeListener = vi
+				.spyOn(AbortSignal.prototype, "removeEventListener")
+				.mockImplementation(function (this: AbortSignal, ...args) {
+					listenersRemoved += 1;
+					return EventTarget.prototype.removeEventListener.apply(this, args);
+				});
+			const pending = discoverLocalHarnesses({
+				cwd,
+				env: {},
+				run: async (
+					args,
+					context?: { readonly signal: AbortSignal },
+				): Promise<ReturnType<typeof response>> => {
+					if (args.join(" ") !== "claude mcp list") return base(args);
+					invocations += 1;
+					capturedSignal = context?.signal;
+					if (context?.signal.aborted) aborts += 1;
+					if (cliResult) {
+						completions += 1;
+						return cliResult;
+					}
+					return new Promise(() => undefined);
+				},
+			});
+			if (timesOut) await vi.advanceTimersByTimeAsync(15_001);
+			const tools = (await pending)["claude-code"].inheritedTools;
+			if (capturedSignal?.aborted) aborts += 1;
+			expect({ invocations, aborts, completions }).toEqual({
+				invocations: 1,
+				aborts: timesOut ? 1 : 0,
+				completions: timesOut ? 0 : 1,
+			});
+			expect(vi.getTimerCount() - initialTimerCount).toBe(timesOut ? 0 : 2);
+			expect(listenersAdded - listenersRemoved).toBe(0);
+			expect(tools).toContainEqual(expect.objectContaining({ name: "configured" }));
+			addListener.mockRestore();
+			removeListener.mockRestore();
+		},
+	);
+
+	it.each(["resolve", "reject"] as const)(
+		"returns once and ignores a late runner %s after timeout",
+		async (lateOutcome) => {
+			vi.useFakeTimers();
+			const cwd = await temporaryDirectory("an1-claude-late-");
+			await writeFile(
+				join(cwd, ".mcp.json"),
+				JSON.stringify({ mcpServers: { configured: { command: "node" } } }),
+			);
+			const base = discoveryRunner();
+			let terminalCount = 0;
+			let lateSettlements = 0;
+			let capturedSignal: AbortSignal | undefined;
+			const unhandled: unknown[] = [];
+			const onUnhandled = (reason: unknown) => unhandled.push(reason);
+			process.on("unhandledRejection", onUnhandled);
+			try {
+				const pending = discoverLocalHarnesses({
+					cwd,
+					env: {},
+					run: async (args, context?: { readonly signal: AbortSignal }) => {
+						if (args.join(" ") !== "claude mcp list") return base(args);
+						capturedSignal = context?.signal;
+						return new Promise<ReturnType<typeof response>>((resolve, reject) =>
+							setTimeout(() => {
+								lateSettlements += 1;
+								if (lateOutcome === "resolve") resolve(response("late: local - ✔ Connected"));
+								else reject(new Error("late rejection sentinel"));
+							}, 20_000),
+						);
+					},
+				}).then((result) => {
+					terminalCount += 1;
+					return result;
+				});
+				await vi.advanceTimersByTimeAsync(15_001);
+				const result = await pending;
+				const returned = result["claude-code"].inheritedTools;
+				const snapshot = JSON.stringify(returned);
+				expect(terminalCount).toBe(1);
+				await vi.advanceTimersByTimeAsync(5_000);
+				await Promise.resolve();
+				expect({ terminalCount, lateSettlements, unhandled }).toEqual({
+					terminalCount: 1,
+					lateSettlements: 1,
+					unhandled: [],
+				});
+				expect(JSON.stringify(result["claude-code"].inheritedTools)).toBe(snapshot);
+				expect(capturedSignal).toBeInstanceOf(AbortSignal);
+				expect(capturedSignal?.aborted).toBe(true);
+				expect(returned).toContainEqual(expect.objectContaining({ name: "configured" }));
+			} finally {
+				process.off("unhandledRejection", onUnhandled);
+			}
+		},
+	);
+});
+
+const capabilities: HarnessCapabilities = {
+	accessMode: "api-gateway",
+	preCompactionTrigger: false,
+	subAgents: false,
+	mcpSupport: false,
+	modelProviders: ["openrouter"],
+	fileEditing: false,
+	toolUse: false,
+	discovery: { state: "ready" },
+	returnEnforcement: "none",
+};
+
+const adapter = { getCapabilities: () => capabilities } as HarnessAdapter;
+
+describe("AdapterPool capability catalog merge", () => {
+	it("prefers discovered models for registered builtin and retains known missing families", () => {
+		const pool = new AdapterPool({
+			builtin: {
+				state: "ready",
+				models: [
+					{
+						id: "openrouter/discovered",
+						label: "Discovered",
+						provider: "openrouter",
+						contextWindow: 128_000,
+						selectable: true,
+						inheritedFromGateway: true,
+						options: [],
+					},
+				],
+			},
+			codex: { state: "missing" },
+			"claude-code": { state: "missing" },
+			opencode: { state: "missing" },
+			"cursor-agent": { state: "missing" },
+		});
+		pool.register("builtin", adapter, {
+			type: "builtin",
+			name: "Builtin",
+			kind: "local",
+			modelProviders: ["openrouter"],
+			maxConcurrent: 1,
 		});
 
-		const ids = descriptor.models.map((m: (typeof descriptor.models)[number]) => m.id);
-		expect(ids).toContain("openrouter/deepseek/deepseek-v4-flash");
+		const catalog = pool.describe();
+		expect(
+			catalog.find((entry) => entry.type === "builtin")?.models.map((model) => model.id),
+		).toEqual(["openrouter/discovered"]);
+		expect(catalog.find((entry) => entry.type === "codex")?.discovery.state).toBe("missing");
 	});
 });

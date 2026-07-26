@@ -33,16 +33,26 @@
  * for B's.
  */
 
-import type { LlmResponse } from "@hyperidle/harness-registry";
-import { BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
-import type { SessionConfig } from "@hyperidle/shared";
+import { createHarnessAdapter } from "@hyperidle/harness-registry";
+import type { HarnessAdapter, SessionConfig } from "@hyperidle/shared";
+import type { LlmResponse } from "../../../agent-execution/harness-registry/src/llm-client.js";
+
+/** setSessionToolRegistry is a builtin-only duck-typed method (not on HarnessAdapter). */
+type BuiltinAdapterLike = HarnessAdapter & {
+	setSessionToolRegistry(id: string, registry: unknown): void;
+};
+/** Audited cast: createHarnessAdapter({ kind:"builtin" }) always returns BuiltinHarnessAdapter. */
+function toBuiltinLike(a: HarnessAdapter): BuiltinAdapterLike {
+	return a as unknown as BuiltinAdapterLike;
+}
+
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@hyperidle/harness-registry/llm-client", () => ({
+vi.mock("../../../agent-execution/harness-registry/src/llm-client.js", () => ({
 	callLlm: vi.fn(),
 }));
 
-const { callLlm } = await import("@hyperidle/harness-registry/llm-client");
+const { callLlm } = await import("../../../agent-execution/harness-registry/src/llm-client.js");
 const callLlmMock = vi.mocked(callLlm);
 
 const RESOLVED_MODEL = {
@@ -103,7 +113,12 @@ function makeConfig(sessionId: string): SessionConfig {
 
 describe("AF7 AC3: concurrent builtin sessions are isolated by sessionId", () => {
 	it("binds each session to ONLY its own pre-registered registry (no scan swap)", async () => {
-		const adapter = new BuiltinHarnessAdapter({ maxIterations: 2, reflectionInterval: 99 });
+		const adapter = toBuiltinLike(
+			createHarnessAdapter({
+				kind: "builtin",
+				options: { maxIterations: 2, reflectionInterval: 99 },
+			}),
+		);
 
 		const a = makeRecordingRegistry("A");
 		const b = makeRecordingRegistry("B");

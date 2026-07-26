@@ -32,7 +32,7 @@ const DEFAULT_COST = { input: 3, output: 15 };
  * @param outputTokens - completion tokens produced
  * @param model - the model id string (routing suffix like :nitro already stripped by caller)
  */
-export function estimateCostUsd(inputTokens: number, outputTokens: number, model: string): number {
+export function estimateLlmCost(inputTokens: number, outputTokens: number, model: string): number {
 	const rates = COST_PER_MILLION_TOKENS[model] ?? DEFAULT_COST;
 	return (inputTokens * rates.input + outputTokens * rates.output) / 1_000_000;
 }

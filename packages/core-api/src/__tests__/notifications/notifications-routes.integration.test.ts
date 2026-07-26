@@ -9,32 +9,29 @@
  *  - GET /queue: filters by status
  *  - POST /flush: drains pending queue
  *  - POST /digest: runs digest through adapter
+ *
+ * @lore AU20 Ag6b: migrated from `Recipient`/`SendResult`/`updateNotificationConfig`
+ * to inline types + `updateConfig`; old three-dep exports replaced by `notificationsDeps`.
  */
 
 import {
-	insertNotification,
-	listAll,
+	enqueue,
+	listNotifications,
 	type Notification,
 	type NotificationAdapter,
-	type Recipient,
 	type SafeNotificationConfig,
-	type SendResult,
-	updateNotificationConfig,
+	updateConfig,
 } from "@hyperidle/notifications";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
 import { expect, test } from "../../test-fixtures.js";
-import {
-	notificationsConfigDeps,
-	notificationsSilenceDeps,
-	notificationsWorkReader,
-} from "../notifications-test-deps.js";
+import { notificationsDeps } from "../notifications-test-deps.js";
 
 const API_KEY = "test-key-H2-routes";
 
 interface AdapterCall {
-	recipient: Recipient;
+	recipient: { channelId: string; label?: string };
 	notification: Notification;
 }
 
@@ -43,7 +40,7 @@ function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
 	return {
 		name: "console",
 		calls,
-		async send(recipient, notification): Promise<SendResult> {
+		async send(recipient, notification) {
 			calls.push({ recipient, notification });
 			return { ok: true, channel: "console", sentAt: new Date().toISOString() };
 		},
@@ -86,7 +83,7 @@ describe("H2 /api/notifications routes", () => {
 		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			// Seed a password + auth token; verify they come back as "***".
-			await updateNotificationConfig(
+			await updateConfig(
 				db,
 				{
 					enabled: true,
@@ -96,7 +93,7 @@ describe("H2 /api/notifications routes", () => {
 					ntfyAuthToken: "tk_abc",
 					smtpFrom: "ops@example.com",
 				},
-				notificationsConfigDeps,
+				notificationsDeps,
 			);
 
 			const res = await app.request("/api/notifications/config", { headers: headers() });
@@ -195,10 +192,10 @@ describe("H2 /api/notifications routes", () => {
 				body: JSON.stringify({}),
 			});
 			expect(res.status).toBe(200);
-			const result = (await res.json()) as SendResult;
+			const result = (await res.json()) as { ok: boolean; channel: string; sentAt?: string };
 			expect(result.ok).toBe(true);
 			expect(adapter.calls).toHaveLength(1);
-			const queueRows = await listAll(db);
+			const queueRows = await listNotifications(db, { kind: "all" });
 			expect(queueRows).toHaveLength(0);
 		} finally {
 			disposeApp(app);
@@ -210,7 +207,7 @@ describe("H2 /api/notifications routes", () => {
 		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const now = "2026-04-18T00:00:00.000Z";
-			await insertNotification(db, {
+			await enqueue(db, {
 				id: "q-1",
 				eventType: "item_created",
 				subjectId: "x",
@@ -417,11 +414,9 @@ describe("H2 /api/notifications routes", () => {
 		disposeApp(audit);
 		const { createNotificationRoutes } = await import("../../routes/notifications-routes.js");
 		const router = createNotificationRoutes(db, {
-			adapterFactory: () => adapter,
+			deps: notificationsDeps,
+			adapterOverride: adapter,
 			logger: captureLogger,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
 		});
 		const hono = new (await import("hono")).Hono();
 		hono.route("/api/notifications", router);
@@ -459,7 +454,7 @@ describe("H2 /api/notifications routes", () => {
 				body: JSON.stringify({ enabled: true, primaryChannel: "console" }),
 			});
 			const now = "2026-04-18T00:00:00.000Z";
-			await insertNotification(db, {
+			await enqueue(db, {
 				id: "q-d-1",
 				eventType: "item_created",
 				subjectId: "x",
@@ -483,7 +478,7 @@ describe("H2 /api/notifications routes", () => {
 			expect(result.status).toBe("sent");
 			expect(result.notificationsIncluded).toBe(1);
 			expect(adapter.calls).toHaveLength(1);
-			const rows = await listAll(db);
+			const rows = await listNotifications(db, { kind: "all" });
 			expect(rows[0]!.status).toBe("sent");
 		} finally {
 			disposeApp(app);

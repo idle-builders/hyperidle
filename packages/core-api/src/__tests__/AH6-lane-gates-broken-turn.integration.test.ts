@@ -37,7 +37,7 @@ const PER_AGENT_MODEL_ID = "deepseek/deepseek-v4-flash";
 // ---------------------------------------------------------------------------
 
 async function seedFounderAndThread(
-	db: import("@hyperidle/dispatch").AssistantTurnDeps["db"],
+	db: Parameters<import("@hyperidle/dispatch").DispatchOps["runAssistantTurn"]>[0]["db"],
 	{
 		founderId,
 		threadId,

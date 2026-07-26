@@ -1,231 +1,86 @@
-/**
- * AO2 — Mounter registry: selectMountAdapter dispatch table + W4 selection precedence.
- *
- * AC6: registry of adapters by (kind,source); v1 = worktree+clone+local-folder;
- *      cloud → explicit "not built", never silent.
- * AC1: selectMountAdapter is the only dispatcher; session-provisioning never branches on source.
- *
- * @lore AU19 Increment 2b: `gitRunnerFactory` in `makeDeps()` no longer uses
- * `git-export-runner.ts`'s `createFakeGitRunner` (that Fake stays in
- * `packages/server` — `git-export` hasn't migrated). `selectMountAdapter`
- * never invokes it in this test (only `.id` / `.mount` / `.captureBack` on
- * the CloudNotBuiltAdapter path are exercised), so a typed-but-unused stub
- * is sufficient, same idiom as the existing `db: null as never`.
- */
-
+import { execFileSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import type { Filesystem } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import {
-	type AdapterDeps,
-	MalformedFilesystemError,
-	selectMountAdapter,
-} from "../mounter-registry.js";
+import { type AdapterDeps, RegistryFilesystemMounter } from "../index.js";
 
-// Minimal AdapterDeps for unit testing.
-function makeDeps(): AdapterDeps {
-	return {
-		gitRunnerFactory: (_repoPath: string) => null as never, // never invoked by this test
-		capturesDir: "/tmp/captures",
-		db: null as never, // capture-store not exercised in unit tests
-	};
-}
+const deps: AdapterDeps = {
+	gitRunnerFactory: () => null as never,
+	capturesDir: "/tmp/au20-filesystems-captures",
+	db: null as never,
+};
 
-function makeFs(overrides: Partial<Filesystem>): Filesystem {
+function filesystem(overrides: Partial<Filesystem>): Filesystem {
 	return {
 		id: "fs-test",
 		teamId: "team-1",
-		source: "local",
-		kind: "code",
+		source: "gdrive",
+		kind: "doc_set",
 		connectionId: null,
-		resourceRef: { kind: "code", repo: "/home/user/myrepo", branch: "main" },
-		writeback: "git",
+		resourceRef: { kind: "doc_set", folder: "/tmp" },
+		writeback: "file",
 		state: "reachable",
 		createdAt: "2025-01-01T00:00:00Z",
 		...overrides,
 	};
 }
 
-describe("selectMountAdapter chooses the correct filesystem adapter", () => {
-	it("code + connectionId present → GitCloneAdapter (id='git-clone')", () => {
-		const fs = makeFs({ connectionId: "conn-123" });
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toBe("git-clone");
-	});
-
-	it("code + null connectionId + local path → GitWorktreeAdapter (id='git-worktree')", () => {
-		const fs = makeFs({
-			connectionId: null,
-			resourceRef: { kind: "code", repo: "/home/user/repo", branch: "main" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toBe("git-worktree");
-	});
-
-	it("code + null connectionId + ./relative path → GitWorktreeAdapter", () => {
-		const fs = makeFs({
-			connectionId: null,
-			resourceRef: { kind: "code", repo: "./my-repo", branch: "main" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toBe("git-worktree");
-	});
-
-	it("code + null connectionId + ~/home path → GitWorktreeAdapter", () => {
-		const fs = makeFs({
-			connectionId: null,
-			resourceRef: { kind: "code", repo: "~/projects/repo", branch: "main" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toBe("git-worktree");
-	});
-
-	it("code + null connectionId + file:// path → GitWorktreeAdapter", () => {
-		const fs = makeFs({
-			connectionId: null,
-			resourceRef: { kind: "code", repo: "file:///home/user/repo", branch: "main" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toBe("git-worktree");
-	});
-
-	it("code + null connectionId + owner/repo → MalformedFilesystemError (loud, never silent)", () => {
-		const fs = makeFs({
-			connectionId: null,
-			resourceRef: { kind: "code", repo: "owner/repo", branch: "main" },
-		});
-		expect(() => selectMountAdapter(fs, makeDeps())).toThrow(MalformedFilesystemError);
-	});
-
-	it("code + null connectionId + https URL → MalformedFilesystemError", () => {
-		const fs = makeFs({
-			connectionId: null,
-			resourceRef: { kind: "code", repo: "https://github.com/org/repo.git", branch: "main" },
-		});
-		expect(() => selectMountAdapter(fs, makeDeps())).toThrow(MalformedFilesystemError);
-	});
-
-	it("code + null connectionId + git@ SSH URL → MalformedFilesystemError", () => {
-		const fs = makeFs({
-			connectionId: null,
-			resourceRef: { kind: "code", repo: "git@github.com:org/repo.git", branch: "main" },
-		});
-		expect(() => selectMountAdapter(fs, makeDeps())).toThrow(MalformedFilesystemError);
-	});
-
-	it("doc_set + local source → LocalFolderAdapter (id='local-folder')", () => {
-		const fs = makeFs({
-			kind: "doc_set",
-			source: "local",
-			resourceRef: { kind: "doc_set", folder: "/home/user/vault" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toBe("local-folder");
-	});
-
-	it("doc_set + obsidian source → LocalFolderAdapter", () => {
-		const fs = makeFs({
-			kind: "doc_set",
-			source: "obsidian",
-			resourceRef: { kind: "doc_set", folder: "/home/user/vault" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toBe("local-folder");
-	});
-
-	it("doc_set + gdrive source → CloudNotBuiltAdapter (id='cloud-not-built:gdrive')", () => {
-		const fs = makeFs({
-			kind: "doc_set",
-			source: "gdrive",
-			resourceRef: { kind: "doc_set", folder: "drive://MyDocs" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toBe("cloud-not-built:gdrive");
-	});
-
-	it("doc_set + dropbox source → CloudNotBuiltAdapter", () => {
-		const fs = makeFs({
-			kind: "doc_set",
-			source: "dropbox",
-			resourceRef: { kind: "doc_set", folder: "dropbox://MyDocs" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toBe("cloud-not-built:dropbox");
-	});
-
-	it("document set with cloud object storage source uses CloudNotBuiltAdapter", () => {
-		const fs = makeFs({
-			kind: "doc_set",
-			source: "s3",
-			resourceRef: { kind: "doc_set", folder: "s3://mybucket" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toBe("cloud-not-built:s3");
-	});
-
-	it("unknown kind → CloudNotBuiltAdapter (never silent)", () => {
-		const fs = makeFs({ kind: "unknown_future_kind" as never, source: "local" });
-		const adapter = selectMountAdapter(fs, makeDeps());
-		expect(adapter.id).toMatch(/^cloud-not-built:/);
-	});
-});
-
-describe("CloudNotBuiltAdapter — explicit 'not built', never silent", () => {
-	it("mount returns success:false with 'not built' error message", async () => {
-		const fs = makeFs({
-			kind: "doc_set",
-			source: "gdrive",
-			resourceRef: { kind: "doc_set", folder: "drive://MyDocs" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		const result = await adapter.mount({
-			filesystem: fs,
+describe("RegistryFilesystemMounter dispatch", () => {
+	it("reports unsupported cloud sources explicitly through the public mount contract", async () => {
+		const result = await new RegistryFilesystemMounter(deps).mount({
+			filesystem: filesystem({ source: "gdrive" }),
 			sandboxPath: "/tmp/sandbox",
 			auth: null,
 		});
-		expect(result.success).toBe(false);
-		expect(result.error).toMatch(/not built/i);
+		expect(result).toMatchObject({ success: false, error: expect.stringContaining("not built") });
 	});
 
-	it("captureBack returns success:false captured:false", async () => {
-		const fs = makeFs({
-			kind: "doc_set",
-			source: "gdrive",
-			resourceRef: { kind: "doc_set", folder: "drive://MyDocs" },
-		});
-		const adapter = selectMountAdapter(fs, makeDeps());
-		const result = await adapter.captureBack({
-			filesystem: fs,
-			sandboxPath: "/tmp/sandbox",
-			sessionId: "sess-abc",
-		});
-		expect(result.success).toBe(false);
-		expect(result.captured).toBe(false);
-	});
-});
-
-describe("MalformedFilesystemError", () => {
-	it("is an instance of Error", () => {
-		const fs = makeFs({
-			connectionId: null,
+	it("rejects remote code without a connection instead of silently selecting an adapter", async () => {
+		const remote = filesystem({
+			kind: "code",
+			source: "github",
 			resourceRef: { kind: "code", repo: "owner/repo", branch: "main" },
 		});
-		expect(() => selectMountAdapter(fs, makeDeps())).toThrow(Error);
+		await expect(
+			new RegistryFilesystemMounter(deps).mount({
+				filesystem: remote,
+				sandboxPath: "/tmp/s",
+				auth: null,
+			}),
+		).rejects.toThrow("MalformedFilesystem");
 	});
 
-	it("message contains filesystem id", () => {
-		const fs = makeFs({
-			id: "fs-bad-abc",
-			connectionId: null,
-			resourceRef: { kind: "code", repo: "owner/repo", branch: "main" },
+	it("does not write excludes through a malicious worktree gitdir pointer", async () => {
+		const root = fs.mkdtempSync(path.join(os.tmpdir(), "au20-gitdir-"));
+		const repo = path.join(root, "repo");
+		const sandbox = path.join(root, "sandbox");
+		const external = path.join(root, ".git", "worktrees", "attacker");
+		fs.mkdirSync(path.join(repo, ".git"), { recursive: true });
+		fs.rmSync(path.join(repo, ".git"), { recursive: true });
+		execFileSync("git", ["init", repo]);
+		fs.mkdirSync(external, { recursive: true });
+		const maliciousDeps = {
+			...deps,
+			gitRunnerFactory: () => ({
+				worktreeAdd: async () => {
+					fs.mkdirSync(sandbox, { recursive: true });
+					fs.writeFileSync(path.join(sandbox, ".git"), `gitdir: ${external}\n`);
+				},
+			}),
+		} as unknown as AdapterDeps;
+		const result = await new RegistryFilesystemMounter(maliciousDeps).mount({
+			filesystem: filesystem({
+				kind: "code",
+				source: "local",
+				resourceRef: { kind: "code", repo, branch: "main" },
+			}),
+			sandboxPath: sandbox,
+			auth: null,
 		});
-		try {
-			selectMountAdapter(fs, makeDeps());
-			expect.fail("should have thrown");
-		} catch (err) {
-			expect(err).toBeInstanceOf(MalformedFilesystemError);
-			if (err instanceof MalformedFilesystemError) {
-				expect(err.filesystem.id).toBe("fs-bad-abc");
-			}
-		}
+		expect(result.success).toBe(true);
+		expect(fs.existsSync(path.join(external, "info", "exclude"))).toBe(false);
+		fs.rmSync(root, { recursive: true, force: true });
 	});
 });

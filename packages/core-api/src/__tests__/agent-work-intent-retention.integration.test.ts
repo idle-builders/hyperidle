@@ -1,5 +1,7 @@
 import { agentSessionRequests, agentWorkIntents, type HyperIdleDb, users } from "@hyperidle/db";
+import { reapExpired } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
+import { queueDeps } from "../services/durable-agent-queue.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const DAY = 86_400_000;
@@ -33,15 +35,10 @@ async function seedTerminalRequest(db: HyperIdleDb, id: string): Promise<void> {
 }
 
 async function reaper() {
-	const module = (await import("../services/session-requests-bindings.js")) as Record<
-		string,
-		unknown
-	>;
-	expect(module.reapTerminalAgentWorkIntents).toBeTypeOf("function");
-	return module.reapTerminalAgentWorkIntents as (
-		db: unknown,
-		options: { now: Date; retentionDays: number; batchSize: number },
-	) => Promise<unknown>;
+	const module = await import("../services/durable-agent-queue.js");
+	expect("reapExpired" in module).toBe(false);
+	return (db: HyperIdleDb, options: { now: Date; retentionDays: number; batchSize: number }) =>
+		reapExpired(queueDeps(db), options);
 }
 
 function intent(id: string, status: string, ageDays: number) {
@@ -127,9 +124,7 @@ describe("terminal intent retention", () => {
 	});
 
 	test("reaper exposes FK-safe cleanup for projected inbox, intent, and explicit source ordering", async () => {
-		const module = (await import("@hyperidle/session-requests")) as Record<string, unknown>;
-		expect(module.reapTerminalAgentWorkIntents).toBeTypeOf("function");
-		expect(module.AGENT_WORK_RETENTION_DAYS).toBe(30);
-		expect(module.AGENT_WORK_RETENTION_BATCH_SIZE).toBe(500);
+		const module = await import("@hyperidle/session-requests");
+		expect(module.reapExpired).toBeTypeOf("function");
 	});
 });

@@ -5,10 +5,10 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { serviceConnections, teamMembers, teams, userSkills, users } from "@hyperidle/db";
 import {
 	AdapterPool,
-	BuiltinHarnessAdapter,
-	DisabledSandboxAdapter,
+	createHarnessAdapter,
+	createSandboxAdapter,
 } from "@hyperidle/harness-registry";
-import { getResolvedConfiguration, listResolvedConfiguration } from "@hyperidle/settings";
+import { listConfiguration } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createServer, type ServerHandle } from "../server-factory.js";
 import { test } from "../test-fixtures.js";
@@ -33,7 +33,7 @@ describe("configuration projection boot wiring", () => {
 
 		const handle = await bootTestServer(db, "au2-config-boot");
 		try {
-			const entries = await listResolvedConfiguration(db);
+			const entries = await listConfiguration(db);
 
 			expect(entries).toContainEqual(
 				expect.objectContaining({
@@ -76,7 +76,12 @@ describe("configuration projection boot wiring", () => {
 				}),
 			);
 			expect(
-				await getResolvedConfiguration(db, "harness_descriptor", "harness_descriptor.builtin"),
+				(
+					await listConfiguration(db, {
+						kind: "harness_descriptor",
+						key: "harness_descriptor.builtin",
+					})
+				)[0],
 			).toEqual(
 				expect.objectContaining({
 					activeValue: expect.objectContaining({ type: "builtin" }),
@@ -100,14 +105,14 @@ async function bootTestServer(db: HyperIdleDb, label: string): Promise<ServerHan
 	return createServer(0, {
 		db,
 		adapterPool: makeBuiltinPool(),
-		workspaceAdapter: new DisabledSandboxAdapter(),
+		workspaceAdapter: createSandboxAdapter("disabled"),
 		sandboxBasePath: path.join(os.tmpdir(), label),
 	});
 }
 
 function makeBuiltinPool(): AdapterPool {
 	const pool = new AdapterPool();
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
+	pool.register("local-builtin", createHarnessAdapter({ kind: "builtin" }), {
 		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",

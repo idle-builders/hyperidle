@@ -26,17 +26,16 @@
  * tests, and the `ws-subscribe-authz.integration.test.ts` integration test
  * needing `{db, eventBus}` fixtures) now imports from `@hyperidle/realtime`
  * instead of the deleted `packages/server/src/services/ws-broadcaster.ts`.
+ *
+ * @lore AU20 Ab2: collapsed from 12 exports to 5. The 7 leaf DI reader/row
+ * types (RealtimeThread/User/OrgTeam/TaskReader + RealtimeThread/User/TeamMembersRow)
+ * are now file-internal in ports.ts — callers satisfy SubscribeAuthorizerDeps
+ * structurally and never need to name the leaf types. `start()` uses a
+ * declarative route table instead of 16 imperative eventBus.on() blocks.
+ * Public surface: WsBroadcaster, createDbSubscribeAuthorizer,
+ * SubscribeAuthorizerDeps, SubscribeResult, WsClient.
  */
 
-export type {
-	RealtimeOrgTeamReader,
-	RealtimeTaskReader,
-	RealtimeTeamMembersRow,
-	RealtimeThreadReader,
-	RealtimeThreadRow,
-	RealtimeUserDirectory,
-	RealtimeUserRow,
-	SubscribeAuthorizerDeps,
-} from "./ports.js";
+export type { SubscribeAuthorizerDeps } from "./ports.js";
 export type { SubscribeResult, WsClient } from "./ws-broadcaster.js";
 export { createDbSubscribeAuthorizer, WsBroadcaster } from "./ws-broadcaster.js";

@@ -1,20 +1,26 @@
-/**
- * @lore AU19 Increment 3c: real cut-over — moved here from
- * `packages/server/src/services/__tests__/agent-session-runtime.test.ts`.
- * See `agent-run-boundary.integration.test.ts`'s top `@lore` for the
- * fixture-conversion + port-injection rationale (same shape).
- */
-import { agentSessionRequests, bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	agentLifecycleInbox,
+	agentSessionRequests,
+	bets,
+	type HyperIdleDb,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { createAgentSessionRequest } from "@hyperidle/session-requests";
-import { EventBus } from "@hyperidle/shared";
+import { createSessionRequest } from "@hyperidle/session-requests";
+import { type AgentSessionRequestInput, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
-import { consumeAgentSessionRequest } from "../agent-session-runtime.js";
+import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
 
+const createRequestForTest = (db: HyperIdleDb, request: AgentSessionRequestInput) =>
+	createSessionRequest(db, { kind: "direct", request });
+
 describe("agent session runtime consumer", () => {
-	test("consumeAgentSessionRequest claims request, marks running before runSession, and marks terminal", async ({
+	test("runSession claims request, marks running before runSession, and marks terminal", async ({
 		db,
 	}) => {
 		const now = new Date().toISOString();
@@ -49,11 +55,11 @@ describe("agent session runtime consumer", () => {
 		});
 
 		const ports = buildTestPorts();
-		vi.mocked(ports.sessionProvisioner.admitSession).mockImplementation(async (_deps, params) => ({
+		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
 			sessionId: "session-runtime-1",
 			sessionContext: { taskId: params.taskId },
 		}));
-		vi.mocked(ports.sessionProvisioner.runSession).mockImplementation(async () => ({
+		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementation(async () => ({
 			sessionId: "session-runtime-1",
 			outcome: "completed",
 			totalCostCents: 0,
@@ -61,7 +67,7 @@ describe("agent session runtime consumer", () => {
 			forceReturnCount: 0,
 		}));
 
-		const request = await createAgentSessionRequest(db, {
+		const request = await createRequestForTest(db, {
 			sourceKind: "task",
 			sourceId: "task-1",
 			streamId: "task:task-1",
@@ -73,14 +79,12 @@ describe("agent session runtime consumer", () => {
 			sourceCorrelation: { taskId: "task-1", teamId: "team-1" },
 		});
 
-		await consumeAgentSessionRequest(
-			{ db, eventBus: new EventBus() },
-			request,
-			{ sandboxBasePath: "/tmp/au1-runtime-test" },
-			ports,
+		await runSession(
+			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{ mode: "durable", request, sandboxBasePath: "/tmp/au1-runtime-test" },
 		);
 
-		expect(ports.sessionProvisioner.admitSession).toHaveBeenCalledWith(
+		expect(ports.sessionProvisioner!.admitSession).toHaveBeenCalledWith(
 			expect.any(Object),
 			expect.objectContaining({
 				taskId: "task-1",
@@ -92,7 +96,7 @@ describe("agent session runtime consumer", () => {
 				},
 			}),
 		);
-		expect(ports.sessionProvisioner.runSession).toHaveBeenCalledOnce();
+		expect(ports.sessionProvisioner!.runSession).toHaveBeenCalledOnce();
 		const [row] = await db
 			.select()
 			.from(agentSessionRequests)
@@ -133,12 +137,12 @@ describe("agent session runtime consumer", () => {
 		});
 
 		const ports = buildTestPorts();
-		vi.mocked(ports.sessionProvisioner.admitSession).mockImplementation(async (_deps, params) => ({
+		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
 			sessionId: "session-runtime-1",
 			sessionContext: { taskId: params.taskId },
 		}));
 
-		const request = await createAgentSessionRequest(db, {
+		const request = await createRequestForTest(db, {
 			sourceKind: "task",
 			sourceId: "task-1",
 			streamId: "task:task-1",
@@ -149,7 +153,7 @@ describe("agent session runtime consumer", () => {
 			idempotencyKey: "task:task-1:running-before-run",
 			sourceCorrelation: { taskId: "task-1", teamId: "team-1" },
 		});
-		vi.mocked(ports.sessionProvisioner.runSession).mockImplementationOnce(async () => {
+		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementationOnce(async () => {
 			const [row] = await db
 				.select()
 				.from(agentSessionRequests)
@@ -164,11 +168,76 @@ describe("agent session runtime consumer", () => {
 			};
 		});
 
-		await consumeAgentSessionRequest(
-			{ db, eventBus: new EventBus() },
-			request,
-			{ sandboxBasePath: "/tmp/au1-runtime-test" },
-			ports,
+		await runSession(
+			{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+			{ mode: "durable", request, sandboxBasePath: "/tmp/au1-runtime-test" },
 		);
+	});
+
+	test("a harness failure terminalizes the admitted request once and emits one durable fact", async ({
+		db,
+	}) => {
+		const createdAt = new Date().toISOString();
+		await db.insert(users).values([
+			{
+				id: "failure-agent",
+				kind: "ai",
+				name: "Failure Agent",
+				role: "builder",
+				status: "active",
+				createdAt,
+			},
+			{
+				id: "failure-user",
+				kind: "human",
+				name: "Failure User",
+				role: "founder",
+				status: "active",
+				createdAt,
+			},
+		]);
+		const request = await createRequestForTest(db, {
+			sourceKind: "assistant",
+			sourceId: "failure-message",
+			streamId: "thread:failure",
+			agentId: "failure-agent",
+			userId: "failure-user",
+			promptMode: "conversation",
+			idempotencyKey: "assistant:failure-message",
+			sourceCorrelation: {
+				threadId: "failure-thread",
+				messageId: "failure-message",
+				userId: "failure-user",
+				assistantAgentId: "failure-agent",
+			},
+		});
+		const ports = buildTestPorts();
+		vi.mocked(ports.sessionProvisioner!.admitSession).mockResolvedValue({
+			sessionId: "failure-session",
+			sessionContext: { taskId: null },
+		});
+		vi.mocked(ports.sessionProvisioner!.runSession).mockRejectedValue(new Error("harness crashed"));
+
+		await expect(
+			runSession(
+				{ db, eventBus: new EventBus(), ports } as unknown as import("../contracts.js").RuntimeDeps,
+				{ mode: "durable", request, sandboxBasePath: "/tmp/au20-runtime-failure" },
+			),
+		).rejects.toThrow("harness crashed");
+
+		const [stored] = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.id, request.id));
+		expect(stored).toMatchObject({
+			status: "failed",
+			sessionId: "failure-session",
+		});
+		const facts = await db
+			.select()
+			.from(agentLifecycleInbox)
+			.where(eq(agentLifecycleInbox.requestId, request.id));
+		expect(facts).toHaveLength(1);
+		expect(facts[0]).toMatchObject({ state: "failed", sessionId: "failure-session" });
 	});
 });

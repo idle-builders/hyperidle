@@ -7,6 +7,7 @@ import {
 	type PluginRow,
 	pluginConfigurationDefaults,
 	plugins,
+	type ServiceConnectionRow,
 	userSkills,
 } from "@hyperidle/db";
 import {
@@ -21,7 +22,11 @@ import {
 } from "@hyperidle/shared";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
-import type { RoutineReader, ServiceConnectionsReader, SettingsUserDirectory } from "./ports.js";
+import type { RoutineReader, SettingsUserDirectory } from "./ports.js";
+
+// ---------------------------------------------------------------------------
+// Public shared shapes
+// ---------------------------------------------------------------------------
 
 export interface PluginConfigurationSource {
 	readonly id: string;
@@ -33,39 +38,6 @@ export interface PluginConfigurationSeed {
 	readonly kind: ConfigurationKind;
 	readonly key: string;
 	readonly value: unknown;
-}
-
-export interface LoadPluginConfigurationDefaultsInput {
-	readonly plugin: PluginConfigurationSource;
-	readonly defaults: readonly PluginConfigurationSeed[];
-	readonly now?: string;
-}
-
-export interface LoadBuiltInConfigurationDefaultsInput {
-	readonly defaults: readonly PluginConfigurationSeed[];
-	readonly now?: string;
-}
-
-export interface SetConfigurationOverrideInput {
-	readonly kind: ConfigurationKind;
-	readonly key: string;
-	readonly value: unknown;
-	readonly createdByUserId?: string | null;
-	readonly now?: string;
-}
-
-export interface ClearConfigurationOverrideInput {
-	readonly kind: ConfigurationKind;
-	readonly key: string;
-	readonly now?: string;
-}
-
-export interface PluginStateOptions {
-	readonly now?: string;
-}
-
-export interface BackfillLegacyConfigurationOptions {
-	readonly now?: string;
 }
 
 /**
@@ -89,14 +61,48 @@ export interface BackfillLegacyConfigurationOptions {
 export interface BackfillLegacyConfigurationDeps {
 	readonly users: Pick<SettingsUserDirectory, "listUsersByKind">;
 	readonly routines: Pick<RoutineReader, "listRoutines">;
-	readonly serviceConnections: Pick<ServiceConnectionsReader, "listByAuthSource">;
+	readonly serviceConnections: {
+		listByAuthSource(db: HyperIdleDb, authSource: string): Promise<ServiceConnectionRow[]>;
+	};
 }
 
-export const BUILTIN_PLUGIN_SOURCE: PluginConfigurationSource = {
+// ---------------------------------------------------------------------------
+// Module-internal input shapes (dropped from public barrel — AU20 Am6)
+// ---------------------------------------------------------------------------
+
+interface LoadPluginConfigurationDefaultsInput {
+	readonly plugin: PluginConfigurationSource;
+	readonly defaults: readonly PluginConfigurationSeed[];
+	readonly now?: string;
+}
+
+interface SetConfigurationOverrideInput {
+	readonly kind: ConfigurationKind;
+	readonly key: string;
+	readonly value: unknown;
+	readonly createdByUserId?: string | null;
+	readonly now?: string;
+}
+
+interface ClearConfigurationOverrideInput {
+	readonly kind: ConfigurationKind;
+	readonly key: string;
+	readonly now?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const BUILTIN_PLUGIN_SOURCE: PluginConfigurationSource = {
 	id: BUILTIN_PLUGIN_ID,
 	name: "HyperIdle Built-in",
 	version: "builtin",
 };
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
 
 function nowIso(now?: string): string {
 	return now ?? new Date().toISOString();
@@ -233,302 +239,6 @@ function findSecretBearingFieldPath(value: unknown, path: readonly string[] = []
 		if (nestedPath) return nestedPath;
 	}
 	return null;
-}
-
-export async function loadPluginConfigurationDefaults(
-	db: HyperIdleDb,
-	input: LoadPluginConfigurationDefaultsInput,
-): Promise<void> {
-	const ts = nowIso(input.now);
-	for (const seed of input.defaults) {
-		validateConfigurationValue(seed.kind, seed.key, seed.value);
-	}
-	await upsertPlugin(db, input.plugin, "enabled", ts);
-
-	for (const seed of input.defaults) {
-		await upsertDefault(db, input.plugin.id, seed, ts);
-	}
-}
-
-export async function loadBuiltInConfigurationDefaults(
-	db: HyperIdleDb,
-	input: LoadBuiltInConfigurationDefaultsInput,
-): Promise<void> {
-	await loadPluginConfigurationDefaults(db, {
-		plugin: BUILTIN_PLUGIN_SOURCE,
-		defaults: input.defaults,
-		now: input.now,
-	});
-}
-
-export async function setConfigurationOverride(
-	db: HyperIdleDb,
-	input: SetConfigurationOverrideInput,
-): Promise<ResolvedConfigurationItem> {
-	const ts = nowIso(input.now);
-	validateConfigurationValue(input.kind, input.key, input.value);
-	const existingDefault = await findDefault(db, input.kind, input.key);
-	await db
-		.insert(configurationOverrides)
-		.values({
-			id: overrideId(input.kind, input.key),
-			defaultId: existingDefault?.id ?? null,
-			kind: input.kind,
-			key: input.key,
-			userValueJson: stableJson(input.value),
-			state: "active",
-			createdByUserId: input.createdByUserId ?? null,
-			createdAt: ts,
-			updatedAt: ts,
-		})
-		.onConflictDoUpdate({
-			target: [configurationOverrides.kind, configurationOverrides.key],
-			set: {
-				defaultId: existingDefault?.id ?? null,
-				userValueJson: stableJson(input.value),
-				state: "active",
-				createdByUserId: input.createdByUserId ?? null,
-				updatedAt: ts,
-			},
-		});
-	const resolved = await getResolvedConfiguration(db, input.kind, input.key);
-	if (!resolved)
-		throw new Error(`Configuration override was not resolvable: ${input.kind}/${input.key}`);
-	return resolved;
-}
-
-export async function clearConfigurationOverride(
-	db: HyperIdleDb,
-	input: ClearConfigurationOverrideInput,
-): Promise<void> {
-	await db
-		.update(configurationOverrides)
-		.set({
-			state: "deleted",
-			updatedAt: nowIso(input.now),
-		})
-		.where(
-			and(eq(configurationOverrides.kind, input.kind), eq(configurationOverrides.key, input.key)),
-		);
-}
-
-export async function setPluginConfigurationState(
-	db: HyperIdleDb,
-	pluginId: string,
-	state: PluginState,
-	options: PluginStateOptions = {},
-): Promise<void> {
-	const ts = nowIso(options.now);
-	await db
-		.update(plugins)
-		.set({
-			state,
-			updatedAt: ts,
-			disabledAt: state === "disabled" ? ts : null,
-			removedAt: state === "removed" ? ts : null,
-		})
-		.where(eq(plugins.id, pluginId));
-}
-
-export async function listResolvedConfiguration(
-	db: HyperIdleDb,
-	kind?: ConfigurationKind,
-): Promise<ResolvedConfigurationItem[]> {
-	const defaultRows = await db
-		.select({
-			defaultRow: pluginConfigurationDefaults,
-			plugin: plugins,
-			override: configurationOverrides,
-		})
-		.from(pluginConfigurationDefaults)
-		.innerJoin(plugins, eq(pluginConfigurationDefaults.pluginId, plugins.id))
-		.leftJoin(
-			configurationOverrides,
-			and(
-				eq(configurationOverrides.kind, pluginConfigurationDefaults.kind),
-				eq(configurationOverrides.key, pluginConfigurationDefaults.key),
-				eq(configurationOverrides.state, "active"),
-			),
-		)
-		.orderBy(asc(pluginConfigurationDefaults.kind), asc(pluginConfigurationDefaults.key));
-
-	const entries = new Map<string, ResolvedConfigurationItem>();
-	for (const row of defaultRows) {
-		const entry = resolveDefaultBackedRow(row.defaultRow, row.plugin, row.override);
-		if (!entry) continue;
-		if (kind && entry.kind !== kind) continue;
-		entries.set(configKey(entry.kind, entry.key), entry);
-	}
-
-	const overrideRows = await db
-		.select()
-		.from(configurationOverrides)
-		.where(eq(configurationOverrides.state, "active"))
-		.orderBy(asc(configurationOverrides.kind), asc(configurationOverrides.key));
-	for (const override of overrideRows) {
-		if (!isConfigurationKind(override.kind)) continue;
-		const key = configKey(override.kind, override.key);
-		if (entries.has(key)) continue;
-		if (kind && override.kind !== kind) continue;
-		entries.set(key, resolveUserOwnedOverride(override));
-	}
-
-	return [...entries.values()].sort((left, right) => {
-		const byKind = left.kind.localeCompare(right.kind);
-		return byKind === 0 ? left.key.localeCompare(right.key) : byKind;
-	});
-}
-
-export async function getResolvedConfiguration(
-	db: HyperIdleDb,
-	kind: ConfigurationKind,
-	key: string,
-): Promise<ResolvedConfigurationItem | null> {
-	const entries = await listResolvedConfiguration(db, kind);
-	return entries.find((entry) => entry.key === key) ?? null;
-}
-
-export async function backfillLegacyConfigurationDefaults(
-	db: HyperIdleDb,
-	deps: BackfillLegacyConfigurationDeps,
-	options: BackfillLegacyConfigurationOptions = {},
-): Promise<void> {
-	const seeds: PluginConfigurationSeed[] = [];
-
-	const agentRows = await deps.users.listUsersByKind(db, "ai");
-	for (const agent of agentRows) {
-		seeds.push({
-			kind: "agent",
-			key: `agent.${agent.id}`,
-			value: {
-				id: agent.id,
-				name: agent.name,
-				role: agent.role,
-				teamId: agent.teamId,
-				status: agent.status,
-				systemPrompt: agent.systemPrompt,
-				harnessType: agent.harnessType,
-				modelTierPreference: agent.modelTierPreference,
-				modelId: agent.modelId,
-				modelProvider: agent.modelProvider,
-				maxConcurrentSessions: agent.maxConcurrentSessions,
-			},
-		});
-		if (agent.harnessType) {
-			seeds.push({
-				kind: "harness_descriptor",
-				key: `harness_descriptor.${agent.harnessType}`,
-				value: {
-					type: agent.harnessType,
-					name: agent.harnessType === "builtin" ? "Built-in Harness" : agent.harnessType,
-					source: "legacy_agent_harness",
-				},
-			});
-		}
-	}
-
-	const routineRows = await deps.routines.listRoutines(db, { includeDeleted: true });
-	for (const routine of routineRows) {
-		seeds.push({
-			kind: "routine",
-			key: `routine.${routine.id}`,
-			value: {
-				id: routine.id,
-				name: routine.name,
-				description: routine.description,
-				ownerAgentId: routine.ownerAgentId,
-				teamId: routine.teamId,
-				triggerType: routine.triggerType,
-				triggerConfig: parseNullableJson(routine.triggerConfig),
-				skillId: routine.skillId,
-				state: routine.state,
-				active: routine.active,
-			},
-		});
-		seeds.push({
-			kind: "trigger",
-			key: `trigger.${routine.id}`,
-			value: {
-				eventType: "routine.fire",
-				sourceKind: "routine",
-				scope: {
-					sourceId: routine.id,
-					teamId: routine.teamId,
-				},
-				agentId: routine.ownerAgentId,
-			},
-		});
-	}
-
-	const skillRows = await db.select().from(userSkills);
-	for (const skill of skillRows) {
-		seeds.push({
-			kind: "skill",
-			key: `skill.${skill.userId}.${skill.skillId}`,
-			value: {
-				userId: skill.userId,
-				skillId: skill.skillId,
-				autonomyLevel: skill.autonomyLevel,
-				successCount: skill.successCount,
-				failureCount: skill.failureCount,
-				lastUsedAt: skill.lastUsedAt,
-				promotedAt: skill.promotedAt,
-			},
-		});
-	}
-
-	const mcpRows = await deps.serviceConnections.listByAuthSource(db, "mcp");
-	for (const connection of mcpRows) {
-		seeds.push({
-			kind: "mcp_server",
-			key: `mcp_server.${connection.userId}.${connection.service}`,
-			value: {
-				id: connection.id,
-				userId: connection.userId,
-				service: connection.service,
-				authSource: connection.authSource,
-				serverUrl: connection.serverUrl,
-				health: connection.health,
-				lastValidatedAt: connection.lastValidatedAt,
-			},
-		});
-	}
-
-	for (const tool of BUILTIN_TOOL_CATALOG) {
-		seeds.push({
-			kind: "tool",
-			key: `tool.${tool.name}`,
-			value: {
-				name: tool.name,
-				description: tool.description,
-				roles: tool.roles ?? null,
-				reversibility: tool.reversibility ?? null,
-			},
-		});
-	}
-
-	seeds.push({
-		kind: "harness_descriptor",
-		key: "harness_descriptor.builtin",
-		value: {
-			type: "builtin",
-			name: "Built-in Harness",
-			source: "builtin_harness",
-		},
-	});
-
-	await loadBuiltInConfigurationDefaults(db, {
-		defaults: dedupeSeeds(seeds),
-		now: options.now,
-	});
-}
-
-export async function projectProductionConfigurationDefaults(
-	db: HyperIdleDb,
-	deps: BackfillLegacyConfigurationDeps,
-	options: BackfillLegacyConfigurationOptions = {},
-): Promise<void> {
-	await backfillLegacyConfigurationDefaults(db, deps, options);
 }
 
 async function upsertPlugin(
@@ -675,4 +385,388 @@ function dedupeSeeds(seeds: readonly PluginConfigurationSeed[]): PluginConfigura
 		byKey.set(configKey(seed.kind, seed.key), seed);
 	}
 	return [...byKey.values()];
+}
+
+// ---------------------------------------------------------------------------
+// Internal pre-collapse implementations (module-private)
+// ---------------------------------------------------------------------------
+
+async function loadPluginConfigurationDefaults(
+	db: HyperIdleDb,
+	input: LoadPluginConfigurationDefaultsInput,
+): Promise<void> {
+	const ts = nowIso(input.now);
+	for (const seed of input.defaults) {
+		validateConfigurationValue(seed.kind, seed.key, seed.value);
+	}
+	await upsertPlugin(db, input.plugin, "enabled", ts);
+
+	for (const seed of input.defaults) {
+		await upsertDefault(db, input.plugin.id, seed, ts);
+	}
+}
+
+async function setConfigurationOverride(
+	db: HyperIdleDb,
+	input: SetConfigurationOverrideInput,
+): Promise<ResolvedConfigurationItem> {
+	const ts = nowIso(input.now);
+	validateConfigurationValue(input.kind, input.key, input.value);
+	const existingDefault = await findDefault(db, input.kind, input.key);
+	await db
+		.insert(configurationOverrides)
+		.values({
+			id: overrideId(input.kind, input.key),
+			defaultId: existingDefault?.id ?? null,
+			kind: input.kind,
+			key: input.key,
+			userValueJson: stableJson(input.value),
+			state: "active",
+			createdByUserId: input.createdByUserId ?? null,
+			createdAt: ts,
+			updatedAt: ts,
+		})
+		.onConflictDoUpdate({
+			target: [configurationOverrides.kind, configurationOverrides.key],
+			set: {
+				defaultId: existingDefault?.id ?? null,
+				userValueJson: stableJson(input.value),
+				state: "active",
+				createdByUserId: input.createdByUserId ?? null,
+				updatedAt: ts,
+			},
+		});
+	const resolved = await getResolvedConfiguration(db, input.kind, input.key);
+	if (!resolved)
+		throw new Error(`Configuration override was not resolvable: ${input.kind}/${input.key}`);
+	return resolved;
+}
+
+async function clearConfigurationOverride(
+	db: HyperIdleDb,
+	input: ClearConfigurationOverrideInput,
+): Promise<void> {
+	await db
+		.update(configurationOverrides)
+		.set({
+			state: "deleted",
+			updatedAt: nowIso(input.now),
+		})
+		.where(
+			and(eq(configurationOverrides.kind, input.kind), eq(configurationOverrides.key, input.key)),
+		);
+}
+
+/**
+ * Plugin enabled/disabled/removed state transition.
+ * Kept as a distinct state machine — not expressible as a config override.
+ *
+ * @lore AU20 Am6: promoted from private setPluginConfigurationState; direct
+ * export, wrapper removed.
+ */
+export async function setPluginState(
+	db: HyperIdleDb,
+	pluginId: string,
+	state: PluginState,
+	now?: string,
+): Promise<void> {
+	const ts = nowIso(now);
+	await db
+		.update(plugins)
+		.set({
+			state,
+			updatedAt: ts,
+			disabledAt: state === "disabled" ? ts : null,
+			removedAt: state === "removed" ? ts : null,
+		})
+		.where(eq(plugins.id, pluginId));
+}
+
+async function listResolvedConfiguration(
+	db: HyperIdleDb,
+	kind?: ConfigurationKind,
+): Promise<ResolvedConfigurationItem[]> {
+	const defaultRows = await db
+		.select({
+			defaultRow: pluginConfigurationDefaults,
+			plugin: plugins,
+			override: configurationOverrides,
+		})
+		.from(pluginConfigurationDefaults)
+		.innerJoin(plugins, eq(pluginConfigurationDefaults.pluginId, plugins.id))
+		.leftJoin(
+			configurationOverrides,
+			and(
+				eq(configurationOverrides.kind, pluginConfigurationDefaults.kind),
+				eq(configurationOverrides.key, pluginConfigurationDefaults.key),
+				eq(configurationOverrides.state, "active"),
+			),
+		)
+		.orderBy(asc(pluginConfigurationDefaults.kind), asc(pluginConfigurationDefaults.key));
+
+	const entries = new Map<string, ResolvedConfigurationItem>();
+	for (const row of defaultRows) {
+		const entry = resolveDefaultBackedRow(row.defaultRow, row.plugin, row.override);
+		if (!entry) continue;
+		if (kind && entry.kind !== kind) continue;
+		entries.set(configKey(entry.kind, entry.key), entry);
+	}
+
+	const overrideRows = await db
+		.select()
+		.from(configurationOverrides)
+		.where(eq(configurationOverrides.state, "active"))
+		.orderBy(asc(configurationOverrides.kind), asc(configurationOverrides.key));
+	for (const override of overrideRows) {
+		if (!isConfigurationKind(override.kind)) continue;
+		const key = configKey(override.kind, override.key);
+		if (entries.has(key)) continue;
+		if (kind && override.kind !== kind) continue;
+		entries.set(key, resolveUserOwnedOverride(override));
+	}
+
+	return [...entries.values()].sort((left, right) => {
+		const byKind = left.kind.localeCompare(right.kind);
+		return byKind === 0 ? left.key.localeCompare(right.key) : byKind;
+	});
+}
+
+/**
+ * Get a single resolved configuration item by kind + key.
+ * Exported for use by internal consumers (agent-behavior-config.ts,
+ * unit tests via direct import) — not re-exported from the barrel.
+ * @lore AU20 Am6: dropped from barrel in favour of listConfiguration filter;
+ * kept here so agent-behavior-config.ts can import directly without routing
+ * through the barrel.
+ */
+async function getResolvedConfiguration(
+	db: HyperIdleDb,
+	kind: ConfigurationKind,
+	key: string,
+): Promise<ResolvedConfigurationItem | null> {
+	const entries = await listResolvedConfiguration(db, kind);
+	return entries.find((entry) => entry.key === key) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Public API (AU20 Am6 collapsed surface — ~5 functions + constants/types)
+// ---------------------------------------------------------------------------
+
+/**
+ * General filter-parameterised read. Replaces the `listResolvedConfiguration`
+ * (kind filter) + `getResolvedConfiguration` (kind+key → single) pair.
+ *
+ * - `listConfiguration(db)` → all items
+ * - `listConfiguration(db, { kind })` → all items for a kind
+ * - `listConfiguration(db, { kind, key })` → the single matching item (0 or 1 elements)
+ *
+ * @lore AU20 Am6: collapses list/find pair; one filter-parameterized read.
+ */
+export async function listConfiguration(
+	db: HyperIdleDb,
+	filter?: { kind?: ConfigurationKind; key?: string },
+): Promise<ResolvedConfigurationItem[]> {
+	const entries = await listResolvedConfiguration(db, filter?.kind);
+	if (filter?.key !== undefined) {
+		return entries.filter((entry) => entry.key === filter.key);
+	}
+	return entries;
+}
+
+/**
+ * Unified override write. `value: null` clears (soft-deletes) the override;
+ * any non-null value sets it.
+ *
+ * Returns the resolved item after setting, or null after clearing.
+ *
+ * @lore AU20 Am6: collapses setConfigurationOverride + clearConfigurationOverride.
+ * Set vs clear are the same write parameterised by value presence.
+ */
+export async function writeConfigurationOverride(
+	db: HyperIdleDb,
+	input: {
+		kind: ConfigurationKind;
+		key: string;
+		value: unknown;
+		createdByUserId?: string | null;
+		now?: string;
+	},
+): Promise<ResolvedConfigurationItem | null> {
+	if (input.value === null) {
+		await clearConfigurationOverride(db, { kind: input.kind, key: input.key, now: input.now });
+		return null;
+	}
+	return setConfigurationOverride(db, {
+		kind: input.kind,
+		key: input.key,
+		value: input.value,
+		createdByUserId: input.createdByUserId,
+		now: input.now,
+	});
+}
+
+/**
+ * Seed plugin (or built-in) configuration defaults.
+ * Omit `source` for built-in defaults; provide it only for plugin defaults.
+ *
+ * @lore AU20 Am6: collapses loadPluginConfigurationDefaults +
+ * loadBuiltInConfigurationDefaults. An omitted source selects the internal built-in source.
+ */
+export async function seedConfigurationDefaults(
+	db: HyperIdleDb,
+	input: {
+		source?: PluginConfigurationSource;
+		defaults: readonly PluginConfigurationSeed[];
+		now?: string;
+	},
+): Promise<void> {
+	await loadPluginConfigurationDefaults(db, {
+		plugin: input.source ?? BUILTIN_PLUGIN_SOURCE,
+		defaults: input.defaults,
+		now: input.now,
+	});
+}
+
+/**
+ * Boot-time projection: gather live agents/routines/connections/skills/tools
+ * into the built-in seed set.
+ *
+ * @lore AU20 Am6: collapses backfillLegacyConfigurationDefaults +
+ * projectProductionConfigurationDefaults (pure alias). `now` param inlined
+ * directly (BackfillLegacyConfigurationOptions wrapper type dropped).
+ */
+export async function backfillConfigurationDefaults(
+	db: HyperIdleDb,
+	deps: BackfillLegacyConfigurationDeps,
+	now?: string,
+): Promise<void> {
+	const seeds: PluginConfigurationSeed[] = [];
+
+	const agentRows = await deps.users.listUsersByKind(db, "ai");
+	for (const agent of agentRows) {
+		seeds.push({
+			kind: "agent",
+			key: `agent.${agent.id}`,
+			value: {
+				id: agent.id,
+				name: agent.name,
+				role: agent.role,
+				teamId: agent.teamId,
+				status: agent.status,
+				systemPrompt: agent.systemPrompt,
+				harnessType: agent.harnessType,
+				modelTierPreference: agent.modelTierPreference,
+				modelId: agent.modelId,
+				modelProvider: agent.modelProvider,
+				maxConcurrentSessions: agent.maxConcurrentSessions,
+			},
+		});
+		if (agent.harnessType) {
+			seeds.push({
+				kind: "harness_descriptor",
+				key: `harness_descriptor.${agent.harnessType}`,
+				value: {
+					type: agent.harnessType,
+					name: agent.harnessType === "builtin" ? "Built-in Harness" : agent.harnessType,
+					source: "legacy_agent_harness",
+				},
+			});
+		}
+	}
+
+	const routineRows = await deps.routines.listRoutines(db, { includeDeleted: true });
+	for (const routine of routineRows) {
+		seeds.push({
+			kind: "routine",
+			key: `routine.${routine.id}`,
+			value: {
+				id: routine.id,
+				name: routine.name,
+				description: routine.description,
+				ownerAgentId: routine.ownerAgentId,
+				teamId: routine.teamId,
+				triggerType: routine.triggerType,
+				triggerConfig: parseNullableJson(routine.triggerConfig),
+				skillId: routine.skillId,
+				state: routine.state,
+				active: routine.active,
+			},
+		});
+		seeds.push({
+			kind: "trigger",
+			key: `trigger.${routine.id}`,
+			value: {
+				eventType: "routine.fire",
+				sourceKind: "routine",
+				scope: {
+					sourceId: routine.id,
+					teamId: routine.teamId,
+				},
+				agentId: routine.ownerAgentId,
+			},
+		});
+	}
+
+	const skillRows = await db.select().from(userSkills);
+	for (const skill of skillRows) {
+		seeds.push({
+			kind: "skill",
+			key: `skill.${skill.userId}.${skill.skillId}`,
+			value: {
+				userId: skill.userId,
+				skillId: skill.skillId,
+				autonomyLevel: skill.autonomyLevel,
+				successCount: skill.successCount,
+				failureCount: skill.failureCount,
+				lastUsedAt: skill.lastUsedAt,
+				promotedAt: skill.promotedAt,
+			},
+		});
+	}
+
+	const mcpRows = await deps.serviceConnections.listByAuthSource(db, "mcp");
+	for (const connection of mcpRows) {
+		seeds.push({
+			kind: "mcp_server",
+			key: `mcp_server.${connection.userId}.${connection.service}`,
+			value: {
+				id: connection.id,
+				userId: connection.userId,
+				service: connection.service,
+				authSource: connection.authSource,
+				serverUrl: connection.serverUrl,
+				health: connection.health,
+				lastValidatedAt: connection.lastValidatedAt,
+			},
+		});
+	}
+
+	for (const tool of BUILTIN_TOOL_CATALOG) {
+		seeds.push({
+			kind: "tool",
+			key: `tool.${tool.name}`,
+			value: {
+				name: tool.name,
+				description: tool.description,
+				roles: tool.roles ?? null,
+				reversibility: tool.reversibility ?? null,
+			},
+		});
+	}
+
+	seeds.push({
+		kind: "harness_descriptor",
+		key: "harness_descriptor.builtin",
+		value: {
+			type: "builtin",
+			name: "Built-in Harness",
+			source: "builtin_harness",
+		},
+	});
+
+	await loadPluginConfigurationDefaults(db, {
+		plugin: BUILTIN_PLUGIN_SOURCE,
+		defaults: dedupeSeeds(seeds),
+		now,
+	});
 }

@@ -193,7 +193,8 @@ const DIRTY_SRC = [
 	`test("x", async () => {});`,
 ].join("\n");
 
-// AR2: a "clean" harness-facing integration file must declare ALL four SUPPORTED_HARNESSES.
+// AR2: a "clean" harness-facing integration file must declare ALL five SUPPORTED_HARNESSES.
+// Its reuse also proves the coverage-debt allowlist cannot hide a complete fixture.
 // A file with only "claude" is now coverage-dirty (incomplete matrix) — CLEAN_SRC must cover
 // the full matrix to pass the coverage check added in honest-harness-guard.ts §1.
 // AR7: CLEAN_SRC must NOT import raw model-callers (cli-harness-adapter / builtin-harness-adapter
@@ -206,6 +207,7 @@ const CLEAN_SRC = [
 	`requireHarness("claude");`,
 	`requireHarness("codex");`,
 	`requireHarness("opencode");`,
+	`requireHarness("cursor-agent");`,
 	`test("x", async () => {});`,
 ].join("\n");
 
@@ -401,6 +403,7 @@ describe("checkGuardRules — AR7 model-import allowlist rules", () => {
 		`requireHarness("claude");`,
 		`requireHarness("codex");`,
 		`requireHarness("opencode");`,
+		`requireHarness("cursor-agent");`,
 		`test("x", async () => { const a = new CliHarnessAdapter(cfg); });`,
 	].join("\n");
 

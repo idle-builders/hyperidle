@@ -12,13 +12,13 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { createHandoffToTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const handoffToTool = createHandoffToTool(toolHandlersPorts);
+const handoffToTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "handoff_to")!;
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();

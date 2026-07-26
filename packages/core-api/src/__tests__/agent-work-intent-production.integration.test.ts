@@ -1,4 +1,4 @@
-import { createAgentSelectionOps, resolveDecompositionPlan } from "@hyperidle/agent-selection";
+import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -20,40 +20,89 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { checkAndUnblockDependents } from "@hyperidle/filesystems";
-import { getTeamMembersByTeamId } from "@hyperidle/org";
-import { composeTailoredGrant } from "@hyperidle/review";
-import { getUserById, listActiveAiUsersByTeams } from "@hyperidle/users";
-import type { AgentSelectionDefaults, AgentWorkIntentRecorder } from "@hyperidle/work";
-import {
-	getTaskById,
-	insertProposedBetTasks,
-	listHoldTasksWithDependencyPattern,
-	transitionTask,
-} from "@hyperidle/work";
+import { getTeamMembers } from "@hyperidle/org";
+import { transitionProposedCall } from "@hyperidle/review";
+import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
+import { findUser, listUsers } from "@hyperidle/users";
+import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
+import { checkAndUnblockDependents, registerBetDecomposition } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
-import { checkAndFireRoutine } from "../services/dispatch-bindings.js";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
+import { queueDeps } from "../services/durable-agent-queue.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
+import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
-/** AU19 Increment 2b: `checkAndUnblockDependents` now requires an injected `{ work, workIntents }` deps bundle. */
+/** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
 const depWatcherDeps = {
-	work: { listHoldTasksWithDependencyPattern, getTaskById, transitionTask },
-	workIntents: { record: recordAgentWorkIntent },
+	workIntents: { record: enqueueWorkIntent },
 };
 
-const agentSelectionOps = createAgentSelectionOps({
-	users: { getUserById, listActiveAiUsersByTeams },
-	teams: { getTeamMembersByTeamId },
+const agentSelectionService = createAgentSelectionService({
+	users: {
+		getUserById: (db, id) => findUser(db, { id }),
+		listActiveAiUsersByTeams: (db, teamIds) =>
+			listUsers(db, { teamIds, kind: "ai", status: "active" }),
+	},
+	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
 });
 
-/** AU19 Increment 1b: `insertProposedBetTasks` now takes injected `agent-selection`/`session-requests` ports. */
-const agentSelection: AgentSelectionDefaults = {
-	enumerateTeamCandidates: agentSelectionOps.enumerateTeamCandidates,
-	selectOwner: agentSelectionOps.selectOwner,
-	resolveDecompositionPlan,
+/** @lore AU20 Ab4: adapts `AgentSelectionService` to `AgentSelectionDefaults`; resolveDecompositionPlan inlined. */
+const agentSelection: WorkDeps["agentSelection"] = {
+	listCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
+	selectAgent: (occDeps, occasion) =>
+		agentSelectionService.selectAgent({
+			surface: occasion.surface,
+			db: occDeps.db,
+			eventBus: occDeps.eventBus,
+			teamId: occasion.teamId,
+			workKey: occasion.workKey,
+			roleHint: occasion.roleHint,
+			spreadIndex: occasion.spreadIndex,
+		}),
 };
-const workIntents: AgentWorkIntentRecorder = { record: recordAgentWorkIntent };
+const workIntents: WorkDeps["workIntents"] = { record: enqueueWorkIntent };
+
+async function triggerDecomposition(
+	db: HyperIdleDb,
+	eventBus: BetDecompositionDeps["eventBus"],
+	taskInputs: readonly { title: string }[],
+	intentRecorder: WorkDeps["workIntents"] = workIntents,
+): Promise<void> {
+	const deps: BetDecompositionDeps = {
+		db,
+		eventBus,
+		agentSelection,
+		users: {
+			getUserById: (exec, id) => findUser(exec, { id }),
+			listActiveAiUsersByTeams: (exec, teamIds) =>
+				listUsers(exec, { teamIds: [...teamIds], kind: "ai", status: "active" }),
+		},
+		teamCapacity: {
+			getByTeamId: (exec, teamId) => getTeamMembers(exec, { teamId }),
+			setActiveBets: async () => {},
+		},
+		costCap: { checkCostCap: async () => ({ allowed: true }) },
+		workIntents: intentRecorder,
+		sandboxBasePath: "/tmp/au9-production",
+		runDecompositionTurn: async () => [...taskInputs],
+	};
+	const dispose = registerBetDecomposition(deps);
+	try {
+		eventBus.emit({
+			type: "bet_state_changed",
+			streamId: "au9-production-bet",
+			betId: "au9-production-bet",
+			fromState: "draft",
+			toState: "active",
+			timestamp: Date.now(),
+		});
+		await vi.waitFor(async () => {
+			const [bet] = await db.select().from(bets).where(eq(bets.id, "au9-production-bet"));
+			expect(["done", "blocked"]).toContain(bet?.decompositionStatus);
+		});
+	} finally {
+		dispose();
+	}
+}
 
 const authHeaders = {
 	"Content-Type": "application/json",
@@ -244,19 +293,16 @@ describe("atomic production handoffs", () => {
 		);
 	});
 
-	test("production module offers one drain with no domain callback", async () => {
-		const worker = (await import("../services/session-requests-bindings.js")) as Record<
-			string,
-			unknown
-		>;
-		expect(worker.consumeAgentSessionRequest).toBeTypeOf("function");
-		expect(worker.drainAgentWorkIntents).toBeTypeOf("function");
+	test("composition module exports dependencies only", async () => {
+		const worker = await import("../services/durable-agent-queue.js");
+		expect(worker.queueDeps).toBeTypeOf("function");
+		expect("drainIntents" in worker).toBe(false);
 		// @lore AU9 R1: handOffIntent was a zero-production-caller duplicate of the
 		// drain's own inline resolve+create+checkpoint transaction — deleted rather
 		// than kept as a second, un-wired "correct" path (the exact divergence class
 		// R1 exists to prevent). No AgentWorkIntentWorkerOptions.onRequest callback
 		// exists either — the drain is the sole request-creating path.
-		expect(worker.handOffIntent).toBeUndefined();
+		expect("handOffIntent" in worker).toBe(false);
 	});
 
 	test("explicit session command commits one source and intent before any request and replays exactly", async ({
@@ -316,8 +362,7 @@ describe("atomic production handoffs", () => {
 		});
 		expect(response.status).toBe(202);
 		let callbacks = 0;
-		const { drainAgentWorkIntents } = await import("../services/session-requests-bindings.js");
-		await drainAgentWorkIntents(db, {
+		await drainIntents(queueDeps(db), {
 			now: () => new Date(Date.now() + 1_000),
 			...({
 				onRequest: async () => {
@@ -325,7 +370,7 @@ describe("atomic production handoffs", () => {
 				},
 			} as object),
 		});
-		await drainAgentWorkIntents(db, { now: () => new Date(Date.now() + 2_000) });
+		await drainIntents(queueDeps(db), { now: () => new Date(Date.now() + 2_000) });
 		const [intent] = await db.select().from(agentWorkIntents);
 		const requests = await db.select().from(agentSessionRequests);
 		expect(callbacks, JSON.stringify(intent)).toBe(0);
@@ -366,6 +411,45 @@ describe("atomic production handoffs", () => {
 			requestId: null,
 		});
 		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
+	});
+
+	test("accepted-task event observes exactly one durable attempt and one intent", async ({
+		db,
+		app,
+		eventBus,
+	}) => {
+		await seedExplicitSessionAuthority(db);
+		await db
+			.update(tasks)
+			.set({ state: "proposed", ownerAgentId: "au9-production-agent" })
+			.where(eq(tasks.id, "au9-production-task"));
+		let observed: Promise<readonly [number, number]> | undefined;
+		const unsubscribe = eventBus.on("task_state_changed", (event) => {
+			if (event.taskId !== "au9-production-task" || event.toState !== "accepted") return;
+			observed = Promise.all([
+				db
+					.select()
+					.from(taskDispatchAttempts)
+					.where(eq(taskDispatchAttempts.taskId, event.taskId))
+					.then((rows) => rows.length),
+				db
+					.select()
+					.from(agentWorkIntents)
+					.where(eq(agentWorkIntents.sourceKind, "task_dispatch_attempt"))
+					.then((rows) => rows.length),
+			]);
+		});
+
+		const response = await app.request("/api/tasks/au9-production-task/transition", {
+			method: "POST",
+			headers: authHeaders,
+			body: JSON.stringify({ state: "accepted" }),
+		});
+		unsubscribe();
+
+		expect(response.status).toBe(200);
+		expect(observed).toBeDefined();
+		expect(await observed).toEqual([1, 1]);
 	});
 
 	test("dependency watcher acceptance records a distinct dispatch occasion", async ({
@@ -412,14 +496,8 @@ describe("atomic production handoffs", () => {
 	}) => {
 		await seedExplicitSessionAuthority(db);
 
-		const result = await insertProposedBetTasks(
-			{ db, eventBus, agentSelection, workIntents },
-			{ id: "au9-production-bet", teamId: "au9-production-team" },
-			[],
-			[{ title: "First slice" }, { title: "Second slice" }],
-		);
+		await triggerDecomposition(db, eventBus, [{ title: "First slice" }, { title: "Second slice" }]);
 
-		expect(result.created).toBe(2);
 		const createdTasks = await db.select().from(tasks).where(eq(tasks.betId, "au9-production-bet"));
 		const createdIds = createdTasks
 			.filter((task) => task.id !== "au9-production-task")
@@ -535,7 +613,7 @@ describe("atomic production handoffs", () => {
 		await rejectIntentWrites(db);
 
 		await expect(
-			checkAndFireRoutine(db, eventBus, routine!, {
+			fireGenericRoutine(db, eventBus, routine!, {
 				adapterPool: {},
 				workspace: {},
 				sandboxBasePath: "/tmp/au9-production",
@@ -658,34 +736,35 @@ describe("atomic production handoffs", () => {
 		eventBus,
 	}) => {
 		await seedExplicitSessionAuthority(db);
-		await rejectIntentWrites(db);
-		await expect(
-			insertProposedBetTasks(
-				{ db, eventBus, agentSelection, workIntents },
-				{ id: "au9-production-bet", teamId: "au9-production-team" },
-				[],
-				[{ title: "Must be atomic" }],
-			),
-		).rejects.toThrow("AU9 injected intent write failure");
+		const failDispatchIntent: WorkDeps["workIntents"] = {
+			record: (exec, input) => {
+				if (input.kind === "task_run") {
+					throw new Error("AU9 injected intent write failure");
+				}
+				return enqueueWorkIntent(exec, input);
+			},
+		};
+		await triggerDecomposition(db, eventBus, [{ title: "Must be atomic" }], failDispatchIntent);
 		const rows = await db.select().from(tasks).where(eq(tasks.betId, "au9-production-bet"));
 		expect(rows.map((row) => row.id)).toEqual(["au9-production-task"]);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
+		expect(await db.select().from(agentWorkIntents)).toHaveLength(1);
 	});
 
 	test("real proposed-call grant command records one replay-safe reengagement occasion", async ({
 		db,
 	}) => {
 		await seedProposedCallWorld(db);
-		await composeTailoredGrant(
+		await transitionProposedCall(
 			db,
 			{
-				proposedCallId: "au9-production-call",
+				to: "granted",
+				id: "au9-production-call",
 				taskScope: "au9-production-task",
 				agentScope: "au9-production-agent",
 				approvedToolId: "commit_file",
 				approvedArgs: { path: "result.txt" },
 			},
-			{ sessionRequests: { record: recordAgentWorkIntent } },
+			{ intentRecorder: { record: enqueueWorkIntent } },
 		);
 		const intents = await db
 			.select()

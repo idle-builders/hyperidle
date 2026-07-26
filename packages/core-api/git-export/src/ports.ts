@@ -61,10 +61,6 @@ export interface GitExportServerConfigPort {
 	update(db: HyperIdleDb, patch: { gitExport: GitExportConfigSectionPatch }): Promise<unknown>;
 }
 
-export interface GitExportConfigDeps {
-	readonly serverConfig: GitExportServerConfigPort;
-}
-
 // ---------------------------------------------------------------------------
 // knowledge — GitExportKnowledgeReader (ordinary downward edge, `knowledge`
 // is a REAL migrated package — census-missed edge, see this file's top `@lore`)
@@ -83,11 +79,6 @@ export interface GitExportKnowledgeItemRow {
 }
 
 /** Structural mirror of `@hyperidle/knowledge`'s `KnowledgeItemProjectionRow`. */
-export interface GitExportKnowledgeItemProjection {
-	readonly layer: string | null;
-	readonly kind: string | null;
-}
-
 /** Port for `knowledge`'s read surface `computeExportPlan`/the event handler call directly today. */
 export interface GitExportKnowledgeReader {
 	listExportableItems(
@@ -97,10 +88,12 @@ export interface GitExportKnowledgeReader {
 	getProjectionByItemId(
 		db: HyperIdleDb,
 		itemId: string,
-	): Promise<GitExportKnowledgeItemProjection | null>;
+	): Promise<{ readonly layer: string | null; readonly kind: string | null } | null>;
 }
 
 /** Combined outbound-edge deps every `git-export` entry point needs. */
-export interface GitExportDeps extends GitExportConfigDeps {
+
+export interface GitExportDeps {
+	readonly serverConfig: GitExportServerConfigPort;
 	readonly knowledge: GitExportKnowledgeReader;
 }

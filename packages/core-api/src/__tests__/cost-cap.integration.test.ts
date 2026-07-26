@@ -11,12 +11,7 @@ import {
 } from "@hyperidle/db";
 import type { CostCapBreachedEvent, CostCapWarningEvent } from "@hyperidle/shared";
 import { and, eq, sql } from "drizzle-orm";
-import {
-	checkCostCap,
-	clearDeduplicationCache,
-	recordCostAndCheck,
-	resetCosts,
-} from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
@@ -94,7 +89,7 @@ async function insertSession(
 	});
 
 	// @lore O2: sessions.cost removed; accumulate on agents.costActual and
-	// teams.costActual so checkCostCap can read the running total.
+	// teams.costActual so costOps.check can read the running total.
 	if (cost > 0) {
 		await db
 			.update(users)
@@ -119,16 +114,16 @@ async function insertSession(
 
 describe("Cost Cap Enforcement", () => {
 	beforeEach(() => {
-		clearDeduplicationCache();
+		costOps._testHooks.clearDedup();
 	});
 
-	// AC1: Agent cap $10 -> after $10 spent, checkCostCap returns { allowed: false, level: 'agent' }
+	// AC1: Agent cap $10 -> after $10 spent, costOps.check returns { allowed: false, level: 'agent' }
 	describe("AC1: Agent cap enforcement", () => {
 		test("allows session when agent spend is under cap", async ({ db, eventBus }) => {
 			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 500); // $5
 
-			const result = await checkCostCap(db, eventBus, {
+			const result = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -140,7 +135,7 @@ describe("Cost Cap Enforcement", () => {
 			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 1000); // $10 = cap
 
-			const result = await checkCostCap(db, eventBus, {
+			const result = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -157,7 +152,7 @@ describe("Cost Cap Enforcement", () => {
 			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 1200); // $12 > $10
 
-			const result = await checkCostCap(db, eventBus, {
+			const result = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -182,7 +177,7 @@ describe("Cost Cap Enforcement", () => {
 			// Spend well above agent level but below team cap ($50)
 			await insertSession(db, "s1", "agent-nocap", 4000);
 
-			const result = await checkCostCap(db, eventBus, {
+			const result = await costOps.check(db, eventBus, {
 				agentId: "agent-nocap",
 				teamId: "t1",
 			});
@@ -216,7 +211,7 @@ describe("Cost Cap Enforcement", () => {
 			await insertSession(db, "s1", "agent-2", 4500);
 			await insertSession(db, "s2", "agent-1", 500);
 
-			const result = await checkCostCap(db, eventBus, {
+			const result = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -236,7 +231,7 @@ describe("Cost Cap Enforcement", () => {
 			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 900); // agent under cap
 
-			const result = await checkCostCap(db, eventBus, {
+			const result = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 				factoryCap: 20000, // $200
@@ -265,9 +260,9 @@ describe("Cost Cap Enforcement", () => {
 			await insertSession(db, "s1", "agent-1", 0);
 
 			// Record cost of 200 on current session -> total agent spend = 800 + 200 = 1000
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "s1",
-				cost: 200,
+				costMinor: 200,
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -299,9 +294,9 @@ describe("Cost Cap Enforcement", () => {
 			await insertSession(db, "s-big", "agent-2", 4800);
 			await insertSession(db, "s1", "agent-1", 0);
 
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "s1",
-				cost: 200,
+				costMinor: 200,
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -323,9 +318,9 @@ describe("Cost Cap Enforcement", () => {
 
 			await insertSession(db, "s1", "agent-1", 0);
 
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "s1",
-				cost: 800, // 800/1000 = 80%
+				costMinor: 800, // 800/1000 = 80%
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -356,9 +351,9 @@ describe("Cost Cap Enforcement", () => {
 			await insertSession(db, "s-big", "agent-2", 3800);
 			await insertSession(db, "s1", "agent-1", 0);
 
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "s1",
-				cost: 200,
+				costMinor: 200,
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -375,9 +370,9 @@ describe("Cost Cap Enforcement", () => {
 
 			await insertSession(db, "s1", "agent-1", 0);
 
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "s1",
-				cost: 100,
+				costMinor: 100,
 				agentId: "agent-1",
 				teamId: "t1",
 				factoryCap: 20000, // $200
@@ -398,17 +393,17 @@ describe("Cost Cap Enforcement", () => {
 			await insertSession(db, "s1", "agent-1", 1000); // at cap
 
 			// Verify blocked before reset
-			const beforeReset = await checkCostCap(db, eventBus, {
+			const beforeReset = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 			});
 			expect(beforeReset.allowed).toBe(false);
 
 			// Reset agent costs
-			await resetCosts(db, { level: "agent", id: "agent-1" });
+			await costOps.reset(db, { level: "agent", id: "agent-1" });
 
 			// Should be allowed after reset
-			const afterReset = await checkCostCap(db, eventBus, {
+			const afterReset = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -430,16 +425,16 @@ describe("Cost Cap Enforcement", () => {
 
 			await insertSession(db, "s1", "agent-2", 5000); // team at cap
 
-			const beforeReset = await checkCostCap(db, eventBus, {
+			const beforeReset = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 			});
 			expect(beforeReset.allowed).toBe(false);
 			expect(beforeReset.level).toBe("team");
 
-			await resetCosts(db, { level: "team", id: "t1" });
+			await costOps.reset(db, { level: "team", id: "t1" });
 
-			const afterReset = await checkCostCap(db, eventBus, {
+			const afterReset = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -450,10 +445,10 @@ describe("Cost Cap Enforcement", () => {
 			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 500);
 
-			await resetCosts(db, { level: "factory" });
+			await costOps.reset(db, { level: "factory" });
 
 			// All session costs should be zeroed
-			const result = await checkCostCap(db, eventBus, {
+			const result = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 				factoryCap: 100, // tiny cap but spend is reset
@@ -465,12 +460,12 @@ describe("Cost Cap Enforcement", () => {
 
 	// AC7: In-progress sessions NOT killed (finish naturally)
 	describe("AC7: In-progress sessions not killed", () => {
-		test("checkCostCap does not modify active sessions", async ({ db, eventBus }) => {
+		test("costOps.check does not modify active sessions", async ({ db, eventBus }) => {
 			await seedBase(db);
 			await insertSession(db, "s-active", "agent-1", 1000, "active"); // at cap, but active
 			await insertSession(db, "s-done", "agent-1", 100, "done");
 
-			const result = await checkCostCap(db, eventBus, {
+			const result = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -495,9 +490,9 @@ describe("Cost Cap Enforcement", () => {
 			await seedBase(db);
 			await insertSession(db, "s1", "agent-1", 0);
 
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "s1",
-				cost: 1000, // hits agent cap
+				costMinor: 1000, // hits agent cap
 				agentId: "agent-1",
 				teamId: "t1",
 				reviewThreadId: "thread-1",
@@ -521,17 +516,17 @@ describe("Cost Cap Enforcement", () => {
 			await insertSession(db, "s1", "agent-1", 0);
 
 			// First call at 80%
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "s1",
-				cost: 800,
+				costMinor: 800,
 				agentId: "agent-1",
 				teamId: "t1",
 			});
 
 			// Second call still at 80%+ (cost goes higher)
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "s1",
-				cost: 850,
+				costMinor: 850,
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -550,16 +545,16 @@ describe("Cost Cap Enforcement", () => {
 
 			await insertSession(db, "s1", "agent-1", 0);
 
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "s1",
-				cost: 1000,
+				costMinor: 1000,
 				agentId: "agent-1",
 				teamId: "t1",
 			});
 
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "s1",
-				cost: 1100,
+				costMinor: 1100,
 				agentId: "agent-1",
 				teamId: "t1",
 			});
@@ -595,7 +590,7 @@ describe("Cost Cap Enforcement", () => {
 
 			await insertSession(db, "s2", "agent-2", 4000);
 
-			const result = await checkCostCap(db, eventBus, {
+			const result = await costOps.check(db, eventBus, {
 				agentId: "agent-1",
 				teamId: "t1",
 			});

@@ -1,38 +1,25 @@
 import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, sessions, taskDispatchAttempts } from "@hyperidle/db";
-import type { DomainEvent, EventBus, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
+import {
+	canTransitionTaskState,
+	type DomainEvent,
+	type EventBus,
+	TaskInvalidTransitionError,
+	type TaskState,
+	type TaskStateChangedEvent,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type { HandoffDeps, PolicySessionContext } from "./ports.js";
-import { InvalidTransitionError, VALID_TRANSITIONS } from "./task-transitions.js";
+import type { PolicyDeps, PolicySessionContext } from "./ports.js";
 
-/**
- * @lore AU19 Increment 2a: this is the real cut-over — moved here from
- * `packages/server/src/services/handoff-protocol.ts` (behavior-preserving
- * move). Every raw cross-Service call became an injected DI port
- * (Mechanism C, `ports.ts`):
- *  - `work`/`conversation`/`users` — ordinary same-layer core-api edges.
- *  - `org` (`teamMembers`) — ordinary same-layer edge; the raw multi-row
- *    select became `org`'s real `getTeamMembersByTeamId` (see `ports.ts`'s
- *    top `@lore`, census correction #1, for the 1:1-invariant equivalence).
- *  - `session-requests` (`agentSessionRequests` read, `recordAgentWorkIntent`
- *    write, `sessionRunRegistry.abort`) — §10.3 against-grain edge, ruled
- *    PERMANENT at Increment 3b (synchronous read-then-branch control flow;
- *    see `ports.ts`'s top `@lore`). `session-lifecycle`
- *    (`requestAgentTermination`) — §10.3 against-grain edge, still an interim
- *    DI port (`session-lifecycle` has not migrated yet, still deferred).
- *    `cost` (`releaseSessionDedup`) — §10.3 against-grain edge, INVERTED to
- *    an EventBus emission (`session_handoff_completed`) at Increment 3g (see
- *    below and `ports.ts`'s top `@lore`).
- *  - `InvalidTransitionError`/`VALID_TRANSITIONS` were a real VALUE import
- *    from `@hyperidle/work` pre-migration — converted to a local mirror
- *    (`task-transitions.ts`), consolidated with `lifecycle-propagation.ts`'s
- *    pre-existing inlined copy.
- *
- * `sessions`/`taskDispatchAttempts` stay direct `@hyperidle/db` imports —
- * both are in `table-ownership-guard.ts`'s `UNOWNED_SHARED_TABLES` exemption
- * (genuinely multi-owner-touched tables, confirmed unchanged by this
- * migration), so no port is needed for them.
- */
+type HandoffDeps = {
+	work: Required<
+		Pick<PolicyDeps["work"], "getTaskById" | "updateTaskById" | "claimTaskHandoff" | "createItem">
+	>;
+	conversation: Pick<PolicyDeps["conversation"], "insertMessage" | "insertThread">;
+	users: Required<Pick<PolicyDeps["users"], "getUserById" | "findActiveTeammateByRole">>;
+	org: NonNullable<PolicyDeps["org"]>;
+	sessionRequests: NonNullable<PolicyDeps["sessionRequests"]>;
+};
 
 export interface HandoffMetadata {
 	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case
@@ -78,36 +65,16 @@ interface HandoffAuditEntry {
 
 type TaskAuditEntry = StateTransitionAuditEntry | HandoffAuditEntry;
 
-/**
- * Hand off a task from one agent to another (or to a human).
- *
- * All DB mutations — session UPDATE, task UPDATE (ownership + auditTrail),
- * optional thread messages INSERT, optional escalation/review items INSERT —
- * commit inside a single `db.transaction((tx) => {...})`. Events emit AFTER
- * the transaction commits, in the order:
- *   1. task_state_changed (only when the handoff transitioned the task)
- *   2. item_created (only when an escalation or review item was created)
- *
- * If any mutation throws inside the tx, the entire handoff rolls back:
- * session stays active, ownership unchanged, auditTrail untouched, no
- * partial messages or items persisted.
- *
- * @lore I1 adversary-M2 / security-M3: before I1, handoff's mutations were
- * sequential bare writes. A mid-flight failure (e.g. a messages INSERT
- * rejected by a FK) left the session ended but the task untouched, or the
- * auditTrail re-written without a matching thread message. Transactional
- * boundary + post-commit emit gives atomic "all or nothing" handoff.
- */
+/** Atomic task handoff; events emit only after commit. */
 export function buildHandoff(
 	deps: HandoffDeps,
 ): (db: HyperIdleDb, eventBus: EventBus, params: HandoffParams) => Promise<HandoffResult> {
 	return async (db, eventBus, params) => {
 		const { sessionContext, metadata } = params;
-		const now = new Date().toISOString();
 
-		// Pre-transaction reads + validation (safe to do outside the tx: these
-		// reads do not mutate state, and the tx callback below re-reads any row
-		// it updates to avoid stale snapshots on concurrent handoffs).
+		// This snapshot supplies the explicit updatedAt version for the in-tx CAS.
+		// A competing handoff can mutate after this read, but then exactly one claim
+		// matches and the loser transaction performs no partial effects.
 		if (!sessionContext.taskId) {
 			throw new Error("Handoff requires a task-backed session");
 		}
@@ -115,6 +82,7 @@ export function buildHandoff(
 		if (!task) {
 			throw new Error(`Task not found: ${sessionContext.taskId}`);
 		}
+		const now = new Date(Math.max(Date.now(), Date.parse(task.updatedAt) + 1)).toISOString();
 
 		// Pre-validate toAgent exists so the tx never rolls back on a
 		// predictable "not found" (keeps error semantics identical to the
@@ -141,6 +109,13 @@ export function buildHandoff(
 
 		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: same transactional logic as pre-migration (toAgent/toRole/toHuman branches, escalation vs review-item paths, audit-trail append) — the `buildHandoff(deps)` factory-curry wrapper (Mechanism C) this migration introduced adds one nesting level around the whole function, pushing an already-complex-but-unchanged CAS transaction over the threshold.
 		const result: HandoffResult = await db.transaction(async (tx): Promise<HandoffResult> => {
+			const claim = await deps.work.claimTaskHandoff(tx, {
+				taskId: task.id,
+				expectedUpdatedAt: task.updatedAt,
+				claimedAt: now,
+			});
+			if (!claim.applied) throw new Error(`Task handoff conflict: ${task.id}`);
+
 			// 1. End current session (state + endedAt). Cost is preserved —
 			// downstream cost-cap + digest routines depend on it.
 			await tx
@@ -155,9 +130,8 @@ export function buildHandoff(
 				// Inline the state-machine transition so the mutation is in-tx
 				// and the `task_state_changed` event defers to post-commit.
 				const fromState = task.state as TaskState;
-				const allowed = VALID_TRANSITIONS[fromState];
-				if (!allowed.includes("blocked")) {
-					throw new InvalidTransitionError(task.id, fromState, "blocked");
+				if (!canTransitionTaskState(fromState, "blocked")) {
+					throw new TaskInvalidTransitionError(task.id, fromState, "blocked");
 				}
 				const existingStateAudit: TaskAuditEntry[] = task.auditTrail
 					? (JSON.parse(task.auditTrail) as TaskAuditEntry[])
@@ -372,44 +346,6 @@ export function buildHandoff(
 			eventBus.emit(itemCreatedEvent);
 		}
 
-		// I3 review C1 / arch H-1: handoff sets `state: "done"` on the session
-		// directly inside the transaction above and intentionally does NOT emit
-		// `session_ended` (handoff is not a cost-attribution event — see lines
-		// 85-87). The cost-cap dedup map subscribes to session_ended through
-		// `registerCostCapDedupReleaser`, so handoff would otherwise leak the
-		// per-session entry.
-		//
-		// @lore AU19 Increment 3g: §10.3 against-grain inversion for
-		// `policy ⚠ cost` — this used to be a direct `deps.cost.release(...)`
-		// call through an interim `PolicyCostDedupReleaser` DI port
-		// (Increment 2a). Atomicity check (§10.3 amendment): the call was
-		// already POST-COMMIT and touches only `cost`'s in-memory dedup Map —
-		// no DB write, no shared transaction an emit-after-commit split could
-		// endanger (the "common case" pure-inversion shape, NOT the
-		// `policy ⚠ session-requests` same-transaction exception below).
-		// `cost`'s `registerCostCapDedupReleaser` now subscribes to this event
-		// (see `@hyperidle/shared`'s `events.ts` top `@lore` on
-		// `SessionHandoffCompletedEvent` and `@hyperidle/cost`'s `cost-cap.ts`).
-		// @lore AU19 Increment 3i: §10.3 against-grain inversion for
-		// `policy ⚠ session-lifecycle` — this used to be a direct
-		// `deps.sessionLifecycle.requestTermination(db, {...})` call (fed by a
-		// `deps.sessionRequests.findBySessionId` read) through an interim
-		// `PolicySessionTerminationRequester` DI port. Atomicity check (§10.3
-		// amendment): the call ran BEFORE this transaction even opened (using
-		// bare `db`, never a shared `tx`) and its return value was never
-		// consumed for branching (`await ...; ` — fire-and-forget) — the
-		// "common case" pure-inversion shape (`filesystems ⚠ capture-writeback`/
-		// `policy ⚠ cost`), NOT the `policy ⚠ session-requests`/
-		// `review ⚠ session-requests` same-transaction-write-consumed-for-
-		// control-flow exception. `session-lifecycle`'s own
-		// `registerHandoffTerminationRequester` (composition root,
-		// `session-lifecycle-bindings.ts`) now subscribes to
-		// `session_handoff_completed` and re-resolves the correlated request via
-		// its own `session-requests` port before calling `requestAgentTermination`
-		// — same shape `cost`'s `registerCostCapDedupReleaser` already
-		// established for this exact event. `requestedBy: sessionContext.agentId`
-		// carries the pre-migration attribution through (fix round — see
-		// `SessionHandoffCompletedEvent`'s own top `@lore`).
 		eventBus.emit({
 			type: "session_handoff_completed",
 			streamId: sessionContext.sessionId,
@@ -418,16 +354,6 @@ export function buildHandoff(
 			timestamp: Date.now(),
 		});
 
-		// AF7 §5 (Z8-048): stop the prior session's tool access. The handoff set the
-		// session row to 'done' in-tx but the prior agent's harness loop + tool
-		// registry keep running. Abort it POST-COMMIT: for builtin this calls
-		// stopSession → sets the internal `aborted` flag → halts runLoop/
-		// executeToolCalls (where builtin tools actually run); for non-builtin it
-		// breaks the provisioning loop so registry.invoke stops. Handoff NEVER emits
-		// session_ended — abort drives stopSession + teardown, and the detached run's
-		// teardown calls endSession on an already-'done' row, which the §4.3 CAS guard
-		// makes a no-op (zero rows, no spurious session_ended). If no live runtime
-		// entry exists (already torn down), abort is a no-op.
 		await deps.sessionRequests.abort(sessionContext.sessionId);
 
 		return result;

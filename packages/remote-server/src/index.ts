@@ -20,7 +20,7 @@
  * tries to.
  */
 import { createServer } from "@hyperidle/core-api/server-factory";
-import { AdapterPool, DisabledSandboxAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createLogger, validateStartupEnv } from "@hyperidle/shared";
 
 const log = createLogger({ pkg: "remote-server" });
@@ -33,9 +33,19 @@ if (envError) {
 
 const port = Number(process.env.PORT) || 3001;
 
-createServer(port, {
+const handle = await createServer(port, {
 	adapterPool: new AdapterPool(),
-	workspaceAdapter: new DisabledSandboxAdapter(),
-}).then(() => {
-	log.info(`remote-server running on http://localhost:${port}`);
+	workspaceAdapter: createSandboxAdapter("disabled"),
 });
+log.info(`remote-server running on http://localhost:${port}`);
+
+let shutdownPromise: Promise<void> | null = null;
+const shutdown = (): Promise<void> => {
+	shutdownPromise ??= handle.dispose().catch((error: unknown) => {
+		log.error("remote-server shutdown failed", { error });
+		process.exitCode = 1;
+	});
+	return shutdownPromise;
+};
+process.once("SIGINT", () => void shutdown());
+process.once("SIGTERM", () => void shutdown());

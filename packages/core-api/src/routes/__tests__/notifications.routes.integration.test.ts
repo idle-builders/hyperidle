@@ -11,12 +11,7 @@
  */
 
 import { createTestDb } from "@hyperidle/db";
-import type {
-	AdapterFactory,
-	Notification,
-	NotificationAdapter,
-	NotificationConfig,
-} from "@hyperidle/notifications";
+import type { Notification, NotificationAdapter } from "@hyperidle/notifications";
 import { EventBus } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp } from "../../app.js";
@@ -28,12 +23,18 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
+// @lore AU20 Ag6b-fix: `notificationAdapterFactory` (app.ts) takes `() =>
+// NotificationAdapter` (no config arg) since Ag6b's collapse moved all
+// config-reading behind the internal sendTest/flush/runDigest wrappers —
+// the route layer no longer threads a config into the factory. Matches the
+// migrated sibling `notifications-routes.integration.test.ts`'s
+// `createFakeAdapter` pattern.
 function makeFakeAdapterFactory(): {
-	factory: AdapterFactory;
+	factory: () => NotificationAdapter;
 	sends: Array<{ recipient: string; notification: Notification }>;
 } {
 	const sends: Array<{ recipient: string; notification: Notification }> = [];
-	const factory: AdapterFactory = (_cfg: NotificationConfig): NotificationAdapter => ({
+	const factory = (): NotificationAdapter => ({
 		name: "console",
 		send: async (recipient, notification) => {
 			sends.push({ recipient: recipient.channelId, notification });

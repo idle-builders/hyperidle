@@ -9,9 +9,10 @@
  *    topic. Subsequent broadcasts must skip the would-be subscriber.
  */
 
-import { getThreadById } from "@hyperidle/conversation";
+import { findThread } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import { sessions, threads as threadsTable, users } from "@hyperidle/db";
-import { getTeamMembersById } from "@hyperidle/org";
+import { getTeamMembers } from "@hyperidle/org";
 import {
 	createDbSubscribeAuthorizer,
 	type SubscribeAuthorizerDeps,
@@ -19,8 +20,8 @@ import {
 	type WsClient,
 } from "@hyperidle/realtime";
 import type { ThreadMessageAppendedEvent } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
-import { getTaskById } from "@hyperidle/work";
+import { findUser } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
 
@@ -36,10 +37,10 @@ function createMockClient(): WsClient & { messages: string[] } {
 
 /** Real Mechanism C deps — mirrors `server-factory.ts`'s production wiring. */
 const REALTIME_DEPS: SubscribeAuthorizerDeps = {
-	conversation: { getThreadById },
-	users: { getUserById },
-	org: { getTeamMembersById },
-	work: { getTaskById },
+	conversation: { getThreadById: (db, id) => findThread(db, { id }) },
+	users: { getUserById: (db, id) => findUser(db, { id }) },
+	org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
+	work: { getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id) },
 };
 
 describe("WsBroadcaster — subscribe authorization (L1 Adv-C1)", () => {

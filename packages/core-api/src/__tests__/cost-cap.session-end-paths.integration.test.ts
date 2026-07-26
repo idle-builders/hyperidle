@@ -1,24 +1,22 @@
 import { bets, sessions, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import type { HandoffMetadata } from "@hyperidle/policy";
-import type { SessionContext } from "@hyperidle/session-lifecycle";
+import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
 import { beforeEach, describe } from "vitest";
-import {
-	clearDeduplicationCache,
-	getDedupCacheSize,
-	recordCostAndCheck,
-	registerCostCapDedupReleaser,
-} from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import { handoff } from "../services/policy-bindings.js";
+
+type SessionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
+
 import { expect, test } from "../test-fixtures.js";
 
 /**
  * I3 review C1 / arch H-1: every session-end code path must reclaim the
  * cost-cap dedup-map entry. The wiring lives in two places:
- *  - `app.ts` subscribes `registerCostCapDedupReleaser(eventBus)` to
+ *  - `app.ts` subscribes `costOps._testHooks.installDedupReleaser(eventBus)` to
  *    `session_ended`, covering `endSession`, `crashSession`, AND any
  *    HTTP path that emits `session_ended` (e.g. PATCH /sessions/:id).
  *  - `handoff-protocol.ts` deliberately suppresses `session_ended` (see
- *    in-file comment) so it calls `releaseSessionDedup` directly after
+ *    in-file comment) so it calls `costOps._testHooks.releaseDedup` directly after
  *    its transaction commits.
  *
  * These tests exercise both delivery routes against a real DB + bus.
@@ -106,7 +104,7 @@ async function seed(db: import("@hyperidle/db").HyperIdleDb): Promise<void> {
 
 describe("I3 review C1: session_ended releases cost-cap dedup", () => {
 	beforeEach(async () => {
-		clearDeduplicationCache();
+		costOps._testHooks.clearDedup();
 	});
 
 	test("emitting session_ended on the bus drops the per-session dedup entry", async ({
@@ -115,16 +113,16 @@ describe("I3 review C1: session_ended releases cost-cap dedup", () => {
 	}) => {
 		// Subscribe the cost-cap releaser so emitting session_ended
 		// reclaims the dedup entry — same wiring `createApp` performs.
-		const unsubscribe = registerCostCapDedupReleaser(eventBus);
+		const unsubscribe = costOps._testHooks.installDedupReleaser(eventBus);
 		await seed(db);
 
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "sess-1",
-			cost: 200, // breaches the 100 cap
+			costMinor: 200, // breaches the 100 cap
 			agentId: "a1",
 			teamId: "t1",
 		});
-		expect(getDedupCacheSize()).toBeGreaterThan(0);
+		expect(costOps._testHooks.getDedupSize()).toBeGreaterThan(0);
 
 		eventBus.emit({
 			type: "session_ended",
@@ -136,7 +134,7 @@ describe("I3 review C1: session_ended releases cost-cap dedup", () => {
 			outcome: "completed",
 		});
 
-		expect(getDedupCacheSize()).toBe(0);
+		expect(costOps._testHooks.getDedupSize()).toBe(0);
 
 		unsubscribe();
 	});
@@ -145,17 +143,17 @@ describe("I3 review C1: session_ended releases cost-cap dedup", () => {
 		db,
 		eventBus,
 	}) => {
-		const unsubscribe = registerCostCapDedupReleaser(eventBus);
+		const unsubscribe = costOps._testHooks.installDedupReleaser(eventBus);
 		await seed(db);
 
 		// Pre-seed dedup state for sess-1.
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "sess-1",
-			cost: 200,
+			costMinor: 200,
 			agentId: "a1",
 			teamId: "t1",
 		});
-		expect(getDedupCacheSize()).toBeGreaterThan(0);
+		expect(costOps._testHooks.getDedupSize()).toBeGreaterThan(0);
 
 		// Spy: handoff MUST NOT emit session_ended.
 		const sessionEnded: unknown[] = [];
@@ -183,7 +181,7 @@ describe("I3 review C1: session_ended releases cost-cap dedup", () => {
 		});
 
 		expect(sessionEnded).toHaveLength(0);
-		expect(getDedupCacheSize()).toBe(0);
+		expect(costOps._testHooks.getDedupSize()).toBe(0);
 
 		unsubscribe();
 	});

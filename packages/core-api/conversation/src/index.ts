@@ -20,49 +20,45 @@
  * `work-service.ts`'s comments referencing `conversation-store` are prose
  * only (no import) — Work never imports Conversation directly (§10.2 has no
  * `work → conversation` edge).
+ *
+ * @lore AU20 Am5: redesigned from 29 bespoke functions to ~14 general ones.
+ * Removed: `getThreadById`, `getThreadByDirectKey`, `getFirstThreadByHost`,
+ * `getFirstPinnedThreadByHost`, `getThreadIdsByHost`, `listThreadsByHost`,
+ * `listThreadsByHostKind`, `listThreadsByParticipant`, `listThreadsByRecency`,
+ * `listThreadMetaByIds`, `getMessageById`, `getMessageByClientKey`,
+ * `listMessagesByThread`, `getMessagesByThreadIds`, `listUnresolvedReviewThreadIds`,
+ * `listVerdictItemIds`, `listInitiatedVerdictMessages`,
+ * `listVerdictMessagesByItemIds`, `listInboxBySenderExclusion`,
+ * `listInboxByParticipantProbe`, `VerdictMessageRow`, `MessageListOpts`.
+ * Replaced by: `findThread`, `listThreads`, `findMessage`, `listMessages`,
+ * `listInbox` with `ThreadFilter`, `MessageFilter`, `InboxFilter`.
  */
 
-// -- messages: single-row + thread-scoped lists --
-// -- inbox + search joins --
-// -- verdict-message projections + artifact summaries --
+// Filter types
+// Shared row types
 export type {
 	ArtifactThreadSummaryRow,
+	InboxFilter,
 	InboxRow,
-	MessageListOpts,
+	MessageFilter,
+	ThreadFilter,
 	ThreadSearchRow,
-	VerdictMessageRow,
 } from "./conversation-store.js";
-// -- threads --
-// -- messages --
-// -- DM thread find-or-create --
-// -- threads: single-row + host/key lookups --
-// -- threads: ordered lists --
+// CRUD writes
+// DM composite
+// General reads
+// Joined / aggregate surfaces
 export {
 	countThreads,
+	findMessage,
 	findOrCreateDirectThread,
+	findThread,
 	getArtifactThreadSummaries,
-	getFirstPinnedThreadByHost,
-	getFirstThreadByHost,
-	getMessageByClientKey,
-	getMessageById,
-	getMessagesByThreadIds,
-	getThreadByDirectKey,
-	getThreadById,
-	getThreadIdsByHost,
 	insertMessage,
 	insertThread,
-	listInboxByParticipantProbe,
-	listInboxBySenderExclusion,
-	listInitiatedVerdictMessages,
-	listMessagesByThread,
-	listThreadMetaByIds,
-	listThreadsByHost,
-	listThreadsByHostKind,
-	listThreadsByParticipant,
-	listThreadsByRecency,
-	listUnresolvedReviewThreadIds,
-	listVerdictItemIds,
-	listVerdictMessagesByItemIds,
+	listInbox,
+	listMessages,
+	listThreads,
 	resolveMessageIfUnresolved,
 	searchConversations,
 	updateMessage,

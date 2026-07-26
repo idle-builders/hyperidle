@@ -1,15 +1,13 @@
-import type { SessionActivityBuffer } from "@hyperidle/capture-writeback";
 import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { SessionActivityBuffer } from "@hyperidle/run-orchestration";
 import {
-	createExplicitSessionStart,
-	findExplicitSessionStartById,
-	findExplicitSessionStartByRequesterAndIdempotencyKey,
+	createSessionRequest,
+	findSessionRequest,
 	sessionRunRegistry,
 } from "@hyperidle/session-requests";
 import {
 	type AgentWorkIntentEvent,
 	type AgentWorkIntentReader,
-	type AgentWorkIntentRecord,
 	type AgentWorkIntentRecorder,
 	API_ERROR_CODES,
 	type EventBus,
@@ -24,10 +22,7 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import {
-	requestAgentTermination,
-	transitionAgentRunLifecycle,
-} from "../services/session-lifecycle-bindings.js";
+import { transitionRun } from "../services/run-orchestration-composition.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -187,7 +182,9 @@ async function applyStateChangePatch(
 				body: { error: "Active session has no agent request", code: API_ERROR_CODES.CONFLICT },
 			};
 		}
-		const termination = await requestAgentTermination(db, {
+		const termination = await transitionRun(db, eventBus, {
+			target: "request",
+			intent: "request-termination",
 			requestId: existing.requestId,
 			reason: state === "done" ? "user_done" : "user_crashed",
 			...(actor ? { requestedBy: actor } : {}),
@@ -216,7 +213,9 @@ async function applyStateChangePatch(
 	// contract does not depend on a live runtime existing to drive it.
 	if (existing.requestId) {
 		const reason: "user_done" | "user_crashed" = state === "done" ? "user_done" : "user_crashed";
-		const termination = await requestAgentTermination(db, {
+		const termination = await transitionRun(db, eventBus, {
+			target: "request",
+			intent: "request-termination",
 			requestId: existing.requestId,
 			reason,
 			...(actor ? { requestedBy: actor } : {}),
@@ -227,7 +226,9 @@ async function applyStateChangePatch(
 				body: { error: "Session termination already settled", code: API_ERROR_CODES.CONFLICT },
 			};
 		}
-		await transitionAgentRunLifecycle(db, eventBus, {
+		await transitionRun(db, eventBus, {
+			target: "request",
+			intent: "terminalize",
 			requestId: existing.requestId,
 			state: reason === "user_done" ? "cancelled" : "failed",
 			sessionId,
@@ -288,7 +289,7 @@ async function applyStateChangePatch(
  * Mechanism C) — this route (core-api) must not import
  * `@hyperidle/session-requests` (agent-orchestration) directly for the raw
  * `agent_work_intents` write/read below. `createApp` defaults them to the
- * real production binding (`session-requests-bindings.ts`); tests may
+ * real production binding (`durable-agent-queue.ts`); tests may
  * override.
  */
 export function createSessionRoutes(
@@ -343,7 +344,7 @@ export function createSessionRoutes(
 
 			// ── Durable explicit-start path (agent layer present) ─────────────────
 			if (durableStartEnabled || c.req.header("Idempotency-Key") !== undefined) {
-				const task = await work.getTaskById(db, body.taskId);
+				const task = await work.get(db, "task", body.taskId);
 				if (!task) {
 					return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 				}
@@ -355,7 +356,8 @@ export function createSessionRoutes(
 					);
 				const idempotencyKey = suppliedKey ?? `session-start:${crypto.randomUUID()}`;
 				const requestedBy = c.get("userId");
-				let start = await findExplicitSessionStartByRequesterAndIdempotencyKey(db, {
+				let start = await findSessionRequest(db, {
+					by: "explicitStart",
 					requestedBy,
 					idempotencyKey,
 				});
@@ -372,17 +374,20 @@ export function createSessionRoutes(
 						},
 						409,
 					);
-				let intent: AgentWorkIntentRecord | undefined;
+				let intent: Awaited<ReturnType<AgentWorkIntentRecorder<HyperIdleDb>["record"]>> | undefined;
 				if (!start) {
 					const startId = crypto.randomUUID();
 					await db.transaction(async (tx) => {
-						start = await createExplicitSessionStart(tx, {
-							id: startId,
-							taskId: body.taskId,
-							requestedAgentId: body.agentId,
-							requestedModelTier: body.modelTier,
-							requestedBy,
-							idempotencyKey,
+						start = await createSessionRequest(tx as HyperIdleDb, {
+							kind: "explicitStart",
+							start: {
+								id: startId,
+								taskId: body.taskId,
+								requestedAgentId: body.agentId,
+								requestedModelTier: body.modelTier,
+								requestedBy,
+								idempotencyKey,
+							},
 						});
 						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "session_start",
@@ -416,7 +421,10 @@ export function createSessionRoutes(
 							}
 						};
 						const check = async () => {
-							const fresh = await findExplicitSessionStartById(db, committedStart.id);
+							const fresh = await findSessionRequest(db, {
+								by: "explicitStart",
+								startId: committedStart.id,
+							});
 							if (fresh && fresh.status !== "requested")
 								finish(await projectExplicitStart(db, fresh));
 						};
@@ -471,7 +479,10 @@ export function createSessionRoutes(
 	);
 
 	router.get("/starts/:startId", requireBoundary({ kind: "public-data" }), async (c) => {
-		const start = await findExplicitSessionStartById(db, c.req.param("startId"));
+		const start = await findSessionRequest(db, {
+			by: "explicitStart",
+			startId: c.req.param("startId"),
+		});
 		if (!start || start.requestedBy !== c.get("userId"))
 			return c.json({ error: "Session start not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		c.header("Idempotency-Key", start.idempotencyKey);

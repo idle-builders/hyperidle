@@ -15,14 +15,14 @@ import {
 	isRegisteredKind,
 	OLD_KIND_MAP,
 } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import { recordCostAndCheck } from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;
@@ -43,7 +43,7 @@ const createArtifactSchema = z.object({
 		.nullable(),
 	preview: artifactPreviewSchema.nullable(),
 	// @lore O2: cost is accepted for wire compat; money_micros is now routed through
-	// recordCostAndCheck when agentId resolves (AF10 §5.2). The artifacts table has no
+	// costOps.record when agentId resolves (AF10 §5.2). The artifacts table has no
 	// cost columns — cost lands in bet/agent/team/factory accumulators, not the artifact
 	// row itself (AC4 narrowed: per-artifact chip stays NULL_COST on GET, per §5.4).
 	cost: z
@@ -174,7 +174,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				return c.json({ error: "betId required", code: "INVALID_QUERY" }, 400);
 			}
 			// L3 review fix Sec-MED-4: cap intermediate id materialisation.
-			const rows = await work.listTasks(db, { betId, limit: MAX_TASK_ID_FANOUT + 1 });
+			const rows = await work.list(db, "task", { betId, limit: MAX_TASK_ID_FANOUT + 1 });
 			if (rows.length > MAX_TASK_ID_FANOUT) {
 				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
 			}
@@ -185,7 +185,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			if (!teamId) {
 				return c.json({ error: "teamId required", code: "INVALID_QUERY" }, 400);
 			}
-			const rows = await work.listTasks(db, { teamId, limit: MAX_TASK_ID_FANOUT + 1 });
+			const rows = await work.list(db, "task", { teamId, limit: MAX_TASK_ID_FANOUT + 1 });
 			if (rows.length > MAX_TASK_ID_FANOUT) {
 				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
 			}
@@ -203,7 +203,12 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			cursor = { createdAt: cursorParam.slice(0, sep), id: cursorParam.slice(sep + 1) };
 		}
 
-		const rows = await work.listArtifactsPage(db, { taskIds, cursor, limit: limit + 1 });
+		const rows = await work.list(db, "artifact", {
+			taskIds,
+			cursor,
+			limit: limit + 1,
+			include: "taskTitle",
+		});
 
 		const sliced = rows.slice(0, limit);
 		const items = sliced.map((r) => rowToArtifact(r.artifact, r.taskTitle));
@@ -217,7 +222,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
-		const row = await work.getArtifactWithTaskTitleById(db, id);
+		const row = await work.get(db, "artifact", id, { include: "taskTitle" });
 		if (!row) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
 		return c.json(rowToArtifact(row.artifact, row.taskTitle));
 	});
@@ -234,7 +239,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				return c.json({ error: "kind/preview discriminant mismatch", code: "KIND_MISMATCH" }, 400);
 			}
 
-			const taskRow = await work.getTaskById(db, body.producingTaskId);
+			const taskRow = await work.get(db, "task", body.producingTaskId);
 			if (!taskRow) {
 				return c.json({ error: "producing_task_id not found", code: "INVALID_TASK" }, 400);
 			}
@@ -242,7 +247,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			const id = crypto.randomUUID();
 			const now = new Date().toISOString();
 
-			await work.createArtifact(db, {
+			await work.create(db, "artifact", {
 				id,
 				producingTaskId: body.producingTaskId,
 				kind: body.kind,
@@ -251,7 +256,7 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				createdAt: now,
 			});
 
-			// AF10 §5.2: Route artifact cost through recordCostAndCheck accumulators.
+			// AF10 §5.2: Route artifact cost through costOps.record accumulators.
 			// agentId: prefer body.agentId, fall back to tasks.ownerAgentId (both nullable).
 			// teamId: resolved via users.teamId = teamMembers.id (@lore U1: NOT tasks.teamId).
 			// sessionId: body.sessionId or synthesized as "artifact:<id>" (dedup scope, §5.4).
@@ -267,14 +272,14 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				eventBus !== undefined
 			) {
 				// Resolve teamMembers.id from users.teamId (§5.2 — NOT tasks.teamId which is teams.id)
-				const agentRow = await getUserById(db, resolvedAgentId);
+				const agentRow = await findUser(db, { id: resolvedAgentId });
 
 				if (agentRow) {
 					const resolvedSessionId = body.sessionId ?? `artifact:${id}`;
 					// @lore AF10 AC4: costMinor = money_micros / 10000 (micros→cents conversion).
 					// This is a delta w.r.t. the accumulators (artifact cost recorded once, §1 contract).
-					// sessionId "artifact:<id>" is used exactly once — releaseSessionDedup is moot.
-					await recordCostAndCheck(db, eventBus, {
+					// sessionId "artifact:<id>" is used exactly once — costOps._testHooks.releaseDedup is moot.
+					await costOps.record(db, eventBus, {
 						sessionId: resolvedSessionId,
 						costMinor: Math.round(moneyMicros / 10000),
 						currency: "USD",
@@ -309,12 +314,15 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 			const id = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof patchPreviewSchema>;
 			// Race-safe update: only updates rows where preview_json IS NULL.
-			const outcome = await work.setArtifactPreviewIfAbsent(db, id, JSON.stringify(body.preview));
-			if (outcome === "not_found") return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-			if (outcome === "immutable") {
-				return c.json({ error: "Preview already set", code: "IMMUTABLE" }, 409);
-			}
-			return c.json({ ok: true });
+			const result = await work.transition(db, "artifact", {
+				id,
+				guard: { field: "previewJson", isNull: true },
+				patch: { previewJson: JSON.stringify(body.preview) },
+			});
+			if (result.applied) return c.json({ ok: true });
+			const existing = await work.get(db, "artifact", id);
+			if (!existing) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
+			return c.json({ error: "Preview already set", code: "IMMUTABLE" }, 409);
 		},
 	);
 

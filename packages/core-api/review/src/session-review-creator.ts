@@ -1,53 +1,50 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import type {
-	ReviewConversationStore,
-	ReviewOrgRouting,
-	ReviewUserDirectory,
-	ReviewWorkStore,
-	TaskRiskTierReader,
-} from "./ports.js";
+import type { ReviewPorts } from "./ports.js";
+import { handleUnconsumedGrantOnSessionEnd } from "./proposed-call-workflow.js";
 
 /**
- * Deps `registerSessionReviewCreator` needs from `work`/`conversation`/
- * `users`/`org` (Mechanism C — `review` never imports another Service
- * package directly).
+ * Register both `review`-domain `session_ended` subscribers in one
+ * idempotent boot entry-point.
  *
- * @lore AU19 Increment 1j: `work`/`conversation`/`users`/`org` are all
- * already-migrated real packages — ordinary same-layer core-api→core-api
- * edges, wired directly at the production call site (`server-factory.ts`)
- * to the real exported functions (no interim indirection needed).
+ * Two subscribers registered (each independent — they serve different
+ * concerns, sharing no state):
  *
- * @lore AU19 Increment 1k: `taskRiskTier` ADDED — replaces the direct
- * legacy-named extension-table import this file used before AU3's half-done
- * Strategy-vocabulary rename was finished. `work` owns `task_planning_signals`
- * (see `ports.ts`'s `TaskRiskTierReader` doc for the ownership call and the
- * full rename history).
+ * 1. **Session-review creator** (AD1): for medium/high-risk tasks, creates
+ *    a review item + routes to human reviewers when a session ends.
+ *
+ * 2. **Liveness net** (AC11b): fires when a session ends WITHOUT consuming
+ *    its tailored grant (crash/no-show). First occurrence re-provisions via
+ *    `ports.intentRecorder`; second occurrence transitions the PC to `held`
+ *    and writes a `failed` Outcome so the result is never silently discarded.
+ *
+ * Returns an unsubscribe function that removes both handlers.
+ *
+ * @lore AU20 Am9: renamed from `registerSessionReviewCreator`; deps
+ * collapsed from `SessionReviewCreatorDeps` (5 individual fields) to
+ * `ReviewPorts` (the composite bag). The liveness net handler was previously
+ * the exported `handleUnconsumedGrantOnSessionEnd` — now wired here as a
+ * production `session_ended` subscriber for the first time (it was exported
+ * but never registered in server-factory.ts before this WP).
+ *
+ * @lore AD1: Wire review routing to humans on session-end review creation.
+ * Resolve human recipients via org_edges using the agent's userId, role,
+ * and the task's teamId. Falls back to ALL human users when no edges match.
+ * Merges into existing thread participants (sorted + deduplicated).
+ *
+ * @lore AU19 Increment 1j/1k: `work`/`conversation`/`users`/`org`/`taskRiskTier`
+ * are all already-migrated real packages — ordinary same-layer core-api→core-api
+ * edges, wired directly at the production call site to the real exported
+ * functions.
  */
-export interface SessionReviewCreatorDeps {
-	readonly work: Pick<ReviewWorkStore, "getTaskById" | "updateTaskById" | "createItem">;
-	readonly conversation: Pick<
-		ReviewConversationStore,
-		"insertThread" | "getThreadById" | "updateThread"
-	>;
-	readonly users: Pick<ReviewUserDirectory, "getUserById" | "listUsersByKind">;
-	readonly org: ReviewOrgRouting;
-	readonly taskRiskTier: TaskRiskTierReader;
-}
-
-/**
- * Subscribes to session_ended events and creates review items
- * for sessions associated with medium/high risk tasks.
- *
- * Returns an unsubscribe function.
- */
-export function registerSessionReviewCreator(
+export function registerReviewSubscriptions(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	deps: SessionReviewCreatorDeps,
+	ports: ReviewPorts,
 ): () => void {
-	const handler = (event: SessionEndedEvent): void => {
+	// --- Subscriber 1: session-review creator (AD1) ---
+	const sessionReviewHandler = (event: SessionEndedEvent): void => {
 		void (async () => {
 			// Look up session to get taskId
 			const [session] = await db
@@ -58,13 +55,13 @@ export function registerSessionReviewCreator(
 			if (!session?.taskId) return;
 
 			// Look up task
-			const task = await deps.work.getTaskById(db, session.taskId);
+			const task = await ports.work.getTaskById(db, session.taskId);
 			if (!task) return;
 
 			// @lore O2: riskTier moved from tasks to taskPlanningSignals extension
-			// table (owned by `work` — read via the TaskRiskTierReader DI port).
+			// table (owned by `work` — read via the work port).
 			// Only create review items for medium/high risk.
-			const riskTier = await deps.taskRiskTier.getRiskTierByTaskId(db, session.taskId);
+			const riskTier = await ports.work.getRiskTierByTaskId(db, session.taskId);
 			if (riskTier !== "medium" && riskTier !== "high") return;
 
 			// Create or use existing thread
@@ -74,7 +71,7 @@ export function registerSessionReviewCreator(
 				const now = new Date().toISOString();
 				// L1a: thread now carries host_kind/host_id; for session-review the
 				// host is the task that ended.
-				await deps.conversation.insertThread(db, {
+				await ports.conversation.insertThread(db, {
 					id: threadId,
 					hostKind: "task",
 					hostId: task.id,
@@ -83,36 +80,28 @@ export function registerSessionReviewCreator(
 					lastActiveAt: now,
 					createdAt: now,
 				});
-
-				// Update task with new threadId
-				await deps.work.updateTaskById(db, task.id, { threadId });
+				await ports.work.updateTaskById(db, task.id, { threadId });
 			}
 
 			// @lore AD1: Wire review routing to humans on session-end review creation.
-			// Resolve human recipients via org_edges using the agent's userId, role,
-			// and the task's teamId. Falls back to ALL human users when no edges match.
-			// Merges into existing thread participants (sorted + deduplicated).
-			const agentRow = await deps.users.getUserById(db, session.agentId);
-
-			const humanIds = await deps.org.resolveReviewRecipients(
+			const agentRow = await ports.users.getUserById(db, session.agentId);
+			const humanIds = await ports.org.resolveReviewRecipients(
 				db,
 				{
 					userId: session.agentId,
 					agentRole: agentRow?.role ?? undefined,
 					teamId: task.teamId,
 				},
-				{ listUsersByKind: deps.users.listUsersByKind },
+				{ listUsersByKind: ports.users.listUsersByKind },
 			);
 
 			if (humanIds.length > 0) {
-				const threadRow = await deps.conversation.getThreadById(db, threadId);
-
+				const threadRow = await ports.conversation.getThreadById(db, threadId);
 				const currentParticipants: string[] = threadRow
 					? (JSON.parse(threadRow.participants) as string[])
 					: [session.agentId];
-
 				const merged = [...new Set([...currentParticipants, ...humanIds])].sort();
-				await deps.conversation.updateThread(db, threadId, {
+				await ports.conversation.updateThread(db, threadId, {
 					participants: JSON.stringify(merged),
 				});
 			}
@@ -122,7 +111,7 @@ export function registerSessionReviewCreator(
 			const now = new Date().toISOString();
 			const outcome = session.outcome ?? "completed";
 
-			await deps.work.createItem(db, {
+			await ports.work.createItem(db, {
 				id: itemId,
 				kind: "review",
 				title: `Session completed: ${outcome}`,
@@ -131,7 +120,6 @@ export function registerSessionReviewCreator(
 				createdAt: now,
 			});
 
-			// Emit item_created event
 			const itemEvent: ItemCreatedEvent = {
 				type: "item_created",
 				streamId: crypto.randomUUID(),
@@ -144,5 +132,22 @@ export function registerSessionReviewCreator(
 		})();
 	};
 
-	return eventBus.on("session_ended", handler);
+	// --- Subscriber 2: liveness net (AC11b) ---
+	const livenessHandler = (event: SessionEndedEvent): void => {
+		// SessionEndedEvent carries agentId and taskId directly — no DB lookup needed.
+		if (!event.taskId) return;
+		void handleUnconsumedGrantOnSessionEnd(db, {
+			taskId: event.taskId,
+			agentId: event.agentId,
+			intentRecorder: ports.intentRecorder,
+		});
+	};
+
+	const unsub1 = eventBus.on("session_ended", sessionReviewHandler);
+	const unsub2 = eventBus.on("session_ended", livenessHandler);
+
+	return () => {
+		unsub1();
+		unsub2();
+	};
 }

@@ -1,14 +1,9 @@
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 // @lore These exports do not yet exist on cost-cap.ts as of I3 red phase.
-// The plan §3.7 specifies adding `releaseSessionDedup(sessionId)` and a
-// test-only `getDedupCacheSize()` accessor (or a similar inspection hook).
+// The plan §3.7 specifies adding `costOps._testHooks.releaseDedup(sessionId)` and a
+// test-only `costOps._testHooks.getDedupSize()` accessor (or a similar inspection hook).
 // Tests assert post-fix behaviour; implementation will add the exports.
-import {
-	clearDeduplicationCache,
-	getDedupCacheSize,
-	recordCostAndCheck,
-	releaseSessionDedup,
-} from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 /**
@@ -20,8 +15,8 @@ import { beforeEach, describe, expect, test } from "../test-fixtures.js";
  *  - After 1000 session cost checks, dedup cache stays bounded.
  *
  * Per plan §3.7 the bounded structure is `Map<sessionId, {agentId, teamId,
- * keys: Set<string>}>` and the lifecycle hook is `releaseSessionDedup`.
- * `getDedupCacheSize()` is a test-only accessor that returns the *number of
+ * keys: Set<string>}>` and the lifecycle hook is `costOps._testHooks.releaseDedup`.
+ * `costOps._testHooks.getDedupSize()` is a test-only accessor that returns the *number of
  * dead sessions still tracked*.
  */
 
@@ -122,7 +117,7 @@ async function seedSession(
 
 describe("I3: cost-cap dedup cache bounded", () => {
 	beforeEach(() => {
-		clearDeduplicationCache();
+		costOps._testHooks.clearDedup();
 	});
 
 	test("dedup cache size for one session stays small after 1000 cost checks", async ({
@@ -147,9 +142,9 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		// (eventType × capLevel × entityId) tuples — so the per-session
 		// dedup set must stay tiny.
 		for (let i = 0; i < 1000; i++) {
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "sess-1",
-				cost: 200, // far above 100 cap → triggers breach + warning
+				costMinor: 200, // far above 100 cap → triggers breach + warning
 				agentId: "agent-1",
 				teamId: "team-1",
 				factoryCap: 1_000_000,
@@ -157,11 +152,14 @@ describe("I3: cost-cap dedup cache bounded", () => {
 			});
 		}
 
-		const size = getDedupCacheSize();
+		const size = costOps._testHooks.getDedupSize();
 		expect(size, `dedup cache size after 1000 checks: ${size}`).toBeLessThanOrEqual(10);
 	});
 
-	test("releaseSessionDedup() drops the per-session entry to zero", async ({ db, eventBus }) => {
+	test("costOps._testHooks.releaseDedup() drops the per-session entry to zero", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedAgentWithCap(db, {
 			agentId: "agent-1",
 			teamId: "team-1",
@@ -175,18 +173,18 @@ describe("I3: cost-cap dedup cache bounded", () => {
 			productId: "prod-1",
 		});
 
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "sess-1",
-			cost: 200,
+			costMinor: 200,
 			agentId: "agent-1",
 			teamId: "team-1",
 		});
 
-		expect(getDedupCacheSize()).toBeGreaterThan(0);
+		expect(costOps._testHooks.getDedupSize()).toBeGreaterThan(0);
 
-		releaseSessionDedup("sess-1");
+		costOps._testHooks.releaseDedup("sess-1");
 
-		expect(getDedupCacheSize()).toBe(0);
+		expect(costOps._testHooks.getDedupSize()).toBe(0);
 	});
 
 	test("releasing one session does not poison another session's dedup state", async ({
@@ -219,25 +217,25 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		});
 
 		// Both sessions breach.
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "sess-1",
-			cost: 200,
+			costMinor: 200,
 			agentId: "agent-1",
 			teamId: "team-1",
 		});
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "sess-2",
-			cost: 200,
+			costMinor: 200,
 			agentId: "agent-2",
 			teamId: "team-2",
 		});
 
-		const sizeBefore = getDedupCacheSize();
+		const sizeBefore = costOps._testHooks.getDedupSize();
 		expect(sizeBefore).toBeGreaterThan(0);
 
-		releaseSessionDedup("sess-1");
+		costOps._testHooks.releaseDedup("sess-1");
 
-		const sizeAfter = getDedupCacheSize();
+		const sizeAfter = costOps._testHooks.getDedupSize();
 		// sess-2's entries must remain.
 		expect(sizeAfter).toBeGreaterThan(0);
 		expect(sizeAfter).toBeLessThan(sizeBefore);
@@ -247,9 +245,9 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		const events: Array<{ type: string }> = [];
 		eventBus.on("cost_cap_breached", (e: { type: string }) => events.push(e));
 		eventBus.on("cost_cap_warning", (e: { type: string }) => events.push(e));
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "sess-2",
-			cost: 200,
+			costMinor: 200,
 			agentId: "agent-2",
 			teamId: "team-2",
 		});
@@ -259,7 +257,7 @@ describe("I3: cost-cap dedup cache bounded", () => {
 	// I3 review C2: lazy dedup-entry registration. A session that runs
 	// 1000 cost checks UNDER the cap must produce ZERO dedup entries
 	// (no breach → no key → no entry). Prior implementation pre-
-	// registered an empty entry on every recordCostAndCheck, leaking
+	// registered an empty entry on every costOps.record, leaking
 	// for sessions that never breached.
 	test("1000 cost checks under cap on one session create zero dedup entries", async ({
 		db,
@@ -283,15 +281,15 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		});
 
 		for (let i = 0; i < 1000; i++) {
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "sess-x",
-				cost: 10, // far below 10_000 cap
+				costMinor: 10, // far below 10_000 cap
 				agentId: "agent-x",
 				teamId: "team-x",
 			});
 		}
 
-		expect(getDedupCacheSize()).toBe(0);
+		expect(costOps._testHooks.getDedupSize()).toBe(0);
 	});
 
 	test("aggregate dedup cache stays bounded after 1000 distinct sessions ended", async ({
@@ -299,7 +297,7 @@ describe("I3: cost-cap dedup cache bounded", () => {
 		eventBus,
 	}) => {
 		// Cycle 1000 short-lived sessions through the cost path. After each
-		// session ends, releaseSessionDedup must drop its entry, keeping the
+		// session ends, costOps._testHooks.releaseDedup must drop its entry, keeping the
 		// total map size bounded.
 		for (let i = 0; i < 1000; i++) {
 			const productId = `prod-${i}`;
@@ -309,17 +307,17 @@ describe("I3: cost-cap dedup cache bounded", () => {
 			await seedAgentWithCap(db, { agentId, teamId, productId, costCap: 100 });
 			await seedSession(db, { sessionId, agentId, teamId, productId });
 
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId,
-				cost: 200,
+				costMinor: 200,
 				agentId,
 				teamId,
 			});
-			releaseSessionDedup(sessionId);
+			costOps._testHooks.releaseDedup(sessionId);
 		}
 
 		// After all sessions have been released, the dedup cache should be
 		// empty (or at most a tiny constant for any non-session entries).
-		expect(getDedupCacheSize()).toBeLessThanOrEqual(10);
+		expect(costOps._testHooks.getDedupSize()).toBeLessThanOrEqual(10);
 	});
 });

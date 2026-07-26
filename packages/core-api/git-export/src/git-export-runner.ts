@@ -2,9 +2,8 @@ import { spawn } from "node:child_process";
 import { createLogger, type Logger } from "@hyperidle/shared";
 
 /**
- * Narrow interface over the git subcommands H1 needs. Tests substitute a
- * FakeGitRunner to assert argv shape without touching a real repo; production
- * wires `createGitRunner()` which spawns native `git`.
+ * Narrow interface over the git subcommands the export and filesystem products need.
+ * Production wires `createGitRunner()` which spawns native `git`.
  *
  * @lore Every method is typed + whitelisted — we never forward user strings
  * straight into argv. The factory sets `GIT_TERMINAL_PROMPT=0` so an auth
@@ -36,8 +35,6 @@ export interface GitRunner {
 	init(branch: string): Promise<void>;
 	/** Stage paths. When `paths` is empty the runner passes `-A`. */
 	add(paths: readonly string[]): Promise<void>;
-	/** Remove a tracked path from the index + working tree. */
-	rm(path: string): Promise<void>;
 	/** Commit with an explicit author identity. Returns the new HEAD sha. */
 	commit(message: string, authorName: string, authorEmail: string): Promise<string>;
 	/** Push to a named remote and branch. Sets upstream on first push. */
@@ -52,8 +49,6 @@ export interface GitRunner {
 	remoteAdd(name: string, url: string): Promise<void>;
 	/** List tracked files as relative paths (`git ls-files`). */
 	lsFiles(): Promise<readonly string[]>;
-	/** `git status --porcelain` rows (array of lines). */
-	statusPorcelain(): Promise<readonly string[]>;
 	/**
 	 * Probe a remote's refs WITHOUT cloning. Reachability check.
 	 * exit 0 → { reachable: true }; non-zero → { reachable: false, reason }.
@@ -116,21 +111,6 @@ export interface GitRunner {
 	 * bundle already captured authored changes).
 	 */
 	worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void>;
-	/**
-	 * Fetch a ref from a remote. Token injected via GIT_CONFIG_COUNT/KEY_n/VALUE_n env.
-	 * `git fetch [--depth N] <remote> <ref>`
-	 */
-	fetch(
-		remote: string,
-		ref: string,
-		opts?: { depth?: number; tokenConfig?: GitConfigInjection },
-	): Promise<void>;
-	/**
-	 * Check out a branch or ref in the runner's cwd.
-	 * Ref is sanitized (no leading `-`).
-	 * `git checkout [--] <ref>` or `git checkout -b <branch>`
-	 */
-	checkout(ref: string): Promise<void>;
 	/**
 	 * Restore tracked files to their HEAD state in the INDEX (unstage modifications).
 	 * `git restore --staged -- <paths...>`
@@ -232,7 +212,6 @@ function buildGitEnv(extraConfigs?: readonly GitConfigInjection[]): Record<strin
 		"TMPDIR",
 		"SSH_AUTH_SOCK",
 		"SSH_AGENT_PID",
-		"GH_TOKEN",
 	];
 	const env: Record<string, string> = {};
 	for (const k of allowed) {
@@ -243,6 +222,7 @@ function buildGitEnv(extraConfigs?: readonly GitConfigInjection[]): Record<strin
 	env.GIT_ASKPASS = "/bin/false";
 	env.GIT_OPTIONAL_LOCKS = "0";
 	env.GIT_CONFIG_NOSYSTEM = "1";
+	env.GIT_CONFIG_GLOBAL = "/dev/null";
 
 	// Inject extra git config entries via env (token-safe path — never in argv).
 	if (extraConfigs && extraConfigs.length > 0) {
@@ -351,9 +331,6 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			const args = paths.length === 0 ? ["add", "-A"] : ["add", "--", ...paths];
 			await runExpectOk(args, localMs);
 		},
-		async rm(p: string): Promise<void> {
-			await runExpectOk(["rm", "-f", "--", p], localMs);
-		},
 		async commit(message: string, authorName: string, authorEmail: string): Promise<string> {
 			await runExpectOk(
 				[
@@ -406,11 +383,6 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			if (r.stdout.length === 0) return [];
 			const parts = r.stdout.split("\0").filter((p) => p.length > 0);
 			return parts;
-		},
-		async statusPorcelain(): Promise<readonly string[]> {
-			const r = await runExpectOk(["status", "--porcelain"], localMs);
-			if (r.stdout.length === 0) return [];
-			return r.stdout.split(/\r?\n/).filter((l) => l.length > 0);
 		},
 		async lsRemote(
 			url: string,
@@ -506,32 +478,6 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			args.push("--", worktreePath);
 			await runExpectOk(args, localMs);
 		},
-		async fetch(
-			remote: string,
-			ref: string,
-			opts?: { depth?: number; tokenConfig?: GitConfigInjection },
-		): Promise<void> {
-			const args: string[] = ["fetch"];
-			if (opts?.depth != null) args.push("--depth", String(opts.depth));
-			args.push(remote, ref);
-			const extraEnv: Record<string, string> = {};
-			if (opts?.tokenConfig) {
-				extraEnv.GIT_CONFIG_COUNT = "1";
-				extraEnv.GIT_CONFIG_KEY_0 = opts.tokenConfig.key;
-				extraEnv.GIT_CONFIG_VALUE_0 = opts.tokenConfig.value;
-			}
-			const result = await run(args, pushMs, extraEnv);
-			if (result.exitCode !== 0) {
-				const tail = redactArg(result.stderr.trim() || result.stdout.trim());
-				throw new Error(`git fetch failed (${result.exitCode}): ${tail}`);
-			}
-		},
-		async checkout(ref: string): Promise<void> {
-			if (ref.startsWith("-")) {
-				throw new Error(`git checkout: ref must not start with '-'`);
-			}
-			await runExpectOk(["checkout", "--", ref], localMs);
-		},
 		async restoreStaged(paths: readonly string[]): Promise<void> {
 			if (paths.length === 0) return;
 			// Defense-in-depth: reject paths that start with '-' (cannot be misinterpreted as flags).
@@ -558,117 +504,6 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			} catch {
 				return null;
 			}
-		},
-	};
-}
-
-// ── FakeGitRunner ────────────────────────────────────────────────────────────
-
-/**
- * A call record captured by FakeGitRunner for assertion in unit tests.
- *
- * @lore AO2 N1: Fake captures method name + positional args + optional opts.
- * Tests assert on the *shape* of what would be sent to git, without spawning
- * a real process. The REAL runner is exercised in git-export-runner.integration.test.ts.
- */
-export interface FakeGitCall {
-	readonly method: string;
-	readonly args: readonly unknown[];
-	readonly opts?: Record<string, unknown>;
-}
-
-/**
- * FakeGitRunner — a test double implementing the full GitRunner interface.
- * Appends a FakeGitCall per method invocation; all methods resolve immediately.
- *
- * Access via `fake.calls` to assert the recorded invocations.
- *
- * @lore AO2 N1: Argv-shape assertions go here (Fake only). NEVER share a file
- * with the REAL integration test — a Fake-only green must not masquerade as a
- * real round-trip (mock-validation-trap).
- */
-export interface FakeGitRunner extends GitRunner {
-	readonly calls: FakeGitCall[];
-}
-
-/**
- * Factory for a FakeGitRunner with a fresh call log.
- */
-export function createFakeGitRunner(): FakeGitRunner {
-	const calls: FakeGitCall[] = [];
-
-	function rec(method: string, args: readonly unknown[], opts?: Record<string, unknown>): void {
-		calls.push(opts !== undefined ? { method, args, opts } : { method, args });
-	}
-
-	return {
-		calls,
-		async init(branch) {
-			rec("init", [branch]);
-		},
-		async add(paths) {
-			rec("add", [paths]);
-		},
-		async rm(p) {
-			rec("rm", [p]);
-		},
-		async commit(message, authorName, authorEmail) {
-			rec("commit", [message, authorName, authorEmail]);
-			return `fake-sha-${Date.now()}`;
-		},
-		async push(remote, branch) {
-			rec("push", [remote, branch]);
-		},
-		async diffCached() {
-			rec("diffCached", []);
-			return true;
-		},
-		async revParseIsInsideWorkTree() {
-			rec("revParseIsInsideWorkTree", []);
-			return true;
-		},
-		async configSet(key, value) {
-			rec("configSet", [key, value]);
-		},
-		async remoteAdd(name, url) {
-			rec("remoteAdd", [name, url]);
-		},
-		async lsFiles() {
-			rec("lsFiles", []);
-			return [];
-		},
-		async statusPorcelain() {
-			rec("statusPorcelain", []);
-			return [];
-		},
-		async lsRemote(url, opts) {
-			rec("lsRemote", [url], opts as Record<string, unknown> | undefined);
-			return { reachable: true };
-		},
-		async clone(url, branch, opts) {
-			rec("clone", [url, branch], opts as Record<string, unknown> | undefined);
-		},
-		async bundle(bundlePath, ref) {
-			rec("bundle", [bundlePath, ref]);
-		},
-		async worktreeAdd(worktreePath, branch, opts) {
-			rec("worktreeAdd", [worktreePath, branch], opts as Record<string, unknown> | undefined);
-		},
-		async worktreeRemove(worktreePath, opts) {
-			rec("worktreeRemove", [worktreePath], opts as Record<string, unknown> | undefined);
-		},
-		async fetch(remote, ref, opts) {
-			rec("fetch", [remote, ref], opts as Record<string, unknown> | undefined);
-		},
-		async checkout(ref) {
-			rec("checkout", [ref]);
-		},
-		async restoreStaged(paths) {
-			rec("restoreStaged", [paths]);
-		},
-		async currentBranch() {
-			rec("currentBranch", []);
-			return null;
 		},
 	};
 }

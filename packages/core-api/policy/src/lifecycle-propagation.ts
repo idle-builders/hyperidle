@@ -1,43 +1,4 @@
-/**
- * L20 — Lifecycle Propagation Engine.
- *
- * Registers event handlers on the EventBus that propagate state changes
- * upward through the five-level hierarchy:
- *   session -> task -> bet -> product (derived on read)
- *
- * All propagation attempts are logged to propagation_log for auditability
- * and retry. Transient failures are stored with status=pending_retry and
- * re-attempted by a periodic heartbeat.
- *
- * @lore L20: Product and portfolio status are DERIVED on read — no write-time
- * propagation needed. The bet->product hop just logs the event for audit.
- *
- * @lore L20: messages.senderId has an FK constraint to agents.id. The
- * review thread created when a bet enters review uses "system:propagation"
- * as senderId. Production must ensure this agent row exists (seed or
- * migration). Tests seed it explicitly in beforeEach (F6 from arch review).
- *
- * @lore L20: propagation_log has no retention policy — rows accumulate
- * indefinitely. At current expected volumes (~10 propagations/day) a year's
- * worth is ~3,650 rows — negligible. A follow-up story should add a TTL
- * sweep after volumes are better understood. See F5 from arch review.
- *
- * @lore AU19 Increment 2a: this is the real cut-over — moved here from
- * `packages/server/src/services/lifecycle-propagation.ts` (behavior-
- * preserving move). Every raw cross-Service call became an injected DI port
- * (Mechanism C, `ports.ts`) — `work`/`conversation`/`users`/`notifications`
- * are all ordinary same-layer core-api edges. `propagationLog`/`sessions`
- * stay direct `@hyperidle/db` imports (both in
- * `table-ownership-guard.ts`'s `UNOWNED_SHARED_TABLES` exemption,
- * genuinely multi-owner-touched, confirmed unchanged by this migration).
- * `PropagationLevel` now imports from `@hyperidle/shared` instead of
- * `@hyperidle/knowledge` — identical type, dissolves the `policy →
- * knowledge` census edge (see `ports.ts`'s top `@lore`, census correction
- * #3). The local `VALID_TASK_TRANSITIONS`/`transitionTask` (a pre-AU19
- * inlined copy of `@hyperidle/work`'s task-state-machine, @lore O3/AF12)
- * now reuses this package's single `task-transitions.ts` copy shared with
- * `handoff-protocol.ts`, instead of carrying its own separate duplicate.
- */
+/** Reactive lifecycle propagation with durable retry logging. */
 
 import {
 	type HyperIdleDb,
@@ -48,25 +9,25 @@ import {
 import {
 	type BetStateChangedEvent,
 	type BetStatus,
+	canTransitionTaskState,
 	type EventBus,
 	type PropagationAppliedEvent,
 	type PropagationFailedEvent,
 	type PropagationLevel,
 	type SessionEndedEvent,
 	InvalidTransitionError as SharedInvalidTransitionError,
+	TaskInvalidTransitionError,
 	type TaskState,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { and, eq, ne } from "drizzle-orm";
-import type { LifecyclePropagationDeps } from "./ports.js";
-import { VALID_TRANSITIONS } from "./task-transitions.js";
+import type { PolicyDeps } from "./ports.js";
 
-/**
- * Shape of a single entry in the revision log JSON array.
- *
- * @lore O3: Inlined from bet-state-machine.ts (kernel) to avoid a forbidden
- * reverse dependency from fabric -> server. The interface is identical.
- */
+type LifecyclePropagationDeps = Pick<
+	PolicyDeps,
+	"work" | "conversation" | "users" | "notifications"
+>;
+
 interface RevisionLogEntry {
 	timestamp: string;
 	field: string;
@@ -78,22 +39,6 @@ interface RevisionLogEntry {
 	actor?: string;
 }
 
-/**
- * Transition a task to a new state with DB update and event emission.
- *
- * @lore O3: This is an inlined copy of transitionTask from task-state-machine.ts
- * (kernel). It cannot be imported from the kernel package because app-runtime must
- * never import from the server kernel package. The logic is identical; any future
- * changes to the kernel transitionTask must be mirrored here.
- * See architecture-critique.md CRITICAL finding.
- *
- * @lore AF12 AC5: mirrors the kernel `transitionTask` CAS — and "mirror" means the
- * same TRANSACTION boundary, not just the WHERE-clause guard. The SELECT-validate,
- * audit read+append, and `UPDATE ... WHERE id AND state = fromState` all run inside
- * one `db.transaction` so the audit read and the state write serialize together;
- * the loser matches 0 rows → throws → tx rolls back; the event emits AFTER commit.
- * Any change to the kernel transitionTask transaction boundary must be mirrored here.
- */
 async function transitionTask(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -112,13 +57,8 @@ async function transitionTask(
 			}
 
 			const fromState = task.state as TaskState;
-			const allowed = VALID_TRANSITIONS[fromState];
-			// @lore AF3: VALID_TRANSITIONS covers all TaskState values; undefined is
-			// unreachable at runtime but noUncheckedIndexedAccess requires the guard.
-			if (!allowed?.includes(toState)) {
-				const err = new Error(`Invalid transition for task ${taskId}: ${fromState} -> ${toState}`);
-				err.name = "InvalidTransitionError";
-				throw err;
+			if (!canTransitionTaskState(fromState, toState)) {
+				throw new TaskInvalidTransitionError(taskId, fromState, toState);
 			}
 
 			// Build audit trail
@@ -142,9 +82,7 @@ async function transitionTask(
 			});
 
 			if (!applied) {
-				const err = new Error(`Invalid transition for task ${taskId}: ${fromState} -> ${toState}`);
-				err.name = "InvalidTransitionError";
-				throw err;
+				throw new TaskInvalidTransitionError(taskId, fromState, toState);
 			}
 
 			return { fromState };
@@ -284,20 +222,8 @@ async function logPropagation(db: HyperIdleDb, entry: LogPropagationEntry): Prom
 
 // ─── Session -> Task propagation ─────────────────────────────────────────────
 
-/**
- * AF7 §7: a propagation outcome. On the retry path the caller resolves the
- * ORIGINAL pending_retry row in place using this status (no new row), closing the
- * queue entry. On the first-attempt path the status is unused (the fns log a new
- * row as before).
- */
 type PropagationStatus = "applied" | "skipped" | "pending_retry";
 
-/**
- * AF7 §7: when set, the propagate fns call this INSTEAD of logPropagation, so the
- * retry caller resolves the original row in place (no double-log). The fns still
- * emit propagation_applied on the applied path (a retry that truly landed). When
- * absent (first-attempt), logPropagation writes a fresh row as before.
- */
 type LogSink = (status: PropagationStatus, reason?: string) => Promise<void>;
 
 async function propagateSessionToTask(
@@ -309,9 +235,6 @@ async function propagateSessionToTask(
 	deps: LifecyclePropagationDeps,
 	onResolve?: LogSink,
 ): Promise<void> {
-	// AF7 §7: on the retry path, resolve the original row in place instead of
-	// logging a new one. log() routes to either logPropagation (first attempt) or
-	// the in-place resolver (retry).
 	const log = async (entry: {
 		status: PropagationStatus;
 		targetTransition: string | null;
@@ -642,7 +565,7 @@ async function logBetToTeamPropagation(
  * (attempts >= MAX_RETRY_ATTEMPTS), marks the row failed and creates a
  * notification queue entry.
  */
-export async function retryFailedPropagations(
+async function retryFailedPropagations(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	deps: LifecyclePropagationDeps,
@@ -742,6 +665,9 @@ export async function retryFailedPropagations(
 			);
 		} else if (row.sourceLevel === "task" && row.sourceEvent === "task_state_changed") {
 			await propagateTaskToBet(db, eventBus, row.sourceId, deps, resolveInPlace);
+		} else if (row.sourceLevel === "bet" && row.sourceEvent === "bet_state_changed") {
+			await logBetToTeamPropagation(db, eventBus, row.sourceId, "completed", deps);
+			await resolveInPlace("applied");
 		}
 	}
 }
@@ -754,7 +680,7 @@ export async function retryFailedPropagations(
  * Returns an unsubscribe function that tears down all subscriptions and
  * the retry heartbeat interval.
  */
-export function registerLifecyclePropagation(
+function registerLifecyclePropagation(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	deps: LifecyclePropagationDeps,
@@ -774,7 +700,18 @@ export function registerLifecyclePropagation(
 				event.outcome,
 				deps,
 			);
-		})();
+		})().catch(async (error: unknown) => {
+			await logPropagation(db, {
+				sourceLevel: "session",
+				sourceId: event.sessionId,
+				sourceEvent: "session_ended",
+				targetLevel: "task",
+				targetId: event.taskId ?? "unknown",
+				targetTransition: null,
+				status: "pending_retry",
+				failureReason: error instanceof Error ? error.message : String(error),
+			});
+		});
 	});
 
 	// Handler 2: task_state_changed -> evaluate bet transition
@@ -782,7 +719,18 @@ export function registerLifecyclePropagation(
 		if (event.toState === "done" || event.toState === "killed") {
 			void (async () => {
 				await propagateTaskToBet(db, eventBus, event.taskId, deps);
-			})();
+			})().catch(async (error: unknown) => {
+				await logPropagation(db, {
+					sourceLevel: "task",
+					sourceId: event.taskId,
+					sourceEvent: "task_state_changed",
+					targetLevel: "bet",
+					targetId: "unknown",
+					targetTransition: null,
+					status: "pending_retry",
+					failureReason: error instanceof Error ? error.message : String(error),
+				});
+			});
 		}
 	});
 
@@ -790,7 +738,20 @@ export function registerLifecyclePropagation(
 	// @lore U1: "shipped" → "completed"; logBetToProductPropagation → logBetToTeamPropagation.
 	const unsubBetChanged = eventBus.on("bet_state_changed", (event: BetStateChangedEvent) => {
 		if (event.toState === "completed" || event.toState === "killed") {
-			void logBetToTeamPropagation(db, eventBus, event.betId, event.toState, deps);
+			void logBetToTeamPropagation(db, eventBus, event.betId, event.toState, deps).catch(
+				async (error: unknown) => {
+					await logPropagation(db, {
+						sourceLevel: "bet",
+						sourceId: event.betId,
+						sourceEvent: "bet_state_changed",
+						targetLevel: "team",
+						targetId: event.streamId,
+						targetTransition: null,
+						status: "pending_retry",
+						failureReason: error instanceof Error ? error.message : String(error),
+					});
+				},
+			);
 		}
 	});
 
@@ -798,7 +759,9 @@ export function registerLifecyclePropagation(
 	const retryInterval = setInterval(() => {
 		void (async () => {
 			await retryFailedPropagations(db, eventBus, deps);
-		})();
+		})().catch(() => {
+			// Failed retry rows remain eligible for the next heartbeat.
+		});
 	}, 30_000);
 
 	return () => {
@@ -808,3 +771,5 @@ export function registerLifecyclePropagation(
 		clearInterval(retryInterval);
 	};
 }
+
+export { registerLifecyclePropagation, retryFailedPropagations };

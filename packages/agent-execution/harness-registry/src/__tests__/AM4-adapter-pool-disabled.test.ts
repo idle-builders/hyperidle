@@ -203,7 +203,7 @@ describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 	it("refreshDiscoveries() method exists on AdapterPool", async () => {
 		const pool = new AdapterPool();
 		// The method must exist and be callable
-		expect(typeof (pool as { refreshDiscoveries?: unknown }).refreshDiscoveries).toBe("function");
+		expect(typeof pool.refresh).toBe("function");
 	});
 
 	it("refreshDiscoveries() re-runs discoverLocalHarnesses and replaces the snapshot", async () => {
@@ -223,7 +223,7 @@ describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 		const pool = new AdapterPool(staleDiscoveries);
 
 		// Call the new method
-		await (pool as unknown as { refreshDiscoveries(): Promise<void> }).refreshDiscoveries();
+		await pool.refresh();
 
 		// Verify discovery was called
 		expect(discoverSpy).toHaveBeenCalledOnce();
@@ -252,11 +252,11 @@ describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 			.mockResolvedValue(freshDiscoveries as any);
 
 		const pool = new AdapterPool();
-		await (pool as unknown as { refreshDiscoveries(): Promise<void> }).refreshDiscoveries();
+		await pool.refresh();
 
 		// After refresh, list descriptors — claude-code must not show runtime caps as true
 		// The critical assertion is on the known-missing path:
-		const allDescriptors = pool.listCapabilityDescriptors();
+		const allDescriptors = pool.describe();
 		const claudeCode = allDescriptors.find((d) => d.type === "claude-code");
 		if (claudeCode) {
 			// Without sessionProbe.ok, caps must be false (WARNING 4)

@@ -1,31 +1,30 @@
 /**
  * H2 Dispatcher integration tests — wired createApp consumes real
  * event-bus events.
+ *
+ * @lore AU20 Ag6b: migrated from `registerNotificationDispatcher` +
+ * individual dep exports to `installNotifications` + collapsed
+ * `notificationsDeps` bag. The `serviceBootstrap` option passes a
+ * single disposer returned by `installNotifications`.
  */
 
 import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
 import {
-	insertNotification,
-	listAll,
+	enqueue,
+	installNotifications,
+	listNotifications,
 	type Notification,
 	type NotificationAdapter,
-	type Recipient,
-	registerNotificationDispatcher,
-	type SendResult,
-	updateNotificationConfig,
+	updateConfig,
 } from "@hyperidle/notifications";
 import type { CostCapBreachedEvent, RoutineFiredEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
 import { expect, test } from "../../test-fixtures.js";
-import {
-	notificationsConfigDeps,
-	notificationsSilenceDeps,
-	notificationsWorkReader,
-} from "../notifications-test-deps.js";
+import { notificationsDeps } from "../notifications-test-deps.js";
 
 interface AdapterCall {
-	recipient: Recipient;
+	recipient: { channelId: string; label?: string };
 	notification: Notification;
 }
 
@@ -34,17 +33,17 @@ function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
 	return {
 		name: "console",
 		calls,
-		async send(recipient, notification): Promise<SendResult> {
+		async send(recipient, notification) {
 			calls.push({ recipient, notification });
 			return { ok: true, channel: "console", sentAt: new Date().toISOString() };
 		},
 	};
 }
 
-// @lore AU18: seeds via updateNotificationConfig (server_config-backed) instead
+// @lore AU18: seeds via updateConfig (server_config-backed) instead
 // of raw factorySettings KV rows — same observable outcome, new storage.
 async function enable(db: HyperIdleDb): Promise<void> {
-	await updateNotificationConfig(
+	await updateConfig(
 		db,
 		{
 			enabled: true,
@@ -53,7 +52,7 @@ async function enable(db: HyperIdleDb): Promise<void> {
 			floodMaxPerMinute: 100,
 			floodCoalesceWindowMs: 60_000,
 		},
-		notificationsConfigDeps,
+		notificationsDeps,
 	);
 }
 
@@ -71,14 +70,9 @@ describe("H2 Dispatcher integration via createApp", () => {
 		const app = await createApp({
 			db,
 			eventBus,
-			// O3: notificationAdapterFactory removed from AppOptions for the dispatcher.
-			// Use serviceBootstrap to wire the dispatcher with the fake adapter.
 			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
-				registerNotificationDispatcher(testDb, testBus, {
+				installNotifications(testDb, testBus, notificationsDeps, {
 					adapterFactory: () => adapter,
-					notificationsConfig: notificationsConfigDeps,
-					silencePolicy: notificationsSilenceDeps,
-					work: notificationsWorkReader,
 				}),
 			],
 		});
@@ -130,11 +124,8 @@ describe("H2 Dispatcher integration via createApp", () => {
 			db,
 			eventBus,
 			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
-				registerNotificationDispatcher(testDb, testBus, {
+				installNotifications(testDb, testBus, notificationsDeps, {
 					adapterFactory: () => adapter,
-					notificationsConfig: notificationsConfigDeps,
-					silencePolicy: notificationsSilenceDeps,
-					work: notificationsWorkReader,
 				}),
 			],
 		});
@@ -168,18 +159,15 @@ describe("H2 Dispatcher integration via createApp", () => {
 			db,
 			eventBus,
 			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
-				registerNotificationDispatcher(testDb, testBus, {
+				installNotifications(testDb, testBus, notificationsDeps, {
 					adapterFactory: () => adapter,
-					notificationsConfig: notificationsConfigDeps,
-					silencePolicy: notificationsSilenceDeps,
-					work: notificationsWorkReader,
 				}),
 			],
 		});
 		try {
 			await enable(db);
 			const now = "2026-04-18T00:00:00.000Z";
-			await insertNotification(db, {
+			await enqueue(db, {
 				id: "q-1",
 				eventType: "item_created",
 				subjectId: "foo",
@@ -202,7 +190,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 			};
 			eventBus.emit(event);
 			await vi.waitFor(async () => {
-				const rows = await listAll(db);
+				const rows = await listNotifications(db, { kind: "all" });
 				expect(rows[0]!.status).toBe("sent");
 			});
 

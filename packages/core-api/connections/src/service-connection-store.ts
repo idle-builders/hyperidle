@@ -1,15 +1,22 @@
 /**
- * `serviceConnections` CRUD — the raw read/write surface for the
- * `service_connections` table `connections` owns.
+ * `serviceConnections` read/write surface for the `service_connections` table.
  *
- * @lore AU19 Increment 5 item 4 (connections sub-item, guard-retirement
- * full-sweep): closes `routes/connections.ts`'s + `server-factory.ts`'s
- * remaining raw `db.select/insert/update/delete(serviceConnections)` calls —
- * same TABLE_OWNER/DI-port pattern already proven for org/knowledge/work.
- * `server-factory.ts`'s `listServiceConnectionsByAuthSource` closes
- * `@hyperidle/settings`' `ServiceConnectionsReader` port, which stayed
- * deliberately interim at Increment 1h (only the credential-cipher/store
- * pair closed then) — see `settings`' `ports.ts` top `@lore`.
+ * Four composable operations replace the old per-intent methods:
+ *   listConnections  — filter by userId / authSource / id (any combination)
+ *   insertConnection — plain insert (caller handles unique-violation → 409)
+ *   updateConnection — health/validation write-back by id
+ *   deleteConnection — delete scoped to owning user (no-op if not owned)
+ *
+ * @lore AU20 Am4: collapsed from 7 per-intent getters/mutators
+ * (listByUserId / listByAuthSource / getById / getByIdForUser /
+ * insertServiceConnection / updateServiceConnectionHealth /
+ * deleteServiceConnectionForUser) into one read + one write + one delete.
+ * id+userId filter gives the existence-leak-safe scoped read:
+ * listConnections({id, userId}) returns [] on cross-user → caller 404s.
+ *
+ * @lore AU19 Increment 5 item 4: this file's original form closed
+ * routes/connections.ts + server-factory.ts raw queries. The AU20 collapse
+ * further de-fragments without changing SQL semantics.
  */
 
 import {
@@ -20,93 +27,84 @@ import {
 } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 
-/** List every held connection for a user — `GET /api/connections`. */
-export async function listServiceConnectionsByUserId(
+/**
+ * List service connections matching the given filter.
+ * Any combination of userId / authSource / id may be specified.
+ * With an empty filter, returns all rows (admin/debug use case).
+ *
+ * @lore AN1 AC5: combining {id, userId} is the per-user ownership guard —
+ * a cross-user or non-existent id yields [] so the caller can 404 without
+ * leaking existence (never returns a 403 on mismatch).
+ */
+export async function listConnections(
 	db: HyperIdleDb,
-	userId: string,
+	filter: { userId?: string; authSource?: string; id?: string } = {},
 ): Promise<ServiceConnectionRow[]> {
-	return db.select().from(serviceConnections).where(eq(serviceConnections.userId, userId));
+	const conditions = [
+		filter.userId !== undefined ? eq(serviceConnections.userId, filter.userId) : undefined,
+		filter.authSource !== undefined
+			? eq(serviceConnections.authSource, filter.authSource)
+			: undefined,
+		filter.id !== undefined ? eq(serviceConnections.id, filter.id) : undefined,
+	].filter((c): c is NonNullable<typeof c> => c !== undefined);
+
+	if (conditions.length === 0) {
+		return db.select().from(serviceConnections);
+	}
+	return db
+		.select()
+		.from(serviceConnections)
+		.where(and(...conditions));
 }
 
 /**
- * List every held connection matching an `authSource` (no user filter) —
- * `settings`' `ServiceConnectionsReader.listByAuthSource` (MCP-server
- * configuration-default seed).
+ * Insert a new service connection.
+ * Unique-violation (user × service × authSource) propagates to the caller —
+ * routes/connections.ts POST / walks err.cause to detect `23505` and translates
+ * it to a 409.
  */
-export async function listServiceConnectionsByAuthSource(
-	db: HyperIdleDb,
-	authSource: string,
-): Promise<ServiceConnectionRow[]> {
-	return db.select().from(serviceConnections).where(eq(serviceConnections.authSource, authSource));
-}
-
-/**
- * Insert a new held connection. Unique-violation (user × service ×
- * authSource) errors propagate to the caller unchanged — `routes/
- * connections.ts`'s POST / already walks the `err.cause` chain to detect
- * `23505`/"duplicate key" and translate it to a 409.
- */
-export async function insertServiceConnection(
+export async function insertConnection(
 	db: HyperIdleDb,
 	values: NewServiceConnectionRow,
 ): Promise<void> {
 	await db.insert(serviceConnections).values(values);
 }
 
-/** Find a held connection by its opaque `sc-<uuid>` id, no ownership check. */
-export async function getServiceConnectionById(
+/**
+ * Atomically write back a validate-probe outcome for the connection matching
+ * both id and owning user. A mismatched owner leaves the row unchanged.
+ */
+export async function updateConnection(
 	db: HyperIdleDb,
-	id: string,
-): Promise<ServiceConnectionRow | undefined> {
-	const [row] = await db
-		.select()
-		.from(serviceConnections)
-		.where(eq(serviceConnections.id, id))
-		.limit(1);
-	return row;
+	params: { id: string; userId: string },
+	patch: {
+		readonly health?: string;
+		readonly lastValidatedAt?: string;
+		readonly updatedAt: string;
+	},
+): Promise<void> {
+	const updateSet: Partial<typeof serviceConnections.$inferInsert> = {
+		updatedAt: patch.updatedAt,
+	};
+	if (patch.health !== undefined) updateSet.health = patch.health;
+	if (patch.lastValidatedAt !== undefined) updateSet.lastValidatedAt = patch.lastValidatedAt;
+
+	await db
+		.update(serviceConnections)
+		.set(updateSet)
+		.where(and(eq(serviceConnections.id, params.id), eq(serviceConnections.userId, params.userId)));
 }
 
 /**
- * Find a held connection scoped to its owning user — cross-user / non-
- * existent ids both resolve to `undefined`, so a caller can 404 without an
- * existence leak (`routes/connections.ts`'s DELETE/validate ownership check).
+ * Delete a service connection scoped to its owning user.
+ * No-op if the id does not exist or belongs to a different user.
+ * Provides per-user isolation (AN1 AC5 hard-rule 4).
  */
-export async function getServiceConnectionByIdForUser(
+export async function deleteConnection(
 	db: HyperIdleDb,
-	id: string,
-	userId: string,
-): Promise<ServiceConnectionRow | undefined> {
-	const [row] = await db
-		.select()
-		.from(serviceConnections)
-		.where(and(eq(serviceConnections.id, id), eq(serviceConnections.userId, userId)))
-		.limit(1);
-	return row;
-}
-
-/** Delete a held connection scoped to its owning user (no-op if not owned). */
-export async function deleteServiceConnectionForUser(
-	db: HyperIdleDb,
-	id: string,
-	userId: string,
+	params: { id: string; userId: string },
 ): Promise<void> {
 	await db
 		.delete(serviceConnections)
-		.where(and(eq(serviceConnections.id, id), eq(serviceConnections.userId, userId)));
-}
-
-/** Write back a validate-probe outcome (health + timestamp) by id. */
-export async function updateServiceConnectionHealth(
-	db: HyperIdleDb,
-	id: string,
-	values: { readonly health: string; readonly lastValidatedAt: string; readonly updatedAt: string },
-): Promise<void> {
-	await db
-		.update(serviceConnections)
-		.set({
-			health: values.health,
-			lastValidatedAt: values.lastValidatedAt,
-			updatedAt: values.updatedAt,
-		})
-		.where(eq(serviceConnections.id, id));
+		.where(and(eq(serviceConnections.id, params.id), eq(serviceConnections.userId, params.userId)));
 }

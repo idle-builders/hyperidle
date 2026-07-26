@@ -11,9 +11,9 @@
 
 import type { HarnessCapabilities, McpConnectionInfo, SessionConfig } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
-import { CLAUDE_CLI_CONFIG } from "../adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 
 // ── Type shape tests (runtime-checked via object construction) ────────────────
 
@@ -87,7 +87,7 @@ describe("HarnessCapabilities includes mcpSupport", () => {
 
 describe("Adapter mcpSupport capability declarations", () => {
 	it("claude CLI adapter (CliHarnessAdapter with CLAUDE_CLI_CONFIG) declares mcpSupport: true", () => {
-		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG);
+		const adapter = new CliHarnessAdapter(cliAdapterFixture("claude"));
 		expect(adapter.getCapabilities().mcpSupport).toBe(true);
 	});
 

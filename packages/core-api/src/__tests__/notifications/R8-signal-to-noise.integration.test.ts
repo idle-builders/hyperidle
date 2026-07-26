@@ -10,22 +10,25 @@
  *
  * @lore R8: These tests define the contract BEFORE implementation. They fail until:
  *   - quietHoursEnabled field is added to NotificationsSchema
- *   - AlertPreferences type and applyAlertPreferences are added to dispatcher
+ *   - applyAlertPreferences is added to dispatcher
  *   - readAlertPreferences is wired through DispatcherDeps → bootstrap → server-factory
  *   - Settings PATCH accepts quietHoursEnabled toggle
+ *
+ * @lore AU20 Ag6b: migrated from `AlertPreferences`/`registerNotificationDispatcher`/
+ * `updateNotificationConfig`/`Recipient`/`SendResult` to `installNotifications`/
+ * `updateConfig` + `notificationsDeps` bag. `AlertPreferences` is now internal;
+ * readAlertPreferences returns an inferred structural type, compatible via
+ * TypeScript's structural subtyping.
  */
 
 import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
 import {
-	type AlertPreferences,
-	listAll,
+	installNotifications,
+	listNotifications,
 	type Notification,
 	type NotificationAdapter,
 	type NotificationConfigPatch,
-	type Recipient,
-	registerNotificationDispatcher,
-	type SendResult,
-	updateNotificationConfig,
+	updateConfig,
 } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type {
@@ -35,18 +38,14 @@ import type {
 	TaskStateChangedEvent,
 } from "@hyperidle/shared";
 import { afterEach, describe, expect, test, vi } from "../../test-fixtures.js";
-import {
-	notificationsConfigDeps,
-	notificationsSilenceDeps,
-	notificationsWorkReader,
-} from "../notifications-test-deps.js";
+import { notificationsDeps } from "../notifications-test-deps.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
 
 interface AdapterCall {
-	recipient: Recipient;
+	recipient: { channelId: string; label?: string };
 	notification: Notification;
 }
 
@@ -57,20 +56,20 @@ function createFakeAdapter(
 	return {
 		name,
 		calls,
-		async send(recipient, notification): Promise<SendResult> {
+		async send(recipient, notification) {
 			calls.push({ recipient, notification });
 			return { ok: true, channel: name, sentAt: new Date().toISOString() };
 		},
 	};
 }
 
-// @lore AU18: seeds via updateNotificationConfig (server_config-backed) instead
+// @lore AU18: seeds via updateConfig (server_config-backed) instead
 // of raw factorySettings KV rows — same observable outcome, new storage.
 async function enableNotifications(
 	db: HyperIdleDb,
 	overrides: NotificationConfigPatch = {},
 ): Promise<void> {
-	await updateNotificationConfig(
+	await updateConfig(
 		db,
 		{
 			enabled: true,
@@ -80,7 +79,7 @@ async function enableNotifications(
 			floodCoalesceWindowMs: 60_000,
 			...overrides,
 		},
-		notificationsConfigDeps,
+		notificationsDeps,
 	);
 }
 
@@ -138,7 +137,7 @@ function emitTaskStateChanged(
 }
 
 /**
- * Register the notification dispatcher with alert preferences wired to
+ * Register all notification workers with alert preferences wired to
  * readServerConfig. This mirrors the production bootstrap (server-factory.ts)
  * where readAlertPreferences is injected via DispatcherDeps so fabric does not
  * read server_config directly.
@@ -147,6 +146,10 @@ function emitTaskStateChanged(
  * costAlerts, reviewAlerts, quietHoursEnabled) must inject readAlertPreferences
  * so the dispatcher reads from server_config rather than falling back to
  * all-alerts-ON defaults.
+ *
+ * @lore AU20 Ag6b: migrated from `registerNotificationDispatcher` to
+ * `installNotifications`. `AlertPreferences` is internal; return type is inferred
+ * structurally (TypeScript structural subtyping).
  */
 function registerWithPrefs(
 	db: HyperIdleDb,
@@ -154,12 +157,9 @@ function registerWithPrefs(
 	adapter: NotificationAdapter,
 	extraDeps: Partial<{ now: () => Date }> = {},
 ): () => void {
-	return registerNotificationDispatcher(db, bus, {
+	return installNotifications(db, bus, notificationsDeps, {
 		adapterFactory: () => adapter,
-		notificationsConfig: notificationsConfigDeps,
-		silencePolicy: notificationsSilenceDeps,
-		work: notificationsWorkReader,
-		readAlertPreferences: async (): Promise<AlertPreferences> => {
+		readAlertPreferences: async () => {
 			const cfg = await readServerConfig(db);
 			return {
 				blockerAlerts: cfg.notifications.blockerAlerts,
@@ -202,11 +202,8 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		await enableNotifications(db);
 		const threadId = await seedThread(db, "thread-ac1-item");
 		await createItem(db, { id: "ac1-blocking", blocking: true, riskTier: "medium", threadId });
-		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
 			adapterFactory: () => adapter,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
 		});
 
 		const event: ItemCreatedEvent = {
@@ -230,11 +227,8 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
 			adapterFactory: () => adapter,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
 		});
 
 		const event: CostCapBreachedEvent = {
@@ -260,11 +254,8 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
 			adapterFactory: () => adapter,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
 		});
 
 		const event: CostCapWarningEvent = {
@@ -292,11 +283,8 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		// AC2: task_state_changed is explicitly not subscribed by the dispatcher.
 		// Emitting it should produce no notifications and no queue rows.
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
 			adapterFactory: () => adapter,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
 		});
 
 		emitTaskStateChanged(eventBus, "proposed", "in_progress");
@@ -307,7 +295,7 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows).toHaveLength(0);
 	});
 
@@ -319,11 +307,8 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		// cost_cap_warning with level=warning produces a digest row, not a push.
 		// This verifies the subscription exists but the classification is digest.
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
 			adapterFactory: () => adapter,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
 		});
 
 		const event: CostCapWarningEvent = {
@@ -340,10 +325,10 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 
 		// Handler is subscribed — digest row appears, no push
 		await vi.waitFor(async () => {
-			const rows = await listAll(db);
+			const rows = await listNotifications(db, { kind: "all" });
 			expect(rows).toHaveLength(1);
 		});
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows[0]!.severity).toBe("digest");
 		expect(adapter.calls).toHaveLength(0);
 	});
@@ -366,11 +351,8 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
 			adapterFactory: () => adapter,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
 		});
 
 		emitTaskStateChanged(eventBus, "proposed", "in_progress");
@@ -380,7 +362,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows).toHaveLength(0);
 	});
 
@@ -390,11 +372,8 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
 			adapterFactory: () => adapter,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
 		});
 
 		emitTaskStateChanged(eventBus, "in_progress", "done");
@@ -403,7 +382,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows).toHaveLength(0);
 	});
 
@@ -416,11 +395,8 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		await enableNotifications(db, {
 			floodMaxPerMinute: 1,
 		});
-		unsubscribe = registerNotificationDispatcher(db, eventBus, {
+		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
 			adapterFactory: () => adapter,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
 		});
 
 		// Emit multiple transitions
@@ -431,7 +407,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		await Promise.resolve();
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows).toHaveLength(0);
 	});
 });
@@ -472,7 +448,7 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows).toHaveLength(0);
 	});
 
@@ -531,7 +507,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 
 		// With costAlerts=false, even a critical warning should be dropped
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows).toHaveLength(0);
 	});
 
@@ -558,7 +534,7 @@ describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
 
 		// soft breach = digest severity; dropped when costAlerts=false
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows).toHaveLength(0);
 	});
 
@@ -659,7 +635,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows).toHaveLength(0);
 	});
 
@@ -839,7 +815,9 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 		expect(adapter!.calls[0]!.notification.severity).toBe("blocking");
 
 		// No silence queue rows created
-		const silenceRows = (await listAll(db)).filter((r) => r.reason === "silence");
+		const silenceRows = (await listNotifications(db, { kind: "all" })).filter(
+			(r) => r.reason === "silence",
+		);
 		expect(silenceRows).toHaveLength(0);
 	});
 
@@ -876,14 +854,14 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 		eventBus.emit(event);
 
 		await vi.waitFor(async () => {
-			const rows = await listAll(db);
+			const rows = await listNotifications(db, { kind: "all" });
 			expect(rows).toHaveLength(1);
 		});
 
 		// Adapter must NOT have been called
 		expect(adapter.calls).toHaveLength(0);
 
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows[0]!.reason).toBe("silence");
 		expect(rows[0]!.severity).toBe("blocking");
 	});
@@ -964,7 +942,7 @@ describe("R8 Preferences wiring — server_config drives dispatcher", () => {
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
 		expect(adapter.calls).toHaveLength(0);
-		const rows = await listAll(db);
+		const rows = await listNotifications(db, { kind: "all" });
 		expect(rows).toHaveLength(0);
 	});
 

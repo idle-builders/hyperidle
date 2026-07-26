@@ -52,15 +52,7 @@ import type { HarnessCapabilities, HarnessCapabilityDescriptor } from "@hyperidl
  * whose pool handle is typed HarnessCapabilityReader cannot name select()/
  * register()/execute() regardless of how many forwarders exist.
  */
-export type HarnessCapabilityReader = Pick<
-	AdapterPool,
-	| "size"
-	| "list"
-	| "getCapabilitiesByType"
-	| "getRegistrationMetaByType"
-	| "listCapabilityDescriptors"
-	| "refreshDiscoveries"
->;
+export type HarnessCapabilityReader = Pick<AdapterPool, "size" | "list" | "describe" | "refresh">;
 
 /** Number of registered adapters. Used by resolveHarnessAvailable (agent-profile.ts). */
 export function registeredHarnessCount(reader: HarnessCapabilityReader): number {
@@ -85,7 +77,13 @@ export function harnessCapabilitiesForType(
 	reader: HarnessCapabilityReader | undefined,
 	harnessType: string | null,
 ): HarnessCapabilities | null {
-	return reader?.getCapabilitiesByType(harnessType) ?? null;
+	const descriptor = reader?.describe({
+		type: harnessType ?? undefined,
+		includeKnownMissing: false,
+	})[0];
+	return descriptor
+		? { ...descriptor.runtime, returnEnforcement: descriptor.returnEnforcement ?? "none" }
+		: null;
 }
 
 /** Registration metadata for the first adapter matching harnessType. */
@@ -93,7 +91,16 @@ export function harnessRegistrationMeta(
 	reader: HarnessCapabilityReader,
 	harnessType: string,
 ): AdapterMeta | null {
-	return reader.getRegistrationMetaByType(harnessType);
+	const descriptor = reader.describe({ type: harnessType, includeKnownMissing: false })[0];
+	return descriptor
+		? {
+				name: descriptor.name,
+				kind: descriptor.kind,
+				type: descriptor.type,
+				modelProviders: descriptor.modelProviders,
+				maxConcurrent: 1,
+			}
+		: null;
 }
 
 /**
@@ -107,10 +114,10 @@ export function harnessCapabilityDescriptors(
 	reader: HarnessCapabilityReader | undefined,
 	options?: { readonly includeKnownMissing?: boolean },
 ): HarnessCapabilityDescriptor[] {
-	return reader?.listCapabilityDescriptors(options) ?? [];
+	return reader?.describe(options) ?? [];
 }
 
 /** Re-run local harness discovery and replace the discovery snapshot. */
 export function refreshHarnessDiscoveries(reader: HarnessCapabilityReader): Promise<void> {
-	return reader.refreshDiscoveries();
+	return reader.refresh();
 }

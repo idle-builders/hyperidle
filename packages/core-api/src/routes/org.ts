@@ -18,15 +18,14 @@
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	deleteOrgEdgeById,
-	getOrgEdgeById,
-	getTeamMembersById,
-	listActiveTeamMembersWithTeamNames,
+	deleteOrgEdge,
+	getTeamMembers,
 	listOrgEdges,
+	listTeamMembers,
 	upsertOrgEdge,
 } from "@hyperidle/org";
 import { ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
-import { getUserById, listUserDirectory } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -50,7 +49,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	// id = teamMembers.id (what PUT /edges validates for mechanism:"team").
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const edges = await listOrgEdges(db);
-		const allUsers = await listUserDirectory(db);
+		const allUsers = await listUsers(db);
 
 		// AF15: Include non-dissolved teamMembers rows joined to teams.name.
 		// @lore AF15: teamMembers.id is the correct target for mechanism:"team" edges
@@ -58,9 +57,18 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		// The UI shows teams.name as the label but submits teamMembers.id as value.
 		// AO1: teamActualId (teams.id) lets the UI fetch team-scoped resources
 		// (filesystems) that key on teams.id.
-		const teamRows = await listActiveTeamMembersWithTeamNames(db);
+		const teamRows = await listTeamMembers(db, { active: true, withTeamName: true });
 
-		return c.json({ edges, users: allUsers, teams: teamRows });
+		// @lore AU20/Am11: project only {id,kind,name,role} — listUsers returns full rows
+		// but this public-data endpoint must not leak email/systemPrompt/cost/model columns.
+		// Matches the pre-collapse listUserDirectory projection exactly.
+		const userSummaries = allUsers.map((u) => ({
+			id: u.id,
+			kind: u.kind,
+			name: u.name,
+			role: u.role,
+		}));
+		return c.json({ edges, users: userSummaries, teams: teamRows });
 	});
 
 	// PUT /edges — upsert an edge
@@ -83,7 +91,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const { fromUserId, mechanism, target } = parsed.data;
 
 		// Check if fromUserId exists in users table
-		const fromUser = await getUserById(db, fromUserId);
+		const fromUser = await findUser(db, { id: fromUserId });
 		if (!fromUser) {
 			return c.json(
 				{ error: `fromUserId not found: ${fromUserId}`, code: "VALIDATION_ERROR" },
@@ -96,7 +104,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		// "function" targets a UserRole string, "team" targets a teamId. Each has a
 		// distinct existence check so stale/garbage targets are rejected at write time.
 		if (mechanism === "direct") {
-			const targetUser = await getUserById(db, target);
+			const targetUser = await findUser(db, { id: target });
 			if (!targetUser) {
 				return c.json(
 					{ error: `target userId not found: ${target}`, code: "VALIDATION_ERROR" },
@@ -117,7 +125,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			}
 		} else if (mechanism === "team") {
 			// @lore U1: `mechanism: "team"` targets a teamMembers row (agent membership group).
-			const targetTeam = await getTeamMembersById(db, target);
+			const targetTeam = await getTeamMembers(db, { id: target });
 			if (!targetTeam) {
 				return c.json(
 					{ error: `target teamId not found: ${target}`, code: "VALIDATION_ERROR" },
@@ -139,12 +147,12 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	router.delete("/edges/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
 
-		const existing = await getOrgEdgeById(db, id);
+		const [existing] = await listOrgEdges(db, { id });
 		if (!existing) {
 			return c.json({ error: "Edge not found", code: "NOT_FOUND" }, 404);
 		}
 
-		await deleteOrgEdgeById(db, id);
+		await deleteOrgEdge(db, id);
 		return c.body(null, 204);
 	});
 

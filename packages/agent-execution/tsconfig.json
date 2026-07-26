@@ -12,12 +12,6 @@
 		},
 		{
 			"path": "harness-registry"
-		},
-		{
-			"path": "mcp-provider"
-		},
-		{
-			"path": "tool-provider"
 		}
 	]
 }

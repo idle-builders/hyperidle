@@ -1,5 +1,6 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { SessionContext } from "@hyperidle/session-lifecycle";
+import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
@@ -12,7 +13,8 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
 import { handoff } from "../services/policy-bindings.js";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
+
+type SessionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
 
 /**
  * Zod schemas for request validation.
@@ -68,13 +70,13 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			const now = new Date().toISOString();
 
 			// Validate bet exists
-			const bet = await work.getBetById(db, body.betId);
+			const bet = await work.get(db, "bet", body.betId);
 			if (!bet) {
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
 
 			const taskId = crypto.randomUUID();
-			await work.createTask(db, {
+			await work.create(db, "task", {
 				id: taskId,
 				betId: body.betId,
 				teamId: bet.teamId,
@@ -88,7 +90,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				updatedAt: now,
 			});
 
-			const created = await work.getTaskById(db, taskId);
+			const created = await work.get(db, "task", taskId);
 			return c.json(created, 201);
 		},
 	);
@@ -99,7 +101,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		const state = c.req.query("state");
 		const owner = c.req.query("owner");
 
-		const result = await work.listTasks(db, {
+		const result = await work.list(db, "task", {
 			...(betId ? { betId } : {}),
 			...(state ? { state } : {}),
 			...(owner ? { ownerAgentId: owner } : {}),
@@ -116,7 +118,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	// so `cost`/`harnessUrl`/`tokens` are null here. AF7 owns dispatch — no writes.
 	router.get("/:id/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
 		const taskId = c.req.param("id");
-		const task = await work.getTaskById(db, taskId);
+		const task = await work.get(db, "task", taskId);
 		if (!task) {
 			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -153,7 +155,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			const taskId = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof updateTaskSchema>;
 
-			const task = await work.getTaskById(db, taskId);
+			const task = await work.get(db, "task", taskId);
 			if (!task) {
 				return c.json({ error: "Task not found", code: "NOT_FOUND" }, 404);
 			}
@@ -187,9 +189,9 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				updates.auditTrail = JSON.stringify(auditTrail);
 			}
 
-			await work.updateTaskById(db, taskId, updates);
+			await work.update(db, "task", taskId, updates);
 
-			const updated = await work.getTaskById(db, taskId);
+			const updated = await work.get(db, "task", taskId);
 			return c.json(updated);
 		},
 	);
@@ -204,10 +206,10 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
 
 			await transitionTask(db, eventBus, taskId, body.state, {
-				workIntents: { record: recordAgentWorkIntent },
+				workIntents: { record: enqueueWorkIntent },
 			});
 
-			const updated = await work.getTaskById(db, taskId);
+			const updated = await work.get(db, "task", taskId);
 			return c.json(updated);
 		},
 	);
@@ -221,7 +223,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			const taskId = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
 
-			const task = await work.getTaskById(db, taskId);
+			const task = await work.get(db, "task", taskId);
 			if (!task) {
 				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}

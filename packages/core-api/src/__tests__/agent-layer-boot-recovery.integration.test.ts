@@ -19,54 +19,45 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
+import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import { bootAgentLayer } from "../services/run-orchestration-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
+import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
 const admitSessionCalls: string[] = [];
 
-vi.mock("@hyperidle/session-lifecycle", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/session-lifecycle")>();
-	return {
-		...original,
-		admitSession: vi.fn(
-			async (
-				deps: import("@hyperidle/session-lifecycle").ProvisionSessionDeps,
-				params: import("@hyperidle/session-lifecycle").ProvisionSessionParams,
-			) => {
-				const requestId = params.requestContext?.requestId ?? "unknown";
-				admitSessionCalls.push(requestId);
-				const [existing] = await deps.db
-					.select()
-					.from(sessions)
-					.where(eq(sessions.requestId, requestId))
-					.limit(1);
-				const sessionId = existing?.id ?? `stub-session-${requestId}`;
-				return {
-					sessionId,
-					sessionContext: {
-						sessionId,
-						agentId: params.agentId,
-						taskId: params.taskId,
-						sandboxPath: "/tmp/au9-boot-recovery",
-						ingestion: { dispose: vi.fn() },
-						traceId: "trace-au9-boot-recovery",
-						requestContext: params.requestContext,
-					},
-				};
+const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
+	admitSession: vi.fn(async (deps, params) => {
+		const requestId = params.requestContext?.requestId ?? "unknown";
+		admitSessionCalls.push(requestId);
+		const [existing] = await deps.db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.requestId, requestId))
+			.limit(1);
+		const sessionId = existing?.id ?? `stub-session-${requestId}`;
+		return {
+			sessionId,
+			sessionContext: {
+				sessionId,
+				agentId: params.agentId,
+				taskId: params.taskId,
+				sandboxPath: "/tmp/au9-boot-recovery",
+				ingestion: { dispose: vi.fn() },
+				traceId: "trace-au9-boot-recovery",
+				requestContext: params.requestContext,
 			},
-		),
-		runSession: vi.fn(async () => ({
-			sessionId: "unused",
-			outcome: "completed",
-			totalCostCents: 0,
-			taskId: null,
-			forceReturnCount: 0,
-		})),
-	};
-});
+		};
+	}),
+	runSession: vi.fn(async () => ({
+		sessionId: "unused",
+		outcome: "completed" as const,
+		totalCostCents: 0,
+		taskId: null,
+		forceReturnCount: 0,
+	})),
+};
 
 describe("agent-layer boot recovery", () => {
 	test("an awaited first sweep reconciles pending intents, expired claims, running recovery, requested terminations, and retention — each exactly once", async ({
@@ -256,18 +247,7 @@ describe("agent-layer boot recovery", () => {
 			updatedAt: new Date(now.getTime() - 31 * 86_400_000).toISOString(),
 		});
 
-		const runtimeDeps = {
-			db,
-			eventBus,
-			adapterPool: {} as AdapterPool,
-			workspace: {} as SandboxAdapter,
-		};
-		const dispose = await bootAgentLayer({
-			db,
-			eventBus,
-			runtime: runtimeDeps,
-			sandboxBasePath: "/tmp/au9-boot-recovery",
-		});
+		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, sessionProvisioner);
 		try {
 			// (1) pending intent admitted.
 			const [pendingIntent] = await db
@@ -325,7 +305,7 @@ describe("agent-layer boot recovery", () => {
 				expect(count).toBe(1);
 			}
 		} finally {
-			dispose();
+			await runtime.dispose();
 		}
 	});
 });

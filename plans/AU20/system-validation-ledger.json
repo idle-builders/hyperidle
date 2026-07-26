@@ -1,0 +1,233 @@
+{
+  "workPackage": "AU20",
+  "capturedAt": "2026-07-23T01:42:00+02:00",
+  "scope": "System validation inventory requested after independent AU20 review",
+  "headReviewed": "fb8254bc1270aa5872cb6463e4cc6cfd5ddd2b32",
+  "accounting": {
+    "declaredCases": 16,
+    "pass": 3,
+    "fail": 11,
+    "skip": 0,
+    "timeout": 0,
+    "unrun": 2
+  },
+  "taxonomy": {
+    "runtimeValidation": "Executed behavior with one runtime disposition for every non-pass.",
+    "reviewObligation": "Static architecture/evidence/documentation obligation; has an obligationStatus and no runtime disposition.",
+    "proofGap": "Required behavior lacks an executable validation contract; not evidence of a runtime failure or an environmental prerequisite."
+  },
+  "taxonomyAccounting": {
+    "runtimeValidation": { "total": 9, "pass": 3, "fail": 6, "unrun": 0 },
+    "reviewObligation": { "total": 5, "open": 4, "blockedByChildren": 1 },
+    "proofGap": { "total": 2, "open": 2 }
+  },
+  "commands": [
+    {
+      "id": "service-integration-20260723",
+      "command": "npm run test:integration:service",
+      "cwd": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+      "exitCode": 1,
+      "resultArtifact": "terminal output summarized in this ledger; failing source artifacts packages/core-api/src/__tests__/AC2-retro.integration.test.ts:292 and packages/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts:80"
+    },
+    {
+      "id": "harness-integration-20260723",
+      "command": "npm run test:integration:harness",
+      "cwd": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+      "exitCode": 1,
+      "resultArtifact": "terminal output summarized in this ledger; prerequisite guard packages/agent-execution/harness-registry/src/__tests__/require-harness.ts:86"
+    },
+    {
+      "id": "desktop-unit-20260723",
+      "command": "npm run -w @hyperidle/desktop test -- --run",
+      "cwd": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+      "exitCode": 0,
+      "resultArtifact": "terminal output summarized in this ledger"
+    },
+    {
+      "id": "desktop-build-20260723",
+      "command": "npm run build:desktop",
+      "cwd": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+      "exitCode": 0,
+      "resultArtifact": "packages/web/dist and packages/desktop/dist (gitignored build output); desktop bundle validator reported Validation passed"
+    },
+    {
+      "id": "surface-census-20260723",
+      "command": "node --import tsx scripts/surface-census.ts --table",
+      "cwd": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+      "exitCode": 0,
+      "resultArtifact": "terminal output summarized in this ledger; executable source scripts/surface-census.ts"
+    },
+    {
+      "id": "demand-count-20260723",
+      "command": "jq '[.services // .[]?] | length' .pipeline/work/AU20/analysis/service-data-packages.json",
+      "cwd": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+      "exitCode": 0,
+      "resultArtifact": ".pipeline/work/AU20/analysis/service-data-packages.json; result 31"
+    }
+  ],
+  "testAccounting": {
+    "serviceIntegration": { "filesPassed": 261, "filesFailed": 2, "filesSkipped": 1, "testsPassed": 2862, "testsFailed": 2, "testsSkipped": 7 },
+    "realHarnessIntegration": { "filesPassed": 6, "filesFailed": 5, "testsPassed": 21, "testsFailed": 0, "testsSkipped": 1, "suiteLoadFailures": 5 },
+    "desktopUnit": { "filesPassed": 9, "testsPassed": 123 },
+    "desktopBuild": { "exitCode": 0 }
+  },
+  "cases": [
+    {
+      "id": "review-critical-demand-package",
+      "caseKind": "reviewObligation",
+      "obligationStatus": "open",
+      "finding": "Required per-Service demand package is stale and cannot be regenerated",
+      "status": "fail",
+      "disposition": null,
+      "rootCause": true,
+      "evidence": "service-data-packages.json contains 31 service records; live census contains 23. scripts/generate-dependency-graph.ts writes only graph JSON, plans/AU19/as-is-dependency-graph.md, and the concept artifact; it has no writer for service-data-packages.json."
+    },
+    {
+      "id": "review-critical-runtime-disposal",
+      "caseKind": "runtimeValidation",
+      "finding": "Server shutdown does not await durable runtime teardown",
+      "status": "fail",
+      "disposition": "feature regression",
+      "rootCause": true,
+      "evidence": "ServerHandle.dispose is typed () => void and implementation invokes void runRuntime.dispose() before HTTP/DB closure. runRuntime.dispose is async and awaits markRunningAgentSessionRequestsForShutdown. Static custody contradiction reproduced at server-factory.ts:549-552,1018-1039 and start-runtime.ts:360-371."
+    },
+    {
+      "id": "review-critical-mcp-isolation",
+      "caseKind": "reviewObligation",
+      "obligationStatus": "open",
+      "finding": "harness-registry MCP dependency isolation was not implemented",
+      "status": "fail",
+      "disposition": null,
+      "rootCause": true,
+      "evidence": "Package exports only '.' and './test-utils'; main index exports createMcpToolBridge; package main dependencies directly include @modelcontextprotocol/sdk, hono, and zod. No './mcp' subpath exists."
+    },
+    {
+      "id": "review-critical-retro-snapshot",
+      "caseKind": "runtimeValidation",
+      "finding": "Knowledge rewrite breaks immutable retro hypothesis snapshots",
+      "status": "fail",
+      "disposition": "feature regression",
+      "rootCause": true,
+      "evidence": "Authoritative npm run test:integration:service failed AC2-retro.integration.test.ts:292: expected original hypothesis, received edited hypothesis."
+    },
+    {
+      "id": "review-critical-aggregate",
+      "caseKind": "reviewObligation",
+      "obligationStatus": "blocked_by_children",
+      "finding": "Aggregate verification is red",
+      "status": "fail",
+      "disposition": null,
+      "rootCause": false,
+      "cascadeOf": ["review-critical-retro-snapshot", "service-bootstrap-disposer-contract", "harness-openrouter-prerequisite"],
+      "evidence": "Service integration exit 1 and real-harness integration exit 1. Aggregate redness is a cascade, not an independent defect."
+    },
+    {
+      "id": "review-warning-notification-catch",
+      "caseKind": "runtimeValidation",
+      "finding": "Notification secret writes swallow every encryption failure",
+      "status": "fail",
+      "disposition": "feature regression",
+      "rootCause": true,
+      "evidence": "notifications/src/install.ts writeSecret catches all exceptions from encryptCredentialValue and returns, despite lore promising only MISSING_ROOT_SECRET suppression."
+    },
+    {
+      "id": "review-warning-filesystem-watcher",
+      "caseKind": "runtimeValidation",
+      "finding": "Filesystem watcher returns a live-looking handle after setup failure",
+      "status": "fail",
+      "disposition": "feature regression",
+      "rootCause": true,
+      "evidence": "file-watcher.ts catches fs.watch setup failure with an empty catch and installs no watcher error listener. Current aggregate service run did not reproduce EMFILE; deterministic static failure path remains present and review documented resource-sensitive runtime reproduction."
+    },
+    {
+      "id": "review-warning-stale-census",
+      "caseKind": "reviewObligation",
+      "obligationStatus": "open",
+      "finding": "Committed census evidence is stale",
+      "status": "fail",
+      "disposition": null,
+      "rootCause": true,
+      "evidence": "Executable census rerun reports 23 services, 231 methods, 181 types, 412 total; committed review records artifacts claiming 646/591/1237. Runtime target passes; evidence artifact is stale."
+    },
+    {
+      "id": "review-warning-ownership-comments",
+      "caseKind": "reviewObligation",
+      "obligationStatus": "open",
+      "finding": "Architectural ownership comments describe deleted packages as live",
+      "status": "fail",
+      "disposition": null,
+      "rootCause": true,
+      "evidence": "Independent review enumerates deleted context-assembly, lifecycle-projection, session-lifecycle and capture-writeback names in live ownership comments. This is stale documentation, not runtime behavior."
+    },
+    {
+      "id": "service-bootstrap-disposer-contract",
+      "caseKind": "runtimeValidation",
+      "finding": "Bootstrap disposer count",
+      "status": "fail",
+      "disposition": "stale test/mock",
+      "rootCause": true,
+      "evidence": "O3-service-move-bootstrap.integration.test.ts:80 expected 10 disposers and received 9. Read-only ownership enumeration finds seven core owners (lifecycle projection drain, relevance listener, review subscriptions, policy, git export, notifications, retention) and two agent owners (dispatch lifecycle, cost sentinel). The tenth historical owner was registerHandoffTerminationRequester. Commit 32cf0979 deliberately removed its top-level registration while moving handoff/reaper/session runtime custody into startRuntime at createServer; the O3 bootstrap-only assertion was not updated. Therefore the isolated bootstrap's observed nine is internally complete and this assertion is stale. Separate end-to-end runtime ownership tests remain necessary to prove startRuntime retained handoff termination behavior."
+    },
+    {
+      "id": "harness-installed-binaries",
+      "caseKind": "runtimeValidation",
+      "finding": "Real installed harness behavior, Claude locked to Haiku",
+      "status": "pass",
+      "disposition": null,
+      "rootCause": false,
+      "evidence": "claude 2.1.202, codex and opencode present. Test model matrix locks Claude to 'haiku'. AN2 live MCP proof passed for Claude, Codex and OpenCode; gh token proof passed. Whole harness run: 6 files passed, 21 tests passed, 1 intentionally scoped-out builtin MCP case skipped."
+    },
+    {
+      "id": "harness-openrouter-prerequisite",
+      "caseKind": "runtimeValidation",
+      "finding": "Builtin real-harness prerequisite",
+      "status": "fail",
+      "disposition": "missing prerequisite",
+      "rootCause": true,
+      "evidence": "OPENROUTER_API_KEY is absent. Five suites hard-failed during loading via requireHarness('builtin'): AM2-builtin-gateway, AM2-real-harness-discovery, AL6-real-harness-return-enforcement-realbinary, AL7-two-session-trust-first, AU9-assistant-handoff-realbinary. They did not skip."
+    },
+    {
+      "id": "desktop-unit",
+      "caseKind": "runtimeValidation",
+      "finding": "Desktop runtime logic tests",
+      "status": "pass",
+      "disposition": null,
+      "rootCause": false,
+      "evidence": "npm run -w @hyperidle/desktop test -- --run exited 0: 9 files, 123 tests passed."
+    },
+    {
+      "id": "desktop-build",
+      "caseKind": "runtimeValidation",
+      "finding": "Web plus desktop production bundle",
+      "status": "pass",
+      "disposition": null,
+      "rootCause": false,
+      "evidence": "npm run build:desktop exited 0; web Vite bundle and desktop bundle validation passed."
+    },
+    {
+      "id": "desktop-dev-smoke",
+      "caseKind": "proofGap",
+      "obligationStatus": "open",
+      "finding": "Interactive desktop development smoke",
+      "status": "unrun",
+      "disposition": null,
+      "rootCause": true,
+      "evidence": "Repository defines dev:desktop but no automated acceptance/smoke command or declared assertions. This is absent proof, not evidence that desktop dev runtime is broken and not a missing runtime prerequisite. Architecture must define launch, painted-window, preload IPC, backend-health and teardown assertions."
+    },
+    {
+      "id": "desktop-packaged-shared-smoke",
+      "caseKind": "proofGap",
+      "obligationStatus": "open",
+      "finding": "Packaged and shared-mode desktop smoke",
+      "status": "unrun",
+      "disposition": null,
+      "rootCause": true,
+      "evidence": "No repository script/test defines packaged-app or shared-mode desktop smoke. This is absent proof, not evidence of runtime breakage or a missing environment prerequisite. build:desktop validates bundles only; architecture must define executable packaged launch, preload IPC, database migration, backend communication and shared-mode assertions."
+    }
+  ],
+  "notes": [
+    "No production or test source was edited.",
+    "The prior review's Claude inherited-discovery failure did not recur in this run; therefore it is not classified as a current product failure. Installed-harness proofs passed, while builtin suites remain prerequisite-blocked.",
+    "No failing or blocked case was converted to skip."
+  ]
+}

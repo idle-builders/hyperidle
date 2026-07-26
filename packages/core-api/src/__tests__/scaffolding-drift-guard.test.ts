@@ -45,19 +45,15 @@
  * is itself Mechanism-B-enforced.
  */
 
-// ── Import real writer EMITTED_ROOTS surfaces ────────────────────────────────
-import {
-	EMITTED_ROOTS_AGENTS_MD,
-	EMITTED_ROOTS_CONTEXT_ASSEMBLY,
-} from "@hyperidle/context-assembly";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { SANDBOX_SCAFFOLDING_PATHS } from "@hyperidle/filesystems";
+import { provisionHarnessEnvironment } from "@hyperidle/harness-registry";
 import {
-	EMITTED_ROOTS_CLAUDE_SETTINGS,
-	EMITTED_ROOTS_CLI_MCP_CONFIG,
-	EMITTED_ROOTS_CODEX_HOME,
-	EMITTED_ROOTS_OPENCODE_PLUGIN,
-} from "@hyperidle/harness-registry";
-import { EMITTED_ROOTS_MCP_JSON } from "@hyperidle/session-lifecycle";
+	createContextAssembler,
+	createProvisioner,
+} from "@hyperidle/run-orchestration/scaffolding";
 import { describe, expect, it } from "vitest";
 
 // ── Coverage helper ───────────────────────────────────────────────────────────
@@ -93,38 +89,42 @@ function assertAllCovered(writerName: string, emittedRoots: readonly string[]): 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("SANDBOX_SCAFFOLDING_PATHS drift-guard", () => {
-	it("covers context-assembly emitted roots (.fabric, context, knowledge, work)", () => {
-		assertAllCovered("context-assembly.ts", EMITTED_ROOTS_CONTEXT_ASSEMBLY);
+	const context = createContextAssembler({} as Parameters<typeof createContextAssembler>[0]);
+	const provisioner = createProvisioner({} as Parameters<typeof createProvisioner>[0]);
+
+	it("covers context assembly's public filesystem contract", () => {
+		assertAllCovered("runSession assemble", context.emittedContextRoots);
 	});
 
-	it("covers writeSandboxAgentsMd files (AGENTS.md, CLAUDE.md)", () => {
-		assertAllCovered("context-assembly-prompt.ts writeSandboxAgentsMd", EMITTED_ROOTS_AGENTS_MD);
+	it("covers the public session instruction files", () => {
+		assertAllCovered("runSession session instructions", context.emittedAgentRoots);
 	});
 
-	it("covers session-provisioning .mcp.json", () => {
-		assertAllCovered("session-provisioning.ts .mcp.json writer", EMITTED_ROOTS_MCP_JSON);
+	it("covers the public MCP configuration file", () => {
+		assertAllCovered("runSession MCP configuration", provisioner.emittedFiles);
 	});
 
-	it("covers provisionClaudeSettings (.claude/)", () => {
-		assertAllCovered(
-			"provision-return-hook.ts provisionClaudeSettings",
-			EMITTED_ROOTS_CLAUDE_SETTINGS,
-		);
-	});
-
-	it("covers provisionCodexHome (.codex/, .codex-home/)", () => {
-		assertAllCovered("provision-return-hook.ts provisionCodexHome", EMITTED_ROOTS_CODEX_HOME);
-	});
-
-	it("covers provisionOpencodePlugin (.opencode/)", () => {
-		assertAllCovered(
-			"provision-return-hook.ts provisionOpencodePlugin",
-			EMITTED_ROOTS_OPENCODE_PLUGIN,
-		);
-	});
-
-	it("covers writeCliMcpConfig (opencode.json)", () => {
-		assertAllCovered("harness/cli-mcp-config.ts writeCliMcpConfig", EMITTED_ROOTS_CLI_MCP_CONFIG);
+	it("covers every harness environment artifact emitted by the product writer", async () => {
+		for (const channel of ["settings-claude", "settings-codex", "process-reengage"] as const) {
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "harness-scaffold-"));
+			await provisionHarnessEnvironment({
+				sandboxPath,
+				channel,
+				mcpUrl: "http://127.0.0.1/api/mcp/token",
+				token: "token",
+			});
+			assertAllCovered(channel, fs.readdirSync(sandboxPath));
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		}
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "harness-scaffold-"));
+		await provisionHarnessEnvironment({
+			sandboxPath,
+			dialect: "opencode-json",
+			mcpUrl: "http://127.0.0.1/api/mcp/token",
+			token: "token",
+		});
+		assertAllCovered("opencode-json", fs.readdirSync(sandboxPath));
+		fs.rmSync(sandboxPath, { recursive: true, force: true });
 	});
 
 	it("SANDBOX_SCAFFOLDING_PATHS has no duplicate entries", () => {

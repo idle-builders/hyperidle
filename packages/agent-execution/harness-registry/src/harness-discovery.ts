@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { promisify } from "node:util";
 import type {
 	HarnessAuthActionDescriptor,
@@ -37,7 +39,7 @@ function stripAnsi(value: string): string {
  * us what models it supports), NOT a relabelling of MODEL_CATALOG.
  * Real output captured 2026-07-06 from /opt/homebrew/bin/claude models.
  */
-export function parseClaudeModelsOutput(output: string): HarnessModelDescriptor[] {
+function parseClaudeCatalog(output: string): HarnessModelDescriptor[] {
 	const models: HarnessModelDescriptor[] = [];
 	const lines = output.split("\n");
 
@@ -158,7 +160,7 @@ function parseOpencodeModelJson(raw: string): HarnessModelDescriptor | null {
  * prefixed with a "provider/id" identifier line. The JSON body carries
  * the model's metadata. Real output captured 2026-07-06 from opencode models --verbose.
  */
-export function parseOpencodeModelsOutput(output: string): HarnessModelDescriptor[] {
+function parseOpenCodeCatalog(output: string): HarnessModelDescriptor[] {
 	const models: HarnessModelDescriptor[] = [];
 	if (!output.trim()) return models;
 
@@ -213,14 +215,14 @@ function parseContextWindow(raw: string): number {
  * Promise.all. A gateway reject/hang MUST degrade to models:[] without rejecting
  * the whole discovery batch. Wrap in AbortController with this timeout.
  */
-export const BUILTIN_MODELS_FETCH_TIMEOUT_MS = 10_000;
+const BUILTIN_MODELS_FETCH_TIMEOUT_MS = 10_000;
 
 /**
  * AC5 result of the harmless real one-shot session probe.
  * `runtimeFromDiscovery` only sets fileEditing/toolUse `true` when
  * `sessionProbe?.ok === true` — auth status alone proves login, NOT launchability.
  */
-export interface HarnessSessionProbeResult {
+interface HarnessSessionProbeResult {
 	readonly ok: boolean;
 	readonly family: "codex" | "claude-code" | "opencode";
 	/** First captured usage-bearing event line; committed as a fixture for AC6. */
@@ -235,7 +237,7 @@ export interface HarnessSessionProbeResult {
  *  private probe result that the descriptor builder maps into the public
  *  `HarnessDiscoveryStatus` / `HarnessCapabilityDescriptor`. Keeping it local
  *  prevents leaking discovery internals into the shared contract. */
-export interface HarnessDiscoveryInput {
+interface HarnessDiscoveryInput {
 	readonly state: HarnessReadinessState;
 	readonly version?: string;
 	readonly reason?: string;
@@ -256,7 +258,7 @@ export interface HarnessDiscoveryInput {
 	readonly inheritedTools?: readonly InheritedToolDescriptor[];
 }
 
-export interface HarnessDiscoveryResult {
+interface HarnessDiscoveryResult {
 	readonly builtin: HarnessDiscoveryInput;
 	readonly codex: HarnessDiscoveryInput;
 	readonly "claude-code": HarnessDiscoveryInput;
@@ -271,6 +273,11 @@ interface HarnessProbeDeps {
 	 */
 	readonly run?: (
 		args: readonly string[],
+		context?: {
+			readonly cwd: string;
+			readonly env: NodeJS.ProcessEnv;
+			readonly signal: AbortSignal;
+		},
 	) => Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>;
 	/** Environment used for built-in credential checks and passed to real binary executions. */
 	readonly env?: NodeJS.ProcessEnv;
@@ -296,42 +303,68 @@ interface HarnessProbeDeps {
 	) => Promise<{ ok: boolean; json: () => Promise<unknown> }>;
 }
 
+const HARNESS_COMMAND_TIMEOUT_MS = 15_000;
+
+function failedCommandResult(err: unknown): {
+	readonly stdout: string;
+	readonly stderr: string;
+	readonly exitCode: number;
+} {
+	if (
+		typeof err === "object" &&
+		err !== null &&
+		"code" in err &&
+		"stdout" in err &&
+		"stderr" in err
+	) {
+		return {
+			stdout: stripAnsi(String((err as { stdout?: unknown }).stdout ?? "")),
+			stderr: stripAnsi(String((err as { stderr?: unknown }).stderr ?? "")),
+			exitCode:
+				typeof (err as { code?: unknown }).code === "number" ? (err as { code: number }).code : 1,
+		};
+	}
+	return { stdout: "", stderr: stripAnsi(String(err)), exitCode: 1 };
+}
+
 async function runCommand(
 	args: readonly string[],
 	d?: HarnessProbeDeps,
 ): Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }> {
+	const env = d?.env ?? process.env;
+	const cwd = resolve(d?.cwd ?? process.cwd());
+	const controller = new AbortController();
+	let timer: ReturnType<typeof setTimeout> | undefined;
 	const runner = d?.run;
-	if (runner) {
-		const { stdout, stderr, exitCode } = await runner(args);
-		return { stdout: stripAnsi(stdout), stderr: stripAnsi(stderr), exitCode };
-	}
-
 	try {
-		// Use injected env/cwd if provided (allows tests to set CODEX_HOME, XDG_CONFIG_HOME,
-		// and cwd for real-binary isolation without touching the developer's actual config).
-		const env = d?.env ?? process.env;
-		const { stdout, stderr } = await execFileAsync(args[0] ?? "", args.slice(1), {
-			timeout: 15_000,
-			env,
-			...(d?.cwd ? { cwd: d.cwd } : {}),
+		const command = (
+			runner
+				? Promise.resolve(runner(args, { cwd, env, signal: controller.signal }))
+				: execFileAsync(args[0] ?? "", args.slice(1), {
+						cwd,
+						env,
+						signal: controller.signal,
+					}).then(({ stdout, stderr }) => ({ stdout, stderr, exitCode: 0 }))
+		)
+			.then(({ stdout, stderr, exitCode }) => ({
+				stdout: stripAnsi(stdout),
+				stderr: stripAnsi(stderr),
+				exitCode,
+			}))
+			.catch(failedCommandResult);
+		const timeout = new Promise<{
+			readonly stdout: string;
+			readonly stderr: string;
+			readonly exitCode: number;
+		}>((resolveTimeout) => {
+			timer = setTimeout(() => {
+				controller.abort();
+				resolveTimeout({ stdout: "", stderr: "Command timed out.", exitCode: 1 });
+			}, HARNESS_COMMAND_TIMEOUT_MS);
 		});
-		return { stdout: stripAnsi(stdout), stderr: stripAnsi(stderr), exitCode: 0 };
-	} catch (err) {
-		if (
-			typeof err === "object" &&
-			err !== null &&
-			"code" in err &&
-			"stdout" in err &&
-			"stderr" in err
-		) {
-			return {
-				stdout: stripAnsi(String((err as { stdout?: unknown }).stdout ?? "")),
-				stderr: stripAnsi(String((err as { stderr?: unknown }).stderr ?? "")),
-				exitCode:
-					typeof (err as { code?: unknown }).code === "number" ? (err as { code: number }).code : 1,
-			};
-		}
-		return { stdout: "", stderr: stripAnsi(String(err)), exitCode: 1 };
+		return await Promise.race([command, timeout]);
+	} finally {
+		if (timer !== undefined) clearTimeout(timer);
 	}
 }
 
@@ -387,6 +420,8 @@ async function probeCodexCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInpu
 	};
 }
 
+export type { HarnessDiscoveryInput, HarnessDiscoveryResult, HarnessSessionProbeResult };
+
 async function probeClaudeCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
 	const versionResult = await runCommand(["claude", "--version"], d);
 	if (versionResult.exitCode !== 0) {
@@ -423,7 +458,7 @@ async function probeClaudeCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscover
 			try {
 				const modelsResult = await runCommand(["claude", "models"], d);
 				if (modelsResult.exitCode === 0 && modelsResult.stdout.trim()) {
-					models = parseClaudeModelsOutput(modelsResult.stdout);
+					models = parseClaudeCatalog(modelsResult.stdout);
 				}
 			} catch {
 				// degraded gracefully — models stays []
@@ -479,7 +514,7 @@ async function probeClaudeCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscover
  * (real format captured 2026-07-06). We run it when providers are configured
  * (state=ready). Failure degrades to models:[] — never throws.
  */
-export async function probeOpenCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
+async function inspectOpenCode(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
 	const versionResult = await runCommand(["opencode", "--version"], d);
 	if (versionResult.exitCode !== 0) {
 		return {
@@ -516,7 +551,7 @@ export async function probeOpenCodeCli(d?: HarnessProbeDeps): Promise<HarnessDis
 		try {
 			const modelsResult = await runCommand(["opencode", "models", "--verbose"], d);
 			if (modelsResult.exitCode === 0 && modelsResult.stdout.trim()) {
-				models = parseOpencodeModelsOutput(modelsResult.stdout);
+				models = parseOpenCodeCatalog(modelsResult.stdout);
 			}
 		} catch {
 			// degraded gracefully — models stays []
@@ -806,50 +841,78 @@ const INHERITED_PROBE_TIMEOUT_MS = 5_000;
  * and liveness status — env vars / tokens are never in the list output.
  * We parse names only; the status suffix determines health.
  */
-export async function probeClaudeCodeMcpList(
+async function inspectClaudeTools(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
+	const cwd = resolve(d?.cwd ?? process.cwd());
+	const byName = new Map<string, InheritedToolDescriptor["health"]>();
 	try {
-		const result = await Promise.race([
-			runCommand(["claude", "mcp", "list"], d),
-			new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolve) =>
-				setTimeout(
-					() => resolve({ stdout: "", stderr: "", exitCode: 1 }),
-					INHERITED_PROBE_TIMEOUT_MS,
-				),
-			),
-		]);
-		if (result.exitCode !== 0 || !result.stdout.trim()) return [];
+		const parsed = JSON.parse(readFileSync(resolve(cwd, ".mcp.json"), "utf8")) as unknown;
+		if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+			const servers = (parsed as { mcpServers?: unknown }).mcpServers;
+			if (typeof servers === "object" && servers !== null && !Array.isArray(servers)) {
+				for (const rawName of Object.keys(servers)) {
+					if (rawName.trim()) byName.set(rawName, "unknown");
+				}
+			}
+		}
+	} catch {
+		// Missing, malformed, unreadable, directory, and broken-symlink configs
+		// honestly degrade to CLI-only discovery.
+	}
 
-		const tools: InheritedToolDescriptor[] = [];
+	const result = await runCommand(["claude", "mcp", "list"], d);
+	if (result.exitCode === 0 && result.stdout.trim()) {
+		const cliHealth = new Map<string, InheritedToolDescriptor["health"]>();
+		const precedence: Readonly<Record<InheritedToolDescriptor["health"], number>> = {
+			unknown: 0,
+			working: 1,
+			"needs-attention": 2,
+		};
 		for (const line of result.stdout.split("\n")) {
 			const trimmed = stripAnsi(line).trim();
-			if (!trimmed) continue;
-			// Format: "<name>: <rest> - <status>"
-			const colonIdx = trimmed.indexOf(":");
-			if (colonIdx <= 0) continue;
-			const name = trimmed.slice(0, colonIdx).trim();
+			const colonIndex = trimmed.indexOf(":");
+			if (colonIndex <= 0) continue;
+			const name = trimmed.slice(0, colonIndex).trim();
 			if (!name) continue;
-			const rest = trimmed.slice(colonIdx + 1);
-			// Determine health from status token
+			const suffixIndex = trimmed.lastIndexOf(" - ");
+			const suffix = suffixIndex > colonIndex ? trimmed.slice(suffixIndex + 3).trim() : "";
+			const lowerSuffix = suffix.toLowerCase();
 			let health: InheritedToolDescriptor["health"] = "unknown";
-			if (rest.includes("✓") || rest.toLowerCase().includes("connected")) {
-				health = "working";
-			} else if (
-				rest.includes("✗") ||
-				rest.includes("⏸") ||
-				rest.toLowerCase().includes("failed") ||
-				rest.toLowerCase().includes("rejected") ||
-				rest.toLowerCase().includes("pending")
+			if (
+				suffix.includes("✘") ||
+				suffix.includes("✗") ||
+				suffix.includes("⏸") ||
+				suffix.includes("!") ||
+				lowerSuffix.includes("failed") ||
+				lowerSuffix.includes("rejected") ||
+				lowerSuffix.includes("pending") ||
+				lowerSuffix.includes("needs authentication")
 			) {
 				health = "needs-attention";
+			} else if (
+				suffix.includes("✔") ||
+				suffix.includes("✓") ||
+				lowerSuffix.includes("connected")
+			) {
+				health = "working";
 			}
-			tools.push({ name, kind: "mcp-server", harness: "claude-code", health });
+			const current = cliHealth.get(name);
+			if (current === undefined || precedence[health] > precedence[current]) {
+				cliHealth.set(name, health);
+			}
 		}
-		return tools;
-	} catch {
-		return [];
+		for (const [name, health] of cliHealth) byName.set(name, health);
 	}
+
+	return [...byName]
+		.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+		.map(([name, health]) => ({
+			name,
+			kind: "mcp-server",
+			harness: "claude-code",
+			health,
+		}));
 }
 
 /** Parse tools from `codex mcp list` table output. Returns null if no table found. */
@@ -877,7 +940,7 @@ function parseCodexMcpListOutput(stdout: string): readonly InheritedToolDescript
  *
  * @lore AN1: Never reads env/command values from config.toml — names only.
  */
-export async function probeCodexMcpList(
+async function inspectCodexTools(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
 	try {
@@ -948,7 +1011,7 @@ export async function probeCodexMcpList(
  * server-name → { type, url, ... }. We extract only the keys — never the values.
  * We use XDG_CONFIG_HOME env var for isolation in tests.
  */
-export async function probeOpencodeMcpList(
+async function inspectOpenCodeTools(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
 	try {
@@ -1001,7 +1064,7 @@ export async function probeOpencodeMcpList(
  * @lore AN1 hard-rule 4: `gh auth status --json hosts` never returns token values —
  * only host names and account metadata.
  */
-export async function probeEnvironmentClis(
+async function inspectInheritedTools(
 	d?: HarnessProbeDeps,
 ): Promise<readonly InheritedToolDescriptor[]> {
 	const tools: InheritedToolDescriptor[] = [];
@@ -1069,12 +1132,12 @@ export async function discoverLocalHarnesses(
 		probeBuiltinGateway(d),
 		probeCodexCli(d),
 		probeClaudeCodeCli(d),
-		probeOpenCodeCli(d),
+		inspectOpenCode(d),
 		probeCursorAgentCli(d),
-		probeClaudeCodeMcpList(d),
-		probeCodexMcpList(d),
-		probeOpencodeMcpList(d),
-		probeEnvironmentClis(d),
+		inspectClaudeTools(d),
+		inspectCodexTools(d),
+		inspectOpenCodeTools(d),
+		inspectInheritedTools(d),
 	]);
 
 	// Merge inherited tool probes into each harness's discovery input.

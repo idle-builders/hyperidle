@@ -37,7 +37,7 @@ import {
 	shouldForceReturn,
 } from "@hyperidle/shared";
 
-import { enforcementRegistry } from "./return-enforcement-registry.js";
+import { createReturnEnforcement } from "./return-enforcement.js";
 
 /**
  * S4: Re-export CredentialResolver for this module's own consumers.
@@ -86,12 +86,14 @@ function isExecutableFile(filePath: string): boolean {
 	}
 }
 
+export type { CliAdapterConfig, CliAdapterDeps, CliAvailabilityDeps };
+
 function binaryOnPath(binary: string): boolean {
 	const pathEntries = process.env.PATH?.split(path.delimiter) ?? [];
 	return pathEntries.some((entry) => isExecutableFile(path.join(entry, binary)));
 }
 
-export interface CliAdapterConfig {
+interface CliAdapterConfig {
 	/** Executable name or absolute path. */
 	readonly binary: string;
 	/**
@@ -208,13 +210,13 @@ export interface CliAdapterConfig {
 }
 
 /** Injected dependencies (for testing). */
-export interface CliAdapterDeps {
+interface CliAdapterDeps {
 	/** Defaults to node:child_process.spawn. Injected in tests. */
 	readonly spawnFn?: typeof spawn;
 }
 
 /** Injected dependencies for checkAvailability (for testing). */
-export interface CliAvailabilityDeps {
+interface CliAvailabilityDeps {
 	/**
 	 * Override the binary availability check. Defaults to `spawnSync("which", [binary])`.
 	 * Injected in tests to avoid filesystem dependency.
@@ -533,7 +535,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
 		let extraArgs: string[] = [];
 		if (this.config.binary === "codex" && fs.existsSync(codexHomeDir)) {
-			resolvedEnvMap["CODEX_HOME"] = codexHomeDir;
+			resolvedEnvMap.CODEX_HOME = codexHomeDir;
 			// --dangerously-bypass-hook-trust: bypass hash-check so hook runs without
 			// requiring the user to have pre-approved the hook command.
 			extraArgs = ["--dangerously-bypass-hook-trust"];
@@ -803,7 +805,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					// continues. This gives the outer provisioner a single continuous event stream
 					// with no visible seam between the initial run and re-engage runs.
 					if (isReEngage && !session.returnSeen && session.reEngageCount < AL6_MAX_FORCE_RETURNS) {
-						const registryEntry = enforcementRegistry.get(session.configSessionId);
+						const enforcement = createReturnEnforcement();
+						const registryEntry = enforcement.get(session.configSessionId);
 						if (registryEntry) {
 							// AL6 CRIT-3: adjudicate from the registry's forceCount (single source).
 							// Previously used session.reEngageCount which could diverge from the registry
@@ -814,7 +817,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 							if (forceMsg !== null) {
 								// Increment the registry BEFORE spawning so drain-gate sees the force.
-								enforcementRegistry.incrementForce(session.configSessionId);
+								enforcement.incrementForce(session.configSessionId);
 								session.reEngageCount++;
 								session.processStarts++;
 
@@ -989,7 +992,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				parsed !== null &&
 				typeof parsed === "object" &&
 				"type" in parsed &&
-				typeof (parsed as Record<string, unknown>)["type"] === "string"
+				typeof (parsed as Record<string, unknown>).type === "string"
 			) {
 				const obj = parsed as Record<string, unknown>;
 				const shouldRecordMetrics =
@@ -1005,7 +1008,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				// Cost capture runs on the ORIGINAL parsed object (before any dialect
 				// pre-map) because the "result" type and "total_cost_usd" field are
 				// present on the raw claude stream-json line.
-				if (obj["type"] === "result" && session && shouldRecordMetrics) {
+				if (obj.type === "result" && session && shouldRecordMetrics) {
 					const costField = this.config.costField ?? "total_cost_usd";
 					const rawCost = obj[costField];
 					if (typeof rawCost === "number" && Number.isFinite(rawCost) && rawCost >= 0) {
@@ -1028,7 +1031,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					);
 				}
 
-				if (obj["type"] === "step_finish" && session && shouldRecordMetrics) {
+				if (obj.type === "step_finish" && session && shouldRecordMetrics) {
 					const metrics = extractOpencodeStepMetrics(obj);
 					if (metrics.costUsd !== undefined) {
 						session.totalCostUsd = (session.totalCostUsd ?? 0) + metrics.costUsd;

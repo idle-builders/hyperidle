@@ -11,8 +11,8 @@
  */
 
 import type { CredentialResolver } from "@hyperidle/connections";
-import { BUILT_IN_GATEWAY_CONFIG, resolveAgentModel } from "@hyperidle/model-gateway";
-import { MissingCredentialError } from "@hyperidle/shared";
+import { resolveModel } from "@hyperidle/model-gateway";
+import { BUILT_IN_GATEWAY_CONFIG, MissingCredentialError } from "@hyperidle/shared";
 import { describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -27,7 +27,11 @@ describe("AH2 AC5/AC7: resolveAgentModel — per-agent model wins", () => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-ah2" });
 		const agent = { modelId: "claude-opus-4-8", modelProvider: "anthropic" as const };
 
-		const result = await resolveAgentModel(agent, "workhorse", BUILT_IN_GATEWAY_CONFIG, resolver);
+		const result = await resolveModel(
+			{ kind: "agent", ...agent, tierFallback: "workhorse" },
+			BUILT_IN_GATEWAY_CONFIG,
+			resolver,
+		);
 
 		// Per-agent model wins — must return claude-opus-4-8, not the workhorse tier model
 		expect(result.model).toBe("claude-opus-4-8");
@@ -41,7 +45,11 @@ describe("AH2 AC5/AC7: resolveAgentModel — per-agent model wins", () => {
 		// agent uses haiku, but the workhorse tier config maps to sonnet
 		const agent = { modelId: "claude-haiku-4-5", modelProvider: "anthropic" as const };
 
-		const result = await resolveAgentModel(agent, "workhorse", BUILT_IN_GATEWAY_CONFIG, resolver);
+		const result = await resolveModel(
+			{ kind: "agent", ...agent, tierFallback: "workhorse" },
+			BUILT_IN_GATEWAY_CONFIG,
+			resolver,
+		);
 
 		expect(result.model).toBe("claude-haiku-4-5");
 		expect(result.provider).toBe("anthropic");
@@ -51,7 +59,11 @@ describe("AH2 AC5/AC7: resolveAgentModel — per-agent model wins", () => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-3" });
 		const agent = { modelId: null, modelProvider: null };
 
-		const result = await resolveAgentModel(agent, "workhorse", BUILT_IN_GATEWAY_CONFIG, resolver);
+		const result = await resolveModel(
+			{ kind: "agent", ...agent, tierFallback: "workhorse" },
+			BUILT_IN_GATEWAY_CONFIG,
+			resolver,
+		);
 
 		// Should return the tier's model (now claude-sonnet-4-6 after AH2 re-key)
 		expect(result.provider).toBe("anthropic");
@@ -62,7 +74,11 @@ describe("AH2 AC5/AC7: resolveAgentModel — per-agent model wins", () => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-4" });
 		const agent = { modelId: null, modelProvider: "anthropic" as const };
 
-		const result = await resolveAgentModel(agent, "fast", BUILT_IN_GATEWAY_CONFIG, resolver);
+		const result = await resolveModel(
+			{ kind: "agent", ...agent, tierFallback: "fast" },
+			BUILT_IN_GATEWAY_CONFIG,
+			resolver,
+		);
 
 		// Falls back to tier (fast) model
 		expect(result.provider).toBe("anthropic");
@@ -74,7 +90,11 @@ describe("AH2 AC5/AC7: resolveAgentModel — per-agent model wins", () => {
 		const agent = { modelId: "claude-sonnet-4-6", modelProvider: "anthropic" as const };
 
 		await expect(
-			resolveAgentModel(agent, "workhorse", BUILT_IN_GATEWAY_CONFIG, resolver),
+			resolveModel(
+				{ kind: "agent", ...agent, tierFallback: "workhorse" },
+				BUILT_IN_GATEWAY_CONFIG,
+				resolver,
+			),
 		).rejects.toThrow(MissingCredentialError);
 	});
 
@@ -82,7 +102,11 @@ describe("AH2 AC5/AC7: resolveAgentModel — per-agent model wins", () => {
 		const resolver = makeResolver({ openrouter_api_key: "or-key-ah2" });
 		const agent = { modelId: "anthropic/claude-sonnet-4", modelProvider: "openrouter" as const };
 
-		const result = await resolveAgentModel(agent, "workhorse", BUILT_IN_GATEWAY_CONFIG, resolver);
+		const result = await resolveModel(
+			{ kind: "agent", ...agent, tierFallback: "workhorse" },
+			BUILT_IN_GATEWAY_CONFIG,
+			resolver,
+		);
 
 		expect(result.provider).toBe("openrouter");
 		expect(result.model).toBe("anthropic/claude-sonnet-4");
@@ -95,7 +119,11 @@ describe("AH2 AC5/AC7: resolveAgentModel — per-agent model wins", () => {
 		const agent = { modelId: "anthropic/claude-sonnet-4", modelProvider: "openrouter" as const };
 
 		await expect(
-			resolveAgentModel(agent, "workhorse", BUILT_IN_GATEWAY_CONFIG, resolver),
+			resolveModel(
+				{ kind: "agent", ...agent, tierFallback: "workhorse" },
+				BUILT_IN_GATEWAY_CONFIG,
+				resolver,
+			),
 		).rejects.toThrow(MissingCredentialError);
 	});
 });
@@ -107,7 +135,11 @@ describe("AH2 AC2c: resolveAgentModel — openai-compatible per-agent rejected (
 
 		// resolveProvider throws defensively — per-agent openai-compatible is unsupported
 		await expect(
-			resolveAgentModel(agent, "workhorse", BUILT_IN_GATEWAY_CONFIG, resolver),
+			resolveModel(
+				{ kind: "agent", ...agent, tierFallback: "workhorse" },
+				BUILT_IN_GATEWAY_CONFIG,
+				resolver,
+			),
 		).rejects.toThrow(/unsupported|openai-compatible|not supported/i);
 	});
 });

@@ -15,19 +15,13 @@ import type { HyperIdleDb, InviteCode, User } from "@hyperidle/db";
 import { inviteCodes } from "@hyperidle/db";
 import type { InviteRole } from "@hyperidle/shared";
 import { INVITE_CODE_TTL_MS } from "@hyperidle/shared";
-import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { createLoginSession } from "./login-session.js";
 import { getOrCreateUser } from "./user-store.js";
 
-// ─── Code generation ──────────────────────────────────────────────────────────
+const concurrentClaim = new Error("invite claimed concurrently");
 
-/**
- * Generate a URL-safe random invite code.
- * 24 bytes of randomness encoded as base64url → 32 characters.
- */
-export function generateInviteCode(): string {
-	return randomBytes(24).toString("base64url");
-}
+// ─── Code generation ──────────────────────────────────────────────────────────
 
 // ─── Invite CRUD ──────────────────────────────────────────────────────────────
 
@@ -44,7 +38,7 @@ export async function createInvite(
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + ttlMs);
 	const id = `ic_${randomBytes(12).toString("hex")}`;
-	const code = generateInviteCode();
+	const code = randomBytes(24).toString("base64url");
 
 	const [invite] = await db
 		.insert(inviteCodes)
@@ -106,76 +100,39 @@ export async function claimInvite(
 	// Steps 4-7: transactional — create user, update invite, create session
 	// @lore S1 PGLite: db.transaction() is async in Drizzle PG. The callback
 	// receives a transaction object (tx) that shares the same async API as db.
-	return await db.transaction(async (tx) => {
-		const now = new Date().toISOString();
-		const userId = `u_${randomBytes(12).toString("hex")}`;
+	try {
+		return await db.transaction(async (tx) => {
+			const now = new Date().toISOString();
+			const userId = `u_${randomBytes(12).toString("hex")}`;
 
-		// Step 5: create user (routed through the owning store; fresh id, so
-		// get-or-create resolves to the just-inserted row and returns it).
-		const user = await getOrCreateUser(tx as HyperIdleDb, userId, {
-			id: userId,
-			kind: "human",
-			name,
-			email: email ?? null,
-			role: invite.role,
-			status: "active",
-			createdAt: now,
+			// Step 5: create user (routed through the owning store; fresh id, so
+			// get-or-create resolves to the just-inserted row and returns it).
+			const user = await getOrCreateUser(tx as HyperIdleDb, userId, {
+				id: userId,
+				kind: "human",
+				name,
+				email: email ?? null,
+				role: invite.role,
+				status: "active",
+				createdAt: now,
+			});
+
+			const [claimed] = await tx
+				.update(inviteCodes)
+				.set({ claimedBy: userId })
+				.where(and(eq(inviteCodes.id, invite.id), isNull(inviteCodes.claimedBy)))
+				.returning({ id: inviteCodes.id });
+			if (!claimed) throw concurrentClaim;
+
+			// Step 7: create LoginSession
+			const { token } = await createLoginSession(tx, userId);
+
+			return { ok: true as const, user, token };
 		});
-
-		// Step 6: mark invite as claimed
-		await tx.update(inviteCodes).set({ claimedBy: userId }).where(eq(inviteCodes.id, invite.id));
-
-		// Step 7: create LoginSession
-		const { token } = await createLoginSession(tx, userId);
-
-		return { ok: true as const, user, token };
-	});
+	} catch (error) {
+		if (error === concurrentClaim) return { ok: false, error: "INVITE_CLAIMED" };
+		throw error;
+	}
 }
 
 // ─── Retention (AU19 Increment 2g) ────────────────────────────────────────────
-
-/**
- * Prune `invite_codes` rows in two branches — expired-and-unclaimed
- * (`expiresAt < expiredCutoff AND claimedBy IS NULL`) and consumed-past-audit
- * (`claimedBy IS NOT NULL AND createdAt < consumedCutoff`). Returns the
- * union of deleted row ids (deduped, one delete statement).
- *
- * @lore AU19 Increment 2g: moved verbatim from
- * `packages/server/src/services/retention-reaper.ts`'s inline two-branch
- * select+filter+delete (Table ACL now forbids `retention` from touching
- * `inviteCodes` directly — `users` owns it). `retention` calls this through
- * its injected `RetentionUsersReaper` port. Zero behavior change: same
- * JS-side null-filter for `claimedBy` (nullable column, `isNotNull` is
- * insufficient to express "unclaimed" on its own), same id-union-then-single-
- * delete shape.
- */
-export async function reapInviteCodes(
-	db: HyperIdleDb,
-	expiredCutoff: string,
-	consumedCutoff: string,
-): Promise<string[]> {
-	// Expired rows (both claimed and unclaimed) — filter JS-side for unclaimed.
-	const expiredRows = await db
-		.select({ id: inviteCodes.id, claimedBy: inviteCodes.claimedBy })
-		.from(inviteCodes)
-		.where(lt(inviteCodes.expiresAt, expiredCutoff));
-	const expiredUnclaimedIds = expiredRows.filter((r) => r.claimedBy === null).map((r) => r.id);
-
-	// Consumed rows past the audit window.
-	const consumedOldRows = await db
-		.select({ id: inviteCodes.id })
-		.from(inviteCodes)
-		.where(and(isNotNull(inviteCodes.claimedBy), lt(inviteCodes.createdAt, consumedCutoff)));
-	const consumedOldIds = consumedOldRows.map((r) => r.id);
-
-	const toDelete = [...new Set([...expiredUnclaimedIds, ...consumedOldIds])];
-	if (toDelete.length === 0) {
-		return [];
-	}
-
-	const deleted = await db
-		.delete(inviteCodes)
-		.where(inArray(inviteCodes.id, toDelete))
-		.returning({ id: inviteCodes.id });
-	return deleted.map((r) => r.id);
-}

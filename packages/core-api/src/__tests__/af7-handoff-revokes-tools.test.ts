@@ -30,16 +30,26 @@
  * With the §5.3 guard, the SECOND tool call in the same batch must NOT start.
  */
 
-import type { LlmResponse } from "@hyperidle/harness-registry";
-import { BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
-import type { SessionConfig } from "@hyperidle/shared";
+import { createHarnessAdapter } from "@hyperidle/harness-registry";
+import type { HarnessAdapter, SessionConfig } from "@hyperidle/shared";
+import type { LlmResponse } from "../../../agent-execution/harness-registry/src/llm-client.js";
+
+/** setSessionToolRegistry is a builtin-only duck-typed method (not on HarnessAdapter). */
+type BuiltinAdapterLike = HarnessAdapter & {
+	setSessionToolRegistry(id: string, registry: unknown): void;
+};
+/** Audited cast: createHarnessAdapter({ kind:"builtin" }) always returns BuiltinHarnessAdapter. */
+function toBuiltinLike(a: HarnessAdapter): BuiltinAdapterLike {
+	return a as unknown as BuiltinAdapterLike;
+}
+
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@hyperidle/harness-registry/llm-client", () => ({
+vi.mock("../../../agent-execution/harness-registry/src/llm-client.js", () => ({
 	callLlm: vi.fn(),
 }));
 
-const { callLlm } = await import("@hyperidle/harness-registry/llm-client");
+const { callLlm } = await import("../../../agent-execution/harness-registry/src/llm-client.js");
 const callLlmMock = vi.mocked(callLlm);
 
 const RESOLVED_MODEL = {
@@ -77,7 +87,12 @@ function makeConfig(sessionId: string): SessionConfig {
 
 describe("AF7 AC5: builtin abort revokes tool access before the next invoke", () => {
 	it("after abort lands mid-batch, NO new tool call starts (only the in-flight one finishes)", async () => {
-		const adapter = new BuiltinHarnessAdapter({ maxIterations: 1, reflectionInterval: 99 });
+		const adapter = toBuiltinLike(
+			createHarnessAdapter({
+				kind: "builtin",
+				options: { maxIterations: 1, reflectionInterval: 99 },
+			}),
+		);
 
 		const started: string[] = [];
 

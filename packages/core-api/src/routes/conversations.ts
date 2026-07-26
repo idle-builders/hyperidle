@@ -1,4 +1,4 @@
-import { countThreads, getThreadById, listThreadsByRecency } from "@hyperidle/conversation";
+import { countThreads, findThread, listThreads } from "@hyperidle/conversation";
 import type { HyperIdleDb, Item } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus, HostKind, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
@@ -60,7 +60,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			// @lore O2: attention_score was a strategy concern. Sorting by it from the kernel
 			// route is no longer supported. Callers should use recency or switch to strategy layer.
 			const total = await countThreads(db);
-			const allThreads = await listThreadsByRecency(db, limit, offset);
+			const allThreads = await listThreads(db, { order: "created", limit, offset });
 
 			return c.json({
 				threads: allThreads,
@@ -70,7 +70,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 
 		// Default: sort by recency (createdAt DESC)
 		const total = await countThreads(db);
-		const allThreads = await listThreadsByRecency(db, limit, offset);
+		const allThreads = await listThreads(db, { order: "created", limit, offset });
 
 		return c.json({
 			threads: allThreads,
@@ -82,7 +82,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	// GET /:threadId — thread with items and responses
 	router.get("/:threadId", requireBoundary({ kind: "enforced" }), async (c) => {
 		const threadId = c.req.param("threadId");
-		const thread = await getThreadById(db, threadId);
+		const thread = await findThread(db, { id: threadId });
 
 		if (!thread) {
 			const response: ApiErrorResponse = {
@@ -110,7 +110,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		}
 
 		// Get items sorted by createdAt ASC
-		const threadItems = await work.listItemsByThread(db, threadId);
+		const threadItems = await work.list(db, "item", { threadId: threadId });
 
 		// L1 step5 (S-C2): the verdict-projection that re-shaped `verdict`
 		// messages into the legacy `responses` row format was removed alongside
@@ -138,7 +138,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			const now = new Date().toISOString();
 
 			// Verify thread exists
-			const thread = await getThreadById(db, body.threadId);
+			const thread = await findThread(db, { id: body.threadId });
 			if (!thread) {
 				const response: ApiErrorResponse = {
 					error: "Thread not found",
@@ -148,7 +148,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			}
 
 			// O2: agents routing logic removed; sourceAgentId stored for audit purposes only
-			await work.createItem(db, {
+			await work.create(db, "item", {
 				id,
 				sourceAgentId: body.sourceAgentId ?? null,
 				layer: body.layer ?? null,
@@ -166,7 +166,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 				createdAt: now,
 			});
 
-			const created = await work.getItemById(db, id);
+			const created = await work.get(db, "item", id);
 
 			// Emit item_created event
 			const event: ItemCreatedEvent = {

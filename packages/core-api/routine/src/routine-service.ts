@@ -19,6 +19,14 @@
  * to need a foreign join should route the foreign lookup through the
  * caller instead (see `work-service.ts`'s `searchBetsByText` for the
  * pattern), not import a table here.
+ *
+ * @lore AU20 Am2: collapsed 24 exports → 15. Five predicate-specific list
+ * fns → `listRoutines(filter)`, two updateRun variants → `updateRoutineRun(opts?)`,
+ * cost-aggregation trio → `sumRunCost({kind})`, and get-by-id renames
+ * (`getRoutine`/`getRoutineRun`). The `| SQL` widening on patch types is
+ * intentionally kept — `updateRoutine` is still the general setter and the
+ * widening does no harm (only `incrementRoutineCost` eliminates the need for
+ * callers to build coalesce SQL, but the type flexibility is harmless).
  */
 import {
 	type NewRoutine,
@@ -33,20 +41,19 @@ import { and, asc, avg, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-
 export type Routine = typeof routines.$inferSelect;
 export type RoutineRun = typeof routineRuns.$inferSelect;
 
-/** `NewRoutine` widened so a patch field may carry a raw `SQL` fragment (session-lifecycle.ts's `costActualMinor = coalesce(...) + n` accumulation). */
+/** `NewRoutine` widened so a patch field may carry a raw `SQL` fragment. */
 export type RoutinePatch = { [K in keyof NewRoutine]?: NewRoutine[K] | SQL };
 /** `NewRoutineRun` widened so a patch field may carry a raw `SQL` fragment. */
 export type RoutineRunPatch = { [K in keyof NewRoutineRun]?: NewRoutineRun[K] | SQL };
 
-export interface InsertRoutineOpts {
-	/** builtin-routine-handlers.ts's per-team provisioning: re-provisioning an existing team is a no-op. */
-	readonly onConflictDoNothing?: boolean;
-}
+// ---------------------------------------------------------------------------
+// routines — writes
+// ---------------------------------------------------------------------------
 
 export async function insertRoutine(
 	exec: WriteExecutor,
 	values: NewRoutine,
-	opts?: InsertRoutineOpts,
+	opts?: { readonly onConflictDoNothing?: boolean },
 ): Promise<void> {
 	if (opts?.onConflictDoNothing) {
 		await exec.insert(routines).values(values).onConflictDoNothing();
@@ -55,7 +62,8 @@ export async function insertRoutine(
 	await exec.insert(routines).values(values);
 }
 
-export async function updateRoutineById(
+/** Rename for old callers: keep identical semantics. */
+export async function updateRoutine(
 	exec: WriteExecutor,
 	id: string,
 	patch: RoutinePatch,
@@ -97,137 +105,101 @@ export async function incrementRoutineCost(
 		.where(eq(routines.id, id));
 }
 
-export async function insertRoutineRun(exec: WriteExecutor, values: NewRoutineRun): Promise<void> {
-	await exec.insert(routineRuns).values(values);
-}
-
-/**
- * Plain by-id field-set. The "find the still-running run" SELECT + early
- * return, and any co-located sequenced write (e.g. session-lifecycle.ts's
- * routines cost-accumulation UPDATE), stay at the call site — only the
- * final `.where(eq(id, run.id))` UPDATE moves here (plan §4e "select-first,
- * update-by-id").
- */
-export async function updateRoutineRunById(
-	exec: WriteExecutor,
-	id: string,
-	patch: RoutineRunPatch,
-): Promise<void> {
-	await exec.update(routineRuns).set(patch).where(eq(routineRuns.id, id));
-}
-
-/**
- * In-update guard, no `.returning()` — silent no-op when the run's
- * `outcome` is not currently "running" (agent-lifecycle-projectors.ts's
- * projectRoutine).
- */
-export async function updateRoutineRunIfRunning(
-	exec: WriteExecutor,
-	id: string,
-	patch: RoutineRunPatch,
-): Promise<void> {
-	await exec
-		.update(routineRuns)
-		.set(patch)
-		.where(and(eq(routineRuns.id, id), eq(routineRuns.outcome, "running")));
-}
-
 // ---------------------------------------------------------------------------
-// reads — routines
+// routines — reads
 // ---------------------------------------------------------------------------
 
-/** Full-row get-by-id. Collapses 8+ sites (plan addendum §A3). */
-export async function getRoutineById(
-	exec: WriteExecutor,
-	id: string,
-): Promise<Routine | undefined> {
+/** Full-row get-by-id. */
+export async function getRoutine(exec: WriteExecutor, id: string): Promise<Routine | undefined> {
 	const [row] = await exec.select().from(routines).where(eq(routines.id, id)).limit(1);
 	return row;
 }
 
 /**
- * `routines-routes.ts:175` (not-deleted, no opts) / `plugin-configuration.ts:407`
- * (all routines, `includeDeleted:true`).
+ * Parameterized list — every routine read is a WHERE predicate on this table.
+ * `filter.teamId` scopes to a team; `filter.active` filters by the `active`
+ * flag; `filter.triggerType` filters by trigger type; `filter.missingNextRunAt`
+ * further requires the active + schedulable predicate (`calendar`/`heartbeat`/
+ * `continuous` + `nextRunAt IS NULL`); `filter.includeDeleted` lifts the
+ * default soft-delete exclusion. Ordered by `id` ASC for determinism.
+ *
+ * @lore AU20 Am2: replaces `listRoutines` (old `{includeDeleted?}` opts),
+ * `listRoutinesByTeam`, `listActiveRoutines`, `listScheduledRoutinesMissingNextRunAt`,
+ * `countRoutinesByTeam` (count via `.length`). One filter builder absorbs new
+ * predicates as new `if (filter.x)` branches — the export count stays flat.
  */
 export async function listRoutines(
 	exec: WriteExecutor,
-	opts?: { includeDeleted?: boolean },
-): Promise<Routine[]> {
-	if (opts?.includeDeleted) {
-		return exec.select().from(routines);
-	}
-	return exec.select().from(routines).where(isNull(routines.deletedAt));
-}
-
-/**
- * `teams-routes.ts:929-933` — routines for a team, excluding soft-deleted,
- * ordered by `id` ascending (the sole call site's exact shape).
- */
-export async function listRoutinesByTeam(exec: WriteExecutor, teamId: string): Promise<Routine[]> {
-	return exec
-		.select()
-		.from(routines)
-		.where(and(eq(routines.teamId, teamId), isNull(routines.deletedAt)))
-		.orderBy(routines.id);
-}
-
-/**
- * `routine-scheduler.ts:480` (`triggerType:"event"`) / `routine-scheduler.ts:580`
- * (no filter — every active routine in the poll loop).
- */
-export async function listActiveRoutines(
-	exec: WriteExecutor,
-	opts?: { triggerType?: string },
-): Promise<Routine[]> {
-	if (opts?.triggerType !== undefined) {
-		return exec
-			.select()
-			.from(routines)
-			.where(and(eq(routines.triggerType, opts.triggerType), eq(routines.active, true)));
-	}
-	return exec.select().from(routines).where(eq(routines.active, true));
-}
-
-/**
- * `routine-scheduler.ts:528-539` (`backfillMissingNextRunAt`) — active,
- * schedulable (calendar/heartbeat/continuous), missing `nextRunAt`. Distinct
- * predicate from `listActiveRoutines` (extra `inArray` + `isNull` legs), so
- * it gets its own named function per plan §5.3's synthesis rule.
- */
-export async function listScheduledRoutinesMissingNextRunAt(
-	exec: WriteExecutor,
+	filter?: {
+		teamId?: string;
+		active?: boolean;
+		triggerType?: string;
+		missingNextRunAt?: boolean;
+		includeDeleted?: boolean;
+	},
 ): Promise<Routine[]> {
 	return exec
 		.select()
 		.from(routines)
 		.where(
 			and(
-				eq(routines.active, true),
-				inArray(routines.triggerType, ["calendar", "heartbeat", "continuous"]),
-				isNull(routines.nextRunAt),
+				filter?.includeDeleted ? undefined : isNull(routines.deletedAt),
+				filter?.teamId !== undefined ? eq(routines.teamId, filter.teamId) : undefined,
+				filter?.active !== undefined ? eq(routines.active, filter.active) : undefined,
+				filter?.triggerType !== undefined
+					? eq(routines.triggerType, filter.triggerType)
+					: undefined,
+				filter?.missingNextRunAt
+					? and(
+							inArray(routines.triggerType, ["calendar", "heartbeat", "continuous"]),
+							isNull(routines.nextRunAt),
+						)
+					: undefined,
 			),
-		);
+		)
+		.orderBy(asc(routines.id));
+}
+
+// ---------------------------------------------------------------------------
+// routine_runs — writes
+// ---------------------------------------------------------------------------
+
+export async function insertRoutineRun(exec: WriteExecutor, values: NewRoutineRun): Promise<void> {
+	await exec.insert(routineRuns).values(values);
 }
 
 /**
- * `teams-routes.ts:260-264` — exact predicate
- * `and(eq(routines.teamId, teamId), isNull(routines.deletedAt))`. Soft-deleted
- * routines are EXCLUDED.
+ * By-id field-set. When `opts.onlyIfRunning` is true the update only fires
+ * when `outcome = 'running'` (silent no-op otherwise) — the race-guard flag
+ * that `updateRoutineRunIfRunning` was previously a separate function for.
+ *
+ * @lore AU20 Am2: collapses `updateRoutineRunById` (plain set) +
+ * `updateRoutineRunIfRunning` (race-guard predicate) into one method with an
+ * `opts.onlyIfRunning` flag. The guard is one extra `eq(outcome,"running")`
+ * leg — not a second export.
  */
-export async function countRoutinesByTeam(exec: WriteExecutor, teamId: string): Promise<number> {
-	const [row] = await exec
-		.select({ count: sql<number>`count(*)` })
-		.from(routines)
-		.where(and(eq(routines.teamId, teamId), isNull(routines.deletedAt)));
-	return Number(row?.count ?? 0);
+export async function updateRoutineRun(
+	exec: WriteExecutor,
+	id: string,
+	patch: RoutineRunPatch,
+	opts?: { readonly onlyIfRunning?: boolean },
+): Promise<void> {
+	if (opts?.onlyIfRunning) {
+		await exec
+			.update(routineRuns)
+			.set(patch)
+			.where(and(eq(routineRuns.id, id), eq(routineRuns.outcome, "running")));
+	} else {
+		await exec.update(routineRuns).set(patch).where(eq(routineRuns.id, id));
+	}
 }
 
 // ---------------------------------------------------------------------------
-// reads — routineRuns
+// routine_runs — reads
 // ---------------------------------------------------------------------------
 
-/** Full-row get-by-id. `agent-work-intent-worker.ts:198-203`. */
-export async function getRoutineRunById(
+/** Full-row get-by-id. */
+export async function getRoutineRun(
 	exec: WriteExecutor,
 	id: string,
 ): Promise<RoutineRun | undefined> {
@@ -236,101 +208,92 @@ export async function getRoutineRunById(
 }
 
 /**
- * `session-lifecycle.ts:237`, `routine-session-reaper.ts:61` — the write-era
- * "select-first" read now lives in the service; the early-return + any
- * co-located sequenced write STAY at the call site (plan addendum §A3).
- * Exact predicate: `and(eq(routineId), eq(outcome,"running"))`.
+ * Parameterized list. `filter.routineId` scopes to a routine; `filter.running`
+ * true filters for `outcome = 'running'`; `filter.limit` caps result count;
+ * `filter.order` is `'asc'`/`'desc'` by `startedAt` (default `desc`).
+ *
+ * The "find the running run" pattern is `listRoutineRuns({routineId, running:true, limit:1})[0]`.
+ *
+ * @lore AU20 Am2: replaces `listRoutineRunsByRoutine` +
+ * `findRunningRoutineRun`. The latter is just `{running:true,limit:1}[0]`.
  */
-export async function findRunningRoutineRun(
+export async function listRoutineRuns(
 	exec: WriteExecutor,
-	routineId: string,
-): Promise<{ id: string } | undefined> {
-	const [row] = await exec
-		.select({ id: routineRuns.id })
-		.from(routineRuns)
-		.where(and(eq(routineRuns.routineId, routineId), eq(routineRuns.outcome, "running")))
-		.limit(1);
-	return row;
-}
-
-/**
- * `routines-routes.ts:219-226` (`limit:20, order:"desc"`) /
- * `teams-routes.ts:977-985` (`limit:1, order:"desc"` — latest run).
- */
-export async function listRoutineRunsByRoutine(
-	exec: WriteExecutor,
-	routineId: string,
-	opts?: { limit?: number; order?: "asc" | "desc" },
+	filter?: {
+		routineId?: string;
+		running?: boolean;
+		limit?: number;
+		order?: "asc" | "desc";
+	},
 ): Promise<RoutineRun[]> {
 	const orderExpr =
-		opts?.order === "asc" ? asc(routineRuns.startedAt) : desc(routineRuns.startedAt);
-	if (opts?.limit !== undefined) {
-		return exec
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.routineId, routineId))
-			.orderBy(orderExpr)
-			.limit(opts.limit);
-	}
-	return exec
+		filter?.order === "asc" ? asc(routineRuns.startedAt) : desc(routineRuns.startedAt);
+
+	const q = exec
 		.select()
-		.from(routineRuns)
-		.where(eq(routineRuns.routineId, routineId))
-		.orderBy(orderExpr);
-}
-
-/**
- * `routines-routes.ts:243-248`, `routine-scheduler.ts:329-340`
- * (`getRoutineMonthlySpend`) — exact predicate
- * `and(eq(routineId), gte(startedAt, since))`.
- */
-export async function sumRoutineRunCostSince(
-	exec: WriteExecutor,
-	routineId: string,
-	since: string,
-): Promise<number> {
-	const [row] = await exec
-		.select({ total: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
-		.from(routineRuns)
-		.where(and(eq(routineRuns.routineId, routineId), gte(routineRuns.startedAt, since)))
-		.limit(1);
-	return row?.total ?? 0;
-}
-
-/**
- * `routines-routes.ts:236-240` — exact predicate
- * `and(eq(routineId), gt(costMinor, 0))`, averaged.
- */
-export async function avgRoutineRunCost(
-	exec: WriteExecutor,
-	routineId: string,
-): Promise<number | null> {
-	const [row] = await exec
-		.select({ avg: avg(routineRuns.costMinor) })
-		.from(routineRuns)
-		.where(and(eq(routineRuns.routineId, routineId), gt(routineRuns.costMinor, 0)));
-	return row?.avg != null ? Math.round(Number(row.avg)) : null;
-}
-
-/**
- * `teams-routes.ts:936-957` — exact predicate
- * `and(inArray(routineId, routineIds), gte(startedAt, since))`.
- */
-export async function sumRoutineRunCostForRoutinesSince(
-	exec: WriteExecutor,
-	routineIds: readonly string[],
-	since: string,
-): Promise<number> {
-	if (routineIds.length === 0) return 0;
-	const [row] = await exec
-		.select({ total: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
 		.from(routineRuns)
 		.where(
 			and(
-				inArray(routineRuns.routineId, Array.from(routineIds)),
-				gte(routineRuns.startedAt, since),
+				filter?.routineId !== undefined ? eq(routineRuns.routineId, filter.routineId) : undefined,
+				filter?.running === true ? eq(routineRuns.outcome, "running") : undefined,
 			),
 		)
+		.orderBy(orderExpr);
+
+	if (filter?.limit !== undefined) {
+		return q.limit(filter.limit);
+	}
+	return q;
+}
+
+// ---------------------------------------------------------------------------
+// cost aggregation
+// ---------------------------------------------------------------------------
+
+/**
+ * Unified run-cost aggregator. `kind: 'sum'` returns `coalesce(sum(costMinor), 0)`
+ * over all runs in `routineIds` (optionally bounded by `since`); returns `0`
+ * when `routineIds` is empty. `kind: 'avg'` returns `round(avg(costMinor))`
+ * over runs with `costMinor > 0`; returns `null` when no cost-bearing runs
+ * exist.
+ *
+ * @lore AU20 Am2: collapses `avgRoutineRunCost`, `sumRoutineRunCostSince`,
+ * `sumRoutineRunCostForRoutinesSince` into one parameterized query. All three
+ * were `aggregate(costMinor) over runs where routineId in (…) [and startedAt >= since]`;
+ * `kind` picks the aggregation, `since` is now optional on both.
+ */
+export async function sumRunCost(
+	exec: WriteExecutor,
+	query: { routineIds: readonly string[]; since?: string; kind: "sum" },
+): Promise<number>;
+export async function sumRunCost(
+	exec: WriteExecutor,
+	query: { routineIds: readonly string[]; since?: string; kind: "avg" },
+): Promise<number | null>;
+export async function sumRunCost(
+	exec: WriteExecutor,
+	query: { routineIds: readonly string[]; since?: string; kind: "sum" | "avg" },
+): Promise<number | null> {
+	if (query.routineIds.length === 0) return 0;
+
+	const whereClause = and(
+		inArray(routineRuns.routineId, Array.from(query.routineIds)),
+		query.since !== undefined ? gte(routineRuns.startedAt, query.since) : undefined,
+		query.kind === "avg" ? gt(routineRuns.costMinor, 0) : undefined,
+	);
+
+	if (query.kind === "avg") {
+		const [row] = await exec
+			.select({ result: avg(routineRuns.costMinor) })
+			.from(routineRuns)
+			.where(whereClause);
+		return row?.result != null ? Math.round(Number(row.result)) : null;
+	}
+
+	const [row] = await exec
+		.select({ result: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
+		.from(routineRuns)
+		.where(whereClause)
 		.limit(1);
-	return row?.total ?? 0;
+	return row?.result ?? 0;
 }

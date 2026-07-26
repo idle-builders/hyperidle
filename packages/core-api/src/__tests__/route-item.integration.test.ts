@@ -1,5 +1,5 @@
 import { type HyperIdleDb, items } from "@hyperidle/db";
-import { createRouteItemTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
@@ -7,7 +7,7 @@ import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 import { test } from "../test-fixtures.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
-const routeItemTool = createRouteItemTool(toolHandlersPorts);
+const routeItemTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "route_item")!;
 
 async function seedItem(
 	db: HyperIdleDb,

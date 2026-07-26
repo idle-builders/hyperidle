@@ -34,11 +34,19 @@
  * first). Pipeline values a handler only ever spreads/forwards (never reads
  * a specific field of) are typed `Record<string, unknown>` rather than
  * mirrored field-by-field.
+ *
+ * @lore AU20 Stage 2: All 16 sub-interface type exports removed — they are
+ * now structurally internal under `ToolHandlersPorts`. External code that
+ * holds a `ToolHandlersPorts<TDb>` accesses each sub-port structurally
+ * without needing to import the named interface. `parseCron`/`nextCronMatch`
+ * removed from `ToolHandlersDispatchAccessor` — relocated to
+ * `@hyperidle/shared` so tool implementations import them directly (2 of 3
+ * dispatch back-edges deleted; only `provisionTeamRoutines` remains).
  */
 
 import type { UserRole } from "@hyperidle/shared";
 
-export interface ToolHandlersWorkAccessor<TDb> {
+interface ToolHandlersWorkAccessor<TDb> {
 	getTaskById(
 		db: TDb,
 		id: string,
@@ -87,6 +95,16 @@ export interface ToolHandlersWorkAccessor<TDb> {
 		id: string,
 		updates: Partial<{ notes: string; updatedAt: string }>,
 	): Promise<void>;
+	/**
+	 * Atomic note append — single UPDATE with SQL CASE, no pre-read.
+	 * Returns `{ id }` when the task was found and updated, `undefined` when
+	 * the task does not exist (task-not-found signal for the `log_task` handler).
+	 */
+	appendTaskNote(
+		db: TDb,
+		taskId: string,
+		entry: string,
+	): Promise<{ readonly id: string } | undefined>;
 	getItemById(
 		db: TDb,
 		id: string,
@@ -123,7 +141,7 @@ export interface ToolHandlersWorkAccessor<TDb> {
 	): Promise<void>;
 }
 
-export interface ToolHandlersUsersAccessor<TDb> {
+interface ToolHandlersUsersAccessor<TDb> {
 	getUserById(
 		db: TDb,
 		id: string,
@@ -144,7 +162,7 @@ export interface ToolHandlersUsersAccessor<TDb> {
 	>;
 }
 
-export interface ToolHandlersConversationAccessor<TDb> {
+interface ToolHandlersConversationAccessor<TDb> {
 	getThreadById(
 		db: TDb,
 		id: string,
@@ -167,33 +185,25 @@ export interface ToolHandlersConversationAccessor<TDb> {
 
 /**
  * Structural mirror of `org`'s own `CreateTeamInput` (`team-lookup.ts`) —
- * `org`'s `createTeam` reads these specific fields (`db.insert(teams)
- * .values(input)`), so (unlike the spread/forward `Record<string,unknown>`
- * inputs elsewhere in this file) an opaque type would fail the composition
- * root's function-assignment check (`Record<string, unknown>` and a
- * concrete-fielded interface do not sufficiently overlap for a single
- * audited `as` cast — see `design/no-unknown-cast`, which bans the
- * `X as unknown as T` escape hatch this file must not reach for).
+ * `org`'s `createTeam` atomically inserts both the `teams` row and its
+ * `teamMembers` companion (1:1 invariant). `teamMembersId` replaced the
+ * old separate `CreateTeamMembersGroupInput.id` (AU20 Am7).
  */
-export interface ToolHandlersCreateTeamInput {
+interface ToolHandlersCreateTeamInput {
 	readonly id: string;
 	readonly name: string;
 	readonly phase: string;
 	readonly functions: string | null;
 	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
+	/** The `teamMembers.id` for the companion row (1:1 invariant). */
+	readonly teamMembersId: string;
+	readonly capacity?: number;
+	readonly activeBets?: number;
+	readonly formedAt?: string;
 }
 
-/** Structural mirror of `org`'s own `CreateTeamMembersGroupInput` — same reasoning as {@link ToolHandlersCreateTeamInput}. */
-export interface ToolHandlersCreateTeamMembersGroupInput {
-	readonly id: string;
-	readonly teamId: string;
-	readonly capacity: number;
-	readonly activeBets: number;
-	readonly formedAt: string;
-}
-
-export interface ToolHandlersOrgAccessor<TDb> {
+interface ToolHandlersOrgAccessor<TDb> {
 	getTeamById(
 		db: TDb,
 		teamId: string,
@@ -204,9 +214,20 @@ export interface ToolHandlersOrgAccessor<TDb> {
 		db: TDb,
 		teamMembersId: string,
 	): Promise<{ readonly teamId: string } | undefined>;
+	/**
+	 * Atomically creates a `teams` row + its `teamMembers` companion (1:1 invariant).
+	 * @lore AU20 Am7: replaces the old `createTeam + createTeamMembersGroup` two-call pattern.
+	 */
 	createTeam(db: TDb, input: ToolHandlersCreateTeamInput): Promise<void>;
-	createTeamMembersGroup(db: TDb, input: ToolHandlersCreateTeamMembersGroupInput): Promise<void>;
-	setTeamMembersLeadAgent(db: TDb, teamMembersId: string, leadAgentId: string): Promise<void>;
+	/**
+	 * Update team-owned columns (phase on `teams`, activeBets/leadAgentId on `teamMembers`).
+	 * @lore AU20 Am7: replaces `setTeamMembersLeadAgent` (and `updateTeamPhase`/`setTeamMembersActiveBets`).
+	 */
+	updateTeam(
+		db: TDb,
+		teamId: string,
+		patch: { phase?: string; activeBets?: number; leadAgentId?: string },
+	): Promise<void>;
 	/** Collapses `resolveReviewRecipients(db, ctx, {getUserById})` — see this file's top `@lore`. */
 	resolveReviewRecipientsForItem(
 		db: TDb,
@@ -224,8 +245,8 @@ export interface ToolHandlersOrgAccessor<TDb> {
 	): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
 }
 
-export interface ToolHandlersAgentSelectionAccessor<TDb> {
-	resolveAgentScaffoldSpecs(input: {
+interface ToolHandlersAgentSelectionAccessor<TDb> {
+	resolveScaffoldSpecs(input: {
 		readonly db: TDb;
 		/** Narrowed to `agent-selection`'s own `ScaffoldRequest.trigger` literal union (structural mirror, not a type import — same reasoning as `role` below). */
 		readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
@@ -233,7 +254,7 @@ export interface ToolHandlersAgentSelectionAccessor<TDb> {
 		readonly teamMembersId: string | null;
 		readonly teamName: string;
 		readonly functions: readonly string[] | null;
-		/** Narrowed from `string | null` to `@hyperidle/shared`'s `UserRole | null` — `agent-selection`'s real `resolveAgentScaffoldSpecs` requires the exact role union, not an arbitrary string. `UserRole` is a `shared` leaf type, not a domain-Service import, so importing it here does not violate Mechanism C. */
+		/** Agent-selection requires the exact shared role union, not an arbitrary string. */
 		readonly role: UserRole | null;
 		readonly name: string | null;
 		readonly ownerUserId: string | null;
@@ -241,7 +262,7 @@ export interface ToolHandlersAgentSelectionAccessor<TDb> {
 	}): Promise<readonly Record<string, unknown>[]>;
 }
 
-export interface ToolHandlersRoutineAccessor<TDb> {
+interface ToolHandlersRoutineAccessor<TDb> {
 	insertRoutine(db: TDb, input: Record<string, unknown>): Promise<void>;
 	getRoutineById(
 		db: TDb,
@@ -252,9 +273,13 @@ export interface ToolHandlersRoutineAccessor<TDb> {
 	updateRoutineById(db: TDb, id: string, updates: Record<string, unknown>): Promise<void>;
 }
 
-export interface ToolHandlersDispatchAccessor<TDb> {
-	nextCronMatch(parsed: unknown, from: Date): Date;
-	parseCron(expr: string): unknown;
+/**
+ * @lore AU20 Stage 2: `parseCron` and `nextCronMatch` removed — they are
+ * pure utilities relocated to `@hyperidle/shared`. Only `provisionTeamRoutines`
+ * remains as a genuine service-layer back-edge (it provisions DB rows and
+ * spawns work — cannot be a pure utility).
+ */
+interface ToolHandlersDispatchAccessor<TDb> {
 	/** Opaque pass-through — this Service's own bound `provisionTeamRoutines`. Never inspected here. */
 	provisionTeamRoutines(
 		db: TDb,
@@ -269,12 +294,12 @@ export interface ToolHandlersDispatchAccessor<TDb> {
 /**
  * Structural mirror of `knowledge`'s own `CreateKnowledgeItemInput`
  * (`knowledge-repository.ts`) — same reasoning as
- * {@link ToolHandlersCreateTeamInput}: `knowledge.create` reads these
+ * `ToolHandlersCreateTeamInput`: `knowledge.create` reads these
  * specific fields, so this cannot stay the opaque `Record<string, unknown>`
  * shape. `KnowledgeLayer`/`KnowledgeKind`/`KnowledgeStatus` literal unions
  * widen to `string` (Mechanism C: never importing `knowledge`'s own types).
  */
-export interface ToolHandlersCreateKnowledgeItemInput {
+interface ToolHandlersCreateKnowledgeItemInput {
 	readonly layer: string | null;
 	readonly scopeKind?: string | null;
 	readonly scopeId?: string | null;
@@ -291,7 +316,7 @@ export interface ToolHandlersCreateKnowledgeItemInput {
 }
 
 /** Structural mirror of `knowledge`'s own `CreateKnowledgeConflictInput` (`conflict-review-store.ts`). */
-export interface ToolHandlersCreateKnowledgeConflictInput {
+interface ToolHandlersCreateKnowledgeConflictInput {
 	readonly id: string;
 	readonly itemId: string;
 	readonly versionBase: number;
@@ -302,7 +327,7 @@ export interface ToolHandlersCreateKnowledgeConflictInput {
 	readonly createdAt: string;
 }
 
-export interface ToolHandlersKnowledgeAccessor<TDb> {
+interface ToolHandlersKnowledgeAccessor<TDb> {
 	/**
 	 * Returned items are opaque (`Record<string, unknown>`) plus the one field
 	 * `query-practice.ts`'s handler filters on (`layer`, optional/nullable —
@@ -371,7 +396,7 @@ export interface ToolHandlersKnowledgeAccessor<TDb> {
 }
 
 /** Structural mirror of `@hyperidle/policy`'s `HandoffMetadata`/`HandoffParams`/`HandoffResult` (Mechanism C). */
-export interface ToolHandlersHandoffMetadata {
+interface ToolHandlersHandoffMetadata {
 	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case
 	context_id: string;
 	status: "completed" | "failed" | "blocked" | "in_progress";
@@ -382,7 +407,7 @@ export interface ToolHandlersHandoffMetadata {
 	error?: string;
 }
 
-export interface ToolHandlersSessionContext {
+interface ToolHandlersSessionContext {
 	sessionId: string;
 	agentId: string;
 	taskId: string;
@@ -391,7 +416,7 @@ export interface ToolHandlersSessionContext {
 	traceId: string;
 }
 
-export interface ToolHandlersHandoffParams {
+interface ToolHandlersHandoffParams {
 	sessionContext: ToolHandlersSessionContext;
 	toAgent?: string;
 	toRole?: string;
@@ -399,13 +424,13 @@ export interface ToolHandlersHandoffParams {
 	metadata: ToolHandlersHandoffMetadata;
 }
 
-export interface ToolHandlersHandoffResult {
+interface ToolHandlersHandoffResult {
 	status: "success" | "escalated";
 	targetAgentId?: string;
 	escalationItemId?: string;
 }
 
-export interface ToolHandlersPolicyAccessor<TDb> {
+interface ToolHandlersPolicyAccessor<TDb> {
 	/** Bound `@hyperidle/policy`'s `handoff` — wired at the composition root, same idiom `dispatch-bindings.ts` already established. */
 	handoff(
 		db: TDb,
@@ -414,7 +439,7 @@ export interface ToolHandlersPolicyAccessor<TDb> {
 	): Promise<ToolHandlersHandoffResult>;
 }
 
-/** Every real outbound port this Service's 24 source files need. */
+/** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts<TDb> {
 	readonly work: ToolHandlersWorkAccessor<TDb>;
 	readonly users: ToolHandlersUsersAccessor<TDb>;

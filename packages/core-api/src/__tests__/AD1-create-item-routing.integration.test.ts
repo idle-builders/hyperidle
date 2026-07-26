@@ -28,12 +28,14 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { createCreateItemTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 
-const createItemTool = createCreateItemTool(toolHandlersPorts);
+const createItemTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "create_item",
+)!;
 
 const NOW = new Date().toISOString();
 const TEST_TEAM_ID = "team-ad1";

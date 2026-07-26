@@ -81,7 +81,8 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		await seedUsers(db);
 
 		const PLAINTEXT = "sk-stripe-integration-test-secret-abc123";
-		const encrypted = encryptCredentialValue(PLAINTEXT, SERVER_SECRET);
+		// env stubbed in beforeEach (HYPERIDLE_CREDENTIAL_KEY = SERVER_SECRET)
+		const encrypted = encryptCredentialValue(PLAINTEXT);
 		const rowId = "sc-resolver-test-a-token";
 
 		await db.insert(serviceConnections).values({
@@ -97,7 +98,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			updatedAt: NOW,
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const result = await resolver.resolve(USER_A_ID, rowId);
 
 		// Must return the EXACT plaintext — not null, not a different string.
@@ -119,7 +120,8 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		await seedUsers(db);
 
 		const PLAINTEXT = "sk-stripe-user-a-secret-xyz";
-		const encrypted = encryptCredentialValue(PLAINTEXT, SERVER_SECRET);
+		// env stubbed in beforeEach (HYPERIDLE_CREDENTIAL_KEY = SERVER_SECRET)
+		const encrypted = encryptCredentialValue(PLAINTEXT);
 		const rowId = "sc-resolver-test-b-isolation";
 
 		// Insert the row belonging to USER_A
@@ -136,7 +138,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			updatedAt: NOW,
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 
 		// USER_B must NOT get USER_A's plaintext — cross-user → null
 		const result = await resolver.resolve(USER_B_ID, rowId);
@@ -171,7 +173,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			updatedAt: NOW,
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const result = await resolver.resolve(USER_A_ID, mcpRowId);
 
 		// mcp rows have no secret → resolver must return null
@@ -183,7 +185,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 	test("(d) resolve(userA, absentId) returns null — non-existent row", async ({ db }) => {
 		await seedUsers(db);
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 		const result = await resolver.resolve(USER_A_ID, "sc-does-not-exist-at-all");
 
 		expect(result).toBeNull();
@@ -210,7 +212,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			updatedAt: NOW,
 		});
 
-		const resolver = new ServiceConnectionResolver(db, SERVER_SECRET);
+		const resolver = new ServiceConnectionResolver(db);
 
 		// Must return null, must not throw
 		let threw = false;
@@ -225,14 +227,40 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		expect(result).toBeNull();
 	});
 
-	// ─── missing server secret → null immediately ─────────────────────────────
+	// ─── missing server secret in env → null (graceful degradation) ──────────
+	//
+	// @lore AU20 Am4: The old API took `serverSecret: string | null` and short-circuited
+	// on null. The new API reads HYPERIDLE_CREDENTIAL_KEY from env (cipher-owns-key).
+	// This test proves the same graceful-null behavior when no env secret is configured.
 
-	test("resolve with null serverSecret returns null without touching DB", async ({ db }) => {
+	test("resolve returns null when no HYPERIDLE_CREDENTIAL_KEY in env", async ({ db }) => {
 		await seedUsers(db);
 
-		const resolver = new ServiceConnectionResolver(db, null);
-		// Should short-circuit and return null (see line 40 in service-connection-resolver.ts)
-		const result = await resolver.resolve(USER_A_ID, "sc-any-id");
+		// Store an encrypted row (encrypted with SERVER_SECRET from beforeEach)
+		const PLAINTEXT = "sk-secret-missing-env-test";
+		const encrypted = encryptCredentialValue(PLAINTEXT);
+		const rowId = "sc-resolver-test-missing-secret";
+
+		await db.insert(serviceConnections).values({
+			id: `${USER_A_ID}-conn-missing`,
+			userId: USER_A_ID,
+			service: "Stripe",
+			authSource: "token",
+			encryptedToken: encrypted,
+			serverUrl: null,
+			health: "needs-attention",
+			lastValidatedAt: null,
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+
+		// Clear the env secret — decryptCredentialValue returns null → resolve returns null
+		vi.unstubAllEnvs();
+		delete process.env.HYPERIDLE_CREDENTIAL_KEY;
+		delete process.env.HYPERIDLE_API_KEY;
+
+		const resolver = new ServiceConnectionResolver(db);
+		const result = await resolver.resolve(USER_A_ID, rowId);
 		expect(result).toBeNull();
 	});
 });

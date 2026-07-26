@@ -1,5 +1,11 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { AgentSessionSourceCorrelation, EventBus } from "@hyperidle/shared";
+import type {
+	AgentSessionSourceCorrelation,
+	DomainEvent,
+	EventBus,
+	EventByType,
+	EventType,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { SubscribeAuthorizerDeps } from "./ports.js";
 
@@ -27,6 +33,73 @@ interface SubscribeAuthorizer {
 	canSubscribe(senderId: string, topic: string): Promise<boolean>;
 }
 
+/**
+ * Declarative event→topic route table. Adding a new forwarded event is a
+ * one-row edit here — no new `unsubN` variable, no new push() call.
+ *
+ * Static-topic entries use `() => topic`. Dynamic-topic entries cast the
+ * base `DomainEvent` to the specific event type — safe because the eventName
+ * discriminant guarantees the runtime type.
+ *
+ * @lore AU20 Ab2: replaces the 16 imperative eventBus.on() blocks that
+ * previously lived in WsBroadcaster.start(). This is the INSIDE analog of
+ * the "parameterize, don't multiply" rule (§3 Inside Lens in the spec).
+ */
+const BROADCAST_ROUTES: ReadonlyArray<{
+	readonly eventName: EventType;
+	readonly deriveTopic: (event: DomainEvent) => string;
+}> = [
+	// Global topic: conversations
+	{ eventName: "item_created", deriveTopic: () => "conversations" },
+	{ eventName: "knowledge_updated", deriveTopic: () => "conversations" },
+	{ eventName: "thread_created", deriveTopic: () => "conversations" },
+	// Global topic: work
+	{ eventName: "task_state_changed", deriveTopic: () => "work" },
+	{ eventName: "bet_state_changed", deriveTopic: () => "work" },
+	{ eventName: "cost_cap_warning", deriveTopic: () => "work" },
+	{ eventName: "propagation_applied", deriveTopic: () => "work" },
+	{ eventName: "propagation_failed", deriveTopic: () => "work" },
+	// R6: artifact_created goes to 'work' so the UI can invalidate artifact
+	// galleries (WorkBet ArtifactSection, WorkPortfolio artifact gallery).
+	// @lore R6 W-3: no client subscribes to this yet — forward-compatible infra.
+	{ eventName: "artifact_created", deriveTopic: () => "work" },
+	// Per-thread topics: thread:<id>
+	// L1a — Thread primitive events (plan §6.2 / §6.3). Per-thread topic
+	// `thread:<id>` carries everything that mutates an open thread.
+	{
+		eventName: "thread_message_appended",
+		deriveTopic: (e) => `thread:${(e as EventByType<"thread_message_appended">).threadId}`,
+	},
+	{
+		eventName: "thread_resolved",
+		deriveTopic: (e) => `thread:${(e as EventByType<"thread_resolved">).threadId}`,
+	},
+	{
+		eventName: "thread_reopened",
+		deriveTopic: (e) => `thread:${(e as EventByType<"thread_reopened">).threadId}`,
+	},
+	{
+		eventName: "thread_archived",
+		deriveTopic: (e) => `thread:${(e as EventByType<"thread_archived">).threadId}`,
+	},
+	// Per-session topics: session:<id>
+	// Q1 §3.4: forward session lifecycle and tool-call events to per-session
+	// topic `session:<sessionId>`. Any authenticated client may subscribe —
+	// observe mode is read-only and not gated by participant membership.
+	{
+		eventName: "session_started",
+		deriveTopic: (e) => `session:${(e as EventByType<"session_started">).sessionId}`,
+	},
+	{
+		eventName: "session_ended",
+		deriveTopic: (e) => `session:${(e as EventByType<"session_ended">).sessionId}`,
+	},
+	{
+		eventName: "tool_call_recorded",
+		deriveTopic: (e) => `session:${(e as EventByType<"tool_call_recorded">).sessionId}`,
+	},
+];
+
 export class WsBroadcaster {
 	private clients = new Map<WsClient, Set<string>>();
 	private clientIdentities = new Map<WsClient, string>();
@@ -37,98 +110,24 @@ export class WsBroadcaster {
 		private readonly authorizer?: SubscribeAuthorizer,
 	) {}
 
-	/** Wire up event bus subscriptions for forwarding. */
+	/**
+	 * Wire up event bus subscriptions for forwarding via the declarative
+	 * BROADCAST_ROUTES table. Adding a new forwarded event is a one-row
+	 * table edit, not a new unsubN variable threaded into the push() list.
+	 *
+	 * @lore I6: forward additional domain events so the UI can react
+	 * to task/bet state changes and cost warnings in real time.
+	 * @lore AU20 Ab2: replaced 16 imperative on() blocks with a single loop
+	 * over BROADCAST_ROUTES — zero behavior change, sub-linear growth.
+	 */
 	start(): void {
-		const unsub1 = this.eventBus.on("item_created", (event) => {
-			this.broadcast("conversations", JSON.stringify(event));
-		});
-
-		const unsub2 = this.eventBus.on("knowledge_updated", (event) => {
-			this.broadcast("conversations", JSON.stringify(event));
-		});
-
-		// @lore I6: forward additional domain events so the UI can react
-		// to task/bet state changes and cost warnings in real time.
-		const unsub3 = this.eventBus.on("task_state_changed", (event) => {
-			this.broadcast("work", JSON.stringify(event));
-		});
-
-		const unsub4 = this.eventBus.on("bet_state_changed", (event) => {
-			this.broadcast("work", JSON.stringify(event));
-		});
-
-		const unsub5 = this.eventBus.on("cost_cap_warning", (event) => {
-			this.broadcast("work", JSON.stringify(event));
-		});
-
-		// L1a — Thread primitive events (plan §6.2 / §6.3). Per-thread topic
-		// `thread:<id>` carries everything that mutates an open thread; the
-		// thread-list channel `'conversations'` carries `thread_created` so
-		// the Submenu refreshes.
-		const unsub6 = this.eventBus.on("thread_created", (event) => {
-			this.broadcast("conversations", JSON.stringify(event));
-		});
-		const unsub7 = this.eventBus.on("thread_message_appended", (event) => {
-			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
-		});
-		const unsub8 = this.eventBus.on("thread_resolved", (event) => {
-			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
-		});
-		const unsub9 = this.eventBus.on("thread_reopened", (event) => {
-			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
-		});
-		const unsub10 = this.eventBus.on("thread_archived", (event) => {
-			this.broadcast(`thread:${event.threadId}`, JSON.stringify(event));
-		});
-
-		// L20: propagation_applied goes to 'work' so the UI can invalidate data.
-		// propagation_failed goes to 'work' alongside propagation_applied so the UI can surface the failure.
-		const unsub11 = this.eventBus.on("propagation_applied", (event) => {
-			this.broadcast("work", JSON.stringify(event));
-		});
-		const unsub12 = this.eventBus.on("propagation_failed", (event) => {
-			this.broadcast("work", JSON.stringify(event));
-		});
-
-		// R6: artifact_created goes to 'work' so the UI can invalidate artifact
-		// galleries (WorkBet ArtifactSection, WorkPortfolio artifact gallery).
-		// @lore R6 W-3: no client subscribes to this yet — it's forward-compatible
-		// infrastructure. Don't debug "why doesn't UI update."
-		const unsubArtifact = this.eventBus.on("artifact_created", (event) => {
-			this.broadcast("work", JSON.stringify(event));
-		});
-
-		// Q1 §3.4: forward session lifecycle and tool-call events to per-session
-		// topic `session:<sessionId>`. Any authenticated client may subscribe —
-		// observe mode is read-only and not gated by participant membership.
-		const unsub13 = this.eventBus.on("session_started", (event) => {
-			this.broadcast(`session:${event.sessionId}`, JSON.stringify(event));
-		});
-		const unsub14 = this.eventBus.on("session_ended", (event) => {
-			this.broadcast(`session:${event.sessionId}`, JSON.stringify(event));
-		});
-		const unsub15 = this.eventBus.on("tool_call_recorded", (event) => {
-			this.broadcast(`session:${event.sessionId}`, JSON.stringify(event));
-		});
-
-		this.unsubscribers.push(
-			unsub1,
-			unsub2,
-			unsub3,
-			unsub4,
-			unsub5,
-			unsub6,
-			unsub7,
-			unsub8,
-			unsub9,
-			unsub10,
-			unsub11,
-			unsub12,
-			unsub13,
-			unsub14,
-			unsub15,
-			unsubArtifact,
-		);
+		for (const { eventName, deriveTopic } of BROADCAST_ROUTES) {
+			this.unsubscribers.push(
+				this.eventBus.on(eventName, (event) => {
+					this.broadcast(deriveTopic(event), JSON.stringify(event));
+				}),
+			);
+		}
 	}
 
 	/** Stop forwarding events. */

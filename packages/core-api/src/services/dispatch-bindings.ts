@@ -13,7 +13,7 @@
  * `routes/dispatch-queue-routes.ts`, `routes/teams-routes.ts`, and the many
  * `__tests__` integration tests) imports the already-wired functions
  * unchanged — same factory-curry idiom as `cost-bindings.ts`/
- * `session-requests-bindings.ts`.
+ * `durable-agent-queue.ts`.
  *
  * `toolHandlers`/`workspaceFactory` wire to `tools/assistant-draft-registry.ts`/
  * `harness/local-sandbox-adapter.ts` — still-flat `packages/server` files
@@ -27,165 +27,124 @@
  * constructor satisfies `create(): unknown` directly.
  */
 
-import { resolveAssistantFormation } from "@hyperidle/agent-selection";
 import {
-	getThreadById,
-	getThreadIdsByHost,
+	findThread,
 	insertMessage,
 	insertThread,
-	listMessagesByThread,
+	listMessages,
+	listThreads,
 	updateThread,
 } from "@hyperidle/conversation";
-import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
-import type {
-	DispatchAgentModelParams,
-	DispatchAgentWorkIntentInput,
-	DispatchAttentionRecomputeOutcome,
-	DispatchAutoPromotionSweepResult,
-	DispatchConsumeOptions,
-	DispatchCreatePracticeMeetingInput,
-	DispatchCreatePracticeMeetingResult,
-	DispatchCredentialResolver,
-	DispatchPorts,
-	DispatchProvisionDeps,
-	DispatchProvisionResult,
-	DispatchStaleSweepResult,
-	DispatchToolContext,
-} from "@hyperidle/dispatch";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { DispatchPorts } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
-import { LocalSandboxAdapter } from "@hyperidle/harness-registry";
+import { createSandboxAdapter } from "@hyperidle/harness-registry";
+import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
+import { resolveModel } from "@hyperidle/model-gateway";
+import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import {
-	archiveKnowledgeItemWithLogRaw,
-	buildAttentionService,
-	findKnowledgeAppProjectionByItemIdRaw,
-	findKnowledgeItemByIdRaw,
-	insertKnowledgeAppProjectionRaw,
-	insertKnowledgeEditLogRaw,
-	insertKnowledgeItemRaw,
-	listCapturedItemsByProjectionScopeRaw,
-	listRecentByLayers,
-	runAutoPromotionSweep,
-	runStaleSweep,
-	touchKnowledgeItemUpdatedAtRaw,
-	updateKnowledgeAppProjectionMetaIfUnchangedRaw,
-} from "@hyperidle/knowledge";
-import { resolveAgentModel, resolveModelTier } from "@hyperidle/model-gateway";
-import {
-	attentionReviewReasoningMarker,
-	buildCreateReviewItemForKnowledge,
-	createPracticeMeeting,
-	type PracticeMeetingKnowledgeStore,
-} from "@hyperidle/review";
-import {
-	findRunningRoutineRun,
-	getRoutineById,
+	getRoutine,
 	insertRoutine,
 	insertRoutineRun,
-	listActiveRoutines,
-	listScheduledRoutinesMissingNextRunAt,
-	sumRoutineRunCostSince,
-	updateRoutineById,
+	listRoutineRuns,
+	listRoutines,
+	sumRunCost,
+	updateRoutine,
 } from "@hyperidle/routine";
-import type { AgentWorkIntentKind } from "@hyperidle/session-requests";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus, ToolContext } from "@hyperidle/shared";
-import {
-	buildAssistantDraftRegistry,
-	resolveCurrentDraftBetId,
-	resolveDraftTeamId,
-} from "@hyperidle/tool-handlers";
-import { getOrCreateUser, getUserById } from "@hyperidle/users";
-import {
-	createItem,
-	findItemByReasoningMarker,
-	findRetroItemByThreadIds,
-	getBetById,
-	getTaskById,
-	listTasks,
-} from "@hyperidle/work";
-import { getFactoryCostActual } from "./cost-bindings.js";
-import { executeAgentRunRequest } from "./run-orchestration-bindings.js";
-import { recordAgentWorkIntent } from "./session-requests-bindings.js";
+import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
+import { findUser, getOrCreateUser } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
+import { createPracticeMeeting } from "../../knowledge/src/practice-meeting.js";
+import { agentSelectionService } from "./agent-selection-bindings.js";
+import { costOps } from "./cost-bindings.js";
+import { runSession } from "./run-orchestration-composition.js";
 import { toolHandlersPorts } from "./tool-handlers-bindings.js";
 
 /**
  * @lore AU19 Increment 3h: collapses `dispatch`'s former
- * `practiceMeetingKnowledgeStore` construction (9 raw `@hyperidle/knowledge`
- * accessors) into a single bound `createPracticeMeeting(db, input)` call —
- * `dispatch` can no longer build this store itself (Mechanism C). Wired
- * exactly like `review`'s own Increment 1j wiring here, just relocated.
- */
-const practiceMeetingKnowledgeStore: PracticeMeetingKnowledgeStore = {
-	insertKnowledgeItem: insertKnowledgeItemRaw,
-	insertKnowledgeAppProjection: insertKnowledgeAppProjectionRaw,
-	insertKnowledgeEditLog: insertKnowledgeEditLogRaw,
-	findKnowledgeItemById: findKnowledgeItemByIdRaw,
-	findKnowledgeAppProjectionByItemId: findKnowledgeAppProjectionByItemIdRaw,
-	updateKnowledgeAppProjectionMetaIfUnchanged: updateKnowledgeAppProjectionMetaIfUnchangedRaw,
-	touchKnowledgeItemUpdatedAt: touchKnowledgeItemUpdatedAtRaw,
-	listCapturedItemsByProjectionScope: listCapturedItemsByProjectionScopeRaw,
-	archiveKnowledgeItemWithLog: archiveKnowledgeItemWithLogRaw,
-};
-
-function createPracticeMeetingBound(
-	db: HyperIdleDb,
-	input: DispatchCreatePracticeMeetingInput,
-): Promise<DispatchCreatePracticeMeetingResult> {
-	return createPracticeMeeting(db, input, practiceMeetingKnowledgeStore);
-}
-
-/**
- * @lore AU19 Increment 3h: collapses `dispatch`'s former
  * `buildAttentionService({db, eventBus, work, review}).recomputeScope(filter)`
- * wiring into a single bound call — same reasoning as
- * `createPracticeMeetingBound` above.
+ * wiring into a single bound call.
+ *
+ * @lore AU20 Ag1a: explicit `DispatchAttentionRecomputeOutcome` return type
+ * removed — structural compatibility is enforced via `DispatchPorts`; the
+ * inferred return type from `buildAttentionService(...).recomputeScope(...)` is
+ * structurally equivalent.
  */
 async function recomputeAttentionForCandidates(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	candidateIds: readonly string[],
-): Promise<DispatchAttentionRecomputeOutcome> {
-	const createReviewItemForKnowledge = buildCreateReviewItemForKnowledge({
+) {
+	const createReviewItemForKnowledge = createReviewItem({
 		conversation: { insertThread },
-		work: { createItem },
+		work: { createItem: (exec, values) => work.create(exec, "item", values) },
 	});
-	return buildAttentionService({
-		db,
-		eventBus,
-		work: { findItemByReasoningMarker },
-		review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
-	}).recomputeScope({ ids: candidateIds as string[] });
+	const result = await recomputeAttention(
+		{
+			db,
+			eventBus,
+			work: {
+				findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
+					const rows = await work.list(exec, "item", { marker });
+					return rows[0] ? { id: rows[0].id } : undefined;
+				},
+			},
+			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+		},
+		{ filter: { ids: candidateIds as string[] } },
+	);
+	if (!("ok" in result)) throw new Error("unexpected attention result");
+	return result;
 }
 
 const dispatchPorts: DispatchPorts = {
 	work: {
-		listTasks,
-		getTaskById,
-		getBetById,
-		createItem,
-		findRetroItemByThreadIds,
+		listTasks: (exec: WriteExecutor, opts: { readonly state: string }) =>
+			work.list(exec, "task", { state: opts.state }),
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
+		createItem: (exec, values) => work.create(exec, "item", values),
+		findRetroItemByThreadIds: async (exec: WriteExecutor, threadIds: string[], marker: string) => {
+			const rows = await work.list(exec, "item", { threadIds, bodyMarker: marker });
+			return rows[0] ? { id: rows[0].id } : undefined;
+		},
 	},
 	routine: {
 		insertRoutine,
-		getRoutineById,
+		getRoutineById: getRoutine,
 		insertRoutineRun,
-		updateRoutineById,
-		findRunningRoutineRun,
-		listActiveRoutines,
-		listScheduledRoutinesMissingNextRunAt,
-		sumRoutineRunCostSince,
+		updateRoutineById: updateRoutine,
+		findRunningRoutineRun: (db, routineId) =>
+			listRoutineRuns(db, { routineId, running: true, limit: 1 }).then((runs) =>
+				runs[0] ? { id: runs[0].id } : undefined,
+			),
+		listActiveRoutines: (db, opts) =>
+			listRoutines(db, { active: true, triggerType: opts?.triggerType }),
+		listScheduledRoutinesMissingNextRunAt: (db) =>
+			listRoutines(db, { active: true, missingNextRunAt: true }),
+		sumRoutineRunCostSince: (db, routineId, since) =>
+			sumRunCost(db, { routineIds: [routineId], since, kind: "sum" }),
 	},
 	conversation: {
 		insertMessage,
-		listMessagesByThread,
-		getThreadById,
+		listMessagesByThread: (exec, threadId, opts) =>
+			listMessages(exec, {
+				threadId,
+				order: opts?.order,
+				dir: opts?.dir,
+			}),
+		getThreadById: (exec, id) => findThread(exec, { id }),
 		updateThread,
-		getThreadIdsByHost,
+		getThreadIdsByHost: (exec, hostKind, hostId) =>
+			listThreads(exec, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
 		insertThread,
 	},
 	users: {
 		getOrCreateUser,
-		getUserById,
+		getUserById: (db, id) => findUser(db, { id }),
 	},
 	settings: {
 		readServerConfig: async (db) => {
@@ -194,78 +153,54 @@ const dispatchPorts: DispatchPorts = {
 		},
 	},
 	modelGateway: {
-		resolveAgentModel: (
-			agent: DispatchAgentModelParams,
-			tierFallback: string,
-			config,
-			credentialResolver: DispatchCredentialResolver,
-		) => resolveAgentModel(agent, tierFallback, config, credentialResolver),
-		resolveModelTier: (tier, config, credentialResolver: DispatchCredentialResolver) =>
-			resolveModelTier(tier, config, credentialResolver),
+		resolveAgentModel: (agent, tierFallback, config, credentialResolver) =>
+			resolveModel(
+				{ kind: "agent", modelId: agent.modelId, modelProvider: agent.modelProvider, tierFallback },
+				config,
+				credentialResolver,
+			),
+		resolveModelTier: (tier, config, credentialResolver) =>
+			resolveModel({ kind: "tier", tier }, config, credentialResolver),
 	},
+	// @lore AU20 Ag1b: `resolveAssistantFormation` dissolved — port now delegates
+	// to `agentSelectionService.resolveScaffoldSpecs` with `trigger:"user_assistant"`.
 	agentSelection: {
-		resolveAssistantFormation,
+		resolveScaffoldSpecs: (request) => agentSelectionService.resolveScaffoldSpecs(request),
 	},
 	runOrchestration: {
-		executeAgentRunRequest: (
-			deps: DispatchProvisionDeps,
-			request: AgentSessionRequest,
-			options: DispatchConsumeOptions,
-		): Promise<DispatchProvisionResult> => executeAgentRunRequest(deps, request, options),
-	},
-	sessionRequests: {
-		recordAgentWorkIntent: async (exec, input: DispatchAgentWorkIntentInput) => {
-			const record = await recordAgentWorkIntent(exec, {
-				kind: input.kind as AgentWorkIntentKind,
-				sourceKind: input.sourceKind,
-				sourceId: input.sourceId,
-				requestedBy: input.requestedBy ?? undefined,
-				idempotencyKey: input.idempotencyKey,
-			});
-			return { id: record.id, idempotencyKey: record.idempotencyKey };
+		async executeAgentRunRequest(deps, request, options) {
+			const result = await runSession(deps, { mode: "durable", request, ...options });
+			if (result.mode !== "completed") throw new Error("Durable dispatch did not complete");
+			return result;
 		},
 	},
-	cost: {
-		getFactoryCostActual,
+	sessionRequests: {
+		enqueueWorkIntent,
 	},
+	cost: {
+		getFactoryCostActual: (db) => costOps.spend(db, { level: "factory" }),
+	},
+	// @lore AU20 Ag1a: `createPracticeMeetingBound` standalone function inlined —
+	// contextual typing from `DispatchPorts["review"]` handles parameter types.
+	// @lore AU20 Am9: `createPracticeMeeting` relocated to `@hyperidle/knowledge`.
 	review: {
-		createPracticeMeeting: createPracticeMeetingBound,
+		createPracticeMeeting,
 	},
 	knowledge: {
-		runAutoPromotionSweep: (db, eventBus): Promise<DispatchAutoPromotionSweepResult> =>
-			runAutoPromotionSweep(db, eventBus),
-		runStaleSweep: (db, eventBus, nowMs, thresholdMs, options): Promise<DispatchStaleSweepResult> =>
-			runStaleSweep(db, eventBus, nowMs, thresholdMs, options),
-		listRecentByLayers,
+		runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
+		runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
+			sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
+		listRecentByLayers: (db, layers, since) =>
+			listKnowledgeItems(db, { recentByLayers: { layers, since } }),
 		recomputeAttentionForCandidates,
 	},
 	toolHandlers: {
-		resolveDraftTeamId: (db: HyperIdleDb, userId: string) =>
-			resolveDraftTeamId(db, userId, toolHandlersPorts),
-		resolveCurrentDraftBetId: (
-			db: HyperIdleDb,
-			transcriptRows: ReadonlyArray<{ readonly senderId: string; readonly payload: string }>,
-			assistantAgentId: string,
-		) => resolveCurrentDraftBetId(db, transcriptRows, assistantAgentId, toolHandlersPorts),
-		buildAssistantDraftRegistry: (ctx: DispatchToolContext, opts) =>
-			buildAssistantDraftRegistry(ctx as ToolContext<HyperIdleDb>, opts, toolHandlersPorts),
+		buildAssistantDraftRegistry: (ctx, params) =>
+			buildAssistantDraftRegistry(ctx as ToolContext<HyperIdleDb>, params, toolHandlersPorts),
 	},
 	workspaceFactory: {
-		create: () => new LocalSandboxAdapter(),
+		create: () => createSandboxAdapter("local"),
 	},
 };
 
 export const dispatchOps = createDispatchOps(dispatchPorts);
-
-export const {
-	registerTaskDispatcher,
-	registerAssistantDispatcher,
-	startRoutineScheduler,
-	registerBuiltinRoutineHandlers,
-	executeAssistantRequest,
-	persistTurnFailure,
-	runBuiltinRoutine,
-	provisionTeamRoutines,
-	checkAndFireRoutine,
-	getRoutineMonthlySpend,
-} = dispatchOps;

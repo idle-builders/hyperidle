@@ -9,7 +9,7 @@
  *   (a) accepts optional `agentId` and `sessionId` on the create body
  *   (b) resolves `agentId` (body → tasks.ownerAgentId fallback)
  *   (c) resolves `teamId` via `users.teamId` (=teamMembers.id, NOT tasks.teamId)
- *   (d) calls `recordCostAndCheck(delta = money_micros / 10000)` if agent resolved
+ *   (d) calls `costOps.record(delta = money_micros / 10000)` if agent resolved
  *   (e) returns the create response with cost reflected
  *   (f) does NOT break when agentId is unresolvable (§5.3: still 201, no cost recorded)
  *
@@ -22,7 +22,7 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { clearDeduplicationCache } from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-af10-artifact";
@@ -119,7 +119,7 @@ async function seedDomain(db: HyperIdleDb, suffix = ""): Promise<SeedResult> {
 
 describe("AF10 AC4: artifact cost recording into aggregates (Z8-124/Z8-127)", () => {
 	beforeEach(() => {
-		clearDeduplicationCache();
+		costOps._testHooks.clearDedup();
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
 
@@ -308,7 +308,7 @@ describe("AF10 AC4: artifact cost recording into aggregates (Z8-124/Z8-127)", ()
 	 *
 	 * PASSES for the 201 assertion today (creation works).
 	 * The "aggregate unchanged" assertion passes trivially today (no cost written).
-	 * After T9 the route must skip recordCostAndCheck when agentId cannot be resolved.
+	 * After T9 the route must skip costOps.record when agentId cannot be resolved.
 	 */
 	test("T8(c): artifact with null ownerAgentId and no body agentId → 201, zero aggregate delta", async ({
 		db,

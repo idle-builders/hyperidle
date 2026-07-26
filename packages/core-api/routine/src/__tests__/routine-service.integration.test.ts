@@ -4,21 +4,18 @@
  * Write-side coverage (plan §5.5, shipped PR #436):
  *   - insertRoutine: plain insert, plus `onConflictDoNothing` opt-in idempotency
  *     (builtin-routine-handlers.ts's per-team provisioning re-run is a no-op).
- *   - updateRoutineById: plain by-id field-set, patch values may be `SQL`
+ *   - updateRoutine: plain by-id field-set, patch values may be `SQL`
  *     fragments (session-lifecycle.ts's cost-accumulation coalesce write).
  *   - insertRoutineRun: plain insert.
- *   - updateRoutineRunById: plain by-id field-set; mutates only the addressed
- *     row (session-lifecycle.ts / routine-session-reaper.ts keep their own
- *     "find the running run" SELECT + early-return at the call site).
- *   - updateRoutineRunIfRunning: in-update guard predicate, no `.returning()`,
- *     silent no-op when outcome != "running" (agent-lifecycle-projectors.ts).
+ *   - updateRoutineRun: by-id field-set; `opts.onlyIfRunning` adds a
+ *     WHERE outcome='running' guard — silent no-op when predicate misses.
  *
  * Read-side coverage (reopened 2026-07-12, plan addendum §A3/§A5), written
  * BEFORE the read functions exist on `../routine-service.ts`:
  *   - get*ById collapses, list/filter fns, exact aggregate predicates
  *     including the soft-delete exclusion (countRoutinesByTeam must NOT
  *     count a soft-deleted routine), sum/avg exact-value assertions.
- *   - R5 tx-visibility: findRunningRoutineRun called with `tx` inside an
+ *   - R5 tx-visibility: listRoutineRuns called with `tx` inside an
  *     open transaction must see an uncommitted row written earlier in the
  *     same `tx`.
  *
@@ -28,6 +25,10 @@
  * `src/__tests__/`, switching its fixture import to `@hyperidle/db/test-fixtures`
  * (same precedent as `org`'s `org-edges.integration.test.ts`/
  * `org-routing.integration.test.ts`, Increment 1c).
+ *
+ * @lore AU20 Am2: updated to use the collapsed public API (`getRoutine`,
+ * `updateRoutine`, `updateRoutineRun`, `listRoutines(filter)`, `listRoutineRuns(filter)`,
+ * `sumRunCost`, `getRoutineRun`).
  */
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
@@ -101,7 +102,7 @@ describe("routine-service", () => {
 		});
 	});
 
-	describe("updateRoutineById", () => {
+	describe("updateRoutine", () => {
 		test("patches only the addressed row", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -119,7 +120,7 @@ describe("routine-service", () => {
 				triggerType: "heartbeat",
 			});
 
-			await routine.updateRoutineById(db, "routine-1", { lastRunAt: "2026-01-01T00:00:00.000Z" });
+			await routine.updateRoutine(db, "routine-1", { lastRunAt: "2026-01-01T00:00:00.000Z" });
 
 			const [updated] = await db
 				.select()
@@ -142,7 +143,7 @@ describe("routine-service", () => {
 				costActualMinor: 100,
 			});
 
-			await routine.updateRoutineById(db, "routine-1", {
+			await routine.updateRoutine(db, "routine-1", {
 				costActualMinor: sql`coalesce(${routines.costActualMinor}, 0) + ${50}`,
 			});
 
@@ -151,7 +152,7 @@ describe("routine-service", () => {
 		});
 	});
 
-	describe("insertRoutineRun / updateRoutineRunById", () => {
+	describe("insertRoutineRun / updateRoutineRun", () => {
 		test("insertRoutineRun inserts a readable row", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -173,7 +174,7 @@ describe("routine-service", () => {
 			expect(row?.outcome).toBe("running");
 		});
 
-		test("updateRoutineRunById mutates only the addressed row", async ({ db }) => {
+		test("updateRoutineRun mutates only the addressed row", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
 				id: "routine-1",
@@ -195,7 +196,7 @@ describe("routine-service", () => {
 				outcome: "running",
 			});
 
-			await routine.updateRoutineRunById(db, "run-1", {
+			await routine.updateRoutineRun(db, "run-1", {
 				outcome: "success",
 				endedAt: new Date().toISOString(),
 			});
@@ -215,7 +216,7 @@ describe("routine-service", () => {
 		});
 	});
 
-	describe("updateRoutineRunIfRunning", () => {
+	describe("updateRoutineRun with onlyIfRunning", () => {
 		test("updates when outcome is currently running", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -232,10 +233,15 @@ describe("routine-service", () => {
 				outcome: "running",
 			});
 
-			await routine.updateRoutineRunIfRunning(db, "run-1", {
-				outcome: "success",
-				endedAt: new Date().toISOString(),
-			});
+			await routine.updateRoutineRun(
+				db,
+				"run-1",
+				{
+					outcome: "success",
+					endedAt: new Date().toISOString(),
+				},
+				{ onlyIfRunning: true },
+			);
 
 			const [row] = await db.select().from(routineRuns).where(eq(routineRuns.id, "run-1")).limit(1);
 			expect(row?.outcome).toBe("success");
@@ -257,10 +263,15 @@ describe("routine-service", () => {
 				outcome: "success",
 			});
 
-			await routine.updateRoutineRunIfRunning(db, "run-1", {
-				outcome: "error",
-				endedAt: new Date().toISOString(),
-			});
+			await routine.updateRoutineRun(
+				db,
+				"run-1",
+				{
+					outcome: "error",
+					endedAt: new Date().toISOString(),
+				},
+				{ onlyIfRunning: true },
+			);
 
 			const [row] = await db.select().from(routineRuns).where(eq(routineRuns.id, "run-1")).limit(1);
 			// Unchanged — the guard predicate missed (outcome was "success", not "running").
@@ -272,7 +283,7 @@ describe("routine-service", () => {
 	// AU13 read-ownership addendum — reads
 	// -------------------------------------------------------------------------
 
-	describe("getRoutineById", () => {
+	describe("getRoutine", () => {
 		test("returns the full row for an existing routine", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -283,12 +294,12 @@ describe("routine-service", () => {
 				triggerType: "heartbeat",
 			});
 
-			const row = await routine.getRoutineById(db, "routine-1");
+			const row = await routine.getRoutine(db, "routine-1");
 			expect(row?.name).toBe("R1");
 		});
 
 		test("returns undefined for a missing routine", async ({ db }) => {
-			const row = await routine.getRoutineById(db, "nope");
+			const row = await routine.getRoutine(db, "nope");
 			expect(row).toBeUndefined();
 		});
 	});
@@ -339,7 +350,7 @@ describe("routine-service", () => {
 		});
 	});
 
-	describe("listRoutinesByTeam", () => {
+	describe("listRoutines / teamId filter", () => {
 		test("scopes to team, excludes soft-deleted, orders by id", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await db.insert(teams).values({
@@ -378,12 +389,12 @@ describe("routine-service", () => {
 				triggerType: "heartbeat",
 			});
 
-			const rows = await routine.listRoutinesByTeam(db, "team-1");
+			const rows = await routine.listRoutines(db, { teamId: "team-1" });
 			expect(rows.map((r) => r.id)).toEqual(["routine-a", "routine-b"]);
 		});
 	});
 
-	describe("listActiveRoutines", () => {
+	describe("listRoutines / active filter", () => {
 		test("no opts returns every active routine", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -403,7 +414,7 @@ describe("routine-service", () => {
 				active: false,
 			});
 
-			const rows = await routine.listActiveRoutines(db);
+			const rows = await routine.listRoutines(db, { active: true });
 			expect(rows.map((r) => r.id)).toEqual(["routine-1"]);
 		});
 
@@ -426,12 +437,12 @@ describe("routine-service", () => {
 				active: true,
 			});
 
-			const rows = await routine.listActiveRoutines(db, { triggerType: "event" });
+			const rows = await routine.listRoutines(db, { active: true, triggerType: "event" });
 			expect(rows.map((r) => r.id)).toEqual(["routine-event"]);
 		});
 	});
 
-	describe("listScheduledRoutinesMissingNextRunAt", () => {
+	describe("listRoutines / missingNextRunAt filter", () => {
 		test("returns active schedulable routines with a null nextRunAt", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -460,12 +471,12 @@ describe("routine-service", () => {
 				active: true,
 			});
 
-			const rows = await routine.listScheduledRoutinesMissingNextRunAt(db);
+			const rows = await routine.listRoutines(db, { active: true, missingNextRunAt: true });
 			expect(rows.map((r) => r.id)).toEqual(["routine-missing"]);
 		});
 	});
 
-	describe("countRoutinesByTeam", () => {
+	describe("listRoutines / count via .length", () => {
 		test("excludes soft-deleted routines from the count", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -484,12 +495,12 @@ describe("routine-service", () => {
 				deletedAt: new Date().toISOString(),
 			});
 
-			const count = await routine.countRoutinesByTeam(db, "team-1");
+			const count = (await routine.listRoutines(db, { teamId: "team-1" })).length;
 			expect(count).toBe(1);
 		});
 	});
 
-	describe("getRoutineRunById", () => {
+	describe("getRoutineRun", () => {
 		test("returns the full row for an existing run", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -506,12 +517,12 @@ describe("routine-service", () => {
 				outcome: "running",
 			});
 
-			const row = await routine.getRoutineRunById(db, "run-1");
+			const row = await routine.getRoutineRun(db, "run-1");
 			expect(row?.routineId).toBe("routine-1");
 		});
 	});
 
-	describe("findRunningRoutineRun", () => {
+	describe("listRoutineRuns / running filter", () => {
 		test("finds the running run for a routine, undefined when none running", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -528,7 +539,11 @@ describe("routine-service", () => {
 				outcome: "success",
 			});
 
-			const miss = await routine.findRunningRoutineRun(db, "routine-1");
+			const [miss] = await routine.listRoutineRuns(db, {
+				routineId: "routine-1",
+				running: true,
+				limit: 1,
+			});
 			expect(miss).toBeUndefined();
 
 			await routine.insertRoutineRun(db, {
@@ -538,7 +553,11 @@ describe("routine-service", () => {
 				outcome: "running",
 			});
 
-			const hit = await routine.findRunningRoutineRun(db, "routine-1");
+			const [hit] = await routine.listRoutineRuns(db, {
+				routineId: "routine-1",
+				running: true,
+				limit: 1,
+			});
 			expect(hit?.id).toBe("run-2");
 		});
 
@@ -563,14 +582,19 @@ describe("routine-service", () => {
 					outcome: "running",
 				});
 				// Not yet committed — a fn using the pooled `db` (not `tx`) would miss this.
-				sawInTx = await routine.findRunningRoutineRun(tx, "routine-1");
+				const [run] = await routine.listRoutineRuns(tx, {
+					routineId: "routine-1",
+					running: true,
+					limit: 1,
+				});
+				sawInTx = run ? { id: run.id } : undefined;
 			});
 
 			expect(sawInTx?.id).toBe("run-tx");
 		});
 	});
 
-	describe("listRoutineRunsByRoutine", () => {
+	describe("listRoutineRuns / limit + order", () => {
 		test("limit + order:desc returns the most recent runs first", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -593,13 +617,15 @@ describe("routine-service", () => {
 				outcome: "success",
 			});
 
-			const latest1 = await routine.listRoutineRunsByRoutine(db, "routine-1", {
+			const latest1 = await routine.listRoutineRuns(db, {
+				routineId: "routine-1",
 				limit: 1,
 				order: "desc",
 			});
 			expect(latest1.map((r) => r.id)).toEqual(["run-2"]);
 
-			const desc20 = await routine.listRoutineRunsByRoutine(db, "routine-1", {
+			const desc20 = await routine.listRoutineRuns(db, {
+				routineId: "routine-1",
 				limit: 20,
 				order: "desc",
 			});
@@ -607,7 +633,7 @@ describe("routine-service", () => {
 		});
 	});
 
-	describe("sumRoutineRunCostSince / avgRoutineRunCost / sumRoutineRunCostForRoutinesSince", () => {
+	describe("sumRunCost", () => {
 		test("returns exact aggregate values", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
@@ -654,21 +680,36 @@ describe("routine-service", () => {
 			});
 
 			const since = "2026-01-01T00:00:00.000Z";
-			const sum = await routine.sumRoutineRunCostSince(db, "routine-1", since);
+
+			// sum(costMinor) for routine-1 since Jan 2026 → 100 + 200 = 300
+			const sum = await routine.sumRunCost(db, {
+				routineIds: ["routine-1"],
+				since,
+				kind: "sum",
+			});
 			expect(sum).toBe(300);
 
-			const avg = await routine.avgRoutineRunCost(db, "routine-1");
-			// (100 + 200 + 9999) / 3 = 3433
-			expect(avg).toBe(3433);
+			// avg(costMinor > 0) for routine-1 → (100 + 200 + 9999) / 3 = 3433
+			const avgVal = await routine.sumRunCost(db, {
+				routineIds: ["routine-1"],
+				kind: "avg",
+			});
+			expect(avgVal).toBe(3433);
 
-			const total = await routine.sumRoutineRunCostForRoutinesSince(
-				db,
-				["routine-1", "routine-2"],
+			// sum for routine-1 + routine-2 since Jan 2026 → 300 + 50 = 350
+			const total = await routine.sumRunCost(db, {
+				routineIds: ["routine-1", "routine-2"],
 				since,
-			);
+				kind: "sum",
+			});
 			expect(total).toBe(350);
 
-			const emptyIds = await routine.sumRoutineRunCostForRoutinesSince(db, [], since);
+			// empty routineIds → 0
+			const emptyIds = await routine.sumRunCost(db, {
+				routineIds: [],
+				since,
+				kind: "sum",
+			});
 			expect(emptyIds).toBe(0);
 		});
 	});

@@ -49,7 +49,7 @@ export async function cascadeBetKill(
 	// `listTasks`'s AND-composed `eq`-only opts shape — filter client-side over
 	// the full per-bet task list instead of adding a new SQL-level function for
 	// one caller (same result set, plan §5.3's "distinct mechanic" bar not met).
-	const nonTerminalTasks = (await work.listTasks(db, { betId })).filter(
+	const nonTerminalTasks = (await work.list(db, "task", { betId })).filter(
 		(t) => !TERMINAL_TASK_STATES.includes(t.state),
 	);
 

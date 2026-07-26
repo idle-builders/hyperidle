@@ -35,9 +35,9 @@ import { AL6_FORCE_RETURN_MESSAGE, isReturnAction, shouldForceReturn } from "@hy
 // @lore X6: ModelTier is exported twice from @hyperidle/shared — once as ModelTier from types.ts
 // and once as MoneyModelTier from types/money.ts (same type, different alias). We import
 // ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
-import { contextWindowForModel, isAboveThreshold } from "./context-window.js";
+import { isAboveThreshold, modelContextWindow } from "./context-window.js";
 import { callLlm } from "./llm-client.js";
-import { estimateCostUsd } from "./llm-cost-estimate.js";
+import { estimateLlmCost } from "./llm-cost-estimate.js";
 import type {
 	LlmMessage,
 	LlmTextBlock,
@@ -47,7 +47,7 @@ import type {
 } from "./llm-types.js";
 
 /** Configuration options for the built-in harness. */
-export interface BuiltinHarnessOptions {
+interface BuiltinHarnessOptions {
 	/** Maximum loop iterations before forced stop. Default: 50. */
 	readonly maxIterations?: number;
 	/** Tool calls between reflection checkpoints. Default: 5. */
@@ -82,6 +82,7 @@ interface BuiltinSession {
 	iterationCount: number;
 	done: boolean;
 	aborted: boolean;
+	readonly abortController: AbortController;
 	/** True when the loop exited normally (without abort). Used to disambiguate stopSession outcome. */
 	completedNormally: boolean;
 	events: HarnessEvent[];
@@ -191,6 +192,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				iterationCount: 0,
 				done: false,
 				aborted: false,
+				abortController: new AbortController(),
 				completedNormally: false,
 				events: [],
 				notifyStream: null,
@@ -247,6 +249,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				iterationCount: 0,
 				done: false,
 				aborted: false,
+				abortController: new AbortController(),
 				completedNormally: false,
 				events: [],
 				notifyStream: null,
@@ -260,6 +263,11 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 		// Start background loop — do NOT await
 		session.loopPromise = this.runLoop(session).catch((err) => {
+			if (session.aborted) {
+				session.done = true;
+				session.notifyStream?.();
+				return;
+			}
 			const message = err instanceof Error ? err.message : String(err);
 			this.emitEvent(session, {
 				type: "error",
@@ -324,6 +332,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		const alreadyDone = session.completedNormally;
 		if (!alreadyDone) {
 			session.aborted = true;
+			session.abortController.abort();
 		}
 
 		// Wait for the loop to finish (it checks aborted flag)
@@ -441,12 +450,14 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				session.completedNormally = true;
 			}
 		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			this.emitEvent(session, {
-				type: "error",
-				message,
-				code: "LOOP_ERROR",
-			});
+			if (!session.aborted) {
+				const message = err instanceof Error ? err.message : String(err);
+				this.emitEvent(session, {
+					type: "error",
+					message,
+					code: "LOOP_ERROR",
+				});
+			}
 		} finally {
 			session.done = true;
 			session.notifyStream?.();
@@ -505,6 +516,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				tools: session.registry ? session.toolDefs : [],
 				system: config.assembledPrompt,
 				maxTokens: this.options.maxOutputTokens,
+				signal: session.abortController.signal,
 			});
 
 			this.trackUsage(session, response.usage, config.modelTier);
@@ -632,6 +644,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			tools: session.toolDefs,
 			system: config.assembledPrompt,
 			maxTokens: this.options.maxOutputTokens,
+			signal: session.abortController.signal,
 		});
 
 		// Track usage
@@ -683,13 +696,14 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			tools: session.toolDefs,
 			system: config.assembledPrompt,
 			maxTokens: this.options.maxOutputTokens,
+			signal: session.abortController.signal,
 		});
 
 		// Track usage
 		this.trackUsage(session, response.usage, config.modelTier);
 
 		// Check context window pressure using LATEST call's inputTokens (CRITICAL-1)
-		const contextWindow = contextWindowForModel(resolvedModel.model);
+		const contextWindow = modelContextWindow(resolvedModel.model);
 		const latestInputTokens = response.usage.inputTokens;
 
 		if (isAboveThreshold(latestInputTokens, contextWindow, this.options.preCompactionThreshold)) {
@@ -791,6 +805,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			// No tools during wrap-up
 			system: config.assembledPrompt,
 			maxTokens: this.options.maxOutputTokens,
+			signal: session.abortController.signal,
 		});
 
 		this.trackUsage(session, response.usage, config.modelTier);
@@ -897,6 +912,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			tools: session.toolDefs,
 			system: config.assembledPrompt,
 			maxTokens: this.options.maxOutputTokens,
+			signal: session.abortController.signal,
 		});
 
 		this.trackUsage(session, response.usage, config.modelTier);
@@ -954,6 +970,7 @@ ${formatMessagesForSummary(toSummarize)}`,
 			messages: summaryRequest,
 			maxTokens: 4096,
 			system: SUMMARIZE_SYSTEM,
+			signal: session.abortController.signal,
 		});
 
 		// Track tokens for appropriate tier
@@ -992,7 +1009,7 @@ ${formatMessagesForSummary(toSummarize)}`,
 
 		const resolvedModel = session.config?.resolvedModel;
 		const model = resolvedModel?.model ?? "unknown";
-		const deltaCost = estimateCostUsd(usage.inputTokens, usage.outputTokens, model);
+		const deltaCost = estimateLlmCost(usage.inputTokens, usage.outputTokens, model);
 		session.totalCostUsd += deltaCost;
 
 		// Update per-tier token counts
@@ -1032,3 +1049,5 @@ ${formatMessagesForSummary(toSummarize)}`,
 		}));
 	}
 }
+
+export type { BuiltinHarnessOptions };

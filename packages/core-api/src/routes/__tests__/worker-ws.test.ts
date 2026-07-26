@@ -13,7 +13,27 @@
 
 import { AdapterPool } from "@hyperidle/harness-registry";
 import { describe, expect, it } from "vitest";
-import { registerWorkerWsRoute } from "../../services/run-orchestration-bindings.js";
+import { registerWorkerTestSocket, startWorkerTestRuntime } from "./worker-runtime-test-helper.js";
+
+async function registerWorkerWsRoute(app: MockHono, pool: AdapterPool): Promise<() => void> {
+	const runtime = await startWorkerTestRuntime(pool);
+	registerWorkerTestSocket(runtime, app as never);
+	return () => void runtime.dispose();
+}
+
+async function createWorkerConnectionManager(pool: AdapterPool) {
+	const runtime = await startWorkerTestRuntime(pool);
+	const app = registerWorkerTestSocket(runtime);
+	return {
+		onMessage(data: string, ws: unknown) {
+			app.handlers?.onMessage({ data }, ws);
+		},
+		onClose() {
+			app.handlers?.onClose();
+			void runtime.dispose();
+		},
+	};
+}
 
 // ── Mock WebSocket context ─────────────────────────────────────────────────
 
@@ -59,10 +79,10 @@ function makePool(): AdapterPool {
 // ── Basic registration test ───────────────────────────────────────────────────
 
 describe("registerWorkerWsRoute — returns disposer", () => {
-	it("returns a function disposer", () => {
+	it("returns a function disposer", async () => {
 		const pool = makePool();
 		const hono = new MockHono();
-		const disposer = registerWorkerWsRoute(hono as never, pool, (() => {}) as never);
+		const disposer = await registerWorkerWsRoute(hono, pool);
 		expect(typeof disposer).toBe("function");
 	});
 });
@@ -77,7 +97,7 @@ describe("registerWorkerWsRoute — token auth", () => {
 		try {
 			const pool = makePool();
 			const hono = new MockHono();
-			registerWorkerWsRoute(hono as never, pool, (() => {}) as never);
+			await registerWorkerWsRoute(hono, pool);
 
 			const ctx: MockContext = {
 				req: { query: () => undefined, path: "/ws/worker" },
@@ -116,7 +136,7 @@ describe("registerWorkerWsRoute — token auth", () => {
 		try {
 			const pool = makePool();
 			const hono = new MockHono();
-			registerWorkerWsRoute(hono as never, pool, (() => {}) as never);
+			await registerWorkerWsRoute(hono, pool);
 
 			const ctx: MockContext = {
 				req: { query: (_k) => "wrong-token", path: "/ws/worker" },
@@ -146,13 +166,9 @@ describe("registerWorkerWsRoute — token auth", () => {
 
 describe("registerWorkerWsRoute — worker lifecycle", () => {
 	it("registers adapter in pool after WorkerRegisterMessage", async () => {
-		const { createWorkerConnectionManager } = await import(
-			"../../services/run-orchestration-bindings.js"
-		);
-
 		const pool = makePool();
 		const ws = new MockWsContext();
-		const manager = createWorkerConnectionManager(pool);
+		const manager = await createWorkerConnectionManager(pool);
 
 		manager.onMessage(
 			JSON.stringify({
@@ -176,13 +192,9 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 	});
 
 	it("unregisters adapter when connection closes", async () => {
-		const { createWorkerConnectionManager } = await import(
-			"../../services/run-orchestration-bindings.js"
-		);
-
 		const pool = makePool();
 		const ws = new MockWsContext();
-		const manager = createWorkerConnectionManager(pool);
+		const manager = await createWorkerConnectionManager(pool);
 
 		manager.onMessage(
 			JSON.stringify({
@@ -203,14 +215,10 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 	});
 
 	it("two workers connect — both appear in pool", async () => {
-		const { createWorkerConnectionManager } = await import(
-			"../../services/run-orchestration-bindings.js"
-		);
-
 		const pool = makePool();
 
 		const ws1 = new MockWsContext();
-		const manager1 = createWorkerConnectionManager(pool);
+		const manager1 = await createWorkerConnectionManager(pool);
 		manager1.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -223,7 +231,7 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 		);
 
 		const ws2 = new MockWsContext();
-		const manager2 = createWorkerConnectionManager(pool);
+		const manager2 = await createWorkerConnectionManager(pool);
 		manager2.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -247,13 +255,9 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 
 describe("WorkerConnectionManager — post-registration message routing", () => {
 	it("routes event messages to the adapter after registration", async () => {
-		const { createWorkerConnectionManager } = await import(
-			"../../services/run-orchestration-bindings.js"
-		);
-
 		const pool = makePool();
 		const ws = new MockWsContext();
-		const manager = createWorkerConnectionManager(pool);
+		const manager = await createWorkerConnectionManager(pool);
 
 		// Register the worker
 		manager.onMessage(
@@ -324,13 +328,9 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 	});
 
 	it("drops malformed messages and does not throw (S2-F05 Zod validation)", async () => {
-		const { createWorkerConnectionManager } = await import(
-			"../../services/run-orchestration-bindings.js"
-		);
-
 		const pool = makePool();
 		const ws = new MockWsContext();
-		const manager = createWorkerConnectionManager(pool);
+		const manager = await createWorkerConnectionManager(pool);
 
 		// Malformed JSON — should be swallowed silently
 		expect(() => manager.onMessage("not-json", ws as never)).not.toThrow();
@@ -345,13 +345,9 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 	});
 
 	it("clears adapter reference on close", async () => {
-		const { createWorkerConnectionManager } = await import(
-			"../../services/run-orchestration-bindings.js"
-		);
-
 		const pool = makePool();
 		const ws = new MockWsContext();
-		const manager = createWorkerConnectionManager(pool);
+		const manager = await createWorkerConnectionManager(pool);
 
 		manager.onMessage(
 			JSON.stringify({

@@ -509,18 +509,18 @@ export async function seedConflict(
 }
 
 /**
- * Seed the three builtin agent stubs that `provisionTeamRoutines()` references via
+ * Seed the three builtin agent stubs that `dispatchOps.provisionTeamRoutines()` references via
  * owner role resolution (`seed-agent-cos`, `seed-agent-pf-facilitation`, `demo-agent-pm`).
- * Must be called before `provisionTeamRoutines()` in any eval scenario that exercises
+ * Must be called before `dispatchOps.provisionTeamRoutines()` in any eval scenario that exercises
  * the builtin routine subsystem.
  *
- * @lore X8 BUILTIN-FK: `provisionTeamRoutines` resolves ownerByRole to users.id.
+ * @lore X8 BUILTIN-FK: `dispatchOps.provisionTeamRoutines` resolves ownerByRole to users.id.
  * The eval ephemeral PGlite DB does NOT run the production seed, so FK constraints
  * on `routines.ownerAgentId → users.id` fail unless we pre-insert these three stubs.
  * We use `onConflictDoNothing` so this is idempotent.
  *
  * @lore AF17: Updated from the old `seedBuiltinRoutines` shim (deleted) to
- * `provisionTeamRoutines`. The owner agent ids remain the same stable factory stubs.
+ * `dispatchOps.provisionTeamRoutines`. The owner agent ids remain the same stable factory stubs.
  */
 export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -575,8 +575,8 @@ export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 /**
  * Create a routine row.
  *
- * @lore X8 CRITICAL-1: `checkAndFireRoutine` requires `taskId` in `triggerConfig`.
- * Always include a real task row's ID in triggerConfig for rs-*, ska-*, del-* scenarios.
+ * `dispatchOps.fireRoutine` reads scheduling/event fields from `triggerConfig`; a
+ * `taskId` is scenario data only and is not required by the dispatch contract.
  */
 export async function seedRoutine(
 	db: HyperIdleDb,

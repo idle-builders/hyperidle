@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "AU20",
+  "head": "fb8254bc1270aa5872cb6463e4cc6cfd5ddd2b32",
+  "scope": "complete corrective discovery inventory; no implementation",
+  "sources": [
+    "plans/AU20/browser-validation-ledger.json",
+    "plans/AU20/system-validation-ledger.json",
+    "/Users/tg/hyperidle/.worktrees/AU20-review/.pipeline/work/AU20/review.md"
+  ],
+  "accounting": {
+    "declared": 604,
+    "reconciled": 604,
+    "percent": 100,
+    "execution": {
+      "passed": 227,
+      "failed": 137,
+      "skipped": 32,
+      "timeout": 143,
+      "unrun": 65
+    },
+    "runtimeDispositions": {
+      "none_passed": 227,
+      "feature_regression": 27,
+      "intentional_move": 99,
+      "stale_test_mock": 61,
+      "missing_prerequisite": 2,
+      "environment_blocker": 0,
+      "unresolved": 181
+    },
+    "nonRuntimeObligations": {
+      "review_obligation_open": 4,
+      "review_obligation_blocked_by_children": 1,
+      "proof_gap_open": 2
+    }
+  },
+  "laneTotals": {
+    "browser": 588,
+    "systemReviewAndRuntime": 16
+  },
+  "completionRule": "Every declared case appears exactly once in a source ledger. Execution state is separate from disposition. Unresolved and open obligations are explicit discovery outcomes, not permission to implement or alter tests."
+}

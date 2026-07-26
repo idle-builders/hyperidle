@@ -1,6 +1,11 @@
+/**
+ * @lore AU20 K1-reads: listByScope() was deleted from knowledge-reader.ts and
+ * inlined into list(db, {scope}) in knowledge-repository.ts. This test now uses
+ * the general list() entry point.
+ */
 import { knowledgeItems } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { listByScope } from "../knowledge-reader.js";
+import { list } from "../knowledge-repository.js";
 
 function seedRow(id: string, scopeKind: string, scopeId: string, title: string) {
 	return {
@@ -17,7 +22,7 @@ function seedRow(id: string, scopeKind: string, scopeId: string, title: string) 
 	};
 }
 
-test("listByScope() returns knowledge items in the requested scope only", async ({ db }) => {
+test("list({scope}) returns knowledge items in the requested scope only", async ({ db }) => {
 	await db
 		.insert(knowledgeItems)
 		.values([
@@ -26,9 +31,9 @@ test("listByScope() returns knowledge items in the requested scope only", async 
 			seedRow("ki-3", "factory", "", "Factory default"),
 		]);
 
-	const teamT1 = await listByScope(db, { scopeKind: "team", scopeId: "t1" });
+	const teamT1 = await list(db, { scope: { scopeKind: "team", scopeId: "t1" } });
 	expect(teamT1.map((k) => k.id)).toEqual(["ki-1"]);
 
-	const allTeamKind = await listByScope(db, { scopeKind: "team" });
+	const allTeamKind = await list(db, { scope: { scopeKind: "team" } });
 	expect(allTeamKind.map((k) => k.id).sort()).toEqual(["ki-1", "ki-2"]);
 });

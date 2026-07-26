@@ -12,7 +12,7 @@
 
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
-import { listAllUsers, searchUsersByName } from "@hyperidle/users";
+import { listUsers } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -40,7 +40,7 @@ export function createRecipientRoutes(db: HyperIdleDb, _eventBus?: EventBus): Ho
 		// Q1 originally fetched from agents; after the P2 merge, all rows live in users.
 		// kind=user filter returns human users only; kind=agent returns AI users.
 		// No kind filter returns all users (AI + human).
-		const allUsers = q.length > 0 ? await searchUsersByName(db, q) : await listAllUsers(db);
+		const allUsers = q.length > 0 ? await listUsers(db, { nameContains: q }) : await listUsers(db);
 
 		// Apply kind filter post-query (human/ai kinds both live in users table)
 		const filtered =

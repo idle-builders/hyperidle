@@ -6,13 +6,16 @@
  * PATCH /api/observability/config    — update config
  * GET   /api/observability/status    — dispatcher status
  * POST  /api/observability/flush     — flush dispatcher
+ *
+ * AU20 Ab3: migrated from `ObservabilityDispatcher` stubs to
+ * `ObservabilityRuntime` stubs per the collapsed surface.
  */
 
 import { createTestDb } from "@hyperidle/db";
 import type {
 	FlushOutcome,
-	ObservabilityDispatcher,
-	ObservabilityDispatcherStatus,
+	ObservabilityRuntime,
+	ObservabilityStatus,
 } from "@hyperidle/observability";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createObservabilityRoutes } from "../../routes/observability-routes.js";
@@ -24,19 +27,27 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-function makeStubDispatcher(): ObservabilityDispatcher {
+function makeStubRuntime(opts?: {
+	enabled?: boolean;
+	bufferDepth?: number;
+	delivered?: number;
+}): ObservabilityRuntime {
+	const enabled = opts?.enabled ?? true;
+	const bufferDepth = opts?.bufferDepth ?? 5;
+	const delivered = opts?.delivered ?? 10;
 	return {
-		status: (): ObservabilityDispatcherStatus => ({
-			bufferDepth: 5,
+		status: (): ObservabilityStatus => ({
+			enabled,
+			bufferDepth,
 			lastFlushAt: null,
 			lastErrorAt: null,
 			lastError: null,
 			dropped: 0,
-			delivered: 10,
+			delivered,
 			adapter: "console",
 		}),
 		flush: async (): Promise<FlushOutcome> => ({ flushed: 5, dropped: 0, errors: 0 }),
-		enqueue: () => {},
+		reconfigure: () => {},
 		dispose: async () => {},
 	};
 }
@@ -127,13 +138,13 @@ describe("observability routes", () => {
 			expect(typeof body.bufferDepth).toBe("number");
 		});
 
-		test("returns 200 with active status when dispatcher exists (direct route)", async () => {
+		test("returns 200 with active status when runtime exists (direct route)", async () => {
 			const handle = await createTestDb();
 			const stubDb = handle.db;
-			const dispatcher = makeStubDispatcher();
+			const runtime = makeStubRuntime({ enabled: true, bufferDepth: 5, delivered: 10 });
 
 			const router = createObservabilityRoutes(stubDb, {
-				getDispatcher: () => dispatcher,
+				getRuntime: () => runtime,
 			});
 
 			try {
@@ -160,13 +171,14 @@ describe("observability routes", () => {
 
 	describe("POST /api/observability/flush", () => {
 		// @lore AF16 T14: default-on means the fixture app now wires a real dispatcher
-		// on an empty DB. Use the direct router approach (no dispatcher injected) to
+		// on an empty DB. Use the direct router approach (disabled runtime) to
 		// test the reason:disabled path — same pattern as the sibling test below.
-		test("returns 200 with flushed:0 reason:disabled when no dispatcher", async () => {
+		test("returns 200 with flushed:0 reason:disabled when disabled", async () => {
 			const handle = await createTestDb();
 			const stubDb = handle.db;
+			// Runtime reports enabled=false → route returns reason:disabled
 			const router = createObservabilityRoutes(stubDb, {
-				getDispatcher: () => null,
+				getRuntime: () => makeStubRuntime({ enabled: false }),
 			});
 			try {
 				const res = await router.request("/flush", {
@@ -183,13 +195,13 @@ describe("observability routes", () => {
 			}
 		});
 
-		test("returns 200 with flush result when dispatcher exists (direct route)", async () => {
+		test("returns 200 with flush result when runtime exists (direct route)", async () => {
 			const handle = await createTestDb();
 			const stubDb = handle.db;
-			const dispatcher = makeStubDispatcher();
+			const runtime = makeStubRuntime({ enabled: true });
 
 			const router = createObservabilityRoutes(stubDb, {
-				getDispatcher: () => dispatcher,
+				getRuntime: () => runtime,
 			});
 
 			try {

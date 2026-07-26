@@ -11,7 +11,7 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
-import { createRelevanceService } from "@hyperidle/knowledge";
+import { recomputeRelevance } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";
 
@@ -63,15 +63,13 @@ async function insertAccessLog(
 
 describe("RelevanceService.computeSignals (L22)", () => {
 	test("returns empty map for empty itemIds array", async ({ db }) => {
-		const service = createRelevanceService(db);
-		const result = await service.computeSignals([], NOW_MS);
+		const result = await recomputeRelevance(db, { signals: [], nowMs: NOW_MS });
 		expect(result.size).toBe(0);
 	});
 
 	test("returns null signals for item with no access log or edit log data", async ({ db }) => {
 		const itemId = await insertItem(db);
-		const service = createRelevanceService(db);
-		const result = await service.computeSignals([itemId], NOW_MS);
+		const result = await recomputeRelevance(db, { signals: [itemId], nowMs: NOW_MS });
 		const signals = result.get(itemId);
 		expect(signals).toBeDefined();
 		expect(signals?.accessCount30d).toBeNull();
@@ -90,8 +88,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		await insertAccessLog(db, itemId, access2);
 		await insertAccessLog(db, itemId, access3);
 
-		const service = createRelevanceService(db);
-		const result = await service.computeSignals([itemId], NOW_MS);
+		const result = await recomputeRelevance(db, { signals: [itemId], nowMs: NOW_MS });
 		const signals = result.get(itemId);
 
 		expect(signals).toBeDefined();
@@ -108,8 +105,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		await insertAccessLog(db, itemId, recent);
 		await insertAccessLog(db, itemId, old);
 
-		const service = createRelevanceService(db);
-		const result = await service.computeSignals([itemId], NOW_MS);
+		const result = await recomputeRelevance(db, { signals: [itemId], nowMs: NOW_MS });
 		const signals = result.get(itemId);
 
 		expect(signals).toBeDefined();
@@ -138,8 +134,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 		const accessAt = "2026-05-05T00:00:00.000Z";
 		await insertAccessLog(db, itemId, accessAt);
 
-		const service = createRelevanceService(db);
-		const result = await service.computeSignals([itemId], NOW_MS);
+		const result = await recomputeRelevance(db, { signals: [itemId], nowMs: NOW_MS });
 		const signals = result.get(itemId);
 
 		expect(signals).toBeDefined();
@@ -153,8 +148,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 
 		await insertAccessLog(db, id1, "2026-05-05T00:00:00.000Z");
 
-		const service = createRelevanceService(db);
-		const result = await service.computeSignals([id1, id2], NOW_MS);
+		const result = await recomputeRelevance(db, { signals: [id1, id2], nowMs: NOW_MS });
 
 		expect(result.size).toBe(2);
 		expect(result.get(id1)?.accessCount30d).toBe(1);
@@ -175,8 +169,7 @@ describe("RelevanceService.computeSignals (L22)", () => {
 			createdAt: humanEditAt,
 		});
 
-		const service = createRelevanceService(db);
-		const result = await service.computeSignals([itemId], NOW_MS);
+		const result = await recomputeRelevance(db, { signals: [itemId], nowMs: NOW_MS });
 		const signals = result.get(itemId);
 
 		// lastActivityAt should reflect the human validation edit
@@ -190,8 +183,7 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		// Give it some access history so score is non-null
 		await insertAccessLog(db, itemId, "2026-05-05T00:00:00.000Z");
 
-		const service = createRelevanceService(db);
-		await service.recomputeScores([itemId]);
+		await recomputeRelevance(db, [itemId]);
 
 		// O2: relevanceScore moved to knowledgeAppProjection
 		const [fabricRow] = await db
@@ -207,8 +199,7 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 		const itemId = await insertItem(db);
 		// No access log, no edit log
 
-		const service = createRelevanceService(db);
-		await service.recomputeScores([itemId]);
+		await recomputeRelevance(db, [itemId]);
 
 		// O2: relevanceScore moved to knowledgeAppProjection
 		const [fabricRow] = await db
@@ -220,7 +211,6 @@ describe("RelevanceService.recomputeScores (L22)", () => {
 	});
 
 	test("handles empty itemIds without error", async ({ db }) => {
-		const service = createRelevanceService(db);
-		await expect(service.recomputeScores([])).resolves.toBeUndefined();
+		await expect(recomputeRelevance(db, [])).resolves.toBeUndefined();
 	});
 });

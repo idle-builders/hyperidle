@@ -10,7 +10,7 @@
  * @lore X6: These are the *input* context windows. Output token limits
  * are separate and not tracked here — they default to 16384 per call.
  */
-export const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
+const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
 	// Anthropic — AH2 catalog (current model IDs)
 	// @lore AH2: These must stay in sync with MODEL_CATALOG in @hyperidle/shared.
 	// Re-key both here and in COST_PER_MILLION_TOKENS in builtin-harness-adapter.ts
@@ -21,12 +21,12 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
 	"claude-fable-5": 1_000_000,
 };
 
-export const DEFAULT_CONTEXT_WINDOW = 128_000;
+const DEFAULT_CONTEXT_WINDOW = 128_000;
 
 /**
  * Get the context window size for a model string.
  */
-export function contextWindowForModel(model: string): number {
+export function modelContextWindow(model: string): number {
 	return MODEL_CONTEXT_WINDOWS[model] ?? DEFAULT_CONTEXT_WINDOW;
 }
 
@@ -41,10 +41,12 @@ export function contextWindowForModel(model: string): number {
  * the actual fill level. Accumulating across calls over-counts by a factor of N
  * (number of calls), triggering pre-compaction far too early.
  */
-export function isAboveThreshold(
+function isAboveThreshold(
 	latestInputTokens: number,
 	contextWindow: number,
 	threshold: number,
 ): boolean {
 	return latestInputTokens > contextWindow * threshold;
 }
+
+export { DEFAULT_CONTEXT_WINDOW, isAboveThreshold, MODEL_CONTEXT_WINDOWS };

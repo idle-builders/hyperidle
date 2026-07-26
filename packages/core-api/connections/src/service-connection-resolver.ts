@@ -12,6 +12,9 @@
  *
  * @lore AN1: Per-user isolation enforced at the query level via AND(id, userId).
  * Cross-user lookup → null (never throws, never leaks existence — concept hard-rule 3).
+ *
+ * @lore AU20 Am4: Constructor no longer accepts serverSecret — decryptCredentialValue
+ * reads the root secret from env internally. Callers construct new ServiceConnectionResolver(db).
  */
 
 import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
@@ -19,10 +22,7 @@ import { and, eq } from "drizzle-orm";
 import { decryptCredentialValue } from "./credential-encryption.js";
 
 export class ServiceConnectionResolver {
-	constructor(
-		private readonly db: HyperIdleDb,
-		private readonly serverSecret: string | null,
-	) {}
+	constructor(private readonly db: HyperIdleDb) {}
 
 	/**
 	 * Resolve the plaintext token for a held token connection.
@@ -31,14 +31,12 @@ export class ServiceConnectionResolver {
 	 * Returns null for:
 	 *   - cross-user / non-existent connection (AC5 — never leaks existence)
 	 *   - mcp connections (no stored token)
-	 *   - missing server secret
+	 *   - missing server secret (decryptCredentialValue returns null)
 	 *   - decryption failure (tampered / wrong key)
 	 *
 	 * Never throws.
 	 */
 	async resolve(userId: string, connectionId: string): Promise<string | null> {
-		if (!this.serverSecret) return null;
-
 		try {
 			const [row] = await this.db
 				.select()
@@ -50,7 +48,8 @@ export class ServiceConnectionResolver {
 			// mcp connections have no stored token
 			if (row.authSource !== "token" || !row.encryptedToken) return null;
 
-			return decryptCredentialValue(row.encryptedToken, this.serverSecret);
+			// decryptCredentialValue returns null if no root secret or decryption fails
+			return decryptCredentialValue(row.encryptedToken);
 		} catch {
 			// Never throw — always return null on any error
 			return null;

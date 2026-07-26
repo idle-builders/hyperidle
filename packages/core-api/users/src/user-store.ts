@@ -1,8 +1,7 @@
 /**
- * User store — the single owner of `users` row writes (AU12). Every caller
- * that creates or modifies a user record (human or agent) routes its
- * `insert`/`update` through one of these functions instead of writing the
- * Drizzle table directly.
+ * User store — the single owner of `users` row reads and writes (AU12).
+ * Every caller that creates, modifies, or queries a user record routes
+ * through here instead of touching the Drizzle table directly.
  *
  * @lore Executor param is plain `HyperIdleDb` (no union, no derived generic).
  * The drizzle transaction handle is structurally compatible (same
@@ -16,6 +15,15 @@
  * `NewUser` values) because cost metering accumulates atomically via
  * `costActual = coalesce(costActual, 0) + delta` (see `cost-cap.ts`), which
  * must be a SQL expression to stay race-free.
+ *
+ * @lore AU20 Am11: 14 bespoke per-intent read variants collapsed into two
+ * parameterised functions (`findUser` / `listUsers`) plus one `UserFilter`
+ * type. `buildWhere` compiles the filter into a single `and(...)` WHERE so
+ * every new predicate combination is a `UserFilter` literal at the call site,
+ * not a new function. The two projected getters (`listAgentProfiles` /
+ * `listUserDirectory`) and their associated row types (`AgentProfileRow` /
+ * `OrgDirectoryRow`) are deleted — the two route call sites project full rows
+ * themselves, as every other route already does.
  */
 
 import { escapeLikePattern, type HyperIdleDb, type NewUser, type User, users } from "@hyperidle/db";
@@ -23,6 +31,99 @@ import { and, eq, inArray, ne, type SQL, sql } from "drizzle-orm";
 
 /** Per-column patch that also admits SQL expressions (e.g. cost coalesce). */
 type UserPatch = Partial<{ [K in keyof NewUser]: NewUser[K] | SQL }>;
+
+// ===========================================================================
+// Filter type + WHERE builder
+// ===========================================================================
+
+/**
+ * Composable filter for `findUser` / `listUsers`.
+ * Every field is additive (AND-combined). Omit a field to leave that column
+ * unconstrained.
+ *
+ * - `id` — exact match on `users.id` (LIMIT 1 enforced by `findUser`)
+ * - `ids` — `users.id IN (...)` — ignored when the array is empty (returns [])
+ * - `kind` — exact match on `users.kind`
+ * - `teamIds` — `users.teamId IN (...)` — ignored when the array is empty
+ * - `role` — exact match on `users.role`
+ * - `status` — exact match on `users.status`
+ * - `nameContains` — case-insensitive substring match on `users.name`
+ * - `excludeId` — `users.id != excludeId`
+ * - `orderById` — ORDER BY users.id ASC (`listUsers` only)
+ */
+export interface UserFilter {
+	readonly id?: string;
+	readonly ids?: string[];
+	readonly kind?: string;
+	readonly teamIds?: string[];
+	readonly role?: string;
+	readonly status?: string;
+	readonly nameContains?: string;
+	readonly excludeId?: string;
+	readonly orderById?: boolean;
+}
+
+function buildWhere(filter: UserFilter): SQL | undefined {
+	const preds: SQL[] = [];
+	if (filter.id !== undefined) preds.push(eq(users.id, filter.id));
+	if (filter.ids !== undefined && filter.ids.length > 0) preds.push(inArray(users.id, filter.ids));
+	if (filter.kind !== undefined) preds.push(eq(users.kind, filter.kind));
+	if (filter.teamIds !== undefined && filter.teamIds.length > 0)
+		preds.push(inArray(users.teamId, filter.teamIds));
+	if (filter.role !== undefined) preds.push(eq(users.role, filter.role));
+	if (filter.status !== undefined) preds.push(eq(users.status, filter.status));
+	if (filter.nameContains !== undefined) {
+		const pattern = `%${escapeLikePattern(filter.nameContains.toLowerCase())}%`;
+		preds.push(sql`LOWER(${users.name}) LIKE ${pattern} ESCAPE '\\'`);
+	}
+	if (filter.excludeId !== undefined) preds.push(ne(users.id, filter.excludeId));
+	return preds.length === 0
+		? undefined
+		: preds.length === 1
+			? preds[0]
+			: and(...(preds as [SQL, ...SQL[]]));
+}
+
+// ===========================================================================
+// General read interface (subsumes all 14 former per-intent variants)
+// ===========================================================================
+
+/**
+ * Return the first user matching `filter` (LIMIT 1), or `undefined`.
+ *
+ * Replaces: `getUserById` (`{id}`), `getUserByIdScopedToTeam` (`{id, teamIds:[id]}`),
+ * `getFirstUserByKind` (`{kind}`), `findActiveTeammateByRole`
+ * (`{role, teamIds, status:'active', excludeId}`).
+ */
+export async function findUser(exec: HyperIdleDb, filter: UserFilter): Promise<User | undefined> {
+	const [row] = await exec.select().from(users).where(buildWhere(filter)).limit(1);
+	return row;
+}
+
+/**
+ * Return all users matching `filter` (no LIMIT).
+ * Pass no filter (or `{}`) to list every user row.
+ *
+ * Replaces: `getUsersByIds` (`{ids}`), `listAllUsers` (`{}`),
+ * `listUsersByKind` (`{kind}`), `listUsersByTeam` (`{teamIds:[id]}`),
+ * `listUsersByTeams` (`{teamIds}`), `listUsersByTeamAndKind` (`{teamIds:[id], kind}`),
+ * `listActiveAiUsersByTeams` (`{kind:'ai', status:'active', teamIds, orderById:true}`),
+ * `searchUsersByName` (`{nameContains:q}`),
+ * plus the former projected getters whose call sites now project inline.
+ */
+export async function listUsers(exec: HyperIdleDb, filter: UserFilter = {}): Promise<User[]> {
+	// Fast-path: an empty ids/teamIds array can never match any row.
+	if (filter.ids !== undefined && filter.ids.length === 0) return [];
+	if (filter.teamIds !== undefined && filter.teamIds.length === 0) return [];
+
+	const q = exec.select().from(users).where(buildWhere(filter));
+	if (filter.orderById) return q.orderBy(users.id);
+	return q;
+}
+
+// ===========================================================================
+// Writes
+// ===========================================================================
 
 export async function insertUser(exec: HyperIdleDb, values: NewUser): Promise<void> {
 	await exec.insert(users).values(values);
@@ -53,6 +154,10 @@ export async function getOrCreateUser(
 	return created;
 }
 
+// ===========================================================================
+// Cost metering (colocation artifact — see spec §3)
+// ===========================================================================
+
 /** Bulk reset every user's accumulated cost to zero (cost-cap reset path). */
 export async function resetAllUserCost(exec: HyperIdleDb): Promise<void> {
 	await exec.update(users).set({ costActual: 0 });
@@ -61,7 +166,7 @@ export async function resetAllUserCost(exec: HyperIdleDb): Promise<void> {
 /**
  * Atomically add `deltaMinor` to a user's `costActual` via
  * `coalesce(costActual, 0) + delta`. Owns the coalesce SQL so the
- * `users.costActual` column ref never leaves this store (cost-cap accumulation).
+ * `users.costActual` column ref never leaves this store.
  */
 export async function incrementUserCost(
 	exec: HyperIdleDb,
@@ -74,209 +179,10 @@ export async function incrementUserCost(
 		.where(eq(users.id, id));
 }
 
-// ===========================================================================
-// READS (AU12 rework) — every read of `users` routes through here. Full-row
-// getters serve internal/logic callers and the user routes whose current
-// response IS the full row (e.g. routes/users.ts CRUD returns `c.json(fullRow)`
-// incl. `email` — behavior-preserving). Projected getters return EXACTLY the
-// column set their route's current response includes — no more, no less (§8b#1).
-// ===========================================================================
-
-// --- full-row getters (internal / trusted callers, and full-row routes) ---
-
-/** Full user row by id, or `undefined`. The dominant lookup (~64 sites). */
-export async function getUserById(exec: HyperIdleDb, id: string): Promise<User | undefined> {
-	const [row] = await exec.select().from(users).where(eq(users.id, id)).limit(1);
-	return row;
-}
-
-/**
- * Full user row by id, additionally scoped to a team-membership group when
- * `teamMembersId` is provided (trigger-resolution's membership-guarded lookup).
- */
-export async function getUserByIdScopedToTeam(
-	exec: HyperIdleDb,
-	id: string,
-	teamMembersId?: string,
-): Promise<User | undefined> {
-	const [row] = await exec
-		.select()
-		.from(users)
-		.where(
-			teamMembersId ? and(eq(users.id, id), eq(users.teamId, teamMembersId)) : eq(users.id, id),
-		)
-		.limit(1);
-	return row;
-}
-
-/** Full user rows for an id set (`inArray(users.id, ids)`). */
-export async function getUsersByIds(exec: HyperIdleDb, ids: string[]): Promise<User[]> {
-	return exec.select().from(users).where(inArray(users.id, ids));
-}
-
-/** Every user row. */
-export async function listAllUsers(exec: HyperIdleDb): Promise<User[]> {
-	return exec.select().from(users);
-}
-
-/** First user of a given `kind` (e.g. the singleton `human`), or `undefined`. */
-export async function getFirstUserByKind(
-	exec: HyperIdleDb,
-	kind: string,
-): Promise<User | undefined> {
-	const [row] = await exec.select().from(users).where(eq(users.kind, kind)).limit(1);
-	return row;
-}
-
-/** All user rows of a given `kind`. */
-export async function listUsersByKind(exec: HyperIdleDb, kind: string): Promise<User[]> {
-	return exec.select().from(users).where(eq(users.kind, kind));
-}
-
-/** All user rows in a team-membership group (`users.teamId = teamMembersId`). */
-export async function listUsersByTeam(exec: HyperIdleDb, teamMembersId: string): Promise<User[]> {
-	return exec.select().from(users).where(eq(users.teamId, teamMembersId));
-}
-
-/** All user rows across a set of team-membership groups (`inArray(users.teamId, ids)`). */
-export async function listUsersByTeams(
-	exec: HyperIdleDb,
-	teamMembersIds: string[],
-): Promise<User[]> {
-	return exec.select().from(users).where(inArray(users.teamId, teamMembersIds));
-}
-
-/** All user rows in a team-membership group filtered by `kind`. */
-export async function listUsersByTeamAndKind(
-	exec: HyperIdleDb,
-	teamMembersId: string,
-	kind: string,
-): Promise<User[]> {
-	return exec
-		.select()
-		.from(users)
-		.where(and(eq(users.teamId, teamMembersId), eq(users.kind, kind)));
-}
-
-/** Active AI users across a set of team-membership groups, ordered by id (candidate pools). */
-export async function listActiveAiUsersByTeams(
-	exec: HyperIdleDb,
-	teamMembersIds: string[],
-): Promise<User[]> {
-	return exec
-		.select()
-		.from(users)
-		.where(
-			and(eq(users.kind, "ai"), eq(users.status, "active"), inArray(users.teamId, teamMembersIds)),
-		)
-		.orderBy(users.id);
-}
-
-/** First active teammate holding `role` in any of `teamMembersIds`, excluding `excludeId`, or `undefined`. */
-export async function findActiveTeammateByRole(
-	exec: HyperIdleDb,
-	role: string,
-	teamMembersIds: string[],
-	excludeId: string,
-): Promise<User | undefined> {
-	const [row] = await exec
-		.select()
-		.from(users)
-		.where(
-			and(
-				eq(users.role, role),
-				inArray(users.teamId, teamMembersIds),
-				eq(users.status, "active"),
-				ne(users.id, excludeId),
-			),
-		)
-		.limit(1);
-	return row;
-}
-
-/** Users whose name matches `query` (case-insensitive substring). Owns the `LOWER(name) LIKE` + escape. */
-export async function searchUsersByName(exec: HyperIdleDb, query: string): Promise<User[]> {
-	const pattern = `%${escapeLikePattern(query.toLowerCase())}%`;
-	return exec.select().from(users).where(sql`LOWER(${users.name}) LIKE ${pattern} ESCAPE '\\'`);
-}
-
-// --- aggregates ---
-
-/** Sum of every user's `costActual` (factory-wide spend). Owns the `sum(costActual)` fragment. */
+/** Sum of every user's `costActual` (factory-wide spend). */
 export async function sumAllUserCost(exec: HyperIdleDb): Promise<number> {
 	const [row] = await exec
 		.select({ total: sql<number>`coalesce(sum(${users.costActual}), 0)` })
 		.from(users);
 	return row?.total ?? 0;
-}
-
-// --- projected, response-bound getters (column set == current response, §8b#1) ---
-
-/** One agent-list row — EXACTLY the columns `routes/agents.ts` GET `/` returns today. */
-export interface AgentProfileRow {
-	readonly id: string;
-	readonly name: string;
-	readonly role: string;
-	readonly agentCategory: string | null;
-	readonly systemPrompt: string | null;
-	readonly harnessType: string | null;
-	readonly modelTierPreference: string | null;
-	readonly modelId: string | null;
-	readonly modelProvider: string | null;
-	readonly maxConcurrentSessions: number;
-	readonly status: string;
-}
-
-/**
- * Non-system, non-retired AI agents for the agent list. Returns EXACTLY the
- * users columns the route responds with today — `systemPrompt` INCLUDED because
- * `routes/agents.ts` legitimately returns it (excluding it would break AC-2).
- * `activeSessions` is NOT a users column — the route still joins it from
- * `sessions` and merges in JS.
- */
-export async function listAgentProfiles(exec: HyperIdleDb): Promise<AgentProfileRow[]> {
-	const rows = await exec
-		.select({
-			id: users.id,
-			name: users.name,
-			role: users.role,
-			agentCategory: users.agentCategory,
-			systemPrompt: users.systemPrompt,
-			harnessType: users.harnessType,
-			modelTierPreference: users.modelTierPreference,
-			modelId: users.modelId,
-			modelProvider: users.modelProvider,
-			maxConcurrentSessions: users.maxConcurrentSessions,
-			status: users.status,
-		})
-		.from(users)
-		.where(and(eq(users.kind, "ai"), ne(users.role, "system"), ne(users.status, "retired")));
-	return rows.map((r) => ({
-		id: r.id,
-		name: r.name,
-		role: r.role,
-		agentCategory: r.agentCategory ?? null,
-		systemPrompt: r.systemPrompt ?? null,
-		harnessType: r.harnessType ?? null,
-		modelTierPreference: r.modelTierPreference ?? null,
-		modelId: r.modelId ?? null,
-		modelProvider: r.modelProvider ?? null,
-		maxConcurrentSessions: r.maxConcurrentSessions,
-		status: r.status,
-	}));
-}
-
-/** One org-directory row — EXACTLY the columns `routes/org.ts` GET `/` returns today. */
-export interface OrgDirectoryRow {
-	readonly id: string;
-	readonly kind: string;
-	readonly name: string;
-	readonly role: string;
-}
-
-/** Projected directory of every user (id/kind/name/role) for the org graph response. */
-export async function listUserDirectory(exec: HyperIdleDb): Promise<OrgDirectoryRow[]> {
-	return exec
-		.select({ id: users.id, kind: users.kind, name: users.name, role: users.role })
-		.from(users);
 }

@@ -1,10 +1,10 @@
 /**
  * AF10 — AC1: Session cost delta-vs-total bug (Z8-002).
  *
- * Proves that `recordCostAndCheck` is called with the per-event DELTA, not the
+ * Proves that `costOps.record` is called with the per-event DELTA, not the
  * running total, so that cost events (10, 5, 5) accumulate to 20 not 45.
  *
- * This test drives `recordCostAndCheck` directly (the boundary function that
+ * This test drives `costOps.record` directly (the boundary function that
  * session-provisioning calls). It asserts the correct final value on
  * users.costActual, teamMembers.costActual, and bets.costActualMinor.
  *
@@ -18,7 +18,7 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect } from "vitest";
-import { clearDeduplicationCache, recordCostAndCheck } from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import { test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
@@ -72,7 +72,7 @@ async function seedDomain(db: HyperIdleDb): Promise<void> {
 
 describe("AF10 AC1: session cost delta accumulation (Z8-002)", () => {
 	beforeEach(() => {
-		clearDeduplicationCache();
+		costOps._testHooks.clearDedup();
 	});
 
 	/**
@@ -80,7 +80,7 @@ describe("AF10 AC1: session cost delta accumulation (Z8-002)", () => {
 	 * events with deltas 10, 5, 5 must accumulate to 20 on every aggregate,
 	 * NOT 45 (the quadratic sum 10 + 15 + 20).
 	 *
-	 * This test calls `recordCostAndCheck` with per-event deltas directly,
+	 * This test calls `costOps.record` with per-event deltas directly,
 	 * simulating what session-provisioning SHOULD do after the fix.
 	 * If provisioning is still passing running totals, the session-level test
 	 * in this describe block proves the accounting boundary itself is correct;
@@ -94,7 +94,7 @@ describe("AF10 AC1: session cost delta accumulation (Z8-002)", () => {
 
 		const deltas = [10, 5, 5];
 		for (const deltaMinor of deltas) {
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: TEST_SESSION,
 				costMinor: deltaMinor,
 				currency: "USD",
@@ -127,7 +127,7 @@ describe("AF10 AC1: session cost delta accumulation (Z8-002)", () => {
 	});
 
 	/**
-	 * Inverse guard: passing a running total to recordCostAndCheck DOES produce
+	 * Inverse guard: passing a running total to costOps.record DOES produce
 	 * the quadratic inflation (10 → 10, 15 → 25, 20 → 45). This test documents
 	 * the bug scenario so we can confirm the fix inverts it.
 	 *
@@ -149,7 +149,7 @@ describe("AF10 AC1: session cost delta accumulation (Z8-002)", () => {
 		let runningTotal = 0;
 		for (const delta of deltas) {
 			runningTotal += delta;
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: `${TEST_SESSION}-buggy`,
 				costMinor: runningTotal, // BUG: running total, not delta
 				currency: "USD",

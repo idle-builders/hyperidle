@@ -21,17 +21,16 @@
  *  - POST /:type/disabled endpoint with :type validation + builtin-reject
  */
 
-import type { HarnessDiscoveryInput } from "@hyperidle/harness-registry";
-import {
-	AdapterPool,
-	BuiltinHarnessAdapter,
-	CLAUDE_CLI_CONFIG,
-	CliHarnessAdapter,
-} from "@hyperidle/harness-registry";
+import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { updateServerConfig } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
+
+type SnapshotValue<T> = T extends Readonly<Record<string, infer V>> ? V : never;
+type HarnessDiscoveryInput = SnapshotValue<
+	NonNullable<ConstructorParameters<typeof AdapterPool>[0]>
+>;
 
 /**
  * AM4 adds `harnessDisabled?: string[]` to ServerConfigPatch (Task 1).
@@ -60,20 +59,27 @@ const STATIC_DISCOVERIES: Record<string, HarnessDiscoveryInput> = {
 
 function makePool(): AdapterPool {
 	const pool = new AdapterPool(STATIC_DISCOVERIES);
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
+	pool.register("local-builtin", createHarnessAdapter({ kind: "builtin" }), {
 		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",
 		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 		maxConcurrent: 4,
 	});
-	pool.register("local-claude-code", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
-		name: "Claude Code",
-		kind: "local",
-		type: "claude-code",
-		modelProviders: ["anthropic"],
-		maxConcurrent: 4,
-	});
+	pool.register(
+		"local-claude-code",
+		createHarnessAdapter({
+			kind: "cli",
+			config: { binary: "claude", args: [], envMap: {}, eventFormat: "text", envAllowlist: [] },
+		}),
+		{
+			name: "Claude Code",
+			kind: "local",
+			type: "claude-code",
+			modelProviders: ["anthropic"],
+			maxConcurrent: 4,
+		},
+	);
 	return pool;
 }
 

@@ -1,87 +1,56 @@
 /**
- * Barrel for @hyperidle/git-export (core-api Layer, non-SQL orchestration Service).
+ * Barrel for @hyperidle/git-export (core-api Layer).
  *
- * Typed functions only. `git-export` owns ZERO tables — its config lives in
- * `server_config.gitExport`, owned by `settings` and reached through an
- * injected `GitExportServerConfigPort` (`ports.ts`). No `TABLE_OWNER` row is
- * added for `git-export` — there is nothing to own (same shape as `policy`'s
- * Increment 2a finding).
+ * Public surface — ~22 exports across five coherent surfaces:
+ *   A. Git-execution platform  (createGitRunner + 3 types)
+ *   B. Export operation        (runGitExport + 2 types)
+ *   C. Export event wiring     (registerGitExportHandler + 1 type)
+ *   D. Export config accessor  (read/update/getMeta + 3 types)
+ *   E. DI port bag             (7 structural types)
  *
- * @lore AU19 Increment 2c: this is the real cut-over — `git-export-runner.ts`
- * (the `GitRunner` interface + `createGitRunner` spawn implementation +
- * `FakeGitRunner` test double), `git-export.ts` (the export orchestrator +
- * `registerGitExportHandler` event listener), and `git-export-config.ts`
- * (the `server_config.gitExport` read/write surface + every sanitizer) moved
- * here from `packages/server/src/{services,config}/` (behavior-preserving
- * move — the one real outbound edge, `git-export → settings`, became an
- * injected `GitExportServerConfigPort` DI port, `ports.ts`). This closes the
- * `filesystems → git-export` forward-reference from Increment 2b: every real
- * `gitRunnerFactory` call site (`server-factory.ts`, `routes/filesystems.ts`
- * ×2, plus the AO1-filesystem-reachability/AO1-reachability-lane-b/
- * git-clone-adapter/git-worktree-adapter/git-worktree-live-proof test files)
- * now imports `createGitRunner` from `@hyperidle/git-export` instead of the
- * deleted `packages/server/src/services/git-export-runner.ts` — same closing
- * idiom as `work`'s `UserStoreReader` → `users`, Increment 1d.
+ * Orchestration internals, sanitizers, and config helpers are available from the
+ * `@hyperidle/git-export/testing` subpath — not product surface.
+ *
+ * @lore AU20 Am8: collapsed from 47 exports → ~22; config/sanitizer
+ * sprawl and orchestration internals internalized; test doubles moved to
+ * /testing subpath; GitExportConfigDeps sub-bag collapsed away.
+ * Validation folded into updateGitExportConfig (returns ok/error result).
+ * readGitExportConfig now returns a redacted remoteUrl for safe HTTP use.
  */
 
-// -- export orchestrator (plan computation, disk write, git commit/push, event handler) --
+// ── B. Export operation ────────────────────────────────────────────────────
+// ── C. Export event wiring ─────────────────────────────────────────────────
 export type {
-	ExportPlan,
-	ExportPlanEntry,
-	FsAdapter,
 	GitExportResult,
-	GitExportTrigger,
 	RegisterGitExportHandlerOptions,
 	RunGitExportDeps,
 } from "./git-export.js";
-export {
-	buildCommitMessage,
-	computeExportPlan,
-	createNodeFsAdapter,
-	EXPORTED_KINDS,
-	EXPORTED_STATUSES,
-	registerGitExportHandler,
-	resetExportMutexes,
-	runGitExport,
-} from "./git-export.js";
-// -- export config (server_config.gitExport read/write + sanitizers) --
+export { registerGitExportHandler, runGitExport } from "./git-export.js";
+// ── D. Export config accessor ──────────────────────────────────────────────
 export type {
 	GitExportConfig,
 	GitExportConfigPatch,
 	LastExportMeta,
-	SanitizeRemoteUrlOptions,
+	UpdateGitExportConfigResult,
 } from "./git-export-config.js";
 export {
 	getLastExportMeta,
-	loadGitExportConfig,
 	readGitExportConfig,
-	redactRemoteUrl,
-	sanitizeAuthorEmail,
-	sanitizeAuthorName,
-	sanitizeBranch,
-	sanitizePathSegment,
-	sanitizeRemoteUrl,
-	sanitizeRepoPath,
 	updateGitExportConfig,
-	writeLastCommit,
-	writeLastPush,
 } from "./git-export-config.js";
-// -- git runner (GitRunner interface + real/fake implementations) --
+// ── A. Git-execution platform ──────────────────────────────────────────────
 export type {
 	CreateGitRunnerOptions,
-	FakeGitCall,
-	FakeGitRunner,
 	GitConfigInjection,
 	GitRunner,
 } from "./git-export-runner.js";
-export { createFakeGitRunner, createGitRunner } from "./git-export-runner.js";
-// -- ports (Mechanism C — DI-injected outbound edges) --
+export { createGitRunner } from "./git-export-runner.js";
+
+// ── E. DI port bag ─────────────────────────────────────────────────────────
 export type {
-	GitExportConfigDeps,
 	GitExportConfigSection,
 	GitExportConfigSectionPatch,
 	GitExportDeps,
-	GitExportKnowledgeItemProjection,
 	GitExportKnowledgeItemRow,
 	GitExportKnowledgeReader,
 	GitExportServerConfigPort,

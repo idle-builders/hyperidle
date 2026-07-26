@@ -22,10 +22,18 @@
 import type { HarnessEvent } from "@hyperidle/shared";
 import * as sharedAll from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { CLAUDE_CLI_CONFIG } from "../adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { createReturnGate, evaluateReturn, type ReturnVerdict } from "../return-gate.js";
+import { createReturnEnforcement } from "../return-enforcement.js";
+import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+
+const enforcement = createReturnEnforcement({ isolated: true });
+const createReturnGate = () => enforcement.createGate();
+const evaluateReturn = (
+	gate: ReturnType<typeof createReturnGate>,
+	reason: "completed" | "crashed" | "stopped" | "budget_exhausted",
+) => enforcement.evaluate(gate, reason);
+type ReturnVerdict = ReturnType<typeof evaluateReturn>;
 
 // biome-ignore lint/suspicious/noExplicitAny: accessing not-yet-exported members in red phase
 const sharedNs = sharedAll as Record<string, any>;
@@ -309,7 +317,7 @@ describe("AL6 v4 — returnEnforcement channel declared per adapter (Task 1/5-8 
 	});
 
 	it("claude CLI adapter (CliHarnessAdapter): returnEnforcement='settings-claude'", () => {
-		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG);
+		const adapter = new CliHarnessAdapter(cliAdapterFixture("claude"));
 		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
 		expect(caps.returnEnforcement).toBe("settings-claude");
 	});
