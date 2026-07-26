@@ -567,32 +567,32 @@ describe("validation contract factory", () => {
 		).not.toThrow();
 	});
 
-	test.each([
-		"payload",
-		"lineage",
-	] as const)("rejects caller payload-hash rewrite through repository-composed %s path", (path) => {
-		const fixture = repositoryFixture();
-		const rewrittenPayload = { a: 2 };
-		const rewrittenClaim = {
-			...fixture.claim,
-			payloadHash: digest(JSON.stringify(rewrittenPayload)),
-		};
-		const contracts = composeValidationContracts({
-			repositoryRoot: fixture.repositoryRoot,
-			acceptedReviewRoot: fixture.acceptedReviewRoot,
-			reviewManifestPath: fixture.reviewManifestPath,
-			expectedManifestSha256: fixture.expectedManifestSha256,
-			builderIdentity: "builder-1",
-		});
-		expect(() =>
-			path === "payload"
-				? contracts.unlockPayload({ payload: rewrittenPayload, claim: rewrittenClaim })
-				: contracts.verifyLineage({
-						lineagePayload: rewrittenPayload,
-						claim: rewrittenClaim,
-					}),
-		).toThrow(/manifest.*payload|payload.*hash|reviewed.*payload/i);
-	});
+	test.each(["payload", "lineage"] as const)(
+		"rejects caller payload-hash rewrite through repository-composed %s path",
+		(path) => {
+			const fixture = repositoryFixture();
+			const rewrittenPayload = { a: 2 };
+			const rewrittenClaim = {
+				...fixture.claim,
+				payloadHash: digest(JSON.stringify(rewrittenPayload)),
+			};
+			const contracts = composeValidationContracts({
+				repositoryRoot: fixture.repositoryRoot,
+				acceptedReviewRoot: fixture.acceptedReviewRoot,
+				reviewManifestPath: fixture.reviewManifestPath,
+				expectedManifestSha256: fixture.expectedManifestSha256,
+				builderIdentity: "builder-1",
+			});
+			expect(() =>
+				path === "payload"
+					? contracts.unlockPayload({ payload: rewrittenPayload, claim: rewrittenClaim })
+					: contracts.verifyLineage({
+							lineagePayload: rewrittenPayload,
+							claim: rewrittenClaim,
+						}),
+			).toThrow(/manifest.*payload|payload.*hash|reviewed.*payload/i);
+		},
+	);
 
 	test.each([
 		["payload builder omitted", "payload", undefined, "reviewer-1"],
@@ -601,20 +601,23 @@ describe("validation contract factory", () => {
 		["lineage builder omitted", "lineage", undefined, "reviewer-1"],
 		["lineage builder mismatch", "lineage", "builder-2", "reviewer-1"],
 		["lineage self review", "lineage", "builder-1", "builder-1"],
-	] as const)("rejects %s from manifest-bound factory path", (_name, path, builderIdentity, reviewerIdentity) => {
-		const fixture = repositoryFixture();
-		const contracts = composeValidationContracts({
-			repositoryRoot: fixture.repositoryRoot,
-			acceptedReviewRoot: fixture.acceptedReviewRoot,
-			reviewManifestPath: fixture.reviewManifestPath,
-			expectedManifestSha256: fixture.expectedManifestSha256,
-			builderIdentity: "builder-1",
-		});
-		const claim = { ...fixture.claim, builderIdentity, reviewerIdentity } as ReviewClaim;
-		expect(() =>
-			path === "payload"
-				? contracts.unlockPayload({ payload: { a: 1 }, claim })
-				: contracts.verifyLineage({ lineagePayload: { a: 1 }, claim }),
-		).toThrow(/builder|reviewer|manifest|independent/i);
-	});
+	] as const)(
+		"rejects %s from manifest-bound factory path",
+		(_name, path, builderIdentity, reviewerIdentity) => {
+			const fixture = repositoryFixture();
+			const contracts = composeValidationContracts({
+				repositoryRoot: fixture.repositoryRoot,
+				acceptedReviewRoot: fixture.acceptedReviewRoot,
+				reviewManifestPath: fixture.reviewManifestPath,
+				expectedManifestSha256: fixture.expectedManifestSha256,
+				builderIdentity: "builder-1",
+			});
+			const claim = { ...fixture.claim, builderIdentity, reviewerIdentity } as ReviewClaim;
+			expect(() =>
+				path === "payload"
+					? contracts.unlockPayload({ payload: { a: 1 }, claim })
+					: contracts.verifyLineage({ lineagePayload: { a: 1 }, claim }),
+			).toThrow(/builder|reviewer|manifest|independent/i);
+		},
+	);
 });

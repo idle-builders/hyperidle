@@ -124,34 +124,34 @@ describe("direct harness product operation", () => {
 		]);
 	});
 
-	it.each([
-		"direct",
-		"builtin",
-	] as const)("aborts an active %s LLM call without emitting post-stop events", async (kind) => {
-		const root = fs.mkdtempSync(path.join(os.tmpdir(), "stopped-harness-"));
-		roots.push(root);
-		callLlmMock.mockImplementationOnce(
-			(options) =>
-				new Promise((_, reject) => {
-					options.signal?.addEventListener(
-						"abort",
-						() => reject(new DOMException("aborted", "AbortError")),
-						{ once: true },
-					);
-				}),
-		);
-		const adapter =
-			kind === "direct"
-				? createHarnessAdapter({ kind, model, returnEnforcement: "none" })
-				: createHarnessAdapter({ kind, options: { maxIterations: 1 } });
-		const sessionId = `active-${kind}`;
-		await adapter.startSession(config(root, sessionId, "active"));
-		const stream = adapter.streamEvents({ sessionId })[Symbol.asyncIterator]();
-		const nextEvent = stream.next();
-		await vi.waitFor(() => expect(callLlmMock).toHaveBeenCalledOnce());
+	it.each(["direct", "builtin"] as const)(
+		"aborts an active %s LLM call without emitting post-stop events",
+		async (kind) => {
+			const root = fs.mkdtempSync(path.join(os.tmpdir(), "stopped-harness-"));
+			roots.push(root);
+			callLlmMock.mockImplementationOnce(
+				(options) =>
+					new Promise((_, reject) => {
+						options.signal?.addEventListener(
+							"abort",
+							() => reject(new DOMException("aborted", "AbortError")),
+							{ once: true },
+						);
+					}),
+			);
+			const adapter =
+				kind === "direct"
+					? createHarnessAdapter({ kind, model, returnEnforcement: "none" })
+					: createHarnessAdapter({ kind, options: { maxIterations: 1 } });
+			const sessionId = `active-${kind}`;
+			await adapter.startSession(config(root, sessionId, "active"));
+			const stream = adapter.streamEvents({ sessionId })[Symbol.asyncIterator]();
+			const nextEvent = stream.next();
+			await vi.waitFor(() => expect(callLlmMock).toHaveBeenCalledOnce());
 
-		const stopped = await adapter.stopSession({ sessionId });
-		expect(stopped.outcome).toBe("stopped");
-		expect(await nextEvent).toEqual({ done: true, value: undefined });
-	});
+			const stopped = await adapter.stopSession({ sessionId });
+			expect(stopped.outcome).toBe("stopped");
+			expect(await nextEvent).toEqual({ done: true, value: undefined });
+		},
+	);
 });

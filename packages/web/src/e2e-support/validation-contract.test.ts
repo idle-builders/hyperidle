@@ -349,26 +349,29 @@ describe("validation inventory contract", () => {
 			"builder-1",
 			/independent|self|reviewer/i,
 		],
-	] as const)("rejects mismatched %s", (_name, verdict, reviewedPayloadHash, reviewerIdentity, builderIdentity, message) => {
-		expect(() =>
-			validationContracts.buildValidationInventory({
-				discovered: [mocked],
-				allowedLaneIds: ["mocked-browser"],
-				ledgerIds: [mocked.id],
-				laneMembers: { "mocked-browser": [mocked.id] },
-				previousIds: [acceptedLineage.oldId],
-				deletedLineage: [
-					{
-						...acceptedLineage,
-						verdict,
-						reviewedPayloadHash,
-						reviewerIdentity,
-						builderIdentity,
-					},
-				],
-			}),
-		).toThrow(message);
-	});
+	] as const)(
+		"rejects mismatched %s",
+		(_name, verdict, reviewedPayloadHash, reviewerIdentity, builderIdentity, message) => {
+			expect(() =>
+				validationContracts.buildValidationInventory({
+					discovered: [mocked],
+					allowedLaneIds: ["mocked-browser"],
+					ledgerIds: [mocked.id],
+					laneMembers: { "mocked-browser": [mocked.id] },
+					previousIds: [acceptedLineage.oldId],
+					deletedLineage: [
+						{
+							...acceptedLineage,
+							verdict,
+							reviewedPayloadHash,
+							reviewerIdentity,
+							builderIdentity,
+						},
+					],
+				}),
+			).toThrow(message);
+		},
+	);
 
 	test.each([
 		[

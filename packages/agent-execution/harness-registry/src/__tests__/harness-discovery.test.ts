@@ -319,122 +319,125 @@ describe("discoverLocalHarnesses cohesive discovery", () => {
 		["success", response("configured: local - ✔ Connected"), false],
 		["failure", response("", 1, "failed"), false],
 		["timeout", undefined, true],
-	] as const)("owns and cleans the Claude command deadline on %s", async (_label, cliResult, timesOut) => {
-		vi.useFakeTimers();
-		const initialTimerCount = vi.getTimerCount();
-		const cwd = await temporaryDirectory("an1-claude-lifetime-");
-		await writeFile(
-			join(cwd, ".mcp.json"),
-			JSON.stringify({ mcpServers: { configured: { command: "node" } } }),
-		);
-		const base = discoveryRunner();
-		let invocations = 0;
-		let aborts = 0;
-		let completions = 0;
-		let capturedSignal: AbortSignal | undefined;
-		let listenersAdded = 0;
-		let listenersRemoved = 0;
-		const addListener = vi
-			.spyOn(AbortSignal.prototype, "addEventListener")
-			.mockImplementation(function (this: AbortSignal, ...args) {
-				listenersAdded += 1;
-				return EventTarget.prototype.addEventListener.apply(this, args);
-			});
-		const removeListener = vi
-			.spyOn(AbortSignal.prototype, "removeEventListener")
-			.mockImplementation(function (this: AbortSignal, ...args) {
-				listenersRemoved += 1;
-				return EventTarget.prototype.removeEventListener.apply(this, args);
-			});
-		const pending = discoverLocalHarnesses({
-			cwd,
-			env: {},
-			run: async (
-				args,
-				context?: { readonly signal: AbortSignal },
-			): Promise<ReturnType<typeof response>> => {
-				if (args.join(" ") !== "claude mcp list") return base(args);
-				invocations += 1;
-				capturedSignal = context?.signal;
-				if (context?.signal.aborted) aborts += 1;
-				if (cliResult) {
-					completions += 1;
-					return cliResult;
-				}
-				return new Promise(() => undefined);
-			},
-		});
-		if (timesOut) await vi.advanceTimersByTimeAsync(15_001);
-		const tools = (await pending)["claude-code"].inheritedTools;
-		if (capturedSignal?.aborted) aborts += 1;
-		expect({ invocations, aborts, completions }).toEqual({
-			invocations: 1,
-			aborts: timesOut ? 1 : 0,
-			completions: timesOut ? 0 : 1,
-		});
-		expect(vi.getTimerCount() - initialTimerCount).toBe(timesOut ? 0 : 2);
-		expect(listenersAdded - listenersRemoved).toBe(0);
-		expect(tools).toContainEqual(expect.objectContaining({ name: "configured" }));
-		addListener.mockRestore();
-		removeListener.mockRestore();
-	});
-
-	it.each([
-		"resolve",
-		"reject",
-	] as const)("returns once and ignores a late runner %s after timeout", async (lateOutcome) => {
-		vi.useFakeTimers();
-		const cwd = await temporaryDirectory("an1-claude-late-");
-		await writeFile(
-			join(cwd, ".mcp.json"),
-			JSON.stringify({ mcpServers: { configured: { command: "node" } } }),
-		);
-		const base = discoveryRunner();
-		let terminalCount = 0;
-		let lateSettlements = 0;
-		let capturedSignal: AbortSignal | undefined;
-		const unhandled: unknown[] = [];
-		const onUnhandled = (reason: unknown) => unhandled.push(reason);
-		process.on("unhandledRejection", onUnhandled);
-		try {
+	] as const)(
+		"owns and cleans the Claude command deadline on %s",
+		async (_label, cliResult, timesOut) => {
+			vi.useFakeTimers();
+			const initialTimerCount = vi.getTimerCount();
+			const cwd = await temporaryDirectory("an1-claude-lifetime-");
+			await writeFile(
+				join(cwd, ".mcp.json"),
+				JSON.stringify({ mcpServers: { configured: { command: "node" } } }),
+			);
+			const base = discoveryRunner();
+			let invocations = 0;
+			let aborts = 0;
+			let completions = 0;
+			let capturedSignal: AbortSignal | undefined;
+			let listenersAdded = 0;
+			let listenersRemoved = 0;
+			const addListener = vi
+				.spyOn(AbortSignal.prototype, "addEventListener")
+				.mockImplementation(function (this: AbortSignal, ...args) {
+					listenersAdded += 1;
+					return EventTarget.prototype.addEventListener.apply(this, args);
+				});
+			const removeListener = vi
+				.spyOn(AbortSignal.prototype, "removeEventListener")
+				.mockImplementation(function (this: AbortSignal, ...args) {
+					listenersRemoved += 1;
+					return EventTarget.prototype.removeEventListener.apply(this, args);
+				});
 			const pending = discoverLocalHarnesses({
 				cwd,
 				env: {},
-				run: async (args, context?: { readonly signal: AbortSignal }) => {
+				run: async (
+					args,
+					context?: { readonly signal: AbortSignal },
+				): Promise<ReturnType<typeof response>> => {
 					if (args.join(" ") !== "claude mcp list") return base(args);
+					invocations += 1;
 					capturedSignal = context?.signal;
-					return new Promise<ReturnType<typeof response>>((resolve, reject) =>
-						setTimeout(() => {
-							lateSettlements += 1;
-							if (lateOutcome === "resolve") resolve(response("late: local - ✔ Connected"));
-							else reject(new Error("late rejection sentinel"));
-						}, 20_000),
-					);
+					if (context?.signal.aborted) aborts += 1;
+					if (cliResult) {
+						completions += 1;
+						return cliResult;
+					}
+					return new Promise(() => undefined);
 				},
-			}).then((result) => {
-				terminalCount += 1;
-				return result;
 			});
-			await vi.advanceTimersByTimeAsync(15_001);
-			const result = await pending;
-			const returned = result["claude-code"].inheritedTools;
-			const snapshot = JSON.stringify(returned);
-			expect(terminalCount).toBe(1);
-			await vi.advanceTimersByTimeAsync(5_000);
-			await Promise.resolve();
-			expect({ terminalCount, lateSettlements, unhandled }).toEqual({
-				terminalCount: 1,
-				lateSettlements: 1,
-				unhandled: [],
+			if (timesOut) await vi.advanceTimersByTimeAsync(15_001);
+			const tools = (await pending)["claude-code"].inheritedTools;
+			if (capturedSignal?.aborted) aborts += 1;
+			expect({ invocations, aborts, completions }).toEqual({
+				invocations: 1,
+				aborts: timesOut ? 1 : 0,
+				completions: timesOut ? 0 : 1,
 			});
-			expect(JSON.stringify(result["claude-code"].inheritedTools)).toBe(snapshot);
-			expect(capturedSignal).toBeInstanceOf(AbortSignal);
-			expect(capturedSignal?.aborted).toBe(true);
-			expect(returned).toContainEqual(expect.objectContaining({ name: "configured" }));
-		} finally {
-			process.off("unhandledRejection", onUnhandled);
-		}
-	});
+			expect(vi.getTimerCount() - initialTimerCount).toBe(timesOut ? 0 : 2);
+			expect(listenersAdded - listenersRemoved).toBe(0);
+			expect(tools).toContainEqual(expect.objectContaining({ name: "configured" }));
+			addListener.mockRestore();
+			removeListener.mockRestore();
+		},
+	);
+
+	it.each(["resolve", "reject"] as const)(
+		"returns once and ignores a late runner %s after timeout",
+		async (lateOutcome) => {
+			vi.useFakeTimers();
+			const cwd = await temporaryDirectory("an1-claude-late-");
+			await writeFile(
+				join(cwd, ".mcp.json"),
+				JSON.stringify({ mcpServers: { configured: { command: "node" } } }),
+			);
+			const base = discoveryRunner();
+			let terminalCount = 0;
+			let lateSettlements = 0;
+			let capturedSignal: AbortSignal | undefined;
+			const unhandled: unknown[] = [];
+			const onUnhandled = (reason: unknown) => unhandled.push(reason);
+			process.on("unhandledRejection", onUnhandled);
+			try {
+				const pending = discoverLocalHarnesses({
+					cwd,
+					env: {},
+					run: async (args, context?: { readonly signal: AbortSignal }) => {
+						if (args.join(" ") !== "claude mcp list") return base(args);
+						capturedSignal = context?.signal;
+						return new Promise<ReturnType<typeof response>>((resolve, reject) =>
+							setTimeout(() => {
+								lateSettlements += 1;
+								if (lateOutcome === "resolve") resolve(response("late: local - ✔ Connected"));
+								else reject(new Error("late rejection sentinel"));
+							}, 20_000),
+						);
+					},
+				}).then((result) => {
+					terminalCount += 1;
+					return result;
+				});
+				await vi.advanceTimersByTimeAsync(15_001);
+				const result = await pending;
+				const returned = result["claude-code"].inheritedTools;
+				const snapshot = JSON.stringify(returned);
+				expect(terminalCount).toBe(1);
+				await vi.advanceTimersByTimeAsync(5_000);
+				await Promise.resolve();
+				expect({ terminalCount, lateSettlements, unhandled }).toEqual({
+					terminalCount: 1,
+					lateSettlements: 1,
+					unhandled: [],
+				});
+				expect(JSON.stringify(result["claude-code"].inheritedTools)).toBe(snapshot);
+				expect(capturedSignal).toBeInstanceOf(AbortSignal);
+				expect(capturedSignal?.aborted).toBe(true);
+				expect(returned).toContainEqual(expect.objectContaining({ name: "configured" }));
+			} finally {
+				process.off("unhandledRejection", onUnhandled);
+			}
+		},
+	);
 });
 
 const capabilities: HarnessCapabilities = {
