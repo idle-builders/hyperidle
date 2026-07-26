@@ -2088,7 +2088,7 @@
         "types": 13,
         "total": 35
       },
-      "exposedApiCount": 23,
+      "exposedApiCount": 21,
       "exposedApi": [
         {
           "name": "AdapterInfo",
@@ -2146,11 +2146,6 @@
           "signature": "HarnessAdapterSpec"
         },
         {
-          "name": "createMcpToolBridge",
-          "kind": "re-export",
-          "signature": "createMcpToolBridge"
-        },
-        {
           "name": "McpToolBridge",
           "kind": "re-export",
           "signature": "McpToolBridge"
@@ -2174,11 +2169,6 @@
           "name": "ReturnEnforcementSpec",
           "kind": "re-export",
           "signature": "ReturnEnforcementSpec"
-        },
-        {
-          "name": "returnStatusTool",
-          "kind": "re-export",
-          "signature": "returnStatusTool"
         },
         {
           "name": "createSandboxAdapter",

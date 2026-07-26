@@ -47,6 +47,44 @@ AU19 shipped (PR #450, merged, `plans/AU19/as-is-dependency-graph.md` dated 2026
 
 **"The clean loop"** (informal working name — `/architecture` may propose a better one; don't let this pin block that). Definition: the request/response cycle where (a) `core-api` detects it needs an agent and emits one event carrying everything the run needs, (b) `agent-orchestration` is the sole owner of turning that event into a built, deployed session, (c) `agent-execution` is the sole owner of running it, and (d) any resulting change to core-owned data is made through the same API `core-ui` uses to act on `core-api` — never a direct Service import reaching backward from execution or orchestration into a core-api Service. Not to be confused with: an individual EventBus edge (the loop is the whole cycle, not one hop); the `HarnessPort` seam (that's the orchestration→execution leg of the loop, already built — the loop additionally covers the core→orchestration leg and the write-back leg). Hard rule: if any step of the loop is served by a raw Service-to-Service DI port instead of an event, a seam call, or a named permanent exception, the loop is broken at that step — this is the test `/architecture` and code review apply to each of the 63 edges.
 
+## Seam & state-ownership principle (2026-07-26, founder — settled from first principles)
+
+A principle worked out with the founder that sits *above* "the clean loop" and governs all four Layer
+boundaries, not just the agent→core one:
+
+1. **Each Layer owns and directly serves its own durable state. Nothing is duplicated across a Layer boundary
+   just because a consumer only has a door into one Layer today.** Core-api owns bets/tasks/conversations/
+   knowledge/users/settings. Agent-orchestration owns sessions, run history, and cost accounting.
+   Agent-execution owns live harness activity. Read-model duplication across a boundary is a scale/availability
+   pattern HyperIdle does not need yet (mostly one process, one machine); all it buys today is drift.
+
+2. **Every Layer that owns durable state another Layer/UI needs gets its own real, disciplined,
+   location-transparent door — symmetric to `CoreApiPort`.** When `core-ui` needs a second Layer's state, the
+   answer is a second proper door (an `AgentOrchestrationPort` read API), not a mirror of that state into
+   core-api. Not a workaround; it completes the four-Layer picture.
+
+3. **Streaming is a technique scoped to a genuine continuous-delivery need, not a shared cross-cutting
+   Service.** A generic "realtime" broadcaster that rebroadcasts every domain event through one mechanism
+   conflates unrelated concerns; discrete state changes need at most a lightweight "refetch" signal, and true
+   low-latency streaming belongs only where continuous output actually originates (live harness activity),
+   owned by the Layer that produces it.
+
+**Not hypothetical — the evidence is in the shipped code (verified 2026-07-26):**
+- Orchestration's cost state has no door of its own, so a genuine gap goes unserved: per-session cost is
+  *deliberately not persisted* (`@lore O2` stripped session cost columns) and the UI is handed `cost: null`
+  (`packages/core-api/src/routes/tasks.ts:134`) — orchestration computes each session's cost but has no way to
+  expose it. (Note: the per-entity `costActual*` running totals on core-api tables are *not* a duplicate — a
+  full trace shows `cost-cap.ts` is the single authority writing each distinct aggregate via DI, and the cap
+  gate reads them; so the fix here is a missing **door**, not a mirror to delete. See `/architecture` Decision D.)
+- `cost_cap_warning`/`cost_cap_breached` are handled twice: correctly and statefully by `notifications`
+  (`packages/core-api/notifications/src/install.ts:1490`, a persisted `notificationQueue` row) AND redundantly
+  re-forwarded by the generic WS broadcaster (`packages/core-api/realtime/src/ws-broadcaster.ts:59`) to a
+  `work` topic where nothing consumes it as a cost signal — dead, duplicate, currently-shipping code.
+
+The `routine-runs-as-sessions` ruling (orchestration owns run history; core-api shrinks to definition) already
+applied exactly this principle to one case; cost/sessions/activity are the same case and get the same
+treatment. `/architecture` carries the concrete decisions (revised Decision D + new Decision E).
+
 ## AC alignment table (against `plan.md`'s updated Acceptance Criteria)
 
 | # | Acceptance criterion (plan.md, post-redirect) | How this requirement covers it | Gap flag |
