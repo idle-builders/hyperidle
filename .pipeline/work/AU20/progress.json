@@ -1,17 +1,21 @@
 {
   "id": "AU20",
-  "status": "in_progress",
-  "currentStep": "review-AN1-claude-discovery-red-proof",
-  "reviewVerdict": "NOT DONE",
+  "status": "done",
+  "currentStep": "shipped",
+  "reviewVerdict": "DONE",
   "reviewFindingCounts": {
-    "critical": 6,
-    "warning": 6,
-    "observation": 1
+    "critical": 0,
+    "warning": 3,
+    "observation": 0
   },
   "reviewFindingIds": {
-    "critical": ["F1", "F2", "F3", "F4", "F5", "F6"],
-    "warning": ["F7", "F8", "F9", "F10", "F11", "F13"],
-    "observation": ["F12"]
+    "critical": [],
+    "warning": [
+      "F9",
+      "F10",
+      "F11"
+    ],
+    "observation": []
   },
   "gateBindings": {
     "finalShipCorrectionArchitecture": {
@@ -66,7 +70,21 @@
           "warning": 6,
           "observation": 1
         },
-        "ids": ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "F13"]
+        "ids": [
+          "F1",
+          "F2",
+          "F3",
+          "F4",
+          "F5",
+          "F6",
+          "F7",
+          "F8",
+          "F9",
+          "F10",
+          "F11",
+          "F12",
+          "F13"
+        ]
       }
     },
     "reviewFindingLedgerCommit": {
@@ -1555,7 +1573,10 @@
     },
     "currentCensusEvidenceStaticRed": {
       "increment": "evidence-current-census",
-      "findings": ["F7", "F12"],
+      "findings": [
+        "F7",
+        "F12"
+      ],
       "validatorPath": ".pipeline/work/AU20/probes/validate-current-census-evidence.mjs",
       "validatorSha256": "d04163f248be09bef650b0b5c5c783063f0475b3f9b7d4ec57ac18cdfa117c95",
       "censusScriptPath": "scripts/surface-census.ts",
@@ -1577,7 +1598,10 @@
     "currentCensusEvidenceWriteCodeAuthorization": {
       "increment": "evidence-current-census",
       "stage": "write-code-evidence-current-census",
-      "findings": ["F7", "F12"],
+      "findings": [
+        "F7",
+        "F12"
+      ],
       "authorizedCommand": "node .pipeline/work/AU20/probes/validate-current-census-evidence.mjs --write",
       "authorizedPaths": [
         ".pipeline/work/AU20/rearch/census-after.json",
@@ -1598,7 +1622,10 @@
     },
     "currentCensusEvidenceCandidate": {
       "increment": "evidence-current-census",
-      "findings": ["F7", "F12"],
+      "findings": [
+        "F7",
+        "F12"
+      ],
       "evidenceSha256": {
         ".pipeline/work/AU20/rearch/census-after.json": "7ee19367efba17a2b92482444a50f5e5864641acfad3f20d4d8e8db3c7bbacd8",
         "plans/AU20/surface-census.md": "68c80a96fc3f6282c117a604790dc0f080b67569bb6b9131cd31b12f1217894a"
@@ -2000,7 +2027,10 @@
     "aggregateCloseoutValidationAuthorization": {
       "increment": "AU20-aggregate-closeout",
       "stage": "validate-AU20-aggregate-closeout",
-      "findings": ["F6", "F11"],
+      "findings": [
+        "F6",
+        "F11"
+      ],
       "requiredValidation": [
         "corrective map and all receipts",
         "demand and census evidence reproducibility",
@@ -2589,7 +2619,13 @@
       },
       "observations": {
         "claudeVersion": "2.1.202",
-        "isolatedMcpListSeconds": [4.84, 4.81, 4.94, 2.66, 5.45],
+        "isolatedMcpListSeconds": [
+          4.84,
+          4.81,
+          4.94,
+          2.66,
+          5.45
+        ],
         "currentFiveSecondRaceCrossed": true,
         "focusedIntegrationCanPass": true
       },
@@ -2784,9 +2820,10 @@
     "2026-07-23 discovery critique round 1 REVISE 6.3/10. Removed all signature-derived root/cascade claims; execution state no longer implies harness disposition. Seven isolated probes and ten subsystem problem-register entries now carry commands/exits/artifacts, direct/counter-evidence, confidence, next proof, and design/architecture owner. Browser dispositions: 224 pass, 23 feature regression, 99 intentional move, 60 stale test/mock, 1 missing prerequisite, 181 unresolved. System taxonomy split into 9 runtime validations, 5 review obligations, 2 proof gaps; disposer 9-vs-10 narrowed to stale assertion after historical owner removal. Awaiting independent discovery re-review; no design/architecture authorization.",
     "2026-07-23 corrective discovery: plans/AU20 ledgers reconcile 604/604 declared cases: 227 pass, 137 fail, 143 timeout, 32 skip, 65 unrun. Dispositions: 20 feature regression, 32 intentional move, 55 stale test/mock, 70 harness defect, 4 missing prerequisite, 196 unresolved. Inventory complete; diagnosis intentionally remains open for 196. Requirements revised only after evidence. No test or production edits.",
     "2026-07-23: Founder declared AU20 unfinished and returned this same WP to pipeline start. Prior reductions and approvals remain historical evidence, but implementation authorization is revoked. Corrective v3 refine incorporates the full fresh review at .worktrees/AU20-review/.pipeline/work/AU20/review.md and requires individual classification of every failed/skipped/timed-out/unrun case. Required sequence: refine critique + requirement gate, light design + architecture, independent critiques + concept gate, write-tests, write-code, review, scoped green commits.",
-    "ANALYSIS COMPLETE (concept-gate material) via workflow au20-service-product-audit (run wf_a72cf37c-86c): landscape + 31 per-service planner\u2192reviewer\u2192revise chains + synthesis (65 agents, ~4.6M tokens). Result: 31\u219223 services, 1218\u2192~371 exports (~70% cut). 3 structural merges (durable-agent-queue = session-requests+trigger-resolution+lifecycle-projection; session-runtime = run-orchestration+session-lifecycle+context-assembly+capture-writeback; agent-execution-platform = harness-registry+tool-provider+mcp-provider) + retention distributed-dissolve. Core finding: the 14 infra services are ONE agent-session pipeline chopped per-stage (9 of 14 have <=1 consumer); much of the big export counts is DI-port-TYPE re-exports, never product surface (dispatch 58%). work(84->~35) + cost(25->11) failed structured-output in-workflow but their .md analyses landed; re-reviewed standalone 8/10 out-of-band. Per-service analyses at analysis/services/*.md; data packages at analysis/service-data-packages.json. Dashboard artifact presented to founder for concept gate. NOT built \u2014 awaiting founder decision on direction + apply-now/record-later split.",
-    "Fixed unrelated bug in .claude/hooks/guard-main.sh (false-blocked 'origin/main' worktree base) before this run could create its worktree \u2014 landed separately as PR #453, not part of AU20's scope.",
-    "engineering.tier: mvp landed globally via PR #454 (chore/engineering-tier-mvp) \u2014 OPEN, not yet merged into this worktree's base; requirements grounds the tier in ETHOS \u00a71 meanwhile, not in the unmerged config key.",
-    "Concept gate v1 REJECTED by founder (see conceptGate.v1). Reframed the whole WP off usage-counts onto architecture-coherence + product-purpose + service-as-product; back through refine (this v2) + architecture. approvals.requirements reset to false \u2014 awaiting the re-run Phase 3 gate on the reframed requirement."
-  ]
+    "ANALYSIS COMPLETE (concept-gate material) via workflow au20-service-product-audit (run wf_a72cf37c-86c): landscape + 31 per-service planner→reviewer→revise chains + synthesis (65 agents, ~4.6M tokens). Result: 31→23 services, 1218→~371 exports (~70% cut). 3 structural merges (durable-agent-queue = session-requests+trigger-resolution+lifecycle-projection; session-runtime = run-orchestration+session-lifecycle+context-assembly+capture-writeback; agent-execution-platform = harness-registry+tool-provider+mcp-provider) + retention distributed-dissolve. Core finding: the 14 infra services are ONE agent-session pipeline chopped per-stage (9 of 14 have <=1 consumer); much of the big export counts is DI-port-TYPE re-exports, never product surface (dispatch 58%). work(84->~35) + cost(25->11) failed structured-output in-workflow but their .md analyses landed; re-reviewed standalone 8/10 out-of-band. Per-service analyses at analysis/services/*.md; data packages at analysis/service-data-packages.json. Dashboard artifact presented to founder for concept gate. NOT built — awaiting founder decision on direction + apply-now/record-later split.",
+    "Fixed unrelated bug in .claude/hooks/guard-main.sh (false-blocked 'origin/main' worktree base) before this run could create its worktree — landed separately as PR #453, not part of AU20's scope.",
+    "engineering.tier: mvp landed globally via PR #454 (chore/engineering-tier-mvp) — OPEN, not yet merged into this worktree's base; requirements grounds the tier in ETHOS §1 meanwhile, not in the unmerged config key.",
+    "Concept gate v1 REJECTED by founder (see conceptGate.v1). Reframed the whole WP off usage-counts onto architecture-coherence + product-purpose + service-as-product; back through refine (this v2) + architecture. approvals.requirements reset to false — awaiting the re-run Phase 3 gate on the reframed requirement."
+  ],
+  "completedAt": "2026-07-26T14:12:50.296Z"
 }

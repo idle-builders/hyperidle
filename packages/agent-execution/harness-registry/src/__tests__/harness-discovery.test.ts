@@ -77,8 +77,8 @@ describe("discoverLocalHarnesses cohesive discovery", () => {
 			expect.objectContaining({ id: "claude-numeric", contextWindow: 128_000 }),
 		]);
 		expect(claude.inheritedTools).toEqual([
-			expect.objectContaining({ name: "github", health: "working" }),
 			expect.objectContaining({ name: "broken", health: "needs-attention" }),
+			expect.objectContaining({ name: "github", health: "working" }),
 			expect.objectContaining({ name: "waiting", health: "needs-attention" }),
 		]);
 	});
