@@ -2825,5 +2825,5 @@
     "engineering.tier: mvp landed globally via PR #454 (chore/engineering-tier-mvp) — OPEN, not yet merged into this worktree's base; requirements grounds the tier in ETHOS §1 meanwhile, not in the unmerged config key.",
     "Concept gate v1 REJECTED by founder (see conceptGate.v1). Reframed the whole WP off usage-counts onto architecture-coherence + product-purpose + service-as-product; back through refine (this v2) + architecture. approvals.requirements reset to false — awaiting the re-run Phase 3 gate on the reframed requirement."
   ],
-  "completedAt": "2026-07-26T14:12:50.296Z"
+  "completedAt": "2026-07-26T14:48:25.754Z"
 }
