@@ -8,8 +8,11 @@ LEAD=$(echo "$COMMAND" | head -1 | sed 's/[|;&].*//')
 
 # --- Guard 1: no worktree checkouts of main ---
 if echo "$LEAD" | grep -qE '^\s*git\s+worktree\s+add\b'; then
-  LEAD_NO_REMOTE_MAIN=$(echo "$LEAD" | sed -E 's#[A-Za-z0-9_.-]+/main([^A-Za-z0-9_]|$)#\1#g')
-  if echo "$LEAD_NO_REMOTE_MAIN" | grep -qE '^\s*git\s+worktree\s+add\s+.*\bmain\b'; then
+  # @lore: Require a token boundary before the remote and explicitly protect Git's
+  # heads/main shorthand so both local-main spellings remain blocked.
+  LEAD_NO_REMOTE_MAIN=$(echo "$LEAD" | sed -E 's#(^|[[:space:]])[A-Za-z0-9_.-]+/main([^A-Za-z0-9_]|$)#\1\2#g')
+  if echo "$LEAD" | grep -qE '(^|[[:space:]])(refs/)?heads/main\b' ||
+    echo "$LEAD_NO_REMOTE_MAIN" | grep -qE '^\s*git\s+worktree\s+add\s+.*\bmain\b'; then
     echo "BLOCKED: cannot check out 'main' in a worktree. Create a feature branch instead: git worktree add <path> -b <type>/<id>-<desc> origin/main"
     exit 2
   fi
