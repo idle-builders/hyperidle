@@ -44,7 +44,9 @@ are fine — but the *default* must be seam / push / self-recovery.
   (`AgentSelectionDefaults`), `work → cost` (`CostCapChecker`), `review → session-requests`. **`work →
   session-requests` and `review → session-requests` are NOT two independent exceptions — they are the same
   canonical `AgentWorkIntentRecorder` mechanism (one `enqueueWorkIntent`/`agent_work_intents` operation,
-  `kind`-discriminated), counted as two edges only by pair-counting. See Decision G.**
+  `kind`-discriminated), counted as two edges only by pair-counting. See Decision G. Two of these four are
+  removed by AU21's 2026-07-27 rulings: `work → cost` (Decision D2) and `work → agent-selection` (Decision F1);
+  `work`/`review → session-requests` unify into the one canonical recorder (Decision G).**
 - Rich post-session report-back events exist: `run-orchestration → policy`/`review` on `session_ended`
   (`packages/shared/src/events.ts:86`); `agent_run_lifecycle_changed` (`events.ts:25`).
 
@@ -59,7 +61,7 @@ are fine — but the *default* must be seam / push / self-recovery.
    bulk of the disposition.
 4. **The write-back seam** (`CoreApiPort`) does not exist.
 5. **The pre-handoff failure channel** (`agent_run_admission_failed`) does not exist.
-6. **The cost display API** (Decision D) does not exist.
+6. **Per-session cost + the `AgentOrchestrationPort` read door** (Decision D) do not exist; per-session cost is unserved (`tasks.ts` → `cost: null`).
 7. **practice-meeting** still live via a stale `review`-named port; founder ruling is delete-from-`knowledge`.
 
 ## 3. The critical structural fact: the mechanical graph is blind to the biggest read set
@@ -160,9 +162,9 @@ The founder's model, made concrete against the current code:
 1. **Core-api resolves + validates the run at emit time**, inside the emitting Service, reading core-api's own
    state (legitimate). It enqueues a **fully-baked request** — the shape `resolveIntentInputInternal` returns
    today (`defaultAgentId` resolved + runnability-validated, `sourceKind`, `sourceId`, `streamId`,
-   `taskId`/`teamId`, `sourceCorrelation`, and for selection families the chosen agent) — through the existing
-   against-grain `AgentWorkIntentRecorder` port (`work`/`review → session-requests`). This **grows an existing
-   permanent port's payload; it does not add an edge or reopen an AU19 ruling.** The ast-`<userId>` trust
+   `taskId`/`teamId`, `sourceCorrelation`, and for selection families the chosen agent) — through the one
+   canonical `AgentWorkIntentRecorder` port (`work`/`review → session-requests`, unified per Decision G). This
+   **grows the existing permanent port's payload; it does not add an edge or reopen an AU19 ruling.** The ast-`<userId>` trust
    invariant moves here: the emitting Service reloads the real `users` row and validates `kind==="ai"` +
    active/idle before baking `defaultAgentId`, never the human sender.
 2. **The drain collapses to claim-own-dedup + dispatch-the-baked-request.** The AU9 CAS/claim mechanics
@@ -450,7 +452,7 @@ authority (§6 B, provision-time cover) and (ii) any Decision-D display query th
 | # | AC | Verification |
 |---|---|---|
 | 1 | Location-transparent `CoreApiPort` seam exists (Application-wired, in-process today, remote-capable) | (a) Integration test builds `CoreApiPort` with `fetch = app.request` AND a stub network `fetch`; identical call succeeds via both. (b) Per-method contract test (§11): each method reaches its real route + middleware runs. (c) `npm run check` proves the contract type-resolves from a Service depending only on `@hyperidle/api-contract`. |
-| 2 | The clean loop is real end-to-end and **orchestration reads zero core-api domain state** | (a) Integration test: a core-api Service resolves + emits a baked request; the drain builds+deploys performing **zero** core-api reads (asserted via composition + the §9-Inc-8 guard, which sees the composition-bundle pattern). (b) `resolveIntentInputInternal`'s core-domain reads are gone; own-state dedup reads remain and existing idempotency tests pass unchanged. (c) Self-recovery test: a run for a source changed after emit is not pre-checked away; the session runs and the agent's MCP read observes current state (or fails → emits the failure event → core reacts). (d) An agent write lands via the core-api route path (middleware ran). |
+| 2 | The clean loop is real end-to-end and **orchestration reads zero core-api domain state** | (a) Integration test: a core-api Service resolves + emits a baked request; the drain builds+deploys performing **zero** core-api reads (asserted via composition + the §9-Inc-9 guard, which sees the composition-bundle pattern). (b) `resolveIntentInputInternal`'s core-domain reads are gone; own-state dedup reads remain and existing idempotency tests pass unchanged. (c) Self-recovery test: a run for a source changed after emit is not pre-checked away; the session runs and the agent's MCP read observes current state (or fails → emits the failure event → core reacts). (d) An agent write lands via the core-api route path (middleware ran). |
 | 2b | **Pre-handoff failure report-back works and the AU15 brick is still prevented** | Integration test: force a pre-handoff terminal failure; assert `failOrRelease` emits `agent_run_admission_failed`, a core-api subscriber finalizes the routine run to `outcome="error"`, and AU15 AC-3d holds (intent `failed`, run `error`, second fire self-heals). `routine-scheduler.au15.integration.test.ts` AC-3d is rewired to the event mechanism and must pass. |
 | 2c | **Routine-runs-as-sessions collapse** | A routine firing produces a session with no orchestration-side direct write to `routineRuns`; run outcome is set only via the report-back events. Test proves a fired routine's run finalizes through the event path; `@lore AA1` updated. |
 | 3 | Every read/write in the regenerated worklist gets a disposition surviving re-challenge | `edge-disposition.md`: each capability + verdict + §7 disposition + reasoning; reviewer confirms. Post-fix graph shows each former read gone/baked and each write seam-routed; the new failure event shows as an against-grain EventBus inversion. |
@@ -459,7 +461,7 @@ authority (§6 B, provision-time cover) and (ii) any Decision-D display query th
 | 6 | AU19's surviving permanent ports not silently reopened — **except the one founder-signed reopen: `work → cost` is deliberately removed (Decision D2)** | Diff check: `work → agent-selection` dissolves (selection → core-api, §Decision D2/edge-disposition), `work → cost` removed (reasoned, founder-signed), the remaining against-grain ports + inversions unchanged; a test asserts bet-decomposition proceeds when over-cap (no `blocked`); a test asserts the unified `AgentWorkIntentRecorder` (Decision G) — one shared contract, local mirrors deleted — with `kind`-set == the schema CHECK constraint. |
 | 7 | practice-meeting deleted from its new home; no replacement | `packages/core-api/knowledge/src/practice-meeting.ts` + all references (`dispatch-bindings.ts`, `dispatch/service.ts` `runPracticeMeetingRoutine`, `dispatch`/`tool-handlers` ports, `routes/*`) removed; a test proves the builtin-routine registry no longer offers it and nothing else broke. |
 | 8 | Per-session cost is tracked + served via `AgentOrchestrationPort`; the cap gate + aggregate display are unchanged (no mirror deleted — none exists) | Test: (a) a completed session's per-session cost is recorded by agent-orchestration and served via `AgentOrchestrationPort` (today `tasks.ts` returns `cost: null`); (b) the cost-cap gate (`checkCostCap`/`recordCostAndCheck`) still blocks at/over cap and its `costActual` columns are intact; (c) existing bet/routine/team/agent aggregate cost still renders unchanged; (d) nothing reads a cost value from a duplicate store (there is none). |
-| 9 | A documented + **enforced** practice for a new orchestration→core edge | (a) Doc states the rule. (b) The guard (§9 Inc 8) fails CI on a new orchestration→core read port **or a new composition-bundle core-read** (incl. the `cost` `CostDeps` pattern); a test proves it fires. |
+| 9 | A documented + **enforced** practice for a new orchestration→core edge | (a) Doc states the rule. (b) The guard (§9 Inc 9) fails CI on a new orchestration→core read port **or a new composition-bundle core-read** (incl. the `cost` `CostDeps` pattern); a test proves it fires. |
 | 10 | The generic realtime broadcaster is retired; notifications intact; session activity streams from agent-execution gatewayed by orchestration | (a) the WS cost-forward is removed and notifications still fire the persisted row (test); (b) discrete changes use the minimal invalidation signal, no generic broadcaster; (c) an integration test observes a session stream served by `agent-execution` via the `AgentOrchestrationPort` gateway, and `SessionActivityBuffer` no longer lives in orchestration. |
 
 Floor: `npm run verify` green; service-lane integration tests cover the loop, the write seam, both failure
@@ -545,7 +547,7 @@ broadcaster); build the (c) session/harness streaming capability owned by `agent
 `agent-orchestration`, exposed via `AgentOrchestrationPort`; move `SessionActivityBuffer` out of orchestration
 into `agent-execution`. Notifications (a) untouched.
 
-**Increment 7b — Credentials/filesystems provisioning split (Decision F2).** Move the provisioning operation
+**Increment 8 — Credentials/filesystems provisioning split + agent-selection dissolution (Decisions F1/F2).** Move the provisioning operation
 (`connections.{build,apply}ProvisioningPlan`, `filesystems.{listFilesystems, startWatcher}`) into
 orchestration, reading the connection/filesystem **record** via `CoreApiPort` at launch; leave the records +
 their human-config routes/UI (`/api/connections`, `/api/filesystems`, `SettingsConnections`,
@@ -553,7 +555,7 @@ their human-config routes/UI (`/api/connections`, `/api/filesystems`, `SettingsC
 `agent-selection` as a standalone Service (Decision F1); `selectAgent` relocates into core-api's emit-time
 resolution (part of Increment 3).
 
-**Increment 8 — Re-baseline + MANDATORY anti-regrowth guard + docs.**
+**Increment 9 — Re-baseline + MANDATORY anti-regrowth guard + docs.**
 Extend `generate-dependency-graph.ts` to **see the composition-bundle pattern** + add `seam-write`/
 `pushed-payload` edge-types + recognize `agent_run_admission_failed`; re-run; update
 `plans/AU19/as-is-dependency-graph.md` + JSON (replace 48/22); confirm the phantom edge absent. Ship the guard
@@ -623,6 +625,20 @@ method in `edge-disposition.md` has a backing route + a passing contract test.
   core-side; `dispose` builtin-routine bodies; `delete` practice-meeting path; `reroute` assistant-turn writes
   to the seam.
 - `packages/core-api/knowledge/src/practice-meeting.ts`: `delete` (+ all references).
+- **Cost cap (Decision D2):** `work/src/ports.ts` — `remove` the `CostCapChecker` port (`:181-199,283`);
+  `work/bet-decomposition.ts:486-492` — `delete` the `checkCostCap` pre-flight + `if (!capResult.allowed)
+  markTerminal(...)` block (decomposition proceeds unconditionally). No other core-api cost-block exists.
+- **Agent-selection (Decision F1):** `remove` the `work → agent-selection` `AgentSelectionDefaults` port
+  (`work/src/ports.ts`, `bet-decomposition.ts:223,418`); `move` `selectAgent` into core-api emit-time
+  resolution; `fold` `isAtCapacity` into provision-time concurrency; retire `agent-selection` as a Service.
+- **Credentials/filesystems (Decision F2):** `move` the provisioning op
+  (`connections.{build,apply}ProvisioningPlan`, `filesystems.{listFilesystems, startWatcher}`) into
+  orchestration reading the record via `CoreApiPort`; `keep` the records + `/api/connections`, `/api/filesystems`
+  routes + `SettingsConnections`/`SettingsFilesystems` UI in core-api.
+- **Recorder unification (Decision G):** `widen` `@hyperidle/shared`'s `AgentWorkIntentRecorderInput` to the
+  full seven-kind union; `delete` the local mirrors in `work/src/ports.ts` (`WorkAgentWorkIntentInput`/`Record`/
+  local `AgentWorkIntentRecorder`) and `review/src/ports.ts` (`ReviewAgentWorkIntent*`); every caller imports the
+  one shared type (`tsc`-enforced) + a kind-set == schema-CHECK test.
 - **Cost (Decision D) — addition only, NO column deletion.** There is no cost mirror (§6 D): the cap gate
   reads `users`/`teamMembers.costActual` and the aggregate columns are the sole per-entity stores. `keep` all
   four `costActual`/`costActualMinor` columns + their writers (`cost-cap.ts`, `user-store.ts`, `team-lookup.ts`,
@@ -661,11 +677,11 @@ tool-handlers-bindings}.ts`; the emitting core-api Service packages; `packages/c
 Application composition roots (colocated boot + remote-server); `scripts/generate-dependency-graph.ts` +
 `plans/AU19/*`; `packages/db/src/schema.ts` (cost-mirror columns); `packages/core-api/realtime/*` +
 `packages/core-api/notifications/src/install.ts` (Decision E); `packages/agent-execution/*` (session-stream
-owner); `packages/web/src/services/ws-client.ts` + cost/session UI (new door + minimal signal). **AU20 coordination:** none open (AU20 merged), but cross-check `log_task` + duplicate-read
+owner); `packages/web/src/services/ws-client.ts` + cost/session UI (new door + minimal signal); `packages/core-api/work/src/{ports.ts,bet-decomposition.ts}` (D2 cost-block removal, F1 selection port); `packages/core-api/review/src/ports.ts` + `packages/shared/src/agent-work-intent-recorder.ts` (G recorder unification); `packages/agent-orchestration/{agent-selection,cost}/src/*` (F1 dissolve, D cap gate); `packages/core-api/{connections,filesystems}/src/*` + `run-orchestration` provisioning (F2). **AU20 coordination:** none open (AU20 merged), but cross-check `log_task` + duplicate-read
 cases against AU20's shipped diff before re-touching.
 
 ## 16. Risks & open questions
-- **R1 (highest) — scope/effort. XL, unchanged by AU20** (§18). Mitigated by 9 independently-shippable
+- **R1 (highest) — scope/effort. XL, unchanged by AU20** (§18). Mitigated by 10 independently-shippable
   increments + Inc 3's per-family split + Inc 4/5's per-routine split.
 - **R2 — the graph blindness (§3).** If Inc 0 enumerates from the graph instead of source, the largest read set
   is missed and the WP "passes" hollow. Mitigation: AC #2a + AC #5 + the guard all require seeing the
@@ -691,11 +707,12 @@ cases against AU20's shipped diff before re-touching.
   Decision E is not mistaken for having settled it.
 
 ## 17. Feasibility reference
-See `feasibility.md` (re-derived): Probe 0 (graph blindness) **GO-WITH-WARNING**; Probe 1 (injectable-`fetch`,
-bare `AppType`) **GO**; Probe 2 (seam home) **GO-WITH-CONSTRAINT**; Probe 3 (resolve-at-emit + collapse; new
-pre-handoff channel; `taskDispatchAttempts` = work-owned) **GO-WITH-CHANGE**; Probe 4 (dispatch monolith)
-**GO-WITH-COST**; Probe 5 (practice-meeting delete-from-knowledge) **GO**; Probe 6 (cost display API)
-**GO-WITH-DISCOVERY**.
+See `feasibility.md` (re-derived): Probe 0 (graph blindness — now closed by the built scanner)
+**GO-WITH-WARNING**; Probe 1 (injectable-`fetch`, bare `AppType`) **GO**; Probe 2 (seam home)
+**GO-WITH-CONSTRAINT**; Probe 3 (resolve-at-emit + collapse; new pre-handoff channel; `taskDispatchAttempts` =
+work-owned) **GO-WITH-CHANGE**; Probe 4 (dispatch monolith) **GO-WITH-COST**; Probe 5 (practice-meeting
+delete-from-knowledge) **GO**; Probe 6 (NO cost mirror; per-session-cost gap) **GO — frame corrected**; Probe 7
+(retire the realtime broadcaster; session stream in `agent-execution`) **GO**.
 
 ## 18. Effort / complexity call — **XL (reaffirmed; not reduced by AU20)**
 The consumed *surface* shrank ~65% (139→48 DI edges; 45→15 visible cross-layer edges; 31→23 services), and the
@@ -721,10 +738,11 @@ count: **37** edges, not 15 — and revealed **two more hidden read-heavy consum
 than previously scoped (session-requests + run-orchestration + agent-selection + dispatch), which reinforces —
 not lowers — the XL call. The 2026-07-27 founder decisions net roughly neutral on build effort: `work → cost`
 removal (Decision D2) is a small deletion that *simplifies* (a port + a block gone); `agent-selection`
-dissolution (F1) *removes* a Service; the credentials/filesystems split (F2, Increment 7b) is bounded. The one
+dissolution (F1) *removes* a Service; the recorder unification (Decision G) is a small refactor folded into the
+Decision-B emit path (Increment 3); the credentials/filesystems split (F2, Increment 8) is bounded. The one
 genuinely additive piece — the cross-layer **settings reorg (F3)** — is scoped as its **own `/design` pass /
 follow-up WP**, dependent on the `AgentOrchestrationPort` door, so it does not inflate AU21's build increments;
-it is a named downstream design dependency, not in-scope build here. Net: still **XL**, **9 independently-shippable increments** — driven by the
+it is a named downstream design dependency, not in-scope build here. Net: still **XL**, **10 independently-shippable increments** — driven by the
 behavioral core (drain read-deletion across four consumers, routine collapse, dispatch untangle) and Decision
 E, not by Decision D. Summary for
 `/work-planning`: the consumed surface got smaller, the behavioral core did not, and the four-Layer

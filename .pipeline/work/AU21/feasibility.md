@@ -31,9 +31,10 @@ so this composition-bundle pattern is invisible to it. **The same blindness recu
 (its `CostDeps` bundle wires orchestration cost logic into `users`/`teamMembers`/`bets` via `cost-bindings.ts`;
 see Probe 6) — so the guard must catch the pattern generally, not just `session-requests`.
 
-**Verdict: GO-WITH-WARNING.** The heart of Decision B is fully intact and unbuilt. Two consequences bind the
+**Verdict: GO-WITH-WARNING.** The heart of Decision B is fully intact and unbuilt. (Consequence (i) is now
+done: `scripts/scan-hidden-composition-edges.ts` enumerated all 37 edges from source — see `edge-disposition.md`.) Two consequences bind the
 plan: (i) Increment 0 must enumerate reads from the **real source**, never the graph; (ii) the AC #5 rebaseline
-and the AC #7 anti-regrowth guard must be taught to *see the composition-bundle pattern*, or the WP will
+and the AC #9 anti-regrowth guard must be taught to *see the composition-bundle pattern*, or the WP will
 "pass" while the largest read set stays hidden.
 
 ## Probe 1 — Location-transparent transport over the literal core-api route stack — GO (runtime route-identity, not type-safety)

@@ -35,15 +35,16 @@ enumerated** — `agent-selection` (roster reads for agent selection) and `run-o
 runtime, the single largest hidden consumer at 8 providers). It also surfaced **capabilities that do not
 fit §7's five categories** — `run-orchestration → connections` (provisioning credentials) and
 `run-orchestration → filesystems` (sandbox mount/watch): these are *session-launch infrastructure*, not
-domain reads/writes. A **sixth §7 category** is added below for them, flagged for a founder call.
+domain reads/writes. A **sixth §7 category** is added below for them — **since resolved by Decision F2**
+(the provisioning *operation* moves to orchestration, reading the core-api *record* via the seam).
 
 ## §7 disposition categories (recap, + the new one)
 1. **dead/duplicate** → remove. 2. **decision-time domain read** → resolve-at-emit inside core-api + delete
 the orchestration read (Decision B). 3. **agent-selection input** → baked at emit (Decision B step 1).
 4. **agent-as-user read/write** → `CoreApiPort` seam (Decision A/C). 5. **failure/terminal signal** → event
 (`agent_run_admission_failed` / `session_ended`) (Decision B5). **6 (NEW) — session-launch infrastructure**
-(credentials/provisioning, sandbox mount): does not fit 1–5; **flagged for a founder call** (legitimate
-orchestration→core coupling like the cost-cap exemption, vs. baked-at-emit).
+(credentials/provisioning, sandbox mount): does not fit 1–5 — **RESOLVED by Decision F2** (record stays
+core-api, provisioning operation moves to orchestration reading the record via the seam at launch).
 
 ---
 
@@ -116,8 +117,8 @@ Wired at `run-orchestration-composition.ts`. **Largest hidden consumer.** Splits
 | work.{transitionTask, update} | **§5 event** | session-end task-state writeback → already partly via `session_ended → policy [task_state_changed]`; route the rest through the event, not a direct core write |
 | routine.{updateRoutineRun, updateRoutine} | **§5 event + Decision B″** | routine run/def writeback on session end → routine-runs-as-sessions collapse (ruling #4); outcome via events |
 | routine.incrementRoutineCost | **Decision D — untouched** | cost accumulator (display aggregate); no mirror deletion, cap/accounting stays (Decision D) |
-| connections.{applyProvisioningPlan, buildProvisioningPlan} | **RESOLVED — Decision F2** | provisioning **operation** moves to orchestration; it reads the connection **record** via `CoreApiPort` at launch (the record stays core-api for the human config surface `SettingsConnections` → `/api/connections`). Not a bake, not an exemption — a seam read + orchestration-owned op. (Increment 7b) |
-| filesystems.{listFilesystems, startWatcher} | **RESOLVED — Decision F2** | sandbox mount/watch **operation** moves to orchestration; reads the filesystem **record** via `CoreApiPort` (record stays core-api for `SettingsFilesystems`). The existing `filesystems → run-orchestration [sandbox_writeback_changes_detected]` event stays. (Increment 7b) |
+| connections.{applyProvisioningPlan, buildProvisioningPlan} | **RESOLVED — Decision F2** | provisioning **operation** moves to orchestration; it reads the connection **record** via `CoreApiPort` at launch (the record stays core-api for the human config surface `SettingsConnections` → `/api/connections`). Not a bake, not an exemption — a seam read + orchestration-owned op. (Increment 8) |
+| filesystems.{listFilesystems, startWatcher} | **RESOLVED — Decision F2** | sandbox mount/watch **operation** moves to orchestration; reads the filesystem **record** via `CoreApiPort` (record stays core-api for `SettingsFilesystems`). The existing `filesystems → run-orchestration [sandbox_writeback_changes_detected]` event stays. (Increment 8) |
 
 ---
 
@@ -153,7 +154,7 @@ core-api's business decision; `selectAgent` reads only core-api roster, so it fo
 resolution. `isAtCapacity` (active-session count vs `maxConcurrentSessions`) folds into provision-time
 concurrency. The against-grain `work → agent-selection` `AgentSelectionDefaults` port **ceases to exist**
 (selection is core-api's own logic now — a dissolution, not a reopen). `agent-selection` likely does not
-survive as a standalone Service. (Increment 3 relocates `selectAgent`; Increment 7b folds `isAtCapacity`.)
+survive as a standalone Service. (Increment 3 relocates `selectAgent`; Increment 8 folds `isAtCapacity`.)
 
 ---
 
