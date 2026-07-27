@@ -80,7 +80,13 @@ state — it is merely **housed** in an orchestration package. The boundary is b
 founder's complaint. AU21 resolves the blur by deciding ownership (§6 B) rather than by re-plumbing a read that
 the graph happens not to show. A second, smaller instance of the same blindness is the `cost` service's
 `CostDeps` (§6 D) — orchestration's cost logic reading/writing core-api tables via a core-api-composed bundle,
-also invisible to the mechanical graph.
+also invisible to the mechanical graph. **This blindness is now closed mechanically:**
+`scripts/scan-hidden-composition-edges.ts` (built + run for AU21, generalized to any consumer) detects the
+composition-bundle pattern and, cross-checked against source, produces the complete enumeration — **37**
+distinct `agent-orchestration → core-api` edges (15 the old graph saw + 22 hidden), across **six** consumers
+including two the graph showed as zero and the paused analysis never enumerated: `agent-selection` and
+`run-orchestration` (the session runtime, the largest hidden consumer). Full worklist + per-edge dispositions:
+`.pipeline/work/AU21/edge-disposition.md`.
 
 ## 4. Fixed inputs (not re-litigated)
 - AU19's remaining against-grain DI ports + EventBus inversions stand as decided. The one that vanished
@@ -359,18 +365,26 @@ session-stream paths.
 → write-tests (red) → write-code (green) → review → verify → **clean commit**, before the next. Fresh agents
 per increment; each leaves `main` green. No mega-build.
 
-**Increment 0 — Re-establish the worklist + rulings (BLOCKER).**
-- Enumerate every real `agent-orchestration → core-api` read/write from **source**, not the graph — the 15
-  visible edges (`dispatch`, `tool-handlers`) **plus** the hidden `DurableAgentQueueDeps` read set in
-  `session-requests` (§3). For each: classify per §7 and record what emit bakes vs. what the agent pulls live.
-- Rule on: (i) where `resolveIntentInputInternal`'s resolution code physically lands (§6 B note); (ii)
-  `routineRuns` collapse shape (§6 B″); (iii) per-builtin-routine disposition (§6 B′); (iv) the target-agent
-  runnability provision-time cover.
-- Design `agent_run_admission_failed` (shape + subscribers + how each finalizes its own state) and confirm it
-  clears the EventBus-inversion bar without reopening AU19.
-- Design the anti-regrowth guard to catch **both** a new `ports.ts` core-read **and** a new composition-bundle
-  core-read (the pattern that hid today's largest read set).
-- Commit `edge-disposition.md`. Cross-reference AU20. **Gate:** disposition begins after commit + review.
+**Increment 0 — Execute/verify the already-designed worklist (BLOCKER, reduced).**
+The worklist is **already built and committed** — `edge-disposition.md` enumerates all **37** distinct
+`agent-orchestration → core-api` edges (15 the graph saw + 22 hidden across `session-requests`, `cost`,
+`run-orchestration`, `agent-selection`), each with a §7 verdict + reasoning, produced by
+`scripts/scan-hidden-composition-edges.ts` (a real, generalized, run detector — §3) cross-checked against
+source. Increment 0 does **not** re-discover; it:
+- Verifies the disposition list against the current tree (re-run the scanner; confirm no drift) and gets the
+  reviewer's sign-off on `edge-disposition.md`.
+- Resolves the three founder-call open questions `edge-disposition.md` flags: (i) `run-orchestration`'s §6
+  session-launch-infrastructure reads (`connections` provisioning, `filesystems` sandbox) — allowlist vs.
+  bake; (ii) `agent-selection`'s Service fate under emit-time selection; (iii) confirm the whole `cost`
+  consumer as the founder-signed cap-gate exemption.
+- Rules on the mechanics already scoped: (a) where `resolveIntentInputInternal`'s resolution lands (§6 B);
+  (b) `routineRuns` collapse shape (§6 B″); (c) per-builtin-routine disposition (§6 B′); (d) target-agent
+  runnability cover.
+- Designs `agent_run_admission_failed` (shape + subscribers) and confirms it clears the EventBus-inversion bar.
+- Folds `scan-hidden-composition-edges.ts` into `generate-dependency-graph.ts` and turns it into the
+  anti-regrowth guard (catches a new `ports.ts` core-read **and** a new composition-bundle core-read; allowlist
+  = only the founder-signed flags). **Gate:** disposition-execution (Inc 2–5) begins after the reviewer signs
+  `edge-disposition.md` + the founder answers the three §6 flags.
 
 **Increment 1 — `CoreApiPort` write seam + transport + contract-test harness; prove one write.**
 Add `CoreApiPort` (interfaces only) to `@hyperidle/api-contract` seeded with `work.createBet`; expose core-api's
@@ -584,7 +598,13 @@ single authority writing per-aggregate running totals into core-api tables via D
 nothing is dead or duplicated). D reduces to a **bounded** per-session-cost capability + the narrowed
 `AgentOrchestrationPort`. **Decision E is the real added work**: retiring the generic broadcaster (the redundant
 cost-forward deletion is trivial), a minimal discrete-change signal, and a scoped `agent-execution`-owned
-session stream. Net: still **XL**, **9 independently-shippable increments** — driven by the behavioral core
-(drain read-deletion, routine collapse, dispatch untangle) and Decision E, not by Decision D. Summary for
+session stream. The mechanical hidden-edge scan (§3, `scan-hidden-composition-edges.ts`) moved the worklist *into*
+architecture (Increment 0 shrinks from "discover + decide" to "verify + rule on 3 flags"), but it also grew the
+count: **37** edges, not 15 — and revealed **two more hidden read-heavy consumers** (`run-orchestration`,
+`agent-selection`) the paused analysis never enumerated. So the Decision-B read-deletion surface is *larger*
+than previously scoped (session-requests + run-orchestration + agent-selection + dispatch), which reinforces —
+not lowers — the XL call. Net: still **XL**, **9 independently-shippable increments** — driven by the
+behavioral core (drain read-deletion across four consumers, routine collapse, dispatch untangle) and Decision
+E, not by Decision D. Summary for
 `/work-planning`: the consumed surface got smaller, the behavioral core did not, and the four-Layer
 door/streaming model is in scope — but the cost piece is a per-session gap, not a mirror teardown.
