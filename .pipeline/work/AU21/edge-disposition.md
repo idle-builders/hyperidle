@@ -173,6 +173,10 @@ survive as a standalone Service. (Increment 3 relocates `selectAgent`; Increment
 - **Removed against-grain edge (Decision D2):** `work → cost` `CostCapChecker` — deleted; core never blocks on
   cost. `work → agent-selection` — dissolves (F1). Both are core→orchestration (reverse) edges, noted here
   because AU21 now removes them; neither is in the 37 agent-orch→core list.
+- **Canonical recorder (Decision G):** `work → session-requests` + `review → session-requests` are NOT two
+  exceptions — they are the one `AgentWorkIntentRecorder` mechanism (`enqueueWorkIntent`/`agent_work_intents`,
+  `kind`-discriminated; `work/ports.ts:143`, `review/ports.ts:52`, canonical in `shared/agent-work-intent-recorder.ts:65`).
+  Unify onto the one shared contract, delete the local mirrors, `tsc`-enforced + a kind-set == schema-CHECK test.
 
 ## Founder-resolved (2026-07-27) — formerly open questions
 1. **Session-launch infrastructure (§6):** RESOLVED — Decision F2 (record stays core-api, provisioning op →

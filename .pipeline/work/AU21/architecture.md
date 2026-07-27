@@ -41,7 +41,10 @@ are fine — but the *default* must be seam / push / self-recovery.
 - `practice-meeting` relocated `review → knowledge` (`packages/core-api/knowledge/src/practice-meeting.ts`).
 - One AU19 permanent against-grain port disappeared: `policy → session-requests` is gone. The remaining four
   against-grain DI ports are `work → session-requests` (`AgentWorkIntentRecorder`), `work → agent-selection`
-  (`AgentSelectionDefaults`), `work → cost` (`CostCapChecker`), `review → session-requests`.
+  (`AgentSelectionDefaults`), `work → cost` (`CostCapChecker`), `review → session-requests`. **`work →
+  session-requests` and `review → session-requests` are NOT two independent exceptions — they are the same
+  canonical `AgentWorkIntentRecorder` mechanism (one `enqueueWorkIntent`/`agent_work_intents` operation,
+  `kind`-discriminated), counted as two edges only by pair-counting. See Decision G.**
 - Rich post-session report-back events exist: `run-orchestration → policy`/`review` on `session_ended`
   (`packages/shared/src/events.ts:86`); `agent_run_lifecycle_changed` (`events.ts:25`).
 
@@ -373,6 +376,61 @@ used everywhere. This is real UI/IA design (screen reorg, not just a data-source
 scoped `/design` pass** — flagged here, not resolved inline. Recommend a dedicated design WP (or an AU21 design
 phase) once the two doors exist; it depends on Decision D/E landing the `AgentOrchestrationPort` surface.
 
+### Decision G — There is ONE canonical "request an agent session" mechanism; "two permanent exceptions" is a mechanical-audit artifact (verified from source)
+The founder asked why `work → session-requests` and `review → session-requests` are two "permanent
+exceptions" rather than one uniform mechanism. Traced from real source — **they are one mechanism, not two.**
+
+**The three "recorders" are the same interface.** `work`'s `AgentWorkIntentRecorder.record(tx, input):
+Promise<{id, idempotencyKey}>` (`packages/core-api/work/src/ports.ts:143-145`), `review`'s
+`ReviewAgentWorkIntentRecorder.record(tx, input): Promise<{id, idempotencyKey}>`
+(`packages/core-api/review/src/ports.ts:52-58`), and the canonical `AgentWorkIntentRecorder<TTx>.record(tx,
+input): Promise<{id, idempotencyKey}>` (`packages/shared/src/agent-work-intent-recorder.ts:65-71`) are
+**structurally identical** — same method, same `WriteExecutor`/`tx` arg, same `{id, idempotencyKey}` return.
+Their `*Input` types have the **identical field structure** `{kind, sourceKind, sourceId, requestedBy?,
+idempotencyKey}` (`work/ports.ts:121-135`, `review/ports.ts:44-50`, `shared/agent-work-intent-recorder.ts:44-64`)
+— they differ **only** in which `kind`/`sourceKind` literals each caller uses (work: `bet_decomposition`/
+`task_run`; review: `reengagement`; shared: `assistant_turn`/`session_start`). That is a discriminated union,
+not three shapes.
+
+**One table, one operation, one concrete impl.** All resolve to the same `enqueueWorkIntent`
+(`session-requests/src/service.ts:1759`) → `insertIntentInternal` (`:1042`) → `.insert(agentWorkIntents)`
+(`:1057`). The `agent_work_intents` table (`packages/db/src/schema.ts:381`) has one `kind` column with a CHECK
+constraint enumerating **all seven** canonical kinds (`schema.ts` ≈`:415`:
+`assistant_turn, session_start, knowledge_action, routine_run, bet_decomposition, task_run, reengagement`).
+Every caller wires `record` to that one `enqueueWorkIntent`: routes/threads.ts (assistant_turn, via the shared
+`AgentWorkIntentRecorder<HyperIdleDb>`), routes/sessions-routes.ts (session_start), routes/bets.ts,
+work/bet-decomposition.ts (`enqueueWorkIntent(tx, …)`), review, policy/handoff-protocol.ts (task),
+routes/knowledge.ts (knowledge_action), dispatch (routine_run, intra-layer). One mechanism, `kind`-discriminated,
+atomic with each caller's own domain write.
+
+**Why it was labeled "two exceptions" — mechanical, not substantive.** AU19's dependency graph counts
+**Service-pair** DI edges. `work → session-requests` and `review → session-requests` are two distinct
+Service-pairs, so the pair-counter records two edges each "needing justification." The justification is **one
+and the same** — a same-transaction atomic intent write an `eventBus.emit()` cannot serve (`work/ports.ts:69-93`,
+`agent-work-intent-recorder.ts:29-32`). There is **no substantive difference**: same operation, same table, same
+interface, same impl. The "N exceptions" count is an artifact of pair-counting a single canonical mechanism with
+multiple callers.
+
+**The local mirrors are redundant, NOT Mechanism-C-forced.** The canonical port already lives in the sanctioned
+shared package `@hyperidle/shared` (a leaf every Service depends on — where `HarnessPort` also lives).
+`work` and `review` both depend on `@hyperidle/shared` (their `package.json`), and `work/ports.ts:110` already
+imports other symbols (`EventBus, UserRole`) from it — yet both **re-declare** their own recorder locally
+instead of importing the canonical one. The re-declaration exists only because the shared
+`AgentWorkIntentRecorderInput` was scoped to AC-9's two kinds (`assistant_turn`/`session_start`) and never
+widened to the full seven.
+
+**Design — unify onto the one shared contract (enforced, not by convention):**
+- Widen `@hyperidle/shared`'s `AgentWorkIntentRecorderInput` to the **complete seven-kind discriminated union**
+  (matching the schema CHECK constraint), and keep the one generic `AgentWorkIntentRecorder<TTx>`.
+- Every caller (`work`, `review`, and — post-collapse — `routine`) imports that one type and **deletes its local
+  mirror** (`WorkAgentWorkIntentInput`/`WorkAgentWorkIntentRecord`/work's local `AgentWorkIntentRecorder`;
+  `ReviewAgentWorkIntentInput`/`ReviewAgentWorkIntentRecord`/`ReviewAgentWorkIntentRecorder`). Because they all
+  reference the **same** type, `tsc` enforces conformance mechanically — no convention.
+- Add a **test** asserting the shared union's `kind` members exactly equal the schema's `agent_work_intents`
+  CHECK-constraint kinds, so kind drift is caught mechanically (not documented and hoped-for).
+- This is the same port Decision B grows to carry the baked start-payload — so unification and the Decision-B
+  emit path are the same edit. It is **one** canonical against-grain mechanism, counted once.
+
 ## 7. Disposition rule (applied to every capability in Increment 0's worklist)
 Per capability behind an `agent-orchestration → core-api` read/write (visible in the graph **or** hidden in a
 composition-bundle like `DurableAgentQueueDeps`), in order:
@@ -398,7 +456,7 @@ authority (§6 B, provision-time cover) and (ii) any Decision-D display query th
 | 3 | Every read/write in the regenerated worklist gets a disposition surviving re-challenge | `edge-disposition.md`: each capability + verdict + §7 disposition + reasoning; reviewer confirms. Post-fix graph shows each former read gone/baked and each write seam-routed; the new failure event shows as an against-grain EventBus inversion. |
 | 4 | Phantom `session-requests → settings` absent everywhere | `grep` → zero hits (confirm; not in the current graph). |
 | 5 | `generate-dependency-graph.ts` re-run; new baseline **sees the composition-bundle reads** and distinguishes seam-write / pushed-payload / raw-DI; replaces 48/22 | Run the script; assert (i) it now surfaces `DurableAgentQueueDeps`-style hidden edges, (ii) distinct edge-types, (iii) the new inversion; docs byte-consistent with JSON. |
-| 6 | AU19's surviving permanent ports not silently reopened — **except the one founder-signed reopen: `work → cost` is deliberately removed (Decision D2)** | Diff check: `work → agent-selection` dissolves (selection → core-api, §Decision D2/edge-disposition), `work → cost` removed (reasoned, founder-signed), the remaining against-grain ports + inversions unchanged; a test asserts bet-decomposition proceeds when over-cap (no `blocked`). |
+| 6 | AU19's surviving permanent ports not silently reopened — **except the one founder-signed reopen: `work → cost` is deliberately removed (Decision D2)** | Diff check: `work → agent-selection` dissolves (selection → core-api, §Decision D2/edge-disposition), `work → cost` removed (reasoned, founder-signed), the remaining against-grain ports + inversions unchanged; a test asserts bet-decomposition proceeds when over-cap (no `blocked`); a test asserts the unified `AgentWorkIntentRecorder` (Decision G) — one shared contract, local mirrors deleted — with `kind`-set == the schema CHECK constraint. |
 | 7 | practice-meeting deleted from its new home; no replacement | `packages/core-api/knowledge/src/practice-meeting.ts` + all references (`dispatch-bindings.ts`, `dispatch/service.ts` `runPracticeMeetingRoutine`, `dispatch`/`tool-handlers` ports, `routes/*`) removed; a test proves the builtin-routine registry no longer offers it and nothing else broke. |
 | 8 | Per-session cost is tracked + served via `AgentOrchestrationPort`; the cap gate + aggregate display are unchanged (no mirror deleted — none exists) | Test: (a) a completed session's per-session cost is recorded by agent-orchestration and served via `AgentOrchestrationPort` (today `tasks.ts` returns `cost: null`); (b) the cost-cap gate (`checkCostCap`/`recordCostAndCheck`) still blocks at/over cap and its `costActual` columns are intact; (c) existing bet/routine/team/agent aggregate cost still renders unchanged; (d) nothing reads a cost value from a duplicate store (there is none). |
 | 9 | A documented + **enforced** practice for a new orchestration→core edge | (a) Doc states the rule. (b) The guard (§9 Inc 8) fails CI on a new orchestration→core read port **or a new composition-bundle core-read** (incl. the `cost` `CostDeps` pattern); a test proves it fires. |

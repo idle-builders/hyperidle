@@ -121,6 +121,14 @@ screens for this." 17 screens today span both layers; a unified surface backed b
 + `AgentOrchestrationPort`), Application-composed. Flagged as a **scoped design pass**, not resolved inline
 (architecture.md Decision F).
 
+**5. "Two permanent exceptions" for requesting an agent session is a mechanical-audit artifact — there is ONE
+canonical mechanism.** Verified from source: `work → session-requests` and `review → session-requests` are the
+same `AgentWorkIntentRecorder` operation (one `enqueueWorkIntent` → `agent_work_intents`, `kind`-discriminated;
+same interface shape, same `{id, idempotencyKey}` return), counted as two edges only because AU19's graph
+counts Service-pairs. The canonical port already lives in `@hyperidle/shared`; `work`/`review` merely
+re-declare redundant local mirrors. This supersedes the "5 permanent DI ports" framing above for these two:
+they are one mechanism with multiple callers. Unify onto the one shared contract (architecture.md Decision G).
+
 ## AC alignment table (against `plan.md`'s updated Acceptance Criteria)
 
 | # | Acceptance criterion (plan.md, post-redirect) | How this requirement covers it | Gap flag |
