@@ -121,8 +121,9 @@ agent-orchestration (durable queue)  ── claims/writes ONLY its own dedup row
    ▼                                                              ▼
 agent-execution  ── runs the session (LLM / harness / MCP)
    │  ★ SELF-RECOVERY: the running agent pulls CURRENT reality live via MCP / CoreApiPort tools; if reality
-   │    contradicts its instructions it adjusts or reports the request stale. (A deactivated agent fails at
-   │    provision-time credential context — no stale-authority run proceeds.)
+   │    contradicts its instructions it adjusts or reports the request stale. (A deactivated agent fails
+   │    provisioning — reported via the SAME pre-handoff agent_run_admission_failed channel below,
+   │    failureCode TARGET_AGENT_NOT_RUNNABLE — no bespoke race handling, no stale-authority run proceeds.)
    │  ★ CONTINUED PUSH (Decision B‴): if the fact changes while work is OUTSTANDING, core-api RE-EMITS the
    │    request (same door, push-only). Orchestration, from its OWN state: not-started → supersede the pending
    │    request (freshest baked payload wins); running → deliver on next turn (follow-up session). True mid-run
@@ -664,9 +665,17 @@ method in `edge-disposition.md` has a backing route + a passing contract test.
 - **Auth/actor on agent writes** — the seam carries the agent's owning identity as route actor
   (`c.get("userId")`); a test asserts it. Per-agent authorization is the deferred follow-up; this WP must not
   regress actor correctness.
-- **Target-agent runnability under self-recovery + emit→deactivate→drain race** — provision-time credential-
-  context failure (a deactivated agent cannot provision valid identity); a test asserts a deactivated agent's
-  run does not proceed with authority. Founder confirms at the concept gate.
+- **Target-agent runnability under self-recovery + emit→deactivate→drain race — RESOLVED (founder, 2026-07-27):
+  no new mechanism, reuse the existing pre-handoff failure channel.** If the agent resolved at emit is
+  deactivated by the time orchestration goes to provision the session, that's a provisioning failure like any
+  other (it cannot obtain valid credential/identity context) — orchestration reports it back to core-api via
+  the same `agent_run_admission_failed` pre-handoff channel (§6 B4/§10) with a dedicated `failureCode` (e.g.
+  `TARGET_AGENT_NOT_RUNNABLE`), and core-api decides retry/abandon exactly as it does for every other
+  pre-handoff failure (`MAX_ATTEMPTS_EXCEEDED`, `INVALID_WORK_SOURCE`, bad payload). No bespoke race-handling,
+  no new event, no supersede/cancel logic reaching back into orchestration's queue — deactivation is just
+  another entry in the same failure-code enum. A test asserts a deactivated agent's run fails to provision,
+  emits `agent_run_admission_failed{failureCode:"TARGET_AGENT_NOT_RUNNABLE"}`, and never proceeds with
+  authority.
 - **Stale-payload trust** — a test asserts a payload for a since-deleted source leads to the agent discovering
   it via MCP and reporting back, never a fallback orchestration core read.
 - **Decision D cost query** — the new `core-ui → agent-orchestration` surface reads display data only; no core
