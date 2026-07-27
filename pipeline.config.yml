@@ -1,44 +1,24 @@
-# pipeline.config.yml — the repo-specific bindings the pipeline skills read.
-# The skills (installed via the `pipeline@agent-pipeline` plugin) reference these
-# values as {{verify}}, {{paths.docs}}, {{models.review}}, … instead of
-# hardcoding anything HyperIdle-specific.
-
-# The single command that must pass before a work package can ship.
 verify: "npm run verify"
 
-# Where the code lives. Monorepo: source + tests live under packages/*.
 paths:
   source: ["packages/*/src/**", "packages/*/viewer/**"]
   tests: ["**/*.test.ts", "**/*.test.tsx"]
   docs: ["docs/**"]
 
-# The design system that /design, /design-critique, /human-concept-review, and
-# /visual-polish render and score against.
 designSystem:
   path: "packages/design-system"
   tokens: "packages/design-system/src/tokens.css"
 
-# Version control + where /ship opens PRs and waits for CI.
 vcs: github
 
-# Engineering tier — calibrates RIGOR, not size. prototype | mvp | production | critical.
-# HyperIdle is MVP-stage: shipping toward a functional beta, not production hardening or
-# enterprise scale. Every WP inherits this unless its own plan.md names an explicit,
-# maintainer-argued override. Downstream phases (architecture, architecture-critique's
-# tier-fit dimension, review) trust this and calibrate against it directly.
 engineering:
-  tier: mvp
+  tier: production
 
-# Model ROLES, not vendor ids. high = most capable (design, review);
-# fast = quick (build).
 models:
   design: high
   review: high
   build: fast
 
-# Project rules — repo-specific guidance the generic plugin skills read as
-# BINDING (a project rule overrides the skill's generic advice on conflict).
-# This is where HyperIdle's conventions live now that the skills are unforked.
 rules:
   code: .claude/rules/typescript.md          # → write-code, architecture, review
   testing: .claude/rules/testing.md           # → write-tests, review
@@ -46,6 +26,3 @@ rules:
   frontend: .claude/rules/frontend.md         # → design, write-code, review
   visual: .claude/rules/visual-regression.md  # → design-critique, review
   aesthetics: .claude/rules/aesthetic-quality.md  # → design, design-critique
-  # architecture: <none yet>                  # → architecture, architecture-critique, review
-  # security: <none yet>                      # → review
-  # docs: <none yet>                          # → write-docs
