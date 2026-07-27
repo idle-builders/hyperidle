@@ -51,6 +51,11 @@ import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { routeItem } from "@hyperidle/work";
 import { agentSelectionService } from "./agent-selection-bindings.js";
+import {
+	buildCoreApiPort,
+	getRegisteredCoreApiTransport,
+	withActorTransport,
+} from "./core-api-port-composition.js";
 import { dispatchOps } from "./dispatch-bindings.js";
 import { handoff } from "./policy-bindings.js";
 
@@ -89,6 +94,33 @@ function provisionTeamRoutines(
  * file's own `@lore` on that function). Same "fresh object literal"
  * boundary-crossing as {@link searchKnowledgeForTool} below.
  */
+/**
+ * AU21 §9 Increment 1: `create_bet`'s `CoreApiPort` write-seam binding.
+ * Builds a fresh in-process `CoreApiPort` per call, wrapped with the
+ * CALLING agent's own identity as the route actor (§12) — never a fixed
+ * actor, since a different tool call may come from a different agent.
+ * `getRegisteredCoreApiTransport()` reads the transport registered once at
+ * boot (`server-factory.ts`) or per-test (integration test fixtures).
+ */
+function createBetThroughCoreApiPort(
+	input: {
+		readonly teamId: string;
+		readonly description: string;
+		readonly doneCondition: string | null;
+		readonly hypothesis: string | null;
+	},
+	actorId: string,
+): Promise<{ readonly id: string; readonly teamId: string; readonly status: string }> {
+	const transport = withActorTransport(getRegisteredCoreApiTransport(), { userId: actorId });
+	const port = buildCoreApiPort(transport);
+	return port.work.createBet({
+		teamId: input.teamId,
+		description: input.description,
+		doneCondition: input.doneCondition ?? undefined,
+		hypothesis: input.hypothesis ?? undefined,
+	});
+}
+
 /**
  * Collapses `resolveReviewRecipients(db, ctx, {listUsersByKind})` — see
  * `@hyperidle/tool-handlers`'s `ports.ts` top `@lore`. `org`'s real
@@ -177,7 +209,6 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	work: {
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-		createBet: (exec: WriteExecutor, input) => work.create(exec, "bet", input),
 		updateBetById: (exec: WriteExecutor, id, updates) => work.update(exec, "bet", id, updates),
 		createTask: (exec: WriteExecutor, input) => work.create(exec, "task", input),
 		updateTaskById: (exec: WriteExecutor, id, updates) => work.update(exec, "task", id, updates),
@@ -268,6 +299,7 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 		recomputeAttentionScoreForItem,
 	},
 	policy: { handoff },
+	coreApi: { createBet: createBetThroughCoreApiPort },
 };
 
 /** Production-wired tool definitions — every real call site imports this. */

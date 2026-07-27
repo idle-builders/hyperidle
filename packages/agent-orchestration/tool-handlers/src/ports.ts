@@ -6,7 +6,9 @@
  * `dispatch`) are ordinary downward-or-same-layer DI, wired by the
  * composition root (`packages/server/src/services/tool-handlers-bindings.ts`)
  * to each target's real exported functions. `policy` is also ordinary
- * same-layer DI.
+ * same-layer DI. `coreApi` (AU21 §9 Increment 1) is DIFFERENT in kind — it
+ * crosses the `CoreApiPort` write seam (a real route call), not same-process
+ * DI; see `ToolHandlersCoreApiAccessor`'s own doc comment below.
  *
  * Several call shapes COLLAPSE (not a 1:1 port-per-function mirror) because
  * Mechanism C forbids `tool-handlers` from importing the Services a tool
@@ -54,18 +56,6 @@ interface ToolHandlersWorkAccessor<TDb> {
 		{ readonly betId: string; readonly teamId: string; readonly notes: string | null } | undefined
 	>;
 	getBetById(db: TDb, id: string): Promise<{ readonly status: string } | undefined>;
-	createBet(
-		db: TDb,
-		input: {
-			readonly id: string;
-			readonly teamId: string;
-			readonly description: string;
-			readonly doneCondition: string | null;
-			readonly hypothesis: string | null;
-			readonly status: "draft";
-			readonly createdAt: string;
-		},
-	): Promise<void>;
 	updateBetById(
 		db: TDb,
 		id: string,
@@ -439,6 +429,27 @@ interface ToolHandlersPolicyAccessor<TDb> {
 	): Promise<ToolHandlersHandoffResult>;
 }
 
+/**
+ * `CoreApiPort` write-seam accessor (AU21 §9 Increment 1). Unlike every
+ * other accessor in this file, this one takes NO `TDb` — the write crosses
+ * via the seam's transport (a real `POST /bets` route call through the
+ * SAME door core-ui uses, architecture.md §6 Decision A/C), not a
+ * same-process DB handle. `actorId` carries the calling agent's own
+ * identity as the route actor (§12) — the composition root threads it onto
+ * the request, never a hardcoded/founder constant.
+ */
+interface ToolHandlersCoreApiAccessor {
+	createBet(
+		input: {
+			readonly teamId: string;
+			readonly description: string;
+			readonly doneCondition: string | null;
+			readonly hypothesis: string | null;
+		},
+		actorId: string,
+	): Promise<{ readonly id: string; readonly teamId: string; readonly status: string }>;
+}
+
 /** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts<TDb> {
 	readonly work: ToolHandlersWorkAccessor<TDb>;
@@ -450,4 +461,5 @@ export interface ToolHandlersPorts<TDb> {
 	readonly dispatch: ToolHandlersDispatchAccessor<TDb>;
 	readonly knowledge: ToolHandlersKnowledgeAccessor<TDb>;
 	readonly policy: ToolHandlersPolicyAccessor<TDb>;
+	readonly coreApi: ToolHandlersCoreApiAccessor;
 }

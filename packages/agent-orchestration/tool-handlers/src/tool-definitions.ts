@@ -1193,19 +1193,24 @@ function makeCreateBetTool<TDb>(
 			const team = await ports.org.getTeamById(ctx.db, input.teamId);
 			if (!team) return { status: "error", message: `Team not found: ${input.teamId}` };
 
-			const betId = randomUUID();
-			const now = new Date().toISOString();
-			await ports.work.createBet(ctx.db, {
-				id: betId,
-				teamId: input.teamId,
-				description: input.description,
-				doneCondition: input.doneCondition ?? null,
-				hypothesis: input.hypothesis ?? null,
-				status: "draft",
-				createdAt: now,
-			});
+			// AU21 §9 Increment 1: routes through the CoreApiPort write seam — the
+			// SAME `POST /bets` route + middleware a human caller uses — instead of
+			// the raw `ports.work.createBet` DI call (deleted). `ctx.agentId`
+			// carries the calling agent's own identity as the route actor (§12).
+			const created = await ports.coreApi.createBet(
+				{
+					teamId: input.teamId,
+					description: input.description,
+					doneCondition: input.doneCondition ?? null,
+					hypothesis: input.hypothesis ?? null,
+				},
+				ctx.agentId,
+			);
 
-			return { status: "ok", value: { betId, status: "draft" as const, teamId: input.teamId } };
+			return {
+				status: "ok",
+				value: { betId: created.id, status: "draft" as const, teamId: created.teamId },
+			};
 		},
 	};
 }

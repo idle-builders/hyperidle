@@ -323,15 +323,20 @@ describe("buildAssistantDraftRegistry — constraint injection", () => {
 			},
 			work: {
 				...STUB_TOOL_HANDLERS_PORTS.work,
-				createBet: async (_db, input) => {
-					createBetCalls.push(input as Record<string, unknown>);
-				},
 				getBetById: async (_db, betId) => {
 					if (betId === "draft-bet-1") return { status: "draft" };
 					return undefined;
 				},
 				updateBetById: async (_db, betId, updates) => {
 					updateBetCalls.push({ betId, updates: updates as Record<string, unknown> });
+				},
+			},
+			coreApi: {
+				// AU21 §9 Increment 1: create_bet now routes through `ports.coreApi`,
+				// not `ports.work.createBet` (deleted) — fake the seam call here.
+				createBet: async (input, actorId) => {
+					createBetCalls.push({ ...(input as Record<string, unknown>), actorId });
+					return { id: "fake-seam-bet-id", teamId: input.teamId, status: "draft" };
 				},
 			},
 		};

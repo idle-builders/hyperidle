@@ -83,6 +83,10 @@ import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js"
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { agentSelectionService } from "./services/agent-selection-bindings.js";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "./services/core-api-port-composition.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
 // @lore AU20 Am3: `costOps._testHooks.installDedupReleaser` removed — folded into
 // `costOps.startSentinel` (now a single call covers both the dedup releaser
@@ -1055,6 +1059,14 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			apiRouter.route("/", mcpRouter);
 		},
 	});
+
+	// AU21 §9 Increment 1: register the boot-time in-process CoreApiPort
+	// transport — `tool-handlers-bindings.ts`'s `coreApi` accessor (currently
+	// only `create_bet`) reads it via `getRegisteredCoreApiTransport()` on
+	// every call. Colocated boot uses `app.fetch` directly; a split/remote
+	// topology would register `createNetworkCoreApiTransport(baseUrl)`
+	// instead — same call site, per architecture.md §6 Decision A.
+	registerCoreApiTransport(createInProcessCoreApiTransport(app));
 
 	// Serve built frontend when HYPERIDLE_STATIC_DIR is set.
 	// The SPA falls back to index.html for client-side routing.

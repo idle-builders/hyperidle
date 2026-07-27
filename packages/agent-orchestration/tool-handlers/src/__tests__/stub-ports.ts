@@ -15,7 +15,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 	work: {
 		getTaskById: notImplemented,
 		getBetById: notImplemented,
-		createBet: notImplemented,
 		updateBetById: notImplemented,
 		createTask: notImplemented,
 		updateTaskById: notImplemented,
@@ -70,4 +69,5 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 		recomputeAttentionScoreForItem: notImplemented,
 	},
 	policy: { handoff: notImplemented },
+	coreApi: { createBet: notImplemented },
 };

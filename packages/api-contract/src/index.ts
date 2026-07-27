@@ -7,6 +7,13 @@
  */
 
 export type { AuthMeResponse } from "./auth.js";
+export type {
+	CoreApiPort,
+	CoreApiTransport,
+	CoreApiWorkPort,
+	CreateBetRequest,
+	CreateBetResponse,
+} from "./core-api-port.js";
 export type { CreateSessionAcceptedResponse, PendingSessionStart } from "./session.js";
 export { isPendingSessionStart } from "./session.js";
 export type {

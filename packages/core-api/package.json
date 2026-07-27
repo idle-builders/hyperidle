@@ -21,6 +21,7 @@
 		"@hono/node-server": "^2.0.6",
 		"@hono/zod-validator": "^0.9.0",
 		"@hyperidle/agent-selection": "*",
+		"@hyperidle/api-contract": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/conversation": "*",
 		"@hyperidle/cost": "*",
