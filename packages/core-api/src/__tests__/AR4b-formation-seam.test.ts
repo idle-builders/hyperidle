@@ -36,8 +36,31 @@ import { createSessionRequest } from "@hyperidle/session-requests";
 import { EventBus } from "@hyperidle/shared";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { agentSelectionService } from "../services/agent-selection-bindings.js";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { dispatchOps } from "../services/dispatch-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test as baseTest } from "../test-fixtures.js";
+
+/**
+ * @lore AU21 §9 Increment 2: `runTurn` → `buildAssistantDraftRegistry` →
+ * `resolveDraftTeamId` now reaches `ports.coreApi.getUserById` (the seam) —
+ * this file-scoped `auto:true` fixture registers a real in-process
+ * `CoreApiPort` transport off THIS test's own `app`, without forcing
+ * `app`'s full subscriber wiring onto every OTHER file that imports the
+ * bare `test` from `test-fixtures.ts` (see the same pattern in the
+ * `create-*`/`log-task`/`write-memory`/etc. integration tests).
+ */
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

@@ -13,22 +13,7 @@ function notImplemented(): never {
 
 export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 	work: {
-		getTaskById: notImplemented,
-		getBetById: notImplemented,
-		updateBetById: notImplemented,
-		createTask: notImplemented,
-		updateTaskById: notImplemented,
-		appendTaskNote: notImplemented,
-		getItemById: notImplemented,
-		updateItemById: notImplemented,
-		createItem: notImplemented,
 		routeItem: notImplemented,
-		findItemByReasoningMarker: notImplemented,
-		createArtifact: notImplemented,
-	},
-	users: {
-		getUserById: notImplemented,
-		listUsersByTeam: notImplemented,
 	},
 	conversation: {
 		getThreadById: notImplemented,
@@ -69,5 +54,19 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 		recomputeAttentionScoreForItem: notImplemented,
 	},
 	policy: { handoff: notImplemented },
-	coreApi: { createBet: notImplemented },
+	coreApi: {
+		createBet: notImplemented,
+		getTaskById: notImplemented,
+		getBetById: notImplemented,
+		updateBetById: notImplemented,
+		createTask: notImplemented,
+		appendTaskNote: notImplemented,
+		getItemById: notImplemented,
+		updateItemById: notImplemented,
+		createItem: notImplemented,
+		findItemByReasoningMarker: notImplemented,
+		createArtifact: notImplemented,
+		getUserById: notImplemented,
+		listUsersByTeam: notImplemented,
+	},
 };

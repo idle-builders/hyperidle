@@ -52,14 +52,154 @@ export interface CreateBetResponse {
 	readonly sourceKnowledgeItemId: string | null;
 }
 
+/** Mirrors `GET /tasks/:id`'s response — only the fields a `CoreApiPort` consumer relies on. */
+export interface TaskView {
+	readonly id: string;
+	readonly betId: string;
+	readonly teamId: string;
+	readonly notes: string | null;
+}
+
+/** Mirrors `GET /bets/:id`'s response — only the fields a `CoreApiPort` consumer relies on. */
+export interface BetView {
+	readonly id: string;
+	readonly status: string;
+	readonly description?: string;
+	readonly doneCondition?: string | null;
+	readonly hypothesis?: string | null;
+}
+
 /**
- * The agent's tool-facing `work` capability family (Decision C). `work` is
- * the only populated family in Increment 1; Increment 2 adds the remaining
- * `tool-handlers` reads/writes (`getTaskById`/`getBetById`/`updateBetById`/…)
- * and later increments add `conversation`/`knowledge`/`org`/`routine`/`users`.
+ * Mirrors the fields `PATCH /bets/:id` accepts across its discriminated-union
+ * wire shape (`field`/`value`/`reason`, `routes/bets.ts`). `buildCoreApiPort`
+ * issues one PATCH per present field — the route accepts exactly one field
+ * per call.
+ */
+export interface UpdateBetRequest {
+	readonly description?: string;
+	readonly doneCondition?: string | null;
+	readonly hypothesis?: string | null;
+}
+
+/** Mirrors `POST /tasks`'s validated request body (`createTaskSchema`, `routes/tasks.ts`). */
+export interface CreateTaskRequest {
+	readonly betId: string;
+	readonly title: string;
+	readonly description?: string | null;
+	readonly doneCondition?: string | null;
+	readonly ownerAgentId?: string | null;
+}
+
+/** Mirrors `POST /tasks`'s 201 response body — the created task row. */
+export interface CreateTaskResponse {
+	readonly id: string;
+	readonly betId: string;
+	readonly teamId: string;
+}
+
+/** Mirrors `GET /conversations/items/:id`'s response — only the fields a consumer relies on. */
+export interface ItemView {
+	readonly id: string;
+	readonly riskTier: string | null;
+	readonly kind: string | null;
+	readonly verb: string | null;
+}
+
+/** Mirrors `PATCH /conversations/items/:id`'s validated request body. */
+export interface UpdateItemRequest {
+	readonly riskTier?: string;
+	readonly kind?: string;
+	readonly verb?: string;
+}
+
+/**
+ * Mirrors `POST /conversations/items`'s validated request body
+ * (`createItemSchema`, `routes/conversations.ts`) — the FULL field set the
+ * route accepts (not just what the §11 contract test exercises), since
+ * `create_item`'s real tool handler relies on the full shape.
+ */
+export interface CreateItemRequest {
+	readonly threadId: string;
+	readonly title: string;
+	readonly sourceAgentId?: string | null;
+	readonly layer?: string | null;
+	readonly verb?: string | null;
+	readonly kind?: string | null;
+	readonly body?: string | null;
+	readonly attachments?: string | null;
+	readonly proposedAction?: string | null;
+	readonly options?: string | null;
+	readonly riskTier?: string | null;
+	readonly blocking?: boolean;
+	readonly reasoning?: string | null;
+}
+
+/** Mirrors `POST /conversations/items`'s 201 response body — only `id` is relied on. */
+export interface CreateItemResponse {
+	readonly id: string;
+}
+
+/**
+ * Mirrors `POST /artifacts`'s validated request body (`createArtifactSchema`,
+ * `routes/artifacts.ts`). `preview` is opaque (Mechanism C: `tool-handlers`
+ * never imports `@hyperidle/shared`'s `ArtifactPreview` union here) — the
+ * route validates/serializes it; this seam only forwards it.
+ */
+export interface CreateArtifactRequest {
+	readonly producingTaskId: string;
+	readonly kind: string;
+	readonly label?: string | null;
+	readonly preview?: Record<string, unknown> | null;
+}
+
+/** Mirrors `POST /artifacts`'s 201 response body — only the fields a consumer relies on. */
+export interface CreateArtifactResponse {
+	readonly id: string;
+	readonly producingTaskId: string;
+	readonly kind: string;
+}
+
+/**
+ * Mirrors `GET /users/:id` / `GET /users` — only the fields a `CoreApiPort`
+ * consumer relies on. `teamId` is `users.teamId` — per the AK4 two-hop
+ * lore, this actually stores `teamMembers.id`, not `teams.id`.
+ */
+export interface UserView {
+	readonly id: string;
+	readonly name: string;
+	readonly role: string | null;
+	readonly teamId: string | null;
+}
+
+/**
+ * The agent's tool-facing `work` capability family (Decision C). Seeded
+ * (Increment 1) with `createBet`; Increment 2 adds the remaining
+ * `tool-handlers` reads/writes named in `edge-disposition.md`'s
+ * `work.{get, list, create, update}` row. `routeItem` stays a pure local
+ * computation (no DB, no cross-layer read) — never a seam method.
  */
 export interface CoreApiWorkPort {
 	createBet(input: CreateBetRequest): Promise<CreateBetResponse>;
+	getTaskById(id: string): Promise<TaskView | undefined>;
+	getBetById(id: string): Promise<BetView | undefined>;
+	updateBetById(id: string, updates: UpdateBetRequest): Promise<void>;
+	createTask(input: CreateTaskRequest): Promise<CreateTaskResponse>;
+	/** Atomic note append. Resolves `undefined` when the task does not exist (no throw). */
+	appendTaskNote(taskId: string, entry: string): Promise<{ readonly id: string } | undefined>;
+	getItemById(id: string): Promise<ItemView | undefined>;
+	updateItemById(id: string, updates: UpdateItemRequest): Promise<void>;
+	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
+	findItemByReasoningMarker(marker: string): Promise<{ readonly id: string } | undefined>;
+	createArtifact(input: CreateArtifactRequest): Promise<CreateArtifactResponse>;
+}
+
+/**
+ * The agent's tool-facing `users` capability family (Decision C, Increment 2)
+ * — `edge-disposition.md`'s `users.{findUser, listUsers}` row.
+ */
+export interface CoreApiUsersPort {
+	getUserById(id: string): Promise<UserView | undefined>;
+	listUsersByTeam(teamMembersId: string): Promise<ReadonlyArray<UserView>>;
 }
 
 /**
@@ -70,6 +210,7 @@ export interface CoreApiWorkPort {
  */
 export interface CoreApiPort {
 	readonly work: CoreApiWorkPort;
+	readonly users: CoreApiUsersPort;
 }
 
 /**

@@ -48,108 +48,22 @@
 
 import type { UserRole } from "@hyperidle/shared";
 
-interface ToolHandlersWorkAccessor<TDb> {
-	getTaskById(
-		db: TDb,
-		id: string,
-	): Promise<
-		{ readonly betId: string; readonly teamId: string; readonly notes: string | null } | undefined
-	>;
-	getBetById(db: TDb, id: string): Promise<{ readonly status: string } | undefined>;
-	updateBetById(
-		db: TDb,
-		id: string,
-		updates: Partial<{
-			description: string;
-			doneCondition: string | null;
-			hypothesis: string | null;
-		}>,
-	): Promise<void>;
-	createTask(
-		db: TDb,
-		input: {
-			readonly id: string;
-			readonly betId: string;
-			readonly teamId: string;
-			readonly ownerAgentId: string;
-			readonly title: string;
-			readonly description: string | null;
-			readonly doneCondition: string | null;
-			readonly state: "proposed";
-			readonly createdAt: string;
-			readonly updatedAt: string;
-		},
-	): Promise<void>;
-	updateTaskById(
-		db: TDb,
-		id: string,
-		updates: Partial<{ notes: string; updatedAt: string }>,
-	): Promise<void>;
-	/**
-	 * Atomic note append — single UPDATE with SQL CASE, no pre-read.
-	 * Returns `{ id }` when the task was found and updated, `undefined` when
-	 * the task does not exist (task-not-found signal for the `log_task` handler).
-	 */
-	appendTaskNote(
-		db: TDb,
-		taskId: string,
-		entry: string,
-	): Promise<{ readonly id: string } | undefined>;
-	getItemById(
-		db: TDb,
-		id: string,
-	): Promise<
-		| {
-				readonly riskTier: string | null;
-				readonly kind: string | null;
-				readonly verb: string | null;
-		  }
-		| undefined
-	>;
-	updateItemById(
-		db: TDb,
-		id: string,
-		updates: Partial<{ riskTier: string; kind: string; verb: string }>,
-	): Promise<void>;
-	createItem(db: TDb, input: Record<string, unknown>): Promise<void>;
+/**
+ * @lore AU21 §9 Increment 2: every `work` read/write except `routeItem` moved
+ * onto the `CoreApiPort` seam (`ToolHandlersCoreApiAccessor` below) — the
+ * agent acting on core "just like the user would" (edge-disposition.md's
+ * `work.{get, list, create, update}` row, both §4 seam). `routeItem` is the
+ * ONE `work` capability that stays ordinary same-process logic: it takes no
+ * `TDb` (a pure `{riskTier,kind,verb} -> view` string switch, zero DB access,
+ * verified against `@hyperidle/work`'s real implementation) — never a seam
+ * method.
+ */
+interface ToolHandlersWorkAccessor {
 	routeItem(input: {
 		readonly riskTier: string | null;
 		readonly kind: string | null;
 		readonly verb: string | null;
 	}): "conversations" | "work" | "knowledge";
-	findItemByReasoningMarker(db: TDb, marker: string): Promise<{ readonly id: string } | undefined>;
-	createArtifact(
-		db: TDb,
-		input: {
-			readonly id: string;
-			readonly producingTaskId: string;
-			readonly kind: string;
-			readonly label: string | null;
-			readonly previewJson: string | null;
-			readonly createdAt: string;
-		},
-	): Promise<void>;
-}
-
-interface ToolHandlersUsersAccessor<TDb> {
-	getUserById(
-		db: TDb,
-		id: string,
-	): Promise<
-		| {
-				readonly id: string;
-				readonly role: string | null;
-				readonly teamId: string | null;
-				readonly name: string;
-		  }
-		| undefined
-	>;
-	listUsersByTeam(
-		db: TDb,
-		teamMembersId: string,
-	): Promise<
-		ReadonlyArray<{ readonly id: string; readonly name: string; readonly role: string | null }>
-	>;
 }
 
 interface ToolHandlersConversationAccessor<TDb> {
@@ -448,12 +362,95 @@ interface ToolHandlersCoreApiAccessor {
 		},
 		actorId: string,
 	): Promise<{ readonly id: string; readonly teamId: string; readonly status: string }>;
+	/** Structural mirror of `@hyperidle/api-contract`'s `TaskView` (Mechanism C: no import). */
+	getTaskById(
+		id: string,
+		actorId: string,
+	): Promise<
+		{ readonly betId: string; readonly teamId: string; readonly notes: string | null } | undefined
+	>;
+	getBetById(id: string, actorId: string): Promise<{ readonly status: string } | undefined>;
+	updateBetById(
+		id: string,
+		updates: Partial<{
+			description: string;
+			doneCondition: string | null;
+			hypothesis: string | null;
+		}>,
+		actorId: string,
+	): Promise<void>;
+	createTask(
+		input: {
+			readonly betId: string;
+			readonly title: string;
+			readonly description: string | null;
+			readonly doneCondition: string | null;
+			readonly ownerAgentId: string | null;
+		},
+		actorId: string,
+	): Promise<{ readonly id: string; readonly betId: string; readonly teamId: string }>;
+	/**
+	 * Atomic note append via the seam. Resolves `undefined` when the task does
+	 * not exist (task-not-found signal for the `log_task` handler) — never throws.
+	 */
+	appendTaskNote(
+		taskId: string,
+		entry: string,
+		actorId: string,
+	): Promise<{ readonly id: string } | undefined>;
+	getItemById(
+		id: string,
+		actorId: string,
+	): Promise<
+		| {
+				readonly riskTier: string | null;
+				readonly kind: string | null;
+				readonly verb: string | null;
+		  }
+		| undefined
+	>;
+	updateItemById(
+		id: string,
+		updates: Partial<{ riskTier: string; kind: string; verb: string }>,
+		actorId: string,
+	): Promise<void>;
+	createItem(input: Record<string, unknown>, actorId: string): Promise<{ readonly id: string }>;
+	findItemByReasoningMarker(
+		marker: string,
+		actorId: string,
+	): Promise<{ readonly id: string } | undefined>;
+	createArtifact(
+		input: {
+			readonly producingTaskId: string;
+			readonly kind: string;
+			readonly label: string | null;
+			readonly preview: Record<string, unknown> | null;
+		},
+		actorId: string,
+	): Promise<{ readonly id: string; readonly producingTaskId: string; readonly kind: string }>;
+	getUserById(
+		id: string,
+		actorId: string,
+	): Promise<
+		| {
+				readonly id: string;
+				readonly role: string | null;
+				readonly teamId: string | null;
+				readonly name: string;
+		  }
+		| undefined
+	>;
+	listUsersByTeam(
+		teamMembersId: string,
+		actorId: string,
+	): Promise<
+		ReadonlyArray<{ readonly id: string; readonly name: string; readonly role: string | null }>
+	>;
 }
 
 /** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts<TDb> {
-	readonly work: ToolHandlersWorkAccessor<TDb>;
-	readonly users: ToolHandlersUsersAccessor<TDb>;
+	readonly work: ToolHandlersWorkAccessor;
 	readonly conversation: ToolHandlersConversationAccessor<TDb>;
 	readonly org: ToolHandlersOrgAccessor<TDb>;
 	readonly agentSelection: ToolHandlersAgentSelectionAccessor<TDb>;

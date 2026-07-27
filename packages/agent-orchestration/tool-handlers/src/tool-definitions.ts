@@ -29,7 +29,6 @@ import {
 	artifactPreviewSchema,
 	type CronFields,
 	err,
-	type ItemCreatedEvent,
 	KERNEL_KNOWLEDGE_STATUSES,
 	type KernelKnowledgeStatus,
 	KNOWLEDGE_LAYERS,
@@ -125,7 +124,7 @@ function makeSendMessageTool<TDb>(
 			const parsed = sendMessageInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const { to, subject, body } = parsed.data;
-			const recipient = await ports.users.getUserById(ctx.db, to);
+			const recipient = await ports.coreApi.getUserById(to, ctx.agentId);
 			if (!recipient) return err("NOT_FOUND", `Recipient agent not found: ${to}`);
 			const now = new Date().toISOString();
 			const threadId = await ports.conversation.findOrCreateDirectThread(
@@ -240,7 +239,7 @@ function makeWriteMemoryTool<TDb>(
 			}
 
 			if (!NON_FACILITATOR_MAX_LAYER.has(layer)) {
-				const agent = await ports.users.getUserById(ctx.db, ctx.agentId);
+				const agent = await ports.coreApi.getUserById(ctx.agentId, ctx.agentId);
 				const role = agent?.role ?? "";
 				if (!FACILITATOR_ROLES.has(role)) {
 					return err("FORBIDDEN", `insufficient role for ${layer}`);
@@ -249,7 +248,9 @@ function makeWriteMemoryTool<TDb>(
 
 			const teamId =
 				ctx.teamId ??
-				(await ports.work.getTaskById(ctx.db, ctx.taskId).then((row) => row?.teamId ?? null));
+				(await ports.coreApi
+					.getTaskById(ctx.taskId, ctx.agentId)
+					.then((row) => row?.teamId ?? null));
 			const defaultScopeKind: ScopeKind = teamId ? "product" : "factory";
 			const scopeKind = requestedScopeKind ?? defaultScopeKind;
 			const scopeId =
@@ -313,7 +314,7 @@ function makeHandoffToTool<TDb>(
 			}
 
 			if (input.toAgent) {
-				const target = await ports.users.getUserById(ctx.db, input.toAgent);
+				const target = await ports.coreApi.getUserById(input.toAgent, ctx.agentId);
 				if (!target) return err("NOT_FOUND", `Target agent not found: ${input.toAgent}`);
 			}
 
@@ -433,7 +434,7 @@ function makeCreateItemTool<TDb>(
 			}
 
 			if (isReviewItem(input)) {
-				const agentRow = await ports.users.getUserById(ctx.db, ctx.agentId);
+				const agentRow = await ports.coreApi.getUserById(ctx.agentId, ctx.agentId);
 				const humanIds = await ports.org.resolveReviewRecipientsForItem(ctx.db, {
 					userId: ctx.agentId,
 					agentRole: agentRow?.role ?? undefined,
@@ -451,23 +452,29 @@ function makeCreateItemTool<TDb>(
 				}
 			}
 
-			const itemId = randomUUID();
-			await ports.work.createItem(ctx.db, {
-				id: itemId,
-				sourceAgentId: ctx.agentId,
-				layer: input.layer ?? null,
-				verb: input.verb ?? null,
-				kind: input.kind ?? null,
-				title: input.title,
-				body: input.body ?? null,
-				proposedAction: input.proposedAction ?? null,
-				options: input.options ?? null,
-				riskTier: input.riskTier ?? null,
-				blocking: input.blocking ?? false,
-				reasoning: input.reasoning ?? null,
-				threadId,
-				createdAt: now,
-			});
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the
+			// SAME `POST /conversations/items` route a human caller uses — instead
+			// of the raw `ports.work.createItem` DI call (deleted). The route
+			// generates the item's id server-side; `created.id` replaces the
+			// client-generated `randomUUID()` the raw DI path used.
+			const created = await ports.coreApi.createItem(
+				{
+					sourceAgentId: ctx.agentId,
+					layer: input.layer ?? null,
+					verb: input.verb ?? null,
+					kind: input.kind ?? null,
+					title: input.title,
+					body: input.body ?? null,
+					proposedAction: input.proposedAction ?? null,
+					options: input.options ?? null,
+					riskTier: input.riskTier ?? null,
+					blocking: input.blocking ?? false,
+					reasoning: input.reasoning ?? null,
+					threadId,
+				},
+				ctx.agentId,
+			);
+			const itemId = created.id;
 
 			const view = ports.work.routeItem({
 				riskTier: input.riskTier ?? null,
@@ -475,15 +482,12 @@ function makeCreateItemTool<TDb>(
 				verb: input.verb ?? null,
 			});
 
-			const event = {
-				type: "item_created" as const,
-				streamId: randomUUID(),
-				itemId,
-				conversationId: threadId,
-				kind: input.kind ?? "unknown",
-				timestamp: Date.now(),
-			};
-			ctx.eventBus.emit(event as ItemCreatedEvent);
+			// AU21 §9 Increment 2: the local `item_created` emission that used to
+			// live here is DELETED — `POST /conversations/items` (the route
+			// `ports.coreApi.createItem` above just called) already emits
+			// `item_created` on the same `eventBus` (`routes/conversations.ts`).
+			// Emitting it again here would double-fire the event for every
+			// `create_item` tool call.
 
 			return ok({ itemId, view, threadId });
 		},
@@ -566,7 +570,7 @@ function makeCreateTaskTool<TDb>(
 
 			let parent: { betId: string; teamId: string };
 			if (ctx.taskId) {
-				const parentTask = await ports.work.getTaskById(ctx.db, ctx.taskId);
+				const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
 				if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 				parent = { betId: parentTask.betId, teamId: parentTask.teamId };
 			} else if (ctx.requestContext?.sourceKind === "decomposition") {
@@ -574,27 +578,29 @@ function makeCreateTaskTool<TDb>(
 					readonly betId: string;
 					readonly teamId: string;
 				};
-				const bet = await ports.work.getBetById(ctx.db, betId);
+				const bet = await ports.coreApi.getBetById(betId, ctx.agentId);
 				if (!bet) return err("NOT_FOUND", `Bet not found: ${betId}`);
 				parent = { betId, teamId };
 			} else {
 				return err("NOT_FOUND", "Parent task not found");
 			}
 
-			const taskId = randomUUID();
-			const now = new Date().toISOString();
-			await ports.work.createTask(ctx.db, {
-				id: taskId,
-				betId: parent.betId,
-				teamId: parent.teamId,
-				ownerAgentId: ctx.agentId,
-				title: input.title,
-				description: input.description ?? null,
-				doneCondition: input.doneCondition ?? null,
-				state: "proposed",
-				createdAt: now,
-				updatedAt: now,
-			});
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
+			// `POST /tasks` route a human caller uses — instead of the raw
+			// `ports.work.createTask` DI call (deleted). The route generates the
+			// task's id server-side; `created.id` replaces the client-generated
+			// `randomUUID()` the raw DI path used.
+			const created = await ports.coreApi.createTask(
+				{
+					betId: parent.betId,
+					title: input.title,
+					description: input.description ?? null,
+					doneCondition: input.doneCondition ?? null,
+					ownerAgentId: ctx.agentId,
+				},
+				ctx.agentId,
+			);
+			const taskId = created.id;
 
 			const event = {
 				type: "task_state_changed" as const,
@@ -641,7 +647,7 @@ function makeSubmitReviewTool<TDb>(
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const parentTask = await ports.work.getTaskById(ctx.db, ctx.taskId);
+			const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
 			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 			const betId = parentTask.betId;
 
@@ -734,7 +740,7 @@ function makeRouteItemTool<TDb>(
 		inputSchema: routeItemInputSchema,
 		roles: ["assistant", "facilitator", "product_manager"],
 		handler: async (args, ctx) => {
-			const row = await ports.work.getItemById(ctx.db, args.itemId);
+			const row = await ports.coreApi.getItemById(args.itemId, ctx.agentId);
 			if (!row) return err("NOT_FOUND", `Item not found: ${args.itemId}`);
 
 			const effectiveRiskTier = args.riskTier ?? row.riskTier ?? null;
@@ -752,7 +758,7 @@ function makeRouteItemTool<TDb>(
 			if (args.kind !== undefined) updates.kind = args.kind;
 			if (args.verb !== undefined) updates.verb = args.verb;
 			if (Object.keys(updates).length > 0) {
-				await ports.work.updateItemById(ctx.db, args.itemId, updates);
+				await ports.coreApi.updateItemById(args.itemId, updates, ctx.agentId);
 			}
 
 			return ok({
@@ -839,7 +845,7 @@ function makeScoreAttentionTool<TDb>(
 				return ok({ target, id, score, mode });
 			}
 
-			const row = await ports.work.getItemById(ctx.db, id);
+			const row = await ports.coreApi.getItemById(id, ctx.agentId);
 			if (!row) return err("NOT_FOUND", `Item not found: ${id}`);
 			// @lore O2: items.attentionScore removed — no-op on items score writes.
 			return ok({ target, id, score, mode });
@@ -1047,7 +1053,7 @@ function makeCreateTeamTool<TDb>(
 				specs,
 			);
 
-			const createdAgents = await ports.users.listUsersByTeam(ctx.db, teamMembersId);
+			const createdAgents = await ports.coreApi.listUsersByTeam(teamMembersId, ctx.agentId);
 			const roster = createdAgents.map((a) => ({
 				role: a.role ?? "",
 				name: a.name,
@@ -1241,7 +1247,7 @@ function makeEditBetTool<TDb>(
 			if (!parsed.success) return { status: "error", message: parsed.error.message };
 			const input = parsed.data;
 
-			const existing = await ports.work.getBetById(ctx.db, input.betId);
+			const existing = await ports.coreApi.getBetById(input.betId, ctx.agentId);
 			if (!existing) return { status: "error", message: `Bet not found: ${input.betId}` };
 			if (existing.status !== "draft")
 				return { status: "error", message: "Can only edit a draft bet." };
@@ -1259,7 +1265,7 @@ function makeEditBetTool<TDb>(
 				return { status: "error", message: "No fields to update." };
 			}
 
-			await ports.work.updateBetById(ctx.db, input.betId, updates);
+			await ports.coreApi.updateBetById(input.betId, updates, ctx.agentId);
 			return { status: "ok", value: { betId: input.betId } };
 		},
 	};
@@ -1300,7 +1306,7 @@ function makeCreateRoutineTool<TDb>(
 			const team = await ports.org.getTeamById(ctx.db, input.teamId);
 			if (!team) return err("NOT_FOUND", `Team not found: ${input.teamId}`);
 
-			const agent = await ports.users.getUserById(ctx.db, input.ownerAgentId);
+			const agent = await ports.coreApi.getUserById(input.ownerAgentId, ctx.agentId);
 			if (!agent) return err("NOT_FOUND", `Agent not found: ${input.ownerAgentId}`);
 
 			let triggerConfigParsed: { cron?: string };
@@ -1482,7 +1488,7 @@ function makeLogTaskTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<Log
 
 			// Atomic append — single UPDATE with SQL CASE, no pre-read, no lost-update race.
 			// `undefined` means the task row was not found (WHERE matched no rows).
-			const result = await ports.work.appendTaskNote(ctx.db, ctx.taskId, entry);
+			const result = await ports.coreApi.appendTaskNote(ctx.taskId, entry, ctx.agentId);
 			if (!result) {
 				return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);
 			}
@@ -1553,22 +1559,29 @@ function makeCreateArtifactTool<TDb>(
 				);
 			}
 
-			const taskRow = await ports.work.getTaskById(ctx.db, ctx.taskId);
+			const taskRow = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
 			if (!taskRow) {
 				return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);
 			}
 
-			const artifactId = randomUUID();
-			const now = new Date().toISOString();
-
-			await ports.work.createArtifact(ctx.db, {
-				id: artifactId,
-				producingTaskId: ctx.taskId,
-				kind: input.kind,
-				label: input.label ?? null,
-				previewJson: input.preview !== null ? JSON.stringify(input.preview) : null,
-				createdAt: now,
-			});
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
+			// `POST /artifacts` route a human caller uses — instead of the raw
+			// `ports.work.createArtifact` DI call (deleted). The route generates
+			// the artifact's id server-side; `created.id` replaces the
+			// client-generated `randomUUID()` the raw DI path used. `preview` is
+			// re-spread into a fresh object literal — Mechanism C's opaque
+			// `Record<string, unknown>` seam shape (same idiom as
+			// `tool-handlers-bindings.ts`'s `searchKnowledgeForTool`).
+			const created = await ports.coreApi.createArtifact(
+				{
+					producingTaskId: ctx.taskId,
+					kind: input.kind,
+					label: input.label ?? null,
+					preview: input.preview !== null ? { ...input.preview } : null,
+				},
+				ctx.agentId,
+			);
+			const artifactId = created.id;
 
 			const event: ArtifactCreatedEvent = {
 				type: "artifact_created",
@@ -1645,12 +1658,21 @@ export function buildToolDefinitions(
 // buildAssistantDraftRegistry — private helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * AU21 §9 Increment 2: the user lookup routes through the `coreApi` seam —
+ * `userId`'s own team lookup is an agent-as-user read, same door
+ * `write_memory`/`send_message` reach through. `actorId` is the calling
+ * ASSISTANT agent's identity (§12), not the human `userId` being looked up
+ * — the assistant is the one acting. `org.getTeamMembersById` stays ordinary
+ * same-process DI (out of this wave's scope), hence `db` stays a parameter.
+ */
 async function resolveDraftTeamId<TDb>(
 	db: TDb,
 	userId: string,
+	actorId: string,
 	ports: ToolHandlersPorts<TDb>,
 ): Promise<string | undefined> {
-	const userRow = await ports.users.getUserById(db, userId);
+	const userRow = await ports.coreApi.getUserById(userId, actorId);
 	if (!userRow?.teamId) return undefined;
 	// @lore AK4: `userRow.teamId` is actually `team_members.id` (U1 schema
 	// lore) — resolve the second hop to `teams.id` via `getTeamMembersById`.
@@ -1659,7 +1681,6 @@ async function resolveDraftTeamId<TDb>(
 }
 
 async function resolveCurrentDraftBetId<TDb>(
-	db: TDb,
 	transcriptRows: ReadonlyArray<{ senderId: string; payload: string }>,
 	astAgentId: string,
 	ports: ToolHandlersPorts<TDb>,
@@ -1684,7 +1705,7 @@ async function resolveCurrentDraftBetId<TDb>(
 				}
 				const betId = outputParsed.betId;
 				if (!betId) continue;
-				const bet = await ports.work.getBetById(db, betId);
+				const bet = await ports.coreApi.getBetById(betId, astAgentId);
 				if (bet?.status === "draft") return betId;
 			}
 		}
@@ -1716,9 +1737,13 @@ export async function buildAssistantDraftRegistry<TDb>(
 	},
 	ports: ToolHandlersPorts<TDb>,
 ): Promise<ToolRegistry<TDb>> {
-	const resolvedTeamId = await resolveDraftTeamId(ctx.db, params.userId, ports);
-	const currentDraftBetId = await resolveCurrentDraftBetId(
+	const resolvedTeamId = await resolveDraftTeamId(
 		ctx.db,
+		params.userId,
+		params.assistantAgentId,
+		ports,
+	);
+	const currentDraftBetId = await resolveCurrentDraftBetId(
 		params.transcriptRows,
 		params.assistantAgentId,
 		ports,

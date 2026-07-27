@@ -16,6 +16,7 @@
  * every other `*-bindings.ts` file in this directory.
  */
 
+import type { CreateItemRequest } from "@hyperidle/api-contract";
 import {
 	findOrCreateDirectThread,
 	findThread,
@@ -95,13 +96,34 @@ function provisionTeamRoutines(
  * boundary-crossing as {@link searchKnowledgeForTool} below.
  */
 /**
- * AU21 §9 Increment 1: `create_bet`'s `CoreApiPort` write-seam binding.
- * Builds a fresh in-process `CoreApiPort` per call, wrapped with the
- * CALLING agent's own identity as the route actor (§12) — never a fixed
- * actor, since a different tool call may come from a different agent.
- * `getRegisteredCoreApiTransport()` reads the transport registered once at
- * boot (`server-factory.ts`) or per-test (integration test fixtures).
+ * AU21 §9 Increment 1/2: builds a fresh in-process `CoreApiPort` per call,
+ * wrapped with the CALLING agent's own identity as the route actor (§12) —
+ * never a fixed actor, since a different tool call may come from a
+ * different agent. `getRegisteredCoreApiTransport()` reads the transport
+ * registered once at boot (`server-factory.ts`) or per-test (integration
+ * test fixtures). Every `ToolHandlersCoreApiAccessor` binding below builds
+ * its own port from this one factory — the seam never caches a port across
+ * calls (§12's actor-per-call requirement).
  */
+function seamPortForActor(actorId: string): ReturnType<typeof buildCoreApiPort> {
+	const transport = withActorTransport(getRegisteredCoreApiTransport(), { userId: actorId });
+	return buildCoreApiPort(transport);
+}
+
+/**
+ * The ONE audited cast recovering `CreateItemRequest` from `create_item`'s
+ * Mechanism-C-narrowed `Record<string, unknown>` input — the SAME real
+ * object `tool-definitions.ts` built, only its TYPE was narrowed crossing
+ * the `ToolHandlersCoreApiAccessor` boundary. `input`'s parameter type is
+ * `unknown` (not a cast expression) so this is a single, contained
+ * assertion — `design/no-unknown-cast` bans the `X as unknown as T`
+ * double-assertion shape, not an audited single cast inside a named helper
+ * (same idiom as `run-orchestration-composition.ts`'s `widenWorkerRegistration`).
+ */
+function widenCreateItemInput(input: unknown): CreateItemRequest {
+	return input as CreateItemRequest;
+}
+
 function createBetThroughCoreApiPort(
 	input: {
 		readonly teamId: string;
@@ -111,9 +133,7 @@ function createBetThroughCoreApiPort(
 	},
 	actorId: string,
 ): Promise<{ readonly id: string; readonly teamId: string; readonly status: string }> {
-	const transport = withActorTransport(getRegisteredCoreApiTransport(), { userId: actorId });
-	const port = buildCoreApiPort(transport);
-	return port.work.createBet({
+	return seamPortForActor(actorId).work.createBet({
 		teamId: input.teamId,
 		description: input.description,
 		doneCondition: input.doneCondition ?? undefined,
@@ -206,31 +226,10 @@ async function recomputeAttentionScoreForItem(
 }
 
 const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
-	work: {
-		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-		updateBetById: (exec: WriteExecutor, id, updates) => work.update(exec, "bet", id, updates),
-		createTask: (exec: WriteExecutor, input) => work.create(exec, "task", input),
-		updateTaskById: (exec: WriteExecutor, id, updates) => work.update(exec, "task", id, updates),
-		appendTaskNote: (exec: WriteExecutor, taskId, entry) =>
-			work.update(exec, "task", taskId, { notes: { appendNote: entry } }),
-		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-		updateItemById: (exec: WriteExecutor, id, updates) => work.update(exec, "item", id, updates),
-		// @lore AU20 Ag5c: tool-handlers port uses Record<string,unknown> for createItem; cast to NewItem
-		// at the composition boundary — tool-handlers (Mechanism C) never imports @hyperidle/db types.
-		createItem: (exec: WriteExecutor, input: Record<string, unknown>) =>
-			work.create(exec, "item", input as Parameters<typeof work.create<"item">>[2]),
-		routeItem,
-		findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
-			const rows = await work.list(exec, "item", { marker });
-			return rows[0] ? { id: rows[0].id } : undefined;
-		},
-		createArtifact: (exec: WriteExecutor, input) => work.create(exec, "artifact", input),
-	},
-	users: {
-		getUserById: (db, id) => findUser(db, { id }),
-		listUsersByTeam: (db, teamId) => listUsers(db, { teamIds: [teamId] }),
-	},
+	// AU21 §9 Increment 2: `routeItem` is the ONLY `work` capability left as
+	// ordinary same-process DI — every read/write moved onto the `coreApi`
+	// seam below (see `ports.ts`'s `ToolHandlersWorkAccessor` doc comment).
+	work: { routeItem },
 	conversation: {
 		getThreadById: (db, id) => findThread(db, { id }),
 		insertThread,
@@ -299,7 +298,33 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 		recomputeAttentionScoreForItem,
 	},
 	policy: { handoff },
-	coreApi: { createBet: createBetThroughCoreApiPort },
+	coreApi: {
+		createBet: createBetThroughCoreApiPort,
+		getTaskById: (id, actorId) => seamPortForActor(actorId).work.getTaskById(id),
+		getBetById: (id, actorId) => seamPortForActor(actorId).work.getBetById(id),
+		updateBetById: (id, updates, actorId) =>
+			seamPortForActor(actorId).work.updateBetById(id, updates),
+		createTask: (input, actorId) => seamPortForActor(actorId).work.createTask(input),
+		appendTaskNote: (taskId, entry, actorId) =>
+			seamPortForActor(actorId).work.appendTaskNote(taskId, entry),
+		getItemById: (id, actorId) => seamPortForActor(actorId).work.getItemById(id),
+		updateItemById: (id, updates, actorId) =>
+			seamPortForActor(actorId).work.updateItemById(id, updates),
+		// @lore AU20 Ag5c precedent (now seam-crossed): tool-handlers port uses
+		// Record<string,unknown> for createItem — widen to the seam's
+		// CreateItemRequest at the composition boundary via `widenCreateItemInput`
+		// (Mechanism C: tool-handlers never imports @hyperidle/api-contract's
+		// concrete request type; single audited cast inside a named helper,
+		// not an `X as unknown as T` double-assertion — `design/no-unknown-cast`).
+		createItem: (input: Record<string, unknown>, actorId: string) =>
+			seamPortForActor(actorId).work.createItem(widenCreateItemInput(input)),
+		findItemByReasoningMarker: (marker, actorId) =>
+			seamPortForActor(actorId).work.findItemByReasoningMarker(marker),
+		createArtifact: (input, actorId) => seamPortForActor(actorId).work.createArtifact(input),
+		getUserById: (id, actorId) => seamPortForActor(actorId).users.getUserById(id),
+		listUsersByTeam: (teamMembersId, actorId) =>
+			seamPortForActor(actorId).users.listUsersByTeam(teamMembersId),
+	},
 };
 
 /** Production-wired tool definitions — every real call site imports this. */

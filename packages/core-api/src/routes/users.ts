@@ -195,9 +195,15 @@ export function createUserRoutes(
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// GET / — List all users with active session counts
+	// GET / — List all users with active session counts. Optional `teamMembersId`
+	// query param scopes the roster to one team (AU21 §9 Increment 2:
+	// `CoreApiPort.users.listUsersByTeam`'s backing filter — `users.teamId`
+	// actually stores `teamMembers.id`, per the AK4 two-hop lore).
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allUsers = await listUsers(db);
+		const teamMembersId = c.req.query("teamMembersId");
+		const allUsers = teamMembersId
+			? await listUsers(db, { teamIds: [teamMembersId] })
+			: await listUsers(db);
 		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
 		const result = allUsers.map((user) => ({

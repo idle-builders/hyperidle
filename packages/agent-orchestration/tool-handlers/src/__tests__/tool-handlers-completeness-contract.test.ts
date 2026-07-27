@@ -21,8 +21,10 @@
  *      NO_DRAFT) surface when preconditions are absent.
  *
  *   C. log_task handler — appendTaskNote port usage
- *      The handler calls ports.work.appendTaskNote atomically (no pre-read)
- *      and returns NOT_FOUND when the port signals the task is missing.
+ *      The handler calls ports.coreApi.appendTaskNote (AU21 §9 Increment 2:
+ *      crosses the CoreApiPort seam, not raw ports.work DI) atomically
+ *      (no pre-read) and returns NOT_FOUND when the port signals the task
+ *      is missing.
  *
  * @lore AU20 Stage 1/3: Stage 1 imported `createLogTaskTool` directly from
  * `../log-task.js`. Stage 3 collapsed `log-task.ts` into `tool-definitions.ts`
@@ -302,14 +304,6 @@ describe("buildAssistantDraftRegistry — constraint injection", () => {
 
 		const ports: ToolHandlersPorts<HyperIdleDb> = {
 			...STUB_TOOL_HANDLERS_PORTS,
-			users: {
-				...STUB_TOOL_HANDLERS_PORTS.users,
-				getUserById: async (_db, id) => {
-					if (id === "user-with-team") return { ...FAKE_USER_WITH_TEAM };
-					if (id === "user-no-team") return { ...FAKE_USER_NO_TEAM };
-					return undefined;
-				},
-			},
 			org: {
 				...STUB_TOOL_HANDLERS_PORTS.org,
 				getTeamMembersById: async (_db, teamMembersId) => {
@@ -321,22 +315,28 @@ describe("buildAssistantDraftRegistry — constraint injection", () => {
 					return undefined;
 				},
 			},
-			work: {
-				...STUB_TOOL_HANDLERS_PORTS.work,
-				getBetById: async (_db, betId) => {
-					if (betId === "draft-bet-1") return { status: "draft" };
-					return undefined;
-				},
-				updateBetById: async (_db, betId, updates) => {
-					updateBetCalls.push({ betId, updates: updates as Record<string, unknown> });
-				},
-			},
 			coreApi: {
+				...STUB_TOOL_HANDLERS_PORTS.coreApi,
 				// AU21 §9 Increment 1: create_bet now routes through `ports.coreApi`,
 				// not `ports.work.createBet` (deleted) — fake the seam call here.
 				createBet: async (input, actorId) => {
 					createBetCalls.push({ ...(input as Record<string, unknown>), actorId });
 					return { id: "fake-seam-bet-id", teamId: input.teamId, status: "draft" };
+				},
+				// AU21 §9 Increment 2: `resolveDraftTeamId`/`edit_bet` now route
+				// through `ports.coreApi`, not raw `ports.work`/`ports.users` DI
+				// (both deleted) — fake the seam calls here.
+				getUserById: async (id) => {
+					if (id === "user-with-team") return { ...FAKE_USER_WITH_TEAM };
+					if (id === "user-no-team") return { ...FAKE_USER_NO_TEAM };
+					return undefined;
+				},
+				getBetById: async (betId) => {
+					if (betId === "draft-bet-1") return { status: "draft" };
+					return undefined;
+				},
+				updateBetById: async (betId, updates) => {
+					updateBetCalls.push({ betId, updates: updates as Record<string, unknown> });
 				},
 			},
 		};
@@ -596,9 +596,12 @@ describe("log_task handler — appendTaskNote port usage", () => {
 
 		fakePorts = {
 			...STUB_TOOL_HANDLERS_PORTS,
-			work: {
-				...STUB_TOOL_HANDLERS_PORTS.work,
-				appendTaskNote: async (_db, taskId, entry) => {
+			// AU21 §9 Increment 2: `log_task` now routes through `ports.coreApi`,
+			// not raw `ports.work.appendTaskNote` DI (deleted) — fake the seam
+			// call here.
+			coreApi: {
+				...STUB_TOOL_HANDLERS_PORTS.coreApi,
+				appendTaskNote: async (taskId, entry) => {
 					appendTaskNoteCalls.push({ taskId, entry });
 					return appendReturnValue;
 				},

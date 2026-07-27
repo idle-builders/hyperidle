@@ -8,11 +8,24 @@
 
 export type { AuthMeResponse } from "./auth.js";
 export type {
+	BetView,
 	CoreApiPort,
 	CoreApiTransport,
+	CoreApiUsersPort,
 	CoreApiWorkPort,
+	CreateArtifactRequest,
+	CreateArtifactResponse,
 	CreateBetRequest,
 	CreateBetResponse,
+	CreateItemRequest,
+	CreateItemResponse,
+	CreateTaskRequest,
+	CreateTaskResponse,
+	ItemView,
+	TaskView,
+	UpdateBetRequest,
+	UpdateItemRequest,
+	UserView,
 } from "./core-api-port.js";
 export type { CreateSessionAcceptedResponse, PendingSessionStart } from "./session.js";
 export { isPendingSessionStart } from "./session.js";

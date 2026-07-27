@@ -22,36 +22,115 @@
  */
 
 import type {
+	BetView,
 	CoreApiPort,
 	CoreApiTransport,
+	CreateArtifactRequest,
+	CreateArtifactResponse,
 	CreateBetRequest,
 	CreateBetResponse,
+	CreateItemRequest,
+	CreateItemResponse,
+	CreateTaskRequest,
+	CreateTaskResponse,
+	ItemView,
+	TaskView,
+	UpdateBetRequest,
+	UpdateItemRequest,
+	UserView,
 } from "@hyperidle/api-contract";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import type { AppType } from "../schemas/index.js";
 import { CORE_API_ACTOR_OVERRIDE_HEADER } from "./actor-transport-header.js";
 
+/** Wire shape `PATCH /bets/:id` accepts — one field per call (`routes/bets.ts`'s discriminated union). */
+interface BetPatchFieldBody {
+	readonly field: "description" | "done_condition" | "hypothesis";
+	readonly value: string;
+	readonly reason: string;
+}
+
 /**
- * Hand-typed mirror of the real `POST /bets` endpoint's `hc` client shape
- * (`bets.$post({json})` — `mergePath` + `$post` produce `${baseUrl}/bets`
- * POST, matching `app.route("/api", api)` + `api.route("/bets",
- * createBetRoutes(...))`, `app.ts:460`). The ONLY hand-written mirror
- * Increment 1 needs; Increment 2 adds one property per additional method.
+ * Hand-typed mirror of the real core-api `hc` client shape — one property
+ * group per mounted sub-router (`app.route("/bets", …)` etc, `app.ts:460-`).
+ * Increment 1 seeded ONLY `bets.$post`; Increment 2 adds every route this
+ * wave's `CoreApiWorkPort`/`CoreApiUsersPort` methods reuse or newly expose.
  */
 interface CoreApiHcClient {
 	readonly bets: {
 		$post(args: { readonly json: CreateBetRequest }): Promise<Response>;
+		readonly ":id": {
+			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+			$patch(args: {
+				readonly param: { readonly id: string };
+				readonly json: BetPatchFieldBody;
+			}): Promise<Response>;
+		};
+	};
+	readonly tasks: {
+		$post(args: { readonly json: CreateTaskRequest }): Promise<Response>;
+		readonly ":id": {
+			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+			readonly notes: {
+				$patch(args: {
+					readonly param: { readonly id: string };
+					readonly json: { readonly entry: string };
+				}): Promise<Response>;
+			};
+		};
+	};
+	readonly conversations: {
+		readonly items: {
+			$get(args: { readonly query: { readonly reasoningMarker: string } }): Promise<Response>;
+			$post(args: { readonly json: CreateItemRequest }): Promise<Response>;
+			readonly ":id": {
+				$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+				$patch(args: {
+					readonly param: { readonly id: string };
+					readonly json: UpdateItemRequest;
+				}): Promise<Response>;
+			};
+		};
+	};
+	readonly artifacts: {
+		$post(args: { readonly json: CreateArtifactRequest }): Promise<Response>;
+	};
+	readonly users: {
+		$get(args: { readonly query: { readonly teamMembersId?: string } }): Promise<Response>;
+		readonly ":id": {
+			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+		};
 	};
 }
 
 /** Placeholder origin for hc's internal URL construction — see this file's top `@lore`. */
 const SEAM_PLACEHOLDER_BASE_URL = "http://core-api.internal/api";
 
-function buildBetsHcClient(fetchAdapter: typeof fetch): CoreApiHcClient {
+function buildCoreApiHcClient(fetchAdapter: typeof fetch): CoreApiHcClient {
 	const client: unknown = hc<AppType>(SEAM_PLACEHOLDER_BASE_URL, { fetch: fetchAdapter });
 	return client as CoreApiHcClient;
 }
+
+/** Throws a uniform, method-attributed error for a non-2xx seam response. */
+async function throwSeamError(method: string, res: Response): Promise<never> {
+	const body = await res.text();
+	throw new Error(`CoreApiPort.${method}: request failed (${res.status}): ${body}`);
+}
+
+/** GET helper: 404 → `undefined`, non-2xx (incl. auth failures) → throw, else parse JSON. */
+async function getOrUndefined<T>(method: string, res: Response): Promise<T | undefined> {
+	if (res.status === 404) return undefined;
+	if (!res.ok) return throwSeamError(method, res);
+	return (await res.json()) as T;
+}
+
+/** Maps `UpdateBetRequest`'s camelCase keys onto `PATCH /bets/:id`'s wire `field` names. */
+const BET_PATCH_FIELD_NAMES = {
+	description: "description",
+	doneCondition: "done_condition",
+	hypothesis: "hypothesis",
+} as const satisfies Record<keyof UpdateBetRequest, BetPatchFieldBody["field"]>;
 
 /**
  * Builds a real `CoreApiPort` wired to the given transport. The transport
@@ -62,17 +141,108 @@ function buildBetsHcClient(fetchAdapter: typeof fetch): CoreApiHcClient {
  */
 export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 	const fetchAdapter: typeof fetch = (input, init) => transport(new Request(input, init));
-	const client = buildBetsHcClient(fetchAdapter);
+	const client = buildCoreApiHcClient(fetchAdapter);
 
 	return {
 		work: {
 			async createBet(input: CreateBetRequest): Promise<CreateBetResponse> {
 				const res = await client.bets.$post({ json: input });
-				if (!res.ok) {
-					const body = await res.text();
-					throw new Error(`CoreApiPort.work.createBet: POST /bets failed (${res.status}): ${body}`);
-				}
+				if (!res.ok) return throwSeamError("work.createBet", res);
 				return (await res.json()) as CreateBetResponse;
+			},
+
+			async getTaskById(id: string): Promise<TaskView | undefined> {
+				const res = await client.tasks[":id"].$get({ param: { id } });
+				return getOrUndefined<TaskView>("work.getTaskById", res);
+			},
+
+			async getBetById(id: string): Promise<BetView | undefined> {
+				const res = await client.bets[":id"].$get({ param: { id } });
+				return getOrUndefined<BetView>("work.getBetById", res);
+			},
+
+			async updateBetById(id: string, updates: UpdateBetRequest): Promise<void> {
+				const reason = "agent update via CoreApiPort seam";
+				const entries: ReadonlyArray<
+					readonly [BetPatchFieldBody["field"], string | null | undefined]
+				> = [
+					[BET_PATCH_FIELD_NAMES.description, updates.description],
+					[BET_PATCH_FIELD_NAMES.doneCondition, updates.doneCondition],
+					[BET_PATCH_FIELD_NAMES.hypothesis, updates.hypothesis],
+				];
+				for (const [field, value] of entries) {
+					if (value === undefined || value === null) continue;
+					const res = await client.bets[":id"].$patch({
+						param: { id },
+						json: { field, value, reason },
+					});
+					if (!res.ok) return throwSeamError("work.updateBetById", res);
+				}
+			},
+
+			async createTask(input: CreateTaskRequest): Promise<CreateTaskResponse> {
+				const res = await client.tasks.$post({ json: input });
+				if (!res.ok) return throwSeamError("work.createTask", res);
+				return (await res.json()) as CreateTaskResponse;
+			},
+
+			async appendTaskNote(
+				taskId: string,
+				entry: string,
+			): Promise<{ readonly id: string } | undefined> {
+				const res = await client.tasks[":id"].notes.$patch({
+					param: { id: taskId },
+					json: { entry },
+				});
+				return getOrUndefined<{ readonly id: string }>("work.appendTaskNote", res);
+			},
+
+			async getItemById(id: string): Promise<ItemView | undefined> {
+				const res = await client.conversations.items[":id"].$get({ param: { id } });
+				return getOrUndefined<ItemView>("work.getItemById", res);
+			},
+
+			async updateItemById(id: string, updates: UpdateItemRequest): Promise<void> {
+				const res = await client.conversations.items[":id"].$patch({
+					param: { id },
+					json: updates,
+				});
+				if (!res.ok) return throwSeamError("work.updateItemById", res);
+			},
+
+			async createItem(input: CreateItemRequest): Promise<CreateItemResponse> {
+				const res = await client.conversations.items.$post({ json: input });
+				if (!res.ok) return throwSeamError("work.createItem", res);
+				return (await res.json()) as CreateItemResponse;
+			},
+
+			async findItemByReasoningMarker(
+				marker: string,
+			): Promise<{ readonly id: string } | undefined> {
+				const res = await client.conversations.items.$get({ query: { reasoningMarker: marker } });
+				if (!res.ok) return throwSeamError("work.findItemByReasoningMarker", res);
+				const { items } = (await res.json()) as { readonly items: ReadonlyArray<{ id: string }> };
+				return items[0] ? { id: items[0].id } : undefined;
+			},
+
+			async createArtifact(input: CreateArtifactRequest): Promise<CreateArtifactResponse> {
+				const res = await client.artifacts.$post({
+					json: { ...input, preview: input.preview ?? null },
+				});
+				if (!res.ok) return throwSeamError("work.createArtifact", res);
+				return (await res.json()) as CreateArtifactResponse;
+			},
+		},
+		users: {
+			async getUserById(id: string): Promise<UserView | undefined> {
+				const res = await client.users[":id"].$get({ param: { id } });
+				return getOrUndefined<UserView>("users.getUserById", res);
+			},
+
+			async listUsersByTeam(teamMembersId: string): Promise<ReadonlyArray<UserView>> {
+				const res = await client.users.$get({ query: { teamMembersId } });
+				if (!res.ok) return throwSeamError("users.listUsersByTeam", res);
+				return (await res.json()) as ReadonlyArray<UserView>;
 			},
 		},
 	};
@@ -138,9 +308,28 @@ export function withActorTransport(
  * Module-level registration point for the boot-time transport, mirroring
  * how `server-factory.ts` builds `app` exactly once and hands it to every
  * other composition root. Registered once in production
- * (`server-factory.ts`'s `createServer`) right after `createApp` resolves;
- * tests register their own per-test `{app}` fixture instance explicitly
- * (see `core-api-port.integration.test.ts` / `create-bet-coreapiport-migration.integration.test.ts`).
+ * (`server-factory.ts`'s `createServer`) right after `createApp` resolves.
+ *
+ * @lore AU21 §9 Increment 2: once `resolveDraftTeamId`/`log_task`/
+ * `write_memory`/etc.'s reads+writes moved onto this seam, EVERY existing
+ * `*.integration.test.ts` that calls a tool handler directly (not just the
+ * seam's own §11 contract tests) needs a registered transport — not only
+ * the handful of tests that explicitly exercise the seam. A GLOBAL
+ * `{auto:true}` fixture on `test-fixtures.ts`'s shared `test` was tried and
+ * REJECTED: forcing `createApp` for every test also activates `app.ts`'s
+ * own production event subscribers (e.g. the AD5 task-`done` dep-watcher,
+ * `app.ts:577`) against tests that manually drive the exact same
+ * transition themselves for their own assertions — a double-fire, not a
+ * fixture problem. Each test file whose tool handler(s) actually reach the
+ * seam instead carries a FILE-SCOPED `{auto:true}` fixture (`test =
+ * baseTest.extend({coreApiSeamRegistration: [...,{auto:true}]})`, e.g.
+ * `write-memory.integration.test.ts`) that registers the transport off
+ * that same test's own `app` — confined to files that need it, invisible
+ * to every other file that imports the bare `test-fixtures.ts` export. A
+ * file using raw `createTestDb()` instead of the fixture (no `test`/`app`
+ * available at all, e.g. `AD1-create-item-routing.integration.test.ts`)
+ * builds + registers its own app by hand in `beforeEach`, same idiom as
+ * `create-bet-coreapiport-migration.integration.test.ts`.
  */
 let registeredTransport: CoreApiTransport | undefined;
 
