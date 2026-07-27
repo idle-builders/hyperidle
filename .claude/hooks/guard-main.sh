@@ -1,37 +1,24 @@
 #!/bin/bash
-# PreToolUse hook: blocks two dangerous patterns:
-# 1. `git worktree add` that checks out main
-# 2. `git commit` while on the main branch
-#
-# Exit 2 = block the tool call with a reason message.
-
 set -euo pipefail
 
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Extract the leading command (first line, before any pipe/redirect/subshell).
-# This avoids false positives from "git commit" appearing inside quoted strings,
-# PR bodies, printf args, etc.
 LEAD=$(echo "$COMMAND" | head -1 | sed 's/[|;&].*//')
 
 # --- Guard 1: no worktree checkouts of main ---
 if echo "$LEAD" | grep -qE '^\s*git\s+worktree\s+add\b'; then
-  if echo "$LEAD" | grep -qE '^\s*git\s+worktree\s+add\s+.*\bmain\b'; then
+  # @lore: Require a token boundary before the remote and explicitly protect Git's
+  # heads/main shorthand so both local-main spellings remain blocked.
+  LEAD_NO_REMOTE_MAIN=$(echo "$LEAD" | sed -E 's#(^|[[:space:]])[A-Za-z0-9_.-]+/main([^A-Za-z0-9_]|$)#\1\2#g')
+  if echo "$LEAD" | grep -qE '(^|[[:space:]])(refs/)?heads/main\b' ||
+    echo "$LEAD_NO_REMOTE_MAIN" | grep -qE '^\s*git\s+worktree\s+add\s+.*\bmain\b'; then
     echo "BLOCKED: cannot check out 'main' in a worktree. Create a feature branch instead: git worktree add <path> -b <type>/<id>-<desc> origin/main"
     exit 2
   fi
 fi
 
 # --- Guard 2: no commits on main (worktree-aware) ---
-# Block only when the commit actually TARGETS a checkout that is on 'main'.
-# Resolve the repo the commit runs against from the command itself, not from
-# CLAUDE_PROJECT_DIR — otherwise a worktree commit (on a feature branch) gets
-# blocked just because the primary checkout happens to be on main, which is the
-# bug that forced the "detach main during pipeline" workaround. Precedence:
-#   1. explicit `git -C <dir>` in the command
-#   2. the tool's working directory (`.cwd` from the hook payload)
-#   3. CLAUDE_PROJECT_DIR / cwd as a last resort
 if echo "$LEAD" | grep -qE '^[[:space:]]*git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?commit\b'; then
   TARGET_DIR=$(echo "$LEAD" | grep -oE '[[:space:]]-C[[:space:]]+[^[:space:]]+' | head -1 | sed -E 's/^.*-C[[:space:]]+//' || true)
   if [ -z "$TARGET_DIR" ]; then
