@@ -116,8 +116,8 @@ Wired at `run-orchestration-composition.ts`. **Largest hidden consumer.** Splits
 | work.{transitionTask, update} | **§5 event** | session-end task-state writeback → already partly via `session_ended → policy [task_state_changed]`; route the rest through the event, not a direct core write |
 | routine.{updateRoutineRun, updateRoutine} | **§5 event + Decision B″** | routine run/def writeback on session end → routine-runs-as-sessions collapse (ruling #4); outcome via events |
 | routine.incrementRoutineCost | **Decision D — untouched** | cost accumulator (display aggregate); no mirror deletion, cap/accounting stays (Decision D) |
-| connections.{applyProvisioningPlan, buildProvisioningPlan} | **§6 FLAGGED (founder call)** | session-launch **credential provisioning** (AN1/AN2) — not a domain read/write; legitimate orchestration→core infra like the cost exemption, OR bake the provisioning plan at emit. Founder call. |
-| filesystems.{listFilesystems, startWatcher} | **§6 FLAGGED (founder call)** | **sandbox mount + writeback watcher** — orchestration↔execution sandbox territory that happens to live in a core-api Service. `filesystems → run-orchestration [sandbox_writeback_changes_detected]` event already exists; is the mount/watch a legitimate infra coupling or a seam? Founder call. |
+| connections.{applyProvisioningPlan, buildProvisioningPlan} | **RESOLVED — Decision F2** | provisioning **operation** moves to orchestration; it reads the connection **record** via `CoreApiPort` at launch (the record stays core-api for the human config surface `SettingsConnections` → `/api/connections`). Not a bake, not an exemption — a seam read + orchestration-owned op. (Increment 7b) |
+| filesystems.{listFilesystems, startWatcher} | **RESOLVED — Decision F2** | sandbox mount/watch **operation** moves to orchestration; reads the filesystem **record** via `CoreApiPort` (record stays core-api for `SettingsFilesystems`). The existing `filesystems → run-orchestration [sandbox_writeback_changes_detected]` event stays. (Increment 7b) |
 
 ---
 
@@ -148,10 +148,12 @@ owns the roster; selection resolves there; orchestration receives the baked agen
 | users.{findUser, listUsers} | agent-selection-bindings.ts:19 | §3 baked-at-emit | roster/candidate reads → core resolves selection at emit |
 | org.getTeamMembers | agent-selection-bindings.ts:18 | §3 baked-at-emit | team membership for selection → resolved at emit |
 
-*Caveat:* `agent-selection` is also consumed against-grain (`work → agent-selection`, an AU19 port) and by
-`session-requests`' routine-delegate path. The §3 disposition means the *selection computation* moves to
-emit-time core-api; whether `agent-selection` remains a distinct Service or folds into the emit-time
-resolver is an Increment-3 structural question (flagged, not guessed).
+**RESOLVED — Decision F1 (founder, 2026-07-27):** `agent-selection` **dissolves.** *Who* is assigned is
+core-api's business decision; `selectAgent` reads only core-api roster, so it folds into core-api's emit-time
+resolution. `isAtCapacity` (active-session count vs `maxConcurrentSessions`) folds into provision-time
+concurrency. The against-grain `work → agent-selection` `AgentSelectionDefaults` port **ceases to exist**
+(selection is core-api's own logic now — a dissolution, not a reopen). `agent-selection` likely does not
+survive as a standalone Service. (Increment 3 relocates `selectAgent`; Increment 7b folds `isAtCapacity`.)
 
 ---
 
@@ -164,17 +166,23 @@ resolver is an Increment-3 structural question (flagged, not guessed).
   writeback. (Increment 3–4)
 - **§1 delete:** `dispatch.review.createPracticeMeeting` (practice-meeting, ruling #5). (Increment 5)
 - **Decision D untouched:** all of `cost` + `run-orchestration.routine.incrementRoutineCost`.
-- **§6 FLAGGED (founder call) — genuinely does not fit §7's five:** `run-orchestration → connections`
-  (provisioning credentials) and `run-orchestration → filesystems` (sandbox mount/watch). Plus the pre-existing
-  flags (target-agent runnability provision-time cover; `taskDispatchAttempts` = work-owned, resolved).
+- **§6 (session-launch infrastructure) — RESOLVED by Decision F2:** `run-orchestration → connections`
+  (provisioning) + `→ filesystems` (sandbox) — the **operation** becomes orchestration's, reading the core-api
+  **record** via the seam at launch. Pre-existing flags: target-agent runnability (provision-time cover),
+  `taskDispatchAttempts` = work-owned (resolved).
+- **Removed against-grain edge (Decision D2):** `work → cost` `CostCapChecker` — deleted; core never blocks on
+  cost. `work → agent-selection` — dissolves (F1). Both are core→orchestration (reverse) edges, noted here
+  because AU21 now removes them; neither is in the 37 agent-orch→core list.
 
-## Open questions for the founder / concept gate
-1. **Session-launch infrastructure (§6):** are `run-orchestration`'s `connections` (provisioning) and
-   `filesystems` (sandbox) reads legitimate orchestration→core infra couplings (allowlisted like the cost
-   gate), or must they be baked-at-emit? They are load-bearing for session start and don't fit the clean-loop
-   read/write/event trichotomy.
-2. **`agent-selection` Service fate:** does the selection computation folding into emit-time core-api retire
-   `agent-selection` as a distinct orchestration Service, or does it stay and get *invoked* by core-api at
-   emit (the existing against-grain `work → agent-selection` port)?
-3. **`cost` exemption scope:** confirm the whole `cost` consumer stays as the founder-signed cap-gate
-   exemption (Decision D), and the guard allowlists exactly it.
+## Founder-resolved (2026-07-27) — formerly open questions
+1. **Session-launch infrastructure (§6):** RESOLVED — Decision F2 (record stays core-api, provisioning op →
+   orchestration via seam read).
+2. **`agent-selection` Service fate:** RESOLVED — Decision F1 (dissolves; `work → agent-selection` port ceases;
+   `selectAgent` → core-api, `isAtCapacity` → provision-time concurrency).
+3. **`cost` exemption scope:** RESOLVED — Decision D2 supersedes: the **blocking** `work → cost` port is
+   *removed* (core never blocks on cost); the remaining `cost` consumer (the session-launch cap gate, `cost-cap.ts`)
+   stays as the founder-signed exemption and the guard allowlists exactly it.
+
+## Still open (settings)
+- **Cross-layer settings union (Decision F3):** needs its own scoped `/design` pass — one unified surface backed
+  by `CoreApiPort` + `AgentOrchestrationPort`. Flagged, not resolvable inline.

@@ -85,6 +85,42 @@ The `routine-runs-as-sessions` ruling (orchestration owns run history; core-api 
 applied exactly this principle to one case; cost/sessions/activity are the same case and get the same
 treatment. `/architecture` carries the concrete decisions (revised Decision D + new Decision E).
 
+## Founder decisions (2026-07-27) — cost, selection, provisioning, settings
+
+Four rulings from a founder conversation, all first-class architecture (not build-time discovery):
+
+**1. Cost is a pure orchestration matter; core-api must NEVER block on it.** Founder, verbatim:
+> "we always need to compose, we cannot stop working because of costs, there is no way to recover
+> otherwise. Cost is a pure orchestration matter, never a core matter."
+
+This **deliberately reopens** AU19's `work → cost` `CostCapChecker` permanent port (the one carve-out from
+"AU19's rulings stand"): `work`'s bet-decomposition must proceed **unconditionally**, never refusing on cost —
+refusing risks the same stuck-unrecoverable failure mode as the routine-brick bug (a bet marked `blocked`
+because "over cap" that nothing un-blocks). Cost enforcement lives in exactly one place: orchestration's
+session-launch cap gate (the existing `costActual` gate, untouched). Verified: the only core-api cost-block is
+`packages/core-api/work/src/bet-decomposition.ts:486-492` (`if (!capResult.allowed) markTerminal("blocked",
+"failed")`). `routes/artifacts.ts:282` only *records* cost (bookkeeping, never refuses) — correct, no change.
+No second hidden instance exists.
+
+**2. Agent-selection dissolves.** *Who* is assigned is core-api's business decision (baked at emit). What's
+left for orchestration is only "can this specific agent take this on right now" — a capacity check, not a
+selection. `selectAgent` reads only core-api roster (users/org), so it folds into core-api's emit-time
+resolution; `isAtCapacity` (active-session count vs `maxConcurrentSessions`) folds into provision-time
+concurrency. The `work → agent-selection` `AgentSelectionDefaults` port therefore **ceases to exist** (selection
+is core-api's own logic now) — a natural dissolution, not a "reopen."
+
+**3. Credentials/filesystems — split, not a wholesale move.** Verified: `connections` and `filesystems` DO
+serve human config surfaces (`SettingsConnections.tsx` → `/api/connections`, `SettingsFilesystems.tsx`). So the
+**record** a human configures stays core-api; only the **provisioning operation** (build+apply a plan for a
+specific session launch; sandbox mount/watch) becomes orchestration's job, reading the record once at launch
+through the seam — not owning it. Resolves the two `run-orchestration` §6 flags.
+
+**4. Settings become a cross-layer union — needs its own design pass.** Founder: "the settings page will be a
+union of core settings and orchestration settings, and we probably need to reorganize/redesign the settings
+screens for this." 17 screens today span both layers; a unified surface backed by two API doors (`CoreApiPort`
++ `AgentOrchestrationPort`), Application-composed. Flagged as a **scoped design pass**, not resolved inline
+(architecture.md Decision F).
+
 ## AC alignment table (against `plan.md`'s updated Acceptance Criteria)
 
 | # | Acceptance criterion (plan.md, post-redirect) | How this requirement covers it | Gap flag |

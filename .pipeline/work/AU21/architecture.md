@@ -89,7 +89,9 @@ including two the graph showed as zero and the paused analysis never enumerated:
 `.pipeline/work/AU21/edge-disposition.md`.
 
 ## 4. Fixed inputs (not re-litigated)
-- AU19's remaining against-grain DI ports + EventBus inversions stand as decided. The one that vanished
+- AU19's remaining against-grain DI ports + EventBus inversions stand as decided **with ONE founder-authorized
+  exception (2026-07-27): the `work → cost` `CostCapChecker` port is deliberately reopened and removed** — core
+  never blocks on cost (Decision D2). Every other AU19 ruling stands. The one that vanished
   (`policy → session-requests`) is AU20's doing, not this WP's; do not resurrect it.
 - `HarnessPort` (`agent-orchestration ↔ agent-execution`) is the reference precedent, not in scope.
 - No new authorization layer for agent-initiated core writes (named follow-up) — the seam is chosen so that
@@ -293,6 +295,23 @@ orchestration→core coupling the graph cannot see — but it is the founder-unt
 - *Alt (deferred, not rejected)* — migrate the display aggregates to orchestration ownership: real
   principle-purity, closes no current gap; a concept-gate question, not AU21 scope.
 
+### Decision D2 — Core-api NEVER blocks on cost; the `work → cost` port is removed (founder, 2026-07-27)
+Founder, verbatim: *"we always need to compose, we cannot stop working because of costs, there is no way to
+recover otherwise. Cost is a pure orchestration matter, never a core matter."* This **deliberately reopens** the
+one AU19 permanent port the rest of AU21 leaves alone (§2), for an explicit, signed reason: a core-api "refuse
+on cost" decision is the same stuck-unrecoverable class as the routine-brick bug.
+- **Remove the `work → cost` `CostCapChecker` synchronous port** (`work/src/ports.ts:181-199,283`) and the block
+  it feeds: `bet-decomposition.ts:486-492` (`if (!capResult.allowed) markTerminal("blocked","failed"); return`).
+  Decomposition just proceeds — unconditionally. This deletes an against-grain (`work → cost`) edge; it does not
+  add one.
+- **Audited every core-api cost decision (per founder instruction).** The only core-api "should this proceed
+  based on cost" block is that one site. `routes/artifacts.ts:282` uses `costOps.record` — pure bookkeeping
+  (accumulate + emit warning/breach events), **never refuses** the artifact post — the correct pattern, left
+  as-is. `run-orchestration-composition.ts:141` wires `checkCostCap` for orchestration's **session-launch** gate
+  — the one legitimate place cost gates, untouched. **No second hidden instance.** (Called out explicitly per the
+  coordinator's audit instruction — this did not hide the way the composition-bundle reads did.)
+- Cost enforcement is entirely orchestration's session-launch cap gate (Decision D — `cost-cap.ts`, untouched).
+
 ### Decision E — Retire the generic realtime broadcaster; separate the three conflated concerns
 `packages/core-api/realtime/src/ws-broadcaster.ts` is a generic cross-cutting Service: one `BROADCAST_ROUTES`
 table rebroadcasts ~16 event types spanning conversations, work, and sessions through one mechanism
@@ -323,6 +342,37 @@ concerns. **Retire the pattern** (do not slim it); separate:
 
 Naming: **"the clean loop"** for the cycle; **`CoreApiPort`** / **`AgentOrchestrationPort`** for the two doors.
 
+### Decision F — Agent-selection dissolves; credentials/filesystems split; settings become a cross-layer union (founder, 2026-07-27)
+Three related rulings that resolve `edge-disposition.md`'s three founder-flags:
+
+**F1 — `agent-selection` dissolves (resolves Flag 2).** *Who* is assigned is a core-api business decision,
+already baked at emit (Decision B step 1); `selectAgent` reads only core-api roster (users/org), so it folds
+into core-api's emit-time resolution. What remains for orchestration is only *capacity* — `isAtCapacity`
+(active-session count vs `maxConcurrentSessions`) folds into the existing provision-time concurrency logic. The
+`work → agent-selection` `AgentSelectionDefaults` port **ceases to exist** (selection is core-api's own logic
+now) — a dissolution, not a reopen; nothing reaches into orchestration for selection anymore. `agent-selection`
+likely does not survive as a standalone Service (its remaining job is a light capacity check).
+
+**F2 — credentials/filesystems: record stays core-api, provisioning op moves to orchestration (resolves Flag 1
++ the §6 "session-launch infrastructure" category).** Verified: `connections`/`filesystems` serve human config
+surfaces (`SettingsConnections.tsx` → `/api/connections`; `SettingsFilesystems.tsx`). So the **record** a human
+configures stays core-api (the UI owns it); only the **provisioning operation** —
+`connections.{buildProvisioningPlan, applyProvisioningPlan}` and `filesystems.{listFilesystems, startWatcher}`
+(sandbox mount + writeback watcher) — becomes orchestration's own job at session launch, **reading the record
+once through `CoreApiPort` (seam), not owning it.** This converts the two `run-orchestration` §6 flags from
+"open founder call" to "seam read + orchestration-owned provisioning op."
+
+**F3 — settings become a cross-layer union — SCOPED DESIGN PASS (resolves Flag / answers Q4).** Founder: the
+settings page is "a union of core settings and orchestration settings, and we probably need to reorganize/
+redesign the settings screens." Today `packages/web/src/settings/*` has 17 screens spanning both layers — core
+(`SettingsConnections`, `SettingsFilesystems`, `SettingsModels`, `SettingsNotifications`, `SettingsProfile`,
+`SettingsOrgChart`, `SettingsAgents`) and orchestration/execution (`SettingsHarnesses`, `SettingsWorker`,
+`SettingsAgentBehavior`, cost caps, session config). Target: **one unified settings surface backed by two API
+doors** (`CoreApiPort` + `AgentOrchestrationPort`), Application-composed — the same one-door-per-owner pattern
+used everywhere. This is real UI/IA design (screen reorg, not just a data-source swap) and **needs its own
+scoped `/design` pass** — flagged here, not resolved inline. Recommend a dedicated design WP (or an AU21 design
+phase) once the two doors exist; it depends on Decision D/E landing the `AgentOrchestrationPort` surface.
+
 ## 7. Disposition rule (applied to every capability in Increment 0's worklist)
 Per capability behind an `agent-orchestration → core-api` read/write (visible in the graph **or** hidden in a
 composition-bundle like `DurableAgentQueueDeps`), in order:
@@ -348,7 +398,7 @@ authority (§6 B, provision-time cover) and (ii) any Decision-D display query th
 | 3 | Every read/write in the regenerated worklist gets a disposition surviving re-challenge | `edge-disposition.md`: each capability + verdict + §7 disposition + reasoning; reviewer confirms. Post-fix graph shows each former read gone/baked and each write seam-routed; the new failure event shows as an against-grain EventBus inversion. |
 | 4 | Phantom `session-requests → settings` absent everywhere | `grep` → zero hits (confirm; not in the current graph). |
 | 5 | `generate-dependency-graph.ts` re-run; new baseline **sees the composition-bundle reads** and distinguishes seam-write / pushed-payload / raw-DI; replaces 48/22 | Run the script; assert (i) it now surfaces `DurableAgentQueueDeps`-style hidden edges, (ii) distinct edge-types, (iii) the new inversion; docs byte-consistent with JSON. |
-| 6 | AU19's surviving permanent DI ports + EventBus inversions not silently reopened; the dropped `policy → session-requests` not resurrected | Diff check: the 4 surviving against-grain DI ports unchanged (the new event is additive); protected assertions cover behavior. |
+| 6 | AU19's surviving permanent ports not silently reopened — **except the one founder-signed reopen: `work → cost` is deliberately removed (Decision D2)** | Diff check: `work → agent-selection` dissolves (selection → core-api, §Decision D2/edge-disposition), `work → cost` removed (reasoned, founder-signed), the remaining against-grain ports + inversions unchanged; a test asserts bet-decomposition proceeds when over-cap (no `blocked`). |
 | 7 | practice-meeting deleted from its new home; no replacement | `packages/core-api/knowledge/src/practice-meeting.ts` + all references (`dispatch-bindings.ts`, `dispatch/service.ts` `runPracticeMeetingRoutine`, `dispatch`/`tool-handlers` ports, `routes/*`) removed; a test proves the builtin-routine registry no longer offers it and nothing else broke. |
 | 8 | Per-session cost is tracked + served via `AgentOrchestrationPort`; the cap gate + aggregate display are unchanged (no mirror deleted — none exists) | Test: (a) a completed session's per-session cost is recorded by agent-orchestration and served via `AgentOrchestrationPort` (today `tasks.ts` returns `cost: null`); (b) the cost-cap gate (`checkCostCap`/`recordCostAndCheck`) still blocks at/over cap and its `costActual` columns are intact; (c) existing bet/routine/team/agent aggregate cost still renders unchanged; (d) nothing reads a cost value from a duplicate store (there is none). |
 | 9 | A documented + **enforced** practice for a new orchestration→core edge | (a) Doc states the rule. (b) The guard (§9 Inc 8) fails CI on a new orchestration→core read port **or a new composition-bundle core-read** (incl. the `cost` `CostDeps` pattern); a test proves it fires. |
@@ -436,6 +486,14 @@ a generic Service: design the minimal (b) discrete-change invalidation signal (d
 broadcaster); build the (c) session/harness streaming capability owned by `agent-execution`, gatewayed by
 `agent-orchestration`, exposed via `AgentOrchestrationPort`; move `SessionActivityBuffer` out of orchestration
 into `agent-execution`. Notifications (a) untouched.
+
+**Increment 7b — Credentials/filesystems provisioning split (Decision F2).** Move the provisioning operation
+(`connections.{build,apply}ProvisioningPlan`, `filesystems.{listFilesystems, startWatcher}`) into
+orchestration, reading the connection/filesystem **record** via `CoreApiPort` at launch; leave the records +
+their human-config routes/UI (`/api/connections`, `/api/filesystems`, `SettingsConnections`,
+`SettingsFilesystems`) in core-api. Fold `isAtCapacity` into provision-time concurrency and retire
+`agent-selection` as a standalone Service (Decision F1); `selectAgent` relocates into core-api's emit-time
+resolution (part of Increment 3).
 
 **Increment 8 — Re-baseline + MANDATORY anti-regrowth guard + docs.**
 Extend `generate-dependency-graph.ts` to **see the composition-bundle pattern** + add `seam-write`/
@@ -603,7 +661,12 @@ architecture (Increment 0 shrinks from "discover + decide" to "verify + rule on 
 count: **37** edges, not 15 — and revealed **two more hidden read-heavy consumers** (`run-orchestration`,
 `agent-selection`) the paused analysis never enumerated. So the Decision-B read-deletion surface is *larger*
 than previously scoped (session-requests + run-orchestration + agent-selection + dispatch), which reinforces —
-not lowers — the XL call. Net: still **XL**, **9 independently-shippable increments** — driven by the
+not lowers — the XL call. The 2026-07-27 founder decisions net roughly neutral on build effort: `work → cost`
+removal (Decision D2) is a small deletion that *simplifies* (a port + a block gone); `agent-selection`
+dissolution (F1) *removes* a Service; the credentials/filesystems split (F2, Increment 7b) is bounded. The one
+genuinely additive piece — the cross-layer **settings reorg (F3)** — is scoped as its **own `/design` pass /
+follow-up WP**, dependent on the `AgentOrchestrationPort` door, so it does not inflate AU21's build increments;
+it is a named downstream design dependency, not in-scope build here. Net: still **XL**, **9 independently-shippable increments** — driven by the
 behavioral core (drain read-deletion across four consumers, routine collapse, dispatch untangle) and Decision
 E, not by Decision D. Summary for
 `/work-planning`: the consumed surface got smaller, the behavioral core did not, and the four-Layer
