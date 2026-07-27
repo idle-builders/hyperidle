@@ -195,11 +195,46 @@ The founder's model, made concrete against the current code:
    request; bounds attempts (relocate the failure-code + backoff logic core-side) and routes repeated failure
    to review/AL7 rather than looping.
 
-*Note — resolution ownership.* Because resolution now happens once at emit inside core-api, the residual
-question is where `resolveIntentInputInternal`'s code *physically lives*. Increment 0 rules on the cleanest
-placement (move the resolution helpers into the emitting core-api Services / a core-api resolution module;
-`session-requests` keeps only the dedup/claim mechanics, which read solely its own tables). This is the concrete
-form of "orchestration touches only its own bookkeeping state."
+*Ruling — resolution ownership (Increment 0, final).* **Split per emitting Service — NOT one shared core-api
+resolution module.** Each of the seven branches in `resolveIntentInputInternal`
+(`session-requests/src/service.ts:719-909`) already reads exactly one domain's own tables, and every real emit
+call site already lives inside or beside that domain's own package, not in one shared place: `assistant_turn` is
+enqueued in `routes/threads.ts:1208` (which already imports `insertMessage`/`updateThread` straight from
+`@hyperidle/conversation`'s `conversation-store.ts`); `session_start`/`task_run` in
+`routes/sessions-routes.ts:392`; `bet_decomposition` literally already inside
+`packages/core-api/work/src/bet-decomposition.ts:263,456`; `knowledge_action` in `routes/knowledge.ts:806`;
+`reengagement` already inside `packages/core-api/review/src/proposed-call-workflow.ts:290,399`. Moving the five
+resolution bodies into one shared `packages/core-api/src/services/` module would force every one of these call
+sites to reach into one hub that itself imports all seven domains' read functions — recreating, inside core-api,
+the exact `dispatch`-style cross-domain-hub shape (Decision B′) this WP dismantles in orchestration.
+`packages/core-api/src/services/*` is, by existing convention, the Application-layer COMPOSITION ROOT
+(`durable-agent-queue.ts`, `dispatch-bindings.ts`, `tool-handlers-bindings.ts`, `run-orchestration-composition.ts`,
+`cost-bindings.ts`, `agent-selection-bindings.ts` — wiring DI objects together), not a home for business/
+validation logic.
+
+**Concrete placement:**
+- `assistant_turn` → a resolver added to `packages/core-api/conversation/src/` (paired with its emit site,
+  `routes/threads.ts`).
+- `session_start`, `task_run` → resolvers added to `packages/core-api/work/src/` (paired with
+  `routes/sessions-routes.ts`; `work` already owns `taskDispatchAttemptStore`, `work-service.ts:62`).
+- `bet_decomposition` → extends `packages/core-api/work/src/bet-decomposition.ts` in place (already the emit
+  site, `:263,456`).
+- `knowledge_action` → a resolver added to `packages/core-api/knowledge/src/` (paired with `routes/knowledge.ts`).
+- `routine_run` → a resolver added to `packages/core-api/routine/src/routine-service.ts`, co-located with the
+  scheduler once Decision B′/B″ move it core-side (Increment 4) — at that point the emit site and the resolver
+  are the same package.
+- `reengagement` → extends `packages/core-api/review/src/proposed-call-workflow.ts` in place (already the emit
+  site, `:290,399`).
+- The one truly cross-cutting piece — `requireRunnableActor` (`session-requests/src/service.ts:700-705`;
+  identical in every branch, reads only `users`) — moves to **one** exported helper in
+  `packages/core-api/users/src/` (alongside `user-store.ts`), imported by each of the six packages above via
+  ordinary same-layer core-api DI (already a normal pattern — `cost-cap.ts` similarly depends on
+  `users`/`org`/`work`/`settings`). This is the one piece that *is* shared, because it is genuinely one
+  cross-domain invariant (ast-`<userId>` trust), not five domain-specific resolutions.
+- `session-requests/src/service.ts` keeps only `claimIntentInternal` (`:914`), `failOrRelease`'s CAS update,
+  `processIntentsInternal`'s claim loop, and `insertIntentInternal`/`enqueueWorkIntent` — all reading/writing
+  solely `agentWorkIntents`/`agentSessionRequests`/`explicitSessionStarts`, its own tables. This is the concrete
+  form of "orchestration touches only its own bookkeeping state."
 
 *Alt (rejected, R3)* — "relocate the 7-branch validation into core-api but keep it as a **drain-time**
 re-validation": still a hardwired pre-check re-reading at launch. Resolution moves to **emit** time; the drain
@@ -218,10 +253,37 @@ edges and four distinct responsibilities that each read/write core state. Dispos
   `listActiveRoutines`, `findRunningRoutineRun`, `sumRoutineRunCostSince`) → **core-api**, per founder ruling
   #4 (routines = pure definition; a firing = an orchestration session). A firing emits a baked request; core-api
   owns the schedule evaluation and the run record. See Decision B″ for `routineRuns` itself. (Increment 4.)
-- **Builtin-routine bodies** (post-bet-retro, portfolio-retro, knowledge-promotion, knowledge-decay,
-  practice-meeting) → per-routine disposition (Increment 5): each is either agent work (→ an agent session that
-  writes back via the seam) or core-maintenance (→ moved core-side). **practice-meeting is deleted** (ruling
-  #5).
+- **Builtin-routine bodies — per-routine disposition (Increment 0, final ruling): all four are
+  core-maintenance-moved-core-side; NONE is agent-work-via-seam.** Read from source (`dispatch/service.ts`),
+  none of the four launches an agent/LLM session or an orchestration run — each is a deterministic read+write
+  against core-api tables, reached only through `DispatchPorts`' composition-bundle (the same graph-blindness
+  pattern as §3) because the SCHEDULER that fires them happens to live in agent-orchestration today, not because
+  the work itself needs an agent:
+  - **post-bet-retro** (`runPostBetRetro`, `dispatch/service.ts:767-836`): reads `work.getBetById`,
+    `conversation.getThreadIdsByHost`, `work.findRetroItemByThreadIds`; writes `conversation.insertThread` +
+    `work.createItem` in one transaction, assembling a review item from the bet's own
+    `hypothesis`/`completedAt`/`revisionLog` fields by string template — no LLM call, no agent session
+    requested anywhere in the function. **Core-maintenance-moved-core-side.**
+  - **portfolio-retro** (`runPortfolioRetro`, `:838-901`): reads `knowledge.listRecentByLayers`; writes the same
+    `conversation.insertThread` + `work.createItem` shape from a templated aggregation of recent L3/L4 items —
+    no agent involved. **Core-maintenance-moved-core-side.**
+  - **knowledge-promotion** (`runKnowledgePromotion`, `:905-943`): calls only `knowledge.runAutoPromotionSweep`
+    + `knowledge.recomputeAttentionForCandidates` — existing `knowledge`-owned sweep algorithms, deterministic.
+    **Core-maintenance-moved-core-side** (already implied by `edge-disposition.md`'s `knowledge.{list, sweep}`
+    row; this ruling confirms no agent-work reading survives in this routine).
+  - **knowledge-decay** (`runKnowledgeDecay`, `:945-955`): calls only `knowledge.runStaleSweep` — same shape.
+    **Core-maintenance-moved-core-side.**
+
+  **Correction to `edge-disposition.md`'s `dispatch` table (found during this ruling):** its
+  `work.create | §4 seam | retro-item creation = agent-as-user write` line is wrong — `work.createItem` in
+  `runPostBetRetro`/`runPortfolioRetro` is called by the SCHEDULER firing a deterministic routine body, not by a
+  running agent acting like a user; there is no agent session anywhere in this path. Corrected in
+  `edge-disposition.md` to `§1/§2 core-maintenance-moved-core-side`, and the `conversation` rows there are split
+  so assistant-turn's reads/writes (genuinely agent-as-user, §4 seam) are no longer bundled with retro's reads/
+  writes (core-maintenance, §1/§2). Once Decision B′/Increment 4 moves the scheduler itself core-side, all four
+  builtin bodies become in-package calls with **zero** residual `agent-orchestration → core-api` edge — the
+  same dissolution `insertRoutineRun` gets under Decision B″.
+  - **practice-meeting is deleted** (ruling #5, unchanged by this pass).
 - **Assistant-turn runner** (`insertMessage`/`getThreadById`/`getUserById`/`readServerConfig`) → the write-back
   conversation writes go through `CoreApiPort`; the config/thread reads are baked at emit or read by the agent
   live. (Increment 2/3.)
@@ -234,9 +296,41 @@ edges and four distinct responsibilities that each read/write core state. Dispos
 Target: a routine firing is an agent-orchestration session; the run's status is the *session's* lifecycle, not
 a core-api field orchestration reaches in to mutate. Concretely: core-api's `routine` stays definition
 (schedule/owner); the firing emits a baked request; the run outcome is finalized only via the report-back
-events (§6 B4), never a direct cross-layer write. Increment 4 chooses whether `routineRuns` becomes an
-orchestration-owned projection of session lifecycle or shrinks to a core-api definition-only audit derived from
-events — and updates `@lore AA1`.
+events (§6 B4), never a direct cross-layer write.
+
+**Ruling (Increment 0, final): shrinks to a core-api definition-only audit derived from events — NOT an
+orchestration-owned projection.** `routineRuns` (`schema.ts:693`) stays exactly where AU13 already put it —
+`packages/core-api/routine/src/routine-service.ts` remains, per its own header comment, "the only module
+permitted to read or write `routines`, `routine_runs`" (`routine-service.ts:1-7`); this ruling does not reopen
+that boundary. What collapses is the three orchestration-side DIRECT WRITE paths into it, all confirmed by
+source:
+1. `dispatch/service.ts`'s `ports.routine.insertRoutineRun` (fire-time insert, 4 call sites: `:697,1032,1045,
+   1064`) — dissolves by construction once Decision B′/Increment 4 moves the schedule-fire decision itself
+   core-side: the insert becomes a same-package, same-transaction call inside core-api's own scheduler, not a
+   cross-layer edge left to collapse at all.
+2. `session-requests/src/service.ts`'s `deps.routine.updateRoutineRunIfRunning` (`failOrRelease`, `:992`) —
+   already re-homed onto the new `agent_run_admission_failed` event by §6 B4/§13.
+3. `run-orchestration`'s `ports.routine.updateRoutineRunById` (`transition-run.ts:180`,
+   `runtime-reapers.ts:184`) — re-homed onto the existing `session_ended`/`agent_run_lifecycle_changed`
+   post-session reaction (§6 B4), a core-api subscriber calling `routine-service.ts`'s `updateRoutineRun`.
+
+Once all three collapse, `routineRuns` receives **zero** direct writes from orchestration — every mutation
+originates inside core-api itself (synchronously in the fire transaction, or as an event-subscriber reaction to
+orchestration's own lifecycle events). That is precisely "definition-only audit derived from events": the row
+is core-api's, the table does not move, no new schema/table is invented, and the UI-facing read path
+(`routes/routines-routes.ts:224`, already calling `routineService.listRoutineRuns`/`sumRunCost` in-process)
+stays exactly as fast and local as it is today.
+
+The rejected alternative — "an orchestration-owned projection of session lifecycle" — is rejected because it
+would (a) require inventing a NEW table/schema owned by agent-orchestration duplicating run history, breaking
+AU13's existing exclusive-ownership rule for no compounding benefit; (b) force `routines-routes.ts`'s UI-facing
+run-history read to cross the seam via a new `AgentOrchestrationPort` method it does not need today; and (c)
+recreate exactly the "mirror" shape Decision D spent a full source-trace proving does **not** exist anywhere
+else in this system (§6 D) — there is no reason to introduce the first one here. No schema change beyond what
+Increment 3 already plans (`agent_work_intents.status` gaining `superseded`, Decision B‴) — `routineRuns`'s
+existing columns (`outcome`, `endedAt`, `errorMessage`, `sessionId`, `summary`, `costMinor/Currency`) are
+unchanged; only the call sites of its writes move. `@lore AA1` (`packages/db/src/schema.ts:685-692`) updated
+accordingly.
 
 ### Decision B‴ — The push continues: re-emit on fact-change; supersede (not-started) or deliver-on-next-turn (running) — with true mid-run injection flagged as harness-capability work (founder)
 Extends Decision B step 3. Core-api does not fire-and-forget: if the underlying fact changes while the work is
@@ -547,10 +641,15 @@ source. Increment 0 does **not** re-discover; it:
   session-launch-infrastructure reads (`connections` provisioning, `filesystems` sandbox) — allowlist vs.
   bake; (ii) `agent-selection`'s Service fate under emit-time selection; (iii) confirm the whole `cost`
   consumer as the founder-signed cap-gate exemption.
-- Rules on the mechanics already scoped: (a) where `resolveIntentInputInternal`'s resolution lands (§6 B);
-  (b) `routineRuns` collapse shape (§6 B″); (c) per-builtin-routine disposition (§6 B′); (d) target-agent
-  runnability cover.
-- Designs `agent_run_admission_failed` (shape + subscribers) and confirms it clears the EventBus-inversion bar.
+- Rules on the mechanics already scoped — **DONE, this pass (2026-07-27):** (a) where
+  `resolveIntentInputInternal`'s resolution lands — split per emitting Service, see Decision B's ruling; (b)
+  `routineRuns` collapse shape — core-api definition-only audit derived from events, see Decision B″'s ruling;
+  (c) per-builtin-routine disposition — all four core-maintenance-moved-core-side, see Decision B′'s ruling;
+  (d) target-agent runnability cover — already resolved via §12 (reuses the pre-handoff channel,
+  `TARGET_AGENT_NOT_RUNNABLE`).
+- Designs `agent_run_admission_failed` (shape + subscribers) — **DONE, this pass**: finalized type + full
+  per-`kind` subscriber table, see §10. Clears the EventBus-inversion bar per AU19's rule (fire-and-forget, no
+  shared transaction, no reply — same shape as the other sanctioned inversions).
 - Folds `scan-hidden-composition-edges.ts` into `generate-dependency-graph.ts` and turns it into the
   anti-regrowth guard (catches a new `ports.ts` core-read **and** a new composition-bundle core-read; allowlist
   = only the founder-signed flags). **Gate:** disposition-execution (Inc 2–5) begins after the reviewer signs
@@ -641,11 +740,52 @@ export type CoreApiTransport = (req: Request) => Promise<Response>;   // === hc'
   re-validatable snapshot — the agent pulls current detail live via MCP. Carried by the existing
   `AgentWorkIntentRecorder` port (payload growth, not a new edge).
 - **Failure report-back — two events:**
-  - **NEW** `AgentRunAdmissionFailedEvent { type:"agent_run_admission_failed", intentId, kind, sourceKind,
-    sourceId, failureCode, terminal, timestamp }` in `packages/shared/src/events.ts` (added to the
-    `DomainEvent` union) — emitted by `failOrRelease` (pre-handoff). New against-grain EventBus inversion.
+  - **NEW `AgentRunAdmissionFailedEvent` — finalized shape (Increment 0, ready for Increment 3 to implement
+    verbatim):**
+    ```ts
+    // packages/shared/src/events.ts — added to the DomainEvent union (KernelEvent group, beside AgentWorkIntentEvent)
+    export type AgentRunAdmissionFailureCode =
+      | "INVALID_WORK_SOURCE"       // baked payload's source no longer exists / no longer eligible (domain-state staleness)
+      | "MAX_ATTEMPTS_EXCEEDED"     // orchestration's own claim/dedup attempt budget (agentWorkIntents.attempts) exhausted
+      | "TARGET_AGENT_NOT_RUNNABLE" // resolved agent deactivated/non-existent between emit and provisioning (§12)
+      | "PROVISIONING_FAILED";     // hard infra failure building/deploying the session (harness/sandbox), not a domain problem
+
+    export interface AgentRunAdmissionFailedEvent {
+      readonly type: "agent_run_admission_failed";
+      readonly streamId: string;                 // same stream convention as AgentWorkIntentEvent (e.g. `task:<id>`, `routine:<id>`, `thread:<id>`)
+      readonly intentId: string;                  // agentWorkIntents.id
+      readonly kind: AgentWorkIntentKind;          // reuse the existing 7-kind union (events.ts, Decision G)
+      readonly sourceKind: AgentSessionSourceKind | "explicit_session_start"; // reuse AgentWorkIntentEvent's exact type
+      readonly sourceId: string;
+      readonly failureCode: AgentRunAdmissionFailureCode;
+      readonly terminal: boolean;   // true = orchestration will NOT retry this intent again (its own claim/attempt budget is spent, or the error is unrecoverable-by-retry); core-api MUST finalize + decide retry(re-emit a fresh intent)/abandon. false = informational — orchestration is still retrying internally; no core-api state mutation.
+      readonly timestamp: number;
+    }
+    ```
+    **Emission rule:** `failOrRelease` (`session-requests/src/service.ts:960`) emits this event on every failed
+    claim/dispatch attempt, `terminal` set exactly as its existing computation already does
+    (`error instanceof InvalidAgentWorkSourceError` → `INVALID_WORK_SOURCE`; `attempts >= maxAttempts` →
+    `MAX_ATTEMPTS_EXCEEDED`; §12's deactivation race → `TARGET_AGENT_NOT_RUNNABLE`; a hard provisioning/build
+    error → `PROVISIONING_FAILED`) — orchestration keeps this attempt-count/backoff bookkeeping verbatim (it is
+    orchestration's own dedup state, Decision B step 2); it does not move core-side. Only `terminal===true`
+    triggers a core-api reaction — `terminal===false` events are informational (orchestration is still retrying
+    on its own backoff) and provoke no state mutation.
+
+    **Full subscriber list, by `kind` (concrete enough to implement in Increment 3):**
+
+    | `kind` | Subscribing core-api Service | Reaction on `terminal===true` |
+    |---|---|---|
+    | `routine_run` | `routine` | `routine-service.ts`'s `updateRoutineRun(sourceId, {outcome:"error", endedAt, errorMessage:failureCode}, {onlyIfRunning:true})` — the literal replacement for `failOrRelease`'s deleted direct write (preserves AU15 AC-3d); retry is implicit (the routine's own next scheduled fire), no separate re-emit needed. |
+    | `task_run` | `work` | Mark the `taskDispatchAttempts` row (`work-service.ts:62`'s `taskDispatchAttemptStore`, work-owned) failed; decide retry (bounded by a work-owned attempt counter on the task/dispatch-attempt row — bake + re-emit a fresh `task_run` intent) vs abandon (leave the task in its current state for human/agent re-trigger). |
+    | `session_start` | `work` | Mark the `explicitSessionStarts` row (`schema.ts:457`) failed. This kind is an explicit human/agent-requested start — **no automatic retry**; abandon and surface the failure to the requester (matches the "explicit" semantics — nothing should silently retry a manual trigger later). |
+    | `bet_decomposition` | `work` | Reuse the **existing** `markTerminal(db, betId, "blocked", "failed")` helper (`bet-decomposition.ts:322`, already used for every other early-exit path in this file, incl. the Decision D2 cost-block removal) — no new mechanism, one more caller of the pattern already there. |
+    | `knowledge_action` | `knowledge` | No durable "run" record exists for a knowledge action — leave the item's state as-is (no partial mutation occurred) and, per §6 B5 ("routes repeated failure to review/AL7"), create a review-flagged item so a human/agent sees the stalled action. |
+    | `reengagement` | `review` | Reuse the **existing** retry-count pattern already in `proposed-call-workflow.ts:354-410` (`handleUnconsumedGrantOnSessionEnd`'s liveness net): `retryCount===0` → increment to 1, record a fresh `reengagement` intent (re-provision once); `retryCount>=1` → transition the proposed call to `held` + write a `failed` outcome (give up). Same file, one more trigger into the same logic. |
+    | `assistant_turn` | `conversation` | No durable "run" row exists for a thread message either. Lowest-stakes family, and the only one with **zero** special-casing in today's `failOrRelease` (its `if (terminal && intent.kind === "routine_run")` guard, `:989`, is the ONLY per-kind reaction that exists right now — every other kind currently gets NOTHING on terminal failure, a gap this table closes). Reaction: informational only for Increment 3 (log / no thread mutation); a user-visible "assistant failed to respond" surfacing is a reasonable product follow-up but not required to close AU15's guarantee and is not scoped here. |
+
   - **EXISTING** `SessionEndedEvent` / `AgentRunLifecycleChangedEvent` (`events.ts:86` / `:25`) — post-session;
-    new core-api *reaction*, no shape change.
+    new core-api *reaction* (the same per-`kind` table above, minus the pre-handoff-only `session_start` row
+    since a `session_start` that reached a session already succeeded past admission), no shape change.
 - No new SQL tables assumed; any persisted field is an additive column on an orchestration-owned table (the
   `routineRuns` collapse in Inc 4 is the one schema decision, ruled in Inc 0/4).
 

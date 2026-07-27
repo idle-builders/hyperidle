@@ -685,10 +685,26 @@ export const routines = pgTable(
  * AA1: Append-only log of routine execution runs. One row per trigger (manual or scheduled).
  *
  * @lore AA1: routine_runs is the lightweight audit log for execution history.
- * AA2 will link sessions.routine_id to these rows when the scheduler integrates
- * with the session lifecycle. Until then, routine_runs are inserted at trigger
- * time with an initial outcome. The `outcome` column will gain a "running" state
- * in AA2 and be updated on session end.
+ * AA2 linked sessions.routine_id to these rows via the scheduler; `outcome` gained
+ * a "running" state and is updated on session end.
+ *
+ * @lore AU21 Decision B″ (Increment 0 final ruling, recorded 2026-07-27 — NOT YET
+ * BUILT; the state below is the target, not the current code): this table STAYS
+ * core-api-owned — `packages/core-api/routine/src/routine-service.ts` remains the
+ * only module permitted to read or write it (AU13's boundary, unchanged) — it does
+ * NOT become an orchestration-owned projection. What changes is WHO writes it:
+ * currently (pre-Increment-3/4), three agent-orchestration modules still write it
+ * directly via composition-bundle DI (`dispatch`'s fire-time `insertRoutineRun`;
+ * `session-requests`'s `failOrRelease` `updateRoutineRunIfRunning`;
+ * `run-orchestration`'s `transition-run.ts`/`runtime-reapers.ts`
+ * `updateRoutineRunById`). Ruling for later increments: the insert is to dissolve
+ * into a same-transaction core-api write once the schedule-fire decision itself
+ * moves core-side (Increment 4); the two update paths are to re-home onto core-api's
+ * own reactions to the `agent_run_admission_failed` (pre-handoff) and `session_ended`/
+ * `agent_run_lifecycle_changed` (post-session) events (Increment 3). Target end state:
+ * a "definition-only audit derived from events" — zero direct writes from
+ * orchestration, no new table, no ownership move. See
+ * `.pipeline/work/AU21/architecture.md` Decision B″.
  */
 export const routineRuns = pgTable(
 	"routine_runs",

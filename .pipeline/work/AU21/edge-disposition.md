@@ -4,6 +4,25 @@
 Increment 0 was meant to build; Increment 0 now *executes/verifies* these dispositions rather than
 discovering them.
 
+**Increment 0 re-verification (2026-07-27, this pass):** `scripts/scan-hidden-composition-edges.ts` and
+`scripts/generate-dependency-graph.ts` re-run against the current tree. **Zero drift.** The visible-graph
+re-run reproduces the identical 15 pairs (`tool-handlers` 7, `dispatch` 8) and identical summary (48 port
+edges, 22 EventBus edges, 23 services) — these counts are unchanged from the existing
+`plans/AU19/dependency-graph-data.json`/`as-is-dependency-graph.md` baseline. The hidden-edge
+scan reproduces the identical 22 hidden pairs (`session-requests` 8, `run-orchestration` 8, `cost` 4,
+`agent-selection` 2), confirming the **37**-edge enumeration below is still accurate. Increment 0 does
+**not** commit any change to `plans/AU19/dependency-graph-data.json` or `as-is-dependency-graph.md` — the
+folded generator's write path (`scripts/generate-dependency-graph.ts`'s `main()`) is exercised only via
+`composition-edge-anti-regrowth-guard.ts`'s in-memory import of its exported functions, never invoked as a
+CLI here, so no `hiddenCompositionEdges` section is emitted into those files by this commit. The full
+re-baseline of those two files (replacing the 48/22 port/EventBus counts, emitting the
+`hiddenCompositionEdges` section, and confirming the phantom edge) is Increment 9's deliverable, deferred —
+`git status`/`git diff` for those two files are clean at the end of Increment 0. Also folded in below:
+final rulings on resolution-helper placement, the `routineRuns` collapse shape, and the four per-builtin-
+routine dispositions (a correction to the `dispatch` table's `work.create`/`conversation` rows was found and
+applied — see the `dispatch` section) — the full reasoning for the first two lives in `architecture.md`
+(Decision B's note, Decision B″), cited here where it touches this worklist's rows.
+
 ## How this list was produced (real, run, generalized)
 
 Two mechanical passes, reconciled:
@@ -72,12 +91,15 @@ untangle).
 | Capability | Verdict | Reasoning |
 |---|---|---|
 | routine.{getRoutine, listRoutines, listRoutineRuns, findRunningRoutineRun, sumRunCost} | §2 → core-owned scheduling | scheduler decision reads → move schedule eval core-side (Decision B″, ruling #4) |
-| routine.{insertRoutine, insertRoutineRun, updateRoutine} | §2/§5 → core-owned + event | routineRuns lifecycle writes → core owns; run outcome via events (Decision B″) |
+| routine.insertRoutineRun | §2 → dissolves (not a "collapse") | fire-time insert (`dispatch/service.ts:697,1032,1045,1064`) dissolves once the schedule-fire decision itself moves core-side (Increment 4) — becomes a same-package, same-transaction write; zero cross-layer edge is left to collapse (Decision B″, Increment 0 final ruling) |
+| routine.updateRoutineRun | §5 event | run finalize (`outcome`/`endedAt`/`costMinor`/`summary`) via `agent_run_admission_failed` (pre-handoff, replaces `failOrRelease`'s deleted direct write) + `session_ended`/`agent_run_lifecycle_changed` (post-session, replaces `transition-run.ts`/`runtime-reapers.ts`'s deleted direct writes) — never a direct orchestration write into `routineRuns` again (Decision B″, Increment 0 final ruling) |
 | work.{get, list} | §2 baked | scheduling reads → baked at emit / core-owned |
-| work.create | §4 seam | retro-item creation = agent-as-user write |
-| conversation.{getThread, listMessages, getThreadIdsByHost, findRetroItem} | §2 baked / §4 seam | assistant-turn + retro reads → baked; thread/message writes → seam |
-| conversation.{insertThread, insertMessage, updateThread} | §4 seam | assistant-turn + retro writes = UI's door |
-| knowledge.{list, sweep} (runAutoPromotionSweep/runStaleSweep) | §1/§2 → core-maintenance core-side | builtin-routine maintenance sweeps belong core-side (Increment 5); practice-meeting DELETED |
+| work.create (post-bet-retro / portfolio-retro) | **§1/§2 core-maintenance-moved-core-side** (CORRECTED — was mis-disposed §4 seam) | `runPostBetRetro`/`runPortfolioRetro` (`dispatch/service.ts:767-901`) create the review item from a deterministic template (bet's own `hypothesis`/`completedAt`/`revisionLog`, or a recent-L3/L4 aggregation); no agent/LLM session is invoked anywhere in either function — this is scheduler-fired core-maintenance, not an agent acting as a user (Increment 0 final ruling, Decision B′) |
+| conversation.{getThreadIdsByHost, findRetroItem} (post-bet-retro dedup check) | §1/§2 core-maintenance-moved-core-side | deterministic already-retroed guard, no agent involved |
+| conversation.insertThread (post-bet-retro / portfolio-retro) | §1/§2 core-maintenance-moved-core-side | retro thread creation, deterministic, no agent involved (CORRECTED — previously bundled under the same §4-seam verdict as assistant-turn's writes below; split apart, Increment 0 final ruling) |
+| conversation.{getThread, listMessages} (assistant-turn context) | §2 baked | assistant-turn context reads → baked at emit |
+| conversation.{insertMessage, updateThread} (assistant-turn) | §4 seam | assistant-turn writes = UI's door (agent-as-user, genuine agent session involved) |
+| knowledge.{list, sweep} (runAutoPromotionSweep/runStaleSweep) | §1/§2 → core-maintenance core-side | `runKnowledgePromotion`/`runKnowledgeDecay` (`dispatch/service.ts:905-955`) call only existing `knowledge`-owned sweep algorithms, deterministic, no agent involved anywhere in either function (Increment 0 final ruling, Decision B′; Increment 5 executes); practice-meeting DELETED |
 | users.{findUser, getOrCreateUser} | §2/§3 baked | assistant identity → baked at emit |
 | settings.readServerConfig | §2 baked | cost-cap/model config → baked or own-config |
 | model-gateway.resolveModel | §3 baked | resolved model belongs in the start-payload (baked at emit) |
@@ -159,7 +181,14 @@ survive as a standalone Service. (Increment 3 relocates `selectAgent`; Increment
 ---
 
 ## Summary of dispositions
-- **§4 seam (CoreApiPort):** all of `tool-handlers` + the agent-as-user writes in `dispatch`. (Increments 1–2)
+- **§4 seam (CoreApiPort):** all of `tool-handlers` + `dispatch`'s assistant-turn writes ONLY
+  (`insertMessage`/`updateThread`) — a genuine running agent session is involved. `dispatch`'s post-bet-retro/
+  portfolio-retro writes (`work.create`, `conversation.insertThread`) are **not** seam traffic (corrected,
+  Increment 0 — see the `dispatch` table); no agent session exists in that path. (Increments 1–2)
+- **§1/§2 core-maintenance-moved-core-side:** all four builtin-routine bodies (post-bet-retro, portfolio-retro,
+  knowledge-promotion, knowledge-decay) — none launches an agent/LLM session (Increment 0 final ruling,
+  Decision B′; Increment 5 executes) — plus `routine.insertRoutineRun`'s fire-time write, which dissolves
+  entirely once the scheduler itself moves core-side (Increment 4).
 - **§2 resolve-at-emit + delete:** all of `session-requests`' domain reads + `dispatch` scheduling reads +
   `run-orchestration` context reads. (Increment 3, + 4 for routine)
 - **§3 baked-at-emit:** `agent-selection` (both) + `dispatch` model/identity. (Increment 3)
