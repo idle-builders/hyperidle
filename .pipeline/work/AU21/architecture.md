@@ -123,6 +123,10 @@ agent-execution  ── runs the session (LLM / harness / MCP)
    │  ★ SELF-RECOVERY: the running agent pulls CURRENT reality live via MCP / CoreApiPort tools; if reality
    │    contradicts its instructions it adjusts or reports the request stale. (A deactivated agent fails at
    │    provision-time credential context — no stale-authority run proceeds.)
+   │  ★ CONTINUED PUSH (Decision B‴): if the fact changes while work is OUTSTANDING, core-api RE-EMITS the
+   │    request (same door, push-only). Orchestration, from its OWN state: not-started → supersede the pending
+   │    request (freshest baked payload wins); running → deliver on next turn (follow-up session). True mid-run
+   │    injection is harness-capability follow-up, not in scope.
    │  agent acts on core data (create_bet, send_message, read_task, …)  ──▶ CoreApiPort (same route+
    ▼                                                                          middleware door core-ui uses)
 core-api
@@ -173,8 +177,10 @@ The founder's model, made concrete against the current code:
    read in `resolveIntentInputInternal` — including `requireRunnableActor` and the `taskDispatchAttempts`
    `status!=="requested"` re-check — is **deleted from the drain** (relocated to emit-time core-api, de-
    duplicated to one place). Overload → orchestration's own provision-time `ConcurrencyLimitError`.
-3. **A running agent self-recovers** via the MCP/`CoreApiPort` tools it already uses; post-emit staleness is
-   the agent's job, not a hardwired orchestration pre-check.
+3. **A running agent self-recovers** via the MCP/`CoreApiPort` tools it already uses. **Extended by Decision
+   B‴: the push does not stop at launch** — if the fact changes while the work is still outstanding, core-api
+   re-emits (same door, push-only), and orchestration supersedes the pending request or delivers the update on
+   the next turn. Self-recovery via MCP remains the fallback for staleness core-api did not re-push.
 4. **Failures report back on two explicit channels — both core-api reactions are NEW:**
    - **Pre-handoff** (bad baked payload, `MAX_ATTEMPTS_EXCEEDED`, `INVALID_WORK_SOURCE`, hard provisioning
      fail — before any session): `failOrRelease` emits a **new** `agent_run_admission_failed` — a new
@@ -230,6 +236,58 @@ a core-api field orchestration reaches in to mutate. Concretely: core-api's `rou
 events (§6 B4), never a direct cross-layer write. Increment 4 chooses whether `routineRuns` becomes an
 orchestration-owned projection of session lifecycle or shrinks to a core-api definition-only audit derived from
 events — and updates `@lore AA1`.
+
+### Decision B‴ — The push continues: re-emit on fact-change; supersede (not-started) or deliver-on-next-turn (running) — with true mid-run injection flagged as harness-capability work (founder)
+Extends Decision B step 3. Core-api does not fire-and-forget: if the underlying fact changes while the work is
+still outstanding, core-api emits **another** request for the same work through the same `AgentWorkIntentRecorder`
+door — still push-only, still zero orchestration read-back. Orchestration handles it from its **own** state.
+
+**Q1 — how core-api signals "update to outstanding work" vs. "new request" (traced):** `agent_work_intents`
+has a unique index `agent_work_intents_identity_uq` on `(kind, sourceId, idempotencyKey)`
+(`schema.ts:381` region). `insertIntentInternal` (`session-requests/src/service.ts:1042`) **dedups**: a repeat
+with the *same* `(kind, sourceId, idempotencyKey)` is a silent no-op returning the existing row; a *different*
+`idempotencyKey` for the same `(kind, sourceId)` inserts a **second** row (no supersede today). **Design:** treat
+`(kind, sourceId)` as the **stable work identity** and `idempotencyKey` as a **version token** — core-api bumps
+it on re-emit and carries a fresh baked payload (the Decision-B start-payload). No new schema *field* is required
+(identity + version already exist); the additions are (a) an orchestration **supersede** interpretation and (b)
+a `superseded` value on `agentWorkIntents.status` (today `pending|claimed|handed_off|failed`, `schema.ts:424` —
+an additive CHECK value, no new table).
+
+**Q2 — how orchestration tells "not started" from "running", own-state only (traced):** sufficient with existing
+state, no new tracking. `agentWorkIntents.status` (`pending`/`claimed` = not started; `handed_off` = a request
+exists) + `agentSessionRequests` queried by source (`listRequestsSourceInternal(sourceKind, sourceId)`,
+`service.ts:342/1825`; `status="running"` with `sessionId`) + the `sessionRunRegistry`
+(`session-run-registry.ts`) of active sessions. This is the AU9 CAS bookkeeping orchestration has always been
+allowed to read. Only the supersede/deliver **logic** is new.
+
+**Q3 — "deliver into a live session" is NOT free; it is a harness-capability question (traced):** there is **no
+mid-run input channel today.** `RunOptions.input` (`run-orchestration/contracts.ts:292-316`) is set **once at
+launch**; `runSession` runs to a single terminal `RunResult` (`contracts.ts:281`); the worker protocol
+(`worker-ingress.ts:84-90`) has message types `register/event/session_result/error/pause/resume` — **no
+server→session "deliver input"** (pause/resume are worker→server pool backpressure). Decisively, harness adapters
+spawn the real CLIs with **stdin closed** (`harness-session-probe.ts:23-28`, `@lore AM2`: "so interactive CLIs
+don't block waiting for input"; `codex exec` "may block" on stdin) — the current claude/codex/opencode execution
+model consumes its prompt at launch and cannot receive new input mid-run.
+
+**Design (two paths):**
+- **Not-yet-started → supersede (portable, in scope).** Core-api re-emits with a fresh version for the same
+  `(kind, sourceId)`. The drain, before claiming, checks for a newer pending intent for that identity; the newest
+  (freshest baked payload) wins, the older is marked `superseded`. Reuses the identity index + AU9 CAS. Real but
+  bounded.
+- **Already-running → deliver-on-next-turn (portable, in scope).** Orchestration records the update as the fresh
+  pending intent for `(kind, sourceId)`; when the running session ends, the follow-up session launches with the
+  freshest baked payload. For thread-backed work (assistant), this already happens naturally — a new thread
+  message drives the next `assistant_turn` session with the updated transcript.
+- **True mid-run *active* injection (deliver into the live session while it runs) — HARNESS-CAPABILITY WORK,
+  NOT in scope here.** It requires an adapter that accepts streaming/interactive input mid-run; the current
+  stdin-closed CLI adapters explicitly do not. Scope it as harness-capability-gated follow-up (advertise + use
+  only where an adapter supports it) — do **not** assume it is free. This is the honest boundary: the founder's
+  "deliver the update into the live session as a message, actively" is achievable *portably* only as
+  next-turn delivery; simultaneous mid-run injection is a real, separate, harness-gated mechanism.
+
+**Increment:** the supersede + deliver-on-next-turn paths **extend Increment 3** (they ride the same
+emit-path + drain-collapse edit; the `superseded` status + the drain's identity-supersede check are small
+additions there). True mid-run injection is a **named harness-capability follow-up**, not an AU21 increment.
 
 ### Decision C — Seam shape (write + agent-read side)
 **`CoreApiPort` — a per-core-Service family of narrow hand-typed method groups in `@hyperidle/api-contract`,
@@ -463,6 +521,7 @@ authority (§6 B, provision-time cover) and (ii) any Decision-D display query th
 | 8 | Per-session cost is tracked + served via `AgentOrchestrationPort`; the cap gate + aggregate display are unchanged (no mirror deleted — none exists) | Test: (a) a completed session's per-session cost is recorded by agent-orchestration and served via `AgentOrchestrationPort` (today `tasks.ts` returns `cost: null`); (b) the cost-cap gate (`checkCostCap`/`recordCostAndCheck`) still blocks at/over cap and its `costActual` columns are intact; (c) existing bet/routine/team/agent aggregate cost still renders unchanged; (d) nothing reads a cost value from a duplicate store (there is none). |
 | 9 | A documented + **enforced** practice for a new orchestration→core edge | (a) Doc states the rule. (b) The guard (§9 Inc 9) fails CI on a new orchestration→core read port **or a new composition-bundle core-read** (incl. the `cost` `CostDeps` pattern); a test proves it fires. |
 | 10 | The generic realtime broadcaster is retired; notifications intact; session activity streams from agent-execution gatewayed by orchestration | (a) the WS cost-forward is removed and notifications still fire the persisted row (test); (b) discrete changes use the minimal invalidation signal, no generic broadcaster; (c) an integration test observes a session stream served by `agent-execution` via the `AgentOrchestrationPort` gateway, and `SessionActivityBuffer` no longer lives in orchestration. |
+| 11 | Continued push (Decision B‴): a fact-change re-emit supersedes an unstarted request and delivers on next turn for a running one — orchestration reads zero core-api state | Test: (a) re-emit for the same `(kind, sourceId)` with a fresh version while the intent is `pending` → the older intent is `superseded`, the freshest baked payload dispatches (one session, not two); (b) re-emit while a session is `running` → the update queues and the follow-up session launches on session-end with the fresh payload; (c) both decided from orchestration's own dedup/session state (no core-api read). True mid-run injection is NOT asserted (harness-capability follow-up, §16 R9). |
 
 Floor: `npm run verify` green; service-lane integration tests cover the loop, the write seam, both failure
 channels, the routine collapse, the new per-session-cost door via `AgentOrchestrationPort` (no columns
@@ -514,8 +573,11 @@ emitting core-api Services; grow the `AgentWorkIntentRecorder` payload to the ba
 `resolveIntentInputInternal`'s core reads; collapse the drain to claim-and-dispatch; keep the AU9 CAS/dedup
 reads. Build `agent_run_admission_failed` + core-api subscribers (routine finalize replacing the direct write;
 retry/abandon) and the post-session retry reaction on `session_ended`/`agent_run_lifecycle_changed`. Apply the
-`taskDispatchAttempts` ruling. Ensure the MCP surface supports live self-recovery + add its tests. Rewire AU15
-AC-3d to the event mechanism; idempotency/dedup tests stay unchanged and green. **Largest increment — split by
+`taskDispatchAttempts` ruling. Ensure the MCP surface supports live self-recovery + add its tests. **Add the
+Decision B‴ continued-push handling: the `superseded` intent status + the drain's "newer pending intent for the
+same `(kind, sourceId)` wins" supersede check, and the deliver-on-next-turn follow-up for an update arriving
+during a running session (own-state only).** Rewire AU15 AC-3d to the event mechanism; idempotency/dedup tests
+stay unchanged and green. **Largest increment — split by
 intent family** (assistant_turn → task_run/session_start → routine_run → bet_decomposition → knowledge_action →
 reengagement), each committed.
 
@@ -614,7 +676,11 @@ method in `edge-disposition.md` has a backing route + a passing contract test.
 - `session-requests/src/service.ts`: `delete` `resolveIntentInputInternal`'s core-domain reads +
   `requireRunnableActor` + the `taskDispatchAttempts` re-check; `keep` the CAS/dedup mechanics; `failOrRelease`
   — `remove` the direct `deps.routine.updateRoutineRunIfRunning` write, `add` an `emit` of
-  `agent_run_admission_failed`. Resolution helpers `move` to core-api per the Inc-0 ruling.
+  `agent_run_admission_failed`. Resolution helpers `move` to core-api per the Inc-0 ruling. **(Decision B‴)**
+  `add` the drain's supersede check — "a newer pending intent for the same `(kind, sourceId)` wins; mark the
+  older `superseded`" — and the deliver-on-next-turn follow-up for an update during a running session (own-state).
+- `packages/db/src/schema.ts`: `add` `superseded` to `agent_work_intents.status` CHECK (`:424`, additive value,
+  no new table) — Decision B‴.
 - Emitting core-api Services (`work`/`conversation`/`knowledge`/`routine`/`review`/`org`/`users`): `add`
   emit-time validation + baked-request assembly; `add` an `agent_run_admission_failed` subscriber (routine →
   finalize run `error`) + the retry/abandon reaction.
@@ -705,6 +771,11 @@ cases against AU20's shipped diff before re-touching.
   generated (as opposed to the recorded `tool_call_recorded` log) should stream into core/UI is a real,
   separate, undecided question. Explicitly out of scope for this pass; do not design or fold it in. Flagged so
   Decision E is not mistaken for having settled it.
+- **R9 — true mid-run session injection is harness-gated (Decision B‴).** The current adapters spawn CLIs with
+  stdin closed (`harness-session-probe.ts:23-28`), so "deliver an update into the live session while it runs" is
+  not free — it needs a harness that accepts mid-run input. AU21 ships the portable paths (supersede +
+  deliver-on-next-turn, Increment 3); simultaneous mid-run injection is a named harness-capability follow-up, not
+  in scope. Risk is scoping it in by accident — the doc flags it out explicitly.
 
 ## 17. Feasibility reference
 See `feasibility.md` (re-derived): Probe 0 (graph blindness — now closed by the built scanner)
@@ -739,7 +810,8 @@ than previously scoped (session-requests + run-orchestration + agent-selection +
 not lowers — the XL call. The 2026-07-27 founder decisions net roughly neutral on build effort: `work → cost`
 removal (Decision D2) is a small deletion that *simplifies* (a port + a block gone); `agent-selection`
 dissolution (F1) *removes* a Service; the recorder unification (Decision G) is a small refactor folded into the
-Decision-B emit path (Increment 3); the credentials/filesystems split (F2, Increment 8) is bounded. The one
+Decision-B emit path (Increment 3); the Decision-B‴ continued-push handling (supersede + deliver-on-next-turn)
+is bounded and rides Increment 3, with true mid-run injection deferred as harness-capability follow-up; the credentials/filesystems split (F2, Increment 8) is bounded. The one
 genuinely additive piece — the cross-layer **settings reorg (F3)** — is scoped as its **own `/design` pass /
 follow-up WP**, dependent on the `AgentOrchestrationPort` door, so it does not inflate AU21's build increments;
 it is a named downstream design dependency, not in-scope build here. Net: still **XL**, **10 independently-shippable increments** — driven by the
