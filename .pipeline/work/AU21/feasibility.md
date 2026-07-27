@@ -180,3 +180,18 @@ undecided and out of scope (architecture.md §16 R8).
 - Extending `generate-dependency-graph.ts` with new edge classes — mechanical, EXCEPT the Probe-0 blindness
   fix, which is real new detection work (a probe, not a given).
 - Moving a raw DI port to a seam call / deleting a dead capability — AU12–AU20 did these dozens of times.
+
+## Note: the 2026-07-27 founder rulings (D2, F1, F2, F3, G) are not separate numbered probes
+
+Their feasibility verification happened inline, in `architecture.md`'s own Decision sections, each with real
+file:line citations, and was independently re-verified by the reviewer in each of its own critique rounds —
+not skipped, just not restated here as Probe 8+. Pointers: **D2** (`work → cost` removal) — the single
+core-api cost-block is `bet-decomposition.ts:486-492`, confirmed no second instance exists anywhere in
+core-api. **F1** (`agent-selection` dissolution) — `selectAgent` reads only core-api's own roster,
+`isAtCapacity` reduces to the existing provision-time concurrency check. **F2** (credentials/filesystems
+split) — `SettingsConnections.tsx`/`SettingsFilesystems.tsx` confirmed as real human-config consumers of the
+record; only the provisioning *operation* moves. **F3** (settings UI reorg) — confirmed cleanly separable
+from Increment 8's provisioning-op move, scoped out as its own downstream design pass. **G** (recorder
+unification) — `AgentWorkIntentRecorder`/`ReviewAgentWorkIntentRecorder` confirmed byte-for-byte identical
+in shape; a canonical shared type already exists, unused, in `@hyperidle/shared`. See `architecture.md`
+Decisions D2/F1/F2/F3/G for the full citations.

@@ -129,10 +129,10 @@ the cost-cap gate is a decision-time gate, not a mirror; it stays exactly as-is.
 
 | Capability | site | Verdict | Reasoning |
 |---|---|---|---|
-| users.{findUser, incrementUserCost, sumAllUserCost, updateUser, resetAllUserCost} | cost-cap.ts:135,207,300,350,361 | **flagged-permanent** | cap read + accumulate; founder: untouched |
-| org.{getTeamMembers, applyTeamCost} | cost-cap.ts:159,212 | **flagged-permanent** | team cap read + accumulate; untouched |
-| settings.{readServerConfig, updateServerConfig} | cost-cap.ts:507,517,533 | **flagged-permanent** | factory cap + sentinel level; untouched |
-| work.{get, create, update} | cost-cap.ts:217 (bet lookup), 487 (review item) | **flagged-permanent** | bet-cost accumulation via `task.betId`; breach review-item creation; untouched |
+| users.{findUser, incrementUserCost, sumAllUserCost, updateUser, resetAllUserCost} | cost-cap.ts:135,207,300,350,361 | **allowlisted-permanent (founder-signed)** | cap read + accumulate; founder: untouched |
+| org.{getTeamMembers, applyTeamCost} | cost-cap.ts:159,212 | **allowlisted-permanent (founder-signed)** | team cap read + accumulate; untouched |
+| settings.{readServerConfig, updateServerConfig} | cost-cap.ts:507,517,533 | **allowlisted-permanent (founder-signed)** | factory cap + sentinel level; untouched |
+| work.{get, create, update} | cost-cap.ts:217 (bet lookup), 487 (review item) | **allowlisted-permanent (founder-signed)** | bet-cost accumulation via `task.betId`; breach review-item creation; untouched |
 
 *Note:* this whole consumer is the second graph-blindness instance (Decision D). The anti-regrowth guard must
 *see* it, then allowlist it as the founder-signed cap-gate exemption — not silently ignore it.
