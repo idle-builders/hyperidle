@@ -1,0 +1,115 @@
+{
+  "workPackage": "AU20",
+  "increment": "knowledge-knip-dead-surface",
+  "stage": "write-tests/static-red",
+  "baseCommit": "b69b822ca111677ed7e600076c0d9347c2916242",
+  "command": {
+    "cwd": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+    "argv": [
+      "npm",
+      "run",
+      "knip"
+    ],
+    "exitCode": 1
+  },
+  "intendedRed": {
+    "reason": "Knip reports exactly one unused empty knowledge source file and one unused exported knowledge type.",
+    "knowledgeFindings": [
+      {
+        "kind": "unused-file",
+        "path": "packages/core-api/knowledge/src/knowledge-reader.ts",
+        "line": null,
+        "column": null,
+        "detail": "Unused files (1)"
+      },
+      {
+        "kind": "unused-exported-type",
+        "path": "packages/core-api/knowledge/src/types.ts",
+        "symbol": "PropagationLevel",
+        "line": 54,
+        "column": 15,
+        "detail": "Unused exported types (1)"
+      }
+    ]
+  },
+  "currentFiles": [
+    {
+      "path": "packages/core-api/knowledge/src/knowledge-reader.ts",
+      "sha256": "c2825b8ad22bb7cdb82d4af7f1f16fa00e89463cfc90663eb52c0becf0d7ef3c",
+      "lines": 6,
+      "bytes": 323,
+      "state": "comment-only; no declarations or exports"
+    },
+    {
+      "path": "packages/core-api/knowledge/src/types.ts",
+      "sha256": "a035edf1dde140d81243f90be9b30ff55dd66c9ceddec39c0abfe2902e61ca16",
+      "lines": 55,
+      "bytes": 1520,
+      "state": "declares non-exported PropagationLevel at line 37 and exports it at line 54"
+    }
+  ],
+  "consumerAbsenceProof": [
+    {
+      "command": "rg -n -a \"from[[:space:]]+['\\\"][^'\\\"]*knowledge-reader(?:\\\\.js)?['\\\"]\" packages",
+      "exitCode": 1,
+      "matches": []
+    },
+    {
+      "command": "rg -n -a \"(?:import|export)[^;]*PropagationLevel[^;]*from[[:space:]]+['\\\"]@hyperidle/knowledge['\\\"]\" packages",
+      "exitCode": 1,
+      "matches": []
+    },
+    {
+      "command": "rg -n -a \"\\\\bPropagationLevel\\\\b\" packages/core-api/knowledge/src --glob '!types.ts'",
+      "exitCode": 1,
+      "matches": []
+    }
+  ],
+  "currentCensus": {
+    "command": "npx tsx scripts/surface-census.ts --table",
+    "exitCode": 0,
+    "services": 23,
+    "methods": 231,
+    "types": 181,
+    "total": 412,
+    "knowledge": {
+      "methods": 17,
+      "types": 12,
+      "total": 29
+    }
+  },
+  "frozenOtherKnipFindings": [
+    {
+      "kind": "unused-dependency",
+      "package": "@hyperidle/connections",
+      "path": "packages/eval/package.json",
+      "line": 16,
+      "column": 4
+    },
+    {
+      "kind": "unused-devDependency",
+      "package": "@types/smtp-server",
+      "path": "packages/core-api/notifications/package.json",
+      "line": 21,
+      "column": 4
+    },
+    {
+      "kind": "unused-devDependency",
+      "package": "smtp-server",
+      "path": "packages/core-api/notifications/package.json",
+      "line": 22,
+      "column": 4
+    }
+  ],
+  "configurationHints": {
+    "count": 41,
+    "classification": "Knip configuration hints are informational and frozen outside this increment."
+  },
+  "locked": {
+    "allowedWrite": ".pipeline/work/AU20/red-proofs/knowledge-knip-dead-surface.json",
+    "productionEdits": false,
+    "packageEdits": false,
+    "gateEdits": false,
+    "commit": false
+  }
+}

@@ -1,0 +1,3134 @@
+[
+  {
+    "name": "agent-selection",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "surface": {
+      "methods": 1,
+      "types": 7,
+      "total": 8
+    },
+    "exports": [
+      {
+        "name": "createAgentSelectionService",
+        "kind": "method"
+      },
+      {
+        "name": "AgentScaffoldSpec",
+        "kind": "type"
+      },
+      {
+        "name": "AgentSelectionDeps",
+        "kind": "type"
+      },
+      {
+        "name": "AgentSelectionService",
+        "kind": "type"
+      },
+      {
+        "name": "CandidateFilter",
+        "kind": "type"
+      },
+      {
+        "name": "ScaffoldRequest",
+        "kind": "type"
+      },
+      {
+        "name": "SelectionCandidate",
+        "kind": "type"
+      },
+      {
+        "name": "SelectionOccasion",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.agentSelection",
+        "requests": [
+          "resolveScaffoldSpecs"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "port": "ToolHandlersPorts.agentSelection",
+        "requests": [
+          "resolveScaffoldSpecs"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "work",
+        "port": "WorkDeps.agentSelection",
+        "requests": [
+          "listCandidates",
+          "selectAgent"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "resolveScaffoldSpecs"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "requests": [
+          "resolveScaffoldSpecs"
+        ]
+      },
+      {
+        "consumer": "work",
+        "requests": [
+          "listCandidates",
+          "selectAgent"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "connections",
+    "layer": "core-api",
+    "ownedTables": [
+      "serverCredentials",
+      "serviceConnections"
+    ],
+    "surface": {
+      "methods": 14,
+      "types": 3,
+      "total": 17
+    },
+    "exports": [
+      {
+        "name": "applyProvisioningPlan",
+        "kind": "method"
+      },
+      {
+        "name": "buildProvisioningPlan",
+        "kind": "method"
+      },
+      {
+        "name": "DbCredentialResolver",
+        "kind": "method"
+      },
+      {
+        "name": "decryptCredentialValue",
+        "kind": "method"
+      },
+      {
+        "name": "deleteConnection",
+        "kind": "method"
+      },
+      {
+        "name": "deleteCredential",
+        "kind": "method"
+      },
+      {
+        "name": "encryptCredentialValue",
+        "kind": "method"
+      },
+      {
+        "name": "insertConnection",
+        "kind": "method"
+      },
+      {
+        "name": "listConnections",
+        "kind": "method"
+      },
+      {
+        "name": "projectInheritedConnections",
+        "kind": "method"
+      },
+      {
+        "name": "readCredentials",
+        "kind": "method"
+      },
+      {
+        "name": "ServiceConnectionResolver",
+        "kind": "method"
+      },
+      {
+        "name": "updateConnection",
+        "kind": "method"
+      },
+      {
+        "name": "writeCredential",
+        "kind": "method"
+      },
+      {
+        "name": "ConnectionsUserReader",
+        "kind": "type"
+      },
+      {
+        "name": "CredentialWrite",
+        "kind": "type"
+      },
+      {
+        "name": "ProvisioningPlan",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "filesystems",
+        "port": "FilesystemsServiceConnectionResolver",
+        "requests": [
+          "resolve"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "model-gateway",
+        "port": "ModelGatewayCredentialResolver",
+        "requests": [
+          "resolve"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "settings",
+        "port": "SettingsCredentialCipher",
+        "requests": [
+          "decryptCredentialValue",
+          "encryptCredentialValue"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "filesystems",
+        "requests": [
+          "resolve"
+        ]
+      },
+      {
+        "consumer": "model-gateway",
+        "requests": [
+          "resolve"
+        ]
+      },
+      {
+        "consumer": "settings",
+        "requests": [
+          "decryptCredentialValue",
+          "encryptCredentialValue"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "conversation",
+    "layer": "core-api",
+    "ownedTables": [
+      "messages",
+      "threads"
+    ],
+    "surface": {
+      "methods": 14,
+      "types": 6,
+      "total": 20
+    },
+    "exports": [
+      {
+        "name": "countThreads",
+        "kind": "method"
+      },
+      {
+        "name": "findMessage",
+        "kind": "method"
+      },
+      {
+        "name": "findOrCreateDirectThread",
+        "kind": "method"
+      },
+      {
+        "name": "findThread",
+        "kind": "method"
+      },
+      {
+        "name": "getArtifactThreadSummaries",
+        "kind": "method"
+      },
+      {
+        "name": "insertMessage",
+        "kind": "method"
+      },
+      {
+        "name": "insertThread",
+        "kind": "method"
+      },
+      {
+        "name": "listInbox",
+        "kind": "method"
+      },
+      {
+        "name": "listMessages",
+        "kind": "method"
+      },
+      {
+        "name": "listThreads",
+        "kind": "method"
+      },
+      {
+        "name": "resolveMessageIfUnresolved",
+        "kind": "method"
+      },
+      {
+        "name": "searchConversations",
+        "kind": "method"
+      },
+      {
+        "name": "updateMessage",
+        "kind": "method"
+      },
+      {
+        "name": "updateThread",
+        "kind": "method"
+      },
+      {
+        "name": "ArtifactThreadSummaryRow",
+        "kind": "type"
+      },
+      {
+        "name": "InboxFilter",
+        "kind": "type"
+      },
+      {
+        "name": "InboxRow",
+        "kind": "type"
+      },
+      {
+        "name": "MessageFilter",
+        "kind": "type"
+      },
+      {
+        "name": "ThreadFilter",
+        "kind": "type"
+      },
+      {
+        "name": "ThreadSearchRow",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.conversation",
+        "requests": [
+          "getThreadById",
+          "getThreadIdsByHost",
+          "insertMessage",
+          "insertThread",
+          "listMessagesByThread",
+          "updateThread"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "policy",
+        "port": "PolicyDeps.conversation",
+        "requests": [
+          "insertMessage",
+          "insertThread",
+          "listInitiatedVerdictMessages",
+          "listMessagesByThread",
+          "listVerdictMessagesByItemIds",
+          "updateMessage",
+          "updateThread"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "realtime",
+        "port": "SubscribeAuthorizerDeps.conversation",
+        "requests": [
+          "getThreadById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "review",
+        "port": "ReviewPorts.conversation",
+        "requests": [
+          "getThreadById",
+          "insertThread",
+          "updateThread"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "port": "ToolHandlersPorts.conversation",
+        "requests": [
+          "findOrCreateDirectThread",
+          "getFirstThreadByHost",
+          "getThreadById",
+          "insertMessage",
+          "insertThread",
+          "listInboxBySenderExclusion",
+          "updateThread"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "getThreadById",
+          "getThreadIdsByHost",
+          "insertMessage",
+          "insertThread",
+          "listMessagesByThread",
+          "updateThread"
+        ]
+      },
+      {
+        "consumer": "policy",
+        "requests": [
+          "insertMessage",
+          "insertThread",
+          "listInitiatedVerdictMessages",
+          "listMessagesByThread",
+          "listVerdictMessagesByItemIds",
+          "updateMessage",
+          "updateThread"
+        ]
+      },
+      {
+        "consumer": "realtime",
+        "requests": [
+          "getThreadById"
+        ]
+      },
+      {
+        "consumer": "review",
+        "requests": [
+          "getThreadById",
+          "insertThread",
+          "updateThread"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "requests": [
+          "findOrCreateDirectThread",
+          "getFirstThreadByHost",
+          "getThreadById",
+          "insertMessage",
+          "insertThread",
+          "listInboxBySenderExclusion",
+          "updateThread"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cost",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "surface": {
+      "methods": 1,
+      "types": 6,
+      "total": 7
+    },
+    "exports": [
+      {
+        "name": "createCostOps",
+        "kind": "method"
+      },
+      {
+        "name": "CostCheckParams",
+        "kind": "type"
+      },
+      {
+        "name": "CostDeps",
+        "kind": "type"
+      },
+      {
+        "name": "CostOps",
+        "kind": "type"
+      },
+      {
+        "name": "CostRecordParams",
+        "kind": "type"
+      },
+      {
+        "name": "CostScope",
+        "kind": "type"
+      },
+      {
+        "name": "CostVerdict",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.cost",
+        "requests": [
+          "getFactoryCostActual"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "getFactoryCostActual"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "dispatch",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "surface": {
+      "methods": 1,
+      "types": 5,
+      "total": 6
+    },
+    "exports": [
+      {
+        "name": "createDispatchOps",
+        "kind": "method"
+      },
+      {
+        "name": "DispatchConfig",
+        "kind": "type"
+      },
+      {
+        "name": "DispatchOps",
+        "kind": "type"
+      },
+      {
+        "name": "DispatchPorts",
+        "kind": "type"
+      },
+      {
+        "name": "DispatchQueueSnapshot",
+        "kind": "type"
+      },
+      {
+        "name": "FireResult",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "tool-handlers",
+        "port": "ToolHandlersPorts.dispatch",
+        "requests": [
+          "provisionTeamRoutines"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "tool-handlers",
+        "requests": [
+          "provisionTeamRoutines"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "filesystems",
+    "layer": "core-api",
+    "ownedTables": [
+      "filesystemCaptures",
+      "filesystemInjections",
+      "filesystems"
+    ],
+    "surface": {
+      "methods": 13,
+      "types": 11,
+      "total": 24
+    },
+    "exports": [
+      {
+        "name": "deleteFilesystem",
+        "kind": "method"
+      },
+      {
+        "name": "deleteInjection",
+        "kind": "method"
+      },
+      {
+        "name": "getFilesystem",
+        "kind": "method"
+      },
+      {
+        "name": "inspectLocalPath",
+        "kind": "method"
+      },
+      {
+        "name": "listCaptures",
+        "kind": "method"
+      },
+      {
+        "name": "listFilesystems",
+        "kind": "method"
+      },
+      {
+        "name": "RegistryFilesystemMounter",
+        "kind": "method"
+      },
+      {
+        "name": "resolveFilesystemState",
+        "kind": "method"
+      },
+      {
+        "name": "SANDBOX_SCAFFOLDING_PATHS",
+        "kind": "method"
+      },
+      {
+        "name": "saveFilesystem",
+        "kind": "method"
+      },
+      {
+        "name": "saveInjection",
+        "kind": "method"
+      },
+      {
+        "name": "startWatcher",
+        "kind": "method"
+      },
+      {
+        "name": "updateFilesystemState",
+        "kind": "method"
+      },
+      {
+        "name": "AdapterDeps",
+        "kind": "type"
+      },
+      {
+        "name": "FilesystemFilter",
+        "kind": "type"
+      },
+      {
+        "name": "FilesystemReachabilityInput",
+        "kind": "type"
+      },
+      {
+        "name": "FilesystemRow",
+        "kind": "type"
+      },
+      {
+        "name": "FilesystemsGitRunnerFactory",
+        "kind": "type"
+      },
+      {
+        "name": "FilesystemsServiceConnectionResolver",
+        "kind": "type"
+      },
+      {
+        "name": "FileWatcher",
+        "kind": "type"
+      },
+      {
+        "name": "FileWatcherConfig",
+        "kind": "type"
+      },
+      {
+        "name": "LocalPathInfo",
+        "kind": "type"
+      },
+      {
+        "name": "NewFilesystem",
+        "kind": "type"
+      },
+      {
+        "name": "NewFilesystemInjection",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [],
+    "consumers": []
+  },
+  {
+    "name": "git-export",
+    "layer": "core-api",
+    "ownedTables": [],
+    "surface": {
+      "methods": 21,
+      "types": 16,
+      "total": 37
+    },
+    "exports": [
+      {
+        "name": "buildCommitMessage",
+        "kind": "method"
+      },
+      {
+        "name": "computeExportPlan",
+        "kind": "method"
+      },
+      {
+        "name": "createGitRunner",
+        "kind": "method"
+      },
+      {
+        "name": "createNodeFsAdapter",
+        "kind": "method"
+      },
+      {
+        "name": "EXPORTED_KINDS",
+        "kind": "method"
+      },
+      {
+        "name": "EXPORTED_STATUSES",
+        "kind": "method"
+      },
+      {
+        "name": "getLastExportMeta",
+        "kind": "method"
+      },
+      {
+        "name": "loadGitExportConfig",
+        "kind": "method"
+      },
+      {
+        "name": "readGitExportConfig",
+        "kind": "method"
+      },
+      {
+        "name": "redactRemoteUrl",
+        "kind": "method"
+      },
+      {
+        "name": "registerGitExportHandler",
+        "kind": "method"
+      },
+      {
+        "name": "resetExportMutexes",
+        "kind": "method"
+      },
+      {
+        "name": "runGitExport",
+        "kind": "method"
+      },
+      {
+        "name": "sanitizeAuthorEmail",
+        "kind": "method"
+      },
+      {
+        "name": "sanitizeAuthorName",
+        "kind": "method"
+      },
+      {
+        "name": "sanitizeBranch",
+        "kind": "method"
+      },
+      {
+        "name": "sanitizePathSegment",
+        "kind": "method"
+      },
+      {
+        "name": "sanitizeRemoteUrl",
+        "kind": "method"
+      },
+      {
+        "name": "sanitizeRepoPath",
+        "kind": "method"
+      },
+      {
+        "name": "updateGitExportConfig",
+        "kind": "method"
+      },
+      {
+        "name": "writeExportMeta",
+        "kind": "method"
+      },
+      {
+        "name": "CreateGitRunnerOptions",
+        "kind": "type"
+      },
+      {
+        "name": "GitConfigInjection",
+        "kind": "type"
+      },
+      {
+        "name": "GitExportConfig",
+        "kind": "type"
+      },
+      {
+        "name": "GitExportConfigPatch",
+        "kind": "type"
+      },
+      {
+        "name": "GitExportConfigSection",
+        "kind": "type"
+      },
+      {
+        "name": "GitExportConfigSectionPatch",
+        "kind": "type"
+      },
+      {
+        "name": "GitExportDeps",
+        "kind": "type"
+      },
+      {
+        "name": "GitExportKnowledgeItemRow",
+        "kind": "type"
+      },
+      {
+        "name": "GitExportKnowledgeReader",
+        "kind": "type"
+      },
+      {
+        "name": "GitExportResult",
+        "kind": "type"
+      },
+      {
+        "name": "GitExportServerConfigPort",
+        "kind": "type"
+      },
+      {
+        "name": "GitRunner",
+        "kind": "type"
+      },
+      {
+        "name": "LastExportMeta",
+        "kind": "type"
+      },
+      {
+        "name": "RegisterGitExportHandlerOptions",
+        "kind": "type"
+      },
+      {
+        "name": "RunGitExportDeps",
+        "kind": "type"
+      },
+      {
+        "name": "UpdateGitExportConfigResult",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [],
+    "consumers": []
+  },
+  {
+    "name": "harness-registry",
+    "layer": "agent-execution",
+    "ownedTables": [],
+    "surface": {
+      "methods": 22,
+      "types": 13,
+      "total": 35
+    },
+    "exports": [
+      {
+        "name": "AdapterPool",
+        "kind": "method"
+      },
+      {
+        "name": "buildToolRegistry",
+        "kind": "method"
+      },
+      {
+        "name": "BuiltinHarnessAdapter",
+        "kind": "method"
+      },
+      {
+        "name": "callLlm",
+        "kind": "method"
+      },
+      {
+        "name": "CliHarnessAdapter",
+        "kind": "method"
+      },
+      {
+        "name": "createCapabilityCatalog",
+        "kind": "method"
+      },
+      {
+        "name": "createHarnessAdapter",
+        "kind": "method"
+      },
+      {
+        "name": "createLocalAdapterPool",
+        "kind": "method"
+      },
+      {
+        "name": "createMcpRouter",
+        "kind": "method"
+      },
+      {
+        "name": "createMcpSession",
+        "kind": "method"
+      },
+      {
+        "name": "createMcpToolBridge",
+        "kind": "method"
+      },
+      {
+        "name": "createReturnEnforcement",
+        "kind": "method"
+      },
+      {
+        "name": "createSandboxAdapter",
+        "kind": "method"
+      },
+      {
+        "name": "DisabledSandboxAdapter",
+        "kind": "method"
+      },
+      {
+        "name": "discoverLocalHarnesses",
+        "kind": "method"
+      },
+      {
+        "name": "estimateLlmCost",
+        "kind": "method"
+      },
+      {
+        "name": "LocalSandboxAdapter",
+        "kind": "method"
+      },
+      {
+        "name": "modelContextWindow",
+        "kind": "method"
+      },
+      {
+        "name": "probeHarnessSession",
+        "kind": "method"
+      },
+      {
+        "name": "provisionHarnessEnvironment",
+        "kind": "method"
+      },
+      {
+        "name": "RemoteHarnessAdapter",
+        "kind": "method"
+      },
+      {
+        "name": "returnStatusTool",
+        "kind": "method"
+      },
+      {
+        "name": "AdapterFilter",
+        "kind": "type"
+      },
+      {
+        "name": "CallLlmOptions",
+        "kind": "type"
+      },
+      {
+        "name": "ExecResult",
+        "kind": "type"
+      },
+      {
+        "name": "HarnessAdapterSpec",
+        "kind": "type"
+      },
+      {
+        "name": "LlmContentBlock",
+        "kind": "type"
+      },
+      {
+        "name": "LlmMessage",
+        "kind": "type"
+      },
+      {
+        "name": "LlmResponse",
+        "kind": "type"
+      },
+      {
+        "name": "McpToolBridge",
+        "kind": "type"
+      },
+      {
+        "name": "ProvisionOptions",
+        "kind": "type"
+      },
+      {
+        "name": "ReturnEnforcementSpec",
+        "kind": "type"
+      },
+      {
+        "name": "SandboxAdapter",
+        "kind": "type"
+      },
+      {
+        "name": "SandboxHandle",
+        "kind": "type"
+      },
+      {
+        "name": "SelectRequirements",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [],
+    "consumers": []
+  },
+  {
+    "name": "knowledge",
+    "layer": "core-api",
+    "ownedTables": [
+      "knowledgeAccessLog",
+      "knowledgeAppProjection",
+      "knowledgeConflicts",
+      "knowledgeEditLog",
+      "knowledgeItems"
+    ],
+    "surface": {
+      "methods": 17,
+      "types": 12,
+      "total": 29
+    },
+    "exports": [
+      {
+        "name": "count",
+        "kind": "method"
+      },
+      {
+        "name": "countAccesses",
+        "kind": "method"
+      },
+      {
+        "name": "create",
+        "kind": "method"
+      },
+      {
+        "name": "findOpenConflict",
+        "kind": "method"
+      },
+      {
+        "name": "get",
+        "kind": "method"
+      },
+      {
+        "name": "list",
+        "kind": "method"
+      },
+      {
+        "name": "rank",
+        "kind": "method"
+      },
+      {
+        "name": "reapAccessLog",
+        "kind": "method"
+      },
+      {
+        "name": "recomputeAttention",
+        "kind": "method"
+      },
+      {
+        "name": "recomputeRelevance",
+        "kind": "method"
+      },
+      {
+        "name": "recordAccess",
+        "kind": "method"
+      },
+      {
+        "name": "recordConflict",
+        "kind": "method"
+      },
+      {
+        "name": "remove",
+        "kind": "method"
+      },
+      {
+        "name": "search",
+        "kind": "method"
+      },
+      {
+        "name": "sweep",
+        "kind": "method"
+      },
+      {
+        "name": "transition",
+        "kind": "method"
+      },
+      {
+        "name": "update",
+        "kind": "method"
+      },
+      {
+        "name": "CreateKnowledgeItemInput",
+        "kind": "type"
+      },
+      {
+        "name": "KnowledgeItemView",
+        "kind": "type"
+      },
+      {
+        "name": "KnowledgeItemWithProjection",
+        "kind": "type"
+      },
+      {
+        "name": "KnowledgeKind",
+        "kind": "type"
+      },
+      {
+        "name": "KnowledgeLayer",
+        "kind": "type"
+      },
+      {
+        "name": "KnowledgeScope",
+        "kind": "type"
+      },
+      {
+        "name": "KnowledgeStatus",
+        "kind": "type"
+      },
+      {
+        "name": "ListFilters",
+        "kind": "type"
+      },
+      {
+        "name": "PromoteTransitionResult",
+        "kind": "type"
+      },
+      {
+        "name": "RecordAccessInput",
+        "kind": "type"
+      },
+      {
+        "name": "RecordConflictInput",
+        "kind": "type"
+      },
+      {
+        "name": "UpdateKnowledgeItemInput",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.knowledge",
+        "requests": [
+          "listRecentByLayers",
+          "recomputeAttentionForCandidates",
+          "runAutoPromotionSweep",
+          "runStaleSweep"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "git-export",
+        "port": "GitExportDeps.knowledge",
+        "requests": [
+          "getProjectionByItemId",
+          "listExportableItems"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "git-export",
+        "port": "GitExportKnowledgeReader",
+        "requests": [
+          "getProjectionByItemId",
+          "listExportableItems"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "port": "ToolHandlersPorts.knowledge",
+        "requests": [
+          "create",
+          "createKnowledgeConflict",
+          "findKnowledgeItemStatusById",
+          "findKnowledgeItemVersionById",
+          "findOpenConflictByItemAndProposer",
+          "promoteKnowledgeItem",
+          "recomputeAttentionScoreForItem",
+          "search",
+          "upsertKnowledgeAppProjectionAttentionScore"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "listRecentByLayers",
+          "recomputeAttentionForCandidates",
+          "runAutoPromotionSweep",
+          "runStaleSweep"
+        ]
+      },
+      {
+        "consumer": "git-export",
+        "requests": [
+          "getProjectionByItemId",
+          "listExportableItems"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "requests": [
+          "create",
+          "createKnowledgeConflict",
+          "findKnowledgeItemStatusById",
+          "findKnowledgeItemVersionById",
+          "findOpenConflictByItemAndProposer",
+          "promoteKnowledgeItem",
+          "recomputeAttentionScoreForItem",
+          "search",
+          "upsertKnowledgeAppProjectionAttentionScore"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "model-gateway",
+    "layer": "core-api",
+    "ownedTables": [],
+    "surface": {
+      "methods": 2,
+      "types": 2,
+      "total": 4
+    },
+    "exports": [
+      {
+        "name": "resolveModel",
+        "kind": "method"
+      },
+      {
+        "name": "UnsupportedAgentProviderError",
+        "kind": "method"
+      },
+      {
+        "name": "ModelGatewayCredentialResolver",
+        "kind": "type"
+      },
+      {
+        "name": "ModelRequest",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.modelGateway",
+        "requests": [
+          "resolveAgentModel",
+          "resolveModelTier"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "resolveAgentModel",
+          "resolveModelTier"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "notifications",
+    "layer": "core-api",
+    "ownedTables": [
+      "notificationQueue"
+    ],
+    "surface": {
+      "methods": 17,
+      "types": 11,
+      "total": 28
+    },
+    "exports": [
+      {
+        "name": "classifySmtpRetriable",
+        "kind": "method"
+      },
+      {
+        "name": "deliver",
+        "kind": "method"
+      },
+      {
+        "name": "enqueue",
+        "kind": "method"
+      },
+      {
+        "name": "getDailyDigest",
+        "kind": "method"
+      },
+      {
+        "name": "installNotifications",
+        "kind": "method"
+      },
+      {
+        "name": "isInSilenceWindow",
+        "kind": "method"
+      },
+      {
+        "name": "isSilenced",
+        "kind": "method"
+      },
+      {
+        "name": "isWindowSilenced",
+        "kind": "method"
+      },
+      {
+        "name": "listNotifications",
+        "kind": "method"
+      },
+      {
+        "name": "markNotifications",
+        "kind": "method"
+      },
+      {
+        "name": "priorityForSeverity",
+        "kind": "method"
+      },
+      {
+        "name": "readConfig",
+        "kind": "method"
+      },
+      {
+        "name": "readPreferences",
+        "kind": "method"
+      },
+      {
+        "name": "reap",
+        "kind": "method"
+      },
+      {
+        "name": "scrubErrorMessage",
+        "kind": "method"
+      },
+      {
+        "name": "updateConfig",
+        "kind": "method"
+      },
+      {
+        "name": "updatePreferences",
+        "kind": "method"
+      },
+      {
+        "name": "DeliveryResult",
+        "kind": "type"
+      },
+      {
+        "name": "DeliverySpec",
+        "kind": "type"
+      },
+      {
+        "name": "Notification",
+        "kind": "type"
+      },
+      {
+        "name": "NotificationAdapter",
+        "kind": "type"
+      },
+      {
+        "name": "NotificationChannel",
+        "kind": "type"
+      },
+      {
+        "name": "NotificationConfigPatch",
+        "kind": "type"
+      },
+      {
+        "name": "NotificationFilter",
+        "kind": "type"
+      },
+      {
+        "name": "NotificationPatch",
+        "kind": "type"
+      },
+      {
+        "name": "NotificationsDeps",
+        "kind": "type"
+      },
+      {
+        "name": "NotificationSelector",
+        "kind": "type"
+      },
+      {
+        "name": "SafeNotificationConfig",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "policy",
+        "port": "PolicyDeps.notifications",
+        "requests": [
+          "insert"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "policy",
+        "requests": [
+          "insert"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "observability",
+    "layer": "core-api",
+    "ownedTables": [],
+    "surface": {
+      "methods": 7,
+      "types": 13,
+      "total": 20
+    },
+    "exports": [
+      {
+        "name": "createConsoleObservabilityAdapter",
+        "kind": "method"
+      },
+      {
+        "name": "createDbTraceIdResolver",
+        "kind": "method"
+      },
+      {
+        "name": "createObservabilityDispatcher",
+        "kind": "method"
+      },
+      {
+        "name": "readObservabilityConfig",
+        "kind": "method"
+      },
+      {
+        "name": "registerObservabilityDispatcher",
+        "kind": "method"
+      },
+      {
+        "name": "startObservability",
+        "kind": "method"
+      },
+      {
+        "name": "updateObservabilityConfig",
+        "kind": "method"
+      },
+      {
+        "name": "DispatcherDeps",
+        "kind": "type"
+      },
+      {
+        "name": "FlushOutcome",
+        "kind": "type"
+      },
+      {
+        "name": "ObservabilityAdapter",
+        "kind": "type"
+      },
+      {
+        "name": "ObservabilityChannel",
+        "kind": "type"
+      },
+      {
+        "name": "ObservabilityConfig",
+        "kind": "type"
+      },
+      {
+        "name": "ObservabilityConfigPatch",
+        "kind": "type"
+      },
+      {
+        "name": "ObservabilityDeps",
+        "kind": "type"
+      },
+      {
+        "name": "ObservabilityDispatcher",
+        "kind": "type"
+      },
+      {
+        "name": "ObservabilityDispatcherStatus",
+        "kind": "type"
+      },
+      {
+        "name": "ObservabilityRuntime",
+        "kind": "type"
+      },
+      {
+        "name": "ObservabilityStatus",
+        "kind": "type"
+      },
+      {
+        "name": "RegisterObservabilityDispatcherDeps",
+        "kind": "type"
+      },
+      {
+        "name": "TraceIdResolver",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [],
+    "consumers": []
+  },
+  {
+    "name": "org",
+    "layer": "core-api",
+    "ownedTables": [
+      "orgEdges",
+      "teamMembers",
+      "teams"
+    ],
+    "surface": {
+      "methods": 14,
+      "types": 7,
+      "total": 21
+    },
+    "exports": [
+      {
+        "name": "applyTeamCost",
+        "kind": "method"
+      },
+      {
+        "name": "createTeam",
+        "kind": "method"
+      },
+      {
+        "name": "deleteOrgEdge",
+        "kind": "method"
+      },
+      {
+        "name": "deleteTeam",
+        "kind": "method"
+      },
+      {
+        "name": "getTeam",
+        "kind": "method"
+      },
+      {
+        "name": "getTeamMembers",
+        "kind": "method"
+      },
+      {
+        "name": "listOrgEdges",
+        "kind": "method"
+      },
+      {
+        "name": "listTeamMembers",
+        "kind": "method"
+      },
+      {
+        "name": "listTeams",
+        "kind": "method"
+      },
+      {
+        "name": "persistScaffoldedAgents",
+        "kind": "method"
+      },
+      {
+        "name": "resolveReviewRecipients",
+        "kind": "method"
+      },
+      {
+        "name": "resolveTeamAgentHarness",
+        "kind": "method"
+      },
+      {
+        "name": "updateTeam",
+        "kind": "method"
+      },
+      {
+        "name": "upsertOrgEdge",
+        "kind": "method"
+      },
+      {
+        "name": "ActiveTeamMembersWithTeamName",
+        "kind": "type"
+      },
+      {
+        "name": "AgentScaffoldSpec",
+        "kind": "type"
+      },
+      {
+        "name": "CreateTeamInput",
+        "kind": "type"
+      },
+      {
+        "name": "OrgUserDirectory",
+        "kind": "type"
+      },
+      {
+        "name": "ReviewRoutingContext",
+        "kind": "type"
+      },
+      {
+        "name": "ScaffoldResult",
+        "kind": "type"
+      },
+      {
+        "name": "UpsertOrgEdgeInput",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "cost",
+        "port": "CostDeps.org",
+        "requests": [
+          "getTeamMembersById",
+          "incrementTeamMembersCost",
+          "resetAllTeamMembersCost",
+          "resetTeamMembersCost"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "policy",
+        "port": "PolicyDeps.org",
+        "requests": [
+          "getByTeamId"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "realtime",
+        "port": "SubscribeAuthorizerDeps.org",
+        "requests": [
+          "getTeamMembersById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "review",
+        "port": "ReviewPorts.org",
+        "requests": [
+          "resolveReviewRecipients"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "port": "ToolHandlersPorts.org",
+        "requests": [
+          "createTeam",
+          "getTeamById",
+          "getTeamMembersById",
+          "getTeamMembersByTeamId",
+          "persistScaffoldedAgents",
+          "resolveReviewRecipientsForItem",
+          "updateTeam"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "cost",
+        "requests": [
+          "getTeamMembersById",
+          "incrementTeamMembersCost",
+          "resetAllTeamMembersCost",
+          "resetTeamMembersCost"
+        ]
+      },
+      {
+        "consumer": "policy",
+        "requests": [
+          "getByTeamId"
+        ]
+      },
+      {
+        "consumer": "realtime",
+        "requests": [
+          "getTeamMembersById"
+        ]
+      },
+      {
+        "consumer": "review",
+        "requests": [
+          "resolveReviewRecipients"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "requests": [
+          "createTeam",
+          "getTeamById",
+          "getTeamMembersById",
+          "getTeamMembersByTeamId",
+          "persistScaffoldedAgents",
+          "resolveReviewRecipientsForItem",
+          "updateTeam"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "policy",
+    "layer": "core-api",
+    "ownedTables": [],
+    "surface": {
+      "methods": 3,
+      "types": 6,
+      "total": 9
+    },
+    "exports": [
+      {
+        "name": "buildHandoff",
+        "kind": "method"
+      },
+      {
+        "name": "computeApprovalRate",
+        "kind": "method"
+      },
+      {
+        "name": "registerPolicy",
+        "kind": "method"
+      },
+      {
+        "name": "ApprovalRateResult",
+        "kind": "type"
+      },
+      {
+        "name": "HandoffMetadata",
+        "kind": "type"
+      },
+      {
+        "name": "HandoffParams",
+        "kind": "type"
+      },
+      {
+        "name": "HandoffResult",
+        "kind": "type"
+      },
+      {
+        "name": "PolicyDeps",
+        "kind": "type"
+      },
+      {
+        "name": "PolicySessionContext",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "tool-handlers",
+        "port": "ToolHandlersPorts.policy",
+        "requests": [
+          "handoff"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "tool-handlers",
+        "requests": [
+          "handoff"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "realtime",
+    "layer": "core-api",
+    "ownedTables": [],
+    "surface": {
+      "methods": 2,
+      "types": 3,
+      "total": 5
+    },
+    "exports": [
+      {
+        "name": "createDbSubscribeAuthorizer",
+        "kind": "method"
+      },
+      {
+        "name": "WsBroadcaster",
+        "kind": "method"
+      },
+      {
+        "name": "SubscribeAuthorizerDeps",
+        "kind": "type"
+      },
+      {
+        "name": "SubscribeResult",
+        "kind": "type"
+      },
+      {
+        "name": "WsClient",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [],
+    "consumers": []
+  },
+  {
+    "name": "review",
+    "layer": "core-api",
+    "ownedTables": [
+      "operationOutcomes",
+      "proposedCalls",
+      "tailoredGrants"
+    ],
+    "surface": {
+      "methods": 7,
+      "types": 7,
+      "total": 14
+    },
+    "exports": [
+      {
+        "name": "attentionReviewReasoningMarker",
+        "kind": "method"
+      },
+      {
+        "name": "createReviewItem",
+        "kind": "method"
+      },
+      {
+        "name": "findProposedCall",
+        "kind": "method"
+      },
+      {
+        "name": "handleUnconsumedGrantOnSessionEnd",
+        "kind": "method"
+      },
+      {
+        "name": "recordProposedCall",
+        "kind": "method"
+      },
+      {
+        "name": "registerReviewSubscriptions",
+        "kind": "method"
+      },
+      {
+        "name": "transitionProposedCall",
+        "kind": "method"
+      },
+      {
+        "name": "CreateReviewItemInput",
+        "kind": "type"
+      },
+      {
+        "name": "CreateReviewItemResult",
+        "kind": "type"
+      },
+      {
+        "name": "ProposedCallQuery",
+        "kind": "type"
+      },
+      {
+        "name": "ProposedCallTransition",
+        "kind": "type"
+      },
+      {
+        "name": "ProposedCallView",
+        "kind": "type"
+      },
+      {
+        "name": "ReviewAgentWorkIntentInput",
+        "kind": "type"
+      },
+      {
+        "name": "ReviewPorts",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.review",
+        "requests": [
+          "createPracticeMeeting"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "createPracticeMeeting"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "routine",
+    "layer": "core-api",
+    "ownedTables": [
+      "routineRuns",
+      "routines"
+    ],
+    "surface": {
+      "methods": 11,
+      "types": 4,
+      "total": 15
+    },
+    "exports": [
+      {
+        "name": "getRoutine",
+        "kind": "method"
+      },
+      {
+        "name": "getRoutineRun",
+        "kind": "method"
+      },
+      {
+        "name": "humanizeSchedule",
+        "kind": "method"
+      },
+      {
+        "name": "incrementRoutineCost",
+        "kind": "method"
+      },
+      {
+        "name": "insertRoutine",
+        "kind": "method"
+      },
+      {
+        "name": "insertRoutineRun",
+        "kind": "method"
+      },
+      {
+        "name": "listRoutineRuns",
+        "kind": "method"
+      },
+      {
+        "name": "listRoutines",
+        "kind": "method"
+      },
+      {
+        "name": "sumRunCost",
+        "kind": "method"
+      },
+      {
+        "name": "updateRoutine",
+        "kind": "method"
+      },
+      {
+        "name": "updateRoutineRun",
+        "kind": "method"
+      },
+      {
+        "name": "Routine",
+        "kind": "type"
+      },
+      {
+        "name": "RoutinePatch",
+        "kind": "type"
+      },
+      {
+        "name": "RoutineRun",
+        "kind": "type"
+      },
+      {
+        "name": "RoutineRunPatch",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.routine",
+        "requests": [
+          "findRunningRoutineRun",
+          "getRoutineById",
+          "insertRoutine",
+          "insertRoutineRun",
+          "listActiveRoutines",
+          "listScheduledRoutinesMissingNextRunAt",
+          "sumRoutineRunCostSince",
+          "updateRoutineById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "settings",
+        "port": "RoutineReader",
+        "requests": [
+          "listRoutines"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "port": "ToolHandlersPorts.routine",
+        "requests": [
+          "getRoutineById",
+          "insertRoutine",
+          "updateRoutineById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "findRunningRoutineRun",
+          "getRoutineById",
+          "insertRoutine",
+          "insertRoutineRun",
+          "listActiveRoutines",
+          "listScheduledRoutinesMissingNextRunAt",
+          "sumRoutineRunCostSince",
+          "updateRoutineById"
+        ]
+      },
+      {
+        "consumer": "settings",
+        "requests": [
+          "listRoutines"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "requests": [
+          "getRoutineById",
+          "insertRoutine",
+          "updateRoutineById"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "run-orchestration",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "surface": {
+      "methods": 9,
+      "types": 8,
+      "total": 17
+    },
+    "exports": [
+      {
+        "name": "createContextAssembler",
+        "kind": "method"
+      },
+      {
+        "name": "createProvisioner",
+        "kind": "method"
+      },
+      {
+        "name": "createRuntimeReapers",
+        "kind": "method"
+      },
+      {
+        "name": "createWorkerIngress",
+        "kind": "method"
+      },
+      {
+        "name": "createWritebackProcessor",
+        "kind": "method"
+      },
+      {
+        "name": "runSession",
+        "kind": "method"
+      },
+      {
+        "name": "SessionActivityBuffer",
+        "kind": "method"
+      },
+      {
+        "name": "startRuntime",
+        "kind": "method"
+      },
+      {
+        "name": "transitionRun",
+        "kind": "method"
+      },
+      {
+        "name": "AgentTerminationReason",
+        "kind": "type"
+      },
+      {
+        "name": "RunOptions",
+        "kind": "type"
+      },
+      {
+        "name": "RunResult",
+        "kind": "type"
+      },
+      {
+        "name": "RuntimeDeps",
+        "kind": "type"
+      },
+      {
+        "name": "RuntimeHandle",
+        "kind": "type"
+      },
+      {
+        "name": "RuntimePorts",
+        "kind": "type"
+      },
+      {
+        "name": "RunTransitionResult",
+        "kind": "type"
+      },
+      {
+        "name": "RunTransitionSpec",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.runOrchestration",
+        "requests": [
+          "executeAgentRunRequest"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "executeAgentRunRequest"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "session-requests",
+    "layer": "agent-orchestration",
+    "ownedTables": [
+      "agentLifecycleInbox",
+      "agentSessionRequests",
+      "agentWorkIntents",
+      "explicitSessionStarts",
+      "triggerResolutionHistory"
+    ],
+    "surface": {
+      "methods": 13,
+      "types": 7,
+      "total": 20
+    },
+    "exports": [
+      {
+        "name": "claimSessionRequest",
+        "kind": "method"
+      },
+      {
+        "name": "createSessionRequest",
+        "kind": "method"
+      },
+      {
+        "name": "drainIntents",
+        "kind": "method"
+      },
+      {
+        "name": "drainLifecycleProjections",
+        "kind": "method"
+      },
+      {
+        "name": "enqueueWorkIntent",
+        "kind": "method"
+      },
+      {
+        "name": "findSessionRequest",
+        "kind": "method"
+      },
+      {
+        "name": "listSessionRequests",
+        "kind": "method"
+      },
+      {
+        "name": "reapExpired",
+        "kind": "method"
+      },
+      {
+        "name": "releaseClaim",
+        "kind": "method"
+      },
+      {
+        "name": "renewClaim",
+        "kind": "method"
+      },
+      {
+        "name": "sessionRunRegistry",
+        "kind": "method"
+      },
+      {
+        "name": "startLifecycleProjectionDrain",
+        "kind": "method"
+      },
+      {
+        "name": "transitionSessionRequest",
+        "kind": "method"
+      },
+      {
+        "name": "AgentLifecycleFact",
+        "kind": "type"
+      },
+      {
+        "name": "ClaimOptions",
+        "kind": "type"
+      },
+      {
+        "name": "CreateSessionRequestInput",
+        "kind": "type"
+      },
+      {
+        "name": "DurableAgentQueueDeps",
+        "kind": "type"
+      },
+      {
+        "name": "FindQuery",
+        "kind": "type"
+      },
+      {
+        "name": "SessionRequestTransition",
+        "kind": "type"
+      },
+      {
+        "name": "WorkIntentInput",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.sessionRequests",
+        "requests": [
+          "enqueueWorkIntent"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "policy",
+        "port": "PolicyDeps.sessionRequests",
+        "requests": [
+          "abort",
+          "record"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "enqueueWorkIntent"
+        ]
+      },
+      {
+        "consumer": "policy",
+        "requests": [
+          "abort",
+          "record"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "settings",
+    "layer": "core-api",
+    "ownedTables": [
+      "configurationOverrides",
+      "pluginConfigurationDefaults",
+      "plugins",
+      "serverConfig"
+    ],
+    "surface": {
+      "methods": 8,
+      "types": 8,
+      "total": 16
+    },
+    "exports": [
+      {
+        "name": "backfillConfigurationDefaults",
+        "kind": "method"
+      },
+      {
+        "name": "listConfiguration",
+        "kind": "method"
+      },
+      {
+        "name": "migrateCredentialsToStore",
+        "kind": "method"
+      },
+      {
+        "name": "readServerConfig",
+        "kind": "method"
+      },
+      {
+        "name": "seedConfigurationDefaults",
+        "kind": "method"
+      },
+      {
+        "name": "setPluginState",
+        "kind": "method"
+      },
+      {
+        "name": "updateServerConfig",
+        "kind": "method"
+      },
+      {
+        "name": "writeConfigurationOverride",
+        "kind": "method"
+      },
+      {
+        "name": "BackfillLegacyConfigurationDeps",
+        "kind": "type"
+      },
+      {
+        "name": "PluginConfigurationSeed",
+        "kind": "type"
+      },
+      {
+        "name": "PluginConfigurationSource",
+        "kind": "type"
+      },
+      {
+        "name": "RoutineReader",
+        "kind": "type"
+      },
+      {
+        "name": "ServerConfig",
+        "kind": "type"
+      },
+      {
+        "name": "ServerConfigPatch",
+        "kind": "type"
+      },
+      {
+        "name": "SettingsCredentialCipher",
+        "kind": "type"
+      },
+      {
+        "name": "SettingsUserDirectory",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "cost",
+        "port": "CostDeps.settings",
+        "requests": [
+          "readServerConfig",
+          "updateServerConfig"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.settings",
+        "requests": [
+          "readServerConfig"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "git-export",
+        "port": "GitExportServerConfigPort",
+        "requests": [
+          "read",
+          "update"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "cost",
+        "requests": [
+          "readServerConfig",
+          "updateServerConfig"
+        ]
+      },
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "readServerConfig"
+        ]
+      },
+      {
+        "consumer": "git-export",
+        "requests": [
+          "read",
+          "update"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "tool-handlers",
+    "layer": "agent-orchestration",
+    "ownedTables": [],
+    "surface": {
+      "methods": 2,
+      "types": 1,
+      "total": 3
+    },
+    "exports": [
+      {
+        "name": "buildAssistantDraftRegistry",
+        "kind": "method"
+      },
+      {
+        "name": "buildToolDefinitions",
+        "kind": "method"
+      },
+      {
+        "name": "ToolHandlersPorts",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.toolHandlers",
+        "requests": [
+          "buildAssistantDraftRegistry"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "buildAssistantDraftRegistry"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "users",
+    "layer": "core-api",
+    "ownedTables": [
+      "hintProgress",
+      "inviteCodes",
+      "loginSessions",
+      "users"
+    ],
+    "surface": {
+      "methods": 17,
+      "types": 5,
+      "total": 22
+    },
+    "exports": [
+      {
+        "name": "claimInvite",
+        "kind": "method"
+      },
+      {
+        "name": "createInvite",
+        "kind": "method"
+      },
+      {
+        "name": "createLoginSession",
+        "kind": "method"
+      },
+      {
+        "name": "createUpgradeTokenStore",
+        "kind": "method"
+      },
+      {
+        "name": "dismissHint",
+        "kind": "method"
+      },
+      {
+        "name": "findUser",
+        "kind": "method"
+      },
+      {
+        "name": "getOrCreateUser",
+        "kind": "method"
+      },
+      {
+        "name": "incrementUserCost",
+        "kind": "method"
+      },
+      {
+        "name": "insertUser",
+        "kind": "method"
+      },
+      {
+        "name": "listDismissedHints",
+        "kind": "method"
+      },
+      {
+        "name": "listUsers",
+        "kind": "method"
+      },
+      {
+        "name": "reapExpiredCredentials",
+        "kind": "method"
+      },
+      {
+        "name": "resetAllUserCost",
+        "kind": "method"
+      },
+      {
+        "name": "revokeLoginSession",
+        "kind": "method"
+      },
+      {
+        "name": "sumAllUserCost",
+        "kind": "method"
+      },
+      {
+        "name": "updateUser",
+        "kind": "method"
+      },
+      {
+        "name": "validateBearerToken",
+        "kind": "method"
+      },
+      {
+        "name": "DismissedHint",
+        "kind": "type"
+      },
+      {
+        "name": "ReapExpiredCredentialsArgs",
+        "kind": "type"
+      },
+      {
+        "name": "ReapExpiredCredentialsResult",
+        "kind": "type"
+      },
+      {
+        "name": "UpgradeTokenStore",
+        "kind": "type"
+      },
+      {
+        "name": "UserFilter",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "agent-selection",
+        "port": "AgentSelectionDeps.users",
+        "requests": [
+          "getUserById",
+          "listActiveAiUsersByTeams"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "connections",
+        "port": "ConnectionsUserReader",
+        "requests": [
+          "getFirstUserByKind"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "cost",
+        "port": "CostDeps.users",
+        "requests": [
+          "getUserById",
+          "incrementUserCost",
+          "resetAllUserCost",
+          "sumAllUserCost",
+          "updateUser"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.users",
+        "requests": [
+          "getOrCreateUser",
+          "getUserById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "notifications",
+        "port": "NotificationsDeps.users",
+        "requests": [
+          "getUserById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "org",
+        "port": "OrgUserDirectory",
+        "requests": [
+          "getUserById",
+          "insertUser",
+          "listUsersByKind"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "policy",
+        "port": "PolicyDeps.users",
+        "requests": [
+          "findActiveTeammateByRole",
+          "getFirstUserByKind",
+          "getUserById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "realtime",
+        "port": "SubscribeAuthorizerDeps.users",
+        "requests": [
+          "getUserById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "review",
+        "port": "ReviewPorts.users",
+        "requests": [
+          "getUserById",
+          "listUsersByKind"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "settings",
+        "port": "SettingsUserDirectory",
+        "requests": [
+          "listUsersByKind"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "port": "ToolHandlersPorts.users",
+        "requests": [
+          "getUserById",
+          "listUsersByTeam"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "work",
+        "port": "WorkDeps.users",
+        "requests": [
+          "getUserById",
+          "listActiveAiUsersByTeams"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "agent-selection",
+        "requests": [
+          "getUserById",
+          "listActiveAiUsersByTeams"
+        ]
+      },
+      {
+        "consumer": "connections",
+        "requests": [
+          "getFirstUserByKind"
+        ]
+      },
+      {
+        "consumer": "cost",
+        "requests": [
+          "getUserById",
+          "incrementUserCost",
+          "resetAllUserCost",
+          "sumAllUserCost",
+          "updateUser"
+        ]
+      },
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "getOrCreateUser",
+          "getUserById"
+        ]
+      },
+      {
+        "consumer": "notifications",
+        "requests": [
+          "getUserById"
+        ]
+      },
+      {
+        "consumer": "org",
+        "requests": [
+          "getUserById",
+          "insertUser",
+          "listUsersByKind"
+        ]
+      },
+      {
+        "consumer": "policy",
+        "requests": [
+          "findActiveTeammateByRole",
+          "getFirstUserByKind",
+          "getUserById"
+        ]
+      },
+      {
+        "consumer": "realtime",
+        "requests": [
+          "getUserById"
+        ]
+      },
+      {
+        "consumer": "review",
+        "requests": [
+          "getUserById",
+          "listUsersByKind"
+        ]
+      },
+      {
+        "consumer": "settings",
+        "requests": [
+          "listUsersByKind"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "requests": [
+          "getUserById",
+          "listUsersByTeam"
+        ]
+      },
+      {
+        "consumer": "work",
+        "requests": [
+          "getUserById",
+          "listActiveAiUsersByTeams"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "work",
+    "layer": "core-api",
+    "ownedTables": [
+      "artifacts",
+      "bets",
+      "items",
+      "taskPlanningSignals",
+      "tasks"
+    ],
+    "surface": {
+      "methods": 15,
+      "types": 20,
+      "total": 35
+    },
+    "exports": [
+      {
+        "name": "cascadeBetKill",
+        "kind": "method"
+      },
+      {
+        "name": "checkAndUnblockDependents",
+        "kind": "method"
+      },
+      {
+        "name": "create",
+        "kind": "method"
+      },
+      {
+        "name": "get",
+        "kind": "method"
+      },
+      {
+        "name": "getTaskRiskTierByTaskId",
+        "kind": "method"
+      },
+      {
+        "name": "list",
+        "kind": "method"
+      },
+      {
+        "name": "registerBetDecomposition",
+        "kind": "method"
+      },
+      {
+        "name": "resolveOrphanedDecompositions",
+        "kind": "method"
+      },
+      {
+        "name": "routeItem",
+        "kind": "method"
+      },
+      {
+        "name": "taskDispatchAttemptStore",
+        "kind": "method"
+      },
+      {
+        "name": "transition",
+        "kind": "method"
+      },
+      {
+        "name": "transitionBet",
+        "kind": "method"
+      },
+      {
+        "name": "transitionTask",
+        "kind": "method"
+      },
+      {
+        "name": "update",
+        "kind": "method"
+      },
+      {
+        "name": "updateBetField",
+        "kind": "method"
+      },
+      {
+        "name": "AppendNoteOp",
+        "kind": "type"
+      },
+      {
+        "name": "ArtifactRow",
+        "kind": "type"
+      },
+      {
+        "name": "ArtifactTaskSummaryRow",
+        "kind": "type"
+      },
+      {
+        "name": "ArtifactWithTaskTitle",
+        "kind": "type"
+      },
+      {
+        "name": "Bet",
+        "kind": "type"
+      },
+      {
+        "name": "BetDecompositionDeps",
+        "kind": "type"
+      },
+      {
+        "name": "BetTaskWithLatestSessionOutcome",
+        "kind": "type"
+      },
+      {
+        "name": "HandoffAuditEntry",
+        "kind": "type"
+      },
+      {
+        "name": "IncrementOp",
+        "kind": "type"
+      },
+      {
+        "name": "Item",
+        "kind": "type"
+      },
+      {
+        "name": "RevisionLogEntry",
+        "kind": "type"
+      },
+      {
+        "name": "StateTransitionAuditEntry",
+        "kind": "type"
+      },
+      {
+        "name": "Task",
+        "kind": "type"
+      },
+      {
+        "name": "TaskAuditEntry",
+        "kind": "type"
+      },
+      {
+        "name": "TaskStateMachineDeps",
+        "kind": "type"
+      },
+      {
+        "name": "TransitionGuard",
+        "kind": "type"
+      },
+      {
+        "name": "TransitionSpec",
+        "kind": "type"
+      },
+      {
+        "name": "WorkDeps",
+        "kind": "type"
+      },
+      {
+        "name": "WorkEntity",
+        "kind": "type"
+      },
+      {
+        "name": "WorkFilter",
+        "kind": "type"
+      }
+    ],
+    "diReceivers": [
+      {
+        "consumer": "cost",
+        "port": "CostDeps.work",
+        "requests": [
+          "createItem",
+          "getTaskById",
+          "incrementBetCost"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "dispatch",
+        "port": "DispatchPorts.work",
+        "requests": [
+          "createItem",
+          "findRetroItemByThreadIds",
+          "getBetById",
+          "getTaskById",
+          "listTasks"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "notifications",
+        "port": "NotificationsDeps.work",
+        "requests": [
+          "getItemById",
+          "listQueuedItemsSince"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "policy",
+        "port": "PolicyDeps.work",
+        "requests": [
+          "claimTaskHandoff",
+          "createItem",
+          "getBetById",
+          "getItemById",
+          "getTaskById",
+          "listItemIdsBySourceAgent",
+          "listTasks",
+          "transitionBetStatus",
+          "transitionTaskState",
+          "updateItemById",
+          "updateTaskById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "realtime",
+        "port": "SubscribeAuthorizerDeps.work",
+        "requests": [
+          "getTaskById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "review",
+        "port": "ReviewPorts.work",
+        "requests": [
+          "createItem",
+          "getRiskTierByTaskId",
+          "getTaskById",
+          "updateTaskById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "port": "ToolHandlersPorts.work",
+        "requests": [
+          "appendTaskNote",
+          "createArtifact",
+          "createBet",
+          "createItem",
+          "createTask",
+          "findItemByReasoningMarker",
+          "getBetById",
+          "getItemById",
+          "getTaskById",
+          "routeItem",
+          "updateBetById",
+          "updateItemById",
+          "updateTaskById"
+        ],
+        "accessKinds": [
+          "direct"
+        ]
+      }
+    ],
+    "consumers": [
+      {
+        "consumer": "cost",
+        "requests": [
+          "createItem",
+          "getTaskById",
+          "incrementBetCost"
+        ]
+      },
+      {
+        "consumer": "dispatch",
+        "requests": [
+          "createItem",
+          "findRetroItemByThreadIds",
+          "getBetById",
+          "getTaskById",
+          "listTasks"
+        ]
+      },
+      {
+        "consumer": "notifications",
+        "requests": [
+          "getItemById",
+          "listQueuedItemsSince"
+        ]
+      },
+      {
+        "consumer": "policy",
+        "requests": [
+          "claimTaskHandoff",
+          "createItem",
+          "getBetById",
+          "getItemById",
+          "getTaskById",
+          "listItemIdsBySourceAgent",
+          "listTasks",
+          "transitionBetStatus",
+          "transitionTaskState",
+          "updateItemById",
+          "updateTaskById"
+        ]
+      },
+      {
+        "consumer": "realtime",
+        "requests": [
+          "getTaskById"
+        ]
+      },
+      {
+        "consumer": "review",
+        "requests": [
+          "createItem",
+          "getRiskTierByTaskId",
+          "getTaskById",
+          "updateTaskById"
+        ]
+      },
+      {
+        "consumer": "tool-handlers",
+        "requests": [
+          "appendTaskNote",
+          "createArtifact",
+          "createBet",
+          "createItem",
+          "createTask",
+          "findItemByReasoningMarker",
+          "getBetById",
+          "getItemById",
+          "getTaskById",
+          "routeItem",
+          "updateBetById",
+          "updateItemById",
+          "updateTaskById"
+        ]
+      }
+    ]
+  }
+]

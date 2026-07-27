@@ -45,13 +45,26 @@
 import type { WriteExecutor } from "@hyperidle/db";
 import type { PrimaryHarnessConfig } from "@hyperidle/shared";
 import type { OrgUserDirectory } from "./ports.js";
+import { resolveTeamAgentHarness } from "./team-default-harness.js";
 
 export interface ScaffoldResult {
 	agentIds: string[];
 	leadAgentId: string | null;
 }
 
-export type { PrimaryHarnessConfig };
+/**
+ * Either an explicit resolved PrimaryHarnessConfig, or the team's default
+ * columns (the writer resolves explicit → team-default → builtin internally).
+ *
+ * @lore AU20 Am7: callers no longer pre-compute `resolveTeamAgentHarness`
+ * separately; they pass either an explicit PrimaryHarnessConfig or the team
+ * object directly (structurally satisfies `TeamHarnessDefault`).
+ */
+type TeamHarnessDefault = {
+	readonly defaultHarnessType: string | null;
+	readonly defaultModelId: string | null;
+	readonly defaultModelProvider: string | null;
+};
 
 /**
  * The knowledge-only shape a Strategy returns (persona, role, category) — the
@@ -116,13 +129,46 @@ async function resolveAgentId(
  * bootstrap, seed paths) are unaffected. The Kernel owns mechanism fields; the
  * caller supplies the policy (which harness to use for this team).
  */
+/**
+ * Persist the scaffolded agent specs returned by a Strategy.
+ *
+ * @param db             - The database handle.
+ * @param users          - Injected `users` Service port (Mechanism C).
+ * @param teamMembersId  - teamMembers.id to set as users.teamId (null for non-team-scoped agents).
+ * @param specs          - The app-owned agent specs to persist.
+ * @param harness        - Optional harness hint. Pass a `PrimaryHarnessConfig` (explicit,
+ *                         already resolved) OR the `team` row (defaultHarnessType/modelId/
+ *                         modelProvider fields — the writer resolves team default → builtin).
+ *                         Omit (or pass undefined) to use the builtin/sonnet-4-6 fallback.
+ * @returns              { agentIds, leadAgentId } — the assigned users.id values.
+ *
+ * @lore AU20 Am7: `resolveTeamAgentHarness` is folded in — callers no longer
+ * pre-compute it separately. Pass `team` directly; the writer resolves
+ * explicit → team-default → builtin. Existing callers that already resolved
+ * the harness (i.e. pass a `PrimaryHarnessConfig` directly) continue to work
+ * unchanged because `PrimaryHarnessConfig` has `harnessType: string` while
+ * `TeamHarnessDefault` has `defaultHarnessType: string | null` — structurally
+ * disjoint, discriminated by `'harnessType' in harness`.
+ */
 export async function persistScaffoldedAgents(
 	db: WriteExecutor,
 	users: Pick<OrgUserDirectory, "getUserById" | "insertUser">,
 	teamMembersId: string | null,
 	specs: readonly AgentScaffoldSpec[],
-	primaryHarness?: PrimaryHarnessConfig,
+	harness?: PrimaryHarnessConfig | TeamHarnessDefault,
 ): Promise<ScaffoldResult> {
+	// Resolve explicit → team-default → builtin internally.
+	let resolvedHarness: PrimaryHarnessConfig | undefined;
+	if (harness !== undefined) {
+		if ("harnessType" in harness) {
+			// Explicit PrimaryHarnessConfig (already resolved by caller).
+			resolvedHarness = harness;
+		} else {
+			// TeamHarnessDefault — resolve via the folded-in logic.
+			resolvedHarness = resolveTeamAgentHarness(undefined, harness);
+		}
+	}
+
 	const now = new Date().toISOString();
 	const agentIds: string[] = [];
 	let leadAgentId: string | null = null;
@@ -141,10 +187,10 @@ export async function persistScaffoldedAgents(
 			systemPrompt: spec.systemPrompt,
 			status: "active",
 			// Kernel-owned mechanism fields — NOT on the spec (closure contract).
-			// POLISH-060 B3: Use primaryHarness when supplied; fall back to builtin/sonnet-4-6.
-			harnessType: primaryHarness?.harnessType ?? "builtin",
-			modelId: primaryHarness?.modelId ?? "claude-sonnet-4-6",
-			modelProvider: primaryHarness?.modelProvider ?? "anthropic",
+			// POLISH-060 B3: Use resolvedHarness when supplied; fall back to builtin/sonnet-4-6.
+			harnessType: resolvedHarness?.harnessType ?? "builtin",
+			modelId: resolvedHarness?.modelId ?? "claude-sonnet-4-6",
+			modelProvider: resolvedHarness?.modelProvider ?? "anthropic",
 			// builders can run 3 concurrent sessions; all others 1.
 			maxConcurrentSessions: spec.role === "builder" ? 3 : 1,
 			teamId: teamMembersId,

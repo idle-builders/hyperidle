@@ -18,25 +18,17 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
-import { deriveInitials, resolveAgentScaffoldSpecs } from "@hyperidle/agent-selection";
-import { getThreadById, insertMessage, insertThread } from "@hyperidle/conversation";
+import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { enqueueNotification, findPendingByEventSubject } from "@hyperidle/notifications";
+import { enqueue, listNotifications } from "@hyperidle/notifications";
 import {
-	ApiError,
 	createTeam,
-	createTeamMembersGroup,
-	deleteTeamById,
-	deleteTeamMembersGroupById,
-	getTeamById,
-	getTeamByName,
-	getTeamMembersByTeamId,
-	listAllTeams,
-	loadTeamMembers,
+	deleteTeam,
+	getTeam,
+	getTeamMembers,
+	listTeams,
 	persistScaffoldedAgents,
-	resolveTeamAgentHarness,
-	setTeamMembersLeadAgent,
-	updateTeamPhase,
+	updateTeam,
 	upsertOrgEdge,
 } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
@@ -58,24 +50,18 @@ import type {
 import {
 	AGENT_ROLE_CATALOG,
 	createLogger,
+	deriveInitials,
 	deriveTitle,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
-import {
-	getFirstUserByKind,
-	getUserById,
-	getUsersByIds,
-	insertUser,
-	listUsersByTeam,
-	listUsersByTeamAndKind,
-	updateUser,
-} from "@hyperidle/users";
+import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { provisionTeamRoutines } from "../services/dispatch-bindings.js";
+import { agentSelectionService } from "../services/agent-selection-bindings.js";
+import { dispatchOps } from "../services/dispatch-bindings.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import {
 	computeHealthSignals,
@@ -86,7 +72,10 @@ import {
 
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
 // the real `user-store.ts` function references unchanged (no behavior change).
-const orgUsers = { getUserById, insertUser };
+const orgUsers = {
+	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
+	insertUser,
+};
 
 /**
  * Derive team status from team_members and active bet states.
@@ -141,11 +130,18 @@ async function maybeNotifyAgentError(
 	teamName: string,
 ): Promise<void> {
 	// Check for existing pending notification for this agent
-	const existing = await findPendingByEventSubject(db, "agent.health.degraded", member.agentId);
+	const [existing] = await listNotifications(db, {
+		kind: "pending-by-event",
+		eventType: "agent.health.degraded",
+		subjectId: member.agentId,
+	});
 
 	if (existing) return; // already pending — throttled
 
-	await enqueueNotification(db, {
+	// @lore AU20 Ag6b: enqueueNotification removed from public API; use enqueue
+	// with explicit id, status, attempts, createdAt fields.
+	await enqueue(db, {
+		id: crypto.randomUUID(),
 		eventType: "agent.health.degraded",
 		subjectId: member.agentId,
 		severity: "blocking",
@@ -153,7 +149,9 @@ async function maybeNotifyAgentError(
 		body: `${member.name} on team ${teamName}: ${member.healthDetail ?? "Error state detected"}`,
 		reason: "agent_health_transition",
 		channel: null,
-		now: new Date(),
+		status: "pending",
+		attempts: 0,
+		createdAt: new Date().toISOString(),
 	});
 }
 
@@ -170,14 +168,14 @@ async function resolveFounderId(
 	bodyUserId: string | undefined,
 ): Promise<string | null> {
 	if (ctxUserId) {
-		const u = await getUserById(db, ctxUserId);
+		const u = await findUser(db, { id: ctxUserId });
 		if (u) return u.id;
 	}
 	if (bodyUserId) {
-		const u = await getUserById(db, bodyUserId);
+		const u = await findUser(db, { id: bodyUserId });
 		if (u) return u.id;
 	}
-	const human = await getFirstUserByKind(db, "human");
+	const human = await findUser(db, { kind: "human" });
 	return human?.id ?? null;
 }
 
@@ -191,28 +189,36 @@ export function createTeamRoutes(
 
 	// GET / — list all teams with portfolio counters
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allTeams = await listAllTeams(db);
+		const allTeams = await listTeams(db);
 
 		const result: TeamListItem[] = await Promise.all(
 			allTeams.map(async (team) => {
 				// Fetch the team_members for this team (may be missing — tolerate gracefully here)
-				const memberGroup = await getTeamMembersByTeamId(db, team.id);
+				const memberGroup = await getTeamMembers(db, { teamId: team.id });
 
 				// Count active and completed bets
-				const activeBetCount = await work.countBetsByTeamAndStatus(db, team.id, "active");
-				const completedCount = await work.countBetsByTeamAndStatus(db, team.id, "completed");
+				const activeBetCount = await work.list(db, "bet", {
+					teamId: team.id,
+					status: "active",
+					count: true,
+				});
+				const completedCount = await work.list(db, "bet", {
+					teamId: team.id,
+					status: "completed",
+					count: true,
+				});
 
 				// Ship rate = completed / (completed + active), expressed as percentage
 				const total = completedCount + activeBetCount;
 				const shipRate = total === 0 ? "—" : `${Math.round((completedCount / total) * 100)}%`;
 
 				// Progress: sum done/total tasks across active bets
-				const activeBetRows = await work.listBetsByTeamAndStatus(db, team.id, "active");
+				const activeBetRows = await work.list(db, "bet", { teamId: team.id, status: "active" });
 
 				let progressDone = 0;
 				let progressTotal = 0;
 				for (const bet of activeBetRows) {
-					const taskRows = await work.listTasks(db, { betId: bet.id });
+					const taskRows = await work.list(db, "task", { betId: bet.id });
 					progressTotal += taskRows.length;
 					progressDone += taskRows.filter((t) => t.state === "done").length;
 				}
@@ -232,12 +238,12 @@ export function createTeamRoutes(
 					: ("healthy" as const);
 
 				// AA1: routine count for this team (AA2: exclude soft-deleted)
-				const routineCount = await routineService.countRoutinesByTeam(db, team.id);
+				const routineCount = (await routineService.listRoutines(db, { teamId: team.id })).length;
 
 				// AB2: agent summary — count AI agents and compute health warning.
 				// Re-use computeHealthSignals for accurate health checks (reviewer S4).
 				const teamAgentRows = memberGroup
-					? await listUsersByTeamAndKind(db, memberGroup.id, "ai")
+					? await listUsers(db, { teamIds: [memberGroup.id], kind: "ai" })
 					: [];
 
 				const agentCount = teamAgentRows.length;
@@ -348,7 +354,7 @@ export function createTeamRoutes(
 		// AK6 strategy-swap test creates two teams with different names in one session.
 		// The "same-name" guard still prevents duplicate setup teams (same name = same
 		// team) while allowing the test to create a second team with a different name.
-		const existingTeam = await getTeamByName(db, name.trim());
+		const existingTeam = await getTeam(db, { name: name.trim() });
 		if (existingTeam) {
 			return c.json(existingTeam, 200);
 		}
@@ -362,6 +368,7 @@ export function createTeamRoutes(
 		const teamId = `team-${crypto.randomUUID()}`;
 		const teamMembersId = `team-${crypto.randomUUID()}`;
 
+		// @lore AU20 Am7: atomic createTeam inserts teams + teamMembers companion in one call.
 		await createTeam(db, {
 			id: teamId,
 			name: name.trim(),
@@ -374,18 +381,15 @@ export function createTeamRoutes(
 			defaultHarnessType: primaryHarness?.harnessType ?? null,
 			defaultModelId: primaryHarness?.modelId ?? null,
 			defaultModelProvider: primaryHarness?.modelProvider ?? null,
-		});
-
-		await createTeamMembersGroup(db, {
-			id: teamMembersId,
-			teamId,
+			// teamMembers companion (1:1)
+			teamMembersId,
 			capacity: 5,
 			activeBets: 0,
 			formedAt: now,
 		});
 
 		// AU3: route through app-owned scaffolding for the default roster.
-		const specs = await resolveAgentScaffoldSpecs({
+		const specs = await agentSelectionService.resolveScaffoldSpecs({
 			db,
 			trigger: "team_scaffold",
 			teamId,
@@ -402,8 +406,8 @@ export function createTeamRoutes(
 		// catalog matches), reject with 400 — a team with no agents is invalid.
 		// Roll back the already-inserted team + teamMembers rows.
 		if (specs.length === 0) {
-			await deleteTeamMembersGroupById(db, teamMembersId);
-			await deleteTeamById(db, teamId);
+			// @lore AU20 Am7: deleteTeam cascades (deletes teamMembers then teams) in one call.
+			await deleteTeam(db, teamId);
 			return c.json({ error: "Team functions produced no agents", code: "validation_error" }, 400);
 		}
 
@@ -418,8 +422,9 @@ export function createTeamRoutes(
 		);
 
 		// Set lead agent on team_members.
+		// @lore AU20 Am7: updateTeam(teamId, {leadAgentId}) replaces setTeamMembersLeadAgent.
 		if (leadAgentId) {
-			await setTeamMembersLeadAgent(db, teamMembersId, leadAgentId);
+			await updateTeam(db, teamId, { leadAgentId });
 		}
 
 		// AH4: upsert founder→team org edge (best-effort — failure must not 500 team creation).
@@ -445,7 +450,7 @@ export function createTeamRoutes(
 		// @lore AF17: routines.team_id must be teams.id (teamId), NOT team_members.id (teamMembersId).
 		// ownerByRole is built from the created roster rows in the DB.
 		{
-			const createdAgents = await listUsersByTeam(db, teamMembersId);
+			const createdAgents = await listUsers(db, { teamIds: [teamMembersId] });
 			const ownerByRole: Partial<Record<string, string>> = {};
 			for (const agent of createdAgents) {
 				if (agent.role && !ownerByRole[agent.role]) {
@@ -454,7 +459,7 @@ export function createTeamRoutes(
 			}
 			// AF17: provisioning errors propagate — a team must not be created silently
 			// without its automation. If this throws, the caller gets a 500 with details.
-			await provisionTeamRoutines(db, {
+			await dispatchOps.provisionTeamRoutines(db, {
 				teamId,
 				ownerByRole,
 				leadAgentId: leadAgentId ?? agentIds[0] ?? "",
@@ -477,7 +482,7 @@ export function createTeamRoutes(
 		// The read below is a no-op read that takes ~0ms but creates the
 		// await boundary PGlite needs to resolve pending handler promises.
 		// Production handlers are sync — the overhead is one lightweight SELECT.
-		await getTeamById(db, teamId);
+		await getTeam(db, { id: teamId });
 
 		// AE2: seed welcome message in assistant thread when userId is provided.
 		// Best-effort: failure does not roll back team creation.
@@ -491,7 +496,7 @@ export function createTeamRoutes(
 				// @lore AE2: The assistant agent is normally created at user registration.
 				// During onboarding, team creation may happen before the assistant agent
 				// is created — we upsert a stub here so the FK on messages.senderId succeeds.
-				const existingAssistant = await getUserById(db, assistantId);
+				const existingAssistant = await findUser(db, { id: assistantId });
 
 				// AV1: Resolve the harness the assistant should carry.
 				// @lore AV1: The assistant stub may already exist (created by user registration
@@ -499,15 +504,13 @@ export function createTeamRoutes(
 				// primaryHarness, we must UPDATE the existing stub — the stub was created
 				// before the user picked a harness so it defaults to builtin. The UPDATE
 				// overwrites that with the team default so the auto-opened overlay opens READY.
-				const stubHarness = resolveTeamAgentHarness(primaryHarness, {
-					defaultHarnessType: primaryHarness?.harnessType ?? null,
-					defaultModelId: primaryHarness?.modelId ?? null,
-					defaultModelProvider: primaryHarness?.modelProvider ?? null,
-				});
+				// @lore AU20 Am7: resolveTeamAgentHarness removed from barrel; when primaryHarness
+				// is supplied it IS the resolved harness; when absent, undefined (builtin fallback).
+				const stubHarness = primaryHarness ?? undefined;
 
 				if (!existingAssistant) {
 					// Lookup user name to personalise the assistant name.
-					const userRow = await getUserById(db, userId);
+					const userRow = await findUser(db, { id: userId });
 					const assistantName = userRow ? `${userRow.name}'s Assistant` : "Assistant";
 
 					await insertUser(db, {
@@ -532,7 +535,7 @@ export function createTeamRoutes(
 				}
 
 				// Create the thread if it doesn't exist.
-				const existingThread = await getThreadById(db, threadId);
+				const existingThread = await findThread(db, { id: threadId });
 
 				if (!existingThread) {
 					await insertThread(db, {
@@ -549,7 +552,7 @@ export function createTeamRoutes(
 
 				// Build agent names list for welcome message text.
 				// Use the persisted roster from DB (app-decided set).
-				const agentRows = await listUsersByTeam(db, teamMembersId);
+				const agentRows = await listUsers(db, { teamIds: [teamMembersId] });
 				const agentLabels = agentRows
 					.map(({ role }) => {
 						const entry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
@@ -605,17 +608,17 @@ export function createTeamRoutes(
 		}
 
 		// Look up team + membership group
-		const team = await getTeamById(db, teamId);
+		const team = await getTeam(db, { id: teamId });
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
-		const memberGroup = await getTeamMembersByTeamId(db, teamId);
+		const memberGroup = await getTeamMembers(db, { teamId });
 		if (!memberGroup) {
 			return c.json({ error: "Team membership group not found", code: "not_found" }, 404);
 		}
 
 		// AU3: route through app-owned scaffolding for agent_added.
-		const specs = await resolveAgentScaffoldSpecs({
+		const specs = await agentSelectionService.resolveScaffoldSpecs({
 			db,
 			trigger: "agent_added",
 			teamId,
@@ -630,16 +633,10 @@ export function createTeamRoutes(
 		});
 
 		// AV1: read team default so add-agent-later inherits the persisted primary harness.
-		// resolveTeamAgentHarness(undefined, team) returns the team default or undefined
-		// (→ persistScaffoldedAgents applies builtin fallback at :112-114).
-		const addAgentHarness = resolveTeamAgentHarness(undefined, team);
-		const { agentIds } = await persistScaffoldedAgents(
-			db,
-			orgUsers,
-			memberGroup.id,
-			specs,
-			addAgentHarness,
-		);
+		// @lore AU20 Am7: pass team directly to persistScaffoldedAgents — it accepts
+		// TeamHarnessDefault (defaultHarnessType/modelId/modelProvider) and resolves
+		// team-default → builtin internally (resolveTeamAgentHarness folded in).
+		const { agentIds } = await persistScaffoldedAgents(db, orgUsers, memberGroup.id, specs, team);
 		const agentId = agentIds[0] ?? crypto.randomUUID();
 		const now = new Date().toISOString();
 
@@ -662,7 +659,7 @@ export function createTeamRoutes(
 	router.patch("/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
 		const teamId = c.req.param("teamId");
 
-		const team = await getTeamById(db, teamId);
+		const team = await getTeam(db, { id: teamId });
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
@@ -685,9 +682,10 @@ export function createTeamRoutes(
 			);
 		}
 
-		await updateTeamPhase(db, teamId, phase);
+		// @lore AU20 Am7: updateTeam(teamId, {phase}) replaces updateTeamPhase.
+		await updateTeam(db, teamId, { phase });
 
-		const updated = await getTeamById(db, teamId);
+		const updated = await getTeam(db, { id: teamId });
 		if (!updated) {
 			return c.json({ error: "Team not found after update", code: "internal_error" }, 500);
 		}
@@ -700,16 +698,16 @@ export function createTeamRoutes(
 		const teamId = c.req.param("teamId");
 
 		// 1. Look up the team
-		const team = await getTeamById(db, teamId);
+		const team = await getTeam(db, { id: teamId });
 		if (!team) {
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
 
 		// 2. Load the team_members row (enforces 1:1 invariant — throws ApiError(500) if broken)
 		try {
-			const memberGroup = await loadTeamMembers(db, teamId);
+			const memberGroup = await getTeamMembers(db, { teamId }, { require: true });
 			// 3. Load roster
-			const agentRows = await listUsersByTeam(db, memberGroup.id);
+			const agentRows = await listUsers(db, { teamIds: [memberGroup.id] });
 
 			const roster: RosterMember[] = agentRows.map((agent) => ({
 				agentId: agent.id,
@@ -774,7 +772,7 @@ export function createTeamRoutes(
 					let activeTaskId: string | null = null;
 					let activeBetId: string | null = null;
 					if (activeSession?.taskId) {
-						const taskRow = await work.getTaskById(db, activeSession.taskId);
+						const taskRow = await work.get(db, "task", activeSession.taskId);
 						activeTaskTitle = taskRow?.title ?? null;
 						activeTaskId = activeSession.taskId;
 						activeBetId = taskRow?.betId ?? null;
@@ -817,13 +815,13 @@ export function createTeamRoutes(
 			}
 
 			// 4. Load active bets
-			const activeBetRows = await work.listBetsByTeamAndStatus(db, teamId, "active");
+			const activeBetRows = await work.list(db, "bet", { teamId: teamId, status: "active" });
 
 			// 5. Per active bet, count tasks done/total
 			let hasBlockedTask = false;
 			const activeBets: BetCardSummary[] = await Promise.all(
 				activeBetRows.map(async (bet) => {
-					const taskRows = await work.listTasks(db, { betId: bet.id });
+					const taskRows = await work.list(db, "task", { betId: bet.id });
 
 					const progressTotal = taskRows.length;
 					const progressDone = taskRows.filter((t) => t.state === "done").length;
@@ -857,7 +855,7 @@ export function createTeamRoutes(
 			);
 
 			// AA1: Load routines for this team (AA2: exclude soft-deleted)
-			const routineRows = await routineService.listRoutinesByTeam(db, teamId);
+			const routineRows = await routineService.listRoutines(db, { teamId });
 
 			// AA3: Sum of routine runs this calendar month for routine cost breakdown
 			// Guard: skip the query when there are no routines (empty IN clause is a SQL error in some dialects)
@@ -867,24 +865,25 @@ export function createTeamRoutes(
 				const firstOfMonth3 = new Date(
 					Date.UTC(now3.getUTCFullYear(), now3.getUTCMonth(), 1),
 				).toISOString();
-				routineCostThisMonthMinor = await routineService.sumRoutineRunCostForRoutinesSince(
-					db,
-					routineRows.map((r) => r.id),
-					firstOfMonth3,
-				);
+				routineCostThisMonthMinor = await routineService.sumRunCost(db, {
+					routineIds: routineRows.map((r) => r.id),
+					since: firstOfMonth3,
+					kind: "sum",
+				});
 			}
 
 			// Build agent name map for routine owners
 			const ownerIds = [
 				...new Set(routineRows.map((r) => r.ownerAgentId).filter(Boolean)),
 			] as string[];
-			const ownerRows = ownerIds.length > 0 ? await getUsersByIds(db, ownerIds) : [];
+			const ownerRows = ownerIds.length > 0 ? await listUsers(db, { ids: ownerIds }) : [];
 			const ownerMap = new Map(ownerRows.map((u) => [u.id, u]));
 
 			// Fetch latest routine_run for each routine to get lastRunOutcome
 			const teamRoutines: RoutineCardSummary[] = await Promise.all(
 				routineRows.map(async (r) => {
-					const [latestRun] = await routineService.listRoutineRunsByRoutine(db, r.id, {
+					const [latestRun] = await routineService.listRoutineRuns(db, {
+						routineId: r.id,
 						limit: 1,
 						order: "desc",
 					});
@@ -914,7 +913,7 @@ export function createTeamRoutes(
 			// L17: prefer costCapMinor over legacy costCap
 			const teamCostCapMinor = memberGroup.costCapMinor ?? memberGroup.costCap ?? null;
 			// @lore AF10 U1: team actual spend lives on teamMembers.costActual (the L17/O2
-			// minor-unit accumulator incremented by recordCostAndCheck cost-cap.ts:255).
+			// minor-unit accumulator incremented by costOps.record cost-cap.ts:255).
 			// Do NOT confuse with the orphaned costActualMinor-style naming on other tables.
 			// tasks.teamId and bets.teamId reference teams.id (domain entity), NOT teamMembers.id.
 			// A future multi-currency change must thread factoryCurrency instead of assuming USD.
@@ -971,8 +970,12 @@ export function createTeamRoutes(
 
 			return c.json(detail);
 		} catch (err) {
-			if (err instanceof ApiError) {
-				return c.json({ error: err.message, code: err.code }, err.status as 500);
+			// @lore AU20 R-org: ApiError is unexported from @hyperidle/org (internal
+			// invariant-enforcement class). Duck-type on err.name to surface the
+			// status/code without an instanceof import.
+			if (err instanceof Error && err.name === "ApiError" && "status" in err && "code" in err) {
+				const apiErr = err as Error & { status: number; code: string };
+				return c.json({ error: apiErr.message, code: apiErr.code }, apiErr.status as 500);
 			}
 			throw err;
 		}

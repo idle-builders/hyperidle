@@ -17,10 +17,18 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 // FAILS red: module does not exist yet
-import { provisionReturnHook, type ReturnEnforcementChannel } from "../provision-return-hook.js";
+import type { ReturnEnforcementChannel } from "@hyperidle/shared";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { provisionHarnessEnvironment } from "../provision-harness-environment.js";
+
+const provisionReturnHook = (options: {
+	readonly sandboxPath: string;
+	readonly channel: ReturnEnforcementChannel;
+	readonly bridgeToken: string;
+	readonly mcpUrl: string;
+	readonly forceBudget: number;
+}) => provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 
 describe("AL6 v4-final — provisionReturnHook", () => {
 	let sandboxPath: string;

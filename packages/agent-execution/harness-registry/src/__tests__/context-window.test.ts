@@ -6,10 +6,10 @@
 
 import { describe, expect, it } from "vitest";
 import {
-	contextWindowForModel,
 	DEFAULT_CONTEXT_WINDOW,
 	isAboveThreshold,
 	MODEL_CONTEXT_WINDOWS,
+	modelContextWindow,
 } from "../context-window.js";
 
 // ── contextWindowForModel ────────────────────────────────────────────────────
@@ -17,28 +17,28 @@ import {
 describe("contextWindowForModel", () => {
 	// AH2: Re-keyed to current catalog IDs.
 	it("returns 1_000_000 for claude-opus-4-8", () => {
-		expect(contextWindowForModel("claude-opus-4-8")).toBe(1_000_000);
+		expect(modelContextWindow("claude-opus-4-8")).toBe(1_000_000);
 	});
 
 	it("returns 1_000_000 for claude-sonnet-4-6", () => {
-		expect(contextWindowForModel("claude-sonnet-4-6")).toBe(1_000_000);
+		expect(modelContextWindow("claude-sonnet-4-6")).toBe(1_000_000);
 	});
 
 	it("returns 200_000 for claude-haiku-4-5", () => {
-		expect(contextWindowForModel("claude-haiku-4-5")).toBe(200_000);
+		expect(modelContextWindow("claude-haiku-4-5")).toBe(200_000);
 	});
 
 	it("returns 1_000_000 for claude-fable-5", () => {
-		expect(contextWindowForModel("claude-fable-5")).toBe(1_000_000);
+		expect(modelContextWindow("claude-fable-5")).toBe(1_000_000);
 	});
 
 	it("returns DEFAULT_CONTEXT_WINDOW (128_000) for an unknown model", () => {
-		expect(contextWindowForModel("gpt-4-turbo-unknown")).toBe(DEFAULT_CONTEXT_WINDOW);
+		expect(modelContextWindow("gpt-4-turbo-unknown")).toBe(DEFAULT_CONTEXT_WINDOW);
 		expect(DEFAULT_CONTEXT_WINDOW).toBe(128_000);
 	});
 
 	it("returns DEFAULT_CONTEXT_WINDOW for an empty string", () => {
-		expect(contextWindowForModel("")).toBe(DEFAULT_CONTEXT_WINDOW);
+		expect(modelContextWindow("")).toBe(DEFAULT_CONTEXT_WINDOW);
 	});
 
 	it("MODEL_CONTEXT_WINDOWS includes claude-opus-4-8", () => {

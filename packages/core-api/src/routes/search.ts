@@ -21,14 +21,10 @@
  * - Knowledge: scope_kind != 'user' OR updated_by = userId.
  */
 
-import {
-	getMessagesByThreadIds,
-	listThreadMetaByIds,
-	searchConversations,
-} from "@hyperidle/conversation";
+import { listMessages, listThreads, searchConversations } from "@hyperidle/conversation";
 import { escapeLikePattern, type HyperIdleDb } from "@hyperidle/db";
-import { searchVisibleByText } from "@hyperidle/knowledge";
-import { listTeamsByIds } from "@hyperidle/org";
+import { search as searchKnowledge } from "@hyperidle/knowledge";
+import { listTeams } from "@hyperidle/org";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
@@ -167,14 +163,18 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 			// Batch 1: thread rows for hostKind and lastActiveAt
 			const threadRowMap = new Map<string, { hostKind: string; lastActiveAt: string }>();
 			// AF16 T7: id ASC tiebreaker for deterministic order on tied lastActiveAt
-			const threadRowsBatch = await listThreadMetaByIds(db, verifiedThreadIds);
+			const threadRowsBatch = await listThreads(db, {
+				ids: verifiedThreadIds,
+				order: "lastActive",
+			});
 			for (const row of threadRowsBatch) {
 				threadRowMap.set(row.id, { hostKind: row.hostKind, lastActiveAt: row.lastActiveAt });
 			}
 
 			// Batch 2: all non-deleted messages for these threads, ordered by createdAt ASC.
 			// First occurrence per thread = title source; last occurrence = snippet source.
-			const allMsgs = await getMessagesByThreadIds(db, verifiedThreadIds, {
+			const allMsgs = await listMessages(db, {
+				threadIds: verifiedThreadIds,
 				includeDeleted: false,
 				order: "createdAt",
 			});
@@ -233,18 +233,9 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// claiming "`teams` is not one of the five owned tables, so any file may
 		// query it" — WRONG, `teams` IS `org`-owned (architecture.md §4 line 69).
 		// Now calls `@hyperidle/org`'s `listTeamsByIds`.
-		const betRows = await work.searchBetsByText(db, {
-			pattern,
-			query: escapeLikePattern(query),
-			limit: MAX_PER_CATEGORY,
-		});
+		const betRows = await work.list(db, "bet", { text: query, limit: MAX_PER_CATEGORY });
 		const betTeamRows =
-			betRows.length > 0
-				? await listTeamsByIds(
-						db,
-						betRows.map((b) => b.teamId),
-					)
-				: [];
+			betRows.length > 0 ? await listTeams(db, { ids: betRows.map((b) => b.teamId) }) : [];
 		const teamNameMap = new Map(betTeamRows.map((t) => [t.id, t.name]));
 
 		const workResults = betRows.map((row) => ({
@@ -270,9 +261,12 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// Increment 1a). Now calls `@hyperidle/knowledge`'s `searchVisibleByText`
 		// — same ILIKE/auth-filter/join/order/limit, zero behavior change.
 
-		const kiRows = await searchVisibleByText(db, {
-			pattern,
-			viewerUserId: userId,
+		// @lore AU20 K1-reads: searchVisibleByText() deleted; search(mode:'text',
+		// visibility) performs ILIKE on title/body/topic + Q2 auth filter.
+		// Accepts raw query (builds %pattern% internally). Same result set.
+		const kiRows = await searchKnowledge(db, query, {
+			mode: "text",
+			visibility: userId,
 			limit: MAX_PER_CATEGORY,
 		});
 

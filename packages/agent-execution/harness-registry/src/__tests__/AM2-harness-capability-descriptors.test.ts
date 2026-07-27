@@ -1,11 +1,7 @@
 import type { HarnessCapabilities } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import type { AdapterMeta } from "../adapter-pool.js";
-import {
-	describeRegisteredHarness,
-	KNOWN_HARNESS_FAMILIES,
-	missingKnownHarnessDescriptors,
-} from "../harness-capability-descriptors.js";
+import { createCapabilityCatalog } from "../harness-capability-descriptors.js";
 import type { HarnessDiscoveryInput } from "../harness-discovery.js";
 
 const BUILTIN_META: AdapterMeta = {
@@ -23,10 +19,11 @@ const BASE_CAPS: HarnessCapabilities = {
 	mcpSupport: false,
 	returnEnforcement: "none",
 };
+const catalog = createCapabilityCatalog();
 
 describe("AM2 harness capability descriptor builders", () => {
 	it("describes builtin as API-gateway/direct-key access with model descriptors", () => {
-		const descriptor = describeRegisteredHarness(BUILTIN_META, BASE_CAPS);
+		const descriptor = catalog.describe(BUILTIN_META, BASE_CAPS);
 
 		expect(descriptor.type).toBe("builtin");
 		expect(descriptor.accessMode).toBe("api-gateway");
@@ -41,7 +38,7 @@ describe("AM2 harness capability descriptor builders", () => {
 	});
 
 	it("describes CLI harnesses as provider-subscription CLI auth", () => {
-		const descriptor = describeRegisteredHarness(
+		const descriptor = catalog.describe(
 			{
 				name: "Claude Code",
 				kind: "local",
@@ -64,9 +61,7 @@ describe("AM2 harness capability descriptor builders", () => {
 	});
 
 	it("emits missing descriptors for first-class known harness families", () => {
-		expect(KNOWN_HARNESS_FAMILIES).toEqual(["codex", "claude-code", "cursor-agent", "opencode"]);
-
-		const missing = missingKnownHarnessDescriptors(new Set(["builtin"]));
+		const missing = catalog.missing(new Set(["builtin"]));
 		const missingTypes = missing.map((descriptor) => descriptor.type);
 
 		expect(missingTypes).toEqual(["codex", "claude-code", "cursor-agent", "opencode"]);
@@ -92,10 +87,7 @@ describe("AM2 harness capability descriptor builders", () => {
 			},
 		};
 
-		const missing = missingKnownHarnessDescriptors(
-			new Set(["builtin", "claude-code", "opencode"]),
-			discoveries,
-		);
+		const missing = catalog.missing(new Set(["builtin", "claude-code", "opencode"]), discoveries);
 
 		const codex = missing.find((d) => d.type === "codex");
 		const cursor = missing.find((d) => d.type === "cursor-agent");
@@ -122,7 +114,7 @@ describe("AM2 harness capability descriptor builders", () => {
 			},
 		};
 
-		const descriptor = describeRegisteredHarness(BUILTIN_META, BASE_CAPS, discoveries);
+		const descriptor = catalog.describe(BUILTIN_META, BASE_CAPS, discoveries);
 
 		expect(descriptor.discovery.state).toBe("unauthenticated");
 		expect(descriptor.discovery.reason).toContain("ANTHROPIC_API_KEY");
@@ -140,7 +132,7 @@ describe("AM2 harness capability descriptor builders", () => {
 			},
 		};
 
-		const missing = missingKnownHarnessDescriptors(
+		const missing = catalog.missing(
 			new Set(["builtin", "claude-code", "cursor-agent", "opencode"]),
 			discoveries,
 		);
@@ -170,7 +162,7 @@ describe("AM2 harness capability descriptor builders", () => {
 			},
 		};
 
-		const missing = missingKnownHarnessDescriptors(
+		const missing = catalog.missing(
 			new Set(["builtin", "claude-code", "cursor-agent", "opencode"]),
 			discoveries,
 		);

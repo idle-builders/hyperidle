@@ -20,7 +20,7 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { runBuiltinRoutine } from "../../services/dispatch-bindings.js";
+import { fireStoredRoutine } from "../../__tests__/dispatch-test-helpers.js";
 import { test } from "../../test-fixtures.js";
 
 /** Seed a built-in routine (knowledge-decay) owned by agent-1. */
@@ -265,7 +265,7 @@ describe("routines routes", () => {
 	});
 
 	// AF6 AC5 — founder observes a built-in self-run from the existing GET /:id
-	// surface. runBuiltinRoutine must insert a terminal routine_runs row (§3a) so
+	// surface. fireStoredRoutine must insert a terminal routine_runs row (§3a) so
 	// the route's runs[] is populated, with a terminal outcome.
 	describe("AF6 AC5: built-in auto-run appears in GET /api/routines/:id runs[]", () => {
 		test("after a built-in fire, runs[] has a terminal run and lastRunAt is set", async ({
@@ -276,7 +276,7 @@ describe("routines routes", () => {
 			const routineId = await seedBuiltinRoutine(db);
 
 			// Simulate an auto-fire (same code path the scheduler uses; no session).
-			const result = await runBuiltinRoutine(db, eventBus, "builtin:knowledge-decay");
+			const result = await fireStoredRoutine(db, eventBus, "builtin:knowledge-decay");
 			expect(result.fired).toBe(true);
 
 			const res = await app.request(`/api/routines/${routineId}`, {
@@ -302,7 +302,7 @@ describe("routines routes", () => {
 			const routineId = await seedBuiltinRoutine(db);
 			await db.update(routines).set({ active: false }).where(eq(routines.id, routineId));
 
-			const result = await runBuiltinRoutine(db, eventBus, "builtin:knowledge-decay");
+			const result = await fireStoredRoutine(db, eventBus, "builtin:knowledge-decay");
 			expect(result.fired).toBe(false);
 
 			const res = await app.request(`/api/routines/${routineId}`, {

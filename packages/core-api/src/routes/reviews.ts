@@ -1,8 +1,8 @@
-import { getMessageById } from "@hyperidle/conversation";
+import { findMessage } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { findProposedCallWithOutcomeByReviewMessageId } from "@hyperidle/review";
+import { findProposedCall } from "@hyperidle/review";
 import { relativeLong } from "@hyperidle/shared";
-import { getArtifactById } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
@@ -89,7 +89,7 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 		}
 
 		// Load the review message to confirm it exists.
-		const reviewMsg = await getMessageById(db, reviewMessageId);
+		const reviewMsg = await findMessage(db, { id: reviewMessageId });
 
 		if (!reviewMsg) {
 			return c.json({ error: "review_not_found" }, 404);
@@ -97,12 +97,15 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 
 		// AL7 trust-first: load proposed call + outcome (if any) anchored to this review message.
 		// WARNING-2: args are returned verbatim (not a summary) so the human approves the real call.
-		const opRow = await findProposedCallWithOutcomeByReviewMessageId(db, reviewMessageId);
+		const pcView = await findProposedCall(db, {
+			by: { reviewMessageId },
+			include: { outcome: true },
+		});
 
 		// Build the response payload from the review message.
 		const reviewPayload = JSON.parse(reviewMsg.payload) as Record<string, unknown>;
 
-		if (!opRow) {
+		if (!pcView) {
 			// No proposed call — descriptive review (no action_operation outcome to show).
 			return c.json({ ...reviewPayload });
 		}
@@ -111,27 +114,27 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 		// AC10b (WARNING-2): args are the verbatim captured object, not a summary string.
 		// The human sees the real call before approving.
 		const outcome =
-			opRow.outcomeStatus !== null && opRow.outcomeExecutedAt !== null
+			pcView.outcome != null
 				? {
-						status: opRow.outcomeStatus,
-						receipt: opRow.outcomeReceipt ?? undefined,
-						error: opRow.outcomeError ?? undefined,
+						status: pcView.outcome.status,
+						receipt: pcView.outcome.receipt ?? undefined,
+						error: pcView.outcome.error ?? undefined,
 						// @lore AL7: executedAt is humanized here (never raw ISO in the response).
-						executedAt: relativeLong(opRow.outcomeExecutedAt),
+						executedAt: relativeLong(pcView.outcome.executedAt),
 					}
 				: undefined;
 
 		const proposedCallView = {
-			proposedCallId: opRow.pcId,
-			toolId: opRow.toolId,
+			proposedCallId: pcView.call.id,
+			toolId: pcView.call.toolId,
 			// WARNING-2: verbatim captured args (deep-equal to what the agent called)
-			args: JSON.parse(opRow.args) as Record<string, unknown>,
-			status: opRow.pcStatus,
+			args: JSON.parse(pcView.call.args) as Record<string, unknown>,
+			status: pcView.call.status,
 			...(outcome !== undefined ? { outcome } : {}),
 		};
 
 		// Load the artifact to embed proposedCall on it.
-		const artifactRow = await getArtifactById(db, opRow.artifactId);
+		const artifactRow = await work.get(db, "artifact", pcView.call.artifactId);
 
 		// Build the artifacts array: one artifact with proposedCall attached.
 		const existingArtifacts = Array.isArray(reviewPayload.artifacts)
@@ -139,21 +142,21 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 			: [];
 
 		const artifactsWithOp = existingArtifacts.map((a) => {
-			if (a.id === opRow.artifactId) {
+			if (a.id === pcView.call.artifactId) {
 				return { ...a, proposedCall: proposedCallView };
 			}
 			return a;
 		});
 
 		// If the artifact wasn't in the existing list, append it.
-		if (!existingArtifacts.some((a) => a.id === opRow.artifactId)) {
+		if (!existingArtifacts.some((a) => a.id === pcView.call.artifactId)) {
 			artifactsWithOp.push({
-				id: opRow.artifactId,
+				id: pcView.call.artifactId,
 				kind: artifactRow?.kind ?? "action_operation",
-				tool: opRow.toolId,
-				app: opRow.toolId,
+				tool: pcView.call.toolId,
+				app: pcView.call.toolId,
 				sourceHref: "",
-				title: opRow.toolId,
+				title: pcView.call.toolId,
 				payload: {},
 				proposedCall: proposedCallView,
 			});

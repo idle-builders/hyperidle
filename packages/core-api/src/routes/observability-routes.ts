@@ -2,9 +2,8 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type ObservabilityConfig,
 	type ObservabilityConfigPatch,
-	type ObservabilityDispatcher,
+	type ObservabilityRuntime,
 	readObservabilityConfig,
-	redactObservabilityConfig,
 	updateObservabilityConfig,
 } from "@hyperidle/observability";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
@@ -21,6 +20,9 @@ import { validateBody } from "../middleware/validate.js";
  * injected `ObservabilityServerConfigPort` (`@hyperidle/observability`'s
  * `ports.ts`). Same idiom as `git-export-routes.ts`'s
  * `gitExportServerConfigPort`.
+ *
+ * AU20 Ab3: `serverConfig` shape is now a local structural inline — no named
+ * port type export. Identical wire-up, same `readServerConfig`/`updateServerConfig`.
  */
 const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
@@ -83,8 +85,12 @@ function auditDiff(body: ObservabilityConfigPatch): Record<string, unknown> {
 }
 
 export interface CreateObservabilityRoutesOptions {
-	/** Access to the active dispatcher so /status + /flush can introspect it. */
-	readonly getDispatcher: () => ObservabilityDispatcher | null;
+	/**
+	 * Access to the active observability runtime so /status and /flush can
+	 * introspect it. AU20 Ab3: was `getDispatcher: () => ObservabilityDispatcher | null`;
+	 * now always non-null — the runtime handles the disabled/noop case internally.
+	 */
+	readonly getRuntime: () => ObservabilityRuntime;
 	readonly now?: () => Date;
 	readonly logger?: Logger;
 	/**
@@ -107,6 +113,10 @@ export function createObservabilityRoutes(
 	// /status read-cache. Invalidated on PATCH /config. Avoids re-reading
 	// every `factory_settings` row on each poll when no dispatcher is
 	// attached (architect W5).
+	//
+	// AU20 Ab3: cache is now only used for GET /config (not /status — the
+	// runtime itself tracks enabled/adapter state). Kept for the config
+	// route's own read.
 	let statusCfgCache: { cfg: ObservabilityConfig } | null = null;
 	function invalidateStatusCache(): void {
 		statusCfgCache = null;
@@ -120,9 +130,6 @@ export function createObservabilityRoutes(
 
 	// GET / — Bounded resource descriptor. Proves the route is mounted
 	// (I1 S2) without a DB read on every hit.
-	// @lore I1 simplification-#2: previous handler read + redacted the
-	// observability config on every request. Callers that want config
-	// hit `/config`.
 	router.get("/", requireBoundary({ kind: "public-data" }), (c) =>
 		c.json({
 			ok: true,
@@ -132,8 +139,11 @@ export function createObservabilityRoutes(
 	);
 
 	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) => {
-		const cfg = await readObservabilityConfig(db, { serverConfig: observabilityServerConfigPort });
-		return c.json(redactObservabilityConfig(cfg));
+		const cfg = await getCachedConfig();
+		// AU20 Ab3: `redactObservabilityConfig` was a no-op `{...cfg}` retained
+		// for a "future OTEL bearer-token" — MVP tier forbids keep-just-in-case.
+		// Inline the spread directly; re-introduce redaction when OTEL lands.
+		return c.json({ ...cfg });
 	});
 
 	router.patch(
@@ -171,41 +181,30 @@ export function createObservabilityRoutes(
 					});
 				}
 			}
-			return c.json(redactObservabilityConfig(updated));
+			return c.json({ ...updated });
 		},
 	);
 
-	router.get("/status", requireBoundary({ kind: "public-data" }), async (c) => {
-		const dispatcher = opts.getDispatcher();
-		if (dispatcher) {
-			const snapshot = dispatcher.status();
-			return c.json({ enabled: true, ...snapshot });
-		}
-		// No active dispatcher: either observability is disabled, or the
-		// adapter is `noop` (which skips dispatcher wiring). Reflect the
-		// persisted config so the UI shows the true enabled/adapter state
-		// instead of always reporting "disabled".
-		const cfg = await getCachedConfig();
-		return c.json({
-			enabled: cfg.enabled,
-			adapter: cfg.adapter,
-			bufferDepth: 0,
-			lastFlushAt: null,
-			lastErrorAt: null,
-			lastError: null,
-			dropped: 0,
-			delivered: 0,
-		});
+	router.get("/status", requireBoundary({ kind: "public-data" }), (c) => {
+		// AU20 Ab3: runtime.status() always returns a full snapshot including
+		// the `enabled` flag — no separate config read needed.
+		const snapshot = opts.getRuntime().status();
+		return c.json(snapshot);
 	});
 
 	router.post("/flush", requireBoundary({ kind: "public-data" }), requestSizeCap, async (c) => {
-		const dispatcher = opts.getDispatcher();
-		if (!dispatcher) {
+		const runtime = opts.getRuntime();
+		const status = runtime.status();
+		// Guard covers both `enabled:false` and `adapter:"noop"` (noop skips
+		// dispatcher wiring so currentDispatcher is null — same dead-flush
+		// path as fully-disabled). Previously the old route keyed off
+		// getDispatcher()===null which caught both cases; this restores that.
+		if (!status.enabled || status.adapter === "noop") {
 			return c.json({ flushed: 0, reason: "disabled" });
 		}
-		const before = dispatcher.status();
-		const outcome = await dispatcher.flush();
-		const after = dispatcher.status();
+		const before = runtime.status();
+		const outcome = await runtime.flush();
+		const after = runtime.status();
 		// `delivered` is kept for backward compatibility with the original
 		// H3 response shape; `flushed / dropped / errors` come from the
 		// FlushOutcome return so callers can distinguish full vs partial

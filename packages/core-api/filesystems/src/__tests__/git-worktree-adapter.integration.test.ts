@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type AdapterDeps, GitWorktreeAdapter } from "@hyperidle/filesystems";
+import { type AdapterDeps, RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/git-export";
 import type { Filesystem } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -62,7 +62,7 @@ describe("GitWorktreeAdapter integration", () => {
 		return {
 			gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
 			capturesDir,
-			db: null as never,
+			db: { insert: () => ({ values: async () => undefined }) } as never,
 		};
 	}
 
@@ -71,7 +71,7 @@ describe("GitWorktreeAdapter integration", () => {
 		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
-		const adapter = new GitWorktreeAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		const result = await adapter.mount({
 			filesystem: makeFs(repoPath),
 			sandboxPath,
@@ -90,7 +90,7 @@ describe("GitWorktreeAdapter integration", () => {
 		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
-		const adapter = new GitWorktreeAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
 
 		// In a worktree, .git is a file pointing to the real gitdir.
@@ -118,7 +118,7 @@ describe("GitWorktreeAdapter integration", () => {
 		// The adapter derives branch name from path.basename(sandboxPath).
 		const expectedBranch = `agent/${sandboxBasename}`.replace(/[^a-zA-Z0-9/_.-]/g, "-");
 
-		const adapter = new GitWorktreeAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
 
 		// Agent edits a NON-scaffolding file.
@@ -132,14 +132,14 @@ describe("GitWorktreeAdapter integration", () => {
 
 		expect(result.success).toBe(true);
 		expect(result.captured).toBe(true);
-		expect(result.capturePath).toBeDefined();
-		expect(fs.existsSync(result.capturePath!)).toBe(true);
+		const bundlePath = path.join(capturesDir, `${sessionId}.bundle`);
+		expect(fs.existsSync(bundlePath)).toBe(true);
 
 		// Bundle clones and contains the authored file.
 		const verifyDir = path.join(tmpDir, "verify");
 		fs.mkdirSync(verifyDir, { recursive: true });
 		const vRunner = createGitRunner(verifyDir);
-		await vRunner.clone(result.capturePath!, expectedBranch);
+		await vRunner.clone(bundlePath, expectedBranch);
 		expect(fs.existsSync(path.join(verifyDir, "agent-output.txt"))).toBe(true);
 	});
 
@@ -149,7 +149,7 @@ describe("GitWorktreeAdapter integration", () => {
 		const sandboxPath = path.join(tmpDir, `sandbox-${sessionId}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
-		const adapter = new GitWorktreeAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
 		fs.writeFileSync(path.join(sandboxPath, "output.txt"), "done\n");
 
@@ -171,7 +171,7 @@ describe("GitWorktreeAdapter integration", () => {
 		fs.mkdirSync(sandboxPath, { recursive: true });
 		const expectedBranch = `agent/${sandboxBasename}`.replace(/[^a-zA-Z0-9/_.-]/g, "-");
 
-		const adapter = new GitWorktreeAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
 
 		// Simulate assembly overwriting CLAUDE.md + AGENTS.md with scaffolding content.
@@ -188,12 +188,13 @@ describe("GitWorktreeAdapter integration", () => {
 
 		expect(result.success).toBe(true);
 
-		if (result.capturePath) {
+		const bundlePath = path.join(capturesDir, `${sessionId}.bundle`);
+		if (fs.existsSync(bundlePath)) {
 			// Verify bundle: real-work.txt should be present; CLAUDE.md should have original content.
 			const verifyDir = path.join(tmpDir, "verify-excl");
 			fs.mkdirSync(verifyDir, { recursive: true });
 			const vRunner = createGitRunner(verifyDir);
-			await vRunner.clone(result.capturePath, expectedBranch);
+			await vRunner.clone(bundlePath, expectedBranch);
 			// real-work.txt should be present.
 			expect(fs.existsSync(path.join(verifyDir, "real-work.txt"))).toBe(true);
 		}

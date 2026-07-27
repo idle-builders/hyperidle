@@ -37,57 +37,31 @@
  */
 
 // -- artifact-store (AU19 Increment 4 — `artifacts` TABLE_OWNER closure;
-// Increment 5 item 4 work sub-item — list/detail/preview-patch/task-summary
-// exports closing the remaining core-api/src raw accessors) --
+// AU20 Ag5b — read functions collapsed into get/list;
+// AU20 Ag5c — createArtifact/setArtifactPreviewIfAbsent folded into generic
+//             create()/transition() primitives below; only row types remain.) --
 export type {
 	ArtifactRow,
 	ArtifactTaskSummaryRow,
 	ArtifactWithTaskTitle,
 	CreateArtifactInput,
-	SetArtifactPreviewOutcome,
-} from "./artifact-store.js";
-export {
-	createArtifact,
-	getArtifactById,
-	getArtifactWithTaskTitleById,
-	listArtifactSummariesByTaskIds,
-	listArtifactsPage,
-	setArtifactPreviewIfAbsent,
 } from "./artifact-store.js";
 // -- bet decomposition (AK3) --
 export type { BetDecompositionDeps } from "./bet-decomposition.js";
-export {
-	findEligibleTeamAgents,
-	insertProposedBetTasks,
-	resolveOrphanedDecompositions,
-	runBetDecomposition,
-} from "./bet-decomposition.js";
-export { registerBetDecomposition } from "./bet-decomposition-subscriber.js";
+export { registerBetDecomposition, resolveOrphanedDecompositions } from "./bet-decomposition.js";
 // -- bet kill cascade (AF12) --
 export { cascadeBetKill } from "./bet-kill-cascade.js";
 // -- bet state machine --
 export type { RevisionLogEntry } from "./bet-state-machine.js";
 export { transitionBet, updateBetField } from "./bet-state-machine.js";
+// -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
+export { checkAndUnblockDependents } from "./dependency-watcher.js";
 // -- item routing (pure function, no DB) --
 export { routeItem } from "./item-router.js";
 // -- ports (Mechanism C — DI-injected outbound edges) --
-export type {
-	AgentSelectionDefaults,
-	AgentWorkIntentRecorder,
-	CostCapChecker,
-	ResolveDecompositionPlanInput,
-	SelectOwnerOccasion,
-	TeamCapacityReader,
-	UserStoreReader,
-	WorkAgentWorkIntentInput,
-	WorkAgentWorkIntentKind,
-	WorkAgentWorkIntentRecord,
-	WorkCheckCostCapParams,
-	WorkCostCapResult,
-	WorkDecompositionPlan,
-	WorkSelectionCandidate,
-	WorkUserRow,
-} from "./ports.js";
+// Individual port/DTO interfaces are internal to this Service — callers access
+// them via WorkDeps["fieldName"]. Only the bundle type is product surface.
+export type { WorkDeps } from "./ports.js";
 // -- task audit (auditTrail entry shapes) --
 export type {
 	HandoffAuditEntry,
@@ -101,46 +75,35 @@ export { getTaskRiskTierByTaskId } from "./task-planning-signals.js";
 export type { TaskStateMachineDeps } from "./task-state-machine.js";
 export { InvalidTransitionError, transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";
 // -- work-service (bets/tasks/items repository — the sole table path) --
+// AU20 Ag5b: old read exports collapsed into get()/list() general primitives.
+// AU20 Ag5c: old write exports (createBet/createTask/createItem/appendTaskNote/
+//   updateBetById/updateTaskById/updateItemById/incrementBetCost/
+//   transitionBetStatus/transitionTaskState/claimBetDecomposition/
+//   resolveOrphanedBetDecompositions/updateBetDecompositionStatusIfRunning)
+//   collapsed into create()/update()/transition() general primitives.
+//   Old named functions remain in work-service.ts for intra-package callers
+//   (bet-state-machine.ts, bet-decomposition.ts, task-state-machine.ts).
 export type {
+	AppendNoteOp,
 	Bet,
-	BetPatch,
 	BetTaskWithLatestSessionOutcome,
+	BetUpdatePatch,
+	IncrementOp,
 	Item,
-	ItemPatch,
-	ListTasksOpts,
+	ItemUpdatePatch,
 	Task,
 	TaskPatch,
-	TransitionBetStatusArgs,
-	TransitionTaskStateArgs,
+	TaskUpdatePatch,
+	TransitionGuard,
+	TransitionSpec,
+	WorkEntity,
+	WorkFilter,
 } from "./work-service.js";
 export {
-	claimBetDecomposition,
-	countBetsByTeamAndStatus,
-	createBet,
-	createItem,
-	createTask,
-	findItemByReasoningMarker,
-	findRetroItemByThreadIds,
-	getBetById,
-	getItemById,
-	getTaskById,
-	incrementBetCost,
-	listBets,
-	listBetsByIds,
-	listBetsByTeamAndStatus,
-	listBetTasksWithLatestSessionOutcome,
-	listHoldTasksWithDependencyPattern,
-	listItemIdsBySourceAgent,
-	listItemsByThread,
-	listQueuedItemsSince,
-	listTasks,
-	listTasksByIds,
-	resolveOrphanedBetDecompositions,
-	searchBetsByText,
-	transitionBetStatus,
-	transitionTaskState,
-	updateBetById,
-	updateBetDecompositionStatusIfRunning,
-	updateItemById,
-	updateTaskById,
+	create,
+	get,
+	list,
+	taskDispatchAttemptStore,
+	transition,
+	update,
 } from "./work-service.js";

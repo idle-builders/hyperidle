@@ -1,0 +1,3555 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "/Users/tg/hyperidle/.worktrees/pipeline-AU20/node_modules/.bin/playwright",
+      "test",
+      "--config",
+      "playwright.config.ts",
+      "e2e/L12-artifact-surfaces.spec.ts",
+      "e2e/L13-product-drilldown.spec.ts",
+      "e2e/L14-bet-actions.spec.ts",
+      "e2e/L15-task-request.spec.ts",
+      "e2e/L16-bet-pitch.spec.ts",
+      "e2e/L17-cost-tokens.spec.ts",
+      "e2e/L21-coc-overlay.spec.ts",
+      "e2e/l23-knowledge-body.spec.ts",
+      "e2e/L9-single-detail.spec.ts",
+      "--workers=8",
+      "--reporter=json"
+    ],
+    "configFile": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/playwright.config.ts",
+    "rootDir": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 300000,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 8
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 8,
+    "webServer": {
+      "command": "npm run dev -- --port 5179 --strictPort",
+      "url": "http://localhost:5179",
+      "reuseExistingServer": true,
+      "timeout": 60000,
+      "cwd": ".",
+      "env": {
+        "TERM_PROGRAM": "Apple_Terminal",
+        "NODE": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "INIT_CWD": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web",
+        "TERM": "dumb",
+        "SHELL": "/bin/zsh",
+        "npm_config_allow_scripts": "",
+        "TMPDIR": "/var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/",
+        "npm_config_global_prefix": "/opt/homebrew",
+        "TERM_PROGRAM_VERSION": "455.1",
+        "COLOR": "0",
+        "TERM_SESSION_ID": "BE4F59C7-7196-46C6-8B99-016396320336",
+        "NO_COLOR": "1",
+        "npm_config_noproxy": "",
+        "npm_config_local_prefix": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+        "LC_ALL": "C.UTF-8",
+        "USER": "tg",
+        "OPENAI_API_KEY": "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",
+        "npm_config_globalconfig": "/opt/homebrew/etc/npmrc",
+        "SSH_AUTH_SOCK": "/private/tmp/com.apple.launchd.xNJHOpwZFw/Listeners",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x0:0x0",
+        "npm_execpath": "/opt/homebrew/lib/node_modules/npm/bin/npm-cli.js",
+        "PAGER": "cat",
+        "PATH": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/node_modules/.bin:/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/node_modules/.bin:/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/node_modules/.bin:/Users/tg/hyperidle/.worktrees/pipeline-AU20/node_modules/.bin:/Users/tg/hyperidle/.worktrees/node_modules/.bin:/Users/tg/hyperidle/node_modules/.bin:/Users/tg/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/opt/homebrew/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/homebrew/bin:/Users/tg/.codex/tmp/arg0/codex-arg0jtMau7:/Users/tg/.local/bin:/Users/tg/.rd/bin",
+        "npm_package_json": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/package.json",
+        "_": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/node_modules/.bin/playwright",
+        "LaunchInstanceID": "9CE915D0-1037-4B3F-BD18-1F93003BA7F9",
+        "npm_config_userconfig": "/Users/tg/.npmrc",
+        "npm_config_init_module": "/Users/tg/.npm-init.js",
+        "__CFBundleIdentifier": "com.apple.Terminal",
+        "CODEX_THREAD_ID": "019f8dd4-607b-7141-bd05-6e9b552e6256",
+        "npm_command": "exec",
+        "PWD": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web",
+        "npm_lifecycle_event": "npx",
+        "EDITOR": "vi",
+        "npm_package_name": "hyperidle",
+        "LANG": "C.UTF-8",
+        "OPENAI_API_BASE": "https://openrouter.ai/api/v1",
+        "npm_config_npm_version": "11.17.0",
+        "XPC_FLAGS": "0x0",
+        "CODEX_CI": "1",
+        "npm_package_engines_node": ">=24.0.0",
+        "npm_config_node_gyp": "/opt/homebrew/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js",
+        "npm_package_version": "0.5.0",
+        "XPC_SERVICE_NAME": "0",
+        "SHLVL": "2",
+        "HOME": "/Users/tg",
+        "GH_PAGER": "cat",
+        "npm_config_cache": "/Users/tg/.npm",
+        "LOGNAME": "tg",
+        "npm_lifecycle_script": "'playwright'",
+        "LC_CTYPE": "C.UTF-8",
+        "npm_config_user_agent": "npm/11.17.0 node/v26.4.0 darwin arm64 workspaces/true",
+        "GIT_PAGER": "cat",
+        "SECURITYSESSIONID": "186b3",
+        "npm_node_execpath": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "npm_config_prefix": "/opt/homebrew",
+        "COLORTERM": "",
+        "VITE_HYPERIDLE_API_KEY": "playwright-test-key"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "L12-artifact-surfaces.spec.ts",
+      "file": "L12-artifact-surfaces.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "L12 — Artifact surfaces on Work pages",
+          "file": "L12-artifact-surfaces.spec.ts",
+          "line": 149,
+          "column": 6,
+          "specs": [
+            {
+              "title": "WorkPortfolio: ArtifactGalleryCard renders when artifacts exist",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30027,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts",
+                            "column": 14,
+                            "line": 159
+                          },
+                          "message": "Error: page.waitForSelector: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\\'work-portfolio-page\\']') to be visible\u001b[22m\n\n\n  157 | \t\tawait mockArtifactsOnPage(page, ARTIFACT_PAGE_RESPONSE);\n  158 | \t\tawait page.goto(\"/work/portfolio\");\n> 159 | \t\tawait page.waitForSelector(\"[data-testid='work-portfolio-page']\");\n      | \t\t           ^\n  160 |\n  161 | \t\t// ArtifactSection renders gallery cards\n  162 | \t\tawait expect(page.locator(\"[data-ds-component='ArtifactGalleryCard']\").first()).toBeVisible();\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts:159:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:50.292Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L12-artifact-surfaces-L12--d7b23-enders-when-artifacts-exist-chromium/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "68d5b318e7743fa65707-ea2c4f5d43fab5f81353",
+              "file": "L12-artifact-surfaces.spec.ts",
+              "line": 156,
+              "column": 2
+            },
+            {
+              "title": "WorkPortfolio: 'Artifacts' heading renders above the gallery",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "timedOut",
+                      "duration": 30027,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts",
+                            "column": 14,
+                            "line": 168
+                          },
+                          "message": "Error: page.waitForSelector: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\\'work-portfolio-page\\']') to be visible\u001b[22m\n\n\n  166 | \t\tawait mockArtifactsOnPage(page, ARTIFACT_PAGE_RESPONSE);\n  167 | \t\tawait page.goto(\"/work/portfolio\");\n> 168 | \t\tawait page.waitForSelector(\"[data-testid='work-portfolio-page']\");\n      | \t\t           ^\n  169 |\n  170 | \t\tawait expect(page.getByText(\"Artifacts\")).toBeVisible();\n  171 | \t});\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts:168:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:50.309Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L12-artifact-surfaces-L12--dcff9-g-renders-above-the-gallery-chromium/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "68d5b318e7743fa65707-454d76cc4cdf4ba680e1",
+              "file": "L12-artifact-surfaces.spec.ts",
+              "line": 165,
+              "column": 2
+            },
+            {
+              "title": "WorkPortfolio: no gallery cards when artifacts are empty",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "timedOut",
+                      "duration": 30027,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts",
+                            "column": 14,
+                            "line": 176
+                          },
+                          "message": "Error: page.waitForSelector: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\\'work-portfolio-page\\']') to be visible\u001b[22m\n\n\n  174 | \t\tawait mockEmptyArtifacts(page);\n  175 | \t\tawait page.goto(\"/work/portfolio\");\n> 176 | \t\tawait page.waitForSelector(\"[data-testid='work-portfolio-page']\");\n      | \t\t           ^\n  177 |\n  178 | \t\tconst galleryCards = page.locator(\"[data-ds-component='ArtifactGalleryCard']\");\n  179 | \t\tawait expect(galleryCards).toHaveCount(0);\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts:176:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:50.310Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L12-artifact-surfaces-L12--d3a4b-ds-when-artifacts-are-empty-chromium/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "68d5b318e7743fa65707-f866bc6f1c1138feeb51",
+              "file": "L12-artifact-surfaces.spec.ts",
+              "line": 173,
+              "column": 2
+            },
+            {
+              "title": "WorkPortfolio: 'View all' is a non-interactive span when nextCursor exists",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "timedOut",
+                      "duration": 30021,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts",
+                            "column": 14,
+                            "line": 187
+                          },
+                          "message": "Error: page.waitForSelector: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\\'work-portfolio-page\\']') to be visible\u001b[22m\n\n\n  185 | \t\tawait mockArtifactsOnPage(page, ARTIFACT_PAGE_WITH_CURSOR);\n  186 | \t\tawait page.goto(\"/work/portfolio\");\n> 187 | \t\tawait page.waitForSelector(\"[data-testid='work-portfolio-page']\");\n      | \t\t           ^\n  188 |\n  189 | \t\tconst viewAll = page.locator(\"[data-testid='artifact-section-view-all']\");\n  190 | \t\tawait expect(viewAll).toBeVisible();\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts:187:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:50.265Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L12-artifact-surfaces-L12--c7215-span-when-nextCursor-exists-chromium/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "68d5b318e7743fa65707-82605231269fd1aa3ff5",
+              "file": "L12-artifact-surfaces.spec.ts",
+              "line": 182,
+              "column": 2
+            },
+            {
+              "title": "WorkProduct: ArtifactStackItem renders when artifacts exist",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 2120,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:50.311Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "68d5b318e7743fa65707-e053bc39d9ddd7777b5c",
+              "file": "L12-artifact-surfaces.spec.ts",
+              "line": 199,
+              "column": 2
+            },
+            {
+              "title": "WorkBet: ArtifactStackItem renders when artifacts exist",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 2424,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:50.299Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "68d5b318e7743fa65707-e92e28dbef63b6d2e194",
+              "file": "L12-artifact-surfaces.spec.ts",
+              "line": 229,
+              "column": 2
+            },
+            {
+              "title": "WorkBet: ArtifactSection appears BEFORE thread section in DOM",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 2551,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:50.285Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "68d5b318e7743fa65707-b4ad169576141e831280",
+              "file": "L12-artifact-surfaces.spec.ts",
+              "line": 265,
+              "column": 2
+            },
+            {
+              "title": "WorkPortfolio: clicking ArtifactGalleryCard navigates to /artifacts/:id and shows ArtifactPreview",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "timedOut",
+                      "duration": 30025,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts",
+                            "column": 14,
+                            "line": 397
+                          },
+                          "message": "Error: page.waitForSelector: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\\'work-portfolio-page\\']') to be visible\u001b[22m\n\n\n  395 |\n  396 | \t\tawait page.goto(\"/work/portfolio\");\n> 397 | \t\tawait page.waitForSelector(\"[data-testid='work-portfolio-page']\");\n      | \t\t           ^\n  398 |\n  399 | \t\t// Wait for the gallery card to appear (below the cycle-stripe per W-1 fix)\n  400 | \t\tconst firstCard = page.locator(\"[data-ds-component='ArtifactGalleryCard']\").first();\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts:397:14"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:50.318Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L12-artifact-surfaces-L12--547c9-d-and-shows-ArtifactPreview-chromium/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "68d5b318e7743fa65707-c5d4663e697cfa1c587d",
+              "file": "L12-artifact-surfaces.spec.ts",
+              "line": 371,
+              "column": 2
+            },
+            {
+              "title": "TaskSheet: ArtifactPreview renders when task has artifacts",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "timedOut",
+                      "duration": 30038,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts",
+                            "column": 17,
+                            "line": 473
+                          },
+                          "message": "Error: locator.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('bet-task-row').first()\u001b[22m\n\n\n  471 | \t\t// Click the task row to open TaskSheet\n  472 | \t\tconst taskRow = page.getByTestId(\"bet-task-row\").first();\n> 473 | \t\tawait taskRow.click();\n      | \t\t              ^\n  474 |\n  475 | \t\t// TaskSheet should open and show ArtifactPreview\n  476 | \t\tawait expect(page.locator(\"[data-ds-component='ArtifactPreview']\").first()).toBeVisible();\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L12-artifact-surfaces.spec.ts:473:17"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:52.599Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L12-artifact-surfaces-L12--5eee9-ers-when-task-has-artifacts-chromium/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "68d5b318e7743fa65707-3d8bba9ccf604900b584",
+              "file": "L12-artifact-surfaces.spec.ts",
+              "line": 416,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "L13-product-drilldown.spec.ts",
+      "file": "L13-product-drilldown.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "L13 — Product drill-down",
+          "file": "L13-product-drilldown.spec.ts",
+          "line": 85,
+          "column": 6,
+          "specs": [
+            {
+              "title": "(1) drill-down: Navigate to /work/team/:id → team page with all regions",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 11146,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('HyperIdle Core')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText('HyperIdle Core')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('HyperIdle Core')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText('HyperIdle Core')\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts:130:50",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts",
+                          "column": 50,
+                          "line": 130
+                        },
+                        "snippet": "  128 |\n  129 | \t\t// Product header (name) visible\n> 130 | \t\tawait expect(page.getByText(\"HyperIdle Core\")).toBeVisible();\n      | \t\t                                               ^\n  131 |\n  132 | \t\t// Roster region visible\n  133 | \t\tawait expect(page.getByTestId(\"team-agents\")).toBeVisible();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts",
+                            "column": 50,
+                            "line": 130
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText('HyperIdle Core')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText('HyperIdle Core')\u001b[22m\n\n\n  128 |\n  129 | \t\t// Product header (name) visible\n> 130 | \t\tawait expect(page.getByText(\"HyperIdle Core\")).toBeVisible();\n      | \t\t                                               ^\n  131 |\n  132 | \t\t// Roster region visible\n  133 | \t\tawait expect(page.getByTestId(\"team-agents\")).toBeVisible();\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts:130:50"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:52.903Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L13-product-drilldown-L13--fe058--team-page-with-all-regions-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts",
+                        "column": 50,
+                        "line": 130
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "a57ec28e359ff7d44a1f-0490c0ed40cb06fe04b9",
+              "file": "L13-product-drilldown.spec.ts",
+              "line": 116,
+              "column": 2
+            },
+            {
+              "title": "(2) empty state: team with zero active bets shows team-active-bets-empty",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 1055,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:53.203Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a57ec28e359ff7d44a1f-f8ef65106f6c204bb473",
+              "file": "L13-product-drilldown.spec.ts",
+              "line": 142,
+              "column": 2
+            },
+            {
+              "title": "(3) roster + bets visible with seeded data",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "failed",
+                      "duration": 10460,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('product-active-bets')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('product-active-bets')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('product-active-bets')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('product-active-bets')\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts:172:28",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts",
+                          "column": 28,
+                          "line": 172
+                        },
+                        "snippet": "  170 | \t\t// At least one bet in the active-bets region\n  171 | \t\tconst betsRegion = page.getByTestId(\"product-active-bets\");\n> 172 | \t\tawait expect(betsRegion).toBeVisible();\n      | \t\t                         ^\n  173 | \t\tawait expect(betsRegion.getByText(\"Auth migration\")).toBeVisible();\n  174 | \t});\n  175 |"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts",
+                            "column": 28,
+                            "line": 172
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('product-active-bets')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('product-active-bets')\u001b[22m\n\n\n  170 | \t\t// At least one bet in the active-bets region\n  171 | \t\tconst betsRegion = page.getByTestId(\"product-active-bets\");\n> 172 | \t\tawait expect(betsRegion).toBeVisible();\n      | \t\t                         ^\n  173 | \t\tawait expect(betsRegion.getByText(\"Auth migration\")).toBeVisible();\n  174 | \t});\n  175 |\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts:172:28"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:18:54.269Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L13-product-drilldown-L13--b40a4-ts-visible-with-seeded-data-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts",
+                        "column": 28,
+                        "line": 172
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "a57ec28e359ff7d44a1f-e106bdc09c7826ad3d3c",
+              "file": "L13-product-drilldown.spec.ts",
+              "line": 162,
+              "column": 2
+            },
+            {
+              "title": "(4) breadcrumb click returns to /work/portfolio",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 5573,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/\\/work\\/portfolio/\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:5179/work/team/p1\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    14 × unexpected value \"http://localhost:5179/work/team/p1\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/\\/work\\/portfolio/\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:5179/work/team/p1\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    14 × unexpected value \"http://localhost:5179/work/team/p1\"\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts:183:22",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts",
+                          "column": 22,
+                          "line": 183
+                        },
+                        "snippet": "  181 | \t\tawait page.getByTestId(\"team-breadcrumb-back\").click();\n  182 |\n> 183 | \t\tawait expect(page).toHaveURL(/\\/work\\/portfolio/, { timeout: 5000 });\n      | \t\t                   ^\n  184 | \t\tawait expect(page.getByTestId(\"work-portfolio-page\")).toBeVisible();\n  185 | \t});\n  186 |"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts",
+                            "column": 22,
+                            "line": 183
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/\\/work\\/portfolio/\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:5179/work/team/p1\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 5000ms\u001b[22m\n\u001b[2m    14 × unexpected value \"http://localhost:5179/work/team/p1\"\u001b[22m\n\n\n  181 | \t\tawait page.getByTestId(\"team-breadcrumb-back\").click();\n  182 |\n> 183 | \t\tawait expect(page).toHaveURL(/\\/work\\/portfolio/, { timeout: 5000 });\n      | \t\t                   ^\n  184 | \t\tawait expect(page.getByTestId(\"work-portfolio-page\")).toBeVisible();\n  185 | \t});\n  186 |\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts:183:22"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:04.393Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L13-product-drilldown-L13--1ea53-k-returns-to-work-portfolio-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L13-product-drilldown.spec.ts",
+                        "column": 22,
+                        "line": 183
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "a57ec28e359ff7d44a1f-aa251c9328197eec14eb",
+              "file": "L13-product-drilldown.spec.ts",
+              "line": 176,
+              "column": 2
+            },
+            {
+              "title": "(5) legacy /work/product/:id redirects to /work/team/:id",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 406,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:05.053Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a57ec28e359ff7d44a1f-edfca7236910ff1267b2",
+              "file": "L13-product-drilldown.spec.ts",
+              "line": 187,
+              "column": 2
+            },
+            {
+              "title": "(6) unknown team /work/team/does-not-exist shows 404 empty state",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 404,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:05.561Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a57ec28e359ff7d44a1f-3ca1ff6e00900a7dfdcb",
+              "file": "L13-product-drilldown.spec.ts",
+              "line": 196,
+              "column": 2
+            },
+            {
+              "title": "(7) no Kanban region on the Team page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 421,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:05.972Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a57ec28e359ff7d44a1f-b875fbc34166190d3b16",
+              "file": "L13-product-drilldown.spec.ts",
+              "line": 212,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "L14-bet-actions.spec.ts",
+      "file": "L14-bet-actions.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "L14 — Bet actions E2E",
+          "file": "L14-bet-actions.spec.ts",
+          "line": 139,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "AC-8 — Kill bet dialog (non-skippable)",
+              "file": "L14-bet-actions.spec.ts",
+              "line": 142,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "clicking Kill opens the consequence dialog",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 9,
+                          "parallelIndex": 6,
+                          "status": "passed",
+                          "duration": 551,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-07-23T07:19:06.404Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "9e6a633f1ca4e5f35b1d-a3f9df78e2f8a4e2be6e",
+                  "file": "L14-bet-actions.spec.ts",
+                  "line": 143,
+                  "column": 3
+                },
+                {
+                  "title": "pressing Escape closes the dialog (confirmation-never-dirty rule §1.1)",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 9,
+                          "parallelIndex": 6,
+                          "status": "passed",
+                          "duration": 554,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-07-23T07:19:06.961Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "9e6a633f1ca4e5f35b1d-59691c440c9dfee5f7c7",
+                  "file": "L14-bet-actions.spec.ts",
+                  "line": 158,
+                  "column": 3
+                },
+                {
+                  "title": "clicking Cancel closes the dialog",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 9,
+                          "parallelIndex": 6,
+                          "status": "passed",
+                          "duration": 566,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-07-23T07:19:07.521Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "9e6a633f1ca4e5f35b1d-b67774d882ad3fd18e93",
+                  "file": "L14-bet-actions.spec.ts",
+                  "line": 175,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "AC-9 — Kill confirm submits and updates status",
+              "file": "L14-bet-actions.spec.ts",
+              "line": 191,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "filling reason and confirming calls POST /bets/:id/kill",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 9,
+                          "parallelIndex": 6,
+                          "status": "passed",
+                          "duration": 644,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-07-23T07:19:08.092Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "9e6a633f1ca4e5f35b1d-03b319cbad95665a682b",
+                  "file": "L14-bet-actions.spec.ts",
+                  "line": 192,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "AC-10 — Appetite adjust flow",
+              "file": "L14-bet-actions.spec.ts",
+              "line": 244,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "changing appetite and confirming calls PATCH /bets/:id with WireMoney",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 9,
+                          "parallelIndex": 6,
+                          "status": "passed",
+                          "duration": 664,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-07-23T07:19:08.745Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "9e6a633f1ca4e5f35b1d-a72b42231d66d1fa5c11",
+                  "file": "L14-bet-actions.spec.ts",
+                  "line": 245,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "AC-11 — Unblock scrolls to thread composer",
+              "file": "L14-bet-actions.spec.ts",
+              "line": 303,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "clicking Unblock focuses the composer textarea",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 9,
+                          "parallelIndex": 6,
+                          "status": "failed",
+                          "duration": 10573,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeFocused\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-testid=\"composer-textarea\"]')\nExpected: focused\nReceived: inactive\nTimeout:  10000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeFocused\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-testid=\"composer-textarea\"]')\u001b[22m\n\u001b[2m    24 × locator resolved to <input value=\"\" type=\"text\" placeholder=\"Write a message…\" data-testid=\"composer-textarea\" class=\"flex-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] outline-none focus:border-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]\"/>\u001b[22m\n\u001b[2m       - unexpected value \"inactive\"\u001b[22m\n",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeFocused\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-testid=\"composer-textarea\"]')\nExpected: focused\nReceived: inactive\nTimeout:  10000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeFocused\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-testid=\"composer-textarea\"]')\u001b[22m\n\u001b[2m    24 × locator resolved to <input value=\"\" type=\"text\" placeholder=\"Write a message…\" data-testid=\"composer-textarea\" class=\"flex-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] outline-none focus:border-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]\"/>\u001b[22m\n\u001b[2m       - unexpected value \"inactive\"\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L14-bet-actions.spec.ts:323:35",
+                            "location": {
+                              "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L14-bet-actions.spec.ts",
+                              "column": 35,
+                              "line": 323
+                            },
+                            "snippet": "  321 | \t\t\t// Composer textarea should be focused\n  322 | \t\t\tconst composerTextarea = page.locator('[data-testid=\"composer-textarea\"]');\n> 323 | \t\t\tawait expect(composerTextarea).toBeFocused();\n      | \t\t\t                               ^\n  324 | \t\t});\n  325 | \t});\n  326 |"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L14-bet-actions.spec.ts",
+                                "column": 35,
+                                "line": 323
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeFocused\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-testid=\"composer-textarea\"]')\nExpected: focused\nReceived: inactive\nTimeout:  10000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeFocused\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-testid=\"composer-textarea\"]')\u001b[22m\n\u001b[2m    24 × locator resolved to <input value=\"\" type=\"text\" placeholder=\"Write a message…\" data-testid=\"composer-textarea\" class=\"flex-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] outline-none focus:border-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]\"/>\u001b[22m\n\u001b[2m       - unexpected value \"inactive\"\u001b[22m\n\n\n  321 | \t\t\t// Composer textarea should be focused\n  322 | \t\t\tconst composerTextarea = page.locator('[data-testid=\"composer-textarea\"]');\n> 323 | \t\t\tawait expect(composerTextarea).toBeFocused();\n      | \t\t\t                               ^\n  324 | \t\t});\n  325 | \t});\n  326 |\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L14-bet-actions.spec.ts:323:35"
+                            }
+                          ],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-07-23T07:19:09.415Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "error-context",
+                              "contentType": "text/markdown",
+                              "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L14-bet-actions-L14-—-Bet--f3198-cuses-the-composer-textarea-chromium/error-context.md"
+                            }
+                          ],
+                          "errorLocation": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L14-bet-actions.spec.ts",
+                            "column": 35,
+                            "line": 323
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "9e6a633f1ca4e5f35b1d-b5cf62e11347f1c1b729",
+                  "file": "L14-bet-actions.spec.ts",
+                  "line": 304,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "AC-12 — Revision log actor field",
+              "file": "L14-bet-actions.spec.ts",
+              "line": 329,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "kill action is reflected with actor='u-founder' in the revision log",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 10,
+                          "parallelIndex": 5,
+                          "status": "passed",
+                          "duration": 666,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-07-23T07:19:10.366Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "9e6a633f1ca4e5f35b1d-eadb00a6b330f111d77b",
+                  "file": "L14-bet-actions.spec.ts",
+                  "line": 330,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "AC-7 — Action bar per status (E2E smoke)",
+              "file": "L14-bet-actions.spec.ts",
+              "line": 414,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "draft bet offers Activate, not Adjust appetite",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 10,
+                          "parallelIndex": 5,
+                          "status": "passed",
+                          "duration": 715,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-07-23T07:19:11.135Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "9e6a633f1ca4e5f35b1d-0577f1575872d616fb31",
+                  "file": "L14-bet-actions.spec.ts",
+                  "line": 415,
+                  "column": 3
+                },
+                {
+                  "title": "completed bet shows no kill action",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 10,
+                          "parallelIndex": 5,
+                          "status": "passed",
+                          "duration": 498,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2026-07-23T07:19:11.858Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "9e6a633f1ca4e5f35b1d-f90fdc84cce5057b5891",
+                  "file": "L14-bet-actions.spec.ts",
+                  "line": 425,
+                  "column": 3
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "L15-task-request.spec.ts",
+      "file": "L15-task-request.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "L15 — Strip drag + Task request sheet (re-routed to Bet detail)",
+          "file": "L15-task-request.spec.ts",
+          "line": 187,
+          "column": 6,
+          "specs": [
+            {
+              "title": "(step 2) drag affordances are structurally absent from the bet task table",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 537,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:12.369Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9299c737b30d92e92f7b-ca0cb5fa4252862e9dbd",
+              "file": "L15-task-request.spec.ts",
+              "line": 268,
+              "column": 2
+            },
+            {
+              "title": "(step 3) clicking a task row opens the TaskSheet (role=dialog)",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 10507,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('bet-task-row').first()\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('bet-task-row').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('bet-task-row').first()\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('bet-task-row').first()\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L15-task-request.spec.ts:286:25",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L15-task-request.spec.ts",
+                          "column": 25,
+                          "line": 286
+                        },
+                        "snippet": "  284 | \t\t// Click the first task row\n  285 | \t\tconst taskRow = page.getByTestId(\"bet-task-row\").first();\n> 286 | \t\tawait expect(taskRow).toBeVisible();\n      | \t\t                      ^\n  287 | \t\tawait taskRow.click();\n  288 |\n  289 | \t\tconst dialog = page.getByRole(\"dialog\");"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L15-task-request.spec.ts",
+                            "column": 25,
+                            "line": 286
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('bet-task-row').first()\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('bet-task-row').first()\u001b[22m\n\n\n  284 | \t\t// Click the first task row\n  285 | \t\tconst taskRow = page.getByTestId(\"bet-task-row\").first();\n> 286 | \t\tawait expect(taskRow).toBeVisible();\n      | \t\t                      ^\n  287 | \t\tawait taskRow.click();\n  288 |\n  289 | \t\tconst dialog = page.getByRole(\"dialog\");\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L15-task-request.spec.ts:286:25"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:12.914Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L15-task-request-L15-—-Str-8f1f0--the-TaskSheet-role-dialog--chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L15-task-request.spec.ts",
+                        "column": 25,
+                        "line": 286
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "9299c737b30d92e92f7b-21abbba0d5fa128c49b3",
+              "file": "L15-task-request.spec.ts",
+              "line": 280,
+              "column": 2
+            },
+            {
+              "title": "(steps 4–5) select BLOCKED intent → Send request → Sent. → sheet closes → message in thread",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 6,
+                      "status": "timedOut",
+                      "duration": 30021,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L15-task-request.spec.ts",
+                            "column": 50,
+                            "line": 339
+                          },
+                          "message": "Error: locator.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('bet-task-row').first()\u001b[22m\n\n\n  337 |\n  338 | \t\t// Open the sheet via task row click\n> 339 | \t\tawait page.getByTestId(\"bet-task-row\").first().click();\n      | \t\t                                               ^\n  340 | \t\tawait expect(page.getByRole(\"dialog\")).toBeVisible();\n  341 |\n  342 | \t\t// Select \"Move to BLOCKED\" radio\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L15-task-request.spec.ts:339:50"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:20.262Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L15-task-request-L15-—-Str-796f3--closes-→-message-in-thread-chromium/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "9299c737b30d92e92f7b-0743907e6e932d07f2b8",
+              "file": "L15-task-request.spec.ts",
+              "line": 295,
+              "column": 2
+            },
+            {
+              "title": "(step 6) Open thread navigates to /conversations/:threadId (L9)",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 12,
+                      "parallelIndex": 3,
+                      "status": "timedOut",
+                      "duration": 30024,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L15-task-request.spec.ts",
+                            "column": 50,
+                            "line": 388
+                          },
+                          "message": "Error: locator.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('bet-task-row').first()\u001b[22m\n\n\n  386 |\n  387 | \t\t// Open the sheet via task row click\n> 388 | \t\tawait page.getByTestId(\"bet-task-row\").first().click();\n      | \t\t                                               ^\n  389 | \t\tawait expect(page.getByRole(\"dialog\")).toBeVisible();\n  390 |\n  391 | \t\t// Click Open thread\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L15-task-request.spec.ts:388:50"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:20.910Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L15-task-request-L15-—-Str-2398d--conversations-threadId-L9--chromium/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "9299c737b30d92e92f7b-d7cdbe99594fd82bf1ae",
+              "file": "L15-task-request.spec.ts",
+              "line": 360,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "L16-bet-pitch.spec.ts",
+      "file": "L16-bet-pitch.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "L16 — Bet pitch as L2 blocks (e2e)",
+          "file": "L16-bet-pitch.spec.ts",
+          "line": 69,
+          "column": 6,
+          "specs": [
+            {
+              "title": "bet-pitch section is visible with L2 block elements",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1231,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:20.919Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f31635330cf1d88f6e96-543a711996fcecf02a62",
+              "file": "L16-bet-pitch.spec.ts",
+              "line": 83,
+              "column": 2
+            },
+            {
+              "title": "heading renders as a real h1 or h2 with no leading '#'",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 14,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 1170,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:20.926Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f31635330cf1d88f6e96-16cbaeb3a1d3c7f7a39c",
+              "file": "L16-bet-pitch.spec.ts",
+              "line": 92,
+              "column": 2
+            },
+            {
+              "title": "no visible line-leading '# ' text outside code/unknown regions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1447,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:20.917Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f31635330cf1d88f6e96-916e170967cdbcd866d6",
+              "file": "L16-bet-pitch.spec.ts",
+              "line": 105,
+              "column": 2
+            },
+            {
+              "title": "legacy <pre data-testid='bet-pitch-body'> is NOT present",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 1614,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:20.929Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f31635330cf1d88f6e96-45470e257955598367e9",
+              "file": "L16-bet-pitch.spec.ts",
+              "line": 127,
+              "column": 2
+            },
+            {
+              "title": "multiple block kinds render (heading, paragraph, list, code)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 14,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 1222,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:22.218Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f31635330cf1d88f6e96-c58cc0f392185eb4474f",
+              "file": "L16-bet-pitch.spec.ts",
+              "line": 135,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "L17-cost-tokens.spec.ts",
+      "file": "L17-cost-tokens.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "L17 — BetCard shows formatted Money appetite (AC21)",
+          "file": "L17-cost-tokens.spec.ts",
+          "line": 125,
+          "column": 6,
+          "specs": [
+            {
+              "title": "BetCard appetite shows dollar-formatted money (not '2 weeks')",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6045,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:22.293Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-a74aaaa4fccb801685ff",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 144,
+              "column": 2
+            },
+            {
+              "title": "BetCard does NOT show raw minor integer (50000) as appetite",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1824,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:22.529Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-bdade8111ee957c4d470",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 165,
+              "column": 2
+            }
+          ]
+        },
+        {
+          "title": "L17 — Bet detail shows spend-vs-cap (AC22)",
+          "file": "L17-cost-tokens.spec.ts",
+          "line": 182,
+          "column": 6,
+          "specs": [
+            {
+              "title": "bet detail shows formatted cost appetite '$500.00'",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 1816,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:22.694Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-ae0398a100f86997c75d",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 194,
+              "column": 2
+            },
+            {
+              "title": "bet detail shows formatted cost actual '$214.30'",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 1521,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:23.341Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-eb052987b5c77a8fb14b",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 201,
+              "column": 2
+            },
+            {
+              "title": "bet detail shows token count in compact format",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 14,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 1482,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: \u001b[32m\"42.3k\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[39m\n\u001b[31m    Search⌘KConversationsWorkKnowledgeNo teams yetNotificationsWork/Alpha Core/Cost Test BetCost Test BetUNKNOWN$500.00 appetite···Add knowledgeProgress40%Budget spent$214.30of $500.00 appetiteTeamALAlpha CorePitchBuild the cost tracking feature.TasksWire up Money typesDoneDoneAdd formatMoney formatterDoneDoneArtifactsFailed to load artifactsAn error occurred while loading artifacts.Failed to load threadHTTP 502ARTIFACT DISCUSSIONCould not load artifact discussionAn error occurred while loading artifact discussions for this bet.·········\u001b[39m\n\u001b[31m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: \u001b[32m\"42.3k\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[39m\n\u001b[31m    Search⌘KConversationsWorkKnowledgeNo teams yetNotificationsWork/Alpha Core/Cost Test BetCost Test BetUNKNOWN$500.00 appetite···Add knowledgeProgress40%Budget spent$214.30of $500.00 appetiteTeamALAlpha CorePitchBuild the cost tracking feature.TasksWire up Money typesDoneDoneAdd formatMoney formatterDoneDoneArtifactsFailed to load artifactsAn error occurred while loading artifacts.Failed to load threadHTTP 502ARTIFACT DISCUSSIONCould not load artifact discussionAn error occurred while loading artifact discussions for this bet.·········\u001b[39m\n\u001b[31m\"\u001b[39m\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L17-cost-tokens.spec.ts:212:20",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L17-cost-tokens.spec.ts",
+                          "column": 20,
+                          "line": 212
+                        },
+                        "snippet": "  210 | \t\tconst pageText = await page.textContent(\"body\");\n  211 | \t\t// Total tokens: 38200 + 4100 = 42300 → \"42.3k\"\n> 212 | \t\texpect(pageText).toContain(\"42.3k\");\n      | \t\t                 ^\n  213 | \t});\n  214 |\n  215 | \ttest(\"task row shows formatted cost '$120.00'\", async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L17-cost-tokens.spec.ts",
+                            "column": 20,
+                            "line": 212
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: \u001b[32m\"42.3k\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[39m\n\u001b[31m    Search⌘KConversationsWorkKnowledgeNo teams yetNotificationsWork/Alpha Core/Cost Test BetCost Test BetUNKNOWN$500.00 appetite···Add knowledgeProgress40%Budget spent$214.30of $500.00 appetiteTeamALAlpha CorePitchBuild the cost tracking feature.TasksWire up Money typesDoneDoneAdd formatMoney formatterDoneDoneArtifactsFailed to load artifactsAn error occurred while loading artifacts.Failed to load threadHTTP 502ARTIFACT DISCUSSIONCould not load artifact discussionAn error occurred while loading artifact discussions for this bet.·········\u001b[39m\n\u001b[31m\"\u001b[39m\n\n  210 | \t\tconst pageText = await page.textContent(\"body\");\n  211 | \t\t// Total tokens: 38200 + 4100 = 42300 → \"42.3k\"\n> 212 | \t\texpect(pageText).toContain(\"42.3k\");\n      | \t\t                 ^\n  213 | \t});\n  214 |\n  215 | \ttest(\"task row shows formatted cost '$120.00'\", async ({ page }) => {\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L17-cost-tokens.spec.ts:212:20"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:23.457Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L17-cost-tokens-L17-—-Bet--0014a-ken-count-in-compact-format-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L17-cost-tokens.spec.ts",
+                        "column": 20,
+                        "line": 212
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-2a0d44f0e2e7fe02f9d0",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 208,
+              "column": 2
+            },
+            {
+              "title": "task row shows formatted cost '$120.00'",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 18,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 1328,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: \u001b[32m\"$120.00\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[39m\n\u001b[31m    Search⌘KConversationsWorkKnowledgeNo teams yetNotificationsWork/Alpha Core/Cost Test BetCost Test BetUNKNOWN$500.00 appetite···Add knowledgeProgress40%Budget spent$214.30of $500.00 appetiteTeamALAlpha CorePitchBuild the cost tracking feature.TasksWire up Money typesDoneDoneAdd formatMoney formatterDoneDoneArtifactsFailed to load artifactsAn error occurred while loading artifacts.Failed to load threadHTTP 502ARTIFACT DISCUSSIONCould not load artifact discussionAn error occurred while loading artifact discussions for this bet.·········\u001b[39m\n\u001b[31m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: \u001b[32m\"$120.00\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[39m\n\u001b[31m    Search⌘KConversationsWorkKnowledgeNo teams yetNotificationsWork/Alpha Core/Cost Test BetCost Test BetUNKNOWN$500.00 appetite···Add knowledgeProgress40%Budget spent$214.30of $500.00 appetiteTeamALAlpha CorePitchBuild the cost tracking feature.TasksWire up Money typesDoneDoneAdd formatMoney formatterDoneDoneArtifactsFailed to load artifactsAn error occurred while loading artifacts.Failed to load threadHTTP 502ARTIFACT DISCUSSIONCould not load artifact discussionAn error occurred while loading artifact discussions for this bet.·········\u001b[39m\n\u001b[31m\"\u001b[39m\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L17-cost-tokens.spec.ts:219:20",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L17-cost-tokens.spec.ts",
+                          "column": 20,
+                          "line": 219
+                        },
+                        "snippet": "  217 | \t\tconst pageText = await page.textContent(\"body\");\n  218 | \t\t// Task 1 costActual: $120.00\n> 219 | \t\texpect(pageText).toContain(\"$120.00\");\n      | \t\t                 ^\n  220 | \t});\n  221 |\n  222 | \ttest(\"no raw integer 21430 visible on bet detail page\", async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L17-cost-tokens.spec.ts",
+                            "column": 20,
+                            "line": 219
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: \u001b[32m\"$120.00\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[39m\n\u001b[31m    Search⌘KConversationsWorkKnowledgeNo teams yetNotificationsWork/Alpha Core/Cost Test BetCost Test BetUNKNOWN$500.00 appetite···Add knowledgeProgress40%Budget spent$214.30of $500.00 appetiteTeamALAlpha CorePitchBuild the cost tracking feature.TasksWire up Money typesDoneDoneAdd formatMoney formatterDoneDoneArtifactsFailed to load artifactsAn error occurred while loading artifacts.Failed to load threadHTTP 502ARTIFACT DISCUSSIONCould not load artifact discussionAn error occurred while loading artifact discussions for this bet.·········\u001b[39m\n\u001b[31m\"\u001b[39m\n\n  217 | \t\tconst pageText = await page.textContent(\"body\");\n  218 | \t\t// Task 1 costActual: $120.00\n> 219 | \t\texpect(pageText).toContain(\"$120.00\");\n      | \t\t                 ^\n  220 | \t});\n  221 |\n  222 | \ttest(\"no raw integer 21430 visible on bet detail page\", async ({ page }) => {\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L17-cost-tokens.spec.ts:219:20"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:24.119Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L17-cost-tokens-L17-—-Bet--3b3eb-hows-formatted-cost-120-00--chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L17-cost-tokens.spec.ts",
+                        "column": 20,
+                        "line": 219
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-79289ee33141f02262ba",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 215,
+              "column": 2
+            },
+            {
+              "title": "no raw integer 21430 visible on bet detail page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1405,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:24.380Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-1594df2a15b7b02af523",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 222,
+              "column": 2
+            },
+            {
+              "title": "no duration string '2 weeks' visible on cost surfaces",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 1389,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:24.530Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-82dbedad6d2711d30c75",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 229,
+              "column": 2
+            }
+          ]
+        },
+        {
+          "title": "L17 — WorkProduct burn shows formatted Money (AC24)",
+          "file": "L17-cost-tokens.spec.ts",
+          "line": 242,
+          "column": 6,
+          "specs": [
+            {
+              "title": "product burn shows formatted '$214.30' (not raw 21430)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 19,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 1068,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:25.463Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-cd419659f18e19e625ba",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 254,
+              "column": 2
+            },
+            {
+              "title": "product burn shows formatted '$2,000.00' cap (not raw 200000)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 1041,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:25.098Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-cf2451dd7ef7da13f4c9",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 262,
+              "column": 2
+            },
+            {
+              "title": "product burn section contains '$' prefix (not bare number)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 1855,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:26.094Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4ee83d70d58ef20410ff-3a487ef8766e4bef441c",
+              "file": "L17-cost-tokens.spec.ts",
+              "line": 271,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "L21-coc-overlay.spec.ts",
+      "file": "L21-coc-overlay.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "L21 — CoC Overlay E2E",
+          "file": "L21-coc-overlay.spec.ts",
+          "line": 180,
+          "column": 6,
+          "specs": [
+            {
+              "title": "AC-E1: CoC trigger button is visible in the sidebar on the conversations page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 569,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:25.806Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-2d5e24fb4718816f9b2d",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 185,
+              "column": 2
+            },
+            {
+              "title": "AC-E1: CoC trigger is visible on the work page too (persistent across views)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 786,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:25.947Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-a0a2ac423f01718112c4",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 195,
+              "column": 2
+            },
+            {
+              "title": "AC-E2: clicking the trigger opens the CoC overlay",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 979,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:26.160Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-10beb156f36f3fe993ca",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 204,
+              "column": 2
+            },
+            {
+              "title": "AC-E3: overlay shows ThreadShell in assistant configuration (empty thread empty state)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1285,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:26.392Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-2b447269b7f54d55f59d",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 218,
+              "column": 2
+            },
+            {
+              "title": "AC-E4: user can add a bet as context — chip appears in overlay",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 19,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 11473,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog', { name: /assistant conversation/i }).getByTestId('coc-context-chips')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: /assistant conversation/i }).getByTestId('coc-context-chips')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog', { name: /assistant conversation/i }).getByTestId('coc-context-chips')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: /assistant conversation/i }).getByTestId('coc-context-chips')\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts:258:57",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts",
+                          "column": 57,
+                          "line": 258
+                        },
+                        "snippet": "  256 | \t\t// A context chip for the bet should now appear in the overlay.\n  257 | \t\tawait expect(dialog.getByText(\"Daily Digest\")).toBeVisible();\n> 258 | \t\tawait expect(dialog.getByTestId(\"coc-context-chips\")).toBeVisible();\n      | \t\t                                                      ^\n  259 | \t});\n  260 |\n  261 | \ttest(\"AC-E5 + AC-E6: user types a question and it appears in the thread stream\", async ({"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts",
+                            "column": 57,
+                            "line": 258
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('dialog', { name: /assistant conversation/i }).getByTestId('coc-context-chips')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: /assistant conversation/i }).getByTestId('coc-context-chips')\u001b[22m\n\n\n  256 | \t\t// A context chip for the bet should now appear in the overlay.\n  257 | \t\tawait expect(dialog.getByText(\"Daily Digest\")).toBeVisible();\n> 258 | \t\tawait expect(dialog.getByTestId(\"coc-context-chips\")).toBeVisible();\n      | \t\t                                                      ^\n  259 | \t});\n  260 |\n  261 | \ttest(\"AC-E5 + AC-E6: user types a question and it appears in the thread stream\", async ({\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts:258:57"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:26.639Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L21-coc-overlay-L21-—-CoC--4f20d-t-—-chip-appears-in-overlay-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts",
+                        "column": 57,
+                        "line": 258
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-71707eef53148a34da18",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 237,
+              "column": 2
+            },
+            {
+              "title": "AC-E5 + AC-E6: user types a question and it appears in the thread stream",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 1358,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:26.754Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-5afb3da5f66825620712",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 261,
+              "column": 2
+            },
+            {
+              "title": "AC-E7: pressing Escape closes the overlay",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 1237,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:27.157Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-7b3cc8c1eef5700efda1",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 283,
+              "column": 2
+            },
+            {
+              "title": "AC-E7: clicking the trigger again closes the overlay",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 1021,
+                      "error": {
+                        "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: /assistant/i }) resolved to 2 elements:\n    1) <button type=\"button\" aria-expanded=\"true\" aria-label=\"Assistant\" data-testid=\"sidebar-assistant-btn\" class=\"inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)] border border-[var(--border-subtle)] transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]\">…</button> aka getByTestId('sidebar-assistant-btn')\n    2) <button type=\"button\" aria-label=\"Close assistant\" class=\"flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]\">…</button> aka getByRole('button', { name: 'Close assistant' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /assistant/i })\u001b[22m\n",
+                        "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: /assistant/i }) resolved to 2 elements:\n    1) <button type=\"button\" aria-expanded=\"true\" aria-label=\"Assistant\" data-testid=\"sidebar-assistant-btn\" class=\"inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)] border border-[var(--border-subtle)] transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]\">…</button> aka getByTestId('sidebar-assistant-btn')\n    2) <button type=\"button\" aria-label=\"Close assistant\" class=\"flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]\">…</button> aka getByRole('button', { name: 'Close assistant' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /assistant/i })\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts:307:17",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts",
+                          "column": 17,
+                          "line": 307
+                        },
+                        "snippet": "  305 |\n  306 | \t\t// Click trigger again to close.\n> 307 | \t\tawait trigger.click();\n      | \t\t              ^\n  308 |\n  309 | \t\tawait expect(page.getByRole(\"dialog\", { name: /assistant conversation/i })).toHaveCount(0);\n  310 | \t});"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts",
+                            "column": 17,
+                            "line": 307
+                          },
+                          "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: /assistant/i }) resolved to 2 elements:\n    1) <button type=\"button\" aria-expanded=\"true\" aria-label=\"Assistant\" data-testid=\"sidebar-assistant-btn\" class=\"inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)] border border-[var(--border-subtle)] transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]\">…</button> aka getByTestId('sidebar-assistant-btn')\n    2) <button type=\"button\" aria-label=\"Close assistant\" class=\"flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]\">…</button> aka getByRole('button', { name: 'Close assistant' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /assistant/i })\u001b[22m\n\n\n  305 |\n  306 | \t\t// Click trigger again to close.\n> 307 | \t\tawait trigger.click();\n      | \t\t              ^\n  308 |\n  309 | \t\tawait expect(page.getByRole(\"dialog\", { name: /assistant conversation/i })).toHaveCount(0);\n  310 | \t});\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts:307:17"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:27.690Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L21-coc-overlay-L21-—-CoC--6e177-er-again-closes-the-overlay-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts",
+                        "column": 17,
+                        "line": 307
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-d44532f15b69beb30f11",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 298,
+              "column": 2
+            },
+            {
+              "title": "AC-E8: assistant thread appears in Conversations submenu after overlay is opened",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 1199,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:28.120Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-ae90097f9a2557431f66",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 312,
+              "column": 2
+            },
+            {
+              "title": "AC-E9: overlay state persists across view navigation (not destroyed on navigate)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 1116,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:28.124Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-17eaea0348f92278a45f",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 326,
+              "column": 2
+            },
+            {
+              "title": "trigger aria-expanded reflects overlay state",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1289,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('button', { name: /assistant/i })\nExpected: \u001b[32m\"true\"\u001b[39m\nError: strict mode violation: getByRole('button', { name: /assistant/i }) resolved to 2 elements:\n    1) <button type=\"button\" aria-expanded=\"true\" aria-label=\"Assistant\" data-testid=\"sidebar-assistant-btn\" class=\"inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)] border border-[var(--border-subtle)] transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]\">…</button> aka getByTestId('sidebar-assistant-btn')\n    2) <button type=\"button\" aria-label=\"Close assistant\" class=\"flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]\">…</button> aka getByRole('button', { name: 'Close assistant' })\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /assistant/i })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('button', { name: /assistant/i })\nExpected: \u001b[32m\"true\"\u001b[39m\nError: strict mode violation: getByRole('button', { name: /assistant/i }) resolved to 2 elements:\n    1) <button type=\"button\" aria-expanded=\"true\" aria-label=\"Assistant\" data-testid=\"sidebar-assistant-btn\" class=\"inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)] border border-[var(--border-subtle)] transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]\">…</button> aka getByTestId('sidebar-assistant-btn')\n    2) <button type=\"button\" aria-label=\"Close assistant\" class=\"flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]\">…</button> aka getByRole('button', { name: 'Close assistant' })\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /assistant/i })\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts:356:25",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts",
+                          "column": 25,
+                          "line": 356
+                        },
+                        "snippet": "  354 |\n  355 | \t\t// After opening: aria-expanded=true.\n> 356 | \t\tawait expect(trigger).toHaveAttribute(\"aria-expanded\", \"true\");\n      | \t\t                      ^\n  357 | \t});\n  358 |\n  359 | \ttest(\"clicking outside the overlay (Main content) does NOT close the overlay\", async ({"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts",
+                            "column": 25,
+                            "line": 356
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('button', { name: /assistant/i })\nExpected: \u001b[32m\"true\"\u001b[39m\nError: strict mode violation: getByRole('button', { name: /assistant/i }) resolved to 2 elements:\n    1) <button type=\"button\" aria-expanded=\"true\" aria-label=\"Assistant\" data-testid=\"sidebar-assistant-btn\" class=\"inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)] border border-[var(--border-subtle)] transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]\">…</button> aka getByTestId('sidebar-assistant-btn')\n    2) <button type=\"button\" aria-label=\"Close assistant\" class=\"flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]\">…</button> aka getByRole('button', { name: 'Close assistant' })\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /assistant/i })\u001b[22m\n\n\n  354 |\n  355 | \t\t// After opening: aria-expanded=true.\n> 356 | \t\tawait expect(trigger).toHaveAttribute(\"aria-expanded\", \"true\");\n      | \t\t                      ^\n  357 | \t});\n  358 |\n  359 | \ttest(\"clicking outside the overlay (Main content) does NOT close the overlay\", async ({\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts:356:25"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:28.364Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L21-coc-overlay-L21-—-CoC--0379e-nded-reflects-overlay-state-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L21-coc-overlay.spec.ts",
+                        "column": 25,
+                        "line": 356
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-1d23fba67fc6eacadf79",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 344,
+              "column": 2
+            },
+            {
+              "title": "clicking outside the overlay (Main content) does NOT close the overlay",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 1320,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:28.405Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f12b822ab970bc1aebc3-3faff800328d8f087d01",
+              "file": "L21-coc-overlay.spec.ts",
+              "line": 359,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "l23-knowledge-body.spec.ts",
+      "file": "l23-knowledge-body.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "E1 — Knowledge body: multi-section playbook",
+          "file": "l23-knowledge-body.spec.ts",
+          "line": 31,
+          "column": 6,
+          "specs": [
+            {
+              "title": "body container exists and is not a <pre>",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 21,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1238,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:29.333Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c8e45ec7b0a572caa9c-7fb01449b3c74354a994",
+              "file": "l23-knowledge-body.spec.ts",
+              "line": 32,
+              "column": 2
+            },
+            {
+              "title": "body container has data-knowledge-body attribute",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 1018,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:29.258Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c8e45ec7b0a572caa9c-fa8276adfa01077a010b",
+              "file": "l23-knowledge-body.spec.ts",
+              "line": 50,
+              "column": 2
+            },
+            {
+              "title": "edit mode shows BodyEditor panel with WYSIWYG editor",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 1272,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:29.335Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c8e45ec7b0a572caa9c-63f7086a3bb61225a72e",
+              "file": "l23-knowledge-body.spec.ts",
+              "line": 60,
+              "column": 2
+            }
+          ]
+        },
+        {
+          "title": "E2 — Knowledge body: 3-sentence belief, no chrome",
+          "file": "l23-knowledge-body.spec.ts",
+          "line": 95,
+          "column": 6,
+          "specs": [
+            {
+              "title": "k1 fixture body renders paragraph blocks in read view",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 22,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1333,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:30.354Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c8e45ec7b0a572caa9c-ddbafa44310aa4ebb227",
+              "file": "l23-knowledge-body.spec.ts",
+              "line": 96,
+              "column": 2
+            },
+            {
+              "title": "body container has no card/border/shadow chrome",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 1195,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:29.750Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c8e45ec7b0a572caa9c-30be329f4be7b20c6486",
+              "file": "l23-knowledge-body.spec.ts",
+              "line": 112,
+              "column": 2
+            }
+          ]
+        },
+        {
+          "title": "E3 — Knowledge body: edit-mode panel is not a <pre>",
+          "file": "l23-knowledge-body.spec.ts",
+          "line": 127,
+          "column": 6,
+          "specs": [
+            {
+              "title": "clicking Edit shows the BodyEditor panel (not a <pre>)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 1208,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:30.295Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c8e45ec7b0a572caa9c-4476b8fe5043ed889387",
+              "file": "l23-knowledge-body.spec.ts",
+              "line": 128,
+              "column": 2
+            },
+            {
+              "title": "BodyEditor panel contains a contenteditable element",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 1230,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:30.630Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c8e45ec7b0a572caa9c-5e8b8e9aa8ffcc26a4b8",
+              "file": "l23-knowledge-body.spec.ts",
+              "line": 144,
+              "column": 2
+            },
+            {
+              "title": "BodyEditor panel shows initial content from saved body",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 21,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1503,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:30.726Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c8e45ec7b0a572caa9c-49a92211c6153d7a631f",
+              "file": "l23-knowledge-body.spec.ts",
+              "line": 156,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "L9-single-detail.spec.ts",
+      "file": "L9-single-detail.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "L9 — single Conversations detail surface",
+          "file": "L9-single-detail.spec.ts",
+          "line": 68,
+          "column": 6,
+          "specs": [
+            {
+              "title": "AC-5: bare /conversations shows the 'open a thread' empty state in the Main pane",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 11278,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('conversations-empty')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('conversations-empty')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('conversations-empty')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('conversations-empty')\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:80:57",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                          "column": 57,
+                          "line": 80
+                        },
+                        "snippet": "  78 | \t\t});\n  79 | \t\tawait page.goto(\"/conversations\");\n> 80 | \t\tawait expect(page.getByTestId(\"conversations-empty\")).toBeVisible();\n     | \t\t                                                      ^\n  81 | \t\t// URL must stay at /conversations\n  82 | \t\texpect(page.url()).toMatch(/\\/conversations$/);\n  83 | \t});"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                            "column": 57,
+                            "line": 80
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('conversations-empty')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('conversations-empty')\u001b[22m\n\n\n  78 | \t\t});\n  79 | \t\tawait page.goto(\"/conversations\");\n> 80 | \t\tawait expect(page.getByTestId(\"conversations-empty\")).toBeVisible();\n     | \t\t                                                      ^\n  81 | \t\t// URL must stay at /conversations\n  82 | \t\texpect(page.url()).toMatch(/\\/conversations$/);\n  83 | \t});\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:80:57"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:30.965Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L9-single-detail-L9-—-sing-ed9da-mpty-state-in-the-Main-pane-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                        "column": 57,
+                        "line": 80
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6f998dd4bd9d7f2a126b-eb7dd7e6132225e5febe",
+              "file": "L9-single-detail.spec.ts",
+              "line": 69,
+              "column": 2
+            },
+            {
+              "title": "AC-1: legacy /conversations/review redirects to /conversations",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 7,
+                      "status": "failed",
+                      "duration": 11175,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('conversations-empty')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('conversations-empty')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('conversations-empty')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('conversations-empty')\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:96:57",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                          "column": 57,
+                          "line": 96
+                        },
+                        "snippet": "  94 | \t\tawait expect(page).toHaveURL(/\\/conversations$/);\n  95 | \t\t// The queue empty state should render (since no threads)\n> 96 | \t\tawait expect(page.getByTestId(\"conversations-empty\")).toBeVisible();\n     | \t\t                                                      ^\n  97 | \t});\n  98 |\n  99 | \ttest(\"AC-1: legacy /conversations/chat redirects to /conversations\", async ({ page }) => {"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                            "column": 57,
+                            "line": 96
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('conversations-empty')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('conversations-empty')\u001b[22m\n\n\n  94 | \t\tawait expect(page).toHaveURL(/\\/conversations$/);\n  95 | \t\t// The queue empty state should render (since no threads)\n> 96 | \t\tawait expect(page.getByTestId(\"conversations-empty\")).toBeVisible();\n     | \t\t                                                      ^\n  97 | \t});\n  98 |\n  99 | \ttest(\"AC-1: legacy /conversations/chat redirects to /conversations\", async ({ page }) => {\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:96:57"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:31.518Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L9-single-detail-L9-—-sing-43b0a--redirects-to-conversations-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                        "column": 57,
+                        "line": 96
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6f998dd4bd9d7f2a126b-3dca2b902cb4a8a2f6a2",
+              "file": "L9-single-detail.spec.ts",
+              "line": 85,
+              "column": 2
+            },
+            {
+              "title": "AC-1: legacy /conversations/chat redirects to /conversations",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 11107,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('conversations-empty')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('conversations-empty')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('conversations-empty')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('conversations-empty')\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:109:57",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                          "column": 57,
+                          "line": 109
+                        },
+                        "snippet": "  107 | \t\tawait page.goto(\"/conversations/chat\");\n  108 | \t\tawait expect(page).toHaveURL(/\\/conversations$/);\n> 109 | \t\tawait expect(page.getByTestId(\"conversations-empty\")).toBeVisible();\n      | \t\t                                                      ^\n  110 | \t});\n  111 |\n  112 | \ttest(\"AC-1: legacy /conversations/review?id=X redirects to /conversations/X\", async ({"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                            "column": 57,
+                            "line": 109
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('conversations-empty')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('conversations-empty')\u001b[22m\n\n\n  107 | \t\tawait page.goto(\"/conversations/chat\");\n  108 | \t\tawait expect(page).toHaveURL(/\\/conversations$/);\n> 109 | \t\tawait expect(page.getByTestId(\"conversations-empty\")).toBeVisible();\n      | \t\t                                                      ^\n  110 | \t});\n  111 |\n  112 | \ttest(\"AC-1: legacy /conversations/review?id=X redirects to /conversations/X\", async ({\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:109:57"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:31.875Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L9-single-detail-L9-—-sing-49c8d--redirects-to-conversations-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                        "column": 57,
+                        "line": 109
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6f998dd4bd9d7f2a126b-ab76a6de0dc57a928bd6",
+              "file": "L9-single-detail.spec.ts",
+              "line": 99,
+              "column": 2
+            },
+            {
+              "title": "AC-1: legacy /conversations/review?id=X redirects to /conversations/X",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 22,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1210,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:31.886Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6f998dd4bd9d7f2a126b-7a5c38718fa9d7441cf7",
+              "file": "L9-single-detail.spec.ts",
+              "line": 112,
+              "column": 2
+            },
+            {
+              "title": "AC-1: legacy /conversations/chat?thread=X redirects to /conversations/X",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 21,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1044,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:32.248Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6f998dd4bd9d7f2a126b-c83998265ebbd6154f06",
+              "file": "L9-single-detail.spec.ts",
+              "line": 134,
+              "column": 2
+            },
+            {
+              "title": "AC-1: history preserved — back from redirected URL goes to the page before legacy URL",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 22,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 10486,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/\\/work\\/portfolio/\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:5179/work/team/test-team-1\"\u001b[39m\nTimeout: 10000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 10000ms\u001b[22m\n\u001b[2m    - unexpected value \"http://localhost:5179/work\"\u001b[22m\n\u001b[2m    23 × unexpected value \"http://localhost:5179/work/team/test-team-1\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/\\/work\\/portfolio/\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:5179/work/team/test-team-1\"\u001b[39m\nTimeout: 10000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 10000ms\u001b[22m\n\u001b[2m    - unexpected value \"http://localhost:5179/work\"\u001b[22m\n\u001b[2m    23 × unexpected value \"http://localhost:5179/work/team/test-team-1\"\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:176:22",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                          "column": 22,
+                          "line": 176
+                        },
+                        "snippet": "  174 | \t\t// Start on work/portfolio\n  175 | \t\tawait page.goto(\"/work/portfolio\");\n> 176 | \t\tawait expect(page).toHaveURL(/\\/work\\/portfolio/);\n      | \t\t                   ^\n  177 |\n  178 | \t\t// Navigate to legacy URL (it will redirect with replace, so history stays at /work/portfolio → /conversations)\n  179 | \t\tawait page.goto(\"/conversations/chat\");"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                            "column": 22,
+                            "line": 176
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/\\/work\\/portfolio/\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:5179/work/team/test-team-1\"\u001b[39m\nTimeout: 10000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveURL\" with timeout 10000ms\u001b[22m\n\u001b[2m    - unexpected value \"http://localhost:5179/work\"\u001b[22m\n\u001b[2m    23 × unexpected value \"http://localhost:5179/work/team/test-team-1\"\u001b[22m\n\n\n  174 | \t\t// Start on work/portfolio\n  175 | \t\tawait page.goto(\"/work/portfolio\");\n> 176 | \t\tawait expect(page).toHaveURL(/\\/work\\/portfolio/);\n      | \t\t                   ^\n  177 |\n  178 | \t\t// Navigate to legacy URL (it will redirect with replace, so history stays at /work/portfolio → /conversations)\n  179 | \t\tawait page.goto(\"/conversations/chat\");\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:176:22"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:33.105Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L9-single-detail-L9-—-sing-cda5e--the-page-before-legacy-URL-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                        "column": 22,
+                        "line": 176
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6f998dd4bd9d7f2a126b-93ba6a94686912a19434",
+              "file": "L9-single-detail.spec.ts",
+              "line": 155,
+              "column": 2
+            },
+            {
+              "title": "AC-2: direct visit to /conversations/:threadId renders ThreadShell",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 21,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 10596,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('thread-shell')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('thread-shell')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('thread-shell')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('thread-shell')\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:205:50",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                          "column": 50,
+                          "line": 205
+                        },
+                        "snippet": "  203 | \t\tawait page.goto(`/conversations/${THREAD_ID}`);\n  204 | \t\tawait expect(page).toHaveURL(new RegExp(`/conversations/${THREAD_ID}`));\n> 205 | \t\tawait expect(page.getByTestId(\"thread-shell\")).toBeVisible();\n      | \t\t                                               ^\n  206 | \t});\n  207 |\n  208 | \ttest(\"AC-4: unknown thread id (404) shows 'Thread not found' EmptyState — no ThreadShell\", async ({"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                            "column": 50,
+                            "line": 205
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('thread-shell')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('thread-shell')\u001b[22m\n\n\n  203 | \t\tawait page.goto(`/conversations/${THREAD_ID}`);\n  204 | \t\tawait expect(page).toHaveURL(new RegExp(`/conversations/${THREAD_ID}`));\n> 205 | \t\tawait expect(page.getByTestId(\"thread-shell\")).toBeVisible();\n      | \t\t                                               ^\n  206 | \t});\n  207 |\n  208 | \ttest(\"AC-4: unknown thread id (404) shows 'Thread not found' EmptyState — no ThreadShell\", async ({\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:205:50"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:33.308Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L9-single-detail-L9-—-sing-8a534-hreadId-renders-ThreadShell-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                        "column": 50,
+                        "line": 205
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6f998dd4bd9d7f2a126b-ebe12ab6e7679ca44317",
+              "file": "L9-single-detail.spec.ts",
+              "line": 187,
+              "column": 2
+            },
+            {
+              "title": "AC-4: unknown thread id (404) shows 'Thread not found' EmptyState — no ThreadShell",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 23,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 419,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:38.405Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6f998dd4bd9d7f2a126b-90ba7c3598cf2074497b",
+              "file": "L9-single-detail.spec.ts",
+              "line": 208,
+              "column": 2
+            },
+            {
+              "title": "AC-5: Work → click a bet's thread → /conversations/:threadId renders ThreadShell",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 23,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 10777,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('thread-shell')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('thread-shell')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('thread-shell')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('thread-shell')\u001b[22m\n\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:336:51",
+                        "location": {
+                          "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                          "column": 51,
+                          "line": 336
+                        },
+                        "snippet": "  334 | \t\t\tawait page.goto(`/conversations/${BET_THREAD_ID}`);\n  335 | \t\t\tawait expect(page).toHaveURL(new RegExp(`/conversations/${BET_THREAD_ID}`));\n> 336 | \t\t\tawait expect(page.getByTestId(\"thread-shell\")).toBeVisible();\n      | \t\t\t                                               ^\n  337 | \t\t}\n  338 | \t});\n  339 | });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                            "column": 51,
+                            "line": 336
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('thread-shell')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('thread-shell')\u001b[22m\n\n\n  334 | \t\t\tawait page.goto(`/conversations/${BET_THREAD_ID}`);\n  335 | \t\t\tawait expect(page).toHaveURL(new RegExp(`/conversations/${BET_THREAD_ID}`));\n> 336 | \t\t\tawait expect(page.getByTestId(\"thread-shell\")).toBeVisible();\n      | \t\t\t                                               ^\n  337 | \t\t}\n  338 | \t});\n  339 | });\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts:336:51"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:19:38.922Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/L9-single-detail-L9-—-sing-2c1b3-hreadId-renders-ThreadShell-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/L9-single-detail.spec.ts",
+                        "column": 51,
+                        "line": 336
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6f998dd4bd9d7f2a126b-0c383a7d9d06213f322a",
+              "file": "L9-single-detail.spec.ts",
+              "line": 233,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-23T07:18:49.901Z",
+    "duration": 61213.034,
+    "expected": 50,
+    "skipped": 0,
+    "unexpected": 24,
+    "flaky": 0
+  }
+}

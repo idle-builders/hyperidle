@@ -3,16 +3,16 @@
  * Both Anthropic and OpenAI-compatible formats are normalized to this shape.
  */
 
-export type LlmRole = "system" | "user" | "assistant";
+type LlmRole = "system" | "user" | "assistant";
 
 /** A text content block. */
-export interface LlmTextBlock {
+interface LlmTextBlock {
 	readonly type: "text";
 	readonly text: string;
 }
 
 /** A tool-use request from the assistant. */
-export interface LlmToolUseBlock {
+interface LlmToolUseBlock {
 	readonly type: "tool_use";
 	readonly id: string;
 	readonly name: string;
@@ -20,7 +20,7 @@ export interface LlmToolUseBlock {
 }
 
 /** A tool result from the user (response to a tool_use). */
-export interface LlmToolResultBlock {
+interface LlmToolResultBlock {
 	readonly type: "tool_result";
 	readonly toolUseId: string;
 	readonly content: string;
@@ -47,7 +47,7 @@ export interface LlmResponse {
 }
 
 /** Tool definition in the internal format (derived from ClaudeToolSpec). */
-export interface LlmToolDef {
+interface LlmToolDef {
 	readonly name: string;
 	readonly description: string;
 	readonly inputSchema: {
@@ -56,3 +56,5 @@ export interface LlmToolDef {
 		readonly required?: readonly string[];
 	};
 }
+
+export type { LlmRole, LlmTextBlock, LlmToolDef, LlmToolResultBlock, LlmToolUseBlock };

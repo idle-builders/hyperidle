@@ -4,7 +4,7 @@
  * Routine agent-selection (owner-WIP evaluation + delegate resolution) moved
  * from fire-time `checkAndFireRoutine` (Core) to drain-time
  * `resolveAuthoritativeInput`'s `routine_run` branch (Agent Layer). This
- * suite drives the real `drainAgentWorkIntents` worker against a recorded
+ * suite drives the real `drainIntents` worker against a recorded
  * `routine_run` intent and asserts the handed-off `AgentSessionRequest`'s
  * target agent — never the fire-time selection (which no longer exists).
  */
@@ -20,9 +20,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import * as routineService from "@hyperidle/routine";
+import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { drainAgentWorkIntents, recordAgentWorkIntent } from "../session-requests-bindings.js";
+import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 
@@ -100,7 +101,7 @@ async function recordRunningIntent(
 		startedAt: NOW,
 		outcome: "running",
 	});
-	await recordAgentWorkIntent(db, {
+	await enqueueWorkIntent(db, {
 		kind: "routine_run",
 		sourceKind: "routine_run",
 		sourceId: runId,
@@ -125,7 +126,7 @@ describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db);
 		const runId = await recordRunningIntent(db, routineId, ownerAgentId);
 
-		await drainAgentWorkIntents(db);
+		await drainIntents(queueDeps(db));
 
 		const [intent] = await db
 			.select()
@@ -145,7 +146,7 @@ describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_
 		await putAgentAtWip(db, ownerAgentId, "au15-owner-session");
 		const runId = await recordRunningIntent(db, routineId, ownerAgentId);
 
-		await drainAgentWorkIntents(db);
+		await drainIntents(queueDeps(db));
 
 		const [request] = await db
 			.select()
@@ -163,7 +164,7 @@ describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_
 		await putAgentAtWip(db, delegateAgentId, "au15-delegate-session");
 		const runId = await recordRunningIntent(db, routineId, ownerAgentId);
 
-		await drainAgentWorkIntents(db);
+		await drainIntents(queueDeps(db));
 
 		const [intent] = await db
 			.select()
@@ -186,7 +187,7 @@ describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_
 		await putAgentAtWip(db, ownerAgentId, "au15-owner-session");
 		const runId = await recordRunningIntent(db, routineId, ownerAgentId);
 
-		await drainAgentWorkIntents(db);
+		await drainIntents(queueDeps(db));
 
 		const [request] = await db
 			.select()
@@ -195,9 +196,7 @@ describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_
 		expect(request?.agentId).toBe(ownerAgentId);
 	});
 
-	test("recordAgentWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({
-		db,
-	}) => {
+	test("enqueueWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({ db }) => {
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db);
 		const runId = "au15-routine-idem-run";
 		await routineService.insertRoutineRun(db, {
@@ -206,14 +205,14 @@ describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_
 			startedAt: NOW,
 			outcome: "running",
 		});
-		const first = await recordAgentWorkIntent(db, {
+		const first = await enqueueWorkIntent(db, {
 			kind: "routine_run",
 			sourceKind: "routine_run",
 			sourceId: runId,
 			requestedBy: ownerAgentId,
 			idempotencyKey: `routine:${runId}`,
 		});
-		const second = await recordAgentWorkIntent(db, {
+		const second = await enqueueWorkIntent(db, {
 			kind: "routine_run",
 			sourceKind: "routine_run",
 			sourceId: runId,

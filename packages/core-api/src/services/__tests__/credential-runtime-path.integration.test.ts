@@ -18,7 +18,7 @@
 
 import { DbCredentialResolver } from "@hyperidle/connections";
 import { serverCredentials } from "@hyperidle/db";
-import { resolveModelTier } from "@hyperidle/model-gateway";
+import { resolveModel } from "@hyperidle/model-gateway";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { MissingCredentialError } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -66,7 +66,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 
 			// Step 3: Construct DbCredentialResolver with the same secret — this is the
 			// PRODUCTION wiring AH1 §3 mandates. No mock of the resolver.
-			const resolver = new DbCredentialResolver(db, TEST_SERVER_SECRET);
+			const resolver = new DbCredentialResolver(db);
 
 			// Step 4: Call resolveModelTier — the same function makeResolveModel wraps in
 			// server-factory. Use the default workhorse tier (anthropic provider).
@@ -75,7 +75,11 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 			// Fails today: EnvCredentialResolver is wired in production, reads process.env.
 			// DbCredentialResolver is never used in production (server-factory.ts:200).
 			// resolveModelTier with DbCredentialResolver reads the DB — returns the key.
-			const resolved = await resolveModelTier("workhorse", cfg.modelGateway, resolver);
+			const resolved = await resolveModel(
+				{ kind: "tier", tier: "workhorse" },
+				cfg.modelGateway,
+				resolver,
+			);
 
 			// The resolved model must carry the stored plaintext key.
 			expect(resolved.apiKey).toBe(storedPlaintext);
@@ -86,13 +90,13 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 			db,
 		}) => {
 			// No key stored — resolver returns null → MissingCredentialError.
-			const resolver = new DbCredentialResolver(db, TEST_SERVER_SECRET);
+			const resolver = new DbCredentialResolver(db);
 			const cfg = await readServerConfig(db);
 
 			// Must throw MissingCredentialError, never return undefined or swallow.
-			await expect(resolveModelTier("workhorse", cfg.modelGateway, resolver)).rejects.toThrow(
-				MissingCredentialError,
-			);
+			await expect(
+				resolveModel({ kind: "tier", tier: "workhorse" }, cfg.modelGateway, resolver),
+			).rejects.toThrow(MissingCredentialError);
 		});
 	});
 
@@ -128,14 +132,18 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 			expect(putRes.status).toBe(200);
 
 			// Step 3: Construct the PRODUCTION resolver.
-			const resolver = new DbCredentialResolver(db, TEST_SERVER_SECRET);
+			const resolver = new DbCredentialResolver(db);
 
 			// Step 4: Resolve the openai-compatible tier.
 			const cfg = await readServerConfig(db);
 
 			// Fails today: resolveModelTier reads tier.apiKey from the config blob,
 			// not from the resolver. After AH1, it reads from resolver.
-			const resolved = await resolveModelTier("fast", cfg.modelGateway, resolver);
+			const resolved = await resolveModel(
+				{ kind: "tier", tier: "fast" },
+				cfg.modelGateway,
+				resolver,
+			);
 
 			expect(resolved.apiKey).toBe(storedPlaintext);
 			expect(resolved.provider).toBe("openai-compatible");
@@ -156,14 +164,14 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 				},
 			});
 
-			const resolver = new DbCredentialResolver(db, TEST_SERVER_SECRET);
+			const resolver = new DbCredentialResolver(db);
 			const cfg = await readServerConfig(db);
 
 			// Fails today: the current path reads tier.apiKey (absent after §2) and
 			// the old resolver path returns null silently or reads from wrong store.
-			await expect(resolveModelTier("fast", cfg.modelGateway, resolver)).rejects.toThrow(
-				MissingCredentialError,
-			);
+			await expect(
+				resolveModel({ kind: "tier", tier: "fast" }, cfg.modelGateway, resolver),
+			).rejects.toThrow(MissingCredentialError);
 		});
 	});
 });

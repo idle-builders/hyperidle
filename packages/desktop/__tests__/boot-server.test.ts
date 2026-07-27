@@ -28,14 +28,7 @@ vi.mock("@hyperidle/core-api/server-factory", () => ({
 
 vi.mock("@hyperidle/harness-registry", () => ({
 	createLocalAdapterPool: vi.fn(async () => ({ pool: "fake-adapter-pool" })),
-	// @lore: `boot-server.ts` calls `new LocalSandboxAdapter()` — vi.fn() only
-	// supports `new` when its implementation is a regular `function`, not an
-	// arrow function (same constraint remote-worker-client.test.ts documents
-	// for its MockWebSocket).
-	// biome-ignore lint/complexity/useArrowFunction: regular function required so `new LocalSandboxAdapter()` works via Reflect.construct
-	LocalSandboxAdapter: vi.fn().mockImplementation(function () {
-		return { workspaceAdapter: "fake" };
-	}),
+	createSandboxAdapter: vi.fn(() => ({ workspaceAdapter: "fake" })),
 }));
 
 describe("startServer", () => {

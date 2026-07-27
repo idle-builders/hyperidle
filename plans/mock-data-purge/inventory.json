@@ -1,16 +1,7 @@
 [
   {
     "path": "packages/core-api/connections/src/connection-provisioning.ts",
-    "line": 97,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/core-api/connections/src/connection-provisioning.ts",
-    "line": 113,
+    "line": 114,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -19,7 +10,7 @@
   },
   {
     "path": "packages/core-api/policy/src/lifecycle-propagation.ts",
-    "line": 547,
+    "line": 470,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -28,7 +19,7 @@
   },
   {
     "path": "packages/core-api/policy/src/lifecycle-propagation.ts",
-    "line": 549,
+    "line": 472,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",

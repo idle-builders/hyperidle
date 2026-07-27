@@ -173,7 +173,7 @@ describe("callLlm — Anthropic provider (AC-3, AC-5)", () => {
 		// Anthropic uses x-api-key header, not Authorization
 		const hasAuth =
 			headers["x-api-key"] === ANTHROPIC_MODEL.apiKey ||
-			headers["Authorization"] === `Bearer ${ANTHROPIC_MODEL.apiKey}`;
+			headers.Authorization === `Bearer ${ANTHROPIC_MODEL.apiKey}`;
 		expect(hasAuth).toBe(true);
 	});
 
@@ -321,7 +321,7 @@ describe("callLlm — OpenAI-compatible provider (AC-3, AC-6)", () => {
 
 		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 		const headers = init.headers as Record<string, string>;
-		expect(headers["Authorization"]).toBe(`Bearer ${OPENAI_MODEL.apiKey}`);
+		expect(headers.Authorization).toBe(`Bearer ${OPENAI_MODEL.apiKey}`);
 	});
 
 	it("normalizes OpenAI stop → end_turn in LlmResponse", async () => {
@@ -480,11 +480,49 @@ describe("callLlm — timeout (critique WARNING-2)", () => {
 			}),
 		).rejects.toThrow();
 	}, 5000);
+
+	it("composes caller cancellation with timeout and aborts the active fetch", async () => {
+		const fetchMock = vi.mocked(fetch);
+		fetchMock.mockImplementation(
+			() =>
+				new Promise<Response>(() => {
+					/* cancellation owns settlement */
+				}),
+		);
+		const controller = new AbortController();
+		const result = callLlm({
+			model: ANTHROPIC_MODEL,
+			messages: SIMPLE_MESSAGES,
+			timeoutMs: 10_000,
+			signal: controller.signal,
+		});
+		controller.abort();
+
+		await expect(result).rejects.toMatchObject({ name: "AbortError" });
+		const requestSignal = fetchMock.mock.calls[0]?.[1]?.signal;
+		expect(requestSignal?.aborted).toBe(true);
+	});
 });
 
 // ── Retry for transient errors (critique WARNING-3) ───────────────────────────
 
 describe("callLlm — retry for transient HTTP errors (critique WARNING-3)", () => {
+	it("cancels retry backoff and never starts another request", async () => {
+		const fetchMock = vi.mocked(fetch);
+		fetchMock.mockResolvedValue(mockFetchResponse({ error: "rate limited" }, 429));
+		const controller = new AbortController();
+		const result = callLlm({
+			model: ANTHROPIC_MODEL,
+			messages: SIMPLE_MESSAGES,
+			signal: controller.signal,
+		});
+		await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+		controller.abort();
+
+		await expect(result).rejects.toMatchObject({ name: "AbortError" });
+		expect(fetchMock).toHaveBeenCalledOnce();
+	});
+
 	it("retries on HTTP 429 (rate limit) and eventually succeeds", async () => {
 		const fetchMock = vi.mocked(fetch);
 		fetchMock

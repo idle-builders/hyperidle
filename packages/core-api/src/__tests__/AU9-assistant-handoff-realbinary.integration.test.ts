@@ -1,8 +1,8 @@
 import { agentSessionRequests, messages, sessions, threads, users } from "@hyperidle/db";
 import {
 	AdapterPool,
-	BuiltinHarnessAdapter,
-	LocalSandboxAdapter,
+	createHarnessAdapter,
+	createSandboxAdapter,
 } from "@hyperidle/harness-registry";
 import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { EventBus } from "@hyperidle/shared";
@@ -54,7 +54,10 @@ describe("[harness:builtin] assistant durable handoff", () => {
 		const pool = new AdapterPool();
 		pool.register(
 			"local-builtin",
-			new BuiltinHarnessAdapter({ maxIterations: 1, maxOutputTokens: 120 }),
+			createHarnessAdapter({
+				kind: "builtin",
+				options: { maxIterations: 1, maxOutputTokens: 120 },
+			}),
 			{
 				name: "Builtin",
 				kind: "local",
@@ -74,7 +77,7 @@ describe("[harness:builtin] assistant durable handoff", () => {
 		const server = await createServer(0, {
 			db,
 			adapterPool: pool,
-			workspaceAdapter: new LocalSandboxAdapter(),
+			workspaceAdapter: createSandboxAdapter("local"),
 			assistantTurnDeps: {
 				db,
 				eventBus: assistantEventBus,

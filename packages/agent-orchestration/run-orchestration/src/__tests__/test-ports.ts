@@ -5,102 +5,78 @@
  * source-import scanning, but these tests want REAL durable-write behavior
  * to assert against, not a stub). `sessionLifecycle`'s
  * `transitionAgentRunLifecycle` is reproduced directly against
- * `@hyperidle/session-requests`'s own `terminalizeAgentSessionRequest` (the
- * same durable write `session-lifecycle.ts`'s real implementation ultimately
- * delegates to) — these tests never set a termination reason, so the
- * termination-reason-precedence branch `session-lifecycle.ts`'s real
- * implementation adds on top is never exercised either way.
+ * `@hyperidle/session-requests`'s own `transitionSessionRequest` (the
+ * same durable write used by the real implementation). These tests never set
+ * a termination reason, so precedence behavior is not exercised here.
  * `sessionProvisioner`/`dispatch`/`crashSession`/`requestAgentTermination`/
  * `recoverRequestedTerminations` are `vi.fn()` stubs — overridden per test
  * where behavior matters (matching the pre-move tests' own
  * `vi.mock("../session-provisioning.js")` stand-in for the same harness-
  * execution edge).
+ *
+ * @lore AU20 Ag3b: `findAgentSessionRequestById`, `findAgentWorkIntentSourceByRequestId`,
+ * `isAgentSessionRequestClaimActive`, `markRequestRunning`, and
+ * `terminalizeAgentSessionRequest` are no longer barrel-exported. Replaced by
+ * `findSessionRequest` + `transitionSessionRequest`. `testMarkRequestRunning`
+ * and `testTerminalize` updated to call the new unified API; the `{state}` field
+ * in `testTerminalize`'s callers becomes `{to}`.
  */
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
-	claimAgentSessionRequestById,
-	claimNextAgentSessionRequest,
-	findAgentSessionRequestById,
-	findAgentWorkIntentSourceByRequestId,
-	isAgentSessionRequestClaimActive,
-	listAgentSessionRequestsBySource,
-	listRunningAgentSessionRequests,
-	markRequestRunning as realMarkRequestRunning,
-	releaseRequestClaim,
-	renewAgentSessionRequestLease,
-	terminalizeAgentSessionRequest,
+	claimSessionRequest,
+	drainIntents,
+	findSessionRequest,
+	listSessionRequests,
+	reapExpired,
+	releaseClaim,
+	renewClaim,
+	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import type { EventBus } from "@hyperidle/shared";
+import type { AgentSessionSourceKind, EventBus } from "@hyperidle/shared";
 import { vi } from "vitest";
-import type {
-	RunOrchestrationPorts,
-	RunOrchestrationSessionLifecycleRuntime,
-	RunOrchestrationSessionRequestsPort,
-} from "../ports.js";
+import type { RuntimePorts } from "../contracts.js";
 
-const noopLifecycleInboxWriter = {
-	insertIfAbsent: async () => {
-		/* no-op */
-	},
-};
-const noopTriggerHistoryWriter = {
-	recordSessionForResolutionHistory: async () => {
-		/* no-op */
-	},
-};
+type RunOrchestrationPorts = RuntimePorts;
+type RunOrchestrationSessionLifecycleRuntime = RuntimePorts["sessionLifecycle"];
 
-/** `markRequestRunning` with a no-op trigger-history writer (these tests never seed `triggerResolutionHistory`). */
+/** `transitionSessionRequest({to:'running',...})` against the real queue state machine. */
 export function testMarkRequestRunning(
 	db: HyperIdleDb,
 	requestId: string,
 	sessionId: string,
 	claimToken?: string,
 ): Promise<void> {
-	return realMarkRequestRunning(
-		db,
-		requestId,
-		sessionId,
-		{ triggerHistory: noopTriggerHistoryWriter },
-		claimToken,
-	);
+	return (async () => {
+		const activeToken =
+			claimToken ??
+			(
+				await claimSessionRequest(
+					db,
+					{ id: requestId },
+					{ workerId: "run-boundary-test", now: new Date(), leaseMs: 30_000 },
+				)
+			)?.claimToken;
+		if (!activeToken) throw new Error(`Unable to claim test request ${requestId}`);
+		await transitionSessionRequest(db, {
+			to: "running",
+			requestId,
+			sessionId,
+			claimToken: activeToken,
+		});
+	})();
 }
 
-/** `terminalizeAgentSessionRequest` with a no-op lifecycle-inbox writer (these tests assert on `agent_session_requests` only). */
-export function testTerminalize(
+/** `transitionSessionRequest` terminal — AU20 B1a: no deps needed (table owned directly). */
+export async function testTerminalize(
 	db: HyperIdleDb,
-	input: Parameters<typeof terminalizeAgentSessionRequest>[1],
-): ReturnType<typeof terminalizeAgentSessionRequest> {
-	return terminalizeAgentSessionRequest(db, input, { lifecycleInbox: noopLifecycleInboxWriter });
+	input: Extract<
+		Parameters<RunOrchestrationPorts["sessionRequests"]["transitionSessionRequest"]>[1],
+		{ readonly precondition: string }
+	>,
+): Promise<AgentSessionRequest | null> {
+	const row = await transitionSessionRequest(db, input);
+	return row && typeof row === "object" && "id" in row ? row : null;
 }
-
-const realSessionRequestsPort: RunOrchestrationSessionRequestsPort = {
-	findAgentSessionRequestById,
-	listAgentSessionRequestsBySource,
-	listRunningAgentSessionRequests,
-	isAgentSessionRequestClaimActive,
-	claimNextAgentSessionRequest,
-	claimAgentSessionRequestById,
-	releaseRequestClaim,
-	renewAgentSessionRequestLease,
-	markRequestRunning: testMarkRequestRunning,
-	findAgentWorkIntentSourceByRequestId,
-	drainAgentWorkIntents: vi.fn(async () => {
-		/* no-op */
-	}),
-	reapTerminalAgentWorkIntents: vi.fn(async () => ({
-		inbox: 0,
-		intents: 0,
-		explicitStarts: 0,
-		taskAttempts: 0,
-	})),
-	findExplicitSessionStartById: vi.fn(async () => undefined),
-	markExplicitSessionStartAdmitted: vi.fn(async () => {
-		/* no-op */
-	}),
-	markExplicitSessionStartFailed: vi.fn(async () => {
-		/* no-op */
-	}),
-};
 
 const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 	requestAgentTermination: vi.fn(async () => "accepted" as const),
@@ -122,7 +98,7 @@ const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 					requestId: input.requestId,
 					precondition: "running",
 					sessionId: input.sessionId,
-					state: input.state,
+					to: input.state,
 					failureCode: input.failureCode,
 					errorMessage: input.errorMessage,
 				})
@@ -130,7 +106,7 @@ const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 					requestId: input.requestId,
 					precondition: "claimed",
 					claimToken: input.claimToken ?? "",
-					state: "failed",
+					to: "failed",
 					failureCode: input.failureCode,
 					errorMessage: input.errorMessage,
 				});
@@ -139,7 +115,7 @@ const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 			type: "agent_run_lifecycle_changed",
 			streamId: row.streamId,
 			requestId: row.id,
-			sourceKind: row.sourceKind as never,
+			sourceKind: row.sourceKind as AgentSessionSourceKind,
 			sourceId: row.sourceId,
 			state: row.status as "completed" | "failed" | "cancelled",
 			sessionId: row.sessionId ?? undefined,
@@ -153,14 +129,25 @@ const realSessionLifecyclePort: RunOrchestrationSessionLifecycleRuntime = {
 
 export function buildTestPorts(): RunOrchestrationPorts {
 	return {
-		sessionRequests: realSessionRequestsPort,
+		sessionRequests: {
+			claimSessionRequest,
+			findSessionRequest,
+			listSessionRequests,
+			releaseClaim,
+			renewClaim,
+			transitionSessionRequest: async (exec, transition) => {
+				return await transitionSessionRequest(exec, transition);
+			},
+			drainIntents,
+			reapExpired,
+		},
 		sessionLifecycle: realSessionLifecyclePort,
 		sessionProvisioner: {
 			admitSession: vi.fn(),
 			runSession: vi.fn(),
 		},
 		dispatch: {
-			executeAssistantRequest: vi.fn(async () => {
+			runAssistantTurn: vi.fn(async () => {
 				/* no-op */
 			}),
 		},

@@ -67,7 +67,7 @@ const BUILTIN_META: AdapterMeta = {
 	kind: "local",
 	type: "builtin",
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-	maxConcurrent: 8,
+	maxConcurrent: 1,
 };
 
 function makePopulatedPool(): AdapterPool {
@@ -95,39 +95,37 @@ describe("harness-capability-read-model", () => {
 		expect(workerConnections(pool)[0]?.type).toBe("builtin");
 	});
 
-	it("harnessCapabilitiesForType forwards AdapterPool.getCapabilitiesByType() for a known type", () => {
+	it("harnessCapabilitiesForType derives capabilities from AdapterPool.describe()", () => {
 		const pool = makePopulatedPool();
-		expect(harnessCapabilitiesForType(pool, "builtin")).toEqual(
-			pool.getCapabilitiesByType("builtin"),
-		);
+		expect(harnessCapabilitiesForType(pool, "builtin")).toEqual({
+			...pool.describe({ type: "builtin", includeKnownMissing: false })[0]?.runtime,
+			returnEnforcement:
+				pool.describe({ type: "builtin", includeKnownMissing: false })[0]?.returnEnforcement ??
+				"none",
+		});
 		expect(harnessCapabilitiesForType(pool, "builtin")).not.toBeNull();
 	});
 
 	it("harnessCapabilitiesForType forwards null for an unregistered type", () => {
 		const pool = makePopulatedPool();
 		expect(harnessCapabilitiesForType(pool, "claude-code")).toBeNull();
-		expect(harnessCapabilitiesForType(pool, "claude-code")).toBe(
-			pool.getCapabilitiesByType("claude-code"),
-		);
 	});
 
 	it("harnessCapabilitiesForType returns null when reader is undefined (nullable-pool fallback)", () => {
 		expect(harnessCapabilitiesForType(undefined, "builtin")).toBeNull();
 	});
 
-	it("harnessRegistrationMeta forwards AdapterPool.getRegistrationMetaByType()", () => {
+	it("harnessRegistrationMeta derives registration metadata from AdapterPool.describe()", () => {
 		const pool = makePopulatedPool();
-		expect(harnessRegistrationMeta(pool, "builtin")).toEqual(
-			pool.getRegistrationMetaByType("builtin"),
-		);
+		expect(harnessRegistrationMeta(pool, "builtin")).toEqual(BUILTIN_META);
 		expect(harnessRegistrationMeta(pool, "unknown-type")).toBeNull();
 	});
 
-	it("harnessCapabilityDescriptors forwards AdapterPool.listCapabilityDescriptors()", () => {
+	it("harnessCapabilityDescriptors forwards AdapterPool.describe()", () => {
 		const pool = makePopulatedPool();
-		expect(harnessCapabilityDescriptors(pool)).toEqual(pool.listCapabilityDescriptors());
+		expect(harnessCapabilityDescriptors(pool)).toEqual(pool.describe());
 		expect(harnessCapabilityDescriptors(pool, { includeKnownMissing: false })).toEqual(
-			pool.listCapabilityDescriptors({ includeKnownMissing: false }),
+			pool.describe({ includeKnownMissing: false }),
 		);
 	});
 
@@ -135,7 +133,7 @@ describe("harness-capability-read-model", () => {
 		expect(harnessCapabilityDescriptors(undefined)).toEqual([]);
 	});
 
-	it("refreshHarnessDiscoveries forwards AdapterPool.refreshDiscoveries() and resolves", async () => {
+	it("refreshHarnessDiscoveries forwards AdapterPool.refresh() and resolves", async () => {
 		const pool = makePopulatedPool();
 		await expect(refreshHarnessDiscoveries(pool)).resolves.toBeUndefined();
 		// Registered adapter survives a discovery refresh (refresh only replaces

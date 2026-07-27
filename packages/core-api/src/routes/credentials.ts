@@ -11,13 +11,10 @@
 
 import {
 	decryptCredentialValue,
-	deleteCredentialByName,
+	deleteCredential,
 	encryptCredentialValue,
-	findCredentialByName,
-	listAllCredentials,
-	requireServerSecret,
-	setCredentialValue,
-	updateCredentialValidationState,
+	readCredentials,
+	writeCredential,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { readServerConfig } from "@hyperidle/settings";
@@ -183,7 +180,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 	/** GET /api/credentials — list all catalog entries with state */
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const rows = await listAllCredentials(db);
+		const rows = await readCredentials(db);
 		const rowMap = new Map(rows.map((r) => [r.name, r]));
 
 		const response: CredentialStatusResponse[] = CREDENTIAL_CATALOG.map((entry) =>
@@ -217,10 +214,11 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 		const { value } = parsed.data;
 
-		// AH1 §6: Fail-loud at the write boundary — refuse to write a ""-keyed row.
-		let serverSecret: string;
+		// AH1 §6: Fail-loud at the write boundary — encryptCredentialValue throws
+		// MISSING_ROOT_SECRET when no secret is configured.
+		let encryptedValue: string;
 		try {
-			serverSecret = requireServerSecret();
+			encryptedValue = encryptCredentialValue(value);
 		} catch {
 			return c.json(
 				{
@@ -231,14 +229,18 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			);
 		}
 
-		const encryptedValue = encryptCredentialValue(value, serverSecret);
 		const now = new Date().toISOString();
 
 		// Upsert: resets validationState to "present_untested" + clears
 		// lastValidatedAt on every write (a new value has never been re-validated).
-		await setCredentialValue(db, { name, encryptedValue, updatedAt: now });
+		await writeCredential(db, name, {
+			encryptedValue,
+			validationState: "present_untested",
+			lastValidatedAt: null,
+			updatedAt: now,
+		});
 
-		const row = await findCredentialByName(db, name);
+		const [row] = await readCredentials(db, { name });
 
 		return c.json(buildStatusResponse(name, row));
 	});
@@ -250,7 +252,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
 		}
 
-		await deleteCredentialByName(db, name);
+		await deleteCredential(db, name);
 
 		return c.body(null, 204);
 	});
@@ -267,23 +269,16 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			}
 
 			// Check if credential exists
-			const row = await findCredentialByName(db, name);
+			const [row] = await readCredentials(db, { name });
 
 			if (!row) {
 				return c.json({ valid: false, error: "Credential not set" }, 200);
 			}
 
-			// AH1 §6 CRITICAL-3: Fail-loud at validate boundary.
-			// getServerSecret() returning null → deriveKey(null) throws uncaught 500.
-			// Use requireServerSecret()-or-clean-error: return 200 {valid:false} on missing secret.
-			let serverSecret: string;
-			try {
-				serverSecret = requireServerSecret();
-			} catch {
-				return c.json({ valid: false, error: "Encryption secret not configured" }, 200);
-			}
-
-			const plaintext = decryptCredentialValue(row.encryptedValue, serverSecret);
+			// decryptCredentialValue returns null when no root secret is set.
+			// @lore AH1 §6: Fail-loud at validate boundary — return 200 {valid:false}
+			// on missing secret so the client sees a clean error rather than a 500.
+			const plaintext = decryptCredentialValue(row.encryptedValue);
 
 			if (!plaintext) {
 				return c.json({ valid: false, error: "Credential decryption failed" }, 200);
@@ -353,10 +348,8 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 					break;
 				}
 				default: {
-					// AH1 §5 CRITICAL-3: Removed the `const exhaustive: never = name` guard.
-					// The 4th case (openai_compatible_api_key) makes `name` non-`never` here.
-					// isCredentialName() at the top already rejects unknown names — this branch
-					// is a fail-closed runtime guard for any unhandled future member.
+					// AH1 §5 CRITICAL-3: isCredentialName() at the top already rejects
+					// unknown names — this branch is a fail-closed runtime guard.
 					validationResult = { valid: false, error: "Unknown credential name" };
 				}
 			}
@@ -365,7 +358,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			const now = new Date().toISOString();
 			const newState: CredentialState = validationResult.valid ? "valid" : "invalid";
 
-			await updateCredentialValidationState(db, name, {
+			await writeCredential(db, name, {
 				validationState: newState,
 				lastValidatedAt: now,
 				updatedAt: now,

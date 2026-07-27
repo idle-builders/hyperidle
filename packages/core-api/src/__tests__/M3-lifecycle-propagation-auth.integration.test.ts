@@ -6,18 +6,19 @@
  * and uses that id as the founder participant in propagation threads.
  */
 
-import { insertMessage, insertThread } from "@hyperidle/conversation";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { insertNotification } from "@hyperidle/notifications";
-import { type LifecyclePropagationDeps, registerLifecyclePropagation } from "@hyperidle/policy";
-import { getFirstUserByKind } from "@hyperidle/users";
 import {
-	getBetById,
-	getTaskById,
-	listTasks,
-	transitionBetStatus,
-	transitionTaskState,
-} from "@hyperidle/work";
+	insertMessage,
+	insertThread,
+	listMessages,
+	updateMessage,
+	updateThread,
+} from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { enqueue } from "@hyperidle/notifications";
+import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
+import { findUser } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -28,11 +29,55 @@ import { test } from "../test-fixtures.js";
  * — `policy` never imports another Service). This test builds the exact
  * same production wiring `server-factory.ts` uses — no behavior change.
  */
-const lifecyclePropagationDeps: LifecyclePropagationDeps = {
-	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
-	conversation: { insertMessage, insertThread },
-	users: { getFirstUserByKind },
-	notifications: { insert: insertNotification },
+const lifecyclePropagationDeps: PolicyDeps = {
+	work: {
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		transitionTaskState: (exec, { taskId, fromState, patch }) =>
+			work.transition(exec, "task", {
+				id: taskId,
+				guard: { field: "state", equals: fromState },
+				patch,
+			}),
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
+		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
+			work.transition(exec, "bet", {
+				id: betId,
+				guard: { field: "status", equals: fromStatus },
+				patch,
+			}),
+		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
+			work.list(exec, "task", opts ?? {}),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+		updateItemById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "item", id, patch),
+		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
+			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
+	},
+	conversation: {
+		insertMessage,
+		insertThread,
+		listMessagesByThread: (db, threadId, opts) =>
+			listMessages(db, {
+				threadId,
+				types: opts?.type ? [opts.type] : undefined,
+				order: opts?.order,
+				dir: opts?.dir,
+				limit: opts?.limit,
+			}),
+		updateMessage,
+		updateThread,
+		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
+		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+	},
+	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
+	notifications: {
+		insert: async (db, row) => {
+			await enqueue(db, row);
+		},
+	},
+	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";
@@ -124,7 +169,7 @@ describe("M3 — lifecycle-propagation: thread participants use users-table foun
 	}) => {
 		await seedBase(db, "test-founder-1");
 		await seedDoneTasks(db);
-		registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		registerPolicy(db, eventBus, lifecyclePropagationDeps);
 
 		// Trigger the propagation that creates a review thread (all tasks done)
 		// Fire a task_state_changed event to drive the propagation

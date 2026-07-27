@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type AdapterDeps, GitCloneAdapter } from "@hyperidle/filesystems";
+import { type AdapterDeps, RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/git-export";
 import type { Filesystem } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -58,7 +58,7 @@ describe("GitCloneAdapter integration", () => {
 		return {
 			gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
 			capturesDir,
-			db: null as never,
+			db: { insert: () => ({ values: async () => undefined }) } as never,
 		};
 	}
 
@@ -67,7 +67,7 @@ describe("GitCloneAdapter integration", () => {
 		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
-		const adapter = new GitCloneAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		const result = await adapter.mount({
 			filesystem: makeFs(repoPath),
 			sandboxPath,
@@ -85,7 +85,7 @@ describe("GitCloneAdapter integration", () => {
 		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
-		const adapter = new GitCloneAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
 
 		// In a regular clone, .git is a directory.
@@ -103,7 +103,7 @@ describe("GitCloneAdapter integration", () => {
 		const sandboxPath = path.join(tmpDir, `sandbox-${sessionId}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
-		const adapter = new GitCloneAdapter(makeDeps());
+		const adapter = new RegistryFilesystemMounter(makeDeps());
 		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
 
 		// Agent authors a new file.
@@ -117,14 +117,14 @@ describe("GitCloneAdapter integration", () => {
 
 		expect(result.success).toBe(true);
 		expect(result.captured).toBe(true);
-		expect(result.capturePath).toBeDefined();
-		expect(fs.existsSync(result.capturePath!)).toBe(true);
+		const bundlePath = path.join(capturesDir, `${sessionId}.bundle`);
+		expect(fs.existsSync(bundlePath)).toBe(true);
 
 		// Bundle should be cloneable and contain the authored file.
 		const verifyDir = path.join(tmpDir, "verify");
 		fs.mkdirSync(verifyDir, { recursive: true });
 		const vRunner = createGitRunner(verifyDir);
-		await vRunner.clone(result.capturePath!, "main");
+		await vRunner.clone(bundlePath, "main");
 		expect(fs.existsSync(path.join(verifyDir, "agent-out.txt"))).toBe(true);
 	});
 });

@@ -14,6 +14,17 @@
  * used repo-wide (see `agent-session-requests.ts:331`). This mirrors the
  * documented precedent at `practice-meeting.ts:448-454` and avoids depending
  * on drizzle's internal transaction type.
+ *
+ * @lore AU20 Am5: redesigned from 29 bespoke functions toward 14 general ones.
+ * The ~10 thread-list variants and 6 verdict/review projections collapsed into
+ * `findThread`/`listThreads` + `findMessage`/`listMessages` parameterised by
+ * `ThreadFilter`/`MessageFilter`. Two inbox variants → `listInbox(InboxFilter)`.
+ * `VerdictMessageRow` and `MessageListOpts` dissolved — callers that need the
+ * old projected shapes derive them from the full `Message` row. Each kept
+ * function earns its place: CRUD writes (irreducible), `countThreads`
+ * (aggregate), `resolveMessageIfUnresolved` (CAS), `findOrCreateDirectThread`
+ * (DM composite), `searchConversations`/`getArtifactThreadSummaries` (distinct
+ * joined/aggregate product surfaces).
  */
 
 import {
@@ -27,7 +38,90 @@ import {
 } from "@hyperidle/db";
 import { and, asc, desc, eq, gte, inArray, isNull, ne, type SQL, sql } from "drizzle-orm";
 
-// --- threads ---
+// =============================================================================
+// Filter types — the parameterisation layer (AU20 Am5)
+// =============================================================================
+
+/**
+ * Predicate bag for `findThread` / `listThreads`. All fields are optional and
+ * are ANDed together. `order` controls the ORDER BY clause; `limit`/`offset`
+ * control pagination.
+ */
+export interface ThreadFilter {
+	/** Exact thread id match. */
+	readonly id?: string;
+	/** Unique direct-message key. */
+	readonly directKey?: string;
+	/** (hostKind, hostId) host pair. */
+	readonly host?: { readonly kind: string; readonly id: string };
+	/** hostKind-only filter (no hostId). */
+	readonly hostKind?: string;
+	/** Only pinned (`pinned = true`) threads. */
+	readonly pinned?: boolean;
+	/** SQL LIKE probe against the `participants` JSON column (caller provides `%…%` pattern). */
+	readonly participantProbe?: string;
+	/** Filter by a set of thread ids (inArray). */
+	readonly ids?: string[];
+	/** `'lastActive'` → `desc(lastActiveAt), desc(id)`. `'created'` → `desc(createdAt)`. */
+	readonly order?: "lastActive" | "created";
+	readonly limit?: number;
+	readonly offset?: number;
+}
+
+/**
+ * Predicate bag for `findMessage` / `listMessages`. All fields are optional
+ * and are ANDed together. Thread-join predicates (`threadInitiatorId`) are
+ * resolved via a subquery — no cross-table result shape change.
+ */
+export interface MessageFilter {
+	readonly id?: string;
+	/** Idempotency key. Combine with `threadId` and `senderId` for the full triple. */
+	readonly clientKey?: string;
+	readonly senderId?: string;
+	readonly threadId?: string;
+	readonly threadIds?: string[];
+	/** Filter by message type(s). Single item uses `eq`; multiple uses `inArray`. */
+	readonly types?: string[];
+	readonly blockId?: string;
+	/** Only rows where `resolvedAt IS NULL`. */
+	readonly unresolved?: boolean;
+	/** `false` → add `deletedAt IS NULL`. Absent/`true` → include deleted rows. */
+	readonly includeDeleted?: boolean;
+	/**
+	 * Filter messages whose thread's `initiatorId` equals this value.
+	 * Resolved via subquery (`messages.threadId IN (SELECT id FROM threads WHERE …)`).
+	 */
+	readonly threadInitiatorId?: string;
+	/** Filter by `legacyItemId IN (…)`. */
+	readonly legacyItemIds?: string[];
+	/** Only rows where `legacyItemId IS NULL`. */
+	readonly noLegacyItem?: boolean;
+	/** Only rows where `createdAt >= since`. */
+	readonly since?: string;
+	/** `'createdAt'` → order by createdAt. */
+	readonly order?: "createdAt";
+	readonly dir?: "asc" | "desc";
+	/** Secondary `id` sort in the same direction as `dir`. */
+	readonly tiebreakId?: boolean;
+	readonly limit?: number;
+}
+
+/**
+ * Predicate bag for `listInbox`. Exactly one of `excludeSenderId` /
+ * `participantProbe` should be set (XOR) to select the inbox variant.
+ */
+export interface InboxFilter {
+	/** Exclude messages sent by this id (sender-exclusion inbox). */
+	readonly excludeSenderId?: string;
+	/** SQL LIKE probe against `threads.participants` (participant-probe inbox). */
+	readonly participantProbe?: string;
+	readonly limit?: number;
+	readonly offset?: number;
+}
+
+// =============================================================================
+// CRUD writes — irreducible, unchanged (AU12)
+// =============================================================================
 
 export async function insertThread(exec: HyperIdleDb, values: NewThread): Promise<void> {
 	await exec.insert(threads).values(values);
@@ -40,8 +134,6 @@ export async function updateThread(
 ): Promise<void> {
 	await exec.update(threads).set(patch).where(eq(threads.id, id));
 }
-
-// --- messages ---
 
 export async function insertMessage(exec: HyperIdleDb, values: NewMessage): Promise<void> {
 	await exec.insert(messages).values(values);
@@ -60,7 +152,7 @@ export async function updateMessage(
  * unresolved, returning the affected row id(s). First-verdict-wins — the
  * caller checks `.length` (`0` ⇒ another verdict already resolved it).
  */
-export async function resolveMessageIfUnresolved(
+export function resolveMessageIfUnresolved(
 	exec: HyperIdleDb,
 	id: string,
 	resolvedAt: string,
@@ -72,7 +164,9 @@ export async function resolveMessageIfUnresolved(
 		.returning({ id: messages.id });
 }
 
-// --- DM thread find-or-create (relocated from services/direct-thread.ts) ---
+// =============================================================================
+// DM thread find-or-create — composite, kept (AU20 Am5)
+// =============================================================================
 
 /**
  * Find an existing direct thread between `senderId` and `recipientId`, or
@@ -114,144 +208,68 @@ export async function findOrCreateDirectThread(
 	});
 	return threadId;
 }
-// ===========================================================================
-// READS (AU12 rework) — every read of `threads`/`messages` routes through here.
-// Full-row getters (`Thread`/`Message`) serve internal/logic callers and any
-// route whose current response IS the full row. Projected getters return
-// EXACTLY the column set their call site's current response includes — no more,
-// no less (§8b#1) — so a shared full-row getter can never silently widen a
-// response.
-// ===========================================================================
 
-// --- threads: single-row + host/key lookups ---
+// =============================================================================
+// Thread reads — general filter interface (AU20 Am5)
+// =============================================================================
 
-/** Full thread row by id, or `undefined`. */
-export async function getThreadById(exec: HyperIdleDb, id: string): Promise<Thread | undefined> {
-	const [row] = await exec.select().from(threads).where(eq(threads.id, id)).limit(1);
+/**
+ * First thread matching `q`, or `undefined`. No ORDER BY — matches the
+ * "first found" semantics callers need (no ordering guarantees).
+ *
+ * @lore AU20 Am5: replaces `getThreadById`, `getThreadByDirectKey`,
+ * `getFirstThreadByHost`, `getFirstPinnedThreadByHost` (4 → 1).
+ */
+export async function findThread(exec: HyperIdleDb, q: ThreadFilter): Promise<Thread | undefined> {
+	const conds: SQL[] = [];
+	if (q.id !== undefined) conds.push(eq(threads.id, q.id));
+	if (q.directKey !== undefined) conds.push(eq(threads.directKey, q.directKey));
+	if (q.host !== undefined) {
+		conds.push(eq(threads.hostKind, q.host.kind));
+		conds.push(eq(threads.hostId, q.host.id));
+	}
+	if (q.hostKind !== undefined) conds.push(eq(threads.hostKind, q.hostKind));
+	if (q.pinned !== undefined) conds.push(eq(threads.pinned, q.pinned));
+	if (q.participantProbe !== undefined)
+		conds.push(sql`${threads.participants} LIKE ${q.participantProbe} ESCAPE '\\'`);
+	if (q.ids !== undefined && q.ids.length > 0) conds.push(inArray(threads.id, q.ids));
+
+	const w = buildWhere(conds);
+	let base = exec.select().from(threads).$dynamic();
+	if (w !== undefined) base = base.where(w);
+	const [row] = await base.limit(1);
 	return row;
-}
-
-/** Full thread row by unique direct-message key, or `undefined`. */
-export async function getThreadByDirectKey(
-	exec: HyperIdleDb,
-	directKey: string,
-): Promise<Thread | undefined> {
-	const [row] = await exec.select().from(threads).where(eq(threads.directKey, directKey)).limit(1);
-	return row;
-}
-
-/** First thread hosted by `(hostKind, hostId)`, or `undefined` (no ordering — matches caller). */
-export async function getFirstThreadByHost(
-	exec: HyperIdleDb,
-	hostKind: string,
-	hostId: string,
-): Promise<Thread | undefined> {
-	const [row] = await exec
-		.select()
-		.from(threads)
-		.where(and(eq(threads.hostKind, hostKind), eq(threads.hostId, hostId)))
-		.limit(1);
-	return row;
-}
-
-/** First PINNED thread hosted by `(hostKind, hostId)`, or `undefined`. */
-export async function getFirstPinnedThreadByHost(
-	exec: HyperIdleDb,
-	hostKind: string,
-	hostId: string,
-): Promise<Thread | undefined> {
-	const [row] = await exec
-		.select()
-		.from(threads)
-		.where(
-			and(eq(threads.hostKind, hostKind), eq(threads.hostId, hostId), eq(threads.pinned, true)),
-		)
-		.limit(1);
-	return row;
-}
-
-/** Ids of all threads hosted by `(hostKind, hostId)` (decompose helper — Work code joins on these). */
-export async function getThreadIdsByHost(
-	exec: HyperIdleDb,
-	hostKind: string,
-	hostId: string,
-): Promise<string[]> {
-	const rows = await exec
-		.select({ id: threads.id })
-		.from(threads)
-		.where(and(eq(threads.hostKind, hostKind), eq(threads.hostId, hostId)));
-	return rows.map((r) => r.id);
-}
-
-// --- threads: ordered lists (order/limit preserved exactly — §8b#2) ---
-
-/** Threads for `(hostKind, hostId)`, newest-active first (id desc tiebreak), capped at `limit`. */
-export async function listThreadsByHost(
-	exec: HyperIdleDb,
-	hostKind: string,
-	hostId: string,
-	limit: number,
-): Promise<Thread[]> {
-	return exec
-		.select()
-		.from(threads)
-		.where(and(eq(threads.hostKind, hostKind), eq(threads.hostId, hostId)))
-		.orderBy(desc(threads.lastActiveAt), desc(threads.id))
-		.limit(limit);
-}
-
-/** Threads for a `hostKind`, newest-active first (id desc tiebreak), capped at `limit`. */
-export async function listThreadsByHostKind(
-	exec: HyperIdleDb,
-	hostKind: string,
-	limit: number,
-): Promise<Thread[]> {
-	return exec
-		.select()
-		.from(threads)
-		.where(eq(threads.hostKind, hostKind))
-		.orderBy(desc(threads.lastActiveAt), desc(threads.id))
-		.limit(limit);
 }
 
 /**
- * Threads whose `participants` JSON matches the caller-built LIKE `probe`,
- * newest-active first (id desc tiebreak), capped at `limit`. Owns the
- * `${threads.participants} LIKE …` fragment; caller keeps its JS membership
- * re-verify against the returned rows.
+ * All threads matching `f`, ordered and paginated per filter.
+ *
+ * @lore AU20 Am5: replaces `listThreadsByHost`, `listThreadsByHostKind`,
+ * `listThreadsByParticipant`, `listThreadsByRecency`, `getThreadIdsByHost`
+ * (caller `.map(t=>t.id)`), `listThreadMetaByIds` (caller projects) — 6 → 1.
  */
-export async function listThreadsByParticipant(
-	exec: HyperIdleDb,
-	probe: string,
-	limit: number,
-): Promise<Thread[]> {
-	return exec
-		.select()
-		.from(threads)
-		.where(sql`${threads.participants} LIKE ${probe} ESCAPE '\\'`)
-		.orderBy(desc(threads.lastActiveAt), desc(threads.id))
-		.limit(limit);
-}
+export function listThreads(exec: HyperIdleDb, f: ThreadFilter): Promise<Thread[]> {
+	const conds: SQL[] = [];
+	if (f.id !== undefined) conds.push(eq(threads.id, f.id));
+	if (f.directKey !== undefined) conds.push(eq(threads.directKey, f.directKey));
+	if (f.host !== undefined) {
+		conds.push(eq(threads.hostKind, f.host.kind));
+		conds.push(eq(threads.hostId, f.host.id));
+	}
+	if (f.hostKind !== undefined) conds.push(eq(threads.hostKind, f.hostKind));
+	if (f.pinned !== undefined) conds.push(eq(threads.pinned, f.pinned));
+	if (f.participantProbe !== undefined)
+		conds.push(sql`${threads.participants} LIKE ${f.participantProbe} ESCAPE '\\'`);
+	if (f.ids !== undefined && f.ids.length > 0) conds.push(inArray(threads.id, f.ids));
 
-/** All threads, newest-created first, page-limited (conversations recency list). */
-export async function listThreadsByRecency(
-	exec: HyperIdleDb,
-	limit: number,
-	offset: number,
-): Promise<Thread[]> {
-	return exec.select().from(threads).orderBy(desc(threads.createdAt)).limit(limit).offset(offset);
-}
-
-/** Projected thread metadata for an id set, newest-active first (id asc tiebreak — search over-fetch order). */
-export async function listThreadMetaByIds(
-	exec: HyperIdleDb,
-	ids: string[],
-): Promise<Array<{ id: string; hostKind: string; lastActiveAt: string }>> {
-	return exec
-		.select({ id: threads.id, hostKind: threads.hostKind, lastActiveAt: threads.lastActiveAt })
-		.from(threads)
-		.where(inArray(threads.id, ids))
-		.orderBy(desc(threads.lastActiveAt), threads.id);
+	const w = buildWhere(conds);
+	let q = exec.select().from(threads).$dynamic();
+	if (w !== undefined) q = q.where(w);
+	if (f.order === "lastActive") q = q.orderBy(desc(threads.lastActiveAt), desc(threads.id));
+	else if (f.order === "created") q = q.orderBy(desc(threads.createdAt));
+	if (f.limit !== undefined) q = q.limit(f.limit);
+	if (f.offset !== undefined) q = q.offset(f.offset);
+	return q;
 }
 
 /** Total thread count. */
@@ -260,119 +278,99 @@ export async function countThreads(exec: HyperIdleDb): Promise<number> {
 	return row?.count ?? 0;
 }
 
-// --- messages: single-row + thread-scoped lists ---
+// =============================================================================
+// Message reads — general filter interface (AU20 Am5)
+// =============================================================================
 
-/** Full message row by id, or `undefined`. */
-export async function getMessageById(exec: HyperIdleDb, id: string): Promise<Message | undefined> {
-	const [row] = await exec.select().from(messages).where(eq(messages.id, id)).limit(1);
-	return row;
-}
-
-/** Message matching the idempotency triple `(threadId, senderId, clientKey)`, or `undefined`. */
-export async function getMessageByClientKey(
+/**
+ * First message matching `q`, or `undefined`.
+ *
+ * @lore AU20 Am5: replaces `getMessageById`, `getMessageByClientKey` (2 → 1).
+ * For the client-key triple, pass `{threadId, senderId, clientKey}`.
+ */
+export async function findMessage(
 	exec: HyperIdleDb,
-	threadId: string,
-	senderId: string,
-	clientKey: string,
+	q: MessageFilter,
 ): Promise<Message | undefined> {
-	const [row] = await exec
-		.select()
-		.from(messages)
-		.where(
-			and(
-				eq(messages.threadId, threadId),
-				eq(messages.senderId, senderId),
-				eq(messages.clientKey, clientKey),
-			),
-		)
-		.limit(1);
+	const conds: SQL[] = [];
+	if (q.id !== undefined) conds.push(eq(messages.id, q.id));
+	if (q.clientKey !== undefined) conds.push(eq(messages.clientKey, q.clientKey));
+	if (q.senderId !== undefined) conds.push(eq(messages.senderId, q.senderId));
+	if (q.threadId !== undefined) conds.push(eq(messages.threadId, q.threadId));
+	if (q.blockId !== undefined) conds.push(eq(messages.blockId, q.blockId));
+
+	const w = buildWhere(conds);
+	let base = exec.select().from(messages).$dynamic();
+	if (w !== undefined) base = base.where(w);
+	const [row] = await base.limit(1);
 	return row;
 }
 
-/** Options for {@link listMessagesByThread}. Order is applied only when `order` is set. */
-export interface MessageListOpts {
-	readonly type?: string;
-	readonly blockId?: string;
-	readonly order?: "createdAt";
-	readonly dir?: "asc" | "desc";
-	/** Secondary `id` sort in the same direction as `dir` (thread-detail determinism). */
-	readonly tiebreakId?: boolean;
-	readonly limit?: number;
-}
+/**
+ * Messages matching `f`, ordered and limited per filter.
+ *
+ * Thread-join predicates (`threadInitiatorId`) are resolved via a subquery
+ * so the return type is always plain `Message[]`.
+ *
+ * @lore AU20 Am5: replaces `listMessagesByThread`, `getMessagesByThreadIds`,
+ * `listUnresolvedReviewThreadIds`, `listVerdictItemIds`,
+ * `listInitiatedVerdictMessages`, `listVerdictMessagesByItemIds` (6 → 1).
+ * Verdict/review projections dissolve: callers receive full `Message` rows
+ * and derive projected shapes themselves. `VerdictMessageRow` is gone.
+ *
+ * @lore `threadInitiatorId` uses a subquery (not a JOIN) so the SELECT stays
+ * over `messages` only, returning `Message[]` without any shape widening.
+ * The subquery renders as `messages.thread_id IN (SELECT id FROM threads
+ * WHERE initiator_id = ?)` — semantically identical to the previous
+ * `innerJoin` + projected select that returned `VerdictMessageRow`.
+ */
+export function listMessages(exec: HyperIdleDb, f: MessageFilter): Promise<Message[]> {
+	const conds: SQL[] = [];
+	if (f.id !== undefined) conds.push(eq(messages.id, f.id));
+	if (f.clientKey !== undefined) conds.push(eq(messages.clientKey, f.clientKey));
+	if (f.senderId !== undefined) conds.push(eq(messages.senderId, f.senderId));
+	if (f.threadId !== undefined) conds.push(eq(messages.threadId, f.threadId));
+	if (f.threadIds !== undefined && f.threadIds.length > 0)
+		conds.push(inArray(messages.threadId, f.threadIds));
+	if (f.types !== undefined && f.types.length > 0) conds.push(inArray(messages.type, f.types));
+	if (f.blockId !== undefined) conds.push(eq(messages.blockId, f.blockId));
+	if (f.unresolved === true) conds.push(sql`${messages.resolvedAt} IS NULL`);
+	if (f.includeDeleted === false) conds.push(sql`${messages.deletedAt} IS NULL`);
+	if (f.legacyItemIds !== undefined && f.legacyItemIds.length > 0)
+		conds.push(inArray(messages.legacyItemId, f.legacyItemIds));
+	if (f.noLegacyItem === true) conds.push(isNull(messages.legacyItemId));
+	if (f.since !== undefined) conds.push(gte(messages.createdAt, f.since));
+	// @lore AU20 Am5: threadInitiatorId uses a subquery to avoid changing the
+	// return shape. The subquery is built from `exec` so it participates in the
+	// same transaction as the outer query.
+	if (f.threadInitiatorId !== undefined) {
+		const sub = exec
+			.select({ id: threads.id })
+			.from(threads)
+			.where(eq(threads.initiatorId, f.threadInitiatorId));
+		conds.push(inArray(messages.threadId, sub));
+	}
 
-/** Messages in one thread, with optional type/blockId filter, ordering, and limit (all preserved exactly). */
-export async function listMessagesByThread(
-	exec: HyperIdleDb,
-	threadId: string,
-	opts: MessageListOpts = {},
-): Promise<Message[]> {
-	const conds: SQL[] = [eq(messages.threadId, threadId)];
-	if (opts.type !== undefined) conds.push(eq(messages.type, opts.type));
-	if (opts.blockId !== undefined) conds.push(eq(messages.blockId, opts.blockId));
-	let q = exec
-		.select()
-		.from(messages)
-		.where(conds.length === 1 ? conds[0] : and(...conds))
-		.$dynamic();
-	if (opts.order === "createdAt") {
-		const dir = opts.dir ?? "asc";
+	const w = buildWhere(conds);
+	let q = exec.select().from(messages).$dynamic();
+	if (w !== undefined) q = q.where(w);
+	if (f.order === "createdAt") {
+		const dir = f.dir ?? "asc";
 		const primary = dir === "desc" ? desc(messages.createdAt) : asc(messages.createdAt);
-		if (opts.tiebreakId) {
+		if (f.tiebreakId) {
 			const secondary = dir === "desc" ? desc(messages.id) : asc(messages.id);
 			q = q.orderBy(primary, secondary);
 		} else {
 			q = q.orderBy(primary);
 		}
 	}
-	if (opts.limit !== undefined) q = q.limit(opts.limit);
+	if (f.limit !== undefined) q = q.limit(f.limit);
 	return q;
 }
 
-/** Messages across a thread-id set. `includeDeleted: false` owns the `deletedAt IS NULL` fragment. */
-export async function getMessagesByThreadIds(
-	exec: HyperIdleDb,
-	threadIds: string[],
-	opts: { includeDeleted?: boolean; order?: "createdAt" } = {},
-): Promise<Message[]> {
-	const conds: SQL[] = [inArray(messages.threadId, threadIds)];
-	if (opts.includeDeleted === false) conds.push(sql`${messages.deletedAt} IS NULL`);
-	let q = exec
-		.select()
-		.from(messages)
-		.where(conds.length === 1 ? conds[0] : and(...conds))
-		.$dynamic();
-	if (opts.order === "createdAt") q = q.orderBy(asc(messages.createdAt));
-	return q;
-}
-
-/** Thread ids that still have an unresolved `review`/`questionnaire` message, within `threadIds`. */
-export async function listUnresolvedReviewThreadIds(
-	exec: HyperIdleDb,
-	threadIds: string[],
-): Promise<string[]> {
-	const rows = await exec
-		.select({ threadId: messages.threadId })
-		.from(messages)
-		.where(
-			and(
-				inArray(messages.threadId, threadIds),
-				inArray(messages.type, ["review", "questionnaire"]),
-				sql`${messages.resolvedAt} IS NULL`,
-			),
-		);
-	return rows.map((r) => r.threadId);
-}
-
-/** `legacyItemId`s of `verdict` messages within a candidate item-id set (daily-digest fan-in). */
-export async function listVerdictItemIds(exec: HyperIdleDb, itemIds: string[]): Promise<string[]> {
-	const rows = await exec
-		.select({ legacyItemId: messages.legacyItemId })
-		.from(messages)
-		.where(and(eq(messages.type, "verdict"), inArray(messages.legacyItemId, itemIds)));
-	return rows.map((r) => r.legacyItemId).filter((id): id is string => id !== null);
-}
-
-// --- inbox + search joins (both tables conversation-owned — no cross-owner coupling) ---
+// =============================================================================
+// Inbox join surface — two variants → one (AU20 Am5)
+// =============================================================================
 
 /** One inbox row: the full message plus its thread's `participants` JSON for JS membership filtering. */
 export interface InboxRow {
@@ -380,39 +378,45 @@ export interface InboxRow {
 	readonly participants: string;
 }
 
-/** Inbox over-fetch: messages the agent did NOT send, newest first, capped. Caller JS-filters by participants. */
-export async function listInboxBySenderExclusion(
-	exec: HyperIdleDb,
-	excludeSenderId: string,
-	limit: number,
-): Promise<InboxRow[]> {
-	const rows = await exec
-		.select()
-		.from(messages)
-		.innerJoin(threads, eq(messages.threadId, threads.id))
-		.where(ne(messages.senderId, excludeSenderId))
-		.orderBy(desc(messages.createdAt))
-		.limit(limit);
-	return rows.map((r) => ({ message: r.messages, participants: r.threads.participants }));
-}
-
-/** Inbox over-fetch by participant LIKE `probe`, newest first, page-limited. Caller JS-verifies membership. */
-export async function listInboxByParticipantProbe(
-	exec: HyperIdleDb,
-	probe: string,
-	limit: number,
-	offset: number,
-): Promise<InboxRow[]> {
-	const rows = await exec
+/**
+ * Inbox over-fetch, newest first. Two variants selected by filter field:
+ *  - `excludeSenderId` → messages the agent did NOT send, newest first, capped.
+ *  - `participantProbe` → messages in threads whose participants LIKE-match,
+ *    newest first, page-limited.
+ *
+ * @lore AU20 Am5: replaces `listInboxBySenderExclusion` and
+ * `listInboxByParticipantProbe` (2 → 1).
+ */
+export async function listInbox(exec: HyperIdleDb, f: InboxFilter): Promise<InboxRow[]> {
+	const limit = f.limit ?? 50;
+	if (f.excludeSenderId !== undefined) {
+		const rows = await exec
+			.select()
+			.from(messages)
+			.innerJoin(threads, eq(messages.threadId, threads.id))
+			.where(ne(messages.senderId, f.excludeSenderId))
+			.orderBy(desc(messages.createdAt))
+			.limit(limit);
+		return rows.map((r) => ({ message: r.messages, participants: r.threads.participants }));
+	}
+	// participantProbe path
+	const probe = f.participantProbe ?? "%%";
+	let q = exec
 		.select()
 		.from(messages)
 		.innerJoin(threads, eq(messages.threadId, threads.id))
 		.where(sql`${threads.participants} LIKE ${probe} ESCAPE '\\'`)
 		.orderBy(desc(messages.createdAt))
 		.limit(limit)
-		.offset(offset);
+		.$dynamic();
+	if (f.offset !== undefined) q = q.offset(f.offset);
+	const rows = await q;
 	return rows.map((r) => ({ message: r.messages, participants: r.threads.participants }));
 }
+
+// =============================================================================
+// Joined / aggregate surfaces — distinct product capabilities, kept (AU20 Am5)
+// =============================================================================
 
 /** Projected search row (§8b#1: exactly the columns search.ts JS-filters + responds with). */
 export interface ThreadSearchRow {
@@ -428,7 +432,7 @@ export interface ThreadSearchRow {
  * newest-active first (id asc tiebreak) up to `limit`. Owns the whole
  * threads⋈messages join incl. every owned-column fragment.
  */
-export async function searchConversations(
+export function searchConversations(
 	exec: HyperIdleDb,
 	participantPattern: string,
 	messagePattern: string,
@@ -452,67 +456,6 @@ export async function searchConversations(
 		)
 		.orderBy(desc(threads.lastActiveAt), threads.id)
 		.limit(limit);
-}
-
-/** Projected verdict-message row (approval-rate paths). */
-export interface VerdictMessageRow {
-	readonly id: string;
-	readonly payload: string;
-	readonly threadId: string;
-	readonly createdAt: string;
-}
-
-/** Verdict messages attributed via `threads.initiatorId`, no `legacyItemId`, within the window. */
-export async function listInitiatedVerdictMessages(
-	exec: HyperIdleDb,
-	initiatorId: string,
-	windowStart: string,
-): Promise<VerdictMessageRow[]> {
-	return exec
-		.select({
-			id: messages.id,
-			payload: messages.payload,
-			threadId: messages.threadId,
-			createdAt: messages.createdAt,
-		})
-		.from(messages)
-		.innerJoin(threads, eq(messages.threadId, threads.id))
-		.where(
-			and(
-				eq(messages.type, "verdict"),
-				eq(threads.initiatorId, initiatorId),
-				gte(messages.createdAt, windowStart),
-				isNull(messages.legacyItemId),
-			),
-		);
-}
-
-/**
- * Verdict messages whose `legacyItemId` is in `itemIds`, within the window.
- * Decomposes the former `messages ⋈ items` join — the caller resolves `itemIds`
- * from its own (Work-owned) `items` read, so conversation-store never touches a
- * Work table.
- */
-export async function listVerdictMessagesByItemIds(
-	exec: HyperIdleDb,
-	itemIds: string[],
-	windowStart: string,
-): Promise<VerdictMessageRow[]> {
-	return exec
-		.select({
-			id: messages.id,
-			payload: messages.payload,
-			threadId: messages.threadId,
-			createdAt: messages.createdAt,
-		})
-		.from(messages)
-		.where(
-			and(
-				eq(messages.type, "verdict"),
-				inArray(messages.legacyItemId, itemIds),
-				gte(messages.createdAt, windowStart),
-			),
-		);
 }
 
 /** Per-artifact conversation summary (bets.ts decompose — reads ONLY threads+messages). */
@@ -588,4 +531,15 @@ export async function getArtifactThreadSummaries(
 			hasUnresolvedReview: tmsgs.some((m) => m.type === "review" && m.resolvedAt == null) ? 1 : 0,
 		};
 	});
+}
+
+// =============================================================================
+// Internal helpers
+// =============================================================================
+
+/** Build a WHERE clause from a condition list (empty → undefined = no WHERE). */
+function buildWhere(conds: SQL[]): SQL | undefined {
+	if (conds.length === 0) return undefined;
+	if (conds.length === 1) return conds[0];
+	return and(...conds);
 }

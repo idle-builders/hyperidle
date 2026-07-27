@@ -1,8 +1,8 @@
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	loadBuiltInConfigurationDefaults,
-	loadPluginConfigurationDefaults,
-	setConfigurationOverride,
-	setPluginConfigurationState,
+	seedConfigurationDefaults,
+	setPluginState,
+	writeConfigurationOverride,
 } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { failClosedAssertion } from "../../middleware/access-boundary-middleware.js";
@@ -15,8 +15,8 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY };
 }
 
-async function seedAgentBehaviorConfig(db: Parameters<typeof loadBuiltInConfigurationDefaults>[0]) {
-	await loadBuiltInConfigurationDefaults(db, {
+async function seedAgentBehaviorConfig(db: HyperIdleDb) {
+	await seedConfigurationDefaults(db, {
 		defaults: [
 			{
 				kind: "agent",
@@ -82,8 +82,8 @@ async function seedAgentBehaviorConfig(db: Parameters<typeof loadBuiltInConfigur
 		now: "2026-07-09T12:00:00Z",
 	});
 
-	await loadPluginConfigurationDefaults(db, {
-		plugin: { id: "plugin.product-os", name: "Product OS", version: "1.0.0" },
+	await seedConfigurationDefaults(db, {
+		source: { id: "plugin.product-os", name: "Product OS", version: "1.0.0" },
 		defaults: [
 			{
 				kind: "trigger",
@@ -100,8 +100,8 @@ async function seedAgentBehaviorConfig(db: Parameters<typeof loadBuiltInConfigur
 		now: "2026-07-09T12:01:00Z",
 	});
 
-	await loadPluginConfigurationDefaults(db, {
-		plugin: { id: "plugin.growth", name: "Growth", version: "1.0.0" },
+	await seedConfigurationDefaults(db, {
+		source: { id: "plugin.growth", name: "Growth", version: "1.0.0" },
 		defaults: [
 			{
 				kind: "trigger",
@@ -117,12 +117,10 @@ async function seedAgentBehaviorConfig(db: Parameters<typeof loadBuiltInConfigur
 		],
 		now: "2026-07-09T12:02:00Z",
 	});
-	await setPluginConfigurationState(db, "plugin.growth", "disabled", {
-		now: "2026-07-09T12:03:00Z",
-	});
+	await setPluginState(db, "plugin.growth", "disabled", "2026-07-09T12:03:00Z");
 
-	await loadPluginConfigurationDefaults(db, {
-		plugin: { id: "plugin.legacy", name: "Legacy Ops", version: "0.9.0" },
+	await seedConfigurationDefaults(db, {
+		source: { id: "plugin.legacy", name: "Legacy Ops", version: "0.9.0" },
 		defaults: [
 			{
 				kind: "tool",
@@ -136,11 +134,9 @@ async function seedAgentBehaviorConfig(db: Parameters<typeof loadBuiltInConfigur
 		],
 		now: "2026-07-09T12:04:00Z",
 	});
-	await setPluginConfigurationState(db, "plugin.legacy", "removed", {
-		now: "2026-07-09T12:05:00Z",
-	});
+	await setPluginState(db, "plugin.legacy", "removed", "2026-07-09T12:05:00Z");
 
-	await setConfigurationOverride(db, {
+	await writeConfigurationOverride(db, {
 		kind: "trigger",
 		key: "trigger.daily-product-scan",
 		value: {
@@ -154,9 +150,7 @@ async function seedAgentBehaviorConfig(db: Parameters<typeof loadBuiltInConfigur
 	});
 }
 
-async function createAgentBehaviorTestApp(
-	db: Parameters<typeof loadBuiltInConfigurationDefaults>[0],
-): Promise<Hono> {
+async function createAgentBehaviorTestApp(db: HyperIdleDb): Promise<Hono> {
 	const routeModule = (await import(`${"../settings-agent-behavior.js"}`)) as {
 		createAgentBehaviorSettingsRoutes: (routeDb: typeof db) => Hono;
 	};

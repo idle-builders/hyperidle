@@ -16,18 +16,18 @@ import {
 	createServer as _createServer,
 	type ServerHandle,
 } from "@hyperidle/core-api/server-factory";
-import { createLocalAdapterPool, LocalSandboxAdapter } from "@hyperidle/harness-registry";
+import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 
 export type { ServerHandle };
 
 /**
- * Start the Hono server on port 0 (OS-assigned) and return a handle.
+ * Start the Hono server on port 0 (OS-assigned) and return its async-disposal handle.
  * Environment variables DATABASE_URL, HYPERIDLE_API_KEY, and
  * HYPERIDLE_STATIC_DIR must be set before calling this.
  */
 export async function startServer(): Promise<ServerHandle> {
 	const adapterPool = await createLocalAdapterPool();
-	return _createServer(0, { adapterPool, workspaceAdapter: new LocalSandboxAdapter() });
+	return _createServer(0, { adapterPool, workspaceAdapter: createSandboxAdapter("local") });
 }
 
 /**

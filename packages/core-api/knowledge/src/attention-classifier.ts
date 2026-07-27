@@ -29,7 +29,7 @@ const TASTE_TOPICS: ReadonlySet<string> = new Set([
  * the app projection table. KnowledgeItem is still accepted for backward
  * compat (type intersection).
  */
-export function isTasteSensitive(item: KnowledgeItem | KnowledgeItemWithProjection): boolean {
+function isTasteSensitive(item: KnowledgeItem | KnowledgeItemWithProjection): boolean {
 	// @lore O2: kind and scopeId are optional on KnowledgeItemWithProjection (from app projection).
 	const kind = (item as KnowledgeItemWithProjection).kind ?? null;
 	const scopeId = (item as KnowledgeItemWithProjection).scopeId ?? null;
@@ -48,3 +48,5 @@ export function isTasteSensitive(item: KnowledgeItem | KnowledgeItemWithProjecti
 	}
 	return false;
 }
+
+export { isTasteSensitive };

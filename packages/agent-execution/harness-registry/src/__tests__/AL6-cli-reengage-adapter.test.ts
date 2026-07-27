@@ -41,10 +41,12 @@ import { EventEmitter } from "node:events";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
 import { AL6_FORCE_RETURN_MESSAGE, AL6_MAX_FORCE_RETURNS } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLI_TOOL_CONFIGS } from "../adapter-pool.js";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
-import { enforcementRegistry } from "../return-enforcement-registry.js";
+import { createReturnEnforcement } from "../return-enforcement.js";
+import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+
+const enforcementRegistry = createReturnEnforcement();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,10 +61,7 @@ import { enforcementRegistry } from "../return-enforcement-registry.js";
  * production code path, not a fabricated config that hid the real bug.
  */
 function makeProcessReEngageConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig {
-	// Access the real shipped opencode config — Record<string, CliAdapterConfig> index signature
-	// makes it technically `CliAdapterConfig | undefined`, but "opencode" is a known key.
-	// biome-ignore lint/style/noNonNullAssertion: "opencode" is a known key in CLI_TOOL_CONFIGS
-	const opencodeConfig = CLI_TOOL_CONFIGS.opencode!;
+	const opencodeConfig = cliAdapterFixture("opencode");
 	return {
 		...opencodeConfig,
 		// eventFormat override: the real config uses "text" (opencode streams text events);

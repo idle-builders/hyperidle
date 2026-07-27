@@ -1,0 +1,95 @@
+{
+  "workPackage": "AU20",
+  "increment": "ar2-format-validator-successor",
+  "phase": "write-tests",
+  "architecture": {
+    "path": ".pipeline/work/AU20/architecture-amendments/ar2-format-validator-successor.md",
+    "sha256": "e44521d99448ab994c031bcf3c417cabb1b741e411cb33f4e2ec09b2391450dd",
+    "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/ar2-format-validator-successor.md",
+    "feasibilitySha256": "c247e340b34ced4d0a29a7b8fc9f9c17484f6ea5ab9f5ef10abd8b6b0b103d14",
+    "verdict": "accept",
+    "score": 11
+  },
+  "committedSuccessor": {
+    "commit": "d1d4fc799a098fef6f4634301ff28021abb86164",
+    "tree": "11655200ad7877d2f1c5086bdd28b012b620863e",
+    "parent": "ec9f7b39409baadc3b732e269cef7cdcfc51ec32",
+    "subject": "AU20: make Cursor guard evidence reproducible",
+    "progressSha256": "1665ac08ff6d77c6b9adbb77b943d13d72a91fc683902cbcee3267c420cc0615",
+    "architectureSha256": "89f4664538ed4069092140bea4ff1163a81ddb81c78babd8a6a12afce77c3f35",
+    "feasibilitySha256": "3af1378776c9544d0e372a6dbb152f03e8aed0de5be4ade33c233de63b2beeac",
+    "directProbeSha256": "852e6d63e6ca14fa372f6def10be2ac42e8b039015092c154639f85b53c43779",
+    "stateValidatorSha256": "8fc986e259148c2d570935dddb092e14f9dbb93f7e7fb9d478ad1171e2991ad6",
+    "stateEvidenceSha256": "448bcad2b10d618a6f2df83ba719612cbc4c78e200e320e53b8cc85c2f94b360"
+  },
+  "receiptBinding": {
+    "objectSource": "git show d1d4fc799a098fef6f4634301ff28021abb86164",
+    "progressSource": "git show d1d4fc799a098fef6f4634301ff28021abb86164:.pipeline/work/AU20/progress.json",
+    "futureHead": "unconstrained",
+    "futureLiveProgress": "unconstrained",
+    "redHead": "exact d1d4fc799a098fef6f4634301ff28021abb86164 only while required seams are missing"
+  },
+  "currentDefect": {
+    "validatorPath": ".pipeline/work/AU20/probes/validate-cursor-ar2-format.mjs",
+    "validatorSha256": "f941e7e9912cf09ee53b1cc6a5d7cab0071557c3f6253a4f5ffd6de7be45a08c",
+    "command": "node .pipeline/work/AU20/probes/validate-cursor-ar2-format.mjs",
+    "exitCode": 2,
+    "onlyDiagnostic": "FAIL .pipeline/work/AU20/architecture-amendments/cursor-probe-committed-state.md: frozen hash mismatch"
+  },
+  "historicalFormatInvariants": {
+    "architectureSha256": "12978af87828fc6c442db32fe6527e30684c87fbedbe90b84c0faa687691183a",
+    "feasibilitySha256": "4838899422a5be6c09331692dda0bdef487e3e1cfa862160be55dcac66e353ff",
+    "proofSha256": "927f904cfe5f6e4830b98340e3f3a167965972ddf07b049afbc54467d74726cb",
+    "baselineAr2Sha256": "b75a3367d137dcd56a11969ee0fb91422fdfa935e7381d276cb95ddd8ec796be",
+    "formattedAr2Sha256": "40637c22d91d495e1b91d2176200974be65bf89386cd1a8849761d2e1c557e02",
+    "semanticTokensEquivalent": true,
+    "formatterIdempotent": true
+  },
+  "future": {
+    "exports": [
+      "readScopeState",
+      "classifyGreenScope",
+      "classifyValidationState",
+      "main"
+    ],
+    "importSideEffects": "none",
+    "directExecution": "import.meta.url === pathToFileURL(resolve(process.argv[1])).href",
+    "topLevelAst": "imports, inert declarations/functions, and exactly one is-main conditional; operational calls in initializers/statements reject",
+    "truthTableSut": "Every exact content state is passed with every real disposable-Git scope state to exported classifyValidationState; no local classifier mirror.",
+    "acceptedScopes": {
+      "clean": "committed-green",
+      "AR2-only": "historical-candidate-green",
+      "validator-self": "validator-candidate-green"
+    },
+    "rootEvidenceRule": "The live future root must be exactly validator-self with empty overlap, or exactly clean with empty overlap; every other root scope rejects. This permits the same state evidence to validate the uncommitted candidate and its committed successor.",
+    "contentScopeTruth": {
+      "baseline+clean": "historical-red",
+      "formatted+clean": "pass",
+      "formatted+AR2-only": "pass",
+      "formatted+validator-self": "pass",
+      "unknown/overlap/other": "reject"
+    },
+    "intersectionRule": "Any staged/unstaged same-path intersection rejects before union classification."
+  },
+  "red": {
+    "path": ".pipeline/work/AU20/probes/validate-ar2-format-validator-state.mjs",
+    "command": "node .pipeline/work/AU20/probes/validate-ar2-format-validator-state.mjs",
+    "expectedExit": 1,
+    "onlyDiagnostic": "RED AR2 format validator rejects the exact committed Cursor successor receipt"
+  },
+  "blocker": {
+    "kind": "state-evidence-lifecycle",
+    "finding": "The prior root assertion required validator-self forever, so the same evidence could not validate the exact committed-green successor after implementation commit.",
+    "resolution": "Accept only the two lifecycle states: exact validator-self candidate or exact clean committed successor; retain the complete disposable-Git combined SUT matrix unchanged."
+  },
+  "forbiddenChanges": [
+    "AR2 format validator during write-tests",
+    "progress",
+    "AR1 and AR2 tests",
+    "Cursor lifecycle artifacts",
+    "guard",
+    "registry",
+    "package and lockfiles",
+    "product, gates, and census"
+  ]
+}

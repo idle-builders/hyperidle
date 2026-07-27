@@ -1,15 +1,20 @@
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
-import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
+import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/shared";
-import { type RevisionLogEntry, transitionBet, updateBetField } from "@hyperidle/work";
+import {
+	type RevisionLogEntry,
+	transitionBet,
+	updateBetField,
+	type WorkDeps,
+} from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../test-fixtures.js";
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity = {
-	getByTeamId: getTeamMembersByTeamId,
-	setActiveBets: setTeamMembersActiveBets,
+const teamCapacity: WorkDeps["teamCapacity"] = {
+	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
+	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 };
 
 // @lore U1: teams = domain entity (products); teamMembers = membership group.

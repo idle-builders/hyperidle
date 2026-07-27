@@ -8,15 +8,15 @@
  *   - A second team gets its own 5 routines (no collision — per-team id scheme)
  *   - Owner fallback: if a team has no product_manager, routines still get a valid owner
  *
- * RED PHASE: Fails until provisionTeamRoutines is wired into POST /api/teams
+ * RED PHASE: Fails until seedTeamRoutines is wired into POST /api/teams
  * and create_team skill tool.
  */
 
 import { routines, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { provisionTeamRoutines } from "../services/dispatch-bindings.js";
 import { test } from "../test-fixtures.js";
+import { seedTeamRoutines } from "./dispatch-test-helpers.js";
 
 const TEST_API_KEY = "test-key-AF17";
 const NOW = new Date().toISOString();
@@ -177,10 +177,10 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 
 		// Create second team (use create_team skill path via a different route, or reset idempotency guard)
 		// Since POST /api/teams has a "first team" idempotency guard, we test via DB direct insertion
-		// followed by a call to provisionTeamRoutines if available; otherwise we test via the skill tool.
-		// For the integration path, we call provisionTeamRoutines directly if it exists.
+		// followed by a call to seedTeamRoutines if available; otherwise we test via the skill tool.
+		// For the integration path, we call seedTeamRoutines directly if it exists.
 		// @lore AF17: The idempotency guard on POST /api/teams means only one team can be created via that
-		// route per DB. The second team is created via direct DB insertion + provisionTeamRoutines call.
+		// route per DB. The second team is created via direct DB insertion + seedTeamRoutines call.
 
 		// Insert a second team directly
 		const team2Id = "team-af17-test-2";
@@ -204,7 +204,7 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 			createdAt: NOW,
 		});
 
-		await provisionTeamRoutines(db, {
+		await seedTeamRoutines(db, {
 			teamId: team2Id,
 			ownerByRole: { product_manager: agent2Id },
 			leadAgentId: agent2Id,
@@ -239,7 +239,7 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
-	test("provisionTeamRoutines falls back to leadAgentId when ownerByRole has no product_manager", async ({
+	test("seedTeamRoutines falls back to leadAgentId when ownerByRole has no product_manager", async ({
 		db,
 	}) => {
 		const teamId = "team-af17-fallback";
@@ -264,7 +264,7 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 		});
 
 		// No product_manager in ownerByRole — should fall back to leadId
-		await provisionTeamRoutines(db, {
+		await seedTeamRoutines(db, {
 			teamId,
 			ownerByRole: {}, // no product_manager
 			leadAgentId: leadId,

@@ -140,6 +140,50 @@ describe("GitRunner — real on-disk round-trip (filesystem inbound verbs)", () 
 		await hostRunner.worktreeRemove(worktreePath, { force: true });
 		expect(fs.existsSync(worktreePath)).toBe(false);
 	});
+
+	it("pins the filesystems consumer contract for staging, inspection, unstage, and reachability", async () => {
+		const repoDir = path.join(tmpDir, "consumer-contract");
+		fs.mkdirSync(repoDir);
+		const runner = createGitRunner(repoDir);
+
+		expect(await runner.revParseIsInsideWorkTree()).toBe(false);
+		await runner.init("main");
+		fs.writeFileSync(path.join(repoDir, "tracked.txt"), "first\n");
+		await runner.add(["tracked.txt"]);
+		expect(await runner.diffCached()).toBe(false);
+		const sha = await runner.commit("initial", "test-bot", "bot@example.com");
+		expect(sha).toMatch(/^[0-9a-f]{40}$/);
+		expect(await runner.diffCached()).toBe(true);
+		expect(await runner.lsFiles()).toEqual(["tracked.txt"]);
+		expect(await runner.currentBranch()).toBe("main");
+
+		fs.writeFileSync(path.join(repoDir, "tracked.txt"), "second\n");
+		await runner.add([]);
+		expect(await runner.diffCached()).toBe(false);
+		await runner.restoreStaged(["tracked.txt"]);
+		expect(await runner.diffCached()).toBe(true);
+		expect(fs.readFileSync(path.join(repoDir, "tracked.txt"), "utf8")).toBe("second\n");
+
+		const reachable = await runner.lsRemote(repoDir);
+		expect(reachable).toEqual({ reachable: true });
+		const unreachable = await runner.lsRemote(path.join(tmpDir, "missing.git"));
+		expect(unreachable.reachable).toBe(false);
+		expect(unreachable.reason).toBeTruthy();
+	});
+
+	it("rejects option-shaped paths before destructive git operations", async () => {
+		const bareDir = await createBareRepo(tmpDir);
+		const runner = createGitRunner(bareDir);
+
+		await expect(runner.bundle("-output.bundle", "refs/heads/main")).rejects.toThrow(
+			"must not start with '-'",
+		);
+		await expect(runner.worktreeAdd("-worktree", "agent/test")).rejects.toThrow(
+			"must not start with '-'",
+		);
+		await expect(runner.worktreeRemove("-worktree")).rejects.toThrow("must not start with '-'");
+		await expect(runner.restoreStaged(["-unsafe"])).rejects.toThrow("must not start with '-'");
+	});
 });
 
 // ---------------------------------------------------------------------------

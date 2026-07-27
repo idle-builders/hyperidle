@@ -42,53 +42,59 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 
 // ---------------------------------------------------------------------------
 // conversation — RealtimeThreadReader (ordinary downward core-api edge)
+// Internal: callers satisfy SubscribeAuthorizerDeps structurally; they never
+// need to name the leaf port types. @lore AU20 Ab2: collapsed from public
+// surface to file-internal per the 12→5 barrel collapse.
 // ---------------------------------------------------------------------------
 
 /** Structural mirror of `@hyperidle/conversation`'s `Thread` row, narrowed to `participants`. */
-export interface RealtimeThreadRow {
+interface RealtimeThreadRow {
 	readonly participants: string;
 }
 
 /** Port for `conversation`'s thread read `senderInThread` calls directly today (§10.2 line 385). */
-export interface RealtimeThreadReader {
+interface RealtimeThreadReader {
 	getThreadById(db: HyperIdleDb, id: string): Promise<RealtimeThreadRow | undefined>;
 }
 
 // ---------------------------------------------------------------------------
 // users — RealtimeUserDirectory (ordinary downward core-api edge)
+// Internal: see RealtimeThreadReader note above.
 // ---------------------------------------------------------------------------
 
 /** Structural mirror of `@hyperidle/users`' `User` row, narrowed to `teamId`. */
-export interface RealtimeUserRow {
+interface RealtimeUserRow {
 	readonly teamId: string | null;
 }
 
 /** Port for `users`' read `senderInTeam` calls directly today (§10.2 line 386). */
-export interface RealtimeUserDirectory {
+interface RealtimeUserDirectory {
 	getUserById(db: HyperIdleDb, id: string): Promise<RealtimeUserRow | undefined>;
 }
 
 // ---------------------------------------------------------------------------
 // org — RealtimeOrgTeamReader (ordinary downward core-api edge, NOT
 // against-grain — census correction, see this file's top `@lore`)
+// Internal: see RealtimeThreadReader note above.
 // ---------------------------------------------------------------------------
 
 /** Structural mirror of `@hyperidle/org`'s `TeamMember` row, narrowed to `teamId`. */
-export interface RealtimeTeamMembersRow {
+interface RealtimeTeamMembersRow {
 	readonly teamId: string;
 }
 
 /** Port for `org`'s `getTeamMembersById` read `senderInTeam` calls directly today. */
-export interface RealtimeOrgTeamReader {
+interface RealtimeOrgTeamReader {
 	getTeamMembersById(db: HyperIdleDb, id: string): Promise<RealtimeTeamMembersRow | undefined>;
 }
 
 // ---------------------------------------------------------------------------
 // work — RealtimeTaskReader (ordinary downward core-api edge)
+// Internal: see RealtimeThreadReader note above.
 // ---------------------------------------------------------------------------
 
 /** Port for `work`'s task-existence read the session-topic authz check calls directly today (§10.2 line 384). */
-export interface RealtimeTaskReader {
+interface RealtimeTaskReader {
 	getTaskById(db: WriteExecutor, id: string): Promise<{ readonly id: string } | undefined>;
 }
 

@@ -2,153 +2,157 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
-import { createAgentSelectionOps, resolveDecompositionPlan } from "@hyperidle/agent-selection";
-import { registerCaptureWriteback } from "@hyperidle/capture-writeback";
 import {
 	type CredentialResolver,
 	DbCredentialResolver,
 	decryptCredentialValue,
-	deleteCredentialByName,
+	deleteCredential,
 	encryptCredentialValue,
-	findCredentialByName,
-	getServerSecret,
-	insertCredential,
-	listServiceConnectionsByAuthSource,
-	upsertCredential,
+	listConnections,
+	readCredentials,
+	writeCredential,
 } from "@hyperidle/connections";
 import {
-	getThreadById,
+	findThread,
 	insertMessage,
 	insertThread,
-	listInitiatedVerdictMessages,
-	listMessagesByThread,
-	listVerdictMessagesByItemIds,
+	listMessages,
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	createPgliteDb,
 	createPostgresDb,
 	type DbHandle,
 	type HyperIdleDb,
+	propagationLog,
 	resolveProfile,
 } from "@hyperidle/db";
-import type { AssistantTurnDeps, TaskDispatcherDeps } from "@hyperidle/dispatch";
+import type { DispatchConfig, DispatchOps } from "@hyperidle/dispatch";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
 	type AdapterPool,
-	enforcementRegistry,
+	createReturnEnforcement,
 	type SandboxAdapter,
 } from "@hyperidle/harness-registry";
+import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import {
 	create as createKnowledgeItem,
-	findKnowledgeItemProjectionById,
-	listExportableKnowledgeItems,
-	reapKnowledgeAccessLog,
-	recordWritebackConflict,
-	registerRelevanceListener,
-	setupFts,
+	get as getKnowledgeItem,
+	list as listKnowledgeItems,
+	reapAccessLog,
+	recordConflict as recordWritebackConflict,
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
-import { createMcpBridgeRegistry, createMcpRoute } from "@hyperidle/mcp-provider";
-import { resolveModelTier } from "@hyperidle/model-gateway";
+import { resolveModel } from "@hyperidle/model-gateway";
 import {
-	type AlertPreferences,
-	defaultMutePreferenceReader,
-	defaultNotificationAdapterFactory,
-	deleteReaped,
-	insertNotification,
+	enqueue,
+	installNotifications,
 	isSilenced,
-	type NotificationsConfigDeps,
-	type NotificationsCredentialCipher,
-	type NotificationsCredentialStore,
-	type NotificationsMuteDeps,
-	type NotificationsSilenceDeps,
-	type NotificationsWorkReader,
-	registerNotificationDispatcher,
-	registerNotificationListener,
-	startNotificationDrain,
+	type NotificationsDeps,
+	reap,
 } from "@hyperidle/notifications";
-import {
-	getTeamMembersById,
-	getTeamMembersByTeamId,
-	resolveReviewRecipients,
-	setTeamMembersActiveBets,
-} from "@hyperidle/org";
-import type { LifecyclePropagationDeps, PolicyEngineDeps } from "@hyperidle/policy";
-import { registerLifecyclePropagation, registerPolicyEngine } from "@hyperidle/policy";
+import { getTeamMembers, resolveReviewRecipients, updateTeam } from "@hyperidle/org";
+import type { PolicyDeps } from "@hyperidle/policy";
+import { registerPolicy } from "@hyperidle/policy";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
-import type { RetentionReaperDeps } from "@hyperidle/retention";
-import { startRetentionReaper } from "@hyperidle/retention";
-import { registerSessionReviewCreator } from "@hyperidle/review";
+import { registerReviewSubscriptions } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
+import type { RuntimeDeps } from "@hyperidle/run-orchestration";
 import {
+	backfillConfigurationDefaults,
 	migrateCredentialsToStore,
-	projectProductionConfigurationDefaults,
 	readServerConfig,
 	updateServerConfig,
 } from "@hyperidle/settings";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
+import { findUser, listUsers, reapExpiredCredentials } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
 import {
-	getFirstUserByKind,
-	getUserById,
-	listActiveAiUsersByTeams,
-	listUsersByKind,
-	reapInviteCodes,
-	reapLoginSessions,
-} from "@hyperidle/users";
-import {
-	createItem as createWorkItem,
-	getBetById,
-	getItemById,
-	getTaskById,
 	getTaskRiskTierByTaskId,
-	listItemIdsBySourceAgent,
-	listQueuedItemsSince,
-	listTasks,
 	registerBetDecomposition,
 	resolveOrphanedDecompositions,
-	transitionBetStatus,
-	transitionTaskState,
-	updateItemById,
-	updateTaskById,
+	type WorkDeps,
 } from "@hyperidle/work";
+import { and, inArray, lt } from "drizzle-orm";
 import { WebSocketServer } from "ws";
+import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
+import { agentSelectionService } from "./services/agent-selection-bindings.js";
 // @lore AD8c: cost sentinel extracted from routine row to application code.
+// @lore AU20 Am3: `costOps._testHooks.installDedupReleaser` removed — folded into
+// `costOps.startSentinel` (now a single call covers both the dedup releaser
+// subscription and the sentinel interval). Disposer count 15→14.
+import { costOps } from "./services/cost-bindings.js";
+import { dispatchOps } from "./services/dispatch-bindings.js";
+
+type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
+type TaskDispatcherDeps = NonNullable<DispatchConfig["task"]> & {
+	readonly db: HyperIdleDb;
+	readonly eventBus: EventBus;
+};
+
+import { enqueueWorkIntent, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
+import { queueDeps } from "./services/durable-agent-queue.js";
 import {
-	checkCostCap,
-	registerCostCapDedupReleaser,
-	startCostSentinel,
-} from "./services/cost-bindings.js";
-import {
-	registerBuiltinRoutineHandlers,
-	registerTaskDispatcher,
-	startRoutineScheduler,
-} from "./services/dispatch-bindings.js";
-import { startAgentLifecycleProjectionDrain } from "./services/lifecycle-projection-bindings.js";
-import {
-	bootAgentLayer,
-	markRunningAgentSessionRequestsForShutdown,
-	registerWorkerWsRoute,
-} from "./services/run-orchestration-bindings.js";
-import {
+	runtimeDeps as buildRunRuntimeDeps,
 	type ProvisionSessionDeps,
-	reapStaleRoutineSessions,
-	registerHandoffTerminationRequester,
-	startSandboxReaper,
-} from "./services/session-lifecycle-bindings.js";
-import { recordAgentWorkIntent } from "./services/session-requests-bindings.js";
+	startRuntime,
+} from "./services/run-orchestration-composition.js";
 
 const serviceBootstrapLog = createLogger({ pkg: "server.server-factory" });
+
+function identifyBootstrapOwner(
+	dispose: () => void,
+	owner: string,
+	cleanupEffect: string,
+	constituents: readonly string[],
+): () => void {
+	return Object.assign(dispose, { owner, cleanupEffect, constituents });
+}
 
 /** Production default poll cadence for the routine scheduler. */
 const DEFAULT_ROUTINE_POLL_INTERVAL_MS = 30_000;
 /** Default staleness bound for the routine-session reaper (1h). */
 const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
+/**
+ * @lore AU20 C1: retention package dissolved — these constants move here
+ * alongside the composition-root scheduler that calls the owning-service
+ * reapers. No behavior change vs. the former @hyperidle/retention exports.
+ * TERMINAL_LOG_TTL_MS is exported so the integration test can import the
+ * canonical value and stay in sync if it ever changes.
+ */
+const RETENTION_REAPER_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+export const TERMINAL_LOG_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const CONSUMED_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day audit window
+
+/**
+ * Reaps terminal propagation_log rows older than `termCutoff`.
+ *
+ * Extracted from the composition-root `runRetentionSweep` closure so the
+ * predicate is directly testable: the `propagation_log` table is
+ * UNOWNED_SHARED_TABLES, so a direct `@hyperidle/db` delete is sanctioned
+ * both here and in the integration test.
+ *
+ * @lore AU20 C1: exported for test coverage — previously the predicate was
+ * exercised via `reapRetentionOnce`; dissolving the retention package silently
+ * dropped that coverage. Exporting the function restores it without changing
+ * the predicate or the calling contract.
+ */
+export async function reapPropagationLog(db: HyperIdleDb, termCutoff: string): Promise<void> {
+	await db
+		.delete(propagationLog)
+		.where(
+			and(
+				lt(propagationLog.createdAt, termCutoff),
+				inArray(propagationLog.status, ["applied", "skipped"]),
+			),
+		);
+}
 
 /**
  * @lore AU19 Increment 1g/1h: `notifications`' DI ports (Mechanism C), wired
@@ -171,104 +175,119 @@ const notificationsServerConfigPort = { read: readServerConfig, update: updateSe
  */
 const gitExportServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 const gitExportKnowledgeReader = {
-	listExportableItems: listExportableKnowledgeItems,
-	getProjectionByItemId: findKnowledgeItemProjectionById,
+	listExportableItems: (
+		db: import("@hyperidle/db").HyperIdleDb,
+		filters: { readonly layers: readonly string[]; readonly statuses: readonly string[] },
+	) => listKnowledgeItems(db, { exportable: filters }),
+	getProjectionByItemId: (db: import("@hyperidle/db").HyperIdleDb, id: string) =>
+		getKnowledgeItem(db, id, { view: "projection" }),
 };
 
-const notificationsCredentialCipher: NotificationsCredentialCipher = {
-	getServerSecret,
-	encryptCredentialValue,
-	decryptCredentialValue,
-};
-
-const notificationsCredentialStore: NotificationsCredentialStore = {
-	findByName: findCredentialByName,
-	upsert: upsertCredential,
-	deleteByName: deleteCredentialByName,
-};
-
-const notificationsConfigDeps: NotificationsConfigDeps = {
+/**
+ * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
+ * `NotificationsDeps` bag. `installNotifications` internally extracts
+ * the sub-deps it needs; the composition root sees a single wiring point.
+ */
+const notificationsDeps: NotificationsDeps = {
 	serverConfig: notificationsServerConfigPort,
-	credentialCipher: notificationsCredentialCipher,
-	credentialStore: notificationsCredentialStore,
-};
-
-const notificationsMuteDeps: NotificationsMuteDeps = {
-	serverConfig: notificationsServerConfigPort,
-};
-
-const notificationsSilenceDeps: NotificationsSilenceDeps = {
-	serverConfig: notificationsServerConfigPort,
-	users: { getUserById },
-	teams: { getTeamMembersById },
-};
-
-const notificationsWorkReader: NotificationsWorkReader = {
-	listQueuedItemsSince,
-	getItemById,
+	credentialCipher: { encryptCredentialValue, decryptCredentialValue },
+	credentialStore: {
+		findByName: async (db, name) => (await readCredentials(db, { name }))[0],
+		upsert: async (db, values) =>
+			writeCredential(db, values.name, {
+				encryptedValue: values.encryptedValue,
+				validationState: values.validationState,
+				lastValidatedAt: values.lastValidatedAt,
+				updatedAt: values.updatedAt,
+			}),
+		deleteByName: (db, name) => deleteCredential(db, name),
+	},
+	users: { getUserById: (db, id) => findUser(db, { id }) },
+	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
+	work: {
+		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+			work.list(exec, "item", { queued: true, createdSince: cutoff }),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+	},
 };
 
 /**
  * @lore AU19 Increment 2a: `@hyperidle/policy`'s DI ports (Mechanism C),
  * wired here at the `packages/server` composition point — `work`/
  * `conversation`/`users`/`org` are all real, already-migrated packages.
- * `PolicyEngineDeps.silence` closes over `notificationsSilenceDeps` (built
+ * `PolicyDeps.silence` closes over `notificationsSilenceDeps` (built
  * above) so `policy` itself only ever sees the boolean-returning
  * `isSilenced` predicate, never `notifications`' own deps shape.
+ *
+ * @lore AU20 Am1: merged `policyEngineDeps` + `lifecyclePropagationDeps`
+ * into one `PolicyDeps` aggregate. `registerPolicy` constructs the sub-shapes
+ * internally; the composition root sees a single wiring point.
  */
-const policyEngineDeps: PolicyEngineDeps = {
-	work: { getItemById, updateItemById },
-	conversation: { insertMessage, listMessagesByThread, updateMessage, updateThread },
+const policyDeps: PolicyDeps = {
+	work: {
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+		updateItemById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "item", id, patch),
+		listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
+			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
+			return rows.map((r) => r.id);
+		},
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
+		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
+			work.transition(exec, "bet", {
+				id: betId,
+				guard: { field: "status", equals: fromStatus },
+				patch,
+			}),
+		transitionTaskState: (exec, { taskId, fromState, patch }) =>
+			work.transition(exec, "task", {
+				id: taskId,
+				guard: { field: "state", equals: fromState },
+				patch,
+			}),
+		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
+			work.list(exec, "task", { betId: opts?.betId }),
+	},
+	conversation: {
+		insertMessage,
+		listMessagesByThread: (db, threadId, opts) =>
+			listMessages(db, {
+				threadId,
+				types: opts?.type ? [opts.type] : undefined,
+				order: opts?.order,
+				dir: opts?.dir,
+				limit: opts?.limit,
+			}),
+		updateMessage,
+		updateThread,
+		insertThread,
+		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+			listMessages(db, {
+				threadInitiatorId: initiatorId,
+				types: ["verdict"],
+				since: windowStart,
+				noLegacyItem: true,
+			}),
+		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+	},
+	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
 	silence: {
-		isSilenced: (db, item, now) => isSilenced(db, item, now, notificationsSilenceDeps),
+		isSilenced: (db, item, now) => isSilenced(db, item, now, notificationsDeps),
 	},
-	approvalRate: {
-		work: { listItemIdsBySourceAgent },
-		conversation: { listInitiatedVerdictMessages, listVerdictMessagesByItemIds },
+	notifications: {
+		insert: async (db, row) => {
+			await enqueue(db, row);
+		},
 	},
 };
-
-const lifecyclePropagationDeps: LifecyclePropagationDeps = {
-	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
-	conversation: { insertMessage, insertThread },
-	users: { getFirstUserByKind },
-	notifications: { insert: insertNotification },
-};
-
-/**
- * @lore AU19 Increment 2g: `@hyperidle/retention`'s DI ports (Mechanism C),
- * wired here at the `packages/server` composition point — `users`/
- * `knowledge`/`notifications` are all real, already-migrated packages.
- * Two of the three ports (`users`, `knowledge`) close census-missed edges
- * surfaced by this migration (raw table access wasn't a countable edge at
- * original census time — see `@hyperidle/retention`'s `ports.ts` top
- * `@lore`); `notifications` was already census-listed.
- */
-const retentionReaperDeps: RetentionReaperDeps = {
-	users: { reapLoginSessions, reapInviteCodes },
-	knowledge: { reapKnowledgeAccessLog },
-	notifications: { deleteReaped },
-};
-
-/**
- * @lore AU19 Increment 3e: `@hyperidle/agent-selection`'s bound-ops factory,
- * wired here at the `packages/server` composition point — `users`/`org` are
- * both real, already-migrated packages. `work`'s (still-interim, §10.3
- * against-grain) `AgentSelectionDefaults` port below now points at these
- * real bound exports instead of the deleted `services/select-agent.ts` /
- * `services/agent-defaults/resolvers.ts` flat modules — mechanical wiring
- * swap, zero behavior change.
- */
-const agentSelectionOps = createAgentSelectionOps({
-	users: { getUserById, listActiveAiUsersByTeams },
-	teams: { getTeamMembersByTeamId },
-});
 
 /**
  * AU11: registers CORE-owned application services against the event bus —
  * knowledge (relevance listener, FTS), notifications, policy engine,
  * review routing, lifecycle propagation, retention, git-export, and the
- * routine scheduler (cron/due-eval + `recordAgentWorkIntent`).
+ * routine scheduler (cron/due-eval + `enqueueWorkIntent`).
  *
  * Split from the former `app-runtime` shell's `bootstrapAppRuntime` —
  * together with `registerAgentLayerServices` this replicates the exact
@@ -277,8 +296,7 @@ const agentSelectionOps = createAgentSelectionOps({
  *
  * @lore AU15: routine-scheduler.ts stays Core (cron/due-eval is a core
  * domain concern); the residual Core→Agent edge AU11 recorded here (its
- * fire-time `isAgentAtWipLimit`/`selectAgentByAppDefaults` call into the
- * agent-owned `agent-selection.ts`) is CLOSED — owner-WIP evaluation and
+ * former fire-time agent-selection call is CLOSED — owner-WIP evaluation and
  * delegate resolution moved to drain-time in
  * `agent-work-intent-worker.ts`'s `resolveAuthoritativeInput` (`routine_run`
  * branch). routine-scheduler.ts no longer imports agent-selection.ts at all.
@@ -286,7 +304,20 @@ const agentSelectionOps = createAgentSelectionOps({
 export function registerCoreDomainServices(ctx: {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	readonly readAlertPreferences?: () => Promise<AlertPreferences>;
+	/**
+	 * Inject alert preferences reader for the notification dispatcher.
+	 * Uses an inline structural type so `AlertPreferences` (delivery-chain
+	 * internal) stays out of the public server-factory surface.
+	 * @lore AU20 Ag6b: AlertPreferences removed from barrel; inline type here.
+	 */
+	readonly readAlertPreferences?: () => Promise<{
+		blockerAlerts: boolean;
+		costAlerts: boolean;
+		reviewAlerts: boolean;
+		quietHoursEnabled: boolean;
+		quietHoursStart: string;
+		quietHoursEnd: string;
+	}>;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
@@ -304,77 +335,124 @@ export function registerCoreDomainServices(ctx: {
 }): Array<() => void> {
 	const { db, eventBus } = ctx;
 	const disposers: Array<() => void> = [];
-	disposers.push(startAgentLifecycleProjectionDrain(db));
-
-	// AF9 Task 3b: fire-and-forget FTS setup at every boot so the fts_vector
-	// column exists even when production createServer skips the drizzle migrator.
-	setupFts(db).catch((err) => {
-		serviceBootstrapLog.error("FTS setup failed at boot", { err });
-	});
-
-	disposers.push(registerRelevanceListener(db, eventBus));
 	disposers.push(
-		registerSessionReviewCreator(db, eventBus, {
-			work: { getTaskById, updateTaskById, createItem: createWorkItem },
-			conversation: { insertThread, getThreadById, updateThread },
-			users: { getUserById, listUsersByKind },
-			org: { resolveReviewRecipients },
-			taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
-		}),
-	);
-	disposers.push(registerPolicyEngine(db, eventBus, policyEngineDeps));
-	disposers.push(registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps));
-	disposers.push(
-		registerGitExportHandler(db, eventBus, {
-			runnerFactory: (repoPath) => createGitRunner(repoPath),
-			serverConfig: gitExportServerConfigPort,
-			knowledge: gitExportKnowledgeReader,
-		}),
-	);
-	disposers.push(
-		registerNotificationDispatcher(db, eventBus, {
-			adapterFactory: defaultNotificationAdapterFactory,
-			readAlertPreferences: ctx.readAlertPreferences,
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-			work: notificationsWorkReader,
-		}),
+		identifyBootstrapOwner(
+			startLifecycleProjectionDrain(queueDeps(db)),
+			"lifecycle-projection drain",
+			"stops drain",
+			["drain interval"],
+		),
 	);
 
-	// AF8: notification listener (event→typed row) + drain loop (automatic delivery).
-	const muteReader = defaultMutePreferenceReader(db, notificationsMuteDeps);
 	disposers.push(
-		registerNotificationListener(db, eventBus, { mute: muteReader, work: notificationsWorkReader }),
+		identifyBootstrapOwner(
+			attachRelevanceListener(db, eventBus),
+			"relevance listener",
+			"unsubscribes",
+			["knowledge-access subscription"],
+		),
+	);
+
+	disposers.push(
+		identifyBootstrapOwner(
+			registerReviewSubscriptions(db, eventBus, {
+				work: {
+					getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+					updateTaskById: (exec: WriteExecutor, id: string, patch) =>
+						work.update(exec, "task", id, patch),
+					createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
+					getRiskTierByTaskId: getTaskRiskTierByTaskId,
+				},
+				conversation: {
+					insertThread,
+					getThreadById: (db, id) => findThread(db, { id }),
+					updateThread,
+				},
+				users: {
+					getUserById: (db, id) => findUser(db, { id }),
+					listUsersByKind: (db, kind) => listUsers(db, { kind }),
+				},
+				org: { resolveReviewRecipients },
+				intentRecorder: { record: enqueueWorkIntent },
+			}),
+			"review subscriptions",
+			"unsubscribe",
+			["review creation subscription", "review liveness subscription"],
+		),
 	);
 	disposers.push(
-		startNotificationDrain(db, defaultNotificationAdapterFactory, {
-			notificationsConfig: notificationsConfigDeps,
-			silencePolicy: notificationsSilenceDeps,
-		}),
+		identifyBootstrapOwner(
+			registerPolicy(db, eventBus, policyDeps),
+			"policy registration",
+			"unsubscribe",
+			["policy engine", "lifecycle propagation", "retry interval"],
+		),
+	);
+	disposers.push(
+		identifyBootstrapOwner(
+			registerGitExportHandler(db, eventBus, {
+				runnerFactory: (repoPath) => createGitRunner(repoPath),
+				serverConfig: gitExportServerConfigPort,
+				knowledge: gitExportKnowledgeReader,
+			}),
+			"git-export handler",
+			"unsubscribe",
+			["knowledge-update subscription"],
+		),
+	);
+	// @lore AU20 Ag6b: three separate worker registrations (dispatcher + listener
+	// + drain) collapsed into one `installNotifications` call. The delivery chain
+	// is fully internal to @hyperidle/notifications; server-factory sees one boot
+	// entry and one disposer.
+	disposers.push(
+		identifyBootstrapOwner(
+			installNotifications(db, eventBus, notificationsDeps, {
+				readAlertPreferences: ctx.readAlertPreferences,
+			}),
+			"notifications installation",
+			"dispatcher/listener/drain all stop",
+			["dispatcher", "listener", "drain"],
+		),
 	);
 
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
-	disposers.push(startRetentionReaper(db, retentionReaperDeps));
-
-	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
-	// AF6 §1 (Option A): start the routine scheduler async, push a deferred
-	// disposer that drains the start promise then stops. Built-in routines
-	// auto-fire (no session); generic routines are gated by canProvision.
-	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
-	const schedulerPromise = startRoutineScheduler(db, eventBus, {
-		pollIntervalMs,
-		canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
-		...(ctx.dispatcherDeps ? { runtimeDeps: ctx.dispatcherDeps } : {}),
-		// Non-optional periodic reaper sweep: catches in-process hangs.
-		reap: () => reapStaleRoutineSessions(db, eventBus, { staleAfterMs: reaperStaleAfterMs }),
-		reaperCadenceMs: ctx.reaperCadenceMs,
-	});
-	schedulerPromise.catch((err) => {
-		serviceBootstrapLog.error("routine scheduler failed to start", { err });
-	});
-	disposers.push(() => {
-		void schedulerPromise.then((s) => s.stop()).catch(() => {});
-	});
+	// @lore AU20 C1: retention package dissolved — sweep logic and scheduler
+	// live here at the composition root; per-table deletes delegate to their
+	// owning services (users/notifications/knowledge). propagation_log is
+	// UNOWNED_SHARED_TABLES so its delete stays a direct @hyperidle/db call.
+	// No behavior change: same predicates, same TTLs, same cadence.
+	const runRetentionSweep = async (): Promise<void> => {
+		const nowMs = Date.now();
+		const expiredCutoff = new Date(nowMs).toISOString();
+		const termCutoff = new Date(nowMs - TERMINAL_LOG_TTL_MS).toISOString();
+		const consumedCutoff = new Date(nowMs - CONSUMED_INVITE_TTL_MS).toISOString();
+		// login_sessions + invite_codes (owned by `users`)
+		await reapExpiredCredentials(db, {
+			sessionCutoff: expiredCutoff,
+			inviteExpiredCutoff: expiredCutoff,
+			inviteConsumedCutoff: consumedCutoff,
+		});
+		// notification_queue (owned by `notifications`)
+		await reap(db, termCutoff, ["sent", "failed", "dropped"]);
+		// knowledge_access_log (owned by `knowledge`)
+		await reapAccessLog(db, termCutoff);
+		// propagation_log — UNOWNED_SHARED_TABLES; delegate to the exported
+		// reapPropagationLog so the predicate is covered by integration tests.
+		await reapPropagationLog(db, termCutoff);
+	};
+	const retentionHandle = setInterval(() => {
+		void runRetentionSweep().catch((err) => {
+			serviceBootstrapLog.error("retention sweep failed", { err });
+		});
+	}, RETENTION_REAPER_INTERVAL_MS);
+	disposers.push(
+		identifyBootstrapOwner(
+			() => clearInterval(retentionHandle),
+			"retention reaper",
+			"interval cleared",
+			["retention interval"],
+		),
+	);
 
 	return disposers;
 }
@@ -385,41 +463,72 @@ export function registerCoreDomainServices(ctx: {
  * routine-session reapers. Split from the former `bootstrapAppRuntime`
  * shell alongside `registerCoreDomainServices` (see that function's
  * doc-comment for the behavior-preservation invariant).
+ *
+ * @lore AU20 Ag1b: dispatch trigger registration collapsed into
+ * `dispatchOps.start`. Scheduler config is absorbed here so one start call boots
+ * the full dispatch lifecycle (builtin handlers + assistant dispatcher +
+ * optional task trigger + optional scheduler). The returned disposer owns
+ * the entire lifecycle.
  */
 export function registerAgentLayerServices(ctx: {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 	readonly reaperStaleAfterMs?: number;
+	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
+	readonly routinePollIntervalMs?: number;
+	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
+	readonly canProvision?: boolean;
+	/** AF6 §4: in-process periodic reaper cadence (ms). 0 = every poll (tests). */
+	readonly reaperCadenceMs?: number;
 }): Array<() => void> {
 	const { db, eventBus } = ctx;
 	const disposers: Array<() => void> = [];
-
-	disposers.push(registerBuiltinRoutineHandlers(db, eventBus));
-	disposers.push(registerCostCapDedupReleaser(eventBus));
-	disposers.push(registerHandoffTerminationRequester(db, eventBus));
-	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
-	disposers.push(startCostSentinel(db, eventBus));
-
-	// AD2: Register task dispatcher when provisioning deps are provided.
-	if (ctx.dispatcherDeps) {
-		disposers.push(
-			registerTaskDispatcher({
-				db,
-				eventBus,
-				...ctx.dispatcherDeps,
-			}),
-		);
-		// AF7 §6: TTL workspace reaper.
-		disposers.push(startSandboxReaper(db, { sandboxBasePath: ctx.dispatcherDeps.sandboxBasePath }));
-	}
-
-	// AF6 §4: boot one-shot reaper — clear zombie routine sessions left by a
-	// previous process. Fire-and-forget; never blocks boot.
 	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
-	reapStaleRoutineSessions(db, eventBus, { staleAfterMs: reaperStaleAfterMs }).catch((err) => {
-		serviceBootstrapLog.error("boot routine-session reaper failed", { err });
+
+	// AF6 §1 + AU20 Ag1b: `dispatchOps.start` boots the full dispatch lifecycle —
+	// builtin handlers, assistant dispatcher, optional task dispatcher, optional scheduler.
+	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
+	const dispatchPromise = dispatchOps.start({
+		db,
+		eventBus,
+		task: ctx.dispatcherDeps,
+		scheduler: {
+			pollIntervalMs,
+			canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
+			...(ctx.dispatcherDeps ? { runtimeDeps: ctx.dispatcherDeps } : {}),
+			reaperCadenceMs: ctx.reaperCadenceMs,
+		},
 	});
+	dispatchPromise.catch((err) => {
+		serviceBootstrapLog.error("dispatch start failed", { err });
+	});
+	disposers.push(
+		identifyBootstrapOwner(
+			() => {
+				void dispatchPromise.then((d) => d()).catch(() => {});
+			},
+			"dispatch lifecycle",
+			"builtin/assistant/task/scheduler stop",
+			["builtin", "assistant", "task", "scheduler"],
+		),
+	);
+
+	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
+	// @lore AU20 Am3: `costOps.startSentinel` now also installs the dedup-releaser
+	// EventBus subscription (folded from `costOps._testHooks.installDedupReleaser`).
+	// One disposer instead of two; count drops from 15 to 14.
+	disposers.push(
+		identifyBootstrapOwner(
+			costOps.startSentinel(db, eventBus),
+			"cost sentinel",
+			"sentinel plus dedup subscription stop",
+			["sentinel", "dedup subscription"],
+		),
+	);
+
+	// AF7 §6: TTL workspace reaper (task trigger is now inside dispatchOps.start).
+	void reaperStaleAfterMs;
 
 	return disposers;
 }
@@ -437,7 +546,11 @@ function makeResolveModel(
 ): (tier: string) => Promise<ResolvedModel | undefined> {
 	return async (tier: string): Promise<ResolvedModel | undefined> => {
 		const cfg = await readServerConfig(db);
-		return resolveModelTier(tier as ModelTier, cfg.modelGateway, credentialResolver);
+		return resolveModel(
+			{ kind: "tier", tier: tier as ModelTier },
+			cfg.modelGateway,
+			credentialResolver,
+		);
 	};
 }
 
@@ -501,7 +614,7 @@ export interface CreateServerDeps {
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
-	readonly dispose: () => void;
+	readonly dispose: () => Promise<void>;
 	readonly credentialResolver: CredentialResolver;
 }
 
@@ -629,8 +742,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// invariant is tested in server-factory.resolver.test.ts via
 	// `handle.credentialResolver instanceof DbCredentialResolver` — the resolver is
 	// exposed on ServerHandle so the test can assert the production wiring directly.
-	const serverSecret = getServerSecret();
-	if (!serverSecret) {
+	// @lore AU20 Am4: getServerSecret removed from barrel (cipher-owns-key pattern).
+	// Boot warning now checks env directly instead of calling getServerSecret().
+	const hasSecret = Boolean(process.env.HYPERIDLE_CREDENTIAL_KEY ?? process.env.HYPERIDLE_API_KEY);
+	if (!hasSecret) {
 		// @lore AH1 §6: Boot is non-fatal but we log a warning so misconfigured deployments
 		// are visible. The write boundary (PUT /api/credentials) rejects loudly (500
 		// MISSING_ROOT_SECRET). console.warn is intentional here — the observability adapter
@@ -640,7 +755,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			"[HyperIdle] No HYPERIDLE_CREDENTIAL_KEY/HYPERIDLE_API_KEY set — credential writes will be refused (MISSING_ROOT_SECRET). Agents cannot resolve keys until a secret is configured.",
 		);
 	}
-	const credentialResolver: CredentialResolver = new DbCredentialResolver(db, serverSecret);
+	const credentialResolver: CredentialResolver = new DbCredentialResolver(db);
 
 	// AH1 §4: Run the one-time credential migration at boot.
 	// Relocates legacy server_config blob apiKeys → server_credentials.
@@ -651,10 +766,22 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// `@hyperidle/connections`' real exports now that `connections` has
 	// migrated (closes the Inc-1f interim wiring; see `@hyperidle/settings`'
 	// `ports.ts` top-level `@lore`), zero behavior change.
+	// @lore AU20 Am4: cipher is now no-arg (encryptCredentialValue/decryptCredentialValue
+	// read the root secret internally). Store adapts to the new collapsed write API:
+	// writeCredential with encryptedValue present = upsert path.
 	await migrateCredentialsToStore(
 		db,
-		{ getServerSecret, encryptCredentialValue, decryptCredentialValue },
-		{ findByName: findCredentialByName, insert: insertCredential },
+		{ encryptCredentialValue, decryptCredentialValue },
+		{
+			findByName: async (execDb, name) => (await readCredentials(execDb, { name }))[0],
+			insert: async (execDb, values) =>
+				writeCredential(execDb, values.name, {
+					encryptedValue: values.encryptedValue,
+					validationState: values.validationState,
+					lastValidatedAt: values.lastValidatedAt,
+					updatedAt: values.updatedAt,
+				}),
+		},
 	);
 	// AU2: Project existing first-party behavior into the editable configuration
 	// model on production boot. This keeps registered tools, builtin harness
@@ -670,10 +797,14 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// export (closes the Increment 1h `ServiceConnectionsReader` interim —
 	// see `@hyperidle/settings`' `ports.ts`). All ordinary downward
 	// core-api→core-api edges, zero behavior change.
-	await projectProductionConfigurationDefaults(db, {
-		users: { listUsersByKind },
+	// @lore AU20 Am4: listServiceConnectionsByAuthSource removed from barrel; adapt
+	// to listConnections(db, { authSource }) to satisfy ServiceConnectionsReader port.
+	await backfillConfigurationDefaults(db, {
+		users: { listUsersByKind: (db, kind) => listUsers(db, { kind }) },
 		routines: { listRoutines },
-		serviceConnections: { listByAuthSource: listServiceConnectionsByAuthSource },
+		serviceConnections: {
+			listByAuthSource: (execDb, authSource) => listConnections(execDb, { authSource }),
+		},
 	});
 	// @lore AU19 Increment 5 (item 2): `adapterPool`/`workspaceAdapter` are now
 	// REQUIRED, Application-supplied deps (see `CreateServerDeps`'s top `@lore`)
@@ -706,31 +837,49 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	// AK3 §2: Register the kernel-side bet decomposition subscriber.
 	// Deps: all already available from the dispatcherDeps wiring above.
+	//
+	// @lore AU20 Ag5a: `WorkDeps` bundles the five inbound DI ports — wired
+	// ONCE here at the composition root. Spread into `registerBetDecomposition`
+	// (and any future function that needs the full set); sub-shapes are
+	// extracted where a function only needs a subset (e.g. `transitionTask`
+	// takes `TaskStateMachineDeps` with only `workIntents`).
+	const workDeps: WorkDeps = {
+		// @lore AU20 Ab4: adapts new AgentSelectionService methods to work's
+		// AgentSelectionDefaults structural-mirror port (unchanged in work/ports.ts).
+		agentSelection: {
+			listCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
+			selectAgent: (occDeps, occasion) =>
+				agentSelectionService.selectAgent({
+					surface: occasion.surface,
+					db: occDeps.db,
+					eventBus: occDeps.eventBus,
+					teamId: occasion.teamId,
+					workKey: occasion.workKey,
+					roleHint: occasion.roleHint,
+					spreadIndex: occasion.spreadIndex,
+				}),
+		},
+		users: {
+			getUserById: (db, id) => findUser(db, { id }),
+			listActiveAiUsersByTeams: (db, teamIds) =>
+				listUsers(db, { teamIds, kind: "ai", status: "active" }),
+		},
+		costCap: { checkCostCap: costOps.check },
+		workIntents: { record: enqueueWorkIntent },
+		// AU19 Increment 1c: `org` is a REAL migrated package — wired to its real
+		// exported functions (W2 closure).
+		teamCapacity: {
+			getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
+			setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
+		},
+	};
 	const disposeBetDecomp = registerBetDecomposition({
 		db,
 		eventBus,
 		adapterPool,
 		sandboxBasePath,
 		resolveModel: makeResolveModel(db, credentialResolver),
-		// AU19 Increment 1b: `work`'s four outbound DI ports (Mechanism C) — the
-		// concrete implementation for `workIntents` still lives in packages/server
-		// (session-requests has not migrated yet); `agentSelection`/`costCap`
-		// wire to real Service packages (`agent-selection` since Increment 3e,
-		// `cost` since Increment 3g — `costCap` is RULED PERMANENT, not an
-		// EventBus-inversion target, see `@hyperidle/work`'s `ports.ts` top
-		// `@lore`). See packages/core-api/work/src/ports.ts for the port
-		// contracts.
-		agentSelection: {
-			enumerateTeamCandidates: agentSelectionOps.enumerateTeamCandidates,
-			selectOwner: agentSelectionOps.selectOwner,
-			resolveDecompositionPlan,
-		},
-		users: { getUserById, listActiveAiUsersByTeams },
-		costCap: { checkCostCap },
-		workIntents: { record: recordAgentWorkIntent },
-		// AU19 Increment 1c: `org` is a REAL migrated package — wired to its real
-		// exported functions (W2 closure).
-		teamCapacity: { getByTeamId: getTeamMembersByTeamId, setActiveBets: setTeamMembersActiveBets },
+		...workDeps,
 	});
 
 	// AU19 Increment 3f: register the capture-writeback subscriber — the
@@ -743,9 +892,8 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// place both `@hyperidle/knowledge` and the port type are legally
 	// importable together (see `@hyperidle/capture-writeback`'s `ports.ts`
 	// top `@lore`).
-	const disposeCaptureWriteback = registerCaptureWriteback({
+	const writebackDeps: NonNullable<RuntimeDeps["composition"]["writeback"]> = {
 		db,
-		eventBus,
 		knowledge: {
 			create: createKnowledgeItem,
 			async update(execDb, id, patch, expectedVersion) {
@@ -761,10 +909,11 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			},
 			recordConflict: recordWritebackConflict,
 		},
-	});
+	};
 
 	// X2: Create the MCP bridge registry that maps session tokens to transport instances.
-	const mcpBridgeRegistry = createMcpBridgeRegistry();
+	const enforcementRegistry = createReturnEnforcement();
+	const mcpBridgeRegistry = createMcpToolBridge({ enforcement: enforcementRegistry });
 	const mcpBaseUrl = `http://localhost:${port}`;
 	// @lore AU19 Increment 3c: `runtime` is built as its own variable (not an
 	// inline literal in the `bootAgentLayer` call) so it type-checks against
@@ -774,7 +923,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// flow through unchanged at runtime, only assigned via a variable rather
 	// than a fresh literal (TS excess-property-check applies to literals, not
 	// variable references). See `run-orchestration`'s `ports.ts` top `@lore`.
-	const runtimeDeps: ProvisionSessionDeps = {
+	const runtimeDeps = {
 		db,
 		eventBus,
 		adapterPool,
@@ -783,15 +932,24 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		mcpBaseUrl,
 		serviceConnectionResolver: credentialResolver,
 		mounter,
-	};
-	const disposeAgentLayer = await bootAgentLayer({
-		db,
-		eventBus,
-		runtime: runtimeDeps,
-		sandboxBasePath,
-		resolveModel: makeResolveModel(db, credentialResolver),
-		assistantTurn: deps.assistantTurnDeps ?? { db, eventBus, adapterPool, credentialResolver },
-	});
+	} as ProvisionSessionDeps;
+	const runRuntime = await startRuntime(
+		buildRunRuntimeDeps(db, eventBus, {
+			runtime: runtimeDeps,
+			sandboxBasePath,
+			resolveModel: makeResolveModel(db, credentialResolver),
+			assistantTurn: deps.assistantTurnDeps ?? { db, eventBus, adapterPool, credentialResolver },
+			// runtimeDeps deep-merges this partial override with its production
+			// context/provisioner ports; do not replace context with a fake object.
+			composition: {
+				writeback: writebackDeps,
+				reapers: {
+					sandboxes: { sandboxBasePath },
+					routines: { staleAfterMs: DEFAULT_REAPER_STALE_AFTER_MS },
+				},
+			} as RuntimeDeps["composition"],
+		}),
+	);
 
 	// AH6 B3 (R-1): Build assistantTurnDeps from the already-constructed adapterPool
 	// + credentialResolver so the message→turn trigger fires in production.
@@ -869,10 +1027,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			const broadcaster = new WsBroadcaster(
 				eventBus,
 				createDbSubscribeAuthorizer(db, {
-					conversation: { getThreadById },
-					users: { getUserById },
-					org: { getTeamMembersById },
-					work: { getTaskById },
+					conversation: { getThreadById: (db, id) => findThread(db, { id }) },
+					users: { getUserById: (db, id) => findUser(db, { id }) },
+					org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
+					work: { getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id) },
 				}),
 			);
 			broadcaster.start();
@@ -884,7 +1042,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		 * needing a user API key. Same placement pattern as the user WS route.
 		 */
 		registerWorkerWebSocket: (apiRouter) => {
-			registerWorkerWsRoute(apiRouter, adapterPool, upgradeWebSocket);
+			runRuntime.registerWorkerWebSocket(apiRouter, upgradeWebSocket);
 		},
 		/**
 		 * @lore X2: MCP route registered BEFORE auth middleware — MCP clients
@@ -893,7 +1051,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		registerMcpRoute: (apiRouter) => {
 			// AL6 CRIT-1: pass enforcementRegistry so the /return-status sub-path
 			// resolves token → sessionId → entry → forceMessage (the real adjudicator).
-			const mcpRouter = createMcpRoute(mcpBridgeRegistry, enforcementRegistry);
+			const mcpRouter = mcpBridgeRegistry.router;
 			apiRouter.route("/", mcpRouter);
 		},
 	});
@@ -924,35 +1082,46 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		websocket: { server: wss },
 	});
 
-	const dispose = (): void => {
-		// @lore I1 M1: tear down event-bus subscriptions first so none of the
-		// five createApp-registered handlers (session-review-creator,
-		// policy-engine, builtin-routines, git-export, notification-dispatcher,
-		// observability) outlive the server. If we called `server.close()` or
-		// the WS disposer first, `disposeApp` would still run, but background
-		// handlers could observe events during shutdown against a torn-down
-		// runtime. Order: domain handlers -> WS route -> HTTP server -> DB.
-		// AK3: unsubscribe the bet decomposition subscriber.
-		disposeBetDecomp();
-		// AU19 Increment 3f: unsubscribe the capture-writeback subscriber.
-		disposeCaptureWriteback();
-		disposeAgentLayer();
-		// @lore AU9: best-effort — store the durable "shutdown" cause on every
-		// still-running correlated request BEFORE the process tears down, so a
-		// later boot's recovery sweep disposes it via the reason (failed/
-		// RUNTIME_LOST) instead of a generic guess. Never blocks teardown.
-		void markRunningAgentSessionRequestsForShutdown(db).catch(() => {});
-		disposeApp(app);
-		if (wsDispose) {
-			wsDispose();
-			wsDispose = null;
-		}
-		httpServer.close();
-		// AF7 §1: only close the DB we own. When a test injected `deps.db`, the
-		// fixture owns its lifecycle — closing it here would break the test harness.
-		if (dbHandle) {
-			void dbHandle.close();
-		}
+	let disposePromise: Promise<void> | null = null;
+	const dispose = (): Promise<void> => {
+		if (disposePromise) return disposePromise;
+		disposePromise = (async () => {
+			const failures: Array<{ phase: string; cause: unknown }> = [];
+			const runPhase = async (phase: string, cleanup: () => void | Promise<void>) => {
+				try {
+					await cleanup();
+				} catch (cause) {
+					failures.push({ phase, cause });
+				}
+			};
+
+			await runPhase("bet-decomposition", disposeBetDecomp);
+			await runPhase("run-runtime", () => runRuntime.dispose());
+			await runPhase("app-domain", () => disposeApp(app));
+			await runPhase("websocket", () => {
+				const disposeWebSocket = wsDispose;
+				wsDispose = null;
+				disposeWebSocket?.();
+			});
+			await runPhase(
+				"http",
+				() =>
+					new Promise<void>((resolve, reject) => {
+						httpServer.close((error?: Error) => {
+							if (error) reject(error);
+							else resolve();
+						});
+					}),
+			);
+			if (dbHandle) {
+				await runPhase("owned-db", () => dbHandle.close());
+			}
+
+			if (failures.length > 0) {
+				throw new AggregateError(failures, "Server disposal failed");
+			}
+		})();
+		return disposePromise;
 	};
 
 	return { httpServer, dispose, credentialResolver };

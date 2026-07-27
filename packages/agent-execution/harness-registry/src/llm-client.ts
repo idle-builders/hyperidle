@@ -44,6 +44,8 @@ export interface CallLlmOptions {
 	 * @lore X6: Total session wall-clock time is bounded by maxIterations * timeout.
 	 */
 	readonly timeoutMs?: number;
+	/** Cancels the active request and any pending retry backoff. */
+	readonly signal?: AbortSignal;
 }
 
 // HTTP status codes that are transient and warrant retry
@@ -361,6 +363,7 @@ async function fetchWithTimeout(
 	url: string,
 	init: RequestInit,
 	timeoutMs: number,
+	callerSignal?: AbortSignal,
 ): Promise<Response> {
 	// Use Promise.race to enforce timeout — this works even when fetch is mocked
 	// and doesn't respect AbortSignal. AbortSignal is still passed for real network
@@ -370,32 +373,51 @@ async function fetchWithTimeout(
 	// because mocked fetch implementations (used in tests) do not check the signal.
 	// Promise.race guarantees the timeout fires regardless of the fetch implementation.
 	const controller = new AbortController();
-	const abortTimeoutId = setTimeout(() => controller.abort(), timeoutMs);
-	let rejectTimeoutId: ReturnType<typeof setTimeout>;
-
 	const fetchPromise = fetch(url, { ...init, signal: controller.signal });
-	const timeoutPromise = new Promise<never>((_, reject) => {
-		rejectTimeoutId = setTimeout(() => {
-			reject(new Error(`LLM call timed out after ${timeoutMs}ms`));
-		}, timeoutMs);
+	let rejectCancellation: (error: Error) => void = () => undefined;
+	const cancellationPromise = new Promise<never>((_, reject) => {
+		rejectCancellation = reject;
 	});
+	const abortFromCaller = () => {
+		const error = abortError(callerSignal?.reason);
+		controller.abort(error);
+		rejectCancellation(error);
+	};
+	if (callerSignal?.aborted) abortFromCaller();
+	else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+	const timeoutId = setTimeout(() => {
+		const error = new Error(`LLM call timed out after ${timeoutMs}ms`);
+		controller.abort(error);
+		rejectCancellation(error);
+	}, timeoutMs);
 
 	try {
-		const result = await Promise.race([fetchPromise, timeoutPromise]);
-		clearTimeout(abortTimeoutId);
-		// biome-ignore lint/style/noNonNullAssertion: rejectTimeoutId is always assigned before Promise.race resolves
-		clearTimeout(rejectTimeoutId!);
-		return result;
-	} catch (err) {
-		clearTimeout(abortTimeoutId);
-		// biome-ignore lint/style/noNonNullAssertion: rejectTimeoutId is always assigned before Promise.race settles
-		clearTimeout(rejectTimeoutId!);
-		throw err;
+		return await Promise.race([fetchPromise, cancellationPromise]);
+	} finally {
+		clearTimeout(timeoutId);
+		callerSignal?.removeEventListener("abort", abortFromCaller);
 	}
 }
 
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+function abortError(reason?: unknown): Error {
+	return reason instanceof Error
+		? reason
+		: new DOMException("The operation was aborted", "AbortError");
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+	if (signal?.aborted) return Promise.reject(abortError(signal.reason));
+	return new Promise((resolve, reject) => {
+		const timeoutId = setTimeout(() => {
+			signal?.removeEventListener("abort", abort);
+			resolve();
+		}, ms);
+		const abort = () => {
+			clearTimeout(timeoutId);
+			reject(abortError(signal?.reason));
+		};
+		signal?.addEventListener("abort", abort, { once: true });
+	});
 }
 
 /**
@@ -420,18 +442,28 @@ function sleep(ms: number): Promise<void> {
  * interceptor. All 6 adapter call sites import callLlm (the dispatcher) and
  * are unaffected by this rename.
  */
-export async function callLlmDirect(options: CallLlmOptions): Promise<LlmResponse> {
+async function callLlmDirect(options: CallLlmOptions): Promise<LlmResponse> {
 	const { model, messages, tools, system, maxTokens = DEFAULT_MAX_TOKENS } = options;
 	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
 	let lastError: Error | undefined;
 
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		if (options.signal?.aborted) throw abortError(options.signal.reason);
 		try {
-			const response = await callLlmOnce(model, messages, tools, system, maxTokens, timeoutMs);
+			const response = await callLlmOnce(
+				model,
+				messages,
+				tools,
+				system,
+				maxTokens,
+				timeoutMs,
+				options.signal,
+			);
 			return response;
 		} catch (err) {
 			const error = err instanceof Error ? err : new Error(String(err));
+			if (options.signal?.aborted) throw abortError(options.signal.reason);
 
 			// Check if it's an HTTP error with a status code
 			if (isHttpError(error)) {
@@ -444,7 +476,7 @@ export async function callLlmDirect(options: CallLlmOptions): Promise<LlmRespons
 				if (TRANSIENT_STATUS_CODES.has(error.status) && attempt < MAX_RETRIES) {
 					lastError = error;
 					const delayMs = BASE_DELAY_MS * 2 ** attempt;
-					await sleep(delayMs);
+					await sleep(delayMs, options.signal);
 					continue;
 				}
 
@@ -476,12 +508,13 @@ function callLlmOnce(
 	system: string | undefined,
 	maxTokens: number,
 	timeoutMs: number,
+	signal?: AbortSignal,
 ): Promise<LlmResponse> {
 	if (model.provider === "openai-compatible") {
-		return callOpenAi(model, messages, tools, system, maxTokens, timeoutMs);
+		return callOpenAi(model, messages, tools, system, maxTokens, timeoutMs, signal);
 	}
 	// Both "anthropic" and "openrouter" use Anthropic Messages API format
-	return callAnthropic(model, messages, tools, system, maxTokens, timeoutMs);
+	return callAnthropic(model, messages, tools, system, maxTokens, timeoutMs, signal);
 }
 
 async function callAnthropic(
@@ -491,6 +524,7 @@ async function callAnthropic(
 	system: string | undefined,
 	maxTokens: number,
 	timeoutMs: number,
+	signal?: AbortSignal,
 ): Promise<LlmResponse> {
 	const url = `${model.baseUrl}/v1/messages`;
 
@@ -531,6 +565,7 @@ async function callAnthropic(
 			body: JSON.stringify(body),
 		},
 		timeoutMs,
+		signal,
 	);
 
 	if (!response.ok) {
@@ -549,6 +584,7 @@ async function callOpenAi(
 	system: string | undefined,
 	maxTokens: number,
 	timeoutMs: number,
+	signal?: AbortSignal,
 ): Promise<LlmResponse> {
 	const url = `${model.baseUrl}/v1/chat/completions`;
 
@@ -582,6 +618,7 @@ async function callOpenAi(
 			body: JSON.stringify(body),
 		},
 		timeoutMs,
+		signal,
 	);
 
 	if (!response.ok) {
@@ -621,3 +658,22 @@ export async function callLlm(options: CallLlmOptions): Promise<LlmResponse> {
 	}
 	return callLlmDirect(options);
 }
+
+/**
+ * LLM wire-type re-exports for the ./llm-client subpath.
+ *
+ * @lore AU20 Ag4a: Llm* types removed from the product barrel (./). Tests and
+ * eval consumers that need them (e.g. af7 session-isolation, provision-harness)
+ * import via "@hyperidle/harness-registry/llm-client" which already exists as a
+ * subpath. Centralised here so types travel with the functions they describe.
+ */
+export type {
+	LlmContentBlock,
+	LlmMessage,
+	LlmResponse,
+	LlmRole,
+	LlmTextBlock,
+	LlmToolDef,
+	LlmToolResultBlock,
+	LlmToolUseBlock,
+} from "./llm-types.js";

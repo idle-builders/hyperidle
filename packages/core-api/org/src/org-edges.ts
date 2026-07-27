@@ -25,28 +25,24 @@ import type { OrgEdgeMechanism } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 
 /**
- * List every `orgEdges` row (unfiltered).
+ * List `orgEdges` rows, optionally filtered by id.
+ *
+ * With `filter.id` performs a single-row lookup (replaces the old
+ * `getOrgEdgeById`). Without a filter returns all rows.
  *
  * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
- * closes `routes/org.ts`'s `GET /` org-chart response, which used to
- * `db.select().from(orgEdges)` directly.
+ * closes `routes/org.ts`'s `GET /` org-chart response.
+ * @lore AU20 Am7: `filter.id` folds in `getOrgEdgeById` (the pre-delete
+ * existence check) — a single parameterized read replaces two exports.
  */
-export async function listOrgEdges(db: HyperIdleDb): Promise<Array<typeof orgEdges.$inferSelect>> {
-	return db.select().from(orgEdges);
-}
-
-/**
- * Read a single `orgEdges` row by its own `id`, or `undefined` if none exists.
- *
- * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
- * closes `routes/org.ts`'s `DELETE /edges/:id` existence check.
- */
-export async function getOrgEdgeById(
+export async function listOrgEdges(
 	db: HyperIdleDb,
-	id: string,
-): Promise<typeof orgEdges.$inferSelect | undefined> {
-	const [row] = await db.select().from(orgEdges).where(eq(orgEdges.id, id)).limit(1);
-	return row;
+	filter?: { id?: string },
+): Promise<Array<typeof orgEdges.$inferSelect>> {
+	if (filter?.id !== undefined) {
+		return db.select().from(orgEdges).where(eq(orgEdges.id, filter.id));
+	}
+	return db.select().from(orgEdges);
 }
 
 /**
@@ -54,8 +50,10 @@ export async function getOrgEdgeById(
  *
  * @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, `org` sub-item):
  * closes `routes/org.ts`'s `DELETE /edges/:id` write.
+ * @lore AU20 Am7: renamed from `deleteOrgEdgeById` — the `ById` suffix is
+ * redundant for a function that already takes a plain `id` string.
  */
-export async function deleteOrgEdgeById(db: HyperIdleDb, id: string): Promise<void> {
+export async function deleteOrgEdge(db: HyperIdleDb, id: string): Promise<void> {
 	await db.delete(orgEdges).where(eq(orgEdges.id, id));
 }
 

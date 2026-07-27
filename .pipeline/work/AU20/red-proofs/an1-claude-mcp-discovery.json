@@ -1,0 +1,72 @@
+{
+  "workPackage": "AU20",
+  "increment": "an1-claude-mcp-discovery",
+  "phase": "write-tests",
+  "head": "c8e002be2f0d6ae0bc2da87de85ccc31801d14ea",
+  "architecture": {
+    "path": ".pipeline/work/AU20/architecture-amendments/an1-claude-mcp-discovery.md",
+    "sha256": "6b80424a5f76dcbde4ad22185c7e50bf26750f0ae47b484e37ab5619ea01dbbd",
+    "feasibilityPath": ".pipeline/work/AU20/feasibility-amendments/an1-claude-mcp-discovery.md",
+    "feasibilitySha256": "6aa384fc3b676f44f9cad77e9c35eceb59d8be416de56cbb96ffde923b821b5e",
+    "reviewPath": "plans/AU20/register-reviews/an1-claude-mcp-discovery-architecture.md",
+    "reviewSha256": "7668c47733f415b1ec97844cd678e19bcb44cf9eefd67f111a80cebe5462ffc4",
+    "verdict": "accept",
+    "postReviewClarification": "Executor listener invariant is zero residual; zero listeners added is valid."
+  },
+  "tests": {
+    "unitPath": "packages/agent-execution/harness-registry/src/__tests__/harness-discovery.test.ts",
+    "unitSha256": "35fca3c18ceca36a697d0c821ad0254a1c4e796bfdba97d029475ccdf337b803",
+    "integrationPath": "packages/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
+    "integrationSha256": "5e822e2dae8fb5b4816dfeba9b5e2aea95eada01490355e2ccdd27348b2c9bb7"
+  },
+  "unitRed": {
+    "command": "npx vitest run --project harness-registry packages/agent-execution/harness-registry/src/__tests__/harness-discovery.test.ts --reporter=verbose",
+    "exitCode": 1,
+    "passed": 5,
+    "failed": 12,
+    "failures": [
+      "known cwd MCP identity becomes [] after the obsolete five-second race",
+      "configured identity is lost for non-zero, zero-empty, and zero-unusable CLI results",
+      "status spoofing, current glyph mapping, sorting, and duplicate precedence differ",
+      "CLI and config identities are not merged into the exact closed four-key shape",
+      "readable symlinked cwd MCP identity becomes [] while invalid path/config states stay empty",
+      "successful and failed commands leak the obsolete Claude timer",
+      "timed-out injected runner receives no AbortSignal and configured identity is not retained",
+      "late resolve and late reject terminalize once without mutation/unhandled rejection, but receive no signal or fallback identity"
+    ]
+  },
+  "integrationRed": {
+    "command": "npx vitest run --config vitest.integration.config.ts --project harness packages/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts --reporter=verbose",
+    "exitCode": 1,
+    "failure": "real Claude project MCP identity expected, actual [] on all three attempts after 15066ms"
+  },
+  "greenBaseline": {
+    "check": {
+      "command": "npm run check",
+      "exitCode": 0,
+      "packages": "37/37"
+    },
+    "biome": {
+      "command": "npx biome check packages/agent-execution/harness-registry/src/__tests__/harness-discovery.test.ts packages/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
+      "exitCode": 0
+    }
+  },
+  "coverage": [
+    "delayed CLI identity survival beyond five seconds",
+    "fallback matrix for non-zero, zero-empty, and zero-unusable CLI output",
+    "current and historical final status suffix mapping",
+    "adversarial command and URL status-token spoof resistance",
+    "deterministic merge, exact-name dedupe, and conservative health precedence",
+    "absent file, missing/non-object/array mcpServers, empty/whitespace keys, malformed, unreadable regular file, directory, broken-symlink, and readable-symlink states",
+    "identity-only result with command, header, and token sentinels excluded",
+    "single invocation, AbortSignal delivery, per-case timer delta, and zero residual executor listeners for success, failure, and timeout",
+    "late resolve and late reject after timeout produce one terminal result, no mutation, and no unhandled rejection",
+    "real Claude project identity survives CLI health delay as honest unknown fallback"
+  ],
+  "scope": {
+    "productionChanged": false,
+    "realApiE2eChanged": false,
+    "au23Excluded": true
+  },
+  "next": "independent-red-review"
+}

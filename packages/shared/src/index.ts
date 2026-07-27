@@ -3,10 +3,8 @@
 // ── AU19 §11 (AC-9): cross-Layer AgentWorkIntentRecorder/Reader seam ──
 export type {
 	AgentWorkIntentReader,
-	AgentWorkIntentRecord,
 	AgentWorkIntentRecorder,
 	AgentWorkIntentRecorderInput,
-	AgentWorkIntentRecorderKind,
 } from "./agent-work-intent-recorder.js";
 export { scopeKindToLabel } from "./scope-labels.js";
 
@@ -144,6 +142,8 @@ export {
 	CREDENTIAL_STATES,
 	isCredentialName,
 } from "./credential.js";
+// -- cron (AU20 Stage 2: pure cron utilities — relocated from dispatch port to shared) --
+export { type CronFields, computeNextRunAt, nextCronMatch, parseCron } from "./cron.js";
 export {
 	ActiveRoutinesError,
 	ASSISTANT_TURN_TIMEOUT_MS,
@@ -336,6 +336,7 @@ export type {
 // ── Hint catalog (P5) ──
 export type { HintCatalogEntry, HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
+export { deriveInitials } from "./initials.js";
 // AM5 K4b: code kind schema + definition (purified to {path,lang,text})
 // CodePreview type already exported below via types/artifact.ts
 export { codeKind, codePreviewSchema } from "./kinds/code.js";
@@ -461,6 +462,7 @@ export {
 	SLACK_TOKEN_RE,
 	STRIPE_TOKEN_RE,
 	scrubInlineTokens,
+	summarizeToolArgs,
 	TK_TOKEN_RE,
 } from "./redact.js";
 // ── Routine primitive (AA1 + AA2 + AA3) ──
@@ -506,6 +508,11 @@ export {
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
+export {
+	canTransitionTaskState,
+	TASK_STATE_TRANSITIONS,
+	TaskInvalidTransitionError,
+} from "./task-transition.js";
 // ── Team primitive (L13, formerly Product) ──
 export type {
 	AgentHealthLevel,
@@ -687,6 +694,5 @@ export {
 	TASK_STATES,
 	USER_KINDS,
 } from "./types.js";
-
 // -- validate-env (AU19 Increment 5: relocated from packages/server per §5 — Application boot util) --
 export { LAPTOP_DEV_API_KEY, validateStartupEnv } from "./validate-env.js";

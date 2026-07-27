@@ -1,26 +1,20 @@
-import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-selection";
 import { escapeLikePattern, type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
+import { agentSelectionService } from "../services/agent-selection-bindings.js";
 
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
 // persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
 
 import {
+	findMessage,
 	findOrCreateDirectThread,
-	getMessageById,
 	insertMessage,
 	insertThread,
-	listInboxByParticipantProbe,
+	listInbox,
 } from "@hyperidle/conversation";
-import {
-	getFirstUserByKind,
-	getUserById,
-	insertUser,
-	listAllUsers,
-	updateUser,
-} from "@hyperidle/users";
+import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -34,7 +28,11 @@ import { createAssistantSoulRoutes } from "./assistant.js";
 
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
 // the real `user-store.ts` function references unchanged (no behavior change).
-const orgUsers = { getUserById, insertUser };
+// AU19 Increment 1c / AU20 Am11: adapter so `findUser({id})` satisfies `getUserById`.
+const orgUsers = {
+	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
+	insertUser,
+};
 
 const updateSkillSchema = z.object({
 	autonomyLevel: z.number().int().min(1).max(4),
@@ -110,7 +108,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 		}
 
 		// Check if a human user already exists
-		const existingHuman = await getFirstUserByKind(db, "human");
+		const existingHuman = await findUser(db, { kind: "human" });
 
 		if (existingHuman) {
 			// Human user exists: require auth. Check the API key.
@@ -151,7 +149,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 		// AK6 T8: Route through scaffoldAgents — app defaults decide the persona.
 		// The Kernel persists via persistScaffoldedAgents (single writer, idHint=ast-${id}).
 		// BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona is now app-owned.
-		const specs = await resolveAgentScaffoldSpecs({
+		const specs = await agentSelectionService.resolveScaffoldSpecs({
 			db,
 			trigger: "user_assistant",
 			teamId: null,
@@ -176,7 +174,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 			at: now,
 		});
 
-		const created = await getUserById(db, id);
+		const created = await findUser(db, { id });
 		return c.json({ user: created }, 201);
 	});
 
@@ -199,7 +197,7 @@ export function createUserRoutes(
 
 	// GET / — List all users with active session counts
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allUsers = await listAllUsers(db);
+		const allUsers = await listUsers(db);
 		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
 		const result = allUsers.map((user) => ({
@@ -213,7 +211,7 @@ export function createUserRoutes(
 	// GET /:id — User detail with skills
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.req.param("id");
-		const user = await getUserById(db, userId);
+		const user = await findUser(db, { id: userId });
 
 		if (!user) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
@@ -239,7 +237,7 @@ export function createUserRoutes(
 			);
 		}
 
-		const target = await getUserById(db, targetId);
+		const target = await findUser(db, { id: targetId });
 		if (!target) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -271,7 +269,7 @@ export function createUserRoutes(
 			await updateUser(db, targetId, updates);
 		}
 
-		const updated = await getUserById(db, targetId);
+		const updated = await findUser(db, { id: targetId });
 		return c.json(updated, 200);
 	});
 
@@ -324,7 +322,7 @@ export function createUserRoutes(
 				});
 
 				const itemId = crypto.randomUUID();
-				await work.createItem(db, {
+				await work.create(db, "item", {
 					id: itemId,
 					sourceAgentId: userId,
 					layer: "meta",
@@ -364,7 +362,7 @@ export function createUserRoutes(
 			);
 		}
 
-		const user = await getUserById(db, userId);
+		const user = await findUser(db, { id: userId });
 		if (!user) {
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -373,7 +371,7 @@ export function createUserRoutes(
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
 		const probe = `%${escapeLikePattern(JSON.stringify(userId))}%`;
-		const inboxRows = await listInboxByParticipantProbe(db, probe, limit, offset);
+		const inboxRows = await listInbox(db, { participantProbe: probe, limit, offset });
 
 		const matched = inboxRows.filter((row) => {
 			try {
@@ -401,12 +399,12 @@ export function createUserRoutes(
 			// Previous code accepted the header, enabling impersonation (WARNING-1).
 			const senderId = c.get("userId");
 
-			const user = await getUserById(db, recipientId);
+			const user = await findUser(db, { id: recipientId });
 			if (!user) {
 				return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
 
-			const senderUser = await getUserById(db, senderId);
+			const senderUser = await findUser(db, { id: senderId });
 			if (!senderUser) {
 				return c.json({ error: "Sender identity not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
@@ -427,7 +425,7 @@ export function createUserRoutes(
 				createdAt: now,
 			});
 
-			const created = await getMessageById(db, messageId);
+			const created = await findMessage(db, { id: messageId });
 			return c.json(created, 201);
 		},
 	);

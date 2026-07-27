@@ -7,33 +7,21 @@
  * Corrupt JSON in the DB falls back to defaults — the app always boots.
  */
 
-import { type HyperIdleDb, serverConfig } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	type ServerCredential,
+	serverConfig,
+	type WriteExecutor,
+} from "@hyperidle/db";
 import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/shared";
 import { BUILT_IN_GATEWAY_CONFIG, MODEL_PROVIDERS } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import type { SettingsCredentialCipher, SettingsCredentialStore } from "./ports.js";
+import type { SettingsCredentialCipher } from "./ports.js";
 
-/**
- * AU18 §3/§5: notification delivery config (SMTP/ntfy), migrated off the
- * retired `factorySettings.notifications.*` KV keys. Flat by design (no
- * nested sub-objects) — mirrors the original flat KV-prefix shape and keeps
- * this sub-schema outside the Zod v4 nested-default gotcha entirely; the
- * public `NotificationConfig` type (notifications/config.ts) reshapes this
- * flat storage into its nested wire shape at the domain-module boundary.
- * Secrets (smtp password / ntfy auth token) are NOT here — AH1 precedent:
- * secrets live in `server_credentials`, never the config blob.
- */
 const NotificationsDeliverySchema = z.object({
 	enabled: z.boolean().default(false),
 	primaryChannel: z.enum(["console", "ntfy", "smtp"]).default("console"),
-	/**
-	 * @lore AU18: nullable (not defaulted to a concrete channel) so the
-	 * original KV-era fallback semantics ("digestChannel falls back to
-	 * whatever primaryChannel currently is, not a fixed value") is preserved
-	 * — notifications/config.ts's buildConfig computes
-	 * `delivery.digestChannel ?? primaryChannel` at read time.
-	 */
 	digestChannel: z.enum(["console", "ntfy", "smtp"]).nullable().default(null),
 	recipientEmail: z.string().nullable().default(null),
 	recipientNtfyTopic: z.string().nullable().default(null),
@@ -50,13 +38,6 @@ const NotificationsDeliverySchema = z.object({
 	digestCron: z.string().default("0 8 * * *"),
 });
 
-/**
- * AU18 §3/§5: silence-policy config (silence-policy.ts), migrated off the
- * retired `factorySettings.silence_*` KV keys. `windowStart`/`windowEnd` are
- * flattened (not a nested `window` object) for the same nested-default
- * reason as {@link NotificationsDeliverySchema} — no prod writer exists for
- * this namespace today, so defaults (off/empty/null) preserve behavior.
- */
 const NotificationsSilenceSchema = z.object({
 	mode: z.boolean().default(false),
 	silencedTeamIds: z.array(z.string()).default([]),
@@ -64,7 +45,6 @@ const NotificationsSilenceSchema = z.object({
 	windowEnd: z.string().nullable().default(null),
 });
 
-/** AU18 §3/§5: observability config (services/observability/config.ts), migrated off factorySettings. */
 const ObservabilitySchema = z.object({
 	// @lore AF16 T14: default-on so tracing is "configured rather than silently off".
 	enabled: z.boolean().default(true),
@@ -74,12 +54,6 @@ const ObservabilitySchema = z.object({
 	bufferCap: z.number().default(10_000),
 });
 
-/**
- * AU18 §3/§5: git-export config (config/git-export-config.ts), migrated off
- * factorySettings. `repoRoot` is now a real string array (was a colon-joined
- * string in the KV era). The commit/push stamps are flattened fields owned
- * solely by git-export-config.ts (writeLastCommit/writeLastPush).
- */
 const GitExportSchema = z.object({
 	enabled: z.boolean().default(false),
 	repoPath: z.string().default(""),
@@ -95,12 +69,10 @@ const GitExportSchema = z.object({
 	lastPushAt: z.string().nullable().default(null),
 });
 
-/** AU18 §3/§4: cost-cap config — capMinor replaces the retired `factorySettings.cost_cap` key. */
 const CostSchema = z.object({
 	capMinor: z.number().default(20_000),
 });
 
-/** AU18 §3/§4: cost-sentinel's own dedup state — replaces `factorySettings.cost_sentinel_last_level`. */
 const InternalSchema = z.object({
 	costSentinelLastLevel: z.enum(["ok", "warning", "breach"]).nullable().default(null),
 });
@@ -118,12 +90,6 @@ const NotificationsSchema = z.object({
 	reviewAlerts: z.boolean().default(true),
 	costAlerts: z.boolean().default(true),
 	blockerAlerts: z.boolean().default(true),
-	/**
-	 * @lore R8: Quiet hours gate defaults to OFF so notifications are never
-	 * silenced on a fresh install. The start/end fields still persist but the
-	 * dispatcher only consults them when quietHoursEnabled=true. This separates
-	 * "has the user configured a window?" from "is the window active?".
-	 */
 	quietHoursEnabled: z.boolean().default(false),
 	quietHoursStart: z
 		.string()
@@ -138,23 +104,11 @@ const NotificationsSchema = z.object({
 	mutedTeams: z.array(z.string()).default([]),
 	/** AU18: per-notification-type mute keys (notifications/mute.ts), migrated off factorySettings. */
 	mutedTypes: z.array(z.string()).default([]),
-	/**
-	 * AU18: notification delivery config (SMTP/ntfy), migrated off factorySettings.
-	 * Kept as a nested-but-optional sub-schema (Zod v4 nested-default @lore applies —
-	 * see applyDefaults/DEFAULTS below, which parse it explicitly rather than
-	 * relying on an outer .default({})).
-	 */
 	delivery: NotificationsDeliverySchema.optional(),
 	/** AU18: silence-policy config (silence-policy.ts), migrated off factorySettings. */
 	silence: NotificationsSilenceSchema.optional(),
 });
 
-/**
- * X4: Per-tier model configuration schema — used within the ModelGateway schema.
- *
- * @lore AH1 §2: apiKey removed from ModelTierConfigSchema. The openai-compatible key
- * now lives in server_credentials (not the config blob). baseUrl (non-secret) stays.
- */
 const ModelTierConfigSchema = z.object({
 	provider: z.enum(MODEL_PROVIDERS),
 	model: z.string().min(1),
@@ -180,13 +134,6 @@ const ServerConfigSchema = z.object({
 	notifications: NotificationsSchema.optional(),
 	/** X4: Model gateway configuration (provider per tier). Optional — defaults to BUILT_IN_GATEWAY_CONFIG. */
 	modelGateway: ModelGatewayConfigSchema.optional(),
-	/**
-	 * AM4: Persisted list of harness types the user has disabled.
-	 * Consumed by AdapterPool.select() via a caller-supplied disabledTypes requirement
-	 * (the pool is DB-free and select() is synchronous — it cannot read this directly).
-	 * Stamped onto discovery.disabled in the GET /api/harnesses route handler.
-	 * "builtin" is always exempt even if listed here — guarded in select() and the route.
-	 */
 	harnessDisabled: z.array(z.string()).default([]),
 	/** AU18: observability config (migrated from factorySettings). */
 	observability: ObservabilitySchema.optional(),
@@ -248,7 +195,7 @@ type DeepPartialModelGateway = {
 	fast?: DeepPartialModelTier;
 };
 
-type ServerConfigPatch = {
+export type ServerConfigPatch = {
 	notifications?: DeepPartialNotifications;
 	/**
 	 * AF15: Deep-partial — each tier is optional; within a present tier, every field is optional.
@@ -269,8 +216,6 @@ type ServerConfigPatch = {
 	cost?: Partial<z.infer<typeof CostSchema>>;
 	internal?: Partial<z.infer<typeof InternalSchema>>;
 };
-
-export type { ServerConfigPatch };
 
 /**
  * Apply NotificationsSchema defaults, INCLUDING its own nested `delivery`/
@@ -334,13 +279,16 @@ function applyDefaults(raw: RawServerConfig): ServerConfig {
  */
 export async function readServerConfig(db: HyperIdleDb): Promise<ServerConfig> {
 	const [row] = await db.select().from(serverConfig).where(eq(serverConfig.id, "default")).limit(1);
+	return parseServerConfig(row?.config);
+}
 
-	if (!row) {
+function parseServerConfig(configJson: string | undefined): ServerConfig {
+	if (configJson === undefined) {
 		return DEFAULTS;
 	}
 
 	try {
-		const json: unknown = JSON.parse(row.config);
+		const json: unknown = JSON.parse(configJson);
 		const result = ServerConfigSchema.safeParse(json);
 		if (result.success) {
 			return applyDefaults(result.data);
@@ -375,7 +323,34 @@ export async function updateServerConfig(
 	db: HyperIdleDb,
 	patch: ServerConfigPatch,
 ): Promise<ServerConfig> {
-	const current = await readServerConfig(db);
+	return db.transaction(async (tx) => {
+		const now = new Date().toISOString();
+		await tx
+			.insert(serverConfig)
+			.values({ id: "default", config: JSON.stringify(DEFAULTS), updatedAt: now })
+			.onConflictDoNothing();
+
+		const [row] = await tx
+			.select({ config: serverConfig.config })
+			.from(serverConfig)
+			.where(eq(serverConfig.id, "default"))
+			.for("update");
+
+		return patchServerConfig(tx, parseServerConfig(row?.config), patch, now);
+	});
+}
+
+/**
+ * The singleton is a JSON blob, so a patch is necessarily read/merge/write.
+ * `updateServerConfig` locks its singleton row in a transaction: independent DB
+ * handles and processes cannot both merge against the same stale blob.
+ */
+async function patchServerConfig(
+	db: WriteExecutor,
+	current: ServerConfig,
+	patch: ServerConfigPatch,
+	now: string,
+): Promise<ServerConfig> {
 	const merged: ServerConfig = {
 		...current,
 		notifications:
@@ -398,7 +373,7 @@ export async function updateServerConfig(
 								: current.notifications.silence,
 					}
 				: current.notifications,
-		// AF15: Per-tier merge — preserves adjacent tiers' stored apiKey when patch omits them.
+		// Per-tier merge preserves adjacent tier configuration when patch omits it.
 		modelGateway: patch.modelGateway
 			? {
 					reasoning: mergeTier(current.modelGateway.reasoning, patch.modelGateway.reasoning ?? {}),
@@ -424,81 +399,45 @@ export async function updateServerConfig(
 	};
 
 	// AH1 §2: no apiKey in tiers — no encryption step needed here. Keys go to server_credentials.
-	const now = new Date().toISOString();
 	const configJson = JSON.stringify(merged);
-
-	// Upsert: update if row exists, insert if not
-	const [existing] = await db
-		.select()
-		.from(serverConfig)
-		.where(eq(serverConfig.id, "default"))
-		.limit(1);
-
-	if (existing) {
-		await db
-			.update(serverConfig)
-			.set({ config: configJson, updatedAt: now })
-			.where(eq(serverConfig.id, "default"));
-	} else {
-		await db.insert(serverConfig).values({ id: "default", config: configJson, updatedAt: now });
-	}
+	await db
+		.update(serverConfig)
+		.set({ config: configJson, updatedAt: now })
+		.where(eq(serverConfig.id, "default"));
 
 	return merged;
 }
 
-export { ModelGatewayConfigSchema, ModelTierConfigSchema, NotificationsSchema, ServerConfigSchema };
+// @lore AU20 Am6: ServerConfigSchema / NotificationsSchema / ModelGatewayConfigSchema /
+// ModelTierConfigSchema are validation internals — zero census demand from callers;
+// dropped from the public barrel. Not re-exported here.
 
 // ---------------------------------------------------------------------------
 // AH1 §4: One-shot boot migration — relocate legacy openai-compatible key +
 //          seed anthropic key from env. Replaces migrateServerConfigEncryption.
 // ---------------------------------------------------------------------------
 
-/**
- * Migrate legacy credentials into the server_credentials store.
- * Idempotent: safe to run N times.
- *
- * 1. Strip any legacy apiKey fields from server_config blob tiers (AH1 §2 removed
- *    apiKey from ModelTierConfig; legacy rows may still carry them). This is a
- *    forward-only schema cleanup — we relocate any non-empty legacy tier apiKey to
- *    server_credentials as openai_compatible_api_key (if the slot is absent).
- *
- * 2. Seed anthropic_api_key from ANTHROPIC_API_KEY env (desktop safeStorage path)
- *    if the slot in server_credentials is absent and the env var is set.
- *
- * Guards:
- * - Never writes a row if getServerSecret() is null (no encryption secret).
- * - Never overwrites an existing server_credentials row (absent-only seed).
- * - Never seeds an empty-string value.
- *
- * @lore AH1 §4: Replaces migrateServerConfigEncryption (AF11 hole 4).
- * migrateServerConfigEncryption is deleted because apiKey no longer lives in
- * the server_config blob. Legacy rows carrying apiKey in the blob are cleaned up here.
- * @lore AH1 §4.2: The env→store seed bridges existing installs where the key
- * only lived in safeStorage/env (main.ts boot env-injection). The env resolver
- * is no longer wired in production (server-factory.ts §3), so this one-time seed
- * is the migration path. Guarded: only when slot absent + secret non-null + non-empty.
- *
- * @lore AU19 Increment 1f: `cipher` is an injected `SettingsCredentialCipher`
- * port (Mechanism C) — this used to import `getServerSecret`/
- * `encryptCredentialValue`/`decryptCredentialValue` directly from the sibling
- * `credential-encryption.ts` (an ordinary downward core-api→core-api edge,
- * NOT §10.3 against-grain; `connections` just hasn't migrated to its own
- * package yet). `credentialStore` is an injected `SettingsCredentialStore`
- * port (table-ownership-guard completeness finding — this used to
- * raw-query the foreign `serverCredentials` table directly; see `ports.ts`'s
- * top-level `@lore`). The caller (`server-factory.ts`) passes the real
- * `packages/server` function/query references unchanged — no behavior change.
- */
+/** Relocate legacy inline keys before stripping them; idempotent and absent-only. */
 export async function migrateCredentialsToStore(
 	db: HyperIdleDb,
 	cipher: SettingsCredentialCipher,
-	credentialStore: SettingsCredentialStore,
+	credentialStore: {
+		findByName(db: HyperIdleDb, name: string): Promise<ServerCredential | undefined>;
+		insert(
+			db: HyperIdleDb,
+			values: {
+				readonly name: string;
+				readonly encryptedValue: string;
+				readonly validationState: string;
+				readonly lastValidatedAt: string | null;
+				readonly updatedAt: string;
+			},
+		): Promise<void>;
+	},
 ): Promise<void> {
-	const secret = cipher.getServerSecret();
-	if (!secret) {
-		// No root secret — cannot encrypt, skip migration. Boot warning already logged.
-		return;
-	}
+	// @lore AU20 Am4: cipher.getServerSecret() is gone; cipher.encryptCredentialValue
+	// throws MISSING_ROOT_SECRET when no secret is configured. We probe availability
+	// lazily — the first encrypt call will throw and we return early.
 
 	const now = new Date().toISOString();
 
@@ -530,8 +469,9 @@ export async function migrateCredentialsToStore(
 					if (tier && typeof tier === "object" && "apiKey" in tier) {
 						const rawKey = tier.apiKey;
 						if (typeof rawKey === "string" && rawKey !== "") {
-							// Decrypt-or-take-as-is: if it's our ciphertext, decrypt; else it's legacy plaintext.
-							const decrypted = cipher.decryptCredentialValue(rawKey, secret);
+							// Decrypt-or-take-as-is: if it's our ciphertext, decrypt (null = no secret
+							// or tampered); else treat as legacy plaintext.
+							const decrypted = cipher.decryptCredentialValue(rawKey);
 							const plaintext = decrypted !== null ? decrypted : rawKey;
 							if (plaintext !== "" && legacyApiKey === null) {
 								legacyApiKey = plaintext;
@@ -544,18 +484,18 @@ export async function migrateCredentialsToStore(
 				}
 			}
 
-			if (needsRewrite) {
-				await db
-					.update(serverConfig)
-					.set({ config: JSON.stringify(raw), updatedAt: now })
-					.where(eq(serverConfig.id, "default"));
-			}
-
-			// If we found a legacy openai-compatible key, seed server_credentials (absent-only).
+			// Persist a non-empty key before stripping it from the legacy blob. A failed
+			// encryption/store write leaves the only durable copy untouched for retry.
 			if (legacyApiKey !== null) {
 				const existing = await credentialStore.findByName(db, "openai_compatible_api_key");
 				if (!existing) {
-					const encryptedValue = cipher.encryptCredentialValue(legacyApiKey, secret);
+					let encryptedValue: string;
+					try {
+						encryptedValue = cipher.encryptCredentialValue(legacyApiKey);
+					} catch {
+						// No root secret — cannot encrypt; skip migration (boot warning already logged).
+						return;
+					}
 					await credentialStore.insert(db, {
 						name: "openai_compatible_api_key",
 						encryptedValue,
@@ -565,6 +505,13 @@ export async function migrateCredentialsToStore(
 					});
 				}
 			}
+
+			if (needsRewrite) {
+				await db
+					.update(serverConfig)
+					.set({ config: JSON.stringify(raw), updatedAt: now })
+					.where(eq(serverConfig.id, "default"));
+			}
 		}
 	}
 
@@ -573,7 +520,13 @@ export async function migrateCredentialsToStore(
 	if (envAnthropicKey && envAnthropicKey !== "") {
 		const existing = await credentialStore.findByName(db, "anthropic_api_key");
 		if (!existing) {
-			const encryptedValue = cipher.encryptCredentialValue(envAnthropicKey, secret);
+			let encryptedValue: string;
+			try {
+				encryptedValue = cipher.encryptCredentialValue(envAnthropicKey);
+			} catch {
+				// No root secret — skip (same no-op as when getServerSecret() returned null).
+				return;
+			}
 			await credentialStore.insert(db, {
 				name: "anthropic_api_key",
 				encryptedValue,

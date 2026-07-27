@@ -12,17 +12,12 @@
  */
 
 import {
-	getMessageByClientKey,
-	getMessageById,
-	getThreadByDirectKey,
-	getThreadById,
+	findMessage,
+	findThread,
 	insertMessage,
 	insertThread,
-	listMessagesByThread,
-	listThreadsByHost,
-	listThreadsByHostKind,
-	listThreadsByParticipant,
-	listUnresolvedReviewThreadIds,
+	listMessages,
+	listThreads,
 	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
@@ -33,12 +28,9 @@ import {
 	type HyperIdleDb,
 	sessions,
 } from "@hyperidle/db";
-import { findById as findKnowledgeItemById, listTitlesByIds } from "@hyperidle/knowledge";
-import {
-	composeTailoredGrant,
-	findProposedCallByReviewMessageId,
-	holdProposedCall,
-} from "@hyperidle/review";
+import { get as getKnowledgeItem, list as listKnowledgeItems } from "@hyperidle/knowledge";
+import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type {
 	AgentOperationalStatus,
 	AgentWorkIntentRecorder,
@@ -63,7 +55,7 @@ import {
 	headCollapsePredicate,
 	resolveMentions,
 } from "@hyperidle/shared";
-import { getUserById, getUsersByIds, listUsersByTeams } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -72,7 +64,6 @@ import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
@@ -121,7 +112,7 @@ async function readInitialSenderId(
 	if (explicit) return explicit;
 	if (messageType === "review" || messageType === "questionnaire") {
 		for (const p of participants) {
-			const ag = await getUserById(db, p);
+			const ag = await findUser(db, { id: p });
 			// @lore P2: "founder" is intentionally NOT in USER_ROLES (the role column is
 			// unconstrained text). This check selects the first non-founder participant as
 			// the sender for review/questionnaire messages. If you rename or remove the
@@ -159,7 +150,7 @@ async function buildThreadIdentities(
 	>
 > {
 	if (senderIds.length === 0) return {};
-	const rows = await getUsersByIds(db, senderIds);
+	const rows = await listUsers(db, { ids: senderIds });
 	const result: Record<
 		string,
 		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: AgentOperationalStatus }
@@ -211,7 +202,7 @@ async function buildMentionLookup(
 	if (participantIds.length === 0) return new Map();
 
 	// Find the teamIds for all participants.
-	const participantRows = await getUsersByIds(db, [...participantIds]);
+	const participantRows = await listUsers(db, { ids: [...participantIds] });
 
 	const teamIds = [
 		...new Set(participantRows.map((r) => r.teamId).filter((id): id is string => id !== null)),
@@ -219,7 +210,7 @@ async function buildMentionLookup(
 
 	if (teamIds.length === 0) {
 		// No team-scoped users — still resolve from direct participants.
-		const allRows = await getUsersByIds(db, [...participantIds]);
+		const allRows = await listUsers(db, { ids: [...participantIds] });
 		const map = new Map<string, { identityId: string; displayName: string }>();
 		// Sort by id for deterministic first-match when names conflict.
 		const sorted = allRows.slice().sort((a, b) => a.id.localeCompare(b.id));
@@ -233,7 +224,7 @@ async function buildMentionLookup(
 	}
 
 	// Query all users in the same team(s).
-	const teamUserRows = await listUsersByTeams(db, teamIds);
+	const teamUserRows = await listUsers(db, { teamIds });
 
 	const map = new Map<string, { identityId: string; displayName: string }>();
 	// Sort by id for deterministic first-match when names conflict.
@@ -311,15 +302,15 @@ async function resolveHostTitle(
 ): Promise<string | null> {
 	switch (hostKind) {
 		case "bet": {
-			const row = await work.getBetById(db, hostId);
+			const row = await work.get(db, "bet", hostId);
 			return row ? deriveTitle(row.description, hostId) : null;
 		}
 		case "task": {
-			const row = await work.getTaskById(db, hostId);
+			const row = await work.get(db, "task", hostId);
 			return row?.title ?? null;
 		}
 		case "knowledge_item": {
-			const row = await findKnowledgeItemById(db, hostId);
+			const row = await getKnowledgeItem(db, hostId);
 			return row?.title ?? null;
 		}
 		default:
@@ -416,13 +407,13 @@ async function resolveThreadTitles(
 
 	// ── batched queries ───────────────────────────────────────────────────────
 	const [betRows, taskRows, kiRows, userRows] = await Promise.all([
-		work.listBetsByIds(db, betIds),
-		work.listTasksByIds(db, taskIds),
+		work.list(db, "bet", { ids: betIds }),
+		work.list(db, "task", { ids: taskIds }),
 		kiIds.length > 0
-			? listTitlesByIds(db, kiIds)
+			? listKnowledgeItems(db, { titlesByIds: kiIds })
 			: Promise.resolve([] as ReadonlyArray<{ id: string; title: string }>),
 		allParticipantIds.size > 0
-			? getUsersByIds(db, [...allParticipantIds])
+			? listUsers(db, { ids: [...allParticipantIds] })
 			: Promise.resolve([] as Array<{ id: string; name: string }>),
 	]);
 
@@ -594,7 +585,7 @@ function err(
  * must not import `@hyperidle/session-requests` (agent-orchestration)
  * directly for its raw `agent_work_intents` write below. `createApp`
  * defaults it to the real production binding
- * (`session-requests-bindings.ts`); tests may override.
+ * (`durable-agent-queue.ts`); tests may override.
  */
 export function createThreadRoutes(
 	db: HyperIdleDb,
@@ -646,15 +637,23 @@ export function createThreadRoutes(
 
 		let rows: DbThread[];
 		if (q.host_kind && q.host_id) {
-			rows = await listThreadsByHost(db, q.host_kind, q.host_id, q.limit);
+			rows = await listThreads(db, {
+				host: { kind: q.host_kind, id: q.host_id },
+				order: "lastActive",
+				limit: q.limit,
+			});
 		} else if (q.host_kind) {
-			rows = await listThreadsByHostKind(db, q.host_kind, q.limit);
+			rows = await listThreads(db, { hostKind: q.host_kind, order: "lastActive", limit: q.limit });
 		} else {
 			// L1 step5 (W6): participant_id scope — pre-filter in SQL with LIKE probe,
 			// then re-verify membership in JS.
 			const participantId = q.participant_id ?? "";
 			const probe = `%${escapeLikePattern(JSON.stringify(participantId))}%`;
-			const rawRows = await listThreadsByParticipant(db, probe, q.limit);
+			const rawRows = await listThreads(db, {
+				participantProbe: probe,
+				order: "lastActive",
+				limit: q.limit,
+			});
 			rows = rawRows.filter((row) => {
 				try {
 					const parts = threadParticipantsSchema.parse(JSON.parse(row.participants));
@@ -669,7 +668,12 @@ export function createThreadRoutes(
 		const threadIds = rows.map((r) => r.id);
 		const unresolvedThreadIds = new Set<string>();
 		if (threadIds.length > 0) {
-			const unresolvedRows = await listUnresolvedReviewThreadIds(db, threadIds);
+			const unresolvedMsgs = await listMessages(db, {
+				threadIds,
+				types: ["review", "questionnaire"],
+				unresolved: true,
+			});
+			const unresolvedRows = [...new Set(unresolvedMsgs.map((m) => m.threadId))];
 			for (const threadId of unresolvedRows) {
 				unresolvedThreadIds.add(threadId);
 			}
@@ -706,7 +710,7 @@ export function createThreadRoutes(
 		}
 		const blockIdFilter = rawBlockId ?? null;
 
-		const row = await getThreadById(db, id);
+		const row = await findThread(db, { id });
 		if (!row) {
 			const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 			return c.json(e.body, e.status);
@@ -734,7 +738,8 @@ export function createThreadRoutes(
 		}
 
 		// Message query — optionally filter by block_id column (owned by the store).
-		const messageRows = await listMessagesByThread(db, id, {
+		const messageRows = await listMessages(db, {
+			threadId: id,
 			blockId: blockIdFilter ?? undefined,
 			order: "createdAt",
 			dir: "desc",
@@ -805,7 +810,7 @@ export function createThreadRoutes(
 
 		if (dmDirectKey) {
 			// Happy path: existing thread lookup (read-before-insert — the DB index backstops the race).
-			const existing = await getThreadByDirectKey(db, dmDirectKey);
+			const existing = await findThread(db, { directKey: dmDirectKey });
 
 			if (existing) {
 				// Option B: append the initial message to the existing thread + bump lastActiveAt.
@@ -880,7 +885,7 @@ export function createThreadRoutes(
 				};
 				eventBus.emit(appendedEvent);
 
-				const reusedThread = await getThreadById(db, existing.id);
+				const reusedThread = await findThread(db, { id: existing.id });
 				if (!reusedThread) {
 					const e = err("internal_error", "Reused thread missing", 500);
 					return c.json(e.body, e.status);
@@ -970,7 +975,7 @@ export function createThreadRoutes(
 				cause instanceof Error &&
 				constraintMsgInChain(cause).toLowerCase().includes("threads_direct_key_uq")
 			) {
-				const winner = await getThreadByDirectKey(db, dmDirectKey);
+				const winner = await findThread(db, { directKey: dmDirectKey });
 				if (winner) {
 					const nowRace = new Date().toISOString();
 					const raceMsgId = crypto.randomUUID();
@@ -1005,7 +1010,7 @@ export function createThreadRoutes(
 						timestamp: Date.now(),
 					};
 					eventBus.emit(appendedRaceEvent);
-					const reloadedWinner = await getThreadById(db, winner.id);
+					const reloadedWinner = await findThread(db, { id: winner.id });
 					if (!reloadedWinner) {
 						const e = err("internal_error", "Race winner thread missing", 500);
 						return c.json(e.body, e.status);
@@ -1040,8 +1045,8 @@ export function createThreadRoutes(
 		};
 		eventBus.emit(appendedEvent);
 
-		const threadRow = await getThreadById(db, threadId);
-		const msgRow = await getMessageById(db, messageId);
+		const threadRow = await findThread(db, { id: threadId });
+		const msgRow = await findMessage(db, { id: messageId });
 		if (!(threadRow && msgRow)) {
 			const e = err("internal_error", "Created thread missing", 500);
 			return c.json(e.body, e.status);
@@ -1085,7 +1090,7 @@ export function createThreadRoutes(
 			// into any thread by spoofing the senderId header.
 			const senderId = c.get("userId");
 
-			const threadRow = await getThreadById(db, threadId);
+			const threadRow = await findThread(db, { id: threadId });
 			if (!threadRow) {
 				const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
 				return c.json(e.body, e.status);
@@ -1110,7 +1115,7 @@ export function createThreadRoutes(
 			if (writedenial) return writedenial;
 
 			// Idempotency check before transaction.
-			const existing = await getMessageByClientKey(db, threadId, senderId, input.clientKey);
+			const existing = await findMessage(db, { threadId, senderId, clientKey: input.clientKey });
 			if (existing) {
 				// L1 step9 (Adv-C3): divergent payload on replay => 409.
 				const sameType = existing.type === input.type;
@@ -1135,12 +1140,12 @@ export function createThreadRoutes(
 			// Verdict authorization (plan §6.1 REVISED for adversary C4).
 			let resolvesMessageRow: DbMessage | undefined;
 			if (input.type === "verdict") {
-				resolvesMessageRow = await getMessageById(db, input.payload.resolvesMessageId);
+				resolvesMessageRow = await findMessage(db, { id: input.payload.resolvesMessageId });
 				if (!resolvesMessageRow || resolvesMessageRow.threadId !== threadId) {
 					const e = err("validation_error", "resolvesMessageId not found in thread", 400);
 					return c.json(e.body, e.status);
 				}
-				const senderAgent = await getUserById(db, senderId);
+				const senderAgent = await findUser(db, { id: senderId });
 				// @lore P2: "founder" role is NOT in USER_ROLES (unconstrained text).
 				const isFounder = senderAgent?.role === "founder";
 				const selfVerdict = resolvesMessageRow.senderId === senderId;
@@ -1296,8 +1301,8 @@ export function createThreadRoutes(
 				eventBus.emit(reopenedEvent);
 			}
 
-			const updatedThread = await getThreadById(db, threadId);
-			const created = await getMessageById(db, messageId);
+			const updatedThread = await findThread(db, { id: threadId });
+			const created = await findMessage(db, { id: messageId });
 			if (!(updatedThread && created)) {
 				const e = err("internal_error", "Created message missing", 500);
 				return c.json(e.body, e.status);
@@ -1345,7 +1350,7 @@ export function createThreadRoutes(
 			// Authz: load thread to validate the caller has write access.
 			// @lore AL7 Task 8: authorizeWrite guards the verdict action — only
 			// thread participants (team members on the host) can approve/reject.
-			const threadRow = await getThreadById(db, threadId);
+			const threadRow = await findThread(db, { id: threadId });
 			if (!threadRow) {
 				return c.json({ error: "Thread not found", code: "not_found" }, 404);
 			}
@@ -1364,44 +1369,45 @@ export function createThreadRoutes(
 			if (writeDenial) return writeDenial;
 
 			// Find the Proposed Call anchored to this review message
-			const pc = await findProposedCallByReviewMessageId(db, messageId);
+			const pcView = await findProposedCall(db, { by: { reviewMessageId: messageId } });
 
-			if (!pc) {
+			if (!pcView) {
 				// No PC anchored to this review message — verdict accepted but nothing to do
 				return c.json({ ok: true }, 200);
 			}
 
 			if (decision === "approve") {
 				// Resolve task + agent scope via the artifact → task chain
-				const art = await work.getArtifactById(db, pc.artifactId);
+				const art = await work.get(db, "artifact", pcView.call.artifactId);
 				const taskId = art?.producingTaskId;
 				if (!taskId) {
 					return c.json({ error: "Artifact not found", code: "not_found" }, 404);
 				}
 
-				const task = await work.getTaskById(db, taskId);
+				const task = await work.get(db, "task", taskId);
 				const agentId = task?.ownerAgentId;
 				if (!agentId) {
 					return c.json({ error: "Task not found", code: "not_found" }, 404);
 				}
 
-				await composeTailoredGrant(
+				await transitionProposedCall(
 					db,
 					{
-						proposedCallId: pc.id,
+						to: "granted",
+						id: pcView.call.id,
 						taskScope: taskId,
 						agentScope: agentId,
-						approvedToolId: pc.toolId,
-						approvedArgs: pc.args,
-						identityHash: pc.identityHash ?? undefined,
+						approvedToolId: pcView.call.toolId,
+						approvedArgs: pcView.call.args,
+						identityHash: pcView.call.identityHash,
 					},
-					{ sessionRequests: { record: recordAgentWorkIntent } },
+					{ intentRecorder: { record: enqueueWorkIntent } },
 				);
 
 				const event: ProposedCallGrantedEvent = {
 					type: "proposed_call_granted",
 					streamId: threadId,
-					proposedCallId: pc.id,
+					proposedCallId: pcView.call.id,
 					taskId,
 					agentId,
 					timestamp: Date.now(),
@@ -1409,7 +1415,7 @@ export function createThreadRoutes(
 				eventBus.emit(event);
 			} else {
 				// Non-approve: hold the Proposed Call (never executed)
-				await holdProposedCall(db, pc.id);
+				await transitionProposedCall(db, { to: "held", id: pcView.call.id });
 			}
 
 			return c.json({ ok: true }, 200);

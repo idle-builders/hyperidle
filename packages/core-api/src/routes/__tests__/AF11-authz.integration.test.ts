@@ -13,8 +13,20 @@
  */
 
 import { serverConfig, threads, users } from "@hyperidle/db";
+import { AdapterPool } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
+import { registerWorkerTestSocket, startWorkerTestRuntime } from "./worker-runtime-test-helper.js";
+
+async function createWorkerConnectionManager(pool: AdapterPool) {
+	const runtime = await startWorkerTestRuntime(pool);
+	const app = registerWorkerTestSocket(runtime);
+	return {
+		onMessage(data: string, ws: unknown) {
+			app.handlers?.onMessage({ data }, ws);
+		},
+	};
+}
 
 const TEST_API_KEY = "test-key-af11-authz";
 const TEST_SERVER_SECRET = "a-test-secret-for-af11-encryption-32x";
@@ -347,11 +359,6 @@ describe("AC3: Worker token cannot access credentials or admin routes", () => {
 
 describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => {
 	test("register with already-active id is rejected when incumbent is live", async ({}) => {
-		const { createWorkerConnectionManager } = await import(
-			"../../services/run-orchestration-bindings.js"
-		);
-		const { AdapterPool } = await import("@hyperidle/harness-registry");
-
 		const pool = new AdapterPool();
 		const ws1Sent: string[] = [];
 		const ws1 = {
@@ -361,7 +368,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		const ws2Sent: string[] = [];
 		const ws2 = { send: (data: string) => ws2Sent.push(data) };
 
-		const manager1 = createWorkerConnectionManager(pool);
+		const manager1 = await createWorkerConnectionManager(pool);
 		manager1.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -377,7 +384,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		expect(ws1Sent).toContain(JSON.stringify({ type: "registered" }));
 
 		// Second connection tries to register the same id
-		const manager2 = createWorkerConnectionManager(pool);
+		const manager2 = await createWorkerConnectionManager(pool);
 		manager2.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -397,11 +404,6 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 	});
 
 	test("register with dead-incumbent id is accepted (reconnect)", async ({}) => {
-		const { createWorkerConnectionManager } = await import(
-			"../../services/run-orchestration-bindings.js"
-		);
-		const { AdapterPool } = await import("@hyperidle/harness-registry");
-
 		const pool = new AdapterPool();
 		// Closed socket (readyState=3: CLOSED)
 		const ws1Sent: string[] = [];
@@ -412,7 +414,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		const ws2Sent: string[] = [];
 		const ws2 = { send: (data: string) => ws2Sent.push(data) };
 
-		const manager1 = createWorkerConnectionManager(pool);
+		const manager1 = await createWorkerConnectionManager(pool);
 		manager1.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -426,7 +428,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 
 		// worker-y registered but the socket is now CLOSED (simulating stale entry)
 		// Second manager reconnects with same id
-		const manager2 = createWorkerConnectionManager(pool);
+		const manager2 = await createWorkerConnectionManager(pool);
 		manager2.onMessage(
 			JSON.stringify({
 				type: "register",
@@ -537,13 +539,10 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 
 		// Run the AH1 migration — relocates blob apiKey to server_credentials.
 		const { migrateCredentialsToStore } = await import("@hyperidle/settings");
-		const {
-			decryptCredentialValue: decryptCipher,
-			encryptCredentialValue: encryptCipher,
-			getServerSecret,
-		} = await import("@hyperidle/connections");
+		// @lore AU20 Am4: getServerSecret removed from barrel; cipher is now no-arg.
+		const { decryptCredentialValue: decryptCipher, encryptCredentialValue: encryptCipher } =
+			await import("@hyperidle/connections");
 		const cipher = {
-			getServerSecret,
 			encryptCredentialValue: encryptCipher,
 			decryptCredentialValue: decryptCipher,
 		};
@@ -601,7 +600,9 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 
 		// It must decrypt back to the original plaintext.
 		const { decryptCredentialValue } = await import("@hyperidle/connections");
-		const decrypted = decryptCredentialValue(encryptedValue, TEST_SERVER_SECRET);
+		// @lore AU20 Am4: decryptCredentialValue is no-arg; reads HYPERIDLE_CREDENTIAL_KEY from env.
+		// TEST_SERVER_SECRET is already stubbed in beforeEach for this test suite.
+		const decrypted = decryptCredentialValue(encryptedValue);
 		expect(decrypted).toBe(plaintextApiKey);
 
 		// Run migration again — idempotent (does not overwrite the existing credential row).

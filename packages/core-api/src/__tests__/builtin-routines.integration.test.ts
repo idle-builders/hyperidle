@@ -12,7 +12,6 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { BUILTIN_ROUTINE_IDS } from "@hyperidle/dispatch";
 import { updateServerConfig } from "@hyperidle/settings";
 import type {
 	BetStateChangedEvent,
@@ -21,18 +20,25 @@ import type {
 	DomainEvent,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { clearCostSentinelCache, runCostSentinelCheck } from "../services/cost-bindings.js";
-import {
-	provisionTeamRoutines,
-	registerBuiltinRoutineHandlers,
-	runBuiltinRoutine,
-} from "../services/dispatch-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
+import {
+	fireStoredRoutine,
+	seedTeamRoutines,
+	startDispatchEngine,
+} from "./dispatch-test-helpers.js";
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";
+const BUILTIN_ROUTINE_IDS = [
+	"builtin:practice-meeting",
+	"builtin:post-bet-retro",
+	"builtin:portfolio-retro",
+	"builtin:knowledge-decay",
+	"builtin:knowledge-promotion",
+] as const;
 
 // @lore AF17: Per-team routine ids — builtin:<kind>:<teamId>.
-// provisionTeamRoutines uses this scheme so multiple teams don't collide.
+// seedTeamRoutines uses this scheme so multiple teams don't collide.
 const TEST_TEAM_ID = "prod-1";
 const BID = {
 	practiceMeeting: `builtin:practice-meeting:${TEST_TEAM_ID}`,
@@ -88,10 +94,10 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 
 /**
  * @lore AF17: replaces seedBuiltinRoutines(db, teamId).
- * Uses provisionTeamRoutines so ids are per-team: `builtin:<kind>:prod-1`.
+ * Uses seedTeamRoutines so ids are per-team: `builtin:<kind>:prod-1`.
  */
 async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Promise<void> {
-	await provisionTeamRoutines(db, {
+	await seedTeamRoutines(db, {
 		teamId,
 		ownerByRole: {
 			facilitator: "seed-agent-pf-facilitation",
@@ -104,11 +110,11 @@ async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Prom
 
 describe("G4: Built-in Routines", () => {
 	beforeEach(() => {
-		clearCostSentinelCache();
+		costOps._testHooks.resetSentinelState();
 	});
 
 	afterEach(() => {
-		clearCostSentinelCache();
+		costOps._testHooks.resetSentinelState();
 	});
 
 	// ------------------------------------------------------------------
@@ -207,13 +213,13 @@ describe("G4: Built-in Routines", () => {
 
 	// ------------------------------------------------------------------
 	// AC1: Cost Sentinel — extracted to app code, NOT a routine (AD8c)
-	// Tests call runCostSentinelCheck directly (no DB routine row needed).
+	// Tests call costOps.runCostSentinelCheck directly (no DB routine row needed).
 	// @lore AD8c: cost-sentinel removed from routines table. Tests migrated
-	// from runBuiltinRoutine("builtin:cost-sentinel") to runCostSentinelCheck.
+	// from fireStoredRoutine("builtin:cost-sentinel") to costOps.runCostSentinelCheck.
 	// ------------------------------------------------------------------
 	describe("AC1: Cost Sentinel (app code, not a routine)", () => {
 		// @lore AU18: `cost_actual` is no longer a settable KV row — cost-sentinel
-		// now reads `getFactoryCostActual(db)` (= sumAllUserCost, a live SUM over
+		// now reads `costOps.spend(db)` (= sumAllUserCost, a live SUM over
 		// users.costActual). Seed exactly one costed user row so the sum resolves
 		// to `actual` (onConflictDoUpdate — safe to call more than once per test,
 		// e.g. the level-transition tests below that call this twice).
@@ -238,7 +244,7 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 500);
 
-			const result = await runCostSentinelCheck(db, eventBus);
+			const result = await costOps.runCostSentinelCheck(db, eventBus);
 
 			expect(result.fired).toBe(true);
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
@@ -252,7 +258,7 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 800);
 
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter(
 				(e): e is CostCapWarningEvent => e.type === "cost_cap_warning",
@@ -268,7 +274,7 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 1000);
 
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const breaches = emitted.filter(
 				(e): e is CostCapBreachedEvent => e.type === "cost_cap_breached",
@@ -288,9 +294,9 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 800);
 
-			await runCostSentinelCheck(db, eventBus);
-			await runCostSentinelCheck(db, eventBus);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
 			expect(warnings).toHaveLength(1);
@@ -304,8 +310,8 @@ describe("G4: Built-in Routines", () => {
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 1200);
 
-			await runCostSentinelCheck(db, eventBus);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const breaches = emitted.filter((e) => e.type === "cost_cap_breached");
 			expect(breaches).toHaveLength(1);
@@ -318,15 +324,15 @@ describe("G4: Built-in Routines", () => {
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 800);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			// Drop below 80% — level transitions to 'ok' (silent reset).
 			await setFactoryCost(db, 1000, 500);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			// Climb back up — this is a new transition and must re-emit.
 			await setFactoryCost(db, 1000, 850);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
 			expect(warnings).toHaveLength(2);
@@ -336,10 +342,10 @@ describe("G4: Built-in Routines", () => {
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await setFactoryCost(db, 1000, 800);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			await setFactoryCost(db, 1000, 1100);
-			await runCostSentinelCheck(db, eventBus);
+			await costOps.runCostSentinelCheck(db, eventBus);
 
 			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
 			const breaches = emitted.filter((e) => e.type === "cost_cap_breached");
@@ -356,7 +362,7 @@ describe("G4: Built-in Routines", () => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 
-			const result = await runBuiltinRoutine(db, eventBus, BID.practiceMeeting);
+			const result = await fireStoredRoutine(db, eventBus, BID.practiceMeeting);
 
 			expect(result.fired).toBe(true);
 			const anchors = await db
@@ -406,7 +412,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const result = await runBuiltinRoutine(db, eventBus, BID.postBetRetro, {
+			const result = await fireStoredRoutine(db, eventBus, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 
@@ -428,7 +434,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			await runBuiltinRoutine(db, eventBus, BID.postBetRetro, {
+			await fireStoredRoutine(db, eventBus, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 
@@ -444,7 +450,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
+			const unsub = await startDispatchEngine({ db, eventBus });
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",
@@ -474,12 +480,12 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const first = await runBuiltinRoutine(db, eventBus, BID.postBetRetro, {
+			const first = await fireStoredRoutine(db, eventBus, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 			expect(first.fired).toBe(true);
 
-			const second = await runBuiltinRoutine(db, eventBus, BID.postBetRetro, {
+			const second = await fireStoredRoutine(db, eventBus, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 			expect(second.fired).toBe(false);
@@ -499,7 +505,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
+			const unsub = await startDispatchEngine({ db, eventBus });
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",
@@ -529,7 +535,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
+			const unsub = await startDispatchEngine({ db, eventBus });
 			try {
 				// Emit a non-completed transition — should be ignored
 				const nonCompleted: BetStateChangedEvent = {
@@ -618,7 +624,7 @@ describe("G4: Built-in Routines", () => {
 				kind: "pattern",
 			});
 
-			const result = await runBuiltinRoutine(db, eventBus, BID.portfolioRetro);
+			const result = await fireStoredRoutine(db, eventBus, BID.portfolioRetro);
 			expect(result.fired).toBe(true);
 
 			const reviewRows = await db.select().from(items);
@@ -651,7 +657,7 @@ describe("G4: Built-in Routines", () => {
 				updatedAt: longAgo,
 			});
 
-			const result = await runBuiltinRoutine(db, eventBus, BID.knowledgeDecay);
+			const result = await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
 			expect(result.fired).toBe(true);
 
 			const [row] = await db
@@ -694,7 +700,7 @@ describe("G4: Built-in Routines", () => {
 				});
 			}
 
-			await runBuiltinRoutine(db, eventBus, BID.knowledgeDecay);
+			await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
 
 			// DB writes still happen — verify the transitions succeeded.
 			const markedStale = await db
@@ -729,7 +735,7 @@ describe("G4: Built-in Routines", () => {
 				updatedAt: longAgo,
 			});
 
-			await runBuiltinRoutine(db, eventBus, BID.knowledgeDecay);
+			await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
 
 			const events = emitted.filter((e) => e.type === "knowledge_updated");
 			expect(events).toHaveLength(1);
@@ -741,7 +747,7 @@ describe("G4: Built-in Routines", () => {
 	// ------------------------------------------------------------------
 	describe("AC8: Disabled routine prevents firing", () => {
 		// @lore AD8c: cost-sentinel is no longer a routine; using knowledge-decay as the test subject.
-		test("runBuiltinRoutine returns fired=false when routine active=0", async ({
+		test("fireStoredRoutine returns fired=false when routine active=0", async ({
 			db,
 			eventBus,
 		}) => {
@@ -749,7 +755,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await db.update(routines).set({ active: false }).where(eq(routines.id, BID.knowledgeDecay));
 
-			const result = await runBuiltinRoutine(db, eventBus, BID.knowledgeDecay);
+			const result = await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
 			expect(result.fired).toBe(false);
 			if (!result.fired) expect(result.reason).toContain("disabled");
 		});
@@ -768,7 +774,7 @@ describe("G4: Built-in Routines", () => {
 				createdAt: NOW_ISO,
 			});
 
-			const unsub = registerBuiltinRoutineHandlers(db, eventBus);
+			const unsub = await startDispatchEngine({ db, eventBus });
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",
@@ -791,12 +797,12 @@ describe("G4: Built-in Routines", () => {
 });
 
 /**
- * The drain-time agent-selection move only touches the generic-routine path
- * (`checkAndFireRoutine`'s deleted WIP/delegate block). `runBuiltinRoutine`
+ * The drain-time agent-selection move only touches the generic-routine path.
+ * `fireStoredRoutine`
  * never called `isAgentAtWipLimit`/`selectAgentByAppDefaults` before or after
  * that move — this proves it structurally, by putting the owner at their WIP
  * limit and confirming the builtin still fires and writes a terminal
- * `routineRuns` row regardless (all 5 kinds share this same `runBuiltinRoutine`
+ * `routineRuns` row regardless (all 5 kinds share this same `fireStoredRoutine`
  * entry point — there is no per-kind WIP gate to regress).
  */
 describe("built-ins are structurally unaffected by the drain-time selection move", () => {
@@ -829,7 +835,7 @@ describe("built-ins are structurally unaffected by the drain-time selection move
 			updatedAt: longAgo,
 		});
 
-		const result = await runBuiltinRoutine(db, eventBus, BID.knowledgeDecay);
+		const result = await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
 		expect(result.fired).toBe(true);
 
 		const runs = await db

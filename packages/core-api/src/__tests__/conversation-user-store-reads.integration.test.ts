@@ -13,26 +13,21 @@
  */
 
 import {
+	findMessage,
+	findThread,
 	getArtifactThreadSummaries,
-	getFirstThreadByHost,
-	getMessageById,
-	getThreadById,
-	getThreadIdsByHost,
 	insertMessage,
 	insertThread,
-	listMessagesByThread,
-	listThreadsByHost,
+	listMessages,
+	listThreads,
 	searchConversations,
 } from "@hyperidle/conversation";
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import {
-	getUserById,
-	getUsersByIds,
+	findUser,
 	incrementUserCost,
 	insertUser,
-	listActiveAiUsersByTeams,
-	listAgentProfiles,
-	listUsersByKind,
+	listUsers,
 	sumAllUserCost,
 } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
@@ -94,42 +89,81 @@ function messageValues(
 }
 
 describe("user-store reads", () => {
-	test("getUserById returns the row, or undefined when absent", async ({ db }) => {
+	test("findUser returns the row, or undefined when absent", async ({ db }) => {
 		await insertUser(db, userValues("u1", { email: "u1@example.com" }));
-		const found = await getUserById(db, "u1");
+		const found = await findUser(db, { id: "u1" });
 		expect(found?.id).toBe("u1");
 		// Full-row getter preserves today's exposure incl. email (routes/users.ts CRUD).
 		expect(found?.email).toBe("u1@example.com");
-		expect(await getUserById(db, "missing")).toBeUndefined();
+		expect(await findUser(db, { id: "missing" })).toBeUndefined();
 	});
 
-	test("getUsersByIds preserves the inArray set", async ({ db }) => {
+	test("listUsers with ids preserves the inArray set", async ({ db }) => {
 		await insertUser(db, userValues("a"));
 		await insertUser(db, userValues("b"));
 		await insertUser(db, userValues("c"));
-		const rows = await getUsersByIds(db, ["a", "c"]);
+		const rows = await listUsers(db, { ids: ["a", "c"] });
 		expect(rows.map((r) => r.id).sort()).toEqual(["a", "c"]);
 	});
 
-	test("listUsersByKind filters by kind", async ({ db }) => {
+	test("listUsers with kind filters by kind", async ({ db }) => {
 		await insertUser(db, userValues("ai1", { kind: "ai" }));
 		await insertUser(db, userValues("hu1", { kind: "human" }));
-		const humans = await listUsersByKind(db, "human");
+		const humans = await listUsers(db, { kind: "human" });
 		expect(humans.map((r) => r.id)).toEqual(["hu1"]);
 	});
 
-	test("listActiveAiUsersByTeams filters + orders by id", async ({ db }) => {
+	test("listUsers with teamIds+kind+status filters active AI users and orders by id", async ({
+		db,
+	}) => {
 		await seedTeam(db, "tm1");
 		await insertUser(db, userValues("z", { teamId: "tm1", kind: "ai", status: "active" }));
 		await insertUser(db, userValues("a", { teamId: "tm1", kind: "ai", status: "active" }));
 		await insertUser(db, userValues("r", { teamId: "tm1", kind: "ai", status: "retired" }));
-		const rows = await listActiveAiUsersByTeams(db, ["tm1"]);
+		const rows = await listUsers(db, {
+			teamIds: ["tm1"],
+			kind: "ai",
+			status: "active",
+			orderById: true,
+		});
 		expect(rows.map((r) => r.id)).toEqual(["a", "z"]);
 	});
 
-	test("listAgentProfiles returns EXACTLY the agents.ts column set — systemPrompt INCLUDED", async ({
-		db,
-	}) => {
+	test("findUser composes role, team, status, and exclusion predicates", async ({ db }) => {
+		await seedTeam(db, "tm-role");
+		await insertUser(
+			db,
+			userValues("self", { teamId: "tm-role", role: "reviewer", status: "active" }),
+		);
+		await insertUser(
+			db,
+			userValues("peer", { teamId: "tm-role", role: "reviewer", status: "active" }),
+		);
+		await insertUser(
+			db,
+			userValues("retired", { teamId: "tm-role", role: "reviewer", status: "retired" }),
+		);
+
+		const teammate = await findUser(db, {
+			role: "reviewer",
+			teamIds: ["tm-role"],
+			status: "active",
+			excludeId: "self",
+		});
+		expect(teammate?.id).toBe("peer");
+	});
+
+	test("listUsers nameContains is case-insensitive and escapes LIKE wildcards", async ({ db }) => {
+		await insertUser(db, userValues("literal", { name: "Agent 100%_Ready" }));
+		await insertUser(db, userValues("wildcard", { name: "Agent 100XXReady" }));
+
+		const rows = await listUsers(db, { nameContains: "%_READY" });
+		expect(rows.map((row) => row.id)).toEqual(["literal"]);
+	});
+
+	test("listUsers(kind:ai) returns AI users with systemPrompt INCLUDED (AC-2)", async ({ db }) => {
+		// @lore AU20 Am11: listAgentProfiles deleted; routes project full User rows.
+		// Verify that listUsers({kind:'ai'}) returns the systemPrompt field (AC-2).
 		await insertUser(
 			db,
 			userValues("ag1", {
@@ -139,24 +173,12 @@ describe("user-store reads", () => {
 				email: "secret@x",
 			}),
 		);
-		const [row] = await listAgentProfiles(db);
+		const [row] = await listUsers(db, { kind: "ai" });
 		expect(row).toBeDefined();
 		// systemPrompt is legitimately exposed today → must be present (AC-2).
 		expect(row?.systemPrompt).toBe("be helpful");
-		// email is NOT part of the agent-list response → must be absent (no widening).
-		expect(Object.keys(row ?? {}).sort()).toEqual([
-			"agentCategory",
-			"harnessType",
-			"id",
-			"maxConcurrentSessions",
-			"modelId",
-			"modelProvider",
-			"modelTierPreference",
-			"name",
-			"role",
-			"status",
-			"systemPrompt",
-		]);
+		// email is present in full User row (routes project only what they need)
+		expect(row?.email).toBeDefined();
 	});
 
 	test("incrementUserCost is atomic coalesce + delta; sumAllUserCost sums", async ({ db }) => {
@@ -164,45 +186,51 @@ describe("user-store reads", () => {
 		await insertUser(db, userValues("c2", { costActual: 100 }));
 		await incrementUserCost(db, "c1", 40);
 		await incrementUserCost(db, "c2", 5);
-		expect((await getUserById(db, "c1"))?.costActual).toBe(40);
-		expect((await getUserById(db, "c2"))?.costActual).toBe(105);
+		expect((await findUser(db, { id: "c1" }))?.costActual).toBe(40);
+		expect((await findUser(db, { id: "c2" }))?.costActual).toBe(105);
 		expect(await sumAllUserCost(db)).toBe(145);
+	});
+
+	test("incrementUserCost preserves every concurrent increment", async ({ db }) => {
+		await insertUser(db, userValues("metered", { costActual: null }));
+		await Promise.all(Array.from({ length: 20 }, () => incrementUserCost(db, "metered", 3)));
+		expect((await findUser(db, { id: "metered" }))?.costActual).toBe(60);
 	});
 
 	test("a read passed a live tx sees the same tx's uncommitted write", async ({ db }) => {
 		await db.transaction(async (tx) => {
 			await insertUser(tx as HyperIdleDb, userValues("intx"));
-			const seen = await getUserById(tx as HyperIdleDb, "intx");
+			const seen = await findUser(tx as HyperIdleDb, { id: "intx" });
 			expect(seen?.id).toBe("intx");
 		});
 		// After commit the row is visible outside the tx too.
-		expect(await getUserById(db, "intx")).toBeDefined();
+		expect(await findUser(db, { id: "intx" })).toBeDefined();
 	});
 });
 
 describe("conversation-store reads", () => {
-	test("getThreadById + getMessageById return the row or undefined", async ({ db }) => {
+	test("findThread + findMessage return the row or undefined", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
 		await insertThread(db, threadValues("t1"));
 		await insertMessage(db, messageValues("m1", "t1", NOW));
-		expect((await getThreadById(db, "t1"))?.id).toBe("t1");
-		expect((await getMessageById(db, "m1"))?.id).toBe("m1");
-		expect(await getThreadById(db, "nope")).toBeUndefined();
+		expect((await findThread(db, { id: "t1" }))?.id).toBe("t1");
+		expect((await findMessage(db, { id: "m1" }))?.id).toBe("m1");
+		expect(await findThread(db, { id: "nope" })).toBeUndefined();
 	});
 
-	test("listMessagesByThread preserves createdAt order", async ({ db }) => {
+	test("listMessages preserves createdAt order", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
 		await insertThread(db, threadValues("t1"));
 		await insertMessage(db, messageValues("m3", "t1", "2026-01-03T00:00:00.000Z"));
 		await insertMessage(db, messageValues("m1", "t1", "2026-01-01T00:00:00.000Z"));
 		await insertMessage(db, messageValues("m2", "t1", "2026-01-02T00:00:00.000Z"));
-		const asc = await listMessagesByThread(db, "t1", { order: "createdAt", dir: "asc" });
+		const asc = await listMessages(db, { threadId: "t1", order: "createdAt", dir: "asc" });
 		expect(asc.map((m) => m.id)).toEqual(["m1", "m2", "m3"]);
-		const desc = await listMessagesByThread(db, "t1", { order: "createdAt", dir: "desc" });
+		const desc = await listMessages(db, { threadId: "t1", order: "createdAt", dir: "desc" });
 		expect(desc.map((m) => m.id)).toEqual(["m3", "m2", "m1"]);
 	});
 
-	test("listThreadsByHost orders by lastActiveAt desc, id desc, and limits", async ({ db }) => {
+	test("listThreads orders by lastActiveAt desc, id desc, and limits", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
 		await insertThread(
 			db,
@@ -228,16 +256,23 @@ describe("conversation-store reads", () => {
 				lastActiveAt: "2026-01-02T00:00:00.000Z",
 			}),
 		);
-		const rows = await listThreadsByHost(db, "bet", "b1", 2);
+		const rows = await listThreads(db, {
+			host: { kind: "bet", id: "b1" },
+			order: "lastActive",
+			limit: 2,
+		});
 		expect(rows.map((r) => r.id)).toEqual(["tb", "tc"]);
 	});
 
-	test("getFirstThreadByHost + getThreadIdsByHost scope by host pair", async ({ db }) => {
+	test("findThread + listThreads scope by host pair", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
 		await insertThread(db, threadValues("t1", { hostKind: "bet", hostId: "b9" }));
-		expect((await getFirstThreadByHost(db, "bet", "b9"))?.id).toBe("t1");
-		expect(await getThreadIdsByHost(db, "bet", "b9")).toEqual(["t1"]);
-		expect(await getFirstThreadByHost(db, "bet", "other")).toBeUndefined();
+		expect((await findThread(db, { host: { kind: "bet", id: "b9" } }))?.id).toBe("t1");
+		const ids = await listThreads(db, { host: { kind: "bet", id: "b9" } }).then((ts) =>
+			ts.map((t) => t.id),
+		);
+		expect(ids).toEqual(["t1"]);
+		expect(await findThread(db, { host: { kind: "bet", id: "other" } })).toBeUndefined();
 	});
 
 	test("searchConversations matches participant + message and orders by lastActiveAt desc", async ({

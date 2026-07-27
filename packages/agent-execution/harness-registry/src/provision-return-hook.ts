@@ -43,7 +43,7 @@ import type { ReturnEnforcementChannel } from "@hyperidle/shared";
 
 export type { ReturnEnforcementChannel };
 
-export interface ProvisionReturnHookOptions {
+interface ReturnHookOptions {
 	readonly sandboxPath: string;
 	readonly channel: ReturnEnforcementChannel;
 	readonly bridgeToken: string;
@@ -62,7 +62,7 @@ export interface ProvisionReturnHookOptions {
  * Codex requires a trust marker in the .codex/ directory. Writing the hook
  * without establishing trust is what caused the v1 forceCount=0 regression.
  */
-export async function provisionReturnHook(opts: ProvisionReturnHookOptions): Promise<void> {
+async function installReturnHook(opts: ReturnHookOptions): Promise<void> {
 	const { sandboxPath, channel, bridgeToken, mcpUrl } = opts;
 
 	switch (channel) {
@@ -98,19 +98,16 @@ export async function provisionReturnHook(opts: ProvisionReturnHookOptions): Pro
  * @lore AO2 C2: Exported separately per provisioner so the drift-guard can
  * enumerate ALL provisioners (Claude, Codex, OpenCode) rather than just Claude.
  */
-export const EMITTED_ROOTS_CLAUDE_SETTINGS = [".claude"] as const;
 
 /**
  * Root directories emitted by provisionCodexHome.
  * .codex for backward-compat (unit tests + legacy); .codex-home for the real
  * per-session CODEX_HOME that codex actually reads.
  */
-export const EMITTED_ROOTS_CODEX_HOME = [".codex", ".codex-home"] as const;
 
 /**
  * Root directories emitted by provisionOpencodePlugin.
  */
-export const EMITTED_ROOTS_OPENCODE_PLUGIN = [".opencode"] as const;
 
 // ── Private provisioning helpers ──────────────────────────────────────────────
 
@@ -442,3 +439,5 @@ export default {
 
 	fs.writeFileSync(path.join(pluginDir, "return-signal.ts"), pluginContent, "utf-8");
 }
+
+export { installReturnHook };

@@ -12,12 +12,15 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { createWriteSessionNotesTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const writeSessionNotesTool = createWriteSessionNotesTool();
+const writeSessionNotesTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "write_session_notes",
+)!;
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();

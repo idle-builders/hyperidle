@@ -6,18 +6,14 @@
  *
  * This is a unit test (*.test.ts) — it mocks runSession to capture the
  * conversational parameters (systemPromptOverride + draftRegistry) handed to it
- * by executeAssistantRequest after the formation seam consultation.
+ * by runAssistantTurn after the formation seam consultation.
  *
- * The key observable: executeAssistantRequest calls resolveAssistantFormation()
+ * The key observable: runAssistantTurn calls resolveAssistantFormation()
  * BEFORE calling the runtime. The captured systemPromptOverride must reflect
  * the current resolver response, proving the formation seam is consulted at turn time.
  *
- * @lore AU9 R1: createTriggeredAgentSessionRequest has exactly one PRODUCTION call
- * site (the intent drain) — the assistant's own direct-create fallback was deleted.
- * This test therefore builds the request the same way the drain does (via
- * createTriggeredAgentSessionRequest) before invoking executeAssistantRequest, the
- * split "consume the exact durable request" entrypoint. Using the constructor here
- * is fixture setup in a non-protected unit test, not a second production caller.
+ * This test inserts a durable request fixture before invoking runAssistantTurn,
+ * the split "consume the exact durable request" entrypoint.
  *
  * @lore AR4b: We observe via the runSession call-site capture rather than
  * by reading the DB or the AGENTS.md file on disk, because:
@@ -35,32 +31,13 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
-import { getTeamMembersByTeamId } from "@hyperidle/org";
-import {
-	createAgentSessionRequest,
-	findAgentSessionRequestByIdempotencyKey,
-} from "@hyperidle/session-requests";
-import { listResolvedConfiguration } from "@hyperidle/settings";
+import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
+import { createSessionRequest } from "@hyperidle/session-requests";
 import { EventBus } from "@hyperidle/shared";
-import {
-	createTriggeredAgentSessionRequest,
-	type TriggerResolutionDeps,
-} from "@hyperidle/trigger-resolution";
-import { getUserByIdScopedToTeam } from "@hyperidle/users";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { executeAssistantRequest } from "../services/dispatch-bindings.js";
+import { agentSelectionService } from "../services/agent-selection-bindings.js";
+import { dispatchOps } from "../services/dispatch-bindings.js";
 import { test } from "../test-fixtures.js";
-
-const triggerResolutionDeps: TriggerResolutionDeps = {
-	sessionRequests: {
-		findByIdempotencyKey: findAgentSessionRequestByIdempotencyKey,
-		create: createAgentSessionRequest,
-	},
-	config: { listResolvedConfiguration },
-	users: { getUserByIdScopedToTeam },
-	teams: { getTeamMembersByTeamId },
-};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -72,8 +49,7 @@ const ALPHA_PERSONA = "AR4b-test-persona-alpha — you are the Alpha test assist
 
 const formationState = vi.hoisted(() => ({
 	persona: null as string | null,
-	assistantDraftSurface: "standard" as const,
-	calls: [] as Array<{ userId: string; threadId: string }>,
+	calls: [] as Array<{ userId: string }>,
 }));
 
 // ─── Captured provisionSession calls ─────────────────────────────────────────
@@ -94,65 +70,32 @@ const capturedConversational: CapturedConversational[] = [];
  * formation seam consulted the app resolver at turn time. The mock never runs
  * a real harness — this is a unit test of the call-site wiring, not the turn itself.
  */
-vi.mock("@hyperidle/session-lifecycle", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/session-lifecycle")>();
+vi.mock("../services/run-orchestration-composition.js", async (importOriginal) => {
+	const original =
+		await importOriginal<typeof import("../services/run-orchestration-composition.js")>();
 	return {
 		...original,
-		admitSession: vi.fn(
-			async (
-				_deps: unknown,
-				params: import("@hyperidle/session-lifecycle").ProvisionSessionParams,
-			) => {
-				return {
-					sessionId: "stub-session-ar4b",
-					sessionContext: {
-						sessionId: "stub-session-ar4b",
-						agentId: params.agentId,
-						taskId: params.taskId,
-						sandboxPath: "/tmp/ar4b",
-						ingestion: { dispose: vi.fn() },
-						traceId: "trace-ar4b",
-						requestContext: params.requestContext,
-					},
+		runSession: vi.fn(async (_deps, spec) => {
+			if (spec.mode === "durable" && spec.conversational) {
+				const conversational = spec.conversational as {
+					systemPromptOverride?: string | null;
+					draftRegistry: { definitions: Array<{ name: string }> };
 				};
-			},
-		),
-		runSession: vi.fn(
-			async (
-				_deps: unknown,
-				params: import("@hyperidle/session-lifecycle").ProvisionSessionParams,
-			) => {
-				if (params.conversational) {
-					capturedConversational.push({
-						systemPromptOverride: params.conversational.systemPromptOverride,
-						draftRegistryToolNames: params.conversational.draftRegistry.definitions.map(
-							(d) => d.name,
-						),
-					});
-				}
-				const stubResult: import("@hyperidle/session-lifecycle").ProvisionSessionResult = {
-					sessionId: "stub-session-ar4b",
-					outcome: "completed",
-					totalCostCents: 0,
-					taskId: null,
-					forceReturnCount: 0,
-					conversationalReply: "AR4b formation seam stub reply",
-				};
-				return stubResult;
-			},
-		),
-	};
-});
-
-vi.mock("@hyperidle/agent-selection", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/agent-selection")>();
-	return {
-		...original,
-		resolveAssistantFormation: vi.fn(async (input: { userId: string; threadId: string }) => {
-			formationState.calls.push({ userId: input.userId, threadId: input.threadId });
+				capturedConversational.push({
+					systemPromptOverride: conversational.systemPromptOverride,
+					draftRegistryToolNames: conversational.draftRegistry.definitions.map(
+						(d: { name: string }) => d.name,
+					),
+				});
+			}
 			return {
-				persona: formationState.persona,
-				assistantDraftSurface: formationState.assistantDraftSurface,
+				mode: "completed" as const,
+				sessionId: "stub-session-ar4b",
+				outcome: "completed",
+				totalCostCents: 0,
+				taskId: null,
+				forceReturnCount: 0,
+				conversationalReply: "AR4b formation seam stub reply",
 			};
 		}),
 	};
@@ -160,7 +103,6 @@ vi.mock("@hyperidle/agent-selection", async (importOriginal) => {
 
 function setFormationPersona(persona: string | null): void {
 	formationState.persona = persona;
-	formationState.assistantDraftSurface = "standard";
 }
 
 // ─── Credential resolver ──────────────────────────────────────────────────────
@@ -221,7 +163,7 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 
 /**
  * Builds the durable request the same way the production intent drain does
- * (via createTriggeredAgentSessionRequest), so executeAssistantRequest is always
+ * through the coherent request API, so runAssistantTurn is always
  * consuming an already-created row — mirroring the real production sequence.
  */
 async function createAssistantRequest(
@@ -229,17 +171,20 @@ async function createAssistantRequest(
 	params: { userId: string; threadId: string; triggerMessageId: string },
 ): Promise<AgentSessionRequest> {
 	const assistantAgentId = `ast-${params.userId}`;
-	const { request } = await createTriggeredAgentSessionRequest(
-		db,
-		{
-			eventType: "assistant.message",
+	return createSessionRequest(db, {
+		kind: "direct",
+		request: {
 			sourceKind: "assistant",
 			sourceId: params.triggerMessageId,
 			streamId: `thread:${params.threadId}`,
-			defaultAgentId: assistantAgentId,
+			agentId: assistantAgentId,
+			promptMode: "conversation",
 			userId: params.userId,
 			idempotencyKey: `assistant:${params.triggerMessageId}`,
-			payload: { threadId: params.threadId, triggerMessageId: params.triggerMessageId },
+			payloadJson: JSON.stringify({
+				threadId: params.threadId,
+				triggerMessageId: params.triggerMessageId,
+			}),
 			sourceCorrelation: {
 				threadId: params.threadId,
 				messageId: params.triggerMessageId,
@@ -247,23 +192,21 @@ async function createAssistantRequest(
 				assistantAgentId,
 			},
 		},
-		triggerResolutionDeps,
-	);
-	return request;
+	});
 }
 
 /** Test-only replacement for the deleted direct-create `runAssistantTurn` entrypoint. */
 async function runTurn(
-	deps: Parameters<typeof executeAssistantRequest>[0],
+	deps: Parameters<typeof dispatchOps.runAssistantTurn>[0],
 	params: { userId: string; threadId: string; triggerMessageId: string },
 ): Promise<void> {
 	const request = await createAssistantRequest(deps.db, params);
-	await executeAssistantRequest(deps, request);
+	await dispatchOps.runAssistantTurn(deps, request);
 }
 
 function makeAdapterPool(): AdapterPool {
 	const pool = new AdapterPool();
-	pool.register("builtin-ar4b", new BuiltinHarnessAdapter(), {
+	pool.register("builtin-ar4b", createHarnessAdapter({ kind: "builtin" }), {
 		name: "Builtin AR4b Test",
 		kind: "local",
 		type: "builtin",
@@ -281,6 +224,21 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 		formationState.calls.length = 0;
 		setFormationPersona(null);
 		vi.clearAllMocks();
+		// @lore AU20 Ag1b: mock resolveScaffoldSpecs on the agentSelectionService singleton
+		// so the dispatch port returns a controllable persona without hitting the DB.
+		vi.spyOn(agentSelectionService, "resolveScaffoldSpecs").mockImplementation(async (request) => {
+			formationState.calls.push({
+				userId: (request as { ownerUserId?: string }).ownerUserId ?? "",
+			});
+			return [
+				{
+					role: "assistant" as const,
+					name: "Assistant",
+					agentCategory: "individual" as const,
+					systemPrompt: formationState.persona,
+				},
+			];
+		});
 	});
 
 	test("default app assistant formation leaves persona unset", async ({ db }) => {
@@ -304,7 +262,8 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 		expect(captured.draftRegistryToolNames).toEqual(
 			expect.arrayContaining(["create_bet", "edit_bet"]),
 		);
-		expect(formationState.calls).toEqual([{ userId: FOUNDER_ID, threadId: THREAD_ID }]);
+		// @lore AU20 Ag1b: resolveScaffoldSpecs receives ownerUserId (not threadId — dissolved).
+		expect(formationState.calls).toEqual([{ userId: FOUNDER_ID }]);
 	});
 
 	test("app assistant formation persona is applied to the runtime turn", async ({ db }) => {
@@ -378,6 +337,7 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 
 		expect(capturedConversational).toHaveLength(1);
 		expect(capturedConversational[0]!.systemPromptOverride).toBe(ALPHA_PERSONA);
-		expect(formationState.calls).toEqual([{ userId: FOUNDER_ID, threadId: THREAD_ID }]);
+		// @lore AU20 Ag1b: resolveScaffoldSpecs receives ownerUserId (not threadId — dissolved).
+		expect(formationState.calls).toEqual([{ userId: FOUNDER_ID }]);
 	});
 });

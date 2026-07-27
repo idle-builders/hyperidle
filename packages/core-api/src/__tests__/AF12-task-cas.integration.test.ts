@@ -14,16 +14,16 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { DomainEvent } from "@hyperidle/shared";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { InvalidTransitionError, transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { recordAgentWorkIntent } from "../services/session-requests-bindings.js";
 import { test } from "../test-fixtures.js";
 
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
-const testDeps: TaskStateMachineDeps = { workIntents: { record: recordAgentWorkIntent } };
+const testDeps: TaskStateMachineDeps = { workIntents: { record: enqueueWorkIntent } };
 
 async function seed(db: HyperIdleDb, taskState = "accepted"): Promise<void> {
 	const now = new Date().toISOString();

@@ -21,7 +21,7 @@ import { computeRelevanceScore, DEFAULT_RELEVANCE_CONFIG } from "./relevance-eng
 import { loadRelevanceConfig } from "./scoring-config.js";
 
 /** The raw signals computed for a single knowledge item. */
-export interface SignalSet {
+interface SignalSet {
 	/** ISO string of the most recent activity (access, edit, or validation). Null when no data. */
 	lastActivityAt: string | null;
 	/** Access count within the last 30 days. Null when no access log rows exist. */
@@ -31,7 +31,7 @@ export interface SignalSet {
 }
 
 /** Factory function for the RelevanceService. */
-export interface RelevanceService {
+interface RelevanceService {
 	/**
 	 * Compute relevance signals for a batch of item IDs.
 	 * Returns a Map keyed by item ID. Empty IDs array returns empty Map.
@@ -48,7 +48,7 @@ export interface RelevanceService {
 /**
  * Create a RelevanceService bound to the given database.
  */
-export function createRelevanceService(db: HyperIdleDb): RelevanceService {
+function createRelevanceService(db: HyperIdleDb): RelevanceService {
 	async function computeSignals(
 		itemIds: readonly string[],
 		nowMs: number,
@@ -211,6 +211,21 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
 	return { computeSignals, recomputeScores };
 }
 
+export function recomputeRelevance(db: HyperIdleDb, itemIds: readonly string[]): Promise<void>;
+export function recomputeRelevance(
+	db: HyperIdleDb,
+	spec: { readonly signals: readonly string[]; readonly nowMs: number },
+): Promise<Map<string, SignalSet>>;
+export function recomputeRelevance(
+	db: HyperIdleDb,
+	spec: readonly string[] | { readonly signals: readonly string[]; readonly nowMs: number },
+): Promise<void | Map<string, SignalSet>> {
+	const service = createRelevanceService(db);
+	return "signals" in spec
+		? service.computeSignals(spec.signals, spec.nowMs)
+		: service.recomputeScores(spec);
+}
+
 // ─── Retention (AU19 Increment 2g) ────────────────────────────────────────────
 
 /**
@@ -226,10 +241,14 @@ export function createRelevanceService(db: HyperIdleDb): RelevanceService {
  * predicate, same cutoff computation (caller passes
  * `now − terminalLogTtlMs`, default 30 days).
  */
-export async function reapKnowledgeAccessLog(db: HyperIdleDb, cutoff: string): Promise<string[]> {
+async function reapKnowledgeAccessLog(db: HyperIdleDb, cutoff: string): Promise<string[]> {
 	const deleted = await db
 		.delete(knowledgeAccessLog)
 		.where(lt(knowledgeAccessLog.accessedAt, cutoff))
 		.returning({ id: knowledgeAccessLog.id });
 	return deleted.map((r) => r.id);
+}
+
+export async function reapAccessLog(db: HyperIdleDb, cutoff: string): Promise<string[]> {
+	return reapKnowledgeAccessLog(db, cutoff);
 }

@@ -4,25 +4,11 @@ import {
 	knowledgeAppProjection,
 	users,
 } from "@hyperidle/db";
-import {
-	defaultNotificationAdapterFactory,
-	enqueueNotification,
-	flushQueue,
-	listAll,
-	type NotificationsSilenceDeps,
-} from "@hyperidle/notifications";
-import { getTeamMembersById } from "@hyperidle/org";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { getUserById } from "@hyperidle/users";
+import { deliver, enqueue, listNotifications, updateConfig } from "@hyperidle/notifications";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../test-fixtures.js";
-
-const silencePolicyDeps: NotificationsSilenceDeps = {
-	serverConfig: { read: readServerConfig, update: updateServerConfig },
-	users: { getUserById },
-	teams: { getTeamMembersById },
-};
+import { notificationsDeps } from "./notifications-test-deps.js";
 
 const TEST_API_KEY = "test-key-au3-domain";
 
@@ -101,7 +87,11 @@ describe("app runtime domain observability", () => {
 			const detail = (await detailRes.json()) as { layer?: string; kind?: string };
 			expect(detail).toMatchObject({ layer: "L4", kind: "decision" });
 
-			await enqueueNotification(db, {
+			// @lore AU20 Ag6b: `enqueueNotification` removed from public API; use `enqueue`
+			// with explicit id/status/attempts/createdAt fields. `flush` wraps
+			// loadNotificationConfig+flushQueue internally; no inline config needed.
+			await enqueue(db, {
+				id: crypto.randomUUID(),
 				eventType: "au3.domain",
 				subjectId: created.id,
 				severity: "digest",
@@ -109,36 +99,27 @@ describe("app runtime domain observability", () => {
 				body: "Notification path still drains.",
 				reason: "digest",
 				channel: null,
-				now: new Date(),
+				status: "pending",
+				attempts: 0,
+				createdAt: new Date().toISOString(),
 			});
-			const queued = await listAll(db);
+			const queued = await listNotifications(db, { kind: "all" });
 			expect(queued).toHaveLength(1);
 
-			await flushQueue(
+			// Enable notifications so flush actually delivers (default config has enabled=false)
+			await updateConfig(
 				db,
-				defaultNotificationAdapterFactory,
 				{
 					enabled: true,
 					primaryChannel: "console",
 					digestChannel: "console",
-					recipient: { email: null, ntfyTopic: null },
-					ntfy: { baseUrl: "https://ntfy.sh", authToken: null },
-					smtp: {
-						host: null,
-						port: 587,
-						secure: false,
-						username: null,
-						password: null,
-						from: null,
-					},
-					flood: { maxPerMinute: 100, coalesceWindowMs: 60_000 },
-					testMaxPerHour: 100,
-					smtpIgnoreTls: false,
-					digestCron: "0 8 * * *",
+					floodMaxPerMinute: 100,
+					floodCoalesceWindowMs: 60_000,
 				},
-				new Date(),
-				silencePolicyDeps,
+				notificationsDeps,
 			);
+
+			await deliver(db, { kind: "flush" }, notificationsDeps);
 			const queueRes = await app.request("/api/notifications/queue?status=sent", {
 				method: "GET",
 				headers: authHeaders(),
@@ -163,7 +144,9 @@ describe("app runtime domain observability", () => {
 			expect(typeof gitStatus.enabled).toBe("boolean");
 			expect(typeof gitStatus.branch).toBe("string");
 
-			const sent = (await listAll(db)).find((r) => r.eventType === "au3.domain");
+			const sent = (await listNotifications(db, { kind: "all" })).find(
+				(r) => r.eventType === "au3.domain",
+			);
 			expect(sent?.status).toBe("sent");
 		},
 	);

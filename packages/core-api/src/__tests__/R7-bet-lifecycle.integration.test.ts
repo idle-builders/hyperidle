@@ -15,20 +15,21 @@
  * Ship rate = completed / (completed + active) * 100.
  */
 
-import { insertMessage, insertThread } from "@hyperidle/conversation";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { insertNotification } from "@hyperidle/notifications";
-import { getTeamMembersByTeamId, setTeamMembersActiveBets } from "@hyperidle/org";
-import { type LifecyclePropagationDeps, registerLifecyclePropagation } from "@hyperidle/policy";
-import { getFirstUserByKind } from "@hyperidle/users";
 import {
-	getBetById,
-	getTaskById,
-	listTasks,
-	transitionBet,
-	transitionBetStatus,
-	transitionTaskState,
-} from "@hyperidle/work";
+	insertMessage,
+	insertThread,
+	listMessages,
+	updateMessage,
+	updateThread,
+} from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { enqueue } from "@hyperidle/notifications";
+import { getTeamMembers, updateTeam } from "@hyperidle/org";
+import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
+import { findUser } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
+import { transitionBet, type WorkDeps } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -39,18 +40,62 @@ import { test } from "../test-fixtures.js";
  * — `policy` never imports another Service). This test builds the exact
  * same production wiring `server-factory.ts` uses — no behavior change.
  */
-const lifecyclePropagationDeps: LifecyclePropagationDeps = {
-	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
-	conversation: { insertMessage, insertThread },
-	users: { getFirstUserByKind },
-	notifications: { insert: insertNotification },
+const lifecyclePropagationDeps: PolicyDeps = {
+	work: {
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		transitionTaskState: (exec, { taskId, fromState, patch }) =>
+			work.transition(exec, "task", {
+				id: taskId,
+				guard: { field: "state", equals: fromState },
+				patch,
+			}),
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
+		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
+			work.transition(exec, "bet", {
+				id: betId,
+				guard: { field: "status", equals: fromStatus },
+				patch,
+			}),
+		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
+			work.list(exec, "task", opts ?? {}),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+		updateItemById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "item", id, patch),
+		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
+			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
+	},
+	conversation: {
+		insertMessage,
+		insertThread,
+		listMessagesByThread: (db, threadId, opts) =>
+			listMessages(db, {
+				threadId,
+				types: opts?.type ? [opts.type] : undefined,
+				order: opts?.order,
+				dir: opts?.dir,
+				limit: opts?.limit,
+			}),
+		updateMessage,
+		updateThread,
+		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
+		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+	},
+	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
+	notifications: {
+		insert: async (db, row) => {
+			await enqueue(db, row);
+		},
+	},
+	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity = {
-	getByTeamId: getTeamMembersByTeamId,
-	setActiveBets: setTeamMembersActiveBets,
+const teamCapacity: WorkDeps["teamCapacity"] = {
+	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
+	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 };
 
 const TEST_API_KEY = "test-key-r7-bets";
@@ -202,7 +247,7 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 			updatedAt: now,
 		});
 
-		const unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		const unsubscribe = registerPolicy(db, eventBus, lifecyclePropagationDeps);
 
 		// Act: emit task_state_changed (in_progress → done) after updating DB
 		await db
@@ -279,7 +324,7 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 			updatedAt: now,
 		});
 
-		const unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		const unsubscribe = registerPolicy(db, eventBus, lifecyclePropagationDeps);
 
 		await db
 			.update(tasks)

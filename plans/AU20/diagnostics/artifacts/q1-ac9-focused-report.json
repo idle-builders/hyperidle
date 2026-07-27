@@ -1,0 +1,217 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "/Users/tg/hyperidle/.worktrees/pipeline-AU20/node_modules/.bin/playwright",
+      "test",
+      "--config",
+      "packages/web/playwright.config.ts",
+      "packages/web/e2e/q1-session-dial-in.spec.ts",
+      "--grep",
+      "AC9: closing",
+      "--workers=1",
+      "--retries=0",
+      "--reporter=json"
+    ],
+    "configFile": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/playwright.config.ts",
+    "rootDir": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 300000,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --port 5179 --strictPort",
+      "url": "http://localhost:5179",
+      "reuseExistingServer": true,
+      "timeout": 60000,
+      "cwd": ".",
+      "env": {
+        "TERM_PROGRAM": "Apple_Terminal",
+        "NODE": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "INIT_CWD": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+        "TERM": "dumb",
+        "SHELL": "/bin/zsh",
+        "npm_config_allow_scripts": "",
+        "TMPDIR": "/var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/",
+        "npm_config_global_prefix": "/opt/homebrew",
+        "TERM_PROGRAM_VERSION": "455.1",
+        "COLOR": "0",
+        "TERM_SESSION_ID": "BE4F59C7-7196-46C6-8B99-016396320336",
+        "NO_COLOR": "1",
+        "npm_config_noproxy": "",
+        "npm_config_local_prefix": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+        "LC_ALL": "C.UTF-8",
+        "USER": "tg",
+        "OPENAI_API_KEY": "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",
+        "npm_config_globalconfig": "/opt/homebrew/etc/npmrc",
+        "SSH_AUTH_SOCK": "/private/tmp/com.apple.launchd.xNJHOpwZFw/Listeners",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x0:0x0",
+        "npm_execpath": "/opt/homebrew/lib/node_modules/npm/bin/npm-cli.js",
+        "PAGER": "cat",
+        "PATH": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/node_modules/.bin:/Users/tg/hyperidle/.worktrees/pipeline-AU20/node_modules/.bin:/Users/tg/hyperidle/.worktrees/node_modules/.bin:/Users/tg/hyperidle/node_modules/.bin:/Users/tg/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/opt/homebrew/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/homebrew/bin:/Users/tg/.codex/tmp/arg0/codex-arg0jtMau7:/Users/tg/.local/bin:/Users/tg/.rd/bin",
+        "npm_package_json": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/package.json",
+        "_": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/node_modules/.bin/playwright",
+        "LaunchInstanceID": "9CE915D0-1037-4B3F-BD18-1F93003BA7F9",
+        "npm_config_userconfig": "/Users/tg/.npmrc",
+        "npm_config_init_module": "/Users/tg/.npm-init.js",
+        "__CFBundleIdentifier": "com.apple.Terminal",
+        "CODEX_THREAD_ID": "019f8c72-41ba-7c23-ae66-d57ab168530a",
+        "npm_command": "exec",
+        "PWD": "/Users/tg/hyperidle/.worktrees/pipeline-AU20",
+        "npm_lifecycle_event": "npx",
+        "EDITOR": "vi",
+        "npm_package_name": "hyperidle",
+        "LANG": "C.UTF-8",
+        "OPENAI_API_BASE": "https://openrouter.ai/api/v1",
+        "npm_config_npm_version": "11.17.0",
+        "XPC_FLAGS": "0x0",
+        "CODEX_CI": "1",
+        "npm_package_engines_node": ">=24.0.0",
+        "npm_config_node_gyp": "/opt/homebrew/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js",
+        "npm_package_version": "0.5.0",
+        "XPC_SERVICE_NAME": "0",
+        "SHLVL": "3",
+        "HOME": "/Users/tg",
+        "GH_PAGER": "cat",
+        "npm_config_cache": "/Users/tg/.npm",
+        "LOGNAME": "tg",
+        "npm_lifecycle_script": "'playwright'",
+        "LC_CTYPE": "C.UTF-8",
+        "npm_config_user_agent": "npm/11.17.0 node/v26.4.0 darwin arm64 workspaces/false",
+        "GIT_PAGER": "cat",
+        "SECURITYSESSIONID": "186b3",
+        "npm_node_execpath": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "npm_config_prefix": "/opt/homebrew",
+        "COLORTERM": "",
+        "VITE_HYPERIDLE_API_KEY": "playwright-test-key"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "q1-session-dial-in.spec.ts",
+      "file": "q1-session-dial-in.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Q1 — Session Dial-In",
+          "file": "q1-session-dial-in.spec.ts",
+          "line": 52,
+          "column": 6,
+          "specs": [
+            {
+              "title": "AC9: closing the activity panel reverts to full-width thread view",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30049,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/q1-session-dial-in.spec.ts",
+                            "column": 18,
+                            "line": 273
+                          },
+                          "message": "Error: locator.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button[aria-label=\\'Close activity panel\\']')\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" aria-label=\"Close activity panel\" class=\"flex-shrink-0 inline-flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] border-none cursor-pointer transition-[background,color] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <path d=\"m6 6 12 12\"></path> from <div class=\"absolute right-[12px] top-[12px] z-10 flex items-center gap-[6px]\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <path d=\"m6 6 12 12\"></path> from <div class=\"absolute right-[12px] top-[12px] z-10 flex items-center gap-[6px]\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    55 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <path d=\"m6 6 12 12\"></path> from <div class=\"absolute right-[12px] top-[12px] z-10 flex items-center gap-[6px]\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is visible, enabled and stable\u001b[22m\n\u001b[2m    - scrolling into view if needed\u001b[22m\n\u001b[2m    - done scrolling\u001b[22m\n\n\n  271 | \t\tconst closeBtn = page.locator(\"button[aria-label='Close activity panel']\");\n  272 | \t\tawait expect(closeBtn).toBeVisible({ timeout: 3000 });\n> 273 | \t\tawait closeBtn.click();\n      | \t\t               ^\n  274 |\n  275 | \t\t// Activity panel should be gone\n  276 | \t\tawait expect(page.locator(\"[data-testid='session-activity-panel']\")).not.toBeVisible({\n    at /Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/e2e/q1-session-dial-in.spec.ts:273:18"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-23T07:50:53.662Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/tg/hyperidle/.worktrees/pipeline-AU20/packages/web/test-results/q1-session-dial-in-Q1-—-Se-cba11-s-to-full-width-thread-view-chromium/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "831f0a17aa00b251e510-dd325a62ea5b9c4f1bab",
+              "file": "q1-session-dial-in.spec.ts",
+              "line": 257,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-23T07:50:52.630Z",
+    "duration": 31212.102000000003,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

@@ -7,6 +7,11 @@
  * complexity without improving security in practice.
  *
  * Format: base64(iv[12] + ciphertext[n] + authTag[16])
+ *
+ * @lore AU20 Am4: getServerSecret/requireServerSecret/deriveKey are intentionally
+ * NOT exported — the cipher owns the key. Callers use encryptCredentialValue /
+ * decryptCredentialValue with no secret param; the service handles key lookup.
+ * Pure secret-param helpers are kept file-private for internal package use.
  */
 
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
@@ -25,8 +30,9 @@ const HKDF_INFO = "credential-encryption-key";
 /**
  * Derive a 256-bit AES key from the server secret using HKDF-SHA256.
  * Deterministic: same secret always produces the same key.
+ * @internal — not exported; callers use encryptCredentialValue/decryptCredentialValue.
  */
-export function deriveKey(serverSecret: string): Buffer {
+function deriveKey(serverSecret: string): Buffer {
 	// @lore P3: hkdfSync is synchronous HKDF per RFC 5869. We use SHA-256
 	// as the hash, a fixed salt (public constant), and a context info string
 	// to domain-separate this key from any other derived keys.
@@ -38,11 +44,53 @@ export function deriveKey(serverSecret: string): Buffer {
 }
 
 /**
- * Encrypt a credential value with AES-256-GCM.
- * Returns base64(iv[12] + ciphertext[n] + authTag[16]).
- * Each call produces a different ciphertext (random IV).
+ * Get the server secret from env vars.
+ * HYPERIDLE_CREDENTIAL_KEY takes priority (operator override for key rotation).
+ * Falls back to HYPERIDLE_API_KEY (root of trust).
+ *
+ * @lore AH1 §6: Returns null (not empty string) when both vars are absent/empty.
+ * @internal — not exported. Callers use encryptCredentialValue/decryptCredentialValue.
  */
-export function encryptCredentialValue(plaintext: string, serverSecret: string): string {
+function getServerSecret(): string | null {
+	// HYPERIDLE_CREDENTIAL_KEY takes priority.
+	// @lore AH1 §6: If HYPERIDLE_CREDENTIAL_KEY is explicitly set (even to ""),
+	// we do NOT fall back to HYPERIDLE_API_KEY. An empty CREDENTIAL_KEY means "no
+	// encryption key configured" — a deliberate operator choice to separate auth
+	// key from credential encryption key. Only when CREDENTIAL_KEY is entirely
+	// absent (undefined) do we fall back to HYPERIDLE_API_KEY (legacy single-key
+	// deployments where HYPERIDLE_API_KEY served both purposes).
+	if (process.env.HYPERIDLE_CREDENTIAL_KEY !== undefined) {
+		const credKey = process.env.HYPERIDLE_CREDENTIAL_KEY;
+		return credKey !== "" ? credKey : null;
+	}
+	// HYPERIDLE_CREDENTIAL_KEY is unset → fall back to HYPERIDLE_API_KEY.
+	const apiKey = process.env.HYPERIDLE_API_KEY;
+	if (apiKey !== undefined && apiKey !== "") return apiKey;
+	return null;
+}
+
+/**
+ * Require the server secret, throwing if absent.
+ * @internal — not exported. Used inside encryptCredentialValue.
+ * @throws {Error & { code: "MISSING_ROOT_SECRET" }} when no secret is configured.
+ */
+function requireServerSecret(): string {
+	const secret = getServerSecret();
+	if (!secret) {
+		const err = new Error(
+			"No encryption secret configured. Set HYPERIDLE_CREDENTIAL_KEY or HYPERIDLE_API_KEY.",
+		) as Error & { code: string };
+		err.code = "MISSING_ROOT_SECRET";
+		throw err;
+	}
+	return secret;
+}
+
+/**
+ * Encrypt with an explicit secret — file-private helper for internal package use.
+ * Pure function; used by the public no-arg wrapper and by unit tests via barrel re-export.
+ */
+function encryptWithSecret(plaintext: string, serverSecret: string): string {
 	const key = deriveKey(serverSecret);
 	const iv = randomBytes(IV_LENGTH);
 	const cipher = createCipheriv("aes-256-gcm", key, iv);
@@ -57,11 +105,9 @@ export function encryptCredentialValue(plaintext: string, serverSecret: string):
 }
 
 /**
- * Decrypt a credential value encrypted by encryptCredentialValue.
- * Returns the plaintext string, or null if decryption fails for any reason
- * (wrong key, tampered ciphertext, invalid format).
+ * Decrypt with an explicit secret — file-private helper for internal package use.
  */
-export function decryptCredentialValue(encrypted: string, serverSecret: string): string | null {
+function decryptWithSecret(encrypted: string, serverSecret: string): string | null {
 	if (!encrypted) return null;
 
 	try {
@@ -89,51 +135,35 @@ export function decryptCredentialValue(encrypted: string, serverSecret: string):
 }
 
 /**
- * Get the server secret from env vars.
- * HYPERIDLE_CREDENTIAL_KEY takes priority (operator override for key rotation).
- * Falls back to HYPERIDLE_API_KEY (root of trust).
+ * Encrypt a credential value with AES-256-GCM.
+ * Reads the root secret from env (HYPERIDLE_CREDENTIAL_KEY / HYPERIDLE_API_KEY).
+ * Returns base64(iv[12] + ciphertext[n] + authTag[16]).
+ * Each call produces a different ciphertext (random IV).
  *
- * @lore AH1 §6: Returns null (not empty string) when both vars are absent/empty.
- * Callers on the READ path (resolvers, DB read) use this and tolerate null — they
- * surface MissingCredentialError downstream. The WRITE/VALIDATE boundaries use
- * requireServerSecret() which throws MISSING_ROOT_SECRET. This separation is what
- * makes boot non-fatal while writes fail loudly.
+ * @throws {Error & { code: "MISSING_ROOT_SECRET" }} when no secret is configured.
+ *
+ * @lore AU20 Am4: No serverSecret param — the cipher owns the key.
+ * Callers that need graceful handling of a missing secret should catch
+ * MISSING_ROOT_SECRET (code property on the thrown error).
  */
-export function getServerSecret(): string | null {
-	// HYPERIDLE_CREDENTIAL_KEY takes priority.
-	// @lore AH1 §6: If HYPERIDLE_CREDENTIAL_KEY is explicitly set (even to ""),
-	// we do NOT fall back to HYPERIDLE_API_KEY. An empty CREDENTIAL_KEY means "no
-	// encryption key configured" — a deliberate operator choice to separate auth
-	// key from credential encryption key. Only when CREDENTIAL_KEY is entirely
-	// absent (undefined) do we fall back to HYPERIDLE_API_KEY (legacy single-key
-	// deployments where HYPERIDLE_API_KEY served both purposes).
-	if (process.env.HYPERIDLE_CREDENTIAL_KEY !== undefined) {
-		const credKey = process.env.HYPERIDLE_CREDENTIAL_KEY;
-		return credKey !== "" ? credKey : null;
-	}
-	// HYPERIDLE_CREDENTIAL_KEY is unset → fall back to HYPERIDLE_API_KEY.
-	const apiKey = process.env.HYPERIDLE_API_KEY;
-	if (apiKey !== undefined && apiKey !== "") return apiKey;
-	return null;
+export function encryptCredentialValue(plaintext: string): string {
+	const secret = requireServerSecret();
+	return encryptWithSecret(plaintext, secret);
 }
 
 /**
- * Require the server secret, throwing if absent.
- * Used at credential WRITE and VALIDATE boundaries — fail loud.
+ * Decrypt a credential value encrypted by encryptCredentialValue.
+ * Reads the root secret from env (HYPERIDLE_CREDENTIAL_KEY / HYPERIDLE_API_KEY).
+ * Returns the plaintext string, or null if decryption fails for any reason
+ * (wrong key, tampered ciphertext, invalid format, or no secret configured).
  *
- * @lore AH1 §6: This is the fail-loud gate. Never call encryptCredentialValue or
- * decryptCredentialValue without a real non-empty secret. Boot uses getServerSecret()
- * (nullable, non-fatal); write/validate boundaries use requireServerSecret() (throws).
- * @throws {Error & { code: "MISSING_ROOT_SECRET" }} when no secret is configured.
+ * @lore AU20 Am4: No serverSecret param — the cipher owns the key.
+ * Returning null on missing secret matches the "graceful degradation" posture:
+ * reads that can't decrypt are surfaced as MissingCredentialError downstream,
+ * not as a hard boot failure.
  */
-export function requireServerSecret(): string {
+export function decryptCredentialValue(ciphertext: string): string | null {
 	const secret = getServerSecret();
-	if (!secret) {
-		const err = new Error(
-			"No encryption secret configured. Set HYPERIDLE_CREDENTIAL_KEY or HYPERIDLE_API_KEY.",
-		) as Error & { code: string };
-		err.code = "MISSING_ROOT_SECRET";
-		throw err;
-	}
-	return secret;
+	if (!secret) return null;
+	return decryptWithSecret(ciphertext, secret);
 }

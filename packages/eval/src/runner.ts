@@ -11,13 +11,13 @@ import * as fs from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { EnvCredentialResolver } from "@hyperidle/connections";
 import { type HyperIdleDb, schema } from "@hyperidle/db";
-import { resolveModelTier } from "@hyperidle/model-gateway";
+import { resolveModel } from "@hyperidle/model-gateway";
 import type { ModelGatewayConfig, ResolvedModel } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
+import { EnvCredentialResolver } from "./env-credential-resolver.js";
 import { scoreScenario } from "./scoring.js";
 import type {
 	EvalReport,
@@ -116,10 +116,10 @@ function buildGatewayConfig(modelOverride?: string): ModelGatewayConfig {
 	};
 }
 
-async function resolveModel(modelOverride?: string): Promise<ResolvedModel> {
+async function resolveEvalModel(modelOverride?: string): Promise<ResolvedModel> {
 	const config = buildGatewayConfig(modelOverride);
 	const resolver = new EnvCredentialResolver();
-	return await resolveModelTier("workhorse", config, resolver);
+	return await resolveModel({ kind: "tier", tier: "workhorse" }, config, resolver);
 }
 
 // ---------------------------------------------------------------------------
@@ -202,7 +202,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 	const runId = randomUUID();
 	const timestamp = new Date().toISOString();
 
-	const resolvedModel = await resolveModel(options.model);
+	const resolvedModel = await resolveEvalModel(options.model);
 	const modelLabel = resolvedModel.model;
 
 	let scenarios = await discoverScenarios();

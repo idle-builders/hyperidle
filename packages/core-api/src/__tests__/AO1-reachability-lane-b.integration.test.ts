@@ -25,12 +25,9 @@
 import * as crypto from "node:crypto";
 import { encryptCredentialValue, ServiceConnectionResolver } from "@hyperidle/connections";
 import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
-import {
-	probeGitRemote,
-	resolveFilesystemState,
-	ServiceConnectionResolverAdapter,
-} from "@hyperidle/filesystems";
+import { resolveFilesystemState } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/git-export";
+import type { FilesystemAuthResolver } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { test } from "../test-fixtures.js";
 
@@ -57,27 +54,71 @@ const NOW = "2026-06-27T00:00:00.000Z";
 
 describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, network)", () => {
 	it.skipIf(SKIP)(
-		SKIP_REASON ?? "real PAT → probeGitRemote reachable",
+		SKIP_REASON ?? "real PAT → resolveFilesystemState reachable",
 		async () => {
 			// LIVE PROOF: real GitHub token → real git ls-remote → exit 0 → reachable.
 			// This exercises the FULL auth path: token → base64 → GIT_CONFIG_* env → git.
-			const result = await probeGitRemote(GITHUB_REPO, PAT, createGitRunner);
-			expect(result.state).toBe("reachable");
+			// @lore AU20 Ag2: probeGitRemote removed from barrel; replaced with
+			// resolveFilesystemState + inline auth resolver returning the real PAT.
+			const state = await resolveFilesystemState(
+				{
+					id: "lb-direct-1",
+					teamId: "team-1",
+					source: "github",
+					kind: "code",
+					connectionId: "conn-direct",
+					resourceRef: JSON.stringify({ kind: "code", repo: GITHUB_REPO, branch: "main" }),
+					writeback: "git",
+					state: "attached",
+					createdAt: NOW,
+				},
+				{
+					authResolver: {
+						canResolve: async () => true,
+						sourceOf: async () => "github",
+						resolve: async () =>
+							PAT ? { connectionId: "conn-direct", provision: { mode: "none" as const } } : null,
+						resolveToken: async () => PAT ?? null,
+					},
+					gitRunnerFactory: createGitRunner,
+				},
+			);
+			expect(state).toBe("reachable");
 		},
 		35_000,
 	);
 
 	it.skipIf(SKIP)(
-		"garbage token → probeGitRemote needs_attention",
+		"garbage token → resolveFilesystemState needs_attention",
 		async () => {
 			// LIVE PROOF: invalid token → git ls-remote exits non-zero → needs_attention.
 			// The auth injection mechanism is exercised; the token is wrong so forge rejects.
-			const result = await probeGitRemote(
-				GITHUB_REPO,
-				"ghp_garbage_token_not_real_at_all_0000",
-				createGitRunner,
+			const state = await resolveFilesystemState(
+				{
+					id: "lb-direct-2",
+					teamId: "team-1",
+					source: "github",
+					kind: "code",
+					connectionId: "conn-garbage",
+					resourceRef: JSON.stringify({ kind: "code", repo: GITHUB_REPO, branch: "main" }),
+					writeback: "git",
+					state: "attached",
+					createdAt: NOW,
+				},
+				{
+					authResolver: {
+						canResolve: async () => true,
+						sourceOf: async () => "github",
+						resolve: async () => ({
+							connectionId: "conn-garbage",
+							provision: { mode: "none" as const },
+						}),
+						resolveToken: async () => "ghp_garbage_token_not_real_at_all_0000",
+					},
+					gitRunnerFactory: createGitRunner,
+				},
 			);
-			expect(result.state).toBe("needs_attention");
+			expect(state).toBe("needs_attention");
 		},
 		35_000,
 	);
@@ -111,7 +152,9 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 			});
 
 			// Encrypt the real PAT and store it as a service_connection.
-			const encryptedToken = encryptCredentialValue(PAT, CREDENTIAL_KEY);
+			// @lore AU20 Am4: encryptCredentialValue is now no-arg; reads HYPERIDLE_CREDENTIAL_KEY
+			// from env directly (same key the skip guard checks above).
+			const encryptedToken = encryptCredentialValue(PAT);
 			const connectionId = `lb-conn-${crypto.randomUUID().slice(0, 8)}`;
 			await db.insert(serviceConnections).values({
 				id: connectionId,
@@ -124,11 +167,25 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 				updatedAt: NOW,
 			});
 
-			// Wire the real resolver + adapter.
-			const resolver = new ServiceConnectionResolver(db, CREDENTIAL_KEY);
-			const adapter = new ServiceConnectionResolverAdapter(resolver, userId);
+			// Wire the real resolver + inline adapter object.
+			// @lore AU20 Am4: ServiceConnectionResolver no longer takes serverSecret;
+			// decryptCredentialValue reads HYPERIDLE_CREDENTIAL_KEY from env internally.
+			// @lore AU20 R-filesystems: ServiceConnectionResolverAdapter class deleted from barrel.
+			// Inline structural object satisfies FilesystemAuthResolver from @hyperidle/shared.
+			const resolver = new ServiceConnectionResolver(db);
 
-			// Verify the adapter can resolve.
+			function makeAdapter(boundUserId: string): FilesystemAuthResolver {
+				return {
+					canResolve: async (cid: string) => (await resolver.resolve(boundUserId, cid)) != null,
+					sourceOf: (_cid: string) => null,
+					resolve: async (_cid: string) => null,
+					resolveToken: (cid: string) => resolver.resolve(boundUserId, cid),
+				};
+			}
+
+			const adapter = makeAdapter(userId);
+
+			// Verify the inline adapter can resolve.
 			const canResolve = await adapter.canResolve(connectionId);
 			expect(canResolve).toBe(true); // LIVE: decrypt succeeds
 
@@ -152,9 +209,9 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 			);
 			expect(state).toBe("reachable"); // LIVE: git ls-remote with real token → exit 0
 
-			// Cross-user: resolver with a different userId should NOT decrypt → needs_attention.
+			// Cross-user: adapter bound to a different userId → null from resolver → needs_attention.
 			const otherUserId = `lb-other-${crypto.randomUUID().slice(0, 8)}`;
-			const crossUserAdapter = new ServiceConnectionResolverAdapter(resolver, otherUserId);
+			const crossUserAdapter = makeAdapter(otherUserId);
 			const crossState = await resolveFilesystemState(
 				{
 					id: "lb-fs-cross",

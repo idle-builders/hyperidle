@@ -14,12 +14,7 @@
  */
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
-import {
-	AdapterPool,
-	BuiltinHarnessAdapter,
-	CLAUDE_CLI_CONFIG,
-	CliHarnessAdapter,
-} from "@hyperidle/harness-registry";
+import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
@@ -34,20 +29,27 @@ function authHeaders(): Record<string, string> {
 /** Minimal adapter pool for AH2 validation tests (builtin + claude-code only). */
 function makeAH2Pool(): AdapterPool {
 	const pool = new AdapterPool();
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
+	pool.register("local-builtin", createHarnessAdapter({ kind: "builtin" }), {
 		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",
 		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 		maxConcurrent: 4,
 	});
-	pool.register("local-claude-code", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
-		name: "Claude Code",
-		kind: "local",
-		type: "claude-code",
-		modelProviders: ["anthropic"],
-		maxConcurrent: 4,
-	});
+	pool.register(
+		"local-claude-code",
+		createHarnessAdapter({
+			kind: "cli",
+			config: { binary: "claude", args: [], envMap: {}, eventFormat: "text", envAllowlist: [] },
+		}),
+		{
+			name: "Claude Code",
+			kind: "local",
+			type: "claude-code",
+			modelProviders: ["anthropic"],
+			maxConcurrent: 4,
+		},
+	);
 	return pool;
 }
 

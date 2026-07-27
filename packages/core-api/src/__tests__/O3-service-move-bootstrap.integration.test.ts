@@ -2,7 +2,7 @@ import { describe } from "vitest";
 import type { AppOptions } from "../app.js";
 import { createApp } from "../app.js";
 import { registerAgentLayerServices, registerCoreDomainServices } from "../server-factory.js";
-import { expect, test } from "../test-fixtures.js";
+import { expect, test, vi } from "../test-fixtures.js";
 
 /**
  * AU11: former app-runtime `bootstrapAppRuntime` split into two owner-scoped
@@ -41,31 +41,144 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 		}
 	});
 
-	// @lore AD8c: cost-sentinel startCostSentinel added as a disposer in app runtime. Count went from 7 to 8.
-	// @lore AF6: routine-scheduler deferred disposer (Option A) added. Count 8 → 9.
-	// @lore AF8: registerNotificationListener + startNotificationDrain added. Count went from 9 to 11.
-	// Note: AF8 builder lore said 9→10 but AF6's scheduler disposer was already in place, so actual: 9→11.
-	// @lore AF9: registerRelevanceListener added. Count 11 → 12.
-	// @lore AF16 T17: startRetentionReaper added (in-process 6h TTL sweep). Count 12 → 13.
-	// @lore AU9: startAgentLifecycleProjectionDrain added (durable core-owned lifecycle
-	// inbox drain, boot-wired in bootstrap.ts). Count 13 → 14.
-	// @lore AU11: bootstrap.ts split into registerCoreDomainServices (11 disposers)
-	// + registerAgentLayerServices (3 unconditional disposers, dispatcherDeps
-	// absent here) — same 14 total, grouping changed only.
-	// @lore AU19 Increment 3i: registerHandoffTerminationRequester added
-	// (§10.3 EventBus inversion for `policy ⚠ session-lifecycle` —
-	// subscribes to `session_handoff_completed` alongside
-	// `registerCostCapDedupReleaser`). Count 14 → 15.
-	test("returns exactly 15 disposers (one per disposer-registered service)", async ({
+	test("returns the exact nine named owners and invokes every distinct cleanup effect", async ({
 		db,
 		eventBus,
 	}) => {
-		const disposers = fullServiceBootstrap({ db, eventBus });
+		type OwnedDisposer = (() => void) & {
+			readonly owner: string;
+			readonly cleanupEffect: string;
+			readonly constituents: readonly string[];
+		};
+		const expectedOwnership = [
+			{
+				owner: "lifecycle-projection drain",
+				cleanupEffect: "stops drain",
+				constituents: ["drain interval"],
+			},
+			{
+				owner: "relevance listener",
+				cleanupEffect: "unsubscribes",
+				constituents: ["knowledge-access subscription"],
+			},
+			{
+				owner: "review subscriptions",
+				cleanupEffect: "unsubscribe",
+				constituents: ["review creation subscription", "review liveness subscription"],
+			},
+			{
+				owner: "policy registration",
+				cleanupEffect: "unsubscribe",
+				constituents: ["policy engine", "lifecycle propagation", "retry interval"],
+			},
+			{
+				owner: "git-export handler",
+				cleanupEffect: "unsubscribe",
+				constituents: ["knowledge-update subscription"],
+			},
+			{
+				owner: "notifications installation",
+				cleanupEffect: "dispatcher/listener/drain all stop",
+				constituents: ["dispatcher", "listener", "drain"],
+			},
+			{
+				owner: "retention reaper",
+				cleanupEffect: "interval cleared",
+				constituents: ["retention interval"],
+			},
+			{
+				owner: "dispatch lifecycle",
+				cleanupEffect: "builtin/assistant/task/scheduler stop",
+				constituents: ["builtin", "assistant", "task", "scheduler"],
+			},
+			{
+				owner: "cost sentinel",
+				cleanupEffect: "sentinel plus dedup subscription stop",
+				constituents: ["sentinel", "dedup subscription"],
+			},
+		] as const;
+		const disposers = fullServiceBootstrap({
+			db,
+			eventBus,
+			dispatcherDeps: {
+				adapterPool: {},
+				workspace: {},
+				sandboxBasePath: "/tmp/au20-bootstrap-ownership",
+			},
+		}) as OwnedDisposer[];
+		// Dispatch startup is asynchronous. Let all four constituents install
+		// before measuring any owner so later registrations cannot bleed into an
+		// earlier owner's cleanup observation.
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		const off = vi.spyOn(eventBus, "off");
+		const clear = vi.spyOn(globalThis, "clearInterval");
+		const observedEffects: Array<{
+			unsubscribedEvents: string[];
+			clearedIntervals: number;
+		}> = [];
 
-		expect(disposers).toHaveLength(15);
+		try {
+			for (const dispose of disposers) {
+				const offCalls = off.mock.calls.length;
+				const clearCalls = clear.mock.calls.length;
+				dispose();
+				await new Promise<void>((resolve) => setImmediate(resolve));
+				observedEffects.push({
+					unsubscribedEvents: off.mock.calls.slice(offCalls).map(([type]) => type),
+					clearedIntervals: clear.mock.calls.length - clearCalls,
+				});
+			}
 
-		for (const d of disposers) {
-			d();
+			expect(observedEffects).toEqual([
+				{ unsubscribedEvents: [], clearedIntervals: 1 },
+				{ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 },
+				{ unsubscribedEvents: ["session_ended", "session_ended"], clearedIntervals: 0 },
+				{
+					unsubscribedEvents: [
+						"item_created",
+						"session_ended",
+						"task_state_changed",
+						"bet_state_changed",
+					],
+					clearedIntervals: 1,
+				},
+				{ unsubscribedEvents: ["knowledge_updated"], clearedIntervals: 0 },
+				{
+					unsubscribedEvents: [
+						"notification",
+						"item_created",
+						"cost_cap_breached",
+						"cost_cap_warning",
+						"routine_fired",
+					],
+					clearedIntervals: 1,
+				},
+				{ unsubscribedEvents: [], clearedIntervals: 1 },
+				{
+					unsubscribedEvents: [
+						"task_state_changed",
+						"session_ended",
+						"thread_message_appended",
+						"bet_state_changed",
+					],
+					clearedIntervals: 1,
+				},
+				{
+					unsubscribedEvents: ["session_ended", "session_handoff_completed"],
+					clearedIntervals: 1,
+				},
+			]);
+			expect(
+				disposers.map(({ owner, cleanupEffect, constituents }) => ({
+					owner,
+					cleanupEffect,
+					constituents,
+				})),
+			).toEqual(expectedOwnership);
+		} finally {
+			off.mockRestore();
+			clear.mockRestore();
 		}
 	});
 });

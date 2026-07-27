@@ -15,7 +15,7 @@
 		"migrate": "drizzle-kit migrate"
 	},
 	"dependencies": {
-		"@electric-sql/pglite": "^0.5.1",
+		"@electric-sql/pglite": "^0.5.4",
 		"@hyperidle/shared": "*",
 		"drizzle-orm": "^0.45.2",
 		"drizzle-zod": "^0.8.3",

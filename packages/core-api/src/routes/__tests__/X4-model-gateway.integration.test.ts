@@ -22,11 +22,11 @@
  */
 
 import type { CredentialResolver } from "@hyperidle/connections";
+import { resolveModel } from "@hyperidle/model-gateway";
 import {
 	BUILT_IN_GATEWAY_CONFIG as DEFAULT_GATEWAY_CONFIG,
-	resolveModelTier,
-} from "@hyperidle/model-gateway";
-import { MissingCredentialError } from "@hyperidle/shared";
+	MissingCredentialError,
+} from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -68,7 +68,7 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 		const config = DEFAULT_GATEWAY_CONFIG;
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-abc" });
 
-		const result = await resolveModelTier("workhorse", config, resolver);
+		const result = await resolveModel({ kind: "tier", tier: "workhorse" }, config, resolver);
 
 		expect(result.provider).toBe("anthropic");
 		expect(result.model).toBe("claude-sonnet-4-6"); // AH2: updated from claude-sonnet-4-20250514 (drift-catch)
@@ -78,7 +78,11 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 
 	test("resolves reasoning tier with claude-opus model", async ({}) => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-reasoning" });
-		const result = await resolveModelTier("reasoning", DEFAULT_GATEWAY_CONFIG, resolver);
+		const result = await resolveModel(
+			{ kind: "tier", tier: "reasoning" },
+			DEFAULT_GATEWAY_CONFIG,
+			resolver,
+		);
 
 		expect(result.provider).toBe("anthropic");
 		expect(result.model).toBe("claude-opus-4-8"); // AH2: updated from claude-opus-4-20250514 (drift-catch)
@@ -88,7 +92,11 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 
 	test("resolves fast tier with claude-haiku model", async ({}) => {
 		const resolver = makeResolver({ anthropic_api_key: "ant-key-fast" });
-		const result = await resolveModelTier("fast", DEFAULT_GATEWAY_CONFIG, resolver);
+		const result = await resolveModel(
+			{ kind: "tier", tier: "fast" },
+			DEFAULT_GATEWAY_CONFIG,
+			resolver,
+		);
 
 		expect(result.provider).toBe("anthropic");
 		expect(result.model).toBe("claude-haiku-4-5"); // AH2: updated from claude-haiku-3-5-20241022 (drift-catch)
@@ -99,16 +107,16 @@ describe("X4: resolveModelTier — anthropic provider", () => {
 	test("throws MissingCredentialError when anthropic_api_key is missing", async ({}) => {
 		const resolver = makeResolver({ anthropic_api_key: null });
 
-		await expect(resolveModelTier("workhorse", DEFAULT_GATEWAY_CONFIG, resolver)).rejects.toThrow(
-			MissingCredentialError,
-		);
+		await expect(
+			resolveModel({ kind: "tier", tier: "workhorse" }, DEFAULT_GATEWAY_CONFIG, resolver),
+		).rejects.toThrow(MissingCredentialError);
 	});
 
 	test("MissingCredentialError message identifies provider and tier", async ({}) => {
 		const resolver = makeResolver({ anthropic_api_key: null });
 
 		try {
-			await resolveModelTier("reasoning", DEFAULT_GATEWAY_CONFIG, resolver);
+			await resolveModel({ kind: "tier", tier: "reasoning" }, DEFAULT_GATEWAY_CONFIG, resolver);
 			expect.fail("Should have thrown");
 		} catch (err) {
 			expect(err).toBeInstanceOf(MissingCredentialError);
@@ -131,7 +139,7 @@ describe("X4: resolveModelTier — openrouter provider", () => {
 		};
 		const resolver = makeResolver({ openrouter_api_key: "or-key-xyz" });
 
-		const result = await resolveModelTier("workhorse", config, resolver);
+		const result = await resolveModel({ kind: "tier", tier: "workhorse" }, config, resolver);
 
 		expect(result.provider).toBe("openrouter");
 		expect(result.model).toBe("anthropic/claude-sonnet-4");
@@ -149,9 +157,9 @@ describe("X4: resolveModelTier — openrouter provider", () => {
 		};
 		const resolver = makeResolver({ openrouter_api_key: null });
 
-		await expect(resolveModelTier("workhorse", config, resolver)).rejects.toThrow(
-			MissingCredentialError,
-		);
+		await expect(
+			resolveModel({ kind: "tier", tier: "workhorse" }, config, resolver),
+		).rejects.toThrow(MissingCredentialError);
 	});
 });
 
@@ -169,7 +177,7 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 		};
 		const resolver = makeResolver({ openai_compatible_api_key: "together-key-abc" });
 
-		const result = await resolveModelTier("fast", config, resolver);
+		const result = await resolveModel({ kind: "tier", tier: "fast" }, config, resolver);
 
 		expect(result.provider).toBe("openai-compatible");
 		expect(result.model).toBe("gemma-3");
@@ -189,7 +197,7 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 		};
 		const resolver = makeResolver({}); // no openai_compatible_api_key
 
-		await expect(resolveModelTier("fast", config, resolver)).rejects.toThrow(
+		await expect(resolveModel({ kind: "tier", tier: "fast" }, config, resolver)).rejects.toThrow(
 			MissingCredentialError,
 		);
 	});
@@ -205,7 +213,9 @@ describe("X4: resolveModelTier — openai-compatible provider", () => {
 		};
 		const resolver = makeResolver({ openai_compatible_api_key: "some-key" });
 
-		await expect(resolveModelTier("fast", config, resolver)).rejects.toThrow(/baseUrl/i);
+		await expect(resolveModel({ kind: "tier", tier: "fast" }, config, resolver)).rejects.toThrow(
+			/baseUrl/i,
+		);
 	});
 });
 

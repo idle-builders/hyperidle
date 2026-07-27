@@ -11,7 +11,8 @@
  *     by their team's agents appear in the list (humans are participants).
  */
 
-import { getThreadById, insertThread, updateThread } from "@hyperidle/conversation";
+import { findThread, insertThread, updateThread } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	bets,
 	createTestDb,
@@ -28,15 +29,17 @@ import {
 	users,
 } from "@hyperidle/db";
 import { resolveReviewRecipients } from "@hyperidle/org";
-import { registerSessionReviewCreator, type SessionReviewCreatorDeps } from "@hyperidle/review";
+import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
-import { getUserById, listUsersByKind } from "@hyperidle/users";
-import { createItem, getTaskById, getTaskRiskTierByTaskId, updateTaskById } from "@hyperidle/work";
+import { findUser, listUsers } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
+import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * @lore AU19 Increment 1j: `registerSessionReviewCreator` now takes injected
+ * @lore AU19 Increment 1j: `registerReviewSubscriptions` now takes injected
  * `work`/`conversation`/`users`/`org` ports (Mechanism C — `review` never
  * imports another Service). This test builds the exact same production
  * wiring `server-factory.ts` uses — no behavior change.
@@ -45,12 +48,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * `getTaskRiskTierByTaskId`, replacing the direct `taskStrategyFabric` table
  * seed/query this test used before AU3's half-done rename was finished.
  */
-const reviewDeps: SessionReviewCreatorDeps = {
-	work: { getTaskById, updateTaskById, createItem },
-	conversation: { insertThread, getThreadById, updateThread },
-	users: { getUserById, listUsersByKind },
+const reviewDeps: ReviewPorts = {
+	work: {
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		updateTaskById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "task", id, patch),
+		createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
+		getRiskTierByTaskId: getTaskRiskTierByTaskId,
+	},
+	conversation: { insertThread, getThreadById: (db, id) => findThread(db, { id }), updateThread },
+	users: {
+		getUserById: (db, id) => findUser(db, { id }),
+		listUsersByKind: (db, kind) => listUsers(db, { kind }),
+	},
 	org: { resolveReviewRecipients },
-	taskRiskTier: { getRiskTierByTaskId: getTaskRiskTierByTaskId },
+	intentRecorder: { record: enqueueWorkIntent },
 };
 
 const NOW = new Date().toISOString();
@@ -161,7 +173,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				outcome: "success",
 			});
 
-			const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
+			const unsubscribe = registerReviewSubscriptions(db, eventBus, reviewDeps);
 
 			const event: SessionEndedEvent = {
 				type: "session_ended",
@@ -242,7 +254,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				outcome: "partial",
 			});
 
-			const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
+			const unsubscribe = registerReviewSubscriptions(db, eventBus, reviewDeps);
 
 			const event: SessionEndedEvent = {
 				type: "session_ended",
@@ -311,7 +323,7 @@ describe("AD1 — session-review-creator: human participants added to review thr
 				state: "ended",
 			});
 
-			const unsubscribe = registerSessionReviewCreator(db, eventBus, reviewDeps);
+			const unsubscribe = registerReviewSubscriptions(db, eventBus, reviewDeps);
 
 			const event: SessionEndedEvent = {
 				type: "session_ended",

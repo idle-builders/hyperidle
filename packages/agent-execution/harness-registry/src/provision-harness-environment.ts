@@ -1,0 +1,35 @@
+import type { ReturnEnforcementChannel } from "@hyperidle/shared";
+import { writeHarnessMcpConfig } from "./cli-mcp-config.js";
+import { installReturnHook } from "./provision-return-hook.js";
+
+export interface ProvisionOptions {
+	readonly sandboxPath: string;
+	readonly mcpUrl: string;
+	readonly token: string;
+	readonly dialect?: "codex-toml" | "opencode-json" | "cursor-json";
+	readonly channel?: ReturnEnforcementChannel;
+	readonly forceBudget?: number;
+}
+
+export async function provisionHarnessEnvironment(
+	options: ProvisionOptions,
+): Promise<{ readonly tokenEnv?: Record<string, string> }> {
+	const configured = options.dialect
+		? writeHarnessMcpConfig({
+				dialect: options.dialect,
+				sandboxPath: options.sandboxPath,
+				mcpUrl: options.mcpUrl,
+				token: options.token,
+			})
+		: {};
+	if (options.channel) {
+		await installReturnHook({
+			sandboxPath: options.sandboxPath,
+			channel: options.channel,
+			bridgeToken: options.token,
+			mcpUrl: options.mcpUrl,
+			forceBudget: options.forceBudget ?? 0,
+		});
+	}
+	return configured;
+}

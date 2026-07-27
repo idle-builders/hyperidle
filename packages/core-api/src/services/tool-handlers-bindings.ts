@@ -16,66 +16,48 @@
  * every other `*-bindings.ts` file in this directory.
  */
 
-import { resolveAgentScaffoldSpecs } from "@hyperidle/agent-selection";
 import {
 	findOrCreateDirectThread,
-	getFirstThreadByHost,
-	getThreadById,
+	findThread,
 	insertMessage,
 	insertThread,
-	listInboxBySenderExclusion,
+	listInbox,
 	updateThread,
 } from "@hyperidle/conversation";
-import type { HyperIdleDb } from "@hyperidle/db";
-import { nextCronMatch, parseCron } from "@hyperidle/dispatch";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import {
-	buildAttentionService,
-	createKnowledgeConflict,
 	create as createKnowledgeItem,
-	findKnowledgeItemStatusById,
-	findKnowledgeItemVersionById,
-	findOpenConflictByItemAndProposer,
-	promoteKnowledgeItem,
+	findOpenConflict as findOpenKnowledgeConflict,
+	get as getKnowledgeItem,
+	transition as knowledgeTransition,
+	recomputeAttention,
+	recordConflict as recordKnowledgeConflict,
 	search as searchKnowledge,
-	upsertKnowledgeAppProjectionAttentionScore,
 } from "@hyperidle/knowledge";
 import {
 	createTeam,
-	createTeamMembersGroup,
-	getTeamById,
-	getTeamMembersById,
-	getTeamMembersByTeamId,
+	getTeam,
+	getTeamMembers,
 	persistScaffoldedAgents as orgPersistScaffoldedAgents,
 	resolveReviewRecipients,
-	setTeamMembersLeadAgent,
+	updateTeam,
 } from "@hyperidle/org";
-import {
-	attentionReviewReasoningMarker,
-	buildCreateReviewItemForKnowledge,
-} from "@hyperidle/review";
-import { getRoutineById, insertRoutine, updateRoutineById } from "@hyperidle/routine";
+import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
+import { getRoutine, insertRoutine, updateRoutine } from "@hyperidle/routine";
 import type { EventBus } from "@hyperidle/shared";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
-import { buildAllToolDefinitions } from "@hyperidle/tool-handlers";
-import { getUserById, insertUser, listUsersByKind, listUsersByTeam } from "@hyperidle/users";
-import {
-	createArtifact,
-	createBet,
-	createTask,
-	createItem as createWorkItem,
-	findItemByReasoningMarker,
-	getBetById,
-	getItemById,
-	getTaskById,
-	routeItem,
-	updateBetById,
-	updateItemById,
-	updateTaskById,
-} from "@hyperidle/work";
-import { provisionTeamRoutines as provisionTeamRoutinesBound } from "./dispatch-bindings.js";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import { findUser, insertUser, listUsers } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
+import { routeItem } from "@hyperidle/work";
+import { agentSelectionService } from "./agent-selection-bindings.js";
+import { dispatchOps } from "./dispatch-bindings.js";
 import { handoff } from "./policy-bindings.js";
 
-const orgUsersForScaffold = { getUserById, insertUser };
+const orgUsersForScaffold = {
+	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
+	insertUser,
+};
 
 /**
  * @lore AU19 Increment 4: `dispatch-bindings.ts` imports `toolHandlersPorts`
@@ -96,24 +78,17 @@ function provisionTeamRoutines(
 		readonly leadAgentId: string;
 	},
 ): Promise<unknown> {
-	return provisionTeamRoutinesBound(db, opts);
+	return dispatchOps.provisionTeamRoutines(db, opts);
 }
 
 /**
- * `agentSelection`'s real `resolveAgentScaffoldSpecs` returns
+ * `agentSelection`'s real `resolveScaffoldSpecs` returns
  * `AgentScaffoldSpec[]` (concrete fields), but `ports.ts` declares this
  * port's return element as the opaque `Record<string, unknown>` (`specs`
  * is only ever piped opaquely through `persistScaffoldedAgents` — see this
  * file's own `@lore` on that function). Same "fresh object literal"
  * boundary-crossing as {@link searchKnowledgeForTool} below.
  */
-async function resolveAgentScaffoldSpecsForTool(
-	input: Parameters<typeof resolveAgentScaffoldSpecs>[0],
-): Promise<readonly Record<string, unknown>[]> {
-	const specs = await resolveAgentScaffoldSpecs(input);
-	return specs.map((spec) => ({ ...spec }));
-}
-
 /**
  * Collapses `resolveReviewRecipients(db, ctx, {listUsersByKind})` — see
  * `@hyperidle/tool-handlers`'s `ports.ts` top `@lore`. `org`'s real
@@ -128,7 +103,9 @@ async function resolveReviewRecipientsForItem(
 		readonly teamId: string | undefined;
 	},
 ): Promise<readonly string[]> {
-	return resolveReviewRecipients(db, ctx, { listUsersByKind });
+	return resolveReviewRecipients(db, ctx, {
+		listUsersByKind: (db2, kind) => listUsers(db2, { kind }),
+	});
 }
 
 /** Collapses `persistScaffoldedAgents(db, {getUserById,insertUser}, teamMembersId, specs)`. */
@@ -137,7 +114,7 @@ async function persistScaffoldedAgents(
 	teamMembersId: string | null,
 	specs: readonly Record<string, unknown>[],
 ): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }> {
-	// biome-ignore lint/suspicious/noExplicitAny: `specs` is opaquely piped through from `resolveAgentScaffoldSpecs`'s own real return type at this composition boundary — Mechanism C forbids tool-handlers from importing that type.
+	// biome-ignore lint/suspicious/noExplicitAny: `specs` is opaquely piped through from `resolveScaffoldSpecs`'s own real return type at this composition boundary — Mechanism C forbids tool-handlers from importing that type.
 	return orgPersistScaffoldedAgents(db, orgUsersForScaffold, teamMembersId, specs as any);
 }
 
@@ -173,71 +150,127 @@ async function recomputeAttentionScoreForItem(
 	eventBus: EventBus,
 	knowledgeItemId: string,
 ): Promise<{ readonly current: number }> {
-	const createReviewItemForKnowledge = buildCreateReviewItemForKnowledge({
+	const createReviewItemForKnowledge = createReviewItem({
 		conversation: { insertThread },
-		work: { createItem: createWorkItem },
+		work: { createItem: (exec, values) => work.create(exec, "item", values) },
 	});
-	return buildAttentionService({
-		db,
-		eventBus,
-		work: { findItemByReasoningMarker },
-		review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
-	}).recomputeOne(knowledgeItemId);
+	const result = await recomputeAttention(
+		{
+			db,
+			eventBus,
+			work: {
+				findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
+					const rows = await work.list(exec, "item", { marker });
+					return rows[0] ? { id: rows[0].id } : undefined;
+				},
+			},
+			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+		},
+		{ itemId: knowledgeItemId },
+	);
+	if (Array.isArray(result) || !("current" in result))
+		throw new Error("unexpected attention result");
+	return result;
 }
 
 const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	work: {
-		getTaskById,
-		getBetById,
-		createBet,
-		updateBetById,
-		createTask,
-		updateTaskById,
-		getItemById,
-		updateItemById,
-		createItem: createWorkItem,
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
+		createBet: (exec: WriteExecutor, input) => work.create(exec, "bet", input),
+		updateBetById: (exec: WriteExecutor, id, updates) => work.update(exec, "bet", id, updates),
+		createTask: (exec: WriteExecutor, input) => work.create(exec, "task", input),
+		updateTaskById: (exec: WriteExecutor, id, updates) => work.update(exec, "task", id, updates),
+		appendTaskNote: (exec: WriteExecutor, taskId, entry) =>
+			work.update(exec, "task", taskId, { notes: { appendNote: entry } }),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+		updateItemById: (exec: WriteExecutor, id, updates) => work.update(exec, "item", id, updates),
+		// @lore AU20 Ag5c: tool-handlers port uses Record<string,unknown> for createItem; cast to NewItem
+		// at the composition boundary — tool-handlers (Mechanism C) never imports @hyperidle/db types.
+		createItem: (exec: WriteExecutor, input: Record<string, unknown>) =>
+			work.create(exec, "item", input as Parameters<typeof work.create<"item">>[2]),
 		routeItem,
-		findItemByReasoningMarker,
-		createArtifact,
+		findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
+			const rows = await work.list(exec, "item", { marker });
+			return rows[0] ? { id: rows[0].id } : undefined;
+		},
+		createArtifact: (exec: WriteExecutor, input) => work.create(exec, "artifact", input),
 	},
-	users: { getUserById, listUsersByTeam },
+	users: {
+		getUserById: (db, id) => findUser(db, { id }),
+		listUsersByTeam: (db, teamId) => listUsers(db, { teamIds: [teamId] }),
+	},
 	conversation: {
-		getThreadById,
+		getThreadById: (db, id) => findThread(db, { id }),
 		insertThread,
 		updateThread,
 		insertMessage,
-		listInboxBySenderExclusion,
+		listInboxBySenderExclusion: (db, agentId, limit) =>
+			listInbox(db, { excludeSenderId: agentId, limit }),
 		findOrCreateDirectThread,
-		getFirstThreadByHost,
+		getFirstThreadByHost: (db, hostKind, hostId) =>
+			findThread(db, { host: { kind: hostKind, id: hostId } }),
 	},
 	org: {
-		getTeamById,
-		getTeamMembersByTeamId,
-		getTeamMembersById,
+		// @lore AU20 Am7: per-WHERE accessors replaced by parameterized API; adapters bridge the port interface.
+		getTeamById: (db: HyperIdleDb, teamId: string) => getTeam(db, { id: teamId }),
+		getTeamMembersByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+		getTeamMembersById: (db: HyperIdleDb, teamMembersId: string) =>
+			getTeamMembers(db, { id: teamMembersId }),
 		createTeam,
-		createTeamMembersGroup,
-		setTeamMembersLeadAgent,
+		updateTeam,
 		resolveReviewRecipientsForItem,
 		persistScaffoldedAgents,
 	},
-	agentSelection: { resolveAgentScaffoldSpecs: resolveAgentScaffoldSpecsForTool },
-	routine: { insertRoutine, getRoutineById, updateRoutineById },
-	dispatch: { nextCronMatch, parseCron, provisionTeamRoutines },
+	agentSelection: {
+		resolveScaffoldSpecs: async (input) =>
+			(await agentSelectionService.resolveScaffoldSpecs(input)).map((spec) => ({ ...spec })),
+	},
+	routine: { insertRoutine, getRoutineById: getRoutine, updateRoutineById: updateRoutine },
+	dispatch: { provisionTeamRoutines },
 	knowledge: {
 		search: searchKnowledgeForTool,
 		create: createKnowledgeItem,
-		findKnowledgeItemVersionById,
-		findKnowledgeItemStatusById,
-		findOpenConflictByItemAndProposer,
-		createKnowledgeConflict,
-		promoteKnowledgeItem,
-		upsertKnowledgeAppProjectionAttentionScore,
+		// @lore AU20 Ag7a: findKnowledgeItemVersionById and findKnowledgeItemStatusById
+		// retired from the knowledge barrel (simple-duplicate functions superseded by
+		// findById). Adapted here at the composition boundary — findById returns the
+		// full KnowledgeItem (structurally compatible with both port shapes).
+		findKnowledgeItemVersionById: async (db, id) => {
+			const item = await getKnowledgeItem(db, id);
+			return item ?? undefined;
+		},
+		findKnowledgeItemStatusById: async (db, id) => {
+			const item = await getKnowledgeItem(db, id);
+			return item ?? undefined;
+		},
+		// @lore AU20 K2-writes: createKnowledgeConflict/findOpenConflictByItemAndProposer deleted
+		// from barrel; wired here via recordConflict/findOpenConflict adapters.
+		// findOpenConflict returns null instead of undefined; adapter maps null → undefined
+		// to match the port interface (ToolHandlersKnowledgeAccessor) which expects undefined.
+		findOpenConflictByItemAndProposer: async (db, itemId, proposedBy) =>
+			(await findOpenKnowledgeConflict(db, itemId, proposedBy)) ?? undefined,
+		createKnowledgeConflict: (db, input) => recordKnowledgeConflict(db, input),
+		// @lore AU20 K2-writes: promoteKnowledgeItem deleted from barrel; wired here
+		// via transition({target:"promote",...}) — same transactional gate logic.
+		promoteKnowledgeItem: async (db, input) =>
+			knowledgeTransition(db, input.knowledgeItemId, {
+				target: "promote",
+				fromStatus: input.fromStatus,
+				toStatus: input.toStatus,
+				reason: input.reason,
+				editor: input.editor,
+			}),
+		upsertKnowledgeAppProjectionAttentionScore: (db, knowledgeItemId, attentionScore) =>
+			knowledgeTransition(db, knowledgeItemId, {
+				target: "recomputeAttention",
+				attentionScore: Number(attentionScore),
+			}),
 		recomputeAttentionScoreForItem,
 	},
 	policy: { handoff },
 };
 
-/** Production-wired `ALL_TOOL_DEFINITIONS` — every real call site imports this. */
-export const allToolDefinitions = buildAllToolDefinitions(toolHandlersPorts);
+/** Production-wired tool definitions — every real call site imports this. */
+export const allToolDefinitions = buildToolDefinitions(toolHandlersPorts);
 
 export { toolHandlersPorts };

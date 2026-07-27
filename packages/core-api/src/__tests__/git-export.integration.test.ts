@@ -14,6 +14,10 @@
  *   AC5 — Configurable: repo path, remote URL, branch
  */
 
+import * as nodeFs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+
 import {
 	createTestDb,
 	type HyperIdleDb,
@@ -21,47 +25,52 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 import {
-	buildCommitMessage,
-	computeExportPlan,
-	type ExportPlanEntry,
-	type FsAdapter,
 	type GitExportConfig,
 	type GitExportConfigPatch,
 	type GitRunner,
 	getLastExportMeta,
+	type RunGitExportDeps,
+	registerGitExportHandler,
+	runGitExport,
+	updateGitExportConfig,
+} from "@hyperidle/git-export";
+import {
+	buildCommitMessage,
+	computeExportPlan,
 	loadGitExportConfig,
 	redactRemoteUrl,
-	registerGitExportHandler,
 	resetExportMutexes,
-	runGitExport,
 	sanitizeAuthorEmail,
 	sanitizeAuthorName,
 	sanitizeBranch,
 	sanitizePathSegment,
 	sanitizeRemoteUrl,
 	sanitizeRepoPath,
-	updateGitExportConfig,
-} from "@hyperidle/git-export";
-import {
-	findKnowledgeItemProjectionById,
-	listExportableKnowledgeItems,
-} from "@hyperidle/knowledge";
+} from "@hyperidle/git-export/testing";
+import { get as getKnowledgeItem, list as listKnowledgeItems } from "@hyperidle/knowledge";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
+
+type FsAdapter = NonNullable<RunGitExportDeps["fs"]>;
+type ExportPlanEntry = Awaited<ReturnType<typeof computeExportPlan>>["entries"][number];
+
 import { createApp, disposeApp } from "../app.js";
 import { expect, test } from "../test-fixtures.js";
 
 const serverConfig = { read: readServerConfig, update: updateServerConfig };
 const knowledgeReader = {
-	listExportableItems: listExportableKnowledgeItems,
-	getProjectionByItemId: findKnowledgeItemProjectionById,
+	listExportableItems: (
+		db: import("@hyperidle/db").HyperIdleDb,
+		filters: { readonly layers: readonly string[]; readonly statuses: readonly string[] },
+	) => listKnowledgeItems(db, { exportable: filters }),
+	getProjectionByItemId: (db: import("@hyperidle/db").HyperIdleDb, id: string) =>
+		getKnowledgeItem(db, id, { view: "projection" }),
 };
 
 type GitCall =
 	| { cmd: "init"; branch: string }
 	| { cmd: "add"; paths: readonly string[] }
-	| { cmd: "rm"; path: string }
 	| { cmd: "commit"; message: string; authorName: string; authorEmail: string }
 	| { cmd: "push"; remote: string; branch: string }
 	| { cmd: "diffCached" }
@@ -69,7 +78,7 @@ type GitCall =
 	| { cmd: "configSet"; key: string; value: string }
 	| { cmd: "remoteAdd"; name: string; url: string }
 	| { cmd: "lsFiles" }
-	| { cmd: "statusPorcelain" };
+	| { cmd: "lsFiles" };
 
 interface FakeGitRunnerOptions {
 	/** Whether git thinks cwd is already a worktree. Defaults to true. */
@@ -89,8 +98,6 @@ interface FakeGitRunnerOptions {
 	readonly gate?: Promise<void>;
 	/** Tracked files returned by `lsFiles`. */
 	readonly trackedFiles?: readonly string[];
-	/** Lines returned by `statusPorcelain`. */
-	readonly statusLines?: readonly string[];
 }
 
 class FakeGitRunner implements GitRunner {
@@ -119,10 +126,6 @@ class FakeGitRunner implements GitRunner {
 	async add(paths: readonly string[]): Promise<void> {
 		await this.wait();
 		this.calls.push({ cmd: "add", paths });
-	}
-	async rm(path: string): Promise<void> {
-		await this.wait();
-		this.calls.push({ cmd: "rm", path });
 	}
 	async commit(message: string, authorName: string, authorEmail: string): Promise<string> {
 		await this.wait();
@@ -158,11 +161,6 @@ class FakeGitRunner implements GitRunner {
 		this.calls.push({ cmd: "lsFiles" });
 		return this.opts.trackedFiles ?? [];
 	}
-	async statusPorcelain(): Promise<readonly string[]> {
-		await this.wait();
-		this.calls.push({ cmd: "statusPorcelain" });
-		return this.opts.statusLines ?? [];
-	}
 	async lsRemote(
 		_url: string,
 		_opts?: { tokenConfig?: { key: string; value: string } },
@@ -182,12 +180,6 @@ class FakeGitRunner implements GitRunner {
 		await this.wait();
 	}
 	async worktreeRemove(_path: string, _opts?: object): Promise<void> {
-		await this.wait();
-	}
-	async fetch(_remote?: string): Promise<void> {
-		await this.wait();
-	}
-	async checkout(_branch: string, _opts?: object): Promise<void> {
 		await this.wait();
 	}
 	async restoreStaged(_paths: readonly string[]): Promise<void> {
@@ -362,14 +354,30 @@ describe("loadGitExportConfig", () => {
 	});
 
 	test("drops a stored remoteUrl that fails the scheme/credential allow-list", async ({ db }) => {
-		await enableExport(db, {
-			repoPath: "/tmp/safe-repo",
-			// userinfo-bearing URL is not allowed in or out
-			remoteUrl: "https://user:token@github.com/owner/repo.git",
+		// @lore AU20 Am8: updateGitExportConfig now validates at write-time, so we
+		// can no longer seed a credential-bearing URL through it. This defense-in-
+		// depth test exercises the READ path (loadGitExportConfig's sanitizeRemoteUrl
+		// guard at lines 74-80) — the only way to reach it is to bypass validation
+		// by writing the bad URL directly via raw settings, simulating a URL that
+		// predates the write-time guard or arrived via migration/CLI/bypass.
+		await enableExport(db, { repoPath: "/tmp/safe-repo" });
+		await updateServerConfig(db, {
+			gitExport: { remoteUrl: "https://user:token@github.com/owner/repo.git" },
 		});
 		const cfg = await loadGitExportConfig(db, { serverConfig });
 		expect(cfg).not.toBeNull();
 		expect(cfg?.remoteUrl).toBeNull();
+	});
+
+	test("rejects stored branch and author values that bypassed write validation", async ({ db }) => {
+		await enableExport(db, { repoPath: "/tmp/safe-repo" });
+		await updateServerConfig(db, { gitExport: { branch: "-unsafe" } });
+		expect(await loadGitExportConfig(db, { serverConfig })).toBeNull();
+
+		await updateServerConfig(db, {
+			gitExport: { branch: "main", authorEmail: "attacker@example.com\nInjected: value" },
+		});
+		expect(await loadGitExportConfig(db, { serverConfig })).toBeNull();
 	});
 });
 
@@ -821,6 +829,32 @@ describe("runGitExport", () => {
 		expect(runner.calls.some((c) => c.cmd === "init")).toBe(true);
 	});
 
+	test("rejects writes through a symlink that escapes the configured repository", async ({
+		db,
+	}) => {
+		const temp = nodeFs.mkdtempSync(path.join(os.tmpdir(), "git-export-symlink-"));
+		const repo = path.join(temp, "repo");
+		const outside = path.join(temp, "outside");
+		nodeFs.mkdirSync(repo);
+		nodeFs.mkdirSync(outside);
+		nodeFs.symlinkSync(outside, path.join(repo, "products"), "dir");
+		try {
+			await enableExport(db, { repoPath: repo });
+			await seedKnowledge(db, [
+				{ layer: "L2", kind: "BRIEF", scopeId: "alpha", body: "must stay contained" },
+			]);
+			const result = await runGitExport(db, {
+				runner: new FakeGitRunner(repo),
+				serverConfig,
+				knowledge: knowledgeReader,
+			});
+			expect(result.status).toBe("committed");
+			expect(nodeFs.existsSync(path.join(outside, "alpha", "BRIEF.md"))).toBe(false);
+		} finally {
+			nodeFs.rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
 	test("concurrent calls against the SAME repo serialize", async ({ db }) => {
 		await enableExport(db);
 		await seedKnowledge(db, [{ layer: "L4", kind: "PRINCIPLES", scopeId: null, body: "one" }]);
@@ -1012,7 +1046,7 @@ describe("runGitExport", () => {
 		await enableExport(db);
 		await seedKnowledge(db, [{ layer: "L2", kind: "BRIEF", scopeId: "alpha", body: "# alpha\n" }]);
 		// `lsFiles` advertises a stale file from a prior export that the plan
-		// no longer contains. `statusPorcelain` lives to allow future checks.
+		// no longer contains.
 		const runner = new FakeGitRunner(REPO, {
 			trackedFiles: [
 				"products/alpha/BRIEF.md",

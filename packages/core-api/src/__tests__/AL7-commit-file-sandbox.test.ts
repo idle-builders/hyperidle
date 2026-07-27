@@ -10,14 +10,18 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { ToolContext } from "@hyperidle/shared";
-import { createCommitFileTool } from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { afterAll, describe, expect, it } from "vitest";
+import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 
-const commitFileTool = createCommitFileTool();
+const commitFileTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "commit_file",
+)!;
 
 // Minimal stub of ToolContext — commit_file only uses sandboxPath
-function makeCtx(sandboxPath: string): ToolContext {
+function makeCtx(sandboxPath: string): ToolContext<HyperIdleDb> {
 	return {
 		// biome-ignore lint/suspicious/noExplicitAny: minimal stub for unit test
 		db: {} as any,

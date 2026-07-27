@@ -8,13 +8,12 @@
  */
 export {
 	AdapterPool,
-	LocalSandboxAdapter,
+	createSandboxAdapter,
 	type SandboxAdapter,
 	type SandboxHandle,
 } from "@hyperidle/harness-registry";
+export type { RunOptions, RunResult } from "@hyperidle/run-orchestration";
 export {
 	type ProvisionSessionDeps,
-	type ProvisionSessionParams,
-	type ProvisionSessionResult,
-	provisionSession,
-} from "./services/session-lifecycle-bindings.js";
+	runSession,
+} from "./services/run-orchestration-composition.js";

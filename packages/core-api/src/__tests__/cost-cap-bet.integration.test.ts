@@ -1,11 +1,11 @@
 /**
- * R5 RED — Unit tests for recordCostAndCheck bet cost accumulation.
+ * R5 RED — Unit tests for costOps.record bet cost accumulation.
  *
  * AC4: Cost from harness adapter flows through and displays in WorkBet cost
  *      section. The bet's costActualMinor must be incremented when a taskId
- *      is provided to recordCostAndCheck.
+ *      is provided to costOps.record.
  *
- * These tests FAIL until Task 3 (extend recordCostAndCheck) implementation ships.
+ * These tests FAIL until Task 3 (extend costOps.record) implementation ships.
  *
  * @lore R5: This test lives in packages/server/src/__tests__ (not fabric) to
  * avoid modifying the protected packages/server/app-runtime/src/__tests__/cost-cap.test.ts.
@@ -15,7 +15,7 @@
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { clearDeduplicationCache, recordCostAndCheck } from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import { beforeEach, describe, expect, test } from "../test-fixtures.js";
 
 const NOW = new Date().toISOString();
@@ -56,14 +56,14 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
+describe("costOps.record — bet cost accumulation (R5 AC4)", () => {
 	beforeEach(() => {
-		clearDeduplicationCache();
+		costOps._testHooks.clearDedup();
 	});
 
 	test("increments bets.costActualMinor when taskId is provided", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 100,
 			currency: "USD",
@@ -86,7 +86,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 
 	test("accumulates cumulatively on successive calls", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 100,
 			currency: "USD",
@@ -95,7 +95,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 			taskId: "task-1",
 		});
 
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "s2",
 			costMinor: 75,
 			currency: "USD",
@@ -114,7 +114,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 
 	test("does NOT modify bet when taskId is omitted (backward compat)", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 500,
 			currency: "USD",
@@ -134,7 +134,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 
 	test("does NOT modify bet when costMinor is zero", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 0,
 			currency: "USD",
@@ -155,7 +155,7 @@ describe("recordCostAndCheck — bet cost accumulation (R5 AC4)", () => {
 	test("does NOT modify bet when taskId does not exist", async ({ db, eventBus }) => {
 		await seedBase(db);
 		// Should not throw — just no-op if task not found
-		await recordCostAndCheck(db, eventBus, {
+		await costOps.record(db, eventBus, {
 			sessionId: "s1",
 			costMinor: 100,
 			currency: "USD",

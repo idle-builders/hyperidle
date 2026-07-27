@@ -9,7 +9,14 @@
  * or the insert will fail with a FK constraint violation (F6 from arch review).
  */
 
-import { insertMessage, insertThread } from "@hyperidle/conversation";
+import {
+	insertMessage,
+	insertThread,
+	listMessages,
+	updateMessage,
+	updateThread,
+} from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	bets,
 	type HyperIdleDb,
@@ -22,22 +29,13 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { insertNotification, listAll } from "@hyperidle/notifications";
-import {
-	type LifecyclePropagationDeps,
-	registerLifecyclePropagation,
-	retryFailedPropagations,
-} from "@hyperidle/policy";
+import { enqueue, listNotifications } from "@hyperidle/notifications";
+import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
-import { getFirstUserByKind } from "@hyperidle/users";
-import {
-	getBetById,
-	getTaskById,
-	listTasks,
-	transitionBetStatus,
-	transitionTaskState,
-} from "@hyperidle/work";
+import { findUser } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
+import { retryFailedPropagations } from "../../policy/src/lifecycle-propagation.js";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
 /**
@@ -46,12 +44,62 @@ import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
  * `users`/`notifications` ports (Mechanism C — `policy` never imports
  * another Service). This test builds the exact same production wiring
  * `server-factory.ts` uses — no behavior change.
+ *
+ * @lore AU20 Am1: `LifecyclePropagationDeps` removed from barrel; replaced
+ * with `PolicyDeps`. `PolicyDeps` contains only what `registerPolicy` reads —
+ * `handoff`-only fields (`org`, `sessionRequests`, `users.getUserById`,
+ * `users.findActiveTeammateByRole`, `work.updateTaskById`, `work.createItem`)
+ * are absent. `retryFailedPropagations` is internal; imported directly.
  */
-const lifecyclePropagationDeps: LifecyclePropagationDeps = {
-	work: { getTaskById, transitionTaskState, getBetById, transitionBetStatus, listTasks },
-	conversation: { insertMessage, insertThread },
-	users: { getFirstUserByKind },
-	notifications: { insert: insertNotification },
+const policyDeps: PolicyDeps = {
+	work: {
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		transitionTaskState: (exec, { taskId, fromState, patch }) =>
+			work.transition(exec, "task", {
+				id: taskId,
+				guard: { field: "state", equals: fromState },
+				patch,
+			}),
+		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
+		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
+			work.transition(exec, "bet", {
+				id: betId,
+				guard: { field: "status", equals: fromStatus },
+				patch,
+			}),
+		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
+			work.list(exec, "task", opts ?? {}),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+		updateItemById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "item", id, patch),
+		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
+			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
+	},
+	conversation: {
+		insertMessage,
+		insertThread,
+		listMessagesByThread: (db, threadId, opts) =>
+			listMessages(db, {
+				threadId,
+				types: opts?.type ? [opts.type] : undefined,
+				order: opts?.order,
+				dir: opts?.dir,
+				limit: opts?.limit,
+			}),
+		updateMessage,
+		updateThread,
+		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
+		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+	},
+	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
+	notifications: {
+		insert: async (db, row) => {
+			await enqueue(db, row);
+		},
+	},
+	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -135,6 +183,33 @@ async function seedSession(
 describe("registerLifecyclePropagation — session -> task", () => {
 	let unsubscribe: (() => void) | undefined;
 
+	test("persists an initial task-read failure for retry", async ({ db, eventBus }) => {
+		const failingDeps: PolicyDeps = {
+			...policyDeps,
+			work: {
+				...policyDeps.work,
+				getTaskById: () => Promise.reject(new Error("read unavailable")),
+			},
+		};
+		unsubscribe = registerPolicy(db, eventBus, failingDeps);
+		eventBus.emit({
+			type: "session_ended",
+			streamId: "session-read-failure",
+			sessionId: "session-read-failure",
+			agentId: "agent-1",
+			taskId: "task-read-failure",
+			outcome: "completed",
+			timestamp: Date.now(),
+		});
+		await vi.waitFor(async () => {
+			const [row] = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.sourceId, "session-read-failure"));
+			expect(row).toMatchObject({ status: "pending_retry", failureReason: "read unavailable" });
+		});
+	});
+
 	afterEach(() => {
 		unsubscribe?.();
 		vi.restoreAllMocks();
@@ -148,7 +223,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Act: emit session_ended with outcome=completed
 		eventBus.emit({
@@ -176,7 +251,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Act
 		eventBus.emit({
@@ -211,7 +286,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Act
 		eventBus.emit({
@@ -244,7 +319,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Act
 		eventBus.emit({
@@ -278,7 +353,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
 		await seedSession(db, "session-2", "task-1", "active");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Act: session-1 ends completed, but session-2 still active
 		eventBus.emit({
@@ -311,7 +386,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Arrange: task is already in 'review'
 		await seedTask(db, "task-1", "review");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Act
 		eventBus.emit({
@@ -344,7 +419,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Arrange: task manually moved away from in_progress BEFORE propagation fires
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Manually transition task to 'done' to simulate race
 		await db
@@ -394,7 +469,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		// Arrange: two tasks both done
 		await seedTask(db, "task-1", "done");
 		await seedTask(db, "task-2", "in_progress");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Manually move task-2 to done (bypass state machine for direct DB test)
 		// then fire task_state_changed event
@@ -424,7 +499,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		// Arrange: one done, one still in_progress
 		await seedTask(db, "task-1", "done");
 		await seedTask(db, "task-2", "in_progress");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Act: task-1 goes done (task-2 still open)
 		eventBus.emit({
@@ -457,7 +532,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		// Arrange: one done, one killed
 		await seedTask(db, "task-1", "done");
 		await seedTask(db, "task-2", "in_progress");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Move task-2 to killed
 		await db
@@ -489,7 +564,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		// Arrange
 		await seedTask(db, "task-1", "done");
 		await seedTask(db, "task-2", "in_progress");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Move task-2 to done
 		await db
@@ -533,7 +608,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 		// Arrange: bet manually killed while propagation fires
 		await seedTask(db, "task-1", "done");
 		await seedTask(db, "task-2", "in_progress");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Manually kill the bet (simulating concurrent human action)
 		await db
@@ -591,7 +666,7 @@ describe("registerLifecyclePropagation — re-entrant cascade", () => {
 		// Arrange: one task in_progress, one active session
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Act step 1: session ends -> task moves to review
 		eventBus.emit({
@@ -673,13 +748,39 @@ describe("registerLifecyclePropagation — bet -> team", () => {
 		vi.restoreAllMocks();
 	});
 
+	test("persists an initial bet-read failure for retry", async ({ db, eventBus }) => {
+		const failingDeps: PolicyDeps = {
+			...policyDeps,
+			work: {
+				...policyDeps.work,
+				getBetById: () => Promise.reject(new Error("bet read unavailable")),
+			},
+		};
+		unsubscribe = registerPolicy(db, eventBus, failingDeps);
+		eventBus.emit({
+			type: "bet_state_changed",
+			streamId: "team-failure",
+			betId: "bet-failure",
+			fromState: "active",
+			toState: "completed",
+			timestamp: Date.now(),
+		});
+		await vi.waitFor(async () => {
+			const [row] = await db
+				.select()
+				.from(propagationLog)
+				.where(eq(propagationLog.sourceId, "bet-failure"));
+			expect(row).toMatchObject({ status: "pending_retry", failureReason: "bet read unavailable" });
+		});
+	});
+
 	test("logs propagation_applied entry when bet transitions to completed", async ({
 		db,
 		eventBus,
 	}) => {
 		await seedBase(db);
 		// Arrange
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 		const propagationEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => propagationEvents.push(e));
 
@@ -711,7 +812,7 @@ describe("registerLifecyclePropagation — bet -> team", () => {
 	}) => {
 		await seedBase(db);
 		// Arrange
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 		const propagationEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => propagationEvents.push(e));
 
@@ -736,7 +837,7 @@ describe("registerLifecyclePropagation — bet -> team", () => {
 	test("logs propagation entry when bet transitions to killed", async ({ db, eventBus }) => {
 		await seedBase(db);
 		// Arrange
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		// Act: emit bet_state_changed to killed
 		eventBus.emit({
@@ -808,7 +909,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		const eventBus = new EventBus();
 
 		// Act: call retryFailedPropagations
-		await retryFailedPropagations(db, eventBus, lifecyclePropagationDeps);
+		await retryFailedPropagations(db, eventBus, policyDeps);
 
 		// Assert: the task was transitioned to review
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-retry-1"));
@@ -866,7 +967,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		});
 
 		const eventBus = new EventBus();
-		await retryFailedPropagations(db, eventBus, lifecyclePropagationDeps);
+		await retryFailedPropagations(db, eventBus, policyDeps);
 
 		// Exactly ONE propagation_log row for this target — the original, resolved in
 		// place. The OLD behavior left 2 (stuck pending_retry + new applied).
@@ -927,7 +1028,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
 
-		await retryFailedPropagations(db, eventBus, lifecyclePropagationDeps);
+		await retryFailedPropagations(db, eventBus, policyDeps);
 
 		// Exactly one propagation_applied for the single retry that landed — no
 		// double-emit from a parallel-row re-log.
@@ -972,14 +1073,16 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		});
 
 		const eventBus = new EventBus();
-		await retryFailedPropagations(db, eventBus, lifecyclePropagationDeps);
+		await retryFailedPropagations(db, eventBus, policyDeps);
 
 		const [row] = await db.select().from(propagationLog).where(eq(propagationLog.id, "log-cas-1"));
 		expect(row?.status).toBe("applied");
 		expect(row?.status).not.toBe("failed");
 
 		// No exhaustion notification — the row succeeded, it was not exhausted.
-		const notifs = (await listAll(db)).filter((r) => r.eventType === "propagation_exhausted");
+		const notifs = (await listNotifications(db, { kind: "all" })).filter(
+			(r) => r.eventType === "propagation_exhausted",
+		);
 		expect(notifs).toHaveLength(0);
 	});
 
@@ -1007,7 +1110,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		const eventBus = new EventBus();
 
 		// Act: call retryFailedPropagations
-		await retryFailedPropagations(db, eventBus, lifecyclePropagationDeps);
+		await retryFailedPropagations(db, eventBus, policyDeps);
 
 		// Assert: the row is now marked failed
 		const failedLogs = await db
@@ -1019,7 +1122,9 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(failedLogs[0]!.attempts).toBe(3);
 
 		// Assert: a notification queue entry was created
-		const notifs = (await listAll(db)).filter((r) => r.eventType === "propagation_exhausted");
+		const notifs = (await listNotifications(db, { kind: "all" })).filter(
+			(r) => r.eventType === "propagation_exhausted",
+		);
 		expect(notifs).toHaveLength(1);
 		expect(notifs[0]!.severity).toBe("warning");
 	});
@@ -1043,7 +1148,7 @@ describe("registerLifecyclePropagation — propagation log", () => {
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		const initialLogs = await db.select().from(propagationLog);
 		const initialLogCount = initialLogs.length;
@@ -1074,7 +1179,7 @@ describe("registerLifecyclePropagation — propagation log", () => {
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
@@ -1103,7 +1208,7 @@ describe("registerLifecyclePropagation — propagation log", () => {
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		const unsub = registerLifecyclePropagation(db, eventBus, lifecyclePropagationDeps);
+		const unsub = registerPolicy(db, eventBus, policyDeps);
 
 		// Unsubscribe
 		unsub();

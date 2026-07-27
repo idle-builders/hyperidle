@@ -1,4 +1,5 @@
-import { listVerdictItemIds } from "@hyperidle/conversation";
+import { listMessages } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	type HyperIdleDb,
 	items,
@@ -8,13 +9,24 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { getDailyDigest, type NotificationsDigestDeps } from "@hyperidle/notifications";
-import { getItemById, listQueuedItemsSince } from "@hyperidle/work";
+import { getDailyDigest } from "@hyperidle/notifications";
+import * as work from "@hyperidle/work";
 import { describe, expect, test } from "../test-fixtures.js";
 
-const digestDeps: NotificationsDigestDeps = {
-	work: { listQueuedItemsSince, getItemById },
-	verdicts: { listVerdictItemIds },
+// @lore AU20 Ag6b: NotificationsDigestDeps removed from public API; inferred
+// structurally — getDailyDigest takes its own inline type parameter.
+const digestDeps = {
+	work: {
+		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
+			work.list(exec, "item", { queued: true, createdSince: cutoff }),
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+	},
+	verdicts: {
+		listVerdictItemIds: (db: HyperIdleDb, itemIds: string[]) =>
+			listMessages(db, { types: ["verdict"], legacyItemIds: itemIds }).then((msgs) => [
+				...new Set(msgs.map((m) => m.legacyItemId).filter((id): id is string => id !== null)),
+			]),
+	},
 };
 
 describe("Daily Digest (E7)", () => {

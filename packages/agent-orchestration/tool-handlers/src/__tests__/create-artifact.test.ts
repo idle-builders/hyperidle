@@ -19,6 +19,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	artifacts,
 	bets,
@@ -31,11 +32,11 @@ import {
 } from "@hyperidle/db";
 import type { ArtifactCreatedEvent, ArtifactPreview, ToolContext } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
-import { createArtifact, getTaskById } from "@hyperidle/work";
+import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createCreateArtifactTool } from "../create-artifact.js";
 import type { ToolHandlersPorts } from "../ports.js";
+import { buildToolDefinitions } from "../tool-definitions.js";
 import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";
 
 const NOW = "2026-05-30T00:00:00.000Z";
@@ -45,9 +46,16 @@ const NOW = "2026-05-30T00:00:00.000Z";
 // everything else stays the unused stub.
 const ports: ToolHandlersPorts<HyperIdleDb> = {
 	...STUB_TOOL_HANDLERS_PORTS,
-	work: { ...STUB_TOOL_HANDLERS_PORTS.work, getTaskById, createArtifact },
+	work: {
+		...STUB_TOOL_HANDLERS_PORTS.work,
+		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+		createArtifact: (exec: WriteExecutor, input) => work.create(exec, "artifact", input),
+	},
 };
-const createArtifactTool = createCreateArtifactTool(ports);
+// @lore AU20 Stage 3: createCreateArtifactTool is now private inside
+// tool-definitions.ts. Obtain the tool via buildToolDefinitions — the handler
+// is called with the same args/ctx as before; Zod parses inside the handler.
+const createArtifactTool = buildToolDefinitions(ports).find((t) => t.name === "create_artifact")!;
 
 // --- Helpers ------------------------------------------------------------------
 

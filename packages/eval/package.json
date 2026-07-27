@@ -11,9 +11,8 @@
 		"eval": "tsx src/cli.ts"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.106.0",
-		"@electric-sql/pglite": "^0.5.1",
-		"@hyperidle/connections": "*",
+		"@anthropic-ai/sdk": "^0.112.1",
+		"@electric-sql/pglite": "^0.5.4",
 		"@hyperidle/db": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/model-gateway": "*",

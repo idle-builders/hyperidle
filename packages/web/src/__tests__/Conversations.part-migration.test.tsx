@@ -205,7 +205,7 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 		expect(post?.body.payload?.text).toBe("A fresh reply");
 		expect(post?.body.payload?.refs).toEqual([]);
 		expect(typeof post?.body.clientKey).toBe("string");
-		expect((post?.body.clientKey as string).length).toBeGreaterThan(0);
+		expect((post!.body.clientKey as string).length).toBeGreaterThan(0);
 
 		// The conversation NEVER POSTs a verdict.
 		expect(posts.some((p) => p.body?.type === "verdict")).toBe(false);

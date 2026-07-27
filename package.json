@@ -56,7 +56,7 @@
 		"obs:run": "npx tsx scripts/obs.ts run",
 		"obs:collector": "npx tsx scripts/trace-collector.ts",
 		"knip": "npx knip",
-		"knip:production": "npx knip --production --include files,dependencies,unlisted,binaries",
+		"knip:production": "npx knip --include files && npx knip --production --include files,dependencies,unlisted,binaries --preprocessor ./scripts/knip-production-test-files.mjs",
 		"mock-inventory": "npx tsx scripts/mock-inventory.ts",
 		"mock-inventory:check": "npx tsx scripts/mock-inventory.ts --check",
 		"demo-fixture-guard:check": "npx tsx scripts/demo-fixture-guard.ts --check",
@@ -76,7 +76,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.1",
 		"@opentelemetry/api": "^1.9.1",
-		"@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
+		"@opentelemetry/exporter-trace-otlp-http": "^0.220.0",
 		"@opentelemetry/resources": "^2.8.0",
 		"@opentelemetry/sdk-trace-node": "^2.8.0",
 		"@opentelemetry/semantic-conventions": "^1.40.0",

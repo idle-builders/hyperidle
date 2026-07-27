@@ -4,89 +4,35 @@ import * as crypto from "node:crypto";
 // params.teamId in cost-cap service refers to the teamMembers.id, not teams.id.
 // @lore R5: bet cost accumulation via taskId lookup (through the `work` port).
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus, SessionEndedEvent, SessionHandoffCompletedEvent } from "@hyperidle/shared";
-import type { CostDeps } from "./ports.js";
-
-/**
- * @lore AU19 Increment 3g: moved here from `packages/server/src/services/cost-cap.ts`
- * (behavior-preserving move). Every raw cross-Service call became an
- * injected DI port (Mechanism C, `ports.ts`):
- *  - `users` (`getUserById`/`incrementUserCost`/`resetAllUserCost`/
- *    `sumAllUserCost`/`updateUser`) — ordinary downward edge.
- *  - `org` (`teamMembers` cost read/write) — ordinary downward edge, a
- *    genuinely NEW edge this migration surfaces (see `ports.ts` top `@lore`).
- *  - `work` (`getTaskById`/`updateBetById`/`createItem`) — ordinary downward edge.
- * Every exported function now takes an explicit `deps: CostDeps` first
- * parameter (Mechanism C DI). `createCostOps` (`service.ts`) binds a single
- * `CostDeps` instance once, at the composition root, and returns the
- * ORIGINAL deps-free call signatures every real consumer already expects
- * (`work`'s `CostCapChecker` port, `packages/server`'s many direct callers) —
- * same idiom as `agent-selection`'s `createAgentSelectionOps`.
- */
-
-export interface CostCapResult {
-	allowed: boolean;
-	level?: "agent" | "team" | "factory";
-	currentSpend?: number;
-	cap?: number;
-}
-
-export interface CheckCostCapParams {
-	agentId: string;
-	teamId?: string;
-	factoryCap?: number;
-	factorySpend?: number;
-}
-
-export interface RecordCostAndCheckParams {
-	sessionId: string;
-	/**
-	 * @deprecated Use costMinor + currency instead (L17). Kept for backward
-	 * compatibility with existing callers. If costMinor is provided, cost is ignored.
-	 */
-	cost?: number;
-	/** L17: cost in minor units (e.g. cents for USD). */
-	costMinor?: number;
-	/** L17: currency code for costMinor. */
-	currency?: string;
-	agentId: string;
-	teamId?: string;
-	/**
-	 * R5: Optional task id. When provided, cost is also accumulated on the
-	 * task's parent bet (via tasks.betId lookup). This keeps bet cost in sync
-	 * with every cost_update event, including partial-session crashes.
-	 */
-	taskId?: string;
-	factoryCap?: number;
-	factorySpend?: number;
-	reviewThreadId?: string;
-}
-
-export interface ResetCostsParams {
-	level: "agent" | "team" | "factory";
-	id?: string;
-}
+import type {
+	CostCapBreachedEvent,
+	CostCapWarningEvent,
+	EventBus,
+	SessionEndedEvent,
+	SessionHandoffCompletedEvent,
+} from "@hyperidle/shared";
+import type {
+	CostCheckParams,
+	CostDeps,
+	CostRecordParams,
+	CostScope,
+	CostVerdict,
+} from "./ports.js";
 
 /**
  * Per-session dedup state. Each session has a small Set of dedup keys
  * (eventType:capLevel:entityId). The map entry is dropped when the session
- * ends via `releaseSessionDedup`, preventing the unbounded memory growth
- * the previous module-level Set produced.
+ * ends via `releaseFromDedupState`, preventing unbounded memory growth.
  *
  * @lore I3 (TRACK-I.md L156-159): the previous implementation used a
  * module-level `Set<string>` keyed on `sessionId:…`, so dedup keys for
  * dead sessions stayed forever. The fix is per-session scoping with a
  * lifecycle hook called from session-lifecycle.ts AND an EventBus
- * subscription registered from `app.ts` (`registerCostCapDedupReleaser`)
- * so EVERY session-end path (graceful end, crash, PATCH /sessions/:id
- * to done/crashed) reclaims the entry.
+ * subscription registered from `startSentinel`
+ * (`installDedupReleaser`) so EVERY session-end path reclaims the entry.
  *
- * @lore I3 review C2 / arch H-2: this Map is module-level state. Any
- * test that imports `recordCostAndCheck` MUST call
- * `clearDeduplicationCache()` in `beforeEach` to avoid bleeding state
- * across tests in the same Vitest worker. Long-term this belongs on a
- * `CostCapService` instance constructed by `createApp` — see
- * I3-architecture-review.md H-2.
+ * @lore AU20 Am3: the map moved from module-level to closure-local in
+ * `createCostOps`. `CostDedupState` stays private so callers never inspect it.
  */
 interface SessionDedupEntry {
 	readonly agentId?: string;
@@ -94,13 +40,19 @@ interface SessionDedupEntry {
 	readonly keys: Set<string>;
 }
 
-const dedupBySession = new Map<string, SessionDedupEntry>();
+type CostDedupState = Map<string, SessionDedupEntry>;
+
+/** Create a fresh, empty dedup state. Call once per `createCostOps` closure. */
+function createDedupState(): CostDedupState {
+	return new Map<string, SessionDedupEntry>();
+}
 
 function dedupKeyPart(eventType: string, capLevel: string, entityId: string): string {
 	return `${eventType}:${capLevel}:${entityId}`;
 }
 
 function tryRecordDedupKey(
+	dedupState: CostDedupState,
 	sessionId: string,
 	eventType: string,
 	capLevel: string,
@@ -108,67 +60,77 @@ function tryRecordDedupKey(
 	agentId?: string,
 	teamId?: string,
 ): boolean {
-	// Lazy registration: only create the per-session entry when we
-	// actually have a key to record. Sessions that never breach a cap
-	// produce zero entries (I3 review C2). Cleanup-on-reset still works
-	// because a session with no keys has no entries to clear.
-	let entry = dedupBySession.get(sessionId);
+	let entry = dedupState.get(sessionId);
 	const key = dedupKeyPart(eventType, capLevel, entityId);
 	if (entry?.keys.has(key)) {
 		return false;
 	}
 	if (!entry) {
 		entry = { agentId, teamId, keys: new Set() };
-		dedupBySession.set(sessionId, entry);
+		dedupState.set(sessionId, entry);
 	}
 	entry.keys.add(key);
 	return true;
 }
 
-/**
- * Sum session costs for an agent.
- *
- * @lore O2: session cost columns (cost, costMinor, costCurrency) stripped from
- * the kernel sessions table as part of canonical/projection split. Cost is now
- * accumulated on users.costActual (integer minor units). This column is the
- * authoritative running total for an agent's spend within the current cycle.
- */
-async function getAgentSpend(deps: CostDeps, db: HyperIdleDb, agentId: string): Promise<number> {
-	const row = await deps.users.getUserById(db, agentId);
-	return row?.costActual ?? 0;
+// ---------------------------------------------------------------------------
+// Instance-local dedup-state helpers.
+// ---------------------------------------------------------------------------
+
+/** Clear all dedup entries. Used by `_testHooks.clearDedup`. */
+function clearDedupState(state: CostDedupState): void {
+	state.clear();
+}
+
+/** Count of sessions in the dedup map. Used by `_testHooks.getDedupSize`. */
+function getDedupStateSize(state: CostDedupState): number {
+	return state.size;
+}
+
+/** Drop a single session's dedup entry. Used by `_testHooks.releaseDedup`. */
+function releaseFromDedupState(state: CostDedupState, sessionId: string): void {
+	state.delete(sessionId);
 }
 
 /**
- * Sum session costs for all users in a team.
+ * Subscribe the dedup releaser to the EventBus so EVERY `session_ended`
+ * (graceful end, crash, PATCH /sessions/:id done|crashed) AND
+ * `session_handoff_completed` (handoff — which deliberately suppresses
+ * `session_ended`) reclaims the per-session dedup entry.
+ * Returns an unsubscribe function.
  *
- * @lore O2: reads teamMembers.costActual, which is the running minor-unit total
- * accumulated across all users in the team for the current billing cycle.
- * @lore U1: teamId here refers to teamMembers.id (the membership group), not teams.id (domain entity).
+ * @lore AU20: `startSentinel` owns both this subscription and the timer, so
+ * production has one lifecycle owner and one disposer.
  */
-async function getTeamSpend(deps: CostDeps, db: HyperIdleDb, teamId: string): Promise<number> {
-	const row = await deps.org.getTeamMembersById(db, teamId);
-	return row?.costActual ?? 0;
+function installDedupReleaser(state: CostDedupState, eventBus: EventBus): () => void {
+	const handler = (event: SessionEndedEvent | SessionHandoffCompletedEvent): void => {
+		state.delete(event.sessionId);
+	};
+	const offEnded = eventBus.on("session_ended", handler);
+	const offHandoff = eventBus.on("session_handoff_completed", handler);
+	return (): void => {
+		offEnded();
+		offHandoff();
+	};
 }
+
+// ---------------------------------------------------------------------------
+// Core cost-cap functions
+// ---------------------------------------------------------------------------
 
 /**
  * Check if a new session is allowed given cost caps.
  * Checks agent -> team -> factory hierarchy, returning the first breach.
  *
- * @lore L17: Currency mismatch is NOT enforced at this boundary. The factory
- * is single-currency in v1 — all users, teams, and sessions are assumed to
- * operate in the same currency (USD by default). The comparison is always
- * minor-unit integers regardless of currency. If a future multi-currency
- * factory is introduced, this function must validate that agent cap currency
- * matches session currency before comparing spend vs cap. Until then,
- * addMoney()'s currency-mismatch guard is not invoked here because we operate
- * directly on integer minor units for efficiency.
+ * @lore L17: Currency mismatch is NOT enforced at this boundary.
  */
-export async function checkCostCap(
+async function checkCostCap(
 	deps: CostDeps,
 	db: HyperIdleDb,
 	_eventBus: EventBus,
-	params: CheckCostCapParams,
-): Promise<CostCapResult> {
+	params: CostCheckParams,
+	_dedupState: CostDedupState,
+): Promise<CostVerdict> {
 	// 1. Check agent cap
 	const agent = await deps.users.getUserById(db, params.agentId);
 	if (!agent) {
@@ -178,7 +140,9 @@ export async function checkCostCap(
 	// L17: prefer costCapMinor (new column) over costCap (legacy)
 	const agentCap = agent.costCapMinor ?? agent.costCap;
 	if (agentCap != null) {
-		const agentSpend = await getAgentSpend(deps, db, params.agentId);
+		// @lore I0b: agent row already loaded above — read costActual directly
+		// instead of re-querying via the now-deleted getAgentSpend helper.
+		const agentSpend = agent.costActual ?? 0;
 		if (agentSpend >= agentCap) {
 			return {
 				allowed: false,
@@ -196,7 +160,8 @@ export async function checkCostCap(
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
-			const teamSpend = await getTeamSpend(deps, db, params.teamId);
+			// @lore I0b: team row already loaded above — read costActual directly.
+			const teamSpend = team?.costActual ?? 0;
 			if (teamSpend >= teamCap) {
 				return {
 					allowed: false,
@@ -227,17 +192,15 @@ export async function checkCostCap(
  * Record cost for a session and check for warnings/breaches.
  * Updates the session cost, then checks thresholds and emits events.
  */
-export async function recordCostAndCheck(
+async function recordCostAndCheck(
 	deps: CostDeps,
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	params: RecordCostAndCheckParams,
+	params: CostRecordParams,
+	dedupState: CostDedupState,
 ): Promise<void> {
 	// @lore O2: session cost columns stripped from the kernel sessions table.
-	// Cost is accumulated on users.costActual and teams.costActual (minor units).
-	// recordCostAndCheck increments these counters atomically so checkCostCap
-	// can read the authoritative running total without scanning sessions.
-	const effectiveCostMinor = params.costMinor ?? params.cost ?? 0;
+	const effectiveCostMinor = params.costMinor ?? 0;
 
 	if (effectiveCostMinor > 0) {
 		// Accumulate on agent
@@ -250,8 +213,6 @@ export async function recordCostAndCheck(
 		}
 
 		// R5: Accumulate on bet (via task.betId lookup) if taskId is provided.
-		// Uses the same atomic SQL pattern as agent/team accumulation to prevent
-		// lost updates under concurrent sessions on the same bet.
 		if (params.taskId) {
 			const task = await deps.work.getTaskById(db, params.taskId);
 			if (task?.betId) {
@@ -277,8 +238,9 @@ export async function recordCostAndCheck(
 
 	// Check agent cap
 	if (agentCap != null) {
-		const agentSpend = await getAgentSpend(deps, db, params.agentId);
-		await checkAndEmit(deps, db, eventBus, {
+		// @lore I0b: agent row was fetched above (post-increment, the correct updated value).
+		const agentSpend = agent.costActual ?? 0;
+		await checkAndEmit(deps, db, eventBus, dedupState, {
 			sessionId: params.sessionId,
 			capLevel: "agent",
 			entityId: params.agentId,
@@ -298,8 +260,9 @@ export async function recordCostAndCheck(
 		// L17: prefer costCapMinor (new column) over costCap (legacy)
 		const teamCap = team?.costCapMinor ?? team?.costCap;
 		if (teamCap != null) {
-			const teamSpend = await getTeamSpend(deps, db, params.teamId);
-			await checkAndEmit(deps, db, eventBus, {
+			// @lore I0b: team row was fetched above (post-increment).
+			const teamSpend = team?.costActual ?? 0;
+			await checkAndEmit(deps, db, eventBus, dedupState, {
 				sessionId: params.sessionId,
 				capLevel: "team",
 				entityId: params.teamId,
@@ -316,7 +279,7 @@ export async function recordCostAndCheck(
 	// Check factory cap
 	if (params.factoryCap != null) {
 		const factorySpend = (params.factorySpend ?? 0) + effectiveCostMinor;
-		await checkAndEmit(deps, db, eventBus, {
+		await checkAndEmit(deps, db, eventBus, dedupState, {
 			sessionId: params.sessionId,
 			capLevel: "factory",
 			entityId: "factory",
@@ -330,29 +293,82 @@ export async function recordCostAndCheck(
 	}
 }
 
-/**
- * AU18: `cost-cap.ts` is the sole owner of factory-cost accumulation.
- *
- * Factory cost = SUM(users.costActual) — the authoritative per-agent running
- * totals accumulated by recordCostAndCheck. Both consumers (cost-sentinel.ts
- * and routine-scheduler.ts) call this function instead of reading
- * `factory_settings.cost_actual` (retired): the value is derived LIVE, never
- * cached, so it is always exactly current — no separate write step needed.
- *
- * @lore AU18: replaces `recordFactoryCost`, which wrote the same SUM into
- * `factory_settings.cost_actual` after every cost event (AF8/AF10 contract).
- * Since `recordCostAndCheck` already recomputed and wrote this value on every
- * call, a live read produces the exact same value the table used to hold —
- * equal-or-fresher, never staler. No caller needs the write step anymore.
- *
- * @lore AF8 INFLATION RESOLVED (AF10): The quadratic delta-accumulation bug in
- * session-provisioning.ts (Z8-002) has been fixed. The caller now passes per-event
- * deltas (not running totals), so users.costActual is correct (10+5+5=20, not 45).
- * The SUM here is accurate.
- */
-export function getFactoryCostActual(deps: CostDeps, db: HyperIdleDb): Promise<number> {
-	return deps.users.sumAllUserCost(db);
+/** Read current spend through the single scope discriminator. */
+async function spend(deps: CostDeps, db: HyperIdleDb, scope: CostScope): Promise<number> {
+	switch (scope.level) {
+		case "factory":
+			return deps.users.sumAllUserCost(db);
+		case "agent": {
+			if (!scope.id) throw new Error("Agent ID required for agent spend");
+			const agent = await deps.users.getUserById(db, scope.id);
+			return agent?.costActual ?? 0;
+		}
+		case "team": {
+			if (!scope.id) throw new Error("Team ID required for team spend");
+			const team = await deps.org.getTeamMembersById(db, scope.id);
+			return team?.costActual ?? 0;
+		}
+	}
 }
+
+/**
+ * Reset costs for a new billing cycle.
+ * For agent/team: zeroes running cost counters for that entity.
+ * For factory: zeroes all running cost counters.
+ * Every caller supplies the same `CostScope` discriminator used by `spend`.
+ */
+async function resetCosts(
+	deps: CostDeps,
+	db: HyperIdleDb,
+	scope: CostScope,
+	dedupState: CostDedupState,
+): Promise<void> {
+	// Clear deduplication state on reset (factory clears all,
+	// agent/team clears entries belonging to those scopes).
+	if (scope.level === "factory") {
+		dedupState.clear();
+	} else if (scope.level === "agent" && scope.id) {
+		// I3 review W7: collect-then-delete to avoid mutating the Map mid-iteration.
+		const toDelete: string[] = [];
+		for (const [sid, entry] of dedupState) {
+			if (entry.agentId === scope.id) toDelete.push(sid);
+		}
+		for (const sid of toDelete) dedupState.delete(sid);
+	} else if (scope.level === "team" && scope.id) {
+		const toDelete: string[] = [];
+		for (const [sid, entry] of dedupState) {
+			if (entry.teamId === scope.id) toDelete.push(sid);
+		}
+		for (const sid of toDelete) dedupState.delete(sid);
+	}
+
+	// @lore O2: session cost columns stripped from the kernel sessions table.
+	// resetCosts only resets agent/team running cost counters.
+	switch (scope.level) {
+		case "agent": {
+			if (!scope.id) throw new Error("Agent ID required for agent reset");
+			await deps.users.updateUser(db, scope.id, { costActual: 0 });
+			break;
+		}
+		case "team": {
+			if (!scope.id) throw new Error("Team ID required for team reset");
+			// @lore U1: teamId here is a teamMembers.id (membership group), not teams.id.
+			await deps.org.resetTeamMembersCost(db, scope.id);
+			break;
+		}
+		case "factory": {
+			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
+			await deps.users.resetAllUserCost(db);
+			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
+			await deps.org.resetAllTeamMembersCost(db);
+			break;
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
 
 interface CheckAndEmitParams {
 	sessionId: string;
@@ -367,10 +383,23 @@ interface CheckAndEmitParams {
 	teamId?: string;
 }
 
+interface CostReviewItemInput {
+	readonly id: string;
+	readonly sourceAgentId: string | null;
+	readonly kind: string;
+	readonly title: string;
+	readonly body: string;
+	readonly threadId: string;
+	readonly riskTier: string;
+	readonly blocking: boolean;
+	readonly createdAt: string;
+}
+
 async function checkAndEmit(
 	deps: CostDeps,
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	dedupState: CostDedupState,
 	params: CheckAndEmitParams,
 ): Promise<void> {
 	const ratio = params.spend / params.cap;
@@ -379,6 +408,7 @@ async function checkAndEmit(
 	if (ratio >= 1) {
 		if (
 			tryRecordDedupKey(
+				dedupState,
 				params.sessionId,
 				"cost_cap_breached",
 				params.capLevel,
@@ -409,6 +439,7 @@ async function checkAndEmit(
 	if (ratio >= 0.8) {
 		if (
 			tryRecordDedupKey(
+				dedupState,
 				params.sessionId,
 				"cost_cap_warning",
 				params.capLevel,
@@ -442,7 +473,7 @@ async function createReviewItem(
 	const itemId = crypto.randomUUID();
 	const now = new Date().toISOString();
 
-	await deps.work.createItem(db, {
+	const item: CostReviewItemInput = {
 		id: itemId,
 		sourceAgentId: params.entityId !== "factory" ? params.entityId : null,
 		kind: "cost_cap_breach",
@@ -452,132 +483,158 @@ async function createReviewItem(
 		riskTier: "high",
 		blocking: true,
 		createdAt: now,
-	});
+	};
+	await deps.work.createItem(db, item);
 }
 
-/**
- * Reset costs for a new billing cycle.
- * For agent/team: zeroes session costs for that entity's sessions.
- * For factory: zeroes all session costs.
- *
- * @lore L17: accepts either a `ResetCostsParams` object (old API) or a bare
- * teamId string (new simplified API). The string form is equivalent to
- * `{ level: "team", id: teamId }` and resets both costMinor and cost columns.
- */
-export async function resetCosts(
+interface CostSentinelState {
+	testResetRequested: boolean;
+}
+
+const COST_SENTINEL_INTERVAL_MS = 900_000;
+const COST_WARNING_RATIO = 0.8;
+
+function createSentinelState(): CostSentinelState {
+	return { testResetRequested: false };
+}
+
+async function readStoredLevel(
 	deps: CostDeps,
 	db: HyperIdleDb,
-	params: ResetCostsParams | string,
+	state: CostSentinelState,
+): Promise<"ok" | "warning" | "breach" | null> {
+	if (state.testResetRequested) return null;
+	const { internal } = await deps.settings.readServerConfig(db);
+	return internal.costSentinelLastLevel;
+}
+
+async function writeStoredLevel(
+	deps: CostDeps,
+	db: HyperIdleDb,
+	level: "ok" | "warning" | "breach",
+	state: CostSentinelState,
 ): Promise<void> {
-	// Normalize the string form to the object form
-	const normalizedParams: ResetCostsParams =
-		typeof params === "string" ? { level: "team", id: params } : params;
-	// Clear the deduplication state on reset (factory reset clears all,
-	// agent/team reset clears entries belonging to those scopes).
-	if (normalizedParams.level === "factory") {
-		dedupBySession.clear();
-	} else if (normalizedParams.level === "agent" && normalizedParams.id) {
-		// I3 review W7: collect-then-delete to avoid mutating the Map mid-iteration.
-		const toDelete: string[] = [];
-		for (const [sid, entry] of dedupBySession) {
-			if (entry.agentId === normalizedParams.id) toDelete.push(sid);
+	await deps.settings.updateServerConfig(db, { internal: { costSentinelLastLevel: level } });
+	state.testResetRequested = false;
+}
+
+function classifyLevel(ratio: number): "ok" | "warning" | "breach" {
+	if (ratio >= 1) return "breach";
+	if (ratio >= COST_WARNING_RATIO) return "warning";
+	return "ok";
+}
+
+async function runSentinelCheck(
+	deps: CostDeps,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	state: CostSentinelState,
+): Promise<{ fired: true; emitted: readonly string[] }> {
+	const { cost } = await deps.settings.readServerConfig(db);
+	const cap = cost.capMinor;
+	const actual = await spend(deps, db, { level: "factory" });
+	if (!Number.isFinite(cap) || cap <= 0) return { fired: true, emitted: [] };
+
+	const currentLevel = classifyLevel(actual / cap);
+	const previousLevel = (await readStoredLevel(deps, db, state)) ?? "ok";
+	const emitted: string[] = [];
+	const timestamp = Date.now();
+	if (currentLevel !== previousLevel) {
+		if (currentLevel === "breach") {
+			const event: CostCapBreachedEvent = {
+				type: "cost_cap_breached",
+				streamId: crypto.randomUUID(),
+				level: "hard",
+				capLevel: "factory",
+				entityId: "factory",
+				spend: actual,
+				cap,
+				timestamp,
+			};
+			eventBus.emit(event);
+			emitted.push("cost_cap_breached");
+		} else if (currentLevel === "warning") {
+			const event: CostCapWarningEvent = {
+				type: "cost_cap_warning",
+				streamId: crypto.randomUUID(),
+				level: "warning",
+				capLevel: "factory",
+				entityId: "factory",
+				spend: actual,
+				cap,
+				timestamp,
+			};
+			eventBus.emit(event);
+			emitted.push("cost_cap_warning");
 		}
-		for (const sid of toDelete) dedupBySession.delete(sid);
-	} else if (normalizedParams.level === "team" && normalizedParams.id) {
-		const toDelete: string[] = [];
-		for (const [sid, entry] of dedupBySession) {
-			if (entry.teamId === normalizedParams.id) toDelete.push(sid);
-		}
-		for (const sid of toDelete) dedupBySession.delete(sid);
 	}
-
-	// @lore O2: session cost columns (cost, costMinor, costCurrency) stripped from
-	// the kernel sessions table. resetCosts no longer zeroes session cost columns;
-	// it only resets agent/team running cost counters. Cost aggregation is now a
-	// app-runtime concern.
-	switch (normalizedParams.level) {
-		case "agent": {
-			if (!normalizedParams.id) throw new Error("Agent ID required for agent reset");
-			await deps.users.updateUser(db, normalizedParams.id, { costActual: 0 });
-			break;
-		}
-		case "team": {
-			if (!normalizedParams.id) throw new Error("Team ID required for team reset");
-			// @lore U1: teamId here is a teamMembers.id (membership group), not teams.id (domain entity).
-			await deps.org.resetTeamMembersCost(db, normalizedParams.id);
-			break;
-		}
-		case "factory": {
-			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
-			await deps.users.resetAllUserCost(db);
-			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
-			await deps.org.resetAllTeamMembersCost(db);
-			break;
-		}
+	if (currentLevel !== previousLevel || state.testResetRequested) {
+		await writeStoredLevel(deps, db, currentLevel, state);
 	}
+	return { fired: true, emitted };
 }
 
-/**
- * Clear the in-memory deduplication map.
- * Exposed for testing purposes only.
- */
-export function clearDeduplicationCache(): void {
-	dedupBySession.clear();
+function startSentinelTimer(
+	deps: CostDeps,
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	state: CostSentinelState,
+): () => void {
+	const handle = setInterval(() => {
+		void runSentinelCheck(deps, db, eventBus, state);
+	}, COST_SENTINEL_INTERVAL_MS);
+	return (): void => clearInterval(handle);
 }
 
-/**
- * Drop all dedup state for a single session. Call this from session
- * lifecycle code when a session ends (done / crashed / cancelled) so the
- * map doesn't grow unboundedly across the factory's lifetime.
- */
-export function releaseSessionDedup(sessionId: string): void {
-	dedupBySession.delete(sessionId);
+export interface CostOps {
+	check(db: HyperIdleDb, eventBus: EventBus, params: CostCheckParams): Promise<CostVerdict>;
+	record(db: HyperIdleDb, eventBus: EventBus, params: CostRecordParams): Promise<void>;
+	spend(db: HyperIdleDb, scope: CostScope): Promise<number>;
+	reset(db: HyperIdleDb, scope: CostScope): Promise<void>;
+	startSentinel(db: HyperIdleDb, eventBus: EventBus): () => void;
+	runCostSentinelCheck(
+		db: HyperIdleDb,
+		eventBus: EventBus,
+	): Promise<{ fired: true; emitted: readonly string[] }>;
 }
 
-/**
- * Test-only inspection hook. Returns the total count of distinct sessions
- * currently tracked in the dedup map (NOT the per-session key count).
- */
-export function getDedupCacheSize(): number {
-	return dedupBySession.size;
-}
-
-/**
- * Subscribe the cost-cap dedup releaser to the EventBus so EVERY
- * `session_ended` (graceful end via `endSession`, crash via `crashSession`,
- * client-driven PATCH /sessions/:id done|crashed) AND `session_handoff_completed`
- * (handoff — which deliberately suppresses `session_ended`, see below)
- * reclaims the per-session dedup entry. Returns an unsubscribe function.
- *
- * @lore I3 review C1 / arch H-1: handoff and PATCH /sessions/:id formerly
- * bypassed `endSession`/`crashSession` and never released the dedup entry.
- * Subscribing centrally here keeps cleanup at a single chokepoint — any
- * future code path that emits `session_ended` is automatically covered.
- *
- * @lore AU19 Increment 3g: `policy ⚠ cost` (§10.3 against-grain) inverted to
- * this EventBus subscription — `handoff-protocol.ts` used to call
- * `releaseSessionDedup` directly via an interim `PolicyCostDedupReleaser` DI
- * port (Increment 2a). Atomicity check (§10.3 amendment): the call was
- * already POST-COMMIT (outside `buildHandoff`'s transaction) and touches
- * only this in-memory `Map` — no DB write, no shared transaction to split.
- * This is the "common case" §10.3 describes (the `bet-decomposition-
- * subscriber.ts`/`sandbox_writeback_changes_detected` pure-inversion shape),
- * NOT the `policy ⚠ session-requests`/`review ⚠ session-requests`
- * same-transaction exception (those stayed permanent DI ports, §10.3
- * amendment ruling). `handoff-protocol.ts` now emits
- * `session_handoff_completed` (a NEW event, `@hyperidle/shared`'s
- * `events.ts`) in the exact spot the direct call used to sit; this
- * subscriber reclaims the dedup entry off it, same as it always has for
- * `session_ended`.
- */
-export function registerCostCapDedupReleaser(eventBus: EventBus): () => void {
-	const handler = (event: SessionEndedEvent | SessionHandoffCompletedEvent): void => {
-		releaseSessionDedup(event.sessionId);
+/** Bind the complete budget policy to its four table-owner ports. */
+export function createCostOps(deps: CostDeps): CostOps & {
+	readonly _testHooks: {
+		getDedupSize(): number;
+		releaseDedup(sessionId: string): void;
+		clearDedup(): void;
+		resetSentinelState(): void;
+		installDedupReleaser(eventBus: EventBus): () => void;
 	};
-	const offEnded = eventBus.on("session_ended", handler);
-	const offHandoff = eventBus.on("session_handoff_completed", handler);
-	return (): void => {
-		offEnded();
-		offHandoff();
+} {
+	const dedupState = createDedupState();
+	const sentinelState = createSentinelState();
+	const ops: CostOps = {
+		check: (db, eventBus, params) => checkCostCap(deps, db, eventBus, params, dedupState),
+		record: (db, eventBus, params) => recordCostAndCheck(deps, db, eventBus, params, dedupState),
+		spend: (db, scope) => spend(deps, db, scope),
+		reset: (db, scope) => resetCosts(deps, db, scope, dedupState),
+		startSentinel: (db, eventBus) => {
+			const offDedup = installDedupReleaser(dedupState, eventBus);
+			const offSentinel = startSentinelTimer(deps, db, eventBus, sentinelState);
+			return (): void => {
+				offDedup();
+				offSentinel();
+			};
+		},
+		runCostSentinelCheck: (db, eventBus) => runSentinelCheck(deps, db, eventBus, sentinelState),
+	};
+	return {
+		...ops,
+		_testHooks: {
+			getDedupSize: () => getDedupStateSize(dedupState),
+			releaseDedup: (sessionId) => releaseFromDedupState(dedupState, sessionId),
+			clearDedup: () => clearDedupState(dedupState),
+			resetSentinelState: () => {
+				sentinelState.testResetRequested = true;
+			},
+			installDedupReleaser: (eventBus) => installDedupReleaser(dedupState, eventBus),
+		},
 	};
 }

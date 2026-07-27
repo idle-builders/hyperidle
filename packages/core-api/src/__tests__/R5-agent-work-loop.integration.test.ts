@@ -28,20 +28,20 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { EventBus, ToolContext } from "@hyperidle/shared";
-import {
-	createCreateTaskTool,
-	createReadInboxTool,
-	createSubmitReviewTool,
-} from "@hyperidle/tool-handlers";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { clearDeduplicationCache, recordCostAndCheck } from "../services/cost-bindings.js";
+import { costOps } from "../services/cost-bindings.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
-const createTaskTool = createCreateTaskTool(toolHandlersPorts);
-const readInboxTool = createReadInboxTool(toolHandlersPorts);
-const submitReviewTool = createSubmitReviewTool(toolHandlersPorts);
+const createTaskTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "create_task",
+)!;
+const readInboxTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "read_inbox")!;
+const submitReviewTool = buildToolDefinitions(toolHandlersPorts).find(
+	(t) => t.name === "submit_review",
+)!;
 
 const TEST_API_KEY = "test-key-r5-agent-loop";
 const NOW = new Date().toISOString();
@@ -128,7 +128,7 @@ describe("R5: Agent Work Loop integration", () => {
 	// AC1, AC5: create_task tool inserts task visible in GET /api/bets/:id
 	describe("AC1 & AC5: create_task tool — task visible in bet detail", () => {
 		test("created task appears in GET /api/bets/:id tasks array", async ({ db, app, eventBus }) => {
-			clearDeduplicationCache();
+			costOps._testHooks.clearDedup();
 			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
 
@@ -314,16 +314,16 @@ describe("R5: Agent Work Loop integration", () => {
 		});
 	});
 
-	// AC4: Cost accumulation via recordCostAndCheck with taskId flows to bet
+	// AC4: Cost accumulation via costOps.record with taskId flows to bet
 	describe("AC4: cost accumulation on bet", () => {
-		test("recordCostAndCheck with taskId increments bets.costActualMinor", async ({
+		test("costOps.record with taskId increments bets.costActualMinor", async ({
 			db,
 			eventBus,
 			app,
 		}) => {
 			await seedBase(db);
 
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "session-1",
 				costMinor: 150,
 				currency: "USD",
@@ -353,7 +353,7 @@ describe("R5: Agent Work Loop integration", () => {
 		}) => {
 			await seedBase(db);
 
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "session-1",
 				costMinor: 100,
 				currency: "USD",
@@ -364,10 +364,10 @@ describe("R5: Agent Work Loop integration", () => {
 
 			// Second event on same session (dedup means this won't re-fire cap events,
 			// but cost should still accumulate)
-			// @lore R5: known debt — recordCostAndCheck passes totalCostCents (running
+			// @lore R5: known debt — costOps.record passes totalCostCents (running
 			// total) not delta. Bet accumulation inherits this behavior. See
 			// plans/R5/architecture.md "Pre-existing cost over-counting".
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "session-2",
 				costMinor: 75,
 				currency: "USD",
@@ -389,11 +389,11 @@ describe("R5: Agent Work Loop integration", () => {
 			expect(body.costActual?.minor).toBeGreaterThanOrEqual(175);
 		});
 
-		test("recordCostAndCheck without taskId does NOT affect bet cost", async ({ db, eventBus }) => {
+		test("costOps.record without taskId does NOT affect bet cost", async ({ db, eventBus }) => {
 			await seedBase(db);
 
 			// Backward compat: no taskId => bet unchanged
-			await recordCostAndCheck(db, eventBus, {
+			await costOps.record(db, eventBus, {
 				sessionId: "session-no-task",
 				costMinor: 500,
 				currency: "USD",

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import * as nodeFs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -10,10 +11,8 @@ import {
 import {
 	type GitExportConfig,
 	loadGitExportConfig,
-	readGitExportConfig,
 	sanitizePathSegment,
-	writeLastCommit,
-	writeLastPush,
+	writeExportMeta,
 } from "./git-export-config.js";
 import type { GitRunner } from "./git-export-runner.js";
 import type {
@@ -49,34 +48,6 @@ function isExportedLayer(layer: string): layer is "L2" | "L4" {
 	return layer === "L2" || layer === "L4";
 }
 
-export interface ExportPlanEntry {
-	relPath: string;
-	body: string;
-	knowledgeItemId: string;
-	layer: "L2" | "L4";
-	kind: string;
-	scopeId: string | null;
-	version: number;
-	title: string;
-}
-
-export interface ExportPlan {
-	entries: ExportPlanEntry[];
-	/** Items dropped because they failed path-segment validation. */
-	rejected: Array<{ itemId: string; reason: string }>;
-}
-
-/** Minimal sync fs surface used by the exporter. */
-export interface FsAdapter {
-	existsSync(p: string): boolean;
-	readFileSync(p: string): string;
-	writeFileSync(p: string, data: string): void;
-	mkdirSync(p: string): void;
-	unlinkSync(p: string): void;
-}
-
-export type GitExportTrigger = "event" | "manual" | "scheduled";
-
 export type GitExportResult =
 	| { status: "disabled" }
 	| { status: "noop"; reason: "no-changes" | "debounced" }
@@ -98,20 +69,38 @@ export type GitExportResult =
 
 export interface RunGitExportDeps extends GitExportDeps {
 	runner: GitRunner;
-	fs: FsAdapter;
+	/** Filesystem adapter. Defaults to the Node `fs` adapter when omitted. */
+	fs?: {
+		existsSync(p: string): boolean;
+		readFileSync(p: string): string;
+		writeFileSync(p: string, data: string): void;
+		mkdirSync(p: string): void;
+		unlinkSync(p: string): void;
+		realpathSync?(p: string): string;
+		renameSync?(from: string, to: string): void;
+	};
 	now?: () => Date;
 	logger?: Logger;
-	trigger?: GitExportTrigger;
+	trigger?: "event" | "manual" | "scheduled";
 	/**
 	 * When true, `runGitExport` proceeds even if the config is disabled — it
-	 * falls back to `readGitExportConfig` so `POST /run {force:true}` can be
+	 * falls back to the raw config read so `POST /run {force:true}` can be
 	 * used during initial setup.
 	 */
 	force?: boolean;
 }
 
 /** Build the commit message per plan §3.7. Pure — no I/O. */
-export function buildCommitMessage(entries: ExportPlanEntry[], trigger: GitExportTrigger): string {
+export function buildCommitMessage(
+	entries: Array<{
+		layer: "L2" | "L4";
+		kind: string;
+		scopeId: string | null;
+		version: number;
+		title: string;
+	}>,
+	trigger: "event" | "manual" | "scheduled",
+): string {
 	const header = `docs(knowledge): export ${entries.length} item(s) [${trigger}]`;
 	const bullets = entries.map((e) => {
 		const scope = e.scopeId ?? "factory";
@@ -128,9 +117,7 @@ export function buildCommitMessage(entries: ExportPlanEntry[], trigger: GitExpor
  * when the row tried to do something unsafe (path traversal via
  * scopeId/topic) so the caller can surface the rejection in the result + log.
  */
-function mapRowToEntry(
-	row: GitExportKnowledgeItemRow,
-): ExportPlanEntry | { rejected: true; reason: string } | null {
+function mapRowToEntry(row: GitExportKnowledgeItemRow) {
 	const layer = row.layer;
 	if (!isExportedLayer(layer ?? "")) return null;
 	const exportLayer = layer as "L2" | "L4";
@@ -148,7 +135,7 @@ function mapRowToEntry(
 			const topic = sanitizePathSegment(rawTopic);
 			if (topic === null) {
 				return {
-					rejected: true,
+					rejected: true as const,
 					reason: `REFLECTION topic '${rawTopic}' is not a safe path segment`,
 				};
 			}
@@ -162,7 +149,7 @@ function mapRowToEntry(
 		const scope = sanitizePathSegment(scopeId);
 		if (scope === null) {
 			return {
-				rejected: true,
+				rejected: true as const,
 				reason: `scopeId '${scopeId}' is not a safe path segment`,
 			};
 		}
@@ -181,7 +168,7 @@ function mapRowToEntry(
 	};
 }
 
-function compareEntries(a: ExportPlanEntry, b: ExportPlanEntry): number {
+function compareEntries(a: { relPath: string }, b: { relPath: string }): number {
 	return a.relPath.localeCompare(b.relPath);
 }
 
@@ -197,17 +184,18 @@ function compareEntries(a: ExportPlanEntry, b: ExportPlanEntry): number {
 export async function computeExportPlan(
 	db: HyperIdleDb,
 	deps: { readonly knowledge: GitExportKnowledgeReader },
-): Promise<ExportPlan> {
+) {
 	const rows = await deps.knowledge.listExportableItems(db, {
 		layers: ["L2", "L4"],
 		statuses: EXPORTED_STATUSES,
 	});
-	const entries: ExportPlanEntry[] = [];
+	const entries: Array<Exclude<NonNullable<ReturnType<typeof mapRowToEntry>>, { rejected: true }>> =
+		[];
 	const rejected: Array<{ itemId: string; reason: string }> = [];
 	for (const row of rows) {
 		const mapped = mapRowToEntry(row);
 		if (mapped === null) continue;
-		if ("rejected" in mapped) {
+		if (mapped.rejected === true) {
 			rejected.push({ itemId: row.id, reason: mapped.reason });
 			continue;
 		}
@@ -221,7 +209,7 @@ export async function computeExportPlan(
  * Default `node:fs`-backed adapter. Every write goes through `mkdirSync`
  * recursively first so the caller can stay path-flat.
  */
-export function createNodeFsAdapter(): FsAdapter {
+export function createNodeFsAdapter(): NonNullable<RunGitExportDeps["fs"]> {
 	return {
 		existsSync: (p: string): boolean => nodeFs.existsSync(p),
 		readFileSync: (p: string): string => nodeFs.readFileSync(p, "utf-8"),
@@ -234,6 +222,8 @@ export function createNodeFsAdapter(): FsAdapter {
 		unlinkSync: (p: string): void => {
 			nodeFs.unlinkSync(p);
 		},
+		realpathSync: (p: string): string => nodeFs.realpathSync.native(p),
+		renameSync: (from: string, to: string): void => nodeFs.renameSync(from, to),
 	};
 }
 
@@ -247,18 +237,17 @@ export function createNodeFsAdapter(): FsAdapter {
 const exportMutexes = new Map<string, Promise<unknown>>();
 
 function queueMutex<T>(repoPath: string, fn: () => Promise<T>): Promise<T> {
-	const prev = exportMutexes.get(repoPath) ?? Promise.resolve();
+	const key = nodeFs.existsSync(repoPath)
+		? nodeFs.realpathSync.native(repoPath)
+		: path.resolve(repoPath);
+	const prev = exportMutexes.get(key) ?? Promise.resolve();
 	const next = prev.then(fn, fn);
-	exportMutexes.set(
-		repoPath,
-		next.catch(() => undefined),
-	);
+	const tail = next.catch(() => undefined);
+	exportMutexes.set(key, tail);
 	// Garbage-collect after settle so a long-lived server doesn't leak keys.
 	next
 		.finally(() => {
-			if (exportMutexes.get(repoPath) === next) {
-				// no-op — newer entry may have replaced us already
-			}
+			if (exportMutexes.get(key) === tail) exportMutexes.delete(key);
 		})
 		.catch(() => undefined);
 	return next;
@@ -274,7 +263,7 @@ export function resetExportMutexes(): void {
 
 async function ensureRepo(
 	runner: GitRunner,
-	fs: FsAdapter,
+	fs: NonNullable<RunGitExportDeps["fs"]>,
 	cfg: GitExportConfig,
 	logger: Logger,
 ): Promise<void> {
@@ -300,10 +289,24 @@ function absolutePath(repoPath: string, relPath: string): string {
 	return path.join(repoPath, relPath);
 }
 
-function writePlanToDisk(
-	plan: ExportPlan,
+function isInside(root: string, candidate: string): boolean {
+	return candidate === root || candidate.startsWith(`${root}${path.sep}`);
+}
+
+function safeParent(
 	repoPath: string,
-	fs: FsAdapter,
+	absPath: string,
+	fs: NonNullable<RunGitExportDeps["fs"]>,
+): boolean {
+	const root = fs.realpathSync?.(repoPath) ?? path.resolve(repoPath);
+	const parent = fs.realpathSync?.(path.dirname(absPath)) ?? path.resolve(path.dirname(absPath));
+	return isInside(root, parent);
+}
+
+function writePlanToDisk(
+	plan: Awaited<ReturnType<typeof computeExportPlan>>,
+	repoPath: string,
+	fs: NonNullable<RunGitExportDeps["fs"]>,
 ): { filesChanged: string[] } {
 	const filesChanged: string[] = [];
 	for (const entry of plan.entries) {
@@ -311,7 +314,7 @@ function writePlanToDisk(
 		// Defense-in-depth: ensure the resolved path stays inside repoPath.
 		const resolved = path.resolve(absPath);
 		const resolvedRoot = path.resolve(repoPath);
-		if (resolved !== resolvedRoot && !resolved.startsWith(`${resolvedRoot}/`)) {
+		if (!isInside(resolvedRoot, resolved)) {
 			// sanitizePathSegment should have caught this earlier; skip defensively.
 			continue;
 		}
@@ -319,7 +322,14 @@ function writePlanToDisk(
 		if (prior === entry.body) continue;
 		const dir = path.dirname(absPath);
 		fs.mkdirSync(dir);
-		fs.writeFileSync(absPath, entry.body);
+		if (!safeParent(repoPath, absPath, fs)) continue;
+		if (fs.renameSync) {
+			const temp = path.join(dir, `.${path.basename(absPath)}.${randomUUID()}.tmp`);
+			fs.writeFileSync(temp, entry.body);
+			fs.renameSync(temp, absPath);
+		} else {
+			fs.writeFileSync(absPath, entry.body);
+		}
 		filesChanged.push(entry.relPath);
 	}
 	return { filesChanged };
@@ -331,9 +341,9 @@ function writePlanToDisk(
  * hand-edited non-tracked files stay untouched.
  */
 async function applyDeletions(
-	plan: ExportPlan,
+	plan: Awaited<ReturnType<typeof computeExportPlan>>,
 	repoPath: string,
-	fs: FsAdapter,
+	fs: NonNullable<RunGitExportDeps["fs"]>,
 	runner: GitRunner,
 ): Promise<{ filesDeleted: string[] }> {
 	const expected = new Set(plan.entries.map((e) => e.relPath));
@@ -346,7 +356,7 @@ async function applyDeletions(
 		const absPath = absolutePath(repoPath, rel);
 		const resolved = path.resolve(absPath);
 		const resolvedRoot = path.resolve(repoPath);
-		if (resolved !== resolvedRoot && !resolved.startsWith(`${resolvedRoot}/`)) continue;
+		if (!(isInside(resolvedRoot, resolved) && safeParent(repoPath, absPath, fs))) continue;
 		try {
 			if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
 		} catch {
@@ -363,9 +373,8 @@ export async function runGitExport(
 ): Promise<GitExportResult> {
 	// We need to know the repoPath to scope the mutex. Load config outside
 	// the mutex — it's a cheap DB read and mutex scoping depends on it.
-	const cfg = deps.force
-		? await readGitExportConfig(db, deps)
-		: await loadGitExportConfig(db, deps);
+	// Use the raw (un-redacted) config so git operations receive the real URL.
+	const cfg = await loadGitExportConfig(db, deps, { allowDisabled: deps.force });
 	if (!cfg) return { status: "disabled" };
 	if (!cfg.repoPath || cfg.repoPath.length === 0) {
 		if (!deps.force) return { status: "disabled" };
@@ -380,17 +389,19 @@ async function runGitExportInner(
 	cfg: GitExportConfig,
 ): Promise<GitExportResult> {
 	const logger = deps.logger ?? createLogger({ pkg: "git-export" });
-	const trigger: GitExportTrigger = deps.trigger ?? "manual";
+	const trigger = deps.trigger ?? "manual";
 	const nowFn = deps.now ?? ((): Date => new Date());
+	// Default to the Node fs adapter so callers don't have to pass it.
+	const fs = deps.fs ?? createNodeFsAdapter();
 
 	try {
-		await ensureRepo(deps.runner, deps.fs, cfg, logger);
+		await ensureRepo(deps.runner, fs, cfg, logger);
 	} catch (err) {
 		logger.error("git-export: init failed", { error: String(err) });
 		return { status: "error", error: String(err), phase: "init" };
 	}
 
-	let plan: ExportPlan;
+	let plan: Awaited<ReturnType<typeof computeExportPlan>>;
 	try {
 		plan = await computeExportPlan(db, deps);
 	} catch (err) {
@@ -407,7 +418,7 @@ async function runGitExportInner(
 	let filesChanged: string[] = [];
 	let filesDeleted: string[] = [];
 	try {
-		const result = writePlanToDisk(plan, cfg.repoPath, deps.fs);
+		const result = writePlanToDisk(plan, cfg.repoPath, fs);
 		filesChanged = result.filesChanged;
 	} catch (err) {
 		logger.error("git-export: write failed", { error: String(err) });
@@ -415,7 +426,7 @@ async function runGitExportInner(
 	}
 
 	try {
-		const del = await applyDeletions(plan, cfg.repoPath, deps.fs, deps.runner);
+		const del = await applyDeletions(plan, cfg.repoPath, fs, deps.runner);
 		filesDeleted = [...del.filesDeleted];
 	} catch (err) {
 		logger.error("git-export: delete-enumerate failed", { error: String(err) });
@@ -445,7 +456,7 @@ async function runGitExportInner(
 
 	// Commit succeeded locally — record it. `last_push_at` stays unchanged.
 	const committedAt = nowFn();
-	await writeLastCommit(db, sha, committedAt, deps);
+	await writeExportMeta(db, { commit: { sha, at: committedAt } }, deps);
 
 	if (cfg.remoteUrl) {
 		try {
@@ -454,7 +465,7 @@ async function runGitExportInner(
 			logger.error("git-export: push failed", { error: String(err) });
 			return { status: "error", error: String(err), phase: "push" };
 		}
-		await writeLastPush(db, committedAt, deps);
+		await writeExportMeta(db, { pushedAt: committedAt }, deps);
 		return { status: "pushed", commitSha: sha, filesChanged, filesDeleted, message };
 	}
 
@@ -464,7 +475,7 @@ async function runGitExportInner(
 export interface RegisterGitExportHandlerOptions extends GitExportDeps {
 	debounceMs?: number;
 	runner?: GitRunner;
-	fs?: FsAdapter;
+	fs?: RunGitExportDeps["fs"];
 	logger?: Logger;
 	/**
 	 * Factory invoked per-fire with the current `repoPath`. Production wiring
@@ -510,10 +521,9 @@ export function registerGitExportHandler(
 				logger.warn("git-export: no runner available for event-triggered export");
 				return;
 			}
-			const fs = opts.fs ?? createNodeFsAdapter();
 			await runGitExport(db, {
 				runner,
-				fs,
+				fs: opts.fs, // undefined → defaults to createNodeFsAdapter() inside runGitExport
 				logger,
 				trigger: "event",
 				serverConfig: opts.serverConfig,
@@ -546,7 +556,9 @@ export function registerGitExportHandler(
 			pending = setTimeout(() => {
 				void fire();
 			}, debounceMs);
-		})();
+		})().catch((err) => {
+			logger.error("git-export: event prefilter failed", { error: String(err) });
+		});
 	};
 
 	const unsubscribe = eventBus.on("knowledge_updated", handler);

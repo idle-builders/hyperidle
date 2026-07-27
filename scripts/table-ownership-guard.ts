@@ -174,7 +174,9 @@ const TABLE_OWNER: Record<string, string> = {
 	// `agentSessionRequests` is a DI port (`TriggerResolutionSessionRequestPort`,
 	// wired to `@hyperidle/session-requests`'s real exports since Increment
 	// 3b), never a raw table read.
-	triggerResolutionHistory: "packages/agent-orchestration/trigger-resolution",
+	// @lore AU20 B1b: trigger-resolution folded into session-requests; ownership
+	// moves with the code — session-requests is now the sole writer of this table.
+	triggerResolutionHistory: "packages/agent-orchestration/session-requests",
 	// AU19 Increment 3b: `session-requests` migrated — the real owner (§4)
 	// `agentSessionRequests`/`agentWorkIntents` were forward-referenced above
 	// as "UNOWNED here" pending this migration; now real. `explicitSessionStarts`
@@ -206,7 +208,10 @@ const TABLE_OWNER: Record<string, string> = {
 	// `@hyperidle/session-requests`'s new `projectExplicitSessionStartTerminalState`
 	// export. Both are ORDINARY same-layer DI (both Services are
 	// agent-orchestration, neither above the other) — not §10.3 against-grain.
-	agentLifecycleInbox: "packages/agent-orchestration/lifecycle-projection",
+	// @lore AU20 B1a: ownership moved from lifecycle-projection to session-requests
+	// (fold removes the dependency cycle; session-requests was already the sole
+	// writer+reaper of this table).
+	agentLifecycleInbox: "packages/agent-orchestration/session-requests",
 	// AU19 Increment 2a: `policy` migrated — its `⛁*` ownership question
 	// (architecture §4/§79) resolves to ZERO owned tables. `policy-engine.ts`/
 	// `approval-rate.ts` never touched a raw table at all; `handoff-protocol.ts`

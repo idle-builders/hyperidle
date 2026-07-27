@@ -43,7 +43,7 @@ import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, INVITE_ROLES } from "@hyperidle/shared";
 import {
 	createInvite,
-	getUserById,
+	findUser,
 	revokeLoginSession,
 	type UpgradeTokenStore,
 } from "@hyperidle/users";
@@ -73,7 +73,7 @@ export function createAuthRoutes(
 			});
 		}
 
-		const userRow = await getUserById(db, userId);
+		const userRow = await findUser(db, { id: userId });
 
 		return c.json({
 			id: userId,

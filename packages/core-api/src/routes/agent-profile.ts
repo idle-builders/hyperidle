@@ -20,7 +20,7 @@
  */
 
 import { sessions } from "@hyperidle/db";
-import { getTeamById, getTeamMembersById } from "@hyperidle/org";
+import { getTeam, getTeamMembers } from "@hyperidle/org";
 import type {
 	AgentActiveSession,
 	AgentHarnessCapabilities,
@@ -32,7 +32,7 @@ import type {
 	AgentSessionSummary,
 	HarnessCapabilities,
 } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq } from "drizzle-orm";
 import type { Context } from "hono";
@@ -218,7 +218,7 @@ export async function handleAgentProfile(
 	}
 
 	// 1. Fetch the agent (kind='ai', not system)
-	const agent = await getUserById(db, agentId);
+	const agent = await findUser(db, { id: agentId });
 
 	if (!agent || agent.kind !== "ai") {
 		return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);
@@ -230,8 +230,8 @@ export async function handleAgentProfile(
 	let teamName: string | null = null;
 	let resolvedTeamId: string | null = null;
 	if (agent.teamId) {
-		const teamMembersRow = await getTeamMembersById(db, agent.teamId);
-		const team = teamMembersRow ? await getTeamById(db, teamMembersRow.teamId) : undefined;
+		const teamMembersRow = await getTeamMembers(db, { id: agent.teamId });
+		const team = teamMembersRow ? await getTeam(db, { id: teamMembersRow.teamId }) : undefined;
 		teamName = team?.name ?? null;
 		resolvedTeamId = team?.id ?? null;
 	}
@@ -255,7 +255,7 @@ export async function handleAgentProfile(
 	const activeSessionRow = allSessions.find((s) => s.state === "active") ?? null;
 	let activeSession: AgentActiveSession | null = null;
 	if (activeSessionRow?.taskId) {
-		const activeTaskRow = await work.getTaskById(db, activeSessionRow.taskId);
+		const activeTaskRow = await work.get(db, "task", activeSessionRow.taskId);
 		activeSession = {
 			sessionId: activeSessionRow.id,
 			taskId: activeSessionRow.taskId,
@@ -274,7 +274,7 @@ export async function handleAgentProfile(
 			s.taskId ? [{ ...s, taskId: s.taskId }] : [],
 		);
 		const taskIds = taskBackedSessionRows.map((s) => s.taskId);
-		const taskTitleRows = await work.listTasksByIds(db, taskIds);
+		const taskTitleRows = await work.list(db, "task", { ids: taskIds });
 		const taskTitleMap = new Map(taskTitleRows.map((t) => [t.id, t.title]));
 		recentSessions = taskBackedSessionRows.map((s) => ({
 			sessionId: s.id,

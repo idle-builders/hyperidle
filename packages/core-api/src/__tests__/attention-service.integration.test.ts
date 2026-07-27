@@ -4,17 +4,16 @@ import {
 	items,
 	knowledgeAppProjection,
 	knowledgeConflicts,
+	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
-import { buildAttentionService, MAX_RECOMPUTE_BATCH } from "@hyperidle/knowledge";
-import {
-	attentionReviewReasoningMarker,
-	buildCreateReviewItemForKnowledge,
-} from "@hyperidle/review";
+import { recomputeAttention } from "@hyperidle/knowledge";
+import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test } from "../test-fixtures.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";
@@ -28,14 +27,45 @@ const NOW_MS = new Date(NOW).getTime();
  * exact same production wiring `score-attention.ts`/`builtin-routine-handlers.ts`
  * use — no behavior change from the pre-migration direct-import version.
  */
-const workPort = { findItemByReasoningMarker: work.findItemByReasoningMarker };
+const workPort = {
+	findItemByReasoningMarker: async (
+		exec: import("@hyperidle/db").WriteExecutor,
+		marker: string,
+	) => {
+		const rows = await work.list(exec, "item", { marker });
+		return rows[0] ? { id: rows[0].id } : undefined;
+	},
+};
 const reviewPort = {
-	createReviewItemForKnowledge: buildCreateReviewItemForKnowledge({
+	createReviewItemForKnowledge: createReviewItem({
 		conversation: { insertThread },
-		work: { createItem: work.createItem },
+		work: { createItem: (exec, values) => work.create(exec, "item", values) },
 	}),
 	attentionReviewReasoningMarker,
 };
+
+const MAX_RECOMPUTE_BATCH = 5000;
+function createAttentionApi(deps: Parameters<typeof recomputeAttention>[0]) {
+	return {
+		recomputeOne: async (itemId: string) => {
+			const result = await recomputeAttention(deps, { itemId });
+			if (Array.isArray(result) || !("current" in result)) throw new Error("unexpected result");
+			return result;
+		},
+		recomputeMany: async (itemIds: readonly string[]) => {
+			const result = await recomputeAttention(deps, { itemIds });
+			if (!Array.isArray(result)) throw new Error("unexpected result");
+			return result;
+		},
+		recomputeScope: async (
+			filter: Extract<Parameters<typeof recomputeAttention>[1], { filter: unknown }>["filter"],
+		) => {
+			const result = await recomputeAttention(deps, { filter });
+			if (!("ok" in result)) throw new Error("unexpected result");
+			return result;
+		},
+	};
+}
 
 interface SeedKiOverrides {
 	readonly id: string;
@@ -111,13 +141,53 @@ async function seedConflict(db: HyperIdleDb, id: string, itemId: string): Promis
 }
 
 describe("attention-service", () => {
+	test("tool attention override atomically upserts projection only", async ({ db }) => {
+		await seedKi(db, { id: "ki-override", attentionScore: 0.1 });
+		const [before] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, "ki-override"));
+		const logsBefore = await db
+			.select()
+			.from(knowledgeEditLog)
+			.where(eq(knowledgeEditLog.itemId, "ki-override"));
+
+		await toolHandlersPorts.knowledge.upsertKnowledgeAppProjectionAttentionScore(
+			db,
+			"ki-override",
+			"0.42",
+		);
+		await toolHandlersPorts.knowledge.upsertKnowledgeAppProjectionAttentionScore(
+			db,
+			"ki-override",
+			"0.73",
+		);
+
+		const [after] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, "ki-override"));
+		const [projection] = await db
+			.select()
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, "ki-override"));
+		const logsAfter = await db
+			.select()
+			.from(knowledgeEditLog)
+			.where(eq(knowledgeEditLog.itemId, "ki-override"));
+
+		expect(projection?.attentionScore).toBe("0.73");
+		expect(after?.version).toBe(before?.version);
+		expect(after?.updatedAt).toBe(before?.updatedAt);
+		expect(logsAfter).toHaveLength(logsBefore.length);
+	});
 	test("recomputeOne persists the new score on knowledge_app_projection.attentionScore and does NOT bump version", async ({
 		db,
 		eventBus,
 	}) => {
 		// @lore O2: attentionScore moved from kernel knowledgeItems to extension table
 		await seedKi(db, { id: "ki-1", attentionScore: 0.1, version: 3, confidence: 0.5 });
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -156,7 +226,7 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -193,7 +263,7 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -220,7 +290,7 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -252,7 +322,7 @@ describe("attention-service", () => {
 			ids.push(id);
 		}
 
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -308,7 +378,7 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -333,7 +403,7 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -375,7 +445,7 @@ describe("attention-service", () => {
 			attentionScore: 0.1,
 		});
 
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -440,7 +510,7 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -490,7 +560,7 @@ describe("attention-service", () => {
 			received.push(e);
 		});
 
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -514,7 +584,7 @@ describe("attention-service", () => {
 
 	test("recomputeScope rejects an empty filter with FILTER_REQUIRED", async ({ db, eventBus }) => {
 		await seedKi(db, { id: "any", confidence: 0.5, attentionScore: 0.1 });
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -536,7 +606,7 @@ describe("attention-service", () => {
 		for (let i = 0; i < BATCH_OVER; i++) {
 			await seedKi(db, { id: `k-big-${i}`, layer: "L9", confidence: 0.5, attentionScore: 0.1 });
 		}
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -571,7 +641,7 @@ describe("attention-service", () => {
 			confidence: 0.5,
 			attentionScore: 0.1,
 		});
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -623,7 +693,7 @@ describe("attention-service", () => {
 		eventBus.on("item_created", (e) => {
 			received.push(e);
 		});
-		const service = buildAttentionService({
+		const service = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -664,7 +734,7 @@ describe("attention-service", () => {
 			attentionScore: 0.1,
 		});
 		const fixedNow = NOW_MS;
-		const svcA = buildAttentionService({
+		const svcA = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,
@@ -681,7 +751,7 @@ describe("attention-service", () => {
 			.set({ attentionScore: "0.1" })
 			.where(eq(knowledgeAppProjection.knowledgeItemId, "det-1"));
 
-		const svcB = buildAttentionService({
+		const svcB = createAttentionApi({
 			db,
 			eventBus,
 			work: workPort,

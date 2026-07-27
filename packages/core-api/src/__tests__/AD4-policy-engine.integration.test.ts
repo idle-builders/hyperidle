@@ -26,12 +26,12 @@
 
 import {
 	insertMessage,
-	listInitiatedVerdictMessages,
-	listMessagesByThread,
-	listVerdictMessagesByItemIds,
+	insertThread,
+	listMessages,
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
+import type { WriteExecutor } from "@hyperidle/db";
 import {
 	type HyperIdleDb,
 	items,
@@ -41,13 +41,13 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { isSilenced, type NotificationsSilenceDeps } from "@hyperidle/notifications";
-import { getTeamMembersById } from "@hyperidle/org";
-import { type PolicyEngineDeps, registerPolicyEngine } from "@hyperidle/policy";
+import { isSilenced } from "@hyperidle/notifications";
+import { getTeamMembers } from "@hyperidle/org";
+import { computeApprovalRate, type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
-import { getUserById } from "@hyperidle/users";
-import { getItemById, listItemIdsBySourceAgent, updateItemById } from "@hyperidle/work";
+import { findUser } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
 
@@ -57,22 +57,54 @@ import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
  * imports another Service). This test builds the exact same production
  * wiring `server-factory.ts` uses — no behavior change.
  */
-const silenceDeps: NotificationsSilenceDeps = {
+const silenceDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
-	users: { getUserById },
-	teams: { getTeamMembersById },
+	users: { getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }) },
+	teams: { getTeamMembersById: (db: HyperIdleDb, id: string) => getTeamMembers(db, { id }) },
 };
 
-const policyEngineDeps: PolicyEngineDeps = {
-	work: { getItemById, updateItemById },
-	conversation: { insertMessage, listMessagesByThread, updateMessage, updateThread },
+const policyEngineDeps: PolicyDeps = {
+	work: {
+		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+		updateItemById: (exec: WriteExecutor, id: string, patch) =>
+			work.update(exec, "item", id, patch),
+		listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
+			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
+			return rows.map((r) => r.id);
+		},
+		// lifecycle stubs (never called in engine tests):
+		getTaskById: () => Promise.resolve(undefined),
+		getBetById: () => Promise.resolve(undefined),
+		transitionBetStatus: () => Promise.resolve({ applied: false }),
+		transitionTaskState: () => Promise.resolve({ applied: false }),
+		listTasks: () => Promise.resolve([]),
+	},
+	conversation: {
+		insertMessage,
+		listMessagesByThread: (db, threadId, opts) =>
+			listMessages(db, {
+				threadId,
+				types: opts?.type ? [opts.type] : undefined,
+				order: opts?.order,
+				dir: opts?.dir,
+				limit: opts?.limit,
+			}),
+		updateMessage,
+		updateThread,
+		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
+		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+		insertThread,
+	},
+	users: {
+		// lifecycle stub (never called in engine tests):
+		getFirstUserByKind: () => Promise.resolve(undefined),
+	},
 	silence: {
 		isSilenced: (db, item, now) => isSilenced(db, item, now, silenceDeps),
 	},
-	approvalRate: {
-		work: { listItemIdsBySourceAgent },
-		conversation: { listInitiatedVerdictMessages, listVerdictMessagesByItemIds },
-	},
+	notifications: { insert: () => Promise.resolve() },
 };
 
 const NOW = new Date().toISOString();
@@ -243,6 +275,71 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 		unsubscribe?.();
 	});
 
+	describe("AU20 policy completeness contract — approval-rate query", () => {
+		test("combines both attribution paths, applies the time window, and returns newest verdicts first", async ({
+			db,
+		}) => {
+			await seedBase(db);
+
+			const legacyItemId = crypto.randomUUID();
+			await db.insert(items).values({
+				id: legacyItemId,
+				sourceAgentId: "ad4-agent-1",
+				kind: "approval",
+				title: "Legacy-attributed item",
+				threadId: "ad4-thread-1",
+				createdAt: FIVE_DAYS_AGO,
+			});
+			await db.insert(messages).values([
+				{
+					id: "contract-legacy-approve",
+					senderId: "ad4-human-1",
+					threadId: "ad4-thread-1",
+					type: "verdict",
+					payload: JSON.stringify({ decision: "approve" }),
+					clientKey: "contract-legacy-approve",
+					legacyItemId,
+					createdAt: FIVE_DAYS_AGO,
+				},
+				{
+					id: "contract-thread-reject",
+					senderId: "ad4-human-1",
+					threadId: "ad4-thread-1",
+					type: "verdict",
+					payload: JSON.stringify({ decision: "reject" }),
+					clientKey: "contract-thread-reject",
+					createdAt: NOW,
+				},
+				{
+					id: "contract-expired-approve",
+					senderId: "ad4-human-1",
+					threadId: "ad4-thread-1",
+					type: "verdict",
+					payload: JSON.stringify({ decision: "approve-with-comments" }),
+					clientKey: "contract-expired-approve",
+					createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+				},
+			]);
+
+			const result = await computeApprovalRate(db, "ad4-agent-1", 30, policyEngineDeps, 2);
+
+			expect(result.approvalRate).toBe(0.5);
+			expect(result.totalVerdicts).toBe(2);
+			expect(result.recentVerdicts).toEqual([
+				{ decision: "reject", threadId: "ad4-thread-1", createdAt: NOW },
+				{ decision: "approve", threadId: "ad4-thread-1", createdAt: FIVE_DAYS_AGO },
+			]);
+		});
+
+		test("returns the stable empty result when an agent has no verdict history", async ({ db }) => {
+			await seedBase(db);
+
+			await expect(
+				computeApprovalRate(db, "agent-without-history", 30, policyEngineDeps),
+			).resolves.toEqual({ approvalRate: 0, totalVerdicts: 0, recentVerdicts: [] });
+		});
+	});
+
 	// =========================================================================
 	// TC1: High approval rate (>= 0.90) + >= 10 verdicts + low risk → auto-resolve
 	// =========================================================================
@@ -255,7 +352,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 		await seedBase(db);
 		await seedVerdicts(db, 10, "approve");
 
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -281,7 +378,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -314,7 +411,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -336,7 +433,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -358,7 +455,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "high" });
 		emitItemCreated(eventBus, itemId);
 
@@ -382,7 +479,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { kind: "skill_change", riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -401,7 +498,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 		await seedBase(db);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low" });
 		emitItemCreated(eventBus, itemId);
 
@@ -424,7 +521,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicyEngine(db, eventBus, policyEngineDeps);
+		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
 		const itemId = await createItem(db, eventBus, { riskTier: "low", blocking: false });
 		emitItemCreated(eventBus, itemId);
 

@@ -2,10 +2,13 @@
  * S1 — Unit tests for login-session service.
  *
  * Tests verify the acceptance criteria for:
- * - Token generation (generateToken, hashToken)
- * - LoginSession CRUD (createLoginSession, findLoginSessionByTokenHash)
+ * - LoginSession CRUD (createLoginSession)
  * - Validation (validateBearerToken: happy, expired, revoked, invalid)
  * - Revocation (revokeLoginSession)
+ *
+ * @lore AU20 Am11: generateToken/hashToken/findLoginSessionByTokenHash
+ * internalized — tests for their internal behavior removed; coverage
+ * preserved through createLoginSession/validateBearerToken public API.
  *
  * @lore S1 PGLite migration: All tests are now async because createTestDb()
  * returns a Promise<TestDbHandle> and all service functions are async.
@@ -14,14 +17,7 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import {
-	createLoginSession,
-	findLoginSessionByTokenHash,
-	generateToken,
-	hashToken,
-	revokeLoginSession,
-	validateBearerToken,
-} from "@hyperidle/users";
+import { createLoginSession, revokeLoginSession, validateBearerToken } from "@hyperidle/users";
 import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
@@ -42,57 +38,6 @@ async function seedUser(db: HyperIdleDb, id = "u-test-1"): Promise<void> {
 		.onConflictDoNothing();
 }
 
-describe("S1 — generateToken", () => {
-	test("returns plaintext and hash fields", () => {
-		const result = generateToken();
-		expect(result).toHaveProperty("plaintext");
-		expect(result).toHaveProperty("hash");
-	});
-
-	test("plaintext is a non-empty base64url string", () => {
-		const { plaintext } = generateToken();
-		// base64url: alphanumeric, +/= replaced by -_
-		expect(plaintext).toMatch(/^[A-Za-z0-9_-]+$/);
-		expect(plaintext.length).toBeGreaterThan(0);
-	});
-
-	test("hash is a 64-char hex string (SHA-256)", () => {
-		const { hash } = generateToken();
-		expect(hash).toMatch(/^[0-9a-f]{64}$/);
-	});
-
-	test("two tokens are always distinct", () => {
-		const a = generateToken();
-		const b = generateToken();
-		expect(a.plaintext).not.toBe(b.plaintext);
-		expect(a.hash).not.toBe(b.hash);
-	});
-
-	test("hash matches hashToken(plaintext)", () => {
-		const { plaintext, hash } = generateToken();
-		expect(hashToken(plaintext)).toBe(hash);
-	});
-});
-
-describe("S1 — hashToken", () => {
-	test("produces a 64-char hex string", () => {
-		const result = hashToken("some-plaintext-token");
-		expect(result).toMatch(/^[0-9a-f]{64}$/);
-	});
-
-	test("is deterministic for the same input", () => {
-		const a = hashToken("stable-token");
-		const b = hashToken("stable-token");
-		expect(a).toBe(b);
-	});
-
-	test("produces different hashes for different inputs", () => {
-		const a = hashToken("token-a");
-		const b = hashToken("token-b");
-		expect(a).not.toBe(b);
-	});
-});
-
 describe("S1 — createLoginSession", () => {
 	test("returns session and plaintext token", async ({ db }) => {
 		await seedUser(db, "u-sess-1");
@@ -105,10 +50,8 @@ describe("S1 — createLoginSession", () => {
 	test("stores hashed token (not plaintext)", async ({ db }) => {
 		await seedUser(db, "u-sess-1");
 		const { session, token } = await createLoginSession(db, "u-sess-1");
-		// tokenHash should NOT equal the plaintext
+		// tokenHash should NOT equal the plaintext (hash is stored, not plaintext)
 		expect(session.tokenHash).not.toBe(token);
-		// but should equal hashToken(plaintext)
-		expect(session.tokenHash).toBe(hashToken(token));
 	});
 
 	test("session has correct userId", async ({ db }) => {
@@ -144,22 +87,6 @@ describe("S1 — createLoginSession", () => {
 		const expiresAt = new Date(session.expiresAt).getTime();
 		expect(expiresAt).toBeGreaterThan(before + ttlMs - 500);
 		expect(expiresAt).toBeLessThan(before + ttlMs + 500);
-	});
-});
-
-describe("S1 — findLoginSessionByTokenHash", () => {
-	test("returns session when found", async ({ db }) => {
-		await seedUser(db, "u-find-1");
-		const { session } = await createLoginSession(db, "u-find-1");
-		const found = await findLoginSessionByTokenHash(db, session.tokenHash);
-		expect(found).not.toBeNull();
-		expect(found?.id).toBe(session.id);
-	});
-
-	test("returns null when hash not found", async ({ db }) => {
-		await seedUser(db, "u-find-1");
-		const result = await findLoginSessionByTokenHash(db, "nonexistent-hash");
-		expect(result).toBeNull();
 	});
 });
 
@@ -232,15 +159,17 @@ describe("S1 — validateBearerToken", () => {
 });
 
 describe("S1 — revokeLoginSession", () => {
-	test("sets revokedAt on the session", async ({ db }) => {
+	test("sets revokedAt — validateBearerToken returns SESSION_REVOKED", async ({ db }) => {
 		await seedUser(db, "u-rev-1");
-		const { session } = await createLoginSession(db, "u-rev-1");
+		const { session, token } = await createLoginSession(db, "u-rev-1");
 		expect(session.revokedAt).toBeNull();
 
 		await revokeLoginSession(db, session.id);
 
-		const found = await findLoginSessionByTokenHash(db, session.tokenHash);
-		expect(found?.revokedAt).not.toBeNull();
+		// Verify revocation via public API (findLoginSessionByTokenHash is internalized)
+		const result = await validateBearerToken(db, token);
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.reason).toBe("SESSION_REVOKED");
 	});
 
 	test("after revocation, validateBearerToken returns SESSION_REVOKED", async ({ db }) => {

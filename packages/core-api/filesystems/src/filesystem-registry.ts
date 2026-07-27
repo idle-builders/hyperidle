@@ -1,49 +1,30 @@
-/**
- * `filesystems` Service — the only module permitted to read or write
- * `filesystems`, `filesystem_injections`. Every real call site (previously
- * inline raw Drizzle queries in `packages/server/src/routes/filesystems.ts`,
- * `routes/knowledge.ts`, `services/session-provisioning.ts`) now routes
- * through one of these functions instead of a direct
- * `insert`/`update`/`delete`/`select` against the table objects.
- *
- * Mirrors `routine-service.ts`'s style / `WriteExecutor` executor-first param
- * (reused for reads too, same idiom).
- *
- * @lore AU19 Increment 2b: architecture §4 marked `filesystems` `⛁*`
- * ("confirm at migration") and listed only `filesystem/*`,
- * `services/file-watcher.ts`, `filesystem-reachability.ts`,
- * `inspect-local-path.ts`, `dependency-watcher.ts` as seed files — none of
- * which touch the `filesystems`/`filesystem_injections` tables (only
- * `capture-store.ts` does, for the separate `filesystem_captures` table).
- * The real CRUD for the registry tables lived inline in
- * `routes/filesystems.ts` (never factored into a seed file the way every
- * other Service's owned-table CRUD was — a seed-file gap, not a new edge).
- * Confirmed via repo-wide grep: `filesystems`/`filesystemInjections` are
- * genuinely this Service's tables (the `⛁*` marker's own name match), with
- * exactly three foreign-package consumers, all now converted. This file is
- * the missing registry layer; `TABLE_OWNER` rows added in
- * `scripts/table-ownership-guard.ts` for both tables.
- */
 import {
-	type FilesystemInjectionRow,
-	type FilesystemRow,
+	type FilesystemRow as DbFilesystemRow,
+	type NewFilesystem as DbNewFilesystem,
+	type NewFilesystemInjection as DbNewFilesystemInjection,
+	type FilesystemCaptureRow,
+	filesystemCaptures,
 	filesystemInjections,
 	filesystems,
-	type NewFilesystem,
-	type NewFilesystemInjection,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
 
-export type { FilesystemInjectionRow, FilesystemRow, NewFilesystem, NewFilesystemInjection };
+export type FilesystemRow = DbFilesystemRow;
+export type NewFilesystem = DbNewFilesystem;
+export type NewFilesystemInjection = DbNewFilesystemInjection;
 
-/** Insert a new filesystem registry row. */
-export async function insertFilesystem(exec: WriteExecutor, values: NewFilesystem): Promise<void> {
+export interface FilesystemFilter {
+	readonly teamId?: string;
+	readonly agentId?: string;
+	readonly ids?: readonly string[];
+}
+
+export async function saveFilesystem(exec: WriteExecutor, values: NewFilesystem): Promise<void> {
 	await exec.insert(filesystems).values(values);
 }
 
-/** Fetch one filesystem registry row by id. */
-export async function getFilesystemById(
+export async function getFilesystem(
 	exec: WriteExecutor,
 	id: string,
 ): Promise<FilesystemRow | undefined> {
@@ -51,24 +32,28 @@ export async function getFilesystemById(
 	return row;
 }
 
-/** List every filesystem registered for a team. */
-export async function listFilesystemsByTeamId(
+export async function listFilesystems(
 	exec: WriteExecutor,
-	teamId: string,
+	filter: FilesystemFilter,
 ): Promise<FilesystemRow[]> {
-	return exec.select().from(filesystems).where(eq(filesystems.teamId, teamId));
+	if (filter.agentId != null) {
+		const joined = await exec
+			.select({ filesystem: filesystems })
+			.from(filesystemInjections)
+			.innerJoin(filesystems, eq(filesystemInjections.filesystemId, filesystems.id))
+			.where(eq(filesystemInjections.agentUserId, filter.agentId));
+		return joined.map((r) => r.filesystem);
+	}
+	if (filter.ids != null) {
+		if (filter.ids.length === 0) return [];
+		return exec.select().from(filesystems).where(inArray(filesystems.id, filter.ids));
+	}
+	if (filter.teamId != null) {
+		return exec.select().from(filesystems).where(eq(filesystems.teamId, filter.teamId));
+	}
+	return exec.select().from(filesystems);
 }
 
-/** List every filesystem row whose id is in `ids`. */
-export async function listFilesystemsByIds(
-	exec: WriteExecutor,
-	ids: readonly string[],
-): Promise<FilesystemRow[]> {
-	if (ids.length === 0) return [];
-	return exec.select().from(filesystems).where(inArray(filesystems.id, ids));
-}
-
-/** Persist a reachability-state transition (AO1 inspect/register live probe). */
 export async function updateFilesystemState(
 	exec: WriteExecutor,
 	id: string,
@@ -77,62 +62,50 @@ export async function updateFilesystemState(
 	await exec.update(filesystems).set({ state }).where(eq(filesystems.id, id));
 }
 
-/** Delete a filesystem registration. `filesystem_injections`/`filesystem_captures` cascade at the DB level. */
-export async function deleteFilesystemById(exec: WriteExecutor, id: string): Promise<void> {
+export async function deleteFilesystem(exec: WriteExecutor, id: string): Promise<void> {
 	await exec.delete(filesystems).where(eq(filesystems.id, id));
 }
 
-/** List the filesystem ids injected into a given agent. */
-export async function listFilesystemIdsByAgent(
-	exec: WriteExecutor,
-	agentUserId: string,
-): Promise<string[]> {
-	const rows = await exec
-		.select({ filesystemId: filesystemInjections.filesystemId })
-		.from(filesystemInjections)
-		.where(eq(filesystemInjections.agentUserId, agentUserId));
-	return rows.map((r) => r.filesystemId);
-}
-
-/** Fetch one per-bot injection row (existence check). */
-export async function getFilesystemInjection(
-	exec: WriteExecutor,
-	agentUserId: string,
-	filesystemId: string,
-): Promise<FilesystemInjectionRow | undefined> {
-	const [row] = await exec
-		.select()
-		.from(filesystemInjections)
-		.where(
-			and(
-				eq(filesystemInjections.agentUserId, agentUserId),
-				eq(filesystemInjections.filesystemId, filesystemId),
-			),
-		)
-		.limit(1);
-	return row;
-}
-
-/** Insert a per-bot filesystem injection row. */
-export async function insertFilesystemInjection(
+export async function saveInjection(
 	exec: WriteExecutor,
 	values: NewFilesystemInjection,
 ): Promise<void> {
 	await exec.insert(filesystemInjections).values(values);
 }
 
-/** Remove a per-bot filesystem injection row. */
-export async function deleteFilesystemInjection(
+export async function deleteInjection(
 	exec: WriteExecutor,
 	agentUserId: string,
 	filesystemId: string,
-): Promise<void> {
-	await exec
+): Promise<boolean> {
+	const deleted = await exec
 		.delete(filesystemInjections)
 		.where(
 			and(
 				eq(filesystemInjections.agentUserId, agentUserId),
 				eq(filesystemInjections.filesystemId, filesystemId),
 			),
-		);
+		)
+		.returning({ agentUserId: filesystemInjections.agentUserId });
+	return deleted.length > 0;
+}
+
+export async function listCaptures(
+	exec: WriteExecutor,
+	filter: { sessionId?: string; filesystemId?: string },
+): Promise<FilesystemCaptureRow[]> {
+	const conditions = [];
+	if (filter.sessionId != null) {
+		conditions.push(eq(filesystemCaptures.sessionId, filter.sessionId));
+	}
+	if (filter.filesystemId != null) {
+		conditions.push(eq(filesystemCaptures.filesystemId, filter.filesystemId));
+	}
+	if (conditions.length === 0) {
+		return exec.select().from(filesystemCaptures);
+	}
+	return exec
+		.select()
+		.from(filesystemCaptures)
+		.where(conditions.length === 1 ? conditions[0] : and(...conditions));
 }

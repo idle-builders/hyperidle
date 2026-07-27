@@ -1,10 +1,13 @@
-import type { HarnessDiscoveryInput } from "@hyperidle/harness-registry";
-import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 import { createTestApp } from "../../test-utils.js";
 
 const TEST_API_KEY = "test-key-am2-harnesses";
+type SnapshotValue<T> = T extends Readonly<Record<string, infer V>> ? V : never;
+type HarnessDiscoveryInput = SnapshotValue<
+	NonNullable<ConstructorParameters<typeof AdapterPool>[0]>
+>;
 
 /** AM2: evidence-backed discovery snapshot used for the route integration test.
  *  In production `createLocalAdapterPool()` runs the real probes via
@@ -66,7 +69,7 @@ function authHeaders(): Record<string, string> {
 
 function makePool(): AdapterPool {
 	const pool = new AdapterPool(STATIC_DISCOVERIES);
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
+	pool.register("local-builtin", createHarnessAdapter({ kind: "builtin" }), {
 		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",
@@ -103,7 +106,7 @@ describe("AM2 GET /api/harnesses capability descriptors", () => {
 		expect(builtin?.authAction).toMatchObject({ kind: "enter_api_key" });
 		expect(builtin?.discovery).toMatchObject({ state: "ready" });
 		expect(Array.isArray(builtin?.models)).toBe(true);
-		expect((builtin?.models as unknown[]).length).toBeGreaterThan(0);
+		expect((builtin!.models as unknown[]).length).toBeGreaterThan(0);
 		expect(builtin?.runtime).toMatchObject({
 			preCompactionTrigger: true,
 			mcpSupport: false,

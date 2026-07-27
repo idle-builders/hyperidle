@@ -10,7 +10,7 @@ import { sql } from "drizzle-orm";
  * Creates a generated tsvector column and GIN index on knowledge_items
  * for full-text search. Idempotent — safe to call on every connection.
  */
-export async function setupFts(db: HyperIdleDb): Promise<void> {
+async function initializeTextSearch(db: HyperIdleDb): Promise<void> {
 	await db.execute(sql`
 		ALTER TABLE knowledge_items
 		ADD COLUMN IF NOT EXISTS fts_vector tsvector
@@ -25,7 +25,7 @@ export async function setupFts(db: HyperIdleDb): Promise<void> {
 	`);
 }
 
-export interface FtsSearchOptions {
+interface FtsSearchOptions {
 	limit?: number;
 	offset?: number;
 }
@@ -38,7 +38,7 @@ export interface FtsSearchOptions {
  * over a rate-limit. 1024 chars accommodates long natural-language
  * queries while bounding regex/split cost.
  */
-export const FTS_MAX_QUERY_CHARS = 1024;
+const FTS_MAX_QUERY_CHARS = 1024;
 
 /**
  * Maximum number of tokens kept after splitting. @lore I3 review sec
@@ -46,7 +46,7 @@ export const FTS_MAX_QUERY_CHARS = 1024;
  * count; 64 tokens is more than any natural query and bounds the
  * parser cost.
  */
-export const FTS_MAX_TOKENS = 64;
+const FTS_MAX_TOKENS = 64;
 
 /**
  * Sanitise a user-supplied query string for Postgres tsquery.
@@ -66,7 +66,7 @@ export const FTS_MAX_TOKENS = 64;
  * @lore PGlite migration: Postgres tsquery uses `&` (AND), `|` (OR), `!` (NOT),
  * `:*` (prefix). We emit sanitized tokens joined with `&` for AND semantics.
  */
-export function sanitizeFtsQuery(input: string): string {
+function sanitizeFtsQuery(input: string): string {
 	if (typeof input !== "string") return "";
 	let trimmed = input.trim();
 	if (trimmed.length === 0) return "";
@@ -99,11 +99,12 @@ export function sanitizeFtsQuery(input: string): string {
  * Full-text search returning matching knowledge_item IDs ranked by relevance.
  * User input is sanitised before being passed to tsquery.
  */
-export async function ftsSearch(
+async function executeTextSearch(
 	db: HyperIdleDb,
 	query: string,
 	options: FtsSearchOptions = {},
 ): Promise<string[]> {
+	await initializeTextSearch(db);
 	const { limit = 50, offset = 0 } = options;
 
 	const sanitized = sanitizeFtsQuery(query);
@@ -122,3 +123,5 @@ export async function ftsSearch(
 	const rows = (result as { rows: Array<{ id: string }> }).rows;
 	return rows.map((r) => r.id);
 }
+
+export { executeTextSearch, FTS_MAX_QUERY_CHARS, FTS_MAX_TOKENS, sanitizeFtsQuery };
