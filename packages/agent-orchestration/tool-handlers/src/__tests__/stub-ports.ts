@@ -19,17 +19,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 	dispatch: {
 		provisionTeamRoutines: notImplemented,
 	},
-	knowledge: {
-		search: notImplemented,
-		create: notImplemented,
-		findKnowledgeItemVersionById: notImplemented,
-		findKnowledgeItemStatusById: notImplemented,
-		findOpenConflictByItemAndProposer: notImplemented,
-		createKnowledgeConflict: notImplemented,
-		promoteKnowledgeItem: notImplemented,
-		upsertKnowledgeAppProjectionAttentionScore: notImplemented,
-		recomputeAttentionScoreForItem: notImplemented,
-	},
 	coreApi: {
 		createBet: notImplemented,
 		getTaskById: notImplemented,
@@ -62,5 +51,14 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 		getRoutineById: notImplemented,
 		updateRoutineById: notImplemented,
 		handoffTask: notImplemented,
+		search: notImplemented,
+		create: notImplemented,
+		findKnowledgeItemVersionById: notImplemented,
+		findKnowledgeItemStatusById: notImplemented,
+		findOpenConflictByItemAndProposer: notImplemented,
+		createKnowledgeConflict: notImplemented,
+		promoteKnowledgeItem: notImplemented,
+		upsertKnowledgeAppProjectionAttentionScore: notImplemented,
+		recomputeAttentionScoreForItem: notImplemented,
 	},
 };

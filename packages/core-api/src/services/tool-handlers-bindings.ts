@@ -1,10 +1,10 @@
 /**
  * `@hyperidle/tool-handlers`'s `ToolHandlersPorts` (Mechanism C), wired here
- * at the `packages/server` composition point — all remaining targets
- * (`agent-selection`, `dispatch`, `knowledge`) are real, already-migrated
- * packages. `work`/`users`/`conversation`/`org`/`routine`/`policy.handoff`
- * all cross the `CoreApiPort` seam instead (see `coreApi`'s own inline
- * `@lore` below).
+ * at the `packages/server` composition point — the only remaining
+ * same-process DI targets are `agent-selection`/`dispatch`, real
+ * already-migrated packages. `work`/`users`/`conversation`/`org`/`routine`/
+ * `policy.handoff`/`knowledge` all cross the `CoreApiPort` seam instead (see
+ * `coreApi`'s own inline `@lore` below).
  *
  * @lore AU19 Increment 4: this module builds each bound singleton ONCE, at
  * the composition root, so every real call site (`session-lifecycle-bindings.ts`
@@ -18,22 +18,9 @@ import type {
 	InsertRoutineRequest,
 	UpdateRoutineRequest,
 } from "@hyperidle/api-contract";
-import { insertThread } from "@hyperidle/conversation";
-import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import {
-	create as createKnowledgeItem,
-	findOpenConflict as findOpenKnowledgeConflict,
-	get as getKnowledgeItem,
-	transition as knowledgeTransition,
-	recomputeAttention,
-	recordConflict as recordKnowledgeConflict,
-	search as searchKnowledge,
-} from "@hyperidle/knowledge";
-import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
-import type { EventBus } from "@hyperidle/shared";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
-import * as work from "@hyperidle/work";
 import { routeItem } from "@hyperidle/work";
 import { agentSelectionService } from "./agent-selection-bindings.js";
 import {
@@ -71,8 +58,7 @@ function provisionTeamRoutines(
  * port's return element as the opaque `Record<string, unknown>` (`specs`
  * is only ever piped opaquely across the `coreApi.persistScaffoldedAgents`
  * seam call — see `POST /org/scaffolded-agents` in `routes/org.ts`, which
- * does the real persist). Same "fresh object literal" boundary-crossing as
- * {@link searchKnowledgeForTool} below.
+ * does the real persist).
  */
 /**
  * AU21 §9 Increment 1/2: builds a fresh in-process `CoreApiPort` per call,
@@ -135,61 +121,6 @@ function createBetThroughCoreApiPort(
 	});
 }
 
-/**
- * `tool-handlers`'s `ports.ts`'s `search` return element type is
- * `Record<string, unknown> & {layer?}` (opaque, since callers only ever
- * forward the whole item back to their own caller — see `ports.ts`'s own
- * `@lore`). `knowledge`'s real `search` returns concrete
- * `KnowledgeItemWithProjection[]` values, which do NOT structurally satisfy
- * an index-signature return type directly (`Record<string, unknown>` demands
- * an index signature the concrete interface lacks) — re-spreading each item
- * into a fresh object literal is the honest fix (a fresh literal DOES satisfy
- * an index-signature target; returning the typed value directly does not).
- */
-async function searchKnowledgeForTool(
-	db: HyperIdleDb,
-	query: string,
-	opts: { readonly limit: number },
-): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>> {
-	const results = await searchKnowledge(db, query, opts);
-	return results.map((item) => ({ ...item }));
-}
-
-/**
- * Collapses `buildCreateReviewItemForKnowledge({conversation,work})` +
- * `buildAttentionService({db,eventBus,work,review}).recomputeOne(id)` — the
- * exact composition `dispatch-bindings.ts`'s own
- * `recomputeAttentionForCandidates` already performs (with `.recomputeScope`
- * instead of `.recomputeOne`).
- */
-async function recomputeAttentionScoreForItem(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	knowledgeItemId: string,
-): Promise<{ readonly current: number }> {
-	const createReviewItemForKnowledge = createReviewItem({
-		conversation: { insertThread },
-		work: { createItem: (exec, values) => work.create(exec, "item", values) },
-	});
-	const result = await recomputeAttention(
-		{
-			db,
-			eventBus,
-			work: {
-				findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
-					const rows = await work.list(exec, "item", { marker });
-					return rows[0] ? { id: rows[0].id } : undefined;
-				},
-			},
-			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
-		},
-		{ itemId: knowledgeItemId },
-	);
-	if (Array.isArray(result) || !("current" in result))
-		throw new Error("unexpected attention result");
-	return result;
-}
-
 const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	// AU21 §9 Increment 2: `routeItem` is the ONLY `work` capability left as
 	// ordinary same-process DI — every read/write moved onto the `coreApi`
@@ -200,45 +131,6 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 			(await agentSelectionService.resolveScaffoldSpecs(input)).map((spec) => ({ ...spec })),
 	},
 	dispatch: { provisionTeamRoutines },
-	knowledge: {
-		search: searchKnowledgeForTool,
-		create: createKnowledgeItem,
-		// @lore AU20 Ag7a: findKnowledgeItemVersionById and findKnowledgeItemStatusById
-		// retired from the knowledge barrel (simple-duplicate functions superseded by
-		// findById). Adapted here at the composition boundary — findById returns the
-		// full KnowledgeItem (structurally compatible with both port shapes).
-		findKnowledgeItemVersionById: async (db, id) => {
-			const item = await getKnowledgeItem(db, id);
-			return item ?? undefined;
-		},
-		findKnowledgeItemStatusById: async (db, id) => {
-			const item = await getKnowledgeItem(db, id);
-			return item ?? undefined;
-		},
-		// @lore AU20 K2-writes: createKnowledgeConflict/findOpenConflictByItemAndProposer deleted
-		// from barrel; wired here via recordConflict/findOpenConflict adapters.
-		// findOpenConflict returns null instead of undefined; adapter maps null → undefined
-		// to match the port interface (ToolHandlersKnowledgeAccessor) which expects undefined.
-		findOpenConflictByItemAndProposer: async (db, itemId, proposedBy) =>
-			(await findOpenKnowledgeConflict(db, itemId, proposedBy)) ?? undefined,
-		createKnowledgeConflict: (db, input) => recordKnowledgeConflict(db, input),
-		// @lore AU20 K2-writes: promoteKnowledgeItem deleted from barrel; wired here
-		// via transition({target:"promote",...}) — same transactional gate logic.
-		promoteKnowledgeItem: async (db, input) =>
-			knowledgeTransition(db, input.knowledgeItemId, {
-				target: "promote",
-				fromStatus: input.fromStatus,
-				toStatus: input.toStatus,
-				reason: input.reason,
-				editor: input.editor,
-			}),
-		upsertKnowledgeAppProjectionAttentionScore: (db, knowledgeItemId, attentionScore) =>
-			knowledgeTransition(db, knowledgeItemId, {
-				target: "recomputeAttention",
-				attentionScore: Number(attentionScore),
-			}),
-		recomputeAttentionScoreForItem,
-	},
 	coreApi: {
 		createBet: createBetThroughCoreApiPort,
 		getTaskById: (id, actorId) => seamPortForActor(actorId).work.getTaskById(id),
@@ -301,6 +193,28 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 			seamPortForActor(actorId).routine.updateRoutineById(id, widenUpdateRoutineInput(updates)),
 		handoffTask: (taskId, input, actorId) =>
 			seamPortForActor(actorId).work.handoffTask(taskId, input),
+		// AU21 §9 Increment 2 (knowledge wave): every former
+		// `ToolHandlersKnowledgeAccessor` capability moved onto this seam —
+		// see `ports.ts`'s `ToolHandlersCoreApiAccessor` doc comment.
+		search: (query, opts, actorId) => seamPortForActor(actorId).knowledge.search(query, opts),
+		create: (input, actorId) => seamPortForActor(actorId).knowledge.create(input),
+		findKnowledgeItemVersionById: (id, actorId) =>
+			seamPortForActor(actorId).knowledge.findKnowledgeItemVersionById(id),
+		findKnowledgeItemStatusById: (id, actorId) =>
+			seamPortForActor(actorId).knowledge.findKnowledgeItemStatusById(id),
+		findOpenConflictByItemAndProposer: (itemId, proposedBy, actorId) =>
+			seamPortForActor(actorId).knowledge.findOpenConflictByItemAndProposer(itemId, proposedBy),
+		createKnowledgeConflict: (input, actorId) =>
+			seamPortForActor(actorId).knowledge.createKnowledgeConflict(input),
+		promoteKnowledgeItem: (input, actorId) =>
+			seamPortForActor(actorId).knowledge.promoteKnowledgeItem(input),
+		upsertKnowledgeAppProjectionAttentionScore: (knowledgeItemId, attentionScore, actorId) =>
+			seamPortForActor(actorId).knowledge.upsertKnowledgeAppProjectionAttentionScore(
+				knowledgeItemId,
+				attentionScore,
+			),
+		recomputeAttentionScoreForItem: (knowledgeItemId, actorId) =>
+			seamPortForActor(actorId).knowledge.recomputeAttentionScoreForItem(knowledgeItemId),
 	},
 };
 

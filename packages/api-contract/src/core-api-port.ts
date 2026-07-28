@@ -466,6 +466,121 @@ export interface CoreApiRoutinePort {
 }
 
 /**
+ * Mirrors `POST /knowledge`'s validated request body — extended (Increment 2
+ * knowledge wave) with optional `kind` and an optional explicit `layer`
+ * override. The pre-existing route always derived `layer` from
+ * `scopeToLayer(scopeKind)` and silently dropped any `kind` field; `write_memory`'s
+ * real call needs both fields to round-trip verbatim (an agent tool caller DOES
+ * have a `kind`/explicit-`layer` concept the HTTP UI caller never needed).
+ */
+export interface CreateKnowledgeItemRequest {
+	readonly layer: string | null;
+	readonly scopeKind?: string | null;
+	readonly scopeId?: string | null;
+	readonly kind?: string | null;
+	readonly topic?: string | null;
+	readonly title: string;
+	readonly body: string;
+	readonly format: string;
+	readonly status: string;
+	readonly updatedBy: string;
+}
+
+/** Mirrors `POST /knowledge`'s 201 response body — only the fields a `CoreApiPort` consumer relies on. */
+export interface CreateKnowledgeItemResponse {
+	readonly id: string;
+	readonly version: number;
+}
+
+/** Mirrors `GET /knowledge/:id`'s response — only `id`/`version` (used by the version-lookup reuse of this route). */
+export interface KnowledgeItemVersionView {
+	readonly id: string;
+	readonly version: number;
+}
+
+/** Mirrors `GET /knowledge/:id`'s response — only `status` (used by the status-lookup reuse of this route). */
+export interface KnowledgeItemStatusView {
+	readonly status: string;
+}
+
+/** Mirrors the new `GET /knowledge/:id/conflicts?proposedBy=`'s response — only `id` is relied on. */
+export interface KnowledgeConflictView {
+	readonly id: string;
+}
+
+/** Mirrors the new `POST /knowledge/:id/conflicts`'s validated request body. */
+export interface CreateKnowledgeConflictRequest {
+	readonly id: string;
+	readonly itemId: string;
+	readonly versionBase: number;
+	readonly versionCurrent: number;
+	readonly proposedBody: string;
+	readonly proposedMeta: string | null;
+	readonly proposedBy: string;
+	readonly createdAt: string;
+}
+
+/** Mirrors the new `POST /knowledge/:id/promote`'s validated request body. */
+export interface PromoteKnowledgeItemRequest {
+	readonly knowledgeItemId: string;
+	readonly fromStatus: string;
+	readonly toStatus: string;
+	readonly reason: string | undefined;
+	readonly editor: string;
+}
+
+/**
+ * Mirrors the new `POST /knowledge/:id/promote`'s response body — the real
+ * `PromoteTransitionResult` discriminated union, forwarded as-is at HTTP 200
+ * either way (a domain-level "blocked" outcome is not a transport failure).
+ */
+export type PromoteKnowledgeItemResult =
+	| { readonly ok: true; readonly fromStatus: string }
+	| {
+			readonly ok: false;
+			readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
+			readonly message: string;
+	  };
+
+/**
+ * The agent's tool-facing `knowledge` capability family (Decision C,
+ * Increment 2's knowledge wave) — `edge-disposition.md`'s
+ * `knowledge.{get, create, transition, findOpenConflict, recordConflict}` row.
+ */
+export interface CoreApiKnowledgePort {
+	/**
+	 * Returned items are opaque (`Record<string, unknown>`) plus the one field
+	 * `query_practice`'s handler filters on (`layer`) — same reasoning as
+	 * `ToolHandlersKnowledgeAccessor.search`'s own doc comment (mirrored here).
+	 */
+	search(
+		query: string,
+		opts: { readonly limit: number },
+	): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>>;
+	create(input: CreateKnowledgeItemRequest): Promise<CreateKnowledgeItemResponse>;
+	findKnowledgeItemVersionById(id: string): Promise<KnowledgeItemVersionView | undefined>;
+	findKnowledgeItemStatusById(id: string): Promise<KnowledgeItemStatusView | undefined>;
+	findOpenConflictByItemAndProposer(
+		itemId: string,
+		proposedBy: string,
+	): Promise<KnowledgeConflictView | undefined>;
+	createKnowledgeConflict(input: CreateKnowledgeConflictRequest): Promise<void>;
+	promoteKnowledgeItem(input: PromoteKnowledgeItemRequest): Promise<PromoteKnowledgeItemResult>;
+	upsertKnowledgeAppProjectionAttentionScore(
+		knowledgeItemId: string,
+		attentionScore: string,
+	): Promise<void>;
+	/**
+	 * Collapses `buildCreateReviewItemForKnowledge({conversation,work})` +
+	 * `buildAttentionService({db,eventBus,work,review}).recomputeOne(id)` on
+	 * the core-api side of the seam (`POST /knowledge/:id/recompute-attention`)
+	 * — the seam itself never threads a same-process `EventBus` handle over
+	 * the HTTP boundary.
+	 */
+	recomputeAttentionScoreForItem(knowledgeItemId: string): Promise<{ readonly current: number }>;
+}
+
+/**
  * `CoreApiPort` — a per-core-Service family of narrow hand-typed method
  * groups, each Application-adapted onto the `hc<AppType>` client
  * (`buildCoreApiPort`, `packages/core-api/src/services/
@@ -477,6 +592,7 @@ export interface CoreApiPort {
 	readonly conversation: CoreApiConversationPort;
 	readonly org: CoreApiOrgPort;
 	readonly routine: CoreApiRoutinePort;
+	readonly knowledge: CoreApiKnowledgePort;
 }
 
 /**

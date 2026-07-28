@@ -34,6 +34,9 @@ import type {
 	CreateBetResponse,
 	CreateItemRequest,
 	CreateItemResponse,
+	CreateKnowledgeConflictRequest,
+	CreateKnowledgeItemRequest,
+	CreateKnowledgeItemResponse,
 	CreateOrgTeamRequest,
 	CreateTaskRequest,
 	CreateTaskResponse,
@@ -46,10 +49,15 @@ import type {
 	InsertThreadRequest,
 	InsertThreadResponse,
 	ItemView,
+	KnowledgeConflictView,
+	KnowledgeItemStatusView,
+	KnowledgeItemVersionView,
 	OrgTeamMembersByIdView,
 	OrgTeamMembershipView,
 	OrgTeamView,
 	PersistScaffoldedAgentsResponse,
+	PromoteKnowledgeItemRequest,
+	PromoteKnowledgeItemResult,
 	RoutineView,
 	TaskView,
 	UpdateBetRequest,
@@ -211,6 +219,47 @@ interface CoreApiHcClient {
 						readonly clientKey: string;
 					};
 				}): Promise<Response>;
+			};
+		};
+	};
+	readonly knowledge: {
+		readonly search: {
+			$get(args: {
+				readonly query: { readonly q: string; readonly limit?: string };
+			}): Promise<Response>;
+		};
+		$post(args: { readonly json: CreateKnowledgeItemRequest }): Promise<Response>;
+		readonly ":id": {
+			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+			readonly conflicts: {
+				$get(args: {
+					readonly param: { readonly id: string };
+					readonly query: { readonly proposedBy: string };
+				}): Promise<Response>;
+				$post(args: {
+					readonly param: { readonly id: string };
+					readonly json: Omit<CreateKnowledgeConflictRequest, "itemId">;
+				}): Promise<Response>;
+			};
+			readonly promote: {
+				$post(args: {
+					readonly param: { readonly id: string };
+					readonly json: {
+						readonly fromStatus: string;
+						readonly toStatus: string;
+						readonly reason?: string;
+						readonly editor: string;
+					};
+				}): Promise<Response>;
+			};
+			readonly "attention-score": {
+				$patch(args: {
+					readonly param: { readonly id: string };
+					readonly json: { readonly attentionScore: string };
+				}): Promise<Response>;
+			};
+			readonly "recompute-attention": {
+				$post(args: { readonly param: { readonly id: string } }): Promise<Response>;
 			};
 		};
 	};
@@ -535,6 +584,114 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 			async updateRoutineById(id: string, updates: UpdateRoutineRequest): Promise<void> {
 				const res = await client.routines[":id"].$patch({ param: { id }, json: updates });
 				if (!res.ok) return throwSeamError("routine.updateRoutineById", res);
+			},
+		},
+		knowledge: {
+			async search(
+				query: string,
+				opts: { readonly limit: number },
+			): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>> {
+				const res = await client.knowledge.search.$get({
+					query: { q: query, limit: String(opts.limit) },
+				});
+				if (!res.ok) return throwSeamError("knowledge.search", res);
+				const body = (await res.json()) as {
+					readonly results: ReadonlyArray<
+						Record<string, unknown> & { readonly layer?: string | null }
+					>;
+				};
+				return body.results;
+			},
+
+			async create(input: CreateKnowledgeItemRequest): Promise<CreateKnowledgeItemResponse> {
+				const res = await client.knowledge.$post({ json: input });
+				if (!res.ok) return throwSeamError("knowledge.create", res);
+				return (await res.json()) as CreateKnowledgeItemResponse;
+			},
+
+			async findKnowledgeItemVersionById(
+				id: string,
+			): Promise<KnowledgeItemVersionView | undefined> {
+				const res = await client.knowledge[":id"].$get({ param: { id } });
+				return getOrUndefined<KnowledgeItemVersionView>(
+					"knowledge.findKnowledgeItemVersionById",
+					res,
+				);
+			},
+
+			async findKnowledgeItemStatusById(id: string): Promise<KnowledgeItemStatusView | undefined> {
+				const res = await client.knowledge[":id"].$get({ param: { id } });
+				return getOrUndefined<KnowledgeItemStatusView>(
+					"knowledge.findKnowledgeItemStatusById",
+					res,
+				);
+			},
+
+			async findOpenConflictByItemAndProposer(
+				itemId: string,
+				proposedBy: string,
+			): Promise<KnowledgeConflictView | undefined> {
+				const res = await client.knowledge[":id"].conflicts.$get({
+					param: { id: itemId },
+					query: { proposedBy },
+				});
+				if (!res.ok) return throwSeamError("knowledge.findOpenConflictByItemAndProposer", res);
+				const body = (await res.json()) as { readonly conflict: KnowledgeConflictView | null };
+				return body.conflict ?? undefined;
+			},
+
+			async createKnowledgeConflict(input: CreateKnowledgeConflictRequest): Promise<void> {
+				const res = await client.knowledge[":id"].conflicts.$post({
+					param: { id: input.itemId },
+					json: {
+						id: input.id,
+						versionBase: input.versionBase,
+						versionCurrent: input.versionCurrent,
+						proposedBody: input.proposedBody,
+						proposedMeta: input.proposedMeta,
+						proposedBy: input.proposedBy,
+						createdAt: input.createdAt,
+					},
+				});
+				if (!res.ok) return throwSeamError("knowledge.createKnowledgeConflict", res);
+			},
+
+			async promoteKnowledgeItem(
+				input: PromoteKnowledgeItemRequest,
+			): Promise<PromoteKnowledgeItemResult> {
+				const res = await client.knowledge[":id"].promote.$post({
+					param: { id: input.knowledgeItemId },
+					json: {
+						fromStatus: input.fromStatus,
+						toStatus: input.toStatus,
+						...(input.reason !== undefined ? { reason: input.reason } : {}),
+						editor: input.editor,
+					},
+				});
+				if (!res.ok) return throwSeamError("knowledge.promoteKnowledgeItem", res);
+				return (await res.json()) as PromoteKnowledgeItemResult;
+			},
+
+			async upsertKnowledgeAppProjectionAttentionScore(
+				knowledgeItemId: string,
+				attentionScore: string,
+			): Promise<void> {
+				const res = await client.knowledge[":id"]["attention-score"].$patch({
+					param: { id: knowledgeItemId },
+					json: { attentionScore },
+				});
+				if (!res.ok)
+					return throwSeamError("knowledge.upsertKnowledgeAppProjectionAttentionScore", res);
+			},
+
+			async recomputeAttentionScoreForItem(
+				knowledgeItemId: string,
+			): Promise<{ readonly current: number }> {
+				const res = await client.knowledge[":id"]["recompute-attention"].$post({
+					param: { id: knowledgeItemId },
+				});
+				if (!res.ok) return throwSeamError("knowledge.recomputeAttentionScoreForItem", res);
+				return (await res.json()) as { readonly current: number };
 			},
 		},
 	};

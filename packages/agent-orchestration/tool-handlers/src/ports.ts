@@ -2,18 +2,19 @@
  * `tool-handlers` Service (agent-orchestration) — outbound composition-
  * boundary (Mechanism C) DI ports, per architecture §10.2's census (the
  * merged `tools` census row, §7.5's C1 split). Real outbound edges
- * (`knowledge`, `agent-selection`, `dispatch`) are ordinary downward-or-
- * same-layer DI, wired by the composition root
+ * (`agent-selection`, `dispatch`) are ordinary downward-or-same-layer DI,
+ * wired by the composition root
  * (`packages/server/src/services/tool-handlers-bindings.ts`) to each target's
  * real exported functions. `coreApi` (AU21 §9 Increment 1, `work`; Increment
- * 2, `users`+`conversation`, then `org`+`routine`+`handoffTask`) is DIFFERENT
- * in kind — it crosses the `CoreApiPort` write seam (a real route call), not
- * same-process DI; see `ToolHandlersCoreApiAccessor`'s own doc comment below.
- * There is no longer a standalone `conversation`/`org`/`routine`/`policy`
- * port — every former `ToolHandlersConversationAccessor`/
- * `ToolHandlersOrgAccessor`/`ToolHandlersRoutineAccessor`/
- * `ToolHandlersPolicyAccessor.handoff` capability moved onto `coreApi`
- * (Increment 2's conversation wave, then org/routine/handoff wave).
+ * 2, `users`+`conversation`, then `org`+`routine`+`handoffTask`, then
+ * `knowledge`) is DIFFERENT in kind — it crosses the `CoreApiPort` write seam
+ * (a real route call), not same-process DI; see `ToolHandlersCoreApiAccessor`'s
+ * own doc comment below. There is no longer a standalone `conversation`/`org`/
+ * `routine`/`policy`/`knowledge` port — every former
+ * `ToolHandlersConversationAccessor`/`ToolHandlersOrgAccessor`/
+ * `ToolHandlersRoutineAccessor`/`ToolHandlersPolicyAccessor.handoff`/
+ * `ToolHandlersKnowledgeAccessor` capability moved onto `coreApi` (Increment
+ * 2's conversation wave, then org/routine/handoff wave, then knowledge wave).
  *
  * Several call shapes COLLAPSE (not a 1:1 port-per-function mirror) because
  * Mechanism C forbids `tool-handlers` from importing the Services a tool
@@ -25,7 +26,7 @@
  *    `buildCreateReviewItemForKnowledge({conversation,work})` store and pass
  *    it into `buildAttentionService({db,eventBus,work,review})
  *    .recomputeOne(id)` — collapsed into ONE
- *    `ToolHandlersKnowledgeAccessor.recomputeAttentionScoreForItem` method.
+ *    `ToolHandlersCoreApiAccessor.recomputeAttentionScoreForItem` method.
  *  - `create-item.ts`'s `resolveReviewRecipients(db, ctx, orgUsers)` —
  *    collapsed into ONE `ToolHandlersCoreApiAccessor.resolveReviewRecipientsForItem`.
  *  - `add-agent.ts`/`create-team.ts`'s `persistScaffoldedAgents(db, orgUsers,
@@ -160,74 +161,6 @@ interface ToolHandlersCreateKnowledgeConflictInput {
 	readonly proposedMeta: string | null;
 	readonly proposedBy: string;
 	readonly createdAt: string;
-}
-
-interface ToolHandlersKnowledgeAccessor<TDb> {
-	/**
-	 * Returned items are opaque (`Record<string, unknown>`) plus the one field
-	 * `query-practice.ts`'s handler filters on (`layer`, optional/nullable —
-	 * matches `knowledge`'s own `KnowledgeItemWithProjection.layer` exactly,
-	 * a structural mirror not a type import). The handler forwards the whole
-	 * item back to its caller (`ok({ items })`) — narrowing the return shape
-	 * to `{layer}` only, as an earlier draft of this port did, would silently
-	 * drop every other field (`id`/`title`/`body`/...) real callers need.
-	 */
-	search(
-		db: TDb,
-		query: string,
-		opts: { readonly limit: number },
-	): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>>;
-	create(
-		db: TDb,
-		input: ToolHandlersCreateKnowledgeItemInput,
-	): Promise<{ readonly id: string; readonly version: number }>;
-	findKnowledgeItemVersionById(
-		db: TDb,
-		id: string,
-	): Promise<{ readonly id: string; readonly version: number } | undefined>;
-	findKnowledgeItemStatusById(
-		db: TDb,
-		id: string,
-	): Promise<{ readonly status: string } | undefined>;
-	findOpenConflictByItemAndProposer(
-		db: TDb,
-		itemId: string,
-		proposedBy: string,
-	): Promise<{ readonly id: string } | undefined>;
-	createKnowledgeConflict(db: TDb, input: ToolHandlersCreateKnowledgeConflictInput): Promise<void>;
-	promoteKnowledgeItem(
-		db: TDb,
-		input: {
-			readonly knowledgeItemId: string;
-			readonly fromStatus: string;
-			readonly toStatus: string;
-			readonly reason: string | undefined;
-			readonly editor: string;
-		},
-	): Promise<
-		| { readonly ok: true; readonly fromStatus: string }
-		| {
-				readonly ok: false;
-				readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
-				readonly message: string;
-		  }
-	>;
-	upsertKnowledgeAppProjectionAttentionScore(
-		db: TDb,
-		knowledgeItemId: string,
-		attentionScore: string,
-	): Promise<void>;
-	/**
-	 * Collapses `buildCreateReviewItemForKnowledge({conversation,work})` +
-	 * `buildAttentionService({db,eventBus,work,review}).recomputeOne(id)` —
-	 * see this file's top `@lore` (same shape `dispatch`'s own
-	 * `recomputeAttentionForCandidates` collapse already established).
-	 */
-	recomputeAttentionScoreForItem(
-		db: TDb,
-		eventBus: unknown,
-		knowledgeItemId: string,
-	): Promise<{ readonly current: number }>;
 }
 
 /**
@@ -468,6 +401,82 @@ interface ToolHandlersCoreApiAccessor {
 		readonly targetAgentId?: string;
 		readonly escalationItemId?: string;
 	}>;
+	/**
+	 * @lore AU21 §9 Increment 2 (knowledge wave): every former
+	 * `ToolHandlersKnowledgeAccessor` capability moved onto this seam
+	 * (`edge-disposition.md`'s `knowledge.{get, create, transition,
+	 * findOpenConflict, recordConflict}` row) — the agent acting on core
+	 * "just like the user would", same as every other Increment 2 migration.
+	 *
+	 * Returned search items are opaque (`Record<string, unknown>`) plus the
+	 * one field `query_practice`'s handler filters on (`layer`, optional/
+	 * nullable — a structural mirror, not a type import). The handler
+	 * forwards the whole item back to its caller (`ok({ items })`) —
+	 * narrowing the return shape to `{layer}` only would silently drop every
+	 * other field (`id`/`title`/`body`/...) real callers need.
+	 */
+	search(
+		query: string,
+		opts: { readonly limit: number },
+		actorId: string,
+	): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>>;
+	create(
+		input: ToolHandlersCreateKnowledgeItemInput,
+		actorId: string,
+	): Promise<{ readonly id: string; readonly version: number }>;
+	findKnowledgeItemVersionById(
+		id: string,
+		actorId: string,
+	): Promise<{ readonly id: string; readonly version: number } | undefined>;
+	findKnowledgeItemStatusById(
+		id: string,
+		actorId: string,
+	): Promise<{ readonly status: string } | undefined>;
+	findOpenConflictByItemAndProposer(
+		itemId: string,
+		proposedBy: string,
+		actorId: string,
+	): Promise<{ readonly id: string } | undefined>;
+	createKnowledgeConflict(
+		input: ToolHandlersCreateKnowledgeConflictInput,
+		actorId: string,
+	): Promise<void>;
+	promoteKnowledgeItem(
+		input: {
+			readonly knowledgeItemId: string;
+			readonly fromStatus: string;
+			readonly toStatus: string;
+			readonly reason: string | undefined;
+			readonly editor: string;
+		},
+		actorId: string,
+	): Promise<
+		| { readonly ok: true; readonly fromStatus: string }
+		| {
+				readonly ok: false;
+				readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
+				readonly message: string;
+		  }
+	>;
+	upsertKnowledgeAppProjectionAttentionScore(
+		knowledgeItemId: string,
+		attentionScore: string,
+		actorId: string,
+	): Promise<void>;
+	/**
+	 * Collapses `buildCreateReviewItemForKnowledge({conversation,work})` +
+	 * `buildAttentionService({db,eventBus,work,review}).recomputeOne(id)` —
+	 * see this file's top `@lore` (same shape `dispatch`'s own
+	 * `recomputeAttentionForCandidates` collapse already established). The
+	 * seam never threads a same-process `EventBus` handle over the HTTP
+	 * boundary — dropped from this signature vs. the pre-migration raw
+	 * `ToolHandlersKnowledgeAccessor.recomputeAttentionScoreForItem(db,
+	 * eventBus, knowledgeItemId)`.
+	 */
+	recomputeAttentionScoreForItem(
+		knowledgeItemId: string,
+		actorId: string,
+	): Promise<{ readonly current: number }>;
 }
 
 /** Every real outbound port this Service's source files need. */
@@ -475,6 +484,5 @@ export interface ToolHandlersPorts<TDb> {
 	readonly work: ToolHandlersWorkAccessor;
 	readonly agentSelection: ToolHandlersAgentSelectionAccessor<TDb>;
 	readonly dispatch: ToolHandlersDispatchAccessor<TDb>;
-	readonly knowledge: ToolHandlersKnowledgeAccessor<TDb>;
 	readonly coreApi: ToolHandlersCoreApiAccessor;
 }

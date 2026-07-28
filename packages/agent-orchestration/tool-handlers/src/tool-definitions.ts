@@ -166,7 +166,7 @@ function makeQueryPracticeTool<TDb>(
 			const parsed = queryPracticeInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const { query, layer = "L3", limit = 20 } = parsed.data;
-			const allMatches = await ports.knowledge.search(ctx.db, query, { limit: limit * 5 });
+			const allMatches = await ports.coreApi.search(query, { limit: limit * 5 }, ctx.agentId);
 			const items = allMatches.filter((item) => item.layer === layer).slice(0, limit);
 			return ok({ items });
 		},
@@ -251,18 +251,21 @@ function makeWriteMemoryTool<TDb>(
 					? (requestedScopeId ?? ctx.agentId)
 					: (requestedScopeId ?? (scopeKind === defaultScopeKind ? teamId : null));
 
-			const created = await ports.knowledge.create(ctx.db, {
-				layer,
-				kind,
-				title,
-				body,
-				topic: topic ?? null,
-				format: format ?? "markdown",
-				status: status ?? "draft",
-				scopeKind,
-				scopeId,
-				updatedBy: `agent:${ctx.agentId}`,
-			});
+			const created = await ports.coreApi.create(
+				{
+					layer,
+					kind,
+					title,
+					body,
+					topic: topic ?? null,
+					format: format ?? "markdown",
+					status: status ?? "draft",
+					scopeKind,
+					scopeId,
+					updatedBy: `agent:${ctx.agentId}`,
+				},
+				ctx.agentId,
+			);
 
 			return ok({ knowledgeItemId: created.id, version: created.version });
 		},
@@ -801,13 +804,9 @@ function makeScoreAttentionTool<TDb>(
 						"recompute mode is only supported for target='knowledge_item'",
 					);
 				}
-				const existing = await ports.knowledge.findKnowledgeItemVersionById(ctx.db, id);
+				const existing = await ports.coreApi.findKnowledgeItemVersionById(id, ctx.agentId);
 				if (!existing) return err("NOT_FOUND", `Knowledge item not found: ${id}`);
-				const result = await ports.knowledge.recomputeAttentionScoreForItem(
-					ctx.db,
-					ctx.eventBus,
-					id,
-				);
+				const result = await ports.coreApi.recomputeAttentionScoreForItem(id, ctx.agentId);
 				return ok({ target, id, score: result.current, mode });
 			}
 
@@ -817,9 +816,13 @@ function makeScoreAttentionTool<TDb>(
 			const score = args.score;
 
 			if (target === "knowledge_item") {
-				const row = await ports.knowledge.findKnowledgeItemVersionById(ctx.db, id);
+				const row = await ports.coreApi.findKnowledgeItemVersionById(id, ctx.agentId);
 				if (!row) return err("NOT_FOUND", `Knowledge item not found: ${id}`);
-				await ports.knowledge.upsertKnowledgeAppProjectionAttentionScore(ctx.db, id, String(score));
+				await ports.coreApi.upsertKnowledgeAppProjectionAttentionScore(
+					id,
+					String(score),
+					ctx.agentId,
+				);
 				return ok({ target, id, score, mode });
 			}
 
@@ -875,7 +878,7 @@ function makePromoteKnowledgeTool<TDb>(
 		handler: async (args, ctx) => {
 			const { knowledgeItemId, toStatus, reason } = args;
 
-			const row = await ports.knowledge.findKnowledgeItemStatusById(ctx.db, knowledgeItemId);
+			const row = await ports.coreApi.findKnowledgeItemStatusById(knowledgeItemId, ctx.agentId);
 			if (!row) return err("NOT_FOUND", `Knowledge item not found: ${knowledgeItemId}`);
 
 			if (!isAnyKnowledgeStatus(row.status)) {
@@ -889,13 +892,16 @@ function makePromoteKnowledgeTool<TDb>(
 			}
 
 			const editor = `agent:${ctx.agentId}`;
-			const result = await ports.knowledge.promoteKnowledgeItem(ctx.db, {
-				knowledgeItemId,
-				fromStatus,
-				toStatus,
-				reason,
-				editor,
-			});
+			const result = await ports.coreApi.promoteKnowledgeItem(
+				{
+					knowledgeItemId,
+					fromStatus,
+					toStatus,
+					reason,
+					editor,
+				},
+				ctx.agentId,
+			);
 
 			if (!result.ok) return err(result.code, result.message);
 
@@ -927,7 +933,10 @@ function makeCreateConflictReviewTool<TDb>(
 		inputSchema: createConflictReviewInputSchema,
 		roles: ["assistant", "facilitator", "product_manager"],
 		handler: async (args, ctx) => {
-			const item = await ports.knowledge.findKnowledgeItemVersionById(ctx.db, args.knowledgeItemId);
+			const item = await ports.coreApi.findKnowledgeItemVersionById(
+				args.knowledgeItemId,
+				ctx.agentId,
+			);
 			if (!item) return err("NOT_FOUND", `Knowledge item not found: ${args.knowledgeItemId}`);
 
 			if (args.versionBase > item.version) {
@@ -938,10 +947,10 @@ function makeCreateConflictReviewTool<TDb>(
 			}
 
 			const proposedBy = `agent:${ctx.agentId}`;
-			const existing = await ports.knowledge.findOpenConflictByItemAndProposer(
-				ctx.db,
+			const existing = await ports.coreApi.findOpenConflictByItemAndProposer(
 				args.knowledgeItemId,
 				proposedBy,
+				ctx.agentId,
 			);
 			if (existing) {
 				return err(
@@ -952,16 +961,19 @@ function makeCreateConflictReviewTool<TDb>(
 
 			const conflictId = randomUUID();
 			const now = new Date().toISOString();
-			await ports.knowledge.createKnowledgeConflict(ctx.db, {
-				id: conflictId,
-				itemId: args.knowledgeItemId,
-				versionBase: args.versionBase,
-				versionCurrent: item.version,
-				proposedBody: args.proposedBody,
-				proposedMeta: args.proposedMeta ?? null,
-				proposedBy,
-				createdAt: now,
-			});
+			await ports.coreApi.createKnowledgeConflict(
+				{
+					id: conflictId,
+					itemId: args.knowledgeItemId,
+					versionBase: args.versionBase,
+					versionCurrent: item.version,
+					proposedBody: args.proposedBody,
+					proposedMeta: args.proposedMeta ?? null,
+					proposedBy,
+					createdAt: now,
+				},
+				ctx.agentId,
+			);
 
 			return ok({ conflictId, itemId: args.knowledgeItemId, status: "open" as const });
 		},
