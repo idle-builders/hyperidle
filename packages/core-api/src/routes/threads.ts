@@ -20,6 +20,7 @@ import {
 	listInbox,
 	listMessages,
 	listThreads,
+	resolveAssistantTurnRequest,
 	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
@@ -57,7 +58,7 @@ import {
 	headCollapsePredicate,
 	resolveMentions,
 } from "@hyperidle/shared";
-import { findUser, listUsers } from "@hyperidle/users";
+import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -1357,12 +1358,20 @@ export function createThreadRoutes(
 						createdAt: now,
 					});
 					if (recordsAssistantIntent) {
+						// AU21 §6 Decision B: resolve + validate the assistant run AT EMIT
+						// TIME (this Service's own domain state, plus the shared ast-<userId>
+						// runnability invariant) and bake the full request onto the intent —
+						// the drain dispatches it directly, with zero domain reads.
+						const bakedRequest = await resolveAssistantTurnRequest(tx as HyperIdleDb, messageId, {
+							requireRunnableAgent,
+						});
 						await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "assistant_turn",
 							sourceKind: "thread_message",
 							sourceId: messageId,
 							requestedBy: senderId,
 							idempotencyKey: `assistant:${messageId}`,
+							bakedRequest,
 						});
 					}
 

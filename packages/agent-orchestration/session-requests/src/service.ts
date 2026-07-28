@@ -708,9 +708,6 @@ async function requireRunnableActor(db: HyperIdleDb, deps: DurableAgentQueueDeps
 		throw new InvalidAgentWorkSourceError(`Intent actor ${actorId} is not runnable`);
 	}
 }
-function resolveAssistantAgentIdForSender(senderId: string) {
-	return `ast-${senderId}`;
-}
 async function resolveIntentInputInternal(
 	db: HyperIdleDb,
 	intent: AgentWorkIntent,
@@ -722,27 +719,15 @@ async function resolveIntentInputInternal(
 		idempotencyKey: intent.idempotencyKey,
 	};
 	switch (intent.kind) {
-		case "assistant_turn": {
-			const message = await deps.conversation.getMessageById(db, intent.sourceId);
-			if (!message || message.deletedAt || message.redactedAt)
-				throw new InvalidAgentWorkSourceError("Assistant source message is unavailable");
-			const targetAgentId = resolveAssistantAgentIdForSender(message.senderId);
-			await requireRunnableActor(db, deps, targetAgentId);
-			return {
-				...common,
-				defaultAgentId: targetAgentId,
-				sourceKind: "assistant",
-				sourceId: message.id,
-				streamId: `thread:${message.threadId}`,
-				userId: message.senderId,
-				sourceCorrelation: {
-					threadId: message.threadId,
-					messageId: message.id,
-					userId: message.senderId,
-					assistantAgentId: targetAgentId,
-				},
-			};
-		}
+		// AU21 §6 Decision B / Increment 3: "assistant_turn" is migrated —
+		// its resolution now happens at emit time in
+		// `packages/core-api/conversation/src/assistant-turn-resolver.ts`,
+		// baked onto the intent (`agentWorkIntents.bakedRequestJson`). The
+		// real emit site (`routes/threads.ts`) always populates it, so this
+		// case is unreachable in production; a bare (unbaked) `assistant_turn`
+		// row falls through to `default` below and fails
+		// `INVALID_WORK_SOURCE` — the same terminal-failure shape a truly
+		// invalid source produced before this migration.
 		case "session_start": {
 			const [start] = await db
 				.select()

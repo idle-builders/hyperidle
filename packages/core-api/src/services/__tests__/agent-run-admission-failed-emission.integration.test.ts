@@ -26,42 +26,11 @@
  * convention to the implementer.
  */
 
-import { agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { agentWorkIntents } from "@hyperidle/db";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
-
-async function seedAssistantAgent(db: HyperIdleDb, id: string): Promise<void> {
-	const now = new Date().toISOString();
-	await db.insert(users).values([
-		{
-			id: `${id}-human`,
-			kind: "human",
-			name: "Human",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		},
-		{
-			id: `ast-${id}-human`,
-			kind: "ai",
-			name: "Assistant",
-			role: "assistant",
-			status: "active",
-			createdAt: now,
-		},
-	]);
-	await db.insert(threads).values({
-		id: `${id}-thread`,
-		hostKind: "user",
-		hostId: `${id}-human`,
-		initiatorId: `${id}-human`,
-		participants: JSON.stringify([`${id}-human`, `ast-${id}-human`]),
-		lastActiveAt: now,
-		createdAt: now,
-	});
-}
 
 type CapturedAdmissionFailure = {
 	readonly type: string;
@@ -125,16 +94,31 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		expect(row?.lastErrorCode).toBe("INVALID_WORK_SOURCE");
 	});
 
+	// @lore AU21 Increment 3 (assistant_turn wave): these two tests originally
+	// used `assistant_turn` as a convenient generic vehicle to exercise
+	// `failOrRelease`'s terminal/non-terminal mechanics (this file proves the
+	// EMISSION MECHANISM, not any one kind's resolution), injecting a throwing
+	// `deps.conversation.getMessageById` spy. Now that `assistant_turn` is
+	// migrated — its case deleted from `resolveIntentInputInternal`'s switch,
+	// every real assistant_turn intent always carries a baked payload — an
+	// UNBAKED assistant_turn intent falls straight to `default`
+	// (`INVALID_WORK_SOURCE`, always terminal) before ever reaching a domain
+	// read, breaking the "inject a transient (non-source) failure" premise.
+	// Switched to `routine_run` (deliberately the one kind left unmigrated
+	// through the end of Increment 3, §6 Decision B's placement ruling) as the
+	// vehicle instead, injecting the throwing spy into
+	// `deps.routine.getRoutineRunById` — same mechanism, same generic-emission
+	// proof, just a still-unmigrated kind.
 	test("terminal MAX_ATTEMPTS_EXCEEDED failure (non-InvalidAgentWorkSourceError) emits the event", async ({
 		db,
 		eventBus,
 	}) => {
-		await seedAssistantAgent(db, "wave0-max-attempts");
 		const deps = {
 			...queueDeps(db),
 			eventBus,
-			conversation: {
-				getMessageById: vi.fn(async () => {
+			routine: {
+				...queueDeps(db).routine,
+				getRoutineRunById: vi.fn(async () => {
 					throw new Error("injected transient failure — not InvalidAgentWorkSourceError");
 				}),
 			},
@@ -142,9 +126,9 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		const { events } = captureAdmissionFailures(eventBus);
 
 		const intent = await enqueueWorkIntent(db, {
-			kind: "assistant_turn",
-			sourceKind: "thread_message",
-			sourceId: "wave0-max-attempts-message",
+			kind: "routine_run",
+			sourceKind: "routine_run",
+			sourceId: "wave0-max-attempts-routine-run",
 			idempotencyKey: "wave0-max-attempts",
 		});
 
@@ -153,7 +137,7 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		expect(events).toHaveLength(1);
 		expect(events[0]).toMatchObject({
 			intentId: intent.id,
-			kind: "assistant_turn",
+			kind: "routine_run",
 			failureCode: "MAX_ATTEMPTS_EXCEEDED",
 			terminal: true,
 		});
@@ -168,12 +152,12 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		db,
 		eventBus,
 	}) => {
-		await seedAssistantAgent(db, "wave0-non-terminal");
 		const deps = {
 			...queueDeps(db),
 			eventBus,
-			conversation: {
-				getMessageById: vi.fn(async () => {
+			routine: {
+				...queueDeps(db).routine,
+				getRoutineRunById: vi.fn(async () => {
 					throw new Error("injected transient failure");
 				}),
 			},
@@ -181,9 +165,9 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		const { events } = captureAdmissionFailures(eventBus);
 
 		const intent = await enqueueWorkIntent(db, {
-			kind: "assistant_turn",
-			sourceKind: "thread_message",
-			sourceId: "wave0-non-terminal-message",
+			kind: "routine_run",
+			sourceKind: "routine_run",
+			sourceId: "wave0-non-terminal-routine-run",
 			idempotencyKey: "wave0-non-terminal",
 		});
 

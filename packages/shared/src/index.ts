@@ -11,6 +11,7 @@ export type {
 	AgentWorkIntentReader,
 	AgentWorkIntentRecorder,
 	AgentWorkIntentRecorderInput,
+	BakedWorkIntentRequest,
 } from "./agent-work-intent-recorder.js";
 export { scopeKindToLabel } from "./scope-labels.js";
 

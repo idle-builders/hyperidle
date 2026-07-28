@@ -34,6 +34,15 @@
  * `listInbox` with `ThreadFilter`, `MessageFilter`, `InboxFilter`.
  */
 
+// -- assistant-turn resolver (AU21 §6 Decision B — emit-time resolve+bake) --
+export type {
+	AssistantTurnResolverDeps,
+	BakedAssistantTurnRequest,
+} from "./assistant-turn-resolver.js";
+export {
+	AssistantTurnSourceUnavailableError,
+	resolveAssistantTurnRequest,
+} from "./assistant-turn-resolver.js";
 // Filter types
 // Shared row types
 export type {

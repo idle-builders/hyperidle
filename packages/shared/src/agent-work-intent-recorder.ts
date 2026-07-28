@@ -19,6 +19,27 @@
  * is a structural superset of `HyperIdleDb`).
  */
 
+import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
+
+/**
+ * AU21 §6 Decision B / §10 — the emit-time-resolved request a migrated
+ * family's core-api resolver produces (the exact shape
+ * `resolveIntentInputInternal` used to return per kind, minus the fields
+ * trivially re-derivable from the intent row at drain time). Carried on the
+ * `AgentWorkIntentRecorder` payload (Decision G: payload growth, not a new
+ * edge) so the drain can dispatch it directly with ZERO domain reads.
+ */
+export interface BakedWorkIntentRequest {
+	readonly defaultAgentId: string;
+	readonly sourceKind: AgentSessionSourceKind;
+	readonly sourceId: string;
+	readonly streamId: string;
+	readonly taskId?: string | null;
+	readonly teamId?: string;
+	readonly userId?: string;
+	readonly sourceCorrelation: AgentSessionSourceCorrelation;
+}
+
 export type AgentWorkIntentRecorderInput =
 	| {
 			readonly kind: "assistant_turn";
@@ -26,6 +47,8 @@ export type AgentWorkIntentRecorderInput =
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
+			/** See `BakedWorkIntentRequest`. Populated at emit time by the `conversation` resolver (AU21 Increment 3). */
+			readonly bakedRequest?: BakedWorkIntentRequest;
 	  }
 	| {
 			readonly kind: "session_start";
