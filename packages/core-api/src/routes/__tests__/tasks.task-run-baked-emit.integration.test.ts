@@ -256,6 +256,7 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 					getUserById: (exec, id) => findUser(exec, { id }),
 					listActiveAiUsersByTeams: (exec, teamIds) =>
 						listUsers(exec, { teamIds: [...teamIds], kind: "ai", status: "active" }),
+					listUsersByTeam: (exec, teamMembersId) => listUsers(exec, { teamIds: [teamMembersId] }),
 				},
 				teamCapacity: {
 					getByTeamId: (exec, teamId) => getTeamMembers(exec, { teamId }),

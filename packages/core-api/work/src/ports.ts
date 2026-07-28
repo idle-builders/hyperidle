@@ -125,6 +125,8 @@ type WorkAgentWorkIntentInput =
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
+			/** See `BakedWorkIntentRequest`. Populated at emit time by `bet-decomposition.ts`'s `resolveBetDecompositionRequest` (AU21 Increment 3). */
+			readonly bakedRequest?: BakedWorkIntentRequest;
 	  }
 	| {
 			readonly kind: "task_run";
@@ -232,6 +234,19 @@ interface UserStoreReader {
 		db: WriteExecutor,
 		teamMembersIds: string[],
 	): Promise<readonly WorkUserRow[]>;
+	/**
+	 * Unfiltered persisted-FK-membership listing (`users.teamId = teamMembersId`),
+	 * distinct from `listActiveAiUsersByTeams` (which pre-filters to active AI).
+	 *
+	 * @lore AU21 §6 Decision B / Increment 3: added for
+	 * `resolveBetDecompositionRequest` (`bet-decomposition.ts`), which mirrors
+	 * `resolveIntentInputInternal`'s former "bet_decomposition" drain case
+	 * exactly — that case unions candidates from `leadAgentId` + the
+	 * membership JSON array + this RAW persisted-FK read, THEN filters to
+	 * runnable AI itself (so it must see non-AI/non-active rows too, unlike
+	 * `listActiveAiUsersByTeams`'s pre-filtered read).
+	 */
+	listUsersByTeam(db: WriteExecutor, teamMembersId: string): Promise<readonly WorkUserRow[]>;
 }
 
 // ---------------------------------------------------------------------------

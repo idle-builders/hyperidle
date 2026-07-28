@@ -877,6 +877,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			getUserById: (db, id) => findUser(db, { id }),
 			listActiveAiUsersByTeams: (db, teamIds) =>
 				listUsers(db, { teamIds, kind: "ai", status: "active" }),
+			// AU21 §6 Decision B / Increment 3: unfiltered persisted-FK-membership
+			// read for `resolveBetDecompositionRequest`'s candidate union — see
+			// `ports.ts`'s `UserStoreReader.listUsersByTeam` `@lore`.
+			listUsersByTeam: (db, teamMembersId) => listUsers(db, { teamIds: [teamMembersId] }),
 		},
 		costCap: { checkCostCap: costOps.check },
 		workIntents: { record: enqueueWorkIntent },

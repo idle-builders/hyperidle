@@ -720,15 +720,18 @@ async function resolveIntentInputInternal(
 	};
 	switch (intent.kind) {
 		// AU21 §6 Decision B / Increment 3: "assistant_turn", "session_start",
-		// and "task_run" are migrated — their resolution now happens at emit
-		// time (`packages/core-api/conversation/src/assistant-turn-resolver.ts`,
+		// "task_run", and "bet_decomposition" are migrated — their resolution
+		// now happens at emit time
+		// (`packages/core-api/conversation/src/assistant-turn-resolver.ts`,
 		// `packages/core-api/work/src/session-start-resolver.ts`,
-		// `packages/core-api/work/src/task-run-resolver.ts`), baked onto the
-		// intent (`agentWorkIntents.bakedRequestJson`). Every real emit site
+		// `packages/core-api/work/src/task-run-resolver.ts`,
+		// `packages/core-api/work/src/bet-decomposition.ts`'s
+		// `resolveBetDecompositionRequest`), baked onto the intent
+		// (`agentWorkIntents.bakedRequestJson`). Every real emit site
 		// (`routes/threads.ts`, `routes/sessions-routes.ts`,
 		// `task-state-machine.ts`, `bet-decomposition.ts`,
 		// `handoff-protocol.ts`) always populates it, so these cases are
-		// unreachable in production; a bare (unbaked) row of any of these three
+		// unreachable in production; a bare (unbaked) row of any of these four
 		// kinds falls through to `default` below and fails
 		// `INVALID_WORK_SOURCE` — the same terminal-failure shape a truly
 		// invalid source produced before this migration.
@@ -787,53 +790,6 @@ async function resolveIntentInputInternal(
 				teamId: routine.teamId,
 				taskId: null,
 				sourceCorrelation: { routineId: routine.id, routineRunId: runId, teamId: routine.teamId },
-			};
-		}
-		case "bet_decomposition": {
-			const bet = await deps.work.getBetById(db, intent.sourceId);
-			if (bet?.status !== "active" || bet.decompositionStatus !== "running")
-				throw new InvalidAgentWorkSourceError("Bet decomposition is no longer eligible");
-			const membership = await deps.teams.getTeamMembersByTeamId(db, bet.teamId);
-			const memberIds = membership?.members
-				? (JSON.parse(membership.members) as unknown[]).filter(
-						(memberId): memberId is string => typeof memberId === "string",
-					)
-				: [];
-			const persistedMemberIds = membership
-				? await deps.users.listUsersByTeam(db, membership.id)
-				: [];
-			const candidates = await Promise.all(
-				[
-					.../* @__PURE__ */ new Set([
-						...(membership?.leadAgentId ? [membership.leadAgentId] : []),
-						...memberIds,
-						...persistedMemberIds.map((member) => member.id),
-					]),
-				].map(async (id) => {
-					return deps.users.getUserById(db, id);
-				}),
-			);
-			const runnableCandidates = candidates.filter(
-				(candidate): candidate is User => candidate?.kind === "ai" && candidate.status === "active",
-			);
-			const targetAgentId =
-				runnableCandidates.find((candidate) => candidate.role === "product_manager")?.id ??
-				runnableCandidates[0]?.id;
-			if (!targetAgentId)
-				throw new InvalidAgentWorkSourceError("Bet decomposition has no runnable target");
-			await requireRunnableActor(db, deps, targetAgentId);
-			return {
-				...common,
-				defaultAgentId: targetAgentId,
-				sourceKind: "decomposition",
-				sourceId: bet.id,
-				streamId: `bet:${bet.id}:decomposition`,
-				teamId: bet.teamId,
-				sourceCorrelation: {
-					betId: bet.id,
-					teamId: bet.teamId,
-					decomposerAgentId: targetAgentId,
-				},
 			};
 		}
 		case "reengagement": {

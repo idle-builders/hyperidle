@@ -85,6 +85,8 @@ const productionPorts = {
 		getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
 		listActiveAiUsersByTeams: (db: HyperIdleDb, teamIds: string[]) =>
 			listUsers(db, { teamIds, kind: "ai", status: "active" }),
+		listUsersByTeam: (db: HyperIdleDb, teamMembersId: string) =>
+			listUsers(db, { teamIds: [teamMembersId] }),
 	},
 	costCap: { checkCostCap: costOps.check },
 	workIntents: { record: enqueueWorkIntent },

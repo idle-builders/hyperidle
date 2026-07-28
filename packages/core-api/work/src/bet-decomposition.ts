@@ -44,6 +44,108 @@ import { resolveTaskRunRequest } from "./task-run-resolver.js";
 import * as work from "./work-service.js";
 
 /**
+ * AU21 §6 Decision B placement ruling — the `bet_decomposition` emit-time
+ * resolver, extending this file in place (already the emit site, per the
+ * placement table). Does EXACTLY what `resolveIntentInputInternal`'s
+ * "bet_decomposition" case did at drain time
+ * (`session-requests/src/service.ts:792-838`, now deleted there): load the
+ * bet (reject unless `status:"active"` AND `decompositionStatus:"running"`),
+ * union candidate agent ids from `membership.leadAgentId` +
+ * `membership.members` (JSON) + persisted FK membership
+ * (`users.listUsersByTeam`), filter to runnable AI (`kind:"ai" &&
+ * status:"active"`, strictly — narrower than the shared ast-`<userId>`
+ * runnability invariant, which also accepts `"idle"`), prefer a
+ * `product_manager` candidate else the first runnable one, and validate the
+ * chosen target's runnability via the same-file
+ * `requireRunnableAgentViaUsersPort` adapter (reused, not re-implemented).
+ *
+ * @lore CONFUSION (flagged for reviewer): this resolver's candidate-selection
+ * algorithm is DELIBERATELY INDEPENDENT of the `agentSelection.selectAgent`
+ * pick `runBetDecomposition` already makes (bound to `pm`, used as
+ * `requestedBy` and the real PM turn's actor). This resolver re-derives its
+ * OWN target via the literal team-membership-scan algorithm the drain used to
+ * run, because the migration's job is "do exactly what the drain did," which
+ * is a materially different algorithm from `agentSelection.selectAgent` — not
+ * a request to unify the two (a separate, pre-existing selection concept this
+ * WP does not touch).
+ */
+
+/** Thrown when a `bet_decomposition` bake's source bet or target is no longer eligible. */
+export class BetDecompositionSourceUnavailableError extends Error {}
+
+/** Resolver-scoped deps — the already-injected `teamCapacity`/`users` ports (ordinary same-layer core-api edges). */
+export interface BetDecompositionResolverDeps {
+	readonly teamCapacity: Pick<TeamCapacityReader, "getByTeamId">;
+	readonly users: Pick<UserStoreReader, "getUserById" | "listUsersByTeam">;
+}
+
+/** The baked `bet_decomposition` request shape, matching `resolveIntentInputInternal`'s former return. */
+export interface BakedBetDecompositionRequest {
+	readonly defaultAgentId: string;
+	readonly sourceKind: "decomposition";
+	readonly sourceId: string;
+	readonly streamId: string;
+	readonly teamId: string;
+	readonly sourceCorrelation: {
+		readonly betId: string;
+		readonly teamId: string;
+		readonly decomposerAgentId: string;
+	};
+}
+
+/**
+ * Resolve + validate a `bet_decomposition` run at emit time: load the bet
+ * (rejecting if not active/running), union+dedup candidate agent ids across
+ * the team's lead/JSON-listed/persisted-FK membership, filter to strictly
+ * runnable AI, prefer a product_manager, validate the chosen target's
+ * runnability, and bake the full request.
+ */
+export async function resolveBetDecompositionRequest(
+	db: HyperIdleDb,
+	betId: string,
+	deps: BetDecompositionResolverDeps,
+): Promise<BakedBetDecompositionRequest> {
+	const bet = await work.get(db, "bet", betId);
+	if (bet?.status !== "active" || bet.decompositionStatus !== "running") {
+		throw new BetDecompositionSourceUnavailableError("Bet decomposition is no longer eligible");
+	}
+	const membership = await deps.teamCapacity.getByTeamId(db, bet.teamId);
+	const memberIds = membership?.members
+		? (JSON.parse(membership.members) as unknown[]).filter(
+				(memberId): memberId is string => typeof memberId === "string",
+			)
+		: [];
+	const persistedMemberIds = membership ? await deps.users.listUsersByTeam(db, membership.id) : [];
+	const candidateIds = [
+		...new Set([
+			...(membership?.leadAgentId ? [membership.leadAgentId] : []),
+			...memberIds,
+			...persistedMemberIds.map((member) => member.id),
+		]),
+	];
+	const candidates = await Promise.all(candidateIds.map((id) => deps.users.getUserById(db, id)));
+	const runnableCandidates = candidates.filter(
+		(candidate): candidate is WorkUserRow =>
+			candidate?.kind === "ai" && candidate.status === "active",
+	);
+	const targetAgentId =
+		runnableCandidates.find((candidate) => candidate.role === "product_manager")?.id ??
+		runnableCandidates[0]?.id;
+	if (!targetAgentId) {
+		throw new BetDecompositionSourceUnavailableError("Bet decomposition has no runnable target");
+	}
+	await requireRunnableAgentViaUsersPort(db, targetAgentId, deps.users);
+	return {
+		defaultAgentId: targetAgentId,
+		sourceKind: "decomposition",
+		sourceId: bet.id,
+		streamId: `bet:${bet.id}:decomposition`,
+		teamId: bet.teamId,
+		sourceCorrelation: { betId: bet.id, teamId: bet.teamId, decomposerAgentId: targetAgentId },
+	};
+}
+
+/**
  * @lore AU21 §6 Decision B / Increment 3: `bet-decomposition.ts` IS the emit
  * site for `task_run` here (Decision B's placement ruling — extends this file
  * in place, no separate resolver call site to wire). Unlike
@@ -66,7 +168,7 @@ export class InvalidAgentWorkTargetError extends Error {}
 async function requireRunnableAgentViaUsersPort(
 	db: HyperIdleDb,
 	agentId: string,
-	users: UserStoreReader,
+	users: Pick<UserStoreReader, "getUserById">,
 ): Promise<WorkUserRow> {
 	const agent = await users.getUserById(db, agentId);
 	if (agent?.kind !== "ai" || !["active", "idle"].includes(agent.status)) {
@@ -408,6 +510,52 @@ async function persistDecompositionTasks(
 }
 
 /**
+ * CAS NULL→'running' and, in the SAME transaction, resolve + bake the
+ * `bet_decomposition` request at emit time (AU21 §6 Decision B) and record
+ * the intent. Extracted from `runBetDecomposition` to keep its cognitive
+ * complexity down — a resolver rejection (no runnable target, or a race that
+ * invalidated eligibility) rolls the CAS back too, so the catch clause marks
+ * the bet terminal via the plain `db` (not `tx`) afterward. Returns
+ * `undefined` both when another CAS winner already handled this bet
+ * (`applied:false`, no terminal write needed) and when the bake failed
+ * (terminal write already done here) — `runBetDecomposition` returns early
+ * either way.
+ */
+async function claimAndBakeDecompositionIntent(
+	deps: BetDecompositionDeps,
+	betId: string,
+	decomposerAgentId: string,
+): Promise<Awaited<ReturnType<AgentWorkIntentRecorder["record"]>> | undefined> {
+	let intent: Awaited<ReturnType<AgentWorkIntentRecorder["record"]>> | undefined;
+	try {
+		await deps.db.transaction(async (tx) => {
+			const { applied } = await work.transition(tx, "bet", {
+				id: betId,
+				guard: { field: "decompositionStatus", isNull: true },
+				patch: { decompositionStatus: "running" },
+			});
+			if (!applied) return;
+			const bakedRequest = await resolveBetDecompositionRequest(tx as HyperIdleDb, betId, {
+				teamCapacity: deps.teamCapacity,
+				users: deps.users,
+			});
+			intent = await deps.workIntents.record(tx, {
+				kind: "bet_decomposition",
+				sourceKind: "bet",
+				sourceId: betId,
+				requestedBy: decomposerAgentId,
+				idempotencyKey: `decomposition:${betId}:start`,
+				bakedRequest,
+			});
+		});
+	} catch {
+		await markTerminal(deps.db, betId, "blocked", "failed");
+		return undefined;
+	}
+	return intent;
+}
+
+/**
  * Run the full bet decomposition pipeline for a single bet.
  *
  * Delegates decomposer selection to agent-selection, then applies turn-source
@@ -496,22 +644,7 @@ async function runBetDecomposition(deps: BetDecompositionDeps, betId: string): P
 		return;
 	}
 
-	let intent: Awaited<ReturnType<AgentWorkIntentRecorder["record"]>> | undefined;
-	await db.transaction(async (tx) => {
-		const { applied } = await work.transition(tx, "bet", {
-			id: betId,
-			guard: { field: "decompositionStatus", isNull: true },
-			patch: { decompositionStatus: "running" },
-		});
-		if (!applied) return;
-		intent = await deps.workIntents.record(tx, {
-			kind: "bet_decomposition",
-			sourceKind: "bet",
-			sourceId: betId,
-			requestedBy: pm.id,
-			idempotencyKey: `decomposition:${betId}:start`,
-		});
-	});
+	const intent = await claimAndBakeDecompositionIntent(deps, betId, pm.id);
 	if (!intent) return;
 	eventBus.emit({
 		type: "work_decompose_requested",
