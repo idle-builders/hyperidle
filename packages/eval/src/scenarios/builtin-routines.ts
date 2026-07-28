@@ -15,7 +15,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { dispatchOps } from "@hyperidle/core-api/routines";
+import { dispatchOps, fireRoutine } from "@hyperidle/core-api/routines";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { items, knowledgeAppProjection, routines } from "@hyperidle/db";
 
@@ -39,7 +39,7 @@ async function fireStoredRoutine(
 ) {
 	const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 	if (!routine) return { fired: false as const, reason: "routine not found" };
-	return dispatchOps.fireRoutine(db, eventBus, routine, { args });
+	return fireRoutine(db, eventBus, routine, { args });
 }
 
 import { seedBet, seedBuiltinAgents, seedMinimalWorld } from "../seeding.js";

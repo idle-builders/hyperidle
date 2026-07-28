@@ -93,8 +93,22 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			},
 			{
 				owner: "dispatch lifecycle",
-				cleanupEffect: "builtin/assistant/task/scheduler stop",
-				constituents: ["builtin", "assistant", "task", "scheduler"],
+				cleanupEffect: "assistant/task stop",
+				constituents: ["assistant", "task"],
+			},
+			// @lore AU21 §9 Increment 4: the routine scheduler (builtin-routine
+			// event reaction + the cron/due-eval tick loop) relocated out of
+			// `dispatchOps` into two SEPARATE core-api-side lifecycles — dispatch
+			// no longer knows about routines at all.
+			{
+				owner: "builtin routine reactions",
+				cleanupEffect: "bet_state_changed subscription stop",
+				constituents: ["builtin routine reactions"],
+			},
+			{
+				owner: "routine scheduler",
+				cleanupEffect: "cron/due-eval tick stop",
+				constituents: ["routine scheduler"],
 			},
 			{
 				owner: "cost sentinel",
@@ -167,14 +181,14 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				},
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
 				{
-					unsubscribedEvents: [
-						"task_state_changed",
-						"session_ended",
-						"thread_message_appended",
-						"bet_state_changed",
-					],
-					clearedIntervals: 1,
+					unsubscribedEvents: ["task_state_changed", "session_ended", "thread_message_appended"],
+					clearedIntervals: 0,
 				},
+				// @lore AU21 §9 Increment 4: split from the single "dispatch
+				// lifecycle" disposer above — `bet_state_changed` (builtin routine
+				// reaction) and the scheduler interval now dispose separately.
+				{ unsubscribedEvents: ["bet_state_changed"], clearedIntervals: 0 },
+				{ unsubscribedEvents: [], clearedIntervals: 1 },
 				{
 					unsubscribedEvents: ["session_ended", "session_handoff_completed"],
 					clearedIntervals: 1,

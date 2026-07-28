@@ -1,18 +1,14 @@
 import * as crypto from "node:crypto";
-import { type AgentSessionRequest, type HyperIdleDb, type Routine, sessions } from "@hyperidle/db";
+import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
-	type BetStateChangedEvent,
 	BUILT_IN_GATEWAY_CONFIG,
 	CassetteMissError,
 	ConcurrencyLimitError,
 	type ConversationMessage,
 	CostCapExceededError,
-	computeNextRunAt,
 	createLogger,
 	type EventBus,
-	type EventType,
 	HttpError,
-	type ItemCreatedEvent,
 	MissingCredentialError,
 	NoEligibleHarnessError,
 	nextCronMatch,
@@ -35,43 +31,21 @@ type DispatchProvisionDeps = Parameters<
 	DispatchPorts["runOrchestration"]["executeAgentRunRequest"]
 >[0];
 
-const BUILTIN_ROUTINE_IDS = [
-	"builtin:practice-meeting",
-	"builtin:post-bet-retro",
-	"builtin:portfolio-retro",
-	"builtin:knowledge-decay",
-	"builtin:knowledge-promotion", // AF9: auto-promote provisional items meeting threshold
-] as const;
-
-type BuiltinRoutineId = (typeof BUILTIN_ROUTINE_IDS)[number];
-
-function isBuiltinRoutineId(id: string): boolean {
-	const kind = extractBuiltinKind(id);
-	return kind !== null;
-}
-
-function extractBuiltinKind(id: string): BuiltinRoutineId | null {
-	if ((BUILTIN_ROUTINE_IDS as readonly string[]).includes(id)) {
-		return id as BuiltinRoutineId;
-	}
-	if (id.startsWith("builtin:")) {
-		const parts = id.split(":");
-		if (parts.length >= 3) {
-			const kindCandidate = `builtin:${parts[1]}` as BuiltinRoutineId;
-			if ((BUILTIN_ROUTINE_IDS as readonly string[]).includes(kindCandidate)) {
-				return kindCandidate;
-			}
-		}
-	}
-	return null;
-}
 const PRACTICE_MEETING_CRON = "0 10 * * MON"; // weekly Monday 10:00 UTC
 const PORTFOLIO_RETRO_CRON = "0 10 1-7 * MON"; // first Monday of the month
 const KNOWLEDGE_DECAY_CRON = "0 2 * * *"; // daily 02:00 UTC
 const KNOWLEDGE_PROMOTION_CRON = "0 3 * * *"; // daily 03:00 UTC
 
 interface BuiltinSpec {
-	readonly id: BuiltinRoutineId;
+	/**
+	 * @lore AU21 §9 Increment 4: was `BuiltinRoutineId` (the literal union) —
+	 * that type + its backing `BUILTIN_ROUTINE_IDS` array relocated to
+	 * `@hyperidle/routine`'s `routine-scheduler.ts` along with the scheduler
+	 * itself. `provisionTeamRoutinesInternal` (this spec table's only
+	 * consumer) only ever builds `${spec.id}:${teamId}` — a plain string is
+	 * sufficient; it never dispatches on `spec.id`'s kind.
+	 */
+	readonly id: string;
 	readonly name: string;
 	readonly ownerRole: string;
 	readonly triggerType: "heartbeat" | "calendar" | "event";
@@ -584,7 +558,6 @@ function registerAssistantTriggerInternal(
 
 	return unsubscribe;
 }
-const PORTFOLIO_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 async function provisionTeamRoutinesInternal(
 	ports: DispatchPorts,
@@ -627,616 +600,6 @@ async function provisionTeamRoutinesInternal(
 			{ onConflictDoNothing: true },
 		);
 	}
-}
-
-type RunBuiltinResult =
-	| {
-			readonly fired: true;
-			readonly emitted?: readonly string[];
-			readonly extra?: Record<string, unknown>;
-	  }
-	| { readonly fired: false; readonly reason: string };
-
-interface PostBetRetroArgs {
-	readonly betId: string;
-}
-
-async function fireBuiltinRoutineInternal(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	routineId: string,
-	args?: PostBetRetroArgs,
-): Promise<RunBuiltinResult> {
-	const routine = await ports.routine.getRoutineById(db, routineId);
-	if (!routine) {
-		return { fired: false, reason: `routine ${routineId} not found` };
-	}
-	if (!routine.active) {
-		return { fired: false, reason: `routine ${routineId} is disabled (active=false)` };
-	}
-	const kind = extractBuiltinKind(routineId);
-	if (!kind) {
-		return { fired: false, reason: `${routineId} is not a builtin routine` };
-	}
-	const startedAt = new Date();
-
-	let result: RunBuiltinResult;
-	switch (kind) {
-		case "builtin:practice-meeting":
-			result = await runPracticeMeetingRoutine(ports, db, routine);
-			break;
-		case "builtin:post-bet-retro":
-			if (!args) {
-				return { fired: false, reason: "post-bet-retro requires { betId } args" };
-			}
-			result = await runPostBetRetro(ports, db, eventBus, routine, args);
-			break;
-		case "builtin:portfolio-retro":
-			result = await runPortfolioRetro(ports, db, eventBus, routine);
-			break;
-		case "builtin:knowledge-decay":
-			result = await runKnowledgeDecay(ports, db, eventBus, routine);
-			break;
-		case "builtin:knowledge-promotion":
-			result = await runKnowledgePromotion(ports, db, eventBus, routine);
-			break;
-		default: {
-			const exhaustive: never = kind;
-			throw new Error(`Unknown builtin routine kind: ${exhaustive as string}`);
-		}
-	}
-
-	const endedAt = new Date();
-	await ports.routine.insertRoutineRun(db, {
-		id: crypto.randomUUID(),
-		routineId,
-		startedAt: startedAt.toISOString(),
-		endedAt: endedAt.toISOString(),
-		outcome: result.fired ? "success" : "skipped",
-		costMinor: 0,
-	});
-
-	if (result.fired) {
-		await ports.routine.updateRoutineById(db, routineId, { lastRunAt: endedAt.toISOString() });
-	}
-
-	return result;
-}
-
-function registerBuiltinRoutineHandlersInternal(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	eventBus: EventBus,
-): () => void {
-	const unsubs: Array<() => void> = [];
-
-	const betCompletedHandler = (event: BetStateChangedEvent): void => {
-		if (event.toState !== "completed") return;
-		void (async () => {
-			const betId = event.betId;
-			const betRow = await ports.work.getBetById(db, betId);
-			const betTeamId = betRow?.teamId;
-			let routineRow: Routine | undefined;
-			if (betTeamId) {
-				const perTeamId = `builtin:post-bet-retro:${betTeamId}`;
-				routineRow = await ports.routine.getRoutineById(db, perTeamId);
-			}
-			if (!routineRow) {
-				routineRow = await ports.routine.getRoutineById(db, "builtin:post-bet-retro");
-			}
-			if (!(routineRow && routineRow.active)) return;
-			await fireBuiltinRoutineInternal(ports, db, eventBus, routineRow.id, { betId });
-		})();
-	};
-	unsubs.push(eventBus.on("bet_state_changed", betCompletedHandler));
-
-	return () => {
-		for (const u of unsubs) u();
-	};
-}
-
-async function runPracticeMeetingRoutine(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	routine: Routine,
-): Promise<RunBuiltinResult> {
-	const isoNow = new Date().toISOString();
-	const result = await ports.review.createPracticeMeeting(db, {
-		scopeId: "facilitation",
-		title: `Weekly practice meeting — ${isoNow.slice(0, 10)}`,
-		nowMs: Date.now(),
-	});
-
-	return {
-		fired: true,
-		extra: { meetingId: result.meetingId, ownerAgentId: routine.ownerAgentId },
-	};
-}
-
-function postBetRetroBetIdMarker(betId: string): string {
-	return `betId=${betId}`;
-}
-
-async function runPostBetRetro(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	routine: Routine,
-	args: PostBetRetroArgs,
-): Promise<RunBuiltinResult> {
-	const bet = await ports.work.getBetById(db, args.betId);
-	if (!bet) {
-		return { fired: false, reason: `bet ${args.betId} not found` };
-	}
-	const marker = postBetRetroBetIdMarker(args.betId);
-	const betThreadIds = await ports.conversation.getThreadIdsByHost(db, "bet", args.betId);
-	const existing = await ports.work.findRetroItemByThreadIds(db, betThreadIds, marker);
-	if (existing) {
-		return { fired: false, reason: "already-retroed" };
-	}
-	const hypothesis = bet.hypothesis ?? "(no hypothesis recorded)";
-	const realityLines: string[] = [];
-	if (bet.completedAt) {
-		realityLines.push(`Completed at: ${bet.completedAt}`);
-	}
-	if (bet.revisionLog) {
-		realityLines.push(`Revision log: ${bet.revisionLog}`);
-	}
-	if (realityLines.length === 0) {
-		realityLines.push("No post-ship reality signal recorded.");
-	}
-
-	const threadId = crypto.randomUUID();
-	const itemId = crypto.randomUUID();
-	const isoNow = new Date().toISOString();
-
-	await db.transaction(async (tx) => {
-		await ports.conversation.insertThread(tx as HyperIdleDb, {
-			id: threadId,
-			hostKind: "bet",
-			hostId: args.betId,
-			initiatorId: routine.ownerAgentId,
-			participants: JSON.stringify([routine.ownerAgentId]),
-			lastActiveAt: isoNow,
-			createdAt: isoNow,
-		});
-
-		await ports.work.createItem(tx, {
-			id: itemId,
-			sourceAgentId: routine.ownerAgentId,
-			layer: "meta",
-			kind: "review",
-			title: `Post-bet retro: ${bet.description}`,
-			body: [marker, `Hypothesis: ${hypothesis}`, "", "Reality:", ...realityLines].join("\n"),
-			threadId,
-			riskTier: "medium",
-			createdAt: isoNow,
-		});
-	});
-	if (!routine.silent) {
-		const evt: ItemCreatedEvent = {
-			type: "item_created",
-			streamId: crypto.randomUUID(),
-			itemId,
-			conversationId: threadId,
-			kind: "review",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(evt);
-	}
-
-	return { fired: true, extra: { itemId, threadId } };
-}
-
-async function runPortfolioRetro(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	routine: Routine,
-): Promise<RunBuiltinResult> {
-	const nowMs = Date.now();
-	const cutoffIso = new Date(nowMs - PORTFOLIO_WINDOW_MS).toISOString();
-	const recentRows = await ports.knowledge.listRecentByLayers(db, ["L3", "L4"], cutoffIso);
-
-	const bodyLines = [
-		`Portfolio retro — window: last 30 days (since ${cutoffIso})`,
-		`Recent L3/L4 items: ${recentRows.length}`,
-		"",
-	];
-	for (const row of recentRows) {
-		bodyLines.push(`- [${row.layer ?? "?"}] ${row.title} (updated ${row.updatedAt})`);
-	}
-	if (recentRows.length === 0) {
-		bodyLines.push("(no cross-product patterns updated in the window)");
-	}
-
-	const threadId = crypto.randomUUID();
-	const itemId = crypto.randomUUID();
-	const isoNow = new Date(nowMs).toISOString();
-
-	await db.transaction(async (tx) => {
-		await ports.conversation.insertThread(tx as HyperIdleDb, {
-			id: threadId,
-			hostKind: "factory",
-			hostId: "portfolio",
-			initiatorId: routine.ownerAgentId,
-			participants: JSON.stringify([routine.ownerAgentId]),
-			lastActiveAt: isoNow,
-			createdAt: isoNow,
-		});
-
-		await ports.work.createItem(tx, {
-			id: itemId,
-			sourceAgentId: routine.ownerAgentId,
-			layer: "meta",
-			kind: "review",
-			title: `Monthly portfolio retro — ${isoNow.slice(0, 10)}`,
-			body: bodyLines.join("\n"),
-			threadId,
-			riskTier: "low",
-			createdAt: isoNow,
-		});
-	});
-
-	if (!routine.silent) {
-		const evt: ItemCreatedEvent = {
-			type: "item_created",
-			streamId: crypto.randomUUID(),
-			itemId,
-			conversationId: threadId,
-			kind: "review",
-			timestamp: nowMs,
-		};
-		eventBus.emit(evt);
-	}
-
-	return { fired: true, extra: { itemId, threadId, count: recentRows.length } };
-}
-
-const promotionLog = createLogger({ pkg: "server.knowledge-promotion" });
-
-async function runKnowledgePromotion(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	_routine: Routine,
-): Promise<RunBuiltinResult> {
-	const sweep = await ports.knowledge.runAutoPromotionSweep(db, eventBus);
-	if (sweep.scanned > 0) {
-		const candidateIds: readonly string[] = [
-			...sweep.promotedIds,
-			...sweep.flaggedForReviewIds,
-			...sweep.skippedIds,
-		];
-
-		if (candidateIds.length > 0) {
-			const attentionResult = await ports.knowledge.recomputeAttentionForCandidates(
-				db,
-				eventBus,
-				candidateIds,
-			);
-			if (!attentionResult.ok) {
-				promotionLog.error("attention recompute failed on promotion sweep", {
-					code: attentionResult.error.code,
-					message: attentionResult.error.message,
-				});
-			}
-		}
-	}
-
-	return {
-		fired: true,
-		extra: {
-			promotedCount: sweep.promotedIds.length,
-			flaggedCount: sweep.flaggedForReviewIds.length,
-			skippedCount: sweep.skippedIds.length,
-			scanned: sweep.scanned,
-		},
-	};
-}
-
-async function runKnowledgeDecay(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	routine: Routine,
-): Promise<RunBuiltinResult> {
-	const nowMs = Date.now();
-	const silent = !!routine.silent;
-	const sweep = await ports.knowledge.runStaleSweep(db, eventBus, nowMs, undefined, { silent });
-	return { fired: true, extra: { markedCount: sweep.markedIds.length } };
-}
-const schedulerLog = createLogger({ pkg: "server.routine-scheduler" });
-
-export interface FireResult {
-	fired: boolean;
-	reason?: string;
-	runId?: string;
-	sessionId?: string;
-	emitted?: readonly string[];
-	extra?: Record<string, unknown>;
-}
-
-type ReapStaleSessions = () => Promise<number>;
-
-interface RoutineSchedulerConfig {
-	pollIntervalMs: number;
-	canProvision?: boolean;
-	readonly runtimeDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
-	reap?: ReapStaleSessions;
-	reaperCadenceMs?: number;
-}
-
-interface RoutineScheduler {
-	stop: () => void;
-}
-
-interface TriggerConfig {
-	intervalSeconds?: number;
-	cron?: string;
-	eventType?: string;
-	taskId?: string;
-}
-
-async function isFactoryCostCapReached(ports: DispatchPorts, db: HyperIdleDb): Promise<boolean> {
-	const { cost } = await ports.settings.readServerConfig(db);
-	const cap = cost.capMinor;
-	if (!Number.isFinite(cap) || cap <= 0) return false;
-	const actual = await ports.cost.getFactoryCostActual(db);
-	return actual >= cap;
-}
-
-async function getRoutineMonthlySpendInternal(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	routineId: string,
-): Promise<number> {
-	const now = new Date();
-	const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-	return ports.routine.sumRoutineRunCostSince(db, routineId, firstOfMonth);
-}
-
-function safeNextRunAt(routine: Routine, now: Date): string | null {
-	try {
-		return computeNextRunAt(routine, now);
-	} catch {
-		return routine.nextRunAt ?? null;
-	}
-}
-
-async function fireGenericRoutineInternal(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	routine: Routine,
-	_runtimeDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">,
-	recordSkippedRun = false,
-): Promise<FireResult> {
-	const now = new Date();
-	if (await isFactoryCostCapReached(ports, db)) {
-		const nextRunAt = safeNextRunAt(routine, now);
-		await ports.routine.updateRoutineById(db, routine.id, { nextRunAt });
-		return { fired: false, reason: "factory cost cap reached" };
-	}
-	if (routine.costCapMonthlyMinor != null) {
-		const monthlySpend = await getRoutineMonthlySpendInternal(ports, db, routine.id);
-		if (monthlySpend >= routine.costCapMonthlyMinor) {
-			const runId = crypto.randomUUID();
-			await ports.routine.insertRoutineRun(db, {
-				id: runId,
-				routineId: routine.id,
-				startedAt: now.toISOString(),
-				outcome: "monthly_budget_exhausted",
-			});
-			const nextRunAt = safeNextRunAt(routine, now);
-			await ports.routine.updateRoutineById(db, routine.id, { nextRunAt });
-			return { fired: false, reason: "monthly cost cap reached" };
-		}
-	}
-	if (await ports.routine.findRunningRoutineRun(db, routine.id)) {
-		if (recordSkippedRun) {
-			await ports.routine.insertRoutineRun(db, {
-				id: crypto.randomUUID(),
-				routineId: routine.id,
-				startedAt: now.toISOString(),
-				outcome: "skipped",
-				errorMessage: "Coalesced: previous run still in progress",
-			});
-		}
-		const nextRunAt = safeNextRunAt(routine, now);
-		await ports.routine.updateRoutineById(db, routine.id, { nextRunAt });
-		return { fired: false, reason: "previous run still in progress" };
-	}
-	const targetAgentId = routine.ownerAgentId;
-
-	const runId = crypto.randomUUID();
-	let intent:
-		| Awaited<ReturnType<DispatchPorts["sessionRequests"]["enqueueWorkIntent"]>>
-		| undefined;
-	await db.transaction(async (tx) => {
-		await ports.routine.insertRoutineRun(tx, {
-			id: runId,
-			routineId: routine.id,
-			startedAt: now.toISOString(),
-			outcome: "running",
-		});
-		intent = await ports.sessionRequests.enqueueWorkIntent(tx, {
-			kind: "routine_run",
-			sourceKind: "routine_run",
-			sourceId: runId,
-			requestedBy: targetAgentId,
-			idempotencyKey: `routine:${runId}`,
-		});
-	});
-	if (!intent) throw new Error("Routine work intent was not persisted");
-	eventBus.emit({
-		type: "agent_work_intent_recorded",
-		streamId: `routine:${routine.id}`,
-		intentId: intent.id,
-		intentKind: "routine_run",
-		sourceKind: "routine",
-		sourceId: runId,
-		idempotencyKey: intent.idempotencyKey,
-		timestamp: Date.now(),
-	});
-	const lastRunAt = now.toISOString();
-	const nextRunAt = safeNextRunAt(routine, now);
-
-	await ports.routine.updateRoutineById(db, routine.id, {
-		lastRunAt,
-		nextRunAt: nextRunAt || null,
-	});
-	eventBus.emit({
-		type: "routine_fired",
-		streamId: `routine:${routine.id}`,
-		routineId: routine.id,
-		agentId: targetAgentId,
-		timestamp: Date.now(),
-	});
-
-	return { fired: true, runId };
-}
-
-async function registerEventTriggersInternal(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	runtimeDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">,
-): Promise<() => void> {
-	const eventRoutines = await ports.routine.listActiveRoutines(db, { triggerType: "event" });
-
-	const unsubscribers: Array<() => void> = [];
-	const unwind = (): void => {
-		for (const unsubscribe of unsubscribers.reverse()) {
-			try {
-				unsubscribe();
-			} catch {
-				// Continue removing every subscription after a faulty disposer.
-			}
-		}
-	};
-
-	try {
-		for (const routine of eventRoutines) {
-			const config = JSON.parse(routine.triggerConfig ?? "{}") as TriggerConfig;
-			if (!config.eventType) continue;
-
-			const eventType = config.eventType as EventType;
-			const unsub = eventBus.on(eventType, () => {
-				void (async () => {
-					const current = await ports.routine.getRoutineById(db, routine.id);
-					if (current?.active) {
-						fireGenericRoutineInternal(ports, db, eventBus, current, runtimeDeps).catch(() => {
-							/* fire-and-forget: generic firing is resilient internally */
-						});
-					}
-				})();
-			});
-			unsubscribers.push(unsub);
-		}
-	} catch (error) {
-		unwind();
-		throw error;
-	}
-
-	return unwind;
-}
-
-async function backfillMissingNextRunAtInternal(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-): Promise<number> {
-	const now = new Date();
-	const candidates = await ports.routine.listScheduledRoutinesMissingNextRunAt(db);
-
-	let count = 0;
-	for (const routine of candidates) {
-		const nextRunAt = computeNextRunAt(routine, now);
-		if (!nextRunAt) continue;
-		await ports.routine.updateRoutineById(db, routine.id, { nextRunAt });
-		count += 1;
-	}
-	return count;
-}
-
-const ROUTINE_REAPER_CADENCE_MS = 5 * 60 * 1000;
-
-async function startRoutineTriggerInternal(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	config: RoutineSchedulerConfig,
-): Promise<RoutineScheduler> {
-	const canProvision = config.canProvision ?? false;
-	const reaperCadenceMs = config.reaperCadenceMs ?? ROUTINE_REAPER_CADENCE_MS;
-	let lastReapedAt = 0;
-	let tickRunning = false;
-	await backfillMissingNextRunAtInternal(ports, db);
-	const unsubEvents = await registerEventTriggersInternal(ports, db, eventBus, config.runtimeDeps);
-
-	let intervalId: ReturnType<typeof setInterval>;
-	try {
-		intervalId = setInterval(() => {
-			if (tickRunning) return;
-			tickRunning = true;
-			const now = new Date().toISOString();
-			void (async () => {
-				try {
-					if (config.reap && Date.now() - lastReapedAt >= reaperCadenceMs) {
-						lastReapedAt = Date.now();
-						config.reap().catch(() => {
-							/* fire-and-forget: reaper errors must not block routine dispatch */
-						});
-					}
-
-					const allRoutines = await ports.routine.listActiveRoutines(db);
-					const dueRoutines = allRoutines.filter((r) => {
-						if (r.triggerType === "event") return false;
-						if (!r.nextRunAt) return false;
-						return r.nextRunAt <= now;
-					});
-
-					for (const routine of dueRoutines) {
-						if (isBuiltinRoutineId(routine.id)) {
-							const kind = extractBuiltinKind(routine.id);
-							if (kind === "builtin:post-bet-retro") continue;
-							const nextRunAt = computeNextRunAt(routine, new Date());
-							await ports.routine.updateRoutineById(db, routine.id, { nextRunAt });
-							void fireBuiltinRoutineInternal(ports, db, eventBus, routine.id).catch(() => {
-								/* builtin firing writes its own terminal run row (§3a) */
-							});
-						} else {
-							if (!canProvision) continue;
-							fireGenericRoutineInternal(ports, db, eventBus, routine, config.runtimeDeps).catch(
-								() => {
-									/* fire-and-forget: errors do not block subsequent routines */
-								},
-							);
-						}
-					}
-				} finally {
-					tickRunning = false;
-				}
-			})();
-		}, config.pollIntervalMs);
-	} catch (error) {
-		unsubEvents();
-		throw error;
-	}
-
-	schedulerLog.info("routine scheduler started", {
-		pollIntervalMs: config.pollIntervalMs,
-		canProvision,
-		reaperEnabled: !!config.reap,
-	});
-
-	return {
-		stop: () => {
-			clearInterval(intervalId);
-			unsubEvents();
-		},
-	};
 }
 
 const taskDispatcherLog = {
@@ -1532,25 +895,22 @@ type Disposer = () => void;
 export interface DispatchConfig {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	readonly scheduler?: RoutineSchedulerConfig;
 	readonly task?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }
 
+/**
+ * @lore AU21 §9 Increment 4: `DispatchOps` sheds routine awareness entirely —
+ * no `scheduler` config branch, no `fireRoutine` method. The routine
+ * scheduler + `routineRuns` lifecycle relocated to `@hyperidle/routine`'s
+ * `routine-scheduler.ts`; the composition-root wiring (start/stop, the
+ * manual-fire dispatch) now lives in
+ * `packages/core-api/src/services/routine-scheduler-bindings.ts`. Dispatch
+ * keeps only assistant-turn + task-queue responsibilities.
+ */
 export interface DispatchOps {
 	start(config: DispatchConfig): Promise<Disposer>;
 
 	runAssistantTurn(deps: AssistantTurnDeps, request: AgentSessionRequest): Promise<void>;
-
-	fireRoutine(
-		db: HyperIdleDb,
-		eventBus: EventBus,
-		routine: Routine,
-		opts?: {
-			readonly args?: PostBetRetroArgs;
-			readonly runtimeDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
-			readonly recordSkippedRun?: boolean;
-		},
-	): Promise<FireResult>;
 
 	provisionTeamRoutines(
 		db: HyperIdleDb,
@@ -1574,7 +934,6 @@ export function createDispatchOps(ports: DispatchPorts): DispatchOps {
 			starting = true;
 			const disposers: Disposer[] = [];
 			try {
-				disposers.push(registerBuiltinRoutineHandlersInternal(ports, config.db, config.eventBus));
 				disposers.push(registerAssistantTriggerInternal(ports, config.eventBus, config.db));
 				if (config.task) {
 					disposers.push(
@@ -1584,15 +943,6 @@ export function createDispatchOps(ports: DispatchPorts): DispatchOps {
 							...config.task,
 						}),
 					);
-				}
-				if (config.scheduler) {
-					const scheduler = await startRoutineTriggerInternal(
-						ports,
-						config.db,
-						config.eventBus,
-						config.scheduler,
-					);
-					disposers.push(() => scheduler.stop());
 				}
 			} catch (error) {
 				starting = false;
@@ -1626,26 +976,6 @@ export function createDispatchOps(ports: DispatchPorts): DispatchOps {
 		},
 
 		runAssistantTurn: (deps, request) => executeAssistantRequestInternal(ports, deps, request),
-
-		fireRoutine: (db, eventBus, routine, opts): Promise<FireResult> => {
-			if (isBuiltinRoutineId(routine.id)) {
-				return fireBuiltinRoutineInternal(
-					ports,
-					db,
-					eventBus,
-					routine.id,
-					opts?.args,
-				) as Promise<FireResult>;
-			}
-			return fireGenericRoutineInternal(
-				ports,
-				db,
-				eventBus,
-				routine,
-				opts?.runtimeDeps,
-				opts?.recordSkippedRun,
-			);
-		},
 
 		provisionTeamRoutines: (db, opts) => provisionTeamRoutinesInternal(ports, db, opts),
 

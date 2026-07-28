@@ -99,6 +99,10 @@ import {
 // subscription and the sentinel interval). Disposer count 15→14.
 import { costOps } from "./services/cost-bindings.js";
 import { dispatchOps } from "./services/dispatch-bindings.js";
+import {
+	registerBuiltinRoutineReactions,
+	startRoutineScheduler,
+} from "./services/routine-scheduler-bindings.js";
 
 type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
 type TaskDispatcherDeps = NonNullable<DispatchConfig["task"]> & {
@@ -506,19 +510,16 @@ export function registerAgentLayerServices(ctx: {
 	const disposers: Array<() => void> = [];
 	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
 
-	// AF6 §1 + AU20 Ag1b: `dispatchOps.start` boots the full dispatch lifecycle —
-	// builtin handlers, assistant dispatcher, optional task dispatcher, optional scheduler.
+	// AF6 §1 + AU20 Ag1b: `dispatchOps.start` boots the assistant + task dispatch
+	// lifecycle. AU21 §9 Increment 4: the routine scheduler (builtin-routine
+	// event reaction + the cron/due-eval tick loop) is a SEPARATE core-api-side
+	// lifecycle now (`routine-scheduler-bindings.ts`) — dispatch no longer knows
+	// about routines at all.
 	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
 	const dispatchPromise = dispatchOps.start({
 		db,
 		eventBus,
 		task: ctx.dispatcherDeps,
-		scheduler: {
-			pollIntervalMs,
-			canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
-			...(ctx.dispatcherDeps ? { runtimeDeps: ctx.dispatcherDeps } : {}),
-			reaperCadenceMs: ctx.reaperCadenceMs,
-		},
 	});
 	dispatchPromise.catch((err) => {
 		serviceBootstrapLog.error("dispatch start failed", { err });
@@ -529,8 +530,36 @@ export function registerAgentLayerServices(ctx: {
 				void dispatchPromise.then((d) => d()).catch(() => {});
 			},
 			"dispatch lifecycle",
-			"builtin/assistant/task/scheduler stop",
-			["builtin", "assistant", "task", "scheduler"],
+			"assistant/task stop",
+			["assistant", "task"],
+		),
+	);
+
+	disposers.push(
+		identifyBootstrapOwner(
+			registerBuiltinRoutineReactions(db, eventBus),
+			"builtin routine reactions",
+			"bet_state_changed subscription stop",
+			["builtin routine reactions"],
+		),
+	);
+
+	const schedulerPromise = startRoutineScheduler(db, eventBus, {
+		pollIntervalMs,
+		canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
+		reaperCadenceMs: ctx.reaperCadenceMs,
+	});
+	schedulerPromise.catch((err) => {
+		serviceBootstrapLog.error("routine scheduler start failed", { err });
+	});
+	disposers.push(
+		identifyBootstrapOwner(
+			() => {
+				void schedulerPromise.then((s) => s.stop()).catch(() => {});
+			},
+			"routine scheduler",
+			"cron/due-eval tick stop",
+			["routine scheduler"],
 		),
 	);
 

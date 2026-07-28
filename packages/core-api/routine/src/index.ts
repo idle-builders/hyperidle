@@ -39,6 +39,27 @@
  *   - `InsertRoutineOpts` (named export dropped — opts are inline on `insertRoutine`)
  */
 
+export type { RoutineSchedulerPorts } from "./ports.js";
+// -- routine scheduler (AU21 §9 Increment 4: relocated from
+// `@hyperidle/dispatch`'s `service.ts` — scheduler + `routineRuns` lifecycle
+// move core-side per architecture.md §6 Decision B′/B″ ruling #4; see
+// `routine-scheduler.ts`'s own top-of-file note) --
+export type {
+	BuiltinRoutineId,
+	FireResult,
+	PostBetRetroArgs,
+	RoutineScheduler,
+	RoutineSchedulerConfig,
+	RunBuiltinResult,
+} from "./routine-scheduler.js";
+export {
+	extractBuiltinKind,
+	fireBuiltinRoutine,
+	fireGenericRoutine,
+	isBuiltinRoutineId,
+	registerBuiltinRoutineHandlers,
+	startRoutineScheduler,
+} from "./routine-scheduler.js";
 // -- routine-service (AU13: routines + routineRuns CRUD + reads) --
 export type {
 	Routine,
@@ -58,6 +79,5 @@ export {
 	updateRoutine,
 	updateRoutineRun,
 } from "./routine-service.js";
-
 // -- schedule-label (AU19 Increment 5: relocated from packages/server per §6 disposition — humanizeSchedule is routine's own display concern) --
 export { humanizeSchedule } from "./schedule-label.js";

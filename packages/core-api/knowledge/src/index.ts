@@ -84,6 +84,13 @@ export {
 	transition,
 	update,
 } from "./knowledge-repository.js";
+// -- practice meeting (AU21 §9 Increment 4: barrel-exported so the relocated
+// routine scheduler, `@hyperidle/routine`'s `routine-scheduler.ts`, can call
+// it as an ordinary same-layer import instead of the old
+// `../../knowledge/src/practice-meeting.js` relative reach-around
+// `dispatch-bindings.ts` used. Increment 5 deletes this capability entirely
+// per ruling #5 — do not build on it.) --
+export { createPracticeMeeting } from "./practice-meeting.js";
 export { sweep } from "./promotion-pipeline.js";
 export { rank } from "./relevance-scoring.js";
 export { reapAccessLog, recomputeRelevance } from "./relevance-service.js";

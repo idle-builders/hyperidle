@@ -1,10 +1,8 @@
 /**
  * @lore AU19 Increment 3h: `@hyperidle/dispatch`'s `createDispatchOps` needs
  * injected `work`/`routine`/`conversation`/`users`/`settings`/`model-gateway`
- * (ordinary downward), `agent-selection`/`run-orchestration`/
- * `session-requests`/`cost` (ordinary same-layer, still ports per Mechanism
- * C), `review`/`knowledge` (ordinary downward, two collapsed call shapes —
- * see `@hyperidle/dispatch`'s `ports.ts` top `@lore`), and `toolHandlers`/
+ * (ordinary downward), `agent-selection`/`run-orchestration` (ordinary
+ * same-layer, still ports per Mechanism C), and `toolHandlers`/
  * `workspaceFactory` (INTERIM forward-references, wired to still-flat
  * `packages/server` files) ports. This module builds the bound singleton
  * ONCE, at the composition root, so every real call site (`app.ts`,
@@ -25,39 +23,34 @@
  * is otherwise a strict, structurally compatible subset (missing-but-
  * optional fields are simply absent), and `LocalSandboxAdapter`'s zero-arg
  * constructor satisfies `create(): unknown` directly.
+ *
+ * @lore AU21 §9 Increment 4: `routine`/`review`/`knowledge`/`cost`/
+ * `sessionRequests` wiring removed — the routine scheduler + all four
+ * builtin-routine bodies relocated to `@hyperidle/routine`'s
+ * `routine-scheduler.ts`; their composition root is now
+ * `routine-scheduler-bindings.ts`. `routine.insertRoutine` is the one
+ * remaining wire (`provisionTeamRoutinesInternal`'s definition-seeding
+ * write, out of this increment's relocate-list).
  */
 
-import { findThread, insertThread, listMessages, listThreads } from "@hyperidle/conversation";
+import { findThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { DispatchPorts } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
 import { createSandboxAdapter } from "@hyperidle/harness-registry";
-import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import { resolveModel } from "@hyperidle/model-gateway";
-import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
-import {
-	getRoutine,
-	insertRoutine,
-	insertRoutineRun,
-	listRoutineRuns,
-	listRoutines,
-	sumRunCost,
-	updateRoutine,
-} from "@hyperidle/routine";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
+import { insertRoutine } from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
-import type { EventBus, ToolContext } from "@hyperidle/shared";
+import type { ToolContext } from "@hyperidle/shared";
 import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
 import { findUser, getOrCreateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { createPracticeMeeting } from "../../knowledge/src/practice-meeting.js";
 import { agentSelectionService } from "./agent-selection-bindings.js";
 import {
 	buildCoreApiPort,
 	getRegisteredCoreApiTransport,
 	withActorTransport,
 } from "./core-api-port-composition.js";
-import { costOps } from "./cost-bindings.js";
 import { runSession } from "./run-orchestration-composition.js";
 import { toolHandlersPorts } from "./tool-handlers-bindings.js";
 
@@ -74,70 +67,14 @@ function seamPortForActor(actorId: string): ReturnType<typeof buildCoreApiPort> 
 	return buildCoreApiPort(transport);
 }
 
-/**
- * @lore AU19 Increment 3h: collapses `dispatch`'s former
- * `buildAttentionService({db, eventBus, work, review}).recomputeScope(filter)`
- * wiring into a single bound call.
- *
- * @lore AU20 Ag1a: explicit `DispatchAttentionRecomputeOutcome` return type
- * removed — structural compatibility is enforced via `DispatchPorts`; the
- * inferred return type from `buildAttentionService(...).recomputeScope(...)` is
- * structurally equivalent.
- */
-async function recomputeAttentionForCandidates(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	candidateIds: readonly string[],
-) {
-	const createReviewItemForKnowledge = createReviewItem({
-		conversation: { insertThread },
-		work: { createItem: (exec, values) => work.create(exec, "item", values) },
-	});
-	const result = await recomputeAttention(
-		{
-			db,
-			eventBus,
-			work: {
-				findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
-					const rows = await work.list(exec, "item", { marker });
-					return rows[0] ? { id: rows[0].id } : undefined;
-				},
-			},
-			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
-		},
-		{ filter: { ids: candidateIds as string[] } },
-	);
-	if (!("ok" in result)) throw new Error("unexpected attention result");
-	return result;
-}
-
 const dispatchPorts: DispatchPorts = {
 	work: {
 		listTasks: (exec: WriteExecutor, opts: { readonly state: string }) =>
 			work.list(exec, "task", { state: opts.state }),
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-		createItem: (exec, values) => work.create(exec, "item", values),
-		findRetroItemByThreadIds: async (exec: WriteExecutor, threadIds: string[], marker: string) => {
-			const rows = await work.list(exec, "item", { threadIds, bodyMarker: marker });
-			return rows[0] ? { id: rows[0].id } : undefined;
-		},
 	},
 	routine: {
 		insertRoutine,
-		getRoutineById: getRoutine,
-		insertRoutineRun,
-		updateRoutineById: updateRoutine,
-		findRunningRoutineRun: (db, routineId) =>
-			listRoutineRuns(db, { routineId, running: true, limit: 1 }).then((runs) =>
-				runs[0] ? { id: runs[0].id } : undefined,
-			),
-		listActiveRoutines: (db, opts) =>
-			listRoutines(db, { active: true, triggerType: opts?.triggerType }),
-		listScheduledRoutinesMissingNextRunAt: (db) =>
-			listRoutines(db, { active: true, missingNextRunAt: true }),
-		sumRoutineRunCostSince: (db, routineId, since) =>
-			sumRunCost(db, { routineIds: [routineId], since, kind: "sum" }),
 	},
 	conversation: {
 		// AU21 §9 Increment 2 (conversation wave): routes through the CoreApiPort
@@ -174,9 +111,6 @@ const dispatchPorts: DispatchPorts = {
 				...(patch.lastActiveAt !== undefined ? { lastActiveAt: patch.lastActiveAt } : {}),
 				...(patch.pinned !== undefined ? { pinned: patch.pinned } : {}),
 			}),
-		getThreadIdsByHost: (exec, hostKind, hostId) =>
-			listThreads(exec, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
-		insertThread,
 	},
 	users: {
 		getOrCreateUser,
@@ -209,26 +143,6 @@ const dispatchPorts: DispatchPorts = {
 			if (result.mode !== "completed") throw new Error("Durable dispatch did not complete");
 			return result;
 		},
-	},
-	sessionRequests: {
-		enqueueWorkIntent,
-	},
-	cost: {
-		getFactoryCostActual: (db) => costOps.spend(db, { level: "factory" }),
-	},
-	// @lore AU20 Ag1a: `createPracticeMeetingBound` standalone function inlined —
-	// contextual typing from `DispatchPorts["review"]` handles parameter types.
-	// @lore AU20 Am9: `createPracticeMeeting` relocated to `@hyperidle/knowledge`.
-	review: {
-		createPracticeMeeting,
-	},
-	knowledge: {
-		runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
-		runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
-			sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
-		listRecentByLayers: (db, layers, since) =>
-			listKnowledgeItems(db, { recentByLayers: { layers, since } }),
-		recomputeAttentionForCandidates,
 	},
 	toolHandlers: {
 		buildAssistantDraftRegistry: (ctx, params) =>

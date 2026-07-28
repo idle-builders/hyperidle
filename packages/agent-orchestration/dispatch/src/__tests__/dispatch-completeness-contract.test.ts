@@ -35,6 +35,21 @@ describe("dispatch public capability contract", () => {
 		vi.restoreAllMocks();
 	});
 
+	/**
+	 * @lore AU21 §9 Increment 4: the four scheduler-mechanics tests that used to
+	 * live here (`scheduler startup failure...`, `partial event-trigger
+	 * registration...`, `interval construction failure...`, `scheduler does not
+	 * overlap...`) tested the routine cron/due-eval scheduler, which relocated
+	 * to `@hyperidle/routine`'s `startRoutineScheduler` (architecture.md §6
+	 * Decision B′/B″ ruling #4) — `dispatchOps.start` no longer has a
+	 * `scheduler` config branch at all. Their equivalent guarantees (event-
+	 * trigger partial-registration unwind, interval-construction-failure
+	 * unwind, tick non-overlap) are ported to
+	 * `packages/core-api/routine/src/__tests__/routine-scheduler.completeness.integration.test.ts`
+	 * against the relocated code, using real seeded routines (that package's
+	 * DB reads are ordinary intra-package calls now, not mockable
+	 * `DispatchPorts` methods).
+	 */
 	test("start wires every non-scheduled trigger source and its disposer removes every subscription", async () => {
 		const eventBus = new EventBus();
 		const subscribed: string[] = [];
@@ -56,13 +71,11 @@ describe("dispatch public capability contract", () => {
 			task: { adapterPool: {}, workspace: {}, sandboxBasePath: "/tmp/dispatch-contract" },
 		});
 
+		// AU21 §9 Increment 4: `bet_state_changed` (the builtin-routine reaction)
+		// is no longer subscribed by `dispatchOps.start` — it relocated to
+		// `@hyperidle/routine`'s `registerBuiltinRoutineHandlers`.
 		expect(new Set(subscribed)).toEqual(
-			new Set([
-				"bet_state_changed",
-				"thread_message_appended",
-				"task_state_changed",
-				"session_ended",
-			]),
+			new Set(["thread_message_appended", "task_state_changed", "session_ended"]),
 		);
 		await expect(ops.start({ db: inertDb(), eventBus })).rejects.toThrow(
 			"dispatch already started",
@@ -72,134 +85,6 @@ describe("dispatch public capability contract", () => {
 		dispose();
 		const restarted = await ops.start({ db: inertDb(), eventBus });
 		restarted();
-	});
-
-	test("scheduler startup failure removes prior subscriptions and leaves no interval", async () => {
-		vi.useFakeTimers();
-		const eventBus = new EventBus();
-		const subscriptions: Array<() => void> = [];
-		const originalOn = eventBus.on.bind(eventBus);
-		vi.spyOn(eventBus, "on").mockImplementation(((type: string, handler: never) => {
-			const unsubscribe = originalOn(type as never, handler);
-			subscriptions.push(vi.fn(unsubscribe));
-			return subscriptions.at(-1) as () => void;
-		}) as typeof eventBus.on);
-		const ports = inertPorts();
-		ports.routine.listScheduledRoutinesMissingNextRunAt = vi.fn(async () => []);
-		ports.routine.listActiveRoutines = vi.fn(async () => {
-			throw new Error("event trigger discovery failed");
-		});
-		const ops = createDispatchOps(ports);
-
-		await expect(
-			ops.start({
-				db: inertDb(),
-				eventBus,
-				scheduler: { pollIntervalMs: 10 },
-			}),
-		).rejects.toThrow("event trigger discovery failed");
-
-		expect(vi.getTimerCount()).toBe(0);
-		expect(subscriptions.length).toBeGreaterThan(0);
-		expect(
-			subscriptions.every((unsubscribe) => vi.mocked(unsubscribe).mock.calls.length === 1),
-		).toBe(true);
-	});
-
-	test("partial event-trigger registration unwinds earlier subscriptions and creates no interval", async () => {
-		vi.useFakeTimers();
-		const eventBus = new EventBus();
-		const subscriptions: Array<ReturnType<typeof vi.fn<() => void>>> = [];
-		const originalOn = eventBus.on.bind(eventBus);
-		vi.spyOn(eventBus, "on").mockImplementation(((type: string, handler: never) => {
-			const unsubscribe = vi.fn(originalOn(type as never, handler));
-			subscriptions.push(unsubscribe);
-			return unsubscribe;
-		}) as typeof eventBus.on);
-		const ports = inertPorts();
-		ports.routine.listScheduledRoutinesMissingNextRunAt = vi.fn(async () => []);
-		ports.routine.listActiveRoutines = vi.fn(async () => [
-			{ id: "event-one", triggerConfig: '{"eventType":"task_state_changed"}' },
-			{ id: "event-two", triggerConfig: "{" },
-		]) as unknown as typeof ports.routine.listActiveRoutines;
-		const ops = createDispatchOps(ports);
-
-		await expect(
-			ops.start({
-				db: inertDb(),
-				eventBus,
-				scheduler: { pollIntervalMs: 10 },
-			}),
-		).rejects.toThrow();
-
-		expect(subscriptions.length).toBeGreaterThan(1);
-		expect(subscriptions.every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(true);
-		expect(vi.getTimerCount()).toBe(0);
-	});
-
-	test("interval construction failure unwinds scheduler event subscriptions", async () => {
-		vi.useFakeTimers();
-		const eventBus = new EventBus();
-		const subscriptions: Array<ReturnType<typeof vi.fn<() => void>>> = [];
-		const originalOn = eventBus.on.bind(eventBus);
-		vi.spyOn(eventBus, "on").mockImplementation(((type: string, handler: never) => {
-			const unsubscribe = vi.fn(originalOn(type as never, handler));
-			subscriptions.push(unsubscribe);
-			return unsubscribe;
-		}) as typeof eventBus.on);
-		const ports = inertPorts();
-		ports.routine.listScheduledRoutinesMissingNextRunAt = vi.fn(async () => []);
-		ports.routine.listActiveRoutines = vi.fn(async () => [
-			{ id: "event-one", triggerConfig: '{"eventType":"task_state_changed"}' },
-		]) as unknown as typeof ports.routine.listActiveRoutines;
-		vi.spyOn(globalThis, "setInterval").mockImplementationOnce(() => {
-			throw new Error("timer unavailable");
-		});
-		const ops = createDispatchOps(ports);
-
-		await expect(
-			ops.start({
-				db: inertDb(),
-				eventBus,
-				scheduler: { pollIntervalMs: 10 },
-			}),
-		).rejects.toThrow("timer unavailable");
-
-		expect(subscriptions.length).toBeGreaterThan(1);
-		expect(subscriptions.every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(true);
-		expect(vi.getTimerCount()).toBe(0);
-	});
-
-	test("scheduler does not overlap asynchronous ticks", async () => {
-		vi.useFakeTimers();
-		let releaseFirstTick!: () => void;
-		const firstTick = new Promise<readonly never[]>((resolve) => {
-			releaseFirstTick = () => resolve([]);
-		});
-		const ports = inertPorts();
-		ports.routine.listScheduledRoutinesMissingNextRunAt = vi.fn(async () => []);
-		ports.routine.listActiveRoutines = vi
-			.fn()
-			.mockResolvedValueOnce([])
-			.mockReturnValueOnce(firstTick)
-			.mockResolvedValue([]);
-		const ops = createDispatchOps(ports);
-		const dispose = await ops.start({
-			db: inertDb(),
-			eventBus: new EventBus(),
-			scheduler: { pollIntervalMs: 10 },
-		});
-
-		await vi.advanceTimersByTimeAsync(10);
-		expect(ports.routine.listActiveRoutines).toHaveBeenCalledTimes(2);
-		await vi.advanceTimersByTimeAsync(20);
-		expect(ports.routine.listActiveRoutines).toHaveBeenCalledTimes(2);
-
-		releaseFirstTick();
-		await vi.advanceTimersByTimeAsync(10);
-		expect(ports.routine.listActiveRoutines).toHaveBeenCalledTimes(3);
-		dispose();
-		expect(vi.getTimerCount()).toBe(0);
 	});
 
 	test("queue snapshots expose live state without leaking the mutable queue array", () => {

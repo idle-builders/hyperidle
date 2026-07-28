@@ -8,6 +8,12 @@
  * This is a deliberate, narrow public seam exposing the bound `dispatchOps`
  * object, not a grouping barrel. Do not add unrelated exports here without a
  * genuine cross-package consumer.
+ *
+ * @lore AU21 §9 Increment 4: `dispatchOps.fireRoutine`/`.provisionTeamRoutines`
+ * split — routine-firing moved to `routine-scheduler-bindings.ts`'s
+ * `fireRoutine` (dispatch itself sheds routine awareness). `provisionTeamRoutines`
+ * stays on `dispatchOps` (definition-seeding, unchanged this increment).
  */
 
 export { dispatchOps } from "./services/dispatch-bindings.js";
+export { fireRoutine } from "./services/routine-scheduler-bindings.js";

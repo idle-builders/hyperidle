@@ -126,21 +126,13 @@ function buildDispatchPortsForAssistantTurnMigration(
 		work: {
 			listTasks: unreachable("work.listTasks"),
 			getTaskById: unreachable("work.getTaskById"),
-			getBetById: unreachable("work.getBetById"),
-			createItem: unreachable("work.createItem"),
-			findRetroItemByThreadIds: unreachable("work.findRetroItemByThreadIds"),
 		},
+		// @lore AU21 §9 Increment 4: `routine`/`review`/`knowledge`/`cost`/
+		// `sessionRequests` shrank/disappeared from `DispatchPorts` — the
+		// routine scheduler + builtin-routine bodies relocated to
+		// `@hyperidle/routine`. `routine` keeps only `insertRoutine`.
 		routine: {
 			insertRoutine: unreachable("routine.insertRoutine"),
-			getRoutineById: unreachable("routine.getRoutineById"),
-			insertRoutineRun: unreachable("routine.insertRoutineRun"),
-			updateRoutineById: unreachable("routine.updateRoutineById"),
-			findRunningRoutineRun: unreachable("routine.findRunningRoutineRun"),
-			listActiveRoutines: unreachable("routine.listActiveRoutines"),
-			listScheduledRoutinesMissingNextRunAt: unreachable(
-				"routine.listScheduledRoutinesMissingNextRunAt",
-			),
-			sumRoutineRunCostSince: unreachable("routine.sumRoutineRunCostSince"),
 		},
 		conversation: {
 			// AU21 §9 Increment 2 (conversation wave, GREEN target): routed
@@ -171,8 +163,6 @@ function buildDispatchPortsForAssistantTurnMigration(
 					...(patch.lastActiveAt !== undefined ? { lastActiveAt: patch.lastActiveAt } : {}),
 					...(patch.pinned !== undefined ? { pinned: patch.pinned } : {}),
 				}),
-			getThreadIdsByHost: unreachable("conversation.getThreadIdsByHost"),
-			insertThread: unreachable("conversation.insertThread"),
 		},
 		users: {
 			getOrCreateUser,
@@ -186,15 +176,6 @@ function buildDispatchPortsForAssistantTurnMigration(
 		agentSelection: { resolveScaffoldSpecs: unreachable("agentSelection.resolveScaffoldSpecs") },
 		runOrchestration: {
 			executeAgentRunRequest: unreachable("runOrchestration.executeAgentRunRequest"),
-		},
-		sessionRequests: { enqueueWorkIntent: unreachable("sessionRequests.enqueueWorkIntent") },
-		cost: { getFactoryCostActual: unreachable("cost.getFactoryCostActual") },
-		review: { createPracticeMeeting: unreachable("review.createPracticeMeeting") },
-		knowledge: {
-			runAutoPromotionSweep: unreachable("knowledge.runAutoPromotionSweep"),
-			runStaleSweep: unreachable("knowledge.runStaleSweep"),
-			listRecentByLayers: unreachable("knowledge.listRecentByLayers"),
-			recomputeAttentionForCandidates: unreachable("knowledge.recomputeAttentionForCandidates"),
 		},
 		toolHandlers: {
 			buildAssistantDraftRegistry: unreachable("toolHandlers.buildAssistantDraftRegistry"),

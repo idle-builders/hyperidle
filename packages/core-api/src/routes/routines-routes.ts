@@ -21,7 +21,7 @@ import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
-import { dispatchOps } from "../services/dispatch-bindings.js";
+import { fireRoutine } from "../services/routine-scheduler-bindings.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
 const BUILTIN_ROUTINE_KINDS = new Set([
@@ -94,7 +94,11 @@ function stateToActive(state: string): boolean {
  * consumed (`_provisionDeps` was unread) and no production call site
  * populated it — dead threading left over from a pre-AU9 design. Removed
  * per the AU11 route-cleanup classification; POST /:id/trigger now delegates
- * to the cohesive `dispatchOps.fireRoutine` path.
+ * to the cohesive `fireRoutine` path.
+ *
+ * @lore AU21 §9 Increment 4: `dispatchOps.fireRoutine` relocated to
+ * `routine-scheduler-bindings.ts`'s `fireRoutine` — dispatch itself no
+ * longer knows about routines.
  */
 export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 	const router = new Hono();
@@ -484,14 +488,14 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				}
 				args = { betId: body.betId };
 			}
-			const result = await dispatchOps.fireRoutine(db, eventBus, routine, { args });
+			const result = await fireRoutine(db, eventBus, routine, { args });
 			if (!result.fired) {
 				return c.json({ routineId, fired: false, reason: result.reason }, 200);
 			}
 			return c.json({ routineId, fired: true, ...(result.extra ?? {}) }, 200);
 		}
 
-		const result = await dispatchOps.fireRoutine(db, eventBus, routine, {
+		const result = await fireRoutine(db, eventBus, routine, {
 			recordSkippedRun: true,
 		});
 		const reason =

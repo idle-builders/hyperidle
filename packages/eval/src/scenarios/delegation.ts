@@ -27,7 +27,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { dispatchOps } from "@hyperidle/core-api/routines";
+import { fireRoutine } from "@hyperidle/core-api/routines";
 import { agentWorkIntents, routineRuns, routines } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
@@ -48,10 +48,6 @@ import type {
 	TriggerContext,
 	TriggerResult,
 } from "../types.js";
-
-/** Structural runtime dependencies retained by the evaluation fixture;
- * session provisioning happens later, at drain + hand-off. */
-const RUNTIME_DEPS = { adapterPool: {}, workspace: {}, sandboxBasePath: "/tmp/eval-delegation" };
 
 function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
 	return {
@@ -164,9 +160,7 @@ const delSuccessfulDelegation: EvalScenario = {
 			.where(eq(routines.id, delSuccessRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine, {
-			runtimeDeps: RUNTIME_DEPS,
-		});
+		const result = await fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -280,9 +274,7 @@ const delNoDelegateAvailable: EvalScenario = {
 			.where(eq(routines.id, delNoDelegateRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine, {
-			runtimeDeps: RUNTIME_DEPS,
-		});
+		const result = await fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -376,9 +368,7 @@ const delDelegationNotAllowed: EvalScenario = {
 			.where(eq(routines.id, delNotAllowedRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine, {
-			runtimeDeps: RUNTIME_DEPS,
-		});
+		const result = await fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
