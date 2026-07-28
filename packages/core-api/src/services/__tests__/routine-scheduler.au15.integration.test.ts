@@ -30,7 +30,7 @@ import {
 } from "@hyperidle/db";
 import * as routineService from "@hyperidle/routine";
 import { drainIntents, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { fireGenericRoutine } from "../../__tests__/dispatch-test-helpers.js";
 import { describe, expect, test } from "../../test-fixtures.js";
@@ -47,6 +47,35 @@ const RUNTIME_DEPS = {
 
 beforeEach(() => vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY));
 afterEach(() => vi.unstubAllEnvs());
+
+/**
+ * AU21 §9 Increment 4, Wave B — `routine_run` is now ALSO resolved at emit
+ * (`fireGenericRoutine` bakes the request in its own transaction, per
+ * architecture.md §6 Decision B), so a routine deactivated AFTER a
+ * successful fire no longer produces a pre-hand-off failure at drain — the
+ * drain trusts the already-baked, already-validated payload (zero domain
+ * reads, Decision B step 2) instead of re-reading `routines` at drain time.
+ * The genuine pre-hand-off failure class that survives for an already-baked
+ * intent is a real infra fault at the hand-off write itself (same idiom as
+ * `agent-run-admission-failed-routine-run-migration.integration.test.ts` and
+ * the sibling rewiring in `agent-run-admission-failed-emission.integration.test.ts`)
+ * — a Postgres trigger rejecting the `agent_session_requests` insert.
+ */
+async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
+	await db.execute(
+		sql`drop trigger if exists au21_reject_session_request_write_au15 on agent_session_requests`,
+	);
+	await db.execute(sql`
+		create or replace function au21_reject_session_request_write_au15() returns trigger as $$
+		begin raise exception 'AU21 injected agent_session_requests write failure (AU15 AC-3d)'; end;
+		$$ language plpgsql
+	`);
+	await db.execute(sql`
+		create trigger au21_reject_session_request_write_au15
+		before insert on agent_session_requests
+		for each row execute function au21_reject_session_request_write_au15()
+	`);
+}
 
 async function seedRoutineWorld(
 	db: HyperIdleDb,
@@ -183,9 +212,10 @@ describe("terminal-failure finalization of session-less running runs", () => {
 		const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
 		expect(run?.outcome).toBe("running");
 
-		// Routine deactivated between fire and drain — resolveAuthoritativeInput
-		// throws InvalidAgentWorkSourceError (pre-hand-off, no session ever exists).
-		await routineService.updateRoutine(db, routineId, { active: false });
+		// A genuine downstream infra fault at the hand-off write itself — the
+		// surviving pre-hand-off failure class for an already-baked intent (see
+		// this file's `rejectSessionRequestWrites` @lore above).
+		await rejectSessionRequestWrites(db);
 
 		// @lore AU21 Increment 3 Wave 0 rewiring: the run's finalization no
 		// longer happens as a direct write inside `failOrRelease` — it is now a
@@ -197,7 +227,7 @@ describe("terminal-failure finalization of session-less running runs", () => {
 		// codebase, e.g. `lifecycle-propagation.ts`), so the finalize assertion
 		// below polls via `vi.waitFor` — the GUARANTEE (run finalizes to
 		// outcome="error", coalescing self-heals) is unchanged.
-		await drainIntents({ ...queueDeps(db), eventBus });
+		await drainIntents({ ...queueDeps(db), eventBus }, { maxAttempts: 1 });
 
 		const [intent] = await db
 			.select()
@@ -214,10 +244,17 @@ describe("terminal-failure finalization of session-less running runs", () => {
 			expect(finalizedRun?.endedAt).toBeTruthy();
 		});
 
-		// Self-healed: coalescing no longer blocks a fresh fire once reactivated.
-		await routineService.updateRoutine(db, routineId, { active: true });
-		const [reactivated] = await db.select().from(routines).where(eq(routines.id, routineId));
-		const secondFire = await fireGenericRoutine(db, eventBus, reactivated!, RUNTIME_DEPS);
+		// The trigger is schema-level (persists across the pooled PGlite
+		// instance's TRUNCATE-only reset) — drop it so it doesn't leak into a
+		// sibling test in this file that also writes `agent_session_requests`.
+		await db.execute(
+			sql`drop trigger if exists au21_reject_session_request_write_au15 on agent_session_requests`,
+		);
+
+		// Self-healed: coalescing no longer blocks a fresh fire (the failed run
+		// is no longer "running").
+		const [reloaded] = await db.select().from(routines).where(eq(routines.id, routineId));
+		const secondFire = await fireGenericRoutine(db, eventBus, reloaded!, RUNTIME_DEPS);
 		expect(secondFire.fired).toBe(true);
 		expect(secondFire.reason).not.toBe("previous run still in progress");
 	});

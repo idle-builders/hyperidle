@@ -29,6 +29,7 @@
  * callers to build coalesce SQL, but the type flexibility is harmless).
  */
 import {
+	type HyperIdleDb,
 	type NewRoutine,
 	type NewRoutineRun,
 	routineRuns,
@@ -296,4 +297,123 @@ export async function sumRunCost(
 		.where(whereClause)
 		.limit(1);
 	return row?.result ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// resolveRoutineRunRequest — AU21 §6 Decision B / §9 Increment 4, Wave B —
+// the routine_run emit-time resolver
+// ---------------------------------------------------------------------------
+
+/** Thrown when the routine run or its owning routine is not eligible to fire. */
+export class RoutineRunSourceUnavailableError extends Error {}
+
+/**
+ * The baked `routine_run` request shape, matching `resolveIntentInputInternal`'s
+ * (session-requests/src/service.ts) current "routine_run" return, minus the
+ * fields (`eventType`, `idempotencyKey`) trivially re-derivable from the
+ * intent row at drain time.
+ */
+export interface BakedRoutineRunRequest {
+	readonly defaultAgentId: string;
+	readonly sourceKind: "routine";
+	readonly sourceId: string;
+	readonly streamId: string;
+	readonly teamId: string;
+	readonly taskId: null;
+	readonly sourceCorrelation: {
+		readonly routineId: string;
+		readonly routineRunId: string;
+		readonly teamId: string;
+	};
+}
+
+/**
+ * Injected deps — Mechanism C. `agentSelection` (capacity check + delegate
+ * selection) and the shared ast-`<userId>` runnability invariant
+ * (`requireRunnableAgent`, `@hyperidle/users`) are both cross-Service from
+ * this package's point of view, so this Service cannot import them directly;
+ * the real implementations are wired at the composition root
+ * (`packages/core-api/src/services/routine-scheduler-bindings.ts`), mirroring
+ * every sibling family resolver's `*ResolverDeps` shape (e.g.
+ * `task-run-resolver.ts`'s `TaskRunResolverDeps`).
+ */
+export interface RoutineRunResolverDeps {
+	readonly agentSelection: {
+		isAtCapacity(db: HyperIdleDb, agentId: string): Promise<boolean>;
+		selectAgent(input: {
+			readonly surface: "routine_delegate";
+			readonly db: HyperIdleDb;
+			readonly teamId: string | null;
+			readonly workKey: string;
+			readonly excludeAgentId: string;
+			readonly skillId: string;
+		}): Promise<{ readonly agentId: string | null }>;
+	};
+	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<unknown>;
+}
+
+/**
+ * Resolve + validate a `routine_run` run at emit time: load the run
+ * (rejecting if missing / not `"running"`), load its routine (rejecting if
+ * soft-deleted / inactive / not in `state:"active"`), resolve the target
+ * agent (the owner, delegating to a capacity-eligible skilled agent only when
+ * the owner is at capacity AND delegation is allowed AND a skill is set AND a
+ * candidate is actually found), validate the resolved target's runnability,
+ * and bake the full request. Does exactly what
+ * `resolveIntentInputInternal`'s "routine_run" case did at drain time
+ * (`session-requests/src/service.ts`, deleted by this same wave) — now at
+ * emit time, in the same package that owns `routines`/`routine_runs`.
+ */
+export async function resolveRoutineRunRequest(
+	db: HyperIdleDb,
+	runId: string,
+	deps: RoutineRunResolverDeps,
+): Promise<BakedRoutineRunRequest> {
+	const run = await getRoutineRun(db, runId);
+	if (run?.outcome !== "running") {
+		throw new RoutineRunSourceUnavailableError("Routine run is unavailable");
+	}
+	const routine = await getRoutine(db, run.routineId);
+	if (!routine || routine.deletedAt || !routine.active || routine.state !== "active") {
+		throw new RoutineRunSourceUnavailableError("Routine is not eligible to run");
+	}
+	let selectedAgentId = routine.ownerAgentId;
+	if (await deps.agentSelection.isAtCapacity(db, routine.ownerAgentId)) {
+		if (routine.delegationAllowed && routine.skillId) {
+			const { agentId } = await deps.agentSelection.selectAgent({
+				surface: "routine_delegate",
+				db,
+				teamId: null,
+				workKey: routine.id,
+				excludeAgentId: routine.ownerAgentId,
+				skillId: routine.skillId,
+			});
+			if (agentId) selectedAgentId = agentId;
+		}
+	}
+	try {
+		await deps.requireRunnableAgent(db, selectedAgentId);
+	} catch (error) {
+		// @lore normalize to ONE recognizable class: the real `requireRunnableAgent`
+		// (`@hyperidle/users`) throws its own `AgentNotRunnableError`, which this
+		// package cannot name directly (Mechanism C — no `@hyperidle/users`
+		// import). `fireGenericRoutine` needs to distinguish "this resolution is
+		// not legitimate" (swallow, report `fired:false`) from a genuine
+		// downstream infra failure on the SAME transaction's writes (must
+		// propagate) — see `agent-work-intent-production.integration.test.ts`'s
+		// "rolls back its run when the intent write fails" pair, which requires
+		// exactly that distinction.
+		throw new RoutineRunSourceUnavailableError(
+			error instanceof Error ? error.message : "Resolved agent is not runnable",
+		);
+	}
+	return {
+		defaultAgentId: selectedAgentId,
+		sourceKind: "routine",
+		sourceId: runId,
+		streamId: `routine:${routine.id}`,
+		teamId: routine.teamId,
+		taskId: null,
+		sourceCorrelation: { routineId: routine.id, routineRunId: runId, teamId: routine.teamId },
+	};
 }

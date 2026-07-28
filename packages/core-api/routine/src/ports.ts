@@ -6,7 +6,7 @@ import type {
 	NewThread,
 	WriteExecutor,
 } from "@hyperidle/db";
-import type { EventBus, ModelGatewayConfig } from "@hyperidle/shared";
+import type { BakedWorkIntentRequest, EventBus, ModelGatewayConfig } from "@hyperidle/shared";
 
 /**
  * AU21 §9 Increment 4 — the routine scheduler (relocated from
@@ -94,8 +94,31 @@ export interface RoutineSchedulerPorts {
 				readonly sourceId: string;
 				readonly requestedBy?: string;
 				readonly idempotencyKey: string;
+				/** See `BakedWorkIntentRequest`. Populated at emit time by `routine-service.ts`'s `resolveRoutineRunRequest` (AU21 Increment 4). */
+				readonly bakedRequest?: BakedWorkIntentRequest;
 			},
 		): Promise<AgentWorkIntent>;
 	};
 	readonly cost: { getFactoryCostActual(db: HyperIdleDb): Promise<number> };
+	/**
+	 * AU21 §9 Increment 4, Wave B — the `routine_run` emit-time resolver's own
+	 * deps (`resolveRoutineRunRequest`'s `RoutineRunResolverDeps`), injected
+	 * here so `fireGenericRoutine` can fold resolution into its own emit
+	 * transaction. Same Mechanism C shape as every other field on this
+	 * interface — `agentSelection` (capacity + delegate selection) and
+	 * `requireRunnableAgent` (the shared ast-`<userId>` invariant) are both
+	 * cross-Service from this package's point of view.
+	 */
+	readonly agentSelection: {
+		isAtCapacity(db: HyperIdleDb, agentId: string): Promise<boolean>;
+		selectAgent(input: {
+			readonly surface: "routine_delegate";
+			readonly db: HyperIdleDb;
+			readonly teamId: string | null;
+			readonly workKey: string;
+			readonly excludeAgentId: string;
+			readonly skillId: string;
+		}): Promise<{ readonly agentId: string | null }>;
+	};
+	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<unknown>;
 }

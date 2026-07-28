@@ -36,6 +36,7 @@
  * (via `dispatch-test-helpers.ts`'s unchanged-signature wrapper) with the
  * SAME guarantee (no permanent brick), not the dropped `dispatchOps.fireRoutine`.
  */
+import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import {
 	bets,
@@ -55,12 +56,14 @@ import {
 	recomputeAttention,
 	sweep,
 } from "@hyperidle/knowledge";
+import { getTeamMembers } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireBuiltinRoutine, fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { BetStateChangedEvent, EventBus } from "@hyperidle/shared";
+import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { seedTeamRoutines } from "../../__tests__/dispatch-test-helpers.js";
@@ -135,6 +138,15 @@ function makePorts(): RoutineSchedulerPorts {
 		},
 		workIntents: { enqueueWorkIntent },
 		cost: { getFactoryCostActual: (db: HyperIdleDb) => costOps.spend(db, { level: "factory" }) },
+		agentSelection: createAgentSelectionService({
+			users: {
+				getUserById: (db, id) => findUser(db, { id }),
+				listActiveAiUsersByTeams: (db, teamIds) =>
+					listUsers(db, { teamIds, kind: "ai", status: "active" }),
+			},
+			teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
+		}),
+		requireRunnableAgent,
 	};
 }
 

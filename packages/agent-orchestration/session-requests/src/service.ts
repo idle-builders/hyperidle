@@ -683,120 +683,6 @@ var DEFAULT_LEASE_MS = 3e4;
 var DEFAULT_MAX_ATTEMPTS = 5;
 var MAX_BACKOFF_MS = 6e4;
 var InvalidAgentWorkSourceError = class extends Error {};
-function eventTypeFor(intent: AgentWorkIntent): TriggerEventType {
-	switch (intent.kind) {
-		case "assistant_turn":
-			return "assistant.message";
-		case "session_start":
-		case "task_run":
-			return "task.accepted";
-		case "knowledge_action":
-			return "knowledge.action";
-		case "routine_run":
-			return "routine.fire";
-		case "bet_decomposition":
-			return "work.decompose_requested";
-		case "reengagement":
-			return "proposed_call.granted";
-		default:
-			throw new InvalidAgentWorkSourceError(`Unknown intent kind ${intent.kind}`);
-	}
-}
-async function requireRunnableActor(db: HyperIdleDb, deps: DurableAgentQueueDeps, actorId: string) {
-	const actor = await deps.users.getUserById(db, actorId);
-	if (actor?.kind !== "ai" || !["active", "idle"].includes(actor.status)) {
-		throw new InvalidAgentWorkSourceError(`Intent actor ${actorId} is not runnable`);
-	}
-}
-async function resolveIntentInputInternal(
-	db: HyperIdleDb,
-	intent: AgentWorkIntent,
-	deps: DurableAgentQueueDeps,
-): Promise<Extract<CreateSessionRequestInput, { kind: "triggered" }>["request"]> {
-	const eventType = eventTypeFor(intent);
-	const common = {
-		eventType,
-		idempotencyKey: intent.idempotencyKey,
-	};
-	switch (intent.kind) {
-		// AU21 §6 Decision B / Increment 3: "assistant_turn", "session_start",
-		// "task_run", "bet_decomposition", "knowledge_action", and
-		// "reengagement" are migrated — their resolution now happens at emit
-		// time
-		// (`packages/core-api/conversation/src/assistant-turn-resolver.ts`,
-		// `packages/core-api/work/src/session-start-resolver.ts`,
-		// `packages/core-api/work/src/task-run-resolver.ts`,
-		// `packages/core-api/work/src/bet-decomposition.ts`'s
-		// `resolveBetDecompositionRequest`,
-		// `packages/core-api/knowledge/src/knowledge-action-resolver.ts`'s
-		// `resolveKnowledgeActionRequest`,
-		// `packages/core-api/review/src/proposed-call-workflow.ts`'s
-		// `resolveReengagementRequest`), baked onto the intent
-		// (`agentWorkIntents.bakedRequestJson`). Every real emit site
-		// (`routes/threads.ts`, `routes/sessions-routes.ts`,
-		// `task-state-machine.ts`, `bet-decomposition.ts`,
-		// `handoff-protocol.ts`, `routes/knowledge.ts`,
-		// `proposed-call-workflow.ts`'s "granted" transition + first-no-show
-		// liveness retry) always ATTEMPTS to populate it; `routes/knowledge.ts`'s
-		// flag handler and `proposed-call-workflow.ts`'s bake calls are the call
-		// sites that can legitimately leave it unset (the resolver rejects a
-		// non-runnable resolved target — caught there so the underlying
-		// transition/write itself never rolls back). Any unbaked row of these
-		// six kinds falls through to `default` below and fails
-		// `INVALID_WORK_SOURCE` — the same terminal-failure shape a truly
-		// invalid source produced before this migration (and, for
-		// `knowledge_action`/`reengagement`, the identical shape their own
-		// now-deleted per-kind cases produced for this exact scenario).
-		//
-		// `routine_run` remains the ONE case still resolved at drain time,
-		// deliberately deferred to Increment 4 (§6 Decision B's placement
-		// ruling: its resolver co-locates with the routine scheduler once
-		// Decision B′/B″ move the scheduler core-side — until then there is no
-		// legitimate emit-time core-api hook to bake into without
-		// re-introducing a cross-layer read from the still-orchestration-housed
-		// scheduler).
-		case "routine_run": {
-			const run = await deps.routine.getRoutineRunById(db, intent.sourceId);
-			if (!run || run.outcome !== "running")
-				throw new InvalidAgentWorkSourceError("Routine run is unavailable");
-			const routine = await deps.routine.getRoutineById(db, run.routineId);
-			if (!routine || routine.deletedAt || !routine.active || routine.state !== "active")
-				throw new InvalidAgentWorkSourceError("Routine is not eligible to run");
-			let selectedAgentId = routine.ownerAgentId;
-			if (await deps.agentSelection.isAtCapacity(db, routine.ownerAgentId)) {
-				if (routine.delegationAllowed && routine.skillId) {
-					const { agentId } = await deps.agentSelection.selectAgent({
-						db,
-						surface: "routine_delegate",
-						teamId: null,
-						workKey: routine.id,
-						excludeAgentId: routine.ownerAgentId,
-						skillId: routine.skillId,
-					});
-					if (agentId) selectedAgentId = agentId;
-				}
-			}
-			await requireRunnableActor(db, deps, selectedAgentId);
-			const runId = run.id;
-			return {
-				...common,
-				defaultAgentId: selectedAgentId,
-				sourceKind: "routine",
-				// @lore AU9: sourceId is the routine RUN id, not the routine id — the
-				// terminal fact this produces correlates through `routine-lifecycle`'s
-				// `WHERE routineRuns.id = sourceId AND outcome='running'`, and a routine
-				// fires repeatedly, so its repeatable occasion is the run, not the routine.
-				sourceId: runId,
-				streamId: `routine:${routine.id}`,
-				teamId: routine.teamId,
-				taskId: null,
-				sourceCorrelation: { routineId: routine.id, routineRunId: runId, teamId: routine.teamId },
-			};
-		}
-		default:
-			throw new InvalidAgentWorkSourceError(`Unknown intent kind ${intent.kind}`);
-	}
-}
 async function claimIntentInternal(
 	db: HyperIdleDb,
 	input: { readonly now: Date; readonly leaseMs: number; readonly workerId: string },
@@ -1031,9 +917,15 @@ async function processIntentsInternal(
 					createFromBakedRequestInternal(tx, intent, baked),
 				);
 			} else {
-				const input = await resolveIntentInputInternal(db, intent, deps);
-				await handOffInternal(db, intent, claimToken, now, (tx) =>
-					createTriggeredInternal(tx, input, deps),
+				// AU21 §6 Decision B / §9 Increment 4: every one of the seven
+				// intent kinds now resolves + bakes its request at EMIT time
+				// (`resolveIntentInputInternal`'s per-kind drain-time resolution —
+				// the last surviving case, `routine_run` — is deleted). An intent
+				// reaching the drain with no baked payload is not a kind to resolve
+				// here; it is an invalid work source (the same terminal-failure
+				// shape a truly invalid source always produced).
+				throw new InvalidAgentWorkSourceError(
+					`Intent ${intent.id} (kind ${intent.kind}) carries no baked request`,
 				);
 			}
 		} catch (error) {

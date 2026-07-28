@@ -43,7 +43,9 @@ import {
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
+import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import { agentSelectionService } from "./agent-selection-bindings.js";
 import { costOps } from "./cost-bindings.js";
 
 /**
@@ -114,6 +116,11 @@ const routineSchedulerPorts: RoutineSchedulerPorts = {
 	cost: {
 		getFactoryCostActual: (db) => costOps.spend(db, { level: "factory" }),
 	},
+	agentSelection: {
+		isAtCapacity: agentSelectionService.isAtCapacity,
+		selectAgent: agentSelectionService.selectAgent,
+	},
+	requireRunnableAgent,
 };
 
 /** Bound wrapper — starts the cron/due-eval scheduler with the real ports. */

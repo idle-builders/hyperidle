@@ -42,10 +42,13 @@ import {
 } from "@hyperidle/shared";
 import type { RoutineSchedulerPorts } from "./ports.js";
 import {
+	type BakedRoutineRunRequest,
 	getRoutine,
 	insertRoutineRun,
 	listRoutineRuns,
 	listRoutines,
+	RoutineRunSourceUnavailableError,
+	resolveRoutineRunRequest,
 	sumRunCost,
 	updateRoutine,
 } from "./routine-service.js";
@@ -448,10 +451,16 @@ function safeNextRunAt(routine: Routine, now: Date): string | null {
 
 /**
  * Fire a non-builtin ("generic") routine. Relocated verbatim from
- * `fireGenericRoutineInternal` — the routine_run emit site (Decision B step
- * 1 lands the emit-time resolver here too, once Wave B builds it; this wave
- * keeps the identity-intent shape unchanged). The dead `_runtimeDeps`
- * parameter the original threaded through (never consumed —
+ * `fireGenericRoutineInternal` — the routine_run emit site. AU21 §9
+ * Increment 4, Wave B: `resolveRoutineRunRequest` (Decision B step 1) is now
+ * folded into the SAME transaction that inserts the `routineRuns` "running"
+ * row and enqueues the `routine_run` work intent — the literal
+ * "same-package, same-transaction call, not a cross-layer edge left to
+ * collapse at all" Decision B″ item 1 describes. A resolver rejection (routine
+ * no longer eligible, or the resolved target agent is not runnable) rolls the
+ * whole transaction back — no run row, no intent persists — and this
+ * function reports `fired: false` instead of throwing. The dead
+ * `_runtimeDeps` parameter the original threaded through (never consumed —
  * `fireGenericRoutineInternal`'s own signature already prefixed it `_`) is
  * dropped, not relocated: it carried no behavior.
  */
@@ -502,28 +511,47 @@ export async function fireGenericRoutine(
 		await updateRoutine(db, routine.id, { nextRunAt });
 		return { fired: false, reason: "previous run still in progress" };
 	}
-	const targetAgentId = routine.ownerAgentId;
-
 	const runId = crypto.randomUUID();
 	let intent:
 		| Awaited<ReturnType<RoutineSchedulerPorts["workIntents"]["enqueueWorkIntent"]>>
 		| undefined;
-	await db.transaction(async (tx) => {
-		await insertRoutineRun(tx, {
-			id: runId,
-			routineId: routine.id,
-			startedAt: now.toISOString(),
-			outcome: "running",
+	let bakedRequest: BakedRoutineRunRequest | undefined;
+	try {
+		await db.transaction(async (tx) => {
+			await insertRoutineRun(tx, {
+				id: runId,
+				routineId: routine.id,
+				startedAt: now.toISOString(),
+				outcome: "running",
+			});
+			bakedRequest = await resolveRoutineRunRequest(tx as HyperIdleDb, runId, {
+				agentSelection: ports.agentSelection,
+				requireRunnableAgent: ports.requireRunnableAgent,
+			});
+			intent = await ports.workIntents.enqueueWorkIntent(tx, {
+				kind: "routine_run",
+				sourceKind: "routine_run",
+				sourceId: runId,
+				requestedBy: bakedRequest.defaultAgentId,
+				idempotencyKey: `routine:${runId}`,
+				bakedRequest,
+			});
 		});
-		intent = await ports.workIntents.enqueueWorkIntent(tx, {
-			kind: "routine_run",
-			sourceKind: "routine_run",
-			sourceId: runId,
-			requestedBy: targetAgentId,
-			idempotencyKey: `routine:${runId}`,
-		});
-	});
-	if (!intent) throw new Error("Routine work intent was not persisted");
+	} catch (error) {
+		// Only a resolver-originated rejection (routine no longer eligible, or
+		// the resolved target agent is not runnable) is an expected outcome to
+		// report as `fired:false` — a genuine downstream infra failure on the
+		// SAME transaction's writes (`insertRoutineRun`/`enqueueWorkIntent`)
+		// must propagate, exactly like every other failure in this transaction
+		// always has (`agent-work-intent-production.integration.test.ts`'s
+		// "rolls back its run when the intent write fails" pair depends on
+		// this).
+		if (error instanceof RoutineRunSourceUnavailableError) {
+			return { fired: false, reason: error.message };
+		}
+		throw error;
+	}
+	if (!intent || !bakedRequest) throw new Error("Routine work intent was not persisted");
 	eventBus.emit({
 		type: "agent_work_intent_recorded",
 		streamId: `routine:${routine.id}`,
@@ -545,7 +573,7 @@ export async function fireGenericRoutine(
 		type: "routine_fired",
 		streamId: `routine:${routine.id}`,
 		routineId: routine.id,
-		agentId: targetAgentId,
+		agentId: bakedRequest.defaultAgentId,
 		timestamp: Date.now(),
 	});
 

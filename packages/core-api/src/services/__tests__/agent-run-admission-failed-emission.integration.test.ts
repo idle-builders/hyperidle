@@ -26,11 +26,80 @@
  * convention to the implementer.
  */
 
-import { agentWorkIntents } from "@hyperidle/db";
+import { agentWorkIntents, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
+
+const NOW = new Date().toISOString();
+
+/**
+ * AU21 §9 Increment 4, Wave B — `routine_run` is now ALSO migrated to
+ * resolve-at-emit (the last of the seven kinds), so the "inject a throwing
+ * `deps.routine.getRoutineRunById` spy" vehicle the two tests below used
+ * (per their own `@lore` note, itself a repeat of the same move once made for
+ * `assistant_turn`) no longer reaches any domain read at drain time — a bare
+ * `routine_run` intent now fails immediately with `InvalidAgentWorkSourceError`
+ * before ever touching `deps.routine`. Both tests are rewritten to the SAME
+ * real-infra-fault-injection vehicle
+ * `agent-run-admission-failed-routine-run-migration.integration.test.ts`
+ * proves: a genuinely BAKED `routine_run` intent (so the drain takes the
+ * zero-domain-read baked path, exactly like production) whose downstream
+ * `agent_session_requests` insert is rejected by a real Postgres trigger —
+ * a legitimate non-`InvalidAgentWorkSourceError` failure class for an
+ * already-validly-baked payload, same as the `_bake_deps` these two tests
+ * exist to exercise (failOrRelease's generic terminal/non-terminal + max-
+ * attempts mechanics), not any one kind's resolution.
+ */
+async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
+	await db.execute(
+		sql`drop trigger if exists au21_reject_session_request_write_emission on agent_session_requests`,
+	);
+	await db.execute(sql`
+		create or replace function au21_reject_session_request_write_emission() returns trigger as $$
+		begin raise exception 'AU21 injected agent_session_requests write failure (emission vehicle)'; end;
+		$$ language plpgsql
+	`);
+	await db.execute(sql`
+		create trigger au21_reject_session_request_write_emission
+		before insert on agent_session_requests
+		for each row execute function au21_reject_session_request_write_emission()
+	`);
+}
+
+function bakedRoutineRunRequest(idSuffix: string) {
+	return {
+		defaultAgentId: `emission-vehicle-agent-${idSuffix}`,
+		sourceKind: "routine" as const,
+		sourceId: `emission-vehicle-run-${idSuffix}`,
+		streamId: `routine:emission-vehicle-routine-${idSuffix}`,
+		teamId: `emission-vehicle-team-${idSuffix}`,
+		taskId: null,
+		sourceCorrelation: {
+			routineId: `emission-vehicle-routine-${idSuffix}`,
+			routineRunId: `emission-vehicle-run-${idSuffix}`,
+			teamId: `emission-vehicle-team-${idSuffix}`,
+		},
+	};
+}
+
+async function seedRoutineVehicleFks(db: HyperIdleDb, idSuffix: string): Promise<void> {
+	await db.insert(teams).values({
+		id: `emission-vehicle-team-${idSuffix}`,
+		name: `Emission vehicle team ${idSuffix}`,
+		phase: "build",
+		createdAt: NOW,
+	});
+	await db.insert(users).values({
+		id: `emission-vehicle-agent-${idSuffix}`,
+		kind: "ai",
+		name: "Emission vehicle agent",
+		role: "builder",
+		status: "active",
+		createdAt: NOW,
+	});
+}
 
 type CapturedAdmissionFailure = {
 	readonly type: string;
@@ -94,35 +163,22 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		expect(row?.lastErrorCode).toBe("INVALID_WORK_SOURCE");
 	});
 
-	// @lore AU21 Increment 3 (assistant_turn wave): these two tests originally
-	// used `assistant_turn` as a convenient generic vehicle to exercise
-	// `failOrRelease`'s terminal/non-terminal mechanics (this file proves the
-	// EMISSION MECHANISM, not any one kind's resolution), injecting a throwing
-	// `deps.conversation.getMessageById` spy. Now that `assistant_turn` is
-	// migrated — its case deleted from `resolveIntentInputInternal`'s switch,
-	// every real assistant_turn intent always carries a baked payload — an
-	// UNBAKED assistant_turn intent falls straight to `default`
-	// (`INVALID_WORK_SOURCE`, always terminal) before ever reaching a domain
-	// read, breaking the "inject a transient (non-source) failure" premise.
-	// Switched to `routine_run` (deliberately the one kind left unmigrated
-	// through the end of Increment 3, §6 Decision B's placement ruling) as the
-	// vehicle instead, injecting the throwing spy into
-	// `deps.routine.getRoutineRunById` — same mechanism, same generic-emission
-	// proof, just a still-unmigrated kind.
+	// @lore AU21 §9 Increment 4, Wave B: these two tests originally used
+	// `assistant_turn`, then `routine_run` (once `assistant_turn` migrated),
+	// as a "still-unmigrated kind" vehicle for a transient (non-source-
+	// invalid) drain-time failure. Now that ALL SEVEN kinds resolve at emit,
+	// there is no kind left that reaches a domain read at drain time for an
+	// unbaked intent — see this file's top-of-file note. Vehicle: a genuinely
+	// BAKED `routine_run` intent (so `parseBakedRequest` is truthy and the
+	// drain takes the zero-domain-read baked path) whose downstream
+	// `agent_session_requests` insert is rejected by a real Postgres trigger.
 	test("terminal MAX_ATTEMPTS_EXCEEDED failure (non-InvalidAgentWorkSourceError) emits the event", async ({
 		db,
 		eventBus,
 	}) => {
-		const deps = {
-			...queueDeps(db),
-			eventBus,
-			routine: {
-				...queueDeps(db).routine,
-				getRoutineRunById: vi.fn(async () => {
-					throw new Error("injected transient failure — not InvalidAgentWorkSourceError");
-				}),
-			},
-		};
+		await seedRoutineVehicleFks(db, "max-attempts");
+		await rejectSessionRequestWrites(db);
+		const deps = { ...queueDeps(db), eventBus };
 		const { events } = captureAdmissionFailures(eventBus);
 
 		const intent = await enqueueWorkIntent(db, {
@@ -130,6 +186,7 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 			sourceKind: "routine_run",
 			sourceId: "wave0-max-attempts-routine-run",
 			idempotencyKey: "wave0-max-attempts",
+			bakedRequest: bakedRoutineRunRequest("max-attempts"),
 		});
 
 		await drainIntents(deps, { maxAttempts: 1 });
@@ -152,16 +209,9 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		db,
 		eventBus,
 	}) => {
-		const deps = {
-			...queueDeps(db),
-			eventBus,
-			routine: {
-				...queueDeps(db).routine,
-				getRoutineRunById: vi.fn(async () => {
-					throw new Error("injected transient failure");
-				}),
-			},
-		};
+		await seedRoutineVehicleFks(db, "non-terminal");
+		await rejectSessionRequestWrites(db);
+		const deps = { ...queueDeps(db), eventBus };
 		const { events } = captureAdmissionFailures(eventBus);
 
 		const intent = await enqueueWorkIntent(db, {
@@ -169,6 +219,7 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 			sourceKind: "routine_run",
 			sourceId: "wave0-non-terminal-routine-run",
 			idempotencyKey: "wave0-non-terminal",
+			bakedRequest: bakedRoutineRunRequest("non-terminal"),
 		});
 
 		await drainIntents(deps, { maxAttempts: 5 });
@@ -180,6 +231,13 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 			.from(agentWorkIntents)
 			.where(eq(agentWorkIntents.id, intent.id));
 		expect(row?.status).toBe("pending");
+
+		// Schema-level trigger cleanup — see `rejectSessionRequestWrites`'s
+		// @lore above; drop it so it can't leak into a sibling test/file sharing
+		// the pooled PGlite instance.
+		await db.execute(
+			sql`drop trigger if exists au21_reject_session_request_write_emission on agent_session_requests`,
+		);
 	});
 
 	test("failOrRelease itself no longer performs the direct routineRuns write for a terminal routine_run failure", async ({

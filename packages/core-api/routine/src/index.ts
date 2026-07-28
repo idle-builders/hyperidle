@@ -62,10 +62,12 @@ export {
 } from "./routine-scheduler.js";
 // -- routine-service (AU13: routines + routineRuns CRUD + reads) --
 export type {
+	BakedRoutineRunRequest,
 	Routine,
 	RoutinePatch,
 	RoutineRun,
 	RoutineRunPatch,
+	RoutineRunResolverDeps,
 } from "./routine-service.js";
 export {
 	getRoutine,
@@ -75,6 +77,8 @@ export {
 	insertRoutineRun,
 	listRoutineRuns,
 	listRoutines,
+	RoutineRunSourceUnavailableError,
+	resolveRoutineRunRequest,
 	sumRunCost,
 	updateRoutine,
 	updateRoutineRun,
