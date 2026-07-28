@@ -140,6 +140,10 @@ export function registerReviewSubscriptions(
 			taskId: event.taskId,
 			agentId: event.agentId,
 			intentRecorder: ports.intentRecorder,
+			// AU21 §6 Decision B: bake the re-provision request at emit time —
+			// see `applyLivenessRetry`'s `@lore` in `proposed-call-workflow.ts`.
+			getTaskById: ports.work.getTaskById,
+			requireRunnableAgent: ports.requireRunnableAgent,
 		});
 	};
 

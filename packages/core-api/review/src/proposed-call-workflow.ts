@@ -35,6 +35,7 @@ import {
 	type ProposedCall,
 	proposedCalls,
 	type TailoredGrant,
+	type Task,
 	tailoredGrants,
 } from "@hyperidle/db";
 import type { ToolResult } from "@hyperidle/shared";
@@ -134,6 +135,95 @@ export async function findProposedCall(
 	// Plain call lookup (no join)
 	const [row] = await db.select().from(proposedCalls).where(whereClause).limit(1);
 	return row ? { call: row } : undefined;
+}
+
+// ---------------------------------------------------------------------------
+// resolveReengagementRequest — AU21 §6 Decision B emit-time resolver
+// ---------------------------------------------------------------------------
+
+/**
+ * AU21 §6 Decision B placement ruling — the `reengagement` emit-time
+ * resolver, extending this file IN PLACE (already the emit site for both real
+ * call sites: `transitionProposedCall({to:"granted"})` below and
+ * `applyLivenessRetry`'s first-no-show re-provision further down). Does
+ * exactly what `resolveIntentInputInternal`'s "reengagement" case did at
+ * drain time (`session-requests/src/service.ts:783-804`, deleted there by
+ * this wave), reading only `review`'s own tables (via the already-in-file
+ * `findProposedCall`) plus the two injected cross-Service reads.
+ *
+ * @lore Mechanism C (composition-boundary-guard): `@hyperidle/review`
+ * depends ONLY on `@hyperidle/db` + `@hyperidle/shared` (`package.json`) —
+ * never on `@hyperidle/users`/`@hyperidle/work` directly. This resolver
+ * therefore takes `requireRunnableAgent` + `getTaskById` as INJECTED
+ * dependencies (`ReengagementResolverDeps`), same shape as the sibling
+ * resolvers (`task-run-resolver.ts`'s `TaskRunResolverDeps`,
+ * `assistant-turn-resolver.ts`'s `AssistantTurnResolverDeps`). The real
+ * callers (`routes/threads.ts`'s verdict handler, `session-review-creator.ts`'s
+ * `registerReviewSubscriptions`) wire the real `requireRunnableAgent`
+ * (`@hyperidle/users`) and a `getTaskById` (`@hyperidle/work`) in via
+ * `ReviewPorts` — core-api Layer code, not a nested Service, so it may
+ * legitimately import both.
+ */
+export interface ReengagementResolverDeps {
+	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<unknown>;
+	getTaskById(db: HyperIdleDb, id: string): Promise<Task | undefined>;
+}
+
+/** Thrown when the proposed call has no eligible grant, is not granted, or its task is unavailable. */
+export class ReengagementSourceUnavailableError extends Error {}
+
+/** The baked `reengagement` request shape, matching `resolveIntentInputInternal`'s former return. */
+export interface BakedReengagementRequest {
+	readonly defaultAgentId: string;
+	readonly sourceKind: "proposed_call";
+	readonly sourceId: string;
+	readonly streamId: string;
+	readonly taskId: string;
+	readonly teamId: string;
+	readonly sourceCorrelation: {
+		readonly taskId: string;
+		readonly proposedCallId: string;
+		readonly grantedAgentId: string;
+	};
+}
+
+/**
+ * Resolve + validate a `reengagement` run at emit time: load the proposed
+ * call WITH its tailored grant (rejecting if no grant exists or the call is
+ * not `"granted"`), validate the grant's `agentScope` is a runnable AI agent
+ * (never trust the flagging/requesting actor), load the grant's `taskScope`
+ * task (rejecting if missing), and bake the full request.
+ */
+export async function resolveReengagementRequest(
+	db: HyperIdleDb,
+	proposedCallId: string,
+	deps: ReengagementResolverDeps,
+): Promise<BakedReengagementRequest> {
+	const view = await findProposedCall(db, {
+		by: { id: proposedCallId },
+		include: { grant: true },
+	});
+	if (!view?.grant || view.call.status !== "granted") {
+		throw new ReengagementSourceUnavailableError("Proposed call grant is not eligible");
+	}
+	await deps.requireRunnableAgent(db, view.grant.agentScope);
+	const task = await deps.getTaskById(db, view.grant.taskScope);
+	if (!task) {
+		throw new ReengagementSourceUnavailableError("Proposed call task is unavailable");
+	}
+	return {
+		defaultAgentId: view.grant.agentScope,
+		sourceKind: "proposed_call",
+		sourceId: view.call.id,
+		streamId: `task:${task.id}`,
+		taskId: task.id,
+		teamId: task.teamId,
+		sourceCorrelation: {
+			taskId: task.id,
+			proposedCallId: view.call.id,
+			grantedAgentId: view.grant.agentScope,
+		},
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -238,7 +328,19 @@ export type ProposedCallTransition =
  * transition (composes grant + records reengagement intent inside one
  * 3-write tx). The `consumed` overload exposes its return type precisely
  * so callers never need to widen or cast.
+ *
+ * @lore AU21 §6 Decision B: `ports.getTaskById`/`ports.requireRunnableAgent`
+ * (both optional) let the `granted` transition resolve + bake the
+ * reengagement request at emit time, inside the SAME inner transaction that
+ * just inserted the tailored grant — `resolveReengagementRequest` reads it
+ * via `findProposedCall` with read-your-writes visibility. A bake failure is
+ * tolerated (caught, not propagated): rolling back the grant itself on a
+ * downstream agent-runnability failure would be a real behavior regression
+ * versus the pre-migration async-fail-then-retry model, matching the
+ * `knowledge_action` wave's precedent over `task_run`'s roll-back one.
  */
+type TransitionProposedCallPorts = Pick<ReviewPorts, "intentRecorder"> &
+	Partial<ReengagementResolverDeps>;
 export function transitionProposedCall(
 	tx: HyperIdleDb,
 	transition: Extract<ProposedCallTransition, { to: "consumed" }>,
@@ -246,12 +348,12 @@ export function transitionProposedCall(
 export function transitionProposedCall(
 	tx: HyperIdleDb,
 	transition: Exclude<ProposedCallTransition, { to: "consumed" }>,
-	ports?: Pick<ReviewPorts, "intentRecorder">,
+	ports?: TransitionProposedCallPorts,
 ): Promise<void>;
 export async function transitionProposedCall(
 	tx: HyperIdleDb,
 	transition: ProposedCallTransition,
-	ports?: Pick<ReviewPorts, "intentRecorder">,
+	ports?: TransitionProposedCallPorts,
 ): Promise<{ readonly proposedCallId: string } | null | void> {
 	switch (transition.to) {
 		case "held": {
@@ -286,12 +388,33 @@ export async function transitionProposedCall(
 					.set({ status: "granted" })
 					.where(and(eq(proposedCalls.id, transition.id), eq(proposedCalls.status, "captured")));
 				if (ports?.intentRecorder) {
+					// AU21 §6 Decision B: resolve + validate the reengagement run AT
+					// EMIT TIME (this same transaction — the grant read below was
+					// just inserted above) and bake the full request onto the
+					// intent. See the `@lore` on `transitionProposedCall`'s JSDoc for
+					// why a resolution failure here is caught, not propagated.
+					let bakedRequest: BakedReengagementRequest | undefined;
+					if (ports.getTaskById && ports.requireRunnableAgent) {
+						try {
+							bakedRequest = await resolveReengagementRequest(
+								innerTx as HyperIdleDb,
+								transition.id,
+								{
+									getTaskById: ports.getTaskById,
+									requireRunnableAgent: ports.requireRunnableAgent,
+								},
+							);
+						} catch {
+							bakedRequest = undefined;
+						}
+					}
 					const input: ReviewAgentWorkIntentInput = {
 						kind: "reengagement",
 						sourceKind: "proposed_call",
 						sourceId: transition.id,
 						requestedBy: transition.agentScope,
 						idempotencyKey: `grant:${transition.id}`,
+						bakedRequest,
 					};
 					await ports.intentRecorder.record(innerTx, input);
 				}
@@ -374,11 +497,18 @@ type LivenessIntentRecorder = Pick<ReviewPorts, "intentRecorder">["intentRecorde
  * (`reengageOnAdmissionFailure`, keyed directly on the proposed call the
  * intent named) apply IDENTICAL first-no-show/second-no-show semantics —
  * one behavior, two trigger points.
+ *
+ * @lore AU21 §6 Decision B: `bakeDeps` (optional) resolves + bakes the
+ * re-provision intent at emit time — this IS the second real emit site
+ * architecture.md names for `reengagement`, sharing `resolveReengagementRequest`
+ * with `transitionProposedCall({to:"granted"})`. A bake failure is tolerated
+ * (caught, not propagated) — same reasoning as the "granted" transition.
  */
 async function applyLivenessRetry(
 	db: HyperIdleDb,
 	grant: TailoredGrant,
 	intentRecorder: LivenessIntentRecorder,
+	bakeDeps?: Partial<ReengagementResolverDeps>,
 ): Promise<void> {
 	if (grant.retryCount === 0) {
 		// First no-show: increment retry, record reengagement intent
@@ -386,12 +516,24 @@ async function applyLivenessRetry(
 			.update(tailoredGrants)
 			.set({ retryCount: 1 })
 			.where(eq(tailoredGrants.proposedCallId, grant.proposedCallId));
+		let bakedRequest: BakedReengagementRequest | undefined;
+		if (bakeDeps?.getTaskById && bakeDeps?.requireRunnableAgent) {
+			try {
+				bakedRequest = await resolveReengagementRequest(db, grant.proposedCallId, {
+					getTaskById: bakeDeps.getTaskById,
+					requireRunnableAgent: bakeDeps.requireRunnableAgent,
+				});
+			} catch {
+				bakedRequest = undefined;
+			}
+		}
 		const input: ReviewAgentWorkIntentInput = {
 			kind: "reengagement",
 			sourceKind: "proposed_call",
 			sourceId: grant.proposedCallId,
 			requestedBy: grant.agentScope,
 			idempotencyKey: `liveness:retry1:${grant.proposedCallId}`,
+			bakedRequest,
 		};
 		await intentRecorder.record(db, input);
 	} else {
@@ -415,7 +557,7 @@ export async function handleUnconsumedGrantOnSessionEnd(
 		taskId: string;
 		agentId: string;
 		intentRecorder: LivenessIntentRecorder;
-	},
+	} & Partial<ReengagementResolverDeps>,
 ): Promise<void> {
 	const grants = await db
 		.select()
@@ -433,7 +575,10 @@ export async function handleUnconsumedGrantOnSessionEnd(
 	}
 
 	for (const grant of grants) {
-		await applyLivenessRetry(db, grant, opts.intentRecorder);
+		await applyLivenessRetry(db, grant, opts.intentRecorder, {
+			getTaskById: opts.getTaskById,
+			requireRunnableAgent: opts.requireRunnableAgent,
+		});
 	}
 }
 
@@ -450,7 +595,7 @@ export async function reengageOnAdmissionFailure(
 	opts: {
 		proposedCallId: string;
 		intentRecorder: LivenessIntentRecorder;
-	},
+	} & Partial<ReengagementResolverDeps>,
 ): Promise<void> {
 	const [grant] = await db
 		.select()
@@ -461,5 +606,8 @@ export async function reengageOnAdmissionFailure(
 		return;
 	}
 
-	await applyLivenessRetry(db, grant, opts.intentRecorder);
+	await applyLivenessRetry(db, grant, opts.intentRecorder, {
+		getTaskById: opts.getTaskById,
+		requireRunnableAgent: opts.requireRunnableAgent,
+	});
 }

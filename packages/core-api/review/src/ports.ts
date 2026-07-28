@@ -27,6 +27,7 @@ import type {
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
+import type { BakedWorkIntentRequest } from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
 // ReviewAgentWorkIntentInput — exported (the recorder's contract)
@@ -38,6 +39,13 @@ export interface ReviewAgentWorkIntentInput {
 	readonly sourceId: string;
 	readonly requestedBy?: string;
 	readonly idempotencyKey: string;
+	/**
+	 * See `BakedWorkIntentRequest`. Populated at emit time by
+	 * `proposed-call-workflow.ts`'s `resolveReengagementRequest` (AU21
+	 * Increment 3) — both real call sites (`transitionProposedCall({to:
+	 * "granted"})` and `applyLivenessRetry`'s first-no-show re-provision).
+	 */
+	readonly bakedRequest?: BakedWorkIntentRequest;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,4 +112,13 @@ export interface ReviewPorts {
 		): Promise<string[]>;
 	};
 	readonly intentRecorder: ReviewAgentWorkIntentRecorder;
+	/**
+	 * AU21 §6 Decision B — the shared ast-`<userId>` runnability invariant
+	 * (`@hyperidle/users`' `requireRunnableAgent`), injected because `review`
+	 * cannot statically import `@hyperidle/users` (Mechanism C). Used by
+	 * `proposed-call-workflow.ts`'s `resolveReengagementRequest` (via
+	 * `registerReviewSubscriptions`'s liveness-net wiring) to validate the
+	 * grant's resolved agent at emit time, never trusting the flagging actor.
+	 */
+	readonly requireRunnableAgent: (db: HyperIdleDb, agentId: string) => Promise<unknown>;
 }

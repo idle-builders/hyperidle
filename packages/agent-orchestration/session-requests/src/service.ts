@@ -720,28 +720,41 @@ async function resolveIntentInputInternal(
 	};
 	switch (intent.kind) {
 		// AU21 §6 Decision B / Increment 3: "assistant_turn", "session_start",
-		// "task_run", "bet_decomposition", and "knowledge_action" are migrated —
-		// their resolution now happens at emit time
+		// "task_run", "bet_decomposition", "knowledge_action", and
+		// "reengagement" are migrated — their resolution now happens at emit
+		// time
 		// (`packages/core-api/conversation/src/assistant-turn-resolver.ts`,
 		// `packages/core-api/work/src/session-start-resolver.ts`,
 		// `packages/core-api/work/src/task-run-resolver.ts`,
 		// `packages/core-api/work/src/bet-decomposition.ts`'s
 		// `resolveBetDecompositionRequest`,
 		// `packages/core-api/knowledge/src/knowledge-action-resolver.ts`'s
-		// `resolveKnowledgeActionRequest`), baked onto the intent
+		// `resolveKnowledgeActionRequest`,
+		// `packages/core-api/review/src/proposed-call-workflow.ts`'s
+		// `resolveReengagementRequest`), baked onto the intent
 		// (`agentWorkIntents.bakedRequestJson`). Every real emit site
 		// (`routes/threads.ts`, `routes/sessions-routes.ts`,
 		// `task-state-machine.ts`, `bet-decomposition.ts`,
-		// `handoff-protocol.ts`, `routes/knowledge.ts`) always ATTEMPTS to
-		// populate it; `routes/knowledge.ts`'s flag handler is the one call site
-		// that can legitimately leave it unset (the resolver rejects a
-		// non-runnable resolved target, e.g. a knowledge item last touched by a
-		// human — caught there so the flag write itself never rolls back). Any
-		// unbaked row of these five kinds falls through to `default` below and
-		// fails `INVALID_WORK_SOURCE` — the same terminal-failure shape a truly
+		// `handoff-protocol.ts`, `routes/knowledge.ts`,
+		// `proposed-call-workflow.ts`'s "granted" transition + first-no-show
+		// liveness retry) always ATTEMPTS to populate it; `routes/knowledge.ts`'s
+		// flag handler and `proposed-call-workflow.ts`'s bake calls are the call
+		// sites that can legitimately leave it unset (the resolver rejects a
+		// non-runnable resolved target — caught there so the underlying
+		// transition/write itself never rolls back). Any unbaked row of these
+		// six kinds falls through to `default` below and fails
+		// `INVALID_WORK_SOURCE` — the same terminal-failure shape a truly
 		// invalid source produced before this migration (and, for
-		// `knowledge_action`, the identical shape its own now-deleted per-kind
-		// case produced for this exact scenario).
+		// `knowledge_action`/`reengagement`, the identical shape their own
+		// now-deleted per-kind cases produced for this exact scenario).
+		//
+		// `routine_run` remains the ONE case still resolved at drain time,
+		// deliberately deferred to Increment 4 (§6 Decision B's placement
+		// ruling: its resolver co-locates with the routine scheduler once
+		// Decision B′/B″ move the scheduler core-side — until then there is no
+		// legitimate emit-time core-api hook to bake into without
+		// re-introducing a cross-layer read from the still-orchestration-housed
+		// scheduler).
 		case "routine_run": {
 			const run = await deps.routine.getRoutineRunById(db, intent.sourceId);
 			if (!run || run.outcome !== "running")
@@ -778,28 +791,6 @@ async function resolveIntentInputInternal(
 				teamId: routine.teamId,
 				taskId: null,
 				sourceCorrelation: { routineId: routine.id, routineRunId: runId, teamId: routine.teamId },
-			};
-		}
-		case "reengagement": {
-			const granted = await deps.review.findGrantedProposedCall(db, intent.sourceId);
-			if (granted?.call.status !== "granted")
-				throw new InvalidAgentWorkSourceError("Proposed call grant is not eligible");
-			await requireRunnableActor(db, deps, granted.grant.agentScope);
-			const task = await deps.work.getTaskById(db, granted.grant.taskScope);
-			if (!task) throw new InvalidAgentWorkSourceError("Proposed call task is unavailable");
-			return {
-				...common,
-				defaultAgentId: granted.grant.agentScope,
-				sourceKind: "proposed_call",
-				sourceId: granted.call.id,
-				streamId: `task:${task.id}`,
-				taskId: task.id,
-				teamId: task.teamId,
-				sourceCorrelation: {
-					taskId: task.id,
-					proposedCallId: granted.call.id,
-					grantedAgentId: granted.grant.agentScope,
-				},
 			};
 		}
 		default:

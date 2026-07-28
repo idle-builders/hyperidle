@@ -1562,7 +1562,16 @@ export function createThreadRoutes(
 						approvedArgs: pcView.call.args,
 						identityHash: pcView.call.identityHash,
 					},
-					{ intentRecorder: { record: enqueueWorkIntent } },
+					{
+						intentRecorder: { record: enqueueWorkIntent },
+						// AU21 §6 Decision B: resolve + validate the reengagement run AT
+						// EMIT TIME (this Service's own domain state, plus the shared
+						// ast-<userId> runnability invariant) and bake the full request
+						// onto the intent — the drain dispatches it directly, with zero
+						// domain reads.
+						getTaskById: (execDb: HyperIdleDb, id: string) => work.get(execDb, "task", id),
+						requireRunnableAgent,
+					},
 				);
 
 				const event: ProposedCallGrantedEvent = {

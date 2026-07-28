@@ -16,7 +16,7 @@ import { resolveReviewRecipients } from "@hyperidle/org";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
-import { findUser, listUsers } from "@hyperidle/users";
+import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -48,6 +48,7 @@ const reviewDeps: ReviewPorts = {
 	},
 	org: { resolveReviewRecipients },
 	intentRecorder: { record: enqueueWorkIntent },
+	requireRunnableAgent,
 };
 
 async function seedBase(db: HyperIdleDb): Promise<void> {

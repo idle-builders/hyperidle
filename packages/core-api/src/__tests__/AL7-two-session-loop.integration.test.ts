@@ -378,6 +378,11 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			users: { getUserById: async () => undefined, listUsersByKind: async () => [] },
 			org: { resolveReviewRecipients: async () => [] },
 			intentRecorder,
+			// AU21 §6 Decision B: bake-deps stub — the liveness net's bake attempt
+			// tolerates failure (getTaskById above always returns undefined, so
+			// the bake throws and is caught), matching this suite's existing
+			// "only intentRecorder matters" precedent.
+			requireRunnableAgent: async () => undefined,
 		};
 	}
 

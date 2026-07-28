@@ -41,6 +41,7 @@ import {
 import * as routineService from "@hyperidle/routine";
 import { enqueueWorkIntent, transitionSessionRequest } from "@hyperidle/session-requests";
 import { type AgentRunAdmissionFailedEvent, createLogger, type EventBus } from "@hyperidle/shared";
+import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 
 const logger = createLogger({ pkg: "core-api.agent-run-admission-reactions" });
@@ -114,6 +115,10 @@ async function reactToAdmissionFailure(
 			await reengageOnAdmissionFailure(db, {
 				proposedCallId: event.sourceId,
 				intentRecorder: { record: enqueueWorkIntent },
+				// AU21 §6 Decision B: bake the re-provision request at emit time —
+				// see `applyLivenessRetry`'s `@lore` in `proposed-call-workflow.ts`.
+				getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+				requireRunnableAgent,
 			});
 			return;
 		case "assistant_turn":
