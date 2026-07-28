@@ -220,7 +220,6 @@ function mapErrorToNotice(err: unknown): {
 async function persistTurnFailureInternal(
 	ports: DispatchPorts,
 	db: HyperIdleDb,
-	eventBus: EventBus,
 	userId: string,
 	threadId: string,
 	err: unknown,
@@ -233,6 +232,12 @@ async function persistTurnFailureInternal(
 	const notice: PlainPayload["notice"] = code ? { kind, code } : { kind };
 	const payload: PlainPayload = { text, notice };
 
+	// @lore AU21 §9 Increment 2: `insertMessage` now routes through the
+	// CoreApiPort seam (`POST /threads/:id/messages`), which is the canonical
+	// `thread_message_appended` emitter (real, route-generated message id).
+	// Do NOT also emit here — that would double-fire the event with a stale
+	// local `messageId` that matches no persisted row (the seam intentionally
+	// drops the locally-generated id in favor of the route's own).
 	await ports.conversation.insertMessage(db, {
 		id: messageId,
 		senderId: assistantAgentId,
@@ -242,17 +247,6 @@ async function persistTurnFailureInternal(
 		clientKey: `ast-notice-${messageId}`,
 		createdAt: now,
 	});
-
-	const appendedEvent: ThreadMessageAppendedEvent = {
-		type: "thread_message_appended",
-		streamId: threadId,
-		threadId,
-		messageId,
-		messageType: "plain",
-		senderId: assistantAgentId,
-		timestamp: Date.now(),
-	};
-	eventBus.emit(appendedEvent);
 }
 
 async function executeAssistantRequestInternal(
@@ -334,7 +328,7 @@ async function runTurnInternal(
 			} catch {}
 		} catch (err) {
 			if (err instanceof MissingCredentialError) {
-				await persistTurnFailureInternal(ports, db, eventBus, userId, threadId, err);
+				await persistTurnFailureInternal(ports, db, userId, threadId, err);
 				return;
 			}
 			throw err;
@@ -345,7 +339,6 @@ async function runTurnInternal(
 			await persistTurnFailureInternal(
 				ports,
 				db,
-				eventBus,
 				userId,
 				threadId,
 				new MissingCredentialError("anthropic_api_key (required; not in env)"),
@@ -434,6 +427,11 @@ async function runTurnInternal(
 						}
 					: {}),
 			};
+			// @lore AU21 §9 Increment 2: `insertMessage` now routes through the
+			// CoreApiPort seam (`POST /threads/:id/messages`), which is the
+			// canonical `thread_message_appended` emitter (real, route-generated
+			// message id). Do NOT also emit here — see `persistTurnFailureInternal`'s
+			// note above for the double-emission this used to cause.
 			await ports.conversation.insertMessage(db, {
 				id: messageId,
 				senderId: assistantAgentId,
@@ -443,21 +441,10 @@ async function runTurnInternal(
 				clientKey: `ast-reply-${messageId}`,
 				createdAt: now,
 			});
-			const appendedEvent: ThreadMessageAppendedEvent = {
-				type: "thread_message_appended",
-				streamId: threadId,
-				threadId,
-				messageId,
-				messageType: "plain",
-				senderId: assistantAgentId,
-				timestamp: Date.now(),
-			};
-			eventBus.emit(appendedEvent);
 		} else if (result.outcome === "completed" && !result.conversationalReply) {
 			await persistTurnFailureInternal(
 				ports,
 				db,
-				eventBus,
 				userId,
 				threadId,
 				new ProviderTimeoutError(), // best-fit notice class for empty/missing reply
@@ -466,14 +453,13 @@ async function runTurnInternal(
 			await persistTurnFailureInternal(
 				ports,
 				db,
-				eventBus,
 				userId,
 				threadId,
 				new Error(`Conversational turn ended with outcome: ${result.outcome}`),
 			);
 		}
 	} catch (err) {
-		await persistTurnFailureInternal(ports, db, eventBus, userId, threadId, err);
+		await persistTurnFailureInternal(ports, db, userId, threadId, err);
 	}
 }
 

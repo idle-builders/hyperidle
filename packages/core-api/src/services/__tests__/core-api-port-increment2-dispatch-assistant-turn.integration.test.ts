@@ -288,6 +288,19 @@ describe("dispatch assistant-turn writes — Increment 2 conversation wave wirin
 		const ports = buildDispatchPortsForAssistantTurnMigration(app, assistantAgentId);
 		const dispatchOps = createDispatchOps(ports);
 
+		// The seam's `POST /threads/:id/messages` route is the canonical
+		// `thread_message_appended` emitter for this write — dispatch must NOT
+		// also emit its own copy (that would double-fire with a stale local
+		// messageId matching no persisted row). Count emissions on the SAME
+		// eventBus the route publishes to.
+		const appendedEvents: ThreadMessageAppendedEvent[] = [];
+		const unsubscribe = eventBus.on(
+			"thread_message_appended",
+			(event: ThreadMessageAppendedEvent) => {
+				if (event.threadId === threadId) appendedEvents.push(event);
+			},
+		);
+
 		const deps: RunAssistantTurnDeps = { db, eventBus, adapterPool: {} };
 		const request = buildAssistantSessionRequest({
 			id: "asr-dispatch-notice",
@@ -297,12 +310,16 @@ describe("dispatch assistant-turn writes — Increment 2 conversation wave wirin
 		});
 
 		await dispatchOps.runAssistantTurn(deps, request);
+		unsubscribe();
 
 		const rows = await db.select().from(messages).where(eq(messages.threadId, threadId));
 		const notice = rows.find((r) => r.senderId === assistantAgentId);
 		expect(notice).toBeDefined();
 		const payload = JSON.parse(notice?.payload ?? "{}") as { notice?: { kind: string } };
 		expect(payload.notice?.kind).toBe("missing_key");
+
+		expect(appendedEvents).toHaveLength(1);
+		expect(appendedEvents[0]?.messageId).toBe(notice?.id);
 	});
 
 	test("runAssistantTurn's failure-notice write is rejected (not silently bypassed) with no seam credentials", async ({
