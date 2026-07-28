@@ -495,6 +495,10 @@ export function registerObservabilityDispatcher(
 			// AU9 durable handoff/lifecycle facts are consumed by domain projections.
 			case "agent_work_intent_recorded":
 			case "agent_run_lifecycle_changed":
+			// AU21 §6 Decision B4: the pre-handoff failure report-back channel —
+			// consumed by `registerAgentRunAdmissionReactions`, not an
+			// observability event.
+			case "agent_run_admission_failed":
 			// AL6: return-gate escape surface — surfaced via bus, not an observability metric.
 			case "session_not_returned":
 			// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion —

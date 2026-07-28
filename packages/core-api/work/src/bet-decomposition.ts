@@ -318,8 +318,14 @@ export async function resolveOrphanedDecompositions(db: HyperIdleDb): Promise<nu
 
 /**
  * Write a terminal decompositionStatus to the bet. Used in all early-exit paths.
+ *
+ * @lore AU21 Increment 3 Wave 0 (§10 subscriber table): exported so the
+ * `bet_decomposition` reaction to a terminal `agent_run_admission_failed`
+ * (`agent-run-admission-reactions.ts`) reuses this SAME helper — one more
+ * caller of the pattern already used by every other early-exit path in this
+ * file, not a new mechanism.
  */
-async function markTerminal(
+export async function markTerminal(
 	db: HyperIdleDb,
 	betId: string,
 	status: "done" | "blocked",

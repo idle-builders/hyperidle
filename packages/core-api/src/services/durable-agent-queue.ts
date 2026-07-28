@@ -70,8 +70,6 @@ const ports = {
 	routine: {
 		getRoutineRunById: routineService.getRoutineRun,
 		getRoutineById: routineService.getRoutine,
-		updateRoutineRunIfRunning: (exec: WriteExecutor, id: string, patch: object) =>
-			routineService.updateRoutineRun(exec, id, patch, { onlyIfRunning: true }),
 	},
 	work: {
 		getTaskById: (exec: import("@hyperidle/db").WriteExecutor, id: string) =>

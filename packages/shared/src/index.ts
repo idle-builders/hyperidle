@@ -1,5 +1,11 @@
 // ── AV3: Scope bucket label helper (SSOT — used by server + web) ──
 
+// ── AU21 §6 Decision B4/§12: shared pre-handoff failure emission ──
+export {
+	isAgentWorkIntentKind,
+	isAgentWorkIntentSourceKind,
+	reportAdmissionFailure,
+} from "./agent-run-admission.js";
 // ── AU19 §11 (AC-9): cross-Layer AgentWorkIntentRecorder/Reader seam ──
 export type {
 	AgentWorkIntentReader,
@@ -156,14 +162,18 @@ export {
 	MissingCredentialError,
 	NoEligibleHarnessError,
 	ProviderTimeoutError,
+	TargetAgentNotRunnableError,
 	VersionConflictError,
 } from "./errors.js";
 export { EventBus } from "./event-bus.js";
 export type {
 	AgentAddedEvent,
+	AgentRunAdmissionFailedEvent,
+	AgentRunAdmissionFailureCode,
 	AgentRunLifecycleChangedEvent,
 	AgentWorkIntentEvent,
 	AgentWorkIntentKind,
+	AgentWorkIntentSourceKind,
 	ArtifactCreatedEvent,
 	BetRevisedEvent,
 	BetStateChangedEvent,

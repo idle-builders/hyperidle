@@ -25,17 +25,22 @@ import {
 	triggerResolutionHistory,
 } from "@hyperidle/db";
 import type {
+	AgentRunAdmissionFailureCode,
 	AgentSessionRequestInput,
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
 	ConfigurationKind,
+	EventBus,
 	ResolvedConfigurationItem,
 	TriggerEventType,
 	TriggerResolutionResult,
 } from "@hyperidle/shared";
 import {
 	agentSessionRequestInputSchema,
+	isAgentWorkIntentKind,
+	isAgentWorkIntentSourceKind,
 	isTriggerEventType,
+	reportAdmissionFailure,
 	TriggerRuleValueSchema,
 } from "@hyperidle/shared";
 import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
@@ -970,11 +975,13 @@ async function failOrRelease(
 		error instanceof InvalidAgentWorkSourceError ||
 		intent.attempts >= (options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
 	const delay = Math.min(1e3 * 2 ** Math.max(0, intent.attempts - 1), MAX_BACKOFF_MS);
-	const lastErrorCode = terminal
-		? error instanceof InvalidAgentWorkSourceError
-			? "INVALID_WORK_SOURCE"
-			: "MAX_ATTEMPTS_EXCEEDED"
-		: null;
+	// @lore AU21 §10: this classification also drives the NEW
+	// `agent_run_admission_failed` event's `failureCode` below, not just the
+	// row's `lastErrorCode` — see that emission for why a non-terminal attempt
+	// still needs a value even though architecture.md doesn't pin one exactly
+	// (flagged CONFUSION in this wave's report).
+	const failureCode: AgentRunAdmissionFailureCode =
+		error instanceof InvalidAgentWorkSourceError ? "INVALID_WORK_SOURCE" : "MAX_ATTEMPTS_EXCEEDED";
 	await db
 		.update(agentWorkIntents)
 		.set({
@@ -982,19 +989,137 @@ async function failOrRelease(
 			claimToken: null,
 			claimExpiresAt: null,
 			lastError: error instanceof Error ? error.message : String(error),
-			lastErrorCode,
+			lastErrorCode: terminal ? failureCode : null,
 			updatedAt: terminal ? now.toISOString() : new Date(now.getTime() + delay).toISOString(),
 		})
 		.where(
 			and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, intent.claimToken)),
 		);
-	if (terminal && intent.kind === "routine_run") {
-		await deps.routine.updateRoutineRunIfRunning(db, intent.sourceId, {
-			outcome: "error",
-			endedAt: now.toISOString(),
-			errorMessage: lastErrorCode,
+	// @lore AU21 §6 Decision B4/§13: the OLD direct
+	// `deps.routine.updateRoutineRunIfRunning` write for a terminal
+	// `routine_run` failure is GONE — replaced by this event, reacted to by a
+	// core-api subscriber (`registerAgentRunAdmissionReactions`), for EVERY
+	// kind, not just `routine_run`. `deps.eventBus` is optional (back-compat
+	// with every pre-existing `queueDeps(db)` call site that never wired one).
+	// `reportAdmissionFailure` (the shared `@hyperidle/shared` construction+
+	// emission point) is also called by `run-orchestration`'s
+	// `runClaimedRequest` for the provisioning-time failure site (§12).
+	if (
+		deps.eventBus &&
+		isAgentWorkIntentKind(intent.kind) &&
+		isAgentWorkIntentSourceKind(intent.sourceKind)
+	) {
+		reportAdmissionFailure(deps.eventBus, {
+			intentId: intent.id,
+			kind: intent.kind,
+			sourceKind: intent.sourceKind,
+			sourceId: intent.sourceId,
+			failureCode,
+			terminal,
+			timestamp: now.getTime(),
 		});
 	}
+}
+/**
+ * AU21 Decision B‴ — before claiming/dispatching, check whether a FRESHER
+ * pending/claimed intent already exists for the same `(kind, sourceId)` work
+ * identity (a re-emit bumped `idempotencyKey` for outstanding work). Reuses
+ * the existing identity shape + AU9 CAS; own-state only, no core-api read.
+ */
+async function findNewerPendingSiblingInternal(
+	db: HyperIdleDb,
+	intent: AgentWorkIntent,
+): Promise<AgentWorkIntent | undefined> {
+	const [newer] = await db
+		.select()
+		.from(agentWorkIntents)
+		.where(
+			and(
+				eq(agentWorkIntents.kind, intent.kind),
+				eq(agentWorkIntents.sourceId, intent.sourceId),
+				sql`${agentWorkIntents.id} != ${intent.id}`,
+				inArray(agentWorkIntents.status, ["pending", "claimed"]),
+				or(
+					gt(agentWorkIntents.createdAt, intent.createdAt),
+					and(eq(agentWorkIntents.createdAt, intent.createdAt), gt(agentWorkIntents.id, intent.id)),
+				),
+			),
+		)
+		.orderBy(asc(agentWorkIntents.createdAt), asc(agentWorkIntents.id))
+		.limit(1);
+	return newer;
+}
+async function markSupersededInternal(db: HyperIdleDb, intent: AgentWorkIntent): Promise<void> {
+	if (!intent.claimToken) throw new Error(`Claimed intent ${intent.id} has no claim token`);
+	await db
+		.update(agentWorkIntents)
+		.set({
+			status: "superseded",
+			claimToken: null,
+			claimExpiresAt: null,
+			lastError: null,
+			updatedAt: /* @__PURE__ */ new Date().toISOString(),
+		})
+		.where(
+			and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, intent.claimToken)),
+		);
+}
+/** `intent.bakedRequestJson` parsed, or `undefined` for a not-yet-migrated kind. */
+function parseBakedRequest(intent: AgentWorkIntent): BakedWorkIntentRequest | undefined {
+	if (!intent.bakedRequestJson) return undefined;
+	return JSON.parse(intent.bakedRequestJson) as BakedWorkIntentRequest;
+}
+/**
+ * AU21 §9 Increment 3 co-existence scaffolding — an already-baked request is
+ * used DIRECTLY (zero domain reads): reconstruct the full `triggered` request
+ * shape from the persisted baked fields plus the two pieces trivially
+ * re-derivable from the intent row itself (`eventType`, `idempotencyKey`),
+ * then insert the session request straight away — no trigger-rule matching,
+ * no re-validation. The emit-time resolver already did that work.
+ */
+async function createFromBakedRequestInternal(
+	db: HyperIdleDb,
+	intent: AgentWorkIntent,
+	baked: BakedWorkIntentRequest,
+): Promise<{ readonly request: AgentSessionRequest }> {
+	const requestInput = agentSessionRequestInputSchema.parse({
+		sourceKind: baked.sourceKind,
+		sourceId: baked.sourceId,
+		streamId: baked.streamId,
+		agentId: baked.defaultAgentId,
+		teamId: baked.teamId,
+		userId: baked.userId,
+		taskId: baked.taskId,
+		promptMode: PROMPT_MODE_BY_SOURCE[baked.sourceKind],
+		idempotencyKey: intent.idempotencyKey,
+		sourceCorrelation: baked.sourceCorrelation,
+	});
+	const request = await insertRequestInternal(db, requestInput);
+	return { request };
+}
+async function handOffInternal(
+	db: HyperIdleDb,
+	intent: AgentWorkIntent,
+	claimToken: string,
+	now: Date,
+	createRequest: (tx: WriteExecutor) => Promise<{ readonly request: AgentSessionRequest }>,
+): Promise<void> {
+	await db.transaction(async (tx: WriteExecutor) => {
+		const { request } = await createRequest(tx);
+		const checkpoint = await tx
+			.update(agentWorkIntents)
+			.set({
+				status: "handed_off",
+				requestId: request.id,
+				claimToken: null,
+				claimExpiresAt: null,
+				lastError: null,
+				updatedAt: now.toISOString(),
+			})
+			.where(and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, claimToken)))
+			.returning({ id: agentWorkIntents.id });
+		if (checkpoint.length !== 1) throw new Error(`Lost intent custody ${intent.id}`);
+	});
 }
 async function processIntentsInternal(
 	db: HyperIdleDb,
@@ -1011,26 +1136,25 @@ async function processIntentsInternal(
 		if (!intent) return;
 		if (!intent.claimToken) throw new Error(`Claimed intent ${intent.id} has no claim token`);
 		const claimToken = intent.claimToken;
+
+		const supersededBy = await findNewerPendingSiblingInternal(db, intent);
+		if (supersededBy) {
+			await markSupersededInternal(db, intent);
+			continue;
+		}
+
 		try {
-			const input = await resolveIntentInputInternal(db, intent, deps);
-			await db.transaction(async (tx: WriteExecutor) => {
-				const { request } = await createTriggeredInternal(tx, input, deps);
-				const checkpoint = await tx
-					.update(agentWorkIntents)
-					.set({
-						status: "handed_off",
-						requestId: request.id,
-						claimToken: null,
-						claimExpiresAt: null,
-						lastError: null,
-						updatedAt: (options.now ?? (() => /* @__PURE__ */ new Date()))().toISOString(),
-					})
-					.where(
-						and(eq(agentWorkIntents.id, intent.id), eq(agentWorkIntents.claimToken, claimToken)),
-					)
-					.returning({ id: agentWorkIntents.id });
-				if (checkpoint.length !== 1) throw new Error(`Lost intent custody ${intent.id}`);
-			});
+			const baked = parseBakedRequest(intent);
+			if (baked) {
+				await handOffInternal(db, intent, claimToken, now, (tx) =>
+					createFromBakedRequestInternal(tx, intent, baked),
+				);
+			} else {
+				const input = await resolveIntentInputInternal(db, intent, deps);
+				await handOffInternal(db, intent, claimToken, now, (tx) =>
+					createTriggeredInternal(tx, input, deps),
+				);
+			}
 		} catch (error) {
 			await failOrRelease(db, deps, intent, error, options);
 		}
@@ -1063,6 +1187,7 @@ async function insertIntentInternal(db: WriteExecutor, input: WorkIntentInput) {
 			requestedBy: input.requestedBy ?? null,
 			idempotencyKey: input.idempotencyKey,
 			status: "pending",
+			bakedRequestJson: input.bakedRequest ? JSON.stringify(input.bakedRequest) : null,
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		})
@@ -1095,8 +1220,22 @@ async function findIntentSourceInternal(
 	return row;
 }
 async function findIntentRequestInternal(db: HyperIdleDb, requestId: string) {
+	// @lore AU21 §12: widened to also select `id`/`kind` (the exported overload
+	// already TYPED this Pick shape — `id`/`idempotencyKey` were declared but
+	// never actually selected, a latent pre-existing mismatch nothing had
+	// tripped since no caller read those fields). Now genuinely needed:
+	// `reportAdmissionFailure`'s provisioning-time call site correlates a
+	// post-handoff `AgentSessionRequest` failure back to the ORIGINAL intent's
+	// identity (`id`/`kind`/`sourceId`/`sourceKind`) to emit
+	// `agent_run_admission_failed` with the right shape.
 	const [row] = await db
-		.select({ sourceId: agentWorkIntents.sourceId, sourceKind: agentWorkIntents.sourceKind })
+		.select({
+			id: agentWorkIntents.id,
+			kind: agentWorkIntents.kind,
+			sourceId: agentWorkIntents.sourceId,
+			sourceKind: agentWorkIntents.sourceKind,
+			idempotencyKey: agentWorkIntents.idempotencyKey,
+		})
 		.from(agentWorkIntents)
 		.where(eq(agentWorkIntents.requestId, requestId))
 		.limit(1);
@@ -1501,6 +1640,25 @@ async function createTriggeredInternal(
 	return { request, resolution };
 }
 
+/**
+ * AU21 §6 Decision B / §10 — the emit-time-resolved request a migrated
+ * family's core-api resolver produces: the exact shape
+ * `resolveIntentInputInternal` returns per kind today, minus the fields
+ * (`eventType`, `idempotencyKey`) trivially re-derivable from the intent row
+ * itself at drain time. When an intent carries this, the drain dispatches it
+ * directly with ZERO domain reads instead of falling through to its per-kind
+ * resolution branch (the co-existence scaffolding — §9 Increment 3).
+ */
+export type BakedWorkIntentRequest = {
+	readonly defaultAgentId: string;
+	readonly sourceKind: AgentSessionSourceKind;
+	readonly sourceId: string;
+	readonly streamId: string;
+	readonly taskId?: string | null;
+	readonly teamId?: string;
+	readonly userId?: string;
+	readonly sourceCorrelation: AgentSessionSourceCorrelation;
+};
 export type WorkIntentInput = {
 	readonly kind:
 		| "assistant_turn"
@@ -1521,6 +1679,8 @@ export type WorkIntentInput = {
 	readonly sourceId: string;
 	readonly requestedBy?: string;
 	readonly idempotencyKey: string;
+	/** See `BakedWorkIntentRequest`. Absent for a not-yet-migrated kind (`routine_run` only, by the end of Increment 3). */
+	readonly bakedRequest?: BakedWorkIntentRequest;
 };
 export type CreateSessionRequestInput =
 	| { readonly kind: "direct"; readonly request: AgentSessionRequestInput }
@@ -1723,16 +1883,15 @@ export interface DurableAgentQueueDeps {
 	readonly routine: {
 		getRoutineRunById(exec: WriteExecutor, id: string): Promise<RoutineRun | undefined>;
 		getRoutineById(exec: WriteExecutor, id: string): Promise<Routine | undefined>;
-		updateRoutineRunIfRunning(
-			exec: WriteExecutor,
-			id: string,
-			patch: {
-				readonly outcome: "error";
-				readonly endedAt: string;
-				readonly errorMessage: string | null;
-			},
-		): Promise<void>;
 	};
+	/**
+	 * @lore AU21 §6 Decision B4: the pre-handoff failure report-back channel.
+	 * Optional so every existing `queueDeps(db)` call site (which never wired
+	 * one) keeps compiling unchanged — `failOrRelease` simply skips emission
+	 * when absent. Production call sites pass the real bus (composition-root
+	 * `{ ...queueDeps(db), eventBus }`) so the channel is genuinely live.
+	 */
+	readonly eventBus?: EventBus;
 	readonly conversation: {
 		getMessageById(exec: WriteExecutor, id: string): Promise<Message | undefined>;
 	};
@@ -1811,7 +1970,9 @@ export function findSessionRequest(
 export function findSessionRequest(
 	exec: HyperIdleDb,
 	query: Extract<FindQuery, { by: "intentSource" }>,
-): Promise<Pick<AgentWorkIntent, "id" | "idempotencyKey" | "sourceId" | "sourceKind"> | undefined>;
+): Promise<
+	Pick<AgentWorkIntent, "id" | "kind" | "idempotencyKey" | "sourceId" | "sourceKind"> | undefined
+>;
 export function findSessionRequest(exec: HyperIdleDb, query: FindQuery) {
 	return queryRequestInternal(exec, query);
 }

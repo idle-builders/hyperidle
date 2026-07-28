@@ -343,7 +343,11 @@ export function runtimeDeps(
 		...rest,
 		...(runtime ? { runtime: runtime as RuntimeInput } : {}),
 		ports: overrides.ports ?? runOrchestrationPorts,
-		durableQueue: overrides.durableQueue ?? queueDeps(db),
+		// @lore AU21 §6 Decision B4: wire the real eventBus into the drain's own
+		// deps bundle so `failOrRelease` can actually emit
+		// `agent_run_admission_failed` in production, not just in tests that
+		// build `queueDeps(db)` + `eventBus` by hand.
+		durableQueue: overrides.durableQueue ?? { ...queueDeps(db), eventBus },
 		composition: {
 			context: contextPorts,
 			provisioner: sessionLifecyclePorts,

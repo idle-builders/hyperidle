@@ -38,6 +38,7 @@ export type {
 export {
 	findProposedCall,
 	recordProposedCall,
+	reengageOnAdmissionFailure,
 	transitionProposedCall,
 } from "./proposed-call-workflow.js";
 // -- review-item creator (attention-engine knowledge-review items) --

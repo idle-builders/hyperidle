@@ -82,6 +82,7 @@ import { WebSocketServer } from "ws";
 import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
+import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { agentSelectionService } from "./services/agent-selection-bindings.js";
 import {
 	createInProcessCoreApiTransport,
@@ -345,6 +346,15 @@ export function registerCoreDomainServices(ctx: {
 			"lifecycle-projection drain",
 			"stops drain",
 			["drain interval"],
+		),
+	);
+
+	disposers.push(
+		identifyBootstrapOwner(
+			registerAgentRunAdmissionReactions(db, eventBus),
+			"agent-run-admission reactions",
+			"unsubscribe",
+			["agent_run_admission_failed subscription"],
 		),
 	);
 

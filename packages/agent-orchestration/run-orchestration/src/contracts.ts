@@ -102,12 +102,15 @@ interface DurableQueueDeps {
 	readonly routine: {
 		getRoutineRunById(exec: WriteExecutor, id: string): Promise<RoutineRun | undefined>;
 		getRoutineById(exec: WriteExecutor, id: string): Promise<Routine | undefined>;
-		updateRoutineRunIfRunning(
-			exec: WriteExecutor,
-			id: string,
-			patch: { outcome: "error"; endedAt: string; errorMessage: string | null },
-		): Promise<void>;
 	};
+	/**
+	 * @lore AU21 §6 Decision B4: mirrors `DurableAgentQueueDeps.eventBus` from
+	 * `@hyperidle/session-requests` (Mechanism C — this Service declares its
+	 * own structural copy rather than importing that type directly). Optional
+	 * for the same back-compat reason: existing `durableQueue` overrides that
+	 * never wired one keep compiling.
+	 */
+	readonly eventBus?: EventBus;
 	readonly conversation: {
 		getMessageById(exec: WriteExecutor, id: string): Promise<Message | undefined>;
 	};
@@ -205,7 +208,8 @@ export interface RuntimePorts {
 			exec: HyperIdleDb,
 			query: { by: "intentSource"; requestId: string },
 		): Promise<
-			Pick<AgentWorkIntent, "id" | "idempotencyKey" | "sourceId" | "sourceKind"> | undefined
+			| Pick<AgentWorkIntent, "id" | "kind" | "idempotencyKey" | "sourceId" | "sourceKind">
+			| undefined
 		>;
 		findSessionRequest(
 			exec: HyperIdleDb,

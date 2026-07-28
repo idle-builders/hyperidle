@@ -1,6 +1,7 @@
 import {
 	agentLifecycleInbox,
 	agentSessionRequests,
+	agentWorkIntents,
 	bets,
 	type HyperIdleDb,
 	tasks,
@@ -10,7 +11,12 @@ import {
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { createSessionRequest } from "@hyperidle/session-requests";
-import { type AgentSessionRequestInput, EventBus } from "@hyperidle/shared";
+import {
+	type AgentRunAdmissionFailedEvent,
+	type AgentSessionRequestInput,
+	EventBus,
+	TargetAgentNotRunnableError,
+} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import { runSession } from "../runtime.js";
@@ -239,5 +245,108 @@ describe("agent session runtime consumer", () => {
 			.where(eq(agentLifecycleInbox.requestId, request.id));
 		expect(facts).toHaveLength(1);
 		expect(facts[0]).toMatchObject({ state: "failed", sessionId: "failure-session" });
+	});
+
+	test("a deactivated-agent provisioning failure reports back via agent_run_admission_failed", async ({
+		db,
+	}) => {
+		const createdAt = new Date().toISOString();
+		await db.insert(teams).values({ id: "team-race", name: "Team", phase: "build", createdAt });
+		await db.insert(teamMembers).values({
+			id: "member-race",
+			teamId: "team-race",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: createdAt,
+		});
+		await db.insert(users).values({
+			id: "agent-race",
+			kind: "ai",
+			name: "Agent",
+			role: "builder",
+			// Deactivated between the intent's emit-time bake and this provisioning
+			// attempt — `admitSession` is mocked to reject exactly as the real
+			// Phase 1 status check now would (see `provisioner.ts`).
+			status: "retired",
+			createdAt,
+		});
+		await db.insert(bets).values({
+			id: "bet-race",
+			teamId: "team-race",
+			description: "Bet",
+			status: "active",
+			createdAt,
+		});
+		await db.insert(tasks).values({
+			id: "task-race",
+			betId: "bet-race",
+			teamId: "team-race",
+			title: "Task",
+			state: "accepted",
+			ownerAgentId: "agent-race",
+			createdAt,
+			updatedAt: createdAt,
+		});
+		const request = await createRequestForTest(db, {
+			sourceKind: "task",
+			sourceId: "task-race",
+			streamId: "task:task-race",
+			taskId: "task-race",
+			agentId: "agent-race",
+			teamId: "team-race",
+			promptMode: "task",
+			idempotencyKey: "task:task-race:deactivated",
+			sourceCorrelation: { taskId: "task-race", teamId: "team-race" },
+		});
+		// The already-handed-off intent this session request was baked from —
+		// `reportPreAdmissionProvisioningFailure` correlates the failure back to
+		// ITS identity (`sourceKind:"task_dispatch_attempt"`), not the resolved
+		// request's own (`sourceKind:"task"`).
+		await db.insert(agentWorkIntents).values({
+			id: "intent-race",
+			kind: "task_run",
+			sourceKind: "task_dispatch_attempt",
+			sourceId: "attempt-race",
+			idempotencyKey: "task:task-race:deactivated",
+			status: "handed_off",
+			requestId: request.id,
+			createdAt,
+			updatedAt: createdAt,
+		});
+
+		const ports = buildTestPorts();
+		vi.mocked(ports.sessionProvisioner!.admitSession).mockRejectedValue(
+			new TargetAgentNotRunnableError("agent-race"),
+		);
+		const eventBus = new EventBus();
+		const emitted: AgentRunAdmissionFailedEvent[] = [];
+		eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
+
+		await expect(
+			runSession({ db, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps, {
+				mode: "durable",
+				request,
+				sandboxBasePath: "/tmp/au21-race-test",
+			}),
+		).rejects.toThrow();
+
+		expect(emitted).toHaveLength(1);
+		expect(emitted[0]).toMatchObject({
+			type: "agent_run_admission_failed",
+			intentId: "intent-race",
+			kind: "task_run",
+			sourceKind: "task_dispatch_attempt",
+			sourceId: "attempt-race",
+			failureCode: "TARGET_AGENT_NOT_RUNNABLE",
+			terminal: true,
+		});
+
+		// Never proceeds with authority: no session/running request exists.
+		const [stored] = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.id, request.id));
+		expect(stored?.status).toBe("failed");
+		expect(stored?.sessionId).toBeNull();
 	});
 });

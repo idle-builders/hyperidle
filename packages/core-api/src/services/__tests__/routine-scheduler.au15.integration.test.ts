@@ -187,7 +187,17 @@ describe("terminal-failure finalization of session-less running runs", () => {
 		// throws InvalidAgentWorkSourceError (pre-hand-off, no session ever exists).
 		await routineService.updateRoutine(db, routineId, { active: false });
 
-		await drainIntents(queueDeps(db));
+		// @lore AU21 Increment 3 Wave 0 rewiring: the run's finalization no
+		// longer happens as a direct write inside `failOrRelease` — it is now a
+		// core-api subscriber reacting to the NEW `agent_run_admission_failed`
+		// event (`registerAgentRunAdmissionReactions`, wired onto the `eventBus`
+		// fixture). `drainIntents` must be given that same eventBus so
+		// `failOrRelease` can actually emit it; the reaction itself is async
+		// fire-and-forget (same pattern as every other EventBus reaction in this
+		// codebase, e.g. `lifecycle-propagation.ts`), so the finalize assertion
+		// below polls via `vi.waitFor` — the GUARANTEE (run finalizes to
+		// outcome="error", coalescing self-heals) is unchanged.
+		await drainIntents({ ...queueDeps(db), eventBus });
 
 		const [intent] = await db
 			.select()
@@ -195,12 +205,14 @@ describe("terminal-failure finalization of session-less running runs", () => {
 			.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
 		expect(intent?.status).toBe("failed");
 
-		const [finalizedRun] = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.id, run?.id ?? ""));
-		expect(finalizedRun?.outcome).toBe("error");
-		expect(finalizedRun?.endedAt).toBeTruthy();
+		await vi.waitFor(async () => {
+			const [finalizedRun] = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.id, run?.id ?? ""));
+			expect(finalizedRun?.outcome).toBe("error");
+			expect(finalizedRun?.endedAt).toBeTruthy();
+		});
 
 		// Self-healed: coalescing no longer blocks a fresh fire once reactivated.
 		await routineService.updateRoutine(db, routineId, { active: true });

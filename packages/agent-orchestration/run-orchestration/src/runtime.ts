@@ -8,7 +8,11 @@ import {
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type HarnessPortDeps,
+	isAgentWorkIntentKind,
+	isAgentWorkIntentSourceKind,
 	type RunContextBundle,
+	reportAdmissionFailure,
+	TargetAgentNotRunnableError,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
@@ -131,6 +135,48 @@ async function ensureClaimedRequest(
 	return claimed;
 }
 
+/**
+ * AU21 §12 (traced, not guessed): a PRE-admission failure in
+ * `runClaimedRequest` is the real "provisioning failed" gap — a deactivated
+ * agent (`TargetAgentNotRunnableError`, `provisioner.ts`'s Phase 1 status
+ * check) or any other hard infra failure building the session, before it
+ * ever started running. Reported back via the SAME pre-handoff
+ * `agent_run_admission_failed` channel `failOrRelease` uses (§6 B4) — no
+ * bespoke race mechanism. Extracted to keep `runClaimedRequest`'s catch
+ * block under the complexity ceiling.
+ */
+async function reportPreAdmissionProvisioningFailure(
+	deps: RuntimeProvisionDeps,
+	ports: ExecutionPorts,
+	requestId: string,
+	err: unknown,
+): Promise<void> {
+	const correlatedIntent = await ports.sessionRequests.findSessionRequest(deps.db, {
+		by: "intentSource",
+		requestId,
+	});
+	if (
+		!(
+			correlatedIntent &&
+			isAgentWorkIntentKind(correlatedIntent.kind) &&
+			isAgentWorkIntentSourceKind(correlatedIntent.sourceKind)
+		)
+	) {
+		return;
+	}
+	reportAdmissionFailure(deps.eventBus, {
+		intentId: correlatedIntent.id,
+		kind: correlatedIntent.kind,
+		sourceKind: correlatedIntent.sourceKind,
+		sourceId: correlatedIntent.sourceId,
+		failureCode:
+			err instanceof TargetAgentNotRunnableError
+				? "TARGET_AGENT_NOT_RUNNABLE"
+				: "PROVISIONING_FAILED",
+		terminal: true,
+	});
+}
+
 async function runClaimedRequest(
 	deps: RuntimeProvisionDeps,
 	request: AgentSessionRequest,
@@ -247,6 +293,13 @@ async function runClaimedRequest(
 			failureCode: err instanceof Error ? err.name : "Error",
 			errorMessage: err instanceof Error ? err.message : String(err),
 		});
+		// A POST-admission failure (a session actually started, then crashed)
+		// is NOT a provisioning failure — the `transitionAgentRunLifecycle`
+		// call above already covers that via the existing post-session
+		// channel, so only a PRE-admission failure reports here.
+		if (!admitted) {
+			await reportPreAdmissionProvisioningFailure(deps, ports, request.id, err);
+		}
 		throw err;
 	}
 }

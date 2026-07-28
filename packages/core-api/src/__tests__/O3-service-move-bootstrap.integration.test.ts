@@ -41,7 +41,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 		}
 	});
 
-	test("returns the exact nine named owners and invokes every distinct cleanup effect", async ({
+	test("returns the exact named owners and invokes every distinct cleanup effect", async ({
 		db,
 		eventBus,
 	}) => {
@@ -55,6 +55,11 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				owner: "lifecycle-projection drain",
 				cleanupEffect: "stops drain",
 				constituents: ["drain interval"],
+			},
+			{
+				owner: "agent-run-admission reactions",
+				cleanupEffect: "unsubscribe",
+				constituents: ["agent_run_admission_failed subscription"],
 			},
 			{
 				owner: "relevance listener",
@@ -132,6 +137,12 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 
 			expect(observedEffects).toEqual([
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
+				// @lore AU21 Increment 3 Wave 0: `registerAgentRunAdmissionReactions`
+				// is idempotent PER eventBus instance — the `eventBus` test fixture
+				// already registered it before this test's own
+				// `fullServiceBootstrap` call reaches it here, so THIS registration
+				// is a no-op disposer (no `off()` call, no interval).
+				{ unsubscribedEvents: [], clearedIntervals: 0 },
 				{ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 },
 				{ unsubscribedEvents: ["session_ended", "session_ended"], clearedIntervals: 0 },
 				{

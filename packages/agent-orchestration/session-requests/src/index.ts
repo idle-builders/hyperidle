@@ -1,5 +1,6 @@
 export {
 	type AgentLifecycleFact,
+	type BakedWorkIntentRequest,
 	type ClaimOptions,
 	type CreateSessionRequestInput,
 	claimSessionRequest,

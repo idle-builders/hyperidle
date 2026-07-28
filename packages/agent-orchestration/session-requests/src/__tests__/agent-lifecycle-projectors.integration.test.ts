@@ -72,7 +72,6 @@ function queueDeps(
 		routine: {
 			getRoutineRunById: async () => undefined,
 			getRoutineById: async () => undefined,
-			updateRoutineRunIfRunning: async () => {},
 		},
 		conversation: { getMessageById: async () => undefined },
 		review: { findGrantedProposedCall: async () => undefined },

@@ -86,6 +86,21 @@ export const taskDispatchAttemptStore = {
 				),
 			);
 	},
+	/**
+	 * @lore AU21 Increment 3 Wave 0 (§10 subscriber table): the `task_run`
+	 * reaction to a terminal `agent_run_admission_failed` marks the attempt
+	 * row failed by its OWN id — distinct from `updateIfActive` (keyed on
+	 * `requestId`, which never gets assigned for a PRE-handoff failure since
+	 * no `agentSessionRequests` row was ever created for this attempt).
+	 */
+	markFailed: async (exec: WriteExecutor, id: string) => {
+		await exec
+			.update(taskDispatchAttempts)
+			.set({ status: "failed", updatedAt: new Date().toISOString() })
+			.where(
+				and(eq(taskDispatchAttempts.id, id), inArray(taskDispatchAttempts.status, ["requested"])),
+			);
+	},
 	reapTerminal: async (exec: WriteExecutor, cutoff: string, batchSize: number) => {
 		const rows = await exec
 			.delete(taskDispatchAttempts)

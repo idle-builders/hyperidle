@@ -411,7 +411,6 @@ describe("agent session request repository", () => {
 			routine: {
 				getRoutineRunById: async () => undefined,
 				getRoutineById: async () => undefined,
-				updateRoutineRunIfRunning: async () => {},
 			},
 			config: { listConfiguration: async () => [] },
 			teams: { getTeamMembersByTeamId: async () => undefined },

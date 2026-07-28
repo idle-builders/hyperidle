@@ -246,6 +246,17 @@ describe("agent_work_intents durable-rows checks", () => {
 		).rejects.toThrow();
 	});
 
+	test("accepts a superseded status with no claim/request correlation", async ({ db }) => {
+		// A re-emit for the same (kind, sourceId) identity with a fresher
+		// idempotencyKey retires the older pending/claimed intent as
+		// `superseded` rather than `failed` — it was never an error.
+		const [row] = await db
+			.insert(agentWorkIntents)
+			.values(baseIntent({ id: "good-superseded", status: "superseded" }))
+			.returning();
+		expect(row).toBeDefined();
+	});
+
 	test("rejects a duplicate (kind, source_kind, source_id, idempotency_key)", async ({ db }) => {
 		await db.insert(agentWorkIntents).values(
 			baseIntent({

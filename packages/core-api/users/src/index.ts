@@ -35,6 +35,8 @@ export { dismissHint, listDismissedHints } from "./hint-progress.js";
 export { claimInvite, createInvite } from "./invite-code.js";
 // -- login session (S1 — bearer-token auth) --
 export { createLoginSession, revokeLoginSession, validateBearerToken } from "./login-session.js";
+// -- runnable-agent invariant (AU21 §6 Decision B — the shared ast-<userId> check) --
+export { AgentNotRunnableError, requireRunnableAgent } from "./runnable-agent.js";
 // -- upgrade token store (I2 — WS-handshake one-shot tokens, no table) --
 export type { UpgradeTokenStore } from "./upgrade-token-store.js";
 export { createUpgradeTokenStore } from "./upgrade-token-store.js";

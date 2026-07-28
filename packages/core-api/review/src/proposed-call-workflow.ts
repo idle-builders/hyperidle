@@ -365,12 +365,56 @@ export async function transitionProposedCall(
  * drift in a successful session 2 are trusted behavior — the liveness net
  * never trips on a session that consumed the grant.
  */
+type LivenessIntentRecorder = Pick<ReviewPorts, "intentRecorder">["intentRecorder"];
+
+/**
+ * Shared two-branch liveness-net body (AC11b), factored out so both the
+ * `session_ended` liveness net (`handleUnconsumedGrantOnSessionEnd`, keyed on
+ * task+agent) and the pre-handoff `agent_run_admission_failed` reaction
+ * (`reengageOnAdmissionFailure`, keyed directly on the proposed call the
+ * intent named) apply IDENTICAL first-no-show/second-no-show semantics —
+ * one behavior, two trigger points.
+ */
+async function applyLivenessRetry(
+	db: HyperIdleDb,
+	grant: TailoredGrant,
+	intentRecorder: LivenessIntentRecorder,
+): Promise<void> {
+	if (grant.retryCount === 0) {
+		// First no-show: increment retry, record reengagement intent
+		await db
+			.update(tailoredGrants)
+			.set({ retryCount: 1 })
+			.where(eq(tailoredGrants.proposedCallId, grant.proposedCallId));
+		const input: ReviewAgentWorkIntentInput = {
+			kind: "reengagement",
+			sourceKind: "proposed_call",
+			sourceId: grant.proposedCallId,
+			requestedBy: grant.agentScope,
+			idempotencyKey: `liveness:retry1:${grant.proposedCallId}`,
+		};
+		await intentRecorder.record(db, input);
+	} else {
+		// Second no-show: give up — transition PC to held + write failed Outcome
+		await db
+			.update(proposedCalls)
+			.set({ status: "held" })
+			.where(eq(proposedCalls.id, grant.proposedCallId));
+		await db.insert(operationOutcomes).values({
+			proposedCallId: grant.proposedCallId,
+			status: "failed",
+			error: "approved op did not execute: session 2 ended without consuming the grant",
+			executedAt: nowIso(),
+		});
+	}
+}
+
 export async function handleUnconsumedGrantOnSessionEnd(
 	db: HyperIdleDb,
 	opts: {
 		taskId: string;
 		agentId: string;
-		intentRecorder: Pick<ReviewPorts, "intentRecorder">["intentRecorder"];
+		intentRecorder: LivenessIntentRecorder;
 	},
 ): Promise<void> {
 	const grants = await db
@@ -389,32 +433,33 @@ export async function handleUnconsumedGrantOnSessionEnd(
 	}
 
 	for (const grant of grants) {
-		if (grant.retryCount === 0) {
-			// First no-show: increment retry, record reengagement intent
-			await db
-				.update(tailoredGrants)
-				.set({ retryCount: 1 })
-				.where(eq(tailoredGrants.proposedCallId, grant.proposedCallId));
-			const input: ReviewAgentWorkIntentInput = {
-				kind: "reengagement",
-				sourceKind: "proposed_call",
-				sourceId: grant.proposedCallId,
-				requestedBy: grant.agentScope,
-				idempotencyKey: `liveness:retry1:${grant.proposedCallId}`,
-			};
-			await opts.intentRecorder.record(db, input);
-		} else {
-			// Second no-show: give up — transition PC to held + write failed Outcome
-			await db
-				.update(proposedCalls)
-				.set({ status: "held" })
-				.where(eq(proposedCalls.id, grant.proposedCallId));
-			await db.insert(operationOutcomes).values({
-				proposedCallId: grant.proposedCallId,
-				status: "failed",
-				error: "approved op did not execute: session 2 ended without consuming the grant",
-				executedAt: nowIso(),
-			});
-		}
+		await applyLivenessRetry(db, grant, opts.intentRecorder);
 	}
+}
+
+/**
+ * AU21 Increment 3 Wave 0 (§10 subscriber table) — the `reengagement` reaction
+ * to a terminal `agent_run_admission_failed`: a granted proposed call whose
+ * re-provision never even reached a session (pre-handoff, not merely
+ * unconsumed-post-session) applies the SAME liveness-net retry/give-up
+ * pattern as the session-ended path, keyed directly on the proposed call the
+ * intent named rather than on (taskId, agentId).
+ */
+export async function reengageOnAdmissionFailure(
+	db: HyperIdleDb,
+	opts: {
+		proposedCallId: string;
+		intentRecorder: LivenessIntentRecorder;
+	},
+): Promise<void> {
+	const [grant] = await db
+		.select()
+		.from(tailoredGrants)
+		.where(eq(tailoredGrants.proposedCallId, opts.proposedCallId));
+
+	if (!grant) {
+		return;
+	}
+
+	await applyLivenessRetry(db, grant, opts.intentRecorder);
 }

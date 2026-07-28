@@ -48,7 +48,11 @@ export type {
 } from "./artifact-store.js";
 // -- bet decomposition (AK3) --
 export type { BetDecompositionDeps } from "./bet-decomposition.js";
-export { registerBetDecomposition, resolveOrphanedDecompositions } from "./bet-decomposition.js";
+export {
+	markTerminal,
+	registerBetDecomposition,
+	resolveOrphanedDecompositions,
+} from "./bet-decomposition.js";
 // -- bet kill cascade (AF12) --
 export { cascadeBetKill } from "./bet-kill-cascade.js";
 // -- bet state machine --

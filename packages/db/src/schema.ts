@@ -396,6 +396,15 @@ export const agentWorkIntents = pgTable(
 		attempts: integer("attempts").notNull().default(0),
 		lastError: text("last_error"),
 		lastErrorCode: text("last_error_code"),
+		/**
+		 * @lore AU21 Increment 3 Wave 0: the emit-time-resolved request
+		 * (`resolveIntentInputInternal`'s current per-kind return shape),
+		 * populated by a migrated family's emit-side resolver. When present the
+		 * drain uses it directly (zero domain reads); when absent (the one
+		 * remaining unmigrated case, `routine_run`) the drain falls through to
+		 * its existing per-kind resolution branch.
+		 */
+		bakedRequestJson: text("baked_request_json"),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 	},
@@ -421,7 +430,11 @@ export const agentWorkIntents = pgTable(
 		),
 		check(
 			"agent_work_intents_status_ck",
-			sql`${table.status} in ('pending','claimed','handed_off','failed')`,
+			// @lore AU21 Decision B‴: `superseded` added — a re-emit for the same
+			// (kind, sourceId) identity with a fresher idempotencyKey wins; the
+			// older pending/claimed intent is retired as `superseded` (never
+			// dispatched), not `failed` (it was not an error).
+			sql`${table.status} in ('pending','claimed','handed_off','failed','superseded')`,
 		),
 		/** @lore AU9 durable-rows: kind/source compatibility is a closed pairing map (§Family atomic enqueue). */
 		check(
@@ -449,6 +462,7 @@ export const agentWorkIntents = pgTable(
 				or (${table.status} = 'claimed' and ${table.claimToken} is not null and ${table.claimExpiresAt} is not null and ${table.requestId} is null)
 				or (${table.status} = 'handed_off' and ${table.requestId} is not null)
 				or (${table.status} = 'failed' and ${table.lastErrorCode} is not null)
+				or (${table.status} = 'superseded' and ${table.claimToken} is null and ${table.claimExpiresAt} is null and ${table.requestId} is null)
 			`,
 		),
 	],

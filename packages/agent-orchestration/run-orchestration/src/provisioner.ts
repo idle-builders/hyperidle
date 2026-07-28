@@ -38,6 +38,7 @@ import {
 	type SessionResult,
 	type SessionWorkflow,
 	scaleForCurrency,
+	TargetAgentNotRunnableError,
 	type TaskState,
 	type UserRole,
 } from "@hyperidle/shared";
@@ -1076,6 +1077,17 @@ async function admitSession(
 	const agent = await ports.users.getUserById(db, params.agentId);
 	if (!agent) {
 		throw new Error(`Agent not found: ${params.agentId}`);
+	}
+	// @lore AU21 §12: the emit→deactivate→drain race — the agent resolved
+	// runnable at emit/hand-off time may have been deactivated by the time
+	// provisioning actually reaches it. Traced (not guessed): before this
+	// check, a deactivated agent's row still existed and sailed through
+	// Phase 1 unchecked (only `!agent` was tested). Reported back via the
+	// same pre-handoff `agent_run_admission_failed` channel — see
+	// `runtime.ts`'s `runClaimedRequest` catch, `failureCode:
+	// "TARGET_AGENT_NOT_RUNNABLE"`.
+	if (agent.kind !== "ai" || !["active", "idle"].includes(agent.status)) {
+		throw new TargetAgentNotRunnableError(params.agentId);
 	}
 	const agentRole = agent.role;
 	const teamId = agent.teamId ?? undefined;

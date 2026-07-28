@@ -11,6 +11,23 @@ export type AgentWorkIntentKind =
 	| "task_run"
 	| "reengagement";
 
+/**
+ * The RAW `agent_work_intents.source_kind` vocabulary (the identity an intent
+ * was recorded under, pre-resolution) — distinct from `AgentSessionSourceKind`
+ * (the RESOLVED "session-source" vocabulary a chosen agent's request ends up
+ * carrying, e.g. `"decomposition"`/`"knowledge"`). `AgentRunAdmissionFailedEvent`
+ * fires from the drain against the STORED intent row, before (or instead of)
+ * resolution succeeds, so it carries this pre-resolution vocabulary verbatim.
+ */
+export type AgentWorkIntentSourceKind =
+	| "thread_message"
+	| "explicit_session_start"
+	| "knowledge_action"
+	| "routine_run"
+	| "bet"
+	| "task_dispatch_attempt"
+	| "proposed_call";
+
 export interface AgentWorkIntentEvent {
 	readonly type: "agent_work_intent_recorded";
 	readonly streamId: string;
@@ -19,6 +36,34 @@ export interface AgentWorkIntentEvent {
 	readonly sourceKind: AgentSessionSourceKind | "explicit_session_start";
 	readonly sourceId: string;
 	readonly idempotencyKey: string;
+	readonly timestamp: number;
+}
+
+export type AgentRunAdmissionFailureCode =
+	| "INVALID_WORK_SOURCE" // baked payload's source no longer exists / no longer eligible (domain-state staleness)
+	| "MAX_ATTEMPTS_EXCEEDED" // orchestration's own claim/dedup attempt budget (agentWorkIntents.attempts) exhausted
+	| "TARGET_AGENT_NOT_RUNNABLE" // resolved agent deactivated/non-existent between emit and provisioning (§12)
+	| "PROVISIONING_FAILED"; // hard infra failure building/deploying the session (harness/sandbox), not a domain problem
+
+/**
+ * AU21 §6 Decision B4 / §10 — the NEW pre-handoff failure report-back
+ * channel: `failOrRelease` (session-requests) emits this on every failed
+ * claim/dispatch attempt (before any session exists). `terminal===true`
+ * means orchestration's own claim/attempt budget is spent (or the error is
+ * unrecoverable by retry) — core-api MUST finalize its own state and decide
+ * retry(re-emit a fresh intent)/abandon. `terminal===false` is informational
+ * only (orchestration is still retrying internally); no core-api state
+ * mutation.
+ */
+export interface AgentRunAdmissionFailedEvent {
+	readonly type: "agent_run_admission_failed";
+	readonly streamId: string;
+	readonly intentId: string;
+	readonly kind: AgentWorkIntentKind;
+	readonly sourceKind: AgentWorkIntentSourceKind;
+	readonly sourceId: string;
+	readonly failureCode: AgentRunAdmissionFailureCode;
+	readonly terminal: boolean;
 	readonly timestamp: number;
 }
 
@@ -553,6 +598,7 @@ export interface ProposedCallGrantedEvent {
  */
 export type KernelEvent =
 	| AgentWorkIntentEvent
+	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
 	| TaskStateChangedEvent
 	| BetStateChangedEvent
