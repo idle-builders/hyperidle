@@ -720,40 +720,28 @@ async function resolveIntentInputInternal(
 	};
 	switch (intent.kind) {
 		// AU21 §6 Decision B / Increment 3: "assistant_turn", "session_start",
-		// "task_run", and "bet_decomposition" are migrated — their resolution
-		// now happens at emit time
+		// "task_run", "bet_decomposition", and "knowledge_action" are migrated —
+		// their resolution now happens at emit time
 		// (`packages/core-api/conversation/src/assistant-turn-resolver.ts`,
 		// `packages/core-api/work/src/session-start-resolver.ts`,
 		// `packages/core-api/work/src/task-run-resolver.ts`,
 		// `packages/core-api/work/src/bet-decomposition.ts`'s
-		// `resolveBetDecompositionRequest`), baked onto the intent
+		// `resolveBetDecompositionRequest`,
+		// `packages/core-api/knowledge/src/knowledge-action-resolver.ts`'s
+		// `resolveKnowledgeActionRequest`), baked onto the intent
 		// (`agentWorkIntents.bakedRequestJson`). Every real emit site
 		// (`routes/threads.ts`, `routes/sessions-routes.ts`,
 		// `task-state-machine.ts`, `bet-decomposition.ts`,
-		// `handoff-protocol.ts`) always populates it, so these cases are
-		// unreachable in production; a bare (unbaked) row of any of these four
-		// kinds falls through to `default` below and fails
-		// `INVALID_WORK_SOURCE` — the same terminal-failure shape a truly
-		// invalid source produced before this migration.
-		case "knowledge_action": {
-			const itemId = intent.sourceId.replace(/^knowledge:/, "");
-			const item = await deps.knowledge.findById(db, itemId);
-			if (!item || item.status === "archived")
-				throw new InvalidAgentWorkSourceError("Knowledge item is unavailable");
-			await requireRunnableActor(db, deps, item.updatedBy);
-			return {
-				...common,
-				defaultAgentId: item.updatedBy,
-				sourceKind: "knowledge",
-				sourceId: intent.sourceId,
-				streamId: `knowledge:${item.id}`,
-				sourceCorrelation: {
-					knowledgeItemId: item.id,
-					action: "review",
-					...(item.scopeId ? { scopeId: item.scopeId } : {}),
-				},
-			};
-		}
+		// `handoff-protocol.ts`, `routes/knowledge.ts`) always ATTEMPTS to
+		// populate it; `routes/knowledge.ts`'s flag handler is the one call site
+		// that can legitimately leave it unset (the resolver rejects a
+		// non-runnable resolved target, e.g. a knowledge item last touched by a
+		// human — caught there so the flag write itself never rolls back). Any
+		// unbaked row of these five kinds falls through to `default` below and
+		// fails `INVALID_WORK_SOURCE` — the same terminal-failure shape a truly
+		// invalid source produced before this migration (and, for
+		// `knowledge_action`, the identical shape its own now-deleted per-kind
+		// case produced for this exact scenario).
 		case "routine_run": {
 			const run = await deps.routine.getRoutineRunById(db, intent.sourceId);
 			if (!run || run.outcome !== "running")

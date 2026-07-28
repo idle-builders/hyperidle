@@ -38,6 +38,7 @@ import {
 	recomputeAttention,
 	recordAccess as recordKnowledgeAccess,
 	recordConflict as recordKnowledgeConflict,
+	resolveKnowledgeActionRequest,
 	search as searchKnowledge,
 	update as updateKnowledgeItem,
 	VersionConflictError,
@@ -61,7 +62,7 @@ import {
 	scopeKindToLabel,
 	scopeToLayer,
 } from "@hyperidle/shared";
-import { findUser } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
@@ -923,14 +924,46 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					reason: body.reason,
 					editId,
 				});
-				if (body.agentId)
+				if (body.agentId) {
+					// AU21 §6 Decision B: resolve + validate the knowledge_action run
+					// AT EMIT TIME (this Service's own domain state, plus the shared
+					// ast-<userId> runnability invariant) and bake the full request
+					// onto the intent — the drain dispatches it directly, with zero
+					// domain reads.
+					//
+					// @lore AU21 knowledge_action wave: the resolved target is the
+					// item's own `updatedBy` (whoever last touched it), NOT the
+					// flagging `agentId` — it can be a non-agent id (e.g. a human
+					// editor). Under the pre-migration drain-time model this never
+					// blocked the flag itself (resolution ran later, async, and a
+					// failure there was silent — only the eventual
+					// `agent_run_admission_failed` reaction fired). Resolving earlier
+					// must not newly gate the flag write on that outcome, so a
+					// resolution failure here is caught: the flag still commits, the
+					// intent is still recorded (unbaked, exactly the pre-migration
+					// shape), and it fails at drain immediately (zero domain reads,
+					// `default` case) — routing to the same knowledge_action
+					// admission-failure reaction (a review-flagged item) the
+					// pre-migration path already produced for this case.
+					let bakedRequest: Awaited<ReturnType<typeof resolveKnowledgeActionRequest>> | undefined;
+					try {
+						bakedRequest = await resolveKnowledgeActionRequest(
+							tx as HyperIdleDb,
+							`knowledge:${id}`,
+							{ requireRunnableAgent },
+						);
+					} catch {
+						bakedRequest = undefined;
+					}
 					intent = await enqueueWorkIntent(tx as HyperIdleDb, {
 						kind: "knowledge_action",
 						sourceKind: "knowledge_action",
 						sourceId: `knowledge:${id}`,
 						requestedBy: body.agentId,
 						idempotencyKey: `knowledge:${id}:review:${editId}`,
+						bakedRequest,
 					});
+				}
 			});
 
 			const updated = await getKnowledgeItem(db, id);

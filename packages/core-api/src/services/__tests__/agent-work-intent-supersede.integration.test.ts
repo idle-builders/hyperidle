@@ -14,10 +14,30 @@
  * Currently RED: the drain has no such check at all — both rows are
  * independently claimed and handed off in the same `drainIntents` pass,
  * producing TWO agentSessionRequests rows for one identity instead of one.
+ *
+ * @lore AU21 Increment 3, knowledge_action wave: this test's vehicle kind
+ * (`knowledge_action`, chosen at Wave 0 purely as a convenient seedable kind,
+ * before any resolver existed) is migrated by this wave —
+ * `resolveIntentInputInternal`'s "knowledge_action" case is DELETED, so an
+ * unbaked `knowledge_action` intent (the shape this test originally built)
+ * now falls through to `default` and fails immediately instead of resolving
+ * inline. Rewired to bake both intents via the real, now-migrated
+ * `resolveKnowledgeActionRequest` — the honest post-migration shape a real
+ * caller produces — so this test keeps proving the GENUINE own-state
+ * supersede/CAS guarantee (identical assertions) rather than a resolution
+ * path that no longer exists in production.
  */
 
-import { agentSessionRequests, agentWorkIntents, knowledgeItems, users } from "@hyperidle/db";
+import {
+	agentSessionRequests,
+	agentWorkIntents,
+	type HyperIdleDb,
+	knowledgeItems,
+	users,
+} from "@hyperidle/db";
+import { resolveKnowledgeActionRequest } from "@hyperidle/knowledge";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
+import { requireRunnableAgent } from "@hyperidle/users";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, test } from "../../test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
@@ -51,12 +71,23 @@ describe("agent_work_intents — Decision B‴ supersede (not-yet-started)", () 
 			})
 			.returning();
 
+		// @lore this test's identity/session-request assertions were written
+		// (Wave 0) against a bare item id, not the real emit site's
+		// `knowledge:<id>`-prefixed `sourceId` convention — kept as-is (only the
+		// resolution mechanism is being rewired here, not the test's own
+		// identity shape); `resolveKnowledgeActionRequest`'s prefix-strip is a
+		// no-op on a bare id, so this bakes correctly either way.
+		const bakedRequest = await resolveKnowledgeActionRequest(db as HyperIdleDb, item?.id ?? "", {
+			requireRunnableAgent,
+		});
+
 		const older = await enqueueWorkIntent(db, {
 			kind: "knowledge_action",
 			sourceKind: "knowledge_action",
 			sourceId: item?.id ?? "",
 			requestedBy: "wave0-supersede-agent",
 			idempotencyKey: "wave0-supersede-v1",
+			bakedRequest,
 		});
 		// Force the older row unambiguously earlier so ordering can never be a
 		// coin-flip between two same-millisecond inserts.
@@ -72,6 +103,7 @@ describe("agent_work_intents — Decision B‴ supersede (not-yet-started)", () 
 			sourceId: item?.id ?? "",
 			requestedBy: "wave0-supersede-agent",
 			idempotencyKey: "wave0-supersede-v2",
+			bakedRequest,
 		});
 
 		const deps = { ...queueDeps(db), eventBus };

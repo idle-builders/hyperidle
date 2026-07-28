@@ -45,6 +45,15 @@
 export { recomputeAttention } from "./attention-service.js";
 // -- errors --
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
+// -- knowledge_action resolver (AU21 §6 Decision B — emit-time resolve+bake) --
+export type {
+	BakedKnowledgeActionRequest,
+	KnowledgeActionResolverDeps,
+} from "./knowledge-action-resolver.js";
+export {
+	KnowledgeActionSourceUnavailableError,
+	resolveKnowledgeActionRequest,
+} from "./knowledge-action-resolver.js";
 // -- conflicts (knowledgeConflicts accessors) --
 export {
 	findOpenConflict,
