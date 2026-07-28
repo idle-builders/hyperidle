@@ -69,7 +69,12 @@ import {
 	updateServerConfig,
 } from "@hyperidle/settings";
 import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
-import { findUser, listUsers, reapExpiredCredentials, requireRunnableAgent } from "@hyperidle/users";
+import {
+	findUser,
+	listUsers,
+	reapExpiredCredentials,
+	requireRunnableAgent,
+} from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import {
 	getTaskRiskTierByTaskId,

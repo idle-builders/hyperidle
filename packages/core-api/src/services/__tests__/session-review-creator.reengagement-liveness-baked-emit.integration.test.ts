@@ -199,9 +199,7 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 		const [retryIntent] = await db
 			.select()
 			.from(agentWorkIntents)
-			.where(
-				and(eq(agentWorkIntents.kind, "reengagement"), eq(agentWorkIntents.sourceId, pcId)),
-			);
+			.where(and(eq(agentWorkIntents.kind, "reengagement"), eq(agentWorkIntents.sourceId, pcId)));
 		expect(retryIntent).toBeDefined();
 
 		// RED today: `applyLivenessRetry`'s retry-intent `record` call carries no

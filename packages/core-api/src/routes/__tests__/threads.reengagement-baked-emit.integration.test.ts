@@ -44,7 +44,13 @@ const NOW = new Date().toISOString();
 async function seedApprovableWorld(
 	db: HyperIdleDb,
 	idPrefix: string,
-): Promise<{ readonly threadId: string; readonly messageId: string; readonly taskId: string; readonly agentId: string; readonly teamId: string }> {
+): Promise<{
+	readonly threadId: string;
+	readonly messageId: string;
+	readonly taskId: string;
+	readonly agentId: string;
+	readonly teamId: string;
+}> {
 	const teamId = `${idPrefix}-team`;
 	const betId = `${idPrefix}-bet`;
 	const taskId = `${idPrefix}-task`;
