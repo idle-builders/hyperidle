@@ -15,6 +15,7 @@ import {
 	deriveTitle,
 	InvalidTransitionError,
 } from "@hyperidle/shared";
+import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
 import { Hono } from "hono";
@@ -808,6 +809,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// review thread). Synchronous so the UI's immediate refresh shows true state.
 			await cascadeBetKill(db, eventBus, betId, {
 				workIntents: { record: enqueueWorkIntent },
+				taskRunResolver: { requireRunnableAgent },
 			});
 			const updated = await work.get(db, "bet", betId);
 			if (!updated) {

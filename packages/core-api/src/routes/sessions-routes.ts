@@ -15,7 +15,9 @@ import {
 	type SessionOutcome,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
+import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import { resolveSessionStartRequest } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import z from "zod";
@@ -389,12 +391,23 @@ export function createSessionRoutes(
 								idempotencyKey,
 							},
 						});
+						// AU21 §6 Decision B: resolve + validate the session_start run AT
+						// EMIT TIME (this Service's own domain state, plus the shared
+						// ast-<userId> runnability invariant) and bake the full request
+						// onto the intent — the drain dispatches it directly, with zero
+						// domain reads.
+						const bakedRequest = await resolveSessionStartRequest(
+							tx as HyperIdleDb,
+							{ taskId: body.taskId, requestedAgentId: body.agentId },
+							{ requireRunnableAgent },
+						);
 						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "session_start",
 							sourceKind: "explicit_session_start",
 							sourceId: startId,
 							requestedBy,
 							idempotencyKey: `explicit-session-start:${startId}`,
+							bakedRequest,
 						});
 					});
 				}

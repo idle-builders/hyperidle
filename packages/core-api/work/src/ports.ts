@@ -107,7 +107,7 @@
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
-import type { EventBus, UserRole } from "@hyperidle/shared";
+import type { BakedWorkIntentRequest, EventBus, UserRole } from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
 // session-requests — AgentWorkIntentRecorder (§10.3 against-grain — RULED PERMANENT, see top @lore)
@@ -132,6 +132,8 @@ type WorkAgentWorkIntentInput =
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
+			/** See `BakedWorkIntentRequest`. Populated at emit time by `task-run-resolver.ts` (AU21 Increment 3). */
+			readonly bakedRequest?: BakedWorkIntentRequest;
 	  };
 
 interface WorkAgentWorkIntentRecord {

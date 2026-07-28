@@ -29,7 +29,12 @@ import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-reques
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
-import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
+import {
+	createUpgradeTokenStore,
+	findUser,
+	requireRunnableAgent,
+	type UpgradeTokenStore,
+} from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
@@ -578,6 +583,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			if (event.toState === "done") {
 				void checkAndUnblockDependents(db, eventBus, event.taskId, {
 					workIntents: { record: enqueueWorkIntent },
+					taskRunResolver: { requireRunnableAgent },
 				}).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
 						taskId: event.taskId,

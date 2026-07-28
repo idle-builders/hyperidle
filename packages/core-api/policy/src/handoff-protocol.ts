@@ -19,6 +19,7 @@ type HandoffDeps = {
 	users: Required<Pick<PolicyDeps["users"], "getUserById" | "findActiveTeammateByRole">>;
 	org: NonNullable<PolicyDeps["org"]>;
 	sessionRequests: NonNullable<PolicyDeps["sessionRequests"]>;
+	taskRunResolver: NonNullable<PolicyDeps["taskRunResolver"]>;
 };
 
 export interface HandoffMetadata {
@@ -326,12 +327,18 @@ export function buildHandoff(
 					createdAt: now,
 					updatedAt: now,
 				});
+				// AU21 §6 Decision B: resolve + validate the task_run run AT EMIT
+				// TIME (via the injected `work` resolver, since `policy` cannot
+				// import `@hyperidle/work` directly — Mechanism C) and bake the
+				// full request onto the intent.
+				const bakedRequest = await deps.taskRunResolver.resolve(tx, attemptId);
 				await deps.sessionRequests.record(tx, {
 					kind: "task_run",
 					sourceKind: "task_dispatch_attempt",
 					sourceId: attemptId,
 					requestedBy: txResult.targetAgentId,
 					idempotencyKey: `task-dispatch:${attemptId}`,
+					bakedRequest,
 				});
 			}
 

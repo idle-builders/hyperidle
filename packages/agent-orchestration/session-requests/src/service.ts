@@ -719,58 +719,19 @@ async function resolveIntentInputInternal(
 		idempotencyKey: intent.idempotencyKey,
 	};
 	switch (intent.kind) {
-		// AU21 §6 Decision B / Increment 3: "assistant_turn" is migrated —
-		// its resolution now happens at emit time in
-		// `packages/core-api/conversation/src/assistant-turn-resolver.ts`,
-		// baked onto the intent (`agentWorkIntents.bakedRequestJson`). The
-		// real emit site (`routes/threads.ts`) always populates it, so this
-		// case is unreachable in production; a bare (unbaked) `assistant_turn`
-		// row falls through to `default` below and fails
+		// AU21 §6 Decision B / Increment 3: "assistant_turn", "session_start",
+		// and "task_run" are migrated — their resolution now happens at emit
+		// time (`packages/core-api/conversation/src/assistant-turn-resolver.ts`,
+		// `packages/core-api/work/src/session-start-resolver.ts`,
+		// `packages/core-api/work/src/task-run-resolver.ts`), baked onto the
+		// intent (`agentWorkIntents.bakedRequestJson`). Every real emit site
+		// (`routes/threads.ts`, `routes/sessions-routes.ts`,
+		// `task-state-machine.ts`, `bet-decomposition.ts`,
+		// `handoff-protocol.ts`) always populates it, so these cases are
+		// unreachable in production; a bare (unbaked) row of any of these three
+		// kinds falls through to `default` below and fails
 		// `INVALID_WORK_SOURCE` — the same terminal-failure shape a truly
 		// invalid source produced before this migration.
-		case "session_start": {
-			const [start] = await db
-				.select()
-				.from(explicitSessionStarts)
-				.where(eq(explicitSessionStarts.id, intent.sourceId))
-				.limit(1);
-			if (!start || start.status !== "requested")
-				throw new InvalidAgentWorkSourceError("Explicit session start is unavailable");
-			await requireRunnableActor(db, deps, start.requestedAgentId);
-			const task = await deps.work.getTaskById(db, start.taskId);
-			if (!task) throw new InvalidAgentWorkSourceError("Explicit session task is unavailable");
-			return {
-				...common,
-				defaultAgentId: start.requestedAgentId,
-				sourceKind: "task",
-				sourceId: task.id,
-				streamId: `task:${task.id}`,
-				taskId: task.id,
-				teamId: task.teamId,
-				sourceCorrelation: { taskId: task.id, teamId: task.teamId },
-			};
-		}
-		case "task_run": {
-			const attempt = await deps.work.getTaskDispatchAttemptById(db, intent.sourceId);
-			if (!attempt || attempt.status !== "requested")
-				throw new InvalidAgentWorkSourceError("Task dispatch attempt is unavailable");
-			const task = await deps.work.getTaskById(db, attempt.taskId);
-			if (!(task && ["ready", "accepted", "in_progress"].includes(task.state)))
-				throw new InvalidAgentWorkSourceError("Task is not eligible for agent work");
-			if (task.ownerAgentId && task.ownerAgentId !== attempt.agentId)
-				throw new InvalidAgentWorkSourceError("Task owner changed after intent creation");
-			await requireRunnableActor(db, deps, attempt.agentId);
-			return {
-				...common,
-				defaultAgentId: attempt.agentId,
-				sourceKind: "task",
-				sourceId: task.id,
-				streamId: `task:${task.id}`,
-				taskId: task.id,
-				teamId: task.teamId,
-				sourceCorrelation: { taskId: task.id, teamId: task.teamId },
-			};
-		}
 		case "knowledge_action": {
 			const itemId = intent.sourceId.replace(/^knowledge:/, "");
 			const item = await deps.knowledge.findById(db, itemId);

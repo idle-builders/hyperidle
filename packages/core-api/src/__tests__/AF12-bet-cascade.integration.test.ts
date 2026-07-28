@@ -41,7 +41,7 @@ import { enqueue } from "@hyperidle/notifications";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import { findUser } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps, WorkDeps } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet } from "@hyperidle/work";
@@ -110,7 +110,10 @@ const lifecyclePropagationDeps: PolicyDeps = {
 };
 
 /** AU19 Increment 1b: `cascadeBetKill` forwards this to `transitionTask`. */
-const testDeps: TaskStateMachineDeps = { workIntents: { record: enqueueWorkIntent } };
+const testDeps: TaskStateMachineDeps = {
+	workIntents: { record: enqueueWorkIntent },
+	taskRunResolver: { requireRunnableAgent },
+};
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
 const teamCapacity: WorkDeps["teamCapacity"] = {

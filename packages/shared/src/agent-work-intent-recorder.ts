@@ -56,6 +56,8 @@ export type AgentWorkIntentRecorderInput =
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
+			/** See `BakedWorkIntentRequest`. Populated at emit time by the `work` resolver (AU21 Increment 3). */
+			readonly bakedRequest?: BakedWorkIntentRequest;
 	  };
 
 /** Application-injected port for `session-requests`' durable `agent_work_intents` writer (Mechanism C, §11). */

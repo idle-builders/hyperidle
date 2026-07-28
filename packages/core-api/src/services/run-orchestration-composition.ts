@@ -37,7 +37,7 @@ import {
 import { readServerConfig } from "@hyperidle/settings";
 import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
-import { findUser } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { transitionTask } from "@hyperidle/work";
 import { costOps } from "./cost-bindings.js";
@@ -101,7 +101,10 @@ const workAccessor: SessionLifecyclePorts["work"] = {
 			eventBus,
 			taskId,
 			toState,
-			{ workIntents: { record: enqueueWorkIntent } },
+			{
+				workIntents: { record: enqueueWorkIntent },
+				taskRunResolver: { requireRunnableAgent },
+			},
 			dispatchOccasion,
 		);
 	},

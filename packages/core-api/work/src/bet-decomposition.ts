@@ -40,7 +40,40 @@ import type {
 	WorkDecompositionPlan,
 	WorkUserRow,
 } from "./ports.js";
+import { resolveTaskRunRequest } from "./task-run-resolver.js";
 import * as work from "./work-service.js";
+
+/**
+ * @lore AU21 §6 Decision B / Increment 3: `bet-decomposition.ts` IS the emit
+ * site for `task_run` here (Decision B's placement ruling — extends this file
+ * in place, no separate resolver call site to wire). Unlike
+ * `task-state-machine.ts`/`handoff-protocol.ts` (Layer-level or sibling-
+ * package code that can import `@hyperidle/users`' real `requireRunnableAgent`
+ * and inject it), this file lives in the SAME package as `task-run-resolver.ts`
+ * — Mechanism C forbids a nested Service from importing another Service
+ * (`@hyperidle/users`) directly, even here. So the ast-`<userId>` runnability
+ * check is built from the ALREADY-injected `UserStoreReader` port
+ * (`BetDecompositionDeps.users`, an ordinary Mechanism C DI port, not a static
+ * import) instead of the shared `@hyperidle/users` helper — the same
+ * duplication trade-off `session-requests/src/service.ts`'s own
+ * `requireRunnableActor` already makes for the same reason (see that file's
+ * top-level `@lore` on why `routine_run`'s copy stays independent).
+ */
+
+/** Thrown when `bet-decomposition.ts`'s own task_run bake rejects an unrunnable agent. */
+export class InvalidAgentWorkTargetError extends Error {}
+
+async function requireRunnableAgentViaUsersPort(
+	db: HyperIdleDb,
+	agentId: string,
+	users: UserStoreReader,
+): Promise<WorkUserRow> {
+	const agent = await users.getUserById(db, agentId);
+	if (agent?.kind !== "ai" || !["active", "idle"].includes(agent.status)) {
+		throw new InvalidAgentWorkTargetError(`Agent ${agentId} is not a runnable AI agent`);
+	}
+	return agent;
+}
 
 // -----------------------------------------------------------------------------
 // Types
@@ -204,12 +237,13 @@ async function insertProposedBetTasks(
 		eventBus: EventBus;
 		agentSelection: AgentSelectionDefaults;
 		workIntents: AgentWorkIntentRecorder;
+		users: UserStoreReader;
 	},
 	bet: { id: string; teamId: string },
 	_eligible: readonly WorkUserRow[],
 	taskInputs: DecompositionTaskInput[],
 ): Promise<{ created: number }> {
-	const { db, eventBus, agentSelection, workIntents } = deps;
+	const { db, eventBus, agentSelection, workIntents, users } = deps;
 	let created = 0;
 
 	for (let i = 0; i < taskInputs.length; i++) {
@@ -260,12 +294,22 @@ async function insertProposedBetTasks(
 					createdAt: now,
 					updatedAt: now,
 				});
+				// AU21 §6 Decision B: resolve + validate the task_run run AT EMIT
+				// TIME and bake the full request onto the intent — see this file's
+				// top `requireRunnableAgentViaUsersPort` `@lore` for why the
+				// runnability check is adapted from the injected `users` port
+				// rather than `@hyperidle/users` directly.
+				const bakedRequest = await resolveTaskRunRequest(tx as HyperIdleDb, attemptId, {
+					requireRunnableAgent: (execDb, agentId) =>
+						requireRunnableAgentViaUsersPort(execDb, agentId, users),
+				});
 				await workIntents.record(tx, {
 					kind: "task_run",
 					sourceKind: "task_dispatch_attempt",
 					sourceId: attemptId,
 					requestedBy: ownerAgentId,
 					idempotencyKey: `task-dispatch:${attemptId}`,
+					bakedRequest,
 				});
 			});
 		} catch (error) {
@@ -350,6 +394,7 @@ async function persistDecompositionTasks(
 				eventBus: deps.eventBus,
 				agentSelection: deps.agentSelection,
 				workIntents: deps.workIntents,
+				users: deps.users,
 			},
 			bet,
 			eligible,

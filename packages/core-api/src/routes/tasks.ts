@@ -3,6 +3,7 @@ import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
+import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -271,6 +272,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 
 			await transitionTask(db, eventBus, taskId, body.state, {
 				workIntents: { record: enqueueWorkIntent },
+				taskRunResolver: { requireRunnableAgent },
 			});
 
 			const updated = await work.get(db, "task", taskId);

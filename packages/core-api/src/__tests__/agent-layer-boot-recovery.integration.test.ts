@@ -134,6 +134,20 @@ describe("agent-layer boot recovery", () => {
 			requestedBy: "boot-human",
 			idempotencyKey: "explicit-session-start:boot-pending-start",
 			status: "pending",
+			// AU21 §6 Decision B / Increment 3: `session_start`'s drain-time case
+			// is deleted — every real intent now carries a baked payload from
+			// emit time. Mirror that here so this fixture stays
+			// production-realistic (see `session-requests/src/service.ts`'s
+			// updated top-of-switch comment).
+			bakedRequestJson: JSON.stringify({
+				defaultAgentId: "boot-agent",
+				sourceKind: "task",
+				sourceId: "boot-task",
+				streamId: "task:boot-task",
+				taskId: "boot-task",
+				teamId: "boot-team",
+				sourceCorrelation: { taskId: "boot-task", teamId: "boot-team" },
+			}),
 			createdAt: nowIso,
 			updatedAt: nowIso,
 		});
@@ -159,6 +173,16 @@ describe("agent-layer boot recovery", () => {
 			requestedBy: "boot-human",
 			idempotencyKey: "explicit-session-start:boot-expired-start",
 			status: "claimed",
+			// AU21 §6 Decision B / Increment 3 — see the `boot-pending-intent` `@lore` above.
+			bakedRequestJson: JSON.stringify({
+				defaultAgentId: "boot-agent",
+				sourceKind: "task",
+				sourceId: "boot-task",
+				streamId: "task:boot-task",
+				taskId: "boot-task",
+				teamId: "boot-team",
+				sourceCorrelation: { taskId: "boot-task", teamId: "boot-team" },
+			}),
 			claimToken: "stale-token",
 			claimExpiresAt: "2000-01-01T00:00:00.000Z",
 			createdAt: nowIso,

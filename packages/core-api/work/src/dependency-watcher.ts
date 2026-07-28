@@ -1,6 +1,7 @@
 import type { WriteExecutor } from "@hyperidle/db";
 import { createLogger, type EventBus } from "@hyperidle/shared";
 import type { AgentWorkIntentRecorder } from "./ports.js";
+import type { TaskRunResolverDeps } from "./task-run-resolver.js";
 import { transitionTask } from "./task-state-machine.js";
 import { get, list } from "./work-service.js";
 
@@ -37,6 +38,7 @@ export async function checkAndUnblockDependents(
 	completedTaskId: string,
 	deps: {
 		readonly workIntents: AgentWorkIntentRecorder;
+		readonly taskRunResolver: TaskRunResolverDeps;
 	},
 ): Promise<void> {
 	// SQL pre-filter: hold-state tasks whose dependencies include the literal
@@ -93,7 +95,7 @@ export async function checkAndUnblockDependents(
 			eventBus,
 			task.id,
 			"accepted",
-			{ workIntents: deps.workIntents },
+			{ workIntents: deps.workIntents, taskRunResolver: deps.taskRunResolver },
 			"accepted",
 		);
 

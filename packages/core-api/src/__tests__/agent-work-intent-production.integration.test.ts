@@ -23,7 +23,7 @@ import {
 import { getTeamMembers } from "@hyperidle/org";
 import { transitionProposedCall } from "@hyperidle/review";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
-import { findUser, listUsers } from "@hyperidle/users";
+import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
 import { checkAndUnblockDependents, registerBetDecomposition } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
@@ -34,6 +34,7 @@ import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
 const depWatcherDeps = {
 	workIntents: { record: enqueueWorkIntent },
+	taskRunResolver: { requireRunnableAgent },
 };
 
 const agentSelectionService = createAgentSelectionService({

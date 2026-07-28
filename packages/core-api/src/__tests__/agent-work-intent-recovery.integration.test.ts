@@ -87,6 +87,22 @@ async function seedExplicitStartIntent(
 		requestedBy: `${id}-human`,
 		idempotencyKey: `explicit-session-start:${id}-start`,
 		status: options.claimed ? "claimed" : "pending",
+		// AU21 §6 Decision B / Increment 3: `session_start`'s
+		// `resolveIntentInputInternal` drain-time case is deleted — every real
+		// `session_start` intent now carries a baked payload from emit time
+		// (`routes/sessions-routes.ts`). Mirror that here so this fixture stays
+		// production-realistic (an unbaked `session_start` row is now
+		// production-unreachable, per `session-requests/src/service.ts`'s
+		// updated top-of-switch comment).
+		bakedRequestJson: JSON.stringify({
+			defaultAgentId: `${id}-agent`,
+			sourceKind: "task",
+			sourceId: `${id}-task`,
+			streamId: `task:${id}-task`,
+			taskId: `${id}-task`,
+			teamId: `${id}-team`,
+			sourceCorrelation: { taskId: `${id}-task`, teamId: `${id}-team` },
+		}),
 		...(options.claimed
 			? {
 					claimToken: "prior-token",

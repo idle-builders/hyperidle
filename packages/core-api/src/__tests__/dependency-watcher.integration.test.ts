@@ -1,6 +1,7 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/shared";
+import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";
@@ -10,6 +11,7 @@ import { describe, expect, test } from "../test-fixtures.js";
 // internals directly). Only the against-grain `workIntents` recorder remains injected.
 const depWatcherDeps = {
 	workIntents: { record: enqueueWorkIntent },
+	taskRunResolver: { requireRunnableAgent },
 };
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {

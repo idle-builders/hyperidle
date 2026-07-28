@@ -12,6 +12,7 @@ import type {
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
+import type { BakedWorkIntentRequest } from "@hyperidle/shared";
 
 export interface PolicySessionContext {
 	readonly sessionId: string;
@@ -128,8 +129,21 @@ export interface PolicyDeps {
 				readonly sourceId: string;
 				readonly requestedBy?: string;
 				readonly idempotencyKey: string;
+				/** See `BakedWorkIntentRequest`. Populated at emit time by `taskRunResolver` (AU21 Increment 3). */
+				readonly bakedRequest?: BakedWorkIntentRequest;
 			},
 		): Promise<{ readonly id: string; readonly idempotencyKey: string }>;
 		abort(sessionId: string): Promise<boolean>;
+	};
+	/**
+	 * AU21 §6 Decision B / Increment 3 — the `task_run` emit-time resolver
+	 * (`@hyperidle/work`'s `resolveTaskRunRequest`, pre-bound with the real
+	 * `requireRunnableAgent`), injected because `policy` is a SIBLING Service
+	 * to `work` and cannot import it directly (Mechanism C). Wired at the
+	 * composition root (`policy-bindings.ts`, which already imports
+	 * `@hyperidle/work` directly for `handoffDeps.work`).
+	 */
+	readonly taskRunResolver?: {
+		resolve(tx: WriteExecutor, attemptId: string): Promise<BakedWorkIntentRequest>;
 	};
 }

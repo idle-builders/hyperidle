@@ -66,6 +66,15 @@ export { routeItem } from "./item-router.js";
 // Individual port/DTO interfaces are internal to this Service — callers access
 // them via WorkDeps["fieldName"]. Only the bundle type is product surface.
 export type { WorkDeps } from "./ports.js";
+// -- session_start resolver (AU21 §6 Decision B — emit-time resolution) --
+export type {
+	BakedSessionStartRequest,
+	SessionStartResolverDeps,
+} from "./session-start-resolver.js";
+export {
+	resolveSessionStartRequest,
+	SessionStartSourceUnavailableError,
+} from "./session-start-resolver.js";
 // -- task audit (auditTrail entry shapes) --
 export type {
 	HandoffAuditEntry,
@@ -74,7 +83,9 @@ export type {
 } from "./task-audit.js";
 // -- task planning signals (O2 extension table: riskTier) --
 export { getTaskRiskTierByTaskId } from "./task-planning-signals.js";
-
+// -- task_run resolver (AU21 §6 Decision B — emit-time resolution) --
+export type { BakedTaskRunRequest, TaskRunResolverDeps } from "./task-run-resolver.js";
+export { resolveTaskRunRequest, TaskRunSourceUnavailableError } from "./task-run-resolver.js";
 // -- task state machine --
 export type { TaskStateMachineDeps } from "./task-state-machine.js";
 export { InvalidTransitionError, transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";
