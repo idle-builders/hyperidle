@@ -1,9 +1,10 @@
 /**
  * `@hyperidle/tool-handlers`'s `ToolHandlersPorts` (Mechanism C), wired here
- * at the `packages/server` composition point — all targets (`work`, `users`,
- * `conversation`, `org`, `agent-selection`, `routine`, `dispatch`,
- * `knowledge`, `policy`) are real, already-migrated packages. Two call
- * shapes COLLAPSE (see `@hyperidle/tool-handlers`'s `ports.ts` top `@lore`):
+ * at the `packages/server` composition point — all remaining targets (`org`,
+ * `agent-selection`, `routine`, `dispatch`, `knowledge`, `policy`) are real,
+ * already-migrated packages. `work`/`users`/`conversation` all cross the
+ * `CoreApiPort` seam instead (see `coreApi`'s own inline `@lore` below). Two
+ * call shapes COLLAPSE (see `@hyperidle/tool-handlers`'s `ports.ts` top `@lore`):
  * `resolveReviewRecipientsForItem`/`persistScaffoldedAgents` (org),
  * `recomputeAttentionScoreForItem` (knowledge) — same idiom
  * `dispatch-bindings.ts`'s own `recomputeAttentionForCandidates` collapse
@@ -17,14 +18,7 @@
  */
 
 import type { CreateItemRequest } from "@hyperidle/api-contract";
-import {
-	findOrCreateDirectThread,
-	findThread,
-	insertMessage,
-	insertThread,
-	listInbox,
-	updateThread,
-} from "@hyperidle/conversation";
+import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import {
 	create as createKnowledgeItem,
@@ -230,17 +224,6 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	// ordinary same-process DI — every read/write moved onto the `coreApi`
 	// seam below (see `ports.ts`'s `ToolHandlersWorkAccessor` doc comment).
 	work: { routeItem },
-	conversation: {
-		getThreadById: (db, id) => findThread(db, { id }),
-		insertThread,
-		updateThread,
-		insertMessage,
-		listInboxBySenderExclusion: (db, agentId, limit) =>
-			listInbox(db, { excludeSenderId: agentId, limit }),
-		findOrCreateDirectThread,
-		getFirstThreadByHost: (db, hostKind, hostId) =>
-			findThread(db, { host: { kind: hostKind, id: hostId } }),
-	},
 	org: {
 		// @lore AU20 Am7: per-WHERE accessors replaced by parameterized API; adapters bridge the port interface.
 		getTeamById: (db: HyperIdleDb, teamId: string) => getTeam(db, { id: teamId }),
@@ -324,6 +307,20 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 		getUserById: (id, actorId) => seamPortForActor(actorId).users.getUserById(id),
 		listUsersByTeam: (teamMembersId, actorId) =>
 			seamPortForActor(actorId).users.listUsersByTeam(teamMembersId),
+		// AU21 §9 Increment 2 (conversation wave): every former
+		// `ToolHandlersConversationAccessor` capability moved onto this seam —
+		// see `ports.ts`'s `ToolHandlersCoreApiAccessor` doc comment.
+		getThreadById: (id, actorId) => seamPortForActor(actorId).conversation.getThreadById(id),
+		insertThread: (input, actorId) => seamPortForActor(actorId).conversation.insertThread(input),
+		updateThread: (id, updates, actorId) =>
+			seamPortForActor(actorId).conversation.updateThread(id, updates),
+		insertMessage: (input, actorId) => seamPortForActor(actorId).conversation.insertMessage(input),
+		listInboxBySenderExclusion: (limit, actorId) =>
+			seamPortForActor(actorId).conversation.listInboxBySenderExclusion(limit),
+		findOrCreateDirectThread: (recipientId, actorId) =>
+			seamPortForActor(actorId).conversation.findOrCreateDirectThread(recipientId),
+		getFirstThreadByHost: (hostKind, hostId, actorId) =>
+			seamPortForActor(actorId).conversation.getFirstThreadByHost(hostKind, hostId),
 	},
 };
 

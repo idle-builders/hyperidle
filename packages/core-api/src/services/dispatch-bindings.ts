@@ -27,14 +27,7 @@
  * constructor satisfies `create(): unknown` directly.
  */
 
-import {
-	findThread,
-	insertMessage,
-	insertThread,
-	listMessages,
-	listThreads,
-	updateThread,
-} from "@hyperidle/conversation";
+import { findThread, insertThread, listMessages, listThreads } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { DispatchPorts } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
@@ -59,9 +52,27 @@ import { findUser, getOrCreateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { createPracticeMeeting } from "../../knowledge/src/practice-meeting.js";
 import { agentSelectionService } from "./agent-selection-bindings.js";
+import {
+	buildCoreApiPort,
+	getRegisteredCoreApiTransport,
+	withActorTransport,
+} from "./core-api-port-composition.js";
 import { costOps } from "./cost-bindings.js";
 import { runSession } from "./run-orchestration-composition.js";
 import { toolHandlersPorts } from "./tool-handlers-bindings.js";
+
+/**
+ * AU21 §9 Increment 2 (conversation wave): builds a fresh in-process
+ * `CoreApiPort` per call, wrapped with the given actor's own identity as the
+ * route actor (§12) — same factory-curry idiom as
+ * `tool-handlers-bindings.ts`'s own `seamPortForActor` (duplicated locally
+ * rather than imported cross-composition-root, same precedent as every other
+ * `*-bindings.ts` factory in this directory).
+ */
+function seamPortForActor(actorId: string): ReturnType<typeof buildCoreApiPort> {
+	const transport = withActorTransport(getRegisteredCoreApiTransport(), { userId: actorId });
+	return buildCoreApiPort(transport);
+}
 
 /**
  * @lore AU19 Increment 3h: collapses `dispatch`'s former
@@ -129,7 +140,21 @@ const dispatchPorts: DispatchPorts = {
 			sumRunCost(db, { routineIds: [routineId], since, kind: "sum" }),
 	},
 	conversation: {
-		insertMessage,
+		// AU21 §9 Increment 2 (conversation wave): routes through the CoreApiPort
+		// seam — the SAME `POST /threads/:id/messages` route a human caller's
+		// client would use — instead of the raw `@hyperidle/conversation`
+		// `insertMessage` DI call. The actor derives from `values.senderId`
+		// (always the assistant agent's own identity for both real call sites
+		// this migration reuses, `service.ts:236,437`) — never a separate param.
+		insertMessage: (_exec, values) =>
+			seamPortForActor(values.senderId)
+				.conversation.insertMessage({
+					threadId: values.threadId,
+					type: "plain",
+					payload: JSON.parse(values.payload) as Record<string, unknown>,
+					clientKey: values.clientKey,
+				})
+				.then(() => undefined),
 		listMessagesByThread: (exec, threadId, opts) =>
 			listMessages(exec, {
 				threadId,
@@ -137,7 +162,18 @@ const dispatchPorts: DispatchPorts = {
 				dir: opts?.dir,
 			}),
 		getThreadById: (exec, id) => findThread(exec, { id }),
-		updateThread,
+		// AU21 §9 Increment 2 (conversation wave): routes through the CoreApiPort
+		// seam — the SAME new `PATCH /threads/:id` route a human caller's client
+		// would use. `actorId` threads the assistant agent's own identity
+		// (service.ts's one migrated call site, the pin-after-first-response).
+		updateThread: (_exec, id, patch, actorId) =>
+			seamPortForActor(actorId).conversation.updateThread(id, {
+				...(patch.participants !== undefined
+					? { participants: JSON.parse(patch.participants) as readonly string[] }
+					: {}),
+				...(patch.lastActiveAt !== undefined ? { lastActiveAt: patch.lastActiveAt } : {}),
+				...(patch.pinned !== undefined ? { pinned: patch.pinned } : {}),
+			}),
 		getThreadIdsByHost: (exec, hostKind, hostId) =>
 			listThreads(exec, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
 		insertThread,

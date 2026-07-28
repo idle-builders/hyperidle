@@ -61,6 +61,14 @@ export interface DispatchPorts {
 		sumRoutineRunCostSince(db: HyperIdleDb, routineId: string, since: string): Promise<number>;
 	};
 	readonly conversation: {
+		/**
+		 * @lore AU21 §9 Increment 2 (conversation wave): this call routes through
+		 * the `CoreApiPort` seam (`dispatch-bindings.ts`) — the assistant-turn
+		 * writes are "agent-as-user" (architecture.md §6 Decision A/C). The
+		 * seam's route actor derives from `values.senderId` (always the
+		 * assistant agent's own identity, `ast-<userId>`, never the human
+		 * sender) — no separate actor param needed here.
+		 */
 		insertMessage(exec: HyperIdleDb, values: NewMessage): Promise<void>;
 		listMessagesByThread(
 			exec: HyperIdleDb,
@@ -68,7 +76,19 @@ export interface DispatchPorts {
 			opts?: { readonly order?: "createdAt"; readonly dir?: "asc" | "desc" },
 		): Promise<readonly Message[]>;
 		getThreadById(exec: HyperIdleDb, id: string): Promise<Thread | undefined>;
-		updateThread(exec: HyperIdleDb, id: string, patch: Partial<NewThread>): Promise<void>;
+		/**
+		 * @lore AU21 §9 Increment 2 (conversation wave): this call routes through
+		 * the `CoreApiPort` seam. Unlike `insertMessage`, `patch` carries no
+		 * sender/actor field, so the caller (`registerAssistantTriggerInternal`)
+		 * threads the assistant agent's own identity explicitly via `actorId`
+		 * (architecture.md §12) — the one migrated `updateThread` call site.
+		 */
+		updateThread(
+			exec: HyperIdleDb,
+			id: string,
+			patch: Partial<NewThread>,
+			actorId: string,
+		): Promise<void>;
 		getThreadIdsByHost(exec: HyperIdleDb, hostKind: string, hostId: string): Promise<string[]>;
 		insertThread(exec: HyperIdleDb, values: NewThread): Promise<void>;
 	};

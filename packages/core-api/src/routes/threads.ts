@@ -13,9 +13,11 @@
 
 import {
 	findMessage,
+	findOrCreateDirectThread,
 	findThread,
 	insertMessage,
 	insertThread,
+	listInbox,
 	listMessages,
 	listThreads,
 	resolveMessageIfUnresolved,
@@ -68,11 +70,15 @@ import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
 	createThreadBodySchema,
+	directThreadBodySchema,
+	inboxQuerySchema,
 	type inlineRefSchema,
+	insertThreadBodySchema,
 	listThreadsQuerySchema,
 	messageInputSchema,
 	messageRowSchema,
 	threadParticipantsSchema,
+	updateThreadBodySchema,
 } from "./threads-schema.js";
 
 const SENDER_HEADER = "X-Identity";
@@ -568,6 +574,23 @@ function rowToMessage(row: DbMessage): Message {
 	}
 }
 
+/**
+ * @lore AU21 §9 Increment 2: `notice` is accepted structurally on the WRITE
+ * side now (`plainPayloadSchema`'s own `@lore`) so `dispatch`'s assistant-turn
+ * `insertMessage` writes (routed through this SAME door via the `CoreApiPort`
+ * seam) can carry their failure-notice metadata through. Strips a non-
+ * assistant sender's `notice` before persistence — closing the same
+ * client-spoofed-notice vector the field's former WRITE-side omission closed
+ * (AH3 H2) — so only a genuine `ast-*` actor (a real authenticated identity,
+ * never a client-supplied field) can make one land.
+ */
+function sanitizeNoticeForSender<T>(senderId: string, payload: T): T {
+	if (senderId.startsWith("ast-")) return payload;
+	if (typeof payload !== "object" || payload === null || !("notice" in payload)) return payload;
+	const { notice: _notice, ...rest } = payload as Record<string, unknown>;
+	return rest as T;
+}
+
 function err(
 	code: string,
 	error: string,
@@ -604,6 +627,132 @@ export function createThreadRoutes(
 	// id by the Hono wildcard handler. Hono matches routes in registration
 	// order — the first match wins.
 	router.route("/coach", createCoachRoutes(db, eventBus));
+
+	// --- POST /api/threads/scaffold ------------------------------------------
+	// AU21 §9 Increment 2: bare thread creation (no initial message) — the
+	// `CoreApiConversationPort.insertThread` seam door for tool-handlers'/
+	// dispatch's `insertThread` capability. No existing route creates a bare
+	// thread — `POST /api/threads` always requires an `initialMessage`.
+	// @lore mounted BEFORE /:id so "scaffold" is not swallowed as a thread id.
+	router.post("/scaffold", requireBoundary({ kind: "principal-self" }), async (c) => {
+		let body: unknown;
+		try {
+			body = await c.req.json();
+		} catch {
+			const e = err("validation_error", "Invalid JSON", 400);
+			return c.json(e.body, e.status);
+		}
+		const parsed = insertThreadBodySchema.safeParse(body);
+		if (!parsed.success) {
+			const e = err("validation_error", "Validation error", 400);
+			return c.json(e.body, e.status);
+		}
+		const input = parsed.data;
+		const initiatorId = c.get("userId");
+		const now = new Date().toISOString();
+		const threadId = crypto.randomUUID();
+		await insertThread(db, {
+			id: threadId,
+			hostKind: input.hostKind,
+			hostId: input.hostId,
+			initiatorId,
+			participants: JSON.stringify(input.participants),
+			pinned: input.pinned ?? false,
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		const createdEvent: ThreadCreatedEvent = {
+			type: "thread_created",
+			streamId: threadId,
+			threadId,
+			hostKind: input.hostKind,
+			hostId: input.hostId,
+			initiatorId,
+			timestamp: Date.now(),
+		};
+		eventBus.emit(createdEvent);
+		return c.json({ id: threadId }, 201);
+	});
+
+	// --- POST /api/threads/direct ---------------------------------------------
+	// AU21 §9 Increment 2: DM find-or-create composite — the
+	// `CoreApiConversationPort.findOrCreateDirectThread` seam door. The sender
+	// is always the calling actor, never a body field.
+	// @lore mounted BEFORE /:id so "direct" is not swallowed as a thread id.
+	router.post("/direct", requireBoundary({ kind: "principal-self" }), async (c) => {
+		let body: unknown;
+		try {
+			body = await c.req.json();
+		} catch {
+			const e = err("validation_error", "Invalid JSON", 400);
+			return c.json(e.body, e.status);
+		}
+		const parsed = directThreadBodySchema.safeParse(body);
+		if (!parsed.success) {
+			const e = err("validation_error", "Validation error", 400);
+			return c.json(e.body, e.status);
+		}
+		const senderId = c.get("userId");
+		const now = new Date().toISOString();
+		const threadId = await findOrCreateDirectThread(db, senderId, parsed.data.recipientId, now);
+		return c.json({ id: threadId }, 200);
+	});
+
+	// --- GET /api/threads/inbox ------------------------------------------------
+	// AU21 §9 Increment 2: sender-exclusion inbox join — the
+	// `CoreApiConversationPort.listInboxBySenderExclusion` seam door. The
+	// excluded sender always derives from the calling actor, never a client-
+	// supplied query param (same IDOR shape `GET /api/threads`'s
+	// `participant_id` guard already closes).
+	// @lore mounted BEFORE /:id so "inbox" is not swallowed as a thread id.
+	router.get("/inbox", requireBoundary({ kind: "principal-self" }), async (c) => {
+		const parsed = inboxQuerySchema.safeParse({ limit: c.req.query("limit") });
+		if (!parsed.success) {
+			const e = err("validation_error", "Invalid query params", 400);
+			return c.json(e.body, e.status);
+		}
+		const excludeSenderId = c.get("userId");
+		const rows = await listInbox(db, { excludeSenderId, limit: parsed.data.limit });
+		return c.json({
+			items: rows.map((row) => ({
+				participants: threadParticipantsSchema.parse(JSON.parse(row.participants)),
+				message: rowToMessage(row.message),
+			})),
+		});
+	});
+
+	// --- PATCH /api/threads/:id -------------------------------------------------
+	// AU21 §9 Increment 2: narrow thread-patch door — the
+	// `CoreApiConversationPort.updateThread` seam door. Accepts only the
+	// fields real call sites set today (participants/lastActiveAt/pinned) —
+	// not a general thread-patch surface.
+	router.patch("/:id", requireBoundary({ kind: "principal-self" }), async (c) => {
+		const id = c.req.param("id");
+		let body: unknown;
+		try {
+			body = await c.req.json();
+		} catch {
+			const e = err("validation_error", "Invalid JSON", 400);
+			return c.json(e.body, e.status);
+		}
+		const parsed = updateThreadBodySchema.safeParse(body);
+		if (!parsed.success) {
+			const e = err("validation_error", "Validation error", 400);
+			return c.json(e.body, e.status);
+		}
+		const existing = await findThread(db, { id });
+		if (!existing) {
+			const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
+			return c.json(e.body, e.status);
+		}
+		const input = parsed.data;
+		const patch: Partial<{ participants: string; lastActiveAt: string; pinned: boolean }> = {};
+		if (input.participants !== undefined) patch.participants = JSON.stringify(input.participants);
+		if (input.lastActiveAt !== undefined) patch.lastActiveAt = input.lastActiveAt;
+		if (input.pinned !== undefined) patch.pinned = input.pinned;
+		await updateThread(db, id, patch);
+		return c.json({ id }, 200);
+	});
 
 	// --- GET /api/threads ---------------------------------------------------
 	// Row 2: GET /api/threads — S (principal-self: AD1 guard scopes list by principal)
@@ -841,6 +990,7 @@ export function createThreadRoutes(
 							refs: enrichedRefs as typeof input.initialMessage.payload.refs,
 						};
 					}
+					reusePayload = sanitizeNoticeForSender(senderId, reusePayload);
 				}
 
 				const reuseBlockId =
@@ -922,6 +1072,7 @@ export function createThreadRoutes(
 				}
 				initParticipants = [...participantSet].sort();
 			}
+			initEnrichedPayload = sanitizeNoticeForSender(senderId, initEnrichedPayload);
 		}
 
 		try {
@@ -1175,6 +1326,7 @@ export function createThreadRoutes(
 					enrichedPayload = { ...input.payload, refs: enrichedRefs as typeof input.payload.refs };
 					newParticipantIds = mentionedIds;
 				}
+				enrichedPayload = sanitizeNoticeForSender(senderId, enrichedPayload);
 			}
 
 			const wasResolved = threadRow.resolvedAt !== null;

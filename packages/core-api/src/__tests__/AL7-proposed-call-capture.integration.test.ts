@@ -37,8 +37,28 @@ import {
 import type { EventBus, ToolContext } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test as baseTest } from "../test-fixtures.js";
+
+/**
+ * @lore AU21 §9 Increment 2 (conversation wave): this file invokes
+ * `read_inbox`, which now reaches `ports.coreApi.listInboxBySenderExclusion`
+ * (the seam) — same file-scoped `auto:true` fixture idiom as
+ * `create-item.integration.test.ts`.
+ */
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
 
 const NOW = new Date().toISOString();
 

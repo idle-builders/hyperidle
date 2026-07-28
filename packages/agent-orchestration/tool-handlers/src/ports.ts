@@ -1,14 +1,17 @@
 /**
  * `tool-handlers` Service (agent-orchestration) — outbound composition-
  * boundary (Mechanism C) DI ports, per architecture §10.2's census (the
- * merged `tools` census row, §7.5's C1 split). Real outbound edges (`work`,
- * `users`, `conversation`, `knowledge`, `org`, `agent-selection`, `routine`,
- * `dispatch`) are ordinary downward-or-same-layer DI, wired by the
- * composition root (`packages/server/src/services/tool-handlers-bindings.ts`)
- * to each target's real exported functions. `policy` is also ordinary
- * same-layer DI. `coreApi` (AU21 §9 Increment 1) is DIFFERENT in kind — it
- * crosses the `CoreApiPort` write seam (a real route call), not same-process
- * DI; see `ToolHandlersCoreApiAccessor`'s own doc comment below.
+ * merged `tools` census row, §7.5's C1 split). Real outbound edges (`knowledge`,
+ * `org`, `agent-selection`, `routine`, `dispatch`) are ordinary downward-or-
+ * same-layer DI, wired by the composition root
+ * (`packages/server/src/services/tool-handlers-bindings.ts`) to each target's
+ * real exported functions. `policy` is also ordinary same-layer DI. `coreApi`
+ * (AU21 §9 Increment 1, `work`; Increment 2, `users`+`conversation`) is
+ * DIFFERENT in kind — it crosses the `CoreApiPort` write seam (a real route
+ * call), not same-process DI; see `ToolHandlersCoreApiAccessor`'s own doc
+ * comment below. There is no longer a standalone `conversation` port —
+ * every former `ToolHandlersConversationAccessor` capability moved onto
+ * `coreApi` (Increment 2's conversation wave).
  *
  * Several call shapes COLLAPSE (not a 1:1 port-per-function mirror) because
  * Mechanism C forbids `tool-handlers` from importing the Services a tool
@@ -64,27 +67,6 @@ interface ToolHandlersWorkAccessor {
 		readonly kind: string | null;
 		readonly verb: string | null;
 	}): "conversations" | "work" | "knowledge";
-}
-
-interface ToolHandlersConversationAccessor<TDb> {
-	getThreadById(
-		db: TDb,
-		id: string,
-	): Promise<{ readonly id: string; readonly participants: string } | undefined>;
-	insertThread(db: TDb, input: Record<string, unknown>): Promise<void>;
-	updateThread(db: TDb, id: string, updates: Record<string, unknown>): Promise<void>;
-	insertMessage(db: TDb, input: Record<string, unknown>): Promise<void>;
-	listInboxBySenderExclusion(
-		db: TDb,
-		agentId: string,
-		limit: number,
-	): Promise<ReadonlyArray<{ readonly participants: string; readonly message: unknown }>>;
-	findOrCreateDirectThread(db: TDb, agentA: string, agentB: string, now: string): Promise<string>;
-	getFirstThreadByHost(
-		db: TDb,
-		hostKind: string,
-		hostId: string,
-	): Promise<{ readonly id: string; readonly participants: string } | undefined>;
 }
 
 /**
@@ -446,12 +428,72 @@ interface ToolHandlersCoreApiAccessor {
 	): Promise<
 		ReadonlyArray<{ readonly id: string; readonly name: string; readonly role: string | null }>
 	>;
+	/**
+	 * @lore AU21 §9 Increment 2 (conversation wave): every
+	 * `ToolHandlersConversationAccessor` capability moved onto this seam
+	 * (`edge-disposition.md`'s `conversation.{findThread, insertThread,
+	 * insertMessage, updateThread, findOrCreateDirectThread, listInbox}` row) —
+	 * the agent acting on core "just like the user would", same as `work`'s
+	 * Increment 2 migration. Structural mirror of
+	 * `@hyperidle/api-contract`'s `ConversationThreadView` (Mechanism C: no import).
+	 */
+	getThreadById(
+		id: string,
+		actorId: string,
+	): Promise<{ readonly id: string; readonly participants: readonly string[] } | undefined>;
+	insertThread(
+		input: {
+			readonly hostKind: string;
+			readonly hostId: string;
+			readonly participants: readonly string[];
+			readonly pinned?: boolean;
+		},
+		actorId: string,
+	): Promise<{ readonly id: string }>;
+	updateThread(
+		id: string,
+		updates: Partial<{
+			participants: readonly string[];
+			lastActiveAt: string;
+			pinned: boolean;
+		}>,
+		actorId: string,
+	): Promise<void>;
+	insertMessage(
+		input: {
+			readonly threadId: string;
+			readonly type: "plain" | "review" | "questionnaire" | "verdict";
+			readonly payload: Record<string, unknown>;
+			readonly clientKey: string;
+		},
+		actorId: string,
+	): Promise<{ readonly id: string }>;
+	listInboxBySenderExclusion(
+		limit: number,
+		actorId: string,
+	): Promise<
+		ReadonlyArray<{
+			readonly participants: readonly string[];
+			readonly message: {
+				readonly id: string;
+				readonly senderId: string;
+				readonly threadId: string;
+				readonly type: string;
+				readonly payload: Record<string, unknown>;
+			};
+		}>
+	>;
+	findOrCreateDirectThread(recipientId: string, actorId: string): Promise<{ readonly id: string }>;
+	getFirstThreadByHost(
+		hostKind: string,
+		hostId: string,
+		actorId: string,
+	): Promise<{ readonly id: string; readonly participants: readonly string[] } | undefined>;
 }
 
 /** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts<TDb> {
 	readonly work: ToolHandlersWorkAccessor;
-	readonly conversation: ToolHandlersConversationAccessor<TDb>;
 	readonly org: ToolHandlersOrgAccessor<TDb>;
 	readonly agentSelection: ToolHandlersAgentSelectionAccessor<TDb>;
 	readonly routine: ToolHandlersRoutineAccessor<TDb>;

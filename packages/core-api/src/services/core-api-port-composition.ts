@@ -23,6 +23,9 @@
 
 import type {
 	BetView,
+	ConversationInboxRowView,
+	ConversationMessageType,
+	ConversationThreadView,
 	CoreApiPort,
 	CoreApiTransport,
 	CreateArtifactRequest,
@@ -33,10 +36,16 @@ import type {
 	CreateItemResponse,
 	CreateTaskRequest,
 	CreateTaskResponse,
+	DirectThreadResponse,
+	InsertMessageRequest,
+	InsertMessageResponse,
+	InsertThreadRequest,
+	InsertThreadResponse,
 	ItemView,
 	TaskView,
 	UpdateBetRequest,
 	UpdateItemRequest,
+	UpdateThreadRequest,
 	UserView,
 } from "@hyperidle/api-contract";
 import type { Hono } from "hono";
@@ -102,6 +111,41 @@ interface CoreApiHcClient {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
 		};
 	};
+	readonly threads: {
+		$get(args: {
+			readonly query: {
+				readonly host_kind?: string;
+				readonly host_id?: string;
+				readonly limit?: string;
+			};
+		}): Promise<Response>;
+		readonly scaffold: {
+			$post(args: { readonly json: InsertThreadRequest }): Promise<Response>;
+		};
+		readonly direct: {
+			$post(args: { readonly json: { readonly recipientId: string } }): Promise<Response>;
+		};
+		readonly inbox: {
+			$get(args: { readonly query: { readonly limit: string } }): Promise<Response>;
+		};
+		readonly ":id": {
+			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+			$patch(args: {
+				readonly param: { readonly id: string };
+				readonly json: UpdateThreadRequest;
+			}): Promise<Response>;
+			readonly messages: {
+				$post(args: {
+					readonly param: { readonly id: string };
+					readonly json: {
+						readonly type: ConversationMessageType;
+						readonly payload: Record<string, unknown>;
+						readonly clientKey: string;
+					};
+				}): Promise<Response>;
+			};
+		};
+	};
 }
 
 /** Placeholder origin for hc's internal URL construction — see this file's top `@lore`. */
@@ -123,6 +167,36 @@ async function getOrUndefined<T>(method: string, res: Response): Promise<T | und
 	if (res.status === 404) return undefined;
 	if (!res.ok) return throwSeamError(method, res);
 	return (await res.json()) as T;
+}
+
+/**
+ * `GET /threads/:id`'s response body is `{thread, messages, ...}` — extract
+ * only the `ConversationThreadView` fields a seam consumer relies on
+ * (`thread.participants` is already the route's own parsed `string[]`).
+ */
+async function getThreadViewOrUndefined(
+	method: string,
+	res: Response,
+): Promise<ConversationThreadView | undefined> {
+	if (res.status === 404) return undefined;
+	if (!res.ok) return throwSeamError(method, res);
+	const body = (await res.json()) as { readonly thread: ConversationThreadView };
+	return { id: body.thread.id, participants: body.thread.participants };
+}
+
+/**
+ * `GET /threads?host_kind=&host_id=&limit=1`'s response body is
+ * `{threads: [...], nextCursor}` — takes the first row, or `undefined` when
+ * the array is empty (no 404 case for a list route).
+ */
+async function getFirstThreadOrUndefined(
+	method: string,
+	res: Response,
+): Promise<ConversationThreadView | undefined> {
+	if (!res.ok) return throwSeamError(method, res);
+	const body = (await res.json()) as { readonly threads: ReadonlyArray<ConversationThreadView> };
+	const first = body.threads[0];
+	return first ? { id: first.id, participants: first.participants } : undefined;
 }
 
 /** Maps `UpdateBetRequest`'s camelCase keys onto `PATCH /bets/:id`'s wire `field` names. */
@@ -243,6 +317,60 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				const res = await client.users.$get({ query: { teamMembersId } });
 				if (!res.ok) return throwSeamError("users.listUsersByTeam", res);
 				return (await res.json()) as ReadonlyArray<UserView>;
+			},
+		},
+		conversation: {
+			async getThreadById(id: string): Promise<ConversationThreadView | undefined> {
+				const res = await client.threads[":id"].$get({ param: { id } });
+				return getThreadViewOrUndefined("conversation.getThreadById", res);
+			},
+
+			async insertThread(input: InsertThreadRequest): Promise<InsertThreadResponse> {
+				const res = await client.threads.scaffold.$post({ json: input });
+				if (!res.ok) return throwSeamError("conversation.insertThread", res);
+				return (await res.json()) as InsertThreadResponse;
+			},
+
+			async updateThread(id: string, updates: UpdateThreadRequest): Promise<void> {
+				const res = await client.threads[":id"].$patch({ param: { id }, json: updates });
+				if (!res.ok) return throwSeamError("conversation.updateThread", res);
+			},
+
+			async insertMessage(input: InsertMessageRequest): Promise<InsertMessageResponse> {
+				const res = await client.threads[":id"].messages.$post({
+					param: { id: input.threadId },
+					json: { type: input.type, payload: input.payload, clientKey: input.clientKey },
+				});
+				if (!res.ok) return throwSeamError("conversation.insertMessage", res);
+				const body = (await res.json()) as { readonly message: { readonly id: string } };
+				return { id: body.message.id };
+			},
+
+			async listInboxBySenderExclusion(
+				limit: number,
+			): Promise<ReadonlyArray<ConversationInboxRowView>> {
+				const res = await client.threads.inbox.$get({ query: { limit: String(limit) } });
+				if (!res.ok) return throwSeamError("conversation.listInboxBySenderExclusion", res);
+				const body = (await res.json()) as {
+					readonly items: ReadonlyArray<ConversationInboxRowView>;
+				};
+				return body.items;
+			},
+
+			async findOrCreateDirectThread(recipientId: string): Promise<DirectThreadResponse> {
+				const res = await client.threads.direct.$post({ json: { recipientId } });
+				if (!res.ok) return throwSeamError("conversation.findOrCreateDirectThread", res);
+				return (await res.json()) as DirectThreadResponse;
+			},
+
+			async getFirstThreadByHost(
+				hostKind: string,
+				hostId: string,
+			): Promise<ConversationThreadView | undefined> {
+				const res = await client.threads.$get({
+					query: { host_kind: hostKind, host_id: hostId, limit: "1" },
+				});
+				return getFirstThreadOrUndefined("conversation.getFirstThreadByHost", res);
 			},
 		},
 	};

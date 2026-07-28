@@ -571,7 +571,15 @@ function registerAssistantTriggerInternal(
 						pinned: threadRow.pinned === true,
 					};
 					if (senderRow.kind === "ai" && isAssistantThread(threadLike) && !threadLike.pinned) {
-						await ports.conversation.updateThread(db, event.threadId, { pinned: true });
+						// AU21 §9 Increment 2: threads the assistant agent's own identity
+						// (`event.senderId`, verified `kind === "ai"` above) as the seam's
+						// route actor — never the human sender (architecture.md §12).
+						await ports.conversation.updateThread(
+							db,
+							event.threadId,
+							{ pinned: true },
+							event.senderId,
+						);
 
 						assistantDispatcherLog.info("assistant thread pinned after first response", {
 							threadId: event.threadId,

@@ -4,8 +4,29 @@ import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { describe, expect } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test as baseTest } from "../test-fixtures.js";
+
+/**
+ * @lore AU21 §9 Increment 2 (conversation wave): `read_inbox` now reaches
+ * `ports.coreApi.listInboxBySenderExclusion` (the seam) — same file-scoped
+ * `auto:true` fixture idiom as `create-item.integration.test.ts` (registers
+ * a real in-process `CoreApiPort` transport off THIS test's own `app`,
+ * confined to this file).
+ */
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
 
 const readInboxTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "read_inbox")!;
 

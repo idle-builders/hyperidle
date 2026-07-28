@@ -79,20 +79,14 @@ function makeReadInboxTool<TDb>(
 			const parsed = readInboxInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const limit = parsed.data.limit ?? 50;
-			const rows = await ports.conversation.listInboxBySenderExclusion(
-				ctx.db,
-				ctx.agentId,
-				limit * 4,
-			);
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — reuses the
+			// SAME `GET /threads/inbox` route this migration adds. The route only
+			// excludes the sender; the tool still filters to threads the calling
+			// agent actually participates in (participants is already a parsed
+			// array — no `JSON.parse` needed, unlike the deleted raw DI path).
+			const rows = await ports.coreApi.listInboxBySenderExclusion(limit * 4, ctx.agentId);
 			const filtered = rows
-				.filter((row) => {
-					try {
-						const parts = JSON.parse(row.participants) as string[];
-						return parts.includes(ctx.agentId);
-					} catch {
-						return false;
-					}
-				})
+				.filter((row) => row.participants.includes(ctx.agentId))
 				.slice(0, limit)
 				.map((row) => row.message);
 			return ok({ messages: filtered });
@@ -126,25 +120,24 @@ function makeSendMessageTool<TDb>(
 			const { to, subject, body } = parsed.data;
 			const recipient = await ports.coreApi.getUserById(to, ctx.agentId);
 			if (!recipient) return err("NOT_FOUND", `Recipient agent not found: ${to}`);
-			const now = new Date().toISOString();
-			const threadId = await ports.conversation.findOrCreateDirectThread(
-				ctx.db,
-				ctx.agentId,
-				to,
-				now,
-			);
-			const messageId = crypto.randomUUID();
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
+			// `POST /threads/direct` + `POST /threads/:id/messages` routes a human
+			// caller's client would use — instead of the raw `ports.conversation`
+			// DI calls (deleted). The message route generates the message's id
+			// server-side; `created.id` replaces the client-generated
+			// `crypto.randomUUID()` the raw DI path used.
+			const { id: threadId } = await ports.coreApi.findOrCreateDirectThread(to, ctx.agentId);
 			const text = subject ? `${subject}\n\n${body}` : body;
-			await ports.conversation.insertMessage(ctx.db, {
-				id: messageId,
-				senderId: ctx.agentId,
-				threadId,
-				type: "plain",
-				payload: JSON.stringify({ text }),
-				clientKey: messageId,
-				createdAt: now,
-			});
-			return ok({ messageId, threadId });
+			const created = await ports.coreApi.insertMessage(
+				{
+					threadId,
+					type: "plain",
+					payload: { text },
+					clientKey: crypto.randomUUID(),
+				},
+				ctx.agentId,
+			);
+			return ok({ messageId: created.id, threadId });
 		},
 	};
 }
@@ -414,23 +407,22 @@ function makeCreateItemTool<TDb>(
 			const parsed = createItemInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
-			const now = new Date().toISOString();
 
 			let threadId = input.threadId;
 			if (threadId) {
-				const existing = await ports.conversation.getThreadById(ctx.db, threadId);
+				const existing = await ports.coreApi.getThreadById(threadId, ctx.agentId);
 				if (!existing) return err("NOT_FOUND", `Thread not found: ${threadId}`);
 			} else {
-				threadId = randomUUID();
-				await ports.conversation.insertThread(ctx.db, {
-					id: threadId,
-					hostKind: "task",
-					hostId: ctx.taskId,
-					initiatorId: ctx.agentId,
-					participants: JSON.stringify([ctx.agentId]),
-					lastActiveAt: now,
-					createdAt: now,
-				});
+				// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
+				// new `POST /threads/scaffold` route a human caller's client would use
+				// — instead of the raw `ports.conversation.insertThread` DI call
+				// (deleted). The route generates the thread's id server-side;
+				// `created.id` replaces the client-generated `randomUUID()`.
+				const created = await ports.coreApi.insertThread(
+					{ hostKind: "task", hostId: ctx.taskId, participants: [ctx.agentId] },
+					ctx.agentId,
+				);
+				threadId = created.id;
 			}
 
 			if (isReviewItem(input)) {
@@ -441,14 +433,12 @@ function makeCreateItemTool<TDb>(
 					teamId: ctx.teamId,
 				});
 				if (humanIds.length > 0) {
-					const threadRow = await ports.conversation.getThreadById(ctx.db, threadId);
-					const currentParticipants: string[] = threadRow
-						? (JSON.parse(threadRow.participants) as string[])
+					const threadRow = await ports.coreApi.getThreadById(threadId, ctx.agentId);
+					const currentParticipants: readonly string[] = threadRow
+						? threadRow.participants
 						: [ctx.agentId];
 					const merged = mergeParticipants(currentParticipants, humanIds);
-					await ports.conversation.updateThread(ctx.db, threadId, {
-						participants: JSON.stringify(merged),
-					});
+					await ports.coreApi.updateThread(threadId, { participants: merged }, ctx.agentId);
 				}
 			}
 
@@ -652,63 +642,52 @@ function makeSubmitReviewTool<TDb>(
 			const betId = parentTask.betId;
 
 			const now = new Date().toISOString();
-			const existingThread = await ports.conversation.getFirstThreadByHost(ctx.db, "bet", betId);
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
+			// routes a human caller's client would use — instead of the raw
+			// `ports.conversation` DI calls (deleted).
+			const existingThread = await ports.coreApi.getFirstThreadByHost("bet", betId, ctx.agentId);
 
 			let threadId: string;
 			if (existingThread) {
 				threadId = existingThread.id;
-				const parts = JSON.parse(existingThread.participants) as string[];
-				if (!parts.includes(ctx.agentId)) {
-					parts.push(ctx.agentId);
-					await ports.conversation.updateThread(ctx.db, threadId, {
-						participants: JSON.stringify(parts),
-						lastActiveAt: now,
-					});
+				if (!existingThread.participants.includes(ctx.agentId)) {
+					await ports.coreApi.updateThread(
+						threadId,
+						{ participants: [...existingThread.participants, ctx.agentId], lastActiveAt: now },
+						ctx.agentId,
+					);
 				}
 			} else {
-				threadId = randomUUID();
-				await ports.conversation.insertThread(ctx.db, {
-					id: threadId,
-					hostKind: "bet",
-					hostId: betId,
-					initiatorId: ctx.agentId,
-					participants: JSON.stringify([ctx.agentId]),
-					lastActiveAt: now,
-					createdAt: now,
-				});
+				const created = await ports.coreApi.insertThread(
+					{ hostKind: "bet", hostId: betId, participants: [ctx.agentId] },
+					ctx.agentId,
+				);
+				threadId = created.id;
 			}
 
-			const messageId = randomUUID();
-
+			// The route generates the message's id server-side; `created.id`
+			// replaces the client-generated `randomUUID()` the raw DI path used.
+			let created: { readonly id: string };
 			if (input.artifactRef) {
 				const payload: ReviewPayload = {
 					title: input.title,
 					reasoning: input.reasoning,
 					artifactRef: input.artifactRef,
 				};
-				await ports.conversation.insertMessage(ctx.db, {
-					id: messageId,
-					senderId: ctx.agentId,
-					threadId,
-					type: "review",
-					payload: JSON.stringify(payload),
-					clientKey: messageId,
-					createdAt: now,
-				});
+				created = await ports.coreApi.insertMessage(
+					{ threadId, type: "review", payload: { ...payload }, clientKey: crypto.randomUUID() },
+					ctx.agentId,
+				);
 			} else {
 				const text = `Review requested: ${input.title}\n\n${input.reasoning.join("\n")}`;
-				await ports.conversation.insertMessage(ctx.db, {
-					id: messageId,
-					senderId: ctx.agentId,
-					threadId,
-					type: "plain",
-					payload: JSON.stringify({ text }),
-					clientKey: messageId,
-					createdAt: now,
-				});
+				created = await ports.coreApi.insertMessage(
+					{ threadId, type: "plain", payload: { text }, clientKey: crypto.randomUUID() },
+					ctx.agentId,
+				);
 			}
+			const messageId = created.id;
 
-			await ports.conversation.updateThread(ctx.db, threadId, { lastActiveAt: now });
+			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);
 
 			return ok({ messageId, threadId, betId });
 		},

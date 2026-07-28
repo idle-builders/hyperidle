@@ -15,15 +15,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 	work: {
 		routeItem: notImplemented,
 	},
-	conversation: {
-		getThreadById: notImplemented,
-		insertThread: notImplemented,
-		updateThread: notImplemented,
-		insertMessage: notImplemented,
-		listInboxBySenderExclusion: notImplemented,
-		findOrCreateDirectThread: notImplemented,
-		getFirstThreadByHost: notImplemented,
-	},
 	org: {
 		getTeamById: notImplemented,
 		getTeamMembersByTeamId: notImplemented,
@@ -68,5 +59,12 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 		createArtifact: notImplemented,
 		getUserById: notImplemented,
 		listUsersByTeam: notImplemented,
+		getThreadById: notImplemented,
+		insertThread: notImplemented,
+		updateThread: notImplemented,
+		insertMessage: notImplemented,
+		listInboxBySenderExclusion: notImplemented,
+		findOrCreateDirectThread: notImplemented,
+		getFirstThreadByHost: notImplemented,
 	},
 };

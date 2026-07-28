@@ -9,6 +9,11 @@
 export type { AuthMeResponse } from "./auth.js";
 export type {
 	BetView,
+	ConversationInboxMessageView,
+	ConversationInboxRowView,
+	ConversationMessageType,
+	ConversationThreadView,
+	CoreApiConversationPort,
 	CoreApiPort,
 	CoreApiTransport,
 	CoreApiUsersPort,
@@ -21,10 +26,16 @@ export type {
 	CreateItemResponse,
 	CreateTaskRequest,
 	CreateTaskResponse,
+	DirectThreadResponse,
+	InsertMessageRequest,
+	InsertMessageResponse,
+	InsertThreadRequest,
+	InsertThreadResponse,
 	ItemView,
 	TaskView,
 	UpdateBetRequest,
 	UpdateItemRequest,
+	UpdateThreadRequest,
 	UserView,
 } from "./core-api-port.js";
 export type { CreateSessionAcceptedResponse, PendingSessionStart } from "./session.js";

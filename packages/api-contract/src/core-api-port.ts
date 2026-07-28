@@ -203,6 +203,105 @@ export interface CoreApiUsersPort {
 }
 
 /**
+ * Mirrors `GET /threads/:id` (and `GET /threads?host_kind=&host_id=`)'s
+ * thread view — only the fields a `CoreApiPort` consumer relies on.
+ * `participants` is the ROUTE's own parsed `string[]` (`rowToThread`'s
+ * output), never the raw JSON-string DB column.
+ */
+export interface ConversationThreadView {
+	readonly id: string;
+	readonly participants: readonly string[];
+}
+
+/**
+ * Mirrors `POST /threads/scaffold`'s validated request body — a bare thread
+ * with no initial message (unlike `POST /threads`, which always requires
+ * one via `createThreadBodySchema`).
+ */
+export interface InsertThreadRequest {
+	readonly hostKind: string;
+	readonly hostId: string;
+	readonly participants: readonly string[];
+	readonly pinned?: boolean;
+}
+
+/** Mirrors `POST /threads/scaffold`'s 201 response body. */
+export interface InsertThreadResponse {
+	readonly id: string;
+}
+
+/**
+ * Mirrors `PATCH /threads/:id`'s validated request body — the narrow field
+ * set real call sites set today (not a general thread-patch surface).
+ */
+export interface UpdateThreadRequest {
+	readonly participants?: readonly string[];
+	readonly lastActiveAt?: string;
+	readonly pinned?: boolean;
+}
+
+/** The message-type union `POST /threads/:id/messages` accepts (mirrors `messageInputSchema`'s discriminant). */
+export type ConversationMessageType = "plain" | "review" | "questionnaire" | "verdict";
+
+/**
+ * Mirrors `POST /threads/:id/messages`'s validated request body. The route
+ * derives `senderId` from the authenticated actor (`c.get("userId")`), never
+ * from the request body — `id`/`senderId` are never accepted here.
+ */
+export interface InsertMessageRequest {
+	readonly threadId: string;
+	readonly type: ConversationMessageType;
+	readonly payload: Record<string, unknown>;
+	readonly clientKey: string;
+}
+
+/** Mirrors `POST /threads/:id/messages`'s 201 response body — only the server-generated `id` is relied on. */
+export interface InsertMessageResponse {
+	readonly id: string;
+}
+
+/** One inbox message's fields a `CoreApiPort` consumer relies on (mirrors the route's `rowToMessage` output). */
+export interface ConversationInboxMessageView {
+	readonly id: string;
+	readonly senderId: string;
+	readonly threadId: string;
+	readonly type: string;
+	readonly payload: Record<string, unknown>;
+}
+
+/** One inbox row — mirrors `GET /threads/inbox`'s response element. */
+export interface ConversationInboxRowView {
+	readonly participants: readonly string[];
+	readonly message: ConversationInboxMessageView;
+}
+
+/** Mirrors `POST /threads/direct`'s response body. */
+export interface DirectThreadResponse {
+	readonly id: string;
+}
+
+/**
+ * The agent's tool-facing `conversation` capability family (Decision C,
+ * Increment 2's conversation wave) — `edge-disposition.md`'s
+ * `conversation.{findThread, insertThread, insertMessage, updateThread,
+ * findOrCreateDirectThread, listInbox}` row, plus `dispatch`'s own
+ * assistant-turn `insertMessage`/`updateThread` writes (same two methods,
+ * reused — see `core-api-port-composition.ts`'s `buildCoreApiPort`).
+ */
+export interface CoreApiConversationPort {
+	getThreadById(id: string): Promise<ConversationThreadView | undefined>;
+	insertThread(input: InsertThreadRequest): Promise<InsertThreadResponse>;
+	updateThread(id: string, updates: UpdateThreadRequest): Promise<void>;
+	insertMessage(input: InsertMessageRequest): Promise<InsertMessageResponse>;
+	listInboxBySenderExclusion(limit: number): Promise<ReadonlyArray<ConversationInboxRowView>>;
+	findOrCreateDirectThread(recipientId: string): Promise<DirectThreadResponse>;
+	getFirstThreadByHost(
+		hostKind: string,
+		hostId: string,
+	): Promise<ConversationThreadView | undefined>;
+}
+
+/**
  * `CoreApiPort` — a per-core-Service family of narrow hand-typed method
  * groups, each Application-adapted onto the `hc<AppType>` client
  * (`buildCoreApiPort`, `packages/core-api/src/services/
@@ -211,6 +310,7 @@ export interface CoreApiUsersPort {
 export interface CoreApiPort {
 	readonly work: CoreApiWorkPort;
 	readonly users: CoreApiUsersPort;
+	readonly conversation: CoreApiConversationPort;
 }
 
 /**
