@@ -1,14 +1,10 @@
 /**
  * `@hyperidle/tool-handlers`'s `ToolHandlersPorts` (Mechanism C), wired here
- * at the `packages/server` composition point — all remaining targets (`org`,
- * `agent-selection`, `routine`, `dispatch`, `knowledge`, `policy`) are real,
- * already-migrated packages. `work`/`users`/`conversation` all cross the
- * `CoreApiPort` seam instead (see `coreApi`'s own inline `@lore` below). Two
- * call shapes COLLAPSE (see `@hyperidle/tool-handlers`'s `ports.ts` top `@lore`):
- * `resolveReviewRecipientsForItem`/`persistScaffoldedAgents` (org),
- * `recomputeAttentionScoreForItem` (knowledge) — same idiom
- * `dispatch-bindings.ts`'s own `recomputeAttentionForCandidates` collapse
- * already established.
+ * at the `packages/server` composition point — all remaining targets
+ * (`agent-selection`, `dispatch`, `knowledge`) are real, already-migrated
+ * packages. `work`/`users`/`conversation`/`org`/`routine`/`policy.handoff`
+ * all cross the `CoreApiPort` seam instead (see `coreApi`'s own inline
+ * `@lore` below).
  *
  * @lore AU19 Increment 4: this module builds each bound singleton ONCE, at
  * the composition root, so every real call site (`session-lifecycle-bindings.ts`
@@ -17,7 +13,11 @@
  * every other `*-bindings.ts` file in this directory.
  */
 
-import type { CreateItemRequest } from "@hyperidle/api-contract";
+import type {
+	CreateItemRequest,
+	InsertRoutineRequest,
+	UpdateRoutineRequest,
+} from "@hyperidle/api-contract";
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import {
@@ -29,20 +29,10 @@ import {
 	recordConflict as recordKnowledgeConflict,
 	search as searchKnowledge,
 } from "@hyperidle/knowledge";
-import {
-	createTeam,
-	getTeam,
-	getTeamMembers,
-	persistScaffoldedAgents as orgPersistScaffoldedAgents,
-	resolveReviewRecipients,
-	updateTeam,
-} from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
-import { getRoutine, insertRoutine, updateRoutine } from "@hyperidle/routine";
 import type { EventBus } from "@hyperidle/shared";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
-import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { routeItem } from "@hyperidle/work";
 import { agentSelectionService } from "./agent-selection-bindings.js";
@@ -52,12 +42,6 @@ import {
 	withActorTransport,
 } from "./core-api-port-composition.js";
 import { dispatchOps } from "./dispatch-bindings.js";
-import { handoff } from "./policy-bindings.js";
-
-const orgUsersForScaffold = {
-	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
-	insertUser,
-};
 
 /**
  * @lore AU19 Increment 4: `dispatch-bindings.ts` imports `toolHandlersPorts`
@@ -85,9 +69,10 @@ function provisionTeamRoutines(
  * `agentSelection`'s real `resolveScaffoldSpecs` returns
  * `AgentScaffoldSpec[]` (concrete fields), but `ports.ts` declares this
  * port's return element as the opaque `Record<string, unknown>` (`specs`
- * is only ever piped opaquely through `persistScaffoldedAgents` — see this
- * file's own `@lore` on that function). Same "fresh object literal"
- * boundary-crossing as {@link searchKnowledgeForTool} below.
+ * is only ever piped opaquely across the `coreApi.persistScaffoldedAgents`
+ * seam call — see `POST /org/scaffolded-agents` in `routes/org.ts`, which
+ * does the real persist). Same "fresh object literal" boundary-crossing as
+ * {@link searchKnowledgeForTool} below.
  */
 /**
  * AU21 §9 Increment 1/2: builds a fresh in-process `CoreApiPort` per call,
@@ -118,6 +103,21 @@ function widenCreateItemInput(input: unknown): CreateItemRequest {
 	return input as CreateItemRequest;
 }
 
+/**
+ * Same audited-widen idiom as {@link widenCreateItemInput} — `ports.ts`'s
+ * `ToolHandlersCoreApiAccessor.insertRoutine`/`updateRoutineById` keep the
+ * opaque `Record<string, unknown>` shape (Mechanism C: `tool-handlers` never
+ * imports `@hyperidle/api-contract`'s concrete request types), widened here
+ * at the composition boundary to the seam's real wire types.
+ */
+function widenInsertRoutineInput(input: unknown): InsertRoutineRequest {
+	return input as InsertRoutineRequest;
+}
+
+function widenUpdateRoutineInput(input: unknown): UpdateRoutineRequest {
+	return input as UpdateRoutineRequest;
+}
+
 function createBetThroughCoreApiPort(
 	input: {
 		readonly teamId: string;
@@ -133,35 +133,6 @@ function createBetThroughCoreApiPort(
 		doneCondition: input.doneCondition ?? undefined,
 		hypothesis: input.hypothesis ?? undefined,
 	});
-}
-
-/**
- * Collapses `resolveReviewRecipients(db, ctx, {listUsersByKind})` — see
- * `@hyperidle/tool-handlers`'s `ports.ts` top `@lore`. `org`'s real
- * `resolveReviewRecipients` needs `OrgUserDirectory`'s `listUsersByKind`
- * (not `getUserById`) — matches `org`'s own `org-routing.ts` real usage.
- */
-async function resolveReviewRecipientsForItem(
-	db: HyperIdleDb,
-	ctx: {
-		readonly userId: string;
-		readonly agentRole: string | undefined;
-		readonly teamId: string | undefined;
-	},
-): Promise<readonly string[]> {
-	return resolveReviewRecipients(db, ctx, {
-		listUsersByKind: (db2, kind) => listUsers(db2, { kind }),
-	});
-}
-
-/** Collapses `persistScaffoldedAgents(db, {getUserById,insertUser}, teamMembersId, specs)`. */
-async function persistScaffoldedAgents(
-	db: HyperIdleDb,
-	teamMembersId: string | null,
-	specs: readonly Record<string, unknown>[],
-): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }> {
-	// biome-ignore lint/suspicious/noExplicitAny: `specs` is opaquely piped through from `resolveScaffoldSpecs`'s own real return type at this composition boundary — Mechanism C forbids tool-handlers from importing that type.
-	return orgPersistScaffoldedAgents(db, orgUsersForScaffold, teamMembersId, specs as any);
 }
 
 /**
@@ -224,22 +195,10 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	// ordinary same-process DI — every read/write moved onto the `coreApi`
 	// seam below (see `ports.ts`'s `ToolHandlersWorkAccessor` doc comment).
 	work: { routeItem },
-	org: {
-		// @lore AU20 Am7: per-WHERE accessors replaced by parameterized API; adapters bridge the port interface.
-		getTeamById: (db: HyperIdleDb, teamId: string) => getTeam(db, { id: teamId }),
-		getTeamMembersByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
-		getTeamMembersById: (db: HyperIdleDb, teamMembersId: string) =>
-			getTeamMembers(db, { id: teamMembersId }),
-		createTeam,
-		updateTeam,
-		resolveReviewRecipientsForItem,
-		persistScaffoldedAgents,
-	},
 	agentSelection: {
 		resolveScaffoldSpecs: async (input) =>
 			(await agentSelectionService.resolveScaffoldSpecs(input)).map((spec) => ({ ...spec })),
 	},
-	routine: { insertRoutine, getRoutineById: getRoutine, updateRoutineById: updateRoutine },
 	dispatch: { provisionTeamRoutines },
 	knowledge: {
 		search: searchKnowledgeForTool,
@@ -280,7 +239,6 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 			}),
 		recomputeAttentionScoreForItem,
 	},
-	policy: { handoff },
 	coreApi: {
 		createBet: createBetThroughCoreApiPort,
 		getTaskById: (id, actorId) => seamPortForActor(actorId).work.getTaskById(id),
@@ -321,6 +279,28 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 			seamPortForActor(actorId).conversation.findOrCreateDirectThread(recipientId),
 		getFirstThreadByHost: (hostKind, hostId, actorId) =>
 			seamPortForActor(actorId).conversation.getFirstThreadByHost(hostKind, hostId),
+		// AU21 §9 Increment 2 (org/routine/handoff wave): every former
+		// `ToolHandlersOrgAccessor`/`ToolHandlersRoutineAccessor`/
+		// `ToolHandlersPolicyAccessor.handoff` capability moved onto this seam —
+		// see `ports.ts`'s `ToolHandlersCoreApiAccessor` doc comment.
+		getTeamById: (teamId, actorId) => seamPortForActor(actorId).org.getTeamById(teamId),
+		getTeamMembersByTeamId: (teamId, actorId) =>
+			seamPortForActor(actorId).org.getTeamMembersByTeamId(teamId),
+		getTeamMembersById: (teamMembersId, actorId) =>
+			seamPortForActor(actorId).org.getTeamMembersById(teamMembersId),
+		createTeam: (input, actorId) => seamPortForActor(actorId).org.createTeam(input),
+		updateTeam: (teamId, patch, actorId) => seamPortForActor(actorId).org.updateTeam(teamId, patch),
+		resolveReviewRecipientsForItem: (ctx, actorId) =>
+			seamPortForActor(actorId).org.resolveReviewRecipientsForItem(ctx),
+		persistScaffoldedAgents: (teamMembersId, specs, actorId) =>
+			seamPortForActor(actorId).org.persistScaffoldedAgents(teamMembersId, specs),
+		insertRoutine: (input: Record<string, unknown>, actorId: string) =>
+			seamPortForActor(actorId).routine.insertRoutine(widenInsertRoutineInput(input)),
+		getRoutineById: (id, actorId) => seamPortForActor(actorId).routine.getRoutineById(id),
+		updateRoutineById: (id: string, updates: Record<string, unknown>, actorId: string) =>
+			seamPortForActor(actorId).routine.updateRoutineById(id, widenUpdateRoutineInput(updates)),
+		handoffTask: (taskId, input, actorId) =>
+			seamPortForActor(actorId).work.handoffTask(taskId, input),
 	},
 };
 

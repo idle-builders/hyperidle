@@ -34,17 +34,28 @@ import type {
 	CreateBetResponse,
 	CreateItemRequest,
 	CreateItemResponse,
+	CreateOrgTeamRequest,
 	CreateTaskRequest,
 	CreateTaskResponse,
 	DirectThreadResponse,
+	HandoffTaskRequest,
+	HandoffTaskResponse,
 	InsertMessageRequest,
 	InsertMessageResponse,
+	InsertRoutineRequest,
 	InsertThreadRequest,
 	InsertThreadResponse,
 	ItemView,
+	OrgTeamMembersByIdView,
+	OrgTeamMembershipView,
+	OrgTeamView,
+	PersistScaffoldedAgentsResponse,
+	RoutineView,
 	TaskView,
 	UpdateBetRequest,
 	UpdateItemRequest,
+	UpdateOrgTeamRequest,
+	UpdateRoutineRequest,
 	UpdateThreadRequest,
 	UserView,
 } from "@hyperidle/api-contract";
@@ -87,6 +98,63 @@ interface CoreApiHcClient {
 					readonly json: { readonly entry: string };
 				}): Promise<Response>;
 			};
+			readonly handoff: {
+				$post(args: {
+					readonly param: { readonly id: string };
+					readonly json: HandoffTaskRequest;
+				}): Promise<Response>;
+			};
+		};
+	};
+	readonly teams: {
+		readonly ":teamId": {
+			$patch(args: {
+				readonly param: { readonly teamId: string };
+				readonly json: UpdateOrgTeamRequest;
+			}): Promise<Response>;
+		};
+	};
+	readonly routines: {
+		$post(args: { readonly json: InsertRoutineRequest }): Promise<Response>;
+		readonly ":id": {
+			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+			$patch(args: {
+				readonly param: { readonly id: string };
+				readonly json: UpdateRoutineRequest;
+			}): Promise<Response>;
+		};
+	};
+	readonly org: {
+		readonly teams: {
+			$post(args: { readonly json: CreateOrgTeamRequest }): Promise<Response>;
+			readonly ":teamId": {
+				$get(args: { readonly param: { readonly teamId: string } }): Promise<Response>;
+				readonly membership: {
+					$get(args: { readonly param: { readonly teamId: string } }): Promise<Response>;
+				};
+			};
+		};
+		readonly "team-members": {
+			readonly ":teamMembersId": {
+				$get(args: { readonly param: { readonly teamMembersId: string } }): Promise<Response>;
+			};
+		};
+		readonly "review-recipients": {
+			$get(args: {
+				readonly query: {
+					readonly userId: string;
+					readonly agentRole?: string;
+					readonly teamId?: string;
+				};
+			}): Promise<Response>;
+		};
+		readonly "scaffolded-agents": {
+			$post(args: {
+				readonly json: {
+					readonly teamMembersId: string | null;
+					readonly specs: readonly Record<string, unknown>[];
+				};
+			}): Promise<Response>;
 		};
 	};
 	readonly conversations: {
@@ -199,6 +267,24 @@ async function getFirstThreadOrUndefined(
 	return first ? { id: first.id, participants: first.participants } : undefined;
 }
 
+/**
+ * `GET /routines/:id`'s response body is the heavier `RoutineDetail`
+ * (`{routine, runs, budget}`) — extract only the `RoutineView` fields a seam
+ * consumer relies on. The route already 404s a soft-deleted routine, so a
+ * found result never carries a real `deletedAt` (always `null` here).
+ */
+async function getRoutineViewOrUndefined(
+	method: string,
+	res: Response,
+): Promise<RoutineView | undefined> {
+	if (res.status === 404) return undefined;
+	if (!res.ok) return throwSeamError(method, res);
+	const body = (await res.json()) as {
+		readonly routine: { readonly name: string; readonly state: string };
+	};
+	return { name: body.routine.name, state: body.routine.state, deletedAt: null };
+}
+
 /** Maps `UpdateBetRequest`'s camelCase keys onto `PATCH /bets/:id`'s wire `field` names. */
 const BET_PATCH_FIELD_NAMES = {
 	description: "description",
@@ -306,6 +392,12 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("work.createArtifact", res);
 				return (await res.json()) as CreateArtifactResponse;
 			},
+
+			async handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse> {
+				const res = await client.tasks[":id"].handoff.$post({ param: { id: taskId }, json: input });
+				if (!res.ok) return throwSeamError("work.handoffTask", res);
+				return (await res.json()) as HandoffTaskResponse;
+			},
 		},
 		users: {
 			async getUserById(id: string): Promise<UserView | undefined> {
@@ -371,6 +463,78 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 					query: { host_kind: hostKind, host_id: hostId, limit: "1" },
 				});
 				return getFirstThreadOrUndefined("conversation.getFirstThreadByHost", res);
+			},
+		},
+		org: {
+			async getTeamById(teamId: string): Promise<OrgTeamView | undefined> {
+				const res = await client.org.teams[":teamId"].$get({ param: { teamId } });
+				return getOrUndefined<OrgTeamView>("org.getTeamById", res);
+			},
+
+			async getTeamMembersByTeamId(teamId: string): Promise<OrgTeamMembershipView | undefined> {
+				const res = await client.org.teams[":teamId"].membership.$get({ param: { teamId } });
+				return getOrUndefined<OrgTeamMembershipView>("org.getTeamMembersByTeamId", res);
+			},
+
+			async getTeamMembersById(teamMembersId: string): Promise<OrgTeamMembersByIdView | undefined> {
+				const res = await client.org["team-members"][":teamMembersId"].$get({
+					param: { teamMembersId },
+				});
+				return getOrUndefined<OrgTeamMembersByIdView>("org.getTeamMembersById", res);
+			},
+
+			async createTeam(input: CreateOrgTeamRequest): Promise<void> {
+				const res = await client.org.teams.$post({ json: input });
+				if (!res.ok) return throwSeamError("org.createTeam", res);
+			},
+
+			async updateTeam(teamId: string, patch: UpdateOrgTeamRequest): Promise<void> {
+				const res = await client.teams[":teamId"].$patch({ param: { teamId }, json: patch });
+				if (!res.ok) return throwSeamError("org.updateTeam", res);
+			},
+
+			async resolveReviewRecipientsForItem(ctx: {
+				readonly userId: string;
+				readonly agentRole: string | undefined;
+				readonly teamId: string | undefined;
+			}): Promise<readonly string[]> {
+				const res = await client.org["review-recipients"].$get({
+					query: {
+						userId: ctx.userId,
+						...(ctx.agentRole !== undefined ? { agentRole: ctx.agentRole } : {}),
+						...(ctx.teamId !== undefined ? { teamId: ctx.teamId } : {}),
+					},
+				});
+				if (!res.ok) return throwSeamError("org.resolveReviewRecipientsForItem", res);
+				const body = (await res.json()) as { readonly recipients: readonly string[] };
+				return body.recipients;
+			},
+
+			async persistScaffoldedAgents(
+				teamMembersId: string | null,
+				specs: readonly Record<string, unknown>[],
+			): Promise<PersistScaffoldedAgentsResponse> {
+				const res = await client.org["scaffolded-agents"].$post({
+					json: { teamMembersId, specs },
+				});
+				if (!res.ok) return throwSeamError("org.persistScaffoldedAgents", res);
+				return (await res.json()) as PersistScaffoldedAgentsResponse;
+			},
+		},
+		routine: {
+			async insertRoutine(input: InsertRoutineRequest): Promise<void> {
+				const res = await client.routines.$post({ json: input });
+				if (!res.ok) return throwSeamError("routine.insertRoutine", res);
+			},
+
+			async getRoutineById(id: string): Promise<RoutineView | undefined> {
+				const res = await client.routines[":id"].$get({ param: { id } });
+				return getRoutineViewOrUndefined("routine.getRoutineById", res);
+			},
+
+			async updateRoutineById(id: string, updates: UpdateRoutineRequest): Promise<void> {
+				const res = await client.routines[":id"].$patch({ param: { id }, json: updates });
+				if (!res.ok) return throwSeamError("routine.updateRoutineById", res);
 			},
 		},
 	};

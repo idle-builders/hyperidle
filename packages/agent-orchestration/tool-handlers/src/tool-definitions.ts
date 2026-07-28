@@ -311,33 +311,29 @@ function makeHandoffToTool<TDb>(
 				if (!target) return err("NOT_FOUND", `Target agent not found: ${input.toAgent}`);
 			}
 
-			const metadata = {
-				context_id: input.contextId,
-				status: input.status,
-				reason: input.reason,
-				artifacts: input.artifacts ?? [],
-				remaining_work: input.remainingWork ?? [],
-				...(input.error !== undefined ? { error: input.error } : {}),
-			};
-
-			const sessionContext = {
-				sessionId: ctx.sessionId,
-				agentId: ctx.agentId,
-				taskId: ctx.taskId,
-				sandboxPath: ctx.sandboxPath,
-				ingestion: ctx.ingestion,
-				traceId: randomUUID(),
-			};
-
-			const params = {
-				sessionContext,
-				metadata,
-				...(input.toAgent ? { toAgent: input.toAgent } : {}),
-				...(input.toRole ? { toRole: input.toRole } : {}),
-				...(input.toHuman ? { toHuman: input.toHuman } : {}),
-			};
-
-			const result = await ports.policy.handoff(ctx.db, ctx.eventBus, params);
+			// AU21 §9 Increment 2 (org/routine/handoff wave): routes through the
+			// CoreApiPort seam — the SAME `POST /tasks/:id/handoff` route a human
+			// caller's client would use — instead of the raw `ports.policy.handoff`
+			// DI call (deleted). The route resolves its own `SessionContext`
+			// server-side from the DB session row keyed by `sessionId`, so this
+			// handler no longer needs to build one locally (no `sandboxPath`/
+			// `ingestion`/`traceId` to thread through the wire).
+			const result = await ports.coreApi.handoffTask(
+				ctx.taskId,
+				{
+					sessionId: ctx.sessionId,
+					...(input.toAgent ? { toAgent: input.toAgent } : {}),
+					...(input.toRole ? { toRole: input.toRole } : {}),
+					...(input.toHuman ? { toHuman: input.toHuman } : {}),
+					reason: input.reason,
+					artifacts: input.artifacts ?? [],
+					remainingWork: input.remainingWork ?? [],
+					contextId: input.contextId,
+					status: input.status,
+					...(input.error !== undefined ? { error: input.error } : {}),
+				},
+				ctx.agentId,
+			);
 
 			return ok({
 				status: result.status,
@@ -427,11 +423,14 @@ function makeCreateItemTool<TDb>(
 
 			if (isReviewItem(input)) {
 				const agentRow = await ports.coreApi.getUserById(ctx.agentId, ctx.agentId);
-				const humanIds = await ports.org.resolveReviewRecipientsForItem(ctx.db, {
-					userId: ctx.agentId,
-					agentRole: agentRow?.role ?? undefined,
-					teamId: ctx.teamId,
-				});
+				const humanIds = await ports.coreApi.resolveReviewRecipientsForItem(
+					{
+						userId: ctx.agentId,
+						agentRole: agentRow?.role ?? undefined,
+						teamId: ctx.teamId,
+					},
+					ctx.agentId,
+				);
 				if (humanIds.length > 0) {
 					const threadRow = await ports.coreApi.getThreadById(threadId, ctx.agentId);
 					const currentParticipants: readonly string[] = threadRow
@@ -1000,18 +999,21 @@ function makeCreateTeamTool<TDb>(
 			const teamMembersId = `team-${randomUUID()}`;
 
 			// @lore AU20 Am7: atomic createTeam (teams + teamMembers companion in one call).
-			await ports.org.createTeam(ctx.db, {
-				id: teamId,
-				name: input.name,
-				phase: "build",
-				functions: JSON.stringify(input.functions),
-				factoryDbPath: input.repoPath ?? null,
-				createdAt: now,
-				teamMembersId,
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
+			await ports.coreApi.createTeam(
+				{
+					id: teamId,
+					name: input.name,
+					phase: "build",
+					functions: JSON.stringify(input.functions),
+					factoryDbPath: input.repoPath ?? null,
+					createdAt: now,
+					teamMembersId,
+					capacity: 5,
+					activeBets: 0,
+					formedAt: now,
+				},
+				ctx.agentId,
+			);
 
 			const specs = await ports.agentSelection.resolveScaffoldSpecs({
 				db: ctx.db,
@@ -1026,10 +1028,10 @@ function makeCreateTeamTool<TDb>(
 				ownerUserName: null,
 			});
 
-			const { agentIds, leadAgentId } = await ports.org.persistScaffoldedAgents(
-				ctx.db,
+			const { agentIds, leadAgentId } = await ports.coreApi.persistScaffoldedAgents(
 				teamMembersId,
 				specs,
+				ctx.agentId,
 			);
 
 			const createdAgents = await ports.coreApi.listUsersByTeam(teamMembersId, ctx.agentId);
@@ -1042,7 +1044,7 @@ function makeCreateTeamTool<TDb>(
 			const lead = leadAgentId ?? agentIds[0] ?? null;
 			if (lead !== null) {
 				// @lore AU20 Am7: updateTeam(teamId, {leadAgentId}) replaces setTeamMembersLeadAgent.
-				await ports.org.updateTeam(ctx.db, teamId, { leadAgentId: lead });
+				await ports.coreApi.updateTeam(teamId, { leadAgentId: lead }, ctx.agentId);
 			}
 
 			{
@@ -1099,10 +1101,10 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<Ad
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const team = await ports.org.getTeamById(ctx.db, input.teamId);
+			const team = await ports.coreApi.getTeamById(input.teamId, ctx.agentId);
 			if (!team) return err("NOT_FOUND", `Team not found: ${input.teamId}`);
 
-			const memberGroup = await ports.org.getTeamMembersByTeamId(ctx.db, input.teamId);
+			const memberGroup = await ports.coreApi.getTeamMembersByTeamId(input.teamId, ctx.agentId);
 			if (!memberGroup)
 				return err("NOT_FOUND", `Team membership group not found for team ${input.teamId}`);
 
@@ -1124,10 +1126,10 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<Ad
 					? specs.map((s) => ({ ...s, systemPrompt: input.systemPrompt ?? null }))
 					: specs;
 
-			const { agentIds } = await ports.org.persistScaffoldedAgents(
-				ctx.db,
+			const { agentIds } = await ports.coreApi.persistScaffoldedAgents(
 				memberGroup.id,
 				finalSpecs,
+				ctx.agentId,
 			);
 			const agentId = agentIds[0];
 			if (!agentId) {
@@ -1175,7 +1177,7 @@ function makeCreateBetTool<TDb>(
 			if (!parsed.success) return { status: "error", message: parsed.error.message };
 			const input = parsed.data;
 
-			const team = await ports.org.getTeamById(ctx.db, input.teamId);
+			const team = await ports.coreApi.getTeamById(input.teamId, ctx.agentId);
 			if (!team) return { status: "error", message: `Team not found: ${input.teamId}` };
 
 			// AU21 §9 Increment 1: routes through the CoreApiPort write seam — the
@@ -1282,7 +1284,7 @@ function makeCreateRoutineTool<TDb>(
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const team = await ports.org.getTeamById(ctx.db, input.teamId);
+			const team = await ports.coreApi.getTeamById(input.teamId, ctx.agentId);
 			if (!team) return err("NOT_FOUND", `Team not found: ${input.teamId}`);
 
 			const agent = await ports.coreApi.getUserById(input.ownerAgentId, ctx.agentId);
@@ -1310,20 +1312,23 @@ function makeCreateRoutineTool<TDb>(
 			const now = new Date().toISOString();
 			const nextRunAt = nextCronMatch(parsedCron, new Date()).toISOString();
 
-			await ports.routine.insertRoutine(ctx.db, {
-				id: routineId,
-				name: input.name,
-				description: input.description ?? null,
-				teamId: input.teamId,
-				ownerAgentId: input.ownerAgentId,
-				triggerType: input.triggerType,
-				triggerConfig: input.triggerConfig,
-				state: "active",
-				active: true,
-				costCapPerRunMinor: input.costCapPerRunMinor ?? null,
-				nextRunAt,
-				createdAt: now,
-			});
+			await ports.coreApi.insertRoutine(
+				{
+					id: routineId,
+					name: input.name,
+					description: input.description ?? null,
+					teamId: input.teamId,
+					ownerAgentId: input.ownerAgentId,
+					triggerType: input.triggerType,
+					triggerConfig: input.triggerConfig,
+					state: "active",
+					active: true,
+					costCapPerRunMinor: input.costCapPerRunMinor ?? null,
+					nextRunAt,
+					createdAt: now,
+				},
+				ctx.agentId,
+			);
 
 			return ok({ routineId, name: input.name, nextRunAt });
 		},
@@ -1362,7 +1367,7 @@ function makeUpdateRoutineTool<TDb>(
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const existing = await ports.routine.getRoutineById(ctx.db, input.routineId);
+			const existing = await ports.coreApi.getRoutineById(input.routineId, ctx.agentId);
 			if (!existing || existing.deletedAt) {
 				return err("NOT_FOUND", `Routine not found: ${input.routineId}`);
 			}
@@ -1380,10 +1385,10 @@ function makeUpdateRoutineTool<TDb>(
 			if ("costCapMonthlyMinor" in u) updates.costCapMonthlyMinor = u.costCapMonthlyMinor ?? null;
 
 			if (Object.keys(updates).length > 0) {
-				await ports.routine.updateRoutineById(ctx.db, input.routineId, updates);
+				await ports.coreApi.updateRoutineById(input.routineId, updates, ctx.agentId);
 			}
 
-			const updated = await ports.routine.getRoutineById(ctx.db, input.routineId);
+			const updated = await ports.coreApi.getRoutineById(input.routineId, ctx.agentId);
 			return ok({
 				routineId: input.routineId,
 				name: updated?.name ?? existing.name,
@@ -1638,15 +1643,15 @@ export function buildToolDefinitions(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * AU21 §9 Increment 2: the user lookup routes through the `coreApi` seam —
+ * AU21 §9 Increment 2: both the user lookup AND the `getTeamMembersById`
+ * second hop route through the `coreApi` seam (org/routine/handoff wave) —
  * `userId`'s own team lookup is an agent-as-user read, same door
  * `write_memory`/`send_message` reach through. `actorId` is the calling
  * ASSISTANT agent's identity (§12), not the human `userId` being looked up
- * — the assistant is the one acting. `org.getTeamMembersById` stays ordinary
- * same-process DI (out of this wave's scope), hence `db` stays a parameter.
+ * — the assistant is the one acting. No `db` parameter needed anymore — every
+ * read crosses the seam.
  */
 async function resolveDraftTeamId<TDb>(
-	db: TDb,
 	userId: string,
 	actorId: string,
 	ports: ToolHandlersPorts<TDb>,
@@ -1655,7 +1660,7 @@ async function resolveDraftTeamId<TDb>(
 	if (!userRow?.teamId) return undefined;
 	// @lore AK4: `userRow.teamId` is actually `team_members.id` (U1 schema
 	// lore) — resolve the second hop to `teams.id` via `getTeamMembersById`.
-	const memberRow = await ports.org.getTeamMembersById(db, userRow.teamId);
+	const memberRow = await ports.coreApi.getTeamMembersById(userRow.teamId, actorId);
 	return memberRow?.teamId;
 }
 
@@ -1716,12 +1721,7 @@ export async function buildAssistantDraftRegistry<TDb>(
 	},
 	ports: ToolHandlersPorts<TDb>,
 ): Promise<ToolRegistry<TDb>> {
-	const resolvedTeamId = await resolveDraftTeamId(
-		ctx.db,
-		params.userId,
-		params.assistantAgentId,
-		ports,
-	);
+	const resolvedTeamId = await resolveDraftTeamId(params.userId, params.assistantAgentId, ports);
 	const currentDraftBetId = await resolveCurrentDraftBetId(
 		params.transcriptRows,
 		params.assistantAgentId,

@@ -63,6 +63,15 @@ const transitionTaskSchema = z.object({
 	state: z.enum(TASK_STATES),
 });
 
+/**
+ * @lore AU21 §9 Increment 2: `contextId`/`status`/`error` are optional
+ * caller-supplied overrides — the `CoreApiPort.work.handoffTask` seam
+ * method's real caller (`handoff_to`'s tool handler) needs the FULL
+ * `HandoffMetadata` fidelity (`@hyperidle/policy`'s wire shape), which this
+ * route previously hardcoded (`context_id: session.id`, `status: "completed"`,
+ * `error` dropped entirely). Omitting all three preserves the exact original
+ * behavior for any caller that doesn't supply them.
+ */
 const handoffSchema = z.object({
 	sessionId: z.string(),
 	toAgent: z.string().optional(),
@@ -71,6 +80,9 @@ const handoffSchema = z.object({
 	reason: z.string().min(1),
 	artifacts: z.array(z.string()).optional(),
 	remainingWork: z.array(z.string()).optional(),
+	contextId: z.string().optional(),
+	status: z.enum(["completed", "failed", "blocked", "in_progress"]).optional(),
+	error: z.string().optional(),
 });
 
 /**
@@ -318,11 +330,12 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				toRole: body.toRole,
 				toHuman: body.toHuman,
 				metadata: {
-					context_id: session.id,
-					status: "completed",
+					context_id: body.contextId ?? session.id,
+					status: body.status ?? "completed",
 					reason: body.reason,
 					artifacts: body.artifacts ?? [],
 					remaining_work: body.remainingWork ?? [],
+					...(body.error !== undefined ? { error: body.error } : {}),
 				},
 			});
 

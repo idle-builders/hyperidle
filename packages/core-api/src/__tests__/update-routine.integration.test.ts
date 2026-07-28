@@ -8,8 +8,30 @@ import { bets, routines, tasks, teamMembers, teams, users } from "@hyperidle/db"
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test as baseTest } from "../test-fixtures.js";
+
+/**
+ * @lore AU21 §9 Increment 2 (org/routine/handoff wave): this file's tool
+ * handler now reaches `ports.coreApi.*` (the seam) — this file-scoped
+ * `auto:true` fixture registers a real in-process `CoreApiPort` transport off
+ * THIS test's own `app` for every test in this file (same idiom as
+ * `create-routine.integration.test.ts`/`handoff-to.integration.test.ts`).
+ */
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
+
 import { makeContext, NOW } from "./_helpers.js";
 
 const updateRoutineTool = buildToolDefinitions(toolHandlersPorts).find(

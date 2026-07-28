@@ -40,10 +40,19 @@ function builtinKind(id: string): string | null {
 
 /**
  * AA2: Schema for POST /api/routines (create routine).
+ *
+ * @lore AU21 §9 Increment 2: `id` is an optional client-supplied override —
+ * the `CoreApiPort.routine.insertRoutine` seam method's real caller
+ * (`create_routine`'s tool handler) pre-computes a routine id itself (needed
+ * to report `routineId` back in its own response before the seam call
+ * returns) and must round-trip the SAME id through the route. The real UI
+ * caller (`RoutineCreateDialog.tsx`) never supplies one, so the default
+ * server-generated-id behavior is unchanged for that path.
  */
 const createRoutineSchema = z.object({
+	id: z.string().min(1).optional(),
 	name: z.string().min(1).max(200),
-	description: z.string().max(2000).optional(),
+	description: z.string().max(2000).nullish(),
 	teamId: z.string().min(1),
 	ownerAgentId: z.string().min(1),
 	triggerType: z.literal("calendar"),
@@ -143,7 +152,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				);
 			}
 
-			const routineId = crypto.randomUUID();
+			const routineId = body.id ?? crypto.randomUUID();
 			const now = new Date().toISOString();
 
 			// Compute nextRunAt from the cron expression

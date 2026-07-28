@@ -15,21 +15,7 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 	work: {
 		routeItem: notImplemented,
 	},
-	org: {
-		getTeamById: notImplemented,
-		getTeamMembersByTeamId: notImplemented,
-		getTeamMembersById: notImplemented,
-		createTeam: notImplemented,
-		updateTeam: notImplemented,
-		resolveReviewRecipientsForItem: notImplemented,
-		persistScaffoldedAgents: notImplemented,
-	},
 	agentSelection: { resolveScaffoldSpecs: notImplemented },
-	routine: {
-		insertRoutine: notImplemented,
-		getRoutineById: notImplemented,
-		updateRoutineById: notImplemented,
-	},
 	dispatch: {
 		provisionTeamRoutines: notImplemented,
 	},
@@ -44,7 +30,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 		upsertKnowledgeAppProjectionAttentionScore: notImplemented,
 		recomputeAttentionScoreForItem: notImplemented,
 	},
-	policy: { handoff: notImplemented },
 	coreApi: {
 		createBet: notImplemented,
 		getTaskById: notImplemented,
@@ -66,5 +51,16 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 		listInboxBySenderExclusion: notImplemented,
 		findOrCreateDirectThread: notImplemented,
 		getFirstThreadByHost: notImplemented,
+		getTeamById: notImplemented,
+		getTeamMembersByTeamId: notImplemented,
+		getTeamMembersById: notImplemented,
+		createTeam: notImplemented,
+		updateTeam: notImplemented,
+		resolveReviewRecipientsForItem: notImplemented,
+		persistScaffoldedAgents: notImplemented,
+		insertRoutine: notImplemented,
+		getRoutineById: notImplemented,
+		updateRoutineById: notImplemented,
+		handoffTask: notImplemented,
 	},
 };

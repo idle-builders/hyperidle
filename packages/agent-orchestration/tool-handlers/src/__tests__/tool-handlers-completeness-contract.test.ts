@@ -304,17 +304,6 @@ describe("buildAssistantDraftRegistry — constraint injection", () => {
 
 		const ports: ToolHandlersPorts<HyperIdleDb> = {
 			...STUB_TOOL_HANDLERS_PORTS,
-			org: {
-				...STUB_TOOL_HANDLERS_PORTS.org,
-				getTeamMembersById: async (_db, teamMembersId) => {
-					if (teamMembersId === "team-members-1") return { teamId: "real-team-id" };
-					return undefined;
-				},
-				getTeamById: async (_db, teamId) => {
-					if (teamId === "real-team-id") return { id: "real-team-id", name: "Test Team" };
-					return undefined;
-				},
-			},
 			coreApi: {
 				...STUB_TOOL_HANDLERS_PORTS.coreApi,
 				// AU21 §9 Increment 1: create_bet now routes through `ports.coreApi`,
@@ -337,6 +326,17 @@ describe("buildAssistantDraftRegistry — constraint injection", () => {
 				},
 				updateBetById: async (betId, updates) => {
 					updateBetCalls.push({ betId, updates: updates as Record<string, unknown> });
+				},
+				// AU21 §9 Increment 2 (org/routine/handoff wave): `resolveDraftTeamId`'s
+				// AK4 second hop now routes through `ports.coreApi`, not raw
+				// `ports.org` DI (deleted) — fake the seam calls here.
+				getTeamMembersById: async (teamMembersId) => {
+					if (teamMembersId === "team-members-1") return { teamId: "real-team-id" };
+					return undefined;
+				},
+				getTeamById: async (teamId) => {
+					if (teamId === "real-team-id") return { id: "real-team-id", name: "Test Team" };
+					return undefined;
 				},
 			},
 		};

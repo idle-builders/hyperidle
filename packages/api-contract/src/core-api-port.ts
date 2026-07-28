@@ -172,11 +172,40 @@ export interface UserView {
 }
 
 /**
+ * Mirrors `POST /tasks/:id/handoff`'s validated request body — extended
+ * (Increment 2 org/routine/handoff wave) with `contextId`/`status`/`error` so
+ * the seam carries `handoff_to`'s full metadata fidelity (the route
+ * previously hardcoded `context_id: session.id` and `status: "completed"` and
+ * dropped `error` entirely — all three are now caller-supplied, defaulting to
+ * the route's original behavior when omitted).
+ */
+export interface HandoffTaskRequest {
+	readonly sessionId: string;
+	readonly toAgent?: string;
+	readonly toRole?: string;
+	readonly toHuman?: boolean;
+	readonly reason: string;
+	readonly artifacts?: readonly string[];
+	readonly remainingWork?: readonly string[];
+	readonly contextId?: string;
+	readonly status?: "completed" | "failed" | "blocked" | "in_progress";
+	readonly error?: string;
+}
+
+/** Mirrors `POST /tasks/:id/handoff`'s response body (`@hyperidle/policy`'s `HandoffResult`). */
+export interface HandoffTaskResponse {
+	readonly status: "success" | "escalated";
+	readonly targetAgentId?: string;
+	readonly escalationItemId?: string;
+}
+
+/**
  * The agent's tool-facing `work` capability family (Decision C). Seeded
  * (Increment 1) with `createBet`; Increment 2 adds the remaining
  * `tool-handlers` reads/writes named in `edge-disposition.md`'s
- * `work.{get, list, create, update}` row. `routeItem` stays a pure local
- * computation (no DB, no cross-layer read) — never a seam method.
+ * `work.{get, list, create, update}` row, plus `handoffTask` (org/routine/
+ * handoff wave — the backing route lives under `/tasks`). `routeItem` stays
+ * a pure local computation (no DB, no cross-layer read) — never a seam method.
  */
 export interface CoreApiWorkPort {
 	createBet(input: CreateBetRequest): Promise<CreateBetResponse>;
@@ -191,6 +220,7 @@ export interface CoreApiWorkPort {
 	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
 	findItemByReasoningMarker(marker: string): Promise<{ readonly id: string } | undefined>;
 	createArtifact(input: CreateArtifactRequest): Promise<CreateArtifactResponse>;
+	handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse>;
 }
 
 /**
@@ -301,6 +331,140 @@ export interface CoreApiConversationPort {
 	): Promise<ConversationThreadView | undefined>;
 }
 
+/** Mirrors `GET /org/teams/:teamId`'s response — only the fields a `CoreApiPort` consumer relies on. */
+export interface OrgTeamView {
+	readonly id: string;
+	readonly name: string;
+}
+
+/** Mirrors `GET /org/teams/:teamId/membership`'s response (`teamMembers` row keyed by `teams.id`). */
+export interface OrgTeamMembershipView {
+	readonly id: string;
+}
+
+/** Mirrors `GET /org/team-members/:teamMembersId`'s response — the AK4 two-hop resolution's second hop. */
+export interface OrgTeamMembersByIdView {
+	readonly teamId: string;
+}
+
+/**
+ * Mirrors `POST /org/teams`'s validated request body — the atomic
+ * `teams`+`teamMembers` insert only (never the heavier `POST /teams` UI flow,
+ * which also scaffolds agents/routines/org-edges/welcome-message).
+ */
+export interface CreateOrgTeamRequest {
+	readonly id: string;
+	readonly name: string;
+	readonly phase: string;
+	readonly functions: string | null;
+	readonly factoryDbPath: string | null;
+	readonly createdAt: string;
+	readonly teamMembersId: string;
+	readonly capacity?: number;
+	readonly activeBets?: number;
+	readonly formedAt?: string;
+}
+
+/**
+ * Mirrors `PATCH /teams/:teamId`'s validated request body — extended
+ * (Increment 2) to accept `leadAgentId` (previously only `phase`).
+ */
+export interface UpdateOrgTeamRequest {
+	readonly phase?: string;
+	readonly activeBets?: number;
+	readonly leadAgentId?: string;
+}
+
+/** Mirrors `GET /org/review-recipients`'s query params. */
+export interface ReviewRecipientsQuery {
+	readonly userId: string;
+	readonly agentRole: string | undefined;
+	readonly teamId: string | undefined;
+}
+
+/** Mirrors `POST /org/scaffolded-agents`'s 201 response body. */
+export interface PersistScaffoldedAgentsResponse {
+	readonly agentIds: readonly string[];
+	readonly leadAgentId: string | null;
+}
+
+/**
+ * The agent's tool-facing `org` capability family (Decision C, Increment 2's
+ * org/routine/handoff wave) — `edge-disposition.md`'s `org.{getTeam,
+ * getTeamMembers, createTeam, updateTeam}` row. `resolveReviewRecipientsForItem`/
+ * `persistScaffoldedAgents` back collapsed multi-step `tool-handlers`-only
+ * helpers (no 1:1 UI route) — new narrowly-scoped routes.
+ */
+export interface CoreApiOrgPort {
+	getTeamById(teamId: string): Promise<OrgTeamView | undefined>;
+	getTeamMembersByTeamId(teamId: string): Promise<OrgTeamMembershipView | undefined>;
+	getTeamMembersById(teamMembersId: string): Promise<OrgTeamMembersByIdView | undefined>;
+	createTeam(input: CreateOrgTeamRequest): Promise<void>;
+	updateTeam(teamId: string, patch: UpdateOrgTeamRequest): Promise<void>;
+	resolveReviewRecipientsForItem(ctx: ReviewRecipientsQuery): Promise<readonly string[]>;
+	persistScaffoldedAgents(
+		teamMembersId: string | null,
+		specs: readonly Record<string, unknown>[],
+	): Promise<PersistScaffoldedAgentsResponse>;
+}
+
+/**
+ * Mirrors `POST /routines`'s validated request body — extended (Increment 2)
+ * with an optional client-supplied `id` so `create_routine`'s pre-computed
+ * routine id round-trips through the seam (the route otherwise generates its
+ * own id server-side, per its real UI caller `RoutineCreateDialog.tsx`, which
+ * never supplies one).
+ */
+export interface InsertRoutineRequest {
+	readonly id?: string;
+	readonly name: string;
+	readonly description?: string | null;
+	readonly teamId: string;
+	readonly ownerAgentId: string;
+	readonly triggerType: string;
+	readonly triggerConfig: string;
+	readonly costCapPerRunMinor?: number | null;
+	readonly costCapMonthlyMinor?: number | null;
+}
+
+/**
+ * Mirrors `GET /routines/:id`'s `RoutineDetail.routine` fields a `CoreApiPort`
+ * consumer relies on. The route 404s a soft-deleted routine, so a found
+ * result never carries a real `deletedAt` — always `null` here.
+ */
+export interface RoutineView {
+	readonly name: string;
+	readonly state: string;
+	readonly deletedAt: string | null;
+}
+
+/**
+ * Mirrors `PATCH /routines/:id`'s validated request body — the field subset
+ * `update_routine` sets (the route's own `updateRoutineSchema` covers every
+ * one of these already).
+ */
+export interface UpdateRoutineRequest {
+	readonly name?: string;
+	readonly description?: string;
+	readonly state?: string;
+	/** `update_routine`'s tool handler always sets this alongside `state` (backward-compat sync). */
+	readonly active?: boolean;
+	readonly triggerConfig?: string;
+	readonly costCapPerRunMinor?: number | null;
+	readonly costCapMonthlyMinor?: number | null;
+}
+
+/**
+ * The agent's tool-facing `routine` capability family (Decision C, Increment
+ * 2's org/routine/handoff wave) — `edge-disposition.md`'s `routine.{getRoutine,
+ * insertRoutine, updateRoutine}` row.
+ */
+export interface CoreApiRoutinePort {
+	insertRoutine(input: InsertRoutineRequest): Promise<void>;
+	getRoutineById(id: string): Promise<RoutineView | undefined>;
+	updateRoutineById(id: string, updates: UpdateRoutineRequest): Promise<void>;
+}
+
 /**
  * `CoreApiPort` — a per-core-Service family of narrow hand-typed method
  * groups, each Application-adapted onto the `hc<AppType>` client
@@ -311,6 +475,8 @@ export interface CoreApiPort {
 	readonly work: CoreApiWorkPort;
 	readonly users: CoreApiUsersPort;
 	readonly conversation: CoreApiConversationPort;
+	readonly org: CoreApiOrgPort;
+	readonly routine: CoreApiRoutinePort;
 }
 
 /**

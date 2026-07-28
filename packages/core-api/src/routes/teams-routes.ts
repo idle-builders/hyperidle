@@ -656,6 +656,11 @@ export function createTeamRoutes(
 
 	// PATCH /:teamId — update team phase (active ↔ archived)
 	// P4 AC-18: SettingsTeams needs to toggle team active/archived state.
+	// @lore AU21 §9 Increment 2: extended to also accept `leadAgentId` — the
+	// `CoreApiPort.org.updateTeam` seam method's ONE real call site
+	// (`create_team`'s `updateTeam(teamId, {leadAgentId})`) needs exactly this
+	// field, alongside the pre-existing `phase` toggle. At least one of the
+	// two must be present.
 	router.patch("/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
 		const teamId = c.req.param("teamId");
 
@@ -671,19 +676,28 @@ export function createTeamRoutes(
 			return c.json({ error: "Invalid JSON", code: "validation_error" }, 400);
 		}
 
-		const { phase } = body as { phase?: string };
+		const { phase, leadAgentId } = body as { phase?: string; leadAgentId?: string };
 		// @lore U2: valid phases per shared/team.ts and docs/requirements.
 		// "shape" | "build" | "cool-down" | "live" | "archived"
 		const VALID_PHASES = ["shape", "build", "cool-down", "live", "archived"] as const;
-		if (!(phase && (VALID_PHASES as readonly string[]).includes(phase))) {
+		if (phase !== undefined && !(VALID_PHASES as readonly string[]).includes(phase)) {
 			return c.json(
 				{ error: `phase must be one of: ${VALID_PHASES.join(", ")}`, code: "validation_error" },
 				400,
 			);
 		}
+		if (phase === undefined && leadAgentId === undefined) {
+			return c.json(
+				{ error: "at least one of phase or leadAgentId is required", code: "validation_error" },
+				400,
+			);
+		}
 
 		// @lore AU20 Am7: updateTeam(teamId, {phase}) replaces updateTeamPhase.
-		await updateTeam(db, teamId, { phase });
+		await updateTeam(db, teamId, {
+			...(phase !== undefined ? { phase } : {}),
+			...(leadAgentId !== undefined ? { leadAgentId } : {}),
+		});
 
 		const updated = await getTeam(db, { id: teamId });
 		if (!updated) {

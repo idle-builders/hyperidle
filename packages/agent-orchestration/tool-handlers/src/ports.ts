@@ -1,17 +1,19 @@
 /**
  * `tool-handlers` Service (agent-orchestration) — outbound composition-
  * boundary (Mechanism C) DI ports, per architecture §10.2's census (the
- * merged `tools` census row, §7.5's C1 split). Real outbound edges (`knowledge`,
- * `org`, `agent-selection`, `routine`, `dispatch`) are ordinary downward-or-
+ * merged `tools` census row, §7.5's C1 split). Real outbound edges
+ * (`knowledge`, `agent-selection`, `dispatch`) are ordinary downward-or-
  * same-layer DI, wired by the composition root
  * (`packages/server/src/services/tool-handlers-bindings.ts`) to each target's
- * real exported functions. `policy` is also ordinary same-layer DI. `coreApi`
- * (AU21 §9 Increment 1, `work`; Increment 2, `users`+`conversation`) is
- * DIFFERENT in kind — it crosses the `CoreApiPort` write seam (a real route
- * call), not same-process DI; see `ToolHandlersCoreApiAccessor`'s own doc
- * comment below. There is no longer a standalone `conversation` port —
- * every former `ToolHandlersConversationAccessor` capability moved onto
- * `coreApi` (Increment 2's conversation wave).
+ * real exported functions. `coreApi` (AU21 §9 Increment 1, `work`; Increment
+ * 2, `users`+`conversation`, then `org`+`routine`+`handoffTask`) is DIFFERENT
+ * in kind — it crosses the `CoreApiPort` write seam (a real route call), not
+ * same-process DI; see `ToolHandlersCoreApiAccessor`'s own doc comment below.
+ * There is no longer a standalone `conversation`/`org`/`routine`/`policy`
+ * port — every former `ToolHandlersConversationAccessor`/
+ * `ToolHandlersOrgAccessor`/`ToolHandlersRoutineAccessor`/
+ * `ToolHandlersPolicyAccessor.handoff` capability moved onto `coreApi`
+ * (Increment 2's conversation wave, then org/routine/handoff wave).
  *
  * Several call shapes COLLAPSE (not a 1:1 port-per-function mirror) because
  * Mechanism C forbids `tool-handlers` from importing the Services a tool
@@ -25,10 +27,10 @@
  *    .recomputeOne(id)` — collapsed into ONE
  *    `ToolHandlersKnowledgeAccessor.recomputeAttentionScoreForItem` method.
  *  - `create-item.ts`'s `resolveReviewRecipients(db, ctx, orgUsers)` —
- *    collapsed into ONE `ToolHandlersOrgAccessor.resolveReviewRecipientsForItem`.
+ *    collapsed into ONE `ToolHandlersCoreApiAccessor.resolveReviewRecipientsForItem`.
  *  - `add-agent.ts`/`create-team.ts`'s `persistScaffoldedAgents(db, orgUsers,
  *    teamMembersId, specs)` — collapsed into ONE
- *    `ToolHandlersOrgAccessor.persistScaffoldedAgents` (the composition root
+ *    `ToolHandlersCoreApiAccessor.persistScaffoldedAgents` (the composition root
  *    still wires the same `{getUserById, insertUser}` `orgUsers` object
  *    internally, just one level up).
  *
@@ -89,48 +91,6 @@ interface ToolHandlersCreateTeamInput {
 	readonly formedAt?: string;
 }
 
-interface ToolHandlersOrgAccessor<TDb> {
-	getTeamById(
-		db: TDb,
-		teamId: string,
-	): Promise<{ readonly id: string; readonly name: string } | undefined>;
-	getTeamMembersByTeamId(db: TDb, teamId: string): Promise<{ readonly id: string } | undefined>;
-	/** `team_members.id` -> the full row (incl. `teamId`, i.e. `teams.id`) — the AK4 two-hop resolution's second hop. */
-	getTeamMembersById(
-		db: TDb,
-		teamMembersId: string,
-	): Promise<{ readonly teamId: string } | undefined>;
-	/**
-	 * Atomically creates a `teams` row + its `teamMembers` companion (1:1 invariant).
-	 * @lore AU20 Am7: replaces the old `createTeam + createTeamMembersGroup` two-call pattern.
-	 */
-	createTeam(db: TDb, input: ToolHandlersCreateTeamInput): Promise<void>;
-	/**
-	 * Update team-owned columns (phase on `teams`, activeBets/leadAgentId on `teamMembers`).
-	 * @lore AU20 Am7: replaces `setTeamMembersLeadAgent` (and `updateTeamPhase`/`setTeamMembersActiveBets`).
-	 */
-	updateTeam(
-		db: TDb,
-		teamId: string,
-		patch: { phase?: string; activeBets?: number; leadAgentId?: string },
-	): Promise<void>;
-	/** Collapses `resolveReviewRecipients(db, ctx, {getUserById})` — see this file's top `@lore`. */
-	resolveReviewRecipientsForItem(
-		db: TDb,
-		ctx: {
-			readonly userId: string;
-			readonly agentRole: string | undefined;
-			readonly teamId: string | undefined;
-		},
-	): Promise<readonly string[]>;
-	/** Collapses `persistScaffoldedAgents(db, {getUserById,insertUser}, teamMembersId, specs)` — see this file's top `@lore`. */
-	persistScaffoldedAgents(
-		db: TDb,
-		teamMembersId: string | null,
-		specs: readonly Record<string, unknown>[],
-	): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
-}
-
 interface ToolHandlersAgentSelectionAccessor<TDb> {
 	resolveScaffoldSpecs(input: {
 		readonly db: TDb;
@@ -146,17 +106,6 @@ interface ToolHandlersAgentSelectionAccessor<TDb> {
 		readonly ownerUserId: string | null;
 		readonly ownerUserName: string | null;
 	}): Promise<readonly Record<string, unknown>[]>;
-}
-
-interface ToolHandlersRoutineAccessor<TDb> {
-	insertRoutine(db: TDb, input: Record<string, unknown>): Promise<void>;
-	getRoutineById(
-		db: TDb,
-		id: string,
-	): Promise<
-		{ readonly name: string; readonly state: string; readonly deletedAt: string | null } | undefined
-	>;
-	updateRoutineById(db: TDb, id: string, updates: Record<string, unknown>): Promise<void>;
 }
 
 /**
@@ -279,50 +228,6 @@ interface ToolHandlersKnowledgeAccessor<TDb> {
 		eventBus: unknown,
 		knowledgeItemId: string,
 	): Promise<{ readonly current: number }>;
-}
-
-/** Structural mirror of `@hyperidle/policy`'s `HandoffMetadata`/`HandoffParams`/`HandoffResult` (Mechanism C). */
-interface ToolHandlersHandoffMetadata {
-	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case
-	context_id: string;
-	status: "completed" | "failed" | "blocked" | "in_progress";
-	reason: string;
-	artifacts: string[];
-	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case
-	remaining_work: string[];
-	error?: string;
-}
-
-interface ToolHandlersSessionContext {
-	sessionId: string;
-	agentId: string;
-	taskId: string;
-	sandboxPath: string;
-	ingestion: { dispose(): void };
-	traceId: string;
-}
-
-interface ToolHandlersHandoffParams {
-	sessionContext: ToolHandlersSessionContext;
-	toAgent?: string;
-	toRole?: string;
-	toHuman?: boolean;
-	metadata: ToolHandlersHandoffMetadata;
-}
-
-interface ToolHandlersHandoffResult {
-	status: "success" | "escalated";
-	targetAgentId?: string;
-	escalationItemId?: string;
-}
-
-interface ToolHandlersPolicyAccessor<TDb> {
-	/** Bound `@hyperidle/policy`'s `handoff` — wired at the composition root, same idiom `dispatch-bindings.ts` already established. */
-	handoff(
-		db: TDb,
-		eventBus: unknown,
-		params: ToolHandlersHandoffParams,
-	): Promise<ToolHandlersHandoffResult>;
 }
 
 /**
@@ -489,16 +394,87 @@ interface ToolHandlersCoreApiAccessor {
 		hostId: string,
 		actorId: string,
 	): Promise<{ readonly id: string; readonly participants: readonly string[] } | undefined>;
+	/**
+	 * @lore AU21 §9 Increment 2 (org/routine/handoff wave): every former
+	 * `ToolHandlersOrgAccessor`/`ToolHandlersRoutineAccessor`/
+	 * `ToolHandlersPolicyAccessor.handoff` capability moved onto this seam
+	 * (`edge-disposition.md`'s `org.{getTeam, getTeamMembers, createTeam,
+	 * updateTeam}`, `routine.{getRoutine, insertRoutine, updateRoutine}`, and
+	 * `policy.handoff` rows) — the agent acting on core "just like the user
+	 * would", same as `work`/`users`/`conversation`'s earlier migrations.
+	 */
+	getTeamById(
+		teamId: string,
+		actorId: string,
+	): Promise<{ readonly id: string; readonly name: string } | undefined>;
+	getTeamMembersByTeamId(
+		teamId: string,
+		actorId: string,
+	): Promise<{ readonly id: string } | undefined>;
+	/** `team_members.id` -> the full row (incl. `teamId`, i.e. `teams.id`) — the AK4 two-hop resolution's second hop. */
+	getTeamMembersById(
+		teamMembersId: string,
+		actorId: string,
+	): Promise<{ readonly teamId: string } | undefined>;
+	/** Atomically creates a `teams` row + its `teamMembers` companion (1:1 invariant). */
+	createTeam(input: ToolHandlersCreateTeamInput, actorId: string): Promise<void>;
+	/** Update team-owned columns (phase on `teams`, activeBets/leadAgentId on `teamMembers`). */
+	updateTeam(
+		teamId: string,
+		patch: { phase?: string; activeBets?: number; leadAgentId?: string },
+		actorId: string,
+	): Promise<void>;
+	/** Collapses `resolveReviewRecipients(db, ctx, {getUserById})` — see this file's top `@lore`. */
+	resolveReviewRecipientsForItem(
+		ctx: {
+			readonly userId: string;
+			readonly agentRole: string | undefined;
+			readonly teamId: string | undefined;
+		},
+		actorId: string,
+	): Promise<readonly string[]>;
+	/** Collapses `persistScaffoldedAgents(db, {getUserById,insertUser}, teamMembersId, specs)` — see this file's top `@lore`. */
+	persistScaffoldedAgents(
+		teamMembersId: string | null,
+		specs: readonly Record<string, unknown>[],
+		actorId: string,
+	): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
+	insertRoutine(input: Record<string, unknown>, actorId: string): Promise<void>;
+	getRoutineById(
+		id: string,
+		actorId: string,
+	): Promise<
+		{ readonly name: string; readonly state: string; readonly deletedAt: string | null } | undefined
+	>;
+	updateRoutineById(id: string, updates: Record<string, unknown>, actorId: string): Promise<void>;
+	/** Bound `@hyperidle/policy`'s `handoff`, reached via `POST /tasks/:id/handoff`. */
+	handoffTask(
+		taskId: string,
+		input: {
+			readonly sessionId: string;
+			readonly toAgent?: string;
+			readonly toRole?: string;
+			readonly toHuman?: boolean;
+			readonly reason: string;
+			readonly artifacts?: readonly string[];
+			readonly remainingWork?: readonly string[];
+			readonly contextId?: string;
+			readonly status?: "completed" | "failed" | "blocked" | "in_progress";
+			readonly error?: string;
+		},
+		actorId: string,
+	): Promise<{
+		readonly status: "success" | "escalated";
+		readonly targetAgentId?: string;
+		readonly escalationItemId?: string;
+	}>;
 }
 
 /** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts<TDb> {
 	readonly work: ToolHandlersWorkAccessor;
-	readonly org: ToolHandlersOrgAccessor<TDb>;
 	readonly agentSelection: ToolHandlersAgentSelectionAccessor<TDb>;
-	readonly routine: ToolHandlersRoutineAccessor<TDb>;
 	readonly dispatch: ToolHandlersDispatchAccessor<TDb>;
 	readonly knowledge: ToolHandlersKnowledgeAccessor<TDb>;
-	readonly policy: ToolHandlersPolicyAccessor<TDb>;
 	readonly coreApi: ToolHandlersCoreApiAccessor;
 }
