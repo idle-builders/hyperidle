@@ -104,6 +104,7 @@ import {
 	registerBuiltinRoutineReactions,
 	startRoutineScheduler,
 } from "./services/routine-scheduler-bindings.js";
+import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
 
 type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
 type TaskDispatcherDeps = NonNullable<DispatchConfig["task"]> & {
@@ -1049,6 +1050,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	};
 
 	let wsDispose: (() => void) | null = null;
+	let sessionActivityGatewayDispose: (() => void) | null = null;
 	const app = await createApp({
 		db,
 		eventBus,
@@ -1115,6 +1117,13 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				}),
 			);
 			broadcaster.start();
+			// AU21 §6 Decision E / §9 Increment 7: the (c) session/harness-
+			// streaming forward relocated OUT of `WsBroadcaster`'s own route
+			// table into this dedicated gateway — agent-orchestration's
+			// gateway/router role over the events that also feed the
+			// relocated `SessionActivityBuffer` (`@hyperidle/agent-execution`).
+			// Drives the SAME broadcaster's `broadcast()` from the outside.
+			sessionActivityGatewayDispose = registerSessionActivityGateway(eventBus, broadcaster);
 			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, upgradeWebSocket, broadcaster);
 		},
 		/**
@@ -1191,6 +1200,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				const disposeWebSocket = wsDispose;
 				wsDispose = null;
 				disposeWebSocket?.();
+				const disposeSessionActivityGateway = sessionActivityGatewayDispose;
+				sessionActivityGatewayDispose = null;
+				disposeSessionActivityGateway?.();
 			});
 			await runPhase(
 				"http",

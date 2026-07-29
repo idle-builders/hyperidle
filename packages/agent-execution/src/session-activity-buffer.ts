@@ -11,6 +11,20 @@
  *
  * @lore AU20 B2c: folded from `@hyperidle/capture-writeback` into
  * `@hyperidle/run-orchestration`.
+ *
+ * @lore AU21 §6 Decision E / §9 Increment 7: relocated from
+ * `@hyperidle/run-orchestration` (agent-orchestration) into
+ * `@hyperidle/agent-execution` — the buffer's real architectural home, since
+ * tokens/tool-calls originate in the execution Layer, not orchestration. The
+ * move violates no data-access rule: the buffer imports only
+ * `@hyperidle/shared` types/`EventBus` and touches no DB/Drizzle, carrying no
+ * persistence concern into a Layer that must stay thin (Mechanism B). Served
+ * to core-ui via `AgentOrchestrationPort.sessions.getRecentActivity`, which
+ * gateways this same instance from agent-orchestration (see
+ * `packages/core-api/src/services/agent-orchestration-port-composition.ts`
+ * and `agent-orchestration-sessions-routes.ts`). Behavior is unchanged from
+ * the pre-relocation class — see `__tests__/session-activity-buffer.test.ts`
+ * for the ported behavioral suite.
  */
 
 import type {

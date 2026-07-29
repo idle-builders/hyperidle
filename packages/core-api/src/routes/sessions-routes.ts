@@ -1,5 +1,4 @@
 import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { SessionActivityBuffer } from "@hyperidle/run-orchestration";
 import {
 	createSessionRequest,
 	findSessionRequest,
@@ -24,6 +23,10 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import {
+	buildAgentOrchestrationPort,
+	getRegisteredAgentOrchestrationTransport,
+} from "../services/agent-orchestration-port-composition.js";
 import { transitionRun } from "../services/run-orchestration-composition.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
@@ -277,13 +280,19 @@ async function applyStateChangePatch(
 /**
  * Create Hono routes for session endpoints (E6).
  *
- * @param activityBuffer - Optional in-memory ring buffer for session activity
- *   (Q1 §3.2). When wired, GET /:id/activity returns entries from the buffer.
  * @param durableStartEnabled - AU11 AC-2: true when the composition root has
  *   an adapter pool wired. When true, POST /sessions creates and consumes an
  *   AgentSessionRequest instead of a bare DB insert (see `SessionRouteDeps`
  *   removal note above — this replaces the former `deps.adapterPool`
  *   presence check with a plain boolean, no harness type dependency).
+ *
+ * @lore AU21 §6 Decision E / §9 Increment 7: `GET /:id/activity` no longer
+ * takes an injected `SessionActivityBuffer` reference — the buffer relocated
+ * to `@hyperidle/agent-execution` (agent-orchestration/execution's real
+ * home), and this core-api route now reads it THROUGH
+ * `AgentOrchestrationPort.sessions.getRecentActivity`, the same seam
+ * `tasks.ts`'s per-session cost display already uses. Wire format is
+ * unchanged — `useSessionActivity.test.tsx` stays green.
  */
 /**
  * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder`/`agentWorkIntentReader`
@@ -297,7 +306,6 @@ async function applyStateChangePatch(
 export function createSessionRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	activityBuffer: SessionActivityBuffer | undefined,
 	durableStartEnabled: boolean | undefined,
 	agentWorkIntentRecorder: AgentWorkIntentRecorder<HyperIdleDb>,
 	agentWorkIntentReader: AgentWorkIntentReader<HyperIdleDb>,
@@ -504,7 +512,9 @@ export function createSessionRoutes(
 	});
 
 	// GET /:id/activity — Session activity stream (Q1 §3.2)
-	// Returns session metadata + recent activity entries from the in-memory buffer.
+	// Returns session metadata + recent activity entries, read through
+	// `AgentOrchestrationPort` (AU21 §9 Increment 7, Decision E — the buffer
+	// this used to read directly relocated to `@hyperidle/agent-execution`).
 	// Capped at 50 most-recent entries to bound response size.
 	router.get("/:id/activity", requireBoundary({ kind: "public-data" }), async (c) => {
 		const sessionId = c.req.param("id");
@@ -513,7 +523,10 @@ export function createSessionRoutes(
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const allEntries = activityBuffer ? activityBuffer.getActivity(sessionId) : [];
+		const agentOrchestrationPort = buildAgentOrchestrationPort(
+			getRegisteredAgentOrchestrationTransport(),
+		);
+		const allEntries = await agentOrchestrationPort.sessions.getRecentActivity(sessionId);
 		// Return 50 most-recent entries (tail of the insertion-ordered array)
 		const activity = allEntries.slice(-50);
 

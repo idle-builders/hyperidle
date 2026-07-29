@@ -9,6 +9,5 @@ export type {
 	RuntimePorts,
 } from "./contracts.js";
 export { runSession } from "./runtime.js";
-export { SessionActivityBuffer } from "./session-activity-buffer.js";
 export { startRuntime } from "./start-runtime.js";
 export { transitionRun } from "./transition-run.js";

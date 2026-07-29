@@ -1,3 +1,4 @@
+import { SessionActivityBuffer } from "@hyperidle/agent-execution";
 import {
 	type CredentialResolver,
 	decryptCredentialValue,
@@ -22,7 +23,6 @@ import {
 	startObservability,
 } from "@hyperidle/observability";
 import { getTeamMembers } from "@hyperidle/org";
-import { SessionActivityBuffer } from "@hyperidle/run-orchestration";
 // @lore AU20 Ag1b: standalone assistant registration removed — its trigger
 // is now started through dispatchOps.start (called from registerAgentLayerServices).
 import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
@@ -494,8 +494,19 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
-		// Q1 §6.1: session activity buffer — subscribe to tool_call_recorded events
-		// and expose recent activity via GET /api/sessions/:id/activity.
+		// Q1 §6.1 / AU21 §6 Decision E, §9 Increment 7: session activity buffer —
+		// subscribes to tool_call_recorded/session_started/session_ended events
+		// and serves recent activity. Relocated to `@hyperidle/agent-execution`
+		// (its real architectural home — tokens/tool-calls originate in
+		// execution, not orchestration); core-api still owns *instantiating* it
+		// (Application composition root, same as any other Layer-owned
+		// stateful Service) and exposes it two ways: (a) the REST route below
+		// (`GET /api/sessions/:id/activity`) now reads it THROUGH
+		// `AgentOrchestrationPort.sessions.getRecentActivity` rather than a
+		// directly-injected reference — see `sessions-routes.ts` — and (b) the
+		// new agent-orchestration-owned gateway route
+		// (`createAgentOrchestrationSessionsRoutes`'s `getRecentActivity` param)
+		// that door's own backing route calls directly, in-process.
 		// @lore Q1: The buffer is created once per app instance, started immediately,
 		// and disposed with the app. Tests that emit events against the same eventBus
 		// instance will see the buffer populated correctly.
@@ -510,7 +521,6 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			createSessionRoutes(
 				options.db,
 				eventBus,
-				activityBuffer,
 				Boolean(options.adapterPool),
 				options.agentWorkIntentRecorder ?? agentWorkIntentRecorder,
 				options.agentWorkIntentReader ?? agentWorkIntentReader,
@@ -522,7 +532,16 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// see `agent-orchestration-sessions-routes.ts`'s header for why the HTTP
 		// hosting lives here even though the data/query logic is
 		// agent-orchestration's own (`@hyperidle/session-requests`).
-		api.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(options.db));
+		// §9 Increment 7 (Decision E): `getRecentActivity` reads the SAME
+		// relocated `activityBuffer` instance directly — an in-process call,
+		// not a cross-transport read, mirroring how the cost/history routes
+		// above call `@hyperidle/session-requests`'s query functions directly.
+		api.route(
+			"/agent-orchestration",
+			createAgentOrchestrationSessionsRoutes(options.db, (sessionId) =>
+				activityBuffer.getActivity(sessionId),
+			),
+		);
 
 		// S2: worker admin visibility — GET /api/workers lists registered adapters.
 		// Requires X-API-Key matching HYPERIDLE_API_KEY (admin-level auth inside route).

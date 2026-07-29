@@ -18,6 +18,7 @@
 
 import type {
 	AgentOrchestrationPort,
+	AgentOrchestrationSessionActivityEntry,
 	AgentOrchestrationSessionHistoryEntry,
 	AgentOrchestrationTransport,
 } from "@hyperidle/api-contract";
@@ -38,6 +39,9 @@ interface AgentOrchestrationHcClient {
 			}): Promise<Response>;
 			readonly ":sessionId": {
 				readonly cost: {
+					$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
+				};
+				readonly activity: {
 					$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
 				};
 			};
@@ -115,6 +119,19 @@ export function buildAgentOrchestrationPort(
 				if (!res.ok) return throwSeamError("sessions.listSessionHistoryBySource", res);
 				const body = (await res.json()) as {
 					readonly entries: ReadonlyArray<AgentOrchestrationSessionHistoryEntry>;
+				};
+				return body.entries;
+			},
+
+			async getRecentActivity(
+				sessionId: string,
+			): Promise<ReadonlyArray<AgentOrchestrationSessionActivityEntry>> {
+				const res = await client["agent-orchestration"].sessions[":sessionId"].activity.$get({
+					param: { sessionId },
+				});
+				if (!res.ok) return throwSeamError("sessions.getRecentActivity", res);
+				const body = (await res.json()) as {
+					readonly entries: ReadonlyArray<AgentOrchestrationSessionActivityEntry>;
 				};
 				return body.entries;
 			},

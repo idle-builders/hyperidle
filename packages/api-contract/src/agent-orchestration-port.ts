@@ -32,9 +32,26 @@ export interface AgentOrchestrationSessionHistoryEntry {
 }
 
 /**
- * The `sessions` capability family (Decision D) — per-session cost (the real
- * gap `tasks.ts`'s hardcoded `cost: null` traces) + session/run history for a
- * given work source.
+ * One session-activity entry — a hand-typed, structural mirror of
+ * `@hyperidle/shared`'s `ActivityEntry` discriminated union (AM3). `api-
+ * contract` stays zero-runtime-deps (header note above), so this is a
+ * deliberate type-only duplication, not an import — same idiom as
+ * `AgentOrchestrationSessionHistoryEntry`. `data`'s shape varies by `type`
+ * (`tool_call`/`reasoning`/`cost_tick`/…); callers that need the narrowed
+ * shape reconstruct it the same way `useSessionActivity.ts` already does
+ * for the WS/REST wire format (this door serves the identical JSON shape).
+ */
+export interface AgentOrchestrationSessionActivityEntry {
+	readonly type: string;
+	readonly timestamp: number;
+	readonly data: unknown;
+}
+
+/**
+ * The `sessions` capability family (Decision D/E) — per-session cost (the
+ * real gap `tasks.ts`'s hardcoded `cost: null` traces) + session/run history
+ * for a given work source + the relocated session-activity stream (§9
+ * Increment 7: `agent-execution` owns the buffer, this door gateways it).
  */
 export interface AgentOrchestrationSessionsPort {
 	/**
@@ -48,6 +65,17 @@ export interface AgentOrchestrationSessionsPort {
 		sourceKind: string,
 		sourceId: string,
 	): Promise<ReadonlyArray<AgentOrchestrationSessionHistoryEntry>>;
+	/**
+	 * Recent activity entries for one session, oldest first, capped at the
+	 * buffer's own ring size (100). Mirrors the relocated `SessionActivityBuffer`
+	 * (now in `@hyperidle/agent-execution`)'s own `unknown session → []`
+	 * semantics — no DB-existence check here; the REST route this door
+	 * ultimately backs (`sessions-routes.ts`'s `GET /:id/activity`) keeps its
+	 * own `sessions`-table 404 check and calls this only for the entries.
+	 */
+	getRecentActivity(
+		sessionId: string,
+	): Promise<ReadonlyArray<AgentOrchestrationSessionActivityEntry>>;
 }
 
 /**

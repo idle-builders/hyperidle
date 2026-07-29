@@ -102,34 +102,19 @@ const BROADCAST_ROUTES: ReadonlyArray<{
 ];
 
 /**
- * Per-session topics: session:<id> — the (c) session/harness-streaming
- * concern (AU21 Decision E). Left forwarding the FULL event payload this
- * wave — `useSessionActivity.ts` genuinely consumes payload fields
- * (`toolName`, `argsSummary`, …), unlike the invalidation-only routes above.
- * Ownership relocation (agent-execution owns the buffer, agent-orchestration
- * gateways it) is Wave B / Increment 7's second half — not this wave.
- *
- * Q1 §3.4: forward session lifecycle and tool-call events to per-session
- * topic `session:<sessionId>`. Any authenticated client may subscribe —
- * observe mode is read-only and not gated by participant membership.
+ * Per-session topics (session:<id>) — the (c) session/harness-streaming
+ * concern (AU21 Decision E) — are NOT forwarded by this generic broadcaster
+ * anymore. That forwarding relocated to core-api's own
+ * `session-activity-gateway.ts` (`registerSessionActivityGateway`), which
+ * represents agent-orchestration's gateway/router role over the relocated
+ * `SessionActivityBuffer` (`@hyperidle/agent-execution`) — see
+ * `ws-broadcaster.no-session-forwarding.test.ts` for the pinned negative
+ * proof and `session-activity-gateway.integration.test.ts` for the positive
+ * half. `WsBroadcaster` still carries the topic/subscribe/broadcast
+ * mechanics any consumer (including that gateway) can drive — it just no
+ * longer owns any single concern's event→topic routing table for this
+ * concern.
  */
-const RAW_BROADCAST_ROUTES: ReadonlyArray<{
-	readonly eventName: EventType;
-	readonly deriveTopic: (event: DomainEvent) => string;
-}> = [
-	{
-		eventName: "session_started",
-		deriveTopic: (e) => `session:${(e as EventByType<"session_started">).sessionId}`,
-	},
-	{
-		eventName: "session_ended",
-		deriveTopic: (e) => `session:${(e as EventByType<"session_ended">).sessionId}`,
-	},
-	{
-		eventName: "tool_call_recorded",
-		deriveTopic: (e) => `session:${(e as EventByType<"tool_call_recorded">).sessionId}`,
-	},
-];
 
 /** The minimal invalidation-signal envelope forwarded on BROADCAST_ROUTES topics. */
 interface InvalidationEnvelope {
@@ -159,9 +144,12 @@ export class WsBroadcaster {
 	 * @lore AU20 Ab2: replaced 16 imperative on() blocks with a single loop
 	 * over BROADCAST_ROUTES — zero behavior change, sub-linear growth.
 	 * @lore AU21 Decision E / Increment 7: BROADCAST_ROUTES entries now
-	 * forward the minimal `InvalidationEnvelope`, not the raw event —
-	 * RAW_BROADCAST_ROUTES (session:<id>) is the one remaining full-payload
-	 * concern, forwarded unchanged pending Wave B's ownership move.
+	 * forward the minimal `InvalidationEnvelope`, not the raw event. Session
+	 * topics (`session:<id>`) are no longer forwarded by this class at all —
+	 * that forwarding relocated to `session-activity-gateway.ts`'s
+	 * `registerSessionActivityGateway`, which drives this same class's
+	 * `broadcast()` method from the outside instead of owning a route table
+	 * entry here.
 	 */
 	start(): void {
 		for (const { eventName, deriveTopic, deriveId } of BROADCAST_ROUTES) {
@@ -172,13 +160,6 @@ export class WsBroadcaster {
 						? { type: "invalidate", topic, kind: event.type, id: deriveId(event) }
 						: { type: "invalidate", topic, kind: event.type };
 					this.broadcast(topic, JSON.stringify(envelope));
-				}),
-			);
-		}
-		for (const { eventName, deriveTopic } of RAW_BROADCAST_ROUTES) {
-			this.unsubscribers.push(
-				this.eventBus.on(eventName, (event) => {
-					this.broadcast(deriveTopic(event), JSON.stringify(event));
 				}),
 			);
 		}

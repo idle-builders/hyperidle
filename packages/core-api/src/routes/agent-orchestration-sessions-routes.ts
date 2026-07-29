@@ -33,6 +33,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { getSessionCostBySessionId, listSessionRequests } from "@hyperidle/session-requests";
 import {
+	type ActivityEntry,
 	AGENT_SESSION_SOURCE_KINDS,
 	type AgentSessionSourceKind,
 	API_ERROR_CODES,
@@ -45,7 +46,19 @@ function isAgentSessionSourceKind(value: string): value is AgentSessionSourceKin
 	return (AGENT_SESSION_SOURCE_KINDS as readonly string[]).includes(value);
 }
 
-export function createAgentOrchestrationSessionsRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
+/**
+ * @param getRecentActivity - AU21 §9 Increment 7 (Decision E): reads the
+ *   relocated `SessionActivityBuffer` (`@hyperidle/agent-execution`) the
+ *   Application composition root (`app.ts`) owns and starts — an in-process
+ *   call, the same shape as this file's existing direct calls into
+ *   `@hyperidle/session-requests`'s query functions. No DB-existence check
+ *   here (mirrors the buffer's own `unknown session → []` semantics); the
+ *   REST consumer (`sessions-routes.ts`) keeps its own 404 check.
+ */
+export function createAgentOrchestrationSessionsRoutes(
+	db: HyperIdleDb,
+	getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET /agent-orchestration/sessions/:sessionId/cost — backs
@@ -87,6 +100,15 @@ export function createAgentOrchestrationSessionsRoutes(db: HyperIdleDb): Hono<Hy
 				costCents: row.costCents,
 			})),
 		});
+	});
+
+	// GET /agent-orchestration/sessions/:sessionId/activity — backs
+	// `AgentOrchestrationPort.sessions.getRecentActivity` (§9 Increment 7,
+	// Decision E). Unknown sessionId resolves an empty array, mirroring the
+	// relocated buffer's own semantics — no DB lookup here.
+	router.get("/sessions/:sessionId/activity", requireBoundary({ kind: "public-data" }), (c) => {
+		const sessionId = c.req.param("sessionId");
+		return c.json({ entries: getRecentActivity(sessionId) });
 	});
 
 	return router;

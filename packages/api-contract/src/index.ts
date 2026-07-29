@@ -8,6 +8,7 @@
 
 export type {
 	AgentOrchestrationPort,
+	AgentOrchestrationSessionActivityEntry,
 	AgentOrchestrationSessionHistoryEntry,
 	AgentOrchestrationSessionsPort,
 	AgentOrchestrationTransport,
