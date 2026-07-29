@@ -99,6 +99,7 @@ import {
 // subscription and the sentinel interval). Disposer count 15→14.
 import { costOps } from "./services/cost-bindings.js";
 import { dispatchOps } from "./services/dispatch-bindings.js";
+import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
 import {
 	registerBuiltinRoutineReactions,
 	startRoutineScheduler,
@@ -364,6 +365,15 @@ export function registerCoreDomainServices(ctx: {
 			"agent-run-admission reactions",
 			"unsubscribe",
 			["agent_run_admission_failed subscription"],
+		),
+	);
+
+	disposers.push(
+		identifyBootstrapOwner(
+			registerRoutineRunSessionEndReactions(db, eventBus),
+			"routine-run session-end reactions",
+			"unsubscribe",
+			["session_ended subscription", "agent_run_lifecycle_changed subscription"],
 		),
 	);
 

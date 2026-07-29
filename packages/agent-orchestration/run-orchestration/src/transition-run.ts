@@ -12,7 +12,17 @@ interface IngestionHandle {
 	dispose(): void;
 }
 type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
-type TransitionPorts = Pick<SessionLifecyclePorts, "sessionRequests" | "routine">;
+/**
+ * AU21 §9 Increment 4 (Decision B″ item 3): `routine` dropped from this Pick.
+ * `endSession`/`crashSession` no longer write `routineRuns` directly — the
+ * finalize payload rides the existing `session_ended` emit (additive
+ * `routineRunOutcome`/`costInCents` fields, `@hyperidle/shared`'s
+ * `SessionEndedEvent`) and a NEW core-api subscriber
+ * (`routine-run-session-end-reactions.ts`) performs the write from inside
+ * core-api. `TransitionPorts` now carries only the own-state
+ * `sessionRequests` port the "request" disposition path still needs.
+ */
+type TransitionPorts = Pick<SessionLifecyclePorts, "sessionRequests">;
 
 const TERMINATION_REASONS = [
 	"user_done",
@@ -161,50 +171,11 @@ interface SessionContext {
 	readonly requestContext?: SessionLifecycleCorrelation;
 	routineId?: string;
 }
-async function updateRoutineRunOnSessionEnd(
-	db: HyperIdleDb,
-	routineId: string,
-	sessionId: string,
-	outcome: "success" | "error" | "budget_exhausted",
-	endedAt: string,
-	costInCents: number,
-	ports: TransitionPorts,
-	summary?: string,
-): Promise<void> {
-	const run = await ports.routine.findRunningRoutineRun(db, routineId);
-
-	if (!run) {
-		return;
-	}
-
-	await ports.routine.updateRoutineRunById(db, run.id, {
-		outcome,
-		sessionId,
-		endedAt,
-		costMinor: costInCents > 0 ? costInCents : null,
-		costCurrency: costInCents > 0 ? "USD" : null,
-		...(summary ? { summary } : {}),
-	});
-
-	if (costInCents > 0) {
-		await ports.routine.incrementRoutineCost(db, routineId, costInCents, "USD");
-	}
-	if (summary) {
-		await ports.routine.updateRoutineById(db, routineId, {
-			lastRunAt: endedAt,
-			lastRunSummary: summary,
-		});
-	} else {
-		await ports.routine.updateRoutineById(db, routineId, { lastRunAt: endedAt });
-	}
-}
-
 async function endSession(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	context: SessionContext,
 	costInCents: number,
-	ports: TransitionPorts,
 	baselineCost?: number,
 	routineRunOutcome?: "budget_exhausted",
 	terminalOutcome: "completed" | "not_returned" = "completed",
@@ -257,26 +228,20 @@ async function endSession(
 			// AL6 v2: use terminalOutcome (not hardcoded "completed") so not_returned
 			// turns surface correctly on the bus.
 			outcome: terminalOutcome,
+			// AU21 §9 Increment 4 (Decision B″ item 3): the routine-run finalize
+			// payload rides the SAME event — no direct `routineRuns` write here
+			// anymore. AA3: routineRunOutcome defaults to "success";
+			// "budget_exhausted" is passed through from the per-run cap
+			// enforcement path (independent of the session's own
+			// terminalOutcome). A NEW core-api subscriber
+			// (`routine-run-session-end-reactions.ts`) performs the write.
+			...(context.routineId
+				? { routineRunOutcome: routineRunOutcome ?? "success", costInCents }
+				: {}),
 		});
 	}
 
-	// 4. AA2: If this is a routine session, update the routine_run row.
-	// AA3: routineRunOutcome defaults to "success"; "budget_exhausted" is passed through
-	// from the per-run cap enforcement path to avoid write-then-overwrite (critique Warning 1).
-	// Only run routine-run finalization when WE performed the terminal transition.
-	if (updated && context.routineId) {
-		await updateRoutineRunOnSessionEnd(
-			db,
-			context.routineId,
-			context.sessionId,
-			routineRunOutcome ?? "success",
-			now,
-			costInCents,
-			ports,
-		);
-	}
-
-	// 5. (Dedup state reclaimed automatically via the EventBus subscription
+	// 4. (Dedup state reclaimed automatically via the EventBus subscription
 	//    installed by `startSentinel` — see `installDedupReleaser` in cost-cap.ts.
 	//    The direct call was belt-and-suspenders; removed in AU20 Am3.)
 
@@ -299,7 +264,6 @@ async function crashSession(
 	eventBus: EventBus,
 	context: SessionContext,
 	costInCents: number,
-	ports: TransitionPorts,
 	baselineCost?: number,
 ): Promise<void> {
 	// 1. Try to dispose ingestion handle (may be in a bad state during crash).
@@ -340,23 +304,13 @@ async function crashSession(
 				: {}),
 			timestamp: Date.now(),
 			outcome: "crashed",
+			// AU21 §9 Increment 4 (Decision B″ item 3): crash always finalizes the
+			// routine run to "error" — carried on the same event, no direct write.
+			...(context.routineId ? { routineRunOutcome: "error" as const, costInCents } : {}),
 		});
 	}
 
-	// 4. AA2: If this is a routine session, update the routine_run row with error outcome.
-	if (updated && context.routineId) {
-		await updateRoutineRunOnSessionEnd(
-			db,
-			context.routineId,
-			context.sessionId,
-			"error",
-			now,
-			costInCents,
-			ports,
-		);
-	}
-
-	// 5. (Dedup state reclaimed automatically via the EventBus subscription —
+	// 4. (Dedup state reclaimed automatically via the EventBus subscription —
 	//    see `installDedupReleaser` in cost-cap.ts. AU20 Am3.)
 
 	// Note: Do NOT delete workspace on crash -- knowledge is preserved in DB
@@ -412,19 +366,11 @@ export function transitionRun(
 				deps.eventBus,
 				spec.context,
 				spec.costInCents ?? 0,
-				deps.ports,
 				spec.baselineCost,
 				spec.routineOutcome,
 				spec.terminalOutcome,
 			)
-		: crashSession(
-				deps.db,
-				deps.eventBus,
-				spec.context,
-				spec.costInCents ?? 0,
-				deps.ports,
-				spec.baselineCost,
-			);
+		: crashSession(deps.db, deps.eventBus, spec.context, spec.costInCents ?? 0, spec.baselineCost);
 }
 
 // ---------------------------------------------------------------------------

@@ -141,6 +141,22 @@ export interface SessionEndedEvent {
 	timestamp: number;
 	/** Final disposition of the session. */
 	outcome: SessionOutcome;
+	/**
+	 * AU21 §9 Increment 4 (Decision B″ item 3) — additive, routine-sourced
+	 * sessions only. Carries the routine-run finalize outcome, independent of
+	 * the session's own `outcome` (e.g. a per-run budget-exhausted override
+	 * keeps `outcome:"completed"` while `routineRunOutcome:"budget_exhausted"`).
+	 * `costInCents` is orchestration's own live-computed session cost with no
+	 * other channel to reach core-api (`@lore O2` stripped cost columns from
+	 * `sessions`). Consumed by the core-api subscriber
+	 * `routine-run-session-end-reactions.ts`, the literal replacement for
+	 * `run-orchestration`'s deleted direct `routineRuns` write
+	 * (`updateRoutineRunOnSessionEnd`). `"timeout"` is the stale-session-reaper
+	 * outcome (`runtime-reapers.ts`'s `reapStaleRoutineSessions`) — the SAME
+	 * event channel, a second producer.
+	 */
+	routineRunOutcome?: "success" | "error" | "budget_exhausted" | "timeout";
+	costInCents?: number;
 }
 
 /**

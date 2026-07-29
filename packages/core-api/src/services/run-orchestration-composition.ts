@@ -74,15 +74,12 @@ export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHar
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistry>[0];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistry>[1];
 
+// AU21 §9 Increment 4 (Decision B″ item 3): shrunk to `getRoutineById` —
+// `findRunningRoutineRun`/`updateRoutineRunById`/`updateRoutineById`/
+// `incrementRoutineCost` are no longer part of `SessionLifecyclePorts["routine"]`
+// (see `provisioner.ts`'s `SessionLifecycleRoutineAccessor`).
 const routineAccessor: SessionLifecyclePorts["routine"] = {
 	getRoutineById: routineService.getRoutine,
-	findRunningRoutineRun: (db, routineId) =>
-		routineService
-			.listRoutineRuns(db, { routineId, running: true, limit: 1 })
-			.then((runs) => (runs[0] ? { id: runs[0].id } : undefined)),
-	updateRoutineRunById: (exec, id, patch) => routineService.updateRoutineRun(exec, id, patch),
-	updateRoutineById: routineService.updateRoutine,
-	incrementRoutineCost: routineService.incrementRoutineCost,
 };
 
 const workAccessor: SessionLifecyclePorts["work"] = {
@@ -198,9 +195,12 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 	harnessRuntime,
 	toolProvider,
 };
+// AU21 §9 Increment 4 (Decision B″ item 3): `transitionRunInternal`'s
+// `TransitionPorts` no longer carries a `routine` key at all — `endSession`/
+// `crashSession` finalize a routine run by emitting `session_ended`, never a
+// direct `routineRuns` write.
 const transitionPorts: Parameters<typeof transitionRunInternal>[0]["ports"] = {
 	sessionRequests: sessionLifecyclePorts.sessionRequests,
-	routine: sessionLifecyclePorts.routine,
 };
 
 const sessionLifecyclePort: SessionLifecycleRuntime = {

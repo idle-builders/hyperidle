@@ -61,6 +61,14 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["agent_run_admission_failed subscription"],
 			},
+			// @lore AU21 §9 Increment 4 (Decision B″ item 3): the POST-SESSION
+			// routine-run finalize reaction — a DIFFERENT mechanism from the
+			// PRE-HANDOFF `agent-run-admission reactions` owner above.
+			{
+				owner: "routine-run session-end reactions",
+				cleanupEffect: "unsubscribe",
+				constituents: ["session_ended subscription", "agent_run_lifecycle_changed subscription"],
+			},
 			{
 				owner: "relevance listener",
 				cleanupEffect: "unsubscribes",
@@ -157,6 +165,15 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// `fullServiceBootstrap` call reaches it here, so THIS registration
 				// is a no-op disposer (no `off()` call, no interval).
 				{ unsubscribedEvents: [], clearedIntervals: 0 },
+				// @lore AU21 §9 Increment 4: `registerRoutineRunSessionEndReactions`
+				// is NOT pre-registered on the `eventBus` test fixture (unlike
+				// `registerAgentRunAdmissionReactions` above) — this is its first,
+				// real registration on this eventBus instance, so both its
+				// subscriptions unsubscribe for real.
+				{
+					unsubscribedEvents: ["session_ended", "agent_run_lifecycle_changed"],
+					clearedIntervals: 0,
+				},
 				{ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 },
 				{ unsubscribedEvents: ["session_ended", "session_ended"], clearedIntervals: 0 },
 				{

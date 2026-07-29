@@ -702,22 +702,27 @@ export const routines = pgTable(
  * AA2 linked sessions.routine_id to these rows via the scheduler; `outcome` gained
  * a "running" state and is updated on session end.
  *
- * @lore AU21 Decision B″ (Increment 0 final ruling, recorded 2026-07-27 — NOT YET
- * BUILT; the state below is the target, not the current code): this table STAYS
+ * @lore AU21 Decision B″ (Increment 0 ruling, recorded 2026-07-27; COLLAPSED —
+ * Increment 4, this is now the shipped state, not a target): this table STAYS
  * core-api-owned — `packages/core-api/routine/src/routine-service.ts` remains the
- * only module permitted to read or write it (AU13's boundary, unchanged) — it does
- * NOT become an orchestration-owned projection. What changes is WHO writes it:
- * currently (pre-Increment-3/4), three agent-orchestration modules still write it
- * directly via composition-bundle DI (`dispatch`'s fire-time `insertRoutineRun`;
+ * only module permitted to read or write it (AU13's boundary, unchanged) — it did
+ * NOT become an orchestration-owned projection. What changed is WHO writes it.
+ * Pre-Increment-3/4, three agent-orchestration modules wrote it directly via
+ * composition-bundle DI (`dispatch`'s fire-time `insertRoutineRun`;
  * `session-requests`'s `failOrRelease` `updateRoutineRunIfRunning`;
  * `run-orchestration`'s `transition-run.ts`/`runtime-reapers.ts`
- * `updateRoutineRunById`). Ruling for later increments: the insert is to dissolve
- * into a same-transaction core-api write once the schedule-fire decision itself
- * moves core-side (Increment 4); the two update paths are to re-home onto core-api's
- * own reactions to the `agent_run_admission_failed` (pre-handoff) and `session_ended`/
- * `agent_run_lifecycle_changed` (post-session) events (Increment 3). Target end state:
- * a "definition-only audit derived from events" — zero direct writes from
- * orchestration, no new table, no ownership move. See
+ * `updateRoutineRunById`). All three are now DISSOLVED: the insert is a
+ * same-transaction core-api write inside the routine scheduler (relocated
+ * core-side, Increment 4 Wave A, `routine-scheduler.ts`); the two update paths
+ * re-homed onto core-api's own reactions to `agent_run_admission_failed`
+ * (pre-handoff, `agent-run-admission-reactions.ts`, Increment 3) and
+ * `session_ended`/`agent_run_lifecycle_changed` (post-session,
+ * `routine-run-session-end-reactions.ts`, Increment 4). End state reached: a
+ * "definition-only audit derived from events" — ZERO direct writes from
+ * `agent-orchestration` into `routineRuns` anywhere in the tree (verified via
+ * the anti-regrowth guard); every mutation now originates inside core-api
+ * itself, either synchronously in the fire transaction or as an event-
+ * subscriber reaction to orchestration's own lifecycle events. See
  * `.pipeline/work/AU21/architecture.md` Decision B″.
  */
 export const routineRuns = pgTable(

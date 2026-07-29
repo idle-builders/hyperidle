@@ -86,37 +86,20 @@ type SessionLifecycleTaskAuditEntry =
 // routine — SessionLifecycleRoutineAccessor (ordinary downward edge, real target)
 // ---------------------------------------------------------------------------
 
+/**
+ * AU21 §9 Increment 4 (Decision B″ item 3): shrunk to the one method this
+ * package still needs. `findRunningRoutineRun`/`updateRoutineRunById`/
+ * `updateRoutineById`/`incrementRoutineCost` are gone — `transition-run.ts`
+ * and `runtime-reapers.ts` (the only former callers) now finalize a routine
+ * run by emitting `session_ended` (additive `routineRunOutcome`/
+ * `costInCents` fields) instead of writing `routineRuns` directly; the new
+ * core-api subscriber (`routine-run-session-end-reactions.ts`) performs the
+ * write from inside core-api. `getRoutineById` survives — `context.ts` and
+ * this file's own admission-time per-run cap read (`routinePerRunCap`) still
+ * need it.
+ */
 interface SessionLifecycleRoutineAccessor {
 	getRoutineById(db: HyperIdleDb, id: string): Promise<Routine | undefined>;
-	findRunningRoutineRun(
-		db: HyperIdleDb,
-		routineId: string,
-	): Promise<{ readonly id: string } | undefined>;
-	updateRoutineRunById(
-		db: HyperIdleDb,
-		id: string,
-		patch: {
-			readonly outcome: "success" | "error" | "budget_exhausted" | "timeout";
-			readonly sessionId?: string;
-			readonly endedAt?: string;
-			readonly costMinor?: number | null;
-			readonly costCurrency?: string | null;
-			readonly summary?: string;
-			readonly errorMessage?: string;
-		},
-	): Promise<void>;
-	updateRoutineById(
-		db: HyperIdleDb,
-		id: string,
-		patch: { readonly lastRunAt?: string; readonly lastRunSummary?: string },
-	): Promise<void>;
-	/** Closes the coalesce-ownership gap (`@hyperidle/routine`'s `incrementRoutineCost`). */
-	incrementRoutineCost(
-		db: HyperIdleDb,
-		id: string,
-		deltaMinor: number,
-		currency: string,
-	): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
