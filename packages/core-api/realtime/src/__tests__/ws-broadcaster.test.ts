@@ -27,8 +27,14 @@ describe("WsBroadcaster", () => {
 		broadcaster.stop();
 	});
 
-	// AC5: WebSocket pushes new items in real time
-	it("forwards item_created events to clients subscribed to conversations topic", () => {
+	// AU21 Decision E / Increment 7: discrete-state-change topics (conversations/
+	// work/thread:<id>) now forward a MINIMAL invalidation signal, not the full
+	// domain-event payload. No consumer reads payload content on these topics
+	// today (verified: useConversationsThreads/useThreadDetail/useAssistantThread
+	// only inspect `type`/id fields to trigger a re-fetch) — see architecture.md
+	// §6 Decision E. RED until WsBroadcaster's conversations/work routes emit
+	// `{ type: "invalidate", topic, kind }` instead of the raw event JSON.
+	it("forwards item_created events to clients subscribed to conversations topic as a minimal invalidation signal", () => {
 		const client = createMockClient();
 		broadcaster.addClient(client);
 		broadcaster.subscribe(client, "conversations");
@@ -45,12 +51,16 @@ describe("WsBroadcaster", () => {
 
 		expect(client.messages).toHaveLength(1);
 		const received = JSON.parse(client.messages[0]!);
-		expect(received.type).toBe("item_created");
-		expect(received.itemId).toBe("item-1");
+		expect(received.type).toBe("invalidate");
+		expect(received.topic).toBe("conversations");
+		expect(received.kind).toBe("item_created");
+		// Minimal signal: the original event's domain fields must NOT leak through.
+		expect(received.itemId).toBeUndefined();
+		expect(received.conversationId).toBeUndefined();
 	});
 
 	// AC5: WebSocket pushes knowledge updates in real time
-	it("forwards knowledge_updated events to clients subscribed to conversations topic", () => {
+	it("forwards knowledge_updated events to clients subscribed to conversations topic as a minimal invalidation signal", () => {
 		const client = createMockClient();
 		broadcaster.addClient(client);
 		broadcaster.subscribe(client, "conversations");
@@ -66,9 +76,11 @@ describe("WsBroadcaster", () => {
 
 		expect(client.messages).toHaveLength(1);
 		const received = JSON.parse(client.messages[0]!);
-		expect(received.type).toBe("knowledge_updated");
-		expect(received.itemId).toBe("ki-1");
-		expect(received.action).toBe("created");
+		expect(received.type).toBe("invalidate");
+		expect(received.topic).toBe("conversations");
+		expect(received.kind).toBe("knowledge_updated");
+		expect(received.itemId).toBeUndefined();
+		expect(received.action).toBeUndefined();
 	});
 
 	it("does not forward events to clients not subscribed to conversations", () => {

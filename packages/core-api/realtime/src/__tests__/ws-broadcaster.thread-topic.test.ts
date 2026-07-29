@@ -9,8 +9,18 @@
  *  - thread_created          → topic "conversations" (so the thread-list
  *                               channel refreshes the Submenu)
  *
- * Red phase: WsBroadcaster.start() does not subscribe to any of the new
- * Thread events. These tests fail until the green phase wires them up.
+ * AU21 Decision E / Increment 7: these are discrete-state-change topics — the
+ * broadcaster now forwards a MINIMAL invalidation signal
+ * (`{ type: "invalidate", topic, kind, id? }`), not the full domain-event
+ * payload. Verified: `useThreadDetail`/`useAssistantThread` only inspect
+ * `msg.threadId`/`msg.type` to bump a tick counter and re-fetch — they never
+ * read message content from the WS payload, so this is behavior-preserving.
+ * `id` carries the threadId for thread-scoped topics so consumers can still
+ * filter to their own thread without a full payload.
+ *
+ * Red phase (this wave): WsBroadcaster still forwards the full raw event JSON
+ * for these routes. These tests fail until the green phase collapses the
+ * conversations/work/thread routes onto the minimal invalidation envelope.
  */
 
 import {
@@ -34,6 +44,13 @@ function createMockClient(): WsClient & { messages: string[] } {
 	};
 }
 
+interface InvalidationEnvelope {
+	type: string;
+	topic: string;
+	kind: string;
+	id?: string;
+}
+
 describe("L1a WsBroadcaster — per-thread topic routing", () => {
 	let bus: EventBus;
 	let broadcaster: WsBroadcaster;
@@ -48,7 +65,7 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		broadcaster.stop();
 	});
 
-	it("forwards thread_message_appended to clients subscribed to thread:<id>", () => {
+	it("forwards thread_message_appended to clients subscribed to thread:<id> as a minimal invalidation signal", () => {
 		const client = createMockClient();
 		broadcaster.addClient(client);
 		broadcaster.subscribe(client, "thread:thr-1");
@@ -65,8 +82,14 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		bus.emit(ev);
 
 		expect(client.messages.length).toBeGreaterThanOrEqual(1);
-		const received = JSON.parse(client.messages[0]!) as { type: string };
-		expect(received.type).toBe("thread_message_appended");
+		const received = JSON.parse(client.messages[0]!) as InvalidationEnvelope;
+		expect(received.type).toBe("invalidate");
+		expect(received.topic).toBe("thread:thr-1");
+		expect(received.kind).toBe("thread_message_appended");
+		expect(received.id).toBe("thr-1");
+		// Minimal signal: no message content leaks through the WS frame.
+		expect((received as unknown as Record<string, unknown>).messageId).toBeUndefined();
+		expect((received as unknown as Record<string, unknown>).senderId).toBeUndefined();
 	});
 
 	it("does NOT deliver thread:<id> events to clients subscribed only to a different thread", () => {
@@ -91,7 +114,7 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		expect(b.messages.length).toBe(0);
 	});
 
-	it("forwards thread_resolved to thread:<id> subscribers", () => {
+	it("forwards thread_resolved to thread:<id> subscribers as a minimal invalidation signal", () => {
 		const client = createMockClient();
 		broadcaster.addClient(client);
 		broadcaster.subscribe(client, "thread:thr-3");
@@ -106,11 +129,15 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		bus.emit(ev);
 
 		expect(client.messages.length).toBeGreaterThanOrEqual(1);
-		const received = JSON.parse(client.messages[0]!) as { type: string };
-		expect(received.type).toBe("thread_resolved");
+		const received = JSON.parse(client.messages[0]!) as InvalidationEnvelope;
+		expect(received.type).toBe("invalidate");
+		expect(received.topic).toBe("thread:thr-3");
+		expect(received.kind).toBe("thread_resolved");
+		expect(received.id).toBe("thr-3");
+		expect((received as unknown as Record<string, unknown>).resolvedByMessageId).toBeUndefined();
 	});
 
-	it("forwards thread_reopened to thread:<id> subscribers", () => {
+	it("forwards thread_reopened to thread:<id> subscribers as a minimal invalidation signal", () => {
 		const client = createMockClient();
 		broadcaster.addClient(client);
 		broadcaster.subscribe(client, "thread:thr-4");
@@ -125,11 +152,15 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		bus.emit(ev);
 
 		expect(client.messages.length).toBeGreaterThanOrEqual(1);
-		const received = JSON.parse(client.messages[0]!) as { type: string };
-		expect(received.type).toBe("thread_reopened");
+		const received = JSON.parse(client.messages[0]!) as InvalidationEnvelope;
+		expect(received.type).toBe("invalidate");
+		expect(received.topic).toBe("thread:thr-4");
+		expect(received.kind).toBe("thread_reopened");
+		expect(received.id).toBe("thr-4");
+		expect((received as unknown as Record<string, unknown>).reopenedByMessageId).toBeUndefined();
 	});
 
-	it("forwards thread_archived to thread:<id> subscribers", () => {
+	it("forwards thread_archived to thread:<id> subscribers as a minimal invalidation signal", () => {
 		const client = createMockClient();
 		broadcaster.addClient(client);
 		broadcaster.subscribe(client, "thread:thr-5");
@@ -143,11 +174,14 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		bus.emit(ev);
 
 		expect(client.messages.length).toBeGreaterThanOrEqual(1);
-		const received = JSON.parse(client.messages[0]!) as { type: string };
-		expect(received.type).toBe("thread_archived");
+		const received = JSON.parse(client.messages[0]!) as InvalidationEnvelope;
+		expect(received.type).toBe("invalidate");
+		expect(received.topic).toBe("thread:thr-5");
+		expect(received.kind).toBe("thread_archived");
+		expect(received.id).toBe("thr-5");
 	});
 
-	it("forwards thread_created to the 'conversations' topic (Submenu refresh channel)", () => {
+	it("forwards thread_created to the 'conversations' topic (Submenu refresh channel) as a minimal invalidation signal", () => {
 		const client = createMockClient();
 		broadcaster.addClient(client);
 		broadcaster.subscribe(client, "conversations");
@@ -164,8 +198,11 @@ describe("L1a WsBroadcaster — per-thread topic routing", () => {
 		bus.emit(ev);
 
 		expect(client.messages.length).toBeGreaterThanOrEqual(1);
-		const received = JSON.parse(client.messages[0]!) as { type: string };
-		expect(received.type).toBe("thread_created");
+		const received = JSON.parse(client.messages[0]!) as InvalidationEnvelope;
+		expect(received.type).toBe("invalidate");
+		expect(received.topic).toBe("conversations");
+		expect(received.kind).toBe("thread_created");
+		expect((received as unknown as Record<string, unknown>).hostId).toBeUndefined();
 	});
 
 	it("close-time auto-release: removeClient drops all topic subscriptions for that client", () => {

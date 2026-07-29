@@ -14,6 +14,16 @@
  * Per-test capture uses vi.hoisted + vi.mock with the SAME path the global
  * setup uses (`./services/ws-client.js` relative to src/). This overrides
  * the global no-op with a spy for assertion in this file.
+ *
+ * @lore AU21 Increment 7 (Decision E): the server now forwards a MINIMAL
+ * invalidation envelope on `thread:<id>` (`{ type: "invalidate", topic,
+ * kind, id }`) instead of the full domain event (`{ type:
+ * "thread_message_appended", threadId, messageId }`) — see
+ * `ws-broadcaster.thread-topic.test.ts`. The fired payloads below were
+ * updated to the new envelope shape; the *behavior* under test (re-fetch on
+ * a same-thread update, no re-fetch on a different thread's) is unchanged.
+ * Red until `useThreadDetail` filters on `msg.kind`/`msg.id` instead of
+ * `msg.type`/`msg.threadId`.
  */
 
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -133,12 +143,13 @@ describe("AF14 AC3 — useThreadDetail WS subscription", () => {
 
 		const callCountBefore = apiFetchMock.mock.calls.length;
 
-		// Fire the WS event for the open thread
+		// Fire the WS event for the open thread (minimal invalidation envelope)
 		await act(async () => {
 			capturedHandler?.({
-				type: "thread_message_appended",
-				threadId: "thread-abc",
-				messageId: "msg-2",
+				type: "invalidate",
+				topic: "thread:thread-abc",
+				kind: "thread_message_appended",
+				id: "thread-abc",
 			});
 		});
 
@@ -164,12 +175,13 @@ describe("AF14 AC3 — useThreadDetail WS subscription", () => {
 
 		const callCountBefore = apiFetchMock.mock.calls.length;
 
-		// Fire event for a DIFFERENT thread
+		// Fire event for a DIFFERENT thread (minimal invalidation envelope)
 		await act(async () => {
 			capturedHandler?.({
-				type: "thread_message_appended",
-				threadId: "thread-DIFFERENT",
-				messageId: "msg-99",
+				type: "invalidate",
+				topic: "thread:thread-DIFFERENT",
+				kind: "thread_message_appended",
+				id: "thread-DIFFERENT",
 			});
 		});
 
@@ -196,8 +208,10 @@ describe("AF14 AC3 — useThreadDetail WS subscription", () => {
 
 		await act(async () => {
 			capturedHandler?.({
-				type: "thread_resolved",
-				threadId: "thread-abc",
+				type: "invalidate",
+				topic: "thread:thread-abc",
+				kind: "thread_resolved",
+				id: "thread-abc",
 			});
 		});
 

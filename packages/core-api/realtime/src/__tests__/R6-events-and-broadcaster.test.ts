@@ -74,7 +74,13 @@ describe("R6 AC6: ArtifactCreatedEvent is a valid KernelEvent", () => {
 
 // --- WsBroadcaster forwarding tests -------------------------------------------
 
-describe("R6 AC7: WsBroadcaster forwards artifact_created to 'work' topic", () => {
+// AU21 Decision E / Increment 7: "work" is a discrete-state-change topic — it
+// now carries a MINIMAL invalidation signal (`{ type: "invalidate", topic,
+// kind }`), not the full domain-event payload. No frontend consumer subscribes
+// to the "work" topic at all today (verified via grep — forward-compatible
+// infra per the original @lore R6 W-3 comment); this test proves the general
+// BROADCAST_ROUTES mechanism collapses to the minimal shape for this route too.
+describe("R6 AC7: WsBroadcaster forwards artifact_created to 'work' topic as a minimal invalidation signal", () => {
 	let eventBus: EventBus;
 	let broadcaster: WsBroadcaster;
 
@@ -88,7 +94,7 @@ describe("R6 AC7: WsBroadcaster forwards artifact_created to 'work' topic", () =
 		broadcaster.stop();
 	});
 
-	it("forwards artifact_created event to clients subscribed to 'work' topic", async () => {
+	it("forwards artifact_created event to clients subscribed to 'work' topic as a minimal invalidation signal", async () => {
 		const client = createMockClient();
 		broadcaster.addClient(client);
 		await broadcaster.subscribe(client, "work");
@@ -106,10 +112,15 @@ describe("R6 AC7: WsBroadcaster forwards artifact_created to 'work' topic", () =
 		expect(client.messages).toHaveLength(1);
 		const received = JSON.parse(client.messages[0] ?? "null") as {
 			type: string;
-			artifactId: string;
+			topic: string;
+			kind: string;
+			artifactId?: string;
 		};
-		expect(received.type).toBe("artifact_created");
-		expect(received.artifactId).toBe("artifact-ws-1");
+		expect(received.type).toBe("invalidate");
+		expect(received.topic).toBe("work");
+		expect(received.kind).toBe("artifact_created");
+		// Minimal signal: the original event's domain fields must NOT leak through.
+		expect(received.artifactId).toBeUndefined();
 	});
 
 	it("does NOT forward artifact_created to clients subscribed only to 'conversations'", async () => {
