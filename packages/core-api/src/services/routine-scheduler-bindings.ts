@@ -21,15 +21,15 @@
  * (`server-factory.ts`, `routes/routines-routes.ts`,
  * `__tests__/dispatch-test-helpers.ts`) is repointed at this module's
  * `fireRoutine`/`startRoutineScheduler`/`registerBuiltinRoutineReactions`.
+ *
+ * @lore AU21 §9 Increment 5 (AC #7): the `review` field is gone — it only
+ * ever carried `createPracticeMeeting` for the now-deleted
+ * `builtin:practice-meeting` routine. `work`/`conversation`/`knowledge`/
+ * `settings` are unchanged.
  */
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import type { HyperIdleDb, Routine, WriteExecutor } from "@hyperidle/db";
-import {
-	createPracticeMeeting,
-	list as listKnowledgeItems,
-	recomputeAttention,
-	sweep,
-} from "@hyperidle/knowledge";
+import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import {
 	fireBuiltinRoutine,
@@ -102,9 +102,6 @@ const routineSchedulerPorts: RoutineSchedulerPorts = {
 		listRecentByLayers: (db, layers, since) =>
 			listKnowledgeItems(db, { recentByLayers: { layers, since } }),
 		recomputeAttentionForCandidates,
-	},
-	review: {
-		createPracticeMeeting,
 	},
 	settings: {
 		readServerConfig: async (db) => {

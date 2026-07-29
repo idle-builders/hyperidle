@@ -31,7 +31,6 @@ type DispatchProvisionDeps = Parameters<
 	DispatchPorts["runOrchestration"]["executeAgentRunRequest"]
 >[0];
 
-const PRACTICE_MEETING_CRON = "0 10 * * MON"; // weekly Monday 10:00 UTC
 const PORTFOLIO_RETRO_CRON = "0 10 1-7 * MON"; // first Monday of the month
 const KNOWLEDGE_DECAY_CRON = "0 2 * * *"; // daily 02:00 UTC
 const KNOWLEDGE_PROMOTION_CRON = "0 3 * * *"; // daily 03:00 UTC
@@ -57,17 +56,6 @@ interface BuiltinSpec {
 }
 
 const BUILTIN_SPECS: readonly BuiltinSpec[] = [
-	{
-		id: "builtin:practice-meeting",
-		name: "Practice meeting",
-		ownerRole: "facilitator",
-		triggerType: "calendar",
-		triggerConfig: { cron: PRACTICE_MEETING_CRON },
-		skillId: "practice_meeting",
-		doneCondition: "3-turn practice meeting anchor created",
-		humanReview: false,
-		silent: false,
-	},
 	{
 		id: "builtin:post-bet-retro",
 		name: "Post-bet retro",

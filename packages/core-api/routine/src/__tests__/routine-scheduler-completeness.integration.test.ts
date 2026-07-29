@@ -66,7 +66,6 @@ function inertPorts(): RoutineSchedulerPorts {
 			listRecentByLayers: unreachable("knowledge.listRecentByLayers"),
 			recomputeAttentionForCandidates: unreachable("knowledge.recomputeAttentionForCandidates"),
 		},
-		review: { createPracticeMeeting: unreachable("review.createPracticeMeeting") },
 		settings: { readServerConfig: unreachable("settings.readServerConfig") },
 		workIntents: { enqueueWorkIntent: unreachable("workIntents.enqueueWorkIntent") },
 		cost: { getFactoryCostActual: unreachable("cost.getFactoryCostActual") },

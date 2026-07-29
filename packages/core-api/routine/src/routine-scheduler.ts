@@ -29,6 +29,14 @@
  * deliberately STAY in `@hyperidle/dispatch` this increment — out of this
  * wave's explicit relocate-list (a routine-definition-seeding concern, not
  * scheduling) — see `dispatch/src/service.ts`'s own note.
+ *
+ * @lore AU21 §9 Increment 5 (AC #7): `builtin:practice-meeting` — relocated
+ * here (not deleted) by Increment 4 — is now deleted entirely per Increment
+ * 0's ruling #5 ("practice-meeting is deleted... build no replacement"): the
+ * `BUILTIN_ROUTINE_IDS` entry, `runPracticeMeetingRoutine`, and its
+ * `fireBuiltinRoutine` switch case are gone, along with the
+ * `RoutineSchedulerPorts.review.createPracticeMeeting` capability it was the
+ * sole caller of (`ports.ts`). The other four builtins are unaffected.
  */
 import * as crypto from "node:crypto";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
@@ -54,7 +62,6 @@ import {
 } from "./routine-service.js";
 
 const BUILTIN_ROUTINE_IDS = [
-	"builtin:practice-meeting",
 	"builtin:post-bet-retro",
 	"builtin:portfolio-retro",
 	"builtin:knowledge-decay",
@@ -104,24 +111,6 @@ export interface FireResult {
 	sessionId?: string;
 	emitted?: readonly string[];
 	extra?: Record<string, unknown>;
-}
-
-async function runPracticeMeetingRoutine(
-	ports: RoutineSchedulerPorts,
-	db: HyperIdleDb,
-	routine: Routine,
-): Promise<RunBuiltinResult> {
-	const isoNow = new Date().toISOString();
-	const result = await ports.review.createPracticeMeeting(db, {
-		scopeId: "facilitation",
-		title: `Weekly practice meeting — ${isoNow.slice(0, 10)}`,
-		nowMs: Date.now(),
-	});
-
-	return {
-		fired: true,
-		extra: { meetingId: result.meetingId, ownerAgentId: routine.ownerAgentId },
-	};
 }
 
 function postBetRetroBetIdMarker(betId: string): string {
@@ -346,9 +335,6 @@ export async function fireBuiltinRoutine(
 
 	let result: RunBuiltinResult;
 	switch (kind) {
-		case "builtin:practice-meeting":
-			result = await runPracticeMeetingRoutine(ports, db, routine);
-			break;
 		case "builtin:post-bet-retro":
 			if (!args) {
 				return { fired: false, reason: "post-bet-retro requires { betId } args" };

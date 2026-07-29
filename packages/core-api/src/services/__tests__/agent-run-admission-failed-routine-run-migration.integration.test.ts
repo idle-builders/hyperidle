@@ -46,12 +46,7 @@ import {
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import {
-	createPracticeMeeting,
-	list as listKnowledgeItems,
-	recomputeAttention,
-	sweep,
-} from "@hyperidle/knowledge";
+import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import { getTeamMembers } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
@@ -144,7 +139,6 @@ function makePorts(): RoutineSchedulerPorts & {
 				return result;
 			},
 		},
-		review: { createPracticeMeeting },
 		settings: {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);

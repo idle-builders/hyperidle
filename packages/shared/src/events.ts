@@ -262,18 +262,16 @@ export interface NotificationEvent {
 
 /**
  * @lore O1: action stays as `string` because the codebase emits 11+ distinct
- * action values across 4 files, including a dynamic `practice_meeting_turn_N`
- * pattern in practice-meeting.ts that makes a closed union impossible.
+ * action values across several files, and (historically, before AU21
+ * Increment 5 deleted the practice-meeting workflow) included a dynamic
+ * `practice_meeting_turn_N` pattern that made a closed union impossible.
  *
  * Actual values emitted today:
  *   knowledge.ts routes:      "created", "updated", "merged", "split", "archived", "flagged"
  *   attention-service.ts:     "attention_recomputed"
  *   promotion-pipeline.ts:    "contradiction_flagged", "auto_promoted", "marked_stale"
- *   practice-meeting.ts:      `practice_meeting_turn_${turnNumber}` (dynamic, unbounded)
  *
- * Tightening requires either (a) making the dynamic pattern use a fixed action
- * with turnNumber as a separate field, or (b) a branded string with a
- * `practice_meeting_turn_` prefix type. Both are behavior changes, out of O1 scope.
+ * Tightening to a closed union remains a behavior change, out of O1 scope.
  * Filed as follow-up.
  */
 export interface KnowledgeUpdatedEvent {

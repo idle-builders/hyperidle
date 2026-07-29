@@ -35,6 +35,12 @@
  * (AC-3d) keeps passing — it now exercises the relocated `fireGenericRoutine`
  * (via `dispatch-test-helpers.ts`'s unchanged-signature wrapper) with the
  * SAME guarantee (no permanent brick), not the dropped `dispatchOps.fireRoutine`.
+ *
+ * @lore AU21 §9 Increment 5 (AC #7): `runPracticeMeetingRoutine` — relocated
+ * verbatim by Increment 4 above — is deleted entirely, no replacement
+ * (Increment 0 ruling #5). This file's own dedicated practice-meeting test
+ * and `makePorts()`'s `review.createPracticeMeeting` wiring are removed with
+ * it; the post-bet-retro coverage above is unaffected.
  */
 import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import { insertThread, listThreads } from "@hyperidle/conversation";
@@ -42,7 +48,6 @@ import {
 	bets,
 	type HyperIdleDb,
 	items,
-	knowledgeItems,
 	routineRuns,
 	routines,
 	teamMembers,
@@ -50,12 +55,7 @@ import {
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import {
-	createPracticeMeeting,
-	list as listKnowledgeItems,
-	recomputeAttention,
-	sweep,
-} from "@hyperidle/knowledge";
+import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import { getTeamMembers } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
@@ -129,7 +129,6 @@ function makePorts(): RoutineSchedulerPorts {
 				return result;
 			},
 		},
-		review: { createPracticeMeeting },
 		settings: {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
@@ -285,33 +284,6 @@ describe("relocated fireBuiltinRoutine", () => {
 			.where(eq(routineRuns.routineId, "builtin:post-bet-retro"));
 		expect(runs).toHaveLength(1);
 		expect(runs[0]?.outcome).toBe("success");
-	});
-
-	test("practice-meeting: creates a fresh anchor via the relocated review/knowledge import path", async ({
-		db,
-		eventBus,
-	}) => {
-		const teamId = "inc4-pm-team";
-		await seedBuiltinOwner(db, "facilitator", "inc4-pm-owner", teamId);
-		await db.insert(routines).values({
-			id: "builtin:practice-meeting",
-			name: "Practice meeting",
-			teamId,
-			state: "active",
-			ownerAgentId: "inc4-pm-owner",
-			triggerType: "calendar",
-			triggerConfig: JSON.stringify({ cron: "0 10 * * MON" }),
-			active: true,
-		});
-
-		const result = await fireBuiltinRoutine(db, eventBus, makePorts(), "builtin:practice-meeting");
-
-		expect(result.fired).toBe(true);
-		const anchors = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.topic, "practice_meeting"));
-		expect(anchors.length).toBeGreaterThanOrEqual(1);
 	});
 });
 

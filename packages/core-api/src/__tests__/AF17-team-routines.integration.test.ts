@@ -2,14 +2,18 @@
  * AF17 — AC3: Team routines provisioned at team creation.
  *
  * When a team is created (via POST /api/teams or create_team skill tool):
- *   - 5 built-in routine rows are inserted with routines.team_id = teams.id
+ *   - 4 built-in routine rows are inserted with routines.team_id = teams.id
  *   - Each routine's owner_agent_id is a member of that team's roster (users.id)
  *   - routines.team_id is NOT team_members.id (FK load-bearing: must pass FK check)
- *   - A second team gets its own 5 routines (no collision — per-team id scheme)
+ *   - A second team gets its own 4 routines (no collision — per-team id scheme)
  *   - Owner fallback: if a team has no product_manager, routines still get a valid owner
  *
  * RED PHASE: Fails until seedTeamRoutines is wired into POST /api/teams
  * and create_team skill tool.
+ *
+ * @lore AU21 §9 Increment 5 (AC #7): practice-meeting deleted, no
+ * replacement — the builtin count per team drops from 5 to 4
+ * (post-bet-retro, portfolio-retro, knowledge-decay, knowledge-promotion).
  */
 
 import { routines, teamMembers, teams, users } from "@hyperidle/db";
@@ -34,7 +38,7 @@ function authHeaders(): Record<string, string> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
-	test("creates exactly 5 builtin routines for the new team", async ({ db, app }) => {
+	test("creates exactly 4 builtin routines for the new team", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const res = await app.request("/api/teams", {
@@ -50,11 +54,11 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		const body = (await res.json()) as { team: { id: string }; teamMembers: { id: string } };
 		const teamId = body.team.id;
 
-		// Must have exactly 5 builtin routines scoped to this team
+		// Must have exactly 4 builtin routines scoped to this team
 		const builtinRoutines = await db.select().from(routines).where(eq(routines.teamId, teamId));
 
 		const builtinRows = builtinRoutines.filter((r) => r.id.startsWith("builtin:"));
-		expect(builtinRows).toHaveLength(5);
+		expect(builtinRows).toHaveLength(4);
 
 		vi.unstubAllEnvs();
 	});
@@ -105,7 +109,7 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 
 		const builtinRows = await db.select().from(routines).where(eq(routines.teamId, teamsId));
 
-		expect(builtinRows.filter((r) => r.id.startsWith("builtin:")).length).toBe(5);
+		expect(builtinRows.filter((r) => r.id.startsWith("builtin:")).length).toBe(4);
 
 		// Each routine must reference teams.id (not team_members.id)
 		for (const r of builtinRows) {
@@ -145,7 +149,7 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		const builtinRows = await db.select().from(routines).where(eq(routines.teamId, teamId));
 
 		const builtinFiltered = builtinRows.filter((r) => r.id.startsWith("builtin:"));
-		expect(builtinFiltered.length).toBe(5);
+		expect(builtinFiltered.length).toBe(4);
 
 		for (const r of builtinFiltered) {
 			expect(
@@ -159,11 +163,11 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC3b: Per-team non-collision — second team gets its own 5 routines
+// AC3b: Per-team non-collision — second team gets its own 4 routines
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AF17 AC3: per-team id scheme prevents collision across two teams", () => {
-	test("two teams each get 5 built-in routines (10 total, no collision)", async ({ db, app }) => {
+	test("two teams each get 4 built-in routines (8 total, no collision)", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		// Create first team
@@ -220,8 +224,8 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 		const t1Builtins = team1Routines.filter((r) => r.id.startsWith("builtin:"));
 		const t2Builtins = team2Routines.filter((r) => r.id.startsWith("builtin:"));
 
-		expect(t1Builtins).toHaveLength(5);
-		expect(t2Builtins).toHaveLength(5);
+		expect(t1Builtins).toHaveLength(4);
+		expect(t2Builtins).toHaveLength(4);
 
 		// ids must be disjoint
 		const t1Ids = new Set(t1Builtins.map((r) => r.id));
@@ -273,7 +277,7 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 		const builtinRows = await db.select().from(routines).where(eq(routines.teamId, teamId));
 
 		const builtinFiltered = builtinRows.filter((r) => r.id.startsWith("builtin:"));
-		expect(builtinFiltered).toHaveLength(5);
+		expect(builtinFiltered).toHaveLength(4);
 
 		// All owners must be the leadId (fallback)
 		for (const r of builtinFiltered) {

@@ -14,13 +14,18 @@ import type { BakedWorkIntentRequest, EventBus, ModelGatewayConfig } from "@hype
  * Service; per Mechanism C (`composition-boundary-guard`, mechanically
  * enforced, no allowlist) a Service package may depend on nothing but
  * `@hyperidle/db`/`@hyperidle/shared` — every OTHER Service it needs
- * (`work`/`conversation`/`knowledge`/`review`/`settings`, all core-api
- * same-layer) is an injected port here, exactly like `DispatchPorts` used to
- * carry them. `workIntents`/`cost` are the two genuinely against-grain
+ * (`work`/`conversation`/`knowledge`/`settings`, all core-api same-layer) is
+ * an injected port here, exactly like `DispatchPorts` used to carry them.
+ * `workIntents`/`cost` are the two genuinely against-grain
  * (`core-api → agent-orchestration`) dependencies
  * (`@hyperidle/session-requests`/`@hyperidle/cost`). All are wired at the
  * composition root, `packages/core-api/src/services/
  * routine-scheduler-bindings.ts` — never imported directly here.
+ *
+ * @lore AU21 §9 Increment 5: the `review` field (`createPracticeMeeting`, the
+ * builtin practice-meeting routine's sole dependency) is deleted along with
+ * the routine itself (AC #7) — no other capability in this package ever
+ * needed a `review` edge.
  */
 export interface RoutineSchedulerPorts {
 	readonly work: {
@@ -72,12 +77,6 @@ export interface RoutineSchedulerPorts {
 			| { readonly ok: true }
 			| { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
 		>;
-	};
-	readonly review: {
-		createPracticeMeeting(
-			db: HyperIdleDb,
-			input: { readonly scopeId: string; readonly title: string; readonly nowMs: number },
-		): Promise<{ readonly meetingId: string }>;
 	};
 	readonly settings: {
 		readServerConfig(db: HyperIdleDb): Promise<{

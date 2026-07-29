@@ -17,7 +17,7 @@
 import { randomUUID } from "node:crypto";
 import { dispatchOps, fireRoutine } from "@hyperidle/core-api/routines";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { items, knowledgeAppProjection, routines } from "@hyperidle/db";
+import { items, routines } from "@hyperidle/db";
 
 // @lore AL6: clearBuiltinCostSentinelCache was removed from @hyperidle/server/app-runtime (AD8c).
 // The sentinel cache is now cleared internally; eval scenarios no longer need to call it.
@@ -28,7 +28,7 @@ function clearBuiltinCostSentinelCache(): void {
 
 import { updateServerConfig } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
-import { and, eq, isNotNull, like } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { judgeReviewItemCreated, judgeRoutineFired, judgeStaleItemsMarked } from "../judges.js";
 
 async function fireStoredRoutine(
@@ -48,7 +48,6 @@ import { seedBet, seedBuiltinAgents, seedMinimalWorld } from "../seeding.js";
 // seedBuiltinRoutines (local helper) provisions with this teamId.
 const EVAL_TEAM_ID = "prod-1";
 const EVAL_BID = {
-	practiceMeeting: `builtin:practice-meeting:${EVAL_TEAM_ID}`,
 	postBetRetro: `builtin:post-bet-retro:${EVAL_TEAM_ID}`,
 	portfolioRetro: `builtin:portfolio-retro:${EVAL_TEAM_ID}`,
 	knowledgeDecay: `builtin:knowledge-decay:${EVAL_TEAM_ID}`,
@@ -268,59 +267,6 @@ const brCostSentinelOk: EvalScenario = {
 					return {
 						score: noEvents ? 1.0 : 0.0,
 						note: noEvents ? undefined : `Events emitted at 50% level: [${emitted.join(", ")}]`,
-					};
-				},
-			},
-		],
-	},
-};
-
-// ---------------------------------------------------------------------------
-// br-practice-meeting
-// ---------------------------------------------------------------------------
-
-const brPracticeMeeting: EvalScenario = {
-	id: "br-practice-meeting",
-	description: "Practice meeting routine: creates knowledge anchor with meta.role",
-	feature: "builtin_routines",
-	tags: [],
-	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db);
-		await seedBuiltinAgents(ctx.db);
-		await seedBuiltinRoutines(ctx.db);
-		return world;
-	},
-	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		const startMs = Date.now();
-		const eventBus = new EventBus();
-		const result = await fireStoredRoutine(ctx.db, eventBus, EVAL_BID.practiceMeeting);
-		return makeSyntheticResult(startMs, result.fired);
-	},
-	rubric: {
-		dimensions: [
-			judgeRoutineFired(EVAL_BID.practiceMeeting),
-			{
-				id: "meeting_anchor_created",
-				label: "Practice Meeting Anchor Created",
-				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// createPracticeMeeting creates a knowledgeAppProjection row with meta containing role=practice_meeting_anchor
-					const [fabric] = await ctx.db
-						.select({ meta: knowledgeAppProjection.meta, kind: knowledgeAppProjection.kind })
-						.from(knowledgeAppProjection)
-						.where(
-							and(
-								isNotNull(knowledgeAppProjection.meta),
-								like(knowledgeAppProjection.meta, "%practice_meeting%"),
-							),
-						)
-						.limit(1);
-
-					const created = fabric !== undefined;
-					return {
-						score: created ? 1.0 : 0.0,
-						note: created
-							? `Meeting anchor meta: ${fabric.meta}`
-							: "No knowledgeAppProjection row with practice_meeting meta found",
 					};
 				},
 			},
@@ -612,7 +558,6 @@ export const builtinRoutinesScenarios: EvalScenario[] = [
 	brCostSentinelWarning,
 	brCostSentinelBreach,
 	brCostSentinelOk,
-	brPracticeMeeting,
 	brPostBetRetroFired,
 	brPostBetRetroDedup,
 	brPortfolioRetro,

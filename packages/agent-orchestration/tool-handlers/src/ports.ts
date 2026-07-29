@@ -18,9 +18,8 @@
  *
  * Several call shapes COLLAPSE (not a 1:1 port-per-function mirror) because
  * Mechanism C forbids `tool-handlers` from importing the Services a tool
- * used to wire together itself — same shape `dispatch`'s own
- * `DispatchReviewAccessor.createPracticeMeeting` /
- * `DispatchKnowledgeAccessor.recomputeAttentionForCandidates` collapses
+ * used to wire together itself — same shape `dispatch`'s own (historical)
+ * `DispatchKnowledgeAccessor.recomputeAttentionForCandidates` collapse
  * already established:
  *  - `score-attention.ts`'s recompute mode used to build a
  *    `buildCreateReviewItemForKnowledge({conversation,work})` store and pass

@@ -7,9 +7,8 @@
  * The drizzle transaction handle is structurally compatible (same
  * `insert`/`update`/`select` methods), so a caller inside `db.transaction`
  * passes its `tx as HyperIdleDb` — the accepted transaction-composition cast
- * used repo-wide. This mirrors the documented precedent at
- * `practice-meeting.ts:448-454` and avoids depending on drizzle's internal
- * transaction type.
+ * used repo-wide (see `conversation-store.ts`'s own top `@lore`) and avoids
+ * depending on drizzle's internal transaction type.
  *
  * @lore `updateUser`'s patch admits `SQL` per column (not just literal
  * `NewUser` values) because cost metering accumulates atomically via

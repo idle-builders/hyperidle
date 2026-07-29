@@ -25,7 +25,6 @@ import { fireRoutine } from "../services/routine-scheduler-bindings.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
 const BUILTIN_ROUTINE_KINDS = new Set([
-	"builtin:practice-meeting",
 	"builtin:post-bet-retro",
 	"builtin:portfolio-retro",
 	"builtin:knowledge-decay",

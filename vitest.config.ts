@@ -28,6 +28,7 @@ export default defineConfig({
 			"packages/eslint-plugin-authz",
 			"packages/core-api",
 			"packages/core-api/knowledge",
+			"packages/core-api/routine",
 			"packages/core-api/work",
 			"packages/core-api/org",
 			"packages/core-api/users",

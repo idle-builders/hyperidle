@@ -30,7 +30,6 @@ import {
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";
 const BUILTIN_ROUTINE_IDS = [
-	"builtin:practice-meeting",
 	"builtin:post-bet-retro",
 	"builtin:portfolio-retro",
 	"builtin:knowledge-decay",
@@ -41,6 +40,10 @@ const BUILTIN_ROUTINE_IDS = [
 // seedTeamRoutines uses this scheme so multiple teams don't collide.
 const TEST_TEAM_ID = "prod-1";
 const BID = {
+	// @lore AU21 Increment 5: practice-meeting is deleted — this id is never
+	// seeded by seedBuiltinRoutines anymore. Kept only as a literal id string
+	// for the "still doesn't fire" regression test below (a routine row that
+	// genuinely does not exist).
 	practiceMeeting: `builtin:practice-meeting:${TEST_TEAM_ID}`,
 	postBetRetro: `builtin:post-bet-retro:${TEST_TEAM_ID}`,
 	portfolioRetro: `builtin:portfolio-retro:${TEST_TEAM_ID}`,
@@ -140,11 +143,6 @@ describe("G4: Built-in Routines", () => {
 			// @lore AF17: per-team ids — no global "builtin:cost-sentinel" row
 			expect(rows.some((r: Routine) => r.id.startsWith("builtin:cost-sentinel"))).toBe(false);
 
-			expect(byId.get(BID.practiceMeeting)?.triggerType).toBe("calendar");
-			expect(JSON.parse(byId.get(BID.practiceMeeting)?.triggerConfig ?? "{}")).toEqual({
-				cron: "0 10 * * MON",
-			});
-
 			expect(byId.get(BID.postBetRetro)?.triggerType).toBe("event");
 			expect(JSON.parse(byId.get(BID.postBetRetro)?.triggerConfig ?? "{}")).toEqual({
 				eventType: "bet_state_changed",
@@ -172,7 +170,6 @@ describe("G4: Built-in Routines", () => {
 			// @lore AD8c: cost-sentinel is no longer seeded as a routine
 			// @lore AF17: per-team ids used; no global "builtin:cost-sentinel" row
 			expect(rows.some((r: Routine) => r.id.startsWith("builtin:cost-sentinel"))).toBe(false);
-			expect(byId.get(BID.practiceMeeting)?.ownerAgentId).toBe("seed-agent-pf-facilitation");
 			expect(byId.get(BID.postBetRetro)?.ownerAgentId).toBe("demo-agent-pm");
 			expect(byId.get(BID.portfolioRetro)?.ownerAgentId).toBe("seed-agent-cos");
 			// @lore AD8c: knowledge-decay ownership transferred to facilitator agent
@@ -197,17 +194,66 @@ describe("G4: Built-in Routines", () => {
 			expect(rows).toHaveLength(BUILTIN_ROUTINE_IDS.length);
 		});
 
-		// @lore AF9: knowledge-promotion added — now 5 builtin routine IDs
-		// (AD8c removed cost-sentinel from routines; AF9 added knowledge-promotion)
-		test("exports exactly 5 stable builtin ids (AF9: knowledge-promotion added)", () => {
-			expect(BUILTIN_ROUTINE_IDS).toHaveLength(5);
+		// @lore AF9: knowledge-promotion added; AU21 Increment 5 removed
+		// practice-meeting — now 4 builtin routine IDs.
+		// (AD8c removed cost-sentinel from routines; AF9 added knowledge-promotion;
+		// AU21 Increment 5 deleted practice-meeting, no replacement)
+		test("exports exactly 4 stable builtin ids (AU21 Increment 5: practice-meeting removed)", () => {
+			expect(BUILTIN_ROUTINE_IDS).toHaveLength(4);
 			for (const id of BUILTIN_ROUTINE_IDS) {
 				expect(id.startsWith("builtin:")).toBe(true);
 			}
 			// @lore AD8c: cost-sentinel is no longer a builtin routine ID
 			expect(BUILTIN_ROUTINE_IDS).not.toContain("builtin:cost-sentinel");
+			// @lore AU21 Increment 5: practice-meeting deleted, no replacement
+			expect(BUILTIN_ROUTINE_IDS).not.toContain("builtin:practice-meeting");
 			// AF9: promotion sweep is a builtin
 			expect(BUILTIN_ROUTINE_IDS).toContain("builtin:knowledge-promotion");
+		});
+	});
+
+	// ------------------------------------------------------------------
+	// AU21 §9 Increment 5 (AC #7) — practice-meeting deleted, no replacement.
+	// The other four builtins (post-bet-retro, portfolio-retro,
+	// knowledge-decay, knowledge-promotion) stay unaffected.
+	// ------------------------------------------------------------------
+	describe("AU21 Increment 5: practice-meeting removed from the builtin registry", () => {
+		test("seeding builtin routines provisions only the 4 surviving kinds — no practice-meeting row", async ({
+			db,
+		}) => {
+			await seedOwners(db);
+			await seedBuiltinRoutines(db);
+
+			const rows = await db.select().from(routines);
+			expect(rows.some((r: Routine) => r.id.startsWith("builtin:practice-meeting"))).toBe(false);
+			expect(rows).toHaveLength(4);
+		});
+
+		test("firing builtin:practice-meeting does not fire — the kind is no longer provisioned or recognized", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
+			await seedBuiltinRoutines(db);
+
+			const result = await fireStoredRoutine(db, eventBus, BID.practiceMeeting);
+			expect(result.fired).toBe(false);
+		});
+
+		test("no practice_meeting_anchor knowledge item is created by seeding + firing the surviving builtins", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedOwners(db);
+			await seedBuiltinRoutines(db);
+			await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
+			await fireStoredRoutine(db, eventBus, BID.portfolioRetro);
+
+			const anchors = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.topic, "practice_meeting"));
+			expect(anchors).toHaveLength(0);
 		});
 	});
 
@@ -351,38 +397,6 @@ describe("G4: Built-in Routines", () => {
 			const breaches = emitted.filter((e) => e.type === "cost_cap_breached");
 			expect(warnings).toHaveLength(1);
 			expect(breaches).toHaveLength(1);
-		});
-	});
-
-	// ------------------------------------------------------------------
-	// AC2: Practice Meeting — weekly, creates reflection anchor
-	// ------------------------------------------------------------------
-	describe("AC2: Practice Meeting", () => {
-		test("creates a fresh practice meeting anchor row on each run", async ({ db, eventBus }) => {
-			await seedOwners(db);
-			await seedBuiltinRoutines(db);
-
-			const result = await fireStoredRoutine(db, eventBus, BID.practiceMeeting);
-
-			expect(result.fired).toBe(true);
-			const anchors = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.topic, "practice_meeting"));
-			expect(anchors.length).toBeGreaterThanOrEqual(1);
-			const anchor = anchors[0];
-			expect(anchor!.status).toBe("captured");
-			// @lore O2: layer/kind/meta are in knowledgeAppProjection
-			const [anchorFabric] = await db
-				.select()
-				.from(knowledgeAppProjection)
-				.where(eq(knowledgeAppProjection.knowledgeItemId, anchor!.id))
-				.limit(1);
-			expect(anchorFabric?.layer).toBe("L2");
-			expect(anchorFabric?.kind).toBe("reflection");
-			expect(anchorFabric?.meta).toBeTruthy();
-			const meta = JSON.parse(anchorFabric?.meta ?? "{}") as { role?: string };
-			expect(meta.role).toBe("practice_meeting_anchor");
 		});
 	});
 
