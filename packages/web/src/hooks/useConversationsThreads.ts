@@ -208,12 +208,16 @@ export function useConversationsThreads(
 	// appending the event directly. This is simpler and guarantees the list
 	// uses the same data transformation path (rowToItem) as the initial fetch.
 	// A brief flash of the old list during the re-fetch is acceptable.
+	// @lore AU21 Decision E / Increment 7: the server now forwards a minimal
+	// invalidation envelope on "conversations" (`{ type: "invalidate", topic,
+	// kind }`) instead of the full domain event — filter on `msg.kind`
+	// instead of `msg.type`.
 	useEffect(() => {
 		const wsClient = getWsClient();
 		const unsubscribe = wsClient.subscribe("conversations", (data) => {
 			if (typeof data !== "object" || data === null) return;
 			const msg = data as Record<string, unknown>;
-			if (msg.type === "thread_created") {
+			if (msg.type === "invalidate" && msg.kind === "thread_created") {
 				setTick((n) => n + 1);
 			}
 		});

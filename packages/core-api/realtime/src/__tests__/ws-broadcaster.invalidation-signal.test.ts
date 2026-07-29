@@ -40,7 +40,7 @@ function createMockClient(): WsClient & { messages: string[] } {
 	};
 }
 
-describe("AU21 Increment 7 — cost_cap_warning WS forward removed", () => {
+describe("cost_cap_warning WS forward removed", () => {
 	let eventBus: EventBus;
 	let broadcaster: WsBroadcaster;
 
@@ -75,7 +75,7 @@ describe("AU21 Increment 7 — cost_cap_warning WS forward removed", () => {
 	});
 });
 
-describe("AU21 Increment 7 — minimal invalidation signal is a general 'work' topic behavior", () => {
+describe("minimal invalidation signal is a general 'work' topic behavior", () => {
 	let eventBus: EventBus;
 	let broadcaster: WsBroadcaster;
 

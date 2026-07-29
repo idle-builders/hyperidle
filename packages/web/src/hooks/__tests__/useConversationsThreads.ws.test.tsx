@@ -57,7 +57,7 @@ function makeThreadsResponse() {
 	};
 }
 
-describe("AU21 Increment 7 — useConversationsThreads reacts to the minimal invalidation envelope", () => {
+describe("useConversationsThreads reacts to the minimal invalidation envelope", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		subscribeMock.mockClear();

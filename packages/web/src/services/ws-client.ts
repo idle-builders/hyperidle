@@ -190,24 +190,26 @@ class WsClient {
 	 * Determine whether an incoming WS message belongs to a subscribed topic.
 	 * Topics have the form `<kind>:<id>` (e.g. `session:sess-1`, `thread:thr-1`)
 	 * or are global names (`conversations`, `work`).
-	 * We match by inspecting the message's event type and id fields.
+	 *
+	 * @lore AU21 Decision E / Increment 7: `conversations`/`work`/`thread:<id>`
+	 * now carry a minimal invalidation envelope
+	 * (`{ type: "invalidate", topic, kind, id? }`, see `ws-broadcaster.ts`) —
+	 * matched directly on the envelope's own `topic` field rather than
+	 * inferring membership (match-all for global, `threadId`-field lookup for
+	 * thread). `session:<id>` is untouched this wave — Decision E's (c)
+	 * concern is a real content stream (`useSessionActivity.ts` consumes
+	 * `toolName`/`argsSummary`/… payload fields), still forwarded as the full
+	 * event and matched by `sessionId` as before.
 	 */
 	private messageMatchesTopic(msg: Record<string, unknown>, topic: string): boolean {
-		// Global topics: any event from the server goes to matching subscribers
-		if (topic === "conversations" || topic === "work") {
-			// Server only broadcasts to subscribed topics — all messages received
-			// on this socket are for our subscribed topics. Match all for global topics.
-			return true;
+		// Minimal invalidation envelope: match directly on its own `topic` field.
+		if (msg.type === "invalidate") {
+			return msg.topic === topic;
 		}
 		// Per-session topic `session:<id>`: match messages with matching sessionId
 		if (topic.startsWith("session:")) {
 			const sessionId = topic.slice("session:".length);
 			return msg.sessionId === sessionId;
-		}
-		// Per-thread topic `thread:<id>`: match messages with matching threadId
-		if (topic.startsWith("thread:")) {
-			const threadId = topic.slice("thread:".length);
-			return msg.threadId === threadId;
 		}
 		return false;
 	}

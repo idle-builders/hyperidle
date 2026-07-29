@@ -34,20 +34,34 @@ interface SubscribeAuthorizer {
 }
 
 /**
- * Declarative event→topic route table. Adding a new forwarded event is a
- * one-row edit here — no new `unsubN` variable, no new push() call.
+ * Declarative event→topic route table for the (b) discrete-state-change
+ * concern (AU21 Decision E). Adding a new forwarded event is a one-row edit
+ * here — no new `unsubN` variable, no new push() call.
  *
  * Static-topic entries use `() => topic`. Dynamic-topic entries cast the
  * base `DomainEvent` to the specific event type — safe because the eventName
- * discriminant guarantees the runtime type.
+ * discriminant guarantees the runtime type. `deriveId`, when present, carries
+ * the scoping id (e.g. threadId) into the minimal invalidation envelope so a
+ * thread-scoped consumer can still filter without needing the full payload.
  *
  * @lore AU20 Ab2: replaces the 16 imperative eventBus.on() blocks that
  * previously lived in WsBroadcaster.start(). This is the INSIDE analog of
  * the "parameterize, don't multiply" rule (§3 Inside Lens in the spec).
+ *
+ * @lore AU21 Decision E / Increment 7: these routes used to forward the full
+ * domain-event JSON. Traced against every real frontend consumer
+ * (useConversationsThreads/useThreadDetail/useAssistantThread) — none reads
+ * payload content, only `type`/id fields to trigger a re-fetch — so this
+ * collapses to a minimal `{ type: "invalidate", topic, kind, id? }` envelope.
+ * `cost_cap_warning`'s forward is deleted entirely: notifications already own
+ * that event on its own domain-specific channel, and Increment 6's
+ * `AgentOrchestrationPort` is the real cost read door now — nothing consumed
+ * the WS copy as a cost signal.
  */
 const BROADCAST_ROUTES: ReadonlyArray<{
 	readonly eventName: EventType;
 	readonly deriveTopic: (event: DomainEvent) => string;
+	readonly deriveId?: (event: DomainEvent) => string;
 }> = [
 	// Global topic: conversations
 	{ eventName: "item_created", deriveTopic: () => "conversations" },
@@ -56,7 +70,6 @@ const BROADCAST_ROUTES: ReadonlyArray<{
 	// Global topic: work
 	{ eventName: "task_state_changed", deriveTopic: () => "work" },
 	{ eventName: "bet_state_changed", deriveTopic: () => "work" },
-	{ eventName: "cost_cap_warning", deriveTopic: () => "work" },
 	{ eventName: "propagation_applied", deriveTopic: () => "work" },
 	{ eventName: "propagation_failed", deriveTopic: () => "work" },
 	// R6: artifact_created goes to 'work' so the UI can invalidate artifact
@@ -69,23 +82,41 @@ const BROADCAST_ROUTES: ReadonlyArray<{
 	{
 		eventName: "thread_message_appended",
 		deriveTopic: (e) => `thread:${(e as EventByType<"thread_message_appended">).threadId}`,
+		deriveId: (e) => (e as EventByType<"thread_message_appended">).threadId,
 	},
 	{
 		eventName: "thread_resolved",
 		deriveTopic: (e) => `thread:${(e as EventByType<"thread_resolved">).threadId}`,
+		deriveId: (e) => (e as EventByType<"thread_resolved">).threadId,
 	},
 	{
 		eventName: "thread_reopened",
 		deriveTopic: (e) => `thread:${(e as EventByType<"thread_reopened">).threadId}`,
+		deriveId: (e) => (e as EventByType<"thread_reopened">).threadId,
 	},
 	{
 		eventName: "thread_archived",
 		deriveTopic: (e) => `thread:${(e as EventByType<"thread_archived">).threadId}`,
+		deriveId: (e) => (e as EventByType<"thread_archived">).threadId,
 	},
-	// Per-session topics: session:<id>
-	// Q1 §3.4: forward session lifecycle and tool-call events to per-session
-	// topic `session:<sessionId>`. Any authenticated client may subscribe —
-	// observe mode is read-only and not gated by participant membership.
+];
+
+/**
+ * Per-session topics: session:<id> — the (c) session/harness-streaming
+ * concern (AU21 Decision E). Left forwarding the FULL event payload this
+ * wave — `useSessionActivity.ts` genuinely consumes payload fields
+ * (`toolName`, `argsSummary`, …), unlike the invalidation-only routes above.
+ * Ownership relocation (agent-execution owns the buffer, agent-orchestration
+ * gateways it) is Wave B / Increment 7's second half — not this wave.
+ *
+ * Q1 §3.4: forward session lifecycle and tool-call events to per-session
+ * topic `session:<sessionId>`. Any authenticated client may subscribe —
+ * observe mode is read-only and not gated by participant membership.
+ */
+const RAW_BROADCAST_ROUTES: ReadonlyArray<{
+	readonly eventName: EventType;
+	readonly deriveTopic: (event: DomainEvent) => string;
+}> = [
 	{
 		eventName: "session_started",
 		deriveTopic: (e) => `session:${(e as EventByType<"session_started">).sessionId}`,
@@ -99,6 +130,14 @@ const BROADCAST_ROUTES: ReadonlyArray<{
 		deriveTopic: (e) => `session:${(e as EventByType<"tool_call_recorded">).sessionId}`,
 	},
 ];
+
+/** The minimal invalidation-signal envelope forwarded on BROADCAST_ROUTES topics. */
+interface InvalidationEnvelope {
+	readonly type: "invalidate";
+	readonly topic: string;
+	readonly kind: EventType;
+	readonly id?: string;
+}
 
 export class WsBroadcaster {
 	private clients = new Map<WsClient, Set<string>>();
@@ -116,12 +155,27 @@ export class WsBroadcaster {
 	 * table edit, not a new unsubN variable threaded into the push() list.
 	 *
 	 * @lore I6: forward additional domain events so the UI can react
-	 * to task/bet state changes and cost warnings in real time.
+	 * to task/bet state changes in real time.
 	 * @lore AU20 Ab2: replaced 16 imperative on() blocks with a single loop
 	 * over BROADCAST_ROUTES — zero behavior change, sub-linear growth.
+	 * @lore AU21 Decision E / Increment 7: BROADCAST_ROUTES entries now
+	 * forward the minimal `InvalidationEnvelope`, not the raw event —
+	 * RAW_BROADCAST_ROUTES (session:<id>) is the one remaining full-payload
+	 * concern, forwarded unchanged pending Wave B's ownership move.
 	 */
 	start(): void {
-		for (const { eventName, deriveTopic } of BROADCAST_ROUTES) {
+		for (const { eventName, deriveTopic, deriveId } of BROADCAST_ROUTES) {
+			this.unsubscribers.push(
+				this.eventBus.on(eventName, (event) => {
+					const topic = deriveTopic(event);
+					const envelope: InvalidationEnvelope = deriveId
+						? { type: "invalidate", topic, kind: event.type, id: deriveId(event) }
+						: { type: "invalidate", topic, kind: event.type };
+					this.broadcast(topic, JSON.stringify(envelope));
+				}),
+			);
+		}
+		for (const { eventName, deriveTopic } of RAW_BROADCAST_ROUTES) {
 			this.unsubscribers.push(
 				this.eventBus.on(eventName, (event) => {
 					this.broadcast(deriveTopic(event), JSON.stringify(event));

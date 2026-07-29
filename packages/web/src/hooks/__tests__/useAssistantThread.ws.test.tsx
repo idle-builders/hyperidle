@@ -73,7 +73,7 @@ function makeAssistantThreadResponse() {
 	};
 }
 
-describe("AU21 Increment 7 — useAssistantThread reacts to the minimal invalidation envelope", () => {
+describe("useAssistantThread reacts to the minimal invalidation envelope", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		unsubscribeMock.mockReset();

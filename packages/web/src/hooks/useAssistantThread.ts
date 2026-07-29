@@ -121,6 +121,10 @@ export function useAssistantThread(): AssistantThreadState {
 	// without manual reload. Mirrors useThreadDetail.ts WS subscription pattern.
 	// @lore AH3: WS is unavailable in JSDOM — mocked in test-setup.ts.
 	// Thread ID is available only after the first fetch succeeds (data?.thread.id).
+	// @lore AU21 Decision E / Increment 7: the server now forwards a minimal
+	// invalidation envelope on `thread:<id>` (`{ type: "invalidate", topic,
+	// kind, id }`) instead of the full domain event — filter on
+	// `msg.kind`/`msg.id` instead of `msg.type`/`msg.threadId`.
 	useEffect(() => {
 		const threadId = data?.thread.id;
 		if (!threadId) return;
@@ -129,10 +133,11 @@ export function useAssistantThread(): AssistantThreadState {
 			if (typeof payload !== "object" || payload === null) return;
 			const msg = payload as Record<string, unknown>;
 			if (
-				msg.threadId === threadId &&
-				(msg.type === "thread_message_appended" ||
-					msg.type === "thread_resolved" ||
-					msg.type === "thread_reopened")
+				msg.type === "invalidate" &&
+				msg.id === threadId &&
+				(msg.kind === "thread_message_appended" ||
+					msg.kind === "thread_resolved" ||
+					msg.kind === "thread_reopened")
 			) {
 				setTick((n) => n + 1);
 			}

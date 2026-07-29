@@ -173,16 +173,21 @@ export function useThreadDetail(threadId: string): ThreadDetailState {
 	// via the existing tick path (same approach as useConversationsThreads).
 	// @lore AF14: WS is unavailable in JSDOM — mock ws-client in tests per
 	// the global mock in test-setup.ts (`./services/ws-client.js` path).
+	// @lore AU21 Decision E / Increment 7: the server now forwards a minimal
+	// invalidation envelope on `thread:<id>` (`{ type: "invalidate", topic,
+	// kind, id }`) instead of the full domain event — filter on
+	// `msg.kind`/`msg.id` instead of `msg.type`/`msg.threadId`.
 	useEffect(() => {
 		const ws = getWsClient();
 		const unsubscribe = ws.subscribe(`thread:${threadId}`, (data) => {
 			if (typeof data !== "object" || data === null) return;
 			const msg = data as Record<string, unknown>;
 			if (
-				msg.threadId === threadId &&
-				(msg.type === "thread_message_appended" ||
-					msg.type === "thread_resolved" ||
-					msg.type === "thread_reopened")
+				msg.type === "invalidate" &&
+				msg.id === threadId &&
+				(msg.kind === "thread_message_appended" ||
+					msg.kind === "thread_resolved" ||
+					msg.kind === "thread_reopened")
 			) {
 				setTick((n) => n + 1);
 			}
