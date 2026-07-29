@@ -69,6 +69,15 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_ended subscription", "agent_run_lifecycle_changed subscription"],
 			},
+			// @lore AU21 §9 Increment 6 (Decision D): agent-orchestration's OWN
+			// per-session-cost write reaction — a DIFFERENT mechanism/owner from
+			// the routine-run finalize reaction above (this one is
+			// `session-requests`'s own subscriber, not core-api's).
+			{
+				owner: "session-cost recorder",
+				cleanupEffect: "unsubscribe",
+				constituents: ["session_ended subscription"],
+			},
 			{
 				owner: "relevance listener",
 				cleanupEffect: "unsubscribes",
@@ -174,6 +183,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					unsubscribedEvents: ["session_ended", "agent_run_lifecycle_changed"],
 					clearedIntervals: 0,
 				},
+				// @lore AU21 §9 Increment 6: `registerSessionCostRecorder` is NOT
+				// pre-registered on the `eventBus` test fixture either — its own
+				// first, real registration on this eventBus instance.
+				{ unsubscribedEvents: ["session_ended"], clearedIntervals: 0 },
 				{ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 },
 				{ unsubscribedEvents: ["session_ended", "session_ended"], clearedIntervals: 0 },
 				{

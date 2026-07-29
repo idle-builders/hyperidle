@@ -338,6 +338,17 @@ export const agentSessionRequests = pgTable(
 		terminationRequestedBy: text("termination_requested_by"),
 		errorCode: text("error_code"),
 		errorMessage: text("error_message"),
+		/**
+		 * AU21 §9 Increment 6 (Decision D) — additive column, no new table.
+		 * `agent-orchestration`'s own recorded per-session cost, written once at
+		 * `session_ended` by `session-cost-recorder.ts` (this Service's own
+		 * write, matched via `sessionId`). Serves the real gap `architecture.md`
+		 * §6 Decision D traces: `tasks.ts`'s `cost: null` — there is no cost
+		 * "mirror" to delete, this is the first time per-session cost is
+		 * persisted anywhere. Write-once (only set while still `null`) — see
+		 * `session-cost-recorder.ts`'s idempotency guard.
+		 */
+		costCents: integer("cost_cents"),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 	},

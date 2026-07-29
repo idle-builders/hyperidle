@@ -111,7 +111,11 @@ type TaskDispatcherDeps = NonNullable<DispatchConfig["task"]> & {
 	readonly eventBus: EventBus;
 };
 
-import { enqueueWorkIntent, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
+import {
+	enqueueWorkIntent,
+	registerSessionCostRecorder,
+	startLifecycleProjectionDrain,
+} from "@hyperidle/session-requests";
 import { queueDeps } from "./services/durable-agent-queue.js";
 import {
 	runtimeDeps as buildRunRuntimeDeps,
@@ -374,6 +378,20 @@ export function registerCoreDomainServices(ctx: {
 			"routine-run session-end reactions",
 			"unsubscribe",
 			["session_ended subscription", "agent_run_lifecycle_changed subscription"],
+		),
+	);
+
+	// AU21 §9 Increment 6 (Decision D): agent-orchestration's OWN reaction
+	// (session-requests, NOT a core-api Service) — wired here because
+	// server-factory.ts is today's single process composition root, the same
+	// reason `startLifecycleProjectionDrain` (also an orchestration-owned
+	// module) is booted from this file.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerSessionCostRecorder(db, eventBus),
+			"session-cost recorder",
+			"unsubscribe",
+			["session_ended subscription"],
 		),
 	);
 

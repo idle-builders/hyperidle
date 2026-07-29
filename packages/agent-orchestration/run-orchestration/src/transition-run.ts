@@ -186,11 +186,13 @@ async function endSession(
 	context.ingestion.dispose();
 
 	// 2. Update session row.
-	// @lore O2: cost, costMinor, costCurrency columns stripped from sessions table.
-	// costInCents parameter retained for API compatibility but no longer written to DB.
-	// Cost tracking is now a strategy concern handled at the fabric layer.
+	// @lore O2: cost, costMinor, costCurrency columns stripped from the `sessions`
+	// table itself — costInCents is NOT written there. AU21 §9 Increment 6
+	// (Decision D): it IS now carried on the `session_ended` emit below (always,
+	// not just for routine sessions) so `session-cost-recorder.ts`
+	// (agent-orchestration's own subscriber) can persist it onto
+	// `agentSessionRequests`, the real per-session-cost home.
 	void baselineCost;
-	void costInCents;
 	const now = new Date().toISOString();
 	// AF7 §4.3 (Z8-094/095): CAS terminal write. SET only WHERE state='active', so
 	// a duplicate teardown — or a teardown for a session a different writer already
@@ -228,6 +230,13 @@ async function endSession(
 			// AL6 v2: use terminalOutcome (not hardcoded "completed") so not_returned
 			// turns surface correctly on the bus.
 			outcome: terminalOutcome,
+			// AU21 §9 Increment 6 (Decision D): costInCents is hoisted OUT of the
+			// routineId-only conditional below — Decision D's per-session-cost gap
+			// (`tasks.ts`'s `cost: null`) is NOT routine-specific, so every
+			// session_ended (routine-sourced or not) carries the live-computed
+			// cost. `session-cost-recorder.ts` (agent-orchestration's own
+			// subscriber, NOT core-api) persists it onto `agentSessionRequests`.
+			costInCents,
 			// AU21 §9 Increment 4 (Decision B″ item 3): the routine-run finalize
 			// payload rides the SAME event — no direct `routineRuns` write here
 			// anymore. AA3: routineRunOutcome defaults to "success";
@@ -235,9 +244,7 @@ async function endSession(
 			// enforcement path (independent of the session's own
 			// terminalOutcome). A NEW core-api subscriber
 			// (`routine-run-session-end-reactions.ts`) performs the write.
-			...(context.routineId
-				? { routineRunOutcome: routineRunOutcome ?? "success", costInCents }
-				: {}),
+			...(context.routineId ? { routineRunOutcome: routineRunOutcome ?? "success" } : {}),
 		});
 	}
 
@@ -278,9 +285,10 @@ async function crashSession(
 	}
 
 	// 2. Update session row.
-	// @lore O2: cost, costMinor, costCurrency columns stripped from sessions table.
+	// @lore O2: cost, costMinor, costCurrency columns stripped from the `sessions`
+	// table — see the endSession comment above; costInCents is carried on the
+	// `session_ended` emit below, not written to this row.
 	void baselineCost;
-	void costInCents;
 	const now = new Date().toISOString();
 	// AF7 §4.3: CAS terminal write — see endSession. Crashing an already-terminal
 	// session affects zero rows and emits nothing.
@@ -304,9 +312,12 @@ async function crashSession(
 				: {}),
 			timestamp: Date.now(),
 			outcome: "crashed",
+			// AU21 §9 Increment 6 (Decision D): costInCents always present, see the
+			// endSession comment above for why this is no longer routine-gated.
+			costInCents,
 			// AU21 §9 Increment 4 (Decision B″ item 3): crash always finalizes the
 			// routine run to "error" — carried on the same event, no direct write.
-			...(context.routineId ? { routineRunOutcome: "error" as const, costInCents } : {}),
+			...(context.routineId ? { routineRunOutcome: "error" as const } : {}),
 		});
 	}
 
