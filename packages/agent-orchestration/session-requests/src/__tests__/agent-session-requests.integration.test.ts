@@ -400,7 +400,6 @@ describe("agent session request repository", () => {
 		const deps: DurableAgentQueueDeps = {
 			db,
 			lifecycleProjection: {
-				routine: { updateRoutineRunIfRunning: async () => {} },
 				work: {
 					updateBetDecompositionStatusIfRunning: async () => {},
 					updateTaskDispatchAttemptIfActive: async () => {},

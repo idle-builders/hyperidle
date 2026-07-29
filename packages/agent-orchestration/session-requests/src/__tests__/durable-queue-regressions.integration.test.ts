@@ -238,16 +238,24 @@ describe("durable request and intent lease fencing", () => {
 	});
 });
 
+/**
+ * @lore AU21 correction (post-Increment-5 verification): this poison-handling
+ * exploit used to hook `routine`'s `updateRoutineRunIfRunning` — that
+ * projector is now `observeOnly` (Wave C's `finalizeRoutineRun` is the sole
+ * routineRuns finalizer), so it's never called by the drain and can no longer
+ * carry a throw. `decomposition`'s projector (`updateBetDecompositionStatusIfRunning`)
+ * is still a real, single-call (non-transactional) projection family — same
+ * shape the retry/poison mechanism under test needs — so the fault injection
+ * moves there instead. The retry/lease/poison behavior under test belongs to
+ * the drain loop itself, not to any specific family.
+ */
 function projectionDeps(failSourceId: string) {
 	return {
-		routine: {
-			async updateRoutineRunIfRunning(_db: HyperIdleDb, id: string) {
-				if (id === failSourceId) throw new Error("poison projection");
-			},
-		},
 		work: {
 			updateTaskDispatchAttemptIfActive: async () => {},
-			updateBetDecompositionStatusIfRunning: async () => {},
+			async updateBetDecompositionStatusIfRunning(_db: HyperIdleDb, id: string) {
+				if (id === failSourceId) throw new Error("poison projection");
+			},
 		},
 		explicitSessionStarts: { projectTerminalState: async () => {} },
 	};
@@ -261,7 +269,7 @@ async function seedLifecycleFact(db: HyperIdleDb, suffix: string, sourceId: stri
 		.where(eq(agentSessionRequests.id, request.id));
 	await db.insert(agentLifecycleInbox).values({
 		requestId: request.id,
-		sourceKind: "routine",
+		sourceKind: "decomposition",
 		sourceId,
 		state: "completed",
 		occurredAt: `2026-07-22T10:00:0${suffix}.000Z`,

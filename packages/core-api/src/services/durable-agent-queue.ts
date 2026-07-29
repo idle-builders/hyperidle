@@ -107,10 +107,6 @@ const ports = {
 		findById: (db: import("@hyperidle/db").HyperIdleDb, id: string) => getKnowledgeItem(db, id),
 	},
 	lifecycleProjection: {
-		routine: {
-			updateRoutineRunIfRunning: (exec: WriteExecutor, id: string, patch: object) =>
-				routineService.updateRoutineRun(exec, id, patch, { onlyIfRunning: true }),
-		},
 		work: {
 			updateTaskDispatchAttemptIfActive: work.taskDispatchAttemptStore.updateIfActive,
 			updateBetDecompositionStatusIfRunning: async (

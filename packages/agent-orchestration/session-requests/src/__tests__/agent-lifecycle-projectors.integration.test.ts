@@ -19,6 +19,11 @@ import { describe } from "vitest";
 import { type DurableAgentQueueDeps, drainLifecycleProjections, reapExpired } from "../index.js";
 
 function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
+	// AU21 correction: `routine` no longer has an injected lifecycle-projection
+	// port at all (the interface field was deleted along with `projectRoutine`
+	// — Wave C's `finalizeRoutineRun` is the sole finalizer now). `routineCalls`
+	// stays only as a witness array that must remain empty forever, proving
+	// the drain has no way left to reach a routine write.
 	readonly routineCalls: Array<{ id: string; patch: unknown }>;
 	readonly workCalls: Array<{ id: string; patch: unknown }>;
 	readonly explicitCalls: Array<{ requestId: string; patch: unknown }>;
@@ -30,11 +35,6 @@ function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
 		routineCalls,
 		workCalls,
 		explicitCalls,
-		routine: {
-			async updateRoutineRunIfRunning(_exec: unknown, id: string, patch: unknown) {
-				routineCalls.push({ id, patch });
-			},
-		},
 		work: {
 			async updateTaskDispatchAttemptIfActive() {},
 			async updateBetDecompositionStatusIfRunning(_exec: unknown, id: string, patch: unknown) {
@@ -124,18 +124,28 @@ async function seedRequest(
 }
 
 describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
-	test("routine family calls the injected routine port, not a raw table write", async ({ db }) => {
+	/**
+	 * AU21 correction (post-Increment-5 verification) — RED. `routine` used
+	 * to be a "real projection" family here, calling
+	 * `deps.routine.updateRoutineRunIfRunning` directly — that was the THIRD
+	 * raw cross-layer write path the gap report found. Wave C's core-api-side
+	 * `finalizeRoutineRun` (reacting to `session_ended`/
+	 * `agent_run_lifecycle_changed`) already does this job end-to-end via the
+	 * proper event-driven mechanism, so `routine`'s projector becomes
+	 * `observeOnly` — joining `assistant`/`knowledge`/`proposed_call` below.
+	 * Today (RED): `lifecycleProjectors.routine` is still `projectRoutine`,
+	 * so `deps.routineCalls` is NOT empty and this fails.
+	 */
+	test("routine family is observeOnly — the drain never calls the injected routine port directly", async ({
+		db,
+	}) => {
 		const deps = fakeDeps();
 		await seedRequest(db, "lp-routine-req", "routine", "lp-routine-run");
 
 		const count = await drainLifecycleProjections(queueDeps(db, deps));
 
 		expect(count).toBe(1);
-		expect(deps.routineCalls).toHaveLength(1);
-		expect(deps.routineCalls[0]).toMatchObject({
-			id: "lp-routine-run",
-			patch: { outcome: "success" },
-		});
+		expect(deps.routineCalls).toHaveLength(0);
 		expect(deps.workCalls).toHaveLength(0);
 		expect(deps.explicitCalls).toHaveLength(0);
 
@@ -186,13 +196,15 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 
 	test("all no-op families acknowledge without calling any port", async ({ db }) => {
 		const deps = fakeDeps();
-		for (const sourceKind of ["assistant", "knowledge", "proposed_call"] as const) {
+		// AU21 correction: `routine` joins the no-op families here (see the
+		// dedicated test above for the RED signal on that transition).
+		for (const sourceKind of ["assistant", "knowledge", "proposed_call", "routine"] as const) {
 			await seedRequest(db, `lp-${sourceKind}-req`, sourceKind, `lp-${sourceKind}-source`);
 		}
 
 		const count = await drainLifecycleProjections(queueDeps(db, deps));
 
-		expect(count).toBe(3);
+		expect(count).toBe(4);
 		expect(deps.routineCalls).toHaveLength(0);
 		expect(deps.workCalls).toHaveLength(0);
 		expect(deps.explicitCalls).toHaveLength(0);

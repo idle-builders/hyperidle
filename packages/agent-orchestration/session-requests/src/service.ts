@@ -116,17 +116,6 @@ const projectTask: Projector = async (db, fact, deps) => {
 		await projectExplicitStart(tx, fact, deps);
 	});
 };
-const projectRoutine: Projector = async (db, fact, deps) => {
-	await deps.routine.updateRoutineRunIfRunning(db, fact.sourceId, {
-		outcome: fact.state === "completed" ? "success" : "error",
-		endedAt: /* @__PURE__ */ new Date().toISOString(),
-		sessionId: fact.sessionId ?? null,
-		errorMessage:
-			fact.state === "completed"
-				? null
-				: (fact.failureCode ?? (fact.state === "cancelled" ? "cancelled" : "failed")),
-	});
-};
 const projectDecomposition: Projector = async (db, fact, deps) => {
 	await deps.work.updateBetDecompositionStatusIfRunning(db, fact.sourceId, {
 		decompositionStatus: fact.state === "completed" ? "done" : "blocked",
@@ -144,7 +133,14 @@ const lifecycleProjectors: Record<LifecycleSourceKind, Projector> = {
 	assistant: observeOnly,
 	task: projectTask,
 	knowledge: observeOnly,
-	routine: projectRoutine,
+	// @lore AU21 §6 Decision B″ correction: `routine` used to run its own
+	// `projectRoutine` (a direct `updateRoutineRunIfRunning` cross-layer
+	// write). Wave C's `registerRoutineRunSessionEndReactions` (core-api,
+	// `routine-run-session-end-reactions.ts`) already finalizes routineRuns
+	// off `session_ended`/`agent_run_lifecycle_changed` — the proper
+	// event-driven mechanism — so this drain's job for `routine` is now
+	// purely observational, same as `assistant`/`knowledge`/`proposed_call`.
+	routine: observeOnly,
 	decomposition: projectDecomposition,
 	proposed_call: observeOnly,
 	explicit_session_start: projectExplicitStart,
@@ -1580,18 +1576,6 @@ export type AgentLifecycleFact = {
 export interface DurableAgentQueueDeps {
 	readonly db: HyperIdleDb;
 	readonly lifecycleProjection: {
-		readonly routine: {
-			updateRoutineRunIfRunning(
-				exec: WriteExecutor,
-				id: string,
-				patch: {
-					readonly outcome: "success" | "error";
-					readonly endedAt: string;
-					readonly sessionId: string | null;
-					readonly errorMessage: string | null;
-				},
-			): Promise<void>;
-		};
 		readonly work: {
 			updateTaskDispatchAttemptIfActive(
 				exec: WriteExecutor,

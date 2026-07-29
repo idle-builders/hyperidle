@@ -30,11 +30,13 @@ import {
 } from "@hyperidle/db";
 import * as routineService from "@hyperidle/routine";
 import { drainIntents, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
+import type { AgentRunLifecycleChangedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { fireGenericRoutine } from "../../__tests__/dispatch-test-helpers.js";
 import { describe, expect, test } from "../../test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
+import { registerRoutineRunSessionEndReactions } from "../routine-run-session-end-reactions.js";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 const TEST_API_KEY = "test-key-au15-routine-scheduler";
@@ -259,8 +261,22 @@ describe("terminal-failure finalization of session-less running runs", () => {
 		expect(secondFire.reason).not.toBe("previous run still in progress");
 	});
 
-	test("AC-3c: terminal PROVISION failure (post-hand-off) finalizes the run via projectRoutine", async ({
+	/**
+	 * AU21 correction (post-Increment-5 verification): this scenario's
+	 * finalization used to happen INSIDE the lifecycle-inbox drain, via
+	 * `projectRoutine`'s direct `updateRoutineRunIfRunning` write — the THIRD
+	 * raw cross-layer write path the gap report found. That projector is now
+	 * `observeOnly` (matching `assistant`/`knowledge`/`proposed_call`); the
+	 * drain still claims/acks the inbox fact (that mechanism is untouched) but
+	 * performs no `routineRuns` write. Wave C's
+	 * `registerRoutineRunSessionEndReactions`, reacting to
+	 * `agent_run_lifecycle_changed` (the "request disposition" path for a
+	 * routine session that never reached a live `session_ended`), is now the
+	 * SOLE mechanism finalizing this post-hand-off provision failure.
+	 */
+	test("AC-3c: terminal PROVISION failure (post-hand-off) finalizes the run via Wave C's agent_run_lifecycle_changed reaction, not the drain", async ({
 		db,
+		eventBus,
 	}) => {
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db, "au15-r4b-routine");
 		const runId = "au15-r4b-run";
@@ -309,7 +325,30 @@ describe("terminal-failure finalization of session-less running runs", () => {
 			stop();
 		}
 
-		const [run] = await db.select().from(routineRuns).where(eq(routineRuns.id, runId));
-		expect(run?.outcome).toBe("error");
+		// The drain alone must NOT finalize the run — `routine`'s projector is
+		// observeOnly now.
+		const [afterDrain] = await db.select().from(routineRuns).where(eq(routineRuns.id, runId));
+		expect(afterDrain?.outcome).toBe("running");
+
+		// Wave C's reaction is the only thing left that finalizes it — register
+		// it and emit the `agent_run_lifecycle_changed` fact production emits
+		// for this exact "request disposition" failure path.
+		registerRoutineRunSessionEndReactions(db, eventBus);
+		const event: AgentRunLifecycleChangedEvent = {
+			type: "agent_run_lifecycle_changed",
+			streamId: `routine:${routineId}`,
+			requestId,
+			sourceKind: "routine",
+			sourceId: runId,
+			state: "failed",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(event);
+
+		await vi.waitFor(async () => {
+			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.id, runId));
+			expect(run?.outcome).toBe("error");
+			expect(run?.endedAt).toBeTruthy();
+		});
 	});
 });

@@ -29,18 +29,6 @@ import type {
 interface DurableQueueDeps {
 	readonly db: HyperIdleDb;
 	readonly lifecycleProjection: {
-		readonly routine: {
-			updateRoutineRunIfRunning(
-				exec: WriteExecutor,
-				id: string,
-				patch: {
-					outcome: "success" | "error";
-					endedAt: string;
-					sessionId: string | null;
-					errorMessage: string | null;
-				},
-			): Promise<void>;
-		};
 		readonly work: {
 			updateTaskDispatchAttemptIfActive(
 				exec: WriteExecutor,
