@@ -13,6 +13,10 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
+import {
+	buildAgentOrchestrationPort,
+	getRegisteredAgentOrchestrationTransport,
+} from "../services/agent-orchestration-port-composition.js";
 import { handoff } from "../services/policy-bindings.js";
 
 type SessionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
@@ -179,8 +183,16 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	// Returns the exact `{ sessions: TaskSession[] }` shape the `useTaskSessions`
 	// hook expects. `status` is the session `state` (drives the live dot); a
 	// cascade-stopped session reports 'stopped' (non-blank label downstream).
-	// @lore O2: session cost/harness columns were stripped from the kernel table,
-	// so `cost`/`harnessUrl`/`tokens` are null here. AF7 owns dispatch — no writes.
+	// @lore O2/AU21 §9 Increment 6: the kernel `sessions` table still has no
+	// cost/harness columns (deliberately — there is no cost "mirror" to
+	// restore, per architecture.md §6 Decision D's full trace). `cost` is now
+	// served through `AgentOrchestrationPort` — agent-orchestration's own
+	// recorded per-session cost (`agentSessionRequests.costCents`, written at
+	// `session_ended` by `session-cost-recorder.ts`), matched by `sessionId`.
+	// A session agent-orchestration has no record of at all (`undefined`)
+	// reports `null` here, same as one it knows about but hasn't costed yet —
+	// this endpoint's wire contract only ever carried `number | null`.
+	// `harnessUrl`/`tokens` remain genuinely unserved (no source anywhere).
 	router.get("/:id/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
 		const taskId = c.req.param("id");
 		const task = await work.get(db, "task", taskId);
@@ -192,22 +204,30 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			.from(sessions)
 			.where(eq(sessions.taskId, taskId))
 			.orderBy(sessions.startedAt);
-		const out = rows.map((s, i) => ({
-			id: s.id,
-			title: `Session ${i + 1}`,
-			agent: s.agentId,
-			cost: null,
-			tokens: null,
-			// @lore AF12: state-based contract — the frontend keys the live dot off
-			// status === 'active'. Use `state` (not `outcome`) so a cascade-stopped
-			// session renders 'stopped' via the raw-status fallback, never blank.
-			status: s.state,
-			harnessUrl: null,
-			effectivenessScore:
-				s.effectivenessScore != null && !Number.isNaN(Number.parseFloat(s.effectivenessScore))
-					? Number.parseFloat(s.effectivenessScore)
-					: null,
-		}));
+		const agentOrchestrationPort = buildAgentOrchestrationPort(
+			getRegisteredAgentOrchestrationTransport(),
+		);
+		const out = await Promise.all(
+			rows.map(async (s, i) => {
+				const costCents = await agentOrchestrationPort.sessions.getSessionCostBySessionId(s.id);
+				return {
+					id: s.id,
+					title: `Session ${i + 1}`,
+					agent: s.agentId,
+					cost: costCents ?? null,
+					tokens: null,
+					// @lore AF12: state-based contract — the frontend keys the live dot off
+					// status === 'active'. Use `state` (not `outcome`) so a cascade-stopped
+					// session renders 'stopped' via the raw-status fallback, never blank.
+					status: s.state,
+					harnessUrl: null,
+					effectivenessScore:
+						s.effectivenessScore != null && !Number.isNaN(Number.parseFloat(s.effectivenessScore))
+							? Number.parseFloat(s.effectivenessScore)
+							: null,
+				};
+			}),
+		);
 		return c.json({ sessions: out });
 	});
 

@@ -20,5 +20,6 @@ export {
 	transitionSessionRequest,
 	type WorkIntentInput,
 } from "./service.js";
+export { getSessionCostBySessionId } from "./session-cost-reader.js";
 export { registerSessionCostRecorder } from "./session-cost-recorder.js";
 export { sessionRunRegistry } from "./session-run-registry.js";

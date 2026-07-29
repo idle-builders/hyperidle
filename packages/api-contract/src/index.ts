@@ -6,6 +6,12 @@
  * No runtime code — only TypeScript interfaces and type aliases.
  */
 
+export type {
+	AgentOrchestrationPort,
+	AgentOrchestrationSessionHistoryEntry,
+	AgentOrchestrationSessionsPort,
+	AgentOrchestrationTransport,
+} from "./agent-orchestration-port.js";
 export type { AuthMeResponse } from "./auth.js";
 export type {
 	BetView,

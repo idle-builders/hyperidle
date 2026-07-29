@@ -1,0 +1,93 @@
+/**
+ * AU21 §9 Increment 6 (Decision D) — the REAL backing route for
+ * `AgentOrchestrationPort`'s two read methods.
+ *
+ * CONFUSION resolved (see `agent-orchestration-port.integration.test.ts`'s
+ * header for the full reasoning): `architecture.md` names
+ * `AgentOrchestrationPort` "agent-orchestration's own read door", but this
+ * codebase has exactly ONE HTTP-serving Layer today — core-api's own Hono
+ * `app`. No `agent-orchestration` package hosts its own listener, and giving
+ * it one here would force `agent-orchestration` to import `@hyperidle/
+ * core-api` for the auth/boundary/rate-limit stack, inverting the strict
+ * downward-dependency rule this whole work package protects. This route
+ * therefore lives in core-api and is mounted at `/api/agent-orchestration`
+ * beside every other domain route, behind the SAME auth stack — but its
+ * handlers call `@hyperidle/session-requests`'s own exported query functions
+ * directly (`getSessionCostBySessionId`, `listSessionRequests`), the
+ * sanctioned against-grain `core-api → agent-orchestration` DI read
+ * (architecture.md §1's "small set of permanent DI ports"), never the
+ * ungoverned opposite direction this WP exists to close. The "door" name
+ * reflects who OWNS the data and resolves the query, not literal HTTP
+ * hosting — `AgentOrchestrationPort` still delivers real location
+ * transparency (a hand-typed contract + a swappable transport + a tested
+ * fidelity obligation, same as `CoreApiPort`); only the transport's physical
+ * destination would change if agent-orchestration were ever split out.
+ *
+ * STRICTLY READ-ONLY (§12): only GET handlers are registered at either path.
+ * No POST/PATCH/PUT/DELETE handler exists — Hono's own `api.notFound`
+ * answers any of those with 404 (proven by
+ * `agent-orchestration-port-readonly.integration.test.ts`), not a bespoke
+ * method-not-allowed guard.
+ */
+
+import type { HyperIdleDb } from "@hyperidle/db";
+import { getSessionCostBySessionId, listSessionRequests } from "@hyperidle/session-requests";
+import {
+	AGENT_SESSION_SOURCE_KINDS,
+	type AgentSessionSourceKind,
+	API_ERROR_CODES,
+} from "@hyperidle/shared";
+import { Hono } from "hono";
+import { requireBoundary } from "../middleware/access-boundary-middleware.js";
+import type { HyperIdleEnv } from "../middleware/auth.js";
+
+function isAgentSessionSourceKind(value: string): value is AgentSessionSourceKind {
+	return (AGENT_SESSION_SOURCE_KINDS as readonly string[]).includes(value);
+}
+
+export function createAgentOrchestrationSessionsRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
+	const router = new Hono<HyperIdleEnv>();
+
+	// GET /agent-orchestration/sessions/:sessionId/cost — backs
+	// `AgentOrchestrationPort.sessions.getSessionCostBySessionId`. 404 for an
+	// unknown sessionId (mirrors the seam's `undefined` resolve); a known-but-
+	// uncosted session still resolves 200 with `costCents: null`.
+	router.get("/sessions/:sessionId/cost", requireBoundary({ kind: "public-data" }), async (c) => {
+		const sessionId = c.req.param("sessionId");
+		const costCents = await getSessionCostBySessionId(db, sessionId);
+		if (costCents === undefined) {
+			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+		return c.json({ sessionId, costCents });
+	});
+
+	// GET /agent-orchestration/sessions?sourceKind=&sourceId= — backs
+	// `AgentOrchestrationPort.sessions.listSessionHistoryBySource`.
+	router.get("/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
+		const sourceKind = c.req.query("sourceKind");
+		const sourceId = c.req.query("sourceId");
+		if (!(sourceKind && sourceId)) {
+			return c.json(
+				{ error: "sourceKind and sourceId are required", code: API_ERROR_CODES.VALIDATION_ERROR },
+				400,
+			);
+		}
+		if (!isAgentSessionSourceKind(sourceKind)) {
+			return c.json(
+				{ error: `Unknown sourceKind: ${sourceKind}`, code: API_ERROR_CODES.VALIDATION_ERROR },
+				400,
+			);
+		}
+		const rows = await listSessionRequests(db, { source: { kind: sourceKind, id: sourceId } });
+		return c.json({
+			entries: rows.map((row) => ({
+				id: row.id,
+				sessionId: row.sessionId,
+				status: row.status,
+				costCents: row.costCents,
+			})),
+		});
+	});
+
+	return router;
+}

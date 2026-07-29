@@ -44,6 +44,7 @@ import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
+import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions-routes.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -77,6 +78,10 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
+import {
+	createInProcessAgentOrchestrationTransport,
+	registerAgentOrchestrationTransport,
+} from "./services/agent-orchestration-port-composition.js";
 
 const agentWorkIntentRecorder = { record: enqueueWorkIntent };
 const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<HyperIdleDb> = {
@@ -512,6 +517,12 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			),
 		);
 		api.route("/status", createStatusRoutes(options.db));
+		// AU21 §9 Increment 6 (Decision D): the real backing route for
+		// `AgentOrchestrationPort`'s read-only session-cost/history methods —
+		// see `agent-orchestration-sessions-routes.ts`'s header for why the HTTP
+		// hosting lives here even though the data/query logic is
+		// agent-orchestration's own (`@hyperidle/session-requests`).
+		api.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(options.db));
 
 		// S2: worker admin visibility — GET /api/workers lists registered adapters.
 		// Requires X-API-Key matching HYPERIDLE_API_KEY (admin-level auth inside route).
@@ -627,6 +638,23 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		}
 		return c.text("404 Not Found", 404);
 	});
+
+	// AU21 §9 Increment 6 (Decision D): register the in-process
+	// `AgentOrchestrationPort` transport here in `createApp` itself — NOT in
+	// `server-factory.ts` the way `CoreApiPort`'s write-seam transport is
+	// (`core-api-port-composition.ts`'s own `@lore`). That deferral exists
+	// because registering a WRITE seam's transport for every test app also
+	// activates production event-subscriber side effects tests don't expect
+	// (the double-fire hazard). This door is read-only (§12) — carries no
+	// event subscriptions and mutates nothing — so there is no equivalent
+	// hazard, and registering it unconditionally (no `options?.db` branch —
+	// keeps this function's already-over-budget cognitive complexity from
+	// growing further) means every `createApp` caller, including a db-less
+	// app, gets a working `getRegisteredAgentOrchestrationTransport()`. A
+	// db-less app never mounted `/agent-orchestration/sessions/*`, so the
+	// transport just 404s through this app's own top-level not-found handler
+	// if anything ever called it — never reached in practice.
+	registerAgentOrchestrationTransport(createInProcessAgentOrchestrationTransport(app));
 
 	return app;
 }
