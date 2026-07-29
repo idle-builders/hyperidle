@@ -425,3 +425,67 @@ describe("bet decomposition enters the agent runtime through requests", () => {
 		expect(bet?.decompositionBlockerReason).toBeNull();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// AU21 §6 Decision D2 (RED — Increment 8): "we always need to compose, we
+// cannot stop working because of costs, there is no way to recover
+// otherwise" (founder, 2026-07-27). The work → cost pre-flight gate in
+// `runBetDecomposition` is being REMOVED, not refactored — decomposition must
+// proceed unconditionally even when the cost-cap mechanism itself reports a
+// genuine breach. Decision D2 does NOT touch the cost-cap MECHANISM
+// (`checkCostCap` in `@hyperidle/cost`) — only bet-decomposition's use of it
+// as a hard-blocking gate. This test proves the mechanism reports a real
+// breach (via `productionPorts.costCap.checkCostCap`, the exact same wiring
+// `server-factory.ts` uses in production) and then asserts decomposition
+// still completes — currently RED because the still-present pre-flight
+// block short-circuits to blocked/failed before `runDecompositionTurn` is
+// ever invoked.
+// ---------------------------------------------------------------------------
+
+describe("Bet decomposition — cost cap never gates decomposition (Decision D2)", () => {
+	test("decomposition completes even when the real cost-cap mechanism reports a genuine breach", async ({
+		db,
+		eventBus,
+	}) => {
+		const { teamId, agentId } = await seedTeamWithAgent(db, { agentId: "agent-d2-breach" });
+		// Force a REAL, genuine agent-level cost-cap breach through the same
+		// production `checkCostCap` mechanism `bet-decomposition.ts` wires today.
+		await db.update(users).set({ costCapMinor: 100, costActual: 500 }).where(eq(users.id, agentId));
+		await db.insert(bets).values(makeBet("bet-d2-breach", teamId, "active"));
+
+		// Sanity check: prove the breach is real (not an accidental pass-through) —
+		// Decision D2 removes bet-decomposition's USE of this result, not the
+		// mechanism's ability to detect a breach.
+		const capResult = await productionPorts.costCap.checkCostCap(db, eventBus, { agentId });
+		expect(capResult.allowed).toBe(false);
+
+		const runDecompositionTurn = vi
+			.fn()
+			.mockResolvedValue([{ title: "Task despite cap breach" }] satisfies DecompositionTaskInput[]);
+
+		await triggerBetDecomposition(
+			{
+				db,
+				eventBus,
+				...productionPorts,
+				sandboxBasePath: "/tmp/au21-d2-test",
+				runDecompositionTurn,
+			},
+			"bet-d2-breach",
+			async () => {
+				const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-d2-breach")).limit(1);
+				expect(["done", "blocked"]).toContain(bet?.decompositionStatus);
+			},
+		);
+
+		// RED today: the still-present cost pre-flight short-circuits to
+		// blocked/failed before ever calling runDecompositionTurn.
+		expect(runDecompositionTurn).toHaveBeenCalled();
+		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-d2-breach")).limit(1);
+		expect(bet?.decompositionStatus).toBe("done");
+		expect(bet?.decompositionBlockerReason).toBeNull();
+		const taskRows = await db.select().from(tasks).where(eq(tasks.betId, "bet-d2-breach"));
+		expect(taskRows).toHaveLength(1);
+		expect(taskRows[0]?.title).toBe("Task despite cap breach");
+	});
+});

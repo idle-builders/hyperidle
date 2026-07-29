@@ -34,7 +34,6 @@ import {
 import type {
 	AgentSelectionDefaults,
 	AgentWorkIntentRecorder,
-	CostCapChecker,
 	TeamCapacityReader,
 	UserStoreReader,
 	WorkDecompositionPlan,
@@ -203,13 +202,20 @@ export interface BetDecompositionDeps {
 	 */
 	readonly teamCapacity: TeamCapacityReader;
 	/**
-	 * Injected `cost` Service port (Mechanism C — §10.3 against-grain).
-	 * RULED PERMANENT at Increment 3g: `checkCostCap` is a synchronous
-	 * pre-flight read whose return value gates this function's control flow
-	 * (see the "Cost pre-flight" step below) — an EventBus emit cannot serve
-	 * a synchronous request/response need. See `ports.ts`'s top `@lore`.
+	 * @lore AU21 §6 Decision D2 (founder, 2026-07-27): the `cost` Service port
+	 * (`CostCapChecker`) that used to sit here was REMOVED, not refactored —
+	 * "we always need to compose, we cannot stop working because of costs,
+	 * there is no way to recover otherwise." Decomposition no longer performs
+	 * any cost pre-flight; it proceeds unconditionally regardless of cap
+	 * status. This REVERSES Increment 3g's "RULED PERMANENT" classification
+	 * of `CostCapChecker` (see `ports.ts`'s top `@lore`, now reworded) — the
+	 * port wasn't inverted to an EventBus per §10.3, it was deleted outright
+	 * because the founder ruled the gate itself must not exist here. The
+	 * cost-cap MECHANISM (`checkCostCap` in `@hyperidle/cost`) is untouched
+	 * and still enforced at its other real call sites (`users`/`org`
+	 * read paths, `routine-scheduler.ts`) — only bet-decomposition's use of
+	 * it as a hard-blocking gate is gone.
 	 */
-	readonly costCap: CostCapChecker;
 	/**
 	 * Injected `session-requests` Service port (Mechanism C — §10.3 against-grain).
 	 * RULED PERMANENT (closing ruling, 2026-07-16): `record(tx, ...)` is called
@@ -664,17 +670,11 @@ async function runBetDecomposition(deps: BetDecompositionDeps, betId: string): P
 		timestamp: Date.now(),
 	});
 
-	// --- 6. Cost pre-flight ---
-	// @lore AK3: checkCostCap is called before the turn to prevent runaway cost.
-	// Cost is enforced before entering the agent runtime.
-	const capResult = await deps.costCap.checkCostCap(db, eventBus, {
-		agentId: pm.id,
-		teamId: bet.teamId,
-	});
-	if (!capResult.allowed) {
-		await markTerminal(db, betId, "blocked", "failed");
-		return;
-	}
+	// @lore AU21 §6 Decision D2 (founder, 2026-07-27): the cost pre-flight
+	// gate that used to sit here (`deps.costCap.checkCostCap(...)`) is
+	// REMOVED — decomposition proceeds unconditionally regardless of cap
+	// status. See `BetDecompositionDeps`'s doc comment above for the full
+	// ruling. The cost-cap mechanism itself is untouched elsewhere.
 
 	// AU1: the real PM turn is requested through the agent runtime boundary.
 	// A completed runtime is useful only if it writes at least one bet task.

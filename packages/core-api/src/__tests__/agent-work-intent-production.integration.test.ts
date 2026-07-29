@@ -82,7 +82,6 @@ async function triggerDecomposition(
 			getByTeamId: (exec, teamId) => getTeamMembers(exec, { teamId }),
 			setActiveBets: async () => {},
 		},
-		costCap: { checkCostCap: async () => ({ allowed: true }) },
 		workIntents: intentRecorder,
 		sandboxBasePath: "/tmp/au9-production",
 		runDecompositionTurn: async () => [...taskInputs],

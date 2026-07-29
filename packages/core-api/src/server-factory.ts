@@ -946,7 +946,11 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			// `ports.ts`'s `UserStoreReader.listUsersByTeam` `@lore`.
 			listUsersByTeam: (db, teamMembersId) => listUsers(db, { teamIds: [teamMembersId] }),
 		},
-		costCap: { checkCostCap: costOps.check },
+		// @lore AU21 §6 Decision D2 (founder, 2026-07-27): `costCap` used to be
+		// wired here (`checkCostCap: costOps.check`) as `work`'s pre-flight
+		// budget-gate port. Removed outright, not rewired — decomposition
+		// proceeds unconditionally regardless of cost-cap status now. See
+		// `ports.ts`'s top `@lore` (Increment 8 note) for the full ruling.
 		workIntents: { record: enqueueWorkIntent },
 		// AU19 Increment 1c: `org` is a REAL migrated package — wired to its real
 		// exported functions (W2 closure).

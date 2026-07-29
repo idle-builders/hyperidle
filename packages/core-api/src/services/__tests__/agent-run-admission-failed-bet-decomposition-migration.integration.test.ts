@@ -64,7 +64,6 @@ import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
 import { registerBetDecomposition } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
-import { costOps } from "../cost-bindings.js";
 import { queueDeps } from "../durable-agent-queue.js";
 
 async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
@@ -120,7 +119,6 @@ function productionPorts(): WorkDeps {
 			listUsersByTeam: (db: HyperIdleDb, teamMembersId: string) =>
 				listUsers(db, { teamIds: [teamMembersId] }),
 		},
-		costCap: { checkCostCap: costOps.check },
 		workIntents: { record: enqueueWorkIntent },
 		teamCapacity: {
 			getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),

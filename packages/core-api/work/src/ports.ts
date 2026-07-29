@@ -14,20 +14,22 @@
  *
  * @lore AU19 Increment 1b — §10.3 "against-grain" classification: three of
  * these five edges (`AgentWorkIntentRecorder` → session-requests,
- * `AgentSelectionDefaults` → agent-selection, `CostCapChecker` → cost) are
- * `core-api → agent-orchestration`, which runs AGAINST the downward
- * dependency grain (orchestration is meant to depend on core-api, not the
- * reverse). Per §10.3 their PERMANENT end-state wiring is an EventBus
- * inversion (the lower Service — here, `work` — emits a domain event;
- * the orchestration Service subscribes), not a permanent DI port. These are
- * wired as ordinary DI ports for THIS increment only (interim, matching how
- * `knowledge`'s `work`/`review` edges were handled in Increment 1a) —
- * Increment 3 rewires all three to the EventBus subscription pattern
- * (`bet-decomposition-subscriber.ts`'s existing idiom) once `session-requests`,
- * `agent-selection`, and `cost` are real Service packages. The fourth port
- * (`UserStoreReader` → `users`) is an ordinary same-layer core-api→core-api
- * edge (`users` just hasn't migrated yet) — no Inc-3 event-bus rewrite is
- * needed for it, only a straight DI-target swap once `users` exists.
+ * `AgentSelectionDefaults` → agent-selection, `CostCapChecker` → cost, the
+ * last REMOVED outright at Increment 8 — see the Decision D2 note below,
+ * where the `cost` section used to sit) are `core-api → agent-orchestration`,
+ * which runs AGAINST the downward dependency grain (orchestration is meant to
+ * depend on core-api, not the reverse). Per §10.3 their PERMANENT end-state
+ * wiring is an EventBus inversion (the lower Service — here, `work` — emits a
+ * domain event; the orchestration Service subscribes), not a permanent DI
+ * port. These are wired as ordinary DI ports for THIS increment only
+ * (interim, matching how `knowledge`'s `work`/`review` edges were handled in
+ * Increment 1a) — Increment 3 rewires all three to the EventBus subscription
+ * pattern (`bet-decomposition-subscriber.ts`'s existing idiom) once
+ * `session-requests`, `agent-selection`, and `cost` are real Service
+ * packages. The fourth port (`UserStoreReader` → `users`) is an ordinary
+ * same-layer core-api→core-api edge (`users` just hasn't migrated yet) — no
+ * Inc-3 event-bus rewrite is needed for it, only a straight DI-target swap
+ * once `users` exists.
  *
  * @lore AU19 Increment 1c — `TeamCapacityReader` (→ `org`, now a REAL migrated
  * package, not an interim stub) closes W2: `bet-state-machine.ts`/
@@ -54,8 +56,11 @@
  * unified `AgentSelectionService` instead of legacy per-caller modules.
  *
  * RULED PERMANENT (founder-confirmed 2026-07-14, closing the item Increment
- * 3e explicitly deferred): same test as `CostCapChecker` below, same
- * outcome. Selection and candidate reads are synchronous request/response
+ * 3e explicitly deferred): same test `CostCapChecker` was originally ruled
+ * against at Increment 3g (see below — that port's own permanence ruling was
+ * later REVERSED and the port removed at Increment 8, Decision D2; this
+ * port's ruling stands unaffected). Selection and candidate reads are
+ * synchronous request/response
  * calls whose return values are consumed immediately to continue decomposition — the exact
  * "return value gates the caller's next branch" shape the amendment's test
  * targets, not a fire-and-forget notification. Contrast
@@ -66,27 +71,33 @@
  * cases rather than excusing every port from inversion. This port's shape
  * is unchanged; only its permanence is now settled.
  *
- * @lore AU19 Increment 3g — `CostCapChecker` (→ `cost`, now a REAL migrated
- * package): RULED PERMANENT, not inverted. §10.3's amendment atomicity test
- * (`policy ⚠ session-requests`/`review ⚠ session-requests` precedent,
- * `plans/AU19/architecture.md` line 528) generalizes past literal
- * same-transaction writes to synchronous read-then-branch control flow that
- * an async, fire-and-forget EventBus emit structurally cannot serve.
- * `bet-decomposition.ts`'s `runBetDecomposition` calls
- * `deps.costCap.checkCostCap(...)` synchronously and branches on its
- * `allowed` return value in the SAME code path (`if (!capResult.allowed) {
- * markTerminal(...); return; }`) — a pre-flight budget QUERY, not a
- * fire-and-forget domain-event notification. `checkCostCap` itself performs
- * zero writes (pure SELECT reads via `CostUserAccessor`/`CostTeamAccessor`),
- * so this is not even a borderline "same transaction" case — it fails the
- * more fundamental test §10.3's own reasoning already established: an
- * EventBus has no synchronous response channel, so any port whose return
- * value gates the caller's next branch cannot be inverted without a genuine
- * control-flow redesign. `server-factory.ts` repoints this port's concrete
- * wiring to `@hyperidle/cost`'s real `createCostOps(...)`-bound
- * `checkCostCap` (via `packages/server/src/services/cost-bindings.ts`)
- * instead of the deleted `services/cost-cap.ts` flat module — mechanical,
- * zero behavior change.
+ * @lore AU19 Increment 3g (REVERSED at AU21 Increment 8, Decision D2 — see
+ * below) — `CostCapChecker` (→ `cost`) was originally RULED PERMANENT here,
+ * not inverted: §10.3's amendment atomicity test (`policy ⚠ session-requests`/
+ * `review ⚠ session-requests` precedent, `plans/AU19/architecture.md` line
+ * 528) was read to generalize past literal same-transaction writes to
+ * synchronous read-then-branch control flow that an async, fire-and-forget
+ * EventBus emit structurally cannot serve — `bet-decomposition.ts`'s
+ * `runBetDecomposition` called `deps.costCap.checkCostCap(...)` synchronously
+ * and branched on its `allowed` return value in the SAME code path
+ * (`if (!capResult.allowed) { markTerminal(...); return; }`), read then as a
+ * pre-flight budget QUERY the port shape had to serve.
+ *
+ * @lore AU21 §6 Decision D2 (founder ruling, 2026-07-27, closing the above):
+ * this was the wrong question. The founder ruled decomposition must never
+ * stop for cost reasons at all — "we always need to compose, we cannot stop
+ * working because of costs, there is no way to recover otherwise." So the
+ * port isn't inverted to an EventBus (§10.3's usual permanent answer for an
+ * against-grain edge) — it's DELETED outright: `CostCapChecker`,
+ * `WorkCostCapResult`, and `WorkCheckCostCapParams` are removed from this
+ * file, `BetDecompositionDeps.costCap`/`WorkDeps.costCap` are gone, and
+ * `runBetDecomposition`'s pre-flight block is deleted, not rewired.
+ * Decomposition now proceeds unconditionally regardless of cap status. This
+ * does NOT touch the cost-cap MECHANISM itself (`checkCostCap` in
+ * `@hyperidle/cost`, still real and live) — only bet-decomposition's use of
+ * it as a hard-blocking gate. `checkCostCap` remains wired at its other real
+ * call sites (`users`/`org` read paths via `cost-bindings.ts`,
+ * `routine-scheduler.ts`'s monthly-cap check) untouched.
  *
  * @lore AU19 (closing ruling, 2026-07-16 — this was left open through
  * Increments 3e/3g and never explicitly closed, unlike its two siblings;
@@ -103,7 +114,10 @@
  * record into two transactions — a crash between them leaves a bet marked
  * "claimed for decomposition" with no recorded intent anywhere, silently
  * stuck forever. This port's shape is unchanged; only its permanence is
- * now settled, matching `AgentSelectionDefaults`/`CostCapChecker` above.
+ * now settled, matching `AgentSelectionDefaults` above (`CostCapChecker`'s
+ * own permanence ruling was later reversed and the port removed outright —
+ * see the Increment 8 / Decision D2 note above; that reversal doesn't touch
+ * this port's own settled ruling).
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
@@ -179,32 +193,6 @@ interface AgentSelectionDefaults {
 		deps: { readonly db: WriteExecutor; readonly eventBus: EventBus },
 		occasion: WorkSelectionOccasion,
 	): Promise<{ readonly agentId: string | null }>;
-}
-
-// ---------------------------------------------------------------------------
-// cost — CostCapChecker (§10.3 against-grain — RULED PERMANENT at Increment 3g,
-// synchronous read-then-branch control flow; see top `@lore`)
-// ---------------------------------------------------------------------------
-
-interface WorkCostCapResult {
-	readonly allowed: boolean;
-	readonly level?: "agent" | "team" | "factory";
-	readonly currentSpend?: number;
-	readonly cap?: number;
-}
-
-interface WorkCheckCostCapParams {
-	readonly agentId: string;
-	readonly teamId?: string;
-}
-
-/** Port for `cost`'s pre-flight budget check (`checkCostCap`, Mechanism C). */
-interface CostCapChecker {
-	checkCostCap(
-		db: WriteExecutor,
-		eventBus: EventBus,
-		params: WorkCheckCostCapParams,
-	): Promise<WorkCostCapResult>;
 }
 
 // ---------------------------------------------------------------------------
@@ -296,8 +284,6 @@ export interface WorkDeps {
 	readonly users: UserStoreReader;
 	/** Injected `org` port (ordinary downward core-api edge — closes W2). */
 	readonly teamCapacity: TeamCapacityReader;
-	/** Injected `cost` port (§10.3 against-grain — RULED PERMANENT). */
-	readonly costCap: CostCapChecker;
 	/** Injected `session-requests` port (§10.3 against-grain — RULED PERMANENT). */
 	readonly workIntents: AgentWorkIntentRecorder;
 }
@@ -305,7 +291,6 @@ export interface WorkDeps {
 export type {
 	AgentSelectionDefaults,
 	AgentWorkIntentRecorder,
-	CostCapChecker,
 	TeamCapacityReader,
 	UserStoreReader,
 	WorkDecompositionPlan,
