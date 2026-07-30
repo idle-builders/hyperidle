@@ -1,19 +1,10 @@
 import type { EventBus } from "./event-bus.js";
-import type {
-	AgentRunAdmissionFailureCode,
-	AgentWorkIntentKind,
-	AgentWorkIntentSourceKind,
+import {
+	AGENT_WORK_INTENT_KINDS,
+	type AgentRunAdmissionFailureCode,
+	type AgentWorkIntentKind,
+	type AgentWorkIntentSourceKind,
 } from "./events.js";
-
-const AGENT_WORK_INTENT_KINDS = [
-	"assistant_turn",
-	"session_start",
-	"knowledge_action",
-	"routine_run",
-	"bet_decomposition",
-	"task_run",
-	"reengagement",
-] as const;
 
 /** Narrow a raw `agent_work_intents.kind` (a plain DB `text` column) to `AgentWorkIntentKind`. */
 export function isAgentWorkIntentKind(value: string): value is AgentWorkIntentKind {

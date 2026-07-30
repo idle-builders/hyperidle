@@ -221,6 +221,8 @@ export type {
 	WorkDecomposeRequestedEvent,
 	WorkSelectionRequestedEvent,
 } from "./events.js";
+// AU21 §6 Decision G: canonical runtime kind list `AgentWorkIntentKind` is built from.
+export { AGENT_WORK_INTENT_KINDS } from "./events.js";
 // ── AK6: Factory-roster injection seam ──
 export type {
 	FactoryFacilitatorSpec,

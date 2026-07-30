@@ -40,6 +40,20 @@ export interface BakedWorkIntentRequest {
 	readonly sourceCorrelation: AgentSessionSourceCorrelation;
 }
 
+/**
+ * AU21 §6 Decision G (recorder unification) — widened from the AC-9 2-kind
+ * (`assistant_turn`/`session_start`) scope to the FULL seven-kind
+ * discriminated union, matching `agent_work_intents_kind_ck` +
+ * `agent_work_intents_kind_source_compat_ck` (`packages/db/src/schema.ts`)
+ * exactly. `work` (`bet_decomposition`/`task_run`) and `review`
+ * (`reengagement`) used to re-declare their own narrower local mirrors of
+ * this exact shape (`WorkAgentWorkIntentInput`/`ReviewAgentWorkIntentInput`)
+ * purely because this union hadn't grown to cover their kinds yet — now that
+ * it does, every caller imports this ONE type and the mirrors are deleted
+ * (`tsc` enforces conformance mechanically, not by convention). See
+ * `AGENT_WORK_INTENT_KINDS` below for the runtime-checkable kind list this
+ * union's discriminant is built from.
+ */
 export type AgentWorkIntentRecorderInput =
 	| {
 			readonly kind: "assistant_turn";
@@ -57,6 +71,51 @@ export type AgentWorkIntentRecorderInput =
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
 			/** See `BakedWorkIntentRequest`. Populated at emit time by the `work` resolver (AU21 Increment 3). */
+			readonly bakedRequest?: BakedWorkIntentRequest;
+	  }
+	| {
+			readonly kind: "knowledge_action";
+			readonly sourceKind: "knowledge_action";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			/** See `BakedWorkIntentRequest`. Populated at emit time by the `knowledge` resolver (AU21 Increment 3). */
+			readonly bakedRequest?: BakedWorkIntentRequest;
+	  }
+	| {
+			readonly kind: "routine_run";
+			readonly sourceKind: "routine_run";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			/** See `BakedWorkIntentRequest`. Populated at emit time by `routine-service.ts`'s `resolveRoutineRunRequest` (AU21 Increment 4). */
+			readonly bakedRequest?: BakedWorkIntentRequest;
+	  }
+	| {
+			readonly kind: "bet_decomposition";
+			readonly sourceKind: "bet";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			/** See `BakedWorkIntentRequest`. Populated at emit time by `bet-decomposition.ts`'s `resolveBetDecompositionRequest` (AU21 Increment 3). */
+			readonly bakedRequest?: BakedWorkIntentRequest;
+	  }
+	| {
+			readonly kind: "task_run";
+			readonly sourceKind: "task_dispatch_attempt";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			/** See `BakedWorkIntentRequest`. Populated at emit time by `task-run-resolver.ts` (AU21 Increment 3). */
+			readonly bakedRequest?: BakedWorkIntentRequest;
+	  }
+	| {
+			readonly kind: "reengagement";
+			readonly sourceKind: "proposed_call";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			/** See `BakedWorkIntentRequest`. Populated at emit time by `proposed-call-workflow.ts`'s `resolveReengagementRequest` (AU21 Increment 3). */
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  };
 

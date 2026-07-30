@@ -29,6 +29,7 @@ export default defineConfig({
 			"packages/core-api",
 			"packages/core-api/knowledge",
 			"packages/core-api/routine",
+			"packages/core-api/review",
 			"packages/core-api/work",
 			"packages/core-api/org",
 			"packages/core-api/users",

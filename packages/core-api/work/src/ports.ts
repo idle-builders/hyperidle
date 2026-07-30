@@ -121,46 +121,28 @@
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
-import type { BakedWorkIntentRequest, EventBus, UserRole } from "@hyperidle/shared";
+import type {
+	EventBus,
+	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
+	UserRole,
+} from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
 // session-requests — AgentWorkIntentRecorder (§10.3 against-grain — RULED PERMANENT, see top @lore)
 // ---------------------------------------------------------------------------
 
 /**
- * The two `agent_work_intents` kinds `work` records today (`bet-decomposition.ts`,
- * `task-state-machine.ts`). Narrower than session-requests' full
- * `AgentWorkIntentKind` union — `work` only ever writes these two.
+ * AU21 §6 Decision G (recorder unification) — `work` used to re-declare its
+ * own narrower local mirror (`WorkAgentWorkIntentInput`/
+ * `WorkAgentWorkIntentRecord`/a local `AgentWorkIntentRecorder` interface,
+ * scoped to only the two kinds `work` itself writes) instead of importing
+ * `@hyperidle/shared`'s canonical `AgentWorkIntentRecorder<TTx>` — a
+ * redundant re-declaration now deleted; every caller in this package
+ * (`bet-decomposition.ts`, `task-state-machine.ts`, `dependency-watcher.ts`)
+ * imports this ONE type instantiated with `WriteExecutor`, so `tsc` enforces
+ * conformance mechanically instead of by convention.
  */
-type WorkAgentWorkIntentInput =
-	| {
-			readonly kind: "bet_decomposition";
-			readonly sourceKind: "bet";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by `bet-decomposition.ts`'s `resolveBetDecompositionRequest` (AU21 Increment 3). */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  }
-	| {
-			readonly kind: "task_run";
-			readonly sourceKind: "task_dispatch_attempt";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by `task-run-resolver.ts` (AU21 Increment 3). */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  };
-
-interface WorkAgentWorkIntentRecord {
-	readonly id: string;
-	readonly idempotencyKey: string;
-}
-
-/** Port for `session-requests`' durable `agent_work_intents` writer (Mechanism C). */
-interface AgentWorkIntentRecorder {
-	record(tx: WriteExecutor, input: WorkAgentWorkIntentInput): Promise<WorkAgentWorkIntentRecord>;
-}
+type AgentWorkIntentRecorder = SharedAgentWorkIntentRecorder<WriteExecutor>;
 
 // ---------------------------------------------------------------------------
 // agent-selection — AgentSelectionDefaults (§10.3 against-grain — Inc 3 rewires to EventBus)

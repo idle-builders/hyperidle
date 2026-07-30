@@ -2,14 +2,26 @@ import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./se
 import type { HostKind, MessageType } from "./thread.js";
 import type { BetStatus, TaskState } from "./types.js";
 
-export type AgentWorkIntentKind =
-	| "assistant_turn"
-	| "session_start"
-	| "knowledge_action"
-	| "routine_run"
-	| "bet_decomposition"
-	| "task_run"
-	| "reengagement";
+/**
+ * The canonical runtime-checkable list `AgentWorkIntentKind` is built from —
+ * kept in lockstep with `agent_work_intents_kind_ck`
+ * (`packages/db/src/schema.ts`) and consumed by
+ * `AgentWorkIntentRecorderInput` (`agent-work-intent-recorder.ts`, AU21 §6
+ * Decision G) so a kind-set drift test (`packages/db`) can derive its
+ * accept-list mechanically from this single source instead of a second
+ * hardcoded copy.
+ */
+export const AGENT_WORK_INTENT_KINDS = [
+	"assistant_turn",
+	"session_start",
+	"knowledge_action",
+	"routine_run",
+	"bet_decomposition",
+	"task_run",
+	"reengagement",
+] as const;
+
+export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
 
 /**
  * The RAW `agent_work_intents.source_kind` vocabulary (the identity an intent

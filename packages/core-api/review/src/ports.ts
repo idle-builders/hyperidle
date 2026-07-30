@@ -27,42 +27,35 @@ import type {
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
-import type { BakedWorkIntentRequest } from "@hyperidle/shared";
+import type {
+	AgentWorkIntentRecorderInput,
+	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
+} from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
 // ReviewAgentWorkIntentInput — exported (the recorder's contract)
 // ---------------------------------------------------------------------------
 
-export interface ReviewAgentWorkIntentInput {
-	readonly kind: "reengagement";
-	readonly sourceKind: "proposed_call";
-	readonly sourceId: string;
-	readonly requestedBy?: string;
-	readonly idempotencyKey: string;
-	/**
-	 * See `BakedWorkIntentRequest`. Populated at emit time by
-	 * `proposed-call-workflow.ts`'s `resolveReengagementRequest` (AU21
-	 * Increment 3) — both real call sites (`transitionProposedCall({to:
-	 * "granted"})` and `applyLivenessRetry`'s first-no-show re-provision).
-	 */
-	readonly bakedRequest?: BakedWorkIntentRequest;
-}
+/**
+ * AU21 §6 Decision G (recorder unification) — `review` used to re-declare its
+ * own single-kind local mirror (`ReviewAgentWorkIntentInput`, narrowed to
+ * `reengagement`/`proposed_call` only) instead of importing
+ * `@hyperidle/shared`'s canonical seven-kind `AgentWorkIntentRecorderInput`
+ * union — a redundant re-declaration now deleted. `review` only ever
+ * constructs the `reengagement` member of the shared union (narrowed here via
+ * `Extract`), but the CONTRACT callers depend on is the one shared type, so
+ * `tsc` enforces conformance mechanically instead of by convention.
+ */
+export type ReviewAgentWorkIntentInput = Extract<
+	AgentWorkIntentRecorderInput,
+	{ kind: "reengagement" }
+>;
 
 // ---------------------------------------------------------------------------
 // Internal helper types — NOT exported from barrel (bundled inside ReviewPorts)
 // ---------------------------------------------------------------------------
 
-interface ReviewAgentWorkIntentRecord {
-	readonly id: string;
-	readonly idempotencyKey: string;
-}
-
-interface ReviewAgentWorkIntentRecorder {
-	record(
-		tx: WriteExecutor,
-		input: ReviewAgentWorkIntentInput,
-	): Promise<ReviewAgentWorkIntentRecord>;
-}
+type ReviewAgentWorkIntentRecorder = SharedAgentWorkIntentRecorder<WriteExecutor>;
 
 /** Narrow patch shape `review` writes onto a task. */
 interface ReviewTaskPatch {
