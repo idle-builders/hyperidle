@@ -711,8 +711,7 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 		connections: {
 			async listHeldConnectionsForProvisioning(): Promise<ListHeldConnectionsForProvisioningResponse> {
 				const res = await client.connections.provisioning.$get();
-				if (!res.ok)
-					return throwSeamError("connections.listHeldConnectionsForProvisioning", res);
+				if (!res.ok) return throwSeamError("connections.listHeldConnectionsForProvisioning", res);
 				return (await res.json()) as ListHeldConnectionsForProvisioningResponse;
 			},
 		},

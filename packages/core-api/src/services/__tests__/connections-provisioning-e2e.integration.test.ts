@@ -126,10 +126,10 @@ async function seedConnection(
 	});
 }
 
-// ── AC1 — held token connection provisioned into sandbox config (real route + real decrypt) ──
+// ── held token connection provisioned into sandbox config (real route + real decrypt) ──
 
 describe("real end-to-end: DB row -> GET /connections/provisioning -> buildProvisioningPlan -> applyProvisioningPlan", () => {
-	test("AC1 — claude-native: .mcp.json written with held MCP-bearer entry, token decrypted through the real resolver", async ({
+	test("claude-native: .mcp.json written with held MCP-bearer entry, token decrypted through the real resolver", async ({
 		db,
 		app,
 	}) => {
@@ -160,7 +160,7 @@ describe("real end-to-end: DB row -> GET /connections/provisioning -> buildProvi
 		expect(result.mcpTokenEnv).toEqual({});
 	});
 
-	test("AC4 — respawn idempotent: same codex-toml entries in a fresh sandbox after destroying the first", async ({
+	test("respawn idempotent: same codex-toml entries in a fresh sandbox after destroying the first", async ({
 		db,
 		app,
 	}) => {
@@ -200,7 +200,7 @@ describe("real end-to-end: DB row -> GET /connections/provisioning -> buildProvi
 		expect(tomlB).toBe(tomlA);
 	});
 
-	test("AC5 — two services (stripe token + figma mcp) both provisioned from one generic path", async ({
+	test("two services (stripe token + figma mcp) both provisioned from one generic path", async ({
 		db,
 		app,
 	}) => {
@@ -236,7 +236,7 @@ describe("real end-to-end: DB row -> GET /connections/provisioning -> buildProvi
 		expect(mcpJson.mcpServers.figma).toBeDefined();
 	});
 
-	test("AC6 — disconnect removes entry on next spawn (real DELETE-equivalent row removal)", async ({
+	test("disconnect removes entry on next spawn (real DELETE-equivalent row removal)", async ({
 		db,
 		app,
 	}) => {
@@ -284,7 +284,7 @@ describe("real end-to-end: DB row -> GET /connections/provisioning -> buildProvi
 		fs.rmSync(sandbox2, { recursive: true, force: true });
 	});
 
-	test("HR3 — secret never written into the codex-toml config; C2 — envInjections + mcpTokenEnv carry the CLI-key AND MCP-bearer tokens", async ({
+	test("secret never written into the codex-toml config; envInjections + mcpTokenEnv carry the CLI-key AND MCP-bearer tokens", async ({
 		db,
 		app,
 	}) => {

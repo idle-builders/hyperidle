@@ -130,7 +130,7 @@ async function seedHumanOwner(db: HyperIdleDb, id: string): Promise<void> {
 	});
 }
 
-describe("CoreApiPort.connections — Increment 8 F2 provisioning-record wave (RED)", () => {
+describe("CoreApiPort.connections — provisioning-record reads", () => {
 	test("listHeldConnectionsForProvisioning reaches the real held-connection provisioning route", async ({
 		db,
 		app,
@@ -182,7 +182,7 @@ describe("CoreApiPort.connections — Increment 8 F2 provisioning-record wave (R
 		});
 	});
 
-	test("listHeldConnectionsForProvisioning NEVER exposes the encrypted token (AN1 hard-rule 1)", async ({
+	test("listHeldConnectionsForProvisioning NEVER exposes the encrypted token", async ({
 		db,
 		app,
 	}) => {
@@ -243,7 +243,7 @@ describe("CoreApiPort.connections — Increment 8 F2 provisioning-record wave (R
 	});
 });
 
-describe("CoreApiPort.filesystems — Increment 8 F2 provisioning-record wave (RED)", () => {
+describe("CoreApiPort.filesystems — provisioning-record reads", () => {
 	test("listFilesystemsByAgent reaches the real GET /api/filesystems?agentUserId= route (parsed resourceRef, one seam call)", async ({
 		db,
 		app,
