@@ -31,8 +31,8 @@ import {
 	type EventBus,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
+import { selectBetDecomposerAgent, selectBetTaskOwner } from "./agent-assignment.js";
 import type {
-	AgentSelectionDefaults,
 	AgentWorkIntentRecorder,
 	TeamCapacityReader,
 	UserStoreReader,
@@ -59,14 +59,17 @@ import * as work from "./work-service.js";
  * `requireRunnableAgentViaUsersPort` adapter (reused, not re-implemented).
  *
  * @lore CONFUSION (flagged for reviewer): this resolver's candidate-selection
- * algorithm is DELIBERATELY INDEPENDENT of the `agentSelection.selectAgent`
+ * algorithm is DELIBERATELY INDEPENDENT of the `selectBetDecomposerAgent`
  * pick `runBetDecomposition` already makes (bound to `pm`, used as
- * `requestedBy` and the real PM turn's actor). This resolver re-derives its
- * OWN target via the literal team-membership-scan algorithm the drain used to
- * run, because the migration's job is "do exactly what the drain did," which
- * is a materially different algorithm from `agentSelection.selectAgent` — not
- * a request to unify the two (a separate, pre-existing selection concept this
- * WP does not touch).
+ * `requestedBy` and the real PM turn's actor) — this held true when that pick
+ * lived in the standalone `agent-selection` Service, and it still holds now
+ * that Increment 8 (Decision F1) relocated the pick to this package's own
+ * `agent-assignment.ts`. This resolver re-derives its OWN target via the
+ * literal team-membership-scan algorithm the drain used to run, because the
+ * migration's job is "do exactly what the drain did," which is a materially
+ * different algorithm from `selectBetDecomposerAgent` — not a request to
+ * unify the two (a separate, pre-existing selection concept this WP does not
+ * touch).
  */
 
 /** Thrown when a `bet_decomposition` bake's source bet or target is no longer eligible. */
@@ -184,12 +187,6 @@ export interface BetDecompositionDeps {
 	readonly [legacyInput: string]: unknown;
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	/**
-	 * Injected `agent-selection` Service port (Mechanism C — §10.3 against-grain).
-	 * Selection results gate decomposition immediately, so this remains a
-	 * request/response port rather than a fire-and-forget event.
-	 */
-	readonly agentSelection: AgentSelectionDefaults;
 	/**
 	 * Injected `users` Service port (Mechanism C — ordinary downward edge, no
 	 * Inc-3 event-bus rewrite needed, only a DI-target swap once `users` migrates).
@@ -325,7 +322,7 @@ async function findEligibleTeamAgents(
  * and transition each to 'accepted' so task_state_changed(accepted) fires
  * and the existing task-dispatcher picks it up.
  *
- * Owner assignment uses agent-selection's coherent `selectAgent` operation.
+ * Owner assignment uses `agent-assignment.ts`'s `selectBetTaskOwner` operation.
  *
  * betId is bound from the bet argument, NEVER from task input (cross-bet injection
  * prevention — mirrors create-task R5 D1).
@@ -336,14 +333,15 @@ async function findEligibleTeamAgents(
  * `propose_bet_tasks` harness tool would call this as its handler body unchanged
  * (keeping the insert logic in one place).
  *
- * @lore AK7: `_eligible` remains only for caller compatibility. Agent-selection
- * owns candidate enumeration, role matching, validation, and round-robin spread.
+ * @lore AK7: `_eligible` remains only for caller compatibility.
+ * `agent-assignment.ts`'s `selectBetTaskOwner` owns candidate enumeration,
+ * role matching, validation, and round-robin spread.
  */
 async function insertProposedBetTasks(
 	deps: {
 		db: HyperIdleDb;
 		eventBus: EventBus;
-		agentSelection: AgentSelectionDefaults;
+		teamCapacity: Pick<TeamCapacityReader, "getByTeamId">;
 		workIntents: AgentWorkIntentRecorder;
 		users: UserStoreReader;
 	},
@@ -351,7 +349,7 @@ async function insertProposedBetTasks(
 	_eligible: readonly WorkUserRow[],
 	taskInputs: DecompositionTaskInput[],
 ): Promise<{ created: number }> {
-	const { db, eventBus, agentSelection, workIntents, users } = deps;
+	const { db, eventBus, teamCapacity, workIntents, users } = deps;
 	let created = 0;
 
 	for (let i = 0; i < taskInputs.length; i++) {
@@ -362,10 +360,11 @@ async function insertProposedBetTasks(
 		// candidates (orderBy users.id), emits work_selection_requested, and validates the result.
 		// spreadIndex:i preserves the AK3 round-robin spread on the mismatch branch
 		// (concept §6.3 — without it all null-role tasks collapse to candidates[0]).
-		const { agentId: ownerAgentId } = await agentSelection.selectAgent(
-			{ db, eventBus },
+		const { agentId: ownerAgentId } = await selectBetTaskOwner(
+			db,
+			eventBus,
+			{ teamCapacity, users },
 			{
-				surface: "bet_task",
 				teamId: bet.teamId,
 				workKey: bet.id,
 				roleHint: (input.ownerRole as import("@hyperidle/shared").UserRole) ?? null,
@@ -500,7 +499,7 @@ async function persistDecompositionTasks(
 			{
 				db: deps.db,
 				eventBus: deps.eventBus,
-				agentSelection: deps.agentSelection,
+				teamCapacity: deps.teamCapacity,
 				workIntents: deps.workIntents,
 				users: deps.users,
 			},
@@ -564,8 +563,9 @@ async function claimAndBakeDecompositionIntent(
 /**
  * Run the full bet decomposition pipeline for a single bet.
  *
- * Delegates decomposer selection to agent-selection, then applies turn-source
- * precedence to produce the final task list.
+ * Delegates decomposer selection to `agent-assignment.ts`'s
+ * `selectBetDecomposerAgent`, then applies turn-source precedence to produce
+ * the final task list.
  *
  * Steps:
  *   0. CAS NULL→'running' (idempotency gate).
@@ -598,8 +598,9 @@ async function claimAndBakeDecompositionIntent(
  * DecompositionPlan in services/contracts.ts (AU11: agent-owned, formerly
  * app-runtime/contracts.ts).
  *
- * @lore AU20: agent-selection owns decomposer eligibility and active-AI
- * validation; work consumes only its nullable selected id.
+ * @lore AU20 (relocated to `work` itself at AU21 §6 Decision F1): decomposer
+ * eligibility + active-AI validation live in `agent-assignment.ts`; this
+ * function consumes only the nullable selected id.
  */
 async function runBetDecomposition(deps: BetDecompositionDeps, betId: string): Promise<void> {
 	const { db, eventBus, sandboxBasePath } = deps;
@@ -620,14 +621,14 @@ async function runBetDecomposition(deps: BetDecompositionDeps, betId: string): P
 	// --- 3. Resolve the decomposition plan from app-owned defaults ---
 	let plan: WorkDecompositionPlan;
 	try {
-		const { agentId } = await deps.agentSelection.selectAgent(
-			{ db, eventBus },
+		const { agentId } = await selectBetDecomposerAgent(
+			db,
+			eventBus,
+			{ teamCapacity: deps.teamCapacity, users: deps.users },
 			{
-				surface: "bet_decomposer",
 				teamId: bet.teamId,
 				workKey: betId,
 				roleHint: "product_manager",
-				spreadIndex: 0,
 			},
 		);
 		plan = { decomposerAgentId: agentId, tasks: [] };

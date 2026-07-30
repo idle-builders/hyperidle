@@ -12,7 +12,6 @@
  *   - the work Service exposes registerBetDecomposition as its decomposition entry
  */
 
-import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import {
 	type AgentSessionRequest,
 	agentSessionRequests,
@@ -36,7 +35,7 @@ import {
 } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { findUser, listUsers } from "@hyperidle/users";
-import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
+import type { BetDecompositionDeps } from "@hyperidle/work";
 import { registerBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
@@ -48,15 +47,6 @@ const createTaskTool = buildToolDefinitions(toolHandlersPorts).find(
 	(t) => t.name === "create_task",
 )!;
 
-const agentSelectionService = createAgentSelectionService({
-	users: {
-		getUserById: (db, id) => findUser(db, { id }),
-		listActiveAiUsersByTeams: (db, teamIds) =>
-			listUsers(db, { teamIds, kind: "ai", status: "active" }),
-	},
-	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
-});
-
 /**
  * AU19 Increment 1b: `BetDecompositionDeps` now requires the four injected
  * `work` outbound ports (Mechanism C). Mirrors `server-factory.ts`'s
@@ -64,23 +54,13 @@ const agentSelectionService = createAgentSelectionService({
  *
  * @lore AU19 Increment 1c: `teamCapacity` (fifth port, → `org`) added — closes
  * W2's `teamMembers` ownership gap.
- * @lore AU20 Ab4: adapts `AgentSelectionService` methods to `AgentSelectionDefaults`
- * port; `resolveDecompositionPlan` inlined (PM-role preference then candidates[0]).
+ * @lore AU21 §6 Decision F1 (Increment 8): the `agentSelection` port
+ * (adapting `AgentSelectionService` methods to `AgentSelectionDefaults`) is
+ * REMOVED — `work`'s `bet_task`/`bet_decomposer` selection now runs directly
+ * against `teamCapacity`/`users` via `agent-assignment.ts`, an intra-package
+ * module, not an injected port.
  */
 const productionPorts = {
-	agentSelection: {
-		listCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
-		selectAgent: (occDeps, occasion) =>
-			agentSelectionService.selectAgent({
-				surface: occasion.surface,
-				db: occDeps.db,
-				eventBus: occDeps.eventBus,
-				teamId: occasion.teamId,
-				workKey: occasion.workKey,
-				roleHint: occasion.roleHint,
-				spreadIndex: occasion.spreadIndex,
-			}),
-	} satisfies WorkDeps["agentSelection"],
 	users: {
 		getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
 		listActiveAiUsersByTeams: (db: HyperIdleDb, teamIds: string[]) =>

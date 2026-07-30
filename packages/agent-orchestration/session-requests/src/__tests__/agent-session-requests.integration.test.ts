@@ -426,10 +426,6 @@ describe("agent session request repository", () => {
 			},
 			conversation: { getMessageById: async () => undefined },
 			knowledge: { findById: async () => null },
-			agentSelection: {
-				isAtCapacity: async () => false,
-				selectAgent: async () => ({ agentId: null }),
-			},
 		};
 		await Promise.all([
 			drainIntents(deps, { maxAttempts: 1 }),

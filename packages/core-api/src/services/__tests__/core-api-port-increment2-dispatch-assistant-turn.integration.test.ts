@@ -40,15 +40,20 @@
  * `getThreadById` read keeps working unchanged.
  *
  * Every `DispatchPorts` capability NOT reached by either scenario below
- * (`work`, `routine`, `settings`, `modelGateway`, `agentSelection`,
+ * (`work`, `routine`, `settings`, `modelGateway`,
  * `runOrchestration`, `sessionRequests`, `cost`, `review`, `knowledge`,
  * `toolHandlers`, `workspaceFactory` — verified by reading
  * `runTurnInternal`'s control flow: the missing-credential branch calls
  * `persistTurnFailureInternal` and returns BEFORE `loadRawTranscript`/
- * `agentSelection.resolveScaffoldSpecs`/`runOrchestration.executeAgentRunRequest`
+ * `runOrchestration.executeAgentRunRequest`
  * are ever reached, `service.ts:342-361`) is wired to a throwing stub — if
  * one of these were unexpectedly invoked, the test fails loudly rather than
  * silently mocking behavior this test does not claim to exercise.
+ *
+ * @lore AU21 §6 Decision F1 (Increment 8): `agentSelection` (`resolveScaffoldSpecs`)
+ * is REMOVED from `DispatchPorts` entirely — `dispatch/src/service.ts` now
+ * calls `@hyperidle/db`'s `resolveAgentScaffoldSpecs` directly (a leaf
+ * import, not a port), so there is nothing left to wire/stub here.
  */
 
 import { findThread } from "@hyperidle/conversation";
@@ -173,7 +178,6 @@ function buildDispatchPortsForAssistantTurnMigration(
 			resolveAgentModel: unreachable("modelGateway.resolveAgentModel"),
 			resolveModelTier: unreachable("modelGateway.resolveModelTier"),
 		},
-		agentSelection: { resolveScaffoldSpecs: unreachable("agentSelection.resolveScaffoldSpecs") },
 		runOrchestration: {
 			executeAgentRunRequest: unreachable("runOrchestration.executeAgentRunRequest"),
 		},

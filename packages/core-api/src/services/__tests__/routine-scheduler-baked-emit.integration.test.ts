@@ -24,7 +24,6 @@
  *      an unrunnable target" test fails (a run row + an intent both persist
  *      today).
  */
-import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import {
 	agentSessionRequests,
@@ -34,18 +33,19 @@ import {
 	routines,
 	teamMembers,
 	teams,
+	userSkills,
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
-import { getTeamMembers } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
-import { fireGenericRoutine } from "@hyperidle/routine";
+import { fireGenericRoutine, selectRoutineDelegate } from "@hyperidle/routine";
+import { isAgentAtCapacity } from "@hyperidle/run-orchestration";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
-import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
@@ -53,6 +53,15 @@ import { costOps } from "../cost-bindings.js";
 import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = new Date().toISOString();
+
+/** Real production-mirroring `listAgentIdsBySkill` — see `routine-scheduler-bindings.ts`. */
+function listAgentIdsBySkill(db: HyperIdleDb, skillId: string): Promise<readonly string[]> {
+	return db
+		.select({ agentId: userSkills.userId })
+		.from(userSkills)
+		.where(eq(userSkills.skillId, skillId))
+		.then((rows) => rows.map((row) => row.agentId));
+}
 
 /**
  * Real ports, mirroring `routine-scheduler-relocation.integration.test.ts`'s
@@ -62,17 +71,8 @@ const NOW = new Date().toISOString();
  * this object is a structural superset of today's interface.
  */
 function makePorts(): RoutineSchedulerPorts & {
-	readonly agentSelection: ReturnType<typeof createAgentSelectionService>;
 	readonly requireRunnableAgent: typeof requireRunnableAgent;
 } {
-	const agentSelectionService = createAgentSelectionService({
-		users: {
-			getUserById: (db, id) => findUser(db, { id }),
-			listActiveAiUsersByTeams: (db, teamIds) =>
-				listUsers(db, { teamIds, kind: "ai", status: "active" }),
-		},
-		teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
-	});
 	return {
 		work: {
 			getBetById: (db, id) => work.get(db, "bet", id),
@@ -128,7 +128,22 @@ function makePorts(): RoutineSchedulerPorts & {
 		},
 		workIntents: { enqueueWorkIntent },
 		cost: { getFactoryCostActual: (db: HyperIdleDb) => costOps.spend(db, { level: "factory" }) },
-		agentSelection: agentSelectionService,
+		agentSelection: {
+			isAtCapacity: (db, agentId) =>
+				isAgentAtCapacity(db, agentId, { getUserById: (execDb, id) => findUser(execDb, { id }) }),
+			selectAgent: (input) =>
+				selectRoutineDelegate(
+					input.db,
+					{
+						listAgentIdsBySkill,
+						isAtCapacity: (db, agentId) =>
+							isAgentAtCapacity(db, agentId, {
+								getUserById: (execDb, id) => findUser(execDb, { id }),
+							}),
+					},
+					input,
+				),
+		},
 		requireRunnableAgent,
 	};
 }
@@ -195,7 +210,7 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 		});
 	});
 
-	test("drainIntents uses the baked payload directly, performing ZERO routine/agentSelection/users domain reads", async ({
+	test("drainIntents uses the baked payload directly, performing ZERO routine/users domain reads", async ({
 		db,
 		eventBus,
 	}) => {
@@ -215,17 +230,14 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 				throw new Error("zero-domain-read violation: routine.getRoutineById was called");
 			}),
 		};
-		const throwingAgentSelection = {
-			...base.agentSelection,
-			isAtCapacity: vi.fn(async () => {
-				throw new Error("zero-domain-read violation: agentSelection.isAtCapacity was called");
-			}),
-		};
+		// @lore AU21 §6 Decision F1: `DurableAgentQueueDeps.agentSelection`
+		// (previously asserted zero-invocation here too) was REMOVED as dead
+		// weight — confirmed zero real call sites in `service.ts` before
+		// removal, so there is nothing left here to wire a throwing spy onto.
 		const deps = {
 			...base,
 			eventBus,
 			routine: throwingRoutine,
-			agentSelection: throwingAgentSelection,
 		};
 
 		await drainIntents(deps, { maxAttempts: 1 });
@@ -240,7 +252,6 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 		// `toHaveBeenCalled()`).
 		expect(throwingRoutine.getRoutineRunById.mock.calls.length).toBe(0);
 		expect(throwingRoutine.getRoutineById.mock.calls.length).toBe(0);
-		expect(throwingAgentSelection.isAtCapacity.mock.calls.length).toBe(0);
 
 		const [intent] = await db
 			.select()
@@ -272,17 +283,12 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 				throw new Error("zero-domain-read violation: routine.getRoutineById was called");
 			}),
 		};
-		const throwingAgentSelection = {
-			...base.agentSelection,
-			isAtCapacity: vi.fn(async () => {
-				throw new Error("zero-domain-read violation: agentSelection.isAtCapacity was called");
-			}),
-		};
+		// @lore AU21 §6 Decision F1: `DurableAgentQueueDeps.agentSelection` was
+		// REMOVED as dead weight — see the sibling test's own `@lore` above.
 		const deps = {
 			...base,
 			eventBus,
 			routine: throwingRoutine,
-			agentSelection: throwingAgentSelection,
 		};
 
 		await enqueueWorkIntent(db, {
@@ -297,7 +303,6 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 		// `.not.toHaveBeenCalled()`.
 		expect(throwingRoutine.getRoutineRunById.mock.calls.length).toBe(0);
 		expect(throwingRoutine.getRoutineById.mock.calls.length).toBe(0);
-		expect(throwingAgentSelection.isAtCapacity.mock.calls.length).toBe(0);
 
 		const [intent] = await db
 			.select()

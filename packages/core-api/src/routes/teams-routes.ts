@@ -19,7 +19,7 @@
  */
 
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, resolveAgentScaffoldSpecs, sessions } from "@hyperidle/db";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
 import {
 	createTeam,
@@ -60,7 +60,6 @@ import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { agentSelectionService } from "../services/agent-selection-bindings.js";
 import { dispatchOps } from "../services/dispatch-bindings.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import {
@@ -389,11 +388,8 @@ export function createTeamRoutes(
 		});
 
 		// AU3: route through app-owned scaffolding for the default roster.
-		const specs = await agentSelectionService.resolveScaffoldSpecs({
-			db,
+		const specs = resolveAgentScaffoldSpecs({
 			trigger: "team_scaffold",
-			teamId,
-			teamMembersId,
 			teamName: name.trim(),
 			functions: teamFunctions,
 			role: null,
@@ -618,11 +614,8 @@ export function createTeamRoutes(
 		}
 
 		// AU3: route through app-owned scaffolding for agent_added.
-		const specs = await agentSelectionService.resolveScaffoldSpecs({
-			db,
+		const specs = resolveAgentScaffoldSpecs({
 			trigger: "agent_added",
-			teamId,
-			teamMembersId: memberGroup.id,
 			teamName: team.name,
 			functions: null,
 			role,

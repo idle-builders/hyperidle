@@ -35,7 +35,6 @@
  * `task-state-machine` and `handoff-protocol` paths).
  */
 
-import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import {
 	agentWorkIntents,
 	bets,
@@ -51,7 +50,7 @@ import {
 import { getTeamMembers } from "@hyperidle/org";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { findUser, listUsers } from "@hyperidle/users";
-import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
+import type { BetDecompositionDeps } from "@hyperidle/work";
 import { registerBetDecomposition } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -226,32 +225,9 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 				.set({ decompositionStatus: null })
 				.where(eq(bets.id, "bet-au21-trun-3"));
 
-			const agentSelectionService = createAgentSelectionService({
-				users: {
-					getUserById: (execDb, id) => findUser(execDb, { id }),
-					listActiveAiUsersByTeams: (execDb, teamIds) =>
-						listUsers(execDb, { teamIds, kind: "ai", status: "active" }),
-				},
-				teams: { getTeamMembersByTeamId: (execDb, teamId) => getTeamMembers(execDb, { teamId }) },
-			});
-			const agentSelection: WorkDeps["agentSelection"] = {
-				listCandidates: (execDb, teamId) =>
-					agentSelectionService.listCandidates({ db: execDb, teamId }),
-				selectAgent: (occDeps, occasion) =>
-					agentSelectionService.selectAgent({
-						surface: occasion.surface,
-						db: occDeps.db,
-						eventBus: occDeps.eventBus,
-						teamId: occasion.teamId,
-						workKey: occasion.workKey,
-						roleHint: occasion.roleHint,
-						spreadIndex: occasion.spreadIndex,
-					}),
-			};
 			const deps: BetDecompositionDeps = {
 				db,
 				eventBus,
-				agentSelection,
 				users: {
 					getUserById: (exec, id) => findUser(exec, { id }),
 					listActiveAiUsersByTeams: (exec, teamIds) =>

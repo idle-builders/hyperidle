@@ -894,7 +894,17 @@ export default [
 		},
 	},
 	{
-		files: ["packages/agent-orchestration/agent-selection/src/select-agent.ts"],
+		// @lore AU21 §6 Decision F1 (Increment 8): `agent-selection`'s
+		// `select-agent.ts` dissolved — the `bet_task`/`bet_decomposer`
+		// selection this guard originally targeted relocated to `work`'s own
+		// `agent-assignment.ts`; `routine_delegate` to `routine`'s own
+		// `agent-delegation.ts`. Repointed the glob (same precedent as Guard 1
+		// above) rather than deleting the guard — the persona-inspection ban
+		// is still the invariant both new modules must hold.
+		files: [
+			"packages/core-api/work/src/agent-assignment.ts",
+			"packages/core-api/routine/src/agent-delegation.ts",
+		],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -905,12 +915,12 @@ export default [
 					// Bans: 'systemPrompt' or 'AGENTS.md' as string literals
 					selector: "Literal[value='systemPrompt']",
 					message:
-						"AK7 AC2: select-agent.ts must not read persona fields (systemPrompt). Selection attaches to a user-id only; AGENTS.md is Strategy-owned (§2a Execution rule).",
+						"AK7 AC2: agent-assignment.ts/agent-delegation.ts must not read persona fields (systemPrompt). Selection attaches to a user-id only; AGENTS.md is Strategy-owned (§2a Execution rule).",
 				},
 				{
 					selector: "Literal[value='AGENTS.md']",
 					message:
-						"AK7 AC2: select-agent.ts must not read AGENTS.md. Selection attaches to a user-id only; persona content is Strategy-owned (§2a Execution rule).",
+						"AK7 AC2: agent-assignment.ts/agent-delegation.ts must not read AGENTS.md. Selection attaches to a user-id only; persona content is Strategy-owned (§2a Execution rule).",
 				},
 			],
 		},

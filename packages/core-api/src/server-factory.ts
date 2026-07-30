@@ -88,7 +88,6 @@ import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js"
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
-import { agentSelectionService } from "./services/agent-selection-bindings.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
@@ -916,27 +915,19 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// AK3 §2: Register the kernel-side bet decomposition subscriber.
 	// Deps: all already available from the dispatcherDeps wiring above.
 	//
-	// @lore AU20 Ag5a: `WorkDeps` bundles the five inbound DI ports — wired
-	// ONCE here at the composition root. Spread into `registerBetDecomposition`
+	// @lore AU20 Ag5a: `WorkDeps` bundles the inbound DI ports — wired ONCE
+	// here at the composition root. Spread into `registerBetDecomposition`
 	// (and any future function that needs the full set); sub-shapes are
 	// extracted where a function only needs a subset (e.g. `transitionTask`
 	// takes `TaskStateMachineDeps` with only `workIntents`).
+	//
+	// @lore AU21 §6 Decision F1 (Increment 8): the `agentSelection` port that
+	// used to be wired here (adapting `AgentSelectionService` methods to
+	// `work`'s own `AgentSelectionDefaults` structural mirror) is REMOVED —
+	// `work`'s `bet_task`/`bet_decomposer` selection now runs directly against
+	// the `teamCapacity`/`users` ports already wired below, via
+	// `agent-assignment.ts` (an intra-package module, not a DI port).
 	const workDeps: WorkDeps = {
-		// @lore AU20 Ab4: adapts new AgentSelectionService methods to work's
-		// AgentSelectionDefaults structural-mirror port (unchanged in work/ports.ts).
-		agentSelection: {
-			listCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
-			selectAgent: (occDeps, occasion) =>
-				agentSelectionService.selectAgent({
-					surface: occasion.surface,
-					db: occDeps.db,
-					eventBus: occDeps.eventBus,
-					teamId: occasion.teamId,
-					workKey: occasion.workKey,
-					roleHint: occasion.roleHint,
-					spreadIndex: occasion.spreadIndex,
-				}),
-		},
 		users: {
 			getUserById: (db, id) => findUser(db, { id }),
 			listActiveAiUsersByTeams: (db, teamIds) =>

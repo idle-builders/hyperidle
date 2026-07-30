@@ -15,7 +15,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
 	work: {
 		routeItem: notImplemented,
 	},
-	agentSelection: { resolveScaffoldSpecs: notImplemented },
 	dispatch: {
 		provisionTeamRoutines: notImplemented,
 	},

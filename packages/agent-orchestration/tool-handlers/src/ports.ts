@@ -1,11 +1,11 @@
 /**
  * `tool-handlers` Service (agent-orchestration) — outbound composition-
  * boundary (Mechanism C) DI ports, per architecture §10.2's census (the
- * merged `tools` census row, §7.5's C1 split). Real outbound edges
- * (`agent-selection`, `dispatch`) are ordinary downward-or-same-layer DI,
- * wired by the composition root
- * (`packages/server/src/services/tool-handlers-bindings.ts`) to each target's
- * real exported functions. `coreApi` (AU21 §9 Increment 1, `work`; Increment
+ * merged `tools` census row, §7.5's C1 split). The one remaining real
+ * outbound edge (`dispatch`) is ordinary downward-or-same-layer DI, wired by
+ * the composition root
+ * (`packages/server/src/services/tool-handlers-bindings.ts`) to its real
+ * exported functions. `coreApi` (AU21 §9 Increment 1, `work`; Increment
  * 2, `users`+`conversation`, then `org`+`routine`+`handoffTask`, then
  * `knowledge`) is DIFFERENT in kind — it crosses the `CoreApiPort` write seam
  * (a real route call), not same-process DI; see `ToolHandlersCoreApiAccessor`'s
@@ -49,9 +49,14 @@
  * removed from `ToolHandlersDispatchAccessor` — relocated to
  * `@hyperidle/shared` so tool implementations import them directly (2 of 3
  * dispatch back-edges deleted; only `provisionTeamRoutines` remains).
+ *
+ * @lore AU21 §6 Decision F1: the `agentSelection` port
+ * (`resolveScaffoldSpecs`) is REMOVED — traced to be pure (never reads its
+ * own injected deps, never reads `db`/`teamId`/`teamMembersId`), it folded
+ * into `@hyperidle/db`'s `resolveAgentScaffoldSpecs`, a leaf function this
+ * Service now imports directly (Mechanism C: `@hyperidle/db` is a leaf every
+ * Service may import).
  */
-
-import type { UserRole } from "@hyperidle/shared";
 
 /**
  * @lore AU21 §9 Increment 2: every `work` read/write except `routeItem` moved
@@ -89,23 +94,6 @@ interface ToolHandlersCreateTeamInput {
 	readonly capacity?: number;
 	readonly activeBets?: number;
 	readonly formedAt?: string;
-}
-
-interface ToolHandlersAgentSelectionAccessor<TDb> {
-	resolveScaffoldSpecs(input: {
-		readonly db: TDb;
-		/** Narrowed to `agent-selection`'s own `ScaffoldRequest.trigger` literal union (structural mirror, not a type import — same reasoning as `role` below). */
-		readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
-		readonly teamId: string;
-		readonly teamMembersId: string | null;
-		readonly teamName: string;
-		readonly functions: readonly string[] | null;
-		/** Agent-selection requires the exact shared role union, not an arbitrary string. */
-		readonly role: UserRole | null;
-		readonly name: string | null;
-		readonly ownerUserId: string | null;
-		readonly ownerUserName: string | null;
-	}): Promise<readonly Record<string, unknown>[]>;
 }
 
 /**
@@ -481,7 +469,6 @@ interface ToolHandlersCoreApiAccessor {
 /** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts<TDb> {
 	readonly work: ToolHandlersWorkAccessor;
-	readonly agentSelection: ToolHandlersAgentSelectionAccessor<TDb>;
 	readonly dispatch: ToolHandlersDispatchAccessor<TDb>;
 	readonly coreApi: ToolHandlersCoreApiAccessor;
 }

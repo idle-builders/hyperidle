@@ -1,4 +1,9 @@
 export {
+	type AgentScaffoldRequest,
+	type AgentScaffoldSpec,
+	resolveAgentScaffoldSpecs,
+} from "./agent-scaffold.js";
+export {
 	createPgDb,
 	createPgliteDb,
 	createPostgresDb,

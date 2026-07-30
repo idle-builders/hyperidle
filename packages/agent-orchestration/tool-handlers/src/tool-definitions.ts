@@ -20,7 +20,7 @@ import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, resolveAgentScaffoldSpecs, sessions } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	ARTIFACT_VIEW_SHAPES,
@@ -1027,18 +1027,20 @@ function makeCreateTeamTool<TDb>(
 				ctx.agentId,
 			);
 
-			const specs = await ports.agentSelection.resolveScaffoldSpecs({
-				db: ctx.db,
+			// AU21 §6 Decision F1: `resolveAgentScaffoldSpecs` returns concrete
+			// `AgentScaffoldSpec[]` fields; `persistScaffoldedAgents` (Mechanism C
+			// seam) declares its `specs` param as opaque `Record<string, unknown>[]`
+			// — the `.map((s) => ({ ...s }))` widens each spec to a fresh object
+			// literal, same idiom the retired `agent-selection` binding used.
+			const specs = resolveAgentScaffoldSpecs({
 				trigger: "team_scaffold",
-				teamId,
-				teamMembersId,
 				teamName: input.name,
 				functions: input.functions,
 				role: null,
 				name: null,
 				ownerUserId: null,
 				ownerUserName: null,
-			});
+			}).map((spec) => ({ ...spec }));
 
 			const { agentIds, leadAgentId } = await ports.coreApi.persistScaffoldedAgents(
 				teamMembersId,
@@ -1120,18 +1122,17 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<Ad
 			if (!memberGroup)
 				return err("NOT_FOUND", `Team membership group not found for team ${input.teamId}`);
 
-			const specs = await ports.agentSelection.resolveScaffoldSpecs({
-				db: ctx.db,
+			// AU21 §6 Decision F1: see the `create_team` tool's own note above on
+			// why the `.map((s) => ({ ...s }))` widening is needed here.
+			const specs = resolveAgentScaffoldSpecs({
 				trigger: "agent_added",
-				teamId: input.teamId,
-				teamMembersId: memberGroup.id,
 				teamName: team.name,
 				functions: null,
 				role: input.role,
 				name: input.name,
 				ownerUserId: null,
 				ownerUserName: null,
-			});
+			}).map((spec) => ({ ...spec }));
 
 			const finalSpecs =
 				input.systemPrompt !== undefined

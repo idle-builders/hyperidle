@@ -39,6 +39,11 @@
  *   - `InsertRoutineOpts` (named export dropped — opts are inline on `insertRoutine`)
  */
 
+// -- agent-delegation (AU21 §6 Decision F1 fold — routine_delegate's own
+// skill-based delegate scan, relocated from the retired `agent-selection`
+// Service) --
+export type { AgentDelegationDeps } from "./agent-delegation.js";
+export { selectRoutineDelegate } from "./agent-delegation.js";
 export type { RoutineSchedulerPorts } from "./ports.js";
 // -- routine scheduler (AU21 §9 Increment 4: relocated from
 // `@hyperidle/dispatch`'s `service.ts` — scheduler + `routineRuns` lifecycle

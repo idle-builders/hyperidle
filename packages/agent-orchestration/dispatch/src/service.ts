@@ -1,5 +1,10 @@
 import * as crypto from "node:crypto";
-import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import {
+	type AgentSessionRequest,
+	type HyperIdleDb,
+	resolveAgentScaffoldSpecs,
+	sessions,
+} from "@hyperidle/db";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
 	CassetteMissError,
@@ -316,11 +321,8 @@ async function runTurnInternal(
 	}
 	const transcriptRows = await loadRawTranscript(ports, db, threadId);
 	const conversationMessages = mapTranscriptToMessages(transcriptRows, assistantAgentId);
-	const scaffoldSpecs = await ports.agentSelection.resolveScaffoldSpecs({
-		db,
+	const scaffoldSpecs = resolveAgentScaffoldSpecs({
 		trigger: "user_assistant",
-		teamId: null,
-		teamMembersId: null,
 		teamName: null,
 		functions: null,
 		role: null,

@@ -1,10 +1,10 @@
 /**
  * `@hyperidle/tool-handlers`'s `ToolHandlersPorts` (Mechanism C), wired here
  * at the `packages/server` composition point — the only remaining
- * same-process DI targets are `agent-selection`/`dispatch`, real
- * already-migrated packages. `work`/`users`/`conversation`/`org`/`routine`/
- * `policy.handoff`/`knowledge` all cross the `CoreApiPort` seam instead (see
- * `coreApi`'s own inline `@lore` below).
+ * same-process DI target is `dispatch`, a real already-migrated package.
+ * `work`/`users`/`conversation`/`org`/`routine`/`policy.handoff`/`knowledge`
+ * all cross the `CoreApiPort` seam instead (see `coreApi`'s own inline
+ * `@lore` below).
  *
  * @lore AU19 Increment 4: this module builds each bound singleton ONCE, at
  * the composition root, so every real call site (`session-lifecycle-bindings.ts`
@@ -22,7 +22,6 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { routeItem } from "@hyperidle/work";
-import { agentSelectionService } from "./agent-selection-bindings.js";
 import {
 	buildCoreApiPort,
 	getRegisteredCoreApiTransport,
@@ -52,14 +51,6 @@ function provisionTeamRoutines(
 	return dispatchOps.provisionTeamRoutines(db, opts);
 }
 
-/**
- * `agentSelection`'s real `resolveScaffoldSpecs` returns
- * `AgentScaffoldSpec[]` (concrete fields), but `ports.ts` declares this
- * port's return element as the opaque `Record<string, unknown>` (`specs`
- * is only ever piped opaquely across the `coreApi.persistScaffoldedAgents`
- * seam call — see `POST /org/scaffolded-agents` in `routes/org.ts`, which
- * does the real persist).
- */
 /**
  * AU21 §9 Increment 1/2: builds a fresh in-process `CoreApiPort` per call,
  * wrapped with the CALLING agent's own identity as the route actor (§12) —
@@ -126,10 +117,6 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 	// ordinary same-process DI — every read/write moved onto the `coreApi`
 	// seam below (see `ports.ts`'s `ToolHandlersWorkAccessor` doc comment).
 	work: { routeItem },
-	agentSelection: {
-		resolveScaffoldSpecs: async (input) =>
-			(await agentSelectionService.resolveScaffoldSpecs(input)).map((spec) => ({ ...spec })),
-	},
 	dispatch: { provisionTeamRoutines },
 	coreApi: {
 		createBet: createBetThroughCoreApiPort,

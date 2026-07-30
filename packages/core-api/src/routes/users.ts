@@ -1,7 +1,12 @@
-import { escapeLikePattern, type HyperIdleDb, sessions, userSkills } from "@hyperidle/db";
+import {
+	escapeLikePattern,
+	type HyperIdleDb,
+	resolveAgentScaffoldSpecs,
+	sessions,
+	userSkills,
+} from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
-import { agentSelectionService } from "../services/agent-selection-bindings.js";
 
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
@@ -149,11 +154,8 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 		// AK6 T8: Route through scaffoldAgents — app defaults decide the persona.
 		// The Kernel persists via persistScaffoldedAgents (single writer, idHint=ast-${id}).
 		// BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona is now app-owned.
-		const specs = await agentSelectionService.resolveScaffoldSpecs({
-			db,
+		const specs = resolveAgentScaffoldSpecs({
 			trigger: "user_assistant",
-			teamId: null,
-			teamMembersId: null,
 			teamName: null,
 			functions: null,
 			role: null,

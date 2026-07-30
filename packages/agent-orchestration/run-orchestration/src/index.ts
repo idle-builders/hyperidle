@@ -3,6 +3,8 @@
 // Services — the composition root (`core-api`'s
 // `run-orchestration-composition.ts`) wires these real implementations to
 // the `SessionLifecyclePorts["connections"]`/`["filesystems"]` seam ports.
+
+export { isAgentAtCapacity } from "./concurrency.js";
 export {
 	applyProvisioningPlan,
 	buildProvisioningPlan,

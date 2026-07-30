@@ -1,10 +1,10 @@
 /**
  * @lore AU19 Increment 3h: `@hyperidle/dispatch`'s `createDispatchOps` needs
  * injected `work`/`routine`/`conversation`/`users`/`settings`/`model-gateway`
- * (ordinary downward), `agent-selection`/`run-orchestration` (ordinary
- * same-layer, still ports per Mechanism C), and `toolHandlers`/
- * `workspaceFactory` (INTERIM forward-references, wired to still-flat
- * `packages/server` files) ports. This module builds the bound singleton
+ * (ordinary downward), `run-orchestration` (ordinary same-layer, still a port
+ * per Mechanism C), and `toolHandlers`/`workspaceFactory` (INTERIM
+ * forward-references, wired to still-flat `packages/server` files) ports.
+ * This module builds the bound singleton
  * ONCE, at the composition root, so every real call site (`app.ts`,
  * `server-factory.ts`, `routines.ts`, `tools/create-routine.ts`,
  * `tools/create-team.ts`, `routes/routines-routes.ts`,
@@ -31,6 +31,11 @@
  * `routine-scheduler-bindings.ts`. `routine.insertRoutine` is the one
  * remaining wire (`provisionTeamRoutinesInternal`'s definition-seeding
  * write, out of this increment's relocate-list).
+ *
+ * @lore AU21 §9 Increment 8 (Decision F1): the `agentSelection` port
+ * (`resolveScaffoldSpecs`, `user_assistant` formation) is REMOVED — folded
+ * into `@hyperidle/db`'s `resolveAgentScaffoldSpecs`, called directly from
+ * `@hyperidle/dispatch`'s own `service.ts` (a leaf import, not a port).
  */
 
 import { findThread, listMessages } from "@hyperidle/conversation";
@@ -45,7 +50,6 @@ import type { ToolContext } from "@hyperidle/shared";
 import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
 import { findUser, getOrCreateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { agentSelectionService } from "./agent-selection-bindings.js";
 import {
 	buildCoreApiPort,
 	getRegisteredCoreApiTransport,
@@ -131,11 +135,6 @@ const dispatchPorts: DispatchPorts = {
 			),
 		resolveModelTier: (tier, config, credentialResolver) =>
 			resolveModel({ kind: "tier", tier }, config, credentialResolver),
-	},
-	// @lore AU20 Ag1b: `resolveAssistantFormation` dissolved — port now delegates
-	// to `agentSelectionService.resolveScaffoldSpecs` with `trigger:"user_assistant"`.
-	agentSelection: {
-		resolveScaffoldSpecs: (request) => agentSelectionService.resolveScaffoldSpecs(request),
 	},
 	runOrchestration: {
 		async executeAgentRunRequest(deps, request, options) {

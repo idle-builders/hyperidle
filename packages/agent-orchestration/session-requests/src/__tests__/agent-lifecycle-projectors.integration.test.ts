@@ -76,10 +76,6 @@ function queueDeps(
 		conversation: { getMessageById: async () => undefined },
 		review: { findGrantedProposedCall: async () => undefined },
 		knowledge: { findById: async () => null },
-		agentSelection: {
-			isAtCapacity: async () => false,
-			selectAgent: async () => ({ agentId: null }),
-		},
 	};
 }
 

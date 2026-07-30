@@ -1,10 +1,10 @@
 /**
  * `work` Service (core-api) — outbound composition-boundary (Mechanism C) DI
- * ports, per architecture §10.2's census: `work`'s five real outbound edges
- * (`session-requests`, `agent-selection`, `cost`, `users`, `org`) become
- * injected ports here, wired by the caller in `packages/server` (the
- * not-yet-split `agent-orchestration`/Application composition root) until
- * those Services migrate.
+ * ports, per architecture §10.2's census: `work`'s remaining real outbound
+ * edges (`session-requests`, `org`, `users`) become injected ports here,
+ * wired by the caller in `packages/server` (the not-yet-split
+ * `agent-orchestration`/Application composition root) until those Services
+ * migrate.
  *
  * Structural ports, same idiom as `@hyperidle/knowledge`'s
  * `AttentionServiceDeps` (`ReasoningMarkerFinder`/`KnowledgeReviewWriter`,
@@ -12,24 +12,22 @@
  * the concrete caller (still in `packages/server`) can pass its existing
  * function reference unchanged — zero behavior change.
  *
- * @lore AU19 Increment 1b — §10.3 "against-grain" classification: three of
- * these five edges (`AgentWorkIntentRecorder` → session-requests,
- * `AgentSelectionDefaults` → agent-selection, `CostCapChecker` → cost, the
- * last REMOVED outright at Increment 8 — see the Decision D2 note below,
- * where the `cost` section used to sit) are `core-api → agent-orchestration`,
- * which runs AGAINST the downward dependency grain (orchestration is meant to
- * depend on core-api, not the reverse). Per §10.3 their PERMANENT end-state
- * wiring is an EventBus inversion (the lower Service — here, `work` — emits a
- * domain event; the orchestration Service subscribes), not a permanent DI
- * port. These are wired as ordinary DI ports for THIS increment only
- * (interim, matching how `knowledge`'s `work`/`review` edges were handled in
- * Increment 1a) — Increment 3 rewires all three to the EventBus subscription
- * pattern (`bet-decomposition-subscriber.ts`'s existing idiom) once
- * `session-requests`, `agent-selection`, and `cost` are real Service
- * packages. The fourth port (`UserStoreReader` → `users`) is an ordinary
+ * @lore AU19 Increment 1b — §10.3 "against-grain" classification:
+ * `AgentWorkIntentRecorder` (→ session-requests) is `core-api →
+ * agent-orchestration`, which runs AGAINST the downward dependency grain
+ * (orchestration is meant to depend on core-api, not the reverse). Two
+ * siblings this classification used to apply to are gone: `CostCapChecker`
+ * (→ cost) was REMOVED outright at Increment 8, Decision D2 (see below); the
+ * `AgentSelectionDefaults` (→ agent-selection) port covering `bet_task`/
+ * `bet_decomposer` selection was likewise removed at Increment 8, Decision
+ * F1 — traced to only ever read `work`'s OWN already-injected
+ * `teamCapacity`/`users` ports (ordinary same-layer edges), so the standalone
+ * Service added no real capability; the algorithm relocated in place as
+ * `agent-assignment.ts`, an ordinary intra-package module, not a port. The
+ * fourth original port (`UserStoreReader` → `users`) is an ordinary
  * same-layer core-api→core-api edge (`users` just hasn't migrated yet) — no
- * Inc-3 event-bus rewrite is needed for it, only a straight DI-target swap
- * once `users` exists.
+ * event-bus rewrite is needed for it, only a straight DI-target swap once
+ * `users` exists.
  *
  * @lore AU19 Increment 1c — `TeamCapacityReader` (→ `org`, now a REAL migrated
  * package, not an interim stub) closes W2: `bet-state-machine.ts`/
@@ -47,48 +45,25 @@
  * now wires it to `@hyperidle/users`' real exported `getUserById`/
  * `listActiveAiUsersByTeams` instead of `packages/server`'s (now-deleted)
  * `user-store.ts` copy. Still an ordinary same-layer core-api→core-api edge,
- * no EventBus rewrite needed (only the three §10.3 against-grain ports above
- * get that treatment in Increment 3).
+ * no EventBus rewrite needed.
  *
- * @lore AU19 Increment 3e — `AgentSelectionDefaults` (→ `agent-selection`,
- * now a REAL migrated package): the straight DI-target swap landed —
- * `server-factory.ts` wires it to `@hyperidle/agent-selection`'s real
- * unified `AgentSelectionService` instead of legacy per-caller modules.
+ * @lore AU21 §6 Decision F1 (Increment 8, closing the AU19 Increment 3e/3f
+ * deferral): `AgentSelectionDefaults` — the `bet_task`/`bet_decomposer` half
+ * of the retired `agent-selection` Service — is REMOVED, not inverted to an
+ * EventBus. It was never genuinely against-grain in the first place: its
+ * only real callers (`bet-decomposition.ts`'s `runBetDecomposition`/
+ * `insertProposedBetTasks`) only ever read `teamCapacity`/`users`, both
+ * ordinary ports this file already declares. `agent-assignment.ts` is the
+ * mechanical relocation — same algorithm, called directly (no DI port), zero
+ * behavior change. `routine_delegate` (the third `selectAgent` surface) was
+ * never `work`'s concern — it's `@hyperidle/routine`'s own
+ * `agent-delegation.ts`.
  *
- * RULED PERMANENT (founder-confirmed 2026-07-14, closing the item Increment
- * 3e explicitly deferred): same test `CostCapChecker` was originally ruled
- * against at Increment 3g (see below — that port's own permanence ruling was
- * later REVERSED and the port removed at Increment 8, Decision D2; this
- * port's ruling stands unaffected). Selection and candidate reads are
- * synchronous request/response
- * calls whose return values are consumed immediately to continue decomposition — the exact
- * "return value gates the caller's next branch" shape the amendment's test
- * targets, not a fire-and-forget notification. Contrast
- * `filesystems ⚠ capture-writeback` (§10.3, Increment 3f): a GENUINE
- * fire-and-forget case (file-watcher's change detection has no caller
- * waiting on a reply) that WAS successfully EventBus-inverted the same
- * increment cost's ruling landed — proving this test discriminates real
- * cases rather than excusing every port from inversion. This port's shape
- * is unchanged; only its permanence is now settled.
- *
- * @lore AU19 Increment 3g (REVERSED at AU21 Increment 8, Decision D2 — see
- * below) — `CostCapChecker` (→ `cost`) was originally RULED PERMANENT here,
- * not inverted: §10.3's amendment atomicity test (`policy ⚠ session-requests`/
- * `review ⚠ session-requests` precedent, `plans/AU19/architecture.md` line
- * 528) was read to generalize past literal same-transaction writes to
- * synchronous read-then-branch control flow that an async, fire-and-forget
- * EventBus emit structurally cannot serve — `bet-decomposition.ts`'s
- * `runBetDecomposition` called `deps.costCap.checkCostCap(...)` synchronously
- * and branched on its `allowed` return value in the SAME code path
- * (`if (!capResult.allowed) { markTerminal(...); return; }`), read then as a
- * pre-flight budget QUERY the port shape had to serve.
- *
- * @lore AU21 §6 Decision D2 (founder ruling, 2026-07-27, closing the above):
- * this was the wrong question. The founder ruled decomposition must never
- * stop for cost reasons at all — "we always need to compose, we cannot stop
- * working because of costs, there is no way to recover otherwise." So the
- * port isn't inverted to an EventBus (§10.3's usual permanent answer for an
- * against-grain edge) — it's DELETED outright: `CostCapChecker`,
+ * @lore AU21 §6 Decision D2 (founder ruling, 2026-07-27): the founder ruled
+ * decomposition must never stop for cost reasons at all — "we always need
+ * to compose, we cannot stop working because of costs, there is no way to
+ * recover otherwise." So the `CostCapChecker` port isn't inverted to an
+ * EventBus either — it's DELETED outright: `CostCapChecker`,
  * `WorkCostCapResult`, and `WorkCheckCostCapParams` are removed from this
  * file, `BetDecompositionDeps.costCap`/`WorkDeps.costCap` are gone, and
  * `runBetDecomposition`'s pre-flight block is deleted, not rewired.
@@ -100,32 +75,21 @@
  * `routine-scheduler.ts`'s monthly-cap check) untouched.
  *
  * @lore AU19 (closing ruling, 2026-07-16 — this was left open through
- * Increments 3e/3g and never explicitly closed, unlike its two siblings;
- * caught by a post-ship audit sweep) — `AgentWorkIntentRecorder` (→
- * `session-requests`, real since Increment 3b) is **RULED PERMANENT**, not
- * inverted. It is in fact the *strongest* case for permanence of all three
- * `work` §10.3 ports, not merely an analogous one: `bet-decomposition.ts`
- * calls `deps.workIntents.record(tx, {...})` **inside the same `db.transaction`**
- * as `work.claimBetDecomposition(tx, betId)` — the literal same-transaction-write
- * shape §10.3's amendment names first (`plans/AU19/architecture.md` line
- * 528), the exact precedent this comment itself cited when ruling
- * `policy`'s and `review`'s own `session-requests` ports permanent. An
- * EventBus emit-after-commit would split the bet claim and the intent
- * record into two transactions — a crash between them leaves a bet marked
- * "claimed for decomposition" with no recorded intent anywhere, silently
- * stuck forever. This port's shape is unchanged; only its permanence is
- * now settled, matching `AgentSelectionDefaults` above (`CostCapChecker`'s
- * own permanence ruling was later reversed and the port removed outright —
- * see the Increment 8 / Decision D2 note above; that reversal doesn't touch
- * this port's own settled ruling).
+ * Increments 3e/3g and never explicitly closed; caught by a post-ship audit
+ * sweep) — `AgentWorkIntentRecorder` (→ `session-requests`, real since
+ * Increment 3b) is **RULED PERMANENT**, not inverted. `bet-decomposition.ts`
+ * calls `deps.workIntents.record(tx, {...})` **inside the same
+ * `db.transaction`** as `work.claimBetDecomposition(tx, betId)` — the literal
+ * same-transaction-write shape §10.3's amendment names first
+ * (`plans/AU19/architecture.md` line 528). An EventBus emit-after-commit
+ * would split the bet claim and the intent record into two transactions — a
+ * crash between them leaves a bet marked "claimed for decomposition" with no
+ * recorded intent anywhere, silently stuck forever. This port's shape is
+ * unchanged; only its permanence is now settled.
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
-import type {
-	EventBus,
-	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
-	UserRole,
-} from "@hyperidle/shared";
+import type { AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder } from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
 // session-requests — AgentWorkIntentRecorder (§10.3 against-grain — RULED PERMANENT, see top @lore)
@@ -144,37 +108,9 @@ import type {
  */
 type AgentWorkIntentRecorder = SharedAgentWorkIntentRecorder<WriteExecutor>;
 
-// ---------------------------------------------------------------------------
-// agent-selection — AgentSelectionDefaults (§10.3 against-grain — Inc 3 rewires to EventBus)
-// ---------------------------------------------------------------------------
-
-interface WorkSelectionCandidate {
-	readonly agentId: string;
-	readonly role: UserRole;
-}
-
 interface WorkDecompositionPlan {
 	readonly decomposerAgentId: string | null;
 	readonly tasks: readonly import("@hyperidle/shared").DecompositionTaskInput[];
-}
-
-interface WorkSelectionOccasion {
-	readonly surface: "bet_task" | "bet_decomposer";
-	readonly teamId: string;
-	readonly workKey: string;
-	readonly roleHint: UserRole | null;
-	readonly spreadIndex: number;
-}
-
-/**
- * Port for agent-selection's coherent candidate read and selection operation.
- */
-interface AgentSelectionDefaults {
-	listCandidates(db: WriteExecutor, teamId: string): Promise<readonly WorkSelectionCandidate[]>;
-	selectAgent(
-		deps: { readonly db: WriteExecutor; readonly eventBus: EventBus },
-		occasion: WorkSelectionOccasion,
-	): Promise<{ readonly agentId: string | null }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -260,8 +196,6 @@ interface TeamCapacityReader {
  * of inbound DI contracts as product surface (84 → ~32 export target).
  */
 export interface WorkDeps {
-	/** Injected `agent-selection` port (§10.3 against-grain — RULED PERMANENT). */
-	readonly agentSelection: AgentSelectionDefaults;
 	/** Injected `users` port (ordinary downward core-api edge). */
 	readonly users: UserStoreReader;
 	/** Injected `org` port (ordinary downward core-api edge — closes W2). */
@@ -271,7 +205,6 @@ export interface WorkDeps {
 }
 
 export type {
-	AgentSelectionDefaults,
 	AgentWorkIntentRecorder,
 	TeamCapacityReader,
 	UserStoreReader,

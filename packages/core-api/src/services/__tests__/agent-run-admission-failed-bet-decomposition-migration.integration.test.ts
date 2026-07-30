@@ -54,7 +54,6 @@
  * hand-off path this test targets.
  */
 
-import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import { agentWorkIntents, bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
@@ -85,33 +84,13 @@ async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 /**
  * Real production port wiring for `BetDecompositionDeps` — mirrors
  * `bet-decomposition.test.ts`'s `productionPorts` exactly (same real
- * `@hyperidle/agent-selection` / `@hyperidle/org` / `@hyperidle/users` /
- * `@hyperidle/session-requests` / cost-bindings wiring `server-factory.ts`
- * uses in production).
+ * `@hyperidle/org` / `@hyperidle/users` / `@hyperidle/session-requests`
+ * wiring `server-factory.ts` uses in production; `agentSelection` is REMOVED
+ * per AU21 §6 Decision F1 — `work`'s `bet_task`/`bet_decomposer` selection
+ * now runs directly against `teamCapacity`/`users` via `agent-assignment.ts`).
  */
 function productionPorts(): WorkDeps {
-	const agentSelectionService = createAgentSelectionService({
-		users: {
-			getUserById: (db, id) => findUser(db, { id }),
-			listActiveAiUsersByTeams: (db, teamIds) =>
-				listUsers(db, { teamIds, kind: "ai", status: "active" }),
-		},
-		teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
-	});
 	return {
-		agentSelection: {
-			listCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
-			selectAgent: (occDeps, occasion) =>
-				agentSelectionService.selectAgent({
-					surface: occasion.surface,
-					db: occDeps.db,
-					eventBus: occDeps.eventBus,
-					teamId: occasion.teamId,
-					workKey: occasion.workKey,
-					roleHint: occasion.roleHint,
-					spreadIndex: occasion.spreadIndex,
-				}),
-		},
 		users: {
 			getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
 			listActiveAiUsersByTeams: (db: HyperIdleDb, teamIds: string[]) =>

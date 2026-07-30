@@ -28,7 +28,7 @@
  * `settings` are unchanged.
  */
 import { insertThread, listThreads } from "@hyperidle/conversation";
-import type { HyperIdleDb, Routine, WriteExecutor } from "@hyperidle/db";
+import { type HyperIdleDb, type Routine, userSkills, type WriteExecutor } from "@hyperidle/db";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import {
@@ -38,15 +38,32 @@ import {
 	type RoutineSchedulerConfig,
 	type RoutineSchedulerPorts,
 	registerBuiltinRoutineHandlers,
+	selectRoutineDelegate,
 	startRoutineScheduler as startRoutineSchedulerInternal,
 } from "@hyperidle/routine";
+import { isAgentAtCapacity } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { agentSelectionService } from "./agent-selection-bindings.js";
+import { eq } from "drizzle-orm";
 import { costOps } from "./cost-bindings.js";
+
+/**
+ * AU21 §6 Decision F1 fold — the `userSkills` read `routine`'s own
+ * `agent-delegation.ts` needs (`userSkills` is an `UNOWNED_SHARED_TABLES`
+ * table — any Service may query it, but this composition root keeps the
+ * read here so `selectRoutineDelegate`'s `listAgentIdsBySkill` port stays an
+ * injected Mechanism-C capability, symmetric with `isAtCapacity`).
+ */
+function listAgentIdsBySkill(db: HyperIdleDb, skillId: string): Promise<readonly string[]> {
+	return db
+		.select({ agentId: userSkills.userId })
+		.from(userSkills)
+		.where(eq(userSkills.skillId, skillId))
+		.then((rows) => rows.map((row) => row.agentId));
+}
 
 /**
  * @lore AU19 Increment 3h (relocated from `dispatch-bindings.ts`, AU21 §9
@@ -114,8 +131,20 @@ const routineSchedulerPorts: RoutineSchedulerPorts = {
 		getFactoryCostActual: (db) => costOps.spend(db, { level: "factory" }),
 	},
 	agentSelection: {
-		isAtCapacity: agentSelectionService.isAtCapacity,
-		selectAgent: agentSelectionService.selectAgent,
+		isAtCapacity: (db, agentId) =>
+			isAgentAtCapacity(db, agentId, { getUserById: (execDb, id) => findUser(execDb, { id }) }),
+		selectAgent: (input) =>
+			selectRoutineDelegate(
+				input.db,
+				{
+					listAgentIdsBySkill,
+					isAtCapacity: (db, agentId) =>
+						isAgentAtCapacity(db, agentId, {
+							getUserById: (execDb, id) => findUser(execDb, { id }),
+						}),
+				},
+				input,
+			),
 	},
 	requireRunnableAgent,
 };

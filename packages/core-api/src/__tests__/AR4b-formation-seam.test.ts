@@ -28,6 +28,7 @@ import {
 	type AgentSessionRequest,
 	type HyperIdleDb,
 	messages,
+	resolveAgentScaffoldSpecs,
 	threads,
 	users,
 } from "@hyperidle/db";
@@ -35,7 +36,6 @@ import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { createSessionRequest } from "@hyperidle/session-requests";
 import { EventBus } from "@hyperidle/shared";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { agentSelectionService } from "../services/agent-selection-bindings.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
@@ -93,6 +93,20 @@ const capturedConversational: CapturedConversational[] = [];
  * formation seam consulted the app resolver at turn time. The mock never runs
  * a real harness — this is a unit test of the call-site wiring, not the turn itself.
  */
+/**
+ * @lore AU21 §6 Decision F1: `resolveScaffoldSpecs` dissolved from the
+ * `agent-selection` Service port into `@hyperidle/db`'s pure
+ * `resolveAgentScaffoldSpecs` — a leaf import `dispatch`'s `service.ts` now
+ * calls directly (no DI port to spy on). This unit test mocks the leaf
+ * export itself (`importOriginal` keeps every other `@hyperidle/db` export —
+ * tables, `HyperIdleDb`, etc. — real) to keep injecting a controllable
+ * persona, same intent as the retired `vi.spyOn(agentSelectionService, ...)`.
+ */
+vi.mock("@hyperidle/db", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@hyperidle/db")>();
+	return { ...actual, resolveAgentScaffoldSpecs: vi.fn() };
+});
+
 vi.mock("../services/run-orchestration-composition.js", async (importOriginal) => {
 	const original =
 		await importOriginal<typeof import("../services/run-orchestration-composition.js")>();
@@ -247,12 +261,12 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 		formationState.calls.length = 0;
 		setFormationPersona(null);
 		vi.clearAllMocks();
-		// @lore AU20 Ag1b: mock resolveScaffoldSpecs on the agentSelectionService singleton
-		// so the dispatch port returns a controllable persona without hitting the DB.
-		vi.spyOn(agentSelectionService, "resolveScaffoldSpecs").mockImplementation(async (request) => {
-			formationState.calls.push({
-				userId: (request as { ownerUserId?: string }).ownerUserId ?? "",
-			});
+		// @lore AU20 Ag1b / AU21 §6 Decision F1: mock the leaf
+		// `resolveAgentScaffoldSpecs` export so `dispatch`'s direct call
+		// returns a controllable persona without hitting the real fixed
+		// `user_assistant` system prompt.
+		vi.mocked(resolveAgentScaffoldSpecs).mockImplementation((request) => {
+			formationState.calls.push({ userId: request.ownerUserId ?? "" });
 			return [
 				{
 					role: "assistant" as const,

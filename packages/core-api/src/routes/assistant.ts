@@ -16,7 +16,7 @@
  */
 
 import { findThread, insertThread, listMessages } from "@hyperidle/conversation";
-import type { HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, resolveAgentScaffoldSpecs } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import {
 	API_ERROR_CODES,
@@ -37,7 +37,6 @@ import z from "zod";
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { agentSelectionService } from "../services/agent-selection-bindings.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
@@ -308,11 +307,8 @@ export function createAssistantSoulRoutes(
 			// @lore AH3 N2: Lazy-create handles legacy/test users seeded directly into DB.
 			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 			// persistScaffoldedAgents is the single writer of agent user rows (AK6 hard-rule).
-			const specs = await agentSelectionService.resolveScaffoldSpecs({
-				db,
+			const specs = resolveAgentScaffoldSpecs({
 				trigger: "user_assistant",
-				teamId: null,
-				teamMembersId: null,
 				teamName: null,
 				functions: null,
 				role: null,
@@ -424,11 +420,8 @@ export function createAssistantSoulRoutes(
 			// @lore AU3: Lazy-create (PATCH path) routes through app defaults (same as GET path).
 			// @lore AH3 N2: Lazy-create (PATCH path) handles legacy/test users seeded directly into DB.
 			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-			const specs = await agentSelectionService.resolveScaffoldSpecs({
-				db,
+			const specs = resolveAgentScaffoldSpecs({
 				trigger: "user_assistant",
-				teamId: null,
-				teamMembersId: null,
 				teamName: null,
 				functions: null,
 				role: null,

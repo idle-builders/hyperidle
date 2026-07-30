@@ -42,7 +42,6 @@
  * and `makePorts()`'s `review.createPracticeMeeting` wiring are removed with
  * it; the post-bet-retro coverage above is unaffected.
  */
-import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import {
 	bets,
@@ -52,18 +51,19 @@ import {
 	routines,
 	teamMembers,
 	teams,
+	userSkills,
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
-import { getTeamMembers } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
-import { fireBuiltinRoutine, fireGenericRoutine } from "@hyperidle/routine";
+import { fireBuiltinRoutine, fireGenericRoutine, selectRoutineDelegate } from "@hyperidle/routine";
+import { isAgentAtCapacity } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { BetStateChangedEvent, EventBus } from "@hyperidle/shared";
-import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { seedTeamRoutines } from "../../__tests__/dispatch-test-helpers.js";
@@ -72,6 +72,15 @@ import { costOps } from "../cost-bindings.js";
 import { dispatchOps } from "../dispatch-bindings.js";
 
 const NOW = "2026-07-28T00:00:00.000Z";
+
+/** Real production-mirroring `listAgentIdsBySkill` — see `routine-scheduler-bindings.ts`. */
+function listAgentIdsBySkill(db: HyperIdleDb, skillId: string): Promise<readonly string[]> {
+	return db
+		.select({ agentId: userSkills.userId })
+		.from(userSkills)
+		.where(eq(userSkills.skillId, skillId))
+		.then((rows) => rows.map((row) => row.agentId));
+}
 
 /**
  * Builds the SAME real ports `routine-scheduler-bindings.ts` composes — a
@@ -137,14 +146,22 @@ function makePorts(): RoutineSchedulerPorts {
 		},
 		workIntents: { enqueueWorkIntent },
 		cost: { getFactoryCostActual: (db: HyperIdleDb) => costOps.spend(db, { level: "factory" }) },
-		agentSelection: createAgentSelectionService({
-			users: {
-				getUserById: (db, id) => findUser(db, { id }),
-				listActiveAiUsersByTeams: (db, teamIds) =>
-					listUsers(db, { teamIds, kind: "ai", status: "active" }),
-			},
-			teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
-		}),
+		agentSelection: {
+			isAtCapacity: (db, agentId) =>
+				isAgentAtCapacity(db, agentId, { getUserById: (execDb, id) => findUser(execDb, { id }) }),
+			selectAgent: (input) =>
+				selectRoutineDelegate(
+					input.db,
+					{
+						listAgentIdsBySkill,
+						isAtCapacity: (db, agentId) =>
+							isAgentAtCapacity(db, agentId, {
+								getUserById: (execDb, id) => findUser(execDb, { id }),
+							}),
+					},
+					input,
+				),
+		},
 		requireRunnableAgent,
 	};
 }

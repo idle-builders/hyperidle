@@ -2,7 +2,7 @@
  * @lore AU19 Increment 3b: `@hyperidle/session-requests`'s
  * Composition root for the durable agent queue.
  * Durable queue transitions need injected
- * `routine`/`work`/`agent-selection`/`conversation`/`users`/`org`/`review`/
+ * `routine`/`work`/`conversation`/`users`/`org`/`review`/
  * `trigger-resolution` ports (Mechanism C — `session-requests` never imports
  * another Service). `@hyperidle/session-requests` is the current owner of lifecycle projection.
  * This module builds
@@ -15,11 +15,17 @@
  * factory-curry idiom as `policy-bindings.ts`'s `handoff`/`computeApprovalRate`
  * (Increment 2a).
  *
- * @lore AU19 Increment 3e: `agentSelection` — the LAST interim forward-
- * reference this module carried — is resolved: `@hyperidle/session-requests`'s
- * `SessionRequestsAgentSelector` now wires to the shared composition-root
- * `AgentSelectionService` singleton. Same resolution shape as
- * `lifecycle-projection`'s own Increment 3d closure above.
+ * @lore AU21 §6 Decision F1: the `agentSelection` field this module used to
+ * wire (`agentSelectionService.isAtCapacity`/`.selectAgent`) is REMOVED — it
+ * was vestigial, a leftover from Increment 4's drain-time-selection deletion
+ * with zero real call sites left in `@hyperidle/session-requests`'s own
+ * `service.ts` (confirmed by grep before removal). The retired
+ * `agent-selection` Service's real capabilities folded elsewhere:
+ * `work`'s `bet_task`/`bet_decomposer` selection into `@hyperidle/work`'s own
+ * `agent-assignment.ts`; `routine_delegate` into `@hyperidle/routine`'s
+ * `agent-delegation.ts`; capacity into `@hyperidle/run-orchestration`'s
+ * `concurrency.ts` — none of which this durable-queue composition root ever
+ * needed injected.
  *
  * The AC-9 (§11) cross-Layer `agentWorkIntentRecorder`/`agentWorkIntentReader`
  * singletons at the bottom are the concrete `@hyperidle/shared`-typed ports
@@ -44,14 +50,6 @@ import { type DurableAgentQueueDeps, transitionSessionRequest } from "@hyperidle
 import { listConfiguration } from "@hyperidle/settings";
 import { findUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { agentSelectionService } from "./agent-selection-bindings.js";
-
-// ---------------------------------------------------------------------------
-// agent-selection — resolved to `@hyperidle/agent-selection`'s real exports
-// (Increment 3e; was the last remaining INTERIM forward-reference since
-// Increment 3b, see this file's top `@lore`). Bound once, at the composition
-// root, to `agent-selection`'s own `users`/`org` ports (Mechanism C).
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // DurableAgentQueueDeps — single composition-root deps bundle (AU20 Ag3a).
@@ -78,10 +76,6 @@ const ports = {
 			work.get(exec, "bet", id),
 		getTaskDispatchAttemptById: work.taskDispatchAttemptStore.get,
 		reapTerminalTaskDispatchAttempts: work.taskDispatchAttemptStore.reapTerminal,
-	},
-	agentSelection: {
-		isAtCapacity: agentSelectionService.isAtCapacity,
-		selectAgent: agentSelectionService.selectAgent,
 	},
 	conversation: { getMessageById: (db: HyperIdleDb, id: string) => findMessage(db, { id }) },
 	users: {

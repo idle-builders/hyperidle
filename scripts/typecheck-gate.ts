@@ -481,7 +481,11 @@ function buildLeafDeclarations(root: string): void {
     // @lore AU20 B1b: agent-orchestration/trigger-resolution folded into session-requests.
     "agent-orchestration/session-requests",
     "agent-orchestration/run-orchestration",
-    "agent-orchestration/agent-selection",
+    // @lore AU21 §6 Decision F1 (Increment 8): agent-orchestration/agent-selection
+    // dissolved — bet_task/bet_decomposer selection folded into core-api/work's
+    // own agent-assignment.ts, routine_delegate into core-api/routine's
+    // agent-delegation.ts, isAtCapacity into this list's own run-orchestration
+    // (concurrency.ts), resolveScaffoldSpecs into db's agent-scaffold.ts.
     // @lore AU20 B2c: agent-orchestration/capture-writeback folded into run-orchestration.
     "agent-orchestration/cost",
     "agent-orchestration/dispatch",

@@ -1,4 +1,3 @@
-import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -37,29 +36,6 @@ const depWatcherDeps = {
 	taskRunResolver: { requireRunnableAgent },
 };
 
-const agentSelectionService = createAgentSelectionService({
-	users: {
-		getUserById: (db, id) => findUser(db, { id }),
-		listActiveAiUsersByTeams: (db, teamIds) =>
-			listUsers(db, { teamIds, kind: "ai", status: "active" }),
-	},
-	teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
-});
-
-/** @lore AU20 Ab4: adapts `AgentSelectionService` to `AgentSelectionDefaults`; resolveDecompositionPlan inlined. */
-const agentSelection: WorkDeps["agentSelection"] = {
-	listCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
-	selectAgent: (occDeps, occasion) =>
-		agentSelectionService.selectAgent({
-			surface: occasion.surface,
-			db: occDeps.db,
-			eventBus: occDeps.eventBus,
-			teamId: occasion.teamId,
-			workKey: occasion.workKey,
-			roleHint: occasion.roleHint,
-			spreadIndex: occasion.spreadIndex,
-		}),
-};
 const workIntents: WorkDeps["workIntents"] = { record: enqueueWorkIntent };
 
 async function triggerDecomposition(
@@ -71,7 +47,6 @@ async function triggerDecomposition(
 	const deps: BetDecompositionDeps = {
 		db,
 		eventBus,
-		agentSelection,
 		users: {
 			getUserById: (exec, id) => findUser(exec, { id }),
 			listActiveAiUsersByTeams: (exec, teamIds) =>

@@ -10,7 +10,6 @@
 		{ "path": "../db" },
 		{ "path": "../shared" },
 		{ "path": "../api-contract" },
-		{ "path": "../agent-orchestration/agent-selection" },
 		{ "path": "connections" },
 		{ "path": "conversation" },
 		{ "path": "../agent-orchestration/cost" },

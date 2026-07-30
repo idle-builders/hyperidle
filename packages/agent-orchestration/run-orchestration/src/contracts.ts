@@ -109,17 +109,6 @@ interface DurableQueueDeps {
 		): Promise<{ call: ProposedCall; grant: TailoredGrant } | undefined>;
 	};
 	readonly knowledge: { findById(exec: WriteExecutor, id: string): Promise<KnowledgeItem | null> };
-	readonly agentSelection: {
-		isAtCapacity(exec: WriteExecutor, agentId: string): Promise<boolean>;
-		selectAgent(input: {
-			db: WriteExecutor;
-			surface: "routine_delegate";
-			teamId: string | null;
-			workKey: string;
-			excludeAgentId: string;
-			skillId: string;
-		}): Promise<{ agentId: string | null }>;
-	};
 }
 
 type RunOrchestrationTerminationReason =

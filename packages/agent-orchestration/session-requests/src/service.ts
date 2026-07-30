@@ -1659,17 +1659,6 @@ export interface DurableAgentQueueDeps {
 		): Promise<{ readonly call: ProposedCall; readonly grant: TailoredGrant } | undefined>;
 	};
 	readonly knowledge: { findById(exec: WriteExecutor, id: string): Promise<KnowledgeItem | null> };
-	readonly agentSelection: {
-		isAtCapacity(exec: WriteExecutor, agentId: string): Promise<boolean>;
-		selectAgent(input: {
-			readonly db: WriteExecutor;
-			readonly surface: "routine_delegate";
-			readonly teamId: string | null;
-			readonly workKey: string;
-			readonly excludeAgentId: string;
-			readonly skillId: string;
-		}): Promise<{ readonly agentId: string | null }>;
-	};
 }
 
 export function enqueueWorkIntent(exec: WriteExecutor, input: WorkIntentInput) {

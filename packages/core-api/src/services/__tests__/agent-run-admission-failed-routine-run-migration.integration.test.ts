@@ -34,7 +34,6 @@
  * path this test targets.
  */
 
-import { createAgentSelectionService } from "@hyperidle/agent-selection";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import {
 	agentWorkIntents,
@@ -43,18 +42,19 @@ import {
 	routines,
 	teamMembers,
 	teams,
+	userSkills,
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
-import { getTeamMembers } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
-import { fireGenericRoutine } from "@hyperidle/routine";
+import { fireGenericRoutine, selectRoutineDelegate } from "@hyperidle/routine";
+import { isAgentAtCapacity } from "@hyperidle/run-orchestration";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { AgentRunAdmissionFailedEvent, EventBus } from "@hyperidle/shared";
-import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, test } from "../../test-fixtures.js";
@@ -79,19 +79,19 @@ async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 	`);
 }
 
+/** Real production-mirroring `listAgentIdsBySkill` — see `routine-scheduler-bindings.ts`. */
+function listAgentIdsBySkill(db: HyperIdleDb, skillId: string): Promise<readonly string[]> {
+	return db
+		.select({ agentId: userSkills.userId })
+		.from(userSkills)
+		.where(eq(userSkills.skillId, skillId))
+		.then((rows) => rows.map((row) => row.agentId));
+}
+
 /** Real production-mirroring ports — same shape as this wave's baked-emit test. */
 function makePorts(): RoutineSchedulerPorts & {
-	readonly agentSelection: ReturnType<typeof createAgentSelectionService>;
 	readonly requireRunnableAgent: typeof requireRunnableAgent;
 } {
-	const agentSelectionService = createAgentSelectionService({
-		users: {
-			getUserById: (db, id) => findUser(db, { id }),
-			listActiveAiUsersByTeams: (db, teamIds) =>
-				listUsers(db, { teamIds, kind: "ai", status: "active" }),
-		},
-		teams: { getTeamMembersByTeamId: (db, teamId) => getTeamMembers(db, { teamId }) },
-	});
 	return {
 		work: {
 			getBetById: (db, id) => work.get(db, "bet", id),
@@ -147,7 +147,22 @@ function makePorts(): RoutineSchedulerPorts & {
 		},
 		workIntents: { enqueueWorkIntent },
 		cost: { getFactoryCostActual: (db: HyperIdleDb) => costOps.spend(db, { level: "factory" }) },
-		agentSelection: agentSelectionService,
+		agentSelection: {
+			isAtCapacity: (db, agentId) =>
+				isAgentAtCapacity(db, agentId, { getUserById: (execDb, id) => findUser(execDb, { id }) }),
+			selectAgent: (input) =>
+				selectRoutineDelegate(
+					input.db,
+					{
+						listAgentIdsBySkill,
+						isAtCapacity: (db, agentId) =>
+							isAgentAtCapacity(db, agentId, {
+								getUserById: (execDb, id) => findUser(execDb, { id }),
+							}),
+					},
+					input,
+				),
+		},
 		requireRunnableAgent,
 	};
 }

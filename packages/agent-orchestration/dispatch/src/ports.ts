@@ -99,20 +99,6 @@ export interface DispatchPorts {
 			credentialResolver: { resolve(name: CredentialName): Promise<string | null> },
 		): Promise<ResolvedModel>;
 	};
-	readonly agentSelection: {
-		resolveScaffoldSpecs(request: {
-			readonly db: HyperIdleDb;
-			readonly trigger: "user_assistant";
-			readonly teamId: null;
-			readonly teamMembersId: null;
-			readonly teamName: null;
-			readonly functions: null;
-			readonly role: null;
-			readonly name: null;
-			readonly ownerUserId: string;
-			readonly ownerUserName: null;
-		}): Promise<readonly { readonly systemPrompt: string | null }[]>;
-	};
 	readonly runOrchestration: {
 		executeAgentRunRequest(
 			deps: {
