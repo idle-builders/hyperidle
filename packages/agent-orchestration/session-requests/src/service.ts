@@ -2,16 +2,8 @@ import { randomUUID } from "node:crypto";
 import type {
 	AgentSessionRequest,
 	AgentWorkIntent,
-	Bet,
 	ExplicitSessionStart,
 	HyperIdleDb,
-	KnowledgeItem,
-	Message,
-	ProposedCall,
-	Routine,
-	RoutineRun,
-	TailoredGrant,
-	Task,
 	TaskDispatchAttempt,
 	TeamMember,
 	User,
@@ -1615,18 +1607,32 @@ export interface DurableAgentQueueDeps {
 	readonly teams: {
 		getTeamMembersByTeamId(exec: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
 	};
+	/**
+	 * @lore AU21 §9 Increment 9: `getUserById`/`listUsersByTeam` REMOVED —
+	 * confirmed zero real call sites anywhere in this file (only
+	 * `getUserByIdScopedToTeam`, `createTriggeredInternal`'s target-agent
+	 * resolution, is ever actually invoked). Dead composition wiring left
+	 * behind by an earlier increment's migration; deleted rather than kept as
+	 * unreachable surface — `durable-agent-queue.ts`'s `queueDeps` shrinks to
+	 * match.
+	 */
 	readonly users: {
-		getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
 		getUserByIdScopedToTeam(
 			db: HyperIdleDb,
 			id: string,
 			teamMembersId?: string,
 		): Promise<User | undefined>;
-		listUsersByTeam(exec: WriteExecutor, teamMembersId: string): Promise<User[]>;
 	};
+	/**
+	 * @lore AU21 §9 Increment 9: `getTaskById`/`getBetById` REMOVED — confirmed
+	 * zero real call sites anywhere in this file (`work.get`'s resolve-at-emit
+	 * disposition, edge-disposition.md's `work.get (task/bet)` row, was
+	 * already executed by an earlier increment; only the composition wiring
+	 * survived, unreachable). The AU9 CAS/dedup surface
+	 * (`taskDispatchAttemptStore`) stays — that own-state check is real and
+	 * live (`resolveIntentInputInternal`'s dedup re-check).
+	 */
 	readonly work: {
-		getTaskById(exec: WriteExecutor, id: string): Promise<Task | undefined>;
-		getBetById(exec: WriteExecutor, id: string): Promise<Bet | undefined>;
 		getTaskDispatchAttemptById(
 			exec: WriteExecutor,
 			id: string,
@@ -1637,10 +1643,6 @@ export interface DurableAgentQueueDeps {
 			batchSize: number,
 		): Promise<number>;
 	};
-	readonly routine: {
-		getRoutineRunById(exec: WriteExecutor, id: string): Promise<RoutineRun | undefined>;
-		getRoutineById(exec: WriteExecutor, id: string): Promise<Routine | undefined>;
-	};
 	/**
 	 * @lore AU21 §6 Decision B4: the pre-handoff failure report-back channel.
 	 * Optional so every existing `queueDeps(db)` call site (which never wired
@@ -1649,16 +1651,15 @@ export interface DurableAgentQueueDeps {
 	 * `{ ...queueDeps(db), eventBus }`) so the channel is genuinely live.
 	 */
 	readonly eventBus?: EventBus;
-	readonly conversation: {
-		getMessageById(exec: WriteExecutor, id: string): Promise<Message | undefined>;
-	};
-	readonly review: {
-		findGrantedProposedCall(
-			exec: WriteExecutor,
-			id: string,
-		): Promise<{ readonly call: ProposedCall; readonly grant: TailoredGrant } | undefined>;
-	};
-	readonly knowledge: { findById(exec: WriteExecutor, id: string): Promise<KnowledgeItem | null> };
+	/**
+	 * @lore AU21 §9 Increment 9: `conversation`/`review`/`routine`/`knowledge`
+	 * groups REMOVED in their entirety — confirmed zero real call sites
+	 * anywhere in this file (`getMessageById`/`findGrantedProposedCall`/
+	 * `getRoutineRunById`/`getRoutineById`/`findById` were declared but never
+	 * invoked; each family's real resolve-at-emit migration
+	 * (architecture.md §9 Increment 3) already deleted the call sites, this
+	 * dead composition wiring was simply never cleaned up alongside it).
+	 */
 }
 
 export function enqueueWorkIntent(exec: WriteExecutor, input: WorkIntentInput) {

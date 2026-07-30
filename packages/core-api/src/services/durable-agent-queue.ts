@@ -38,17 +38,30 @@
  *
  * @lore AU20: this composition root supplies dependencies to the unified
  * durable-queue operations; compatibility transition wrappers were deleted.
+ *
+ * @lore AU21 §9 Increment 9: `conversation`/`review`/`knowledge` groups and
+ * `routine`, plus `users.getUserById`/`listUsersByTeam` and
+ * `work.getTaskById`/`getBetById`, REMOVED — confirmed dead (zero real call
+ * sites in `@hyperidle/session-requests`'s own `service.ts`; grepped before
+ * removal, same verification bar as the AU21 §6 Decision F1 `agentSelection`
+ * removal above). Each family's real domain read was already deleted by an
+ * earlier increment's resolve-at-emit migration (architecture.md §9
+ * Increment 3) — this was leftover, unreachable composition wiring nobody
+ * cleaned up alongside it, caught by the anti-regrowth guard's forensic pass.
+ * The surviving `work`/`users`/`teams`/`config` fields below are genuinely
+ * live: `work`'s `taskDispatchAttemptStore` (the AU9 CAS/dedup own-state
+ * check) and `lifecycleProjection`'s guarded transition stay; `users.
+ * getUserByIdScopedToTeam`/`teams.getTeamMembersByTeamId`/`config.
+ * listConfiguration` back `createTriggeredInternal`'s trigger-rule + target-
+ * agent resolution — itself a real, NOT-yet-closed `§2 resolve-at-emit` gap
+ * (edge-disposition.md), left open and tracked, not silently allowlisted.
  */
 
-import { findMessage } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { get as getKnowledgeItem } from "@hyperidle/knowledge";
 import { getTeamMembers } from "@hyperidle/org";
-import { findProposedCall } from "@hyperidle/review";
-import * as routineService from "@hyperidle/routine";
 import { type DurableAgentQueueDeps, transitionSessionRequest } from "@hyperidle/session-requests";
 import { listConfiguration } from "@hyperidle/settings";
-import { findUser, listUsers } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 
 // ---------------------------------------------------------------------------
@@ -65,40 +78,16 @@ import * as work from "@hyperidle/work";
 
 const ports = {
 	config: { listConfiguration },
-	routine: {
-		getRoutineRunById: routineService.getRoutineRun,
-		getRoutineById: routineService.getRoutine,
-	},
 	work: {
-		getTaskById: (exec: import("@hyperidle/db").WriteExecutor, id: string) =>
-			work.get(exec, "task", id),
-		getBetById: (exec: import("@hyperidle/db").WriteExecutor, id: string) =>
-			work.get(exec, "bet", id),
 		getTaskDispatchAttemptById: work.taskDispatchAttemptStore.get,
 		reapTerminalTaskDispatchAttempts: work.taskDispatchAttemptStore.reapTerminal,
 	},
-	conversation: { getMessageById: (db: HyperIdleDb, id: string) => findMessage(db, { id }) },
 	users: {
-		getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
 		getUserByIdScopedToTeam: (db: HyperIdleDb, userId: string, teamId?: string) =>
 			findUser(db, teamId ? { id: userId, teamIds: [teamId] } : { id: userId }),
-		listUsersByTeam: (db: HyperIdleDb, teamId: string) => listUsers(db, { teamIds: [teamId] }),
 	},
 	teams: {
 		getTeamMembersByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
-	},
-	review: {
-		findGrantedProposedCall: async (db: HyperIdleDb, proposedCallId: string) => {
-			const view = await findProposedCall(db, {
-				by: { id: proposedCallId },
-				include: { grant: true },
-			});
-			if (!view?.grant) return undefined;
-			return { call: view.call, grant: view.grant };
-		},
-	},
-	knowledge: {
-		findById: (db: import("@hyperidle/db").HyperIdleDb, id: string) => getKnowledgeItem(db, id),
 	},
 	lifecycleProjection: {
 		work: {

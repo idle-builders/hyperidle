@@ -220,3 +220,63 @@ survive as a standalone Service. (Increment 3 relocates `selectAgent`; Increment
 ## Still open (settings)
 - **Cross-layer settings union (Decision F3):** needs its own scoped `/design` pass — one unified surface backed
   by `CoreApiPort` + `AgentOrchestrationPort`. Flagged, not resolvable inline.
+
+---
+
+## Increment 9 forensic-triage accounting (post Increment 8, this pass)
+
+A full re-run of `scripts/composition-edge-anti-regrowth-guard.ts`'s `inspect(process.cwd())` — the real
+detector, not a re-derivation from this doc — found **42 findings / 24 distinct consumer::provider pairs**
+against the post-Increment-8 tree. Every one was traced to real source (not guessed) and closed into exactly
+one of three buckets. Zero left unaccounted.
+
+**Bucket A — detection-quirk false positives, fixed in the guard/graph tooling itself (11 findings closed,
+not allowlisted):**
+| Pair | Real cause | Fix |
+|---|---|---|
+| `tool-handlers::conversation` (40 methods, medium confidence) | `ToolHandlersCoreApiAccessor` routes 100% through the `CoreApiPort` seam (`seamPortForActor`/`buildCoreApiPort`) — zero raw imports of `conversation`/`work`/`org`/`routine`/`knowledge`/`users` real functions; verified by reading `tool-handlers-bindings.ts` in full | `SEAM_INTERFACES` (`generate-dependency-graph.ts`) excludes it |
+| `dispatch::model-gateway` (raw-port + composition-bundle) | `model-gateway` owns ZERO tables (own barrel doc: "never reads [config] itself"; absent from `TABLE_OWNER`) | `isStatelessProvider` (guard) excludes zero-owned-table providers |
+| `tool-handlers::work` (`routeItem`, raw-port + composition-bundle) | `routeItem` is a pure `{riskTier,kind,verb} -> view` switch, zero `db` param, verified against `@hyperidle/work`'s real implementation | `STATELESS_METHODS` (guard) excludes it by name |
+| `dispatch`'s 8 raw-port findings (all methods reported as bogus `runOrchestration`/`toolHandlers`, phantom `review`/`knowledge` targets) | `DispatchPorts` is a nested-composition-group interface; the flat-interface method scan + a stale 12-target `MANUAL_OVERRIDES` array (dating to a pre-Increment-4 shape) mis-resolved it | `resolveNestedGroupEdges` (`generate-dependency-graph.ts`) resolves per-group correctly; stale override removed |
+
+**Bucket B — genuine dead composition, deleted (session-requests's 4 findings closed, not allowlisted):**
+`DurableAgentQueueDeps` (`@hyperidle/session-requests`) declared `conversation.getMessageById`,
+`review.findGrantedProposedCall`, `knowledge.findById`, `routine.getRoutineRunById`/`getRoutineById`,
+`users.getUserById`/`listUsersByTeam`, `work.getTaskById`/`getBetById` — confirmed **zero real call sites**
+anywhere in `service.ts` (grepped before removal). `resolveIntentInputInternal`, the function that used to call
+these, was already fully deleted by the Increment 3/4 resolve-at-emit migration; this was leftover, unreachable
+wiring nobody cleaned up alongside it. Deleted from the type + `durable-agent-queue.ts`'s composition + the
+structural mirror `@hyperidle/run-orchestration`'s own `contracts.ts` `DurableQueueDeps` (Mechanism C forbids
+importing the real type, so it carries its own copy). The `*-baked-emit.integration.test.ts` family's
+throwing-spy assertions (built specifically to prove "zero domain reads") pass unchanged with the spy wiring
+removed — the type system itself now makes the old read unreachable at compile time, strictly stronger than a
+runtime spy.
+
+**Bucket C — genuinely NOT yet closed, real in-scope-for-AU21 gaps, left OPEN (31 findings / 15 distinct pairs,
+NOT allowlisted, NOT silently dropped):** every one matches this doc's OWN original disposition (mostly §2
+resolve-at-emit / §2-§3 baked, i.e. always meant to migrate away, never an exemption) — Increments 1-8 simply
+didn't reach them. No founder ruling exempts any of these (unlike `cost`), and none is owned by an
+already-tracked separate follow-up (unlike R9's harness-gated mid-run-injection question, architecture.md §16)
+— they are AU21's own unfinished work.
+
+| Consumer | Provider | Real site | What's still missing |
+|---|---|---|---|
+| `dispatch` | `work` | `service.ts`'s task-queue (`startupSweep`/`handleTaskStateChanged`/`handleSessionEnded`) `listTasks("accepted")`/`getTaskById` | `TaskStateChangedEvent`/`SessionEndedEvent` don't carry `ownerAgentId`/`teamId` — never baked at emit, so the queue still reads `work` live to decide who to dispatch to |
+| `dispatch` | `routine` | `provisionTeamRoutinesInternal`'s `routine.insertRoutine` (team-creation-time builtin-routine definition seed) | documented in `ports.ts`'s own `@lore` as "out of this increment's relocate-list" — a write, not a read, but still a live cross-layer edge; no founder ruling on whether it bakes/moves core-side or is a bounded exception |
+| `dispatch` | `conversation` | `dispatch-bindings.ts`'s `listMessagesByThread`/`getThreadById` (assistant-turn context) — NOTE: `insertMessage`/`updateThread` are correctly seam-routed already (Increment 2) | assistant-turn's context reads were never baked at emit the way `insertMessage`/`updateThread`'s writes were migrated to the seam |
+| `dispatch` | `users` | `dispatch-bindings.ts`'s `getOrCreateUser`/`getUserById` (assistant identity) | assistant identity resolution never baked at emit |
+| `dispatch` | `settings` | `dispatch-bindings.ts`'s `readServerConfig` (assistant-turn model/cost config) | never baked at emit |
+| `session-requests` | `org` | `createTriggeredInternal`'s `deps.teams.getTeamMembersByTeamId` | trigger-rule/target-agent resolution still happens AT DRAIN time, not at the emitting core-api Service |
+| `session-requests` | `settings` | `createTriggeredInternal`'s `deps.config.listConfiguration` | same — trigger-rule matching reads config live at drain |
+| `session-requests` | `users` | `createTriggeredInternal`'s `deps.users.getUserByIdScopedToTeam` | same — target-agent validation reads live at drain |
+| `session-requests` | `work` | `deps.work.taskDispatchAttemptStore.*` (own-state CAS/dedup) + `lifecycleProjection.work.updateBetDecompositionStatusIfRunning`'s guarded `work.transition` write | architecture.md's own text is in tension here ("keep the AU9 CAS/dedup reads" vs. this row's original "§2 resolve-at-emit" verdict) — flagged as ambiguous, not resolved this pass |
+| `run-orchestration` | `knowledge` | `run-orchestration-composition.ts`'s `contextPorts.knowledge.list`/`rank` (`context.ts`'s context assembly) | Decision B offered TWO resolutions ("bake at emit OR agent pulls via MCP") — neither has happened; still a live orchestration-side read at session-run time |
+| `run-orchestration` | `org` | `contextPorts.org.getTeamById` | same — context-assembly read, not baked |
+| `run-orchestration` | `routine` | `contextPorts.routine.getRoutineById` + `routineAccessor` (session-lifecycle) | same |
+| `run-orchestration` | `settings` | `contextPorts`/`settingsReader.readServerConfig` | same |
+| `run-orchestration` | `users` | `contextPorts.users.getUserById` + `userReader`/`workAccessor.transitionTask`'s `requireRunnableAgent` | same |
+| `run-orchestration` | `work` | `contextPorts.work.getTaskById`/`getBetById` + `workAccessor` (session-lifecycle task/bet reads+writes) | same |
+
+**Closure owner for Bucket C:** a subsequent Increment 9 wave, before the bare `inspect(process.cwd())` check
+is wired into `npm run lint` (wiring it today, unresolved, would red the build on these 15 real, pre-existing,
+catalogued-but-unmigrated pairs — not a new violation). Not a separate work package.

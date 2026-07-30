@@ -1,5 +1,5 @@
 /**
- * AU21 Increment 3, knowledge_action wave (RED) — architecture.md §6 Decision B /
+ * AU21 Increment 3, knowledge_action wave — architecture.md §6 Decision B /
  * §9 Increment 3: the REAL emit call site (`routes/knowledge.ts`'s `POST
  * /:id/flag` handler, the `enqueueWorkIntent(...)` call inside its
  * `if (body.agentId)` branch) must resolve + validate the knowledge-review
@@ -7,15 +7,16 @@
  * row, instead of enqueuing a bare identity-only intent for the drain to
  * resolve later.
  *
- * Currently RED on two counts, both proven below:
- *   1. The emitted intent's `bakedRequestJson` is null today (the route does
- *      not yet call the new knowledge resolver before recording).
- *   2. Because nothing is baked, the drain still falls through to
- *      `resolveIntentInputInternal`'s "knowledge_action" case at DRAIN time,
- *      which reads `knowledge.findById`/`users.getUserById` — a domain read
- *      this migration must delete. Proven by wiring THOSE deps to throw and
- *      asserting the real emitted intent still hands off (it must not,
- *      today).
+ * GREEN (was RED when first written): both counts below now hold.
+ *   1. The emitted intent's `bakedRequestJson` is populated at emit time.
+ *   2. `resolveIntentInputInternal`'s old "knowledge_action" per-kind
+ *      drain-time resolution (which used to read `knowledge.findById`/
+ *      `users.getUserById`) is DELETED, not merely unreachable — AU21 §9
+ *      Increment 9 removed the dead `knowledge`/`users.getUserById` fields
+ *      from `DurableAgentQueueDeps` entirely (confirmed zero real call sites
+ *      left anywhere in `@hyperidle/session-requests`), so the type system
+ *      itself now proves zero domain reads — a stronger guarantee than the
+ *      throwing-spy wiring this test originally used.
  */
 
 import { agentWorkIntents, type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
@@ -94,8 +95,6 @@ describe("knowledge_action is resolved and baked at emit time (POST /api/knowled
 		expect(intent).toBeDefined();
 		expect(intent?.kind).toBe("knowledge_action");
 
-		// RED today: `bakedRequestJson` is null — the route does not yet bake
-		// the request at emit time.
 		expect(intent?.bakedRequestJson).toBeTruthy();
 		const baked = intent?.bakedRequestJson
 			? (JSON.parse(intent.bakedRequestJson) as Record<string, unknown>)
@@ -130,28 +129,13 @@ describe("knowledge_action is resolved and baked at emit time (POST /api/knowled
 		});
 		expect(res.status).toBe(200);
 
-		const base = queueDeps(db);
-		const throwingFindById = vi.fn(async () => {
-			throw new Error("zero-domain-read violation: knowledge.findById was called");
-		});
-		const throwingGetUserById = vi.fn(async () => {
-			throw new Error("zero-domain-read violation: users.getUserById was called");
-		});
-		const deps = {
-			...base,
-			eventBus,
-			knowledge: { ...base.knowledge, findById: throwingFindById },
-			users: { ...base.users, getUserById: throwingGetUserById },
-		};
+		// `DurableAgentQueueDeps` no longer HAS a `knowledge`/`users.getUserById`
+		// field at all (AU21 §9 Increment 9 deleted the dead composition) — the
+		// drain can only ever hand off from the baked payload; there is no
+		// domain-read fallback left to wire a throwing spy onto.
+		const deps = { ...queueDeps(db), eventBus };
 
 		await drainIntents(deps);
-
-		// RED today: the route never baked a request, so the drain falls
-		// through to the per-kind "knowledge_action" resolution, which calls
-		// these domain reads — both throwing spies get invoked, and the
-		// intent ends up `failed`, not `handed_off`.
-		expect(throwingFindById.mock.calls.length).toBe(0);
-		expect(throwingGetUserById.mock.calls.length).toBe(0);
 
 		const [intent] = await db
 			.select()

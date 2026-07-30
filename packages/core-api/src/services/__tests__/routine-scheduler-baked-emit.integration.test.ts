@@ -48,7 +48,7 @@ import type { EventBus } from "@hyperidle/shared";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../test-fixtures.js";
 import { costOps } from "../cost-bindings.js";
 import { queueDeps } from "../durable-agent-queue.js";
 
@@ -220,38 +220,21 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 		const result = await fireGenericRoutine(db, eventBus, routine!, makePorts());
 		expect(result.fired).toBe(true);
 
-		const base = queueDeps(db);
-		const throwingRoutine = {
-			...base.routine,
-			getRoutineRunById: vi.fn(async () => {
-				throw new Error("zero-domain-read violation: routine.getRoutineRunById was called");
-			}),
-			getRoutineById: vi.fn(async () => {
-				throw new Error("zero-domain-read violation: routine.getRoutineById was called");
-			}),
-		};
+		// AU21 §9 Increment 9: `DurableAgentQueueDeps.routine`
+		// (`getRoutineRunById`/`getRoutineById`) is REMOVED entirely — confirmed
+		// zero real call sites anywhere in `@hyperidle/session-requests` (same
+		// verification bar as the Decision F1 `agentSelection` removal noted
+		// below). There is no `deps.routine.*` domain-read surface left at all
+		// for the drain to reach — the type system itself is the proof, a
+		// stronger guarantee than the throwing-spy wiring this test originally
+		// used.
 		// @lore AU21 §6 Decision F1: `DurableAgentQueueDeps.agentSelection`
 		// (previously asserted zero-invocation here too) was REMOVED as dead
 		// weight — confirmed zero real call sites in `service.ts` before
 		// removal, so there is nothing left here to wire a throwing spy onto.
-		const deps = {
-			...base,
-			eventBus,
-			routine: throwingRoutine,
-		};
+		const deps = { ...queueDeps(db), eventBus };
 
 		await drainIntents(deps, { maxAttempts: 1 });
-
-		// @lore: assert via `.mock.calls.length`, NOT `.not.toHaveBeenCalled()` —
-		// the latter's failure-path pretty-printer tries to serialize the spy's
-		// recorded call args, which include the real `HyperIdleDb`/PGlite
-		// connection object; serializing that object graph is what OOM-crashed
-		// the worker while writing this test (same reason
-		// `agent-work-intent-baked-payload.integration.test.ts`'s Wave 0
-		// zero-domain-read test already uses `.mock.calls.length`, not
-		// `toHaveBeenCalled()`).
-		expect(throwingRoutine.getRoutineRunById.mock.calls.length).toBe(0);
-		expect(throwingRoutine.getRoutineById.mock.calls.length).toBe(0);
 
 		const [intent] = await db
 			.select()
@@ -270,26 +253,15 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 		eventBus,
 	}) => {
 		// No routineRuns/routines rows seeded at all — if the drain ever fell
-		// through to the old per-kind resolution it would call
-		// `deps.routine.getRoutineRunById`/`getRoutineById`; those are wired as
-		// throwing spies below so ANY invocation is directly observable.
-		const base = queueDeps(db);
-		const throwingRoutine = {
-			...base.routine,
-			getRoutineRunById: vi.fn(async () => {
-				throw new Error("zero-domain-read violation: routine.getRoutineRunById was called");
-			}),
-			getRoutineById: vi.fn(async () => {
-				throw new Error("zero-domain-read violation: routine.getRoutineById was called");
-			}),
-		};
+		// through to the old per-kind resolution it would have called
+		// `deps.routine.getRoutineRunById`/`getRoutineById`; AU21 §9 Increment 9
+		// deleted that field from `DurableAgentQueueDeps` entirely (confirmed
+		// zero real call sites anywhere in `@hyperidle/session-requests` — same
+		// verification bar as the Decision F1 `agentSelection` removal noted
+		// below) — there is no domain-read surface left to reach at all.
 		// @lore AU21 §6 Decision F1: `DurableAgentQueueDeps.agentSelection` was
 		// REMOVED as dead weight — see the sibling test's own `@lore` above.
-		const deps = {
-			...base,
-			eventBus,
-			routine: throwingRoutine,
-		};
+		const deps = { ...queueDeps(db), eventBus };
 
 		await enqueueWorkIntent(db, {
 			kind: "routine_run",
@@ -298,11 +270,6 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 			idempotencyKey: "inc4b-unbaked-key",
 		});
 		await drainIntents(deps);
-
-		// See the sibling test's `@lore` above on why `.mock.calls.length`, not
-		// `.not.toHaveBeenCalled()`.
-		expect(throwingRoutine.getRoutineRunById.mock.calls.length).toBe(0);
-		expect(throwingRoutine.getRoutineById.mock.calls.length).toBe(0);
 
 		const [intent] = await db
 			.select()

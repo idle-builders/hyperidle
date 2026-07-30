@@ -1,5 +1,5 @@
 /**
- * AU21 Increment 3, assistant_turn wave (RED) — architecture.md §6 Decision B /
+ * AU21 Increment 3, assistant_turn wave — architecture.md §6 Decision B /
  * §9 Increment 3: the REAL emit call site (`routes/threads.ts:1360`'s
  * `agentWorkIntentRecorder.record(...)` inside the "POST
  * /:id/messages" handler's `recordsAssistantIntent` branch) must resolve +
@@ -7,15 +7,16 @@
  * `agent_work_intents` row, instead of enqueuing a bare identity-only intent
  * for the drain to resolve later.
  *
- * Currently RED on two counts, both proven below:
- *   1. The emitted intent's `bakedRequestJson` is null today (the route does
- *      not yet call the new conversation resolver before recording).
- *   2. Because nothing is baked, the drain still falls through to
- *      `resolveIntentInputInternal`'s "assistant_turn" case at DRAIN time,
- *      which reads `conversation.getMessageById`/`users.getUserById` — a
- *      domain read this migration must delete. Proven by wiring THOSE deps to
- *      throw and asserting the real emitted intent still hands off (it must
- *      not, today).
+ * GREEN (was RED when first written): both counts below now hold.
+ *   1. The emitted intent's `bakedRequestJson` is populated at emit time.
+ *   2. `resolveIntentInputInternal`'s old "assistant_turn" per-kind
+ *      drain-time resolution (which used to read `conversation.getMessageById`/
+ *      `users.getUserById`) is DELETED, not merely unreachable — AU21 §9
+ *      Increment 9 removed the dead `conversation`/`users.getUserById` fields
+ *      from `DurableAgentQueueDeps` entirely (confirmed zero real call sites
+ *      left anywhere in `@hyperidle/session-requests`), so the type system
+ *      itself now proves zero domain reads — a stronger guarantee than the
+ *      throwing-spy wiring this test originally used.
  */
 
 import { agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
@@ -149,28 +150,14 @@ describe("assistant_turn is resolved and baked at emit time (POST /api/threads/:
 		const body = (await res.json()) as { message: { id: string } };
 		const messageId = body.message.id;
 
-		const base = queueDeps(db);
-		const throwingGetMessageById = vi.fn(async () => {
-			throw new Error("zero-domain-read violation: conversation.getMessageById was called");
-		});
-		const throwingGetUserById = vi.fn(async () => {
-			throw new Error("zero-domain-read violation: users.getUserById was called");
-		});
-		const deps = {
-			...base,
-			eventBus,
-			conversation: { ...base.conversation, getMessageById: throwingGetMessageById },
-			users: { ...base.users, getUserById: throwingGetUserById },
-		};
+		// `DurableAgentQueueDeps` no longer HAS a `conversation`/
+		// `users.getUserById` field at all (AU21 §9 Increment 9 deleted the dead
+		// composition) — the drain can only ever hand off from the baked
+		// payload; there is no domain-read fallback left to wire a throwing spy
+		// onto.
+		const deps = { ...queueDeps(db), eventBus };
 
 		await drainIntents(deps);
-
-		// RED today: the route never baked a request, so the drain falls
-		// through to the per-kind "assistant_turn" resolution, which calls
-		// these domain reads — both throwing spies get invoked, and the
-		// intent ends up `failed`, not `handed_off`.
-		expect(throwingGetMessageById.mock.calls.length).toBe(0);
-		expect(throwingGetUserById.mock.calls.length).toBe(0);
 
 		const [intent] = await db
 			.select()

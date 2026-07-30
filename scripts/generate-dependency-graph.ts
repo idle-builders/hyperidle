@@ -63,29 +63,51 @@ const MANUAL_OVERRIDES: Record<string, string | readonly string[]> = {
 	"org:OrgUserDirectory": "users",
 	"review:ReviewAgentWorkIntentRecorder": "session-requests",
 	"settings:SettingsUserDirectory": "users",
-	"dispatch:DispatchPorts": [
-		"work",
-		"routine",
-		"conversation",
-		"users",
-		"settings",
-		"model-gateway",
-		"run-orchestration",
-		"session-requests",
-		"cost",
-		"review",
-		"knowledge",
-		"tool-handlers",
-	],
+	// @lore AU21 §9 Increment 9: `dispatch:DispatchPorts`'s former 12-target
+	// array override (dating to a flat pre-Increment-4 interface shape) is
+	// REMOVED — `DispatchPorts` is now a nested-composition-group interface
+	// (`readonly work: {...}`, `readonly routine: {...}`, etc., one group per
+	// real target); it resolves correctly via `resolveNestedGroupEdges` below
+	// (per-group kebab-name -> real Service match), which also fixes the two
+	// bugs the blanket override was masking: (1) it always attributed ALL 12
+	// historical targets regardless of which groups the interface still
+	// declares (`review`/`knowledge`/`cost`/`session-requests`/`tool-handlers`
+	// groups no longer exist on this interface at all — confirmed by reading
+	// `dispatch/src/ports.ts`), and (2) the "methods" it reported for every
+	// edge were never real per-group method names — they were the outer
+	// interface's own group-property names ("runOrchestration"/"toolHandlers")
+	// that happened to textually contain "=>" (an arrow-typed field nested
+	// deep inside those two groups' object types), a false signal for the
+	// flat-interface method scan below.
 	"tool-handlers:ToolHandlersWorkAccessor": "work",
-	"tool-handlers:ToolHandlersUsersAccessor": "users",
-	"tool-handlers:ToolHandlersConversationAccessor": "conversation",
-	"tool-handlers:ToolHandlersOrgAccessor": "org",
-	"tool-handlers:ToolHandlersRoutineAccessor": "routine",
 	"tool-handlers:ToolHandlersDispatchAccessor": "dispatch",
-	"tool-handlers:ToolHandlersKnowledgeAccessor": "knowledge",
-	"tool-handlers:ToolHandlersPolicyAccessor": "policy",
+	// @lore AU21 §9 Increment 9: `ToolHandlersUsersAccessor`/
+	// `ToolHandlersConversationAccessor`/`ToolHandlersOrgAccessor`/
+	// `ToolHandlersRoutineAccessor`/`ToolHandlersPolicyAccessor`/
+	// `ToolHandlersKnowledgeAccessor` overrides REMOVED — none of these
+	// interfaces exist anymore (Increment 2 collapsed every one of them onto
+	// `ToolHandlersCoreApiAccessor`, the seam accessor; confirmed by reading
+	// `tool-handlers/src/ports.ts`'s real interface declarations). Stale
+	// overrides for interfaces that no longer exist are harmless (they never
+	// match) but are documentation debt — removed rather than left to drift
+	// further. `ToolHandlersCoreApiAccessor` itself is NOT a raw-port target
+	// at all (see `SEAM_INTERFACES` below).
 };
+
+/**
+ * AU21 §9 Increment 9: interfaces whose methods are satisfied EXCLUSIVELY via
+ * the `CoreApiPort` seam at the composition root (`buildCoreApiPort`/
+ * `seamPortForActor` — a real HTTP-route-shaped call, not same-process DI at
+ * all) — verified by reading the real composition-root wiring, not guessed.
+ * Without this, the raw-port name-vote fallback (Signal 2 below) mis-resolves
+ * `ToolHandlersCoreApiAccessor` to a "best guess" single target (`conversation`,
+ * at only 4/40 real method-name matches) even though EVERY method actually
+ * routes through the seam to whichever core-api route it needs — a
+ * structurally different, already-sanctioned edge kind (Increment 1/2), not a
+ * raw DI violation. Keep this list source-verified, same bar as
+ * `MANUAL_OVERRIDES`/`ALLOWLIST`.
+ */
+const SEAM_INTERFACES: ReadonlySet<string> = new Set(["tool-handlers:ToolHandlersCoreApiAccessor"]);
 
 export interface ServiceInfo {
 	name: string;
@@ -472,6 +494,78 @@ export function buildExposedApis(services: ServiceInfo[]): Map<string, string[]>
 
 // --- 4. Ports (declared dependencies) per Service ------------------------------
 
+/**
+ * AU21 §9 Increment 9: a nested-composition-group interface (every top-level
+ * member is itself a `{ ...methods... }` group — e.g. `DispatchPorts`'s
+ * `readonly work: {...}`, `readonly routine: {...}`) needs PER-GROUP
+ * resolution — the flat single-interface method scan in `resolvePortEdges`
+ * can't see through the nesting (a nested group's real methods never surface
+ * as this interface's own top-level "methods"; the only top-level "methods"
+ * the flat scan CAN see are property names whose (often deeply nested) type
+ * happens to textually contain "=>" somewhere, which is a false signal, not
+ * the real method surface).
+ */
+function isNestedGroupInterface(node: ts.InterfaceDeclaration): boolean {
+	return (
+		node.members.length > 0 &&
+		node.members.every(
+			(member) => ts.isPropertySignature(member) && member.type !== undefined && ts.isTypeLiteralNode(member.type),
+		)
+	);
+}
+
+/** Real method names declared directly inside a nested composition-group's own object type. */
+function methodNamesFromGroupType(type: ts.TypeNode, sf: ts.SourceFile): string[] {
+	if (!ts.isTypeLiteralNode(type)) return [];
+	const methods: string[] = [];
+	for (const member of type.members) {
+		if (ts.isMethodSignature(member) && member.name) {
+			methods.push(member.name.getText(sf));
+		} else if (
+			ts.isPropertySignature(member) &&
+			member.name &&
+			member.type &&
+			ts.isFunctionTypeNode(member.type)
+		) {
+			methods.push(member.name.getText(sf));
+		}
+	}
+	return [...new Set(methods)].sort();
+}
+
+/**
+ * Resolve a nested-composition-group interface's edges — one per group whose
+ * kebab-cased property name matches a real Service name (the same
+ * name-derivation `demandReceiversByProvider`'s `methodsFromGroupType` group
+ * loop already uses for doc generation), carrying that group's OWN real
+ * method names (never the outer interface's).
+ */
+function resolveNestedGroupEdges(
+	svcName: string,
+	node: ts.InterfaceDeclaration,
+	sf: ts.SourceFile,
+	serviceNames: ReadonlySet<string>,
+): Edge[] {
+	const edges: Edge[] = [];
+	for (const member of node.members) {
+		if (!ts.isPropertySignature(member) || !member.name || !member.type) continue;
+		const groupMethods = methodNamesFromGroupType(member.type, sf);
+		if (groupMethods.length === 0) continue;
+		const groupName = member.name.getText(sf);
+		const provider = groupName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+		if (provider === svcName || !serviceNames.has(provider)) continue;
+		edges.push({
+			source: svcName,
+			target: provider,
+			portInterface: `${node.name.text}.${groupName}`,
+			methods: groupMethods,
+			confidence: "high",
+			resolutionNote: `Resolved from the nested composition-group name ("${groupName}" -> "${provider}") — a per-domain sub-port, not a flat method interface.`,
+		});
+	}
+	return edges;
+}
+
 export function resolvePortEdges(services: ServiceInfo[], reverseIndex: ReadonlyMap<string, string[]>): Edge[] {
 	const edges: Edge[] = [];
 	const serviceNames = new Set(services.map((s) => s.name));
@@ -495,6 +589,27 @@ export function resolvePortEdges(services: ServiceInfo[], reverseIndex: Readonly
 
 		const visit = (node: ts.Node) => {
 			if (ts.isInterfaceDeclaration(node)) {
+				const declKey = `${svc.name}:${node.name.text}`;
+
+				// AU21 §9 Increment 9: a known seam-accessor interface is satisfied
+				// exclusively via the `CoreApiPort` seam at the composition root — not
+				// same-process DI at all. Never resolve it as a raw-port edge,
+				// regardless of how strongly its method names name-match a real
+				// Service's exports (see `SEAM_INTERFACES`'s own doc comment).
+				if (SEAM_INTERFACES.has(declKey)) {
+					ts.forEachChild(node, visit);
+					return;
+				}
+
+				// AU21 §9 Increment 9: nested-composition-group interfaces (every
+				// top-level member its own `{...}` group) resolve per-group, not as
+				// one flat interface (see `resolveNestedGroupEdges`'s doc comment).
+				if (isNestedGroupInterface(node)) {
+					edges.push(...resolveNestedGroupEdges(svc.name, node, sf, serviceNames));
+					ts.forEachChild(node, visit);
+					return;
+				}
+
 				const methods: PortMethod[] = [];
 				for (const member of node.members) {
 					if (ts.isMethodSignature(member) && member.name) {

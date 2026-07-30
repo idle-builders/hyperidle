@@ -125,19 +125,16 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			})
 			.returning();
 
-		// @lore RED-phase isolation: failOrRelease's OLD direct
-		// `deps.routine.updateRoutineRunIfRunning` write (still present, not yet
-		// removed) would otherwise satisfy this assertion for the wrong reason —
-		// no-op it here so a passing assertion can only come from a REAL core-api
-		// subscriber reacting to the emitted event (which must reach the
+		// AU21 §9 Increment 9: `DurableAgentQueueDeps.routine` (the surface
+		// failOrRelease's OLD direct `updateRoutineRunIfRunning` write used) is
+		// REMOVED entirely — confirmed zero real call sites anywhere in
+		// `@hyperidle/session-requests`. There is no `deps.routine.*` path left
+		// at all, so a passing assertion below can only come from a REAL
+		// core-api subscriber reacting to the emitted event (which reaches the
 		// `routineRuns` row through its own import, not through this deps
-		// bundle), exactly like the direct-write-removal proof in the sibling
-		// emission test file.
-		const deps = {
-			...queueDeps(db),
-			eventBus,
-			routine: { ...queueDeps(db).routine, updateRoutineRunIfRunning: async () => {} },
-		};
+		// bundle) — a stronger guarantee than the no-op override this test
+		// originally installed.
+		const deps = { ...queueDeps(db), eventBus };
 		await enqueueWorkIntent(db, {
 			kind: "routine_run",
 			sourceKind: "routine_run",

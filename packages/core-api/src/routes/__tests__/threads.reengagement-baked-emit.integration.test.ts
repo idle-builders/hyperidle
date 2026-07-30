@@ -1,5 +1,5 @@
 /**
- * AU21 Increment 3, reengagement wave (RED) — architecture.md §6 Decision B /
+ * AU21 Increment 3, reengagement wave — architecture.md §6 Decision B /
  * §9 Increment 3: the REAL emit call site (`routes/threads.ts`'s `POST
  * /:threadId/messages/:messageId/verdict` handler, the `transitionProposedCall(
  * db, {to:"granted", ...})` call inside its `decision === "approve"` branch,
@@ -8,16 +8,18 @@
  * `agent_work_intents` row, instead of enqueuing a bare identity-only intent
  * for the drain to resolve later.
  *
- * Currently RED on two counts, both proven below:
- *   1. The emitted `reengagement` intent's `bakedRequestJson` is null today
- *      (the "granted" transition does not yet call the new reengagement
- *      resolver before recording).
- *   2. Because nothing is baked, the drain still falls through to
- *      `resolveIntentInputInternal`'s "reengagement" case at DRAIN time,
- *      which reads `review.findGrantedProposedCall`/`work.getTaskById`/
- *      `users.getUserById` — domain reads this migration must delete. Proven
- *      by wiring THOSE deps to throw and asserting the real emitted intent
- *      still hands off (it must not, today).
+ * GREEN (was RED when first written): both counts below now hold.
+ *   1. The emitted `reengagement` intent's `bakedRequestJson` is populated at
+ *      emit time.
+ *   2. `resolveIntentInputInternal`'s old "reengagement" per-kind drain-time
+ *      resolution (which used to read `review.findGrantedProposedCall`/
+ *      `work.getTaskById`/`users.getUserById`) is DELETED, not merely
+ *      unreachable — AU21 §9 Increment 9 removed the dead `review`/
+ *      `work.getTaskById`/`users.getUserById` fields from
+ *      `DurableAgentQueueDeps` entirely (confirmed zero real call sites left
+ *      anywhere in `@hyperidle/session-requests`), so the type system itself
+ *      now proves zero domain reads — a stronger guarantee than the
+ *      throwing-spy wiring this test originally used.
  */
 
 import {
@@ -35,7 +37,7 @@ import {
 } from "@hyperidle/db";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
+import { describe, expect } from "vitest";
 import { queueDeps } from "../../services/durable-agent-queue.js";
 import { test } from "../../test-fixtures.js";
 
@@ -197,32 +199,14 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 		);
 		expect(res.status).toBe(200);
 
-		const base = queueDeps(db);
-		const throwingFindGrantedProposedCall = vi.fn(async () => {
-			throw new Error("zero-domain-read violation: review.findGrantedProposedCall was called");
-		});
-		const throwingGetTaskById = vi.fn(async () => {
-			throw new Error("zero-domain-read violation: work.getTaskById was called");
-		});
-		const throwingGetUserById = vi.fn(async () => {
-			throw new Error("zero-domain-read violation: users.getUserById was called");
-		});
-		const deps = {
-			...base,
-			eventBus,
-			review: { ...base.review, findGrantedProposedCall: throwingFindGrantedProposedCall },
-			work: { ...base.work, getTaskById: throwingGetTaskById },
-			users: { ...base.users, getUserById: throwingGetUserById },
-		};
+		// `DurableAgentQueueDeps` no longer HAS a `review`/`work.getTaskById`/
+		// `users.getUserById` field at all (AU21 §9 Increment 9 deleted the dead
+		// composition) — the drain can only ever hand off from the baked
+		// payload; there is no domain-read fallback left to wire a throwing spy
+		// onto.
+		const deps = { ...queueDeps(db), eventBus };
 
 		await drainIntents(deps);
-
-		// RED today: the "granted" transition never baked a request, so the
-		// drain falls through to the per-kind "reengagement" resolution, which
-		// calls all three throwing spies.
-		expect(throwingFindGrantedProposedCall.mock.calls.length).toBe(0);
-		expect(throwingGetTaskById.mock.calls.length).toBe(0);
-		expect(throwingGetUserById.mock.calls.length).toBe(0);
 
 		const [intent] = await db
 			.select()

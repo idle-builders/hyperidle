@@ -38,22 +38,19 @@ async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 	});
 }
 
+// AU21 §9 Increment 9: `conversation`/`users.getUserById`/`users.listUsersByTeam`
+// REMOVED from `DurableAgentQueueDeps` entirely — confirmed zero real call
+// sites anywhere in `@hyperidle/session-requests` (dead composition left
+// behind by this wave's own migration). `users.getUserByIdScopedToTeam` is
+// the one surviving `users` capability (backs `createTriggeredInternal`'s
+// target-agent resolution for the unrelated "triggered" kind, not exercised
+// by this test's "assistant_turn" kind) — still wired as a throwing spy below
+// so this test keeps proving it, too, is never touched by the baked path.
 function throwingDomainDeps() {
 	return {
-		conversation: {
-			getMessageById: vi.fn(async () => {
-				throw new Error("zero-domain-read violation: conversation.getMessageById was called");
-			}),
-		},
 		users: {
-			getUserById: vi.fn(async () => {
-				throw new Error("zero-domain-read violation: users.getUserById was called");
-			}),
 			getUserByIdScopedToTeam: vi.fn(async () => {
 				throw new Error("zero-domain-read violation: users.getUserByIdScopedToTeam was called");
-			}),
-			listUsersByTeam: vi.fn(async () => {
-				throw new Error("zero-domain-read violation: users.listUsersByTeam was called");
 			}),
 		},
 	};
@@ -138,7 +135,6 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 		const deps = {
 			...queueDeps(db),
 			eventBus,
-			conversation: throwing.conversation,
 			users: throwing.users,
 		};
 
@@ -155,9 +151,10 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 
 		await drainIntents(deps);
 
-		// Zero domain reads: none of the throwing spies were ever invoked.
-		expect(throwing.conversation.getMessageById.mock.calls.length).toBe(0);
-		expect(throwing.users.getUserById.mock.calls.length).toBe(0);
+		// Zero domain reads: the one surviving spy was never invoked (the
+		// `conversation`/`users.getUserById` fields it used to also cover don't
+		// exist on the type anymore at all — the strongest possible proof).
+		expect(throwing.users.getUserByIdScopedToTeam.mock.calls.length).toBe(0);
 
 		// The baked payload was used directly to hand off a real request.
 		const [intent] = await db

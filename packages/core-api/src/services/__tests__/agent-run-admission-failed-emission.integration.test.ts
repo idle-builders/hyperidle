@@ -12,10 +12,11 @@
  *
  * This file proves ONLY the emission contract — the event fires, with the
  * right shape, for both terminal codes and the non-terminal (informational)
- * case — and that failOrRelease's own direct write is gone. All of this is
- * currently RED: `deps.eventBus` does not exist yet on `DurableAgentQueueDeps`,
- * so `failOrRelease` never emits anything, and it still performs the old
- * direct write for `routine_run`.
+ * case — and that failOrRelease's own direct write is gone (GREEN: `deps.
+ * eventBus` exists on `DurableAgentQueueDeps` and is genuinely wired; AU21 §9
+ * Increment 9 additionally deleted the dead `deps.routine` surface entirely,
+ * so there is no longer even a compile-time path back to the old direct
+ * write).
  *
  * @lore assertion note: `streamId`'s exact convention for a PRE-resolution
  * failure (the resolution itself is what's failing, so a fully-resolved
@@ -29,7 +30,7 @@
 import { agentWorkIntents, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = new Date().toISOString();
@@ -244,15 +245,14 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		db,
 		eventBus,
 	}) => {
-		const updateRoutineRunIfRunningSpy = vi.fn();
-		const deps = {
-			...queueDeps(db),
-			eventBus,
-			routine: {
-				...queueDeps(db).routine,
-				updateRoutineRunIfRunning: updateRoutineRunIfRunningSpy,
-			},
-		};
+		// AU21 §9 Increment 9: `DurableAgentQueueDeps.routine` (the
+		// `getRoutineRunById`/`getRoutineById` pair this test used to also
+		// smuggle an ad hoc `updateRoutineRunIfRunning` spy onto) is REMOVED —
+		// confirmed zero real call sites anywhere in `@hyperidle/session-
+		// requests`. There is no `deps.routine.*` surface left at all for
+		// `failOrRelease` to call into — the type system itself is now the
+		// proof the old direct write is gone, stronger than a runtime spy.
+		const deps = { ...queueDeps(db), eventBus };
 
 		const intent = await enqueueWorkIntent(db, {
 			kind: "routine_run",
@@ -268,15 +268,5 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 			.from(agentWorkIntents)
 			.where(eq(agentWorkIntents.id, intent.id));
 		expect(row?.status).toBe("failed");
-		// The old direct write is gone from failOrRelease — only a subscriber
-		// reacting to the emitted event may perform this write now (tested
-		// separately), never failOrRelease calling `deps.routine.*` inline.
-		//
-		// @lore asserting via `.mock.calls.length` (not `.toHaveBeenCalled()`):
-		// the spy's first arg is the live `db` handle (PGlite/drizzle, a huge
-		// circular object graph) — vitest's `toHaveBeenCalled()` failure-message
-		// diff tries to pretty-print the call args and OOMs the worker. A plain
-		// number comparison has no argument-serialization in its failure message.
-		expect(updateRoutineRunIfRunningSpy.mock.calls.length).toBe(0);
 	});
 });

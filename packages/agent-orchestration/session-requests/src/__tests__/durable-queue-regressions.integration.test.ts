@@ -87,23 +87,12 @@ function queueDeps(
 		config: { listConfiguration: async () => [] },
 		teams: { getTeamMembersByTeamId: async () => undefined },
 		users: {
-			getUserById: async () => undefined,
 			getUserByIdScopedToTeam: async () => undefined,
-			listUsersByTeam: async () => [],
 		},
 		work: {
-			getTaskById: async () => undefined,
-			getBetById: async () => undefined,
 			getTaskDispatchAttemptById: async () => undefined,
 			reapTerminalTaskDispatchAttempts: async () => 0,
 		},
-		routine: {
-			getRoutineRunById: async () => undefined,
-			getRoutineById: async () => undefined,
-		},
-		conversation: { getMessageById: async () => undefined },
-		review: { findGrantedProposedCall: async () => undefined },
-		knowledge: { findById: async () => null },
 	};
 }
 

@@ -1,16 +1,8 @@
 import type {
 	AgentSessionRequest,
 	AgentWorkIntent,
-	Bet,
 	ExplicitSessionStart,
 	HyperIdleDb,
-	KnowledgeItem,
-	Message,
-	ProposedCall,
-	Routine,
-	RoutineRun,
-	TailoredGrant,
-	Task,
 	TaskDispatchAttempt,
 	TeamMember,
 	User,
@@ -65,18 +57,26 @@ interface DurableQueueDeps {
 	readonly teams: {
 		getTeamMembersByTeamId(exec: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
 	};
+	/**
+	 * @lore AU21 §9 Increment 9: mirrors `DurableAgentQueueDeps.users` from
+	 * `@hyperidle/session-requests` post-shrink — `getUserById`/
+	 * `listUsersByTeam` REMOVED (confirmed zero real call sites anywhere in
+	 * that Service; dead composition left behind by an earlier increment's
+	 * migration).
+	 */
 	readonly users: {
-		getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
 		getUserByIdScopedToTeam(
 			db: HyperIdleDb,
 			id: string,
 			teamMembersId?: string,
 		): Promise<User | undefined>;
-		listUsersByTeam(exec: WriteExecutor, teamMembersId: string): Promise<User[]>;
 	};
+	/**
+	 * @lore AU21 §9 Increment 9: mirrors `DurableAgentQueueDeps.work` post-
+	 * shrink — `getTaskById`/`getBetById` REMOVED (confirmed zero real call
+	 * sites); the AU9 CAS/dedup surface (`taskDispatchAttemptStore`) stays.
+	 */
 	readonly work: {
-		getTaskById(exec: WriteExecutor, id: string): Promise<Task | undefined>;
-		getBetById(exec: WriteExecutor, id: string): Promise<Bet | undefined>;
 		getTaskDispatchAttemptById(
 			exec: WriteExecutor,
 			id: string,
@@ -87,10 +87,6 @@ interface DurableQueueDeps {
 			batchSize: number,
 		): Promise<number>;
 	};
-	readonly routine: {
-		getRoutineRunById(exec: WriteExecutor, id: string): Promise<RoutineRun | undefined>;
-		getRoutineById(exec: WriteExecutor, id: string): Promise<Routine | undefined>;
-	};
 	/**
 	 * @lore AU21 §6 Decision B4: mirrors `DurableAgentQueueDeps.eventBus` from
 	 * `@hyperidle/session-requests` (Mechanism C — this Service declares its
@@ -99,16 +95,15 @@ interface DurableQueueDeps {
 	 * never wired one keep compiling.
 	 */
 	readonly eventBus?: EventBus;
-	readonly conversation: {
-		getMessageById(exec: WriteExecutor, id: string): Promise<Message | undefined>;
-	};
-	readonly review: {
-		findGrantedProposedCall(
-			exec: WriteExecutor,
-			id: string,
-		): Promise<{ call: ProposedCall; grant: TailoredGrant } | undefined>;
-	};
-	readonly knowledge: { findById(exec: WriteExecutor, id: string): Promise<KnowledgeItem | null> };
+	/**
+	 * @lore AU21 §9 Increment 9: `conversation`/`review`/`routine`/`knowledge`
+	 * groups REMOVED in their entirety, mirroring `DurableAgentQueueDeps`'s own
+	 * shrink — confirmed zero real call sites anywhere in
+	 * `@hyperidle/session-requests` (each family's real resolve-at-emit
+	 * migration, architecture.md §9 Increment 3, already deleted the call
+	 * sites; this structural-mirror wiring was simply never cleaned up
+	 * alongside it).
+	 */
 }
 
 type RunOrchestrationTerminationReason =

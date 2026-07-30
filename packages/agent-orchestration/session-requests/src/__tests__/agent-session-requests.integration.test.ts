@@ -406,26 +406,15 @@ describe("agent session request repository", () => {
 				},
 				explicitSessionStarts: { projectTerminalState: async () => {} },
 			},
-			review: { findGrantedProposedCall: async () => undefined },
-			routine: {
-				getRoutineRunById: async () => undefined,
-				getRoutineById: async () => undefined,
-			},
 			config: { listConfiguration: async () => [] },
 			teams: { getTeamMembersByTeamId: async () => undefined },
 			users: {
-				getUserById: async () => undefined,
 				getUserByIdScopedToTeam: async () => undefined,
-				listUsersByTeam: async () => [],
 			},
 			work: {
-				getTaskById: async () => undefined,
-				getBetById: async () => undefined,
 				getTaskDispatchAttemptById: async () => undefined,
 				reapTerminalTaskDispatchAttempts: async () => 0,
 			},
-			conversation: { getMessageById: async () => undefined },
-			knowledge: { findById: async () => null },
 		};
 		await Promise.all([
 			drainIntents(deps, { maxAttempts: 1 }),
