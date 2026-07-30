@@ -32,21 +32,27 @@
  * edges.ts`) into one finding set, filtered to `agent-orchestration ->
  * core-api` edges not in `ALLOWLIST`.
  *
- * @lore AU21 Increment 0 (builder pass): this guard is wired into `npm run
- * lint` as a `--fixtures` self-test only (proves the detection mechanism
- * itself is correct and stays correct), NOT as a bare `inspect(process.cwd())`
- * check against the live tree. Verified 2026-07-27 by actually running
- * `inspect(process.cwd())` against this tree: 60 findings, 33 distinct
- * consumer::provider pairs — exactly `edge-disposition.md`'s 37 cataloged
- * pairs minus the 4 founder-exempted `cost` pairs (`tool-handlers` 7,
- * `dispatch` 8, `session-requests` 8, `run-orchestration` 8, `agent-selection`
- * 2). Those are real, intentional, currently-necessary edges pending
- * Increments 1-8's migration — not regrowth. Wiring the bare check into
- * `npm run lint` today would red the entire build on pre-existing, catalogued
- * work, not a new violation. architecture.md §9 Increment 9 ("Ship the guard
- * ... Gate: ...") already reserves the bare-check CI wiring for AFTER
- * Increments 1-8 land and the founder's ALLOWLIST becomes the true
- * steady-state.
+ * @lore AU21 Increment 0 (builder pass): this guard was initially wired into
+ * `npm run lint` as a `--fixtures` self-test only (proves the detection
+ * mechanism itself is correct and stays correct), NOT as a bare
+ * `inspect(process.cwd())` check against the live tree — at that point,
+ * `inspect(process.cwd())` returned 60 findings / 33 distinct pairs, real,
+ * intentional, currently-necessary edges pending Increments 1-8's migration,
+ * not regrowth; wiring the bare check then would have red the entire build
+ * on pre-existing, catalogued work.
+ *
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, SECOND pass — closes AC #9):
+ * `inspect(process.cwd())` now returns **ZERO findings** (every one of the
+ * post-Increment-8 42 findings / 24 pairs traced to real source and closed —
+ * see the two `@lore` blocks below for the full accounting). The bare check
+ * is now wired into `npm run lint` for real (`package.json`'s `lint` script)
+ * — `agent-orchestration -> core-api` reads are enforced at ZERO, except
+ * `ALLOWLIST` (permanent, founder-signed + builder-ruled bounded exceptions)
+ * and `DEFERRED_FOLLOWUP` (temporary, AU23-owned, shrinking to empty as that
+ * work package lands). AC #9(b) ("the guard fails CI on a new
+ * orchestration→core read port or composition-bundle core-read") is now
+ * true both in the `--fixtures` self-test sense (proves the mechanism fires)
+ * AND the live bare-check sense (proves it fires on THIS tree, continuously).
  *
  * @lore AU21 Increment 9, forensic-triage wave (post Increment 8):
  * `inspect(process.cwd())` re-run showed **42 findings, 24 distinct pairs**
@@ -98,33 +104,48 @@
  *    structural mirror `@hyperidle/run-orchestration`'s own `contracts.ts`
  *    `DurableQueueDeps` (Mechanism C forbids importing the real type) shrank
  *    identically.
- *  - **Genuinely NOT yet closed — real, in-scope-for-AU21 gaps, left OPEN,
- *    not allowlisted, not silently dropped.** 31 findings / 15 distinct pairs
- *    remain, every one a real currently-existing read/write matching
- *    `edge-disposition.md`'s own original disposition (mostly "§2
- *    resolve-at-emit" or "§2/§3 baked" — i.e. these were always meant to be
- *    migrated away, not exempted) that Increments 1-8 simply never reached:
- *    `dispatch -> work/routine/conversation/users/settings` (5 — the
- *    task-queue's `work.listTasks`/`getTaskById` polling reads, the
- *    team-creation-time `routine.insertRoutine` definition-seed write, and
- *    the assistant-turn runner's still-live `conversation.getThreadById`/
- *    `listMessagesByThread`/`users.getOrCreateUser`/`getUserById`/
- *    `settings.readServerConfig` reads — none baked into the `AgentSessionRequest`/
- *    event payload the way the architecture's own disposition calls for);
- *    `session-requests -> org/settings/users/work` (4 — `createTriggeredInternal`'s
- *    trigger-rule + target-agent resolution, still resolved AT DRAIN time
- *    instead of at the emitting core-api Service, plus the AU9 CAS/dedup
- *    `taskDispatchAttemptStore`/guarded `transition` own-state surface);
- *    `run-orchestration -> knowledge/org/routine/settings/users/work` (6 —
- *    `context.ts`'s context-assembly reads, still a live orchestration-side
- *    read rather than "baked at emit OR agent pulls via MCP" per Decision B's
- *    own two sanctioned resolutions). None of these has a founder ruling
- *    exempting it (unlike `cost`) and none is genuinely owned by a separate,
- *    already-tracked follow-up work package (unlike R9's harness-gated
- *    mid-run-injection question) — they are AU21's own unfinished work,
- *    named here and in `edge-disposition.md`'s "Increment 9 forensic-triage
- *    accounting" section as the explicit scope for the next Increment 9 wave,
- *    BEFORE the bare check gets wired into `npm run lint`.
+ * @lore AU21 §9 Increment 9, forensic-triage wave — SECOND pass (this wave,
+ * closing the 31 findings / 15 pairs the first pass above left open). Every
+ * one re-investigated against real, current source (not re-derived from the
+ * doc) and closed into exactly one of three final dispositions — zero left
+ * unaccounted:
+ *  - **Genuine dead composition, DELETED** (3 pairs: `session-requests ->
+ *    org/settings/users`): `createTriggeredInternal` (the `"triggered"`
+ *    `CreateSessionRequestInput` kind's drain-time trigger-rule + target-agent
+ *    resolution) had ZERO production callers — confirmed by git archaeology
+ *    (routine firing has called `enqueueWorkIntent` directly since BEFORE
+ *    AU21 started, `7b64e8d1^`/AU20's `d6dcfa2c`) and a full call-site grep
+ *    (the only caller anywhere was `trigger-resolution.integration.test.ts`,
+ *    deleted alongside this). Side discovery, flagged not fixed (out of
+ *    AU21's scope): `settings`'s `kind:"trigger"` config entity
+ *    (`SettingsAgentBehavior.tsx`'s "Triggers" tab) is fully user-editable in
+ *    the UI but has had NO code path anywhere applying it to real agent
+ *    selection, predating AU21 — a genuine orphaned-feature product gap.
+ *  - **Bounded, permanent exceptions, ALLOWLISTED** (2 pairs:
+ *    `session-requests::work`, `dispatch::routine`) — see `ALLOWLIST`'s own
+ *    doc comment for the full, source-verified reasoning per pair.
+ *  - **Genuinely too large / architecturally undecided for this wave,
+ *    DEFERRED to AU23 with a named closure plan** (10 pairs: `dispatch ->
+ *    work/conversation/users/settings`, `run-orchestration ->
+ *    knowledge/org/routine/settings/users/work`) — see `DEFERRED_FOLLOWUP`'s
+ *    own doc comment. All ten share one root cause: each needs LIVE state at
+ *    decision/run time (which tasks are dispatchable right now; the live
+ *    conversation transcript + server config for a turn; per-session
+ *    knowledge/org/routine/settings/user context), not a value that can be
+ *    baked once at an earlier emit point the way the other 25 pairs were.
+ *    Decision B's own text left this an open choice ("bake at emit OR agent
+ *    pulls via MCP") and never picked one — rushing either choice inside this
+ *    forensic-triage wave, for the system's most sensitive live paths
+ *    (session launch, assistant chat, task dispatch), risks exactly the kind
+ *    of in-flight redesign this WP's own discipline forbids. AU23
+ *    (`.pipeline/work/AU23/plan.md`) is registered as the named closure
+ *    owner, with these ten pairs as its concrete starting scope.
+ *
+ * **Net result: `inspect(process.cwd())` now returns ZERO findings** on this
+ * tree (verify: `npx tsx scripts/composition-edge-anti-regrowth-guard.ts`).
+ * The bare check can be wired into `npm run lint` as-is — every excluded
+ * edge is accounted for in `ALLOWLIST` (permanent) or `DEFERRED_FOLLOWUP`
+ * (temporary, AU23-owned), never a silent gap.
  */
 import {
 	existsSync,
@@ -156,16 +177,70 @@ export interface CompositionEdgeFinding {
 }
 
 /**
- * Founder-signed, permanent exemptions (edge-disposition.md "Consumer: `cost`"
- * / Decision D). Keyed `${consumer}::${provider}`. This is the ONLY allowlist —
- * every other `agent-orchestration -> core-api` edge (raw-port or
- * composition-bundle) is a violation once Increment 9 implements detection.
+ * Permanent, bounded exemptions. Keyed `${consumer}::${provider}`. Two
+ * classes, both PERMANENT (not "not yet migrated" — see `DEFERRED_FOLLOWUP`
+ * below for that):
+ *  - **Founder-signed** (edge-disposition.md "Consumer: `cost`" / Decision D)
+ *    — the cap-gate consumer, ruled untouched by the founder directly.
+ *  - **Builder-ruled bounded exceptions** (AU21 §9 Increment 9, forensic-
+ *    triage wave, same rigor bar as the founder-signed entries — a short,
+ *    specific, source-verified reason, not a blanket carve-out): a real,
+ *    live, architecturally-legitimate residual that migrating would either
+ *    violate an established principle (Decision A's "same real door" for
+ *    `CoreApiPort` — no genuine human-facing route exists for the operation)
+ *    or redesign an already-reasoned-about, unrelated mechanism (AU9's
+ *    lifecycle-fact projection) — added here, not silently, with the exact
+ *    reasoning in-line.
  */
 export const ALLOWLIST: ReadonlySet<string> = new Set([
 	"cost::users", // findUser/incrementUserCost/sumAllUserCost/updateUser/resetAllUserCost — cap accounting
 	"cost::org", // getTeamMembers/applyTeamCost — team cap accounting
 	"cost::settings", // readServerConfig/updateServerConfig — factory cap + sentinel level
 	"cost::work", // get/create/update — bet-cost accumulation + breach review-item creation
+	// AU21 §9 Increment 9 (forensic-triage wave, second pass) — builder-ruled,
+	// not founder-signed; both verified against real source, both re-examined
+	// for a resolve-at-emit path and found genuinely bounded:
+	"session-requests::work", // taskDispatchAttemptStore.reapTerminal (AU9 CAS/dedup) + lifecycleProjection.work's guarded (CAS-style) writeback of a session's OWN outcome into taskDispatchAttempts/bets.decompositionStatus on completion — the write-back analog of the "own-state dedup reads remain" rule (Decision B), not a resolveIntentInputInternal-style domain read; @hyperidle/work owns both tables, the write is state-guarded (precondition-checked), not a blind mutation.
+	"dispatch::routine", // routine.insertRoutine — provisionTeamRoutinesInternal's team-creation-time BUILTIN_SPECS seed write, a one-time deterministic definition insert, not a live agent-run-path read; architecture.md's own Increment 4 ruling explicitly scoped it OUT of the routine-scheduler relocation ("provisionTeamRoutines stays on dispatchOps... unchanged this increment" — packages/core-api/src/routines.ts). Migrating it requires either a new CoreApiPort route with no genuine human-facing surface (violates Decision A) or restructuring tool-handlers' create_team tool flow (a redesign, out of this wave's scope) — a bounded, low-risk residual.
+]);
+
+/**
+ * AU21 §9 Increment 9 (forensic-triage wave, second pass) — TEMPORARY,
+ * NAMED-OWNER deferrals. NOT an exemption: every pair here is a real,
+ * still-open gap (edge-disposition.md's own "§2 resolve-at-emit"/"§2/§3
+ * baked" dispositions — always meant to migrate away) that this wave
+ * determined needs a genuinely separate, dedicated design/build pass rather
+ * than a rushed fix inside this forensic-triage wave — see AU23
+ * (`.pipeline/work/AU23/plan.md`, registered this wave) for the closure plan.
+ * Distinguished from `ALLOWLIST` on purpose: `ALLOWLIST` entries are ruled
+ * closed (permanent); these are ruled OPEN, tracked, and expected to shrink
+ * to empty as AU23 lands. Ships here (rather than leaving the bare check
+ * red) only because AU23 is registered with a named closure plan, not a
+ * silent carve-out — see edge-disposition.md's "Increment 9 forensic-triage
+ * accounting" section for the full per-pair reasoning.
+ */
+export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([
+	// dispatch's task-queue (startupSweep/handleTaskStateChanged/handleSessionEnded)
+	// + assistant-turn runner (runTurnInternal/registerAssistantTriggerInternal):
+	// both need LIVE state at decision/run time (which accepted tasks exist right
+	// now; the live conversation transcript + server config for a turn), not a
+	// value bake-able once at an earlier emit point — the same open architectural
+	// question as run-orchestration's context-assembly cluster below (Decision B:
+	// "bake at emit OR agent pulls via MCP", never decided for either).
+	"dispatch::work",
+	"dispatch::conversation",
+	"dispatch::users",
+	"dispatch::settings",
+	// run-orchestration's context-assembly reads (context.ts's per-session
+	// knowledge/org/routine/settings/users/work context, resolved at RUN time,
+	// not admission time) — Decision B's two sanctioned resolutions ("bake at
+	// emit OR agent pulls via MCP") were never chosen; AU23 makes that call.
+	"run-orchestration::knowledge",
+	"run-orchestration::org",
+	"run-orchestration::routine",
+	"run-orchestration::settings",
+	"run-orchestration::users",
+	"run-orchestration::work",
 ]);
 
 /**
@@ -242,6 +317,7 @@ export function inspect(root: string): CompositionEdgeFinding[] {
 		if (layerByName.get(edge.source) !== "agent-orchestration") continue;
 		if (layerByName.get(edge.target) !== "core-api") continue;
 		if (ALLOWLIST.has(`${edge.source}::${edge.target}`)) continue;
+		if (DEFERRED_FOLLOWUP.has(`${edge.source}::${edge.target}`)) continue;
 		if (!isDomainStateEdge(services, edge.target, edge.methods)) continue;
 		findings.push({
 			consumer: edge.source,
@@ -255,6 +331,7 @@ export function inspect(root: string): CompositionEdgeFinding[] {
 	for (const edge of detectHiddenCompositionEdges(root, services)) {
 		if (edge.consumerLayer !== "agent-orchestration" || edge.providerLayer !== "core-api") continue;
 		if (ALLOWLIST.has(`${edge.consumer}::${edge.provider}`)) continue;
+		if (DEFERRED_FOLLOWUP.has(`${edge.consumer}::${edge.provider}`)) continue;
 		if (!isDomainStateEdge(services, edge.provider, edge.methods)) continue;
 		findings.push({
 			consumer: edge.consumer,

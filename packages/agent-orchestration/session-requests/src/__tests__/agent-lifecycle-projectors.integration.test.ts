@@ -56,13 +56,11 @@ function queueDeps(
 	return {
 		db,
 		lifecycleProjection,
-		config: { listConfiguration: async () => [] },
-		teams: { getTeamMembersByTeamId: async () => undefined },
-		users: {
-			getUserByIdScopedToTeam: async () => undefined,
-		},
+		// AU21 §9 Increment 9 (forensic-triage wave, second pass): `config`/
+		// `teams`/`users` REMOVED from `DurableAgentQueueDeps` entirely —
+		// their one consumer, `createTriggeredInternal`, is deleted. `work`
+		// shrinks to its one genuinely-live method.
 		work: {
-			getTaskDispatchAttemptById: async () => undefined,
 			reapTerminalTaskDispatchAttempts: async () => 0,
 		},
 	};

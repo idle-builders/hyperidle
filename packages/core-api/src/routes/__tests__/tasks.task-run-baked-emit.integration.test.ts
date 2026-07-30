@@ -185,24 +185,14 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 				.from(taskDispatchAttempts)
 				.where(eq(taskDispatchAttempts.taskId, "task-au21-trun-2"));
 
-			const base = queueDeps(db);
-			const throwingGetTaskById = vi.fn(async () => {
-				throw new Error("zero-domain-read violation: work.getTaskById was called");
-			});
-			const throwingGetUserById = vi.fn(async () => {
-				throw new Error("zero-domain-read violation: users.getUserById was called");
-			});
-			const deps = {
-				...base,
-				eventBus,
-				work: { ...base.work, getTaskById: throwingGetTaskById },
-				users: { ...base.users, getUserById: throwingGetUserById },
-			};
+			// Zero domain reads: `DurableAgentQueueDeps` (AU21 §9 Increment 9,
+			// forensic-triage wave) no longer HAS a `work.getTaskById`/
+			// `users.getUserById` field at all — the type system itself makes
+			// the old per-kind "task_run" resolution read unreachable, strictly
+			// stronger than a runtime spy.
+			const deps = { ...queueDeps(db), eventBus };
 
 			await drainIntents(deps);
-
-			expect(throwingGetTaskById.mock.calls.length).toBe(0);
-			expect(throwingGetUserById.mock.calls.length).toBe(0);
 
 			const [intent] = await db
 				.select()
@@ -377,24 +367,14 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 				.from(taskDispatchAttempts)
 				.where(eq(taskDispatchAttempts.taskId, "task-au21-trun-4"));
 
-			const base = queueDeps(db);
-			const throwingGetTaskById = vi.fn(async () => {
-				throw new Error("zero-domain-read violation: work.getTaskById was called");
-			});
-			const throwingGetUserById = vi.fn(async () => {
-				throw new Error("zero-domain-read violation: users.getUserById was called");
-			});
-			const deps = {
-				...base,
-				eventBus,
-				work: { ...base.work, getTaskById: throwingGetTaskById },
-				users: { ...base.users, getUserById: throwingGetUserById },
-			};
+			// Zero domain reads: `DurableAgentQueueDeps` (AU21 §9 Increment 9,
+			// forensic-triage wave) no longer HAS a `work.getTaskById`/
+			// `users.getUserById` field at all — the type system itself makes
+			// the old per-kind "task_run" resolution read unreachable, strictly
+			// stronger than a runtime spy.
+			const deps = { ...queueDeps(db), eventBus };
 
 			await drainIntents(deps);
-
-			expect(throwingGetTaskById.mock.calls.length).toBe(0);
-			expect(throwingGetUserById.mock.calls.length).toBe(0);
 
 			const [intent] = await db
 				.select()

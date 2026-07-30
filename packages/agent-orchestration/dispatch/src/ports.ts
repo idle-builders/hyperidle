@@ -33,6 +33,14 @@ import type {
  * (routine *definition* seeding at team-creation time, out of this
  * increment's relocate-list) is dispatch's one remaining direct `routine`
  * table write.
+ *
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): this write
+ * is now a settled, permanent, bounded exception — see
+ * `scripts/composition-edge-anti-regrowth-guard.ts`'s `ALLOWLIST` entry
+ * `dispatch::routine` for the full reasoning (a one-time, deterministic,
+ * team-creation-time seed write; migrating it would violate Decision A's
+ * "same real door" `CoreApiPort` principle or require redesigning
+ * `tool-handlers`' `create_team` flow). Not an open question anymore.
  */
 export interface DispatchPorts {
 	readonly work: {

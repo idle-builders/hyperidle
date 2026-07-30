@@ -24,7 +24,7 @@
 import { agentSessionRequests, agentWorkIntents, type HyperIdleDb, users } from "@hyperidle/db";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
 
 async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
@@ -36,24 +36,6 @@ async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 		status: "active",
 		createdAt: new Date().toISOString(),
 	});
-}
-
-// AU21 §9 Increment 9: `conversation`/`users.getUserById`/`users.listUsersByTeam`
-// REMOVED from `DurableAgentQueueDeps` entirely — confirmed zero real call
-// sites anywhere in `@hyperidle/session-requests` (dead composition left
-// behind by this wave's own migration). `users.getUserByIdScopedToTeam` is
-// the one surviving `users` capability (backs `createTriggeredInternal`'s
-// target-agent resolution for the unrelated "triggered" kind, not exercised
-// by this test's "assistant_turn" kind) — still wired as a throwing spy below
-// so this test keeps proving it, too, is never touched by the baked path.
-function throwingDomainDeps() {
-	return {
-		users: {
-			getUserByIdScopedToTeam: vi.fn(async () => {
-				throw new Error("zero-domain-read violation: users.getUserByIdScopedToTeam was called");
-			}),
-		},
-	};
 }
 
 describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)", () => {
@@ -131,12 +113,7 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 			status: "active",
 			createdAt: new Date().toISOString(),
 		});
-		const throwing = throwingDomainDeps();
-		const deps = {
-			...queueDeps(db),
-			eventBus,
-			users: throwing.users,
-		};
+		const deps = { ...queueDeps(db), eventBus };
 
 		await enqueueWorkIntent(db, {
 			kind: "assistant_turn",
@@ -151,10 +128,12 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 
 		await drainIntents(deps);
 
-		// Zero domain reads: the one surviving spy was never invoked (the
-		// `conversation`/`users.getUserById` fields it used to also cover don't
-		// exist on the type anymore at all — the strongest possible proof).
-		expect(throwing.users.getUserByIdScopedToTeam.mock.calls.length).toBe(0);
+		// Zero domain reads: `DurableAgentQueueDeps` (AU21 §9 Increment 9,
+		// forensic-triage wave) no longer HAS a `conversation`/`users` domain-read
+		// field at all — the type system itself makes the old per-kind
+		// resolution read unreachable, strictly stronger than a runtime spy. The
+		// assertions below (the handed-off intent + the real persisted request)
+		// are the proof that the baked payload was used directly.
 
 		// The baked payload was used directly to hand off a real request.
 		const [intent] = await db

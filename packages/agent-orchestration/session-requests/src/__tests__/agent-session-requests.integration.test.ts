@@ -406,13 +406,7 @@ describe("agent session request repository", () => {
 				},
 				explicitSessionStarts: { projectTerminalState: async () => {} },
 			},
-			config: { listConfiguration: async () => [] },
-			teams: { getTeamMembersByTeamId: async () => undefined },
-			users: {
-				getUserByIdScopedToTeam: async () => undefined,
-			},
 			work: {
-				getTaskDispatchAttemptById: async () => undefined,
 				reapTerminalTaskDispatchAttempts: async () => 0,
 			},
 		};

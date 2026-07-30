@@ -4,9 +4,6 @@ import type {
 	AgentWorkIntent,
 	ExplicitSessionStart,
 	HyperIdleDb,
-	TaskDispatchAttempt,
-	TeamMember,
-	User,
 	WriteExecutor,
 } from "@hyperidle/db";
 import {
@@ -21,19 +18,13 @@ import type {
 	AgentSessionRequestInput,
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
-	ConfigurationKind,
 	EventBus,
-	ResolvedConfigurationItem,
-	TriggerEventType,
-	TriggerResolutionResult,
 } from "@hyperidle/shared";
 import {
 	agentSessionRequestInputSchema,
 	isAgentWorkIntentKind,
 	isAgentWorkIntentSourceKind,
-	isTriggerEventType,
 	reportAdmissionFailure,
-	TriggerRuleValueSchema,
 } from "@hyperidle/shared";
 import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 
@@ -1255,152 +1246,6 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	proposed_call: "proposed_call",
 };
 
-async function createTriggeredInternal(
-	db: HyperIdleDb,
-	input: Extract<CreateSessionRequestInput, { kind: "triggered" }>["request"],
-	deps: DurableAgentQueueDeps,
-): Promise<{
-	readonly request: AgentSessionRequest;
-	readonly resolution?: TriggerResolutionResult;
-}> {
-	const existing = await findRequestIdentityInternal(db, {
-		sourceKind: input.sourceKind,
-		sourceId: input.sourceId,
-		idempotencyKey: input.idempotencyKey,
-	});
-	if (existing) return { request: existing };
-	if (!isTriggerEventType(input.eventType))
-		throw new Error(`Unknown trigger event type: ${input.eventType}`);
-	const entries = await deps.config.listConfiguration(db, { kind: "trigger" });
-	const candidates = entries
-		.filter((entry) => entry.active)
-		.flatMap((entry) => {
-			const parsed = TriggerRuleValueSchema.safeParse(entry.activeValue);
-			if (!parsed.success) return [];
-			const rule = parsed.data;
-			if (rule.eventType !== input.eventType || rule.sourceKind !== input.sourceKind) return [];
-			if (rule.scope?.sourceId !== undefined && rule.scope.sourceId !== input.sourceId) return [];
-			if (rule.scope?.teamId !== undefined && rule.scope.teamId !== input.teamId) return [];
-			if (rule.scope?.userId !== undefined && rule.scope.userId !== input.userId) return [];
-			const specificity =
-				(rule.scope?.sourceId ? 4 : 0) +
-				(rule.scope?.teamId ? 2 : 0) +
-				(rule.scope?.userId ? 1 : 0);
-			return [{ entry, rule, specificity }];
-		})
-		.sort(
-			(left, right) =>
-				right.specificity - left.specificity ||
-				(right.rule.priority ?? 0) - (left.rule.priority ?? 0) ||
-				left.entry.key.localeCompare(right.entry.key),
-		);
-	const selected = candidates[0];
-	const chosenAgentId =
-		input.sourceKind === "proposed_call"
-			? input.defaultAgentId
-			: (selected?.rule.agentId ?? input.defaultAgentId);
-	const resolution: TriggerResolutionResult = {
-		eventType: input.eventType,
-		sourceKind: input.sourceKind,
-		sourceId: input.sourceId,
-		triggerKey: selected?.entry.key ?? null,
-		triggerSource: selected?.entry.valueSource ?? "fallback",
-		result: selected ? "matched" : "fallback",
-		chosenAgentId,
-		prompt: selected?.rule.prompt ?? null,
-		promptSource: selected?.rule.prompt
-			? `${selected.entry.valueSource}:${selected.entry.key}`
-			: null,
-		conflicts: candidates.slice(1).map((candidate) => candidate.entry.key),
-		deterministicOrder: candidates.map((candidate) => candidate.entry.key),
-		reason:
-			input.sourceKind === "proposed_call" && selected
-				? "matched_trigger_preserved_granted_agent"
-				: selected
-					? "matched_trigger"
-					: "no_matching_trigger",
-	};
-	const membership = input.teamId
-		? await deps.teams.getTeamMembersByTeamId(db, input.teamId)
-		: undefined;
-	const agent = await deps.users.getUserByIdScopedToTeam(db, chosenAgentId, membership?.id);
-	if (!agent || agent.kind !== "ai" || !["active", "idle"].includes(agent.status)) {
-		const failed: TriggerResolutionResult = {
-			...resolution,
-			result: "failed",
-			triggerSource: "failed",
-			chosenAgentId: null,
-			prompt: null,
-			promptSource: null,
-			reason: "ineligible_agent",
-		};
-		await db
-			.insert(triggerResolutionHistory)
-			.values({
-				id: randomUUID(),
-				sourceKind: input.sourceKind,
-				sourceId: input.sourceId,
-				streamId: input.streamId,
-				eventType: input.eventType,
-				result: "failed",
-				triggerKey: failed.triggerKey,
-				triggerSource: "failed",
-				chosenAgentId: null,
-				promptSource: null,
-				requestId: null,
-				resolutionJson: JSON.stringify(failed),
-				createdAt: new Date().toISOString(),
-			})
-			.onConflictDoNothing();
-		throw new Error(`Trigger resolution chose ineligible agent for ${input.eventType}`);
-	}
-	const payload = {
-		...(input.payload ?? {}),
-		...(selected
-			? {
-					trigger: {
-						key: selected.entry.key,
-						source: selected.entry.valueSource,
-						...(selected.rule.prompt ? { prompt: selected.rule.prompt } : {}),
-					},
-				}
-			: {}),
-	};
-	const requestInput = agentSessionRequestInputSchema.parse({
-		sourceKind: input.sourceKind,
-		sourceId: input.sourceId,
-		streamId: input.streamId,
-		agentId: chosenAgentId,
-		teamId: input.teamId,
-		userId: input.userId,
-		taskId: input.taskId,
-		promptMode: PROMPT_MODE_BY_SOURCE[input.sourceKind],
-		idempotencyKey: input.idempotencyKey,
-		payloadJson: Object.keys(payload).length ? JSON.stringify(payload) : undefined,
-		sourceCorrelation: input.buildSourceCorrelation?.(resolution) ?? input.sourceCorrelation,
-	});
-	const request = await insertRequestInternal(db, requestInput);
-	await db
-		.insert(triggerResolutionHistory)
-		.values({
-			id: randomUUID(),
-			sourceKind: input.sourceKind,
-			sourceId: input.sourceId,
-			streamId: input.streamId,
-			eventType: input.eventType,
-			result: resolution.result,
-			triggerKey: resolution.triggerKey,
-			triggerSource: resolution.triggerSource,
-			chosenAgentId,
-			promptSource: resolution.promptSource,
-			requestId: request.id,
-			resolutionJson: JSON.stringify(resolution),
-			createdAt: new Date().toISOString(),
-		})
-		.onConflictDoNothing();
-	return { request, resolution };
-}
-
 /**
  * AU21 §6 Decision B / §10 — the emit-time-resolved request a migrated
  * family's core-api resolver produces: the exact shape
@@ -1443,6 +1288,27 @@ export type WorkIntentInput = {
 	/** See `BakedWorkIntentRequest`. Absent for a not-yet-migrated kind (`routine_run` only, by the end of Increment 3). */
 	readonly bakedRequest?: BakedWorkIntentRequest;
 };
+/**
+ * @lore AU21 §9 Increment 9: the `"triggered"` kind (trigger-rule config
+ * matching against `settings`'s `kind:"trigger"` entries, target-agent
+ * resolution) REMOVED — confirmed via git archaeology + a full production
+ * call-site grep that `createTriggeredInternal` (this variant's only
+ * consumer) had ZERO real callers: routine firing has called
+ * `enqueueWorkIntent` directly since before AU21 even started (verified at
+ * `7b64e8d1^`'s dispatch/service.ts and AU20's original session-requests
+ * rewrite, `d6dcfa2c`), and every other family's real resolve-at-emit
+ * migration (architecture.md §9 Increment 3) bakes straight onto
+ * `enqueueWorkIntent` too. The ONLY caller anywhere in the repo was
+ * `packages/core-api/src/__tests__/trigger-resolution.integration.test.ts`
+ * (deleted alongside this) — test-only-reachable code is dead code (see
+ * `.claude` rule: tests/stories never count as production reachability).
+ * `settings`'s `kind:"trigger"` config entity (`SettingsAgentBehavior.tsx`'s
+ * "Triggers" tab, `agent-behavior-config-impl.ts`) remains fully editable in
+ * the UI but — confirmed by this same archaeology — has had NO code path
+ * anywhere that reads it to affect real agent selection, pre-dating AU21.
+ * That is a genuine, pre-existing, orphaned-feature product gap, out of
+ * AU21's boundary-seam scope; flagged for founder attention, not fixed here.
+ */
 export type CreateSessionRequestInput =
 	| { readonly kind: "direct"; readonly request: AgentSessionRequestInput }
 	| {
@@ -1454,25 +1320,6 @@ export type CreateSessionRequestInput =
 				readonly requestedModelTier?: string;
 				readonly taskId: string;
 				readonly idempotencyKey: string;
-			};
-	  }
-	| {
-			readonly kind: "triggered";
-			readonly request: {
-				readonly eventType: TriggerEventType;
-				readonly sourceKind: AgentSessionSourceKind;
-				readonly sourceId: string;
-				readonly streamId: string;
-				readonly defaultAgentId: string;
-				readonly idempotencyKey: string;
-				readonly sourceCorrelation: AgentSessionSourceCorrelation;
-				readonly buildSourceCorrelation?: (
-					resolution: TriggerResolutionResult,
-				) => AgentSessionSourceCorrelation;
-				readonly teamId?: string;
-				readonly userId?: string;
-				readonly taskId?: string | null;
-				readonly payload?: Record<string, unknown>;
 			};
 	  };
 export type FindQuery =
@@ -1598,45 +1445,25 @@ export interface DurableAgentQueueDeps {
 			): Promise<void>;
 		};
 	};
-	readonly config: {
-		listConfiguration(
-			db: HyperIdleDb,
-			filter: { readonly kind?: ConfigurationKind; readonly key?: string },
-		): Promise<ResolvedConfigurationItem[]>;
-	};
-	readonly teams: {
-		getTeamMembersByTeamId(exec: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
-	};
 	/**
-	 * @lore AU21 §9 Increment 9: `getUserById`/`listUsersByTeam` REMOVED —
-	 * confirmed zero real call sites anywhere in this file (only
-	 * `getUserByIdScopedToTeam`, `createTriggeredInternal`'s target-agent
-	 * resolution, is ever actually invoked). Dead composition wiring left
-	 * behind by an earlier increment's migration; deleted rather than kept as
-	 * unreachable surface — `durable-agent-queue.ts`'s `queueDeps` shrinks to
-	 * match.
-	 */
-	readonly users: {
-		getUserByIdScopedToTeam(
-			db: HyperIdleDb,
-			id: string,
-			teamMembersId?: string,
-		): Promise<User | undefined>;
-	};
-	/**
-	 * @lore AU21 §9 Increment 9: `getTaskById`/`getBetById` REMOVED — confirmed
-	 * zero real call sites anywhere in this file (`work.get`'s resolve-at-emit
-	 * disposition, edge-disposition.md's `work.get (task/bet)` row, was
-	 * already executed by an earlier increment; only the composition wiring
-	 * survived, unreachable). The AU9 CAS/dedup surface
-	 * (`taskDispatchAttemptStore`) stays — that own-state check is real and
-	 * live (`resolveIntentInputInternal`'s dedup re-check).
+	 * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): `config`
+	 * (`listConfiguration`), `teams` (`getTeamMembersByTeamId`), and `users`
+	 * (`getUserByIdScopedToTeam`) REMOVED in their entirety — their one and
+	 * only consumer, `createTriggeredInternal` (the drain-time trigger-rule +
+	 * target-agent resolution for the `"triggered"` `CreateSessionRequestInput`
+	 * kind), is deleted alongside this: confirmed via git archaeology + a full
+	 * production call-site grep that it had ZERO real callers, in AU21 or
+	 * before (see `CreateSessionRequestInput`'s own doc comment above). Also
+	 * `getTaskDispatchAttemptById` (`work`, below) — declared, never invoked
+	 * anywhere in this file (only `reapTerminalTaskDispatchAttempts` and
+	 * `lifecycleProjection.work`'s two methods are genuinely live). The AU9
+	 * CAS/dedup + lifecycle-fact-projection surface that DOES stay (`work`
+	 * below, `lifecycleProjection.work` above) is a real, live, own-domain-
+	 * adjacent writeback mechanism — see the anti-regrowth guard's
+	 * `ALLOWLIST` entry for `session-requests::work` for why this one is a
+	 * bounded exception, not a resolve-at-emit gap.
 	 */
 	readonly work: {
-		getTaskDispatchAttemptById(
-			exec: WriteExecutor,
-			id: string,
-		): Promise<TaskDispatchAttempt | undefined>;
 		reapTerminalTaskDispatchAttempts(
 			exec: WriteExecutor,
 			cutoff: string,
@@ -1668,27 +1495,14 @@ export function enqueueWorkIntent(exec: WriteExecutor, input: WorkIntentInput) {
 export function createSessionRequest(
 	exec: HyperIdleDb,
 	input: Extract<CreateSessionRequestInput, { kind: "direct" }>,
-	deps?: DurableAgentQueueDeps,
 ): Promise<AgentSessionRequest>;
 export function createSessionRequest(
 	exec: HyperIdleDb,
 	input: Extract<CreateSessionRequestInput, { kind: "explicitStart" }>,
-	deps?: DurableAgentQueueDeps,
 ): Promise<ExplicitSessionStart>;
-export function createSessionRequest(
-	exec: HyperIdleDb,
-	input: Extract<CreateSessionRequestInput, { kind: "triggered" }>,
-	deps: DurableAgentQueueDeps,
-): Promise<AgentSessionRequest>;
-export function createSessionRequest(
-	exec: HyperIdleDb,
-	input: CreateSessionRequestInput,
-	deps?: DurableAgentQueueDeps,
-) {
+export function createSessionRequest(exec: HyperIdleDb, input: CreateSessionRequestInput) {
 	if (input.kind === "direct") return insertRequestInternal(exec, input.request);
-	if (input.kind === "explicitStart") return insertStartInternal(exec, input.start);
-	if (!deps) throw new Error("Triggered session creation requires durable queue dependencies");
-	return createTriggeredInternal(exec, input.request, deps).then((result) => result.request);
+	return insertStartInternal(exec, input.start);
 }
 export function findSessionRequest(
 	exec: HyperIdleDb,

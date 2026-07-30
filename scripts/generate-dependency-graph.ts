@@ -946,9 +946,27 @@ export function detectHiddenCompositionEdges(root: string, services: readonly Se
 
 // --- 5. EventBus edges (regex scan, best-effort) -------------------------------
 
+/**
+ * AU21 §9 Increment 9 (forensic-triage wave, second pass): `.emit({type:...})`
+ * literal-scanning is blind to an EventBus emission built INSIDE a shared
+ * construction+emission helper (e.g. `reportAdmissionFailure`,
+ * `packages/shared/src/agent-run-admission.ts`) and called from a Service —
+ * `packages/shared` is a leaf every layer imports, never walked as a
+ * "Service" directory, so the literal `.emit({type:"agent_run_admission_failed"...})`
+ * inside it is invisible, and the CALL SITE (`reportAdmissionFailure(bus, {...})`)
+ * carries no `type:` literal for the regex to match either. Keyed by the
+ * helper's exported name -> the fixed event type it always constructs. Keep
+ * this short and source-verified, same bar as `ALLOWLIST`-style exemptions —
+ * add an entry only for a genuine indirection, not as a shortcut.
+ */
+const INDIRECT_EMIT_HELPERS: ReadonlyMap<string, string> = new Map([
+	["reportAdmissionFailure", "agent_run_admission_failed"],
+]);
+
 function detectEventEdges(root: string, services: readonly ServiceInfo[]): EventEdge[] {
 	const emitRe = /\.emit\(\s*\{[^}]*?type:\s*["'`]([a-zA-Z0-9_]+)["'`]/gs;
 	const onRe = /\.on\(\s*["'`]([a-zA-Z0-9_*]+)["'`]/g;
+	const indirectEmitRe = new RegExp(`\\b(${[...INDIRECT_EMIT_HELPERS.keys()].join("|")})\\(`, "g");
 
 	const emitters = new Map<string, Set<string>>(); // eventType -> Set<serviceName>
 	const subscribers = new Map<string, Set<string>>(); // eventType -> Set<serviceName>
@@ -962,6 +980,16 @@ function detectEventEdges(root: string, services: readonly ServiceInfo[]): Event
 			// biome-ignore lint/suspicious/noAssignInExpressions: standard regex-exec loop
 			while ((m = emitRe.exec(text))) {
 				const type = m[1];
+				if (!emitters.has(type)) emitters.set(type, new Set());
+				emitters.get(type)?.add(svc.name);
+			}
+			indirectEmitRe.lastIndex = 0;
+			// biome-ignore lint/suspicious/noAssignInExpressions: standard regex-exec loop
+			while ((m = indirectEmitRe.exec(text))) {
+				const helperName = m[1];
+				if (!helperName) continue;
+				const type = INDIRECT_EMIT_HELPERS.get(helperName);
+				if (!type) continue;
 				if (!emitters.has(type)) emitters.set(type, new Set());
 				emitters.get(type)?.add(svc.name);
 			}
@@ -990,6 +1018,19 @@ function detectEventEdges(root: string, services: readonly ServiceInfo[]): Event
 				const type = m[1];
 				if (!emitters.has(type)) emitters.set(type, new Set());
 				emitters.get(type)?.add("(core-api composition root)");
+			}
+			// AU21 §9 Increment 9 (forensic-triage wave, second pass): the
+			// composition root was scanned for `.emit(` but never `.on(` —
+			// `agent-run-admission-reactions.ts` (a real core-api subscriber to
+			// the new `agent_run_admission_failed` inversion) lives here, not
+			// inside a Service package dir, so it was invisible as a subscriber.
+			onRe.lastIndex = 0;
+			// biome-ignore lint/suspicious/noAssignInExpressions: standard regex-exec loop
+			while ((m = onRe.exec(text))) {
+				const type = m[1];
+				if (type === "*") continue;
+				if (!subscribers.has(type)) subscribers.set(type, new Set());
+				subscribers.get(type)?.add("(core-api composition root)");
 			}
 		}
 	}

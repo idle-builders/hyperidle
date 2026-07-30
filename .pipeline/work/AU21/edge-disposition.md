@@ -280,3 +280,72 @@ already-tracked separate follow-up (unlike R9's harness-gated mid-run-injection 
 **Closure owner for Bucket C:** a subsequent Increment 9 wave, before the bare `inspect(process.cwd())` check
 is wired into `npm run lint` (wiring it today, unresolved, would red the build on these 15 real, pre-existing,
 catalogued-but-unmigrated pairs — not a new violation). Not a separate work package.
+
+---
+
+## Increment 9 forensic-triage accounting — SECOND pass (this wave, closes Bucket C)
+
+Every one of Bucket C's 31 findings / 15 pairs re-investigated against real, current source — not re-derived
+from the table above — and closed into exactly one of three final dispositions. Zero left unaccounted.
+
+**DELETED (3 pairs: `session-requests -> org/settings/users`).** `createTriggeredInternal` (the `"triggered"`
+`CreateSessionRequestInput` kind) had **zero production callers**, confirmed two ways: (a) git archaeology —
+routine firing has called `enqueueWorkIntent` directly since BEFORE AU21 started (verified at `7b64e8d1^`'s
+`dispatch/service.ts` and AU20's own `d6dcfa2c` "session-requests: rewrite durable queue anew"), and every other
+family's real resolve-at-emit migration bakes straight onto `enqueueWorkIntent` too; (b) a full repo-wide
+call-site grep for `kind: "triggered"` found exactly one caller anywhere, ever:
+`packages/core-api/src/__tests__/trigger-resolution.integration.test.ts` (deleted alongside this — test-only
+reachable code is dead code). Deleted: `createTriggeredInternal`, the `"triggered"` `CreateSessionRequestInput`
+variant + its `createSessionRequest` overload, and `DurableAgentQueueDeps`'s now-fully-dead `config`/`teams`/
+`users` fields (plus the already-dead `work.getTaskDispatchAttemptById` sub-method, caught in the same pass).
+6 dependent test files updated (their throwing-spy "zero domain read" assertions now hold via the type system
+instead, same pattern as the first pass's Bucket B).
+
+**Side discovery, flagged not fixed (out of AU21's scope):** `settings`'s `kind:"trigger"` config entity — a
+real, user-editable UI feature (`SettingsAgentBehavior.tsx`'s "Triggers" tab, backed by `agent-behavior-config-
+impl.ts`'s PATCH route) that lets a user/plugin override which agent handles an event — has had **no code path
+anywhere** that reads it to affect real agent selection, confirmed predating AU21 (the same git archaeology
+above). This is a genuine, pre-existing, orphaned-feature product gap, unrelated to AU21's boundary-seam work.
+Flagged for founder attention; not a AU21 or AU23 concern unless separately scoped.
+
+**ALLOWLISTED (2 pairs, builder-ruled bounded exceptions — same rigor bar as the founder-signed `cost::*`
+entries, see `scripts/composition-edge-anti-regrowth-guard.ts`'s `ALLOWLIST` for the exact source-verified
+reasoning per pair):**
+- `session-requests::work` — `taskDispatchAttemptStore.reapTerminal` (AU9 CAS/dedup) + `lifecycleProjection
+  .work`'s guarded (state-precondition-checked) writeback of a session's own outcome into `taskDispatchAttempts`/
+  `bets.decompositionStatus` on completion. This resolves the prior pass's flagged ambiguity: it is the
+  write-back ANALOG of Decision B's "own-state dedup reads remain" rule, not a `resolveIntentInputInternal`-style
+  domain read — a real, live, AU9-established mechanism, not a resolve-at-emit gap.
+- `dispatch::routine` — `provisionTeamRoutinesInternal`'s `routine.insertRoutine` (team-creation-time
+  `BUILTIN_SPECS` seed write). A one-time, deterministic definition insert, not a live agent-run-path read;
+  architecture.md's own Increment 4 ruling explicitly scoped it OUT of the routine-scheduler relocation
+  (`packages/core-api/src/routines.ts`: "provisionTeamRoutines stays on dispatchOps... unchanged this
+  increment"). Migrating it would require either a new `CoreApiPort` route with no genuine human-facing surface
+  (violates Decision A's "same real door" principle) or restructuring `tool-handlers`' `create_team` tool flow
+  (a redesign, out of this wave's scope) — a bounded, low-risk residual.
+
+**DEFERRED to AU23, named closure owner, NOT allowlisted (10 pairs: `dispatch -> work/conversation/users/
+settings`, `run-orchestration -> knowledge/org/routine/settings/users/work`).** All ten share one root cause,
+confirmed by re-reading the real code (`dispatch/service.ts`'s `runTurnInternal`/`registerAssistantTriggerInternal`/
+task-queue trio, `run-orchestration/src/context.ts`'s context assembly): each needs **LIVE state at
+decision/run time** — which accepted tasks exist right now, the live conversation transcript + server config for
+an assistant turn, per-session knowledge/org/routine/settings/user context — not a value bake-able once at an
+earlier emit point the way the other 25 pairs were. Decision B's own text explicitly left this an open fork
+("bake at emit OR agent pulls via MCP") and never chose a side for `dispatch` or `run-orchestration`
+specifically (only `session-requests`'s 7 families got a settled resolution). Notable feasibility finding for
+`dispatch::work`: `@hyperidle/work`'s `task-state-machine.ts` already bakes+records a `task_run` intent
+unconditionally whenever a task transitions to `"accepted"` with an owner — meaning `dispatch`'s own task-queue
+(`startupSweep`/`handleTaskStateChanged`/`handleSessionEnded`/`drainQueue`) may be **partially or fully
+redundant**, not merely un-migrated (`drainQueue` itself never calls a session-launch function — it resolves a
+model and discards it). Rushing a bake-at-emit fix for a possibly-dead mechanism, or a redesign of live
+assistant-chat/session-launch context assembly, inside a forensic-triage wave with no dedicated test-first design
+pass, is exactly the in-flight redesign this WP's own discipline forbids. **Closure owner: AU23** (registered
+this wave, `.pipeline/work/AU23/plan.md`, `.pipeline/AU.md`) — not a silent carve-out; see
+`scripts/composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP` for the machine-enforced, temporary
+(shrinking-to-empty) exclusion that keeps the guard's bare check from redding the build on these ten named,
+tracked, owned pairs before AU23 lands.
+
+**Net result:** `inspect(process.cwd())` now returns **zero findings** (verified:
+`npx tsx scripts/composition-edge-anti-regrowth-guard.ts`). The bare check can be wired into `npm run lint`
+as-is — every excluded edge is accounted for in `ALLOWLIST` (permanent) or `DEFERRED_FOLLOWUP` (temporary,
+AU23-owned), never a silent gap.

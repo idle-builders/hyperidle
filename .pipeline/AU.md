@@ -19,6 +19,7 @@ The point is not a new harness path. The point is one contract for every agent r
 | AU20 | Challenge every Service's exposed method surface (reduce, don't just document) | backend | L | AU19 (legacy: `.pipeline/work-packages/TRACK-AU.md`) | planned |
 | AU21 | Seam the core-api ↔ agent-orchestration boundary; resolve agent-to-core coupling against it | backend | L | AU19 (legacy: `.pipeline/work-packages/TRACK-AU.md`) | **approved (founder concept-gate, 2026-07-27) — architecture locked, see `work/AU21/architecture.md`; ready for build** |
 | AU22 | Deliver a live update into an already-running agent session | backend/infra | L | AU21 | planned (registered 2026-07-27 as a named follow-up discovered during AU21's architecture — see `work/AU21/architecture.md` §16 R9 and `work/AU22/plan.md`) |
+| AU23 | Resolve agent-orchestration's remaining live-context core-api reads (dispatch task-queue/assistant-turn + run-orchestration context assembly) | backend | L | AU21 | planned (registered 2026-07-30 as a named follow-up discovered during AU21's Increment 9 forensic-triage wave — see `work/AU21/edge-disposition.md`'s "Increment 9 forensic-triage accounting" section, `scripts/composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP`, and `work/AU23/plan.md`) |
 
 ## Dependency graph
 
@@ -26,3 +27,4 @@ The point is not a new harness path. The point is one contract for every agent r
 - `AU21` → `AU19` (legacy-registered): needs the real Service boundaries, the mechanical extraction script, and the 112-capability adversarial audit's findings.
 - `AU20` and `AU21` do not depend on each other but share findings (`log_task`, duplicate-read cases) — cross-reference rather than duplicate fixes; see each plan's **Plan calls** section.
 - `AU22` → `AU21`: extends the request/supersede plumbing AU21's Decision B‴ builds (the not-yet-started-supersede and deliver-on-next-turn cases); cannot be meaningfully designed or verified until that mechanism exists and has shipped.
+- `AU23` → `AU21`: closes the ten `DEFERRED_FOLLOWUP` pairs AU21's own anti-regrowth guard names as open (dispatch task-queue/assistant-turn, run-orchestration context assembly) — cannot be scoped tighter than that list until AU21 ships. Independent of `AU22` (different capability: context-at-session-start, not mid-run delivery).

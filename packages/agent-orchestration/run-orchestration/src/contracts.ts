@@ -3,18 +3,13 @@ import type {
 	AgentWorkIntent,
 	ExplicitSessionStart,
 	HyperIdleDb,
-	TaskDispatchAttempt,
-	TeamMember,
-	User,
 	WriteExecutor,
 } from "@hyperidle/db";
 import type {
 	AgentSessionSourceKind,
-	ConfigurationKind,
 	EventBus,
 	HarnessPort,
 	HarnessRunOutput,
-	ResolvedConfigurationItem,
 	RunContextBundle,
 } from "@hyperidle/shared";
 
@@ -48,39 +43,17 @@ interface DurableQueueDeps {
 			): Promise<void>;
 		};
 	};
-	readonly config: {
-		listConfiguration(
-			db: HyperIdleDb,
-			filter: { kind?: ConfigurationKind; key?: string },
-		): Promise<ResolvedConfigurationItem[]>;
-	};
-	readonly teams: {
-		getTeamMembersByTeamId(exec: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
-	};
 	/**
-	 * @lore AU21 §9 Increment 9: mirrors `DurableAgentQueueDeps.users` from
-	 * `@hyperidle/session-requests` post-shrink — `getUserById`/
-	 * `listUsersByTeam` REMOVED (confirmed zero real call sites anywhere in
-	 * that Service; dead composition left behind by an earlier increment's
-	 * migration).
-	 */
-	readonly users: {
-		getUserByIdScopedToTeam(
-			db: HyperIdleDb,
-			id: string,
-			teamMembersId?: string,
-		): Promise<User | undefined>;
-	};
-	/**
-	 * @lore AU21 §9 Increment 9: mirrors `DurableAgentQueueDeps.work` post-
-	 * shrink — `getTaskById`/`getBetById` REMOVED (confirmed zero real call
-	 * sites); the AU9 CAS/dedup surface (`taskDispatchAttemptStore`) stays.
+	 * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): mirrors
+	 * `DurableAgentQueueDeps.work` from `@hyperidle/session-requests`
+	 * post-shrink — `config`/`teams`/`users` REMOVED entirely (their one
+	 * consumer, `createTriggeredInternal`, is deleted: confirmed zero
+	 * production callers ever existed, in AU21 or before) and
+	 * `getTaskDispatchAttemptById` REMOVED (declared, never invoked). The one
+	 * surviving method is the AU9 CAS/dedup own-state surface
+	 * (`taskDispatchAttemptStore.reapTerminal`).
 	 */
 	readonly work: {
-		getTaskDispatchAttemptById(
-			exec: WriteExecutor,
-			id: string,
-		): Promise<TaskDispatchAttempt | undefined>;
 		reapTerminalTaskDispatchAttempts(
 			exec: WriteExecutor,
 			cutoff: string,

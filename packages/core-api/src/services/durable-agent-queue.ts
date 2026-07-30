@@ -1,11 +1,9 @@
 /**
  * @lore AU19 Increment 3b: `@hyperidle/session-requests`'s
  * Composition root for the durable agent queue.
- * Durable queue transitions need injected
- * `routine`/`work`/`conversation`/`users`/`org`/`review`/
- * `trigger-resolution` ports (Mechanism C — `session-requests` never imports
- * another Service). `@hyperidle/session-requests` is the current owner of lifecycle projection.
- * This module builds
+ * Durable queue transitions need the `work` port (Mechanism C —
+ * `session-requests` never imports another Service). `@hyperidle/session-
+ * requests` is the current owner of lifecycle projection. This module builds
  * each bound singleton ONCE, at the composition root, so every real call
  * site (`agent-layer-boot.ts`, `session-lifecycle.ts`, `agent-session-runtime.ts`,
  * `routes/threads.ts`, `routes/sessions-routes.ts`, `routes/tasks.ts`,
@@ -39,29 +37,36 @@
  * @lore AU20: this composition root supplies dependencies to the unified
  * durable-queue operations; compatibility transition wrappers were deleted.
  *
- * @lore AU21 §9 Increment 9: `conversation`/`review`/`knowledge` groups and
- * `routine`, plus `users.getUserById`/`listUsersByTeam` and
- * `work.getTaskById`/`getBetById`, REMOVED — confirmed dead (zero real call
- * sites in `@hyperidle/session-requests`'s own `service.ts`; grepped before
- * removal, same verification bar as the AU21 §6 Decision F1 `agentSelection`
- * removal above). Each family's real domain read was already deleted by an
- * earlier increment's resolve-at-emit migration (architecture.md §9
- * Increment 3) — this was leftover, unreachable composition wiring nobody
- * cleaned up alongside it, caught by the anti-regrowth guard's forensic pass.
- * The surviving `work`/`users`/`teams`/`config` fields below are genuinely
- * live: `work`'s `taskDispatchAttemptStore` (the AU9 CAS/dedup own-state
- * check) and `lifecycleProjection`'s guarded transition stay; `users.
- * getUserByIdScopedToTeam`/`teams.getTeamMembersByTeamId`/`config.
- * listConfiguration` back `createTriggeredInternal`'s trigger-rule + target-
- * agent resolution — itself a real, NOT-yet-closed `§2 resolve-at-emit` gap
- * (edge-disposition.md), left open and tracked, not silently allowlisted.
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): `conversation`/
+ * `review`/`knowledge` groups and `routine`, plus `users.getUserById`/
+ * `listUsersByTeam` and `work.getTaskById`/`getBetById`, REMOVED — confirmed
+ * dead (zero real call sites in `@hyperidle/session-requests`'s own
+ * `service.ts`; grepped before removal, same verification bar as the AU21 §6
+ * Decision F1 `agentSelection` removal above). Each family's real domain read
+ * was already deleted by an earlier increment's resolve-at-emit migration
+ * (architecture.md §9 Increment 3) — this was leftover, unreachable
+ * composition wiring nobody cleaned up alongside it, caught by the
+ * anti-regrowth guard's forensic pass.
+ *
+ * **Second pass (same wave):** `config`/`teams`/`users` REMOVED in their
+ * entirety, and `getTeamMembers`/`listConfiguration`/`findUser` imports with
+ * them — their one consumer, `createTriggeredInternal` (the `"triggered"`
+ * `CreateSessionRequestInput` kind's drain-time trigger-rule + target-agent
+ * resolution), is deleted from `@hyperidle/session-requests` itself: git
+ * archaeology (`7b64e8d1^`'s `dispatch/service.ts`, AU20's `d6dcfa2c`) plus a
+ * full production call-site grep confirmed ZERO real callers ever existed,
+ * in AU21 or before — the only caller anywhere was
+ * `trigger-resolution.integration.test.ts` (deleted alongside this), and
+ * test-only-reachable code is dead code. The surviving `work` field
+ * (`reapTerminalTaskDispatchAttempts`) and `lifecycleProjection.work`'s two
+ * methods are genuinely live — the AU9 CAS/dedup own-state check +
+ * session-lifecycle-fact writeback into `work`'s own tables — a bounded,
+ * intentional exception (see the anti-regrowth guard's `ALLOWLIST` entry for
+ * `session-requests::work`), not a resolve-at-emit gap.
  */
 
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { getTeamMembers } from "@hyperidle/org";
 import { type DurableAgentQueueDeps, transitionSessionRequest } from "@hyperidle/session-requests";
-import { listConfiguration } from "@hyperidle/settings";
-import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 
 // ---------------------------------------------------------------------------
@@ -77,17 +82,8 @@ import * as work from "@hyperidle/work";
 // ---------------------------------------------------------------------------
 
 const ports = {
-	config: { listConfiguration },
 	work: {
-		getTaskDispatchAttemptById: work.taskDispatchAttemptStore.get,
 		reapTerminalTaskDispatchAttempts: work.taskDispatchAttemptStore.reapTerminal,
-	},
-	users: {
-		getUserByIdScopedToTeam: (db: HyperIdleDb, userId: string, teamId?: string) =>
-			findUser(db, teamId ? { id: userId, teamIds: [teamId] } : { id: userId }),
-	},
-	teams: {
-		getTeamMembersByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
 	},
 	lifecycleProjection: {
 		work: {

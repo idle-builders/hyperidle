@@ -175,28 +175,16 @@ describe("session_start is resolved and baked at emit time (POST /api/sessions)"
 		expect(res.status).toBe(202);
 		const body = (await res.json()) as { startId: string };
 
-		const base = queueDeps(db);
-		const throwingGetTaskById = vi.fn(async () => {
-			throw new Error("zero-domain-read violation: work.getTaskById was called");
-		});
-		const throwingGetUserById = vi.fn(async () => {
-			throw new Error("zero-domain-read violation: users.getUserById was called");
-		});
-		const deps = {
-			...base,
-			eventBus,
-			work: { ...base.work, getTaskById: throwingGetTaskById },
-			users: { ...base.users, getUserById: throwingGetUserById },
-		};
+		const deps = { ...queueDeps(db), eventBus };
 
 		await drainIntents(deps);
 
-		// RED today: the route never baked a request, so the drain falls
-		// through to the per-kind "session_start" resolution, which calls
-		// these domain reads — both throwing spies get invoked, and the
-		// intent ends up `failed`, not `handed_off`.
-		expect(throwingGetTaskById.mock.calls.length).toBe(0);
-		expect(throwingGetUserById.mock.calls.length).toBe(0);
+		// Zero domain reads: `DurableAgentQueueDeps` (AU21 §9 Increment 9,
+		// forensic-triage wave) no longer HAS a `work.getTaskById`/
+		// `users.getUserById` field at all — the type system itself makes the
+		// old per-kind "session_start" resolution read unreachable, strictly
+		// stronger than a runtime spy. The assertion below (the handed-off
+		// intent) is the proof that the baked payload was used directly.
 
 		const [intent] = await db
 			.select()
