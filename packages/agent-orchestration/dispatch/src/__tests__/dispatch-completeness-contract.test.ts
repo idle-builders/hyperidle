@@ -68,15 +68,16 @@ describe("dispatch public capability contract", () => {
 		const dispose = await ops.start({
 			db: inertDb(),
 			eventBus,
-			task: { adapterPool: {}, workspace: {}, sandboxBasePath: "/tmp/dispatch-contract" },
 		});
 
 		// AU21 §9 Increment 4: `bet_state_changed` (the builtin-routine reaction)
 		// is no longer subscribed by `dispatchOps.start` — it relocated to
 		// `@hyperidle/routine`'s `registerBuiltinRoutineHandlers`.
-		expect(new Set(subscribed)).toEqual(
-			new Set(["thread_message_appended", "task_state_changed", "session_ended"]),
-		);
+		// AU21 §9 Increment 9 (forensic-triage wave, second pass): the task-queue
+		// trigger (`task_state_changed`/`session_ended`) is gone too — the
+		// mechanism was genuinely dead (see `service.ts`'s `dispatch::work`
+		// `@lore`). `dispatch` now subscribes to exactly one event.
+		expect(new Set(subscribed)).toEqual(new Set(["thread_message_appended"]));
 		await expect(ops.start({ db: inertDb(), eventBus })).rejects.toThrow(
 			"dispatch already started",
 		);
@@ -85,15 +86,6 @@ describe("dispatch public capability contract", () => {
 		dispose();
 		const restarted = await ops.start({ db: inertDb(), eventBus });
 		restarted();
-	});
-
-	test("queue snapshots expose live state without leaking the mutable queue array", () => {
-		const ops = createDispatchOps(inertPorts());
-		const first = ops.getQueueSnapshot();
-		expect(first).toEqual({ entries: [], draining: false });
-		const second = ops.getQueueSnapshot();
-		expect(second).toEqual({ entries: [], draining: false });
-		expect(second.entries).not.toBe(first.entries);
 	});
 
 	test("cron parsing and next-match preserve named days, ranges, and strict after-time semantics", () => {

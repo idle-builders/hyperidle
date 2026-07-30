@@ -24,12 +24,22 @@
  * genuinely against-grain) are ports for the same reason, one level further
  * against the grain.
  *
- * `provisionTeamRoutinesInternal` (routine *definition* seeding, invoked from
- * team creation) and the `BUILTIN_SPECS` cron table it depends on
- * deliberately STAY in `@hyperidle/dispatch` this increment — out of this
- * wave's explicit relocate-list (a routine-definition-seeding concern, not
- * scheduling) — see `dispatch/src/service.ts`'s own note.
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass — closes the
+ * `dispatch::routine` finding for real, not allowlisted): `provisionTeamRoutines`
+ * (routine *definition* seeding, invoked from team creation) and the
+ * `BUILTIN_SPECS` cron table it depends on relocate HERE from
+ * `@hyperidle/dispatch`'s `service.ts` — the Increment 4 note above that kept
+ * it in `dispatch` "this increment" was scoped to Increment 4 only, not a
+ * permanent ruling; this is the increment that finishes it. It now calls
+ * `insertRoutine` (this package's own storage) directly — an ordinary
+ * intra-package call, not a `DispatchPorts.routine` cross-layer edge. Both
+ * real call sites (`packages/core-api/src/routes/teams-routes.ts`'s `POST
+ * /teams` UI flow, and `tool-handlers`'s `create_team` MCP tool via the
+ * core-api composition root) now import this function directly instead of
+ * `dispatchOps.provisionTeamRoutines` — `dispatch` sheds its last `routine`
+ * dependency entirely.
  *
+
  * @lore AU21 §9 Increment 5 (AC #7): `builtin:practice-meeting` — relocated
  * here (not deleted) by Increment 4 — is now deleted entirely per Increment
  * 0's ruling #5 ("practice-meeting is deleted... build no replacement"): the
@@ -47,11 +57,14 @@ import {
 	type EventBus,
 	type EventType,
 	type ItemCreatedEvent,
+	nextCronMatch,
+	parseCron,
 } from "@hyperidle/shared";
 import type { RoutineSchedulerPorts } from "./ports.js";
 import {
 	type BakedRoutineRunRequest,
 	getRoutine,
+	insertRoutine,
 	insertRoutineRun,
 	listRoutineRuns,
 	listRoutines,
@@ -88,6 +101,124 @@ export function extractBuiltinKind(id: string): BuiltinRoutineId | null {
 		}
 	}
 	return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AU21 §9 Increment 9: team-creation-time builtin-routine definition seeding
+// — relocated verbatim (behavior-preserving move) from
+// `@hyperidle/dispatch`'s `service.ts`. Definition-seeding, not scheduling —
+// runs once per team, at team creation, writing plain `routines` rows via
+// this package's own `insertRoutine` (intra-package call).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PORTFOLIO_RETRO_CRON = "0 10 1-7 * MON"; // first Monday of the month
+const KNOWLEDGE_DECAY_CRON = "0 2 * * *"; // daily 02:00 UTC
+const KNOWLEDGE_PROMOTION_CRON = "0 3 * * *"; // daily 03:00 UTC
+
+interface BuiltinRoutineSpec {
+	readonly id: string;
+	readonly name: string;
+	readonly ownerRole: string;
+	readonly triggerType: "heartbeat" | "calendar" | "event";
+	readonly triggerConfig: Record<string, unknown>;
+	readonly skillId: string;
+	readonly doneCondition: string;
+	readonly humanReview: boolean;
+	readonly silent: boolean;
+}
+
+const BUILTIN_SPECS: readonly BuiltinRoutineSpec[] = [
+	{
+		id: "builtin:post-bet-retro",
+		name: "Post-bet retro",
+		ownerRole: "product_manager",
+		triggerType: "event",
+		triggerConfig: { eventType: "bet_state_changed" },
+		skillId: "bet_retro",
+		doneCondition: "Review item comparing hypothesis vs reality written",
+		humanReview: true,
+		silent: false,
+	},
+	{
+		id: "builtin:portfolio-retro",
+		name: "Portfolio retro",
+		ownerRole: "assistant",
+		triggerType: "calendar",
+		triggerConfig: { cron: PORTFOLIO_RETRO_CRON },
+		skillId: "portfolio_retro",
+		doneCondition: "Cross-product portfolio review item written",
+		humanReview: true,
+		silent: false,
+	},
+	{
+		id: "builtin:knowledge-decay",
+		name: "Knowledge decay",
+		ownerRole: "facilitator",
+		triggerType: "calendar",
+		triggerConfig: { cron: KNOWLEDGE_DECAY_CRON },
+		skillId: "knowledge_decay",
+		doneCondition: "Stale knowledge items transitioned",
+		humanReview: false,
+		silent: true,
+	},
+	{
+		id: "builtin:knowledge-promotion",
+		name: "Knowledge promotion",
+		ownerRole: "facilitator",
+		triggerType: "calendar",
+		triggerConfig: { cron: KNOWLEDGE_PROMOTION_CRON },
+		skillId: "knowledge_promotion",
+		doneCondition: "Provisional items meeting repetition threshold promoted",
+		humanReview: false,
+		silent: false,
+	},
+];
+
+/**
+ * Seed the four builtin-routine definitions for a newly-created team.
+ * Deterministic, idempotent (`onConflictDoNothing`) — a one-time definition
+ * write, not a live agent-run-path read/write.
+ */
+export async function provisionTeamRoutines(
+	db: HyperIdleDb,
+	opts: {
+		readonly teamId: string;
+		readonly ownerByRole: Partial<Record<string, string>>;
+		readonly leadAgentId: string;
+	},
+): Promise<void> {
+	const { teamId, ownerByRole, leadAgentId } = opts;
+	const now = new Date();
+	for (const spec of BUILTIN_SPECS) {
+		const routineId = `${spec.id}:${teamId}`;
+		let nextRunAt: string | null = null;
+		const cron = (spec.triggerConfig as { cron?: string }).cron;
+		if (spec.triggerType === "calendar" && cron) {
+			nextRunAt = nextCronMatch(parseCron(cron), now).toISOString();
+		}
+		const ownerAgentId = ownerByRole[spec.ownerRole] ?? leadAgentId;
+
+		await insertRoutine(
+			db,
+			{
+				id: routineId,
+				name: spec.name,
+				teamId,
+				state: "active",
+				ownerAgentId,
+				triggerType: spec.triggerType,
+				triggerConfig: JSON.stringify(spec.triggerConfig),
+				skillId: spec.skillId,
+				doneCondition: spec.doneCondition,
+				delegationAllowed: false,
+				humanReview: spec.humanReview,
+				silent: spec.silent,
+				active: true,
+				nextRunAt,
+			},
+			{ onConflictDoNothing: true },
+		);
+	}
 }
 
 const PORTFOLIO_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;

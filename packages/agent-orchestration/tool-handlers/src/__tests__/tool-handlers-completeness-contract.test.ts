@@ -295,14 +295,14 @@ describe("buildAssistantDraftRegistry — constraint injection", () => {
 
 	/** Builds a controlled ports bundle. `createBetCalls` / `updateBetCalls` accumulate for assertion. */
 	function buildFakePorts(): {
-		ports: ToolHandlersPorts<HyperIdleDb>;
+		ports: ToolHandlersPorts;
 		createBetCalls: Array<Record<string, unknown>>;
 		updateBetCalls: Array<{ betId: string; updates: Record<string, unknown> }>;
 	} {
 		const createBetCalls: Array<Record<string, unknown>> = [];
 		const updateBetCalls: Array<{ betId: string; updates: Record<string, unknown> }> = [];
 
-		const ports: ToolHandlersPorts<HyperIdleDb> = {
+		const ports: ToolHandlersPorts = {
 			...STUB_TOOL_HANDLERS_PORTS,
 			coreApi: {
 				...STUB_TOOL_HANDLERS_PORTS.coreApi,
@@ -588,7 +588,7 @@ describe("log_task handler — appendTaskNote port usage", () => {
 	/** Return value the fake appendTaskNote uses. Changed per-test. */
 	let appendReturnValue: { readonly id: string } | undefined;
 
-	let fakePorts: ToolHandlersPorts<HyperIdleDb>;
+	let fakePorts: ToolHandlersPorts;
 
 	beforeEach(() => {
 		appendTaskNoteCalls = [];

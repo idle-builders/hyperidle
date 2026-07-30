@@ -1456,12 +1456,21 @@ export interface DurableAgentQueueDeps {
 	 * before (see `CreateSessionRequestInput`'s own doc comment above). Also
 	 * `getTaskDispatchAttemptById` (`work`, below) — declared, never invoked
 	 * anywhere in this file (only `reapTerminalTaskDispatchAttempts` and
-	 * `lifecycleProjection.work`'s two methods are genuinely live). The AU9
-	 * CAS/dedup + lifecycle-fact-projection surface that DOES stay (`work`
-	 * below, `lifecycleProjection.work` above) is a real, live, own-domain-
-	 * adjacent writeback mechanism — see the anti-regrowth guard's
-	 * `ALLOWLIST` entry for `session-requests::work` for why this one is a
-	 * bounded exception, not a resolve-at-emit gap.
+	 * `lifecycleProjection.work`'s two methods are genuinely live).
+	 *
+	 * @lore AU21 §9 Increment 9 (forensic-triage wave, THIRD pass): the
+	 * remaining `work` surface (this field + `lifecycleProjection.work` above)
+	 * is NOT a bounded permanent exception — a prior pass mislabeled it that
+	 * way in the anti-regrowth guard's `ALLOWLIST`, rejected on review. It is
+	 * a genuinely open, unmigrated gap, tracked in the guard's
+	 * `DEFERRED_FOLLOWUP` (`session-requests::work`) — real feasibility
+	 * evidence exists (`routine`'s equivalent writeback already migrated to a
+	 * core-api `session_ended`/`agent_run_lifecycle_changed` subscriber, see
+	 * `lifecycleProjectors.routine`'s `observeOnly` entry below and
+	 * `routine-run-session-end-reactions.ts`), but completing the analogous
+	 * migration for `task`/`decomposition` needs its own dedicated red/green
+	 * pass, not a rushed fix — see the guard's `DEFERRED_FOLLOWUP` doc comment
+	 * for the full reasoning.
 	 */
 	readonly work: {
 		reapTerminalTaskDispatchAttempts(

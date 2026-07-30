@@ -602,6 +602,12 @@ authority (§6 B, provision-time cover) and (ii) any Decision-D display query th
 `edge-disposition.md`, not a general bucket.
 
 ## 8. Acceptance criteria → verification
+
+> **Status flag (2026-07-30, Increment 9 THIRD pass) — AC #2 and AC #9 are NOT fully met.** See §9 Increment 9's
+> own status note below the ordered-tasks list for the full, honest accounting: 8 real `agent-orchestration ->
+> core-api` pairs remain (tracked, not silently masked, in `scripts/composition-edge-anti-regrowth-guard.ts`'s
+> `DEFERRED_FOLLOWUP`). Every other AC in this table is met.
+
 | # | AC | Verification |
 |---|---|---|
 | 1 | Location-transparent `CoreApiPort` seam exists (Application-wired, in-process today, remote-capable) | (a) Integration test builds `CoreApiPort` with `fetch = app.request` AND a stub network `fetch`; identical call succeeds via both. (b) Per-method contract test (§11): each method reaches its real route + middleware runs. (c) `npm run check` proves the contract type-resolves from a Service depending only on `@hyperidle/api-contract`. |
@@ -725,6 +731,21 @@ Extend `generate-dependency-graph.ts` to **see the composition-bundle pattern** 
 read; allowlist = only founder-signed flagged items; a test proves it fires). Reword
 `docs/architecture/runtime-simplification.md`'s colocation sentence + "Durable agent handoff" to the resolve-at-
 emit + self-recovery + report-back model. Write the going-forward practice.
+
+> **STATUS (2026-07-30, forensic-triage wave, THIRD/review-corrected pass — see `edge-disposition.md`'s own
+> "THIRD pass" section for the full narrative).** The guard is built, wired into `npm run lint`, and its
+> `--fixtures` + bare-check both pass. `ALLOWLIST` holds only the 4 founder-signed `cost::*` rows (a second pass
+> had added two builder-ruled entries here — rejected on review, corrected). **AC #2 and AC #9 are NOT fully
+> met.** 8 real `agent-orchestration -> core-api` pairs remain, honestly tracked (not silently masked) in the
+> guard's `DEFERRED_FOLLOWUP`: `dispatch::conversation`/`::users`/`::settings` (the assistant-turn runner's
+> live-transcript/identity/config reads — confirmed unsafe to bake at emit, a real staleness/coherence risk, not
+> merely unmigrated), `run-orchestration`'s 6 context-assembly pairs (same risk class, larger scale), and
+> `session-requests::work` (a writeback with real, evidenced feasibility for a core-api event-subscriber
+> migration, not yet built/tested). 2 pairs this same pass genuinely closed (not relabeled): `dispatch::work`
+> (dead task-queue code, deleted) and `dispatch::routine` (relocated core-side to `@hyperidle/routine`, including
+> closing a regrowth the fix itself introduced via a new `CoreApiPort` seam route). **Do not present this work
+> package as fully closing AC #2 without a founder decision on the remaining 8 pairs** — see `.pipeline/AU.md`'s
+> AU21/AU23 registry rows.
 
 ## 10. Contracts / type signatures
 ```

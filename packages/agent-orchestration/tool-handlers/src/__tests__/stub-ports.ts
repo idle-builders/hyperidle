@@ -4,22 +4,19 @@
  * and never actually invoke a port method. Every method throws if called —
  * a real behavior test must inject real (or per-test fake) ports instead.
  */
-import type { HyperIdleDb } from "@hyperidle/db";
 import type { ToolHandlersPorts } from "../ports.js";
 
 function notImplemented(): never {
 	throw new Error("stub-ports: this port method is not implemented for name-catalogue tests");
 }
 
-export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts<HyperIdleDb> = {
+export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 	work: {
 		routeItem: notImplemented,
 	},
-	dispatch: {
-		provisionTeamRoutines: notImplemented,
-	},
 	coreApi: {
 		createBet: notImplemented,
+		provisionTeamRoutines: notImplemented,
 		getTaskById: notImplemented,
 		getBetById: notImplemented,
 		updateBetById: notImplemented,

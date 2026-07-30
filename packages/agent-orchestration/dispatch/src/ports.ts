@@ -3,13 +3,10 @@ import type {
 	HyperIdleDb,
 	Message,
 	NewMessage,
-	NewRoutine,
 	NewThread,
 	NewUser,
-	Task,
 	Thread,
 	User,
-	WriteExecutor,
 } from "@hyperidle/db";
 import type {
 	CapturedToolCall,
@@ -29,31 +26,16 @@ import type {
  * `sessionRequests` shrink or disappear — the routine scheduler + all four
  * builtin-routine bodies relocated to `@hyperidle/routine`'s
  * `routine-scheduler.ts` (architecture.md §6 Decision B′/B″ ruling #4).
- * `routine` keeps ONLY `insertRoutine` — `provisionTeamRoutinesInternal`
- * (routine *definition* seeding at team-creation time, out of this
- * increment's relocate-list) is dispatch's one remaining direct `routine`
- * table write.
  *
- * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): this write
- * is now a settled, permanent, bounded exception — see
- * `scripts/composition-edge-anti-regrowth-guard.ts`'s `ALLOWLIST` entry
- * `dispatch::routine` for the full reasoning (a one-time, deterministic,
- * team-creation-time seed write; migrating it would violate Decision A's
- * "same real door" `CoreApiPort` principle or require redesigning
- * `tool-handlers`' `create_team` flow). Not an open question anymore.
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): `routine`
+ * is gone entirely now too — `provisionTeamRoutinesInternal` (routine
+ * *definition* seeding at team-creation time, dispatch's last remaining
+ * direct `routine` table write) relocated to `@hyperidle/routine`'s
+ * `routine-scheduler.ts` (`provisionTeamRoutines`, an intra-package call
+ * there). `dispatch` has zero `agent-orchestration -> routine` edge left —
+ * see `service.ts`'s own `@lore` for the full reasoning.
  */
 export interface DispatchPorts {
-	readonly work: {
-		listTasks(db: HyperIdleDb, opts: { readonly state: string }): Promise<readonly Task[]>;
-		getTaskById(db: HyperIdleDb, id: string): Promise<Task | undefined>;
-	};
-	readonly routine: {
-		insertRoutine(
-			exec: WriteExecutor,
-			values: NewRoutine,
-			opts?: { readonly onConflictDoNothing?: boolean },
-		): Promise<void>;
-	};
 	readonly conversation: {
 		/**
 		 * @lore AU21 §9 Increment 2 (conversation wave): this call routes through

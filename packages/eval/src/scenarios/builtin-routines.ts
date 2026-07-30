@@ -15,7 +15,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { dispatchOps, fireRoutine } from "@hyperidle/core-api/routines";
+import { fireRoutine, provisionTeamRoutines } from "@hyperidle/core-api/routines";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { items, routines } from "@hyperidle/db";
 
@@ -77,7 +77,7 @@ import type {
  * Team id defaults to "prod-1" which is what seedMinimalWorld uses via seedTeam.
  */
 async function seedBuiltinRoutines(db: HyperIdleDb, teamId = "prod-1"): Promise<void> {
-	await dispatchOps.provisionTeamRoutines(db, {
+	await provisionTeamRoutines(db, {
 		teamId,
 		ownerByRole: {
 			facilitator: "seed-agent-pf-facilitation",

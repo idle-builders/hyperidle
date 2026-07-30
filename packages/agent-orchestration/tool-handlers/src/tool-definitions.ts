@@ -68,7 +68,7 @@ const readInboxInputSchema = z.object({
 type ReadInboxInput = z.infer<typeof readInboxInputSchema>;
 
 function makeReadInboxTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<ReadInboxInput, TDb> & { readonly reversibility: "reversible" } {
 	return {
 		name: "read_inbox",
@@ -107,7 +107,7 @@ const sendMessageInputSchema = z.object({
 type SendMessageInput = z.infer<typeof sendMessageInputSchema>;
 
 function makeSendMessageTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<SendMessageInput, TDb> {
 	return {
 		name: "send_message",
@@ -155,7 +155,7 @@ const queryPracticeInputSchema = z.object({
 type QueryPracticeInput = z.infer<typeof queryPracticeInputSchema>;
 
 function makeQueryPracticeTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<QueryPracticeInput, TDb> {
 	return {
 		name: "query_practice",
@@ -213,7 +213,7 @@ const FACILITATOR_ROLES: ReadonlySet<string> = new Set([
 const NON_FACILITATOR_MAX_LAYER: ReadonlySet<KnowledgeLayer> = new Set(["L0", "L1", "L2"]);
 
 function makeWriteMemoryTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<WriteMemoryInput, TDb> {
 	return {
 		name: "write_memory",
@@ -293,7 +293,7 @@ const handoffToInputSchema = z.object({
 type HandoffToInput = z.infer<typeof handoffToInputSchema>;
 
 function makeHandoffToTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<HandoffToInput, TDb> {
 	return {
 		name: "handoff_to",
@@ -395,7 +395,7 @@ function mergeParticipants(existing: readonly string[], humanIds: readonly strin
 }
 
 function makeCreateItemTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<CreateItemInput, TDb> {
 	return {
 		name: "create_item",
@@ -548,7 +548,7 @@ const createTaskInputSchema = z.object({
 type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
 
 function makeCreateTaskTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<CreateTaskInput, TDb> {
 	return {
 		name: "create_task",
@@ -627,7 +627,7 @@ const submitReviewInputSchema = z.object({
 type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
 
 function makeSubmitReviewTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<SubmitReviewInput, TDb> {
 	return {
 		name: "submit_review",
@@ -712,7 +712,7 @@ const routeItemInputSchema = z.object({
 type RouteItemInput = z.infer<typeof routeItemInputSchema>;
 
 function makeRouteItemTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<RouteItemInput, TDb> {
 	return {
 		name: "route_item",
@@ -785,7 +785,7 @@ const scoreAttentionInputSchema = z
 type ScoreAttentionInput = z.infer<typeof scoreAttentionInputSchema>;
 
 function makeScoreAttentionTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<ScoreAttentionInput, TDb> {
 	return {
 		name: "score_attention",
@@ -867,7 +867,7 @@ const promoteKnowledgeInputSchema = z.object({
 type PromoteKnowledgeInput = z.infer<typeof promoteKnowledgeInputSchema>;
 
 function makePromoteKnowledgeTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<PromoteKnowledgeInput, TDb> {
 	return {
 		name: "promote_knowledge",
@@ -924,7 +924,7 @@ const createConflictReviewInputSchema = z.object({
 type CreateConflictReviewInput = z.infer<typeof createConflictReviewInputSchema>;
 
 function makeCreateConflictReviewTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<CreateConflictReviewInput, TDb> {
 	return {
 		name: "create_conflict_review",
@@ -993,7 +993,7 @@ const createTeamInputSchema = z.object({
 type CreateTeamInput = z.infer<typeof createTeamInputSchema>;
 
 function makeCreateTeamTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<CreateTeamInput, TDb> {
 	return {
 		name: "create_team",
@@ -1068,11 +1068,14 @@ function makeCreateTeamTool<TDb>(
 						ownerByRole[role] = agentId;
 					}
 				}
-				await ports.dispatch.provisionTeamRoutines(ctx.db, {
-					teamId,
-					ownerByRole,
-					leadAgentId: lead ?? agentIds[0] ?? "",
-				});
+				await ports.coreApi.provisionTeamRoutines(
+					{
+						teamId,
+						ownerByRole,
+						leadAgentId: lead ?? agentIds[0] ?? "",
+					},
+					ctx.agentId,
+				);
 			}
 
 			ctx.eventBus.emit({
@@ -1103,7 +1106,7 @@ const addAgentInputSchema = z.object({
 
 type AddAgentInput = z.infer<typeof addAgentInputSchema>;
 
-function makeAddAgentTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<AddAgentInput, TDb> {
+function makeAddAgentTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<AddAgentInput, TDb> {
 	return {
 		name: "add_agent",
 		description:
@@ -1178,7 +1181,7 @@ const createBetInputSchema = z.object({
 type CreateBetInput = z.infer<typeof createBetInputSchema>;
 
 function makeCreateBetTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): AssistantToolShape<CreateBetInput, TDb> {
 	return {
 		name: "create_bet",
@@ -1229,7 +1232,7 @@ const editBetInputSchema = z.object({
 type EditBetInput = z.infer<typeof editBetInputSchema>;
 
 function makeEditBetTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): AssistantToolShape<EditBetInput, TDb> {
 	return {
 		name: "edit_bet",
@@ -1284,7 +1287,7 @@ const createRoutineInputSchema = z.object({
 type CreateRoutineInput = z.infer<typeof createRoutineInputSchema>;
 
 function makeCreateRoutineTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<CreateRoutineInput, TDb> {
 	return {
 		name: "create_routine",
@@ -1367,7 +1370,7 @@ const updateRoutineInputSchema = z.object({
 type UpdateRoutineInput = z.infer<typeof updateRoutineInputSchema>;
 
 function makeUpdateRoutineTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<UpdateRoutineInput, TDb> {
 	return {
 		name: "update_routine",
@@ -1467,7 +1470,7 @@ const logTaskInputSchema = z.object({
 
 type LogTaskInput = z.infer<typeof logTaskInputSchema>;
 
-function makeLogTaskTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<LogTaskInput, TDb> {
+function makeLogTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<LogTaskInput, TDb> {
 	return {
 		name: "log_task",
 		description:
@@ -1526,7 +1529,7 @@ const createArtifactInputSchema = z.object({
 type CreateArtifactInput = z.infer<typeof createArtifactInputSchema>;
 
 function makeCreateArtifactTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<CreateArtifactInput, TDb> {
 	return {
 		name: "create_artifact",
@@ -1618,7 +1621,7 @@ function makeCreateArtifactTool<TDb>(
  * passing them to builders would break G1 AC6's authorization intent.
  */
 export function buildToolDefinitions(
-	ports: ToolHandlersPorts<HyperIdleDb>,
+	ports: ToolHandlersPorts,
 	opts?: { readonly role?: UserRole },
 ): readonly RegisteredTool<HyperIdleDb>[] {
 	const all: readonly RegisteredTool<HyperIdleDb>[] = [
@@ -1664,10 +1667,10 @@ export function buildToolDefinitions(
  * — the assistant is the one acting. No `db` parameter needed anymore — every
  * read crosses the seam.
  */
-async function resolveDraftTeamId<TDb>(
+async function resolveDraftTeamId(
 	userId: string,
 	actorId: string,
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): Promise<string | undefined> {
 	const userRow = await ports.coreApi.getUserById(userId, actorId);
 	if (!userRow?.teamId) return undefined;
@@ -1677,10 +1680,10 @@ async function resolveDraftTeamId<TDb>(
 	return memberRow?.teamId;
 }
 
-async function resolveCurrentDraftBetId<TDb>(
+async function resolveCurrentDraftBetId(
 	transcriptRows: ReadonlyArray<{ senderId: string; payload: string }>,
 	astAgentId: string,
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): Promise<string | undefined> {
 	const reversed = [...transcriptRows].reverse();
 	for (const row of reversed) {
@@ -1732,7 +1735,7 @@ export async function buildAssistantDraftRegistry<TDb>(
 		readonly transcriptRows: ReadonlyArray<{ readonly senderId: string; readonly payload: string }>;
 		readonly assistantAgentId: string;
 	},
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): Promise<ToolRegistry<TDb>> {
 	const resolvedTeamId = await resolveDraftTeamId(params.userId, params.assistantAgentId, ports);
 	const currentDraftBetId = await resolveCurrentDraftBetId(

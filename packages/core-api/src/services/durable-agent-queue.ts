@@ -60,9 +60,15 @@
  * test-only-reachable code is dead code. The surviving `work` field
  * (`reapTerminalTaskDispatchAttempts`) and `lifecycleProjection.work`'s two
  * methods are genuinely live — the AU9 CAS/dedup own-state check +
- * session-lifecycle-fact writeback into `work`'s own tables — a bounded,
- * intentional exception (see the anti-regrowth guard's `ALLOWLIST` entry for
- * `session-requests::work`), not a resolve-at-emit gap.
+ * session-lifecycle-fact writeback into `work`'s own tables.
+ *
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, THIRD pass): this surface
+ * is NOT a bounded permanent exception — a prior pass mislabeled it that way
+ * in the anti-regrowth guard's `ALLOWLIST`, rejected on review as a builder-
+ * ruled carve-out with no founder sign-off. It is tracked as a genuinely
+ * open, unmigrated gap in `DEFERRED_FOLLOWUP` (`session-requests::work`) —
+ * see that set's doc comment for the real feasibility evidence found this
+ * wave and why full closure needs its own dedicated pass.
  */
 
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";

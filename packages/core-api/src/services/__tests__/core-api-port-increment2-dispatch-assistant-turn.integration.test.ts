@@ -40,7 +40,7 @@
  * `getThreadById` read keeps working unchanged.
  *
  * Every `DispatchPorts` capability NOT reached by either scenario below
- * (`work`, `routine`, `settings`, `modelGateway`,
+ * (`settings`, `modelGateway`,
  * `runOrchestration`, `sessionRequests`, `cost`, `review`, `knowledge`,
  * `toolHandlers`, `workspaceFactory` — verified by reading
  * `runTurnInternal`'s control flow: the missing-credential branch calls
@@ -128,17 +128,11 @@ function buildDispatchPortsForAssistantTurnMigration(
 	const seamPort = buildCoreApiPort(seamTransport) as unknown as SeamConversationWriteAccessor;
 
 	return {
-		work: {
-			listTasks: unreachable("work.listTasks"),
-			getTaskById: unreachable("work.getTaskById"),
-		},
-		// @lore AU21 §9 Increment 4: `routine`/`review`/`knowledge`/`cost`/
-		// `sessionRequests` shrank/disappeared from `DispatchPorts` — the
-		// routine scheduler + builtin-routine bodies relocated to
-		// `@hyperidle/routine`. `routine` keeps only `insertRoutine`.
-		routine: {
-			insertRoutine: unreachable("routine.insertRoutine"),
-		},
+		// @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): `work`
+		// and `routine` are both gone from `DispatchPorts` entirely now —
+		// `work` (the task-queue trigger) was genuinely dead code, deleted;
+		// `routine.insertRoutine` (`provisionTeamRoutinesInternal`'s seed
+		// write) relocated to `@hyperidle/routine` itself. Nothing to stub.
 		conversation: {
 			// AU21 §9 Increment 2 (conversation wave, GREEN target): routed
 			// through the seam under the assistant agent's own identity —

@@ -60,6 +60,7 @@ import type {
 	PersistScaffoldedAgentsResponse,
 	PromoteKnowledgeItemRequest,
 	PromoteKnowledgeItemResult,
+	ProvisionTeamRoutinesRequest,
 	RoutineView,
 	TaskView,
 	UpdateBetRequest,
@@ -165,6 +166,9 @@ interface CoreApiHcClient {
 					readonly specs: readonly Record<string, unknown>[];
 				};
 			}): Promise<Response>;
+		};
+		readonly "team-routines": {
+			$post(args: { readonly json: ProvisionTeamRoutinesRequest }): Promise<Response>;
 		};
 	};
 	readonly conversations: {
@@ -578,6 +582,11 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				});
 				if (!res.ok) return throwSeamError("org.persistScaffoldedAgents", res);
 				return (await res.json()) as PersistScaffoldedAgentsResponse;
+			},
+
+			async provisionTeamRoutines(input: ProvisionTeamRoutinesRequest): Promise<void> {
+				const res = await client.org["team-routines"].$post({ json: input });
+				if (!res.ok) return throwSeamError("org.provisionTeamRoutines", res);
 			},
 		},
 		routine: {

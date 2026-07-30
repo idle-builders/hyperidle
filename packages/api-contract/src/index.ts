@@ -63,6 +63,7 @@ export type {
 	PersistScaffoldedAgentsResponse,
 	PromoteKnowledgeItemRequest,
 	PromoteKnowledgeItemResult,
+	ProvisionTeamRoutinesRequest,
 	ReviewRecipientsQuery,
 	RoutineView,
 	TaskView,

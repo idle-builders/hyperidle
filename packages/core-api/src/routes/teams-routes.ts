@@ -60,7 +60,6 @@ import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
-import { dispatchOps } from "../services/dispatch-bindings.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import {
 	computeHealthSignals,
@@ -455,7 +454,7 @@ export function createTeamRoutes(
 			}
 			// AF17: provisioning errors propagate — a team must not be created silently
 			// without its automation. If this throws, the caller gets a 500 with details.
-			await dispatchOps.provisionTeamRoutines(db, {
+			await routineService.provisionTeamRoutines(db, {
 				teamId,
 				ownerByRole,
 				leadAgentId: leadAgentId ?? agentIds[0] ?? "",

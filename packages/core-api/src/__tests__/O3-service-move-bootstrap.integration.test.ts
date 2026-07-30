@@ -110,8 +110,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			},
 			{
 				owner: "dispatch lifecycle",
-				cleanupEffect: "assistant/task stop",
-				constituents: ["assistant", "task"],
+				cleanupEffect: "assistant stop",
+				constituents: ["assistant"],
 			},
 			// @lore AU21 §9 Increment 4: the routine scheduler (builtin-routine
 			// event reaction + the cron/due-eval tick loop) relocated out of
@@ -210,8 +210,13 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					clearedIntervals: 1,
 				},
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
+				// @lore AU21 §9 Increment 9 (forensic-triage wave, second pass):
+				// `task_state_changed`/`session_ended` are gone — the task-queue
+				// trigger they belonged to was genuinely dead code (see
+				// `@hyperidle/dispatch`'s own `@lore`), deleted, not migrated.
+				// `dispatch lifecycle` now subscribes to exactly one event.
 				{
-					unsubscribedEvents: ["task_state_changed", "session_ended", "thread_message_appended"],
+					unsubscribedEvents: ["thread_message_appended"],
 					clearedIntervals: 0,
 				},
 				// @lore AU21 §9 Increment 4: split from the single "dispatch

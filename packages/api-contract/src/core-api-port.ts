@@ -389,11 +389,38 @@ export interface PersistScaffoldedAgentsResponse {
 }
 
 /**
+ * Mirrors `POST /org/team-routines`'s validated request body — seeds the
+ * four builtin-routine definitions for a team (`@hyperidle/routine`'s
+ * `provisionTeamRoutines`). No 1:1 UI route (same shape as
+ * `persistScaffoldedAgents`/`resolveReviewRecipientsForItem` below) — a
+ * narrowly-scoped route built specifically for this seam method.
+ */
+export interface ProvisionTeamRoutinesRequest {
+	readonly teamId: string;
+	readonly ownerByRole: Readonly<Record<string, string | undefined>>;
+	readonly leadAgentId: string;
+}
+
+/**
  * The agent's tool-facing `org` capability family (Decision C, Increment 2's
  * org/routine/handoff wave) — `edge-disposition.md`'s `org.{getTeam,
  * getTeamMembers, createTeam, updateTeam}` row. `resolveReviewRecipientsForItem`/
- * `persistScaffoldedAgents` back collapsed multi-step `tool-handlers`-only
- * helpers (no 1:1 UI route) — new narrowly-scoped routes.
+ * `persistScaffoldedAgents`/`provisionTeamRoutines` back collapsed multi-step
+ * `tool-handlers`-only helpers (no 1:1 UI route) — new narrowly-scoped routes.
+ *
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass):
+ * `provisionTeamRoutines` added here — `create_team`'s tool handler used to
+ * reach it via an opaque `ToolHandlersPorts.routine`/`.dispatch` pass-through
+ * satisfied by direct same-process DI in the composition root
+ * (`tool-handlers-bindings.ts` importing `@hyperidle/routine` directly),
+ * which the anti-regrowth guard's composition-bundle detector correctly
+ * flagged as a hidden `tool-handlers -> routine` edge once that wiring named
+ * a real `@hyperidle/routine` export. Decision C's own rule ("the running
+ * agent's MCP tool calls — both reads and writes — route through
+ * CoreApiPort, because they are the agent acting like the UI") already
+ * covers this exactly; `create_team`'s OTHER steps
+ * (`createTeam`/`persistScaffoldedAgents`/`updateTeam`) already went through
+ * this seam — `provisionTeamRoutines` was the one piece that hadn't.
  */
 export interface CoreApiOrgPort {
 	getTeamById(teamId: string): Promise<OrgTeamView | undefined>;
@@ -406,6 +433,7 @@ export interface CoreApiOrgPort {
 		teamMembersId: string | null,
 		specs: readonly Record<string, unknown>[],
 	): Promise<PersistScaffoldedAgentsResponse>;
+	provisionTeamRoutines(input: ProvisionTeamRoutinesRequest): Promise<void>;
 }
 
 /**

@@ -1,31 +1,19 @@
 import * as crypto from "node:crypto";
-import {
-	type AgentSessionRequest,
-	type HyperIdleDb,
-	resolveAgentScaffoldSpecs,
-	sessions,
-} from "@hyperidle/db";
+import { type AgentSessionRequest, type HyperIdleDb, resolveAgentScaffoldSpecs } from "@hyperidle/db";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
 	CassetteMissError,
-	ConcurrencyLimitError,
 	type ConversationMessage,
-	CostCapExceededError,
 	createLogger,
 	type EventBus,
 	HttpError,
 	MissingCredentialError,
 	NoEligibleHarnessError,
-	nextCronMatch,
 	type PlainPayload,
 	ProviderTimeoutError,
-	parseCron,
 	type ResolvedModel,
-	type SessionEndedEvent,
-	type TaskStateChangedEvent,
 	type ThreadMessageAppendedEvent,
 } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
 import type { DispatchPorts } from "./ports.js";
 
 type DispatchCredentialResolver = Parameters<DispatchPorts["modelGateway"]["resolveAgentModel"]>[3];
@@ -36,76 +24,6 @@ type DispatchProvisionDeps = Parameters<
 	DispatchPorts["runOrchestration"]["executeAgentRunRequest"]
 >[0];
 
-const PORTFOLIO_RETRO_CRON = "0 10 1-7 * MON"; // first Monday of the month
-const KNOWLEDGE_DECAY_CRON = "0 2 * * *"; // daily 02:00 UTC
-const KNOWLEDGE_PROMOTION_CRON = "0 3 * * *"; // daily 03:00 UTC
-
-interface BuiltinSpec {
-	/**
-	 * @lore AU21 §9 Increment 4: was `BuiltinRoutineId` (the literal union) —
-	 * that type + its backing `BUILTIN_ROUTINE_IDS` array relocated to
-	 * `@hyperidle/routine`'s `routine-scheduler.ts` along with the scheduler
-	 * itself. `provisionTeamRoutinesInternal` (this spec table's only
-	 * consumer) only ever builds `${spec.id}:${teamId}` — a plain string is
-	 * sufficient; it never dispatches on `spec.id`'s kind.
-	 */
-	readonly id: string;
-	readonly name: string;
-	readonly ownerRole: string;
-	readonly triggerType: "heartbeat" | "calendar" | "event";
-	readonly triggerConfig: Record<string, unknown>;
-	readonly skillId: string;
-	readonly doneCondition: string;
-	readonly humanReview: boolean;
-	readonly silent: boolean;
-}
-
-const BUILTIN_SPECS: readonly BuiltinSpec[] = [
-	{
-		id: "builtin:post-bet-retro",
-		name: "Post-bet retro",
-		ownerRole: "product_manager",
-		triggerType: "event",
-		triggerConfig: { eventType: "bet_state_changed" },
-		skillId: "bet_retro",
-		doneCondition: "Review item comparing hypothesis vs reality written",
-		humanReview: true,
-		silent: false,
-	},
-	{
-		id: "builtin:portfolio-retro",
-		name: "Portfolio retro",
-		ownerRole: "assistant",
-		triggerType: "calendar",
-		triggerConfig: { cron: PORTFOLIO_RETRO_CRON },
-		skillId: "portfolio_retro",
-		doneCondition: "Cross-product portfolio review item written",
-		humanReview: true,
-		silent: false,
-	},
-	{
-		id: "builtin:knowledge-decay",
-		name: "Knowledge decay",
-		ownerRole: "facilitator",
-		triggerType: "calendar",
-		triggerConfig: { cron: KNOWLEDGE_DECAY_CRON },
-		skillId: "knowledge_decay",
-		doneCondition: "Stale knowledge items transitioned",
-		humanReview: false,
-		silent: true,
-	},
-	{
-		id: "builtin:knowledge-promotion",
-		name: "Knowledge promotion",
-		ownerRole: "facilitator",
-		triggerType: "calendar",
-		triggerConfig: { cron: KNOWLEDGE_PROMOTION_CRON },
-		skillId: "knowledge_promotion",
-		doneCondition: "Provisional items meeting repetition threshold promoted",
-		humanReview: false,
-		silent: false,
-	},
-];
 const assistantLog = createLogger({ pkg: "server.assistant-turn" });
 
 const BUILTIN_SYSTEM_PROMPT =
@@ -549,343 +467,55 @@ function registerAssistantTriggerInternal(
 	return unsubscribe;
 }
 
-async function provisionTeamRoutinesInternal(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	opts: {
-		teamId: string;
-		ownerByRole: Partial<Record<string, string>>;
-		leadAgentId: string;
-	},
-): Promise<void> {
-	const { teamId, ownerByRole, leadAgentId } = opts;
-	const now = new Date();
-	for (const spec of BUILTIN_SPECS) {
-		const routineId = `${spec.id}:${teamId}`;
-		let nextRunAt: string | null = null;
-		const cron = (spec.triggerConfig as { cron?: string }).cron;
-		if (spec.triggerType === "calendar" && cron) {
-			nextRunAt = nextCronMatch(parseCron(cron), now).toISOString();
-		}
-		const ownerAgentId = ownerByRole[spec.ownerRole] ?? leadAgentId;
+/**
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, closing the `dispatch::routine`
+ * finding for real, not allowlisted): `provisionTeamRoutinesInternal` +
+ * `BUILTIN_SPECS` relocated to `@hyperidle/routine`'s `routine-scheduler.ts`
+ * (`provisionTeamRoutines`) — team-creation-time routine-definition seeding
+ * is a pure core-api concern (a plain `routines` row insert), not something
+ * `dispatch` needs to reach into `routine` for anymore. Both real call sites
+ * (`teams-routes.ts`, `tool-handlers`'s `create_team` via the core-api
+ * composition root) now import `@hyperidle/routine`'s `provisionTeamRoutines`
+ * directly. `DispatchOps.provisionTeamRoutines` + `DispatchPorts.routine` are
+ * both deleted — `dispatch` now has zero `agent-orchestration -> routine`
+ * edge of any kind.
+ */
 
-		await ports.routine.insertRoutine(
-			db,
-			{
-				id: routineId,
-				name: spec.name,
-				teamId,
-				state: "active",
-				ownerAgentId,
-				triggerType: spec.triggerType,
-				triggerConfig: JSON.stringify(spec.triggerConfig),
-				skillId: spec.skillId,
-				doneCondition: spec.doneCondition,
-				delegationAllowed: false,
-				humanReview: spec.humanReview,
-				silent: spec.silent,
-				active: true,
-				nextRunAt,
-			},
-			{ onConflictDoNothing: true },
-		);
-	}
-}
-
-const taskDispatcherLog = {
-	info: (msg: string, ctx?: Record<string, unknown>): void => {
-		// biome-ignore lint/suspicious/noConsole: app-runtime dispatcher, observability adapter not yet stood up
-		console.info(`[task-dispatcher] ${msg}`, ctx ?? "");
-	},
-	error: (msg: string, ctx?: Record<string, unknown>): void => {
-		// biome-ignore lint/suspicious/noConsole: app-runtime dispatcher, observability adapter not yet stood up
-		console.error(`[task-dispatcher] ${msg}`, ctx ?? "");
-	},
-	warn: (msg: string, ctx?: Record<string, unknown>): void => {
-		// biome-ignore lint/suspicious/noConsole: app-runtime dispatcher, observability adapter not yet stood up
-		console.warn(`[task-dispatcher] ${msg}`, ctx ?? "");
-	},
-};
-
-interface TaskDispatcherDeps {
-	readonly db: HyperIdleDb;
-	readonly eventBus: EventBus;
-	// biome-ignore lint/suspicious/noExplicitAny: structural typing keeps dispatcher decoupled from server harness types
-	readonly adapterPool: any;
-	// biome-ignore lint/suspicious/noExplicitAny: structural typing keeps dispatcher decoupled from server harness types
-	readonly workspace: any;
-	readonly sandboxBasePath: string;
-	readonly resolveModel?: (
-		modelTier: string,
-	) => Promise<import("@hyperidle/shared").ResolvedModel | undefined>;
-	// biome-ignore lint/suspicious/noExplicitAny: structural typing across package boundary
-	readonly mcpBridgeRegistry?: any;
-	readonly mcpBaseUrl?: string;
-	readonly mounter?: import("@hyperidle/shared").FilesystemMounter;
-	// biome-ignore lint/suspicious/noExplicitAny: BeforeTeardownContext type lives in server; dispatcher passes opaquely
-	readonly onBeforeTeardown?: (ctx: any) => Promise<void>;
-}
-
-interface DispatchQueueEntry {
-	readonly taskId: string;
-	readonly agentId: string;
-	readonly teamId: string;
-	readonly enqueuedAt: number; // Date.now()
-	readonly proposedCallId?: string;
-}
-
-export interface DispatchQueueSnapshot {
-	readonly entries: readonly DispatchQueueEntry[];
-	readonly draining: boolean;
-}
-
-interface TaskQueueState {
-	queue: DispatchQueueEntry[];
-	draining: boolean;
-	generation: number;
-}
-
-async function hasActiveSession(db: HyperIdleDb, taskId: string): Promise<boolean> {
-	const [row] = await db
-		.select({ id: sessions.id })
-		.from(sessions)
-		.where(and(eq(sessions.taskId, taskId), eq(sessions.state, "active")))
-		.limit(1);
-	return row !== undefined;
-}
-
-async function enqueue(
-	state: TaskQueueState,
-	db: HyperIdleDb,
-	entry: DispatchQueueEntry,
-): Promise<void> {
-	if (state.queue.some((e) => e.taskId === entry.taskId)) {
-		return;
-	}
-	if (await hasActiveSession(db, entry.taskId)) {
-		return;
-	}
-	if (state.queue.some((e) => e.taskId === entry.taskId)) {
-		return;
-	}
-	state.queue.push(entry);
-}
-
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: drain logic must handle concurrency errors, cost cap errors, idempotency guards, and generation staleness in a single sequential pass — decomposing further would obscure the control flow
-async function drainQueue(
-	state: TaskQueueState,
-	deps: TaskDispatcherDeps,
-	generation: number,
-): Promise<void> {
-	if (state.draining) return;
-	if (generation !== state.generation) return;
-
-	state.draining = true;
-
-	try {
-		const concurrencyBlockedAgents = new Set<string>();
-
-		let i = 0;
-		while (i < state.queue.length) {
-			if (generation !== state.generation) break;
-
-			const entry = state.queue[i];
-			if (!entry) {
-				i++;
-				continue;
-			}
-			if (concurrencyBlockedAgents.has(entry.agentId)) {
-				i++;
-				continue;
-			}
-			if (await hasActiveSession(deps.db, entry.taskId)) {
-				if (generation !== state.generation) break;
-				state.queue.splice(i, 1);
-				continue;
-			}
-
-			if (generation !== state.generation) break;
-
-			try {
-				// biome-ignore lint/suspicious/noExplicitAny: resolvedModel type from server not importable here
-				let resolvedModel: any;
-				if (deps.resolveModel) {
-					try {
-						resolvedModel = await deps.resolveModel("workhorse");
-					} catch (credErr) {
-						if (generation !== state.generation) break;
-						taskDispatcherLog.error(
-							"credential resolution failed; removing task from state.queue",
-							{
-								taskId: entry.taskId,
-								error: credErr instanceof Error ? credErr.message : String(credErr),
-							},
-						);
-						state.queue.splice(i, 1);
-						continue;
-					}
-				}
-
-				void resolvedModel;
-
-				if (generation !== state.generation) break;
-				state.queue.splice(i, 1);
-			} catch (err) {
-				if (generation !== state.generation) break;
-
-				if (err instanceof ConcurrencyLimitError) {
-					concurrencyBlockedAgents.add(entry.agentId);
-					i++;
-					continue;
-				}
-
-				if (err instanceof CostCapExceededError) {
-					const costErr: CostCapExceededError = err;
-					taskDispatcherLog.warn("cost cap exceeded; pausing state.queue drain", {
-						taskId: entry.taskId,
-						entityId: costErr.entityId,
-					});
-					break;
-				}
-				taskDispatcherLog.error("dispatch failed (unrecoverable); removing task from state.queue", {
-					taskId: entry.taskId,
-					error: err instanceof Error ? err.message : String(err),
-				});
-				state.queue.splice(i, 1);
-			}
-		}
-	} finally {
-		state.draining = false;
-	}
-}
-
-async function startupSweep(
-	state: TaskQueueState,
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	generation: number,
-): Promise<void> {
-	const activeSessions = await db
-		.select({ taskId: sessions.taskId })
-		.from(sessions)
-		.where(eq(sessions.state, "active"));
-	if (generation !== state.generation) return;
-
-	const activeTaskIds = new Set(activeSessions.map((s) => s.taskId));
-	const dispatchableTasks = (await ports.work.listTasks(db, { state: "accepted" })).filter(
-		(t) => t.ownerAgentId !== null,
-	);
-	if (generation !== state.generation) return;
-
-	for (const task of dispatchableTasks) {
-		if (!task.ownerAgentId) continue;
-		if (activeTaskIds.has(task.id)) continue;
-		if (state.queue.some((e) => e.taskId === task.id)) continue;
-
-		state.queue.push({
-			taskId: task.id,
-			agentId: task.ownerAgentId,
-			teamId: task.teamId ?? task.id,
-			enqueuedAt: Date.now(),
-		});
-	}
-}
-
-function registerTaskTriggerInternal(
-	state: TaskQueueState,
-	ports: DispatchPorts,
-	deps: TaskDispatcherDeps,
-): () => void {
-	state.generation++;
-	const myGeneration = state.generation;
-	state.queue = [];
-	state.draining = false;
-
-	const { db, eventBus } = deps;
-
-	function scheduleDrain(): void {
-		void drainQueue(state, deps, myGeneration).catch((err) => {
-			taskDispatcherLog.error("drainQueue threw unexpectedly", {
-				error: err instanceof Error ? err.message : String(err),
-			});
-		});
-	}
-	const handleTaskStateChanged = (event: TaskStateChangedEvent): void => {
-		if (event.toState !== "accepted") return;
-
-		void (async () => {
-			const task = await ports.work.getTaskById(db, event.taskId);
-
-			if (!task?.ownerAgentId) return; // No agent assigned — skip
-
-			await enqueue(state, db, {
-				taskId: event.taskId,
-				agentId: task.ownerAgentId,
-				teamId: task.teamId ?? event.taskId,
-				enqueuedAt: Date.now(),
-			});
-
-			scheduleDrain();
-		})();
-	};
-	const handleSessionEnded = (event: SessionEndedEvent): void => {
-		void (async () => {
-			if (event.taskId) {
-				const task = await ports.work.getTaskById(db, event.taskId);
-
-				if (
-					task?.state === "in_progress" &&
-					task.ownerAgentId &&
-					task.ownerAgentId !== event.agentId
-				) {
-					if (!(await hasActiveSession(db, event.taskId))) {
-						await enqueue(state, db, {
-							taskId: event.taskId,
-							agentId: task.ownerAgentId,
-							teamId: task.teamId ?? event.taskId,
-							enqueuedAt: Date.now(),
-						});
-					}
-				}
-			}
-			scheduleDrain();
-		})();
-	};
-	const unsubTaskStateChanged = eventBus.on("task_state_changed", handleTaskStateChanged);
-	const unsubSessionEnded = eventBus.on("session_ended", handleSessionEnded);
-	void startupSweep(state, ports, db, myGeneration)
-		.then(() => {
-			if (myGeneration === state.generation && state.queue.length > 0) {
-				scheduleDrain();
-			}
-		})
-		.catch((err) => {
-			taskDispatcherLog.error("startup sweep failed", {
-				error: err instanceof Error ? err.message : String(err),
-			});
-		});
-	return (): void => {
-		unsubTaskStateChanged();
-		unsubSessionEnded();
-		state.generation++;
-		state.queue = [];
-		state.draining = false;
-	};
-}
-
-function snapshotQueue(state: TaskQueueState): DispatchQueueSnapshot {
-	return {
-		entries: [...state.queue],
-		draining: state.draining,
-	};
-}
+/**
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, closing the `dispatch::work`
+ * finding for real — not allowlisted, not deferred): the task-queue trigger
+ * (`enqueue`/`drainQueue`/`startupSweep`/`registerTaskTriggerInternal`/
+ * `TaskQueueState`/`DispatchQueueSnapshot`/`getQueueSnapshot`) that used to
+ * live here is DELETED, confirmed genuinely dead — not merely redundant.
+ * Source-verified two ways: (a) `drainQueue`'s own body never called a
+ * session-launch function on the success path — it resolved a model via
+ * `deps.resolveModel` then immediately discarded it (`void resolvedModel`)
+ * and removed the entry from the queue; this shape predates AU21 entirely
+ * (identical in the pre-AU20 `task-dispatcher.ts`, `git show 32fa2649^`). (b)
+ * The REAL task-dispatch path today is `@hyperidle/work`'s
+ * `task-state-machine.ts`: a task's "accepted" transition already bakes +
+ * records a `task_run` `AgentWorkIntentRecorder` intent in the SAME
+ * transaction (AU21 Decision B, resolve-at-emit), which flows through
+ * `session-requests`'s durable queue into an `agentSessionRequests` row,
+ * consumed by `run-orchestration`'s OWN independent 1s poll loop
+ * (`start-runtime.ts`'s `setInterval(() => void wake(), 1_000)` →
+ * `drainIntents`) — entirely bypassing `dispatch`. `startupSweep`/
+ * `handleTaskStateChanged`/`handleSessionEnded`'s `ports.work.listTasks`/
+ * `getTaskById` reads existed only to populate a queue `drainQueue` then
+ * silently discarded — a real `agent-orchestration -> core-api` read with NO
+ * live product effect. The `/api/dispatch-queue` observer route
+ * (`dispatch-queue-routes.ts`) had no frontend consumer (grepped) and always
+ * reported an empty, permanently-draining snapshot; deleted alongside it.
+ * `DispatchPorts.work` (the only capability this mechanism needed) is
+ * removed entirely — `dispatch` now has zero `agent-orchestration -> work`
+ * edge of any kind.
+ */
 
 type Disposer = () => void;
 
 export interface DispatchConfig {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	readonly task?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }
 
 /**
@@ -894,28 +524,24 @@ export interface DispatchConfig {
  * scheduler + `routineRuns` lifecycle relocated to `@hyperidle/routine`'s
  * `routine-scheduler.ts`; the composition-root wiring (start/stop, the
  * manual-fire dispatch) now lives in
- * `packages/core-api/src/services/routine-scheduler-bindings.ts`. Dispatch
- * keeps only assistant-turn + task-queue responsibilities.
+ * `packages/core-api/src/services/routine-scheduler-bindings.ts`.
+ *
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): the
+ * task-queue responsibility is gone too (genuinely dead, see this file's
+ * `dispatch::work` `@lore` above) — `DispatchConfig` no longer has a `task`
+ * branch and `getQueueSnapshot`/`DispatchQueueSnapshot` are deleted.
+ * `provisionTeamRoutines` relocated to `@hyperidle/routine` (see this file's
+ * `dispatch::routine` `@lore` above) — `DispatchOps` no longer exposes it
+ * either. Dispatch now does exactly one live thing: the assistant-turn
+ * runner.
  */
 export interface DispatchOps {
 	start(config: DispatchConfig): Promise<Disposer>;
 
 	runAssistantTurn(deps: AssistantTurnDeps, request: AgentSessionRequest): Promise<void>;
-
-	provisionTeamRoutines(
-		db: HyperIdleDb,
-		opts: {
-			teamId: string;
-			ownerByRole: Partial<Record<string, string>>;
-			leadAgentId: string;
-		},
-	): Promise<void>;
-
-	getQueueSnapshot(): DispatchQueueSnapshot;
 }
 
 export function createDispatchOps(ports: DispatchPorts): DispatchOps {
-	const state: TaskQueueState = { queue: [], draining: false, generation: 0 };
 	let activeDispose: (() => void) | null = null;
 	let starting = false;
 	return {
@@ -925,15 +551,6 @@ export function createDispatchOps(ports: DispatchPorts): DispatchOps {
 			const disposers: Disposer[] = [];
 			try {
 				disposers.push(registerAssistantTriggerInternal(ports, config.eventBus, config.db));
-				if (config.task) {
-					disposers.push(
-						registerTaskTriggerInternal(state, ports, {
-							db: config.db,
-							eventBus: config.eventBus,
-							...config.task,
-						}),
-					);
-				}
 			} catch (error) {
 				starting = false;
 				for (const dispose of disposers.reverse()) {
@@ -956,8 +573,6 @@ export function createDispatchOps(ports: DispatchPorts): DispatchOps {
 						// One faulty disposer must not strand the remaining triggers.
 					}
 				}
-				state.queue = [];
-				state.draining = false;
 				activeDispose = null;
 			};
 			activeDispose = dispose;
@@ -966,9 +581,5 @@ export function createDispatchOps(ports: DispatchPorts): DispatchOps {
 		},
 
 		runAssistantTurn: (deps, request) => executeAssistantRequestInternal(ports, deps, request),
-
-		provisionTeamRoutines: (db, opts) => provisionTeamRoutinesInternal(ports, db, opts),
-
-		getQueueSnapshot: () => snapshotQueue(state),
 	};
 }

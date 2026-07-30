@@ -56,7 +56,7 @@ let sharedDb: HyperIdleDb;
 // logic, not a §11 seam contract test — those live in core-api's
 // `__tests__/core-api-port-increment2-work-users.integration.test.ts`),
 // everything else stays the unused stub. `actorId` is ignored by these fakes.
-const ports: ToolHandlersPorts<HyperIdleDb> = {
+const ports: ToolHandlersPorts = {
 	...STUB_TOOL_HANDLERS_PORTS,
 	coreApi: {
 		...STUB_TOOL_HANDLERS_PORTS.coreApi,

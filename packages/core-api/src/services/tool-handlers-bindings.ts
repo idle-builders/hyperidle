@@ -1,16 +1,26 @@
 /**
  * `@hyperidle/tool-handlers`'s `ToolHandlersPorts` (Mechanism C), wired here
- * at the `packages/server` composition point — the only remaining
- * same-process DI target is `dispatch`, a real already-migrated package.
- * `work`/`users`/`conversation`/`org`/`routine`/`policy.handoff`/`knowledge`
- * all cross the `CoreApiPort` seam instead (see `coreApi`'s own inline
- * `@lore` below).
+ * at the `packages/server` composition point. `work.routeItem` is the ONE
+ * remaining same-process DI capability (a pure, stateless string switch, no
+ * DB access — see `ports.ts`'s `ToolHandlersWorkAccessor` doc comment).
+ * `users`/`conversation`/`org`/`routine`/`policy.handoff`/`knowledge` all
+ * cross the `CoreApiPort` seam instead (see `coreApi`'s own inline `@lore`
+ * below).
  *
  * @lore AU19 Increment 4: this module builds each bound singleton ONCE, at
  * the composition root, so every real call site (`session-lifecycle-bindings.ts`
  * via `tool-provider-bindings.ts`, `dispatch-bindings.ts`'s own `toolHandlers`
  * accessor) imports the already-wired result — same factory-curry idiom as
  * every other `*-bindings.ts` file in this directory.
+ *
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): the
+ * standalone `routine: { provisionTeamRoutines }` same-process DI field is
+ * GONE — `provisionTeamRoutines` moved onto `coreApi` (routes through the
+ * seam like every other `create_team` step now), closing what the guard
+ * flagged as a hidden `tool-handlers -> routine` composition-bundle edge
+ * (a regression this same wave's `dispatch::routine` fix introduced by
+ * relocating the underlying wiring here — see `ports.ts`'s `@lore` for the
+ * full story).
  */
 
 import type {
@@ -18,7 +28,6 @@ import type {
 	InsertRoutineRequest,
 	UpdateRoutineRequest,
 } from "@hyperidle/api-contract";
-import type { HyperIdleDb } from "@hyperidle/db";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { routeItem } from "@hyperidle/work";
@@ -27,29 +36,6 @@ import {
 	getRegisteredCoreApiTransport,
 	withActorTransport,
 } from "./core-api-port-composition.js";
-import { dispatchOps } from "./dispatch-bindings.js";
-
-/**
- * @lore AU19 Increment 4: `dispatch-bindings.ts` imports `toolHandlersPorts`
- * from THIS module (to wire `dispatchPorts.toolHandlers`), so a direct
- * top-level read of `provisionTeamRoutinesBound` here would hit the ESM
- * temporal-dead-zone on whichever of these two composition-root modules
- * gets evaluated second. Deferring the read into a call-time closure (same
- * idiom `dispatch-bindings.ts`'s own `toolHandlers` port closures already
- * use for their own read of `toolHandlersPorts`) breaks the cycle: the
- * binding only needs to be initialized by the time `provisionTeamRoutines`
- * is actually CALLED, not at module-evaluation time.
- */
-function provisionTeamRoutines(
-	db: HyperIdleDb,
-	opts: {
-		readonly teamId: string;
-		readonly ownerByRole: Partial<Record<string, string>>;
-		readonly leadAgentId: string;
-	},
-): Promise<unknown> {
-	return dispatchOps.provisionTeamRoutines(db, opts);
-}
 
 /**
  * AU21 §9 Increment 1/2: builds a fresh in-process `CoreApiPort` per call,
@@ -112,12 +98,11 @@ function createBetThroughCoreApiPort(
 	});
 }
 
-const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
+const toolHandlersPorts: ToolHandlersPorts = {
 	// AU21 §9 Increment 2: `routeItem` is the ONLY `work` capability left as
 	// ordinary same-process DI — every read/write moved onto the `coreApi`
 	// seam below (see `ports.ts`'s `ToolHandlersWorkAccessor` doc comment).
 	work: { routeItem },
-	dispatch: { provisionTeamRoutines },
 	coreApi: {
 		createBet: createBetThroughCoreApiPort,
 		getTaskById: (id, actorId) => seamPortForActor(actorId).work.getTaskById(id),
@@ -173,6 +158,13 @@ const toolHandlersPorts: ToolHandlersPorts<HyperIdleDb> = {
 			seamPortForActor(actorId).org.resolveReviewRecipientsForItem(ctx),
 		persistScaffoldedAgents: (teamMembersId, specs, actorId) =>
 			seamPortForActor(actorId).org.persistScaffoldedAgents(teamMembersId, specs),
+		// AU21 §9 Increment 9 (forensic-triage wave, second pass): was an opaque
+		// same-process `ToolHandlersRoutineAccessor`/`dispatch` pass-through —
+		// now routes through the seam like every other `create_team` step
+		// (backed by `POST /org/team-routines`, see `core-api-port.ts`'s
+		// `CoreApiOrgPort.provisionTeamRoutines` doc comment).
+		provisionTeamRoutines: (input, actorId) =>
+			seamPortForActor(actorId).org.provisionTeamRoutines(input),
 		insertRoutine: (input: Record<string, unknown>, actorId: string) =>
 			seamPortForActor(actorId).routine.insertRoutine(widenInsertRoutineInput(input)),
 		getRoutineById: (id, actorId) => seamPortForActor(actorId).routine.getRoutineById(id),

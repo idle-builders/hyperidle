@@ -1,6 +1,6 @@
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import type { DispatchConfig } from "@hyperidle/dispatch";
-import { getRoutine } from "@hyperidle/routine";
+import { getRoutine, provisionTeamRoutines } from "@hyperidle/routine";
 import type { EventBus } from "@hyperidle/shared";
 import { dispatchOps } from "../services/dispatch-bindings.js";
 import {
@@ -36,7 +36,7 @@ export function fireGenericRoutine(
 	return fireRoutine(db, eventBus, routine, {});
 }
 
-export const seedTeamRoutines = dispatchOps.provisionTeamRoutines;
+export const seedTeamRoutines = provisionTeamRoutines;
 
 /**
  * @lore AU21 §9 Increment 4: `dispatchOps.start` (dispatch's OWN lifecycle —

@@ -29,7 +29,7 @@ import {
 	propagationLog,
 	resolveProfile,
 } from "@hyperidle/db";
-import type { DispatchConfig, DispatchOps } from "@hyperidle/dispatch";
+import type { DispatchOps } from "@hyperidle/dispatch";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
@@ -106,10 +106,33 @@ import {
 import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
 
 type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
-type TaskDispatcherDeps = NonNullable<DispatchConfig["task"]> & {
+/**
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): used to be
+ * derived from `DispatchConfig["task"]` (`NonNullable<...> & {db, eventBus}`)
+ * — `dispatch`'s task-queue trigger (and `DispatchConfig["task"]` with it) is
+ * deleted, genuinely dead code (see `@hyperidle/dispatch`'s own `@lore`).
+ * This shape now stands on its own: it is NOT a dispatch config anymore, just
+ * the bundle of provisioning-related values `registerCoreDomainServices`/
+ * `registerAgentLayerServices` thread through — kept as a named type only so
+ * `Boolean(ctx.dispatcherDeps)` still has a stable "is provisioning
+ * configured" presence signal (`canProvision`'s default, below).
+ */
+interface TaskDispatcherDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-};
+	// @lore structural typing (same idiom `@hyperidle/dispatch`'s own now-deleted
+	// `TaskDispatcherDeps` used, `unknown` rather than `any` — strict): the real
+	// call site (below) passes a concrete `AdapterPool`/`SandboxAdapter`; test
+	// call sites pass inert fakes to exercise disposer bookkeeping only, never
+	// this shape's actual runtime behavior.
+	readonly adapterPool: unknown;
+	readonly workspace: unknown;
+	readonly sandboxBasePath: string;
+	readonly resolveModel?: (modelTier: string) => Promise<ResolvedModel | undefined>;
+	readonly mcpBridgeRegistry?: unknown;
+	readonly mcpBaseUrl?: string;
+	readonly mounter?: unknown;
+}
 
 import {
 	enqueueWorkIntent,
@@ -544,11 +567,12 @@ export function registerAgentLayerServices(ctx: {
 	// lifecycle now (`routine-scheduler-bindings.ts`) — dispatch no longer knows
 	// about routines at all.
 	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
-	const dispatchPromise = dispatchOps.start({
-		db,
-		eventBus,
-		task: ctx.dispatcherDeps,
-	});
+	// AU21 §9 Increment 9 (forensic-triage wave, second pass): `dispatchOps.start`
+	// no longer takes a `task` config at all — the task-queue trigger it used to
+	// wire was genuinely dead code (see `@hyperidle/dispatch`'s own `@lore`).
+	// `ctx.dispatcherDeps` is still read below (`canProvision`'s default) as a
+	// pure "is a runtime configured" presence signal.
+	const dispatchPromise = dispatchOps.start({ db, eventBus });
 	dispatchPromise.catch((err) => {
 		serviceBootstrapLog.error("dispatch start failed", { err });
 	});
@@ -558,8 +582,8 @@ export function registerAgentLayerServices(ctx: {
 				void dispatchPromise.then((d) => d()).catch(() => {});
 			},
 			"dispatch lifecycle",
-			"assistant/task stop",
-			["assistant", "task"],
+			"assistant stop",
+			["assistant"],
 		),
 	);
 

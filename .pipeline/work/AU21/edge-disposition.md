@@ -345,7 +345,93 @@ this wave, `.pipeline/work/AU23/plan.md`, `.pipeline/AU.md`) — not a silent ca
 (shrinking-to-empty) exclusion that keeps the guard's bare check from redding the build on these ten named,
 tracked, owned pairs before AU23 lands.
 
-**Net result:** `inspect(process.cwd())` now returns **zero findings** (verified:
-`npx tsx scripts/composition-edge-anti-regrowth-guard.ts`). The bare check can be wired into `npm run lint`
-as-is — every excluded edge is accounted for in `ALLOWLIST` (permanent) or `DEFERRED_FOLLOWUP` (temporary,
-AU23-owned), never a silent gap.
+**Net result (as of the SECOND pass, superseded below):** `inspect(process.cwd())` returned zero findings, but
+two of this pass's own moves were rejected on review — see the THIRD pass immediately below, which corrects the
+record rather than deleting this history.
+
+---
+
+## Increment 9 forensic-triage accounting — THIRD pass (review-corrected; this is the current, accurate state)
+
+The second pass above was reviewed and two of its moves were rejected, both on the same principle: **a
+permanent architectural carve-out is a founder decision, not a builder one**, no matter how well-sourced the
+reasoning. Concretely:
+
+1. **`ALLOWLIST` must contain only founder-signed entries.** The second pass added two "builder-ruled bounded
+   exceptions" (`session-requests::work`, `dispatch::routine`) at the same rigor bar as the founder-signed
+   `cost::*` rows. That is exactly the shape MEMORY already warns against ("zero exceptions in ownership ACLs —
+   no carve-outs ever") and was correctly rejected. Neither pair had a founder ruling; `edge-disposition.md`'s
+   own prior text even flagged `session-requests::work` as "ambiguous, not resolved this pass" before the second
+   pass unilaterally resolved it.
+2. **Presenting a silent `AU23` descope as this increment "closing" AU21 misrepresents the WP's own headline
+   AC.** AC #2 ("orchestration reads zero core-api domain state") was materially unmet by the second pass's own
+   `DEFERRED_FOLLOWUP` set (10 pairs), yet the wave was framed as ready for final ship. Registering a follow-up
+   WP mid-implementation is not inherently illegitimate (AU22 was registered the same way, during the
+   architecture phase, for a different capability) — the problem was doing it as a builder-authored, unreviewed
+   scope reduction of AU21's own already-locked scope, not through a founder call.
+
+**What this THIRD pass actually did (real code changes, not relabeling):**
+
+- **`dispatch::work` — genuinely CLOSED (deleted, not migrated).** Full re-investigation (not re-assertion)
+  confirmed `dispatch`'s task-queue trigger (`startupSweep`/`handleTaskStateChanged`/`handleSessionEnded`/
+  `enqueue`/`drainQueue`) was **dead code**, not merely redundant: `drainQueue`'s own body never called a
+  session-launch function on any path — it resolved a model via `deps.resolveModel` and then discarded it
+  (`void resolvedModel`) before removing the queue entry. This shape predates AU21 entirely (`git show
+  32fa2649^` shows byte-identical dead logic in the pre-AU20 `task-dispatcher.ts`). The real task-dispatch path
+  today is `@hyperidle/work`'s `task-state-machine.ts`: a task's "accepted" transition already bakes + records a
+  `task_run` `AgentWorkIntentRecorder` intent in the same transaction (AU21 Decision B), consumed by
+  `run-orchestration`'s own independent 1-second poll loop (`start-runtime.ts`'s `setInterval(() => void
+  wake(), 1_000)` → `drainIntents`), entirely bypassing `dispatch`. Deleted: the whole task-queue mechanism,
+  `DispatchPorts.work`, the `/api/dispatch-queue` observer route (no frontend consumer, confirmed by grep).
+- **`dispatch::routine` — genuinely CLOSED (relocated core-side).** `provisionTeamRoutinesInternal` +
+  `BUILTIN_SPECS` moved from `@hyperidle/dispatch`'s `service.ts` to `@hyperidle/routine`'s
+  `routine-scheduler.ts` (`provisionTeamRoutines`, an intra-package call to `insertRoutine`). Both real callers
+  (`teams-routes.ts`'s `POST /teams`, `tool-handlers`'s `create_team` MCP tool) now import it directly (the
+  former as an ordinary core-api intra-layer call; the latter via a **new** `CoreApiPort` seam route, see next
+  bullet). `DispatchOps.provisionTeamRoutines`/`DispatchPorts.routine` are deleted — `dispatch` has zero
+  `agent-orchestration -> routine` edge of any kind.
+- **A genuine regression this same fix introduced was found and closed, not left behind.** Relocating
+  `provisionTeamRoutines`'s composition wiring from `dispatch-bindings.ts` to `tool-handlers-bindings.ts`
+  (importing `@hyperidle/routine` directly) caused the anti-regrowth guard's composition-bundle detector to
+  correctly flag a **new** `tool-handlers -> routine` hidden edge — structurally the exact same pattern
+  `dispatch::routine` used to have, just relocated to a different consumer by this fix's own composition change.
+  Closed for real (not allowlisted): added `CoreApiOrgPort.provisionTeamRoutines` + a new route, `POST
+  /org/team-routines` (same "no 1:1 UI route, narrowly-scoped new route" precedent as
+  `persistScaffoldedAgents`/`resolveReviewRecipientsForItem`), and `create_team`'s tool handler now calls it via
+  the seam like every other step in that flow (Decision C). A new §11-style contract test proves it (
+  `core-api-port-increment2-org-routine-handoff.integration.test.ts`).
+- **`session-requests::work` — RE-CLASSIFIED, not resolved.** Moved out of `ALLOWLIST` into `DEFERRED_FOLLOWUP`
+  (honestly open, not founder-signed, not permanent). Real, credible feasibility evidence was found this pass
+  (not merely asserted): `routine`'s equivalent writeback into `routineRuns` already migrated to a core-api
+  event-subscriber pattern (`routine-run-session-end-reactions.ts`, reacting to `session_ended`/
+  `agent_run_lifecycle_changed`, with `lifecycleProjectors.routine` now `observeOnly`) — the same pattern is very
+  likely portable to `task`/`decomposition`'s writebacks, and `reapTerminalTaskDispatchAttempts` could very
+  likely move into `server-factory.ts`'s existing generic retention sweep. A real subtlety was found along the
+  way (`projectTask`'s embedded call to `projectExplicitStart` turns out to be a harmless no-op for
+  `task`-sourced facts, confirmed by reading `projectStartInternal`'s guard clause) — exactly the kind of detail
+  that argues for a dedicated red/green pass rather than a third fix squeezed in alongside the two above.
+- **`dispatch::conversation`/`::users`/`::settings` and `run-orchestration`'s 6 context-assembly pairs — investigated
+  further, confirmed genuinely NOT safely closeable this wave, still `DEFERRED_FOLLOWUP`.** The assistant-turn
+  runner's live transcript read was checked against a "bake at emit" fix (the same pattern that closed the other
+  25 pairs) and found **unsafe, not just unmigrated**: the assistant's own `maxConcurrentSessions:1` means a
+  second message can queue behind an in-flight turn; baking the transcript at the SECOND message's emit time
+  would miss the FIRST turn's own reply, a real conversational-coherence regression. `run-orchestration`'s
+  context-assembly cluster (task/bet/agent/team/routine rows, ranked L2/L3/L4 knowledge) has the identical
+  staleness risk at larger scale, and architecture.md's own text (§10: baked payloads are "a start-payload, NOT
+  a re-validatable snapshot — the agent pulls current detail live via MCP") already points toward "agent pulls
+  via MCP" as the intended resolution for this class of read, not "bake at emit" — but converting the sandbox's
+  today file-based context model to that shape is a real product/UX redesign, not a triage-wave fix.
+
+**AU23's status corrected.** `.pipeline/work/AU23/plan.md` is retained (its research holds up and 2 of its
+original 10 target pairs are now genuinely closed by this pass) but its registration in `.pipeline/AU.md` is
+downgraded from "planned" to **"proposed — pending founder decision"**: whether AU21 finishes the remaining 8
+pairs in place, or a follow-up WP is formally scoped for them, is a founder call this pass does not make.
+
+**Net, honest result:** `inspect(process.cwd())` returns zero findings (verified:
+`npx tsx scripts/composition-edge-anti-regrowth-guard.ts`), and the bare check is wired into `npm run lint`
+(`package.json`) — but this is NOT the same claim as "AC #2 is met." `ALLOWLIST` now contains only the 4
+founder-signed `cost::*` rows. `DEFERRED_FOLLOWUP` honestly carries 10 real, open, not-founder-signed,
+not-permanent pairs (`dispatch::conversation`/`::users`/`::settings`, `run-orchestration`'s 6, and
+`session-requests::work`) — 2 fewer than the second pass's set (`dispatch::work`/`::routine` are genuinely
+closed), but NOT zero. **AU21 is not ready to be presented as fully closing AC #2 or AC #9 without a founder
+decision on these 10 pairs.**

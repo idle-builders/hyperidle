@@ -1,17 +1,14 @@
 /**
  * @lore AU19 Increment 3h: `@hyperidle/dispatch`'s `createDispatchOps` needs
- * injected `work`/`routine`/`conversation`/`users`/`settings`/`model-gateway`
- * (ordinary downward), `run-orchestration` (ordinary same-layer, still a port
- * per Mechanism C), and `toolHandlers`/`workspaceFactory` (INTERIM
+ * injected `conversation`/`users`/`settings`/`model-gateway` (ordinary
+ * downward), `run-orchestration` (ordinary same-layer, still a port per
+ * Mechanism C), and `toolHandlers`/`workspaceFactory` (INTERIM
  * forward-references, wired to still-flat `packages/server` files) ports.
  * This module builds the bound singleton
  * ONCE, at the composition root, so every real call site (`app.ts`,
- * `server-factory.ts`, `routines.ts`, `tools/create-routine.ts`,
- * `tools/create-team.ts`, `routes/routines-routes.ts`,
- * `routes/dispatch-queue-routes.ts`, `routes/teams-routes.ts`, and the many
- * `__tests__` integration tests) imports the already-wired functions
- * unchanged — same factory-curry idiom as `cost-bindings.ts`/
- * `durable-agent-queue.ts`.
+ * `server-factory.ts`, and the many `__tests__` integration tests) imports
+ * the already-wired functions unchanged — same factory-curry idiom as
+ * `cost-bindings.ts`/`durable-agent-queue.ts`.
  *
  * `toolHandlers`/`workspaceFactory` wire to `tools/assistant-draft-registry.ts`/
  * `harness/local-sandbox-adapter.ts` — still-flat `packages/server` files
@@ -28,28 +25,34 @@
  * `sessionRequests` wiring removed — the routine scheduler + all four
  * builtin-routine bodies relocated to `@hyperidle/routine`'s
  * `routine-scheduler.ts`; their composition root is now
- * `routine-scheduler-bindings.ts`. `routine.insertRoutine` is the one
- * remaining wire (`provisionTeamRoutinesInternal`'s definition-seeding
- * write, out of this increment's relocate-list).
+ * `routine-scheduler-bindings.ts`.
  *
  * @lore AU21 §9 Increment 8 (Decision F1): the `agentSelection` port
  * (`resolveScaffoldSpecs`, `user_assistant` formation) is REMOVED — folded
  * into `@hyperidle/db`'s `resolveAgentScaffoldSpecs`, called directly from
  * `@hyperidle/dispatch`'s own `service.ts` (a leaf import, not a port).
+ *
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): `work` and
+ * `routine` are both gone from `DispatchPorts` now too. `work` (the
+ * `listTasks`/`getTaskById` task-queue trigger) was genuinely dead code
+ * (`dispatch/src/service.ts`'s own `@lore`) — deleted, not migrated.
+ * `routine.insertRoutine` (`provisionTeamRoutinesInternal`'s definition-seed
+ * write) relocated to `@hyperidle/routine` itself (`provisionTeamRoutines`,
+ * an intra-package call there) — both real call sites
+ * (`routes/teams-routes.ts`, `tool-handlers-bindings.ts`) now import it
+ * directly instead of going through `dispatchOps`.
  */
 
 import { findThread, listMessages } from "@hyperidle/conversation";
-import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { DispatchPorts } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
 import { createSandboxAdapter } from "@hyperidle/harness-registry";
 import { resolveModel } from "@hyperidle/model-gateway";
-import { insertRoutine } from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
 import type { ToolContext } from "@hyperidle/shared";
 import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
 import { findUser, getOrCreateUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
 import {
 	buildCoreApiPort,
 	getRegisteredCoreApiTransport,
@@ -72,14 +75,6 @@ function seamPortForActor(actorId: string): ReturnType<typeof buildCoreApiPort> 
 }
 
 const dispatchPorts: DispatchPorts = {
-	work: {
-		listTasks: (exec: WriteExecutor, opts: { readonly state: string }) =>
-			work.list(exec, "task", { state: opts.state }),
-		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-	},
-	routine: {
-		insertRoutine,
-	},
 	conversation: {
 		// AU21 §9 Increment 2 (conversation wave): routes through the CoreApiPort
 		// seam — the SAME `POST /threads/:id/messages` route a human caller's

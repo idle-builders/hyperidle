@@ -2,10 +2,11 @@
  * `tool-handlers` Service (agent-orchestration) — outbound composition-
  * boundary (Mechanism C) DI ports, per architecture §10.2's census (the
  * merged `tools` census row, §7.5's C1 split). The one remaining real
- * outbound edge (`dispatch`) is ordinary downward-or-same-layer DI, wired by
- * the composition root
- * (`packages/server/src/services/tool-handlers-bindings.ts`) to its real
- * exported functions. `coreApi` (AU21 §9 Increment 1, `work`; Increment
+ * outbound edge (`routine`, renamed from `dispatch` in AU21 §9 Increment 9 —
+ * `dispatch` no longer offers `provisionTeamRoutines` at all) is ordinary
+ * composition-root DI, wired by the composition root
+ * (`packages/core-api/src/services/tool-handlers-bindings.ts`) directly to
+ * `@hyperidle/routine`'s real exported function. `coreApi` (AU21 §9 Increment 1, `work`; Increment
  * 2, `users`+`conversation`, then `org`+`routine`+`handoffTask`, then
  * `knowledge`) is DIFFERENT in kind — it crosses the `CoreApiPort` write seam
  * (a real route call), not same-process DI; see `ToolHandlersCoreApiAccessor`'s
@@ -44,7 +45,7 @@
  *
  * @lore AU20 Stage 2: All 16 sub-interface type exports removed — they are
  * now structurally internal under `ToolHandlersPorts`. External code that
- * holds a `ToolHandlersPorts<TDb>` accesses each sub-port structurally
+ * holds a `ToolHandlersPorts` accesses each sub-port structurally
  * without needing to import the named interface. `parseCron`/`nextCronMatch`
  * removed from `ToolHandlersDispatchAccessor` — relocated to
  * `@hyperidle/shared` so tool implementations import them directly (2 of 3
@@ -94,24 +95,6 @@ interface ToolHandlersCreateTeamInput {
 	readonly capacity?: number;
 	readonly activeBets?: number;
 	readonly formedAt?: string;
-}
-
-/**
- * @lore AU20 Stage 2: `parseCron` and `nextCronMatch` removed — they are
- * pure utilities relocated to `@hyperidle/shared`. Only `provisionTeamRoutines`
- * remains as a genuine service-layer back-edge (it provisions DB rows and
- * spawns work — cannot be a pure utility).
- */
-interface ToolHandlersDispatchAccessor<TDb> {
-	/** Opaque pass-through — this Service's own bound `provisionTeamRoutines`. Never inspected here. */
-	provisionTeamRoutines(
-		db: TDb,
-		opts: {
-			readonly teamId: string;
-			readonly ownerByRole: Partial<Record<string, string>>;
-			readonly leadAgentId: string;
-		},
-	): Promise<unknown>;
 }
 
 /**
@@ -359,6 +342,21 @@ interface ToolHandlersCoreApiAccessor {
 		specs: readonly Record<string, unknown>[],
 		actorId: string,
 	): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
+	/**
+	 * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): moved here
+	 * from a standalone `ToolHandlersRoutineAccessor`/`ToolHandlersDispatchAccessor`
+	 * opaque same-process pass-through (this file's top `@lore`) — `create_team`'s
+	 * last non-seam step now routes through `CoreApiPort` like every other step
+	 * in that flow (Decision C), backed by `POST /org/team-routines`.
+	 */
+	provisionTeamRoutines(
+		input: {
+			readonly teamId: string;
+			readonly ownerByRole: Partial<Record<string, string>>;
+			readonly leadAgentId: string;
+		},
+		actorId: string,
+	): Promise<void>;
 	insertRoutine(input: Record<string, unknown>, actorId: string): Promise<void>;
 	getRoutineById(
 		id: string,
@@ -467,8 +465,7 @@ interface ToolHandlersCoreApiAccessor {
 }
 
 /** Every real outbound port this Service's source files need. */
-export interface ToolHandlersPorts<TDb> {
+export interface ToolHandlersPorts {
 	readonly work: ToolHandlersWorkAccessor;
-	readonly dispatch: ToolHandlersDispatchAccessor<TDb>;
 	readonly coreApi: ToolHandlersCoreApiAccessor;
 }

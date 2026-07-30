@@ -44,7 +44,6 @@ describe("app runtime route boot", () => {
 					["/api/routines", true],
 					["/api/notifications", true],
 					["/api/harnesses", true],
-					["/api/dispatch-queue", true],
 				] as const;
 
 				for (const [path, authed] of routeChecks) {
