@@ -43,6 +43,10 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import {
+	type FilesystemForProvisioning,
+	mountFilesystemsForAgent,
+} from "./filesystem-provisioning.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -155,29 +159,19 @@ interface SessionLifecycleObservability {
 }
 
 // ---------------------------------------------------------------------------
-// filesystems — SessionLifecycleFilesystemsReader (NEW census edge — AO2 mount
-// resolution; `mountFilesystemsForAgent`'s raw `@hyperidle/filesystems` calls
-// were never a countable relative-import edge at original census time)
+// filesystems — SessionLifecycleFilesystemsReader (AU21 §9 Increment 8,
+// Decision F2: the mount OPERATION relocated wholesale into this package's
+// own `filesystem-provisioning.ts` — only this DB-reading PREAMBLE crossed
+// `CoreApiPort`, collapsing the former two-step `listFilesystemIdsByAgent`/
+// `listFilesystemsByIds` port dance into the ONE seam call
+// `CoreApiPort.filesystems.listFilesystemsByAgent` already supports. No `db`
+// parameter — the composition root resolves the calling agent's own actor
+// identity onto the seam internally, same idiom as `tool-handlers-bindings.ts`'s
+// `seamPortForActor`.)
 // ---------------------------------------------------------------------------
 
-interface SessionLifecycleFilesystemRow {
-	readonly id: string;
-	readonly teamId: string;
-	readonly source: string;
-	readonly kind: string;
-	readonly connectionId: string | null;
-	readonly resourceRef: string;
-	readonly writeback: string;
-	readonly state: string;
-	readonly createdAt: string;
-}
-
 interface SessionLifecycleFilesystemsReader {
-	listFilesystemIdsByAgent(db: HyperIdleDb, agentId: string): Promise<readonly string[]>;
-	listFilesystemsByIds(
-		db: HyperIdleDb,
-		ids: readonly string[],
-	): Promise<readonly SessionLifecycleFilesystemRow[]>;
+	listFilesystemsByAgent(agentId: string): Promise<readonly FilesystemForProvisioning[]>;
 }
 
 interface SessionLifecycleServiceConnectionResolver {
@@ -195,9 +189,17 @@ interface SessionLifecycleProvisioningPlan {
 	readonly envInjections: Readonly<Record<string, string>>;
 }
 
+/**
+ * AU21 §9 Increment 8, Decision F2: `buildProvisioningPlan`'s own seam-shaped
+ * `{connections, resolver}` deps (`./connection-provisioning.js`) now live
+ * behind THIS narrower port — `agentId` is the actor the composition root
+ * resolves onto `CoreApiPort.connections.listHeldConnectionsForProvisioning()`
+ * internally (never a raw `db`); `resolver` stays the Application-composed
+ * direct dependency it always was (AN1 hard-rule 1).
+ */
 interface SessionLifecycleConnectionsProvisioner {
 	buildProvisioningPlan(deps: {
-		readonly db: HyperIdleDb;
+		readonly agentId: string;
 		readonly resolver: SessionLifecycleServiceConnectionResolver;
 	}): Promise<SessionLifecycleProvisioningPlan>;
 	applyProvisioningPlan(args: {
@@ -749,73 +751,11 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  */
 
 // ── AO2 — Phase 4.5 mount + teardown capture-back helpers ────────────────────
-
-/**
- * AO2 Hook A: Resolve the agent's injected filesystems and mount each into sandboxPath.
- *
- * Called in admitSession Phase 4.5 (AFTER sandbox spawn, BEFORE context assembly).
- * Returns the list of successfully-mounted Filesystem records — stored on AdmittedSession
- * so the teardown helper (Hook B) can capture them without a second DB query.
- *
- * Mount failures are best-effort: a failed mount logs a warning and is EXCLUDED from
- * the returned list. The session continues without that filesystem (degrade-to-today).
- *
- * @lore AO2 §9: Mount BEFORE context assembly so .git/info/exclude is written before
- * assembly drops scaffolding into the directory. A filesystem-less session → empty list,
- * no mounts, no capture rows — purely non-breaking for existing sessions.
- */
-async function mountFilesystemsForAgent(
-	db: HyperIdleDb,
-	agentId: string,
-	sandboxPath: string,
-	mounter: FilesystemMounter,
-	ports: SessionLifecyclePorts,
-): Promise<Filesystem[]> {
-	// Resolve injected filesystems: sessions.agentId → filesystem_injections → filesystems.
-	const fsIds = await ports.filesystems.listFilesystemIdsByAgent(db, agentId);
-
-	if (fsIds.length === 0) return [];
-
-	const rows = await ports.filesystems.listFilesystemsByIds(db, fsIds);
-
-	if (rows.length === 0) return [];
-
-	// Parse DB rows into Filesystem domain objects.
-	const fsList: Filesystem[] = rows.map((row) => ({
-		id: row.id,
-		teamId: row.teamId,
-		source: row.source as Filesystem["source"],
-		kind: row.kind as Filesystem["kind"],
-		connectionId: row.connectionId ?? null,
-		resourceRef: JSON.parse(row.resourceRef) as Filesystem["resourceRef"],
-		writeback: row.writeback as Filesystem["writeback"],
-		state: row.state as Filesystem["state"],
-		createdAt: row.createdAt,
-	}));
-
-	// Mount each filesystem; collect the ones that succeed.
-	const mounted: Filesystem[] = [];
-	for (const filesystem of fsList) {
-		try {
-			const result = await mounter.mount({ filesystem, sandboxPath, auth: null });
-			if (result.success) {
-				mounted.push(filesystem);
-			} else {
-				// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-				console.warn(
-					`[session-provisioning] AO2 mount failed for filesystem ${filesystem.id}: ${result.error ?? "unknown"}`,
-				);
-			}
-		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.warn(
-				`[session-provisioning] AO2 mount threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
-			);
-		}
-	}
-
-	return mounted;
-}
+//
+// @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
+// (`mountFilesystemsForAgent`) relocated wholesale into this package's own
+// `filesystem-provisioning.ts` (imported above) — only the seam-facing
+// `SessionLifecycleFilesystemsReader` port type stays declared in this file.
 
 /**
  * AO2 Hook B: Capture-back mounted filesystems before endSession/crashSession.
@@ -1220,13 +1160,12 @@ async function admitSession(
 
 		// ── Phase 4.5: mount injected filesystems (AO2).
 		if (deps.mounter) {
-			mountedFilesystems = await mountFilesystemsForAgent(
-				db,
-				params.agentId,
+			mountedFilesystems = await mountFilesystemsForAgent({
+				filesystems: ports.filesystems,
+				agentId: params.agentId,
 				sandboxPath,
-				deps.mounter,
-				ports,
-			);
+				mounter: deps.mounter,
+			});
 		}
 
 		// ── Phase 6: assemble context into the sandbox through the agent layer.
@@ -1603,7 +1542,7 @@ async function runSession(
 	if (serviceConnectionResolver) {
 		try {
 			const plan = await ports.connections.buildProvisioningPlan({
-				db,
+				agentId: params.agentId,
 				resolver: serviceConnectionResolver,
 			});
 			const { mcpTokenEnv: connEnv } = await ports.connections.applyProvisioningPlan({
@@ -2108,12 +2047,12 @@ interface Provisioner {
 		deps: ProvisionSessionDeps,
 		params: ProvisionSessionParams,
 	): ReturnType<typeof startSessionProvision>;
-	mount(
-		db: HyperIdleDb,
-		agentId: string,
-		sandboxPath: string,
-		mounter: FilesystemMounter,
-	): Promise<Filesystem[]>;
+	/**
+	 * AU21 §9 Increment 8 (Decision F2): dropped the `db` parameter — the
+	 * relocated `mountFilesystemsForAgent` reads through `ports.filesystems`
+	 * (the `CoreApiPort` seam), never a raw `db` handle.
+	 */
+	mount(agentId: string, sandboxPath: string, mounter: FilesystemMounter): Promise<Filesystem[]>;
 	capture: typeof captureMountedFilesystems;
 }
 
@@ -2125,8 +2064,8 @@ export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
 			runSession(deps, params, admitted, ports, onHarnessStarted),
 		provision: (deps, params) => provisionSession(deps, params, ports),
 		start: (deps, params) => startSessionProvision(deps, params, ports),
-		mount: (db, agentId, sandboxPath, mounter) =>
-			mountFilesystemsForAgent(db, agentId, sandboxPath, mounter, ports),
+		mount: (agentId, sandboxPath, mounter) =>
+			mountFilesystemsForAgent({ filesystems: ports.filesystems, agentId, sandboxPath, mounter }),
 		capture: (...args) => captureMountedFilesystems(...args),
 	};
 }

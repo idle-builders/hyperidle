@@ -32,6 +32,7 @@ import {
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/shared";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/shared/net";
+import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
@@ -206,6 +207,39 @@ export function createConnectionRoutes(
 
 		// Inherited first (the first-class signal), then held
 		return c.json([...inheritedViews, ...storedViews]);
+	});
+
+	// ── GET /provisioning ───────────────────────────────────────────────────────
+	/**
+	 * AU21 §9 Increment 8 (Decision F2): session-launch-time held-connection
+	 * RECORD read — the seam `agent-orchestration`'s relocated
+	 * `buildProvisioningPlan` calls through
+	 * `CoreApiPort.connections.listHeldConnectionsForProvisioning()`.
+	 * Resolves the SAME single owning human `buildProvisioningPlan` always
+	 * resolved internally before this move (`@lore AN2 ownership`:
+	 * "Single-founder is the locked deployment") — never scoped to the
+	 * calling agent's own identity, unlike every other route in this file.
+	 * NEVER includes `encryptedToken` (AN1 hard-rule 1, same as `rowToView`).
+	 *
+	 * `public-data` boundary (not `principal-self`): the caller is an agent
+	 * about to launch, not the human owner it resolves internally — same
+	 * boundary kind `GET /filesystems?agentUserId=` already uses for the
+	 * equivalent session-launch-time read.
+	 */
+	router.get("/provisioning", requireBoundary({ kind: "public-data" }), async (c) => {
+		const humanUser = await findUser(db, { kind: "human" });
+		const userId = humanUser?.id ?? "u-founder";
+		const rows = await listConnections(db, { userId });
+
+		return c.json({
+			userId,
+			connections: rows.map((row) => ({
+				id: row.id,
+				service: row.service,
+				authSource: row.authSource as "token" | "mcp",
+				serverUrl: row.serverUrl ?? null,
+			})),
+		});
 	});
 
 	// ── POST / ────────────────────────────────────────────────────────────────

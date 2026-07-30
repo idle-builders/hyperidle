@@ -1,6 +1,20 @@
 /**
  * AN2 — Connection provisioning: re-apply held connections into a spawned session.
  *
+ * AU21 §9 Increment 8, Decision F2: this module RELOCATED from
+ * `packages/core-api/connections/src/connection-provisioning.ts` — the
+ * session-launch-time PROVISIONING OPERATION is `agent-orchestration`'s own
+ * job now. The human-configured RECORD (the `serviceConnections` table, its
+ * CRUD, and `/api/connections`) stays entirely in core-api;
+ * `buildProvisioningPlan` reads the held-connection record set through
+ * `CoreApiPort.connections.listHeldConnectionsForProvisioning()` (a `connections`
+ * seam reader, injected below) instead of a raw `db` handle — never a direct
+ * `serviceConnections` table read from this package. The decrypt step
+ * (`resolver.resolve(userId, connectionId)`) stays an Application-composed
+ * direct dependency, never routed through the seam (AN1 hard-rule 1: "the
+ * resolver is the ONLY plaintext path... wired to sandbox injection, not to
+ * routes" — this file's own historical top `@lore`, carried forward).
+ *
  * The central act of AN2: at spawn time, read the owning human's active held
  * connections, resolve each, SSRF-check each outbound URL, and write the
  * provisioned form into the session working directory so the agent's tools
@@ -9,13 +23,15 @@
  * @lore AN2 ownership: Single-founder is the locked deployment
  * (authorization-model.md:32). A multi-tenant model (agent→explicit-owner FK)
  * is a future change gated by the same trigger as RLS; not built now. The seam
- * (`resolveOwningHumanUserId`) is the one place a future per-agent-owner lookup
- * would slot in. Hard-rule 4 (per-user isolation) holds today because there is
- * exactly one human; the resolver's AND(userId) is the durable enforcement when
- * that stops being true.
+ * (`CoreApiPort.connections.listHeldConnectionsForProvisioning`) resolves the
+ * SAME single owning human `resolveOwningHumanUserId` always resolved before
+ * this move — the future per-agent-owner lookup would slot in at that route,
+ * not here. Hard-rule 4 (per-user isolation) holds today because there is
+ * exactly one human; the seam's owner resolution is the durable enforcement
+ * when that stops being true.
  *
  * @lore AN2 claude-two-write-sites: claude's .mcp.json is written by the inline
- * Phase 8b writer (session-provisioning.ts:753) AND by applyProvisioningPlan
+ * Phase 8b writer (session-provisioning.ts) AND by applyProvisioningPlan
  * (claudeNative=true). The AN2 writer MERGES into the existing file so the
  * inbound hyperidle entry is preserved. The split exists because claude uses a
  * different config format from codex/opencode, and restructuring the shipping
@@ -44,26 +60,31 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { HyperIdleDb } from "@hyperidle/db";
-import { serviceConnections } from "@hyperidle/db";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/shared";
 import { resolveUrlForSSRF } from "@hyperidle/shared/net";
-import { and, eq, inArray } from "drizzle-orm";
-import type { ConnectionsUserReader } from "./ports.js";
-import type { ServiceConnectionResolver } from "./service-connection-resolver.js";
-
-// ── Service → CLI env var map ─────────────────────────────────────────────────
-//
-// Closed config map: service slug → env var(s) the CLI tool reads.
-// A new CLI-key service adds ONE entry here (no new per-service code).
-// Note: git needs a credential helper, not a bare env var (research §4) — out of
-// scope to auto-wire; documented.
-//
-// @lore AN2 SVC_CLI_ENV: This is the ONLY place per-service CLI knowledge lives.
-// AC5's "second service = configuration" is proven by the generic plan-builder
-// plus this single map.
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+/** One held connection's provisioning-relevant fields — mirrors `CoreApiPort.connections.listHeldConnectionsForProvisioning`'s record shape (NEVER `encryptedToken`). */
+export interface HeldConnectionForProvisioning {
+	readonly id: string;
+	readonly service: string;
+	readonly authSource: HeldAuthSource;
+	readonly serverUrl: string | null;
+}
+
+/** The `connections` seam reader `buildProvisioningPlan` depends on — backed by `CoreApiPort.connections.listHeldConnectionsForProvisioning()` at the real composition root. */
+export interface ConnectionsProvisioningReader {
+	listHeldConnectionsForProvisioning(): Promise<{
+		readonly userId: string;
+		readonly connections: readonly HeldConnectionForProvisioning[];
+	}>;
+}
+
+/** The decrypt step — stays an Application-composed direct dependency, never routed through `CoreApiPort` (AN1 hard-rule 1). */
+export interface ServiceConnectionResolverPort {
+	resolve(userId: string, connectionId: string): Promise<string | null>;
+}
 
 /**
  * One MCP server entry to provision into the harness config.
@@ -85,10 +106,10 @@ export interface ProvisioningPlan {
 /**
  * Build the provisioning plan for one spawn.
  *
- * Reads active held connections for userId, resolves each token via the
- * resolver, SSRF-checks every outbound URL (drops + logs any that fail to
- * resolve to a public IP — never throws, never blocks the spawn), and
- * returns the plan.
+ * Reads active held connections for the seam-resolved owner, resolves each
+ * token via the resolver, SSRF-checks every outbound URL (drops + logs any
+ * that fail to resolve to a public IP — never throws, never blocks the
+ * spawn), and returns the plan.
  *
  * The _ssrfLookup parameter is injectable for tests (overrides the DNS
  * resolution step without patching global dns.lookup).
@@ -103,32 +124,21 @@ export interface ProvisioningPlan {
  * explicit tokenKind column (AN1 concept-doc update first).
  */
 export async function buildProvisioningPlan(deps: {
-	readonly db: HyperIdleDb;
-	readonly resolver: Pick<ServiceConnectionResolver, "resolve">;
-	readonly users: ConnectionsUserReader;
+	readonly connections: ConnectionsProvisioningReader;
+	readonly resolver: ServiceConnectionResolverPort;
 	/** Injectable DNS resolver for tests (overrides real DNS lookup). */
 	readonly _ssrfLookup?: (host: string) => Promise<Array<{ address: string; family: 4 | 6 }>>;
 }): Promise<ProvisioningPlan> {
-	const { db, resolver, users, _ssrfLookup } = deps;
-	const humanUser = await users.getFirstUserByKind(db, "human");
-	const userId = humanUser?.id ?? "u-founder";
-	const connections = (
-		await db
-			.select({
-				id: serviceConnections.id,
-				service: serviceConnections.service,
-				authSource: serviceConnections.authSource,
-				serverUrl: serviceConnections.serverUrl,
-			})
-			.from(serviceConnections)
-			.where(
-				and(
-					eq(serviceConnections.userId, userId),
-					inArray(serviceConnections.authSource, [...HELD_AUTH_SOURCES]),
-				),
-			)
-			.orderBy(serviceConnections.createdAt)
-	).map((row) => ({ ...row, authSource: row.authSource as HeldAuthSource }));
+	const { connections, resolver, _ssrfLookup } = deps;
+	const { userId, connections: heldConnections } =
+		await connections.listHeldConnectionsForProvisioning();
+
+	// Defense in depth: the seam route already filters to held auth sources
+	// (`token`|`mcp`) — re-assert it here so a future route regression can't
+	// silently widen this plan builder's input.
+	const heldOnly = heldConnections.filter((c) =>
+		(HELD_AUTH_SOURCES as readonly string[]).includes(c.authSource),
+	);
 
 	const mcpServers: Array<ProvisioningPlan["mcpServers"][number]> = [];
 	const envInjections: Record<string, string> = {};
@@ -138,7 +148,7 @@ export async function buildProvisioningPlan(deps: {
 	// for the same service (N3 — open question §10 resolved).
 	const mcpServerNames = new Set<string>();
 
-	for (const conn of connections) {
+	for (const conn of heldOnly) {
 		if (conn.authSource === "token") {
 			const token = await resolver.resolve(userId, conn.id);
 			if (!token) {
@@ -402,7 +412,7 @@ function writeOpencodeJsonEntries(params: {
  * Write N MCP server entries to .mcp.json for claude.
  *
  * Merges with existing .mcp.json if present (preserves the inbound hyperidle
- * entry written by Phase 8b in session-provisioning.ts:753).
+ * entry written by Phase 8b in session-provisioning.ts).
  *
  * @lore AN2 claude-two-write-sites: The inline Phase 8b writer creates the
  * initial .mcp.json with the hyperidle inbound entry. This function merges

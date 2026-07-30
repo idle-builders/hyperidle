@@ -55,7 +55,11 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
-import { applyProvisioningPlan } from "@hyperidle/connections";
+// @lore AU21 §9 Increment 8 (Decision F2): `applyProvisioningPlan` relocated
+// from `@hyperidle/connections` to `@hyperidle/run-orchestration` — the
+// session-launch-time provisioning OPERATION is agent-orchestration's own
+// job now (the pure-fs `applyProvisioningPlan` half is unchanged behavior).
+import { applyProvisioningPlan } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { requireHarness } from "./require-harness.js";
 

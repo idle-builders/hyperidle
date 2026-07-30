@@ -1,9 +1,8 @@
 /**
  * Barrel for @hyperidle/connections (core-api Layer, SQL-owning Service).
  *
- * ~14 exports — two symmetric store surfaces (credential + connection),
- * a secret vault whose key never leaves this service, resolver strategies,
- * and the provisioning plan seam.
+ * ~11 exports — two symmetric store surfaces (credential + connection),
+ * a secret vault whose key never leaves this service, resolver strategies.
  *
  * Typed functions only. This barrel MUST NOT re-export the raw
  * `serverCredentials`/`serviceConnections` pgTable objects — that would let a
@@ -23,17 +22,21 @@
  * credential-encryption.ts, credential-resolver.ts,
  * service-connection-projection.ts, service-connection-resolver.ts from
  * packages/server/src/services/ (behavior-preserving move).
+ *
+ * @lore AU21 §9 Increment 8 (Decision F2): `applyProvisioningPlan`/
+ * `buildProvisioningPlan`/`ProvisioningPlan` (+ the `ConnectionsUserReader`
+ * DI port they used) relocated OUT of this barrel entirely — the
+ * session-launch-time provisioning OPERATION now lives in
+ * `@hyperidle/run-orchestration` (`connection-provisioning.ts`), reading the
+ * held-connection RECORD through `CoreApiPort.connections.
+ * listHeldConnectionsForProvisioning()` (backed by the new `GET
+ * /connections/provisioning` route in this same Service's owning
+ * Application, `packages/core-api/src/routes/connections.ts`) instead of a
+ * raw `db` handle. This Service keeps ONLY the record CRUD
+ * (`listConnections`/`insertConnection`/`updateConnection`/
+ * `deleteConnection`) + the decrypt primitives — never the operation itself.
  */
 
-// -- F. Provisioning (3) — build + apply plan + plan type --
-// @lore AU20 R-connections: resolveOwningHumanUserId deleted — owner resolution folded
-// into buildProvisioningPlan via injected ConnectionsUserReader. session-lifecycle
-// no longer needs a standalone owner resolver; it passes users into buildProvisioningPlan.
-export {
-	applyProvisioningPlan,
-	buildProvisioningPlan,
-	type ProvisioningPlan,
-} from "./connection-provisioning.js";
 // -- A. Cipher (2) — encrypt/decrypt; cipher owns the key (no secret param) --
 export { decryptCredentialValue, encryptCredentialValue } from "./credential-encryption.js";
 // -- B. CredentialResolver family (2) — resolver interface + DB implementation --
@@ -51,8 +54,6 @@ export {
 	readCredentials,
 	writeCredential,
 } from "./credential-store.js";
-// -- H. DI port (1) — plumbing type for composition root --
-export type { ConnectionsUserReader } from "./ports.js";
 // -- G. In-memory projection (1) — inherited connections from harness descriptors --
 export { projectInheritedConnections } from "./service-connection-projection.js";
 // -- C. ServiceConnectionResolver (1) — sole decrypted-held-token path --

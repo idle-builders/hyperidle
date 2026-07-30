@@ -581,6 +581,68 @@ export interface CoreApiKnowledgePort {
 }
 
 /**
+ * One held connection's provisioning-relevant fields — mirrors `GET
+ * /connections/provisioning`'s response element. NEVER includes
+ * `encryptedToken` (AN1 hard-rule 1, same as `GET /connections`'s own
+ * `ServiceConnectionView`).
+ */
+export interface HeldConnectionProvisioningView {
+	readonly id: string;
+	readonly service: string;
+	readonly authSource: "token" | "mcp";
+	readonly serverUrl: string | null;
+}
+
+/** Mirrors `GET /connections/provisioning`'s response body. */
+export interface ListHeldConnectionsForProvisioningResponse {
+	readonly userId: string;
+	readonly connections: ReadonlyArray<HeldConnectionProvisioningView>;
+}
+
+/**
+ * The session-launch-time `connections` capability family (Decision F2,
+ * AU21 §9 Increment 8) — `edge-disposition.md`'s
+ * `connections.{buildProvisioningPlan, applyProvisioningPlan}` row's
+ * record-read half. The provisioning OPERATION itself (building + applying
+ * the plan) relocated into `agent-orchestration`; this seam method is its
+ * ONLY read of the core-api-owned `serviceConnections` table — the decrypt
+ * step (`ServiceConnectionResolver`) stays an Application-composed direct
+ * dependency, never routed through this seam (AN1 hard-rule 1: "the resolver
+ * is the ONLY plaintext path... wired to sandbox injection, not to routes").
+ */
+export interface CoreApiConnectionsPort {
+	listHeldConnectionsForProvisioning(): Promise<ListHeldConnectionsForProvisioningResponse>;
+}
+
+/**
+ * One filesystem's provisioning-relevant fields — mirrors `GET
+ * /filesystems?agentUserId=`'s response element (`resourceRef` already
+ * `JSON.parse`d by the route's own `rowToFilesystem`).
+ */
+export interface FilesystemProvisioningView {
+	readonly id: string;
+	readonly teamId: string;
+	readonly source: string;
+	readonly kind: string;
+	readonly connectionId: string | null;
+	readonly resourceRef: unknown;
+	readonly writeback: string;
+	readonly state: string;
+	readonly createdAt: string;
+}
+
+/**
+ * The session-launch-time `filesystems` capability family (Decision F2, AU21
+ * §9 Increment 8) — `edge-disposition.md`'s `filesystems.{listFilesystems}`
+ * row's record-read half (the mount OPERATION itself relocated into
+ * `agent-orchestration`; `startWatcher` relocated wholesale, no seam needed
+ * — zero DB coupling).
+ */
+export interface CoreApiFilesystemsPort {
+	listFilesystemsByAgent(agentId: string): Promise<ReadonlyArray<FilesystemProvisioningView>>;
+}
+
+/**
  * `CoreApiPort` — a per-core-Service family of narrow hand-typed method
  * groups, each Application-adapted onto the `hc<AppType>` client
  * (`buildCoreApiPort`, `packages/core-api/src/services/
@@ -593,6 +655,8 @@ export interface CoreApiPort {
 	readonly org: CoreApiOrgPort;
 	readonly routine: CoreApiRoutinePort;
 	readonly knowledge: CoreApiKnowledgePort;
+	readonly connections: CoreApiConnectionsPort;
+	readonly filesystems: CoreApiFilesystemsPort;
 }
 
 /**

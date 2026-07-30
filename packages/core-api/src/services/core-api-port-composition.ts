@@ -41,6 +41,7 @@ import type {
 	CreateTaskRequest,
 	CreateTaskResponse,
 	DirectThreadResponse,
+	FilesystemProvisioningView,
 	HandoffTaskRequest,
 	HandoffTaskResponse,
 	InsertMessageRequest,
@@ -52,6 +53,7 @@ import type {
 	KnowledgeConflictView,
 	KnowledgeItemStatusView,
 	KnowledgeItemVersionView,
+	ListHeldConnectionsForProvisioningResponse,
 	OrgTeamMembersByIdView,
 	OrgTeamMembershipView,
 	OrgTeamView,
@@ -262,6 +264,14 @@ interface CoreApiHcClient {
 				$post(args: { readonly param: { readonly id: string } }): Promise<Response>;
 			};
 		};
+	};
+	readonly connections: {
+		readonly provisioning: {
+			$get(): Promise<Response>;
+		};
+	};
+	readonly filesystems: {
+		$get(args: { readonly query: { readonly agentUserId: string } }): Promise<Response>;
 	};
 }
 
@@ -692,6 +702,30 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				});
 				if (!res.ok) return throwSeamError("knowledge.recomputeAttentionScoreForItem", res);
 				return (await res.json()) as { readonly current: number };
+			},
+		},
+
+		// AU21 §9 Increment 8 (Decision F2): the session-launch-time
+		// provisioning OPERATION relocated to `agent-orchestration` —
+		// `connections`/`filesystems` are its narrow record-read halves.
+		connections: {
+			async listHeldConnectionsForProvisioning(): Promise<ListHeldConnectionsForProvisioningResponse> {
+				const res = await client.connections.provisioning.$get();
+				if (!res.ok)
+					return throwSeamError("connections.listHeldConnectionsForProvisioning", res);
+				return (await res.json()) as ListHeldConnectionsForProvisioningResponse;
+			},
+		},
+		filesystems: {
+			async listFilesystemsByAgent(
+				agentId: string,
+			): Promise<ReadonlyArray<FilesystemProvisioningView>> {
+				const res = await client.filesystems.$get({ query: { agentUserId: agentId } });
+				if (!res.ok) return throwSeamError("filesystems.listFilesystemsByAgent", res);
+				const body = (await res.json()) as {
+					readonly filesystems: ReadonlyArray<FilesystemProvisioningView>;
+				};
+				return body.filesystems;
 			},
 		},
 	};

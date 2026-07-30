@@ -1,3 +1,15 @@
+/**
+ * AU21 §9 Increment 8, Decision F2: relocated WHOLESALE from
+ * `packages/core-api/filesystems/src/file-watcher.ts` — `startWatcher` has
+ * ZERO database coupling (only `fs`/`EventBus`, given a `sandboxPath`/
+ * `sessionId`/`manifestPath` directly). It was only ever called at
+ * session-launch time (`context.ts`, via the composition-bundle's
+ * pass-through `filesystems: { startWatcher }` binding), so there is no
+ * "record" for it to read via `CoreApiPort` — it moves wholesale, unchanged,
+ * rather than growing a seam method (an agent-orchestration package may not
+ * import a core-api Service directly per Mechanism B / composition-boundary-
+ * guard, which is exactly the edge this move closes).
+ */
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { EventBus, SandboxWritebackChange } from "@hyperidle/shared";

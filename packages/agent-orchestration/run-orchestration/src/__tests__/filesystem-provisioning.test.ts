@@ -42,13 +42,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Filesystem, FilesystemMounter } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
+import type { EventBus, Filesystem, FilesystemMounter } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // biome-ignore lint/correctness/noUnresolvedImports: RED phase — relocated module does not exist yet in this pass.
-import { mountFilesystemsForAgent } from "../filesystem-provisioning.js";
-// biome-ignore lint/correctness/noUnresolvedImports: RED phase — relocated module does not exist yet in this pass.
 import { startWatcher } from "../file-watcher.js";
+// biome-ignore lint/correctness/noUnresolvedImports: RED phase — relocated module does not exist yet in this pass.
+import { mountFilesystemsForAgent } from "../filesystem-provisioning.js";
 
 let sandboxPath: string;
 beforeEach(() => {
@@ -75,9 +74,15 @@ describe("mountFilesystemsForAgent (relocated to agent-orchestration, one seam c
 			id: "fs-inc8-1",
 			teamId: "team-inc8-1",
 			source: "local",
-			kind: "code",
+			kind: "doc_set",
 			connectionId: null,
-			resourceRef: { kind: "code", path: "/repo" },
+			// @lore AU21 Increment 8 GREEN-phase fix: the RED-phase fixture used
+			// `{ kind: "code", path: "/repo" }`, which is not a valid `ResourceRef`
+			// (the `code` variant requires `repo`+`branch`, not `path` —
+			// `@hyperidle/shared`'s `filesystem.ts`). Switched to the `doc_set`
+			// variant (`folder`), which is what a bare path selector actually is —
+			// same pass-through behavior under test, now type-correct.
+			resourceRef: { kind: "doc_set", folder: "/repo" },
 			writeback: "git",
 			state: "attached",
 			createdAt: "2026-07-30T00:00:00.000Z",
@@ -106,7 +111,7 @@ describe("mountFilesystemsForAgent (relocated to agent-orchestration, one seam c
 		expect(result).toHaveLength(1);
 		expect(result[0]?.id).toBe("fs-inc8-1");
 		expect(mounted).toHaveLength(1);
-		expect(mounted[0]?.filesystem.resourceRef).toEqual({ kind: "code", path: "/repo" });
+		expect(mounted[0]?.filesystem.resourceRef).toEqual({ kind: "doc_set", folder: "/repo" });
 	});
 
 	test("an agent with no injected filesystems mounts nothing (no throw)", async () => {

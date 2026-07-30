@@ -321,7 +321,12 @@ describe("applyProvisioningPlan (relocated to agent-orchestration, unchanged beh
 			{ name: "github", url: "https://mcp.github.com", bearerToken: "tok1" },
 		]);
 
-		await applyProvisioningPlan({ plan, sandboxPath, cliMcpDialect: undefined, claudeNative: true });
+		await applyProvisioningPlan({
+			plan,
+			sandboxPath,
+			cliMcpDialect: undefined,
+			claudeNative: true,
+		});
 
 		const mcpJson = JSON.parse(fs.readFileSync(path.join(sandboxPath, ".mcp.json"), "utf-8")) as {
 			mcpServers: Record<string, unknown>;

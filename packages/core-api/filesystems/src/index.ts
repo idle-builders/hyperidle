@@ -1,5 +1,8 @@
-export type { FileWatcher, FileWatcherConfig } from "./file-watcher.js";
-export { startWatcher } from "./file-watcher.js";
+// @lore AU21 §9 Increment 8 (Decision F2): `startWatcher`/`FileWatcher`/
+// `FileWatcherConfig` relocated wholesale to `@hyperidle/run-orchestration`'s
+// `file-watcher.ts` — zero DB coupling, only ever called at session-launch
+// time, and an agent-orchestration package may not import a core-api Service
+// directly (Mechanism B).
 export type { FilesystemReachabilityInput } from "./filesystem-reachability.js";
 export { resolveFilesystemState } from "./filesystem-reachability.js";
 export type {

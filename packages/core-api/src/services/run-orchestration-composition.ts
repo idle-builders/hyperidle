@@ -1,8 +1,6 @@
 /** Core API composition root for the run-orchestration service. */
 
-import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/connections";
 import type { AgentSessionRequest, HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { listFilesystems, startWatcher } from "@hyperidle/filesystems";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -13,6 +11,8 @@ import { list as listKnowledge, rank as rankKnowledge } from "@hyperidle/knowled
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import {
+	applyProvisioningPlan,
+	buildProvisioningPlan,
 	type RunOptions,
 	type RunResult,
 	type RunTransitionSpec,
@@ -20,6 +20,7 @@ import {
 	type RuntimePorts,
 	runSession as runSessionInternal,
 	startRuntime as startRuntimeInternal,
+	startWatcher,
 	transitionRun as transitionRunInternal,
 } from "@hyperidle/run-orchestration";
 import {
@@ -40,10 +41,26 @@ import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { transitionTask } from "@hyperidle/work";
+import {
+	buildCoreApiPort,
+	getRegisteredCoreApiTransport,
+	withActorTransport,
+} from "./core-api-port-composition.js";
 import { costOps } from "./cost-bindings.js";
 import { dispatchOps } from "./dispatch-bindings.js";
 import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
+
+// AU21 §9 Increment 8 (Decision F2): builds a fresh in-process `CoreApiPort`
+// per call, wrapped with the CALLING agent's own identity as the route actor
+// (§12) — the session-launch-time `connections`/`filesystems` provisioning
+// reads are per-agent-spawn, never a fixed actor. Duplicated locally (same
+// idiom as `dispatch-bindings.ts`'s own `seamPortForActor` — each composition
+// file builds its own since there's no shared cross-file singleton for it).
+function seamPortForActor(actorId: string): ReturnType<typeof buildCoreApiPort> {
+	const transport = withActorTransport(getRegisteredCoreApiTransport(), { userId: actorId });
+	return buildCoreApiPort(transport);
+}
 
 const contextPorts: RuntimeDeps["composition"]["context"] = {
 	knowledge: {
@@ -58,6 +75,9 @@ const contextPorts: RuntimeDeps["composition"]["context"] = {
 	},
 	users: { getUserById: (db, id) => findUser(db, { id }) },
 	routine: { getRoutineById: routineService.getRoutine },
+	// `startWatcher` has zero DB coupling — it relocated wholesale into
+	// `@hyperidle/run-orchestration` (Decision F2) but is still wired through
+	// this same context-assembly port shape, unchanged.
 	filesystems: { startWatcher },
 	org: { getTeamById: (db, id) => getTeam(db, { id }) },
 };
@@ -116,23 +136,23 @@ const settingsReader: SessionLifecyclePorts["settings"] = { readServerConfig };
 
 const observabilityAccessor: SessionLifecyclePorts["observability"] = { summarizeToolArgs };
 
+// AU21 §9 Increment 8 (Decision F2): both ports now cross `CoreApiPort` — the
+// composition-bundle's raw `db`-reading calls into `@hyperidle/filesystems`/
+// `@hyperidle/connections` (the hidden edge `edge-disposition.md` flagged)
+// are gone. `agentId` is the actor `seamPortForActor` resolves onto the seam.
 const filesystemsReader: SessionLifecyclePorts["filesystems"] = {
-	listFilesystemIdsByAgent: async (db, agentId) => {
-		const rows = await listFilesystems(db, { agentId });
-		return rows.map((r) => r.id);
-	},
-	listFilesystemsByIds: (db, ids) => {
-		if (ids.length === 0) return Promise.resolve([]);
-		return listFilesystems(db, { ids: [...ids] });
-	},
+	listFilesystemsByAgent: (agentId) =>
+		seamPortForActor(agentId).filesystems.listFilesystemsByAgent(agentId),
 };
 
 const connectionsProvisioner: SessionLifecyclePorts["connections"] = {
-	buildProvisioningPlan: ({ db, resolver }) =>
+	buildProvisioningPlan: ({ agentId, resolver }) =>
 		buildProvisioningPlan({
-			db,
+			connections: {
+				listHeldConnectionsForProvisioning: () =>
+					seamPortForActor(agentId).connections.listHeldConnectionsForProvisioning(),
+			},
 			resolver,
-			users: { getFirstUserByKind: (db2, kind) => findUser(db2, { kind }) },
 		}),
 	applyProvisioningPlan,
 };

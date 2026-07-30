@@ -49,9 +49,9 @@
  */
 
 import {
-	type HyperIdleDb,
 	filesystemInjections,
 	filesystems,
+	type HyperIdleDb,
 	serviceConnections,
 	teams,
 	users,
