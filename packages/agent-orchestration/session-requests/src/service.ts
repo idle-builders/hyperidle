@@ -1334,6 +1334,18 @@ export type BakedContextBundle =
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 			readonly team: { readonly id: string; readonly name: string };
 			readonly knowledge: readonly BakedContextKnowledgeItem[];
+	  }
+	| {
+			readonly kind: "knowledge";
+			readonly item: {
+				readonly id: string;
+				readonly title: string;
+				readonly body: string;
+				readonly format: string;
+				readonly version: number;
+			};
+			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+			readonly knowledge: readonly BakedContextKnowledgeItem[];
 	  };
 
 export type WorkIntentInput = {

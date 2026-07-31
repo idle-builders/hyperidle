@@ -52,6 +52,8 @@ import {
 	artifacts,
 	bets,
 	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeItems,
 	messages,
 	proposedCalls,
 	tailoredGrants,
@@ -62,6 +64,8 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 
@@ -69,6 +73,11 @@ const NOW = new Date().toISOString();
 
 async function getTaskById(db: HyperIdleDb, id: string) {
 	const [row] = await db.select().from(tasks).where(eq(tasks.id, id));
+	return row;
+}
+
+async function getBetById(db: HyperIdleDb, id: string) {
+	const [row] = await db.select().from(bets).where(eq(bets.id, id));
 	return row;
 }
 
@@ -388,5 +397,90 @@ describe("resolveReengagementRequest — emit-time reengagement resolver (review
 				getTaskById,
 			}),
 		).rejects.toThrow();
+	});
+});
+
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave B (RED) — `reengagement` bakes a
+ * `contextBundle` (`kind:"task"`) matching what `context.ts`'s pre-migration
+ * `assembleContext`/`buildSessionContextData` used to assemble for a
+ * `proposed_call` re-provision session (it already sets a real `taskId`, so
+ * — unlike `routine_run`/`knowledge_action`, see the sibling waves' CONFUSION
+ * notes — reengagement genuinely DOES flow through the full task/bet/ranked-
+ * knowledge path today; this is a real preserve-behavior migration, not a
+ * capability add).
+ *
+ * @lore Mechanism C: `getTeamById` (`@hyperidle/org`), `getBetById`
+ * (`@hyperidle/work`'s own `bets` table — `@hyperidle/review` cannot import
+ * `@hyperidle/work` directly, same reasoning as the existing `getTaskById`
+ * injection) and `assembleSessionKnowledge` (`@hyperidle/knowledge`) are all
+ * INJECTED, following `ReengagementResolverDeps`'s existing
+ * `getTaskById`-injection precedent. `requireRunnableAgent`'s return type
+ * also needs widening from `Promise<unknown>` to `Promise<User>` (H2
+ * precedent) so the resolver can bake `agent.name`/`agent.role` from the SAME
+ * already-validated row, no extra read.
+ */
+describe("resolveReengagementRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
+	test("bakes a contextBundle (kind:'task') with task/bet/agent/team content + ranked knowledge", async ({
+		db,
+	}) => {
+		const { resolveReengagementRequest } = await import("../proposed-call-workflow.js");
+		await seedAgent(db, { id: "ast-reengage-ctx-1" });
+		const { taskId, teamId } = await seedTask(db, {
+			id: "task-reengage-ctx-1",
+			ownerAgentId: "ast-reengage-ctx-1",
+		});
+		await seedGrantedProposedCall(db, {
+			id: "pc-reengage-ctx-1",
+			taskId,
+			agentScope: "ast-reengage-ctx-1",
+			stagedByAgentId: "ast-reengage-ctx-1",
+		});
+
+		await db.insert(knowledgeItems).values({
+			id: "item-reengage-ctx-l4",
+			scopeKind: "factory",
+			scopeId: null,
+			title: "Factory-wide practice",
+			body: "Applies everywhere.",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "ast-reengage-ctx-1",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+		await db.insert(knowledgeAppProjection).values({
+			id: "proj-reengage-ctx-l4",
+			knowledgeItemId: "item-reengage-ctx-l4",
+			layer: "L4",
+			scopeId: null,
+		});
+
+		const baked = await resolveReengagementRequest(db, "pc-reengage-ctx-1", {
+			requireRunnableAgent,
+			getTaskById,
+			getBetById,
+			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
+			assembleSessionKnowledge,
+		});
+
+		const team = await getTeam(db, { id: teamId });
+
+		// RED (npm run check): `ReengagementResolverDeps` does not declare
+		// `getBetById`/`getTeamById`/`assembleSessionKnowledge` yet (TS2353 on
+		// the call above); `BakedReengagementRequest` does not declare
+		// `contextBundle` yet (TS2339 below). Left uncast deliberately — the
+		// compile errors ARE the RED signal. Vitest's transpile-only run still
+		// executes; `contextBundle` is `undefined` at runtime, which
+		// `toMatchObject` fails on.
+		expect(baked.contextBundle).toMatchObject({
+			kind: "task",
+			task: { id: taskId, title: "Reengagement resolver test task" },
+			bet: { description: "Reengagement resolver test bet" },
+			agent: { id: "ast-reengage-ctx-1", name: "Agent", role: "builder" },
+			team: { id: teamId, name: team?.name },
+			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-reengage-ctx-l4" })]),
+		});
 	});
 });

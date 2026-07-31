@@ -35,6 +35,8 @@
 import {
 	bets,
 	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeItems,
 	taskDispatchAttempts,
 	tasks,
 	teamMembers,
@@ -42,7 +44,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
+import { eq } from "drizzle-orm";
 
 async function seedTeamAndBet(
 	db: HyperIdleDb,
@@ -267,5 +272,128 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 		await expect(
 			resolveTaskRunRequest(db, "attempt-trun-5", { requireRunnableAgent }),
 		).rejects.toThrow();
+	});
+});
+
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave B (RED) — `task_run` bakes a
+ * `contextBundle` (`kind:"task"`) matching what `context.ts`'s pre-migration
+ * `assembleContext`/`buildSessionContextData` used to assemble at launch:
+ * task + bet + agent + team content, plus the ranked+budgeted knowledge
+ * bundle (`@hyperidle/knowledge`'s `assembleSessionKnowledge`, Wave A).
+ *
+ * Currently RED two ways:
+ *  - `npm run check`: `TaskRunResolverDeps` has no `getTeamById`/
+ *    `assembleSessionKnowledge` fields yet — passing them as a 3rd-arg object
+ *    literal is a TS2353 excess-property error.
+ *  - `npm run test` (this file): `resolveTaskRunRequest`'s current
+ *    implementation never sets `contextBundle` on its return — the field is
+ *    `undefined`, so `toMatchObject` on it fails.
+ *
+ * @lore Mechanism C: `getTeamById`/`assembleSessionKnowledge` must be
+ * INJECTED (not statically imported) — `@hyperidle/work`'s package.json
+ * declares only `@hyperidle/db` + `@hyperidle/shared` as dependencies
+ * (composition-boundary-guard's Mechanism C), matching every sibling
+ * resolver's `requireRunnableAgent` injection precedent. The real emit sites
+ * (`task-state-machine.ts`, `bet-decomposition.ts`, `handoff-protocol.ts`) are
+ * core-api Layer code, not nested Services, so they may legitimately import
+ * both `@hyperidle/org` and `@hyperidle/knowledge` to wire the real
+ * implementations in — this test does the same (test files are
+ * guard-exempt — `scripts/composition-boundary-guard.ts` skips `__tests__/`).
+ *
+ * @lore Mechanism C also requires widening `TaskRunResolverDeps.requireRunnableAgent`'s
+ * return type from `Promise<unknown>` to `Promise<User>` — the H2/Increment 11
+ * precedent (`assistant-turn-resolver.ts`'s `agent.modelId`/`agent.modelProvider`
+ * reuse) is to bake the agent's `name`/`role` from this SAME already-validated
+ * row, not read it twice.
+ */
+describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
+	test("bakes a contextBundle (kind:'task') with task/bet/agent/team content + ranked knowledge", async ({
+		db,
+	}) => {
+		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
+
+		await seedTeamAndBet(db, { teamId: "team-trun-ctx-1", betId: "bet-trun-ctx-1" });
+		await db
+			.update(bets)
+			.set({ appetite: "2 weeks", doneCondition: "Shipped to prod" })
+			.where(eq(bets.id, "bet-trun-ctx-1"));
+		await seedAgent(db, "agent-trun-ctx-1");
+		await seedTask(db, {
+			taskId: "task-trun-ctx-1",
+			betId: "bet-trun-ctx-1",
+			teamId: "team-trun-ctx-1",
+			ownerAgentId: "agent-trun-ctx-1",
+		});
+		await db
+			.update(tasks)
+			.set({ description: "Ship the contextBundle wiring." })
+			.where(eq(tasks.id, "task-trun-ctx-1"));
+		await seedAttempt(db, {
+			attemptId: "attempt-trun-ctx-1",
+			taskId: "task-trun-ctx-1",
+			agentId: "agent-trun-ctx-1",
+		});
+
+		// L4 (factory-wide) knowledge item — always in scope regardless of team.
+		const now = new Date().toISOString();
+		await db.insert(knowledgeItems).values({
+			id: "item-trun-ctx-l4",
+			scopeKind: "factory",
+			scopeId: null,
+			title: "Factory-wide practice",
+			body: "Applies everywhere.",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "agent-trun-ctx-1",
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(knowledgeAppProjection).values({
+			id: "proj-trun-ctx-l4",
+			knowledgeItemId: "item-trun-ctx-l4",
+			layer: "L4",
+			scopeId: null,
+		});
+
+		// RED (npm run check): `TaskRunResolverDeps` does not declare `getTeamById`/
+		// `assembleSessionKnowledge` yet — this object literal is a genuine TS2353
+		// excess-property error until Wave B's GREEN phase grows the interface.
+		// Left uncast deliberately (no `any`/`as` — CLAUDE.md strict-TS rule): the
+		// compile error itself IS the expected RED signal. Vitest's esbuild
+		// transpile (type-erasure only, no type-check) still executes this file.
+		const baked = await resolveTaskRunRequest(db, "attempt-trun-ctx-1", {
+			requireRunnableAgent,
+			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
+			assembleSessionKnowledge,
+		});
+
+		const team = await getTeam(db, { id: "team-trun-ctx-1" });
+
+		// RED (npm run check): `BakedTaskRunRequest` does not declare `contextBundle`
+		// yet — `baked.contextBundle` is a genuine TS2339 "property does not exist"
+		// error until Wave B's GREEN phase grows the return shape. Left as a direct
+		// property access deliberately (no cast) — the compile error IS the RED
+		// signal; vitest's transpile-only run still executes and evaluates it to
+		// `undefined` at runtime, which `toMatchObject` below then fails on.
+		expect(baked.contextBundle).toMatchObject({
+			kind: "task",
+			task: {
+				id: "task-trun-ctx-1",
+				title: "Task-run resolver task",
+				description: "Ship the contextBundle wiring.",
+				state: "accepted",
+			},
+			bet: {
+				id: "bet-trun-ctx-1",
+				description: "Task-run resolver bet",
+				appetite: "2 weeks",
+				doneCondition: "Shipped to prod",
+			},
+			agent: { id: "agent-trun-ctx-1", name: "Agent", role: "builder" },
+			team: { id: "team-trun-ctx-1", name: team?.name },
+			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-trun-ctx-l4" })]),
+		});
 	});
 });

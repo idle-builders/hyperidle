@@ -35,8 +35,18 @@
  * confirmation, same as every sibling resolver wave's RED-phase note.
  */
 
-import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeItems,
+	routineRuns,
+	routines,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
@@ -404,5 +414,105 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 				buildDeps(fakeAgentSelection({ atCapacity: true, delegateAgentId: "delegate-rrun-12" })),
 			),
 		).rejects.toThrow();
+	});
+});
+
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave B (RED) — `routine_run` bakes a
+ * `contextBundle` (`kind:"routine"`) with routine/agent/team content + the
+ * ranked+budgeted knowledge bundle (`@hyperidle/knowledge`'s
+ * `assembleSessionKnowledge`, Wave A).
+ *
+ * @lore CONFUSION (flagged for reviewer — verified from source, not assumed):
+ * TODAY, a routine session gets **zero** ranked L2/L3/L4 knowledge written
+ * into its sandbox — `provisioner.ts`'s Phase-6 `assembleAgentContext` call
+ * branches on `params.taskId` (null for every routine session —
+ * `resolveRoutineRunRequest`'s own `BakedRoutineRunRequest.taskId` is
+ * literally typed `null`, and `runtime.ts:317`'s `provisionParams.taskId:
+ * claimedRequest.taskId` carries that `null` straight through), so it takes
+ * the task-free branch (`context.ts:962-993`) — which writes only a minimal
+ * manual `session.toon` (session/source/agent/team ids) and returns before
+ * ever calling `assembleContext`/`rankAndBudget`. The ONLY routine-specific
+ * context today is `buildRoutineSessionContextData` + `assembleRoutinePrompt`
+ * (routine name/description/lastRunSummary baked into the AGENTS.md/CLAUDE.md
+ * prompt TEXT, not the sandbox `context/` files) — genuinely no ranked
+ * knowledge items, ever, for a routine session pre-Increment-12.
+ *
+ * So this test (and the `contextBundle`'s `kind:"routine"` variant's
+ * `knowledge` field itself, grown onto `BakedContextBundle` in Wave A) encode
+ * a **capability ADD**, not a preserve-only migration — H3's text ("Only
+ * task_run/knowledge_action/routine_run/reengagement bake this
+ * knowledge/entity bundle") reads as if `context.ts` "currently reads" ranked
+ * knowledge for all four kinds at launch; that premise does NOT hold for
+ * `routine_run` (verified above). Proceeding with the architecture's literal
+ * design (routine_run gains real ranked knowledge for the first time, via the
+ * same shared `assembleSessionKnowledge` mechanism) since Wave A's own
+ * `BakedContextBundle` union already committed to a `kind:"routine"` variant
+ * carrying a `knowledge` field — but this is a genuine premise mismatch the
+ * architecture doc should reconcile, not an implementation-detail guess.
+ * `taskDescription` has no routine analog; this test (and the proposed GREEN
+ * shape) uses `routine.description ?? routine.name` as the scoring-context
+ * proxy — best-guess, flagged for reviewer confirmation.
+ */
+describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
+	test("bakes a contextBundle (kind:'routine') with routine/agent/team content + ranked knowledge", async ({
+		db,
+	}) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
+		await seedTeam(db, "team-rrun-ctx-1");
+		await seedAgent(db, "owner-rrun-ctx-1");
+		await seedRoutine(db, {
+			routineId: "routine-rrun-ctx-1",
+			teamId: "team-rrun-ctx-1",
+			ownerAgentId: "owner-rrun-ctx-1",
+		});
+		await seedRun(db, { runId: "run-rrun-ctx-1", routineId: "routine-rrun-ctx-1" });
+
+		const now = new Date().toISOString();
+		await db.insert(knowledgeItems).values({
+			id: "item-rrun-ctx-l4",
+			scopeKind: "factory",
+			scopeId: null,
+			title: "Factory-wide practice",
+			body: "Applies everywhere.",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "owner-rrun-ctx-1",
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(knowledgeAppProjection).values({
+			id: "proj-rrun-ctx-l4",
+			knowledgeItemId: "item-rrun-ctx-l4",
+			layer: "L4",
+			scopeId: null,
+		});
+
+		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-1", {
+			agentSelection: fakeAgentSelection({ atCapacity: false }),
+			requireRunnableAgent,
+			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
+			assembleSessionKnowledge,
+		});
+
+		const team = await getTeam(db, { id: "team-rrun-ctx-1" });
+
+		// RED (npm run check): `RoutineRunResolverDeps` does not declare
+		// `getTeamById`/`assembleSessionKnowledge` yet (TS2353 on the call above);
+		// `BakedRoutineRunRequest` does not declare `contextBundle` yet (TS2339
+		// below). Left uncast deliberately — the compile errors ARE the RED
+		// signal. Vitest's transpile-only run still executes; `contextBundle` is
+		// `undefined` at runtime, which `toMatchObject` fails on.
+		expect(baked.contextBundle).toMatchObject({
+			kind: "routine",
+			routine: {
+				id: "routine-rrun-ctx-1",
+				name: "routine-rrun-ctx-1",
+			},
+			agent: { id: "owner-rrun-ctx-1", name: "Agent owner-rrun-ctx-1", role: "builder" },
+			team: { id: "team-rrun-ctx-1", name: team?.name },
+			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-rrun-ctx-l4" })]),
+		});
 	});
 });

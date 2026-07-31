@@ -88,10 +88,26 @@ export interface BakedContextKnowledgeItem {
 
 /**
  * AU21 §9 Increment 12 (Decision H3) — the baked entity content a
- * `task_run`/`knowledge_action`/`reengagement` session needs (`kind:"task"`,
- * matching `context.ts`'s `SessionContextData`) or a `routine_run` session
- * needs (`kind:"routine"`, matching `RoutineSessionContextData`), plus the
- * shared ranked+budgeted `knowledge` bundle both variants carry.
+ * `task_run`/`reengagement` session needs (`kind:"task"`, matching
+ * `context.ts`'s `SessionContextData`), a `routine_run` session needs
+ * (`kind:"routine"`, matching `RoutineSessionContextData`), or a
+ * `knowledge_action` session needs (`kind:"knowledge"` — the flagged item
+ * itself, since a review turn has no task/bet/routine), plus the shared
+ * ranked+budgeted `knowledge` bundle every variant carries.
+ *
+ * @lore CONFUSION (Increment 12 Wave B, flagged for reviewer): this original
+ * doc comment (Wave A) claimed `knowledge_action` used the `kind:"task"`
+ * shape — WRONG, verified from source: `resolveKnowledgeActionRequest`
+ * (`knowledge-action-resolver.ts`) never resolves a task or bet at all (its
+ * `BakedKnowledgeActionRequest` has no `taskId`/`teamId` fields whatsoever),
+ * and the resulting session takes `provisioner.ts`'s task-free branch —
+ * genuinely zero context/ranked-knowledge today (see the `@lore` on
+ * `knowledge-action-resolver.integration.test.ts`'s Wave B contextBundle
+ * test for the full trace). The `kind:"knowledge"` variant below (and that
+ * resolver's contextBundle) is therefore a capability ADD, not a
+ * preserve-behavior migration — same premise-mismatch category as
+ * `routine_run`'s (see that resolver test's `@lore`), not an
+ * implementation-detail guess. Flagged for architecture reconciliation.
  */
 export type BakedContextBundle =
 	| {
@@ -122,6 +138,18 @@ export type BakedContextBundle =
 			};
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 			readonly team: { readonly id: string; readonly name: string };
+			readonly knowledge: readonly BakedContextKnowledgeItem[];
+	  }
+	| {
+			readonly kind: "knowledge";
+			readonly item: {
+				readonly id: string;
+				readonly title: string;
+				readonly body: string;
+				readonly format: string;
+				readonly version: number;
+			};
+			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 			readonly knowledge: readonly BakedContextKnowledgeItem[];
 	  };
 

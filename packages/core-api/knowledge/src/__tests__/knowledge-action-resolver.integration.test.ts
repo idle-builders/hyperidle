@@ -65,7 +65,7 @@
  * failure instead of propagating it into the flag transaction.
  */
 
-import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { requireRunnableAgent } from "@hyperidle/users";
 
@@ -218,5 +218,105 @@ describe("resolveKnowledgeActionRequest — emit-time knowledge_action resolver 
 				requireRunnableAgent,
 			}),
 		).rejects.toThrow();
+	});
+});
+
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave B (RED) — `knowledge_action` bakes
+ * a `contextBundle` (`kind:"knowledge"`) with the flagged item's own content
+ * + a ranked+budgeted knowledge bundle.
+ *
+ * @lore BLOCKER/CONFUSION (flagged for reviewer — verified from source, NOT
+ * assumed): TODAY a `knowledge_action` session gets **zero** context of any
+ * kind. `resolveKnowledgeActionRequest`'s `BakedKnowledgeActionRequest` has
+ * no `taskId`/`teamId` field at all; `createFromBakedRequestInternal`
+ * (`session-requests/src/service.ts`) reads `baked.taskId` off it (always
+ * `undefined` for this kind), so the resulting `AgentSessionRequest` has NO
+ * `taskId`; `runtime.ts:317`'s `provisionParams.taskId: claimedRequest.taskId`
+ * carries that through as `null`; `provisioner.ts`'s Phase-6
+ * `assembleAgentContext` call then takes the task-free branch
+ * (`params.taskId` falsy, `params.requestContext` present) →
+ * `context.ts:962-993` — which writes only a minimal manual `session.toon`
+ * (session/source/agent/team ids) and returns BEFORE ever calling
+ * `assembleContext`/`rankAndBudget`. The prompt itself
+ * (`assembleTaskFreePrompt`, `provisioner.ts:637`) is just
+ * `systemPromptText + "Source kind/ID/Correlation" + tools` — no item title,
+ * no item body, nothing about WHAT was flagged.
+ *
+ * H3's own text ("Only task_run/knowledge_action/routine_run/reengagement
+ * bake this knowledge/entity bundle... the ranked+budgeted knowledge items
+ * that assembleContext currently reads at launch") reads as a blanket claim
+ * across all four kinds; that premise does not hold for `knowledge_action`
+ * (nor for `routine_run` — see that resolver's Wave B test `@lore`) — and
+ * unlike `routine_run` (whose `BakedContextBundle` variant Wave A already
+ * built), `knowledge_action` had NO type-shape accommodation at all: Wave
+ * A's own doc comment on `BakedContextBundle` (before this test's fix)
+ * incorrectly claimed `knowledge_action` used the `kind:"task"` shape, which
+ * is impossible (no task/bet exists to resolve). This test — and the new
+ * `kind:"knowledge"` variant it exercises — is therefore this wave's
+ * PROVISIONAL interpretation (item content baked from the SAME item this
+ * resolver already loads to validate, no new read; ranked knowledge via
+ * `assembleSessionKnowledge` using the item's own `scopeId` as `teamId` when
+ * `scopeKind==="team"` else an empty-string sentinel — L4/L3 items still
+ * surface correctly since only L2 needs a real team scope; the item's
+ * `title` stands in for `taskDescription`, no other proxy exists) — NOT a
+ * confirmed architecture decision. Flagged for architecture/reviewer
+ * reconciliation before GREEN phase locks this in.
+ */
+describe("resolveKnowledgeActionRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
+	test("bakes a contextBundle (kind:'knowledge') with the flagged item's own content + ranked knowledge", async ({
+		db,
+	}) => {
+		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
+		await seedAgent(db, { id: "ast-knowledge-ctx-1" });
+		await seedKnowledgeItem(db, {
+			id: "item-knowledge-ctx-1",
+			updatedBy: "ast-knowledge-ctx-1",
+		});
+
+		// A second, factory-wide item — always in scope regardless of the
+		// flagged item's own team scope — proves ranked knowledge is baked.
+		const now = new Date().toISOString();
+		await db.insert(knowledgeItems).values({
+			id: "item-knowledge-ctx-l4",
+			scopeKind: "factory",
+			scopeId: null,
+			title: "Factory-wide practice",
+			body: "Applies everywhere.",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "ast-knowledge-ctx-1",
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(knowledgeAppProjection).values({
+			id: "proj-knowledge-ctx-l4",
+			knowledgeItemId: "item-knowledge-ctx-l4",
+			layer: "L4",
+			scopeId: null,
+		});
+
+		const baked = await resolveKnowledgeActionRequest(db, "knowledge:item-knowledge-ctx-1", {
+			requireRunnableAgent,
+		});
+
+		// RED (npm run check): `BakedKnowledgeActionRequest` does not declare
+		// `contextBundle` yet (TS2339). Left uncast deliberately — the compile
+		// error IS the RED signal. Vitest's transpile-only run still executes;
+		// `contextBundle` is `undefined` at runtime, which `toMatchObject` fails
+		// on.
+		expect(baked.contextBundle).toMatchObject({
+			kind: "knowledge",
+			item: {
+				id: "item-knowledge-ctx-1",
+				title: "Flag me",
+				body: "Body content",
+				format: "markdown",
+				version: 1,
+			},
+			agent: { id: "ast-knowledge-ctx-1", name: "Agent", role: "builder" },
+			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-knowledge-ctx-l4" })]),
+		});
 	});
 });
