@@ -26,7 +26,7 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import { findMessage } from "./conversation-store.js";
+import { findMessage, listMessages } from "./conversation-store.js";
 
 /** Injected dependency — see the Mechanism C `@lore` above. */
 export interface AssistantTurnResolverDeps {
@@ -36,7 +36,21 @@ export interface AssistantTurnResolverDeps {
 /** Thrown when the source message does not exist, is deleted, or is redacted. */
 export class AssistantTurnSourceUnavailableError extends Error {}
 
-/** The baked `assistant_turn` request shape, matching `resolveIntentInputInternal`'s current return. */
+/** One raw transcript row — matches `dispatch`'s `loadRawTranscript` return shape verbatim. */
+export interface BakedTranscriptRow {
+	readonly senderId: string;
+	readonly payload: string;
+	readonly type: string;
+}
+
+/**
+ * The baked `assistant_turn` request shape, matching `resolveIntentInputInternal`'s
+ * current return, PLUS (AU21 §9 Increment 11, Decision H2) the thread's full
+ * conversational transcript — the same content `dispatch`'s `loadRawTranscript`
+ * used to read live at execution time. Baking it here (core-api's own
+ * `conversation` state, at emit time) lets `dispatch` build the harness input
+ * from this payload with ZERO reads back into core.
+ */
 export interface BakedAssistantTurnRequest {
 	readonly defaultAgentId: string;
 	readonly sourceKind: "assistant";
@@ -49,6 +63,8 @@ export interface BakedAssistantTurnRequest {
 		readonly userId: string;
 		readonly assistantAgentId: string;
 	};
+	/** Every message in the thread, `createdAt` ascending, including the triggering message. */
+	readonly transcript: ReadonlyArray<BakedTranscriptRow>;
 }
 
 function resolveAssistantAgentIdForSender(senderId: string): string {
@@ -72,6 +88,16 @@ export async function resolveAssistantTurnRequest(
 	}
 	const targetAgentId = resolveAssistantAgentIdForSender(message.senderId);
 	await deps.requireRunnableAgent(db, targetAgentId);
+	const transcriptRows = await listMessages(db, {
+		threadId: message.threadId,
+		order: "createdAt",
+		dir: "asc",
+	});
+	const transcript: BakedTranscriptRow[] = transcriptRows.map((row) => ({
+		senderId: row.senderId,
+		payload: row.payload,
+		type: row.type,
+	}));
 	return {
 		defaultAgentId: targetAgentId,
 		sourceKind: "assistant",
@@ -84,5 +110,6 @@ export async function resolveAssistantTurnRequest(
 			userId: message.senderId,
 			assistantAgentId: targetAgentId,
 		},
+		transcript,
 	};
 }

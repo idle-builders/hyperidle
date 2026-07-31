@@ -830,6 +830,13 @@ async function createFromBakedRequestInternal(
 		promptMode: PROMPT_MODE_BY_SOURCE[baked.sourceKind],
 		idempotencyKey: intent.idempotencyKey,
 		sourceCorrelation: baked.sourceCorrelation,
+		// AU21 §9 Increment 11 (Decision H2): the assistant_turn family's baked
+		// transcript rides the existing generic `payloadJson` pass-through
+		// column onto the created `AgentSessionRequest` — every other kind
+		// leaves this undefined.
+		...(baked.transcript !== undefined
+			? { payloadJson: JSON.stringify({ transcript: baked.transcript }) }
+			: {}),
 	});
 	const request = await insertRequestInternal(db, requestInput);
 	return { request };
@@ -1248,6 +1255,18 @@ export type BakedWorkIntentRequest = {
 	readonly teamId?: string;
 	readonly userId?: string;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation;
+	/**
+	 * AU21 §9 Increment 11 (Decision H2): the `assistant_turn` family's baked
+	 * thread transcript (`conversation`'s `resolveAssistantTurnRequest`).
+	 * Absent for every other kind — carried through onto the created
+	 * `AgentSessionRequest.payloadJson` so `dispatch` sources the harness
+	 * conversation from the baked payload instead of a live read.
+	 */
+	readonly transcript?: ReadonlyArray<{
+		readonly senderId: string;
+		readonly payload: string;
+		readonly type: string;
+	}>;
 };
 export type WorkIntentInput = {
 	readonly kind:

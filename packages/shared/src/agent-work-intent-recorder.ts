@@ -38,6 +38,17 @@ export interface BakedWorkIntentRequest {
 	readonly teamId?: string;
 	readonly userId?: string;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation;
+	/**
+	 * AU21 §9 Increment 11 (Decision H2): the `assistant_turn` family's baked
+	 * thread transcript (`@hyperidle/conversation`'s `resolveAssistantTurnRequest`).
+	 * Absent for every other kind — `task_run`/`knowledge_action`/`routine_run`/
+	 * `reengagement` instead bake a `contextBundle` (Decision H3, Increment 12).
+	 */
+	readonly transcript?: ReadonlyArray<{
+		readonly senderId: string;
+		readonly payload: string;
+		readonly type: string;
+	}>;
 }
 
 /**

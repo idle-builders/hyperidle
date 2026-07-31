@@ -222,6 +222,17 @@ function buildAssistantSessionRequest(opts: {
 	};
 }
 
+/**
+ * @lore AU21 §9 Increment 11 (Decision H2): `runTurnInternal` no longer
+ * lazily creates the `ast-<founderId>` row via `getOrCreateUser` (that read
+ * is deleted, not seam-routed) — the emit-time resolver
+ * (`resolveAssistantTurnRequest`'s `requireRunnableAgent`) is now the sole
+ * place that guarantees this row exists before an `assistant_turn` intent is
+ * ever dispatched. This helper seeds it explicitly so `persistTurnFailureInternal`'s
+ * `insertMessage(senderId: assistantAgentId, …)` doesn't violate the
+ * `messages.sender_id -> users.id` FK — matching the real production
+ * invariant instead of relying on dispatch's now-deleted lazy-create.
+ */
 async function seedFounderAndAssistantThread(
 	db: HyperIdleDb,
 	opts: { readonly founderId: string; readonly threadId: string },
@@ -232,6 +243,14 @@ async function seedFounderAndAssistantThread(
 		kind: "human",
 		name: "Founder",
 		role: "founder",
+		status: "active",
+		createdAt: NOW,
+	});
+	await db.insert(users).values({
+		id: assistantAgentId,
+		kind: "ai",
+		name: "Assistant",
+		role: "assistant",
 		status: "active",
 		createdAt: NOW,
 	});
@@ -340,17 +359,10 @@ describe("dispatch assistant-turn writes — Increment 2 conversation wave wirin
 		const founderId = "founder-dispatch-pin";
 		const threadId = "thread-dispatch-pin";
 		const assistantAgentId = `ast-${founderId}`;
-		await seedFounderAndAssistantThread(db, { founderId, threadId });
 		// registerAssistantTriggerInternal also loads the SENDER row — the
-		// assistant agent itself must exist as a real `kind:"ai"` user.
-		await db.insert(users).values({
-			id: assistantAgentId,
-			kind: "ai",
-			name: "Assistant",
-			role: "assistant",
-			status: "active",
-			createdAt: NOW,
-		});
+		// assistant agent itself must exist as a real `kind:"ai"` user;
+		// `seedFounderAndAssistantThread` now seeds it (Increment 11 `@lore` above).
+		await seedFounderAndAssistantThread(db, { founderId, threadId });
 
 		const ports = buildDispatchPortsForAssistantTurnMigration(app, assistantAgentId);
 		const dispatchOps = createDispatchOps(ports);

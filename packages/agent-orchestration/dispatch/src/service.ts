@@ -30,9 +30,6 @@ type DispatchProvisionDeps = Parameters<
 
 const assistantLog = createLogger({ pkg: "server.assistant-turn" });
 
-const BUILTIN_SYSTEM_PROMPT =
-	"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.";
-
 interface AssistantTurnDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
@@ -159,7 +156,117 @@ async function executeAssistantRequestInternal(
 	);
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: model-resolution branching (pre-resolved / credential-resolver / env-fallback) + result-outcome mapping is one sequential turn — decomposing further would obscure the control flow
+/**
+ * @lore AU21 §9 Increment 11 (Decision H2): "the assistant turn is NOT
+ * special" — model resolution is TIER-based only (`resolveModelTier`), the
+ * exact same shape run-orchestration's own poller already uses for every
+ * other intent kind (`start-runtime.ts`'s `deps.resolveModel?.(tier)`). The
+ * former per-agent-override path (`ports.users.getOrCreateUser` +
+ * `ports.modelGateway.resolveAgentModel` keyed on the agent row's
+ * `modelId`/`modelProvider`) is DELETED, not migrated — it was dispatch's
+ * own redundant special-casing, and it depended on `ports.settings
+ * .readServerConfig`, a core-api read this Layer must never make. The
+ * `ModelGatewayConfig` input that used to come from that read is now the
+ * static `BUILT_IN_GATEWAY_CONFIG` — the same default `readServerConfig`
+ * itself falls back to when no custom config is stored
+ * (`server-config.ts`'s `applyDefaults`), so this is a bounded default, not a
+ * fabricated one. A founder's custom model-gateway settings applying to
+ * assistant turns specifically is deferred to the same "normal provisioning
+ * path" wiring (`deps.resolveModel`) every other kind already uses — flagged,
+ * not solved here (see this wave's builder report).
+ */
+async function resolveTurnModelInternal(
+	ports: DispatchPorts,
+	db: HyperIdleDb,
+	userId: string,
+	threadId: string,
+	deps: AssistantTurnDeps,
+): Promise<{ resolvedModel: ResolvedModel; resolvedFastModel?: ResolvedModel } | undefined> {
+	if (deps.resolvedModel) {
+		let resolvedFastModel: ResolvedModel | undefined;
+		if (deps.credentialResolver) {
+			try {
+				resolvedFastModel = await ports.modelGateway.resolveModelTier(
+					"fast",
+					BUILT_IN_GATEWAY_CONFIG,
+					deps.credentialResolver,
+				);
+			} catch {}
+		}
+		return { resolvedModel: deps.resolvedModel, resolvedFastModel };
+	}
+	if (deps.credentialResolver) {
+		try {
+			const resolvedModel = await ports.modelGateway.resolveModelTier(
+				"workhorse",
+				BUILT_IN_GATEWAY_CONFIG,
+				deps.credentialResolver,
+			);
+			let resolvedFastModel: ResolvedModel | undefined;
+			try {
+				resolvedFastModel = await ports.modelGateway.resolveModelTier(
+					"fast",
+					BUILT_IN_GATEWAY_CONFIG,
+					deps.credentialResolver,
+				);
+			} catch {}
+			return { resolvedModel, resolvedFastModel };
+		} catch (err) {
+			if (err instanceof MissingCredentialError) {
+				await persistTurnFailureInternal(ports, db, userId, threadId, err);
+				return undefined;
+			}
+			throw err;
+		}
+	}
+	const apiKey = process.env.ANTHROPIC_API_KEY;
+	if (!apiKey) {
+		await persistTurnFailureInternal(
+			ports,
+			db,
+			userId,
+			threadId,
+			new MissingCredentialError("anthropic_api_key (required; not in env)"),
+		);
+		return undefined;
+	}
+	return {
+		resolvedModel: {
+			provider: "anthropic",
+			model: BUILT_IN_GATEWAY_CONFIG.workhorse.model,
+			apiKey,
+			baseUrl: "https://api.anthropic.com",
+		},
+	};
+}
+
+/** Baked `{senderId, payload, type}` rows carried on `request.payloadJson` — see `resolveAssistantTurnRequest` (H2). */
+function loadBakedTranscript(
+	payloadJson: string | null,
+): Array<{ senderId: string; payload: string; type: string }> {
+	if (!payloadJson) return [];
+	try {
+		const parsed = JSON.parse(payloadJson) as { transcript?: unknown };
+		if (!Array.isArray(parsed.transcript)) return [];
+		const rows: Array<{ senderId: string; payload: string; type: string }> = [];
+		for (const row of parsed.transcript) {
+			if (
+				typeof row === "object" &&
+				row !== null &&
+				typeof (row as Record<string, unknown>).senderId === "string" &&
+				typeof (row as Record<string, unknown>).payload === "string" &&
+				typeof (row as Record<string, unknown>).type === "string"
+			) {
+				const r = row as { senderId: string; payload: string; type: string };
+				rows.push({ senderId: r.senderId, payload: r.payload, type: r.type });
+			}
+		}
+		return rows;
+	} catch {
+		return [];
+	}
+}
+
 async function runTurnInternal(
 	ports: DispatchPorts,
 	db: HyperIdleDb,
@@ -170,78 +277,10 @@ async function runTurnInternal(
 	existingRequest: AgentSessionRequest,
 ): Promise<void> {
 	const assistantAgentId = `ast-${userId}`;
-	const agentRow = await ports.users.getOrCreateUser(db, assistantAgentId, {
-		id: assistantAgentId,
-		kind: "ai",
-		name: "Assistant",
-		role: "assistant",
-		agentCategory: "individual",
-		status: "active",
-		harnessType: "builtin",
-		modelId: "claude-sonnet-4-6",
-		modelProvider: "anthropic",
-		systemPrompt: BUILTIN_SYSTEM_PROMPT,
-		maxConcurrentSessions: 1,
-		createdAt: new Date().toISOString(),
-	});
-	let resolvedModel: ResolvedModel | undefined;
-	let resolvedFastModel: ResolvedModel | undefined;
-
-	if (deps.resolvedModel) {
-		resolvedModel = deps.resolvedModel;
-		if (deps.credentialResolver) {
-			try {
-				const serverCfg = await ports.settings.readServerConfig(db);
-				resolvedFastModel = await ports.modelGateway.resolveModelTier(
-					"fast",
-					serverCfg.modelGateway,
-					deps.credentialResolver,
-				);
-			} catch {}
-		}
-	} else if (deps.credentialResolver) {
-		try {
-			const serverCfg = await ports.settings.readServerConfig(db);
-			resolvedModel = await ports.modelGateway.resolveAgentModel(
-				{ modelId: agentRow.modelId ?? null, modelProvider: agentRow.modelProvider ?? null },
-				"workhorse",
-				serverCfg.modelGateway,
-				deps.credentialResolver,
-			);
-			try {
-				resolvedFastModel = await ports.modelGateway.resolveModelTier(
-					"fast",
-					serverCfg.modelGateway,
-					deps.credentialResolver,
-				);
-			} catch {}
-		} catch (err) {
-			if (err instanceof MissingCredentialError) {
-				await persistTurnFailureInternal(ports, db, userId, threadId, err);
-				return;
-			}
-			throw err;
-		}
-	} else {
-		const apiKey = process.env.ANTHROPIC_API_KEY;
-		if (!apiKey) {
-			await persistTurnFailureInternal(
-				ports,
-				db,
-				userId,
-				threadId,
-				new MissingCredentialError("anthropic_api_key (required; not in env)"),
-			);
-			return;
-		}
-		resolvedModel = {
-			provider: "anthropic",
-			model: agentRow.modelId ?? BUILT_IN_GATEWAY_CONFIG.workhorse.model,
-			apiKey,
-			baseUrl: "https://api.anthropic.com",
-		};
-	}
-	const transcriptRows = await loadRawTranscript(ports, db, threadId);
+	const resolved = await resolveTurnModelInternal(ports, db, userId, threadId, deps);
+	if (!resolved) return;
+	const { resolvedModel, resolvedFastModel } = resolved;
+	const transcriptRows = loadBakedTranscript(existingRequest.payloadJson);
 	const conversationMessages = mapTranscriptToMessages(transcriptRows, assistantAgentId);
 	const scaffoldSpecs = resolveAgentScaffoldSpecs({
 		trigger: "user_assistant",
@@ -346,29 +385,6 @@ async function runTurnInternal(
 		}
 	} catch (err) {
 		await persistTurnFailureInternal(ports, db, userId, threadId, err);
-	}
-}
-
-async function loadRawTranscript(
-	ports: DispatchPorts,
-	db: HyperIdleDb,
-	threadId: string,
-): Promise<Array<{ senderId: string; payload: string; type: string }>> {
-	try {
-		const rows = await ports.conversation.listMessagesByThread(db, threadId, {
-			order: "createdAt",
-			dir: "asc",
-		});
-		return rows.map((m) => ({ senderId: m.senderId, payload: m.payload, type: m.type }));
-	} catch (err) {
-		assistantLog.error(
-			"[assistant-turn] loadRawTranscript failed — proceeding with empty history",
-			{
-				threadId,
-				error: err instanceof Error ? err.message : String(err),
-			},
-		);
-		return [];
 	}
 }
 

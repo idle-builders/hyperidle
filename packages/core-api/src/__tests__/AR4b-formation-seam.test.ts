@@ -144,10 +144,20 @@ function setFormationPersona(persona: string | null): void {
 
 // ─── Credential resolver ──────────────────────────────────────────────────────
 
+/**
+ * @lore AU21 §9 Increment 11 (Decision H2): "the assistant turn is NOT
+ * special" — model resolution is now TIER-based only (`resolveModelTier`),
+ * matching every other intent kind; dispatch no longer reads the assistant
+ * agent's own `modelId`/`modelProvider` row fields (that read, part of the
+ * now-deleted `getOrCreateUser`, is gone). This test is about the FORMATION
+ * seam (persona/draft-tools), not model-provider selection — `seedFixtures`'s
+ * `modelProvider: "openrouter"` is incidental legacy setup, so the resolver
+ * grants whichever credential the (now provider-agnostic) tier resolution
+ * asks for instead of gating on `openrouter_api_key` specifically.
+ */
 const credentialResolver: CredentialResolver = {
-	async resolve(name: string): Promise<string | null> {
-		if (name === "openrouter_api_key") return "sk-or-test-ar4b-seam";
-		return null;
+	async resolve(): Promise<string | null> {
+		return "sk-test-ar4b-seam";
 	},
 };
 
