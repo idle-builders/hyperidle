@@ -29,16 +29,16 @@ function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
 	// (`updateBetDecompositionStatusIfRunning`) is REMOVED ENTIRELY — the
 	// built-in bet_decomposition mechanism no longer exists.
 	//
-	// AU21 §9 Increment 10 (Decision H1) — RED: `workCalls` used to be a
-	// permanent-empty witness because the fake body below never pushed to it
-	// (a stale artifact of the 10a pass, not a real proof). It now actually
-	// records every `updateTaskDispatchAttemptIfActive` call so the new
-	// "task family is observeOnly" test below can genuinely prove the drain
-	// stops calling it — matching `routineCalls`' real witness role. Today
-	// (RED), `lifecycleProjectors.task` still calls this port directly
-	// (`service.ts`'s `projectTask`), so `workCalls` is non-empty for a
-	// `task`-sourced fact until `work-session-end-reactions.ts`'s event
-	// subscriber replaces it and this drain path flips to `observeOnly`.
+	// AU21 §9 Increment 10 (Decision H1): `work`
+	// (`updateTaskDispatchAttemptIfActive`) is now REMOVED ENTIRELY from
+	// `DurableAgentQueueDeps["lifecycleProjection"]` too — `task`'s
+	// post-session writeback moved to a core-api event subscriber
+	// (`work-session-end-reactions.ts`, `agent_run_lifecycle_changed`). There
+	// is no port left through which this drain could ever reach `work` for a
+	// `task`-sourced fact, so `workCalls` joins `routineCalls` as a
+	// permanent-empty witness array with no port behind it at all — the
+	// strongest form of "the drain never calls it": not merely unexercised,
+	// structurally unreachable.
 	readonly routineCalls: Array<{ id: string; patch: unknown }>;
 	readonly workCalls: Array<{ id: string; patch: unknown }>;
 	readonly explicitCalls: Array<{ requestId: string; patch: unknown }>;
@@ -50,11 +50,6 @@ function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
 		routineCalls,
 		workCalls,
 		explicitCalls,
-		work: {
-			async updateTaskDispatchAttemptIfActive(_exec: unknown, requestId: string, patch: unknown) {
-				workCalls.push({ id: requestId, patch });
-			},
-		},
 		explicitSessionStarts: {
 			async projectTerminalState(_exec: unknown, requestId: string, patch: unknown) {
 				explicitCalls.push({ requestId, patch });
@@ -70,13 +65,6 @@ function queueDeps(
 	return {
 		db,
 		lifecycleProjection,
-		// AU21 §9 Increment 9 (forensic-triage wave, second pass): `config`/
-		// `teams`/`users` REMOVED from `DurableAgentQueueDeps` entirely —
-		// their one consumer, `createTriggeredInternal`, is deleted. `work`
-		// shrinks to its one genuinely-live method.
-		work: {
-			reapTerminalTaskDispatchAttempts: async () => 0,
-		},
 	};
 }
 

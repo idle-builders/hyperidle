@@ -435,3 +435,16 @@ not-permanent pairs (`dispatch::conversation`/`::users`/`::settings`, `run-orche
 `session-requests::work`) — 2 fewer than the second pass's set (`dispatch::work`/`::routine` are genuinely
 closed), but NOT zero. **AU21 is not ready to be presented as fully closing AC #2 or AC #9 without a founder
 decision on these 10 pairs.**
+
+**Update (AU21 §9 Increment 10, Decision H1): `session-requests::work` is now genuinely CLOSED, not merely
+re-classified.** The credible feasibility this pass identified above panned out: `task`'s post-session
+writeback (`taskDispatchAttemptStore.updateIfActive`) moved to a core-api `agent_run_lifecycle_changed` event
+subscriber (`work-session-end-reactions.ts`), `lifecycleProjectors.task` flipped to `observeOnly` (deleting
+`projectTask`), and `reapTerminalTaskDispatchAttempts` relocated into `server-factory.ts`'s generic retention
+reaper (calling `taskDispatchAttemptStore.reapTerminal` directly, an intra-core-api call). Both
+`DurableAgentQueueDeps.lifecycleProjection.work` and the top-level `DurableAgentQueueDeps.work` field are
+deleted entirely — `session-requests` now holds ZERO `-> work` edge of any kind (the `decomposition` half was
+already obsoleted by Increment 10a / Decision I). `DEFERRED_FOLLOWUP` shrinks to 9 pairs
+(`dispatch::conversation`/`::users`/`::settings` and `run-orchestration`'s 6). `inspect(process.cwd())` still
+returns zero findings post-closure (re-verified). AU21 is still not ready to be presented as fully closing AC
+#2 or AC #9 without a founder decision on the remaining 9 pairs.

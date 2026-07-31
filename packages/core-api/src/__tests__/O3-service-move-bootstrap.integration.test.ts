@@ -69,6 +69,15 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_ended subscription", "agent_run_lifecycle_changed subscription"],
 			},
+			// @lore AU21 §9 Increment 10 (Decision H1): the POST-SESSION `task`
+			// dispatch-attempt finalize reaction — a DIFFERENT mechanism/owner
+			// from the routine-run finalize reaction above, replacing
+			// `session-requests`'s own former direct cross-layer write.
+			{
+				owner: "work session-end reactions",
+				cleanupEffect: "unsubscribe",
+				constituents: ["agent_run_lifecycle_changed subscription"],
+			},
 			// @lore AU21 §9 Increment 6 (Decision D): agent-orchestration's OWN
 			// per-session-cost write reaction — a DIFFERENT mechanism/owner from
 			// the routine-run finalize reaction above (this one is
@@ -181,6 +190,13 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// subscriptions unsubscribe for real.
 				{
 					unsubscribedEvents: ["session_ended", "agent_run_lifecycle_changed"],
+					clearedIntervals: 0,
+				},
+				// @lore AU21 §9 Increment 10 (Decision H1): `registerWorkSessionEndReactions`
+				// is NOT pre-registered on the `eventBus` test fixture either — this is
+				// its first, real registration on this eventBus instance.
+				{
+					unsubscribedEvents: ["agent_run_lifecycle_changed"],
 					clearedIntervals: 0,
 				},
 				// @lore AU21 §9 Increment 6: `registerSessionCostRecorder` is NOT

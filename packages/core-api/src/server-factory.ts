@@ -99,6 +99,7 @@ import {
 	startRoutineScheduler,
 } from "./services/routine-scheduler-bindings.js";
 import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
+import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 
 type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
 /**
@@ -166,6 +167,12 @@ const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
 const RETENTION_REAPER_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 export const TERMINAL_LOG_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const CONSUMED_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day audit window
+/**
+ * @lore AU21 §9 Increment 10 (Decision H1): matches
+ * `session-requests`'s own former `defaultRetentionBatchSize` for the same
+ * terminal-row GC job, now relocated here.
+ */
+const TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE = 500;
 
 /**
  * Reaps terminal propagation_log rows older than `termCutoff`.
@@ -189,6 +196,27 @@ export async function reapPropagationLog(db: HyperIdleDb, termCutoff: string): P
 				inArray(propagationLog.status, ["applied", "skipped"]),
 			),
 		);
+}
+
+/**
+ * @lore AU21 §9 Increment 10 (Decision H1): reaps terminal
+ * `task_dispatch_attempts` rows older than `termCutoff`, relocated OUT of
+ * `session-requests`'s `reapExpired` single atomic transaction (a harmless
+ * atomicity split — pure terminal-row GC, no cross-table invariant depends on
+ * it sharing that transaction) and INTO this composition root's generic
+ * retention reaper, alongside `reapPropagationLog`/`reapAccessLog`/
+ * `reapExpiredCredentials` above. Calls `taskDispatchAttemptStore.reapTerminal`
+ * directly — `work` owns this table, so a direct same-layer call (not a
+ * cross-layer write) is sanctioned, same precedent as `reapPropagationLog`'s
+ * own doc comment. Exported for the same reason: directly testable without
+ * waiting on the real 6h `setInterval`.
+ */
+export async function reapTerminalTaskDispatchAttempts(
+	db: HyperIdleDb,
+	termCutoff: string,
+	batchSize: number,
+): Promise<number> {
+	return work.taskDispatchAttemptStore.reapTerminal(db, termCutoff, batchSize);
 }
 
 /**
@@ -399,6 +427,18 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
+	// AU21 §9 Increment 10 (Decision H1): task's post-session writeback —
+	// finalizes `taskDispatchAttempts` off `agent_run_lifecycle_changed`,
+	// replacing `session-requests`'s own direct cross-layer write.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerWorkSessionEndReactions(db, eventBus),
+			"work session-end reactions",
+			"unsubscribe",
+			["agent_run_lifecycle_changed subscription"],
+		),
+	);
+
 	// AU21 §9 Increment 6 (Decision D): agent-orchestration's OWN reaction
 	// (session-requests, NOT a core-api Service) — wired here because
 	// server-factory.ts is today's single process composition root, the same
@@ -509,6 +549,9 @@ export function registerCoreDomainServices(ctx: {
 		// propagation_log — UNOWNED_SHARED_TABLES; delegate to the exported
 		// reapPropagationLog so the predicate is covered by integration tests.
 		await reapPropagationLog(db, termCutoff);
+		// task_dispatch_attempts (owned by `work`) — AU21 §9 Increment 10
+		// (Decision H1): relocated out of session-requests's reapExpired.
+		await reapTerminalTaskDispatchAttempts(db, termCutoff, TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE);
 	};
 	const retentionHandle = setInterval(() => {
 		void runRetentionSweep().catch((err) => {

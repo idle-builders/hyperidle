@@ -84,9 +84,6 @@ function queueDeps(
 	return {
 		db,
 		lifecycleProjection,
-		work: {
-			reapTerminalTaskDispatchAttempts: async () => 0,
-		},
 	};
 }
 
@@ -234,9 +231,6 @@ describe("durable request and intent lease fencing", () => {
  */
 function projectionDeps(failRequestId: string) {
 	return {
-		work: {
-			updateTaskDispatchAttemptIfActive: async () => {},
-		},
 		explicitSessionStarts: {
 			async projectTerminalState(_db: HyperIdleDb, requestId: string) {
 				if (requestId === failRequestId) throw new Error("poison projection");

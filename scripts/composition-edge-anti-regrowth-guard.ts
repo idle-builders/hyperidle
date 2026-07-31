@@ -52,16 +52,20 @@
  * already-resolved descope to a new work package — both rejected on review.
  * This pass corrects the record: `ALLOWLIST` now holds ONLY the 4
  * founder-signed `cost::*` rows (see `ALLOWLIST`'s own doc comment).
- * `DEFERRED_FOLLOWUP` honestly carries 10 real, open, NOT-founder-signed, NOT
- * -permanent pairs (see that set's own doc comment for the full accounting,
- * including which 2 of the prior pass's pairs are now genuinely CLOSED —
- * deleted or relocated core-side, not relabeled). AC #9(b) ("the guard fails
- * CI on a new orchestration→core read port or composition-bundle core-read")
- * is true both in the `--fixtures` self-test sense and the live bare-check
- * sense for every pair NOT in `DEFERRED_FOLLOWUP` — but a genuinely new read
- * on one of the 10 still-open pairs would NOT be caught (a real, accepted,
- * temporary coverage gap, same shape the review's non-blocking finding
- * flagged).
+ * `DEFERRED_FOLLOWUP` honestly carried 10 real, open, NOT-founder-signed, NOT
+ * -permanent pairs at the end of this pass (see that set's own doc comment
+ * for the full accounting, including which 2 of the prior pass's pairs are
+ * now genuinely CLOSED — deleted or relocated core-side, not relabeled).
+ * **Update (AU21 §9 Increment 10, Decision H1): `session-requests::work` is
+ * ALSO now genuinely CLOSED** (the writeback moved to a core-api event
+ * subscriber, the retention reap relocated core-side — see
+ * `DEFERRED_FOLLOWUP`'s own doc comment) — 9 pairs remain open. AC #9(b)
+ * ("the guard fails CI on a new orchestration→core read port or
+ * composition-bundle core-read") is true both in the `--fixtures` self-test
+ * sense and the live bare-check sense for every pair NOT in
+ * `DEFERRED_FOLLOWUP` — but a genuinely new read on one of the 9 still-open
+ * pairs would NOT be caught (a real, accepted, temporary coverage gap, same
+ * shape the review's non-blocking finding flagged).
  *
  * @lore AU21 Increment 9, forensic-triage wave (post Increment 8):
  * `inspect(process.cwd())` re-run showed **42 findings, 24 distinct pairs**
@@ -173,11 +177,12 @@
  * **Net, honest result:** `inspect(process.cwd())` returns ZERO findings on
  * this tree (verify: `npx tsx scripts/composition-edge-anti-regrowth-guard.ts`),
  * and the bare check IS wired into `npm run lint` — but `ALLOWLIST` now holds
- * ONLY founder-signed rows, and `DEFERRED_FOLLOWUP` honestly carries 10 real
+ * ONLY founder-signed rows, and `DEFERRED_FOLLOWUP` honestly carries 9 real
  * open pairs (down from the second pass's mislabeled 12 across ALLOWLIST+
- * DEFERRED_FOLLOWUP). **This is not the same claim as "AC #2 is met" — it is
- * not, and AU21 should not be presented as fully closing it without a
- * founder decision on the remaining 10 pairs.**
+ * DEFERRED_FOLLOWUP, then 10 at the end of this same pass, now 9 after
+ * Increment 10's genuine `session-requests::work` closure). **This is not the
+ * same claim as "AC #2 is met" — it is not, and AU21 should not be presented
+ * as fully closing it without a founder decision on the remaining 9 pairs.**
  */
 import {
 	existsSync,
@@ -250,7 +255,20 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  * seam route, `POST /org/team-routines` — see `core-api-port.ts`'s
  * `CoreApiOrgPort.provisionTeamRoutines`).
  *
- * **What remains genuinely open (10 pairs) — AC #2 ("orchestration reads
+ * **AU21 §9 Increment 10 (Decision H1) — `session-requests::work` genuinely
+ * CLOSED, not relabeled.** The credible feasibility this same pass flagged
+ * below panned out: `task`'s post-session writeback (`taskDispatchAttemptStore
+ * .updateIfActive`) moved to a core-api `agent_run_lifecycle_changed` event
+ * subscriber (`work-session-end-reactions.ts`), `lifecycleProjectors.task`
+ * flipped to `observeOnly`, and `reapTerminalTaskDispatchAttempts` relocated
+ * into `server-factory.ts`'s generic retention reaper (calling
+ * `taskDispatchAttemptStore.reapTerminal` directly, an intra-core-api call).
+ * `DurableAgentQueueDeps.lifecycleProjection.work` and the top-level
+ * `DurableAgentQueueDeps.work` field are both deleted entirely —
+ * `session-requests` now holds ZERO `-> work` edge of any kind (the
+ * `decomposition` half was already obsoleted by Increment 10a / Decision I).
+ *
+ * **What remains genuinely open (9 pairs) — AC #2 ("orchestration reads
  * zero core-api domain state") is NOT fully met while this set is non-empty.
  * Do not present AU21 as closing its headline AC while any of these remain:**
  *
@@ -276,30 +294,6 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  *   session sandbox). Same fork, same staleness risk, at larger scale (every
  *   session of every kind, not just assistant turns) — Decision B's own text
  *   already flags this as undecided; nothing this wave learned resolves it.
- * - `session-requests::work` — `taskDispatchAttemptStore.reapTerminal`
- *   (retention-sweep delete, no session-launch decision) +
- *   `lifecycleProjection.work`'s writeback of a session's own outcome into
- *   `taskDispatchAttempts`/`bets.decompositionStatus`. Traced this wave (not
- *   merely asserted): `routine`'s equivalent writeback ALREADY migrated to a
- *   core-api event subscriber pattern (`routine-run-session-end-reactions.ts`,
- *   reacting to `session_ended`/`agent_run_lifecycle_changed`) with the
- *   `lifecycleProjectors.routine` entry now `observeOnly` — the same pattern
- *   is very likely portable to `task`/`decomposition`, and
- *   `reapTerminalTaskDispatchAttempts` could very likely move into
- *   `server-factory.ts`'s existing generic retention sweep (calling
- *   `@hyperidle/work`'s own `taskDispatchAttemptStore.reapTerminal` directly,
- *   an intra-core-api call). This is REAL, credible, evidence-backed
- *   feasibility, not a fork like the two clusters above — but completing it
- *   safely needs its own red/green test cycle (a subtlety was already found:
- *   `projectTask`'s embedded call to `projectExplicitStart` turned out to be
- *   a harmless no-op for `task`-sourced facts, confirmed by reading
- *   `projectStartInternal`'s guard clause — the kind of detail that needs a
- *   dedicated pass, not a rushed one squeezed in alongside two other
- *   clusters). Previously mis-labeled a "builder-ruled permanent bounded
- *   exception" in `ALLOWLIST` — that was wrong on the merits (it is NOT
- *   permanent, it is unmigrated) independent of the process objection
- *   (no founder signed it either).
- *
  * **Closure ownership — NOT silently assumed.** A prior pass named AU23
  * (`.pipeline/work/AU23/plan.md`) as this set's automatic closure owner and
  * presented AU21 as ready to ship anyway; that was rejected on review (a
@@ -320,7 +314,6 @@ export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([
 	"run-orchestration::settings",
 	"run-orchestration::users",
 	"run-orchestration::work",
-	"session-requests::work",
 ]);
 
 /**

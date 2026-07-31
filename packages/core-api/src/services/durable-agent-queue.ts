@@ -57,23 +57,30 @@
  * full production call-site grep confirmed ZERO real callers ever existed,
  * in AU21 or before — the only caller anywhere was
  * `trigger-resolution.integration.test.ts` (deleted alongside this), and
- * test-only-reachable code is dead code. The surviving `work` field
- * (`reapTerminalTaskDispatchAttempts`) and `lifecycleProjection.work`'s two
- * methods are genuinely live — the AU9 CAS/dedup own-state check +
- * session-lifecycle-fact writeback into `work`'s own tables.
+ * test-only-reachable code is dead code.
+ *
+ * @lore AU21 §9 Increment 10 (Decision H1): the `work` field
+ * (`reapTerminalTaskDispatchAttempts`) and `lifecycleProjection.work`'s
+ * `updateTaskDispatchAttemptIfActive` — flagged by the THIRD forensic-triage
+ * pass below as a genuinely open, unmigrated gap, NOT a bounded permanent
+ * exception — are now CLOSED: `task`'s post-session writeback moved to
+ * core-api's `work-session-end-reactions.ts` (an `agent_run_lifecycle_changed`
+ * event subscriber, the same migration `routine` went through in Increment 4),
+ * and `reapTerminalTaskDispatchAttempts` relocated to
+ * `server-factory.ts`'s generic retention reaper. This composition root no
+ * longer wires either — `@hyperidle/session-requests` now holds ZERO `→ work`
+ * edge of any kind.
  *
  * @lore AU21 §9 Increment 9 (forensic-triage wave, THIRD pass): this surface
- * is NOT a bounded permanent exception — a prior pass mislabeled it that way
+ * was NOT a bounded permanent exception — a prior pass mislabeled it that way
  * in the anti-regrowth guard's `ALLOWLIST`, rejected on review as a builder-
- * ruled carve-out with no founder sign-off. It is tracked as a genuinely
+ * ruled carve-out with no founder sign-off. It was tracked as a genuinely
  * open, unmigrated gap in `DEFERRED_FOLLOWUP` (`session-requests::work`) —
- * see that set's doc comment for the real feasibility evidence found this
- * wave and why full closure needs its own dedicated pass.
+ * closed by Increment 10 above.
  */
 
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { type DurableAgentQueueDeps, transitionSessionRequest } from "@hyperidle/session-requests";
-import * as work from "@hyperidle/work";
 
 // ---------------------------------------------------------------------------
 // DurableAgentQueueDeps — single composition-root deps bundle (AU20 Ag3a).
@@ -88,13 +95,7 @@ import * as work from "@hyperidle/work";
 // ---------------------------------------------------------------------------
 
 const ports = {
-	work: {
-		reapTerminalTaskDispatchAttempts: work.taskDispatchAttemptStore.reapTerminal,
-	},
 	lifecycleProjection: {
-		work: {
-			updateTaskDispatchAttemptIfActive: work.taskDispatchAttemptStore.updateIfActive,
-		},
 		explicitSessionStarts: {
 			projectTerminalState: async (
 				exec: WriteExecutor,

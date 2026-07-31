@@ -400,13 +400,7 @@ describe("agent session request repository", () => {
 		const deps: DurableAgentQueueDeps = {
 			db,
 			lifecycleProjection: {
-				work: {
-					updateTaskDispatchAttemptIfActive: async () => {},
-				},
 				explicitSessionStarts: { projectTerminalState: async () => {} },
-			},
-			work: {
-				reapTerminalTaskDispatchAttempts: async () => 0,
 			},
 		};
 		await Promise.all([

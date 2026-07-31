@@ -105,6 +105,11 @@ async function seedTaskAndAgent(
  * `taskDispatchAttempts.requestId` is a real FK into `agentSessionRequests`
  * (`onDelete: "restrict"`) — seed a real request row so the finalize UPDATE's
  * `requestId` match is against a genuine row, matching the real invariant.
+ * `status: "pending"` (not `"running"`) — this row exists purely as a valid
+ * FK target for `taskDispatchAttempts.requestId`; none of this file's tests
+ * assert on `agentSessionRequests`' own status, so `"pending"` is the
+ * simplest status satisfying `agent_session_requests_correlation_ck` without
+ * an unrelated `sessionId`/`claimToken` requirement.
  */
 async function seedSessionRequest(
 	db: HyperIdleDb,
@@ -121,7 +126,7 @@ async function seedSessionRequest(
 		promptMode: "task",
 		sourceCorrelationJson: "{}",
 		idempotencyKey: id,
-		status: "running",
+		status: "pending",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});

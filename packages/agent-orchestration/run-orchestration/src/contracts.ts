@@ -15,14 +15,16 @@ import type {
 
 interface DurableQueueDeps {
 	readonly db: HyperIdleDb;
+	/**
+	 * @lore AU21 §9 Increment 10 (Decision H1): mirrors
+	 * `DurableAgentQueueDeps.lifecycleProjection` from
+	 * `@hyperidle/session-requests` post-shrink — `work`
+	 * (`updateTaskDispatchAttemptIfActive`) REMOVED ENTIRELY, `task`'s
+	 * post-session writeback moved to a core-api event subscriber
+	 * (`work-session-end-reactions.ts`). `explicitSessionStarts` is the only
+	 * surviving projection target.
+	 */
 	readonly lifecycleProjection: {
-		readonly work: {
-			updateTaskDispatchAttemptIfActive(
-				exec: WriteExecutor,
-				requestId: string,
-				patch: { status: "completed" | "failed" | "cancelled"; sessionId: string | null },
-			): Promise<void>;
-		};
 		readonly explicitSessionStarts: {
 			projectTerminalState(
 				exec: WriteExecutor,
@@ -34,23 +36,6 @@ interface DurableQueueDeps {
 				},
 			): Promise<void>;
 		};
-	};
-	/**
-	 * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): mirrors
-	 * `DurableAgentQueueDeps.work` from `@hyperidle/session-requests`
-	 * post-shrink — `config`/`teams`/`users` REMOVED entirely (their one
-	 * consumer, `createTriggeredInternal`, is deleted: confirmed zero
-	 * production callers ever existed, in AU21 or before) and
-	 * `getTaskDispatchAttemptById` REMOVED (declared, never invoked). The one
-	 * surviving method is the AU9 CAS/dedup own-state surface
-	 * (`taskDispatchAttemptStore.reapTerminal`).
-	 */
-	readonly work: {
-		reapTerminalTaskDispatchAttempts(
-			exec: WriteExecutor,
-			cutoff: string,
-			batchSize: number,
-		): Promise<number>;
 	};
 	/**
 	 * @lore AU21 §6 Decision B4: mirrors `DurableAgentQueueDeps.eventBus` from
@@ -211,7 +196,7 @@ export interface RuntimePorts {
 		reapExpired(
 			deps: DurableQueueDeps,
 			options?: { now?: Date; retentionDays?: number; batchSize?: number },
-		): Promise<{ inbox: number; intents: number; explicitStarts: number; taskAttempts: number }>;
+		): Promise<{ inbox: number; intents: number; explicitStarts: number }>;
 	};
 	readonly sessionLifecycle: RunOrchestrationSessionLifecycleRuntime;
 	/** Test-only execution seam; production runSession binds the internal provisioner. */

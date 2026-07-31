@@ -89,15 +89,6 @@ const observeOnly: Projector = async (db, fact, deps) => {
 	void fact;
 	void deps;
 };
-const projectTask: Projector = async (db, fact, deps) => {
-	await db.transaction(async (tx: WriteExecutor) => {
-		await deps.work.updateTaskDispatchAttemptIfActive(tx, fact.requestId, {
-			status: fact.state,
-			sessionId: fact.sessionId ?? null,
-		});
-		await projectExplicitStart(tx, fact, deps);
-	});
-};
 const projectExplicitStart: Projector = async (db, fact, deps) => {
 	await deps.explicitSessionStarts.projectTerminalState(db, fact.requestId, {
 		status: fact.state,
@@ -107,7 +98,15 @@ const projectExplicitStart: Projector = async (db, fact, deps) => {
 };
 const lifecycleProjectors: Record<LifecycleSourceKind, Projector> = {
 	assistant: observeOnly,
-	task: projectTask,
+	// @lore AU21 §9 Increment 10 (Decision H1): `task`'s post-session
+	// writeback (`taskDispatchAttempts` finalize) moved to a core-api event
+	// subscriber (`work-session-end-reactions.ts`, subscribing
+	// `agent_run_lifecycle_changed` directly) — the same migration `routine`
+	// went through in Increment 4. This drain's job for `task` is now purely
+	// observational; it must never call `deps.work`/`updateTaskDispatchAttemptIfActive`
+	// again (that port + `DurableAgentQueueDeps.lifecycleProjection.work` are
+	// deleted entirely, not merely unused).
+	task: observeOnly,
 	knowledge: observeOnly,
 	// @lore AU21 §6 Decision B″ correction: `routine` used to run its own
 	// `projectRoutine` (a direct `updateRoutineRunIfRunning` cross-layer
@@ -985,11 +984,7 @@ async function findIntentRequestInternal(db: HyperIdleDb, requestId: string) {
 		.limit(1);
 	return row;
 }
-async function reapIntentsInternal(
-	db: HyperIdleDb,
-	deps: DurableAgentQueueDeps,
-	options: ReapOptions = {},
-) {
+async function reapIntentsInternal(db: HyperIdleDb, options: ReapOptions = {}) {
 	const now = options.now ?? /* @__PURE__ */ new Date();
 	const retentionDays = options.retentionDays ?? defaultRetentionDays;
 	const batchSize = options.batchSize ?? defaultRetentionBatchSize;
@@ -1025,12 +1020,10 @@ async function reapIntentsInternal(
 				),
 			)
 			.returning({ id: explicitSessionStarts.id });
-		const taskAttempts = await deps.work.reapTerminalTaskDispatchAttempts(tx, cutoff, batchSize);
 		return {
 			inbox: projected.length,
 			intents: ids.length,
 			explicitStarts: oldStarts.length,
-			taskAttempts,
 		};
 	});
 }
@@ -1403,17 +1396,20 @@ export type AgentLifecycleFact = {
 };
 export interface DurableAgentQueueDeps {
 	readonly db: HyperIdleDb;
+	/**
+	 * @lore AU21 §9 Increment 10 (Decision H1): `work` (the
+	 * `updateTaskDispatchAttemptIfActive` port `lifecycleProjection.work` used
+	 * to carry) is REMOVED ENTIRELY — `task`'s post-session writeback now
+	 * lives core-side as an `agent_run_lifecycle_changed` event subscriber
+	 * (`core-api`'s `work-session-end-reactions.ts`), the same migration
+	 * `routine` already went through in Increment 4 (see
+	 * `lifecycleProjectors.routine`'s `observeOnly` entry below and
+	 * `routine-run-session-end-reactions.ts`). `lifecycleProjectors.task` is
+	 * now `observeOnly` too, so this drain has no port left through which to
+	 * reach `work` for a `task`-sourced fact — `explicitSessionStarts` is the
+	 * only surviving projection target.
+	 */
 	readonly lifecycleProjection: {
-		readonly work: {
-			updateTaskDispatchAttemptIfActive(
-				exec: WriteExecutor,
-				requestId: string,
-				patch: {
-					readonly status: "completed" | "failed" | "cancelled";
-					readonly sessionId: string | null;
-				},
-			): Promise<void>;
-		};
 		readonly explicitSessionStarts: {
 			projectTerminalState(
 				exec: WriteExecutor,
@@ -1434,38 +1430,20 @@ export interface DurableAgentQueueDeps {
 	 * target-agent resolution for the `"triggered"` `CreateSessionRequestInput`
 	 * kind), is deleted alongside this: confirmed via git archaeology + a full
 	 * production call-site grep that it had ZERO real callers, in AU21 or
-	 * before (see `CreateSessionRequestInput`'s own doc comment above). Also
-	 * `getTaskDispatchAttemptById` (`work`, below) — declared, never invoked
-	 * anywhere in this file (only `reapTerminalTaskDispatchAttempts` and
-	 * `lifecycleProjection.work`'s one method are genuinely live —
-	 * `updateBetDecompositionStatusIfRunning`, the other method this comment
-	 * originally counted, is REMOVED entirely by AU21 §9 Increment 10a /
-	 * Decision I).
+	 * before (see `CreateSessionRequestInput`'s own doc comment above).
 	 *
-	 * @lore AU21 §9 Increment 9 (forensic-triage wave, THIRD pass): the
-	 * remaining `work` surface (this field + `lifecycleProjection.work` above)
-	 * is NOT a bounded permanent exception — a prior pass mislabeled it that
-	 * way in the anti-regrowth guard's `ALLOWLIST`, rejected on review. It is
-	 * a genuinely open, unmigrated gap, tracked in the guard's
-	 * `DEFERRED_FOLLOWUP` (`session-requests::work`) — real feasibility
-	 * evidence exists (`routine`'s equivalent writeback already migrated to a
-	 * core-api `session_ended`/`agent_run_lifecycle_changed` subscriber, see
-	 * `lifecycleProjectors.routine`'s `observeOnly` entry below and
-	 * `routine-run-session-end-reactions.ts`), but completing the analogous
-	 * migration for `task` needs its own dedicated red/green pass, not a
-	 * rushed fix — see the guard's `DEFERRED_FOLLOWUP` doc comment for the
-	 * full reasoning. (AU21 §9 Increment 10a / Decision I removed
-	 * `decomposition` entirely, rather than migrating it — this gap is now
-	 * `task`-only, closed by Increment 10.)
-	 */
-	readonly work: {
-		reapTerminalTaskDispatchAttempts(
-			exec: WriteExecutor,
-			cutoff: string,
-			batchSize: number,
-		): Promise<number>;
-	};
-	/**
+	 * @lore AU21 §9 Increment 10 (Decision H1): the top-level `work` field
+	 * (`reapTerminalTaskDispatchAttempts`) is ALSO REMOVED ENTIRELY —
+	 * relocated out of this drain's `reapExpired` atomic transaction into
+	 * `packages/core-api/src/server-factory.ts`'s generic retention reaper
+	 * (a harmless atomicity split; pure terminal-row GC, no invariant depends
+	 * on it sharing the intent/start-delete transaction), calling
+	 * `taskDispatchAttemptStore.reapTerminal` directly there. Together with
+	 * the `lifecycleProjection.work` removal above, `session-requests` now
+	 * holds ZERO `→ work` edge of any kind, closing the
+	 * `DEFERRED_FOLLOWUP` (`session-requests::work`) gap the anti-regrowth
+	 * guard tracked through Increment 9's forensic-triage wave.
+	 *
 	 * @lore AU21 §6 Decision B4: the pre-handoff failure report-back channel.
 	 * Optional so every existing `queueDeps(db)` call site (which never wired
 	 * one) keeps compiling unchanged — `failOrRelease` simply skips emission
@@ -1615,5 +1593,5 @@ export function reapExpired(
 	deps: DurableAgentQueueDeps,
 	options?: { readonly now?: Date; readonly retentionDays?: number; readonly batchSize?: number },
 ) {
-	return reapIntentsInternal(deps.db, deps, options);
+	return reapIntentsInternal(deps.db, options);
 }
