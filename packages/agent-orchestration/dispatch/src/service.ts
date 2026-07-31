@@ -16,7 +16,6 @@ import {
 	type PlainPayload,
 	ProviderTimeoutError,
 	type ResolvedModel,
-	type ThreadMessageAppendedEvent,
 } from "@hyperidle/shared";
 import type { DispatchPorts } from "./ports.js";
 
@@ -445,81 +444,20 @@ function mapTranscriptToMessages(
 	return result;
 }
 
-interface ThreadLike {
-	readonly hostKind: string;
-	readonly hostId: string;
-	readonly pinned: boolean;
-}
-
-function isAssistantThread(thread: ThreadLike): boolean {
-	return thread.hostKind === "user";
-}
-
-const assistantDispatcherLog = {
-	info: (msg: string, ctx?: Record<string, unknown>): void => {
-		// biome-ignore lint/suspicious/noConsole: app-runtime dispatcher
-		console.info(`[assistant-dispatcher] ${msg}`, ctx ?? "");
-	},
-	error: (msg: string, ctx?: Record<string, unknown>): void => {
-		// biome-ignore lint/suspicious/noConsole: app-runtime dispatcher
-		console.error(`[assistant-dispatcher] ${msg}`, ctx ?? "");
-	},
-};
-
-function registerAssistantTriggerInternal(
-	ports: DispatchPorts,
-	eventBus: EventBus,
-	db: HyperIdleDb,
-): () => void {
-	const unsubscribe = eventBus.on(
-		"thread_message_appended",
-		(event: ThreadMessageAppendedEvent) => {
-			void (async () => {
-				try {
-					const threadRow = await ports.conversation.getThreadById(db, event.threadId);
-
-					if (!threadRow) {
-						return; // Thread not found — skip
-					}
-					const senderRow = await ports.users.getUserById(db, event.senderId);
-
-					if (!senderRow) {
-						return; // Unknown sender — skip
-					}
-
-					const threadLike: ThreadLike = {
-						hostKind: threadRow.hostKind,
-						hostId: threadRow.hostId,
-						pinned: threadRow.pinned === true,
-					};
-					if (senderRow.kind === "ai" && isAssistantThread(threadLike) && !threadLike.pinned) {
-						// AU21 §9 Increment 2: threads the assistant agent's own identity
-						// (`event.senderId`, verified `kind === "ai"` above) as the seam's
-						// route actor — never the human sender (architecture.md §12).
-						await ports.conversation.updateThread(
-							db,
-							event.threadId,
-							{ pinned: true },
-							event.senderId,
-						);
-
-						assistantDispatcherLog.info("assistant thread pinned after first response", {
-							threadId: event.threadId,
-							senderId: event.senderId,
-							hostId: threadRow.hostId,
-						});
-					}
-				} catch (err) {
-					assistantDispatcherLog.error("assistant dispatcher failed", {
-						error: err instanceof Error ? err.message : String(err),
-					});
-				}
-			})();
-		},
-	);
-
-	return unsubscribe;
-}
+/**
+ * @lore AU21 §9 Increment 11 (Decision H2/F4, Wave B): the assistant-thread
+ * pin trigger (`registerAssistantTriggerInternal`, this file's LAST remaining
+ * `eventBus.on` registration — an `agent-orchestration -> core-api` READ via
+ * `ports.conversation.getThreadById` + `ports.users.getUserById`) is DELETED
+ * entirely, not migrated. The pin decision moved ENTIRELY into a core-api
+ * `thread_message_appended` subscriber, a `@hyperidle/conversation`-owned
+ * reaction obtaining the sender's `kind` via ordinary same-layer DI to
+ * `@hyperidle/users` (`assistant-thread-pin-reaction.ts`, composed in at
+ * `test-fixtures.ts`/`server-factory.ts`). `dispatch`'s `start()` no longer
+ * subscribes to any event at all — `dispatch/src/service.ts` now holds ZERO
+ * `-> core-api` edge of any kind, the concrete boundary close named in
+ * architecture.md §9's Increment 11 paragraph.
+ */
 
 /**
  * @lore AU21 §9 Increment 9 (forensic-triage wave, closing the `dispatch::routine`
@@ -599,23 +537,15 @@ export function createDispatchOps(ports: DispatchPorts): DispatchOps {
 	let activeDispose: (() => void) | null = null;
 	let starting = false;
 	return {
-		async start(config): Promise<Disposer> {
+		async start(_config): Promise<Disposer> {
 			if (activeDispose || starting) throw new Error("dispatch already started");
 			starting = true;
+			// AU21 §9 Increment 11 (Wave B): `registerAssistantTriggerInternal` —
+			// this list's last remaining entry — is deleted (see the `@lore`
+			// above `type Disposer`). `disposers` is intentionally always empty
+			// now; the unwind-on-partial-failure / idempotent-multi-dispose shape
+			// stays as-is for whatever trigger this package needs next.
 			const disposers: Disposer[] = [];
-			try {
-				disposers.push(registerAssistantTriggerInternal(ports, config.eventBus, config.db));
-			} catch (error) {
-				starting = false;
-				for (const dispose of disposers.reverse()) {
-					try {
-						dispose();
-					} catch {
-						// Continue unwinding every successfully installed trigger.
-					}
-				}
-				throw error;
-			}
 			let disposed = false;
 			const dispose = (): void => {
 				if (disposed) return;

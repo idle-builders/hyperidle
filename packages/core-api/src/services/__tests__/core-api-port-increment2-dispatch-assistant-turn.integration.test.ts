@@ -266,6 +266,26 @@ async function seedFounderAndAssistantThread(
 	});
 }
 
+/**
+ * @lore AU21 §9 Increment 11 (Decision H2, Wave B): the third scenario this
+ * file used to carry — `registerAssistantTriggerInternal`'s
+ * pin-after-first-response `updateThread` call — is RETIRED, not merely
+ * updated. That function is deleted entirely this wave (the pin decision
+ * moves ENTIRELY core-side, into a `@hyperidle/conversation`-owned
+ * `thread_message_appended` subscriber reacting via ordinary same-layer DI to
+ * `users`, never a `dispatch -> core-api` read). Its replacement coverage:
+ *  - `assistant-thread-pin-coreapi-subscriber.integration.test.ts` proves the
+ *    pin now happens via `createApp`'s OWN composition, with ZERO
+ *    `@hyperidle/dispatch` involvement at all.
+ *  - `dispatch-completeness-contract.test.ts`'s "start wires ZERO event
+ *    subscriptions..." test proves `dispatchOps.start` no longer subscribes
+ *    `thread_message_appended` (or anything else) — `registerAssistantTriggerInternal`
+ *    is gone, not merely inert.
+ * The two remaining tests below (`insertMessage`'s failure-notice write, and
+ * its no-auth-credentials rejection) are untouched — they exercise
+ * `persistTurnFailureInternal`'s seam-routed `insertMessage`, unrelated to the
+ * pin mechanism.
+ */
 describe("dispatch assistant-turn writes — Increment 2 conversation wave wiring (RED)", () => {
 	test("runAssistantTurn's missing-credential failure notice reaches the seam's insertMessage (real route, real DB row)", async ({
 		db,
@@ -347,47 +367,5 @@ describe("dispatch assistant-turn writes — Increment 2 conversation wave wirin
 		});
 
 		await expect(dispatchOps.runAssistantTurn(deps, request)).rejects.toThrow();
-	});
-
-	test("registerAssistantTriggerInternal's pin-after-first-response reaches the seam's updateThread (real route, real DB row)", async ({
-		db,
-		app,
-		eventBus,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-dispatch-key-pin");
-
-		const founderId = "founder-dispatch-pin";
-		const threadId = "thread-dispatch-pin";
-		const assistantAgentId = `ast-${founderId}`;
-		// registerAssistantTriggerInternal also loads the SENDER row — the
-		// assistant agent itself must exist as a real `kind:"ai"` user;
-		// `seedFounderAndAssistantThread` now seeds it (Increment 11 `@lore` above).
-		await seedFounderAndAssistantThread(db, { founderId, threadId });
-
-		const ports = buildDispatchPortsForAssistantTurnMigration(app, assistantAgentId);
-		const dispatchOps = createDispatchOps(ports);
-		const dispose = await dispatchOps.start({ db, eventBus });
-
-		try {
-			const event: ThreadMessageAppendedEvent = {
-				type: "thread_message_appended",
-				streamId: threadId,
-				threadId,
-				messageId: "msg-dispatch-pin-reply",
-				messageType: "plain",
-				senderId: assistantAgentId,
-				timestamp: Date.now(),
-			};
-			eventBus.emit(event);
-
-			// The handler is registered as a fire-and-forget async IIFE inside the
-			// event listener — give it a tick to complete before asserting.
-			await new Promise((resolve) => setTimeout(resolve, 50));
-
-			const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
-			expect(row?.pinned).toBe(true);
-		} finally {
-			dispose();
-		}
 	});
 });

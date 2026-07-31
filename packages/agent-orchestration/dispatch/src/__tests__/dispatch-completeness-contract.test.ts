@@ -49,8 +49,25 @@ describe("dispatch public capability contract", () => {
 	 * against the relocated code, using real seeded routines (that package's
 	 * DB reads are ordinary intra-package calls now, not mockable
 	 * `DispatchPorts` methods).
+	 *
+	 * @lore AU21 §9 Increment 11 (Decision H2, Wave B) — RED phase: the
+	 * assistant-thread pin trigger (`registerAssistantTriggerInternal`,
+	 * `dispatch`'s last remaining `eventBus.on` registration, subscribing
+	 * `thread_message_appended` to read `ports.conversation.getThreadById` +
+	 * `ports.users.getUserById` — an `agent-orchestration -> core-api` READ) is
+	 * DELETED entirely, not migrated. The pin decision moves ENTIRELY into a
+	 * core-api `thread_message_appended` subscriber (see
+	 * `assistant-thread-pin-coreapi-subscriber.integration.test.ts`) —
+	 * `dispatch`'s own `start()` no longer needs to observe this event at all.
+	 * After this wave `dispatchOps.start` wires ZERO event subscriptions —
+	 * `dispatch/src/service.ts` holds zero `-> core-api` edge of any kind (the
+	 * concrete boundary close named in architecture.md §9's Increment 11
+	 * paragraph). Currently RED: `registerAssistantTriggerInternal` still
+	 * subscribes `thread_message_appended` today, so `subscribed` is
+	 * `["thread_message_appended"]`, not empty — the `toEqual(new Set())`
+	 * assertion below fails for that reason.
 	 */
-	test("start wires every non-scheduled trigger source and its disposer removes every subscription", async () => {
+	test("start wires ZERO event subscriptions now that the pin trigger moved core-side (Increment 11)", async () => {
 		const eventBus = new EventBus();
 		const subscribed: string[] = [];
 		const originalOn = eventBus.on.bind(eventBus);
@@ -76,8 +93,11 @@ describe("dispatch public capability contract", () => {
 		// AU21 §9 Increment 9 (forensic-triage wave, second pass): the task-queue
 		// trigger (`task_state_changed`/`session_ended`) is gone too — the
 		// mechanism was genuinely dead (see `service.ts`'s `dispatch::work`
-		// `@lore`). `dispatch` now subscribes to exactly one event.
-		expect(new Set(subscribed)).toEqual(new Set(["thread_message_appended"]));
+		// `@lore`).
+		// AU21 §9 Increment 11 (Wave B): the assistant-thread pin trigger
+		// (`thread_message_appended`) is gone too — the pin decision now lives
+		// entirely core-side. `dispatch` subscribes to NOTHING.
+		expect(new Set(subscribed)).toEqual(new Set());
 		await expect(ops.start({ db: inertDb(), eventBus })).rejects.toThrow(
 			"dispatch already started",
 		);

@@ -1499,6 +1499,35 @@ export interface DurableAgentQueueDeps {
 export function enqueueWorkIntent(exec: WriteExecutor, input: WorkIntentInput) {
 	return insertIntentInternal(exec, input);
 }
+/**
+ * AU21 §9 Increment 11 (Decision H2 "Coherence — reconciled via Decision B‴",
+ * Wave B) — every still-outstanding (`pending`/`claimed`) intent for `kind`,
+ * oldest first. The ONE reader this Service exposes for a core-api trigger to
+ * find "is there outstanding work for this identity" without adding a
+ * `threadId` column to `agent_work_intents`: `sourceId` already IS the
+ * triggering message id for `assistant_turn`, so the caller (core-api's B‴
+ * coherence trigger, `assistant-turn-coherence-trigger.ts`) resolves each
+ * candidate's owning thread itself via `@hyperidle/conversation`'s
+ * `findMessage(sourceId)`, then re-bakes + re-emits via `resolveAssistantTurnRequest`
+ * + `enqueueWorkIntent` for the ones matching the just-appended reply's
+ * thread. Reuses the existing `agent_work_intents_status_created_idx` (no new
+ * index needed).
+ */
+export function listPendingIntentsByKind(
+	db: HyperIdleDb,
+	kind: WorkIntentInput["kind"],
+): Promise<readonly AgentWorkIntent[]> {
+	return db
+		.select()
+		.from(agentWorkIntents)
+		.where(
+			and(
+				eq(agentWorkIntents.kind, kind),
+				inArray(agentWorkIntents.status, ["pending", "claimed"]),
+			),
+		)
+		.orderBy(asc(agentWorkIntents.createdAt));
+}
 export function createSessionRequest(
 	exec: HyperIdleDb,
 	input: Extract<CreateSessionRequestInput, { kind: "direct" }>,

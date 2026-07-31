@@ -78,6 +78,24 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["agent_run_lifecycle_changed subscription"],
 			},
+			// @lore AU21 §9 Increment 11 (Decision H2/F4, Wave B): the pin decision
+			// moved ENTIRELY core-side from `dispatch`'s deleted
+			// `registerAssistantTriggerInternal` into this `@hyperidle/conversation`-
+			// owned reaction.
+			{
+				owner: "assistant thread pin reaction",
+				cleanupEffect: "unsubscribe",
+				constituents: ["thread_message_appended subscription"],
+			},
+			// @lore AU21 §9 Increment 11 (Decision H2 "Coherence — reconciled via
+			// Decision B‴"): the NEW B‴ supersede trigger — a DIFFERENT
+			// mechanism/owner from the pin reaction above (both react to
+			// `thread_message_appended`, for unrelated reasons).
+			{
+				owner: "assistant-turn B‴ coherence trigger",
+				cleanupEffect: "unsubscribe",
+				constituents: ["thread_message_appended subscription"],
+			},
 			// @lore AU21 §9 Increment 6 (Decision D): agent-orchestration's OWN
 			// per-session-cost write reaction — a DIFFERENT mechanism/owner from
 			// the routine-run finalize reaction above (this one is
@@ -199,6 +217,14 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					unsubscribedEvents: ["agent_run_lifecycle_changed"],
 					clearedIntervals: 0,
 				},
+				// @lore AU21 §9 Increment 11 (Wave B): `registerAssistantThreadPinReaction`
+				// and `registerAssistantTurnCoherenceTrigger` are BOTH idempotent PER
+				// eventBus instance (same shape as `registerAgentRunAdmissionReactions`
+				// above) — the `eventBus` test fixture already registered both before
+				// this test's own `fullServiceBootstrap` call reaches them here, so
+				// both registrations are no-op disposers (no `off()` call, no interval).
+				{ unsubscribedEvents: [], clearedIntervals: 0 },
+				{ unsubscribedEvents: [], clearedIntervals: 0 },
 				// @lore AU21 §9 Increment 6: `registerSessionCostRecorder` is NOT
 				// pre-registered on the `eventBus` test fixture either — its own
 				// first, real registration on this eventBus instance.
@@ -230,9 +256,12 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// `task_state_changed`/`session_ended` are gone — the task-queue
 				// trigger they belonged to was genuinely dead code (see
 				// `@hyperidle/dispatch`'s own `@lore`), deleted, not migrated.
-				// `dispatch lifecycle` now subscribes to exactly one event.
+				// @lore AU21 §9 Increment 11 (Wave B): `thread_message_appended`
+				// (the pin trigger, `registerAssistantTriggerInternal`) is gone too —
+				// the pin decision moved entirely core-side (see the two new owners
+				// above). `dispatch lifecycle` now subscribes to NOTHING.
 				{
-					unsubscribedEvents: ["thread_message_appended"],
+					unsubscribedEvents: [],
 					clearedIntervals: 0,
 				},
 				// @lore AU21 §9 Increment 4: split from the single "dispatch

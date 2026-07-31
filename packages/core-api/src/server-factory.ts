@@ -17,6 +17,7 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
+	registerAssistantThreadPinReaction,
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
@@ -83,6 +84,7 @@ import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js"
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
+import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
@@ -436,6 +438,34 @@ export function registerCoreDomainServices(ctx: {
 			"work session-end reactions",
 			"unsubscribe",
 			["agent_run_lifecycle_changed subscription"],
+		),
+	);
+
+	// AU21 §9 Increment 11 (Decision H2/F4): "pin the assistant thread after
+	// its first AI reply", moved ENTIRELY core-side from `dispatch`'s deleted
+	// `registerAssistantTriggerInternal` — a `@hyperidle/conversation`-owned
+	// reaction to its OWN `thread_message_appended` event.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerAssistantThreadPinReaction(db, eventBus, {
+				findUserById: (execDb: HyperIdleDb, id: string) => findUser(execDb, { id }),
+			}),
+			"assistant thread pin reaction",
+			"unsubscribe",
+			["thread_message_appended subscription"],
+		),
+	);
+
+	// AU21 §9 Increment 11 (Decision H2 "Coherence — reconciled via Decision
+	// B‴"): the new supersede-trigger wiring — a thread reply landing while a
+	// same-thread `assistant_turn` intent is still pending re-bakes it with
+	// the now-current transcript, reusing the Increment 3 supersede machinery.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerAssistantTurnCoherenceTrigger(db, eventBus),
+			"assistant-turn B‴ coherence trigger",
+			"unsubscribe",
+			["thread_message_appended subscription"],
 		),
 	);
 
