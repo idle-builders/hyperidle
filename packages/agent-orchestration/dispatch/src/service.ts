@@ -1,5 +1,9 @@
 import * as crypto from "node:crypto";
-import { type AgentSessionRequest, type HyperIdleDb, resolveAgentScaffoldSpecs } from "@hyperidle/db";
+import {
+	type AgentSessionRequest,
+	type HyperIdleDb,
+	resolveAgentScaffoldSpecs,
+} from "@hyperidle/db";
 import {
 	BUILT_IN_GATEWAY_CONFIG,
 	CassetteMissError,
