@@ -20,14 +20,29 @@
  * wires the real `requireRunnableAgent` in at the call site. Same shape as
  * `assistant-turn-resolver.ts`'s `AssistantTurnResolverDeps` /
  * `task-run-resolver.ts`'s `TaskRunResolverDeps`.
+ *
+ * @lore AU21 §9 Increment 12 (Decision H3), Wave B: unlike the sibling
+ * `task_run`/`routine_run`/`reengagement` resolvers, `assembleSessionKnowledge`
+ * is NOT injected here — this file already lives inside `@hyperidle/knowledge`
+ * (the Service that owns it), so it's a plain same-package import, no
+ * Mechanism C boundary crossed. Consequently `resolveKnowledgeActionRequest`
+ * ALWAYS bakes a `contextBundle` (no optional-deps gate like the other three
+ * resolvers need) — a genuine capability ADD for `knowledge_action` sessions,
+ * which get zero context today (see this file's Wave B test `@lore` for the
+ * full trace verifying that). `requireRunnableAgent`'s return type widens to
+ * `Promise<User>` (H2 precedent) so `agent.name`/`agent.role` reuse the SAME
+ * already-validated row, no second read.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb, User } from "@hyperidle/db";
+import type { BakedContextBundle } from "@hyperidle/shared";
+import { toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import { get } from "./knowledge-repository.js";
+import { assembleSessionKnowledge } from "./session-knowledge-assembler.js";
 
 /** Injected dependency — see the Mechanism C `@lore` above. */
 export interface KnowledgeActionResolverDeps {
-	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<unknown>;
+	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 }
 
 /** Thrown when the source knowledge item does not exist or is archived. */
@@ -44,6 +59,13 @@ export interface BakedKnowledgeActionRequest {
 		readonly action: "review";
 		readonly scopeId?: string;
 	};
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — the flagged item's own content
+	 * (`kind:"knowledge"`) + ranked knowledge, baked at emit time from the SAME
+	 * `item` this resolver already loads to validate. Always present (see the
+	 * `@lore` above — no Mechanism C gate needed for this resolver).
+	 */
+	readonly contextBundle: BakedContextBundle;
 }
 
 /**
@@ -52,7 +74,8 @@ export interface BakedKnowledgeActionRequest {
  * (rejecting if missing or archived), resolve the target agent as the item's
  * own `updatedBy` (the reviewer is whoever last touched the item, never the
  * flagging requester), validate that agent's runnability via the shared
- * core-api invariant, and bake the full request.
+ * core-api invariant, and bake the full request (including its
+ * `contextBundle` — the flagged item's own content + ranked knowledge).
  */
 export async function resolveKnowledgeActionRequest(
 	db: HyperIdleDb,
@@ -64,7 +87,20 @@ export async function resolveKnowledgeActionRequest(
 	if (!item || item.status === "archived") {
 		throw new KnowledgeActionSourceUnavailableError("Knowledge item is unavailable");
 	}
-	await deps.requireRunnableAgent(db, item.updatedBy);
+	const agent = await deps.requireRunnableAgent(db, item.updatedBy);
+
+	// AU21 §9 Increment 12 (Decision H3): no dedicated task/team scope exists
+	// for a knowledge-review turn — the item's own team scope (when scoped to
+	// one) stands in for `teamId` (an empty string sentinel otherwise, which
+	// still surfaces L4/L3 items correctly — only L2 needs a real team scope),
+	// and the item's own title stands in for `taskDescription` (flagged for
+	// reviewer per this file's Wave B test `@lore`).
+	const knowledge = await assembleSessionKnowledge(db, {
+		teamId: item.scopeKind === "team" && item.scopeId ? item.scopeId : "",
+		agentRole: agent.role,
+		taskDescription: item.title,
+	});
+
 	return {
 		defaultAgentId: item.updatedBy,
 		sourceKind: "knowledge",
@@ -74,6 +110,18 @@ export async function resolveKnowledgeActionRequest(
 			knowledgeItemId: item.id,
 			action: "review",
 			...(item.scopeId ? { scopeId: item.scopeId } : {}),
+		},
+		contextBundle: {
+			kind: "knowledge",
+			item: {
+				id: item.id,
+				title: item.title,
+				body: item.body,
+				format: item.format,
+				version: item.version,
+			},
+			agent: { id: agent.id, name: agent.name, role: agent.role },
+			knowledge: toBakedContextKnowledgeItems(knowledge),
 		},
 	};
 }

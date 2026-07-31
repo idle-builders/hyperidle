@@ -112,6 +112,10 @@ export interface ReviewPorts {
 	 * `proposed-call-workflow.ts`'s `resolveReengagementRequest` (via
 	 * `registerReviewSubscriptions`'s liveness-net wiring) to validate the
 	 * grant's resolved agent at emit time, never trusting the flagging actor.
+	 * Widened `Promise<unknown>` → `Promise<User>` in Increment 12 Wave B (H2
+	 * precedent) — the real wired implementation (`@hyperidle/users`'
+	 * `requireRunnableAgent`, `server-factory.ts:516`) already returns
+	 * `Promise<User>`; this is a type-only widening, no behavior change.
 	 */
-	readonly requireRunnableAgent: (db: HyperIdleDb, agentId: string) => Promise<unknown>;
+	readonly requireRunnableAgent: (db: HyperIdleDb, agentId: string) => Promise<User>;
 }

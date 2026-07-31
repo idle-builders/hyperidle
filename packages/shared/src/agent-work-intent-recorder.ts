@@ -87,6 +87,46 @@ export interface BakedContextKnowledgeItem {
 }
 
 /**
+ * AU21 §9 Increment 12 (Decision H3), Wave B — the structural shape
+ * `@hyperidle/knowledge`'s `assembleSessionKnowledge` (Wave A) returns
+ * (`KnowledgeItemWithProjection`), duck-typed here so `work`/`routine`/
+ * `review`'s per-kind resolvers can type their INJECTED `assembleSessionKnowledge`
+ * dependency (Mechanism C: none of those packages may import
+ * `@hyperidle/knowledge` directly) without needing that Service's own type.
+ * `layer` stays optional (matching `KnowledgeItemWithProjection`'s own
+ * optional `layer?: string | null`) — `toBakedContextKnowledgeItems` below
+ * normalizes it to the required-but-nullable `BakedContextKnowledgeItem.layer`.
+ */
+export interface SessionKnowledgeItemLike {
+	readonly id: string;
+	readonly title: string;
+	readonly body: string;
+	readonly format: string;
+	readonly version: number;
+	readonly layer?: string | null;
+}
+
+/**
+ * Map `assembleSessionKnowledge`'s ranked+budgeted output onto the
+ * `BakedContextKnowledgeItem[]` shape every `contextBundle` variant carries —
+ * one shared mapper so `task-run-resolver.ts`/`knowledge-action-resolver.ts`/
+ * the routine resolver/`proposed-call-workflow.ts` don't each reimplement the
+ * same field-pick.
+ */
+export function toBakedContextKnowledgeItems(
+	items: readonly SessionKnowledgeItemLike[],
+): readonly BakedContextKnowledgeItem[] {
+	return items.map((item) => ({
+		id: item.id,
+		title: item.title,
+		body: item.body,
+		format: item.format,
+		version: item.version,
+		layer: item.layer ?? null,
+	}));
+}
+
+/**
  * AU21 §9 Increment 12 (Decision H3) — the baked entity content a
  * `task_run`/`reengagement` session needs (`kind:"task"`, matching
  * `context.ts`'s `SessionContextData`), a `routine_run` session needs

@@ -34,8 +34,12 @@ import {
 	type NewRoutineRun,
 	routineRuns,
 	routines,
+	type Team,
+	type User,
 	type WriteExecutor,
 } from "@hyperidle/db";
+import type { BakedContextBundle, SessionKnowledgeItemLike } from "@hyperidle/shared";
+import { toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import type { SQL } from "drizzle-orm";
 import { and, asc, avg, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
 
@@ -325,6 +329,16 @@ export interface BakedRoutineRunRequest {
 		readonly routineRunId: string;
 		readonly teamId: string;
 	};
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — the routine/agent/team content +
+	 * ranked knowledge a `routine_run` session's sandbox needs, baked at emit
+	 * time from the SAME `routine` this resolver already loaded to validate.
+	 * Present only when `deps.getTeamById`/`deps.assembleSessionKnowledge` were
+	 * supplied (see `RoutineRunResolverDeps` `@lore` below) — a genuine
+	 * capability ADD (routine sessions get zero ranked knowledge today, see
+	 * this file's Wave B test `@lore`), not a preserve-behavior migration.
+	 */
+	readonly contextBundle?: BakedContextBundle;
 }
 
 /**
@@ -349,7 +363,35 @@ export interface RoutineRunResolverDeps {
 			readonly skillId: string;
 		}): Promise<{ readonly agentId: string | null }>;
 	};
-	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<unknown>;
+	/**
+	 * Widened `Promise<unknown>` → `Promise<User>` in Increment 12 Wave B (H2
+	 * precedent) — the contextBundle bake reuses `agent.name`/`agent.role`
+	 * from this SAME already-validated row, no second read.
+	 */
+	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
+	 * `getTeam`, injected (Mechanism C — `@hyperidle/routine`'s `package.json`
+	 * depends only on `@hyperidle/db` + `@hyperidle/shared`, never
+	 * `@hyperidle/org`). Absent at a call site not yet wired to bake context
+	 * (composition-root wiring is a later wave) — the resolver falls back to
+	 * baking no `contextBundle`, matching every existing caller's current
+	 * (context-free) behavior unchanged.
+	 */
+	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s
+	 * `assembleSessionKnowledge` (Wave A), injected for the same Mechanism C
+	 * reason as `getTeamById` above.
+	 */
+	assembleSessionKnowledge?(
+		db: HyperIdleDb,
+		input: {
+			readonly teamId: string;
+			readonly agentRole: string;
+			readonly taskDescription: string;
+		},
+	): Promise<readonly SessionKnowledgeItemLike[]>;
 }
 
 /**
@@ -391,8 +433,9 @@ export async function resolveRoutineRunRequest(
 			if (agentId) selectedAgentId = agentId;
 		}
 	}
+	let agent: User;
 	try {
-		await deps.requireRunnableAgent(db, selectedAgentId);
+		agent = await deps.requireRunnableAgent(db, selectedAgentId);
 	} catch (error) {
 		// @lore normalize to ONE recognizable class: the real `requireRunnableAgent`
 		// (`@hyperidle/users`) throws its own `AgentNotRunnableError`, which this
@@ -407,6 +450,40 @@ export async function resolveRoutineRunRequest(
 			error instanceof Error ? error.message : "Resolved agent is not runnable",
 		);
 	}
+
+	// AU21 §9 Increment 12 (Decision H3): bake the contextBundle only when the
+	// caller supplied both context deps (see RoutineRunResolverDeps `@lore`) —
+	// destructured into locals so TS keeps them narrowed non-optional inside
+	// the block below, no non-null assertion needed.
+	let contextBundle: BakedContextBundle | undefined;
+	const { getTeamById, assembleSessionKnowledge } = deps;
+	if (getTeamById && assembleSessionKnowledge) {
+		const team = await getTeamById(db, routine.teamId);
+		if (team) {
+			const knowledge = await assembleSessionKnowledge(db, {
+				teamId: routine.teamId,
+				agentRole: agent.role,
+				// @lore no routine analog to a task's `description` — the
+				// routine's own description (falling back to its name) stands
+				// in for the scoring-context `taskDescription`, flagged for
+				// reviewer confirmation per this file's Wave B test `@lore`.
+				taskDescription: routine.description ?? routine.name,
+			});
+			contextBundle = {
+				kind: "routine",
+				routine: {
+					id: routine.id,
+					name: routine.name,
+					description: routine.description,
+					lastRunSummary: routine.lastRunSummary,
+				},
+				agent: { id: agent.id, name: agent.name, role: agent.role },
+				team: { id: team.id, name: team.name },
+				knowledge: toBakedContextKnowledgeItems(knowledge),
+			};
+		}
+	}
+
 	return {
 		defaultAgentId: selectedAgentId,
 		sourceKind: "routine",
@@ -415,5 +492,6 @@ export async function resolveRoutineRunRequest(
 		teamId: routine.teamId,
 		taskId: null,
 		sourceCorrelation: { routineId: routine.id, routineRunId: runId, teamId: routine.teamId },
+		...(contextBundle ? { contextBundle } : {}),
 	};
 }

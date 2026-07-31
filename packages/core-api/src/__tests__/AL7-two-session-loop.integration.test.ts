@@ -381,8 +381,35 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			// AU21 §6 Decision B: bake-deps stub — the liveness net's bake attempt
 			// tolerates failure (getTaskById above always returns undefined, so
 			// the bake throws and is caught), matching this suite's existing
-			// "only intentRecorder matters" precedent.
-			requireRunnableAgent: async () => undefined,
+			// "only intentRecorder matters" precedent. Increment 12 Wave B widened
+			// `requireRunnableAgent`'s return type to `Promise<User>` (the
+			// contextBundle bake reuses `agent.name`/`agent.role`) — this fake
+			// agent row is never actually read (the resolver throws at the
+			// `getTaskById` check right after), it only needs to satisfy the type.
+			requireRunnableAgent: async () => ({
+				id: "liveness-fake-agent",
+				kind: "ai",
+				name: "Liveness Fake Agent",
+				systemPromptPath: null,
+				teamId: null,
+				role: "builder",
+				skills: null,
+				status: "active",
+				maxConcurrentSessions: 1,
+				costCap: null,
+				costActual: null,
+				costCapMinor: null,
+				costCapCurrency: null,
+				email: null,
+				avatarUrl: null,
+				createdAt: new Date().toISOString(),
+				systemPrompt: null,
+				harnessType: null,
+				modelTierPreference: null,
+				modelId: null,
+				modelProvider: null,
+				agentCategory: null,
+			}),
 		};
 	}
 

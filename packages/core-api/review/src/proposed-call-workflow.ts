@@ -29,6 +29,7 @@
 
 import * as crypto from "node:crypto";
 import {
+	type Bet,
 	type HyperIdleDb,
 	type OperationOutcome,
 	operationOutcomes,
@@ -36,9 +37,12 @@ import {
 	proposedCalls,
 	type TailoredGrant,
 	type Task,
+	type Team,
 	tailoredGrants,
+	type User,
 } from "@hyperidle/db";
-import type { ToolResult } from "@hyperidle/shared";
+import type { BakedContextBundle, SessionKnowledgeItemLike, ToolResult } from "@hyperidle/shared";
+import { toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import type { ReviewAgentWorkIntentInput, ReviewPorts } from "./ports.js";
 
@@ -165,8 +169,33 @@ export async function findProposedCall(
  * legitimately import both.
  */
 export interface ReengagementResolverDeps {
-	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<unknown>;
+	/**
+	 * Widened `Promise<unknown>` → `Promise<User>` in Increment 12 Wave B (H2
+	 * precedent) — the contextBundle bake reuses `agent.name`/`agent.role` from
+	 * this SAME already-validated row, no second read.
+	 */
+	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	getTaskById(db: HyperIdleDb, id: string): Promise<Task | undefined>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/work`'s own
+	 * `bets` table, injected (Mechanism C — `@hyperidle/review` cannot import
+	 * `@hyperidle/work` directly, same reasoning as the existing `getTaskById`
+	 * injection). Absent at a call site not yet wired to bake context — the
+	 * resolver falls back to baking no `contextBundle`, matching every
+	 * existing caller's current (context-free) behavior unchanged.
+	 */
+	getBetById?(db: HyperIdleDb, id: string): Promise<Bet | undefined>;
+	/** AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s `getTeam`, injected for the same Mechanism C reason as `getBetById` above. */
+	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
+	/** AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s `assembleSessionKnowledge` (Wave A), injected for the same Mechanism C reason. */
+	assembleSessionKnowledge?(
+		db: HyperIdleDb,
+		input: {
+			readonly teamId: string;
+			readonly agentRole: string;
+			readonly taskDescription: string;
+		},
+	): Promise<readonly SessionKnowledgeItemLike[]>;
 }
 
 /** Thrown when the proposed call has no eligible grant, is not granted, or its task is unavailable. */
@@ -185,6 +214,18 @@ export interface BakedReengagementRequest {
 		readonly proposedCallId: string;
 		readonly grantedAgentId: string;
 	};
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — the task/bet/agent/team content +
+	 * ranked knowledge a `reengagement` session's sandbox needs, baked at emit
+	 * time from the SAME `task` this resolver already loaded to validate.
+	 * Present only when `deps.getBetById`/`deps.getTeamById`/
+	 * `deps.assembleSessionKnowledge` were supplied (see `ReengagementResolverDeps`
+	 * `@lore` above) — unlike `routine_run`/`knowledge_action`, this IS a real
+	 * preserve-behavior migration (a `reengagement` session already flows
+	 * through the full task/bet/ranked-knowledge path today, see this file's
+	 * Wave B test `@lore`).
+	 */
+	readonly contextBundle?: BakedContextBundle;
 }
 
 /**
@@ -206,11 +247,45 @@ export async function resolveReengagementRequest(
 	if (!view?.grant || view.call.status !== "granted") {
 		throw new ReengagementSourceUnavailableError("Proposed call grant is not eligible");
 	}
-	await deps.requireRunnableAgent(db, view.grant.agentScope);
+	const agent = await deps.requireRunnableAgent(db, view.grant.agentScope);
 	const task = await deps.getTaskById(db, view.grant.taskScope);
 	if (!task) {
 		throw new ReengagementSourceUnavailableError("Proposed call task is unavailable");
 	}
+
+	// AU21 §9 Increment 12 (Decision H3): bake the contextBundle only when the
+	// caller supplied all three context deps (see `ReengagementResolverDeps`
+	// `@lore`) — destructured into locals so TS keeps them narrowed
+	// non-optional inside the block below, no non-null assertion needed.
+	let contextBundle: BakedContextBundle | undefined;
+	const { getBetById, getTeamById, assembleSessionKnowledge } = deps;
+	if (getBetById && getTeamById && assembleSessionKnowledge) {
+		const [bet, team] = await Promise.all([
+			getBetById(db, task.betId),
+			getTeamById(db, task.teamId),
+		]);
+		if (bet && team) {
+			const knowledge = await assembleSessionKnowledge(db, {
+				teamId: task.teamId,
+				agentRole: agent.role,
+				taskDescription: task.description ?? task.title,
+			});
+			contextBundle = {
+				kind: "task",
+				task: { id: task.id, title: task.title, description: task.description, state: task.state },
+				bet: {
+					id: bet.id,
+					description: bet.description,
+					appetite: bet.appetite ?? "",
+					doneCondition: bet.doneCondition,
+				},
+				agent: { id: agent.id, name: agent.name, role: agent.role },
+				team: { id: team.id, name: team.name },
+				knowledge: toBakedContextKnowledgeItems(knowledge),
+			};
+		}
+	}
+
 	return {
 		defaultAgentId: view.grant.agentScope,
 		sourceKind: "proposed_call",
@@ -223,6 +298,7 @@ export async function resolveReengagementRequest(
 			proposedCallId: view.call.id,
 			grantedAgentId: view.grant.agentScope,
 		},
+		...(contextBundle ? { contextBundle } : {}),
 	};
 }
 

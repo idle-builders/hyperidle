@@ -4,9 +4,16 @@ import type {
 	HyperIdleDb,
 	NewItem,
 	NewThread,
+	Team,
+	User,
 	WriteExecutor,
 } from "@hyperidle/db";
-import type { BakedWorkIntentRequest, EventBus, ModelGatewayConfig } from "@hyperidle/shared";
+import type {
+	BakedWorkIntentRequest,
+	EventBus,
+	ModelGatewayConfig,
+	SessionKnowledgeItemLike,
+} from "@hyperidle/shared";
 
 /**
  * AU21 §9 Increment 4 — the routine scheduler (relocated from
@@ -119,5 +126,29 @@ export interface RoutineSchedulerPorts {
 			readonly skillId: string;
 		}): Promise<{ readonly agentId: string | null }>;
 	};
-	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<unknown>;
+	/**
+	 * Widened `Promise<unknown>` → `Promise<User>` in Increment 12 Wave B (H2
+	 * precedent, matching `RoutineRunResolverDeps`'s own widening) — the real
+	 * wired implementation (`@hyperidle/users`' `requireRunnableAgent`,
+	 * `routine-scheduler-bindings.ts:149`) already returns `Promise<User>`; this
+	 * is a type-only widening, no behavior change.
+	 */
+	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — optional: not yet wired at the
+	 * composition root (`routine-scheduler-bindings.ts`) — that wiring, plus
+	 * `fireGenericRoutine`'s own forwarding of these two fields into
+	 * `resolveRoutineRunRequest`'s deps, is a later wave. Declared here so this
+	 * interface can carry them once wired, matching `RoutineRunResolverDeps`'s
+	 * shape exactly.
+	 */
+	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
+	assembleSessionKnowledge?(
+		db: HyperIdleDb,
+		input: {
+			readonly teamId: string;
+			readonly agentRole: string;
+			readonly taskDescription: string;
+		},
+	): Promise<readonly SessionKnowledgeItemLike[]>;
 }

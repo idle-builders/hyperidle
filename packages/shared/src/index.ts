@@ -11,8 +11,13 @@ export type {
 	AgentWorkIntentReader,
 	AgentWorkIntentRecorder,
 	AgentWorkIntentRecorderInput,
+	BakedContextBundle,
+	BakedContextKnowledgeItem,
 	BakedWorkIntentRequest,
+	SessionKnowledgeItemLike,
 } from "./agent-work-intent-recorder.js";
+// ── AU21 §9 Increment 12 (Decision H3), Wave B: shared contextBundle knowledge-item mapper ──
+export { toBakedContextKnowledgeItems } from "./agent-work-intent-recorder.js";
 export { scopeKindToLabel } from "./scope-labels.js";
 
 // ── AK3: Bet decomposition types + constants ──

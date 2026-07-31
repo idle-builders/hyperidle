@@ -6,28 +6,53 @@
  * injected via `PolicyDeps` at the `policy-bindings.ts` composition root).
  * Does exactly what `resolveIntentInputInternal`'s "task_run" case does today
  * (`session-requests/src/service.ts:753-773`), reading only `work`'s own
- * tables (`taskDispatchAttempts`, `tasks`) plus the shared ast-`<userId>`
- * runnability invariant.
+ * tables (`taskDispatchAttempts`, `tasks`, `bets`) plus the shared
+ * ast-`<userId>` runnability invariant.
  *
  * @lore Mechanism C: `requireRunnableAgent` (`@hyperidle/users`) is injected,
  * not statically imported — same shape as `assistant-turn-resolver.ts`'s
  * `AssistantTurnResolverDeps` / `session-start-resolver.ts`'s
- * `SessionStartResolverDeps`. Return type is deliberately `Promise<unknown>`
- * (not `Promise<User>`) — this resolver only awaits the call for its
- * throw-on-unrunnable side effect and never reads the resolved value, so a
- * narrower same-package adapter (`bet-decomposition.ts`'s
- * `requireRunnableAgentViaUsersPort`, built from the already-injected
- * `UserStoreReader` port rather than a static `@hyperidle/users` import) can
- * satisfy this shape too.
+ * `SessionStartResolverDeps`. Return type widened to `Promise<User>` in
+ * Increment 12 Wave B (was deliberately `Promise<unknown>` through Increment
+ * 3-11 since this resolver only awaited the call for its throw-on-unrunnable
+ * side effect) — the contextBundle bake below reuses `agent.name`/`agent.role`
+ * from this SAME already-validated row (the H2/Increment 11 precedent:
+ * `assistant-turn-resolver.ts`'s `agent.modelId`/`agent.modelProvider` reuse),
+ * never a second read.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { Bet, HyperIdleDb, Task, Team, User } from "@hyperidle/db";
+import type { BakedContextBundle, SessionKnowledgeItemLike } from "@hyperidle/shared";
+import { toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import * as work from "./work-service.js";
 import { taskDispatchAttemptStore } from "./work-service.js";
 
 /** Injected dependency — see the Mechanism C `@lore` above. */
 export interface TaskRunResolverDeps {
-	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<unknown>;
+	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
+	 * `getTeam`, injected (Mechanism C — `@hyperidle/work`'s `package.json`
+	 * depends only on `@hyperidle/db` + `@hyperidle/shared`, never
+	 * `@hyperidle/org`). Absent at a call site not yet wired to bake context
+	 * (composition-root wiring is a later wave) — the resolver falls back to
+	 * baking no `contextBundle` rather than throwing, matching every existing
+	 * caller's current (context-free) behavior unchanged.
+	 */
+	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s
+	 * `assembleSessionKnowledge` (Wave A), injected for the same Mechanism C
+	 * reason as `getTeamById` above.
+	 */
+	assembleSessionKnowledge?(
+		db: HyperIdleDb,
+		input: {
+			readonly teamId: string;
+			readonly agentRole: string;
+			readonly taskDescription: string;
+		},
+	): Promise<readonly SessionKnowledgeItemLike[]>;
 }
 
 /** Thrown when the dispatch attempt or its task is unavailable / ineligible. */
@@ -44,6 +69,53 @@ export interface BakedTaskRunRequest {
 	readonly sourceCorrelation: {
 		readonly taskId: string;
 		readonly teamId: string;
+	};
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — the task/bet/agent/team content +
+	 * ranked knowledge a `task_run` session's sandbox needs, baked at emit time
+	 * from the SAME `task` (+ its `bet`) this resolver already loads to
+	 * validate. Present only when `deps.getTeamById`/`deps.assembleSessionKnowledge`
+	 * were supplied (see `TaskRunResolverDeps` `@lore`).
+	 */
+	readonly contextBundle?: BakedContextBundle;
+}
+
+/**
+ * Bake the `contextBundle` (`kind:"task"`) a `task_run` session's sandbox
+ * needs: the task/bet this resolver already loaded to validate, the
+ * just-validated agent, the task's team, and the ranked+budgeted knowledge
+ * bundle (`@hyperidle/knowledge`'s `assembleSessionKnowledge`, injected).
+ * Returns `undefined` (never throws) if the team can't be resolved — a
+ * missing team would be a data-integrity surprise, not a reason to fail the
+ * whole run's bake.
+ */
+async function bakeTaskContextBundle(
+	db: HyperIdleDb,
+	task: Task,
+	bet: Bet,
+	agent: User,
+	getTeamById: NonNullable<TaskRunResolverDeps["getTeamById"]>,
+	assembleSessionKnowledge: NonNullable<TaskRunResolverDeps["assembleSessionKnowledge"]>,
+): Promise<BakedContextBundle | undefined> {
+	const team = await getTeamById(db, task.teamId);
+	if (!team) return undefined;
+	const knowledge = await assembleSessionKnowledge(db, {
+		teamId: task.teamId,
+		agentRole: agent.role,
+		taskDescription: task.description ?? task.title,
+	});
+	return {
+		kind: "task",
+		task: { id: task.id, title: task.title, description: task.description, state: task.state },
+		bet: {
+			id: bet.id,
+			description: bet.description,
+			appetite: bet.appetite ?? "",
+			doneCondition: bet.doneCondition,
+		},
+		agent: { id: agent.id, name: agent.name, role: agent.role },
+		team: { id: team.id, name: team.name },
+		knowledge: toBakedContextKnowledgeItems(knowledge),
 	};
 }
 
@@ -77,7 +149,28 @@ export async function resolveTaskRunRequest(
 	if (task.ownerAgentId && task.ownerAgentId !== attempt.agentId) {
 		throw new TaskRunSourceUnavailableError("Task owner changed after intent creation");
 	}
-	await deps.requireRunnableAgent(db, attempt.agentId);
+	const agent = await deps.requireRunnableAgent(db, attempt.agentId);
+
+	// AU21 §9 Increment 12 (Decision H3): bake the contextBundle only when the
+	// caller supplied both context deps (see TaskRunResolverDeps `@lore`) —
+	// destructured into locals so TS keeps them narrowed non-optional inside
+	// the block below, no non-null assertion needed.
+	let contextBundle: BakedContextBundle | undefined;
+	const { getTeamById, assembleSessionKnowledge } = deps;
+	if (getTeamById && assembleSessionKnowledge) {
+		const bet = await work.get(db, "bet", task.betId);
+		if (bet) {
+			contextBundle = await bakeTaskContextBundle(
+				db,
+				task,
+				bet,
+				agent,
+				getTeamById,
+				assembleSessionKnowledge,
+			);
+		}
+	}
+
 	return {
 		defaultAgentId: attempt.agentId,
 		sourceKind: "task",
@@ -86,5 +179,6 @@ export async function resolveTaskRunRequest(
 		taskId: task.id,
 		teamId: task.teamId,
 		sourceCorrelation: { taskId: task.id, teamId: task.teamId },
+		...(contextBundle ? { contextBundle } : {}),
 	};
 }
