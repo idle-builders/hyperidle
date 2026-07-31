@@ -49,6 +49,18 @@ export interface BakedWorkIntentRequest {
 		readonly payload: string;
 		readonly type: string;
 	}>;
+	/**
+	 * AU21 §9 Increment 11 (Decision H2 follow-up): the `assistant_turn`
+	 * family's baked per-agent model override (`@hyperidle/conversation`'s
+	 * `resolveAssistantTurnRequest`, sourced from the target agent's `users`
+	 * row — `modelId`/`modelProvider`, configured via Settings → Agents).
+	 * Absent for every other kind. Carried through onto the created
+	 * `AgentSessionRequest.payloadJson` alongside `transcript` so `dispatch`
+	 * can resolve the harness model from the baked payload instead of a live
+	 * `getOrCreateUser` read.
+	 */
+	readonly modelId?: string | null;
+	readonly modelProvider?: string | null;
 }
 
 /**

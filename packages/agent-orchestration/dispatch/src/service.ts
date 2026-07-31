@@ -156,24 +156,40 @@ async function executeAssistantRequestInternal(
 	);
 }
 
+/** Per-agent model override baked onto `request.payloadJson` — see `loadBakedModelOverride`. */
+interface BakedModelOverride {
+	readonly modelId: string | null;
+	readonly modelProvider: string | null;
+}
+
 /**
  * @lore AU21 §9 Increment 11 (Decision H2): "the assistant turn is NOT
- * special" — model resolution is TIER-based only (`resolveModelTier`), the
- * exact same shape run-orchestration's own poller already uses for every
- * other intent kind (`start-runtime.ts`'s `deps.resolveModel?.(tier)`). The
- * former per-agent-override path (`ports.users.getOrCreateUser` +
- * `ports.modelGateway.resolveAgentModel` keyed on the agent row's
- * `modelId`/`modelProvider`) is DELETED, not migrated — it was dispatch's
- * own redundant special-casing, and it depended on `ports.settings
- * .readServerConfig`, a core-api read this Layer must never make. The
- * `ModelGatewayConfig` input that used to come from that read is now the
- * static `BUILT_IN_GATEWAY_CONFIG` — the same default `readServerConfig`
- * itself falls back to when no custom config is stored
- * (`server-config.ts`'s `applyDefaults`), so this is a bounded default, not a
- * fabricated one. A founder's custom model-gateway settings applying to
- * assistant turns specifically is deferred to the same "normal provisioning
- * path" wiring (`deps.resolveModel`) every other kind already uses — flagged,
- * not solved here (see this wave's builder report).
+ * special" — model resolution is TIER-based by default (`resolveModelTier`),
+ * the exact same shape run-orchestration's own poller already uses for every
+ * other intent kind (`start-runtime.ts`'s `deps.resolveModel?.(tier)`),
+ * EXCEPT the target agent's per-agent model override
+ * (`users.modelId`/`modelProvider`, Settings → Agents) still applies —
+ * `ports.modelGateway.resolveAgentModel` falls through to the tier when
+ * `bakedModel.modelId` is null, so this is one call, not a branch.
+ *
+ * @lore Wave A (this Increment) deleted the former live
+ * `ports.users.getOrCreateUser` + `ports.settings.readServerConfig` reads
+ * entirely and, with them, silently dropped the override — a real
+ * regression (`users.modelId`/`modelProvider` are real, founder-configurable
+ * columns with a real Settings UI), not an acceptable trade-off. The fix
+ * follows Decision H2's own principle exactly: core bakes everything a run
+ * needs at emit time, so `dispatch` never reads core again.
+ * `resolveAssistantTurnRequest` (`@hyperidle/conversation`) now bakes
+ * `modelId`/`modelProvider` from the SAME `requireRunnableAgent` row it
+ * already reads to validate runnability, riding through
+ * `AgentSessionRequest.payloadJson` alongside `transcript` (same pipe,
+ * `loadBakedModelOverride` below mirrors `loadBakedTranscript`). The
+ * `ModelGatewayConfig` input is still the static `BUILT_IN_GATEWAY_CONFIG`
+ * (the same default `readServerConfig` itself falls back to when no custom
+ * config is stored, `server-config.ts`'s `applyDefaults`) — a founder's
+ * custom model-gateway settings applying to assistant turns specifically
+ * remains deferred to the "normal provisioning path" wiring
+ * (`deps.resolveModel`), unrelated to the per-agent override this fixes.
  */
 async function resolveTurnModelInternal(
 	ports: DispatchPorts,
@@ -181,6 +197,7 @@ async function resolveTurnModelInternal(
 	userId: string,
 	threadId: string,
 	deps: AssistantTurnDeps,
+	bakedModel: BakedModelOverride | undefined,
 ): Promise<{ resolvedModel: ResolvedModel; resolvedFastModel?: ResolvedModel } | undefined> {
 	if (deps.resolvedModel) {
 		let resolvedFastModel: ResolvedModel | undefined;
@@ -197,7 +214,8 @@ async function resolveTurnModelInternal(
 	}
 	if (deps.credentialResolver) {
 		try {
-			const resolvedModel = await ports.modelGateway.resolveModelTier(
+			const resolvedModel = await ports.modelGateway.resolveAgentModel(
+				{ modelId: bakedModel?.modelId ?? null, modelProvider: bakedModel?.modelProvider ?? null },
 				"workhorse",
 				BUILT_IN_GATEWAY_CONFIG,
 				deps.credentialResolver,
@@ -233,7 +251,7 @@ async function resolveTurnModelInternal(
 	return {
 		resolvedModel: {
 			provider: "anthropic",
-			model: BUILT_IN_GATEWAY_CONFIG.workhorse.model,
+			model: bakedModel?.modelId ?? BUILT_IN_GATEWAY_CONFIG.workhorse.model,
 			apiKey,
 			baseUrl: "https://api.anthropic.com",
 		},
@@ -267,6 +285,21 @@ function loadBakedTranscript(
 	}
 }
 
+/** Baked `{modelId, modelProvider}` override carried on `request.payloadJson` — see `resolveTurnModelInternal`'s `@lore` (H2). */
+function loadBakedModelOverride(payloadJson: string | null): BakedModelOverride | undefined {
+	if (!payloadJson) return undefined;
+	try {
+		const parsed = JSON.parse(payloadJson) as { modelId?: unknown; modelProvider?: unknown };
+		if (!("modelId" in parsed)) return undefined;
+		return {
+			modelId: typeof parsed.modelId === "string" ? parsed.modelId : null,
+			modelProvider: typeof parsed.modelProvider === "string" ? parsed.modelProvider : null,
+		};
+	} catch {
+		return undefined;
+	}
+}
+
 async function runTurnInternal(
 	ports: DispatchPorts,
 	db: HyperIdleDb,
@@ -277,7 +310,8 @@ async function runTurnInternal(
 	existingRequest: AgentSessionRequest,
 ): Promise<void> {
 	const assistantAgentId = `ast-${userId}`;
-	const resolved = await resolveTurnModelInternal(ports, db, userId, threadId, deps);
+	const bakedModel = loadBakedModelOverride(existingRequest.payloadJson);
+	const resolved = await resolveTurnModelInternal(ports, db, userId, threadId, deps, bakedModel);
 	if (!resolved) return;
 	const { resolvedModel, resolvedFastModel } = resolved;
 	const transcriptRows = loadBakedTranscript(existingRequest.payloadJson);

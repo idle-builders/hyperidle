@@ -831,11 +831,18 @@ async function createFromBakedRequestInternal(
 		idempotencyKey: intent.idempotencyKey,
 		sourceCorrelation: baked.sourceCorrelation,
 		// AU21 §9 Increment 11 (Decision H2): the assistant_turn family's baked
-		// transcript rides the existing generic `payloadJson` pass-through
-		// column onto the created `AgentSessionRequest` — every other kind
-		// leaves this undefined.
-		...(baked.transcript !== undefined
-			? { payloadJson: JSON.stringify({ transcript: baked.transcript }) }
+		// transcript + per-agent model override ride the existing generic
+		// `payloadJson` pass-through column onto the created
+		// `AgentSessionRequest` — every other kind leaves this undefined.
+		...(baked.transcript !== undefined || baked.modelId !== undefined
+			? {
+					payloadJson: JSON.stringify({
+						...(baked.transcript !== undefined ? { transcript: baked.transcript } : {}),
+						...(baked.modelId !== undefined
+							? { modelId: baked.modelId, modelProvider: baked.modelProvider ?? null }
+							: {}),
+					}),
+				}
 			: {}),
 	});
 	const request = await insertRequestInternal(db, requestInput);
@@ -1267,6 +1274,14 @@ export type BakedWorkIntentRequest = {
 		readonly payload: string;
 		readonly type: string;
 	}>;
+	/**
+	 * AU21 §9 Increment 11 (Decision H2 follow-up): the `assistant_turn`
+	 * family's baked per-agent model override (`users.modelId`/
+	 * `modelProvider`). Absent for every other kind — see `BakedWorkIntentRequest`
+	 * in `@hyperidle/shared` for the full `@lore`.
+	 */
+	readonly modelId?: string | null;
+	readonly modelProvider?: string | null;
 };
 export type WorkIntentInput = {
 	readonly kind:

@@ -50,6 +50,16 @@ export interface BakedTranscriptRow {
  * used to read live at execution time. Baking it here (core-api's own
  * `conversation` state, at emit time) lets `dispatch` build the harness input
  * from this payload with ZERO reads back into core.
+ *
+ * @lore AU21 §9 Increment 11 (Decision H2 follow-up, closing a Wave A
+ * regression): `modelId`/`modelProvider` ride alongside `transcript` here,
+ * sourced from the SAME `requireRunnableAgent` row this resolver already
+ * reads to validate runnability — no extra read. Wave A deleted `dispatch`'s
+ * live `getOrCreateUser`/`readServerConfig` reads and, with them, silently
+ * dropped the per-agent model override (`users.modelId`/`modelProvider`,
+ * configured via Settings → Agents) instead of baking it forward. That was a
+ * real regression, not an acceptable trade-off — "bake everything a run
+ * needs at emit" (Decision H2) means bake the override, not drop it.
  */
 export interface BakedAssistantTurnRequest {
 	readonly defaultAgentId: string;
@@ -65,6 +75,10 @@ export interface BakedAssistantTurnRequest {
 	};
 	/** Every message in the thread, `createdAt` ascending, including the triggering message. */
 	readonly transcript: ReadonlyArray<BakedTranscriptRow>;
+	/** Per-agent model override (`users.modelId`), or `null` when unset — see the `@lore` above. */
+	readonly modelId: string | null;
+	/** Per-agent model provider override (`users.modelProvider`), or `null` when unset. */
+	readonly modelProvider: string | null;
 }
 
 function resolveAssistantAgentIdForSender(senderId: string): string {
@@ -87,7 +101,7 @@ export async function resolveAssistantTurnRequest(
 		throw new AssistantTurnSourceUnavailableError("Assistant source message is unavailable");
 	}
 	const targetAgentId = resolveAssistantAgentIdForSender(message.senderId);
-	await deps.requireRunnableAgent(db, targetAgentId);
+	const agent = await deps.requireRunnableAgent(db, targetAgentId);
 	const transcriptRows = await listMessages(db, {
 		threadId: message.threadId,
 		order: "createdAt",
@@ -111,5 +125,7 @@ export async function resolveAssistantTurnRequest(
 			assistantAgentId: targetAgentId,
 		},
 		transcript,
+		modelId: agent.modelId ?? null,
+		modelProvider: agent.modelProvider ?? null,
 	};
 }
