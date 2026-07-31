@@ -61,7 +61,69 @@ export interface BakedWorkIntentRequest {
 	 */
 	readonly modelId?: string | null;
 	readonly modelProvider?: string | null;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
+	 * `routine_run`/`reengagement` families' baked entity content (task/bet/
+	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
+	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces —
+	 * `context.ts`'s `SessionContextData`/`RoutineSessionContextData` content,
+	 * assembled at emit time by each per-kind resolver (the entity it already
+	 * loads to validate + resolve the target agent) instead of
+	 * `run-orchestration` reading it back at session-launch time. Absent for
+	 * `assistant_turn` (bakes `transcript` instead — a conversational turn
+	 * needs thread history, not ranked L2/L3/L4 knowledge).
+	 */
+	readonly contextBundle?: BakedContextBundle;
 }
+
+/** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle`. */
+export interface BakedContextKnowledgeItem {
+	readonly id: string;
+	readonly title: string;
+	readonly body: string;
+	readonly format: string;
+	readonly version: number;
+	readonly layer: string | null;
+}
+
+/**
+ * AU21 §9 Increment 12 (Decision H3) — the baked entity content a
+ * `task_run`/`knowledge_action`/`reengagement` session needs (`kind:"task"`,
+ * matching `context.ts`'s `SessionContextData`) or a `routine_run` session
+ * needs (`kind:"routine"`, matching `RoutineSessionContextData`), plus the
+ * shared ranked+budgeted `knowledge` bundle both variants carry.
+ */
+export type BakedContextBundle =
+	| {
+			readonly kind: "task";
+			readonly task: {
+				readonly id: string;
+				readonly title: string;
+				readonly description: string | null;
+				readonly state: string;
+			};
+			readonly bet: {
+				readonly id: string;
+				readonly description: string;
+				readonly appetite: string;
+				readonly doneCondition: string | null;
+			};
+			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+			readonly team: { readonly id: string; readonly name: string };
+			readonly knowledge: readonly BakedContextKnowledgeItem[];
+	  }
+	| {
+			readonly kind: "routine";
+			readonly routine: {
+				readonly id: string;
+				readonly name: string;
+				readonly description: string | null;
+				readonly lastRunSummary: string | null;
+			};
+			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+			readonly team: { readonly id: string; readonly name: string };
+			readonly knowledge: readonly BakedContextKnowledgeItem[];
+	  };
 
 /**
  * AU21 §6 Decision G (recorder unification) — widened from the AC-9 2-kind

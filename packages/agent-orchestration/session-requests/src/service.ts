@@ -1282,7 +1282,60 @@ export type BakedWorkIntentRequest = {
 	 */
 	readonly modelId?: string | null;
 	readonly modelProvider?: string | null;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
+	 * `routine_run`/`reengagement` families' baked entity content (task/bet/
+	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
+	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces.
+	 * Absent for `assistant_turn` (bakes `transcript` instead) — see
+	 * `BakedWorkIntentRequest` in `@hyperidle/shared` for the full `@lore`.
+	 */
+	readonly contextBundle?: BakedContextBundle;
 };
+
+/** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle` (local mirror — see `@hyperidle/shared`). */
+export interface BakedContextKnowledgeItem {
+	readonly id: string;
+	readonly title: string;
+	readonly body: string;
+	readonly format: string;
+	readonly version: number;
+	readonly layer: string | null;
+}
+
+/** Local mirror of `@hyperidle/shared`'s `BakedContextBundle` — see there for the full `@lore`. */
+export type BakedContextBundle =
+	| {
+			readonly kind: "task";
+			readonly task: {
+				readonly id: string;
+				readonly title: string;
+				readonly description: string | null;
+				readonly state: string;
+			};
+			readonly bet: {
+				readonly id: string;
+				readonly description: string;
+				readonly appetite: string;
+				readonly doneCondition: string | null;
+			};
+			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+			readonly team: { readonly id: string; readonly name: string };
+			readonly knowledge: readonly BakedContextKnowledgeItem[];
+	  }
+	| {
+			readonly kind: "routine";
+			readonly routine: {
+				readonly id: string;
+				readonly name: string;
+				readonly description: string | null;
+				readonly lastRunSummary: string | null;
+			};
+			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+			readonly team: { readonly id: string; readonly name: string };
+			readonly knowledge: readonly BakedContextKnowledgeItem[];
+	  };
+
 export type WorkIntentInput = {
 	readonly kind:
 		| "assistant_turn"
