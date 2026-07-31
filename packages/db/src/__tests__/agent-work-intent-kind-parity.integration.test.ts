@@ -97,8 +97,24 @@ describe("agent_work_intents kind CHECK == @hyperidle/shared AGENT_WORK_INTENT_K
 		).rejects.toThrow();
 	});
 
-	test("AGENT_WORK_INTENT_KINDS has exactly seven entries, one per schema CHECK member", () => {
-		expect(AGENT_WORK_INTENT_KINDS).toHaveLength(7);
-		expect(Object.keys(COMPATIBLE_SOURCE_KIND)).toHaveLength(AGENT_WORK_INTENT_KINDS.length);
+	// AU21 §9 Increment 10a (Decision I) — the built-in `bet_decomposition`
+	// mechanism is REMOVED entirely, not migrated: the intent union shrinks
+	// from seven kinds to six. This is the "kind-set == schema CHECK" test
+	// architecture.md's Increment 10a names explicitly — it must now assert
+	// SIX, not seven, and that `bet_decomposition` is gone from both the
+	// shared union and (by construction, via the loop above) the schema CHECK.
+	const SIX_KINDS_POST_DECISION_I = [
+		"assistant_turn",
+		"session_start",
+		"knowledge_action",
+		"routine_run",
+		"task_run",
+		"reengagement",
+	] as const;
+
+	test("AGENT_WORK_INTENT_KINDS is exactly the SIX-kind Decision I union (bet_decomposition removed)", () => {
+		expect(AGENT_WORK_INTENT_KINDS).toHaveLength(6);
+		expect([...AGENT_WORK_INTENT_KINDS].sort()).toEqual([...SIX_KINDS_POST_DECISION_I].sort());
+		expect(AGENT_WORK_INTENT_KINDS).not.toContain("bet_decomposition");
 	});
 });
