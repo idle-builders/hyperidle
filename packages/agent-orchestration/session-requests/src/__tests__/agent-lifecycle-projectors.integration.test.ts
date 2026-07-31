@@ -27,10 +27,18 @@ function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
 	//
 	// AU21 §9 Increment 10a (Decision I): `decomposition`'s projector
 	// (`updateBetDecompositionStatusIfRunning`) is REMOVED ENTIRELY — the
-	// built-in bet_decomposition mechanism no longer exists, so
-	// `DurableAgentQueueDeps["lifecycleProjection"]["work"]` no longer has
-	// that method at all. `workCalls` stays only as a permanent-empty witness
-	// (like `routineCalls`), proving the drain has no way left to reach it.
+	// built-in bet_decomposition mechanism no longer exists.
+	//
+	// AU21 §9 Increment 10 (Decision H1) — RED: `workCalls` used to be a
+	// permanent-empty witness because the fake body below never pushed to it
+	// (a stale artifact of the 10a pass, not a real proof). It now actually
+	// records every `updateTaskDispatchAttemptIfActive` call so the new
+	// "task family is observeOnly" test below can genuinely prove the drain
+	// stops calling it — matching `routineCalls`' real witness role. Today
+	// (RED), `lifecycleProjectors.task` still calls this port directly
+	// (`service.ts`'s `projectTask`), so `workCalls` is non-empty for a
+	// `task`-sourced fact until `work-session-end-reactions.ts`'s event
+	// subscriber replaces it and this drain path flips to `observeOnly`.
 	readonly routineCalls: Array<{ id: string; patch: unknown }>;
 	readonly workCalls: Array<{ id: string; patch: unknown }>;
 	readonly explicitCalls: Array<{ requestId: string; patch: unknown }>;
@@ -43,7 +51,9 @@ function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
 		workCalls,
 		explicitCalls,
 		work: {
-			async updateTaskDispatchAttemptIfActive() {},
+			async updateTaskDispatchAttemptIfActive(_exec: unknown, requestId: string, patch: unknown) {
+				workCalls.push({ id: requestId, patch });
+			},
 		},
 		explicitSessionStarts: {
 			async projectTerminalState(_exec: unknown, requestId: string, patch: unknown) {
@@ -156,29 +166,60 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 		});
 	});
 
-	test("task family projects the explicit-session-start port inside the same transaction", async ({
+	/**
+	 * AU21 §9 Increment 10 (Decision H1) — RED. `task`'s post-session
+	 * writeback moves to a NEW core-api event-subscriber
+	 * (`work-session-end-reactions.ts`, subscribing `agent_run_lifecycle_changed`
+	 * directly — see that module's own RED test file), the same migration
+	 * `routine` already went through in Increment 4. `lifecycleProjectors.task`
+	 * must flip to `observeOnly`, joining `assistant`/`knowledge`/
+	 * `proposed_call`/`routine` — the drain must never call
+	 * `deps.work.updateTaskDispatchAttemptIfActive` OR
+	 * `deps.explicitSessionStarts.projectTerminalState` for a `task`-sourced
+	 * fact again (the latter's correlation was a `projectTask`-bundled side
+	 * effect with no real `explicitSessionStarts` row behind it for this
+	 * sourceKind — dead glue removed alongside the writeback itself). Today
+	 * (RED): `lifecycleProjectors.task` is still `projectTask`, which calls
+	 * BOTH ports, so this fails.
+	 */
+	test("task family is observeOnly — the drain never calls any port directly (Increment 10, Decision H1)", async ({
 		db,
 	}) => {
 		const deps = fakeDeps();
-		await seedRequest(db, "lp-task-req", "task", "lp-task-attempt");
+		await seedRequest(db, "lp-task-observeonly-req", "task", "lp-task-observeonly-attempt");
 
-		await drainLifecycleProjections(queueDeps(db, deps));
+		const count = await drainLifecycleProjections(queueDeps(db, deps));
 
-		expect(deps.explicitCalls).toHaveLength(1);
-		expect(deps.explicitCalls[0]).toMatchObject({ requestId: "lp-task-req" });
+		expect(count).toBe(1);
+		expect(deps.workCalls).toHaveLength(0);
+		expect(deps.explicitCalls).toHaveLength(0);
+
+		const [row] = await db
+			.select({ projectedAt: agentLifecycleInbox.projectedAt })
+			.from(agentLifecycleInbox)
+			.where(eq(agentLifecycleInbox.requestId, "lp-task-observeonly-req"));
+		expect(row?.projectedAt).toBeTruthy();
 	});
 
 	test("all no-op families acknowledge without calling any port", async ({ db }) => {
 		const deps = fakeDeps();
 		// AU21 correction: `routine` joins the no-op families here (see the
-		// dedicated test above for the RED signal on that transition).
-		for (const sourceKind of ["assistant", "knowledge", "proposed_call", "routine"] as const) {
+		// dedicated test above for the RED signal on that transition). AU21 §9
+		// Increment 10 (Decision H1) — RED: `task` joins them too (see the
+		// dedicated test above for THIS RED signal).
+		for (const sourceKind of [
+			"assistant",
+			"knowledge",
+			"proposed_call",
+			"routine",
+			"task",
+		] as const) {
 			await seedRequest(db, `lp-${sourceKind}-req`, sourceKind, `lp-${sourceKind}-source`);
 		}
 
 		const count = await drainLifecycleProjections(queueDeps(db, deps));
 
-		expect(count).toBe(4);
+		expect(count).toBe(5);
 		expect(deps.routineCalls).toHaveLength(0);
 		expect(deps.workCalls).toHaveLength(0);
 		expect(deps.explicitCalls).toHaveLength(0);

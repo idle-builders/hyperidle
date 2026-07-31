@@ -7,26 +7,108 @@
  * Exact-behavior lock against the former `reapRetentionOnce` integration
  * test (AU19 Increment 2g): same predicates, same cutoffs, same per-table
  * survivor sets — no behavior change.
+ *
+ * @lore AU21 §9 Increment 10 (Decision H1) — RED. `reapTerminalTaskDispatchAttempts`
+ * is relocated OUT of `session-requests`'s `reapExpired` single atomic
+ * transaction (`service.ts`, bundled with the intent/start deletes) and INTO
+ * this composition root's generic retention reaper (the same sweep that
+ * already runs `reapPropagationLog`/`reapAccessLog`/`reapExpiredCredentials`
+ * above), calling `taskDispatchAttemptStore.reapTerminal` directly. Exported
+ * from `server-factory.ts` for the SAME reason `reapPropagationLog` is
+ * exported (see that function's own doc comment) — so the predicate is
+ * directly testable without waiting on the real 6h `setInterval`. Does NOT
+ * yet exist — this import failing to resolve is this file's primary RED
+ * signal for the new describe block below.
  */
 import {
+	bets,
 	type HyperIdleDb,
 	inviteCodes,
 	knowledgeAccessLog,
 	knowledgeItems,
 	loginSessions,
 	propagationLog,
+	taskDispatchAttempts,
+	tasks,
+	teamMembers,
+	teams,
 	users,
 } from "@hyperidle/db";
 import { reapAccessLog } from "@hyperidle/knowledge";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
 import { reapExpiredCredentials } from "@hyperidle/users";
 import { and, lt } from "drizzle-orm";
-import { reapPropagationLog, TERMINAL_LOG_TTL_MS } from "../server-factory.js";
+// NOT YET CREATED — this import failing to resolve is this file's primary RED
+// signal for the "task-dispatch-attempt reaper — relocated home" describe block.
+import {
+	reapPropagationLog,
+	reapTerminalTaskDispatchAttempts,
+	TERMINAL_LOG_TTL_MS,
+} from "../server-factory.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const now = new Date("2026-07-13T12:00:00.000Z");
 const DAY = 86_400_000;
 const CONSUMED_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day audit window
+
+async function seedTaskDispatchAttempt(
+	db: HyperIdleDb,
+	options: {
+		readonly id: string;
+		readonly status: "requested" | "running" | "completed" | "failed" | "cancelled";
+		readonly updatedAt: string;
+	},
+): Promise<void> {
+	const teamId = `${options.id}-team`;
+	const betId = `${options.id}-bet`;
+	const taskId = `${options.id}-task`;
+	const agentId = `${options.id}-agent`;
+	await db
+		.insert(teams)
+		.values({ id: teamId, name: "Team", phase: "build", createdAt: now.toISOString() });
+	await db.insert(teamMembers).values({
+		id: `${options.id}-tm`,
+		teamId,
+		capacity: 3,
+		activeBets: 0,
+		formedAt: now.toISOString(),
+	});
+	await db.insert(users).values({
+		id: agentId,
+		kind: "ai",
+		name: "Agent",
+		role: "builder",
+		status: "active",
+		createdAt: now.toISOString(),
+	});
+	await db.insert(bets).values({
+		id: betId,
+		teamId,
+		description: "retention-reaper bet",
+		status: "active",
+		createdAt: now.toISOString(),
+	});
+	await db.insert(tasks).values({
+		id: taskId,
+		betId,
+		teamId,
+		ownerAgentId: agentId,
+		title: "retention-reaper task",
+		state: "in_progress",
+		createdAt: now.toISOString(),
+		updatedAt: now.toISOString(),
+	});
+	await db.insert(taskDispatchAttempts).values({
+		id: options.id,
+		taskId,
+		occasion: "accepted",
+		agentId,
+		ordinal: 1,
+		status: options.status,
+		createdAt: now.toISOString(),
+		updatedAt: options.updatedAt,
+	});
+}
 
 async function seedUser(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(users).values({
@@ -241,5 +323,45 @@ describe("retention reaper — individual owning-service sweeps", () => {
 			.from(propagationLog)
 			.where(and(lt(propagationLog.createdAt, termCutoff)));
 		expect(survivors.map((s) => s.id)).toEqual(["pl-old-pending"]);
+	});
+});
+
+/**
+ * AU21 §9 Increment 10 (Decision H1) — RED. `reapTerminalTaskDispatchAttempts`
+ * is relocated out of `session-requests`'s `reapExpired` atomic transaction
+ * into this composition root's generic retention reaper — same pattern as
+ * `reapPropagationLog` above (an owning-service predicate, exported from
+ * `server-factory.ts` purely so the composition-root wiring is directly
+ * testable without waiting on the real 6h interval).
+ */
+describe("retention reaper — task-dispatch-attempt reaper (relocated home, Decision H1)", () => {
+	test("prunes terminal task_dispatch_attempts rows older than the TTL, keeps live/recent ones", async ({
+		db,
+	}) => {
+		const oldTermCutoff = new Date(now.getTime() - 31 * DAY).toISOString();
+		await seedTaskDispatchAttempt(db, {
+			id: "tda-old-completed",
+			status: "completed",
+			updatedAt: oldTermCutoff,
+		});
+		await seedTaskDispatchAttempt(db, {
+			id: "tda-recent-completed",
+			status: "completed",
+			updatedAt: now.toISOString(),
+		});
+		await seedTaskDispatchAttempt(db, {
+			id: "tda-old-running",
+			status: "running",
+			updatedAt: oldTermCutoff,
+		});
+
+		const termCutoff = new Date(now.getTime() - TERMINAL_LOG_TTL_MS).toISOString();
+		const reaped = await reapTerminalTaskDispatchAttempts(db, termCutoff, 10);
+		expect(reaped).toBe(1);
+
+		const survivors = await db.select({ id: taskDispatchAttempts.id }).from(taskDispatchAttempts);
+		expect(new Set(survivors.map((s) => s.id))).toEqual(
+			new Set(["tda-recent-completed", "tda-old-running"]),
+		);
 	});
 });
