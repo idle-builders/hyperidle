@@ -42,10 +42,11 @@ export interface BakedWorkIntentRequest {
 
 /**
  * AU21 §6 Decision G (recorder unification) — widened from the AC-9 2-kind
- * (`assistant_turn`/`session_start`) scope to the FULL seven-kind
- * discriminated union, matching `agent_work_intents_kind_ck` +
- * `agent_work_intents_kind_source_compat_ck` (`packages/db/src/schema.ts`)
- * exactly. `work` (`bet_decomposition`/`task_run`) and `review`
+ * (`assistant_turn`/`session_start`) scope to the FULL six-kind
+ * discriminated union (AU21 §9 Increment 10a / Decision I removed
+ * `bet_decomposition`, shrinking the union from seven to six), matching
+ * `agent_work_intents_kind_ck` + `agent_work_intents_kind_source_compat_ck`
+ * (`packages/db/src/schema.ts`) exactly. `work` (`task_run`) and `review`
  * (`reengagement`) used to re-declare their own narrower local mirrors of
  * this exact shape (`WorkAgentWorkIntentInput`/`ReviewAgentWorkIntentInput`)
  * purely because this union hadn't grown to cover their kinds yet — now that
@@ -89,15 +90,6 @@ export type AgentWorkIntentRecorderInput =
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
 			/** See `BakedWorkIntentRequest`. Populated at emit time by `routine-service.ts`'s `resolveRoutineRunRequest` (AU21 Increment 4). */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  }
-	| {
-			readonly kind: "bet_decomposition";
-			readonly sourceKind: "bet";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by `bet-decomposition.ts`'s `resolveBetDecompositionRequest` (AU21 Increment 3). */
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  }
 	| {

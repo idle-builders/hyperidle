@@ -74,13 +74,13 @@ describe("agent_work_intents durable-rows checks", () => {
 		expect(row).toBeDefined();
 	});
 
-	test("rejects a kind outside the seven closed values", async ({ db }) => {
+	test("rejects a kind outside the six closed values", async ({ db }) => {
 		await expect(
 			db.insert(agentWorkIntents).values(baseIntent({ id: "bad-kind", kind: "assistant" })),
 		).rejects.toThrow();
 	});
 
-	test("rejects a source_kind outside the seven closed values", async ({ db }) => {
+	test("rejects a source_kind outside the six closed values", async ({ db }) => {
 		await expect(
 			db
 				.insert(agentWorkIntents)
@@ -119,7 +119,6 @@ describe("agent_work_intents durable-rows checks", () => {
 				["session_start", "explicit_session_start"],
 				["knowledge_action", "knowledge_action"],
 				["routine_run", "routine_run"],
-				["bet_decomposition", "bet"],
 				["task_run", "task_dispatch_attempt"],
 				["reengagement", "proposed_call"],
 			];

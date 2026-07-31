@@ -18,7 +18,6 @@
  *   routine_run       -> routine finalizes the run to outcome="error"
  *   task_run          -> work marks the taskDispatchAttempts row failed
  *   session_start     -> work marks the explicitSessionStarts row failed (no retry)
- *   bet_decomposition -> work's existing markTerminal(betId,"blocked","failed")
  *   knowledge_action  -> a review-flagged item is created (no run-record mutation)
  *   reengagement      -> review's existing retry-count liveness-net pattern
  *   assistant_turn     -> informational only, no mutation
@@ -260,37 +259,6 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 				.where(eq(explicitSessionStarts.id, start?.id ?? ""));
 			expect(finalized?.status).toBe("failed");
 			expect(finalized?.failureCode).toBeTruthy();
-		});
-	});
-
-	test("bet_decomposition: reuses markTerminal(betId, 'blocked', 'failed')", async ({
-		db,
-		eventBus,
-	}) => {
-		const { teamId } = await seedTeam(db, "w0-sub-bet");
-		await db.insert(bets).values({
-			id: "w0-sub-bet",
-			teamId,
-			description: "Wave 0 subscriber decomposition bet",
-			status: "active",
-			// decompositionStatus left null (not "running") — forces
-			// InvalidAgentWorkSourceError ("Bet decomposition is no longer eligible").
-			createdAt: NOW,
-		});
-
-		const deps = { ...queueDeps(db), eventBus };
-		await enqueueWorkIntent(db, {
-			kind: "bet_decomposition",
-			sourceKind: "bet",
-			sourceId: "w0-sub-bet",
-			idempotencyKey: "w0-sub-bet-decomposition",
-		});
-		await drainIntents(deps);
-
-		await vi.waitFor(async () => {
-			const [finalized] = await db.select().from(bets).where(eq(bets.id, "w0-sub-bet"));
-			expect(finalized?.decompositionStatus).toBe("blocked");
-			expect(finalized?.decompositionBlockerReason).toBe("failed");
 		});
 	});
 

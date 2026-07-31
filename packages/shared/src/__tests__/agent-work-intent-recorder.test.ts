@@ -1,9 +1,13 @@
 // AU21 §6 Decision G (recorder unification) — `AgentWorkIntentRecorderInput`
-// widens from the AC-9 2-kind scope to the full seven-kind union matching
+// widens from the AC-9 2-kind scope to the full six-kind union matching
 // `agent_work_intents_kind_ck` (packages/db/src/schema.ts). This proves the
 // widened type + its canonical runtime kind list stay in lockstep with
 // `AgentWorkIntentKind` (events.ts) so `work`/`review`'s deleted local
 // mirrors can't be silently reintroduced.
+//
+// AU21 §9 Increment 10a (Decision I): `bet_decomposition` is REMOVED — the
+// built-in bet_decomposition mechanism no longer exists, so the union shrinks
+// from seven kinds to six.
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
@@ -13,13 +17,12 @@ import {
 } from "../index.js";
 
 describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
-	it("contains exactly the seven canonical kinds", () => {
+	it("contains exactly the six canonical kinds", () => {
 		expect(AGENT_WORK_INTENT_KINDS).toEqual([
 			"assistant_turn",
 			"session_start",
 			"knowledge_action",
 			"routine_run",
-			"bet_decomposition",
 			"task_run",
 			"reengagement",
 		]);
@@ -33,8 +36,8 @@ describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
 	});
 });
 
-describe("AgentWorkIntentRecorderInput widened seven-kind union", () => {
-	it("accepts every one of the seven kinds as its discriminant, paired with the correct sourceKind", () => {
+describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
+	it("accepts every one of the six kinds as its discriminant, paired with the correct sourceKind", () => {
 		const inputs: AgentWorkIntentRecorderInput[] = [
 			{
 				kind: "assistant_turn",
@@ -61,22 +64,16 @@ describe("AgentWorkIntentRecorderInput widened seven-kind union", () => {
 				idempotencyKey: "k4",
 			},
 			{
-				kind: "bet_decomposition",
-				sourceKind: "bet",
+				kind: "task_run",
+				sourceKind: "task_dispatch_attempt",
 				sourceId: "s5",
 				idempotencyKey: "k5",
 			},
 			{
-				kind: "task_run",
-				sourceKind: "task_dispatch_attempt",
-				sourceId: "s6",
-				idempotencyKey: "k6",
-			},
-			{
 				kind: "reengagement",
 				sourceKind: "proposed_call",
-				sourceId: "s7",
-				idempotencyKey: "k7",
+				sourceId: "s6",
+				idempotencyKey: "k6",
 			},
 		];
 		expect(inputs.map((i) => i.kind)).toEqual(AGENT_WORK_INTENT_KINDS);
@@ -88,7 +85,7 @@ describe("AgentWorkIntentRecorderInput widened seven-kind union", () => {
 
 	it("rejects an invented kind via type narrowing", () => {
 		acceptRecorderInput({
-			// @ts-expect-error — "not_a_real_kind" is not one of the seven canonical kinds
+			// @ts-expect-error — "not_a_real_kind" is not one of the six canonical kinds
 			kind: "not_a_real_kind",
 			sourceKind: "thread_message",
 			sourceId: "s1",
@@ -97,8 +94,18 @@ describe("AgentWorkIntentRecorderInput widened seven-kind union", () => {
 	});
 
 	it("rejects a mismatched kind/sourceKind pairing via type narrowing", () => {
-		// @ts-expect-error — "bet_decomposition" pairs only with sourceKind "bet"
+		// @ts-expect-error — "routine_run" pairs only with sourceKind "routine_run"
 		acceptRecorderInput({
+			kind: "routine_run",
+			sourceKind: "thread_message",
+			sourceId: "s1",
+			idempotencyKey: "k1",
+		});
+	});
+
+	it("rejects the removed bet_decomposition kind entirely (Decision I)", () => {
+		acceptRecorderInput({
+			// @ts-expect-error — "bet_decomposition" no longer exists in the six-kind union
 			kind: "bet_decomposition",
 			sourceKind: "thread_message",
 			sourceId: "s1",

@@ -487,8 +487,6 @@ export function registerObservabilityDispatcher(
 			case "user_created":
 			// AK7: selection occasion event — audit-only in AK7, not an observability event.
 			case "work_selection_requested":
-			// AK8: decomposition occasion event — audit-only, not an observability event.
-			case "work_decompose_requested":
 			// AL7 trust-first: proposed call executed/granted — audit-only, not an observability event.
 			case "proposed_call_executed":
 			case "proposed_call_granted":

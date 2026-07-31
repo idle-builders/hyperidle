@@ -401,7 +401,6 @@ describe("agent session request repository", () => {
 			db,
 			lifecycleProjection: {
 				work: {
-					updateBetDecompositionStatusIfRunning: async () => {},
 					updateTaskDispatchAttemptIfActive: async () => {},
 				},
 				explicitSessionStarts: { projectTerminalState: async () => {} },

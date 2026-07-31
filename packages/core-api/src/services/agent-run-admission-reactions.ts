@@ -10,7 +10,6 @@
  *                         automatic retry (an explicit human/agent-requested
  *                         start; nothing should silently retry a manual
  *                         trigger later)
- *   bet_decomposition -> work's existing markTerminal(betId,"blocked","failed")
  *   knowledge_action  -> a review-flagged item is created; no run-record
  *                         mutation exists for a knowledge action
  *   reengagement      -> review's existing retry-count liveness-net pattern
@@ -104,9 +103,6 @@ async function reactToAdmissionFailure(
 				startId: event.sourceId,
 				failureCode: event.failureCode,
 			});
-			return;
-		case "bet_decomposition":
-			await work.markTerminal(db, event.sourceId, "blocked", "failed");
 			return;
 		case "knowledge_action":
 			await flagStalledKnowledgeAction(db, eventBus, event);

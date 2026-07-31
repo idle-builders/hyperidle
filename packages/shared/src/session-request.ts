@@ -1,11 +1,16 @@
 import { z } from "zod";
 
+/**
+ * @lore AU21 §9 Increment 10a (Decision I): `decomposition` REMOVED — the
+ * built-in bet_decomposition mechanism (its sole producer of a
+ * "decomposition"-sourced session request) no longer exists, so this
+ * session-source vocabulary member is dead, not merely unused.
+ */
 export const AGENT_SESSION_SOURCE_KINDS = [
 	"task",
 	"assistant",
 	"routine",
 	"knowledge",
-	"decomposition",
 	"proposed_call",
 ] as const;
 
@@ -14,7 +19,6 @@ export const AGENT_SESSION_PROMPT_MODES = [
 	"conversation",
 	"routine",
 	"knowledge",
-	"decomposition",
 	"proposed_call",
 ] as const;
 
@@ -90,18 +94,6 @@ export const knowledgeSessionRequestInputSchema = baseInput.extend({
 	}),
 });
 
-export const decompositionSessionRequestInputSchema = baseInput.extend({
-	sourceKind: z.literal("decomposition"),
-	promptMode: z.literal("decomposition"),
-	taskId: z.null().optional(),
-	teamId: z.string().min(1),
-	sourceCorrelation: z.object({
-		betId: z.string().min(1),
-		teamId: z.string().min(1),
-		decomposerAgentId: z.string().min(1),
-	}),
-});
-
 export const proposedCallSessionRequestInputSchema = baseInput.extend({
 	sourceKind: z.literal("proposed_call"),
 	promptMode: z.literal("proposed_call"),
@@ -118,7 +110,6 @@ export const agentSessionRequestInputSchema = z.discriminatedUnion("sourceKind",
 	assistantSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
-	decompositionSessionRequestInputSchema,
 	proposedCallSessionRequestInputSchema,
 ]);
 

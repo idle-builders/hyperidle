@@ -16,7 +16,6 @@ export const AGENT_WORK_INTENT_KINDS = [
 	"session_start",
 	"knowledge_action",
 	"routine_run",
-	"bet_decomposition",
 	"task_run",
 	"reengagement",
 ] as const;
@@ -27,7 +26,7 @@ export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
  * The RAW `agent_work_intents.source_kind` vocabulary (the identity an intent
  * was recorded under, pre-resolution) — distinct from `AgentSessionSourceKind`
  * (the RESOLVED "session-source" vocabulary a chosen agent's request ends up
- * carrying, e.g. `"decomposition"`/`"knowledge"`). `AgentRunAdmissionFailedEvent`
+ * carrying, e.g. `"routine"`/`"knowledge"`). `AgentRunAdmissionFailedEvent`
  * fires from the drain against the STORED intent row, before (or instead of)
  * resolution succeeds, so it carries this pre-resolution vocabulary verbatim.
  */
@@ -36,7 +35,6 @@ export type AgentWorkIntentSourceKind =
 	| "explicit_session_start"
 	| "knowledge_action"
 	| "routine_run"
-	| "bet"
 	| "task_dispatch_attempt"
 	| "proposed_call";
 
@@ -561,25 +559,6 @@ export interface UserCreatedEvent {
 }
 
 /**
- * AK8: Emitted by the Kernel when a committed bet enters decomposition.
- * Observable "work to decompose" occasion (AC1). Post-CAS, post-eligible-check —
- * only the CAS winner emits, so a duplicate `bet_state_changed(active)` produces
- * exactly one emit. Sibling of WorkSelectionRequestedEvent — same audit-only
- * semantics; the decomposition DECISION arrives via the synchronous `decomposeBet`
- * port call. streamId = teamId for per-team stream routing.
- *
- * @lore AK8 @lore O1: interface + union + emit site (bet-decomposition.ts).
- * The event is audit/observability-only — no subscriber mutates state off it.
- */
-export interface WorkDecomposeRequestedEvent {
-	type: "work_decompose_requested";
-	streamId: string; // = teamId
-	teamId: string;
-	betId: string; // the work keyed to this decomposition
-	at: string; // ISO 8601
-}
-
-/**
  * AL7 trust-first: Emitted after an approved call executes (ok or failed) in session 2.
  * Renamed from operation_executed → proposed_call_executed.
  *
@@ -655,8 +634,6 @@ export type KernelEvent =
 	| UserCreatedEvent
 	// AK7: selection occasion event
 	| WorkSelectionRequestedEvent
-	// AK8: decomposition occasion event
-	| WorkDecomposeRequestedEvent
 	// AL7 trust-first: proposed call executed (renamed from operation_executed)
 	| ProposedCallExecutedEvent
 	// AL7 trust-first: proposed call granted → triggers session-2 re-engagement

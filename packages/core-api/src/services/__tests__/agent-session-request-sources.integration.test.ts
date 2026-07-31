@@ -201,21 +201,6 @@ describe("agent session request sources", () => {
 				sourceCorrelation: { taskId: "task-au3-agent", teamId: "team-au3-agent" },
 			},
 			{
-				sourceKind: "decomposition",
-				sourceId: "bet-au3-agent",
-				streamId: "bet:bet-au3-agent:decomposition",
-				taskId: null,
-				agentId: "agent-au3-agent",
-				teamId: "team-au3-agent",
-				promptMode: "decomposition",
-				idempotencyKey: "au3:decomposition",
-				sourceCorrelation: {
-					betId: "bet-au3-agent",
-					teamId: "team-au3-agent",
-					decomposerAgentId: "agent-au3-agent",
-				},
-			},
-			{
 				sourceKind: "routine",
 				sourceId: "routine-run-au3-agent",
 				streamId: "routine:routine-au3-agent",
@@ -259,30 +244,24 @@ describe("agent session request sources", () => {
 			});
 		}
 
-		expect(adapter.configs).toHaveLength(4);
-		const decompositionConfig = adapter.configs.find((config) =>
-			config.assembledPrompt.includes("## Bet decomposition"),
-		);
-		expect(decompositionConfig?.assembledPrompt).toContain("Agent layer execution");
-		expect(decompositionConfig?.assembledPrompt).toContain("Tasks exist");
-		const decompositionContext = capturedContext.get(decompositionConfig?.sessionId ?? "");
-		expect(decompositionContext?.manifestExists).toBe(true);
-		expect(decompositionContext?.sessionContext).toContain("source_kind: decomposition");
-		expect(decompositionContext?.sessionContext).toContain('"betId":"bet-au3-agent"');
+		expect(adapter.configs).toHaveLength(3);
+		// Sources are processed in order (task, routine, assistant) — "routine"
+		// (index 1) is task-free (taskId: null), the same shape the removed
+		// "decomposition" source used to be — its context goes through the
+		// generic task-free `source_kind:` formatting `context.ts` produces.
+		const routineConfig = adapter.configs[1];
+		const routineContext = capturedContext.get(routineConfig?.sessionId ?? "");
+		expect(routineContext?.manifestExists).toBe(true);
+		expect(routineContext?.sessionContext).toContain("source_kind: routine");
 		const started = events.filter((event) => event.type === "session_started");
 		const ended = events.filter((event) => event.type === "session_ended");
-		expect(started).toHaveLength(4);
-		expect(ended).toHaveLength(4);
-		expect(started.some((event) => event.sourceKind === "decomposition")).toBe(true);
-		expect(ended.some((event) => event.sourceKind === "decomposition")).toBe(true);
+		expect(started).toHaveLength(3);
+		expect(ended).toHaveLength(3);
+		expect(started.some((event) => event.sourceKind === "routine")).toBe(true);
+		expect(ended.some((event) => event.sourceKind === "routine")).toBe(true);
 
 		const rows = await db.select().from(agentSessionRequests);
-		expect(rows.map((row) => row.status).sort()).toEqual([
-			"completed",
-			"completed",
-			"completed",
-			"completed",
-		]);
+		expect(rows.map((row) => row.status).sort()).toEqual(["completed", "completed", "completed"]);
 		for (const row of rows) {
 			const [stored] = await db
 				.select()

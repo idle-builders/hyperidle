@@ -24,6 +24,13 @@ function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
 	// — Wave C's `finalizeRoutineRun` is the sole finalizer now). `routineCalls`
 	// stays only as a witness array that must remain empty forever, proving
 	// the drain has no way left to reach a routine write.
+	//
+	// AU21 §9 Increment 10a (Decision I): `decomposition`'s projector
+	// (`updateBetDecompositionStatusIfRunning`) is REMOVED ENTIRELY — the
+	// built-in bet_decomposition mechanism no longer exists, so
+	// `DurableAgentQueueDeps["lifecycleProjection"]["work"]` no longer has
+	// that method at all. `workCalls` stays only as a permanent-empty witness
+	// (like `routineCalls`), proving the drain has no way left to reach it.
 	readonly routineCalls: Array<{ id: string; patch: unknown }>;
 	readonly workCalls: Array<{ id: string; patch: unknown }>;
 	readonly explicitCalls: Array<{ requestId: string; patch: unknown }>;
@@ -37,9 +44,6 @@ function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
 		explicitCalls,
 		work: {
 			async updateTaskDispatchAttemptIfActive() {},
-			async updateBetDecompositionStatusIfRunning(_exec: unknown, id: string, patch: unknown) {
-				workCalls.push({ id, patch });
-			},
 		},
 		explicitSessionStarts: {
 			async projectTerminalState(_exec: unknown, requestId: string, patch: unknown) {
@@ -137,19 +141,6 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 			.from(agentLifecycleInbox)
 			.where(eq(agentLifecycleInbox.requestId, "lp-routine-req"));
 		expect(row?.projectedAt).toBeTruthy();
-	});
-
-	test("decomposition family calls the injected work port", async ({ db }) => {
-		const deps = fakeDeps();
-		await seedRequest(db, "lp-decomp-req", "decomposition", "lp-decomp-bet");
-
-		await drainLifecycleProjections(queueDeps(db, deps));
-
-		expect(deps.workCalls).toHaveLength(1);
-		expect(deps.workCalls[0]).toMatchObject({
-			id: "lp-decomp-bet",
-			patch: { decompositionStatus: "done", decompositionBlockerReason: null },
-		});
 	});
 
 	test("explicit_session_start family calls the injected session-requests port", async ({ db }) => {

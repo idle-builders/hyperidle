@@ -12,8 +12,6 @@
 import type {
 	BetOutcomeVerdict,
 	BetStatus,
-	DecompositionBlockerReason,
-	DecompositionStatus,
 	SessionOutcome,
 	TaskOutcomeVerdict,
 	TaskState,
@@ -28,16 +26,6 @@ export interface BetDetail {
 	/** AK3: team id used by the "Add an agent" recovery link (→ /work/team/:teamId). */
 	teamId?: string;
 	status: BetStatus;
-	/**
-	 * AK3: Decomposition lifecycle state.
-	 * null = never decomposed | 'running' = in-flight | 'done' = tasks created | 'blocked' = failed
-	 */
-	decompositionStatus?: DecompositionStatus | null;
-	/**
-	 * AK3: Why decomposition ended in 'blocked'.
-	 * null | 'no_eligible_agent' | 'empty' | 'failed'
-	 */
-	decompositionBlockerReason?: DecompositionBlockerReason | null;
 	/** @lore U5: atRisk boolean added; signals the bet is at risk of missing its appetite. */
 	atRisk: boolean;
 	// L17: replaced appetite: string with structured WireMoney; added costActual and token fields.

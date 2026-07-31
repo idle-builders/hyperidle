@@ -16,7 +16,6 @@ const AGENT_WORK_INTENT_SOURCE_KINDS = [
 	"explicit_session_start",
 	"knowledge_action",
 	"routine_run",
-	"bet",
 	"task_dispatch_attempt",
 	"proposed_call",
 ] as const;

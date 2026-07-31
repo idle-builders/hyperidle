@@ -108,11 +108,6 @@ import type { AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder } from "@
  */
 type AgentWorkIntentRecorder = SharedAgentWorkIntentRecorder<WriteExecutor>;
 
-interface WorkDecompositionPlan {
-	readonly decomposerAgentId: string | null;
-	readonly tasks: readonly import("@hyperidle/shared").DecompositionTaskInput[];
-}
-
 // ---------------------------------------------------------------------------
 // users — UserStoreReader (ordinary downward core-api edge, NOT against-grain)
 // ---------------------------------------------------------------------------
@@ -204,10 +199,4 @@ export interface WorkDeps {
 	readonly workIntents: AgentWorkIntentRecorder;
 }
 
-export type {
-	AgentWorkIntentRecorder,
-	TeamCapacityReader,
-	UserStoreReader,
-	WorkDecompositionPlan,
-	WorkUserRow,
-};
+export type { AgentWorkIntentRecorder, TeamCapacityReader, UserStoreReader, WorkUserRow };

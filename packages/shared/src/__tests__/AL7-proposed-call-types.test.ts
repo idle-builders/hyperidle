@@ -238,8 +238,6 @@ describe("T4: exhaustive KernelEvent switch handles proposed_call_granted (AC13)
 					return "user_created";
 				case "work_selection_requested":
 					return "work_selection_requested";
-				case "work_decompose_requested":
-					return "work_decompose_requested";
 				// AL7 trust-first: operation_executed renamed to proposed_call_executed
 				case "proposed_call_executed":
 					return "proposed_call_executed";

@@ -35,7 +35,6 @@ const COMPATIBLE_SOURCE_KIND: Record<
 	session_start: "explicit_session_start",
 	knowledge_action: "knowledge_action",
 	routine_run: "routine_run",
-	bet_decomposition: "bet",
 	task_run: "task_dispatch_attempt",
 	reengagement: "proposed_call",
 };

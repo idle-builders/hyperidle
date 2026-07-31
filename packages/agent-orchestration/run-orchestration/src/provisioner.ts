@@ -624,38 +624,27 @@ async function revertTaskToAccepted(
 	});
 }
 
+/**
+ * @lore AU21 §9 Increment 10a (Decision I): the `"decomposition"` sourceKind
+ * branch this function used to special-case (a bet-decomposition PM turn's
+ * "Turn this bet into concrete proposed tasks" prompt) is REMOVED — the
+ * built-in bet_decomposition mechanism no longer exists, so no session can
+ * ever be sourced from `"decomposition"` (the sourceKind is gone from
+ * `AGENT_SESSION_SOURCE_KINDS`/`AgentSessionSourceKind` itself, not merely
+ * unreachable). Every task-free session now goes through the generic
+ * `sourceSection` below.
+ */
 async function assembleTaskFreePrompt(
-	db: HyperIdleDb,
+	_db: HyperIdleDb,
 	params: ProvisionSessionParams,
 	systemPromptText: string,
 	toolSummaries: readonly SessionLifecycleToolSummary[],
-	ports: SessionLifecyclePorts,
+	_ports: SessionLifecyclePorts,
 ): Promise<string> {
-	const sourceKind = params.requestContext?.sourceKind ?? "unknown";
 	const toolSection =
 		toolSummaries.length > 0
 			? `\n\n## Tools\n${toolSummaries.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n")}`
 			: "";
-	if (sourceKind === "decomposition") {
-		const betId =
-			params.requestContext?.sourceCorrelation &&
-			"betId" in params.requestContext.sourceCorrelation &&
-			typeof params.requestContext.sourceCorrelation.betId === "string"
-				? params.requestContext.sourceCorrelation.betId
-				: params.requestContext?.sourceId;
-		const bet = betId ? await ports.work.getBetById(db, betId) : undefined;
-		return [
-			systemPromptText,
-			"## Bet decomposition",
-			"Turn this bet into concrete proposed tasks. Use the available task-creation tool when task creation is needed; do not invent another execution path.",
-			`Bet ID: ${betId ?? "unknown"}`,
-			`Goal: ${bet?.description ?? ""}`,
-			`Done condition: ${bet?.doneCondition ?? ""}`,
-			toolSection,
-		]
-			.filter(Boolean)
-			.join("\n\n");
-	}
 
 	const sourceSection = params.requestContext
 		? `## Session request\nSource kind: ${params.requestContext.sourceKind}\nSource ID: ${params.requestContext.sourceId}\nCorrelation: ${JSON.stringify(params.requestContext.sourceCorrelation)}`

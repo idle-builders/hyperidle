@@ -1,12 +1,14 @@
 /**
  * AU21 Increment 3, session_start + task_run wave (RED) — architecture.md §6
- * Decision B / §9 Increment 3: `task_run` has THREE real emit call sites (all
- * confirmed from source, not the single site the wave's placement note names
- * for `session_start`):
+ * Decision B / §9 Increment 3: `task_run` had THREE real emit call sites at
+ * the time this wave shipped (all confirmed from source, not the single site
+ * the wave's placement note names for `session_start`):
  *   1. `packages/core-api/work/src/task-state-machine.ts:120` — a task
  *      transitioning to "accepted" (via `POST /api/tasks/:id/transition`).
- *   2. `packages/core-api/work/src/bet-decomposition.ts:263` — a newly
- *      decomposed task's initial dispatch.
+ *   2. `packages/core-api/work/src/bet-decomposition.ts` (REMOVED by AU21 §9
+ *      Increment 10a / Decision I — the built-in bet_decomposition mechanism
+ *      no longer exists, so this emit call site is gone, not migrated) — a
+ *      newly decomposed task's initial dispatch.
  *   3. `packages/core-api/policy/src/handoff-protocol.ts:329` — an
  *      owner-handoff dispatch (via `POST /api/tasks/:id/handoff`).
  *
@@ -14,10 +16,10 @@
  * "the real emit call site (`routes/sessions-routes.ts:392`) calls the
  * appropriate resolver first" for BOTH `session_start` and `task_run` — true
  * only for `session_start`. `task_run` is never emitted from
- * `sessions-routes.ts` at all; its three real call sites are enumerated
- * above, two of them (`task-state-machine.ts`, `bet-decomposition.ts`) inside
- * `work` itself (same package as the resolver, plain same-package import) and
- * one (`handoff-protocol.ts`) inside the SIBLING `policy` package, which per
+ * `sessions-routes.ts` at all; its (then-three, now two) real call sites are
+ * enumerated above, `task-state-machine.ts` inside `work` itself (same
+ * package as the resolver, plain same-package import) and
+ * `handoff-protocol.ts` inside the SIBLING `policy` package, which per
  * Mechanism C cannot import `@hyperidle/work` directly — it needs the
  * resolver injected via `PolicyDeps`, wired at the composition root
  * (`policy-bindings.ts`, which already imports `@hyperidle/work` directly,
@@ -25,11 +27,11 @@
  * `@hyperidle/users`). This is a scope-completeness gap in the wave's
  * simplifying description, not a change to Decision B's placement ruling
  * (resolver home stays `packages/core-api/work/src/`) — resolved in-flight,
- * all three call sites are migrated this wave.
+ * all real call sites were migrated this wave.
  *
  * Every scenario below is currently RED: `bakedRequestJson` is null on the
- * intent recorded by each of the three real call sites (none of them calls
- * the not-yet-existing `resolveTaskRunRequest` before recording), and the
+ * intent recorded by each real call site (none of them calls the
+ * not-yet-existing `resolveTaskRunRequest` before recording), and the
  * drain still falls through to `resolveIntentInputInternal`'s "task_run" case
  * (proven by throwing-spy zero-domain-read assertions on the
  * `task-state-machine` and `handoff-protocol` paths).
@@ -47,11 +49,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { getTeamMembers } from "@hyperidle/org";
-import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
-import { findUser, listUsers } from "@hyperidle/users";
-import type { BetDecompositionDeps } from "@hyperidle/work";
-import { registerBetDecomposition } from "@hyperidle/work";
+import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { queueDeps } from "../../services/durable-agent-queue.js";
@@ -200,71 +198,6 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 				.where(eq(agentWorkIntents.sourceId, attempt?.id ?? ""));
 			expect(intent?.status).toBe("handed_off");
 			expect(intent?.requestId).toBeTruthy();
-		});
-	});
-
-	describe("via bet-decomposition (new task's initial dispatch)", () => {
-		test("bakes the task_run request onto the recorded intent for a newly decomposed task", async ({
-			db,
-			eventBus,
-		}) => {
-			await seedTeamAndBet(db, { teamId: "team-au21-trun-3", betId: "bet-au21-trun-3" });
-			await seedAgent(db, "agent-au21-trun-3", "team-au21-trun-3-members");
-			await db
-				.update(bets)
-				.set({ decompositionStatus: null })
-				.where(eq(bets.id, "bet-au21-trun-3"));
-
-			const deps: BetDecompositionDeps = {
-				db,
-				eventBus,
-				users: {
-					getUserById: (exec, id) => findUser(exec, { id }),
-					listActiveAiUsersByTeams: (exec, teamIds) =>
-						listUsers(exec, { teamIds: [...teamIds], kind: "ai", status: "active" }),
-					listUsersByTeam: (exec, teamMembersId) => listUsers(exec, { teamIds: [teamMembersId] }),
-				},
-				teamCapacity: {
-					getByTeamId: (exec, teamId) => getTeamMembers(exec, { teamId }),
-					setActiveBets: async () => {},
-				},
-				workIntents: { record: enqueueWorkIntent },
-				sandboxBasePath: "/tmp/au21-trun-decomposition",
-				runDecompositionTurn: async () => [{ title: "Decomposed slice" }],
-			};
-			const dispose = registerBetDecomposition(deps);
-			try {
-				eventBus.emit({
-					type: "bet_state_changed",
-					streamId: "bet-au21-trun-3",
-					betId: "bet-au21-trun-3",
-					fromState: "draft",
-					toState: "active",
-					timestamp: Date.now(),
-				});
-				await vi.waitFor(async () => {
-					const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-au21-trun-3"));
-					expect(["done", "blocked"]).toContain(bet?.decompositionStatus);
-				});
-			} finally {
-				dispose();
-			}
-
-			const createdTasks = await db.select().from(tasks).where(eq(tasks.betId, "bet-au21-trun-3"));
-			expect(createdTasks.length).toBeGreaterThan(0);
-			const attempts = await db.select().from(taskDispatchAttempts);
-			const createdAttempt = attempts.find((attempt) =>
-				createdTasks.some((created) => created.id === attempt.taskId),
-			);
-			expect(createdAttempt).toBeDefined();
-			const [intent] = await db
-				.select()
-				.from(agentWorkIntents)
-				.where(eq(agentWorkIntents.sourceId, createdAttempt?.id ?? ""));
-			expect(intent?.kind).toBe("task_run");
-
-			// RED today: `bakedRequestJson` is null.
-			expect(intent?.bakedRequestJson).toBeTruthy();
 		});
 	});
 

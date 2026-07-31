@@ -55,7 +55,7 @@ import {
 	type NotificationsDeps,
 	reap,
 } from "@hyperidle/notifications";
-import { getTeamMembers, resolveReviewRecipients, updateTeam } from "@hyperidle/org";
+import { getTeamMembers, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
@@ -76,12 +76,7 @@ import {
 	requireRunnableAgent,
 } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import {
-	getTaskRiskTierByTaskId,
-	registerBetDecomposition,
-	resolveOrphanedDecompositions,
-	type WorkDeps,
-} from "@hyperidle/work";
+import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { and, inArray, lt } from "drizzle-orm";
 import { WebSocketServer } from "ws";
 import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
@@ -930,59 +925,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		db,
 	});
 
-	// AK3 §1: Boot-time orphan sweep — resolve any bet stuck on 'running' from a
-	// previous crash. Must run BEFORE the subscriber starts so a re-commit cannot
-	// race with the sweep (subscriber isn't listening yet at this point).
-	// @lore AK3: 'running' at boot = orphaned in-process turn (no restart resume).
-	await resolveOrphanedDecompositions(db);
-
-	// AK3 §2: Register the kernel-side bet decomposition subscriber.
-	// Deps: all already available from the dispatcherDeps wiring above.
-	//
-	// @lore AU20 Ag5a: `WorkDeps` bundles the inbound DI ports — wired ONCE
-	// here at the composition root. Spread into `registerBetDecomposition`
-	// (and any future function that needs the full set); sub-shapes are
-	// extracted where a function only needs a subset (e.g. `transitionTask`
-	// takes `TaskStateMachineDeps` with only `workIntents`).
-	//
-	// @lore AU21 §6 Decision F1 (Increment 8): the `agentSelection` port that
-	// used to be wired here (adapting `AgentSelectionService` methods to
-	// `work`'s own `AgentSelectionDefaults` structural mirror) is REMOVED —
-	// `work`'s `bet_task`/`bet_decomposer` selection now runs directly against
-	// the `teamCapacity`/`users` ports already wired below, via
-	// `agent-assignment.ts` (an intra-package module, not a DI port).
-	const workDeps: WorkDeps = {
-		users: {
-			getUserById: (db, id) => findUser(db, { id }),
-			listActiveAiUsersByTeams: (db, teamIds) =>
-				listUsers(db, { teamIds, kind: "ai", status: "active" }),
-			// AU21 §6 Decision B / Increment 3: unfiltered persisted-FK-membership
-			// read for `resolveBetDecompositionRequest`'s candidate union — see
-			// `ports.ts`'s `UserStoreReader.listUsersByTeam` `@lore`.
-			listUsersByTeam: (db, teamMembersId) => listUsers(db, { teamIds: [teamMembersId] }),
-		},
-		// @lore AU21 §6 Decision D2 (founder, 2026-07-27): `costCap` used to be
-		// wired here (`checkCostCap: costOps.check`) as `work`'s pre-flight
-		// budget-gate port. Removed outright, not rewired — decomposition
-		// proceeds unconditionally regardless of cost-cap status now. See
-		// `ports.ts`'s top `@lore` (Increment 8 note) for the full ruling.
-		workIntents: { record: enqueueWorkIntent },
-		// AU19 Increment 1c: `org` is a REAL migrated package — wired to its real
-		// exported functions (W2 closure).
-		teamCapacity: {
-			getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
-			setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
-		},
-	};
-	const disposeBetDecomp = registerBetDecomposition({
-		db,
-		eventBus,
-		adapterPool,
-		sandboxBasePath,
-		resolveModel: makeResolveModel(db, credentialResolver),
-		...workDeps,
-	});
-
 	// AU19 Increment 3f: register the capture-writeback subscriber — the
 	// §10.3 line 517 EventBus inversion for `filesystems ⚠ capture-writeback`.
 	// `@hyperidle/filesystems`' `file-watcher.ts` emits
@@ -1212,7 +1154,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				}
 			};
 
-			await runPhase("bet-decomposition", disposeBetDecomp);
 			await runPhase("run-runtime", () => runRuntime.dispose());
 			await runPhase("app-domain", () => disposeApp(app));
 			await runPhase("websocket", () => {

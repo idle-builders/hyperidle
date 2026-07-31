@@ -94,17 +94,6 @@ const ports = {
 	lifecycleProjection: {
 		work: {
 			updateTaskDispatchAttemptIfActive: work.taskDispatchAttemptStore.updateIfActive,
-			updateBetDecompositionStatusIfRunning: async (
-				exec: WriteExecutor,
-				id: string,
-				patch: object,
-			) => {
-				await work.transition(exec, "bet", {
-					id,
-					guard: { field: "decompositionStatus", equals: "running" },
-					patch,
-				});
-			},
 		},
 		explicitSessionStarts: {
 			projectTerminalState: async (

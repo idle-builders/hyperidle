@@ -1,7 +1,7 @@
 /** AU20 Stage 1: consumer-demand completeness contract for the work service. */
 import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { create, get, list, transition, update } from "../work-service.js";
+import { create, get, list, update } from "../work-service.js";
 
 async function seedWork(
 	db: HyperIdleDb,
@@ -71,32 +71,6 @@ describe("work completeness contract", () => {
 		]);
 		const bet = await get(db, "bet", betId);
 		expect(bet?.costActualMinor).toBe(611);
-	});
-
-	test("competing decomposition claims use NULL CAS and produce exactly one winner", async ({
-		db,
-	}) => {
-		const { betId } = await seedWork(db, "claim");
-		const results = await Promise.all([
-			transition(db, "bet", {
-				id: betId,
-				guard: { field: "decompositionStatus", isNull: true },
-				patch: { decompositionStatus: "running" },
-			}),
-			transition(db, "bet", {
-				id: betId,
-				guard: { field: "decompositionStatus", isNull: true },
-				patch: { decompositionStatus: "running" },
-			}),
-		]);
-		expect(results.filter((result) => result.applied)).toHaveLength(1);
-		expect((await get(db, "bet", betId))?.decompositionStatus).toBe("running");
-		const secondGuard = await transition(db, "bet", {
-			id: betId,
-			guard: { field: "decompositionStatus", isNull: true },
-			patch: { decompositionStatus: "running" },
-		});
-		expect(secondGuard).toEqual({ applied: false, affected: 0 });
 	});
 
 	test("source-agent item listing returns only matching item IDs", async ({ db }) => {

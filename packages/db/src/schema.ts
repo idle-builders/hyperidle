@@ -176,22 +176,6 @@ export const bets = pgTable(
 		/** AC1: User ID of the actor who last recorded the outcome. */
 		outcomeRecordedBy: text("outcome_recorded_by"),
 		/**
-		 * AK3: Decomposition lifecycle state.
-		 * null = never decomposed | 'running' = in-flight | 'done' = tasks created | 'blocked' = failed
-		 *
-		 * @lore AK3: CAS guard (NULL→'running') prevents concurrent re-fires of the
-		 * same decomposition. A boot-time sweep (resolveOrphanedDecompositions) flips
-		 * any 'running' bet to 'blocked/failed' on restart — in-process turns die with
-		 * the process, so 'running' at boot always means orphaned.
-		 */
-		decompositionStatus: text("decomposition_status"),
-		/**
-		 * AK3: Why a decomposition ended in 'blocked'.
-		 * null | 'no_eligible_agent' | 'empty' | 'failed'
-		 * Only meaningful when decompositionStatus = 'blocked'.
-		 */
-		decompositionBlockerReason: text("decomposition_blocker_reason"),
-		/**
 		 * AK5: provenance — the knowledge item this bet was promoted from.
 		 * null = hand-typed / assistant-drafted bet (no source). Forward, recoverable,
 		 * one-way link. NOT the reverse of knowledge.scopeKind="bet" (that means
@@ -433,11 +417,11 @@ export const agentWorkIntents = pgTable(
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','bet_decomposition','task_run','reengagement')`,
+			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run','reengagement')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','bet','task_dispatch_attempt','proposed_call')`,
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','proposed_call')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
@@ -455,7 +439,6 @@ export const agentWorkIntents = pgTable(
 				or (${table.kind} = 'session_start' and ${table.sourceKind} = 'explicit_session_start')
 				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
 				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
-				or (${table.kind} = 'bet_decomposition' and ${table.sourceKind} = 'bet')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
 				or (${table.kind} = 'reengagement' and ${table.sourceKind} = 'proposed_call')
 			`,
@@ -586,7 +569,7 @@ export const agentLifecycleInbox = pgTable(
 		),
 		check(
 			"agent_lifecycle_inbox_source_kind_ck",
-			sql`${table.sourceKind} in ('assistant','task','knowledge','routine','decomposition','proposed_call','explicit_session_start')`,
+			sql`${table.sourceKind} in ('assistant','task','knowledge','routine','proposed_call','explicit_session_start')`,
 		),
 		check(
 			"agent_lifecycle_inbox_claim_ck",

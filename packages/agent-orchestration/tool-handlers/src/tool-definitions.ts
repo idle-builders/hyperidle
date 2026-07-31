@@ -106,9 +106,7 @@ const sendMessageInputSchema = z.object({
 
 type SendMessageInput = z.infer<typeof sendMessageInputSchema>;
 
-function makeSendMessageTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<SendMessageInput, TDb> {
+function makeSendMessageTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<SendMessageInput, TDb> {
 	return {
 		name: "send_message",
 		description:
@@ -212,9 +210,7 @@ const FACILITATOR_ROLES: ReadonlySet<string> = new Set([
 
 const NON_FACILITATOR_MAX_LAYER: ReadonlySet<KnowledgeLayer> = new Set(["L0", "L1", "L2"]);
 
-function makeWriteMemoryTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<WriteMemoryInput, TDb> {
+function makeWriteMemoryTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<WriteMemoryInput, TDb> {
 	return {
 		name: "write_memory",
 		description:
@@ -292,9 +288,7 @@ const handoffToInputSchema = z.object({
 
 type HandoffToInput = z.infer<typeof handoffToInputSchema>;
 
-function makeHandoffToTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<HandoffToInput, TDb> {
+function makeHandoffToTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<HandoffToInput, TDb> {
 	return {
 		name: "handoff_to",
 		description:
@@ -394,9 +388,7 @@ function mergeParticipants(existing: readonly string[], humanIds: readonly strin
 	return [...new Set([...existing, ...humanIds])].sort();
 }
 
-function makeCreateItemTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<CreateItemInput, TDb> {
+function makeCreateItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<CreateItemInput, TDb> {
 	return {
 		name: "create_item",
 		description:
@@ -547,9 +539,7 @@ const createTaskInputSchema = z.object({
 
 type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
 
-function makeCreateTaskTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<CreateTaskInput, TDb> {
+function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<CreateTaskInput, TDb> {
 	return {
 		name: "create_task",
 		description:
@@ -560,19 +550,18 @@ function makeCreateTaskTool<TDb>(
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
+			// @lore AU21 §9 Increment 10a (Decision I): the `sourceKind ===
+			// "decomposition"` fallback branch this used to have (resolving the
+			// parent bet from a bet-decomposition PM turn's session context) is
+			// REMOVED — the built-in bet_decomposition mechanism no longer exists,
+			// so no session's `requestContext.sourceKind` can ever be
+			// `"decomposition"` (the value is gone from `AgentSessionSourceKind`
+			// itself, not merely unreachable).
 			let parent: { betId: string; teamId: string };
 			if (ctx.taskId) {
 				const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
 				if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 				parent = { betId: parentTask.betId, teamId: parentTask.teamId };
-			} else if (ctx.requestContext?.sourceKind === "decomposition") {
-				const { betId, teamId } = ctx.requestContext.sourceCorrelation as {
-					readonly betId: string;
-					readonly teamId: string;
-				};
-				const bet = await ports.coreApi.getBetById(betId, ctx.agentId);
-				if (!bet) return err("NOT_FOUND", `Bet not found: ${betId}`);
-				parent = { betId, teamId };
 			} else {
 				return err("NOT_FOUND", "Parent task not found");
 			}
@@ -711,9 +700,7 @@ const routeItemInputSchema = z.object({
 
 type RouteItemInput = z.infer<typeof routeItemInputSchema>;
 
-function makeRouteItemTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<RouteItemInput, TDb> {
+function makeRouteItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<RouteItemInput, TDb> {
 	return {
 		name: "route_item",
 		description:
@@ -992,9 +979,7 @@ const createTeamInputSchema = z.object({
 
 type CreateTeamInput = z.infer<typeof createTeamInputSchema>;
 
-function makeCreateTeamTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<CreateTeamInput, TDb> {
+function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<CreateTeamInput, TDb> {
 	return {
 		name: "create_team",
 		description:
@@ -1180,9 +1165,7 @@ const createBetInputSchema = z.object({
 
 type CreateBetInput = z.infer<typeof createBetInputSchema>;
 
-function makeCreateBetTool<TDb>(
-	ports: ToolHandlersPorts,
-): AssistantToolShape<CreateBetInput, TDb> {
+function makeCreateBetTool<TDb>(ports: ToolHandlersPorts): AssistantToolShape<CreateBetInput, TDb> {
 	return {
 		name: "create_bet",
 		description:
@@ -1231,9 +1214,7 @@ const editBetInputSchema = z.object({
 
 type EditBetInput = z.infer<typeof editBetInputSchema>;
 
-function makeEditBetTool<TDb>(
-	ports: ToolHandlersPorts,
-): AssistantToolShape<EditBetInput, TDb> {
+function makeEditBetTool<TDb>(ports: ToolHandlersPorts): AssistantToolShape<EditBetInput, TDb> {
 	return {
 		name: "edit_bet",
 		description:

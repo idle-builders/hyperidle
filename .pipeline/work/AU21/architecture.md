@@ -575,8 +575,12 @@ instead of importing the canonical one. The re-declaration exists only because t
 widened to the full seven.
 
 **Design — unify onto the one shared contract (enforced, not by convention):**
-- Widen `@hyperidle/shared`'s `AgentWorkIntentRecorderInput` to the **complete seven-kind discriminated union**
-  (matching the schema CHECK constraint), and keep the one generic `AgentWorkIntentRecorder<TTx>`.
+- Widen `@hyperidle/shared`'s `AgentWorkIntentRecorderInput` to the **complete discriminated union** (matching
+  the schema CHECK constraint), and keep the one generic `AgentWorkIntentRecorder<TTx>`. **(Decision I, 2026-07-31:
+  the union shrinks from seven kinds to SIX — `bet_decomposition` is removed with the built-in mechanism. Every
+  "seven-kind" reference in Decisions B/G and §10/§13 below is the pre-Decision-I count; the kind-set test and the
+  schema CHECK become the six-kind set `assistant_turn, session_start, knowledge_action, routine_run, task_run,
+  reengagement`.)**
 - Every caller (`work`, `review`, and — post-collapse — `routine`) imports that one type and **deletes its local
   mirror** (`WorkAgentWorkIntentInput`/`WorkAgentWorkIntentRecord`/work's local `AgentWorkIntentRecorder`;
   `ReviewAgentWorkIntentInput`/`ReviewAgentWorkIntentRecord`/`ReviewAgentWorkIntentRecorder`). Because they all
@@ -585,6 +589,219 @@ widened to the full seven.
   CHECK-constraint kinds, so kind drift is caught mechanically (not documented and hoped-for).
 - This is the same port Decision B grows to carry the baked start-payload — so unification and the Decision-B
   emit path are the same edit. It is **one** canonical against-grain mechanism, counted once.
+
+### Decision H — Re-derived from the founder's cycle principle (2026-07-31): ZERO orchestration reads back into core; core bakes, the agent self-recovers via MCP, orchestration only formats
+**This replaces the prior "seam-route the reads" H1/H2/H3 draft entirely** (founder re-grounding). The governing
+rule is stronger than "route reads through the governed seam": **agent-orchestration performs ZERO reads back
+into core-api — not raw DI, not even the `CoreApiPort` seam — to prepare or run a session.** The cycle (§5)
+splits cleanly into three responsibilities:
+1. **core-api assembles + validates + BAKES everything a run needs, at emit time** (reading its own state —
+   legal), onto the `AgentWorkIntentRecorder` payload;
+2. **the running agent pulls any *live* detail through its OWN MCP / `CoreApiPort` tools** (legal shape (c) — the
+   agent acting like the UI), self-recovering if reality changed;
+3. **orchestration only turns the baked bundle into the format the harness/sandbox needs** (pure transport,
+   zero core reads) — "information *assembly* is core's job; information *orchestration into harness format* is
+   orchestration's job — that is the entire key aspect of the cycle."
+
+This **resolves the prior draft's H-open founder question** (file-based context vs. agent-pulls-via-MCP): the
+answer is *both, split by role* — core bakes the full content, orchestration keeps writing sandbox files, but
+their CONTENT is the baked payload (never an orchestration read); staleness is handled by the agent's own live
+MCP self-recovery (§5c), never by a launch-time re-read. It also **obsoletes most of the new seam READ surface**
+the prior draft proposed (`getTaskById`/`getTeamById`/… for context assembly, `settings.readServerConfig` for
+the runner): those reads are DELETED, not moved to the seam. The three re-derived shapes + one capability removal
+(Decision I):
+
+**Unifying mechanism for every orchestration→core WRITE-back (reads are baked; writes ride events).** The
+founder's "zero ways to touch back into core" covers writes too. Every orchestration→core writeback in the ten
+pairs becomes a **core-api event subscriber** reacting to an event orchestration already emits — the exact,
+founder-accepted pattern already shipped for routine (`routine-run-session-end-reactions.ts`). Reads are baked at
+emit; writes are reported via events and core-api owns the reaction. No orchestration→core call of any kind
+survives.
+
+**H1 — post-session writeback, now `task_run` ONLY (the `decomposition` half is DELETED, not migrated — see
+Decision I).** `session-requests`'s lifecycle-inbox drain writes back two things today: `projectTask` (task
+dispatch-attempt bookkeeping, `service.ts:93`) and `projectDecomposition` (bet `decompositionStatus`,
+`service.ts:102`). **Decision I removes the whole `bet_decomposition` mechanism, so `projectDecomposition` +
+`updateBetDecompositionStatusIfRunning` + the `decomposition` `sourceKind`/projector simply cease to exist —
+nothing to migrate.** H1 keeps only the `task_run` half: `taskDispatchAttempts` is dispatch **bookkeeping**
+(attempt/retry state keyed on `requestId`, `work-service.ts:62`), not duplicated business state, and its terminal
+finalize is a legitimate post-session concern.
+- **Design (unchanged from the corrected draft, task-only):** add
+  `packages/core-api/src/services/work-session-end-reactions.ts` (reuse `routine-run-session-end-reactions.ts`'s
+  `registeredBuses` guard + explicit `registerWorkSessionEndReactions(db, eventBus)` wiring), subscribing
+  **`agent_run_lifecycle_changed` only**, keyed on its `state` field (`"completed"|"failed"|"cancelled"`,
+  `events.ts:82-91`, required `requestId`, emitted on every terminal state incl. `completed`,
+  `transition-run.ts:115-124`) — NOT `session_ended` (whose `SessionOutcome` `"completed"|"crashed"|"stopped"|
+  "not_returned"` vocab does not match `taskDispatchAttemptStore.updateIfActive`, `work-service.ts:71-77`). For
+  `sourceKind==="task"` → `updateIfActive(tx, event.requestId, {status: event.state, sessionId})`. Idempotent
+  (the `status IN ('requested','running')` predicate).
+- Flip `lifecycleProjectors.task` to `observeOnly`; delete `projectTask` + `DurableAgentQueueDeps.lifecycleProjection.work`.
+- Relocate `reapTerminalTaskDispatchAttempts` out of `reapExpired`'s single atomic transaction
+  (`service.ts:1036`) into `server-factory.ts`'s generic retention reaper (`taskDispatchAttemptStore.reapTerminal`
+  directly — harmless atomicity split, pure terminal-row GC); delete `DurableAgentQueueDeps.work`.
+- **Durability parity note (honest):** in-process `EventBus` delivery replaces the durable inbox for this
+  writeback — the trade routine already made; reactions are idempotent + state-guarded, a lost event leaves the
+  row pre-terminal and self-heals on the next lifecycle event/reaper.
+
+**H2 — the assistant turn is NOT special: core bakes the transcript, the runner's reads are DELETED, and turning
+the baked content into the harness session is ORCHESTRATION's core job — NOT an agent MCP pull (founder,
+re-derived).** The prior draft ("the agent pulls its own transcript via a new `read_thread` MCP tool") is
+**deleted** — it was substantially wrong. Founder, verbatim: *"the agent does not pull its own transcript. that
+is THE CORE TASK of the orchestration… the orchestration has to reassemble the session… so that for the agent
+session/harness it feels like it is naturally embedded in this conversation… knowing which pieces of the thread
+need to be put into the new iteration in this harness session."* This does **not** reopen "zero reads back into
+core": core still bakes the conversational content; orchestration still never reads core. What changes is WHO
+decides which content enters this harness invocation — **orchestration**, from the baked content + its OWN
+harness-session state — not the agent via a tool call.
+
+*Verified against source (I traced this, did not assume):*
+- Today an assistant turn delivers the transcript **into the assembled prompt / AGENTS.md** (`provisioner.ts:883-886`
+  conversational branch) or the builtin adapter's `messages` array (`:900-903`); the reply is captured as
+  `conversationalReply` (`:931-935`). `dispatch` mints a **fresh** `crypto.randomUUID()` session per turn
+  (`service.ts:251`) and reads the transcript **live at execution** via `loadRawTranscript` (`:240`).
+- **There is NO resumable-harness-session / per-thread-affinity concept anywhere today.** The only "resume" in the
+  tree is the worker-pool pause/resume backpressure protocol (`worker-ingress.ts:82`, `adapter-pool.ts:174`) —
+  unrelated. `sessionRunRegistry` (`session-run-registry.ts`) tracks LIVE sessions **only for cooperative abort**
+  (register at harness-start, deregister at teardown); it does not track "what has this session already seen" or
+  survive across turns. **So today every assistant turn is a brand-new harness spawn pre-loaded with the FULL
+  transcript from scratch — no resumption, no delta, "always send everything."**
+
+*The corrected design, split by size (this is the honest sizing call the coordinator asked for):*
+- **In AU21 — the boundary close (small–medium, Increment 11).** Core bakes the thread's conversational content
+  onto the `assistant_turn` event at emit (reading its own `conversation` state — legal; the same content
+  `loadRawTranscript` reads today). **Delete** the runner's three core reads (`listMessagesByThread`,
+  `getOrCreateUser`, `readServerConfig`). Orchestration constructs the harness input **from the baked transcript**
+  and writes it into the prompt/AGENTS.md exactly as today's conversational branch already does (fresh spawn, full
+  transcript) — orchestration deciding what goes into the harness IS its job; today's simplest form of that job is
+  preserved, only the transcript's SOURCE moves from a live read to the baked payload. **No agent MCP tool, no
+  `read_thread`.** Model resolves via the normal provisioning path; `systemPrompt` stays `scaffoldSpecs`-sourced
+  (not a core read). Delete `registerAssistantTriggerInternal`; the pin moves core-side (F4: a
+  `thread_message_appended` subscriber reading sender `kind` via same-layer DI to `users`).
+- **Coherence — reconciled via Decision B‴, NOT via an agent pull (correcting F1's earlier "dissolves" claim).**
+  Baking the full transcript at emit is **stale** for the concurrent-message case: msg2 emitted while turn1 is
+  still running bakes a transcript missing turn1's not-yet-written reply, and the assistant serializes turns
+  (fresh spawn caps at one). The fix is the machinery **AU21 already designs** — Decision B‴'s continued-push /
+  supersede: when turn1's reply lands while an `assistant_turn` for that thread is still pending, core re-emits
+  (re-bakes) the pending intent with the current transcript (freshest baked payload wins, older `superseded`).
+  Zero orchestration read, coherent. This wires B‴ to a new trigger (a thread reply superseding a pending same-thread
+  `assistant_turn`) — a bounded addition, in Increment 11.
+- **NOT in AU21 — the real "meta-orchestration of harness sessions" (its OWN follow-up WP).** The founder's full
+  vision — *"almost the hardest task… meta orchestration of harness sessions… many resumable agent sessions…
+  which one do we resume and what do we add into the new context"* — is **resumable harness sessions keyed by
+  thread, tracking what each session has already been fed, computing the DELTA (what's new since the harness last
+  saw the conversation), and deciding resume-vs-new.** Verified above: **none of this exists today.** It is a
+  substantial new piece of harness-session-lifecycle machinery, it is **not required to close AU21's boundary AC**
+  (the boundary closes with bake + delete-reads + B‴, preserving today's fresh-spawn model), and AU21 is already
+  XL. **Sizing call: this is its own follow-up WP, not Increment 11.** It is also the correct *efficiency* answer
+  (resume + delta avoids re-baking/re-sending the whole transcript every turn — which also retires the
+  payload-size concern below); AU21's fresh-spawn boundary close is the correct *first* form of the same job.
+  Registered as a named follow-up in `.pipeline/AU.md`; its shape is captured here so it is not lost.
+- **Payload-size note (real, bounded for now):** baking the full transcript onto every `assistant_turn` intent row
+  grows it with thread length — the same bounded-blob consideration as H3's knowledge bundle. AU21 preserves
+  today's "full transcript" behavior (bake it all); the resume/delta follow-up eliminates the re-send entirely. A
+  narrower "sufficient recent window" bake is a possible interim optimization, flagged, not taken (it would change
+  today's send-everything behavior).
+
+**H3 — core BAKES the full context content; `context.ts` becomes pure format/write; DELETE the accessors (not
+seam-route them).** Re-derived per the founder: "the core assembles everything that it needs… the orchestration
+turns all that information into the format that the agent harness needs… zero ways to touch back into core."
+- **Grow the baked payload.** `BakedWorkIntentRequest` (`service.ts:1258`) gains a `contextBundle` field carrying
+  the `SessionContextData` content (`context.ts:101-123`: task/bet/agent/team — or routine/agent/team) **plus**
+  the ranked+budgeted knowledge items that `assembleContext` (`context.ts:836-892`) currently reads at launch.
+- **One shared core-api assembler, the `requireRunnableAgent` precedent.** The knowledge fetch→rank→budget (the
+  cross-domain, heaviest piece — `list` L2/L3/L4 + `rankAndBudget`, `context.ts:836-858`, `rank` reads scoring
+  weights from the DB) moves fully core-side into ONE shared function each per-kind resolver calls intra-layer —
+  exactly how `requireRunnableAgent` became one `@hyperidle/users` helper that `task-run-resolver.ts`,
+  `session-start-resolver.ts`, `knowledge-action-resolver.ts`, `proposed-call-workflow.ts` (reengagement) and the
+  routine resolver already each import + inject. Home: `@hyperidle/knowledge` owns the ranking, so
+  `assembleSessionKnowledge(db, {teamId, agentRole, taskDescription})` lives there; the entity content each
+  resolver bakes from the source entity it **already loads to validate** (no new read). Each resolver, after
+  resolving the agent, calls the assembler + bakes the bundle onto its own payload — the same-layer core-api call
+  pattern Decision B already sanctioned (`cost-cap.ts` depends on `users`/`org`/`work`/`settings`). Only
+  `task_run`/`knowledge_action`/`routine_run`/`reengagement` bake this knowledge/entity bundle; **`assistant_turn`
+  bakes its own thread transcript instead** (H2) — a conversational turn needs its thread history, not ranked L2/L3/L4
+  knowledge.
+- **`context.ts` becomes pure format/write:** consume the baked `contextBundle` from the request and write
+  `session.toon` + `context/{product,practices,factory}/*` files — **ZERO db reads**. Its `ContextAssemblyPorts`
+  read methods (`knowledge`/`work`/`users`/`routine`/`org`) are **deleted**; `assembleAgentContext`'s `db` param
+  and the per-layer `fetchAllForLayer`/`rankAndBudget`/`buildSessionContextData` DB calls are removed, replaced by
+  a straight write of the pre-assembled bundle.
+- **`run-orchestration-composition.ts`: DELETE** `contextPorts` (`:65`) + `userReader` + `settingsReader` +
+  `routineAccessor` + the READ methods of `workAccessor` — not seam-route them. This is the concrete "zero reads
+  back into core" for the session runtime.
+- **The session-lifecycle WRITES ride events too** (same unifying mechanism). `transitionTask(taskId,
+  "in_progress")` at launch (`provisioner.ts:1105`) → a core-api **work** subscriber on the existing
+  `session_started` event (`sessions-routes.ts:488`) transitions the task, replacing the orchestration write.
+  `updateBetById`'s `tokensActualJson` writeback at session end (`provisioner.ts:711`) → rides `session_ended`
+  into a core-api work subscriber, same as routine's cost already does. `updateTaskById` (`:612`) likewise. After
+  this, `workAccessor`'s write methods are deleted too — `run-orchestration` holds **zero** `→ core-api` call,
+  read or write.
+- **Payload-size note (real, not a blocker):** `rankAndBudget` already trims to `DEFAULT_KNOWLEDGE_BUDGET` tokens
+  (`relevance-scoring.ts`), so the baked bundle equals the bounded set that would have been written to files
+  anyway — it moves that bounded blob into `agentWorkIntents.bakedRequestJson` (larger intent rows). The founder's
+  explicit call is "core assembles everything it needs and bakes it"; the size is bounded by the existing budget.
+
+### Decision I — Remove the built-in `bet_decomposition` mechanism entirely (founder, 2026-07-31)
+Founder, verbatim: *"[the entire built-in bet-decomposition mechanism] is wrong and needs fixed and the best fix
+always is removal… maybe other users and plugins won't even do decomposition. that's a user / plugin / strategy
+question not a core feature."* This is a **capability removal**, not a migration — it obsoletes the
+`decomposition` half of H1 and shrinks the intent union.
+
+**What it is today (verified from source).** A bet transitioning to `active` (`bet_state_changed`,
+`toState:"active"`) **auto-fires** `runBetDecomposition` (`bet-decomposition.ts:762-766`): it finds eligible team
+agents, selects a PM decomposer, records a `bet_decomposition` intent, runs a decomposition turn, writes the
+resulting tasks, and stamps a terminal `decompositionStatus` (`done`/`blocked`) on the bet. It is a **hardcoded,
+automatic core behavior** — there is **no** user "decompose" affordance; `WorkBet.tsx:1570-1625` only DISPLAYS
+the auto-status ("Decomposing…" / "Blocked — couldn't plan the work / no eligible agent" / draft: "commit and
+your team will break it into tasks").
+
+**The founder's principle preserves the CAPABILITY, removes the hardcoding.** A human/plugin/strategy can still
+attach an agent to a bet — via the **existing generic** explicit-session-start path (`session_start` /
+`explicit_session_start`, `sessions-routes.ts:413`), the same mechanism any human-initiated agent request uses.
+What dies is the hardcoded `bet_decomposition` intent kind + its bespoke subsystem + its automatic-on-commit
+trigger. This is fully consistent with AU.md's own track vision (line 5): every event becomes triggerable, and
+"decomposition work" is just a task-optional session request through the one runtime boundary — not a special
+kind.
+
+**Full removal footprint (verified):**
+- **Delete** `packages/core-api/work/src/bet-decomposition.ts` entirely (`resolveBetDecompositionRequest`,
+  `claimAndBakeDecompositionIntent`, `runBetDecomposition`, `registerBetDecomposition`,
+  `resolveOrphanedDecompositions`, `markTerminal`, `selectBetDecomposerAgent`, the now-moot Decision-D2 cost-block
+  remnants) + `work/src/index.ts:55,60` exports + `server-factory.ts:1215` `registerBetDecomposition` phase +
+  `:960` orphan-sweep wiring.
+- **Shrink the intent union to SIX kinds** (`assistant_turn, session_start, knowledge_action, routine_run,
+  task_run, reengagement`): remove `bet_decomposition` from `shared/src/events.ts:19`,
+  `shared/src/agent-work-intent-recorder.ts:95-100`, `db/src/schema.ts:436` CHECK + `:458` sourceKind CHECK,
+  `session-requests/src/service.ts:1274`, `run-orchestration/src/contracts.ts:29-30`. Add a migration for the
+  CHECK-constraint change; update Decision G's "kind-set == schema CHECK" test to the six-kind set.
+- **Drop the `bets.decompositionStatus` + `decompositionBlockerReason` columns** (`schema.ts:187,193`) + zod
+  (`zod-schemas.ts:55-56`) + the `decompositionStatus` guard branch in `work-service.ts:673-676` +
+  `durable-agent-queue.ts:104` + `web/src/types/bet.ts:35,40`.
+- **Remove the `decomposition` lifecycle projector + sourceKind** (`session-requests/src/service.ts:102-107,127`;
+  `run-orchestration/src/contracts.ts`) — this is the piece that obsoletes H1's decomposition half.
+- **Delete the `work_decompose_requested` event** + `packages/shared/src/bet-decomposition.ts` type file.
+- **UI (`WorkBet.tsx`):** replace the auto-decompose empty-states (Decomposing / Blocked) with the honest state —
+  a committed bet with no tasks is "no tasks yet" (and, if the strategy re-provides auto-decompose, that path
+  drives tasks the normal way). Revise the draft copy ("commit and your team will break it into tasks") to match
+  whatever the strategy decision (open question below) settles.
+
+**SETTLED (founder, 2026-07-31):** *"minimal strategy provides an auto-decompose on bet creation as a default
+trigger."* So the default UX is preserved via the generic mechanism (AU.md line 5), not lost: **core removes the
+hardcoded `bet_decomposition` mechanism (this Decision); `packages/strategy-minimal` re-provides "auto-decompose
+on bet creation" as a configurable default trigger** through the generic trigger substrate — the same
+"decomposition work becomes a task-optional session request" the track vision already names.
+- **Scope call — the strategy re-provision is a SEPARATE, obviously-scoped follow-up, NOT AU21.** Reason: it is
+  additive *strategy configuration* (a default trigger rule in `strategy-minimal`), not a boundary-seam concern,
+  and it belongs with strategy-minimal's own evolution — folding it into AU21 mixes a capability removal with
+  strategy authoring. **But it is release-coupled:** because this is a versioned desktop app that finishes changes
+  per release (no live cutover), the removal (AU21) and the strategy default-trigger must ship in the **same
+  release**, or the default experience regresses (a committed bet stops auto-decomposing). `WorkBet.tsx`'s copy is
+  finalized to match the trigger-driven flow, not an open question.
+- **Dependency/risk to flag for that follow-up (verified earlier this WP):** the generic *trigger substrate* the
+  strategy would use may not be fully wired — Increment 9's SECOND-pass finding recorded that `settings`'
+  `kind:"trigger"` config (the "Triggers" tab) *"has had no code path anywhere that reads it to affect real agent
+  selection."* So "strategy-minimal provides a default trigger" presumes that substrate is (or gets) wired; the
+  follow-up must confirm/close that, and cannot be assumed free. Tracked in `.pipeline/AU.md`.
 
 ## 7. Disposition rule (applied to every capability in Increment 0's worklist)
 Per capability behind an `agent-orchestration → core-api` read/write (visible in the graph **or** hidden in a
@@ -603,15 +820,30 @@ authority (§6 B, provision-time cover) and (ii) any Decision-D display query th
 
 ## 8. Acceptance criteria → verification
 
-> **Status flag (2026-07-30, Increment 9 THIRD pass) — AC #2 and AC #9 are NOT fully met.** See §9 Increment 9's
-> own status note below the ordered-tasks list for the full, honest accounting: 8 real `agent-orchestration ->
-> core-api` pairs remain (tracked, not silently masked, in `scripts/composition-edge-anti-regrowth-guard.ts`'s
-> `DEFERRED_FOLLOWUP`). Every other AC in this table is met.
+> **Status flag (2026-07-31, Decision H RE-DERIVED from the founder's cycle principle) — AC #2/#9 have a designed
+> closure; not yet built.** The Increment 9 THIRD pass left **10** genuinely-open `agent-orchestration -> core-api`
+> pairs (tracked in the guard's `DEFERRED_FOLLOWUP`). The founder re-grounded the fix from first principles:
+> **ZERO orchestration reads back into core — not even via the governed seam.** Core BAKES everything a run needs
+> at emit; the agent pulls live detail via its OWN MCP tools; orchestration only formats the baked bundle into
+> harness shape. This **replaces** the prior "seam-route the reads" draft. Decision H (§6) now closes the ten via
+> **H1** (task_run writeback → event subscriber — the `decomposition` half is DELETED, not migrated), **H2** (the
+> assistant turn is not special: core BAKES the transcript, the runner's 3 reads are DELETED, and ORCHESTRATION
+> builds the harness input from the baked content — coherence via B‴, NOT an agent MCP pull),
+> **H3** (core bakes the full context bundle; `context.ts` becomes pure format/write; the read accessors are
+> DELETED, and the lifecycle writes ride events). **Decision I** (§6) removes the built-in `bet_decomposition`
+> mechanism entirely (founder). Built by Increments 10a/10/11/12/13 (§9). The prior draft's "H-open" question is
+> **resolved** by the founder (bake + self-recover). The Decision I strategy question is now **SETTLED**
+> (strategy-minimal re-provides auto-decompose on bet creation as a default trigger — a release-coupled follow-up,
+> not AU21). The one genuinely-separate large piece the H2 re-derivation surfaced: the founder's full
+> **meta-orchestration of harness sessions** (resumable per-thread harness sessions + delta) does NOT exist in the
+> codebase today and is a SEPARATE follow-up WP — NOT required for AU21's boundary AC (which closes with
+> bake + delete-reads + B‴). Until the increments land, AC #2/#9 are unmet in code; every other AC in this table
+> is met.
 
 | # | AC | Verification |
 |---|---|---|
 | 1 | Location-transparent `CoreApiPort` seam exists (Application-wired, in-process today, remote-capable) | (a) Integration test builds `CoreApiPort` with `fetch = app.request` AND a stub network `fetch`; identical call succeeds via both. (b) Per-method contract test (§11): each method reaches its real route + middleware runs. (c) `npm run check` proves the contract type-resolves from a Service depending only on `@hyperidle/api-contract`. |
-| 2 | The clean loop is real end-to-end and **orchestration reads zero core-api domain state** | (a) Integration test: a core-api Service resolves + emits a baked request; the drain builds+deploys performing **zero** core-api reads (asserted via composition + the §9-Inc-9 guard, which sees the composition-bundle pattern). (b) `resolveIntentInputInternal`'s core-domain reads are gone; own-state dedup reads remain and existing idempotency tests pass unchanged. (c) Self-recovery test: a run for a source changed after emit is not pre-checked away; the session runs and the agent's MCP read observes current state (or fails → emits the failure event → core reacts). (d) An agent write lands via the core-api route path (middleware ran). |
+| 2 | The clean loop is real end-to-end and **orchestration reads zero core-api domain state** | (a) Integration test: a core-api Service resolves + emits a baked request; the drain builds+deploys performing **zero** core-api reads (asserted via composition + the §9-Inc-9 guard, which sees the composition-bundle pattern). (b) `resolveIntentInputInternal`'s core-domain reads are gone; own-state dedup reads remain and existing idempotency tests pass unchanged. (c) Self-recovery test: a run for a source changed after emit is not pre-checked away; the session runs and the agent's MCP read observes current state (or fails → emits the failure event → core reacts). (d) An agent write lands via the core-api route path (middleware ran). **(e) Zero orchestration→core call (read OR write) survives, per the re-derived Decision H — H1 task_run writeback → event subscriber (Inc 10; decomposition removed, Inc 10a/Decision I), H2 assistant transcript BAKED by core + runner's 3 reads deleted, orchestration formats the baked transcript, coherence via B‴, no agent MCP pull (Inc 11), H3 full context baked at emit + `context.ts` format-only with the read accessors + lifecycle-write accessors deleted (Inc 12) — anti-regrowth guard green, `DEFERRED_FOLLOWUP` empty.** |
 | 2b | **Pre-handoff failure report-back works and the AU15 brick is still prevented** | Integration test: force a pre-handoff terminal failure; assert `failOrRelease` emits `agent_run_admission_failed`, a core-api subscriber finalizes the routine run to `outcome="error"`, and AU15 AC-3d holds (intent `failed`, run `error`, second fire self-heals). `routine-scheduler.au15.integration.test.ts` AC-3d is rewired to the event mechanism and must pass. |
 | 2c | **Routine-runs-as-sessions collapse** | A routine firing produces a session with no orchestration-side direct write to `routineRuns`; run outcome is set only via the report-back events. Test proves a fired routine's run finalizes through the event path; `@lore AA1` updated. |
 | 3 | Every read/write in the regenerated worklist gets a disposition surviving re-challenge | `edge-disposition.md`: each capability + verdict + §7 disposition + reasoning; reviewer confirms. Post-fix graph shows each former read gone/baked and each write seam-routed; the new failure event shows as an against-grain EventBus inversion. |
@@ -746,6 +978,90 @@ emit + self-recovery + report-back model. Write the going-forward practice.
 > closing a regrowth the fix itself introduced via a new `CoreApiPort` seam route). **Do not present this work
 > package as fully closing AC #2 without a founder decision on the remaining 8 pairs** — see `.pipeline/AU.md`'s
 > AU21/AU23 registry rows.
+>
+> **Update (2026-07-31): Decision H (§6) was RE-DERIVED from the founder's cycle principle** — ZERO orchestration
+> reads back into core (not even via the seam): core bakes, the agent self-recovers via MCP, orchestration only
+> formats. The ten pairs close via H1 (task_run writeback → event subscriber), H2 (assistant runner reads DELETED,
+> agent pulls transcript via a new MCP tool), H3 (core bakes the full context bundle; `context.ts` format-only;
+> read + lifecycle-write accessors DELETED), plus **Decision I** (remove the built-in `bet_decomposition`
+> mechanism — obsoletes the `decomposition` writeback half). Increments 10a/10/11/12/13. The prior draft's
+> "H-open" file-based-vs-MCP question is **resolved** (bake + self-recover). Residual founder open questions
+> (NON-blocking for AC #2): the minimal-strategy auto-decompose re-provision (Decision I) and the assistant
+> `conversational`-mode collapse (H2 scope). See `.pipeline/AU.md`.
+
+**Increment 10a — Remove the built-in `bet_decomposition` mechanism (Decision I).** Delete
+`work/src/bet-decomposition.ts` + its exports + the `server-factory.ts` registration/orphan-sweep wiring; shrink
+the intent union to six kinds everywhere (shared events/recorder, schema CHECK + sourceKind CHECK,
+session-requests, run-orchestration contracts — with a CHECK-constraint migration); drop the
+`bets.decompositionStatus`/`decompositionBlockerReason` columns + zod + the work-service guard branch +
+`durable-agent-queue.ts` + web bet types; remove the `decomposition` lifecycle projector/sourceKind; delete the
+`work_decompose_requested` event + `shared/src/bet-decomposition.ts`; rework `WorkBet.tsx`'s decompose
+empty-states. Tests: (a) committing/activating a bet records **no** `bet_decomposition` intent and leaves no
+`decompositionStatus`; (b) the generic explicit-session-start against a bet still provisions an agent session
+(the preserved capability); (c) Decision G's kind-set test now asserts the **six**-kind union == the schema CHECK.
+This obsoletes H1's decomposition writeback (Increment 10 is task-only as a result). **Founder open question
+(§Decision I)** — whether the minimal strategy re-provides auto-decompose — is tracked in `.pipeline/AU.md`, does
+not block this increment; `WorkBet.tsx` copy is finalized once answered.
+
+**Increment 10 — `session-requests::work` `task_run` writeback → core-api event-subscriber (Decision H1).** Add
+`packages/core-api/src/services/work-session-end-reactions.ts` (reuse `routine-run-session-end-reactions.ts`'s
+structure) subscribing **`agent_run_lifecycle_changed` only**, keyed on `state` (NOT `session_ended` — vocab
+mismatch, H1). `sourceKind==="task"` → `taskDispatchAttemptStore.updateIfActive(tx, event.requestId, {status:
+event.state, sessionId})`. Flip `lifecycleProjectors.task` to `observeOnly`; delete `projectTask` +
+`DurableAgentQueueDeps.lifecycleProjection.work`. Relocate `reapTerminalTaskDispatchAttempts` out of
+`reapExpired`'s atomic transaction into `server-factory.ts`'s retention reaper; delete `DurableAgentQueueDeps.work`.
+Tests: (a) a completed task session finalizes the dispatch-attempt row via the event path (no orchestration→work
+write); (b) failed/cancelled likewise; (c) duplicate/redelivered event is a no-op (idempotency); (d) retention
+still reaps terminal rows, core-side. (The decomposition half is gone via 10a.) After this + 10a `session-requests`
+holds zero `→ work` edge.
+
+**Increment 11 — Assistant-turn boundary close (Decision H2 re-derived): core bakes the transcript, DELETE the
+runner's reads, orchestration builds the harness input from the baked content.** **Core bakes** the thread's
+conversational content onto the `assistant_turn` event at emit (`routes/threads.ts`, reading its own
+`conversation` state — the same content `loadRawTranscript` reads today). **Delete** `runTurnInternal`'s three
+core reads (`listMessagesByThread`, `getOrCreateUser`, `readServerConfig`) — NOT seam-route them, and **NO
+`read_thread` MCP tool** (the agent does not pull its own transcript — corrected). Orchestration constructs the
+harness input from the **baked transcript**, written into the prompt/AGENTS.md exactly as today's conversational
+branch (`provisioner.ts:883-903`) already does (fresh spawn, full transcript) — only the transcript's SOURCE moves
+from a live read to the baked payload. Model resolves via the normal provisioning path; `systemPrompt` stays
+`scaffoldSpecs`-sourced. **Coherence via Decision B‴ (not an agent pull):** wire a new B‴ supersede trigger — a
+thread reply landing while an `assistant_turn` for that thread is still pending re-bakes (supersedes) the pending
+intent with the current transcript. Move the pin into a core-api `thread_message_appended` subscriber reading
+sender `kind` via same-layer DI to `users` (F4); delete `registerAssistantTriggerInternal`. Tests: (a)
+**coherence** — msg2 emitted while turn1 runs, turn1 posts its reply; assert the queued `assistant_turn` is
+re-baked (B‴ supersede) so turn2 runs with a transcript INCLUDING turn1's reply, with **zero** orchestration read;
+(b) the assistant turn provisions + runs through the standard path with **zero** `dispatch`→core read, the
+transcript sourced from the baked payload; (c) the thread pins via the core-api subscriber. After this
+`dispatch/src/service.ts` holds zero `→ core-api` edge. **Sizing:** this is small–medium and fits Increment 11.
+The *resumable-harness-session / delta* machinery the founder describes ("meta-orchestration of harness sessions")
+does **not** exist today and is **out of AU21** — its own follow-up WP (Decision H2, `.pipeline/AU.md`).
+
+**Increment 12 — Core bakes the full context; `run-orchestration` reads/writes NOTHING back (Decision H3).**
+Grow `BakedWorkIntentRequest` with a `contextBundle` (entity `SessionContextData` content + ranked+budgeted
+knowledge items). Add the shared `@hyperidle/knowledge` `assembleSessionKnowledge(db, {teamId, agentRole,
+taskDescription})` (relocates `list`+`rankAndBudget` core-side, the `requireRunnableAgent` precedent) and have
+each per-kind resolver (`task-run-resolver.ts`, `knowledge-action-resolver.ts`, routine resolver,
+`proposed-call-workflow.ts` reengagement) call it + bake the bundle (assistant_turn bakes none). Rewrite
+`context.ts` to **consume + write** the baked bundle only — delete its `ContextAssemblyPorts` reads and
+`assembleAgentContext`'s `db`/fetch/rank path. **Delete** (not seam-route) `run-orchestration-composition.ts`'s
+`contextPorts` + `userReader`/`settingsReader`/`routineAccessor` + `workAccessor`'s reads. Route the
+session-lifecycle WRITES via events: `transitionTask("in_progress")` → a core-api work subscriber on
+`session_started`; `updateBetById`/`updateTaskById` writebacks → core-api work subscribers on `session_ended`;
+delete `workAccessor`'s writes. Tests: (a) a launched `task_run`/`routine_run`/`knowledge_action`/`reengagement`
+session assembles its sandbox context from the **baked bundle** with **zero** `run-orchestration`→core read
+(anti-regrowth composition-bundle detector green on `run-orchestration`); (b) baked ranking output matches the
+pre-migration ranking for a fixed corpus; (c) `transitionTask("in_progress")` at launch fires via the
+`session_started` subscriber, not an orchestration write; (d) existing session-launch integration tests pass.
+After this `run-orchestration` holds zero `→ core-api` edge, read or write. **Payload-size** is bounded by the
+existing knowledge budget (H3 note).
+
+**Increment 13 — Wire the guard's bare check + re-baseline + re-affirm AC #2 / AC #9.** With 10a/10/11/12 landed,
+`DEFERRED_FOLLOWUP` is empty (`ALLOWLIST` = only the 4 founder-signed `cost::*` rows). Promote
+`scripts/composition-edge-anti-regrowth-guard.ts`'s bare `inspect(process.cwd())` to a hard `npm run lint`
+failure; a test proves it fires on any new orchestration→core read port **or** composition-bundle core-read.
+Re-run `generate-dependency-graph.ts`; update `plans/AU19/*` + `runtime-simplification.md` to the
+bake-at-emit + agent-self-recovery + format-only-orchestration model. AC #2 and AC #9 are met. The Decision I
+strategy open question is tracked in `.pipeline/AU.md`, separate from this AC.
 
 ## 10. Contracts / type signatures
 ```
@@ -889,6 +1205,37 @@ method in `edge-disposition.md` has a backing route + a passing contract test.
 - `routineRuns` (`schema.ts:693`): `collapse` per Inc-4 ruling; update `@lore AA1`.
 - `scripts/generate-dependency-graph.ts`: `extend` (composition-bundle detection + edge classes + guard).
   `as-is-dependency-graph.md` + JSON: `rebaseline`. `runtime-simplification.md`: `reword`.
+- **Decision H1 (`session-requests::work`, `task_run` only):** `add`
+  `packages/core-api/src/services/work-session-end-reactions.ts` (**`agent_run_lifecycle_changed`-only**
+  subscriber keyed on `state`, `task` only — the `decomposition` half is DELETED by Decision I); `flip`
+  `lifecycleProjectors.task` to `observeOnly` + `delete` `projectTask` + `DurableAgentQueueDeps.lifecycleProjection.work`;
+  `move` `reapTerminalTaskDispatchAttempts` out of `reapExpired` into `server-factory.ts`'s retention reaper +
+  `delete` `DurableAgentQueueDeps.work`; `wire` `registerWorkSessionEndReactions` at boot.
+- **Decision H2 (`dispatch::conversation`/`::users`/`::settings`):** `bake` the thread transcript onto the
+  `assistant_turn` event at emit (`routes/threads.ts`); `delete` (NOT seam-route, and NO `read_thread` MCP tool)
+  `runTurnInternal`'s three core reads (`listMessagesByThread`/`getOrCreateUser`/`readServerConfig`); orchestration
+  builds the harness input from the baked transcript (same prompt/AGENTS.md path as today's conversational branch,
+  `provisioner.ts:883-903`); `add` a Decision-B‴ supersede trigger (a thread reply re-bakes a still-pending
+  same-thread `assistant_turn`) for coherence; `move` the pin into a `@hyperidle/conversation`
+  `thread_message_appended` subscriber (sender `kind` via same-layer DI to `users`); `delete`
+  `registerAssistantTriggerInternal` + `DispatchPorts.conversation`/`users`. The resumable-harness-session / delta
+  ("meta-orchestration") machinery is a SEPARATE follow-up WP, not AU21.
+- **Decision H3 (`run-orchestration` context/lifecycle):** `grow` `BakedWorkIntentRequest` with a `contextBundle`;
+  `add` shared `@hyperidle/knowledge` `assembleSessionKnowledge` (relocate `list`+`rankAndBudget` core-side) +
+  have each per-kind resolver bake the bundle; `rewrite` `context.ts` to consume+write the baked bundle only
+  (`delete` its `ContextAssemblyPorts` reads + `assembleAgentContext`'s `db`/fetch path); `delete` (NOT
+  seam-route) `contextPorts` + `userReader`/`settingsReader`/`routineAccessor` + `workAccessor`'s reads in
+  `run-orchestration-composition.ts`; route the lifecycle WRITES via events (`transitionTask("in_progress")` → a
+  work subscriber on `session_started`; `updateBetById`/`updateTaskById` → work subscribers on `session_ended`) +
+  `delete` `workAccessor`'s writes.
+- **Decision I (remove built-in `bet_decomposition`):** `delete` `work/src/bet-decomposition.ts` + exports +
+  `server-factory.ts` registration/orphan-sweep; `shrink` the intent union to SIX kinds (shared events/recorder,
+  schema CHECK `:436` + sourceKind CHECK `:458` with a migration, session-requests `:1274`, run-orchestration
+  contracts); `drop` `bets.decompositionStatus`/`decompositionBlockerReason` columns + zod + `work-service.ts`
+  guard + `durable-agent-queue.ts` + `web/src/types/bet.ts`; `remove` the `decomposition` lifecycle
+  projector/sourceKind; `delete` the `work_decompose_requested` event + `shared/src/bet-decomposition.ts`;
+  `rework` `WorkBet.tsx`'s decompose empty-states; update Decision G's kind-set test to six. Founder open
+  question (strategy auto-decompose) tracked in `.pipeline/AU.md`, non-blocking.
 
 ## 14. Protected tests
 - **Idempotency/dedup — STAY GREEN UNCHANGED.** `agent-session-requests.integration.test.ts` (idempotent

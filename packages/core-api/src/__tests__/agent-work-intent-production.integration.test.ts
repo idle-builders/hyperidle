@@ -19,12 +19,10 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { getTeamMembers } from "@hyperidle/org";
 import { transitionProposedCall } from "@hyperidle/review";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
-import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
-import type { BetDecompositionDeps, WorkDeps } from "@hyperidle/work";
-import { checkAndUnblockDependents, registerBetDecomposition } from "@hyperidle/work";
+import { requireRunnableAgent } from "@hyperidle/users";
+import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
 import { queueDeps } from "../services/durable-agent-queue.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
@@ -35,50 +33,6 @@ const depWatcherDeps = {
 	workIntents: { record: enqueueWorkIntent },
 	taskRunResolver: { requireRunnableAgent },
 };
-
-const workIntents: WorkDeps["workIntents"] = { record: enqueueWorkIntent };
-
-async function triggerDecomposition(
-	db: HyperIdleDb,
-	eventBus: BetDecompositionDeps["eventBus"],
-	taskInputs: readonly { title: string }[],
-	intentRecorder: WorkDeps["workIntents"] = workIntents,
-): Promise<void> {
-	const deps: BetDecompositionDeps = {
-		db,
-		eventBus,
-		users: {
-			getUserById: (exec, id) => findUser(exec, { id }),
-			listActiveAiUsersByTeams: (exec, teamIds) =>
-				listUsers(exec, { teamIds: [...teamIds], kind: "ai", status: "active" }),
-			listUsersByTeam: (exec, teamMembersId) => listUsers(exec, { teamIds: [teamMembersId] }),
-		},
-		teamCapacity: {
-			getByTeamId: (exec, teamId) => getTeamMembers(exec, { teamId }),
-			setActiveBets: async () => {},
-		},
-		workIntents: intentRecorder,
-		sandboxBasePath: "/tmp/au9-production",
-		runDecompositionTurn: async () => [...taskInputs],
-	};
-	const dispose = registerBetDecomposition(deps);
-	try {
-		eventBus.emit({
-			type: "bet_state_changed",
-			streamId: "au9-production-bet",
-			betId: "au9-production-bet",
-			fromState: "draft",
-			toState: "active",
-			timestamp: Date.now(),
-		});
-		await vi.waitFor(async () => {
-			const [bet] = await db.select().from(bets).where(eq(bets.id, "au9-production-bet"));
-			expect(["done", "blocked"]).toContain(bet?.decompositionStatus);
-		});
-	} finally {
-		dispose();
-	}
-}
 
 const authHeaders = {
 	"Content-Type": "application/json",
@@ -466,27 +420,6 @@ describe("atomic production handoffs", () => {
 		expect(attempts[0]?.occasion).toBe("accepted");
 	});
 
-	test("decomposition acceptance records one dispatch occasion per created task", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedExplicitSessionAuthority(db);
-
-		await triggerDecomposition(db, eventBus, [{ title: "First slice" }, { title: "Second slice" }]);
-
-		const createdTasks = await db.select().from(tasks).where(eq(tasks.betId, "au9-production-bet"));
-		const createdIds = createdTasks
-			.filter((task) => task.id !== "au9-production-task")
-			.map((task) => task.id);
-		const attempts = await db.select().from(taskDispatchAttempts);
-		const createdAttempts = attempts.filter((attempt) => createdIds.includes(attempt.taskId));
-		const intents = await db.select().from(agentWorkIntents);
-		expect(
-			intents.filter((intent) => createdAttempts.some((attempt) => attempt.id === intent.sourceId)),
-		).toHaveLength(2);
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
-	});
-
 	test("real assistant message command rolls back its message when the intent write fails", async ({
 		db,
 		app,
@@ -705,25 +638,6 @@ describe("atomic production handoffs", () => {
 			.where(eq(agentWorkIntents.sourceId, attempts[0]?.id ?? ""));
 		expect(intents).toHaveLength(1);
 		expect(attempts[0]?.occasion).toBe("retry");
-	});
-
-	test("decomposition task and dispatch occasion roll back together on intent failure", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedExplicitSessionAuthority(db);
-		const failDispatchIntent: WorkDeps["workIntents"] = {
-			record: (exec, input) => {
-				if (input.kind === "task_run") {
-					throw new Error("AU9 injected intent write failure");
-				}
-				return enqueueWorkIntent(exec, input);
-			},
-		};
-		await triggerDecomposition(db, eventBus, [{ title: "Must be atomic" }], failDispatchIntent);
-		const rows = await db.select().from(tasks).where(eq(tasks.betId, "au9-production-bet"));
-		expect(rows.map((row) => row.id)).toEqual(["au9-production-task"]);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(1);
 	});
 
 	test("real proposed-call grant command records one replay-safe reengagement occasion", async ({

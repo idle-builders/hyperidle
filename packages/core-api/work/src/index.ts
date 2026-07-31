@@ -46,20 +46,6 @@ export type {
 	ArtifactWithTaskTitle,
 	CreateArtifactInput,
 } from "./artifact-store.js";
-// -- bet decomposition (AK3) --
-// -- bet_decomposition resolver (AU21 §6 Decision B — emit-time resolution, extends this file in place) --
-export type {
-	BakedBetDecompositionRequest,
-	BetDecompositionDeps,
-	BetDecompositionResolverDeps,
-} from "./bet-decomposition.js";
-export {
-	BetDecompositionSourceUnavailableError,
-	markTerminal,
-	registerBetDecomposition,
-	resolveBetDecompositionRequest,
-	resolveOrphanedDecompositions,
-} from "./bet-decomposition.js";
 // -- bet kill cascade (AF12) --
 export { cascadeBetKill } from "./bet-kill-cascade.js";
 // -- bet state machine --

@@ -22,14 +22,6 @@ interface DurableQueueDeps {
 				requestId: string,
 				patch: { status: "completed" | "failed" | "cancelled"; sessionId: string | null },
 			): Promise<void>;
-			updateBetDecompositionStatusIfRunning(
-				exec: WriteExecutor,
-				id: string,
-				patch: {
-					decompositionStatus: "done" | "blocked";
-					decompositionBlockerReason: string | null;
-				},
-			): Promise<void>;
 		};
 		readonly explicitSessionStarts: {
 			projectTerminalState(

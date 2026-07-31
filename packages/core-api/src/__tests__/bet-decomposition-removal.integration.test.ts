@@ -97,7 +97,7 @@ async function seedTeamWithEligibleAgent(
 	return { teamParentId, membershipId };
 }
 
-describe("AU21 Increment 10a (Decision I) — bet_decomposition removed", () => {
+describe("committing a bet no longer triggers the built-in bet_decomposition mechanism", () => {
 	beforeEach(() => vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY));
 	afterEach(() => vi.unstubAllEnvs());
 
@@ -213,7 +213,7 @@ const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
 	})),
 };
 
-describe("AU21 Increment 10a (Decision I) — preserved generic explicit-session-start capability", () => {
+describe("the generic explicit-session-start mechanism against a bet's task still provisions an agent session", () => {
 	const key = "au21-inc10a-session-key";
 	beforeEach(() => vi.stubEnv("HYPERIDLE_API_KEY", key));
 	afterEach(() => vi.unstubAllEnvs());

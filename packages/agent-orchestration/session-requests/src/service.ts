@@ -69,7 +69,6 @@ const lifecycleSourceKinds = [
 	"task",
 	"knowledge",
 	"routine",
-	"decomposition",
 	"proposed_call",
 	"explicit_session_start",
 ] as const;
@@ -99,12 +98,6 @@ const projectTask: Projector = async (db, fact, deps) => {
 		await projectExplicitStart(tx, fact, deps);
 	});
 };
-const projectDecomposition: Projector = async (db, fact, deps) => {
-	await deps.work.updateBetDecompositionStatusIfRunning(db, fact.sourceId, {
-		decompositionStatus: fact.state === "completed" ? "done" : "blocked",
-		decompositionBlockerReason: fact.state === "completed" ? null : "failed",
-	});
-};
 const projectExplicitStart: Projector = async (db, fact, deps) => {
 	await deps.explicitSessionStarts.projectTerminalState(db, fact.requestId, {
 		status: fact.state,
@@ -124,7 +117,6 @@ const lifecycleProjectors: Record<LifecycleSourceKind, Projector> = {
 	// event-driven mechanism — so this drain's job for `routine` is now
 	// purely observational, same as `assistant`/`knowledge`/`proposed_call`.
 	routine: observeOnly,
-	decomposition: projectDecomposition,
 	proposed_call: observeOnly,
 	explicit_session_start: projectExplicitStart,
 };
@@ -1242,7 +1234,6 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	assistant: "conversation",
 	routine: "routine",
 	knowledge: "knowledge",
-	decomposition: "decomposition",
 	proposed_call: "proposed_call",
 };
 
@@ -1271,7 +1262,6 @@ export type WorkIntentInput = {
 		| "session_start"
 		| "knowledge_action"
 		| "routine_run"
-		| "bet_decomposition"
 		| "task_run"
 		| "reengagement";
 	readonly sourceKind:
@@ -1279,7 +1269,6 @@ export type WorkIntentInput = {
 		| "explicit_session_start"
 		| "knowledge_action"
 		| "routine_run"
-		| "bet"
 		| "task_dispatch_attempt"
 		| "proposed_call";
 	readonly sourceId: string;
@@ -1424,14 +1413,6 @@ export interface DurableAgentQueueDeps {
 					readonly sessionId: string | null;
 				},
 			): Promise<void>;
-			updateBetDecompositionStatusIfRunning(
-				exec: WriteExecutor,
-				id: string,
-				patch: {
-					readonly decompositionStatus: "done" | "blocked";
-					readonly decompositionBlockerReason: string | null;
-				},
-			): Promise<void>;
 		};
 		readonly explicitSessionStarts: {
 			projectTerminalState(
@@ -1456,7 +1437,10 @@ export interface DurableAgentQueueDeps {
 	 * before (see `CreateSessionRequestInput`'s own doc comment above). Also
 	 * `getTaskDispatchAttemptById` (`work`, below) — declared, never invoked
 	 * anywhere in this file (only `reapTerminalTaskDispatchAttempts` and
-	 * `lifecycleProjection.work`'s two methods are genuinely live).
+	 * `lifecycleProjection.work`'s one method are genuinely live —
+	 * `updateBetDecompositionStatusIfRunning`, the other method this comment
+	 * originally counted, is REMOVED entirely by AU21 §9 Increment 10a /
+	 * Decision I).
 	 *
 	 * @lore AU21 §9 Increment 9 (forensic-triage wave, THIRD pass): the
 	 * remaining `work` surface (this field + `lifecycleProjection.work` above)
@@ -1468,9 +1452,11 @@ export interface DurableAgentQueueDeps {
 	 * core-api `session_ended`/`agent_run_lifecycle_changed` subscriber, see
 	 * `lifecycleProjectors.routine`'s `observeOnly` entry below and
 	 * `routine-run-session-end-reactions.ts`), but completing the analogous
-	 * migration for `task`/`decomposition` needs its own dedicated red/green
-	 * pass, not a rushed fix — see the guard's `DEFERRED_FOLLOWUP` doc comment
-	 * for the full reasoning.
+	 * migration for `task` needs its own dedicated red/green pass, not a
+	 * rushed fix — see the guard's `DEFERRED_FOLLOWUP` doc comment for the
+	 * full reasoning. (AU21 §9 Increment 10a / Decision I removed
+	 * `decomposition` entirely, rather than migrating it — this gap is now
+	 * `task`-only, closed by Increment 10.)
 	 */
 	readonly work: {
 		reapTerminalTaskDispatchAttempts(

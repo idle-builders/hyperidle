@@ -401,7 +401,6 @@
 	"packages/web/src/__tests__/AG4-useHistoryAvailability.test.ts",
 	"packages/web/src/__tests__/AG4-useNavShortcuts.test.ts",
 	"packages/web/src/__tests__/AI4-StatusChip-label.test.tsx",
-	"packages/web/src/__tests__/AK3-WorkBet-task-states.test.tsx",
 	"packages/web/src/__tests__/AK5-promote-bet.test.tsx",
 	"packages/web/src/__tests__/AM1-PartList.test.tsx",
 	"packages/web/src/__tests__/AM1-navHandler.test.tsx",

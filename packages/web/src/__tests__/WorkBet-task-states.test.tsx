@@ -62,7 +62,7 @@ function renderBet(bet: BetDetail) {
 // State: Draft (status=draft, no tasks) — copy no longer promises auto-decompose
 // ---------------------------------------------------------------------------
 
-describe("AU21 Increment 10a: WorkBet task section — Draft state (honest copy)", () => {
+describe("WorkBet task section — Draft state (honest copy)", () => {
 	it("renders bet-tasks-draft when bet is still draft", () => {
 		const bet = makeBetDetail({ status: "draft", tasks: [] });
 		renderBet(bet);
@@ -81,7 +81,7 @@ describe("AU21 Increment 10a: WorkBet task section — Draft state (honest copy)
 // replacement for the removed Decomposing/Blocked states.
 // ---------------------------------------------------------------------------
 
-describe("AU21 Increment 10a: WorkBet task section — No tasks yet state (Decision I)", () => {
+describe("WorkBet task section — No tasks yet state", () => {
 	it("renders an honest 'no tasks yet' empty state for a committed bet with zero tasks", () => {
 		const bet = makeBetDetail({ status: "active", tasks: [] });
 		renderBet(bet);
@@ -108,7 +108,7 @@ describe("AU21 Increment 10a: WorkBet task section — No tasks yet state (Decis
 // State: Populated (tasks > 0) — still beats every other state (unchanged).
 // ---------------------------------------------------------------------------
 
-describe("AU21 Increment 10a: WorkBet task section — Populated state, tasks>0 beats everything", () => {
+describe("WorkBet task section — Populated state, tasks>0 beats everything", () => {
 	it("renders task-row items when tasks > 0", () => {
 		const bet = makeBetDetail({
 			status: "active",

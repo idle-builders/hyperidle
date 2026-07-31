@@ -670,11 +670,6 @@ function buildBetGuardCond(guard: TransitionGuard): SQL {
 	if (guard.field === "status") {
 		return isNullGuard(guard) ? isNull(bets.status) : eq(bets.status, guard.equals);
 	}
-	if (guard.field === "decompositionStatus") {
-		return isNullGuard(guard)
-			? isNull(bets.decompositionStatus)
-			: eq(bets.decompositionStatus, guard.equals);
-	}
 	throw new Error(`Unknown bet field for transition guard: ${guard.field}`);
 }
 
