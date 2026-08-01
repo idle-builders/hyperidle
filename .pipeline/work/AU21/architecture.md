@@ -1142,38 +1142,32 @@ method in `edge-disposition.md` has a backing route + a passing contract test.
 - **Auth/actor on agent writes** — the seam carries the agent's owning identity as route actor
   (`c.get("userId")`); a test asserts it. Per-agent authorization is the deferred follow-up; this WP must not
   regress actor correctness.
-- **Target-agent runnability under the emit→deactivate→drain race — CORRECTED (founder, 2026-08-01): NO
-  orchestration read of any kind, not even a narrow one — core PUSHES the deactivation, orchestration never
-  checks.** The original 2026-07-27 resolution above ("provisioning fails naturally because it cannot obtain
-  valid credential/identity context") was traced during Increment 12 Wave E and found FALSE — no production
-  code path rejects a deactivated agent past admission (`AdapterPool.select` is identity-blind, CLI harness
-  credential resolution inherits the host and is agent-independent, the `CoreApiPort` seam's actor-override
-  header trusts the caller verbatim). A follow-up fix then added a narrow, deliberately small LIVE re-check
-  (`kind`/`status` only) at provisioning time to close the real gap this exposed — the founder REJECTED this
-  outright: *"the re-check must be removed, not approved... there MUST be no way for the orchestration to
-  check back. the orchestration is a blind executer. any state change must be a push from the core."* No
-  read earns an exception by being narrow, safety-motivated, or small — that reasoning was already rejected
-  once for `cost::*`-shaped carve-outs elsewhere in this WP and applies identically here. `cost::*`'s ALLOWLIST
-  entries are a cap-gate reading its OWN accounting columns as ordinary ownership data; a runnability re-check
-  is orchestration reaching into a DIFFERENT concern (agent identity) for safety validation — the two shapes
-  are not analogous and neither one is a template for future exceptions.
-  **The actual required design: core detects the deactivation and PUSHES it.** When core-api deactivates an
-  agent (whatever route/mutation flips `users.status`), it emits an event announcing the change (e.g. a new
-  `agent_deactivated`/`user_status_changed` event, or a widened existing user-mutation event — Increment-time
-  choice). Orchestration subscribes to this event against its OWN bookkeeping (the durable
-  `agentWorkIntents`/`agentSessionRequests` state it already owns, the same tables Decision B‴'s supersede
-  mechanism already reads/writes) and cancels/fails any PENDING (not yet provisioned) work for that agent —
-  reported back to core-api via the EXISTING `agent_run_admission_failed` pre-handoff channel with
-  `failureCode:"TARGET_AGENT_NOT_RUNNABLE"`, core-api deciding retry/abandon exactly as for every other
-  pre-handoff failure. This is push-reaction against orchestration's own state, never a read back into core —
-  the identical shape already proven for Decision B‴'s coherence trigger (Increment 11) and the
-  `session_started`/`session_ended` write-reactions (Increments 10/12). **Honest scope boundary:** this closes
-  the race for any admission not yet past the point where the push has been processed; a session whose harness
-  spawn already began in the narrow window between deactivation and push-delivery is a bounded
-  eventual-consistency window, not a live-check gap — an accepted trade-off of an async push model, called out
-  explicitly rather than glossed over. A test asserts a deactivated agent's PENDING work is cancelled via the
-  push + existing failure channel and never proceeds with authority; the bounded propagation window is
-  documented, not silently assumed away.
+- **Target-agent runnability under the emit→deactivate→drain race — RE-CORRECTED (founder, 2026-08-01): the
+  race needs NO mechanism at all — no read, no push, no event.** The prior "CORRECTED" entry above (a
+  core-pushes-deactivation event + an orchestration subscriber cancelling pending work) was itself still
+  over-engineered: it assumed orchestration needs to *learn* that an agent was deactivated so it can act on
+  that knowledge. The founder rejected the premise, not just the mechanism: *"why does that even play a role
+  for orchestration to know? if an agent is deactivated then core will not send a request. it doesn't matter
+  if orchestration knows or not if something is deactivated. if it doesn't get a request to do something it
+  doesn't do something."* Orchestration is a **blind executor** — it never initiates anything on its own; every
+  unit of work it ever performs originates from a request core already sent. There is therefore no scenario
+  where orchestration needs to independently discover or react to an agent's deactivation: the only lever that
+  matters is whether core **sends new work** to that agent, and core already controls that unconditionally
+  (deactivated agents simply stop receiving new baked requests — nothing upstream of this WP needs to change
+  for that to hold). A request already baked and sitting in orchestration's own queue before deactivation
+  happened represents core's authorization *at the moment it was made* — letting that one, already-authorized,
+  already-queued unit of work complete is not a security gap to close; building an active
+  cancellation/notification mechanism for it is exactly the kind of preemptive defensive engineering this
+  project's own ethos rejects (`ETHOS.md`: security is earned from real learnings, never a wall built first;
+  never design for paranoia). **Resolution:** delete `checkAgentRunnable`/
+  `SessionLifecycleAgentRunnabilityReader` (the live re-check) entirely, with **no replacement of any kind** —
+  no new event, no subscriber, no push. `admitSession`'s Phase 1 keeps consuming only the baked
+  `BakedAgentRunnableConfig` snapshot (kind/status resolved at emit, already validated by
+  `requireRunnableAgent`) purely as ordinary configuration, not as a security gate — there is no gate here to
+  begin with, because there is nothing for orchestration to independently verify. The bounded race (an
+  already-queued session launching after its agent was deactivated a moment after emit) is not tracked as an
+  open item, not deferred to a follow-up, and not documented as a trade-off requiring future work — it is a
+  non-issue given the request-driven model, full stop.
 - **Stale-payload trust** — a test asserts a payload for a since-deleted source leads to the agent discovering
   it via MCP and reporting back, never a fallback orchestration core read.
 - **Decision D cost query** — the new `core-ui → agent-orchestration` surface reads display data only; no core
