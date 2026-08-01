@@ -103,6 +103,7 @@ import {
 } from "./services/routine-scheduler-bindings.js";
 import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
+import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
 
 type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
 /**
@@ -430,15 +431,30 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
-	// AU21 §9 Increment 10 (Decision H1): task's post-session writeback —
-	// finalizes `taskDispatchAttempts` off `agent_run_lifecycle_changed`,
-	// replacing `session-requests`'s own direct cross-layer write.
+	// AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3) Wave D:
+	// task's post-session writebacks — finalizes `taskDispatchAttempts` off
+	// `agent_run_lifecycle_changed` and merges accumulated per-tier tokens
+	// onto the owning bet off `session_ended`, replacing
+	// `run-orchestration/provisioner.ts`'s deleted direct
+	// `ports.work.updateBetById` write.
 	disposers.push(
 		identifyBootstrapOwner(
 			registerWorkSessionEndReactions(db, eventBus),
 			"work session-end reactions",
 			"unsubscribe",
-			["agent_run_lifecycle_changed subscription"],
+			["agent_run_lifecycle_changed subscription", "session_ended subscription"],
+		),
+	);
+
+	// AU21 §9 Increment 12 (Decision H3) Wave D: a task's `in_progress`
+	// transition at session launch — replaces `run-orchestration/
+	// provisioner.ts`'s deleted direct `ports.work.transitionTask` write.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerWorkSessionStartedReactions(db, eventBus),
+			"work session-started reactions",
+			"unsubscribe",
+			["session_started subscription"],
 		),
 	);
 

@@ -4,11 +4,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import {
 	type AgentSessionRequest,
-	type Bet,
 	type HyperIdleDb,
 	type Routine,
 	sessions,
-	type Task,
 	type User,
 } from "@hyperidle/db";
 import {
@@ -40,7 +38,6 @@ import {
 	type SessionWorkflow,
 	scaleForCurrency,
 	TargetAgentNotRunnableError,
-	type TaskState,
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
@@ -59,34 +56,6 @@ interface IngestionHandle {
 }
 
 // ---- ports ----
-
-// ---------------------------------------------------------------------------
-// Local structural mirror of `@hyperidle/work`'s `task-audit.ts` audit-trail
-// union — `revertTaskToAccepted` JSON.parse/stringify's `tasks.auditTrail`.
-// Mechanism C forbids importing `@hyperidle/work`'s own type, even type-only
-// (same idiom `policy`'s `handoff-protocol.ts` already established for the
-// identical shape — see that file's own local mirror).
-// ---------------------------------------------------------------------------
-
-interface SessionLifecycleStateTransitionAuditEntry {
-	readonly from: TaskState;
-	readonly to: TaskState;
-	readonly timestamp: string;
-	readonly reason?: string;
-}
-
-interface SessionLifecycleHandoffAuditEntry {
-	readonly type: "handoff";
-	readonly fromAgent: string;
-	readonly toAgent?: string;
-	readonly toHuman?: boolean;
-	readonly reason: string;
-	readonly timestamp: string;
-}
-
-type SessionLifecycleTaskAuditEntry =
-	| SessionLifecycleStateTransitionAuditEntry
-	| SessionLifecycleHandoffAuditEntry;
 
 // ---------------------------------------------------------------------------
 // routine — SessionLifecycleRoutineAccessor (ordinary downward edge, real target)
@@ -109,31 +78,26 @@ interface SessionLifecycleRoutineAccessor {
 }
 
 // ---------------------------------------------------------------------------
-// work — SessionLifecycleWorkAccessor (ordinary downward edge, real target)
+// AU21 §9 Increment 12 (Decision H3), Wave D: `SessionLifecycleWorkAccessor`
+// (getTaskById/updateTaskById/getBetById/updateBetById/transitionTask) is
+// DELETED entirely — every real call site is migrated onto core-api-side
+// event subscribers:
+//   - the launch-time `transitionTask(..., "in_progress")` guard -> a
+//     `session_started` reaction (`core-api/src/services/
+//     work-session-started-reactions.ts`).
+//   - `revertTaskToAccepted` (provisioning-failure revert) -> DELETED
+//     outright, not migrated: it only ever fired in the phase 4-7 window
+//     STRICTLY BEFORE `session_started` now performs the `in_progress`
+//     transition, so with the launch-time write removed, that window can
+//     never have transitioned the task in the first place — there is
+//     nothing left to revert.
+//   - `accumulateSessionTokensOnBet` (per-tier token bet-writeback) -> a
+//     `session_ended` reaction on the additive `tokensByTier` payload field
+//     (same file). `run-orchestration` now carries the accumulated tokens on
+//     the `session_ended` emit instead of writing `bets.tokensActualJson`
+//     itself.
+// After this, `run-orchestration` holds ZERO -> `work` edge, read or write.
 // ---------------------------------------------------------------------------
-
-interface SessionLifecycleWorkAccessor {
-	getTaskById(db: HyperIdleDb, id: string): Promise<Task | undefined>;
-	updateTaskById(
-		db: HyperIdleDb,
-		id: string,
-		patch: { readonly state?: TaskState; readonly auditTrail?: string },
-	): Promise<void>;
-	getBetById(db: HyperIdleDb, id: string): Promise<Bet | undefined>;
-	updateBetById(
-		db: HyperIdleDb,
-		id: string,
-		patch: { readonly tokensActualJson?: string },
-	): Promise<void>;
-	/** `@hyperidle/work`'s `transitionTask` state machine — the composition root pre-binds its own AC-9 `workIntents.record` dep to `session-requests`' `enqueueWorkIntent`, same idiom `cost-bindings.ts`/`session-requests-bindings.ts` use for other bound singletons. */
-	transitionTask(
-		db: HyperIdleDb,
-		eventBus: EventBus,
-		taskId: string,
-		toState: TaskState,
-		dispatchOccasion?: "accepted" | "retry",
-	): Promise<void>;
-}
 
 // ---------------------------------------------------------------------------
 // users — SessionLifecycleUserReader (ordinary downward edge, real target)
@@ -539,7 +503,6 @@ interface SessionLifecyclePorts {
 		deregisterSessionRun(sessionId: string): void;
 	};
 	readonly routine: SessionLifecycleRoutineAccessor;
-	readonly work: SessionLifecycleWorkAccessor;
 	readonly users: SessionLifecycleUserReader;
 	readonly settings: SessionLifecycleSettingsReader;
 	readonly observability: SessionLifecycleObservability;
@@ -549,59 +512,6 @@ interface SessionLifecyclePorts {
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
 	readonly toolProvider: SessionLifecycleToolProvider;
 	readonly contextAssembly: SessionLifecycleContextAssembly;
-}
-
-/**
- * Revert a task that we transitioned to `in_progress` back to `accepted` when
- * provisioning fails AFTER the state transition but BEFORE the session row is
- * committed. We bypass `transitionTask` because the state machine does not
- * include a valid `in_progress -> accepted` transition — this is intentionally
- * a repair path, not a normal workflow transition. We still append an audit
- * entry (carrying the failure reason) and emit a `task_state_changed` event so
- * the revert is observable downstream.
- *
- * @lore I1 H2: the revert entry lands in `tasks.auditTrail`, not `tasks.notes`.
- * `notes` is the agent-authored prose lane; writing audit JSON there corrupts
- * it. We re-use the local `SessionLifecycleStateTransitionAuditEntry` mirror
- * shape so readers can discriminate against `HandoffAuditEntry`
- * via the `type: "handoff"` tag — a Service never imports another Service's
- * own audit-trail type, even type-only (Mechanism C).
- */
-async function revertTaskToAccepted(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	taskId: string,
-	reason: string,
-	ports: SessionLifecyclePorts,
-): Promise<void> {
-	const task = await ports.work.getTaskById(db, taskId);
-	if (!task) return;
-	const fromState = task.state as TaskState;
-	const toState: TaskState = "accepted";
-
-	const existingAudit: SessionLifecycleTaskAuditEntry[] = task.auditTrail
-		? (JSON.parse(task.auditTrail) as SessionLifecycleTaskAuditEntry[])
-		: [];
-	const entry: SessionLifecycleStateTransitionAuditEntry = {
-		from: fromState,
-		to: toState,
-		timestamp: new Date().toISOString(),
-		reason,
-	};
-
-	await ports.work.updateTaskById(db, taskId, {
-		state: toState,
-		auditTrail: JSON.stringify([...existingAudit, entry]),
-	});
-
-	eventBus.emit({
-		type: "task_state_changed",
-		streamId: taskId,
-		taskId,
-		fromState,
-		toState,
-		timestamp: Date.now(),
-	});
 }
 
 /**
@@ -630,56 +540,6 @@ async function assembleTaskFreePrompt(
 		? `## Session request\nSource kind: ${params.requestContext.sourceKind}\nSource ID: ${params.requestContext.sourceId}\nCorrelation: ${JSON.stringify(params.requestContext.sourceCorrelation)}`
 		: "## Session request\nTask-free session request";
 	return [systemPromptText, sourceSection, toolSection].filter(Boolean).join("\n\n");
-}
-
-/**
- * Merge the session's accumulated token counts into bets.tokensActualJson.
- *
- * Uses a read-modify-write pattern (not atomic at the DB level) which is
- * acceptable for single-founder usage. Tokens are informational — budget
- * gating uses costActualMinor which IS atomic.
- *
- * @lore R5 D4: Token accumulation happens at session teardown (not per-event)
- * because tokens arrive as token_usage events (separate from cost_update) and
- * batching them at session end is far cheaper than a per-event read-modify-write.
- * Cost accumulation is per-event (recordCostAndCheck); token accumulation is
- * per-session. Do NOT re-increment costActualMinor here — that is done by
- * recordCostAndCheck per-event (D3). This function ONLY writes tokensActualJson.
- */
-async function accumulateSessionTokensOnBet(
-	db: HyperIdleDb,
-	taskId: string,
-	accumulatedTokens: Partial<Record<string, { prompt: number; completion: number }>>,
-	ports: SessionLifecyclePorts,
-): Promise<void> {
-	if (Object.keys(accumulatedTokens).length === 0) return;
-
-	const task = await ports.work.getTaskById(db, taskId);
-	if (!task?.betId) return;
-
-	const bet = await ports.work.getBetById(db, task.betId);
-
-	const existing: Record<string, { prompt: number; completion: number }> = bet?.tokensActualJson
-		? ((
-				JSON.parse(bet.tokensActualJson) as {
-					byTier: Record<string, { prompt: number; completion: number }>;
-				}
-			).byTier ?? {})
-		: {};
-
-	const merged: Record<string, { prompt: number; completion: number }> = { ...existing };
-	for (const [tier, counts] of Object.entries(accumulatedTokens)) {
-		if (!counts) continue;
-		const ex = merged[tier] ?? { prompt: 0, completion: 0 };
-		merged[tier] = {
-			prompt: ex.prompt + counts.prompt,
-			completion: ex.completion + counts.completion,
-		};
-	}
-
-	await ports.work.updateBetById(db, task.betId, {
-		tokensActualJson: JSON.stringify({ byTier: merged }),
-	});
 }
 
 /**
@@ -1070,122 +930,116 @@ async function admitSession(
 		);
 	}
 
-	// AD2: Only transition if not already in_progress (handoff re-dispatch path).
-	if (params.taskId) {
-		const taskForTransition = await ports.work.getTaskById(db, params.taskId);
-		if (taskForTransition && taskForTransition.state !== "in_progress") {
-			await ports.work.transitionTask(db, eventBus, params.taskId, "in_progress");
-		}
-	}
+	// AU21 §9 Increment 12 (Decision H3), Wave D: the AD2 "only transition if
+	// not already in_progress" guard moved core-side — a task's `in_progress`
+	// transition now fires as a `session_started` reaction
+	// (`core-api/src/services/work-session-started-reactions.ts`), AFTER
+	// phases 4-7 below commit the session row, instead of here before them.
 
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
-	// context assembly → start watcher. If any step throws before the session row
-	// is committed AND before the harness starts, revert the task back to
-	// `accepted` so a transient failure does not permanently strand it.
+	// context assembly → start watcher. If any step throws here, the session
+	// row/harness never fully launched — see the AU21 Wave D note above
+	// `SessionLifecycleWorkAccessor`'s deletion for why no task-state revert
+	// is needed: the task's `in_progress` transition itself only fires
+	// reactively on `session_started`, emitted AFTER this block succeeds, so
+	// a failure in this window never transitioned the task away from
+	// `accepted`/`blocked` in the first place.
 	let sessionId: string;
-	let sandboxHandle: SessionLifecycleSandboxHandle;
 	let sandboxPath: string;
-	let ingestion: IngestionHandle;
 	let mountedFilesystems: Filesystem[] = [];
-	try {
-		// ── Phase 4: spawn sandbox via adapter.
-		sandboxHandle = await workspace.spawn(params.sandboxBasePath);
-		sandboxPath = sandboxHandle.path;
+	// ── Phase 4: spawn sandbox via adapter.
+	const sandboxHandle: SessionLifecycleSandboxHandle = await workspace.spawn(
+		params.sandboxBasePath,
+	);
+	sandboxPath = sandboxHandle.path;
 
-		// ── Phase 5: insert session row.
-		const [reservedSession] = params.requestContext
-			? await db
-					.select()
-					.from(sessions)
-					.where(eq(sessions.requestId, params.requestContext.requestId))
-					.limit(1)
-			: [undefined];
-		sessionId = reservedSession?.id ?? randomUUID();
-		const startedAt = new Date().toISOString();
-		const sessionValues = {
-			id: sessionId,
-			taskId: params.taskId,
-			...(params.requestContext
-				? {
-						requestId: params.requestContext.requestId,
-						sourceKind: params.requestContext.sourceKind,
-						sourceId: params.requestContext.sourceId,
-						sourceCorrelationJson: JSON.stringify(params.requestContext.sourceCorrelation),
-					}
-				: {}),
+	// ── Phase 5: insert session row.
+	const [reservedSession] = params.requestContext
+		? await db
+				.select()
+				.from(sessions)
+				.where(eq(sessions.requestId, params.requestContext.requestId))
+				.limit(1)
+		: [undefined];
+	sessionId = reservedSession?.id ?? randomUUID();
+	const startedAt = new Date().toISOString();
+	const sessionValues = {
+		id: sessionId,
+		taskId: params.taskId,
+		...(params.requestContext
+			? {
+					requestId: params.requestContext.requestId,
+					sourceKind: params.requestContext.sourceKind,
+					sourceId: params.requestContext.sourceId,
+					sourceCorrelationJson: JSON.stringify(params.requestContext.sourceCorrelation),
+				}
+			: {}),
+		agentId: params.agentId,
+		modelTier,
+		startedAt,
+		state: "active",
+		sandboxSnapshot: sandboxPath,
+		// AA2: populate routineId when this is a routine session.
+		...(params.routineId ? { routineId: params.routineId } : {}),
+	};
+	if (reservedSession) {
+		await db
+			.update(sessions)
+			.set({ ...sessionValues, id: undefined })
+			.where(eq(sessions.id, reservedSession.id));
+	} else {
+		await db.insert(sessions).values(sessionValues);
+	}
+
+	// ── Phase 4.5: mount injected filesystems (AO2).
+	if (deps.mounter) {
+		mountedFilesystems = await mountFilesystemsForAgent({
+			filesystems: ports.filesystems,
 			agentId: params.agentId,
-			modelTier,
-			startedAt,
-			state: "active",
-			sandboxSnapshot: sandboxPath,
-			// AA2: populate routineId when this is a routine session.
-			...(params.routineId ? { routineId: params.routineId } : {}),
-		};
-		if (reservedSession) {
-			await db
-				.update(sessions)
-				.set({ ...sessionValues, id: undefined })
-				.where(eq(sessions.id, reservedSession.id));
-		} else {
-			await db.insert(sessions).values(sessionValues);
-		}
+			sandboxPath,
+			mounter: deps.mounter,
+		});
+	}
 
-		// ── Phase 4.5: mount injected filesystems (AO2).
-		if (deps.mounter) {
-			mountedFilesystems = await mountFilesystemsForAgent({
-				filesystems: ports.filesystems,
-				agentId: params.agentId,
-				sandboxPath,
-				mounter: deps.mounter,
-			});
-		}
-
-		// ── Phase 6: assemble context into the sandbox through the agent layer.
-		if (params.taskId) {
-			await ports.contextAssembly.assembleAgentContext({
-				sandboxPath,
-				sessionId,
-				taskId: params.taskId,
-				agentId: params.agentId,
-				agentRole,
-				teamId: params.productId,
-				isRoutine: !!params.routineId,
-				sourceKind: params.requestContext?.sourceKind ?? null,
-				sourceId: params.requestContext?.sourceId ?? null,
-				sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
-				contextBundle: params.contextBundle,
-			});
-		} else if (params.requestContext) {
-			await ports.contextAssembly.assembleAgentContext({
-				sandboxPath,
-				sessionId,
-				taskId: null,
-				agentId: params.agentId,
-				agentRole,
-				teamId: params.productId,
-				isRoutine: !!params.routineId,
-				sourceKind: params.requestContext.sourceKind,
-				sourceId: params.requestContext.sourceId,
-				sourceCorrelation: params.requestContext.sourceCorrelation,
-				contextBundle: params.contextBundle,
-			});
-		}
-
-		// ── Phase 7: begin writeback ingestion.
-		const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-		ingestion = ports.contextAssembly.beginAgentWriteback({
+	// ── Phase 6: assemble context into the sandbox through the agent layer.
+	if (params.taskId) {
+		await ports.contextAssembly.assembleAgentContext({
 			sandboxPath,
 			sessionId,
-			manifestPath,
-			eventBus,
+			taskId: params.taskId,
+			agentId: params.agentId,
+			agentRole,
+			teamId: params.productId,
+			isRoutine: !!params.routineId,
+			sourceKind: params.requestContext?.sourceKind ?? null,
+			sourceId: params.requestContext?.sourceId ?? null,
+			sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
+			contextBundle: params.contextBundle,
 		});
-	} catch (err) {
-		const reason = `provisioning failed: ${err instanceof Error ? err.message : String(err)}`;
-		if (params.taskId) {
-			await revertTaskToAccepted(db, eventBus, params.taskId, reason, ports);
-		}
-		throw err;
+	} else if (params.requestContext) {
+		await ports.contextAssembly.assembleAgentContext({
+			sandboxPath,
+			sessionId,
+			taskId: null,
+			agentId: params.agentId,
+			agentRole,
+			teamId: params.productId,
+			isRoutine: !!params.routineId,
+			sourceKind: params.requestContext.sourceKind,
+			sourceId: params.requestContext.sourceId,
+			sourceCorrelation: params.requestContext.sourceCorrelation,
+			contextBundle: params.contextBundle,
+		});
 	}
+
+	// ── Phase 7: begin writeback ingestion.
+	const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
+	const ingestion: IngestionHandle = ports.contextAssembly.beginAgentWriteback({
+		sandboxPath,
+		sessionId,
+		manifestPath,
+		eventBus,
+	});
 
 	// Emit session_started now that the workspace is ready.
 	eventBus.emit({
@@ -1761,11 +1615,9 @@ async function runSession(
 				disposition: "crash",
 				costInCents: totalCostCents,
 				baselineCost: 0,
+				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 			},
 		);
-		if (params.taskId) {
-			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
-		}
 		const returnVerdict = ports.harnessRuntime.evaluateReturn(returnGate, "crashed");
 		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 		return {
@@ -1805,11 +1657,9 @@ async function runSession(
 				costInCents: totalCostCents,
 				baselineCost: 0,
 				routineOutcome: "budget_exhausted",
+				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 			},
 		);
-		if (params.taskId) {
-			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
-		}
 		await workspace.destroy(sandboxHandle);
 		const returnVerdict = ports.harnessRuntime.evaluateReturn(returnGate, "budget_exhausted");
 		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
@@ -1860,11 +1710,9 @@ async function runSession(
 				costInCents: totalCostCents,
 				baselineCost: 0,
 				terminalOutcome: "not_returned",
+				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 			},
 		);
-		if (params.taskId) {
-			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
-		}
 		await workspace.destroy(sandboxHandle);
 		const notReturnedForceCount = computeForceReturnCount();
 		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
@@ -1891,11 +1739,9 @@ async function runSession(
 			disposition: "end",
 			costInCents: totalCostCents,
 			baselineCost: 0,
+			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);
-	if (params.taskId) {
-		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
-	}
 	await workspace.destroy(sandboxHandle);
 	ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 

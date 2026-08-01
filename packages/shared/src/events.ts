@@ -1,6 +1,6 @@
 import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
 import type { HostKind, MessageType } from "./thread.js";
-import type { BetStatus, TaskState } from "./types.js";
+import type { BetStatus, ModelTier, TaskState } from "./types.js";
 
 /**
  * The canonical runtime-checkable list `AgentWorkIntentKind` is built from —
@@ -167,6 +167,18 @@ export interface SessionEndedEvent {
 	 */
 	routineRunOutcome?: "success" | "error" | "budget_exhausted" | "timeout";
 	costInCents?: number;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave D — additive. Carries
+	 * `run-orchestration/provisioner.ts`'s per-model-tier accumulated token
+	 * counts (`accumulatedTokens`, populated from `token_usage` stream events
+	 * across the session's lifetime) so a core-api `session_ended` subscriber
+	 * (`work-session-end-reactions.ts`) can merge them into the owning bet's
+	 * `bets.tokensActualJson` — the literal replacement for the deleted direct
+	 * `ports.work.updateBetById` write (`accumulateSessionTokensOnBet`,
+	 * `provisioner.ts`). Absent/empty when the session accumulated no tokens
+	 * (e.g. it failed before any `token_usage` events arrived).
+	 */
+	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>;
 }
 
 /**

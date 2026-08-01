@@ -69,14 +69,25 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_ended subscription", "agent_run_lifecycle_changed subscription"],
 			},
-			// @lore AU21 §9 Increment 10 (Decision H1): the POST-SESSION `task`
-			// dispatch-attempt finalize reaction — a DIFFERENT mechanism/owner
-			// from the routine-run finalize reaction above, replacing
-			// `session-requests`'s own former direct cross-layer write.
+			// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)
+			// Wave D: the POST-SESSION `task` dispatch-attempt finalize reaction
+			// PLUS the bet per-tier token-writeback reaction (Wave D's additive
+			// `session_ended` subscription) — a DIFFERENT mechanism/owner from the
+			// routine-run finalize reaction above, replacing `session-requests`'s/
+			// `run-orchestration`'s own former direct cross-layer writes.
 			{
 				owner: "work session-end reactions",
 				cleanupEffect: "unsubscribe",
-				constituents: ["agent_run_lifecycle_changed subscription"],
+				constituents: ["agent_run_lifecycle_changed subscription", "session_ended subscription"],
+			},
+			// @lore AU21 §9 Increment 12 (Decision H3) Wave D: the POST-SESSION-START
+			// task `in_progress` transition reaction — replaces
+			// `run-orchestration/provisioner.ts`'s deleted direct
+			// `ports.work.transitionTask` write.
+			{
+				owner: "work session-started reactions",
+				cleanupEffect: "unsubscribe",
+				constituents: ["session_started subscription"],
 			},
 			// @lore AU21 §9 Increment 11 (Decision H2/F4, Wave B): the pin decision
 			// moved ENTIRELY core-side from `dispatch`'s deleted
@@ -210,11 +221,22 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					unsubscribedEvents: ["session_ended", "agent_run_lifecycle_changed"],
 					clearedIntervals: 0,
 				},
-				// @lore AU21 §9 Increment 10 (Decision H1): `registerWorkSessionEndReactions`
-				// is NOT pre-registered on the `eventBus` test fixture either — this is
-				// its first, real registration on this eventBus instance.
+				// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)
+				// Wave D: `registerWorkSessionEndReactions` is NOT pre-registered on the
+				// `eventBus` test fixture either — this is its first, real registration
+				// on this eventBus instance. Wave D added a second subscription
+				// (`session_ended`, the bet token-writeback reaction) onto the SAME
+				// owner — both unsubscribe here, in registration order.
 				{
-					unsubscribedEvents: ["agent_run_lifecycle_changed"],
+					unsubscribedEvents: ["agent_run_lifecycle_changed", "session_ended"],
+					clearedIntervals: 0,
+				},
+				// @lore AU21 §9 Increment 12 (Decision H3) Wave D:
+				// `registerWorkSessionStartedReactions` is NOT pre-registered on the
+				// `eventBus` test fixture either — its own first, real registration on
+				// this eventBus instance.
+				{
+					unsubscribedEvents: ["session_started"],
 					clearedIntervals: 0,
 				},
 				// @lore AU21 §9 Increment 11 (Wave B): `registerAssistantThreadPinReaction`

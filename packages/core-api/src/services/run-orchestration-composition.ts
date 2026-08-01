@@ -1,6 +1,6 @@
 /** Core API composition root for the run-orchestration service. */
 
-import type { AgentSessionRequest, HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -24,7 +24,6 @@ import {
 import {
 	claimSessionRequest,
 	drainIntents,
-	enqueueWorkIntent,
 	findSessionRequest,
 	listSessionRequests,
 	reapExpired,
@@ -37,8 +36,6 @@ import { readServerConfig } from "@hyperidle/settings";
 import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
-import { transitionTask } from "@hyperidle/work";
 import {
 	buildCoreApiPort,
 	getRegisteredCoreApiTransport,
@@ -47,7 +44,6 @@ import {
 import { costOps } from "./cost-bindings.js";
 import { dispatchOps } from "./dispatch-bindings.js";
 import { queueDeps } from "./durable-agent-queue.js";
-import { taskRunResolverDeps } from "./task-run-resolver-bindings.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
 // AU21 §9 Increment 8 (Decision F2): builds a fresh in-process `CoreApiPort`
@@ -92,30 +88,13 @@ const routineAccessor: SessionLifecyclePorts["routine"] = {
 	getRoutineById: routineService.getRoutine,
 };
 
-const workAccessor: SessionLifecyclePorts["work"] = {
-	getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-	updateTaskById: (
-		exec: WriteExecutor,
-		id: string,
-		patch: { readonly state?: string; readonly auditTrail?: string },
-	) => work.update(exec, "task", id, patch),
-	getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-	updateBetById: (exec: WriteExecutor, id: string, patch: { readonly tokensActualJson?: string }) =>
-		work.update(exec, "bet", id, patch),
-	transitionTask(db, eventBus, taskId, toState, dispatchOccasion) {
-		return transitionTask(
-			db,
-			eventBus,
-			taskId,
-			toState,
-			{
-				workIntents: { record: enqueueWorkIntent },
-				taskRunResolver: taskRunResolverDeps,
-			},
-			dispatchOccasion,
-		);
-	},
-};
+// AU21 §9 Increment 12 (Decision H3), Wave D: `workAccessor` DELETED entirely
+// (reads AND writes) — `run-orchestration/provisioner.ts` no longer carries
+// a `work` port at all. Its former call sites are core-api-side event
+// subscribers instead: `work-session-started-reactions.ts` (session_started
+// -> in_progress transition) and `work-session-end-reactions.ts` (session_ended
+// -> bet token-writeback). See `provisioner.ts`'s own Wave D note for the
+// full per-caller migration map.
 
 const userReader: SessionLifecyclePorts["users"] = {
 	getUserById: (db, id) => findUser(db, { id }),
@@ -195,7 +174,6 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 		deregisterSessionRun: (sessionId) => sessionRunRegistry.deregister(sessionId),
 	},
 	routine: routineAccessor,
-	work: workAccessor,
 	users: userReader,
 	settings: settingsReader,
 	observability: observabilityAccessor,

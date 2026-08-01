@@ -3,6 +3,7 @@ import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle
 import type {
 	AgentSessionSourceKind,
 	EventBus,
+	ModelTier,
 	SessionLifecycleCorrelation,
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
@@ -179,6 +180,7 @@ async function endSession(
 	baselineCost?: number,
 	routineRunOutcome?: "budget_exhausted",
 	terminalOutcome: "completed" | "not_returned" = "completed",
+	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>,
 ): Promise<void> {
 	// 1. Dispose ingestion handle (final flush).
 	// @lore AK2 §5b: was `context.watcher.stop()`. Renamed to `context.ingestion.dispose()`
@@ -245,6 +247,11 @@ async function endSession(
 			// terminalOutcome). A NEW core-api subscriber
 			// (`routine-run-session-end-reactions.ts`) performs the write.
 			...(context.routineId ? { routineRunOutcome: routineRunOutcome ?? "success" } : {}),
+			// AU21 §9 Increment 12 (Decision H3), Wave D: the session's
+			// accumulated per-tier token counts ride this SAME event — no direct
+			// `bets.tokensActualJson` write here anymore. A core-api subscriber
+			// (`work-session-end-reactions.ts`) merges them onto the owning bet.
+			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),
 		});
 	}
 
@@ -272,6 +279,7 @@ async function crashSession(
 	context: SessionContext,
 	costInCents: number,
 	baselineCost?: number,
+	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>,
 ): Promise<void> {
 	// 1. Try to dispose ingestion handle (may be in a bad state during crash).
 	// @lore AK2 §5b: was `context.watcher.stop()`. Renamed to
@@ -318,6 +326,9 @@ async function crashSession(
 			// AU21 §9 Increment 4 (Decision B″ item 3): crash always finalizes the
 			// routine run to "error" — carried on the same event, no direct write.
 			...(context.routineId ? { routineRunOutcome: "error" as const } : {}),
+			// AU21 §9 Increment 12 (Decision H3), Wave D: see endSession's identical
+			// comment — accumulated tokens ride this same event, no direct write.
+			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),
 		});
 	}
 
@@ -361,6 +372,13 @@ export function transitionRun(
 				readonly baselineCost?: number;
 				readonly routineOutcome?: "budget_exhausted";
 				readonly terminalOutcome?: "completed" | "not_returned";
+				/**
+				 * AU21 §9 Increment 12 (Decision H3), Wave D: the session's
+				 * accumulated per-tier token counts, carried through onto the
+				 * `session_ended` emit's additive `tokensByTier` field — see
+				 * `endSession`/`crashSession`'s own comment.
+				 */
+				readonly tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>;
 		  },
 ): Promise<unknown> {
 	if (spec.target === "request") {
@@ -380,8 +398,16 @@ export function transitionRun(
 				spec.baselineCost,
 				spec.routineOutcome,
 				spec.terminalOutcome,
+				spec.tokensByTier,
 			)
-		: crashSession(deps.db, deps.eventBus, spec.context, spec.costInCents ?? 0, spec.baselineCost);
+		: crashSession(
+				deps.db,
+				deps.eventBus,
+				spec.context,
+				spec.costInCents ?? 0,
+				spec.baselineCost,
+				spec.tokensByTier,
+			);
 }
 
 // ---------------------------------------------------------------------------
