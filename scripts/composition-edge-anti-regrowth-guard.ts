@@ -268,7 +268,26 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  * `session-requests` now holds ZERO `-> work` edge of any kind (the
  * `decomposition` half was already obsoleted by Increment 10a / Decision I).
  *
- * **What remains genuinely open (9 pairs) — AC #2 ("orchestration reads
+ * **AU21 §9 Increment 12 (Decision H3), Waves A-D — `run-orchestration::knowledge`
+ * and `run-orchestration::org` genuinely CLOSED, not relabeled.** Wave C
+ * rewrote `context.ts` to consume a `contextBundle` baked core-side at emit
+ * time (the `assembleSessionKnowledge` shared assembler, `@hyperidle/knowledge`)
+ * instead of reading `knowledge`/`org`/`work`/`users`/`routine` itself —
+ * verified via `context-assembly-anti-regrowth.test.ts`'s raw-detector proof.
+ * `run-orchestration::work` is ALSO genuinely CLOSED by Wave D (session-
+ * lifecycle writes moved to core-api event subscribers on `session_started`/
+ * `session_ended`; `workAccessor` deleted wholesale — see
+ * `work-composition-anti-regrowth.test.ts`). All three are removed from this
+ * set below, not merely relabeled.
+ *
+ * **CORRECTION (post Wave D review):** Wave D's own commit message
+ * overclaimed "`run-orchestration` holds ZERO -> core-api edge, read or
+ * write" as the full Decision H3 terminal state. That is true for `work`
+ * ALONE — `run-orchestration::routine`/`::settings`/`::users` remain
+ * genuinely open (see below) and Increment 12 is NOT complete until they are
+ * too. Corrected here rather than presenting a partial closure as the whole.
+ *
+ * **What remains genuinely open (6 pairs) — AC #2 ("orchestration reads
  * zero core-api domain state") is NOT fully met while this set is non-empty.
  * Do not present AU21 as closing its headline AC while any of these remain:**
  *
@@ -288,12 +307,20 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  *   response side effect) look separately relocatable core-side without this
  *   risk, but were not moved this wave (time-boxed out, not because it's
  *   unsafe) — noted for whoever picks this up next.
- * - `run-orchestration::knowledge`/`::org`/`::routine`/`::settings`/`::users`/
- *   `::work` — `context.ts`'s per-session context assembly (task/bet/agent/
- *   team/routine rows, L2/L3/L4 knowledge selection+ranking, written into the
- *   session sandbox). Same fork, same staleness risk, at larger scale (every
- *   session of every kind, not just assistant turns) — Decision B's own text
- *   already flags this as undecided; nothing this wave learned resolves it.
+ * - `run-orchestration::routine`/`::settings`/`::users` — `provisioner.ts`'s
+ *   `admitSession` (Phase 1 agent load via `ports.users.getUserById`, Phase 3
+ *   `harnessDisabled` via `ports.settings.readServerConfig`, and the
+ *   admission-time per-run cost cap via `ports.routine.getRoutineById`).
+ *   `context.ts`'s own former use of these three (the knowledge/entity
+ *   context bundle) closed in Wave C — these are three SEPARATE, real,
+ *   still-live production reads Wave C/D did not touch. architecture.md §6 H3
+ *   names all three ports for outright deletion ("bake at emit, delete the
+ *   orchestration read", §7 disposition rule); closing them requires baking
+ *   the agent's runnable fields / `harnessDisabled` / the routine's per-run
+ *   cap onto the resolved request at emit time — out of Wave D's scope,
+ *   deferred to a follow-up wave. See `provisioner.ts`'s and
+ *   `run-orchestration-composition.ts`'s own per-port "STILL OPEN"/
+ *   "CORRECTION" comments.
  * **Closure ownership — NOT silently assumed.** A prior pass named AU23
  * (`.pipeline/work/AU23/plan.md`) as this set's automatic closure owner and
  * presented AU21 as ready to ship anyway; that was rejected on review (a
@@ -308,12 +335,9 @@ export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([
 	"dispatch::conversation",
 	"dispatch::users",
 	"dispatch::settings",
-	"run-orchestration::knowledge",
-	"run-orchestration::org",
 	"run-orchestration::routine",
 	"run-orchestration::settings",
 	"run-orchestration::users",
-	"run-orchestration::work",
 ]);
 
 /**

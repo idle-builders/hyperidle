@@ -84,6 +84,19 @@ type ToolRegistryOptions = Parameters<typeof buildToolRegistry>[1];
 // `findRunningRoutineRun`/`updateRoutineRunById`/`updateRoutineById`/
 // `incrementRoutineCost` are no longer part of `SessionLifecyclePorts["routine"]`
 // (see `provisioner.ts`'s `SessionLifecycleRoutineAccessor`).
+//
+// CORRECTION (post Wave D review): Wave D's own commit message overclaimed
+// "run-orchestration holds ZERO -> core-api edge, read or write" as the full
+// Decision H3 terminal state. That claim is true ONLY for the `work` edge
+// (see `workAccessor`'s deletion note below) — `routineAccessor` itself is
+// this exact edge, still live: `provisioner.ts`'s admission-time per-run cost
+// cap read (`getRoutineById(db, params.routineId).costCapPerRunMinor`) is a
+// real, non-migrated production use architecture.md's Increment 12 names for
+// closure (§6 H3: "delete userReader/settingsReader/routineAccessor") but
+// Wave D did not touch. Tracked honestly in
+// `scripts/composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP` as
+// `run-orchestration::routine` — Increment 12 is NOT complete while this
+// (and its `::settings`/`::users` siblings below) remain.
 const routineAccessor: SessionLifecyclePorts["routine"] = {
 	getRoutineById: routineService.getRoutine,
 };
@@ -94,13 +107,30 @@ const routineAccessor: SessionLifecyclePorts["routine"] = {
 // subscribers instead: `work-session-started-reactions.ts` (session_started
 // -> in_progress transition) and `work-session-end-reactions.ts` (session_ended
 // -> bet token-writeback). See `provisioner.ts`'s own Wave D note for the
-// full per-caller migration map.
+// full per-caller migration map. This closure is real and verified (the raw
+// composition-bundle detector finds zero `run-orchestration::work` edges,
+// `work-composition-anti-regrowth.test.ts`) — but it is the ONLY edge Wave D
+// closes. `routineAccessor`/`userReader`/`settingsReader` immediately below
+// are each a SEPARATE, still-open `run-orchestration -> core-api` edge; do
+// not read this comment as implying they are closed too.
 
+// CORRECTION (post Wave D review): same as `routineAccessor` above —
+// `getUserById` (Phase 1 agent load: role/systemPrompt/modelTierPreference/
+// harnessType/modelProvider/status/kind/maxConcurrentSessions) is a real,
+// non-migrated production read `provisioner.ts`'s `admitSession` performs at
+// every session launch, not a leftover. Closing it requires baking these
+// agent fields onto the resolved request at emit time (the same `bake at
+// emit, delete the orchestration read` disposition §7 already applies to the
+// context bundle) — out of Wave D's scope, deferred to a follow-up wave.
 const userReader: SessionLifecyclePorts["users"] = {
 	getUserById: (db, id) => findUser(db, { id }),
 	getFirstUserByKind: (db, kind) => findUser(db, { kind }),
 };
 
+// CORRECTION (post Wave D review): `readServerConfig` (Phase 3
+// `harnessDisabled` adapter-selection input) is likewise a real, live,
+// non-migrated read — not closed by Wave D. Same follow-up disposition as
+// `userReader` above.
 const settingsReader: SessionLifecyclePorts["settings"] = { readServerConfig };
 
 const observabilityAccessor: SessionLifecyclePorts["observability"] = { summarizeToolArgs };

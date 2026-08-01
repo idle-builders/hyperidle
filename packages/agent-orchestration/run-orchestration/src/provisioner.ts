@@ -72,6 +72,14 @@ interface IngestionHandle {
  * write from inside core-api. `getRoutineById` survives — `context.ts` and
  * this file's own admission-time per-run cap read (`routinePerRunCap`) still
  * need it.
+ *
+ * STILL OPEN (post Wave D review): `context.ts`'s own use closed in Wave C
+ * (it now consumes the baked `contextBundle`, zero DB read), but THIS file's
+ * `routinePerRunCap` read (`admitSession`, `ports.routine.getRoutineById`)
+ * remains a live, real `run-orchestration -> core-api` edge — architecture.md
+ * §6 H3 names `routineAccessor` for deletion; not yet done. Tracked as
+ * `run-orchestration::routine` in the anti-regrowth guard's
+ * `DEFERRED_FOLLOWUP`, not closed by Wave D (which closed `work` only).
  */
 interface SessionLifecycleRoutineAccessor {
 	getRoutineById(db: HyperIdleDb, id: string): Promise<Routine | undefined>;
@@ -97,10 +105,27 @@ interface SessionLifecycleRoutineAccessor {
 //     the `session_ended` emit instead of writing `bets.tokensActualJson`
 //     itself.
 // After this, `run-orchestration` holds ZERO -> `work` edge, read or write.
+// CORRECTION (post Wave D review): this closure is scoped to the `work` edge
+// ONLY. It does NOT mean Increment 12 (Decision H3) is fully closed — the
+// `routine`/`settings`/`users` reads below (`SessionLifecycleRoutineAccessor`/
+// `SessionLifecycleUserReader`/`SessionLifecycleSettingsReader`) remain live,
+// real, non-migrated `run-orchestration -> core-api` edges Wave D did not
+// touch. A prior version of this wave's commit message overclaimed "zero ->
+// core-api edge, read or write" across the board; that claim holds for `work`
+// alone. See each interface's own doc comment below and
+// `scripts/composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP`
+// (`run-orchestration::routine`/`::settings`/`::users`) for the honest,
+// still-open accounting.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // users — SessionLifecycleUserReader (ordinary downward edge, real target)
+//
+// STILL OPEN (post Wave D review): `admitSession`'s Phase 1 agent load
+// (`getUserById`) is a live, real `run-orchestration -> core-api` edge —
+// architecture.md §6 H3 names `userReader` for deletion; not yet done.
+// Tracked as `run-orchestration::users` in the anti-regrowth guard's
+// `DEFERRED_FOLLOWUP`, not closed by Wave D (which closed `work` only).
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleUserReader {
@@ -110,6 +135,12 @@ interface SessionLifecycleUserReader {
 
 // ---------------------------------------------------------------------------
 // settings — SessionLifecycleSettingsReader (ordinary downward edge, real target)
+//
+// STILL OPEN (post Wave D review): `admitSession`'s Phase 3 `harnessDisabled`
+// read (`readServerConfig`) is a live, real `run-orchestration -> core-api`
+// edge — architecture.md §6 H3 names `settingsReader` for deletion; not yet
+// done. Tracked as `run-orchestration::settings` in the anti-regrowth guard's
+// `DEFERRED_FOLLOWUP`, not closed by Wave D (which closed `work` only).
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleSettingsReader {
