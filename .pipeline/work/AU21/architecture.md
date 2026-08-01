@@ -1142,17 +1142,38 @@ method in `edge-disposition.md` has a backing route + a passing contract test.
 - **Auth/actor on agent writes** — the seam carries the agent's owning identity as route actor
   (`c.get("userId")`); a test asserts it. Per-agent authorization is the deferred follow-up; this WP must not
   regress actor correctness.
-- **Target-agent runnability under self-recovery + emit→deactivate→drain race — RESOLVED (founder, 2026-07-27):
-  no new mechanism, reuse the existing pre-handoff failure channel.** If the agent resolved at emit is
-  deactivated by the time orchestration goes to provision the session, that's a provisioning failure like any
-  other (it cannot obtain valid credential/identity context) — orchestration reports it back to core-api via
-  the same `agent_run_admission_failed` pre-handoff channel (§6 B4/§10) with a dedicated `failureCode` (e.g.
-  `TARGET_AGENT_NOT_RUNNABLE`), and core-api decides retry/abandon exactly as it does for every other
-  pre-handoff failure (`MAX_ATTEMPTS_EXCEEDED`, `INVALID_WORK_SOURCE`, bad payload). No bespoke race-handling,
-  no new event, no supersede/cancel logic reaching back into orchestration's queue — deactivation is just
-  another entry in the same failure-code enum. A test asserts a deactivated agent's run fails to provision,
-  emits `agent_run_admission_failed{failureCode:"TARGET_AGENT_NOT_RUNNABLE"}`, and never proceeds with
-  authority.
+- **Target-agent runnability under the emit→deactivate→drain race — CORRECTED (founder, 2026-08-01): NO
+  orchestration read of any kind, not even a narrow one — core PUSHES the deactivation, orchestration never
+  checks.** The original 2026-07-27 resolution above ("provisioning fails naturally because it cannot obtain
+  valid credential/identity context") was traced during Increment 12 Wave E and found FALSE — no production
+  code path rejects a deactivated agent past admission (`AdapterPool.select` is identity-blind, CLI harness
+  credential resolution inherits the host and is agent-independent, the `CoreApiPort` seam's actor-override
+  header trusts the caller verbatim). A follow-up fix then added a narrow, deliberately small LIVE re-check
+  (`kind`/`status` only) at provisioning time to close the real gap this exposed — the founder REJECTED this
+  outright: *"the re-check must be removed, not approved... there MUST be no way for the orchestration to
+  check back. the orchestration is a blind executer. any state change must be a push from the core."* No
+  read earns an exception by being narrow, safety-motivated, or small — that reasoning was already rejected
+  once for `cost::*`-shaped carve-outs elsewhere in this WP and applies identically here. `cost::*`'s ALLOWLIST
+  entries are a cap-gate reading its OWN accounting columns as ordinary ownership data; a runnability re-check
+  is orchestration reaching into a DIFFERENT concern (agent identity) for safety validation — the two shapes
+  are not analogous and neither one is a template for future exceptions.
+  **The actual required design: core detects the deactivation and PUSHES it.** When core-api deactivates an
+  agent (whatever route/mutation flips `users.status`), it emits an event announcing the change (e.g. a new
+  `agent_deactivated`/`user_status_changed` event, or a widened existing user-mutation event — Increment-time
+  choice). Orchestration subscribes to this event against its OWN bookkeeping (the durable
+  `agentWorkIntents`/`agentSessionRequests` state it already owns, the same tables Decision B‴'s supersede
+  mechanism already reads/writes) and cancels/fails any PENDING (not yet provisioned) work for that agent —
+  reported back to core-api via the EXISTING `agent_run_admission_failed` pre-handoff channel with
+  `failureCode:"TARGET_AGENT_NOT_RUNNABLE"`, core-api deciding retry/abandon exactly as for every other
+  pre-handoff failure. This is push-reaction against orchestration's own state, never a read back into core —
+  the identical shape already proven for Decision B‴'s coherence trigger (Increment 11) and the
+  `session_started`/`session_ended` write-reactions (Increments 10/12). **Honest scope boundary:** this closes
+  the race for any admission not yet past the point where the push has been processed; a session whose harness
+  spawn already began in the narrow window between deactivation and push-delivery is a bounded
+  eventual-consistency window, not a live-check gap — an accepted trade-off of an async push model, called out
+  explicitly rather than glossed over. A test asserts a deactivated agent's PENDING work is cancelled via the
+  push + existing failure channel and never proceeds with authority; the bounded propagation window is
+  documented, not silently assumed away.
 - **Stale-payload trust** — a test asserts a payload for a since-deleted source leads to the agent discovering
   it via MCP and reporting back, never a fallback orchestration core read.
 - **Decision D cost query** — the new `core-ui → agent-orchestration` surface reads display data only; no core
