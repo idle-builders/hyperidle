@@ -39,6 +39,24 @@
  * to `observeOnly`. Together: zero orchestration→core-api write for `task_run`
  * post-session finalize, the reaction lives entirely core-side, keyed off an
  * event orchestration already emits.
+ *
+ * AU21 §9 Increment 12 (Decision H3), Wave D (RED, added onto the file
+ * above): `registerWorkSessionEndReactions` gains a SECOND, independent
+ * subscription — `session_ended` — reacting to a task-sourced session's
+ * accumulated per-tier token counts (`SessionEndedEvent.tokensByTier`,
+ * additive payload growth — see the companion RED test in
+ * `packages/shared/src/__tests__/session-ended-event-tokens-by-tier-payload.test.ts`)
+ * by merging them into the owning bet's `bets.tokensActualJson`. This is the
+ * literal replacement for `run-orchestration/provisioner.ts`'s deleted direct
+ * `ports.work.updateBetById` write (`accumulateSessionTokensOnBet`,
+ * `provisioner.ts:649-683`) — called at every one of the four session-end
+ * branches (crash / budget_exhausted / not_returned / normal completion),
+ * always AFTER that branch's own `session_ended`-emitting `transitionRun`
+ * call, so `session_ended` is a clean always-fires-before hook for this
+ * writeback. See the `describe("registerWorkSessionEndReactions — Wave D
+ * session_ended bet-token writeback")` block below — every test in it is RED
+ * today because the production reaction does not yet subscribe to
+ * `session_ended` at all for this purpose.
  */
 
 import {
@@ -52,7 +70,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { AgentRunLifecycleChangedEvent } from "@hyperidle/shared";
+import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
@@ -64,7 +82,7 @@ const NOW = new Date().toISOString();
 async function seedTaskAndAgent(
 	db: HyperIdleDb,
 	id: string,
-): Promise<{ readonly taskId: string; readonly agentId: string }> {
+): Promise<{ readonly taskId: string; readonly agentId: string; readonly betId: string }> {
 	const teamId = `${id}-team`;
 	const betId = `${id}-bet`;
 	const taskId = `${id}-task`;
@@ -98,7 +116,7 @@ async function seedTaskAndAgent(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	return { taskId, agentId };
+	return { taskId, agentId, betId };
 }
 
 /**
@@ -375,5 +393,165 @@ describe("registerWorkSessionEndReactions", () => {
 			.from(taskDispatchAttempts)
 			.where(eq(taskDispatchAttempts.id, "wser-ignore-attempt"));
 		expect(row?.status).toBe("running");
+	});
+});
+
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave D — RED.
+ *
+ * `registerWorkSessionEndReactions` does not yet subscribe to `session_ended`
+ * at all — every test below is RED via behavior absence (the bet's
+ * `tokensActualJson` is never touched), not module-resolution failure (the
+ * import above already resolves, since `registerWorkSessionEndReactions`
+ * itself exists from Increment 10's GREEN).
+ */
+function sessionEnded(input: {
+	readonly sessionId: string;
+	readonly agentId: string;
+	readonly taskId: string | null;
+	readonly tokensByTier?: SessionEndedEvent["tokensByTier"];
+}): SessionEndedEvent {
+	return {
+		type: "session_ended",
+		streamId: input.sessionId,
+		sessionId: input.sessionId,
+		agentId: input.agentId,
+		taskId: input.taskId,
+		timestamp: Date.now(),
+		outcome: "completed",
+		...(input.tokensByTier ? { tokensByTier: input.tokensByTier } : {}),
+	};
+}
+
+async function readBetTokensActualJson(
+	db: HyperIdleDb,
+	betId: string,
+): Promise<{ byTier: Record<string, { prompt: number; completion: number }> } | undefined> {
+	const [row] = await db.select().from(bets).where(eq(bets.id, betId));
+	if (!row?.tokensActualJson) return undefined;
+	return JSON.parse(row.tokensActualJson) as {
+		byTier: Record<string, { prompt: number; completion: number }>;
+	};
+}
+
+describe("registerWorkSessionEndReactions — Wave D session_ended bet-token writeback", () => {
+	test("session_ended with tokensByTier merges into the owning bet's tokensActualJson (NEW event path, zero orchestration->work write)", async ({
+		db,
+		eventBus,
+	}) => {
+		const { taskId, agentId, betId } = await seedTaskAndAgent(db, "wser-tok-merge");
+		await seedSession(db, "wser-tok-merge-session", agentId);
+		registerWorkSessionEndReactions(db, eventBus);
+
+		eventBus.emit(
+			sessionEnded({
+				sessionId: "wser-tok-merge-session",
+				agentId,
+				taskId,
+				tokensByTier: { workhorse: { prompt: 100, completion: 200 } },
+			}),
+		);
+
+		await vi.waitFor(async () => {
+			const parsed = await readBetTokensActualJson(db, betId);
+			expect(parsed?.byTier.workhorse).toEqual({ prompt: 100, completion: 200 });
+		});
+	});
+
+	test("session_ended with tokensByTier ADDS onto an existing tokensActualJson byTier entry (read-modify-write merge, matching accumulateSessionTokensOnBet exactly)", async ({
+		db,
+		eventBus,
+	}) => {
+		const { taskId, agentId, betId } = await seedTaskAndAgent(db, "wser-tok-add");
+		await db
+			.update(bets)
+			.set({
+				tokensActualJson: JSON.stringify({
+					byTier: { workhorse: { prompt: 50, completion: 75 } },
+				}),
+			})
+			.where(eq(bets.id, betId));
+		await seedSession(db, "wser-tok-add-session", agentId);
+		registerWorkSessionEndReactions(db, eventBus);
+
+		eventBus.emit(
+			sessionEnded({
+				sessionId: "wser-tok-add-session",
+				agentId,
+				taskId,
+				tokensByTier: { workhorse: { prompt: 10, completion: 20 } },
+			}),
+		);
+
+		await vi.waitFor(async () => {
+			const parsed = await readBetTokensActualJson(db, betId);
+			expect(parsed?.byTier.workhorse).toEqual({ prompt: 60, completion: 95 });
+		});
+	});
+
+	test("session_ended with no tokensByTier is a no-op (mirrors accumulateSessionTokensOnBet's empty-object early return)", async ({
+		db,
+		eventBus,
+	}) => {
+		const { taskId, agentId, betId } = await seedTaskAndAgent(db, "wser-tok-empty");
+		await seedSession(db, "wser-tok-empty-session", agentId);
+		registerWorkSessionEndReactions(db, eventBus);
+
+		eventBus.emit(sessionEnded({ sessionId: "wser-tok-empty-session", agentId, taskId }));
+
+		await new Promise((resolve) => setTimeout(resolve, 30));
+		expect(await readBetTokensActualJson(db, betId)).toBeUndefined();
+	});
+
+	test("session_ended with taskId: null (task-free session) is a no-op", async ({
+		db,
+		eventBus,
+	}) => {
+		const { agentId } = await seedTaskAndAgent(db, "wser-tok-notask");
+		await seedSession(db, "wser-tok-notask-session", agentId);
+		registerWorkSessionEndReactions(db, eventBus);
+
+		expect(() =>
+			eventBus.emit(
+				sessionEnded({
+					sessionId: "wser-tok-notask-session",
+					agentId,
+					taskId: null,
+					tokensByTier: { workhorse: { prompt: 10, completion: 20 } },
+				}),
+			),
+		).not.toThrow();
+		await new Promise((resolve) => setTimeout(resolve, 30));
+	});
+
+	test("a duplicate/redelivered session_ended for the same session is a safe no-op (idempotency — must not double-apply the token merge)", async ({
+		db,
+		eventBus,
+	}) => {
+		const { taskId, agentId, betId } = await seedTaskAndAgent(db, "wser-tok-idem");
+		await seedSession(db, "wser-tok-idem-session", agentId);
+		registerWorkSessionEndReactions(db, eventBus);
+
+		const event = sessionEnded({
+			sessionId: "wser-tok-idem-session",
+			agentId,
+			taskId,
+			tokensByTier: { workhorse: { prompt: 100, completion: 200 } },
+		});
+
+		eventBus.emit(event);
+		await vi.waitFor(async () => {
+			const parsed = await readBetTokensActualJson(db, betId);
+			expect(parsed?.byTier.workhorse).toEqual({ prompt: 100, completion: 200 });
+		});
+
+		// Redelivery of the SAME event — a naive re-application would double the
+		// tokens to {prompt:200, completion:400}. Must stay at the single
+		// application's values.
+		eventBus.emit(event);
+		await new Promise((resolve) => setTimeout(resolve, 30));
+
+		const parsed = await readBetTokensActualJson(db, betId);
+		expect(parsed?.byTier.workhorse).toEqual({ prompt: 100, completion: 200 });
 	});
 });
