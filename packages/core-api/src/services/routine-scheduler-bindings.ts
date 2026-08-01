@@ -29,7 +29,13 @@
  */
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import { type HyperIdleDb, type Routine, userSkills, type WriteExecutor } from "@hyperidle/db";
-import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
+import {
+	assembleSessionKnowledge,
+	list as listKnowledgeItems,
+	recomputeAttention,
+	sweep,
+} from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import {
 	fireBuiltinRoutine,
@@ -147,6 +153,12 @@ const routineSchedulerPorts: RoutineSchedulerPorts = {
 			),
 	},
 	requireRunnableAgent,
+	// AU21 §9 Increment 12 (Decision H3): wire the contextBundle bake deps
+	// `resolveRoutineRunRequest` needs — a routine_run session's sandbox now
+	// gets its ranked knowledge + routine/agent/team content baked at emit
+	// time instead of `run-orchestration` reading it back at launch.
+	getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
+	assembleSessionKnowledge,
 };
 
 /** Bound wrapper — starts the cron/due-eval scheduler with the real ports. */

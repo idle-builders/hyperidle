@@ -171,28 +171,9 @@ describe("startWatcher (relocated wholesale from @hyperidle/filesystems)", () =>
 			| undefined;
 		const stop = vi.fn();
 		const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-		// Full structural ports object — `beginAgentWriteback` only ever touches
-		// `filesystems`, but `createContextAssembler`'s real exported type requires
-		// every port (never widened to `unknown` at this call site).
+		// `ContextAssemblyPorts` is just `filesystems` (Increment 12 Wave C) —
+		// `beginAgentWriteback` only ever touches it.
 		const assembler = createContextAssembler({
-			knowledge: {
-				list: async () => [],
-				rankAndBudget: async (_db, items) => items,
-				countTokens: () => 0,
-			},
-			work: {
-				getTaskById: async () => undefined,
-				getBetById: async () => undefined,
-			},
-			users: {
-				getUserById: async () => undefined,
-			},
-			routine: {
-				getRoutineById: async () => undefined,
-			},
-			org: {
-				getTeamById: async () => undefined,
-			},
 			filesystems: {
 				startWatcher: (config) => {
 					watcherConfig = config as typeof watcherConfig;

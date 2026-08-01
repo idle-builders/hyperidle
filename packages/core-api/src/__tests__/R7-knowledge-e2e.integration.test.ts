@@ -22,7 +22,9 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { EventBus, type ToolContext } from "@hyperidle/shared";
+import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import type { BakedContextBundle } from "@hyperidle/shared";
+import { EventBus, type ToolContext, toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
@@ -477,13 +479,46 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 		expect(writeResult.success).toBe(true);
 		if (!writeResult.success) return;
 
+		// AU21 §9 Increment 12 (Decision H3): `assembleAgentContext` consumes a
+		// baked `contextBundle` now (zero db read in `context.ts`) — build the
+		// SAME bundle a real `task_run` emit-time resolver would bake, from the
+		// real rows (including the item write_memory JUST persisted, proving
+		// the "session N knowledge reaches session N+1" behavior is unchanged).
+		const [taskRow] = await db.select().from(tasks).where(eq(tasks.id, "task-r7"));
+		const [betRow] = await db.select().from(bets).where(eq(bets.id, "bet-r7"));
+		const [teamRow] = await db.select().from(teams).where(eq(teams.id, TEAM_ID));
+		const [agentRow] = await db.select().from(users).where(eq(users.id, AGENT_ID));
+		if (!(taskRow && betRow && teamRow && agentRow)) throw new Error("fixture rows missing");
+		const knowledge = await assembleSessionKnowledge(db, {
+			teamId: TEAM_ID,
+			agentRole: agentRow.role,
+			taskDescription: taskRow.description ?? taskRow.title,
+		});
+		const contextBundle: BakedContextBundle = {
+			kind: "task",
+			task: {
+				id: taskRow.id,
+				title: taskRow.title,
+				description: taskRow.description,
+				state: taskRow.state,
+			},
+			bet: {
+				id: betRow.id,
+				description: betRow.description,
+				appetite: betRow.appetite ?? "",
+				doneCondition: betRow.doneCondition,
+			},
+			agent: { id: agentRow.id, name: agentRow.name, role: agentRow.role },
+			team: { id: teamRow.id, name: teamRow.name },
+			knowledge: toBakedContextKnowledgeItems(knowledge),
+		};
+
 		// Act: assemble context for a new session for the same team
 		const assembled = await runSession(
 			{ db, eventBus: new EventBus() },
 			{
 				mode: "assemble",
 				input: {
-					db,
 					sandboxPath,
 					sessionId: "session-r7-next",
 					taskId: "task-r7",
@@ -494,6 +529,7 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 					sourceKind: null,
 					sourceId: null,
 					sourceCorrelation: null,
+					contextBundle,
 				},
 			},
 		);

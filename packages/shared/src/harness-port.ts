@@ -42,6 +42,7 @@
  * fields).
  */
 
+import type { BakedContextBundle } from "./agent-work-intent-recorder.js";
 import type { EventBus } from "./event-bus.js";
 import type { SessionOutcome } from "./events.js";
 import type { SessionMetrics } from "./harness/harness-adapter.js";
@@ -84,6 +85,14 @@ export interface RunContextBundle {
 	readonly sessionWorkflow?: unknown;
 	/** Opaque pass-through — `session-lifecycle`-owned conversational-turn bundle (incl. a `tool-handlers`-destined `ToolRegistry`). Never inspected here. */
 	readonly conversational?: unknown;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle a
+	 * `task_run`/`routine_run`/`reengagement` session's sandbox context (Phase
+	 * 6) and prompt persona (Phase 8.5) are built from, sourced from the
+	 * drained `AgentSessionRequest.payloadJson` (zero db read). Absent for
+	 * `knowledge_action`/`session_start`/conversational turns.
+	 */
+	readonly contextBundle?: BakedContextBundle;
 }
 
 /** Narrow mirror of `@hyperidle/session-lifecycle`'s `AdmittedSession` — only the field `run-orchestration` reads directly; the rest flows through opaquely. */

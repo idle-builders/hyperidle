@@ -5,6 +5,7 @@ import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
+	type BakedContextBundle,
 	ConcurrencyLimitError,
 	CostCapExceededError,
 	type HarnessPortDeps,
@@ -108,6 +109,19 @@ function parseTriggerPrompt(request: AgentSessionRequest): string | null {
 	if (!trigger || typeof trigger !== "object") return null;
 	const prompt = (trigger as { prompt?: unknown }).prompt;
 	return typeof prompt === "string" && prompt.length > 0 ? prompt : null;
+}
+
+/**
+ * AU21 §9 Increment 12 (Decision H3): the `task_run`/`routine_run`/
+ * `reengagement` families' baked entity+knowledge bundle, carried on
+ * `request.payloadJson` the same way Increment 11's `transcript`/`modelId`
+ * ride it (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
+ */
+function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBundle | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("contextBundle" in payload)) return undefined;
+	return (payload as { contextBundle?: BakedContextBundle }).contextBundle;
 }
 
 async function ensureClaimedRequest(
@@ -313,6 +327,7 @@ async function consumeAgentSessionRequest(
 	const claimedRequest = await ensureClaimedRequest(deps.db, request, options, ports);
 	const sourceCorrelation = parseCorrelation(claimedRequest);
 	const triggerPromptOverride = parseTriggerPrompt(claimedRequest);
+	const contextBundle = parseBakedContextBundle(claimedRequest);
 	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
@@ -326,6 +341,7 @@ async function consumeAgentSessionRequest(
 		...(claimedRequest.sourceKind === "routine" && "routineId" in sourceCorrelation
 			? { routineId: sourceCorrelation.routineId }
 			: {}),
+		...(contextBundle ? { contextBundle } : {}),
 		requestContext: {
 			requestId: claimedRequest.id,
 			sourceKind: claimedRequest.sourceKind as AgentSessionSourceKind,

@@ -1,33 +1,31 @@
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave A (RED) — the regression-pin
- * architecture.md's Increment 12 test (b) requires: "baked ranking output
- * matches the pre-migration ranking for a fixed corpus."
+ * AU21 §9 Increment 12 (Decision H3) — the regression-pin architecture.md's
+ * Increment 12 test (b) requires: "baked ranking output matches the
+ * pre-migration ranking for a fixed corpus."
  *
- * Exercises the REAL pre-migration production path unchanged — `runSession`
- * (`../run-orchestration-composition.js`) in `mode: "assemble"`, which still
- * goes through `context.ts`'s `assembleContext` wired to the real
- * `contextPorts.knowledge.{list,rankAndBudget}` (`@hyperidle/knowledge`'s
- * `list`/`rank`) exactly as production runs today — against the NEW
- * `assembleSessionKnowledge` (`@hyperidle/knowledge`) this wave introduces,
- * for an identical fixed corpus (two teams, two practice communities, one
- * factory-wide item) so a genuine relocation bug (wrong scope, wrong
- * community mapping, wrong budget cutoff) would show up as a set mismatch.
+ * Exercises `@hyperidle/knowledge`'s `assembleSessionKnowledge` (Wave A —
+ * the relocated `list`+`rank` core-side, the exact logic `context.ts`'s
+ * DB-reading `assembleContext` used to run at launch, verbatim) against a
+ * fixed corpus (two teams, two practice communities, one factory-wide item)
+ * so a genuine relocation bug (wrong scope, wrong community mapping, wrong
+ * budget cutoff) shows up as a set mismatch against the hardcoded expected
+ * membership below.
  *
- * Currently RED: `@hyperidle/knowledge` has no `assembleSessionKnowledge`
- * export yet — this import fails to resolve.
- *
- * @lore ordering caveat: `context.ts`'s `assembleContext` writes
- * `.fabric/manifest.json` by iterating its L4/L2/L3 arrays in their ORIGINAL
- * DB-fetch order (filtered to the budgeted id set), not in rank-score order —
- * so the manifest's key order is not a reliable proxy for `rankAndBudget`'s
- * actual (score-descending) output order. This test therefore pins SET
- * membership (which items pass the budget + scope/community filter), the
- * observable surface both paths expose in common — not full ordering.
+ * @lore Wave C (GREEN, revised — flagged for reviewer): the RED-phase version
+ * of this test additionally ran `runSession(...,{mode:"assemble", input:
+ * {db,...}})` (the pre-migration DB-reading `assembleContext` path, wired to
+ * the real `contextPorts.knowledge.{list,rankAndBudget}`) to derive an
+ * "old path" id set to diff against. Wave C deletes that path AND
+ * `contextPorts.knowledge`/`.org` entirely (required for
+ * `context-assembly-anti-regrowth.test.ts` to prove ZERO
+ * `run-orchestration -> knowledge/org` edges) — there is no live "old path"
+ * left to run. The hardcoded anchor assertions below (membership +
+ * exclusions) already fully specify the expected set independent of any
+ * "old path" comparison, so dropping that comparison does not weaken this
+ * test's proof obligation — it removes a comparison against code that no
+ * longer exists, keeping the equally-strong direct assertions.
  */
 
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
 import {
 	bets,
 	type HyperIdleDb,
@@ -38,9 +36,9 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { runSession } from "../run-orchestration-composition.js";
 
 const NOW = "2026-07-31T00:00:00.000Z";
 const TEAM_ID = "team-i12-parity";
@@ -190,178 +188,78 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("assembleSessionKnowledge — ranking parity with the pre-migration path (Increment 12 RED)", () => {
-	test("returns exactly the same item-id set the real assembleContext/rankAndBudget path budgets in", async ({
+describe("assembleSessionKnowledge — ranking parity with the pre-migration path (Increment 12)", () => {
+	test("returns exactly the expected item-id set for the fixed corpus (budget/scope/community filter)", async ({
 		db,
-		eventBus,
 	}) => {
 		await seedFixedCorpus(db);
 
-		// -- OLD path: the real, unmodified production composition. --
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "i12-parity-"));
-		try {
-			const assembled = await runSession(
-				{ db, eventBus },
-				{
-					mode: "assemble",
-					input: {
-						db,
-						sandboxPath,
-						sessionId: "session-i12-parity",
-						taskId: TASK_ID,
-						agentId: AGENT_ID,
-						agentRole: AGENT_ROLE,
-						teamId: TEAM_ID,
-						isRoutine: false,
-						sourceKind: null,
-						sourceId: null,
-						sourceCorrelation: null,
-					},
-				},
-			);
-			expect(assembled.mode).toBe("assembled");
-			if (assembled.mode !== "assembled") return;
+		const budgeted = await assembleSessionKnowledge(db, {
+			teamId: TEAM_ID,
+			agentRole: AGENT_ROLE,
+			taskDescription: TASK_DESCRIPTION,
+		});
+		const ids = new Set(budgeted.map((item) => item.id));
 
-			const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-			const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
-				// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-				items: Record<string, { source_path: string }>;
-			};
-			const oldPathIds = new Set(Object.keys(manifest.items));
+		// Anchor the actual expected membership — the corpus mixes in-scope and
+		// out-of-scope items on purpose (team + community exclusion), so a
+		// coincidental empty-set match can't silently pass.
+		expect([...ids].sort()).toEqual(["item-i12-l2-in", "item-i12-l3-in", "item-i12-l4"].sort());
+		expect(ids.has("item-i12-l2-out")).toBe(false);
+		expect(ids.has("item-i12-l3-out")).toBe(false);
+	});
 
-			// -- NEW path: the relocated core-side assembler. --
-			const { assembleSessionKnowledge } = await import("@hyperidle/knowledge");
-			const budgeted = await assembleSessionKnowledge(db, {
-				teamId: TEAM_ID,
-				agentRole: AGENT_ROLE,
-				taskDescription: TASK_DESCRIPTION,
-			});
-			const newPathIds = new Set(budgeted.map((item: { readonly id: string }) => item.id));
+	test("each returned item's layer identifies the correct sandbox zone it belongs to", async ({
+		db,
+	}) => {
+		await seedFixedCorpus(db);
 
-			// Same items pass the budget/scope/community filter on both paths.
-			expect(newPathIds).toEqual(oldPathIds);
+		const budgeted = await assembleSessionKnowledge(db, {
+			teamId: TEAM_ID,
+			agentRole: AGENT_ROLE,
+			taskDescription: TASK_DESCRIPTION,
+		});
 
-			// Anchor the actual expected membership so a coincidental empty-set
-			// match on both sides can't silently pass.
-			expect([...newPathIds].sort()).toEqual(
-				["item-i12-l2-in", "item-i12-l3-in", "item-i12-l4"].sort(),
-			);
-			expect(newPathIds.has("item-i12-l2-out")).toBe(false);
-			expect(newPathIds.has("item-i12-l3-out")).toBe(false);
-		} finally {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		const zoneByLayer: Record<string, string> = {
+			L4: "context/factory",
+			L2: "context/product",
+			L3: "context/practices",
+		};
+		const expectedLayerById: Record<string, string> = {
+			"item-i12-l4": "L4",
+			"item-i12-l2-in": "L2",
+			"item-i12-l3-in": "L3",
+		};
+
+		expect(budgeted.length).toBe(3);
+		for (const item of budgeted) {
+			expect(item.layer).toBe(expectedLayerById[item.id]);
+			expect(item.layer ? zoneByLayer[item.layer] : undefined).toBeDefined();
 		}
 	});
 
-	test("each returned item's layer maps to the correct sandbox zone the old path wrote it to", async ({
+	test("sanity check: assembleSessionKnowledge genuinely excludes out-of-scope items (not a vacuous corpus)", async ({
 		db,
-		eventBus,
 	}) => {
 		await seedFixedCorpus(db);
 
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "i12-parity-zone-"));
-		try {
-			const assembled = await runSession(
-				{ db, eventBus },
-				{
-					mode: "assemble",
-					input: {
-						db,
-						sandboxPath,
-						sessionId: "session-i12-parity-zone",
-						taskId: TASK_ID,
-						agentId: AGENT_ID,
-						agentRole: AGENT_ROLE,
-						teamId: TEAM_ID,
-						isRoutine: false,
-						sourceKind: null,
-						sourceId: null,
-						sourceCorrelation: null,
-					},
-				},
-			);
-			expect(assembled.mode).toBe("assembled");
-			if (assembled.mode !== "assembled") return;
+		// Confirm the seeded corpus really does contain the out-of-scope rows
+		// (a fixture sanity guard — the exclusion below would be vacuous if
+		// these rows didn't exist).
+		const [row] = await db
+			.select({ id: knowledgeItems.id })
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, "item-i12-l2-out"));
+		expect(row).toBeDefined();
 
-			const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-			const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
-				// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-				items: Record<string, { source_path: string }>;
-			};
-
-			const { assembleSessionKnowledge } = await import("@hyperidle/knowledge");
-			const budgeted = await assembleSessionKnowledge(db, {
-				teamId: TEAM_ID,
-				agentRole: AGENT_ROLE,
-				taskDescription: TASK_DESCRIPTION,
-			});
-
-			const zoneByLayer: Record<string, string> = {
-				L4: "context/factory",
-				L2: "context/product",
-				L3: "context/practices",
-			};
-
-			for (const item of budgeted) {
-				const entry = manifest.items[item.id];
-				expect(entry).toBeDefined();
-				const expectedZone = item.layer ? zoneByLayer[item.layer] : undefined;
-				expect(expectedZone).toBeDefined();
-				expect(entry?.source_path.startsWith(`${expectedZone}/`)).toBe(true);
-			}
-		} finally {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
-		}
-	});
-
-	test("sanity check: assembleContext genuinely excludes out-of-scope items on the real path (not a vacuous corpus)", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedFixedCorpus(db);
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "i12-parity-sanity-"));
-		try {
-			const assembled = await runSession(
-				{ db, eventBus },
-				{
-					mode: "assemble",
-					input: {
-						db,
-						sandboxPath,
-						sessionId: "session-i12-parity-sanity",
-						taskId: TASK_ID,
-						agentId: AGENT_ID,
-						agentRole: AGENT_ROLE,
-						teamId: TEAM_ID,
-						isRoutine: false,
-						sourceKind: null,
-						sourceId: null,
-						sourceCorrelation: null,
-					},
-				},
-			);
-			expect(assembled.mode).toBe("assembled");
-			if (assembled.mode !== "assembled") return;
-
-			const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-			const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
-				// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-				items: Record<string, { source_path: string }>;
-			};
-
-			// Confirm the seeded corpus really does exercise scope/community
-			// exclusion on the OLD path itself (a fixture sanity guard —
-			// unrelated to the new assembler, must already hold today).
-			const [row] = await db
-				.select({ id: knowledgeItems.id })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, "item-i12-l2-out"));
-			expect(row).toBeDefined();
-			expect(manifest.items["item-i12-l2-out"]).toBeUndefined();
-			expect(manifest.items["item-i12-l3-out"]).toBeUndefined();
-			expect(manifest.items["item-i12-l4"]).toBeDefined();
-		} finally {
-			fs.rmSync(sandboxPath, { recursive: true, force: true });
-		}
+		const budgeted = await assembleSessionKnowledge(db, {
+			teamId: TEAM_ID,
+			agentRole: AGENT_ROLE,
+			taskDescription: TASK_DESCRIPTION,
+		});
+		const ids = new Set(budgeted.map((item) => item.id));
+		expect(ids.has("item-i12-l2-out")).toBe(false);
+		expect(ids.has("item-i12-l3-out")).toBe(false);
+		expect(ids.has("item-i12-l4")).toBe(true);
 	});
 });

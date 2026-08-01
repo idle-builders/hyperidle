@@ -15,6 +15,7 @@ import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	AL6_MAX_FORCE_RETURNS,
+	type BakedContextBundle,
 	type CapturedToolCall,
 	ConcurrencyLimitError,
 	type ConversationMessage,
@@ -43,6 +44,7 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
 	type FilesystemForProvisioning,
 	mountFilesystemsForAgent,
@@ -440,7 +442,6 @@ interface SessionLifecycleToolSummary {
 
 interface SessionLifecycleContextAssembly {
 	assembleAgentContext(input: {
-		readonly db: HyperIdleDb;
 		readonly sandboxPath: string;
 		readonly sessionId: string;
 		readonly taskId: string | null;
@@ -451,6 +452,7 @@ interface SessionLifecycleContextAssembly {
 		readonly sourceKind: AgentSessionSourceKind | null;
 		readonly sourceId: string | null;
 		readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
+		readonly contextBundle?: BakedContextBundle;
 	}): Promise<SessionLifecycleContextAssemblyOutcome>;
 	beginAgentWriteback(input: {
 		readonly sandboxPath: string;
@@ -458,28 +460,6 @@ interface SessionLifecycleContextAssembly {
 		readonly manifestPath: string;
 		readonly eventBus: EventBus;
 	}): { dispose(): void };
-	buildSessionContextData(
-		db: HyperIdleDb,
-		config: {
-			sessionId: string;
-			taskId: string;
-			agentId: string;
-			agentRole: UserRole;
-			productId: string;
-		},
-		/** I0c: optional pre-fetched agent — skips the getUserById call when supplied. */
-		preloadedAgent?: { id: string; name: string; role: string },
-	): Promise<SessionLifecycleSessionContextData>;
-	buildRoutineSessionContextData(
-		db: HyperIdleDb,
-		config: {
-			sessionId: string;
-			routineId: string;
-			agentId: string;
-			agentRole: UserRole;
-			teamId: string;
-		},
-	): Promise<SessionLifecycleRoutineSessionContextData>;
 	assemblePrompt(input: {
 		readonly systemPromptText: string;
 		readonly context: SessionLifecycleSessionContextData;
@@ -859,10 +839,19 @@ interface ProvisionSessionParams {
 	};
 	/**
 	 * AA2: When set, this session is a routine session. The provisioning orchestrator
-	 * will use routine context (buildRoutineSessionContextData + composeRoutinePrompt)
+	 * will use routine context (routineSessionContextDataFromBundle + assembleRoutinePrompt)
 	 * instead of task/bet context, and will populate sessions.routineId.
 	 */
 	readonly routineId?: string;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle
+	 * this session's sandbox context (Phase 6) and prompt persona (Phase 8.5)
+	 * are built from — `kind:"task"` for `task_run`/`reengagement`,
+	 * `kind:"routine"` for `routine_run`. Sourced from the emit-time resolver
+	 * via the drained `AgentSessionRequest.payloadJson` (zero db read here).
+	 * Absent for `knowledge_action`/`session_start`/conversational turns.
+	 */
+	readonly contextBundle?: BakedContextBundle;
 	/**
 	 * AL7 Task 6: When set, the registry invoke router participates in the
 	 * trust-first review workflow for this session.
@@ -952,12 +941,6 @@ interface AdmittedSession {
 	 * AO2: Filesystems that were successfully mounted in Phase 4.5 for this session.
 	 */
 	readonly mountedFilesystems: Filesystem[];
-	/**
-	 * I0c: Agent identity preloaded by admitSession Phase 1 (getUserById).
-	 * Passed to buildSessionContextData to skip the duplicate getUserById call
-	 * that context assembly would otherwise make moments later.
-	 */
-	readonly preloadedAgent: { readonly id: string; readonly name: string; readonly role: string };
 }
 
 /**
@@ -1160,7 +1143,6 @@ async function admitSession(
 		// ── Phase 6: assemble context into the sandbox through the agent layer.
 		if (params.taskId) {
 			await ports.contextAssembly.assembleAgentContext({
-				db,
 				sandboxPath,
 				sessionId,
 				taskId: params.taskId,
@@ -1171,10 +1153,10 @@ async function admitSession(
 				sourceKind: params.requestContext?.sourceKind ?? null,
 				sourceId: params.requestContext?.sourceId ?? null,
 				sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
+				contextBundle: params.contextBundle,
 			});
 		} else if (params.requestContext) {
 			await ports.contextAssembly.assembleAgentContext({
-				db,
 				sandboxPath,
 				sessionId,
 				taskId: null,
@@ -1185,6 +1167,7 @@ async function admitSession(
 				sourceKind: params.requestContext.sourceKind,
 				sourceId: params.requestContext.sourceId,
 				sourceCorrelation: params.requestContext.sourceCorrelation,
+				contextBundle: params.contextBundle,
 			});
 		}
 
@@ -1258,10 +1241,6 @@ async function admitSession(
 		adapterId,
 		routinePerRunCap,
 		mountedFilesystems,
-		// I0c: capture the identity fields already fetched in Phase 1 so
-		// runSession can forward them to buildSessionContextData, skipping the
-		// duplicate getUserById call inside context assembly.
-		preloadedAgent: { id: agent.id, name: agent.name, role: agent.role },
 	};
 }
 
@@ -1402,22 +1381,45 @@ async function runSession(
 						.join("\n")
 				: "";
 		assembledPrompt = composedPrompt + transcriptSection;
-	} else if (params.routineId) {
-		// Routine session: read routine + agent + team context (no task/bet).
-		const routineContextData = await ports.contextAssembly.buildRoutineSessionContextData(db, {
-			sessionId,
-			routineId: params.routineId,
-			agentId: params.agentId,
-			agentRole,
-			teamId: params.productId,
-		});
+	} else if (params.routineId && params.contextBundle?.kind === "routine") {
+		// AU21 §9 Increment 12 (Decision H3): routine session — derive
+		// routine+agent+team context from the baked `kind:"routine"` bundle,
+		// ZERO db read (the routine/org reads this used to make via
+		// `buildRoutineSessionContextData` are gone).
+		const routineContextData = routineSessionContextDataFromBundle(params.contextBundle);
 		({ assembledPrompt } = await ports.contextAssembly.assembleRoutinePrompt({
 			systemPromptText: effectiveSystemPromptText,
 			context: routineContextData,
 			tools: toolSummaries,
 			sandboxPath,
 		}));
-	} else if (params.requestContext) {
+	} else if (
+		params.taskId &&
+		!params.routineId &&
+		!params.requestContext &&
+		params.contextBundle?.kind === "task"
+	) {
+		// AU21 §9 Increment 12 (Decision H3): normal (non-durable, no
+		// requestContext) task session — derive task+bet+agent+team context
+		// from the baked `kind:"task"` bundle, ZERO db read (the task/bet/
+		// users/org reads this used to make via `buildSessionContextData` are
+		// gone).
+		const sessionContextData = sessionContextDataFromBundle(params.contextBundle);
+		({ assembledPrompt } = await ports.contextAssembly.assemblePrompt({
+			systemPromptText: effectiveSystemPromptText,
+			context: sessionContextData,
+			tools: toolSummaries,
+			sandboxPath,
+		}));
+	} else {
+		// AU21 §9 Increment 12 (Decision H3): every durable session (the
+		// primary production path — `requestContext` is always set by
+		// `consumeAgentSessionRequest`) already took this generic, db-free
+		// branch pre-migration regardless of source kind (unchanged here) —
+		// this is also the graceful fallback for a routine/task session whose
+		// emit-time resolver hasn't been wired with the optional contextBundle
+		// deps yet (`getTeamById`/`assembleSessionKnowledge`), so a wiring gap
+		// degrades to a plain prompt instead of crashing the session.
 		assembledPrompt = await assembleTaskFreePrompt(
 			db,
 			params,
@@ -1425,30 +1427,6 @@ async function runSession(
 			toolSummaries,
 			ports,
 		);
-	} else {
-		// Normal task session: read task + bet + agent + team context.
-		if (!params.taskId) {
-			throw new Error("Task session provisioning requires taskId");
-		}
-		// I0c: pass the agent preloaded in admitSession Phase 1, skipping the
-		// duplicate getUserById that buildSessionContextData would otherwise issue.
-		const sessionContextData = await ports.contextAssembly.buildSessionContextData(
-			db,
-			{
-				sessionId,
-				taskId: params.taskId,
-				agentId: params.agentId,
-				agentRole,
-				productId: params.productId,
-			},
-			admitted.preloadedAgent,
-		);
-		({ assembledPrompt } = await ports.contextAssembly.assemblePrompt({
-			systemPromptText: effectiveSystemPromptText,
-			context: sessionContextData,
-			tools: toolSummaries,
-			sandboxPath,
-		}));
 	}
 
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);

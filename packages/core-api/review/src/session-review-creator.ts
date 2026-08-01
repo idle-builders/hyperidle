@@ -144,6 +144,10 @@ export function registerReviewSubscriptions(
 			// see `applyLivenessRetry`'s `@lore` in `proposed-call-workflow.ts`.
 			getTaskById: ports.work.getTaskById,
 			requireRunnableAgent: ports.requireRunnableAgent,
+			// AU21 §9 Increment 12 (Decision H3): also bake the contextBundle.
+			getBetById: ports.getBetById,
+			getTeamById: ports.getTeamById,
+			assembleSessionKnowledge: ports.assembleSessionKnowledge,
 		});
 	};
 

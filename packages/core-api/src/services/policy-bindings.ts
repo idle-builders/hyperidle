@@ -37,9 +37,10 @@ import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
 import { enqueueWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
-import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { resolveTaskRunRequest } from "@hyperidle/work";
+import { taskRunResolverDeps } from "./task-run-resolver-bindings.js";
 
 const handoffDeps = {
 	work: {
@@ -93,7 +94,7 @@ const handoffDeps = {
 	// the concrete resolver in.
 	taskRunResolver: {
 		resolve: (exec: WriteExecutor, attemptId: string) =>
-			resolveTaskRunRequest(exec as HyperIdleDb, attemptId, { requireRunnableAgent }),
+			resolveTaskRunRequest(exec as HyperIdleDb, attemptId, taskRunResolverDeps),
 	},
 };
 

@@ -598,6 +598,15 @@ async function applyLivenessRetry(
 				bakedRequest = await resolveReengagementRequest(db, grant.proposedCallId, {
 					getTaskById: bakeDeps.getTaskById,
 					requireRunnableAgent: bakeDeps.requireRunnableAgent,
+					// AU21 §9 Increment 12 (Decision H3): forward the same optional
+					// contextBundle deps `resolveReengagementRequest` accepts —
+					// present whenever the caller wired them (see `ReviewPorts`'
+					// `@lore`).
+					...(bakeDeps.getBetById ? { getBetById: bakeDeps.getBetById } : {}),
+					...(bakeDeps.getTeamById ? { getTeamById: bakeDeps.getTeamById } : {}),
+					...(bakeDeps.assembleSessionKnowledge
+						? { assembleSessionKnowledge: bakeDeps.assembleSessionKnowledge }
+						: {}),
 				});
 			} catch {
 				bakedRequest = undefined;
@@ -654,6 +663,9 @@ export async function handleUnconsumedGrantOnSessionEnd(
 		await applyLivenessRetry(db, grant, opts.intentRecorder, {
 			getTaskById: opts.getTaskById,
 			requireRunnableAgent: opts.requireRunnableAgent,
+			getBetById: opts.getBetById,
+			getTeamById: opts.getTeamById,
+			assembleSessionKnowledge: opts.assembleSessionKnowledge,
 		});
 	}
 }
@@ -685,5 +697,8 @@ export async function reengageOnAdmissionFailure(
 	await applyLivenessRetry(db, grant, opts.intentRecorder, {
 		getTaskById: opts.getTaskById,
 		requireRunnableAgent: opts.requireRunnableAgent,
+		getBetById: opts.getBetById,
+		getTeamById: opts.getTeamById,
+		assembleSessionKnowledge: opts.assembleSessionKnowledge,
 	});
 }

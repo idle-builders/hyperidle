@@ -644,6 +644,11 @@ export async function fireGenericRoutine(
 			bakedRequest = await resolveRoutineRunRequest(tx as HyperIdleDb, runId, {
 				agentSelection: ports.agentSelection,
 				requireRunnableAgent: ports.requireRunnableAgent,
+				// AU21 §9 Increment 12 (Decision H3): forward the optional
+				// contextBundle deps (present once the composition root wires
+				// them — `routine-scheduler-bindings.ts`).
+				getTeamById: ports.getTeamById,
+				assembleSessionKnowledge: ports.assembleSessionKnowledge,
 			});
 			intent = await ports.workIntents.enqueueWorkIntent(tx, {
 				kind: "routine_run",

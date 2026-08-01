@@ -31,7 +31,12 @@ import {
 	type HyperIdleDb,
 	sessions,
 } from "@hyperidle/db";
-import { get as getKnowledgeItem, list as listKnowledgeItems } from "@hyperidle/knowledge";
+import {
+	assembleSessionKnowledge,
+	get as getKnowledgeItem,
+	list as listKnowledgeItems,
+} from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type {
@@ -1571,6 +1576,13 @@ export function createThreadRoutes(
 						// domain reads.
 						getTaskById: (execDb: HyperIdleDb, id: string) => work.get(execDb, "task", id),
 						requireRunnableAgent,
+						// AU21 §9 Increment 12 (Decision H3): also bake the contextBundle
+						// (task/bet/agent/team + ranked knowledge) this reengagement
+						// session's sandbox needs, so `run-orchestration` never reads it
+						// back.
+						getBetById: (execDb: HyperIdleDb, id: string) => work.get(execDb, "bet", id),
+						getTeamById: (execDb: HyperIdleDb, id: string) => getTeam(execDb, { id }),
+						assembleSessionKnowledge,
 					},
 				);
 

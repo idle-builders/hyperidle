@@ -7,8 +7,6 @@ import {
 	createReturnEnforcement,
 	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
-import { list as listKnowledge, rank as rankKnowledge } from "@hyperidle/knowledge";
-import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import {
 	applyProvisioningPlan,
@@ -38,7 +36,7 @@ import {
 import { readServerConfig } from "@hyperidle/settings";
 import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
-import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { transitionTask } from "@hyperidle/work";
 import {
@@ -49,6 +47,7 @@ import {
 import { costOps } from "./cost-bindings.js";
 import { dispatchOps } from "./dispatch-bindings.js";
 import { queueDeps } from "./durable-agent-queue.js";
+import { taskRunResolverDeps } from "./task-run-resolver-bindings.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
 // AU21 §9 Increment 8 (Decision F2): builds a fresh in-process `CoreApiPort`
@@ -62,24 +61,15 @@ function seamPortForActor(actorId: string): ReturnType<typeof buildCoreApiPort> 
 	return buildCoreApiPort(transport);
 }
 
+// AU21 §9 Increment 12 (Decision H3), Wave C: shrunk to `filesystems` only —
+// `knowledge`/`work`/`users`/`routine`/`org` are DELETED (not seam-routed).
+// `context.ts` is pure format/write now, consuming the baked `contextBundle`
+// carried on the session request; it reads zero core-api domain state.
+// `startWatcher` has zero DB coupling — it relocated wholesale into
+// `@hyperidle/run-orchestration` (Decision F2) but is still wired through
+// this same context-assembly port shape, unchanged.
 const contextPorts: RuntimeDeps["composition"]["context"] = {
-	knowledge: {
-		list: (db, filters) => listKnowledge(db, filters),
-		rankAndBudget: (db, items, scoringContext) =>
-			rankKnowledge(db, [...items], { ...scoringContext, taskTags: [...scoringContext.taskTags] }),
-		countTokens: (text) => Math.ceil(Buffer.byteLength(text, "utf8") / 4),
-	},
-	work: {
-		getTaskById: (exec, id) => work.get(exec, "task", id),
-		getBetById: (exec, id) => work.get(exec, "bet", id),
-	},
-	users: { getUserById: (db, id) => findUser(db, { id }) },
-	routine: { getRoutineById: routineService.getRoutine },
-	// `startWatcher` has zero DB coupling — it relocated wholesale into
-	// `@hyperidle/run-orchestration` (Decision F2) but is still wired through
-	// this same context-assembly port shape, unchanged.
 	filesystems: { startWatcher },
-	org: { getTeamById: (db, id) => getTeam(db, { id }) },
 };
 
 type SessionLifecyclePorts = NonNullable<RuntimeDeps["composition"]["provisioner"]>;
@@ -120,7 +110,7 @@ const workAccessor: SessionLifecyclePorts["work"] = {
 			toState,
 			{
 				workIntents: { record: enqueueWorkIntent },
-				taskRunResolver: { requireRunnableAgent },
+				taskRunResolver: taskRunResolverDeps,
 			},
 			dispatchOccasion,
 		);

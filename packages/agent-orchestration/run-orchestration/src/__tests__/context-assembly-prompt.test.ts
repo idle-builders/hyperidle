@@ -5,21 +5,16 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createContextAssembler } from "../context.js";
 
 /**
- * Fake `KnowledgeReader` — `assemblePrompt`/`assembleRoutinePrompt` only ever
- * call `countTokens` (a pure text-length estimate mirroring the real
- * `@hyperidle/knowledge` shape); `list`/`rankAndBudget` are unused by this
- * file's functions but implemented (not cast away) to keep the fake a real,
- * fully-typed `KnowledgeReader` — no unsafe cast needed.
+ * AU21 §9 Increment 12 (Decision H3), Wave C: `assemblePrompt`/
+ * `assembleRoutinePrompt` are pure now (token counting is a local
+ * `approxTokenCount`, no `knowledge` port) — `ContextAssemblyPorts` is just
+ * `filesystems`, unused by any function this file exercises.
  */
-const fakeKnowledge: Parameters<typeof createContextAssembler>[0]["knowledge"] = {
-	countTokens: (text: string) => (text.trim().length === 0 ? 0 : text.split(/\s+/).length),
-	list: async () => [],
-	rankAndBudget: async (_db, items) => items,
-};
-
-const assembler = createContextAssembler({ knowledge: fakeKnowledge } as unknown as Parameters<
-	typeof createContextAssembler
->[0]);
+const assembler = createContextAssembler({
+	filesystems: {
+		startWatcher: () => ({ stop: () => {} }),
+	},
+});
 
 function sessionContext() {
 	return {

@@ -40,6 +40,7 @@ import {
 } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import {
+	assembleSessionKnowledge,
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
@@ -56,7 +57,7 @@ import {
 	type NotificationsDeps,
 	reap,
 } from "@hyperidle/notifications";
-import { getTeamMembers, resolveReviewRecipients } from "@hyperidle/org";
+import { getTeam, getTeamMembers, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
 import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
@@ -514,6 +515,14 @@ export function registerCoreDomainServices(ctx: {
 				org: { resolveReviewRecipients },
 				intentRecorder: { record: enqueueWorkIntent },
 				requireRunnableAgent,
+				// AU21 §9 Increment 12 (Decision H3): the liveness-net reengagement
+				// re-provision (`applyLivenessRetry`) also bakes a contextBundle now.
+				// `getTaskById` is already forwarded from `ports.work.getTaskById`
+				// inside `session-review-creator.ts`'s liveness handler — only
+				// `getBetById`/`getTeamById`/`assembleSessionKnowledge` are new.
+				getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
+				getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
+				assembleSessionKnowledge,
 			}),
 			"review subscriptions",
 			"unsubscribe",

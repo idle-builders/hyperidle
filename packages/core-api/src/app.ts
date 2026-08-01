@@ -29,12 +29,7 @@ import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-reques
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
-import {
-	createUpgradeTokenStore,
-	findUser,
-	requireRunnableAgent,
-	type UpgradeTokenStore,
-} from "@hyperidle/users";
+import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
@@ -81,6 +76,7 @@ import {
 	createInProcessAgentOrchestrationTransport,
 	registerAgentOrchestrationTransport,
 } from "./services/agent-orchestration-port-composition.js";
+import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
 const agentWorkIntentRecorder = { record: enqueueWorkIntent };
 const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<HyperIdleDb> = {
@@ -610,7 +606,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			if (event.toState === "done") {
 				void checkAndUnblockDependents(db, eventBus, event.taskId, {
 					workIntents: { record: enqueueWorkIntent },
-					taskRunResolver: { requireRunnableAgent },
+					taskRunResolver: taskRunResolverDeps,
 				}).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
 						taskId: event.taskId,

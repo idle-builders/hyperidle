@@ -830,17 +830,22 @@ async function createFromBakedRequestInternal(
 		promptMode: PROMPT_MODE_BY_SOURCE[baked.sourceKind],
 		idempotencyKey: intent.idempotencyKey,
 		sourceCorrelation: baked.sourceCorrelation,
-		// AU21 §9 Increment 11 (Decision H2): the assistant_turn family's baked
-		// transcript + per-agent model override ride the existing generic
-		// `payloadJson` pass-through column onto the created
-		// `AgentSessionRequest` — every other kind leaves this undefined.
-		...(baked.transcript !== undefined || baked.modelId !== undefined
+		// AU21 §9 Increment 11 (Decision H2) / Increment 12 (Decision H3): the
+		// assistant_turn family's baked transcript + per-agent model override,
+		// and the task_run/routine_run/knowledge_action/reengagement families'
+		// baked contextBundle, ride the existing generic `payloadJson`
+		// pass-through column onto the created `AgentSessionRequest` — every
+		// other kind leaves this undefined.
+		...(baked.transcript !== undefined ||
+		baked.modelId !== undefined ||
+		baked.contextBundle !== undefined
 			? {
 					payloadJson: JSON.stringify({
 						...(baked.transcript !== undefined ? { transcript: baked.transcript } : {}),
 						...(baked.modelId !== undefined
 							? { modelId: baked.modelId, modelProvider: baked.modelProvider ?? null }
 							: {}),
+						...(baked.contextBundle !== undefined ? { contextBundle: baked.contextBundle } : {}),
 					}),
 				}
 			: {}),

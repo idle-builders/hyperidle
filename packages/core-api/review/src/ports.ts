@@ -19,16 +19,19 @@
  * supply it via `ports.intentRecorder`.
  */
 import type {
+	Bet,
 	HyperIdleDb,
 	NewItem,
 	NewThread,
 	Task,
+	Team,
 	Thread,
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderInput,
+	SessionKnowledgeItemLike,
 	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
 } from "@hyperidle/shared";
 
@@ -118,4 +121,24 @@ export interface ReviewPorts {
 	 * `Promise<User>`; this is a type-only widening, no behavior change.
 	 */
 	readonly requireRunnableAgent: (db: HyperIdleDb, agentId: string) => Promise<User>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/work`'s own
+	 * `bets` table + `@hyperidle/org`'s `getTeam`, injected (Mechanism C —
+	 * `review` cannot import `work`/`org` directly). Forwarded into
+	 * `resolveReengagementRequest`'s deps (via `applyLivenessRetry`/
+	 * `handleUnconsumedGrantOnSessionEnd`/`reengageOnAdmissionFailure`) so the
+	 * liveness-net re-provision bakes the same `contextBundle` the primary
+	 * `transitionProposedCall({to:"granted"})` emit site does.
+	 */
+	readonly getBetById?: (db: HyperIdleDb, id: string) => Promise<Bet | undefined>;
+	readonly getTeamById?: (db: HyperIdleDb, id: string) => Promise<Team | undefined>;
+	/** AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s `assembleSessionKnowledge`, injected for the same Mechanism C reason. */
+	readonly assembleSessionKnowledge?: (
+		db: HyperIdleDb,
+		input: {
+			readonly teamId: string;
+			readonly agentRole: string;
+			readonly taskDescription: string;
+		},
+	) => Promise<readonly SessionKnowledgeItemLike[]>;
 }
