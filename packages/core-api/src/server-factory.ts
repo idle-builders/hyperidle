@@ -539,6 +539,7 @@ export function registerCoreDomainServices(ctx: {
 				getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
 				getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
 				assembleSessionKnowledge,
+				readServerConfig,
 			}),
 			"review subscriptions",
 			"unsubscribe",

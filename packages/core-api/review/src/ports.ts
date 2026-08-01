@@ -141,4 +141,12 @@ export interface ReviewPorts {
 			readonly taskDescription: string;
 		},
 	) => Promise<readonly SessionKnowledgeItemLike[]>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
+	 * `readServerConfig`, injected (Mechanism C) for the `harnessDisabled` bake
+	 * `resolveReengagementRequest` forwards onto every `reengagement` request.
+	 */
+	readonly readServerConfig?: (
+		db: HyperIdleDb,
+	) => Promise<{ readonly harnessDisabled: readonly string[] }>;
 }

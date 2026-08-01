@@ -46,6 +46,7 @@ import {
 import { getTeam, getTeamMembers, listTeamMembers } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
+import { readServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
 	type AgentWorkIntentEvent,
@@ -950,7 +951,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 						bakedRequest = await resolveKnowledgeActionRequest(
 							tx as HyperIdleDb,
 							`knowledge:${id}`,
-							{ requireRunnableAgent },
+							{ requireRunnableAgent, readServerConfig },
 						);
 					} catch {
 						bakedRequest = undefined;

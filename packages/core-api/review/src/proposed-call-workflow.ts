@@ -41,8 +41,13 @@ import {
 	tailoredGrants,
 	type User,
 } from "@hyperidle/db";
-import type { BakedContextBundle, SessionKnowledgeItemLike, ToolResult } from "@hyperidle/shared";
-import { toBakedContextKnowledgeItems } from "@hyperidle/shared";
+import type {
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	SessionKnowledgeItemLike,
+	ToolResult,
+} from "@hyperidle/shared";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import type { ReviewAgentWorkIntentInput, ReviewPorts } from "./ports.js";
 
@@ -196,6 +201,15 @@ export interface ReengagementResolverDeps {
 			readonly taskDescription: string;
 		},
 	): Promise<readonly SessionKnowledgeItemLike[]>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
+	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/review` cannot
+	 * import `@hyperidle/settings` directly) for the `harnessDisabled` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `harnessDisabled` (matches `admitSession`'s "absent = nothing disabled"
+	 * degrade).
+	 */
+	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** Thrown when the proposed call has no eligible grant, is not granted, or its task is unavailable. */
@@ -226,6 +240,18 @@ export interface BakedReengagementRequest {
 	 * Wave B test `@lore`).
 	 */
 	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * runnable-config snapshot, baked from the SAME already-`requireRunnableAgent`
+	 * -validated `agent: User` row.
+	 */
+	readonly agentConfig: BakedAgentRunnableConfig;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * disabled-harness-types list. Present only when `deps.readServerConfig`
+	 * was supplied.
+	 */
+	readonly harnessDisabled?: readonly string[];
 }
 
 /**
@@ -285,6 +311,10 @@ export async function resolveReengagementRequest(
 			};
 		}
 	}
+	const { readServerConfig } = deps;
+	const harnessDisabled = readServerConfig
+		? (await readServerConfig(db)).harnessDisabled
+		: undefined;
 
 	return {
 		defaultAgentId: view.grant.agentScope,
@@ -299,6 +329,8 @@ export async function resolveReengagementRequest(
 			grantedAgentId: view.grant.agentScope,
 		},
 		...(contextBundle ? { contextBundle } : {}),
+		agentConfig: bakeAgentRunnableConfig(agent),
+		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
 }
 
@@ -607,6 +639,7 @@ async function applyLivenessRetry(
 					...(bakeDeps.assembleSessionKnowledge
 						? { assembleSessionKnowledge: bakeDeps.assembleSessionKnowledge }
 						: {}),
+					...(bakeDeps.readServerConfig ? { readServerConfig: bakeDeps.readServerConfig } : {}),
 				});
 			} catch {
 				bakedRequest = undefined;
@@ -666,6 +699,7 @@ export async function handleUnconsumedGrantOnSessionEnd(
 			getBetById: opts.getBetById,
 			getTeamById: opts.getTeamById,
 			assembleSessionKnowledge: opts.assembleSessionKnowledge,
+			readServerConfig: opts.readServerConfig,
 		});
 	}
 }
@@ -700,5 +734,6 @@ export async function reengageOnAdmissionFailure(
 		getBetById: opts.getBetById,
 		getTeamById: opts.getTeamById,
 		assembleSessionKnowledge: opts.assembleSessionKnowledge,
+		readServerConfig: opts.readServerConfig,
 	});
 }

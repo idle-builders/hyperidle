@@ -14,6 +14,7 @@
  */
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
+import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskRunResolverDeps } from "@hyperidle/work";
 
@@ -21,4 +22,5 @@ export const taskRunResolverDeps: TaskRunResolverDeps = {
 	requireRunnableAgent,
 	getTeamById: (db, id) => getTeam(db, { id }),
 	assembleSessionKnowledge,
+	readServerConfig,
 };

@@ -129,7 +129,11 @@ const routineSchedulerPorts: RoutineSchedulerPorts = {
 	settings: {
 		readServerConfig: async (db) => {
 			const cfg = await readServerConfig(db);
-			return { cost: { capMinor: cfg.cost.capMinor }, modelGateway: cfg.modelGateway };
+			return {
+				cost: { capMinor: cfg.cost.capMinor },
+				modelGateway: cfg.modelGateway,
+				harnessDisabled: cfg.harnessDisabled,
+			};
 		},
 	},
 	workIntents: { enqueueWorkIntent },

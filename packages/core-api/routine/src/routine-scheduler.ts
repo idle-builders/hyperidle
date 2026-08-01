@@ -649,6 +649,11 @@ export async function fireGenericRoutine(
 				// them — `routine-scheduler-bindings.ts`).
 				getTeamById: ports.getTeamById,
 				assembleSessionKnowledge: ports.assembleSessionKnowledge,
+				// AU21 §9 Increment 12 (Decision H3), Wave E: forward the SAME
+				// `settings.readServerConfig` this function's own cost-cap check
+				// (`isFactoryCostCapReached`) already reads — no second `settings`
+				// read — for the `harnessDisabled` bake.
+				readServerConfig: (db) => ports.settings.readServerConfig(db),
 			});
 			intent = await ports.workIntents.enqueueWorkIntent(tx, {
 				kind: "routine_run",
@@ -673,7 +678,7 @@ export async function fireGenericRoutine(
 		}
 		throw error;
 	}
-	if (!intent || !bakedRequest) throw new Error("Routine work intent was not persisted");
+	if (!(intent && bakedRequest)) throw new Error("Routine work intent was not persisted");
 	eventBus.emit({
 		type: "agent_work_intent_recorded",
 		streamId: `routine:${routine.id}`,

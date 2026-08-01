@@ -35,14 +35,23 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedContextBundle } from "@hyperidle/shared";
-import { toBakedContextKnowledgeItems } from "@hyperidle/shared";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/shared";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import { get } from "./knowledge-repository.js";
 import { assembleSessionKnowledge } from "./session-knowledge-assembler.js";
 
 /** Injected dependency — see the Mechanism C `@lore` above. */
 export interface KnowledgeActionResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
+	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/knowledge` cannot
+	 * import `@hyperidle/settings` directly) for the `harnessDisabled` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `harnessDisabled` (matches `admitSession`'s "absent = nothing disabled"
+	 * degrade).
+	 */
+	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** Thrown when the source knowledge item does not exist or is archived. */
@@ -66,6 +75,18 @@ export interface BakedKnowledgeActionRequest {
 	 * `@lore` above — no Mechanism C gate needed for this resolver).
 	 */
 	readonly contextBundle: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * runnable-config snapshot, baked from the SAME already-`requireRunnableAgent`
+	 * -validated `agent: User` row.
+	 */
+	readonly agentConfig: BakedAgentRunnableConfig;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * disabled-harness-types list. Present only when `deps.readServerConfig`
+	 * was supplied.
+	 */
+	readonly harnessDisabled?: readonly string[];
 }
 
 /**
@@ -100,6 +121,9 @@ export async function resolveKnowledgeActionRequest(
 		agentRole: agent.role,
 		taskDescription: item.title,
 	});
+	const harnessDisabled = deps.readServerConfig
+		? (await deps.readServerConfig(db)).harnessDisabled
+		: undefined;
 
 	return {
 		defaultAgentId: item.updatedBy,
@@ -123,5 +147,7 @@ export async function resolveKnowledgeActionRequest(
 			agent: { id: agent.id, name: agent.name, role: agent.role },
 			knowledge: toBakedContextKnowledgeItems(knowledge),
 		},
+		agentConfig: bakeAgentRunnableConfig(agent),
+		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
 }

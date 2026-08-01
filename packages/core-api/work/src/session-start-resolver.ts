@@ -31,11 +31,22 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
+import type { BakedAgentRunnableConfig } from "@hyperidle/shared";
+import { bakeAgentRunnableConfig } from "@hyperidle/shared";
 import * as work from "./work-service.js";
 
 /** Injected dependency — see the Mechanism C `@lore` above. */
 export interface SessionStartResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
+	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/work` cannot
+	 * import `@hyperidle/settings` directly) for the `harnessDisabled` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `harnessDisabled` (matches `admitSession`'s "absent = nothing disabled"
+	 * degrade).
+	 */
+	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** Thrown when the session-start's target task does not exist. */
@@ -53,6 +64,20 @@ export interface BakedSessionStartRequest {
 		readonly taskId: string;
 		readonly teamId: string;
 	};
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * runnable-config snapshot, baked from the SAME already-`requireRunnableAgent`
+	 * -validated `agent: User` row (previously discarded — this resolver only
+	 * awaited the call for its throw-on-unrunnable side effect; the return
+	 * value is now captured too, no second read).
+	 */
+	readonly agentConfig: BakedAgentRunnableConfig;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * disabled-harness-types list. Present only when `deps.readServerConfig`
+	 * was supplied.
+	 */
+	readonly harnessDisabled?: readonly string[];
 }
 
 /**
@@ -65,11 +90,14 @@ export async function resolveSessionStartRequest(
 	input: { readonly taskId: string; readonly requestedAgentId: string },
 	deps: SessionStartResolverDeps,
 ): Promise<BakedSessionStartRequest> {
-	await deps.requireRunnableAgent(db, input.requestedAgentId);
+	const agent = await deps.requireRunnableAgent(db, input.requestedAgentId);
 	const task = await work.get(db, "task", input.taskId);
 	if (!task) {
 		throw new SessionStartSourceUnavailableError("Explicit session task is unavailable");
 	}
+	const harnessDisabled = deps.readServerConfig
+		? (await deps.readServerConfig(db)).harnessDisabled
+		: undefined;
 	return {
 		defaultAgentId: input.requestedAgentId,
 		sourceKind: "task",
@@ -78,5 +106,7 @@ export async function resolveSessionStartRequest(
 		taskId: task.id,
 		teamId: task.teamId,
 		sourceCorrelation: { taskId: task.id, teamId: task.teamId },
+		agentConfig: bakeAgentRunnableConfig(agent),
+		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
 }

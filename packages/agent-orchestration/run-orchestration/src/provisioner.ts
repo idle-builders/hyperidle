@@ -2,17 +2,12 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {
-	type AgentSessionRequest,
-	type HyperIdleDb,
-	type Routine,
-	sessions,
-	type User,
-} from "@hyperidle/db";
+import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	AL6_MAX_FORCE_RETURNS,
+	type BakedAgentRunnableConfig,
 	type BakedContextBundle,
 	type CapturedToolCall,
 	ConcurrencyLimitError,
@@ -58,94 +53,40 @@ interface IngestionHandle {
 // ---- ports ----
 
 // ---------------------------------------------------------------------------
-// routine — SessionLifecycleRoutineAccessor (ordinary downward edge, real target)
+// AU21 §9 Increment 12 (Decision H3), Wave E: `SessionLifecycleRoutineAccessor`
+// (`getRoutineById`)/`SessionLifecycleUserReader` (`getUserById`/
+// `getFirstUserByKind`)/`SessionLifecycleSettingsReader` (`readServerConfig`)
+// are DELETED entirely — `run-orchestration` now holds ZERO `-> routine`/
+// `-> users`/`-> settings` edge, read or write. `admitSession`'s three former
+// live reads (Phase 1 agent load, Phase 3 `harnessDisabled`, the
+// admission-time routine per-run cap) are replaced by baked data every
+// per-kind resolver now supplies on the drained request:
+//   - Phase 1: `params.agentConfig` (`BakedAgentRunnableConfig`,
+//     `@hyperidle/shared`) — baked at emit time by EVERY per-kind resolver
+//     (all six kinds, not just the four `contextBundle`-baking families) from
+//     the SAME `agent: User` row `requireRunnableAgent` already loads +
+//     validates there. The runnability predicate/throw/reporting channel are
+//     UNCHANGED (see `TargetAgentNotRunnableError`'s throw site below) — only
+//     the data source moved from a live read to a snapshot. This is the
+//     founder-resolved trade-off architecture.md §12 names explicitly ("no
+//     bespoke race-handling" for the emit→deactivate→drain window) — not a
+//     silent drop of the gate itself. Traced (not guessed) that no natural
+//     downstream mechanism would otherwise reject a deactivated agent's
+//     session past this Phase: `AdapterPool.select()`
+//     (`@hyperidle/harness-registry`) is a pure in-memory registry blind to
+//     the calling agent's identity/status; every CLI harness authenticates
+//     via inherited host keychain/env; and the `CoreApiPort` seam's
+//     actor-override header trusts the caller's identity verbatim with zero
+//     re-read of `users.kind`/`users.status`.
+//   - Phase 3: `params.harnessDisabled` (global server config, baked
+//     alongside `agentConfig` by the same four `contextBundle` resolvers —
+//     `assistant_turn`/`session_start` bake it too, at their one real emit
+//     site each, so no kind silently loses the admin's disabled-harness-types
+//     enforcement).
+//   - The admission-time routine per-run cap: `params.contextBundle.routine
+//     .costCapPerRunMinor` (baked by the routine resolver from the SAME
+//     `routine` row it already loads to validate).
 // ---------------------------------------------------------------------------
-
-/**
- * AU21 §9 Increment 4 (Decision B″ item 3): shrunk to the one method this
- * package still needs. `findRunningRoutineRun`/`updateRoutineRunById`/
- * `updateRoutineById`/`incrementRoutineCost` are gone — `transition-run.ts`
- * and `runtime-reapers.ts` (the only former callers) now finalize a routine
- * run by emitting `session_ended` (additive `routineRunOutcome`/
- * `costInCents` fields) instead of writing `routineRuns` directly; the new
- * core-api subscriber (`routine-run-session-end-reactions.ts`) performs the
- * write from inside core-api. `getRoutineById` survives — `context.ts` and
- * this file's own admission-time per-run cap read (`routinePerRunCap`) still
- * need it.
- *
- * STILL OPEN (post Wave D review): `context.ts`'s own use closed in Wave C
- * (it now consumes the baked `contextBundle`, zero DB read), but THIS file's
- * `routinePerRunCap` read (`admitSession`, `ports.routine.getRoutineById`)
- * remains a live, real `run-orchestration -> core-api` edge — architecture.md
- * §6 H3 names `routineAccessor` for deletion; not yet done. Tracked as
- * `run-orchestration::routine` in the anti-regrowth guard's
- * `DEFERRED_FOLLOWUP`, not closed by Wave D (which closed `work` only).
- */
-interface SessionLifecycleRoutineAccessor {
-	getRoutineById(db: HyperIdleDb, id: string): Promise<Routine | undefined>;
-}
-
-// ---------------------------------------------------------------------------
-// AU21 §9 Increment 12 (Decision H3), Wave D: `SessionLifecycleWorkAccessor`
-// (getTaskById/updateTaskById/getBetById/updateBetById/transitionTask) is
-// DELETED entirely — every real call site is migrated onto core-api-side
-// event subscribers:
-//   - the launch-time `transitionTask(..., "in_progress")` guard -> a
-//     `session_started` reaction (`core-api/src/services/
-//     work-session-started-reactions.ts`).
-//   - `revertTaskToAccepted` (provisioning-failure revert) -> DELETED
-//     outright, not migrated: it only ever fired in the phase 4-7 window
-//     STRICTLY BEFORE `session_started` now performs the `in_progress`
-//     transition, so with the launch-time write removed, that window can
-//     never have transitioned the task in the first place — there is
-//     nothing left to revert.
-//   - `accumulateSessionTokensOnBet` (per-tier token bet-writeback) -> a
-//     `session_ended` reaction on the additive `tokensByTier` payload field
-//     (same file). `run-orchestration` now carries the accumulated tokens on
-//     the `session_ended` emit instead of writing `bets.tokensActualJson`
-//     itself.
-// After this, `run-orchestration` holds ZERO -> `work` edge, read or write.
-// CORRECTION (post Wave D review): this closure is scoped to the `work` edge
-// ONLY. It does NOT mean Increment 12 (Decision H3) is fully closed — the
-// `routine`/`settings`/`users` reads below (`SessionLifecycleRoutineAccessor`/
-// `SessionLifecycleUserReader`/`SessionLifecycleSettingsReader`) remain live,
-// real, non-migrated `run-orchestration -> core-api` edges Wave D did not
-// touch. A prior version of this wave's commit message overclaimed "zero ->
-// core-api edge, read or write" across the board; that claim holds for `work`
-// alone. See each interface's own doc comment below and
-// `scripts/composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP`
-// (`run-orchestration::routine`/`::settings`/`::users`) for the honest,
-// still-open accounting.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// users — SessionLifecycleUserReader (ordinary downward edge, real target)
-//
-// STILL OPEN (post Wave D review): `admitSession`'s Phase 1 agent load
-// (`getUserById`) is a live, real `run-orchestration -> core-api` edge —
-// architecture.md §6 H3 names `userReader` for deletion; not yet done.
-// Tracked as `run-orchestration::users` in the anti-regrowth guard's
-// `DEFERRED_FOLLOWUP`, not closed by Wave D (which closed `work` only).
-// ---------------------------------------------------------------------------
-
-interface SessionLifecycleUserReader {
-	getUserById(db: HyperIdleDb, id: string): Promise<User | undefined>;
-	getFirstUserByKind(db: HyperIdleDb, kind: string): Promise<User | undefined>;
-}
-
-// ---------------------------------------------------------------------------
-// settings — SessionLifecycleSettingsReader (ordinary downward edge, real target)
-//
-// STILL OPEN (post Wave D review): `admitSession`'s Phase 3 `harnessDisabled`
-// read (`readServerConfig`) is a live, real `run-orchestration -> core-api`
-// edge — architecture.md §6 H3 names `settingsReader` for deletion; not yet
-// done. Tracked as `run-orchestration::settings` in the anti-regrowth guard's
-// `DEFERRED_FOLLOWUP`, not closed by Wave D (which closed `work` only).
-// ---------------------------------------------------------------------------
-
-interface SessionLifecycleSettingsReader {
-	readServerConfig(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
-}
 
 // ---------------------------------------------------------------------------
 // observability — SessionLifecycleObservability (ordinary downward edge, real target)
@@ -533,9 +474,6 @@ interface SessionLifecyclePorts {
 		): void;
 		deregisterSessionRun(sessionId: string): void;
 	};
-	readonly routine: SessionLifecycleRoutineAccessor;
-	readonly users: SessionLifecycleUserReader;
-	readonly settings: SessionLifecycleSettingsReader;
 	readonly observability: SessionLifecycleObservability;
 	readonly filesystems: SessionLifecycleFilesystemsReader;
 	readonly connections: SessionLifecycleConnectionsProvisioner;
@@ -744,6 +682,43 @@ interface ProvisionSessionParams {
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * runnable-config snapshot, baked at EMIT time by every per-kind resolver
+	 * (all six intent kinds) from the SAME `agent: User` row
+	 * `requireRunnableAgent` already loaded + validated there (no new read —
+	 * the exact H2/Increment 11 precedent `assistant-turn-resolver.ts`'s
+	 * `modelId`/`modelProvider` bake already established). `admitSession`'s
+	 * Phase 1 validates `kind`/`status` against THIS baked snapshot instead of
+	 * a live `ports.users.getUserById` read — same predicate
+	 * (`kind==="ai" && status ∈ {"active","idle"}`), same throw
+	 * (`TargetAgentNotRunnableError`), same `agent_run_admission_failed`
+	 * pre-handoff reporting (`runtime.ts`'s `reportPreAdmissionProvisioningFailure`)
+	 * — a snapshot check, not a live one. This is a DELIBERATE, founder-
+	 * resolved trade-off (architecture.md §12 "RESOLVED (founder, 2026-07-27)":
+	 * no bespoke race-handling for the emit→deactivate→drain window), not a
+	 * silent drop of the runnability gate itself — see this file's own Wave E
+	 * investigation note (top of file) for why a natural downstream failure
+	 * does NOT exist (traced: `AdapterPool.select()` and the `CoreApiPort`
+	 * seam's actor-override header both trust the caller's identity
+	 * unconditionally, with zero live agent-status re-check anywhere past this
+	 * Phase). Required for every durable (request-mediated) session; absent
+	 * only on the `one-shot` mode (eval/direct-test seam — see
+	 * `@hyperidle/eval`'s `provision-harness.ts`, which sources its own
+	 * snapshot the same way, one level up the call stack), where its absence
+	 * is a hard provisioning failure, not a silent allow.
+	 */
+	readonly agentConfig?: BakedAgentRunnableConfig;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * disabled-harness-types list, baked at emit time (global `settings`
+	 * config, not per-agent) so Phase 3's adapter-selection filter no longer
+	 * needs a live `ports.settings.readServerConfig` read. Absent defaults to
+	 * "nothing disabled" (matches the settings row's own empty-array default)
+	 * — unlike `agentConfig`, this is not a security gate, so a missing bake
+	 * degrades gracefully rather than hard-failing.
+	 */
+	readonly harnessDisabled?: readonly string[];
+	/**
 	 * AL7 Task 6: When set, the registry invoke router participates in the
 	 * trust-first review workflow for this session.
 	 */
@@ -859,30 +834,33 @@ async function admitSession(
 ): Promise<AdmittedSession> {
 	const { db, eventBus, adapterPool, workspace } = deps;
 
-	// ── Phase 1: load agent
-	const agent = await ports.users.getUserById(db, params.agentId);
-	if (!agent) {
-		throw new Error(`Agent not found: ${params.agentId}`);
-	}
+	// ── Phase 1: consume the baked agent-runnability snapshot (Wave E — no
+	// live `ports.users.getUserById` read; see this file's top-of-file Wave E
+	// note).
+	const agentConfig = params.agentConfig;
 	// @lore AU21 §12: the emit→deactivate→drain race — the agent resolved
 	// runnable at emit/hand-off time may have been deactivated by the time
-	// provisioning actually reaches it. Traced (not guessed): before this
-	// check, a deactivated agent's row still existed and sailed through
-	// Phase 1 unchecked (only `!agent` was tested). Reported back via the
-	// same pre-handoff `agent_run_admission_failed` channel — see
-	// `runtime.ts`'s `runClaimedRequest` catch, `failureCode:
-	// "TARGET_AGENT_NOT_RUNNABLE"`.
-	if (agent.kind !== "ai" || !["active", "idle"].includes(agent.status)) {
+	// provisioning actually reaches it. `agentConfig` absent entirely is
+	// treated the same as a deactivated agent — every real durable path bakes
+	// it (Wave E, all six intent kinds); a missing bake is a hard
+	// provisioning failure, never a silent allow. Reported back via the same
+	// pre-handoff `agent_run_admission_failed` channel — see `runtime.ts`'s
+	// `runClaimedRequest` catch, `failureCode: "TARGET_AGENT_NOT_RUNNABLE"`.
+	if (
+		!agentConfig ||
+		agentConfig.kind !== "ai" ||
+		!["active", "idle"].includes(agentConfig.status)
+	) {
 		throw new TargetAgentNotRunnableError(params.agentId);
 	}
-	const agentRole = agent.role;
-	const teamId = agent.teamId ?? undefined;
+	const agentRole = agentConfig.role;
+	const teamId = agentConfig.teamId ?? undefined;
 
-	// X3: Read system prompt inline from DB column. No file read required.
-	const systemPromptText = agent.systemPrompt ?? "";
+	// X3: system prompt from the baked snapshot. No file read required.
+	const systemPromptText = agentConfig.systemPrompt ?? "";
 
 	// X3: Model tier priority: explicit param > agent preference > default "workhorse".
-	const rawPreference = agent.modelTierPreference;
+	const rawPreference = agentConfig.modelTierPreference;
 	const agentPreference =
 		rawPreference !== null &&
 		rawPreference !== undefined &&
@@ -911,19 +889,24 @@ async function admitSession(
 	}
 
 	// ── Phase 3: adapter selection + concurrency check + task transition.
-	const { harnessDisabled } = await ports.settings.readServerConfig(db);
+	// Wave E: `harnessDisabled` comes from the baked request (no live
+	// `ports.settings.readServerConfig` read) — absent defaults to "nothing
+	// disabled", matching the settings row's own empty-array default.
+	const harnessDisabled = params.harnessDisabled ?? [];
 	const selectRequirements = {
-		harnessType: agent.harnessType ?? undefined,
-		...(agent.modelProvider ? { modelProviders: [agent.modelProvider] as readonly string[] } : {}),
+		harnessType: agentConfig.harnessType ?? undefined,
+		...(agentConfig.modelProvider
+			? { modelProviders: [agentConfig.modelProvider] as readonly string[] }
+			: {}),
 		disabledTypes: harnessDisabled as readonly string[],
 	};
 	const selectedAdapter = adapterPool.select(selectRequirements);
 	if (!selectedAdapter) {
-		if (agent.harnessType) {
-			throw new NoEligibleHarnessError(agent.harnessType);
+		if (agentConfig.harnessType) {
+			throw new NoEligibleHarnessError(agentConfig.harnessType);
 		}
 		throw new Error(
-			`No available adapter in pool — all adapters are at capacity${agent.harnessType ? ` (harnessType: ${agent.harnessType})` : ""}`,
+			`No available adapter in pool — all adapters are at capacity${agentConfig.harnessType ? ` (harnessType: ${agentConfig.harnessType})` : ""}`,
 		);
 	}
 	const harness = selectedAdapter.adapter;
@@ -944,9 +927,9 @@ async function admitSession(
 		.from(sessions)
 		.where(activeCountWhere)
 		.limit(1);
-	if ((activeCount?.count ?? 0) >= agent.maxConcurrentSessions) {
+	if ((activeCount?.count ?? 0) >= agentConfig.maxConcurrentSessions) {
 		adapterPool.release(adapterId);
-		throw new ConcurrencyLimitError(params.agentId, agent.maxConcurrentSessions);
+		throw new ConcurrencyLimitError(params.agentId, agentConfig.maxConcurrentSessions);
 	}
 
 	// AF7 §2 (WARNING-2): resolvedModel presence guard — synchronous, pre-P5.
@@ -1104,12 +1087,13 @@ async function admitSession(
 		...(params.routineId ? { routineId: params.routineId } : {}),
 	};
 
-	// AA3: Read per-run cost cap once at admission time for routine sessions.
-	let routinePerRunCap: number | null = null;
-	if (params.routineId) {
-		const routineRow = await ports.routine.getRoutineById(db, params.routineId);
-		routinePerRunCap = routineRow?.costCapPerRunMinor ?? null;
-	}
+	// AA3: per-run cost cap for routine sessions — Wave E: baked onto the
+	// `contextBundle` by the routine resolver from the SAME `routine` row it
+	// already loaded to validate (no live `ports.routine.getRoutineById` read).
+	const routinePerRunCap: number | null =
+		params.routineId && params.contextBundle?.kind === "routine"
+			? (params.contextBundle.routine.costCapPerRunMinor ?? null)
+			: null;
 
 	return {
 		sessionId,

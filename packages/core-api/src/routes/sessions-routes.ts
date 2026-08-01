@@ -4,6 +4,7 @@ import {
 	findSessionRequest,
 	sessionRunRegistry,
 } from "@hyperidle/session-requests";
+import { readServerConfig } from "@hyperidle/settings";
 import {
 	type AgentWorkIntentEvent,
 	type AgentWorkIntentReader,
@@ -407,7 +408,7 @@ export function createSessionRoutes(
 						const bakedRequest = await resolveSessionStartRequest(
 							tx as HyperIdleDb,
 							{ taskId: body.taskId, requestedAgentId: body.agentId },
-							{ requireRunnableAgent },
+							{ requireRunnableAgent, readServerConfig },
 						);
 						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "session_start",

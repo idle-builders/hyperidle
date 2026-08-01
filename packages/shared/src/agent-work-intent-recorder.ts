@@ -20,6 +20,7 @@
  */
 
 import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
+import type { UserRole } from "./types.js";
 
 /**
  * AU21 §6 Decision B / §10 — the emit-time-resolved request a migrated
@@ -74,6 +75,81 @@ export interface BakedWorkIntentRequest {
 	 * needs thread history, not ranked L2/L3/L4 knowledge).
 	 */
 	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * runnable-config snapshot, baked at emit time by EVERY per-kind resolver
+	 * (all six kinds — `admitSession`'s Phase 1 applies uniformly, not just to
+	 * the four `contextBundle`-baking families) from the SAME `agent: User` row
+	 * `requireRunnableAgent` already loaded + validated there. Replaces
+	 * `admitSession`'s former live `ports.users.getUserById` read — a snapshot
+	 * check, not a live one (the emit→deactivate→drain race stays open exactly
+	 * as architecture.md §12's founder-resolved note accepts), but the
+	 * runnability GATE itself is never dropped, only its data source changes.
+	 */
+	readonly agentConfig?: BakedAgentRunnableConfig;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * disabled-harness-types list (`server_config.harnessDisabled`), baked at
+	 * emit time (global config, not per-agent) so `admitSession`'s Phase 3
+	 * adapter-selection filter no longer needs a live
+	 * `ports.settings.readServerConfig` read. Absent means "nothing disabled"
+	 * (matches the settings row's own empty-array default), not a live-read
+	 * fallback — `ports.settings` is deleted from `run-orchestration` entirely.
+	 */
+	readonly harnessDisabled?: readonly string[];
+}
+
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+ * admission-relevant configuration, baked at emit time from the SAME
+ * `agent: User` row every per-kind resolver already loads via
+ * `requireRunnableAgent` to validate the ast-`<userId>` invariant. Mirrors
+ * exactly the set of `users` columns `admitSession`'s former Phase 1/3 live
+ * read (`ports.users.getUserById`) consumed: the runnability predicate
+ * (`kind`/`status`), the fields `context.ts`/prompt assembly used
+ * (`role`/`systemPrompt`/`modelTierPreference`), the fields adapter selection
+ * used (`harnessType`/`modelProvider`), the concurrency-check bound
+ * (`maxConcurrentSessions`), and the agent's own home team
+ * (`teamId` — feeds the Phase 2 cost-cap check's `team` scope, distinct from
+ * `ProvisionSessionParams.productId`, which is the TASK's team; verified from
+ * `admitSession`'s pre-Wave-E `const teamId = agent.teamId ?? undefined`,
+ * consumed by `ports.cost.checkCostCap`/`recordCostAndCheck` — this field was
+ * NOT in this wave's originating task field list and would have been a silent
+ * drop had it been omitted here).
+ */
+export interface BakedAgentRunnableConfig {
+	readonly kind: string;
+	readonly status: string;
+	readonly role: UserRole;
+	readonly teamId: string | null;
+	readonly systemPrompt: string | null;
+	readonly modelTierPreference: string | null;
+	readonly harnessType: string | null;
+	readonly modelProvider: string | null;
+	readonly maxConcurrentSessions: number;
+}
+
+/**
+ * Map a resolver's already-loaded `agent: User` row (or any object structurally
+ * satisfying `BakedAgentRunnableConfig`'s fields — `@hyperidle/shared` has zero
+ * `@hyperidle/db` dependency, so this stays duck-typed, same idiom as
+ * `SessionKnowledgeItemLike`) onto the exact whitelisted `BakedAgentRunnableConfig`
+ * shape. A deliberate whitelist pick, not a spread — `User` carries other
+ * columns (name, avatar, credentials, etc.) that must never ride onto the
+ * baked `AgentSessionRequest.payloadJson`.
+ */
+export function bakeAgentRunnableConfig(agent: BakedAgentRunnableConfig): BakedAgentRunnableConfig {
+	return {
+		kind: agent.kind,
+		status: agent.status,
+		role: agent.role,
+		teamId: agent.teamId,
+		systemPrompt: agent.systemPrompt,
+		modelTierPreference: agent.modelTierPreference,
+		harnessType: agent.harnessType,
+		modelProvider: agent.modelProvider,
+		maxConcurrentSessions: agent.maxConcurrentSessions,
+	};
 }
 
 /** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle`. */
@@ -175,6 +251,18 @@ export type BakedContextBundle =
 				readonly name: string;
 				readonly description: string | null;
 				readonly lastRunSummary: string | null;
+				/**
+				 * AU21 §9 Increment 12 (Decision H3), Wave E (RED, design-only so
+				 * far): the routine's per-run cost cap (`routines.costCapPerRunMinor`),
+				 * baked at emit time from the SAME `routine` row the routine
+				 * resolver already loaded to validate — replaces `admitSession`'s
+				 * live `ports.routine.getRoutineById(...).costCapPerRunMinor` read.
+				 * Optional (not yet baked by the real resolver — that wiring lands
+				 * with the rest of this wave's implementation) so this additive
+				 * field doesn't force every existing `kind:"routine"` bundle
+				 * construction site to change in this pass.
+				 */
+				readonly costCapPerRunMinor?: number | null;
 			};
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 			readonly team: { readonly id: string; readonly name: string };

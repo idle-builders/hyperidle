@@ -5,6 +5,7 @@ import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
+	type BakedAgentRunnableConfig,
 	type BakedContextBundle,
 	ConcurrencyLimitError,
 	CostCapExceededError,
@@ -122,6 +123,33 @@ function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBund
 	const payload = JSON.parse(request.payloadJson) as unknown;
 	if (!payload || typeof payload !== "object" || !("contextBundle" in payload)) return undefined;
 	return (payload as { contextBundle?: BakedContextBundle }).contextBundle;
+}
+
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave E — every intent kind's baked
+ * agent-runnability snapshot, carried on `request.payloadJson` the same way
+ * `contextBundle`/`transcript`/`modelId` ride it
+ * (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
+ * Feeds `admitSession`'s Phase 1 (see `provisioner.ts`'s Wave E note) — a
+ * missing bake is a hard provisioning failure there, not a silent allow.
+ */
+function parseBakedAgentConfig(request: AgentSessionRequest): BakedAgentRunnableConfig | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("agentConfig" in payload)) return undefined;
+	return (payload as { agentConfig?: BakedAgentRunnableConfig }).agentConfig;
+}
+
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave E — the server's baked
+ * disabled-harness-types list, carried on `request.payloadJson` alongside
+ * `agentConfig`. Feeds `admitSession`'s Phase 3 adapter-selection filter.
+ */
+function parseBakedHarnessDisabled(request: AgentSessionRequest): readonly string[] | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("harnessDisabled" in payload)) return undefined;
+	return (payload as { harnessDisabled?: readonly string[] }).harnessDisabled;
 }
 
 async function ensureClaimedRequest(
@@ -328,6 +356,8 @@ async function consumeAgentSessionRequest(
 	const sourceCorrelation = parseCorrelation(claimedRequest);
 	const triggerPromptOverride = parseTriggerPrompt(claimedRequest);
 	const contextBundle = parseBakedContextBundle(claimedRequest);
+	const agentConfig = parseBakedAgentConfig(claimedRequest);
+	const harnessDisabled = parseBakedHarnessDisabled(claimedRequest);
 	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
@@ -342,6 +372,8 @@ async function consumeAgentSessionRequest(
 			? { routineId: sourceCorrelation.routineId }
 			: {}),
 		...(contextBundle ? { contextBundle } : {}),
+		...(agentConfig ? { agentConfig } : {}),
+		...(harnessDisabled ? { harnessDisabled } : {}),
 		requestContext: {
 			requestId: claimedRequest.id,
 			sourceKind: claimedRequest.sourceKind as AgentSessionSourceKind,

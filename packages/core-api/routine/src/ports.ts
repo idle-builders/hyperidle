@@ -89,6 +89,13 @@ export interface RoutineSchedulerPorts {
 		readServerConfig(db: HyperIdleDb): Promise<{
 			readonly cost: { readonly capMinor: number };
 			readonly modelGateway?: ModelGatewayConfig;
+			/**
+			 * AU21 §9 Increment 12 (Decision H3), Wave E — widened so
+			 * `fireGenericRoutine` can forward this SAME read into
+			 * `resolveRoutineRunRequest`'s `readServerConfig` dep for the
+			 * `harnessDisabled` bake, instead of a second `settings` read.
+			 */
+			readonly harnessDisabled: readonly string[];
 		}>;
 	};
 	readonly workIntents: {

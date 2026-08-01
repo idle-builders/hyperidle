@@ -1,11 +1,37 @@
 import { runSession } from "@hyperidle/core-api/session";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb, User } from "@hyperidle/db";
 import type { AdapterPool } from "@hyperidle/harness-registry";
 import type { EventBus } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
 import { runEvalSession } from "./provision-harness.js";
 
 vi.mock("@hyperidle/core-api/session", () => ({ runSession: vi.fn() }));
+// AU21 §9 Increment 12 (Decision H3), Wave E: `runEvalSession` now performs a
+// real `requireRunnableAgent`/`readServerConfig` bake before calling
+// `runSession` (mocked above) — this test's concern is adapter-pool
+// selection, not agent runnability, so those two reads are mocked here
+// rather than pulled onto a real DB (this is a `.test.ts` unit test, no DB
+// fixture).
+vi.mock("@hyperidle/users", () => ({
+	requireRunnableAgent: vi.fn(
+		async () =>
+			({
+				id: "agent",
+				kind: "ai",
+				status: "active",
+				role: "builder",
+				teamId: null,
+				systemPrompt: null,
+				modelTierPreference: null,
+				harnessType: null,
+				modelProvider: null,
+				maxConcurrentSessions: 5,
+			}) as unknown as User,
+	),
+}));
+vi.mock("@hyperidle/settings", () => ({
+	readServerConfig: vi.fn(async () => ({ harnessDisabled: [] })),
+}));
 
 describe("eval harness provisioning", () => {
 	it("uses the canonical direct adapter for non-Anthropic external fallback", async () => {

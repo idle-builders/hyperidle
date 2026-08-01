@@ -39,6 +39,7 @@ import {
 } from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
 import { enqueueWorkIntent, transitionSessionRequest } from "@hyperidle/session-requests";
+import { readServerConfig } from "@hyperidle/settings";
 import { type AgentRunAdmissionFailedEvent, createLogger, type EventBus } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
@@ -115,6 +116,7 @@ async function reactToAdmissionFailure(
 				// see `applyLivenessRetry`'s `@lore` in `proposed-call-workflow.ts`.
 				getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 				requireRunnableAgent,
+				readServerConfig,
 			});
 			return;
 		case "assistant_turn":

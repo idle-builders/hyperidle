@@ -188,6 +188,28 @@ describe("agent session request sources", () => {
 			},
 		};
 
+		// AU21 §9 Increment 12 (Decision H3), Wave E: `createSessionRequest(...,
+		// {kind:"direct"})` bypasses the emit-time resolver pipeline entirely
+		// (this `kind` has zero real production callers — see
+		// `CreateSessionRequestInput`'s own doc comment on the sibling
+		// `"triggered"` kind's identical fate), so it must bake the
+		// `agentConfig` `admitSession`'s Phase 1 now requires directly onto
+		// `payloadJson`, matching exactly what the real emit-time resolvers
+		// bake from the SAME seeded `agent-au3-agent` row above.
+		const bakedAgentConfigPayload = JSON.stringify({
+			agentConfig: {
+				kind: "ai",
+				status: "active",
+				role: "builder",
+				teamId: "tm-au3-agent",
+				systemPrompt: null,
+				modelTierPreference: null,
+				harnessType: "recording",
+				modelProvider: "test",
+				maxConcurrentSessions: 1,
+			},
+		});
+
 		const sources: AgentSessionRequestInput[] = [
 			{
 				sourceKind: "task",
@@ -199,6 +221,7 @@ describe("agent session request sources", () => {
 				promptMode: "task",
 				idempotencyKey: "au3:task",
 				sourceCorrelation: { taskId: "task-au3-agent", teamId: "team-au3-agent" },
+				payloadJson: bakedAgentConfigPayload,
 			},
 			{
 				sourceKind: "routine",
@@ -214,6 +237,7 @@ describe("agent session request sources", () => {
 					routineRunId: "routine-run-au3-agent",
 					teamId: "team-au3-agent",
 				},
+				payloadJson: bakedAgentConfigPayload,
 			},
 			{
 				sourceKind: "assistant",
@@ -231,6 +255,7 @@ describe("agent session request sources", () => {
 					userId: "u-au3-agent",
 					assistantAgentId: "ast-u-au3-agent",
 				},
+				payloadJson: bakedAgentConfigPayload,
 			},
 		];
 

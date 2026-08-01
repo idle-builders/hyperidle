@@ -148,6 +148,8 @@ export function registerReviewSubscriptions(
 			getBetById: ports.getBetById,
 			getTeamById: ports.getTeamById,
 			assembleSessionKnowledge: ports.assembleSessionKnowledge,
+			// AU21 §9 Increment 12 (Decision H3), Wave E: also bake harnessDisabled.
+			readServerConfig: ports.readServerConfig,
 		});
 	};
 

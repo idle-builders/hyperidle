@@ -26,11 +26,22 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
+import type { BakedAgentRunnableConfig } from "@hyperidle/shared";
+import { bakeAgentRunnableConfig } from "@hyperidle/shared";
 import { findMessage, listMessages } from "./conversation-store.js";
 
 /** Injected dependency — see the Mechanism C `@lore` above. */
 export interface AssistantTurnResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
+	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/conversation`
+	 * cannot import `@hyperidle/settings` directly) for the `harnessDisabled`
+	 * bake. Absent at a call site not yet wired — the resolver bakes no
+	 * `harnessDisabled` (matches `admitSession`'s "absent = nothing disabled"
+	 * degrade).
+	 */
+	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** Thrown when the source message does not exist, is deleted, or is redacted. */
@@ -79,6 +90,18 @@ export interface BakedAssistantTurnRequest {
 	readonly modelId: string | null;
 	/** Per-agent model provider override (`users.modelProvider`), or `null` when unset. */
 	readonly modelProvider: string | null;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * runnable-config snapshot, baked from the SAME already-`requireRunnableAgent`
+	 * -validated `agent: User` row.
+	 */
+	readonly agentConfig: BakedAgentRunnableConfig;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * disabled-harness-types list. Present only when `deps.readServerConfig`
+	 * was supplied.
+	 */
+	readonly harnessDisabled?: readonly string[];
 }
 
 function resolveAssistantAgentIdForSender(senderId: string): string {
@@ -112,6 +135,9 @@ export async function resolveAssistantTurnRequest(
 		payload: row.payload,
 		type: row.type,
 	}));
+	const harnessDisabled = deps.readServerConfig
+		? (await deps.readServerConfig(db)).harnessDisabled
+		: undefined;
 	return {
 		defaultAgentId: targetAgentId,
 		sourceKind: "assistant",
@@ -127,5 +153,7 @@ export async function resolveAssistantTurnRequest(
 		transcript,
 		modelId: agent.modelId ?? null,
 		modelProvider: agent.modelProvider ?? null,
+		agentConfig: bakeAgentRunnableConfig(agent),
+		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
 }

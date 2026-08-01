@@ -38,8 +38,12 @@ import {
 	type User,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import type { BakedContextBundle, SessionKnowledgeItemLike } from "@hyperidle/shared";
-import { toBakedContextKnowledgeItems } from "@hyperidle/shared";
+import type {
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	SessionKnowledgeItemLike,
+} from "@hyperidle/shared";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import type { SQL } from "drizzle-orm";
 import { and, asc, avg, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
 
@@ -339,6 +343,18 @@ export interface BakedRoutineRunRequest {
 	 * this file's Wave B test `@lore`), not a preserve-behavior migration.
 	 */
 	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E: the target agent's
+	 * runnable-config snapshot, baked from the SAME already-requireRunnableAgent-
+	 * validated `agent: User` row.
+	 */
+	readonly agentConfig: BakedAgentRunnableConfig;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E: the server's
+	 * disabled-harness-types list, baked from the SAME `ports.settings
+	 * .readServerConfig` this file's cost-cap check already reads.
+	 */
+	readonly harnessDisabled?: readonly string[];
 }
 
 /**
@@ -392,6 +408,17 @@ export interface RoutineRunResolverDeps {
 			readonly taskDescription: string;
 		},
 	): Promise<readonly SessionKnowledgeItemLike[]>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional:
+	 * `@hyperidle/settings`'s `readServerConfig`, injected (Mechanism C —
+	 * `@hyperidle/routine` cannot import `@hyperidle/settings` directly) for
+	 * the `harnessDisabled` bake. Same shape as `RoutineSchedulerPorts.settings
+	 * .readServerConfig` (`ports.ts`) this file's cost-cap check already reads
+	 * — forwarded here by `fireGenericRoutine`, not a second wiring. Absent at
+	 * a call site not yet wired — the resolver bakes no `harnessDisabled`
+	 * (matches `admitSession`'s "absent = nothing disabled" degrade).
+	 */
+	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /**
@@ -476,6 +503,11 @@ export async function resolveRoutineRunRequest(
 					name: routine.name,
 					description: routine.description,
 					lastRunSummary: routine.lastRunSummary,
+					// AU21 §9 Increment 12 (Decision H3), Wave E: bake the per-run
+					// cost cap from the SAME `routine` row this resolver already
+					// loaded to validate — replaces `admitSession`'s former live
+					// `ports.routine.getRoutineById(...).costCapPerRunMinor` read.
+					costCapPerRunMinor: routine.costCapPerRunMinor,
 				},
 				agent: { id: agent.id, name: agent.name, role: agent.role },
 				team: { id: team.id, name: team.name },
@@ -483,6 +515,10 @@ export async function resolveRoutineRunRequest(
 			};
 		}
 	}
+	const { readServerConfig } = deps;
+	const harnessDisabled = readServerConfig
+		? (await readServerConfig(db)).harnessDisabled
+		: undefined;
 
 	return {
 		defaultAgentId: selectedAgentId,
@@ -493,5 +529,7 @@ export async function resolveRoutineRunRequest(
 		taskId: null,
 		sourceCorrelation: { routineId: routine.id, routineRunId: runId, teamId: routine.teamId },
 		...(contextBundle ? { contextBundle } : {}),
+		agentConfig: bakeAgentRunnableConfig(agent),
+		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
 }

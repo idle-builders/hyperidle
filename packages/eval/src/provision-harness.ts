@@ -18,7 +18,9 @@ import {
 	createHarnessAdapter,
 	createSandboxAdapter,
 } from "@hyperidle/harness-registry";
-import type { EventBus, ResolvedModel } from "@hyperidle/shared";
+import { readServerConfig } from "@hyperidle/settings";
+import { bakeAgentRunnableConfig, type EventBus, type ResolvedModel } from "@hyperidle/shared";
+import { requireRunnableAgent } from "@hyperidle/users";
 import type { TriggerResult } from "./types.js";
 
 /** @internal The eval-builtin adapter name. */
@@ -118,6 +120,19 @@ export async function runEvalSession(
 
 	const startMs = Date.now();
 
+	// AU21 §9 Increment 12 (Decision H3), Wave E: this "one-shot" seam calls
+	// `provisionSession` directly, bypassing the durable emit-time resolver
+	// pipeline entirely — so it must supply the baked `agentConfig`/
+	// `harnessDisabled` `admitSession` now REQUIRES itself, same as it already
+	// supplies `resolvedModel` itself instead of letting `run-orchestration`
+	// resolve it. `requireRunnableAgent` is the SAME shared invariant every
+	// per-kind resolver validates against before baking; a deactivated agent
+	// throws here, before any session is provisioned — no live-read
+	// regression versus the pre-Wave-E behavior (which performed this exact
+	// check live, inside `admitSession`, every eval run).
+	const agent = await requireRunnableAgent(deps.db, params.agentId);
+	const { harnessDisabled } = await readServerConfig(deps.db);
+
 	const result = await runSession(
 		{
 			db: deps.db,
@@ -139,6 +154,8 @@ export async function runEvalSession(
 				sandboxBasePath: deps.sandboxBasePath,
 				resolvedModel: deps.resolvedModel,
 				resolvedFastModel: deps.resolvedFastModel,
+				agentConfig: bakeAgentRunnableConfig(agent),
+				harnessDisabled,
 				// No cost cap during eval — cost is tracked but not capped.
 			},
 		},

@@ -282,12 +282,29 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  *
  * **CORRECTION (post Wave D review):** Wave D's own commit message
  * overclaimed "`run-orchestration` holds ZERO -> core-api edge, read or
- * write" as the full Decision H3 terminal state. That is true for `work`
- * ALONE — `run-orchestration::routine`/`::settings`/`::users` remain
- * genuinely open (see below) and Increment 12 is NOT complete until they are
- * too. Corrected here rather than presenting a partial closure as the whole.
+ * write" as the full Decision H3 terminal state. That was true for `work`
+ * ALONE at the time — `run-orchestration::routine`/`::settings`/`::users`
+ * remained genuinely open until Wave E (below) closed them too.
  *
- * **What remains genuinely open (6 pairs) — AC #2 ("orchestration reads
+ * **AU21 §9 Increment 12 (Decision H3), Wave E — `run-orchestration::routine`/
+ * `::settings`/`::users` genuinely CLOSED, not relabeled.** `admitSession`'s
+ * three former live reads (Phase 1 agent load via `ports.users.getUserById`,
+ * Phase 3 `harnessDisabled` via `ports.settings.readServerConfig`, the
+ * admission-time routine per-run cost cap via `ports.routine.getRoutineById`)
+ * are replaced by baked data every per-kind resolver (all six intent kinds,
+ * not just the four `contextBundle`-baking families) now supplies on the
+ * drained request: `agentConfig` (`BakedAgentRunnableConfig`,
+ * `@hyperidle/shared`, baked from the SAME `agent: User` row
+ * `requireRunnableAgent` already loads + validates), `harnessDisabled`
+ * (baked by the four `contextBundle` families' emit sites), and
+ * `contextBundle.routine.costCapPerRunMinor` (baked by the routine resolver
+ * from the SAME `routine` row it already loads to validate). `SessionLifecyclePorts`
+ * no longer declares `routine`/`users`/`settings` fields at all — verified via
+ * the raw composition-bundle detector,
+ * `run-orchestration-users-settings-routine-anti-regrowth.test.ts`. All three
+ * removed from this set below, not merely relabeled.
+ *
+ * **What remains genuinely open (3 pairs) — AC #2 ("orchestration reads
  * zero core-api domain state") is NOT fully met while this set is non-empty.
  * Do not present AU21 as closing its headline AC while any of these remain:**
  *
@@ -307,20 +324,6 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  *   response side effect) look separately relocatable core-side without this
  *   risk, but were not moved this wave (time-boxed out, not because it's
  *   unsafe) — noted for whoever picks this up next.
- * - `run-orchestration::routine`/`::settings`/`::users` — `provisioner.ts`'s
- *   `admitSession` (Phase 1 agent load via `ports.users.getUserById`, Phase 3
- *   `harnessDisabled` via `ports.settings.readServerConfig`, and the
- *   admission-time per-run cost cap via `ports.routine.getRoutineById`).
- *   `context.ts`'s own former use of these three (the knowledge/entity
- *   context bundle) closed in Wave C — these are three SEPARATE, real,
- *   still-live production reads Wave C/D did not touch. architecture.md §6 H3
- *   names all three ports for outright deletion ("bake at emit, delete the
- *   orchestration read", §7 disposition rule); closing them requires baking
- *   the agent's runnable fields / `harnessDisabled` / the routine's per-run
- *   cap onto the resolved request at emit time — out of Wave D's scope,
- *   deferred to a follow-up wave. See `provisioner.ts`'s and
- *   `run-orchestration-composition.ts`'s own per-port "STILL OPEN"/
- *   "CORRECTION" comments.
  * **Closure ownership — NOT silently assumed.** A prior pass named AU23
  * (`.pipeline/work/AU23/plan.md`) as this set's automatic closure owner and
  * presented AU21 as ready to ship anyway; that was rejected on review (a
@@ -335,9 +338,6 @@ export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([
 	"dispatch::conversation",
 	"dispatch::users",
 	"dispatch::settings",
-	"run-orchestration::routine",
-	"run-orchestration::settings",
-	"run-orchestration::users",
 ]);
 
 /**

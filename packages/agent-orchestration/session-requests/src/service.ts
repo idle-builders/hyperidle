@@ -832,13 +832,15 @@ async function createFromBakedRequestInternal(
 		sourceCorrelation: baked.sourceCorrelation,
 		// AU21 §9 Increment 11 (Decision H2) / Increment 12 (Decision H3): the
 		// assistant_turn family's baked transcript + per-agent model override,
-		// and the task_run/routine_run/knowledge_action/reengagement families'
-		// baked contextBundle, ride the existing generic `payloadJson`
-		// pass-through column onto the created `AgentSessionRequest` — every
-		// other kind leaves this undefined.
+		// the task_run/routine_run/knowledge_action/reengagement families'
+		// baked contextBundle, and (Wave E) EVERY kind's baked
+		// agentConfig/harnessDisabled ride the existing generic `payloadJson`
+		// pass-through column onto the created `AgentSessionRequest`.
 		...(baked.transcript !== undefined ||
 		baked.modelId !== undefined ||
-		baked.contextBundle !== undefined
+		baked.contextBundle !== undefined ||
+		baked.agentConfig !== undefined ||
+		baked.harnessDisabled !== undefined
 			? {
 					payloadJson: JSON.stringify({
 						...(baked.transcript !== undefined ? { transcript: baked.transcript } : {}),
@@ -846,6 +848,10 @@ async function createFromBakedRequestInternal(
 							? { modelId: baked.modelId, modelProvider: baked.modelProvider ?? null }
 							: {}),
 						...(baked.contextBundle !== undefined ? { contextBundle: baked.contextBundle } : {}),
+						...(baked.agentConfig !== undefined ? { agentConfig: baked.agentConfig } : {}),
+						...(baked.harnessDisabled !== undefined
+							? { harnessDisabled: baked.harnessDisabled }
+							: {}),
 					}),
 				}
 			: {}),
@@ -1296,6 +1302,23 @@ export type BakedWorkIntentRequest = {
 	 * `BakedWorkIntentRequest` in `@hyperidle/shared` for the full `@lore`.
 	 */
 	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — every kind's baked
+	 * agent-runnability snapshot / disabled-harness-types list. See
+	 * `BakedWorkIntentRequest` in `@hyperidle/shared` for the full `@lore`.
+	 */
+	readonly agentConfig?: {
+		readonly kind: string;
+		readonly status: string;
+		readonly role: string;
+		readonly teamId: string | null;
+		readonly systemPrompt: string | null;
+		readonly modelTierPreference: string | null;
+		readonly harnessType: string | null;
+		readonly modelProvider: string | null;
+		readonly maxConcurrentSessions: number;
+	};
+	readonly harnessDisabled?: readonly string[];
 };
 
 /** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle` (local mirror — see `@hyperidle/shared`). */

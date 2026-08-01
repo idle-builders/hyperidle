@@ -39,6 +39,7 @@ import {
 import { getTeam } from "@hyperidle/org";
 import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
+import { readServerConfig } from "@hyperidle/settings";
 import type {
 	AgentOperationalStatus,
 	AgentWorkIntentRecorder,
@@ -1369,6 +1370,7 @@ export function createThreadRoutes(
 						// the drain dispatches it directly, with zero domain reads.
 						const bakedRequest = await resolveAssistantTurnRequest(tx as HyperIdleDb, messageId, {
 							requireRunnableAgent,
+							readServerConfig,
 						});
 						await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "assistant_turn",
@@ -1583,6 +1585,7 @@ export function createThreadRoutes(
 						getBetById: (execDb: HyperIdleDb, id: string) => work.get(execDb, "bet", id),
 						getTeamById: (execDb: HyperIdleDb, id: string) => getTeam(execDb, { id }),
 						assembleSessionKnowledge,
+						readServerConfig,
 					},
 				);
 

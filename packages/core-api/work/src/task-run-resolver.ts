@@ -22,8 +22,12 @@
  */
 
 import type { Bet, HyperIdleDb, Task, Team, User } from "@hyperidle/db";
-import type { BakedContextBundle, SessionKnowledgeItemLike } from "@hyperidle/shared";
-import { toBakedContextKnowledgeItems } from "@hyperidle/shared";
+import type {
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	SessionKnowledgeItemLike,
+} from "@hyperidle/shared";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import * as work from "./work-service.js";
 import { taskDispatchAttemptStore } from "./work-service.js";
 
@@ -53,6 +57,15 @@ export interface TaskRunResolverDeps {
 			readonly taskDescription: string;
 		},
 	): Promise<readonly SessionKnowledgeItemLike[]>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
+	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/work` cannot
+	 * import `@hyperidle/settings` directly) for the `harnessDisabled` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `harnessDisabled` (matching `admitSession`'s own "absent defaults to
+	 * nothing disabled" degrade), never a live read reintroduced downstream.
+	 */
+	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** Thrown when the dispatch attempt or its task is unavailable / ineligible. */
@@ -78,6 +91,20 @@ export interface BakedTaskRunRequest {
 	 * were supplied (see `TaskRunResolverDeps` `@lore`).
 	 */
 	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * runnable-config snapshot, baked from the SAME already-`requireRunnableAgent`
+	 * -validated `agent: User` row (`BakedAgentRunnableConfig`, `@hyperidle/shared`).
+	 * Always present (no optional-deps gate) — `admitSession`'s Phase 1/3 need
+	 * it for every `task_run` session, not just the ones with a `contextBundle`.
+	 */
+	readonly agentConfig: BakedAgentRunnableConfig;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * disabled-harness-types list. Present only when `deps.readServerConfig`
+	 * was supplied (see `TaskRunResolverDeps` `@lore`).
+	 */
+	readonly harnessDisabled?: readonly string[];
 }
 
 /**
@@ -156,7 +183,7 @@ export async function resolveTaskRunRequest(
 	// destructured into locals so TS keeps them narrowed non-optional inside
 	// the block below, no non-null assertion needed.
 	let contextBundle: BakedContextBundle | undefined;
-	const { getTeamById, assembleSessionKnowledge } = deps;
+	const { getTeamById, assembleSessionKnowledge, readServerConfig } = deps;
 	if (getTeamById && assembleSessionKnowledge) {
 		const bet = await work.get(db, "bet", task.betId);
 		if (bet) {
@@ -170,6 +197,9 @@ export async function resolveTaskRunRequest(
 			);
 		}
 	}
+	const harnessDisabled = readServerConfig
+		? (await readServerConfig(db)).harnessDisabled
+		: undefined;
 
 	return {
 		defaultAgentId: attempt.agentId,
@@ -179,6 +209,8 @@ export async function resolveTaskRunRequest(
 		taskId: task.id,
 		teamId: task.teamId,
 		sourceCorrelation: { taskId: task.id, teamId: task.teamId },
+		agentConfig: bakeAgentRunnableConfig(agent),
+		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(contextBundle ? { contextBundle } : {}),
 	};
 }

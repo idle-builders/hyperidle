@@ -42,7 +42,7 @@
  * fields).
  */
 
-import type { BakedContextBundle } from "./agent-work-intent-recorder.js";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "./agent-work-intent-recorder.js";
 import type { EventBus } from "./event-bus.js";
 import type { SessionOutcome } from "./events.js";
 import type { SessionMetrics } from "./harness/harness-adapter.js";
@@ -93,6 +93,17 @@ export interface RunContextBundle {
 	 * `knowledge_action`/`session_start`/conversational turns.
 	 */
 	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's baked
+	 * runnable-config snapshot (see `BakedAgentRunnableConfig`'s own doc
+	 * comment) and the server's baked disabled-harness-types list, both
+	 * sourced from the drained `AgentSessionRequest.payloadJson` — zero db
+	 * read. Present for every durable session (all six intent kinds bake
+	 * `agentConfig`); absent only on the `one-shot` mode (eval/test seam),
+	 * whose caller supplies it directly.
+	 */
+	readonly agentConfig?: BakedAgentRunnableConfig;
+	readonly harnessDisabled?: readonly string[];
 }
 
 /** Narrow mirror of `@hyperidle/session-lifecycle`'s `AdmittedSession` — only the field `run-orchestration` reads directly; the rest flows through opaquely. */
