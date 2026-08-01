@@ -68,60 +68,28 @@ interface IngestionHandle {
 //     .costCapPerRunMinor` (baked by the routine resolver from the SAME
 //     `routine` row it already loads to validate).
 //
-// **CORRECTION (post-Wave-E review — `run-orchestration::users` REOPENED, not
-// closed):** Wave E's original commit also deleted `SessionLifecycleUserReader`
-// entirely and had Phase 1 validate ONLY the baked `agentConfig` snapshot,
-// reasoning that architecture.md §12's founder-resolved premise ("a
-// deactivated agent cannot obtain valid credential/identity context, so no
-// bespoke race-handling is needed") made a live re-check redundant. Review
-// substantiated that premise is FACTUALLY FALSE in this codebase: every
-// per-kind resolver's `requireRunnableAgent` call means the baked snapshot is
-// ALWAYS runnable by construction at emit time, so re-validating the baked
-// snapshot alone can never catch a REAL emit→deactivate→drain race (it only
-// catches a resolver bug that baked a bad snapshot to begin with) — and no
-// downstream mechanism naturally rejects a deactivated agent either:
-// `AdapterPool.select()` (`@hyperidle/harness-registry`) is a pure in-memory
-// registry blind to the calling agent's identity/status; every CLI harness
-// authenticates via inherited host keychain/env, entirely agent-independent;
-// the `CoreApiPort` seam's actor-override header trusts the caller's identity
-// verbatim (`middleware/auth.ts`'s `resolveApiKeyActorUserId`) with zero
-// re-read of `users.kind`/`users.status`; and `GET /connections/provisioning`
-// (`core-api/src/routes/connections.ts`) resolves the single owning HUMAN's
-// held connections unconditionally — identity-blind to the requesting
-// agent's status, not scoped to it. Net: with the baked-only design, a
-// deactivated-after-emit agent's queued run WOULD proceed with authority —
-// violating architecture.md §12's own stated invariant ("never proceeds with
-// authority"). This is NOT the same claim as "AC met" — restoring the
-// live check below is a genuine, deliberate REOPENING of
-// `run-orchestration::users` (see `scripts/composition-edge-anti-regrowth-
-// guard.ts`'s `DEFERRED_FOLLOWUP`, which now carries it again, honestly
-// labeled, pending a founder decision on the permanent mechanism — event-
-// driven session-cancellation-on-deactivation vs. a permanent allowlisted
-// live check). The restored read is DELIBERATELY MINIMAL — a single
-// `kind`/`status` re-check (`SessionLifecycleAgentRunnabilityReader`, below),
-// not the old broad `getUserById`/`getFirstUserByKind` surface; every other
-// Phase 1 field (`role`/`systemPrompt`/`modelTierPreference`/`harnessType`/
-// `modelProvider`/`maxConcurrentSessions`/`teamId`) still comes from the
-// baked `agentConfig` snapshot — those are configuration, not an authority
-// gate, so staleness there is a UX/efficiency concern only, never a safety
-// one.
+// @lore AU21 §9 Increment 12 (Decision H3), Wave E — THIRD, founder-FINAL
+// pass on the emit→deactivate→drain race (architecture.md §12's
+// "RE-CORRECTED (founder, 2026-08-01)" note). History: pass one kept this
+// section's now-deleted `SessionLifecycleAgentRunnabilityReader` — a narrow
+// live `kind`/`status` re-check — reasoning a baked snapshot alone could
+// never catch a real deactivation race. The founder rejected pass one
+// outright: "the orchestration is a blind executer." Pass two replaced the
+// live read with a push-based event+subscriber mechanism instead — ALSO
+// rejected: "why does that even play a role for orchestration to know? if an
+// agent is deactivated then core will not send a request... if it doesn't
+// get a request to do something it doesn't do something." Orchestration
+// never initiates anything on its own — every unit of work originates from a
+// request core already sent — so there is NO mechanism needed here at all,
+// live or pushed. The resolution is a pure DELETION, no replacement of any
+// kind: `run-orchestration` holds ZERO `-> users` edge. Phase 1's baked
+// `kind`/`status` check (below, in `admitSession`) is DEFENSE-IN-DEPTH ONLY —
+// a consistency assertion against a resolver bug that baked an
+// already-invalid snapshot — never a live authority gate; every other Phase
+// 1 field (`role`/`systemPrompt`/`modelTierPreference`/`harnessType`/
+// `modelProvider`/`maxConcurrentSessions`/`teamId`) also comes from this same
+// baked `agentConfig` snapshot, unchanged.
 // ---------------------------------------------------------------------------
-
-/**
- * AU21 §9 Increment 12 (Decision H3), Wave E fix (review-substantiated safety
- * regression) — a deliberately NARROW live re-check of the ONE thing a baked
- * snapshot structurally cannot answer: is this agent STILL runnable right
- * now, not merely at emit time. Returns `undefined` if the id no longer
- * resolves to any row. This is the sole surviving `run-orchestration -> users`
- * read — see this file's top-of-file Wave E `@lore` for the full trace of why
- * it's back and why it's this narrow.
- */
-interface SessionLifecycleAgentRunnabilityReader {
-	checkAgentRunnable(
-		exec: HyperIdleDb,
-		agentId: string,
-	): Promise<{ readonly kind: string; readonly status: string } | undefined>;
-}
 
 // ---------------------------------------------------------------------------
 // observability — SessionLifecycleObservability (ordinary downward edge, real target)
@@ -516,8 +484,6 @@ interface SessionLifecyclePorts {
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
 	readonly toolProvider: SessionLifecycleToolProvider;
 	readonly contextAssembly: SessionLifecycleContextAssembly;
-	/** See `SessionLifecycleAgentRunnabilityReader`'s own doc comment. */
-	readonly agentRunnability: SessionLifecycleAgentRunnabilityReader;
 }
 
 /**
@@ -729,20 +695,19 @@ interface ProvisionSessionParams {
 	 * `maxConcurrentSessions`/`teamId` all come from THIS baked snapshot —
 	 * staleness there is a UX/efficiency concern only.
 	 *
-	 * **`kind`/`status` are NOT the authority for Phase 1's runnability gate**
-	 * (review-corrected, post-Wave-E — see this file's top-of-file Wave E
-	 * `@lore` "CORRECTION" for the full trace): a resolver's
-	 * `requireRunnableAgent` call guarantees this snapshot's `kind`/`status`
-	 * are ALWAYS runnable at emit time, so re-checking them here can only
-	 * catch a resolver bug, never a real emit→deactivate→drain race. Phase 1
-	 * re-validates runnability against a separate, minimal LIVE read
-	 * (`ports.agentRunnability.checkAgentRunnable`) instead — same throw
-	 * (`TargetAgentNotRunnableError`), same `agent_run_admission_failed`
-	 * pre-handoff reporting channel
-	 * (`runtime.ts`'s `reportPreAdmissionProvisioningFailure`). The baked
-	 * `kind`/`status` fields are kept only as a defense-in-depth consistency
-	 * check (a mismatch there signals a resolver bug, not a race) — see
-	 * `admitSession`'s Phase 1 for both checks. Required for every durable
+	 * **`kind`/`status` are DEFENSE-IN-DEPTH ONLY, never a live authority gate**
+	 * (founder-final, third pass — see this file's top-of-file Wave E `@lore`
+	 * for the full trace): a resolver's `requireRunnableAgent` call guarantees
+	 * this snapshot's `kind`/`status` are ALWAYS runnable at emit time, so
+	 * re-checking them here can only catch a resolver bug, never a real
+	 * emit→deactivate→drain race — and no live/pushed mechanism replaces it,
+	 * by founder ruling (orchestration never initiates work on its own, so
+	 * there is nothing for it to independently re-verify). A mismatch here
+	 * signals a resolver bug, not a race, and is still a hard provisioning
+	 * failure either way — same throw (`TargetAgentNotRunnableError`), same
+	 * `agent_run_admission_failed` pre-handoff reporting channel
+	 * (`runtime.ts`'s `reportPreAdmissionProvisioningFailure`). See
+	 * `admitSession`'s Phase 1 for the check. Required for every durable
 	 * (request-mediated) session; absent only on the `one-shot` mode
 	 * (eval/direct-test seam — see `@hyperidle/eval`'s `provision-harness.ts`,
 	 * which sources its own snapshot the same way, one level up the call
@@ -876,35 +841,30 @@ async function admitSession(
 ): Promise<AdmittedSession> {
 	const { db, eventBus, adapterPool, workspace } = deps;
 
-	// ── Phase 1: consume the baked agent-CONFIG snapshot + a minimal LIVE
-	// agent-runnability re-check (Wave E, review-corrected — see this file's
-	// top-of-file Wave E `@lore` "CORRECTION" for the full trace of why the
-	// live re-check is back and why it's this narrow).
+	// ── Phase 1: consume the baked agent-CONFIG snapshot. NO live re-check of
+	// any kind (founder-final, third pass — see this file's top-of-file Wave E
+	// `@lore` for the full trace of why the live re-check/event/subscriber
+	// mechanisms explored in earlier passes are all deliberately absent here).
 	const agentConfig = params.agentConfig;
-	// @lore AU21 §12: the emit→deactivate→drain race — the agent resolved
-	// runnable at emit/hand-off time may have been deactivated by the time
-	// provisioning actually reaches it. `agentConfig` absent entirely is
-	// treated the same as a deactivated agent — every real durable path bakes
-	// it (Wave E, all six intent kinds); a missing bake is a hard
-	// provisioning failure, never a silent allow. Reported back via the same
-	// pre-handoff `agent_run_admission_failed` channel — see `runtime.ts`'s
+	// @lore AU21 §12 (RE-CORRECTED, founder, 2026-08-01): the
+	// emit→deactivate→drain race needs NO mechanism — orchestration never
+	// initiates work on its own; every unit of work originates from a request
+	// core already sent, so there is nothing for it to independently
+	// re-verify. `agentConfig` absent entirely is treated the same as a
+	// deactivated agent — every real durable path bakes it (Wave E, all six
+	// intent kinds); a missing bake is a hard provisioning failure, never a
+	// silent allow. Reported back via the same pre-handoff
+	// `agent_run_admission_failed` channel — see `runtime.ts`'s
 	// `runClaimedRequest` catch, `failureCode: "TARGET_AGENT_NOT_RUNNABLE"`.
 	if (!agentConfig) {
 		throw new TargetAgentNotRunnableError(params.agentId);
 	}
-	// Defense-in-depth: the baked `kind`/`status` should always be runnable
-	// (every resolver validates via `requireRunnableAgent` before baking) — a
-	// mismatch here signals a resolver bug, not a race, and is still a hard
-	// provisioning failure either way.
+	// Defense-in-depth ONLY, never a live authority gate: the baked
+	// `kind`/`status` should always be runnable (every resolver validates via
+	// `requireRunnableAgent` before baking) — a mismatch here signals a
+	// resolver bug, not a race, and is still a hard provisioning failure
+	// either way. There is no further live read after this.
 	if (agentConfig.kind !== "ai" || !["active", "idle"].includes(agentConfig.status)) {
-		throw new TargetAgentNotRunnableError(params.agentId);
-	}
-	// The REAL race gate: re-validate runnability against the CURRENT live
-	// row, not the (by-construction-always-runnable) baked snapshot. This is
-	// the one live `run-orchestration -> users` read left — see
-	// `SessionLifecycleAgentRunnabilityReader`'s doc comment.
-	const liveRunnability = await ports.agentRunnability.checkAgentRunnable(db, params.agentId);
-	if (liveRunnability?.kind !== "ai" || !["active", "idle"].includes(liveRunnability.status)) {
 		throw new TargetAgentNotRunnableError(params.agentId);
 	}
 	const agentRole = agentConfig.role;

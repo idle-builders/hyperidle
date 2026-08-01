@@ -54,15 +54,21 @@
  * is REMOVED from `DispatchPorts` entirely — `dispatch/src/service.ts` now
  * calls `@hyperidle/db`'s `resolveAgentScaffoldSpecs` directly (a leaf
  * import, not a port), so there is nothing left to wire/stub here.
+ *
+ * @lore AU21 §9 Increment 12 (third pass, dead-port cleanup): the
+ * `getThreadById`/`updateThread`/`listMessagesByThread` references above
+ * describe HISTORICAL Increment-2/3/5 wiring — all three are since deleted
+ * from `DispatchPorts.conversation` entirely (this wave), confirmed
+ * genuinely dead (only the two scenarios below exercise `dispatch`, and both
+ * only ever reach `insertMessage`). `insertMessage` is the ONLY
+ * `DispatchPorts.conversation` member left.
  */
 
-import { findThread } from "@hyperidle/conversation";
 import type { AgentSessionRequest } from "@hyperidle/db";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import type { DispatchOps, DispatchPorts } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
 import type { ThreadMessageAppendedEvent } from "@hyperidle/shared";
-import { findUser, getOrCreateUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
@@ -77,10 +83,16 @@ const NOW = "2026-07-28T00:00:00.000Z";
 type RunAssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
 
 /**
- * Local mirror of the two `CoreApiConversationPort` methods this migration
+ * Local mirror of the ONE `CoreApiConversationPort` method this migration
  * reuses — same idiom as the sibling contract-test file's
- * `SeamCoreApiPortIncrement2Conversation` (a hand-typed mirror, not `any`;
- * the property doesn't exist yet, so accessing it is the RED signal).
+ * `SeamCoreApiPortIncrement2Conversation` (a hand-typed mirror, not `any`).
+ *
+ * @lore AU21 §9 Increment 12 (third pass, dead-port cleanup): `updateThread`
+ * used to be mirrored here too, wiring `DispatchPorts.conversation.updateThread`
+ * for `registerAssistantTriggerInternal`'s pin-after-first-response call.
+ * That function was already deleted in Increment 11 Wave B (the pin moved
+ * entirely core-side); `DispatchPorts.conversation.updateThread` itself is
+ * now deleted too (this wave) — `insertMessage` is the only member left.
  */
 interface SeamConversationWriteAccessor {
 	readonly conversation: {
@@ -90,14 +102,6 @@ interface SeamConversationWriteAccessor {
 			readonly payload: Record<string, unknown>;
 			readonly clientKey: string;
 		}): Promise<{ readonly id: string }>;
-		updateThread(
-			id: string,
-			updates: Partial<{
-				participants: readonly string[];
-				lastActiveAt: string;
-				pinned: boolean;
-			}>,
-		): Promise<void>;
 	};
 }
 
@@ -109,13 +113,11 @@ function unreachable(label: string): () => never {
 }
 
 /**
- * Builds a `DispatchPorts` where ONLY `conversation.insertMessage` and
- * `conversation.updateThread` are wired through the `CoreApiPort` seam;
- * `conversation.getThreadById` is wired to the REAL untouched read
- * (`findThread`); every other capability is a throwing stub (see this
- * file's top `@lore`). When `actorId` is omitted, the transport carries NO
- * actor/API-key wrapping at all — the real auth/boundary middleware must
- * reject the write (used by the no-auth test below).
+ * Builds a `DispatchPorts` where ONLY `conversation.insertMessage` is wired
+ * through the `CoreApiPort` seam; every other capability is a throwing stub
+ * (see this file's top `@lore`). When `actorId` is omitted, the transport
+ * carries NO actor/API-key wrapping at all — the real auth/boundary
+ * middleware must reject the write (used by the no-auth test below).
  */
 function buildDispatchPortsForAssistantTurnMigration(
 	app: Hono,
@@ -128,11 +130,6 @@ function buildDispatchPortsForAssistantTurnMigration(
 	const seamPort = buildCoreApiPort(seamTransport) as unknown as SeamConversationWriteAccessor;
 
 	return {
-		// @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): `work`
-		// and `routine` are both gone from `DispatchPorts` entirely now —
-		// `work` (the task-queue trigger) was genuinely dead code, deleted;
-		// `routine.insertRoutine` (`provisionTeamRoutinesInternal`'s seed
-		// write) relocated to `@hyperidle/routine` itself. Nothing to stub.
 		conversation: {
 			// AU21 §9 Increment 2 (conversation wave, GREEN target): routed
 			// through the seam under the assistant agent's own identity —
@@ -150,24 +147,7 @@ function buildDispatchPortsForAssistantTurnMigration(
 						clientKey: values.clientKey,
 					})
 					.then(() => undefined),
-			listMessagesByThread: unreachable("conversation.listMessagesByThread"),
-			// Untouched this wave (Increment 3/5's scope) — wired to the real
-			// implementation, not a stub, so the pin scenario's own read works.
-			getThreadById: (exec, id) => findThread(exec, { id }),
-			updateThread: (_exec, id, patch) =>
-				seamPort.conversation.updateThread(id, {
-					...(patch.participants !== undefined
-						? { participants: JSON.parse(patch.participants) }
-						: {}),
-					...(patch.lastActiveAt !== undefined ? { lastActiveAt: patch.lastActiveAt } : {}),
-					...(patch.pinned !== undefined ? { pinned: patch.pinned } : {}),
-				}),
 		},
-		users: {
-			getOrCreateUser,
-			getUserById: (db, id) => findUser(db, { id }),
-		},
-		settings: { readServerConfig: unreachable("settings.readServerConfig") },
 		modelGateway: {
 			resolveAgentModel: unreachable("modelGateway.resolveAgentModel"),
 			resolveModelTier: unreachable("modelGateway.resolveModelTier"),

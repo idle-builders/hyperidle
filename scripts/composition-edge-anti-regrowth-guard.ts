@@ -174,15 +174,22 @@
  *    specifically; the same risk generalizes to run-orchestration's larger
  *    context-assembly cluster.
  *
- * **Net, honest result:** `inspect(process.cwd())` returns ZERO findings on
- * this tree (verify: `npx tsx scripts/composition-edge-anti-regrowth-guard.ts`),
- * and the bare check IS wired into `npm run lint` — but `ALLOWLIST` now holds
- * ONLY founder-signed rows, and `DEFERRED_FOLLOWUP` honestly carries 9 real
- * open pairs (down from the second pass's mislabeled 12 across ALLOWLIST+
- * DEFERRED_FOLLOWUP, then 10 at the end of this same pass, now 9 after
- * Increment 10's genuine `session-requests::work` closure). **This is not the
- * same claim as "AC #2 is met" — it is not, and AU21 should not be presented
- * as fully closing it without a founder decision on the remaining 9 pairs.**
+ * **Net, honest result (post AU21 §9 Increment 12, third pass):**
+ * `inspect(process.cwd())` returns ZERO findings on this tree (verify: `npx
+ * tsx scripts/composition-edge-anti-regrowth-guard.ts`), and the bare check IS
+ * wired into `npm run lint` — but `ALLOWLIST` now holds ONLY founder-signed
+ * rows, and `DEFERRED_FOLLOWUP` honestly carries exactly 1 real open pair
+ * (down from 9 at the end of the THIRD forensic-triage pass, then 4 after
+ * Increment 12 Waves A-D/E's genuine `run-orchestration::knowledge/org/work/
+ * routine/settings` closures and the second pass's `run-orchestration::users`
+ * reopening, now 1 after this pass's founder-final deletion of the
+ * `run-orchestration::users` live-check attempt entirely, plus the
+ * `dispatch::users`/`dispatch::settings` dead-port cleanup — see
+ * `DEFERRED_FOLLOWUP`'s own doc comment for the full accounting). **This is
+ * not the same claim as "AC #2 is met" — it is not, and AU21 should not be
+ * presented as fully closing it without a founder decision on the one
+ * remaining pair (`dispatch::conversation`, narrowed to the single sanctioned
+ * `insertMessage` seam write).**
  */
 import {
 	existsSync,
@@ -301,54 +308,74 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  * `run-orchestration-settings-routine-anti-regrowth.test.ts`. Both removed
  * from this set below, not merely relabeled.
  *
- * **`run-orchestration::users` was ALSO claimed closed by Wave E's original
- * commit — REVIEW-CORRECTED, REOPENED, not closed.** Wave E's original design
- * deleted `ports.users` entirely and had Phase 1 validate only the baked
- * `agentConfig` snapshot's `kind`/`status`, reasoning architecture.md §12's
- * "no bespoke race-handling" premise made a live re-check unnecessary. Review
- * substantiated that premise is factually false in this codebase: every
- * per-kind resolver's `requireRunnableAgent` call guarantees the baked
- * snapshot's `kind`/`status` are ALWAYS runnable at emit time, so re-checking
- * only the bake can never catch a real emit→deactivate→drain race (only a
- * resolver bug) — and no downstream mechanism naturally rejects a deactivated
- * agent either (`AdapterPool.select()` is identity-blind; CLI harnesses
- * inherit host auth; the `CoreApiPort` actor-override header trusts the
- * caller verbatim; `GET /connections/provisioning` resolves the human
- * owner's connections unconditionally, not scoped to the requesting agent's
- * status). See `provisioner.ts`'s top-of-file Wave E `@lore` "CORRECTION" for
- * the full trace. The fix restores a DELIBERATELY MINIMAL live read
- * (`SessionLifecycleAgentRunnabilityReader.checkAgentRunnable` — `kind`/
- * `status` ONLY, not the old broad `getUserById`/`getFirstUserByKind`
- * surface) so the §12 invariant ("a deactivated agent never proceeds with
- * authority") actually holds. This is a genuine, honest REOPENING —
- * `run-orchestration::users` moves back into this set below, NOT founder-
- * signed permanent (unlike `ALLOWLIST`), pending a founder decision on the
- * eventual mechanism (this narrow live check vs. an event-driven
- * session-cancellation-on-deactivation design).
+ * **`run-orchestration::users` was REOPENED by a second pass, then GENUINELY
+ * CLOSED for good by a THIRD, founder-final pass (AU21 §9 Increment 12, Wave
+ * E) — RE-CORRECTED, not merely re-labeled.** The second pass (above) restored
+ * a narrow live `kind`/`status` re-check
+ * (`SessionLifecycleAgentRunnabilityReader.checkAgentRunnable`), reasoning a
+ * baked-only design could never catch a real emit→deactivate→drain race. The
+ * founder rejected that pass outright: "the orchestration is a blind
+ * executer." A follow-up attempt replaced the live read with a push-based
+ * event+subscriber mechanism instead — ALSO rejected: "why does that even
+ * play a role for orchestration to know? if an agent is deactivated then core
+ * will not send a request... if it doesn't get a request to do something it
+ * doesn't do something." Orchestration never initiates anything on its own —
+ * every unit of work originates from a request core already sent — so there
+ * is NO mechanism needed here at all, live or pushed. The fix is a pure
+ * DELETION, no replacement of any kind: `SessionLifecycleAgentRunnabilityReader`
+ * / `ports.agentRunnability` are gone entirely, `admitSession`'s baked
+ * `kind`/`status` check is defense-in-depth ONLY (a resolver-bug consistency
+ * assertion, never a live authority gate). `run-orchestration::users` is
+ * REMOVED from this set below — genuinely closed, nothing left to defer. See
+ * `provisioner.ts`'s top-of-file Wave E `@lore` for the full trace.
  *
- * **What remains genuinely open (4 pairs) — AC #2 ("orchestration reads
- * zero core-api domain state") is NOT fully met while this set is non-empty.
- * Do not present AU21 as closing its headline AC while any of these remain:**
+ * **`dispatch::conversation` narrows to a single sanctioned member
+ * (AU21 §9 Increment 12, third pass, dead-port cleanup) — `dispatch::users`/
+ * `dispatch::settings` genuinely CLOSED, not relabeled.** Confirmed by direct
+ * source read (not grep alone): `dispatch/src/service.ts` has exactly ONE
+ * live `agent-orchestration -> core-api` call left,
+ * `ports.conversation.insertMessage` (called twice,
+ * `persistTurnFailureInternal` + `runTurnInternal`'s reply) — the sanctioned
+ * `CoreApiPort` seam write (routes through the SAME `POST
+ * /threads/:id/messages` route a human caller's client would use, actor
+ * derived from `values.senderId`, never a raw same-process DI call).
+ * `listMessagesByThread`/`getThreadById`/`updateThread`
+ * (`DispatchPorts.conversation`) and the entire `users`/`settings` sub-ports
+ * were genuinely dead — only referenced in stale `@lore` comments describing
+ * ALREADY-COMPLETED prior-wave migrations (the assistant-turn transcript bake,
+ * Increment 11 Wave A; the pin-trigger relocation core-side, Increment 11
+ * Wave B), no live call site — confirmed by grepping every `ports.` call site
+ * in `service.ts`. All four are deleted from `DispatchPorts` entirely;
+ * `dispatch::users`/`dispatch::settings` are REMOVED from this set below —
+ * genuinely closed.
  *
- * - `run-orchestration::users` — see the "REVIEW-CORRECTED, REOPENED" note
- *   immediately above. Narrow (one method, two fields), safety-motivated, not
- *   a config/efficiency read like the others in this file's history.
- * - `dispatch::conversation`/`dispatch::users`/`dispatch::settings` — the
- *   assistant-turn runner (`runTurnInternal`) reads the live conversation
- *   transcript, resolves/creates the assistant's own user row, and reads
- *   server config at RUN time. Investigated this wave (not merely carried
- *   forward): baking the transcript into the emit-time payload is UNSAFE, not
- *   just unmigrated — if a second message arrives while the assistant (its
- *   own `maxConcurrentSessions:1`) is still processing the first, the SECOND
- *   turn's baked-at-emit transcript would miss the first turn's own reply,
- *   a genuine conversational-coherence regression, not a cosmetic gap. This
- *   is the same "bake at emit OR agent pulls via MCP" fork Decision B left
- *   open, now confirmed (not merely asserted) to have a real staleness cost
- *   on the "bake" side. `registerAssistantTriggerInternal`'s narrower
- *   `conversation.getThreadById`/`users.getUserById` (the pin-after-first-
- *   response side effect) look separately relocatable core-side without this
- *   risk, but were not moved this wave (time-boxed out, not because it's
- *   unsafe) — noted for whoever picks this up next.
+ * `dispatch::conversation` itself, however, is NOT fully closed — it is
+ * NARROWED, not gone. `insertMessage` is a real, live, still-detected
+ * `agent-orchestration -> core-api` write (re-verified by re-running this
+ * guard's raw detector after the deletions above: `resolveNestedGroupEdges`
+ * resolves purely by group property name, not by call-target, so a
+ * `conversation` group with even one live method — a stateful provider,
+ * `conversation` owns real tables — still reports). This is a genuine,
+ * sanctioned, already-load-bearing production write (Increment 2's own
+ * conversation-wave migration moved it onto the seam deliberately, exactly
+ * the "assistant-turn writes are agent-as-user" design architecture.md §6
+ * Decision A/C calls for) — not a bug, not an open design question needing a
+ * closure pass. It stays in `DEFERRED_FOLLOWUP` rather than moving to
+ * `ALLOWLIST` only because `ALLOWLIST` is founder-signed-only by this file's
+ * own rule (see `ALLOWLIST`'s doc comment) and no founder has yet ruled on
+ * formally allowlisting it — that is the one remaining, narrow, honestly-open
+ * item this pass leaves behind.
+ *
+ * **What remains genuinely open (1 pair, narrowed from 4) — AC #2
+ * ("orchestration reads zero core-api domain state") is NOT fully met while
+ * this set is non-empty, but the remaining pair is a single sanctioned method,
+ * not an unresolved design question:**
+ *
+ * - `dispatch::conversation` (narrowed to `insertMessage` only) — see the
+ *   narrowing note immediately above. A real, live, sanctioned seam write —
+ *   pending only a founder ALLOWLIST ruling, not further investigation or
+ *   migration work.
+ *
  * **Closure ownership — NOT silently assumed.** A prior pass named AU23
  * (`.pipeline/work/AU23/plan.md`) as this set's automatic closure owner and
  * presented AU21 as ready to ship anyway; that was rejected on review (a
@@ -359,12 +386,7 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  * scoped for it. See `.pipeline/AU.md` and `edge-disposition.md`'s own
  * "Increment 9 forensic-triage accounting — THIRD pass" section.
  */
-export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([
-	"run-orchestration::users",
-	"dispatch::conversation",
-	"dispatch::users",
-	"dispatch::settings",
-]);
+export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set(["dispatch::conversation"]);
 
 /**
  * AU21 §9 Increment 9: individually-verified pure/stateless methods that

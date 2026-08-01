@@ -1,13 +1,4 @@
-import type {
-	AgentSessionRequest,
-	HyperIdleDb,
-	Message,
-	NewMessage,
-	NewThread,
-	NewUser,
-	Thread,
-	User,
-} from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb, NewMessage } from "@hyperidle/db";
 import type {
 	CapturedToolCall,
 	ConversationMessage,
@@ -36,6 +27,16 @@ import type {
  * see `service.ts`'s own `@lore` for the full reasoning.
  */
 export interface DispatchPorts {
+	/**
+	 * @lore AU21 §9 Increment 12 (third pass, dead-port cleanup): every
+	 * `conversation` member besides `insertMessage`
+	 * (`listMessagesByThread`/`getThreadById`/`updateThread`) plus the entire
+	 * `users`/`settings` sub-ports are DELETED — confirmed genuinely dead in
+	 * `service.ts` (only referenced in stale `@lore` comments describing
+	 * PRIOR waves' already-completed migrations, no live call site).
+	 * `insertMessage` is the ONLY live `agent-orchestration -> core-api`
+	 * conversation capability — the sanctioned `CoreApiPort` seam write.
+	 */
 	readonly conversation: {
 		/**
 		 * @lore AU21 §9 Increment 2 (conversation wave): this call routes through
@@ -46,35 +47,6 @@ export interface DispatchPorts {
 		 * sender) — no separate actor param needed here.
 		 */
 		insertMessage(exec: HyperIdleDb, values: NewMessage): Promise<void>;
-		listMessagesByThread(
-			exec: HyperIdleDb,
-			threadId: string,
-			opts?: { readonly order?: "createdAt"; readonly dir?: "asc" | "desc" },
-		): Promise<readonly Message[]>;
-		getThreadById(exec: HyperIdleDb, id: string): Promise<Thread | undefined>;
-		/**
-		 * @lore AU21 §9 Increment 2 (conversation wave): this call routes through
-		 * the `CoreApiPort` seam. Unlike `insertMessage`, `patch` carries no
-		 * sender/actor field, so the caller (`registerAssistantTriggerInternal`)
-		 * threads the assistant agent's own identity explicitly via `actorId`
-		 * (architecture.md §12) — the one migrated `updateThread` call site.
-		 */
-		updateThread(
-			exec: HyperIdleDb,
-			id: string,
-			patch: Partial<NewThread>,
-			actorId: string,
-		): Promise<void>;
-	};
-	readonly users: {
-		getOrCreateUser(exec: HyperIdleDb, id: string, create: NewUser): Promise<User>;
-		getUserById(exec: HyperIdleDb, id: string): Promise<User | undefined>;
-	};
-	readonly settings: {
-		readServerConfig(db: HyperIdleDb): Promise<{
-			readonly cost: { readonly capMinor: number };
-			readonly modelGateway: ModelGatewayConfig;
-		}>;
 	};
 	readonly modelGateway: {
 		resolveAgentModel(

@@ -33,7 +33,6 @@ import {
 } from "@hyperidle/session-requests";
 import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
-import { findUser } from "@hyperidle/users";
 import {
 	buildCoreApiPort,
 	getRegisteredCoreApiTransport,
@@ -98,25 +97,18 @@ type ToolRegistryOptions = Parameters<typeof buildToolRegistry>[1];
 // architecture.md §6 H3 and the anti-regrowth guard's `DEFERRED_FOLLOWUP`
 // entries `run-orchestration::routine`/`::settings`.
 //
-// **CORRECTION (post-Wave-E review): `userReader`/`SessionLifecyclePorts["users"]`
-// is NOT deleted — REOPENED as `agentRunnabilityReader` below, deliberately
-// narrower than the original (`kind`/`status` ONLY, not the full row).**
-// Review substantiated the baked-only design could never detect a real
-// emit→deactivate→drain race (every resolver's `requireRunnableAgent` call
-// guarantees the baked snapshot is always runnable at emit time), and no
-// downstream mechanism naturally rejects a deactivated agent either — see
-// `provisioner.ts`'s top-of-file Wave E `@lore` "CORRECTION" for the full
-// trace. `run-orchestration::users` is back in the anti-regrowth guard's
-// `DEFERRED_FOLLOWUP` (honestly labeled, not founder-signed permanent,
-// pending a decision on the eventual mechanism).
+// **RE-CORRECTED (founder, 2026-08-01), third/final pass:** the earlier
+// `userReader`/`agentRunnabilityReader` reopening above is ITSELF deleted,
+// with no replacement of any kind. The founder rejected the premise that
+// prompted it outright: orchestration never initiates anything on its own —
+// every unit of work originates from a request core already sent — so there
+// is no scenario where it needs to independently discover or react to an
+// agent's deactivation, live-read or pushed-event alike. See
+// `provisioner.ts`'s top-of-file Wave E `@lore` for the full trace.
+// `run-orchestration` now holds ZERO `-> users` edge; `DEFERRED_FOLLOWUP`
+// no longer carries `run-orchestration::users` — there is nothing left to
+// defer.
 const observabilityAccessor: SessionLifecyclePorts["observability"] = { summarizeToolArgs };
-
-const agentRunnabilityReader: SessionLifecyclePorts["agentRunnability"] = {
-	async checkAgentRunnable(exec, agentId) {
-		const agent = await findUser(exec, { id: agentId });
-		return agent ? { kind: agent.kind, status: agent.status } : undefined;
-	},
-};
 
 // AU21 §9 Increment 8 (Decision F2): both ports now cross `CoreApiPort` — the
 // composition-bundle's raw `db`-reading calls into `@hyperidle/filesystems`/
@@ -192,7 +184,6 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 	cost: costAccessor,
 	harnessRuntime,
 	toolProvider,
-	agentRunnability: agentRunnabilityReader,
 };
 // AU21 §9 Increment 4 (Decision B″ item 3): `transitionRunInternal`'s
 // `TransitionPorts` no longer carries a `routine` key at all — `endSession`/

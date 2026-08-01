@@ -1,55 +1,38 @@
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave E.
+ * AU21 §9 Increment 12 (Decision H3), Wave E — updated by the THIRD,
+ * founder-final pass (see `provisioner.ts`'s top-of-file Wave E `@lore`).
  *
- * Closes 2 of the 3 formerly still-open `run-orchestration -> core-api` live
- * reads `provisioner.ts`'s `admitSession` used to perform
+ * Closes the formerly still-open `run-orchestration -> core-api` live reads
+ * `provisioner.ts`'s `admitSession` used to perform
  * (`ports.settings.readServerConfig` Phase 3, `ports.routine.getRoutineById`
- * the admission-time per-run cost cap read) — see `provisioner.ts`'s own
- * Wave E top-of-file note and
+ * the admission-time per-run cost cap read, and — as of the third pass —
+ * `ports.users`/`ports.agentRunnability` entirely) — see `provisioner.ts`'s
+ * own Wave E top-of-file note and
  * `scripts/composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP`
- * (no longer carries `run-orchestration::settings`/`::routine`).
+ * (no longer carries `run-orchestration::settings`/`::routine`/`::users` at
+ * all).
  *
- * **`ports.users.getUserById` (Phase 1) is NOT closed by this wave — REOPENED,
- * narrower, by a review-corrected fix.** This file's ORIGINAL version claimed
- * a fully-baked Phase 1 (checking only `params.agentConfig`) preserved the
- * runnability GATE with "a snapshot check, not a live one" trade-off blessed
- * by architecture.md §12. Review substantiated that reasoning was WRONG: every
- * per-kind resolver's `requireRunnableAgent` call guarantees the baked
- * snapshot is ALWAYS runnable at emit time, so a baked-only re-check can
- * never catch a REAL emit→deactivate→drain race — only a resolver bug that
- * baked a bad snapshot to begin with. No downstream mechanism naturally
- * rejects a deactivated agent either (traced, not guessed):
- * `AdapterPool.select()` (`@hyperidle/harness-registry`) is a pure in-memory
- * registry blind to the calling agent's identity/status; every CLI harness
- * (`claude`/`codex`/`opencode`) authenticates via inherited host
- * keychain/env, entirely agent-independent; the `CoreApiPort` seam's
- * actor-override header (`core-api-port-composition.ts`'s
- * `withActorTransport` / `middleware/auth.ts`'s `resolveApiKeyActorUserId`)
- * trusts the header value verbatim with ZERO re-read of the `users` row's
- * `kind`/`status`; and `GET /connections/provisioning`
- * (`core-api/src/routes/connections.ts`) resolves the single owning human's
- * held connections unconditionally, identity-blind to the requesting agent's
- * status. See `provisioner.ts`'s top-of-file Wave E `@lore` "CORRECTION" for
- * the full trace.
+ * History (kept for context, not because it still stands as written): a
+ * second pass restored a narrow live `kind`/`status` re-check
+ * (`SessionLifecycleAgentRunnabilityReader.checkAgentRunnable`), reasoning
+ * every per-kind resolver's `requireRunnableAgent` call guarantees the baked
+ * snapshot is always runnable at emit time, so a baked-only re-check could
+ * never catch a real emit→deactivate→drain race. The founder rejected that
+ * pass outright ("the orchestration is a blind executer"), and a follow-up
+ * event/subscriber mechanism ALSO rejected ("if it doesn't get a request to
+ * do something it doesn't do something"). The resolution is a pure deletion,
+ * no replacement: `SessionLifecyclePorts` carries no `users`/`agentRunnability`
+ * field of any kind. Phase 1's baked `kind`/`status` check is DEFENSE-IN-DEPTH
+ * ONLY (a resolver-bug consistency assertion, never a live authority gate) —
+ * the emit→deactivate→drain race itself is now a named, accepted non-issue,
+ * proven in `admit-session-defense-in-depth-only.integration.test.ts`.
  *
- * The fix: Phase 1 now ALSO re-validates runnability against a minimal LIVE
- * read (`ports.agentRunnability.checkAgentRunnable` — `kind`/`status` ONLY,
- * not the old broad `getUserById`/`getFirstUserByKind` surface). Every other
- * config field (`role`/`systemPrompt`/`modelTierPreference`/`harnessType`/
- * `modelProvider`/`maxConcurrentSessions`/`teamId`) still comes from the baked
- * `agentConfig` snapshot — this wave's genuine win (avoiding a full row
- * re-fetch for pure configuration) is preserved; only the SAFETY-CRITICAL
- * `kind`/`status` re-check is live. The actual emit→deactivate→drain race
- * test lives in `admit-session-agent-runnability-race.integration.test.ts`
- * (this file's tests below cover the baked-config-consumption/consistency
- * behavior only, not the race itself).
- *
- * The two tests below are GREEN: `admitSession` now consults
+ * The two tests below are GREEN: `admitSession` consults
  * `params.harnessDisabled`/the baked `contextBundle.routine.costCapPerRunMinor`
  * for Phase 3/the admission-time cap read (no `ports.settings`/`ports.routine`
- * field exists at all), and `params.agentConfig` for every Phase 1 CONFIG
- * field — but Phase 1's runnability GATE itself now ALSO requires
- * `ports.agentRunnability.checkAgentRunnable` to agree.
+ * field exists at all), and `params.agentConfig` for every Phase 1 field,
+ * including the defense-in-depth `kind`/`status` check — with zero live read
+ * of any kind.
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
@@ -146,16 +129,6 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
 			composeAssistantPrompt: neverCalled("contextAssembly.composeAssistantPrompt"),
 			writeSandboxAgentsMd: neverCalled("contextAssembly.writeSandboxAgentsMd"),
-		},
-		// Real db-backed default (not a fixed stub) — mirrors the production
-		// wiring (`run-orchestration-composition.ts`'s `agentRunnabilityReader`)
-		// so these tests exercise the SAME live re-check production performs,
-		// not a hand-waved always-true stub.
-		agentRunnability: {
-			async checkAgentRunnable(exec, agentId) {
-				const [row] = await exec.select().from(users).where(eq(users.id, agentId)).limit(1);
-				return row ? { kind: row.kind, status: row.status } : undefined;
-			},
 		},
 	};
 	return { ...base, ...overrides };

@@ -1,9 +1,17 @@
 /**
  * @lore AU19 Increment 3h: `@hyperidle/dispatch`'s `createDispatchOps` needs
- * injected `conversation`/`users`/`settings`/`model-gateway` (ordinary
- * downward), `run-orchestration` (ordinary same-layer, still a port per
- * Mechanism C), and `toolHandlers`/`workspaceFactory` (INTERIM
- * forward-references, wired to still-flat `packages/server` files) ports.
+ * injected `conversation`/`model-gateway` (ordinary downward),
+ * `run-orchestration` (ordinary same-layer, still a port per Mechanism C),
+ * and `toolHandlers`/`workspaceFactory` (INTERIM forward-references, wired to
+ * still-flat `packages/server` files) ports.
+ *
+ * @lore AU21 §9 Increment 12 (third pass, dead-port cleanup): `users`/
+ * `settings` sub-ports and `conversation`'s `listMessagesByThread`/
+ * `getThreadById`/`updateThread` members are DELETED — confirmed genuinely
+ * dead in `service.ts` (only stale `@lore` comments referenced them, no live
+ * call site since the pin-trigger removal, Increment 11 Wave B).
+ * `conversation.insertMessage` is the ONLY live binding left in this group —
+ * the sanctioned `CoreApiPort` seam write.
  * This module builds the bound singleton
  * ONCE, at the composition root, so every real call site (`app.ts`,
  * `server-factory.ts`, and the many `__tests__` integration tests) imports
@@ -43,16 +51,13 @@
  * directly instead of going through `dispatchOps`.
  */
 
-import { findThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { DispatchPorts } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
 import { createSandboxAdapter } from "@hyperidle/harness-registry";
 import { resolveModel } from "@hyperidle/model-gateway";
-import { readServerConfig } from "@hyperidle/settings";
 import type { ToolContext } from "@hyperidle/shared";
 import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
-import { findUser, getOrCreateUser } from "@hyperidle/users";
 import {
 	buildCoreApiPort,
 	getRegisteredCoreApiTransport,
@@ -91,35 +96,6 @@ const dispatchPorts: DispatchPorts = {
 					clientKey: values.clientKey,
 				})
 				.then(() => undefined),
-		listMessagesByThread: (exec, threadId, opts) =>
-			listMessages(exec, {
-				threadId,
-				order: opts?.order,
-				dir: opts?.dir,
-			}),
-		getThreadById: (exec, id) => findThread(exec, { id }),
-		// AU21 §9 Increment 2 (conversation wave): routes through the CoreApiPort
-		// seam — the SAME new `PATCH /threads/:id` route a human caller's client
-		// would use. `actorId` threads the assistant agent's own identity
-		// (service.ts's one migrated call site, the pin-after-first-response).
-		updateThread: (_exec, id, patch, actorId) =>
-			seamPortForActor(actorId).conversation.updateThread(id, {
-				...(patch.participants !== undefined
-					? { participants: JSON.parse(patch.participants) as readonly string[] }
-					: {}),
-				...(patch.lastActiveAt !== undefined ? { lastActiveAt: patch.lastActiveAt } : {}),
-				...(patch.pinned !== undefined ? { pinned: patch.pinned } : {}),
-			}),
-	},
-	users: {
-		getOrCreateUser,
-		getUserById: (db, id) => findUser(db, { id }),
-	},
-	settings: {
-		readServerConfig: async (db) => {
-			const cfg = await readServerConfig(db);
-			return { cost: { capMinor: cfg.cost.capMinor }, modelGateway: cfg.modelGateway };
-		},
 	},
 	modelGateway: {
 		resolveAgentModel: (agent, tierFallback, config, credentialResolver) =>

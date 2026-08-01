@@ -1,5 +1,6 @@
 /**
- * AU21 §9 Increment 11 (H2 re-derived) — RED phase.
+ * AU21 §9 Increment 11 (H2 re-derived), updated Increment 12 (third pass,
+ * dead-port cleanup) — GREEN.
  *
  * architecture.md §6 Decision H's H2 subsection + §9's Increment 11
  * paragraph: "Delete `runTurnInternal`'s three core reads
@@ -9,30 +10,18 @@
  * conversational branch (`provisioner.ts:883-903`) already does... only the
  * transcript's SOURCE moves from a live read to the baked payload."
  *
- * This proves BOTH halves of Increment 11's AC (b) directly against the real
- * `dispatch` package (`createDispatchOps`), using fully injected
- * `DispatchPorts` spies — the standard idiom for this package (see the
- * sibling `dispatch-completeness-contract.test.ts`, and
- * `core-api-port-increment2-dispatch-assistant-turn.integration.test.ts` for
- * the same `unreachable`-stub pattern applied against the real seam):
- *
- *   1. ZERO calls reach `ports.conversation.listMessagesByThread`,
- *      `ports.users.getOrCreateUser`, or `ports.settings.readServerConfig`
- *      during a real (non-early-return) assistant turn.
- *   2. The conversational messages handed to
- *      `ports.runOrchestration.executeAgentRunRequest` are built from the
- *      REQUEST's own baked transcript (`request.payloadJson`), not from
- *      `ports.conversation.listMessagesByThread`'s (decoy) return value.
- *
- * Currently RED: `runTurnInternal` unconditionally calls
- * `ports.users.getOrCreateUser` first (`service.ts:173`), then — because this
- * test supplies a `credentialResolver` (no pre-resolved `deps.resolvedModel`,
- * matching the branch that resolves models today) — calls
- * `ports.settings.readServerConfig` (`service.ts:204`), and unconditionally
- * calls `ports.conversation.listMessagesByThread` via `loadRawTranscript`
- * (`service.ts:244,358`), ignoring `request.payloadJson` entirely. All three
- * `not.toHaveBeenCalled()` assertions fail, and the captured conversational
- * messages equal the DECOY live-read content, not the baked transcript.
+ * Increment 11 closed this by deleting the three live reads from
+ * `runTurnInternal`. Increment 12 (third pass) goes one step further and
+ * deletes the now-dead `DispatchPorts` members themselves
+ * (`conversation.listMessagesByThread`/`getThreadById`/`updateThread`, and
+ * the entire `users`/`settings` sub-ports) — there is no longer a port
+ * surface through which a live read could even be wired, so the original
+ * "assert the spy was never called" proof is now a stronger, structural
+ * claim: the ports object below cannot declare those methods at all and
+ * still satisfy `DispatchPorts` (no cast used). This test proves the
+ * remaining, still-meaningful half of the original claim: the conversational
+ * messages handed to `ports.runOrchestration.executeAgentRunRequest` are
+ * built from the REQUEST's own baked transcript (`request.payloadJson`).
  *
  * @lore naming: this test reads the baked transcript from
  * `request.payloadJson` (`JSON.parse(payloadJson).transcript`) — the
@@ -51,15 +40,11 @@
  *
  * @lore a real (heavyweight, PGlite-backed) `db` fixture is deliberately
  * NOT used here — every `DispatchPorts` method is fully faked, `db` is only
- * ever threaded through opaquely, and when a `not.toHaveBeenCalled()`
- * assertion on a spy that captured the real fixture db as an argument fails,
- * vitest's pretty-printer tries to serialize that huge/circular object and
- * blows the heap (`RangeError: Invalid string length` / OOM — reproduced
- * while writing this test). Uses the same `inertDb()` idiom
+ * ever threaded through opaquely. Uses the same `inertDb()` idiom
  * `dispatch-completeness-contract.test.ts` already ships.
  */
 
-import type { AgentSessionRequest, HyperIdleDb, Message, User } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect, test, vi } from "vitest";
 import type { DispatchOps, DispatchPorts } from "../index.js";
@@ -81,33 +66,6 @@ interface TranscriptRow {
 	readonly senderId: string;
 	readonly payload: string;
 	readonly type: string;
-}
-
-function decoyAgentRow(assistantAgentId: string): User {
-	return {
-		id: assistantAgentId,
-		kind: "ai",
-		name: "Assistant",
-		systemPromptPath: null,
-		teamId: null,
-		role: "assistant",
-		skills: null,
-		status: "active",
-		maxConcurrentSessions: 1,
-		costCap: null,
-		costActual: 0,
-		costCapMinor: null,
-		costCapCurrency: null,
-		email: null,
-		avatarUrl: null,
-		createdAt: NOW,
-		systemPrompt: "You are a helpful assistant.",
-		harnessType: "builtin",
-		modelTierPreference: null,
-		modelId: "decoy-model-should-never-be-used",
-		modelProvider: "anthropic",
-		agentCategory: "individual",
-	};
 }
 
 function buildAssistantSessionRequest(opts: {
@@ -151,14 +109,8 @@ function buildAssistantSessionRequest(opts: {
 	};
 }
 
-function unreachable(label: string): () => never {
-	return () => {
-		throw new Error(`unreachable in this RED-phase test: ${label}`);
-	};
-}
-
-describe("dispatch's assistant turn sources the transcript from the baked payload, zero core reads (Increment 11)", () => {
-	test("zero conversation/users/settings reads reach dispatch, and the harness messages come from the baked transcript — not the (decoy) live read", async () => {
+describe("dispatch's assistant turn sources the transcript from the baked payload (Increment 11), zero dead port surface left to read from (Increment 12)", () => {
+	test("the harness messages come from the baked transcript, through a DispatchPorts shape with no conversation/users/settings live-read surface at all", async () => {
 		const db = inertDb();
 		const eventBus = new EventBus();
 		const founderId = "founder-inc11-transcript";
@@ -183,26 +135,6 @@ describe("dispatch's assistant turn sources the transcript from the baked payloa
 			},
 		];
 
-		const decoyMessageRow: Message = {
-			id: "msg-decoy-live-read",
-			createdAt: NOW,
-			senderId: founderId,
-			threadId,
-			type: "plain",
-			payload: JSON.stringify({ text: "DECOY-LIVE-READ-CONTENT" }),
-			clientKey: "decoy-client-key",
-			deletedAt: null,
-			redactedAt: null,
-			resolvedAt: null,
-			legacyItemId: null,
-			blockId: null,
-		};
-		const listMessagesByThreadSpy = vi.fn(async () => [decoyMessageRow]);
-		const getOrCreateUserSpy = vi.fn(async () => decoyAgentRow(assistantAgentId));
-		const readServerConfigSpy = vi.fn(async () => ({
-			cost: { capMinor: 0 },
-			modelGateway: {} as never,
-		}));
 		const resolveAgentModelSpy = vi.fn(async () => ({
 			provider: "anthropic" as const,
 			model: "decoy-resolved-model",
@@ -237,15 +169,7 @@ describe("dispatch's assistant turn sources the transcript from the baked payloa
 		const ports: DispatchPorts = {
 			conversation: {
 				insertMessage: insertMessageSpy,
-				listMessagesByThread: listMessagesByThreadSpy,
-				getThreadById: unreachable("conversation.getThreadById"),
-				updateThread: unreachable("conversation.updateThread"),
 			},
-			users: {
-				getOrCreateUser: getOrCreateUserSpy,
-				getUserById: unreachable("users.getUserById"),
-			},
-			settings: { readServerConfig: readServerConfigSpy },
 			modelGateway: {
 				resolveAgentModel: resolveAgentModelSpy,
 				resolveModelTier: resolveModelTierSpy,
@@ -272,10 +196,6 @@ describe("dispatch's assistant turn sources the transcript from the baked payloa
 
 		await dispatchOps.runAssistantTurn(deps, request);
 
-		expect(listMessagesByThreadSpy).not.toHaveBeenCalled();
-		expect(getOrCreateUserSpy).not.toHaveBeenCalled();
-		expect(readServerConfigSpy).not.toHaveBeenCalled();
-
 		expect(executeAgentRunRequestSpy).toHaveBeenCalledTimes(1);
 		const call = executeAgentRunRequestSpy.mock.calls[0];
 		if (!call) throw new Error("executeAgentRunRequest was never called");
@@ -285,8 +205,5 @@ describe("dispatch's assistant turn sources the transcript from the baked payloa
 			{ role: "assistant", content: "baked assistant reply" },
 			{ role: "user", content: "baked follow-up question" },
 		]);
-		expect(JSON.stringify(options.conversational?.messages)).not.toContain(
-			"DECOY-LIVE-READ-CONTENT",
-		);
 	});
 });

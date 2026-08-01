@@ -29,6 +29,12 @@
  *   3. `ports.users.getOrCreateUser` and `ports.settings.readServerConfig`
  *      are still never called — the fix stays "bake at emit, source from the
  *      baked payload at execution," matching Wave A's own transcript fix.
+ *
+ * AU21 §9 Increment 12 (third pass, dead-port cleanup): `DispatchPorts` no
+ * longer declares `users`/`settings` at all (nor
+ * `conversation.listMessagesByThread`/`getThreadById`/`updateThread`) — (3)
+ * above is now a structural guarantee (the `buildPorts` fixture below cannot
+ * even wire those methods), not merely a runtime "never called" assertion.
  */
 
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
@@ -90,12 +96,6 @@ function buildAssistantSessionRequest(opts: {
 	};
 }
 
-function unreachable(label: string): () => never {
-	return () => {
-		throw new Error(`must not be called in this test: ${label}`);
-	};
-}
-
 function buildPorts(overrides: {
 	readonly resolveAgentModel: DispatchPorts["modelGateway"]["resolveAgentModel"];
 	readonly resolveModelTier: DispatchPorts["modelGateway"]["resolveModelTier"];
@@ -104,15 +104,7 @@ function buildPorts(overrides: {
 	return {
 		conversation: {
 			insertMessage: vi.fn(async () => undefined),
-			listMessagesByThread: unreachable("conversation.listMessagesByThread"),
-			getThreadById: unreachable("conversation.getThreadById"),
-			updateThread: unreachable("conversation.updateThread"),
 		},
-		users: {
-			getOrCreateUser: unreachable("users.getOrCreateUser"),
-			getUserById: unreachable("users.getUserById"),
-		},
-		settings: { readServerConfig: unreachable("settings.readServerConfig") },
 		modelGateway: {
 			resolveAgentModel: overrides.resolveAgentModel,
 			resolveModelTier: overrides.resolveModelTier,
