@@ -287,27 +287,52 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  * remained genuinely open until Wave E (below) closed them too.
  *
  * **AU21 §9 Increment 12 (Decision H3), Wave E — `run-orchestration::routine`/
- * `::settings`/`::users` genuinely CLOSED, not relabeled.** `admitSession`'s
- * three former live reads (Phase 1 agent load via `ports.users.getUserById`,
- * Phase 3 `harnessDisabled` via `ports.settings.readServerConfig`, the
- * admission-time routine per-run cost cap via `ports.routine.getRoutineById`)
- * are replaced by baked data every per-kind resolver (all six intent kinds,
- * not just the four `contextBundle`-baking families) now supplies on the
- * drained request: `agentConfig` (`BakedAgentRunnableConfig`,
- * `@hyperidle/shared`, baked from the SAME `agent: User` row
- * `requireRunnableAgent` already loads + validates), `harnessDisabled`
- * (baked by the four `contextBundle` families' emit sites), and
+ * `::settings` genuinely CLOSED, not relabeled.** `admitSession`'s Phase 3
+ * `harnessDisabled` read (via `ports.settings.readServerConfig`) and the
+ * admission-time routine per-run cost cap read (via
+ * `ports.routine.getRoutineById`) are replaced by baked data every per-kind
+ * resolver (all six intent kinds, not just the four `contextBundle`-baking
+ * families) now supplies on the drained request: `harnessDisabled` (baked by
+ * the four `contextBundle` families' emit sites) and
  * `contextBundle.routine.costCapPerRunMinor` (baked by the routine resolver
- * from the SAME `routine` row it already loads to validate). `SessionLifecyclePorts`
- * no longer declares `routine`/`users`/`settings` fields at all — verified via
- * the raw composition-bundle detector,
- * `run-orchestration-users-settings-routine-anti-regrowth.test.ts`. All three
- * removed from this set below, not merely relabeled.
+ * from the SAME `routine` row it already loads to validate).
+ * `SessionLifecyclePorts` no longer declares `routine`/`settings` fields at
+ * all — verified via the raw composition-bundle detector,
+ * `run-orchestration-settings-routine-anti-regrowth.test.ts`. Both removed
+ * from this set below, not merely relabeled.
  *
- * **What remains genuinely open (3 pairs) — AC #2 ("orchestration reads
+ * **`run-orchestration::users` was ALSO claimed closed by Wave E's original
+ * commit — REVIEW-CORRECTED, REOPENED, not closed.** Wave E's original design
+ * deleted `ports.users` entirely and had Phase 1 validate only the baked
+ * `agentConfig` snapshot's `kind`/`status`, reasoning architecture.md §12's
+ * "no bespoke race-handling" premise made a live re-check unnecessary. Review
+ * substantiated that premise is factually false in this codebase: every
+ * per-kind resolver's `requireRunnableAgent` call guarantees the baked
+ * snapshot's `kind`/`status` are ALWAYS runnable at emit time, so re-checking
+ * only the bake can never catch a real emit→deactivate→drain race (only a
+ * resolver bug) — and no downstream mechanism naturally rejects a deactivated
+ * agent either (`AdapterPool.select()` is identity-blind; CLI harnesses
+ * inherit host auth; the `CoreApiPort` actor-override header trusts the
+ * caller verbatim; `GET /connections/provisioning` resolves the human
+ * owner's connections unconditionally, not scoped to the requesting agent's
+ * status). See `provisioner.ts`'s top-of-file Wave E `@lore` "CORRECTION" for
+ * the full trace. The fix restores a DELIBERATELY MINIMAL live read
+ * (`SessionLifecycleAgentRunnabilityReader.checkAgentRunnable` — `kind`/
+ * `status` ONLY, not the old broad `getUserById`/`getFirstUserByKind`
+ * surface) so the §12 invariant ("a deactivated agent never proceeds with
+ * authority") actually holds. This is a genuine, honest REOPENING —
+ * `run-orchestration::users` moves back into this set below, NOT founder-
+ * signed permanent (unlike `ALLOWLIST`), pending a founder decision on the
+ * eventual mechanism (this narrow live check vs. an event-driven
+ * session-cancellation-on-deactivation design).
+ *
+ * **What remains genuinely open (4 pairs) — AC #2 ("orchestration reads
  * zero core-api domain state") is NOT fully met while this set is non-empty.
  * Do not present AU21 as closing its headline AC while any of these remain:**
  *
+ * - `run-orchestration::users` — see the "REVIEW-CORRECTED, REOPENED" note
+ *   immediately above. Narrow (one method, two fields), safety-motivated, not
+ *   a config/efficiency read like the others in this file's history.
  * - `dispatch::conversation`/`dispatch::users`/`dispatch::settings` — the
  *   assistant-turn runner (`runTurnInternal`) reads the live conversation
  *   transcript, resolves/creates the assistant's own user row, and reads
@@ -335,6 +360,7 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  * "Increment 9 forensic-triage accounting — THIRD pass" section.
  */
 export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([
+	"run-orchestration::users",
 	"dispatch::conversation",
 	"dispatch::users",
 	"dispatch::settings",

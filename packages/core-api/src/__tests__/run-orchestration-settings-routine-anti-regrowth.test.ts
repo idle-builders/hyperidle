@@ -1,14 +1,21 @@
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave E — architecture.md's
- * Increment 12 test (a)'s structural half, closing the last 3 of the 9 pairs
+ * Increment 12 test (a)'s structural half, closing 2 of the 3 pairs
  * Increment 9's third-pass forensic-triage wave left in
  * `scripts/composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP`:
- * `run-orchestration::users`, `run-orchestration::settings`,
- * `run-orchestration::routine`.
+ * `run-orchestration::settings`, `run-orchestration::routine`.
+ *
+ * **`run-orchestration::users` is NOT covered by this file — see
+ * `run-orchestration-agent-runnability-anti-regrowth.test.ts` (post-Wave-E
+ * safety fix): that pair was REOPENED, not closed, by review — Wave E's
+ * original claim that all three pairs closed was itself wrong for `users`
+ * (see `provisioner.ts`'s top-of-file Wave E `@lore` "CORRECTION" and
+ * `composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP` doc
+ * comment for the full trace).
  *
  * Sibling to `context-assembly-anti-regrowth.test.ts` (Wave C) and
  * `work-composition-anti-regrowth.test.ts` (Wave D), same mechanism: these
- * three pairs used to be carried in `DEFERRED_FOLLOWUP` — `inspect()`
+ * two pairs used to be carried in `DEFERRED_FOLLOWUP` — `inspect()`
  * SUPPRESSES deferred pairs, so calling `inspect()` directly would have
  * reported "green" for the wrong reason (deferred, not closed). This test
  * bypasses that suppression and calls the RAW detection mechanism
@@ -16,17 +23,16 @@
  * to) against the LIVE repo tree, proving the underlying hidden
  * composition-bundle edges are actually gone — not merely deferred.
  *
- * `run-orchestration-composition.ts`'s `userReader`/`settingsReader`/
- * `routineAccessor` (the former ONLY real composition-root wiring for these
- * three pairs) are DELETED entirely this wave — `admitSession`'s three
- * former live reads (Phase 1 agent load, Phase 3 `harnessDisabled`, the
- * admission-time routine per-run cost cap) are replaced by baked data every
- * per-kind resolver now supplies on the drained request (`agentConfig`/
- * `harnessDisabled`/`contextBundle.routine.costCapPerRunMinor` — see
+ * `run-orchestration-composition.ts`'s `settingsReader`/`routineAccessor`
+ * (the former ONLY real composition-root wiring for these two pairs) are
+ * DELETED entirely — `admitSession`'s Phase 3 `harnessDisabled` read and the
+ * admission-time routine per-run cost cap read are replaced by baked data
+ * every per-kind resolver now supplies on the drained request
+ * (`harnessDisabled`/`contextBundle.routine.costCapPerRunMinor` — see
  * `provisioner.ts`'s own Wave E top-of-file note). `run-orchestration` now
- * holds ZERO `-> users`/`-> settings`/`-> routine` edge, read or write — this
- * test proves it directly against the live tree, and
- * `DEFERRED_FOLLOWUP` no longer carries these three pairs.
+ * holds ZERO `-> settings`/`-> routine` edge, read or write — this test
+ * proves it directly against the live tree, and `DEFERRED_FOLLOWUP` no
+ * longer carries these two pairs.
  */
 
 import * as path from "node:path";
@@ -42,16 +48,13 @@ function repoRoot(): string {
 	return path.resolve(__dirname, "..", "..", "..", "..");
 }
 
-describe("run-orchestration -> users/settings/routine session-admission reads (Increment 12 Wave E)", () => {
-	test("the raw composition-bundle detector finds ZERO run-orchestration -> users/settings/routine edges on the live tree", () => {
+describe("run-orchestration -> settings/routine session-admission reads (Increment 12 Wave E)", () => {
+	test("the raw composition-bundle detector finds ZERO run-orchestration -> settings/routine edges on the live tree", () => {
 		const root = repoRoot();
 		const services = discoverServices(root);
 		loadOwnedTables(root, services);
 		const hidden = detectHiddenCompositionEdges(root, services);
 
-		const usersEdge = hidden.find(
-			(e) => e.consumer === "run-orchestration" && e.provider === "users",
-		);
 		const settingsEdge = hidden.find(
 			(e) => e.consumer === "run-orchestration" && e.provider === "settings",
 		);
@@ -59,7 +62,6 @@ describe("run-orchestration -> users/settings/routine session-admission reads (I
 			(e) => e.consumer === "run-orchestration" && e.provider === "routine",
 		);
 
-		expect(usersEdge, JSON.stringify(usersEdge)).toBeUndefined();
 		expect(settingsEdge, JSON.stringify(settingsEdge)).toBeUndefined();
 		expect(routineEdge, JSON.stringify(routineEdge)).toBeUndefined();
 	});

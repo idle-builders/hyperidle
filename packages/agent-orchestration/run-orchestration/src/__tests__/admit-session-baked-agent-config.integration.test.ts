@@ -1,47 +1,55 @@
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave E.
  *
- * Closes the three formerly still-open `run-orchestration -> core-api` live
+ * Closes 2 of the 3 formerly still-open `run-orchestration -> core-api` live
  * reads `provisioner.ts`'s `admitSession` used to perform
- * (`ports.users.getUserById` Phase 1, `ports.settings.readServerConfig`
- * Phase 3, `ports.routine.getRoutineById` the admission-time per-run cost cap
- * read) — see `provisioner.ts`'s own Wave E top-of-file note and
+ * (`ports.settings.readServerConfig` Phase 3, `ports.routine.getRoutineById`
+ * the admission-time per-run cost cap read) — see `provisioner.ts`'s own
+ * Wave E top-of-file note and
  * `scripts/composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP`
- * (no longer carries `run-orchestration::users`/`::settings`/`::routine`).
+ * (no longer carries `run-orchestration::settings`/`::routine`).
  *
- * **Part A safety investigation (see builder report for the full trace):**
- * deleting Phase 1's live `agent.kind !== "ai" || status not runnable` check
- * with NO baked replacement would be a real security regression, not a
- * cosmetic gap — traced (not guessed): `AdapterPool.select()`
- * (`@hyperidle/harness-registry`) is a pure in-memory registry keyed on
- * harnessType/modelProviders/disabledTypes, structurally blind to the calling
- * agent's identity or live status; every CLI harness (`claude`/`codex`/
- * `opencode`) authenticates via inherited host keychain/env, entirely
- * agent-independent; and the `CoreApiPort` seam's actor-override header
- * (`core-api-port-composition.ts`'s `withActorTransport` /
- * `middleware/auth.ts`'s `resolveApiKeyActorUserId`) trusts the header value
- * verbatim with ZERO re-read of the `users` row's `kind`/`status`.
- * `TargetAgentNotRunnableError` has exactly ONE throw site in the entire
- * codebase (`provisioner.ts`'s Phase 1) — there is no other live or natural
- * downstream mechanism that would reject a deactivated agent's session. The
- * safe design (this wave): bake `kind`/`status` (+ the other Phase 1/3 config
- * fields) onto each per-kind resolver's payload from the SAME already-
- * `requireRunnableAgent`-validated `agent: User` row (H2/Increment-11
- * precedent), and have Phase 1 check the BAKED snapshot instead of a live
- * read — same predicate, same throw class, same
- * `agent_run_admission_failed`/`TARGET_AGENT_NOT_RUNNABLE` reporting channel
- * (`runtime.ts`'s `reportPreAdmissionProvisioningFailure`, already covered by
- * `agent-session-runtime.integration.test.ts`'s own race test). This is a
- * snapshot check, not a live one — the emit→deactivate→drain race stays
- * open exactly as architecture.md §12's founder-resolved note accepts ("no
- * bespoke race-handling") — but the runnability GATE itself is never
- * silently dropped, only its data source changes.
+ * **`ports.users.getUserById` (Phase 1) is NOT closed by this wave — REOPENED,
+ * narrower, by a review-corrected fix.** This file's ORIGINAL version claimed
+ * a fully-baked Phase 1 (checking only `params.agentConfig`) preserved the
+ * runnability GATE with "a snapshot check, not a live one" trade-off blessed
+ * by architecture.md §12. Review substantiated that reasoning was WRONG: every
+ * per-kind resolver's `requireRunnableAgent` call guarantees the baked
+ * snapshot is ALWAYS runnable at emit time, so a baked-only re-check can
+ * never catch a REAL emit→deactivate→drain race — only a resolver bug that
+ * baked a bad snapshot to begin with. No downstream mechanism naturally
+ * rejects a deactivated agent either (traced, not guessed):
+ * `AdapterPool.select()` (`@hyperidle/harness-registry`) is a pure in-memory
+ * registry blind to the calling agent's identity/status; every CLI harness
+ * (`claude`/`codex`/`opencode`) authenticates via inherited host
+ * keychain/env, entirely agent-independent; the `CoreApiPort` seam's
+ * actor-override header (`core-api-port-composition.ts`'s
+ * `withActorTransport` / `middleware/auth.ts`'s `resolveApiKeyActorUserId`)
+ * trusts the header value verbatim with ZERO re-read of the `users` row's
+ * `kind`/`status`; and `GET /connections/provisioning`
+ * (`core-api/src/routes/connections.ts`) resolves the single owning human's
+ * held connections unconditionally, identity-blind to the requesting agent's
+ * status. See `provisioner.ts`'s top-of-file Wave E `@lore` "CORRECTION" for
+ * the full trace.
  *
- * Both tests below are GREEN: `admitSession` now consults
- * `params.agentConfig`/`params.harnessDisabled`/the baked
- * `contextBundle.routine.costCapPerRunMinor` exclusively — Phase 1/3/the
- * admission-time cap read no longer carry a `ports.users`/`ports.settings`/
- * `ports.routine` field at all (`SessionLifecyclePorts` structurally has none).
+ * The fix: Phase 1 now ALSO re-validates runnability against a minimal LIVE
+ * read (`ports.agentRunnability.checkAgentRunnable` — `kind`/`status` ONLY,
+ * not the old broad `getUserById`/`getFirstUserByKind` surface). Every other
+ * config field (`role`/`systemPrompt`/`modelTierPreference`/`harnessType`/
+ * `modelProvider`/`maxConcurrentSessions`/`teamId`) still comes from the baked
+ * `agentConfig` snapshot — this wave's genuine win (avoiding a full row
+ * re-fetch for pure configuration) is preserved; only the SAFETY-CRITICAL
+ * `kind`/`status` re-check is live. The actual emit→deactivate→drain race
+ * test lives in `admit-session-agent-runnability-race.integration.test.ts`
+ * (this file's tests below cover the baked-config-consumption/consistency
+ * behavior only, not the race itself).
+ *
+ * The two tests below are GREEN: `admitSession` now consults
+ * `params.harnessDisabled`/the baked `contextBundle.routine.costCapPerRunMinor`
+ * for Phase 3/the admission-time cap read (no `ports.settings`/`ports.routine`
+ * field exists at all), and `params.agentConfig` for every Phase 1 CONFIG
+ * field — but Phase 1's runnability GATE itself now ALSO requires
+ * `ports.agentRunnability.checkAgentRunnable` to agree.
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
@@ -138,6 +146,16 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
 			composeAssistantPrompt: neverCalled("contextAssembly.composeAssistantPrompt"),
 			writeSandboxAgentsMd: neverCalled("contextAssembly.writeSandboxAgentsMd"),
+		},
+		// Real db-backed default (not a fixed stub) — mirrors the production
+		// wiring (`run-orchestration-composition.ts`'s `agentRunnabilityReader`)
+		// so these tests exercise the SAME live re-check production performs,
+		// not a hand-waved always-true stub.
+		agentRunnability: {
+			async checkAgentRunnable(exec, agentId) {
+				const [row] = await exec.select().from(users).where(eq(users.id, agentId)).limit(1);
+				return row ? { kind: row.kind, status: row.status } : undefined;
+			},
 		},
 	};
 	return { ...base, ...overrides };

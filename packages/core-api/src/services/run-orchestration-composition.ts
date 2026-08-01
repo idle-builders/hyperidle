@@ -33,6 +33,7 @@ import {
 } from "@hyperidle/session-requests";
 import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
+import { findUser } from "@hyperidle/users";
 import {
 	buildCoreApiPort,
 	getRegisteredCoreApiTransport,
@@ -85,20 +86,37 @@ type ToolRegistryOptions = Parameters<typeof buildToolRegistry>[1];
 // -> bet token-writeback). See `provisioner.ts`'s own Wave D note for the
 // full per-caller migration map.
 //
-// AU21 §9 Increment 12 (Decision H3), Wave E: `routineAccessor`/`userReader`/
-// `settingsReader` (this file's own `getRoutineById`/`getUserById`+
-// `getFirstUserByKind`/`readServerConfig` bindings) are ALSO DELETED entirely
-// — `SessionLifecyclePorts` no longer carries `routine`/`users`/`settings`
-// fields at all. `admitSession`'s three former live reads (Phase 1 agent
-// load, Phase 3 `harnessDisabled`, the admission-time routine per-run cap)
-// are replaced by baked data every per-kind resolver now supplies on the
-// drained request (`params.agentConfig`/`params.harnessDisabled`/
-// `params.contextBundle.routine.costCapPerRunMinor` — see `provisioner.ts`'s
-// own Wave E top-of-file note). `run-orchestration` now holds ZERO
-// `-> routine`/`-> users`/`-> settings` edge, read or write — closing
+// AU21 §9 Increment 12 (Decision H3), Wave E: `routineAccessor`/`settingsReader`
+// (this file's own `getRoutineById`/`readServerConfig` bindings) are DELETED
+// entirely — `SessionLifecyclePorts` no longer carries `routine`/`settings`
+// fields at all. `admitSession`'s Phase 3 `harnessDisabled` read and the
+// admission-time routine per-run cap are replaced by baked data every
+// per-kind resolver now supplies on the drained request
+// (`params.harnessDisabled`/`params.contextBundle.routine.costCapPerRunMinor`
+// — see `provisioner.ts`'s own Wave E top-of-file note). `run-orchestration`
+// now holds ZERO `-> routine`/`-> settings` edge, read or write — closing
 // architecture.md §6 H3 and the anti-regrowth guard's `DEFERRED_FOLLOWUP`
-// entries `run-orchestration::routine`/`::settings`/`::users`.
+// entries `run-orchestration::routine`/`::settings`.
+//
+// **CORRECTION (post-Wave-E review): `userReader`/`SessionLifecyclePorts["users"]`
+// is NOT deleted — REOPENED as `agentRunnabilityReader` below, deliberately
+// narrower than the original (`kind`/`status` ONLY, not the full row).**
+// Review substantiated the baked-only design could never detect a real
+// emit→deactivate→drain race (every resolver's `requireRunnableAgent` call
+// guarantees the baked snapshot is always runnable at emit time), and no
+// downstream mechanism naturally rejects a deactivated agent either — see
+// `provisioner.ts`'s top-of-file Wave E `@lore` "CORRECTION" for the full
+// trace. `run-orchestration::users` is back in the anti-regrowth guard's
+// `DEFERRED_FOLLOWUP` (honestly labeled, not founder-signed permanent,
+// pending a decision on the eventual mechanism).
 const observabilityAccessor: SessionLifecyclePorts["observability"] = { summarizeToolArgs };
+
+const agentRunnabilityReader: SessionLifecyclePorts["agentRunnability"] = {
+	async checkAgentRunnable(exec, agentId) {
+		const agent = await findUser(exec, { id: agentId });
+		return agent ? { kind: agent.kind, status: agent.status } : undefined;
+	},
+};
 
 // AU21 §9 Increment 8 (Decision F2): both ports now cross `CoreApiPort` — the
 // composition-bundle's raw `db`-reading calls into `@hyperidle/filesystems`/
@@ -174,6 +192,7 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 	cost: costAccessor,
 	harnessRuntime,
 	toolProvider,
+	agentRunnability: agentRunnabilityReader,
 };
 // AU21 §9 Increment 4 (Decision B″ item 3): `transitionRunInternal`'s
 // `TransitionPorts` no longer carries a `routine` key at all — `endSession`/
