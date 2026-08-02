@@ -643,32 +643,15 @@ export interface CoreApiConnectionsPort {
 }
 
 /**
- * One filesystem's provisioning-relevant fields — mirrors `GET
- * /filesystems?agentUserId=`'s response element (`resourceRef` already
- * `JSON.parse`d by the route's own `rowToFilesystem`).
+ * AU21 §9 Increment 12 follow-up (F2 gap closure): `FilesystemProvisioningView`/
+ * `CoreApiFilesystemsPort` (Decision F2, AU21 §9 Increment 8) are DELETED —
+ * the agent's injected filesystem list is now baked at emit time by every
+ * per-kind resolver (`@hyperidle/filesystems`'s
+ * `resolveInjectedFilesystemsForAgent`) instead of read back through this
+ * seam. The plain `GET /filesystems?agentUserId=` ROUTE stays (the Settings
+ * UI calls it directly, not through this port) — only the seam method is
+ * gone.
  */
-export interface FilesystemProvisioningView {
-	readonly id: string;
-	readonly teamId: string;
-	readonly source: string;
-	readonly kind: string;
-	readonly connectionId: string | null;
-	readonly resourceRef: unknown;
-	readonly writeback: string;
-	readonly state: string;
-	readonly createdAt: string;
-}
-
-/**
- * The session-launch-time `filesystems` capability family (Decision F2, AU21
- * §9 Increment 8) — `edge-disposition.md`'s `filesystems.{listFilesystems}`
- * row's record-read half (the mount OPERATION itself relocated into
- * `agent-orchestration`; `startWatcher` relocated wholesale, no seam needed
- * — zero DB coupling).
- */
-export interface CoreApiFilesystemsPort {
-	listFilesystemsByAgent(agentId: string): Promise<ReadonlyArray<FilesystemProvisioningView>>;
-}
 
 /**
  * `CoreApiPort` — a per-core-Service family of narrow hand-typed method
@@ -684,7 +667,6 @@ export interface CoreApiPort {
 	readonly routine: CoreApiRoutinePort;
 	readonly knowledge: CoreApiKnowledgePort;
 	readonly connections: CoreApiConnectionsPort;
-	readonly filesystems: CoreApiFilesystemsPort;
 }
 
 /**

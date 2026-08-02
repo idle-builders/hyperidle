@@ -150,6 +150,9 @@ export function registerReviewSubscriptions(
 			assembleSessionKnowledge: ports.assembleSessionKnowledge,
 			// AU21 §9 Increment 12 (Decision H3), Wave E: also bake harnessDisabled.
 			readServerConfig: ports.readServerConfig,
+			// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
+			// injectedFilesystems.
+			resolveInjectedFilesystemsForAgent: ports.resolveInjectedFilesystemsForAgent,
 		});
 	};
 

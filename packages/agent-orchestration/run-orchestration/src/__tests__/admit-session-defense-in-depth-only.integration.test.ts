@@ -97,9 +97,11 @@ function buildDefenseInDepthOnlyPorts(
 		observability: {
 			summarizeToolArgs: () => "",
 		},
-		filesystems: {
-			listFilesystemsByAgent: neverCalled("filesystems.listFilesystemsByAgent"),
-		},
+		// AU21 §9 Increment 12 follow-up (F2 gap closure): `SessionLifecyclePorts`
+		// no longer carries a `filesystems` seam reader at all — the agent's
+		// injected filesystems are baked onto `params.injectedFilesystems` at
+		// emit time instead (see `admit-session-baked-filesystems.integration.test.ts`
+		// for that proof). There is no port left here to wire as `neverCalled`.
 		connections: {
 			buildProvisioningPlan: neverCalled("connections.buildProvisioningPlan"),
 			applyProvisioningPlan: neverCalled("connections.applyProvisioningPlan"),

@@ -35,7 +35,11 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/shared";
+import type {
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	BakedFilesystemForProvisioning,
+} from "@hyperidle/shared";
 import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import { get } from "./knowledge-repository.js";
 import { assembleSessionKnowledge } from "./session-knowledge-assembler.js";
@@ -52,6 +56,18 @@ export interface KnowledgeActionResolverDeps {
 	 * degrade).
 	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
+	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
+	 * (Mechanism C — `@hyperidle/knowledge` cannot import
+	 * `@hyperidle/filesystems` directly) for the `injectedFilesystems` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `injectedFilesystems`.
+	 */
+	resolveInjectedFilesystemsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<readonly BakedFilesystemForProvisioning[]>;
 }
 
 /** Thrown when the source knowledge item does not exist or is archived. */
@@ -87,6 +103,12 @@ export interface BakedKnowledgeActionRequest {
 	 * was supplied.
 	 */
 	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
+	 * injected-filesystems list. Present only when
+	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
+	 */
+	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
 }
 
 /**
@@ -124,6 +146,9 @@ export async function resolveKnowledgeActionRequest(
 	const harnessDisabled = deps.readServerConfig
 		? (await deps.readServerConfig(db)).harnessDisabled
 		: undefined;
+	const injectedFilesystems = deps.resolveInjectedFilesystemsForAgent
+		? await deps.resolveInjectedFilesystemsForAgent(db, item.updatedBy)
+		: undefined;
 
 	return {
 		defaultAgentId: item.updatedBy,
@@ -149,5 +174,6 @@ export async function resolveKnowledgeActionRequest(
 		},
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
+		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
 	};
 }

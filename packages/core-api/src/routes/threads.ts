@@ -31,6 +31,7 @@ import {
 	type HyperIdleDb,
 	sessions,
 } from "@hyperidle/db";
+import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
 	assembleSessionKnowledge,
 	get as getKnowledgeItem,
@@ -1371,6 +1372,7 @@ export function createThreadRoutes(
 						const bakedRequest = await resolveAssistantTurnRequest(tx as HyperIdleDb, messageId, {
 							requireRunnableAgent,
 							readServerConfig,
+							resolveInjectedFilesystemsForAgent,
 						});
 						await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "assistant_turn",
@@ -1586,6 +1588,7 @@ export function createThreadRoutes(
 						getTeamById: (execDb: HyperIdleDb, id: string) => getTeam(execDb, { id }),
 						assembleSessionKnowledge,
 						readServerConfig,
+						resolveInjectedFilesystemsForAgent,
 					},
 				);
 

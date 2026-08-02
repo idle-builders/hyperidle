@@ -29,4 +29,10 @@ export type {
 	FilesystemsGitRunnerFactory,
 	FilesystemsServiceConnectionResolver,
 } from "./ports.js";
+export type { InjectedFilesystemForAgent } from "./resolve-injected-filesystems-for-agent.js";
+// AU21 §9 Increment 12 follow-up (F2 gap closure) — the emit-time bake helper
+// every per-kind resolver calls to resolve an agent's injected filesystems at
+// EMIT TIME, replacing the deleted `CoreApiPort.filesystems.listFilesystemsByAgent`
+// seam call. See this module's own top-of-file `@lore`.
+export { resolveInjectedFilesystemsForAgent } from "./resolve-injected-filesystems-for-agent.js";
 export { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";

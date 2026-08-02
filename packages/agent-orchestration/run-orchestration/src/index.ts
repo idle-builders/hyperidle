@@ -27,7 +27,6 @@ export type { FileWatcher, FileWatcherConfig } from "./file-watcher.js";
 export { startWatcher } from "./file-watcher.js";
 export {
 	type FilesystemForProvisioning,
-	type FilesystemsProvisioningReader,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
 export { runSession } from "./runtime.js";

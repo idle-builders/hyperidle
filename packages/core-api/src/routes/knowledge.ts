@@ -24,7 +24,7 @@
 
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { getFilesystem } from "@hyperidle/filesystems";
+import { getFilesystem, resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
 	remove as archiveKnowledgeItem,
 	countAccesses,
@@ -951,7 +951,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 						bakedRequest = await resolveKnowledgeActionRequest(
 							tx as HyperIdleDb,
 							`knowledge:${id}`,
-							{ requireRunnableAgent, readServerConfig },
+							{ requireRunnableAgent, readServerConfig, resolveInjectedFilesystemsForAgent },
 						);
 					} catch {
 						bakedRequest = undefined;

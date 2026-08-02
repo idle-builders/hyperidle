@@ -12,6 +12,7 @@
  * real `task_run` emit site from ONE place, instead of five independently
  * drifting copies.
  */
+import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
@@ -23,4 +24,7 @@ export const taskRunResolverDeps: TaskRunResolverDeps = {
 	getTeamById: (db, id) => getTeam(db, { id }),
 	assembleSessionKnowledge,
 	readServerConfig,
+	// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
+	// injectedFilesystems.
+	resolveInjectedFilesystemsForAgent,
 };

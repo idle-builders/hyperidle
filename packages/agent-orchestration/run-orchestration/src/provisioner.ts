@@ -100,20 +100,15 @@ interface SessionLifecycleObservability {
 }
 
 // ---------------------------------------------------------------------------
-// filesystems — SessionLifecycleFilesystemsReader (AU21 §9 Increment 8,
-// Decision F2: the mount OPERATION relocated wholesale into this package's
-// own `filesystem-provisioning.ts` — only this DB-reading PREAMBLE crossed
-// `CoreApiPort`, collapsing the former two-step `listFilesystemIdsByAgent`/
-// `listFilesystemsByIds` port dance into the ONE seam call
-// `CoreApiPort.filesystems.listFilesystemsByAgent` already supports. No `db`
-// parameter — the composition root resolves the calling agent's own actor
-// identity onto the seam internally, same idiom as `tool-handlers-bindings.ts`'s
-// `seamPortForActor`.)
+// filesystems (AU21 §9 Increment 12 follow-up, F2 gap closure): the former
+// `SessionLifecycleFilesystemsReader` seam port is DELETED entirely —
+// `run-orchestration` holds ZERO `-> filesystems` read edge. The agent's
+// injected filesystem list is now baked at EMIT time onto
+// `ProvisionSessionParams.injectedFilesystems` by every per-kind resolver
+// (`@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`), the SAME
+// principle Wave E already applied to `agentConfig`/`harnessDisabled`. See
+// `filesystem-provisioning.ts`'s own top-of-file `@lore` for the full trace.
 // ---------------------------------------------------------------------------
-
-interface SessionLifecycleFilesystemsReader {
-	listFilesystemsByAgent(agentId: string): Promise<readonly FilesystemForProvisioning[]>;
-}
 
 interface SessionLifecycleServiceConnectionResolver {
 	resolve(userId: string, connectionId: string): Promise<string | null>;
@@ -478,7 +473,6 @@ interface SessionLifecyclePorts {
 		deregisterSessionRun(sessionId: string): void;
 	};
 	readonly observability: SessionLifecycleObservability;
-	readonly filesystems: SessionLifecycleFilesystemsReader;
 	readonly connections: SessionLifecycleConnectionsProvisioner;
 	readonly cost: SessionLifecycleCostAccessor;
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
@@ -725,6 +719,17 @@ interface ProvisionSessionParams {
 	 * degrades gracefully rather than hard-failing.
 	 */
 	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
+	 * injected-filesystems list, baked at EMIT time by every per-kind resolver
+	 * via `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`
+	 * (reusing the SAME `requireRunnableAgent`-resolved agentId each resolver
+	 * already has in hand). Phase 4.5 mounts directly from this list — ZERO
+	 * live `-> filesystems` read at provisioning time. Absent/empty means "no
+	 * injected filesystems", matching the seam-based lookup's own empty-list
+	 * behavior unchanged.
+	 */
+	readonly injectedFilesystems?: readonly FilesystemForProvisioning[];
 	/**
 	 * AL7 Task 6: When set, the registry invoke router participates in the
 	 * trust-first review workflow for this session.
@@ -1019,11 +1024,13 @@ async function admitSession(
 		await db.insert(sessions).values(sessionValues);
 	}
 
-	// ── Phase 4.5: mount injected filesystems (AO2).
+	// ── Phase 4.5: mount injected filesystems (AO2). AU21 §9 Increment 12
+	// follow-up (F2 gap closure): mounts from the BAKED `params.injectedFilesystems`
+	// list — ZERO live seam read at provisioning time (see this file's own
+	// top-of-file `filesystems` `@lore`).
 	if (deps.mounter) {
 		mountedFilesystems = await mountFilesystemsForAgent({
-			filesystems: ports.filesystems,
-			agentId: params.agentId,
+			injectedFilesystems: params.injectedFilesystems ?? [],
 			sandboxPath,
 			mounter: deps.mounter,
 		});
@@ -1890,11 +1897,17 @@ interface Provisioner {
 		params: ProvisionSessionParams,
 	): ReturnType<typeof startSessionProvision>;
 	/**
-	 * AU21 §9 Increment 8 (Decision F2): dropped the `db` parameter — the
-	 * relocated `mountFilesystemsForAgent` reads through `ports.filesystems`
-	 * (the `CoreApiPort` seam), never a raw `db` handle.
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure): takes the agent's
+	 * already-BAKED `injectedFilesystems` list directly (no `agentId`
+	 * parameter, no live seam read) — `mountFilesystemsForAgent` no longer
+	 * reads back through a `filesystems` port at all. See
+	 * `filesystem-provisioning.ts`'s own top-of-file `@lore`.
 	 */
-	mount(agentId: string, sandboxPath: string, mounter: FilesystemMounter): Promise<Filesystem[]>;
+	mount(
+		injectedFilesystems: readonly FilesystemForProvisioning[],
+		sandboxPath: string,
+		mounter: FilesystemMounter,
+	): Promise<Filesystem[]>;
 	capture: typeof captureMountedFilesystems;
 }
 
@@ -1906,8 +1919,8 @@ export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
 			runSession(deps, params, admitted, ports, onHarnessStarted),
 		provision: (deps, params) => provisionSession(deps, params, ports),
 		start: (deps, params) => startSessionProvision(deps, params, ports),
-		mount: (agentId, sandboxPath, mounter) =>
-			mountFilesystemsForAgent({ filesystems: ports.filesystems, agentId, sandboxPath, mounter }),
+		mount: (injectedFilesystems, sandboxPath, mounter) =>
+			mountFilesystemsForAgent({ injectedFilesystems, sandboxPath, mounter }),
 		capture: (...args) => captureMountedFilesystems(...args),
 	};
 }

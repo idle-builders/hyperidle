@@ -94,9 +94,10 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 		observability: {
 			summarizeToolArgs: () => "",
 		},
-		filesystems: {
-			listFilesystemsByAgent: neverCalled("filesystems.listFilesystemsByAgent"),
-		},
+		// AU21 §9 Increment 12 follow-up (F2 gap closure): `SessionLifecyclePorts`
+		// no longer carries a `filesystems` seam reader at all — see
+		// `admit-session-baked-filesystems.integration.test.ts` for the baked-list
+		// proof that replaces it.
 		connections: {
 			buildProvisioningPlan: neverCalled("connections.buildProvisioningPlan"),
 			applyProvisioningPlan: neverCalled("connections.applyProvisioningPlan"),

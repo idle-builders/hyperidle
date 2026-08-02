@@ -31,7 +31,10 @@ import {
 	resolveProfile,
 } from "@hyperidle/db";
 import type { DispatchOps } from "@hyperidle/dispatch";
-import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
+import {
+	RegistryFilesystemMounter,
+	resolveInjectedFilesystemsForAgent,
+} from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
 	type AdapterPool,
@@ -540,6 +543,9 @@ export function registerCoreDomainServices(ctx: {
 				getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
 				assembleSessionKnowledge,
 				readServerConfig,
+				// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
+				// injectedFilesystems.
+				resolveInjectedFilesystemsForAgent,
 			}),
 			"review subscriptions",
 			"unsubscribe",

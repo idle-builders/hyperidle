@@ -1,4 +1,5 @@
 import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
 	createSessionRequest,
 	findSessionRequest,
@@ -408,7 +409,7 @@ export function createSessionRoutes(
 						const bakedRequest = await resolveSessionStartRequest(
 							tx as HyperIdleDb,
 							{ taskId: body.taskId, requestedAgentId: body.agentId },
-							{ requireRunnableAgent, readServerConfig },
+							{ requireRunnableAgent, readServerConfig, resolveInjectedFilesystemsForAgent },
 						);
 						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "session_start",

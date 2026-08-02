@@ -41,6 +41,7 @@ import {
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
+	BakedFilesystemForProvisioning,
 	SessionKnowledgeItemLike,
 } from "@hyperidle/shared";
 import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
@@ -355,6 +356,12 @@ export interface BakedRoutineRunRequest {
 	 * .readServerConfig` this file's cost-cap check already reads.
 	 */
 	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
+	 * injected-filesystems list. Present only when
+	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
+	 */
+	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
 }
 
 /**
@@ -419,6 +426,17 @@ export interface RoutineRunResolverDeps {
 	 * (matches `admitSession`'s "absent = nothing disabled" degrade).
 	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
+	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
+	 * (Mechanism C — `@hyperidle/routine` cannot import `@hyperidle/filesystems`
+	 * directly) for the `injectedFilesystems` bake. Absent at a call site not
+	 * yet wired — the resolver bakes no `injectedFilesystems`.
+	 */
+	resolveInjectedFilesystemsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<readonly BakedFilesystemForProvisioning[]>;
 }
 
 /**
@@ -515,9 +533,12 @@ export async function resolveRoutineRunRequest(
 			};
 		}
 	}
-	const { readServerConfig } = deps;
+	const { readServerConfig, resolveInjectedFilesystemsForAgent } = deps;
 	const harnessDisabled = readServerConfig
 		? (await readServerConfig(db)).harnessDisabled
+		: undefined;
+	const injectedFilesystems = resolveInjectedFilesystemsForAgent
+		? await resolveInjectedFilesystemsForAgent(db, selectedAgentId)
 		: undefined;
 
 	return {
@@ -531,5 +552,6 @@ export async function resolveRoutineRunRequest(
 		...(contextBundle ? { contextBundle } : {}),
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
+		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
 	};
 }

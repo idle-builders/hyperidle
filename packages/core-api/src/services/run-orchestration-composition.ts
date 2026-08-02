@@ -110,15 +110,18 @@ type ToolRegistryOptions = Parameters<typeof buildToolRegistry>[1];
 // defer.
 const observabilityAccessor: SessionLifecyclePorts["observability"] = { summarizeToolArgs };
 
-// AU21 §9 Increment 8 (Decision F2): both ports now cross `CoreApiPort` — the
-// composition-bundle's raw `db`-reading calls into `@hyperidle/filesystems`/
-// `@hyperidle/connections` (the hidden edge `edge-disposition.md` flagged)
-// are gone. `agentId` is the actor `seamPortForActor` resolves onto the seam.
-const filesystemsReader: SessionLifecyclePorts["filesystems"] = {
-	listFilesystemsByAgent: (agentId) =>
-		seamPortForActor(agentId).filesystems.listFilesystemsByAgent(agentId),
-};
-
+// AU21 §9 Increment 12 follow-up (F2 gap closure): the `filesystemsReader`
+// seam wiring that used to live here (`seamPortForActor(agentId).filesystems
+// .listFilesystemsByAgent(agentId)`) is DELETED — `SessionLifecyclePorts` no
+// longer carries a `filesystems` field at all. The agent's injected
+// filesystem list is now baked at emit time by every per-kind resolver
+// (`@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`) onto
+// `ProvisionSessionParams.injectedFilesystems` instead.
+//
+// AU21 §9 Increment 8 (Decision F2): `connections` still crosses `CoreApiPort`
+// — the composition-bundle's raw `db`-reading call into `@hyperidle/connections`
+// (the hidden edge `edge-disposition.md` flagged) is gone. `agentId` is the
+// actor `seamPortForActor` resolves onto the seam.
 const connectionsProvisioner: SessionLifecyclePorts["connections"] = {
 	buildProvisioningPlan: ({ agentId, resolver }) =>
 		buildProvisioningPlan({
@@ -179,7 +182,6 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 		deregisterSessionRun: (sessionId) => sessionRunRegistry.deregister(sessionId),
 	},
 	observability: observabilityAccessor,
-	filesystems: filesystemsReader,
 	connections: connectionsProvisioner,
 	cost: costAccessor,
 	harnessRuntime,

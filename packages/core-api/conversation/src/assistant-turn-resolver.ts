@@ -26,7 +26,7 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig } from "@hyperidle/shared";
+import type { BakedAgentRunnableConfig, BakedFilesystemForProvisioning } from "@hyperidle/shared";
 import { bakeAgentRunnableConfig } from "@hyperidle/shared";
 import { findMessage, listMessages } from "./conversation-store.js";
 
@@ -42,6 +42,18 @@ export interface AssistantTurnResolverDeps {
 	 * degrade).
 	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
+	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
+	 * (Mechanism C — `@hyperidle/conversation` cannot import
+	 * `@hyperidle/filesystems` directly) for the `injectedFilesystems` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `injectedFilesystems`.
+	 */
+	resolveInjectedFilesystemsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<readonly BakedFilesystemForProvisioning[]>;
 }
 
 /** Thrown when the source message does not exist, is deleted, or is redacted. */
@@ -102,6 +114,12 @@ export interface BakedAssistantTurnRequest {
 	 * was supplied.
 	 */
 	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
+	 * injected-filesystems list. Present only when
+	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
+	 */
+	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
 }
 
 function resolveAssistantAgentIdForSender(senderId: string): string {
@@ -138,6 +156,9 @@ export async function resolveAssistantTurnRequest(
 	const harnessDisabled = deps.readServerConfig
 		? (await deps.readServerConfig(db)).harnessDisabled
 		: undefined;
+	const injectedFilesystems = deps.resolveInjectedFilesystemsForAgent
+		? await deps.resolveInjectedFilesystemsForAgent(db, targetAgentId)
+		: undefined;
 	return {
 		defaultAgentId: targetAgentId,
 		sourceKind: "assistant",
@@ -155,5 +176,6 @@ export async function resolveAssistantTurnRequest(
 		modelProvider: agent.modelProvider ?? null,
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
+		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
 	};
 }

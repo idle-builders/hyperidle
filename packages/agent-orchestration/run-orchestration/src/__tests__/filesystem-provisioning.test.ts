@@ -1,42 +1,33 @@
 /**
- * AU21 §9 Increment 8, Wave F2 (credentials/filesystems provisioning split) — RED phase.
+ * AU21 §9 Increment 8, Wave F2 (credentials/filesystems provisioning split) —
+ * historical RED-phase note kept for context: `mountFilesystemsForAgent`
+ * originally moved core-side reads behind the ONE seam call
+ * `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`.
  *
- * Decision F2 / edge-disposition.md `filesystems.{listFilesystems, startWatcher}`
- * row: the sandbox mount + writeback-watcher OPERATION relocates into
- * `agent-orchestration`, reading the filesystem RECORD via `CoreApiPort`
- * (`filesystems.listFilesystemsByAgent`, one seam call — see
- * `core-api-port-increment8-connections-filesystems.integration.test.ts`).
+ * AU21 §9 Increment 12 follow-up (F2 gap closure) — RED phase, current pass.
  *
- * Two distinct pieces move, for two distinct reasons:
+ * Decision H3 already established the pattern this fix extends: core bakes
+ * everything a session needs into the request AT EMIT TIME, keyed off the
+ * resolved agentId, so run-orchestration never reads core-api back at
+ * provisioning time. F2's seam call above was the one genuine gap H3's later,
+ * more complete principle should have superseded but never revisited — there
+ * is no principled difference between "read the task's context at launch"
+ * (already fixed by H3) and "read the agent's filesystem list at launch"
+ * (this fix).
  *
- *  1. The mount operation (today `provisioner.ts`'s private, non-exported
- *     `mountFilesystemsForAgent`, `:767`) already lives in `agent-orchestration`
- *     — only its DB-reading PREAMBLE is wrong-side-of-the-seam: it calls the
- *     composition-bundle ports `listFilesystemIdsByAgent(db, agentId)` +
- *     `listFilesystemsByIds(db, ids)` (a two-step dance core-api's
- *     `run-orchestration-composition.ts` implements by calling
- *     `@hyperidle/filesystems`'s `listFilesystems` directly with a raw `db`
- *     handle — the hidden composition-bundle edge `edge-disposition.md`
- *     flags). This test targets the RELOCATED, exported entry point (this
- *     package's own `filesystem-provisioning.ts`, not yet created) whose
- *     signature takes `{filesystems: CoreApiPort["filesystems"], agentId,
- *     sandboxPath, mounter}` — no `db` parameter — collapsing the two-step
- *     port dance into the ONE seam call the backing route already supports.
- *
- *  2. `startWatcher` (`packages/core-api/filesystems/src/file-watcher.ts`) has
- *     ZERO database coupling — it only touches `fs`/`EventBus`, given a
- *     `sandboxPath`/`sessionId`/`manifestPath` directly. It was only ever
- *     called at session-launch time (`context.ts:1029`, via the composition-
- *     bundle's pass-through `filesystems: { startWatcher }` binding) — there
- *     is no "record" for it to read via the seam, so it moves WHOLESALE, not
- *     behind a new CoreApiPort method (an agent-orchestration package may not
- *     import a core-api Service directly per Mechanism B / composition-
- *     boundary-guard, which is exactly the edge this wave closes — so the
- *     function body itself relocates here, unchanged).
- *
- * Neither `../filesystem-provisioning.js` nor a local `../file-watcher.js`
- * exists in this package yet — every test below fails at IMPORT-RESOLUTION
- * time. RED for the right reason: the operation has not moved yet.
+ * `mountFilesystemsForAgent` now consumes the baked `injectedFilesystems`
+ * list directly (every per-kind resolver bakes it at emit time via
+ * `@hyperidle/filesystems`'s new `resolveInjectedFilesystemsForAgent`, one
+ * layer up the call stack) — it no longer takes a `filesystems` seam reader
+ * or an `agentId` to resolve one with. Every test below currently fails: the
+ * live implementation still requires `{filesystems, agentId, sandboxPath,
+ * mounter}` and reads `filesystems.listFilesystemsByAgent(agentId)`
+ * internally — calling it with the NEW `{injectedFilesystems, sandboxPath,
+ * mounter}` shape leaves `filesystems` `undefined`, so the live code throws
+ * `TypeError: Cannot read properties of undefined (reading
+ * 'listFilesystemsByAgent')` before ever reaching the mount loop. RED for the
+ * right reason: the function has not been migrated to the baked-list API
+ * yet, not a typo.
  */
 
 import * as fs from "node:fs";
@@ -46,52 +37,42 @@ import type { EventBus, Filesystem, FilesystemMounter } from "@hyperidle/shared"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // biome-ignore lint/correctness/noUnresolvedImports: RED phase — relocated module does not exist yet in this pass.
 import { startWatcher } from "../file-watcher.js";
-// biome-ignore lint/correctness/noUnresolvedImports: RED phase — relocated module does not exist yet in this pass.
-import { mountFilesystemsForAgent } from "../filesystem-provisioning.js";
+import {
+	type FilesystemForProvisioning,
+	mountFilesystemsForAgent,
+} from "../filesystem-provisioning.js";
 
 let sandboxPath: string;
 beforeEach(() => {
-	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-fsprov-"));
+	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc12-fsprov-"));
 });
 afterEach(() => {
 	fs.rmSync(sandboxPath, { recursive: true, force: true });
 	vi.restoreAllMocks();
 });
 
-// ── mountFilesystemsForAgent — relocated, seam-shaped (no db) ────────────────
+// ── mountFilesystemsForAgent — consumes the BAKED list, zero seam reader ────
 
-describe("mountFilesystemsForAgent (relocated to agent-orchestration, one seam call)", () => {
-	function buildFilesystemsSeam(
-		rows: Filesystem[],
-	): Parameters<typeof mountFilesystemsForAgent>[0]["filesystems"] {
+describe("mountFilesystemsForAgent consumes the baked injectedFilesystems list", () => {
+	function buildFilesystemRecord(
+		overrides: Partial<FilesystemForProvisioning> = {},
+	): FilesystemForProvisioning {
 		return {
-			listFilesystemsByAgent: async (_agentId: string) => rows,
-		};
-	}
-
-	function buildFilesystem(overrides: Partial<Filesystem> = {}): Filesystem {
-		return {
-			id: "fs-inc8-1",
-			teamId: "team-inc8-1",
+			id: "fs-inc12-1",
+			teamId: "team-inc12-1",
 			source: "local",
 			kind: "doc_set",
 			connectionId: null,
-			// @lore AU21 Increment 8 GREEN-phase fix: the RED-phase fixture used
-			// `{ kind: "code", path: "/repo" }`, which is not a valid `ResourceRef`
-			// (the `code` variant requires `repo`+`branch`, not `path` —
-			// `@hyperidle/shared`'s `filesystem.ts`). Switched to the `doc_set`
-			// variant (`folder`), which is what a bare path selector actually is —
-			// same pass-through behavior under test, now type-correct.
 			resourceRef: { kind: "doc_set", folder: "/repo" },
 			writeback: "git",
 			state: "attached",
-			createdAt: "2026-07-30T00:00:00.000Z",
+			createdAt: "2026-08-02T00:00:00.000Z",
 			...overrides,
 		};
 	}
 
-	test("mounts every filesystem the ONE seam call returns for the agent", async () => {
-		const fsRow = buildFilesystem();
+	test("mounts every filesystem in the baked injectedFilesystems list — zero reader/seam call", async () => {
+		const bakedRow = buildFilesystemRecord();
 		const mounted: Array<{ filesystem: Filesystem }> = [];
 		const mounter: FilesystemMounter = {
 			mount: async (input) => {
@@ -102,27 +83,25 @@ describe("mountFilesystemsForAgent (relocated to agent-orchestration, one seam c
 		};
 
 		const result = await mountFilesystemsForAgent({
-			filesystems: buildFilesystemsSeam([fsRow]),
-			agentId: "agent-inc8-fs-1",
+			injectedFilesystems: [bakedRow],
 			sandboxPath,
 			mounter,
 		});
 
 		expect(result).toHaveLength(1);
-		expect(result[0]?.id).toBe("fs-inc8-1");
+		expect(result[0]?.id).toBe("fs-inc12-1");
 		expect(mounted).toHaveLength(1);
 		expect(mounted[0]?.filesystem.resourceRef).toEqual({ kind: "doc_set", folder: "/repo" });
 	});
 
-	test("an agent with no injected filesystems mounts nothing (no throw)", async () => {
+	test("an agent with NO injected filesystems mounts nothing (no throw) — unchanged from today's behavior", async () => {
 		const mounter: FilesystemMounter = {
 			mount: vi.fn(),
 			captureBack: vi.fn(),
 		} as unknown as FilesystemMounter;
 
 		const result = await mountFilesystemsForAgent({
-			filesystems: buildFilesystemsSeam([]),
-			agentId: "agent-inc8-fs-none",
+			injectedFilesystems: [],
 			sandboxPath,
 			mounter,
 		});
@@ -132,15 +111,14 @@ describe("mountFilesystemsForAgent (relocated to agent-orchestration, one seam c
 	});
 
 	test("a failed mount is excluded from the result (degrade-to-today), not thrown", async () => {
-		const fsRow = buildFilesystem({ id: "fs-inc8-fail" });
+		const bakedRow = buildFilesystemRecord({ id: "fs-inc12-fail" });
 		const mounter: FilesystemMounter = {
 			mount: async () => ({ success: false, sandboxPath, error: "mount failed" }),
 			captureBack: async () => ({ success: true, captured: true }),
 		};
 
 		const result = await mountFilesystemsForAgent({
-			filesystems: buildFilesystemsSeam([fsRow]),
-			agentId: "agent-inc8-fs-fail",
+			injectedFilesystems: [bakedRow],
 			sandboxPath,
 			mounter,
 		});
@@ -149,7 +127,7 @@ describe("mountFilesystemsForAgent (relocated to agent-orchestration, one seam c
 	});
 });
 
-// ── startWatcher — pure relocation, zero behavior change ─────────────────────
+// ── startWatcher — pure relocation, zero behavior change (untouched by this fix) ─
 
 describe("startWatcher (relocated wholesale — zero DB coupling, no CoreApiPort call)", () => {
 	// Mirrors `filesystems-completeness-contract.integration.test.ts`'s
@@ -162,7 +140,7 @@ describe("startWatcher (relocated wholesale — zero DB coupling, no CoreApiPort
 
 		const watcher = startWatcher({
 			sandboxPath,
-			sessionId: "session-inc8-watch-1",
+			sessionId: "session-inc12-watch-1",
 			manifestPath: path.join(sandboxPath, "manifest.json"),
 			eventBus,
 			debounceMs: 40,

@@ -97,6 +97,43 @@ export interface BakedWorkIntentRequest {
 	 * fallback — `ports.settings` is deleted from `run-orchestration` entirely.
 	 */
 	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
+	 * injected-filesystems list, baked at emit time by EVERY per-kind resolver
+	 * (all six kinds — mirrors `agentConfig`/`harnessDisabled`'s uniform Wave E
+	 * bake, not just the four `contextBundle`-baking families) from
+	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent(db,
+	 * agentId)`, reusing the SAME `agentId` each resolver already resolves via
+	 * `requireRunnableAgent`. Replaces `mountFilesystemsForAgent`'s former live
+	 * `CoreApiPort.filesystems.listFilesystemsByAgent` seam read (Decision F2,
+	 * Increment 8) — a genuine gap H3's later, more complete principle should
+	 * have closed but never revisited. Absent/empty means "no injected
+	 * filesystems", matching the seam-based lookup's own empty-list behavior
+	 * unchanged.
+	 */
+	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
+}
+
+/**
+ * AU21 §9 Increment 12 follow-up (F2 gap closure) — one injected filesystem's
+ * provisioning-relevant fields, baked onto `BakedWorkIntentRequest`/
+ * `RunContextBundle`/`ProvisionSessionParams` at emit time. Mirrors
+ * `@hyperidle/run-orchestration`'s `FilesystemForProvisioning` shape
+ * (`filesystem-provisioning.ts`) exactly — duck-typed here (same idiom as
+ * `SessionKnowledgeItemLike`) since `@hyperidle/shared` has zero
+ * `@hyperidle/db` dependency. `resourceRef` arrives ALREADY PARSED (the bake
+ * helper's own mapping mirrors the former seam route's `rowToFilesystem`).
+ */
+export interface BakedFilesystemForProvisioning {
+	readonly id: string;
+	readonly teamId: string;
+	readonly source: string;
+	readonly kind: string;
+	readonly connectionId: string | null;
+	readonly resourceRef: unknown;
+	readonly writeback: string;
+	readonly state: string;
+	readonly createdAt: string;
 }
 
 /**

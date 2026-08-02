@@ -14,6 +14,7 @@ export type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	BakedContextKnowledgeItem,
+	BakedFilesystemForProvisioning,
 	BakedWorkIntentRequest,
 	SessionKnowledgeItemLike,
 } from "./agent-work-intent-recorder.js";

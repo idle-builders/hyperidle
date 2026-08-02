@@ -41,7 +41,6 @@ import type {
 	CreateTaskRequest,
 	CreateTaskResponse,
 	DirectThreadResponse,
-	FilesystemProvisioningView,
 	HandoffTaskRequest,
 	HandoffTaskResponse,
 	InsertMessageRequest,
@@ -716,24 +715,21 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 
 		// AU21 §9 Increment 8 (Decision F2): the session-launch-time
 		// provisioning OPERATION relocated to `agent-orchestration` —
-		// `connections`/`filesystems` are its narrow record-read halves.
+		// `connections` is its narrow record-read half.
+		//
+		// AU21 §9 Increment 12 follow-up (F2 gap closure): the sibling
+		// `filesystems` seam method (`listFilesystemsByAgent`) is DELETED — the
+		// agent's injected filesystem list is now baked at emit time by every
+		// per-kind resolver (`@hyperidle/filesystems`'s
+		// `resolveInjectedFilesystemsForAgent`) instead of read back here. The
+		// plain `GET /filesystems?agentUserId=` ROUTE stays (the Settings UI
+		// calls it directly via `apiFetch`, not through this seam) — only this
+		// port method is gone.
 		connections: {
 			async listHeldConnectionsForProvisioning(): Promise<ListHeldConnectionsForProvisioningResponse> {
 				const res = await client.connections.provisioning.$get();
 				if (!res.ok) return throwSeamError("connections.listHeldConnectionsForProvisioning", res);
 				return (await res.json()) as ListHeldConnectionsForProvisioningResponse;
-			},
-		},
-		filesystems: {
-			async listFilesystemsByAgent(
-				agentId: string,
-			): Promise<ReadonlyArray<FilesystemProvisioningView>> {
-				const res = await client.filesystems.$get({ query: { agentUserId: agentId } });
-				if (!res.ok) return throwSeamError("filesystems.listFilesystemsByAgent", res);
-				const body = (await res.json()) as {
-					readonly filesystems: ReadonlyArray<FilesystemProvisioningView>;
-				};
-				return body.filesystems;
 			},
 		},
 	};

@@ -44,6 +44,7 @@ import {
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
+	BakedFilesystemForProvisioning,
 	SessionKnowledgeItemLike,
 	ToolResult,
 } from "@hyperidle/shared";
@@ -210,6 +211,17 @@ export interface ReengagementResolverDeps {
 	 * degrade).
 	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
+	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
+	 * (Mechanism C — `@hyperidle/review` cannot import `@hyperidle/filesystems`
+	 * directly) for the `injectedFilesystems` bake. Absent at a call site not
+	 * yet wired — the resolver bakes no `injectedFilesystems`.
+	 */
+	resolveInjectedFilesystemsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<readonly BakedFilesystemForProvisioning[]>;
 }
 
 /** Thrown when the proposed call has no eligible grant, is not granted, or its task is unavailable. */
@@ -252,6 +264,12 @@ export interface BakedReengagementRequest {
 	 * was supplied.
 	 */
 	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
+	 * injected-filesystems list. Present only when
+	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
+	 */
+	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
 }
 
 /**
@@ -311,9 +329,12 @@ export async function resolveReengagementRequest(
 			};
 		}
 	}
-	const { readServerConfig } = deps;
+	const { readServerConfig, resolveInjectedFilesystemsForAgent } = deps;
 	const harnessDisabled = readServerConfig
 		? (await readServerConfig(db)).harnessDisabled
+		: undefined;
+	const injectedFilesystems = resolveInjectedFilesystemsForAgent
+		? await resolveInjectedFilesystemsForAgent(db, view.grant.agentScope)
 		: undefined;
 
 	return {
@@ -331,6 +352,7 @@ export async function resolveReengagementRequest(
 		...(contextBundle ? { contextBundle } : {}),
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
+		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
 	};
 }
 
@@ -640,6 +662,9 @@ async function applyLivenessRetry(
 						? { assembleSessionKnowledge: bakeDeps.assembleSessionKnowledge }
 						: {}),
 					...(bakeDeps.readServerConfig ? { readServerConfig: bakeDeps.readServerConfig } : {}),
+					...(bakeDeps.resolveInjectedFilesystemsForAgent
+						? { resolveInjectedFilesystemsForAgent: bakeDeps.resolveInjectedFilesystemsForAgent }
+						: {}),
 				});
 			} catch {
 				bakedRequest = undefined;
@@ -700,6 +725,7 @@ export async function handleUnconsumedGrantOnSessionEnd(
 			getTeamById: opts.getTeamById,
 			assembleSessionKnowledge: opts.assembleSessionKnowledge,
 			readServerConfig: opts.readServerConfig,
+			resolveInjectedFilesystemsForAgent: opts.resolveInjectedFilesystemsForAgent,
 		});
 	}
 }
@@ -735,5 +761,6 @@ export async function reengageOnAdmissionFailure(
 		getTeamById: opts.getTeamById,
 		assembleSessionKnowledge: opts.assembleSessionKnowledge,
 		readServerConfig: opts.readServerConfig,
+		resolveInjectedFilesystemsForAgent: opts.resolveInjectedFilesystemsForAgent,
 	});
 }

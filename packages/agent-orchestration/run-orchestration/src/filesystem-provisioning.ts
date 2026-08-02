@@ -1,44 +1,42 @@
 /**
  * AO2 — Mount injected filesystems into a spawned session's sandbox.
  *
- * AU21 §9 Increment 8, Decision F2: this module is the RELOCATED, EXPORTED
- * entry point for what was previously `provisioner.ts`'s private
- * `mountFilesystemsForAgent` — only its DB-reading PREAMBLE was wrong-side-
- * of-the-seam (it called the composition-bundle's two-step
- * `listFilesystemIdsByAgent`/`listFilesystemsByIds` ports, which core-api's
- * `run-orchestration-composition.ts` implemented by calling
- * `@hyperidle/filesystems`'s `listFilesystems` directly with a raw `db`
- * handle). This collapses that two-step port dance into the ONE seam call
- * `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)` already supports
- * (reusing `GET /filesystems?agentUserId=` verbatim — see that route's own
- * `@lore AU20 R-filesystems`) — no `db` parameter at all.
+ * AU21 §9 Increment 8, Decision F2 (historical): this module was originally
+ * the RELOCATED, EXPORTED entry point for `provisioner.ts`'s private
+ * `mountFilesystemsForAgent`, collapsing a two-step port dance into the ONE
+ * seam call `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`.
  *
- * `resourceRef` arrives ALREADY PARSED (the backing route's own
- * `rowToFilesystem` parses it) — this function must NOT re-`JSON.parse` it.
+ * AU21 §9 Increment 12 follow-up (F2 gap closure): that ONE seam call was
+ * itself the gap H3's later, more complete "bake everything at emit time"
+ * principle should have superseded but never revisited. It is now GONE — this
+ * function takes the agent's injected-filesystems list already BAKED onto the
+ * request (`params.injectedFilesystems`, resolved at emit time by every
+ * per-kind resolver via `@hyperidle/filesystems`'s
+ * `resolveInjectedFilesystemsForAgent`) instead of reading it back here. No
+ * seam reader, no `agentId` parameter — this function is now pure mount logic
+ * over an already-resolved list.
+ *
+ * `resourceRef` arrives ALREADY PARSED (the bake helper's own mapping mirrors
+ * the former route's `rowToFilesystem`) — this function must NOT re-`JSON.parse` it.
  */
 
-import type { Filesystem, FilesystemMounter } from "@hyperidle/shared";
-
-/** One filesystem's provisioning-relevant fields — mirrors `CoreApiPort.filesystems.listFilesystemsByAgent`'s record shape (`resourceRef` already parsed). */
-export interface FilesystemForProvisioning {
-	readonly id: string;
-	readonly teamId: string;
-	readonly source: string;
-	readonly kind: string;
-	readonly connectionId: string | null;
-	readonly resourceRef: unknown;
-	readonly writeback: string;
-	readonly state: string;
-	readonly createdAt: string;
-}
-
-/** The `filesystems` seam reader this function depends on — backed by `CoreApiPort.filesystems.listFilesystemsByAgent` at the real composition root. */
-export interface FilesystemsProvisioningReader {
-	listFilesystemsByAgent(agentId: string): Promise<readonly FilesystemForProvisioning[]>;
-}
+import type {
+	BakedFilesystemForProvisioning,
+	Filesystem,
+	FilesystemMounter,
+} from "@hyperidle/shared";
 
 /**
- * AO2: Mount every filesystem injected into `agentId` for this spawned session.
+ * One filesystem's provisioning-relevant fields — mirrors the emit-time bake
+ * helper's record shape (`resourceRef` already parsed). Kept as a local alias
+ * (not a re-declaration) of `@hyperidle/shared`'s `BakedFilesystemForProvisioning`
+ * — the SAME shape every per-kind resolver bakes onto the request.
+ */
+export type FilesystemForProvisioning = BakedFilesystemForProvisioning;
+
+/**
+ * AO2: Mount every filesystem in the BAKED `injectedFilesystems` list for
+ * this spawned session.
  *
  * Called in admitSession Phase 4.5 (AFTER sandbox spawn, BEFORE context assembly).
  * Returns the list of successfully-mounted Filesystem records — stored on AdmittedSession
@@ -52,15 +50,11 @@ export interface FilesystemsProvisioningReader {
  * no mounts, no capture rows — purely non-breaking for existing sessions.
  */
 export async function mountFilesystemsForAgent(params: {
-	readonly filesystems: FilesystemsProvisioningReader;
-	readonly agentId: string;
+	readonly injectedFilesystems: readonly FilesystemForProvisioning[];
 	readonly sandboxPath: string;
 	readonly mounter: FilesystemMounter;
 }): Promise<Filesystem[]> {
-	const { filesystems, agentId, sandboxPath, mounter } = params;
-
-	// Resolve injected filesystems in ONE seam call (sessions.agentId → filesystem_injections → filesystems).
-	const rows = await filesystems.listFilesystemsByAgent(agentId);
+	const { injectedFilesystems: rows, sandboxPath, mounter } = params;
 
 	if (rows.length === 0) return [];
 
