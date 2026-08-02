@@ -22,6 +22,7 @@
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 
+import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { getFilesystem, resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
@@ -951,7 +952,15 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 						bakedRequest = await resolveKnowledgeActionRequest(
 							tx as HyperIdleDb,
 							`knowledge:${id}`,
-							{ requireRunnableAgent, readServerConfig, resolveInjectedFilesystemsForAgent },
+							{
+								requireRunnableAgent,
+								readServerConfig,
+								resolveInjectedFilesystemsForAgent,
+								// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure —
+								// connections): also bake injectedConnections.
+								resolveInjectedConnectionsForAgent: (execDb, agentId) =>
+									resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
+							},
 						);
 					} catch {
 						bakedRequest = undefined;

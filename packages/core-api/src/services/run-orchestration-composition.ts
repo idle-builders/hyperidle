@@ -8,8 +8,6 @@ import {
 	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
 import {
-	applyProvisioningPlan,
-	buildProvisioningPlan,
 	type RunOptions,
 	type RunResult,
 	type RunTransitionSpec,
@@ -33,26 +31,19 @@ import {
 } from "@hyperidle/session-requests";
 import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
-import {
-	buildCoreApiPort,
-	getRegisteredCoreApiTransport,
-	withActorTransport,
-} from "./core-api-port-composition.js";
 import { costOps } from "./cost-bindings.js";
 import { dispatchOps } from "./dispatch-bindings.js";
 import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
-// AU21 §9 Increment 8 (Decision F2): builds a fresh in-process `CoreApiPort`
-// per call, wrapped with the CALLING agent's own identity as the route actor
-// (§12) — the session-launch-time `connections`/`filesystems` provisioning
-// reads are per-agent-spawn, never a fixed actor. Duplicated locally (same
-// idiom as `dispatch-bindings.ts`'s own `seamPortForActor` — each composition
-// file builds its own since there's no shared cross-file singleton for it).
-function seamPortForActor(actorId: string): ReturnType<typeof buildCoreApiPort> {
-	const transport = withActorTransport(getRegisteredCoreApiTransport(), { userId: actorId });
-	return buildCoreApiPort(transport);
-}
+// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): this composition
+// root's own `seamPortForActor` helper (a fresh in-process `CoreApiPort` per
+// call, wrapped with the calling agent's identity — Decision F2's
+// session-launch-time `connections`/`filesystems` provisioning reads) is
+// DELETED — it had exactly two callers (the `connectionsProvisioner` and
+// `filesystemsReader` seam wirings) and both are now gone (baked at emit
+// time instead). No composition-root `CoreApiPort` construction is needed
+// in this file anymore.
 
 // AU21 §9 Increment 12 (Decision H3), Wave C: shrunk to `filesystems` only —
 // `knowledge`/`work`/`users`/`routine`/`org` are DELETED (not seam-routed).
@@ -118,21 +109,16 @@ const observabilityAccessor: SessionLifecyclePorts["observability"] = { summariz
 // (`@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`) onto
 // `ProvisionSessionParams.injectedFilesystems` instead.
 //
-// AU21 §9 Increment 8 (Decision F2): `connections` still crosses `CoreApiPort`
-// — the composition-bundle's raw `db`-reading call into `@hyperidle/connections`
-// (the hidden edge `edge-disposition.md` flagged) is gone. `agentId` is the
-// actor `seamPortForActor` resolves onto the seam.
-const connectionsProvisioner: SessionLifecyclePorts["connections"] = {
-	buildProvisioningPlan: ({ agentId, resolver }) =>
-		buildProvisioningPlan({
-			connections: {
-				listHeldConnectionsForProvisioning: () =>
-					seamPortForActor(agentId).connections.listHeldConnectionsForProvisioning(),
-			},
-			resolver,
-		}),
-	applyProvisioningPlan,
-};
+// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): the
+// `connectionsProvisioner` seam wiring that used to live here
+// (`seamPortForActor(agentId).connections.listHeldConnectionsForProvisioning()`)
+// is DELETED — `SessionLifecyclePorts` no longer carries a `connections`
+// field at all. The owning human's held-connection list is now baked at
+// emit time by every per-kind resolver (`@hyperidle/connections`'s
+// `resolveInjectedConnectionsForAgent`) onto
+// `ProvisionSessionParams.injectedConnections` instead, and
+// `run-orchestration`'s own `provisioner.ts` calls `buildProvisioningPlan`/
+// `applyProvisioningPlan` directly — no composition-root port needed.
 
 const costAccessor: SessionLifecyclePorts["cost"] = {
 	checkCostCap: costOps.check,
@@ -182,7 +168,6 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 		deregisterSessionRun: (sessionId) => sessionRunRegistry.deregister(sessionId),
 	},
 	observability: observabilityAccessor,
-	connections: connectionsProvisioner,
 	cost: costAccessor,
 	harnessRuntime,
 	toolProvider,

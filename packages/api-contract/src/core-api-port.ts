@@ -609,40 +609,6 @@ export interface CoreApiKnowledgePort {
 }
 
 /**
- * One held connection's provisioning-relevant fields — mirrors `GET
- * /connections/provisioning`'s response element. NEVER includes
- * `encryptedToken` (AN1 hard-rule 1, same as `GET /connections`'s own
- * `ServiceConnectionView`).
- */
-export interface HeldConnectionProvisioningView {
-	readonly id: string;
-	readonly service: string;
-	readonly authSource: "token" | "mcp";
-	readonly serverUrl: string | null;
-}
-
-/** Mirrors `GET /connections/provisioning`'s response body. */
-export interface ListHeldConnectionsForProvisioningResponse {
-	readonly userId: string;
-	readonly connections: ReadonlyArray<HeldConnectionProvisioningView>;
-}
-
-/**
- * The session-launch-time `connections` capability family (Decision F2,
- * AU21 §9 Increment 8) — `edge-disposition.md`'s
- * `connections.{buildProvisioningPlan, applyProvisioningPlan}` row's
- * record-read half. The provisioning OPERATION itself (building + applying
- * the plan) relocated into `agent-orchestration`; this seam method is its
- * ONLY read of the core-api-owned `serviceConnections` table — the decrypt
- * step (`ServiceConnectionResolver`) stays an Application-composed direct
- * dependency, never routed through this seam (AN1 hard-rule 1: "the resolver
- * is the ONLY plaintext path... wired to sandbox injection, not to routes").
- */
-export interface CoreApiConnectionsPort {
-	listHeldConnectionsForProvisioning(): Promise<ListHeldConnectionsForProvisioningResponse>;
-}
-
-/**
  * AU21 §9 Increment 12 follow-up (F2 gap closure): `FilesystemProvisioningView`/
  * `CoreApiFilesystemsPort` (Decision F2, AU21 §9 Increment 8) are DELETED —
  * the agent's injected filesystem list is now baked at emit time by every
@@ -651,6 +617,15 @@ export interface CoreApiConnectionsPort {
  * seam. The plain `GET /filesystems?agentUserId=` ROUTE stays (the Settings
  * UI calls it directly, not through this port) — only the seam method is
  * gone.
+ *
+ * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections):
+ * `HeldConnectionProvisioningView`/`ListHeldConnectionsForProvisioningResponse`/
+ * `CoreApiConnectionsPort` (Decision F2, AU21 §9 Increment 8) are likewise
+ * DELETED — the owning human's held-connection list is now baked at emit
+ * time by every per-kind resolver (`@hyperidle/connections`'s
+ * `resolveInjectedConnectionsForAgent`) instead of read back through this
+ * seam. The `GET /connections/provisioning` route itself is deleted too
+ * (zero other consumers, unlike filesystems' still-used plain route).
  */
 
 /**
@@ -666,7 +641,6 @@ export interface CoreApiPort {
 	readonly org: CoreApiOrgPort;
 	readonly routine: CoreApiRoutinePort;
 	readonly knowledge: CoreApiKnowledgePort;
-	readonly connections: CoreApiConnectionsPort;
 }
 
 /**

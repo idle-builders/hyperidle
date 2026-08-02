@@ -153,6 +153,9 @@ export function registerReviewSubscriptions(
 			// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
 			// injectedFilesystems.
 			resolveInjectedFilesystemsForAgent: ports.resolveInjectedFilesystemsForAgent,
+			// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections):
+			// also bake injectedConnections.
+			resolveInjectedConnectionsForAgent: ports.resolveInjectedConnectionsForAgent,
 		});
 	};
 

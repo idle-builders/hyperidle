@@ -98,10 +98,6 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 		// no longer carries a `filesystems` seam reader at all — see
 		// `admit-session-baked-filesystems.integration.test.ts` for the baked-list
 		// proof that replaces it.
-		connections: {
-			buildProvisioningPlan: neverCalled("connections.buildProvisioningPlan"),
-			applyProvisioningPlan: neverCalled("connections.applyProvisioningPlan"),
-		},
 		cost: {
 			checkCostCap: vi.fn(async () => ({ allowed: true })),
 			recordCostAndCheck: neverCalled("cost.recordCostAndCheck"),

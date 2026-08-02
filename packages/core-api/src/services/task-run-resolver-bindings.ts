@@ -12,11 +12,12 @@
  * real `task_run` emit site from ONE place, instead of five independently
  * drifting copies.
  */
+import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import type { TaskRunResolverDeps } from "@hyperidle/work";
 
 export const taskRunResolverDeps: TaskRunResolverDeps = {
@@ -27,4 +28,10 @@ export const taskRunResolverDeps: TaskRunResolverDeps = {
 	// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
 	// injectedFilesystems.
 	resolveInjectedFilesystemsForAgent,
+	// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections):
+	// also bake injectedConnections. `findUser` closes over the resolver's
+	// own signature (Mechanism C — `@hyperidle/connections` cannot import
+	// `@hyperidle/users` directly).
+	resolveInjectedConnectionsForAgent: (db, agentId) =>
+		resolveInjectedConnectionsForAgent(db, agentId, findUser),
 };

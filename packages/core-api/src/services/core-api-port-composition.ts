@@ -52,7 +52,6 @@ import type {
 	KnowledgeConflictView,
 	KnowledgeItemStatusView,
 	KnowledgeItemVersionView,
-	ListHeldConnectionsForProvisioningResponse,
 	OrgTeamMembersByIdView,
 	OrgTeamMembershipView,
 	OrgTeamView,
@@ -267,14 +266,6 @@ interface CoreApiHcClient {
 				$post(args: { readonly param: { readonly id: string } }): Promise<Response>;
 			};
 		};
-	};
-	readonly connections: {
-		readonly provisioning: {
-			$get(): Promise<Response>;
-		};
-	};
-	readonly filesystems: {
-		$get(args: { readonly query: { readonly agentUserId: string } }): Promise<Response>;
 	};
 }
 
@@ -710,26 +701,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				});
 				if (!res.ok) return throwSeamError("knowledge.recomputeAttentionScoreForItem", res);
 				return (await res.json()) as { readonly current: number };
-			},
-		},
-
-		// AU21 §9 Increment 8 (Decision F2): the session-launch-time
-		// provisioning OPERATION relocated to `agent-orchestration` —
-		// `connections` is its narrow record-read half.
-		//
-		// AU21 §9 Increment 12 follow-up (F2 gap closure): the sibling
-		// `filesystems` seam method (`listFilesystemsByAgent`) is DELETED — the
-		// agent's injected filesystem list is now baked at emit time by every
-		// per-kind resolver (`@hyperidle/filesystems`'s
-		// `resolveInjectedFilesystemsForAgent`) instead of read back here. The
-		// plain `GET /filesystems?agentUserId=` ROUTE stays (the Settings UI
-		// calls it directly via `apiFetch`, not through this seam) — only this
-		// port method is gone.
-		connections: {
-			async listHeldConnectionsForProvisioning(): Promise<ListHeldConnectionsForProvisioningResponse> {
-				const res = await client.connections.provisioning.$get();
-				if (!res.ok) return throwSeamError("connections.listHeldConnectionsForProvisioning", res);
-				return (await res.json()) as ListHeldConnectionsForProvisioningResponse;
 			},
 		},
 	};

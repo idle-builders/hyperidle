@@ -102,10 +102,6 @@ function buildDefenseInDepthOnlyPorts(
 		// injected filesystems are baked onto `params.injectedFilesystems` at
 		// emit time instead (see `admit-session-baked-filesystems.integration.test.ts`
 		// for that proof). There is no port left here to wire as `neverCalled`.
-		connections: {
-			buildProvisioningPlan: neverCalled("connections.buildProvisioningPlan"),
-			applyProvisioningPlan: neverCalled("connections.applyProvisioningPlan"),
-		},
 		cost: {
 			checkCostCap: vi.fn(async () => ({ allowed: true })),
 			recordCostAndCheck: neverCalled("cost.recordCostAndCheck"),

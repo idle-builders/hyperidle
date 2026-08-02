@@ -19,7 +19,13 @@
  *      throwing-spy wiring this test originally used.
  */
 
-import { agentWorkIntents, type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import {
+	agentWorkIntents,
+	type HyperIdleDb,
+	knowledgeItems,
+	serviceConnections,
+	users,
+} from "@hyperidle/db";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -143,5 +149,63 @@ describe("knowledge_action is resolved and baked at emit time (POST /api/knowled
 			.where(eq(agentWorkIntents.sourceId, "knowledge:item-au21-knowledge-emit-2"));
 		expect(intent?.status).toBe("handed_off");
 		expect(intent?.requestId).toBeTruthy();
+	});
+
+	// AU21 Decision K1 (guard blind-spot closure item 4): proves the
+	// composition-root binding at this real emit site (`resolveKnowledgeActionRequest`'s
+	// `resolveInjectedConnectionsForAgent` dep, `routes/knowledge.ts`) actually
+	// bakes the owning human's held connections — not silently undefined.
+	test("flagging with agentId bakes the full injectedConnections list onto the recorded intent when a held connection exists", async ({
+		db,
+		app,
+	}) => {
+		await seedRunnableAgent(db, "ast-au21-knowledge-emit-conn");
+		await seedKnowledgeItem(db, {
+			id: "item-au21-knowledge-emit-conn",
+			updatedBy: "ast-au21-knowledge-emit-conn",
+		});
+		const now = new Date().toISOString();
+		await db.insert(users).values({
+			id: "u-au21-knowledge-emit-conn-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: now,
+		});
+		await db.insert(serviceConnections).values({
+			id: "sc-au21-knowledge-emit-conn",
+			userId: "u-au21-knowledge-emit-conn-founder",
+			service: "github",
+			authSource: "token",
+			encryptedToken: "au21-knowledge-emit-conn-encrypted-placeholder",
+			serverUrl: null,
+			health: "needs-attention",
+			lastValidatedAt: null,
+			createdAt: now,
+			updatedAt: now,
+		});
+
+		const res = await app.request("/api/knowledge/item-au21-knowledge-emit-conn/flag", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ reason: "Needs review", agentId: "ast-au21-knowledge-emit-conn" }),
+		});
+		expect(res.status).toBe(200);
+
+		const [intent] = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.sourceId, "knowledge:item-au21-knowledge-emit-conn"));
+		const baked = intent?.bakedRequestJson
+			? (JSON.parse(intent.bakedRequestJson) as {
+					injectedConnections?: { userId: string; connections: readonly { id: string }[] };
+				})
+			: undefined;
+
+		expect(baked?.injectedConnections?.userId).toBe("u-au21-knowledge-emit-conn-founder");
+		expect(
+			baked?.injectedConnections?.connections.some((c) => c.id === "sc-au21-knowledge-emit-conn"),
+		).toBe(true);
 	});
 });

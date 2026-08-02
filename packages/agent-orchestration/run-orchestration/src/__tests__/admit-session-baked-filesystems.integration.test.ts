@@ -91,10 +91,6 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 		// runtime spy: there is no port left to call. The baked
 		// `params.injectedFilesystems` list this file's own tests assert on is
 		// the ONLY source `mountFilesystemsForAgent` reads from now.
-		connections: {
-			buildProvisioningPlan: neverCalled("connections.buildProvisioningPlan"),
-			applyProvisioningPlan: neverCalled("connections.applyProvisioningPlan"),
-		},
 		cost: {
 			checkCostCap: vi.fn(async () => ({ allowed: true })),
 			recordCostAndCheck: neverCalled("cost.recordCostAndCheck"),

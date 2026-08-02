@@ -1,15 +1,22 @@
-// AU21 §9 Increment 8 (Decision F2): the session-launch-time provisioning
-// OPERATION relocated here from core-api's `connections`/`filesystems`
-// Services — the composition root (`core-api`'s
-// `run-orchestration-composition.ts`) wires these real implementations to
-// the `SessionLifecyclePorts["connections"]`/`["filesystems"]` seam ports.
+// AU21 §9 Increment 8 (Decision F2, historical): the session-launch-time
+// provisioning OPERATION relocated here from core-api's
+// `connections`/`filesystems` Services.
+//
+// AU21 §9 Increment 12 follow-up (+ part 2): both `SessionLifecyclePorts
+// ["filesystems"]` and `["connections"]` seam ports are DELETED entirely —
+// the agent's injected filesystems/held connections are baked at EMIT time
+// onto the request instead (`@hyperidle/filesystems`'s
+// `resolveInjectedFilesystemsForAgent` / `@hyperidle/connections`'s
+// `resolveInjectedConnectionsForAgent`). `buildProvisioningPlan`/
+// `applyProvisioningPlan` are called directly by this package's own
+// `provisioner.ts` — no composition-root port wiring needed.
 
 export { isAgentAtCapacity } from "./concurrency.js";
 export {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
-	type ConnectionsProvisioningReader,
 	type HeldConnectionForProvisioning,
+	type HeldConnectionsForProvisioning,
 	type ProvisioningPlan,
 	type ServiceConnectionResolverPort,
 } from "./connection-provisioning.js";

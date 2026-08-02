@@ -194,6 +194,34 @@
  * raw or hidden-bundle read edges into `core-api` domain state, only the
  * founder-signed `cost` cap-gate exemption and this now-mechanically-verified
  * seam write.**
+ *
+ * @lore Decision K1 (2026-08-02, post-CI-green founder review) — a GENERAL
+ * BLIND SPOT this guard has, surfaced by a real miss, not a hypothetical:
+ * connections-provisioning's `CoreApiPort.connections
+ * .listHeldConnectionsForProvisioning()` was a LIVE `agent-orchestration ->
+ * core-api` READ at session-provisioning time — the exact class AC #2(e)
+ * forbids — yet it never showed up as a finding here, because this guard
+ * classifies edges by KIND (raw-port vs. seam-routed, via `SEAM_INTERFACES`/
+ * `SEAM_GROUPS` in `generate-dependency-graph.ts`), never by PURPOSE (a
+ * decision-time READ vs. an agent-as-user WRITE, architecture.md §7's own
+ * disposition rule). The `dispatch::conversation` `insertMessage` WRITE
+ * above is correctly sanctioned riding the seam (Decision A/C: the running
+ * agent acting on core like a user). The connections seam READ rode the
+ * SAME seam mechanism and was WRONGLY invisible for it — "guard green"
+ * proved the read went through a governed door, not that AC #2 permits a
+ * read through it at all. K1 fixed the ONE known instance (baked at emit,
+ * `resolve-injected-connections-for-agent.ts`; see
+ * `resolve-injected-connections-for-agent.integration.test.ts` and
+ * `run-orchestration-connections-provisioning-edge-closed.integration.test.ts`
+ * for the composition-level proof this seam call is GONE, not merely
+ * renamed) — it did NOT rearchitect this guard to classify by purpose,
+ * which stays out of scope here. A FUTURE seam-routed live READ for a
+ * provisioning/admission/decision purpose can regrow undetected the same
+ * way, through any `SEAM_INTERFACES`/`SEAM_GROUPS` member — this guard
+ * alone cannot catch that class; only a dedicated "zero core-api calls of
+ * any kind at provisioning time" composition test (the idiom this K1 test
+ * uses, mirroring `admit-session-defense-in-depth-only.integration.test.ts`)
+ * proves it for a specific path.
  */
 import {
 	existsSync,

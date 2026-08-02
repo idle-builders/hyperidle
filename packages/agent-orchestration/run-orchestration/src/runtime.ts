@@ -6,6 +6,7 @@ import {
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
 	type BakedAgentRunnableConfig,
+	type BakedConnectionsForProvisioning,
 	type BakedContextBundle,
 	type BakedFilesystemForProvisioning,
 	ConcurrencyLimitError,
@@ -170,6 +171,25 @@ function parseBakedInjectedFilesystems(
 	}
 	return (payload as { injectedFilesystems?: readonly BakedFilesystemForProvisioning[] })
 		.injectedFilesystems;
+}
+
+/**
+ * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+ * every intent kind's baked held-connection list, carried on
+ * `request.payloadJson` the same way `agentConfig`/`injectedFilesystems`
+ * ride it. Feeds Phase 8b-connections' `buildProvisioningPlan` call —
+ * replaces the former live `CoreApiPort.connections
+ * .listHeldConnectionsForProvisioning()` seam read (Decision F2) entirely.
+ */
+function parseBakedInjectedConnections(
+	request: AgentSessionRequest,
+): BakedConnectionsForProvisioning | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("injectedConnections" in payload)) {
+		return undefined;
+	}
+	return (payload as { injectedConnections?: BakedConnectionsForProvisioning }).injectedConnections;
 }
 
 async function ensureClaimedRequest(
@@ -379,6 +399,7 @@ async function consumeAgentSessionRequest(
 	const agentConfig = parseBakedAgentConfig(claimedRequest);
 	const harnessDisabled = parseBakedHarnessDisabled(claimedRequest);
 	const injectedFilesystems = parseBakedInjectedFilesystems(claimedRequest);
+	const injectedConnections = parseBakedInjectedConnections(claimedRequest);
 	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
@@ -396,6 +417,7 @@ async function consumeAgentSessionRequest(
 		...(agentConfig ? { agentConfig } : {}),
 		...(harnessDisabled ? { harnessDisabled } : {}),
 		...(injectedFilesystems ? { injectedFilesystems } : {}),
+		...(injectedConnections ? { injectedConnections } : {}),
 		requestContext: {
 			requestId: claimedRequest.id,
 			sourceKind: claimedRequest.sourceKind as AgentSessionSourceKind,

@@ -24,6 +24,7 @@
 import type { Bet, HyperIdleDb, Task, Team, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
+	BakedConnectionsForProvisioning,
 	BakedContextBundle,
 	BakedFilesystemForProvisioning,
 	SessionKnowledgeItemLike,
@@ -80,6 +81,18 @@ export interface TaskRunResolverDeps {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
+	 * injected (Mechanism C — `@hyperidle/work` cannot import
+	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `injectedConnections`.
+	 */
+	resolveInjectedConnectionsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<BakedConnectionsForProvisioning>;
 }
 
 /** Thrown when the dispatch attempt or its task is unavailable / ineligible. */
@@ -125,6 +138,12 @@ export interface BakedTaskRunRequest {
 	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * the owning human's held-connection list. Present only when
+	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
+	 */
+	readonly injectedConnections?: BakedConnectionsForProvisioning;
 }
 
 /**
@@ -208,6 +227,7 @@ export async function resolveTaskRunRequest(
 		assembleSessionKnowledge,
 		readServerConfig,
 		resolveInjectedFilesystemsForAgent,
+		resolveInjectedConnectionsForAgent,
 	} = deps;
 	if (getTeamById && assembleSessionKnowledge) {
 		const bet = await work.get(db, "bet", task.betId);
@@ -228,6 +248,9 @@ export async function resolveTaskRunRequest(
 	const injectedFilesystems = resolveInjectedFilesystemsForAgent
 		? await resolveInjectedFilesystemsForAgent(db, attempt.agentId)
 		: undefined;
+	const injectedConnections = resolveInjectedConnectionsForAgent
+		? await resolveInjectedConnectionsForAgent(db, attempt.agentId)
+		: undefined;
 
 	return {
 		defaultAgentId: attempt.agentId,
@@ -241,5 +264,6 @@ export async function resolveTaskRunRequest(
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(contextBundle ? { contextBundle } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
+		...(injectedConnections !== undefined ? { injectedConnections } : {}),
 	};
 }

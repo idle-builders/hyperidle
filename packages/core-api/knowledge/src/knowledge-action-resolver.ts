@@ -37,6 +37,7 @@
 import type { HyperIdleDb, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
+	BakedConnectionsForProvisioning,
 	BakedContextBundle,
 	BakedFilesystemForProvisioning,
 } from "@hyperidle/shared";
@@ -68,6 +69,18 @@ export interface KnowledgeActionResolverDeps {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
+	 * injected (Mechanism C — `@hyperidle/knowledge` cannot import
+	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `injectedConnections`.
+	 */
+	resolveInjectedConnectionsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<BakedConnectionsForProvisioning>;
 }
 
 /** Thrown when the source knowledge item does not exist or is archived. */
@@ -109,6 +122,12 @@ export interface BakedKnowledgeActionRequest {
 	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * the owning human's held-connection list. Present only when
+	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
+	 */
+	readonly injectedConnections?: BakedConnectionsForProvisioning;
 }
 
 /**
@@ -149,6 +168,9 @@ export async function resolveKnowledgeActionRequest(
 	const injectedFilesystems = deps.resolveInjectedFilesystemsForAgent
 		? await deps.resolveInjectedFilesystemsForAgent(db, item.updatedBy)
 		: undefined;
+	const injectedConnections = deps.resolveInjectedConnectionsForAgent
+		? await deps.resolveInjectedConnectionsForAgent(db, item.updatedBy)
+		: undefined;
 
 	return {
 		defaultAgentId: item.updatedBy,
@@ -175,5 +197,6 @@ export async function resolveKnowledgeActionRequest(
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
+		...(injectedConnections !== undefined ? { injectedConnections } : {}),
 	};
 }

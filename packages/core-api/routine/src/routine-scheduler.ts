@@ -658,6 +658,9 @@ export async function fireGenericRoutine(
 				// optional injectedFilesystems bake dep (present once the
 				// composition root wires it — `routine-scheduler-bindings.ts`).
 				resolveInjectedFilesystemsForAgent: ports.resolveInjectedFilesystemsForAgent,
+				// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure —
+				// connections): forward the optional injectedConnections bake dep.
+				resolveInjectedConnectionsForAgent: ports.resolveInjectedConnectionsForAgent,
 			});
 			intent = await ports.workIntents.enqueueWorkIntent(tx, {
 				kind: "routine_run",

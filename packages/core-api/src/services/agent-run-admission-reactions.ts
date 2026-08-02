@@ -30,6 +30,7 @@
  * double-registers and double-fires a reaction.
  */
 
+import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
@@ -42,7 +43,7 @@ import * as routineService from "@hyperidle/routine";
 import { enqueueWorkIntent, transitionSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { type AgentRunAdmissionFailedEvent, createLogger, type EventBus } from "@hyperidle/shared";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 
 const logger = createLogger({ pkg: "core-api.agent-run-admission-reactions" });
@@ -121,6 +122,10 @@ async function reactToAdmissionFailure(
 				// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
 				// injectedFilesystems.
 				resolveInjectedFilesystemsForAgent,
+				// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure —
+				// connections): also bake injectedConnections.
+				resolveInjectedConnectionsForAgent: (db, agentId) =>
+					resolveInjectedConnectionsForAgent(db, agentId, findUser),
 			});
 			return;
 		case "assistant_turn":

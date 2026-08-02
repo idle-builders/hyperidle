@@ -72,6 +72,7 @@ import {
 	agentWorkIntents,
 	filesystemInjections,
 	filesystems,
+	serviceConnections,
 	teams,
 	threads,
 	users,
@@ -180,6 +181,27 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 			createdAt: NOW,
 		});
 
+		// AU21 Decision K1 (guard blind-spot closure item 4): the founder
+		// (the owning human, `resolveInjectedConnectionsForAgent`'s fixed
+		// resolution target — AN2 single-founder lock) has a held connection.
+		// Proves BOTH real composition-root sites for `assistant_turn`: the
+		// initial emit at `routes/threads.ts`'s message-post route (intent1/
+		// intent2's original bake, asserted below) AND the coherence re-bake at
+		// `assistant-turn-coherence-trigger.ts` (freshIntent, asserted below) —
+		// neither silently drops `injectedConnections`.
+		await db.insert(serviceConnections).values({
+			id: "sc-inc11-b3-coherence",
+			userId: founderId,
+			service: "github",
+			authSource: "token",
+			encryptedToken: "inc11-b3-coherence-encrypted-placeholder",
+			serverUrl: null,
+			health: "needs-attention",
+			lastValidatedAt: null,
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+
 		const founderPort = seamPortForActor(founderId, app);
 		const assistantPort = seamPortForActor(assistantAgentId, app);
 		const deps = { ...queueDeps(db), eventBus };
@@ -199,6 +221,17 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 				and(eq(agentWorkIntents.kind, "assistant_turn"), eq(agentWorkIntents.sourceId, msg1.id)),
 			);
 		expect(intent1?.status).toBe("handed_off");
+		// Initial-emit site (`routes/threads.ts`'s message-post route): the
+		// owning human's held connection must be baked, not silently undefined.
+		const intent1Baked = intent1?.bakedRequestJson
+			? (JSON.parse(intent1.bakedRequestJson) as {
+					injectedConnections?: { userId: string; connections: readonly { id: string }[] };
+				})
+			: undefined;
+		expect(intent1Baked?.injectedConnections?.userId).toBe(founderId);
+		expect(
+			intent1Baked?.injectedConnections?.connections.some((c) => c.id === "sc-inc11-b3-coherence"),
+		).toBe(true);
 
 		// --- Step 2: msg2 queues behind the in-flight turn1 ---
 		const msg2 = await founderPort.conversation.insertMessage({
@@ -268,11 +301,20 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 		const freshBaked = freshIntent?.bakedRequestJson
 			? (JSON.parse(freshIntent.bakedRequestJson) as {
 					injectedFilesystems?: readonly { id: string }[];
+					injectedConnections?: { userId: string; connections: readonly { id: string }[] };
 				})
 			: undefined;
 		expect(freshBaked?.injectedFilesystems).toEqual([
 			expect.objectContaining({ id: "fs-inc11-b3-coherence" }),
 		]);
+		// AU21 Decision K1 (guard blind-spot closure item 4): the re-baked
+		// intent must still carry the owning human's held connection — not
+		// silently dropped by `assistant-turn-coherence-trigger.ts`'s own
+		// rebake wiring.
+		expect(freshBaked?.injectedConnections?.userId).toBe(founderId);
+		expect(
+			freshBaked?.injectedConnections?.connections.some((c) => c.id === "sc-inc11-b3-coherence"),
+		).toBe(true);
 
 		// --- Step 5: drain — old superseded, fresh handed off, ONE session, coherent ---
 		await drainIntents(deps);

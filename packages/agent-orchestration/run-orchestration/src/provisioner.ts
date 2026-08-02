@@ -36,6 +36,11 @@ import {
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import {
+	applyProvisioningPlan,
+	buildProvisioningPlan,
+	type HeldConnectionsForProvisioning,
+} from "./connection-provisioning.js";
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
 	type FilesystemForProvisioning,
@@ -114,37 +119,19 @@ interface SessionLifecycleServiceConnectionResolver {
 	resolve(userId: string, connectionId: string): Promise<string | null>;
 }
 
-interface SessionLifecycleResolvedMcpServer {
-	readonly name: string;
-	readonly url: string;
-	readonly bearerToken?: string;
-}
-
-interface SessionLifecycleProvisioningPlan {
-	readonly mcpServers: readonly SessionLifecycleResolvedMcpServer[];
-	readonly envInjections: Readonly<Record<string, string>>;
-}
-
-/**
- * AU21 §9 Increment 8, Decision F2: `buildProvisioningPlan`'s own seam-shaped
- * `{connections, resolver}` deps (`./connection-provisioning.js`) now live
- * behind THIS narrower port — `agentId` is the actor the composition root
- * resolves onto `CoreApiPort.connections.listHeldConnectionsForProvisioning()`
- * internally (never a raw `db`); `resolver` stays the Application-composed
- * direct dependency it always was (AN1 hard-rule 1).
- */
-interface SessionLifecycleConnectionsProvisioner {
-	buildProvisioningPlan(deps: {
-		readonly agentId: string;
-		readonly resolver: SessionLifecycleServiceConnectionResolver;
-	}): Promise<SessionLifecycleProvisioningPlan>;
-	applyProvisioningPlan(args: {
-		readonly plan: SessionLifecycleProvisioningPlan;
-		readonly sandboxPath: string;
-		readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
-		readonly claudeNative: boolean;
-	}): Promise<{ readonly mcpTokenEnv: Record<string, string> }>;
-}
+// ---------------------------------------------------------------------------
+// connections (AU21 §9 Increment 12 follow-up part 2, F2 gap closure): the
+// former `SessionLifecycleConnectionsProvisioner` seam-shaped port is DELETED
+// entirely — `run-orchestration` holds ZERO `-> connections` read edge. The
+// owning human's held-connection list is now baked at EMIT time onto
+// `ProvisionSessionParams.injectedConnections` by every per-kind resolver
+// (`@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`), the SAME
+// principle the filesystems follow-up already applied. `buildProvisioningPlan`/
+// `applyProvisioningPlan` are called directly (plain same-package import from
+// `./connection-provisioning.js`) — no port indirection needed once there is
+// no seam call left to abstract. See `connection-provisioning.ts`'s own
+// top-of-file `@lore` for the full trace.
+// ---------------------------------------------------------------------------
 
 interface SessionLifecycleCostCapResult {
 	allowed: boolean;
@@ -473,7 +460,6 @@ interface SessionLifecyclePorts {
 		deregisterSessionRun(sessionId: string): void;
 	};
 	readonly observability: SessionLifecycleObservability;
-	readonly connections: SessionLifecycleConnectionsProvisioner;
 	readonly cost: SessionLifecycleCostAccessor;
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
 	readonly toolProvider: SessionLifecycleToolProvider;
@@ -730,6 +716,16 @@ interface ProvisionSessionParams {
 	 * behavior unchanged.
 	 */
 	readonly injectedFilesystems?: readonly FilesystemForProvisioning[];
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): the owning
+	 * human's held-connection list, baked at EMIT time by every per-kind
+	 * resolver via `@hyperidle/connections`'s
+	 * `resolveInjectedConnectionsForAgent`. Phase 8b-connections builds the
+	 * provisioning plan directly from this list — ZERO live `-> connections`
+	 * read at provisioning time. Absent means "no held connections", matching
+	 * the former seam call's own empty-list behavior unchanged.
+	 */
+	readonly injectedConnections?: HeldConnectionsForProvisioning;
 	/**
 	 * AL7 Task 6: When set, the registry invoke router participates in the
 	 * trust-first review workflow for this session.
@@ -1396,13 +1392,16 @@ async function runSession(
 	}
 
 	// ── Phase 8b-connections: AN2 Connection provisioning (parallel to inbound bridge).
+	// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): builds the plan
+	// directly from the BAKED `params.injectedConnections` — no seam reader,
+	// no `ports.connections` indirection (the port is deleted entirely).
 	if (serviceConnectionResolver) {
 		try {
-			const plan = await ports.connections.buildProvisioningPlan({
-				agentId: params.agentId,
+			const plan = await buildProvisioningPlan({
+				heldConnections: params.injectedConnections,
 				resolver: serviceConnectionResolver,
 			});
-			const { mcpTokenEnv: connEnv } = await ports.connections.applyProvisioningPlan({
+			const { mcpTokenEnv: connEnv } = await applyProvisioningPlan({
 				plan,
 				sandboxPath,
 				cliMcpDialect: adapterCapabilities.cliMcpDialect,

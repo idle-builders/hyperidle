@@ -26,7 +26,11 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig, BakedFilesystemForProvisioning } from "@hyperidle/shared";
+import type {
+	BakedAgentRunnableConfig,
+	BakedConnectionsForProvisioning,
+	BakedFilesystemForProvisioning,
+} from "@hyperidle/shared";
 import { bakeAgentRunnableConfig } from "@hyperidle/shared";
 import { findMessage, listMessages } from "./conversation-store.js";
 
@@ -54,6 +58,18 @@ export interface AssistantTurnResolverDeps {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
+	 * injected (Mechanism C — `@hyperidle/conversation` cannot import
+	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `injectedConnections`.
+	 */
+	resolveInjectedConnectionsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<BakedConnectionsForProvisioning>;
 }
 
 /** Thrown when the source message does not exist, is deleted, or is redacted. */
@@ -120,6 +136,12 @@ export interface BakedAssistantTurnRequest {
 	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * the owning human's held-connection list. Present only when
+	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
+	 */
+	readonly injectedConnections?: BakedConnectionsForProvisioning;
 }
 
 function resolveAssistantAgentIdForSender(senderId: string): string {
@@ -159,6 +181,9 @@ export async function resolveAssistantTurnRequest(
 	const injectedFilesystems = deps.resolveInjectedFilesystemsForAgent
 		? await deps.resolveInjectedFilesystemsForAgent(db, targetAgentId)
 		: undefined;
+	const injectedConnections = deps.resolveInjectedConnectionsForAgent
+		? await deps.resolveInjectedConnectionsForAgent(db, targetAgentId)
+		: undefined;
 	return {
 		defaultAgentId: targetAgentId,
 		sourceKind: "assistant",
@@ -177,5 +202,6 @@ export async function resolveAssistantTurnRequest(
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
+		...(injectedConnections !== undefined ? { injectedConnections } : {}),
 	};
 }

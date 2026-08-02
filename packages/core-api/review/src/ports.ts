@@ -31,6 +31,7 @@ import type {
 } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderInput,
+	BakedConnectionsForProvisioning,
 	BakedFilesystemForProvisioning,
 	SessionKnowledgeItemLike,
 	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
@@ -161,4 +162,15 @@ export interface ReviewPorts {
 		db: HyperIdleDb,
 		agentId: string,
 	) => Promise<readonly BakedFilesystemForProvisioning[]>;
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
+	 * injected (Mechanism C — `review` cannot import `connections` directly)
+	 * for the `injectedConnections` bake `resolveReengagementRequest` forwards
+	 * onto every `reengagement` request.
+	 */
+	readonly resolveInjectedConnectionsForAgent?: (
+		db: HyperIdleDb,
+		agentId: string,
+	) => Promise<BakedConnectionsForProvisioning>;
 }

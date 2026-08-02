@@ -27,6 +27,8 @@
  * `builtin:practice-meeting` routine. `work`/`conversation`/`knowledge`/
  * `settings` are unchanged.
  */
+
+import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import { type HyperIdleDb, type Routine, userSkills, type WriteExecutor } from "@hyperidle/db";
 import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
@@ -105,7 +107,14 @@ async function recomputeAttentionForCandidates(
 	return result;
 }
 
-const routineSchedulerPorts: RoutineSchedulerPorts = {
+// AU21 Decision K1 (guard blind-spot closure item 4): exported (was
+// module-private) SOLELY so `connections-wiring-completeness.integration.test.ts`
+// can directly assert this real, production composition object actually
+// supplies a non-undefined `resolveInjectedConnectionsForAgent` — the
+// same-shaped silent-drop class (an optional Mechanism-C dep quietly
+// omitted, no compile error, no failing test) that recurred 3 times earlier
+// in this build. No behavior change — same object, now also importable.
+export const routineSchedulerPorts: RoutineSchedulerPorts = {
 	work: {
 		getBetById: (db, id) => work.get(db, "bet", id),
 		createItem: (exec, values) => work.create(exec, "item", values),
@@ -167,6 +176,10 @@ const routineSchedulerPorts: RoutineSchedulerPorts = {
 	// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
 	// injectedFilesystems.
 	resolveInjectedFilesystemsForAgent,
+	// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections):
+	// also bake injectedConnections.
+	resolveInjectedConnectionsForAgent: (db: HyperIdleDb, agentId: string) =>
+		resolveInjectedConnectionsForAgent(db, agentId, findUser),
 };
 
 /** Bound wrapper — starts the cron/due-eval scheduler with the real ports. */

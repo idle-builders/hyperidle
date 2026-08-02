@@ -37,6 +37,7 @@ import {
 	type HyperIdleDb,
 	messages,
 	proposedCalls,
+	serviceConnections,
 	tailoredGrants,
 	tasks,
 	teamMembers,
@@ -153,6 +154,26 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 			stagedByAgentId: agentId,
 			createdAt: NOW,
 		});
+		await db.insert(users).values({
+			id: "u-au21-reengage-migration-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		});
+		await db.insert(serviceConnections).values({
+			id: "sc-au21-reengage-migration",
+			userId: "u-au21-reengage-migration-founder",
+			service: "github",
+			authSource: "token",
+			encryptedToken: "au21-reengage-migration-encrypted-placeholder",
+			serverUrl: null,
+			health: "needs-attention",
+			lastValidatedAt: null,
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
 		const res = await app.request(`/api/threads/${threadId}/messages/${messageId}/verdict`, {
 			method: "POST",
@@ -204,6 +225,26 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 			// The original (baked, now-failed) + a fresh re-provision intent
 			// recorded by the liveness net's admission-failure reaction.
 			expect(retryIntents.length).toBeGreaterThanOrEqual(2);
+
+			// AU21 Decision K1 (guard blind-spot closure item 4): proves the
+			// composition-root binding at THIS real site
+			// (`reengageOnAdmissionFailure`'s `resolveInjectedConnectionsForAgent`
+			// dep, `agent-run-admission-reactions.ts`'s liveness-net retry path —
+			// distinct from the initial grant's own binding at `routes/threads.ts`)
+			// actually bakes the owning human's held connections onto the FRESH
+			// re-provision intent, not silently undefined.
+			const freshRetryIntent = retryIntents.find((row) => row.id !== intentBeforeDrain?.id);
+			const freshBaked = freshRetryIntent?.bakedRequestJson
+				? (JSON.parse(freshRetryIntent.bakedRequestJson) as {
+						injectedConnections?: { userId: string; connections: readonly { id: string }[] };
+					})
+				: undefined;
+			expect(freshBaked?.injectedConnections?.userId).toBe("u-au21-reengage-migration-founder");
+			expect(
+				freshBaked?.injectedConnections?.connections.some(
+					(c) => c.id === "sc-au21-reengage-migration",
+				),
+			).toBe(true);
 		});
 	});
 });

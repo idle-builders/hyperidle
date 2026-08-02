@@ -23,18 +23,24 @@
  * service-connection-projection.ts, service-connection-resolver.ts from
  * packages/server/src/services/ (behavior-preserving move).
  *
- * @lore AU21 §9 Increment 8 (Decision F2): `applyProvisioningPlan`/
- * `buildProvisioningPlan`/`ProvisioningPlan` (+ the `ConnectionsUserReader`
- * DI port they used) relocated OUT of this barrel entirely — the
- * session-launch-time provisioning OPERATION now lives in
- * `@hyperidle/run-orchestration` (`connection-provisioning.ts`), reading the
- * held-connection RECORD through `CoreApiPort.connections.
- * listHeldConnectionsForProvisioning()` (backed by the new `GET
- * /connections/provisioning` route in this same Service's owning
- * Application, `packages/core-api/src/routes/connections.ts`) instead of a
- * raw `db` handle. This Service keeps ONLY the record CRUD
- * (`listConnections`/`insertConnection`/`updateConnection`/
- * `deleteConnection`) + the decrypt primitives — never the operation itself.
+ * @lore AU21 §9 Increment 8 (Decision F2, historical): `applyProvisioningPlan`/
+ * `buildProvisioningPlan`/`ProvisioningPlan` relocated OUT of this barrel
+ * entirely — the session-launch-time provisioning OPERATION lives in
+ * `@hyperidle/run-orchestration` (`connection-provisioning.ts`). F2 originally
+ * had it read the held-connection RECORD through `CoreApiPort.connections.
+ * listHeldConnectionsForProvisioning()` — a live seam call at provisioning
+ * time.
+ *
+ * @lore AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): that seam
+ * call is GONE — the SAME class of gap `resolveInjectedFilesystemsForAgent`
+ * already closed for filesystems. `resolveInjectedConnectionsForAgent`
+ * (below) is the new shared helper every per-kind emit-time resolver calls to
+ * BAKE the held-connection record onto the request at emit time instead. The
+ * `GET /connections/provisioning` route and `CoreApiPort.connections` are
+ * both deleted (zero remaining callers). This Service keeps ONLY the record
+ * CRUD (`listConnections`/`insertConnection`/`updateConnection`/
+ * `deleteConnection`) + the decrypt primitives + this new bake helper —
+ * never the provisioning operation itself.
  */
 
 // -- A. Cipher (2) — encrypt/decrypt; cipher owns the key (no secret param) --
@@ -54,6 +60,12 @@ export {
 	readCredentials,
 	writeCredential,
 } from "./credential-store.js";
+// -- H. Emit-time bake helper (1) — AU21 Increment 12 follow-up part 2 --
+export {
+	type InjectedConnectionForAgent,
+	type InjectedConnectionsForAgent,
+	resolveInjectedConnectionsForAgent,
+} from "./resolve-injected-connections-for-agent.js";
 // -- G. In-memory projection (1) — inherited connections from harness descriptors --
 export { projectInheritedConnections } from "./service-connection-projection.js";
 // -- C. ServiceConnectionResolver (1) — sole decrypted-held-token path --

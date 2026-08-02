@@ -1,3 +1,4 @@
+import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
 import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
@@ -16,7 +17,7 @@ import {
 	type SessionOutcome,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { resolveSessionStartRequest } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
@@ -409,7 +410,13 @@ export function createSessionRoutes(
 						const bakedRequest = await resolveSessionStartRequest(
 							tx as HyperIdleDb,
 							{ taskId: body.taskId, requestedAgentId: body.agentId },
-							{ requireRunnableAgent, readServerConfig, resolveInjectedFilesystemsForAgent },
+							{
+								requireRunnableAgent,
+								readServerConfig,
+								resolveInjectedFilesystemsForAgent,
+								resolveInjectedConnectionsForAgent: (execDb, agentId) =>
+									resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
+							},
 						);
 						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "session_start",

@@ -31,6 +31,7 @@ import {
 	type HyperIdleDb,
 	messages,
 	proposedCalls,
+	serviceConnections,
 	tasks,
 	teamMembers,
 	teams,
@@ -243,6 +244,61 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 				createdAt: NOW,
 			},
 		]);
+	});
+
+	// AU21 Decision K1 (guard blind-spot closure item 4): proves the
+	// composition-root binding at this real emit site (`transitionProposedCall`'s
+	// `resolveInjectedConnectionsForAgent` dep, `routes/threads.ts`'s
+	// verdict-approve "granted" branch) actually bakes the owning human's
+	// held connections — not silently undefined.
+	test("approving a review for an owning human with a held connection bakes the full injectedConnections list onto the granted reengagement intent", async ({
+		db,
+		app,
+	}) => {
+		const { threadId, messageId } = await seedApprovableWorld(db, "au21-reengage-emit-conn");
+
+		await db.insert(users).values({
+			id: "u-au21-reengage-emit-conn-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		});
+		await db.insert(serviceConnections).values({
+			id: "sc-au21-reengage-emit-conn",
+			userId: "u-au21-reengage-emit-conn-founder",
+			service: "github",
+			authSource: "token",
+			encryptedToken: "au21-reengage-emit-conn-encrypted-placeholder",
+			serverUrl: null,
+			health: "needs-attention",
+			lastValidatedAt: null,
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+
+		const res = await app.request(`/api/threads/${threadId}/messages/${messageId}/verdict`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ decision: "approve", rationale: "LGTM" }),
+		});
+		expect(res.status).toBe(200);
+
+		const [intent] = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "reengagement"));
+		const baked = intent?.bakedRequestJson
+			? (JSON.parse(intent.bakedRequestJson) as {
+					injectedConnections?: { userId: string; connections: readonly { id: string }[] };
+				})
+			: undefined;
+
+		expect(baked?.injectedConnections?.userId).toBe("u-au21-reengage-emit-conn-founder");
+		expect(
+			baked?.injectedConnections?.connections.some((c) => c.id === "sc-au21-reengage-emit-conn"),
+		).toBe(true);
 	});
 
 	test("the drain hands off the real emitted reengagement intent from its baked payload — ZERO review/work/users domain reads", async ({

@@ -11,6 +11,7 @@
  * (thread_id, sender_id, client_key), event emission to the bus.
  */
 
+import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import {
 	findMessage,
 	findOrCreateDirectThread,
@@ -1373,6 +1374,10 @@ export function createThreadRoutes(
 							requireRunnableAgent,
 							readServerConfig,
 							resolveInjectedFilesystemsForAgent,
+							// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure —
+							// connections): also bake injectedConnections.
+							resolveInjectedConnectionsForAgent: (execDb, agentId) =>
+								resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
 						});
 						await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "assistant_turn",
@@ -1589,6 +1594,10 @@ export function createThreadRoutes(
 						assembleSessionKnowledge,
 						readServerConfig,
 						resolveInjectedFilesystemsForAgent,
+						// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure —
+						// connections): also bake injectedConnections.
+						resolveInjectedConnectionsForAgent: (execDb: HyperIdleDb, agentId: string) =>
+							resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
 					},
 				);
 

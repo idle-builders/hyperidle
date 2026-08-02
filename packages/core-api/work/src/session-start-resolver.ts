@@ -31,7 +31,11 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig, BakedFilesystemForProvisioning } from "@hyperidle/shared";
+import type {
+	BakedAgentRunnableConfig,
+	BakedConnectionsForProvisioning,
+	BakedFilesystemForProvisioning,
+} from "@hyperidle/shared";
 import { bakeAgentRunnableConfig } from "@hyperidle/shared";
 import * as work from "./work-service.js";
 
@@ -58,6 +62,18 @@ export interface SessionStartResolverDeps {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
+	 * injected (Mechanism C — `@hyperidle/work` cannot import
+	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `injectedConnections`.
+	 */
+	resolveInjectedConnectionsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<BakedConnectionsForProvisioning>;
 }
 
 /** Thrown when the session-start's target task does not exist. */
@@ -95,6 +111,12 @@ export interface BakedSessionStartRequest {
 	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * the owning human's held-connection list. Present only when
+	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
+	 */
+	readonly injectedConnections?: BakedConnectionsForProvisioning;
 }
 
 /**
@@ -118,6 +140,9 @@ export async function resolveSessionStartRequest(
 	const injectedFilesystems = deps.resolveInjectedFilesystemsForAgent
 		? await deps.resolveInjectedFilesystemsForAgent(db, input.requestedAgentId)
 		: undefined;
+	const injectedConnections = deps.resolveInjectedConnectionsForAgent
+		? await deps.resolveInjectedConnectionsForAgent(db, input.requestedAgentId)
+		: undefined;
 	return {
 		defaultAgentId: input.requestedAgentId,
 		sourceKind: "task",
@@ -129,5 +154,6 @@ export async function resolveSessionStartRequest(
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
+		...(injectedConnections !== undefined ? { injectedConnections } : {}),
 	};
 }

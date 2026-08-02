@@ -112,6 +112,50 @@ export interface BakedWorkIntentRequest {
 	 * unchanged.
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * the owning human's held-connection list, baked at emit time by EVERY
+	 * per-kind resolver (same uniform-bake precedent as `injectedFilesystems`)
+	 * from `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent(db,
+	 * agentId)`. Replaces `buildProvisioningPlan`'s former live
+	 * `CoreApiPort.connections.listHeldConnectionsForProvisioning()` seam read
+	 * (Decision F2, Increment 8) — the SAME class of gap `injectedFilesystems`
+	 * closed, left standing here until this pass. `agentId` is accepted for
+	 * signature uniformity but unused internally — a held connection is scoped
+	 * to the single owning human, not per-agent (AN2: "Single-founder is the
+	 * locked deployment"). Absent means "no held connections", matching the
+	 * seam-based lookup's own empty-list behavior unchanged. NEVER carries
+	 * `encryptedToken` or any decrypted secret — the decrypt step
+	 * (`ServiceConnectionResolver`) stays an Application-composed direct
+	 * dependency, decrypting live at spawn time from the baked `connectionId`
+	 * (AN1 hard-rule 1), never baked onto this event payload.
+	 */
+	readonly injectedConnections?: BakedConnectionsForProvisioning;
+}
+
+/**
+ * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) — one
+ * held connection's provisioning-relevant fields, baked onto
+ * `BakedWorkIntentRequest`/`RunContextBundle`/`ProvisionSessionParams` at
+ * emit time. Mirrors the former `CoreApiPort.connections
+ * .listHeldConnectionsForProvisioning()` seam response element exactly.
+ * NEVER includes `encryptedToken` (AN1 hard-rule 1).
+ */
+export interface BakedConnectionForProvisioning {
+	readonly id: string;
+	readonly service: string;
+	readonly authSource: "token" | "mcp";
+	readonly serverUrl: string | null;
+}
+
+/**
+ * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) — the
+ * owning human's held-connection list, mirroring the former seam's
+ * `ListHeldConnectionsForProvisioningResponse` body exactly.
+ */
+export interface BakedConnectionsForProvisioning {
+	readonly userId: string;
+	readonly connections: readonly BakedConnectionForProvisioning[];
 }
 
 /**

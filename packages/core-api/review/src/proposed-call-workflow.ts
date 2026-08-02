@@ -43,6 +43,7 @@ import {
 } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
+	BakedConnectionsForProvisioning,
 	BakedContextBundle,
 	BakedFilesystemForProvisioning,
 	SessionKnowledgeItemLike,
@@ -222,6 +223,18 @@ export interface ReengagementResolverDeps {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
+	 * injected (Mechanism C — `@hyperidle/review` cannot import
+	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `injectedConnections`.
+	 */
+	resolveInjectedConnectionsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<BakedConnectionsForProvisioning>;
 }
 
 /**
@@ -246,6 +259,9 @@ function optionalReengagementBakeDeps(
 		...(deps.readServerConfig ? { readServerConfig: deps.readServerConfig } : {}),
 		...(deps.resolveInjectedFilesystemsForAgent
 			? { resolveInjectedFilesystemsForAgent: deps.resolveInjectedFilesystemsForAgent }
+			: {}),
+		...(deps.resolveInjectedConnectionsForAgent
+			? { resolveInjectedConnectionsForAgent: deps.resolveInjectedConnectionsForAgent }
 			: {}),
 	};
 }
@@ -296,6 +312,12 @@ export interface BakedReengagementRequest {
 	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * the owning human's held-connection list. Present only when
+	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
+	 */
+	readonly injectedConnections?: BakedConnectionsForProvisioning;
 }
 
 /**
@@ -355,12 +377,19 @@ export async function resolveReengagementRequest(
 			};
 		}
 	}
-	const { readServerConfig, resolveInjectedFilesystemsForAgent } = deps;
+	const {
+		readServerConfig,
+		resolveInjectedFilesystemsForAgent,
+		resolveInjectedConnectionsForAgent,
+	} = deps;
 	const harnessDisabled = readServerConfig
 		? (await readServerConfig(db)).harnessDisabled
 		: undefined;
 	const injectedFilesystems = resolveInjectedFilesystemsForAgent
 		? await resolveInjectedFilesystemsForAgent(db, view.grant.agentScope)
+		: undefined;
+	const injectedConnections = resolveInjectedConnectionsForAgent
+		? await resolveInjectedConnectionsForAgent(db, view.grant.agentScope)
 		: undefined;
 
 	return {
@@ -379,6 +408,7 @@ export async function resolveReengagementRequest(
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
+		...(injectedConnections !== undefined ? { injectedConnections } : {}),
 	};
 }
 
@@ -752,6 +782,7 @@ export async function handleUnconsumedGrantOnSessionEnd(
 			assembleSessionKnowledge: opts.assembleSessionKnowledge,
 			readServerConfig: opts.readServerConfig,
 			resolveInjectedFilesystemsForAgent: opts.resolveInjectedFilesystemsForAgent,
+			resolveInjectedConnectionsForAgent: opts.resolveInjectedConnectionsForAgent,
 		});
 	}
 }
@@ -788,5 +819,6 @@ export async function reengageOnAdmissionFailure(
 		assembleSessionKnowledge: opts.assembleSessionKnowledge,
 		readServerConfig: opts.readServerConfig,
 		resolveInjectedFilesystemsForAgent: opts.resolveInjectedFilesystemsForAgent,
+		resolveInjectedConnectionsForAgent: opts.resolveInjectedConnectionsForAgent,
 	});
 }
