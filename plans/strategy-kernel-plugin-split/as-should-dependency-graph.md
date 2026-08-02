@@ -1,5 +1,15 @@
 # Runtime Simplification: As-Should Dependency Graph
 
+> **SUPERSEDED (2026-08-02) — this target has been reached AND surpassed.** This document
+> hypothesizes a two-owner model ("Core App" / "Agent Layer" as folders inside one
+> `packages/server`). AU19 replaced that target with a package-per-Layer model (`core-ui`,
+> `core-api`, `agent-orchestration`, `agent-execution` as real npm workspaces), and AU20/AU21 built
+> the concrete seam/guard/baked-request mechanisms this document only gestures at as "mechanical
+> lint/type/package boundaries." See `docs/architecture/runtime-simplification.md` and
+> `plans/AU19/architecture.md` for the current target; `.pipeline/work/AU21/architecture.md` for the
+> `core-api ↔ agent-orchestration` boundary's actual, shipped design. Preserved below as historical
+> record of the AU2-AU11 target, not current.
+
 Purpose: hypothesize the target dependency graph after AU2-AU5. This is not current code. It is the intended component shape after removing Strategy and Fabric as runtime concepts.
 
 ## Target Rules

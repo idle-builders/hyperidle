@@ -7,7 +7,7 @@ Generated mechanically by `scripts/generate-dependency-graph.ts` from the curren
 ```mermaid
 flowchart TD
   subgraph core_api["core-api"]
-    connections["connections<br/>12m / 1t"]
+    connections["connections<br/>13m / 3t"]
     conversation["conversation<br/>17m / 10t"]
     filesystems["filesystems<br/>13m / 10t"]
     git_export["git-export<br/>21m / 16t"]
@@ -115,15 +115,15 @@ flowchart TD
 | org | core-api | 14 | 7 | 21 | teamMembers, orgEdges, teams |
 | observability | core-api | 7 | 13 | 20 | — |
 | review | core-api | 10 | 9 | 19 | proposedCalls, operationOutcomes, tailoredGrants |
+| connections | core-api | 13 | 3 | 16 | serverCredentials, serviceConnections |
 | settings | core-api | 8 | 8 | 16 | serverConfig, plugins, pluginConfigurationDefaults, configurationOverrides |
-| connections | core-api | 12 | 1 | 13 | serverCredentials, serviceConnections |
 | policy | core-api | 3 | 6 | 9 | — |
 | cost | agent-orchestration | 1 | 6 | 7 | — |
 | realtime | core-api | 2 | 3 | 5 | — |
 | dispatch | agent-orchestration | 1 | 3 | 4 | — |
 | model-gateway | core-api | 2 | 2 | 4 | — |
 | tool-handlers | agent-orchestration | 2 | 1 | 3 | — |
-| **TOTAL (22)** |  | **258** | **202** | **460** |  |
+| **TOTAL (22)** |  | **259** | **204** | **463** |  |
 
 ## Extraction summary
 

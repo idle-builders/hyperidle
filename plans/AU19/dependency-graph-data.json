@@ -11,11 +11,11 @@
       "surface": {
         "service": "connections",
         "layer": "core-api",
-        "methods": 12,
-        "types": 1,
-        "total": 13
+        "methods": 13,
+        "types": 3,
+        "total": 16
       },
-      "exposedApiCount": 14,
+      "exposedApiCount": 17,
       "exposedApi": [
         {
           "name": "decryptCredentialValue",
@@ -56,6 +56,21 @@
           "name": "writeCredential",
           "kind": "re-export",
           "signature": "writeCredential"
+        },
+        {
+          "name": "InjectedConnectionForAgent",
+          "kind": "re-export",
+          "signature": "InjectedConnectionForAgent"
+        },
+        {
+          "name": "InjectedConnectionsForAgent",
+          "kind": "re-export",
+          "signature": "InjectedConnectionsForAgent"
+        },
+        {
+          "name": "resolveInjectedConnectionsForAgent",
+          "kind": "re-export",
+          "signature": "resolveInjectedConnectionsForAgent"
         },
         {
           "name": "projectInheritedConnections",
@@ -1990,14 +2005,14 @@
           "signature": "buildProvisioningPlan"
         },
         {
-          "name": "ConnectionsProvisioningReader",
-          "kind": "re-export",
-          "signature": "ConnectionsProvisioningReader"
-        },
-        {
           "name": "HeldConnectionForProvisioning",
           "kind": "re-export",
           "signature": "HeldConnectionForProvisioning"
+        },
+        {
+          "name": "HeldConnectionsForProvisioning",
+          "kind": "re-export",
+          "signature": "HeldConnectionsForProvisioning"
         },
         {
           "name": "ProvisioningPlan",
@@ -2653,10 +2668,11 @@
         "getTeamById",
         "assembleSessionKnowledge",
         "readServerConfig",
-        "resolveInjectedFilesystemsForAgent"
+        "resolveInjectedFilesystemsForAgent",
+        "resolveInjectedConnectionsForAgent"
       ],
       "confidence": "medium",
-      "resolutionNote": "1/6 method name(s) matched real exports of users; remaining method(s) unmatched or ambiguous."
+      "resolutionNote": "1/7 method name(s) matched real exports of users; remaining method(s) unmatched or ambiguous."
     },
     {
       "source": "routine",
@@ -2666,10 +2682,11 @@
         "requireRunnableAgent",
         "getTeamById",
         "assembleSessionKnowledge",
-        "resolveInjectedFilesystemsForAgent"
+        "resolveInjectedFilesystemsForAgent",
+        "resolveInjectedConnectionsForAgent"
       ],
       "confidence": "medium",
-      "resolutionNote": "1/4 method name(s) matched real exports of users; remaining method(s) unmatched or ambiguous."
+      "resolutionNote": "1/5 method name(s) matched real exports of users; remaining method(s) unmatched or ambiguous."
     },
     {
       "source": "settings",
@@ -3074,9 +3091,9 @@
     "totalHiddenCompositionEdges": 10,
     "hiddenAgentOrchToCoreApi": 6,
     "surface": {
-      "methods": 258,
-      "types": 202,
-      "total": 460
+      "methods": 259,
+      "types": 204,
+      "total": 463
     }
   }
 }
