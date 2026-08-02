@@ -67,7 +67,15 @@
  * Increment 11 / §6 Decision H2.
  */
 
-import { agentSessionRequests, agentWorkIntents, threads, users } from "@hyperidle/db";
+import {
+	agentSessionRequests,
+	agentWorkIntents,
+	filesystemInjections,
+	filesystems,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { drainIntents } from "@hyperidle/session-requests";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -145,6 +153,30 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 			participants: JSON.stringify([founderId, assistantAgentId]),
 			pinned: false,
 			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
+
+		// AU21 review fix (non-blocking finding): the assistant agent has an
+		// injected filesystem — `rebakePendingSiblingsForThread`'s re-bake must
+		// carry it forward too (same class of gap as the granted-reengagement
+		// blocking finding, on this race-only rebake path).
+		await db
+			.insert(teams)
+			.values({ id: "team-inc11-b3-coherence", name: "Team", phase: "build", createdAt: NOW });
+		await db.insert(filesystems).values({
+			id: "fs-inc11-b3-coherence",
+			teamId: "team-inc11-b3-coherence",
+			source: "local",
+			kind: "doc_set",
+			connectionId: null,
+			resourceRef: JSON.stringify({ kind: "doc_set", folder: "/docs" }),
+			writeback: "file",
+			state: "attached",
+			createdAt: NOW,
+		});
+		await db.insert(filesystemInjections).values({
+			agentUserId: assistantAgentId,
+			filesystemId: "fs-inc11-b3-coherence",
 			createdAt: NOW,
 		});
 
@@ -231,6 +263,16 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 				(row) => row.senderId === assistantAgentId && row.payload.includes(replyText),
 			),
 		).toBe(true);
+		// The re-baked intent must still carry the assistant agent's injected
+		// filesystems — not silently dropped by the rebake path.
+		const freshBaked = freshIntent?.bakedRequestJson
+			? (JSON.parse(freshIntent.bakedRequestJson) as {
+					injectedFilesystems?: readonly { id: string }[];
+				})
+			: undefined;
+		expect(freshBaked?.injectedFilesystems).toEqual([
+			expect.objectContaining({ id: "fs-inc11-b3-coherence" }),
+		]);
 
 		// --- Step 5: drain — old superseded, fresh handed off, ONE session, coherent ---
 		await drainIntents(deps);

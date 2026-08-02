@@ -26,6 +26,8 @@ import {
 	agentWorkIntents,
 	artifacts,
 	bets,
+	filesystemInjections,
+	filesystems,
 	type HyperIdleDb,
 	messages,
 	proposedCalls,
@@ -180,6 +182,67 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 				grantedAgentId: agentId,
 			},
 		});
+	});
+
+	test("approving a review for an agent with an injected filesystem bakes the full injectedFilesystems list onto the granted reengagement intent (blocking review finding: the granted branch must forward ALL of ports, not just getTaskById/requireRunnableAgent)", async ({
+		db,
+		app,
+	}) => {
+		const { threadId, messageId, agentId, teamId } = await seedApprovableWorld(
+			db,
+			"au21-reengage-emit-fs",
+		);
+
+		await db.insert(filesystems).values({
+			id: "au21-reengage-emit-fs-repo",
+			teamId,
+			source: "local",
+			kind: "code",
+			connectionId: null,
+			resourceRef: JSON.stringify({ kind: "code", repo: "org/repo", branch: "main" }),
+			writeback: "git",
+			state: "attached",
+			createdAt: NOW,
+		});
+		await db.insert(filesystemInjections).values({
+			agentUserId: agentId,
+			filesystemId: "au21-reengage-emit-fs-repo",
+			createdAt: NOW,
+		});
+
+		const res = await app.request(`/api/threads/${threadId}/messages/${messageId}/verdict`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ decision: "approve", rationale: "LGTM" }),
+		});
+		expect(res.status).toBe(200);
+
+		const [intent] = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "reengagement"));
+		expect(intent?.bakedRequestJson).toBeTruthy();
+		const baked = intent?.bakedRequestJson
+			? (JSON.parse(intent.bakedRequestJson) as Record<string, unknown>)
+			: undefined;
+
+		// Before the fix, the "granted" branch forwarded ONLY
+		// {getTaskById, requireRunnableAgent} into resolveReengagementRequest,
+		// discarding resolveInjectedFilesystemsForAgent even though threads.ts
+		// supplies it — session 2's Phase 4.5 would mount nothing.
+		expect(baked?.injectedFilesystems).toEqual([
+			{
+				id: "au21-reengage-emit-fs-repo",
+				teamId,
+				source: "local",
+				kind: "code",
+				connectionId: null,
+				resourceRef: { kind: "code", repo: "org/repo", branch: "main" },
+				writeback: "git",
+				state: "attached",
+				createdAt: NOW,
+			},
+		]);
 	});
 
 	test("the drain hands off the real emitted reengagement intent from its baked payload — ZERO review/work/users domain reads", async ({

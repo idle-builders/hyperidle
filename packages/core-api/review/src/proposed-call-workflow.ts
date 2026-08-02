@@ -224,6 +224,32 @@ export interface ReengagementResolverDeps {
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
 }
 
+/**
+ * Project the optional contextBundle deps a `ReengagementResolverDeps`-shaped
+ * bag was wired with, forwarding only the ones actually present — shared by
+ * BOTH `transitionProposedCall`'s "granted" branch (the primary emit site)
+ * and `applyLivenessRetry` (the liveness-net emit site) so the two never
+ * drift out of sync on which optional deps get forwarded (AU21 review fix:
+ * the "granted" branch previously forwarded only
+ * `{getTaskById, requireRunnableAgent}`, silently dropping every optional
+ * contextBundle dep including `resolveInjectedFilesystemsForAgent`).
+ */
+function optionalReengagementBakeDeps(
+	deps: Partial<ReengagementResolverDeps>,
+): Partial<ReengagementResolverDeps> {
+	return {
+		...(deps.getBetById ? { getBetById: deps.getBetById } : {}),
+		...(deps.getTeamById ? { getTeamById: deps.getTeamById } : {}),
+		...(deps.assembleSessionKnowledge
+			? { assembleSessionKnowledge: deps.assembleSessionKnowledge }
+			: {}),
+		...(deps.readServerConfig ? { readServerConfig: deps.readServerConfig } : {}),
+		...(deps.resolveInjectedFilesystemsForAgent
+			? { resolveInjectedFilesystemsForAgent: deps.resolveInjectedFilesystemsForAgent }
+			: {}),
+	};
+}
+
 /** Thrown when the proposed call has no eligible grant, is not granted, or its task is unavailable. */
 export class ReengagementSourceUnavailableError extends Error {}
 
@@ -532,6 +558,14 @@ export async function transitionProposedCall(
 								{
 									getTaskById: ports.getTaskById,
 									requireRunnableAgent: ports.requireRunnableAgent,
+									// AU21 §9 Increment 12 (Decision H3): forward the same
+									// optional contextBundle deps `resolveReengagementRequest`
+									// accepts, mirroring `applyLivenessRetry` below — this IS
+									// the primary `transitionProposedCall({to:"granted"})` emit
+									// site ports.ts's `@lore` refers to, so it must bake
+									// everything the caller (threads.ts) supplied, not just
+									// the two required deps.
+									...optionalReengagementBakeDeps(ports),
 								},
 							);
 						} catch {
@@ -656,15 +690,7 @@ async function applyLivenessRetry(
 					// contextBundle deps `resolveReengagementRequest` accepts —
 					// present whenever the caller wired them (see `ReviewPorts`'
 					// `@lore`).
-					...(bakeDeps.getBetById ? { getBetById: bakeDeps.getBetById } : {}),
-					...(bakeDeps.getTeamById ? { getTeamById: bakeDeps.getTeamById } : {}),
-					...(bakeDeps.assembleSessionKnowledge
-						? { assembleSessionKnowledge: bakeDeps.assembleSessionKnowledge }
-						: {}),
-					...(bakeDeps.readServerConfig ? { readServerConfig: bakeDeps.readServerConfig } : {}),
-					...(bakeDeps.resolveInjectedFilesystemsForAgent
-						? { resolveInjectedFilesystemsForAgent: bakeDeps.resolveInjectedFilesystemsForAgent }
-						: {}),
+					...optionalReengagementBakeDeps(bakeDeps),
 				});
 			} catch {
 				bakedRequest = undefined;

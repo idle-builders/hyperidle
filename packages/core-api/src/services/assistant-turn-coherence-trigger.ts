@@ -47,7 +47,9 @@
 
 import { findMessage, resolveAssistantTurnRequest } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import { enqueueWorkIntent, listPendingIntentsByKind } from "@hyperidle/session-requests";
+import { readServerConfig } from "@hyperidle/settings";
 import { createLogger, type EventBus, type ThreadMessageAppendedEvent } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 
@@ -70,6 +72,13 @@ async function rebakePendingSiblingsForThread(
 
 		const bakedRequest = await resolveAssistantTurnRequest(db, intent.sourceId, {
 			requireRunnableAgent,
+			// AU21 §9 Increment 12 (Decision H3): forward the same optional
+			// contextBundle deps the real `POST /threads/:id/messages` route
+			// bakes (threads.ts:1372-1375) so a re-baked stale sibling still
+			// carries harnessDisabled + the agent's injected filesystems —
+			// consistent with the "granted" reengagement path's forwarding.
+			readServerConfig,
+			resolveInjectedFilesystemsForAgent,
 		});
 		await enqueueWorkIntent(db, {
 			kind: "assistant_turn",
